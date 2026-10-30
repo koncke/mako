@@ -75,7 +75,11 @@ test('el script compara contra lo que SIRVE el dominio, con el sha entero, y no 
   assert.match(SCRIPT, /const DOMINIO = 'hola-mako\.com';/);
   assert.match(SCRIPT, /if \(fila && fila\.url === sirve\) \{/, 'un despliegue Ready que NO es el que sirve no prueba nada (una vuelta atrás)');
   assert.match(SCRIPT, /if \(!esShaEntero\(sha\)\)/);
-  assert.match(SCRIPT, /\['--no-install', 'vercel', \.\.\.a, '--scope', SCOPE\]/, 'el `--yes` global rompe `inspect`');
+  // Desde el 27/10/2026 (b11601685) el CLI va con versión FIJA: con `vercel` a secas npx buscó la 65.4.0 recién salida, que
+  // no estaba en la caché, y `--no-install` la rechazó callado. El `--yes` de adelante es de NPX (instala esa versión); al
+  // CLI de Vercel no le llega ninguno global: `inspect` sigue sin `--yes`.
+  assert.match(SCRIPT, /const VERSION_VERCEL = '\d+\.\d+\.\d+';/, 'la versión del CLI de Vercel tiene que ir fija (exacta)');
+  assert.match(SCRIPT, /\['--yes', `vercel@\$\{VERSION_VERCEL\}`, \.\.\.a, '--scope', SCOPE\]/, 'el `--yes` global rompe `inspect` (o el CLI dejó de ir con versión fija)');
   assert.match(SCRIPT, /vercel\('ls', '--environment', 'production', '--yes', '--meta', `githubCommitSha=\$\{sha\}`\)/);
 });
 

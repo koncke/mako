@@ -2,10 +2,12 @@
 // compra-plan-reglas — lo que decide el checkout público de /planes (puro, con test)
 // =============================================================================
 // El servidor vive en lib/compra-plan.ts. Acá: qué se acepta del pedido (nada de precio ni de capa), cómo se limpia el
-// ORIGEN que manda la landing y el código de MaKo Partners, y qué pasarela se usa.
+// ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Acelerador.
 // =============================================================================
 
 import type { Pasarela } from './cobros-tipos';
+import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
+import { PRUEBA_DIAS } from './planes-mako';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CODIGO_REF_RE = /^[a-z0-9-]{3,32}$/;
@@ -51,13 +53,95 @@ export function codigoRefLimpio(v: unknown): string | null {
   return CODIGO_REF_RE.test(s) ? s : null;
 }
 
+// =============================================================================
+// EL DIAGNÓSTICO DE 2 MINUTOS, la puerta del Acelerador (25/10/2026)
+// =============================================================================
+// docs/como-venden-otros.md §6c, el molde de Ropofy: «un diagnóstico de 2 minutos como puerta, más la llamada». Antes de
+// dejar sus datos, quien pide el Acelerador contesta tres preguntas, una por pantalla, y la llamada arranca sabiendo dónde
+// está su negocio. Son las MISMAS del diagnóstico de fase del onboarding (lib/fase-diagnostico.ts), no unas escritas acá:
+// docs/embudo-y-high-ticket.md §6 califica la llamada por facturación y por cuello, con esos mismos tramos. Lo que se
+// guarda es el TEXTO de la opción (el índice solo no dice nada en el CRM), y nunca lo que escribió el navegador.
+
+export const PREGUNTAS_DE_LA_PUERTA: readonly Pregunta[] = ['facturacion', 'inversion', 'cuello']
+  .map((id) => PREGUNTAS.find((p) => p.id === id)!);
+/** Cómo se nombra cada respuesta en el historial del lead y en el aviso al equipo. */
+const ROTULO_DE_LA_PUERTA: Record<string, string> = {
+  facturacion: 'Factura por mes', inversion: 'Invierte por mes en conseguir clientes', cuello: 'Su mayor traba',
+};
+export type RespuestaDePuerta = { rotulo: string; respuesta: string };
+
+/** Las respuestas del diagnóstico (`{ facturacion: 1, … }`, el índice de cada opción): las tres, o null. */
+export function diagnosticoLimpio(v: unknown): RespuestaDePuerta[] | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const out: RespuestaDePuerta[] = [];
+  for (const p of PREGUNTAS_DE_LA_PUERTA) {
+    const i = o[p.id];
+    if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= p.opciones.length) return null;
+    out.push({ rotulo: ROTULO_DE_LA_PUERTA[p.id], respuesta: p.opciones[i] });
+  }
+  return out;
+}
+
+/** El diagnóstico en un renglón, para el historial del lead y el aviso: «Factura por mes: $3.000 – $10.000 · …». */
+export function diagnosticoEnTexto(d: readonly RespuestaDePuerta[]): string {
+  return d.map((x) => `${x.rotulo}: ${x.respuesta}`).join(' · ');
+}
+
 export type PedidoCompra = {
   plan: string; nombre: string; email: string; pasarela: Pasarela | null; origen: OrigenCompra | null; ref: string | null;
   /** El WhatsApp (sólo dígitos), para el pedido sin pasarela: por ahí se le da de alta. */
   whatsapp: string | null;
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
+  /** El diagnóstico de la puerta (sólo lo manda el pedido del Acelerador). Incompleto = null: el pedido entra igual. */
+  diagnostico: RespuestaDePuerta[] | null;
+  /** Por mes o por año (25/10/2026). El anual SIEMPRE se pide: el checkout cobra por mes. */
+  periodo: 'mensual' | 'anual';
+  /**
+   * Empezar SIN la prueba gratis (25/10/2026): la salida de quien ya la usó con ese email. El plan se cobra desde hoy. Sin
+   * pedirlo, toda compra en línea empieza con los 7 días gratis.
+   */
+  sinPrueba: boolean;
+  /**
+   * El código de referido que la persona ESCRIBIÓ en el carrito (25/10/2026, Martín: «es importante que en la compra, en el
+   * carrito, esté la opción de poner código de referido»). Escrito a mano, gana sobre la cookie y el `?ref=`: es quien paga
+   * diciendo quién lo trajo. `codigoEscritoMal`: escribió algo que no puede ser un código (se le dice, no se descarta).
+   */
+  codigoEscrito: string | null;
+  codigoEscritoMal: boolean;
 };
+
+/** Lo que se le dice a quien escribe un código de referido que no es de ningún partner. */
+export const TEXTO_CODIGO_NO_EXISTE = 'Ese código de referido no existe. Revísalo, o deja el campo vacío para seguir.';
+
+/**
+ * Qué código de partner vale en una compra: el que ESCRIBIÓ en el carrito; si no escribió ninguno, el de la cookie de
+ * /r/<código> (el primer link que abrió, revisión del 23/10: la cookie gana sobre el `?ref=` de la URL); y si no, el `?ref=`.
+ */
+export const codigoDeLaCompra = (p: { escrito: string | null; cookie: string | null; url: string | null }): string | null =>
+  p.escrito ?? p.cookie ?? p.url;
+
+/**
+ * EL CÓDIGO QUE SE GUARDA EN EL COBRO (28/10/2026, la verificación de 3ca2d8328): el escrito ya se validó (o no se pudo leer y
+ * sigue); el que trajo un LINK (`elegido`: la cookie de /r/<código> o el `?ref=`), sólo si es de un partner. Antes entraba sin
+ * mirar, y con el código editable un partner podía ELEGIR después ese texto (`promo-octubre`) y llevarse el crédito de una compra
+ * que no trajo. Primero la cookie y después el `?ref=` (el primero que lo trajo gana, `codigoDeLaCompra`); una cookie de nadie no
+ * tapa el `?ref=` de un partner. ⚠️ Si no se puede LEER (la verificación de a196d5a93): la cookie vale (la dejó /r/<código>, que ya
+ * la validó con `codigoVigente`) y el `?ref=` crudo se descarta: guardarlo «por las dudas» era otra vez el código huérfano.
+ */
+export async function codigoQueCuenta(
+  p: { escrito: string | null; cookie: string | null; url: string | null }, esDePartner: (codigo: string) => Promise<boolean>,
+): Promise<string | null> {
+  if (p.escrito) return p.escrito;
+  for (const [x, siNoSePuedeLeer] of [[p.cookie, true], [p.url, false]] as const) {
+    if (x && (await esDePartner(x).catch(() => siNoSePuedeLeer))) return x;
+  }
+  return null;
+}
+
+/** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
+export const TEXTO_ANUAL_SE_PIDE = 'El plan anual se pide con tus datos: te escribimos por WhatsApp para darte de alta.';
 
 /**
  * El pedido del formulario, validado. Lo que NUNCA sale de acá: el precio, la moneda y la capa (los pone el plan). El
@@ -76,7 +160,17 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   const quiero = b.quiero === true;
   const whatsapp = whatsappLimpio(b.whatsapp);
   if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
-  return { ok: true, pedido: { plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero } };
+  const periodo = b.periodo === 'anual' ? 'anual' : 'mensual';
+  if (periodo === 'anual' && !quiero) return { ok: false, error: TEXTO_ANUAL_SE_PIDE };
+  return {
+    ok: true,
+    pedido: {
+      plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
+      diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
+      codigoEscrito: codigoRefLimpio(b.codigo),
+      codigoEscritoMal: typeof b.codigo === 'string' && b.codigo.trim() !== '' && codigoRefLimpio(b.codigo) == null,
+    },
+  };
 }
 
 /**
@@ -90,6 +184,33 @@ export function pasarelaDeLaCompra(p: {
   if (!p.sirven.length) return { ok: false, motivo: 'sin-pasarela' };
   if (p.pedida) return p.sirven.includes(p.pedida) ? { ok: true, pasarela: p.pedida } : { ok: false, motivo: 'no-sirve' };
   return p.sirven.length === 1 ? { ok: true, pasarela: p.sirven[0] } : { ok: false, motivo: 'elegir' };
+}
+
+// =============================================================================
+// LA PASARELA SEGÚN EL PAÍS (27/10/2026, llamada con Leila, Fathom 876470842)
+// =============================================================================
+// En vivo, una clienta de México recibió el link de la Mercado Pago de MaKo y MP la rechazó: «No se puede continuar con este
+// pago. La cuenta del vendedor es de otro país». Mercado Pago cobra sólo dentro del país de SU cuenta (la de MaKo es
+// argentina: cobra en ARS). Así que Mercado Pago se ofrece sólo a quien está en ese país, y ahí es la ÚNICA (en pesos, sin
+// el recargo de la tarjeta internacional: docs/estrategia-financiera-mako.md); en el resto del mundo, Stripe. Sin saber el
+// país (sin el encabezado de Vercel: local, o una IP que Vercel no ubica), las dos, y elige la persona.
+
+/** El país de cada sitio de Mercado Pago, por la moneda en que cobra su cuenta. */
+const PAIS_DE_MERCADO_PAGO: Readonly<Record<string, string>> = { ARS: 'AR', MXN: 'MX', BRL: 'BR', CLP: 'CL', COP: 'CO', PEN: 'PE', UYU: 'UY' };
+
+/** El país del visitante (el encabezado `x-vercel-ip-country`, dos letras), o null si no se sabe. */
+export function paisDelVisitante(encabezado: string | null | undefined): string | null {
+  const p = String(encabezado ?? '').trim().toUpperCase();
+  // XX = Vercel no lo ubicó; T1 = Tor (convención de Cloudflare, por si el encabezado viene de un proxy).
+  return /^[A-Z]{2}$/.test(p) && p !== 'XX' && p !== 'T1' ? p : null;
+}
+
+/** Las pasarelas que se le ofrecen a quien está en `pais` (ver arriba). Mantiene el orden y los datos de cada opción. */
+export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, opciones: readonly T[]): T[] {
+  if (!pais) return [...opciones];
+  const deSuPais = (o: T) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais;
+  const locales = opciones.filter(deSuPais);
+  return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');
 }
 
 // =============================================================================
@@ -113,11 +234,17 @@ export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean;
   return { href: `/planes/${p.id}${p.sufijo}`, texto: p.cobrable ? `Empezar con ${p.nombre}` : `Quiero ${p.nombre}` };
 }
 
+/** El botón del anual: siempre «Quiero» (se pide), con el origen y el partner del sufijo más `periodo=anual`. */
+export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: string; texto: string } {
+  const sufijo = p.sufijo.startsWith('?') ? `${p.sufijo}&periodo=anual` : '?periodo=anual';
+  return { href: `/planes/${p.id}${sufijo}`, texto: 'Quiero el anual' };
+}
+
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */
 export function bajadaDePlanes(algunoCobrable: boolean): string {
   return algunoCobrable
-    ? 'Pagas por mes y entras en el acto. Te das de baja cuando quieras.'
-    : 'Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp. Te das de baja cuando quieras.';
+    ? `Empiezas con ${PRUEBA_DIAS} días gratis y entras en el acto. Te das de baja cuando quieras.`
+    : `Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp, con ${PRUEBA_DIAS} días gratis. Te das de baja cuando quieras.`;
 }
 
 /**

@@ -79,7 +79,7 @@ test('el cableado: el motor cuenta los borradores y la puerta de aprobar mira el
   const motor = leer('lib/nutricion.ts');
   const uso = motor.slice(motor.indexOf('async function usoDelGoteo('), motor.indexOf('async function usoDelGoteo(') + 1200);
   assert.match(uso, /\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)/);
-  assert.match(motor, /if \(cuentaParaElGoteo\(estado\) && goteos\.has\(insc\.secuencia_id\)\) usoGoteo\.set\(insc\.secuencia_id, conEnvio\(/);
+  assert.match(motor, /cuentaParaElGoteo\(estado\) && goteos\.has\(insc\.secuencia_id\)\) \{\s+const clave = claveDeGoteo\(canalDelGoteo\(paso\.canal\), insc\.secuencia_id\);\s+usoGoteo\.set\(clave, conEnvio\(/);
   assert.equal(cuentaParaElGoteo('borrador'), true);
   assert.equal(cuentaParaElGoteo('fallo'), false);
   const puerta = leer('lib/borrador-camino.ts');

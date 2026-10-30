@@ -34,10 +34,18 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const CLAVES = Object.keys(SECCIONES_NEGOCIO_M).filter((k): k is SeccionNegocioM => k in SECCIONES_NEGOCIO_M);
 /** Todas las secciones que existen (con todo disponible): de ahí sale el índice de las dos pantallas. */
-const TODAS = seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: true });
+const TODAS = seccionesNegocio({ integraciones: true, plan: true });
 
 test('cada sección con pantalla es la MISMA ruta de escritorio que dice lib/ajustes-secciones.ts', () => {
   for (const k of CLAVES) {
+    // «Notificaciones» del negocio salió del índice de la computadora el 25/10/2026 (estaba dos veces): vive en la de «Tu cuenta»
+    // (/perfil/notificaciones, sus canales WhatsApp y Email) y su ruta de escritorio quedó como un redirect ahí. El teléfono
+    // sigue con su pantalla.
+    if (k === 'notificaciones') {
+      assert.equal(SECCIONES_NEGOCIO_M[k], '/configuraciones/notificaciones');
+      assert.match(leer('app/configuraciones/notificaciones/page.tsx'), /redirect\(conLaQuery\('\/perfil\/notificaciones'/);
+      continue;
+    }
     const s = TODAS.find((x) => x.key === k);
     assert.ok(s, `${k}: no es una sección de «Configuración del negocio»`);
     assert.equal(SECCIONES_NEGOCIO_M[k], s.href, `${k}: la tabla del teléfono no es la ruta de escritorio`);

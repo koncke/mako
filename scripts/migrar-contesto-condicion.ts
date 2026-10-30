@@ -29,9 +29,10 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 config({ path: process.env.ENV_FILE ?? resolve(process.cwd(), '.env.local') });
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const APLICAR = process.argv.includes('--apply');
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 type Fila = { campo: string; no?: boolean; union?: 'y' | 'o' } & Record<string, unknown>;
 type Rama = { id: string; modo?: 'todas' | 'cualquiera'; filas?: Fila[]; siguiente?: string | null; paralelos?: string[] };

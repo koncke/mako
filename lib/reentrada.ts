@@ -34,6 +34,42 @@ export const ROTULO_REENTRADA: Readonly<Record<Reentrada, string>> = {
 export const esReentrada = (x: unknown): x is Reentrada => (REENTRADAS as readonly unknown[]).includes(x);
 
 /**
+ * «VOLVER A PROBAR» (28/10/2026, ticket #19 de Leandro: «un lead no vuelve a entrar a una secuencia en la que ya estuvo»,
+ * ¿cómo vuelven a probar sus dos cuentas?). La marca va en el `desenlace` de una inscripción TERMINADA (no cancelada): el
+ * PRÓXIMO evento que arranca la automatización (otro comentario con la palabra, otro DM, moverlo de nuevo a la etapa) la
+ * vuelve a correr UNA vez, con cualquier reentrada. Al correr, `reactivarInscripcion` limpia el desenlace y la marca se va:
+ * es una vez, no «Cada vez». El barrido no la usa (mira quién ESTÁ, no quién llegó), y a una frenada no la abre nunca.
+ * La pone una persona desde la ficha del lead (lib/automatizaciones-del-lead.ts, `volverAProbarEnAutomatizacion`).
+ */
+export const DESENLACE_VOLVER_A_PROBAR = 'volver_a_probar';
+
+/**
+ * ¿A esta inscripción se le puede poner «Volver a probar»? Terminada, o frenada porque CONTESTÓ (quien prueba suele
+ * contestar el DM); nunca la frenada a mano (puede ser una baja) ni la que atiende una persona.
+ */
+export const puedeVolverAProbar = (fila: Pick<FilaPrevia, 'estado' | 'desenlace'>): boolean =>
+  (ESTADOS_TERMINADOS.includes(fila.estado) || fila.estado === 'respondio') && fila.desenlace !== 'cancelado';
+
+/**
+ * LA CLAVE DE IDEMPOTENCIA DE UN ENVÍO POR ZERNIO: inscripción, VUELTA y nodo (29/10/2026, la verificación del Cerebro
+ * sobre 69b49a31c). Una inscripción reusada («Volver a probar», «Cada vez», otra reunión) es una corrida NUEVA con el id
+ * viejo, y con `nutri:<inscripción>:<nodo>` Zernio contestaba lo de la vez anterior: la respuesta pública a OTRO comentario
+ * daba 422 y el DM, un 200 sin mandar nada. La segunda prueba de Leandro no salía. La vuelta es `inscripto_at`, que
+ * `reactivarInscripcion` renueva: los reintentos de la MISMA vuelta repiten la clave (si una respuesta se pierde, Zernio
+ * devuelve la original y no manda dos). Sin `inscripto_at` legible, la de siempre.
+ * ⚠️ Y LA PASADA (ticket #29 de Leandro, 29/10/2026): un botón que vuelve a una tarjeta por la que el lead ya pasó («Ya te
+ * sigo» → «¿Te sigue?» → no → el MISMO «Seguinos») la manda otra vez en la misma vuelta. Con la clave de la vez anterior,
+ * Zernio contestaba lo de antes sin mandar nada: el lead tocaba y no le llegaba nada, y MaKo lo anotaba «enviado».
+ * `pasada` = cuántas veces ya SALIÓ esa tarjeta en la vuelta, más uno; la primera lleva la clave de siempre, y los
+ * reintentos de una pasada que falló repiten la suya (un fallo no cuenta como salida).
+ */
+export function claveDeEnvio(inscripcionId: number, inscriptoAt: string | null | undefined, nodo: string, pasada = 1): string {
+  const vuelta = Date.parse(inscriptoAt ?? '');
+  const base = Number.isFinite(vuelta) ? `nutri:${inscripcionId}:${vuelta}:${nodo}` : `nutri:${inscripcionId}:${nodo}`;
+  return pasada > 1 ? `${base}:p${pasada}` : base;
+}
+
+/**
  * LA REENTRADA DE UNA AUTOMATIZACIÓN. La guardada, y sin guardar (la columna en null: las de antes de la 0279, o las que
  * crea la galería mientras sus plantillas no la escriban) ⚠️ LA REGLA DE HOY, TRANSITORIA: «Otra vez si es otra reunión»
  * si el flujo prepara una reunión, «Una sola vez» si no. Leer null como «Una sola vez» le sacaría el reuso a «Un Lead
@@ -46,7 +82,7 @@ export function reentradaDe(guardada: unknown, preparaReunion: boolean): Reentra
 }
 
 export type VeredictoReentrada =
-  | { entra: true; porque: 'nada_le_llego' | 'reunion_nueva' | 'vuelve_a_entrar' }
+  | { entra: true; porque: 'nada_le_llego' | 'reunion_nueva' | 'vuelve_a_entrar' | 'volver_a_probar' }
   | { entra: false; porque: 'una_sola_vez' | 'cancelada' | 'no_termino' | 'sin_reunion_futura' | 'misma_reunion' | 'no_se_que_reunion_preparaba' | 'solo_por_evento' };
 
 /**
@@ -59,6 +95,8 @@ export function puedeReentrar(modo: Reentrada, p: {
   reunionNuevaMs: number | null;
   porEvento: boolean;
 }): VeredictoReentrada {
+  // «Volver a probar» (ver arriba): una vez, con el próximo EVENTO, con cualquier reentrada.
+  if (p.fila.desenlace === DESENLACE_VOLVER_A_PROBAR && p.porEvento && puedeVolverAProbar(p.fila)) return { entra: true, porque: 'volver_a_probar' };
   if (modo === 'una_vez') return { entra: false, porque: 'una_sola_vez' };
   if (modo === 'otra_reunion') {
     const v = inscripcionReusable(p);

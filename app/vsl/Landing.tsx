@@ -20,6 +20,8 @@ import { PARAM_CARGADOR, RUTA_CARGADOR } from '@/lib/pixel-cargador';
 import { LANDING_HTML } from './landing-html';
 import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-contenido';
 import { PreciosLanding, sufijoDesdeUrl, type PlanEnLanding } from './PreciosLanding';
+import { ATRIBUTO_PLANES, conPreciosEnHtml } from '@/lib/editor-landing/precios-en-landing';
+import { PRUEBA_DIAS } from '@/lib/planes-mako';
 
 /**
  * La landing hecha en Web Generator (23/10/2026, lib/editor-landing/landing-mako.ts): el HTML de la página
@@ -81,10 +83,19 @@ function cargarPixelMeta(): Fbq {
  * pricing de las ofertas»). Donde estaba la agenda —#cal-embed en la landing de siempre, `[data-calendly]` en la del Web
  * Generator— van los precios (./PreciosLanding.tsx); sin agenda en el diseño, antes del pie. Al de Web Generator se le
  * saca `data-calendly` ANTES de que corra su script (SCRIPT_DISENO), así no carga Calendly. Idempotente.
+ * EL LUGAR PROPIO (25/10/2026): una landing armada para mostrar los precios los pide con `data-mako-planes`
+ * (lib/editor-landing/precios-en-landing.ts) y gana: lo de adentro es el respaldo del editor, y aquí se reemplaza.
  */
 function montarPrecios(root: HTMLElement): HTMLElement {
   const previo = root.querySelector<HTMLElement>('.mk-precios-anfitrion');
   if (previo) return previo;
+  const propio = root.querySelector<HTMLElement>(`[${ATRIBUTO_PLANES}]`);
+  if (propio) {
+    for (const el of Array.from(root.querySelectorAll<HTMLElement>('#cal-embed, [data-calendly]'))) el.removeAttribute('data-calendly');
+    propio.replaceChildren();
+    propio.classList.add('mk-precios-anfitrion');
+    return propio;
+  }
   const agendas = Array.from(root.querySelectorAll<HTMLElement>('#cal-embed, [data-calendly]'));
   const anfitrion = agendas[0] ?? null;
   for (const el of agendas) {
@@ -352,7 +363,9 @@ export default function Landing({ diseno, planes = [], landing = null }: {
   // re-renders (abrir/cerrar el modal) NO re-aplican el innerHTML y no pisan las
   // mutaciones imperativas del efecto (cards, secciones, subtítulos).
   const injectedHtml = useMemo(
-    () => <div dangerouslySetInnerHTML={{ __html: diseno?.html ?? LANDING_HTML }} />,
+    // Los precios de hoy y la prueba gratis en las marcas de la landing («desde US$…», el de un plan, «7 días gratis»): la foto
+    // publicada trae los del día que se publicó (lib/editor-landing/precios-en-landing.ts). Mismos planes que las columnas.
+    () => <div dangerouslySetInnerHTML={{ __html: diseno ? conPreciosEnHtml(diseno.html, planes, PRUEBA_DIAS) : LANDING_HTML }} />,
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 

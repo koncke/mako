@@ -478,28 +478,11 @@ export function repartirDuracion(puesta: Puesta, cantidad: number, totalSeg: num
  * prohibición escrita desde antes, en otro writer. Una regla aplicada en un
  * lugar de dos no está implementada, está documentada.
  *
- * Solo formas VERBALES y pronominales inequívocas: nada de palabras que existen
- * en las dos variedades. `mirá`/`dale` quedan afuera a propósito — «dale» es
- * común en México y `mirá` sin tilde es `mira`.
+ * Desde el 29/10/2026 sale del MISMO generador que el guard del repo (lib/voseo.ts:
+ * las formas se conjugan desde los verbos). La lista de 21 palabras de antes no veía
+ * «escribime», «agendá», «mandame» ni «decime» (docs/hallazgos-ia.md).
  */
-// ⚠️ NO usar `\b`: en JavaScript el límite de palabra es ASCII, así que después
-// de una vocal acentuada NO hay boundary y `tocá`, `andá`, `mirá` o `dejá` se
-// escapan del detector en silencio — justo las formas de imperativo, que son las
-// que aparecen en todo CTA. Se comprobó con `Tocá el botón`: `\b` daba cero
-// coincidencias. Los límites van por Unicode, con lookarounds sobre `\p{L}`.
-const VOSEO = /(?<!\p{L})(vos|sos|tenés|querés|podés|sabés|hacés|venís|decís|ponés|elegís|andá|tocá|mandá|fijate|acordate|dejá|mirá|escuchá|contame|acá)(?!\p{L})/giu;
-
-/**
- * Devuelve las marcas de voseo encontradas en un texto, sin repetir.
- *
- * Vacío = limpio. No corrige: el guion se marca y se pide rehacer, porque
- * reemplazar formas verbales a mano rompe la prosodia que el guion venía a
- * cuidar.
- */
-export function marcasDeVoseo(texto: string): string[] {
-  const hallado = texto.match(VOSEO) ?? [];
-  return [...new Set(hallado.map((m) => m.toLowerCase()))];
-}
+export { marcasDeVoseo } from './voseo';
 
 /**
  * Pone el acento en el prompt de un clip, sacando primero el que haya escrito el

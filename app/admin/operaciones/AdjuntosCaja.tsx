@@ -17,6 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CENTRO } from '@/lib/operaciones-reglas';
+import { etiquetaDoc } from '@/lib/centro-caja';
 import type { AdjuntoCaja } from './useCentro';
 import { Visor } from './Visor';
 import { imagenesDelPortapapeles } from './pegar';
@@ -33,20 +34,22 @@ export type AdjuntosDeCaja = {
   onSinImagen?: (puedeLeer: boolean) => void;
   /** Lo que ofrece «Documento» (20/10/2026, la caja única): sin esto, lo del Ops Center (fotos, PDF, Office y texto). */
   accept?: string;
+  /** Por qué no toma AHORA (la caja quieta, app/_chat/juntar-adjuntos.ts → adjuntosQuietos): el panel lo dice al arrastrar. */
+  espera?: string;
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
 export { alPegar, alSoltar, traeArchivos } from './pegar';
 
 /** Lo que dice la miniatura de un documento: su extensión («PDF», «DOCX», «XLSX»). Decía «PDF» para todos desde que la
- *  caja toma Word, Excel y texto (18/10/2026). */
-export const etiquetaDoc = (nombre: string): string => /\.([a-z0-9]{1,5})$/i.exec(nombre)?.[1]?.toUpperCase() ?? 'DOC';
+ *  caja toma Word, Excel y texto (18/10/2026). Vive en lib/centro-caja.ts (sin CSS): la usa también el chat nuevo. */
+export { etiquetaDoc };
 
 /**
  * Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. `data-estado`: la que
  * todavía no está lista (la caja del Web Generator la lee antes de mandar; su hoja la dibuja leyéndose o en rojo).
  */
-export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
+export function ListaAdjuntos({ a, apagado = false }: { a: AdjuntosDeCaja | undefined; /** La caja está quieta (saliendo, apagada): la ✕ no quita. */ apagado?: boolean }) {
   const [viendo, setViendo] = useState<AdjuntoCaja | null>(null);
   if (!a?.items.length) return null;
   return (
@@ -58,7 +61,7 @@ export function ListaAdjuntos({ a }: { a: AdjuntosDeCaja | undefined }) {
               {/* eslint-disable-next-line @next/next/no-img-element -- la vista previa local (blob:) */}
               {x.tipo === 'image' ? <img src={x.url} alt="" /> : <span className="co-miniatura__doc"><IconoChat nombre="archivo" size={18} /><span>{etiquetaDoc(x.file.name)}</span></span>}
             </button>
-            <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} aria-label={`Quitar ${x.file.name}`}>
+            <button type="button" className="co-miniatura__quitar" onClick={() => a.onQuitar(x.id)} disabled={apagado} aria-label={`Quitar ${x.file.name}`}>
               <Icon name="x" size={12} />
             </button>
           </li>

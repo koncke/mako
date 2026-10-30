@@ -346,7 +346,7 @@ function Detalle({ id, cerebro, todos, onCerrar, onCambio }: {
 
       {t.triage && (
         <section className="tickets-bandeja__bloque tickets-bandeja__triage">
-          <h3>El triage: {corto(t.triage.tipo)}, confianza {t.triage.confianza} · {t.triage.autoArreglo ? 'se arregla solo' : 'decides tú'}</h3>
+          <h3>El triage: {corto(t.triage.tipo)}, confianza {t.triage.confianza} · {t.triage.regla ? `aprobado por regla: ${t.triage.regla}` : t.triage.autoArreglo ? 'se arregla solo' : 'decides tú'}</h3>
           <ul>{t.triage.porque.map((p, i) => <li key={i}>{p}</li>)}</ul>
           <div className="tickets-bandeja__corregir">
             <span>¿Se equivocó? Es</span>

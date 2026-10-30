@@ -49,13 +49,29 @@ export const CSS_NODOS = [
 
   // La columna de la sección, por FUERA del módulo a la izquierda. Arranca en el borde de la
   // sección y el aire va como padding: con un margin, cruzar el hueco apagaba el hover.
-  '.gmc-lado { position: absolute; top: 0; right: 100%; padding: 2px 6px 0 0; display: flex; flex-direction: column; gap: 4px; opacity: 0; pointer-events: none; transition: opacity 0.12s ease; z-index: 6; }',
-  '.gm-tarjeta:hover > .gmc-lado, .gm-tarjeta[data-activa="si"] > .gmc-lado, .gmc-lado[data-abierto] { opacity: 1; pointer-events: auto; }',
-  // A sangre (ancho completo) no hay lugar afuera: la columna va adentro, arriba a la izquierda.
-  // y lo mismo en la vista de teléfono o tableta, donde la sección ocupa todo el ancho del marco.
-  // Y en una LANDING todas van a sangre (css.ts, bloque 15c, feedback del 12/10/2026): las
-  // tarjetas con aire son sólo de una presentación, así que ahí la columna sigue afuera.
-  '.gm-tarjeta[data-ancho="completo"] > .gmc-lado, [data-dispositivo="movil"] .gm-tarjeta > .gmc-lado, [data-dispositivo="tableta"] .gm-tarjeta > .gmc-lado, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado { right: auto; left: 12px; top: 12px; padding: 0; }',
+  // (26/10/2026, Martín: «Muchos botones flotantes que paso el scroll, no me dan tiempo a llegar a apretarlos y
+  // desaparecen»): la columna ocupa el alto de la sección y su botón va PEGADO arriba de lo que se ve (`sticky`), así no
+  // se queda arriba de una sección de 2.000 px; y al salir tarda medio segundo en irse (`visibility` con retardo:
+  // mientras se ve, se puede apretar).
+  '.gmc-lado { position: absolute; top: 0; bottom: 0; right: 100%; padding: 2px 6px 0 0; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.15s ease 0.5s, visibility 0s linear 0.65s; z-index: 6; }',
+  '.gmc-lado-in { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; }',
+  '.gm-tarjeta:hover > .gmc-lado, .gm-tarjeta[data-activa="si"] > .gmc-lado, .gmc-lado[data-abierto] { opacity: 1; visibility: visible; transition-delay: 0s; }',
+  // REORDENAR (26/10/2026, Martín: «Las secciones no se pueden acomodar»): el lugar se decide por la MITAD de cada sección,
+  // y con secciones de 2.000 px esa mitad quedaba fuera de la pantalla. Mientras se arrastra el ⋮ (TarjetaVista), cada
+  // sección se ve como una franja de su parte de arriba: entran todas y se suelta donde se ve.
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta { max-height: 132px; overflow: hidden; }',
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta::after { content: ""; position: absolute; inset: auto 0 0 0; height: 48px; background: linear-gradient(transparent, rgba(255,255,255,.92)); pointer-events: none; z-index: 5; }',
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta > .gmc-mini, body[data-gm-reordenando] .ProseMirror > .gm-tarjeta > .gmc-entre { display: none; }',
+  // Cada franja con el nombre de su sección (`data-rotulo`, TarjetaVista): la parte de arriba de un diseño suele ser su
+  // margen, en blanco.
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta[data-rotulo]::before { content: attr(data-rotulo); position: absolute; left: 16px; top: 50%; transform: translateY(-50%); z-index: 6; max-width: 70%; padding: 6px 12px; border-radius: 8px; background: rgba(18,21,27,.84); color: #fff; font: 600 14px/1.3 system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }',
+  // En una diapositiva a sangre (ancho completo) no hay lugar afuera: la columna va adentro, arriba a la izquierda, y lo
+  // mismo en la vista de teléfono o tableta (el marco recorta lo que sale: `overflow: hidden` en gamma.css).
+  // ⚠️ Una LANDING en escritorio la lleva AFUERA (24/10/2026): todas sus secciones van a sangre (css.ts, 15c) y adentro,
+  // arriba a la izquierda, la columna caía encima del logo y del asa del primer bloque (AsaBloque, 52 px a la izquierda
+  // del bloque: el borde de la sección). Martín: «Los botones se siguen superponiendo, fijate la esquina superior
+  // izquierda en el linezo». El lugar de afuera es el margen de 40 px que el lienzo le deja a una landing (gamma.css).
+  '.gm-doc[data-formato="presentacion"] .gm-tarjeta[data-ancho="completo"] > .gmc-lado, [data-dispositivo="movil"] .gm-tarjeta > .gmc-lado, [data-dispositivo="tableta"] .gm-tarjeta > .gmc-lado { right: auto; left: 12px; top: 12px; padding: 0; }',
 
   // El «+» entre secciones: ocupa el hueco de arriba de la sección (el margin-top de 3.5em).
   '.gmc-entre { position: absolute; left: 0; right: 0; bottom: 100%; height: 3.5em; display: flex; align-items: center; justify-content: center; z-index: 4; }',
@@ -149,6 +165,15 @@ export const CSS_NODOS = [
   // El aviso de una subida en curso (widget de ProseMirror)
   '.gmc-subiendo { display: inline-block; margin: 0 4px; padding: 2px 10px; border-radius: 999px; background: #f5f5f6; color: #66666b; font: 500 12px/1.6 system-ui, sans-serif; vertical-align: middle; }',
 
-  // El placeholder de una línea o un título vacío (Placeholder de TipTap: .is-empty + data-placeholder)
+  // El placeholder de una línea o un título vacío (Placeholder de TipTap: .is-empty + data-placeholder). Flota con alto 0
+  // para que el cursor quede al principio, y por eso NO ocupa lugar: si no entraba en un renglón (una columna angosta, un
+  // título grande), lo que sobraba se derramaba hacia abajo y quedaba DEBAJO de la sección siguiente, que pinta su fondo
+  // encima (cada sección es su propia capa: `isolation: isolate`). 24/10/2026, Martín: «Muchos placeholder como el de la
+  // captura se ponen por detras de otras secciones y no se llegan a leer». En un párrafo o un título (los que se derraman)
+  // ahora es ABSOLUTO sobre su renglón: UN renglón, cortado con «…» dentro de su caja, y alineado como el texto (un título
+  // centrado lo muestra centrado; flotando, iba siempre a la izquierda). El cursor no lo ve: un absoluto no empuja nada.
+  // (No vale «flotar con alto 0 + overflow: hidden»: con alto 0, el recorte lo borra entero.)
   '.ProseMirror .is-empty[data-placeholder]:not([data-placeholder=""])::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--gm-texto-tenue, #8b8b90); -webkit-text-fill-color: var(--gm-texto-tenue, #8b8b90); opacity: 0.75; }',
+  '.ProseMirror :is(p, h1, h2, h3, h4).is-empty[data-placeholder]:not([data-placeholder=""]) { position: relative; }',
+  '.ProseMirror :is(p, h1, h2, h3, h4).is-empty[data-placeholder]:not([data-placeholder=""])::before { float: none; height: auto; position: absolute; top: 0; left: 0; right: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
 ].join('\n');

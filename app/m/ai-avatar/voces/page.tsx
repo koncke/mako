@@ -1,39 +1,20 @@
 // =============================================================================
-// /m/ai-avatar/voces — «AI Avatar › Voices» en el teléfono: escuchar y elegir cómo suena tu avatar
+// /m/ai-avatar/voces — DEPRECADA el 29/10/2026: redirige al estudio
 // =============================================================================
-// La sección de escritorio (Voces en app/ai-avatar/AiAvatarCliente.tsx) destilada: la galería de voces con sus
-// filtros (acento y género), escuchar cada una, «Agregar a mi cuenta» (`sumarVozAction`, con la key de ElevenLabs
-// del cliente) y «Tus voces» (las de su cuenta, `vocesCuentaAction`). Escuchar no gasta nada.
-//
-// Referencia de app real: la biblioteca de voces de HeyGen en el teléfono (filtros como chips arriba, una fila por
-// voz con el botón redondo de escuchar a la derecha). Conectar ElevenLabs queda en la computadora: su conexión se
-// abre en el modal de Integraciones, que es de escritorio.
-// Quién: `requireMovil` con la key de la sección y la puerta de escritorio (sólo el super admin, ../puerta.ts).
-// =============================================================================
+// Era «Voices» en el teléfono (una de las cuatro secciones de HeyGen). Como en escritorio (app/ai-avatar/voces/page.tsx),
+// AI Avatar es UNA pantalla (../EstudioM.tsx): la ruta queda para que un link viejo no dé 404. La puerta es la de
+// siempre (su key y la del super admin) ANTES de redirigir: el redirect no le cuenta a nadie que la tab existe.
 
-import '../ai-avatar.css';
+import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { RUTA_MAS } from '@/lib/movil-rutas';
-import { vocesCuentaAction } from '@/app/ai-avatar/actions';
-import { CabeceraM, PantallaM } from '@/app/m/_ui';
-import { SeccionesTabM } from '@/app/m/_ui/SeccionesTabM';
-import { vistaDe } from '../../_creacion/secciones';
+import { rutaConWs } from '@/lib/workspace';
 import { requireAiAvatarM } from '../puerta';
-import { VocesM } from './VocesM';
 
 export const dynamic = 'force-dynamic';
 
-export default async function VocesPagina() {
-  const ctx = await requireMovil({ navKey: 'ai-avatar-voces' });
+export default async function VocesPagina({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  await requireMovil({ navKey: 'ai-avatar' });
   await requireAiAvatarM();
-  const r = await vocesCuentaAction();
-  const cuenta = r.ok ? { voces: r.voces } : { sinKey: r.sinKey, error: r.error };
-  return (
-    <PantallaM>
-      {/* Sin fila en SECCIONES_MAS (lib/movil-creacion.ts dice por qué): la cabecera la pone la page. */}
-      <CabeceraM titulo="AI Avatar" padre={{ href: RUTA_MAS, label: 'More' }} />
-      <SeccionesTabM tab="ai-avatar" activa="ai-avatar-voces" vista={vistaDe(ctx)} />
-      <VocesM cuenta={cuenta} />
-    </PantallaM>
-  );
+  await searchParams;
+  redirect(await rutaConWs('/m/ai-avatar'));
 }

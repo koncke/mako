@@ -64,7 +64,7 @@ export type ConfigLanding = {
    * La usan las secciones `htmlEditable` del documento, en el editor y en la página publicada. Sin el campo
    * (todo lo de antes), no hay hoja: `sanearConfig` sólo lo escribe si trae algo.
    */
-  diseno?: { css: string };
+  diseno?: { css: string; sinBase?: boolean };
   /** Lo que MaKo usó para generarla (para «Ver instrucción de origen»). */
   origen?: { modo: 'cero' | 'ia' | 'plantilla' | 'importar' | 'generador'; pedido?: string; objetivo?: ObjetivoLanding; basadoEnUrl?: string | null; plantilla?: string };
 };
@@ -187,8 +187,13 @@ export type Analitica = {
   visitantes30: number;
   leads30: number;
   porDia: { dia: string; visitas: number }[];
-  /** % de visitantes que llegó a cada sección (por scroll), si el Pixel lo midió. null = no medido, NUNCA 0. */
-  alcancePorSeccion: { tarjetaId: string; pct: number | null }[] | null;
+  /**
+   * % de los visitantes de su página que VIO cada sección (Pixel v26, evento `secciones`; lib/editor-landing/alcance-secciones.ts),
+   * con el título de la foto publicada. null = no medido, NUNCA 0.
+   */
+  alcancePorSeccion: { tarjetaId: string; titulo?: string; pct: number | null }[] | null;
+  /** Desde cuándo se mide el alcance (el primer evento `secciones`) y sobre cuántos visitantes. null = no medido. */
+  alcanceMedido?: { desde: string; visitantes: number } | null;
   enAnalyst: boolean;                // si el Landing Analyst ya la tiene declarada
   /**
    * Los pedidos del Botón de pago que se rechazaron en los mismos días (Paquete 3 de la tanda 6, mig 0282;
@@ -259,11 +264,22 @@ export type ParamsGeneracion = {
   formato?: FormatoDoc;
 };
 
-export type SeccionEsquema = { titulo: string; puntos: string[] };
+/**
+ * `nota` (28/10/2026, replicar por partes): lo que la IA tiene que respetar de ESTA sección cuando se replica otra página
+ * (su molde, su ángulo y su acomodo). Viaja con la sección en su tanda (`pedidoDeTanda`); sin ella, todo como siempre.
+ */
+export type SeccionEsquema = { titulo: string; puntos: string[]; nota?: string };
 export type Esquema = { titulo: string; secciones: SeccionEsquema[] };
 
 export const ACCIONES_TEXTO = ['mejorar', 'corregir', 'acortar', 'ampliar', 'simplificar', 'especifico', 'tono', 'traducir', 'continuar'] as const;
 export type AccionTexto = (typeof ACCIONES_TEXTO)[number];
+
+/**
+ * La falla de «editar» cuando la página entera no entra de una vez (ia.ts, `MAX_JSON_EDICION`). Compartida: el chat del
+ * editor la reconoce y, si hay una sección con el cursor, vuelve a pedir sólo ésa (24/10/2026: sin los chips de alcance,
+ * «Editar» manda la landing entera).
+ */
+export const MUCHO_PARA_EDITAR = 'Es mucho de una vez. Edita por sección.';
 
 /**
  * `esquema` en modo «importar» (tanda 6): `url` (se baja TAL CUAL, con su www y su query) o `lectura`
@@ -274,7 +290,13 @@ export type PedidoIA =
   | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: Lectura; params: ParamsGeneracion }
   | { accion: 'secciones'; esquema: Esquema; indices: number[]; params: ParamsGeneracion; temaId: string }
   /** `adjuntos` (20/10/2026): los archivos del mensaje del chat, ya leídos (./adjuntos.ts); van al contexto como datos. */
-  | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: { nombre: string; texto: string }[] }
+  /** `enFoco` (24/10/2026): la sección donde está el cursor, como PISTA para «toda la landing» («esta sección» es ésa). */
+  | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; enFoco?: string | null; adjuntos?: { nombre: string; texto: string }[] }
+  /**
+   * «Discutir» (24/10/2026, Martín: «pon los botones de "Discutir, editar"», como Automations): MaKo contesta y sugiere
+   * SIN tocar la landing. `charla`: lo último del chat, para que «como te dije» exista (la lección de Automations).
+   */
+  | { accion: 'discutir'; pregunta: string; tarjetas: JsonNodo[]; enFoco?: string | null; charla?: { de: 'yo' | 'mako'; texto: string }[]; adjuntos?: { nombre: string; texto: string }[] }
   | { accion: 'texto'; tipo: AccionTexto; texto: string; contexto?: string; tono?: string; idioma?: string }
   /** `params.formato` (tanda 6): en una presentación las alternativas son diapositivas, no secciones de página. */
   | { accion: 'disenos'; tarjeta: JsonNodo; params?: Partial<ParamsGeneracion> }
@@ -286,6 +308,8 @@ export type RespuestaIA =
   | { ok: true; texto: string }
   | { ok: true; opciones: JsonNodo[] }
   | { ok: true; notas: string }
+  /** «Discutir»: la respuesta de MaKo, texto plano. */
+  | { ok: true; respuesta: string }
   /** Tanda 6: «Importar» de una página que se arma en el navegador o que nos rechaza (`pegable`, `enNavegador`, `motivo`). */
   | FallaEnNavegador
   | Falla;
@@ -303,7 +327,12 @@ export type PedidoImagenes =
   | { accion: 'buscar'; q: string; pagina?: number; orientacion?: 'horizontal' | 'vertical' | 'cuadrada' }
   | { accion: 'elegir'; id: string }
   | { accion: 'desdeUrl'; url: string }
-  | { accion: 'biblioteca' };
+  | { accion: 'biblioteca' }
+  // Los videos de los alojadores conectados (25/10/2026, «otros alojadores de video»): para elegir uno en «Insertar».
+  | { accion: 'videosAlojados' };
+
+/** Un video de un alojador conectado, como lo ve el panel «Insertar» (lib/alojadores-video.ts). */
+export type VideoAlojadoVista = { id: string; alojador: string; titulo: string; player: string; portada: string | null; duracion: number | null };
 
 /** Lo que MaKo entiende por «subir una imagen» desde cualquier pantalla del editor. */
 export const TIPOS_IMAGEN = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;

@@ -33,6 +33,8 @@ import { pideContrasena } from './html-libre';
 import type { ConfigLanding, ParamsGeneracion } from './api-tipos';
 import type { Lectura, SeLeeEnNavegador } from './lectura-tipos';
 import type { IdEstilo } from './animaciones';
+import type { ParteReplica } from './replicar-partes';
+import type { Angulos } from './replicar-angulos';
 
 /**
  * Los dos modos de la tanda 2. Desde la tanda 6 los elige `formato` (abajo); se siguen aceptando en el
@@ -64,6 +66,19 @@ export const NOMBRE_FORMATO_REPLICAR: Record<FormatoReplicar, string> = {
 };
 
 /**
+ * «Replicar y adaptar» (27/10/2026, pedido de Leila en la llamada): el DISEÑO de la original (sus secciones, su orden,
+ * su estilo y sus imágenes) con el TEXTO reescrito para la oferta del negocio, la que dice su contexto
+ * (`buildLandingBrief`, que ia.ts ya le pasa a cada tanda). Va por bloques: la copia idéntica («Página web») es el HTML
+ * de la original y no se reescribe. El esquema de «Landing» sigue en «Conservar» (la estructura exacta) y la que
+ * reescribe es la tanda de secciones; la de «Presentación» ya pasa por la IA en las dos.
+ */
+export const INSTRUCCION_ADAPTAR = 'ADAPTAR A LA OFERTA DEL NEGOCIO: el esquema es la página de OTRO negocio. Conserva su estructura: las mismas secciones, en el mismo orden, con el mismo tipo de bloque y un largo parecido. Reescribe el texto para la oferta de ESTE negocio, según su contexto: su producto, su promesa, su audiencia, su precio y su llamado a la acción. De la original no pasa nada propio: ni su marca, ni sus nombres, ni sus testimonios, ni sus cifras, ni sus garantías. Si a una sección le falta un dato que el negocio no dio, escribe entre corchetes qué falta: "[testimonio real de un cliente]".';
+/** ¿Se puede adaptar en este formato? La copia idéntica no se reescribe. */
+export const adaptaElFormato = (f: FormatoReplicar): boolean => f !== 'web';
+/** El error de adaptar una copia idéntica (la pantalla ofrece «Landing» como botón, con `probar`). */
+export const ERROR_ADAPTAR_WEB = 'La copia idéntica no se adapta: para reescribirla con tu oferta, elige «Landing».';
+
+/**
  * El formato pedido. Sin `formato`, el `modo` viejo de la tanda 2 («bloques» = Landing, «fiel» = Página
  * web) mientras dure el deploy. null si no es ninguno.
  */
@@ -83,6 +98,10 @@ export type ConfigReplica = {
   params: Partial<ParamsGeneracion> | null;
   /** La configuración con que nace la landing nueva (formato, proporción y de dónde salió). */
   config: Partial<ConfigLanding>;
+  /** «Replicar y adaptar»: el texto se reescribe con la oferta del negocio. Sólo cuando se pidió. */
+  adaptar?: true;
+  /** Los parámetros de la tanda de secciones cuando no son los del esquema (adaptar una «Landing»). */
+  paramsSecciones?: Partial<ParamsGeneracion>;
 };
 
 /**
@@ -94,22 +113,30 @@ export type ConfigReplica = {
  * Las dos por bloques, con marcadores en vez de fotos de stock. `basadoEnUrl` en el origen es lo que
  * muestra «Ver instrucción de origen».
  */
-export function configDeReplica(formato: FormatoReplicar, url: string): ConfigReplica {
+export function configDeReplica(formato: FormatoReplicar, url: string, op: { adaptar?: boolean } = {}): ConfigReplica {
   const origen: NonNullable<ConfigLanding['origen']> = { modo: 'importar', basadoEnUrl: url };
+  const adaptar = op.adaptar === true && adaptaElFormato(formato);
   if (formato === 'presentacion') {
     return {
       formato,
       via: 'bloques',
-      params: { modoTexto: 'condensar', fuenteImagenes: 'marcadores', formato: 'presentacion', textoPorSeccion: 'breve', cantidad: 10 },
+      params: {
+        modoTexto: 'condensar', fuenteImagenes: 'marcadores', formato: 'presentacion', textoPorSeccion: 'breve', cantidad: 10,
+        ...(adaptar ? { instrucciones: INSTRUCCION_ADAPTAR } : {}),
+      },
       config: { formato: 'presentacion', proporcion: '16:9', origen },
+      ...(adaptar ? { adaptar: true as const } : {}),
     };
   }
   if (formato === 'landing') {
+    const params: Partial<ParamsGeneracion> = { modoTexto: 'conservar', fuenteImagenes: 'marcadores', formato: 'pagina' };
     return {
       formato,
       via: 'bloques',
-      params: { modoTexto: 'conservar', fuenteImagenes: 'marcadores', formato: 'pagina' },
+      params,
       config: { formato: 'pagina', origen },
+      // El esquema conserva la estructura exacta; la tanda de secciones reescribe (`generar`) con la oferta.
+      ...(adaptar ? { adaptar: true as const, paramsSecciones: { ...params, modoTexto: 'generar', instrucciones: INSTRUCCION_ADAPTAR } } : {}),
     };
   }
   return { formato, via: 'fiel', params: null, config: { formato: 'pagina', origen } };
@@ -121,7 +148,13 @@ export function configDeReplica(formato: FormatoReplicar, url: string): ConfigRe
  * persona. Cualquiera de los dos reemplaza la bajada, y sólo valen para Presentación y Landing (la
  * copia idéntica necesita el HTML). `modo` es el pedido viejo (tanda 2), aceptado durante el deploy.
  */
-export type PedidoReplicar = { url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string } | { url: string; modo: ModoReplicar };
+export type PedidoReplicar =
+  | {
+    url: string; formato: FormatoReplicar; lectura?: Lectura; texto?: string; adaptar?: boolean;
+    /** 28/10/2026 (replicar-partes.ts): qué se replica, el tema de la persona sin el diseño, y los ángulos de la lectura. */
+    partes?: ParteReplica[]; tema?: string; angulos?: Angulos;
+  }
+  | { url: string; modo: ModoReplicar };
 /**
  * Lo que contesta: el id de la landing nueva (la pantalla la abre en el editor). En la falla, `probar` es el
  * formato que sí puede andar cuando el error lo propone («Prueba el formato «Landing».»): la pantalla lo
@@ -135,6 +168,8 @@ export type RespuestaReplicar =
   | {
     ok: true; id: number; titulo: string; secciones: number; formato: FormatoReplicar; aviso?: string;
     animaciones?: { estilo: IdEstilo | null; propias: number }; avisoScroll?: true;
+    /** Lo que se replicó (28/10/2026). La copia idéntica no lo lleva: es todo. */
+    partes?: ParteReplica[];
   }
   | ({ ok: false; error: string; probar?: FormatoReplicar } & Partial<SeLeeEnNavegador>);
 
@@ -174,10 +209,30 @@ export function esRastreador(bloque: string): boolean {
   return RE_RASTREADOR.test(bloque);
 }
 
-/** Saca de un pedazo de HTML los scripts y `<noscript>` de rastreadores. */
-export function sinRastreadores(html: string): string {
+/**
+ * ¿El script es DATOS de la página y no código? El árbol de una app de Next (App Router: `self.__next_f.push(…)`, en
+ * pedazos que la página junta) y los `<script type="application/json">` (el `__NEXT_DATA__` del Pages Router, el
+ * `__NUXT_DATA__` de Nuxt 3). Nombran a un rastreador cuando el layout lo carga, pero no lo corren.
+ */
+const RE_DATOS_DE_LA_PAGINA = /^<script\b[^>]*>\s*\(?\s*self\.__next_f\b/i;
+const RE_SCRIPT_JSON = /^<script\b[^>]*\btype\s*=\s*["']?application\/(?:[\w.-]+\+)?json\b/i;
+export const esDatosDeLaPagina = (bloque: string): boolean => RE_DATOS_DE_LA_PAGINA.test(bloque) || RE_SCRIPT_JSON.test(bloque);
+
+/**
+ * Saca de un pedazo de HTML los scripts y `<noscript>` de rastreadores.
+ *
+ * `guardarDatos`: deja los scripts de DATOS (`esDatosDeLaPagina`) aunque nombren a un rastreador. Pedido de Martín
+ * (29/10/2026, el ticket «No pude sacar la foto de la página» replicando https://100ads.ai/): en una app de Next, uno
+ * de esos pedazos es el árbol ENTERO de la página (113 KB, nombra a Facebook y a Clarity porque el layout los carga);
+ * sin él React no puede armarla («Connection closed», error #423), la borra, y la ventana del lector queda con el
+ * cuerpo vacío. ⚠️ SÓLO donde los rastreadores ya están apagados ANTES de la página (la ventana del lector:
+ * `JS_PRELUDIO_VENTANA`, con `fbq` mudo y los pedidos a sus dominios atajados): con los datos, la app vuelve a montar
+ * sus `<Script>` de Meta o Clarity. La copia fiel y la vista del Diagnóstico no los apagan: ahí se siguen sacando.
+ */
+export function sinRastreadores(html: string, o: { guardarDatos?: boolean } = {}): string {
+  const sacar = (b: string) => (esRastreador(b) && !(o.guardarDatos && esDatosDeLaPagina(b)) ? '' : b);
   return html
-    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, (b) => (esRastreador(b) ? '' : b))
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, sacar)
     .replace(/<script\b[^>]*\/>/gi, (b) => (esRastreador(b) ? '' : b))
     .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, (b) => (esRastreador(b) ? '' : b));
 }
@@ -451,7 +506,7 @@ const textoVisible = (html: string): string =>
   decodificar(html.replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 const RE_MEDIO = /<(img|picture|video|iframe|svg|canvas|form|input|button|select|textarea)\b/i;
 /** Una parte que sola no se ve (un espaciador, un ancla vacía): viaja pegada a la que sigue. */
-const esChica = (html: string): boolean => textoVisible(html).length < 15 && !RE_MEDIO.test(html);
+export const esChica = (html: string): boolean => textoVisible(html).length < 15 && !RE_MEDIO.test(html);
 
 /**
  * Baja por los envoltorios de UN solo hijo (`body > div#app > main`) hasta el primer nivel con varias

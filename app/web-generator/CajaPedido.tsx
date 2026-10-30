@@ -84,6 +84,9 @@ export type PropsCajaPedido = {
   /** Cambiarlo vuelve a empezar el ejemplo (la landing: otra lista al pasar de Landing a Presentación). */
   reinicio?: string;
   deshabilitado?: boolean;
+  /** SIN LA APP DE ESCRITORIO (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»; app/_chat/useAppDeEscritorio.tsx): el
+   *  campo apagado dice `frase`, y EN EL LUGAR DEL MICRÓFONO va `boton` («Instalar MaKo»), como en CajaChat. Sin el ↑ ni el «+». */
+  bloqueo?: { frase: string; boton: ReactNode };
   /** El error del dictado (sin permiso de micrófono, no se entendió). */
   onError: (m: string | null) => void;
   /** Tanda 7: lo que va entre el título y la caja (en el Web Generator, los modos del cuadro). */
@@ -129,7 +132,10 @@ export function seMueveElEjemplo(animar: boolean, foco: boolean, valor: string):
   return animar && !foco && !valor;
 }
 
-export function CajaPedido(p: PropsCajaPedido) {
+export function CajaPedido(propias: PropsCajaPedido) {
+  // Sin la app de escritorio (25/10/2026): la misma caja, quieta y apagada, con la frase en el campo (`bloqueo`).
+  const bloqueo = propias.bloqueo;
+  const p: PropsCajaPedido = bloqueo ? { ...propias, animar: false, placeholderQuieto: bloqueo.frase, deshabilitado: true } : propias;
   const tope = p.tope ?? TOPE_PEDIDO;
   /** ¿La caja tiene el foco? (el campo, el micrófono o el «+»: `focusin`/`focusout` de React burbujean). */
   const [foco, setFoco] = useState(false);
@@ -183,17 +189,19 @@ export function CajaPedido(p: PropsCajaPedido) {
             : campo}
         {p.bajoElCampo && <div className="gp-cc-bajo">{p.bajoElCampo}</div>}
         <div className="gp-cc-fila">
-          {p.antes}
-          {p.dictado === false
+          {!bloqueo && p.antes}
+          {bloqueo ? <span className="gp-cc-mic">{bloqueo.boton}</span> : p.dictado === false
             ? <span className="gp-cc-mic" aria-hidden="true" />
             : (
               <span className="gp-cc-mic gp-mic">
                 <BotonDictar titulo="Dictar el pedido" valor={p.valor} onValor={(v) => { p.onValor(v.slice(0, tope)); p.onError(null); }} onError={p.onError} />
               </span>
             )}
-          <button type="submit" className="gp-cc-enviar" aria-label="Enviar" disabled={!puedeEnviar}>
-            <Ico n="flecha-arriba" t={16} />
-          </button>
+          {!bloqueo && (
+            <button type="submit" className="gp-cc-enviar" aria-label="Enviar" disabled={!puedeEnviar}>
+              <Ico n="flecha-arriba" t={16} />
+            </button>
+          )}
         </div>
       </form>
     </>

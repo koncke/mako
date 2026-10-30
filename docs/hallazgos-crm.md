@@ -20,6 +20,340 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Solucionar» un dato que la ficha no dibuja: el asistente no sabía CUÁL (29/10/2026, claude3)
+
+**El síntoma.** Leila (ws11, lead Fabi Pedraza, 26/10): «me dice que no tengo los datos fiscales pero cuando los quiero
+cargar solamente me salen setter y closer», y «no me deja avanzar a los siguientes datos».
+
+**La causa** (medida con sus datos, no vista en pantalla):
+- ws11 tiene el canal «presencial» y su funnel tiene una sola etapa de reunión, así que la ficha es la plantilla
+  **«Evento»** (`elegirPlantilla`, lib/ficha/plantillas.ts). Esa plantilla **no trae el bloque «Datos fiscales» en Pagos** y
+  apaga sus avisos. Tampoco lo traen «Formulario de Meta», «Landing», «Te escriben», «Prospección» ni «Carrito».
+- «Solucionar» no encontraba dónde (`tabDelDato` → null) y caía al asistente con `onNoEsta()`, **sin decir qué dato**. El
+  asistente pedía lo que avisa el funnel (`loQueSePide`), y el dato tocado no avisa: lo sacaba. Y el documento fiscal no se
+  pregunta nunca en el asistente («nadie tiene el papel al mover»), así que tampoco había dónde subirlo.
+
+**El diagnóstico obvio era el equivocado.** La revisión del 27/10 sospechaba del modo «Editar» (los bloques son `inert`
+personalizando), y lo otro obvio era sumar el bloque a las plantillas. Lo primero no explica «setter y closer». Lo segundo le
+cambia la ficha a todos los clientes de seis plantillas, y la que eligió apagar el dato fue la plantilla.
+
+**La regla:** el respaldo de «Solucionar» lleva EL DATO: `onNoEsta(paso)` (FichaPorBloques, los dos caminos: sin bloque, y
+el señalador que no encuentra el campo) → `datoPedido` en LeadSheet y LeadDetailBody → `loQueSePide(faltan, avisan, pedido)`
+devuelve ése aunque el funnel no avise, y StageMoveDialog pregunta el documento fiscal o el comprobante SÓLO si son el dato
+pedido (al mover, nunca). Lo fija tests/documento-fiscal-desde-el-chat.test.ts (15 roturas cazadas).
+
+**Sin hacer:** el bloque «Datos fiscales» sigue sin estar en esas seis plantillas: con el arreglo se carga por el asistente,
+y quien lo quiera en la ficha lo agrega con «Personalizar». No se vio en pantalla (bootear local escribe en producción).
+
+**Vive en:** lib/datos-aviso.ts (`loQueSePide`) · app/crm/lead-view/ficha/FichaPorBloques.tsx (`solucionar`) ·
+app/crm/LeadSheet.tsx · app/crm/[id]/LeadDetailBody.tsx · app/crm/StageMoveDialog.tsx (`datoPedido`).
+
+## Acciones en bloque y la papelera: los 394 de «Contacto nuevo» de Leila (28/10/2026, tickets #21 y #22)
+
+**El síntoma.** Leila quería sacar los 394 de «Contacto nuevo» de LíderMente y pasarlos a Funnel general, o borrarlos. MaKo le
+contestó que movía de a uno y dentro del mismo funnel, y que borrar no existía. En el tablero: la casilla de la columna ya
+tildaba a todos, pero el desplegable «Funnel» sólo AGREGABA (la decisión de Martín del 06/10), y «Eliminar» era `delete` para
+siempre.
+
+**Lo que se midió antes de escribir:**
+- **«Todos los de esta etapa» ya andaba en el tablero, salvo un corte callado.** El tablero lee todo paginado y la casilla tilda
+  la columna entera, también lo que no se dibuja. Pero `filasDeAgregados` (lib/leads.ts) leía `lead_funnel` con un `select`
+  solo: un CRM con más de 1.000 agregados dibujaba 1.000 y la casilla tildaba 1.000. Ahora va por `leerTodo`.
+- **Borrar un lead se lleva 26 columnas de 23 tablas en cascada** (pagos, sus funnels, etiquetas, inscripciones, curso,
+  comunidad — y en la comunidad, también lo que OTROS leads escribieron en sus publicaciones), deja en NULL 15 columnas
+  (mensajes de WhatsApp, conversaciones de Instagram, correos, cobros) y deja huérfanas unas 10 tablas sin FK (el historial
+  `lead_audit`, los análisis). Nada lo frena (ningún RESTRICT).
+
+**El diagnóstico obvio era el equivocado: una columna `eliminado_at` en `leads`.** Parecía lo barato (hay un lugar central, el
+proxy de `getTenantDb`, donde filtrar). Pero no cubre los joins embebidos desde pagos, las vistas SQL, las lecturas con
+service_role (crons, webhooks) ni las tablas hijas que leen por `lead_id` sin mirar el lead: un lead «en la papelera» seguía
+recibiendo su secuencia de nutrición y su acceso al curso. Y si la migración llegaba después del deploy, TODA lectura de leads
+fallaba. La papelera es una FOTO: el lead se borra como siempre (nadie lo ve, nada le escribe) y la foto lo devuelve igual.
+
+**La regla:**
+- La foto la saca la base, no el código (mig 0340, `mandar_leads_a_papelera`): recorre `pg_constraint` desde `leads` hasta el
+  punto fijo (lo que cuelga de lo que cuelga), guarda los ids de lo que el borrado deja en NULL para volver a apuntarlo, y el
+  orden en que se devuelven (padres antes que hijos, por TODAS las FKs). Una transacción por lead: si algo no se puede guardar
+  (una FK de varias columnas, un ciclo), ese lead no se borra. Recuperar inserta con los mismos ids, sólo con las columnas que la
+  tabla tiene hoy (una nueva toma su default) y re-apunta sólo lo que sigue en NULL (un mensaje que en el medio se enganchó a
+  otro lead se queda con ése).
+- Se prueba contra un Postgres de verdad: scripts/probar-0340-pglite.mjs (PGlite, sin tocar ninguna base). 9 casos; 11
+  roturas de la función dan rojo cada una. Un test con regex sobre el .sql no prueba SQL dinámico.
+- «Pasar a otro funnel» NO es el «mover» que se borró el 06/10: es un renglón aparte del desplegable «Funnel» (que sigue
+  agregando al toque), con su pregunta, y va por agregar + quitar (`pasarAOtroFunnel`, lib/lead-funnel.ts) con
+  `quitarDeProducto(…, { promoverA })` para que la casa nueva sea el destino y no la fila más vieja. Los que tienen plata en el
+  origen no pasan (sus pagos llevan ese funnel y sumarían en el otro); los que agendaron, sólo si se marca.
+- MaKo con UNA confirmación: `preparar` congela los ids (la columna entera, paginada, con la regla de la cuenta,
+  `idsDeColumna`) y `ejecutar` corre con las piezas de la barra (lib/crm-bloque-server.ts), con 300 s (WhatsApp, el chat y la
+  bandeja tienen 420) y lo que no llega se dice.
+
+**En producción (29/10/2026, lo midió el Cerebro, sólo lectura):** la tabla y las funciones de la 0340 YA ESTÁN en la base
+(Martín dio el sí; se aplicó el archivo de crm-lote-2810 @ 77679ed63).
+- Antes de aplicarla: del lead cuelgan **51 FKs** (34 en cascada, 17 set null/default, 0 restrict), sin cascadas de varias
+  columnas ni ciclos: la foto lleva **24 tablas** en un orden posible. (El 28/10 se contaron 26 columnas de 23 tablas en cascada
+  leyendo las migraciones: la base de verdad tiene más.)
+- Después: `leads` siguió en 3017 filas; `leads_papelera` con RLS prendido, 0 filas y sin lectura para anon/authenticated; las
+  5 funciones son security invoker y sólo las ejecuta service_role; `papelera_leads_fks()` devuelve 51.
+- **«Eliminar» ya no se frena por la tabla.** Antes de la 0340, el botón seguía a la vista y al tocarlo decía «La papelera del
+  CRM todavía no está lista (falta la migración 0340): no se borró nada» (`FALTA_LA_PAPELERA`): no se apagaba solo, pero
+  tampoco borraba. Lo único que falta es que suba el código y el cron (`/api/cron/leads-papelera`, `45 10 * * *`, en
+  vercel.json): sin el cron, nada se purga a los 30 días, pero tampoco se pierde nada.
+- ⚠️ **El número 0340 es de ésta**: la rama motion-imagen-2610 tiene una `0340_image_editor_propuestas.sql`; a ésa la renumera
+  Integración al entrar, porque la de la papelera es la que está en la base.
+
+**Sin hacer:**
+- ~~Montar la hoja de la DIFUSIÓN~~: hecho el 29/10/2026 en crm-difusion-2910 (la barra y el «⋯» de la columna; ver
+  tests/crm-difusion-columna.test.ts). Al juntarlas apareció que la columna del funnel principal viajaba con `funnelId: null`,
+  que el server lee como esa etapa en TODOS los funnels: ahora va con el id del principal, y sin id, los ids que se ven.
+- Los archivos de Storage de un lead purgado (adjuntos de notas, contratos) quedan: ya pasaba con el borrado de antes.
+- El historial (`lead_audit`) de un lead purgado tampoco se borra: no tiene FK, como antes.
+- Una inscripción a una automatización vuelve como estaba al recuperar: si pasaron días, el próximo paso puede salir enseguida.
+- La cuenta de una columna del tablero y la del server difieren en un caso: el tablero manda a la primera columna una clave que
+  el funnel ya no tiene, `etapaComoTablero` la deja en su derivada. «Todos los de esta etapa» por MaKo usa la del server.
+
+**Vive en:** supabase/migrations/0340_leads_papelera.sql · lib/leads-papelera.ts · lib/leads-papelera-reglas.ts ·
+app/crm/PapeleraLeads.tsx · app/api/cron/leads-papelera/route.ts · lib/lead-funnel.ts (`pasarAOtroFunnel`, `previaDePasar`,
+`agregadosDelCrm`) · lib/pasar-funnel-reglas.ts · app/crm/PasarAOtroFunnel.tsx · app/crm/AccionesLoteLeads.tsx ·
+lib/crm-bloque-server.ts · lib/api-mako/areas/crm.* · tests/crm-acciones-bloque.test.ts · scripts/probar-0340-pglite.mjs.
+
+## El feedback del 27/10/2026: «ganado» en la columna de Perdido, el contrato, la R1 cargada a mano y el día de UTC
+
+Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, textuales, en la cabecera de
+`tests/crm-feedback-27-10.test.ts`. Lo de Chats está en hallazgos-comunicacion y lo de las cuotas en hallazgos-pagos (mismo día).
+
+- **Un lead «ganado» con la tarjeta en «Perdido» (el 2371 de Mauricio, que Customer Success contaba como cliente).** El
+  diagnóstico obvio era «un movimiento que escribió mal la etapa»: `setPipelineStage` está bien (escribe el estado Y la
+  columna). El agujero son los caminos que cambian `estado_lead` **sin elegir columna**: el plan de pagos
+  (`saveLeadPlanManual` gana con un UPDATE propio), el alta de un alumno con «usar ese» (`lib/curso-alta-alumno.ts`) y todo
+  `updateLead` con el estado. La columna guardada (`pipeline_stage`) quedaba, y el tablero lee la columna mientras CS, Revenue
+  y las métricas leen el estado. **Regla:** el estado que cambia sin columna vuelve la tarjeta a la derivación
+  (`etapaContradiceElEstado`, lib/pipeline.ts); quien escribe la columna justo después lo dice (`etapaAparte`:
+  `setPipelineStage` y el Deshacer de un movimiento con Etapa). Sólo en la TRANSICIÓN: un lead ya descalzado no se «arregla»
+  hacia un lado al re-guardar otro campo. **Las filas, corregidas el 28/10 (el Cerebro, con el sí de Martín):** la verdad
+  era PERDIDO, no Ganado. El historial (`lead_audit`) dice que Mauricio lo pasó a Perdido el 28/09 con motivo «Timing» y
+  borró el monto; el 30/09 guardó el cierre VACÍO (servicio, monto y fecha en null) y ese guardado le devolvió el estado a
+  Ganado sin dejar renglón. **Regla para el próximo:** el lado bueno lo dice el último movimiento EXPLÍCITO del historial
+  (Etapa o Estado con autor), no el último guardado. Quedaban dos en toda la base (el 2371 y su copia 2879 del negocio de
+  prueba): `estado_lead` → perdido y `cerro` → false, con un UPDATE condicionado a seguir descalzados y su renglón en el
+  historial. Después, 0 descalzados.
+- **«Me sigue exigiendo CONTRATO».** El contrato no era un requisito en ningún lado del server (`stage-requirements`, actions,
+  leads): era el paso `dealAuto` del asistente, en TODO movimiento a Ganado o Facturando, y desde el tablero salía aunque el
+  contrato ya estuviera (la tarjeta no trae `tieneContrato`). No trababa: era una pantalla siempre. Salió de los movimientos;
+  queda en «Completar datos» cuando se piden las secciones del deal. El inventario de todo lo que pide un movimiento, para que
+  Martín decida qué sigue: [crm-requisitos-de-etapa.md](crm-requisitos-de-etapa.md).
+- **«Mover a R1 sólo funciona con Calendly o Cal, no si la agendé a mano, por defecto la busca».** Tres cosas:
+  (1) `buscarReunionesAutomatico` devolvía `ext ?? lead`: una reserva vieja de Calendly PISABA la fecha cargada a mano, y el
+  asistente (y el CRM automático, `lib/crm-auto.ts`) la escribían; ahora gana la de la ficha. (2) El asistente arrancaba la
+  búsqueda solo aunque lo único que faltara fuera la FECHA de la reunión que se está agendando; ahora pregunta la fecha y
+  «Buscarla en Calendly» es un link (sin marcar nada resuelto: el paso que se mira no puede desaparecer). (3) Con la reunión ya
+  cargada y sin marcar, soltar en R1 abría igual el diálogo de Calendly; ahora se mueve directo (`reunionYaCargada`,
+  app/crm/mover-etapa.ts, por el slot de reunión: sirve también para una etapa propia).
+- **Las fechas «un día antes» y el filtro de Calendly que no bloquea (Mauricio).** La búsqueda armaba el día con
+  `.slice(0, 10)` del instante (Calendly y Fathom vienen en UTC): el día de Greenwich, cuando la clave del CRM es el de Tijuana
+  (`isoToFechaTijuana`, la del webhook; «no migrar» está escrito ahí). Corre un día para atrás o para adelante según la hora y la
+  zona. Y un evento de DÍA COMPLETO de Google («2026-10-28») pasado por un `Date` es la medianoche UTC: el 27 a la tarde en
+  México. `diaDeReunion` (lib/auto-reuniones-reglas.ts) hace las dos cosas. El filtro: el webhook sólo toma los tipos de evento
+  del CRM, pero la búsqueda traía TODAS las reuniones del invitado en la organización (un onboarding, un webinar) y la más vieja
+  pasaba por la R1; ahora usa el mismo filtro (`esEventoDelCrm`), y sin poder leerlo no usa Calendly (no adivina).
+  ⚠️ **Sin medir contra los datos de Mauricio** (la lectura de producción quedó frenada): el mecanismo está probado con
+  instantes construidos; falta mirar en su base qué leads quedaron con el día corrido.
+
+- **El ticket #14 («La pantalla CRM se rompió», ws9, sin stack ni la propiedad).** No se reprodujo (la rama sin desplegar y
+  sin sesión en producción): se buscó lo que lee `undefined` con datos REALES del ws9, y el primer dibujado del tablero está
+  bien guardado (etapas huérfanas a `stages[0]`, filtros guardados saneados). Los que leen `.trim()` (el `reading` probable):
+  `fathom_links` con la forma vieja (sin `url`) en el asistente de mover (`f.url.trim()`, en un updater de estado: lo atrapa el
+  límite de error y cae la pantalla), y el orden por nombre de una columna con un lead sin nombre. **Regla:** lo que viene de
+  una columna jsonb se normaliza al mapearlo (`fathomDeFila`, app/crm/crm-map.ts), no en cada lector. ⚠️ El ticket es de las
+  20:14 UTC y el commit del 27/10 de las 22:17: lo desplegado tenía `name: l.nombre` sin default.
+
+**Lo que quedó SIN hacer, con su archivo:**
+- ~~El arreglo de la fila 2371~~: hecho el 28/10 (ver arriba, «Un lead “ganado” con la tarjeta en “Perdido”»).
+- Los pasos que siguen trabando el asistente (producto obligatorio, motivo con detalle, cuotas que suman): para que Martín
+  decida, en [crm-requisitos-de-etapa.md](crm-requisitos-de-etapa.md).
+- El diálogo de Calendly del tablero sólo para `agenda`/`agendaj2` con el tipo cargado (`app/crm/page.tsx`): Cal.com y los
+  eventos vinculados no lo ofrecen.
+- Las fechas ya guardadas con el día de UTC no se corrigieron (no se midieron).
+
+## «Extraer» de un grupo: dónde entran, con qué etiqueta, y por qué la etiqueta llega a 100 (26/10/2026)
+
+**Vive en:** app/crm/TraerDeGrupoWA.tsx (`extraer`, `traerTandas`) · `etiquetaDeOrigen`/`traerDelGrupo`
+(app/crm/grupo-wa-server.ts) · `etiquetaDeGrupo` (lib/grupo-wa-reglas.ts) · `TOPE_NOMBRE_ETIQUETA` (lib/etiquetas-reglas.ts) +
+mig 0339 · tests/wa-extraer-072.test.ts (5), grupo-wa, enriquecer-lote.
+
+- **Entran al CRM que se mira, a la ENTRADA que no manda nada** (`entrada` de `etapasParaTraer`: la primera etapa si no manda,
+  si no la primera que no manda). Martín: «siempre en el CRM en el que estoy parado y en la primera etapa de lead entrante».
+  `funnelPorDefecto`/`etapaPorDefecto` («Prospección › Tibio») siguen sólo para la API de MaKo. Que «no les manda nada» sigue
+  siendo así (`quedaDondeLoPusieron`): lo que se sacó es el texto, no la regla.
+- **La etiqueta ES el nombre del grupo, sin campo.** La que ya existe con ese nombre se reusa; una ARCHIVADA no cuenta (el índice
+  único de la 0224 es entre las vivas: se crea otra igual; antes frenaba con «está archivada»). Una que tiene una
+  automatización no se pone (el barrido de la hora inscribiría al grupo entero), y como ya no hay campo para elegir otra, se
+  trae SIN etiqueta y se dice (`sinEtiqueta`); frenar era un callejón. La API, que sí elige, sigue frenando.
+- **El tope de 40 cortaba el nombre:** el grupo de los 221 se llama «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador» (47) y
+  un asunto de WhatsApp llega a 100. Mig 0339: el check pasa a 1..100 (PRIMERO la migración, después el código: con el código
+  nuevo y el check viejo, una de 41+ no se crea y la pantalla lo dice). Las etiquetas de WhatsApp sólo se LEEN de la línea:
+  MaKo no crea ninguna allá con este nombre.
+- **«Extraer» arranca la extensión ANTES de crear los leads**, en paralelo: el recorrido a la vista tarda ~45 s y crear 105
+  también lleva su rato. Los nombres se piden para todos los que van a estar en el CRM al terminar (los nuevos y los que ya
+  estaban) y se guardan cuando las dos cosas terminaron (el guardado necesita que el lead exista).
+- **El cartel negro se fue por un campo, no por un if en cada lado:** `ResultadoLote.enLaExtension` dice que el resultado ya
+  se mostró en el desplegable, y el tablero no pone su aviso. Si falla ANTES de la extensión (sin teléfonos, sin la
+  extensión), el desplegable no tiene nada y el aviso de siempre queda.
+- **«Ignorar admins»:** `admin` viene en la lista de Evolution (`'admin' | 'superadmin'`) y `participantesDe` lo tiraba; ahora
+  lo marca. El botón destilda a los admins y se recuerda en el navegador.
+
+## Los grupos de WhatsApp «tardan muchísimo»: el tope de 15 s cortaba una lista que tarda 33 (25/10/2026)
+
+**Vive en:** app/crm/grupo-wa-server.ts (`gruposDeLinea` en dos tiempos, `participantesDelGrupo` con memoria, `traerDelGrupo`
+de a cuatro) · lib/grupo-wa-reglas.ts (`TOPE_GRUPOS_COMPLETO_MS`, `gruposGuardados`) · app/crm/TraerDeGrupoWA.tsx · la API
+(lib/api-mako/areas/crm.run.ts, `grupoPedido`) · tests: grupo-wa-rapido (3 roturas cazadas).
+
+- **Medido antes de tocar** (sonda de sólo lectura, la línea de la plataforma): `fetchAllGroups` contestó en **33 s** con 285
+  grupos; `findChats` (la base de Evolution) en 0,5 s pero con sólo **61** (los grupos con los que la línea habló); leer un
+  grupo de 1.493 miembros, 0,5 s; la agenda de la línea, 0,4 s (2.350 contactos, 800 KB). El código cortaba WhatsApp a los
+  15 s: la persona esperaba 15 s **para terminar viendo 61 de 285**. Ése era el «tarda muchísimo».
+- **La extracción se midió con lo que ya pasó**, sin crear leads de prueba en producción: los eventos «Traído de un grupo de
+  WhatsApp» de `lead_audit` dan ~135 ms por lead, uno detrás del otro (221 en 37 s), sin pausas largas entre tandas.
+- **Lo que quedó:** al abrir, la lista GUARDADA de la última vez (`app_settings`, `grupos_wa.lista.<línea>`) o, la primera
+  vez, la de la base al instante; la completa se pide aparte (tope 50 s), reemplaza la lista sin perder el grupo elegido y
+  se guarda (vieja a los 10 minutos). Traer va de a cuatro altas a la vez (sin contador compartido; el duplicado se ataja por
+  teléfono) y los participantes quedan 2 minutos en memoria entre tandas; «Completar nombres» lee fresco.
+- **La API de MaKo** contesta una sola vez: si el grupo pedido no está en la lista rápida, pide la completa antes de decir
+  «no lo encontré» (si no, perdía grupos que antes encontraba).
+- **No se aceleró a propósito:** «Datos de empresa» espera 2 s entre perfil y perfil (`ESPERA_PERFIL_MS`): es tráfico en la
+  red de una línea no oficial, la que se expone a un baneo.
+
+## «No puedo sacar Empresa»: «Datos ▾» ya existía; el cuerpo del bloque es `inert` y la persona busca la fila (25/10/2026)
+
+**Vive en:** app/crm/lead-view/ficha/Armador.tsx (`QuitarDeLaFila`) · ./armar.ts (`datosSinUno`) · las filas marcadas con
+`data-dato` (resumen/piezas.tsx `Prop`, resumen/contacto.tsx, resumen/datos.tsx) · el panel `.fb-mako-panel` de
+FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
+
+- **El diagnóstico obvio («falta poder sacar datos») era el equivocado.** Sacar un dato del Contacto existe desde el 23/10
+  (`7484a5720`, en producción): «Datos ▾» en la barra del bloque elegido. La captura de Martín (c06) lo muestra en pantalla
+  y aun así dice «no puedo sacar EMPRESA». Personalizando, el cuerpo del bloque es `inert` (para que elegir el bloque no abra
+  el campo de adentro), así que la fila «Empresa» no responde a nada: la persona la toca y no pasa nada. **Regla:** lo que se
+  saca, se saca DONDE se ve. Cada fila de un bloque que elige sus datos o sus redes lleva `data-dato`, y con el bloque elegido
+  el Armador mide esas filas y dibuja una ✕ encima (la misma operación que «Datos ▾»; el último dato no se saca).
+- **La ✕ no puede vivir adentro de la fila** (el cuerpo es inerte): se dibuja en la caja del bloque, con la posición medida
+  (`getBoundingClientRect`) y un `ResizeObserver`. Un bloque nuevo que elija datos sólo tiene que marcar sus filas.
+- **El panel de MaKo de la ficha («Editar con MaKo» y el AI Analyst) es el bloque flotante del Dashboard** (`.an`: 12 px de
+  aire, bordes de 14, sombra, sin la raya de color). Sin hacer: el panel de la estrella de MaKo en cada tab
+  (`.ch-tab-panel`, app/_chat/chat.css) sigue siendo el cuadrado de borde a borde; es de la pieza compartida del chat.
+- **Sin hacer:** las reuniones, las cuotas y los datos fiscales muestran varios datos y no eligen cuáles (no tienen `datos`
+  en el catálogo): ahí sólo se puede pedir u ocultar el bloque entero.
+
+## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
+
+**Vive en:** app/crm/CrmBoard.tsx (`volverAlAlta`, `cerrarImportar`) · app/_components/pila-modales.ts · app/crm/MoldeTraer.tsx
+· tests: crm-modales-encima, crm-molde-traer (5 roturas cazadas entre los dos).
+
+- **El pedido «cerrar un modal hijo vuelve al padre» ya estaba resuelto en la casa** (pila-modales: un modal sobre otro
+  esconde al de abajo con `display:none`, sin desmontarlo, y al cerrar el de arriba vuelve igual). «Nuevo lead» no lo usaba de
+  dos formas: «Traer» y el Scraper REEMPLAZABAN el contenido del mismo `Modal` (dos vistas, dos tamaños), e «Importar»
+  CERRABA el alta para abrirse. En los dos casos el clic afuera no tenía «anterior» al que volver. **Regla:** lo que se abre
+  desde un modal es OTRO `Modal` montado encima (el de abajo queda montado); nunca un cambio de contenido del mismo, ni un
+  cerrar-y-abrir. `onCerrar` del hijo vuelve al padre y tiene identidad fija (`useCallback`).
+- **Las tres vistas de traer comparten un molde** copiado de la pantalla «Preview import» de Attio (documentación oficial):
+  de dónde arriba con un «⋯» para lo secundario, «Entran a» abajo, una línea de resumen con chips de números, la lista
+  (`VistaConPie`) y el pie con sólo «Atrás» y la acción; lo que corre muestra su «Parar» al lado del avance. El importador dejó
+  `WizardShell` (era «una estetica MUY diferente») y pasó al `Modal` de la casa con los pasos «Archivo · Revisar» del molde.
+- **Sin hacer:** «en todos lados» va más allá del CRM. Fuera de app/crm no se barrió qué modales reemplazan su contenido o
+  cierran para abrir otro; el patrón a buscar es `setX(null); setY(true)` en un `onClick` y un `Modal` con el título que
+  depende de una vista.
+
+## El buscador de Instagram en la cuenta de Mauricio: Meta conectada SIN Instagram, y ninguna fuente trae la foto (25/10/2026)
+
+**Vive en:** lib/instagram-buscar.ts (`sin-instagram`, `pideConectarMeta`) · app/api/crm/instagram-buscar/route.ts ·
+app/crm/new/InstagramBuscador.tsx · tests: instagram-meta-sin-instagram (3 roturas cazadas), crm-instagram-meta-22-10.
+
+- **El diagnóstico obvio («Meta no está conectada») era el equivocado.** Medido el 25/10 con la conexión del ws de Mauricio
+  (sólo lectura, sin imprimir el token): token PROPIO, la página «Mauricio Bustos Eguia», diez permisos (anuncios, páginas,
+  leads) y **ninguno de Instagram**; la página no devuelve `instagram_business_account`. Meta no da error: OMITE el campo.
+  La ruta trataba «sin token» y «con token y sin Instagram» igual (`sin-conexion`) y la pantalla pedía «Conectar Meta» a un
+  negocio conectado. Ahora son dos estados: `sin-instagram` dice «Tu Meta no tiene Instagram vinculado» y NO ofrece el botón
+  (conectar no lo arregla).
+- **«Conectar Meta» salía DOS veces**: la línea de debajo del campo (al enfocarlo) y la fila de la lista vacía. La fila ya no
+  lo dibuja si la línea de abajo lo ofrece.
+- **La foto con la vista previa NO se arregla en el código hoy.** Las tres fuentes están vacías para ese negocio: Business
+  Discovery pide `instagram_basic` y un Instagram profesional vinculado a la página (el token no lo tiene, y las
+  instrucciones del token del catálogo, lib/metodo-catalogo.ts, no lo piden); la plataforma tampoco (su página no tiene
+  Instagram); Apify y Google no tienen clave en ningún lado. Y el perfil público directo: `web_profile_info` contesta **401**
+  sin sesión incluso desde la PC de Martín (no sólo desde Vercel), y la página del perfil viene sin datos. Lo que lo destraba
+  es de Martín (fue al Ops Center como pregunta): el Instagram de MaKo vinculado a su página + `instagram_basic` en el token
+  de la plataforma (gratis, sólo cuentas de empresa o creador), o una clave de Apify de la plataforma (cualquier perfil
+  público, se paga por lectura, con tope por día ya armado en lib/instagram-perfil-server.ts).
+- **Sin hacer:** sumar `instagram_basic` a los permisos que el catálogo pide para el token de Meta (es de Integraciones:
+  lib/metodo-catalogo.ts, la línea de «Generar nuevo token»).
+
+## «A revisar» corta por el CRM que se mira: la casa del lead, como el tablero (25/10/2026)
+
+**Vive en:** lib/a-revisar-filas.ts (`delCrm`, `crmPedido`) · app/api/datos-sin-marcar-count/route.ts ·
+app/_components/MakoConfirmGate.tsx (`crmDelTablero`) · lib/queries.ts (`funnel_id` en cada pendiente) · tests:
+a-revisar-por-crm (3 roturas cazadas).
+
+- **No cortaba a propósito, y el motivo había vencido.** El comentario decía que el número no se recorta porque «la vista que
+  abre tampoco filtra por embudo»; esa vista (`/crm?pendientes=1`) se borró el 16/10 y «Revisar» abre la ficha en el lugar.
+  Martín, 24/10: «No debo estar en un CRM y que me traigan las notificaciones de otro».
+- **La regla es la CASA del lead** (`leads.funnel_id`), la misma con que app/crm/page.tsx acota los datos sin marcar del
+  tablero (`idsDeLaCasa`): un agregado (fila de `lead_funnel`) no trae sus pendientes al CRM donde está agregado, porque lo
+  que falta es del recorrido de su casa y «Revisar» escribe ahí. El del negocio es la casa de los leads con `funnel_id` null
+  Y de los que tienen el id del funnel por defecto.
+- El panel sólo corta en el tablero (`/crm`, con `?funnel=` o sin él = el del negocio). En la ruta de un lead o en
+  prospectos no hay un tablero: va el negocio entero, como el número del Sidebar.
+
+## Las hojas de la ficha, segunda vuelta: al borde, sin la flechita, y «Ver más» en vez de desplazar (25/10/2026)
+
+**Vive en:** app/crm/lead-view/LeadTabs.tsx · app/crm/lead-view/tabs-que-entran.ts (puro) ·
+app/crm/lead-view/ficha/menu-contextual-ficha.ts (el «⋯», por secciones) · tests: ficha-ver-mas (4 roturas cazadas), y los
+de la ficha que codificaban la flechita, la sangría y el desplazamiento de costado.
+
+- **La flechita de la tab se fue a un «⋯» que ya existía**, y por eso el «⋯» pasó a ser EL menú de la ficha (el mismo del clic
+  derecho, como el de una columna del tablero desde el 22/10): AI Analyst · Lead · Compartir · Esta hoja · Ficha · Eliminar
+  hoja. Eran dos listas (un `Dropdown` propio y el clic derecho) con el mismo trabajo.
+- **«Cambiar nombre» desde el «⋯» necesita llegar a la tab:** el nombre se edita EN la tab (EditableInline). `LeadTabs` recibe
+  `renombrar = { key, n }`, como `irA`: un número por pedido para que dos pedidos seguidos corran el efecto.
+- **«Ver más» mide una copia invisible de la fila** (`.lt-medidor`, con las mismas clases). Dos trampas: la copia tiene que
+  medir a ancho natural (`width: max-content` y `flex: none` en cada hijo): absoluta y sin ancho, se encoge al de la fila y la
+  cuenta cree que entra todo. Y «Nueva hoja» lleva `.lt-accion`, que en el teléfono es `display: none`: mide 0 y la cuenta no
+  le guarda lugar.
+- **La regla de «la última hoja con un desplegable»:** con «Ver más», al menos una hoja va adentro aunque entren todas
+  (si no, «Ver más» tendría sólo «Nueva hoja» y la fila seguiría igual de apretada). La abierta se ve siempre.
+
+## «Ordenar» es de cada COLUMNA, y dos pedidos viejos que el del 24/10 dio vuelta (24-25/10/2026)
+
+**Vive en:** app/crm/orden-kanban.ts (los criterios, puro) · app/crm/menu-contextual-crm.ts (`col_ordenar`, el orden del «⋯»)
+· app/crm/CrmBoard.tsx (`ordenDe`, `enOrden`, `datoParaOrdenar`) · app/crm/filtros-guardados.ts (`ordenes`) ·
+app/crm/traer-seleccion.ts (`presentes`) · tests: crm-orden-columna (4 roturas cazadas), crm-orden-manual, crm-menu-contextual,
+crm-traer-todos.
+
+- **«Ordenar» salió de «Filtrar» y pasó a ser POR COLUMNA** (Martín: «que se pueda ordenar dentro de esos 3 puntos»). Era UN
+  criterio para todo el embudo. Al ir al «⋯» de una columna, el criterio tiene que ser de esa columna (el «Ordenar por…» de una
+  lista de Trello); uno global en un menú de columna haría que ordenar «Ganado» reordene «Lead entrante» sin aviso.
+  - La base sigue igual pero por columna: «Manual» si ESA columna tiene algo arrastrado; si no, la llegada. Arrastrar en una la
+    deja en «Manual» sólo a ella.
+  - Lo guardado antes (`orden` del embudo) se sigue leyendo: «Fecha de llegada» elegida pasa a cada columna; «Manual» no hace
+    falta (ya es la base de las que tienen algo arrastrado).
+  - «Limpiar filtros» ya no toca el orden: un orden no esconde a nadie, no es un filtro. Contradice el «quitar filtros vuelve a
+    lo que arrastré» del 06/10, que vivía porque el orden estaba ADENTRO de «Filtrar». Para volver: «Ordenar › Manual».
+  - Una columna ordenada con algo distinto de su base lleva el ícono de «Ordenar» en azul junto al contador (el criterio en el
+    `title`). Sin eso, un «Nombre (A-Z)» elegido una vez se olvida y la columna parece desordenada.
+- **«Respondió primero» depende de una lectura que llega DESPUÉS del tablero.** El chip «Respondió» es de las inscripciones
+  en automatizaciones (`enAut`, `enAutomatizacionesAction` en tandas de 500), no de un campo del lead. Hasta que esa lectura
+  vuelve, todos valen «no está en ninguna» y la columna se ve por llegada; al llegar, se reacomoda. No es un parpadeo a
+  arreglar con un loader: es el dato que todavía no está.
+- **Lo que no tiene con qué no se ofrece** (`ordenesDeColumna`): «Mayor monto» sin plata cargada, «Fecha de reunión» sin
+  reuniones, «Vence primero» sin plazos o «Respondió» sin nadie en automatizaciones darían el orden de llegada haciéndose pasar
+  por otro. El elegido HOY se ofrece siempre (tildado), aunque ya no tenga con qué: si no, no hay cómo salir de él.
+- **Dos pedidos viejos que el del 24/10 dio vuelta, y no se hicieron por antigüedad:**
+  - Las flechas de la columna iban PRIMERAS («debería estar primero de todos ese botón», 30/09). El 24/10: «lo primero debe
+    ser nuevo lead. Y el editor de columnas abajo del todo». Quedan abajo, en «Columnas», antes de «Eliminar etapa».
+  - «Traer de otro funnel» no listaba a los que ya están («ni siquiera en gris... porque luego ya no me deja los siguientes
+    300», 22/10). El 24/10: «que aparezca todo, pero en gris», como en los grupos de WhatsApp. **Los dos se cumplen a la
+    vez**: los que ya están van DESPUÉS de todos los que se pueden traer, con su propio tope de 300, así que no le quitan
+    lugar a los nuevos (que era lo que el del 22/10 cuidaba).
+- **«Asignar campañas» se fue del editor de etapas** (el paso 2 de «Tipo de funnel»): el mismo `CampanasModal` se abre desde
+  el «⋯» de la columna de entrada. El modo `enLinea` de `CampanasModal` quedó sin quien lo use.
+
 ## Las hojas de la ficha: tres pedidos sobre la misma fila, y el problema era de JERARQUÍA (24/10/2026, noche)
 
 **Vive en:** app/crm/lead-view/LeadTabs.tsx · el desplegable del funnel, app/crm/lead-view/ProductoDelLead.tsx (`seccionesDelArbol`
@@ -366,7 +700,13 @@ entera (con el chat de CRM, que rehacía las tabs). Hubo tres propuestas y un ju
 - **El teléfono (/m)** dice la que hay que mirar primero, cuándo le sale lo próximo o su estado en dos palabras, y un
   punto del color del sello («Sprint · apertura · mañana 09:00 · +1»).
 
-**Sin hacer:** la foto de la FICHA ENTERA en producción, en escritorio y teléfono, cuando haya una sesión en el navegador.
+**La foto en ESCRITORIO, hecha (24/10/2026 ~22:30 ART, claude5, en el Chrome de Martín, sólo mirando):** `/crm/3445?ws=3`, un lead
+de prueba del Cliente de Prueba con una automatización en pausa. La tarjeta sale entre «Posibles duplicados» y «Calificación»: el sello
+de pausa, el nombre, «Automatización en pausa», «Le salió» con su hora, «En pausa» con lo que sigue punteado, «Frenar» en rojo abajo a la
+izquierda y «Ver todas» arriba a la derecha. **Sin hacer: la del TELÉFONO.** `/m/crm/<id>` en un navegador de escritorio devuelve la
+ficha de escritorio: la vista del teléfono la decide el servidor por el navegador o la cookie de vista (`prefiereMovil`, proxy.ts). En el
+Chrome de Martín eso es cambiarle la cookie o la ventana, y no se hizo: va con su teléfono o con Playwright en modo móvil. **De paso:**
+el avatar de ese lead dice «�M» (docs/hallazgos-ui.md, «Las iniciales de un avatar parten un emoji»).
 
 **Vive en:** app/crm/automatizacion-lead.ts (la vista, pura: `estadoDeTarjeta`, `rielDeTarjeta`, `ordenarTarjetas`,
 `tipoDeFreno`, `fechaCorta`, `diaCorto`, las preguntas) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx (el bloque) ·
@@ -11156,3 +11496,93 @@ ve en su WhatsApp Web (lo lleva el chat del CRM). Lo que se aprendió y sirve pa
   línea no oficial. Una búsqueda afuera, si vuelve, va en goteo y a ritmo humano desde su navegador, y frena ante un captcha.
 
 *24/10/2026, chat «Ventas de MaKo» (`claude1`).*
+
+## /crm redirige en su layout, antes del loader: las páginas y sus puertas (25/10/2026)
+
+**Vive en:** `redireccionDelLayoutCrm` y `destinoDelResumen` (app/crm/layout-reglas.ts), app/crm/layout.tsx ·
+tests/crm-redirige-antes-del-loader.test.ts.
+
+- **Por qué un layout en /crm:** `app/crm/loading.tsx` envuelve a TODAS las rutas de /crm, y un redirect de adentro va en el
+  stream (el #310 de los tickets #7 y #9, hallazgos-infra). El único layout que queda afuera es el de la carpeta del
+  loader: uno en `app/crm/revisar/` no habría servido.
+- **No eran tres, eran siete.** El pedido nombraba las tres con `redirect(` a la vista (las dos de «Revisar» y el resumen);
+  /crm, /crm/new, la ficha y prospectos redirigen por sus PUERTAS (`requireCapa`, `guardOnboarding`, `requireRolWs`). El
+  layout repite la puerta de cada una, igual y en el mismo orden. El resumen va SIN `guardOnboarding` a propósito: se
+  abre desde un WhatsApp con la reunión encima.
+- **Regla:** cambiar la puerta de una página de /crm es cambiar también `app/crm/layout.tsx` (el test compara las dos), y
+  una página nueva que redirige o tiene puerta entra a `redireccionDelLayoutCrm` y a `CUBIERTAS`, o el test falla. Las
+  páginas conservan su puerta: navegando entre rutas de /crm el layout no se vuelve a dibujar.
+- **Costo:** una lectura chica más (el estado del onboarding) al ENTRAR a /crm, no entre sus rutas.
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+## La llamada con Leandro: WhatsApp adentro de MaKo, «Completar nombres» por la extensión, y el texto corto (25/10/2026)
+
+**Vive en:** app/crm/CrmBoard.tsx y ficha/FichaPorBloques.tsx (`rutaChatsDeLead`), app/crm/TraerDeGrupoWA.tsx +
+app/crm/usar-extension-fichas.ts, `preguntaDePerfiles` (app/crm/enriquecer-cliente.ts) · tests/crm-whatsapp-en-mako,
+crm-completar-con-extension, enriquecer-lote (6).
+
+- **f15, «WhatsApp» abre el chat de MaKo:** eran CUATRO puertas a wa.me (el clic derecho, el botón de la fila, la vista
+  rápida de la tarjeta y el «⋯» de la ficha), no tres. `/chats?lead=<id>` sirve también para un lead SIN mensajes: si la
+  lista no lo trae, Chats pide esa conversación sola (`claveDelLink`). Lo que no hay que hacer es armar el link con el
+  teléfono: un número de dos leads abriría el de otro.
+- **f12, «Completar nombres» sin la extensión — el arreglo obvio era el equivocado:** el camino del server (pedirle a
+  WhatsApp el nombre que conozca) existía y ERA el problema: completaba «algunos o ninguno» sin decir por qué. Martín quiere
+  que el botón diga «instala la extensión» y arranque solo. La pantalla mira la extensión EN VIVO (`useExtensionFichas`:
+  MutationObserver sobre el atributo de mako-puente.js, y al volver a la pestaña) y arranca con `useEffectEvent` cuando
+  aparece. `completarNombresDeGrupoAction` quedó sin uso en la pantalla; `completarNombresDelGrupo` sigue para la API.
+- **⚠️ Chrome NO inyecta el content script en una pestaña que ya estaba abierta al instalar la extensión**, y
+  extension/background.js no lo repone en `onInstalled` (sólo al emparejar, `pedirEmparejar`). O sea: en la pestaña donde
+  se tocó «Completar nombres», la extensión aparece recién al recargar, y el modal se pierde. Por eso el texto dice «Si no
+  arranca, recarga esta pestaña» y no promete lo que no pasa. **Quedó SIN hacer (de la extensión):** en `onInstalled`,
+  `chrome.scripting.executeScript` de mako-puente.js en las pestañas de hola-mako.com abiertas; con eso arranca sin recargar.
+- **f13, el texto de «Datos de empresa»:** tenía unas 40 palabras (cuántos faltan, cuántos ahora, el cupo del día de la
+  línea, «sólo se completa lo vacío»). Queda en una línea: cuántos ahora de cuántos faltan, cuánto tarda y que no les llega
+  nada. **Regla:** el cupo del día se dice cuando CORTA (`resumenDePerfiles`), no antes de empezar; el título pregunta y el
+  botón dice «Consultar N». El test pone un tope de palabras.
+- **f11, que «Completar» se descubra solo:** el pie del molde lo ofrece después de traer y cuando hay gente que ya está.
+- **f14, una sola pasada en «Datos de empresa» — el diagnóstico obvio era el equivocado:** el Cerebro lo decidió creyendo
+  que el tope de 40 por corrida y 120 por día venía del costo de Apify. No: lo puso él mismo el 24/10 (0553eda9e) porque
+  cada consulta de perfil es tráfico en la red de una línea de WhatsApp NO oficial, que se expone a un baneo; Apify era otra
+  función, revertida. Sacar el tope entero habría expuesto la línea del cliente. Lo que se sacó es el de 40 POR CORRIDA,
+  que sólo partía el trabajo en toques: un toque consulta todo hasta el tope del día. **Regla:** antes de sacar un tope,
+  leer en el código (y en `git log -S`) para qué está; el del día y la espera entre consultas (`ESPERA_PERFIL_MS`) cuidan la
+  línea y no se mueven sin medir. Cuando corta, una línea («tócalo mañana»): mañana no sigue solo, MaKo no hace nada por
+  detrás.
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+## Feedback de Leila, Leandro y Aaron (27/10/2026): mover lento, la ficha que no carga, los topes y «Traer de grupo»
+
+**Vive en:** `MoverEtapaConfirm.tsx` y `lib/nutricion.ts` (mover) · `LeadEditModal.tsx`, `lib/pagina-vieja.ts` y el
+`?abrir=` de `CrmBoard.tsx` (la ficha) · `AccionesLoteLeads.tsx`, `app/api/crm/etiquetas/route.ts`, `campanas-actions.ts`
+y `lib/campana-config.ts` (los topes) · `TraerDeGrupoWA.tsx` · `problemasDePipeline` (lib/pipeline.ts) · tests/
+mover-etapa-rapido, pagina-vieja, crm-lotes-sin-tope, funnel-ganado-intermedio, grupo-wa (12c).
+
+- **«Tarda muchísimo en mover una etapa» (Leila): el diagnóstico obvio era el equivocado.** El tablero ya movía la tarjeta
+  en el acto (también «Agenda» desde el 22/10). Lo que esperaba era la FICHA: «Mover a…» espera a `setLeadStageAction` con
+  la ruedita, y ésta esperaba el PRIMER MENSAJE de la automatización de la etapa (la vía rápida: MaKo escribiéndolo y el
+  WhatsApp no oficial con el HTTP abierto de 1 a 11 s por el tipeo). La sospecha del Cerebro (`moverEtapaEnProducto`)
+  era una de las dos puertas: las dos pasan por `enrolarPorEvento`. Ahora, si lo mueve una persona, el envío sale
+  DESPUÉS de contestar (`after`, lib/nutricion.ts); el aviso de en qué automatización entró no cambia. Detalle en
+  hallazgos-chatbot. ⚠️ Sin medir en vivo todavía: medirlo en su Chrome cuando esté desplegado.
+- **La ficha de un lead recién extraído no cargaba sin F5 (Leila): tampoco era el tablero.** La hipótesis era que el
+  tablero no recargaba su lista; sí la recargaba. Lo que F5 cambia es la VERSIÓN: una extracción dura minutos, con
+  despliegues en el medio, y una pestaña de antes de un despliegue llama a server actions que ya no existen. La ficha
+  (`LeadEditModal`) guarda en memoria las que ya abrió y SE CALLABA el error: las de antes abrían, una recién extraída
+  decía «No se pudo cargar el lead». **Regla:** un error de server action que se calla porque hay algo en memoria esconde
+  una página vieja; la ficha ahora se recarga sola UNA vez en la versión nueva y abre ese lead (`?abrir=`), y si ya se
+  recargó hace un minuto, lo dice con «Recargar». ⚠️ No reproducido en vivo (pide un despliegue en el medio).
+- **Los topes callados de las acciones en lote:** mover y borrar ya iban de a tandas con `pendientes` (24/10). Etiquetar
+  NO: la ruta rechazaba más de 200 y la barra le mandaba todos juntos («quedaron 79 sin etiqueta»). Ahora va de a tandas
+  de 200 (el número vive en `TANDA_ETIQUETAS_LOTE`) y si se corta dice cuántos quedaron sin la etiqueta. Las campañas
+  recortaban en 200 SIN DECIRLO (`sanear` y `MAX_ASIGNADAS`): sin tope por lote, y el mapa con un techo de 5.000.
+  **Regla:** un tope POR PEDIDO es legítimo si la pantalla manda de a tandas; un tope para la persona, no.
+- **«Datos de empresa» del Scraper, por la extensión:** la misma extracción a la vista sobre los que ya están, con TODOS los
+  perfiles en una pasada (sin el tope de 60 de «Extraer» ni el de 120 por día de Evolution). El camino por Evolution, con
+  su cupo, sigue en el server y en la barra del tablero (leads que no vinieron de un grupo).
+- **«Traer de grupo», pulido:** el cartel de éxito dice cuántos, a qué etapa y con qué etiqueta, con «Ver en el CRM»; el
+  pie dice «Están todos tus grupos · N» cuando llega la lista completa; entre los nuevos, primero los que tienen nombre.
+- **La etapa de Ganado usada como paso del medio (MK-19):** la renombraron «Calificado» y cada lead que caía ahí quedaba
+  como CLIENTE (su clave es `ganado`). Los avisos del funnel lo tocaban de costado (el tipo, el orden) sin decir la
+  consecuencia. Ahora se marca si hay etapas abiertas después de ella o si su nombre es de un paso y no de una venta.

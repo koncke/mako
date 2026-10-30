@@ -182,6 +182,142 @@ ahí, nunca copiada en /m (tests/m-calendario.test.ts fija que comun.ts no sea `
 tests/m-calendario.test.ts · tests/calendario.test.ts. Las trampas del teléfono, en hallazgos-mobile.md («Las pantallas
 de More que faltaban»). *15/10/2026, claude3.*
 
+## La estrella de MaKo y «Llamadas»: lo que pedía ya estaba leído, faltaba dónde verlo (24/10/2026, noche)
+
+La llamada con Leandro (Fathom, 24/10; textual en docs/feedback-24-10.md, f07 y f08): «se ve muy como calendario de Google»,
+que muestre lo que ya existe en MaKo (llamadas de ventas, tareas del Plan con deadline) y que esté la estrellita para «che
+Maco, movéme la reunión, agendame tal o tal». Chat «Planes», cuenta 5, a pedido del Cerebro.
+
+- **El diagnóstico obvio («hay que leer las llamadas y las tareas») era el equivocado:** la grilla YA las lee y las prende por
+  defecto (capas «Llamadas» y «Plan», `leerCrm` y `leerPlan`). Lo que faltaba era una forma de verlas que no fuera la de
+  Google: «Llamadas» (app/calendario/ListaLlamadas.tsx), la lista de citas de venta copiada del «Appointment List View» de
+  HighLevel, con Próximas · Pasadas · Canceladas, el estado de cada una y las tareas con fecha al lado. Se entra por
+  «Calendario | Llamadas» arriba a la derecha (como el «Calendario | Tareas» de Google Calendar).
+- **Mover y agendar con MaKo ya existía en la API** (`proponer_mover_reunion`, `proponer_agendar_reunion`,
+  `horarios_libres_dia`, del área CRM): la estrella sólo tenía que estar. Con una llamada del CRM abierta va su lead como
+  entidad, y con una tarea, la tarea (`entidadDelItem`, app/calendario/comun.ts). **Lo de Google NO lleva entidad**: la
+  agenda no pasa por la IA (AGENTS.md, `datosDeGoogle`).
+- **Una reunión cancelada conserva la hora y pierde la fecha**: la grilla la saltea (`not('fecha_junta_X', 'is', null)`), la
+  lista la lee igual para su pestaña (`leerLlamadasDeVenta`). Copiar la consulta de `leerCrm` tal cual dejaba «Canceladas»
+  vacía sin error.
+- **El estado: lo marcado gana sobre la hora** (una que ya asistió es «Asistió» aunque sea de hoy) y «Sin marcar» es la que
+  terminó sin que nadie dijera si vino; con sólo el día, termina cuando termina el día (`estadoDeLlamada`,
+  lib/calendario-llamadas.ts). Qué ya pasó lo decide el reloj del server (`ahora` viaja como prop): con el del navegador,
+  el HTML y la hidratación podían discrepar.
+- **Mirar una pantalla que importa MakoEnLaTab sin levantar la app:** el render estático no sirve (importa CSS y el Link de
+  la casa necesita el router de Next). Se empaquetó con la API de esbuild y un plugin `onResolve` que cambia
+  `@/app/_chat/MakoEnLaTab` y `@/app/_ui/Link` por dos stubs, y se montó con `createRoot` en Chrome (Playwright).
+- **`.gc-pestanas` ya existía** en app/calendario/gc-css.ts (otra pieza): el selector nuevo va con `.gc-que-ver`. Antes de
+  nombrar una clase en una hoja de 170 reglas, `grep`.
+
+**25/10, la segunda tanda (Martín: «implementa todos los feedback... no hagas preguntas»):**
+- **Marcar la asistencia en la fila no es un camino nuevo de escritura:** es `guardarCampoLeadAction(lead, 'asistio_j1')`,
+  el MISMO de la ficha (historial, etapa derivada, Meta, «Deshacer» con `deshacerCampoLeadAction`). Escribir `asistio_jX`
+  con un update suelto saltaba todo eso. **La trampa:** en la R1, todo lo que no sea «asistió» BORRA el calificado
+  (`updateLead`: `asistio_j1 !== true` → calificado = null), también DESMARCAR. Por eso la lectura trae el calificado y la
+  lista pregunta antes (`avisoAlMarcar`). Sólo se marca una reunión que ya empezó (`sePuedeMarcar`).
+- **«Llamadas» en el teléfono** (app/m/calendario/LlamadasM.tsx) usa las MISMAS funciones puras que la computadora (el
+  estado, las pestañas, `rotuloDelDia`, `TONO_ESTADO_LLAMADA`, en lib/calendario-llamadas.ts) y se entra por el selector de
+  vistas (Día · Agenda · Llamadas). La asistencia se marca en la ficha (un desplegable en una fila de 44 px no se toca bien).
+  El número azul va sólo en lo que espera algo (las pasadas sin marcar), como pide la guía del teléfono.
+- **Debajo de 1100 px las tareas bajan** debajo de la tabla y la columna entera scrollea (antes se escondían).
+- **f09, la recarga: SIN SÍNTOMA, no se arregla a ciegas.** El Cerebro leyó el tramo entero de la llamada (11:04-15:11):
+  Martín dice «ahí darle a recargar porque algo está...» y en el acto pasa a otra cosa; nadie dice qué se veía mal ni qué
+  cambió al recargar (docs/feedback-24-10.md: «no es un bug: no hay síntoma»). Queda medido, por si vuelve con un síntoma:
+  leer Google hace el refresco del token (8 s), la lista de calendarios (10 s) y tandas de 4 calendarios con 10 s cada una,
+  en serie: con 9 calendarios, ~48 s antes de dibujar. Si el síntoma es ése, la salida es un presupuesto TOTAL para Google
+  (lo que no llegue, a `fallaron`, que ya se muestra).
+
+**Sin hacer:** «Se ve muy como Google» en la GRILLA sigue a propósito (Martín, 25/10: «lo tengo que personalizar»). **Vive
+en:** app/calendario/ListaLlamadas.tsx · app/calendario/Pestanas.tsx · app/calendario/comun.ts (`entidadDelItem`) ·
+app/m/calendario/LlamadasM.tsx · lib/calendario-llamadas.ts · lib/calendario.ts (`leerLlamadasDeVenta`,
+`leerTareasConFecha`) · tests/calendario.test.ts.
+
+## Un lead con emoji en el nombre tiraba /calendario entero (27/10/2026, ticket #10)
+
+**Síntoma:** con el lead de prueba del ws3 (su nombre empieza con un emoji), «Llamadas» se caía con React #418.
+**Causa:** la inicial de la fila salía de `l.nombre.trim().charAt(0)`, que es la primera UNIDAD UTF-16: con «🧪 Lead», media
+pieza del emoji. El HTML del server no puede llevar medio emoji (sale «�») y el navegador sí lo tiene: React ve dos textos
+distintos al hidratar y tira la pantalla, no sólo el avatar.
+⚠️ **Por qué sobrevivió al barrido del 25/10:** la guarda de toda la app (tests/iniciales-con-emoji.test.ts) busca las formas
+de las copias viejas (`split(/\s+/).map((w) => w[0])`, `${p[0][0]}${p[1][0]}`), no `charAt(0)` ni `trim()[0]`. Una inicial de
+UNA letra no tenía esa forma.
+**Regla:** la inicial sale de `iniciales(nombre, 1, '·')` (lib/unicode-seguro.ts). `tests/calendario-classroom-iniciales.test.ts`
+barre el Calendario y el Classroom (escritorio y teléfono) buscando cualquier primera unidad recortada o sola en mayúscula;
+`charAt(0).toUpperCase() + x.slice(1)` (poner la mayúscula) no rompe y no se marca. **Vive en:** app/calendario/ListaLlamadas.tsx.
+
+## Una Publicación se programa en la red, por Zernio (28/10/2026)
+
+Martín a Teo (28/10, 00:23:08): «publicás reels e historias desde el Calendar los días y a la hora que elijas». El Cerebro:
+la decisión que este documento esperaba («ESPERA UNA DECISIÓN de Martín», abajo) es ese pedido. Chat «Zernio y CAPI».
+
+**Vive en:** `lib/calendario-publicar-reglas.ts` (puro: si se puede, el cuerpo del post, la ruta, el estado) ·
+`lib/calendario-publicar.ts` (la base, el archivo y Zernio) · `lib/zernio-publicar.ts` (los posts de Zernio, el molde de
+`8d16c6ff^:lib/zernio.ts`) · `app/calendario/PublicarEnRed.tsx` (dentro del modal) · «Crear → Programar las publicaciones
+listas» (en serie) · la operación `programar_publicacion` · mig 0342 · tests/calendario-publicar*.test.ts.
+
+- **La regla:** una Publicación con su cuenta (las conectadas en Zernio: Instagram, Facebook, TikTok, YouTube), su archivo y
+  su hora se programa con `POST /v1/posts` y sale sola. Lo programado no se mueve, no se borra ni se le cambia el archivo
+  sin cancelar antes (saldría igual a la hora vieja). Al abrir el Calendario se relee lo que ya tenía que salir.
+- ⚠️ **Las columnas nuevas se leen APARTE** (`leerPublicaciones`, que tolera que no existan). Sumarlas a `COLS` rompía la
+  lectura entera del Calendario en una base sin la 0342 (la trampa de docs/hallazgos-pagos.md, «Una columna nueva en un
+  select explícito rompe la lectura entera sin la migración»). Y el «Deshacer» de un borrado las devuelve aparte del INSERT.
+- ⚠️ **El estado de la red va APARTE de `estado`** (planeado | hecho): cambiar ese CHECK obligaba a tocar el «Deshacer», que
+  inserta una lista fija de columnas. Cuando Zernio dice «publicada», el evento además pasa a `hecho`.
+- ⚠️ **La hora es un instante:** `scheduledFor` va con su Z (Zernio ignora `timezone` si la hora trae zona). Un evento «todo
+  el día» NO se programa: nace a las 00:00 del negocio y saldría a la medianoche.
+- ⚠️ **La media se firma hasta 7 días DESPUÉS de la hora:** Zernio la lee al publicar, días después de programarla. Una firma
+  corta (la de 12 h de `wa-media`) muere antes. Bucket privado `ig-media` (mig 0136, ya en el Reset), ruta
+  `<ws>/calendario/<evento>/<al azar>` armada por el server y validada por segmentos.
+- **Una vez:** el evento se reclama (`programando`, compare-and-set) antes de pedirle a Zernio, con `x-request-id`; un 409
+  de Zernio con `existingPostId` es el post que ya estaba, no un error.
+- ⚠️ **El diagnóstico obvio era el equivocado: «si Zernio falla, `fallo` y se reprograma»** (la verificación del 28/10,
+  `C:/dev/revisiones/2810-verificacion-zernio-bef5bfcd3.md`). Si la conexión se corta o Zernio da 5xx, el post PUEDE haber
+  quedado creado; reprogramar con un `x-request-id` nuevo lo duplica en la red (y el 409 no salva: no está documentado que
+  cubra un pedido nuevo con el mismo contenido; la línea vieja «el 409 de las 24 h» no se sostenía). La regla: sin respuesta
+  (no `ZernioError`, o status 0 o ≥500) → `dudosa`, con el `x-request-id` y la hora del PRIMER envío guardados en
+  `publicacion_intento` (`<id>@<ms>`, `anotarIntento`). Dentro de 4 minutos **desde el primer envío** se reintenta el MISMO
+  pedido (la idempotencia de Zernio devuelve el que había creado); después NO se reprograma: alguien mira en Zernio y, si no
+  está, «No quedó programada» la pasa a `fallo`; si está, «Ya lo resolví en Zernio» la suelta (sin la cuenta, para que
+  «Programar las listas» no la duplique). Un `programando` de más de 10 minutos (la función murió en el medio) pasa a
+  `dudosa` en la relectura, SIN el intento. Una `dudosa` no se mueve, no se borra ni se cancela.
+- ⚠️ **La ventana se cuenta desde el PRIMER envío, no desde la última anotación** (la segunda verificación, 29/10,
+  `C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md`). Contarla desde `updated_at` parecía lo mismo y
+  no lo era: la relectura de un trabado y cada reintento cortado renuevan `updated_at`, así que «Reintentar» a los 12 minutos
+  repetía un `x-request-id` que Zernio ya no recordaba (~5 min) y salían DOS posts. Y en el reintento, sólo el post resuelve: un
+  429 o un 422 dicen que Zernio no creó ESE pedido, no que el primero no exista (si el `x-request-id` se porta como su
+  Idempotency-Key, el 422 «mismo key, cuerpo distinto» sale SIEMPRE: la media se firma de nuevo en cada intento). Sigue `dudosa`.
+- ⚠️ **El reclamo exige que el evento no haya cambiado desde que se leyó** (`.eq('updated_at', …)`). La condición en la escritura
+  de mover y borrar cerraba un orden de la carrera, no el otro: programar leía, otro pedido lo movía o le cambiaba la cuenta
+  (todavía sin publicación, así que la condición lo dejaba), y el reclamo ganaba con lo viejo. Regla para código nuevo: todo lo
+  que escribe `calendario_eventos` renueva `updated_at` (no hay trigger).
+- **Una programada con OTRA clave** (o sin clave) ni se relee ni se cancela desde MaKo: la pantalla lo dice y ofrece «Ya lo
+  resolví en Zernio». Tildar, mover y borrar dicen el porqué de su estado (`textoDeBloqueo`): «se tilda sola cuando sale» es
+  cierto sólo de una programada con la clave de hoy.
+- ⚠️ **La cuenta es del NEGOCIO, no la que manda el navegador.** `guardarPublicacion` y `programarPublicaciones` validan la
+  cuenta contra `conexionesViaZernio(ws)` (filtradas por el perfil del negocio) y la red sale de la cuenta. Antes se guardaba
+  cualquier `acc_…` que llegara: con la cuenta prestada de la plataforma (un perfil por negocio en la MISMA cuenta de Zernio)
+  eso publicaba en la cuenta de otro negocio. Si las cuentas no se pueden leer, no se programa a ciegas. El «Deshacer» de un
+  borrado devuelve el archivo y el texto, NUNCA la cuenta, y si el evento ya había vuelto (un segundo «Deshacer», 23505) no
+  escribe nada: el segundo pisaba el archivo y el texto de uno ya programado otra vez.
+- ⚠️ **Un 404 de Zernio con OTRA clave no es «no está».** Un post es de la cuenta de Zernio con cuya clave se creó; si el
+  negocio cambia de clave (pasa: el ws 11 cambió de cuenta, el ws 1 va a dejar la de la plataforma), el post viejo da 404 y
+  sigue programado allá. Se guarda la huella de la clave (`publicacion_clave`, sha256 corto, nunca la clave): con otra clave,
+  cancelar da error y la relectura no la da por perdida.
+- ⚠️ **La condición «no espera a Zernio» va EN la escritura**, no en una lectura antes (`sinPublicacionEnCurso` en
+  `lib/calendario.ts`, dos pasos: `is null` y `in (publicada, fallo)`, porque el PostgREST de los tests no entiende un `or`
+  con `in`). Leer «libre» y escribir sin condición movía o borraba una recién programada por otro pedido.
+- **El «sí» de la API lleva la HUELLA** de lo que se resumió (la hora, la cuenta, el archivo, el texto): el «sí» puede llegar
+  horas después; uno que cambió no se programa con el resumen viejo. El resumen dice la cuenta (`@usuario`), no sólo la red.
+- **No medido:** el cuerpo para TikTok y YouTube (`platformSpecificData`, el `title`) sale del código viejo y de la
+  documentación, sin una cuenta real. En YouTube el título del evento es el título público (tope 100). La primera publicación
+  real la confirma el Cerebro antes (es producción). Tampoco está medido con una cuenta real que el `x-request-id` de Zernio
+  devuelva el mismo post al repetir el pedido (lo dice su documentación; el test lo supone).
+- **Sin hacer:** el webhook `post.published`/`post.failed` (hoy no se suscribe: el estado se relee sólo cuando alguien abre el
+  Calendario); la media que queda en `ig-media` al borrar un evento (el «Deshacer» la necesita; falta barrerla); por WhatsApp
+  no se sube el archivo (la operación programa lo que ya está armado). La mig 0342 (con `publicacion_intento`,
+  `publicacion_clave` y el estado `dudosa`) NO está aplicada: la pide el Cerebro.
+
 ## Lo que quedó SIN hacer
 
 - **Las TAREAS de Google** (decisión de Martín del 14/10: después de la aprobación de la verificación). Piden el permiso
@@ -201,8 +337,9 @@ de More que faltaban»). *15/10/2026, claude3.*
 - **La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google (las sesiones de Customer Success son
   grabaciones pasadas, no turnos futuros). Si CS agenda sesiones en MaKo, se suma como capa. Vive en `lib/calendario.ts`.
 - **Las sesiones en vivo de la comunidad del curso** (`comunidad_eventos`) no se leen todavía: son otra capa posible.
-- **Publicaciones de Instagram, TikTok, YouTube… programadas de verdad** (pedido del 14/10/2026: «poder gestionar
-  publicaciones de Instagram, TikTok, YouTube, etc»). ESPERA UNA DECISIÓN de Martín: el 06/10 sacó el programador de
+- ~~**Publicaciones de Instagram, TikTok, YouTube… programadas de verdad**~~ **HECHO el 28/10/2026**: ver «Una Publicación se
+  programa en la red» (arriba). Lo que decía antes: (pedido del 14/10/2026: «poder gestionar
+  publicaciones de Instagram, TikTok, YouTube, etc»). ESPERABA UNA DECISIÓN de Martín: el 06/10 sacó el programador de
   publicaciones de la tab Instagram («C: sacar la tab», 0 filas en `contenido_posts` en toda su historia) y
   `tests/sin-instagram.test.ts` fija que Zernio se habla SÓLO desde el canal de Automations. El lib de hoy
   (lib/zernio.ts) no tiene posts; el de antes sí (`createPost`/`getPost`/`deletePost` en `8d16c6ff^:lib/zernio.ts`,
@@ -228,3 +365,129 @@ de More que faltaban»). *15/10/2026, claude3.*
 `lib/plan-recurrentes-fechas.ts` · `lib/agenda-link.ts` · `lib/calcom.ts` (`linkDeReservaCalcom`) · `app/calendario/`
 (`AgendarLlamada.tsx`, `PlantillasSemana.tsx`) · `lib/api-mako/areas/calendario.*` · `lib/tab-onboarding-catalogo.ts` ·
 `tests/calendario.test.ts`. *13-14/10/2026, claude2.*
+
+## «Publicar» desde el Video Editor, el Image Editor y el Copywriter: un solo camino, el del Calendario (29/10/2026)
+
+Martín, por el Cerebro: «que con las funcionalidades que ya creamos puedan publicar en Facebook, TikTok, LinkedIn…». El Cerebro:
+«El botón lleva lo exportado (el video, la imagen o el texto) al Calendario con el evento ya armado, para elegir la red, el día y
+la hora. Un solo camino de publicación».
+
+**Vive en:** `lib/calendario-desde-crear.ts` (puro: qué evento se arma, qué archivo vale, el link) · `publicacionDesdeCrearAction`
+(app/calendario/actions.ts) · `llevarAlCalendario` (app/calendario/publicar-desde-crear.ts, lo comparten los tres) · `?evento=`
+(app/calendario/page.tsx → CalendarioApp) · el Video Editor (`PublicarButton`, `DialogoExportar publicar`, `Exportacion { guardar }`)
+· el Image Editor (DownloadDialog, «Publicar en redes») · el Copywriter (EditorGuion, el menú «⋯») · tests/publicar-desde-crear.test.ts.
+
+- **La regla: ningún editor habla con la red.** Arman una Publicación «planeada» para MAÑANA a las 10:00 (video → reel; imagen y
+  texto → post), suben el archivo con la MISMA subida firmada del Calendario (`subidaDelArchivo` + `subirConProgreso`) y abren
+  ese evento (`/calendario?…&evento=<id>`). La red, la cuenta, el día, la hora y «Programar» son del Calendario, con los límites de
+  cada red (`motivoParaNoProgramar`). Un test barre los tres editores: ninguno importa Zernio ni `programarAction`.
+- ⚠️ **El video exportado no volvía:** `Exportacion` lo escribía en la carpeta de «Exportar a» y devolvía sólo los NOMBRES. Ahora
+  devuelve el blob del video, y con `{ guardar: false }` (el modo «Publicar») no deja un archivo en la carpeta de la persona. El
+  modo publicar exporta SÓLO el video y en MP4 (lo que aceptan todas las redes), con el codec que el navegador puede; ya
+  exportado en MP4 o MOV, «Publicar en redes» lleva el mismo video sin volver a exportar.
+- ⚠️ **Los ids de evento no son uuid** (`ev` + base 36, `nuevoId` de lib/calendario.ts): la primera validación del `?evento=` los
+  rechazaba todos. El patrón lo fija el test contra `nuevoId`.
+- ⚠️ **`toLocaleString('es')` no separa los miles de un número de 4 cifras** («2200», no «2.200»: la regla de la RAE que trae
+  ICU). Para un texto de pantalla, a mano.
+- **Un texto de más de 2.200 no se corta en silencio:** el pie queda vacío y el texto entero va a las notas del evento, con el aviso
+  arriba («recórtalo y pégalo en «Texto de la publicación»»). Los topes de cada red (X 280, Threads 500) los dice el Calendario al
+  elegir la red.
+- **El Image Editor publica UNA página en JPG, PNG o WEBP:** una Publicación del Calendario lleva un archivo. El botón dice por qué
+  está apagado. **El Copywriter nunca publica desde el editor compartido** (quien edita por un link no tiene Calendario).
+- ⚠️ **Doory (el Image Editor) no marca «use client»:** su diálogo no puede importar un VALOR de app/_ui/Link.tsx
+  (tests/frontera-use-client.test.ts: falla al usarlo, en runtime). Ahí se navega con `conWs` + `wsDeBusqueda` de lib/ws-tab.ts
+  (el mismo `?ws=` que pondría el router). Lo vio la barredora, no el test propio.
+- ⚠️ **Una corrida de tests-afectados con la RAM al límite (0,1 GB libre) da «112 rojos» que corrieron 0 tests:** el grupo
+  compartido se murió entero. No son fallas: se repiten en tandas de 14 por con-turno (ahí apareció el único rojo de verdad).
+- **Si la subida falla, la Publicación ya existe:** las dos salidas con error devuelven su link («quedó en el Calendario sin el
+  archivo: súbelo ahí»), para que reintentar no arme otra.
+- **Sin hacer:** un carrusel (varias imágenes en una publicación); publicar un texto SOLO (el Calendario pide un archivo para
+  programar: el texto del Copywriter llega sin archivo y ahí se sube la imagen o el video). **Sin verificar en el navegador:** no se
+  levanta `next dev` local; las capturas las saca el Cerebro en producción, en el ws3, después del deploy.
+
+## Publicaciones que se repiten: un molde, una regla, y el cron que crea y programa cada vez (29/10/2026)
+
+La llamada de Martín con una agencia de 27 clientes (29/10, [19:25]): «podés programarte publicaciones recurrentes». El Cerebro: un
+«Repetir» en el evento, la regla en `calendario_eventos` (mig 0349), un cron que cree y programe por Zernio, y que el Calendario dibuje
+las próximas.
+
+**Vive en:** `lib/calendario-recurrentes-reglas.ts` (puro) · `lib/calendario-recurrentes.ts` (`guardarRepeticion`, `seriesParaDibujar`,
+`generarRecurrentes`) · `app/api/cron/calendario-recurrentes` (cada 6 horas) · `app/calendario/PublicarEnRed.tsx` («Repetir») ·
+mig 0349 · tests/calendario-recurrentes.test.ts.
+
+- **La regla es la del Plan** (RRULE, `lib/plan-recurrentes.ts`: la frase en español, los presets, `ocurrenciasEntre` con su ancla), no
+  una nueva. La Publicación con la regla es el MOLDE y la primera vez; cada vez nace igual (la hora, la cuenta, el texto) y se
+  programa por `programarPublicaciones`, el mismo «Programar» con los límites de cada red. Ninguna otra puerta a la red.
+- ⚠️ **El archivo se COPIA, no se comparte:** `rutaValida` exige `<ws>/calendario/<evento>/…`, así que el archivo del molde no
+  pasaba para otra fila, y compartirlo dejaba que borrar una vez se llevara el del molde. Cada vez nace con su copia (Storage `copy`).
+- **Nada hacia atrás y dos días adelante:** con el cron caído, la vez que pasó no se publica tarde; la de hoy cuya hora pasó, tampoco.
+  Cada 6 horas (no una vez por día), y como crea dos días adelante ninguna llega justa. ⚠️ Una vez que NACIÓ y cuyo «Programar» falló
+  NO se reintenta sola: queda en el Calendario con su motivo (la versión anterior de esta línea decía que se reintentaba; no era cierto).
+- ⚠️ **Lo que el cron atendió se anota en el MOLDE (`repetir_hasta`), no se cuenta por las filas que existen.** La primera versión
+  contaba las veces por las hijas que había: borrar la de mañana la hacía RENACER y programarse sola, y moverla al sábado dejaba las
+  dos (revisión de privacidad del 29/10, A1). Ahora nunca se crea un día en o antes de la marca, y la capa «Se repite» tampoco lo
+  dibuja. La marca se escribe ANTES de programar. Dos pasadas a la vez, igual: índice único (`workspace_id, serie_de, inicio`); la
+  segunda choca, borra su copia y no programa.
+- ⚠️ **Una vez de una serie NO lleva regla** (A2): su «Repetir» decía «No se repite» y, al elegir otra, armaba una segunda serie con la
+  misma cuenta, archivo y hora: dos posts por día, para siempre. `guardarRepeticion` lo rechaza, la base también
+  (`calendario_eventos_vez_sin_regla`), y la pantalla muestra «se cambia en la primera» con el link al molde.
+- ⚠️ **La regla se CONFIRMA y pide el molde completo, TEXTO incluido** (M5): el Select guardaba al tocarlo y un borrador sin el pie
+  salía así cada día. Lo que ya nació (hasta dos días) sale como está: un cambio en el molde vale para las que nazcan después, y
+  sacar la regla no cancela las ya programadas. La pantalla lo dice; no se automatizó.
+- ⚠️ **El «Deshacer» devuelve el lugar en la serie** (re-verificación del 29/10, N1 y N8). `restaurarEvento` insertaba sólo las
+  columnas de `COLS`, y `serie_de` no está ahí (no puede: sin la 0349, PostgREST rechazaría la lectura entera). Una vez borrada y
+  devuelta volvía SUELTA: «Repetir» decía «No se repite», `guardarRepeticion` la aceptaba y el check de la base tampoco la frenaba
+  (`serie_de` era null): dos series, dos posts por día. **El A2 estaba arreglado y se reabría por otra puerta.** Ahora `borrarEvento`
+  lee aparte su `serie_de` y su `repetir_hasta` (`EventoBorrado.serie`) y el Deshacer los escribe EN el insert, validados (lo manda el
+  navegador): el molde tiene que ser un evento del negocio; si ya no está, la vez vuelve suelta (su serie se borró); si no se puede
+  leer, el Deshacer tira. El molde devuelto trae su marca y NO su regla (se vuelve a poner con su confirmación). **Regla:** una columna
+  que guarda una identidad (de qué serie es, hasta dónde se atendió) entra al Deshacer aunque no sea de las de `COLS`.
+- ⚠️ **Un 409 de Zernio no se comparte entre dos publicaciones** (M6, sospecha sin medir): el 409 es «el mismo contenido en 24 h» y
+  devuelve el post que ya estaba. Las veces iguales de una serie se programan juntas: si el post ya es de OTRA publicación, ésta queda
+  en `fallo` con su motivo, en vez de quedarse con el mismo `post_id` (una sola salía, y cancelar una cancelaba la de las otras).
+- ⚠️ **Lo que se dibuja es desde AHORA:** la primera versión dibujaba como «próximas» las veces de la semana que ya habían pasado sin
+  nacer, que no iban a salir nunca. Las próximas van en la capa «Se repite», de SÓLO LECTURA (`fuente: 'plan'`, como las recurrentes
+  del Plan), y llevan al molde con `?evento=`.
+- ⚠️ **Sin la mig 0349 el Calendario sigue andando:** la regla se lee y se escribe APARTE (`COLS` no la nombra; un test lo fija). Si
+  la lectura principal pidiera `repetir`, PostgREST rechazaba la consulta ENTERA y el Calendario quedaba vacío hasta la migración.
+- **Sin hacer:** «Personalizado…» (sólo los presets del Plan: todos los días, cada semana, cada mes, cada año, días laborables; una
+  regla puesta por la API se muestra igual); cambiar UNA vez sin tocar el molde (cada vez es una Publicación normal: se edita como
+  cualquiera); avisar en el Calendario que un molde está incompleto (hoy sólo lo cuenta el log del cron); corregir el molde y que se
+  corrijan las ya programadas; cancelar las programadas al sacar la regla o borrar el molde; reintentar una vez cuyo «Programar»
+  falló (B5); `rutaValida` como segunda red al copiar el archivo del molde (B6); avisar al BORRAR el molde que lo ya programado sale
+  igual (N7: el aviso está sólo en «Que no se repita»). ⚠️ **Sin medir (N2):** si el 409 de Zernio es por contenido, una serie diaria
+  que programa 2 o 3 veces iguales juntas sale una de cada tres y las otras quedan en `fallo` para siempre (no se reintentan): se
+  publica de MENOS, nunca de más. Medirlo con Zernio real antes de prometer «todos los días». **La mig 0349 está escrita, NO aplicada** (la pide el
+  Cerebro; se le sumaron `repetir_hasta` y `calendario_eventos_vez_sin_regla` el 29/10 a la noche, antes de aplicarla). No se vio
+  en un navegador.
+
+## Las publicaciones que se repiten: una vez borrada renace, y una copia puede abrir otra serie (29/10/2026, Integración)
+
+> **Estado (29/10 noche):** arreglado en `zernio-token-2910` (`a745e4eb3`): `repetir_hasta` en el molde, ninguna regla en una vez
+> (también en la base), confirmación y texto obligatorio, y el 409 que no se comparte. Ver la entrada de las repetidas, arriba.
+> La 0349 cambió (todavía NO aplicada).
+
+La misma revisión (`ce56bd693`, `lib/calendario-recurrentes.ts`) encontró dos ALTA que sólo corren con la mig 0349 aplicada. Por
+eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregladas** (lo acordó el Cerebro el 29/10).
+
+- ⚠️ **Contar las veces por las filas que existen hace renacer la que se borró.**
+  - Si la persona borra la de mañana, el cron la vuelve a crear y la programa en menos de 6 h.
+  - Si la mueve al sábado, salen las dos.
+  - **Regla:** la serie recuerda qué veces ya nacieron, aunque la fila no esté.
+- ⚠️ **«Repetir» en una copia (`serie_de` lleno) arma una segunda serie: dos posts por día.** `guardarRepeticion` no mira
+  `serie_de`, y la pantalla ofrece «Repetir» en cualquier Publicación.
+- **Medias:**
+  - La regla se guarda al tocar el Select, sin confirmar.
+  - Un molde sin texto se programa igual.
+  - Corregir, sacarle la regla o borrar el molde no cambia las hasta 3 veces ya nacidas.
+  - Sospecha, sin medir: si Zernio contesta 409 por contenido repetido, todas las veces quedan con el mismo post, y cancelar una
+    cancela las otras (`lib/zernio-publicar.ts`).
+- **La re-verificación de `da3cff9f7`** (Integración, 30/10, `C:/dev/revisiones/2910-reverificacion-zernio-leads-da3cff9f7.md`, con
+  pruebas en `2910-reverif-zernio-pruebas/`) dio «entra con bajas»: A1, A2, M5 y M6 están y funcionan. **La 0349 sigue sin
+  aplicarse** por esto:
+  - ⚠️ **N1: el A2 vuelve por «Deshacer».** Al deshacer el borrado de una vez de la serie, `restaurarEvento`
+    (`lib/calendario.ts`) la devuelve sin `serie_de`. «Repetir» la acepta, el check de la base no la frena, y salen dos posts
+    por día. **Regla:** lo que restaura una fila restaura TODAS sus columnas, no las que conocía cuando se escribió.
+  - **N8:** el «Deshacer» del molde puede hacer renacer veces borradas.
+  - **N7:** borrar el molde no avisa que lo ya programado sale igual.
+  - **N2 (sospecha):** un 409 de Zernio por contenido publica DE MENOS en una serie diaria. Nunca publica dos veces.

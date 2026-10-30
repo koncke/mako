@@ -25,19 +25,21 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
-test('1. el criterio: con computadora o en la plataforma, nada; sin computadora, bloquea (aunque tenga su clave); en el teléfono, el aviso', () => {
-  assert.equal(appDeEscritorio({ plataforma: false, conComputadora: true, telefono: false }), 'tiene');
-  assert.equal(appDeEscritorio({ plataforma: true, conComputadora: false, telefono: false }), 'tiene', 'la plataforma contesta con su IA');
-  assert.equal(appDeEscritorio({ plataforma: false, conComputadora: false, telefono: false }), 'bloquea');
-  assert.equal(appDeEscritorio({ plataforma: false, conComputadora: false, telefono: true }), 'en-la-computadora', 'en el teléfono no se instala: no bloquea');
-  assert.equal(appDeEscritorio({ plataforma: false, conComputadora: true, telefono: true }), 'tiene', 'con una conectada, el teléfono chatea');
+test('1. el criterio: con computadora, nada; sin computadora, bloquea (aunque tenga su clave, también en la plataforma); en el teléfono, el aviso', () => {
+  assert.equal(appDeEscritorio({ conComputadora: true, telefono: false }), 'tiene');
+  // 25/10/2026 (Martín: «Ni en la cuenta de Mauricio ni en la mia... me sigue dejando enviar mensajes... No debería»): el negocio
+  // de la plataforma ya no queda afuera. El recorrido de todos los chats, en tests/app-de-escritorio-todos-los-chats.test.ts.
+  assert.equal(appDeEscritorio({ conComputadora: false, telefono: false }), 'bloquea');
+  assert.equal(appDeEscritorio({ conComputadora: false, telefono: true }), 'en-la-computadora', 'en el teléfono no se instala: no bloquea');
+  assert.equal(appDeEscritorio({ conComputadora: true, telefono: true }), 'tiene', 'con una conectada, el teléfono chatea');
 });
 
 test('2. el servidor lo dice con `?suIA=1`; sin poder saberlo no tapa nada; bloqueado, se destraba solo', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   assert.match(ruta, /const \[conectada, cuentas, app\] = await Promise\.all\(\[conSuIA\(persona\), cuentasDeIA\(persona\)\.catch\(\(\) => \[\]\), laApp\(persona, req\)\]\);\n\s*return json\(\{ ok: true, conectada, cuentas, app \}\);/);
   const f = ruta.slice(ruta.indexOf('async function laApp('), ruta.indexOf('async function conSuIA('));
-  assert.match(f, /const conComputadora = !plataforma && \(await pcDe\(persona\.ws, persona\.actor\)\) != null;/, 'la computadora de ESTA persona');
+  assert.match(f, /const conComputadora = \(await pcDe\(persona\.ws, persona\.actor\)\) != null;/, 'la computadora de ESTA persona (también en la plataforma)');
+  assert.doesNotMatch(f, /wsSuperAdmin/, 'la plataforma volvió a quedar afuera');
   assert.match(f, /const telefono = tipoDeDispositivo\(req\.headers\.get\('user-agent'\), req\.headers\.get\('sec-ch-ua-mobile'\)\) !== 'escritorio';/, 'la misma pregunta del proxy');
   assert.doesNotMatch(f, /claveDelCreditoAsignado|negocioConSuIA/, '«Bloqueá igual»: su clave o el crédito no lo destraban');
   assert.match(f, /\} catch \{\n\s*return 'tiene';/);
@@ -59,7 +61,8 @@ test('3. sin la app, LA CAJA MISMA no deja escribir: «Instalar MaKo» en el lug
   assert.match(caja, /alFinal=\{angosta \|\| bloqueada \? null : conectar\}/, 'sin «Conectar tu IA»: sin la app no destraba nada');
   assert.doesNotMatch(p, /<AppPrimero/, 'el cartel que reemplazaba la caja se fue');
   const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
-  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada, sin la portada ni sus arranques');
+  // Vacía y bloqueada: sin la portada ni sus arranques, PERO con la apertura (29/10/2026: sus botones no escriben nada).
+  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada: la apertura, sin la portada');
   assert.match(p, /\{k\.app === 'en-la-computadora' && <FranjaApp \/>\}/, 'en el teléfono, el aviso arriba de la caja');
   // La caja: el campo apagado con la frase, y en el lugar del botón el que la destraba.
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
@@ -70,8 +73,10 @@ test('3. sin la app, LA CAJA MISMA no deja escribir: «Instalar MaKo» en el lug
   const pieza = sinComentarios(leer('app/_chat/AppPrimero.tsx'));
   assert.match(pieza, /import \{ DescargarMaKo, avisoAlAbrir \} from '@\/app\/integraciones\/CuentasYDispositivos';/);
   assert.doesNotMatch(pieza, /\/api\/ia-pc\/descargar|navigator\./, 'la descarga y la detección no se reescriben');
-  assert.match(pieza, /<DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick=\{\(\) => setDescargado\(true\)\}>/);
-  assert.match(pieza, /<button type="button" className="co-instalar" onClick=\{onConectar\} title=\{avisoAlAbrir\(\)\} data-app-primero="conectar">/);
+  // El «ya lo descargó» es el compartido de la página (29/10/2026): la apertura y la caja pasan juntas a «Ya lo instalé».
+  assert.match(pieza, /const descargado = useDescargado\(\);/);
+  assert.match(pieza, /<DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick=\{marcarDescargado\}>/);
+  assert.match(pieza, /<button type="button" className="co-instalar" onClick=\{onConectar\} title=\{avisoAlAbrir\(\)\} data-app-primero="conectar" data-recorrido="mk-conectar">/);
   assert.match(pieza, /Ya lo instalé: conectar/);
 });
 
@@ -82,6 +87,10 @@ test('4. el Uso: el esqueleto mientras llega el estado; sin ninguna computadora,
   // desktop"»): sin computadora, ni cuentas ni «Nueva cuenta».
   assert.match(t, /\{vacia && !eligiendo && !tutorial && <InstalarDesktop onConectar=\{\(\) => abrirTutorialEn\(4\)\} \/>\}/);
   assert.match(t, /\{\(estado \|\| leido\) && !vacia && !eligiendo && !tutorial && \(\n\s*<>\n\s*<NuevaCuenta /, '«Nueva cuenta» recién con el estado, y no sin computadora');
+  // 25/10/2026 tarde, LO POSTERIOR GANA (Martín: «elimina las IA dentro de las integraciones, para eso tenemos el bloque que dice
+  // "Tus cuentas de IA"»): las claves de API salieron de la grilla y viven acá, así que «sin computadora, SÓLO el botón» pasó a
+  // «sin computadora, el botón Y las claves». Sin ellas, quien no tiene MaKo Desktop no tendría dónde pegar su clave.
+  assert.match(t, /\{\(estado \|\| leido\) && !eligiendo && !tutorial && <ClavesDeApi /, 'las claves de API, con o sin computadora');
   assert.match(t, /<DescargarMaKo className="tci-instalar__boton" texto="Instalar MaKo desktop" onClick=\{\(\) => setDescargado\(true\)\}>/);
   assert.match(t, /setLeido\(true\);/, 'sin estado después de intentar, no queda el esqueleto para siempre');
 });

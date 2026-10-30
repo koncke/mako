@@ -27,8 +27,11 @@ import { runnerDe } from './runners';
 import { validarInput } from './validar';
 import { vistaDe } from './vista';
 import { proponerChat, proponerPantallaGenerica, TTL_PENDIENTE_MIN, RUTA_BANDEJA } from './acciones';
-import { esAccion, esControl, esLectura, type Ctx, type Resultado } from './tipos';
+import { esAccion, esControl, esLectura, type Ctx, type Falta, type Resultado } from './tipos';
+import { conexion } from '@/lib/conexiones-catalogo';
 import { sanearBloque } from '@/lib/chat-bloques';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { conHorasDelNegocio } from './horas-del-negocio';
 
 export { vistaDe };
 
@@ -58,7 +61,8 @@ export async function ejecutarOperacion(
   }
 
   const v = validarInput(def.parametros, inputCrudo, origen);
-  if ('error' in v) return { ok: false, status: 400, error: v.error, faltan: v.faltan };
+  // Un parámetro que falta o no vale es una GUARDA (la marca explícita, `guarda`: lib/no-pude.ts no adivina por el texto).
+  if ('error' in v) return { ok: false, status: 400, error: v.error, faltan: v.faltan, guarda: true };
 
   const run = runnerDe(def.id);
   if (!run) {
@@ -78,8 +82,11 @@ export async function ejecutarOperacion(
         // Lo que el modelo no puede ver (la agenda de Google) va a la persona por el canal
         // del código, sale bien o mal la lectura. Sin canal (HTTP), se descarta.
         if (typeof cruda !== 'string' && cruda.paraLaPersona) ctx.aPersona?.(cruda.paraLaPersona);
+        // Lo que le falta conectar, por el mismo canal del código (`Falta`): salga bien o mal la lectura.
+        if (typeof cruda !== 'string' && cruda.falta) ctx.aFalta?.(cruda.falta);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
-        if (cruda.isError) return { ok: false, status: 400, error: cruda.content };
+        // Lo que falta CONECTAR es una guarda, como en un preparar (la verificación de 692368a60).
+        if (cruda.isError) return { ok: false, status: 400, error: cruda.content, ...(cruda.falta ? { falta: cruda.falta, guarda: true as const } : {}) };
         // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
         // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta. `siSeDibuja` va sólo si se dibujó: un saneo
         // que lo descarta o el tope de bloques del turno (`aDibujar` da `false`) no se lo dicen al modelo.
@@ -110,7 +117,8 @@ export async function ejecutarOperacion(
 
       if (def.confirmacion === 'pantalla' && run.proponer) {
         const p = await run.proponer(v.input, ctx);
-        if ('error' in p) return { ok: false, status: 400, error: p.error };
+        // Como el de un preparar: es GUARDA salvo que el runner diga que es una falla nuestra (`falla`).
+        if ('error' in p) return { ok: false, status: 400, error: p.error, ...(p.falla ? {} : { guarda: true as const }) };
         // Lo que la propuesta DIBUJA (`extra.bloque`: el antes y el después del Video Editor) va por el mismo canal que el
         // de una lectura; al modelo (y a la API) le llega `extra` sin él.
         const { bloque: crudo, ...extra } = p.extra ?? {};
@@ -122,7 +130,15 @@ export async function ejecutarOperacion(
       if (!run.preparar) throw new Error(`api-mako: «${def.id}» no tiene preparar()`);
       const prep = await run.preparar(v.input, ctx);
       if ('error' in prep && prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
-      if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}) };
+      if ('error' in prep && prep.falta) ctx.aFalta?.(prep.falta);
+      // ⚠️ EL ERROR DE UN PREPARAR ES UNA GUARDA, salvo que el runner diga que es una FALLA nuestra (`falla`: «No pude leer las
+      // pasarelas conectadas»). Al revés —guarda sólo con la marca— ninguna área la ponía, y unas 734 reglas («Sólo se
+      // reembolsa un cobro pagado») abrían ticket y le pegaban «Quedó el ticket #N» al grupo del cliente (la verificación de
+      // 692368a60). Lo que revienta sigue siendo una falla: va por el catch de abajo.
+      if ('error' in prep) {
+        const guarda = prep.falla ? {} : { guarda: true as const };
+        return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}), ...(prep.falta ? { falta: prep.falta } : {}), ...guarda };
+      }
 
       if (def.confirmacion === 'pantalla') {
         // Se guarda el INPUT validado, no el payload preparado: la pantalla genérica
@@ -161,9 +177,13 @@ function traducirLegado(crudo: string): Resultado {
   if (j.ok === true && typeof j.pendiente_id === 'number') {
     return { ok: true, tipo: 'pendiente', pendiente: { id: j.pendiente_id, resumen: String(j.resumen ?? ''), venceEnMin: Number(j.vence_en_min ?? TTL_PENDIENTE_MIN), url: linkPantalla(RUTA_BANDEJA) } };
   }
-  const { ok: _ok, error, faltan, ...resto } = j;
+  // La pendiente que no entró (`noCorrio`, mako-doer-acciones.ts `proponer`) es una falla nuestra: un 500, como `proponerChat`.
+  if (j.noCorrio === true) return { ok: false, status: 500, error: String(j.error ?? crudo), noCorrio: true };
+  const { ok: _ok, error, faltan, guarda, ...resto } = j;
   void _ok;
-  return { ok: false, status: 400, error: String(error ?? crudo), faltan: Array.isArray(faltan) ? faltan.map(String) : undefined, disponibles: Object.keys(resto).length ? resto : undefined };
+  // La tool vieja marca su GUARDA (`guarda: true`, o qué falta); «No pude registrar la acción pendiente» no la trae: es una falla.
+  const esGuarda = guarda === true || (Array.isArray(faltan) && faltan.length > 0);
+  return { ok: false, status: 400, error: String(error ?? crudo), faltan: Array.isArray(faltan) ? faltan.map(String) : undefined, disponibles: Object.keys(resto).length ? resto : undefined, ...(esGuarda ? { guarda: true as const } : {}) };
 }
 
 /**
@@ -175,21 +195,43 @@ function traducirLegado(crudo: string): Resultado {
  * mensaje del borrador) y llevan la `instruccion` al modelo, que es lo que
  * gobierna su comportamiento por canal y se probó en producción.
  */
+/**
+ * Lo que el MODELO lee de una conexión que falta (25/10/2026). Si el canal la agrega por código (`ctx.aFalta`: el doer de
+ * WhatsApp), el link no se le da: lo escribiría él y saldría dos veces. Si no (la app, HTTP), va el link exacto del modal, para
+ * que lo pase tal cual y no mande a «/integraciones» a secas.
+ */
+export function faltaParaElModelo(f: Falta, ctx: Pick<Ctx, 'aFalta' | 'ws'>): Record<string, unknown> {
+  const c = conexion(f.servicio);
+  if (ctx.aFalta) return { servicio: f.servicio, ...(c ? { nombre: c.nombre } : {}), instruccion: 'El link para conectarlo se lo manda MaKo aparte: dile qué falta y no escribas ningún link.' };
+  return { servicio: f.servicio, ...(c ? { nombre: c.nombre, link: linkPantalla(c.ruta, ctx.ws), instruccion: 'Pásale este link TAL CUAL: abre justo esa conexión.' } : {}) };
+}
+
 export function runnerDelRegistro(ctx: Ctx) {
   let vista: Vista | null = null;
+  // La zona del negocio, una vez por conversación del modelo: las lecturas le llegan con sus horas ahí (./horas-del-negocio.ts).
+  let tz: string | null = null;
   return async (name: string, input: Record<string, unknown>): Promise<string | { content: string; isError?: boolean }> => {
     vista ??= await vistaDe(ctx);
     const r = await ejecutarOperacion(name, input, ctx, 'json', vista);
+    // Lo que LEE el modelo, con las horas en la zona del negocio y el día de cada fecha (28/10/2026, «20:00 hs» que eran las
+    // 17:00 y «lunes 27/10» que era martes). La API HTTP no pasa por acá: recibe los datos crudos.
+    if (r.ok && r.tipo === 'lectura') {
+      tz ??= await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+      return conHorasDelNegocio(r.resultado, tz);
+    }
     if (!r.ok) {
       const cuerpo: Record<string, unknown> = { ok: false, error: r.error };
       if (r.faltan) cuerpo.faltan = r.faltan;
       if (r.disponibles) cuerpo.disponibles = r.disponibles;
+      if (r.falta) cuerpo.falta = faltaParaElModelo(r.falta, ctx);
+      // La marca de GUARDA viaja: el turno la lee para saber si el «no pude» es una regla (lib/no-pude.ts).
+      if (r.guarda) cuerpo.guarda = true;
       // 404/500 son fallas nuestras o un nombre inventado: van como isError para que
       // el modelo no las lea como un dato. Un 400 es un pedido corregible: va como
       // texto, igual que hoy, para que el modelo pida lo que falta.
       return r.status === 400 ? JSON.stringify(cuerpo) : { content: JSON.stringify(cuerpo), isError: true };
     }
-    if (r.tipo === 'lectura' || r.tipo === 'control') return r.resultado;
+    if (r.tipo === 'control') return r.resultado;
     if (r.tipo === 'pendiente') {
       // Heredada: la salida vieja, textual, con su `instruccion` de siempre.
       if (r.crudo) return r.crudo;

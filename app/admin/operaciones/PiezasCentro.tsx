@@ -162,9 +162,11 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   // elimínalo»): una sola lista, y lo que trabaja o espera una respuesta arriba.
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
-  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`).
+  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`). Y PRIMERO lo que espera
+  // su respuesta, antes de lo que trabaja (24/10/2026: `prioridadEnLista`): las preguntas solas, las del renglón de la fila.
   const { avisos } = k;
-  const secciones = useMemo(() => seccionesDeChats(visibles, avisos), [visibles, avisos]);
+  const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, k.esperas), [k.esperas]);
+  const secciones = useMemo(() => seccionesDeChats(visibles, avisos, esperanRespuesta), [visibles, avisos, esperanRespuesta]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
   const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
@@ -267,7 +269,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id), onNoPuede: k.sinAdjuntos, onSinImagen: k.sinImagen,
       }}
       enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
-      onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
+      onMandar={() => k.mandar(chat)} onGrabada={(g) => k.mandarNota(chat, g.audio, g.segundos)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}
       selectores={<SelectoresDeEnvio centro={k} chat={chat} />}
     />
@@ -395,7 +397,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
 export function NuevoChatCentro({ onNuevo, actual }: { onNuevo: () => void; actual: boolean }) {
   return (
     // Con el diseño de «＋ Nueva automatización» (feedback 4, 22/10/2026): la fila punteada con el ＋ que gira (`.co-nueva`).
-    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
+    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} data-recorrido="sb-nuevo" onClick={onNuevo}>
       <span aria-hidden className="co-nueva__mas">＋</span>
       <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
     </button>

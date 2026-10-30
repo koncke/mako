@@ -4,6 +4,300 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
+## LO ÚLTIMO: 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
+
+**Lo pedido** (el Cerebro): con copias de la 680, el botón de un DM viejo no anda y pasa todo el lead a «respondió». **Lo
+hecho:** un toque nunca va a la pausa; el payload que no se lee se resuelve por el título (la más vieja si hay varias). Test
+por el webhook de verdad: tests/boton-dm-viejo.test.ts (escenarios 'duplicadas*' de tests/_boton-vuelve-hijo.ts), 4 roturas
+en rojo. Hito con `tickets: [33]`. La cosecha, con lo medido y lo que quedó sin hacer, en docs/hallazgos-chatbot.md.
+**Sin hacer:** el paso que dice la API de una inscripción sin tarjeta (GANCHOS: «Todavía no te veo» con el recurso enviado;
+lib/automatizaciones-del-lead.ts); guardar el payload del postback; soltar las 8 de @leantejado (producción, con el «dale»).
+
+## 29/10/2026 noche, cuenta 3 (claude3), sesión local_7f005343: el ticket #25 de Leandro
+
+**Lo pedido** (el Cerebro, con el #25 aprobado por Martín): elegir la publicación o el Reel en el CRON de comentario, en la
+pantalla y en la API, y que el motor arranque sólo con esa. Lo demás del #25 (palabra clave, respuesta pública, espacios del
+botón, /docs) ya estaba en main. «Pedir un dato en el DM y guardarlo en la ficha» es el #20: no se mezcló.
+
+**Lo hecho** (aut-2510 al día con main en 7ed7e17c6; la cosecha en docs/hallazgos-chatbot.md): `publicacion` en el disparador
+(lib/publicacion-cron.ts), el motor la mira en los dos lugares (si nace el lead y si se inscribe), el selector con las
+últimas 25 de la cuenta (GET /v1/accounts/{id}/posts) en app/automations/EditorDisparadores.tsx, la API de MaKo con el link o
+el id (descripción corta, por el presupuesto del turno), y la guía de /docs. Test por el webhook de verdad:
+tests/comentario-publicacion.test.ts (escenario 'publicacion' de tests/_boton-vuelve-hijo.ts). Hito con `tickets: [25]`.
+**Sin hacer:** probarlo con la cuenta de Leandro después del deploy (elegir el Reel de la 680 y comentar en otro).
+
+## 29/10/2026 tarde, cuenta 3 (claude3), sesión local_7f005343: el ticket #29 de Leandro
+
+**Lo pedido** (el Cerebro, con `mako_doer_conv` 1716): «Ya te sigo» vuelve a «¿Te sigue en Instagram?» y no hace nada; y que
+/docs explique las palabras clave del disparador. El punto 3 (MaKo le contestó con un borrador del Plan) es del chat de MaKo
+en WhatsApp: no se tocó.
+
+**Lo hecho** (main mezclado en 9ae15da85; la cosecha en docs/hallazgos-chatbot.md, la regla en AGENTS.md): el diagnóstico
+del ticket («no puede volver a una tarjeta de antes») era el equivocado: la base muestra que volvía. Eran (1) la clave de
+Zernio sin la pasada (el segundo «Seguinos» era la respuesta guardada), (2) el toque rápido tirado como doble y (3)
+«¿te sigue?» de la caché. Más el tope de 10 toques por vuelta. La guía nueva de /docs: «Palabras clave y botones de
+Instagram» (app/api-mako/Articulos.tsx). Test por el webhook de verdad: tests/boton-vuelve-a-la-condicion.test.ts con
+tests/_boton-vuelve-hijo.ts (8 roturas, todas en rojo). Hito con `tickets: [29]` en app/admin/dev/chatbot/bitacora.ts.
+**Sin hacer:** el tope deja sin recurso a quien tocó 10 veces sin seguir; un «fallo» que Zernio sí entregó no cuenta como
+pasada. Probarlo con la cuenta de Leandro después del deploy (con «Volver a probar» en su ficha).
+
+## LO ÚLTIMO: 29/10/2026 madrugada, cuenta 3 (claude3), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 9df736464)
+
+**Lo pedido:** el Cerebro verificó 69b49a31c con refutador y NO entró al tren: 1 ALTA, 6 medias y 5 bajas (informe con la
+entrada exacta y los scripts en C:/dev/revisiones/2910-verificacion-automations-69b49a31c.md y scratch-69b4/). La cuenta 4
+hizo el ALTA y cortó al 94%; la cuenta 3 siguió con lo demás.
+
+**Lo hecho** (cada uno probado rompiéndolo; la cosecha en docs/hallazgos-chatbot.md y -comunicacion.md, el índice en
+docs/hallazgos.md):
+- 5e67180c7 — ALTA: un DM de Instagram ya no recibe DOS respuestas del AI Step (una charla abierta y una «envía un mensaje»
+  con el AI Step primero): la nueva contesta sólo si ninguna charla tomó el mensaje (`tomadas === 0`, el webhook).
+- 1b4f6e636 — media: «Volver a probar» ya no reusa la clave de Zernio de la vez anterior (`claveDeEnvio`, lib/reentrada.ts:
+  inscripción, VUELTA = `inscripto_at`, y nodo).
+- 3447cb4c5 — media: `mudanza-avisos-plataforma.mts --eventos=social_tope` ya no tira; tests/mudanza-apagados fija que TODO
+  evento de la plataforma tiene su línea.
+- 19710af7b — medias de la difusión y una baja: una vez por pedido (clave del pedido + compare-and-set; el mismo pedido
+  retoma la suya y suma a los que faltan); Instagram con goteo promete sólo a quien el turno alcanza antes de su ventana
+  (`salidaHastaMs`, `demoraDelTurno`); `difundir_a_leads` sólo en la app; el goteo fuera de rango se dice antes del «sí».
+- 2a9bf59b5 — baja: la pública va sólo al comentario del disparo (uno de más de 2 min después de inscribirse, no).
+- 99900a0d3 — bajas: el «cerca del tope» por cuenta (`cuentaMasCargada`) y con su canal; el recordatorio diario con
+  `zonaDelNegocioEstricta` (sin zona, esa vuelta no avisa).
+- 8287ce624 — baja: la difusión que terminó se pausa sola (clave `difusion-…`, `pausarDifusionesTerminadas` en la corrida
+  de la hora).
+- 9df736464 — merge de origin/main (dos choques de docs, quedan los dos lados).
+- La reverificación de Integración sobre 0265924c6 (NO entró: 1 MEDIA-ALTA, 2 bajas), arreglada y re-verificada con SU arnés
+  (C:/dev/revisiones/scratch-0265/ig-refuta/_hijo.mts; las salidas de la segunda vuelta en scratch-f8a1/):
+  - b3d734055 — MEDIA-ALTA, regresión de 5e67180c7: `tomadas` contaba inscripciones PAUSADAS, y una automatización sin AI
+    Step también se pausa: el primer DM quedaba sin respuesta. Ahora el webhook mira `atencion.contestada` (lo llenan el AI
+    Step de la respuesta o la charla abierta; `seguirCharla` devuelve si contestó).
+  - 88cf6bbd7 + f8a13def3 — la difusión pausada: el mismo pedido la vuelve a prender (sin `aunqueDuplique`: la pudieron
+    editar mientras estaba pausada) y suma a los que faltan.
+  - d8516957f — sin zona del negocio se frena sólo el recordatorio de los días siguientes (`necesitaLaZona`); el primer aviso sale.
+
+**La media que no es de Automations:** `HojaDifusion` no está montada. El enganche (`onMandarMensaje` en
+app/crm/AccionesLoteLeads.tsx y app/crm/seleccion-difusion.ts) está en la rama `crm-lote-2810`, que todavía no está en main.
+Cuando entre, el CRM (CrmBoard) monta `<HojaDifusion abierta seleccion={sel} onCerrar={…} onCreada={(r) => …} />` con la
+selección que le pasa `onMandarMensaje`; `onCreada` trae `yaEstaban` cuando era el mismo pedido.
+
+**Lo que Leandro pidió y TODAVÍA NO EXISTE** (tickets #20 y #25, `mako_doer_conv` ws10 1681/1699/1701; el texto que se le
+mandó, verificado contra el código, está en las notas compartidas: leandro-respuesta-automations-29-10.md):
+- elegir la publicación o el Reel en el CRON de comentario (el webhook ya trae `comentario_post_id`);
+- pedir un dato en el DM y guardarlo en un campo de la ficha (no hay tarjeta que guarde la respuesta; hoy queda en Chats);
+- webhook de SALIDA (lead nuevo, cambio de etapa, etiqueta): no hay nada en Integraciones;
+- que el lead comparta el post y saber si lo hizo;
+- por la API con token (rest.ts): las palabras del CRON (`cambiar_crons_secuencia` es SIN_HTTP), «Volver a probar»
+  (SIN_HTTP), abrir un ticket (`levantar_ticket`: app y WhatsApp), las tarjetas «Etiqueta» y «Acción» (PUT /pasos sólo
+  WhatsApp y email sin ramas), y sacar la flecha directa de un DM para que espere el botón. Y /docs al día con el lienzo.
+  Exponer a un token lo que cambia a quién le escribe es decisión del Cerebro (el comentario de `cambiar_crons_secuencia`).
+
+**Sigue: el aviso antes de los 10.000 mensajes gratis de Zernio** (audio 327 de Leandro; coordinado el 29/10 con el chat de
+Zernio, `local_4a831c28`). Zernio armó `usoZernioDelCiclo(ws)` en lib/zernio-uso.ts ('server-only'), en zernio-2510 (7397880e7): el ciclo sale
+de GET /v1/billing y lo enviado desde MaKo se cuenta en MaKo (`nutricion_envios` social, más `ig_mensajes` saliente sin la
+pública). Automations lo consume cuando esa rama esté en main: en `avisarTopesSociales`, sólo en la corrida de la hora, al
+80 %, una vez por ciclo (`reclamarEspaciado`, clave `zernio-gratis:<desde>`). Va con el mismo evento `social_tope` y un
+tercer estado «gratis» en la plantilla y en `datosTopeSocial`. Hoy MaKo no mandó nada por redes desde el 01/09: no apura.
+Devuelve `{ enviados, gratis, desde, hasta, deLaCasa } | null` (`hasta` excluido; `deLaCasa`: la clave es la de MaKo, el ws1 →
+avisarle a Martín, no al grupo). Es APROXIMADO: una fila de `nutricion_envios` cuenta 1 aunque salgan varias partes, y la
+pública (gratis para Zernio) cuenta. Para que sea exacto, el motor tiene que guardar las partes y marcar la pública.
+Acordado con Zernio (29/10): el texto dice «llevas CERCA DE X enviados DESDE MAKO» (lo aproximado, y lo que el negocio manda
+desde el inbox de Zernio no se ve). Cuando el motor guarde las partes y marque la pública en `nutricion_envios`, se le pasa a
+Zernio la columna (o el `asunto`) y él ajusta `usoZernioDelCiclo`, que es suyo. zernio-2510 tiene VERDE (4b6acf1c0).
+
+**Dónde está (29/10, mañana):** f8a13def3 aguantó el arnés de Integración y entró al tren `tren-z` (merge ff8ec04b6) junto
+con Zernio + Planes y las copias del Web Generator; corren los tests del tren entero y Integración avisa cuando esté Ready.
+Después del deploy y con el «dale» del Cerebro: la fila `social_tope` del ws9 (la mudanza), la config de la 680 y «Volver a
+probar» de los leads 5425/5426.
+**⚠️ lib/zernio.ts: partir de tren-z (o de main, cuando entre).** En el tren, `keyDeSeguimiento` vuelve a
+`credDelClienteEstricta('ZERNIO_API_KEY', ws)`: la rama de Zernio la había pasado a la cuenta de la plataforma, contra la
+decisión de Martín (una cuenta por negocio) y contra tests/condiciones-instagram y tests/zernio-sin-respaldo.
+**Verificación:** tsc-acotado limpio (sólo los 14 de _opencut) y tests-afectados ✔ VERDE sobre f8a13def3 (5960 tests de 596
+archivos).
+
+## 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
+
+**Lo pedido** (el Cerebro, reenviado tras la caída de las 18:34, en este orden): (1) arreglar lo que sobrevivió a su
+refutador sobre 7f7e404d9 (C:/dev/revisiones/2810-verificacion-automations-ig.md y -anuncio.md): el ALTA «una palabra clave
+de sólo emoji o signos se descarta y el CRON queda para CUALQUIER comentario», 4 medias y 3 bajas; (2) el ticket de Leandro
+(#19, y el #20 que MaKo levantó solo con lo mismo): «solo cuando el comentario contiene X», y dos preguntas verificadas; (3)
+avisar ANTES del tope de Instagram (ya hecho en c6f78deb4 y 0c121ab4b); (4) el primer DM va en el VERDE nuevo; y el pedido
+nuevo de Martín por Leila: «seleccionando a toda una columna o una cantidad de leads específicos en el CRM y apretar mandar
+mensaje de difusión … WhatsApp, email, Instagram … y configurar ahí mismo el goteo o la cantidad de mensajes diarios por una
+cuestión de baneo». Todo junto en un VERDE por SendMessage; lo pesado con `node C:/dev/con-turno.mjs …`.
+
+**Lo hecho** (rama `aut-2510`, cada uno probado rompiéndolo; la cosecha en docs/hallazgos-chatbot.md y -comunicacion.md):
+- ef1c248b4 — ALTA: «?» o «...» se rechazan con aviso (ruta, API y caja); el resumen de `cambiar_crons_secuencia` nombra las
+  palabras (baja). ef429e3e7 (antes) hizo que el emoji cuente.
+- e90bae7d1 + 31c3fbf70 + 077f2913f — ticket #19/#20: «Volver a probar» por lead (ficha del CRM y
+  `volver_a_probar_lead_secuencia`); hito con `tickets: [19, 20]`. Las respuestas (a) y (b) ya se las mandó el Cerebro a Leandro.
+- 330b7a218 — media: un pedido de cambio en voseo («poné», «subí») vuelve a editar en «Editar».
+- 8c56ddbf3 — medias y baja: Crear con IA ofrece el anuncio; «¿Qué hace esta automatización?» encuentra el CRON del anuncio;
+  Messenger recupera «enlace de referencia».
+- 7dac2d5cc — media: la respuesta pública sólo al comentario del disparo; si no puede salir, se omite y el DM sale igual.
+- 51a37db8b — baja: el recordatorio diario de cuenta frenada sale de 9 a 21 en la zona del negocio.
+- 4cc29df29 — la DIFUSIÓN: `HojaDifusion` (app/automations/difusion/), lib/difusion.ts y -reglas.ts, `difundir_a_leads`.
+- 1ca902867 — «Para el Cerebro» de docs/relevo/automations-nube-2710.md al día.
+
+- 077f2913f — el hito de «Volver a probar» cierra también el ticket 20 (`tickets: [19, 20]`).
+- 2172da39b — los 11 rojos de tests-afectados sobre 5ddb4ae6a: ninguna regresión (tests que leían el fuente viejo, la
+  difusión leyendo Instagram fuera del canal y sin su lugar en las listas de activar, un `role="alert"` sin «Reportar a
+  Soporte»). Los 14 corridos de a uno, en verde.
+
+**Verificación:** tests-afectados corrió sobre 5ddb4ae6a (5947 tests, 595 archivos): 11 rojos, arreglados en 2172da39b y
+repetidos de a uno en verde. Tipos: los 35 archivos de antes y los de la difusión, limpios (sólo los 14 de `_opencut` y 2 de
+`Compartir.tsx`); los 4 tocados en 2172da39b, esperando turno. Después, el VERDE al Cerebro.
+
+**La verificación del Cerebro sobre 69b49a31c:** arreglada el 29/10 por la cuenta 3 (ver arriba).
+
+**A medias / sin hacer:** el botón «Mandar mensaje» y la selección del tablero son del CRM (el Cerebro le pasó la interfaz);
+la difusión no se probó mandando; elegir la publicación o el Reel en el CRON de comentario (tanda siguiente); «Crear con IA»
+no pone palabras clave en el CRON (fue lo que rompió la 680: usó la CONDITION del formulario).
+
+**Espera a Martín / al Cerebro:** después del deploy, con el «dale»: configurar la 680 (scratchpad configurar-680.mts
+--aplicar; activar con otro «dale») y la prueba de punta a punta con Fiesta Music y «pruebafm»; la fila del ws 9 del aviso
+`social_tope` (escribir en producción); MAU-07/MAU-08 y la prueba A/B del ws3 esperan su sí.
+
+## 28/10/2026 tarde, cuenta 4 (claude4), en la PC, rama `aut-2510` (con main mezclado)
+
+- **Ticket #17 de Leandro (el #12 es el mismo texto): responder EN PÚBLICO el comentario.** `en_comentario: true` en el
+  mensaje de Instagram o Messenger; el interruptor se ofrece con un CRON de comentario; la IA del lienzo y la API
+  (`cambiar_botones_mensaje`) lo prenden y apagan. Hito con `tickets: [17]`. Sin probar con un comentario de verdad. Cosecha
+  en docs/hallazgos-chatbot.md.
+- **Ticket #17, segunda mitad: las palabras clave del comentario** («fiesta», «guía»; «contiene» o «exacta»; vacía = cualquiera),
+  como ManyChat. En el mismo hito. Su automatización 680 no arrancaba nunca (el filtro era la condición del FORMULARIO y
+  está pausada): el cambio que le falta está en «Para el Cerebro» de docs/relevo/automations-nube-2710.md.
+- **Leila 2: los que YA están en la etapa.** No entraban por la ventana de 90 días sobre el último hito (mover de etapa no
+  es un hito). Al activar una «llega a etapa», la pantalla cuenta y ofrece «Incluirlas». Sin medir en la base de Leila.
+- **Lo prometido a Teo (cola del Cerebro):** el CRON «clic en un anuncio» prendido (Instagram y Messenger; la IA lo ve sólo
+  si el pedido habla de anuncios). El PRIMER DM: si la primera tarjeta es el AI Step, lo contesta (la (a) del Cerebro, como
+  ManyChat). Faltan: «Crear con IA» de Instagram; el asistente por WhatsApp (Agenda del día, «te toca cobrar») va a su propio
+  chat; la primera prueba A/B real en el ws3 espera el sí de Martín.
+- Sigue, en este orden: Leila 1 (el `?ws=`, ya en el commit WIP 922af2d5d) y Mauricio (MAU-07 y MAU-08). El relevo de la
+  nube (docs/relevo/automations-nube-2710.md) tiene el detalle.
+
+## 27/10/2026 tarde, cuenta 5 (claude5, «Ananda»), rama `aut-2510`: la tanda de 12 del Cerebro
+
+La tanda salió de las llamadas 874749710 (Leandro), 876470842 (Leila) y 876825880 (Aaron), del grupo Makito y de la
+Ticketera. Hechos, con test y probados rompiéndolos (la cosecha, en docs/hallazgos-chatbot.md, -ia, -comunicacion y -ui):
+
+- **3. Las iniciales** de un DM y del globo de «Probar» salen de `iniciales` (e77ee8d5e). Quedan seis lugares de otras
+  áreas, anotados en hallazgos-ui.md.
+- **5. El chat dice qué IA contestó** («Con tu Claude», «Con la Gemini de MaKo (respaldo)»). El orden de la cascada ya era
+  el pedido.
+- **6. Una pregunta en «Editar» se contesta.** Con o sin signos, con saludo adelante y con el «?» en el medio. Probado con
+  Claude y Gemini reales: `scripts/arnes-pregunta-en-editar.mts`.
+- **10. «Sale desde».** En el Super Admin, los selectores muestran las mismas líneas con las que se manda.
+- **9. El número compartido de Leandro: no.** Las automatizaciones le escriben sólo a leads del CRM; a quien escribe y no es
+  lead nadie le contesta solo. MaKo lo sabe contestar en el chat del lienzo (`LO_QUE_NO_ES_TARJETA`). El texto para su grupo
+  se lo pasé al Cerebro.
+- **7. El chat de Joan (ws13), descartado con evidencia.** El 15/10 era el incidente de Gemini (230323411). El 16/10, «un dato
+  de la reunión sin un esperar», que a0feecde9 (17/10) enseñó a corregir. Joan no volvió a pedirlo.
+- **11. La tarjeta de mensaje dice «tal cual»** (el cuadro: «Escribe lo que le llega, tal cual»; el ✦ ofrece que lo
+  escriba MaKo). Unir tarjetas ya se veía desde el 15/10: «Conectar a una tarjeta» es la primera opción del «+»
+  (50f263134). Sin mirar en pantalla que el texto entre en una tarjeta angosta.
+
+- **Ticket #12 de Leandro, los espacios en el nombre de un botón:** era el `trim` del saneo en cada tecla
+  (`botonesDe(…, { comoSeEscribe: true })` en el editor). La otra mitad, responder en público el comentario, va aparte:
+  Zernio la tiene (`POST /v1/inbox/comments/{postId}` con `commentId`). Hecha el 28/10 (ticket #17, arriba).
+- **MAU-33:** una cuenta de anuncios frenada varios días avisa una vez por día (56be0692d).
+
+**Medido, sin escribir (lo decide el Cerebro):**
+- **4. La #266 de Brigitte (ws15).** La espera de 1 h y el recordatorio se fueron con un Publicar de la pantalla el
+  23/10 a las 14:05Z. No fue MaKo, ni la API, ni la IA. Quién lo hizo no se sabe: no hay registro. Devolvérselos es
+  escribir en su negocio.
+- **1 y 2. Los avisos al grupo y «Completa el disparador».** Para probarlos hay que crear y activar automatizaciones en el
+  ws3, o sea escribir en producción. Falta el sí del Cerebro.
+
+**Sigue:**
+- 8. Proponer los textos con el conocimiento del negocio.
+- 12. Versiones con «restaurar» y un centro de errores.
+
+**Sin investigar:** el 26/10, el chat del lienzo del ws9 (#700) contestó «Gemini está saturado» dos veces (hallazgos-ia.md).
+
+## Antes: 24/10/2026 noche, cuenta 5 (claude5, «Ananda»), rama `aut-2510`
+
+Martín: «eso si es un bug, el goteo debe comenzar a contar desde que se envia el primer mensaje», y sobre la cuenta de
+anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al grupo de mako».
+
+- **El goteo de la #289, medido en producción** (`scripts/medir-goteo-tras-deploy.mts`, sólo lectura, cada negocio en SU
+  base): «Contestó» corta (4 de 4). Desde el deploy (~18:06 ART) no salió ningún M1 nuevo; para ver el ritmo de 11 min y la
+  condición sin turno hacen falta M1 NUEVOS (que Mauricio mueva leads a «Prospección activa»). Volver a correrlo entonces.
+- **Lo agendado antes del deploy con el reloj viejo: HECHO.** Martín lo aprobó y el Cerebro corrió
+  `scripts/recalcular-esperas-viejas.mts --ws=1 --sec=289 --aplicar` el 24/10: cambió 12 (los otros 8 ya habían salido);
+  releído, ninguno con el reloj viejo. La pregunta 33b2217e del Ops Center la retiró él.
+- **P11, el aviso de la cuenta frenada** (`scripts/medir-aviso-cuenta-frenada.mts`): llegó al grupo de Mauricio 26 veces el
+  15 y 16/10 y calla desde el 16/10 por el techo de 3 (la cuenta sigue impaga). Si vuelve a avisar un incidente de días es
+  decisión de Martín (docs/hallazgos-comunicacion.md, «Una alerta con el techo agotado…»). La cuenta compartida ws1/ws4
+  avisaba con dos relojes: arreglado en `lib/alerta-critica.ts`.
+- **Los tres rojos de main** (vuelo-mako, dashboard-pedidos-chat, paso-ia): tenía razón el código en los tres; los tests
+  fijaban líneas viejas. Al día y probados rompiéndolos.
+- **Sin dueño, visto de paso:** `tests/progreso.test.ts` rojo por dos hitos sin `sesion` en
+  app/admin/dev/ai-runtime-cascada/bitacora.ts (chat «IA del cliente»). Y el hito de esta tanda firma `claude5`, que en
+  `CUENTAS` (app/admin/dev/_registro/tipos.ts) entra con d7b1f9849 del tren (`tren-j`).
+- **El arreglo del goteo, visto andar (22:00 ART):** los M2 de las 21:34, 21:46 y 21:58 dejaron la espera siguiente a
+  48,00 h exactas. El aviso de arreglo al grupo de Mauricio SALIÓ el 24/10 (lo aprobó Martín y lo mandó el Cerebro, con la
+  clave goteo-espera:289:2410).
+- **Dashboard (trabajo 0786cbfe, «Sí, y que la criatura vea la hoja»):** salió el AI Analyst y la estrella ve la hoja
+  (eb71fa238; docs/hallazgos-graficos.md). Sin verlo en pantalla.
+- **Trabajo 49ff20a3 (Martín, firmado):** (1) un solo «Dashboard» en More del teléfono (0427d58be;
+  docs/hallazgos-mobile.md). (2) **Botones en los DM de Instagram y Messenger, como ManyChat**: fase A (el motor, el
+  webhook y el lienzo) y fase B (la IA de MaKo los arma al crear, con el gate que no regala el link) hechas y probadas sin
+  pantalla (docs/hallazgos-chatbot.md, «MaKo no tiene botones…»). **Sigue:** «Editar con IA» (`deIAEdicion`), «Probar»,
+  y probarlo con un DM de verdad en el Cliente de Prueba con una cuenta de Instagram conectada. El trabajo lo cierra el
+  Cerebro cuando estén las tres partes.
+- **f20 y f21 de la llamada con Leandro (docs/feedback-24-10.md): UN goteo y UN tope por día para todos los canales.**
+  Martín, 24/10 23:00: «Uno solo... que valga para todos los canales». Hecho: un bloque «Todos los canales» en
+  Configuraciones, que vale para WhatsApp, email, Instagram y Messenger (cada canal cuenta lo suyo), y de paso el goteo del
+  email, que no frenaba (docs/hallazgos-chatbot.md, «Un goteo para todos los canales…»).
+- **f17, f18 y f23 de la misma llamada, hechos:** el audio al instante en el chat del lienzo («La nota de voz del chat del
+  lienzo…»), la pregunta dictada en «Editar» y «Pedírselo al equipo» para lo que no está («Una pregunta en «Editar»…»),
+  los dos en docs/hallazgos-chatbot.md. Y f19/f22 (la tuerca de verdad en el globo; un lugar inventado no pasa: «MaKo nombraba
+  un ícono…»). Y f34, la criatura que se escondía detrás de la barra desplegada (docs/hallazgos-ui.md). Toda la tanda de la
+  llamada que era de Automations está hecha; nada se vio en pantalla.
+- **Pruebas A/B, tanda A3 hecha (25/10): la tarjeta «A/B TEST»** con todas sus puertas (la lista revisada, en
+  docs/hallazgos-chatbot.md), el editor (EditorPruebaAB: ramas, porcentajes, Empezar y Detener), «Probar» (un escenario por
+  rama), Crear y Editar con IA (`prueba_ab`, su regla sólo si el pedido la nombra), la API (`ver_prueba_ab`,
+  `empezar_prueba_ab`, `detener_prueba_ab`), los medidores de Automations en el cron y una franja en Métricas. La migración
+  ya está aplicada (0335, 25/10 19:27); falta la primera prueba real en el Cliente de Prueba.
+- **El chat de MaKo perdía herramientas (25/10, arreglado):** `cambiar_botones_mensaje` y las tres de la prueba A/B le sacaban
+  el lugar a `editar_pasos_secuencia_mensajes` y a `cambiar_crons_secuencia` (tests/ops-center-clasificador-app). Una
+  operación nueva va AL FINAL del área y se mide con esas frases antes de entregar (AGENTS.md). Crear con IA por HTTP
+  devuelve la pregunta como 400 con `faltan`, y la pérdida esperada del juez quedó sólo al tope.
+- **«MaKo Messages» salió de Automations del super admin (26/10, Martín: «elimina eso»):** /mensajes y /m/mensajes redirigen a
+  Automations. Era el editor de la base de los avisos, que no existe en producción; los avisos siguen saliendo con el store de
+  cada negocio. Los 9 avisos de Notificaciones que nacían apagados salieron de la lista (Martín, 26/10: «Sacarlos de
+  Notificaciones»). Detalle en docs/hallazgos-comunicacion.md.
+- **Las variantes del texto viejo (25/10, la revisión del tren-k):** todo lo que cambia el texto de un mensaje (los dos
+  editores, Editar con IA, la API) pasa por `variantesTrasCambio` (lib/mensaje-partes.ts) y las suelta; la rama B de una
+  prueba nace sin las de A y la firma las cuenta; el «Deshacer» del 🗑 las devuelve.
+- **El texto de un WhatsApp o email en un flujo CON ramas, por la API (25/10):** `cambiar_texto_mensaje` (PATCH
+  …/mensajes/{tarjeta}/texto), por `publicarPasos`, al final del área. Cambiar el texto suelta las variantes del viejo (el
+  guardado ahora respeta un `[]` explícito), también en el texto de un DM. Sin hacer: `editar_pasos_secuencia_mensajes` sigue
+  avisando «conserva N variantes» en vez de soltarlas.
+- **Pruebas A/B, tandas A1 y A2 hechas (25/10, el Cerebro; diseño en docs/diseno-pruebas-ab.md, manda la crítica):** A1, el
+  motor puro lib/pruebas/ (asignar, estadistica, juez, volumen, metricas) y el test A/A con el calendario real
+  (tests/pruebas-juez-aa, ≤ 5 % de falsos ganadores). A2, la migración supabase/migrations/0335_pruebas_ab.sql (la
+  numeró el Cerebro y la APLICÓ en producción el 25/10 19:27, con el sí de Martín), lib/pruebas/store.ts, el cron /api/cron/pruebas (6:15 UTC, sin
+  medidores todavía), concluir → `experimentos` y `fmtVal` con «ab:». Sigue **A3**: los medidores de Automations
+  («respondio», «agendo», en el cron), y la clase `ab` con TODAS sus puertas en un commit (transparente para `condicionDeArriba`, `minutosAntesDeReunion` y
+  las reglas de forma; `esBifurcacion()` y la lista de los ~70 `=== 'condicion'`); la primera prueba real, en el Cliente de
+  Prueba. Landings usa el motor para la landing: le pasé las firmas (25/10); el store ya está (A2).
+- **Los botones de Instagram, de punta a punta (25/10, Martín: «Que lo pide el cliente Leandro»):** Editar con IA,
+  Probar, la ficha y la API, hechos y probados sin pantalla (docs/hallazgos-chatbot.md, «Los botones de Instagram, de punta
+  a punta…»). **Falta el DM de verdad, y depende de Martín**: ningún negocio nuestro tiene Instagram conectado por Zernio
+  (`scripts/medir-instagram-de-mako.mts`). Los pasos:
+  1. En el negocio Martin Koncke, Integraciones › Zernio: pegar la key de Zernio de MaKo, y conectar el Instagram de MaKo
+     con el login de Instagram (el webhook se registra solo al conectar).
+  2. Armar la automatización de prueba en ese negocio: «Por Instagram: quien comenta PRUEBAMAKO recibe el recurso, pero sólo
+     si nos sigue» (Crear con MaKo arma el gate), y prenderla.
+  3. Desde OTRA cuenta de Instagram que NO siga a MaKo: comentar PRUEBAMAKO en un post de MaKo. Tiene que llegar el DM con
+     «Obtener recurso». Si Instagram rechaza los botones en esa respuesta privada (pasa con quien no sigue), llega el texto
+     con «Escríbeme «Obtener recurso»», y escribirlo cuenta como tocarlo.
+  4. Tocar «Obtener recurso»: tiene que llegar «Síguenos y toca el botón» con «Ya te sigo». Seguir a MaKo, tocar «Ya te
+     sigo»: tiene que llegar el link. Y en la ficha del lead, mientras espera: «Espera que toque…».
+  Para ver qué salió: `nutricion_envios` de ese negocio y la ficha del lead; la cuenta y el webhook, con `scripts/medir-instagram-de-mako.mts`.
+- **Lo que pidió el Cerebro (hecho el 24/10 a las 23:55):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
+  (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas
+  (docs/hallazgos-infra.md, «Los dashboards redirigen en su layout…»). Sin medir en producción.
+
 ## El pedido, con el texto entero
 
 Martín, 21/10/2026 (llegó por el Cerebro): «que pruebes y valides que todo funcione bien en Automations de punta a

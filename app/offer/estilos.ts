@@ -15,7 +15,13 @@
 
 export const CSS_OFFER = `
 .of-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-.of-cabecera { flex: none; display: flex; align-items: center; gap: 12px; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+/* La tarjeta del chat en la pantalla de Create (29/10/2026, app/_crear/PantallaCrear.tsx): la cabecera de MaKo con la «←» y,
+   abajo, la conversación (sin su marco: el marco es de la tarjeta) o, sin conversación, una línea con qué hacer. */
+.of-tarjeta { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.of-tarjeta__aviso { flex: none; padding: 8px 12px 0; }
+.of-tarjeta__vacio { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center; }
+.of-tarjeta__vacio p { margin: 0; font-size: var(--fs-card); line-height: 1.5; color: var(--ink); }
+.of-pie-admin { color: var(--faint); }
 
 .of-error { flex: none; padding: 8px 16px; background: var(--warn-bg); color: var(--warn); font-size: 12.5px; line-height: 1.45; border-top: 1px solid var(--border); }
 

@@ -8,3 +8,11 @@
 .m-partners-in:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
 [data-m] .m-partners-mal { margin: 8px 0 0; font-size: var(--fs-sm); color: var(--bad); }
 [data-m] .m-partners-nota { margin: 8px 0; font-size: var(--fs-md); color: var(--dim); }
+/* El panel del partner (25/10/2026): lo que tiene a cobrar, arriba y grande, con los colores del tema. */
+.m-partners-cobrar { margin: 4px 0 18px; padding: 18px 18px 16px; border-radius: 18px; color: var(--on-primary, #fff);
+  background: linear-gradient(140deg, var(--primary) 0%, color-mix(in srgb, var(--primary) 78%, #000) 100%); }
+.m-partners-cobrar span { display: block; font-size: var(--fs-sm); font-weight: 600; opacity: .9; }
+.m-partners-cobrar b { display: block; margin: 4px 0 6px; font-size: 38px; line-height: 1.05; font-weight: 800; letter-spacing: -.03em; }
+.m-partners-cobrar small { display: block; font-size: var(--fs-sm); opacity: .88; overflow-wrap: anywhere; }
+.m-partners-wa { display: flex; align-items: center; justify-content: center; min-height: 48px; border: 1px solid var(--border); border-radius: 12px;
+  font-weight: 700; color: var(--ink); text-decoration: none; background: var(--surface); }

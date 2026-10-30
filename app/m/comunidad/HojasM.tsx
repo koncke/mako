@@ -10,7 +10,7 @@
 //
 //   · El perfil (PerfilModal de app/_comunidad/Miembros.tsx): la cara grande con su nivel, «Equipo», el nivel y
 //     los puntos, la bio, la ubicación, los links que eligió publicar y si está en línea. En lectura: «Editar mi
-//     perfil» y «Sacar de la comunidad» quedan en la computadora.
+//     perfil» y «Sacar del curso» quedan en la computadora.
 //   · Buscar (app/_comunidad/Busqueda.tsx): posts y miembros, cuando se deja de tipear (300 ms) y desde dos
 //     letras (`MIN_BUSQUEDA`); gana el último pedido. Un miembro abre su perfil; un post, su hoja.
 //   · «Nuevo post» (app/_comunidad/Compositor.tsx): la categoría (sólo donde se puede publicar:

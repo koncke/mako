@@ -16,11 +16,12 @@ import 'server-only';
 
 import { getSupabaseServer } from './supabase';
 import { taparClaves } from './claves-en-el-chat';
+import { lineaDeAdjuntos, type AdjuntoTicket } from './tickets-adjuntos';
 import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import {
-  TOPE_POR_DIA, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
+  TOPE_AUTOMATICOS_POR_DIA, TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, delegadoQueDecideMartin, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
   ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
@@ -195,6 +196,8 @@ async function arreglosDeHoy(): Promise<number> {
 // ── Crear ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 export type NuevoTicket = {
   identidad: Identidad;
+  /** Lo que adjuntó en el chat de Soporte (lib/tickets-adjuntos.ts), ya validado contra su negocio: va en el evento «creado». */
+  adjuntos?: readonly AdjuntoTicket[];
   tipo: TipoTicket | null;
   declaradoPor: 'mako' | 'persona' | 'sistema' | null;
   /** Un ticket que abre la app sola (un error, lib/errores-app.ts): no gasta el tope por día de la persona que lo vio. */
@@ -205,6 +208,20 @@ export type NuevoTicket = {
   contexto: unknown;
   /** Clave de idempotencia: el mismo `ref` devuelve el ticket que ya existe. */
   ref?: string | null;
+  /**
+   * Lo manda alguien de AFUERA del negocio (el alumno de un curso, desde su portal: 27/10/2026). El ticket es del dueño
+   * (`identidad`), pero el tope del día se le cuenta al TERCERO (`clave`, que es el comienzo de su `ref`) y el triage no lo
+   * manda solo al arreglo (`deTercero`). Sin esto, un alumno gastaba el tope del dueño y entraba por la regla de su negocio.
+   */
+  tercero?: { clave: string };
+  /**
+   * Lo abrió MaKo SOLO (lib/no-pude.ts, 27/10/2026): `clave` es el comienzo de su `ref` (`np:<ws>`). Tiene su propio tope del día
+   * (`TOPE_AUTOMATICOS_POR_DIA`, por negocio), no gasta el de la persona, no entra por la regla de aprobación del negocio, y si
+   * ya hay uno ABIERTO con esa `ref` se anota ahí (`volvioAPasar`); si el que había está cerrado, abre uno nuevo.
+   */
+  automatico?: { clave: string };
+  /** Lo que se anota en el ticket automático que ya existía. */
+  volvioAPasar?: string;
 };
 export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triage; yaExistia: boolean } | { ok: false; error: string };
 
@@ -215,23 +232,58 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const titulo = taparClaves(n.titulo.trim()).texto.slice(0, TOPES.titulo);
   const descripcion = taparClaves(n.descripcion.trim()).texto.slice(0, TOPES.descripcion);
   if (!titulo) return { ok: false, error: 'Escribe qué pasó' };
-  if (n.ref) {
+  // AUTOMÁTICO: el último con esa `ref` (o con su sufijo, si el primero ya se cerró). Abierto → se anota ahí; cerrado → uno nuevo.
+  let ref = n.ref ?? null;
+  if (n.automatico && ref) {
+    if (!ref.startsWith(`${n.automatico.clave}:`)) return { ok: false, error: 'No pude guardarlo: vuelve a intentarlo' };
+    const { data: ultimo } = await db.from(T).select('id, estado, triage, ref').like('ref', `${ref}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+    if (ultimo && !CERRADOS.includes(ultimo.estado as EstadoTicket)) {
+      await anotar(Number(ultimo.id), 'sistema', 'nota', `Volvió a pasar: ${n.volvioAPasar ?? 'lo mismo, en la misma conversación'}`);
+      return { ok: true, id: Number(ultimo.id), estado: ultimo.estado as EstadoTicket, triage: leerTriage(ultimo.triage)!, yaExistia: true };
+    }
+    if (ultimo) ref = `${ref}:${Date.now().toString(36)}`;
+  } else if (n.ref) {
     const { data: ya } = await db.from(T).select('id, estado, triage').eq('ref', n.ref).maybeSingle();
     if (ya) return { ok: true, id: Number(ya.id), estado: ya.estado as EstadoTicket, triage: leerTriage(ya.triage)!, yaExistia: true };
   }
-  // El tope del día: más que esto es un bucle o un abuso, no soporte.
+  // El tope del día: más que esto es un bucle o un abuso, no soporte. El de un tercero se cuenta por el comienzo de su `ref`, y
+  // el de los AUTOMÁTICOS también (por negocio). El de la PERSONA no cuenta lo que abrió el sistema por ella (27/10/2026: con 10
+  // tickets automáticos, ya no podía levantar uno a mano): las `ref` de los automáticos, de los errores y de lo que no existe.
   const hace24 = new Date(Date.now() - 86_400_000).toISOString();
-  const { count, error: eCount } = await db.from(T).select('id', { count: 'exact', head: true })
-    .eq('workspace_id', n.identidad.ws).eq('usuario_email', n.identidad.email).gte('created_at', hace24);
-  if (eCount) return { ok: false, error: faltaTabla(eCount) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
-  if (!n.sistema && (count ?? 0) >= TOPE_POR_DIA) return { ok: false, error: `Ya mandaste ${TOPE_POR_DIA} tickets hoy: el equipo los está viendo` };
+  const tercero = n.tercero ? `${n.tercero.clave}:` : null;
+  const automatico = n.automatico ? `${n.automatico.clave}:` : null;
+  if (tercero && !n.ref?.startsWith(tercero)) return { ok: false, error: 'No pude guardarlo: vuelve a intentarlo' };
+  let count: number;
+  if (tercero || automatico) {
+    const r = await db.from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', n.identidad.ws).gte('created_at', hace24).like('ref', `${tercero ?? automatico}%`);
+    if (r.error) return { ok: false, error: faltaTabla(r.error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
+    count = r.count ?? 0;
+  } else {
+    // Filas y no un `count`: la condición «ref nula o que no es del sistema» no entra en un filtro simple, y son pocas (el tope).
+    const r = await db.from(T).select('ref').eq('workspace_id', n.identidad.ws).eq('usuario_email', n.identidad.email).gte('created_at', hace24).limit(200);
+    if (r.error) return { ok: false, error: faltaTabla(r.error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
+    count = (r.data ?? []).filter((f) => !esRefDelSistema(f.ref as string | null)).length;
+  }
+  const tope = tercero ? TOPE_POR_DIA_TERCERO : automatico ? TOPE_AUTOMATICOS_POR_DIA : TOPE_POR_DIA;
+  if (automatico && count >= tope) {
+    // Con el tope del día lleno no se pierde callado (la revisión del 27/10/2026): se anota en el último automático del negocio.
+    const { data: ultimo } = await db.from(T).select('id, estado, triage').like('ref', `${automatico}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+    if (!ultimo) return { ok: false, error: `ya hay ${tope} tickets automáticos hoy en este negocio` };
+    await anotar(Number(ultimo.id), 'sistema', 'nota', `Otro más, con el tope del día lleno: ${titulo}. ${n.volvioAPasar ?? ''}`.trim());
+    return { ok: true, id: Number(ultimo.id), estado: ultimo.estado as EstadoTicket, triage: leerTriage(ultimo.triage)!, yaExistia: true };
+  }
+  if (!n.sistema && count >= tope) return { ok: false, error: `Ya mandaste ${tope} ${tercero ? 'reportes' : 'tickets'} hoy: el equipo los está viendo` };
 
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy });
+  // Un PEDIDO DELEGADO desde el grupo con plata, envíos o borrados, o de alguien sin permiso en el negocio, lo decide Martín (A2 de
+  // la revisión de privacidad): por lo que pidió (el título y lo que escribió), no por la descripción, que trae lo de antes.
+  const decideMartin = contexto.delegado ? delegadoQueDecideMartin(`${titulo}\n${contexto.pedido ?? ''}`, n.identidad) : null;
+  // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto, adjuntos: n.adjuntos?.length ?? 0 }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia, decideMartin }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
-    ref: n.ref ?? null,
+    ref,
     workspace_id: n.identidad.ws, usuario_id: n.identidad.usuarioId, usuario_email: n.identidad.email,
     usuario_nombre: n.identidad.nombre, rol: n.identidad.rol, plan: n.identidad.plan,
     tipo: triage.tipo, titulo, descripcion, canal: n.canal, contexto,
@@ -243,9 +295,32 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
     return { ok: false, error: faltaTabla(error) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
   }
   const id = Number(data.id);
-  await anotar(id, n.declaradoPor === 'sistema' ? 'sistema' : n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal });
+  await anotar(id, n.declaradoPor === 'sistema' ? 'sistema' : n.declaradoPor === 'mako' ? 'mako' : 'cliente', 'creado', null, { canal: n.canal, ...(n.adjuntos?.length ? { adjuntos: n.adjuntos } : {}) });
   await anotar(id, 'triage', 'clasificado', triage.porque.join(' '), { tipo: triage.tipo, autoArreglo: triage.autoArreglo, confianza: triage.confianza });
   return { ok: true, id, estado, triage, yaExistia: false };
+}
+
+/** Los estados de un ticket cerrado (un automático cerrado abre uno nuevo si vuelve a pasar). */
+const CERRADOS: readonly EstadoTicket[] = ['resuelto', 'rechazado', 'duplicado'];
+
+/** ¿Esta `ref` es de un ticket que abrió el SISTEMA por la persona (un automático, un error, lo que no existe)? */
+export const esRefDelSistema = (ref: string | null | undefined): boolean => !!ref && /^(?:np|error|no-existe):/.test(ref);
+
+/**
+ * Cierra el ticket automático ABIERTO con esa `ref` (o su sufijo): lo del proveedor o la configuración, cuando vuelve a andar
+ * (lib/no-pude-server.ts, `cerrarSiVolvio`). Queda «resuelto» con el motivo, y el aviso al cliente sale como el de siempre.
+ * Devuelve su número, o null si no había ninguno abierto.
+ */
+export async function cerrarAutomatico(ref: string, motivo: string, soloSi?: (herramienta: string | null) => boolean): Promise<number | null> {
+  const db = getSupabaseServer();
+  const { data: ultimo } = await db.from(T).select('id, estado, contexto').like('ref', `${ref}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+  if (!ultimo || CERRADOS.includes(ultimo.estado as EstadoTicket)) return null;
+  if (soloSi && !soloSi((ultimo.contexto as { herramienta?: string } | null)?.herramienta ?? null)) return null;
+  const ahora = new Date().toISOString();
+  const { error } = await db.from(T).update({ estado: 'resuelto', respuesta: motivo, resuelto_at: ahora, avisado_at: null, updated_at: ahora }).eq('id', ultimo.id);
+  if (error) { console.error(`[tickets] no pude cerrar el automático #${ultimo.id}: ${error.message}`); return null; }
+  await anotar(Number(ultimo.id), 'sistema', 'resuelto', motivo);
+  return Number(ultimo.id);
 }
 
 // ── Lo del CLIENTE: siempre su workspace y su email ───────────────────────────────────────────────────────────────
@@ -268,16 +343,70 @@ export async function miTicket(ws: number, email: string, id: number): Promise<{
   return { ticket: aFila(data as Record<string, unknown>), eventos: (ev ?? []) as Evento[] };
 }
 
-/** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
-export async function comentarComoCliente(ws: number, email: string, id: number, texto: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/**
+ * Lo que el NEGOCIO ya le pidió o reportó al equipo, para el turno del grupo de WhatsApp (28/10/2026, el diagnóstico del
+ * Cerebro, F2b; lib/pedidos-del-negocio.ts): los abiertos y los resueltos de los últimos días, de cualquier persona del
+ * negocio (`misTickets` es de UNA persona, por su email). Lo lee el código: el modelo los ve como un bloque del system.
+ */
+export async function ticketsDelNegocio(ws: number, diasResueltos = 3, tope = 8): Promise<Lectura<FilaTicket[]>> {
+  const desde = new Date(Date.now() - diasResueltos * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await getSupabaseServer().from(T).select(COLS)
+    .eq('workspace_id', ws).or(`estado.not.in.(${CERRADOS.join(',')}),and(estado.eq.resuelto,updated_at.gte."${desde}")`)
+    .order('updated_at', { ascending: false }).limit(tope);
+  if (error) return { ok: false, faltaTabla: faltaTabla(error), error: error.message };
+  return { ok: true, datos: (data ?? []).map((f) => aFila(f as Record<string, unknown>)) };
+}
+
+/**
+ * De los tickets `ids`, los que son del negocio `ws` (A1 de la revisión de privacidad: un hito va al turno de un negocio sólo si
+ * TODOS los tickets que nombra son suyos, `hitosDelNegocio`). Si no se pudo leer, tira: quien llama no muestra ningún hito.
+ */
+export async function ticketsDelNegocioEntre(ws: number, ids: readonly number[]): Promise<Set<number>> {
+  if (!ids.length) return new Set();
+  const { data, error } = await getSupabaseServer().from(T).select('id').eq('workspace_id', ws).in('id', [...ids]);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((f) => Number(f.id)));
+}
+
+/**
+ * ¿Ese teléfono es de un ADMIN DE MaKo (`usuarios.rol = 'admin'`, no suspendido)? El DEBUG del grupo de la plataforma lo habilita
+ * QUIEN escribe, no el grupo (M3 de la revisión de privacidad): en los grupos de prueba de la allowlist escribe más gente. Sin
+ * teléfono (un `@lid`) o sin leer la base, no.
+ */
+export async function esAdminDeMaKoPorTelefono(telefono: string | null | undefined): Promise<boolean> {
+  if (!telefono) return false;
+  const { data, error } = await getSupabaseServer().from('usuarios').select('perfil').eq('rol', 'admin').neq('estado', 'suspendido').limit(50);
+  if (error) return false;
+  return (data ?? []).some((u) => mismoTelefono((u.perfil as { telefono?: string } | null)?.telefono, telefono));
+}
+
+/**
+ * Lo que se dijo en el GRUPO sobre un pedido que ya está abierto (la marca `[[ya-pedido: #N]]`): se suma al ticket como un
+ * comentario del cliente, en vez de abrir otro. Sólo un ticket abierto de ESE negocio; si no, nada.
+ */
+export async function sumarAlPedidoDelNegocio(ws: number, id: number, texto: string): Promise<boolean> {
   const t = taparClaves(texto.trim()).texto;
+  if (!t) return false;
+  const db = getSupabaseServer();
+  const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).maybeSingle();
+  if (!tk || CERRADOS.includes(tk.estado as EstadoTicket)) return false;
+  await anotar(id, 'cliente', 'comentario', `Por el grupo de WhatsApp: ${t}`);
+  // Si el equipo le había preguntado, la respuesta lo devuelve a la bandeja (como `comentarComoCliente`).
+  await db.from(T).update({ estado: tk.estado === 'esperando_cliente' ? 'esperando_decision' : tk.estado, updated_at: new Date().toISOString() }).eq('id', id);
+  return true;
+}
+
+/** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
+export async function comentarComoCliente(ws: number, email: string, id: number, texto: string, adjuntos: readonly AdjuntoTicket[] = []): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Con archivos (28/10/2026, lib/tickets-adjuntos.ts) puede ir sin texto: el historial dice cuáles.
+  const t = taparClaves(texto.trim()).texto || lineaDeAdjuntos(adjuntos.map((a) => a.nombre));
   if (!t) return { ok: false, error: 'Escribe tu respuesta' };
   if (t.length > TOPES.nota) return { ok: false, error: `Acórtala a ${TOPES.nota} caracteres` };
   const db = getSupabaseServer();
   const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).eq('usuario_email', email.trim().toLowerCase()).maybeSingle();
   if (!tk) return { ok: false, error: 'No encuentro ese ticket' };
   if (tk.estado === 'resuelto' || tk.estado === 'rechazado' || tk.estado === 'duplicado') return { ok: false, error: 'Ese ticket ya está cerrado: levanta uno nuevo' };
-  await anotar(id, 'cliente', 'comentario', t);
+  await anotar(id, 'cliente', 'comentario', t, adjuntos.length ? { adjuntos } : undefined);
   // Si Martín le había preguntado, la respuesta lo devuelve a la bandeja (Intercom: «Waiting on customer» → «In progress»).
   await db.from(T).update({ estado: tk.estado === 'esperando_cliente' ? 'esperando_decision' : tk.estado, updated_at: new Date().toISOString() }).eq('id', id);
   return { ok: true };

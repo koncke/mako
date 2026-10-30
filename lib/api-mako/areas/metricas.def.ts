@@ -73,6 +73,23 @@ export const DEFS: readonly OperacionDef[] = [
     gating: GATING_GRAPHICS,
   },
   {
+    // Joan (ws13, 26/10/2026): «pasame los no show» y «el nombre y apellido de cada uno de los que quedaron sin marcar».
+    // Había el número (metricas_negocio) y ninguna lectura con los nombres: MaKo contestó que «no se lista nominalmente».
+    // Va en métricas, al lado del número: por WhatsApp «sin marcar» y «no-show» abren esta área, no la del CRM
+    // (lib/mako-intencion.ts, `areasDelMensaje`).
+    id: 'reuniones_por_asistencia', area: 'metricas', tipo: 'lectura',
+    titulo: 'Reuniones del período por asistencia, con nombre',
+    descripcion: 'Quiénes son, uno por uno: las R1 y R2 con fecha en el período que quedaron SIN MARCAR (nadie dijo si el lead vino), los NO-SHOW o las que se hicieron, con el nombre del lead, su id, la reunión, la fecha y el closer, más el total y la hora de la cuenta. Es la MISMA cuenta que metricas_negocio: úsala cuando pidan los nombres. Si el número cambió desde la última vez que lo dijiste es porque el equipo marcó reuniones en el medio: dilo así. Para marcar una, marcar_asistencia_reunion.',
+    parametros: [
+      { nombre: 'asistencia', tipo: 'string', enum: ['sin_marcar', 'no_show', 'asistio'], descripcion: 'sin_marcar (default): nadie marcó si vino; no_show: no vino; asistio: vino.' },
+      desde(' Si falta, los últimos 90 días hasta hoy en la zona del negocio (lo mismo que metricas_negocio).'),
+      hasta(' Si falta, hoy en la zona del negocio.'),
+      { nombre: 'reunion', tipo: 'string', enum: ['R1', 'R2'], descripcion: 'sólo la R1 o sólo la R2; sin esto, las dos.' },
+    ],
+    // Nombres de leads: no salen por HTTP (SIN_HTTP). Lo ve quien ve el tablero, como reuniones_proximas.
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'crm' },
+  },
+  {
     id: 'analisis_negocio', area: 'metricas', tipo: 'lectura',
     titulo: 'Análisis completo del período',
     descripcion: 'EL ANÁLISIS COMPLETO de un período, no solo los números: la cascada de costos (cuánto cuesta una agenda, una asistencia, un calificado y un cliente, en la moneda de la cuenta y en USD), las tasas de cada escalón, el chequeo de cuadratura contra la base, cuántos de los que asistieron no calificaban y qué contestaron, el ranking de creativos por volumen y por costo (y cuáles esconde el ranking por cantidad), la serie mes a mes y, si se pasa una meta de cierres, cuántas asistencias, agendas e inversión hacen falta, marcando si el presupuesto propuesto se contradice. Úsala cuando pidan un diagnóstico, «cómo venimos», una revisión del período o antes de recomendar dónde poner el presupuesto. Trae advertencias arriba: léelas y repítelas, dicen qué números NO son confiables todavía.',

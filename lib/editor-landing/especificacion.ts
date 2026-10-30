@@ -53,7 +53,7 @@ import {
 } from './animaciones';
 import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
-import { ALTO_MINIATURA_EDITABLE, CLASE_EDITABLE, documentoEditable } from './html-editable';
+import { ALTO_MINIATURA_EDITABLE, CLASE_EDITABLE, conEnlacesDePaginas, documentoEditable, envoltoriosValidos } from './html-editable';
 import { hrefPagoValido } from './pago-landing';
 import {
   HtmlCrudo, arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
@@ -98,6 +98,8 @@ export type CtxSpec = {
   srcHtmlLibre?: (idBloque: string) => string | null;
   /** La hoja del documento (`config.diseno.css`) para dibujar un «Diseño editable» en su iframe (html-editable.ts). */
   cssDiseno?: string;
+  /** La copia de una página (`config.diseno.sinBase`): su iframe va sin la base de Tailwind. */
+  sinBaseDiseno?: boolean;
   /**
    * Los MARCADORES de una miniatura de trabajo (render.ts, `OpRender.marcadores`; sólo en
    * 'miniatura'): el VSL vacío de un diseño se dibuja como un ▶ (`specInsertado`). Sin esto, un
@@ -582,7 +584,8 @@ export function attrsHtmlLibre(raw: unknown): AttrsHtmlLibre {
 export function attrsHtmlEditable(raw: unknown): AttrsHtmlEditable {
   const r = obj(raw);
   const html = typeof r.html === 'string' && r.html.length <= TOPES.htmlEditable ? r.html.replace(/\u0000/g, '') : '';
-  return { id: idValido(r.id), html };
+  const envoltorios = envoltoriosValidos(r.envoltorios);
+  return { id: idValido(r.id), html, ...(envoltorios ? { envoltorios } : {}) };
 }
 
 export type AttrsParrafo = { variante: VarianteParrafo | null; textAlign: AlineacionTexto | null };
@@ -1128,9 +1131,10 @@ export function specHtmlLibre(raw: unknown, ctx?: CtxSpec): NodoArbol {
 export function specHtmlEditable(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsHtmlEditable(raw);
   if (!a.html) return el('div', { class: CLASE_EDITABLE, 'data-vacia': 'si' });
-  if (modo(ctx) === 'publico') return el('div', { class: CLASE_EDITABLE }, new HtmlCrudo(a.html));
+  // Los enlaces «a otra página», a su dirección (sin resolvedor, `#`: un `pagina:` crudo no sirve en la página).
+  if (modo(ctx) === 'publico') return el('div', { class: CLASE_EDITABLE }, new HtmlCrudo(conEnlacesDePaginas(a.html, ctx?.resolverHref)));
   return el('div', { class: CLASE_EDITABLE }, el('iframe', {
-    sandbox: '', srcdoc: documentoEditable(a.html, ctx?.cssDiseno ?? ''), title: 'Diseño editable', loading: 'lazy',
+    sandbox: '', srcdoc: documentoEditable(a.html, ctx?.cssDiseno ?? '', { envoltorios: a.envoltorios, sinBase: ctx?.sinBaseDiseno }), title: 'Diseño editable', loading: 'lazy',
     referrerpolicy: 'no-referrer', scrolling: 'no', style: `height:${ALTO_MINIATURA_EDITABLE}px`,
   }));
 }

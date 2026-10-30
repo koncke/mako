@@ -5,6 +5,211 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## La clave de API no es la suscripción, y Gemini no se saca de la vista (27/10/2026)
+
+**Vive en:** `app/integraciones/TusCuentasIA.tsx` (`ClavesDeApi`, `estadoDeClave`, `CLAVES_RETIRADAS`) ·
+`app/integraciones/CuentasYDispositivos.tsx` (`BloqueCuenta`, el chip «Suscripción») · `app/integraciones/tus-cuentas-ia.css`.
+Guard: `tests/clave-y-suscripcion-27-10.test.ts`.
+
+- **El síntoma (Leila, en la llamada con Martín):** «Anthropic API · Conectada» arriba y «Cuenta 1 · Max» abajo se leían como
+  lo mismo, sin saber con cuál contestaba MaKo. La causa no era sólo la palabra: la FILA de la clave abría «¿Cómo la conectas?»
+  (computadora o clave), así que en los hechos era la puerta de Claude entero, y su estado sólo hablaba de la clave. Regla: una
+  fila de «Claves de API» es SÓLO la clave («Clave cargada» / «Sin clave», abre el modal de SU clave); la elección con la
+  computadora vive en «Nueva cuenta», y cada cuenta de la computadora dice «Suscripción Max».
+- **⚠️ El obvio («Gemini ya no se ofrece → sacar su fila») era el equivocado.** Su clave está cargada en 11 negocios (medido el
+  27/10: qué negocio tiene qué clave, sin leer ningún valor) y MaKo la sigue usando (escuchar audios, la cascada barata:
+  `lib/ai-cheap.ts`). Sacarla de la vista deja una clave EN USO sin dónde cambiarla ni quitarla. Regla: una IA retirada se ve
+  SÓLO si está cargada, sin el verde de «lista», y dice «ya no se ofrece» (`CLAVES_RETIRADAS`).
+- **Trampa de CSS:** `.tci-ayuda` es absoluta (la de las opciones grandes) y está DESPUÉS en el archivo; un modificador de una
+  sola clase pierde y el «?» se va a la esquina de la página. Con dos clases (`.tci-ayuda.tci-ayuda--titulo`) gana.
+- **Trampa del test de voseo** (`tests/ia-pc-ola2.test.ts`, «de tú, no de vos»): `\b(abrí|…)\b` sin la bandera `u` toma la `í`
+  como no-letra, así que «abrían» en un COMENTARIO da positivo. Si salta sin un voseo a la vista, buscar una palabra que
+  EMPIECE con una de la lista.
+- **SIN HACER:** los errores de la IA que todavía dicen «conecta tu Claude, tu GPT o tu Gemini» (`lib/ai-cheap.ts`, `lib/persona.ts`)
+  y la descripción de Groq en `lib/integraciones-catalogo.ts` (son de otras áreas); y la fila no se relee si se QUITA la clave en
+  su modal (`onConectado` sólo avisa al conectar).
+
+## La política de privacidad lee el MISMO interruptor que el login (26/10/2026)
+
+**Vive en:** `app/privacidad/page.tsx` (`loginPideAgenda`) · `lib/google-login-agenda.ts` · `app/api/auth/google/route.ts` y su
+callback. Guard: `tests/privacidad-agenda-login.test.ts`.
+
+- **Google aprobó la app** (Martín, 26/10). Prender la agenda al entrar es poner `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel; la
+  política prometía «dos momentos separados» y tenía que cambiar ANTES.
+- **El diagnóstico obvio era reescribir el texto y listo.** Pero el interruptor se prende en Vercel cuando la rama ya está en
+  main: un texto fijo mentiría en el medio (diría «una sola vez» con el login todavía en dos, o al revés). La página lee el
+  MISMO interruptor en el server y dice lo que el login hace HOY. **Regla: un texto legal que describe un comportamiento
+  detrás de un interruptor lee ese interruptor.**
+- Cada promesa de la versión «al entrar» quedó atada a su línea de código en el test: destildable (`otorgoLaAgenda`), sólo
+  quien administra (`rolWs !== 'admin'`), sin pisar la agenda de otra persona (`googleCalendarDueno`).
+
+**Quedó SIN hacer:** poner `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (producción). Lo pide el Cerebro a Martín cuando esta rama
+esté en main.
+
+*26/10/2026, chat «Settings» (claude5), rama google-agenda-2610.*
+
+## Los grabadores de reuniones: una reunión, venga de donde venga (26/10/2026)
+
+**Vive en:** `lib/grabadores/` (la capa: `reunion.ts` la forma común y la clave, `index.ts` la puerta, un lector por
+grabador, `formas.ts` lo que devuelve cada API, `firmas.ts`, `al-terminar.ts` lo que pasa cuando un grabador avisa),
+`app/api/webhooks/{tldv,fireflies,zoom}`, migración sin número `XXXX_reuniones_de_cualquier_grabador.sql`.
+Guard: `tests/grabadores.test.ts` (15, probado con 11 roturas, dos invertidas).
+
+Pedido de Martín (26/10, ~01:50): «implementa otras integraciones de grabadores de reuniones, como Loom, etc... Así no solo
+se puede grabar con fathom. Y revisa el plan y otras cosas que solo consumen fathom».
+
+- **El diagnóstico obvio era el equivocado: «Loom es el primero» no se puede hacer.** Loom dice textual «Loom does not offer
+  a open API at this time» (support.atlassian.com/loom). No hay listado, ni transcripción, ni webhooks; `api.loom.com` ni
+  resuelve DNS. El oEmbed (`loom.com/v1/oembed`) da título, duración y miniatura de un video PÚBLICO cuyo link ya tenés.
+  Lo único con transcripción es el Teamwork Graph de Atlassian: Preview, sólo desde apps Forge instaladas en Jira o
+  Confluence, con allowlist. La GraphQL de loom.com contesta 200 anónimo y la usan scrapers: NO es oficial, no se usa. Lo
+  que quedó: la tarjeta lo dice, el link de un Loom entra al lead, y la transcripción se sube en el Plan → Importar.
+- **El inventario: lo que leía SÓLO de Fathom eran cinco funciones de red y una forma.** `listMeetingsPage`,
+  `fetchAllMeetings`, `fetchMeetingContent`, `fetchRecordingTranscript`, `fetchRecordingSummary` y `FathomMeeting`, usados
+  por el Plan (cron, webhook, modal, API), el Closing (sync, por lead, re-analizar, transcript), Customer Success (sesiones
+  de entrega, propuesta del curso), el CRM (enganche automático de grabaciones, el webhook, el link del lead), los gráficos
+  con IA, el Ops Center y once lugares que preguntaban `integracionConectada('fathom')` para decir «¿puede leer
+  reuniones?». Todo pasa ahora por `lib/grabadores` (`hayGrabadorConectado`, `listarReunionesRecientes`, `leerReunion`).
+  El Second Brain todavía no lee reuniones (el recolector es sólo WhatsApp): cuando lo haga, de la capa.
+- **La clave numérica, para no migrar seis tablas.** `closing_analyses`, `plan_reuniones_descartadas` y
+  `curso_progreso.ia_recording_id` guardan la reunión como `bigint`, y las marcas del Plan van por número. Fathom sigue con
+  su `recording_id` (positivo): ninguna marca, borrador ni análisis viejo cambia de nombre. Los demás llevan un número
+  NEGATIVO derivado de «grabador:id» (cyrb53, 53 bits): nunca choca con uno de Fathom. De la clave a la reunión vuelve la
+  tabla `grabador_reuniones` (la escribe UN lugar, la capa al listar). Sin la migración todo lo que lleva la reunión
+  entera anda (el cron, el webhook, el modal); lo que tiene SÓLO el número («Leer igual», «Volver a analizar») lo dice, y
+  Customer Success deja esperando sus sesiones (hasta la revisión del tren m les quemaba los 3 intentos: ver
+  docs/hallazgos-closing.md). Con eso el orden entre el deploy y la 0338 da igual de verdad.
+  ⚠️ El proyecto compila a ES2017: un hash con literales BigInt (`0xcbf…n`) no compila; por eso cyrb53 con `Math.imul`.
+- **Las trampas medidas contra las APIs reales (26/10, sin credenciales):**
+  - **Fireflies contesta HTTP 500 a una clave mala** (`errors[].code = "auth_failed"`), no 401: un cliente que reintenta
+    los 5xx reintentaría para siempre. El ping y el lector lo leen como «la clave no sirve» (`esAuthFireflies`).
+  - **tl;dv no firma sus avisos** (sólo deja agregar headers propios) y el esquema de `TranscriptReady` no coincide con el
+    ejemplo de su misma doc. Por eso de un aviso se usan el correo del organizador (ruteo) y el id, y la reunión se pide
+    ENTERA por la API con la clave de ese negocio: un aviso falso, a lo sumo, hace leer una reunión que de verdad es suya.
+  - **Fireflies y Zoom no dicen de quién es el aviso** (Fireflies manda sólo `meeting_id`; la validación de Zoom no trae
+    cuenta). Los rutea la FIRMA: el negocio cuyo secreto la verifica (`negocioPorFirma`). Dos negocios con el mismo
+    secreto (Fireflies lo escribe la persona) = no es de nadie.
+  - **Zoom: el correo de un participante de afuera viene VACÍO.** El CRM no puede saber solo de qué lead es la llamada;
+    la tarjeta lo dice. La transcripción es un VTT («Nombre: texto») y el rango de fechas, de un mes como máximo.
+  - **tl;dv, Fireflies y Otter no dicen quién es «de afuera»** (Fathom sí, `is_external`). Se infiere del correo contra el
+    de quien grabó (`externoPorCorreo`): el mismo dominio es de la casa; con un gmail, cualquiera es de afuera.
+  - **Una transcripción que falta en una reunión reciente es «todavía no está», no «no hay»** (tl;dv la devuelve sólo
+    completa; Zoom tarda). Tratarla como vacía cerraba la reunión para siempre como «sin compromisos»: es
+    `GrabadorSinRespuestaError`, y el cron la reintenta.
+  - **Read AI**: OAuth 2.1 con registro dinámico, token de 10 minutos y refresh que rota en cada uso, y su doc no dice si
+    acepta una vuelta que no sea la suya: sin probarlo, no hay botón. **Google Meet**: el permiso `meetings.space.readonly`
+    es «sensible» y la app de Google de MaKo no lo tiene. **Otter**: API sólo Enterprise; la forma de su LISTA no se pudo
+    medir, así que si no es la esperada, tira diciendo qué vino (nunca «no hay reuniones»).
+- **El chip «Fathom» del Plan mentía para todo lo demás.** El origen de una tarjeta caía a «WhatsApp» con cualquier
+  `origen` que no estuviera en una lista; ahora cada grabador es su propio origen, y el filtro «Reuniones grabadas» guarda
+  la clave vieja `'fathom'` para no borrarle el filtro a quien ya lo tenía.
+- **Lo que encontró la revisión del tren m (26/10, hallazgos 9, 12 y 13):**
+  - **La misma reunión grabada por dos grabadores era DOS reuniones.** Con Fathom y tl;dv en la misma R1, cada copia tenía
+    su clave: dos análisis del Closing (score y conteos duplicados), dos borradores del Plan, y como los links eran
+    distintos, los dos avisos «agregaban» un link y disparaban `reunion.ocurrio` y el aviso al dueño dos veces. El único
+    freno era por link. Ahora `esLaMismaReunion` (menos de 10 minutos de diferencia, y un invitado en común que no es el
+    anfitrión o el mismo título con el mismo anfitrión) y `leTocaA`: se procesa la copia que ya tiene algo hecho —así la
+    que llega después no se procesa de nuevo— y si ninguna, la de Fathom. El evento y el aviso llevan la clave del lead y
+    la reunión (`claveDeReunionDelLead`), no la del grabador.
+  - **Con tl;dv o Fireflies un no-show quedaba «asistió».** Ninguno atribuye voces a correos (`invitadoHablo` da null
+    siempre) y sus invitados salen del CALENDARIO, no de quién entró. El webhook hacía `null ?? true`: el lead que no vino
+    —el closer lo esperó con el grabador prendido— avanzaba de etapa y nunca entraba a la nutrición No Show. Un «no se
+    sabe» es «asistió» sólo con Fathom (`anotaLaAsistencia`); con los demás se engancha el link y la asistencia queda para
+    una persona o la regla T1. (El revisor dijo que disparaba CAPI QualifiedLead: falso, la asistencia dejó de mandar
+    eventos a Meta el 05/10; el comentario de `applyFathomRecording` que lo decía estaba viejo.)
+  - **tl;dv avisa MeetingReady ANTES de tener la transcripción, y TranscriptReady no dice de qué negocio es.** El
+    seguimiento se redactaba igual: el Closing pagaba un análisis con el título solo (y si salía «descartada», la llamada
+    se perdía para siempre) y el borrador no se hacía nunca. Ahora el aviso espera y reintenta mientras el reloj deje
+    lugar al análisis (`entraOtraEspera`); si no llega, el seguimiento queda anotado (`seguimiento-pendiente.ts`) y lo
+    redacta el cron del Closing cuando la transcripción esté. El análisis por lead no paga a Claude sin transcripción.
+- **Sin hacer:** la migración (con el sí de Martín), Read AI, Meet, y Grain/MeetGeek/Avoma/Granola/Krisp (tienen API con
+  clave): `docs/pendientes.md` → P13.
+
+## /integraciones limpia: sacar una tarjeta NO es sacar la integración, y el Leads Scraper era una sola cosa (25/10/2026)
+
+**Vive en:** `lib/integraciones-catalogo.ts` (`oculto`), `app/integraciones/IntegracionesBoard.tsx` (`?abrir=`),
+`app/integraciones/TusCuentasIA.tsx`, `lib/google-login-agenda.ts`, `app/api/auth/google/route.ts` y su callback.
+Guards: `tests/integraciones-limpieza-25-10.test.ts`, `tests/leads-scraper-retirado.test.ts`.
+
+- **Ocultar una tarjeta rompía su link EN SILENCIO.** El `?abrir=<key>` del tablero buscaba la key en la lista VISIBLE: con
+  las cuatro IA y Google Calendar en `oculto`, `?abrir=anthropic` o `?abrir=google` (que mandan los avisos, la API de MaKo y
+  MaKo en WhatsApp) no abría nada, sin error. Ahora una `oculto` abre el modal suelto (`useConectarIntegracion`). **Regla:
+  `oculto` saca la tarjeta, no la integración; su modal (`getIntegracion` no mira `oculto`), su estado en la API
+  (`getIntegraciones({ conOcultas: true })`) y su link tienen que seguir andando.**
+- **Ocultar algo pone rojo a un test ajeno que lo usaba de EJEMPLO.** `integraciones-visibles` tomaba a `anthropic` como «la
+  tarjeta de Inteligencia que el super admin ve»: rojo desde el commit que la ocultó, y no lo dijo nadie hasta correrlo.
+  Antes de ocultar, `git grep` de la key en `tests/`.
+- **Las filas nuevas salían apiladas y centradas, y no era la grilla:** `.tci-clave` ya existía más abajo en
+  `tus-cuentas-ia.css` (reglas viejas sin dueño, `flex-direction: column`) y le ganaba a la nueva. Un nombre de clase se
+  busca antes de usarlo; las nuevas son `.tci-api`.
+- **«Depreca Hotmart, Skool... Elimina Apify» no eran tres tarjetas: era el Leads Scraper entero** (14/10). Dos webhooks que
+  entraban gente al CRM, el ruteo por hash, la pantalla `/crm/prospectos` con su renglón del «⋯» y del clic derecho, dos
+  operaciones de la API y un `funnel-de-entrada` que sólo existía para ellos. Medido antes, sólo leyendo: **0** claves (ni de
+  la plataforma), 0 filas de ruteo, 0 leads con ese origen, 0 búsquedas. Salió todo; las tablas de la mig 0289 quedan
+  (vacías) y `RUTEO_POR_HASH` queda vacío pero vivo (es el mismo mecanismo de los tokens de la API).
+- **Apify tenía una segunda vida que no es la integración:** la lectura de un @ de Instagram que paga la PLATAFORMA
+  (`lib/instagram-perfil-server.ts`, 22/10). Quedó DORMIDA: no hay clave en ningún lado y la tarjeta para cargarla se fue.
+  Su respaldo con la clave del negocio (`credDelCliente('APIFY_TOKEN')`) ya no se puede cargar.
+- **El login con Google NUNCA pidió la agenda, y dos comentarios decían que sí** (el callback y `GoogleCalendarPanel`):
+  `guardarCalendarBestEffort` estaba dormido. Ahora la pide con `GOOGLE_LOGIN_CON_AGENDA=1`, apagado: la app de Google no
+  está verificada (`docs/verificacion-google.md`) y los scopes del calendario son SENSIBLES → «Google no verificó esta app»
+  a todo el que entra y cada uno cuenta contra el tope de 100. **Trampa del consentimiento granular:** la persona puede
+  destildar el calendario y Google igual manda un refresh_token; el callback guarda sólo si el `scope` de la respuesta trae
+  la agenda ENTERA (`otorgoLaAgenda`).
+- **`oculto` rompió en silencio CUATRO lugares más, y los encontró la revisión adversarial del tren (25/10, noche):**
+  - `link_configurar_integracion` validaba la key contra la grilla y contestaba «no existe» para las IA y Google: MaKo
+    no podía mandarle a nadie el link para conectarlas (justo el caso de Florencia);
+  - las cajas de «Costo de MaKo» buscaban el modal en la grilla y no abrían nada;
+  - el teléfono (`/m/configuraciones/integraciones?abrir=<key>`, adonde reescribe el link en un celular) leía la lista sin
+    `conOcultas`: el link llegaba a una lista sin la conexión y sin hoja abierta;
+  - `googleConToken` miraba la grilla: el permiso de Google no se leía nunca, y la vuelta con la casilla de editar
+    destildada festejaba «Google Calendar conectado».
+  **Regla:** todo lugar que lee la lista para saber qué EXISTE (validar, abrir, buscar un estado), y no para dibujarla,
+  usa `conOcultas` o `getIntegracion(key)`. Antes de ocultar algo: `git grep` de `getIntegraciones(` y de
+  `integraciones.(find|some)`, y cada pantalla que lee `?abrir=` resuelve las `oculto` aparte.
+
+**Quedó SIN hacer:**
+- Prender `GOOGLE_LOGIN_CON_AGENDA`: recién con la verificación aprobada (Martín contesta el hilo de Google con el video
+  youtu.be/0-i4bJ8w5fo y arma la cuenta de revisor en el ws3) y **antes** reescribir `app/privacidad/page.tsx` (promete dos
+  consentimientos separados, el del login y el de la agenda).
+- La lectura de un @ por Apify de la plataforma (`lib/instagram-perfil-server.ts`): sacarla o reemplazarla lo decide el CRM.
+- El nombre y el logo de Zernio: los lleva el chat de Zernio.
+
+*25/10/2026, chat «Settings» (claude5), rama integraciones-2510.*
+
+## Los links a cada conexión: `?abrir=` y `?servicio=` abren el modal, y el login perdía la query (25/10/2026)
+
+**Vive en:** `app/integraciones/IntegracionesBoard.tsx`, `proxy.ts` (`denegar`), `lib/integraciones-catalogo.ts`,
+`lib/metodo-catalogo.ts`, `lib/hechos-mako.ts`, `lib/mako-capacidades.ts`.
+
+- **`/integraciones?abrir=<key>` abre el modal de esa integración, y `?servicio=` también.** Una entrada más abajo dice que
+  `?servicio=` no lo abre: está vieja. «Tus cuentas de IA» no tiene link propio, y una key desconocida se ignora en silencio.
+- **Un link así abierto SIN sesión terminaba en integraciones sin el modal:** `denegar` ponía en `next` sólo el pathname y la
+  query quedaba colgada en /login. Lo arregló Zernio (0024e38ce, `tests/login-next-con-query.test.ts`); se vio con la vuelta de
+  Facebook de la conexión de Meta por Zernio.
+- **Lo que MaKo sabe de cómo conectar cada cosa está escrito en ocho lugares que ya se contradicen**: los dos catálogos,
+  `servicio-slides` (todavía vende «IA gratis»), `tab-activacion`, `hechos-mako` (sólo meta, anthropic y landing), `mako-capacidades`,
+  los `DEEP_LINKS` del doer y la expresión de intención (todavía dice «chatwoot»). Fathom, Zernio y MaKo Desktop no estaban.
+- **Zernio no crea la conexión de Meta si en la ventana de Facebook se marcan varias páginas y no se le pasa `pageId`**: vuelve
+  sin error visible. El primer clic de Martín (25/10) no dejó nada; el segundo, con la página fija, sí.
+
+**Lo que quedó (tanda 2, «MaKo en WhatsApp: conexiones», 25/10/2026): un solo catálogo, `lib/conexiones-catalogo.ts`**, puro;
+lo fija `tests/conexiones-api.test.ts`:
+- ⚠️ **El plan decía «montado sobre `DEFS` de metodo-catalogo», y `DEFS` no vive ahí.** Las tarjetas son `DEFS` de
+  `lib/integraciones-catalogo.ts` (puro); `lib/metodo-catalogo.ts` es `server-only` (`SERVICIOS_METODO`, los tutoriales). Por
+  eso el catálogo NO trae los pasos de una tarjeta: los lee el runner, en el servidor (`como_conectar`, `ver_integracion`).
+  Trae sólo los de lo que no es tarjeta (la computadora), con los rótulos reales de «Conecta MaKo»: el test los busca en la
+  pantalla, porque un paso con un botón que no existe es peor que ninguno.
+- **Una tarjeta nueva entra sola** (se deriva de `DEFS` y el test exige que estén todas). Aparte: la computadora
+  (`/perfil/ia?computadora=1`), «Tus cuentas de IA» (`?abrir=ia`, de MaKo Desktop) y el QR (`/chats?conectar=whatsapp`).
+- **Gemini y Groq están pero no se ofrecen** (`noSeOfrece`): quien ya los tiene los usa; no se manda a conectarlos.
+- `buscarConexion` gana con la frase MÁS LARGA que aparece como palabra: «google calendar» le gana a «google», y «el pixel de
+  meta» va a Meta (ahí se carga el ID del píxel), nunca al Pixel de MaKo.
+- **SIN hacer:** que lo consuman `hechos-mako`, `mako-capacidades`, los `DEEP_LINKS`, la expresión de intención y los carteles
+  (lib/fallo-ia-texto.ts tiene su propio `RUTA_CONEXION`): tanda 3. Y la key desconocida en `?abrir=` sigue sin aviso.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Pasar una integración de PLATAFORMA a BYOK son seis piezas, y cinco fallan calladas
 
 **Vive en:** `lib/integraciones-catalogo.ts` · `lib/metodo-catalogo.ts` ·
@@ -421,8 +626,9 @@ preguntá qué probó.
 
 ### El modal se abre con `?abrir=<key>`, y un key que no está no abre nada
 
-El inventario de la API decía `/integraciones?servicio=<key>`. Ese link abre la página y
-ningún modal, sin error: `IntegracionesBoard` lee `searchParams.get('abrir')` (`:195`) y
+⚠️ **Corregido el 25/10/2026: `?servicio=<key>` SÍ abre el modal** (el efecto de `servicio` del board; ver «Los links
+a cada conexión», arriba). Lo que sigue vale para `?abrir=`, que es el contrato. El inventario de la API decía
+`/integraciones?servicio=<key>`. Se creyó que ese link abría la página y ningún modal, sin error: `IntegracionesBoard` lee `searchParams.get('abrir')` (`:195`) y
 además **ignora en silencio** todo key que no esté entre sus integraciones visibles ni en
 `SYNTHETIC` (`:199`). Un link bien formado a un servicio que ese workspace no ve —por capa, o
 por `soloPlataforma`— aterriza igual frente a la grilla.
@@ -1353,6 +1559,16 @@ cuando Ads Manager termine; hasta entonces `cfg` lo deja en su modo de siempre (
 
 _23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), con el contrato cerrado con Ads Manager. Investigación: cuatro lectores en paralelo (API de conexión, cuentas y cobro, apps de referencia, mapa del código)._
 
+**Y el rojo que dejó en main el mismo día (medido el 24/10/2026, claude5, chat Automations).** `tests/zernio-sin-respaldo.test.ts`
+(«ningún código lee la key de Zernio de la plataforma para un negocio») acusaba a `lib/zernio-ads.ts` (publicar anuncios por Zernio,
+001b3184b, apagado hasta la prueba). **El diagnóstico obvio («un negocio publica con la cuenta de MaKo: plata nuestra») era el
+equivocado.** `claveZernioAnuncios` lee `envCred('ZERNIO_API_KEY')` SÓLO si el negocio es el de la plataforma (`wsSuperAdmin`, el de
+MaKo), donde esa key es la suya. A todo cliente le lee su fila con `credDelCliente`, sin respaldo, incluido el ws1, que para
+`credWs` sí cae al entorno. El barrido buscaba el texto `envCred('ZERNIO_API_KEY'` sin mirar la guarda. **Regla:** la excepción va en
+POSITIVO y exacta: el test saca esa única línea, dentro de `claveZernioAnuncios`, y exige que la función termine en
+`credDelCliente`. Sin la guarda, o con `credWs`, cae (B11, B12). No se excluye el archivo entero: así cualquier otra lectura
+nueva en él vuelve a caer.
+
 ## Los leads de los formularios de Meta por Zernio (`lead.received`): la misma puerta que Meta, y lo que la doc NO dice (23/10/2026)
 
 **El pedido** (Martín, vía el Cerebro, 23/10/2026): el puente de Make o Zapier se retiró («ya resolvimos todo con Zernio») y los leads de los formularios
@@ -1686,3 +1902,630 @@ hacerlo o investiga como lo hacen otras apps». La referencia es vercel.com/mark
   el permiso de Google, el Pixel viejo, Calendly). Esa diferencia ya existía.
 - `tests/zernio-conectar-redes.test.ts` falla en main: espera un `errorDeVentana` que no está en ningún archivo. Es de Zernio, no de
   este trabajo.
+
+## Meta entero por la Zernio del negocio: el token de Meta deprecado, y CAPI NO necesita una integración aparte (25/10/2026)
+
+**El pedido** (Martín, 25/10): «implementa zernio y depreca la conexión con API de Meta... Y también revisa el tema de CAPI y
+alimentar al pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requiera una integración aparte».
+
+**Vive en:** `lib/meta-via.ts` (la vía y las lecturas) · `lib/zernio-meta-cuerpo.ts` (lo puro, con `ZERNIO_META_PROBADO`) ·
+`lib/meta-conexion-zernio.ts` (guardar, mirar y probar la conexión) · `app/api/integraciones/meta-zernio/route.ts` ·
+`app/integraciones/ConectarMetaZernio.tsx` · `lib/meta-capi.ts` · `scripts/prueba-zernio-meta.mts` · `docs/tutorial-capi-pixel.md` ·
+`tests/zernio-meta.test.ts` · el relevo con el inventario entero: `docs/relevo/zernio-capi.md`.
+
+- **El diagnóstico obvio era el equivocado: «Zernio no hace CAPI, hace falta una integración aparte».** Lo decía la memoria del
+  25/10 («lo probable que NO cubre es CAPI») y el pedido. La OpenAPI de Zernio (v1.356.1, `docs.zernio.com/api/openapi`) tiene
+  `POST /v1/ads/conversions` (la Conversions API de Meta, «Platform is inferred from the provided `accountId`») y su guía de Meta
+  dice «There is no pixel-scoped access token to paste. Zernio uses the ads connection you already have». O sea: con la MISMA
+  conexión `metaads` con la que MaKo lee y publica, salen Lead, calificado y Schedule. El token del píxel (el botón «Generar
+  token de acceso» de Events Manager) queda como SALIDA DE RESPALDO, no como camino, con su tutorial.
+- **Lo que no dice la doc, y decide la prueba:** si una conexión con «Administrar campañas» (`permissionLevel=advertise`) puede
+  mandar eventos al píxel. Zernio pide «Control total» (`full`) para CREAR píxeles; para mandarles eventos no dice nada. Por eso
+  `lib/meta-capi.ts` cae al token del píxel sólo ante un fallo de PERMISO (`esFalloDePermiso`) y si el negocio lo pegó.
+- ⚠️ **Dos pantallas piden permisos distintos para la MISMA conexión.** El botón de MaKo (`REDES.metaads`, lib/zernio-redes.ts)
+  no manda `permissionLevel`, así que Zernio pide su default, `full`; el script del Media Buyer (`urlConectarAnunciosZernio`,
+  lib/zernio-ads.ts) pide `advertise`. Se dejó así a propósito: `full` cubre el píxel. Si la prueba muestra que `advertise`
+  alcanza para CAPI, conviene bajar el botón a `advertise` (una ventana que pide «Control total» asusta al dueño).
+- **Lo que cubre Zernio, medido en la OpenAPI (lectura, no prueba):** insights como PASO DIRECTO (`GET /v1/ads/insights`:
+  manda `fields`, `level`, `breakdowns` y `actionBreakdowns` a Meta y devuelve sus filas «verbatim»: el mismo parser de siempre);
+  la cuenta con su estado (`GET /v1/ads/accounts`: `accountStatus`, `disableReason`, `currency`, `timezoneName`) y sus finanzas
+  (`/v1/ads/accounts/finance`); campañas y conjuntos EN VIVO con presupuesto e interruptor propio (`/v1/ads/accounts/live`:
+  `configuredStatus`); el árbol con el creativo y su permalink (`/v1/ads/tree`: `effectiveObjectStoryId`,
+  `instagramPermalinkUrl`); los píxeles que ve la conexión (`/v1/accounts/{id}/conversion-destinations`, y `tracking-tags` con
+  `stats`); leads (`lead.received` y `GET /v1/ads/leads?since=`); la calidad del match (`/v1/ads/conversions/quality`); y
+  los links directos de los videos e imágenes de un anuncio (`GET /v1/ads/{adId}/media`), que es la salida al `source` que Meta
+  dejó de devolver (docs/hallazgos-ads.md). Lo que NO cubre: Business Discovery de Instagram y las recomendaciones de Meta
+  (`/v1/ads/recommendations` es sólo de Google).
+- ⚠️ **Las UNIDADES cambian según el endpoint, y mezclarlas multiplica o divide por 100.** Meta da presupuestos y saldos en la
+  unidad MÍNIMA (centavos, salvo COP, CLP, JPY…); Zernio, en UNIDADES de la moneda (`dailyBudget`, `balance`, `amountSpent`).
+  El cron guarda el presupuesto de Zernio sin `desdeUnidadMeta`, y la salud de la cuenta lo vuelve a la mínima con
+  `aUnidadMeta` para que `computeAccountHealth` (que divide) juzgue igual. Lo fija un test.
+- ⚠️ **CAPI por Zernio: la identidad va EN CLARO y el `eventId` es OBLIGATORIO.** Zernio hashea email, teléfono, nombres y
+  `externalId`: mandarlos hasheados (como hace MaKo con la Graph API) los hashea dos veces y no cruzan con nada. Sin un `eventId`
+  Zernio rechaza; sin uno del llamador, MaKo arma uno ESTABLE (nombre, hora e identidad), así un reintento no cuenta doble.
+- ⚠️ **Un rechazo de Meta por Zernio viene en un 200** (`eventsFailed`, `failures[]`), como con Meta directo. Y un 200 sin
+  eventos recibidos tampoco es un éxito (`resultadoConversionZernio`).
+- ⚠️ **Una página de insights sin `data` NO es «no hubo entrega».** El cron de Meta BORRA el día antes de insertar: tomar una
+  forma desconocida por vacía borraría el día. `paginaDeInsights` devuelve null y la lectura tira.
+- **«Conectada» la leen TRES lectores** (`integracionConectada`, `verificarServicio`, `/api/metodo`) y el token es obligatorio
+  en el catálogo. No se lo marcó opcional (una cuenta publicitaria pegada sola quedaba «conectada» sin nada con qué leerla): la
+  regla es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta) y la usan los tres. La conexión se guarda
+  como `META_ZERNIO_CUENTA`, `derivado` (ningún «guardar» la acepta tipeada: la de otro negocio no entra). Sin esto, un negocio
+  conectado por Zernio no podía ni guardar su píxel: el tilde decía «Falta completar: Access token».
+- **El onboarding ya no pedía Meta** (desde el 16/10 es el chat de arranque, que posterga el paso con `integracionConectada`):
+  lo que había que cambiar era esa regla, no una pantalla.
+- `tests/sin-instagram.test.ts` lista en `CANAL` los únicos archivos que pueden importar el cliente de Zernio, y lee
+  `git ls-files`: un archivo NUEVO no existe para el guard hasta `git add -N`.
+
+**Sin medir (lo decide la prueba, scripts/prueba-zernio-meta.mts, sobre la cuenta de MaKo `act_1426493815659364`):** que el paso
+directo de insights devuelva las mismas filas que Meta directo; las finanzas con `advertise` y con `full`; que CAPI por Zernio
+llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` que hace falta para eso. Hasta entonces
+`ZERNIO_META_PROBADO = false` y lo nuevo corre SÓLO en el negocio de la plataforma.
+
+- ⚠️ **El primer clic de Martín (25/10, link de las 12:38 con `permissionLevel=full`) NO dejó ninguna conexión**: la Zernio de la
+  plataforma quedó con 0 cuentas (con las ocultas también) y 0 registros, lo mismo que los dos links del 23/10. No era el link
+  vencido (se usó a los minutos) ni la cuenta de Zernio (plan por uso, pago, `hasAccess: true`: los anuncios vienen incluidos).
+  **La sospecha, de la doc** (`GET /v1/connect/{platform}/ads`): con VARIAS páginas concedidas y sin `pageId`, una integración
+  por API recibe un 400 («restart with pageId») y la conexión no se crea; sólo el panel de Zernio abre el selector de página. El
+  script ahora manda la página de MaKo. **Confirmado por el segundo clic** (12:44, con `pageId` = «Hola MaKo»): volvió con
+  `connected=metaads&accountId=6ade25185b6c93612b7cc6a1&stage=callback` y la conexión quedó (ve `act_1426493815659364` y un
+  píxel). ⚠️ **Vale para los CLIENTES:** el botón (`REDES.metaads`, lib/zernio-redes.ts) tampoco manda `pageId`; un negocio con
+  más de una página no conectaba nunca (el primer clic volvió sin conexión y sin nada que lo explicara). **HECHO el mismo día**,
+  copiado de lo que hace Zernio en su app (un selector de página): MaKo junta las páginas que conoce del negocio (la de la
+  conexión vieja, `META_PAGE_ID`; las de su Facebook en Zernio, `GET /v1/accounts/{id}/facebook-page`; las de una conexión de
+  anuncios que ya exista) y decide con `paginaParaConectar`: UNA conocida se manda sola (también desde el botón del Media
+  Buyer: la deduce el server en `urlConectarViaZernio`), con VARIAS se pregunta antes de abrir la ventana, y si la ventana
+  vuelve sin conexión habiendo abierto sin página, el modal de Meta pide la página (de la lista o su ID) y reintenta con ella.
+  ⚠️ **No se lee el error de Zernio para decidirlo**: la forma exacta de esa vuelta («400 with available Page IDs») no está
+  medida, y un texto de un tercero no es un contrato. `GET /v1/connect/facebook/select-page` existe, pero para el inicio de
+  sesión para empresas la doc sólo lo describe con el `selectionToken` del panel de Zernio.
+- **La prueba de lectura (25/10, 12:50) contestó con la forma esperada y sin errores**, pero sobre una cuenta que NUNCA
+  gastó: insights `data: []`, ningún conjunto, la cuenta activa y en verde (USD, Argentina) y las finanzas leídas (con `full`).
+  O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN
+  guardar la conexión en producción: con el código viejo desplegado, la cuenta guardada metía al negocio de MaKo en los crons
+  de Meta con el token del botón (sin `ads_read`). `guardar --si` va después del deploy.
+- **Con el deploy (main 9c684f88c, 25/10 14:54) se guardó la conexión en el negocio de MaKo** (`META_ZERNIO_CUENTA`, la cuenta,
+  el píxel; la página «Hola MaKo» ya estaba). Medido con las funciones REALES de producción, sin el script: `integracionConectada`
+  da Meta conectada, `fetchMetaInsights` y `fetchAdsetBudgets` leen por Zernio (cero filas, cero errores), la salud da activa y
+  en verde, CAPI sale por la conexión de Facebook al píxel, y `ver_conexion_meta` de la API lo devuelve todo sin tokens. Desde
+  ahí los crons de Meta corren para el negocio de MaKo por Zernio. Lo que sigue sin medir: filas reales (la cuenta nunca gastó)
+  y CAPI (falta el código de «Probar eventos»).
+
+- **CAPI por Zernio, PROBADO el 25/10 (~20:35 UTC) con el código de «Probar eventos» TEST96217** sobre el píxel de MaKo
+  (`1869323014511830`), con la conexión de permiso «Control total»: dos Lead de prueba, uno por el script (`capi --si`:
+  `eventsReceived: 1`, `eventsFailed: 0`, fbtrace `AW5-rkSpUET8ixrvKTtm9R8`) y otro por el camino entero de la app
+  (`probar_capi_meta` → `sendMetaCAPIEvent` → Zernio: recibidos 1). Con eso se prendió `ZERNIO_META_PROBADO`. Sigue sin medir si
+  alcanza «Administrar campañas» (`advertise`): por eso el botón pide «Control total».
+- ⚠️ **El diagnóstico obvio («no aparecen en Probar eventos → CAPI no llegó») era el equivocado: llegaron, como eventos REALES.**
+  `/{pixel}/stats` (por Zernio, `tracking-tags/{id}/stats`) mostró 2 «Lead» en la franja de las 20:00 UTC con la clave de match
+  `email` y NADA más (ni cookies, ni `fbp`, ni navegador): son los de prueba (sólo llevaban `prueba@hola-mako.com`); uno de la
+  landing trae cookies. O sea: **Zernio no reenvía el `testCode`** aunque su doc dice «Meta `test_event_code` passthrough». El
+  píxel de MaKo quedó con 3 Lead falsos (los de las 20:35 y 20:36 en la franja de las 20:00 UTC, el de las 21:41 en la de las 21:00, los tres con match `email` y nada más) (sin campañas corriendo: no movieron ninguna optimización; lo que entra por CAPI no se
+  borra). **La regla:** una prueba de CAPI nunca manda un evento que cuente (`EVENTO_DE_PRUEBA_CAPI = 'PruebaMaKo'`), y para ver
+  si un evento llegó, `aggregation=match_keys` de las estadísticas del píxel dice QUÉ lo identificó (un evento de servidor con sólo
+  email es el nuestro). El reclamo a Zernio, redactado para que Martín decida.
+  **Verificado en la pantalla de Meta** (el Cerebro, en el Administrador de eventos del píxel): «Información general» → «Cliente
+  potencial · Activo · API de conversiones · 2», y nada en «Probar eventos». **Para la próxima:** la API de Zernio no tiene otro
+  campo para el código de prueba (sólo `testCode`; `platformData` va únicamente a `custom_data`, no a la raíz del evento), así que
+  una prueba de CAPI por Zernio va contra un PÍXEL DE PRUEBA, nunca contra uno con anuncios que optimizan por Lead; y si se prueba
+  en un píxel real, con un evento propio (`PruebaMaKo`), nunca con uno estándar.
+- **La deprecación del token (25/10, tarde):** el corte para ADMINISTRAR anuncios es una fecha (`CORTE_TOKEN_META`, `null` hasta
+  que sale el aviso) y un solo freno (`frenoDelTokenMeta`) en las puertas que escriben con el token; leer no se corta. ⚠️ **Una
+  conexión hecha desde la tarjeta de Zernio no llegaba a MaKo:** sólo el modal de Meta guardaba la conexión de anuncios en el
+  negocio, y el link del aviso abre la tarjeta de Zernio. Ahora la guarda la pieza común (`conectada-meta`), venga del botón que
+  venga. ⚠️ **El logo de Zernio no era el suyo:** iba una «Z» sobre violeta #6D4AFF; su ícono oficial es la marca blanca sobre
+  #EB3514 (zernio.com/icon.svg).
+
+**Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
+`/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan
+suave y quedan `parcial`); el reproductor del anuncio
+(`app/api/anuncios/video/route.ts`); las escrituras de la API de MaKo y del doer (`lib/meta-write.ts`; el Media Buyer ya
+escribe por Zernio); los formularios de leads y el barrido de leads (`lib/meta-ads-create.ts`, `lib/meta-leads.ts`; existe
+`GET /v1/ads/leads?since=`); los píxeles y eventos del selector de campañas (`listPixels`, `listPixelEvents`); el perfil de
+Instagram (`lib/instagram-perfil-server.ts`, `app/api/crm/instagram-buscar/route.ts`); y el botón para la cuenta de MaKo (el
+ws9 no tiene Zernio propia: su conexión sale por el script).
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Vimeo, Wistia, Bunny Stream y Cloudflare Stream como integraciones (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro, «otros alojadores de video»). Las cuatro van en los cuatro registros de siempre:
+la tarjeta (lib/integraciones-catalogo.ts), los campos y el tutorial (lib/metodo-catalogo.ts), el ping
+(lib/metodo-verificar.ts) y el logo (app/_components/ServicioVisual.tsx). Van pegadas a Panda, que es la zona que Settings
+no tocó en su rama.
+
+**Lo que no era obvio:**
+- **Las claves de la tarjeta y las que lee el catálogo tienen que ser las mismas** (`envs` contra `CLAVES_ALOJADOR` en
+  lib/alojadores-video-api.ts). Si se separan, conectar la tarjeta no trae ni un video y nada lo dice.
+  tests/alojadores-video-catalogo.test.ts las compara.
+- **Cloudflare no contesta 401 a un token mal formado: contesta 400 con el código 9106** («Authentication failed»). Uno con
+  buena forma pero inexistente sí da 401 (código 10000). Los dos son «el token no sirve». Sin mirar el código del error, el
+  ping decía «Cloudflare respondió 400», que no le dice nada a quien lo pegó.
+- **Bunny tiene dos claves**: la de la cuenta y la de cada BIBLIOTECA. La que sirve para leer videos es la de la biblioteca,
+  y además va el Library ID. El ping lo dice si pegan la otra.
+- **Bunny no está en simple-icons** (404 en la 13.21.0), así que va con su inicial sobre el naranja de bunny.net
+  (#FD8D32, el de su página). Vimeo, Wistia y Cloudflare llevan el mark oficial.
+
+**Probado:** los cuatro pings contra las APIs REALES con claves inventadas contestan «inválido» con el motivo. Un ping que
+diga «válido» necesita una cuenta real de cada uno: queda para cuando Martín conecte una.
+
+## Conectar por Zernio la cuenta publicitaria de OTRO portfolio: un perfil aparte, y la vuelta que se tragaba el error (25/10/2026)
+
+**Vive en:** `lib/zernio-ads.ts` (`urlConectarAnunciosZernio`, `conexionAnunciosZernio`) · `lib/zernio-redes.ts`
+(`retornoDeZernio`, `errorDeVueltaAjena`) · `app/_components/ConectarViaZernio.tsx` (la vuelta de página entera).
+
+Para probar el Media Buyer en la cuenta de un cliente (Mauricio, con permiso de Martín) hubo que conectar su cuenta a la
+Zernio de la plataforma. Costó tres clics de Martín; esto es lo que no se ve en la doc de un vistazo.
+
+- **El diagnóstico obvio era «Martín no marcó las cuentas», y era el equivocado.** Las marcó. Zernio conecta los anuncios
+  con el inicio de sesión para empresas de Meta: el permiso es de UN portfolio (el que se elige primero), y las cuentas de
+  otro portfolio no entran aunque la persona las vea. La conexión de la plataforma es del portfolio de MaKo.
+- ⚠️ **Zernio guarda UNA conexión de anuncios por perfil, y un login nuevo en el mismo perfil la RECONECTA** (si comparte
+  alguna cuenta, cambia el alcance por el nuevo; si no comparte ninguna, lo rechaza con `reconnect_mismatch`). Conectar la
+  cuenta de un cliente en el perfil de MaKo podía cambiar o tirar la de MaKo, que el CAPI usa con «Control total». El
+  camino seguro: un perfil de Zernio aparte (`POST /v1/profiles`), sólo para eso, y borrarlo al terminar.
+- ⚠️ **La vuelta se tragaba el error.** `/ads-manager` (y toda pantalla con `ConectarViaZernio`) saca de la barra lo que
+  agrega Zernio, y si la pestaña no había empezado el login (un link abierto suelto) no decía nada: Martín aceptó dos veces
+  y nadie supo que no había conectado. Ahora un `error=` igual se dice, con el texto de MaKo y no el de la URL
+  (`errorDeVueltaAjena`; un éxito ajeno sigue sin hacer nada). Para un link armado a mano, volver a una página que no toca
+  la barra (la landing) deja leer `connected=metaads` o el `error=`.
+- **El estado de pago de cada cuenta sin leer el token del cliente:** `GET /v1/ads/accounts` trae `billingStatus`
+  (`ok` o `missing`), `accountStatus` y `minimumDailyBudget`. La de MaKo dice `missing`. ⚠️ Pero `ok` no alcanza: la
+  «Cuenta 1» de Elévate decía `ok` y Meta igual frenó el anuncio por el método de pago (docs/hallazgos-ads.md).
+- **Borrar el perfil de prueba:** primero `DELETE /v1/accounts/{id}` (desconecta; Zernio da un período de gracia) y después
+  `DELETE /v1/profiles/{id}`. Verificado el 25/10: quedó sólo el Default, con la conexión de MaKo intacta.
+
+**Sin hacer:** el botón de conectar no deja elegir el perfil de Zernio (siempre el Default del negocio): conectar un
+segundo portfolio en un mismo negocio hoy se hace por script.
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
+
+## El cobro de Zernio, YouTube sin clave y el tutorial del token que se va (27/10/2026)
+
+**Vive en:** `lib/zernio-redes.ts` (`avisoDeCobroZernio`, `textoAvisoCobro`) · `lib/zernio-conectar.ts` (`urlConectarViaZernio`) ·
+`app/_components/ConectarViaZernio.tsx` (el aviso) · `lib/metodo-catalogo.ts` (`retirado`, YouTube, el tutorial de Meta) ·
+`lib/youtube.ts` (`claveDeYoutube`).
+
+- ⚠️ **Zernio cobra por cuenta ACTIVA de toda su cuenta (el equipo), no por perfil:** 1 a 2 gratis; de la 3.ª a la 10.ª, US$6 por
+  mes cada una, prorrateado por día (su tabla de precios, leída el 27/10). La página de Facebook, el Instagram y la conexión de
+  anuncios (`metaads`) cuentan UNA vez cada una; las ocultas y desconectadas no cuentan. Sin tarjeta, la 3.ª da 402
+  `free_tier_exceeded`. Una línea fija en la tarjeta («desde la 3.ª se paga») no alcanzó: a Leila le cobró US$16. Ahora el servidor
+  cuenta TODA la cuenta (`/accounts` sin `profileId`) antes de pedir el link y, si la que viene se paga, contesta `cobro`; la
+  pantalla pregunta y «Conectar igual» vuelve con `aceptaCobro`. Sólo con la clave del negocio (con la de MaKo paga MaKo) y nunca
+  al reconectar. Volver a entrar con una red que ya tiene cuenta no avisa: Zernio conserva el id y no suma.
+- **YouTube no necesita la clave de cada negocio:** las vistas de un video son PÚBLICAS y leerlas cuesta 1 unidad de las 10.000
+  diarias de la clave de MaKo (`claveDeYoutube`: la del negocio si la tiene, si no la de la plataforma; buscar tutoriales ya hacía
+  eso, era una copia). La tarjeta ya no pide la clave (`retirado`: sólo se ve si estaba cargada), «conectado» es tener el video del
+  VSL, y el canal se conecta con el login de Zernio. Medido antes: el único negocio con YouTube es Mauricio Bustos, con la clave Y el
+  video cargados como credenciales, así que sigue conectado y en el cron.
+- **El tutorial del token de Meta ya no enseña a sacarlo** (Joan se perdió ahí: «tenía 45 pasos pero estaba muy resumido»): avisa
+  el corte del 03/11 con la MISMA fecha que `CORTE_TOKEN_META` (un test lo cruza) y lleva a «Conectar con Facebook».
+- **Los negocios de Joan, medidos (sólo lectura):** Brigitte Eberlin usa el token (gasto y leads en 30 días; ya está en el aviso del
+  27/10); Pablo Chávez, Sergio Arriata y Patricia Contreras lo tienen cargado sin pautar desde MaKo, y Sergio y Patricia no tienen
+  píxel (no les sale ningún evento a Meta, con token o sin él). «Calificado» sale por la misma puerta de CAPI que se midió por Zernio.
+
+**Sin hacer (con dónde vive):** varias claves de Zernio en un negocio (de distintos emails), eligiendo cuál usa cada red. No es un
+campo más: cada clave es otro equipo de Zernio con su propio perfil, su propio webhook y su propio secreto de firma, así que tocan
+el canal (`cfg`/`asegurarWebhook`, lib/zernio.ts; la verificación del webhook, app/api/webhooks/zernio/route.ts; el ruteo por perfil),
+los anuncios (`claveZernioAnuncios`, lib/zernio-ads.ts, del Media Buyer) y la conexión (`contexto`, lib/zernio-conectar.ts). Plan en
+docs/relevo/zernio-capi.md.
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## MaKo le dijo a Joan que el token de Meta «seguía igual»: el tutorial ya estaba arreglado, y no alcanzó (27/10/2026)
+
+**Vive en:** `lib/conexiones-catalogo.ts` (`META_POR_ZERNIO`, `importanteDe`) · `lib/api-mako/areas/integraciones.run.ts`
+(`linkIntegracion`, `como_conectar`, `ver_integracion`, `ver_integraciones`) · `lib/mako-doer-in.ts` (`DEEP_LINKS`, la guía) ·
+`lib/hechos-mako.ts` · `lib/capas.ts` (`POSTERGABLE_TXT`). Lo fija tests/meta-sin-token.test.ts con la pregunta textual de Joan.
+
+- ⚠️ **El diagnóstico obvio era el equivocado: el tutorial del token ya se había retirado esa mañana.** MaKo igual contestó «Sí» y
+  mandó a `?abrir=meta` porque lo que sabe de conectar Meta NO sale del tutorial: el prompt traía «Meta Ads: …?abrir=meta» (el
+  catálogo arma la ruta con la key de la tarjeta), los `DEEP_LINKS` del doer traían «Salud de la cuenta de Meta: …?abrir=meta», la
+  guía de WhatsApp y `como_conectar` tomaban el tutorial del MODAL de Meta (cuyo primer paso todavía decía «El token de Meta se
+  retira…»: la palabra token confirmaba la pregunta), `ver_conexion_meta` devolvía `via: 'token_de_meta'` y `ver_integraciones`
+  listaba «Access token» como campo que falta. Cinco lugares, ninguno era el tutorial.
+- **La regla:** una tarjeta que se conecta en OTRA (Meta, en la de Zernio) lo declara en el catálogo (`ruta`, `pasos`,
+  `aclaracion`), y quien guía toma `c.pasos` ANTES que el tutorial del modal. Los links de la API salen del catálogo
+  (`linkIntegracion` → `conexion(key).ruta`), nunca de `?abrir=<key>` armado a mano. `?abrir=meta` queda para ver la cuenta, el
+  píxel y la salud. Y lo que se retiró no se nombra: «ya no hace falta el token» igual le hace buscar un token a quien lee rápido.
+- Conectar «Anuncios de Meta» desde la tarjeta de Zernio guarda la conexión de Meta igual que el botón del modal de Meta
+  (`conectada-meta`), y el servidor deduce la página si no viene (`paginaParaConectar`): por eso la ruta puede ser la de Zernio.
+
+**Sin hacer (con dónde vive):** el «simple login de Facebook» lo es sólo para un negocio con su API key de Zernio pegada: sin ella,
+la fila «Anuncios de Meta» no aparece (app/integraciones/ConectarRedes.tsx, abajo de la clave; BYOK desde el 23/10, lib/zernio.ts).
+Los pasos lo dicen en una línea. Y el test cubre el camino del CÓDIGO con la pregunta de Joan (la conexión, el link, los pasos, el
+prompt), no la frase que arma el modelo.
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Instagram orgánico por Zernio: la primera fuente de redes orgánicas de MaKo (28/10/2026)
+
+Martín a Teo (28/10, 00:16:26): «por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram». MaKo no tenía
+ninguna fuente de redes orgánicas. Chat «Zernio y CAPI», pedido del Cerebro (C:/dev/revisiones/2810-promesas-teo.md).
+
+**Vive en:** `lib/organico-reglas.ts` (puro) · `lib/zernio-organico.ts` (`rendimientoInstagram`) · la operación
+`ver_rendimiento_redes` (área contenido, canal WhatsApp) · tests/organico*.test.ts.
+
+- **Lo que Zernio da (su documentación, 28/10; no medido con una cuenta real):** `GET /v1/analytics/instagram/account-insights`
+  (alcance, vistas, cuentas que interactuaron, interacciones, me gusta, comentarios, guardados, compartidos, visitas al perfil;
+  sólo `reach` tiene serie, el resto es `total_value`; hasta 90 días), `…/follower-history` (la serie de seguidores, ganados
+  y perdidos; hasta 89 días: Meta sacó `follower_count` de sus insights) y `GET /v1/analytics` (las publicaciones con sus
+  métricas, también las que no se publicaron por Zernio: `source=all`). Los datos pueden tardar hasta 48 h.
+- ⚠️ **Es PAGO y aparte: el complemento de Analytics de Zernio.** Sin él contesta 402; MaKo lo dice en palabras («la cuenta de
+  Zernio no tiene el complemento de Analytics», y cómo prenderlo) en vez de «error». **Decidido (el Cerebro, 28/10):** con la
+  clave propia (lo vigente desde el 23/10) el complemento lo prende y lo paga el NEGOCIO en su cuenta de Zernio, como cada negocio
+  paga lo suyo.
+- ⚠️ **«No pude leer» no es «cero»:** una métrica que no vino, o una respuesta con otra forma, es null y va dicha en `faltan`;
+  las tres lecturas van a la vez y una que falla no tumba a las otras. La forma de la LISTA de `/v1/analytics` no está en su
+  documentación (sólo el ejemplo de un post): se acepta `posts`, `data` o `items`, y sin ninguna es «no sé leer», no «no hay».
+- **El id de la operación no nombra la red:** tests/sin-instagram.test.ts prohíbe `/instagram|zernio/` en los ids. Y cada
+  operación que sale por HTTP necesita su ruta en `RUTAS_REST` (lib/api-mako/rest.ts): sin ella, tests/api-mako-rest.test.ts
+  da rojo y frena el tren (pasó con ésta y con `programar_publicacion`).
+- ⚠️ **`publishedAt` viene en UTC (con Z): el día se saca en la zona del negocio** (`diaLocal`). Cortarlo a 10 caracteres corría
+  al día siguiente todo lo publicado entre las 21:00 y las 23:59 de Buenos Aires, la franja fuerte de Instagram (la
+  verificación del 28/10). **No medido:** en qué zona filtra Zernio `fromDate`/`toDate` (su documentación dice sólo
+  «YYYY-MM-DD»); si es UTC, de noche «hasta hoy» deja afuera lo de después de las 21:00.
+- ⚠️ **Mientras sincroniza, Zernio manda 0, no null.** `syncStatus` (synced | pending | partial | unavailable, y por red en
+  `platformAnalytics[].syncStatus`) y `analytics.lastUpdated` null dicen que todavía no hay métricas: ese post va con sus
+  números en null, marcado (`sin_metricas`) y contado en `faltan`. Si no, el reel recién publicado (justo el que se pregunta
+  por WhatsApp) decía que nadie lo vio. Un post `synced` con 0 sigue en 0.
+- **Lo que Zernio dice que no entregó** (`unavailableMetrics: [{ metric, reason }]`, documentado en follower-history) va dicho
+  en `faltan` con su motivo, no sólo en null.
+- **Una cuenta nombrada que no está** (un error al tipear el usuario) es un error con las conectadas, no los números de la primera.
+- ⚠️ **Con la clave de la CUENTA DE MaKo** (el ws1, o un negocio con la cuenta prestada: `cfg(ws).byok` false) los textos no le
+  hablan al negocio de «tu cuenta» ni de quién paga (`textoOrganico(m, deLaCasa)`). La misma regla en Conectar: `motivoDeError`
+  miraba sólo `ws === OWNER_WS`, y a un negocio con la cuenta prestada un 402 le decía «Tu cuenta de Zernio está pausada» con el
+  link de pago de MaKo; ahora `esDeLaCasa(ws, cfg)` (lib/zernio-conectar.ts) cuenta también la prestada.
+- **Sin hacer:** las plantillas de Instagram del Dashboard (Reels, Historias, DMs) y el reporte de agencia sobre esta fuente; los
+  DMs (Zernio no los da como métrica); medir la forma real con una cuenta que tenga el complemento (y si Zernio rechaza la falta
+  del complemento con otro status que el 402 documentado: un 403 hoy se dice «clave-mala»).
+
+## Conectar Instagram y Facebook sin pegar una clave de Zernio: la cuenta de la plataforma, detrás de un interruptor (28/10/2026)
+
+Martín a Teo (28/10, 00:27:36): «te logueás con Instagram y Facebook, escaneás el QR y ya tiene acceso a todo». El Cerebro: sin
+pegar una clave de Zernio, con la cuenta de la plataforma y un perfil por negocio. Chat «Zernio y CAPI».
+
+**Vive en:** `lib/zernio.ts` (`cfg`, `plataformaPrestaSuCuenta`, `keyDeSeguimiento`) · tests/zernio-plataforma.test.ts ·
+tests/zernio-sin-respaldo.test.ts (la regla nueva).
+
+- ⚠️ **Da vuelta una decisión del 23/10** («que cada usuario traiga su API de Zernio», lo fijaba tests/zernio-sin-respaldo.test.ts).
+  No se reconstruyó nada: el modo de la cuenta de la plataforma seguía vivo para el ws1 (el perfil `mako_ws_<ws>` que acuña
+  `ensureProfile`, el ruteo por perfil y el webhook firmado con el secreto maestro). Faltaba sólo que `cfg` cayera a esa key.
+- **La regla:** la key propia gana; sin ella, la de la plataforma (`byok: false` → su perfil por negocio) SÓLO si el negocio de
+  la plataforma prende `zernio.cuenta_de_la_plataforma` = '1' (app_settings). Nunca para el negocio de la plataforma. «No pude
+  leer» el interruptor tira (no es «apagado»). La clave de «¿te sigue?» es la misma de `cfg`.
+- ⚠️ **Apagado por defecto, porque es PLATA:** con la cuenta de la plataforma, cada cuenta conectada de cada cliente (Zernio cobra
+  desde la 3.ª) y el complemento de Analytics los paga MaKo. **ESPERA LA DECISIÓN DE MARTÍN AL PRENDER** (el Cerebro, 28/10):
+  quién paga cada cuenta conectada y el complemento con la cuenta de la plataforma se decide al prenderlo, no antes. Hasta
+  entonces queda apagado, y la pantalla de /integraciones y el paso del onboarding esperan esa misma decisión.
+- **Los anuncios no cambian:** `claveZernioAnuncios` (lib/zernio-ads.ts) sigue con la key del negocio.
+- **Sin hacer:** en /integraciones el modal de Zernio sigue pidiendo la key (`ConectarRedes` sólo se ve con una key cargada,
+  app/integraciones/ServicioConfigForm.tsx) y su nota dice «Zernio te cobra a ti»: con el interruptor prendido, hay que mostrar
+  «Conectar» sin key y decir quién paga. El onboarding no tiene todavía un paso «Conectá Instagram y Facebook» (y
+  tests/sin-instagram.test.ts prohíbe un paso de onboarding cuyo texto nombre Instagram: hay que decidir cómo se llama). El aviso
+  de «la 3.ª cuenta se paga» (`aceptaCobro`) es de la cuenta del negocio: con la de la plataforma no le corresponde.
+
+## Los límites de Zernio, dichos al conectar, y de dónde se leería el consumo de mensajes (29/10/2026)
+
+Martín (28/10): «Super importante advertir en la conexión de Zernio las limitaciones, como que hasta 2 redes sociales es gratis».
+
+**Vive en:** `lib/zernio-redes.ts` (`textoGratisZernio`, `MENSAJES_GRATIS_ZERNIO`, `ANUNCIOS_GRATIS_ZERNIO`, `USD_CUENTA_EXTRA_ZERNIO`,
+`textoAvisoCobro`) · `app/integraciones/ConectarRedes.tsx` (la línea, abajo de la de las cuentas) · tests/zernio-aviso-cobro.test.ts.
+
+- **Lo gratis, de zernio.com/pricing (leído el 28/10 23:40 y otra vez el 29/10 02:20):** 2 cuentas; 10.000 mensajes ENVIADOS por mes
+  (los recibidos, los comentarios y las reseñas no cuentan; los DM de X y los SMS van aparte); 500 anuncios gestionados. Sin tarjeta,
+  al llegar a 10.000 los ENVÍOS se frenan hasta el mes siguiente (leer, Analytics y publicar siguen); con tarjeta, US$1 cada 10.000.
+  ⚠️ La página se contradice: la tabla dice US$6 de la 3.ª a la 10.ª y su FAQ dice «$6/account for 1-10». Vale la tabla (2 gratis,
+  y así cobró a Leila).
+- ⚠️ **Analytics NO se promete.** La página dice «incluido en cada cuenta», la doc dice que `follower-stats` pide el complemento, y
+  MaKo midió un 402 que lo pedía. El test fija que el texto no lo nombre hasta que alguien lo mida con una cuenta real.
+- ⚠️ **La nota de la key no da para los límites:** el tope de una nota es una línea (120, tests/tutoriales-legibles.test.ts) y su
+  texto lo fija tests/zernio-sin-respaldo.test.ts. Los límites van en el modal, abajo de la línea de las cuentas (con la key guardada).
+- ⚠️ **[DADO VUELTA esa misma tarde: ver «Varias claves de Zernio por negocio…», abajo.]** **La salida gratis «conecta otra
+  cuenta de Zernio (de otro email)» NO se dice NUNCA** (Martín, 29/10, por el Cerebro: cada
+  negocio con SU cuenta de Zernio; si necesita más, paga su plan). Varias cuentas gratis para un mismo negocio arriesgan la
+  suspensión de Zernio (abajo, sus términos), y una suspensión le corta las publicaciones al cliente. La única salida gratis que se
+  dice va en el aviso de la 3.ª: «desconecta en zernio.com una que ya no uses» (Zernio cobra sólo las activas).
+- **El consumo de mensajes del mes (para avisar antes del tope de 10.000, el audio de Leandro): medido a medias.** La OpenAPI v1.358
+  tiene `GET /v1/usage` (sin parámetros: la foto del plan; con `range=cycle&granularity=total`: lo FACTURADO en USD por familia, con
+  `lineItems[]` de `product: 'messages'` y `quantity`) y `GET /v1/billing` (el ciclo: `period.start/end`). Medido el 29/10 con la
+  clave de la plataforma (sólo lectura): las dos contestan 200, cuenta `metronome` (por uso), ciclo del 01/10 al 01/11; pero esa
+  cuenta no tiene redes ni envíos, así que `lineItems` sale vacío. Con la clave del ws10 (Fiesta Music, el sí del Cerebro, sólo
+  lectura): ciclo del 12/10 03:00Z al 01/11 (`anchorDay` 12: el ciclo arranca el día que el negocio se dio de alta, no el 1.º), y
+  `lineItems` trae SÓLO «Connected Accounts (priced)» y «Free Tier Credit applied» (la cuenta gratis se factura y se descuenta), sin
+  línea `messages`. ⚠️ **Eso no prueba que los mensajes gratis no aparezcan:** el ws10 no mandó NADA por MaKo en el ciclo (38
+  entrantes, 0 salientes), y **MaKo no mandó ni un mensaje por redes desde el 01/09 en ningún negocio** (0 filas sociales en
+  `nutricion_envios`, donde viven los envíos del motor; 0 salientes en `ig_mensajes`, donde viven los de Chats). Hoy nadie está
+  cerca del tope, y no hay cuenta con qué medir. La salida: contar en MaKo lo que MaKo manda por Zernio en el CICLO (no ve lo que se
+  manda desde el inbox de Zernio u otra herramienta con la misma cuenta: el aviso dice «desde MaKo») y, cuando un negocio pase los
+  10.000, mirar si `lineItems` trae `messages` con su `quantity`.
+- **El conteo, hecho (29/10): `usoZernioDelCiclo(ws)` (lib/zernio-uso.ts).** El reparto con Automations, para que no salgan dos
+  avisos: el canal cuenta y lee el ciclo; Automations avisa (`avisarTopesSociales`, al 80%, una vez por ciclo, el evento
+  `social_tope` con el estado «gratis»). Devuelve `{ enviados, gratis, desde, hasta, deLaCasa }` o null. ⚠️ Es una aproximación,
+  y en las dos direcciones: una fila del motor (`nutricion_envios`) es UN mensaje aunque el paso saliera en varias partes (para
+  Zernio son varias), y la respuesta PÚBLICA a un comentario (gratis) cuenta igual porque la fila no la distingue de un DM. Para
+  contarlo exacto, el motor tendría que guardar cuántas partes salieron y marcar la pública (es de Automations). ⚠️ No vive en
+  lib/zernio-redes.ts: ese módulo lo importa el navegador (ConectarRedes, ConectarViaZernio), y esto habla con la base y con Zernio.
+  Por eso es un archivo del canal nuevo, sumado a la lista de tests/sin-instagram.test.ts.
+- **Los términos de Zernio están en zernio.com/tos** (no en /terms ni /terms-of-service, que dan 404; la portada no los enlaza),
+  fechados el 09/10/2026. Leídos el 29/10: NO hablan de varias cuentas gratis, de agencias ni de compartir claves; sólo «Abuse of
+  the API may result in immediate suspension of your account» (sección 3) y que se cobra por cuenta social conectada (sección 4).
+  Varias cuentas gratis para un mismo negocio no está prohibido por escrito, pero «abuso» queda a criterio de Zernio. Por eso
+  Martín dijo que NO (29/10): varias claves de Zernio por negocio quedó DESCARTADO, no pendiente. ⚠️ **Dado vuelta esa tarde**
+  (Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente»): ver la entrada de las varias claves, abajo.
+
+## Una sola pestaña, la de Zernio, y ningún token de Meta a la vista (29/10/2026, ticket #28)
+
+Martín, por WhatsApp (29/10 12:56): «en una sola pestaña, la de Zernio, se pueda configurar tanto para pegar primero tu API y
+después para loguearte... ya no debería pedirte nada de Access Token. Toda esa parte de los tokens ya no debería existir».
+
+**Vive en:** `lib/integraciones-catalogo.ts` (`SE_CONFIGURA_EN`, `integracionQueConfigura`, `META_SE_CONECTA_EN_ZERNIO`) ·
+`app/_components/ConectarIntegracion.tsx` (`abrir`) · `app/integraciones/IntegracionesBoard.tsx` (`?abrir=`) ·
+`app/integraciones/ServicioConfigForm.tsx` (los pasos de Zernio; el modal de Meta lleva a Zernio; `esTokenDeMeta`) ·
+`app/integraciones/ConectarRedes.tsx` (el paso 2, con `ConectarMetaZernio`) · `lib/integraciones.ts` (la tarjeta de Meta) ·
+tests/zernio-una-pestana.test.ts.
+
+- **La regla:** una integración que se configura en OTRA tarjeta se dice en un solo lugar (`SE_CONFIGURA_EN`: `meta → zernio`), y
+  lo usan las dos puertas: `?abrir=` (avisos, la API, MaKo en WhatsApp) y el botón de cualquier tab (`useConectarIntegracion`).
+  La tarjeta de Meta se queda (es el ESTADO de la cuenta: saldo, medio de pago, entrega frenada), pero su modal no pide nada.
+- ⚠️ **El diagnóstico obvio («ocultar el campo del token») era corto:** el token aparecía en NUEVE lugares que ve un cliente o
+  MaKo. El campo del modal estaba oculto sólo con Zernio activo; sin la clave de Zernio aparecían «Conectar con Meta / O pega un
+  token abajo». Además estaban las notas de cuatro campos («lo completa MaKo al pegar el token»), las ayudas que enseñaban a
+  generar tokens y el «Token del píxel», visible para todos. También: `ver_integracion`, que listaba el token cargado (el modelo
+  lo explicaba); `ver_conexion_meta` («token_del_pixel»); dos descripciones de herramientas; los avisos de la conexión y del Media
+  Buyer; y dos errores de la extracción del onboarding. **Regla:** un concepto retirado se barre por lo que se LEE, no por el
+  campo. El test fija una regex de «nombra el token» sobre cada lugar.
+- ⚠️ **Y la grilla tenía su propio hueco:** medía Meta con los `envs` de la tarjeta (el token y la cuenta), así que un negocio
+  conectado SÓLO por Zernio quedaba «Sin conectar» y lo que faltaba era el token. Los otros tres lectores ya usaban
+  `metaConectadaConCampos`; la grilla no. Lo que falta ahora se dice en palabras (`META_SE_CONECTA_EN_ZERNIO`).
+- **Lo que no se rompe:** el token guardado no se borra y sigue de respaldo. El corte es el **03/11** (`CORTE_TOKEN_META`): Martín
+  dijo «el 11», que es el mes. Desde ese día se frena escribir con el token, pero LEER sigue, porque el aviso que salió el 28/10
+  lo prometió («Tus números se siguen viendo»). Cortar también la lectura es otra decisión, con otro aviso.
+- **Sin verificar en el navegador:** no se levanta `next dev` local (regla). Lo fijan tests de fuente; la primera vez que un
+  cliente conecte desde la pantalla nueva hay que mirarla en producción.
+- **Sin hacer:** el ID del conjunto de datos de CRM (`META_CRM_DATASET_ID`, opcional) sólo se carga desde el modal de Meta con
+  «Cargarlos a mano». Ese modal ya no se abre con `?abrir=meta`, sólo desde su tarjeta.
+
+## Varias claves de Zernio por negocio, todas las redes en Integraciones y el Calendario publicando en ellas (29/10/2026)
+
+Martín, 29/10 (audio en SuperAdmin, por el Cerebro): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con
+otra cuenta de Gmail del cliente... y ya tendrías cuatro redes... te advierte: "che, esta es la tercera cuenta..."». Y: «aprovechar
+todas las conexiones que tiene [Zernio] para implementar en integraciones todas las redes sociales... Y que aparezcan en
+integraciones». **Da vuelta el «NO a varias cuentas» de esa misma mañana** (la entrada de los límites, arriba): gana lo posterior.
+Cada clave es de una cuenta de Zernio DEL CLIENTE (su Gmail); MaKo no crea cuentas y ningún texto promete «gratis para siempre».
+
+**Vive en:** `lib/zernio.ts` (`clavesZernio`, `cfgDeCuenta`, `cfgDeHuella`, `perfilDeClaveExtra`, `asegurarWebhook` por clave) ·
+`lib/zernio-conectar.ts` (`claveParaConectar`, `conexionesViaZernio` junta las claves) · `lib/zernio-redes.ts` (`CLAVES_ZERNIO`,
+`claveConLugar`, `textoAvisoCobro`, `REDES_CON_TARJETA`, `QUE_HACE_MAKO`, `SIN_USO_TODAVIA`, `CLAVE_SIGUE_ZERNIO`) ·
+`lib/integraciones.ts` (`estadoDeRedZernio`) · `lib/calendario-publicar-reglas.ts` (`REDES_PUBLICAR`, `TOPE_TEXTO_RED`) · mig 0348 ·
+tests/zernio-varias-claves.test.ts y tests/zernio-todas-las-redes.test.ts.
+
+- **La regla de las claves: una red queda ATADA a la clave con que se conectó.** Lo que opera sobre una cuenta (un DM, un
+  comentario, un post, los anuncios) habla con la clave DUEÑA (`cfgDeCuenta`, que busca el `accountId` en las cuentas de cada
+  clave). Conectar va a la primera clave con lugar (`claveConLugar`: menos de 2 activas, o ya tiene esa red); con todas llenas, el
+  aviso de la 3.ª red ANTES del login con [Agregar otra clave] y [Conectar igual]. El webhook se registra en CADA clave con la
+  misma URL del negocio (`?w=<ws>`), así que la ruta verifica igual venga de la clave que venga.
+- ⚠️ **`clavesGuardadasConBase` corta en `__`, no en `_2`** (es la de las cuentas de una pasarela: `STRIPE_SECRET_KEY__c2`).
+  Llamada con `ZERNIO_API_KEY` devolvía SÓLO la 1: las claves `ZERNIO_API_KEY_2…` no aparecían nunca, sin error. Se ve en la
+  primera prueba con dos claves (6/7 con la rotura). Se llama con los nombres exactos de las extra.
+- ⚠️ **La caché de un minuto no puede tapar la clave recién pegada.** La clave 1 se lee SIEMPRE (`cfg`, como antes); sólo las
+  extra se cachean. Conectar y la lista de redes leen sin caché (`{ fresca: true }`): quien pega la clave 2 y toca «Conectar» no
+  puede recibir otra vez el aviso de la 3.ª red. Un DM de una red recién conectada con la clave 2 relee una vez (con 10 s entre
+  relecturas, para que una cuenta de nadie no lea Zernio en cada mensaje). Lo que SÍ puede esperar hasta un minuto: la PRIMERA
+  extra recién pegada, en un proceso que ya había leído «sólo la 1».
+- ⚠️ **El perfil de una clave extra NO pasa por `profileIdEfectivo`:** ése guarda el perfil de la clave 1 en `zernio_workspace` y
+  lo «suelta» si no es de la cuenta que pregunta; preguntarle con la clave 2 le borraba el perfil a la 1 (`perfilDeClaveExtra`).
+- **Todas las redes:** LinkedIn, X, Threads y Google Business se conectan en el paso 2 de Zernio, y cada red tiene su tarjeta en
+  «Redes sociales» (`red-<red>`), que abre Zernio y deja marcada la red que sigue. **Pinterest y Reddit se ven pero NO se
+  conectan:** MaKo no publica en ellas (un pin pide el tablero; un post de Reddit, la comunidad y un título) y conectarlas gastaba
+  una de las 2 gratis en nada. Bluesky, Telegram, Discord y Slack no son OAuth (usuario y contraseña de app, un código o un canal):
+  no están. YouTube no tiene tarjeta de red: ya tiene la suya (las vistas del VSL), y dos «YouTube» confunden.
+- ⚠️ **X pide tarjeta en Zernio aunque sea de las 2 gratis** (docs.zernio.com/quickstart: «A card only if you connect X
+  (twitter), because X bills every API call»). Se dice en su fila y en su tarjeta, antes del login.
+- **Lo que dice cada tarjeta es lo que hace MaKo** (`QUE_HACE_MAKO`, fijado contra `REDES_PUBLICAR` por el test): sólo Facebook e
+  Instagram reciben mensajes (`cuentasConectadas` rutea esas dos); las demás publican desde el Calendario y lo dicen.
+- **El Calendario publica en las cuatro nuevas** con el límite de cada una: X 280, Threads 500, Google Business 1.500 y sin video.
+  ⚠️ **La base no las acepta hasta la mig 0348** (la 0342 dejó `red` en cuatro valores, con un CHECK). Sin aplicarla, elegir una
+  cuenta de esas redes dice «Publicar en esa red todavía no está activo» en vez de un 500. **La 0348 está escrita, no aplicada.**
+- **El «Publicar» de los editores de Video e Imagen y del Copywriter no existe:** sólo exportan o descargan. Lo único que publica
+  en redes es el Calendario. Agregarlo es otra tarea.
+- ⚠️ **El diagnóstico de «tests afectados» por nombre de import se perdió uno:** el ticket #28 (`af78bb488`) renombró `abrir` →
+  `abrirCrudo` en la grilla y dejó rojo `tests/integraciones-vercel.test.ts` («4. un link `?abrir=`…»), que lee el archivo con un
+  helper (`tablero()`) y no nombra el import. Se vio recién al correr todos los que mencionan `IntegracionesBoard`. **Regla:** para
+  un componente, buscar los tests por su NOMBRE DE ARCHIVO también (`IntegracionesBoard`), no sólo por su ruta de import.
+- ⚠️ **El tren encontró tres rojos más del mismo cambio, en tests de OTRAS áreas que leen `lib/zernio.ts`** (tren-ac, 29/10,
+  Integración; el chat no corrió el barrido completo). `zernio-webhook-suscripcion` tapa `./credenciales` con `Module._load` y no
+  traía `clavesGuardadasConBase`: 14 de 18 con TypeError, porque un stub tiene que llevar CADA función que el módulo importa.
+  `zernio-leads` buscaba los dos `guardar` adentro de `asegurarWebhook`, que ahora delega en `asegurarWebhookEn` (una vez por
+  clave). `instagram-respuesta-publica` pedía el path a menos de 300 caracteres de la cabecera, y la línea de `cfgDeCuenta` lo
+  corrió. **Regla:** al sumar un import a `lib/zernio.ts`, `grep "'./credenciales'" tests/` y sumar la función a cada stub; al
+  partir o alargar una función, buscar los tests que la recortan por su cabecera (`funcion(ZERNIO, '…')`, `[\s\S]{0,N}`).
+- **El tutorial de Zernio va un paso por pantalla** (`capturas` en el tutorial del catálogo; `PasosUnoPorPantalla`), con los
+  nombres de los botones tal cual los dice zernio.com («API keys», «Create API key»: la clave empieza con `sk_` y se ve UNA vez).
+- **Sin hacer:** tres capturas del tutorial (el paso 2 pide entrar a una cuenta de Zernio; el 3 y el 4 son pantallas de MaKo) y
+  las de la pestaña antes/después y del aviso de la 3.ª red: no se levanta `next dev` local (regla), y el build parcial pide RAM
+  que esta noche no hay. Se sacan en producción, en el ws3, después del deploy. Tampoco se midió con una cuenta real el cuerpo del
+  post de LinkedIn, X, Threads ni Google Business. El consumo de mensajes (`usoZernioDelCiclo`) cuenta lo que manda el negocio
+  entero contra el ciclo y el tope de la clave 1: con varias claves avisa antes de tiempo (cada clave tiene sus 10.000).
+
+## El 2.º Instagram que se cobraba sin aviso, y los leads de Meta por Zernio: el barrido, el aviso y cómo probar uno real (29/10/2026)
+
+La llamada de Martín con una agencia de 27 clientes (29/10, docs/promesas/2910-llamada-thiago.md en `promesas-thiago-2910`): «le
+entran acá los leads» de los formularios de Meta [15:12]. Y el Cerebro: un 2.º Instagram puede cobrarle US$6 por mes al cliente sin aviso.
+
+**Vive en:** `lib/zernio-redes.ts` (`avisoDeCobroZernio` con `otra`, `claveConLugar`, `textoAvisoCobro` con `otraDe`) ·
+`lib/zernio-conectar.ts` (`claveParaConectar`) · `lib/zernio-lead.ts` (`leerLeadDelRest`, `tocaBarrerZernio`) ·
+`lib/zernio-leads-barrido.ts` · `app/api/cron/meta-leads-poll/route.ts` · `lib/zernio.ts` (`leadsEnElWebhook` con la cuenta de anuncios) ·
+`lib/meta-conexion-zernio.ts` (`leads`) · `app/integraciones/ConectarMetaZernio.tsx` · tests/zernio-varias-claves.test.ts y
+tests/zernio-leads-barrido.test.ts.
+
+- ⚠️ **El 2.º Instagram: el atajo «ya tiene esa red = volver a entrar» era el hueco.** `avisoDeCobroZernio` no avisaba si la red ya tenía
+  una cuenta activa (volver a entrar con la MISMA cuenta no suma: Zernio conserva su id). Pero «Conectar otra» sobre un Instagram ya
+  conectado es OTRA cuenta: con la clave en 2, la 3.ª se cobraba sin decir nada (y con varias claves, el atajo además la mandaba
+  derecho a la clave que ya tenía esa red). **Regla:** sin `reconectarId` (eso ya vuelve antes), conectar una red que la clave tiene
+  es «otra» (`claveConLugar(…, { otra: true })`), y el aviso lo dice: «Otra cuenta de Instagram cuenta como una red más».
+- **El barrido de leads (`barrerLeadsDeZernio`), dentro del cron de leads que ya corre cada 10 minutos** (cada 30 y en la pasada diaria:
+  `tocaBarrerZernio`). Lee `GET /v1/ads/leads` (OpenAPI v1.416, medida el 29/10) y carga lo que falta por la MISMA puerta del webhook.
+  ⚠️ **Lo que el REST realmente es:** la CACHÉ de Zernio, que se llena con el `leadgen` de Meta y que Zernio mismo relee de cada página
+  cada 15 minutos para recuperar lo que su webhook perdió (`meta.lastCheckedAt`). El barrido recupera un `lead.received` que Zernio NO
+  le entregó a MaKo; un lead que Meta no le entregó a Zernio lo recupera Zernio. Pedir más seguido que cada 15 minutos no trae nada.
+  ⚠️ Trae `fieldData` CRUDO de Meta (la forma del webhook de Meta) y la fecha es `createdTime` (no `createdAt` como el webhook).
+- ⚠️ **Lo que ya está NO se toca, y «ya está» no es sólo el `meta_lead_id`:** `upsertLeadFromMeta` también ACTUALIZA un lead que
+  encuentra por teléfono o email (pisa el `meta_lead_id`, deja la campaña en null y avisa «lead fusionado»). El barrido carga sólo el
+  `meta_lead_id` que no está en `leads` NI en la papelera, y además con `soloCrear` (`noTocarExistente`): la persona que ya es un lead
+  se deja como está, sin conversión ni aviso. **El diagnóstico obvio era el equivocado:** «ya está» por id parecía alcanzar, y una
+  persona con DOS formularios (la ficha tiene el id de B) hacía que cada barrido cargara A, la fusionara, y la vez siguiente B: la
+  ficha iba y venía cada 30 minutos (revisión de privacidad del 29/10, M3; lo prueba tests/_zernio-leads-barrido-real-hijo.ts con la
+  carga REAL). ⚠️ **Lo que se pierde a sabiendas es más que la conversión** (re-verificación del 29/10, N3): cuando el webhook se
+  perdió, a la persona que ya era lead el barrido no le guarda NADA del formulario: ni las respuestas, ni la campaña, ni la suma al
+  embudo de esa campaña (#893), ni el aviso, ni la conversión (y la cuenta como `yaEstaban` cada pasada). A ella no le llega nada de
+  más; lo que pierde el negocio es enterarse de que alguien conocido pidió otro producto. ⚠️ **El poll de Meta de siempre
+  (`pollMetaLeads`) tiene los dos huecos (papelera y fusión) y NO se tocó:** es de Ads/CRM.
+- ⚠️ **La papelera se lee ENTERA o el barrido corta** (`leerTodo`; M4): PostgREST corta en 1000 sin avisar, y una agencia que limpia
+  1.500 leads basura los veía volver con su primer WhatsApp. «Si no se puede leer, se sigue: perder un lead nuevo es peor» era el
+  razonamiento equivocado: lo que se pierde es una pasada; lo que se gana sin la papelera es un mensaje a quien el negocio borró.
+- ⚠️ **Sólo las cuentas del negocio, en el pedido Y lead por lead en memoria, con CUALQUIER clave** (M1 y M2): `accountIds` va en el
+  pedido, y cada lead cuyo `accountId` no es una de las cuentas de Facebook o de anuncios del negocio (o que no trae ninguno) se
+  descarta (`ajenos`). Lo mismo con `since` (un lead más viejo que la ventana no entra). **Lo que parecía y no era:** «con su propia
+  clave todo el equipo es suyo». No: el equipo de Zernio del cliente tiene páginas que el negocio desconectó y otros perfiles, y la
+  clave de MaKo pegada como «propia» en otro negocio (`byok` es «tiene fila y no es el ws1», lib/zernio.ts) listaba los leads de
+  TODOS los negocios prestados. Y con la de la plataforma, el filtro del pedido solo dependía de que Zernio lo respete (sin medir).
+  Es la regla del webhook, que rutea cada lead por su cuenta y descarta el ajeno: el barrido no puede ser más laxo que la puerta
+  que copia. **Regla:** un filtro que va en la URL de un tercero no es una red; se re-verifica en memoria.
+- **Un lead de menos de 5 minutos es del webhook** (`esDelWebhookTodavia`, la regla del poll de Meta), uno que falla no tumba a los
+  demás (la clave única GLOBAL de `meta_lead_id`), y un 403 (sin el complemento de anuncios) se dice y se sigue con la otra clave.
+- **El aviso** (en «Anuncios de Meta» del modal de Zernio): `leadsEnElWebhook(ws, conexión)` mira el webhook de la CLAVE de la conexión
+  de anuncios (con varias claves, la 1 no es la que recibe). `false` → falta el complemento de anuncios de Zernio; `null` → MaKo no tiene
+  su webhook ahí («Volver a conectar» lo registra). **En la pasada diaria del cron**, `asegurarWebhook` corre en cada negocio con Zernio
+  cuyo webhook no escucha los leads: uno registrado antes de que MaKo escuchara `lead.received` lo empieza a escuchar sin tocar nada.
+- ⚠️ **La trampa de siempre, otra vez:** `ConectarMetaZernio.tsx` tiene su PROPIO tipo `EstadoMetaZernio` (copia del de
+  lib/meta-conexion-zernio.ts) y el campo nuevo (`leads`) no estaba ahí: los tests por texto pasaban y lo vio el tsc acotado (TS2339).
+  Es lo mismo que el 24/10 («Conectada ✓» con el webhook sin registrar). Un campo nuevo del estado se suma en los DOS tipos.
+
+### Cómo probar un lead REAL por Zernio (nunca llegó uno)
+
+1. Un negocio de prueba con su clave de Zernio, «Anuncios de Meta» conectado y una página con un formulario instantáneo (Martín conecta
+   con su Facebook: es un login). ⚠️ **Un lead de prueba de Meta ES un lead para MaKo:** entra al CRM y dispara el aviso, los flujos y
+   las automatizaciones (el WhatsApp de bienvenida al teléfono del formulario). Usar un negocio sin automatizaciones de lead nuevo, o
+   un teléfono propio en el formulario de prueba.
+2. Crear el lead de prueba: `POST /v1/ads/lead-forms/{formId}/test-leads` con `{ accountId, fieldData: [{ name, values }] }` (la
+   conexión de Facebook o de anuncios; OpenAPI v1.416), o la «Lead Ads Testing Tool» de Meta sobre esa página. Meta deja UNO por
+   formulario: para otro, `DELETE /v1/ads/lead-forms/{formId}/test-leads?accountId&leadId`.
+3. Mirar, en orden: el log del webhook de Zernio (`[webhook:zernio]` con `lead.received`), el lead en el CRM con origen `instant_form` y
+   `meta_lead_id` = el `leadgenId`, y su historial. Si en 30 minutos no está, el barrido debería traerlo (`[cron:meta-leads-poll] zernio`).
+4. Lo que esa prueba mide y hoy no se sabe: si `lead.fields` trae las claves de Meta (`full_name`) o los rótulos, si `leadgenId` es el id
+   de Graph (de eso depende que un lead que entra por las dos puertas sea UNO) y si `lead.received` llega sin el complemento de anuncios.
+5. Borrar el lead de prueba del CRM (y el de Meta, con el `DELETE` de arriba).
+
+- **Sin hacer:** el lead de prueba real (lo hace Martín: login de Facebook). Los nombres de campaña por id. Los huecos de la papelera
+  y de la fusión en el poll de Meta. La clave de MaKo pegada como propia sigue contando como `byok` en lo demás (perfiles, redes): el
+  barrido ya no filtra de más, pero detectarla al pegarla no se hizo. El `?dias=90` del cron (backfill) también barre Zernio 90 días
+  y puede traer leads que la papelera ya purgó (revisión, B2). Los negocios con la cuenta prestada nunca se barren (B4). De la
+  re-verificación del 29/10 (sospechas que dependen de cómo contesta Zernio, sin medir):
+  - **N4:** un lead SIN `createdTime` (o ilegible) pasa el filtro de la ventana y sale como nuevo (`queHacerConElLead` lo toma como
+    recién llegado: el WhatsApp de bienvenida). El filtro sólo frena cuando hay fecha.
+  - **N5:** el filtro en memoria confía en `GET /accounts`: una cuenta que vuelve SIN `profileId` se queda (`leerCuentasDeZernio`) y
+    sus leads entran.
+  - **N6:** si el `accountId` del `AdLead` no es el `_id` de `/accounts`, el barrido no carga NADA (falla cerrado) y el log del cron
+    no lo dice: imprime `vistos` y `cargados`, no `ajenos`.
+
+## WhatsApp vuelve a /integraciones: la tarjeta de las líneas por QR (29/10/2026)
+
+Martín: «En Integraciones falta el logo de WhatsApp para que aparezca eso también, con el QR obvio, con las múltiples líneas, claro».
+La de Chatwoot (el oficial) se fue el 09/10 (tests/sin-chatwoot.test.ts); WhatsApp se conectaba por QR (Evolution) sólo desde
+/configuraciones › Teléfonos, /whatsapp y Automations, y no tenía tarjeta.
+
+**Vive en:** `lib/integraciones-catalogo.ts` (la tarjeta `whatsapp`) · `lib/integraciones.ts` (`estadoWhatsApp`) ·
+`app/integraciones/LineasWhatsApp.tsx` (las líneas y «Agregar línea») · `lib/lineas-whatsapp-tarjeta.ts` (el texto del estado) ·
+`app/api/whatsapp/evolution/route.ts` (`deMaKo`) · `app/integraciones/IntegracionesBoard.tsx` · `app/m/configuraciones/integraciones/IntegracionesM.tsx` ·
+`lib/servicio-slides.ts` · tests/whatsapp-tarjeta.test.ts.
+
+- ⚠️ **`integracionConectada('whatsapp')` es la pregunta del OFICIAL** (lo que mandaba Chatwoot) en la API de MaKo
+  (lib/api-mako/areas/whatsapp.run.ts, nueve lugares). Sale del catálogo de MÉTODOS, no de la grilla: por eso la tarjeta nueva entra
+  SÓLO a `DEFS` (lib/integraciones-catalogo.ts) y NO a lib/metodo-catalogo.ts. Si entrara, esa pregunta empezaría a contestar algo
+  y la API de MaKo creería que hay un oficial. Lo fija el test.
+- **Ninguna conexión nueva:** «Agregar línea» monta el MISMO `EvolutionConnect` con `nueva` de /whatsapp y de Automations (el QR,
+  el tope del plan, la línea que nace al pedirlo). El estado de cada línea se MIDE (`GET /api/whatsapp/evolution?linea=`), porque la
+  fila miente en las dos direcciones; lo que nadie midió dice «sin comprobar», nunca un verde.
+- **La línea de MaKo (la del grupo, `mako_superadmin*`) no es del negocio:** la regla vive en un lugar (`esLineaDeMaKo`); la ruta
+  la marca (`deMaKo`) y la tarjeta la saca, en el estado de la grilla y en la lista del modal.
+- **El teléfono:** la hoja muestra las líneas (la misma pieza, `soloLectura`) y «Agregar una línea en la computadora». Un QR no
+  se escanea con el mismo teléfono que lo muestra.
+- ⚠️ **Una tarjeta nueva entra sola a OTRO catálogo:** lib/conexiones-catalogo.ts (lo que la API de MaKo y el doer ofrecen para
+  conectar) se monta sobre `DEFS`, y ya tenía «Tu número de WhatsApp» con la key `whatsapp` y el link de contrato
+  `/chats?conectar=whatsapp` (el QR en un paso). La tarjeta iba primero y lo pisaba: MaKo mandaba al modal en vez de al QR. Lo vio
+  tests/conexiones-api.test.ts en tests-afectados, no el test de la tarjeta. **Regla:** antes de sumar una key a `DEFS`, buscarla en
+  `FUERA_DE_LAS_TARJETAS`; la de WhatsApp se saca del mapeo y queda la de afuera.
+- **Capturas sin levantar la app:** un banco de esbuild con el `IntegracionesBoard` real y la ruta simulada (el molde del banco de
+  Create, docs/hallazgos-ui.md): `C:/dev/revisiones/whatsapp-tarjeta-2910/`. El CSS del teléfono no viene en `globals.css`: el
+  banco tiene que importar `app/m/m.css` y `app/m/configuraciones/configuraciones.css`, o la hoja sale sin estilos.
+- **Sin hacer:** renombrar, desvincular o elegir la de por defecto desde la tarjeta (sigue en /whatsapp); el código de vinculación
+  (`pairingCode`) que permitiría agregar una línea desde el teléfono (el tipo existe en `EvolutionConnect`, la pantalla no lo muestra).
+
+## El barrido de leads de Meta por Zernio: el filtro va en memoria, no sólo en la URL (29/10/2026, Integración)
+
+> **Estado (29/10 noche):** arreglado en `zernio-token-2910` (`a745e4eb3`): el descarte en memoria por cuenta (con cualquier clave),
+> sólo crear, y la papelera entera o el barrido corta. Ver «El 2.º Instagram… y los leads de Meta por Zernio», arriba. Prender el
+> interruptor de la cuenta de la plataforma lo decide Integración.
+
+La revisión de privacidad de `zernio-token-2910` (`ce56bd693`, `lib/zernio-leads-barrido.ts`) frenó la punta antes del tren-af y
+volvió a su chat. El informe está en `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`, y las pruebas en
+`C:/dev/revisiones/2910-rev-zernio-pruebas/`.
+
+- ⚠️ **Un parámetro de la API no es un filtro.** Con la clave de la plataforma, `accountIds` iba sólo en la URL y `leerLeadDelRest`
+  ni leía el `accountId`. Con un Zernio de prueba que ignora el parámetro, el lead de otro negocio entró al CRM del ws1. **Regla:**
+  todo lead se descarta EN MEMORIA si su cuenta no es del negocio que se barre, con cualquier clave. Es lo que ya hace el webhook.
+- ⚠️ **«Clave propia» no garantiza que todo el equipo de Zernio sea del negocio.**
+  - Con clave propia, el barrido listaba el equipo entero de Zernio.
+  - Una agencia con una sola cuenta de Zernio para varios negocios de MaKo mete en cada uno los leads de todos.
+  - En el código, «propia» es «tiene fila y no es el ws1» (`lib/zernio.ts`). Si alguien pega la clave de MaKo en otro negocio, ese
+    negocio barre los leads de todos los negocios prestados.
+- ⚠️ **Una persona con dos formularios no puede alternar.**
+  - Cada barrido le cambiaba el `meta_lead_id` (A, B, A…) y le borraba la campaña.
+  - Además le reenviaba la conversión a Meta y el aviso «lead fusionado», cada 30 minutos.
+  - Se corrió con el `upsertLeadFromMeta` real.
+- ⚠️ **La papelera se lee paginada, y si la lectura falla, el barrido corta.**
+  - PostgREST corta en 1000 filas sin avisar.
+  - Seguir con la lista incompleta hace volver leads borrados, y a los de menos de 24 h les manda OTRA VEZ el WhatsApp de
+    bienvenida.
+- **Lo que está bien (verificado):**
+  - El cron va negocio por negocio, con sus claves.
+  - Ningún error guarda los leads de un negocio en otro.
+  - El 2.º Instagram no cruza negocios.
+- **Sin hacer (B4):** los negocios con la cuenta prestada nunca se barren, porque el cron sólo recorre los que tienen clave
+  guardada. El interruptor `zernio.cuenta_de_la_plataforma` queda APAGADO hasta que el filtro en memoria esté.
+- **La re-verificación de `da3cff9f7`** (Integración, 30/10) dio «entra con bajas»: M1 a M4 están y funcionan. Se corrieron las
+  pruebas viejas contra la punta nueva, y `noTocarExistente` no cambia nada para el webhook ni para el poll de Meta. Quedan abiertos:
+  - **N4 (B1 a medias):** un lead sin fecha pasa el `since` (`lib/zernio-leads-barrido.ts`).
+  - **N3:** a la persona que ya era lead y perdió su webhook, el barrido no le guarda nada (respuestas, campaña, embudo) y la
+    cuenta como «ya estaban». No es una regresión contra main.
+  - **N5 y N6 (sospechas, dependen de Zernio):** una cuenta que vuelve sin `profileId` pasa el filtro, y un id de cuenta en otra
+    forma deja el barrido en cero sin que el log lo diga.
+  - El interruptor `zernio.cuenta_de_la_plataforma` sigue apagado.
+
+## Un 429 de Zernio es una PAUSA, no una conexión rota (30/10/2026, ticket #34)
+
+Código Inmobiliario (ws17) reportó desde /integraciones: «Zernio no contestó (429). Vuelve a conectar con Facebook.» Medido en los logs
+de producción (`vercel logs`, ver docs/hallazgos-infra.md del 17/10): pegó su clave a las 12:27Z y conectó Facebook a las 12:29Z; a las
+12:30:37Z, en el MISMO minuto, la clave la usaban el sondeo de conectar (12 a 14 `POST /api/zernio` por minuto, cada uno un `GET
+/accounts`), dos lecturas del estado de «Anuncios de Meta» (cada una, hasta 9 pedidos: páginas, cuentas publicitarias, píxeles,
+webhook), dos cargas de /integraciones con el árbol de Meta por Zernio, el cron `alerta-critica` y una pasada del barrido de leads.
+
+**Vive en:** `lib/zernio-redes.ts` (`motivoDeRespuesta`, `esperaDeLaPausa`, `errorDeLecturaZernio`) · `lib/zernio-conectar.ts`
+(`ZernioConectarError.esperaMs`) · `app/api/zernio/route.ts` · `app/_components/ConectarViaZernio.tsx` (el sondeo) ·
+`lib/meta-conexion-zernio.ts` (`estadoMetaZernio`, `pingMetaPorZernio`) · `app/integraciones/ConectarMetaZernio.tsx` ·
+tests/zernio-pausa-429.test.ts.
+
+- ⚠️ **El diagnóstico obvio era el equivocado: no fue el barrido.** Corrió UNA vez en esa ventana (12:30:25Z, `vistos=0`), unos pocos
+  pedidos cada 30 minutos. Lo que llena los 60 pedidos por minuto de un equipo de Zernio (docs.zernio.com/rate-limits) es el momento
+  de CONECTAR: el sondeo cada 4 s, más lo que cada pantalla vuelve a leer al terminar, más un cron que cae justo en ese minuto.
+- ⚠️ **Un 429 se decía como una conexión rota.** `estadoMetaZernio` (y el «Probar» de Meta) convertían CUALQUIER error de Zernio en
+  «Vuelve a conectar con Facebook», y el sondeo lo leía como `sin-red` y lo contaba como falla (tres seguidas cortaban la conexión).
+  **Regla:** un 429 tiene su motivo (`pausa`): se dice lo que pasó («Zernio pidió una pausa… tu conexión está bien»), se espera lo que
+  pide `Retry-After` (entre 5 s y 1 minuto; sin dato, 30 s), y se sigue: el sondeo no lo cuenta como falla y el estado se relee solo
+  (hasta 3 veces). Volver a conectar queda para lo que se arregla así (un 401, una conexión vencida).
+- La ruta anota cada pausa con `console.warn` (`tope de Zernio (429), espera N ms`): cuántos 429 hay es el dato para decidir si hace
+  falta gastar menos al conectar.
+- **Sin hacer:** gastar menos al conectar (el sondeo podría usar el `accountId` de la vuelta antes de listar, y el estado de «Anuncios
+  de Meta» lee hasta 5 páginas por apertura); que `alerta-critica` no lea por Zernio un negocio que está conectando; el resto de los
+  lugares que muestran un error de Zernio (Automations, Calendario) siguen diciendo «no contestó» ante un 429.

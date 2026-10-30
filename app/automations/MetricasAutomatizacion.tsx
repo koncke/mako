@@ -28,6 +28,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import type { Tablero } from '@/lib/graficos-catalogo';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import { informeDeAutomatizacion } from '@/lib/informe-automatizacion';
+import { usePruebaAB } from './usePruebaAB';
 
 const EditorInforme = dynamic(() => import('@/app/dashboard/EditorInforme').then((m) => m.EditorInforme), {
   ssr: false,
@@ -74,6 +75,12 @@ export function MetricasAutomatizacion({ secuenciaId, izquierda, titulo }: {
   const [llevando, setLlevando] = useState(false);
   const [llevada, setLlevada] = useState<{ hojaId: string; nombre: string } | null>(null);
   const [errLlevar, setErrLlevar] = useState<string | null>(null);
+  // LA PRUEBA A/B DE LA AUTOMATIZACIÓN (tanda A3, «un bloque "Prueba A/B"»): fija arriba de la hoja, con lo que dice la
+  // tarjeta y los números de cada rama. Sin prueba (o sin tablas), no se dibuja nada.
+  const { prueba } = usePruebaAB(secuenciaId, true);
+  const avisoAB = prueba && prueba.estado !== 'sin_prueba' ? (
+    <span data-prueba-ab-metricas><b>Prueba A/B</b> · {prueba.texto}{Object.values(prueba.filas).length ? ` · ${Object.values(prueba.filas).join(' · ')}` : ''}</span>
+  ) : null;
 
   useEffect(() => {
     let vivo = true;
@@ -141,6 +148,7 @@ export function MetricasAutomatizacion({ secuenciaId, izquierda, titulo }: {
         informe={informeDeAutomatizacion(secuenciaId)}
         unido={null}
         cabeceraPropia={{ izquierda, titulo, enMas }}
+        avisoFijo={avisoAB}
       />
       </IzquierdaDeCarga.Provider>
     </div>

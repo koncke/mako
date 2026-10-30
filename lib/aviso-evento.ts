@@ -92,6 +92,8 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
     ...(ev.trae.includes('reunionplan') ? { conReunionPlan: true } : {}),
+    ...(ev.trae.includes('iacaida') ? { conIaCaida: true } : {}),
+    ...(ev.trae.includes('tope') ? { conTope: true } : {}),
   };
 }
 
@@ -148,6 +150,8 @@ export const MOTIVO_EVENTO = {
   accion: 'Una ⚡ Acción no corre en un evento de MaKo.',
   respuesta: '«Si responde» y el AI Step no van en un evento de MaKo.',
   irA: '«Ir a» no va en un evento de MaKo.',
+  // La tarjeta «A/B TEST» (tanda A3): una prueba reparte LEADS de una automatización; un evento de MaKo avisa al equipo.
+  ab: 'Una prueba A/B no va en un evento de MaKo.',
   paralelo: 'Un evento de MaKo va en una sola fila, sin flechas en paralelo.',
   delayReunion: 'El DELAY de un evento de MaKo es por tiempo.',
   delayTope: 'El DELAY va de un minuto a 30 días.',
@@ -225,6 +229,7 @@ export function pasosDelEvento(pasosIn: readonly PasoGrafo[], evento: unknown): 
     }
     if (clase === 'respuesta') return mal(MOTIVO_EVENTO.respuesta, id);
     if (clase === 'ir_a') return mal(MOTIVO_EVENTO.irA, id);
+    if (clase === 'ab') return mal(MOTIVO_EVENTO.ab, id);
     if (clase === 'accion' && (p.accion as { operacion?: unknown } | null)?.operacion !== OP_AVISAR) return mal(MOTIVO_EVENTO.accion, id);
     if (Array.isArray(p.paralelos) && p.paralelos.length) return mal(MOTIVO_EVENTO.paralelo, clase === 'inicio' ? null : id);
   }

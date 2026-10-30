@@ -16,13 +16,32 @@
 //    puede no ofrecer la pestaña cuando `vista.area != null`; si igual se monta, dice que el acceso no
 //    está activo.
 
-import { useMemo } from 'react';
-import { apiDelAlumno } from './api';
+//
+// ⚠️ SI LA COMUNIDAD CONTESTA QUE NO ENTRA, SE VUELVE A MIRAR LA ENTRADA DEL PORTAL, UNA VEZ (f33, 24/10/2026). Sacar a
+//    un alumno le saca también el curso: con el portal ya abierto, la comunidad era lo primero en enterarse y decía
+//    otra cosa que el curso. Con el `refresh`, un acceso cortado muestra la frase de la entrada en todo el portal, y un
+//    curso que ya no ve deja de aparecer. Una sola vez: si el server sigue mostrando la comunidad, no hay vuelta.
+import { useMemo, useRef } from 'react';
+import { useRouter } from '@/app/_ui/Link';
+import { SIN_ACCESO_PORTAL } from '@/lib/curso-portal-aviso';
+import { apiDelAlumno, type ApiComunidad } from './api';
 import { Comunidad } from './Comunidad';
 
 export function ComunidadAlumno({ token, productoId }: { token: string; productoId: number }) {
   // Una API por token y producto: cambiar de producto es otra comunidad (y otra lista para mencionar).
-  const api = useMemo(() => apiDelAlumno(token, productoId), [token, productoId]);
+  const router = useRouter();
+  const mirada = useRef(false);
+  const api = useMemo((): ApiComunidad => {
+    const base = apiDelAlumno(token, productoId);
+    return {
+      ...base,
+      inicio: async () => {
+        const r = await base.inicio();
+        if (!r.ok && r.error === SIN_ACCESO_PORTAL && !mirada.current) { mirada.current = true; router.refresh(); }
+        return r;
+      },
+    };
+  }, [token, productoId, router]);
   return <Comunidad key={`${productoId}`} api={api} tema="alumno" />;
 }
 

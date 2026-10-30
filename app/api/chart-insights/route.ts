@@ -27,19 +27,22 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { getPromptText } from '@/lib/prompt-render';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { veCopywriter } from '@/lib/copywriter/puerta';
 import { CHART_PROMPT_ANALISIS_DEFAULT, CHART_PROMPT_SALUDO_DEFAULT, CHART_TITULO_DEFAULT } from '@/lib/prompt-defaults';
+import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos-del-chat';
+import { memoriaConArchivos, pedidoConLecturas, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
 
 const NO_EXISTE = () => Response.json({ error: 'sesión inexistente' }, { status: 404 });
 const SIN_SESION = () => Response.json({ error: 'Tu sesión venció.' }, { status: 401 });
 
-/** Quién pide: admin o no, y su persona (lib/chart-chats-reglas.ts). null = sin sesión. */
+/** Quién pide: admin o no, su persona y si pasa la puerta del Copywriter (lib/chart-chats-reglas.ts). null = sin sesión. */
 async function quienPide(): Promise<QuienChatea | null> {
-  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+  const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);
   if (!rolWs || !sesion) return null;
   const persona = personaDeSesion(sesion);
-  return persona ? { admin: rolWs === 'admin', persona } : null;
+  return persona ? { admin: rolWs === 'admin', persona, veCopywriter: copy } : null;
 }
 
 /** Una sesión como la ve la pantalla: con la clave de siempre, sin el prefijo de quien pide. */
@@ -101,7 +104,8 @@ export async function GET(req: NextRequest) {
     const ver = paraPantalla(q);
     // La lista: el admin, las del workspace; los demás, las SUYAS.
     if (sp.get('all')) {
-      return Response.json({ sessions: (q.admin ? await listAllSessions(arch) : await listSessionsDePersona(prefijoDePersona(q.persona), arch)).map(ver) });
+      // Sin las de una tab cuya puerta no pasa (la charla de un guion del Copywriter: `puedeUsarSesion`).
+      return Response.json({ sessions: (q.admin ? await listAllSessions(arch) : await listSessionsDePersona(prefijoDePersona(q.persona), arch)).filter((s) => puedeUsarSesion(s.chart_key, q)).map(ver) });
     }
     const sessionId = sp.get('sessionId');
     // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta no se abre ni se lista (lib/chart-chats.ts,
@@ -127,7 +131,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   let body: { action?: string; sessionId?: number; chartKey?: string; titulo?: string; contexto?: string; mensaje?: string; valor?: boolean };
-  try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
+  let adjuntos: AdjuntoListo[] = [];
+  if (traeArchivos(req)) {
+    // Con fotos o PDF (28/10/2026, las cajas unificadas): se leen acá (lib/adjuntos-del-chat.ts) y su lectura va con el pedido.
+    const p = await pedidoConArchivos(req);
+    if (!p.ok) return Response.json({ error: p.error }, { status: p.status });
+    try { body = JSON.parse(p.campos.datos ?? '{}'); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
+    adjuntos = p.adjuntos;
+  } else {
+    try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
+  }
   const { action, chartKey, titulo = 'Chat', contexto = '' } = body;
 
   try {
@@ -181,21 +194,28 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'send') {
-      const { sessionId, mensaje } = body;
-      if (!sessionId || !mensaje) return Response.json({ error: 'sessionId y mensaje requeridos' }, { status: 400 });
+      const { sessionId } = body;
+      const escrito = (body.mensaje ?? '').trim();
+      if (!sessionId || (!escrito && !adjuntos.length)) return Response.json({ error: 'sessionId y mensaje requeridos' }, { status: 400 });
+      const { lecturas, noLeidos } = await leerLosArchivos(adjuntos, 'mako-chat');
+      const noPude = noLeidos.length ? `No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escríbeme lo que dice.` : '';
+      if (adjuntos.length && !lecturas.length && !escrito) return Response.json({ error: noPude }, { status: 422 });
+      // A la memoria, lo escrito con los nombres; al modelo, con lo que el sistema leyó.
+      const mensaje = memoriaConArchivos(escrito, adjuntos.map((a) => a.nombre));
+      const pedido = pedidoConLecturas(escrito, lecturas, adjuntos[0]?.tipo);
       const s = await getSession(sessionId);
       if (!s) return NO_EXISTE();
       const ctx = s.contexto ?? '';
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await chatClaude(await buildSystemPrompt({ chartKey: claveLogica(s.chart_key), titulo: s.titulo ?? 'Chat', contexto: ctx, query: mensaje, sinNumerosDelNegocio: !q.admin }), await buildMsgs(ctx, history, mensaje), { feature: 'mako-chat' });
+      const resp = await chatClaude(await buildSystemPrompt({ chartKey: claveLogica(s.chart_key), titulo: s.titulo ?? 'Chat', contexto: ctx, query: escrito || mensaje, sinNumerosDelNegocio: !q.admin }), await buildMsgs(ctx, history, pedido), { feature: 'mako-chat' });
       await appendMessage(sessionId, 'assistant', resp);
       // Si todavía no tiene título propio, que la IA le ponga uno a partir de la charla.
       if (!s.titulo) {
         const t = await generarTitulo(`${mensaje}\n${resp}`);
         if (t) await renameSession(sessionId, t);
       }
-      return Response.json({ messages: await getSessionMessages(sessionId) });
+      return Response.json({ messages: await getSessionMessages(sessionId), ...(noPude ? { aviso: noPude } : {}) });
     }
 
     if (action === 'rename') {

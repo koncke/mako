@@ -418,7 +418,8 @@ test('⏱ EL RELOJ: una sesión arranca sólo si entra ENTERA, y cada paso tiene
   assert.ok(5_000 + reserva <= techo, `la reserva (${reserva}) no entra en la ronda (${techo})`);
   // Cada paso, con su tope: Fathom con conPlazo, la IA con un plazo ABSOLUTO que acota la
   // cascada entera (no un intento) y nunca pasa el corte de la corrida.
-  assert.match(LIB, /m = await conPlazo\(fetchMeetingContent\(\{ recording_id: id \}\), TOPE_FATHOM_MS, 'Fathom'\);/);
+  // De cualquier grabador desde el 26/10/2026 (lib/grabadores): la clave dice cuál, y el tope es el mismo.
+  assert.match(LIB, /m = await conPlazo\(leerReunion\(ref\), TOPE_FATHOM_MS, grabador\);/);
   const ia = entre(LIB, 'texto = await chatClaude(', '});');
   assert.match(ia, /hastaMs: Math\.min\(Date\.now\(\) \+ PRESUPUESTO_IA_MS, ctx\.deadline - MARGEN_ESCRITURA_MS\),/);
   // Y no se degrada de MODELO: `fallback: []` sólo frena el de proveedor.
@@ -434,8 +435,8 @@ test('⚠️ EL TESTIGO: sin él, la IA que no contesta es ajena y corta; con é
   // Y el drenaje se lo pasa: la primera sesión que la IA contesta prende el testigo.
   const bucle = entre(LIB, 'let iaViva = false;', 'r.sinTurno = cola.length - tomadas;');
   assert.match(bucle, /await analizarUna\(f, \{ deadline: opts\.deadline, testigo: iaViva \}\);\s*if \(iaContesto\) iaViva = true;/);
-  // Fathom: lo seguro del proveedor no suma; lo demás que no es de la sesión, es ajeno.
-  assert.match(LIB, /return fallar\(f, `Fathom: \$\{msg\}`, esFalloSeguroDelProveedor\(msg\) \? 'proveedor' : 'ajena', true\);/);
+  // El grabador (Fathom u otro, desde el 26/10/2026): lo seguro del proveedor no suma; lo demás que no es de la sesión, es ajeno.
+  assert.match(LIB, /return fallar\(f, `\$\{grabador\}: \$\{msg\}`, esFalloSeguroDelProveedor\(msg\) \? 'proveedor' : 'ajena', true\);/);
 });
 
 test('la cascada respeta el PLAZO del caller y puede no bajar de modelo (lib/ai-cheap.ts)', () => {
@@ -443,7 +444,10 @@ test('la cascada respeta el PLAZO del caller y puede no bajar de modelo (lib/ai-
   const cascada = entre(AC, 'export async function chatCheapCascade(', '\n}\n');
   // Ningún intento arranca sin plazo para uno entero, y cada uno se acota a lo que queda.
   assert.match(cascada, /for \(let intento = 0; intento <= maxIntentos; intento\+\+\) \{\s*if \(quedan\(\) < MIN_INTENTO_MS\) return sinTiempo\(\);/);
-  assert.equal(cascada.split('chatCheap({ ...base, timeoutMs: plazoDeIntento(),').length - 1, 2, 'los dos pedidos de un intento van con el plazo');
+  // (26/10/2026) El primer pedido lleva el plazo en `plazo` (con él se decide si un cuelgue dice algo del modelo,
+  // tests/ia-saturacion.test.ts) y el segundo lo pide igual.
+  assert.match(cascada, /const plazo = plazoDeIntento\(\);/);
+  assert.equal(cascada.split('chatCheap({ ...base, timeoutMs: plazo').length - 1, 2, 'los dos pedidos de un intento van con el plazo');
   assert.doesNotMatch(cascada, /timeoutMs: opts\.timeoutMs/, 'un intento con el timeout pelado ignora el plazo');
   assert.match(cascada, /if \(quedan\(\) - espera < MIN_INTENTO_MS\) break;\s*await new Promise\(\(r\) => setTimeout\(r, espera\)\);/);
   assert.match(cascada, /modelosAProbar\(prov, opts\.modelos\?\.\[prov\], !opts\.sinRespaldoDeModelo\)/);
@@ -523,7 +527,8 @@ test('el navegador importa SÓLO TIPOS del contrato (trae los prompts)', () => {
 test('el cron: ronda horaria por workspace con Fathom, dos sesiones, sin colgar de la key de Claude', () => {
   const R = sinComentarios(leer('app/api/cron/cs-sesiones-entrega/route.ts'));
   assert.match(R, /const denied = checkCronAuth\(request\);\s*if \(denied\) return denied;/);
-  assert.match(R, /correrRonda\('fathom', async \(ws, deadline\) => \{\s*const r = await drenarSesionesEntrega\(\{ deadline, max: MAX_SESIONES_POR_CORRIDA \}\);/);
+  // La ronda es de los negocios con CUALQUIER grabador conectado (lib/grabadores, 26/10/2026), no sólo Fathom.
+  assert.match(R, /correrRonda\(GRABADORES_QUE_SE_LEEN, async \(ws, deadline\) => \{\s*const r = await drenarSesionesEntrega\(\{ deadline, max: MAX_SESIONES_POR_CORRIDA \}\);/);
   assert.match(R, /rotacion: 'cs-sesiones-entrega'/);
   assert.doesNotMatch(R, /ANTHROPIC_API_KEY/, 'este análisis no usa Claude: colgarlo de su key deja sin servicio al que no la tiene');
   assert.match(LIB, /export const MAX_SESIONES_POR_CORRIDA = 2;/);

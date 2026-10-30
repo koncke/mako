@@ -121,7 +121,8 @@ test('el turno del chat registra lo que falló SOLO en la Ticketera (sin tarjeta
   // Rota: sacar el bloque «Lo que falló de MaKo va SOLO a la Ticketera» de lib/mako-turno-app.ts → este test falla.
   const t = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(t, /const err = errorParaTicket\(name, out\);\s*if \(err\) erroresDelTurno\.push\(err\);/);
-  assert.match(t, /const r = await registrarError\(\{ origen: 'mako', \.\.\.fallasDeMako\[0\], hilo: String\(s\.id\) \}, quien\);\s*if \(r\.ok && r\.ticketId\) paraLaPersona\.push\(AVISE_AL_EQUIPO\);/);
+  // Desde el 27/10/2026 (lib/no-pude.ts) la línea es «Quedó el ticket #n», o «Ya estaba avisado» si la huella ya tenía el suyo.
+  assert.match(t, /const r = await registrarError\(\{ origen: 'mako', \.\.\.fallasDeMako\[0\], hilo: String\(s\.id\) \}, quien\);\s*if \(r\.ok && r\.ticketId\) \{ registroConTicket = true; paraLaPersona\.push\(r\.nuevo \? lineaDelTicket\(r\.ticketId\) : LINEA_YA_AVISADO\); \}/);
   assert.match(t, /contextoTicket: \(\) => \(\{/, 'el turno le pasa su contexto al runner');
   assert.match(t, /deSiempre: \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\]/, 'levantar_ticket viaja siempre en el chat de la app');
   assert.doesNotMatch(t, /propuestaPorFallo/, 'un error ya no se le propone a la persona como tarjeta');
@@ -219,6 +220,8 @@ test('el cierre sale de los hitos DESPLEGADOS: `tickets: [n]` en una bitácora',
   assert.deepEqual(m.get(12), { area: 'crm', titulo: 'La etapa se guarda' }, 'el primero que lo nombra');
   const cierre = sinComentarios(leer('lib/tickets-cierre.ts'));
   assert.match(cierre, /REGISTROS_SLUGS/, 'lee las bitácoras del build, no GitHub');
-  assert.match(cierre, /\.in\('estado', \['en_curso', 'arreglado'\]\)/, 'sólo cierra lo que estaba en curso');
+  // Desde el 29/10/2026 cierra todo lo ABIERTO (el #15 esperaba la decisión de Martín): tests/tickets-al-cerebro.test.ts lo
+  // corre por `cerrarLosDesplegados` de verdad. Acá, que el select y el update miren la MISMA lista.
+  assert.equal(cierre.split(".in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY])").length - 1, 2, 'el select y el update del cierre miran estados distintos');
   assert.match(leer('vercel.json'), /"\/api\/cron\/tickets"/);
 });

@@ -19,6 +19,7 @@ import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelCha
 import { HiloMako, type EnMensaje, type Quien } from '@/app/_chat/HiloMako';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
+import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { estaAbajo } from '@/lib/centro-caja';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -75,6 +76,8 @@ export default function ChatMakoVista(p: PropsVistaChatMako) {
       <PanelDeChat hilo={hiloRef} adjuntos={p.caja.adjuntos} cabecera={p.cabecera}
         caja={<>
           {/* LA CAJA CON AIRE (23/10/2026: «está pegada abajo de todo: tiene que tener aire»): la del Ops Center, con su margen. */}
+          {/* Lo que MaKo recomienda mientras se arma una automatización (26/10/2026): el bloque de preguntas, plegado en su tira. */}
+          <RecomendacionesDeMako superficie="automations" alPedir={p.caja.onTexto} />
           {p.encima}
           <div className="co-caja" data-caja-mako="">
             <CajaChat {...p.caja} />

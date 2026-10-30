@@ -2716,3 +2716,268 @@ destructuring EN LA MISMA POSICIÓN: si se saca una sola, todo lo que sigue reci
 **Vive en:** `lib/cerebro-grafo.ts` (bloque «Formatos: solo los que ESTE negocio usa») · `lib/angulos-data.ts`
 
 *23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
+
+## El recolector: lo que el negocio vivió en WhatsApp, a su Second Brain, y por qué la procedencia va en el TEXTO (25/10/2026)
+
+Martín (24/10): «Quiero que implementes en el Second Brain un "recolector de información" de TODOS lados... De los mensajes
+de WhatsApp... Esto para todos los ws». El diseño: docs/diseno-second-brain-recolector.md; hecho el primer paso (§8:
+WhatsApp, de punta a punta). Chat «Planes», cuenta 5, a pedido del Cerebro.
+
+- **No hay una tabla del Second Brain.** El mapa se calcula en cada pedido (`construirCerebro`, ~21 fuentes) y lo que el
+  CHAT consulta es `mako_knowledge`, por coseno (`searchKnowledge`, que entra al system por `buildSystemPrompt`). Así que lo
+  recolectado va ahí (fuente `whatsapp`, área `general`, categoría «WhatsApp»), una entrada por contacto.
+- **El chat sólo recibe título y cuerpo** (`searchKnowledge` devuelve `{titulo, categoria, cuerpo, score}`, sin `fuente` ni
+  fecha). Para que pueda decir de dónde salió un dato (§4), la procedencia está ESCRITA al final del cuerpo («Fuente: la
+  conversación de WhatsApp con Ana, mensajes del … al …. Lo recolectó MaKo el …»). Una columna nueva no la vería nadie.
+- **Sin el Gemini del negocio, lo recolectado no se usa al responder:** el embedding va con SU Gemini (`SIN_SU_GEMINI` deja la
+  fila en `estado='error'`) y `searchKnowledge` sólo lee lo que tiene embedding. La pantalla lo cuenta («todavía no la usa
+  al responder: conecta tu Gemini»).
+- **La línea de MaKo es el WhatsApp PERSONAL de Martín.** Leer «las conversaciones» sin filtro habría resumido su familia en
+  el Second Brain del negocio. Se lee sólo lo que tiene un lead del CRM (algún mensaje con `lead_id`), nunca un grupo.
+- **Los lectores de lib/evolution-mensajes.ts ignoran el error** (`data ?? []`): «no pude leer» se ve como «vacío». Un
+  guardia que avanza una marca no los puede usar; el recolector lee `wa_mensajes` directo y mira cada `error`.
+- **La plataforma no «tiene su IA»** (`negocioConSuIA` da false para el ws de la plataforma, a propósito). La regla
+  «sin su IA no corre» es para los CLIENTES (`claveDeIAPropia`); el espacio de MaKo corre con la de la plataforma, que es la
+  suya.
+- **Un CLIENTE arranca APAGADO; el espacio de MaKo, prendido** (el Cerebro, 25/10: «Gasta la IA del negocio cada hora, y la
+  regla es que cada negocio paga SU IA: no se la gastamos sin que lo elija»). Cada negocio lo prende en «Aprende solo»
+  (`prendidoPorDefecto`, lib/recolector-reglas.ts). Un setting roto o un «no sé si es la plataforma» se lee apagado.
+- **El número de la migración se le pide al Cerebro antes de nombrar el archivo:** la 0332 ya era de Media Buyer, sin
+  commitear en su worktree (por eso no estaba en origin/main). Quedó 0333.
+- **El libro (mig 0333, `second_brain_recolectado`) es la marca y la llave:** una fila por conversación con hasta dónde leyó;
+  se escribe DESPUÉS de guardar lo aprendido, así que una IA caída deja la conversación para la vuelta siguiente. Sin la
+  migración, el cron lo dice en su respuesta y no gasta IA.
+- **Ejercitado sin la app:** tests/second-brain-recolector-simulado.test.ts corre `recolectarWhatsApp` de verdad con la base,
+  el setting, la IA y el conocimiento simulados (`mock.module` en un proceso hijo, el molde de partners-credito-simulado).
+
+**Sin hacer:** las otras fuentes del diseño (métricas de Meta; Fathom, que pide la cuenta de cada negocio, §5), el teléfono, y
+borrar una entrada desde «Aprende solo» (hoy se apaga entero). El bloque del system donde entran estas entradas se llama
+«TU METODOLOGÍA» (lib/mako-context.ts): los hechos de un cliente no son método; si confunde al modelo, va en su propia
+sección. Interruptores: env `RECOLECTOR_SECOND_BRAIN` (`off`/`seco`) y el de cada negocio en el Mapa. **Vive en:**
+lib/recolector.ts · lib/recolector-reglas.ts · app/api/cron/second-brain-recolector/route.ts · app/second-brain/AprendeSolo.tsx
+· app/second-brain/recolector-actions.ts · supabase/migrations/0333_second_brain_recolectado.sql ·
+tests/second-brain-recolector.test.ts · tests/second-brain-recolector-simulado.test.ts.
+
+## ¿Guarda «todo el contexto, todo el tiempo»? No: dibuja mucho y recuerda casi nada (26/10/2026)
+
+Martín (26/10): «Revisa si el second brain realmente esta guardando todo el contexto de absolutamente todo, todo el tiempo».
+Auditado en el código de c8f1c4a57 (chat «MaKo recomienda», cuenta 5); la tabla completa, en
+[diseno-mako-recomienda.md](diseno-mako-recomienda.md) §1.
+
+- **«El Second Brain» son tres cosas, y se confunden:** el MAPA (`construirCerebro`, ~21 fuentes, se calcula en cada pedido y no
+  lo lee ningún chat), la MEMORIA (`mako_knowledge`: lo único que el chat consulta solo, 4 resultados por turno) y las
+  HERRAMIENTAS del turno (traen datos si el modelo se acuerda de pedirlos). Que una fuente salga en el mapa no dice nada de si
+  MaKo la recuerda al contestar.
+- **De lo que el negocio vive, a la memoria entra una sola fuente: WhatsApp**, y en un cliente viene apagada («Aprende solo») y
+  sin el Gemini del negocio no se indexa. **No entran:** las llamadas de venta analizadas (`closing_analyses`, con las objeciones
+  y si se respondieron), lo que el dueño le cuenta a MaKo en la app (`chart_chats`) o por WhatsApp (`mako_doer_conv`), las
+  conclusiones de Offer (`offer_sesiones`: el mapa usa sólo la fecha), los envíos de las automatizaciones, las visitas de las
+  landings, las decisiones del Media Buyer ni los emails e Instagram.
+- **El diagnóstico obvio era el equivocado:** «para que MaKo recomiende hay que meter todo en la memoria». Lo que se cuenta
+  (velocidad de respuesta, no-show, conversión) se lee donde vive; un resumen en la memoria pierde el número. La memoria sirve
+  para lo que la gente DIJO. El motor de recomendaciones lee directo (docs/hallazgos-recomendaciones.md).
+- **La medición por negocio quedó pendiente:** el clasificador de permisos negó «Production Reads» (sólo lo habilita Martín). El
+  comando de sólo lectura está listo: `scripts/medir-second-brain.mjs`. La pregunta que contesta primero: ¿cuántos clientes tienen
+  «Aprende solo» prendido? Si son cero, el Second Brain de los clientes no aprende nada de lo que viven.
+
+**Sin hacer:** el recolector de Fathom (las objeciones de las llamadas a la memoria, con la cuenta de cada negocio: el diseño del
+recolector §5) y el de los chats con MaKo (lo que el dueño cuenta). Los dos con el molde de lib/recolector.ts.
+
+## Los íconos de verdad cuando MaKo nombra un botón, en todos los chats (27/10/2026, claude5)
+
+**Síntoma:** Leandro (ticket 874749710-12): MaKo le decía «tocá Configuraciones» y no se sabía cuál era. Automations dibujaba
+la tuerca en su globo (8ed7f23aa); los demás chats, nada.
+
+**La regla:** el ícono no lo elige el modelo ni un chat: sale de la BARRA. app/_chat/iconos-de-botones.ts arma «nombre visible →
+ícono» con los `label` e `icon` de app/_components/nav.ts, más los botones que no son tab (la tuerca de Configuraciones), y el
+renderizador compartido (`Markdown` con `iconos`) dibuja el ícono cuando MaKo NOMBRA el botón entre «». Una palabra suelta no es
+un botón. Lo piden los mensajes de MaKo de `HiloMako` (los chats de la caja única) y el hilo de Offer en el teléfono.
+
+**Trampa:** hay dos «Ops Center» en la barra (el del negocio, con el cerebro, y el del super admin, con otro ícono). El catálogo
+toma lo que ve el NEGOCIO primero: MaKo le habla a él.
+
+Todos los chats de MaKo de la app dibujan con `HiloMako` (Ops Center, Automations, Offer, Web Generator, Image y Video Editor).
+**Sin hacer:** no se vio en pantalla.
+
+## «No me deja adjuntar un documento»: el inventario de las cajas de chat (27/10/2026, claude5, ticket #16 de Leila)
+
+**Síntoma:** Leila (ws11): «No me deja adjuntar un documento ni por arrastrar, ni por adjuntar», siempre. Martín, el mismo día:
+«revisa que todos los chats acepten todos los formatos».
+
+**Lo que había, caja por caja** (el «+» y lo arrastrado, antes de este cambio):
+
+| Caja | Tomaba | Arrastrar |
+| --- | --- | --- |
+| Second Brain del negocio (`useChatCliente`) | sólo fotos y PDF (`ACCEPT_ADJUNTOS_CHAT`, y el servidor valida por firma) | a la pantalla: un Word rebotaba callado |
+| MaKo Analyst del lead | sólo fotos y PDF | a la pantalla |
+| Automations | texto, Word, PDF, Excel, PowerPoint, OpenDocument, imágenes (sin audio) | a la pantalla |
+| Web Generator (agente) | texto, Word, PDF, Excel, PowerPoint, OpenDocument, audio, video, imágenes | a la pantalla |
+| Offer (escritorio y teléfono) | todo lo que se lee (`ACCEPT_IMPORTAR`) y .zip | sí |
+| Ops Center de la plataforma (Runner) | fotos, PDF, Word, Excel, PowerPoint, texto, CSV, Markdown | sí |
+| Media Buyer (2), Dashboard, Image Editor, Video Editor, Soporte, asesor de WhatsApp, `MakoChat` | **nada** | «Este chat no recibe archivos» |
+
+**La causa no era una caja: era que adjuntar dependía de que cada PANTALLA lo armara** (y el servidor del Second Brain sólo deja
+pasar fotos y PDF, porque los manda al modelo como bloques nativos). **La regla:** la caja única adjunta SOLA. Lo que la
+pantalla toma (su `accept`) va a SUS adjuntos; lo demás la caja lo sube y lo LEE al mandar (app/api/chat/leer-archivo →
+`archivoATexto`: Word, Excel, PowerPoint, PDF, texto, imágenes por visión y audio transcripto, con la IA del negocio) y sale con
+el mensaje como un texto pegado con su nombre (el hilo lo dibuja como documento). `juntarAdjuntos` reparte; el panel de la
+conversación suelta en los adjuntos de la caja (`ContextoSoltar`), y la caja misma toma lo arrastrado.
+
+- **Chats** (lo que se le manda a un LEAD) va con `sinAdjuntos`: ahí un documento viaja como archivo, nunca leído y pegado.
+- **Sin el límite de Vercel:** se sube con una URL firmada (el molde de Offer) y se borra después de leer.
+- tests/chat-formatos.test.ts recorre TODAS las cajas de app/ y falla si una apaga los adjuntos sin estar en la lista con su
+  porqué, o si el `accept` deja afuera algo requerido (docx, xlsx, pptx, pdf, csv, txt, md, imágenes y audio).
+- **Trampa (27/10, claude4): el rojo parecía un anclaje viejo y era una regresión.** tests/offer-hilo-unico (el 4) caía en la
+  fila de la caja (un `data-caja-adjunta` nuevo) y, corregido eso, en «el teléfono no deja elegir el .zip de la landing»:
+  `juntarAdjuntos` PISABA el `accept` de la pantalla con `ACCEPT_CHAT`, y el «+» de Offer perdió el .zip de la carpeta de una
+  landing. **La regla:** el `accept` de la caja es la UNIÓN (lo que MaKo lee primero, lo que sólo toma la pantalla al final). En un
+  test de forma que cae, mirar la SEGUNDA aserción antes de decir «anclaje viejo».
+
+**Sin hacer:** no se probó en pantalla (arrastrar un .docx y un .pdf en cada caja); el Ops Center de la plataforma manda los
+archivos al Runner como siempre (un audio adjunto lo lee la caja como texto). WhatsApp (no ve fotos ni PDF) es de
+mako-wa-conexiones.
+
+## La caja que adjunta sola, revisada contra producción (27/10/2026, claude4, la revisión del Cerebro)
+
+**Lo que se cortaba callado:** el Video Editor y el Image Editor mandan hasta 2.000 caracteres (`TOPES_CHAT.instruccion`) y la
+caja ahora les pega lo LEÍDO de un adjunto (hasta 40.000). Se cortaba a 2.000 sin aviso y sin la marca de cierre: el hilo ya no
+encontraba el pegado y MaKo trabajaba sobre un pedazo como si fuera el documento. **La regla:** una pantalla cuyo motor tiene
+tope se lo pasa a la caja (`topeTexto`); lo leído entra hasta ahí con su marca de cierre y la línea `SIGUE_CORTADO`
+(`conPegadosHasta`, lib/chat-pegado.ts), y la caja DICE cuánto quedó afuera. Un audio igual se transcribe entero.
+
+**De paso:** el arranque de Offer (sólo texto) adjuntaba solo: `sinAdjuntos` también va a la caja, no sólo `adjuntos: undefined`.
+leer-archivo mira el tamaño y el tipo de lo que BAJÓ (en «subir-url» los declara el navegador) y anota el gasto como del chat
+(`feature: 'mako-chat'`, no «Importar al plan»). El cartel «Suelta para adjuntar» quedaba pegado si se soltaba sobre la caja (que
+corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjuntos-revision.test.ts.
+
+**Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
+de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
+chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.
+
+## «Todos los chats usan el Second Brain» era falso: lo que los prompts llaman así es el RAG (28/10/2026, Cerebro)
+
+**Vive en:** `lib/cerebro-recuperar.ts` · `lib/mako-context.ts` (`buildSystemPrompt`) · `lib/mako-doer-in.ts:1289` · `lib/editor-landing/landing-writer.ts:160-184` · `lib/mako-capacidades.ts`
+
+- **El pedido:** Martín, 28/10: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal... y que
+  sea eficiente justamente, por eso tenemos tipo grafo». Y que el del SuperAdmin conozca todas las funciones de MaKo.
+- ⚠️ **El diagnóstico obvio era el equivocado.** Ningún chat de la app lee el GRAFO. Lo que el código llama «Second Brain»
+  en los prompts (el comentario de mako-doer-in.ts:1289) es el RAG de `mako_knowledge` (`searchKnowledge`). La
+  recuperación barata del grafo existe (índice de ~300 tokens; vista local medida en 118-190), pero sólo la exponen dos
+  herramientas de la API, y el selector casi nunca las deja pasar.
+- **Lo que gasta hoy:** el turno de MaKo manda `buildSystemPrompt` entero (~2,3k tokens fijos más los datos del negocio)
+  en CADA paso del loop, hasta 8. «Buscar con MaKo» del mapa le manda hasta 250 nodos a la IA barata (~15k por búsqueda).
+- **El grafo no se guarda:** `construirCerebro()` lo arma en cada pedido (21 lecturas y un layout de d3 de 400 ticks), sin caché.
+- **Las funciones de MaKo no las ve ningún chat:** viven en la capa Construcción (`dev:<slug>`, app/admin/dev/areas.ts), que
+  sólo se DIBUJA. CAPACIDADES (la herramienta `listar_capacidades_mako`) sí llega a los chats, pero tiene 20 entradas, le
+  faltan Chats, Calendar, Classroom y los editores, y usa nombres de tab viejos.
+- **Por eso el chat del Web Generator no sabe qué hacen los Chats:** recibe funnel, perfil y 4 resultados del RAG, sin el área
+  'producto', y no tiene herramientas.
+- **La regla:** un chat trae del grafo SÓLO los nodos que necesita, pre-recuperados por el servidor con el mensaje, con un
+  presupuesto de tokens por chat. Las funciones de MaKo salen de UN catálogo (`lib/funciones-mako.ts`, con su test contra el
+  nav) que alimenta el grafo del SuperAdmin y también CAPACIDADES. Ojo: `recuperar` con profundidad 1 corta el detalle a
+  220 caracteres; el cuerpo (Hace / No hace) sólo viaja con profundidad 0.
+- **Hecho el mismo día:** el catálogo de funciones, la capa del SuperAdmin, `grafoParaChat` y el Web Generator (la entrada siguiente). **Sin hacer:** que el turno de MaKo pre-recupere del grafo. El informe completo, con la tabla de cada
+  chat, sus tokens y la crítica de completitud, está en C:/dev/revisiones/2810-second-brain-relevamiento.md.
+
+## «Lo que hace MaKo» en el Second Brain de los chats (28/10/2026, claude4, el relevamiento del Cerebro)
+
+**Síntoma:** Martín: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal». El relevamiento
+(C:/dev/revisiones/2810-second-brain-relevamiento.md) encontró que ningún chat leía el grafo.
+- **El diagnóstico obvio era el equivocado.** Lo que los prompts llaman «Second Brain» es el RAG de `mako_knowledge`
+  (`buildSystemPrompt` → `searchKnowledge`), no el grafo. La recuperación barata (lib/cerebro-recuperar.ts) sólo la usaban
+  dos herramientas de la API, y rearmaban el mapa entero CON su física (400 ticks de d3) en cada pedido.
+- **Las funciones de MaKo sólo se dibujaban:** vivían en la capa Construcción, que es la OBRA (estado, partes, hitos) y no lo
+  que se vende. Lo bueno (qué reemplaza cada una, qué no hace Chats) estaba en AGENTS.md, areas.ts y los docs de diseño.
+- **Lo que quedó:** el catálogo (lib/funciones-mako.ts, sólo el contenido; nombre, ruta y familia salen del nav), la capa
+  (lib/cerebro-funciones.ts) y `grafoParaChat()` (lib/cerebro-para-chat.ts), que es lo que ahora leen el índice, la vista local
+  y la búsqueda del Second Brain.
+- **Trampas de la recuperación, medidas:**
+  - las CLAVES de los datos también siembran (`textoDe` busca `k` y `v`): con «Reemplaza» en todas las funciones, «qué
+    reemplaza a respond.io» sembraba todas. Las claves van hechas de palabras vacías («En vez de», «Cómo está», «Quién la
+    ve»); el tipo es «Función» y no «Función de MaKo», porque «mako» está en casi cualquier pregunta;
+  - la raíz de una capa es `n1:…`, nunca `fn:raiz`: `esEstructura` sólo reconoce `raiz`, `n1:` y `area:`, y otra raíz cuenta
+    como dato y entra como semilla;
+  - «Hace» y «No hace» van en el `cuerpo`, que viaja sólo pedido por id con profundidad 0: con profundidad 1 el detalle se
+    corta y el cuerpo no va. Para leer qué NO hace una función, se pide por id.
+- **Medido** (sin base): el índice de las 20 funciones pesa ~198 tokens; «qué no hace la bandeja» trae sólo Chats (273);
+  Chats entera, con lo que hace y lo que no, 350.
+
+- **CAPACIDADES ya llegaba a los chats** (`listar_capacidades_mako`, también por REST, y el Perro): no es «nadie la llama».
+  Por eso el catálogo es la FUENTE y no otro al lado: cada capacidad cae en su función por la ruta (`funcionDeRuta`, el primer
+  ítem del nav cuyo `match` la acepta) y su tab es el nombre de esa función. Se fueron cinco nombres que la barra ya no tiene
+  («WhatsApp», «Content Machine», «General», «Integraciones», «Configuraciones»). La `ruta` se queda: es más fina que una tab
+  (`?hoja=closing`).
+
+- **La verificación de 0c80dd3ce (el Cerebro):**
+  - `listar_capacidades_mako` le daba al DUEÑO de un negocio con plan completo o agencia las funciones que sólo ve el super
+    admin (Customers con su URL, AI Avatar, Reels, Stories): el filtro miraba el plan y el rol, nunca `adminOnly`. Ahora lo
+    del super admin va sólo a la plataforma, lo `noEnPlataforma` (Partners) no va a ella, y el menú de la foto (Settings,
+    «Report a problem») no depende del plan; de los ítems del menú que abren una ruta manda el de MENOS roles (/equipo).
+  - **La caché de 3 minutos no se invalidaba nunca:** después de guardar la oferta, el chat contestaba con la vieja. Cada
+    acción ejecutada (acciones.ts) la borra, y vive en un módulo chico (lib/cerebro-cache-chat.ts) porque las acciones no
+    pueden importar el armado del grafo (cerraría un ciclo: acciones → grafo → leads → nutrición → flujo → acciones).
+  - **`construirCerebro` se traga sus lecturas caídas** (`.catch(() => [])`): un grafo PARCIAL quedaba 3 minutos. Ahora
+    cada `.catch` avisa (`vacioAvisando`) y el grafo de los chats no guarda uno así; la pantalla se degrada como siempre.
+  - El nombre de una tab con secciones es el de la tab: AI Avatar se llamaba «Create video», su primera sección.
+
+**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); lo que cambia una PANTALLA
+(no una acción de MaKo) se ve en el chat al vencer la caché, y en Vercel cada instancia tiene la suya; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
+MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
+lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.
+
+## El turno de MaKo trae del Second Brain lo que nombra la pregunta (28/10/2026, claude4, la tanda 3 del relevamiento)
+
+- **Lo que quedó:** el turno de la app (Ops Center, Second Brain, MaKo de cada tab, teléfono, CRM, el Analyst del lead) arma,
+  en paralelo con su system y sin IA, la vista local de la pregunta (`paqueteParaElTurno`, presupuesto 1.200) y la pone justo
+  después del system. No depende de que el selector deje pasar `indice` o `recuperar` (casi nunca lo hacía).
+- **La plata:** el grafo en caché es del NEGOCIO, no de la persona. Para un closer o un setter (`sinPlata`, el mismo corte que
+  `sinNumerosDelNegocio`) se sacan antes de recuperar los objetivos, los KPIs y los clientes ganados, con sus aristas.
+- **Sin frenar el primer mensaje:** el grafo son 21 lecturas. El turno lo espera hasta 2,5 s; si no llegó, sigue sin el
+  paquete y el armado queda en la caché para el turno siguiente.
+- **Si la pregunta no nombra nada del grafo, no suma nada:** el índice NO viaja en cada turno (serían ~300 tokens por paso).
+- **En la plataforma, las funciones de MaKo SE CRUZAN con las palabras del negocio.** Medido en el ws 9: «¿Cuál es mi meta
+  del trimestre?» traía Ads Manager («meta» es también Facebook), y «cliente», «plan», «anuncios» o «avatar» también son
+  nombres o alias de funciones. Sacar palabras sueltas no alcanza (cada una que se saca aparece otra): la capa entra **sólo si
+  la pregunta es de producto** (`esPreguntaDeProducto`, lib/cerebro-funciones.ts): una palabra de producto («función»,
+  «pestaña», «reemplaza», «qué no hace», «cómo funciona»), el nombre de una función (menos «Plan», que es palabra común), lo que
+  reemplaza, o un nombre propio del producto («bandeja», «inbox», «ManyChat»). Si no, `sinFunciones` la saca con sus aristas.
+  Después: «meta» no trae nada y el promedio del turno bajó de 588 a 359 tokens; «¿qué no hace la bandeja?» sigue trayendo
+  sólo Chats.
+- **La trampa del test:** los primeros casos «de producto» nombraban todos una función, así que se podía borrar la regla de las
+  palabras de producto y el test seguía verde. Cada rama de un `||` necesita un caso que pase SÓLO por ella («¿qué pestañas
+  hay?»).
+- **La plata de un closer se filtra EN POSITIVO** (la verificación de b2c19c445). `sinLaPlata` era la lista de lo que se
+  sacaba (okr, kpi, cliente) y el nodo `objetivo` se coló: lo arman los settings del onboarding (`objetivo_cierres`,
+  `objetivo_cash_usd`, guardados como strings) y un closer recibía «12 cierres en 90 días — Y USD 30.000 de facturación» en cinco
+  de seis preguntas, hasta en «¿cómo manejo una objeción en el cierre?» (entra como vecino de la etapa). Antes de esta entrega un
+  closer no veía nada del grafo (las herramientas del Second Brain son `rolMinimo: 'admin'`): era exposición nueva. Ahora
+  `VE_SIN_PLATA` (lib/cerebro-union.ts) dice lo que SÍ ve, y un tipo de nodo nuevo queda afuera hasta que alguien lo sume.
+  Quedan afuera, a propósito: el Norte entero (la fase dice cuánto invertir), los documentos (pueden ser un balance), las
+  reuniones y cualquier plano del panorama que no sea de los cinco canónicos.
+- **El CPU de `recuperar` no lo tapa la espera de 2,5 s.** El `Promise.race` acota la ESPERA al grafo; `recuperar` corre
+  después, sincrónico, y recibía el mensaje entero (hasta 32.000 letras con lo pegado): de 2 a 6 s con el proceso bloqueado.
+  El costo era normalizar el texto de cada nodo por CADA palabra (`coincide` en cada par). Ahora `semillasDe` normaliza cada
+  texto una vez y arma cada búsqueda una vez (`buscador`, lib/buscar-tareas.ts), y el turno busca con las primeras 600 letras
+  (`preguntaDelTurno`). Medido (28/10, PC cargada): 220 nodos y 32.000 letras, de 4.358 ms a 9 ms.
+- **Un test que pasa el valor de una constante no la fija:** el tope de 1.200 y la espera de 2,5 s se podían cambiar con todo
+  verde. El tope se prueba con un grafo que lo pasa de sobra (el bloque ≤ 1.300 tokens) y la espera, con su valor en el fuente.
+
+**Sin hacer:** achicar el system fijo por etapas (perfil, funnel y fase cuando el paquete ya los trae; `hechosMako` como nodos
+de la capa de funciones); `indice` y `recuperar` entre las herramientas de siempre; el doer de WhatsApp (lib/mako-doer-in.ts)
+y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen. Los sinónimos del negocio:
+«¿Qué anuncios puedo hacer y para qué avatar?» no trae nada, porque ningún nodo del negocio se llama «avatar» (es el cliente
+ideal) ni «anuncios».
+
+## La memoria de las aperturas: por PERSONA, con el workspace en la clave (29/10/2026, claude3)
+
+Lo que la persona decide con una apertura (lib/aperturas/reglas.ts) vive en `usuarios.perfil.aperturas`, al lado de
+`recorridos` (mig 0056, sin migración), por /api/aperturas (una copia de /api/recorridos).
+- **El super admin mirando un cliente escribe en SU perfil.** La fila sale del email de la SESIÓN, como /api/recorridos; el
+  negocio es el que se mira. Por eso la clave lleva el workspace (`<ws>:<id>[|<entidad>]`): sin él, el «Ahora no» de una agencia
+  en un negocio callaba a MaKo en todos, y el de Martín mirando el ws3 le callaba la suya al dueño. La clave la arma la RUTA:
+  desde el navegador llega sin el workspace (`claveValida`), así que no se puede escribir la de otro negocio.
+- **«Ahora no» 14 días, el segundo para siempre; lo de negocio, una vez por día; tres días ignorada, 14 días** (`puedeHablar`).
+  Lo contestado no baja a «vista» (`anotar`). Se recuerda sólo lo DECIDIDO y el hecho contestado: el estado se lee vivo.
+- **Decisión: las recomendaciones plegadas NO callan la apertura.** El plan pide callar «con algo en el bloque de preguntas»;
+  las de `RecomendacionesDeMako` esperan plegadas, y lo que pide la escalera (su IA) es lo que deja correr a casi todas. Lo de la
+  tab que pregunta abierto (las sugerencias del CRM, `preguntas`) sí la calla.

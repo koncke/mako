@@ -17,7 +17,8 @@
 //   R3  VideoEditorCliente no se lo pasa al editor             → 6 / 1
 //   R4  el editor arranca las propuestas sin foco              → 6 / 1
 //   R5  sin reintento mientras el proyecto carga               → 6 / 1
-//   R6  enfoca pero no abre el chat (el problema original)     → 6 / 1
+//   R6  enfoca pero no abre el chat (el problema original)     → 6 / 1 (desde el 29/10/2026 el chat no se cierra: la
+//       guarda es el store sin `abierto` y el chat siempre puesto; roto `abierto` de vuelta en estado.ts → 1 fallo)
 //   R7  una propuesta ya aceptada se trata como abierta        → 6 / 1
 //   R8  el panel no baja hasta la propuesta                    → 6 / 1
 //   R9  el foco corre antes del «baja solo», que lo pisa       → 6 / 1
@@ -111,12 +112,15 @@ test('el id llega hasta el editor y arranca las propuestas con ese foco', () => 
   assert.match(sinComentarios(leer('app', 'video-editor', '_opencut', 'editor-page.tsx')), /iniciarPropuestas\(editor, \{ foco: propuesta, proyecto: projectId \}\), \[editor, propuesta, projectId\]/);
 });
 
-test('la primera búsqueda con foco se reintenta hasta que el proyecto cargó, y abre el chat en ESA', () => {
+test('la primera búsqueda con foco se reintenta hasta que el proyecto cargó, y lleva el chat a ESA', () => {
   const src = sinComentarios(leer('app', 'video-editor', '_opencut', 'chat', 'propuestas.ts'));
   assert.match(src, /if \(\+\+intentos < INTENTOS_FOCO\) reintento = setTimeout\(buscar, 1500\);/, 'sin reintento, el foco se pierde si el proyecto tarda en cargar');
   assert.match(src, /enfocarPropuesta\(proyectoId, foco, r\.abiertas\)/);
   const enfocar = src.slice(src.indexOf('function enfocarPropuesta'), src.indexOf('const INTENTOS_FOCO'));
-  assert.match(enfocar, /setAbierto\(true\)/, 'el chat no se abre: era el problema');
+  // «El chat no se abre» (el problema original) ya no puede pasar: desde el 29/10/2026 el chat es la tarjeta izquierda de
+  // Create y no se cierra. Lo que lo cuida: el store sin `abierto` y el chat siempre pasado con un proyecto abierto.
+  assert.doesNotMatch(sinComentarios(leer('app', 'video-editor', '_opencut', 'chat', 'estado.ts')), /abierto/, 'el chat volvió a poder cerrarse');
+  assert.match(sinComentarios(leer('app', 'video-editor', 'VideoEditorCliente.tsx')), /chat=\{editor \? \(volver\) => <PanelChat volver=\{volver\} \/> : undefined\}/, 'el editor sin su chat a la izquierda');
   assert.match(enfocar, /setFoco\(f\.mensajeId\)/);
   assert.match(enfocar, /toast\(f\.aviso\)/);
 });

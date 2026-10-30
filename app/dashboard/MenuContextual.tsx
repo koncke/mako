@@ -17,7 +17,7 @@ import { IconoMenu } from '@/app/_ui/iconos-menu';
 export type IdOpcion =
   | 'editar' | 'mako_chat' | 'duplicar' | 'cambiar_tipo' | 'mako_config' | 'mako_quitar' | 'mako_agregar' | 'conectar' | 'borrar'
   | 'agregar_grafico' | 'insertar_texto' | 'estilo' | 'terminar'
-  | 'editar_hoja' | 'nueva_hoja' | 'copiar_dashboard' | 'compartir' | 'analista' | 'csv' | 'pdf';
+  | 'editar_hoja' | 'nueva_hoja' | 'copiar_dashboard' | 'compartir' | 'csv' | 'pdf';
 
 /** Dónde se hizo el clic y qué se puede: lo que decide el menú. */
 export type ContextoMenu = {
@@ -51,7 +51,8 @@ export function opcionesContextuales(c: ContextoMenu): Array<IdOpcion | null> {
   if (!c.editando) {
     if (c.sobre === 'lienzo') {
       const delDashboard: IdOpcion[] = c.enGeneral || c.fueraDelDashboard ? [] : ['copiar_dashboard', 'compartir'];
-      return ['editar_hoja', ...(c.puedeNuevaHoja ? ['nueva_hoja' as const] : []), ...delDashboard, 'analista', null, ...exportar];
+      // Sin «AI Analyst» desde el 24/10/2026 (Martín: «Sí, y que la criatura vea la hoja»): lo hace la estrella de la tab.
+      return ['editar_hoja', ...(c.puedeNuevaHoja ? ['nueva_hoja' as const] : []), ...delDashboard, null, ...exportar];
     }
     return ['editar', ...(c.sobre === 'grafico' && c.conMako && c.conDatos ? ['mako_chat' as const] : []), null, ...exportar];
   }
@@ -81,7 +82,6 @@ export const OPCION: Readonly<Record<IdOpcion, { texto: string; icono: NombreIco
   nueva_hoja: { texto: 'Nueva hoja', icono: 'agregar' },
   copiar_dashboard: { texto: 'Copiar dashboard', icono: 'copiar' },
   compartir: { texto: 'Compartir', icono: 'enviar' },
-  analista: { texto: 'AI Analyst', icono: 'mako' },
   csv: { texto: 'Descargar datos (CSV)', icono: 'descargar' },
   pdf: { texto: 'Descargar PDF', icono: 'archivo' },
 };

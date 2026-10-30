@@ -42,6 +42,7 @@ import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import { avisoAltaAMano } from '@/lib/plan-esencial-reglas';
+import { DIAS_PLAN_A_MANO } from '@/lib/plan-a-mano-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -56,6 +57,7 @@ import { ComputadorasDelNegocio } from './ComputadorasDelNegocio';
 import { desconectarComputadoraAction } from './operaciones/acciones';
 import { leerCentro } from './operaciones/lectura-centro';
 import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /**
  * Las computadoras de UN cliente, para su ficha (23/10/2026: salieron de «Tus cuentas de IA» del super admin, donde se
@@ -100,10 +102,7 @@ const fmtLogin = (iso: string | null) => {
   return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
-const inicialesTxt = (base: string) => {
-  const partes = (base || '?').trim().split(/\s+/).filter(Boolean);
-  return (partes.length >= 2 ? `${partes[0][0]}${partes[1][0]}` : (base || '?').slice(0, 1)).toUpperCase();
-};
+const inicialesTxt = (base: string) => iniciales(base);
 
 /**
  * El girador de la espera.
@@ -167,7 +166,15 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
  * sus leads ganados. Adentro de un cliente, el super admin ve los de ESE cliente,
  * que es lo correcto.
  */
-export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false }: {
+/**
+ * Lo que la vista Customers (app/customers, 25/10/2026) le pide a esta grilla: qué negocios mostrar (el segmento elegido,
+ * con o sin los clientes de las agencias) y las columnas de la plataforma (segmento y MRR, de lib/clientes-plataforma.ts).
+ * Sin esto, la grilla es la de siempre.
+ */
+export type SegmentoAdmin = { ws: ReadonlySet<number> | null; conDeAgencias: boolean };
+export type ExtraDeCliente = { segmentos: string[]; mrrUsd: number; sinDolares: number; prueba: boolean; riesgo: boolean; agencia: string | null };
+
+export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false, incrustado = false, segmento = null, extra = null, abrirInicial = null }: {
   titulo?: string;
   icono?: string;
   /**
@@ -183,6 +190,12 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
   /** Si quien mira pasa la guarda del Centro (`puedeOperar`): sólo así la ficha dibuja las computadoras del cliente. Sin
    *  esto, otro super admin vería en cada ficha el error de la acción (revisión del 23/10/2026). */
   verComputadoras?: boolean;
+  /** Adentro de otra pantalla (Customers): sin su título ni su margen, que ya los pone la que la monta. */
+  incrustado?: boolean;
+  segmento?: SegmentoAdmin | null;
+  extra?: Record<number, ExtraDeCliente> | null;
+  /** La ficha que abre al cargar (Customers › Accounts, `?cuenta=<ws>`: el «Administrar» de la ficha de Customers). */
+  abrirInicial?: number | null;
 } = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -218,10 +231,11 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
     </header>
   );
 
+  const marco = incrustado ? { flex: 1, minWidth: 0 } : { flex: 1, minWidth: 0, padding: '34px 44px 60px' };
   if (cargando) {
     return (
-      <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-        {header}
+      <main style={marco}>
+        {!incrustado && header}
         {/* ⚠️ UN LOADER AL MEDIO, NO UNA CAJA CON TEXTO. «Al entrar a la tab aparece
             ese cuadro, no debería, en todo caso un loader grande en el medio de la
             tab» (28/09/2026). La caja se leía como CONTENIDO —un panel vacío que
@@ -237,8 +251,8 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
 
   if (errorCarga || !workspaces || !usuarios || !sesion) {
     return (
-      <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-        {header}
+      <main style={marco}>
+        {!incrustado && header}
         <div style={{ marginTop: 18, ...bannerError, maxWidth: 980, display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
           <span>No se pudo cargar el panel de admin. {errorCarga ?? 'Sin datos.'}</span>
           <button style={{ ...btnDark, padding: '8px 14px', flex: 'none' }} onClick={() => { setCargando(true); cargar(); }}>Reintentar</button>
@@ -253,12 +267,12 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
     // 1180 porque son hasta treinta tarjetas y una medida de lectura ayuda; el
     // panel de la plataforma son nueve y el tope solo dejaba una franja muerta a
     // la derecha. Se redefine la variable en vez de tocar los tres archivos.
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', ['--cartera-max' as string]: 'none' } as CSSProperties}>
-      {header}
+    <main style={{ ...marco, ['--cartera-max' as string]: 'none' } as CSSProperties}>
+      {!incrustado && header}
       {/* ⚠️ SIN TOPE ACA: el que manda es el de la grilla, y ponerle otro encima
           hacia que la pantalla se cortara antes sin que nada lo explicara. El
           `--cartera-max` de abajo es el unico lugar donde vive ese numero. */}
-      <div style={{ marginTop: 18 }}>
+      <div style={{ marginTop: incrustado ? 0 : 18 }}>
         {/* ⚠️ SIN SUB-TABS. Eran tres —Clientes, Super Admins, Copywriting— y las
             tres se fueron el 27/09/2026: «elimina la sub tab de super admin, que
             esté todo junto, y lo de copywriting ni siquiera debería estar allí».
@@ -266,7 +280,8 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
             barra; los super admins son una sección más de esta misma pantalla,
             que es lo que siempre fueron — un puñado de personas, no un área. */}
         <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar}
-          trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras} />
+          trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras}
+          segmento={segmento} extra={extra} abrirInicial={abrirInicial} />
       </div>
     </main>
   );
@@ -336,7 +351,7 @@ function exportarWorkspaces(filas: Workspace[]) {
  * tarjetas/tabla, con el mismo criterio que la de Customer Success: la tarjeta es
  * para RECONOCER y la tabla para COMPARAR.
  */
-function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe, wsPlataforma }: {
+function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe, wsPlataforma, extra = null }: {
   filas: Workspace[];
   onAbrir: (id: number) => void;
   onNuevo: () => void;
@@ -346,6 +361,8 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
   elegirAccion: (w: Workspace, v: string) => void;
   accionando: boolean;
   caraDe: (w: Workspace) => string | null;
+  /** Las columnas de la vista Customers: segmento y MRR (de los cobros reales de la plataforma). */
+  extra?: Record<number, ExtraDeCliente> | null;
 }) {
   return (
     <>
@@ -359,7 +376,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
         <table className="adm-tabla">
           <thead>
             <tr>
-              <th>Cliente</th><th>Plan</th><th>Estado</th><th>Llegó por</th>
+              <th>Cliente</th>{extra && <th>Segmento</th>}<th>Plan</th><th>Estado</th>{extra && <th className="num">MRR</th>}<th>Llegó por</th>
               <th className="num">Miembros</th><th />
             </tr>
           </thead>
@@ -375,10 +392,16 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                     <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{w.slug ?? '—'}</span>
                   </span>
                 </td>
+                {extra && <td><SegmentosCelda e={extra[w.id]} /></td>}
                 <td>{capaDef(w.capa).nombre}</td>
-                <td>{w.estado === 'activo'
+                <td>{extra?.[w.id]?.riesgo && w.estado === 'activo'
+                  ? <span style={chip('var(--warn-bg)', 'var(--warn)')}>en riesgo</span>
+                  : extra?.[w.id]?.prueba && w.estado === 'activo'
+                  ? <span style={chip('var(--primary-bg)', 'var(--primary)')}>en prueba</span>
+                  : w.estado === 'activo'
                   ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                   : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}</td>
+                {extra && <td className="num"><MrrCelda e={extra[w.id]} /></td>}
                 {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. Si dijo que el PDF
                     de su oferta tenía algo mal, se marca y la nota se lee al pasar el mouse (quinta revisión, 21/10). */}
                 <td title={w.llegada?.interes ? `Quería: ${w.llegada.interes}` : undefined} style={{ color: w.llegada?.origen ? undefined : 'var(--faint)' }}>
@@ -408,6 +431,31 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
   );
 }
 
+/** Los segmentos de un negocio en la vista Customers: Agency, Partner, Cliente, o «de <su agencia>». */
+function SegmentosCelda({ e }: { e: ExtraDeCliente | undefined }) {
+  if (!e) return <span style={{ color: 'var(--faint)' }}>—</span>;
+  const tono: Record<string, [string, string]> = {
+    agency: ['var(--primary-bg)', 'var(--primary)'], partner: ['var(--good-bg)', 'var(--good)'],
+    cliente: ['var(--surface-2)', 'var(--dim)'], 'de-agencia': ['var(--warn-bg)', 'var(--warn)'],
+  };
+  const rotulo: Record<string, string> = { agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': e.agencia ? `De ${e.agencia}` : 'De una agencia' };
+  return (
+    <span style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap' }}>
+      {e.segmentos.map((s) => <span key={s} style={chip(...(tono[s] ?? tono.cliente))}>{rotulo[s] ?? s}</span>)}
+    </span>
+  );
+}
+
+/** El MRR del negocio (sus suscripciones activas de la plataforma, en dólares). «—» si no factura nada. */
+function MrrCelda({ e }: { e: ExtraDeCliente | undefined }) {
+  if (!e || (e.mrrUsd <= 0 && e.sinDolares === 0)) return <span style={{ color: 'var(--faint)' }}>—</span>;
+  return (
+    <span title={e.sinDolares ? 'Alguna suscripción no tiene su valor en dólares: no se suma.' : undefined} style={{ fontWeight: 650 }}>
+      US$ {e.mrrUsd.toLocaleString('es-AR', { maximumFractionDigits: 2 })}{e.sinDolares ? ' +' : ''}
+    </span>
+  );
+}
+
 // Sin backticks acá adentro: cierran la cadena a la mitad.
 const CSS_TABLA = `
 .adm-tabla{ width:100%; border-collapse:collapse; font-size:13.5px; }
@@ -422,7 +470,7 @@ const CSS_TABLA = `
 `;
 
 // =============================================================================
-function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false }: {
+function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false, segmento = null, extra = null, abrirInicial = null }: {
   workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void>;
   /**
    * El trabajo del SUPER ADMIN agrupado por cliente, y su CRM. Bajan desde el server
@@ -437,6 +485,10 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
    * se usa en la ficha abierta, que vive acá. Sin esto, `verComputadoras` no existe en este alcance.
    */
   verComputadoras?: boolean;
+  /** El segmento de la vista Customers y sus columnas (ver `SegmentoAdmin`). */
+  segmento?: SegmentoAdmin | null;
+  extra?: Record<number, ExtraDeCliente> | null;
+  abrirInicial?: number | null;
 }) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
@@ -448,7 +500,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
-  const [abierto, setAbierto] = useState<number | null>(null);
+  const [abierto, setAbierto] = useState<number | null>(abrirInicial);
   /** El alta dejo de ser un formulario clavado arriba de la lista y pasó a ser
    *  la primera tarjeta + un modal, igual que en la cartera. */
   const [altaAbierta, setAltaAbierta] = useState(false);
@@ -545,7 +597,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   // workspace no tiene «tareas abiertas» y un lead ganado no tiene «plan». La
   // barra es la misma pieza; lo que cambia son sus datos.
   const [q, setQ] = useState('');
-  const [tabla, setTabla] = useState(false);
+  const [tabla, setTabla] = useState(extra != null);
   const [filtro, setFiltro] = useState<string>('todos');
   const [orden, setOrden] = useState<string>('nombre');
   const [cuando, setCuando] = useState('siempre');
@@ -582,7 +634,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
    * después, el contador diría «9 de 9» sobre una grilla de 8 y el que busca al que
    * falta no tendría dónde mirar. Acá el total ya es el correcto.
    */
-  const deMaKo = useMemo(() => workspaces.filter((w) => !agenciaDe.has(w.id)), [workspaces, agenciaDe]);
+  // ⚠️ EN CUSTOMERS (25/10/2026) EL SEGMENTO «Clientes de agencias» LOS MUESTRA: es la pregunta de esa pestaña. El resto
+  // de los segmentos sigue sin ellos, por lo mismo de arriba.
+  const deMaKo = useMemo(() => workspaces.filter((w) =>
+    (segmento?.conDeAgencias || !agenciaDe.has(w.id)) && (!segmento?.ws || segmento.ws.has(w.id))),
+  [workspaces, agenciaDe, segmento]);
 
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -847,14 +903,29 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
     } finally { setAccionando(false); }
   };
 
-  const cambiarPlan = async (w: Workspace, capa: string) => {
+  const cambiarPlan = async (w: Workspace, capa: string, dias: number | null) => {
     if (accionando) return;
     setErrAccion(null); setAccionando(true); setAvisoPlan(null);
     try {
-      const j = await postWs({ action: 'capa', id: w.id, capa }) as
-        { ok?: boolean; error?: string; aviso?: ResultadoAvisoPlan | null };
-      if (!j.ok) { setErrAccion(j.error ?? 'No se pudo cambiar el plan.'); return; }
-      setAvisoPlan(avisoCambioPlan(j.aviso, capaDef(capa as Workspace['capa']).nombre));
+      if (capa !== w.capa) {
+        const j = await postWs({ action: 'capa', id: w.id, capa }) as
+          { ok?: boolean; error?: string; aviso?: ResultadoAvisoPlan | null };
+        if (!j.ok) { setErrAccion(j.error ?? 'No se pudo cambiar el plan.'); return; }
+        setAvisoPlan(avisoCambioPlan(j.aviso, capaDef(capa as Workspace['capa']).nombre));
+      }
+      // La prueba a mano (28/10/2026): después del plan, así vence el plan que quedó.
+      if (dias != null) {
+        const j = await postWs({ action: 'plan_a_mano', id: w.id, dias }) as { ok?: boolean; error?: string; planAMano?: { hasta: string } | null };
+        if (!j.ok) { setErrAccion(j.error ?? 'No se pudo guardar la prueba a mano.'); return; }
+        if (capa === w.capa) {
+          setAvisoPlan({
+            tono: 'ok',
+            texto: j.planAMano
+              ? `${w.nombre}: prueba hasta el ${new Date(j.planAMano.hasta).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}.`
+              : `${w.nombre}: su plan ya no vence.`,
+          });
+        }
+      }
       setCambiandoPlan(null);
       await recargar();
     } finally { setAccionando(false); }
@@ -898,7 +969,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
       ) : tabla ? (
         <TablaWorkspaces filas={visibles} onAbrir={setAbierto} caraDe={caraDe}
           onNuevo={() => setAltaAbierta(true)} opcionesDe={opcionesDe} elegirAccion={elegirAccion}
-          accionando={accionando} wsPlataforma={wsPlataforma} />
+          accionando={accionando} wsPlataforma={wsPlataforma} extra={extra} />
       ) : (
         <GrillaTarjetas>
           <li><TarjetaNueva label="Nuevo cliente" onClick={() => setAltaAbierta(true)} /></li>
@@ -1239,7 +1310,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
           nClientes={clientesDeAgencia(cambiandoPlan.id).length}
           ocupado={accionando}
           onCancel={() => setCambiandoPlan(null)}
-          onConfirm={(capa) => { void cambiarPlan(cambiandoPlan, capa); }}
+          onConfirm={(capa, dias) => { void cambiarPlan(cambiandoPlan, capa, dias); }}
         />
       )}
 
@@ -1590,7 +1661,8 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
   nClientes: number;
   ocupado: boolean;
   onCancel: () => void;
-  onConfirm: (capa: string) => void;
+  /** `dias`: la prueba a mano (7, 14 o 30; 0 = sin vencimiento); null = no se toca. */
+  onConfirm: (capa: string, dias: number | null) => void;
 }) {
   // ⚠️ ACÁ NO VA `useCapaModal`: LO LLAMA `Modal`, con el `anidada` que se le pasa
   // abajo. Llamarlo también acá registra DOS capas para un solo modal, y el Escape deja
@@ -1599,7 +1671,9 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
   // hacía nada. Lo que sí hace falta es el `anidada` del `Modal`: sin él, la ficha de
   // atrás se apaga y parece que el menú la cerró.
   const [elegida, setElegida] = useState<string>(w.capa);
+  const [dias, setDias] = useState<number | null>(null);
   const pierdeCartera = w.capa === 'agencia' && elegida !== 'agencia' && nClientes > 0;
+  const nada = elegida === w.capa && dias == null;
 
   return (
     <Modal
@@ -1611,10 +1685,10 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
       pie={
         <>
           <button type="button" style={btnGhost} onClick={onCancel}>Cancelar</button>
-          <button type="button" style={{ ...btnPrimary, opacity: elegida === w.capa || ocupado ? 0.5 : 1 }}
-            disabled={elegida === w.capa || ocupado}
-            onClick={() => onConfirm(elegida)}>
-            {ocupado ? 'Cambiando…' : 'Cambiar el plan y avisarle'}
+          <button type="button" style={{ ...btnPrimary, opacity: nada || ocupado ? 0.5 : 1 }}
+            disabled={nada || ocupado}
+            onClick={() => onConfirm(elegida, dias)}>
+            {ocupado ? 'Cambiando…' : elegida !== w.capa ? 'Cambiar el plan y avisarle' : 'Guardar'}
           </button>
         </>
       }
@@ -1644,6 +1718,19 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
       )}
       <p className="pm-pie">Se le avisa por mail al dueño de la cuenta.</p>
 
+      {/* LA PRUEBA A MANO (28/10/2026, lib/plan-a-mano.ts): el plan elegido, con los topes de la prueba y un vencimiento. Al
+          vencer les avisa a Martín y al dueño; no pausa (el corte de acceso general está apagado). */}
+      <div className="pm-mano">
+        <b>Prueba a mano</b>
+        <span>Con los topes de la prueba. Al vencer, les avisamos a ti y al dueño.</span>
+        <div className="pm-dias">
+          {DIAS_PLAN_A_MANO.map((d) => (
+            <button key={d} type="button" className={`pm-dia${dias === d ? ' pm-on' : ''}`} onClick={() => setDias(dias === d ? null : d)}>{d} días</button>
+          ))}
+          <button type="button" className={`pm-dia${dias === 0 ? ' pm-on' : ''}`} onClick={() => setDias(dias === 0 ? null : 0)}>Sin vencimiento</button>
+        </div>
+      </div>
+
       <style dangerouslySetInnerHTML={{ __html: CSS_PERMISOS }} />
     </Modal>
   );
@@ -1663,6 +1750,13 @@ const CSS_PERMISOS = `
 .pm-op > span > span{ font-size:12.5px; color:var(--dim); line-height:1.45; }
 .pm-ojo{ margin:12px 2px 0; font-size:12.5px; font-weight:600; color:var(--warn); line-height:1.5; }
 .pm-pie{ margin:10px 2px 0; font-size:12.5px; color:var(--faint); line-height:1.5; }
+.pm-mano{ margin-top:14px; padding-top:12px; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:4px; }
+.pm-mano b{ font-size:14px; font-weight:650; color:var(--ink); }
+.pm-mano > span{ font-size:12.5px; color:var(--dim); line-height:1.45; }
+.pm-dias{ display:flex; flex-wrap:wrap; gap:8px; margin-top:6px; }
+.pm-dia{ font:inherit; font-size:13px; font-weight:600; padding:7px 12px; border:1px solid var(--border); border-radius:999px;
+  background:transparent; color:var(--ink); cursor:pointer; }
+.pm-dia:hover{ background:var(--surface-2); }
 `;
 
 /**

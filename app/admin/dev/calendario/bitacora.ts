@@ -113,4 +113,71 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['docs/hallazgos-calendario.md', 'docs/hallazgos-integraciones.md', 'docs/hallazgos.md'],
   },
+  {
+    fecha: '24 oct', hora: '23:41', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El Calendario: la estrellita de MaKo y lo que ya existe en MaKo, no sólo Google',
+    pedido: 'Ese calendario todavía no está listo para feedback mío (...) ahora se ve muy como calendario de Google (...) lo tengo que personalizar un poco. (...) Que ahí aparezca el tema del chat de Maco, que ahí no aparece la estrellita (...) le tenés que poder decir che Maco, movéme la reunión, agendame tal o tal.',
+    puntos: [
+      'De la llamada con Leandro (Fathom, 24/10): f07 y f08 de docs/feedback-24-10.md. Lo pasó el Cerebro.',
+    ],
+    revisar: '/calendario',
+  },
+  {
+    fecha: '24 oct', hora: '23:41', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Calendario con la estrella de MaKo y «Llamadas», la lista de tus citas de venta',
+    puntos: [
+      'La estrella de MaKo, abajo a la izquierda, como en las otras tabs: le puedes pedir que agende o mueva una reunión. Con una llamada abierta, MaKo sabe de qué lead hablas.',
+      'Arriba a la derecha, «Calendario | Llamadas». «Llamadas» es la lista de tus citas de venta del CRM, copiada de HighLevel: Próximas, Pasadas y Canceladas, con el lead, R1 o R2, cuándo, el closer y si asistió.',
+      'Al lado, las tareas del Plan con fecha, con lo vencido en rojo.',
+      'La grilla sigue siendo la copia de Google que pediste el 14/10: cambiarla es tu decisión.',
+      'Lo que no hay todavía: marcar si asistió desde la lista (se hace en la ficha o pidiéndoselo a MaKo) y «Llamadas» en el teléfono.',
+    ],
+    commits: [
+      { sha: 'e82fc1b83', msg: 'Calendario: la estrella de MaKo, para agendar y mover reuniones desde ahí', lineas: 54, archivos: 4 },
+      { sha: 'e8465364d', msg: 'Calendario: «Llamadas», las citas de venta del CRM como lista, con las tareas del Plan al lado', lineas: 405, archivos: 8 },
+    ],
+    archivos: [
+      'app/calendario/ListaLlamadas.tsx — «Llamadas»: la lista de citas de venta y las tareas con fecha',
+      'app/calendario/Pestanas.tsx — «Calendario | Llamadas»',
+      'app/calendario/comun.ts — de qué lead o tarea se habla con MaKo (entidadDelItem)',
+      'lib/calendario-llamadas.ts — el estado de cada llamada y las pestañas',
+      'tests/calendario.test.ts — 7 roturas, cada una cae',
+    ],
+    revisar: '/calendario?vista=llamadas',
+  },
+  {
+    fecha: '25 oct', hora: '00:32', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Implementar todo el feedback de punta a punta, sin preguntas',
+    pedido: 'implementa todos los feedback y todo lo que hacia falta end to end, no hagas preguntas... mañana yo vere los avances. Cuida la ram',
+    puntos: [
+      'Lo pasó el Cerebro. Para el Calendario: lo que quedó sin hacer de «Llamadas».',
+    ],
+    revisar: '/calendario?vista=llamadas',
+  },
+  {
+    fecha: '25 oct', hora: '00:32', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Llamadas»: marcar si asistió en la misma fila, y la lista en el teléfono',
+    puntos: [
+      'En una llamada que ya empezó, el estado es un desplegable: Sin marcar, Asistió o No vino. Guarda igual que la ficha del lead (con su historial y su «Deshacer»).',
+      'Si marcar que no vino a la R1 le borra el calificado al lead, te lo pregunta antes.',
+      'En pantallas más chicas, las tareas con fecha bajan debajo de la lista en vez de desaparecer.',
+      'En el teléfono, el Calendario tiene «Día · Agenda · Llamadas»: la misma lista, y tocar una llamada abre la ficha.',
+      'La recarga que se vio en la llamada con Leandro (f09) quedó sin cambiar: le pedí al Cerebro el tramo de la grabación para ver qué pasó antes de tocarlo.',
+    ],
+    commits: [
+      { sha: '55cfb3263', msg: 'Calendario › Llamadas: marcar la asistencia en la fila, y las tareas que ya no se esconden', lineas: 159, archivos: 4 },
+      { sha: 'c489d7275', msg: 'Calendario › Llamadas en el teléfono, y la cosecha de la segunda tanda', lineas: 196, archivos: 7 },
+    ],
+    archivos: [
+      'app/calendario/ListaLlamadas.tsx — el desplegable de asistencia y la confirmación',
+      'app/m/calendario/LlamadasM.tsx — «Llamadas» en el teléfono',
+      'lib/calendario-llamadas.ts — cuándo se puede marcar y qué avisar',
+      'tests/calendario.test.ts — 7 roturas más, cada una cae',
+    ],
+    revisar: '/calendario?vista=llamadas',
+  },
 ];

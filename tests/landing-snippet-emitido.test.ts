@@ -247,6 +247,73 @@ test('el beacon conoce el evento de scroll', () => {
   );
 });
 
+// ── QUÉ SECCIÓN SE VE (snippet v26, 25/10/2026) ─────────────────────────────────
+// El primer paso del Landing AI (docs/diseno-pruebas-ab.md, L1, con la crítica del Anexo 2 §C mandando):
+//   · las secciones de «Diseño editable» van con `display: contents` y NO TIENEN CAJA: se mide la unión de sus hijos;
+//   · una sección más alta que dos pantallas nunca llega a «la mitad en pantalla»: vale la mitad de la pantalla;
+//   · UN evento acumulado, en los hitos del scroll y al irse, con techo: no 30 por visita;
+//   · y no entra a la ficha del lead, donde el `.limit` corta ANTES de filtrar.
+test('la regla de «vista»: la mitad de la sección o de la pantalla, lo que sea menor (v26)', () => {
+  const gen = snippetEmitido();
+  const i = gen.indexOf('function seccionVista(');
+  assert.ok(i > 0, 'falta la regla de vista en el snippet');
+  const fuenteRegla = gen.slice(i, gen.indexOf('\n  }\n', i) + 4);
+  const vista = new Function(`${fuenteRegla}; return seccionVista;`)() as (arriba: number, abajo: number, vh: number) => boolean;
+  const vh = 800;
+  assert.equal(vista(100, 500, vh), true, 'entera en pantalla');
+  assert.equal(vista(650, 1050, vh), false, 'asoma 150 de 400: menos de la mitad');
+  assert.equal(vista(590, 990, vh), true, 'asoma 210 de 400: más de la mitad');
+  // Una sección de tres pantallas: con «la mitad de la sección» sola no se contaría NUNCA.
+  assert.equal(vista(-800, 1600, vh), true, 'la pantalla entera adentro de una sección alta');
+  assert.equal(vista(450, 2850, vh), false, '350 de pantalla: menos de la mitad de la pantalla');
+  assert.equal(vista(350, 2750, vh), true, '450 de pantalla: más de la mitad de la pantalla');
+  assert.equal(vista(-500, -100, vh), false, 'ya pasó');
+  assert.equal(vista(100, 100, vh), false, 'sin alto');
+  assert.equal(vista(100, 500, 0), false, 'sin pantalla');
+});
+
+test('las secciones viajan en UN evento acumulado, en los hitos del scroll y al irse, con techo (v26)', () => {
+  // Probado rompiéndolo (ver docs/hallazgos-landing.md, «Qué sección se ve»).
+  // Una comilla invertida en un comentario del bloque CIERRA el template del snippet (pasó al escribirlo: el texto se
+  // seguía recortando y sólo lo vio pixel-cargador, que lo compila).
+  const f = fuente();
+  const bloque = f.slice(f.indexOf('── SECCIONES (v26)'), f.indexOf('── AGENDÓ', f.indexOf('── SECCIONES (v26)')));
+  assert.ok(bloque.length > 1000 && !bloque.includes(BT), 'una comilla invertida adentro del bloque cierra el template del snippet');
+  const gen = snippetEmitido();
+  // Las dos formas de sección de una página de MaKo; la de «Diseño editable», por sus HIJOS.
+  assert.match(gen, /querySelectorAll\('section\.gm-tarjeta\[id\^="t-"\]'\)/);
+  assert.match(gen, /querySelectorAll\('\.gm-libre-seccion\[data-seccion\]'\)/);
+  assert.match(gen, /l\[j\]\.children\[k\]/, 'una sección con display: contents no tiene caja: se miden sus hijos');
+  // El segundo seguido se confirma con OTRA mirada al cumplirse.
+  assert.match(gen, /var SECC_MS = 1000;/);
+  assert.match(gen, /setTimeout\(function \(\) \{\n\s*seccEspera\[id\] = 0;\n\s*try \{ if \(!seccionYaVista\(id\) && seccionEnPantalla\(els\)\) seccVistas\.push\(id\); \} catch \(e\) \{\}/);
+  // UN solo lugar manda el evento, con techo de envíos y el detalle cortado en 300 (el tope del beacon).
+  assert.equal(gen.split("tipo_evento: 'secciones'").length - 1, 1, 'el evento sale de un solo lugar');
+  const manda = gen.slice(gen.indexOf('function mandarSecciones()'), gen.indexOf("tipo_evento: 'secciones'"));
+  assert.match(manda, /if \(seccVistas\.length <= seccMandadas \|\| seccEnvios >= 8\) return;/, 'sin ids nuevos o pasado el techo, no se manda');
+  assert.match(manda, /if \(sig\.length > 300\) break;/);
+  // Sale en los hitos del scroll y al irse (antes del corte propio del scroll), no por su cuenta.
+  assert.match(gen, /h > scrollHito\) \{\n\s*scrollHito = h;\n\s*enviar\(\{ tipo_evento: 'scroll', porcentaje: h \}\);\n[^\n]*\n\s*mandarSecciones\(\);/);
+  const cierre = gen.slice(gen.indexOf('function cerrarScroll()'), gen.indexOf('if (scrollFinales >= 3'));
+  assert.match(cierre, /mandarSecciones\(\);/, 'al irse, antes del corte del scroll');
+  // Y su mirada lleva el MISMO freno que el scroll: agenda y sale.
+  const i = gen.indexOf("addEventListener('scroll'", gen.indexOf('── SECCIONES'));
+  const cuerpo = gen.slice(i, gen.indexOf('}, { passive: true });', i));
+  assert.match(cuerpo, /if \(seccTimer\) return;/);
+  assert.doesNotMatch(cuerpo, /enviar\(|mandarSecciones\(/);
+});
+
+test('el evento de secciones pasa las tres listas: el beacon, la retención del video y la ficha del lead (v26)', async () => {
+  const route = readFileSync(new URL('../app/api/track/vsl/route.ts', import.meta.url), 'utf8');
+  assert.ok((/const CONOCIDOS = \[([^\]]*)\]/.exec(route)?.[1] ?? '').includes("'secciones'"), "sin 'secciones' en CONOCIDOS se guarda como 'desconocido'");
+  const { ES_EVENTO_DE_VIDEO } = await import('../lib/vsl-retencion');
+  assert.equal(ES_EVENTO_DE_VIDEO.test('secciones'), false, 'no es retención de video');
+  // La ficha del lead: afuera EN LA BASE, porque el `.limit` corta antes del filtro de JS.
+  const leads = readFileSync(new URL('../lib/leads.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const consulta = leads.slice(leads.indexOf("supabase.from('vsl_events')", leads.indexOf('export async function getTrackingEvents')));
+  assert.match(consulta.slice(0, 900), /\.or\('tipo_evento\.is\.null,tipo_evento\.neq\.secciones'\)[\s\S]*\.limit\(limit\)/);
+});
+
 test('el token no viaja en una línea con cara de secreto (v23)', () => {
   // El editor con IA de un cliente tapaba el código con ******** al pegarlo (08/10/2026),
   // y lo único con cara de secreto era `var TOKEN = 'mko_…'`: una palabra de las que

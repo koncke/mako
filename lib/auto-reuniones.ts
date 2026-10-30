@@ -13,6 +13,9 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { tokensDeAgenda } from './cuentas-agenda-server';
 import { buscarEventosGoogle } from './google-calendar';
+import { credWs } from './credenciales';
+import { leerVinculos } from './agenda-evento-etapa-server';
+import { diaDeReunion, esEventoDelCrm, esR2, type FiltroCalendly } from './auto-reuniones-reglas';
 import type { FathomLink, Lead } from './leads';
 
 export type AutoReuniones = {
@@ -33,10 +36,25 @@ export type AutoReuniones = {
 const ES_R2 = /r2|reuni[oó]n 2|junta 2|seguimiento/i;
 const fmt = (iso: string) => iso.slice(0, 10).split('-').reverse().join('/');
 
-type EventoCalendly = { name?: string; start_time?: string; status?: string };
+type EventoCalendly = { name?: string; start_time?: string; status?: string; event_type?: string; uri?: string; esR2?: boolean };
+
+/**
+ * El filtro del webhook: los tipos de evento de la R1 y la R2 y los vinculados a una etapa (27/10/2026, Mauricio: «el
+ * filtro de Calendly no bloquea»). null = no se pudo leer: entonces no se usa Calendly (no se adivina cuál es la R1).
+ */
+async function filtroCalendly(): Promise<FiltroCalendly | null> {
+  try {
+    const [j1, j2, { vinculos }] = await Promise.all([credWs('CALENDLY_EVENT_TYPE_J1'), credWs('CALENDLY_EVENT_TYPE_J2'), leerVinculos()]);
+    return { j1, j2, vinculados: vinculos.filter((v) => v.proveedor === 'calendly').map((v) => v.identificador) };
+  } catch {
+    return null;
+  }
+}
 
 async function eventosCalendly(email: string | null): Promise<EventoCalendly[]> {
   if (!email) return [];
+  const filtro = await filtroCalendly();
+  if (!filtro) return [];
   // En TODAS las cuentas de Calendly del negocio (varias cuentas, fase B, 23/10/2026): una reunión de la segunda no
   // aparece con el token de la primera. Cada cuenta que falla se saltea (esto completa fechas: no decide nada).
   const cuentas = await tokensDeAgenda('calendly').catch(() => [] as Array<{ cuenta: string; token: string }>);
@@ -49,12 +67,13 @@ async function eventosCalendly(email: string | null): Promise<EventoCalendly[]> 
       if (!org) continue;
       const url = `https://api.calendly.com/scheduled_events?organization=${encodeURIComponent(org)}&invitee_email=${encodeURIComponent(email)}&count=20&sort=start_time:ascending`;
       const res = await fetch(url, { headers: h, cache: 'no-store' }).then((r) => r.json());
-      out.push(...((res?.collection ?? []) as EventoCalendly[]).filter((e) => e.status !== 'canceled'));
+      // Sólo las reuniones del CRM, como el webhook: un webinar u onboarding del mismo invitado no es su R1.
+      out.push(...((res?.collection ?? []) as EventoCalendly[]).filter((e) => e.status !== 'canceled' && esEventoDelCrm(e, filtro)));
     } catch {
       /* esa cuenta no contestó: las otras siguen */
     }
   }
-  return out.sort((a, b) => Date.parse(a.start_time ?? '') - Date.parse(b.start_time ?? ''));
+  return out.sort((a, b) => Date.parse(a.start_time ?? '') - Date.parse(b.start_time ?? '')).map((e) => ({ ...e, esR2: esR2(e, filtro) }));
 }
 
 type AnalisisReunion = { tipo: string | null; started_at: string | null; share_url: string | null; call_url: string | null; category: string | null };
@@ -102,9 +121,9 @@ export async function buscarReunionesAutomatico(lead: Lead, opts: { conGoogle: b
     })(),
   ]);
 
-  // Calendly: primera agenda de cada tipo (por nombre del evento).
-  const calJ1 = eventos.find((e) => !ES_R2.test(e.name ?? ''));
-  const calJ2 = eventos.find((e) => ES_R2.test(e.name ?? ''));
+  // Calendly: primera agenda de cada tipo (por el tipo de la R2 si está configurado; si no, por el nombre).
+  const calJ1 = eventos.find((e) => !e.esR2);
+  const calJ2 = eventos.find((e) => e.esR2);
 
   // Fathom (grabaciones matcheadas) → SOLO llamadas de VENTA. La entrega de
   // servicio / coaching también matchea por email pero NO es R1/R2; el análisis
@@ -128,13 +147,17 @@ export async function buscarReunionesAutomatico(lead: Lead, opts: { conGoogle: b
   const gcalJ1 = gcalEventos.find((e) => !ES_R2.test(e.summary ?? ''));
   const gcalJ2 = gcalEventos.find((e) => ES_R2.test(e.summary ?? ''));
 
-  // Lo ya cargado en el lead no se reporta ni como hallazgo ni como faltante.
-  const extJ1 = calJ1?.start_time?.slice(0, 10) ?? anaR1?.started_at?.slice(0, 10) ?? gcalJ1?.start?.slice(0, 10) ?? null;
-  const extJ2 = calJ2?.start_time?.slice(0, 10) ?? anaR2?.started_at?.slice(0, 10) ?? gcalJ2?.start?.slice(0, 10) ?? null;
+  // ⚠️ EL DÍA, COMO LO GUARDA EL CRM (27/10/2026, Mauricio: las fechas de Google «aparecen un día antes»): era
+  // `.slice(0, 10)` del instante, o sea el día de UTC, y la clave del CRM es el de Tijuana (`diaDeReunion`).
+  const extJ1 = diaDeReunion(calJ1?.start_time) ?? diaDeReunion(anaR1?.started_at) ?? diaDeReunion(gcalJ1?.start) ?? null;
+  const extJ2 = diaDeReunion(calJ2?.start_time) ?? diaDeReunion(anaR2?.started_at) ?? diaDeReunion(gcalJ2?.start) ?? null;
   const fuenteJ1 = calJ1 ? 'Calendly' : anaR1 ? 'Fathom' : gcalJ1 ? 'Google Calendar' : '';
   const fuenteJ2 = calJ2 ? 'Calendly' : anaR2 ? 'Fathom' : gcalJ2 ? 'Google Calendar' : '';
-  const fechaJ1 = extJ1 ?? lead.fecha_junta_1 ?? null;
-  const fechaJ2 = extJ2 ?? lead.fecha_junta_2 ?? null;
+  // ⚠️ LA REUNIÓN CARGADA A MANO GANA (27/10/2026, Martín: mover a R1 «solo funciona con llamada de Calendly o Cal, pero no
+  // si la agendé a mano, por defecto la busca»). Era `ext ?? lead`: una reserva vieja de Calendly pisaba la fecha que la
+  // persona cargó, y el asistente (y el CRM automático) la escribían en la ficha.
+  const fechaJ1 = lead.fecha_junta_1 ?? extJ1 ?? null;
+  const fechaJ2 = lead.fecha_junta_2 ?? extJ2 ?? null;
   const anaLinkR1 = anaR1 ? (anaR1.share_url || anaR1.call_url) : null;
   const anaLinkR2 = anaR2 ? (anaR2.share_url || anaR2.call_url) : null;
 
@@ -172,10 +195,11 @@ export async function buscarReunionesAutomatico(lead: Lead, opts: { conGoogle: b
     if (fecha && asistio == null) faltante.push(`grabación / asistencia de la ${cual}`);
   };
 
-  if (extJ1) encontrado.push(`Fecha R1: ${fmt(extJ1)} (${fuenteJ1})`);
-  else if (!lead.fecha_junta_1) faltante.push('fecha de la R1');
+  if (lead.fecha_junta_1) encontrado.push(`Fecha R1: ${fmt(lead.fecha_junta_1)} (la cargada en la ficha)`);
+  else if (extJ1) encontrado.push(`Fecha R1: ${fmt(extJ1)} (${fuenteJ1})`);
+  else faltante.push('fecha de la R1');
   reportarGrabacion('R1', anaLinkR1, linkR1, fechaJ1, lead.asistio_j1);
-  if (extJ2) encontrado.push(`Fecha R2: ${fmt(extJ2)} (${fuenteJ2})`);
+  if (!lead.fecha_junta_2 && extJ2) encontrado.push(`Fecha R2: ${fmt(extJ2)} (${fuenteJ2})`);
   reportarGrabacion('R2', anaLinkR2, linkR2, fechaJ2, lead.asistio_j2);
 
   return {

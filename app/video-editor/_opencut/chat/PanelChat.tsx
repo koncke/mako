@@ -6,14 +6,16 @@
 // Pedido de Martín (15/10/2026): «es importante que video editor tenga, como landing, un
 // chat al costado donde pueda ir editando todo con prompt». CapCut no tiene un chat así:
 // la fuente es el del Landing Generator (app/web-generator/editor/paneles/
-// PanelAgente.tsx, copiado de Gamma 5) y se copia su comportamiento, con los colores de
-// CapCut (`--cc-*`):
+// PanelAgente.tsx, copiado de Gamma 5) y se copia su comportamiento:
 //   · mensajes del agente en burbuja gris a la izquierda y de la persona a la derecha;
-//   · sugerencias en píldoras; input al pie «Envía un mensaje al agente…» con el enviar
+//   · sugerencias en píldoras; input al pie «Escribe a MaKo» (29/10/2026: «Envía un mensaje al agente…» se partía en dos
+//     renglones en la tarjeta de 340 px) con el enviar
 //     redondo; mientras la IA trabaja, «Espera a que la IA termine» y el cuadrado de detener;
 //   · el alcance en chips: «Todo el video» o lo elegido en la línea de tiempo;
 //   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado», que se acepta o se
-//     descarta entero; después de aceptar, «Restaurar» lo vuelve atrás.
+//     descarta entero; después de aceptar, «Restaurar» lo vuelve atrás;
+//   · lo que tarda al aceptar (borrar los silencios) se ve construyéndose: la fase y cada silencio
+//     que se encontró, de a uno (app/_ui/ArmadoEnVivo.tsx, ./armado.ts).
 // El hilo es por proyecto y, desde el 16/10, queda GUARDADO por persona (chat/hilo.ts, mig 0298):
 // al recargar vuelve, con las propuestas pendientes todavía para aceptar. Nada se aplica sin
 // «Aceptar»: lo fija tests/video-editor-chat.test.ts.
@@ -21,24 +23,37 @@
 // CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
 // Center»): el hilo es `HiloMako` (con la criatura de la tab, la misma que lo nombra en el Ops Center) y la caja es
 // `CajaChat` (app/_chat/). El motor es el de siempre (edita el proyecto ABIERTO, en modo «editar»), y la propuesta con
-// «Original | Modificado» va en el hueco `enMensaje` de la respuesta que la trajo. Las piezas toman los colores de CapCut:
-// `CSS_CHAT` redefine sus tokens (--surface, --ink…) con los `--cc-*` bajo `.cc-chat` (AGENTS.md, «Una pantalla oscura se
-// hace redefiniendo TOKENS»). El alcance sigue en sus chips arriba de la caja; en el hilo ya no se repite en la burbuja.
+// «Original | Modificado» va en el hueco `enMensaje` de la respuesta que la trajo. El alcance sigue en sus chips arriba de
+// la caja; en el hilo ya no se repite en la burbuja.
+//
+// LA TARJETA IZQUIERDA DE CREATE (29/10/2026; Martín: «el mismo diseño de la barra lateral del chat de MaKo SIEMPRE abierto
+// a la izquierda» y «los colores de MaKo, no esos colores»): VideoEditorCliente lo pasa como el chat propio de la pantalla
+// de Create (app/_crear/PantallaCrear.tsx). Ya no se cierra (se fueron el ✕ y el botón de la barra superior que lo abría) y
+// su cabecera lleva la «←» de la pantalla (`volver`), que da vuelta la tarjeta a la lista de proyectos. Con los tokens de
+// MaKo tal cual: se fue `CSS_CHAT`, que les ponía los `--cc-*` de CapCut a las piezas del Ops Center.
 // =============================================================================
 
 import "@/app/admin/operaciones/centro.css";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { CajaChat } from "@/app/_chat/CajaChat";
 import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
+import { useNotaEnElActo } from "@/app/_chat/useNotaEnElActo";
+import { cuerpoConArchivos, useAdjuntosDelChat } from "@/app/_chat/useAdjuntosDelChat";
+import { ERROR_ADJUNTO, memoriaConArchivos } from "@/lib/mako-adjuntos";
 import type { ItemHilo } from "@/app/m/mako/chat-ui";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiMagicIcon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Tick02Icon } from "@hugeicons/core-free-icons";
+import { CabeceraDeChat } from "@/app/admin/operaciones/PanelChat";
+import { ASPECTO_MAKO } from "@/lib/centro-munecos";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
 import { TOPES_CHAT, validarOperaciones } from "@/lib/editor-video/chat-catalogo";
-import { resumenDeCambios, revisarOperaciones, vistaDeLinea, type CambioChat } from "./linea";
+import { resumenDeCambios, revisarOperaciones, textoSegundos, vistaDeLinea, type CambioChat } from "./linea";
+import { anotarProgreso, empezarArmado, useArmado, type ArmadoChat } from "./armado";
+import { ArmadoEnVivo } from "@/app/_ui/ArmadoEnVivo";
+import { fasesDesde } from "@/app/_ui/armado-en-vivo";
 import { aceptarPropuesta, deshacerPropuesta } from "./aplicar";
 import { datosDeLinea, disponiblesChat } from "./contexto";
 import { cambiarHilo, cambiarMensaje, cargarHilo, conId, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from "./hilo";
@@ -48,9 +63,12 @@ import { storageService } from "@/app/video-editor/_opencut/services/storage/ser
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
+import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
+/** Con fotos o PDF (28/10/2026): la ruta los lee antes (una foto con la visión, ~52 s) y su `maxDuration` es 300. */
+const PLAZO_CON_ARCHIVOS_MS = 245_000;
 
 /**
  * POST /api/mako/pedidos: qué se pide (lo del proyecto abierto y lo demás, chat/pedidos.ts). Con los proyectos del
@@ -89,20 +107,18 @@ function useHilo(proyectoId: string): Hilo {
 type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
 
 /** El pedido a la ruta. Un corte de la persona no es un error (no se pinta en rojo). */
-async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
+async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
 	const plazo = new AbortController();
-	const t = setTimeout(() => plazo.abort(), PLAZO_MS);
+	const t = setTimeout(() => plazo.abort(), archivos.length ? PLAZO_CON_ARCHIVOS_MS : PLAZO_MS);
 	const alCortar = () => plazo.abort();
 	senal.addEventListener("abort", alCortar);
 	try {
-		const res = await fetch("/api/video-editor/ia", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(cuerpo),
-			signal: plazo.signal,
-		});
+		const res = await fetch("/api/video-editor/ia", archivos.length
+			? { method: "POST", body: cuerpoConArchivos(cuerpo, archivos), signal: plazo.signal }
+			: { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo), signal: plazo.signal });
 		const json = (await res.json().catch(() => null)) as Respuesta | null;
-		if (!json) return { ok: false, error: "MaKo no respondió. Vuelve a intentar." };
+		// El 413 de Vercel (archivos de más) llega en texto: no es JSON.
+		if (!json) return { ok: false, error: res.status === 413 ? ERROR_ADJUNTO.pesado : "MaKo no respondió. Vuelve a intentar." };
 		return json;
 	} catch {
 		if (senal.aborted) return { ok: false, error: "Detenido.", cortado: true };
@@ -121,11 +137,13 @@ async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | 
  * de la respuesta, con su link (chat/pedidos.ts). Sin nada del proyecto abierto, no se llama a la IA. `interpretar:
  * false` = un pedido NUESTRO (una sugerencia), que es de edición por definición y no gasta la vuelta.
  */
-async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean } = {}): Promise<void> {
+async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean; archivos?: readonly File[] } = {}): Promise<void> {
 	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();
 	const texto = instruccion.trim();
-	if (!proyecto || !escena || !texto) return;
+	// Las fotos o los PDF del pedido (28/10/2026): la ruta los lee y van aparte de la instrucción.
+	const archivos = op.archivos ?? [];
+	if (!proyecto || !escena || (!texto && !archivos.length)) return;
 	const proyectoId = proyecto.metadata.id;
 	if (leerHilo(proyectoId).corriendo) return;
 
@@ -133,7 +151,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	const alcanceReal = alcance === "seleccion" && elegidos.length ? "seleccion" : "video";
 	cambiarHilo(proyectoId, (h) => ({
 		corriendo: true,
-		mensajes: [...h.mensajes, conId({ de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null })],
+		mensajes: [...h.mensajes, conId({ de: "yo", texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null })],
 	}));
 	const corte = new AbortController();
 	cortes.set(proyectoId, corte);
@@ -146,7 +164,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	};
 
 	let paraEditar: string | null = texto;
-	if (op.interpretar !== false) {
+	if (op.interpretar !== false && texto) {
 		const ri = await pedirPedidos(texto, { id: proyectoId, nombre: proyecto.metadata.name }, corte.signal);
 		if (corte.signal.aborted) {
 			terminar({ de: "mako", texto: "Detenido." });
@@ -157,7 +175,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		paraEditar = textoActual(interp);
 		burbujas = burbujasDe(interp, proyectoId).map((b) => ({ de: "mako" as const, texto: b.texto, ...(b.links.length ? { links: b.links } : {}) }));
 	}
-	if (!paraEditar) {
+	if (!paraEditar && !archivos.length) {
 		terminar(null);
 		return;
 	}
@@ -189,7 +207,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		return;
 	}
 
-	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal }, corte.signal);
+	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal }, corte.signal, archivos);
 	if (!r.ok) {
 		terminar({ de: "mako", texto: r.error, error: !("cortado" in r) });
 		return;
@@ -227,7 +245,29 @@ const rotuloSeleccion = (n: number) => (n === 1 ? "1 elemento elegido" : `${n} e
 const ETIQUETA_CAMBIO: Record<CambioChat["tipo"], string> = { cambia: "Cambia", agrega: "Nuevo", quita: "Se quita" };
 const MAX_FILAS = 8;
 
+/** «Borrar los silencios» mientras se aplica: qué está escuchando, cada silencio que encontró y el corte. */
+function SilenciosEnVivo({ armado }: { armado: ArmadoChat }) {
+	const fases = fasesDesde(
+		[
+			{ id: "escuchando", texto: armado.escuchando ? `Escuchar ${armado.escuchando}` : "Escuchar el audio" },
+			{ id: "cortando", texto: "Cortar y pegar lo que queda" },
+		],
+		armado.fase === "listo" || armado.fase === "fallo" ? "cortando" : armado.fase,
+		{ terminado: armado.fase === "listo", fallo: armado.fase === "fallo" },
+	);
+	return (
+		<ArmadoEnVivo
+			titulo={armado.fase === "listo" && armado.segundos !== undefined ? `Se quitaron ${textoSegundos(armado.segundos)}` : "Borrando los silencios"}
+			fases={fases}
+			piezas={armado.silencios.map((s, i) => ({ id: String(i), texto: `${textoSegundos(s.desde)} → ${textoSegundos(s.hasta)}`, detalle: `${s.titulo} · ${textoSegundos(s.hasta - s.desde)}` }))}
+			unidad="silencios"
+			terminado={armado.fase === "listo"}
+		/>
+	);
+}
+
 function RevisionPropuesta({
+	mensajeId,
 	cambios,
 	descartes,
 	estado,
@@ -239,6 +279,7 @@ function RevisionPropuesta({
 	onDescartar,
 	onRestaurar,
 }: {
+	mensajeId: string;
 	cambios: CambioChat[];
 	descartes?: string[];
 	estado: EstadoPropuesta;
@@ -252,20 +293,21 @@ function RevisionPropuesta({
 	onRestaurar: () => void;
 }) {
 	const [vista, setVista] = useState<"original" | "modificado">("modificado");
+	const armado = useArmado(mensajeId);
 	const filas = cambios.slice(0, MAX_FILAS);
 	const boton = "flex h-7 cursor-pointer items-center rounded-[4px] px-3 text-[12px] font-medium";
 	return (
-		<div className="grid gap-2 rounded-[8px] bg-(--cc-sunken) p-2.5">
+		<div className="grid gap-2 rounded-[8px] bg-(--surface-2) p-2.5">
 			<div className="flex items-center justify-between gap-2">
-				<span className="min-w-0 truncate text-[12px] font-semibold text-(--cc-text)">{resumenDeCambios(cambios) || "Sin cambios"}</span>
-				<div className="flex shrink-0 rounded-[4px] bg-(--cc-panel) p-0.5" role="group" aria-label="Comparar">
+				<span className="min-w-0 truncate text-[12px] font-semibold text-(--ink)">{resumenDeCambios(cambios) || "Sin cambios"}</span>
+				<div className="flex shrink-0 rounded-[4px] bg-(--surface) p-0.5" role="group" aria-label="Comparar">
 					{(["original", "modificado"] as const).map((v) => (
 						<button
 							key={v}
 							type="button"
 							aria-pressed={vista === v}
 							onClick={() => setVista(v)}
-							className="h-6 cursor-pointer rounded-[3px] px-2 text-[11px] text-(--cc-text-3) aria-pressed:bg-(--cc-raised) aria-pressed:text-(--cc-text)"
+							className="h-6 cursor-pointer rounded-[3px] px-2 text-[11px] text-(--faint) aria-pressed:bg-(--surface-2) aria-pressed:text-(--ink)"
 						>
 							{v === "original" ? "Original" : "Modificado"}
 						</button>
@@ -276,29 +318,30 @@ function RevisionPropuesta({
 				{filas.map((c, i) => {
 					const lado = vista === "original" ? c.antes : c.despues;
 					return (
-						<li key={`${c.tipo}:${i}`} className="grid gap-0.5 rounded-[6px] bg-(--cc-panel) px-2.5 py-2">
+						<li key={`${c.tipo}:${i}`} className="grid gap-0.5 rounded-[6px] bg-(--surface) px-2.5 py-2">
 							<div className="flex min-w-0 items-center gap-1.5">
 								<span
 									className="shrink-0 rounded-[3px] px-1.5 py-px text-[10px] font-semibold"
 									style={{
-										background: c.tipo === "agrega" ? "color-mix(in srgb, var(--cc-accent) 22%, transparent)" : c.tipo === "quita" ? "color-mix(in srgb, var(--destructive) 22%, transparent)" : "var(--cc-raised)",
-										color: c.tipo === "agrega" ? "var(--cc-accent)" : c.tipo === "quita" ? "var(--destructive)" : "var(--cc-text-2)",
+										background: c.tipo === "agrega" ? "color-mix(in srgb, var(--primary) 22%, transparent)" : c.tipo === "quita" ? "color-mix(in srgb, var(--destructive) 22%, transparent)" : "var(--surface-2)",
+										color: c.tipo === "agrega" ? "var(--primary)" : c.tipo === "quita" ? "var(--destructive)" : "var(--dim)",
 									}}
 								>
 									{ETIQUETA_CAMBIO[c.tipo]}
 								</span>
-								<b className="min-w-0 truncate text-[12px] font-medium text-(--cc-text)">{c.titulo}</b>
+								<b className="min-w-0 truncate text-[12px] font-medium text-(--ink)">{c.titulo}</b>
 							</div>
-							<p className={`m-0 text-[12px] text-(--cc-text-2) ${vista === "original" && c.tipo === "cambia" ? "line-through decoration-(--cc-text-3)" : ""}`}>
+							<p className={`m-0 text-[12px] text-(--dim) ${vista === "original" && c.tipo === "cambia" ? "line-through decoration-(--faint)" : ""}`}>
 								{lado || (vista === "original" ? "No existía" : "Se quita")}
 							</p>
 						</li>
 					);
 				})}
 			</ul>
-			{cambios.length > MAX_FILAS && <span className="text-[11px] text-(--cc-text-3)">y {cambios.length - MAX_FILAS} más</span>}
+			{cambios.length > MAX_FILAS && <span className="text-[11px] text-(--faint)">y {cambios.length - MAX_FILAS} más</span>}
+			{armado && <SilenciosEnVivo armado={armado} />}
 			{descartes && descartes.length > 0 && (
-				<p className="m-0 rounded-[6px] bg-(--cc-panel) px-2.5 py-1.5 text-[11.5px] text-(--cc-text-3)">
+				<p className="m-0 rounded-[6px] bg-(--surface) px-2.5 py-1.5 text-[11.5px] text-(--faint)">
 					No se aplica: {descartes.slice(0, 3).join(" · ")}
 					{descartes.length > 3 ? ` y ${descartes.length - 3} más` : ""}
 				</p>
@@ -317,29 +360,29 @@ function RevisionPropuesta({
 			<div className="flex flex-wrap items-center justify-end gap-2">
 				{estado === "pendiente" && (
 					<>
-						<button type="button" onClick={onDescartar} className={`${boton} text-(--cc-text-2) hover:bg-(--cc-raised)`}>Descartar</button>
-						<button type="button" onClick={onAceptar} className={`${boton} bg-(--cc-accent) text-black hover:brightness-110`}>Aceptar</button>
+						<button type="button" onClick={onDescartar} className={`${boton} text-(--dim) hover:bg-(--velo-hover)`}>Descartar</button>
+						<button type="button" onClick={onAceptar} className={`${boton} bg-(--primary) text-(--on-primary) hover:bg-(--primary-strong)`}>Aceptar</button>
 					</>
 				)}
-				{estado === "aplicando" && <span className="mr-auto size-4 animate-spin rounded-full border-2 border-(--cc-text-3) border-t-transparent" aria-label="Aplicando" />}
+				{estado === "aplicando" && <span className="mr-auto size-4 animate-spin rounded-full border-2 border-(--faint) border-t-transparent" aria-label="Aplicando" />}
 				{estado === "sin-version" && (
 					<>
-						<button type="button" onClick={onDescartar} className={`${boton} text-(--cc-text-2) hover:bg-(--cc-raised)`}>Descartar</button>
-						<button type="button" onClick={onAplicarIgual} className={`${boton} bg-(--cc-btn-2) text-(--cc-text) hover:brightness-125`}>Aplicar igual</button>
+						<button type="button" onClick={onDescartar} className={`${boton} text-(--dim) hover:bg-(--velo-hover)`}>Descartar</button>
+						<button type="button" onClick={onAplicarIgual} className={`${boton} border border-(--border-strong) text-(--ink) hover:bg-(--velo-hover)`}>Aplicar igual</button>
 					</>
 				)}
 				{estado === "aplicada" && (
 					<>
-						<span className="mr-auto flex items-center gap-1 text-[12px] font-semibold text-(--cc-text-2)">
+						<span className="mr-auto flex items-center gap-1 text-[12px] font-semibold text-(--dim)">
 							<HugeiconsIcon icon={Tick02Icon} className="size-3.5" /> Aplicado
 						</span>
 						{puedeRestaurar && (
-							<button type="button" onClick={onRestaurar} className={`${boton} border border-(--cc-btn-2) text-(--cc-text) hover:bg-(--cc-raised)`}>Restaurar</button>
+							<button type="button" onClick={onRestaurar} className={`${boton} border border-(--border-strong) text-(--ink) hover:bg-(--velo-hover)`}>Restaurar</button>
 						)}
 					</>
 				)}
-				{estado === "descartada" && <span className="mr-auto text-[12px] font-semibold text-(--cc-text-3)">Descartado</span>}
-				{estado === "restaurada" && <span className="mr-auto text-[12px] font-semibold text-(--cc-text-3)">Restaurado</span>}
+				{estado === "descartada" && <span className="mr-auto text-[12px] font-semibold text-(--faint)">Descartado</span>}
+				{estado === "restaurada" && <span className="mr-auto text-[12px] font-semibold text-(--faint)">Restaurado</span>}
 			</div>
 		</div>
 	);
@@ -356,12 +399,13 @@ const SUGERENCIAS: Sugerencia[] = [
 	{ rotulo: "Corta en el cabezal", instruccion: "Corta lo elegido donde está el cabezal.", necesitaSeleccion: true },
 	{ rotulo: "Transiciones suaves", instruccion: "Pon la transición Mezclar en cada corte de la pista principal." },
 	{ rotulo: "Quita las muletillas", instruccion: "Quita las muletillas del video." },
+	{ rotulo: "Borra los silencios", instruccion: "Borra los silencios del video." },
 	{ rotulo: "Baja la música", instruccion: "Baja a la mitad el volumen de los audios." },
 	{ rotulo: "Silencia los videos", instruccion: "Silencia el sonido original de los videos." },
 	{ rotulo: "Alarga los textos", instruccion: "Haz que cada texto dure un segundo más, sin pisar a los demás." },
 ];
 
-export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
+export function PanelChat({ volver = null }: { /** La «←» de la pantalla de Create: da vuelta la tarjeta a la lista de proyectos. */ volver?: ReactNode }) {
 	const editor = useEditor();
 	const proyectoId = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? "");
 	const tracksVivos = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
@@ -369,6 +413,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const nombreProyecto = useEditor((e) => e.project.getActiveOrNull()?.metadata.name ?? null);
 	const hilo = useHilo(proyectoId);
 	const [texto, setTexto] = useState("");
+	// Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+	const appEscritorio = useAppDeEscritorio();
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const hiloRef = useRef<HTMLDivElement>(null);
@@ -405,11 +451,18 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		return () => clearTimeout(t);
 	}, [foco, hilo.mensajes.length]);
 
-	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
-		if (hilo.corriendo || !instruccion.trim() || !proyectoId) return;
+	/** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+	// Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): sólo los de la caja (`op.archivos`).
+	const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!proyectoId, onError: (m) => { if (m) toast.error(m); } });
+	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean; archivos?: readonly File[] } = {}) => {
+		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
 		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
-		setTexto("");
+		if (!op.dejarCaja) setTexto("");
 	};
+
+	// La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
+	// por `enviar`, como lo escrito.
+	const nota = useNotaEnElActo({ clave: `video:${proyectoId ?? ""}`, puede: !hilo.corriendo && !!proyectoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
 	const sugerir = (s: Sugerencia) => {
 		if (s.instruccion) {
@@ -429,7 +482,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const aceptar = async (m: MensajeMako, sinVersion = false) => {
 		if (!m.propuesta) return;
 		cambiarMensaje(proyectoId, m.id, { estado: "aplicando", aviso: undefined });
-		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion });
+		empezarArmado(m.id);
+		const r = await aceptarPropuesta(editorRef.current, m.propuesta, { sinVersion, alProgreso: (p) => anotarProgreso(m.id, p) });
 		if (!r.ok) {
 			cambiarMensaje(proyectoId, m.id, { estado: r.sinVersion ? "sin-version" : "pendiente", aviso: r.error });
 			return;
@@ -464,7 +518,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 
 	const detener = () => cortes.get(proyectoId)?.abort();
 	const visibles = SUGERENCIAS.filter((s) => !s.necesitaSeleccion || seleccion.length > 0);
-	const pildora = "cursor-pointer rounded-full bg-(--cc-raised) px-3 py-1.5 text-left text-[12px] text-(--cc-text) hover:brightness-125 disabled:cursor-default disabled:opacity-50";
+	const pildora = "cursor-pointer rounded-full border border-(--border) bg-(--surface) px-3 py-1.5 text-left text-[12px] text-(--ink) hover:bg-(--velo-hover) disabled:cursor-default disabled:opacity-50";
 	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
 
 	// El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links
@@ -480,12 +534,12 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		return {
 			arriba: m.error ? <p className="m-0 text-[12.5px] leading-[1.5] text-(--destructive)">{m.texto}</p> : null,
 			abajo: (
-				<div data-mensaje={m.id} className="mt-1 grid gap-2 rounded-[14px] transition-shadow" style={foco === m.id ? { boxShadow: "0 0 0 2px var(--cc-accent)" } : undefined}>
+				<div data-mensaje={m.id} className="mt-1 grid gap-2 rounded-[14px] transition-shadow" style={foco === m.id ? { boxShadow: "0 0 0 2px var(--primary)" } : undefined}>
 					{/* Un pedido que no es de este proyecto (chat/pedidos.ts): a dónde lleva. El Link pega el ?ws=. */}
 					{m.links && m.links.length > 0 && (
 						<div className="flex flex-wrap gap-1.5 self-start">
 							{m.links.map((l) => (
-								<Link key={l.href} href={l.href} className="rounded-full bg-(--cc-raised) px-3 py-1.5 text-[12px] text-(--cc-accent) hover:brightness-125">
+								<Link key={l.href} href={l.href} className="rounded-full bg-(--primary-bg) px-3 py-1.5 text-[12px] text-(--primary-strong) hover:bg-(--velo-hover)">
 									{l.texto}
 								</Link>
 							))}
@@ -493,6 +547,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 					)}
 					{m.propuesta && m.cambios && m.estado ? (
 						<RevisionPropuesta
+							mensajeId={m.id}
 							cambios={m.cambios}
 							descartes={m.descartes}
 							estado={m.estado}
@@ -508,7 +563,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							onRestaurar={() => restaurar(m)}
 						/>
 					) : m.descartes && m.descartes.length > 0 ? (
-						<p className="m-0 self-start rounded-[6px] bg-(--cc-sunken) px-2.5 py-1.5 text-[11.5px] text-(--cc-text-3)">
+						<p className="m-0 self-start rounded-[6px] bg-(--surface-2) px-2.5 py-1.5 text-[11.5px] text-(--faint)">
 							No se aplica: {m.descartes.slice(0, 3).join(" · ")}
 						</p>
 					) : null}
@@ -519,27 +574,18 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 
 	return (
 		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
-		<section role="complementary" className="cc-chat flex size-full min-h-0 flex-col bg-(--cc-panel)" aria-label="Editar con IA">
-			<style href="cc-chat" precedence="medium">{CSS_CHAT}</style>
-			<header className="flex h-10 shrink-0 items-center gap-2 bg-(--cc-panel-head) pr-1.5 pl-3">
-				<HugeiconsIcon icon={AiMagicIcon} className="size-4 text-(--cc-accent)" />
-				<span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-(--cc-text)">Editar con IA</span>
-				<button
-					type="button"
-					onClick={onCerrar}
-					title="Cerrar el panel"
-					aria-label="Cerrar el panel"
-					className="flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--cc-raised)"
-				>
-					<HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
-				</button>
-			</header>
+		// La tarjeta izquierda de la pantalla de Create (app/_crear/PantallaCrear.tsx): llena su alto y NO se cierra. La «←»
+		// de su cabecera (`volver`) la da vuelta a la lista de proyectos.
+		<section role="complementary" className="cc-chat flex min-h-0 w-full flex-1 flex-col bg-(--surface)" aria-label="Editar con IA">
+			{/* La cabecera de toda tarjeta de Create (29/10/2026): «MaKo» con su estrella (la regla de las criaturas, 21/10) y la «←». */}
+			<CabeceraDeChat clave={`video:${proyectoId}`} titulo="MaKo" criatura="MaKo" aspecto={ASPECTO_MAKO}
+				animo={hilo.corriendo ? "trabajando" : "despierto"} antes={volver} />
 
 			<div ref={hiloRef} className="co-hilo" style={{ padding: "12px" }} aria-live="polite">
 				<div className="co-hilo__col">
 					{hilo.mensajes.length === 0 && (
 						<>
-							<div className="self-start rounded-[12px] bg-(--cc-raised) px-3 py-2 text-[12.5px] leading-[1.5] text-(--cc-text)">
+							<div className="self-start rounded-[12px] bg-(--surface-2) px-3 py-2 text-[12.5px] leading-[1.5] text-(--ink)">
 								Pídeme que edite lo que quieras del video.
 							</div>
 							<div className="flex flex-wrap gap-1.5">
@@ -549,10 +595,10 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							</div>
 						</>
 					)}
-					<HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+					<HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
 					{hilo.corriendo && (
-						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--cc-text-3) hover:text-(--cc-text)">
+						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--faint) hover:text-(--ink)">
 							Detener generación
 						</button>
 					)}
@@ -572,7 +618,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 						type="button"
 						aria-pressed={alcanceReal === "video"}
 						onClick={() => setAlcance("video")}
-						className={`${chip} border-(--cc-btn-2) text-(--cc-text-3) aria-pressed:border-(--cc-accent) aria-pressed:text-(--cc-accent)`}
+						className={`${chip} border-(--border-strong) text-(--faint) aria-pressed:border-(--primary) aria-pressed:text-(--primary)`}
 					>
 						Todo el video
 					</button>
@@ -581,16 +627,17 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							type="button"
 							aria-pressed={alcanceReal === "seleccion"}
 							onClick={() => setAlcance("seleccion")}
-							className={`${chip} border-(--cc-btn-2) text-(--cc-text-3) aria-pressed:border-(--cc-accent) aria-pressed:text-(--cc-accent)`}
+							className={`${chip} border-(--border-strong) text-(--faint) aria-pressed:border-(--primary) aria-pressed:text-(--primary)`}
 						>
 							<span className="truncate">{rotuloSeleccion(seleccion.length)}</span>
 						</button>
 					)}
 				</div>
-				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
+				{/* La caja única (app/_chat/CajaChat.tsx), con los tokens de MaKo tal cual. */}
 				<div className="co-caja">
-					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
+					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
+						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion} />
 				</div>
 			</footer>
 		</section>
@@ -600,9 +647,3 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 /** Quien contesta en el hilo: la criatura de la tab (la misma que la nombra en el Ops Center). */
 const QUIEN = { nombre: "Video Editor" };
 const nada = () => {};
-
-/** Los tokens de las piezas del Ops Center con los colores de CapCut, sólo adentro del panel. */
-const CSS_CHAT = `
-.cc-chat{--surface:var(--cc-raised);--surface-2:var(--cc-sunken);--bg:var(--cc-panel);--border:var(--cc-btn-2);--border-strong:var(--cc-btn-2);--ink:var(--cc-text);--dim:var(--cc-text-3);--faint:var(--cc-text-3);--primary:var(--cc-accent);--primary-weak:var(--cc-accent);--on-primary:#000;--velo-hover:var(--cc-raised);--focus-ring:0 0 0 2px var(--cc-accent)}
-.cc-chat .co-caja{background:var(--cc-input)}
-`;

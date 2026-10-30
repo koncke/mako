@@ -223,6 +223,27 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-avance { display: block; max-width: 100%; padding: 6px 10px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); font: inherit; font-size: var(--fs-sm); color: var(--dim); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-avance:hover { color: var(--ink); }
 .co-avance__abierto { display: block; margin-top: 6px; }
+/* Los «Avance» seguidos, en UNA burbuja (25/10/2026, Hilo.tsx → Avances): arriba el último, entero; abajo los anteriores, una
+   fila cada uno con su flecha (la de los desplegables de las preguntas), su hora y su primera oración. */
+.co-avances { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.co-avances__rotulo { margin: 0; font-size: var(--fs-meta); font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--faint); }
+.co-avances__ultimo { font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.co-avances__ultimo--plegado { max-height: 9em; overflow: hidden; cursor: pointer; border-radius: 6px;
+  -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.co-avances__ultimo--plegado:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-avances__lista { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 0; padding: 6px 0 0; list-style: none; border-top: 1px solid var(--border); }
+.co-avances__item { display: flex; align-items: baseline; gap: 8px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 8px;
+  background: none; font: inherit; font-size: var(--fs-sm); color: var(--dim); text-align: left; cursor: pointer; }
+.co-avances__item:hover { background: var(--velo-hover); color: var(--ink); }
+.co-avances__item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-avances__flecha { flex: none; width: 12px; font-size: 12px; color: var(--dim); }
+.co-avances__hora { flex: none; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--faint); }
+/* La oración entera, en los renglones que hagan falta: nunca un corte por ancho (Martín, 25/10: «que no haya nunca un limite de caracteres»). */
+.co-avances__linea { min-width: 0; overflow-wrap: anywhere; }
+.co-avances__abierto { padding: 2px 6px 8px 24px; font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.co-avances__mas { align-self: flex-start; margin: 0 0 0 6px; padding: 4px 0; border: 0; background: none; font: inherit;
+  font-size: var(--fs-meta); font-weight: 600; color: var(--primary); cursor: pointer; }
+@media (hover: none) and (pointer: coarse) { .co-avances__item { min-height: 40px; padding-block: 10px; } }
 .co-mas {
   display: block;
   width: 100%;
@@ -421,6 +442,28 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-trabajando__puntos i:nth-child(3) { animation-delay: .3s; }
 @keyframes co-late { 0%, 60%, 100% { opacity: .25; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-2px); } }
 @media (prefers-reduced-motion: reduce) { .co-trabajando__puntos i { animation: none; opacity: .6; } }
+/* «Escribiendo…» de WhatsApp (27/10/2026, Martín: «la animación de MaKo escribiendo, de los 3 puntos»): la burbuja del chat
+   con sus tres puntos que saltan, en lugar de la palabra con puntos de 4 px. La palabra queda para el lector (`co-oculto`). */
+.co-oculto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.co-escribiendo {
+  display: inline-flex; align-items: center; padding: 11px 14px; border-radius: 18px 18px 18px 6px;
+  background: var(--surface-2, var(--surface)); border: 1px solid var(--border); color: var(--dim);
+}
+.co-escribiendo .co-trabajando__puntos { gap: 5px; margin-left: 0; }
+.co-escribiendo .co-trabajando__puntos i { width: 7px; height: 7px; animation: co-salta 1.3s ease-in-out infinite; }
+.co-escribiendo .co-trabajando__puntos i:nth-child(2) { animation-delay: .16s; }
+.co-escribiendo .co-trabajando__puntos i:nth-child(3) { animation-delay: .32s; }
+@keyframes co-salta { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-4px); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .co-escribiendo .co-trabajando__puntos i { animation: none; opacity: .6; } }
+/* Lo que todavía está saliendo de este navegador (envios-en-curso.ts): el reloj gris, y si falló, Reintentar en el lugar. */
+.co-tick--saliendo { color: var(--faint); }
+.co-envio-fallo { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.co-envio-fallo > span { min-width: 0; }
+.co-chip--quieto { border-color: transparent; color: var(--dim); }
+/* El encargo del Cerebro (Hilo.tsx → EncargoPlegado): una línea que se abre tocándola. */
+.co-burbuja--encargo .co-avance { margin-top: 2px; }
+/* El «Completado» con el resumen del wrap_up arriba (BloqueCompletado.tsx): lo que hizo, y abajo la respuesta plegada. */
+.co-ya__resumen { margin-bottom: 8px; color: var(--ink); }
 
 /* Lo del chat: a la izquierda, sin burbuja, como el asistente en Claude y ChatGPT. */
 .co-el { align-self: stretch; display: flex; gap: 10px; }
@@ -433,9 +476,18 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-el__md { white-space: normal; }
 .co-el__md > :first-child { margin-top: 0; }
 .co-el__md > :last-child { margin-bottom: 0; }
-.co-el__dl { margin: 4px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: var(--fs-sm); }
-.co-el__dl dt { color: var(--faint); }
-.co-el__dl dd { margin: 0; overflow-wrap: anywhere; }
+/* El cierre de un chat, como una respuesta de Claude (26/10/2026, Hilo.tsx → CierreDelChat): cada parte con su rótulo ARRIBA
+   de su texto (la tabla de dos columnas dejaba la de la derecha angostísima en el teléfono). En la computadora, si todas son
+   cortas, el rótulo al lado. La prueba, chica y gris al pie. */
+.co-cierre { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.co-cierre__rotulo { margin: 0 0 3px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); }
+.co-cierre__texto { font-size: var(--fs-sm); line-height: 1.6; overflow-wrap: anywhere; }
+@media (min-width: 641px) {
+  .co-cierre--corto { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; }
+  .co-cierre--corto .co-cierre__parte { display: contents; }
+  .co-cierre--corto .co-cierre__rotulo { margin: 0; line-height: 1.6; }
+}
+.co-cierre__prueba { margin: 10px 0 0; font-size: 11px; line-height: 1.4; color: var(--faint); overflow-wrap: anywhere; }
 
 .co-vacio {
   margin: auto;
@@ -881,6 +933,41 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg--plegada { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 0; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
 .co-preg--plegada:hover { background: var(--velo-hover); }
 .co-preg__flecha { color: var(--dim); }
+/* Los «Completado» arriba de la caja (25/10/2026, BloqueCompletado.tsx): el marco del bloque de preguntas. Arriba, el rótulo,
+   las flechas si hay varios y la flecha para plegar; abajo, UNA acción («Ya lo vi») y una secundaria («Revisar»), fuera de lo
+   que se desplaza: siempre a la vista. Con un tope de alto: un «Ya está» largo se lee adentro y nunca tapa la conversación. */
+.co-preg--completado .co-preg__cab { justify-content: flex-start; }
+.co-preg--completado .co-preg__cab .co-preg__pasos { margin-left: auto; }
+.co-preg--completado .co-preg__plegar { margin-left: auto; }
+.co-preg--completado .co-preg__pasos + .co-preg__plegar { margin-left: 0; }
+.co-preg__ya-cuerpo { max-height: min(40dvh, 340px); overflow-y: auto; }
+.co-preg__ya-respuesta { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 2px; }
+.co-preg__ya-pie { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
+/* «Responder sobre esto» (26/10/2026): la secundaria de la izquierda; «Revisar» y «Ya lo vi», a la derecha. */
+.co-preg__ya-responder { margin-right: auto; }
+/* Cuándo terminó, al lado del rótulo (26/10/2026): chico y gris, como la hora de un mensaje. */
+.co-preg__ya-cuando { font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--faint); white-space: nowrap; }
+.co-preg__ya-acciones { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.co-preg__ya-responder svg { flex: none; }
+.co-preg__ya-revisar { text-decoration: none; }
+.co-preg__ya-revisar svg, .co-preg__ya-visto svg { flex: none; }
+/* Se abre TOCÁNDOLO (sin «Ver todo»): el desvanecido dice que sigue; el foco, para el teclado. */
+.co-preg__ya-abrir { cursor: pointer; border-radius: 6px; }
+.co-preg__ya-abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-preg__ya-tira { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.co-preg__ya-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Lo que respondía, arriba de la respuesta (25/10/2026): un globo a la derecha, como en el hilo (de Martín con su foto, de otro
+   chat con su nombre); achicado a 3 renglones si es largo, y se abre tocándolo. Y la respuesta, con su rótulo y su detalle
+   plegado más corto que en el hilo. */
+.co-preg__ya-pedido { display: flex; justify-content: flex-end; margin: 2px 0 10px; }
+/* Varios mensajes de Martín (26/10/2026): uno debajo del otro, cada uno en su globo con su foto, como en el hilo. */
+.co-preg__ya-pedidos { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
+.co-preg__ya-pedidos > .co-preg__ya-pedido { margin: 0; }
+.co-preg__ya-pedido .co-yo { max-width: min(85%, 560px); }
+.co-preg__ya-pedido-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.co-preg__ya-pedido-texto--corto { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.co-preg__ya-de { margin: 0 2px 4px; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
+.co-preg__ya-cuerpo .co-ya__detalle--plegado { max-height: 7.5em; }
 /* Las sugerencias de MaKo (22/10/2026): plegadas en una tira chica con su nombre, «Sugerencias de MaKo · 4 ▾»; abiertas, el
    mismo nombre arriba. Nunca se confunden con una pregunta de un chat. */
 .co-preg__sug { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
@@ -1196,6 +1283,9 @@ summary.co-uso__api-cab:focus-visible { outline: 2px solid var(--primary); outli
 }
 .co-miniatura:hover .co-miniatura__quitar, .co-miniatura__quitar:focus-visible { opacity: 1; }
 @media (hover: none) { .co-miniatura__quitar { opacity: 1; } }
+/* Con la caja quieta (saliendo, apagada) la ✕ no quita: no se ofrece, ni al pasar el mouse ni en el teléfono (28/10/2026; se veía
+   igual que la activa y parecía rota). */
+.co-miniatura__quitar:disabled, .co-miniatura:hover .co-miniatura__quitar:disabled { opacity: 0; pointer-events: none; }
 /* El adjunto ampliado antes de mandar: la foto entera o el PDF, sobre todo lo demás. */
 .co-ver { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 24px; background: rgba(10, 12, 16, .72); }
 .co-ver__marco { position: relative; display: flex; max-width: min(960px, 100%); max-height: 100%; }
@@ -1250,7 +1340,6 @@ summary.co-uso__api-cab:focus-visible { outline: 2px solid var(--primary); outli
 .co-ya__detalle--plegado { max-height: 15em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 72%, transparent); mask-image: linear-gradient(#000 72%, transparent); }
 .co-ya__mas { align-self: flex-start; min-height: 36px; }
 .co-ya__cola { color: var(--ink); }
-.co-ya__corte { margin: 0; font-size: var(--fs-meta); color: var(--warn); }
 /* Tocar una tarea vinculada trae su mensaje y lo marca un rato. */
 .co-el--visto > .co-el__cuerpo { animation: co-visto 1.6s ease; border-radius: var(--r-xl); }
 @keyframes co-visto { 0%, 40% { background: var(--primary-bg); } 100% { background: transparent; } }
@@ -1440,6 +1529,14 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-burbuja--con-adjuntos { padding-top: 4px; padding-inline: 4px; }
 .co-burbuja--con-adjuntos > :not(.co-fotos):not(.co-doc-enviado) { margin-inline: 8px; }
 .co-burbuja--con-adjuntos > .co-burbuja__pie { margin-right: 8px; }
+/* La nota de voz de Martín (26/10/2026, VozEnviada.tsx): el reproductor de la casa (AudioPlay, 240 px como en el chat con MaKo)
+   y, si se abrió desde el menú, la transcripción debajo. Mientras el audio llega, un reproductor quieto del mismo tamaño. */
+.co-voz { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.co-voz__quieto { display: flex; align-items: center; gap: 9px; width: 240px; max-width: 100%; height: 40px; }
+.co-voz__play { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--primary); opacity: .45; }
+.co-voz__barra { flex: 1; height: 4px; border-radius: 2px; background: var(--border); }
+.co-voz__dur { flex: none; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dim); }
+.co-voz__transcripcion { display: block; padding-top: 6px; border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; }
 .co-fotos { display: grid; gap: 3px; width: min(300px, 62vw); margin-bottom: 4px; border-radius: 12px; overflow: hidden; }
 .co-fotos--2, .co-fotos--4 { grid-template-columns: 1fr 1fr; }
 .co-fotos--3 { grid-template-columns: 1fr 1fr; }

@@ -211,17 +211,18 @@ test('la cascada: la de «Pídeselo», gratis y con los mismos escalones en el m
 test('el panel: aplica por el editor sólo si la hoja no cambió, re-sanea lo que llega, y deshace sólo lo suyo', () => {
   const p = leer('app', 'dashboard', 'PanelEditarMako.tsx');
   // 16/10/2026: a la edición va lo de ESTA hoja (`deEstaHoja`, lo que dejó /api/mako/pedidos; tests/dashboard-pedidos-chat.test.ts).
-  assert.match(p, /fetch\('\/api\/graficos\/editar', \{[\s\S]*?body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \}\)/);
+  assert.match(p, /const datos = \{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \};\n\s+const res = await fetch\('\/api\/graficos\/editar', [\s\S]*?body: JSON\.stringify\(datos\)/);
   assert.match(p, /const nueva = j\.hoja != null && cambios\.length \? sanearHoja\(j\.hoja, 0\) : null;/);
   const i = p.indexOf('if (leerHoja(enviada.id) !== enviada)');
   assert.ok(i > 0 && i < p.indexOf('onAplicar(nueva);'), 'se compara ANTES de aplicar');
   assert.match(p, /if \(!m\.antes \|\| !m\.hojaId \|\| leerHoja\(m\.hojaId\) !== m\.aplicada\) return;/);
   const ed = leer('app', 'dashboard', 'EditorInforme.tsx');
   // 17/10/2026: y sólo editando (tests/dashboard-mako-vista.test.ts). Desde el 24/10/2026, mirando no hay botón en la barra
-  // (el AI Analyst va en el ⋮).
+  // (y el mismo día salió también el AI Analyst del ⋮: «Editar con MaKo» es el único panel de MaKo de la hoja).
   assert.match(ed, /const ponerHojaDeMako = useCallback\(\(h: Hoja\) => \{ if \(editandoRef\.current\) mutarHoja\(\(\) => h, h\.id\); \}, \[mutarHoja\]\);/, 'por mutar: deshacer y autoguardado');
   assert.match(ed, /\{guardable && !enBlanco && !compartido && editando && \(\s*<BotonMako lado=\{30\} title="Editar con MaKo"/);
-  assert.match(ed, /const alternarAnalista = useCallback\(\(\) => \{ setMenu\(null\); setMakoEditar\(false\);/, 'un panel cierra al otro');
+  assert.match(ed, /const alternarMakoEditar = useCallback\(\(\) => \{ setMenu\(null\); setProbar\(''\); setMakoEditar\(\(v\) => !v\); \}, \[\]\);/, 'abrir el panel no cierra el menú');
+  assert.doesNotMatch(ed, /alternarAnalista|<PanelAnalista /, 'volvió el AI Analyst');
 });
 
 test('«Pídeselo» y las plantillas en General: la galería dice de qué informe es, y las rutas pasan el alcance', () => {

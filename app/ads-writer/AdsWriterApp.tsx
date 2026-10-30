@@ -50,9 +50,11 @@ type Avatar = { id: string; nombre: string; segmento: string };
 type Celda = { id: string; avatarId: string; nombre: string; guiones: GuionItem[] };
 type AnguloLite = { id: string; nombre: string; emoji: string };
 
-export function AdsWriterApp({ tabInicial = VISTA_POR_DEFECTO, analizar = null }: {
+export function AdsWriterApp({ tabInicial = VISTA_POR_DEFECTO, analizar = null, conCopywriter = false }: {
   /** La vista que pide la URL (`?tab=`), resuelta en el server con `tabDeUrl` (./tabs.ts). */
   tabInicial?: Vista;
+  /** Quien ya ve el Copywriter (28/10/2026, hoy el super admin): cada guion se puede abrir allá. */
+  conCopywriter?: boolean;
   /** «Analizar guion» ya dibujada en el server. null = este pedido no la trajo (la URL nombra otra vista). */
   analizar?: ReactNode | null;
 }) {
@@ -285,7 +287,7 @@ export function AdsWriterApp({ tabInicial = VISTA_POR_DEFECTO, analizar = null }
         <GuionesGlobal
           celdas={celdas} avatares={avatares} angulos={angulos} cargando={cargando}
           onEstado={cambiarEstado} onRetroceder={retrocederEstado} onBorrar={borrarGuion}
-          onIrAMatriz={irAMatriz} onEditar={editarGuion} onEscribirPrimero={escribirProximo}
+          onIrAMatriz={irAMatriz} onEditar={editarGuion} onEscribirPrimero={escribirProximo} conCopywriter={conCopywriter}
         />
       </div>
       {/* «Analizar guion» se monta la primera vez que hace falta y desde ahí se queda (ver

@@ -26,6 +26,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import dynamic from 'next/dynamic';
 import { Dropdown } from '../components/Dropdown';
 import { useWs } from '@/app/_ui/Link';
+import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
+import { CLAVE_SIGUE_ZERNIO, EVENTO_OTRA_CLAVE_ZERNIO, REDES, esRedZernio, type RedZernio } from '@/lib/zernio-redes';
 import { conWs } from '@/lib/ws-tab';
 // Puro y sin `server-only` (lib/cobros-tipos.ts): se puede importar desde aquí sin arrastrar nada.
 import { esPasarela } from '@/lib/cobros-tipos';
@@ -36,6 +38,9 @@ import { esProveedorAgendaConCuentas } from '@/lib/cuentas-integracion';
 const GithubRepoPicker = dynamic(() => import('./GithubRepoPicker').then((m) => m.GithubRepoPicker), { ssr: false });
 // Zernio (23/10/2026): conectar Facebook, Instagram y los anuncios de Meta desde acá. Mismo motivo: sólo se baja con ESE servicio.
 const ConectarRedes = dynamic(() => import('./ConectarRedes'), { ssr: false });
+
+/** ¿Es un token de Meta? (el de la cuenta, el de la página, el del píxel): no se le muestra a nadie (ticket #28). */
+const esTokenDeMeta = (env: string): boolean => /^META_[A-Z_]*TOKEN$/.test(env);
 
 /** Lo que Meta devolvió y el cliente todavía tiene que elegir (si hay varias). */
 type OpcionesMeta = {
@@ -53,7 +58,7 @@ const SANS = "'Geist', sans-serif";
 const OCULTAR_MS = 8_000;
 
 type OrigenCampo = 'servidor' | 'panel' | null;
-type Tutorial = { pasos: string[]; url?: string; urlLabel?: string };
+type Tutorial = { pasos: string[]; url?: string; urlLabel?: string; capturas?: ReadonlyArray<string | null> };
 type Campo = {
   env: string;
   label: string;
@@ -66,6 +71,8 @@ type Campo = {
   auto?: boolean;
   /** Lo escribe SÓLO el servidor (un id de ruteo de la pasarela): ni «cargarlos a mano» lo abre. */
   derivado?: boolean;
+  /** Ya no se pide: se ve sólo si el negocio lo tenía cargado (ver CampoCredencial.retirado). */
+  retirado?: boolean;
   /** Nº de CUENTA de esta API key (1 = la de siempre). Las de la 2 en adelante
    *  llegan plegadas: se muestran si ya están cargadas o si pedís agregar otra. */
   slot?: number;
@@ -93,19 +100,6 @@ type Servicio = {
 };
 type Msg = { ok: boolean; text: string };
 
-/**
- * Cómo terminó el último «Conectar con Meta» (lo cuenta la ruta de credenciales,
- * que lo lee de la cookie de un uso del callback). El `ok` no tiene texto acá:
- * lo dice la búsqueda de datos que arranca sola. Texto corto: es lo que se dibuja.
- */
-const RESULTADO_META: Record<string, string> = {
-  cancelado: 'Cancelaste la conexión en Meta.',
-  vencido: 'El intento venció. Vuelve a conectar.',
-  'no-permitido': 'Sólo un admin de este espacio puede conectar Meta.',
-  'no-disponible': 'Conectar con Meta todavía no está disponible.',
-  'meta-fallo': 'Meta no completó la conexión. Vuelve a intentarlo.',
-  'sin-permisos': 'Conectó sin permisos de anuncios. Reconecta y acéptalos.',
-};
 
 const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 12 };
 
@@ -194,6 +188,7 @@ export function IconBtn({ name, title, onClick, disabled, tone = 'dim' }: {
 // va a leer nadie», y tapaba el «Cómo configurarlo». Algunas dicen algo que los pasos no dicen
 // («Lo completa MaKo», «con el prefijo act_»), así que no se borra: se muda.
 function PasosAyuda({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) {
+  if (ayuda.capturas?.some(Boolean)) return <PasosUnoPorPantalla ayuda={ayuda} nota={nota} />;
   return (
     <div style={{ marginTop: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', animation: 'mkFade .18s ease' }}>
       {ayuda.url && (
@@ -211,6 +206,47 @@ function PasosAyuda({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) 
           </li>
         ))}
       </ol>
+    </div>
+  );
+}
+
+/**
+ * La ayuda UN PASO POR PANTALLA (29/10/2026, el tutorial de Zernio: «claro, con capturas reales... un paso por pantalla»): la captura
+ * de ese paso (si la hay), su línea, y «Anterior» / «Siguiente». El link al proveedor y la nota, arriba, como en la lista.
+ */
+function PasosUnoPorPantalla({ ayuda, nota }: { ayuda: Tutorial; nota?: string | null }) {
+  const [i, setI] = useState(0);
+  const total = ayuda.pasos.length;
+  const captura = ayuda.capturas?.[i] ?? null;
+  return (
+    <div data-tutorial-por-pantalla="" style={{ marginTop: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--primary-bg)', border: '1px solid var(--primary-weak)', animation: 'mkFade .18s ease', display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {ayuda.url && (
+        <a href={ayuda.url} target="_blank" rel="noreferrer"
+          style={{ alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px', borderRadius: 'var(--r-sm)', background: 'var(--surface)', border: '1px solid var(--primary-weak)', fontSize: 13, fontWeight: 650, color: 'var(--primary-strong)', textDecoration: 'none' }}>
+          {ayuda.urlLabel ?? 'Abrir'} ↗
+        </a>
+      )}
+      {nota && <div style={{ fontSize: 12.5, color: 'var(--ink)', lineHeight: 1.5 }}>{nota}</div>}
+      <span style={{ fontFamily: MONO, fontSize: 10.5, color: 'var(--primary-strong)' }}>Paso {i + 1} de {total}</span>
+      {captura && (
+        // eslint-disable-next-line @next/next/no-img-element -- una captura estática de public/, sin optimizar a propósito
+        <img src={captura} alt={`Paso ${i + 1}: ${ayuda.pasos[i]}`} loading="lazy"
+          style={{ width: '100%', maxHeight: 260, objectFit: 'contain', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)' }} />
+      )}
+      <span style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{ayuda.pasos[i]}</span>
+      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', alignItems: 'center' }}>
+        <button type="button" disabled={i === 0} onClick={() => setI((n) => Math.max(0, n - 1))}
+          style={{ padding: '6px 11px', borderRadius: 'var(--r-sm)', border: '1px solid var(--primary-weak)', background: 'var(--surface)', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', cursor: i === 0 ? 'default' : 'pointer', opacity: i === 0 ? 0.45 : 1 }}>
+          Anterior
+        </button>
+        <span aria-hidden style={{ display: 'inline-flex', gap: 5 }}>
+          {ayuda.pasos.map((_, n) => <span key={n} style={{ width: 6, height: 6, borderRadius: 3, background: n === i ? 'var(--primary-strong)' : 'var(--primary-weak)' }} />)}
+        </span>
+        <button type="button" disabled={i === total - 1} onClick={() => setI((n) => Math.min(total - 1, n + 1))}
+          style={{ padding: '6px 11px', borderRadius: 'var(--r-sm)', border: '1px solid var(--primary-weak)', background: 'var(--surface)', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--primary-strong)', cursor: i === total - 1 ? 'default' : 'pointer', opacity: i === total - 1 ? 0.45 : 1 }}>
+          Siguiente
+        </button>
+      </div>
     </div>
   );
 }
@@ -378,18 +414,45 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
   // la app. Cerrado por default — si estuviera abierto, volveríamos a la pantalla
   // de seis inputs que este rediseño vino a sacar.
   const [manual, setManual] = useState(false);
-  // «Conectar con Meta»: si el server lo ofrece a esta sesión (ver
-  // conectarMetaDisponible) y cómo terminó el último intento.
-  const [conectarMeta, setConectarMeta] = useState(false);
-  const [intentoMeta, setIntentoMeta] = useState<string | null>(null);
+  // ⚠️ META SE CONECTA EN LA TARJETA DE ZERNIO (29/10/2026, ticket #28, Martín: «en una sola pestaña, la de Zernio... ya no
+  //    debería pedirte nada de Access Token»): el modal de Meta no pide nada, ni el token (el de antes queda guardado y sigue
+  //    andando de respaldo hasta el corte, sin verse) ni el «Conectar con Meta» de la app propia. Abre Zernio.
+  const integracion = useConectarIntegracion({ onConectado: () => { cargar(); onGuardado?.(); } });
   const wsPestana = useWs();
   // Cuentas EXTRA del mismo proveedor que el usuario pidió agregar en esta sesión.
   // Las ya cargadas se muestran siempre; las vacías, solo cuando las pide — si no,
   // conectar Gemini pasaba de un campo a tres y el segundo y el tercero no le
   // sirven a la enorme mayoría, que tiene una sola cuenta.
   const [extrasAbiertas, setExtrasAbiertas] = useState<string[]>([]);
+  const [pedirOtraClave, setPedirOtraClave] = useState(0);
+  // La red que sigue después de la clave (29/10/2026, `CLAVE_SIGUE_ZERNIO`): sin clave, el paso 2 la nombra.
+  const [sigueRed, setSigueRed] = useState<RedZernio | null>(null);
+  useEffect(() => {
+    if (servicioKey !== 'zernio') return;
+    try { const r = window.sessionStorage.getItem(CLAVE_SIGUE_ZERNIO); if (esRedZernio(r)) setSigueRed(r); } catch { /* sin almacenamiento */ }
+  }, [servicioKey]);
+  // [Agregar otra clave] del aviso de la 3.ª red de Zernio (29/10/2026): abre el campo de la clave siguiente (al montarse, si la
+  // marca quedó en la pestaña; o en el acto, si este modal ya estaba abierto).
+  useEffect(() => {
+    if (servicioKey !== 'zernio') return;
+    const abrirSiguiente = () => {
+      try { window.sessionStorage.removeItem(EVENTO_OTRA_CLAVE_ZERNIO); } catch { /* sin almacenamiento */ }
+      setPedirOtraClave((n) => n + 1);
+    };
+    let marcada = false;
+    try { marcada = window.sessionStorage.getItem(EVENTO_OTRA_CLAVE_ZERNIO) === '1'; } catch { /* sin almacenamiento */ }
+    if (marcada) abrirSiguiente();
+    window.addEventListener(EVENTO_OTRA_CLAVE_ZERNIO, abrirSiguiente);
+    return () => window.removeEventListener(EVENTO_OTRA_CLAVE_ZERNIO, abrirSiguiente);
+  }, [servicioKey]);
 
   const hayQueElegir = opciones.cuentas.length > 0 || opciones.paginas.length > 0 || opciones.pixeles.length > 0;
+  useEffect(() => {
+    if (!pedirOtraClave || !servicio || servicio.key !== 'zernio') return;
+    const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !c.env.endsWith('_ACCOUNT'));
+    if (proxima) setExtrasAbiertas((a) => (a.includes(proxima.env) ? a : [...a, proxima.env, `${proxima.env}_ACCOUNT`]));
+    // Con todas las claves cargadas no hay campo que abrir: el aviso no ofrece el botón (`puedeAgregarClave`), esto es por las dudas.
+  }, [pedirOtraClave, servicio]);
 
   // ⚠️ TODA LA RAMA DE GITHUB VIVE EN OTRO ARCHIVO, y se carga bajo demanda.
   //
@@ -427,13 +490,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       .then((j) => {
         if (j.ok && j.servicio) {
           aplicar(j.servicio as Servicio, n);
-          setConectarMeta(j.conectarMeta === true);
-          // Llega UNA vez (la cookie se consume): un `ok` arranca la búsqueda que
-          // muestra lo que hay que elegir; cualquier otro es el motivo, a la vista.
-          if (typeof j.ultimoIntento === 'string') {
-            setIntentoMeta(j.ultimoIntento);
-            if (j.ultimoIntento === 'ok') void descubrirMeta(undefined, true);
-          }
+          // Llega UNA vez (la cookie se consume): un `ok` de una vuelta de antes arranca la búsqueda de lo que hay que elegir.
+          if (j.ultimoIntento === 'ok') void descubrirMeta(undefined, true);
         }
         else setErrorCarga(j.error === 'solo admin' ? 'Necesitas ser admin para configurar esta integración.' : (j.error ?? 'No se pudo cargar el estado.'));
       })
@@ -635,9 +693,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       const faltan = Array.isArray(j.faltanScopes) ? (j.faltanScopes as string[]) : [];
       // Con el botón, faltan porque se destildaron en el diálogo de Meta: la salida
       // es reconectar, no generar un token.
-      if (faltan.length) avisos.unshift(porBoton || conectarMeta
-        ? `Faltan permisos (${faltan.join(', ')}). Vuelve a conectar con Meta dejándolos marcados.`
-        : `A tu token le faltan permisos (${faltan.join(', ')}). Vuelve a generarlo marcándolos y pégalo de nuevo.`);
+      if (faltan.length) avisos.unshift(`Faltan permisos (${faltan.join(', ')}). Vuelve a conectar con Facebook dejándolos marcados.`);
       setAvisosMeta(avisos);
       if (mostrarMsgEn) {
         const guardadas = Array.isArray(j.guardadas) ? j.guardadas.length : 0;
@@ -740,29 +796,18 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      {/* ── Meta: conectar con un botón, sin pegar nada ─────────────────────
-          Es el camino principal cuando el server lo ofrece; el token a mano queda
-          abajo como alternativa. Navegación de página entera (el OAuth es un
-          redirect), así que lleva el `?ws=` explícito y la pantalla a la que volver. */}
-      {servicio.key === 'meta' && conectarMeta && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
-          <a
-            href={conWs('/api/integraciones/meta', wsPestana)}
-            onClick={(e) => {
-              e.preventDefault();
-              const volver = `${window.location.pathname}${window.location.search}`;
-              window.location.href = conWs(`/api/integraciones/meta?volver=${encodeURIComponent(volver)}`, wsPestana);
-            }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 10,
-              background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13.5, fontWeight: 650, textDecoration: 'none',
-            }}
-          >
-            {servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) ? 'Reconectar con Meta' : 'Conectar con Meta'}
-          </a>
-          {intentoMeta === 'ok' && <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--good)' }}>✓ Conectado con Meta.</div>}
-          {intentoMeta && RESULTADO_META[intentoMeta] && <div style={{ fontSize: 12.5, color: 'var(--bad)' }}>{RESULTADO_META[intentoMeta]}</div>}
-          <div style={{ fontSize: 12, color: 'var(--faint)' }}>O pega un token abajo.</div>
+      {/* ── Meta se conecta en Zernio (29/10/2026, ticket #28): este modal no pide nada. Lo de la cuenta (saldo, medio de
+          pago, entrega) lo dice la tarjeta; conectar, elegir la cuenta publicitaria y el píxel, el paso 2 de Zernio. */}
+      {servicio.key === 'meta' && (
+        <div data-meta-en-zernio style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface-2)', padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start', fontFamily: SANS }}>
+          <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Meta se conecta en Zernio</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--dim)' }}>
+            Paso 1, tu API key de Zernio. Paso 2, «Anuncios de Meta» con tu Facebook: ahí eliges la cuenta publicitaria y el píxel.
+          </span>
+          <button type="button" data-abrir-zernio onClick={() => integracion.abrir('zernio')}
+            style={{ padding: '9px 15px', borderRadius: 10, border: 0, background: 'var(--primary)', color: '#fff', fontFamily: SANS, fontSize: 13, fontWeight: 650, cursor: 'pointer' }}>
+            Abrir Zernio
+          </button>
         </div>
       )}
 
@@ -774,10 +819,19 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           de 6) no se piden acá — salen abajo como resultado, y solo se pueden
           editar a mano si el cliente abre "cargarlos a mano". Pedir seis tokens
           cuando cinco se descubren solos era la fricción entera del paso. */}
+      {/* Zernio, en dos pasos y en este orden (29/10/2026, ticket #28): 1) la clave; 2) las redes, cada una con su login. */}
+      {servicio.key === 'zernio' && (
+        <span data-paso-zernio="1" style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--ink)', fontFamily: SANS }}>Paso 1 · Pega tu API key de Zernio</span>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         {/* Un `derivado` no se abre ni a mano: lo escribe sólo el servidor (el server además lo
             rechaza en 'guardar'), y un input que no guarda es peor que no tener input. */}
-        {servicio.campos.filter((c) => (!c.auto || (manual && !c.derivado)) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env))).map((c) => {
+        {servicio.campos.filter((c) => (!c.auto || (manual && !c.derivado)) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env)))
+          // Un token de Meta no se ve NUNCA (29/10/2026, ticket #28): ni para pegarlo ni el de antes. El guardado no se borra.
+          .filter((c) => !(servicio.key === 'meta' && esTokenDeMeta(c.env)))
+          // Un campo retirado (la clave de YouTube, 27/10/2026) no se pide: queda sólo para quien ya lo tenía.
+          .filter((c) => !c.retirado || c.configurado)
+          .map((c) => {
           const tipeado = !!(valores[c.env] ?? '').trim();
           const sem = semaforo(c, tipeado);
           const cerrada = estaCerrada(c);
@@ -937,24 +991,31 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
           // la duda de si falta cargar algo más.
           const tieneSlots = servicio.campos.some((c) => (c.slot ?? 1) > 1);
           if (!tieneSlots) return null;
-          const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env));
-          const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado).length + 1;
+          // En Zernio la clave y su email se abren juntos (un clic, no dos): el email no cuenta como «la próxima».
+          const esZernio = servicio.key === 'zernio';
+          const proxima = servicio.campos.find((c) => (c.slot ?? 1) > 1 && !c.configurado && !extrasAbiertas.includes(c.env)
+            && !(esZernio && c.env.endsWith('_ACCOUNT')));
+          // El email de cada cuenta (`_ACCOUNT`) no es otra cuenta: contarlo decía «3» con dos claves.
+          const cargadas = servicio.campos.filter((c) => (c.slot ?? 1) > 1 && c.configurado && !c.env.endsWith('_ACCOUNT')).length + 1;
           if (!proxima) {
             return (
               <div style={{ fontSize: 12, color: 'var(--faint)', lineHeight: 1.45 }}>
-                {cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.
+                {esZernio
+                  ? `${cargadas} claves de Zernio: cada red usa la clave con la que la conectaste.`
+                  : `${cargadas} cuentas conectadas — MaKo rota entre ellas cuando una se queda sin cuota.`}
               </div>
             );
           }
           return (
-            <button type="button" onClick={() => setExtrasAbiertas((a) => [...a, proxima.env])}
+            <button type="button" data-agregar-clave={esZernio ? 'zernio' : undefined}
+              onClick={() => setExtrasAbiertas((a) => [...a, proxima.env, ...(esZernio ? [`${proxima.env}_ACCOUNT`] : [])])}
               style={{
                 alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 7,
                 padding: '8px 13px', borderRadius: 10, border: '1px dashed var(--border-strong)',
                 background: 'transparent', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
               }}>
               <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>+</span>
-              Agregar otra cuenta de {servicio.nombre}
+              {esZernio ? 'Agregar otra clave de Zernio (de otra cuenta tuya)' : `Agregar otra cuenta de ${servicio.nombre}`}
             </button>
           );
         })()}
@@ -1067,14 +1128,6 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         />
       )}
 
-      {/* Reintento a mano: si el cliente arregla los permisos o asigna la página
-          en Business Manager, no tiene que borrar y volver a pegar el token. */}
-      {servicio.key === 'meta' && !descubriendo && servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) && (
-        <button type="button" onClick={() => descubrirMeta('META_ACCESS_TOKEN')}
-          style={{ alignSelf: 'flex-start', padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, cursor: 'pointer' }}>
-          ↻ Buscar mis datos en Meta
-        </button>
-      )}
 
       {/* Pasarela: volver a conectar con la clave guardada. Es lo que se hace después de agregar en
           Stripe el permiso que faltaba (sin borrar la clave) o de una mudanza de dominio: el aviso
@@ -1103,6 +1156,16 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
       {/* Zernio: con la key guardada, las redes que se conectan con ella (Facebook, Instagram, anuncios de Meta), una fila por red.
           Es la MISMA pieza que usan Ads Manager, Automations y Chats (`useConectarViaZernio`). Sin la key no se dibuja: no hay con qué. */}
       {servicio.key === 'zernio' && servicio.campos.some((c) => c.configurado) && <ConectarRedes />}
+      {servicio.key === 'zernio' && !servicio.campos.some((c) => c.configurado) && (
+        <div data-paso-zernio="2" style={{ border: '1px dashed var(--border-strong)', borderRadius: 12, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 4, fontFamily: SANS }}>
+          <span style={{ fontSize: 12.5, fontWeight: 650, color: 'var(--dim)' }}>Paso 2 · Conecta tus redes</span>
+          <span style={{ fontSize: 12.5, lineHeight: 1.45, color: 'var(--faint)' }}>
+            {sigueRed
+              ? `Falta tu API key de Zernio (paso 1). Con ella guardada, sigue el login de ${REDES[sigueRed].etiqueta}.`
+              : 'Falta tu API key de Zernio (paso 1). Con ella guardada, aquí conectas Facebook, Instagram, TikTok, YouTube, LinkedIn, X, Threads, Google Business y tus anuncios de Meta.'}
+          </span>
+        </div>
+      )}
 
       {/* zIndex 310: el modal de /integraciones va en 300 y el confirm tiene que
           quedar ARRIBA (el default de 120 lo dejaría invisible por debajo). */}

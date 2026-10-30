@@ -1365,3 +1365,405 @@ faltaba era DÓNDE hacer clic: los tres precios en la página de venta, con un b
 
 **Vive en:** app/vsl/PreciosLanding.tsx · app/vsl/Landing.tsx · app/planes/[plan]/QuieroPlan.tsx · lib/compra-plan.ts
 (`pedirPlanSinPasarela`, `planesParaLanding`) · lib/compra-plan-reglas.ts · tests/planes-sin-pasarela.test.ts.
+
+## Planes que venden: el lenguaje interno estaba en los DATOS, y dos ofertas que el código no tiene (24/10/2026, noche)
+
+Martín: «La sección de planes no se entiende para nada... Lo hiciste con lenguaje interno, las personas no saben que es "Ops
+Center"... Tienes que VENDER... el acompañamiento debe tener mas beneficios y verse diferencial... El personalizado tiene que
+tener un factor de PROMESA de resultados, ya no solo software». Chat «Planes», cuenta 5.
+
+- **La jerga no estaba en la pantalla: estaba en los datos** (`incluye` y `resumen` de `PLANES_MAKO_DEFAULT`, y los nombres
+  de las filas de lib/planes-comparacion.ts). Se dibujan en /planes, en la landing de venta y en /planes/<plan>; cambiar sólo la
+  vitrina dejaba la landing igual. Ahora lo que incluye dice lo que la persona CONSIGUE, con los números de `TOPES`, y la guarda
+  (`INTERNO`, tests/planes-tres-bloques.test.ts) lee el render de las dos pantallas y los datos. **Ojo:** el setting
+  `planes.mako` de la plataforma pisa los planes enteros; medido el 24/10, en producción NO hay fila. Si alguien lo carga con el
+  texto viejo, la jerga vuelve sin que ningún test lo vea (la guarda mira los de hoy).
+- **Una guarda de palabras tiene que distinguir la tab de la palabra común:** «Cobros» (la tab) no va; «tus cobros» sí. Las
+  tabs que también son palabras van con mayúscula y sin `i` (`TAB_CON_MAYUSCULA`).
+- **/planes y la landing eran dos dibujos de los mismos planes** (Vitrina.tsx y PreciosLanding.tsx, cada uno con su CSS):
+  ahora son UNA pieza (app/planes/Tarjetas.tsx). Sus clases llevan `mkpl-`: adentro de una landing del Web Generator conviven
+  con el CSS del diseño, y un nombre genérico se pisa.
+- **«El acompañamiento» es el Acelerador, y se veía como «Pro más caro»** porque la tarjeta mostraba 5 de los 9 renglones de
+  docs/ofertas-mako.md §3. Ahora va en un bloque oscuro con «Con acompañamiento» (el «Dominate» de ClickFunnels) y todo lo que
+  trae; nada nuevo inventado.
+- **«El personalizado» NO existe en el código.** La pista es la escalera de agosto: un 1 a 1 de US$4.000 al lado del grupal de
+  1.500 (docs/embudo-y-high-ticket.md, área «GTM: Oferta y precios»), que nunca entró a /planes; docs/ofertas-mako.md (23/10)
+  no lo tiene. **Resuelto el 25/10** (el Cerebro, con Martín pidiendo «no hagas preguntas»): el personalizado ES el
+  Acelerador, con promesa y garantía. Ver la entrada que sigue.
+- **La «garantía de 14 días en los planes» de docs/ofertas-mako.md contradice lo publicado:** /reembolsos dice que el mes
+  pagado no se devuelve, y la del programa es «la que acordamos contigo en la llamada». No se puso en la vitrina. Decidida el
+  25/10 (14 días el mensual, 30 el anual): cambian /reembolsos y la vitrina juntas.
+
+**Sin hacer:** «Tu plan» (app/configuraciones/plan) es del
+chat de Settings y no se tocó. **Vive en:** app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx · app/vsl/PreciosLanding.tsx ·
+lib/planes-mako.ts · lib/planes-comparacion.ts · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.
+
+## El Acelerador con promesa, garantía de entrega y el diagnóstico como puerta (25/10/2026)
+
+Decidido por el Cerebro sobre docs/como-venden-otros.md §6c (memoria `decisiones-venta-25-10`). Chat «Planes», cuenta 5.
+
+- **Una promesa no es una garantía, y la tarjeta tiene las dos por separado.** `PROGRAMA_ACELERADOR.promesa` es un resultado
+  con plazo («En 90 días, tu embudo andando…») y NO devuelve nada; `garantia` es sobre los ENTREGABLES de la semana 1 («si tu
+  embudo no está armado, te devolvemos la cuota»). Una garantía de resultado («si no vendes…») recién cuando haya datos para
+  medirla. La guarda lo lee en las dos frases: la promesa no puede decir devolver/garantía/plata, la garantía no puede decir
+  vender/facturar/llamadas.
+- **La garantía se escribe UNA vez.** La tarjeta y /reembolsos §2 leen la misma constante, y el test compara el render de las
+  dos. Antes /reembolsos decía «la que acordamos contigo en la llamada»: una frase suelta en cada página es cómo se terminan
+  contradiciendo.
+- **El tope de horas es un número de producto, no un dato.** `HORAS_SEMANA_1 = 10` sale del molde de Mercately (US$1.499 con
+  tope de 10 horas), no de Martín. Si él lo cambia, se cambia ahí y lo dicen la tarjeta y /reembolsos.
+- **La puerta reusa el diagnóstico de fase, no escribe otro** (`PREGUNTAS_DE_LA_PUERTA` = facturación, inversión y cuello de
+  lib/fase-diagnostico.ts): son los tramos con los que docs/embudo-y-high-ticket.md §6 califica la llamada. El test exige el
+  MISMO objeto, no una copia. Se guarda el TEXTO de la opción en el historial del lead y en el mail: un índice en el CRM no dice
+  nada, y si alguien reordena las opciones, el historial mentiría.
+- **Trampa: esos tramos dicen «$» y son dólares.** En Argentina «$3.000» se lee pesos. La puerta lo aclara arriba («con montos
+  en dólares»); el onboarding, que usa las mismas preguntas, sigue sin aclararlo (lib/fase-diagnostico.ts, área Onboarding).
+- **Un diagnóstico a medias no pierde el lead:** `diagnosticoLimpio` da null y el pedido entra igual. La puerta es para la
+  llamada, no un filtro que rebote a quien quiere comprar.
+- **El campo de WhatsApp del pedido no tenía estilo:** el CSS de /planes/<plan> cubría `type=text` y `type=email`, y el WhatsApp
+  es `type=tel`. Se veía distinto a los otros dos desde el 24/10.
+
+**Sin hacer:** la fase NO se calcula del pedido (el diagnóstico de fase pide 6 respuestas y la puerta trae 3), así que no hay
+compuerta automática «Fase 1 → no se le ofrece el programa»: la lectura es de quien hace la llamada. **Vive en:**
+lib/planes-mako.ts (`PROGRAMA_ACELERADOR`, `HORAS_SEMANA_1`) · app/planes/Tarjetas.tsx · app/reembolsos/page.tsx §2 ·
+lib/compra-plan-reglas.ts (`PREGUNTAS_DE_LA_PUERTA`, `diagnosticoLimpio`) · lib/compra-plan.ts (`pedirPlanSinPasarela`) ·
+app/planes/[plan]/QuieroPlan.tsx · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.
+
+## El anual, la garantía de 14/30, los pesos y el media buyer de Esencial (25/10/2026)
+
+Decidido por el Cerebro (memoria `decisiones-venta-25-10`), sobre docs/como-venden-otros.md §6c. Chat «Planes», cuenta 5.
+
+- **El anual se muestra y SIEMPRE se pide.** El checkout cobra por mes: con pasarela, «Empezar» del anual cobraría un mes
+  creyendo vender un año. Por eso su botón es otro (`botonAnualDelPlan`, con el origen y el partner del sufijo más
+  `periodo=anual`), /planes/<plan>?periodo=anual va al pedido ANTES de mirar la pasarela, y la ruta rechaza un anual que no
+  venga como pedido (`TEXTO_ANUAL_SE_PIDE`). El pedido dice «MaKo Pro anual (US$ 970 por año)» en el historial y en el mail.
+- **El selector Mensual/Anual va sin JavaScript** (dos radios y `:has()`): las tarjetas se dibujan en /planes, que es del
+  servidor, y en el portal de la landing. Sin `:has()` se ven los dos precios, nunca ninguno. Sale sólo si TODOS los planes
+  tienen anual: uno sin anual quedaría sin precio al elegirlo.
+- **(REEMPLAZADO el mismo 25/10 a las 10:20 por la prueba gratis de 7 días: ver «La prueba gratis de 7 días».)** La garantía
+  de 14/30 días (`GARANTIA_DIAS`) se fue entera: no quedó ni la constante.
+- **Pesos sin inventar una tasa:** la línea «Desde Argentina pagas en pesos, con Mercado Pago» sale siempre; un PRECIO en pesos
+  sólo si el plan lo tiene (`precioEnPesos`, de `preciosLocales.ARS`). Hoy ningún plan lo tiene (los de código traen `{}` y en
+  producción no hay setting `planes.mako`), así que no se ve ningún número en pesos. Para mostrarlo: cargar el precio en el
+  setting, no tocar código.
+- **El media buyer de Esencial es un tope del plan** (`ads.recomendaciones_dia` en lib/topes-plan.ts: 2 en Esencial, sin tope
+  en Pro), no un número en la vitrina: la fila de la comparación y lo que incluye Esencial lo leen de ahí, y el chat «Media
+  Buyer» lo hace cumplir desde el mismo lugar. Lo de «propone, no aplica solo» va en el texto («y tú decides si las aplicas»).
+- **Trampa de test:** `renderToStaticMarkup` no escribe los atributos en el orden del JSX (el `<input>` sale `type, id, name`
+  aunque el JSX diga `type, name, id`), y el HTML crudo trae el `<style>` con los nombres de las clases: para ver si algo se
+  dibuja, mirar el texto visible, no el HTML.
+
+**Sin hacer:** NADA hace cumplir todavía las 2 recomendaciones por día: la vitrina las promete desde el tope y el que las
+cumple es el chat «Media Buyer» (lib/topes-plan.ts). El precio en pesos lo decide Martín (setting `planes.mako`). El anual se da
+de alta a mano: el checkout (`iniciarCompraDePlan`, lib/compra-plan.ts) no tiene período anual. **Vive en:** lib/planes-mako.ts (`GARANTIA_DIAS`, `MESES_GRATIS_ANUAL`,
+`precioEnPesos`) · lib/topes-plan.ts · lib/planes-comparacion.ts · app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx ·
+app/planes/[plan]/page.tsx · lib/compra-plan-reglas.ts (`botonAnualDelPlan`, `TEXTO_ANUAL_SE_PIDE`) · lib/compra-plan.ts ·
+app/reembolsos/page.tsx §1 · tests/planes-tres-bloques.test.ts.
+
+## La prueba gratis de 7 días, con tarjeta, en lugar de la garantía (25/10/2026)
+
+Martín (25/10, ~10:20): «quiero implementar la prueba gratuita de 7 días, y eliminar la garantia de devolución... para darte de
+alta en la prueba gratuita debes poner la tarjeta, tal cual como una suscripción, y se te cobra automático luego de esos 7
+días». Lo trajo el Cerebro con el reparto (topes, antiabuso, aviso). Chat «Planes», cuenta 5.
+
+- **Lo que se lee (tanda D1):** `PRUEBA_DIAS = 7` (lib/planes-mako.ts) reemplaza a `GARANTIA_DIAS`, que no quedó. Junto al precio
+  «7 días gratis»; debajo de cada botón `textoDespuesDeLaPrueba` con el monto de ESE plan («Después US$ 97/mes. Cancela cuando
+  quieras antes del día 8»); la pregunta «¿Cómo es la prueba gratis?»; /reembolsos §1 y /terminos §8 dicen lo mismo, y que
+  después del primer cobro no hay devolución. La garantía de entrega del Acelerador sigue: es otra cosa (sobre lo que se arma).
+- **El diagnóstico obvio era el equivocado: «la suscripción ya se cobra, alcanza con agregarle días gratis».** Los topes del
+  plan, el alta automática y «Darme de baja» miran sólo la suscripción PAGADA (`suscripcionDeMakoDe`, y su copia en
+  lib/plan-esencial.ts). Un negocio en prueba no tiene pago: se daría de alta sin ningún tope, no podría darse de baja, y la
+  vigencia lo trataría como «sin pasarela» (acceso para siempre aunque cancele). La prueba toca esas tres lecturas, no el
+  botón.
+- **Mercado Pago ya cobra con primer cobro diferido** (`start_date`, el `inicio_at` del cobro, en uso desde el 17/10 para los
+  clientes de agencia: es el parámetro documentado al crear la suscripción). La prueba va sobre eso y no sobre `free_trial`,
+  que en la documentación aparece en los planes asociados y no está dicho para una suscripción sin plan.
+- **Cómo es una prueba (tanda D2), sin tabla nueva:** un cobro de suscripción de la plataforma con alta, `creado_por =
+  planes:<plan>:prueba` y `inicio_at` a 7 días (lib/prueba-plan-reglas.ts, `esPruebaDePlan`). El alta se hace al AUTORIZAR
+  (`activarPruebaSiAutorizo`, lib/cobros.ts), que la llaman la página de vuelta del pago y el cron de conciliación (la persona
+  puede cerrar la pestaña). El aviso de autorizada de Mercado Pago se sigue ignorando en el webhook: el pago del día 8 llega en
+  su propia notificación, como siempre.
+- **`suscripcionDeMakoDe` y su copia en lib/plan-esencial.ts leen la PAGADA o la PRUEBA AUTORIZADA** con el mismo filtro
+  (`FILTRO_SUSCRIPCION_DE_MAKO`, en el módulo liviano porque plan-esencial no puede importar lib/cobros). Con eso, el negocio en
+  prueba tiene los topes de su plan, «Darme de baja» y su plan en «Tu plan». La baja en prueba cancela la suscripción en el
+  acto (el día 8 no cobra) y usa MaKo hasta ese día. La vigencia: al día hasta el cobro; cancelada, vence ese día, SIN la
+  gracia de 5 días de un plan pagado (la prueba ya fue gratis); sin el cobro del día 8, mora como una renovación fallida.
+- **Antiabuso, en dos momentos:** antes de abrir el pago, por EMAIL (una prueba que llegó a autorizarse) y por CUENTA (un
+  email que ya es usuario de MaKo es un negocio que existe: no hay prueba). Al autorizar, por HUELLA. **Trampa: Mercado Pago no
+  publica una huella de la tarjeta** como el `card.fingerprint` de Stripe. La suscripción devuelve la cuenta que paga
+  (`payer_id`, una por persona) y la tarjeta guardada de esa cuenta (`card_id`): la huella guarda las dos y cualquiera que
+  coincida es la misma persona. Una prueba repetida se CANCELA en la pasarela antes de anularse: si MP no la canceló, no se
+  anula nada y el cron reintenta (anularla primero dejaría un cobro el día 8 de una prueba que no dio de alta a nadie).
+- **El aviso de 2 días antes** es un cron diario (app/api/cron/aviso-fin-de-prueba, «0 13 * * *») con la marca
+  `prueba_aviso_at`. Sin la mig 0334 no hay marca: avisa a las que cobran entre 1 y 2 días después, y como corre una vez por
+  día, cada prueba cae en una sola vuelta.
+- **La prueba se ofrece SÓLO con Mercado Pago** (`PASARELAS_CON_PRUEBA`). Stripe no toma vendedores de Argentina; Paddle y
+  Creem, las del resto del mundo (docs/estrategia-financiera-mako.md), no están integradas. Lo averiguado el 25/10 para cuando
+  se integren:
+  - **Stripe:** Checkout con `subscription_data.trial_period_days` (o `trial_end`); por defecto junta la tarjeta, y
+    `customer.subscription.trial_will_end` llega unos días antes. Ojo con la factura de US$0 del inicio: se asentaría como un
+    pago. La huella es `payment_method.card.fingerprint` (docs.stripe.com/payments/checkout/free-trials,
+    support.stripe.com/questions/how-can-i-detect-duplicate-cards-or-bank-accounts).
+  - **Paddle Billing:** la prueba va en el PRECIO (`trial_period`), y con `requires_payment_method` pide la tarjeta en el
+    checkout; la prueba sin tarjeta es de acceso anticipado (developer.paddle.com/build/trials/create-trial).
+  - **Creem:** la prueba se prende por producto (días), con estado `trialing`; su documentación no dice explícitamente que pida
+    la tarjeta, aunque el checkout la junta (docs.creem.io/features/trials).
+- **Límite conocido:** el `start_date` se fija al CREAR el link (7 días desde ese momento). Quien abre el link y lo autoriza
+  días después tiene menos días de prueba. Mercado Pago no documenta mover la fecha de una suscripción ya autorizada.
+- **Rojo previo, no de esto:** tests/pago-link-anulado.test.ts «anular cierra el link también en Mercado Pago» recorta
+  `anularCobro` y la rama de MP vive en `cerrarLinkEnLaPasarela` desde antes: falla igual en el commit anterior.
+
+**Sin hacer (de la prueba, al cerrar D2):** los topes en cada pantalla y «empezar el plan ya» quedaron hechos en D3 (abajo). La mig 0334 quedó APLICADA en producción el 25/10 con el OK de Martín (antes de eso, el código andaba sin ella, sin el freno
+por tarjeta). **Vive en:** lib/prueba-plan-reglas.ts · lib/prueba-plan.ts · lib/cobros.ts (`activarPruebaSiAutorizo`,
+`suscripcionDeMakoDe`, `darDeBajaMiPlan`, `reconciliarCobros`) · lib/compra-plan.ts (`puedeEmpezarPrueba`,
+`iniciarCompraDePlan`) · lib/plan-acceso-reglas.ts (`pruebaDelLugar`) · lib/plan-esencial.ts · app/pagar/[token]/listo ·
+app/planes/[plan]/CompraPlan.tsx · app/api/cron/aviso-fin-de-prueba · supabase/migrations/0334_prueba_de_plan.sql ·
+tests/prueba-plan.test.ts.
+
+### Los topes de la prueba y «Empezar mi plan ya» (tanda D3, 25/10/2026)
+
+- **El diagnóstico obvio era el equivocado: «topear por lo que cuesta».** Los videos y las imágenes se generan con el Google
+  Flow del CLIENTE (su cuenta, sus créditos, en su navegador): a MaKo casi no le cuestan. El tope es por lo que alguien se
+  LLEVA gratis y después se va. Por eso «3 videos» son 3 ANUNCIOS armados (el primer montaje de cada uno; volver a armarlo es el
+  mismo video), y las tomas sueltas van aparte con 30, porque una toma se descarga sin armar el anuncio. Las 30 tomas las
+  decidí acá; el resto son los números del Cerebro (`TOPES_PRUEBA`, lib/topes-plan.ts, con `topeDe(CAPA_PRUEBA, …)`).
+- **No había un contador de usos por negocio**: `anthropic_usage` cuenta llamadas de texto y su workspace es el dueño de la
+  clave, no el cliente; las tomas de Flow no quedan en ninguna tabla por negocio. El uso de la prueba se suma en un setting
+  del negocio (`prueba.uso`, lib/prueba-uso.ts), SÓLO mientras está en prueba: con el primer cobro los topes se van solos.
+- **Las páginas publicadas se cuentan de la tabla** (las publicadas HOY, no «desde que empezó»): despublicar libera el lugar,
+  como en el tope de Esencial.
+- **Trampa: un error TIRADO por una acción del servidor llega sin su texto en producción.** La exportación de leads devolvía el
+  archivo y tiraba en el error: el «Disponible al terminar tu prueba» se habría visto como un error genérico. El modal pregunta
+  antes (`topeDeExportarAction`) y la acción vuelve a frenar. Exportar en masa hoy es sólo el CSV de leads: la «biblioteca de
+  creativos» no tiene descarga en masa (cada video se baja de a uno).
+- **«Empezar mi plan ya» no adelanta la prueba** (Mercado Pago no documenta mover el `start_date` de una suscripción
+  autorizada): abre una suscripción NUEVA atada al negocio, y la prueba se cancela recién cuando esa nueva se COBRA
+  (`cerrarPruebaAlEmpezarYa`). Abrir el link y no pagar no le quita la prueba a nadie. Si el día 8 llega antes que ese pago, el
+  primer mes entra dos veces: se cancela la nueva y se avisa a equipo@ para devolver uno. A menos de un día del cobro no se
+  ofrece.
+- **«Tu plan» en prueba** dice hasta cuándo va y cuánto se cobra, ofrece «Empezar mi plan ya» (arriba de todo si llega desde un
+  tope, `?empezar=1`) y no ofrece «Pasar a Pro» ni la oferta de retención: no hay un mes pagado sobre el que hacerlas.
+
+**Sin hacer (de los topes):** el Media Buyer vive en otra rama (wt-mediabuyer-2510): su `cupoDe(ws)` tiene que leer
+`estadoDePrueba(ws).enPrueba` (lib/prueba-uso.ts) para negar el piloto automático en la prueba; se lo pasé al Cerebro. El
+error por toma del AI Avatar y la pantalla del avatar del editor de video dicen el texto del tope sin el botón. «Tu plan» del
+teléfono no tiene «Empezar mi plan ya». **Vive en:** lib/topes-plan.ts · lib/prueba-uso.ts · lib/empezar-plan.ts ·
+app/_ui/EmpezarPlanYa.tsx · lib/cobros.ts (`cerrarPruebaAlEmpezarYa`) · app/video-generator/video-action.ts ·
+app/ai-avatar/actions.ts · app/video-editor/avatar/actions.ts · lib/editor-landing/tope-landings-server.ts · app/crm/actions.ts ·
+app/configuraciones/plan · tests/prueba-topes.test.ts.
+
+### El cartel de la versión de prueba (como Madgicx) y la prueba en la API (25/10/2026)
+
+Martín: «Me gusta el cartel de "limited version" de 7 días de madgicx para implementar en la prueba gratuita de MaKo». Las
+capturas: docs/media-buyer/referencias/madgicx/prueba-limitada/ (rama mediabuyer-2510, 71e097476).
+
+- **Madgicx no esconde pantallas en la prueba: limita CANTIDADES.** Por eso no hay pantalla de «esto no está en la prueba»: el
+  cartel fijo al pie de la barra lateral («Versión de prueba · quedan N días», lo que se cobra después, «Pasar al plan ya»), y una
+  franja arriba de cada pantalla con tope («Usaste 1 de 3 videos armados de la prueba»). El texto del tope habla igual: «Se
+  habilita con tu plan».
+- **Una lectura para todo** (`resumenDePrueba`, lib/prueba-uso.ts): la dibujan el cartel, la franja y «Tu plan» del teléfono, y la
+  lee la API (`ver_mi_prueba`). En el navegador el cartel y la franja comparten UNA llamada por página (app/_ui/usePrueba.ts).
+- **Trampa: la regla `react-hooks/purity` frena `Date.now()` en el render**, también en un componente del servidor (el layout del
+  teléfono). Los días se cuentan al LEER la prueba (`estadoDePrueba` trae `dias`), no al dibujarla.
+- **Los colores son los tokens de MaKo** (`--primary` → `--primary-strong`, `--on-primary`): en el oscuro el degradé se aclara y el
+  texto pasa a oscuro solo. El violeta de Madgicx no entra (un test lo frena).
+- **La API** (Martín, 25/10: «todo MaKo se debe poder utilizar por API»), en el área `negocio`: `ver_mi_prueba` (GET
+  /negocio/plan/prueba), `empezar_mi_plan_ya` (POST /negocio/plan/prueba/fin, se confirma en una pantalla: mueve plata);
+  `ver_mi_plan` dice «en prueba gratis» y `dar_de_baja_mi_plan` cancela la prueba sin cobro. EMPEZAR una prueba no va a la API:
+  es la compra pública de /planes, de un negocio que todavía no existe. Una operación nueva con ruta REST necesita su recurso:
+  va bajo `/negocio/plan/…`, que ya tiene título.
+
+**Sin hacer:** el Media Buyer (otra rama) tiene que dibujar la misma franja con su tope y negar el piloto en la prueba
+(`estadoDePrueba`). Lo que se cobra después se parte en dos renglones («US$ / 97/mes») en una barra angosta. **Vive en:**
+app/_components/CartelPrueba.tsx · app/_ui/FranjaPrueba.tsx · app/_ui/usePrueba.ts · app/api/plan/prueba · app/m/_prueba/PruebaM.tsx ·
+lib/prueba-uso.ts (`resumenDePrueba`) · lib/api-mako/areas/negocio.* · tests/prueba-cartel.test.ts.
+
+## Un segundo intento de cobro no se arma si el primero puede seguir vivo, y eso vale también para las SUSCRIPCIONES (29/10/2026)
+
+**Vive en:** el alta de cobros de /planes (`be95f7555`, rama `planes-2710`) y el plan a mano con vencimiento (`55542d446`).
+Medido por la verificación de `ddfa645d4` (informe con los scripts: C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md).
+
+- **`be95f7555` cerró el voucher doble** (OXXO o SEPA en curso: queda UNA cuota). **Pero no el de la suscripción:** una
+  suscripción con SEPA cuya primera factura falla arma una SEGUNDA (B), y MaKo nunca cancela la primera. Si Stripe
+  reintenta la de A, o llega tarde su aviso de fallo, el negocio paga dos veces. La regla: antes de armar otro intento,
+  cancelar (o esperar el final de) el anterior en Stripe, sea un pago suelto o una suscripción.
+- **El plan a mano y la pasarela se pisan:** si el negocio paga por /planes con el email de su propia cuenta, el cobro
+  queda `ya_tenia_cuenta` sin `alta_ws`. Y al vencer el plan a mano, el aviso «Terminó tu prueba» le llega a quien YA paga.
+- **Hecho en `4b6acf1c0`** (chat Zernio, 29/10): el fallo tardío de una sesión o suscripción anterior ya no vuelve el cobro
+  a `fallido`; `urlParaPagar` cancela la suscripción de la sesión que falló ANTES de armar otra; sólo cuenta la factura de la
+  suscripción vigente (un pago de la vieja abre un ticket para devolverlo); el plan a mano se apaga si el negocio pagó con el
+  email de un admin, y no hay aviso al vencer para quien ya paga.
+- **Sin hacer:** que el aviso se marque aunque el mail a Martín dé 429 (hoy se repite al día siguiente). La carrera del
+  cron contra «más días». Y el cartel de un plan vencido sin resolver, que dice «termina hoy» todos los días.
+
+## Fuera de Argentina se cobra con Stripe; Mercado Pago, sólo en su país (27/10/2026)
+
+La llamada con Leila (Fathom 876470842-18): en vivo, una clienta de México recibió el link de la Mercado Pago de MaKo y MP la
+rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de otro país»; terminó pagando por Binance. Chat
+«Planes, pagos y Partners», cuenta 5.
+
+- **El diagnóstico obvio era el equivocado: «falta conectar Stripe».** Stripe podía estar conectada en el ws9 y /planes igual
+  NUNCA la ofrecía: `monedasDeLaPlataforma` (lib/compra-plan.ts) salta toda pasarela que no arma la prueba gratis con tarjeta,
+  y `PASARELAS_CON_PRUEBA` era `['mercadopago']` desde el 25/10 (la prueba se armó sobre el `start_date` de MP). Así,
+  cualquiera, de cualquier país, salía al checkout de la Mercado Pago argentina. Un cobro de Stripe que ya pasó salió por otra
+  puerta (el «Vender un plan» de /admin/cobros no mira esa lista). No se pudo medir el ws9 (la lectura de producción la frenó
+  el clasificador): si Stripe NO está conectada ahí, fuera de Argentina el plan se PIDE (nombre, email y WhatsApp), que es
+  mejor que un pago que rebota.
+- **Stripe arma la prueba con `subscription_data.trial_period_days`** y `payment_method_collection: always`. La prueba sale del
+  COBRO (`esPruebaDePlan(c)` en `crearCheckout`), no del pedido: la sesión de Stripe vence a las 23 h y `urlParaPagar` la
+  rehace; sin eso, abrir el link al día siguiente cobraba el primer mes en el acto.
+- **Trampa: una prueba de Stripe sigue `pendiente` hasta el día 8, y rehacer su sesión abría una SEGUNDA suscripción.**
+  `urlParaPagar` manda a /listo a una prueba ya activada o con la sesión `complete`.
+- **El checkout de Stripe sin pago (`no_payment_required`) el webhook lo ignora a propósito**, como el aviso de autorizada de MP:
+  la prueba se activa en la vuelta del pago y en el cron (`pruebaAutorizadaStripe`: sesión `complete` de ESTE cobro y suscripción
+  `trialing`). La factura de US$ 0 del inicio no se asienta (`confirmarFactura`: «factura en cero»); el día 8 entra por
+  `invoice.paid` (`subscription_cycle`) como cualquier factura.
+- **La huella en Stripe es `card.fingerprint`** (expandiendo `default_payment_method`), con el mismo formato que la de MP
+  (`st:-|card:<fp>`): la compara el mismo filtro. **El día del primer cobro lo dice Stripe** (`trial_end`, cuenta desde que
+  completó el checkout): se escribe en `inicio_at` al activar, y el aviso de 2 días antes, «Tu plan» y la vigencia lo leen de
+  ahí. El «límite conocido» de MP (menos días si autoriza tarde) no existe en Stripe.
+- **La pasarela según el país** (`pasarelasDelPais`, lib/compra-plan-reglas.ts): Mercado Pago sólo en el país de SU cuenta (por
+  su moneda: ARS → AR) y ahí la única (en pesos, sin el recargo de la tarjeta internacional); afuera, Stripe; sin país, las dos y
+  elige la persona («Mercado Pago (desde Argentina, en pesos)»). El país es el encabezado `x-vercel-ip-country` (XX y T1 = no se
+  sabe): lo leen /planes, /planes/<plan> y la compra, nunca el formulario. Pedir MP desde México con Stripe disponible contesta
+  «¿Con qué quieres pagar?» con Stripe, no «no cobramos en línea». Las landings (app/page.tsx, /vsl) NO leen el país: ahí
+  «Empezar» sale si alguna pasarela cobra, y el país se aplica al entrar al plan.
+- **La venta por un Payment Link propio (MAU-10, en main desde el 27/10) no ve las pruebas** (medido al mezclar, 28/10): su rama
+  de `procesarEventoStripe` (lib/cobros-webhook.ts, `compraDeUnLinkPropio`, el Purchase a Meta) corre sólo cuando el checkout
+  NO es un cobro de MaKo, y el de una prueba ni llega ahí: `avisoStripe` ignora antes el `checkout.session.completed` con
+  `no_payment_required` (tests/cobros-eventos.test.ts). Esa rama no le manda una compra a Meta por empezar una prueba, ni
+  mira el `invoice.paid` del día 8 (si otro camino, como el lead, le avisa a Meta del cobro, no está medido). Al unir la punta
+  de Zernio (5a27268bc, la venta externa ya REGISTRA un cobro) la puerta también toma «un cobro externo a medias»
+  (`esCobroExterno`: `creado_por` empieza con `externo:stripe:`), y la prueba sigue afuera por tres lados: el aviso la ignora,
+  `esVentaExterna` corta la metadata de MaKo, y una prueba (`planes:<plan>:prueba`) nunca es externa ni al revés.
+  tests/prueba-stripe-no-es-venta-externa.test.ts lo fija.
+- **El cobro del día 8 con el aviso perdido, ahora lo recupera el cron (28/10).** El cron le preguntaba a Stripe por la SESIÓN
+  del checkout, y la de una prueba queda `complete` / `no_payment_required` para siempre: lo que cobra el día 8 es una FACTURA
+  de la suscripción. Si el `invoice.paid` se perdía, la plata entraba y el cobro seguía pendiente (sin cuota ni lead ganado);
+  MP no tenía el hueco porque busca el pago por la referencia. Ahora `pagoDelLinkEnLaPasarela` lista las facturas pagadas de
+  la suscripción (`facturasPagadasStripe`) y toma la más VIEJA con plata de ESTE cobro (`primerCobroDeLaPrueba`, con el filtro
+  del aviso, `confirmarFactura`), **con el id de la factura**, el mismo que usa el `invoice.paid`: si el aviso llega después, no
+  es otra cuota. **La regla:** una pasarela que cobra DESPUÉS del checkout (prueba, cobro diferido) se reconcilia por lo que
+  cobra (la factura, el pago), nunca por la sesión, y con el id que usa su aviso.
+- **Y el cron no las VEÍA con 50 compras más nuevas (la verificación de 3ca2d8328, 28/10).** Leía los pendientes con
+  `.limit(50)` por `updated_at`, y cada compra abierta en /planes es un pendiente que nadie anula (`checkout.session.expired`
+  se ignora), y toda compra de Stripe arranca como prueba. Con 50 más nuevas, la prueba quedaba en el puesto 51: no se
+  activaba y, con el aviso del día 8 perdido, no se acreditaba nunca (si llegaba bien el del mes 2, se asentaba ése y el
+  mes 1 se perdía: Stripe 194, MaKo 97). Ahora las pruebas se leen APARTE: las activadas de los últimos 45 días y las sin
+  activar de los últimos 2, con un seguro de 500 que, si se alcanza, lo dice. **La regla:** una lista con tope que alimenta
+  una reparación corta en silencio lo que más importa; lo que no puede perderse se lee aparte. Probado de punta a punta con
+  el código real (C:/dev/revisiones/scratch-3ca2/A-refuta/r1-cron-tope.ts, i50 / i50_mes2 / j50).
+- **Y la lectura aparte tenía tres agujeros (la verificación de a196d5a93).** (1) Sólo leía las pruebas `pendiente`: la que
+  quedó `fallido` porque la tarjeta se rechazó el día 8 y el reintento de Stripe la cobró después (con el aviso perdido)
+  volvía a la lista general de 50 y no se acreditaba: es el caso común de una tarjeta al terminar la prueba. (2) Las leía de
+  la más NUEVA a la más vieja: con más de 500, el seguro dejaba afuera justo las del día 8 (las viejas), y el aviso decía «las
+  más viejas esperan» cuando no se iban a leer nunca. (3) La vuelta no tenía reloj: cientos de pruebas son dos lecturas a Stripe
+  por cada una, en serie, y se pasaba del `maxDuration` del cron. Ahora: las activadas `pendiente` o `fallido`, de la más vieja
+  a la más nueva, y `reconciliarCobros(ws, { hasta })` corta a tiempo (el cron le deja 120 s a lo que sigue). r2-cron-pruebas.ts:
+  «fallido» con 50 y 80 más nuevas, antes 0, ahora 1 con una cuota; b600, antes las 100 viejas nunca, ahora en la primera vuelta.
+- **Rehacer el link dejaba la sesión vieja ABIERTA (la verificación, 28/10).** `urlParaPagar` rehace la sesión a 5 minutos de
+  vencer y no cerraba la anterior: pagada en la pestaña vieja, la prueba no se activaba (se leía la nueva) y se cobraba el día
+  8 sin prueba; pagadas las dos, quedaban DOS suscripciones cobrando todos los meses. Ahora, en todo cobro de Stripe (no sólo
+  la prueba), la anterior completa va a /listo y la abierta se expira ANTES de armar otra; si no se pudo cerrar, no se arma.
+- **La prueba, sólo con tarjeta (`payment_method_types: ['card']`).** Sin eso, Checkout ofrecía los medios prendidos en la
+  cuenta: con Link o un débito bancario no hay `card.fingerprint`, la huella quedaba vacía y con otro email se repetía la
+  prueba (no cobraba de más: regalaba pruebas).
+
+**Sin hacer:** «Empezar mi plan ya» en Stripe abre otra suscripción como en MP, aunque Stripe podría terminar la prueba
+(`trial_end=now`). Una renovación de Stripe (mes 2 en adelante) con el aviso perdido sigue sin cron: el cobro ya está pagado y
+el cron sólo mira pendientes (pasa igual con cualquier suscripción de Stripe, no sólo la de una prueba). Medir en el ws9 si
+Stripe está conectada y en modo real (lo mide el Cerebro, sólo leyendo).
+**Vive en:** lib/prueba-plan-reglas.ts (`PASARELAS_CON_PRUEBA`, `huellaStripe`) · lib/stripe-api.ts (`diasDePrueba`,
+`leerPruebaStripe`, `facturasPagadasStripe`) · lib/cobros.ts (`crearCheckout`, `urlParaPagar`, `activarPruebaSiAutorizo`,
+`pruebaAutorizadaStripe`, `pagoDelLinkEnLaPasarela`) · lib/cobros-eventos.ts (`primerCobroDeLaPrueba`) ·
+lib/compra-plan-reglas.ts (`pasarelasDelPais`, `paisDelVisitante`) · lib/compra-plan.ts · app/planes · app/api/planes/comprar ·
+tests/planes-stripe-afuera.test.ts · tests/prueba-stripe-cobro-perdido.test.ts.
+
+## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
+
+Leila (Fathom 876470842-16), sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»: «Una
+persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper de WhatsApp. Martín, ya decidido
+(876470842-15): el scraper y hacerse partner, sólo en Pro.
+
+- **La guarda del 24/10 (`INTERNO`) miraba nombres de tabs, no jerga de marketing:** «media buyer», «embudo», «topes», «CRM» y
+  «piloto automático» pasaban. Ahora cada fila dice lo que la persona consigue («Ideas por día para mejorar tus anuncios»,
+  «MaKo aplica las mejoras solo, sin pasarse de tu presupuesto») y un test frena esa jerga y las filas de más de 62 caracteres
+  (una línea en el teléfono). Faltaban también los videos, el dominio propio y cobrar (con su tope de verdad: `web.dominios`,
+  `cobros.cuentas`).
+- **El scraper no es una tab: el candado no podía ir en `TABS_SOLO_PRO`.** Va en `FUNCIONES_SOLO_PRO` (lib/topes-plan.ts) con
+  `textoSoloPro`, y lo mira CADA acción de app/crm/grupo-wa-actions.ts (no sólo la de abrir) y cada operación de la API de
+  grupos; la pantalla muestra el texto con «Pasar a Pro». La vitrina lo dice desde la misma lista.
+- **Partners:** `hacermePartner` frena al Esencial ANTES de crear el código; quien ya era partner sigue siéndolo. La página
+  (computadora y teléfono) muestra la landing con «Pasar a Pro», y `hacerme_partner` por la API no propone lo que va a frenar.
+- **Como todo candado de Pro, sólo a quien paga Esencial por la pasarela** (`esEsencialDe`): un alta a mano recibe más, nunca
+  menos.
+- **Una tab CERRADA no se vende (28/10, lo prometido a Teo).** La tabla le prometía a Pro «videos con una persona hecha con IA»,
+  y AI Avatar la abre sólo el super admin (app/ai-avatar/acceso.ts). Va en `TABS_TODAVIA_CERRADAS` y no sale; el test lee esa
+  puerta, así que el día que se abra pide volver a sumarla. **El diagnóstico obvio («no prometer avatares») era de más:** el
+  Video Editor tiene su propio «Avatar de IA», que Pro SÍ ve, y el tope «1 video con avatar» de la prueba (`prueba.avatares`)
+  lo cuenta él también: esa pregunta frecuente es cierta y queda. Y la fila de Partners dice qué se gana: «el primer mes de
+  cada negocio», no «dinero» suelto.
+- ⚠️ **Abrir una tab no es venderla (29/10, la revisión de plata de AI Avatar para todos).**
+  - Martín dijo «disponible para todos». La rama sumó además la fila `NOMBRE_AI_AVATAR` con ✓ en los tres planes, y «y tu
+    avatar con IA» en el renglón de Esencial.
+  - Las dos venden el motor del Video Generator, que `90a760e4b` había sacado de esta tabla esa misma tarde por estar a
+    medias. Nunca generó un look en producción, y la tienda de Chrome publica la extensión 0.39.1 cuando el avatar pide 0.69
+    o más.
+  - Tampoco dicen que los videos se pagan con los créditos de Google Flow del cliente (hasta 15 por toma), ni que piden Chrome
+    de computadora.
+  - **Regla:** la puerta y la promesa en la tabla son dos decisiones. La promesa espera a que el motor ande en producción,
+    salvo que Martín diga que se vende igual.
+  - **Decidido (el Cerebro, 29/10: «sacar»; subió en tren-ad y salió en tren-ae):** la fila depende de `AI_AVATAR_SE_VENDE`
+    (`lib/planes-comparacion.ts`, hoy `false`), y el renglón de Esencial volvió al de antes. Vuelve a `true` cuando Martín
+    genere un look real en el ws3 y la tienda tenga la extensión 0.69 o más. Ese día, `tests/planes-tres-bloques.test.ts`
+    pide que la fila diga «Google Flow», y mientras tanto frena cualquier fila o renglón que diga «avatar».
+- ⚠️ **El setting `planes.mako` corta cada renglón a 80 letras.**
+  - El corte está en `planValido` → `texto(x, 80)`, en `lib/planes-mako.ts`. `guardarPrecioLocal` escribe el setting con los
+    planes de fábrica la primera vez que se carga un precio en pesos.
+  - Desde ahí, un renglón largo sale cortado en /planes: el de Esencial con el avatar (110 letras) queda «…y tu avatar con IA
+    (t», y ya les pasaba a los dos del media buyer (95 y 92).
+  - Con el setting escrito, ningún cambio de los renglones de fábrica se ve, porque manda el setting. No se verificó si hoy
+    existe en el ws9.
+  - **Regla:** un renglón de `incluye` no pasa de 80 letras, o se sube el corte.
+- **La capa `pm` SÍ se vende** (`IDS_VENDIBLES = ['pm', 'completo', 'agencia']` en `lib/capas.ts`). El motivo para dejarla sin
+  AI Avatar («no es un plan que se vende») es falso: quien compró Project Manager queda sin AI Avatar. Lo confirma el Cerebro.
+
+## El plan dado a mano con vencimiento (28/10/2026, lo prometido a Teo: «te doy 7 días de prueba»)
+
+- **Lo que hace:** en Customers, el diálogo del plan suma «Prueba a mano: 7, 14 o 30 días / sin vencimiento». Se guarda como un
+  setting del negocio (`plan.a_mano`, sin migración). Mientras lo tiene, vigente o vencido sin resolver, `estadoDePrueba` lo da
+  «en prueba» con el plan que le dieron, y valen los topes de la prueba. El cron diario de las pruebas
+  (app/api/cron/aviso-fin-de-prueba) avisa al vencer, una sola vez, a la persona y a Martín.
+- **La decisión (el Cerebro, de una de Martín): al vencer NO se pausa.** El corte de acceso general está apagado
+  (`CORTE_DE_ACCESO_PRENDIDO = false`); el día que se prenda, este plan cae en el corte como cualquier otro, sin una regla aparte.
+  El aviso a la persona no le dice que se corta (porque no se corta), y el de Martín dice que no se pausó nada.
+- **La trampa que encontró un test viejo (prueba-topes):** mirar el plan a mano siempre que no hubiera una prueba por la
+  pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
+  suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
+- Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+- ⚠️ **Quien ya pagó seguía con los topes (29/10, la verificación de ddfa645d4, ALTA):** si el negocio compra por /planes con el
+  email de SU cuenta, el cobro queda `ya_tenia_cuenta` y SIN atar (`alta_ws` null) hasta que Martín lo ata en /admin/cobros, y
+  `estadoDePrueba` sólo miraba los cobros atados: seguía «en prueba» y al vencer le llegaba «Terminó tu prueba». Ahora un cobro
+  pagado de la plataforma, `ya_tenia_cuenta` y sin atar, con el email de un admin del negocio, apaga el plan a mano. **La regla:**
+  el email SÓLO quita topes; nunca ata ni pausa (atar por email es lo que lib/plan-acceso.ts NO hace a propósito: cualquiera podría
+  comprar con el email de otro y hacerlo pausar). Quitar es seguro: quien paga con tu email te paga a vos.
+- **Y el aviso al vencer se saltea a quien ya no está en prueba** (la MEDIA del mismo informe: «le doy 7 días, paga el día 3» es
+  el final esperado y le llegaba «Terminó tu prueba», con «sigue con los topes» a Martín). Medido con el guion del refutador
+  (C:/dev/revisiones/scratch-ddfa/plan-a-mano/p1-plan-a-mano.ts sobre este árbol): sólo cambian los casos C y B al vencer.
+
+**Sin hacer (del mismo informe):** si el mail a Martín no sale (un 429 de Resend), la persona lo recibe otra vez al día siguiente
+(guardar por separado lo que salió); la fecha del aviso va en hora de Argentina y no en la del negocio; si Martín da más días
+mientras el cron avisa, el cron pisa el plan nuevo; un plan a mano vencido dice «termina hoy» todos los días.
+
+**Sin hacer:** Customers no muestra en la tarjeta del negocio hasta cuándo va su prueba a mano (se ve en el aviso al guardar).
+El envío de los mails y la lectura de la base no se corrieron de punta a punta (el test mira el fuente); el primer vencimiento
+real hay que mirarlo en el log del cron.
+**Vive en:** lib/plan-a-mano-reglas.ts · lib/plan-a-mano.ts · lib/prueba-uso.ts (`deUnPlanAMano`) ·
+app/api/admin/workspaces/route.ts (`plan_a_mano`) · app/admin/AdminView.tsx (`PermisosDialog`) ·
+app/api/cron/aviso-fin-de-prueba/route.ts · tests/plan-a-mano.test.ts · tests/prueba-topes.test.ts.
+
+**Sin hacer:** «Datos de empresa» sobre leads tildados (app/crm/AccionesLoteLeads.tsx, `enriquecer-actions.ts`) usa el mismo
+núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo cuenta como scraper, va con `candadoDePro`.
+**Vive en:** lib/planes-comparacion.ts · lib/topes-plan.ts · app/crm/grupo-wa-actions.ts · app/crm/TraerDeGrupoWA.tsx ·
+lib/api-mako/areas/crm.run.ts · lib/partners-programa.ts · app/partners/page.tsx · app/m/partners/page.tsx ·
+tests/planes-tres-bloques.test.ts · tests/scraper-partners-solo-pro.test.ts.

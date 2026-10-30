@@ -57,12 +57,17 @@ test('el aviso: un link anulado pagado se registra, y si la cuota ya estaba cobr
 });
 
 test('anular cierra el link también en Mercado Pago, DESPUÉS de marcarlo anulado en la base', () => {
+  // Desde 0a85412dc el cierre vive en `cerrarLinkEnLaPasarela`, que comparten anularCobro y crearCobro: se fija que
+  // anularCobro lo LLAME después de marcar el cobro anulado, y que el helper tenga la rama de Mercado Pago.
   const f = cuerpo('anularCobro');
   const marca = f.indexOf("estado: 'anulado'");
-  const rama = f.indexOf("c.proveedor === 'mercadopago' && c.proveedor_ref");
+  const cierra = f.indexOf('await cerrarLinkEnLaPasarela(ws, c)');
   assert.ok(marca > 0, 'anularCobro no marca el cobro anulado');
-  assert.ok(rama > marca, 'anularCobro no cierra el link de Mercado Pago (o lo hace antes de marcarlo en la base)');
-  const mp = f.slice(rama);
+  assert.ok(cierra > marca, 'anularCobro no cierra el link en la pasarela (o lo hace antes de marcarlo en la base)');
+  const h = cuerpo('cerrarLinkEnLaPasarela');
+  const rama = h.indexOf("c.proveedor === 'mercadopago' && c.proveedor_ref");
+  assert.ok(rama > 0, 'cerrarLinkEnLaPasarela no cierra el link de Mercado Pago');
+  const mp = h.slice(rama);
   // Una suscripción de MP es un preapproval, no una preferencia: se cancela (todavía nadie la autorizó).
   assert.match(mp, /c\.tipo === 'suscripcion'\s*\?\s*await cancelarSuscripcionMp\(mp\.token, c\.proveedor_ref, idemAnular\(c\.id\)\)\s*:\s*await vencerPreferenciaMp\(mp\.token, c\.proveedor_ref, idemAnular\(c\.id\)\)/);
   // Best effort, como el de Stripe: si falla, el cobro ya está anulado y un pago que igual entre lleva su aviso.
@@ -98,7 +103,8 @@ test('el cron también relee los anulados que llegaron a la pasarela, con su pro
   const f = cuerpo('reconciliarCobros');
   assert.match(f, /\.eq\('estado', 'anulado'\)\.not\('proveedor_ref', 'is', null\)\.gte\('updated_at', desde\)/);
   assert.match(f, /\.order\('updated_at', \{ ascending: false \}\)\.limit\(20\),/);
-  assert.match(f, /const pendientes = \[\.\.\.\(pend\.data \?\? \[\]\), \.\.\.\(anul\.data \?\? \[\]\)\]/, 'los anulados no entran al recorrido');
+  // Después de los anulados pueden venir otras lecturas (las pruebas de un plan, sin el tope de 50: 28/10/2026).
+  assert.match(f, /const pendientes = \[\.\.\.\(pend\.data \?\? \[\]\), \.\.\.\(anul\.data \?\? \[\]\)[,\]]/, 'los anulados no entran al recorrido');
   assert.match(f, /if \(anul\.error\) throw new Error\(/);
 });
 

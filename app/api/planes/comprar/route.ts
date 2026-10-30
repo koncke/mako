@@ -16,7 +16,8 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { codigoRefLimpio, leerPedidoCompra } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { COOKIE_REF } from '@/lib/partners-reglas';
@@ -40,17 +41,29 @@ export async function POST(req: NextRequest) {
   if (!leido.ok) return leido.bot ? Response.json({ ok: true }) : Response.json({ error: leido.error }, { status: 400 });
   const pedido = leido.pedido;
   if (!rateLimit(`planes-comprar:email:${pedido.email}`, 6, HORA)) return Response.json({ error: 'Demasiados intentos con ese email. Prueba en un rato.' }, { status: 429 });
-  // El código de partner: el PRIMERO vale (revisión del 23/10, media 14): la cookie que dejó /r/<código> gana sobre el `?ref=`.
-  const ref = codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value) ?? pedido.ref;
+  // El código de partner (`codigoDeLaCompra`): el que escribió en el carrito; si no, el PRIMERO que lo trajo (revisión del
+  // 23/10, media 14: la cookie que dejó /r/<código> gana sobre el `?ref=`). Uno escrito que no es de ningún partner se le dice
+  // (no se guarda un código que nunca va a contar); si no se pudo leer, la compra sigue con él y el cron no lo cuenta.
+  if (pedido.codigoEscritoMal) return Response.json({ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' }, { status: 400 });
+  if (pedido.codigoEscrito && !(await esCodigoDePartner(pedido.codigoEscrito).catch(() => true))) {
+    return Response.json({ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' }, { status: 400 });
+  }
+  // El que trajo un link (la cookie, después el `?ref=`) se guarda sólo si es de un partner (28/10/2026, `codigoQueCuenta`); si no
+  // se pudo leer, vale la cookie (la validó /r/<código>) y el `?ref=` crudo no.
+  const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, cookie: codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value), url: pedido.ref }, esCodigoDePartner);
 
   // «Lo quiero» sin pasarela (24/10/2026, sin Calendly): el pedido queda en el CRM de MaKo, con el plan, el origen y el
   // código de partner, y se da de alta a mano (lib/compra-plan.ts, `pedirPlanSinPasarela`). No abre ningún pago.
   if (pedido.quiero) {
-    const q = await pedirPlanSinPasarela({ ...pedido, ref });
+    const q = await pedirPlanSinPasarela({ ...pedido, ref: refQueCuenta });
     return q.ok ? Response.json({ ok: true, pedido: true }) : Response.json({ error: q.error }, { status: q.status });
   }
-  // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`.
-  const r = await iniciarCompraDePlan({ ...pedido, ref }, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
-  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}) }, { status: r.status });
+  // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`. Mercado Pago,
+  // sólo desde su país (27/10/2026: desde México rechazaba el pago); el país lo pone Vercel, no el formulario.
+  const r = await iniciarCompraDePlan({ ...pedido, ref: refQueCuenta }, {
+    conPrueba: (await getSesionAdmin().catch(() => null)) != null,
+    pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
+  });
+  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}) }, { status: r.status });
   return Response.json({ ok: true, link: r.link });
 }

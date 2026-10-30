@@ -239,11 +239,41 @@ export function metricasACsv(r: ReporteMetricas): string {
 
 /** El reporte como tabla markdown: lo que un agente lee mejor y lo que se puede
  *  pegar en un mensaje. */
+/**
+ * Los totales del PERIODO PEDIDO, ya sumados por el código, para ir ARRIBA de la tabla (28/10/2026, el diagnóstico de MaKo en
+ * WhatsApp, F3): con la tabla por mes, el modelo sumaba los meses a mano y para el mismo período dio 25 no-shows y 14 sin marcar
+ * y, once minutos después, 28 y 10. Las reuniones 1 y 2 van también juntas: «¿cuántos no-shows?» no distingue.
+ */
+export function totalesDelPeriodo(r: ReporteMetricas): string[] {
+  const t = r.totales as Record<string, number | null>;
+  const suma = (a: string, b: string) => (t[a] == null && t[b] == null ? null : (t[a] ?? 0) + (t[b] ?? 0));
+  const juntas: Array<[string, number | null]> = [
+    ['reuniones (1 y 2) programadas', suma('j1_programadas', 'j2_programadas')],
+    ['reuniones (1 y 2) realizadas', suma('j1_realizadas', 'j2_realizadas')],
+    ['no-shows (reuniones 1 y 2)', suma('j1_noshow', 'j2_noshow')],
+    ['reuniones sin marcar (1 y 2)', suma('j1_sin_marcar', 'j2_sin_marcar')],
+  ];
+  // Son los de AHORA (Joan, ws13, 26/10/2026: 25 no-shows y 14 sin marcar, y once minutos después 28 y 10, porque el equipo
+  // marcó 4 reuniones en el medio; MaKo dio el número nuevo sin decir por qué, y no pudo dar los nombres).
+  const hayReuniones = (suma('j1_programadas', 'j2_programadas') ?? 0) > 0;
+  return [
+    `## Totales del período ${r.periodo.desde} → ${r.periodo.hasta} (ya sumados: úsalos tal cual, no sumes las filas)`,
+    ...(hayReuniones ? ['', 'Son los de AHORA: si el equipo marca una reunión, el no-show y el sin marcar cambian (si ya diste otro número, di que se marcaron reuniones en el medio). Quiénes son, con nombre (los sin marcar, los no-show): reuniones_por_asistencia.'] : []),
+    '',
+    ...juntas.filter(([, v]) => v != null).map(([k, v]) => `- ${k}: ${v}`),
+    ...COLUMNAS.filter((c) => c !== 'periodo' && t[c] != null).map((c) => `- ${c}: ${t[c]}`),
+  ];
+}
+
 export function metricasAMarkdown(r: ReporteMetricas): string {
   const filaMd = (vals: Array<string | number | null>) =>
     `| ${vals.map((v) => (v == null ? '—' : String(v))).join(' | ')} |`;
   const out: string[] = [
     `# Números del negocio · ${r.periodo.desde} → ${r.periodo.hasta} (por ${r.periodo.grano})`,
+    '',
+    ...totalesDelPeriodo(r),
+    '',
+    `## Por ${r.periodo.grano}`,
     '',
     filaMd([...COLUMNAS]),
     `|${COLUMNAS.map(() => '---').join('|')}|`,

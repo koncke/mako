@@ -33,6 +33,26 @@
 /* Los links «Ir a …» debajo de una respuesta de MaKo (tanda 10). */
 .ch-ira { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 
+/* La apertura (MaKo habla primero, 29/10/2026, AperturaMako.tsx): sus botones debajo de su mensaje, alineados con lo que dice
+   MaKo (la columna de su globo, después de la criatura). «Instalar MaKo» es la pieza de la caja, tal cual. */
+.ch-apertura { display: flex; flex-direction: column; }
+.ch-apertura__botones { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 2px 0 6px 44px; }
+.ch-apertura__botones a.of-pill { text-decoration: none; }
+.ch-apertura__pieza { display: inline-flex; }
+/* «Instalar MaKo» fuera de la caja (la apertura): la misma píldora azul que en el lugar del micrófono (centro.css), del alto de
+   una pastilla. */
+.ch-apertura__pieza .co-instalar {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 14px 0 11px; border: 0; border-radius: 999px;
+  background: var(--primary); color: var(--on-primary, #fff); font: inherit; font-size: var(--fs-sm); font-weight: 600; white-space: nowrap;
+  text-decoration: none; cursor: pointer;
+}
+.ch-apertura__pieza .co-instalar:hover { filter: brightness(1.06); }
+.ch-apertura__pieza .co-instalar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* El envoltorio de una marca de la guía (`data-recorrido`) sobre una pieza ajena: no cambia el lugar de lo que envuelve. */
+.ch-ancla { display: inline-flex; flex: none; }
+/* Una respuesta rápida del hilo que no puede salir (sin la app de escritorio): lo dice, en vez de no hacer nada. */
+.ch-sin-mandar { margin: 6px 0 0; font-size: var(--fs-sm); color: var(--dim); }
+
 /* El Mapa en el panel: el grafo de siempre (VistaCerebro), con su propio scroll. */
 .ch-mapa__cuerpo { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 20px 28px; }
 
@@ -219,9 +239,23 @@
 }
 .ch-tab-mako:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(18, 21, 27, .2); }
 .ch-tab-mako:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* ⚠️ UN BLOQUE FLOTANTE, NO UN CUADRADO DE BORDE A BORDE (25/10/2026, punto 12 de Martín: «cuando ya lo venimos haciendo tipo
+   bloque flotante con cuadros un poco redondeados... Unifica ese diseño»). Es el marco del panel de MaKo del Dashboard (`.an`,
+   app/dashboard/PanelAnalista.tsx) y de la ficha del CRM (`.fb-mako-panel`): 12 px de aire con la barra y con los bordes de la
+   pantalla, bordes de 14, el filete de la casa y su sombra, sin raya. El `left` lo pone MakoEnLaTab.tsx (el borde de la barra,
+   medido) y el aire con ella es el `margin-left` (AIRE_PANEL, que la tab también le deja). En el teléfono, a pantalla completa,
+   como `.an`: el `!important` le gana al `left` en línea. */
 .ch-tab-panel {
-  position: fixed; top: 0; bottom: 0; z-index: 55; width: min(440px, calc(100vw - 68px)); display: flex; /* 440: ANCHO_PANEL de MakoEnLaTab.tsx */
-  background: var(--surface); border-right: 1px solid var(--border); box-shadow: 8px 0 28px rgba(18, 21, 27, .14);
+  position: fixed; top: calc(var(--barra-agencia, 0px) + 12px); bottom: 12px; margin-left: 12px; z-index: 55;
+  width: min(440px, calc(100vw - 92px)); display: flex; overflow: hidden; /* 440: ANCHO_PANEL de MakoEnLaTab.tsx; 92: la barra plegada y el aire */
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 44px rgba(18,21,27,.18);
+}
+/* Y la tab NO se corre: el panel la tapa entera. Corrida (`--ancho-panel-mako`, que MakoEnLaTab.tsx pone en línea en <html>),
+   la página se pasaba de la pantalla, scrolleaba de costado y el panel se estiraba con ella: se MIDIÓ en un teléfono emulado,
+   630 px en una pantalla de 390. El `!important` de una hoja le gana a la variable en línea. */
+@media (max-width: 760px) {
+  html { --ancho-panel-mako: 0px !important; }
+  .ch-tab-panel { left: 0 !important; right: 0; top: var(--barra-agencia, 0px); bottom: 0; margin: 0; width: auto; max-width: 100vw; border: none; border-radius: 0; box-shadow: none; }
 }
 .ch-tab-panel > .co-panel { flex: 1; }
 .ch-tab-panel__cerrar {
@@ -236,6 +270,24 @@
 .co-solo-lectura { margin: 0; padding: 12px 16px; text-align: center; font-size: var(--fs-sm); color: var(--dim); }
 .co-anteriores { display: flex; justify-content: center; padding: 8px 0 4px; }
 @media (prefers-reduced-motion: reduce) { .ch-tab-mako:hover { transform: none; } }
+/* La guía en una ventana angosta (29/10/2026, app/_ui/guia/VeloGuia.tsx): mientras señala algo de la tab, el panel se aparta
+   SIN desmontarse (la conversación sigue ahí) y vuelve solo. */
+.ch-tab-panel--apartado { transform: translateX(-110%); visibility: hidden; transition: transform .18s ease, visibility 0s .18s; }
+/* El globo de la estrella cerrada (GloboDeLaEstrella.tsx): el corto de la apertura, o la pregunta de la guía con sus botones. */
+.ch-globo {
+  position: fixed; bottom: 22px; z-index: 55; max-width: min(340px, calc(100vw - 110px)); display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px 32px 8px 10px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--ink);
+  box-shadow: 0 4px 16px rgba(18, 21, 27, .16); animation: chGloboEntra .18s ease both;
+}
+@keyframes chGloboEntra { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.ch-globo__texto { margin: 2px 0 0; flex: 1 1 100%; font-size: var(--fs-sm); font-weight: 600; line-height: 1.4; }
+.ch-globo__botones { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+.ch-globo__boton { min-height: 32px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
+.ch-globo__boton--mako { border-color: var(--mako-border); background: var(--mako-bg); color: var(--mako-ink); }
+.ch-globo__corto { display: flex; align-items: center; gap: 8px; padding: 2px 4px; border: 0; background: none; color: inherit; font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer; text-align: left; }
+.ch-globo__cerrar { position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--dim); font-size: 18px; line-height: 1; cursor: pointer; }
+.ch-globo__cerrar:hover, .ch-globo__boton:hover { color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .ch-globo, .ch-tab-panel--apartado { animation: none; transition: none; } }
 
 /* Desde dónde lo escribió la persona (la estrella de una tab, OC6): un chip chico arriba de su burbuja. */
 .ch-desde { align-self: flex-end; margin: 0 0 4px; padding: 2px 8px; border-radius: 999px; font-size: 12px; color: var(--dim); background: color-mix(in srgb, var(--ink) 6%, transparent); }

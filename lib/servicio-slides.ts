@@ -18,7 +18,16 @@ export const SLIDES: Record<string, Slide[]> = {
     // lib/meta-capi.ts, disparado desde lib/leads.ts y el webhook de Calendly
     { t: 'Meta se entera de lo que cierra', d: 'Cuando un lead califica o agenda, le devolvemos el evento por CAPI para que optimice con datos reales, no con clicks.' },
   ],
-  // (Las de `whatsapp` —el servicio Chatwoot— se fueron el 09/10/2026 con la integración.)
+  // (Las de `whatsapp` —el servicio Chatwoot— se fueron el 09/10/2026 con la integración.) Vuelven el 29/10/2026 para las líneas por QR
+  // (Evolution): lo que de verdad hace cada una.
+  whatsapp: [
+    // lib/evolution.ts (varias líneas por negocio, `evolution_instancias`) + app/whatsapp/EvolutionConnect.tsx (el QR)
+    { t: 'Una línea o varias', d: 'Cada número se vincula con su QR, desde WhatsApp › Dispositivos vinculados. Por ejemplo, una línea por setter.' },
+    // app/chats (la bandeja, con el desplegable de la línea)
+    { t: 'Los chats, en MaKo', d: 'Las conversaciones de cada línea entran a Chats, y se contesta desde la misma línea.' },
+    // lib/nutricion-canal.ts (el envío de Automations por la línea elegida)
+    { t: 'Automations manda por la que elijas', d: 'Cada automatización sale por la línea que le digas.' },
+  ],
   email: [
     // lib/nutricion.ts (mismo motor que WhatsApp, canal email)
     { t: 'Secuencias que salen solas', d: 'El mismo motor de nutrición, por mail: pasos, variables y horarios.' },
@@ -66,6 +75,40 @@ export const SLIDES: Record<string, Slide[]> = {
     { t: 'La reunión se marca sola', d: 'Llega la grabación y el lead avanza: R1 o R2, y la asistencia se confirma según si el lead realmente habló.' },
     // lib/closing.ts (reviseAnalysis / reviseWithMako, con edit_history)
     { t: 'La última palabra es tuya', d: 'Corriges un puntaje a mano o le pides a MaKo que re-analice con tu nota. Queda el historial.' },
+  ],
+  // Los otros grabadores de reuniones (26/10/2026, lib/grabadores): leen lo mismo que Fathom por la misma capa, así que
+  // prometen lo mismo — y lo que su API no da, lo dice su slide (lib/grabadores/catalogo.ts, `queDa`).
+  tldv: [
+    // lib/grabadores/tldv.ts + lib/reunion-auto.ts (cron de cada hora y el aviso MeetingReady)
+    { t: 'Las tareas salen solas', d: 'Termina la reunión y MaKo saca los compromisos: te deja el borrador en el Plan para que lo confirmes.' },
+    // lib/closing.ts (las de venta) + lib/grabadores/al-terminar.ts (el lead, R1 o R2, y el link)
+    { t: 'Cada venta, puntuada y en su lead', d: 'Las llamadas de venta se analizan en el Closing y la grabación queda en la ficha del lead.' },
+  ],
+  fireflies: [
+    { t: 'Las tareas salen solas', d: 'Fireflies termina de transcribir y MaKo saca los compromisos: te deja el borrador en el Plan.' },
+    { t: 'Cada venta, puntuada y en su lead', d: 'Las llamadas de venta se analizan en el Closing y la grabación queda en la ficha del lead.' },
+  ],
+  zoom: [
+    { t: 'Tus grabaciones en la nube, leídas', d: 'Cuando Zoom termina la transcripción, MaKo saca las tareas al Plan y analiza las llamadas de venta.' },
+    // lib/grabadores/formas.ts (`deZoom`): el correo de los de afuera viene vacío
+    { t: 'Lo que Zoom no da', d: 'Zoom no comparte el correo de los invitados de afuera: el link de la grabación lo pegas tú en el lead.' },
+  ],
+  otter: [
+    { t: 'Tus conversaciones, leídas', d: 'MaKo lee tus conversaciones de Otter cada hora, saca las tareas al Plan y analiza las de venta.' },
+    { t: 'Sólo con Enterprise', d: 'La API de Otter es del plan Enterprise. Sin él, Otter no deja que ninguna app lea tus conversaciones.' },
+  ],
+  loom: [
+    // lib/grabadores/catalogo.ts: Loom no tiene API (support.atlassian.com/loom, 26/10/2026)
+    { t: 'Loom no tiene API', d: 'Loom no deja que ninguna app lea tus videos ni lo que se habló en ellos (lo dice Loom).' },
+    // app/crm/campo-inline.ts (el link de un grabador) + el Plan → Importar (transcripciones)
+    { t: 'Lo que sí puedes hacer', d: 'Pega el link del Loom en el lead, y sube su transcripción en el Plan → Importar: MaKo saca las tareas.' },
+  ],
+  readai: [
+    { t: 'Llega pronto', d: 'Read AI da tus reuniones por su API, pero se conecta con su inicio de sesión, y ese botón todavía no está en MaKo.' },
+  ],
+  meet: [
+    { t: 'Llega pronto', d: 'Leer las transcripciones de Meet pide un permiso de Google que MaKo todavía no tiene aprobado.' },
+    { t: 'Mientras tanto', d: 'Graba tus Meet con Fathom, tl;dv o Fireflies: MaKo ya los lee.' },
   ],
   calendly: [
     // app/api/webhooks/calendly (respuestas por frase, UTMs, visitor_id de la landing)
@@ -123,23 +166,6 @@ export const SLIDES: Record<string, Slide[]> = {
     { t: 'El pago entra solo al CRM', d: 'Cuando te pagan, la cuota queda pagada en la ficha y el lead pasa a ganado. Sin cargar nada a mano.' },
     // app/api/webhooks/mercadopago: el aviso no se cree, se relee el pago con tu token (§4.5 del contrato)
     { t: 'Un aviso falso no marca nada', d: 'Antes de anotar un pago, MaKo lo vuelve a consultar en tu Mercado Pago. Solo cuenta lo que Mercado Pago confirma.' },
-  ],
-  // Las fuentes que avisan del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md). Cada slide
-  // afirma sólo lo que hace lib/fuentes-leads.ts: no mueve de etapa ni manda mensajes (eso es de
-  // Automations), así que no se promete aquí.
-  hotmart: [
-    // app/api/webhooks/hotmart + lib/hotmart-evento.ts (PURCHASE_APPROVED, PURCHASE_OUT_OF_SHOPPING_CART)
-    { t: 'Cada comprador entra solo', d: 'Cuando alguien compra o abandona el carrito en Hotmart, aparece en tu CRM con su email y su teléfono.' },
-    // lib/fuentes-leads.ts (findLeadByContacto + enriquecerLead + anotarUnaVez)
-    { t: 'Sin fichas repetidas', d: 'Si la persona ya estaba en tu CRM, MaKo le suma la compra a su historial en vez de crear otra ficha.' },
-    // lib/hotmart-evento.ts (EVENTOS_HOTMART: reembolso, contracargo, suscripción cancelada)
-    { t: 'Todo queda en su historial', d: 'Reembolsos, pagos rechazados y suscripciones canceladas quedan anotados en la ficha del lead.' },
-  ],
-  skool: [
-    // app/api/webhooks/skool + lib/skool-evento.ts (Answered Membership Questions por Zapier)
-    { t: 'Tu comunidad, en tu CRM', d: 'Quien pide entrar a tu Skool aparece en tu CRM con su email, sin copiar nada a mano.' },
-    // lib/skool-evento.ts (respuestasDelOptin) + la columna optin_respuestas (mig 0274)
-    { t: 'Con sus respuestas', d: 'Lo que contestó en las preguntas de ingreso queda en su ficha, para calificarlo antes de escribirle.' },
   ],
   // Claude enchufado a MaKo. Sin API key: se instala una skill del lado del usuario y
   // habla por /api/agente/* con un token.

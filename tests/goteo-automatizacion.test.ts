@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { frenoDeGoteo, turnoDeGoteo, conEnvio, textoDeGoteo, noGastaTurnoDeWhatsapp, SIN_USO } from '../lib/goteo';
+import { frenoDeGoteo, turnoDeGoteo, conEnvio, textoDeGoteo, noGastaTurno, SIN_USO } from '../lib/goteo';
 import { sanearConfigAutomatizacion, configParaGuardar, tieneConfigPropia } from '../lib/config-automatizacion';
 
 const MIN = 60_000;
@@ -64,40 +64,40 @@ const ini = motor.indexOf('export async function procesarEnvios(');
 const proc = motor.slice(ini, motor.indexOf('\n}\n', ini));
 
 test('procesarEnvios: el goteo frena además de la línea, y lo frenado pasa a su turno', () => {
-  // Desde el 23/10/2026 `sinLugar` y `quedaFrenada` miran el CANAL de la tarjeta: el goteo de WhatsApp ya no frena al email.
-  assert.match(proc, /const sinLugar = \(insc: \{ lead_id: number; secuencia_id: number \}, canal: string \| null \| undefined\): boolean =>\n\s+sinLugarEnLaLinea\(insc\.lead_id\) \|\| \(esEmail\(canal\) \? frenoGoteoEmail\(insc\.secuencia_id\) : frenoGoteo\(insc\.secuencia_id\)\)\.frena;/);
+  // Desde el 23/10/2026 `sinLugar` y `quedaFrenada` miran el CANAL de la tarjeta, y desde el 24/10 (f21) el goteo es UNO para
+  // todos los canales y cada uno cuenta lo suyo (tests/goteo-un-interruptor.test.ts).
+  assert.match(proc, /const sinLugar = \(insc: \{ lead_id: number; secuencia_id: number \}, canal: string \| null \| undefined\): boolean =>\n\s+sinLugarDelMensaje\(canal, sinLugarEnLaLinea\(insc\.lead_id\), \(c\) => frenoGoteo\(insc\.secuencia_id, c\)\.frena\);/);
   assert.equal((proc.match(/if \(sinLugar\(insc, /g) ?? []).length, 2, 'los dos puntos donde un mensaje espera lugar');
   assert.match(proc, /if \(sinLugar\(insc, pasoLeido\?\.canal\) && !\(pasoLeido && sec && sigueSinCupo\(sec\.pasos, idxLeido\)\)\) \{ await quedaFrenada\(insc, sec, pasoLeido\?\.canal\); continue; \}/);
   assert.match(proc, /if \(sinLugar\(insc, destino\.canal\) && !sigueSinCupo\(sec\.pasos, r\.idx\)\) \{ await quedaFrenada\(insc, sec, destino\.canal\); continue; \}/);
   assert.equal((proc.match(/await quedaFrenada\(insc, sec, /g) ?? []).length, 2);
   const q = proc.slice(proc.indexOf('const quedaFrenada = async'), proc.indexOf('const soltarToque'));
-  assert.match(q, /if \(g && f\.frena && !sinLugarEnLaLinea\(insc\.lead_id\)\)/, 'sólo si lo frena el goteo, no la línea');
+  assert.match(q, /if \(g && f\.frena && \(email \|\| !sinLugarEnLaLinea\(insc\.lead_id\)\)\)/, 'sólo si lo frena el goteo, no la línea');
   assert.match(q, /proximo_envio_at: new Date\(turnoDeGoteo\(f\.desdeMs, k, g\)\)\.toISOString\(\)/);
   // (22/10/2026, AU1: y lo que queda para aprobar, `cuentaParaElGoteo`: tests/goteo-con-aprobacion.test.ts.)
-  assert.match(proc, /if \(cuentaParaElGoteo\(estado\) && goteos\.has\(insc\.secuencia_id\)\) usoGoteo\.set\(insc\.secuencia_id, conEnvio\(/, 'lo que sale en la corrida cuenta');
+  assert.match(proc, /if \(cuentaParaElCupo\(\{ carril: carril != null \}\) && cuentaParaElGoteo\(estado\) && goteos\.has\(insc\.secuencia_id\)\) \{\s+const clave = claveDeGoteo\(canalDelGoteo\(paso\.canal\), insc\.secuencia_id\);\s+usoGoteo\.set\(clave, conEnvio\(/, 'lo que sale en la corrida cuenta');
   assert.match(proc, /const usoGoteo = goteos\.size \? await usoDelGoteo\(supabase, \[\.\.\.goteos\.keys\(\)\]\)/);
 });
 
-test('el uso del goteo cuenta los WhatsApp ENVIADOS (y los que quedan para aprobar) de esas automatizaciones en 24 h', () => {
+test('el uso del goteo cuenta los mensajes ENVIADOS (y los que quedan para aprobar) de esas automatizaciones en 24 h, por canal', () => {
   const i = motor.indexOf('async function usoDelGoteo(');
   const cuerpo = motor.slice(i, motor.indexOf('\n}\n', i));
-  assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.eq\('canal', canal\)\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)\.gte\('created_at', haceHorasISO\(24\)\)/);
+  assert.match(cuerpo, /\.in\('secuencia_id', \[\.\.\.ids\]\)\.in\('canal', \[\.\.\.CANALES_DEL_GOTEO\]\)\.in\('estado', \[\.\.\.ESTADOS_DEL_GOTEO\]\)\.gte\('created_at', haceHorasISO\(24\)\)/);
 });
 
 test('lo que no es un mensaje no gasta un turno del goteo (24/10/2026: la campaña de Mauricio salía cada 22 min con goteo de 11)', () => {
   // La condición «Contestó» que sigue a cada M1, una espera, un «Ir a», la entrada: corren en el acto.
-  for (const clase of ['condicion', 'esperar', 'ir_a', 'inicio', 'respuesta', 'accion']) assert.equal(noGastaTurnoDeWhatsapp(clase, null, false), true, clase);
-  // Un mensaje de WhatsApp sí; un email, mientras quede su tope.
-  assert.equal(noGastaTurnoDeWhatsapp('mensaje', 'whatsapp', false), false);
-  assert.equal(noGastaTurnoDeWhatsapp('mensaje', 'email', false), true);
-  assert.equal(noGastaTurnoDeWhatsapp('mensaje', 'email', true), false);
+  for (const clase of ['condicion', 'esperar', 'ir_a', 'inicio', 'respuesta', 'accion']) assert.equal(noGastaTurno(clase), true, clase);
+  // Un mensaje sí, de cualquier canal (desde el 24/10/2026 también el email: dejarlo pasar le salteaba su goteo).
+  assert.equal(noGastaTurno('mensaje'), false);
   // Y el motor lo usa en la puerta del nodo leído (el destino de una condición pasa por el freno en la segunda mirada).
-  assert.match(proc, /const sigueSinCupoWa = \(p: PasoSecuencia\): boolean => esPasoAccion\(p\) \|\| noGastaTurnoDeWhatsapp\(claseDe\(p\), p\.canal, emailLleno\(\)\);/);
+  assert.match(proc, /const sigueSinCupoWa = \(p: PasoSecuencia\): boolean => esPasoAccion\(p\) \|\| noGastaTurno\(claseDe\(p\)\);/);
 });
 
 // ── Las roturas (7 tests; sin romper nada: 7 pases, 0 fallos) ──────────────────────────────────────────────────────
 // (24/10/2026, el 8.º test: base 8 / 0.) 8. `noGastaTurnoDeWhatsapp` sólo con los emails (lo de antes): 1 fallo / 7 pases.
 //    9. `sigueSinCupoWa` sin `noGastaTurnoDeWhatsapp`: 1 fallo / 7 pases.
+//    (Desde el 24/10/2026, f21, se llama `noGastaTurno` y no deja pasar un email: tests/goteo-un-interruptor.test.ts.)
 // 1. `frenoDeGoteo` sin el tope del día: 1 fallo / 6 pases.
 // 2. `frenoDeGoteo` sin los minutos: 1 fallo / 6 pases.
 // 3. `turnoDeGoteo` sin escalonar (todas al mismo instante): 1 fallo / 6 pases.

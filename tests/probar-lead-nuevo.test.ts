@@ -43,7 +43,7 @@ function recorrer(pasos: readonly PasoGrafo[], decidir: (st: EstadoSim) => Estad
     if (!e) break;
     if (e.t === 'mensaje') vistos.push(`${e.paso.canal}:${e.nodo}`);
     else if (e.t === 'condicion') st = decidir(st);
-    else vistos.push(e.texto);
+    else if (e.t !== 'ab') vistos.push(e.texto);
     if (e.t === 'fin') break;
   }
   return vistos;

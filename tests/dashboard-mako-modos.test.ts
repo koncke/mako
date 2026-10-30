@@ -43,15 +43,15 @@ test('la ruta le pasa «analizar» al panel', () => {
   assert.match(leer('app/api/graficos/editar/route.ts'), /analizar: r\.analizar/);
 });
 
-test('el panel de MaKo dice en qué modo está y deja pasar al otro', () => {
-  const editar = leer('app/dashboard/PanelEditarMako.tsx');
-  assert.match(editar, /<ModosMako modo="editar" onModo=\{onModo\} \/>/);
-  assert.match(editar, /onClick=\{\(\) => onModo\('analizar'\)\}/, 'un análisis pedido en Editar no ofrece pasar a Analizar');
-  assert.match(leer('app/dashboard/PanelAnalista.tsx'), /<ModosMako modo="analizar" onModo=\{onModo\} \/>/);
+test('sin el AI Analyst, «Editar con MaKo» no ofrece un modo que ya no existe, y un análisis lo manda a la estrella', () => {
+  // 24/10/2026 (Martín: «Sí, y que la criatura vea la hoja»): el AI Analyst salió del Dashboard; lo de analizar es de la
+  // estrella de la tab, que recibe la hoja con su vista. El panel que edita queda solo: sin «Analizar · Editar».
   const ed = leer('app/dashboard/EditorInforme.tsx');
-  assert.match(ed, /<PanelAnalista [^>]*onModo=\{conModosMako \? cambiarModoMako : undefined\}/);
-  assert.match(ed, /<PanelEditarMako [^>]*onModo=\{conModosMako \? cambiarModoMako : undefined\}/);
-  // Los modos, sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, del que guarda).
-  // Y sólo EDITANDO (17/10/2026, tests/dashboard-mako-vista.test.ts): mirando, MaKo asesora y no ofrece pasar a Editar.
-  assert.match(ed, /const conModosMako = editando && !soloMirar && guardable && !enBlanco && !compartido;/);
+  assert.doesNotMatch(ed, /<PanelAnalista /);
+  assert.match(ed, /<PanelEditarMako [^>]*textoInicial=\{pedidoDeProbar\(probar\)\} \/>/, 'el panel que edita volvió a recibir un `onModo`');
+  // El panel sigue sabiendo mostrar los modos si alguien se los da: sin `onModo`, no salen.
+  assert.match(leer('app/dashboard/PanelEditarMako.tsx'), /\{onModo && <ModosMako modo="editar" onModo=\{onModo\} \/>\}/);
+  // Lo que contesta un pedido de análisis apunta a la estrella, no al «modo Analizar».
+  assert.doesNotMatch(leer('lib/graficos-ia-edicion.ts'), /modo Analizar/);
+  assert.equal(aplicarEdicion(hoja(), { analizar: true }).respuesta, 'Eso es un análisis, no un cambio: la hoja no se tocó. Pregúntaselo a MaKo en la estrella de la tab.');
 });

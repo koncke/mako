@@ -13,6 +13,7 @@ import type { NextRequest } from 'next/server';
 import { conversorGastoMeta } from '@/lib/moneda-meta';
 import { getTenantDb } from '@/lib/workspace';
 import { credWs, integracionConectada } from '@/lib/credenciales';
+import { canalMeta, insightsPorZernio } from '@/lib/meta-via';
 import { timeRangeMeta } from '@/lib/meta-rango';
 // Sólo quien administra el workspace: gasto y entrega de Meta en vivo (ver /api/meta-health).
 import { guardAdsWs } from '@/lib/ads-guard';
@@ -63,9 +64,11 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Por Zernio si el negocio conectó así (25/10/2026, lib/meta-via.ts): el paso directo devuelve las MISMAS filas.
+  const canal = await canalMeta();
   const ver = process.env.META_API_VERSION;
   const token = await credWs('META_ACCESS_TOKEN'); // token del workspace actual (dueño=env, cliente=su fila)
-  if (!ver || !token) return Response.json({ error: 'Meta no configurado' }, { status: 500 });
+  if (canal.via !== 'zernio' && (!ver || !token)) return Response.json({ error: 'Meta no configurado' }, { status: 500 });
 
   // Meta guarda 37 meses: con el período «Todo» de una hoja (desde 2020) contestaba #3018 y el pop-up del anuncio se
   // quedaba sin números, diario ni audiencia (lib/meta-rango.ts).
@@ -73,6 +76,14 @@ export async function GET(req: NextRequest) {
 
   // Helper: una llamada a insights del anuncio (opcionalmente con breakdown o diario).
   async function insights(fields: string, opts: { breakdowns?: string; daily?: boolean } = {}) {
+    if (canal.via === 'zernio') {
+      const r = JSON.parse(timeRange) as { since: string; until: string };
+      const filas = await insightsPorZernio(canal, {
+        objectId: adId!, fields: fields.split(','), desde: r.since, hasta: r.until, actionBreakdowns: ['action_type'],
+        ...(opts.breakdowns ? { breakdowns: opts.breakdowns.split(',') } : {}), ...(opts.daily ? { timeIncrement: 1 } : {}),
+      });
+      return filas as unknown as Record<string, unknown>[];
+    }
     const u = new URL(`${GRAPH}/${ver}/${adId}/insights`);
     u.searchParams.set('fields', fields);
     u.searchParams.set('action_breakdowns', 'action_type');

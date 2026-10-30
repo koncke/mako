@@ -55,6 +55,7 @@ import { copyFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from '
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pausaVigente } from './pausa-cerebro.mjs';
 
 const GB = 1024 ** 3;
 export const SALIDA_SIN_CORRER = 99;   // misma convención que scripts/typecheck-lock.mjs: «no pude chequear», no «hay errores»
@@ -498,14 +499,21 @@ export async function esperarRam(concurrencia, { pisoGb = pisoRam, quien = 'test
   let avisado = false;
   for (;;) {
     const libre = ramLibreGb();
-    for (let c = concurrencia; c >= 1; c--) if (libre >= pisoGb(c)) return c;
-    if (process.env.MAKO_TESTS_SIN_ESPERA === '1') {
-      process.stderr.write(`  [${quien}] MAKO_TESTS_SIN_ESPERA=1 con ${libre.toFixed(1)} GB: corro igual, puede matarlo el vigía\n`);
-      return 1;
+    // La PAUSA del Cerebro (scripts/pausa-cerebro.mjs) cuenta como «no hay RAM», y MAKO_TESTS_SIN_ESPERA no la saltea: es justo lo
+    // que frena mientras el Cerebro sube un tren (28/10/2026). Como «no hay RAM», respeta el tope y el candado de antes-de-subir.
+    const pausa = pausaVigente();
+    if (!pausa) {
+      for (let c = concurrencia; c >= 1; c--) if (libre >= pisoGb(c)) return c;
+      if (process.env.MAKO_TESTS_SIN_ESPERA === '1') {
+        process.stderr.write(`  [${quien}] MAKO_TESTS_SIN_ESPERA=1 con ${libre.toFixed(1)} GB: corro igual, puede matarlo el vigía\n`);
+        return 1;
+      }
     }
     if (Date.now() >= hasta) return 0;
     if (!avisado) {
-      process.stderr.write(`  [${quien}] quedan ${libre.toFixed(1)} GB de RAM y hacen falta ${pisoGb(1).toFixed(1)}: espero hasta ${Math.round(esperaMaxMs / 60000)} min…\n`);
+      process.stderr.write(pausa
+        ? `  [${quien}] el Cerebro pidió PAUSA («${pausa}»): espero a que la levante, hasta ${Math.round(esperaMaxMs / 60000)} min…\n`
+        : `  [${quien}] quedan ${libre.toFixed(1)} GB de RAM y hacen falta ${pisoGb(1).toFixed(1)}: espero hasta ${Math.round(esperaMaxMs / 60000)} min…\n`);
       avisado = true;
     }
     await dormir(2000);
@@ -787,6 +795,10 @@ async function main(argv) {
   const env = { ...process.env, ...(indice ? { GIT_INDEX_FILE: indice } : {}) };
   const r = await correrTests({ lista, compartidos, tanda: o.tanda, concurrencia: o.concurrencia, cortar: o.cortar, env, carpetaTmp, out });
 
+  if (r.sinRam && pausaVigente()) {
+    process.stderr.write(`\n  ✖ NO CORRÍ LOS TESTS: el Cerebro tiene la PAUSA prendida («${pausaVigente()}»). Esto NO es un test roto: volvé a correrlo cuando la levante.\n\n`);
+    return SALIDA_SIN_CORRER;
+  }
   if (r.sinRam) {
     process.stderr.write(`\n  ✖ NO CORRÍ LOS TESTS: NO HAY RAM (quedan ${ramLibreGb().toFixed(1)} GB, hace falta ${pisoRam(1).toFixed(1)}). Esto NO es un test roto.\n`);
     process.stderr.write('    Cerrá unos chats de Claude y volvé a correrlo, o MAKO_TESTS_SIN_ESPERA=1 para correr igual (puede matarlo el vigía).\n\n');

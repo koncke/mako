@@ -701,13 +701,62 @@ La espera del modelo dentro del render está en «Los ganchos `ce-*`».
   el inicio del clip. La caché se indexa por lo que cambia el SONIDO, se descarta lo que nadie usa, y
   durante una vista previa (un arrastre) no se reinicia nada.
 
+## «Eliminar ruido»: RNNoise decide la ganancia, y se aplica sobre el audio original (27–28/10/2026)
+
+**Vive en:** `audio/dsp/ruido.ts` · `audio/dsp/rnnoise.ts` · `audio/cadena.ts` ·
+`public/ve/wasm/rnnoise-0.2-jitsi-0.2.1.wasm` · `tests/video-editor-ruido.test.ts`
+
+- **El síntoma:** Leila (ws11): «no funciona tan eficientemente como en CapCut». Martín: «lo copiamos de un repo, revisá si
+  lo copiamos bien o nos faltan cosas».
+- ⚠️ **La pregunta era la equivocada (27/10, Cerebro).** El `ruido.ts` de hasta el 28/10 era propio (7e4fb076e): una
+  compuerta espectral con un perfil fijo por clip. OpenCut no trae reducción de ruido y CapCut usa RNNoise, una red. No
+  había constantes «mal copiadas». Medido con la voz del sistema (Windows, «Helena», en el scratchpad) a 15 dB del ruido:
+  pausas −16,3 dB con ruido rosa, −18,9 con ventilador, −1,5 con un ruido que cambia, −7 con el ruido en un solo canal
+  (el perfil salía de L+R). Ahora: −40,4 · −42,3 · −39,9 · −40,1; la voz, ±0,1 dB; los bordes, 0,01 del salto de la
+  entrada (antes 0,5–0,85).
+- ⚠️ **El arreglo obvio, «pasar el audio por RNNoise», daña la voz:** la red RE-SINTETIZA, y una voz LIMPIA sale con una
+  SNR de 11 dB contra la entrada (modelo 0.1). Por eso la red sólo DECIDE: por cuadro de 10 ms y por sus 21 bandas,
+  ganancia = √(energía que dejó / energía que entró), y esa ganancia se aplica con una STFT propia al audio original, a
+  su tasa (lo que suena nunca se remuestrea). Donde la ganancia es 1, sale idéntico.
+- **El retardo no es el que se supone:** 480 muestras el modelo 0.1 y **960** el 0.2 (correlación de una voz contra la
+  salida). No hay worklet: el clip se procesa entero, igual en la vista previa y en el export (44,1 kHz), y la red
+  escucha una copia llevada a 48 kHz (Lanczos-4).
+- **El modelo se eligió midiendo:** con un ruido que cambia, el 0.1 (los wasm de 150 KB de shiguredo y
+  web-noise-suppressor) bajaba −18 dB y el 0.2 −42. El 0.2 sólo viene EMBEBIDO en base64 en
+  `@jitsi/rnnoise-wasm@0.2.1/dist/rnnoise-sync.js`; se extrajo tal cual (sha1 del tarball = el de npm) a
+  `public/ve/wasm/` con su licencia, y el test cuida el sha256. Su pegamento es «web,worker» (no corre en node) y el
+  binario importa sólo dos funciones de memoria con nombres minimizados (`a.a`, `a.b`; el mapa sale de
+  `rnnoise-sync.js`): el pegamento son 40 líneas propias. No se agregó dependencia.
+- ⚠️ **RNNoise se come las fricativas** («s», «f») de una voz limpia: SNR 24,6 dB con ellas, 113 sin ellas. La guarda:
+  un canal cuyo piso (el cuadro más bajo en ±2 s, sin contar el silencio digital) está bajo −75 dBFS no recibe
+  ganancia. ⚠️ El silencio digital NO cuenta como «sin ruido» (una intro muda en un clip ruidoso dejaba 2 s sin
+  limpiar): una voz con las pausas en cero (ya pasada por una compuerta) sigue procesada.
+- ⚠️ **La regla del 27/10 («ganancia enlazada por máximo») falla con un canal limpio que tiene eco de sala:** su cola
+  vota 1 y deja pasar el ruido del otro (pausas −17 dB con un eco de 0,3 s, −8 con uno de 1 s). Se enlaza donde los dos
+  canales llevan LO MISMO (coherencia por banda, en ±2 cuadros): con 0,4 s de eco, −29,7. Lo que cuesta, medido: con la
+  voz a 0 dB de su ruido en un canal, la imagen se corre 1,6 dB (todo enlazado: 0,3, pero el eco vuelve a −13,8). Una
+  curva más firme (coherencia 0,5 = enlazado) arregla la imagen y rompe el eco (−24): se dejó la lineal.
+- **La rodilla:** una banda que la red baja menos de 6 dB se deja entera. Lleva la voz limpia de 19 a 35 dB de SNR y la
+  voz con ruido de −0,6 a −0,1 dB, sin mover las pausas.
+- **«Borrar silencios» y el salto entre piezas:** cada pieza se procesa sola y la red arranca de cero. Con un espejo de
+  3 s (el principio al revés) el principio de cada pieza baja ≥ 25 dB, como una pausa, y queda a 3,9 dB de procesarlo
+  de corrido (con la compuerta vieja, 13,8: cada pieza sacaba su perfil). Con 1 s, hasta 18 dB.
+- **Cuesta ~6 s por minuto de audio y canal distinto** (la red, ~0,7 ms por cuadro): 8 veces lo de antes, en el hilo
+  principal, soltándolo cada 40 cuadros. Un estéreo con los dos lados iguales se escucha una vez.
+- **La regla:** un test de ruido usa una VOZ (la sintética de `tests/video-editor-ruido.test.ts`, con formantes y
+  fricativas: RNNoise le da 0,97 de probabilidad de voz) y prueba que una voz LIMPIA queda intacta. Un seno no prueba
+  nada de esto.
+- **Quién:** el chat «Video Editor: el ruido y los silencios de Leila» (rama `editor-leila-2810`). Diagnóstico: workflow
+  `wf_80b91164-275` del Cerebro.
+
 ## El DSP de audio propio: cada fórmula de libro se midió, y estaba corrida
 
 **Vive en:** `audio/dsp/{ruido,intensidad,ritmos,tono}.ts` · `tests/video-editor-audio.test.ts`
 
 - ⚠️ **«El percentil bajo de la magnitud es el piso del ruido» era falso**: subestima la potencia del
   ruido unas 5 veces, y la pausa bajaba sólo 3,6 dB. La magnitud de un ruido en una banda sigue una
-  Rayleigh, y el percentil se corrige con esa distribución (`ruido.ts`).
+  Rayleigh, y el percentil se corrige con esa distribución (la compuerta vieja de `ruido.ts`, que desde el
+  28/10 es RNNoise: ver la entrada de «Eliminar ruido»).
 - **Un clip mono medido como UN canal da 3 dB menos**, y normalizado quedaba 3 dB más fuerte que una
   música estéreo. Se mide como suena, por los dos lados (`intensidad.ts`).
 - **Los ritmos caían 8,6–8,9 ms antes del golpe** (el desfase del flujo espectral): se corrige 0,8 de un
@@ -911,6 +960,28 @@ mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 
 - **Se construyó de cero, y no tenía que pasar sin avisar.** OpenCut classic no lo tiene
   (relevamiento §3) y en CapCut es «Identificar y eliminar muletillas» (Pro). La regla de Martín
   desde el 14/10: antes de construir, mirar la fuente; si no está, decírselo.
+- ⚠️ **«MaKo no pudo borrar los silencios» (Leila, 27/10) no era una falla de MaKo: el botón nunca entró al chat.** El
+  chat sólo conoce lo que está en `OPERACIONES_CHAT` (lib/editor-video/chat-catalogo.ts); una función de la barra que no
+  está ahí no existe para él ni para la API. Ahora es `borrar_silencios` (`borrar_silencios_video` en la API): sin
+  `ref`, cada clip con sonido de la pista principal; va ÚLTIMA (escucha el audio al aceptar) y sola respecto de otros
+  cortes; un clip con el audio extraído se descarta (cortar sólo el video o sólo su audio los desfasa).
+  ⚠️ **Y la receta de MaKo para el editor (`lib/doer-recetas.ts`, la que viaja en WhatsApp y el Ops Center) lo tenía en
+  su lista de «lo que no se puede por chat»**: con la operación ya hecha, MaKo seguía contestando que no podía. Una
+  capacidad nueva se saca también de esas listas (y de `NO_SE_PUEDE_CHAT`); lo vigila tests/doer-recetas-video-imagen.
+- **`objetivosDeSilencios` caía al clip del cabezal si lo pedido quedaba vacío** (todo en una pista bloqueada): para el
+  chat, `cabezal: false`. El botón y el chat corren el MISMO trabajo (`quitarSilencios`); el chat además cuenta cada
+  silencio que encuentra y la tarjeta lo muestra de a uno (`chat/armado.ts` + `app/_ui/ArmadoEnVivo.tsx`).
+- ⚠️ **Con ruido de fondo a 20 dB o menos de la voz, NO encontraba ninguna pausa** (ni el botón): el umbral queda en
+  −40/−42 dBFS y las pausas con ruido, arriba (4 y 7 silencios con 25 dB de distancia, 0 con 20). ⚠️ **Bajar el umbral
+  hasta el piso del ruido era el arreglo obvio, y se come las sílabas suaves** de un habla sin pausas. Desde el 28/10
+  (decisión del Cerebro) las pausas se buscan en el audio SIN RUIDO —la cadena RNNoise de «Reducir el ruido», sobre la
+  mezcla mono que mide el detector— con el MISMO umbral, y se corta el original (`dsp/silencios-sin-ruido.ts`), aunque el
+  clip no tenga «Reducir el ruido». Medido con la voz del sistema (12 pausas): ruido rosa a 20, 15 y 10 dB, de 0 a las
+  12, bordes a ≤ 20 ms; ventilador a 15 y 10 dB, 11 de 12 (falta una de 0,42 s, al límite del mínimo: el error es
+  dejar una pausa, no cortar voz); la voz que queda adentro de un corte, ≤ −57 dBFS, como sin ruido; voz limpia,
+  idéntico a hoy (la guarda de la cadena no toca lo que no tiene ruido). Cuesta lo de «Reducir el ruido» (~6 s por
+  minuto de clip) cada vez que se borran silencios. El audio del decodificador llega en trozos: se juntan en su lugar de
+  la fuente (`JuntadorDeTrozos`) porque la red necesita el clip de corrido.
 
 ## La API de MaKo y el chat al costado: el proyecto vive en el NAVEGADOR
 
@@ -1365,7 +1436,104 @@ la ruta compartida `app/api/mako/pedidos/route.ts` · el núcleo `lib/mako-pedid
   guardado tampoco los acepta.
 - **SIN HACER:** verlo en el navegador (un pedido doble, «el otro proyecto» con dos candidatos, un link a otra tab).
 
+## «Faltan diseños de plantillas» era falso: el motor está bien, falla lo que se ve (29/10/2026)
+
+- **Síntoma:** las 7 plantillas de «Nuevo video» se ven vacías.
+- **El diagnóstico obvio era el equivocado:** los tiempos, las animaciones y los huecos de
+  lib/editor-video/plantillas.ts están bien y tienen tests.
+- **Causa:**
+  - el copy es de e-commerce («ESTO LO CAMBIA TODO», «50 % DE DESCUENTO», «María López»);
+  - la muestra es un PNG gris («Tu clip»);
+  - Create no dibuja la plantilla: `plantillasNuevoVideo` no pasa imagen, y `MiniaturaPlantilla` solo la usa la pestaña
+    Plantillas.
+- **Regla:** se cambia el contenido, no el motor. La tarjeta usa la miniatura del editor (o un póster WebP, si el chunk
+  arrastra el WASM).
+
+**Vive en:** lib/editor-video/plantillas.ts · app/video-editor/plantillas-crear.ts · app/video-editor/_opencut/plantillas/
+
+## Lo que una plantilla de Video no puede prometer (29/10/2026)
+
+- **Es solo 9:16:** `usarPlantilla` fija la relación, y `LIENZO_REF` y `ZONA_SEGURA` son de Reels. YouTube va como
+  receta del agente, no como plantilla de huecos.
+- **No tiene audio:** no hay `PistaPlantilla`, y el chat no agrega música ni efectos de una biblioteca («lo que no se
+  puede» de chat-catalogo.ts). Prometer música o efectos de sonido no se cumple.
+- **Fuentes:** `cajaDeTexto` solo mide Anton, Montserrat y Playfair Display, e Inter no está en `FUENTES_PLANTILLAS`.
+- **Textos de muestra:** como máximo 5 palabras (test 7) y `mayusculas: true` si van en mayúscula (test 9). `cierre()`
+  no lleva mayúsculas. El guion largo del ejemplo va en un campo nuevo, `ejemplo.guion`.
+- **Partir la pieza principal en dos piezas del mismo HuecoClip** no está medido. El quiebre lo hace el Editor con
+  `dividir`.
+
+**Vive en:** app/video-editor/_opencut/plantillas/instanciar.ts · lib/editor-video/chat-catalogo.ts · tests/video-editor-plantillas.test.ts
+
+## Las muestras: sin caras, con su archivo en la clave, y la opcional se exporta (29/10/2026)
+
+- **Caras:** una persona de stock en un hueco «a cámara» queda diciendo, con los subtítulos, un resultado que nunca
+  dijo, y la licencia de Pexels prohíbe insinuar respaldo. Las muestras van sin caras.
+- **La opcional:** una muestra opcional que no se reemplaza **se exporta tal cual** (`quedanMuestras` ignora las
+  opcionales). Si lleva el rótulo dibujado, sale en el anuncio.
+- **La clave:** `nombreMuestra(rotulo)` reutiliza «Muestra · Tu clip.png» entre plantillas. Con fotos distintas por
+  plantilla, la clave lleva el archivo.
+
+**Vive en:** app/video-editor/_opencut/plantillas/uso.ts · muestras.ts · huecos.ts · export/dialogo-exportar.tsx
+
+## El resumen del Editor se corta, y no se sabe qué modelo contesta (29/10/2026)
+
+- `editarVideo` corta el resumen a la primera línea y a 300 caracteres: la estrategia y el guion del experto necesitan
+  campos propios en `FORMATO_CHAT`.
+- El comentario de lib/editor-video/ia.ts dice que `video-editor-ia` va por la cascada barata, con Gemini por defecto.
+  Antes de medir al experto, se verifica en /modelos-ia qué modelo responde.
+
+**Vive en:** lib/editor-video/ia.ts · lib/editor-video/chat-prompts.ts
+
+## Cifras de la investigación que la fuente no dice, y licencias que parecen abiertas (29/10/2026)
+
+- **Cifras sin fuente:**
+  - la música de 18 a 24 dB debajo de la voz no tiene fuente primaria (video-use dice de 12 a 15 dB);
+  - claude-shorts pone el gancho en 3 s, no en 3.5 s;
+  - retention-editing quita los silencios de más de 1 s, y los 0.4 s son el umbral de corte limpio de video-use.
+- **Licencias que parecen abiertas:**
+  - HyperFrames es Apache-2.0, pero corre sobre GSAP, cuya licencia gratuita prohíbe usarlo en herramientas de
+    animación sin código;
+  - Remotion cobra a las empresas de más de 3 personas, y el render de claude-shorts depende de él;
+  - según la investigación (no se releyó), Coverr, Mixkit, la música de Pixabay, la API de Freesound y LottieFiles
+    excluyen editores, productos que compiten o la redistribución.
+- **Regla:** cada número del prompt sale de un archivo leído. De los repos con licencia se copia la lógica, nunca el
+  runtime.
+
+**Vive en:** lib/editor-video/chat-prompts.ts (`video_editor.experto`) · docs/plantillas-reales/video.md (sección 4)
+
+## Un cierre «Escribe LLAMADA» sin quien conteste deja al lead colgado (29/10/2026)
+
+- **Regla:** el cierre con palabra clave va solo si el negocio tiene la automatización que la contesta; si no, la
+  acción es agendar o registrarse.
+- **Pendiente de verificar:** una cifra de facturación propia en un anuncio se lee como promesa de ingresos (es una
+  inferencia, sin verificar contra la política de Meta). Por eso la historia del fundador habla de clínicas atendidas.
+
+**Vive en:** lib/editor-video/chat-prompts.ts · lib/editor-video/plantillas.ts
+
+## Tests que se rompen a propósito al cambiar las plantillas (29/10/2026)
+
+- Cambiar la duración de `testimonio` rompe la regex «Sugerida · 15 s» de tests/video-editor-nuevo-video.test.ts.
+- Con la miniatura, el `rotulo` deja de dibujarse y «Sugerida» desaparece si no pasa a la `insignia`.
+- Retirar `gancho-escrito` y `oferta-glitch` obliga a borrar sus filas en `ETIQUETAS_VIDEO`.
+- **Regla:** se reescriben con el cambio, no se fuerzan.
+
+**Vive en:** tests/video-editor-nuevo-video.test.ts · lib/editor-video/plantillas-etiquetas.ts
+
 ## Lo que quedó SIN hacer
+
+**Del 28/10 (el ruido y los silencios de Leila)**
+- «Borrar silencios» con ventilador fuerte (≤ 15 dB de la voz) deja alguna pausa al límite del mínimo de 0,4 s.
+- La reducción corre en el hilo principal (~6 s por minuto y canal): un clip de 10 min estéreo son ~2 min de CPU con
+  el editor respondiendo a saltos. Un worker (`audio/dsp/ruido.ts` es puro y lo aguanta).
+- Con eco de sala largo en el canal limpio (≈1 s), las pausas del otro bajan −8 dB; y con la voz a 0 dB de su ruido en
+  un canal, la imagen se corre 1,6 dB (ver la entrada: la coherencia es el compromiso medido).
+- Dos roturas que la voz sintética no ve: el espejo de 1 s en vez de 3 (lo vio la voz del sistema: 18 contra 10 dB) y
+  sacar el enlace del todo (la rodilla ya deja la voz igual en los dos lados; la diferencia es ≤ 0,4 dB).
+- Nada se miró en un navegador: ni la vista previa ni el export con RNNoise, ni la tarjeta que muestra los silencios
+  de a uno (la PC con 16 GB y otros chats; el dev server del editor no se levantó).
+- Si el prompt del chat está editado en /configuraciones, no tiene la línea nueva de `borrar_silencios` (el catálogo
+  sí la lleva: entra por el slot).
 
 **Del 14/10 (barra lateral, Borrar silencios, Avatar de IA)**
 - Nada de lo del 14/10 se miró en un navegador: el editor se ve en producción y la rama `video-editor`
@@ -1733,3 +1901,223 @@ La propuesta va en el hueco `enMensaje`, y ahí también el `data-mensaje` que b
 - El rótulo del alcance ya no va en la burbuja de la persona (sigue en los chips), y el tope del pedido lo pone `enviar`.
 
 **Vive en:** app/video-editor/_opencut/chat/PanelChat.tsx · tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## «No se pudo importar» con sólo el nombre: el reporte iba SIN la causa (ticket #15, Leila, 27/10/2026)
+
+Leila reportó «No se pudo importar. ESP_Fabi sentada_limpio.mp4» desde el aviso, y el ticket llegó sin ningún error
+técnico. **La causa de SU archivo no se puede saber sin el archivo**; lo que sí estaba mal, y se arregló:
+
+- **El «Reportar a Soporte» del Toaster (`components/ui/sonner.tsx`) manda sólo el título y la descripción del aviso.** El
+  error real se iba a la consola. Un aviso que puede necesitar la causa trae su PROPIA acción con el detalle técnico
+  (`avisar` en `media/processing.ts`: el error, el tipo y el peso), nunca un texto que la persona tenga que leer.
+- **Una lectura fallida igual sumaba el clip a la biblioteca**, sin duración ni tamaño: roto en la línea de tiempo.
+  Ahora un video que mediabunny no puede leer NO se importa, y el aviso dice por qué y qué hacer
+  (`media/importar-motivo.ts`, puro y con test).
+- **La miniatura (decodificar el primer cuadro) tumbaba la importación entera** aunque el resto se hubiera leído. Ahora es
+  como un códec sin decodificador: se importa avisando que puede verse mal.
+- **Un archivo de OneDrive / Google Drive sin descargar** se lee como `NotReadableError` (o pesa 0): el porqué lo dice y
+  pide «Mantener siempre en este dispositivo». Se reconoce por el NOMBRE del error: el texto cambia con la versión y el
+  idioma de Chrome.
+
+- ⚠️ **Un .mp4 CORTADO no da error: se lee como un archivo SIN PISTAS** (28/10). El índice (`moov`) va al final y una descarga
+  o una copia a medias no lo trae; mediabunny no tira, devuelve cero pistas, y eso decía «no tiene imagen, impórtalo como
+  audio». Ahora: «parece incompleto». Antes del arreglo del 27/10 daba justo «No se pudo importar» con el nombre: es una
+  causa PROBABLE del ticket. Medido con 21 .mp4 hechos con ffmpeg (HEVC hvc1/hev1 y Main10, H.264 High 10 y 4:2:2,
+  fragmentado, QuickTime renombrado, ProRes, PCM, Opus, VP9, AV1, dos audios, timecode, nombre con espacios): la
+  lectura los entiende todos; sólo el cortado y el vacío fallan, y el MPEG-4 viejo (`mp4v`) entra sin códec. El nombre
+  con espacio no llega a ninguna ruta (OPFS guarda por id).
+- **Lo que hace falta para saber el de Leila:** que lo vuelva a importar (el aviso de ahora dice el porqué y su «Reportar
+  a Soporte» manda el error técnico, el tipo y el peso) o el resultado de abrirlo en su computadora: si no se reproduce,
+  está cortado; si se reproduce, el detalle técnico del aviso nuevo.
+
+**Vive en:** `media/importar-motivo.ts` · `media/processing.ts` · `media/mediabunny.ts` (`SinPistaDeVideo`,
+`errorDecodificar`) · tests/video-editor-importar-motivo.test.ts (6 roturas; el 5, con `tests/fixtures/video-chico.mp4`) ·
+*27/10/2026, chat «Motion / Imagen» (claude5); el cortado, 28/10, chat «Video Editor: el ruido y los silencios de Leila».*
+
+## «No se pudo generar los subtítulos» por CUALQUIER causa: la función no lanza y el chat sólo mira la línea (ticket 23, Leandro, 28/10/2026)
+
+Leandro (ws 10) aceptó «generar los subtítulos» en el chat y el reporte dijo sólo «No se aplica: no se pudo generar los
+subtítulos». **El diagnóstico obvio era el equivocado:** se sospechó que su IA (sólo Claude, que no escucha audio) no podía
+transcribir. Los subtítulos NO pasan por la IA del negocio: los saca Whisper en el navegador (`services/transcription/`,
+WebGPU y si falla WASM; de internet sólo baja el modelo, una vez). Su configuración de IA no cambia nada.
+
+- ⚠️ **Una función que nunca lanza y deja el error en un store pierde la causa en el chat.** `generarSubtitulos` escribía
+  «No se pudo descargar» / «No se reconoció la voz» en `useTrabajoSubtitulos` y volvía sin nada; el panel lo mostraba abajo
+  del botón, pero `correrLarga` (`chat/aplicar.ts`) sólo ve si la línea cambió, y sin avisos escribe el genérico «no se
+  pudo …». Encima había dos `return` mudos (un trabajo ya corriendo, sin proyecto) que nadie contaba. Y «Transcribir»
+  (pestaña Transcripción) no mostraba ninguno.
+- **La regla:** una operación larga que el chat llama devuelve un resultado `{ ok } | { ok: false, motivo }` (como
+  `quitarSilencios` y `usarPlantilla`), y el botón y el chat leen el MISMO: un texto por motivo que dice qué pasó y qué
+  hacer (`subtitles/resultado.ts`). Lo que lanzó se clasifica por la fase en que iba (audio, modelo, transcribiendo,
+  armando).
+- **El ticket no alcanza para saber cuál fue la de Leandro:** trae Chrome 156 de escritorio en Windows, sin el error
+  interno. Por probabilidad: la bajada del modelo (la primera vez) o un clip sin voz. El próximo reporte ya trae el motivo.
+- **Lo que NO entra:** transcribir en el servidor (con el Groq de la plataforma) para no bajar el modelo al navegador. Es
+  decisión de producto, no este arreglo (Cerebro, 28/10).
+- ⚠️ **Trampa al probar rompiendo: el árbol de trabajo está en CRLF (autocrlf) y el `grep` de Git Bash no ve el `\r`.**
+  Un script que rompe reemplazando un texto de varias líneas escrito con `\n` no lo encuentra; si no lo avisa, corre la
+  base sin romper nada y da un verde falso. El script tiene que usar el fin de línea del archivo
+  (`original.includes('\r\n')`) y decir «no encontré» cuando el texto no aparece exactamente una vez. Y `node --test` sin
+  terminal no escribe `# pass`: hay que pedir `--test-reporter=tap` para leer los conteos.
+
+**Vive en:** `subtitles/resultado.ts` (puro, lo carga el test) · `subtitles/generar.ts` · `chat/aplicar.ts` (`correrLarga`) ·
+`transcripcion/components/transcripcion-view.tsx` · tests/video-editor-chat.test.ts (test 52) ·
+*28/10/2026, chat «Video Editor: el ruido y los silencios de Leila».*
+
+## «No hay silencios» cuando sobran: el chat buscó en UN clip de 0,9 s porque el ejemplo del catálogo nombraba uno (tickets 31 y 32, Leila, 29/10/2026)
+
+Leila escribió en el chat «Quiero borrar silencios y me dice que no hay cuando sobran», aceptó, y salió «No se aplica: no hay
+silencios de 0,4 s o más». **El diagnóstico obvio era el equivocado:** se sospechó del detector con su ruido de fondo (lo del
+28/10). La propuesta guardada lo desmiente: el modelo mandó `{"op":"borrar_silencios","ref":"v9"}`, y v9 era un pedazo de 0,93 s
+(del 23,4 al 24,3 del original) de un video que ella ya venía cortando a mano. En 0,93 s no entra una pausa de 0,4 s con sus
+80 ms a cada lado. El modelo copió la `forma` del catálogo, que traía siempre `"ref":"v1"`. El #32 («dice que no hay
+silencios y sí los hay», por el chat de soporte) llegó UN minuto después: es el mismo episodio contado dos veces, no una
+segunda prueba de que falle el detector (en el hilo hay una sola propuesta de silencios).
+
+- ⚠️ **El `forma` de una operación es lo que el modelo COPIA.** Un parámetro opcional que aparece en el ejemplo se vuelve
+  obligatorio en la práctica. El ejemplo va sin él, y el `para` dice cuándo sí: «Con "ref" SÓLO si la persona nombra un clip».
+- ⚠️ **El audio de un proyecto del Video Editor no está en la base:** vive en el navegador de quien edita (OPFS). En la base
+  quedan el espejo de la línea de tiempo (`video_editor_proyectos.vista`: clips, recortes y duraciones) y el hilo del chat con
+  cada propuesta (`video_editor_chats.mensajes`: `propuesta.operaciones` y `refsPorId`). Con eso se ve QUÉ se pidió y sobre
+  qué clip, pero no se puede medir el detector con su audio. Si su ruido además le gana al detector no se sabe: hace falta el
+  archivo original.
+- ⚠️ **El chat del Video Editor no manda historial** (cada pedido llega solo a `/api/video-editor/ia`). Un aviso que pregunta
+  «¿las busco más cortas?» no se puede contestar con un «sí». El aviso trae la FRASE para pedirlo.
+- **El botón tenía el mismo agujero:** sin nada elegido, busca sólo en el clip bajo el cabezal, que después de cortar a mano es
+  un pedazo, y decía «Sin silencios» sin decir dónde había buscado.
+- **La regla:** un «no encontré» dice dónde buscó y cuánto duraba, y qué se puede pedir (`textoSinSilencios`, sin el «No se
+  aplica:» delante). La pausa mínima se puede pedir de 0,2 a 2 s (`pausa_min`, también por la API).
+- ⚠️ **Las pistas de una escena son un OBJETO (`overlay`, `main`, `audio`), no una lista.** El primer arreglo contaba los
+  clips con `(…?.tracks ?? []).flatMap(…)`: en el navegador tiraba justo cuando no había pausas. Los tests en verde no lo
+  vieron porque esa parte la miraban LEYENDO el fuente; lo vio el tsc acotado. Va
+  `[...tracks.overlay, tracks.main, ...tracks.audio]` (como `media/audio.ts`), en una función pura con un test que la corre
+  (`clipsConSonido`).
+
+**Vive en:** `audio/silencios-aviso.ts` (puro) · `audio/borrar-silencios.ts` · `chat/aplicar.ts` · `chat/linea.ts` ·
+`lib/editor-video/chat-catalogo.ts` · tests/video-editor-chat.test.ts (test 53) · tests/video-editor-silencios.test.ts ·
+*29/10/2026, chat «Video Editor: el ruido y los silencios de Leila» (claude3).*
+
+## Los colores de MaKo en `.ce`: un ciclo de variables CSS no tira error, deja todo transparente (29/10/2026, claude3)
+
+Martín, 29/10: «en las tabs de Editor e Image, pongas los colores de MaKo, no esos colores». La paleta `--cc-*` pasó a apuntar
+a los tokens de la app (claro y oscuro: `--cc-accent: var(--primary)`, `--cc-panel: var(--surface)`…) y el oscuro dejó de
+forzarse (sin `TemaOscuro`, sin `color-scheme: dark`, `dark:` sigue a `[data-tema="oscuro"]`). Lo que costó:
+
+- **El ciclo.** Lo obvio, `.ce { --cc-accent: var(--primary); --primary: var(--cc-accent) }`, deja las DOS inválidas y todo
+  transparente, sin un error. El reemplazo automático en el `CSS_CHAT` viejo produjo exactamente `--primary:var(--primary)`.
+  **Regla:** `.ce` no redefine NINGÚN token de MaKo (`--primary`, `--border`, `--bg`, `--surface`, `--ink`…); sólo los nombres
+  de shadcn y `--accent` (que en MaKo es el ocre de la marca). Lo fija tests/video-editor-tema.test.ts.
+- **El lienzo lee tokens RESUELTOS.** `guides/reglas.tsx` y `leerToken` leen `--cc-sunken`, `--cc-panel`, `--cc-line-2`,
+  `--cc-ruler`, `--cc-text-3`, `--cc-clip-audio-wave`: tienen que ser `var()` de un color plano, nunca `color-mix()`. Sin
+  verificar: si el tema cambia con el editor abierto, la regla no se redibuja hasta otro motivo.
+- **Blanco clavado sobre `bg-primary`.** En oscuro `--primary` es celeste (#7FA6F8) y el blanco encima no se lee: va
+  `text-primary-foreground`. El blanco y el negro ENCIMA de imagen, video o clips (tiradores, insignias, guías de recorte) se
+  quedan. Los colores de los clips también (son de dato, oscuros y legibles en los dos temas).
+
+**Quedó sin hacer:** verlo en un navegador (no hubo capturas: la guardia de RAM y la pausa del Cerebro); `ArmarPlantilla`
+hace `router.replace('/video-editor/<id>')` también en el teléfono (cae en la ruta de escritorio; ya era así,
+`plantilla/ArmarPlantilla.tsx`); `lib/movil-creacion.ts` no lleva `propuesta` en `querySub` de `/video-editor/*`; el menú
+de CapCut del editor sigue con «Nuevo proyecto» y «Volver a la página de inicio» (lleva a «¿Qué vas a crear hoy?»);
+`docs/diseno-editor-video.md` §9 y la tabla de la paleta de este documento («El tema vive en `.ce`») describen todavía la
+home y la paleta de CapCut.
+
+**Vive en:** app/video-editor/capcut-theme.css · app/video-editor/plantillas-crear.ts · app/video-editor/proyectos.ts ·
+app/video-editor/VideoEditorCliente.tsx (PantallaCrear) · tests/video-editor-tema.test.ts · tests/video-editor-nuevo-video.test.ts
+
+## «Module opencut has no exported member FrameRate»: no es el wasm instalado, es la LISTA de tsc-acotado (29/10/2026, claude3)
+
+Un `tsc-acotado` con archivos que llegan a `_opencut` (Video, y también Image, que importa piezas compartidas) dio 14 errores
+en `_opencut/wasm/*` (`FrameRate`, `parseTimecode`, `TICKS_PER_SECOND`… «no exported member», y TS7016 sobre
+`opencut-wasm/opencut_wasm_bg.js`). **Lo obvio era el equivocado:** `opencut-wasm` instalado es el 0.2.10 que pide
+package.json y su `.d.ts` sí trae `FrameRate`. El TS7016 deja el módulo en `any`, y el re-export se queda sin miembros.
+La declaración existe en el repo y no estaba en la lista: tsc-acotado sólo ve los `.d.ts` que le pasás.
+
+**Regla:** una lista que toque `_opencut` lleva sus cuatro declaraciones: `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`,
+`types/soundtouchjs.d.ts`, `types/eyedropper.d.ts` y `export/gifenc.d.ts`. Sin ellas, también salen `soundtouchjs`, `gifenc`
+(TS7016) y `EyeDropper` (TS2304). Con las cuatro: 42 archivos de Video y 43 de Image sin errores.
+Y una corrida de ~200 archivos juntos murió con código 134 (memoria): en tandas de ~40 con `--heap=3000`, por con-turno.
+
+## «Transicio…» y «Multimed…» no eran por el chat: cada pestaña medía 58 px FIJOS (29/10/2026, claude3)
+
+Martín: «el chat a la izquierda le come lugar al editor: la barra corta "Transicio…" y "Multimed…"». El chat le quita
+ancho al editor (ahora se pliega: `plegable` en PantallaCrear), pero **los rótulos se cortaban a cualquier ancho de
+pantalla**: `tabbar.tsx` daba `w-[58px]` a cada pestaña y `truncate` al rótulo, y a 11 px «Transiciones» pide ~66.
+Ahora `min-w-[58px]` + el rótulo entero (`whitespace-nowrap`); lo que no entra lo siguen corriendo las flechas ‹ ›.
+Captura comparada (main y ahora, a 300/360/460 de panel): C:/dev/revisiones/create-qa-2910/despues-barras-1440.png.
+
+## La fila de abajo del reproductor se encimaba de 460 px para abajo: tres columnas `1fr` y botones de texto fijos (30/10/2026, claude3)
+
+Martín mandó una captura de un 9:16 con el reproductor a ~500 px: «00:00:00:00 / 00:00:00…», ▶, «Completa ▾», la lupa,
+«Relación ▾» y pantalla completa encimados, y el total cortado debajo de «Completa». La barra era
+`grid-cols-[1fr_auto_1fr]` con la derecha en `min-w-0`: la derecha (~215 px de botones de texto) no se achica ni cambia de
+forma, así que con menos lugar se desborda hacia la izquierda, sobre el ▶ y el tiempo. Y el reproductor puede bajar al 18 %
+del editor (`editor-page.tsx`): ~155 px a 1280 con el chat abierto, ~124 con la barra lateral fija.
+
+- **La regla:** una barra adentro de un panel que se redimensiona decide su forma por SU ancho (un `ResizeObserver` → un
+  nivel puro, `preview/barra-niveles.ts`), nunca por la ventana. Cada botón de texto tiene su forma de ícono con el valor
+  en el tooltip y en el `aria-label`; lo que tampoco entra pasa a otra fila. Sin `container-type`: el tooltip del editor
+  no va en portal y una contención en el ancestro le cambia el bloque contenedor.
+- ⚠️ **El teléfono escondía esta barra por su CLASE de Tailwind** (`[class~="grid-cols-[1fr_auto_1fr]"]`,
+  `app/m/video-editor/video-editor.css`): cambiarle las clases la habría vuelto a mostrar en el celular, encimada. Ahora la
+  elige por la marca `data-barra-reproductor`; lo fija tests/m-creacion.test.ts.
+- **Cómo se midió sin abrir el editor** (que en el banco no sale de «Cargando…» y en Chrome real pesa 5 GB): la barra REAL
+  compilada con esbuild y el `globals.css` real con Tailwind mirando sólo `app/video-editor` (liviano), y lo que habla con
+  el motor (`use-editor`, `wasm`, `wasm/opencut`, `preview-viewport`, `navegacion`, `atajos-reproductor`) reemplazado por
+  un stub con datos inventados; Chrome sin ventana, una fila por ancho, de 120 a 700 px. El banco quedó en
+  `C:/dev/revisiones/editor-pantalla-3010/banco/` (fuera del repo).
+- ⚠️ **Medir por la caja da falsos «se pisa»:** el tiempo editable tiene `-mx-1 px-1` (el fondo del hover) y su caja se
+  mete bajo la «/» sin que las letras se toquen. Se mide lo que se VE: un `Range` sobre el contenido de cada pieza.
+- Medido: antes, de 460 px para abajo el ▶ pisa «Completa», de 380 para abajo el total se corta y de 230 para abajo
+  «Completa» sale del panel. Después, de 120 a 700 px nada encimado, afuera ni cortado, con un video de 60 s y otro de
+  1 h 02 min. Capturas en `C:/dev/revisiones/editor-pantalla-3010/`.
+
+**Vive en:** `preview/barra-niveles.ts` (puro) · `preview/components/toolbar.tsx` · `app/m/video-editor/video-editor.css` ·
+tests/video-editor-barra-reproductor.test.ts · tests/m-creacion.test.ts.
+
+## La barra de la línea de tiempo escondía herramientas: un ScrollArea con la barra de scroll OCULTA (30/10/2026, claude3)
+
+Lo que no entraba quedaba fuera de la vista sin aviso. Medido en el banco (la barra real con las herramientas que registran
+los paquetes): ocupan 983 px; a 1366 con el chat abierto el centro mide 950 y «Acercar» no se veía; a 1280, el deslizador y
+«Acercar»; a 1280 con la barra lateral fija (688), siete.
+
+- ⚠️ **El ScrollArea de Radix no deja partir una fila:** su viewport mete el contenido en un `display: table` que crece con
+  lo que tiene adentro, así que un `flex-wrap` adentro nunca parte. Para que una barra se parta, va sin ScrollArea.
+- **La regla:** sin lugar, primero se esconde lo `prescindible` (una marca en la herramienta, `ce/ranuras.ts`; hoy sólo el
+  deslizador del zoom, que − y + repiten), por el ancho medido de la barra (`timeline/barra-ancho.ts`); si aun así no entra,
+  la barra se parte en dos filas (CSS: ninguna herramienta nueva puede volver a quedar afuera). La derecha, partida, queda
+  a la derecha; cada separador va con su bloque. El alto de la barra pasó a MÍNIMO (sólo lo usaba ella).
+- ⚠️ **En el banco, el `useEditor` falso tiene que comparar las listas por elemento**, como el de verdad: un selector que arma
+  una lista nueva en cada lectura hace que `useSyncExternalStore` re-dibuje sin fin (React #185). Y el índice del wasm
+  (`_opencut/wasm`, media-time.ts) va REAL: sólo el módulo crudo `wasm/opencut` se reemplaza (`banco/stubs/opencut-crudo.ts`).
+- Después: en los siete casos nada afuera; a 950 una fila sin el deslizador, a 864 y 688 dos filas (67 px). Capturas en
+  `C:/dev/revisiones/editor-pantalla-3010/barra-linea-*.png`.
+
+**Vive en:** `timeline/barra-ancho.ts` (puro) · `timeline/components/timeline-toolbar.tsx` · `hooks/use-ancho.ts` (el ancho,
+compartido con la barra del reproductor) · `ce/ranuras.ts` (`prescindible`) · tests/video-editor-barra-linea.test.ts.
+
+## Los paneles de arriba se achicaban hasta no leerse: mínimos en % del editor (30/10/2026, claude3)
+
+Los mínimos eran 15 % / 18 % / 15 % del ancho del editor: ~130 px con el chat abierto a 1280, ~103 con la barra lateral
+fija. Medido en el banco (los paneles reales; el stub del motor con un comodín y un proyecto inventado): la biblioteca
+aplasta «Importar» y la zona para arrastrar de 240 px para abajo y las corta de 160; en propiedades, de 160 para abajo no se
+lee nada, y el rótulo (`max-w-[45%] truncate`) cortaba «Cuadros por segundo:» aun a 300.
+
+- **La regla:** un panel que se redimensiona tiene un mínimo en PÍXELES, el de lo que tiene adentro. react-resizable-panels 2
+  sólo entiende %: se pasan con el ancho MEDIDO del grupo (`components/editor/minimos-paneles.ts`, 280 / 160 / 280), y si no
+  suman se achican parejo hasta el 96 %. La librería agranda al mínimo el panel que quedó más chico
+  (`reevaluatePanelConstraints`): cambiar `minSize` con el editor abierto funciona.
+- Un rótulo de una ficha de dos columnas se PARTE en renglones, no se corta (`detalles.tsx`).
+- Capturas: `C:/dev/revisiones/editor-pantalla-3010/paneles-antes.png` y `paneles-despues.png` (252, 280 y 320 px).
+
+**Vive en:** `components/editor/minimos-paneles.ts` (puro) · `editor-page.tsx` · `panels/properties/detalles.tsx` ·
+tests/video-editor-paneles-minimos.test.ts.
+
+## SIN RESOLVER: el editor no carga en un Chrome sin ventana (el banco), se queda en «Cargando…» (29/10/2026)
+
+Para el QA visual se armó un banco (las pantallas reales compiladas con esbuild, sin `next dev`). El editor de Video crea el
+proyecto y navega, pero `EditorProvider` no sale de «Cargando…» ni en 75 s, con o sin recargar. **Descartado, medido:**
+ningún `fetch` pendiente; WebGPU da adaptador y `requestDevice` contesta; OPFS e IndexedDB abren; el hilo de la página no
+está trabado (un `setTimeout` cada 1 s corre); con la GPU real (`--ignore-gpu-blocklist`) tampoco. La espera está adentro
+de `initializeGpuRenderer()` o de `project.loadProject` (migraciones, medios, fuentes): falta poner marcas ahí para saber
+cuál. Hasta entonces el editor de Video se mira en producción, o por partes (la barra se probó suelta).
+Vive en: components/providers/editor-provider.tsx (`loadProject`), core/managers/project-manager.ts.

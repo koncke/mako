@@ -25,7 +25,7 @@
 // =============================================================================
 
 import type { OperacionDef, Gating, Parametro } from '../tipos';
-import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO } from '@/lib/editor-landing/doc';
+import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO, TAMANOS_TEXTO } from '@/lib/editor-landing/doc';
 import { PROPORCIONES } from '@/lib/editor-landing/api-tipos';
 import { REDONDECES } from '@/lib/editor-landing/temas';
 // Las listas que aceptan las operaciones: las MISMAS que validan los planes (landing-contenido.helpers.ts).
@@ -73,9 +73,16 @@ const CON_DIRECCION = (EFECTOS as readonly DefEfecto[]).filter((d) => d.direccio
 export const DEFS_EDITOR: readonly OperacionDef[] = [
   // ── Lecturas ────────────────────────────────────────────────────────────────
   {
+    id: 'ver_iconos_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Íconos de la biblioteca del editor',
+    descripcion: 'Los íconos que se pueden poner en una landing del editor del Web Generator (los del selector de íconos del editor), buscados por nombre o por lo que muestran, en español y sin acentos («cohete», «dinero», «grafico»). Devuelve el nombre de cada uno (lo que pide cambiar_icono_landing) y sus etiquetas. Sin búsqueda, los primeros 60.',
+    parametros: [{ nombre: 'buscar', rotulo: 'Buscar', tipo: 'string', max: 60, descripcion: 'Una o más palabras: cada una tiene que estar en el nombre o en las etiquetas.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
+  },
+  {
     id: 'ver_secciones_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Secciones y bloques de una landing',
-    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen…— y su texto corto). Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
+    descripcion: 'Mapa de una landing o presentación: páginas (id, ruta) y secciones en orden (id, título, oculta, fondo, íconos) con sus bloques (posición, tipo —texto, botones, formulario, agenda, video, imagen— y texto corto; un «diseño editable» suma botones, imágenes y videos). Úsala antes de cambiar una sección o un bloque. El texto entero: ver_landing_creada.',
     parametros: [P_ID, { nombre: 'pagina', rotulo: 'Página', tipo: 'string', max: 64, descripcion: 'El id de una página: sólo ésa. Sin él, todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -227,13 +234,33 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'cambiar_texto_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar un texto de una landing',
-    descripcion: `Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. ${VERSION}`,
+    descripcion: `Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones, y los textos de un «Diseño editable», como las páginas de MaKo, sin tocar su diseño): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'buscar', rotulo: 'Texto de ahora', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El texto de hoy, tal cual (mayúsculas y tildes incluidas; de ver_landing_creada).' },
       { nombre: 'reemplazar', rotulo: 'Texto nuevo', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El texto nuevo ("" lo borra).' },
       { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing): sólo ahí.' },
       { nombre: 'todas', rotulo: 'Todas', tipo: 'boolean', descripcion: 'true cambia todas las veces que aparece.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
+    id: 'dar_formato_texto_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Negrita, cursiva, subrayado, tachado o centrado',
+    descripcion: `Negrita, cursiva, subrayado, tachado, color, tamaño o alineación de una frase EXACTA de una landing (bloques y «Diseño editable»), como la barra «Texto» del editor. Si aparece más de una vez pide la sección o todas:true. ${VERSION}`,
+    parametros: [
+      P_ID,
+      { nombre: 'buscar', rotulo: 'Texto', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La frase, tal cual.' },
+      { nombre: 'negrita', rotulo: 'Negrita', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'cursiva', rotulo: 'Cursiva', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'subrayado', rotulo: 'Subrayado', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'tachado', rotulo: 'Tachado', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'color', rotulo: 'Color', tipo: 'string', max: 20, descripcion: 'Hex (#e11d48) o del tema (acento, titulo…).' },
+      { nombre: 'tamano', rotulo: 'Tamaño', tipo: 'string', enum: [...TAMANOS_TEXTO], descripcion: 'De xs a 2xl.' },
+      { nombre: 'alinea', rotulo: 'Alineación', tipo: 'string', enum: ['izquierda', 'centro', 'derecha'], descripcion: 'Del párrafo.' },
+      P_SECCION_OPCIONAL,
+      { nombre: 'todas', rotulo: 'Todas', tipo: 'boolean', descripcion: 'Todas las veces que aparece.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
@@ -253,7 +280,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_seccion_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el estilo de una sección',
-    descripcion: `El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». Sólo cambia lo que se pasa. ${VERSION}`,
+    descripcion: `El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». En una sección de «diseño editable» (las páginas de MaKo) sólo el fondo: un color, un degradado, o fondo "tema" (o restablecer) para volver al del diseño. Sólo cambia lo que se pasa. ${VERSION}`,
     parametros: [
       P_ID, P_SECCION,
       { nombre: 'diseno', rotulo: 'Imagen de acento', tipo: 'string', enum: DISENOS_TARJETA, descripcion: 'Dónde va la imagen: sin, arriba, izquierda, derecha o fondo.' },
@@ -307,7 +334,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'poner_enlace_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Poner el enlace del VSL o la agenda',
-    descripcion: `Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. ${VERSION}`,
+    descripcion: `Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. También el video de una sección de «Diseño editable» (las páginas de MaKo): un reproductor con el enlace de otro, y un video de archivo con otro archivo (.mp4, .webm). Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'enlace', rotulo: 'Enlace', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El enlace del video o de la agenda.' },
@@ -319,21 +346,21 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_formulario_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el formulario de una landing',
-    descripcion: `El formulario de una landing del editor del Web Generator (lo que se envía entra al CRM): los campos (la lista entera, en orden), el texto del botón, el mensaje de éxito y a dónde lleva después de enviar. Sin «seccion», el único formulario de la landing. ${VERSION}`,
+    descripcion: `El formulario de una landing (lo enviado entra al CRM): los campos, el botón, el mensaje de éxito y a dónde lleva después. Sin «seccion», el único de la landing. ${VERSION}`,
     parametros: [
       P_ID, P_SECCION_OPCIONAL,
       {
-        nombre: 'campos', rotulo: 'Campos', tipo: 'object[]', max: TOPES.camposFormulario, descripcion: 'Los campos, en orden (reemplazan a los de hoy).',
+        nombre: 'campos', rotulo: 'Campos', tipo: 'object[]', max: TOPES.camposFormulario, descripcion: 'En orden (reemplazan a los de hoy).',
         campos: [
-          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CAMPO, descripcion: 'nombre, email, telefono, empresa, texto, textoLargo u opciones (nombre, email y telefono, una vez cada uno).' },
-          { nombre: 'etiqueta', tipo: 'string', max: 120, descripcion: 'Lo que dice arriba del campo. Sin ella, la de su tipo.' },
-          { nombre: 'requerido', tipo: 'boolean', descripcion: 'true si es obligatorio.' },
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CAMPO, descripcion: 'nombre, email y telefono, una vez cada uno.' },
+          { nombre: 'etiqueta', tipo: 'string', max: 120, descripcion: 'Sin ella, la de su tipo.' },
+          { nombre: 'requerido', tipo: 'boolean', descripcion: 'Obligatorio.' },
           { nombre: 'opciones', tipo: 'string[]', max: 12, descripcion: 'Sólo opciones: entre 2 y 12.' },
         ],
       },
-      { nombre: 'boton', rotulo: 'Botón', tipo: 'string', max: 60, descripcion: 'El texto del botón («Quiero mi lugar»).' },
-      { nombre: 'exito', rotulo: 'Mensaje de éxito', tipo: 'string', max: 300, descripcion: 'Lo que ve la persona al enviar.' },
-      { nombre: 'redirigir', rotulo: 'Después de enviar', tipo: 'string', max: 2000, descripcion: 'Un enlace https al que lleva después de enviar ("" = no lleva a ningún lado).' },
+      { nombre: 'boton', rotulo: 'Botón', tipo: 'string', max: 60, descripcion: 'Su texto («Quiero mi lugar»).' },
+      { nombre: 'exito', rotulo: 'Mensaje de éxito', tipo: 'string', max: 300, descripcion: 'Lo que ve al enviar.' },
+      { nombre: 'redirigir', rotulo: 'Después de enviar', tipo: 'string', max: 2000, descripcion: 'Enlace https al que lleva ("" = ninguno).' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
@@ -341,14 +368,44 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_boton_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar un botón de una landing',
-    descripcion: `Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. Para que cobre un producto está cobrar_producto_landing. ${VERSION}`,
+    descripcion: `Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. También los botones y enlaces de una sección de «Diseño editable» (las páginas de MaKo): su texto, a dónde llevan (también un ancla del diseño, #nombre), la pestaña y sus colores. Con varios botones iguales, «seccion» o todos:true. Para que cobre un producto está cobrar_producto_landing. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'boton', rotulo: 'Botón', tipo: 'string', obligatorio: true, max: 120, descripcion: 'El texto de hoy del botón (de ver_secciones_landing o ver_cobro_landing).' },
       { nombre: 'texto', rotulo: 'Texto nuevo', tipo: 'string', max: 120, descripcion: 'Lo que pasa a decir.' },
       { nombre: 'destino', rotulo: 'Destino', tipo: 'string', max: 2000, descripcion: 'A dónde lleva: https://…, #t-<id de sección>, mailto: o tel: ("" = a ningún lado).' },
       { nombre: 'estilo', rotulo: 'Estilo', tipo: 'string', enum: VARIANTES_BOTON, descripcion: 'primario, secundario o contorno.' },
+      { nombre: 'color', rotulo: 'Color', tipo: 'string', max: 7, descripcion: 'Diseño: el fondo, en hex.' },
+      { nombre: 'colorTexto', rotulo: 'Color del texto', tipo: 'string', max: 7, descripcion: 'Diseño: en hex.' },
       { nombre: 'nuevaPestana', rotulo: 'Otra pestaña', tipo: 'boolean', descripcion: 'true abre el destino en otra pestaña.' },
+      { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing), cuando el mismo botón está en más de una.' },
+      { nombre: 'todos', rotulo: 'Todos', tipo: 'boolean', descripcion: 'true cambia todos los botones de una sección de diseño con ese texto (por ejemplo, cinco «Agenda tu llamada»).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
+    id: 'cambiar_imagen_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar una imagen de una landing',
+    descripcion: `Cambia UNA imagen de una landing del editor del Web Generator (también las de las páginas de MaKo), nombrada por su dirección de hoy (o el final, como «caso-martin.jpg») o su texto alternativo (de ver_secciones_landing). La nueva se copia a la biblioteca de la landing al confirmar. La imagen de acento de una sección: configurar_seccion_landing. ${VERSION}`,
+    parametros: [
+      P_ID,
+      { nombre: 'actual', rotulo: 'Imagen de hoy', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La dirección de hoy de la imagen, un pedazo que la distinga, o su texto alternativo.' },
+      { ...P_IMAGEN('La imagen nueva'), obligatorio: true },
+      { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing), si la misma imagen está en más de una.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
+    id: 'cambiar_icono_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar un ícono de una landing',
+    descripcion: `Cambia UN ícono de una sección de una landing del editor del Web Generator por otro de la biblioteca del editor (ver_iconos_landing): uno de un «diseño editable» (las páginas de MaKo) o el de un ítem de un «diseño optimizado» que muestra íconos. Se nombra por la sección y su número (n, de ver_secciones_landing → iconos) o por el de hoy (su nombre o el texto junto a él). Conserva el tamaño y el color del que estaba. ${VERSION}`,
+    parametros: [
+      P_ID, P_SECCION,
+      { nombre: 'icono', rotulo: 'Ícono nuevo', tipo: 'string', obligatorio: true, max: 48, descripcion: 'El nombre del ícono en la biblioteca (de ver_iconos_landing), por ejemplo «cohete».' },
+      { nombre: 'n', rotulo: 'Número', tipo: 'number', entero: true, minimo: 1, descripcion: 'El número del ícono en la sección (ver_secciones_landing → iconos).' },
+      { nombre: 'actual', rotulo: 'Ícono de hoy', tipo: 'string', max: 120, descripcion: 'En vez del número: el nombre del ícono de hoy o el texto junto a él.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',

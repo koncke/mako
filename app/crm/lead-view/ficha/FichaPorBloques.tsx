@@ -24,7 +24,9 @@
 //    el editor del Dashboard y el del Web Generator: angosta la ficha REAL (el mismo armador, en una página del
 //    ancho del dispositivo), no una simulación aparte. Al volver a «Ver», el escritorio.
 // ⚠️ «SOLUCIONAR» UN DATO lo resuelve acá (`pedido`): va a la tab donde se dibuja su campo EN ESTA FICHA
-//    (`tabDelDato`, ./armar.ts) y lo señala. Sin un bloque que lo tenga, el asistente (`onNoEsta`).
+//    (`tabDelDato`, ./armar.ts) y lo señala. Sin un bloque que lo tenga, el asistente (`onNoEsta`) CON ESE DATO: sin
+//    decirlo, el asistente pedía lo que avisa el funnel y el dato tocado se perdía (Leila, 26/10/2026: la plantilla
+//    «Evento» no tiene «Datos fiscales», y «Solucionar» los datos fiscales le mostraba setter y closer).
 //
 // 16/10/2026 — EL MARCO PERSONALIZABLE POR TAB. Martín: «Sobre todo que sea PERSONALIZABLE, como tenemos en dashboard o
 // general cada tab... Que se pueda cambiar el nombre de las tabs internas, agregar bloques, que se pueda ver "epico"...
@@ -43,7 +45,9 @@
 // secciones, entonces ahí mismo se puede crear otra hoja... que no salgan las opciones de "Toda la ficha" esos deben ser
 // templates... En la vista de edición, elimina la sidebar»):
 //   · LA FILA DE PESTAÑAS SE FUE: arriba va el nombre de la hoja abierta con su ▾ (../LeadTabs.tsx), a la altura del
-//     nombre del lead (`sangria`, la pone cada puerta). El nombre se cambia ahí mismo, con un clic (sólo el admin).
+//     nombre del lead (`sangria`, la ponía cada puerta; desde el 24/10/2026 las hojas arrancan al borde del contenido:
+//     «que las paginas comiencen a la izquierda del todo, no alineado al nombre»). El nombre se cambia ahí mismo, con un
+//     clic (sólo el admin).
 //   · «NUEVA HOJA», primera en el desplegable: la galería de una hoja que todavía no existe (`nueva`); lo que se elige
 //     la CREA (una hoja propia del funnel, lib/ficha/config.ts). Cada hoja tiene su ⋮: Templates, Duplicar, y en las
 //     cuatro tabs «Volver a su template»; en las propias, Subir, Bajar y Eliminar (con Deshacer).
@@ -58,7 +62,6 @@ import { useTzWorkspace } from '../useTzWorkspace';
 import { createPortal } from 'react-dom';
 import { EstiloDeLaHoja } from './EstiloDeLaHoja';
 import { csvDelLead, nombreArchivoLead } from './exportar-lead';
-import { Dropdown } from '@/app/components/Dropdown';
 import dynamic from 'next/dynamic';
 import { deriveStageKey } from '@/lib/pipeline';
 import { tieneEtapaDeReunion } from '@/lib/etapa-reunion';
@@ -86,9 +89,11 @@ import { PASOS_FICHA_EDICION, RECORRIDO_FICHA_EDICION } from './recorrido-ficha'
 import { AuditHistory } from '../AuditHistory';
 import { useRefrescarFicha } from '../ficha-cambio';
 import { useRouter } from '@/app/_ui/Link';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
-import { OPCION_FICHA, menuPropioEn, opcionesFicha, type IdOpcionFicha } from './menu-contextual-ficha';
-import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { itemsFicha, menuPropioEn, opcionesFicha, type HojaDelMenu, type IdOpcionFicha } from './menu-contextual-ficha';
+import { FlechaDerechaIcon, FlechaIzquierdaIcon } from '../../iconos';
+import { ModalNuevoCliente as ModalLlevarAPartners } from '@/app/agency/NuevoCliente';
 import { HistorialFicha } from './HistorialFicha';
 import { Armador } from './Armador';
 import { AgregarBloque } from './AgregarBloque';
@@ -113,7 +118,7 @@ const sectLabel: CSSProperties = { fontFamily: MONO, fontSize: 11, letterSpacing
 const enUnTexto = (t: EventTarget | null): boolean =>
   t instanceof HTMLElement && !!t.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]');
 
-export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, fondoTabs, arribaTabs, pedido, onNoEsta, sangria, crm }: {
+export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, fondoTabs, arribaTabs, pedido, onNoEsta, crm }: {
   /** Lo que trajo `getLeadFullAction`: las dos puertas leen lo mismo. */
   data: LeadFullData;
   /** Aplicar en el acto lo que una acción ya escribió en el lead (el pop-up). Sin esto, se relee. */
@@ -128,10 +133,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   arribaTabs?: string;
   /** «Solucionar» un dato de la cabecera: `n` cambia en cada pedido. */
   pedido?: { id: StepId; n: number } | null;
-  /** El campo no está en esta ficha: el asistente de «Completar datos». */
-  onNoEsta: () => void;
-  /** Cuánto se corre el título de la hoja para quedar a la altura del nombre del lead (punto 9; un largo de CSS). */
-  sangria?: string;
+  /** El campo no está en esta ficha: el asistente de «Completar datos», con el dato que se pidió. */
+  onNoEsta: (paso: StepId) => void;
   /**
    * El CRM AGREGADO que se mira (el del desplegable de la cabecera: una renovación), o null si es la casa. La tab Pagos
    * muestra y escribe el trato de ESE CRM (./pagos/trato.ts, mig 0324): «el plan de pagos arranca de cero en el CRM nuevo».
@@ -202,6 +205,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const raizRef = useRef<HTMLDivElement>(null);
   /** El clic derecho dentro de la ficha (20/10/2026): dónde se abrió el menú; null = cerrado. */
   const [menuFicha, setMenuFicha] = useState<{ x: number; y: number; n: number } | null>(null);
+  /** «Cambiar nombre» pedido desde el «⋯» (24/10/2026): la tab abierta pone a editar su nombre. `n` cambia en cada pedido. */
+  const [pedidoNombre, setPedidoNombre] = useState<{ key: string; n: number } | null>(null);
   const [senal, setSenal] = useState<{ id: StepId; label: string } | null>(null);
   const ctx: CtxFicha = {
     data, lead, stages, etapa, hoy,
@@ -219,7 +224,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const t = tabDelDato(paso, lugares, {
       listaDe: (l) => lugarDe(efectiva, l).bloques, reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
     });
-    if (!t) { onNoEsta(); return; }
+    if (!t) { onNoEsta(paso); return; }
     const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === paso);
     setIrA({ key: claveDeLugar(t), n });
     setSenal({ id: paso, label: d?.label ?? 'este dato' });
@@ -353,10 +358,27 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const i = efectiva.hojas.findIndex((h) => h.id === l);
     return [
       ...comunes,
-      { texto: 'Subir', icono: 'arriba', onElegir: () => cambiar({ op: 'mover-hoja', hoja: l, lugar: i }), deshabilitada: i <= 0 },
-      { texto: 'Bajar', icono: 'abajo', onElegir: () => cambiar({ op: 'mover-hoja', hoja: l, lugar: i + 2 }), deshabilitada: i >= efectiva.hojas.length - 1 },
+      // «Mover a la izquierda/derecha» y no «Subir/Bajar» (24/10/2026): las hojas son tabs, una al lado de la otra.
+      { texto: 'Mover a la izquierda', icono: 'mover', onElegir: () => cambiar({ op: 'mover-hoja', hoja: l, lugar: i }), deshabilitada: i <= 0 },
+      { texto: 'Mover a la derecha', icono: 'mover', onElegir: () => cambiar({ op: 'mover-hoja', hoja: l, lugar: i + 2 }), deshabilitada: i >= efectiva.hojas.length - 1 },
       { texto: 'Eliminar', icono: 'borrar', onElegir: () => borrarHoja(l), peligro: true },
     ];
+  };
+
+  /**
+   * Lo que el «⋯» ofrece de la hoja ABIERTA (24/10/2026: la flechita de la tab se fue a ese «⋯»). Lo mismo que el menú de
+   * su tab (`opcionesDe`), con la regla de los menús de la casa: lo que no se puede, no sale.
+   */
+  const hojaDelMenu = (l: LugarFicha | null): HojaDelMenu | null => {
+    if (!l || !puede || !ff.ficha) return null;
+    const llenas = efectiva.hojas.length >= TOPE_HOJAS;
+    if (esTabFicha(l)) return { renombrar: true, templates: true, duplicar: !llenas, mover: null, volver: tabTocada(l), eliminar: false };
+    const i = efectiva.hojas.findIndex((h) => h.id === l);
+    return {
+      renombrar: true, templates: true, duplicar: !llenas,
+      mover: efectiva.hojas.length > 1 ? { izquierda: i > 0, derecha: i >= 0 && i < efectiva.hojas.length - 1 } : null,
+      volver: false, eliminar: true,
+    };
   };
 
   const ponerBloque = (tab: LugarFicha, id: BloqueId) => {
@@ -553,31 +575,16 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const caja = r.closest<HTMLElement>('[data-ficha-ruta], [role="dialog"]') ?? r;
     void imprimirFicha(caja, `Ficha de ${lead.nombre || `#${lead.id}`}`);
   };
+  // ⚠️ EL «⋯» ABRE EL MISMO MENÚ QUE EL CLIC DERECHO DE LA FICHA (24/10/2026, Martín: «ese desplegable de los 3 puntos
+  // tambien esta desordenado»). Era un `Dropdown` con su propia lista; ahora la lista es UNA (./menu-contextual-ficha.ts, por
+  // secciones y con lo de la hoja abierta), como el «⋯» de una columna del tablero. Abre debajo del botón, alineado a su
+  // borde derecho (la pieza lo corre si no entra).
   const menu = (
-    <Dropdown value="" placeholder="⋯" align="right" resetAfterSelect sinFlecha ariaLabel="Más opciones de la ficha"
-      buttonStyle={{ width: 32, height: 32, padding: 0, justifyContent: 'center', border: '1px solid var(--border-strong)', borderRadius: 999, background: 'var(--surface)', color: 'var(--dim)', fontSize: 16, lineHeight: 1 }}
-      options={[
-        { value: 'analyst', label: 'AI Analyst', icono: 'mako' },
-        { value: 'link', label: 'Copiar el link', icono: 'link' },
-        { value: 'csv', label: 'Exportar (CSV)', icono: 'descargar' },
-        { value: 'pdf', label: 'Exportar (PDF)', icono: 'descargar' },
-        // Quién cambió la ficha de este CRM y «Volver a como estaba» (17/10/2026, ./HistorialFicha.tsx).
-        ...(ff.ficha ? [{ value: 'historial', label: 'Historial de la ficha', icono: 'reloj' as const }] : []),
-        ...(puede ? [{ value: 'guia', label: 'Guía de edición', icono: 'pregunta' as const }] : []),
-        ...(data.partners ? [lead.cliente_ws != null
-          ? { value: 'partners-ver', label: 'Ver en MaKo Partners', icono: 'cliente' as const }
-          : { value: 'partners', label: 'Llevar a MaKo Partners', icono: 'cliente' as const }] : []),
-      ]}
-      onChange={(v) => {
-        if (v === 'analyst') setPanel('analizar');
-        else if (v === 'link') copiarLink();
-        else if (v === 'csv') exportarCsv();
-        else if (v === 'pdf') exportarPdf();
-        else if (v === 'historial') setHistorial(true);
-        else if (v === 'guia') { if (!enEdicion) alternarEdicion(true); guia.reabrir(); }
-        else if (v === 'partners') setAPartners(true);
-        else if (v === 'partners-ver' && lead.cliente_ws != null) router.push(`/partners?cuenta=${lead.cliente_ws}`);
-      }} />
+    <button type="button" aria-label="Más opciones de la ficha" aria-haspopup="menu" aria-expanded={!!menuFicha}
+      onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuFicha((m) => (m ? null : { x: r.right, y: r.bottom + 6, n: Date.now() })); }}
+      style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 999, background: menuFicha ? 'var(--surface-2)' : 'var(--surface)', color: 'var(--dim)', fontSize: 16, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}>
+      ⋯
+    </button>
   );
   // ── EL CLIC DERECHO DENTRO DE LA FICHA (20/10/2026; docs/pedidos-crm.md, D3) ─────────────────────────────────────
   // Martín (14/10): «implementa el click derecho en todo el CRM». Las opciones son las del «⋯» de arriba más las rápidas
@@ -586,10 +593,13 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const copiar = (texto: string, que: string) => {
     void navigator.clipboard?.writeText(texto).then(() => show(`${que} copiado`), () => show('No se pudo copiar', undefined, 'bad'));
   };
+  /** La hoja abierta (null en el Historial, que no es una hoja): lo que «Esta hoja» del menú toca. */
+  const hojaAbierta = lugarDeClave(activa, efectiva.hojas);
   const elegirMenuFicha = (id: IdOpcionFicha) => {
     switch (id) {
       case 'analyst': setPanel('analizar'); return;
-      case 'whatsapp': if (telDigitos) window.open(`https://wa.me/${telDigitos}`, '_blank', 'noopener'); return;
+      // En Chats, adentro de MaKo, como el tablero (f15 de la llamada con Leandro, 24/10).
+      case 'whatsapp': router.push(rutaChatsDeLead(lead.id)); return;
       case 'copiar_telefono': if (lead.telefono) copiar(String(lead.telefono), 'Teléfono'); return;
       case 'copiar_email': if (lead.email) copiar(String(lead.email), 'Email'); return;
       case 'copiar_link': copiarLink(); return;
@@ -598,7 +608,20 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
       case 'historial': setHistorial(true); return;
       case 'guia': if (!enEdicion) alternarEdicion(true); guia.reabrir(); return;
       case 'partners_llevar': setAPartners(true); return;
-      case 'partners_ver': if (lead.cliente_ws != null) router.push(`/partners?cuenta=${lead.cliente_ws}`); return;
+      case 'partners_ver': if (lead.cliente_ws != null) router.push(`/agency?cuenta=${lead.cliente_ws}`); return;
+      // La hoja abierta: lo mismo que el menú de su tab (`opcionesDe`).
+      case 'hoja_renombrar': setPedidoNombre((p) => ({ key: activa, n: (p?.n ?? 0) + 1 })); return;
+      case 'hoja_templates': if (hojaAbierta) abrirTemplates(hojaAbierta); return;
+      case 'hoja_duplicar': if (hojaAbierta) duplicar(hojaAbierta); return;
+      case 'hoja_izquierda':
+      case 'hoja_derecha': {
+        if (!hojaAbierta || !esIdHoja(hojaAbierta)) return;
+        const i = efectiva.hojas.findIndex((h) => h.id === hojaAbierta);
+        if (i >= 0) cambiar({ op: 'mover-hoja', hoja: hojaAbierta, lugar: id === 'hoja_izquierda' ? i : i + 2 });
+        return;
+      }
+      case 'hoja_volver': if (hojaAbierta && esTabFicha(hojaAbierta)) cambiar({ op: 'volver', tab: hojaAbierta }); return;
+      case 'hoja_eliminar': if (hojaAbierta && esIdHoja(hojaAbierta)) borrarHoja(hojaAbierta); return;
     }
   };
   const alClicDerechoFicha = (e: { target: EventTarget | null; clientX: number; clientY: number; preventDefault: () => void }) => {
@@ -608,15 +631,17 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     setMenuFicha((m) => ({ x: e.clientX, y: e.clientY, n: (m?.n ?? 0) + 1 }));
   };
   const cerrarMenuFicha = useCallback(() => setMenuFicha(null), []);
+  const hojaMenu = hojaDelMenu(hojaAbierta);
   const ventanaMenuFicha = menuFicha ? (
     <MenuContextual key={menuFicha.n} punto={{ x: menuFicha.x, y: menuFicha.y }} etiqueta="Acciones de la ficha"
-      items={opcionesFicha({
+      items={itemsFicha(opcionesFicha({
         conTelefono: !!telDigitos,
         conEmail: !!lead.email,
         conHistorial: !!ff.ficha,
         puedeEditar: !!puede,
         partners: data.partners ? (lead.cliente_ws != null ? 'ver' : 'llevar') : null,
-      }).map((o) => (o === null ? null : { id: o, label: OPCION_FICHA[o].texto, icono: OPCION_FICHA[o].icono }))}
+        hoja: hojaMenu,
+      }), { hoja: hojaMenu, iconoIzquierda: <FlechaIzquierdaIcon />, iconoDerecha: <FlechaDerechaIcon /> })}
       onElegir={(id) => elegirMenuFicha(id as IdOpcionFicha)} onCerrar={cerrarMenuFicha} />
   ) : null;
 
@@ -635,15 +660,30 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // dejarle lugar (el `<style>` vive sólo mientras está abierto). El clic adentro no cierra la ficha: el evento sube
   // por el árbol de React hasta la caja de la ficha, que lo frena.
   // Editando, el chat sabe en qué hoja está (la clave de la API y su nombre); en el Historial, ninguna.
-  const lugarActivo = lugarDeClave(activa, efectiva.hojas);
+  const lugarActivo = hojaAbierta;
   const edicion = panel === 'editar' && lugarActivo ? { tab: lugarActivo, nombre: lugarDe(efectiva, lugarActivo).nombre } : null;
   const panelAnalyst = panel && typeof document !== 'undefined' ? createPortal(
-    <aside aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako"
-      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'var(--fb-analyst-ancho)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
+    // ⚠️ UN BLOQUE FLOTANTE, NO UN CUADRADO PEGADO AL BORDE (24/10/2026). Martín: «En el editor del CRM no me gusta que MaKo
+    // sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese
+    // diseño». Es el marco del panel de MaKo del Dashboard (`.an`, app/dashboard/PanelAnalista.tsx): 12 px de aire con los
+    // bordes de la pantalla, bordes redondeados de 14, el filete de la casa y su sombra; sin la raya de color arriba. En el
+    // teléfono va a pantalla completa, sin aire ni bordes (como `.an` en ≤ 760).
+    <aside className="fb-mako-panel" aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako">
       {/* ⚠️ EL ANCHO SIGUE A LA PANTALLA (recorrido del 17/10/2026): con 420 fijos, a 1024 la ficha quedaba en ~560 px y
-          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. */}
-      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 20px)!important}[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}'}</style>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
+          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. La
+          ficha se corre lo que mide el panel MÁS su aire (12 a cada lado).
+          ⚠️ Y FLOTA DEBAJO DE LA BARRA DE INSPECCIÓN (o de la alerta de la voz caída): `--barra-agencia`, 25/10/2026. Es un
+          <aside>, así que la regla global de los <aside> (app/globals.css) ya lo baja, pero le fuerza el alto: quedaba pegado a
+          la barra y al borde de abajo, sin el aire del bloque. La segunda regla le gana en eso (tests/barra-inspeccion-alto, 4). */}
+      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}'
+        + '.fb-mako-panel{position:fixed;top:calc(12px + var(--barra-agencia,0px));left:12px;bottom:12px;z-index:90;width:var(--fb-analyst-ancho);display:flex;flex-direction:column;overflow:hidden;'
+        + 'background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 44px rgba(18,21,27,.18)}'
+        + '[data-barra-agencia] aside.fb-mako-panel{top:calc(12px + var(--barra-agencia))!important;height:auto!important}'
+        + '@media (max-width:720px){.fb-mako-panel{top:var(--barra-agencia,0px);left:0;bottom:0;border:none;border-radius:0;box-shadow:none}'
+        + '[data-barra-agencia] aside.fb-mako-panel{top:var(--barra-agencia)!important}}'
+        + '[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 32px)!important}[data-ficha-ruta]{padding-left:calc(var(--fb-analyst-ancho) + 24px)}'
+        + '@media (max-width:720px){[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}}'}</style>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 10px 10px 16px', borderBottom: '1px solid var(--border)' }}>
         <IconoMenu nombre="mako" size={18} />
         <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>{panel === 'editar' ? 'Editar con MaKo' : 'AI Analyst'}</strong>
         <button type="button" onClick={() => setPanel(null)} title="Cerrar" aria-label="Cerrar el AI Analyst"
@@ -671,7 +711,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     <div ref={raizRef} className={['fb', enEdicion && 'fb--editando', ...estilo.clases].filter(Boolean).join(' ')} style={estilo.vars as CSSProperties}
       onContextMenu={alClicDerechoFicha}>
       <style>{CSS_FICHA}</style>
-      <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs, arriba: arribaTabs }} actions={acciones} tabs={tabs} sangria={sangria} onActiva={setActiva}
+      <LeadTabs initial={initialTab} irA={irA} fija={{ fondo: fondoTabs, arriba: arribaTabs }} actions={acciones} tabs={tabs} onActiva={setActiva} renombrar={pedidoNombre}
         onChange={(key) => { setUltima(key); if (nueva && key !== nueva.id) cerrarSinVolver(); onTab?.(key); }}
         onNueva={puedeGuardar && efectiva.hojas.length < TOPE_HOJAS ? abrirNueva : undefined}
         maxNombre={TOPE_NOMBRE_TAB} onRenombrar={puedeGuardar ? (key, nombre) => {
@@ -683,7 +723,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
         } : undefined} />
       {senal && (
         <Senalar objetivo={marcaDato(senal.id)} texto={`Falta: ${senal.label}`}
-          onCerrar={() => setSenal(null)} onNoEsta={onNoEsta} />
+          onCerrar={() => setSenal(null)} onNoEsta={() => onNoEsta(senal.id)} />
       )}
       {agregar && (
         <AgregarBloque ancla={agregar.ancla} tab={agregar.tab} nombre={lugarDe(efectiva, agregar.tab).nombre} lista={lugarDe(efectiva, agregar.tab).bloques} verPrivado={ctx.verPrivado}

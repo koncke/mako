@@ -82,8 +82,15 @@ export function avisables(faltan: readonly Step[], ignorados: readonly string[] 
  * dato que no quería que lo fuera». El asistente recibía la lista entera (`faltantesDeLead`) y pedía la empresa aunque nadie
  * la hubiera marcado como obligatoria: el «N sin marcar» decía 1 y el asistente preguntaba 2. `avisan` es `datos.avisar`.
  * Lo que la etapa EXIGE para moverse no pasa por acá: lo suma el server (`requisitosDeEtapaAction`), siempre.
+ *
+ * ⚠️ `pedido`: el dato que la persona tocó en «Datos sin marcar» y que ESTA ficha no dibuja en ningún bloque (`onNoEsta`).
+ * Se pide ESE, aunque el funnel no avise de él: lo pidió ella. Leila (26/10/2026, Fabi Pedraza, ws11): «me dice que no tengo
+ * los datos fiscales pero cuando los quiero cargar solamente me salen setter y closer». La plantilla «Evento» no tiene el
+ * bloque «Datos fiscales» y apaga su aviso; «Solucionar» caía al asistente sin decir qué dato, y este filtro lo sacaba.
  */
-export function loQueSePide(faltan: readonly Step[], avisan: readonly Pick<Step, 'id'>[] | undefined): Step[] {
+export function loQueSePide(faltan: readonly Step[], avisan: readonly Pick<Step, 'id'>[] | undefined, pedido?: StepId | null): Step[] {
+  const elPedido = pedido ? faltan.filter((f) => f.id === pedido) : [];
+  if (elPedido.length) return elPedido;
   // Sin el partido (una lectura vieja que no lo trae), lo de siempre: mejor preguntar de más que no abrir.
   if (!avisan) return [...faltan];
   const si = new Set(avisan.map((d) => d.id));

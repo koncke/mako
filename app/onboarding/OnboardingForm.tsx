@@ -216,7 +216,7 @@ export function OnboardingForm({ embedded = false, onComplete }: { embedded?: bo
           {/* Paso final: seguir con el Método (conectar las integraciones). */}
           {stepSafe === total - 1 && !embedded && (
             <div style={{ textAlign: 'center', marginTop: 18 }}>
-              <Link href="/metodo" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conecta tus integraciones (Método) →</Link>
+              <Link href="/integraciones" style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' }}>Siguiente: conecta tus integraciones →</Link>
             </div>
           )}
         </div>

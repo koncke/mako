@@ -18,7 +18,8 @@ test('el tablero del teléfono tiene «Nuevo lead»: el botón flotante abre el 
   assert.match(t, /<BotonFlotanteM etiqueta="Nuevo lead" onClick=\{\(\) => setAlta\(true\)\} \/>/, 'sin el «＋»');
   assert.match(t, /<SheetM id="nuevo-lead" abierto=\{alta\} onCerrar=\{\(\) => setAlta\(false\)\} titulo="Nuevo lead"/);
   assert.match(t, /<NewLeadForm enModal=\{\{\n\s+funnelId: datos\.funnelId,/, 'el alta no va al funnel que se mira');
-  assert.match(t, /onCreado: \(id\) => \{ setAlta\(false\); router\.push\(ficha\(id\)\); \},/, 'al crear no abre la ficha del teléfono');
+  // ⚠️ Cambiado A PROPÓSITO el 29/10/2026 (ticket #27): el push espera a que la hoja suelte su URL (tests/m-hoja-navegar-al-cerrar.test.ts).
+  assert.match(t, /onCreado: \(id\) => \{ setAlta\(false\); navegarAlCerrar\(\(\) => router\.push\(ficha\(id\)\)\); \},/, 'al crear no abre la ficha del teléfono');
   // El botón flotante no tapa la última tarjeta.
   assert.match(t, /<HuecoFlotanteM \/>\n\s+<\/div>\n\s+<BotonFlotanteM/);
 });

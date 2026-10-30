@@ -9,6 +9,7 @@ import { wsEnContexto, getWorkspaceActual } from '@/lib/workspace';
 import 'server-only';
 import type { Ctx, Runners } from '../tipos';
 import { listarPendientes, confirmarPendiente, cancelarPendiente, RUTA_BANDEJA } from '../acciones';
+import { esFallaTragada } from '@/lib/no-pude-frases';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal } from '../canal';
 import { porId } from '../registro';
 import { vistaDe } from '../vista';
@@ -17,7 +18,8 @@ import { propuestasPendientes } from '@/lib/propuestas';
 import { rutaDePropuesta, PANTALLA_DE_PROPUESTA } from '@/lib/propuestas-tipos';
 import { listPropuestasPendientes } from '@/lib/plan-propuesta';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
-import { TODOS_LOS_ITEMS } from '@/app/_components/nav';
+import { funcionesMako } from '@/lib/funciones-mako';
+import { TODOS_LOS_ITEMS, USER_NAV } from '@/app/_components/nav';
 import { chatsDelSecondBrain, hiloDelSecondBrain } from '@/lib/chat-mako-indice';
 import { arbolDelJefe, JEFE_SECOND_BRAIN, sesionDelCanal, tituloDe } from '@/lib/chat-mako-reglas';
 import { loQueHizo } from '@/lib/chat-mako-hecho';
@@ -26,6 +28,8 @@ import { renameSession, type ChartSession } from '@/lib/chart-chats';
 import { canalKeyDeSesion } from '@/lib/mako-turno-app-reglas';
 import { linkApp } from '@/lib/app-url';
 import { linkPantalla } from '../link';
+import { decidirRecomendacion, leerMemoriaDelNegocio, recomendacionesDe, senalesDelNegocio } from '@/lib/recomendaciones';
+import { claveDe, clavesValidas, deSenal, decisionVigente, esDecision, esSuperficie, ultimaDecision, type Superficie } from '@/lib/recomendaciones-reglas';
 
 const num = (input: Record<string, unknown>, k: string): number | null => {
   const v = input[k];
@@ -93,17 +97,24 @@ export const RUNNERS: Runners = {
       return JSON.stringify(vig.map((p) => ({ id: p.id, resumen: p.resumen, origen: p.origen, vence: p.vence })));
     },
   },
+  // ⚠️ LO QUE NO SE CONFIRMA ES UNA REGLA, y lleva la marca de guarda (la verificación de 692368a60): «No hay ninguna acción
+  // pendiente vigente», «aclara cuál», «recién la propuse», «la confirma el administrador», «ya venció», el rechazo al tercero.
+  // Un control que «salió bien» nunca pasaba por la marca de lib/api-mako/ejecutar.ts, y el «no pude» del modelo abría ticket.
   confirmar_accion: {
     correr: async (input, ctx) => {
       const r = await confirmarPendiente(ctx, num(input, 'id'));
-      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}) });
-      return r.ok ? `✅ Hecho: ${r.resumen}` : `❌ No se pudo: ${r.resumen}`;
+      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}), guarda: true });
+      if (r.ok) return `✅ Hecho: ${r.resumen}`;
+      // Lo que falló al ejecutarse ya dejó SU ticket (`ticket`, con su línea en el resumen), o es una negativa del runner: el
+      // «no pude» que lo sigue no abre otro. Sin ticket y con la falla tragada (no se pudo abrir), sí.
+      const yaAvisada = 'ticket' in r && r.ticket != null;
+      return JSON.stringify({ ok: false, error: `No se pudo: ${r.resumen}`, ...(yaAvisada || !esFallaTragada(r.resumen) ? { guarda: true } : {}) });
     },
   },
   cancelar_accion: {
     correr: async (input, ctx) => {
       const r = await cancelarPendiente(ctx, num(input, 'id'));
-      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}) });
+      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}), guarda: true });
       return r.resumen;
     },
   },
@@ -269,8 +280,18 @@ export const RUNNERS: Runners = {
       // restringida, una ruta que no cae en ningún item del nav no sale.
       const disponible = (ruta: string): boolean => {
         // Sin la query: una capacidad puede apuntar a `/dashboard?hoja=closing`, y el `match` del nav mira el camino.
-        const item = TODOS_LOS_ITEMS.find((i) => i.match(ruta.split(/[?#]/)[0]));
-        if (vista.tabs != null && (!item || !vista.tabs.includes(item.key))) return false;
+        const camino = ruta.split(/[?#]/)[0];
+        const deLaBarra = TODOS_LOS_ITEMS.find((i) => i.match(camino));
+        // El menú de la foto (Settings, «Report a problem»): el que la abre con MENOS roles (/equipo abre Settings, que ven todos,
+        // y Business settings, que es del admin: manda el del admin). No depende del plan: lo tiene todo negocio.
+        const delMenu = deLaBarra ? undefined
+          : USER_NAV.filter((i) => i.match(camino)).sort((a, b) => (a.rolesWs?.length ?? 0) - (b.rolesWs?.length ?? 0))[0];
+        const item = deLaBarra ?? delMenu;
+        // Lo del super admin, sólo en la plataforma; lo que no va en la plataforma (Partners), no en ella (la verificación de
+        // 0c80dd3ce: el dueño de un negocio con plan completo recibía Customers, AI Avatar, Reels y Stories).
+        if (item?.adminOnly && !vista.plataforma) return false;
+        if (item?.noEnPlataforma && vista.plataforma) return false;
+        if (vista.tabs != null && !delMenu && (!item || !vista.tabs.includes(item.key))) return false;
         if (vista.rol !== 'admin' && !(item?.rolesWs?.length)) return false;
         return true;
       };
@@ -278,7 +299,15 @@ export const RUNNERS: Runners = {
       if (id && !pedidas.length) return fallo(`No existe la capacidad «${id}».`);
       const visibles = pedidas.filter((c) => disponible(c.ruta));
       if (id && !visibles.length) return fallo(`«${id}» no está disponible en este negocio (su tab no está en el plan contratado o no la ve tu rol).`);
+      // Las FUNCIONES de este negocio, del catálogo (lib/funciones-mako.ts, 28/10/2026): qué hace cada una, qué no y qué
+      // reemplaza. Con un id se pide UNA capacidad: van sólo sus pasos.
+      const funciones = id ? [] : funcionesMako()
+        .filter((f) => (!f.soloSuperAdmin || vista.plataforma) && !(f.noEnPlataforma && vista.plataforma) && disponible(f.ruta)).map((f) => ({
+        funcion: f.nombre, url: linkPantalla(f.ruta), que: f.que,
+        ...(f.noHace?.length ? { no_hace: f.noHace } : {}), ...(f.reemplaza ? { en_vez_de: f.reemplaza } : {}),
+      }));
       return json({
+        ...(funciones.length ? { funciones } : {}),
         capacidades: visibles.map((c) => ({ id: c.id, tab: c.tab, url: linkPantalla(c.ruta), que: c.que, como: c.como })),
         ...(visibles.length < pedidas.length ? { fuera_de_este_negocio: pedidas.length - visibles.length } : {}),
       });
@@ -342,7 +371,77 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Listo: el chat se llama «${v.nombre}».` };
     },
   },
+  // MaKo recomienda (26/10/2026): lo mismo que el bloque de cada pantalla (lib/recomendaciones.ts). Por la API no se pide la
+  // redacción de la IA (nadie espera un `after()` acá): sale la guardada si la hay, o la de las reglas.
+  que_recomienda_mako: {
+    leer: async (input, ctx) => {
+      const superficie = pantallaDe(input, ctx);
+      const r = await recomendacionesDe(superficie);
+      return json({
+        pantalla: superficie,
+        recomendaciones: r.recomendaciones.map((x) => ({
+          // `claves`: todas las señales que junta (la IA puede juntar varias). Decidir sobre ésta las manda TODAS, y nada más.
+          clave: x.clave, claves: x.claves?.length ? x.claves : [x.clave], hacer: x.hacer, cambia: x.cambia, porque: x.porque, de_donde: x.fuentes,
+          ...(x.accion?.tipo === 'link' ? { abrir: linkPantalla(x.accion.href) } : {}),
+          ...(x.accion?.tipo === 'chat' ? { pedido_para_mako: x.accion.pedido } : {}),
+          ...(x.seguimiento ? { ya_la_acepto_el: x.seguimiento.aceptadaEl.slice(0, 10), y_sigue_igual: true } : {}),
+        })),
+        lo_que_mejoro: r.funcionaron.map((f) => ({ clave: f.clave, aceptada_el: f.aceptadaEl.slice(0, 10) })),
+        descartadas: r.descartadas.map((d) => ({ clave: d.clave, como: d.d, cuando: d.en.slice(0, 10), ...(d.motivo ? { motivo: d.motivo } : {}) })),
+        ...(r.fallas.length ? { no_se_pudo_leer: r.fallas.map((f) => f.fuente) } : {}),
+        ...(r.recomendaciones.length ? {} : { nota: 'Con los datos de hoy no hay nada que valga la pena recomendar. Dilo así: no inventes un consejo.' }),
+      });
+    },
+  },
+  decidir_recomendacion: {
+    preparar: async (input, ctx) => {
+      const superficie = pantallaDe(input, ctx);
+      const clave = str(input, 'clave');
+      const decision = input.decision;
+      if (!clave) return { error: 'Falta la clave de la recomendación (de que_recomienda_mako).', faltan: ['clave'] };
+      if (!esDecision(decision)) return { error: 'Falta qué decidió: hecha, ahora-no, no-aplica o reabierta.', faltan: ['decision'] };
+      const motivo = str(input, 'motivo');
+      const memoria = await leerMemoriaDelNegocio();
+      if (!memoria) return { error: 'No pude leer lo que ya decidiste. Intenta de nuevo.', falla: true };
+      const previa = ultimaDecision(memoria.m, clave);
+      if (decision === 'reabierta') {
+        if (!previa || (previa.d !== 'no-aplica' && previa.d !== 'ahora-no')) return { error: 'Esa recomendación no está descartada.' };
+        return { payload: { pantalla: superficie, clave, decision }, resumen: `Volver a mostrar la recomendación que se descartó el ${previa.en.slice(0, 10)}` };
+      }
+      // Las señales que juntaba la recomendación que se MOSTRÓ (las `claves` de que_recomienda_mako): sin ellas, sólo la
+      // principal. El servidor no completa nada (verificación del tren-m: completaba con lo que había AL DECIDIR).
+      const otras = clavesValidas(input.claves).filter((k) => k !== clave);
+      const ahora = new Date();
+      // «Ya estaba así» sólo mientras esa decisión SIGUE callándolas a todas: pasado un «Ahora no» o una «Hecha», la
+      // recomendación vuelve y callarla otra vez es nuevo (la misma regla que la ruta, `decisionVigente`).
+      if ([clave, ...otras].every((k) => decisionVigente(ultimaDecision(memoria.m, k), decision, ahora))) return { error: 'Ya estaba anotada así.', yaEstaba: true };
+      const { senales, fallas } = await senalesDelNegocio(superficie);
+      const s = senales.find((x) => claveDe(x) === clave);
+      if (!s) return { error: fallas.length ? 'No pude leer los datos de esa recomendación. Intenta de nuevo.' : 'Esa recomendación ya no está (el dato cambió). Pide de nuevo que_recomienda_mako.' };
+      // El resumen NOMBRA todo lo que se va a anotar: la persona confirma sobre lo que lee, no sobre una clave.
+      const juntas = [s, ...otras.map((k) => senales.find((x) => claveDe(x) === k)).filter((x): x is NonNullable<typeof x> => !!x)];
+      const hacer = juntas.map((x) => `«${deSenal(x, superficie).hacer}»`).join(' y ');
+      const que = decision === 'hecha' ? 'Anotar como hecha' : decision === 'ahora-no' ? 'Callar por 14 días' : 'No volver a recomendar';
+      return {
+        payload: { pantalla: superficie, clave, claves: juntas.map(claveDe), decision, ...(motivo ? { motivo } : {}) },
+        resumen: `${que}: ${hacer}${motivo ? ` (motivo: «${motivo}»)` : ''}`,
+      };
+    },
+    ejecutar: async (p, ctx) => {
+      const superficie = esSuperficie(p.pantalla) ? p.pantalla : 'ops-center';
+      if (!esDecision(p.decision) || typeof p.clave !== 'string') return { ok: false, resumen: 'La decisión llegó incompleta.' };
+      const r = await decidirRecomendacion({
+        superficie, clave: p.clave, claves: clavesValidas(p.claves), d: p.decision, motivo: typeof p.motivo === 'string' ? p.motivo : null,
+        quien: ctx.quien?.email || ctx.actor || ctx.canal,
+      });
+      return r.ok ? { ok: true, resumen: 'Listo: quedó anotado.' } : { ok: false, resumen: r.error };
+    },
+  },
 };
+
+/** De qué pantalla: la pedida, o la del canal (WhatsApp tiene la suya; los demás, todo el negocio). */
+const pantallaDe = (input: Record<string, unknown>, ctx: Ctx): Superficie =>
+  esSuperficie(input.pantalla) ? input.pantalla : ctx.canal === 'whatsapp' ? 'whatsapp' : 'ops-center';
 
 const NO_ES_DE_LA_APP = 'Esto sólo se puede desde un chat con MaKo en la app.';
 const NO_RENOMBRA_JEFE = 'El chat «Second Brain» no se renombra: es el principal.';

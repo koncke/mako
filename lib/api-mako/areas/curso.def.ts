@@ -1,5 +1,5 @@
 // =============================================================================
-// api-mako / curso — el curso de cada producto (Customer Success › Curso), por la API
+// api-mako / curso — el curso de cada producto (Classroom; antes Customer Success › Curso), por la API
 // =============================================================================
 // Pedido de Martín (08/10/2026, audio de feedback del curso, ~05:30): alguien con su curso en
 // Panda preguntó «si esto lo puedo conectar por medio de API para que mi Claude lo pueda subir de
@@ -46,7 +46,7 @@ const HTTP = ['http'] as const;
  * doer es otra decisión. Escribir el curso sigue SÓLO por HTTP.
  */
 const LECTURA_APP = ['app', 'http'] as const;
-/** La tab del curso vive en Customer Success: la misma capa. Y editar el curso es del admin. */
+/** La tab del curso vive en Clients (la capa sigue siendo `customer-success`, su clave). Y editar el curso es del admin. */
 const GATING = { tab: 'customer-success', rolMinimo: 'admin' } as const;
 
 /** Topes: los mismos que la tab (tests/api-mako-curso.test.ts los compara con su fuente). */
@@ -79,7 +79,7 @@ const moduloClave: Parametro = {
 };
 const videoUrl: Parametro = {
   nombre: 'videoUrl', tipo: 'string', max: 5000,
-  descripcion: 'el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny y los mismos de antes). Vacío ("") saca el video.',
+  descripcion: 'el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny Stream, Cloudflare Stream y los mismos de antes; el link del reproductor de listar_videos_alojados también sirve). Vacío ("") saca el video.',
   ejemplo: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 };
 const tareas: Parametro = {
@@ -139,7 +139,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_cursos', area: 'curso', tipo: 'lectura',
     titulo: 'Listar los cursos',
-    descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Customer Success › Curso), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
+    descripcion: 'Los productos de este negocio que pueden tener curso (los mismos que muestra Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.',
     parametros: [],
     salida: 'json', canales: LECTURA_APP, costo: 'gratis', gating: GATING,
   },
@@ -156,6 +156,49 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Una clase entera: módulo, título, video, minutos, la descripción (HTML y texto plano) y sus tareas, en la misma forma que reciben crear_clase_curso y editar_clase_curso (con los `id` de los campos, para editarlas sin perder las respuestas).',
     parametros: [claseId],
     salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
+  },
+
+  // ── El programa entero (25/10/2026): lo mismo que el menú de cada programa de la cabecera de Clients ─────────
+  // Pedido de Martín (por el Cerebro, después de la llamada con Leandro): duplicar un programa «de punta a punta (...)
+  // y en la API de MaKo»; y la regla de la casa (AGENTS.md): lo que se puede hacer en la pantalla, se declara acá.
+  {
+    id: 'duplicar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Duplicar un curso',
+    descripcion: 'Crea un programa NUEVO, «<nombre> (copia)», con el curso entero del original: sus módulos, sus clases (las de la papelera no) con sus tareas y candados, las etapas del kanban de clientes, el color, la fuente, las portadas y los archivos de las descripciones. NUNCA copia a los alumnos ni su avance, ni la comunidad, ni el precio del producto (se completa en el CRM). Los videos subidos se copian sólo si entre todos pesan menos de 300 MB; si no, esas clases quedan sin video y se dice cuántas. Devuelve el productoId de la copia en `datos.productoId`; eliminar_curso la quita.',
+    parametros: [productoId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'crea un producto con su oferta y su embudo (productos, ofertas, funnels) y le copia el curso (producto_entrega, curso_modulos, curso_clases, curso_estilo, curso_adjuntos y sus archivos)',
+  },
+  {
+    id: 'renombrar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Renombrar un curso',
+    descripcion: 'Le pone a un curso el nombre que ven sus alumnos (el título del curso). Vacío lo vuelve al nombre de su oferta. No cambia el nombre del producto en el CRM.',
+    parametros: [
+      productoId,
+      { nombre: 'nombre', tipo: 'string', max: 80, descripcion: 'el nombre nuevo (hasta 80 letras). Vacío = el de su oferta.', ejemplo: 'Fiesta Music Pro' },
+    ],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'el título del curso (curso_estilo, clave titulo)',
+  },
+  {
+    id: 'eliminar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Eliminar un curso',
+    descripcion: 'Elimina un programa como el CRM: lo archiva (sus embudos van a «Productos eliminados», o sale del catálogo si no tiene embudo) y sus alumnos dejan de verlo. No borra nada: restaurar_curso lo devuelve. El producto principal del negocio no se puede eliminar.',
+    parametros: [productoId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'archiva los embudos del producto (funnels.activo) o lo da de baja (productos.activo)',
+  },
+  {
+    id: 'restaurar_curso', area: 'curso', tipo: 'accion',
+    titulo: 'Restaurar un curso eliminado',
+    descripcion: 'Devuelve un programa eliminado (con eliminar_curso, desde Clients o desde el CRM): vuelve a la lista con su curso y sus alumnos lo vuelven a ver. Es lo mismo que restaurarlo desde «Productos eliminados» del CRM.',
+    parametros: [productoId],
+    canales: HTTP, costo: 'gratis', gating: GATING,
+    confirmacion: 'chat', reversible: true,
+    escribe: 'saca de «Productos eliminados» los embudos del producto (funnels.activo) o lo vuelve a dar de alta (productos.activo)',
   },
 
   // ── Módulos ─────────────────────────────────────────────────────────────────
@@ -285,7 +328,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'dar_acceso_curso', area: 'curso', tipo: 'accion', aTerceros: true,
     titulo: 'Dar acceso a un curso',
-    descripcion: 'Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Customer Success. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.',
+    descripcion: 'Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Clients. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.',
     parametros: [
       leadId,
       { ...productoId, descripcion: 'id del producto cuyo curso se le abre (de listar_cursos).' },

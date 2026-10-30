@@ -73,7 +73,10 @@ test('3. la tarjeta: el logo, la categoría, el nombre, UNA línea y, en las con
   const orden = ['id={`svc-${i.key}`}', '<SvcIcon k={i.key}', '<span className="int-pildora">{i.categoria}</span>', '{i.nombre}</span>', '<span className="int-tarjeta__linea">{i.descripcion}</span>', '{(conectada || motivo) && ('];
   const pos = orden.map((x) => t.indexOf(x));
   assert.ok(pos.every((p, k) => p > 0 && (k === 0 || p > pos[k - 1])), `la tarjeta, en el orden de Vercel: ${pos}`);
-  assert.match(t, /onClick=\{\(\) => setModal\(\{ t: 'svc', key: i\.key \}\)\}/, 'toda la tarjeta abre su modal, el de siempre');
+  // Toda la tarjeta abre su modal, el de siempre; la de una red social (29/10/2026) abre el de Zernio, donde se conecta.
+  assert.match(t, /onClick=\{\(\) => abrirTarjeta\(i\)\}/);
+  const abre = b.slice(b.indexOf('const abrirTarjeta = (i: Integracion) =>'), b.indexOf('const tarjeta = (i: Integracion) =>'));
+  assert.match(abre, /\n    setModal\(\{ t: 'svc', key: i\.key \}\);\n  \};/, 'toda la tarjeta abre su modal, el de siempre');
   assert.match(t, /\{equipo \? POR_QUE_LA_CONFIGURA_MAKO : motivo \?\? 'Conectada'\}/);
   // El motivo es de una conectada que no está bien; una sin conectar no lleva ninguno (y nunca `i.detalle`, que dice
   // «Falta configurar: RESEND_API_KEY»).
@@ -92,7 +95,11 @@ test('3. la tarjeta: el logo, la categoría, el nombre, UNA línea y, en las con
 
 test('4. un link `?abrir=` llega a su tarjeta: sin filtros, desplegada, y el scroll detrás del render', () => {
   const b = tablero();
-  const efecto = b.slice(b.indexOf("const abrir = searchParams.get('abrir');"), b.indexOf('const googleConToken'));
+  const desde = b.indexOf("const abrirCrudo = searchParams.get('abrir');");
+  assert.ok(desde > 0, 'no encontré la lectura de ?abrir=');
+  const efecto = b.slice(desde, b.indexOf('const googleConToken'));
+  // Se abre DONDE SE CONFIGURA (ticket #28): `?abrir=meta` abre Zernio.
+  assert.match(efecto, /const abrir = abrirCrudo \? integracionQueConfigura\(abrirCrudo\) : null;/);
   assert.match(efecto, /setQ\(''\); setCatF\(TODAS\); setEstadoF\(TODAS\);\n\s*setPedida\(\(p\) => \(\{ key: abrir, vez: \(p\?\.vez \?\? 0\) \+ 1 \}\)\);/);
   assert.match(efecto, /q\.delete\('abrir'\);/, 'el parámetro se limpia: un F5 no reabre lo cerrado');
   assert.match(b, /const pedidaOculta = pedida != null && sinConectarVis\.slice\(TOPE_CATALOGO\)\.some\(\(i\) => i\.key === pedida\.key\);/);
@@ -134,7 +141,7 @@ test('6. «Tus cuentas de IA»: la destacada, arriba, con su estado en una líne
   const cuenta = (n: number) => ({ numero: n, proveedor: 'claude' as const, email: null, plan: null, dispositivos: [] });
   assert.deepEqual(resumenDeCuentas(null, false), { linea: 'Leyendo tus cuentas…', tono: 'apagado' });
   assert.equal(resumenDeCuentas(null, true).linea, 'No pude leer tus cuentas: ábrelas para volver a intentar.');
-  assert.deepEqual(resumenDeCuentas({ pcs: [], grupos: { cuentas: [], sinCuenta: [] } }, true), { linea: 'Conecta tu Claude, tu GPT o tu Gemini: con eso contesta tu Ops Center.', tono: 'ojo' });
+  assert.deepEqual(resumenDeCuentas({ pcs: [], grupos: { cuentas: [], sinCuenta: [] } }, true), { linea: 'Conecta tu Claude o tu GPT: con eso contesta tu Ops Center.', tono: 'ojo' });
   assert.equal(resumenDeCuentas({ pcs: [{ enLinea: true, cuentas: [] }], grupos: { cuentas: [], sinCuenta: [{} as never] } }, true).linea, 'Tu computadora está conectada, pero su Claude no tiene la sesión iniciada.');
   assert.deepEqual(resumenDeCuentas({ pcs: [{ enLinea: true, cuentas: [1] }, { enLinea: false, cuentas: [1] }], grupos: { cuentas: [cuenta(1)] as never, sinCuenta: [] } }, true), { linea: '1 cuenta · 1 computadora en línea', tono: 'bien' });
   assert.deepEqual(resumenDeCuentas({ pcs: [{ enLinea: false, cuentas: [1] }], grupos: { cuentas: [cuenta(1), cuenta(2)] as never, sinCuenta: [] } }, true), { linea: '2 cuentas · ninguna computadora en línea', tono: 'ojo' });

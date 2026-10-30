@@ -83,9 +83,17 @@ test('miniatura: sin esmerilado (una capa de GPU por miniatura adentro de un sca
   assert.match(CSS_CONTENIDO, /\.gm-doc\[data-modo="miniatura"\] \.gm-tarjeta-fondo,\n\.gm-doc\[data-modo="miniatura"\] \.gm-acento::after \{ -webkit-backdrop-filter: none; backdrop-filter: none; \}/);
 });
 
-test('editor: en una landing los controles de la sección van ADENTRO (como en una de ancho completo)', () => {
+test('editor: en una landing la columna ⋮ de la sección va AFUERA, en el margen del lienzo; el + y la mini barra, adentro', () => {
+  // 24/10/2026, Martín: «Los botones se siguen superponiendo, fijate la esquina superior izquierda en el linezo». Adentro,
+  // arriba a la izquierda, la columna caía sobre el logo y sobre el asa del primer bloque. Adentro queda sólo donde lo de
+  // afuera se recorta: el marco de teléfono o tableta, y una diapositiva a sangre.
   const lado = CSS_NODOS.split('\n').find((l) => l.includes('> .gmc-lado, [data-dispositivo="movil"]'));
-  assert.ok(lado && lado.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado') && /left: 12px; top: 12px;/.test(lado));
+  assert.ok(lado && /left: 12px; top: 12px;/.test(lado));
+  assert.ok(!lado.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado'), 'la columna volvió ADENTRO en una landing');
+  assert.ok(lado.trim().startsWith('.gm-doc[data-formato="presentacion"] .gm-tarjeta[data-ancho="completo"] > .gmc-lado,'), 'el «a sangre» de adentro es sólo de una presentación');
+  const gamma = readFileSync(new URL('../app/web-generator/gamma.css', import.meta.url), 'utf8');
+  // 88 px desde el 25/10/2026: entran el «+ ⠿» del bloque y el ⋮ de la sección, uno al lado del otro (AsaBloque.tsx).
+  assert.match(gamma, /\.gma-lienzo\[data-dispositivo="escritorio"\] > \.gm-doc:not\(\[data-formato="presentacion"\]\) \{ margin-left: 88px; \}/, 'sin el margen, la columna de afuera no tiene dónde ir');
   const entre = CSS_NODOS.split('\n').find((l) => l.includes('> .gmc-entre { height: 1.6em'));
   assert.ok(entre && entre.includes('.gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-entre'));
   // La barra de la sección activa va ADENTRO, pegada abajo: centrada sobre el borde, su mitad de abajo

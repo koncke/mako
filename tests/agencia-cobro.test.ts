@@ -87,13 +87,16 @@ test('⚠️ el pago HABILITA: compare-and-set sobre `pendiente`, sólo la plata
 test('el aviso de la pasarela y el cron habilitan; una renovación no', () => {
   const c = fuente('lib/cobros.ts');
   assert.match(c, /await altaSiCorresponde\(actual\);\s*if \(!renovacion\) await habilitarClienteDeAgencia\(actual\);/);
-  assert.match(c, /for \(const c of pagados\) \{\s*await habilitarClienteDeAgencia\(c\);/);
+  // (Desde el 28/10/2026 la vuelta mira primero si le queda tiempo: `if (sinTiempo()) { cortado = true; break; }`.)
+  assert.match(c, /for \(const c of pagados\) \{\s*if \(sinTiempo\(\)\) \{ cortado = true; break; \}\s*(?:\/\/[^\n]*\n\s*)?await habilitarClienteDeAgencia\(c\);/);
 });
 
 test('⚠️ `crearCobro`: el lugar de un cliente lo cobra SÓLO la plataforma, y un inicio diferido sólo en una suscripción de Mercado Pago', () => {
   const c = fuente('lib/cobros.ts');
   assert.match(c, /if \(p\.paraCliente\) \{\s*if \(ws !== \(await wsSuperAdmin\(\)\)\) return \{ ok: false/);
-  assert.match(c, /if \(inicioAt && \(p\.tipo !== 'suscripcion' \|\| p\.pasarela !== 'mercadopago'/);
+  // Desde el 27/10/2026 también la prueba de un plan de MaKo por Stripe (tests/planes-stripe-afuera.test.ts); un cliente de
+  // agencia no es una prueba de plan, así que con Stripe sigue sin poder diferir.
+  assert.match(c, /if \(inicioAt && \(p\.tipo !== 'suscripcion' \|\| \(p\.pasarela !== 'mercadopago' && !pruebaStripe\)/);
   // Las columnas de la 0308 se mandan sólo en ESE cobro: una base sin la migración no rompe ningún otro.
   assert.match(c, /\.\.\.\(paraCliente \? \{ agencia_ws: paraCliente\.agenciaWs, cliente_ws: paraCliente\.clienteWs \} : \{\}\)/);
   assert.doesNotMatch(fuente('lib/cobros-tipos.ts'), /agencia_ws|cliente_ws|inicio_at/, 'COLS_COBRO sin las columnas de la 0308');
@@ -110,9 +113,10 @@ test('abrir la cuenta crea el link del primer mes y, sin link, la cuenta queda c
   // (lib/partners.ts); la acción de Clients la envuelve (docs/diseno-clients.md, D8).
   const a = fuente('lib/partners.ts');
   const i = a.indexOf('await crearUsuario({');
-  const j = a.indexOf('const cobro = await linkPrimerMes({ agenciaWs: p.agenciaWs, clienteWs: ws.id');
+  // Desde el 25/10/2026 la llamada ocupa varias líneas (quién paga cambia el email): se busca su comienzo.
+  const j = a.indexOf('const cobro = await linkPrimerMes({');
   assert.ok(i > 0 && j > i, 'el link sale después de crear la cuenta y su usuario');
-  assert.match(a, /return \{ ok: true, clienteWs: ws\.id, link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo \};/);
+  assert.match(a, /return \{ ok: true, clienteWs: ws\.id, link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo, paga, acceso \};/);
   assert.match(fuente('app/customer-success/actions.ts'), /const r = await abrirCuentaDePartner\(\{ agenciaWs,/, 'la de Clients es un envoltorio');
 });
 

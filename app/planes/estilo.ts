@@ -25,12 +25,31 @@ body:has(.planes-root) { background: #F4F6F9; }
 .planes-form { max-width: 460px; margin: 0 auto; background: #fff; border: 1px solid #EAECF1; border-radius: 16px; padding: 28px 24px;
   box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 8px 24px rgba(18,21,27,.06); }
 .planes-form label { display: block; font-size: 14px; font-weight: 600; margin: 14px 0 6px; }
-.planes-form input[type=text], .planes-form input[type=email] { width: 100%; box-sizing: border-box; font: inherit; padding: 11px 12px;
+.planes-form input[type=text], .planes-form input[type=email], .planes-form input[type=tel] { width: 100%; box-sizing: border-box; font: inherit; padding: 11px 12px;
   border: 1px solid #D5D9E0; border-radius: 10px; background: #fff; color: #12151B; }
 .planes-form .planes-btn { width: 100%; margin-top: 22px; }
 .planes-opcion { display: flex; gap: 10px; align-items: center; border: 1px solid #D5D9E0; border-radius: 10px; padding: 10px 12px; margin-top: 8px; cursor: pointer; }
 .planes-opcion input { margin: 0; }
+/* El diagnóstico del Acelerador (QuieroPlan con preguntas): una pregunta por pantalla, respuestas grandes que avanzan solas. */
+.planes-pasos { display: flex; gap: 6px; margin: 0 0 18px; }
+.planes-pasos span { flex: 1; height: 4px; border-radius: 2px; background: #E3E7EE; }
+.planes-pasos span.hecho { background: #2F6FED; }
+.planes-pregunta { margin: 0 0 16px; font-size: 20px; font-weight: 700; line-height: 1.3; outline: none; }
+.planes-respuestas { display: grid; gap: 10px; }
+.planes-respuesta { text-align: left; font: inherit; font-size: 15.5px; line-height: 1.4; padding: 14px 16px; border: 1px solid #D5D9E0;
+  border-radius: 12px; background: #fff; color: #12151B; cursor: pointer; }
+.planes-respuesta:hover, .planes-respuesta:focus-visible { border-color: #2F6FED; background: #F5F8FF; }
+.planes-respuesta[aria-pressed=true] { border-color: #2F6FED; box-shadow: inset 0 0 0 1px #2F6FED; background: #F5F8FF; }
+.planes-atras { display: block; margin: 16px auto 0; background: none; border: 0; padding: 4px 8px; color: #2F6FED; font: inherit;
+  font-size: 14px; cursor: pointer; }
 .planes-error { margin-top: 14px; color: #B42318; font-size: 14px; }
+/* El código de referido del carrito (25/10/2026): un renglón chico que abre el campo, como el «Add promo code» de Stripe. */
+.planes-codigo-abrir { display: block; margin: 16px 0 0; padding: 0; background: none; border: 0; color: #2F6FED; font: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+.planes-codigo-abrir:hover { text-decoration: underline; }
+.planes-opcional { font-weight: 400; color: #5B6472; }
+.planes-form .planes-codigo-error { margin-top: 6px; }
+.planes-form input[aria-invalid=true] { border-color: #B42318; }
 .planes-nota { margin-top: 14px; color: #5B6472; font-size: 13px; text-align: center; }
 .planes-trampa { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .planes-volver { display: inline-block; margin-bottom: 16px; color: #2F6FED; font-size: 14px; text-decoration: none; }

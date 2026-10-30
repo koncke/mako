@@ -52,7 +52,8 @@ test('qué integración nombra un link, y cuáles no se abren sueltas', () => {
   assert.equal(servicioDeLink('/integraciones?abrir=../x'), null);
   assert.equal(servicioDeLink(null), null);
   for (const k of SIN_MODAL_SUELTO) assert.equal(servicioDeLink(`/integraciones?abrir=${k}`), null, `la ${k} no se abre suelta`);
-  assert.deepEqual([...SIN_MODAL_SUELTO], ['landing', 'agente']);
+  // 'ia' (25/10/2026): «Tus cuentas de IA» la abre su tarjeta en /integraciones (`?abrir=ia`), no es una integración suelta.
+  assert.deepEqual([...SIN_MODAL_SUELTO], ['landing', 'agente', 'ia']);
 });
 
 test('a dónde vuelve un OAuth: la tab con su query, sin el ws ni el resultado anterior', () => {
@@ -82,7 +83,8 @@ test('la pieza es UNA: monta el ServicioSuelto de /integraciones, por portal y e
  */
 const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/_components/SaldoMaKo.tsx': { porque: 'ir a MIRAR el saldo de la IA (#saldo-ia), no conectar' },
-  'app/admin/cobros/page.tsx': { porque: 'abre /integraciones en el workspace de MaKo (`?ws=` explícito): el modal se abriría en el de la pestaña' },
+  // Desde el 25/10/2026 Billing es una pestaña de Customers: el link vive en su contenido.
+  'app/admin/cobros/Contenido.tsx': { porque: 'abre /integraciones en el workspace de MaKo (`?ws=` explícito): el modal se abriría en el de la pestaña' },
   'app/admin/ui/CatalogoUI.tsx': { porque: 'el catálogo de la UI: un ejemplo del componente' },
   'app/api-mako/Articulos.tsx': { porque: 'el agente de Claude (token clásico): su modal no se abre suelto' },
   'app/api-mako/Tokens.tsx': { porque: 'el agente de Claude (token clásico): su modal no se abre suelto' },
@@ -90,6 +92,8 @@ const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/landing-analyst/LandingAnalystApp.tsx': { porque: 'ver el código del Pixel (la landing)' },
   'app/landing-analyst/PulsoPaginas.tsx': { porque: 'copiar la línea del Pixel (la landing)' },
   'app/marketing/salud/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones' },
+  'app/metodo/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones: la sección «Método» se fue el 26/10/2026' },
+  'app/onboarding/OnboardingForm.tsx': { porque: 'el último paso del onboarding lleva a la grilla ENTERA (conectar varias, no una); hasta el 26/10/2026 iba a /metodo' },
   'app/general/bloques/Norte.tsx': { porque: 'el «Conectar» del semáforo SIN FUENTES no nombra una integración: va a la grilla (abd91fdb, docs/hallazgos-objectives.md)' },
   'app/m/configuraciones/integraciones/page.tsx': { porque: 'el teléfono (Mobile 2, 17/10): todavía no tiene el modal de conectar, así que «Conectar» abre ESA integración en la computadora (?abrir=)' },
 };
@@ -122,7 +126,6 @@ test('lo que se convirtió el 14/10/2026 abre el modal y no navega', () => {
     ['app/crm/CampanasModal.tsx', /<BotonIntegracion servicio="meta" /],
     ['app/crm/CrmBoard.tsx', /<BotonIntegracion servicio="google" /],
     ['app/crm/[id]/CobrarConLink.tsx', /<BotonIntegracion servicio="stripe" /],
-    ['app/ads-manager/OnboardingAdsManager.tsx', /onClick=\{\(\) => abrir\('meta'\)\}/],
     ['app/automations/VozAIStep.tsx', /<BotonIntegracion servicio="elevenlabs" /],
     ['app/automations/EditorDisparadores.tsx', /<BotonIntegracion servicio="mercadopago" /],
     ['app/automations/ChatMako.tsx', /<LinkIntegracion href=\{link\}/],

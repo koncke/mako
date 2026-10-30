@@ -11,11 +11,16 @@
 // Lo que Doory pide a su backend y MaKo todavía no tiene queda en `null` (Marca, fotos de stock,
 // versiones, compartir, comentarios): el editor esconde esas herramientas solo.
 //
-// El armazón es el de Canva (tanda 2): «Inicio» va a la izquierda de la barra superior (el ☰/Inicio
-// de Canva, sin su logo) y el crédito de Doory queda como franja fina al pie, visible en cada apertura
-// (lo exige su licencia).
+// Vive en el CENTRO de la pantalla de Create (app/_crear/PantallaCrear.tsx, desde ../ImageEditorCliente.tsx, 29/10/2026):
+//   · el chat de MaKo del editor (../mako/chat/PanelMakoIA.tsx) va en la tarjeta de la IZQUIERDA, siempre abierto. Edita
+//     el diseño abierto, así que necesita el motor: se monta ADENTRO del EditorApp (`dentro`) y se dibuja por portal en
+//     `ranuraChat`, el hueco que le deja la tarjeta. Ya no es un panel del riel ni se abre con un botón;
+//   · los diseños del negocio y «Nuevo diseño» son la lista de esa tarjeta (la «←»): el riel ya no tiene «Proyectos»;
+//   · el crédito de Doory queda como franja fina al pie, visible en cada apertura (lo exige su licencia).
+// =============================================================================
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronLeft } from 'lucide-react';
 import Link, { useRouter } from '@/app/_ui/Link';
 import { EditorApp, type EditorHandle } from '../_doory/editor';
@@ -27,14 +32,24 @@ import { repositorioDe } from '../espacio';
 import { crearAdaptadorNube } from '../mako/adaptadorNube';
 import { mudarLocales } from '../mako/mudanza';
 import { crearDiseno, leerDiseno } from '../mako/nube';
-// Los paneles del lado de MaKo (Proyectos…): se registran al cargar el módulo; la pantalla le pasa el workspace.
-import { registrarProyectos } from '../mako/registro';
+import { PanelMakoIA } from '../mako/chat/PanelMakoIA';
 import { RUTA_INICIO, rutaDiseno } from '../ruta';
-import { CreditoDoory } from './CreditoDoory';
 import styles from './pantalla.module.css';
 
 type Abierto = { id: string; titulo: string; doc: DoryDocument; version: number };
 type Carga = { estado: 'cargando' } | { estado: 'listo'; diseno: Abierto } | { estado: 'no-existe' } | { estado: 'error'; mensaje: string };
+
+/** Lo que la pantalla de afuera (la lista de la tarjeta izquierda) puede pedirle al diseño abierto. */
+export type EditorAbierto = {
+  id: string;
+  /** Cambiarle el nombre POR el editor: si fuera directo a la base, el próximo guardado chocaría con la versión (409). */
+  renombrar: (titulo: string) => void;
+  /** El documento como está en pantalla (con lo que todavía no se guardó), para «Duplicar». */
+  documento: () => DoryDocument | null;
+};
+
+/** Cómo va la apertura: la tarjeta izquierda espera al editor para mostrar su chat. */
+export type CargaEditor = 'cargando' | 'listo' | 'falla';
 
 async function abrir(id: string, ws: number | null): Promise<Carga> {
   let r = await leerDiseno(id);
@@ -47,32 +62,62 @@ async function abrir(id: string, ws: number | null): Promise<Carga> {
   return /no existe/i.test(r.error) ? { estado: 'no-existe' } : { estado: 'error', mensaje: r.error };
 }
 
-export function PantallaEditor({ disenoId, ws, senales = null }: {
+export function PantallaEditor({ disenoId, ws, senales = null, ranuraChat = null, onAbierto, onCarga, onTitulo, salir = null }: {
   disenoId: string;
   ws: number | null;
   /** Lo que se sabe del negocio (lo lee la page): el panel de plantillas pone primero las sugeridas. */
   senales?: SenalesNegocio | null;
+  /** El hueco de la tarjeta izquierda donde se dibuja el chat de MaKo del editor. */
+  ranuraChat?: HTMLElement | null;
+  onAbierto?: (a: EditorAbierto | null) => void;
+  onCarga?: (c: CargaEditor) => void;
+  /** El nombre cambió (en la barra del editor o desde la lista): la lista lo muestra sin volver a leer. */
+  onTitulo?: (titulo: string) => void;
+  /** A dónde lleva la «‹» de la barra del editor. Sólo el teléfono (el editor tapa toda la pantalla); en la computadora
+   *  la lista de la tarjeta izquierda ya lleva a los otros diseños y a «Nuevo diseño». */
+  salir?: string | null;
 }) {
   const router = useRouter();
   const [carga, setCarga] = useState<Carga>({ estado: 'cargando' });
+  // El nombre que se le pasa al motor (`meta.title`): cambiarlo lo renombra y el guardado de siempre lo sube.
+  const [titulo, setTitulo] = useState('');
   const editorRef = useRef<EditorHandle>(null);
-  const tituloRef = useRef('');
+  const avisos = useRef({ onAbierto, onCarga, onTitulo });
+  useEffect(() => { avisos.current = { onAbierto, onCarga, onTitulo }; });
 
   useEffect(() => {
     let vivo = true;
+    setCarga({ estado: 'cargando' });
+    avisos.current.onCarga?.('cargando');
     void abrir(disenoId, ws).then((c) => {
       if (!vivo) return;
-      if (c.estado === 'listo') tituloRef.current = c.diseno.titulo;
+      if (c.estado === 'listo') setTitulo(c.diseno.titulo);
       setCarga(c);
+      avisos.current.onCarga?.(c.estado === 'listo' ? 'listo' : c.estado === 'cargando' ? 'cargando' : 'falla');
     });
     return () => { vivo = false; };
   }, [disenoId, ws]);
 
-  // «Proyectos» lista los diseños del workspace de la pestaña.
-  useEffect(() => registrarProyectos(ws), [ws]);
+  const listo = carga.estado === 'listo';
+  // La lista de afuera renombra y duplica el diseño abierto POR acá. Y al irse (otro diseño de la lista, la barra
+  // lateral), lo que estaba sin guardar se manda ANTES de que el motor se apague: `engine.stop()` suelta el guardado
+  // pendiente sin mandarlo. Este efecto se limpia antes que el del EditorApp (React desmonta de arriba hacia abajo).
+  useEffect(() => {
+    if (!listo) return;
+    const h = editorRef.current;
+    avisos.current.onAbierto?.({
+      id: disenoId,
+      renombrar: (t) => { const limpio = t.trim(); if (limpio) { setTitulo(limpio); avisos.current.onTitulo?.(limpio); } },
+      documento: () => editorRef.current?.getDocument() ?? null,
+    });
+    return () => {
+      avisos.current.onAbierto?.(null);
+      if (h?.isDirty()) void h.saveNow().catch(() => undefined);
+    };
+  }, [listo, disenoId]);
 
   // «Archivo → Crear un diseño nuevo» de Canva: el editor no sabe de rutas, así que la cáscara lo registra
-  // como comando (TopBar lo muestra si existe). Va al inicio, donde se elige el tamaño; el `?ws=` lo pone el router.
+  // como comando (TopBar lo muestra si existe). Va a la portada de la tab, «¿Qué vas a crear hoy?»; el `?ws=` lo pone el router.
   useEffect(
     () => registerCommand({ id: 'file.new', label: 'Crear un diseño nuevo', run: () => router.push(RUTA_INICIO) }),
     [router],
@@ -102,7 +147,7 @@ export function PantallaEditor({ disenoId, ws, senales = null }: {
     if (eleccion === 'reload') { window.location.reload(); return; }
     const doc = editorRef.current?.getDocument();
     if (!doc) return;
-    const r = await crearDiseno({ titulo: `${tituloRef.current || 'Diseño sin título'} (copia)`, doc });
+    const r = await crearDiseno({ titulo: `${titulo || 'Diseño sin título'} (copia)`, doc });
     if (r.ok) window.location.href = rutaDiseno(r.id);
   }
 
@@ -111,7 +156,7 @@ export function PantallaEditor({ disenoId, ws, senales = null }: {
     return (
       <div className={styles.aviso}>
         <p>{carga.estado === 'no-existe' ? 'Este diseño no existe o se eliminó.' : carga.mensaje}</p>
-        <Link href={RUTA_INICIO} className={styles.volver}>Volver al inicio</Link>
+        <Link href={RUTA_INICIO} className={styles.volver}>Crear otro diseño</Link>
       </div>
     );
   }
@@ -122,19 +167,18 @@ export function PantallaEditor({ disenoId, ws, senales = null }: {
         <EditorApp
           ref={editorRef}
           document={carga.diseno.doc}
-          meta={{ id: carga.diseno.id, title: carga.diseno.titulo, mode: 'account', revision: carga.diseno.version }}
+          meta={{ id: carga.diseno.id, title: titulo || carga.diseno.titulo, mode: 'account', revision: carga.diseno.version }}
           adapter={adapter}
-          onTitleChange={(t) => { tituloRef.current = t; }}
+          onTitleChange={(t) => { setTitulo(t); onTitulo?.(t); }}
           onConflictResolve={(c) => void resolverConflicto(c)}
-          topBarStart={
-            <Link href={RUTA_INICIO} className={styles.inicio} data-testid="ie-inicio">
+          topBarStart={salir ? (
+            <Link href={salir} className={styles.inicio} data-testid="ie-inicio" aria-label="Volver a tus diseños">
               <ChevronLeft size={20} aria-hidden="true" />
-              <span>Inicio</span>
             </Link>
-          }
+          ) : undefined}
+          dentro={ranuraChat ? createPortal(<PanelMakoIA />, ranuraChat) : null}
         />
       </div>
-      <CreditoDoory />
     </div>
   );
 }

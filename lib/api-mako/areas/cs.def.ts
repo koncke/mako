@@ -35,7 +35,7 @@
 // `tests/api-mako-http.snapshot.txt` no lista ninguna operación de `cs`.
 //
 // ⚠️ EL CURSO VOLVIÓ, Y ES OTRO (06/10/2026). El de la plataforma externa se fue (ver
-// abajo); el que vive EN MaKo —las clases y tareas que se cargan en Customer Success ›
+// abajo); el que vive EN MaKo —las clases y tareas que se cargan en Classroom ›
 // Curso, mig 0202— es de cualquier negocio, y `ver_avance_curso_cs` lo lee. Es una
 // LECTURA y nada más: nunca llama a `linkDeAcceso` (lib/curso-datos.ts), que CREA la
 // fila del acceso del cliente. Mandarle el link sigue siendo un botón de la ficha.
@@ -54,6 +54,7 @@
 
 import type { OperacionDef, Parametro } from '../tipos';
 import { CAMPOS_TARJETA_CLIENTE, FORMAS_TARJETA_CLIENTE } from '@/lib/tarjeta-clientes';
+import { MODELOS_CLIENTE } from '@/lib/plantillas-modelo-reglas';
 
 const SIN_HTTP = ['whatsapp', 'app'] as const;
 const CS = { tab: 'customer-success' } as const;
@@ -85,7 +86,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_avance_curso_cs', area: 'cs', tipo: 'lectura',
     titulo: 'Ver el avance en el curso',
-    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Customer Success › Curso): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
+    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Classroom): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del cliente (de ver_cartera_cs). Sin él, el resumen de toda la cartera.' },
     ],
@@ -94,7 +95,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_pagos_clientes_agencia', area: 'cs', tipo: 'lectura',
     titulo: 'Ver los pagos de clientes',
-    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Los links NO vienen aquí: están en MaKo Partners, en la cuenta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
+    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Si la cuenta la paga el cliente, el pago lo ve él al terminar su onboarding. Los links NO vienen aquí: están en Agency Dashboard, en la cuenta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
@@ -102,8 +103,8 @@ export const DEFS: readonly OperacionDef[] = [
     // MaKo Partners (17/10/2026, docs/diseno-clients.md D7-D10): las cuentas de MaKo de los clientes de una agencia viven
     // en la tab /partners. Sin HTTP: son negocios de terceros.
     id: 'ver_clientes_partners', area: 'cs', tipo: 'lectura',
-    titulo: 'Ver los clientes de MaKo Partners',
-    descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): las cuentas de MaKo de sus clientes, que viven en la tab MaKo Partners y NO son los clientes de la entrega (ver_cartera_cs). De cada una: nombre, estado de la cuenta (pendiente: espera que se pague su primer mes o que MaKo la habilite; aprobado: activa; revocado), desde cuándo, su plan y cuántas personas entran (sólo las activas), si falta pagar su primer mes o activar la renovación, y el lead del CRM del que salió (puede no haber). Los links de pago no vienen: están en MaKo Partners.',
+    titulo: 'Ver los clientes de la agencia',
+    descripcion: 'Sólo para una AGENCY (un negocio con el plan Pro que se sumó como Agency): las cuentas de MaKo de sus clientes, que viven en la tab Agency Dashboard y NO son los clientes de la entrega (ver_cartera_cs). De cada una: nombre, estado de la cuenta (pendiente: espera que se pague su primer mes o que MaKo la habilite; aprobado: activa; revocado), desde cuándo, su plan, quién la paga (agencia o cliente), cuántas personas entran (sólo las activas), si falta pagar su primer mes o activar la renovación, y el lead del CRM del que salió (puede no haber). Los links de pago no vienen: están en Agency Dashboard.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
@@ -142,16 +143,67 @@ export const DEFS: readonly OperacionDef[] = [
     // La opción del CRM «Llevar a MaKo Partners» (Martín, 17/10/2026: «si un usuario se unió al programa de "MaKo
     // Partners", que le aparezca la opción en el CRM para llevarlos allí»), por chat. El núcleo es el MISMO de la tab y
     // del CRM: `abrirCuentaDePartner` (lib/partners.ts). Crea una cuenta de la plataforma: lo confirma una persona, y
-    // sólo el admin.
+    // sólo el admin. Si paga el cliente y no hay link del primer mes, su acceso NO sale (25/10/2026): la descripción
+    // dice los dos caminos (prometía «le llega su acceso ya»), y la de `abrir_cuenta_cliente_agency` también.
     id: 'llevar_a_partners', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
-    titulo: 'Llevar un lead a MaKo Partners',
-    descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): le abre a un lead de su CRM (de cualquier etapa: no hace falta que sea cliente) su propia cuenta de MaKo, como cliente de la agencia. La cuenta nace esperando: se habilita al pagar su primer mes (el link queda en MaKo Partners y se le pasa a la persona aparte) y su mes corre desde que termina el onboarding. A quien la va a usar le llega su acceso cuando quede habilitada. Necesita un email: sin email usa el del CRM. Si el lead ya tiene cuenta, no abre otra.',
-    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin (sin avisarle todavía), lo liga al lead (leads.cliente_ws) y crea el link de pago de su primer mes',
+    titulo: 'Abrirle su cuenta a un lead',
+    descripcion: 'Sólo para una AGENCY (un negocio con el plan Pro que se sumó como Agency): le abre a un lead de su CRM (de cualquier etapa: no hace falta que sea cliente) su propia cuenta de MaKo, como cliente de la agencia, en Agency Dashboard. Se elige quién la paga: la agencia (default: el link de su primer mes queda en Agency Dashboard y pagarlo la habilita; a quien la va a usar le llega su acceso al quedar habilitada) o el cliente (si MaKo ya puede cobrarle, le llega su acceso, hace su onboarding y al terminarlo le aparece el pago; si no, su cuenta espera a que MaKo la habilite y ahí le llega su acceso). Su mes corre desde que termina el onboarding. Necesita un email: sin email usa el del CRM. Si el lead ya tiene cuenta, no abre otra.',
+    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin, lo liga al lead (leads.cliente_ws), anota quién paga y crea el link de pago de su primer mes; si paga el cliente y el link salió, le manda su acceso',
     parametros: [
       { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead del CRM (cualquier etapa).' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'el email de quien va a usar la cuenta. Sin esto, el del CRM.' },
+      { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'customer-success', rolMinimo: 'admin' },
+  },
+  // ── Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9) ────────────────────────────────────────
+  // Sumarse como Agency, ver cómo está y abrir la cuenta de un cliente que no está en el CRM. El núcleo, en lib/agency.ts
+  // y lib/partners.ts (el MISMO de la tab). Sólo el admin: se crean cuentas de la plataforma. Sin HTTP: son negocios de
+  // terceros. Sin `tab`: Agency es del plan, no de una tab de la capa.
+  {
+    id: 'ver_agency', area: 'cs', tipo: 'lectura',
+    titulo: 'Ver el estado de Agency',
+    descripcion: 'Si este negocio es Agency (tiene el plan MaKo Pro activo y se sumó desde Agency Dashboard), si puede sumarse y, si no, por qué (plan: Agency es parte de MaKo Pro; pausado: su cuenta está pausada), lo que contó al sumarse (cuántos clientes maneja, su rubro, quién paga hoy las herramientas de sus clientes) y cuántas cuentas de clientes tiene por estado. Una agencia NO gana dinero con MaKo: sus clientes son suyos, y MaKo no les hace promociones ni les ofrece otros planes.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'sumarse_como_agency', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Sumarse como Agency',
+    descripcion: 'Suma este negocio como Agency: desde ahí abre las cuentas de MaKo de sus clientes, entra a cada una con controles de admin y elige si cada cuenta la paga la agencia o el cliente. Sólo con el plan MaKo Pro activo (si no, dice por qué). Antes de proponerlo conviene preguntar las tres cosas del alta: cuántos clientes maneja, a qué se dedican y quién paga hoy sus herramientas. Si ya es Agency, no hace nada.',
+    escribe: 'anota que el negocio se sumó como Agency (agencias) y lo que contó (app_settings agency.perfil)',
+    parametros: [
+      { nombre: 'clientes', rotulo: 'Cuántos clientes', tipo: 'string', enum: ['1-5', '6-20', '21-50', '50+'], descripcion: 'cuántos clientes maneja hoy.' },
+      { nombre: 'rubro', rotulo: 'Rubro', tipo: 'string', max: 120, descripcion: 'a qué se dedican sus clientes, en pocas palabras.' },
+      { nombre: 'pagaHoy', rotulo: 'Quién paga hoy', tipo: 'string', enum: ['yo', 'clientes', 'depende'], descripcion: 'quién paga hoy las herramientas de sus clientes: yo (la agencia), clientes o depende. Es lo que el alta de un cliente propone primero.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'abrir_cuenta_cliente_agency', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Abrir la cuenta de un cliente',
+    descripcion: 'Sólo para una AGENCY: le abre su cuenta de MaKo a un cliente que NO está en el CRM (si está, usar llevar_a_partners con su leadId), con su nombre y su email. Se elige quién la paga: la agencia (default: el link de su primer mes queda en Agency Dashboard; pagarlo la habilita y ahí le llega su acceso) o el cliente (si MaKo ya puede cobrarle, le llega su acceso y al terminar su onboarding le aparece el pago, y hasta que pague la agencia no entra a su cuenta; si no, su cuenta espera a que MaKo la habilite y ahí le llega su acceso). Su mes corre desde que termina el onboarding. Si el email ya tiene cuenta de MaKo, no abre otra.',
+    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin, anota quién paga y crea el link de pago de su primer mes; si paga el cliente y el link salió, le manda su acceso',
+    parametros: [
+      { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del negocio (o de la persona) del cliente.' },
+      { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el email de quien va a usar la cuenta: por ahí le llega el acceso.' },
+      { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    // LA PLANTILLA DE UN MODELO DE NEGOCIO (MAU-01, 27/10/2026, lib/plantillas-modelo.ts): Mauricio, «una base tipo copy
+    // paste que disminuya mi intervención de iniciar de cero». Lo mismo que «Plantilla del negocio» en la ficha de una
+    // cuenta del Agency Dashboard. Sin HTTP, como las demás de Agency: son cuentas de terceros.
+    id: 'aplicar_plantilla_de_modelo', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Aplicar la plantilla de un modelo de negocio',
+    descripcion: 'Arma la base de una cuenta según cómo vende: tienda-b2c (le vende a personas: un local, una tienda online o un restaurante), b2b-crm (le vende a empresas, con reuniones y propuestas) o manufactura (fabrica y vende por cotización y orden de compra). Crea su funnel con las etapas de ese modelo, el objetivo del trimestre con 4 KPIs semanales (sin números: la meta y el compromiso los pone el negocio) y un proyecto en su Plan con la guía para cargar sus datos. Lo que ya existe con el mismo nombre no se duplica. Con clienteWs, una AGENCY se la aplica a un cliente de su cartera; sin él, se aplica a este negocio.',
+    escribe: 'un funnel (funnels), un objetivo con sus KPIs (objectives, kpis) y un proyecto con sus tareas en el Plan (plan_proyectos, plan_tareas), en la cuenta del cliente o en la propia',
+    parametros: [
+      { nombre: 'modelo', rotulo: 'Modelo', tipo: 'string', obligatorio: true, enum: [...MODELOS_CLIENTE], descripcion: 'tienda-b2c, b2b-crm o manufactura.' },
+      { nombre: 'clienteWs', rotulo: 'Cliente', tipo: 'number', entero: true, minimo: 1, descripcion: 'sólo para una Agency: el número de cuenta del cliente de su cartera. Sin esto, se aplica a este negocio.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
   {
     // LA TARJETA DE UN CLIENTE, PERSONALIZADA (21/10/2026, Martín: «la personalización de las tarjetas en clientes, plan,
@@ -188,7 +240,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'mover_cliente_entrega', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Mover un cliente en la entrega',
-    descripcion: 'PROPONE pasar a un cliente a otra etapa de la entrega de un servicio, el kanban de Customer Success (queda pendiente hasta el «sí»). Entrar a la etapa arranca sus automatizaciones de entrega, que le pueden escribir al cliente. Sin etapa, la primera. Si ese servicio no era suyo, lo suma a esa entrega. Para deshacer, el mismo pedido con la etapa anterior.',
+    descripcion: 'PROPONE pasar a un cliente a otra etapa de la entrega de un servicio, el kanban de Clients (queda pendiente hasta el «sí»). Entrar a la etapa arranca sus automatizaciones de entrega, que le pueden escribir al cliente. Sin etapa, la primera. Si ese servicio no era suyo, lo suma a esa entrega. Para deshacer, el mismo pedido con la etapa anterior.',
     escribe: 'la etapa del cliente en la entrega de ese servicio (cliente_entrega), con su línea de historial, y lo enrola en las automatizaciones de esa etapa',
     parametros: [
       leadId,

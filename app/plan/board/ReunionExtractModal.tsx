@@ -1,6 +1,7 @@
 'use client';
 
-// ReunionExtractModal — G3: MaKo lee una reunión de Fathom y saca los action items
+// ReunionExtractModal — G3: MaKo lee una reunión grabada (Fathom, Loom, tl;dv, Fireflies, Zoom…: lib/grabadores,
+// 26/10/2026) y saca los action items
 // del equipo como tarjetas del plan. Dos fases: elegir la reunión → revisar los
 // candidatos (incluir/excluir + reasignar proyecto) → agregar al plan. Entran SIN
 // prioridad («Sin priorizar»): la pone «Re-priorizar todo» (16/10/2026).
@@ -21,6 +22,9 @@ import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type CandidataTarea, type FilaTarea } from './ReunionTareas';
 import { type Label, type Fuente } from './types';
 import { TIPO_REUNION_UI, type TipoReunion } from '@/lib/reunion-clasificar';
+import { recordingDeRef } from '@/lib/lectura-por-partes';
+import type { GrabadorId } from '@/lib/grabadores/reunion';
+import { nombreDeGrabador } from '@/lib/grabadores/catalogo';
 import { frenoDeScope, type FrenoScope } from '@/lib/reunion-gate';
 import { WizardShell } from '@/app/_components/WizardShell';
 import { useCapaModal } from '@/app/_components/pila-modales';
@@ -29,7 +33,9 @@ const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 type Participante = { nombre: string; email: string };
-type ReunionMeta = { recordingId: number; titulo: string; fecha: string | null; durMin: number | null; url: string | null; involucrados: string[]; tipo: TipoReunion; participantes?: Participante[] };
+/** `recordingId` = la CLAVE de la reunión (Fathom: su recording_id; los demás grabadores, negativa). `ref` y `grabador`
+ *  dicen de dónde es («loom:abc»): sin ellos (un caché viejo), es de Fathom. */
+type ReunionMeta = { recordingId: number; ref?: string; grabador?: GrabadorId; titulo: string; fecha: string | null; durMin: number | null; url: string | null; involucrados: string[]; tipo: TipoReunion; participantes?: Participante[] };
 type Candidata = CandidataTarea;
 type Duda = { termino: string; porque: string };
 // enriquece = ya existe en el plan; el Perro sugiere sumarle a esa tarjeta en vez de duplicar.
@@ -41,7 +47,7 @@ export type ResumenBorrador = { id: string; estado: 'pendiente' | 'aplicada' | '
 
 /** Una reunión que el cron NO leyó (mig 0300), con el motivo en una línea: el clasificador la dio
  *  por ventas u «otra», o iba al plan y la lectura falló ('fallo'). */
-type Descartada = { recordingId: number; titulo: string; fecha: string | null; url: string | null; tipo: 'ventas' | 'otra' | 'fallo'; motivo: string };
+type Descartada = { recordingId: number; ref?: string; titulo: string; fecha: string | null; url: string | null; tipo: 'ventas' | 'otra' | 'fallo'; motivo: string };
 const TIPO_NO_LEIDA: Record<Descartada['tipo'], string> = { ventas: 'Ventas', otra: 'Sin clasificar', fallo: 'Falló la lectura' };
 
 
@@ -75,8 +81,8 @@ function guardarCache(desde: string, reuniones: ReunionMeta[], cursor: string | 
   try {
     const borradores: Record<number, ResumenBorrador> = {};
     for (const [ref, v] of Object.entries(borradoresRaw)) {
-      const n = Number(ref.replace('fathom:', ''));
-      if (Number.isFinite(n)) borradores[n] = v;
+      const n = recordingDeRef(ref);
+      if (n != null) borradores[n] = v;
     }
     sessionStorage.setItem(CACHE_KEY, JSON.stringify({ desde, ts: Date.now(), reuniones, cursor, borradores } satisfies CacheLista));
   } catch { /* cuota llena o modo privado: que no se caiga por un caché */ }
@@ -92,6 +98,8 @@ async function apiFathom(body: Record<string, unknown>): Promise<{ ok: boolean; 
   reunionCon?: string | null; borradorId?: string; usage?: unknown; error?: string; estado?: string; resumen?: string; n?: number; yaEstaba?: boolean;
   /** `extraer` sin caché (16/10/2026): la lectura quedó corriendo en el server; hay que sondear. */
   procesando?: boolean;
+  /** `reuniones`: los grabadores que no contestaron (las reuniones de los otros vienen igual). */
+  fallos?: Array<{ grabador: GrabadorId; error: string }>;
   /** `reuniones`: las que el cron descartó. `null` = no se pudieron leer (no es «ninguna»). */
   descartadas?: Descartada[] | null;
   /** `estado-borrador`: la lectura terminó sin compromisos (no es un error). */
@@ -158,6 +166,8 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
   const [borradores, setBorradores] = useState<Record<number, ResumenBorrador>>({});
   // Las que el cron descartó por tipo (mig 0300). Arriba de la lista, cortas, con «Leer igual».
   const [descartadas, setDescartadas] = useState<Descartada[]>([]);
+  // Los grabadores que no contestaron en la última carga (sus reuniones faltan de la lista).
+  const [fallosGrabador, setFallosGrabador] = useState<GrabadorId[]>([]);
   const [q, setQ] = useState('');                              // búsqueda por título/email
   const [desde, setDesde] = useState('');                      // filtro por fecha (YYYY-MM-DD)
   const [elegida, setElegida] = useState<ReunionMeta | null>(null);
@@ -192,10 +202,13 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
       // `null` (no se pudieron leer) deja lo que había: no se dibuja «ninguna» sobre una lectura fallida.
       if (reset && Array.isArray(j.descartadas)) setDescartadas(j.descartadas);
       const porId: Record<number, ResumenBorrador> = {};
+      // Por la CLAVE de la reunión, de cualquier grabador («fathom:123» → 123, «loom:abc» → su clave).
       for (const [ref, v] of Object.entries(j.borradores ?? {})) {
-        const n = Number(ref.replace('fathom:', ''));
-        if (Number.isFinite(n)) porId[n] = v;
+        const n = recordingDeRef(ref);
+        if (n != null) porId[n] = v;
       }
+      // El grabador que no contestó se dice: sus reuniones faltan en la lista, no «no hay».
+      setFallosGrabador(j.fallos?.map((f) => f.grabador) ?? []);
       setBorradores((prev) => (reset ? porId : { ...prev, ...porId }));
     } else { setErr(j.error || 'No pude traer las reuniones.'); if (reset) setReuniones([]); }
   };
@@ -245,7 +258,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
         tareas: fs.map((f) => ({
           titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad,
           proyecto: labels.find((l) => l.id === f.proyectoId)?.name ?? f.proyectoNombre,
-          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+          dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro, duenoDudoso: f.dueñoDudoso,
           minuto: f.minuto, minutos: f.minutos,
           // LA REVISIÓN. `enriquece` y `ampliar` se caían del autosave, así que el
           // resultado del cruce no sobrevivía a cerrar el modal ni una vez.
@@ -344,7 +357,8 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
     ];
     // reanalizar: fuerza correr la IA de nuevo (ignora el cache). Sin esto, re-abrir la
     // misma reunión devuelve lo cacheado — NO cobra tokens (feedback jul-19).
-    const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, titulo: r.titulo, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
+    // La `ref` dice de qué grabador es («loom:abc»); el server la prefiere a la clave.
+    const j = await apiFathom({ action: 'extraer', recordingId: r.recordingId, ...(r.ref ? { ref: r.ref } : {}), titulo: r.titulo, proyectos, uso: 'Extraer tareas de reunión', reanalizar });
     clearTimeout(avisar);
     setEnSegundoPlano(false);
     if (j.usage) onUsage?.(j.usage);
@@ -495,8 +509,8 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
   const hayMias = useMemo(() => filas.some((f) => !f.esDeOtro), [filas]);
 
   const confirmar = () => {
-    // fuente: la reunión de Fathom (con link) o el archivo subido (feedback jul-19).
-    const fuente: Fuente | undefined = elegida ? { tipo: 'fathom', etiqueta: elegida.titulo, url: elegida.url ?? undefined }
+    // fuente: la reunión, con el grabador que la grabó y su link, o el archivo subido (feedback jul-19).
+    const fuente: Fuente | undefined = elegida ? { tipo: elegida.grabador ?? 'fathom', etiqueta: elegida.titulo, url: elegida.url ?? undefined }
       : archivoNombre ? { tipo: 'archivo', etiqueta: archivoNombre }
         : undefined;
     // Dos destinos, un solo click: lo nuevo se crea y lo repetido AMPLÍA la tarjeta que
@@ -623,14 +637,21 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                   Corta a propósito: tres a la vista y el resto detrás de «Ver todas». */}
               {descartadas.length > 0 && !q && (
                 <ListaDescartadas descartadas={descartadas} onLeer={(d) => void extraer({
-                  recordingId: d.recordingId, titulo: d.titulo, fecha: d.fecha, durMin: null, url: d.url, involucrados: [],
+                  recordingId: d.recordingId, ref: d.ref, titulo: d.titulo, fecha: d.fecha, durMin: null, url: d.url, involucrados: [],
                   // Una que FALLÓ sí iba al plan: su tipo real no se guardó, y 'otra' no frena nada.
                   tipo: d.tipo === 'fallo' ? 'otra' : d.tipo,
                 })} />
               )}
 
+              {/* UN GRABADOR QUE NO CONTESTÓ SE DICE (26/10/2026): sus reuniones faltan de esta lista, y sin esta línea
+                  «no está» se leería como «no existe». Las de los otros grabadores vienen igual. */}
+              {fallosGrabador.length > 0 && (
+                <div role="status" style={{ fontSize: 12.5, color: 'var(--warn)', padding: '8px 12px', borderRadius: 10, border: '1px solid var(--warn)', background: 'var(--surface-2)' }}>
+                  {fallosGrabador.map(nombreDeGrabador).join(' y ')} no {fallosGrabador.length === 1 ? 'contestó' : 'contestaron'}: faltan sus reuniones. Vuelve a abrir esto en un rato.
+                </div>
+              )}
               {reuniones == null
-                ? <Cargando texto="Buscando tus reuniones en Fathom…" />
+                ? <Cargando texto="Buscando tus reuniones grabadas…" />
                 : visibles.length === 0
                   // NADA COINCIDE — pero eso NO quiere decir que no exista. La búsqueda es
                   // local sobre lo que ya se trajo, así que la reunión que buscás puede
@@ -638,7 +659,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                   // «Leila» y no verla se leía como «no existe», cuando era «todavía no la
                   // traje». Recién cuando Fathom deja de devolver cursor se dice que no hay.
                   ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                      <Vacio texto={q ? `Ninguna de las reuniones que traje coincide con «${q.slice(0, 24)}».` : desde ? 'Ninguna reunión coincide con el filtro.' : 'No encontré reuniones recientes en Fathom.'} />
+                      <Vacio texto={q ? `Ninguna de las reuniones que traje coincide con «${q.slice(0, 24)}».` : desde ? 'Ninguna reunión coincide con el filtro.' : 'No encontré reuniones recientes en tus grabadores.'} />
                       {cursor ? (
                         <button type="button" onClick={() => void cargar(false)} disabled={cargandoMas}
                           style={{ padding: '9px 18px', borderRadius: 9, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)', color: 'var(--primary)', fontSize: 13, fontWeight: 700, cursor: cargandoMas ? 'default' : 'pointer', fontFamily: SANS }}>
@@ -646,7 +667,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                         </button>
                       ) : (
                         <div style={{ fontSize: 12.5, color: 'var(--faint)', textAlign: 'center' }}>
-                          {q ? `Ya miré todas tus reuniones de Fathom y ninguna coincide con «${q.slice(0, 24)}».` : 'Esas son todas las reuniones que tienes en Fathom.'}
+                          {q ? `Ya miré todas tus reuniones grabadas y ninguna coincide con «${q.slice(0, 24)}».` : 'Esas son todas las reuniones de tus grabadores.'}
                         </div>
                       )}
                     </div>
@@ -690,8 +711,8 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                             style={{ display: 'flex', alignItems: 'stretch', gap: 12, textAlign: 'left', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS, opacity: yaLeida ? 1 : 0.62 }}
                             onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.opacity = '1'; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.opacity = yaLeida ? '1' : '0.62'; }}>
-                            {/* logo de Fathom (punto 6): son grabaciones de Fathom, no un micrófono genérico */}
-                            <span style={{ flex: 'none', marginTop: 1 }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>
+                            {/* el logo del grabador (punto 6): son grabaciones de Fathom, Loom, Zoom…, no un micrófono genérico */}
+                            <span style={{ flex: 'none', marginTop: 1 }}><SvcIcon k={r.grabador ?? 'fathom'} size={17} box={28} radius={8} /></span>
                             <span style={{ flex: 1, minWidth: 0 }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                                 <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.titulo}</span>
@@ -766,7 +787,7 @@ export function ReunionExtractModal({ labels, archivoInicial, onCrear, onAmpliar
                           no está no se sienta como que el botón dejó de funcionar. */}
                       {!cursor && (reuniones?.length ?? 0) > 0 && (
                         <div style={{ alignSelf: 'center', marginTop: 4, fontSize: 12.5, color: 'var(--faint)' }}>
-                          {q ? `No hay más reuniones con «${q.slice(0, 20)}» en Fathom.` : 'Esas son todas las reuniones que tienes en Fathom.'}
+                          {q ? `No hay más reuniones con «${q.slice(0, 20)}» en tus grabadores.` : 'Esas son todas las reuniones de tus grabadores.'}
                         </div>
                       )}
                     </>}

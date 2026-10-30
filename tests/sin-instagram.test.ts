@@ -89,6 +89,29 @@ const CANAL: Record<string, string> = {
   // publicar y editar anuncios (lo único que la app en desarrollo del cliente no deja: el 1885183). NO es el canal
   // de Instagram: usa la clave del NEGOCIO (nunca la de la plataforma para un cliente) y la API de anuncios.
   'lib/zernio-ads.ts': 'publicar y editar anuncios de Meta por la Zernio del negocio (docs/hallazgos-ads.md, «Publicar por Zernio»)',
+  // 25/10/2026, Martín: «implementa zernio y depreca la conexión con API de Meta». Meta ENTERO por la conexión de anuncios de
+  // Zernio del negocio (no es el canal de Instagram): leer métricas, la salud de la cuenta y mandar las conversiones al píxel.
+  // Usan el cliente de lib/zernio.ts (`zFetch`) con la clave del negocio (`claveZernioAnuncios`).
+  'lib/meta-via.ts': '¿por dónde habla MaKo con Meta? Zernio primero, el token de respaldo; las lecturas con la forma de Meta',
+  'lib/meta-conexion-zernio.ts': 'guardar, mirar y probar la conexión de Meta por Zernio (cuentas publicitarias y píxeles)',
+  'lib/meta-capi.ts': 'las conversiones al píxel por la Zernio del negocio (`POST /v1/ads/conversions`), antes que por el token',
+  'lib/meta-escribir-zernio.ts': 'pausar, prender, presupuestar, renombrar y borrar en Meta por la Zernio del negocio (un negocio sin token, 26/10/2026)',
+  'lib/transcribe.ts': 'el video y la imagen de un anuncio por la Zernio del negocio (`GET /v1/ads/{adId}/media`), para transcribirlo',
+  // 28/10/2026, el Cerebro (Martín a Teo: «publicás reels e historias desde el Calendar»): una Publicación del Calendario se
+  // programa en la red. NO es la tab que se fue (no usa `contenido_posts` ni /instagram): los posts de Zernio con la clave del
+  // negocio (`cfg`), desde los eventos del Calendario (`calendario_eventos`, mig 0342).
+  'lib/zernio-publicar.ts': 'los posts de Zernio: programar, leer y cancelar una publicación del Calendario',
+  'lib/calendario-publicar.ts': 'programar en la red una Publicación del Calendario (sus cuentas, su archivo y su estado en Zernio)',
+  // 28/10/2026, el mismo pedido («por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram»): la fuente de
+  // Instagram orgánico (la cuenta, los seguidores y las publicaciones con sus métricas) por la Zernio del negocio.
+  'lib/zernio-organico.ts': 'lo orgánico de Instagram por Zernio: la cuenta, los seguidores y las publicaciones con sus métricas',
+  // 29/10/2026, el audio de Leandro («que no se pare la automatización… y que Maco no me avise nada»): el aviso antes de los
+  // 10.000 mensajes gratis de Zernio lo arma Automations; el conteo vive acá. Lee el ciclo de Zernio (`GET /v1/billing`, con
+  // `cfg`) y CUENTA los salientes de `ig_mensajes` (los de Chats) y del motor. No manda nada.
+  'lib/zernio-uso.ts': 'cuántos mensajes mandó el negocio por Zernio en su ciclo (para el aviso antes del tope de los gratis)',
+  // 29/10/2026, la llamada de Martín con una agencia («le entran acá los leads»): la red de seguridad de los leads de Meta por Zernio.
+  // NO es el canal de Instagram: lee `GET /v1/ads/leads` con las claves del negocio y carga por la MISMA puerta del webhook.
+  'lib/zernio-leads-barrido.ts': 'el barrido de los leads de los formularios de Meta por Zernio, por si el webhook no llega',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

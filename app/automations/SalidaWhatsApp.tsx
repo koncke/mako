@@ -34,8 +34,12 @@ import { EvolutionConnect } from '../whatsapp/EvolutionConnect';
 /** Una línea del negocio, como la devuelve `/api/whatsapp/evolution/mensajes?lineas=1`. */
 export type LineaWa = { linea: string; rotulo: string; estado: string; esDefault: boolean };
 
-/** De dónde salen las líneas del negocio. La importan este desplegable y el «De» de «Probar» (PanelProbar). */
-export const RUTA_LINEAS = '/api/whatsapp/evolution/mensajes?lineas=1';
+/**
+ * De dónde salen las líneas del negocio. La importan este desplegable, el «Sale desde» de «Probar» (PanelProbar) y la
+ * automatización (SecuenciaPerfil). ⚠️ CON `para=mandar` (27/10/2026): las MISMAS con las que manda el server (en la
+ * plataforma, «WhatsApp de MaKo» primero y por defecto). Sin él, la pantalla decía una línea y el mensaje salía por otra.
+ */
+export const RUTA_LINEAS = '/api/whatsapp/evolution/mensajes?lineas=1&para=mandar';
 /** El valor del renglón «Vincular nuevo»: no es una línea y nunca se guarda. */
 export const VINCULAR = '__vincular__';
 /** El valor de «la de por default» (la secuencia guarda null). */

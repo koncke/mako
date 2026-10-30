@@ -10,8 +10,14 @@
 // Un `grupo` se dibuja como UN botón (el último usado del grupo) con el ◢ de
 // CapCut en la esquina, que abre el menú con todos. Un `Control` se dibuja tal
 // cual (deslizador del zoom, «Vinculación ▾»).
+//
+// ⚠️ Nada queda fuera de la vista (Martín, 30/10/2026): iba en un ScrollArea con
+// la barra de scroll oculta y a 1366 con el chat abierto «Acercar» no se veía.
+// Sin lugar, se esconde lo `prescindible` (../barra-ancho.ts) y, si aun así no
+// entra, la barra se parte en dos filas. Sin ScrollArea: su contenido es una
+// tabla que crece con lo que tiene adentro y nunca dejaba partir la fila.
 
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import {
 	Tooltip,
@@ -25,7 +31,8 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/app/video-editor/_opencut/components/ui/dropdown-menu";
-import { ScrollArea } from "@/app/video-editor/_opencut/components/ui/scroll-area";
+import { useAncho } from "@/app/video-editor/_opencut/hooks/use-ancho";
+import { conPrescindibles } from "@/app/video-editor/_opencut/timeline/barra-ancho";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import {
@@ -85,6 +92,8 @@ function armarBloques(herramientas: HerramientaLinea[]): Bloque[][] {
 }
 
 export function TimelineToolbar() {
+	const ref = useRef<HTMLDivElement>(null);
+	const prescindibles = conPrescindibles(useAncho(ref));
 	const editor = useEditor();
 	const seleccion = useEditor((e) => e.selection.getSelectedElements());
 	// Los interruptores leen el store de la línea de tiempo: re-dibujar si cambia.
@@ -113,22 +122,23 @@ export function TimelineToolbar() {
 			},
 		]),
 	);
-	const visibles = todas.filter((h) => estadoPorId.get(h.id)?.visible);
+	const visibles = todas.filter((h) => estadoPorId.get(h.id)?.visible && (prescindibles || !h.prescindible));
 	const izquierda = armarBloques(visibles.filter((h) => h.lado === "izquierda"));
 	const derecha = armarBloques(visibles.filter((h) => h.lado === "derecha"));
 
 	return (
-		<ScrollArea className="scrollbar-hidden shrink-0">
-			<TooltipProvider delayDuration={400}>
-				<div
-					className="flex items-center justify-between gap-6 border-b border-(--cc-line) px-3"
-					style={{ height: TIMELINE_TOOLBAR_HEIGHT_PX }}
-				>
-					<Lado filas={izquierda} ctx={ctx} estados={estadoPorId} />
-					<Lado filas={derecha} ctx={ctx} estados={estadoPorId} />
-				</div>
-			</TooltipProvider>
-		</ScrollArea>
+		<TooltipProvider delayDuration={400}>
+			{/* Una fila de 38 px; sin lugar, la derecha baja a una segunda fila y queda a la derecha (`ml-auto`). */}
+			<div
+				ref={ref}
+				data-barra-linea=""
+				className="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-1 border-b border-(--cc-line) px-3 py-[3px]"
+				style={{ minHeight: TIMELINE_TOOLBAR_HEIGHT_PX }}
+			>
+				<Lado filas={izquierda} ctx={ctx} estados={estadoPorId} />
+				<Lado filas={derecha} ctx={ctx} estados={estadoPorId} className="ml-auto" />
+			</div>
+		</TooltipProvider>
 	);
 }
 
@@ -136,15 +146,18 @@ function Lado({
 	filas,
 	ctx,
 	estados,
+	className,
 }: {
 	filas: Bloque[][];
 	ctx: ContextoHerramienta;
 	estados: Map<string, Estado>;
+	className?: string;
 }) {
 	return (
-		<div className="flex items-center gap-1">
+		<div className={cn("flex flex-wrap items-center gap-1", className)}>
 			{filas.map((fila, i) => (
-				<Fragment key={i}>
+				// El separador va con SU bloque: si el lado se parte, no queda un separador suelto al final de una línea.
+				<div key={i} className="flex items-center gap-1">
 					{i > 0 && <span className="mx-1.5 h-4 w-px shrink-0 bg-(--cc-line-2)" />}
 					<div className="flex items-center gap-1">
 						{fila.map((bloque) =>
@@ -165,7 +178,7 @@ function Lado({
 							),
 						)}
 					</div>
-				</Fragment>
+				</div>
 			))}
 		</div>
 	);
@@ -232,7 +245,7 @@ export function BotonBarra({
 							onClick?.();
 						}}
 						className={cn(
-							"flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-white/8 disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent",
+							"flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--velo-hover) disabled:cursor-default disabled:text-(--cc-icon-off) disabled:hover:bg-transparent",
 							activa && "text-(--cc-accent)",
 							className,
 						)}

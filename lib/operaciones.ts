@@ -32,8 +32,8 @@ import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'no
 import { getSupabaseServer } from './supabase';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from './claves-en-el-chat';
 import {
-  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, vozDeFirmado, sanearAcuses, sanearChats,
+  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido, type VozDelPedido,
 } from './operaciones-reglas';
 import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
@@ -42,11 +42,12 @@ import { guardarPasos } from './centro-pasos-db';
 import { after } from 'next/server';
 import { anotarTurnosDelPlan, aplicarPlanDeLosChats } from './centro-plan-auto';
 import { guardarPreguntas } from './centro-preguntas-chat-db';
+import { cadenasDeSesiones } from './centro-chats';
 import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
-import { acusarTicket, ticketsParaElCartero, ticketsSinEntregar, type TicketParaEntregar } from './tickets-runner';
-import { VERSION_CARTERO_TICKETS, esElCerebro, versionAlMenos } from './tickets-aviso';
+import { acusarTicket, acusarTicketNuevo, ticketsNuevosParaElCartero, ticketsNuevosSinEntregar, ticketsParaElCartero, ticketsSinEntregar, type TicketNuevoParaEntregar, type TicketParaEntregar } from './tickets-runner';
+import { VERSION_CARTERO_TICKETS, VERSION_CARTERO_TICKETS_NUEVOS, esElCerebro, versionAlMenos } from './tickets-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -72,6 +73,8 @@ export type Pedido = {
   adjuntos?: string[];
   /** De esos, los que son fotos (23/10/2026): su miniatura se puede pedir al servidor (lib/operaciones-adjuntos.ts). */
   fotos?: string[];
+  /** Lo mandó como nota de voz (26/10/2026): `texto` es su transcripción, y el MP3 se pide al servidor. */
+  voz?: VozDelPedido;
 };
 
 export type Cartero = {
@@ -106,11 +109,12 @@ export async function listarPedidos(limite = 100): Promise<Pedido[]> {
   const { data, error } = await getSupabaseServer()
     .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
-  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, y cuáles son fotos.
+  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, cuáles son fotos, y si fue una nota de voz.
   return (data ?? []).map(({ firmado, ...p }) => {
     const adjuntos = nombresDeAdjuntos(firmado as string | null);
     const fotos = fotosDeFirmado(firmado as string | null).map((f) => f.nombre);
-    return (adjuntos.length ? { ...p, adjuntos, ...(fotos.length ? { fotos } : {}) } : p) as Pedido;
+    const voz = vozDeFirmado(firmado as string | null);
+    return { ...p, ...(adjuntos.length ? { adjuntos, ...(fotos.length ? { fotos } : {}) } : {}), ...(voz ? { voz } : {}) } as Pedido;
   });
 }
 
@@ -227,6 +231,11 @@ export type SalidaCiclo = {
    *  Un cartero de antes no los recibe (`VERSION_CARTERO_TICKETS`). */
   tickets: TicketParaEntregar[];
   ticketsError: string | null;
+  /** Los tickets que esperan la decisión de Martín, con OTRO texto fijo y su propia marca (cartero 1.23.0, 29/10/2026,
+   *  lib/tickets-runner.ts). Aparte de `tickets`: un cartero de antes los mandaría con el texto de un bug del triage. */
+  ticketsNuevos: TicketNuevoParaEntregar[];
+  /** Si no se pudieron calcular (p. ej., falta la migración de `cerebro_*`): lo demás sale igual. */
+  ticketsNuevosError: string | null;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -319,6 +328,10 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
     n += count ?? 0;
   }
   if (conCerebro) n += await ticketsSinEntregar();
+  // Los tickets nuevos (cartero 1.23.0), con la misma condición y su versión. Sin la migración no cuentan: `vigilar` no se cae.
+  const conCerebroNuevos = (filas ?? []).some((f) => versionAlMenos(f.version as string | null, VERSION_CARTERO_TICKETS_NUEVOS)
+    && sanearChats(f.chats).some((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube && esElCerebro(c.titulo)));
+  if (conCerebroNuevos) n += await ticketsNuevosSinEntregar().catch(() => 0);
   return n;
 }
 
@@ -328,6 +341,14 @@ export async function tokenDelCarteroValido(token: string): Promise<boolean> {
   const { data: tok, error } = await getSupabaseServer().from(T_TOKEN).select('id').eq('token_hash', hash(token)).maybeSingle();
   if (error) throw new Error(error.message);
   return !!tok;
+}
+
+/** Las sesiones de cada chat en todas las cuentas (lib/centro-chats.ts → cadenasDeSesiones), de lo que subió cada cartero. Si no
+ *  se pueden leer, ninguna: cada pregunta se supera sólo con los turnos de su sesión, como antes del 25/10/2026. */
+async function cadenaDeLasCuentas(): Promise<Map<string, string[]> | undefined> {
+  const { data, error } = await getSupabaseServer().from(T_CARTEROS).select('chats');
+  if (error) { console.error('[operaciones] la cadena de los chats:', error.message); return undefined; }
+  return cadenasDeSesiones((data ?? []).map((f) => ({ chats: sanearChats(f.chats) })));
 }
 
 export async function cicloCartero(token: string, entrada: unknown): Promise<SalidaCiclo | null> {
@@ -364,17 +385,21 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   // pudo guardar, la vuelta sigue: la PC no avanza su marca hasta que MaKo diga que entró (`turnosOk`).
   let turnosOk = true;
   const turnos = sanearTurnos(e.turnos);
+  const preguntas = sanearPreguntas(e.preguntas);
+  // LA CADENA de cada chat (25/10/2026): sus sesiones en TODAS las cuentas, las que el Ops Center junta por el nombre. Un turno
+  // de la cuenta 1 supera la pregunta que el mismo chat hizo en la cuenta 2 («Ventas de MaKo», 23/10). Sin poder leerla, se
+  // supera como antes, por sesión (`cadenaDeLasCuentas`).
+  const cadena = turnos.length || preguntas.length ? await cadenaDeLasCuentas() : undefined;
   if (turnos.length) {
-    try { await guardarTurnos(turnos); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
+    try { await guardarTurnos(turnos, cadena); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
   }
   // Las preguntas de los chats (17/10/2026, Martín: «en lugar de darme las opciones tipo multiple select»): el formulario de
   // su conversación (lib/centro-preguntas-chat.ts). Si no se pudieron guardar, la PC las vuelve a subir en la vuelta siguiente.
   let preguntasIds: string[] = [];
-  const preguntas = sanearPreguntas(e.preguntas);
   if (preguntas.length) {
     // Si no se pudieron guardar, la vuelta NO avanza las marcas (`turnosOk`): una pregunta de wrap_up sale de una línea del
     // transcript, y con la marca adelante nadie la volvía a leer (la revisión de caja-voz, 20/10/2026).
-    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
+    try { preguntasIds = await guardarPreguntas(preguntas, cadena); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
   }
   // El Plan de cada chat se arma solo (17/10/2026, la D): «Voy a trabajar en…» crea su tarea y «Ya está» la marca hecha.
   // Anotarlo es rápido; aplicarlo en el Plan pasa por el Perro (hasta un minuto por paso) y va DESPUÉS de contestarle al
@@ -409,6 +434,8 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     // Un bug del triage que el Runner le entregó al Cerebro (cartero 1.15.0): el mismo formato de id. Si falta la mig 0311,
     // no puede existir un acuse así, y el error se ignora.
     acuses += await acusarTicket(a, ahoraIso).catch(() => 0);
+    // Un ticket nuevo (cartero 1.23.0): su propia marca. Sin la migración de `cerebro_*` no puede existir un acuse así.
+    acuses += await acusarTicketNuevo(a, ahoraIso).catch(() => 0);
   }
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
@@ -483,5 +510,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     ticketsError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, tickets, ticketsError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
+  // Los tickets que esperan a Martín (cartero 1.23.0), aparte de los del triage: si fallan, lo demás sale igual.
+  let ticketsNuevos: TicketNuevoParaEntregar[] = [];
+  let ticketsNuevosError: string | null = null;
+  try {
+    if (vivos.length) ticketsNuevos = await ticketsNuevosParaElCartero(version, chats, new Set(vivos), ahoraIso);
+  } catch (err) {
+    ticketsNuevosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, tickets, ticketsError, ticketsNuevos, ticketsNuevosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

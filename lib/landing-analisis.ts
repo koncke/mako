@@ -19,6 +19,7 @@
 
 export type PiezaLanding =
   | 'video-nativo' | 'video-panda' | 'video-wistia' | 'video-youtube' | 'video-vimeo' | 'video-drive'
+  | 'video-bunny' | 'video-cloudflare'
   | 'formulario' | 'embed-agenda' | 'link-whatsapp' | 'botones' | 'pixel'
   // Lo que la PÁGINA le manda a Meta desde el navegador (24/10/2026): el Schedule sin id / con id, y los píxeles que
   // inicia. No se anuncian (no tienen nombre en lib/landing-snapshot.ts): los lee el webhook de la agenda.
@@ -113,6 +114,20 @@ export const HOSTS_VIDEO: HostVideo[] = [
     reHtml: /(?:drive|docs)\.google\.com\/file\/d\/[\w-]{10,}\/preview/i,
     reBundle: /(?:drive|docs)\.google\.com\/file\/d\//i, desde: 2,
   },
+  {
+    // Medido el 25/10/2026 con un video real (el del blog de Bunny): el reproductor habla player.js y se mide desde la
+    // v27 del Pixel. El id es el guid del video, que va en el src: /embed/<biblioteca>/<guid>.
+    pieza: 'video-bunny', nombre: 'un video de Bunny Stream', medible: true, prefijo: 'bunny:',
+    reHtml: /(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\//i,
+    reBundle: /(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\//i, desde: 3,
+  },
+  {
+    // Medido el 25/10/2026 con los dos videos de su documentación (customer-…/<uid>/iframe e iframe.videodelivery…/<uid>):
+    // el reproductor manda sus eventos solo, y se mide desde la v27 del Pixel. El id es el uid del video.
+    pieza: 'video-cloudflare', nombre: 'un video de Cloudflare Stream', medible: true, prefijo: 'cfs:',
+    reHtml: /iframe\.videodelivery\.net\/[0-9a-f]{32}|(?:iframe|customer-[a-z0-9]+)\.cloudflarestream\.com\/[0-9a-f]{32}/i,
+    reBundle: /iframe\.videodelivery\.net\/|\.cloudflarestream\.com\//i, desde: 3,
+  },
 ];
 
 /**
@@ -125,7 +140,8 @@ export const HOSTS_VIDEO: HostVideo[] = [
  * desde el principio — y encima «ya lo estoy midiendo» era falso hasta que
  * reemplazara su copia del código.
  */
-export const DETECTORES_VERSION = 2;
+// 3 (25/10/2026): Bunny Stream y Cloudflare Stream.
+export const DETECTORES_VERSION = 3;
 
 const PIEZAS_DE_VIDEO = new Set<string>(HOSTS_VIDEO.map((h) => h.pieza));
 
@@ -289,6 +305,14 @@ export function videosDeHtml(base: string, html: string): VideoEnPagina[] {
   for (const m of html.matchAll(/fast\.wistia\.(?:com|net)\/embed\/(?:iframe|medias)\/([a-z0-9]{6,20})|wistia_async_([a-z0-9]{6,20})/gi)) {
     const id = m[1] ?? m[2];
     if (id) push({ id: `w:${id}`, url: `https://fast.wistia.net/embed/iframe/${id}`, pieza: 'video-wistia' });
+  }
+  // Bunny Stream y Cloudflare Stream (25/10/2026): el id es el del video en el src, como lo arma el Pixel v27.
+  for (const m of html.matchAll(/https?:\/\/(?:iframe|player)\.mediadelivery\.net\/(?:embed|play)\/(\d+)\/([0-9a-fA-F-]{36})/g)) {
+    push({ id: `bunny:${m[2].toLowerCase()}`, url: `https://iframe.mediadelivery.net/embed/${m[1]}/${m[2].toLowerCase()}`, pieza: 'video-bunny' });
+  }
+  for (const m of html.matchAll(/https?:\/\/(iframe\.videodelivery\.net|(?:iframe|customer-[a-z0-9]+)\.cloudflarestream\.com)\/([0-9a-fA-F]{32})/g)) {
+    const uid = m[2].toLowerCase();
+    push({ id: `cfs:${uid}`, url: m[1].startsWith('customer-') ? `https://${m[1]}/${uid}/iframe` : `https://iframe.videodelivery.net/${uid}`, pieza: 'video-cloudflare' });
   }
   // Google Drive: no se puede medir, pero se puede ABRIR, y saber que está es lo
   // que evita decirle al cliente que su página no tiene video.
@@ -458,8 +482,8 @@ export function analizarHtml(url: string, html: string, bundle = ''): AnalisisLa
   for (const [pieza, re] of DEL_BUNDLE) if (bundle && re.test(bundle)) add(pieza);
 
   // ── Lo que la página le manda a Meta (24/10/2026) ─────────────────────────────
-  // Sobre el HTML CRUDO + los bundles, no sobre el limpio: el `init` va inline. El snippet de MaKo no tiene `fbq`, así
-  // que no se puede leer a sí mismo acá.
+  // Sobre el HTML CRUDO + los bundles, no sobre el limpio: el `init` va inline. El snippet de MaKo llama a `fbq` sólo con
+  // 'Purchase' (v28, la compra de la página de gracias) y nunca con `init`: no se lee a sí mismo acá.
   const crudo = bundle ? `${h}\n${bundle}` : h;
   const sched = scheduleDelNavegador(crudo);
   if (sched.sinId) add('meta-schedule');

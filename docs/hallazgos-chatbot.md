@@ -27,6 +27,480 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)
+
+**El síntoma:** cinco copias de la 680 (los MISMOS ids de tarjeta y el mismo «Obtener recurso»), la misma cuenta comenta las
+cinco palabras y recibe cinco DMs. El botón del último DM anda; el de uno anterior no hace nada, y todas las inscripciones del
+lead, también las completadas, pasan a «respondió». **El diagnóstico del pedido** («el toque se resuelve contra la inscripción
+más nueva») **no era:** el payload lleva la inscripción y, en el arnés, el toque del DM viejo con su payload mueve SU
+automatización. **Lo medido** (lead 5437, 30/10 03:51:14): el toque viejo no movió nada y 50 ms después las ocho quedaron en
+'respondio'. Eso sólo pasa si `tocarBoton` contesta 'no_es', y con la fila completa eso es **un payload que no es el de MaKo**:
+el webhook lo trató como un mensaje escrito, la pausa frenó las activas y el #788 pasó las completadas a «respondió». El cuerpo
+del evento no se guarda (`zernio_eventos` tiene sólo el id): qué payload mandó Zernio no se puede ver.
+
+**El arreglo, sin depender de qué mande Zernio:** un postback NUNCA va a la pausa ni al «Te envía un mensaje» (webhook), y con
+el payload viaja el título: si el payload no se lee, se resuelve por el título, como un botón que no se vio. Varias esperando el
+mismo título: la MÁS VIEJA (antes, el orden de la base). La regla: **un toque de botón no es una respuesta**, se resuelva o no.
+
+**Sin hacer:** (1) Por la API (`inscripciones_lead`), una inscripción sin tarjeta (`nodo_actual` null: terminada o en
+«respondió») nombra su paso por la POSICIÓN del array (`paso_actual`), no por lo último que salió: GANCHOS decía «Todavía no te
+veo…» cuando le había salido el recurso (lib/automatizaciones-del-lead.ts, `enAutomatizacionesDe`; hace falta leer el último
+envío). (2) Guardar el cuerpo del postback (o al menos el payload) para ver qué manda Zernio en el DM viejo. (3) Las ocho
+inscripciones de @leantejado siguen en «respondió»: «Volver a probar» en su ficha las suelta (escritura en producción: con el
+«dale»).
+
+## Elegir la publicación o el Reel del CRON de comentario (29/10/2026, ticket #25 de Leandro)
+
+**El pedido** (Leandro, ticket #25, levantado por MaKo a las 05:50): «que el flujo arranque solo cuando el comentario contiene
+una palabra… y, si se puede, elegir en qué publicación o Reel». Lo de la palabra ya estaba (#17, desplegado DESPUÉS de que
+escribiera: por eso «no lo encontramos»); faltaba la publicación. Ahora el CRON de comentario elige «Cualquier publicación» o
+una de las últimas 25 de la cuenta, con su miniatura (lib/publicacion-cron.ts, `PublicacionDelCron` en el editor).
+
+- **El id es el MISMO en los dos lados, y está dicho en la doc de Zernio** (OpenAPI v1.416.0): el comentario trae
+  `comment.platformPostId` (el id NATIVO) y GET /v1/accounts/{id}/posts devuelve «the 25 most recent posts that exist on the
+  platform… including posts that were never created through Zernio», con `id` = «The platform's own post id». No hace falta
+  un id de Zernio (el `post.id` del webhook viene null en lo que no se publicó por Zernio).
+- **La trampa del #17 vuelve con cada campo nuevo del CRON:** el PRIMER disparador se rearma de las COLUMNAS
+  (`disparadoresDe`) y pierde lo que las columnas no tienen. La publicación va en la misma lista que las palabras
+  (`palabras: g0.palabras, …, publicacion: g0.publicacion`); el test lo prueba por el webhook con la fila como la guarda la base.
+- **Dos lugares deciden, y los dos miran la publicación:** `hayQuienEscuche` (si nace el lead de quien comentó) y
+  `dispararEventoSocial` (si se inscribe). Con uno solo, quien comentó otra publicación quedaba como lead sin automatización.
+- **Un comentario que no dice de qué publicación es no dispara** un CRON con publicación (como el texto vacío con palabras):
+  nunca «entonces todos».
+- **La API de MaKo toma el LINK del Reel** (`resolverPublicaciones`, chatbot.run.ts): se busca entre las últimas por el código
+  del link («/reel/X» y «/p/X» son la misma; con o sin «www.» y «?igsh=»). La descripción del campo es CORTA a propósito
+  (el presupuesto del turno, ver el #29 más abajo); la guía de /docs lo explica.
+
+**Sin hacer:** una publicación más vieja que las últimas 25 no se puede elegir en la pantalla (sí por la API, con su id).
+Las miniaturas son links de Instagram que vencen: si la lista se abre días después, se vuelven a pedir (la visita no las
+guarda). Por el token (HTTP) los CRON todavía no se cambian (`cambiar_crons_secuencia` no es HTTP). No se probó con una
+cuenta real de Instagram: el test usa el Zernio de mentira con la forma de la doc.
+
+## «Ya te sigo» no hacía nada: el motor SÍ volvía a la tarjeta de antes (29/10/2026, ticket #29 de Leandro)
+
+**El síntoma** (Leandro, `mako_doer_conv` 1716): el «Seguinos» tiene «Ya te sigo», que vuelve a «¿Te sigue en Instagram?»;
+el lead lo toca y «no pasa nada, siga o no siga». **Su diagnóstico, y el del pedido:** «el botón no puede llevar a una
+tarjeta por la que el lead ya pasó». **Era el equivocado.** La base (la 680, inscripción 659 y la vuelta anterior del lead
+5436, `nutricion_envios` e `ig_mensajes`) muestra que el motor volvía a la condición en cada toque y anotaba el «Seguinos»
+como ENVIADO otra vez, y que a las 16:00:20 el link salió. Lo que el lead veía como «nada» eran tres cosas, ninguna en el
+grafo:
+- **El segundo «Seguinos» no salía y MaKo lo anotaba enviado.** La clave de Zernio era (inscripción, vuelta, tarjeta): la
+  misma tarjeta otra vez en la misma vuelta repetía la clave, y Zernio devuelve la respuesta guardada (24 h) SIN mandar.
+  Ahora la clave lleva la PASADA (`claveDeEnvio`, lib/reentrada.ts: cuántas veces ya salió esa tarjeta en la vuelta, sin
+  contar los fallos, que se reintentan con la suya).
+- **El toque de quien seguía rápido se tiraba.** Un toque del mismo botón dentro del minuto era «repetido» (15:43:47 y
+  15:44:07 en la base). Ahora es repetido sólo si la tarjeta del botón NO volvió a salir desde el toque anterior
+  (`tocarBoton`). Los reintentos de Zernio ni llegan: el webhook reclama cada evento.
+- **«¿Te sigue?» se leía de la caché de Zernio** (`refresh=false`, que guarda «briefly» por cuenta y persona). Su doc pide
+  `refresh=true` «right after asking someone to follow». Ahora la vía rápida de UN lead (la del toque) pregunta fresco;
+  la corrida de la hora, con la caché.
+Y como cada toque ahora SÍ manda un DM: **hasta 10 toques que mueven por vuelta** (`TOPE_TOQUES_POR_VUELTA`, la marca
+`nutricion.boton.<inscripción>` los cuenta; «Volver a probar» es otra vuelta). La guía de /docs «Palabras clave y botones de
+Instagram» lo dice, con las reglas de las palabras clave (el punto 2 del ticket).
+⚠️ La guía va en /docs y NO en las descripciones de la API: alargarlas (los botones, el CRON, `palabras`) sacó
+editar_pasos_secuencia_mensajes y cambiar_crons_secuencia del presupuesto del turno (Integración, tren-ac). La regla ya
+estaba escrita: docs/hallazgos-api-mako.md, «El presupuesto del turno de la app» (medir con scripts/presupuesto-turno-app.mts).
+
+**La regla:** cuando algo «no pasa», mirar `nutricion_envios` contra lo que llegó de verdad antes de tocar el grafo: un
+envío «enviado» con la misma Idempotency-Key que otro NO salió. Y la prueba va con un Zernio de mentira que REPITE la
+respuesta guardada como el de verdad (tests/_boton-vuelve-hijo.ts): un doble que siempre «entrega» no ve esto.
+
+**Sin hacer:** quien tocó 10 veces sin seguir la cuenta no recibe el recurso en esa vuelta (el tope es a propósito; si
+molesta, se sube). Un envío que Zernio entregó pero dio «fallo» terminal (un tiempo agotado) no cuenta como pasada: la
+siguiente repetiría su clave. El costo de `refresh=true` en Zernio no está documentado (va una consulta por toque). El
+PostgREST de mentira no entiende `or=`: el hijo contesta vacío el «quién entró en 24 h» (si no, 7 s de reintentos por corrida).
+
+## La difusión desde el CRM: tres cosas del motor que hacían que «un flujo con tres tarjetas» no sirviera (28/10/2026, Leila)
+
+**El pedido** (Martín, por Leila): elegir una columna o leads sueltos en el CRM y «mandar mensaje de difusión» por
+WhatsApp, email o Instagram, con la tarjeta ahí mismo y el goteo y el tope por día «por una cuestión de baneo». La regla
+del Cerebro: una difusión ES una automatización de una sola vez (lib/difusion.ts, la hoja en
+app/automations/difusion/HojaDifusion.tsx, la API `difundir_a_leads`). Lo que mapeó el agente de lectura y cambió el diseño:
+
+- **El WhatsApp oficial hoy NO manda.** Con la plantilla aprobada, el motor igual escribe `fallo` con `SIN_CANAL_OFICIAL`
+  («Chatwoot no existe más…», lib/nutricion.ts) y lo reintenta cada 4 h; no hay un emisor de la API de Meta en `lib/`. La
+  difusión sale sólo por QR (`proveedor: 'no_oficial'`), y sin una línea QR conectada el canal no se ofrece.
+- **En un flujo LINEAL, el canal que falta cierra la inscripción entera.** Sin teléfono, sin email o dado de baja
+  (`leads.email_opt_out`), sin conversación de Instagram o con la ventana de 24 h cerrada: los tres son fallos terminales;
+  con un solo cursor la inscripción queda `cancelada` (lib/nutricion-hilos.ts) y ya no se puede volver a inscribir. «Un
+  WhatsApp, después un email» no le mandaba el email a quien no tenía teléfono. Por eso la difusión es la tarjeta de inicio
+  con UN HILO POR CANAL (el patrón de «Un Lead Agendó Llamada»), cada uno con su CONDITION (`tiene_telefono`, `tiene_email`
+  + no `email_baja`, `tiene_instagram`): sin el canal, termina ESE hilo.
+- **La inscripción en lote se había dejado afuera a propósito** (app/crm/AccionesLoteLeads.tsx: «necesita su pantalla con el
+  ritmo a la vista», la línea QR se protege sólo con el ritmo). La hoja ES esa pantalla: el goteo y el tope del día de esta
+  automatización (`automatizacion.config:<id>`, «Todos los canales»: cada canal cuenta lo suyo) se ven y se confirman antes.
+
+**Trampas para quien siga:** el CRON «A mano» no tiene cohorte (sólo entran los que se inscriben a mano); la columna entera
+se resuelve con `leadsDeCohorte('etapa_actual', …, { sinVentana: true })`, que lee SÓLO `estado_lead = 'abierto'` (una
+columna de cerrados o perdidos vuelve vacía); el tick de cada minuto mira lo vencido hace menos de 10 min (lo frenado por el
+goteo pasa a su turno). A la hoja no le viajan teléfonos ni emails: sólo por qué canal le llega a cada uno (`motivosDe`). Y las conversaciones de Instagram se leen POR EL CANAL (`conversacionesDeLeads`, lib/canal-zernio.ts): leer `ig_conversaciones` desde otro módulo lo frena tests/sin-instagram; y un camino nuevo que prende automatizaciones o escribe pasos va con su porqué en tests/automations-activar-todos-los-caminos (las listas `CREAN_A_MANO` y `SISTEMA`).
+tests/difusion.test.ts.
+
+**⚠️ Lo que la verificación del Cerebro encontró sobre 69b49a31c (29/10) y cómo quedó:**
+- **La misma difusión salía dos veces.** El camino real era MaKo: 250 leads, la 2ª tanda del insert falla, MaKo vuelve a
+  proponer «a 250 de 250» y con el «sí» quedaban 450 inscripciones en DOS automatizaciones. Ahora cada pedido tiene su clave
+  (`claveDeDifusion`: a quién, por dónde, qué y con qué goteo) y su marca en app_settings, reclamada con compare-and-set
+  ANTES de crear nada; el mismo pedido dentro de 24 h RETOMA la automatización que creó y suma sólo a los que faltan
+  (`upsert` sin pisar sobre `unique (lead_id, secuencia_id)`). **La trampa:** el «sí» de MaKo ya era de un solo uso
+  (`reclamarPendiente`); el doble venía de una PROPUESTA nueva, que es otro «sí». La idempotencia va donde se escribe.
+- **Instagram con goteo prometía de más.** Con 40 por día, a los que pasaban del tope se les cerraba la ventana de 24 h antes
+  de su turno y el envío los daba por fallo. `salidaHastaMs` (lib/canal-social.ts) es `decidirSalida` en el tiempo, y
+  `alcanceDeMotivos` con el `ritmo` cuenta el turno de cada uno (`demoraDelTurno`, el orden del motor: `proximo_envio_at, id`):
+  el que no llega queda afuera (`instagram_turno`) y, si Instagram era su único canal, no se inscribe. Por comentario (7 días)
+  sí entran: el último de 200 sale el 5º día.
+- **Por el grupo de WhatsApp, un setter lanzaba una difusión** (el doer arma el rol como 'admin' para todos). `difundir_a_leads`
+  pasa a `canales: ['app']`, la regla de AGENTS.md para lo que toca números de terceros en lote.
+- **El goteo fuera de rango fallaba después del «sí»:** `preparar` llama a `goteoValido` y `porDia` tiene su máximo.
+- **Cada difusión quedaba prendida para siempre** y ocupaba un lugar del tope del Esencial (3 activas). Ahora nace con la
+  clave `difusion-…` (la clave no cambia nunca; el nombre sí) y la corrida de la hora la pausa cuando no le queda nadie
+  en curso (`pausarDifusionesTerminadas`), con 15 min de gracia porque se prende ANTES de inscribir. Las de antes de
+  este cambio tienen la clave `automatizacion-…`: ésas siguen apagándose a mano. **⚠️ Y las dos reglas se pisaban** (la
+  reverificación de Integración, 29/10): pausada la que terminó, el mismo pedido dentro de las 24 h contestaba «préndela ahí»
+  y prenderla no sumaba a los que faltaban. Ahora `retomarDifusion` la vuelve a prender por `setSecuenciaActiva` y suma.
+  **La trampa del arreglo:** la primera versión la prendía con `aunqueDuplique: true`, copiado de `crearDifusion`. Ese
+  permiso vale para la fila RECIÉN creada A mano, no para una que estuvo pausada y que pudieron editar en Automations
+  (otro disparador, otros pasos). Lo agarró la red de caminos (tests/automations-activar-todos-los-caminos.test.ts), no
+  el test de la difusión. Regla: **lo que se retoma pregunta por la duplicada como «Activar»**; el permiso no se copia.
+
+**Sin hacer:** el botón «Mandar mensaje» y la selección en el tablero son del CRM (la interfaz se le pasó por el Cerebro);
+no se probó mandando de verdad (sería escribirle a leads reales). Un lead que tiene Instagram Y otro canal y no alcanza
+su turno de Instagram sigue inscripto (le llega por el otro) y su hilo de Instagram termina en fallo: la hoja ya no se
+lo promete, pero la métrica lo cuenta. La marca de cada pedido (`difusion.pedido:<hash>`) queda en app_settings.
+
+## Un tope de Meta CERRABA el hilo: el mensaje se perdía en vez de esperar (28/10/2026, Leandro)
+
+**El pedido** (Leandro, ws10, por audio): hace ~500 respuestas a comentarios y ~1.000 DMs por mes; ¿hay un límite? Y «que
+MaKo me avise ANTES de que se trabe la automatización, para no encontrarme con mil mensajes sin responder». Topes (el
+Cerebro): Meta, 750 respuestas privadas por hora y por cuenta (y 300 mensajes por segundo); Zernio, 60 pedidos por minuto con
+0-2 cuentas y 600 con 3+, con 429, `Retry-After` y `X-RateLimit-Remaining` (docs.zernio.com/rate-limits).
+
+**Lo obvio era sólo la mitad:** «falta un aviso». Medido en el código, había algo peor: un «muchos pedidos» de Meta llega como
+un 400 `platform_error`, y la última regla de `esLimiteDeMeta` («Meta no deja») lo tomaba como TERMINAL: cerraba el hilo y el
+mensaje se perdía. Y un 429 de Zernio se reintentaba en 4 h, sin mirar su `Retry-After` (que `zFetch` ni leía). Ojo: un 429
+de Zernio con `type: platform_error` («upstream platform quota») es el tope de META, no el de Zernio.
+
+**Lo hecho:** `topeDeError` (lib/zernio-tope.ts, puro) dice si es un tope y de quién, con la espera (`Retry-After`, o el minuto
+de Zernio, o la hora de Meta); `esLimiteDeMeta` lo excluye primero. Los tres envíos (DM, respuesta privada, respuesta pública)
+miran el tope ANTES que el rechazo: no cierran, no gastan la privada y vuelven a salir con su espera (`porTope`). El motor junta
+los topes de la corrida y avisa UNA vez al final (y no más de uno por estado y por hora), también ANTES del tope de Meta (600
+de 750 en la última hora), por el evento de la plataforma `social_tope` (`avisarTopesSociales`, lib/nutricion.ts).
+tests/tope-social.test.ts, 10 roturas en rojo.
+
+**Sobre 56be0692d («una cuenta frenada avisa una vez por día»):** es la cuenta PUBLICITARIA (lib/alerta-critica.ts, el evento
+`meta_cuenta_frenada`): mismo molde (evento de la plataforma con freno), otro tope. No cubría los mensajes.
+
+**⚠️ La fila del ws 9 no se podía crear (verificación de 69b49a31c, 29/10):** el paso documentado tiraba «social_tope no está
+en la mudanza»: el evento se sumó a EVENTOS_MAKO y a las plantillas, pero no a `TODOS` del script. **La regla:** un evento de
+la plataforma va con su línea en la mudanza; tests/mudanza-apagados lo fija para TODOS los `plataforma: true`.
+
+**Sin hacer:** el aviso no sale hasta que exista su fila en el ws 9 (`scripts/mudanza-avisos-plataforma.mts --eventos=social_tope`:
+escribir en producción, lo pide el Cerebro); la respuesta del AI Step (`contestarSolaPorRedes`) y la de «Si responde» por redes
+son de una vez: con un tope no se reintentan; `X-RateLimit-Remaining` se lee pero todavía no frena el ritmo antes del 429.
+Nunca corrió contra un tope real. **El «cerca» ya es por cuenta** (la verificación sobre 69b49a31c, 29/10): sumaba el negocio
+entero (dos cuentas a 320 daban un falso «te estás acercando») y decía «Instagram» aunque saliera por Messenger. Ahora la
+suma del negocio sólo decide si vale la pena mirar, y cada envío cuenta en la cuenta de la conversación del lead por ese
+canal (`cuentaMasCargada`, lib/tope-social.ts); `nutricion_envios` no guarda la cuenta, así que es la de la conversación
+de HOY del lead, no necesariamente la que mandó.
+
+## El primer DM de Instagram no lo contestaba nadie: el AI Step esperaba el SEGUNDO (28/10/2026, la (a) del Cerebro)
+
+**⚠️ Y contestaba DOS veces (la verificación del Cerebro sobre 69b49a31c, 29/10):** un lead con una charla abierta (la 680)
+y otra automatización «envía un mensaje» con el AI Step primero: el webhook marca pausar Y disparar para el mismo DM, y
+contestaban `pausarRespuestaSocial` (la charla abierta) y `contestarDisparoSocial` (la nueva). Ahora la nueva contesta sólo si
+nadie contestó ese mensaje (`contestada`, app/api/webhooks/zernio/route.ts). **La regla:** dos caminos que contestan el
+mismo evento se excluyen en el lugar donde se juntan, no cada uno por su lado.
+
+**⚠️ El primer arreglo abrió el hueco contrario (la reverificación de Integración sobre 0265924c6, 29/10):** el freno usaba lo
+que DEVUELVE `pausarPorRespuesta`, que es cuántas inscripciones pasaron a 'respondio': cualquier automatización activa del
+lead, también una SIN AI Step (comentario → m1 → Esperar 1 día → m2, el flujo de Leandro). El primer DM no lo contestaba nadie
+y el dueño no se enteraba. Ahora `pausarPorRespuesta` llena `atencion.contestada` con lo que un AI Step o la charla abierta
+contestaron o dejaron para aprobar (`seguirCharla` devuelve eso; el aviso «Contéstale tú» no cuenta). **La regla:** «cuántos
+se pausaron» no es «a cuántos se les contestó»; una exclusión mira el hecho que excluye. **Y la trampa del arnés:** sin la
+zona del negocio, el arnés cae en Tijuana y de madrugada el AI Step deja BORRADOR en vez de mandar: el doble no se veía. El
+arnés de Integración pone Asia/Dubai (C:/dev/revisiones/scratch-0265/ig-refuta/_hijo.mts, `ZONA_HIJO`).
+
+**El síntoma** (Teo, la llamada del 28/10): «la primera DM no la contesta el AI Step». Una automatización cuyo CRON es «envía
+un mensaje» y cuya primera tarjeta es el AI Step no tiene SALIDA (`raizSalida` null: la flecha CRON → AI Step es implícita,
+`suelta` ausente). El DM la inscribía y la inscripción quedaba esperando que la persona escribiera de nuevo: el motor sólo
+le pasa al AI Step lo que llega por `pausarPorRespuesta`, y el DM que la arrancó llegó ANTES de que existiera la inscripción.
+
+**La decisión** (el Cerebro, la (a), como ManyChat): si la primera tarjeta es el AI Step de ese medio (`contestaElDisparo`,
+lib/flujo-grafo.ts), contesta ese mismo DM. El webhook lo pide DESPUÉS de inscribir y sólo si inscribió
+(`contestarDisparoSocial`); el motor toma sólo las inscripciones de ESE evento que todavía no mandaron nada, las anota
+'respondio' (compare-and-set) y las pasa por la MISMA puerta que una respuesta (`asistirRespuesta`). Sólo un mensaje privado
+que la persona escribió (un DM, una respuesta a la historia, el primer texto de un anuncio o un enlace): un comentario no.
+Con una bienvenida adelante, lo de siempre. tests/instagram-primer-dm.test.ts.
+
+**Sin hacer:** nunca corrió contra un DM real; «Crear con IA» todavía no arma una automatización de Instagram con un AI Step
+como primera tarjeta (el otro pedazo de la promesa a Teo).
+
+## «Clic en un anuncio»: el webhook ya lo producía, sólo la pantalla lo escondía (28/10/2026, lo prometido a Teo)
+
+**El pedido** (el Cerebro, de la llamada con Teo): Martín vendió Automations como «ManyChat 2.0», y el disparador «El usuario
+hace clic en un anuncio» estaba apagado («Todavía no»), copiado de cómo lo muestra ManyChat.
+
+**Lo medido:** el canal ya lo producía (`subtipoDeReferral`, lib/canal-social.ts: un mensaje con `metadata.referral.ad_id`
+es `anuncio`, y `DISPARADORES_SOCIALES` lo tenía `disponible`). Prenderlo fue sacar el `apagado` de Instagram y de Messenger;
+la tienda de Facebook sigue apagada (Zernio no la avisa). Ojo: Meta manda primero el post del anuncio SIN referral (cuenta
+como «envía un mensaje») y el referral en el mensaje que sigue: arranca con el primer texto de la persona.
+
+**La trampa:** dos opciones más en la lista del CRON que recibe «Crear con IA» pasaban el techo de Groq (~4.021 tokens
+contra 4.000, tests/crear-ia-tercera y editar-ia-cambiar-quitar). El «El usuario » ya lo sacaba `bloqueDisparadores`: no
+había de dónde recortar. La IA lo ve SÓLO si el pedido habla de anuncios (`PIDE_ANUNCIO`), como las reglas de los botones.
+
+**⚠️ «Sólo si el pedido lo nombra» tenía tres agujeros (la revisión del Cerebro, 28/10):** (1) la pregunta «¿Qué hace la
+persona?» se arma ANTES del modelo y no tenía palabra para el anuncio (`PALABRAS_EVENTO`): preguntaba sin ofrecerlo; (2) lo
+que se contesta en «Otra cosa» no entraba al contexto (se armaba con el pedido de la primera vuelta); (3) «¿Qué hace esta
+automatización?» no nombra anuncios y el rótulo del CRON guardado no se encontraba: «no tiene CRON». Y de rebote Messenger
+perdió «enlace de referencia»: el anuncio, primero de su lista, ocupaba uno de los 3 lugares y después se filtraba. Ahora
+el contexto lo trae también con lo de «Otra cosa» y con el CRON guardado (`armarContexto(ws, pedido, { textos, anuncio })`),
+y la pregunta filtra antes de cortar. **La regla:** un recorte por tokens que depende del pedido tiene que mirar también lo
+que YA está guardado; si no, la IA no ve lo que la automatización es. tests/crear-ia-anuncio.test.ts.
+
+**Sin hacer:** nunca se probó con un anuncio de verdad.
+
+## Las palabras clave del comentario: el PRIMER CRON se rearma de las columnas y perdía lo nuevo (28/10/2026, ticket #17)
+
+**El pedido** (Leandro, ws10, por audio): «cuando alguien comente la palabra fiesta o la palabra guía… que se responda el
+comentario», y «Tal cual como lo hace manychat». El CRON «comenta tu publicación o Reel» arrancaba con CUALQUIER comentario.
+
+**Lo hecho:** `palabras` y `coincidencia` («contiene» o «exacta») en el CRON de comentario de Instagram o Messenger
+(lib/palabras-clave.ts, puro): sin mayúsculas ni acentos, «contiene» es la palabra entera («guía» no está en «guiar»),
+vacía = cualquier comentario. Lo decide `disparaPorEvento` con el texto de ESE comentario (el webhook lo pasa por
+`hayQuienEscuche` y `dispararEventoSocial`), no el de cuando nació el lead: quien ya comentó vuelve a disparar con la palabra.
+La pantalla guarda al salir de la caja (no en cada tecla), y la API (`cambiar_crons_secuencia`) y MaKo por WhatsApp las ponen.
+
+**La trampa:** `disparadoresDe` rearma el PRIMER CRON desde las COLUMNAS y le devuelve de la lista sólo lo que nombra
+(`ignorar`, `subtipo`, `grupo`). Un campo nuevo del disparador que no se suma ahí se pierde en cada lectura del primero —el
+caso de casi toda automatización— sin un error. Es la quinta puerta de los pasos (`camposDelFlujo`), del lado del CRON.
+tests/palabras-clave-comentario.test.ts.
+
+**⚠️ Lo obvio era sólo la mitad** (medido el 28/10 leyendo su automatización 680 en producción, sin escribir): «no se puede
+responder en público» era cierto, pero su automatización «Comentario con 'pruebafm' en Instagram» no arrancaba NUNCA. Su
+filtro «pruebafm» era la CONDITION «Respuesta del formulario contiene» (`respuesta_contiene`, fuente: las respuestas de un
+formulario de Meta): quien comenta no tiene ninguna, la condición no se cumple y su «Si no» estaba vacío. Además está
+pausada. Con las palabras en el CRON, sin esa condición y «Enviado, mira tus mensajes» en el comentario, la prueba de punta
+a punta (lectura + las funciones de la app, sin mandar nada) da: arranca con «PruebaFM 🙌», no con «qué lindo video», se
+puede publicar, sale primero la respuesta pública y la privada sigue disponible para el DM del recurso.
+
+**⚠️ El emoji (la revisión del Cerebro, 28/10):** la primera versión tiraba los emojis con los signos, así que una palabra
+clave «🔥» quedaba vacía: se descartaba al guardar y, peor, una lista que quedaba vacía al normalizar caía en «sin palabras»
+y el CRON arrancaba con CUALQUIER comentario. Ahora el emoji es una palabra propia (sin la variante ni el tono de piel), y
+una lista con palabras que no se pueden leer no dispara nunca. **La regla:** un filtro que se queda sin términos al sanear
+falla CERRADO, nunca abre a todos.
+
+**⚠️ Y fallar cerrado no alcanzaba:** «?» o «...» (sin letra, número ni emoji) seguían tirándose CALLADAS en `sanearPalabras`
+al GUARDAR, y si eran las únicas lo que se guardaba era la lista vacía, que es «cualquier comentario» a propósito. El
+descarte pasa antes de que el motor pueda fallar cerrado. Ahora la ruta (`listaValida`, también la API en `preparar()`) las
+mira en lo que LLEGÓ, antes de sanear, y contesta 400 con «… no es una palabra clave: usa letras, números o un emoji»; la
+caja lo dice y no guarda (`problemaDePalabras`). **La regla:** sanear no puede convertir «lo que la persona escribió» en «el
+valor que significa todos»; eso se rechaza con aviso, no se limpia. Y el resumen que se confirma por WhatsApp
+(`textoDeUnCron`) nombra las palabras: antes «fiesta», «🔥» y ninguna se leían igual.
+
+**⚠️ Probar con la propia cuenta se gasta en la primera (ticket #19, medido el 28/10 en el ws10, sólo lectura):** la 680
+estuvo activa de 20:51 a 20:58; @aliensfilms comentó «Lista» (no «pruebafm») y @martin.koncke «Pruebafm»: los dos nacieron
+como lead y quedaron 'completada' en un segundo (la CONDITION del formulario no se cumplía y su «Si no» estaba vacío). Sin
+filtro, CUALQUIER comentario de quien no era lead crea el lead y lo inscribe (`hayQuienEscuche`); en pausa, ninguno (ese
+día, 30+ comentarios sin lead). Y la 680 es «Una sola vez» (sin guardar: `reentradaDe(null)`), así que el próximo comentario
+de esas dos cuentas NO vuelve a entrar: la prueba de punta a punta del deploy habría fallado callada. La pantalla de la
+reentrada se sacó el 23/10 («para eso tenemos CONDITION»). **Lo hecho:** «Volver a probar» por lead en la ficha (y
+`volver_a_probar_lead_secuencia` en la API): marca el `desenlace` de la terminada (`DESENLACE_VOLVER_A_PROBAR`) y lo próximo
+que la arranca la corre UNA vez con cualquier reentrada; el reuso limpia el desenlace. **La trampa:** `enrolarPorEvento`
+filtraba con `reusaInscripciones` ANTES de mirar la fila: «Una sola vez» nunca llegaba a `puedeReentrar`, así que una
+regla nueva ahí no alcanzaba; hubo que abrir el filtro (`modoSec` con todas las que tienen pasos) y que `reusablesDe` deje
+pasar sólo la marcada. tests/volver-a-probar.test.ts.
+
+**⚠️ Y la segunda prueba NO SALÍA (la verificación del Cerebro sobre 69b49a31c, 29/10):** la inscripción reusada es la
+MISMA fila, y la clave de Zernio era `nutri:<inscripción>:<nodo>`. Zernio guarda la respuesta de cada clave 24 h: la pública
+a OTRO comentario volvía con 422 (misma clave, otro pedido) y el DM, con el 200 de la vez anterior, sin salir. Ahora la clave
+lleva la vuelta (`claveDeEnvio`, lib/reentrada.ts: `inscripto_at`, que `reactivarInscripcion` renueva). **La regla:** una
+clave de idempotencia identifica UN envío de UNA corrida; si la fila se reusa para otra corrida, la clave tiene que llevar
+algo que cambie con la corrida. Ya pasaba con «Cada vez» y «Empezar de nuevo»; lo destapó «Volver a probar».
+
+**Sin hacer:** «Crear con IA» no las pone (el modelo elige el CRON por su clave `dN`; sumarle palabras es otro campo de la
+salida y tokens contra el techo de Groq), y nada impide poner «Respuesta del formulario contiene» en una automatización de
+comentario (no se cumple nunca); no se probó con un comentario de verdad. Elegir la publicación o el Reel (lo último que
+pidió Leandro) tampoco: el webhook ya trae el `postId` (`comentario_post_id`), pero falta el campo del CRON, su selector con
+las publicaciones de la cuenta (Zernio) y la firma; es la tanda siguiente.
+
+## «La activé para los que están en reactivación y no pasa nada»: mover de etapa NO es un hito (28/10/2026, Leila 2)
+
+**El síntoma** (Leila, ws11, 20/10 17:38): activó una automatización «llega a etapa» para los que ya estaban en
+«reactivación» y no salió nada.
+
+**Lo obvio era el equivocado:** «el CRON por etapa sólo agarra a los que ENTRAN después de activarla». No: el barrido SÍ
+mira a los que ya están parados en la etapa (`cohorteDeTrigger`, lib/nutricion.ts: «una secuencia que se crea HOY tiene que
+alcanzar a los que YA están»). Lo que los dejaba afuera es la ventana anti-revival de 90 días sobre el ÚLTIMO HITO del lead
+(el alta, la agenda, una reunión), y **la tabla `leads` no guarda cuándo cambió de etapa**: un lead de marzo pasado a mano a
+«reactivación» el 20/10 sigue siendo, para la ventana, de marzo. «Reactivación» es justo la etapa de los viejos. En los
+agregados a otro CRM (`lead_funnel`) sí cuenta `etapa_desde`; en la casa no hay de dónde leerlo.
+
+**La regla que queda:** la ventana no se toca (protege de escribirle por accidente a una base muerta). Al ACTIVAR una con un
+CRON «llega a etapa» sin horario, la pantalla cuenta (`existentesEnEtapa`, por la MISMA puerta que el barrido: `aTiempo` +
+`aInscribir`) y, si quedan afuera algunos, pregunta «¿Las incluyo?»; «Incluirlas» las inscribe ya (`incluirExistentes`, sólo
+en una activa) y salen con el goteo y los topes de siempre. El barrido nunca pide sin ventana (`sinVentana` es sólo de
+contar e incluir). tests/etapa-existentes.test.ts, 9 roturas en rojo.
+
+**Sin hacer:**
+- no se midió en la base de Leila cuántos de «reactivación» quedaban afuera (es leer producción de una clienta);
+- activar por otros caminos (la API, el teléfono) no pregunta: activa con la ventana, como antes;
+- un CRON con horario (Recurrente) no se ofrece: su ocurrencia decide, y la ventana sigue.
+
+## Responder EN PÚBLICO un comentario no es otra «vía» del DM: se decide aparte y antes (28/10/2026, ticket #17 de Leandro)
+
+**El síntoma** (Leandro, Fiesta Music, ws10; el #12 es el mismo texto): con el disparador «El usuario comenta tu publicación
+o Reel», el nodo de Instagram sólo mandaba la respuesta privada. No había forma de contestar debajo del comentario.
+
+**Lo obvio era el equivocado:** sumar una tercera `via` a `decidirSalida` (lib/canal-social.ts). Esa función decide un
+MENSAJE PRIVADO: mira la ventana de 24 h, los 7 días del comentario y si la respuesta privada ya se usó
+(`comentarioRespondidoAt`). Nada de eso rige para un comentario público, y metida ahí la pública habría heredado esos
+frenos o gastado la privada (Meta deja UNA por comentario: el DM que sigue no salía). Vive en `decidirRespuestaPublica`,
+y `enviarPasoSocial` (lib/canal-zernio.ts) la corre ANTES de `decidirSalida`, sin marcar `comentario_respondido_at`.
+
+**Zernio** (OpenAPI v1.394.0, medido el 28/10): `POST /v1/inbox/comments/{postId}` con `accountId`, `message` y
+`commentId` (sin `commentId` comenta el post, no responde). Sólo texto (`attachmentUrl` es sólo de Facebook). 403 = falta el
+add-on Inbox **o** la cuenta no puede comentar ese post; 422 = Meta lo rechazó (post cerrado, comentario borrado) **o** la
+`Idempotency-Key` se reusó con otro texto. Las dos son terminales (`esRechazoDelComentario`).
+
+**El dato** (la regla de AGENTS.md: un campo del nodo es UNA rama): `en_comentario: true` dentro del mensaje de Instagram o
+Messenger; ausente = un DM. Pasa por las mismas puertas que `botones`: `normalizar`, `camposDelFlujo` (sin esa línea el
+primer guardado lo borraba), Publicar (`problemasDeRespuestaPublica`: sin botones y con texto), la IA de crear y de editar
+(la regla al modelo va SÓLO si el pedido dice «público» o «responder el comentario»: el techo de Groq) y la API
+(`cambiar_botones_mensaje` con `en_comentario`). La pantalla ofrece el interruptor sólo con un CRON de comentario
+(`canalesConComentario`, lib/disparadores.ts). tests/instagram-respuesta-publica.test.ts, 11 roturas en rojo.
+
+**⚠️ «Terminal» cerraba más que la tarjeta (la revisión del Cerebro, 28/10):** la pública sin comentario, o rechazada por
+Meta (403/422), volvía `terminal`, y en el motor terminal es `estadoDeCierrePermanente`: la INSCRIPCIÓN entera se cerraba
+y el DM del recurso, que va después, no salía. Además respondía el ÚLTIMO comentario guardado, de cualquier edad: quien
+entraba hoy por DM (con un CRON de comentario y otro de DM en la misma automatización) recibía una respuesta pública
+debajo de un comentario de hace meses. Ahora: sólo el comentario del disparo (`inscriptoAt`, con 15 min de margen antes
+porque el webhook guarda y después inscribe, y 2 min después por los relojes). **⚠️ «O uno posterior» era el diagnóstico
+equivocado** (la verificación sobre 69b49a31c, 29/10): la conversación guarda el ÚLTIMO comentario, así que con la pública
+detrás de una espera, un «qué lindo ❤️» de la misma persona en una foto vieja pisaba el del disparo y la respuesta salía
+debajo de ése, en otra publicación. Y lo que no puede salir vuelve `omitir`: el motor lo anota 'omitido'
+con su motivo y AVANZA. **La regla:** en un flujo lineal, un fallo «que reintentar no arregla» de UNA tarjeta no es lo
+mismo que «esta persona no puede recibir nada más»; terminal es lo segundo. Ojo que el mismo patrón vale para cualquier
+canal faltante (sin teléfono, sin email, ventana cerrada): ver «La difusión» más abajo.
+
+**Sin hacer:**
+- no se probó con un comentario de verdad (es mandar en producción a la cuenta de Leandro);
+- «Si responde» (la rama de un AI Step) no sabe la inscripción: su pública sigue yendo al último comentario guardado;
+- la tarjeta del lienzo no dice «en el comentario» (el alto de la tarjeta es fijo: `altoDeMensaje`); se ve al abrirla;
+- «Probar» no la simula aparte: la muestra como un DM.
+
+## El nombre de un botón perdía los espacios: no era la barra espaciadora, era el saneo en cada tecla (27/10/2026)
+
+Ticket #12 de Leandro (ws10): «Obtener recurso» quedaba «Obtenerrecurso» al tipear, y pegando sí andaba. **El obvio («el
+lienzo se queda con la barra espaciadora») era el equivocado:** ningún `keydown` del lienzo mira el espacio.
+- **La causa:** el editor (app/automations/EditorMensajeSocial.tsx) dibujaba `botonesDe(paso)`, la lista SANEADA, y ésa
+  hace `trim` del título. En cada tecla «Obtener » volvía como «Obtener» y la «r» siguiente quedaba pegada. Pegando, el
+  espacio queda en el medio y el `trim` no lo toca.
+- **Lo mismo hacía dos cosas más:** vaciar el campo para reescribirlo borraba el botón (sin título «se cae»), y vaciar el link
+  lo pasaba a «Sigue el flujo».
+- **El arreglo:** `botonesDe(…, { comoSeEscribe: true })` para el editor; el motor y Publicar siguen con la saneada.
+  tests/botones-titulo-como-se-escribe.test.ts simula el tipeo letra por letra (3 roturas).
+- **La regla, en AGENTS.md:** un campo que se edita no muestra lo saneado. Sanear es para lo que sale, no para lo que se
+  está escribiendo.
+
+## Una pregunta en «Editar» cambiaba el lienzo: no era el modelo, era NUESTRA revisión (27/10/2026)
+
+**El síntoma** (874749710-11, Leandro el 24/10 y Martín con Aaron el 26/10): en «Editar», una pregunta terminaba
+cambiando tarjetas. **El diagnóstico obvio era el equivocado**: «el modelo de editar edita». Medido con el modelo real
+(`scripts/arnes-pregunta-en-editar.mts`: Claude sonnet-5 y Gemini flash-lite, el mismo `system` y `user` que arma la ruta,
+sin la base): ante una pregunta, el modelo de editar CONTESTA casi siempre. Lo que lo empujaba a editar era
+`errorDeRespuestaEnEditar` (lib/flujo-ia-intencion.ts): con `esPregunta` en false rechaza la respuesta («En modo EDITAR no
+se contesta…») y el reintento de `generar` lo obliga a cambiar algo. En el arnés salieron así «como levanto un ticket»,
+«MaKo, a cuántos les llega esto» y «desde qué número sale».
+
+**Por qué no se reconocía la pregunta** (`esPreguntaDirecta`): contaba sólo empezar con «¿» o terminar en «?», sin mirar si
+pedía algo. Se escapaban:
+- el «?» en el medio: «y en instagram? porque no me aparece en la configuración.» (Leandro, ws10, 25/10, del chat real);
+- un saludo adelante: «Hola MaKo, ¿qué hace…? Gracias», «MaKo, a cuántos…», «Una pregunta, …»;
+- arranques que no estaban: «a cuántos / a quién», «desde qué», «quiero saber», «explícame», «cómo levanto».
+
+Y al revés: «¿Le agregás un audio al final?» empezaba con «¿» y se CONTESTABA en vez de hacerse.
+
+**La regla que queda.** En «Editar», es pregunta un «¿» o un «?» FUERA de lo citado (lo que va entre comillas es texto para
+el lead), o un arranque de pregunta después de la muletilla. En los dos casos, SIN un pedido de cambio (`pideCambio`,
+`RX_PIDE_PREGUNTANDO`). Lo que va a explicar sólo devuelve `{"respuesta"}` y la ruta devuelve el borrador tal cual: con el
+camino bien elegido, el lienzo no se puede tocar. Y en «Editar», «no tengo (audios guardados…)» vale como respuesta, igual
+que «no se puede»: rechazarla mandaba al reintento a armar otra cosa.
+
+**⚠️ Y el «?» en cualquier lugar abrió el otro lado (la revisión del Cerebro, 28/10):** 7 de 8 pedidos de cambio en voseo
+que antes se editaban pasaron a contestarse sin tocar el lienzo («…emoji? poné uno al principio», «Está bien, subí la
+espera»). `pideCambio` era el freno y no los veía: **`plano` saca las tildes, y la tilde es lo único que separa el voseo
+de -er/-ir de otra cosa** («poné» → «pone», «hacé» → «hace», que también es «¿qué hace?»). El de -ar no se notaba
+(«cambiá» → «cambia», que ya era imperativo de tú). Ahora el voseo se mira en el texto CON tildes (`RX_VOSEO`), con
+pronombre pegado sin tilde («ponelo», `RX_VOSEO_ENCLITICO`); el pedido en subjuntivo («que el primero diga…», «que salga a
+las 10») cuenta salvo que el pedido ARRANQUE como pregunta («¿hace falta que tenga…?»); y «Está bien,» con su coma ya no
+arranca una pregunta («¿Está bien así?» sí). **La regla:** al ampliar lo que cuenta como pregunta, se prueba con los
+pedidos de cambio de los clientes en voseo, no sólo con las preguntas; normalizar para comparar puede borrar justo lo que
+distingue. tests/chat-mako-pregunta-en-editar.test.ts.
+
+**Trampas del arnés.**
+- Una espera del lienzo es una tarjeta `esperar` (`espera.minutos`), no un `delay_horas` en el mensaje. Con `delay_horas`,
+  los dos modelos ven dos mensajes seguidos y contestan «sale sin demora».
+- Al prompt de editar, Claude a veces contesta en prosa, sin JSON, cuando no puede hacerlo. En la app lo frena el `validar`
+  de `generar` y prueba el siguiente proveedor.
+
+**La frase del 26/10 no quedó guardada.** En el ws9, esa noche el único turno del lienzo es un pedido («agrégale una
+notificación…», #700), que contestó dos veces «Gemini está saturado» (ver hallazgos-ia.md, 27/10). Tests:
+tests/chat-mako-pregunta-en-editar.test.ts. Roturas, base 3 / 0: la regla vieja → 1 / 2; sin `sinMuletilla`, sin
+`sinLoCitado`, sin `pideCambio` en los signos, sin «a (quien|cuantos)» o con «no tengo» como error → 2 / 1 cada una.
+
+## El chat de Joan (MK-12): el 15/10 era el incidente de Gemini; el 16/10, el error que el 17/10 aprendió a corregir (27/10/2026)
+
+Medido en los chats del lienzo (sólo lectura). **15/10, 14:02Z, ws13 (Código Inmobiliario):** el mismo pedido dos veces y,
+a los 12 s, «Falló de nuestro lado, no de tus keys. Prueba más tarde.», sin una sola fila de IA. Era el incidente de esa mañana:
+desde el 14/10 20:31Z Gemini contestaba 400 «Thinking level MINIMAL is not supported» y el error llegaba pelado. Lo arregló
+230323411 (15/10, 14:47Z), que nombra a «Joan (ws17)»: los chats que fallaron son del ws13. **16/10, 21:26Z, el siguiente
+intento llegó a los modelos** (Gemini, y la red de Groq y de Gemini) y falló por OTRA cosa: «MaKo armó el flujo pero quedó mal:
+Un texto usa un dato de la reunión sin un esperar con antes de reunión…». El pedido era «cuando llegue un lead… un aviso al grupo
+de WhatsApp con los datos del formulario, el día y la hora»: el modelo leyó «el día y la hora» como los de una REUNIÓN. Es el
+mismo pedido que el ítem 1 (el aviso al grupo de un lead de formulario). **Ya atendido:** a0feecde9 (17/10, #847) hizo que ese
+error le diga al modelo el arreglo de UNA tarjeta («Su reunión sigue en pie» delante), nombrando este mismo caso de Joan; antes
+los cuatro proveedores lo repetían. Joan no volvió a pedirlo desde el lienzo: no está confirmado por ella.
+
+## Quién cambió una automatización NO se puede saber: no hay registro de Publicar (27/10/2026)
+
+#266 «Un Lead Entró 2», de Brigitte Eberlin (ws15), perdió el 23/10 a las 14:05:22Z la espera de 1 h y el recordatorio
+«🚨 *RECORDATORIO IMPORTANTE*: Entró {{nombre}}, lo contactaron?». Quedó `entrada → WhatsApp`. Medido en producción (sólo
+lectura, P12):
+- ese minuto no hubo IA de «Editar» (`anthropic_usage`), ni acción de la API de MaKo sobre la 266
+  (`mako_acciones_pendientes`), ni borrador;
+- fue un **Publicar de la pantalla**;
+- `nutricion_secuencias` guarda `updated_at` y nada más, así que **quién** publicó no se sabe.
+
+**La regla:** antes de decir «lo cambió X», se miran `anthropic_usage` y `mako_acciones_pendientes` de ese minuto; si no
+hay nada, fue la pantalla y no se sabe quién.
+
+**Lo que falta:**
+- un registro de publicaciones (quién, cuándo, qué tarjetas cambió), en la pantalla y en la API;
+- devolverle a la 266 la espera y el recordatorio. Es una escritura en el negocio de Brigitte: la pide el Cerebro.
+
+## La prueba A/B como CONDICIÓN era el diseño obvio y el equivocado; y lo que una bifurcación nueva rompe en silencio (25/10/2026)
+
+**Vive en:** `lib/flujo-grafo.ts`, `lib/flujo-forma.ts`, `lib/nutricion-grafo-motor.ts`, `lib/nutricion.ts`.
+
+- **Lo obvio era agregar «Prueba A/B» al catálogo de condiciones.** No sirve: una condición pegada a otra no se puede guardar
+  (`condicion_pegada`, `lib/flujo-forma.ts`), tiene «Si no» y elige la primera fila que se cumple (rompe los porcentajes), y el
+  motor la RE-EVALÚA antes de mandar (`condicionDeArriba`). La tarjeta es una clase nueva (`ab`), como manda AGENTS.md para un nodo
+  que «hace otra cosa».
+- **Una bifurcación nueva apaga sin aviso la guarda de los recordatorios.** `condicionDeArriba` sólo reconoce como guarda a un
+  padre directo de clase `condicion`, y `minutosAntesDeReunion` sólo sube por padres `condicion`. Con una tarjeta en el medio,
+  «Su reunión sigue en pie» deja de re-evaluarse y puede salir «Mañana es tu reunión» para una reunión cancelada. Regla: toda clase
+  que bifurca es TRANSPARENTE para esas dos funciones y para las reglas de forma, con test probado rompiéndolo.
+- **`=== 'condicion'` aparece ~70 veces en 20 archivos**, no 20: se usa un helper (`esBifurcacion()`) y se lista lo revisado.
+- **El insert principal de `nutricion_envios` ignora su error, y el presupuesto anti-ban de 24 h CUENTA esas filas.** Una columna
+  nueva que falte en producción deja de guardar la fila sin que nadie se entere: el mensaje sale sin contarse y la línea pasa su
+  tope. No se agregan columnas a ese insert sin antes revisar su error.
+- **`generarVariantes` no tiene llamador** (`action:'variantes'` en app/api/chat-agent/secuencias no lo usa nadie): hoy nadie
+  regenera las variantes anti-ban.
+- **El AI Step no se puede probar con una tarjeta A/B**: es un «Si responde» con `paso_ia`, no corre en la salida y hay uno por
+  medio. Probar el setter es otro diseño (sortear al momento de la respuesta).
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Lo que más muerde
 
 - **Un flujo nunca pasa por `legadoAGrafo`, y tener ids no lo hace un flujo.** El conversor arma la
@@ -6093,6 +6567,23 @@ contra producción), no leyendo el código.
 **Lo que ya quedó agendado** (las 20 activas) no se recalcula: el arreglo vale para las esperas que se resuelvan después
 del deploy. Test: tests/espera-desde-el-mensaje.test.ts.
 
+**Medido en producción (24/10/2026, 20:50 ART, claude5; scripts/medir-goteo-tras-deploy.mts).** «Contestó» corta: los 4
+que contestaron (insc 292, 319, 320, 340) no recibieron ningún mensaje más y están en 'respondio'. El reloj nuevo todavía
+no tiene nada propio que mostrar: desde el deploy no salió ningún M1 (Mauricio no movió más leads) y las 20 activas
+siguen con lo agendado ANTES (M2 entre 24,19 h y 38,70 h después de M1). **La trampa del script de medición:** la primera
+versión leía todo con el cliente de la base PRINCIPAL, encontraba la #289 y su config (`app_settings` y
+`nutricion_secuencias` también están ahí) y decía «nada tocado desde el deploy». Era verdad en esa base: las
+inscripciones y los envíos del ws1 viven en SU base. Un script que mide un negocio con base propia lee con
+`runWithWorkspace(ws)` + `getTenantDb()`, o da un «todo tranquilo» falso (la trampa «k» de arriba, otra vez).
+**Lo agendado con el reloj viejo se puede poner donde lo habría puesto el nuevo:** scripts/recalcular-esperas-viejas.mts
+(`ultimo_paso_at` + los minutos de la espera, sólo si adelanta, compare-and-set sobre estado, tarjeta y vencimiento;
+sin `--aplicar` sólo dice lo que haría). Para la #289 adelanta 13 por ~24 min y 7 por 12 a 15 h. **Sin aplicar:** es
+escribir en la base de un cliente real y quedó para que lo decida Martín.
+**Y el arreglo, visto andar (22:00 ART):** los tres M2 que salieron después del deploy (21:34, 21:46 y 21:58) dejaron la
+espera de 2 días agendada a **48,00 h exactas** del mensaje. Antes daba 48,20. Falta la otra mitad (el ritmo de 11 min de
+los M1 y la condición sin turno), que necesita M1 nuevos. El aviso de arreglo al grupo de Mauricio quedó probado en seco
+(`avisar-arreglo-al-grupo.mts`, prueba de producción en verde); mandarlo lo frenó el permiso de la sesión.
+
 ## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
 
 Medido por el Cerebro contra 87365c830 (el arnés `probar-chats-automations` @ eee20b3ab) y arreglado con tests que usan la
@@ -7012,3 +7503,313 @@ camino del opt-out), en los dos WhatsApp; el lead de prueba se corta antes de cu
 línea. **Vive en:** lib/lead-sin-arreglo.ts · lib/nutricion.ts (`procesarEnvios`) · tests/lead-sin-arreglo.test.ts.
 **Sin hacer:** el lead de prueba igual ENTRA a la automatización (se cierra en su primer envío); no se filtra al inscribir.
 *23/10/2026, chat «Automations» (claude2).*
+
+## «MaKo no tiene botones en los DM de Instagram»: los tenía Zernio, no MaKo (24/10/2026, trabajo 49ff20a3)
+
+**Síntoma:** un chat de la cuenta 1 le preguntó a Martín cómo armar «el gate de seguidor» porque «MaKo no tiene botones en
+los DM de Instagram», y le propuso rodeos («repetir la keyword por DM»). Martín contestó con la captura de un DM de Fiesta
+Music que trae «Obtener recurso», «Abrir» y «Obtener el enlace»: «Aun no arreglaste lo de los botones». **El diagnóstico
+obvio («Instagram o Zernio no lo permiten») era el equivocado:** `https://zernio.com/openapi.yaml` (v1.352.0, medido el
+24/10) trae `buttons` (1 a 3, `postback` o `url`, título ≤20) en el DM y en la respuesta privada a un comentario, y el
+toque vuelve al webhook `message.received` como `metadata.postbackPayload`. Lo que faltaba era MaKo: `enviarDm` mandaba
+sólo `message` y la respuesta privada era «sólo texto» a propósito.
+**Cómo quedó (fase A, el motor, y el lienzo):** lib/botones-social.ts (la pieza pura). Un botón sin `url` es una SALIDA de
+la tarjeta (`btn:<id>` en `puertosDe`, como una fila de una condición). El `payload` lleva la inscripción, la tarjeta y el
+botón (`mako:b:<insc>:<nodo>:<botón>`). El webhook lo pasa a `tocarBoton` (lib/nutricion.ts) ANTES de la pausa y del
+disparo: un toque no es una respuesta. `tocarBoton` mueve la inscripción a la rama del botón con compare-and-set y corre la
+vía rápida. Un mensaje con botones y nada abajo ESPERA el toque: queda 'activa' en esa tarjeta, sin próximo envío. Con
+eso, el flujo de ManyChat entero se publica, con la vuelta de «Ya te sigo» a «¿Te sigue?».
+**Las trampas:**
+- **El ciclo sin espera:** `ciclosSinEspera` rechazaba esa vuelta. La flecha de un botón no cuenta, porque la corre el
+  toque de la persona y no el motor en la misma corrida.
+- **La quinta puerta:** sin `botones` en `camposDelFlujo` (lib/nutricion-grafo-motor.ts), el primer guardado los borraba
+  en silencio.
+- **El rechazo desparejo de Meta:** algunas cuentas rechazan los botones en la respuesta privada a quien no sigue (código
+  2, subcode 1545133), y el intento GASTA la única respuesta. La cuenta que rechazó queda anotada
+  (`zernio.botones_rechazados.<cuenta>`) y la próxima sale en texto con «Escríbeme «…»». Escribir el título de un botón
+  cuenta como tocarlo (`botonPorTexto`), sólo en una inscripción que espera un toque.
+- **Después del toque, «¿Te sigue?» lee en vivo:** el toque es un mensaje y deja la conversación (`pedidoDeSeguimiento`
+  pide su id). Antes del toque, a quien sólo comentó, el «¿te sigue?» le decía «no sé».
+**Y lo que arma la IA de MaKo al CREAR (fase B):** `deIA` (lib/flujo-ia.ts) lee los botones de un mensaje de Instagram, y
+el gate de seguidor sale armado y publicable (tests/crear-ia-botones.test.ts). **Dos trampas:**
+- **El armador es un árbol** («cada tarjeta cuelga de un solo lugar»): la vuelta de «Ya te sigo» a la condición daba
+  «una tarjeta seguía en dos lugares» y se cortaba. Un botón que vuelve a una tarjeta que ya tiene lugar es una salida, no
+  un segundo padre: el toque es la espera.
+- **El techo de Groq:** decirle al modelo lo de los botones en el system pesaba ~100 tokens para TODOS los pedidos, y
+  tests/crear-ia-tercera.test.ts marcó ~4.098 contra 4.000. Va en el user, SÓLO en un pedido de Instagram o Messenger
+  (`BOTONES_SOCIAL`, junto a la línea `CANAL`). Ahí también va dicho el gate («el link va SÓLO en el mensaje del sí»): es
+  lo que le faltaba al borrador que regalaba el link.
+**Sin hacer:** «Editar con IA» (`deIAEdicion`) todavía no conoce los botones. «Probar» (lib/simulador-grafo.ts) no imita el
+toque. La ficha del lead no dice «esperando que toque un botón». No se probó con un DM de verdad: falta una cuenta de
+Instagram conectada en el Cliente de Prueba.
+**Vive en:** lib/botones-social.ts · lib/flujo-grafo.ts · lib/canal-zernio.ts · lib/zernio.ts · lib/nutricion.ts
+(`tocarBoton`, `avanceDesde`) · lib/canal-social.ts (`postback`) · app/api/webhooks/zernio/route.ts ·
+lib/flujo-conversacion.ts · app/automations/BotonesSocial.tsx · tests/botones-instagram.test.ts.
+*24/10/2026, chat «Automations» (claude5).*
+
+## Un goteo para todos los canales, y el goteo del email que no frenaba (24/10/2026, f20 y f21)
+
+**El pedido:** la llamada con Leandro (24/10, docs/feedback-24-10.md): «solamente está el goteo en WhatsApp y en email, pero
+no está en Instagram» (f20) y «que sea un solo botón para todos y listo» (f21). Martín, 24/10 23:00: «Uno solo: un solo
+interruptor de goteo (y uno de tope por día) que valga para todos los canales».
+
+**Qué quedó:** UN `goteo` por automatización (lib/config-automatizacion.ts) y UN bloque «Todos los canales» en Configuraciones
+(app/automations/ConfigAutomatizacionPanel.tsx), que vale para WhatsApp, email, Instagram y Messenger. **Cada canal cuenta
+lo suyo** (lib/goteo.ts, `canalDelGoteo`, `claveDeGoteo`): «hasta 50 por día» son 50 WhatsApp y 50 DMs. Lo decidió
+Automations, porque el riesgo es de cada canal (el baneo de un número no tiene nada que ver con el tope de Meta) y porque
+el 23/10 ya se había decidido que el goteo del WhatsApp no frenara al email. Si Martín lo quiere sumado entre todos, es
+cambiar `claveDeGoteo` por una sola clave.
+
+**Lo que estaba roto y no se veía:**
+- **El goteo del email no frenaba nunca** (desde 629500245, 24/10). La puerta de los mensajes (`sigueSinCupo`) dejaba pasar
+  un email mientras quedara cupo de email, para que no lo frenara el cupo de WhatsApp. Pero el freno que esquivaba
+  también incluía SU goteo. Ahora el freno de un email es sólo su goteo (`sinLugarDelMensaje`) y `noGastaTurno` no deja
+  pasar ningún mensaje. No le pegó a nadie: ninguna automatización tenía goteo de email (medido).
+- **Instagram «tenía» goteo sin tenerlo:** un DM pasaba por el goteo de WhatsApp, pero sus envíos nunca se contaban.
+  Lo frenaba lo que salía por WhatsApp, nunca lo suyo.
+
+**Lo guardado:** medido en producción antes de juntarlos (`scripts/medir-goteo-un-interruptor.mts`, sólo lectura): dos
+automatizaciones con goteo, la #289 de Mauricio (prendida: 11 min, 65 por día) y la #568 de Martín (apagada), las dos sólo
+de WhatsApp. Al leer, el `goteo` de antes pasa a ser el de todos y, si no hay, el `goteoEmail`. No se escribió nada en
+producción, y a ninguna le cambió el número. Guardar un `goteoEmail` da error. El tope por día llega a 500 (el más alto
+de las líneas); los WhatsApp los sigue cortando su línea.
+
+**Regla:** un interruptor por canal en Configuraciones es una regresión (memoria `goteo-un-interruptor`). Lo que MaKo dice
+de esa pantalla (`LO_QUE_NO_ES_TARJETA`, `LUGARES_REALES` en lib/flujo-ia-intencion.ts) se cambia junto con la pantalla:
+decía «un bloque por canal (WhatsApp, Email)», y a Leandro le nombró uno de Instagram que no existía (f22).
+
+**Sin hacer:**
+- Un DM de Instagram sigue gastando el cupo de la LÍNEA de WhatsApp (`waEnCorrida` cuenta todo lo que no es email), lo que
+  ya pasaba antes. No es lo que pidió f20, y cambiarlo saca a Instagram del único tope de línea que tiene.
+- Aprobar un borrador de email mira el goteo con lo aprobado por WhatsApp (`frenoDelGoteoAlAprobar`,
+  lib/borrador-camino.ts).
+- No se vio en pantalla.
+
+Vive en: lib/goteo.ts · lib/config-automatizacion.ts · lib/nutricion.ts (`usoDelGoteo`, `sinLugar`, `quedaFrenada`) ·
+app/automations/ConfigAutomatizacionPanel.tsx · lib/api-mako/areas/chatbot.def.ts y .run.ts · lib/flujo-ia-intencion.ts ·
+tests/goteo-un-interruptor.test.ts.
+
+## La nota de voz del chat del lienzo: sale ya y se escucha (24/10/2026, f17)
+
+**El síntoma (la llamada con Leandro, 29:49):** «se envió tipo transcripto cuando ahí en el chat mismo se debería poder
+escuchar el audio... cuando le das a enviar audio se tiene que enviar automáticamente, no esperar a transcribirlo».
+
+**La causa:** `enviarAudio` (app/automations/ChatMako.tsx) transcribía PRIMERO y recién ahí mandaba el texto. No se veía
+nada mientras tanto, y el audio no quedaba en ningún lado. El hilo compartido (`HiloMako`) ya sabía dibujar una nota de
+voz (`voz` del item, con `AudioPlay`); el chat del lienzo nunca le pasaba una.
+
+**Qué quedó:** el globo con el audio entra al hilo en el acto («enviando» mientras se transcribe), y lo entendido sale como
+el mensaje, con su audio (`voces`, por id). Si no se entiende, queda con su error y «Reintentar» lo vuelve a transcribir.
+El molde es el chat del lead (app/crm/lead-view/MakoAnalystLead.tsx).
+
+**Sin hacer:** el audio es de esta sesión de la pantalla. Al recargar queda lo entendido, sin el audio. Guardarlo es subirlo
+como hace el Ops Center (`subirNotaDeVozDelChat`, lib/chat-mako-adjuntos.ts) desde la ruta del chat
+(/api/chat-agent/secuencias/ia). No se vio en pantalla.
+
+Vive en: app/automations/ChatMako.tsx (`enviarAudio`, `reintentar`, `hiloUnico`) · tests/chat-mako-nota-de-voz.test.ts.
+
+## Una pregunta en «Editar» y lo que no está en MaKo (24/10/2026, f18 y f23)
+
+**El síntoma (la llamada con Leandro, 29:24-31:16 y 36:01):** preguntó por audio, en «Editar», «¿Existe un tope de mensajes o
+un tope de comentarios que se puedan responder en la cuenta…?», y MaKo contestó «El tope de mensajes por día se configura
+en configuraciones de esta automatización». Martín: «le hiciste una pregunta en la opción de editar en lugar de discutir,
+entonces te respondió otra cosa». Después MaKo le describió «un bloque para Instagram» en Configuraciones que no existía.
+
+**⚠️ El diagnóstico obvio era el equivocado.** «Editar no contesta preguntas» no era cierto: desde el 22/10 una pregunta con
+«¿?» en «Editar» ya va al prompt de explicar (`vaAExplicar`, `esPreguntaDirecta`). Lo que falló fueron tres cosas:
+- **La pregunta DICTADA** no siempre trae «¿?». Ahora `esPreguntaDictada` (lib/flujo-ia-consulta.ts) reconoce la que arranca
+  como pregunta («existe…», «hay algún…», «cómo hago…», «cuántos…», «qué pasa si…») y no pide un cambio. Es a propósito
+  estrecha: «cuando contesta, mándale…» es una orden, y «se puede agregar…» es un pedido (`RX_PIDE_PREGUNTANDO`).
+- **MaKo no sabía lo que pone Meta**, y la regla «lo que se configura fuera de las tarjetas, di dónde está» lo mandaba a
+  Configuraciones. Ahora `LO_QUE_NO_ES_TARJETA` (lib/flujo-ia-intencion.ts) lo dice: un DM sólo dentro de las 24 h del
+  último mensaje de la persona, nunca primero, y a un comentario se le contesta una vez por privado.
+- **Lo que no está, inventado** (f22). Ahora MaKo lo dice en una frase y pone en `falta` qué pidió. El globo ofrece
+  «Pedírselo al equipo» (app/automations/PedirAlEquipo.tsx), que levanta un PEDIDO en la Ticketera con `noExiste`, como
+  `levantar_ticket` del Ops Center.
+
+**Regla:** el ticket sale del chat GUARDADO (`ticketDeLaFalta`, app/automations/pedir-al-equipo.ts): la última vez que MaKo
+dijo esa falta y lo que se le pidió antes. Del navegador sólo viaja cuál es. Una falta que MaKo no dijo no levanta nada, y
+tocar dos veces da el mismo ticket (`refDeLaFalta`). Se pregunta con un botón, no sale solo: es como lo hace
+`levantar_ticket`, y un falso «no está» del modelo no llena la Ticketera.
+
+**Sin hacer:** el chat del Ops Center ya tenía `levantar_ticket`; este botón es del chat del lienzo. No se probó con el modelo
+de verdad (sólo la lectura de su JSON): falta ver que Groq ponga `falta` cuando corresponde. No se vio en pantalla.
+
+Vive en: lib/flujo-ia-consulta.ts (`esPreguntaDictada`, `faltaDelModelo`) · lib/flujo-ia-intencion.ts ·
+lib/automatizacion-chat.ts (`falta`) · app/api/chat-agent/secuencias/ia/route.ts y …/ia/falta/route.ts ·
+app/automations/PedirAlEquipo.tsx · tests/chat-mako-falta-y-pregunta-dictada.test.ts.
+
+## MaKo nombraba un ícono y un lugar que no estaban (24/10/2026, f19 y f22)
+
+**El síntoma (la llamada con Leandro, 31:29 y 36:01):** «el ícono de configuraciones no es el correcto... Fíjate dónde está»,
+y «un bloque para Instagram donde puedes configurar el tope máximo de comentarios», que no existía.
+
+**La causa:** a MaKo se le decía que Configuraciones está «en el «⋯» de esta automatización». Ese es el menú de la FILA, en la
+lista. En el lienzo, donde se chatea con MaKo, Configuraciones se abre con la tuerca del título (`BotonTuerca`,
+app/automations/SecuenciaPerfil.tsx). Y la guarda de un lugar inventado (`errorDeRespuestaEnEditar`) era sólo de Editar,
+pero la respuesta de Leandro salió de explicar.
+
+**Qué quedó:**
+- El prompt dice «la tuerca al lado del nombre de esta automatización» (`LO_QUE_NO_ES_TARJETA`).
+- El globo de MaKo que nombra Configuraciones lleva esa misma tuerca (`Icon name="config"`, `TuercaEnElGlobo`,
+  ChatMako.tsx), que la abre. Así lo que dice MaKo y lo que se ve son lo mismo.
+- `lugarInventado` (lib/flujo-ia-intencion.ts) la usan Editar y explicar: «Configuraciones › X» con una X que no está, o un
+  bloque, sección o pestaña de un canal, vuelve al modelo como error.
+
+**Regla:** lo que el prompt dice de una pantalla se cambia con la pantalla, y lo que MaKo puede mostrar (un ícono, un botón)
+sale del componente de verdad, no de una descripción.
+
+**Sin hacer:** la tuerca del globo sólo está en el chat del lienzo (el modal «Pídeselo a MaKo» no abre Configuraciones). Los
+otros chats (Ops Center) no tienen esta guarda de lugares. No se vio en pantalla.
+
+Vive en: lib/flujo-ia-intencion.ts (`lugarInventado`, `LO_QUE_NO_ES_TARJETA`) · app/api/chat-agent/secuencias/ia/route.ts ·
+app/automations/ChatMako.tsx (`TuercaEnElGlobo`) · app/automations/SecuenciaPerfil.tsx · tests/chat-mako-tuerca-y-lugares.test.ts.
+
+## Los botones de Instagram, de punta a punta: Editar, Probar, la ficha y la API (25/10/2026)
+
+**El pedido:** Martín, 25/10 ~13:15: «Ya esta el tema de los botones de Instagram para Automations? Que lo pide el cliente
+Leandro». El Cerebro: que queden terminados de punta a punta (la API, «Probar», «Editar con IA», la ficha y un DM de verdad).
+
+**Qué quedó:**
+- **Editar con IA** (lib/flujo-ia.ts): el modelo los lee en el flujo (`aIA`), los cambia con "botones" en "cambiar"
+  (`botonesDelParche`) y cuelga tarjetas de uno con "salida": "btn:<id>". Las reglas van sólo si el flujo ya tiene botones
+  o el pedido habla de ellos o del gate. Con «Cambia WhatsApp por Instagram» y el CRON pasaba el techo de Groq.
+- **Probar** (lib/simulador-grafo.ts, PanelProbar, SimuladorSocial): quien prueba toca los botones en el DM. Un DM con
+  botones y nada más que correr deja la prueba esperando, sin «Fin». `tocar` es el `tocarBoton` del motor.
+- **La ficha** (`botonesQueEspera`): «Espera que toque «Obtener recurso»», no «En curso».
+- **La API**: `cambiar_botones_mensaje`, por HTTP, que es lo que usa el Claude de Leandro, y de pantalla. Cambia los
+  botones y también el TEXTO del DM (`editar_pasos_secuencia_mensajes` es sólo WhatsApp y email, y sin ramas: un DM con
+  botones vive en un flujo con ramas). La ficha dice los botones con su puerto (`btn:<id>`); `inscripciones_lead`,
+  `espera_toque`. Y `crear_automatizacion_con_ia` sale por HTTP (el Cerebro, 25/10: «todo MaKo se debe poder utilizar por
+  API»), con `costo: 'ia'`.
+
+**⚠️ Las trampas:**
+- **Un botón nuevo tomaba el id de su lugar** («b1») y le robaba el suyo a uno que se quedó en otro lugar. Lo que colgaba
+  del puerto `btn:b1` se iba con el nuevo. Ahora uno que se queda conserva su id, y uno nuevo toma uno libre (en Editar y
+  en la API). La primera rotura del test salió VERDE: en el mismo lugar el id coincide igual. Se le sumó el caso reordenado.
+- **Sacarle el único botón a «Obtener recurso» deja la condición suelta.** La API lo rechaza porque mira sólo los errores
+  NUEVOS de `validarGrafo`. Uno que el flujo ya tenía no frena cambiar un botón.
+- **Una prueba sin `siguiente: null` explícito sigue por el ORDEN de la lista** (lo de antes, lineal). Un flujo del lienzo
+  siempre lo tiene; un fixture escrito a mano, no.
+
+**⚠️ La prueba con un DM de verdad NO se pudo hacer**, y no es por el código. Medido el 25/10 14:10 ART
+(`scripts/medir-instagram-de-mako.mts`, sólo lectura):
+- el negocio de la plataforma (Martin Koncke) no tiene Zernio: ni key, ni fila, ni automatizaciones de Instagram;
+- el Cliente de Prueba tiene fila de Zernio con profile, pero sin key y con el webhook sin entregar;
+- ningún negocio nuestro tiene Instagram conectado.
+Para hacerla, Martín tiene que conectar en su negocio la key de Zernio de MaKo y el Instagram de MaKo (Integraciones ›
+Zernio, y el login de Instagram). Después alguien comenta desde OTRA cuenta de Instagram. Los pasos están en el relevo.
+
+- **⚠️ Por qué crear con IA no salía por HTTP, y por qué ahora sí.** La def decía «tarda minutos y /api/v1 corta a 60 s».
+  Ya no es así: cada intento se acota al plazo del que llama (`hastaMs` en `chatCheapCascade`), y desde el 17/10 un intento
+  dura 45 s como mucho. Por HTTP el modelo tiene 40 s (`PLAZO_CREAR_HTTP_MS`) y el resto queda para escribir. Si no le
+  alcanza, vuelve un error SIN haber escrito nada, porque la fila nace después del modelo. Un token clásico sólo propone, y el
+  «sí» corre en la app con sus 170 s.
+- **⚠️ La primera medición del Cerebro decía que la API no tenía botones**: medía main, y lo de esta tanda vivía sólo en
+  aut-2510. Una medición de la API se hace sobre la rama que se va a subir.
+
+**Sin hacer:** el DM de verdad (arriba). «Probar» no simula el texto de respaldo («Escríbeme «…»») de una cuenta que rechaza
+los botones. No se vio en pantalla. (Cerrados el 25/10: el texto de un WhatsApp o email en un flujo con ramas, con
+`cambiar_texto_mensaje`, y la pregunta de crear con IA por HTTP, que vuelve con `faltan`.)
+
+Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
+lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
+tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.
+
+## ⚠️ Cambiar el texto de un mensaje dejaba sus VARIANTES del texto viejo, y el motor las sorteaba (25/10/2026)
+
+**El síntoma (encontrado al cerrar el texto por la API, no en un cliente):** las variantes («↻ N», lib/secuencias-variantes.ts)
+son otras formas de decir UN texto, y el motor sortea entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts; SÓLO
+el WhatsApp no oficial: un DM o un email no sortean). Si el texto cambia y las variantes quedan, a 4 de cada 5 leads les
+llega lo que el mensaje ya no dice. «Probar» muestra el cuerpo nuevo, así que la prueba no lo ve.
+
+**⚠️ El diagnóstico obvio («que el cambio mande `variantes: []`») no alcanzaba:** `setSecuenciaPasos` (lib/nutricion.ts) sólo
+tomaba las que llegaban si había AL MENOS una; con `[]` volvían a ponerse las guardadas por el id del nodo. lib/guion-audio.ts
+ya daba por hecho que un `[]` explícito las borraba (al pasar a voz o a archivo), y no era así: volver a texto las traía de
+nuevo, y borrar la última en el editor no se guardaba.
+
+**⚠️ Y no era sólo la API (la revisión adversarial del tren-k, el Cerebro):** el mismo hueco estaba en main por la PANTALLA y
+por Editar con IA. `aplicarPartes` con un solo texto, la ➤ y el «al salir» de un mensaje único, el «Usar» del ✦
+(EditorMensajeWhatsApp), el editor de Instagram y `parcheMensaje` (lib/flujo-ia.ts) cambiaban el cuerpo sin mirar las
+variantes. Y la tarjeta A/B: `conRamaBCopiada` copiaba a B las de A; al cambiarle el texto a B, en 10.000 envíos el texto nuevo
+salió 1.939 veces, y el juez comparaba A contra casi A. Con el `[]` honrado apareció una regresión chica: el 🗑 + «Deshacer»
+volvía el texto sin sus variantes (antes el guardado las reponía).
+
+**La regla.** En el guardado, la clave AUSENTE conserva las de antes y un `[]` EXPLÍCITO es «ya no tiene». Todo lo que cambia el
+texto pasa por `variantesTrasCambio` (lib/mensaje-partes.ts): otra cosa que un texto, o un texto que CAMBIA, → `[]`; el mismo
+texto no toca la clave; «Deshacer» repone las del paso de antes. La API usa la misma regla (`conCuerpo`, lib/botones-api.ts) y
+lo dice. La copia de B nace sin variantes, y la firma de cada rama las cuenta (sin variantes y `[]` firman igual).
+`editar_pasos_secuencia_mensajes` sigue avisando «conserva N variantes del texto viejo» en vez de soltarlas (sin hacer).
+
+Vive en: lib/nutricion.ts (`setSecuenciaPasos`) · lib/mensaje-partes.ts (`variantesTrasCambio`) ·
+app/automations/EditorMensajeWhatsApp.tsx y EditorMensajeSocial.tsx · lib/flujo-ia.ts (`parcheMensaje`) ·
+lib/flujo-conversacion.ts (`conRamaBCopiada`) · lib/pruebas/tarjeta-ab.ts · lib/botones-api.ts · tests/variantes-al-cambiar-texto ·
+api-mako-texto-mensaje · pruebas-tarjeta-ab.
+
+## La tarjeta «A/B TEST»: una clase nueva con todas sus puertas (tanda A3 de las pruebas A/B, 25/10/2026)
+
+**El pedido:** Martín, 25/10: «Lo mismo con Automations, podemos poner una tarjeta que sea "Prueba A/B"». El diseño está en
+docs/diseno-pruebas-ab.md (3.1, con la crítica D). El motor de las pruebas vive en lib/pruebas/ (docs/hallazgos-pruebas.md).
+
+**⚠️ El diseño obvio era el equivocado:** una condición del catálogo. No se puede pegar a otra condición, tiene «Si no»,
+elige la primera fila que se cumple y el motor la vuelve a mirar antes de mandar. Es una clase nueva, `nodo: 'ab'`, con
+`ramas_ab` (letra, porcentaje, salida). Se usó un campo aparte y no `ramas` con `pct`: así lo de la condición (sus filas,
+el «Si no») no la ve, y lo que tiene que verla tiene que nombrarla.
+
+**⚠️ La trampa más peligrosa:** `claseDe` devuelve `'mensaje'` para lo que no conoce. Antes de que la clase existiera en
+todas partes, la tarjeta se guardaba y se mandaba como un WhatsApp vacío. Por eso entró todo en un commit.
+
+**⚠️ La TRANSPARENCIA es lo que cuida a los clientes:** «Su reunión sigue en pie» → A/B → «Mañana es tu reunión». Si
+`condicionDeArriba` mira sólo el padre directo, la condición no se vuelve a evaluar, y sale el recordatorio de una reunión
+cancelada. Suben por la tarjeta: `condicionDeArriba` y `condicionSigueLlevando`, `minutosAntesDeReunion`, el carril
+(`esHiloDelCarril`), `mensajeAnteriorDe`, `esperaAntesDe` (la ventana de Meta) y la forma: CONDITION → A/B → CONDITION
+son dos pegadas.
+
+**⚠️ Encontrado de paso, de los botones de Instagram (24/10):** al pegar una copia o llevarla a otro negocio, `conDestinos`
+(lib/flujo-copia.ts) no rehacía las flechas de los botones. Quedaban apuntando a las tarjetas del ORIGINAL. Ahora sí, y las
+ramas de la prueba también.
+
+**Las puertas, revisadas una por una** (barrido de los ~84 `=== 'condicion'` / `!== 'condicion'` / `case 'condicion'`, más
+los switch y las listas de clases). Qué se hizo en cada una:
+- **Tratan la prueba como una bifurcación** (sus ramas se excluyen): `puertosDe`, `siguienteDe`, `contarParalelos`,
+  `cruces` (con el contexto: dos ramas que se juntan no chocan), `insertarNodo` / `sinSalida` (la A toma lo que seguía),
+  `borrarNodo` (borrarla es quedarse con A), `conectarPuerto` (el puerto es la letra), `necesitaHechos`,
+  `ramaDeQuienContesto`, `destinoAlContestar` (por la A), `ultimoMensajeDelCamino` y `haySeguimiento` (por la A),
+  `esMulti` y la tarjeta del lienzo (`grafoDeSecuencia`), `textosParaElGrupo`, y en «Probar» `correrHilo` (evento
+  `ab`), `elegirComoLead` (sin escenario, la A) y `escenariosDePrueba` (uno por rama).
+- **La atraviesan:** las siete del párrafo de la transparencia.
+- **La rechazan:** `pasosDelEvento` (un evento de MaKo no reparte leads), `responderConGrafo` (no corre en «Si
+  responde»), `validarGrafo` (una por automatización, nunca en «Si responde»), `duplicar`, `crearSuelta`, `pegarTarjetas`
+  (una por automatización), `opcionesDelMas` / `opcionesSueltas` (el ＋ no ofrece una segunda) y «Duplicar» del lienzo.
+- **La nombran (listas y tipos):** `ClaseNodo`, `claseDe`, `PasoGrafo.nodo`, `NODOS`, `CamposFlujo` / `camposDelFlujo`
+  (la quinta puerta), `normalizar`, `esControl`, `esLineal`, `esFlujoExplicito` (sin ella, el armado de audios del
+  onboarding pisaba el flujo), `NOMBRE_CONTROL`, `TITULO`, `tituloDeTarjeta`, `trozoDe`, `QueAgregar`, `MENU_MAS`,
+  `ICONOS_MAS`, `nodoNuevo`, `TipoNodo`, `filaALaDerecha`, `ALTO_EDITOR_CONTROL`, `tinteDeControl`, `EditorDeNodo`, la
+  ficha de la API, la descripción de la tarjeta para el lead (`automatizaciones-del-lead-reglas`), y en la IA
+  `ClaseEditable`, `aIA`, `TipoTarjeta`, `TIPOS`, `NodoIA`, `nodoDe` y el armado. **Se me pasó `CLASE_DE_TIPO`** (el tipo
+  de cada tarjeta de la IA a su clase, en Editar con IA): sin `prueba_ab`, «cambia este mensaje por una prueba A/B» se
+  ignoraba en silencio en vez de avisar «Esa tarjeta no cambia de tipo». Ningún test lo veía; lo cazó el tsc acotado
+  (`Record<TipoTarjeta, …>`). Una lista revisada a mano no reemplaza al compilador.
+- **Revisadas y sin cambio** (son SÓLO de la condición: filas, «Si no», hechos, el catálogo): `esResultadoDe`,
+  `resultadosDe`, `todosLosParalelos`, `elegirSalida`, `antiguedadDeEntrada`, `conectarParalelo`,
+  `promoverResultados`, `condicionARespuesta`, `filasDelFlujo`, `sanearRama`, `usaContesto`, `preguntaContesto`,
+  `miraLaReunion` (ya subía por todo lo que no es espera), `filasConParalelo`, `agregarRama` / `quitarRama` (la prueba
+  tiene las suyas), `quitarPuerto`, `conectar`, `repartosDe`, `equipo-contesto`, `rasgosDelFlujo`, `preferirEsperas`,
+  `seguimientosConNoContesto`, `seguimientoQueFalta`, `agregarTramos`, `validarIA`, `legadoAGrafo`, el motor de los
+  eventos (lib/flujo-pasos.ts, lib/flujos.ts: nunca le llega) y los scripts de una vez.
+
+**Sin hacer:** la dimensión «rama» en los gráficos del Dashboard. Métricas muestra la prueba en una franja fija arriba de la
+hoja, como el aviso de Closing, y el gráfico por rama es del área del Dashboard. Tampoco se probó la tarjeta en pantalla.
+
+## El primer mensaje de una etapa, después de contestar, cuando mueve una persona (27/10/2026)
+
+**Vive en:** `enrolarPorEvento` y `mandarDespuesDeContestar` (lib/nutricion.ts) · tests/mover-etapa-rapido.
+
+Leila (llamada con Martín): «está tardando muchísimo en mover una etapa». Mover a una etapa con automatización inscribía
+al lead y corría la VÍA RÁPIDA adentro de la acción: MaKo escribía el mensaje y el WhatsApp no oficial dejaba el HTTP
+abierto de 1 a 11 s por el tipeo, y la ficha esperaba todo eso con la ruedita. Ahora, con `ctx.persona` (lo movió una
+persona desde el CRM), en qué automatizaciones entró y por qué no volvió a una se decide en el acto (el aviso de la
+pantalla no cambia), y el envío más su línea en el historial salen con `after()`, con el workspace fijado y en la fila de
+lo que sigue después de responder (el mismo molde que `seguirDespuesDeResponder`). Fuera de un pedido (un script) se manda
+en el acto, como siempre. Si la función muere antes de mandar, la fila ya está vencida y la toma el tick.
+**Regla:** lo que mueve una persona no espera un envío; el envío no cambia el «entró / no entró».

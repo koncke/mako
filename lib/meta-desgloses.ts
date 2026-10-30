@@ -25,6 +25,7 @@ import 'server-only';
 import { credWsEstricta } from './credenciales';
 import { getWorkspaceActual } from './workspace';
 import { timeRangeMeta } from './meta-rango';
+import { canalMeta, insightsPorZernio, type CanalMeta } from './meta-via';
 
 const GRAPH = 'https://graph.facebook.com';
 
@@ -60,11 +61,14 @@ const MEMO_MS = 5 * 60_000;
 const TOPE_MEMO = 200;
 const memo = new Map<string, { vence: number; filas: Promise<FilaInsights[]> }>();
 
-type Conexion = { ws: number; ver: string; token: string; cuenta: string };
+type Conexion = { ws: number; ver: string; token: string; cuenta: string; zernio?: Extract<CanalMeta, { via: 'zernio' }> };
 
 async function conexion(): Promise<Conexion> {
   const ws = await getWorkspaceActual();
   if (ws == null) throw new FalloMeta('Sin workspace', 'sin_workspace');
+  // Por Zernio si el negocio conectó así (25/10/2026, lib/meta-via.ts): las mismas filas por el paso directo.
+  const canal = await canalMeta(ws);
+  if (canal.via === 'zernio') return { ws, ver: '', token: '', cuenta: canal.adAccountId, zernio: canal };
   const [token, cuenta] = await Promise.all([
     credWsEstricta('META_ACCESS_TOKEN', ws),
     credWsEstricta('META_AD_ACCOUNT_ID', ws), // ya incluye el `act_`
@@ -77,6 +81,17 @@ async function conexion(): Promise<Conexion> {
 }
 
 async function pedir(c: Conexion, p: { desde: string; hasta: string; breakdown: Desglose }): Promise<FilaInsights[]> {
+  if (c.zernio) {
+    const r = JSON.parse(timeRangeMeta(p.desde, p.hasta)) as { since: string; until: string };
+    try {
+      const filas = await insightsPorZernio(c.zernio, {
+        fields: CAMPOS.split(','), desde: r.since, hasta: r.until, actionBreakdowns: ['action_type'], breakdowns: [p.breakdown],
+      });
+      return filas as unknown as FilaInsights[];
+    } catch (e) {
+      throw new FalloMeta(`Zernio: ${e instanceof Error ? e.message : String(e)}`, 'meta');
+    }
+  }
   const u = new URL(`${GRAPH}/${c.ver}/${c.cuenta}/insights`);
   u.searchParams.set('fields', CAMPOS);
   u.searchParams.set('action_breakdowns', 'action_type');

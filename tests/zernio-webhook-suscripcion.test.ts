@@ -34,6 +34,7 @@ const STUBS: Record<string, unknown> = {
     envCred: async (clave: string) => (clave === 'ZERNIO_WEBHOOK_SECRET' && hayMaestro ? MAESTRO : null),
     credDelClienteEstricta: async () => 'key_del_negocio',
     credWsEstricta: async () => null,
+    clavesGuardadasConBase: async () => [] as string[],
   },
   './supabase': { getSupabaseServer: () => { throw new Error('este test no toca la base'); } },
   './workspace': { OWNER_WS: 1 },

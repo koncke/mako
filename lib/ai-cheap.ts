@@ -31,6 +31,7 @@ import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
+import type { QuienContesto } from '@/lib/quien-contesto';
 import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
@@ -38,7 +39,9 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
+import { anotarColgadoEnElPedido, anotarSaturado, esSaturacion as dijoSaturado, esTimeout, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
+import { CREDITO_HABILITADO_PARA } from '@/lib/veto-claude';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /**
@@ -89,7 +92,7 @@ function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
       // API nativa (ver sttGemini), y por eso encabeza la cascada de STT. 1M de contexto.
       // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
       // pineados que se van retirando). Pisable con GEMINI_MODEL.
-      return { nombre, base: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
+      return { nombre, base: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModel: modeloPorDefecto('gemini'), sttModel: '' };
     // ── IA GRATIS extra para rotar (todas OpenAI-compatibles) ─────────────────
     // ⚠️ LOS IDS DE MODELO CADUCAN, Y CUANDO CADUCAN LA KEY QUEDA MUERTA EN SILENCIO.
     // Medido el 12/8/2026 pegándole a cada cuenta cargada: las SEIS keys de Cerebras y
@@ -419,6 +422,9 @@ export const CASCADA_DOCS: ProvName[] = ['gemini', 'openai'];
  * contesta 404 «no longer available to new users», y `gemini-2.0-flash` también. Solo
  * alias `-latest`, que es lo único que no envejece solo.
  */
+/** El `model` de la fila que anota que un modelo falló y el turno siguió con su respaldo (`chatCheapTools`). */
+export const PREFIJO_REBOTE = 'rebote:';
+
 const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
   gemini: ['gemini-flash-lite-latest'],
 };
@@ -435,7 +441,16 @@ const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
 function modelosAProbar(prov: ProvName, pedido?: string, conRespaldo = true): Array<string | undefined> {
   if (!conRespaldo) return [pedido];
   const respaldos = (MODELOS_RESPALDO[prov] ?? []).filter((m) => m !== pedido);
-  return [pedido, ...respaldos];
+  // ⚠️ UN MODELO SATURADO VA AL FINAL (26/10/2026, la réplica del ws9 con 17 de 20 secciones sin IA): si en los últimos
+  // minutos dio «high demand» o colgó con un plazo razonable, se prueba primero el respaldo y el saturado queda de última
+  // opción. Sin esto, cada tanda volvía a empezar por el colgado y se comía su plazo (lib/ia-saturacion.ts).
+  return primeroLosSanos(prov, [pedido, ...respaldos], modeloPorDefecto(prov));
+}
+
+/** El modelo de chat por default de un proveedor (el que usa `chatCheap` cuando no se pide uno). Lo que no sea Gemini no
+ *  rota de modelo (no tiene respaldos), así que no hace falta su nombre. */
+function modeloPorDefecto(prov: ProvName): string {
+  return prov === 'gemini' ? process.env.GEMINI_MODEL || 'gemini-flash-latest' : '';
 }
 
 /**
@@ -564,7 +579,14 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),
   });
   let { esfuerzo, aire } = p.nombre === 'gemini' ? esfuerzoParaGemini(model, pedido) : { esfuerzo: pedido, aire: 0 };
-  let res = await pedir(esfuerzo, aire);
+  // Un modelo que se CORTÓ por plazo queda anotado sólo en el pedido en curso (`conMemoriaDelPedido`, lib/ia-saturacion.ts):
+  // un timeout no distingue un modelo colgado de un pedido grande o de un plazo chico, y marcarlo para el proceso degradaba a
+  // todos los negocios (verificación del tren-m, hallazgo 17). El error sigue su camino igual.
+  let res: Response;
+  try { res = await pedir(esfuerzo, aire); } catch (e) {
+    if (esTimeout(e instanceof Error ? `${e.name} ${e.message}` : String(e))) anotarColgadoEnElPedido(p.nombre, model);
+    throw e;
+  }
   let data = await res.json().catch(() => ({}));
   // El 400 del pensar: UNA vez, y se recuerda para ese modelo. Un `low` que también falla sale como error, abajo.
   if (p.nombre === 'gemini' && !res.ok && esfuerzo === 'minimal' && rechazaElEsfuerzo(res.status, leerErrorProveedor(data, res.status).mensaje)) {
@@ -578,6 +600,8 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     // ⚠️ GEMINI MANDA EL ERROR EN UN ARRAY (`[{ error: {…} }]`): leído como `data.error.message` llegaba «HTTP 400»
     // pelado y el clasificador no tenía qué leer (15/10/2026: así se escondió el 400 de 'minimal'). `leerErrorProveedor`
     // lee los dos.
+    // «high demand» (503) es del MODELO, no de la cuenta: queda saturado unos minutos (lib/ia-saturacion.ts).
+    if (dijoSaturado(`HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`)) anotarSaturado(p.nombre, model);
     throw new Error(`chatCheap(${rotulo(p)}): ${leerErrorProveedor(data, res.status).mensaje}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
@@ -638,6 +662,21 @@ function soloElJson(t: string): string {
   try { JSON.parse(s); return s; } catch { return ''; }
 }
 
+/**
+ * ¿Este pedido tiene, detrás de las gratis, el crédito de Claude de lo INTERNO de MaKo? El workspace de la plataforma si sí
+ * (con él se llama a la puerta), o null. Martín, 26/10/2026: «1. Claude de la plataforma», sólo en el espacio de MaKo y sólo
+ * para lo que `CREDITO_HABILITADO_PARA` marca `soloLaPlataforma`. «Está» lo dice la MISMA cuenta que hace la puerta
+ * (`hayCreditoDeLaPlataforma`: claves cargadas, sin pausa, sin agotar): una opción que no corre no es una opción.
+ */
+async function ultimoRecursoDeMaKo(feature?: string): Promise<number | null> {
+  if (!CREDITO_HABILITADO_PARA.some((h) => h.soloLaPlataforma && h.feature === (feature ?? '').trim())) return null;
+  const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+  const sa = await wsSuperAdmin().catch(() => null);
+  if (sa == null || (await getWorkspaceActual().catch(() => null)) !== sa) return null;
+  const { hayCreditoDeLaPlataforma } = await import('./anthropic');
+  return (await hayCreditoDeLaPlataforma({ feature, wsCliente: sa }).catch(() => false)) ? sa : null;
+}
+
 /** El techo de entrada de un proveedor (prompt + salida), el mismo con el que la cascada lo saltea. */
 export function techoDeEntrada(p: ProvName): number | undefined {
   return TECHO_ENTRADA[p];
@@ -683,12 +722,21 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    * Se llama justo ANTES de cada pedido a un proveedor (17/10/2026, tarjeta #847: «que diga en qué está»). Con eso quien
    * espera sabe que el anterior no sirvió y se está probando otro. Un aviso que tira no frena la cascada.
    */
-  alIntentar?: () => void }): Promise<string> {
+  alIntentar?: () => void;
+  /**
+   * QUIÉN ESCRIBIÓ LO QUE SE ACEPTÓ (27/10/2026, lib/quien-contesto.ts): si viene, se completa antes de devolver el texto (el
+   * chat de Automations dice «Con tu Claude»). Sin él, nada cambia.
+   */
+  quienOut?: Partial<QuienContesto> }): Promise<string> {
+  const anotarQuien = (q: QuienContesto) => { if (opts.quienOut) Object.assign(opts.quienOut, q); };
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
+  // ⚠️ SIN RESERVAR LUGAR PARA LA OPCIÓN SIGUIENTE (revisión del tren-l, hallazgo 17): la primera versión del 26/10/2026 le
+  // dejaba 15 s al respaldo, y eso cortaba a los 27 s una tanda SANA de 30 s que antes salía. El respaldo llega por otro lado:
+  // un 503 marca el modelo saturado y el pedido siguiente empieza por él (lib/ia-saturacion.ts).
   const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
   const sinTiempo = (): string => {
     opts.erroresOut?.push(`sin tiempo: el plazo del pedido vence en ${Math.max(0, Math.round(quedan() / 1000))} s`);
@@ -732,12 +780,33 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     }).catch(() => null);
     if (r && 'texto' in r) {
       const t = opts.json ? soloElJson(r.texto) : r.texto;
-      if (t && (!opts.validar || opts.validar(t))) return t;
+      if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'negocio' }); return t; }
       opts.erroresOut?.push('anthropic/ANTHROPIC_API_KEY: la respuesta no tenía la forma pedida');
     } else if (r && 'error' in r) {
       opts.erroresOut?.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
     }
   }
+  // Las cuentas de cada proveedor, UNA vez: con ellas se sabe cuál es de verdad la última opción (revisión del tren-l, hallazgo
+  // 18: un proveedor de la lista SIN clave contaba como «otra opción», y la última opción real perdía su reintento). La red de
+  // la plataforma también es una opción, pero sólo si CORRE, y eso se le pregunta a la MISMA función que la arma
+  // (`provsGratisDePlataforma`, con «sólo su IA» y el super admin adentro) más los cortes del bloque de abajo (`pii`, y que
+  // el bloque no entra en el super admin). Hoy da false siempre: la red gratis no corre para ningún negocio (22/10/2026), y
+  // contarla le sacaba el reintento a la última opción real de un cliente (verificaciones del tren-m). El crédito de Claude
+  // del onboarding no cuenta: sin él sólo se suma un reintento, no se pierde ninguna opción.
+  const instanciasDe = new Map(await Promise.all((orden as ProvName[]).map(async (p) => [p, await provsDe(p)] as const)));
+  const conClave = (orden as ProvName[]).filter((p) => (instanciasDe.get(p) ?? []).length > 0);
+  const ultimoProv = conClave[conClave.length - 1];
+  const llevaPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
+  let hayRed = false;
+  if (opts.redDePlataforma && !llevaPII) {
+    const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+    const sa = await wsSuperAdmin().catch(() => null);
+    hayRed = sa != null && (await getWorkspaceActual().catch(() => null)) !== sa
+      && (await provsGratisDePlataforma().catch(() => [])).length > 0;
+  }
+  // Y el crédito de lo interno de MaKo (abajo), si de verdad está para este pedido: con él esperando, un 503 de `flash-lite`
+  // no se reintenta (los reintentos le dejaban 15-17 s, que no alcanzan para una tanda).
+  const wsCredito = await ultimoRecursoDeMaKo(opts.feature);
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -745,7 +814,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     // Gemini —mismo modelo, mismo contexto de 1M— y no un Llama de 70b que era lo
     // mejor que quedaba río abajo. Sin key cargada, `instancias` es vacío y no
     // cuesta ni un request.
-    const instancias = await provsDe(prov);
+    const instancias = instanciasDe.get(prov) ?? [];
     if (instancias.length) probados.add(prov);
     for (const inst of instancias) {
      // ⚠️ TERCER EJE DE ROTACIÓN: EL MODELO. Los otros dos (cuenta y proveedor) no
@@ -761,7 +830,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
      //   gemini-flash-lite-latest → 200, perfecto
      // O sea: Google tenía caído el alias que la app fija, y al lado había un modelo
      // sano de la MISMA cuenta. Sin este eje, el cliente no podía subir un documento.
-     for (const model of modelosAProbar(prov, opts.modelos?.[prov], !opts.sinRespaldoDeModelo)) {
+     const modelos = modelosAProbar(prov, opts.modelos?.[prov], !opts.sinRespaldoDeModelo);
+     for (const [nroModelo, model] of modelos.entries()) {
       // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
       // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
       const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model, esfuerzo: opts.esfuerzo };
@@ -781,15 +851,20 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // Pasó el 16/08 con un cliente esperando: Gemini devolvió 503 «high demand» y los
       // 4 documentos se cayeron; minutos después la MISMA key contestaba 200 tres de tres.
       // No era cuota, no era la key: era Google saturado y nadie atrás.
-      const ultimoRecurso = !otraCuenta && prov === orden[orden.length - 1];
+      // ¿Queda OTRA opción REAL después de ésta (otro modelo de esta cuenta, otra cuenta, otro proveedor CON clave, la red de la
+      // plataforma)? Entonces una saturación no se reintenta acá: se pasa a la siguiente. La última opción real sí insiste
+      // (`ultimoRecurso`): contaba proveedores sin clave y no era la última nunca (con sólo su Gemini, 1 reintento y no 3).
+      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== ultimoProv || hayRed || wsCredito != null;
+      const ultimoRecurso = !hayOtraOpcion;
       const maxIntentos = ultimoRecurso ? 3 : 1;
       for (let intento = 0; intento <= maxIntentos; intento++) {
         // ⏱ Sin plazo para un intento entero, no se arranca NINGUNO más: ni éste, ni otra
         // cuenta, ni otro modelo. `return` sale de los tres bucles de una.
         if (quedan() < MIN_INTENTO_MS) return sinTiempo();
+        const plazo = plazoDeIntento();
         try {
           avisar();
-          let t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: opts.json });
+          let t = await chatCheap({ ...base, timeoutMs: plazo, json: opts.json });
           // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
           // response_format json_object (el modelo native anda; el /chat/completions no).
           // Reintentamos la MISMA cuenta SIN el flag: `validar`/parseJsonLoose de los
@@ -797,7 +872,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: false });
           // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
           // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
-          if (t.trim() && (!opts.validar || opts.validar(t))) return t;
+          if (t.trim() && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: prov, modelo: model ?? null, de: 'negocio' }); return t; }
           // ⚠️ EL DESCARTE QUEDA ESCRITO, como cualquier otro fallo. Un `break` mudo deja
           // `erroresOut` vacío cuando TODOS los proveedores contestaron 200 y la salida no
           // sirvió, y el caller no puede distinguir «contestó y lo tiramos nosotros» de «no
@@ -823,6 +898,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // Un modelo RETIRADO (404) no se reintenta ni un segundo: no va a volver. Se
           // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
           if (/\b404\b|no longer available|not_found/i.test(m)) break;
+          // ⚠️ UN MODELO SATURADO NO SE REINTENTA si hay a dónde ir (26/10/2026): «high demand» o un cuelgue con plazo
+          // razonable no se arreglan en 1,5 s, y el reintento colgaba otra vez con el plazo de la opción siguiente. `chatCheap`
+          // ya lo anotó saturado: la opción que sigue (y el próximo pedido) empieza por el respaldo.
+          if (hayOtraOpcion && fallaDeSaturacion(m, plazo, plazoEsperadoMs(opts.maxTokens))) break;
           if (intento < maxIntentos && transitorio && !(esCuota && otraCuenta)) {
             // Espera creciente: 1,5s · 6s · 13,5s. Un 503 de saturación no se arregla en el
             // mismo segundo, y volver enseguida es gastar el intento sin darle tiempo.
@@ -837,6 +916,28 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         }
       }
      }
+    }
+  }
+
+  // ── LO INTERNO DE MaKo: el crédito de Claude de la plataforma como ÚLTIMO recurso (26/10/2026) ──
+  // Martín, en el Centro: «1. Claude de la plataforma». Sólo en el espacio de MaKo (el super admin: la red de abajo no corre
+  // ahí) y sólo para lo que `CREDITO_HABILITADO_PARA` marca `soloLaPlataforma` (el editor de landings, la réplica, el
+  // analizador). Llega acá DESPUÉS de que fallaron las gratis (sus Gemini, el respaldo de modelo incluido), nunca antes; con
+  // el mismo tope de tokens de la tarea (`maxTokens`), y cada llamada queda en anthropic_usage con la marca del crédito
+  // (lib/anthropic.ts, `conCreditoDeLaPlataforma`). Para un negocio no cambia nada: el veto lo frena aunque llegara.
+  if (wsCredito != null && quedan() >= MIN_INTENTO_MS) {
+    const { conCreditoDeLaPlataforma } = await import('./anthropic');
+    const c = await conCreditoDeLaPlataforma({
+      system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature,
+      motivo: `último recurso: las gratis no contestaron · ${opts.motivo ?? ''}`.trim(), timeoutMs: plazoDeIntento(), wsCliente: wsCredito,
+    }).catch(() => null);
+    if (c && 'texto' in c) {
+      const t = opts.json ? soloElJson(c.texto) : c.texto;
+      if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
+      opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma (último recurso): la respuesta no tenía la forma pedida');
+    } else if (c && 'error' in c) {
+      opts.erroresPlataformaOut?.push(c.error);
+      console.error(`[ai-cheap] el último recurso del espacio de MaKo (crédito de Claude) no contestó: ${c.error.slice(0, 300)}`);
     }
   }
 
@@ -872,7 +973,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         }).catch(() => null);
         if (c && 'texto' in c) {
           const t = opts.json ? soloElJson(c.texto) : c.texto;
-          if (t && (!opts.validar || opts.validar(t))) return t;
+          if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
           opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma: la respuesta no tenía la forma pedida');
         } else if (c && 'error' in c) {
           // De la PLATAFORMA, nunca a la lista del cliente.
@@ -918,6 +1019,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
             });
             if (t && (!opts.validar || opts.validar(t))) {
               console.error(`[ai-cheap] ws=${wsActual} resolvió con la RED DE PLATAFORMA (${rotulo({ ...cfgDe(r.provider), key: '', clave: r.clave })}): sus propias keys no pudieron`);
+              anotarQuien({ proveedor: r.provider, modelo: model ?? null, de: 'plataforma' });
               return t;
             }
           } catch (e) {
@@ -1361,6 +1463,11 @@ export async function chatCheapTools(
       // El status va adelante: los clasificadores de río abajo (fallo-ia-texto) leen
       // `\b429\b` y `HTTP 503`, y el texto del proveedor no siempre los trae.
       const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
+      // «high demand»: el modelo queda saturado unos minutos para TODO el proceso (lib/ia-saturacion.ts). Este turno rota igual
+      // (la rotación de abajo); el próximo empieza por el respaldo. Un timeout NO: la red de MaKo en WhatsApp corta a los 10 s y
+      // un paso sano tarda más (verificación del tren-m, hallazgo 17); queda anotado sólo en el pedido en curso.
+      if (dijoSaturado(detalle)) anotarSaturado(p.nombre, model);
+      else if (esTimeout(detalle)) anotarColgadoEnElPedido(p.nombre, model);
       // Un modelo de OpenAI que rechaza un campo de salida: se aprende el OTRO formato y se repite el paso una sola vez
       // (lib/ai-cheap-techo.ts, `aprenderFormatoSiLoRechaza`). Si el otro también falla, sigue la rotación de siempre.
       if (p.nombre === 'openai' && status === 400 && aprenderFormatoSiLoRechaza(model, leido.mensaje)) {
@@ -1374,6 +1481,11 @@ export async function chatCheapTools(
       // Un 429 que se cubrió con otro modelo no llega al que llama, así que se anota acá:
       // es lo que lee `ordenarPorCuota` para no volver a empezar por esa cuenta.
       if (tipo === 'cuota') void anotarRebote429(p.nombre, nroCuenta(p), model, detalle);
+      // ⚠️ BAJAR DE MODELO QUEDA ESCRITO (27/10/2026): 38 de 42 turnos de MaKo en WhatsApp con Gemini salieron con flash-lite,
+      // y el porqué (el 503 o el plazo de flash-latest) sólo estaba en los logs de Vercel. Una fila sin tokens, con el modelo
+      // que falló marcado `rebote:` y el motivo: se cuenta desde la base. Un 429 no: ya quedó escrito arriba (`rebote429:<modelo>`),
+      // y `plegarUso` (lib/ia-cuotas-calculo.ts) suma cada fila como un pedido del día: con las dos, el mismo pedido contaba doble.
+      if (tipo !== 'cuota' && paso.modelo && paso.modelo !== model) void recordUsage(opts.feature || 'ia-barata-tools', `${PREFIJO_REBOTE}${model}`, {}, `${detalle.slice(0, 200)} → ${paso.modelo}`, p.nombre, nroCuenta(p)).catch(() => {});
       console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${model}: ${detalle.slice(0, 240)} → ${paso.accion}${paso.modelo && paso.modelo !== model ? ` a ${paso.modelo}` : ''}${paso.esperaMs ? ` en ${paso.esperaMs} ms` : ''}`);
       if (paso.esperaMs) await new Promise((r) => setTimeout(r, paso.esperaMs));
       model = paso.modelo || model;
@@ -1586,7 +1698,14 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
   alEscuchar?: (quien: string) => void;
   /** No es una nota de voz (el audio de un anuncio): Groq no lo escucha, ni el del negocio ni el de la red (IA16: «Groq sólo
    *  para las notas de voz»; «la transcripción de anuncios pasa a Gemini»). */
-  sinGroq?: boolean };
+  sinGroq?: boolean;
+  /**
+   * La nota de voz de un GRUPO DE WHATSAPP de MaKo (Martín, 28/10/2026: «deprequemos Gemini por los grupos de WhatsApp»; y el
+   * 22/10, «Groq sólo para las notas de voz»). El Groq DE LA PLATAFORMA escucha PRIMERO (Whisper; no entrena con lo que recibe,
+   * así que vale con datos de clientes), después el Groq o el OpenAI del negocio, y Gemini NUNCA: ni el del negocio ni la red.
+   * Medido en el ws10 (Leandro, 28/10): Gemini cortó por tiempo y MaKo contestó sin el audio; Groq lo escuchó en segundos.
+   */
+  notaDeVozDelGrupo?: boolean };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -1743,6 +1862,25 @@ async function escucharCon(
   return null;
 }
 
+/**
+ * El Groq DE LA PLATAFORMA, para la nota de voz de un grupo (`notaDeVozDelGrupo`): sus cuentas, las del workspace SuperAdmin o
+ * las del entorno. Sin la puerta D6b ni el corte de la red para los negocios: es la decisión de Martín para las notas de voz
+ * (22/10 y 28/10/2026), y Groq no entrena con lo que recibe. Una cuenta repetida se prueba una vez.
+ */
+async function groqDeLaPlataforma(): Promise<Prov[]> {
+  const { wsSuperAdmin } = await import('./workspace');
+  const wsSA = await wsSuperAdmin().catch(() => null);
+  const out: Prov[] = [];
+  const vistas = new Set<string>();
+  for (const cl of clavesProv('groq')) {
+    const key = (wsSA != null ? await credWs(cl, wsSA).catch(() => null) : null) ?? (process.env[cl]?.trim() || null);
+    if (!key || vistas.has(key)) continue;
+    vistas.add(key);
+    out.push({ ...cfgDe('groq'), key, clave: cl });
+  }
+  return out;
+}
+
 /** El error de un STT que no pudo con NADA. `errores` son sólo los de las keys del negocio. */
 export class SttSinEscucha extends Error {
   constructor(public readonly errores: string[], public readonly erroresPlataforma: string[]) {
@@ -1775,11 +1913,28 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
   // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
-  const stt = o.sinGroq ? CASCADA_STT.filter((x) => x !== 'groq') : CASCADA_STT;
+  // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`).
+  const stt = CASCADA_STT.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
   const orden = await ordenarPorCuota(stt.map(String)).catch(() => stt.map(String));
 
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada
+
+  // ── 0. La nota de voz de un grupo: el Groq DE LA PLATAFORMA, antes que nada (`notaDeVozDelGrupo`) ──
+  // Sus errores van con los de la plataforma: si falla, el que no escuchó fue NUESTRO Groq, no una clave del negocio.
+  const erroresPlataforma: string[] = [];
+  if (o.notaDeVozDelGrupo && !o.sinGroq) {
+    for (const p of await groqDeLaPlataforma()) {
+      const oido = await escucharCon(p, base64, buf, mime, { ...o, motivo: `Groq de la plataforma (nota de voz del grupo) · ${o.motivo ?? ''}`.trim() }, erroresPlataforma);
+      if (!oido) continue;
+      // El mismo corte de bucles que las cuentas del negocio (lib/stt-degenerado.ts).
+      const enBucle = salidaDegenerada(oido.texto);
+      if (enBucle) { erroresPlataforma.push(`${rotulo(p)}: ${enBucle.motivo}`); continue; }
+      if (!oido.texto) return ''; // contestó vacío: el audio no traía voz entendible
+      o.alEscuchar?.(`${rotulo(p)} (plataforma)`);
+      return corregirMarca(oido.texto);
+    }
+  }
   // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper escucha "MaKo" y
   // escribe «Maco», esa cadena termina siendo el TÍTULO de una tarea y desde ahí el Perro la
   // repite en su razón y en el deadline. Ver `corregirMarca` en lib/mako-gramatica.ts.
@@ -1809,8 +1964,8 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   }
   if (alguienEscuchó) return ''; // el audio no traía voz entendible
 
-  // ── 2. La red de plataforma ──
-  const erroresPlataforma: string[] = [];
+  // ── 2. La red de plataforma ── (la nota de voz de un grupo ya probó el Groq de la plataforma, y Gemini no va)
+  if (o.notaDeVozDelGrupo) throw new SttSinEscucha(errores, erroresPlataforma);
   const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const wsSA = await wsSuperAdmin().catch(() => null);
   const wsActual = await getWorkspaceActual().catch(() => null);

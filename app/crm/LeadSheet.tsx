@@ -15,12 +15,13 @@ import { deriveStageKey, stageMeta, type Stage } from '@/lib/pipeline';
 import { DatosSinMarcarCard } from './lead-view/DatosSinMarcarCard';
 import type { StepId } from '@/lib/stage-requirements';
 import { deleteLeadInlineAction, getLeadFullAction, type LeadFullData } from './actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { StageMoveDialog, type MoveLeadInfo } from './StageMoveDialog';
 import { MoverEtapaConfirm } from './MoverEtapaConfirm';
 import { pideWizardAlElegir } from './mover-etapa';
 import type { FathomLink } from '@/lib/leads';
 import { suscripcionDeFila } from '@/lib/venta-tipo';
-import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from './lead-view/CabeceraLead';
+import { CabeceraLead } from './lead-view/CabeceraLead';
 import { FunnelYEtapa, useProductosDeLaFicha } from './lead-view/ProductoDelLead';
 import { crmEnVista } from './lead-view/ficha/pagos/trato';
 import { ANCHO_FICHA_LEAD, ALTO_CHAT_EN_EL_POPUP, ALTO_FICHA_LEAD, MARGEN_FICHA_LEAD } from './lead-view/ficha-medidas';
@@ -146,14 +147,16 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   const pickStage = (k: string) => {
     if (!k || k === stageKey) return;
-    if (pideWizardAlElegir(stages, k)) setMoveTo(k); else setMoverDirecto(k);
+    // La reunión ya cargada (a mano) no abre el wizard: se mueve directo (27/10/2026, `reunionYaCargada`).
+    const reuniones = { fechaJ1: lead.fecha_junta_1, fechaJ2: lead.fecha_junta_2, asistioJ1: lead.asistio_j1, asistioJ2: lead.asistio_j2 };
+    if (pideWizardAlElegir(stages, k, reuniones)) setMoveTo(k); else setMoverDirecto(k);
   };
 
   const doDelete = () => {
     setConfirmDelete(false);
     startTransition(async () => {
       try { await deleteLeadInlineAction(lead.id); router.refresh(); onClose(); }
-      catch { setDelErr('No se pudo borrar. Reintenta.'); }
+      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
     });
   };
 
@@ -171,7 +174,9 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
   // del worklist (`completeStageMoveAction`), y `faltantes` —calculado en el server— es
   // su lista autoritativa. Lo que lo convierte en «Completar datos» en vez de un
   // movimiento es que `moveTo` apunte a la etapa ACTUAL, igual que en la ruta.
-  const solucionar = () => setMoveTo(stageKey);
+  // El dato que se tocó y que esta ficha no dibuja (`onNoEsta`): el asistente pide ESE (lib/datos-aviso.ts, `loQueSePide`).
+  const [datoPedido, setDatoPedido] = useState<StepId | null>(null);
+  const solucionar = (paso: StepId) => { setDatoPedido(paso); setMoveTo(stageKey); };
   const completandoDatos = moveTo === stageKey;
 
   // ⚠️ «SOLUCIONAR» UN DATO LLEVA AL DATO, NO ABRE EL ASISTENTE (13/10/2026). Martín: «Elimina
@@ -238,8 +243,6 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             data={vigente}
             initialTab={initialTab}
             fondoTabs="var(--surface)"
-            // El título de la hoja a la altura del nombre del lead: la cabecera va a sangre y este cuerpo tiene su padding.
-            sangria={`calc(${SANGRIA_NOMBRE_LEAD}px - clamp(16px,4vw,28px))`}
             altoChat={ALTO_CHAT_EN_EL_POPUP}
             pedido={pedido}
             onNoEsta={solucionar}
@@ -285,14 +288,15 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
             // props van juntos y con la misma condición que en `LeadDetailBody`.
             titulo={completandoDatos ? 'Completar datos' : undefined}
             completarDatos={completandoDatos}
-            faltantes={completandoDatos ? loQueSePide(faltantes, datos?.avisar) : undefined}
+            faltantes={completandoDatos ? loQueSePide(faltantes, datos?.avisar, datoPedido) : undefined}
+            datoPedido={completandoDatos ? datoPedido : null}
             equipo={equipo}
-            onClose={() => setMoveTo(null)}
+            onClose={() => { setMoveTo(null); setDatoPedido(null); }}
             // Al completar datos la ficha SE QUEDA: la persona no pidió irse de acá, y
             // cerrarla sería la redirección que este cambio vino a sacar. Mover de
             // etapa sí la cierra — la tarjeta ya no vive en la columna que se estaba
             // mirando.
-            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); router.refresh(); if (quedarse) releer(); else onClose(); }}
+            onDone={() => { const quedarse = completandoDatos; setMoveTo(null); setDatoPedido(null); router.refresh(); if (quedarse) releer(); else onClose(); }}
           />
         </div>
       )}
@@ -314,10 +318,11 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
       )}
 
       {confirmDelete && (
+        // A la PAPELERA desde el 28/10/2026 (mig 0340): la misma pregunta que la barra y la tarjeta.
         <ConfirmDialog
-          title="Borrar lead"
-          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{lead.nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
-          confirmLabel="Borrar definitivamente"
+          title={preguntaDePapelera(1, lead.nombre).titulo}
+          message={preguntaDePapelera(1, lead.nombre).mensaje}
+          confirmLabel="Mandar a la papelera"
           onConfirm={doDelete}
           onCancel={() => setConfirmDelete(false)}
           zIndex={120}

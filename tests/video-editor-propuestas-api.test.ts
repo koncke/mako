@@ -162,6 +162,9 @@ test('9: en WhatsApp entra lo que hace falta: la acción (y la lectura con refs)
   const texto = turno('en el proyecto Anuncio octubre cambiá el texto del gancho por «Esto lo cambia todo»', true);
   assert.ok(texto.includes('cambiar_texto_video') && texto.includes('ver_proyecto_video'), texto.join(', '));
   assert.ok(turno('quitale las muletillas al video de testimonio', true).includes('eliminar_muletillas_video'));
+  // Lo que Leila le pidió a MaKo en el editor (27/10/2026). Sin ref borra los de la pista principal: le alcanza el proyecto.
+  const silencios = turno('borrá los silencios del video de testimonio', true);
+  assert.ok(silencios.includes('borrar_silencios_video') && silencios.includes('listar_proyectos_video'), silencios.join(', '));
   const pregunta = turno('cuántos créditos me quedan para filmar el anuncio', false);
   assert.ok(!pregunta.some((n) => porId(n)?.tipo === 'accion'), 'en una pregunta no viaja ninguna acción');
   for (const n of ['ver_saldo_flow', 'ver_montaje_anuncio', 'listar_anuncios_video']) assert.ok(pregunta.includes(n), `${n} sigue entrando`);
@@ -206,7 +209,9 @@ test('12: el editor la muestra como un cambio más del chat, la acepta con el mi
   assert.match(p, /import \{ focoDePropuesta, idDeMensaje, queMostrar \} from "\.\/foco";/);
   assert.match(p, /refsPrevias: refsPorId,/, 'las refs de la propuesta: «t2» es el de cuando se propuso');
   assert.match(p, /propuesta: \{ proyectoId, escenaId: p\.escenaId, refsPorId, elegidos: \[\], alcance: "video", operaciones \}/);
-  assert.match(p, /useChatAbierto\.getState\(\)\.setAbierto\(true\);/);
+  // Una nueva se avisa. El chat ya está a la vista: desde el 29/10/2026 es la tarjeta izquierda de Create y no se cierra
+  // (tests/video-editor-nuevo-video.test.ts). Roto: el aviso cambiado por un `console.log` → 12/1 (29/10/2026).
+  assert.match(p, /if \(nuevas\) \{\n\t\t\ttoast\(nuevas === 1 \? "MaKo te propone un cambio"/);
   const panel = leer('app', 'video-editor', '_opencut', 'chat', 'PanelChat.tsx');
   assert.equal((panel.match(/aceptarPropuesta\(/g) ?? []).length, 1, 'el MISMO «Aceptar»');
   // Con las operaciones de ESE mensaje: se cierran ésas, por contenido (tests/video-editor-propuesta-link.test.ts).

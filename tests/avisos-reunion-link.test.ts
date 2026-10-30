@@ -25,10 +25,12 @@ const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'u
 const sinComentarios = (src: string): string =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
+// Desde el 26/10/2026 lo que pasa al terminar una reunión vive en lib/grabadores/al-terminar.ts (lo comparten Fathom y los
+// otros grabadores que avisan): el test lee ahí. `despues(() =>` es su `after()` (o el await, si ya corre en segundo plano).
 test('CABLEADO: el aviso post-llamada se emite DESPUÉS del análisis, adentro del after()', () => {
-  const src = leer('../app/api/webhooks/fathom/route.ts');
+  const src = leer('../lib/grabadores/al-terminar.ts');
 
-  const iAfter = src.indexOf('after(() =>');
+  const iAfter = src.indexOf('despues(() =>');
   assert.ok(iAfter > 0, 'el trabajo pesado sigue yendo en background con after()');
 
   const iAviso = src.indexOf("emitirDelCatalogo('reunion-ocurrio-fathom'");
@@ -51,8 +53,8 @@ test('CABLEADO: el aviso post-llamada se emite DESPUÉS del análisis, adentro d
 });
 
 test('CABLEADO: el aviso sale igual aunque el follow-up no se haya podido redactar', () => {
-  const src = leer('../app/api/webhooks/fathom/route.ts');
-  const bloque = src.slice(src.indexOf('after(() =>'));
+  const src = leer('../lib/grabadores/al-terminar.ts');
+  const bloque = src.slice(src.indexOf('despues(() =>'));
 
   const iIf = bloque.indexOf('if (attended !== false)');
   const iAviso = bloque.indexOf("emitirDelCatalogo('reunion-ocurrio-fathom'");
@@ -103,7 +105,7 @@ test('CABLEADO: el link al resumen lo arma el código, nunca el modelo', () => {
   // Un id de lead es un dato exacto sin redundancia: un dígito cambiado abre la
   // ficha de OTRO lead y no se ve roto. Los cuatro avisos que linkean tienen que
   // usar el helper, no un template a mano.
-  for (const ruta of ['../app/api/webhooks/calendly/route.ts', '../app/api/webhooks/fathom/route.ts']) {
+  for (const ruta of ['../app/api/webhooks/calendly/route.ts', '../app/api/webhooks/fathom/route.ts', '../lib/grabadores/al-terminar.ts']) {
     const src = leer(ruta);
     assert.ok(
       !/\/crm\/\$\{[^}]*\}\/resumen/.test(src),
@@ -161,7 +163,7 @@ test('Todo aviso arranca con su rótulo, y se pega en el choke point', () => {
 
   assert.ok(avisos.includes('encabezadoAviso(a.tipo)'), 'el rótulo dejó de pegarse en emitirAviso: con eso, cada call-site tiene que acordarse');
   // Se manda el texto CON rótulo, no el pelado.
-  assert.ok(/enviarAlGrupoSuperAdmin\(texto\)/.test(avisos) && /enviarAlGrupoMaKo\(ws, texto\)/.test(avisos),
+  assert.ok(/enviarAlGrupoSuperAdmin\(texto\)/.test(avisos) && /enviarAlGrupoMaKo\(ws, texto, null\)/.test(avisos),
     'se volvió a mandar a.texto sin el rótulo');
   assert.ok(/guardarTurno\(ws, jid, 'assistant', texto/.test(avisos),
     'el historial del doer guarda un texto distinto del que se mandó');

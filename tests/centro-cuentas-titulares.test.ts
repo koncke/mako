@@ -64,3 +64,18 @@ test('el alias pasa por `puedeOperar`, y la vuelta del cartero guarda el titular
   assert.match(c.slice(0, 2500), /guardarTitular\(cuenta, e\.titular\)/);
   assert.doesNotMatch(leer('lib/centro-titulares-db.ts'), /node:fs|writeFile/, 'MaKo no escribe cuentas.tsv');
 });
+
+test('la cuenta 5, «Ananda»: la nota entre paréntesis de cuentas.tsv no es el nombre, tampoco cortada (25/10/2026)', async () => {
+  // El renglón real de la 5 en la PC. Sin `sinNota`, el tope de 40 dejaba «Ananda (asi la llamo Martin el 24/10/202».
+  const RENGLON = 'Ananda (asi la llamo Martin el 24/10/2026; gmail de la suscripcion sin declarar)';
+  assert.deepEqual(titularDeRenglon(RENGLON), { nombre: 'Ananda', email: null });
+  // Lo que sube la PC hoy (cartero.mjs, sin el arreglo): cortado a 40 y sin el «)». MaKo lo sanea al guardarlo y al leerlo.
+  const { titularDe } = await import('../scripts/operaciones/cartero.mjs');
+  const subido = titularDe('claude5', `claude5\t${RENGLON}\n`);
+  assert.ok(subido, 'el cartero no leyó el renglón de la cuenta 5');
+  assert.equal(subido.nombre, 'Ananda (asi la llamo Martin el 24/10/202');
+  assert.deepEqual(sanearCuentasConNombre({ claude5: { ...subido, alias: null } }), { claude5: { nombre: 'Ananda', email: null, alias: null } });
+  assert.equal(titularDeRenglon('Leandro Tejado 2 <leandro@ejemplo.com>').nombre, 'Leandro Tejado 2', 'un nombre sin nota, igual');
+  // Y el Uso la lista siempre, aunque su Runner todavía no haya subido nada.
+  assert.ok(cuentasDeUso([]).some((c) => c.cuenta === 'claude5'));
+});

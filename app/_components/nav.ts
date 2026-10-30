@@ -105,6 +105,12 @@ export type NavItem = {
    */
   soloCapas?: readonly string[];
   /**
+   * NO se dibuja en la barra del super admin (su shell, sin mirar a un cliente); los negocios la ven como siempre (26/10/2026,
+   * Martín: «Yo como SuperAdmin, no necesito "Agency" o "Partners" en la sidebar»). Lo que él mira de esos programas está en
+   * Customers. Cosmético, como todo acá: la ruta sigue abriendo.
+   */
+  noEnPlataforma?: true;
+  /**
    * El ícono es una CRIATURA del Ops Center (app/admin/operaciones/Muneco.tsx), no un dibujo de icons.tsx: el nombre
    * del empleado cuyo muñeco se dibuja («Ops Center», «Second Brain»). Es el mismo muñeco que tiene ese chat en el
    * Centro, porque el aspecto sale del nombre (lib/centro-munecos.ts → aspectoDe). Se mueve: flota y parpadea.
@@ -121,6 +127,17 @@ export type NavItem = {
    * mandaba el «Revisar» de los chats «Ops Center» a /second-brain y el jefe «Second Brain» se quedaba sin tab.
    */
   jefe?: string;
+  /**
+   * Una línea chica debajo del nombre, con la barra abierta: lo que hay ADENTRO cuando el nombre no lo dice (25/10/2026, la
+   * llamada con Leandro, f31: «no encuentro la sección de curso... Yo pensé que Clients era algo más CRM»). El buscador
+   * también la lee.
+   */
+  bajada?: string;
+  /**
+   * Las keys de SIN_FILA que son pantallas de adentro de esta tab sin barra de secciones (Classroom y Community, sub-tabs de
+   * Clients): el buscador las encuentra con el nombre de la tab al lado.
+   */
+  adentro?: readonly string[];
 };
 
 /** Una colección dentro de una familia. Abre un desplegable al costado. */
@@ -230,28 +247,30 @@ export const RUTAS_DE_CHATS = ['/whatsapp', '/email'] as const;
  * vez acá y se cuelga como SECCIÓN `adminOnly` de la tab que hace su trabajo (la barra de secciones de arriba de la
  * pantalla, app/_components/SeccionesTab.tsx, la ofrece sólo al super admin):
  *   · WhatsApp de MaKo → Chats · Mensajes de MaKo → Automations · Strategy y Offer Playbook → Offer
- *   · el método de redacción → Copywriting
+ *   · el método de redacción y las bibliotecas de guiones: SIN fila ni mención desde el 29/10/2026 (Martín: «Elimina esto
+ *     "Copy…", no quiero ninguna mención en todo MaKo»). Sus rutas redirigen a /copywriter; lo que la IA lee de ellas
+ *     (la metodología, el swipe, los ángulos y las estructuras, con sus overrides) sigue igual.
  *   · Ops Center arriba de todo (con la Ticketera adentro) · Cobros, el agente de los clientes, Contexto, Modelos IA,
- *     Conocimientos y Dev → menú de la foto (Cobros y Agents iban en Clients; su jefe las mandó acá: viven fuera de
- *     /clients y son de la plataforma, no de los clientes del negocio).
+ *     Conocimientos → menú de la foto (Cobros y Agents iban en Clients; su jefe las mandó acá: viven fuera de
+ *     /clients y son de la plataforma, no de los clientes del negocio). Contexto, Modelos IA y Dev se fueron el 25/10/2026.
  * El porqué de cada una, en docs/diseno-sidebar.md. NINGUNA RUTA CAMBIÓ: cada página conserva su guard
  * (getSesionAdmin, puedeOperar) y `adminOnly` sigue siendo cosmético.
  *
  * ⚠️ Las keys no llevan el prefijo 'dev-' (tests/dev-areas.test.ts lo reserva a los registros), y ninguna repite la de una
- * tab del producto: la del método de redacción era `copywriting`, la MISMA que la tab Copywriting, y colgada como su
- * sección habría escondido a la tab en el teléfono (lib/movil-rutas.ts la busca por key). Por eso es `admin-copywriting`.
+ * tab del producto (colgada como su sección, escondería a la tab en el teléfono: lib/movil-rutas.ts la busca por key).
  */
 const HERRAMIENTAS = {
-  // El cerebro de redacción de MaKo (la metodología y el swipe de ejemplos con que redacta). Era la tercera sub-tab de
-  // /admin y tiene ruta propia desde el 27/09. Su casa: Copywriting, la tab donde se escribe.
-  copywriting: { key: 'admin-copywriting', label: 'Copy Method', seccion: 'Method', href: '/admin/copywriting', icon: 'escribir', adminOnly: true, match: starts('/admin/copywriting') },
   // ⚠️ «MaKo WhatsApp» (/agencia) YA NO ES UNA SECCIÓN (24/10/2026, Martín: «En SuperAdmin no deben haber 3 tabs allí, debe
   // ser igual que el resto. Y que simplemente pueda cambiar entre mi número y el de MaKo y ver entre los chats los
   // grupos»). El número de MaKo es una línea más del chip «Canales» de Chats para el super admin (docs/diseno-chats.md
   // §8.5); /agencia sigue respondiendo para sus links (`?canal=1`, la alerta de la voz caída) y marca Chats en la barra.
-  // Los ~48 mensajes que MaKo le puede mandar al dueño: se ven como llegan, se editan y se prenden/apagan. Su casa:
-  // Automations (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). «Plantillas» a secas no se entiende solo.
-  mensajes: { key: 'mensajes', label: 'MaKo Messages', seccion: 'MaKo Messages', href: '/mensajes', icon: 'mako', adminOnly: true, match: starts('/mensajes') },
+  // ⚠️ «MaKo Messages» (/mensajes) YA NO ES UNA SECCIÓN (26/10/2026, Martín: «En Automations de Super Admin tengo "MaKo
+  // Messages" elimina eso»). Era el editor de la BASE de los avisos al dueño, y la base no existe en producción (medido:
+  // ninguna fila `mako.plantillas.base`): desde el 10/10 no le cambiaba nada a nadie. Los avisos siguen saliendo con lo que
+  // tiene cada negocio (lib/avisos.ts lee su store; de una pantalla, sólo lo toca el detalle de la bandeja de correo:
+  // docs/hallazgos-comunicacion.md, «Nueve avisos de Notificaciones no le salen a nadie»), y los
+  // mensajes de la plataforma son automatizaciones (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). /mensajes y
+  // /m/mensajes redirigen a Automations.
   // En qué trabaja cada cliente en SU Claude Code. Es información de CLIENTES: su casa es Clients.
   agente: { key: 'admin-agente', label: 'Client Agents', seccion: 'Agents', href: '/admin/agente', icon: 'mako', adminOnly: true, match: starts('/admin/agente') },
   // La estrategia de MaKo en UNA pantalla (10/10/2026): la oferta, a dónde va cada dólar, el CAC, la adquisición, la
@@ -266,15 +285,12 @@ const HERRAMIENTAS = {
   // título de /tickets/decisiones y para que «Ticketera» siga siendo el nombre de una tab (app/admin/operaciones/tabs.ts).
   // Desde el 17/10/2026 abre los tickets de los USUARIOS (`?ticketera=tickets`, docs/diseno-ticketera-usuarios.md).
   ticketera: { key: 'admin-ticketera', label: 'Ticketera', href: '/admin/operaciones?ticketera=tickets', icon: 'soporte', adminOnly: true, match: starts('/tickets/decisiones') },
-  // Con qué sabe y con qué piensa MaKo, y la formación del equipo: la configuración de la PLATAFORMA. Van al menú de la
-  // foto del super admin (`SUPERADMIN_MENU`).
-  contexto: { key: 'contexto', label: 'MaKo Context', href: '/contexto', icon: 'contexto', adminOnly: true, match: starts('/contexto') },
-  modelosIa: { key: 'modelos-ia', label: 'AI Models', href: '/modelos-ia', icon: 'mako', adminOnly: true, match: starts('/modelos-ia') },
+  // ⚠️ «MaKo Context» (/contexto), «AI Models» (/modelos-ia) y «Dev» (/admin/dev) SALIERON el 25/10/2026 (Martín, puntos
+  // 13 a 15: «Elimina /contexto... Elimina /modelos-ia, eso ya lo configura el usuario y el propio Ops Center de manera
+  // automática... Elimina "dev", ya no lo necesitamos»). Lo que sabe MaKo (el Conocimiento) está en Classroom › Methodology,
+  // sólo para el super admin; los prompts, en Settings › Prompts. Las rutas viejas redirigen (next.config.ts).
   // Portal de formación interna (curso AVATARHYPE) — capa oscura autocontenida.
   conocimientos: { key: 'conocimientos', label: 'Knowledge', href: '/conocimientos', icon: 'contexto', adminOnly: true, match: starts('/conocimientos') },
-  // Dev es un MODO, no una carpeta: este link te lleva y allá la barra se reemplaza entera por la de desarrollo
-  // (Sidebar → familiasDev). Era la única puerta de la interfaz al modo: por eso va al menú de la foto.
-  dev: { key: 'dev-entrar', label: 'Dev', href: '/admin/dev', icon: 'config', adminOnly: true, match: starts('/admin/dev') },
 } satisfies Record<string, NavItem>;
 
 export const FAMILIAS: NavFamilia[] = [
@@ -322,13 +338,18 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'calendario', label: 'Calendar', href: '/calendario', icon: 'calendario', match: starts('/calendario') },
         {
           key: 'automatizaciones', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo',
-          match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) || starts('/mensajes')(p),
+          match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)),
+          // Una sola sección desde el 26/10/2026 (salió «MaKo Messages»): queda por la llave `setting` del setter.
           secciones: [
             { key: 'setting', label: 'Automations', seccion: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
-            HERRAMIENTAS.mensajes,
           ],
         },
-        { key: 'customer-success', label: 'Clients', href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
+        // «Classroom» desde el 25/10/2026 (Martín: «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»): abre
+        // en el curso; el kanban de la entrega es su sub-tab Clients. /clients redirige (next.config.ts) y sigue marcando acá.
+        { key: 'customer-success', label: 'Classroom', bajada: 'Curso, comunidad y clientes', adentro: ['cs-curso', 'cs-comunidad'], href: '/classroom', icon: 'users', match: (p) => starts('/classroom')(p) || starts('/clients')(p) || starts('/customer-success')(p) },
+        // Customers (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12): los clientes de MaKo para el super admin
+        // (Partners, Agencies y el resto), con Billing (era /admin/cobros) y Agents (era /admin/agente) adentro.
+        { key: 'admin-customers', label: 'Customers', href: '/customers', icon: 'cs', adminOnly: true, match: (p) => starts('/customers')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p) },
       ],
     ],
   },
@@ -341,23 +362,24 @@ export const FAMILIAS: NavFamilia[] = [
     color: '--sec-marketing',
     bloques: [
       [
-        {
-          key: 'oferta', label: 'Offer', href: '/offer', icon: 'tag',
-          match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p),
-          secciones: [
-            { key: 'offer', label: 'Offer', seccion: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) },
-            HERRAMIENTAS.estrategia,
-            HERRAMIENTAS.offerPlaybook,
-          ],
-        },
+        // Offer SIN pestañas desde el 29/10/2026 (Martín: «También en offer pon el mismo sistema de la sidebar... Y sin otras
+        // tabs, incluso en SuperAdmin»): la pantalla de Create (app/_crear/PantallaCrear.tsx). Lleva la key de la que era su
+        // sección, 'offer' (la miran las capas, la API y el teléfono). Strategy y Offer Playbook, del super admin, van al pie de
+        // la lista de ofertas (app/offer/OfferApp.tsx) y siguen en ADMIN_NAV por su key; la barra las marca en Offer.
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
       ],
     ],
   },
   {
-    // CREATE: las piezas (lo que se produce, separado de lo que se ejecuta). Video, Image y Copywriting son tabs
-    // UNIFICADAS (`secciones`); AI Avatar, sólo el super admin.
+    // CREATE: las piezas (lo que se produce, separado de lo que se ejecuta). AI Avatar, sólo el super admin.
+    // ⚠️ SIN `secciones` (29/10/2026, Martín: «para todas las secciones de "create" no quiero otras tabs… prefiero deprecar antes
+    //    que conservar»): cada tab es UNA pantalla, la de app/_crear/PantallaCrear.tsx (el chat de MaKo a la izquierda con sus
+    //    proyectos y «Nuevo …» con las plantillas). Cada ítem lleva la key de la que era su sección principal ('video-editor',
+    //    'image-editor'): con esa key la miran las capas (lib/capas.ts), la API (`gating.tab`) y el acceso de la página.
+    //    Se fueron: Reels (sus guiones son una plantilla del Copywriter), Carousels (el texto es del Copywriter y el diseño, un
+    //    tamaño de Image), Image Generator y Thumbnails (nunca pasaron de «pronto»).
     key: 'create',
     label: 'Create',
     pregunta: '¿Qué pieza necesito hacer?',
@@ -365,57 +387,30 @@ export const FAMILIAS: NavFamilia[] = [
     color: '--sec-create',
     bloques: [
       [
+        // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide app/video-editor/acceso.ts (la misma
+        // pregunta que toda tab: rol y capa). El Video Generator (Flow) es una plantilla de «Nuevo video», no una pestaña.
+        { key: 'video-editor', label: 'Video', href: '/video-editor', icon: 'videogen', match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) },
+        // La copia de Canva (14/10/2026): Doory portado y re-vestido. Abierta a todos los workspaces el 15/10/2026, como el Video
+        // Editor el 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
+        { key: 'image-editor', label: 'Image', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
+        // Copywriting ES el Copywriter desde el 29/10/2026 (Martín: «quiero que sea una réplica de Notion… con la barra lateral
+        // de MaKo… y NO quiero otras tabs internas que hoy aparecen en la topbar ni nada de ONBOARDING»): UNA pantalla, sin
+        // `secciones`, con la key de su pantalla ('copywriter': la piden la página, el teléfono y la API). Ads Writer, Stories y
+        // YouTube Writer dejan la barra; sus keys siguen en SIN_FILA (sus rutas, la API y las capas las piden). El método de
+        // redacción y la biblioteca de guiones no tienen fila ni mención desde el 29/10/2026 (D15): sus rutas redirigen acá.
+        // docs/diseno-copywriter.md, D11.
         {
-          key: 'video', label: 'Video', href: '/video-editor', icon: 'videogen',
-          match: (p) => starts('/video-editor')(p) || starts('/video-generator')(p) || starts('/reels')(p),
-          secciones: [
-            // La copia de CapCut. Abierta a todos desde el 12/10/2026; quién entra lo decide
-            // app/video-editor/acceso.ts (la misma pregunta que toda tab: rol y capa).
-            { key: 'video-editor', label: 'Video Editor', seccion: 'Editor', href: '/video-editor', icon: 'tijera', match: starts('/video-editor') },
-            { key: 'video-generator', label: 'Video Generator', seccion: 'Create with AI', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
-            { key: 'reels', adminOnly: true, label: 'Reels', href: '/reels', icon: 'videogen', match: starts('/reels') },
-          ],
+          key: 'copywriter', label: 'Copywriting', href: '/copywriter', icon: 'escribir',
+          match: (p) => starts('/copywriter')(p) || starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p),
         },
         {
-          key: 'image', label: 'Image', href: '/image-editor', icon: 'imagegen',
-          match: (p) => starts('/image-editor')(p) || starts('/image-generator')(p) || starts('/thumbnails')(p) || starts('/carousels')(p),
-          secciones: [
-            // La copia de Canva (14/10/2026): Doory portado y re-vestido como Canva. Abierta a todos
-            // los workspaces el 15/10/2026 («Que Image aparezca en todos los workspace»), como el Video Editor el
-            // 12/10: quién entra lo decide app/image-editor/acceso.ts con la pregunta de toda tab (rol y capa).
-            // Image Generator y Thumbnails siguen `comingSoon`: se ven, con su «pronto», y abren «Próximamente».
-            { key: 'image-editor', label: 'Image Editor', seccion: 'Editor', href: '/image-editor', icon: 'imagegen', match: starts('/image-editor') },
-            { key: 'image-generator', label: 'Image Generator', seccion: 'Create with AI', href: '/image-generator', icon: 'imagegen', comingSoon: true, match: starts('/image-generator') },
-            { key: 'thumbnails', label: 'Thumbnails', href: '/thumbnails', icon: 'thumbnail', comingSoon: true, match: starts('/thumbnails') },
-            { key: 'carousels', label: 'Carousels', href: '/carousels', icon: 'carousel', match: starts('/carousels') },
-          ],
-        },
-        {
-          key: 'copywriting', label: 'Copywriting', href: '/ads-writer', icon: 'escribir',
-          match: (p) => starts('/ideas')(p) || starts('/ads-writer')(p) || starts('/content-machine')(p) || starts('/youtube-writer')(p) || starts('/stories')(p) || starts('/admin/copywriting')(p),
-          secciones: [
-            { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
-            // ⚠️ «Ads Writer» sigue apuntando a /ads-writer: su propio código ya declara /content-machine como
-            // destino. Cuando aterrice, esto es cambiar el href.
-            { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
-            { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
-            { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
-            HERRAMIENTAS.copywriting,
-          ],
-        },
-        {
-          // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen… una
-          // "galería" de ejemplos o temas… en imagen, video y voz». Las cuatro secciones copian las de HeyGen.
-          // La ve sólo el super admin hasta que la valide: `adminOnly` acá y la puerta en app/ai-avatar/acceso.ts. En Sales
-          // Machine desde el día que nació (Content Machine se fue el mismo 17/10), y sus secciones en inglés, como toda tab.
-          key: 'ai-avatar', adminOnly: true, label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
+          // 17/10/2026, Martín: «implementes end-to-end la tab nueva de "AI Avatar"… algo como Heygen». Y el 29/10/2026: «replica a
+          // higgsfield tal cual», con el diseño único de Create: UNA pantalla (app/ai-avatar/Estudio.tsx), SIN secciones (las
+          // cuatro de HeyGen —Create video · Avatars · Voices · Templates— se fueron; sus rutas redirigen al estudio).
+          // Para todos los planes desde el 29/10/2026 (Martín: «haz que AI-Avatar esté disponible para todos»): sin `adminOnly`
+          // ni candado de Pro; la puerta, app/ai-avatar/acceso.ts.
+          key: 'ai-avatar', label: 'AI Avatar', href: '/ai-avatar', icon: 'perfil',
           match: starts('/ai-avatar'),
-          secciones: [
-            { key: 'ai-avatar-crear', adminOnly: true, label: 'Create video', href: '/ai-avatar', icon: 'videogen', match: (p) => p === '/ai-avatar' || p === '/ai-avatar/' },
-            { key: 'ai-avatar-avatares', adminOnly: true, label: 'Avatars', href: '/ai-avatar/avatares', icon: 'perfil', match: starts('/ai-avatar/avatares') },
-            { key: 'ai-avatar-voces', adminOnly: true, label: 'Voices', href: '/ai-avatar/voces', icon: 'mic', match: starts('/ai-avatar/voces') },
-            { key: 'ai-avatar-plantillas', adminOnly: true, label: 'Templates', href: '/ai-avatar/plantillas', icon: 'grid', match: starts('/ai-avatar/plantillas') },
-          ],
         },
       ],
     ],
@@ -507,8 +502,10 @@ export function arribaDe(adminShell: boolean, puedeVer: (it: NavItem) => boolean
  * «Configuración del negocio». Ver docs/diseno-sidebar.md, «Admin: dónde fue cada una».
  */
 export const SUPERADMIN_MENU: NavItem[] = [
-  HERRAMIENTAS.cobros, HERRAMIENTAS.agente,
-  HERRAMIENTAS.contexto, HERRAMIENTAS.modelosIa, HERRAMIENTAS.conocimientos, HERRAMIENTAS.dev,
+  // Billing y Client Agents salieron el 25/10/2026: viven en Customers (las pestañas Billing y Agents). Sus entradas de
+  // HERRAMIENTAS quedan (el teléfono las abre por key, lib/movil-rutas.ts) y sus rutas redirigen. MaKo Context, AI Models
+  // y Dev se fueron el mismo día (Classroom › Methodology, Settings › Prompts; las rutas redirigen, next.config.ts).
+  HERRAMIENTAS.conocimientos,
 ];
 
 /**
@@ -543,145 +540,10 @@ export const ADMIN_FAMILIAS: NavFamilia[] = [
         // nav.ts son contrato con la base.
         { key: 'ui', label: 'MaKo UX/UI', href: '/admin/ui', icon: 'config', match: (p) => starts('/admin/ui')(p) || starts('/admin/rediseno')(p) },
       ],
-      // El MAPA de las 122 áreas. Va suelto y no adentro de «Registros» porque es
-      // la PUERTA: las que tienen registro escrito entran en la colección de
-      // abajo, y las otras ~113 solo se alcanzan desde acá.
-      [
-        { key: 'dev-areas', label: 'Áreas del producto', href: '/admin/dev', icon: 'graphics', match: (p) => p === '/admin/dev' },
-      ],
     ],
-    // ⚠️ LOS REGISTROS VAN EN UNA COLECCIÓN, NO EN FILAS SUELTAS, y el motivo es
-    // una regla del dueño que ya estaba escrita desde el 1/7: «La sidebar se
-    // puede scrollear, eso NO debe ser posible NUNCA» (docs/hallazgos-ui.md).
-    // Con una fila por registro, Dev llegó a TRECE y la columna desbordó — se
-    // agregaron tres en 24 horas y va a seguir creciendo con cada área nueva.
-    // Una colección cuesta UNA fila y abre al costado, igual que «Analysts», que
-    // esconde siete destinos por exactamente la misma razón (ver el comentario
-    // del tipo NavFamilia arriba: «sin esto, Analyze eran nueve filas y la barra
-    // se volvía una lista de todo»).
-    //
-    // Esto NO es esconder destinos: la fila lleva rótulo, ícono y chevron, y
-    // abre por hover y por click. Lo que la regla de la casa prohíbe es esconder
-    // SIN pista — el caso de las tabs de la ficha del lead.
-    //
-    // ⚠️ ESTA LISTA Y `registros.ts` TIENEN QUE COINCIDIR, y no se puede derivar
-    // una de la otra: `registros.ts` importa las nueve bitácoras enteras (~1.700
-    // líneas de prosa) y `nav.ts` lo consume el Sidebar, que es cliente — meterlas
-    // al bundle de cada página para armar nueve links no vale la pena.
-    // La coincidencia la fija `tests/dev-areas.test.ts`: un área con bitácora y sin
-    // fila acá no es un error visible, es una tab que existe y NO SE VE. Pasó con
-    // `pricing`, que estuvo días con registro y sin entrada, y se descubrió recién
-    // cuando el dueño dijo «no veo la tab en la sidebar» de otra. El test sigue
-    // valiendo dentro del grupo: `itemsDe()` incluye los items de las colecciones.
-    grupos: [
-      {
-        key: 'dev-registros', label: 'Registros', icon: 'config',
-        items: [
-          // Va primero porque es el shell donde vive todo lo demás.
-          { key: 'dev-admin', label: 'Admin', href: '/admin/dev/admin', icon: 'admin', match: starts('/admin/dev/admin') },
-          { key: 'dev-onboarding', label: 'Onboarding', href: '/admin/dev/onboarding', icon: 'config', match: starts('/admin/dev/onboarding') },
-          { key: 'dev-general', label: 'General', href: '/admin/dev/general', icon: 'config', match: starts('/admin/dev/general') },
-          { key: 'dev-calendario', label: 'Calendario', href: '/admin/dev/calendario', icon: 'calendario', match: starts('/admin/dev/calendario') },
-          { key: 'dev-chats', label: 'Chats', href: '/admin/dev/chats', icon: 'chats', match: starts('/admin/dev/chats') },
-          { key: 'dev-dashboard', label: 'Dashboard', href: '/admin/dev/dashboard', icon: 'graphics', match: starts('/admin/dev/dashboard') },
-          // El área se llama como la tab (Automations, desde el 09/10/2026); la key y la ruta
-          // /admin/dev/chatbot siguen: son el slug del registro y su historia.
-          { key: 'dev-chatbot', label: 'Automations', href: '/admin/dev/chatbot', icon: 'config', match: starts('/admin/dev/chatbot') },
-          // Se llama como la FEATURE (/ads-writer), no «Ads Generator» ni
-          // «Guiones»: adentro viven su roadmap, su historial y las dos
-          // bibliotecas globales (Ángulos y Estructuras) que antes colgaban
-          // sueltas de /admin/guiones con un nombre que no se entendía.
-          { key: 'dev-ads-writer', label: 'Ads Writer', href: '/admin/dev/ads-writer', icon: 'escribir', match: (p) => starts('/admin/dev/ads-writer')(p) || starts('/admin/dev/ads-generator')(p) || starts('/admin/guiones')(p) },
-          { key: 'dev-ads-manager', label: 'Ads Manager', href: '/admin/dev/ads-manager', icon: 'grid', match: starts('/admin/dev/ads-manager') },
-          { key: 'dev-semaforo', label: 'El semáforo', href: '/admin/dev/semaforo', icon: 'graphics', match: starts('/admin/dev/semaforo') },
-          { key: 'dev-products-offers', label: 'Products & Offers', href: '/admin/dev/products-offers', icon: 'crm', match: starts('/admin/dev/products-offers') },
-          { key: 'dev-pricing', label: 'Pricing', href: '/admin/dev/pricing', icon: 'tag', match: starts('/admin/dev/pricing') },
-          // Va pegada a Pricing y no es lo mismo: aquélla decide QUÉ SE COBRA,
-          // ésta es el INSTRUMENTO que mide lo que se gastó (y si el número es
-          // cierto). Las dos leen la misma tabla, y confundirlas ya costó una
-          // premisa de pricing entera («el 99,9% del gasto es del ws1»).
-          { key: 'dev-ai-spend-cuotas', label: 'AI Spend & Cuotas', href: '/admin/dev/ai-spend-cuotas', icon: 'tag', match: starts('/admin/dev/ai-spend-cuotas') },
-          // Se llamaba «cs-analyst» y era la mitad del asunto: el analista de riesgo
-          // es UNA pieza de Customer Success. La ruta vieja redirige (ver
-          // app/admin/dev/[area]/page.tsx), así que sigue matcheando.
-          { key: 'dev-customer-success', label: 'Customer Success', href: '/admin/dev/customer-success', icon: 'cs', match: (p) => starts('/admin/dev/customer-success')(p) || starts('/admin/dev/cs-analyst')(p) },
-          { key: 'dev-auth-session', label: 'Auth & Session', href: '/admin/dev/auth-session', icon: 'config', match: starts('/admin/dev/auth-session') },
-          { key: 'dev-build-deploy', label: 'Build & Deploy', href: '/admin/dev/build-deploy', icon: 'rayo', match: starts('/admin/dev/build-deploy') },
-          // Va pegada a Build & Deploy y es su otra punta: aquélla es cómo llega
-          // el código a producción, ésta es la máquina donde se escribe — el clon
-          // compartido por dos cuentas, el dev server, y lo que los agentes leen.
-          { key: 'dev-local-dev-environment', label: 'Local Dev Environment', href: '/admin/dev/local-dev-environment', icon: 'config', match: starts('/admin/dev/local-dev-environment') },
-          // La tercera punta de la misma familia: qué red hay entre lo que se
-          // escribe acá y lo que llega allá. Hoy esa red es un hook que vive en
-          // .git y que un reclon se lleva en silencio.
-          { key: 'dev-tests-qa', label: 'Tests & QA', href: '/admin/dev/tests-qa', icon: 'check', match: starts('/admin/dev/tests-qa') },
-          { key: 'dev-ai-runtime-cascada', label: "AI Runtime & Cascada", href: '/admin/dev/ai-runtime-cascada', icon: 'config', match: starts('/admin/dev/ai-runtime-cascada') },
-          { key: 'dev-carousels', label: "Carousels", href: '/admin/dev/carousels', icon: 'config', match: starts('/admin/dev/carousels') },
-          { key: 'dev-configuraciones', label: 'Configuraciones', href: '/admin/dev/configuraciones', icon: 'config', match: starts('/admin/dev/configuraciones') },
-          { key: 'dev-conocimientos', label: "Conocimientos", href: '/admin/dev/conocimientos', icon: 'config', match: starts('/admin/dev/conocimientos') },
-          { key: 'dev-crm', label: "CRM", href: '/admin/dev/crm', icon: 'config', match: starts('/admin/dev/crm') },
-          { key: 'dev-gtm-oferta-y-precios', label: "GTM: Oferta y precios", href: '/admin/dev/gtm-oferta-y-precios', icon: 'config', match: starts('/admin/dev/gtm-oferta-y-precios') },
-          { key: 'dev-instagram', label: "Instagram", href: '/admin/dev/instagram', icon: 'config', match: starts('/admin/dev/instagram') },
-          { key: 'dev-integraciones', label: "Integraciones", href: '/admin/dev/integraciones', icon: 'config', match: starts('/admin/dev/integraciones') },
-          { key: 'dev-mako-doer', label: "MaKo Doer", href: '/admin/dev/mako-doer', icon: 'config', match: starts('/admin/dev/mako-doer') },
-          { key: 'dev-meta-platform', label: 'Meta Platform', href: '/admin/dev/meta-platform', icon: 'config', match: starts('/admin/dev/meta-platform') },
-          { key: 'dev-plan', label: 'Plan', href: '/admin/dev/plan', icon: 'todo', match: starts('/admin/dev/plan') },
-          { key: 'dev-plans-entitlements', label: "Plans & Entitlements", href: '/admin/dev/plans-entitlements', icon: 'config', match: starts('/admin/dev/plans-entitlements') },
-          { key: 'dev-payment-gateway', label: 'Payment Gateway', href: '/admin/dev/payment-gateway', icon: 'tag', match: starts('/admin/dev/payment-gateway') },
-          { key: 'dev-rate-limiting', label: "Rate Limiting", href: '/admin/dev/rate-limiting', icon: 'config', match: starts('/admin/dev/rate-limiting') },
-          { key: 'dev-reels', label: "Reels", href: '/admin/dev/reels', icon: 'config', match: starts('/admin/dev/reels') },
-          { key: 'dev-self-healing-dev-agent', label: "Self-Healing Dev Agent", href: '/admin/dev/self-healing-dev-agent', icon: 'config', match: starts('/admin/dev/self-healing-dev-agent') },
-          { key: 'dev-second-brain', label: 'Second Brain', href: '/admin/dev/second-brain', icon: 'cerebro', match: starts('/admin/dev/second-brain') },
-          { key: 'dev-vsl-tracking', label: 'VSL Tracking', href: '/admin/dev/vsl-tracking', icon: 'graphics', match: starts('/admin/dev/vsl-tracking') },
-          { key: 'dev-whatsapp-de-mako', label: 'WhatsApp de MaKo', href: '/admin/dev/whatsapp-de-mako', icon: 'config', match: starts('/admin/dev/whatsapp-de-mako') },
-          { key: 'dev-webhook-gateway', label: 'Webhook Gateway', href: '/admin/dev/webhook-gateway', icon: 'config', match: starts('/admin/dev/webhook-gateway') },
-          { key: 'dev-api-mako', label: 'API de MaKo', href: '/admin/dev/api-mako', icon: 'api', match: starts('/admin/dev/api-mako') },
-          // Las dos capas del sistema visual, y van juntas y en este orden:
-          // Design System son los tokens y la paleta (la capa de abajo), MaKo
-          // UX/UI es el catálogo que los muestra montados (/admin/ui).
-          { key: 'dev-design-system', label: 'Design System', href: '/admin/dev/design-system', icon: 'graphics', match: starts('/admin/dev/design-system') },
-          { key: 'dev-mako-ux-ui', label: 'MaKo UX/UI', href: '/admin/dev/mako-ux-ui', icon: 'graphics', match: starts('/admin/dev/mako-ux-ui') },
-          { key: 'dev-mako-mobile', label: 'MaKo Mobile', href: '/admin/dev/mako-mobile', icon: 'mako', match: starts('/admin/dev/mako-mobile') },
-          { key: 'dev-centro-operaciones', label: 'Centro de Operaciones', href: '/admin/dev/centro-operaciones', icon: 'config', match: starts('/admin/dev/centro-operaciones') },
-          // Va pegada a VSL Tracking porque son las dos puntas del mismo bucle:
-          // aquélla MIDE dónde se cae la curva, ésta escribe el guion que se
-          // reescribe con ese dato. Hoy la pantalla es un ComingSoon; el registro
-          // existe igual, que es justamente para no volver a arrancar de cero.
-          { key: 'dev-vsl-generator', label: 'VSL Generator', href: '/admin/dev/vsl-generator', icon: 'video', match: starts('/admin/dev/vsl-generator') },
-          // La copia de CapCut (11/10/2026): el pedido textual y las tandas del port.
-          { key: 'dev-video-editor', label: 'Video Editor', href: '/admin/dev/video-editor', icon: 'tijera', match: starts('/admin/dev/video-editor') },
-          { key: 'dev-image-editor', label: 'Image Editor', href: '/admin/dev/image-editor', icon: 'imagegen', match: starts('/admin/dev/image-editor') },
-          { key: 'dev-puente-flow', label: 'Puente a Google Flow', href: '/admin/dev/puente-flow', icon: 'videogen', match: starts('/admin/dev/puente-flow') },
-          { key: 'dev-ai-avatar', label: 'AI Avatar', href: '/admin/dev/ai-avatar', icon: 'perfil', match: starts('/admin/dev/ai-avatar') },
-          // La Ticketera de los usuarios (17/10/2026): el área se llama como su jefe; el slug es el de «Reportar problema».
-          { key: 'dev-reportar-problema', label: 'Ticketera', href: '/admin/dev/reportar-problema', icon: 'soporte', match: starts('/admin/dev/reportar-problema') },
-          // El editor de landings copiado de Gamma (11/10/2026): su registro lleva el pedido literal
-          // de Martín y lo que quedó sin hacer (app/admin/dev/landing-generator/bitacora.ts).
-          { key: 'dev-landing-generator', label: 'Web Generator', href: '/admin/dev/landing-generator', icon: 'web', match: starts('/admin/dev/landing-generator') },
-          { key: 'dev-credentials-vault-byok', label: 'Credentials Vault (BYOK)', href: '/admin/dev/credentials-vault-byok', icon: 'config', match: starts('/admin/dev/credentials-vault-byok') },
-          // Los dos formatos de Content Machine con registro escrito. Stories ya
-          // está construida; Thumbnails sigue siendo un ComingSoon y su registro
-          // existe justamente por eso: sin código propio, el Change History
-          // automático solo muestra commits de nav.ts que no son del área.
-          { key: 'dev-stories', label: 'Stories', href: '/admin/dev/stories', icon: 'instagram', match: starts('/admin/dev/stories') },
-          { key: 'dev-thumbnails', label: 'Thumbnails', href: '/admin/dev/thumbnails', icon: 'youtube', match: starts('/admin/dev/thumbnails') },
-          // Las tres de Sales Machine que todavía son ComingSoon. Sus registros
-          // existen porque el trabajo del área SÍ pasó, en otro archivo: el lead
-          // magnet se define en el paso «Entregable» del onboarding, y el email de
-          // venta y el envío a la lista ya viven en /email. Sin la fila, el único
-          // lugar donde eso está escrito no se alcanza desde ningún lado.
-          { key: 'dev-lead-magnet-generator', label: 'Lead Magnet Generator', href: '/admin/dev/lead-magnet-generator', icon: 'leadmagnet', match: starts('/admin/dev/lead-magnet-generator') },
-          { key: 'dev-sales-email', label: 'Sales Email', href: '/admin/dev/sales-email', icon: 'salesemail', match: starts('/admin/dev/sales-email') },
-          { key: 'dev-newsletters', label: 'Newsletters', href: '/admin/dev/newsletters', icon: 'newsletter', match: starts('/admin/dev/newsletters') },
-          // Las otras dos que todavía son ComingSoon y ya tienen registro escrito.
-          // Mismo motivo que Thumbnails: su historia son DECISIONES —el lugar en el
-          // embudo, el precio ya medido, las preguntas sin contestar— y ninguna vive
-          // en el código, así que el Change History automático no la encuentra.
-          { key: 'dev-closing-script', label: 'Closing Script', href: '/admin/dev/closing-script', icon: 'closingscript', match: starts('/admin/dev/closing-script') },
-          { key: 'dev-youtube-writer', label: 'YouTube Writer', href: '/admin/dev/youtube-writer', icon: 'escribir', match: starts('/admin/dev/youtube-writer') },
-        ],
-      },
-    ],
+    // ⚠️ SIN «Áreas del producto» NI LOS REGISTROS desde el 25/10/2026 (Martín: «Elimina "dev", ya no lo necesitamos»): sus
+    // pantallas (/admin/dev y /admin/dev/<área>) se fueron. Las bitácoras se QUEDAN (app/admin/dev/*/bitacora.ts y
+    // registros.ts): de ellas cuelgan el cierre de los tickets (`tickets: [n]`), el Progreso y el Cerebro.
   },
 ];
 
@@ -707,7 +569,7 @@ export const USER_NAV: NavItem[] = [
   // `perfil` (la ven todos los roles) con otro nombre: abre «Perfil», la primera sección, y se enciende en TODAS las de Settings.
   // «Business settings» e «Integrations» quedan como SECCIONES de Settings (`soloSeccion`): no se dibujan en el menú, y sus keys
   // siguen siendo la puerta de sus páginas (`requireRolWs([], { nav: 'configuraciones' })`, las capas).
-  { key: 'perfil', label: 'Settings', href: '/perfil', icon: 'config', rolesWs: ['closer', 'setter'], match: (p) => starts('/perfil')(p) || starts('/configuraciones')(p) || starts('/equipo')(p) || starts('/metodo')(p) || starts('/integraciones')(p) },
+  { key: 'perfil', label: 'Settings', href: '/perfil', icon: 'tuerca', rolesWs: ['closer', 'setter'], match: (p) => starts('/perfil')(p) || starts('/configuraciones')(p) || starts('/equipo')(p) || starts('/metodo')(p) || starts('/integraciones')(p) },
   { key: 'integraciones', label: 'Integrations', href: '/integraciones', icon: 'integraciones', soloSeccion: true, match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   // La API de MaKo (08/10/2026): el catálogo, los tokens de cada integración y su uso.
   // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
@@ -719,11 +581,15 @@ export const USER_NAV: NavItem[] = [
   // a su tablero (/partners/referidos) — con `soloCapas: ['agencia']` un cliente sólo llegaba tipeando la URL. Sin
   // `rolesWs`, el closer y el setter no la ven (`puedeVerItem`). La página reparte: la agencia, su cartera; el resto, sus
   // referidos (app/partners/page.tsx).
-  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', match: starts('/partners') },
+  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', noEnPlataforma: true, match: starts('/partners') },
+  // Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9: «otra tab abajo de "Partners"»): la landing para
+  // sumarse como Agency (sólo con el plan Pro activo) y, ya sumada, las cuentas de MaKo de sus clientes. La cartera vivía
+  // en /partners; Partners quedó para los referidos. Sin `rolesWs`: sólo el admin, como Partners (app/agency/page.tsx).
+  { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', noEnPlataforma: true, match: starts('/agency') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.
-  { key: 'configuraciones', label: 'Business settings', href: '/configuraciones', icon: 'config', soloSeccion: true, match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) || starts('/integraciones')(p) || starts('/marketing/salud')(p) },
+  { key: 'configuraciones', label: 'Business settings', href: '/configuraciones', icon: 'tuerca', soloSeccion: true, match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) || starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
   // solo los veía el super admin — que ahora tiene su propia familia Admin en la
   // barra, con Clientes adentro. Repetirlos detrás del avatar era darle dos
@@ -747,8 +613,9 @@ export const USER_NAV: NavItem[] = [
  *   · el título de la pestaña (lib/titulo-tab.ts) y las capacidades de la API de MaKo (lib/api-mako/areas/mako.run.ts)
  *     buscan el PRIMER ítem cuyo `match` acepta la ruta: por eso van ANTES que el resto, con el `match` de siempre, y
  *     /whatsapp sigue diciendo «WhatsApp» aunque la barra marque Chats.
- * Las cuatro: el Mapa del Second Brain (key `second-brain`, sólo el admin; antes la fila de Analyze), Experiments (se va
- * al chat de MaKo, lo lleva el jefe «Dashboard»), WhatsApp y Email (se configuran desde Chats).
+ * Las de siempre: el Mapa del Second Brain (key `second-brain`, sólo el admin; antes la fila de Analyze), Experiments (se va
+ * al chat de MaKo, lo lleva el jefe «Dashboard»), WhatsApp y Email (se configuran desde Chats); y desde el 29/10/2026 el Video Generator
+ * (una plantilla de «Nuevo video»).
  */
 export const SIN_FILA: NavItem[] = [
   // «Home» (/general) desde el 17/10/2026 noche: redirige al Dashboard, a su hoja fija «Focus». La key `general` queda
@@ -761,12 +628,26 @@ export const SIN_FILA: NavItem[] = [
   // Desde el 17/10/2026 /experimentos sólo redirige al Dashboard (y /analisis, el informe del trimestre incluido, es del
   // Dashboard): el ítem queda por la puerta de las dos redirecciones, que piden esta key.
   { key: 'experimentos', label: 'Experiments', href: '/experimentos', icon: 'experiments', match: starts('/experimentos') },
-  // Curso y Comunidad: sub-tabs de Clients (Classroom y Community) desde el 17/10/2026. Sus pantallas del teléfono abren
+  // Curso y Comunidad: sub-tabs de Classroom (era Clients) desde el 17/10/2026. Sus pantallas del teléfono abren
   // con estas keys (`requireMovil({ navKey })`).
-  { key: 'cs-curso', label: 'Classroom', href: '/clients/classroom', icon: 'video', match: (p) => starts('/clients/classroom')(p) || starts('/customer-success/curso')(p) },
-  { key: 'cs-comunidad', label: 'Community', href: '/clients/community', icon: 'comunidad', match: (p) => starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
+  { key: 'cs-curso', label: 'Classroom', href: '/classroom', icon: 'video', match: (p) => p === '/classroom' || starts('/classroom/preview')(p) || starts('/clients/classroom')(p) || starts('/customer-success/curso')(p) },
+  { key: 'cs-comunidad', label: 'Community', href: '/classroom/community', icon: 'comunidad', match: (p) => starts('/classroom/community')(p) || starts('/clients/community')(p) || starts('/customer-success/comunidad')(p) },
   { key: 'whatsapp', label: 'WhatsApp', href: '/whatsapp', icon: 'whatsapp', rolesWs: ['closer', 'setter'], match: starts('/whatsapp') },
   { key: 'email', label: 'Email', href: '/email', icon: 'email', rolesWs: ['setter'], match: starts('/email') },
+  // El Video Generator (Flow) desde el 29/10/2026: ya no es una pestaña de Video («no quiero otras tabs»), es la plantilla
+  // «Generar con IA» de «Nuevo video». La pantalla sigue viva y su key es la puerta de la API (`gating.tab`), de las
+  // creaciones (`formato_video`) y del teléfono (/m/video).
+  { key: 'video-generator', label: 'Video Generator', href: '/video-generator', icon: 'videogen', match: starts('/video-generator') },
+  // Las que eran secciones de Copywriting hasta el 29/10/2026 (ver la fila de Copywriting en FAMILIAS): sin fila, con su key
+  // viva. El Ads Writer sigue andando por su ruta (la matriz, «Analizar guion» y los links de MaKo); Stories y YouTube
+  // Writer redirigen al Copywriter. La API (`gating.tab: 'ads-writer'`) y las capas las siguen pidiendo.
+  { key: 'ads-writer', label: 'Ads Writer', href: '/ads-writer', icon: 'escribir', match: (p) => starts('/ads-writer')(p) || starts('/content-machine')(p) },
+  { key: 'stories', adminOnly: true, label: 'Stories', href: '/stories', icon: 'stories', match: starts('/stories') },
+  // YouTube Writer e Ideas siguen «pronto» como keys: sus páginas las piden (`requireRolWs`) y el teléfono abre
+  // /m/pronto/<key>. En la computadora /youtube-writer ya lleva al template de YouTube del Copywriter; /ideas sigue siendo
+  // el «Coming soon» del super admin. Retirarlas del teléfono va con /m/stories (docs/relevo/copywriter.md).
+  { key: 'youtube-writer', adminOnly: true, label: 'YouTube Writer', href: '/youtube-writer', icon: 'escribir', comingSoon: true, match: starts('/youtube-writer') },
+  { key: 'ideas', adminOnly: true, label: 'Ideas', href: '/ideas', icon: 'idea', comingSoon: true, match: starts('/ideas') },
 ];
 
 // ⚠️ Sin las herramientas del super admin aunque cuelguen como secciones de una tab: son de ADMIN_NAV, como antes del

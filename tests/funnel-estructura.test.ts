@@ -1028,7 +1028,10 @@ test('⚠️ el filete va DEBAJO de «Nuevo producto», y lo eliminado va centra
   assert.ok(/textAlign: 'center'/.test(sutil), '«Productos eliminados» dejó de estar centrado');
 });
 
-test('⚠️ las flechas de mover son DOS botones sin rótulo, y van primeras del menú', () => {
+// ⚠️ «PRIMERAS» VENCIÓ EL 24/10/2026: Martín pidió lo contrario («lo primero debe ser nuevo lead. Y el editor de columnas
+// abajo del todo, claro que eliminar siempre por ultimo»). Siguen siendo DOS botones en una línea; ahora van al final, en
+// la sección «Columnas», justo antes de «Eliminar etapa».
+test('⚠️ las flechas de mover son DOS botones sin rótulo, y van abajo, con el editor de columnas', () => {
   // «El botón de mover, no debería tener la palabra mover, solo las flechas. Debería
   // estar primero de todos ese botón, y en realidad, deberían ser 2 botones diferentes,
   // solo que están en la misma linea» (Martín, 30/09/2026).
@@ -1044,12 +1047,13 @@ test('⚠️ las flechas de mover son DOS botones sin rótulo, y van primeras de
   // Los dos botones se reparten la línea: si uno no tiene `flex: 1`, no son dos mitades.
   assert.ok(/flex: 1, height: 30/.test(rama), 'los dos botones dejaron de repartirse la línea');
 
-  // ── 2. En el menú de la columna (desde el 22/10/2026 el «⋯» abre el del clic derecho): ANTES que todo lo demás, en UNA
-  //    línea de dos botones sin rótulo (`EN_LINEA`) ──
+  // ── 2. En el menú de la columna (desde el 22/10/2026 el «⋯» abre el del clic derecho): con «Agregar etapa», justo antes
+  //    de «Eliminar etapa», en UNA línea de dos botones sin rótulo (`EN_LINEA`) ──
   const mc = readFileSync(join(RAIZ, 'app/crm/menu-contextual-crm.ts'), 'utf8').replace(/\r\n/g, '\n');
   const opciones = mc.slice(mc.indexOf("if (c.sobre === 'columna') {"), mc.indexOf('if (esLote(c))'));
-  assert.match(opciones, /return compactar\(\[\s*\.\.\.\(c\.mover \? \['col_izquierda', 'col_derecha'\] as const : \[\]\),/,
-    'las flechas dejaron de ser lo primero del menú');
+  assert.match(opciones, /return compactar\(\[\s*'col_nuevo_lead',/, '«Nuevo lead» dejó de ser lo primero del menú');
+  assert.match(opciones, /\.\.\.\(c\.mover \? \['col_izquierda', 'col_derecha'\] as const : \[\]\),\s*'col_agregar',\s*null,\s*\.\.\.\(c\.borrable \? \['col_eliminar' as const\] : \[\]\),/,
+    'las flechas dejaron de ir abajo, con «Agregar etapa» y antes de «Eliminar etapa»');
   assert.match(mc, /export const EN_LINEA[^=]*= \[\['col_izquierda', 'col_derecha'\]\];/, 'las flechas dejaron de ir en una línea');
   // Y siguen colgando del MISMO predicado que habilita el arrastre: dos formas del mismo
   // gesto que se contradigan es peor que tener una sola.

@@ -342,6 +342,8 @@ export function crearSuelta<P extends PasoGrafo>(pasosIn: readonly P[], que: Que
   // siempre, y no si ya hay uno). Si no se puede, `id` vacío lo dice (el motivo es `MOTIVO.topeAIStep`). Nace
   // colgado del CRON (sin `suelta`): no tiene flechas que le lleguen, así que «sin flechas» ya es su forma.
   if (que === 'ai_step' && !puedeSumarAIStep(base)) return { pasos: base, id: '' };
+  // La prueba A/B: una por automatización (tanda A3).
+  if (que === 'ab' && base.some((p) => claseDe(p) === 'ab')) return { pasos: base, id: '' };
   const n = { ...nodoNuevo(que, fijo, rnd), siguiente: null } as unknown as P;
   const id = n.id!;
   return { pasos: normalizar([...fijo, n]), id };
@@ -362,7 +364,8 @@ export function duplicar<P extends PasoGrafo>(pasosIn: readonly P[], id: string,
   // undécima: hay UNO por medio (`puedeSumarAIStep` es false con el original puesto), así que el motivo es ése. La
   // copia de abajo queda para un AI Step de OTRO medio, si algún día se ofrece duplicar a otro medio.
   const ia = esPasoIA(fijo[i]);
-  if (c === 'inicio' || (c === 'respuesta' && !ia)) return no(base, MOTIVO.noSeDuplica);
+  // La prueba A/B tampoco (tanda A3): una por automatización.
+  if (c === 'inicio' || c === 'ab' || (c === 'respuesta' && !ia)) return no(base, MOTIVO.noSeDuplica);
   if (ia && !puedeSumarAIStep(fijo, medioDe(fijo[i]))) return no(base, MOTIVO.topeAIStep);
   const copia = JSON.parse(JSON.stringify(fijo[i])) as P;
   const nid = nuevoId(fijo, rnd);

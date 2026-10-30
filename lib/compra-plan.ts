@@ -10,7 +10,8 @@
 //   1. El plan sale de lib/planes-mako.ts (con el setting `planes.mako` de la plataforma): la capa y el precio NUNCA
 //      salen del pedido.
 //   2. La pasarela: las conectadas en el workspace de la plataforma, y de esas las que tienen precio en su moneda (MP
-//      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece).
+//      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece). Y según el PAÍS de quien
+//      compra (27/10/2026): Mercado Pago sólo en el de su cuenta, Stripe en el resto (`pasarelasDelPais`).
 //   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña.
 //   4. Si ya tiene un link VIVO de ese plan por esa pasarela (de las últimas 23 h), se devuelve ése: dos clics o
 //      volver atrás no crean otro checkout.
@@ -37,7 +38,9 @@ import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { pasarelaDeLaCompra, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
+import { listarUsuarios } from './usuarios';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -61,6 +64,9 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
   const conectadas = await pasarelasConectadas(ws);
   const out: Array<{ pasarela: Pasarela; moneda: string; prueba: boolean }> = [];
   for (const p of conectadas) {
+    // Sólo una pasarela que arma la PRUEBA GRATIS con tarjeta (25/10/2026, lib/prueba-plan-reglas.ts): la vitrina promete
+    // 7 días gratis, y un plan que se cobrara desde el primer día sin avisarlo sería otro precio. Con otra, el plan se pide.
+    if (!PASARELAS_CON_PRUEBA.includes(p)) continue;
     if (p === 'stripe') {
       out.push({ pasarela: 'stripe', moneda: 'USD', prueba: modoDeClaveStripe(await credDelCliente('STRIPE_SECRET_KEY', ws)) === 'prueba' });
       continue;
@@ -80,14 +86,16 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
  * que con las claves de prueba conectadas en el ws9 cualquiera sacaba una cuenta REAL pagando con la tarjeta 4242. Sólo
  * el super admin la ve (`conPrueba`), que es quien hace la prueba de humo antes de pasar a las claves reales.
  */
-export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean } = {}): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
+export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean; pais?: string | null } = {}): Promise<{ plan: PlanMako; pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }> } | null> {
   const plan = (await planesMako()).find((p) => p.id === planId && p.activo);
   if (!plan) return null;
   try {
     const ws = await wsSuperAdmin();
     const monedas = (await monedasDeLaPlataforma(ws)).filter((m) => !m.prueba || opts.conPrueba === true);
     const pasarelas = monedas.map((m) => ({ pasarela: m.pasarela, moneda: m.moneda, monto: precioEn(plan, m.moneda) })).filter((x): x is { pasarela: Pasarela; moneda: string; monto: number } => x.monto != null);
-    return { plan, pasarelas };
+    // Mercado Pago sólo en su país; afuera, Stripe (27/10/2026, `pasarelasDelPais`). Después del precio: en Argentina sin
+    // precio en pesos, Mercado Pago no sirve y queda Stripe.
+    return { plan, pasarelas: pasarelasDelPais(opts.pais ?? null, pasarelas) };
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
     return { plan, pasarelas: [] };
@@ -100,7 +108,7 @@ export async function ofertaDelPlan(planId: string, opts: { conPrueba?: boolean 
  * checkout no puede cobrar (lib/compra-plan-reglas.ts, `botonDelPlan`). Una pasarela en modo prueba no cuenta. Sin poder leer las pasarelas, ninguno se cobra:
  * ofrecer la agenda de más es un llamado; ofrecer un pago que no existe es un callejón.
  */
-export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
+export async function ofertasDeLosPlanes(pais: string | null = null): Promise<Array<{ plan: PlanMako; cobrable: boolean }>> {
   const planes = (await planesMako()).filter((p) => p.activo);
   let monedas: Array<{ pasarela: Pasarela; moneda: string }> = [];
   try {
@@ -110,7 +118,11 @@ export async function ofertasDeLosPlanes(): Promise<Array<{ plan: PlanMako; cobr
   } catch (e) {
     console.warn('[compra-plan] no pude leer las pasarelas de la plataforma:', msg(e));
   }
-  return planes.map((plan) => ({ plan, cobrable: monedas.some((m) => precioEn(plan, m.moneda) != null) }));
+  // Por plan y por país, la misma cuenta que `ofertaDelPlan`: en México con sólo Mercado Pago no se ofrece «Empezar».
+  return planes.map((plan) => ({
+    plan,
+    cobrable: pasarelasDelPais(pais, monedas.filter((m) => precioEn(plan, m.moneda) != null)).length > 0,
+  }));
 }
 
 /** La moneda de la Mercado Pago de MaKo (la de su sitio: ARS, MXN…), o null si no está conectada o no se pudo leer. */
@@ -194,10 +206,13 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
  * alta a mano (el alta del super admin), y un referido se reconstruye con el renglón «referido por».
  */
 export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const nombrePlan = p.plan === PROGRAMA_ACELERADOR.id
-    ? PROGRAMA_ACELERADOR.nombre
-    : (await planesMako()).find((x) => x.id === p.plan && x.activo)?.nombre ?? null;
-  if (!nombrePlan) return { ok: false, status: 404, error: 'Ese plan no existe.' };
+  const elegido = p.plan === PROGRAMA_ACELERADOR.id ? null : (await planesMako()).find((x) => x.id === p.plan && x.activo) ?? null;
+  const nombre = p.plan === PROGRAMA_ACELERADOR.id ? PROGRAMA_ACELERADOR.nombre : elegido?.nombre ?? null;
+  if (!nombre) return { ok: false, status: 404, error: 'Ese plan no existe.' };
+  // El anual (25/10/2026) sólo de un plan que lo tiene: el equipo lo da de alta con el precio del año.
+  const anual = p.periodo === 'anual' ? elegido?.precioAnualUsd ?? null : null;
+  if (p.periodo === 'anual' && !anual) return { ok: false, status: 404, error: 'Ese plan no tiene pago anual.' };
+  const nombrePlan = anual ? `${nombre} anual (US$ ${anual.toLocaleString('es-AR')} por año)` : nombre;
   const ws = await wsSuperAdmin();
   return runWithWorkspace(ws, async () => {
     let lead: { leadId: number; nuevo: boolean };
@@ -210,11 +225,14 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
     const ref = p.ref ? ` (referido por ${p.ref})` : '';
     const wa = p.whatsapp ? ` WhatsApp: +${p.whatsapp}.` : '';
-    await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}`, 'Planes de MaKo').catch(() => {});
+    // El diagnóstico de la puerta del Acelerador (lib/compra-plan-reglas.ts): con eso arranca la llamada.
+    const diag = p.diagnostico ? ` Diagnóstico: ${diagnosticoEnTexto(p.diagnostico)}.` : '';
+    await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}${diag}`, 'Planes de MaKo').catch(() => {});
     // El aviso al equipo, en el momento: el domingo nadie tiene que estar mirando el CRM para enterarse. Best effort.
     await avisarDePlataforma({
       to: EMAIL_MAKO, tag: 'planes-pedido', asunto: `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',
       cuerpo: [`${p.nombre} (${p.email}) quiere ${nombrePlan}${de}${ref}.`, '', `WhatsApp: +${p.whatsapp ?? '—'}`, '',
+        ...(p.diagnostico ? ['Su diagnóstico:', ...p.diagnostico.map((x) => `· ${x.rotulo}: ${x.respuesta}`), ''] : []),
         'Su ficha en el CRM de MaKo:', linkApp(`/crm/${lead.leadId}`, ws)].join('\n'),
     }).catch((e) => console.warn('[compra-plan] no pude avisar del pedido:', msg(e)));
     return { ok: true };
@@ -223,20 +241,54 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
 
 export type ResultadoCompra =
   | { ok: true; link: string }
-  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }> };
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true };
 
-/** El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). */
-export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean } = {}): Promise<ResultadoCompra> {
+/**
+ * ¿Este email puede empezar una PRUEBA GRATIS? (25/10/2026, el Cerebro: «una prueba por negocio Y por tarjeta y por email»).
+ * No, si ya tiene una cuenta de MaKo (es un negocio que ya existe: su plan va por «Tu plan»), o si alguna prueba con ese email
+ * llegó a autorizarse (con la tarjeta cargada). La tarjeta se mira al autorizar (lib/cobros.ts, `activarPruebaSiAutorizo`).
+ * Sin poder leer, deja pasar: el freno por tarjeta sigue en pie, y un comprador no se queda afuera por una base caída.
+ */
+async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ ok: true } | { ok: false; motivo: 'cuenta' | 'email' }> {
+  try {
+    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, motivo: 'cuenta' };
+    const { data, error } = await getSupabaseServer().from('cobros').select('id')
+      .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:prueba').not('suscripcion_estado', 'is', null).limit(1);
+    if (error) throw new Error(error.message);
+    return (data ?? []).length ? { ok: false, motivo: 'email' } : { ok: true };
+  } catch (e) {
+    console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su prueba; la dejo empezar:`, msg(e));
+    return { ok: true };
+  }
+}
+
+/**
+ * El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). `pais`: de
+ * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`).
+ */
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null } = {}): Promise<ResultadoCompra> {
   const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
   const eleccion = pasarelaDeLaCompra({ pedida: p.pasarela, sirven: pasarelas.map((x) => x.pasarela) });
   if (!eleccion.ok) {
-    if (eleccion.motivo === 'elegir') return { ok: false, status: 409, error: '¿Con qué quieres pagar?', elegir: pasarelas };
+    // Pidió una que desde su país no cobra (Mercado Pago desde México) y hay otra: se le ofrece la que sirve, no «no cobramos».
+    if (eleccion.motivo === 'elegir' || (eleccion.motivo === 'no-sirve' && pasarelas.length)) return { ok: false, status: 409, error: '¿Con qué quieres pagar?', elegir: pasarelas };
     return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };
   }
   const via = pasarelas.find((x) => x.pasarela === eleccion.pasarela)!;
   const ws = await wsSuperAdmin();
+  // LA PRUEBA GRATIS (25/10/2026): toda compra en línea empieza con 7 días gratis, salvo que pida empezar sin ella (quien ya la
+  // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
+  const conPrueba = !p.sinPrueba;
+  if (conPrueba) {
+    const puede = await puedeEmpezarPrueba(p.email, ws);
+    if (!puede.ok) {
+      return puede.motivo === 'cuenta'
+        ? { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_CUENTA }
+        : { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
+    }
+  }
 
   return runWithWorkspace(ws, async () => {
     let lead: { leadId: number; nuevo: boolean };
@@ -253,7 +305,9 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     const r = await crearCobro(ws, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
       monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre: p.nombre,
-      altaCapa: plan.capa, creadoPor: `planes:${plan.id}`,
+      altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : `planes:${plan.id}`,
+      // El primer cobro, 7 días después: el `start_date` de Mercado Pago. La persona carga la tarjeta ahora.
+      inicioAt: conPrueba ? finDeLaPrueba(Date.now()) : null,
     });
     if (!r.ok) {
       console.error(`[compra-plan] crearCobro (${plan.id}, ${via.pasarela}): ${r.error}`);
@@ -268,7 +322,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     if (lead.nuevo || !r.yaEstaba) {
       const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
       const ref = p.ref ? ` (referido por ${p.ref})` : '';
-      await logLeadEvent(lead.leadId, 'Compra de plan', `Abrió el pago de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
+      await logLeadEvent(lead.leadId, 'Compra de plan', `${conPrueba ? 'Abrió su prueba gratis' : 'Abrió el pago'} de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
     }
     return { ok: true, link: r.link };
   });
@@ -331,9 +385,10 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
  * si se cobran en línea (la misma cuenta que /planes). Si no se pudo leer, los de hoy y sin cobro en línea: el botón dice
  * «Quiero …» y se pide (nunca «Empezar» sin un cobro detrás), y la landing no se queda sin precios.
  */
-export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado'> & { cobrable: boolean }>> {
+export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean }>> {
   const ofertas = await ofertasDeLosPlanes().catch(() => PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((plan) => ({ plan, cobrable: false })));
   return ofertas.map(({ plan, cobrable }) => ({
-    id: plan.id, nombre: plan.nombre, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado, cobrable,
+    id: plan.id, nombre: plan.nombre, capa: plan.capa, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado,
+    precioAnualUsd: plan.precioAnualUsd ?? null, preciosLocales: plan.preciosLocales, cobrable,
   }));
 }

@@ -18,6 +18,7 @@
 
 import type { OperacionDef } from '../tipos';
 import { CAPACIDADES } from '@/lib/mako-capacidades';
+import { DECISIONES, SUPERFICIES } from '@/lib/recomendaciones-reglas';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 
@@ -81,7 +82,7 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'listar_capacidades_mako', area: 'mako', tipo: 'lectura',
     datosDeClientes: false,
     titulo: 'Qué se hace dentro de MaKo',
-    descripcion: 'El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).',
+    descripcion: 'El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de este negocio (qué hace cada una, qué no hace y qué app reemplaza) y, por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).',
     parametros: [{ nombre: 'id', tipo: 'string', enum: CAPACIDADES.map((c) => c.id), descripcion: 'id de UNA capacidad para traer solo esa. Sin id, trae todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis',
   },
@@ -120,5 +121,30 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre nuevo, no vacío.' },
     ],
     canales: ['app'], costo: 'gratis',
+  },
+  // ── MaKo recomienda (26/10/2026, docs/diseno-mako-recomienda.md) ──────────────────────────────────────────────────
+  // Lo mismo que muestra el bloque de cada pantalla, por la API: las recomendaciones salen de señales que MIDE el código
+  // (lib/recomendaciones-senales.ts) y lo que la persona decide vive en la memoria del negocio. Del admin, como la pantalla.
+  // Sin nombres ni textos de personas en la salida: números y nombres de cosas del negocio (por eso sale por HTTP).
+  {
+    id: 'que_recomienda_mako', area: 'mako', tipo: 'lectura',
+    titulo: 'Qué recomienda hoy',
+    descripcion: 'Lo que conviene hacer HOY en este negocio según sus propios datos: cada recomendación dice qué hacer, qué cambia, el porqué con el número medido (respuestas por WhatsApp, asistencia a llamadas, ventas perdidas, envíos de automatizaciones, visitas de páginas, objeciones de las conversaciones) y de dónde sale. Trae también lo que se aceptó y ya mejoró, y lo que la persona descartó (con su motivo). Úsala cuando pregunten «¿qué me recomiendas?», «¿qué debería mejorar?» o «¿cómo vengo?». Si viene vacía, no hay nada que valga la pena con los datos de hoy: dilo así y no inventes un consejo. Solo el administrador.',
+    parametros: [{ nombre: 'pantalla', tipo: 'string', enum: SUPERFICIES, descripcion: 'de qué pantalla: ops-center (todo el negocio), automations, offer, landing o whatsapp. Sin ella, todo el negocio.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'decidir_recomendacion', area: 'mako', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Decidir sobre una recomendación',
+    descripcion: 'PROPONE anotar lo que la persona decidió sobre una recomendación de que_recomienda_mako (queda pendiente hasta el «sí»): hecha (lo hizo o lo va a hacer: MaKo mide después si cambió), ahora-no (la calla 14 días), no-aplica (no vuelve más; con el motivo, MaKo aprende y no la repite con otras palabras) o reabierta (deshace un descarte). La clave sale de que_recomienda_mako (de recomendaciones o de descartadas). Vale para todo el equipo. Solo el administrador.',
+    parametros: [
+      { nombre: 'clave', tipo: 'string', obligatorio: true, max: 340, descripcion: 'la clave de la recomendación, tal cual vino de que_recomienda_mako.' },
+      { nombre: 'claves', tipo: 'string[]', max: 8, descripcion: 'TODAS las claves de esa recomendación (su campo claves en que_recomienda_mako): la decisión vale para todas. Sin ellas, sólo la clave.' },
+      { nombre: 'decision', tipo: 'string', obligatorio: true, enum: DECISIONES, descripcion: 'hecha, ahora-no, no-aplica o reabierta.' },
+      { nombre: 'motivo', tipo: 'string', max: 280, descripcion: 'por qué no aplica, con las palabras de la persona («ya lo hago a mano», «esa página es de prueba»).' },
+      { nombre: 'pantalla', tipo: 'string', enum: SUPERFICIES, descripcion: 'la pantalla de la que vino (la misma que se le pasó a que_recomienda_mako). Sin ella, todo el negocio.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'la memoria de recomendaciones del negocio (qué se aceptó o descartó, y por qué)',
   },
 ];

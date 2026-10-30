@@ -91,7 +91,7 @@ test('1. la caja única tiene todo lo de la caja del Ops Center', () => {
     ['<BotonEmojis ', 'los emojis'],
     ['<BotonMandar ', 'UN botón: el micrófono sin nada escrito, la flecha con algo'],
     ['<ListaAdjuntos ', 'las miniaturas de lo adjuntado, arriba'],
-    ['alPegar(e, p.adjuntos)', 'pegar una imagen'],
+    ['alPegar(e, adjuntos)', 'pegar una imagen'],
     ['conVinetas(', 'las viñetas mientras se escribe'],
     ['enterEnLista(', 'Enter adentro de una lista'],
     ['estaAbajo(', 'el scroll que acompaña lo que se escribe'],
@@ -161,6 +161,8 @@ test('5. la nota de voz y la línea de estado (lo que pidió el onboarding)', ()
 const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, ${string}`> = {
   'app/crm/lead-view/MakoAnalystLead.tsx': 'panel único',
   'app/second-brain/PiezasCliente.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
+  // La apertura (29/10/2026, MaKo habla primero): sus mensajes van en el hilo del Cerebro, adentro de su panel.
+  'app/_chat/AperturaMako.tsx': 'pieza de app/second-brain/ChatSecondBrain.tsx',
   'app/tickets/soporte/PiezasSoporte.tsx': 'pieza de app/tickets/soporte/ChatSoporte.tsx',
   'app/automations/ChatMakoVista.tsx': 'panel único',
   'app/dashboard/PanelEditarMako.tsx': 'panel único',
@@ -170,6 +172,7 @@ const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, 
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
   'app/_components/MakoChat.tsx': 'panel único',
   'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
+  'app/ads-manager/ArranqueMediaBuyer.tsx': 'panel único',
 };
 const DIBUJA_PANEL = /<PanelDeChat\b/;
 

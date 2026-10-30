@@ -38,6 +38,8 @@ import { getFunnelDefault } from './funnels';
 import { perfilNegocioTexto } from './onboarding';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { claveDeLanding } from './landing-fetch';
+import { bloquesDeFuncion } from './cerebro-funciones';
+import { funcionesParaLanding } from './cerebro-para-chat';
 import type { LandingAnalysisRow } from './landing-analyst';
 import {
   OBJETIVOS_LANDING, BLOQUE_TIPOS, TIPO_LABEL, objetivoLabel, specAMarkdown,
@@ -156,9 +158,14 @@ export async function brandSystem(rendered: string): Promise<string> {
 /**
  * Compone el contexto real del negocio. Tolerante: cada bloque degrada a '—' sin
  * romper la generación (un negocio recién onboardeado no tiene todo cargado).
+ *
+ * En la PLATAFORMA (28/10/2026, Martín: «hacé de esta copia la landing de los Chats»), antes del perfil van todas las
+ * funciones de MaKo en una línea y la que vende ESTA landing, entera, del Second Brain (lib/cerebro-para-chat.ts →
+ * `funcionesParaLanding`): la que nombra el pedido o, si no nombra ninguna, la que la página (`pagina`, su texto) nombra
+ * claramente. Con una función, el perfil pasa a ser la marca que la vende.
  */
-export async function buildLandingBrief(pedido: string): Promise<string> {
-  const [funnelTxt, perfilTxt, conocimientoTxt] = await Promise.all([
+export async function buildLandingBrief(pedido: string, opts: { pagina?: string } = {}): Promise<string> {
+  const [funnelTxt, perfilTxt, conocimientoTxt, funciones] = await Promise.all([
     (async () => {
       try {
         const f = await getFunnelDefault();
@@ -174,11 +181,14 @@ export async function buildLandingBrief(pedido: string): Promise<string> {
         return k.length ? formatKnowledge(k) : '';
       } catch { return ''; }
     })(),
+    funcionesParaLanding({ pedido, pagina: opts.pagina }),
   ]);
+  const deFuncion = bloquesDeFuncion(funciones);
 
   return [
+    ...deFuncion.antes,
     `### FUNNEL\n${funnelTxt}`,
-    `### PERFIL DEL NEGOCIO (oferta, promesa, precio, garantía)\n${perfilTxt}`,
+    `### ${deFuncion.rotuloPerfil}\n${perfilTxt}`,
     conocimientoTxt ? `### MÉTODO (conocimiento cargado)\n${conocimientoTxt}` : '',
   ].filter(Boolean).join('\n\n');
 }

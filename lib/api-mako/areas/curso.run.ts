@@ -32,6 +32,11 @@ import { darDeAltaAlumno } from '@/lib/curso-alta-alumno';
 import { canalesDeInvitacion } from '@/lib/curso-invitar-canales';
 import { frenarAltaPorTope, TopeDelPlanError } from '@/lib/topes-crm';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
+import { duplicarPrograma } from '@/lib/curso-duplicar';
+import { guardarAjusteEstilo } from '@/lib/curso-estilo-datos';
+import { eliminarPrograma, restaurarProgramaEliminado } from '@/app/customer-success/programa-datos';
+import { avisoDeCopia } from '@/app/customer-success/eliminar-programa';
+import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
 import {
   crearClase, moverClaseA, guardarCampoClase, guardarLeccion, borrarClase, restaurarClases, productoConModulos,
 } from '@/lib/curso-admin';
@@ -58,7 +63,7 @@ const str = (input: In, k: string): string | undefined => (typeof input[k] === '
 /** preparar() no lanza: «no pude leer» se dice como lo que es. */
 const revisando = (fn: (input: In, ctx: Ctx) => Promise<Preparado>) =>
   async (input: In, ctx: Ctx): Promise<Preparado> => {
-    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar el curso (${msg(e)}). Reintenta en un momento.` }; }
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar el curso (${msg(e)}). Reintenta en un momento.`, falla: true }; }
   };
 
 /** ejecutar() no lanza (tipos.ts): si algo falla, ok:false con el motivo. */
@@ -302,6 +307,78 @@ export const RUNNERS: Runners = {
   },
 
   // ── Módulos ─────────────────────────────────────────────────────────────────
+  // ── El programa entero (25/10/2026, ver curso.def.ts) ───────────────────────
+  duplicar_curso: {
+    preparar: revisando(async (input) => {
+      const productoId = num(input, 'productoId');
+      const c = await cursoDe(productoId);
+      if ('error' in c) return c;
+      const nombre = (await nombresDeCursos([productoId!], { conTitulo: true })).get(productoId!) ?? SIN_NOMBRE_EQUIPO;
+      return {
+        payload: { productoId },
+        resumen: `Duplicar «${nombre}»: un programa nuevo con sus ${c.modulos.length} módulos, sus clases y su configuración. No se copian los alumnos ni su avance.`,
+      };
+    }),
+    ejecutar: sinLanzar('duplicar el curso', async (p, ctx) => {
+      const r = await duplicarPrograma(ctx.ws, Number(p.productoId), autorDe(ctx));
+      if (!r.ok) return { ok: false, resumen: `No se pudo duplicar: ${r.error}` };
+      return { ok: true, resumen: `Listo: ${avisoDeCopia(r.copia)} (producto #${r.copia.productoId}).`, datos: { ...r.copia } };
+    }),
+  },
+
+  renombrar_curso: {
+    preparar: revisando(async (input) => {
+      const productoId = num(input, 'productoId');
+      const c = await cursoDe(productoId);
+      if ('error' in c) return c;
+      const nombre = (str(input, 'nombre') ?? '').replace(/\s+/g, ' ').trim();
+      if (nombre.length > 80) return { error: 'El nombre pasa de 80 letras.' };
+      const actual = (await nombresDeCursos([productoId!], { conTitulo: true })).get(productoId!) ?? SIN_NOMBRE_EQUIPO;
+      if (nombre && nombre === actual) return { error: `El curso ya se llama «${actual}».`, yaEstaba: true };
+      return {
+        payload: { productoId, nombre },
+        resumen: nombre ? `Renombrar «${actual}» a «${nombre}».` : `Volver «${actual}» al nombre de su oferta.`,
+      };
+    }),
+    ejecutar: sinLanzar('renombrar el curso', async (p, ctx) => {
+      const v = await guardarAjusteEstilo(Number(p.productoId), { tipo: 'titulo' }, String(p.nombre ?? '') || null, autorDe(ctx));
+      return { ok: true, resumen: v ? `Listo: el curso se llama «${v}».` : 'Listo: el curso vuelve al nombre de su oferta.', datos: { nombre: v } };
+    }),
+  },
+
+  eliminar_curso: {
+    preparar: revisando(async (input) => {
+      const productoId = num(input, 'productoId');
+      const c = await cursoDe(productoId);
+      if ('error' in c) return c;
+      const nombre = (await nombresDeCursos([productoId!], { conTitulo: true })).get(productoId!) ?? SIN_NOMBRE_EQUIPO;
+      return { payload: { productoId }, resumen: `Eliminar «${nombre}»: sus alumnos dejan de verlo. Se recupera con restaurar_curso o desde «Productos eliminados» del CRM.` };
+    }),
+    ejecutar: sinLanzar('eliminar el curso', async (p) => {
+      const r = await eliminarPrograma(Number(p.productoId));
+      if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
+      return { ok: true, resumen: r.deshacer ? 'Listo: el curso está eliminado. restaurar_curso lo devuelve.' : 'Ya estaba eliminado.', datos: { productoId: Number(p.productoId) } };
+    }),
+  },
+
+  restaurar_curso: {
+    preparar: revisando(async (input) => {
+      const productoId = num(input, 'productoId');
+      if (productoId == null) return { error: 'Falta el productoId.' };
+      // Eliminado, ya no está en `listar_cursos`: se pregunta por el producto directo, en ESTE negocio.
+      const db = await getTenantDb();
+      const { data, error } = await db.from('productos').select('id, nombre').eq('id', productoId).maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!data) return { error: `El producto #${productoId} no es de este negocio.` };
+      return { payload: { productoId }, resumen: `Restaurar «${String((data as { nombre: string }).nombre)}»: vuelve a Clients con su curso, y sus alumnos lo vuelven a ver.` };
+    }),
+    ejecutar: sinLanzar('restaurar el curso', async (p) => {
+      const r = await restaurarProgramaEliminado(Number(p.productoId));
+      if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
+      return { ok: true, resumen: 'Listo: el curso volvió.', datos: { productoId: Number(p.productoId) } };
+    }),
+  },
+
   crear_modulo_curso: {
     preparar: revisando(async (input) => {
       const productoId = num(input, 'productoId');

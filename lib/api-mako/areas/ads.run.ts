@@ -16,8 +16,26 @@
 // =============================================================================
 
 import 'server-only';
+import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB, cupoDe as cupoMB, actualizar as actualizarMB, PlanSinPiloto } from '@/lib/media-buyer/store';
+import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
+import { ORDEN_TACTICAS, TACTICAS, resolverTacticas, validarTacticas, type TacticaAuto } from '@/lib/media-buyer/tacticas';
+import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
+import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaMB } from '@/lib/media-buyer/datos';
+import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
+import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
+import { crearCampana as crearCampanaMB, prepararCampana as prepararCampanaMB } from '@/lib/media-buyer/campana';
+import type { LugarZona as LugarZonaMB } from '@/lib/media-buyer/zona';
+import { resolverLugares as resolverLugaresMB } from '@/lib/media-buyer/publico';
+import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
+import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambiarAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
+import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
+import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
+import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
+import { campanasRetenidas } from '@/lib/media-buyer/productos';
+import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
+import { quienChatea } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
@@ -36,9 +54,11 @@ import {
 } from '@/lib/meta-ads-create';
 import { cambiosDesdeEntrada, entradaDesdeApi, resumenDeCambios, type EntradaPublico } from '@/lib/publico-cambios';
 import { lugaresDesdeMeta } from '@/lib/meta-geo';
+import { publicoParaZernio } from '@/lib/zernio-publico';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
+import { ANUNCIO_DESDE_ARCHIVO_APAGADO, MAX_VIDEO_BYTES, errorDelArchivo, linkDeDescarga, rutaEnElBucket, tipoDelArchivo } from '@/lib/anuncio-desde-archivo';
 import { leerIncidentes } from '@/lib/meta-health-history';
 import { getSenalesRecon } from '@/lib/queries';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
@@ -134,6 +154,17 @@ function topePresupuesto(monto: number, actual: number, moneda: string, quien: s
 }
 
 /** Error de Meta al crear, con la traducción de los rechazos conocidos. */
+/** ¿El negocio tiene por dónde crear un anuncio por Zernio? Su Meta conectada por Zernio, o los anuncios por Zernio aparte del token.
+ *  Sin poder leerlo, no: el anuncio desde un archivo no tiene otro camino (Meta directo pide el creativo ya subido). */
+async function anunciosPorZernio(ws: number): Promise<boolean> {
+  try {
+    const { canalMeta } = await import('@/lib/meta-via');
+    if ((await canalMeta(ws)).via === 'zernio') return true;
+    const [{ conexionAnunciosZernio }, { credWs }] = await Promise.all([import('@/lib/zernio-ads'), import('@/lib/credenciales')]);
+    return !!(await conexionAnunciosZernio(ws, await credWs('META_AD_ACCOUNT_ID', ws)));
+  } catch { return false; }
+}
+
 function errorAlCrear(err: unknown, reusaGanador = false): Ejecutado {
   const env = metaErrorEnvelope(err);
   return { ok: false, resumen: `Meta rechazó la creación: ${explicarRechazoPublicacion(env.error_subcode, { reusaGanador }) ?? env.message}` };
@@ -736,14 +767,21 @@ export const RUNNERS: Runners = {
       if ((n.configuredStatus ?? n.effectiveStatus) !== 'PAUSED') return { error: `«${n.name}» no está pausada (${n.statusLabel}). Solo se elimina lo pausado: primero pausa.` };
       const hijos = nivel === 'campaign' ? a.h.adsets.filter((s) => s.parentId === id).length : nivel === 'adset' ? a.h.ads.filter((x) => x.parentId === id).length : 0;
       const etiqueta = nivel === 'campaign' ? 'la campaña' : nivel === 'adset' ? 'el conjunto' : 'el anuncio';
-      return { payload: { nivel, id }, resumen: `ELIMINAR en Meta ${etiqueta} «${n.name}» (${id})${hijos ? ` y sus ${hijos} ${nivel === 'campaign' ? 'conjuntos (con sus anuncios)' : 'anuncios'}` : ''}. No se puede deshacer.` };
+      // Por la conexión de Facebook, borrar el ÚLTIMO anuncio de un conjunto que creó Zernio (por MaKo) borra también el conjunto,
+      // y la campaña si queda vacía (OpenAPI de Zernio, DELETE /ads/{adId}). Con el token no pasaba: se dice antes de confirmar.
+      const { canalMeta } = await import('@/lib/meta-via');
+      const unico = nivel === 'ad' && n.parentId != null && a.h.ads.filter((x) => x.parentId === n.parentId).length === 1;
+      const cascada = unico && (await canalMeta()).via === 'zernio'
+        ? ' Es el único anuncio de su conjunto: si el conjunto lo creó MaKo, se borran también el conjunto y, si queda vacía, la campaña.'
+        : '';
+      return { payload: { nivel, id }, resumen: `ELIMINAR en Meta ${etiqueta} «${n.name}» (${id})${hijos ? ` y sus ${hijos} ${nivel === 'campaign' ? 'conjuntos (con sus anuncios)' : 'anuncios'}` : ''}. No se puede deshacer.${cascada}` };
     },
     ejecutar: async (p, ctx) => {
       const level = p.nivel === 'campaign' ? 'campaign' : p.nivel === 'ad' ? 'ad' : 'adset';
       // La guarda de preparar() sale de arbolMeta → getMetaHealth, una caché de 120 s
       // que metaWrite no invalida al cambiar un estado. Lo que decide un DELETE en
       // cascada se lee EN VIVO, justo antes, y en la MISMA cuenta que va a borrar.
-      const vivo = await estadoVivoMeta(String(p.id), ctx.ws);
+      const vivo = await estadoVivoMeta(String(p.id), ctx.ws, level);
       if ('error' in vivo) return { ok: false, resumen: `No borré nada: ${vivo.error}` };
       const estado = vivo.configurado ?? vivo.efectivo;
       if (estado !== 'PAUSED') return { ok: false, resumen: `No borré nada: en Meta ya no está pausada (estado actual: ${estado}). Pausa primero y vuelve a proponerlo.` };
@@ -759,7 +797,7 @@ export const RUNNERS: Runners = {
       if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
       if (!nombre) return { error: 'El nombre del anuncio es obligatorio.', faltan: ['nombre'] };
       let conj: { name: string; needsForm: boolean };
-      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).` }; }
+      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
       const opcional = (k: string) => str(input, k) || undefined;
       // Reusar un post arma el creativo con object_story_id y SIN textos
       // (lib/meta-ads-create.ts, createAdCreative): lo que venga en estos campos se tiraría en silencio.
@@ -797,6 +835,85 @@ export const RUNNERS: Runners = {
       } catch (err) { return errorAlCrear(err, creative?.source === 'existing'); }
     },
   },
+
+  // «Súbeme este anuncio» desde el grupo (29/10/2026, la llamada con Thiago; lib/anuncio-desde-archivo.ts). Baja el archivo (el del
+  // mensaje o el de un link de Drive), lo guarda en el bucket de los creativos y PROPONE el anuncio EN PAUSA; al aprobarlo, firma el
+  // link y lo crea por Zernio (`video.url` o `imageUrl`). ⚠️ Detrás de ZERNIO_ANUNCIOS_PROBADO: apagada, lo dice y no baja nada.
+  proponer_anuncio_desde_archivo: {
+    preparar: async (input, ctx) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { error: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      if (!(await metaConectada())) return { error: SIN_META };
+      // Sólo por Zernio: Meta directo pide el `video_id` o el `image_hash` ya subidos (proponer_agregar_anuncio).
+      if (!(await anunciosPorZernio(ctx.ws))) return { error: 'Para subir un anuncio desde un archivo hacen falta los anuncios por Zernio conectados (Integraciones → Meta → Conectar con Facebook). Mientras, súbelo desde el Media Buyer.' };
+      const adsetId = str(input, 'adsetId');
+      const nombre = str(input, 'nombre');
+      const origen = str(input, 'origen');
+      const textoPrincipal = str(input, 'primary_text');
+      if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
+      if (!nombre) return { error: 'El nombre del anuncio es obligatorio.', faltan: ['nombre'] };
+      if (!textoPrincipal) return { error: 'Falta el texto principal del anuncio.', faltan: ['primary_text'] };
+      let conj: { name: string; needsForm: boolean };
+      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
+      const destino = str(input, 'destination_url');
+      if (!conj.needsForm && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(destino)) return { error: 'Hace falta destination_url exacta con https.', faltan: ['destination_url'] };
+      if (conj.needsForm) return { error: `El conjunto «${conj.name}» optimiza por formulario: súbelo desde el Media Buyer, donde se elige el formulario.` };
+      // El archivo: el del mensaje (lo baja el turno del grupo) o el de un link.
+      let archivo: { bytes: Uint8Array; mime: string; nombre: string } | null = null;
+      if (origen === 'mensaje') {
+        const a = ctx.archivoDelMensaje ? await ctx.archivoDelMensaje().catch(() => null) : null;
+        if (!a) return { error: 'No veo una imagen ni un video en este mensaje. Mándalo junto con el pedido, o pásame el link.' };
+        archivo = { bytes: Uint8Array.from(Buffer.from(a.base64, 'base64')), mime: a.mime, nombre: a.nombre };
+      } else if (origen === 'link') {
+        const url = linkDeDescarga(str(input, 'link'));
+        if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
+        try {
+          const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
+          // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
+          if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
+          const mime = (r.headers.get('content-type') || '').split(';')[0];
+          const largo = Number(r.headers.get('content-length') || 0);
+          if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
+          archivo = { bytes: new Uint8Array(await r.arrayBuffer()), mime, nombre: url.split('/').pop() || 'archivo' };
+        } catch (err) { return { error: `No pude bajar el archivo (${err instanceof Error ? err.message : String(err)}).`, falla: true }; }
+      } else return { error: 'origen es «mensaje» o «link».', faltan: ['origen'] };
+      const tipo = tipoDelArchivo(archivo.mime, archivo.nombre);
+      const malo = errorDelArchivo(tipo, archivo.bytes.byteLength);
+      if (malo || !tipo) return { error: malo ?? 'Ese archivo no sirve como anuncio.' };
+      const { randomUUID } = await import('node:crypto');
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      const ruta = rutaEnElBucket(ctx.ws, randomUUID(), tipo, archivo.mime);
+      const { error: eSubida } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET)
+        .upload(ruta, archivo.bytes, { contentType: archivo.mime || (tipo === 'video' ? 'video/mp4' : 'image/jpeg'), upsert: false });
+      if (eSubida) return { error: `No pude guardar el archivo (${eSubida.message}).`, falla: true };
+      const opcional = (k: string) => str(input, k) || undefined;
+      return {
+        payload: { adsetId, nombre, ruta, media_type: tipo, primary_text: textoPrincipal, headline: opcional('headline'), cta_type: opcional('cta_type'), destination_url: destino },
+        resumen: `Crear EN PAUSA el anuncio «${nombre}» en el conjunto «${conj.name}» (${adsetId}) con ${tipo === 'video' ? 'el video' : 'la imagen'} que mandaste, por Zernio.`,
+      };
+    },
+    ejecutar: async (p) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { ok: false, resumen: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      // El link se firma AHORA (2 horas): la propuesta pudo esperar su aprobación más que eso.
+      const { data, error } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET).createSignedUrl(String(p.ruta), 7200);
+      if (error || !data?.signedUrl) return { ok: false, resumen: `No encontré el archivo guardado (${error?.message ?? 'sin link'}). Vuelve a mandarlo.` };
+      const video = p.media_type === 'video';
+      const creative: Creative = {
+        source: 'upload', media_type: video ? 'video' : 'image',
+        ...(video ? { video_url: data.signedUrl } : { thumbnail_url: data.signedUrl }),
+        primary_text: String(p.primary_text ?? ''), headline: p.headline ? String(p.headline) : undefined,
+        cta_type: p.cta_type ? (String(p.cta_type) as CTAType) : undefined, destination_url: p.destination_url ? String(p.destination_url) : undefined,
+      };
+      try {
+        const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
+        return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id } };
+      } catch (err) { return errorAlCrear(err); }
+    },
+  },
   proponer_editar_textos_anuncio: {
     preparar: async (input) => {
       if (!(await metaConectada())) return { error: SIN_META };
@@ -807,7 +924,7 @@ export const RUNNERS: Runners = {
       if (!Object.keys(edited).length) return { error: 'No hay nada que cambiar: manda al menos un texto.', faltan: ['primary_text'] };
       if (edited.destination_url && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(edited.destination_url)) return { error: 'destination_url tiene que ser una URL exacta con https.' };
       let actual: Awaited<ReturnType<typeof getAdForEdit>>;
-      try { actual = await getAdForEdit(adId); } catch (err) { return { error: `No pude leer el anuncio en Meta (${metaErrorEnvelope(err).message}).` }; }
+      try { actual = await getAdForEdit(adId); } catch (err) { return { error: `No pude leer el anuncio en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
       if (!actual.editable || !actual.creative) return { error: actual.reason ?? 'Este anuncio no permite editar sus textos (reusa un post o es dinámico).' };
       const antes = actual.creative as unknown as Record<string, unknown>;
       const cambios = Object.entries(edited).map(([k, v]) => `${k}: «${String(antes[k] ?? '').slice(0, 80)}» → «${v.slice(0, 80)}»`).join(' · ');
@@ -821,17 +938,24 @@ export const RUNNERS: Runners = {
     },
   },
   proponer_editar_publico_conjunto: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       if (!(await metaConectada())) return { error: SIN_META };
       const adsetId = str(input, 'adsetId');
       if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
       const entrada = entradaDesdeApi(input);
       if ('error' in entrada) return { error: entrada.error };
       let actual: Awaited<ReturnType<typeof getAdsetTargeting>>;
-      try { actual = await getAdsetTargeting(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).` }; }
+      try { actual = await getAdsetTargeting(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
       // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
       if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
         return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };
+      }
+      // Por la conexión de Facebook (Zernio) se escribe en SU forma: lo que no se puede mandar (Advantage+, un barrio) se dice
+      // antes del «sí», no al confirmar (lib/zernio-publico.ts).
+      const { canalMeta } = await import('@/lib/meta-via');
+      if ((await canalMeta(ctx.ws)).via === 'zernio') {
+        try { publicoParaZernio(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada)); }
+        catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
       }
       const cambios = resumenDeCambios(cambiosDesdeEntrada(actual.targeting, entrada));
       return { payload: { adsetId, entrada }, resumen: `Cambiar el público del conjunto «${actual.name}» (${adsetId}): ${cambios.join(' · ')}. Lo demás se conserva. Vuelve a revisión de Meta y reinicia el aprendizaje.` };
@@ -947,4 +1071,464 @@ export const RUNNERS: Runners = {
   proponer_agregar_avatar: { preparar: prepararAgregarVocab('avatares'), ejecutar: ejecutarVocab('avatares', 'agregar') },
   proponer_editar_avatar: { preparar: prepararEditarVocab('avatares'), ejecutar: ejecutarVocab('avatares', 'editar') },
   proponer_borrar_avatar: { preparar: prepararBorrarVocab('avatares'), ejecutar: ejecutarVocab('avatares', 'borrar') },
+
+  // ── El Media Buyer (25/10/2026): lo que hace la pantalla /ads-manager, por la API. La plata la mueve lib/media-buyer/ejecutar.ts
+  // (topes, lectura en vivo, reclamo antes de escribir): estos runners no escriben en Meta por su cuenta.
+  ver_media_buyer: {
+    leer: async (_input, ctx) => {
+      // Las mismas tres pestañas y los mismos 30 días que la pantalla (app/api/media-buyer/route.ts → GET).
+      const [config, { decisiones, existeTabla }, cupo, propios] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws), leerAgentesPropios(ctx.ws).catch(() => [])]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const modo = modoEfectivoMB(config.modo, cupo);
+      const r = resolverTacticas(config.tacticas, { piloto: modo === 'piloto', pilotoPermitido: cupo.piloto });
+      // Quién firma cada acción (lo de un agente propio lleva su id en la clave: `propia:<id>:…`).
+      const firma = (d: DecisionMB) => {
+        const id = d.tactica === 'manual' ? agenteDeClave(d.clave) : null;
+        return id ? propios.find((a) => a.id === id)?.nombre ?? 'Un agente propio' : NOMBRE_AGENTE[AGENTE_DE[d.tactica]];
+      };
+      const alertas = (config.ultimaCorridaInfo as { alertas?: unknown } | null)?.alertas;
+      const corta = (d: DecisionMB) => ({
+        id: d.id, estado: d.estado, tipo: d.tipo, tactica: d.tactica, agente: firma(d), nivel: d.nivel, entidad: d.entidadNombre, entidadId: d.entidadId,
+        titulo: d.titulo, titular: d.titular, porque: d.porque, numeros: d.numeros, antes: d.antes, despues: d.despues, moneda: d.moneda,
+        creada: d.creada, aplicada: d.aplicadaAt, por: d.origen === 'piloto' ? 'piloto automático' : d.aplicadaPor, error: d.error,
+        estrellas: d.estrellas, motivoDescarte: d.motivoDescarte,
+        variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
+      });
+      return J({
+        prendido: config.encendido, modo, resultado: config.kpi, objetivo: config.objetivo,
+        // El plan (MaKo Esencial: N recomendaciones por día y sin piloto automático; null = sin tope).
+        plan: { recomendacionesPorDia: cupo.recomendacionesDia, pilotoAutomatico: cupo.piloto },
+        topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
+        metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
+        cuentaPublicitaria: config.cuentaPublicitaria,
+        // DÓNDE y HASTA (zona_media_buyer, hasta_media_buyer): dónde prende y sube, y cuándo termina cada campaña.
+        zona: config.zona, hasta: config.hasta, hastaCampanas: config.hastaCampanas,
+        ultimaCorrida: config.ultimaCorrida,
+        // Los agentes, como el panel «N activos» de la pantalla (app/ads-manager/Agentes.tsx).
+        agentes: AGENTES_MAKO.map((a) => ({ agente: a, nombre: NOMBRE_AGENTE[a], que: QUE_HACE[a], estado: estadoDeAgente(a, r), tacticas: TACTICAS_DE[a] })),
+        agentesPropios: propios.map((a) => ({ agenteId: a.id, nombre: a.nombre, regla: a.regla, cada: a.cada, estado: a.estado })),
+        // Lo que Protect vio roto la última vez que miró la cuenta (lib/media-buyer/protect.ts).
+        alertas: Array.isArray(alertas) ? (alertas as AlertaMB[]).map((x) => ({ tipo: x.tipo, gravedad: x.gravedad, titulo: x.titulo, detalle: x.detalle })) : [],
+        abiertas: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado)).map(corta),
+        hechas: decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha').slice(0, 30).map(corta),
+        descartadas: decisiones.filter((d) => d.estado === 'descartada' || d.estado === 'vencida').slice(0, 30).map(corta),
+      });
+    },
+  },
+  lanzar_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio (míralas con ver_media_buyer).` };
+      if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
+      const presupuesto = num(input, 'presupuesto');
+      if (presupuesto != null && d.despues?.presupuesto == null) return { error: 'Esa decisión no cambia un presupuesto: no lleva monto.' };
+      const variaciones = Array.isArray(input.variaciones) ? input.variaciones.filter((x): x is string => typeof x === 'string').slice(0, 20) : null;
+      if (variaciones && !d.variaciones?.length) return { error: 'Esa decisión no tiene variaciones para elegir.' };
+      if (variaciones) {
+        const ids = new Set(d.variaciones!.map((v) => v.id));
+        const ajenas = variaciones.filter((v) => !ids.has(v));
+        if (ajenas.length || !variaciones.length) return { error: `Esas variaciones no son de la decisión (las suyas: ${[...ids].join(', ')}).` };
+      }
+      // Los textos de la IA salen sólo leídos: la confirmación los lista y van explícitos (sin esto, las que marcó el Diseñador).
+      const salen = d.variaciones?.length ? (variaciones ?? d.variaciones.filter((v) => v.elegida).map((v) => v.id)) : null;
+      if (salen && !salen.length) return { error: 'Esa decisión no tiene ningún texto elegido: pasa los ids en variaciones.' };
+      // Lo que sale ENTERO (gancho, texto y título): la confirmación es lo único que se lee antes de que se publique.
+      const textos = salen ? d.variaciones!.filter((v) => salen.includes(v.id))
+        .map((v) => `«${[v.gancho, v.textoPrincipal, v.titulo ? `Título: ${v.titulo}` : null].filter(Boolean).join(' / ')}»`).join(' · ') : '';
+      const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, salen ? `${salen.length} ${salen.length === 1 ? 'texto' : 'textos'}` : null].filter(Boolean).join(', ');
+      return { payload: { decisionId: id, presupuesto, variaciones: salen }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const quien = quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)';
+      const opts = { presupuesto: payload.presupuesto == null ? undefined : Number(payload.presupuesto), elegidas: Array.isArray(payload.variaciones) ? (payload.variaciones as string[]) : undefined };
+      const r = await lanzarMB(ctx.ws, String(payload.decisionId), { nombre: quien, origen: 'persona' }, opts);
+      return r.ok ? { ok: true, resumen: `Lanzada: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
+    },
+  },
+  deshacer_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.estado !== 'aplicada') return { error: 'Sólo se deshace una decisión aplicada.' };
+      return { payload: { decisionId: id }, resumen: `Deshacer: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await deshacerMB(ctx.ws, String(payload.decisionId), quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return r.ok ? { ok: true, resumen: `Deshecha: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
+    },
+  },
+  descartar_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
+      const motivo = str(input, 'motivo').slice(0, 300) || null;
+      return { payload: { decisionId: id, motivo }, resumen: `Descartar: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const d = await reclamarMB(ctx.ws, String(payload.decisionId), ['abierta', 'fallida', 'bloqueada'], { estado: 'descartada', motivo_descarte: (payload.motivo as string | null) ?? null });
+      return d ? { ok: true, resumen: `Descartada: ${d.titulo}.` } : { ok: false, resumen: 'Esa decisión ya no estaba abierta.' };
+    },
+  },
+  reabrir_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.estado !== 'descartada' && d.estado !== 'vencida') return { error: 'Sólo se vuelve a abrir una descartada o vencida.' };
+      return { payload: { decisionId: id }, resumen: `Reabrir: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      // Lo mismo que el botón de la pantalla (route.ts → reabrir): vuelve a correr sus 48 h desde ahora.
+      const d = await reclamarMB(ctx.ws, String(payload.decisionId), ['descartada', 'vencida'], { estado: 'abierta', motivo_descarte: null, creada: new Date().toISOString() });
+      return d ? { ok: true, resumen: `Abierta de nuevo: ${d.titulo}.` } : { ok: false, resumen: 'Esa decisión ya no estaba descartada.' };
+    },
+  },
+  calificar_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const n = num(input, 'estrellas');
+      if (n == null || !Number.isInteger(n) || n < 1 || n > 5) return { error: 'estrellas va de 1 a 5, entero.', faltan: ['estrellas'] };
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.estado !== 'aplicada' && d.estado !== 'deshecha') return { error: 'Sólo se califica una decisión hecha.' };
+      return { payload: { decisionId: id, estrellas: n }, resumen: `${n} ${n === 1 ? 'estrella' : 'estrellas'} a: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await actualizarMB(ctx.ws, String(payload.decisionId), { estrellas: Number(payload.estrellas) });
+      return { ok: true, resumen: 'Calificación guardada.' };
+    },
+  },
+  hooks_al_video_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.tipo !== 'variaciones_hook') return { error: 'Sólo las variaciones de hook de un video van al Video Generator.' };
+      const variaciones = Array.isArray(input.variaciones) ? input.variaciones.filter((x): x is string => typeof x === 'string').slice(0, 20) : null;
+      const ids = new Set((d.variaciones ?? []).map((v) => v.id));
+      if (variaciones && (!variaciones.length || variaciones.some((v) => !ids.has(v)))) return { error: `Esos hooks no son de la decisión (los suyos: ${[...ids].join(', ')}).` };
+      const cuantos = variaciones ? variaciones.length : (d.variaciones ?? []).filter((v) => v.elegida).length;
+      return { payload: { decisionId: id, variaciones }, resumen: `Llevar ${cuantos} ${cuantos === 1 ? 'hook' : 'hooks'} de «${d.entidadNombre}» al Video Generator, como guiones.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const d = await leerDecisionMB(ctx.ws, String(payload.decisionId));
+      if (!d) return { ok: false, resumen: 'Esa decisión ya no está.' };
+      // Lo mismo que el botón de la pantalla (route.ts → hooks_a_video): las elegidas pisan la marca guardada.
+      const elegidas = Array.isArray(payload.variaciones) ? new Set(payload.variaciones as string[]) : null;
+      const r = await llevarHooksAlVideoMB(ctx.ws, elegidas ? { ...d, variaciones: (d.variaciones ?? []).map((v) => ({ ...v, elegida: elegidas.has(v.id) })) } : d);
+      return r.ok ? { ok: true, resumen: `En el Video Generator: ${r.cargados} ${r.cargados === 1 ? 'guion nuevo' : 'guiones nuevos'}${r.salteados ? ` (${r.salteados} ya estaban)` : ''}.` } : { ok: false, resumen: r.error };
+    },
+  },
+  analizar_cuenta_media_buyer: {
+    preparar: async (_input, ctx) => {
+      const config = await leerConfigMB(ctx.ws);
+      if (!config.existeTabla) return { error: 'El Media Buyer todavía no está instalado (falta la migración 0332).' };
+      if (!config.encendido) return { error: 'El Media Buyer está apagado: préndelo en /ads-manager (o con modo_media_buyer) para que mire la cuenta.' };
+      return { payload: {}, resumen: 'Que el Media Buyer mire la cuenta ahora y deje sus decisiones (sin lanzar ninguna).' };
+    },
+    ejecutar: async (_payload, ctx) => {
+      const r = await analizarCuentaMB(ctx.ws, { quien: quienChatea(ctx)?.nombre ?? 'MaKo', soloProponer: true });
+      if (r.estado !== 'ok') return { ok: false, resumen: r.mensaje ?? `El Media Buyer no pudo mirar la cuenta (${r.estado}).` };
+      return { ok: true, resumen: `Listo: ${r.nuevas ?? 0} decisiones nuevas para revisar en /ads-manager.${r.sinVariaciones?.length ? ` Sin variaciones: ${r.sinVariaciones[0]}` : ''}` };
+    },
+  },
+  modo_media_buyer: {
+    preparar: async (input, ctx) => {
+      const modo = str(input, 'modo');
+      if (!['piloto', 'propone', 'apagado'].includes(modo)) return { error: 'modo tiene que ser piloto, propone o apagado.', faltan: ['modo'] };
+      if (modo === 'piloto' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const que = modo === 'piloto' ? 'Prender el piloto automático: MaKo lanza solo sus decisiones, dentro de los topes.'
+        : modo === 'propone' ? 'Dejar el Media Buyer proponiendo: cada decisión espera a una persona.' : 'Apagar el Media Buyer: no analiza ni lanza nada.';
+      return { payload: { modo }, resumen: que };
+    },
+    ejecutar: async (payload, ctx) => {
+      const modo = String(payload.modo);
+      const cambio = modo === 'apagado' ? { encendido: false } : { encendido: true, modo: modo === 'piloto' ? 'piloto' as const : 'propone' as const };
+      await guardarConfigMB(ctx.ws, cambio, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: modo === 'apagado' ? 'Media Buyer apagado.' : modo === 'piloto' ? 'Piloto automático prendido.' : 'El Media Buyer queda proponiendo.' };
+    },
+  },
+  topes_media_buyer: {
+    preparar: async (input) => {
+      const cambio: Record<string, unknown> = {};
+      for (const k of ['subidaMaxPctDia', 'presupuestoMaxDia', 'objetivo'] as const) { const v = num(input, k); if (v != null) cambio[k] = v; }
+      const kpi = str(input, 'kpi');
+      if (kpi) cambio.kpi = kpi;
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['subidaMaxPctDia', 'presupuestoMaxDia', 'kpi', 'objetivo'] };
+      const v = validarCambioMB(cambio);
+      if (!v.ok) return { error: v.error };
+      const partes = [
+        cambio.subidaMaxPctDia != null ? `subida máxima ${cambio.subidaMaxPctDia}% por día` : null,
+        cambio.presupuestoMaxDia != null ? `presupuesto máximo US$ ${cambio.presupuestoMaxDia} por día` : null,
+        cambio.kpi ? `resultado: ${cambio.kpi}` : null,
+        cambio.objetivo != null ? `objetivo US$ ${cambio.objetivo} por resultado` : null,
+      ].filter(Boolean);
+      return { payload: cambio, resumen: `Topes del Media Buyer: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, payload, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Topes del Media Buyer guardados.' };
+    },
+  },
+  metas_media_buyer: {
+    preparar: async (input) => {
+      const cambio: Record<string, number | null> = {};
+      for (const k of ['metaVentasMes', 'metaGastoMes'] as const) { const v = num(input, k); if (v != null) cambio[k] = v > 0 ? v : null; }
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['metaVentasMes', 'metaGastoMes'] };
+      const v = validarCambioMB(cambio);
+      if (!v.ok) return { error: v.error };
+      const de = (x: number | null) => (x == null ? 'sin meta' : `US$ ${x}`);
+      const partes = [
+        'metaVentasMes' in cambio ? `caja del mes: ${de(cambio.metaVentasMes)}` : null,
+        'metaGastoMes' in cambio ? `gasto del mes: ${de(cambio.metaGastoMes)}` : null,
+      ].filter(Boolean);
+      return { payload: cambio, resumen: `Metas del Media Buyer: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, payload, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Metas del mes guardadas.' };
+    },
+  },
+  cuenta_media_buyer: {
+    preparar: async (input) => {
+      const cuenta = str(input, 'cuentaPublicitaria');
+      const v = validarCambioMB({ cuentaPublicitaria: cuenta || null });
+      if (!v.ok) return { error: v.error };
+      const act = (v.fila.cuenta_publicitaria as string | null) ?? null;
+      return { payload: { cuentaPublicitaria: act }, resumen: act ? `El Media Buyer trabaja en la cuenta ${act}.` : 'El Media Buyer usa la cuenta de Integraciones.' };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { cuentaPublicitaria: (payload.cuentaPublicitaria as string | null) ?? null }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Cuenta del Media Buyer guardada.' };
+    },
+  },
+  ver_automatizaciones_media_buyer: {
+    leer: async (_input, ctx) => {
+      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws)]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const r = resolverTacticas(config.tacticas, { piloto: modoEfectivoMB(config.modo, cupo) === 'piloto', pilotoPermitido: cupo.piloto });
+      return J({
+        pilotoEnElPlan: cupo.piloto,
+        tacticas: ORDEN_TACTICAS.map((t) => {
+          const ds = decisiones.filter((d) => d.tactica === t);
+          return {
+            tactica: t, nombre: TACTICAS[t].nombre, que: TACTICAS[t].que, estado: r[t].estado,
+            umbrales: TACTICAS[t].parametros.map((p) => ({ id: p.id, nombre: p.nombre, valor: r[t].p[p.id], recomendado: p.recomendado, minimo: p.min, maximo: p.max })),
+            campanas: r[t].campanas ? [...r[t].campanas] : 'toda la cuenta',
+            recomendaciones30d: ds.length, hechas30d: ds.filter((d) => d.estado === 'aplicada').length,
+            ultima: ds.map((d) => d.creada).sort().pop() ?? null,
+          };
+        }),
+      });
+    },
+  },
+  ver_campanas_media_buyer: {
+    leer: async (_input, ctx) => {
+      // Lo mismo que leen la pantalla (route.ts → campanas, subir_preparar, estado_zernio) y el agente: leerDatosCuenta.
+      let d: Awaited<ReturnType<typeof leerDatosCuentaMB>>;
+      try { d = await leerDatosCuentaMB(ctx.ws); } catch (e) {
+        if (e instanceof SinCuentaMB) return J({ conectada: false, nota: e.message });
+        throw e;
+      }
+      // `prendido` es el interruptor PROPIO (lo que se elige en una táctica), como la lista de la pantalla.
+      const fila = (n: (typeof d.arbol)[number]) => ({ id: n.id, nombre: n.nombre, prendido: n.configurado === 'ACTIVE', presupuestoDia: n.presupuestoDia });
+      // Por producto, como la pestaña Campañas (lienzoMediaBuyer, con la cuenta que ya se leyó). Si el CRM falla, sin esta parte.
+      const config = await leerConfigMB(ctx.ws);
+      const lz = await lienzoMediaBuyer(ctx.ws, config.kpi, config.objetivo, undefined, d).catch(() => null);
+      const deLienzo = (c: { id: string; nombre: string; gasto: number; resultados: number; costo: number | null }) => ({ id: c.id, nombre: c.nombre, gastoMes: c.gasto, resultadosMes: c.resultados, costoMes: c.costo });
+      const retenidas = campanasRetenidas(d.arbol);
+      return J({
+        conectada: true, fuente: d.fuente, cuenta: d.adAccountId, cuentaNombre: d.cuentaNombre ?? null, moneda: d.moneda, avisos: d.avisos,
+        // MK-03 (27/10/2026): un borrador del Administrador no existe para la API. Que MaKo no conteste «no la encuentro».
+        borradores: 'Un borrador del Administrador de anuncios no llega por la API: si falta una campaña, está sin publicar o en otra cuenta (compara el número).',
+        ...(lz?.aviso ? { aviso: lz.aviso } : {}),
+        campanas: d.arbol.filter((n) => n.nivel === 'campaign' && n.configurado !== 'DELETED').map((c) => ({
+          ...fila(c),
+          ...(retenidas.has(c.id) ? { retenidaEnMeta: 'Meta la retuvo: no entrega hasta que un admin la publique en el Administrador de anuncios.' } : {}),
+          conjuntos: d.arbol.filter((s) => s.nivel === 'adset' && s.parentId === c.id && s.configurado !== 'DELETED').map(fila),
+        })),
+        ...(lz ? {
+          resultado: config.kpi,
+          porProducto: lz.productos.filter((p) => p.campanas.length).map((p) => ({ ...deLienzo(p), campanas: p.campanas.map(deLienzo) })),
+          sinProducto: lz.sinProducto.map(deLienzo),
+        } : {}),
+      });
+    },
+  },
+  automatizacion_media_buyer: {
+    preparar: async (input, ctx) => {
+      const t = str(input, 'tactica') as TacticaAuto;
+      if (!(ORDEN_TACTICAS as string[]).includes(t)) return { error: 'tactica tiene que ser una de las de ver_automatizaciones_media_buyer.', faltan: ['tactica'] };
+      const cambio: Record<string, unknown> = {};
+      const estado = str(input, 'estado');
+      if (estado) cambio.estado = estado;
+      if (input.umbrales != null) cambio.parametros = input.umbrales;
+      if (Array.isArray(input.campanas)) cambio.campanas = input.campanas.length ? input.campanas : null;
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['estado', 'umbrales', 'campanas'] };
+      const config = await leerConfigMB(ctx.ws);
+      const actual = config.tacticas[t] ?? {};
+      const tacticas = { ...config.tacticas, [t]: { ...actual, ...cambio, parametros: { ...(actual.parametros ?? {}), ...((cambio.parametros as Record<string, number>) ?? {}) } } };
+      const v = validarTacticas(tacticas);
+      if (!v.ok) return { error: v.error };
+      if (v.valor[t]?.estado === 'automatica' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const partes = [
+        estado ? `queda ${estado === 'automatica' ? 'automática' : estado}` : null,
+        cambio.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
+        'campanas' in cambio ? (cambio.campanas ? `cubre ${(cambio.campanas as string[]).length} campañas` : 'cubre toda la cuenta') : null,
+      ].filter(Boolean);
+      return { payload: { tacticas: v.valor }, resumen: `${TACTICAS[t].nombre}: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { tacticas: payload.tacticas as never }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Táctica del Media Buyer guardada.' };
+    },
+  },
+  // ── Los agentes y la Biblioteca (25/10/2026): lo mismo que el panel «N activos» y la pestaña Biblioteca de la pantalla.
+  modo_agente_media_buyer: {
+    preparar: async (input, ctx) => {
+      const a = str(input, 'agente') as AgenteMako;
+      const estado = str(input, 'estado') as EstadoAgente;
+      if (!AGENTES_MAKO.includes(a)) return { error: 'agente tiene que ser estratega, media_buyer, disenador o protect.', faltan: ['agente'] };
+      if (!(estado in TACTICA_DE_ESTADO)) return { error: 'estado tiene que ser pausado, propone o automatico.', faltan: ['estado'] };
+      if (estado === 'automatico' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const config = await leerConfigMB(ctx.ws);
+      const v = validarTacticas(cambiarAgente(config.tacticas, a, TACTICA_DE_ESTADO[estado]));
+      if (!v.ok) return { error: v.error };
+      const que = estado === 'pausado' ? 'queda pausado' : estado === 'propone' ? 'propone y espera a una persona' : 'lanza solo, dentro de los topes';
+      return { payload: { tacticas: v.valor }, resumen: `${NOMBRE_AGENTE[a]} ${que}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { tacticas: payload.tacticas as never }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Agente del Media Buyer guardado.' };
+    },
+  },
+  agente_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'agenteId');
+      const lista = await leerAgentesPropios(ctx.ws);
+      const actual = id ? lista.find((a) => a.id === id) : null;
+      if (id && !actual) return { error: `No encuentro el agente ${id} en este negocio (míralos con ver_media_buyer).` };
+      const cambio: Record<string, string> = {};
+      for (const k of ['nombre', 'regla', 'cada', 'estado'] as const) { const v = str(input, k); if (v) cambio[k] = v; }
+      if (actual && !Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['nombre', 'regla', 'cada', 'estado'] };
+      const agente = { ...(actual ?? { id: `ag-${Date.now().toString(36)}`, cada: 'dia', estado: 'activo' }), ...cambio };
+      const { validarAgente } = await import('@/lib/media-buyer/agentes-propios');
+      const v = validarAgente(agente);
+      if (!v.ok) return { error: v.error, faltan: actual ? undefined : ['nombre', 'regla'] };
+      const cada = v.valor.cada === 'semana' ? 'los lunes' : 'cada día';
+      return { payload: { agente: v.valor }, resumen: `${actual ? 'Cambiar' : 'Crear'} el agente «${v.valor.nombre}» (${cada}${v.valor.estado === 'pausado' ? ', pausado' : ''}): ${v.valor.regla}` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await guardarAgentePropio(ctx.ws, payload.agente);
+      return r.ok ? { ok: true, resumen: `Agente guardado: lo mira tu IA en la próxima vuelta del Media Buyer.` } : { ok: false, resumen: r.error };
+    },
+  },
+  borrar_agente_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'agenteId');
+      const a = (await leerAgentesPropios(ctx.ws)).find((x) => x.id === id);
+      if (!a) return { error: `No encuentro el agente ${id} en este negocio (míralos con ver_media_buyer).` };
+      return { payload: { agenteId: id }, resumen: `Borrar el agente «${a.nombre}».` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await borrarAgentePropio(ctx.ws, String(payload.agenteId));
+      return r.ok ? { ok: true, resumen: 'Agente borrado.' } : { ok: false, resumen: r.error };
+    },
+  },
+  ver_biblioteca_media_buyer: {
+    leer: async (_input, ctx) => {
+      // Lo mismo que la pestaña Biblioteca (app/ads-manager/MediaBuyer.tsx → <Biblioteca>): las mismas decisiones y los mejores del mes.
+      const [config, { decisiones, existeTabla }] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30)]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const vista = await vistaMediaBuyer(ctx.ws, config.kpi, config.objetivo).catch(() => null);
+      const esVariacion = (d: DecisionMB) => d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook';
+      const corta = (d: DecisionMB) => ({
+        decisionId: d.id, tipo: d.tipo, de: d.entidadNombre, titulo: d.titulo, porque: d.porque, creada: d.creada, aplicada: d.aplicadaAt,
+        variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
+      });
+      return J({
+        resultado: config.kpi,
+        paraRevisar: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado) && esVariacion(d)).map(corta),
+        mejores: (vista?.mejores ?? []).map((a) => ({ adId: a.adId, nombre: a.nombre, campana: a.campana, gastoMes: a.gasto, resultadosMes: a.resultados, costoMes: a.costo })),
+        lanzados: decisiones.filter((d) => d.estado === 'aplicada' && (esVariacion(d) || d.tipo === 'crear_anuncios')).map(corta),
+      });
+    },
+  },
+  // DÓNDE, HASTA y «lánzame una campaña» (29/10/2026): lib/media-buyer/zona.ts y campana.ts, la misma puerta que la pantalla.
+  zona_media_buyer: {
+    preparar: async (input, ctx) => {
+      const v = validarCambioMB({ zona: (Array.isArray(input.zona) ? input.zona : []) as never });
+      if (!v.ok) return { error: v.error };
+      // Cada lugar confirmado contra Meta (su id con su nombre): la confirmación muestra lo que dice Meta, no lo que mandó el modelo.
+      const r = await resolverLugaresMB(ctx.ws, v.fila.zona as LugarZonaMB[]);
+      if (!r.ok) return { error: r.error, ...(r.error.startsWith('No pude') ? { falla: true as const } : {}) };
+      const zona = r.lugares;
+      return { payload: { zona }, resumen: zona.length ? `El Media Buyer prende y sube presupuestos sólo en: ${zona.map((l) => l.nombre).join(', ')}.` : 'El Media Buyer trabaja en toda la cuenta (sin zona).' };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { zona: payload.zona as LugarZonaMB[] }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Zona del Media Buyer guardada.' };
+    },
+  },
+  hasta_media_buyer: {
+    preparar: async (input, ctx) => {
+      const hasta = str(input, 'hasta') || null;
+      const campanaId = str(input, 'campanaId') || null;
+      const v = validarCambioMB(campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta });
+      if (!v.ok) return { error: v.error };
+      let nombre: string | null = null;
+      if (campanaId) {
+        // La campaña tiene que ser de la cuenta: se busca en la lectura del Media Buyer (la misma de la pantalla).
+        const datos = await leerDatosCuentaMB(ctx.ws).catch(() => null);
+        const c = datos?.arbol.find((n) => n.nivel === 'campaign' && n.id === campanaId);
+        if (!datos) return { error: 'No pude leer tu cuenta de Meta para encontrar esa campaña.', falla: true };
+        if (!c) return { error: `La campaña ${campanaId} no está en tu cuenta (míralas con ver_campanas_media_buyer).` };
+        nombre = c.nombre;
+      }
+      const que = nombre ? `la campaña «${nombre}»` : 'toda la cuenta';
+      const fecha = hasta ? `${hasta.slice(8, 10)}/${hasta.slice(5, 7)}/${hasta.slice(0, 4)}` : null;
+      return {
+        payload: { hasta, campanaId },
+        resumen: fecha ? `Fecha de fin de ${que}: el ${fecha}. Pasada, MaKo la pausa; desde 3 días antes no sube presupuestos.` : `Sin fecha de fin para ${que}.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const hasta = (payload.hasta as string | null) ?? null;
+      const campanaId = (payload.campanaId as string | null) ?? null;
+      await guardarConfigMB(ctx.ws, campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Fecha de fin guardada.' };
+    },
+  },
+  proponer_crear_campana: {
+    preparar: async (input, ctx) => {
+      // Los parámetros planos de la API (lo que se edita en /mako/revisar) → la entrada de la pantalla «Nueva campaña».
+      const tipo = str(input, 'creativoTipo');
+      const creativo = tipo === 'anuncio' ? { tipo, adId: str(input, 'anuncioId') }
+        : tipo === 'video_cuenta' ? { tipo, videoId: str(input, 'videoId') }
+          : tipo === 'video' ? { tipo, url: str(input, 'videoUrl') }
+            : { tipo, url: str(input, 'imagenUrl') };
+      const entrada: Record<string, unknown> = {
+        nombre: str(input, 'nombre'), objetivo: str(input, 'objetivo'), presupuestoDia: num(input, 'presupuestoDia'),
+        lugares: Array.isArray(input.lugares) ? input.lugares : [], hasta: str(input, 'hasta') || null,
+        edadMin: num(input, 'edadMin'), edadMax: num(input, 'edadMax'),
+        formularioId: str(input, 'formularioId') || null, pixelId: str(input, 'pixelId') || null, evento: str(input, 'evento') || null,
+        url: str(input, 'url') || null, creativo, texto: str(input, 'texto'), titulo: str(input, 'titulo') || null,
+        boton: str(input, 'boton') || null, enPausa: input.enPausa === true,
+      };
+      const p = await prepararCampanaMB(ctx.ws, entrada);
+      if (!p.ok) return { error: p.error, ...(p.faltan ? { faltan: p.faltan } : {}), ...(p.falla ? { falla: true as const } : {}) };
+      return { payload: { entrada }, resumen: p.resumen };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await crearCampanaMB(ctx.ws, (payload.entrada ?? {}) as Record<string, unknown>, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return r.ok
+        // Nace en pausa (campana-reglas.ts → CAMPANA_PRENDIDA_MEDIDA); lo que la relectura vio distinto va ENTERO en el resumen.
+        ? { ok: true, resumen: `Campaña creada en Meta (${r.campaignId}). ${r.resumen}${r.avisos.length ? ` Ojo: ${r.avisos.join(' ')}` : ''}`, datos: { campaignId: r.campaignId, adSetId: r.adSetId, adId: r.adId, decisionId: r.decisionId, avisos: r.avisos } }
+        : { ok: false, resumen: r.error };
+    },
+  },
 };

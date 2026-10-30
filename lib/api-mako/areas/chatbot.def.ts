@@ -56,7 +56,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ficha_secuencia_mensajes', area: 'chatbot', tipo: 'lectura',
     titulo: 'Ficha de una secuencia',
-    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue» —la tarjeta a la que lleva el toque, por el puerto «btn:<id>»— o «link»; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -197,7 +197,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'inscripciones_lead', area: 'chatbot', tipo: 'lectura',
     titulo: 'Secuencias en las que está un lead',
-    descripcion: 'Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.',
+    descripcion: 'Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». espera_toque: está parado en un DM con botones, esperando que toque uno (los títulos). Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.',
     parametros: [{ nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -239,12 +239,15 @@ export const DEFS: readonly OperacionDef[] = [
   // haga llamando justamente a esta función» y «cada automatización nueva, debe tener una URL que se pueda abrir». La MISMA
   // función que la caja del modal (`crearFlujoConIA`, lib/flujo-ia-crear.ts).
   //   · `chat` y no `pantalla`: crea algo PAUSADO y gratis; la automatización misma es la pantalla editable.
-  //   · SIN `http`: tarda minutos y /api/v1 corta a 60 s (AGENTS.md, regla 3), y gasta la IA del negocio.
+  //   · CON `http` (25/10/2026, el Cerebro: «todo MaKo se debe poder utilizar por API», y Leandro arma con su Claude). Era
+  //     SIN: tardaba minutos y /api/v1 corta a 60 s (AGENTS.md, regla 3). Hoy cada intento se acota al plazo (`hastaMs`):
+  //     por HTTP el modelo tiene 40 s (`PLAZO_CREAR_HTTP_MS`) y, si no le alcanza, vuelve un error sin escribir nada.
+  //   · `costo: 'ia'`: escribe con la IA del negocio.
   //   · Un flujo NO la corre (`preparar` lo rechaza y `accionesParaFlujo` la saca del lienzo).
   {
     id: 'crear_automatizacion_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización con IA',
-    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual en el grupo y vuelve a llamar con lo que conteste en el parámetro que dice faltan (canal, producto, evento, horario o quien), junto con el mismo pedido. Si el pedido dice cada cuánto sale («los martes a las 3»), MaKo arma un Recurrente con ESE horario.',
+    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan (canal, producto, evento, horario o quien), con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.',
     parametros: [
       { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué tiene que hacer, con las palabras de la persona.' },
       // DUODÉCIMA TANDA (§2.4): las respuestas a las preguntas de MaKo (`preguntaAntes`). El código las resuelve contra
@@ -257,7 +260,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'quien', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»).' },
     ],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre); si es un Recurrente, con «Cada vez que vuelve a entrar»',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // Crear desde la GALERÍA (undécima tanda): la MISMA función que «＋ Nueva» (`crearDesdePlantilla`, lib/plantilla-crear.ts),
   // con las puertas de siempre. `chat`: crea algo PAUSADO y gratis, y la automatización misma es la pantalla editable.
@@ -332,21 +335,18 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'configurar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Configurar una automatización',
-    descripcion: 'PROPONE el horario de oficina o el GOTEO de sus WhatsApp o de sus emails (uno cada N minutos y hasta M por día, adentro del tope de la línea) de UNA automatización (lo mismo que su tuerca en Automations). Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minutos y hasta M por día, adentro del tope de la línea; UNO SOLO para todos sus canales —WhatsApp, email, Instagram y Messenger—, y cada canal cuenta sus mensajes), lo mismo que su tuerca en Automations. Sin horario propio, usa el del negocio. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [
       pSecuenciaId,
       { nombre: 'horario', tipo: 'string', enum: ['propio', 'negocio', 'sin_horario'], descripcion: 'opcional: «propio» (con desde, hasta y dias), «negocio» para volver al del negocio, o «sin_horario» para que mande a cualquier hora.' },
       { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
-      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos WhatsApp de esta automatización (uno cada N minutos).' },
-      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 150, descripcion: 'opcional: el goteo, cuántos WhatsApp de esta automatización como mucho en 24 h (adentro del tope de la línea).' },
-      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo.' },
-      { nombre: 'goteoEmailMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo del email, minutos entre dos emails de esta automatización (uno cada N minutos).' },
-      { nombre: 'goteoEmailPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el goteo del email, cuántos emails de esta automatización como mucho en 24 h (adentro del tope de email de la línea).' },
-      { nombre: 'sinGoteoEmail', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo del email.' },
+      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos mensajes de esta automatización por un mismo canal (uno cada N minutos).' },
+      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope por día, cuántos mensajes de esta automatización como mucho en 24 h por cada canal (adentro del tope de la línea).' },
+      { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
     ],
-    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo, de WhatsApp y de email, de esa automatización)',
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo de esa automatización, uno solo para todos sus canales)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {
@@ -428,6 +428,43 @@ export const DEFS: readonly OperacionDef[] = [
       pSecuenciaId,
     ],
     reversible: false, escribe: 'reactiva su inscripción en nutricion_inscripciones desde el primer paso (desliga los envíos y borradores de la corrida anterior, sin borrarlos), deja historial del lead y dispara el primer envío si ya toca',
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // LA DIFUSIÓN (28/10/2026, pedido de Martín por Leila): un mensaje a muchos leads, como UNA automatización de una sola vez
+  // (lib/difusion.ts). La hoja del CRM la arma con sus tarjetas; esto es lo que MaKo propone con UNA confirmación («mandale a
+  // los 394 de Contacto nuevo…»). SIN http: le escribe a muchos, y el que lo pide tiene que ver el ritmo antes del «sí».
+  {
+    id: 'difundir_a_leads', aTerceros: true, area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Mandar un mensaje a muchos leads (difusión)',
+    descripcion: 'PROPONE mandar UN mensaje a varios leads a la vez —los de una columna del CRM (etapa) o una lista de ids— por WhatsApp (sólo por QR), email y/o Instagram (queda pendiente hasta el «sí»). Crea una automatización de una sola vez con ese mensaje, con goteo (de a uno cada N minutos) y tope por día en cada canal, y la deja en Automations con sus métricas. A cada lead le llega por los canales que tiene: el resumen dice a cuántos por cada canal y quién queda afuera y por qué (sin teléfono, dado de baja del email, sin conversación de Instagram en las últimas 24 h). Pide antes la etapa (listar etapas del CRM) o los leadIds (buscar_leads). Para UN lead, usa una automatización o el chat.',
+    parametros: [
+      { nombre: 'etapa', tipo: 'string', descripcion: 'la columna del CRM (la clave de la etapa). Con esto van TODOS los que están hoy en ella (abiertos). Esto o leadIds.' },
+      { nombre: 'funnelId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el embudo de esa etapa, si el negocio tiene varios.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 500, descripcion: 'ids de los leads (de buscar_leads), hasta 500. Esto o etapa.' },
+      { nombre: 'canales', tipo: 'string[]', obligatorio: true, max: 3, enum: ['whatsapp', 'email', 'instagram'], descripcion: 'por dónde: uno o varios.' },
+      { nombre: 'mensaje', tipo: 'string', obligatorio: true, descripcion: 'el texto, TAL CUAL lo pidió la persona ({{nombre}} es el nombre del lead). Va en WhatsApp, en Instagram y como cuerpo del email.' },
+      { nombre: 'asunto', tipo: 'string', descripcion: 'el asunto del email (obligatorio si va por email).' },
+      { nombre: 'minutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'minutos entre un mensaje y el siguiente, en cada canal. Sin esto, 3.' },
+      { nombre: 'porDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'tope de mensajes por día en cada canal (hasta 500). Sin esto, 40 (el de una línea de WhatsApp).' },
+    ],
+    reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen',
+    // ⚠️ SÓLO EN LA APP (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): por el grupo de WhatsApp el doer arma el rol
+    // como 'admin' para cualquiera que escriba (lib/mako-doer-in.ts), y un setter o un closer lanzaba una difusión a toda una
+    // columna. Es la regla de AGENTS.md «Traer leads de a muchos…»: lo que toca números de terceros en lote, sólo en la app.
+    canales: ['app'], costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // «Volver a probar» (28/10/2026, ticket #19 de Leandro): «un lead no vuelve a entrar a una secuencia en la que ya estuvo»,
+  // ¿cómo prueba el negocio de nuevo con su cuenta? La ficha del lead tiene su botón (lib/automatizaciones-del-lead.ts). No
+  // le manda nada ahora: marca la inscripción terminada y lo próximo que arranca la secuencia la vuelve a correr, una vez.
+  {
+    id: 'volver_a_probar_lead_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Volver a probar una secuencia con un lead',
+    descripcion: 'PROPONE que UN lead que YA TERMINÓ una secuencia (o contestó en ella) vuelva a entrar con lo PRÓXIMO que la arranca —otro comentario con la palabra clave, otro mensaje, moverlo de nuevo a la etapa—, una vez, aunque la secuencia sea de «Una sola vez» (queda pendiente hasta el «sí»). No le manda nada ahora: es para que el negocio pruebe su automatización otra vez con su propia cuenta. Para que le salga YA desde el primer paso, empezar_de_nuevo_lead_secuencia. No reabre una inscripción cancelada (puede ser una baja) ni la de un lead que atiende una persona. Pide antes el leadId (buscar_leads) y el secuenciaId (listar_secuencias_nutricion).',
+    parametros: [
+      { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead (de buscar_leads).' },
+      pSecuenciaId,
+    ],
+    reversible: false, escribe: 'marca su inscripción terminada en nutricion_inscripciones (desenlace volver_a_probar) para que el próximo evento la vuelva a correr, y deja historial del lead; no manda nada',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // El «Otra cosa» de «Si responde» (08/10/2026): lo que antes era el hand-off —«MaKo se calla y
@@ -548,6 +585,32 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'reemplaza nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // EL TEXTO Y LOS BOTONES DE UN DM (25/10/2026, lib/botones-social.ts; el texto, lib/botones-api.ts). Leandro configura con su Claude por la API (memoria
+  // api-mako-con-cada-feature: ya le pasó con Instagram), y los botones sólo existían en el lienzo. De PANTALLA como
+  // editar_pasos: cambia lo que le llega al lead y por dónde sigue el flujo. CON http: es lo que usa el Claude de un cliente.
+  // Se guarda por la misma puerta (`publicarPasos`, con `camposDelFlujo`), y nunca deja algo que no se podría publicar.
+  {
+    id: 'cambiar_botones_mensaje', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Botones de un DM de Instagram',
+    descripcion: 'SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. Con «en_comentario» true su texto se publica debajo del comentario, a la vista de todos, en vez de ir por privado. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'tarjeta', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id del DM (de ficha_secuencia_mensajes).' },
+      {
+        nombre: 'botones', tipo: 'object[]', vaciaEsValor: true, max: 3, descripcion: 'opcional: hasta 3, en orden; [] los saca.',
+        campos: [
+          { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 20, descripcion: 'lo que dice (hasta 20 letras).' },
+          { nombre: 'sigue', tipo: 'string', max: 80, descripcion: 'el id de la tarjeta a la que lleva el toque.' },
+          { nombre: 'link', tipo: 'string', max: 500, descripcion: 'o la dirección https que abre.' },
+        ],
+      },
+      { nombre: 'texto', tipo: 'string', max: 1000, descripcion: 'opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}.' },
+      // Ticket #17 de Leandro (28/10/2026): la respuesta PÚBLICA al comentario, un dato del mismo DM.
+      { nombre: 'en_comentario', tipo: 'boolean', descripcion: 'opcional: true = su texto se publica debajo del comentario que disparó el flujo, a la vista de todos (con un CRON de comentario; sólo texto, sin botones); false = vuelve a ir por mensaje privado.' },
+    ],
+    reversible: true, escribe: 'reemplaza el texto, los botones o la respuesta en el comentario de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
   // LOS CRON DE UNA AUTOMATIZACIÓN (sexta tanda, segunda pasada, 09/10/2026): hasta acá la API los
   // LEÍA (`ficha_secuencia_mensajes` trae `disparadores`) y no había cómo cambiarlos sin la pantalla.
   // De PANTALLA y no de chat: cambiar qué la dispara cambia A QUIÉN le escribe, y en una activa la
@@ -574,6 +637,13 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'ignorar', tipo: 'string[]', max: 50, descripcion: 'con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15").' },
           { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
+          // Ticket #17 de Leandro (28/10/2026): las palabras clave del CRON de comentario, como ManyChat.
+          // ⚠️ CORTAS A PROPÓSITO (ticket #29, 29/10/2026): alargadas, las herramientas no entraban en el presupuesto del turno
+          // (tests/ops-center-bateria). Cómo se comparan, con ejemplos, está en la guía de /docs (app/api-mako/Articulos.tsx).
+          { nombre: 'palabras', tipo: 'string[]', max: 20, descripcion: 'con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario.' },
+          { nombre: 'coincidencia', tipo: 'string', enum: ['contiene', 'exacta'], descripcion: 'con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra).' },
+          // Ticket #25 (29/10/2026): la publicación o el Reel. Corta, como las de arriba; la guía de /docs lo explica.
+          { nombre: 'publicacion', tipo: 'string', max: 300, descripcion: 'con subtipo comentario: el link o el id de la publicación o Reel. Vacío = cualquiera.' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
             campos: [
@@ -703,5 +773,55 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ ...pSecuenciaId, fijoAlRevisar: true }, { ...pOrden, fijoAlRevisar: true }],
     reversible: false, escribe: 'crea la plantilla en meta_templates, la envía a Meta y la vincula al paso en nutricion_secuencias',
     canales: SIN_HTTP, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin', integracion: 'chatwoot' },
+  },
+  // LA PRUEBA A/B DE UNA AUTOMATIZACIÓN (tanda A3, lib/pruebas/automatizacion.ts; Martín: «Todo, todo siempre tiene que ir
+  // a la API»). Ver, empezar y detener. La tarjeta «A/B TEST» se arma en el lienzo (sus ramas y porcentajes); lo que gana lo
+  // decide el juez en código (lib/pruebas/juez.ts), nunca quien llama.
+  // ⚠️ AL FINAL DEL ÁREA y sin «automatización» en el id ni en el título (25/10/2026): a igual puntaje el chat de MaKo trae la
+  // declarada antes, y con las tres arriba «Hacé que la automatización de reactivación salga los martes a las 15» se quedaba
+  // sin cambiar_crons_secuencia (tests/ops-center-clasificador-app). Tampoco «flujo» ni «pedido»: los trae la pista del
+  // clasificador. docs/hallazgos-api-mako.md («Una operación nueva le saca el lugar a otra por un EMPATE…»).
+  {
+    id: 'ver_prueba_ab', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Ver la prueba A/B',
+    descripcion: 'La prueba de la tarjeta «A/B TEST»: si corre, el día, cuánta gente entró a cada rama y cuántos lograron el objetivo, y cómo terminó («Ganó B», «Empate: quedó A», «Todavía no se sabe»). Mientras corre no hay ganador: MaKo decide una sola vez, cuando junta la gente del plan. Sin prueba corriendo, todos van a la rama A. Las ramas (letra, porcentaje, a qué tarjeta sigue) están en ficha_secuencia_mensajes.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
+    id: 'empezar_prueba_ab', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Empezar la prueba A/B',
+    descripcion: 'PROPONE empezar la prueba de la tarjeta «A/B TEST» y devuelve un link para revisarla. Corre sobre lo PUBLICADO: la tarjeta guardada, con sus ramas sumando 100 y cada una llevando a algo. Antes MaKo calcula cuánta gente hace falta por rama para ver el salto (efecto) y cuántos días tarda con el ritmo de los últimos 30; con poca gente lo dice («No llega en 60 días»). Mide «Respondió» (o «Agendó», si ése es el objetivo) y cuida que no bajen las agendas.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'efecto', tipo: 'number', minimo: 0.1, maximo: 5, descripcion: 'opcional: el salto que quiere poder ver, relativo (0.8 = de 10 % a 18 %). Sin esto, 0.8.' },
+    ],
+    reversible: true, escribe: 'inserta la prueba en pruebas y sus ramas en prueba_variantes (corriendo); los leads que llegan a la tarjeta se reparten desde ahí',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
+    id: 'detener_prueba_ab', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Detener la prueba A/B',
+    descripcion: 'PROPONE detener la prueba de la tarjeta «A/B TEST»: desde ahí todos van a la rama A y no se declara ganador. Los que ya estaban en otra rama terminan su camino.',
+    parametros: [pSecuenciaId],
+    reversible: false, escribe: 'pasa la prueba a detenida en pruebas',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // EL TEXTO DE UN WHATSAPP O UN EMAIL EN UN FLUJO CON RAMAS (25/10/2026, el Cerebro: «ciérralo… Usa la misma puerta
+  // (`publicarPasos`) y la misma ruta por tarjeta»): editar_pasos rechaza las ramas, y por la API no había cómo cambiar un texto
+  // en un flujo de verdad. Lo que se puede saber sin escribir, en `textoParaGuardar` (lib/botones-api.ts). De PANTALLA como
+  // editar_pasos. AL FINAL y corta (AGENTS.md): «Cambiá el segundo mensaje…» trae editar_pasos, y ésta si entra.
+  {
+    id: 'cambiar_texto_mensaje', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Texto de una tarjeta con ramas',
+    descripcion: 'PROPONE cambiar el texto (o el asunto de un email) de UNA tarjeta de WhatsApp o email, aunque haya ramas, y devuelve un link para revisarlo. Suelta las variantes del texto anterior. Una nota de voz, un archivo, uno de varias partes, el WhatsApp oficial o un email con diseño se cambian en el lienzo; un DM, con cambiar_botones_mensaje. El id de la tarjeta, en ficha_secuencia_mensajes.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'tarjeta', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id de la tarjeta (de ficha_secuencia_mensajes).' },
+      { nombre: 'texto', tipo: 'string', max: 4000, descripcion: 'opcional: el texto nuevo. Admite {{nombre}} y {{empresa}}.' },
+      { nombre: 'asunto', tipo: 'string', max: 200, descripcion: 'opcional, sólo email: el asunto nuevo.' },
+    ],
+    reversible: true, escribe: 'reemplaza el texto (o el asunto) de esa tarjeta en nutricion_secuencias.pasos y le quita las variantes del texto anterior (sin historial de versiones)',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

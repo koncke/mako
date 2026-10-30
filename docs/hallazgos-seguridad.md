@@ -17,6 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(28/10/2026) Un link ya puede ESCRIBIR en un negocio** (un guion del Copywriter, sin cuenta): `puedeEditar` no lo usaba nadie (el de Classroom es otra función con el mismo nombre), lo que la función del server le contesta al dueño no se reenvía a un link, y el editor del link nunca guarda por la ruta de la tab → [Un guion del Copywriter se EDITA por link](#un-guion-del-copywriter-se-edita-por-link-la-primera-ruta-pública-que-escribe-en-un-negocio-28102026).
 - **(21/10/2026) Los CSV que exporta la app se abrían como FÓRMULA en Excel y en Sheets**: cinco exportadores tenían cada uno su escape, cuatro sin defensa, y la más expuesta era la de leads del CRM (nombres que vienen de formularios públicos: un lead llamado «=HYPERLINK(…)»). Ahora hay UN helper (`lib/csv-celda.ts`) y un test que rompe Actions si una exportación arma el suyo → [Inyección de fórmulas en los CSV](#inyección-de-fórmulas-en-los-csv-que-exporta-la-app-cinco-exportadores-cinco-escapes-y-cuatro-sin-defensa-21102026).
 - **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
 - **(14/10/2026) Con la clave PÚBLICA de Supabase se ejecutaban dos funciones SECURITY DEFINER** de la cola de Flow: se leían y saboteaban los trabajos de todos los clientes. `revoke ... from public` no saca el EXECUTE DIRECTO que Supabase le da a anon. Cerrado con la 0280 → [Auditoría end-to-end del 14/10](#auditoría-end-to-end-del-14102026).
@@ -32,6 +33,72 @@ arregladas, y donde el rescate lo sabía, lo dice.
 - Un `notFound()` corta el cuerpo y **deja el `<title>` puesto**: el guard funciona y la pantalla igual cuenta que existe → [Superficie expuesta](#notfound-no-tapa-los-metadatos-el-title-se-sirve-igual).
 
 ---
+
+## «Se puso todo difuminado y MaKo me pide un código» (Leandro, 24/10): NO es el 2FA de MaKo (27/10/2026, sin reproducir)
+
+**Vive en:** `app/login/2fa/page.tsx` y `app/login/page.tsx` (fondo liso) · `app/perfil/seguridad/SeguridadCuenta.tsx` (en la
+página, sin modal) · `lib/mfa-obligatorio.ts` · `app/integraciones/TusCuentasIA.tsx` (el tutorial de MaKo Desktop).
+
+- **El síntoma** (docs/feedback-24-10.md, f24, min 33:28 y 35:12): «envié algo y se me puso todo difuminado y me quedé solo en la
+  pantalla (...) MaKo me está pidiendo un código». Le estaba escribiendo a MaKo en el chat. Martín lo dio por bueno como seguridad.
+- **⚠️ El obvio («es el 2FA: que el modal diga por qué pide el código») no cierra con el código.** Ninguna pantalla de MaKo que
+  pide el código del 2FA difumina: el segundo paso y el login son una página entera de fondo liso (`#14161B`), y Seguridad lo pide
+  en la misma página. Ningún negocio exige el 2FA por fecha (`mfa_obligatorio_desde` vacío en todos, leído el 27/10, sólo esa
+  columna). No hay bloqueo por inactividad ni nada que pida el código a mitad del uso: el 2FA sólo aparece al ENTRAR.
+- **Lo que sí difumina o pide un código alrededor del chat:** el modal «Tus cuentas de IA» (`mk-modal__fondo`, `blur(2px)`) con el
+  tutorial de MaKo Desktop (en Windows el código de emparejar viaja solo por `mako://`; no se escribe); ya en la computadora, el
+  login de Claude muestra un código que se pega en la página de MaKo; y, fuera de MaKo, el permiso de Windows (UAC) oscurece
+  toda la pantalla al instalar.
+- **SIN HACER:** saber cuál fue pide ver la grabación en esos minutos. No se cambió código por una causa sin confirmar.
+
+## «La app de escritorio entró a la cuenta de Mauricio sin login»: era el perfil de Chrome de Mauricio, no el emparejamiento (25/10/2026)
+
+Martín, 25/10 ~12:00: «la app de desktop jamás me pidió login, eso esta muy mal, entró directo a la cuenta de Mauricio cuando
+yo estaba en mi cuenta de super admin». La captura: una ventana «MaKo - Ops Center», con el avatar de Mauricio.
+
+**El diagnóstico obvio era el equivocado.** «El token del emparejamiento le da una sesión a la ventana» (la PC se había
+emparejado para la cuenta de Mauricio el 22/10) es falso, y se midió:
+- **La ventana no es nuestra app:** el «MaKo» del escritorio de Martín es una APP WEB DE CHROME (`chrome_proxy.exe
+  --profile-directory="Profile 9" --app-id=…`), instalada el **26/08/2026**, dos meses antes de que existiera el instalador
+  (0.4.0, 23/10). Y «Profile 9» es el perfil de Chrome **de la cuenta de trabajo de Mauricio**: el suyo en esa PC. Una app web
+  instalada usa las cookies del perfil que la instaló, así que abre con la sesión de MaKo que haya en ese perfil, sin preguntar.
+  Es lo mismo que abrir ese perfil de Chrome y entrar a hola-mako.com.
+- **El emparejamiento no puede dar una sesión:** el token de la PC (`mkopc_…`) y el del turno (`mkotn_…`) son azar con prefijo,
+  no una sesión firmada (`verificarToken` los rechaza); ninguna ruta de `/api/ia-pc` toca una cookie; una sesión la arman SÓLO los
+  logins (Google, contraseña, el segundo paso y la seguridad del perfil, que importan `lib/sesion-cookies.ts`); y `lib/auth.ts`
+  lee la sesión sólo de la cookie firmada, no de un header. La cookie compartida vieja (`mako_auth`) ya no autentica nada.
+  Fijado en `tests/ia-pc-nunca-sesion.test.ts`.
+- **Cómo se mide en la PC** (sin leer cookies): el destino de un acceso directo con `WScript.Shell.CreateShortcut(...).TargetPath`
+  y sus argumentos, y a qué cuenta es cada perfil en `%LOCALAPPDATA%\Google\Chrome\User Data\Local State` →
+  `profile.info_cache.<perfil>.user_name`.
+
+**La regla que queda** (Martín, 25/10): la app de escritorio SIEMPRE pide el login de la persona, el mismo de la web. Emparejar
+la computadora para la IA nunca abre una cuenta, y cerrar sesión en la app no desconecta la IA.
+
+**Cómo se cumple en una app web instalada, que hereda la sesión de su perfil** (`lib/app-escritorio-reglas.ts`,
+`app/_components/PuertaDeLaApp.tsx`, `tests/app-escritorio-puerta.test.ts`):
+- Cada VENTANA NUEVA de la app (la instalada de la computadora, `display-mode: standalone`; o el acceso «MaKo» de `mako-pc`,
+  con `?app=1`) guarda en su `sessionStorage` la hora del SERVIDOR a la que empezó a esperar, y pasa sólo con una sesión
+  EMITIDA después. Para eso la sesión firma cuándo se entró (`iat`, `crearToken`); las de antes del 25/10 no lo traen y cuentan
+  como viejas. `/api/auth/entrada` da sólo esa hora y la del servidor (las dos del servidor: el reloj de la PC puede estar
+  corrido). No se desloguea el navegador: si la persona entra con su cuenta, la cookie del perfil pasa a ser la suya.
+- **Trampa 1, el bucle:** `/login` con sesión dibuja «Ya tienes la sesión abierta» y te lleva adentro solo en 1,2 s; la puerta
+  te devolvía al login. Con `app=1`, `/login` muestra el formulario aunque haya sesión.
+- **Trampa 2, el doble login:** una ventana que arranca SIN sesión la trae el proxy directo a `/login`, y ahí la puerta no
+  corría: después de entrar, «ventana nueva» → login otra vez. En lo público la puerta no manda a ningún lado, pero anota desde
+  cuándo espera.
+- **Trampa 3, el instante de la cuenta ajena:** la puerta decide después de hidratar, y mientras tanto se veía la cuenta del
+  perfil. Una tapa CSS (`puerta-app.css`) tapa la app instalada hasta decidir; sólo con `pointer: fine`, porque la TWA del
+  teléfono también corre «instalada» y no es esta regla (el teléfono queda fuera también en la decisión, por el user agent).
+- Sin red, la puerta no traba la app: si `/api/auth/entrada` no contesta, pasa (la sesión la sigue mirando el servidor).
+- **Trampa 4, el `app=1` adentro de `next`:** desde el 25/10 el proxy (`denegar`, rama de Zernio) manda a quien no tiene sesión
+  a `/login?next=<la dirección ENTERA>`. El acceso «MaKo» sin sesión llegaba al login con `next=%2Fsecond-brain%3Fapp%3D1` y
+  sin `app=1` arriba: el login no anotaba la ventana y, ya adentro, la puerta pedía entrar otra vez. `pideLaApp` lo busca en
+  los dos lugares. Y la ventana que ya empezó a esperar sigue siendo «de la app» aunque vuelva sin el parámetro (lo encontró la
+  prueba en el navegador: si no, quien escribía otra dirección pasaba con la sesión vieja).
+
+**Lo que quedó SIN hacer:** sacar esa app del perfil de Mauricio en la PC de Martín es de él (clic derecho en el ícono ›
+Desinstalar, o chrome://apps en ese perfil).
 
 ## ⛔ `/api/chart-insights` le pasa a closer y setter los montos del trimestre (16/10/2026, leído, SIN ARREGLAR)
 
@@ -456,6 +523,22 @@ Dos corolarios del mismo arreglo:
 
 ## Guards, roles y sesión
 
+### «La última vez que entró» no era la última vez: `ultimo_login` sólo lo escribía el login (26/10/2026)
+
+- **Síntoma (revisión del tren, b26a8ac40):** en Customers, equipos que trabajan todos los días salían «Hace 15 días» y
+  «En riesgo». La columna «La última vez que entró» de Equipo mentía igual.
+- **Causa:** `registrarLogin` (Google, contraseña, 2FA) es lo único que escribía `usuarios.ultimo_login`, y la sesión
+  dura 30 días sin renovarse. Era la fecha del último login, no la del último uso.
+- **Arreglo:** `marcarUso` (lib/ultimo-uso.ts) lo marca desde GET /api/auth/me, que corre en cada pantalla, y no la
+  hace esperar. Lo que no es obvio:
+  - el tope de 12 horas va en la consulta, con `.lt('ultimo_login', antes)`, y no en memoria. Con varias instancias, una
+    memoria por instancia escribiría de más;
+  - **`.lt` no coincide con null**, así que quien nunca entró sigue en null. app/pagar/acceso.ts y
+    app/api/pagar/email/route.ts dependen de eso: sólo se le cambia el email a quien todavía no entró;
+  - el super admin mirando a un cliente marca SU fila, porque el `sub` es suyo.
+
+**Vive en:** lib/ultimo-uso.ts · app/api/auth/me/route.ts · *26/10/2026, chat «Agencias y clientes» (claude5).*
+
 ### ⚠️ El 2FA del login YA está escrito a medias, y tiene tres trampas antes de retomarlo (14/10/2026)
 
 **No se arranca de cero.** La mig `0266_segundo_factor.sql` está en `main` y aplicada en prod (seis tablas
@@ -568,6 +651,22 @@ chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es d
 `app/api/perfil/seguridad/route.ts` · `lib/api-mako/areas/equipo.{def,run}.ts` (`exigir_2fa_desde`,
 `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
 `tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
+
+### El 2FA del login dijo «No coincide» con un código BUENO, y entró igual: no era un bypass (25/10/2026)
+
+Martín, 25/10 ~12:55: «me logee con SuperAdmin y me dijo "No coincide" el codigo de la app de verificacion y luego me dejo
+entrar igual». **El diagnóstico obvio («se saltea el 2FA») era el equivocado, y lo dijo `mfa_eventos`:** del usuario 1, ese día,
+sólo «intento OK login-totp» (12:51:00.810) y «login-totp OK» (12:51:01.138). Un solo intento, y bueno: el servidor nunca dijo
+que no coincidía.
+- **La causa** (`app/login/2fa/SegundoPaso.tsx`): el primer envío (el automático a los 6 dígitos, `CampoCodigo`) entraba y la
+  página empezaba a irse; `correr` volvía a habilitar «Entrar» y el Enter en su `finally`; un segundo envío llegaba sin el paso
+  intermedio (lo cierra `ponerSesion` al entrar), `/api/auth/2fa` contestaba 401 «vencido» sin registrar nada, y `pedir`
+  devolvía `{ ok: false }` SIN error, que la pantalla pintaba con su comodín `j.error ?? 'No coincide.'`. Después navegaba a
+  `/login?error=mfa-vencido`, y como la sesión ya estaba completa, entraba.
+- **La regla:** una pantalla que ya se está yendo queda trabada (el estado «entrando», con un ref para el doble toque antes del
+  próximo dibujo); un 401 del paso intermedio no pinta nada; y ningún comodín inventa un motivo: el texto del servidor (que ya
+  dice «Ese código no coincide.»), o «No se pudo. Vuelve a probar.» (`app/login/2fa/respuesta-2fa.ts`).
+- Fijado en `tests/login-2fa-entrando.test.ts` (probado rompiéndolo: el `finally` de antes y el comodín, 2 de 2).
 
 ### El 2FA obligatorio NO rige hasta que alguien corra la acción: el estado real al 21/10/2026 (leído en `main`, sin tocar producción)
 
@@ -1787,6 +1886,33 @@ leer la tabla vacía.
 _11/10/2026 — chat «Graphics», agente COMPARTIR + integración; verificado en Chrome sobre ws9 (crear,
 abrir sin sesión, detalle 403, revocar, link revocado 404)._
 
+## Un guion del Copywriter se EDITA por link: la primera ruta pública que escribe en un negocio (28/10/2026)
+
+**Vive en:** `app/api/compartido/guion/route.ts` · `lib/copywriter/compartir-reglas.ts` (`guionDelShare`) ·
+`lib/copywriter/compartir.ts` · `app/compartido/[token]/GuionCompartido.tsx` · `lib/shares.ts` (`puedeEditar`,
+`administraShare`) · `lib/rutas-publicas.ts` · docs/diseno-copywriter.md (D9)
+
+«Tu cliente entra y edita lo que le presentás» (Martín a Teo). El informe del Dashboard (la entrada de arriba) LEE con
+un link; esto ESCRIBE en los datos de un negocio sin sesión. Lo que no se ve leyendo el código:
+
+- **El diagnóstico obvio era el equivocado: `puedeEditar` de lib/shares.ts no lo usaba NADIE.** Se creía que lo usaba el
+  curso de Classroom, y un `grep puedeEditar` lo «confirma»: es OTRA función con el mismo nombre
+  (`app/customer-success/curso/puerta-curso.ts`). El permiso `editar` de la mig 0126 estaba en la tabla y en el
+  `crearShare`, sin ninguna ruta que lo pidiera. Antes de reusar una puerta, buscar quién la IMPORTA de ese módulo, no
+  quién se llama igual.
+- **Lo que una función del server le contesta al dueño no se reenvía a un link.** `renombrar` (lib/copywriter/server.ts)
+  devuelve el ÍNDICE ENTERO del negocio (para redibujar el árbol de la tab): reenviado tal cual, cualquiera con el link
+  de UN guion leía el título de todos. La ruta pública contesta `{ ok }`; y la página manda, de la biblioteca de MaKo,
+  sólo el ángulo y la estructura de ese guion (`loQueViajaConElLink`).
+- **El editor del link NUNCA guarda por la ruta de la tab.** Quien abre el link puede tener SU sesión de MaKo (el super
+  admin probándolo, un cliente con cuenta): /api/copywriter escribiría con esa sesión, en el workspace de esa pestaña.
+  El guardar se le PASA al editor (`compartido.guardar`), y un test fija que el componente del link no nombre la ruta de
+  la tab. Es la misma razón que `soloLectura` del informe.
+- **El id del guion sale de la FILA, nunca del pedido**, y todo corre en `runWithWorkspace(<el del link>)`. El cuerpo
+  no puede mandar `id` ni propiedades; un guion en la Papelera es 404 igual que un token malo.
+- **Un nombre escrito por quien abre el link no está verificado**: la marca dice «Ana con el link». El de un invitado
+  sale de su invitación (su link personal).
+
 ## Auditoría end-to-end del 14/10/2026
 
 Pedido de Martín vía «Estrategia 3 cuentas»: una auditoría de seguridad de punta a punta, «con libertad
@@ -2237,6 +2363,35 @@ la foto está a la vista igual—. No hizo falta un script contra producción: *
 con el código viejo**, y el cron corre recién con el nuevo. Un objeto que NO es de este lead y este negocio no se borra
 nunca (`rutaDeFotoGuardada` exige el prefijo).
 
+### 27/10: ningún bucket se LISTA con la clave pública, y lo que todavía se puede adivinar
+
+Aaron (llamada del 26/10) marcó los buckets públicos. Medido en producción en **sólo lectura**:
+- **La lista que circulaba estaba mal.** Los públicos son CINCO: `avatars`, `portadas`, `landing-imagenes`, `image-editor` y
+  **`video-clips`** (que no estaba). `graficos` y `stock` no son buckets: los gráficos del Dashboard van a `portadas`
+  (`app/api/graficos/imagen/route.ts:33`) y las fotos del buscador al bucket de quien las pide (`lib/imagenes-stock.ts`).
+- **Listar con la clave anon devuelve 0 en los 20 buckets**, también dentro de una carpeta, contra 1-22 entradas con la
+  service role en los mismos. La causa: `storage.objects` y `storage.buckets` tienen RLS prendido y **cero políticas**. Sólo
+  la service role (el servidor) lista. Un `[]` no prueba nada solo; el control con la service role es lo que lo vuelve dato.
+- Entonces el riesgo de un bucket público es **adivinar el nombre**, no enumerarlo. Formas medidas (con los dígitos tapados):
+  `landing-imagenes` e `image-editor` llevan UUID; `video-clips`, UUID salvo 4 tomas de prueba `prueba-montaje-ws<N>-<N>/`;
+  `portadas`, `ws<N>/<milisegundos>-<6 al azar>`; `avatars`, 147 fotos de leads con 128 bits al azar, 4 fotos del equipo
+  `avatar-<milisegundos>.png` y **UNA foto de un lead con la ruta vieja, adivinable**.
+- ⚠️ **Esa foto es huérfana: la mudanza no la va a tocar nunca.** Es de un lead del ws 13 que ya no existe (subida el 13/10,
+  ninguna fila la apunta). El cron muda lo que una fila apunta, así que una foto de un lead borrado se queda en la ruta
+  adivinable para siempre. Borrarla es escritura en producción: pide el sí de Martín.
+
+**Qué debe seguir público:** `landing-imagenes` (la ven las landings publicadas, sin login) y `video-clips` (el worker de
+montaje no tiene credencial y baja las tomas por su URL pública: `app/api/montaje/worker/route.ts`). `portadas` (tapas de
+1600×420 e imágenes de gráficos del Dashboard) e `image-editor` se dibujan dentro de la app y podrían ir por URL firmada,
+pero antes hay que mirar si algo compartido por link las usa. Para `avatars`, la decisión (c) de arriba ya cerró lo que
+importaba.
+
+**Sin hacer:** borrar la foto huérfana; ver si borrar un lead borra su foto (si no, cada lead borrado deja la suya, ahora
+con nombre al azar); pasar `image-editor` a privado si se decide.
+
+**Vive en:** `app/api/perfil/avatar/route.ts:47` · `app/api/portadas/route.ts:130` · `app/api/graficos/imagen/route.ts:86` ·
+`lib/imagenes-stock.ts:506` · `lib/fotos-contacto-ruta.ts` · *27/10/2026, chat «Infra» (claude5)*
+
 ### El tope de pedidos: lo que un 429 rompe
 
 - **El opt-in de una landing no reintenta**: el snippet lo manda una vez, con `keepalive`, y no mira la respuesta. Un 429
@@ -2328,3 +2483,23 @@ hacia afuera. Las comillas no lo frenan: Excel evalúa una celda entre comillas 
   (app/api/graficos/exportar/route.ts). Lo vio el chat «Onboarding» y no le toca a esa área.
 
 *21/10/2026, chat «Onboarding» (claude4).*
+
+## Sin sesión, el login perdía la query del destino: la vuelta de Facebook terminaba en una página pelada (25/10/2026)
+
+**Vive en:** `proxy.ts` (`denegar`) · `tests/login-next-con-query.test.ts`
+
+- **Síntoma** (Martín, conectando la cuenta de MaKo por Zernio): Facebook lo devolvió a
+  `/integraciones?abrir=meta&connected=metaads&accountId=…` en una pestaña SIN sesión. El proxy lo mandó a
+  `/login?abrir=meta&connected=…&next=%2Fintegraciones` y, después del login, quedó en /integraciones sin el modal y sin el
+  aviso de «conectado».
+- **Causa:** `denegar` clonaba la URL (la query original quedaba colgada en /login) y ponía en `next` sólo el `pathname`.
+  De rebote, un `error=` de un tercero (Zernio vuelve con `error=reconnect_required`, `error=invalid_field_value`) quedaba en
+  la URL de /login, que lee `?error=` como un error de SU login.
+- **No era sólo el script:** la vuelta «de página entera» de `<ConectarViaZernio>` (teléfono, navegador interno de Instagram, que
+  tiene sus propias cookies) vuelve a `volver` con `?zernio=<red>`; sin sesión, la marca se perdía igual y la pantalla nunca
+  medía la conexión.
+- **La regla:** el destino de `next` es la dirección ENTERA (pathname + query) y /login queda sólo con `next`. Los dos lectores
+  (`destinoSeguro` en el server, `destinoInterno` en el formulario) ya aceptaban un destino con query: sólo exigen una `/` y no
+  dos, y rechazan los caracteres de control. El `oauth_next` va en una cookie: Next la codifica al escribirla.
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

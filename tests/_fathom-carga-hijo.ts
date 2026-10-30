@@ -70,7 +70,9 @@ Modulo._load = function (this: unknown, pedido: string, padre: unknown, esMain: 
     const real = cargarOriginal.call(this, pedido, padre, esMain) as Record<string, (...a: unknown[]) => unknown>;
     return {
       ...real,
-      listReunionesRecientes: async (...a: unknown[]) => (reunionesFalsas ? { reuniones: reunionesFalsas, nextCursor: null } : real.listReunionesRecientes(...a)),
+      // Desde el 26/10/2026 cada reunión dice de qué grabador es (`grabador`, `ref`: lib/grabadores). Las de mentira son de
+      // Fathom, con su ref de siempre.
+      listReunionesRecientes: async (...a: unknown[]) => (reunionesFalsas ? { reuniones: reunionesFalsas.map((r) => ({ grabador: 'fathom', ref: `fathom:${String(r.recordingId)}`, ...r })), nextCursor: null } : real.listReunionesRecientes(...a)),
       // `null` de la mentira = la real (un escenario puede mezclar las dos: R5 lee una de verdad).
       // Las `opts` viajan (17/10/2026): el escenario `parcial` mira el reloj y la lectura a medias que recibe.
       extraerTareasDeReunion: async (...a: unknown[]) => ((extraccionFalsa ? await extraccionFalsa(Number(a[0]), (a[3] ?? {}) as Fila) : null) ?? real.extraerTareasDeReunion(...a)),

@@ -827,6 +827,45 @@ async function anotarVersionEsperada(esperada) {
   } catch { /* saber la version nunca puede romper al que ya funciona */ }
 }
 
+/**
+ * AL DIA CON SU CARPETA (26/10/2026, 0.71.1). Una instalacion DESCOMPRIMIDA no se actualiza sola: reemplazar los archivos de
+ * la carpeta no cambia nada hasta tocar «Recargar» en chrome://extensions. El 25/10 la 0.71.0 quedo COPIADA en la carpeta de
+ * Martin y su Chrome siguio con la 0.70.0 toda la noche, porque Martin no estaba para tocarlo (y chrome://extensions no se
+ * puede manejar desde afuera). Esto mira el manifest de la CARPETA (un `fetch` de un recurso propio lee el disco en una
+ * instalacion descomprimida) y, si es MAS NUEVO que el que corre, se recarga UNA vez por version.
+ * ⚠️ NO ES EL REINICIO VIEJO de arriba (01/09/2026): aquel comparaba contra lo que servia produccion y se reiniciaba aunque la
+ * carpeta no hubiera cambiado, que es justo cuando reiniciar no sirve. Este se recarga solo si la carpeta YA trae otra
+ * version; y la alarma se rearma sola al volver (`onInstalled` y el `asegurarAlarma` de arriba del archivo).
+ * Guardas: nunca de la tienda (ahi actualiza Chrome), nunca con un trabajo de Flow o una lectura de fichas en curso, y una
+ * sola vez por version de la carpeta (si la recarga no la levanta, no queda en bucle).
+ */
+let fichasEnVuelo = 0;
+async function hayTrabajoEnCurso() {
+  // ⚠️ UN CICLO ANDANDO TAMBIEN ES TRABAJO (26/10/2026, la revision adversarial de tren-l). La alarma corre
+  // `ciclo().then(alDiaConSuCarpeta)`, y si ya habia un ciclo (un DESPERTAR, el onUpdated de Flow, el encadenado o un
+  // REVISAR_CARPETA), `ciclo()` vuelve en el acto y la recarga corria EN PARALELO: cortaba el POST a /api/flow/puente despues
+  // de que el server tomara los trabajos y antes de que se abriera su registro, y el cliente veia «generando…» diez minutos.
+  // Asi la recarga espera a la proxima alarma (`recargaPorCarpeta` todavia no se escribio).
+  if (corriendo) return true;
+  if (fichasEnVuelo > 0) return true;
+  try { return (await registrosInterfaz()).some((r) => FASES_EN_CURSO.includes(r.fase)); } catch { return true; }
+}
+async function alDiaConSuCarpeta() {
+  try {
+    const corre = chrome.runtime.getManifest();
+    if (corre.update_url) return;
+    const r = await fetch(chrome.runtime.getURL('manifest.json'), { cache: 'no-store' });
+    const enCarpeta = String((await r.json()).version || '');
+    if (!enCarpeta || !esMasVieja(corre.version, enCarpeta)) return;
+    const { recargaPorCarpeta } = await chrome.storage.local.get('recargaPorCarpeta');
+    if (recargaPorCarpeta === enCarpeta) return;
+    if (await hayTrabajoEnCurso()) return;
+    await chrome.storage.local.set({ recargaPorCarpeta: enCarpeta });
+    console.log(`[mako] la carpeta trae la ${enCarpeta} y corre la ${corre.version}: recargando para leerla`);
+    chrome.runtime.reload();
+  } catch { /* actualizarse nunca puede romper al que ya funciona */ }
+}
+
 /** Sin llamadores desde el 01/09/2026. Se deja el porque arriba, no el codigo. */
 async function quizasReiniciarNoUsar(esperada, hayTrabajoEnCurso) {
   try {
@@ -2474,6 +2513,205 @@ function esperarCarga(tabId) {
   });
 }
 
+// ── WhatsApp Web, lista para leer (25/10/2026, 0.71.0) ─────────────────────────
+// Por prefijo y no con el patrón de URL de Chrome: ese patrón termina en barra-asterisco, y los tests del worker quitan los
+// comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue hasta el próximo
+// cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
+const WA_WEB = 'https://web.whatsapp.com/';
+/** Cuánto se espera a que la persona escanee el QR de WhatsApp Web (0.72.3). */
+const ESPERA_QR_MS = 5 * 60000;
+const esPestanaDeWhatsapp = (t) => !!t && t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/');
+
+/** Una promesa con tope: pasado `ms`, `{ tope: true }` (un mensaje a una pestaña congelada no contesta nunca). */
+function conTope(promesa, ms) {
+  return Promise.race([promesa, new Promise((resolve) => setTimeout(() => resolve({ tope: true }), ms))]);
+}
+
+/**
+ * MIENTRAS SE ESPERA A WHATSAPP WEB, UN LATIDO a la pantalla de MaKo que pidió, cada 10 s, sin texto (no cambia lo que dice).
+ * ⚠️ MEDIDO el 27/10/2026: la pantalla se rinde a los 30 s sin noticias («La extensión no contestó», SILENCIO_FICHAS_MS) y
+ * un paso podía tardar más (WhatsApp Web lento, o Chrome tapado por otra ventana): cortaba una extracción sana, y el recorrido
+ * seguía vivo en WhatsApp Web; la siguiente chocaba con él («ocupado») y terminaba en «0 nombres» sin decir nada. Lo que se
+ * espera ya tiene su tope acá (`conTope`): el latido sólo dice que el worker sigue.
+ */
+const LATIDO_MS = 10000;
+function conLatido(promesa, origen, id) {
+  if (origen == null || !id) return promesa;
+  const t = setInterval(() => { chrome.tabs.sendMessage(origen, { tipo: 'WA_FICHAS_AVANCE', id, paso: 'latido' }).catch(() => {}); }, LATIDO_MS);
+  return Promise.resolve(promesa).finally(() => clearInterval(t));
+}
+
+/** ¿Está el script de las fichas en esa pestaña? Su respuesta dice además si WhatsApp Web ya guardó su base. */
+async function pingWhatsapp(tabId) {
+  try {
+    const r = await conTope(chrome.tabs.sendMessage(tabId, { tipo: 'WA_FICHAS_PING' }), 4000);
+    return r && r.ok ? r : null;
+  } catch { return null; }
+}
+
+/** Espera a que una pestaña termine de cargar, con tope. */
+async function cargaConTope(tabId, ms) {
+  await conTope(esperarCarga(tabId), ms);
+}
+
+/** El ping, repetido hasta `ms`: en una pestaña recién abierta el script entra recién cuando la página termina de cargar. */
+async function pingConEspera(tabId, ms) {
+  const hasta = Date.now() + ms;
+  let ping = await pingWhatsapp(tabId);
+  while (!ping && Date.now() < hasta) {
+    await new Promise((r) => setTimeout(r, 1500));
+    ping = await pingWhatsapp(tabId);
+  }
+  return ping;
+}
+
+/**
+ * LA PESTAÑA DE WHATSAPP WEB, LISTA PARA LEER. Lo que antes le tocaba a la persona («abrí WhatsApp Web», «recargá la
+ * pestaña», «la extensión no contestó»), acá: abrirla si no hay (de fondo, para no sacarla de MaKo), despertarla si Chrome la
+ * descartó, ponerle el script si es de antes de la extensión, recargarla si igual no contesta, y esperar a que cargue los
+ * chats. `motivo` sólo cuando no se pudo: `sin_sesion` (WhatsApp Web abierta sin chats: falta iniciar la sesión) o
+ * `sin_respuesta_wa`. No toca la interfaz de WhatsApp: abrir la página no abre ningún chat.
+ */
+async function pestanaDeWhatsappLista(avisar) {
+  const tabs = await chrome.tabs.query({});
+  let tab = tabs.find(esPestanaDeWhatsapp) || null;
+  let recien = false;
+  if (!tab) {
+    avisar('abriendo', 'Abriendo WhatsApp Web en otra pestaña…');
+    tab = await chrome.tabs.create({ url: WA_WEB, active: false });
+    await cargaConTope(tab.id, 45000);
+    recien = true;
+  } else if (tab.discarded) {
+    avisar('abriendo', 'Despertando la pestaña de WhatsApp Web…');
+    await chrome.tabs.reload(tab.id);
+    await cargaConTope(tab.id, 45000);
+    recien = true;
+  }
+  let ping = recien ? await pingConEspera(tab.id, 30000) : await pingWhatsapp(tab.id);
+  if (!ping) {
+    // Abierta ANTES de instalar o actualizar la extensión: no tiene el script. Se le pone sin recargarla.
+    try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['wa-fichas-reglas.js', 'wa-fichas.js', 'wa-recorrer.js'] }); } catch { /* sigue abajo */ }
+    ping = await pingWhatsapp(tab.id);
+  } else if (ping.recorre === false) {
+    // Con el script de la 0.71 (sin el recorrido a la vista): se le suma, sin recargar.
+    try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['wa-recorrer.js'] }); } catch { /* sin recorrido: sólo la base */ }
+  }
+  if (!ping) {
+    avisar('abriendo', 'Recargando WhatsApp Web…');
+    try { await chrome.tabs.reload(tab.id); await cargaConTope(tab.id, 45000); } catch { /* sigue abajo */ }
+    ping = await pingConEspera(tab.id, 30000);
+  }
+  if (!ping) return { tab, motivo: 'sin_respuesta_wa' };
+  // Recién abierta, WhatsApp Web todavía no guardó su base: se espera un minuto, contándolo.
+  // ⚠️ Y SI PIDE EL QR, SE ESPERA UNOS MINUTOS (0.72.3, Martín 26/10: «si el usuario no escaneó el QR, que la extensión le diga
+  // y se quede esperando unos minutos... Aprovechá lo que tenemos»: como el desplegable con Google Flow). La pestaña va al
+  // frente (ahí está el código) y cada vuelta lo dice; escaneado, sigue sola. La 0.71 no miraba la pantalla: con el QR
+  // esperaba un minuto y decía `sin_sesion`.
+  const lista = (p) => (p.sesion ? p.sesion === 'lista' && p.base !== false : p.base !== false);
+  let hasta = Date.now() + 60000;
+  let enQr = false;
+  while (!lista(ping) && Date.now() < hasta) {
+    if (ping.sesion === 'qr') {
+      if (!enQr) { enQr = true; hasta = Date.now() + ESPERA_QR_MS; await alFrente(tab); }
+      avisar('qr', 'Escanea el QR en WhatsApp Web: te espero unos minutos…');
+    } else {
+      avisar('cargando', 'Esperando que WhatsApp Web cargue tus chats…');
+    }
+    await new Promise((r) => setTimeout(r, 2500));
+    ping = (await pingWhatsapp(tab.id)) || ping;
+  }
+  if (!lista(ping)) return { tab, motivo: 'sin_sesion' };
+  return { tab, motivo: null };
+}
+
+// ── «Extraer» a la vista y el REGISTRO de las extracciones (26/10/2026, 0.72.0) ─────────────
+// Martín: «Quiero que el scraper, con la extensión me redirija a la tab de whatsapp y se vea que está interactuando o
+// buscando, que se vea que entra al grupo y ve los contactos. Y que se despliegue la extensión y que allí se vea la animación
+// de la extracción... que se guarde el registro de las extracciones». Un pedido con `visible` pone al frente la pestaña de
+// WhatsApp Web que YA está (⚠️ nunca una segunda: le cierra la sesión; sólo se abre una si no hay ninguna), abre el
+// desplegable y recorre el grupo (wa-recorrer.js). Cada paso queda en `extracciones` (storage), que el desplegable dibuja.
+const TOPE_REGISTRO = 30;
+/** Lo que se dice si WhatsApp Web corre oculta (Chrome tapado): la pantalla de MaKo y el desplegable. */
+const TEXTO_OCULTA = 'Chrome quedó tapado por otra ventana y así va lento: tráelo al frente.';
+/** Las extracciones en curso: de qué pestaña de MaKo vino cada una, y en qué pestaña de WhatsApp corre. */
+const extraccionesVivas = new Map();
+let colaRegistro = Promise.resolve();
+/**
+ * Anota en el registro. En fila: dos avances seguidos no se pisan. Sólo el pedido que EMPIEZA crea su fila (`crear`): un aviso
+ * con un id que no está (de antes de recargarse la extensión, o de otra pestaña) no inventa una extracción.
+ */
+function anotarExtraccion(id, cambios, crear = false) {
+  if (!id) return colaRegistro;
+  colaRegistro = colaRegistro.then(async () => {
+    const { extracciones } = await chrome.storage.local.get('extracciones');
+    const lista = Array.isArray(extracciones) ? extracciones.filter((e) => e && typeof e.id === 'string') : [];
+    const i = lista.findIndex((e) => e.id === id);
+    const ahora = Date.now();
+    const limpio = Object.fromEntries(Object.entries(cambios || {}).filter(([, v]) => v !== undefined));
+    // ⚠️ EL TIEMPO DE CADA ETAPA, MEDIDO EN CADA CORRIDA (27/10/2026; Leandro: «se tarda mucho», y con Aaron se trabó): en qué
+    // segundo empezó cada fase (`tiempos`) y cuánto tardó todo (`duracion`). Así un «tarda» se lee en el registro de quien lo
+    // dijo, no se adivina.
+    const conTiempos = (e) => {
+      const seg = Math.round((ahora - (e.cuando || ahora)) / 1000);
+      const out = { ...e };
+      if (typeof limpio.fase === 'string' && limpio.fase && (out.tiempos || {})[limpio.fase] == null) out.tiempos = { ...(out.tiempos || {}), [limpio.fase]: seg };
+      if (typeof limpio.estado === 'string' && limpio.estado !== 'corriendo' && out.duracion == null) out.duracion = seg;
+      return out;
+    };
+    if (i < 0) { if (!crear) return; lista.unshift(conTiempos({ id, cuando: ahora, estado: 'corriendo', ...limpio, actualizado: ahora })); }
+    else lista[i] = conTiempos({ ...lista[i], ...limpio, actualizado: ahora });
+    await chrome.storage.local.set({ extracciones: lista.slice(0, TOPE_REGISTRO) });
+  }).catch(() => {});
+  return colaRegistro;
+}
+
+/** La pestaña al frente, y su ventana. */
+async function alFrente(tab) {
+  try { await chrome.tabs.update(tab.id, { active: true }); } catch { /* nada */ }
+  try { if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true }); } catch { /* nada */ }
+}
+
+/**
+ * El desplegable de la extensión, abierto en esa ventana (Chrome 127+). Si no se puede, el cartel de WhatsApp Web cuenta igual.
+ * ⚠️ Chrome lo rechaza si la ventana todavía no tiene el foco, y `windows.update({ focused })` lo da DESPUÉS: se reintenta
+ * unas veces, y la última sin ventana (la activa). Devuelve `true` o el porqué (va al registro: sin eso no se sabe por qué
+ * no se abrió).
+ */
+async function abrirDesplegable(windowId) {
+  if (typeof chrome.action?.openPopup !== 'function') return 'sin_openPopup';
+  let porque = '';
+  for (let i = 0; i < 4; i++) {
+    try {
+      await chrome.action.openPopup(windowId != null && i < 3 ? { windowId } : {});
+      return true;
+    } catch (e) {
+      porque = String(e?.message || e).slice(0, 160);
+      await new Promise((r) => setTimeout(r, 350));
+    }
+  }
+  return porque || 'no_abrio';
+}
+
+/** Terminada a la vista: unos segundos para ver el final y de vuelta a MaKo, si la persona sigue en WhatsApp Web. */
+// ⚠️ A LA PESTAÑA EXACTA DESDE LA QUE SE TOCÓ «EXTRAER» (Martín, 26/10/2026: «tiene que identificar cuál tab es, porque
+// puede tener varios CRM abiertos u otras tab de MaKo. Por eso, que identifique dónde fue que le dio click»). `viva.origen`
+// es la pestaña que MANDÓ el pedido (el `sender.tab` del mensaje), nunca «la primera de hola-mako.com». Al terminar, y
+// también si se corta. Si esa pestaña ya no está, no se elige otra: queda dicho en el registro (`volver: 'sin_pestana'`) y el
+// desplegable lo muestra.
+function volverAMako(viva, id) {
+  if (!viva || viva.origen == null || viva.waTab == null) return;
+  setTimeout(async () => {
+    try {
+      const wa = await chrome.tabs.get(viva.waTab).catch(() => null);
+      // Si la persona ya se fue de WhatsApp Web a otra cosa, no se la saca de ahí.
+      if (wa && !wa.active) return;
+      const mako = await chrome.tabs.get(viva.origen).catch(() => null);
+      if (!mako) { if (id) void anotarExtraccion(id, { volver: 'sin_pestana' }); return; }
+      await alFrente(mako);
+    } catch { /* nada */ }
+  }, 4000);
+}
+
 /** Abre Flow, o enfoca la pestana que ya esta. */
 async function abrirFlow() {
   try {
@@ -2688,11 +2926,32 @@ async function asegurarAlarma() {
   void ciclo();
 }
 
-chrome.runtime.onInstalled.addListener(() => { void asegurarAlarma(); });
+/**
+ * EL PUENTE EN LAS PESTAÑAS DE MaKo QUE YA ESTABAN ABIERTAS (25/10/2026, 0.71.0). Chrome no mete los content scripts en una
+ * pestaña abierta ANTES de instalar o actualizar la extensión: la de MaKo no se enteraba de que la extensión estaba («Instala la
+ * extensión» con la extensión recién instalada) hasta recargarla, y Martín pidió que al volver de instalarla «empiece sola».
+ * Se repone sólo donde no corre (`__makoPuenteCargado`, lo deja mako-puente.js), para no correrlo dos veces en el mismo mundo.
+ */
+async function reponerPuenteEnMako() {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({}); } catch { return; }
+  for (const t of tabs) {
+    if (t.id == null || typeof t.url !== 'string' || !t.url.startsWith(`${MAKO}/`)) continue;
+    try {
+      const [ya] = await chrome.scripting.executeScript({ target: { tabId: t.id }, func: () => globalThis.__makoPuenteCargado === true });
+      if (ya && ya.result) continue;
+      await chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['mako-puente.js'] });
+    } catch { /* una pestaña descartada o sin permiso: la repone su próxima carga */ }
+  }
+}
+
+chrome.runtime.onInstalled.addListener(() => { void asegurarAlarma(); void reponerPuenteEnMako(); });
 chrome.runtime.onStartup.addListener(() => { void asegurarAlarma(); });
 void asegurarAlarma();
+// La carpeta puede traer una version nueva (`alDiaConSuCarpeta`): se mira al arrancar y despues de cada latido.
+void alDiaConSuCarpeta();
 
-chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo(); });
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo().then(() => alDiaConSuCarpeta()); });
 
 // ⚠️ Y NO SE ESPERA AL PROXIMO LATIDO PARA CONTAR LA BUENA NOTICIA.
 //
@@ -2770,23 +3029,231 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   }
 
   // LAS FICHAS DE WHATSAPP WEB (24/10/2026, wa-fichas.js). MaKo, desde la pestaña de hola-mako.com, pide lo que el WhatsApp Web
-  // de esta persona ya guardó sobre los teléfonos de sus leads; esto busca una pestaña de WhatsApp Web abierta y se lo pasa.
-  // No abre ninguna: si no hay, se dice («abrí WhatsApp Web»). La pestaña sólo LEE su base: no toca la interfaz ni la red.
+  // de esta persona ya guardó sobre los teléfonos de sus leads; esto lo lleva a la pestaña de WhatsApp Web. La pestaña sólo
+  // LEE su base: no toca la interfaz ni la red.
+  // ⚠️ DESDE LA 0.71.0 (25/10/2026), Martín: «La extensión no contestó... no hay ninguna acción que el usuario vea para saber
+  // que está corriendo bien». Ahora el worker resuelve lo que antes era un error para la persona: si no hay WhatsApp Web lo
+  // ABRE (en otra pestaña), si la pestaña está dormida la despierta, si no tiene el script se lo pone, y espera a que cargue los
+  // chats; y le cuenta cada paso a la pestaña de MaKo que pidió (`WA_FICHAS_AVANCE`, con el mismo `id`).
+  // La pantalla de MaKo vio una extension vieja: si la carpeta ya trae la nueva, recargarse ahora y no al proximo latido.
+  if (msg?.tipo === 'REVISAR_CARPETA') {
+    void alDiaConSuCarpeta().then(() => responder({ ok: true }));
+    return true;
+  }
+
   if (msg?.tipo === 'WA_FICHAS_PEDIDO') {
+    const origen = _s?.tab?.id;
+    const pedidoId = typeof msg.id === 'string' ? msg.id : '';
+    // «Extraer» (0.72.0): a la vista, con el desplegable y su registro. Sin `visible` (la 0.71), sólo se lee la base.
+    const visible = msg.visible === true && !!pedidoId;
+    const grupos = Array.isArray(msg.grupos) ? msg.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
+    const avisar = (paso, texto, datos) => {
+      if (visible) void anotarExtraccion(pedidoId, { fase: paso, ...(texto ? { texto } : {}), ...(datos || {}) });
+      if (origen == null) return;
+      chrome.tabs.sendMessage(origen, { tipo: 'WA_FICHAS_AVANCE', id: pedidoId, paso, texto }).catch(() => {});
+    };
+    fichasEnVuelo++;
+    void (async () => {
+      const viva = { origen, waTab: null, parado: false };
+      if (visible) {
+        extraccionesVivas.set(pedidoId, viva);
+        await anotarExtraccion(pedidoId, {
+          titulo: typeof msg.titulo === 'string' ? msg.titulo.slice(0, 160) : grupos[0] || 'Tus contactos', grupos: grupos.slice(0, 5),
+          // La pestaña desde la que se tocó «Extraer» (el desplegable vuelve a ésa con «Ver en MaKo»).
+          origenTab: origen ?? null,
+          total: Array.isArray(msg.pedidos) ? msg.pedidos.length : 0, fase: 'abriendo', estado: 'corriendo',
+        }, true);
+        await chrome.storage.local.set({ popupVista: { pantalla: 'extraccion', id: pedidoId } }).catch(() => {});
+      }
+      try {
+        const lista = await conLatido(pestanaDeWhatsappLista(avisar), origen, pedidoId);
+        if (lista.motivo) {
+          if (visible) {
+            void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: lista.motivo });
+            extraccionesVivas.delete(pedidoId);
+            volverAMako(viva, pedidoId);
+            if (lista.motivo === 'sin_sesion' && lista.tab) await alFrente(lista.tab);
+          }
+          responder({ ok: false, motivo: lista.motivo });
+          return;
+        }
+        // A LA VISTA: la pestaña que ya está, al frente; el desplegable, abierto; y el grupo, recorrido.
+        const vistas = [];
+        let desplegable = null;
+        let ocupado = false;
+        if (visible && grupos.length) {
+          viva.waTab = lista.tab.id;
+          await alFrente(lista.tab);
+          desplegable = await abrirDesplegable(lista.tab.windowId);
+          void anotarExtraccion(pedidoId, { desplegable: desplegable === true ? 'abierto' : desplegable });
+          for (const g of grupos.slice(0, 3)) {
+            if (viva.parado || viva.cerrada) break;
+            const r = await conLatido(conTope(chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_RECORRER', id: pedidoId, grupo: g }), 300000).catch(() => null), origen, pedidoId);
+            // Otro recorrido sigue en esa pestaña: se dice, no se sigue como si nada (antes: «0 nombres», sin recorrido ni perfiles).
+            if (r && r.motivo === 'ocupado') { ocupado = true; break; }
+            // Pasado su tope, que no quede andando: chocaría con el próximo.
+            if (r && r.tope) chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_RECORRER_PARAR', id: pedidoId }).catch(() => {});
+            if (r && Array.isArray(r.filas)) vistas.push(...r.filas.slice(0, 5000));
+            if (r && r.motivo === 'no_encontrado') void anotarExtraccion(pedidoId, { noEncontrado: g });
+          }
+        }
+        // La pantalla de MaKo ya la dio por terminada (se rindió o la paró): ni se sigue ni se pisa su registro.
+        if (viva.cerrada) { responder({ ok: false, motivo: 'parado' }); return; }
+        if (ocupado) {
+          void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'ocupado' });
+          extraccionesVivas.delete(pedidoId);
+          volverAMako(viva, pedidoId);
+          responder({ ok: false, motivo: 'ocupado' });
+          return;
+        }
+        if (viva.parado) {
+          void anotarExtraccion(pedidoId, { estado: 'parado', fase: 'parado' });
+          extraccionesVivas.delete(pedidoId);
+          volverAMako(viva, pedidoId);
+          responder({ ok: false, motivo: 'parado' });
+          return;
+        }
+        avisar('leyendo', grupos.length === 1 ? `Buscando el grupo «${grupos[0]}» en tu WhatsApp Web…` : grupos.length > 1 ? `Buscando ${grupos.length} grupos en tu WhatsApp Web…` : 'Leyendo tu WhatsApp Web…');
+        const r = await conLatido(conTope(chrome.tabs.sendMessage(lista.tab.id, {
+          tipo: 'WA_FICHAS',
+          telefonos: Array.isArray(msg.telefonos) ? msg.telefonos : [],
+          pedidos: Array.isArray(msg.pedidos) ? msg.pedidos : undefined,
+          grupos,
+          vistas,
+        }), 90000), origen, pedidoId);
+        if (r && r.tope) {
+          if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'sin_respuesta_wa' }); extraccionesVivas.delete(pedidoId); volverAMako(viva, pedidoId); }
+          responder({ ok: false, motivo: 'sin_respuesta_wa' });
+          return;
+        }
+        if (visible && r && r.ok) void anotarExtraccion(pedidoId, { fase: 'leyendo', conFicha: Array.isArray(r.fichas) ? r.fichas.length : 0 });
+        // Si el desplegable se abrió (o por qué no), también a la pantalla: es lo primero que hay que saber si «no se ve».
+        responder(r ? (visible ? { ...r, desplegable: desplegable === true ? 'abierto' : desplegable } : r) : { ok: false, motivo: 'sin_respuesta' });
+      } catch (e) {
+        if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'recargar_whatsapp_web' }); extraccionesVivas.delete(pedidoId); volverAMako(viva, pedidoId); }
+        responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
+      } finally { fichasEnVuelo = Math.max(0, fichasEnVuelo - 1); }
+    })();
+    return true;
+  }
+
+  // LOS PERFILES, DE A TANDAS (0.73.2). Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email».
+  // ⚠️ MEDIDO en vivo con la 0.73.0/0.73.1 (26/10): 60 perfiles en UN pedido son más de 5 minutos, y Chrome MATA el service
+  // worker de una extensión cuando un pedido pasa de 5 minutos: se perdían el avance y la respuesta, y la pantalla decía «La
+  // extensión no contestó». Ahora la pantalla pide los perfiles de a tandas (`perfilesEnTandas`, lib/wa-fichas-cliente.ts:
+  // 12 por pedido, ~1 minuto), con el MISMO id de la extracción, y cada tanda es un pedido corto.
+  if (msg?.tipo === 'WA_PERFILES_PEDIDO') {
+    const origen = _s?.tab?.id;
+    const id = typeof msg.id === 'string' ? msg.id : '';
+    const grupo = typeof msg.grupo === 'string' ? msg.grupo.slice(0, 120) : '';
+    const candidatos = Array.isArray(msg.candidatos) ? msg.candidatos.filter((c) => c && typeof c.telefono === 'string').slice(0, 20) : [];
+    const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+    fichasEnVuelo++;
     void (async () => {
       try {
-        // Por prefijo y no con el patrón de URL de Chrome: ese patrón termina en barra-asterisco, y los tests del worker
-        // quitan los comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue
-        // hasta el próximo cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
-        const tabs = await chrome.tabs.query({});
-        const tab = tabs.find((t) => t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/'));
-        if (!tab) { responder({ ok: false, motivo: 'sin_whatsapp_web' }); return; }
-        const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'WA_FICHAS', telefonos: Array.isArray(msg.telefonos) ? msg.telefonos : [] });
-        responder(r ?? { ok: false, motivo: 'sin_respuesta' });
+        let viva = extraccionesVivas.get(id);
+        if (!viva) { viva = { origen, waTab: null, parado: false }; extraccionesVivas.set(id, viva); }
+        if (viva.parado) { responder({ ok: false, motivo: 'parado' }); return; }
+        if (!id || !grupo || !candidatos.length) { responder({ ok: true, perfiles: [], diag: null }); return; }
+        const lista = await conLatido(pestanaDeWhatsappLista(() => {}), origen, id);
+        if (lista.motivo) { responder({ ok: false, motivo: lista.motivo }); return; }
+        viva.waTab = lista.tab.id;
+        if (n(msg.desde) === 0) void anotarExtraccion(id, { fase: 'perfiles', perfilesTotal: n(msg.total), perfilesHechos: 0 });
+        const r = await conLatido(conTope(chrome.tabs.sendMessage(lista.tab.id, {
+          tipo: 'WA_PERFILES', id, grupo, candidatos, tope: candidatos.length, desde: n(msg.desde), total: n(msg.total),
+        }), 4 * 60000).catch(() => null), origen, id);
+        responder(r && !r.tope ? r : { ok: false, motivo: 'sin_respuesta_wa' });
       } catch (e) {
-        // Una pestaña abierta ANTES de instalar o actualizar la extensión no tiene el script: hace falta recargarla.
-        responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
+        responder({ ok: false, motivo: 'error', error: String(e?.message || e) });
+      } finally { fichasEnVuelo = Math.max(0, fichasEnVuelo - 1); }
+    })();
+    return true;
+  }
+
+  // Cada paso del recorrido (wa-recorrer.js): al registro, y a la pestaña de MaKo que pidió (su espera vive de estos avisos).
+  if (msg?.tipo === 'WA_RECORRER_AVANCE') {
+    const id = typeof msg.id === 'string' ? msg.id : '';
+    const viva = extraccionesVivas.get(id);
+    if (!viva) return false;
+    const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : undefined);
+    // Si WhatsApp Web corre OCULTA (Chrome tapado), se anota y se dice: es por qué se arrastra, y se arregla trayendo Chrome.
+    const oculta = msg.oculta === true;
+    if (msg.paso === 'perfiles') void anotarExtraccion(id, { fase: 'perfiles', perfilesHechos: n(msg.hechos), perfilesTotal: n(msg.total), ahora: typeof msg.texto === 'string' ? msg.texto.slice(0, 160) : undefined, oculta });
+    else void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre), oculta });
+    if (oculta) void anotarExtraccion(id, { vecesOculta: (viva.vecesOculta = (viva.vecesOculta || 0) + 1) });
+    if (viva.origen != null) {
+      const texto = oculta ? TEXTO_OCULTA
+        : msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : msg.paso === 'perfiles' ? 'Leyendo los perfiles…' : typeof msg.texto === 'string' ? msg.texto : '';
+      chrome.tabs.sendMessage(viva.origen, { tipo: 'WA_FICHAS_AVANCE', id, paso: String(msg.paso || ''), texto }).catch(() => {});
+    }
+    return false;
+  }
+
+  // La pantalla de MaKo cuenta cómo sigue (guardando, el final): al registro. Al terminar, de vuelta a MaKo.
+  if (msg?.tipo === 'WA_EXTRACCION') {
+    const id = typeof msg.id === 'string' ? msg.id : '';
+    const c = {};
+    for (const k of ['fase', 'estado', 'texto']) if (typeof msg[k] === 'string') c[k] = msg[k].slice(0, 400);
+    for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total', 'perfiles']) if (typeof msg[k] === 'number' && Number.isFinite(msg[k])) c[k] = msg[k];
+    void anotarExtraccion(id, c);
+    if (c.estado && c.estado !== 'corriendo') {
+      const viva = extraccionesVivas.get(id);
+      extraccionesVivas.delete(id);
+      // Lo que siga andando en WhatsApp Web para esta extracción, se para (MEDIDO 27/10: la pantalla se rindió y el recorrido
+      // siguió solo diez minutos; la extracción siguiente chocó con él).
+      if (viva) {
+        viva.cerrada = true;
+        if (viva.waTab != null) chrome.tabs.sendMessage(viva.waTab, { tipo: 'WA_RECORRER_PARAR', id }).catch(() => {});
       }
+      volverAMako(viva, id);
+    }
+    responder?.({ ok: true });
+    return false;
+  }
+
+  // «Parar», desde el desplegable: corta el recorrido en WhatsApp Web y el guardado en MaKo.
+  if (msg?.tipo === 'WA_PARAR') {
+    const id = typeof msg.id === 'string' ? msg.id : '';
+    const viva = extraccionesVivas.get(id);
+    if (viva) {
+      viva.parado = true;
+      if (viva.waTab != null) chrome.tabs.sendMessage(viva.waTab, { tipo: 'WA_RECORRER_PARAR', id }).catch(() => {});
+      if (viva.origen != null) chrome.tabs.sendMessage(viva.origen, { tipo: 'WA_FICHAS_PARAR', id }).catch(() => {});
+    }
+    void anotarExtraccion(id, viva ? { fase: 'parando' } : { estado: 'parado', fase: 'parado' });
+    responder?.({ ok: true });
+    return false;
+  }
+
+  // Cómo está WhatsApp Web, para el desplegable (0.72.3, como el estado de Flow): SÓLO MIRA. Sin pestaña, sin despertar ni
+  // inyectar nada; una dormida o sin el script dice «se está preparando» y se arregla al extraer.
+  if (msg?.tipo === 'WA_ESTADO') {
+    void (async () => {
+      try {
+        const tab = (await chrome.tabs.query({})).find(esPestanaDeWhatsapp);
+        if (!tab) { responder({ pestana: false }); return; }
+        if (tab.discarded) { responder({ pestana: true, sesion: 'dormida' }); return; }
+        const p = await pingWhatsapp(tab.id);
+        responder({ pestana: true, sesion: p ? (p.sesion || (p.base === false ? 'cargando' : 'lista')) : 'sin_script' });
+      } catch { responder({ pestana: null }); }
+    })();
+    return true;
+  }
+
+  // «Ir a WhatsApp Web» desde MaKo (para iniciar la sesión, 25/10/2026): la pestaña que hay, al frente; si no hay, una nueva.
+  if (msg?.tipo === 'WA_ENFOCAR') {
+    void (async () => {
+      try {
+        const tabs = await chrome.tabs.query({});
+        const tab = tabs.find(esPestanaDeWhatsapp);
+        if (tab) {
+          await chrome.tabs.update(tab.id, { active: true });
+          if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
+        } else {
+          await chrome.tabs.create({ url: WA_WEB, active: true });
+        }
+        responder({ ok: true });
+      } catch { responder({ ok: false }); }
     })();
     return true;
   }

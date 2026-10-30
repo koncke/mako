@@ -120,23 +120,16 @@ test('toda área con bitácora escrita a mano sigue existiendo', () => {
   }
 });
 
-test('EL PEDIDO: un área con bitácora tiene su fila en el sidebar', () => {
-  // «No veo la tab en la sidebar» (Martín, 11/8), sobre un registro recién escrito.
-  //
-  // El sidebar de Dev lleva la lista a mano (app/_components/nav.ts) y NO se puede
-  // derivar de `registros.ts`: eso importaría las ocho bitácoras enteras al bundle
-  // del cliente para armar ocho links. Entonces son dos listas de lo mismo, y la
-  // única forma de que no divirjan es esta guarda — que ya llegaba tarde: `pricing`
-  // tenía registro desde hacía días y ninguna fila. Una tab que existe, funciona y
-  // no se ve no da ningún síntoma: no rompe, no loguea, y nadie la abre nunca.
-  const enNav = new Set(ADMIN_NAV.map((i) => i.key.replace(/^dev-/, '')));
-  const faltan = REGISTROS_SLUGS.filter((s) => !enNav.has(s));
-  assert.deepEqual(
-    faltan,
-    [],
-    `Estas áreas tienen bitácora escrita y NO aparecen en el sidebar. Sumá su fila al ` +
-    `bloque de registros de ADMIN_FAMILIAS en app/_components/nav.ts:\n  ${faltan.join('\n  ')}`,
-  );
+test('Dev ya no está en la barra: ni el modo, ni el mapa de áreas, ni los registros (25/10/2026); las bitácoras se quedan', () => {
+  // Martín: «Elimina "dev", ya no lo necesitamos». Hasta ese día cada área con bitácora tenía su fila en el modo Dev y
+  // este test cuidaba que no faltara ninguna («No veo la tab en la sidebar», 11/8). Las pantallas se fueron; las bitácoras
+  // NO: de ellas cuelgan el cierre de los tickets (`tickets: [n]`), el Progreso y el Cerebro (registros.ts).
+  assert.deepEqual(ADMIN_NAV.filter((i) => i.key.startsWith('dev-') || i.href.startsWith('/admin/dev')).map((i) => i.key), [],
+    'una fila de Dev volvió a la barra: sus pantallas no existen (redirigen al Ops Center)');
+  assert.ok(REGISTROS_SLUGS.length >= 6, 'se perdieron bitácoras: quedaban menos de las que había');
+  for (const archivo of ['app/admin/dev/page.tsx', 'app/admin/dev/[area]/page.tsx', 'app/admin/dev/nav-dev.ts']) {
+    assert.ok(!existsSync(resolve(RAIZ, archivo)), `${archivo} volvió`);
+  }
 });
 
 test('una bitácora escrita a mano tiene sus dos paneles con contenido', () => {

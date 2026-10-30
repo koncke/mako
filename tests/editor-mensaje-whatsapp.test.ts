@@ -52,6 +52,7 @@ import {
   type EditorMensajeWhatsAppProps,
 } from '../app/automations/EditorMensajeWhatsApp';
 import { datosOfrecidos } from '../lib/variables-aviso';
+import { variantesTrasCambio } from '../lib/mensaje-partes';
 import { esVariableConocida } from '../lib/template-vars';
 import { pasoSinAdjunto, pasoAMedia, pasoAVozDesde, pasoAVoz, cambiosDePaso } from '../lib/guion-audio';
 import type { PasoSecuenciaDto, AudioSetting } from '../app/automations/ChatAgentApp';
@@ -172,7 +173,8 @@ test('cada burbuja tiene ✏️ y una papelera VISIBLE (roja); borrar ofrece «D
   }
   const papelera = /<button[^>]*aria-label="Borrar el mensaje 1"[^>]*style="([^"]*)"/.exec(html)?.[1] ?? '';
   assert.match(papelera, /color:var\(--bad\)/, 'la papelera no se notaba');
-  assert.match(EDITOR, /show\('Mensaje borrado', \(\) => \{ if \(mismoPaso\(pasoVivo\.current, deQuien\)\) aplicarPartes\(antes\); \}\)/);
+  // El «Deshacer» devuelve también las variantes (25/10/2026: el 🗑 las suelta y el guardado ya no las repone).
+  assert.match(EDITOR, /show\('Mensaje borrado', \(\) => \{ if \(mismoPaso\(pasoVivo\.current, deQuien\)\) aplicarPartes\(antes, deQuien\.variantes\); \}\)/);
   assert.match(EDITOR, /<Toast state=\{toast\} onClose=\{clear\} \/>/);
 });
 
@@ -186,10 +188,14 @@ test('lo guardado antes se ve como sus burbujas: un audio con pie son dos, y SIN
   assert.equal(placeholderDe('texto', undefined, 'audio'), 'Texto después del audio');
   assert.equal(placeholderDe('ia'), 'Qué tiene que lograr');
   assert.equal(placeholderDe(undefined, 'Tu mensaje'), 'Tu mensaje');
+  // MK-24 (27/10/2026): un texto sale TAL CUAL; lo dice el cuadro (Joan escribió una instrucción y le llegó así al lead).
+  assert.equal(placeholderDe('texto'), 'Escribe lo que le llega, tal cual');
 });
 
 test('al pasar a algo que no es UN texto, las variantes se sueltan EXPLÍCITAS (costuras-1)', () => {
-  assert.match(EDITOR, /\.\.\.\(esUnTexto\(lista\) \? \{\} : \{ variantes: \[\] \}\)/);
+  // Desde el 25/10/2026 también con un texto que CAMBIA (`variantesTrasCambio`, tests/variantes-al-cambiar-texto.test.ts).
+  assert.match(EDITOR, /\.\.\.variantesTrasCambio\(antes, esUnTexto\(lista\), f\.cuerpo \?\? '', devolver\),/);
+  assert.deepEqual(variantesTrasCambio({ cuerpo: 'Hola', variantes: ['Buenas'] }, false, ''), { variantes: [] });
 });
 
 // ── Las vueltas sin pérdida de lib/guion-audio.ts (las usa el wizard) ──────────────────────────
@@ -328,7 +334,7 @@ test('una sola columna: el chat, y la barra abajo de todo con «{ }» al lado de
     assert.ok(!arriba.includes('✦ MaKo') && !arriba.includes('<button'), `${disposicion}: quedó algo arriba del chat`);
     assert.ok(!arriba.includes('Insertar un dato'), `${disposicion}: «{ }» quedó arriba`);
     const abajo = html.slice(barra);
-    for (const t of ['placeholder="Escribe un mensaje"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
+    for (const t of ['placeholder="Escribe lo que le llega, tal cual"', 'Grabar nota de voz', 'Adjuntar archivo', 'aria-label="Insertar un dato"']) assert.ok(abajo.includes(t), `${disposicion}: falta ${t} en la barra`);
     // «{ }» AL LADO del clip: después del clip y antes del campo, en la MISMA fila.
     const iClip = abajo.indexOf('aria-label="Adjuntar archivo"');
     const iDatos = abajo.indexOf('aria-label="Insertar un dato"');

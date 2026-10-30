@@ -249,4 +249,9 @@ export interface EditorAppProps {
   /** Slots in the editor's top bar. */
   topBarStart?: ReactNode
   topBarEnd?: ReactNode
+  /**
+   * MaKo: lo que la cáscara monta ADENTRO del editor (con su contexto) y dibuja afuera por portal: el chat de MaKo del
+   * editor, que vive en la tarjeta izquierda de la pantalla de Create (app/image-editor/editor/PantallaEditor.tsx).
+   */
+  dentro?: ReactNode
 }

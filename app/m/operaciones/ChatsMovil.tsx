@@ -36,9 +36,11 @@ import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { BloqueDePreguntas } from '@/app/admin/operaciones/PreguntasDelChat';
+import { BloqueCompletado } from '@/app/admin/operaciones/BloqueCompletado';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
-import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
+import { CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
+import { CajaChatNuevo } from '@/app/admin/operaciones/CajaChatNuevo';
 import { Hilo, TANDA_HILO } from '@/app/admin/operaciones/Hilo';
 import { Muneco, animoDe } from '@/app/admin/operaciones/Muneco';
 import { TareasVinculadas, irAlTurno } from '@/app/admin/operaciones/Avance';
@@ -54,8 +56,10 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
 import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { alternarTranscripcion } from '@/app/admin/operaciones/voces-enviadas';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
-import { SIN_MARCAS } from '@/lib/centro-mensajes';
+import { SIN_MARCAS, idDeLinea } from '@/lib/centro-mensajes';
+import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
@@ -244,10 +248,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return () => clearTimeout(t);
   }, [abierto, lineas.length]);
 
-  // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que trabaja, después lo que espera a Martín.
-  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `centro.avisos`).
+  // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que espera su respuesta (24/10/2026), después lo que trabaja,
+  // después un «Completado» sin ver (`centro.avisos` los cuenta juntos; `esperanRespuesta`, sólo las preguntas, las mismas del
+  // renglón de cada fila: lib/centro-chats.ts → prioridadEnLista).
   const avisos = centro.avisos;
-  const secciones = useMemo(() => seccionesDeChats(chats, avisos), [chats, avisos]);
+  const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
+  const secciones = useMemo(() => seccionesDeChats(chats, avisos, esperanRespuesta), [chats, avisos, esperanRespuesta]);
 
   // ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): el menú, su Info y Reenviar (adentro de ESTA hoja, con
   //    su «‹», como Renombrar: en el teléfono nunca hay dos hojas) ──────────────────────────────────────────────────
@@ -279,13 +285,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     const { centro: k, elegido: c } = ultimos.current;
     if (c) void k.marcarYaVisto(c.clave, instante);
   }, []);
-  /** Responder sobre un «Ya está» (la C): la caja arranca con «Sobre «…»: ». */
-  const feedback = useCallback((titulo: string) => {
+  /** Responder sobre un «Ya está» (26/10/2026, Martín: «que no escriba en el chat, que se mencione arriba en el chat, como cuando
+   *  le doy a responder cualquier mensaje»): la cita «↩» de ese mensaje arriba de la caja, como en la computadora. */
+  const feedback = useCallback((t: TurnoChat) => {
     const { centro: k, elegido: c } = ultimos.current;
     if (!c) return;
-    const t = k.borradorDe(c.clave);
-    const prefijo = `Sobre «${titulo}»: `;
-    k.ponerBorrador(c.clave, t.startsWith(prefijo) ? t : prefijo + t);
+    k.citar(c.clave, { de: c.titulo, texto: t.texto, id: idDeLinea({ tipo: 'turno', instante: Date.parse(t.at), turno: t }) });
     enfocarCaja();
   }, []);
   const responderPregunta = useCallback<Responder>((p, e, o) => {
@@ -315,6 +320,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     setMenuWA(null);
     if (!elegido) return;
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void centro.marcar(elegido, { tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
+    if (id === 'transcripcion') { if (m.trabajo) alternarTranscripcion(m.trabajo.id); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
     if (id === 'copiar') { void copiar(m.texto).then((ok) => toast(ok ? 'Copiado' : 'No pude copiar')); return; }
     if (id === 'reenviar' || id === 'info') { setPanelWA({ tipo: id, m }); return; }
@@ -329,7 +335,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
   } : undefined;
 
   // Mandar es el del motor (useCentro.ts → mandar): el mismo de la computadora, con la cita si responde a un mensaje.
-  const mandar = () => { if (elegido) void centro.mandar(elegido); };
+  const mandar = () => { if (elegido) centro.mandar(elegido); };
   const enviando = centro.enviando;
   const copiarClave = async () => {
     if (!firma.clave) return;
@@ -365,8 +371,8 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       <div className="m-operaciones-caja">
         {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026), la misma de la computadora: en el teléfono Enter baja de
             renglón y se manda con el botón. Arriba, la cita del mensaje que se responde; en el «+», con qué corre. */}
-        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
-          adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila"
+        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} onGrabada={(g) => centro?.mandarNota(elegido, g.audio, g.segundos)} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
+          adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila" conversacion={elegido.clave}
           arriba={cita ? <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} /> : null}
           mas={centro ? (cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></> : undefined} />
         {/* Lo elegido en el «+» que no es «Automático» (la cuenta, el modelo) va acá abajo y no al lado del «+»: la fila es
@@ -469,7 +475,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
             {/* TODO lo que espera a Martín, pegado a la caja y en UN bloque, como en la computadora (PreguntasDelChat.tsx →
-                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. */}
+                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y sus «Completado» sin ✓, en
+                el mismo marco y de a uno (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
+            <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
+              hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={feedback} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
               delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>

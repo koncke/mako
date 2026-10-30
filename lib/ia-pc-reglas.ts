@@ -343,8 +343,12 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // conecta la PC con su código, lo deja arrancando solo al prender la computadora y lo prende. Bajado por PowerShell o
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
-/** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.4.2';
+/** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs).
+ *  0.4.3 (27/10/2026; el código, del 24/10: b10eb3b04): «MaKo» en el menú Inicio y en el escritorio de Windows (`mako-pc abrir`,
+ *  installer/windows/mako.iss → [Icons]; Leila: «no lo encuentro en mi compu») y entrar con OTRA cuenta de Claude (Leandro).
+ *  ⚠️ SE SUBE JUNTO CON LOS BINARIOS: la descarga sirve el instalador de esta versión, y sin sus archivos en el bucket `ia-pc`
+ *  contesta «No pude preparar la descarga» (IA1, 22/10). Primero `publicar-binarios --aplicar`, después se despliega esto. */
+export const VERSION_PC = '0.4.3';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */
@@ -368,6 +372,32 @@ export const archivoDelInstaladorMac = (version: string = VERSION_PC): string =>
 export const nombreDelInstaladorMac = (version: string = VERSION_PC): string => `MaKo-${version}-Mac.zip`;
 /** La UNA línea para cuando macOS frena la app sin firmar (la firma de Apple espera el D-U-N-S). */
 export const AVISO_GATEKEEPER = 'Si macOS dice que no puede comprobarla: Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente.';
+/**
+ * Lo que pasa ANTES de abrirlo (27/10/2026, la llamada con Leandro: «Chrome me lo marca como malware»): mientras el instalador
+ * no esté firmado con el certificado (scripts/ia-pc/firmar-windows.mjs, lo compra Martín), Chrome frena la descarga de un
+ * programa nuevo. Se dice qué tocar, en la misma línea que el aviso del sistema (`avisoAlAbrir`).
+ */
+export const AVISO_CHROME = 'Si Chrome lo frena («podría ser peligroso»): abre tus descargas (Ctrl+J) y toca «Conservar».';
+
+/**
+ * DÓNDE QUEDA MaKo DESPUÉS DE INSTALARLO (27/10/2026, Leila: «instalé supuestamente el MaKo Desktop, pero no lo encuentro en mi
+ * compu»). El acceso «MaKo» del menú Inicio y del escritorio (installer/windows/mako.iss → [Icons]) llegó con la 0.4.3
+ * (b10eb3b04, 24/10), que todavía NO se publicó: con la 0.4.2 en Windows no hay nada que abrir, porque trabaja en segundo plano.
+ * La pantalla dice lo que es verdad para la versión que se baja, y cómo saber si quedó. Con la 0.4.3 publicada (VERSION_PC), dice
+ * lo del menú Inicio sin tocar nada más.
+ */
+export const VERSION_CON_ACCESOS = '0.4.3';
+const numeros = (v: string) => v.split('.').map((n) => Number(n) || 0);
+const alMenos = (v: string, minimo: string) => {
+  const [a, b] = [numeros(v), numeros(minimo)];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  return true;
+};
+export function dondeQuedaMaKo(sistema: 'windows' | 'mac', version: string = VERSION_PC): string {
+  if (sistema === 'mac') return 'Queda en Aplicaciones como «MaKo». Si no aparece ahí, no se instaló: ábrelo de nuevo desde tus descargas.';
+  if (alMenos(version, VERSION_CON_ACCESOS)) return 'Queda como «MaKo» en el menú Inicio y en el escritorio. Si no aparece ahí, no se instaló: ábrelo de nuevo desde tus descargas.';
+  return 'No se abre como un programa: trabaja en segundo plano. Quedó instalado cuando aquí dice que tu computadora está conectada.';
+}
 
 /**
  * El ejecutable de MaKo.app: copia el programa de ESTA Mac (chip de Apple o Intel) a ~/.mako-pc/bin —donde lo busca el
@@ -386,12 +416,18 @@ export function lanzadorDeLaAppMac(): string {
     'xattr -d com.apple.quarantine "$D/mako-pc.nuevo" 2>/dev/null || true',
     'codesign --force --sign - "$D/mako-pc.nuevo" 2>/dev/null || true',
     'mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
+    // El ícono de MaKo para sus ventanas (scripts/ia-pc/mako-pc.mjs → iconoDeDialogo): el programa corre desde $D, fuera de la app.
+    `cp -f "$R/${ICONO_APP_MAC}" "$HOME/.mako-pc/${ICONO_APP_MAC}" 2>/dev/null || true`,
     'exec "$D/mako-pc" app',
     '',
   ].join('\n');
 }
 
-/** El Info.plist de MaKo.app: sin ícono en el Dock (las ventanas son del sistema). */
+/**
+ * El Info.plist de MaKo.app: sin ícono en el Dock (las ventanas son del sistema), con el de MaKo en el Finder y en «Abrir»
+ * (Contents/Resources/MaKo.icns, de installer/marca: scripts/ia-pc/marca.mjs; 25/10/2026, el instalador con el diseño de MaKo).
+ */
+export const ICONO_APP_MAC = 'MaKo.icns';
 export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -404,6 +440,7 @@ export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
     `<key>CFBundleShortVersionString</key><string>${version}</string>`,
     '<key>CFBundlePackageType</key><string>APPL</string>',
     '<key>CFBundleExecutable</key><string>MaKo</string>',
+    `<key>CFBundleIconFile</key><string>${ICONO_APP_MAC}</string>`,
     '<key>LSMinimumSystemVersion</key><string>11.0</string>',
     '<key>LSUIElement</key><true/>',
     '</dict></plist>',
@@ -413,6 +450,24 @@ export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
 
 /** Adónde vuelve el instalador al terminar: «Tus cuentas de IA», directo en «Conecta MaKo». */
 export const RUTA_TRAS_INSTALAR = '/perfil/ia?computadora=1';
+
+/**
+ * «Tus cuentas de IA» tiene link propio (25/10/2026, docs/conexiones-y-ayuda.md, tanda 3d): `/integraciones?abrir=ia` abre su
+ * modal (lo abre `TarjetaTusCuentasIA`, no el tablero: no es una integración con credenciales), y `/perfil/ia` es su página para
+ * todos los roles. Los dos son contrato: un rediseño los conserva.
+ */
+export const ABRIR_IA = 'ia';
+export const LINK_TUS_CUENTAS_IA = `/integraciones?abrir=${ABRIR_IA}`;
+
+/**
+ * ¿Esa PC abre los enlaces mako://? Las del instalador con asistente (0.4.0 en adelante) sí; las que se instalaron pegando la línea
+ * de comandos (0.3.x, como la del ws1) no, y sólo a ésas se les ofrece la línea plegada (25/10/2026, Martín: «mira la cantidad de
+ * texto»: un cliente con la app de hoy no ve un comando). Sin versión, se la toma por nueva. `version`: «0.4.2» o «0.4.2+mac».
+ */
+export function abreEnlacesMako(version: string | null | undefined): boolean {
+  const m = /^(\d+)\.(\d+)\./.exec(version ?? '');
+  return !m || Number(m[1]) > 0 || Number(m[2]) >= 4;
+}
 
 /**
  * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el
@@ -887,7 +942,7 @@ export function resumenDeCuentas(
   if (!estado) return { linea: leido ? 'No pude leer tus cuentas: ábrelas para volver a intentar.' : 'Leyendo tus cuentas…', tono: 'apagado' };
   const cuentas = estado.grupos?.cuentas.length ?? 0;
   const sinCuenta = estado.grupos?.sinCuenta.length ?? 0;
-  if (!cuentas && !sinCuenta) return { linea: 'Conecta tu Claude, tu GPT o tu Gemini: con eso contesta tu Ops Center.', tono: 'ojo' };
+  if (!cuentas && !sinCuenta) return { linea: 'Conecta tu Claude o tu GPT: con eso contesta tu Ops Center.', tono: 'ojo' };
   if (!cuentas) return { linea: 'Tu computadora está conectada, pero su Claude no tiene la sesión iniciada.', tono: 'ojo' };
   const enLinea = estado.pcs.filter((p) => p.enLinea && p.cuentas.length > 0).length;
   const deCuentas = `${cuentas} ${cuentas === 1 ? 'cuenta' : 'cuentas'}`;

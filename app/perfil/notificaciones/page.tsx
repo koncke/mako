@@ -1,41 +1,40 @@
 // =============================================================================
-// /perfil/notificaciones — «Tu cuenta» › Notificaciones (15/10/2026)
+// /perfil/notificaciones — Settings › Notificaciones (15/10/2026; copiada de Linear desde el 25/10/2026)
 // =============================================================================
-// Los avisos de la PERSONA: el pop-up y el sonido de MaKo en su navegador (la mitad `persona` de
-// NotificacionesPanel), y dónde se prenden los del celular. A quién le llegan los avisos del NEGOCIO
-// (reportes, WhatsApp, correo) es de «Configuración del negocio» › Notificaciones.
+// La lista de canales (En la app · Celular · WhatsApp · Email) y «No molestar»; `?canal=` abre el detalle de uno, como
+// Settings › Notifications de Linear (NotificacionesPanel.tsx). WhatsApp y Email son a quién le avisa MaKo lo del NEGOCIO:
+// sólo para quien lo administra.
+// ⚠️ ERAN DOS ENTRADAS DEL ÍNDICE con el mismo nombre (25/10/2026, Martín: «"Perfil, Notificaciones, Instalar App, Equipo,
+//    Notificaciones..."»). Es una, en «Tu cuenta», y /configuraciones/notificaciones (donde caen los avisos viejos con
+//    `?tab=notif`) redirige acá.
+// El `?canal=` lo lee el SERVER: un link copiado abre el mismo canal, y el estado leído sobrevive al ir y volver (el
+// componente es el mismo y sólo cambia la prop).
 
 import { requireRolWs } from '@/lib/tab-access';
 import { getRolWsEfectivo } from '@/lib/workspace';
-import { leerPerfil } from '@/lib/perfil';
+import { leerPerfil, zonaPropia } from '@/lib/perfil';
 import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina, FilaAjustes, GrupoAjustes, TituloAjustes } from '../../_ui/Ajustes';
+import { AjustesPagina } from '../../_ui/Ajustes';
 import { NotificacionesPanel } from '../NotificacionesPanel';
+import { canalDeUrl } from '../notificaciones-reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function NotificacionesCuentaPage() {
+export default async function NotificacionesCuentaPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs(['closer', 'setter']);
-  const [rol, deOtro] = await Promise.all([
+  const [rol, deOtro, zona, sp] = await Promise.all([
     getRolWsEfectivo(),
     leerPerfil().then((p) => p.vista.deOtro, () => false),
+    zonaPropia(),
+    searchParams,
   ]);
+  // Lo del negocio, para quien lo administra (la misma regla que el guard de Configuración).
+  const admin = rol === 'admin';
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'notificaciones')} activa="notificaciones">
-      <TituloAjustes titulo="Notificaciones" bajada="Los avisos que te llegan a ti." />
-      <div style={{ marginBottom: 20 }}>
-        <NotificacionesPanel parte="persona" />
-      </div>
-      <GrupoAjustes titulo="En tu celular" descripcion="Los avisos al celular se prenden desde MaKo instalada en el teléfono.">
-        <FilaAjustes icono="celular" titulo="Instalar la app" detalle="MaKo en tu celular, con los avisos al instante" href="/perfil/instalar" />
-      </GrupoAjustes>
-      {rol === 'admin' && (
-        <GrupoAjustes titulo="Los avisos del negocio" descripcion="Los reportes y los avisos de MaKo por WhatsApp y correo: a quién le llegan.">
-          <FilaAjustes icono="configurar" titulo="Configuración del negocio" detalle="Notificaciones" href="/configuraciones/notificaciones" />
-        </GrupoAjustes>
-      )}
+      <NotificacionesPanel canal={canalDeUrl(sp.canal)} admin={admin} zona={zona} />
     </AjustesPagina>
   );
 }

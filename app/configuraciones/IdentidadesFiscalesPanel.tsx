@@ -6,7 +6,12 @@
 // Se cargan una sola vez acá y después se eligen como "Facturado por" en la tab
 // Deal Details de cada lead. Puede haber varias; una puede ser la default.
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { FilaAjustes, GrupoAjustes, Pastilla, SELECT_AJUSTES, TituloAjustes } from '../_ui/Ajustes';
+import { Modal } from '../_ui/Modal';
+import { Switch } from '../_ui/Toggle';
+import { Dropdown } from '../components/Dropdown';
+import { ReportarASoporte } from '../_ui/ReportarASoporte';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import {
   getIdentidadesFiscalesAction,
@@ -15,14 +20,7 @@ import {
   type IdentidadFiscal,
 } from '../crm/[id]/deal-actions';
 
-const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
 
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
-const ghostBtn: CSSProperties = { padding: '9px 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer', fontFamily: SANS };
-const primaryBtn: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
-const linkBtn: CSSProperties = { background: 'transparent', border: 'none', fontSize: 13, cursor: 'pointer', fontFamily: SANS, padding: 0 };
-const dashedBtn: CSSProperties = { background: 'transparent', border: '1.5px dashed var(--border-strong)', color: 'var(--primary)', fontWeight: 600, fontSize: 13.5, padding: '11px 16px', borderRadius: 11, cursor: 'pointer', width: '100%', fontFamily: SANS };
 
 type FormState = {
   id: number | null;
@@ -36,14 +34,15 @@ type FormState = {
 function Campo({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label style={{ display: 'block' }}>
-      <span style={{ display: 'block', fontSize: 12.5, marginBottom: 6, color: 'var(--dim)' }}>{label}</span>
+      <span className="aj-rotulo">{label}</span>
       {children}
       {hint && <span style={{ display: 'block', fontSize: 11.5, marginTop: 5, color: 'var(--faint)' }}>{hint}</span>}
     </label>
   );
 }
 
-export function IdentidadesFiscalesPanel() {
+/** `moneda`: la sección de la moneda del negocio, que la página monta entre el título y las razones sociales. */
+export function IdentidadesFiscalesPanel({ moneda }: { moneda?: ReactNode } = {}) {
   const [lista, setLista] = useState<IdentidadFiscal[] | null>(null);
   const [form, setForm] = useState<FormState | null>(null);
   const [busy, setBusy] = useState(false);
@@ -137,92 +136,88 @@ export function IdentidadesFiscalesPanel() {
     }
   };
 
+  // EN EL MOLDE DE SETTINGS (25/10/2026, Martín: «En settings no me gusta el diseño de "... Identidades fiscales..."... Fijate
+  // pagina por pagina como lo hacen otras apps»). Era un título suelto y una tarjeta con cajitas grises adentro, los botones como
+  // links de colores y un «+ Agregar» punteado. Ahora es una sección (su título y para qué sirve a la izquierda) con UNA FILA por
+  // identidad, como las direcciones de facturación de Stripe y Vercel: el nombre con «Por defecto», sus datos debajo y las
+  // acciones a la derecha; el formulario se abre en la misma tarjeta y «Agregar» va al pie.
+  // COMO LINEAR (25/10/2026, Settings copiada de Linear, docs/settings/referencia.md): el título con «Agregar», una fila por
+  // razón social (su nombre, «Por defecto» si lo es, sus datos en una línea y el «⋯» con lo demás), y el formulario en un MODAL
+  // —alta y edición— en vez de abrirse debajo de la lista. Se fueron la línea de la sección y el texto del lector de PDF.
+  const cerrar = () => { if (!busy) setForm(null); };
   return (
-    <section style={{ marginTop: 34 }}>
-      <h2 style={{ fontSize: 19, fontWeight: 600, color: 'var(--ink)', margin: '0 0 12px' }}>Identidades fiscales</h2>
-      <div style={card}>
+    <>
+      <TituloAjustes titulo="Identidades fiscales" accion={lista !== null && <button type="button" className="aj-boton" onClick={nueva}>Agregar</button>} />
+      {err && !form && <div className="aj-error" role="alert">{err}<ReportarASoporte /></div>}
+
+      {moneda}
+
+      <GrupoAjustes titulo="Razones sociales">
         {lista === null ? (
-          <div style={{ fontFamily: MONO, fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>
-        ) : lista.length === 0 && !form ? (
-          <p style={{ fontSize: 13.5, color: 'var(--dim)', margin: '0 0 14px', lineHeight: 1.55 }}>
-            Todavía no cargaste ninguna. Son tus razones sociales propias: se eligen como Facturado por en el Deal Details de cada lead.
-          </p>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9, marginBottom: form || lista.length === 0 ? 0 : 14 }}>
-            {lista.map((i) => (
-              <div key={i.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 14px', border: '1px solid var(--border-strong)', borderRadius: 11, background: 'var(--surface-2)' }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{i.nombre}</span>
-                    {i.es_default && (
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--primary)', background: 'var(--primary-bg)', border: '1px solid var(--primary)', borderRadius: 999, padding: '1px 8px' }}>Default</span>
-                    )}
-                  </div>
-                  <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3, fontFamily: MONO }}>
-                    {[i.id_fiscal, i.correo].filter(Boolean).join(' · ') || '—'}
-                  </div>
-                  {i.domicilio && <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 2 }}>{i.domicilio}</div>}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                  {!i.es_default && (
-                    <button type="button" style={{ ...linkBtn, color: 'var(--dim)', opacity: busy ? 0.5 : 1 }} disabled={busy} onClick={() => void hacerDefault(i)}>Hacer default</button>
-                  )}
-                  <button type="button" style={{ ...linkBtn, color: 'var(--primary)', fontWeight: 600 }} onClick={() => editar(i)}>Editar</button>
-                  <button type="button" style={{ ...linkBtn, color: 'var(--bad)' }} onClick={() => setConfirmBorrar(i)}>Borrar</button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+          <FilaAjustes titulo="Cargando…" />
+        ) : lista.length === 0 ? (
+          <FilaAjustes titulo="Todavía no cargaste ninguna" fin={<button type="button" className="aj-boton" data-variante="borde" onClick={nueva}>Agregar</button>} />
+        ) : lista.map((i) => (
+          <FilaAjustes key={i.id} icono="dinero"
+            titulo={<>{i.nombre}{i.es_default && <> <Pastilla tono="good">Por defecto</Pastilla></>}</>}
+            detalle={[i.id_fiscal, i.correo, i.domicilio].filter(Boolean).join(' · ') || undefined}
+            fin={(
+              <Dropdown value="" resetAfterSelect align="right" placeholder="⋯" sinFlecha width={40} disabled={busy}
+                ariaLabel={`Acciones sobre ${i.nombre}`}
+                buttonStyle={{ ...SELECT_AJUSTES, justifyContent: 'center', padding: 0, fontSize: 18, border: 'none', background: 'transparent' }}
+                options={[
+                  ...(!i.es_default ? [{ value: 'defecto', label: 'Usar por defecto', icono: 'check' as const }] : []),
+                  { value: 'editar', label: 'Editar', icono: 'editar' as const },
+                  { value: 'borrar', label: 'Borrar…', icono: 'borrar' as const },
+                ]}
+                onChange={(v) => {
+                  if (v === 'defecto') void hacerDefault(i);
+                  else if (v === 'editar') editar(i);
+                  else if (v === 'borrar') setConfirmBorrar(i);
+                }} />
+            )} />
+        ))}
+      </GrupoAjustes>
 
-        {form ? (
-          <div style={{ padding: '14px 15px', border: '1.5px dashed var(--border-strong)', borderRadius: 12, marginTop: lista && lista.length > 0 ? 14 : 0 }}>
-            {/* Subir el documento fiscal propio → IA rellena los campos de abajo. */}
-            <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirDocFiscal(f); }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
-              <button type="button" style={{ ...ghostBtn, opacity: leyendo ? 0.6 : 1 }} disabled={leyendo} onClick={() => fileRef.current?.click()}>
-                {leyendo ? 'Leyendo documento…' : '⇪ Subir PDF/foto de tus datos fiscales'}
+      {form && (
+        <Modal titulo={form.id ? 'Editar identidad' : 'Agregar identidad'} ancho={560} onCerrar={cerrar}
+          pie={(
+            <>
+              <button type="button" className="aj-boton" data-variante="texto" onClick={cerrar} disabled={busy}>Cancelar</button>
+              <button type="button" className="aj-boton" disabled={busy || !form.nombre.trim()} onClick={() => void guardar()}>
+                {busy ? 'Guardando…' : form.id ? 'Guardar' : 'Agregar'}
               </button>
-              <span style={{ fontSize: 12, color: 'var(--faint)' }}>La IA lee la constancia/RFC/CUIT y rellena lo vacío. Revisa antes de guardar.</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
-              <Campo label="Razón social / nombre">
-                <input className="lead-field" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
-              </Campo>
-              <Campo label="Identificación fiscal" hint="RFC, CUIT, NIT, EIN… según país.">
-                <input className="lead-field" value={form.idFiscal} onChange={(e) => setForm({ ...form, idFiscal: e.target.value })} />
-              </Campo>
-              <Campo label="Domicilio fiscal">
-                <input className="lead-field" value={form.domicilio} onChange={(e) => setForm({ ...form, domicilio: e.target.value })} />
-              </Campo>
-              <Campo label="Correo">
-                <input className="lead-field" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
-              </Campo>
-            </div>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer', fontFamily: SANS }}>
-              <input type="checkbox" checked={form.esDefault} onChange={(e) => setForm({ ...form, esDefault: e.target.checked })} />
-              Usar como identidad por defecto
-            </label>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 14 }}>
-              <button type="button" style={ghostBtn} onClick={() => setForm(null)} disabled={busy}>Cancelar</button>
-              <button
-                type="button"
-                style={{ ...primaryBtn, opacity: busy || !form.nombre.trim() ? 0.55 : 1 }}
-                disabled={busy || !form.nombre.trim()}
-                onClick={() => void guardar()}
-              >
-                {busy ? 'Guardando…' : form.id ? 'Guardar cambios' : 'Agregar identidad'}
-              </button>
-            </div>
+            </>
+          )}>
+          {/* Subir el documento fiscal propio → IA rellena los campos de abajo (lo vacío; lo escrito no se pisa). */}
+          <input ref={fileRef} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void subirDocFiscal(f); }} />
+          <div className="aj-fiscal-form__leer">
+            <button type="button" className="aj-boton" data-variante="borde" disabled={leyendo} onClick={() => fileRef.current?.click()}
+              title="MaKo lee tu constancia (RFC, CUIT…) y llena lo que esté vacío. Revísalo antes de guardar.">
+              {leyendo ? 'Leyendo documento…' : 'Llenar desde un PDF o una foto'}
+            </button>
           </div>
-        ) : (
-          lista !== null && <button type="button" style={dashedBtn} onClick={nueva}>+ Agregar identidad</button>
-        )}
-
-        {err && (
-          <div style={{ borderRadius: 11, padding: '11px 16px', fontSize: 13.5, fontWeight: 600, marginTop: 12, background: 'var(--bad-bg)', color: 'var(--bad)' }}>{err}</div>
-        )}
-      </div>
+          <div className="aj-fiscal-form__campos">
+            <Campo label="Razón social o nombre">
+              <input className="aj-campo" autoFocus value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} />
+            </Campo>
+            <Campo label="Identificación fiscal" hint="RFC, CUIT, NIT, EIN…">
+              <input className="aj-campo" value={form.idFiscal} onChange={(e) => setForm({ ...form, idFiscal: e.target.value })} />
+            </Campo>
+            <Campo label="Domicilio fiscal">
+              <input className="aj-campo" value={form.domicilio} onChange={(e) => setForm({ ...form, domicilio: e.target.value })} />
+            </Campo>
+            <Campo label="Correo">
+              <input className="aj-campo" type="email" value={form.correo} onChange={(e) => setForm({ ...form, correo: e.target.value })} />
+            </Campo>
+          </div>
+          <label className="aj-fiscal-form__defecto">
+            <Switch checked={form.esDefault} onChange={(v) => setForm({ ...form, esDefault: v })} />
+            Usarla por defecto
+          </label>
+          {err && <p className="aj-error" role="alert" style={{ margin: '14px 0 0' }}>{err}<ReportarASoporte /></p>}
+        </Modal>
+      )}
 
       {confirmBorrar && (
         <ConfirmDialog
@@ -234,6 +229,6 @@ export function IdentidadesFiscalesPanel() {
           onConfirm={() => void borrar(confirmBorrar)}
         />
       )}
-    </section>
+    </>
   );
 }

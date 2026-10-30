@@ -37,14 +37,15 @@ test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca 
   assert.match(lectura, /catch \(e\) \{\n\s*console\.warn\([\s\S]*?\);\n\s*return false;/, 'un error de lectura tiene que dar «no es Esencial»');
   // La suscripción se lee con los MISMOS filtros que `suscripcionDeMakoDe`, sin importar lib/cobros (alcanza una IA, y esto lo
   // importa /api/auth/me: tests/d6b-rutas.test.ts).
-  const filtros = ".eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')";
+  // Con la prueba gratis (25/10/2026): la pagada o la prueba autorizada, con el MISMO filtro (lib/prueba-plan-reglas.ts).
+  const filtros = ".eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)";
   assert.ok(leer('lib/cobros.ts').includes(filtros), 'cambió la lectura de suscripcionDeMakoDe: actualizar lib/plan-esencial.ts');
   assert.ok(lectura.includes(filtros), 'lib/plan-esencial.ts no lee la suscripción como suscripcionDeMakoDe');
   assert.doesNotMatch(lectura, /from '\.\/cobros'|import\('\.\/cobros'\)/);
 });
 
 test('2. las tabs de Pro son claves que existen en la barra; Closing Analyst va aparte', () => {
-  // Se lee del archivo: AI Avatar (sólo del super admin por ahora) no está en las listas de los negocios.
+  // Se lee del archivo: cada tab de Pro es una clave de la barra (AI Avatar ya no: es de los tres planes desde el 29/10/2026).
   const nav = leer('app/_components/nav.ts');
   for (const k of NAV_SOLO_PRO) assert.ok(nav.includes(`key: '${k}'`), `«${k}» no es una clave de app/_components/nav.ts`);
   for (const t of TABS_SOLO_PRO) assert.ok(NAV_SOLO_PRO.has(t) || SOLO_PRO_FUERA_DE_LA_BARRA.has(t), `«${t}» de TABS_SOLO_PRO sin candado`);

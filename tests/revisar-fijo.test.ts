@@ -93,6 +93,9 @@ test('y el fijo es el que dice SOBRE QUÉ se hace, en cada una de las de hoy', (
   const BLANCO: Record<string, readonly string[]> = {
     reembolsar_cobro: ['cobroId'], cancelar_suscripcion: ['cobroId'],
     proponer_presupuesto_campana: ['campaignId'], proponer_presupuesto_conjunto: ['adsetId'],
+    // Lanzar una campaña nueva (29/10/2026): no actúa sobre una entidad que ya existe, pero estos cuatro ids dicen CON QUÉ se
+    // arma (qué formulario o píxel optimiza, qué video o anuncio se muestra); el nombre, el presupuesto y el texto se corrigen.
+    proponer_crear_campana: ['formularioId', 'pixelId', 'videoId', 'anuncioId'],
     proponer_agregar_anuncio: ['adsetId'], proponer_editar_textos_anuncio: ['adId'],
     // Borrar en Meta no es plata, pero no se deshace: el nivel y el id dicen QUÉ se borra.
     proponer_eliminar_entidad_meta: ['nivel', 'id'],

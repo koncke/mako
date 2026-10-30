@@ -85,7 +85,9 @@ export function esPostergable(v: unknown): v is PasoOnboarding {
  * es una frase que se queda vieja en una de las dos.
  */
 export const POSTERGABLE_TXT: Record<(typeof PASOS_POSTERGABLES)[number], { que: string; donde: string; ruta: string }> = {
-  integraciones: { que: 'Conectar tus cuentas de publicidad', donde: 'Integraciones', ruta: '/integraciones' },
+  // El paso de Meta (27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook»): se conecta
+  // en la tarjeta de Zernio, la misma ruta que el catálogo de conexiones (lib/conexiones-catalogo.ts, tests/meta-sin-token.test.ts).
+  integraciones: { que: 'Conectar Meta con tu Facebook (Zernio)', donde: 'Integraciones', ruta: '/integraciones?abrir=zernio' },
   tabs: { que: 'Verificar tu teléfono para los reportes', donde: 'Perfil', ruta: '/perfil' },
 };
 
@@ -302,7 +304,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // ⚠️ `landing-writer` (Web Generator) ENTRA ACÁ EL 23/10/2026: la landing de hola-mako.com y las de cada funnel de
     // MaKo son documentos de Web Generator de ESTE workspace (lib/editor-landing/landing-mako.ts), y Martín pidió
     // editarlas desde ahí («Que tenga la landing principal de MaKo en el editable de web generator»).
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer'],
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer', 'ai-avatar'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

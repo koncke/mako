@@ -366,6 +366,13 @@ const VIDEO: Caso[] = [
   ["pon un fundido de salida al audio", ["poner_fundido_video"]],
   ["reducí el ruido del audio del video", ["reducir_ruido_video"]],
   ["reduce el ruido de fondo del audio", ["reducir_ruido_video"]],
+  // Leila (27/10/2026) se lo pidió así a MaKo en el editor; «borrar silencios» no estaba en el chat.
+  ["eliminá el ruido del video", ["reducir_ruido_video"]],
+  ["elimina el ruido del video", ["reducir_ruido_video"]],
+  ["borrá los silencios de mi último video", ["borrar_silencios_video"]],
+  ["borra los silencios de mi último video", ["borrar_silencios_video"]],
+  ["sacale los silencios al video Promo", ["borrar_silencios_video"]],
+  ["quítale los silencios al video Promo", ["borrar_silencios_video"]],
   ["normalizá el audio del video", ["normalizar_audio_video"]],
   ["sacale el audio al clip y dejame solo el sonido", ["separar_audio_video"]],
   ["poné una transición entre el clip 1 y el 2", ["poner_transicion_video"]],
@@ -419,6 +426,11 @@ const COBROS: Caso[] = [
   ["dale de baja a Juan", ["baja_del_cliente"]],
   ["cancelá la suscripción manual de Ana", ["estado_suscripcion_manual","cancelar_suscripcion"]],
   ["editá la venta de Juan: 1500 dólares", ["editar_venta_lead"]],
+  // El plan por tramos (ticket #26, 29/10/2026): la frase LITERAL de Mauricio, que no traía la herramienta, y la de Leila (#13).
+  ["7500 dolares en 3 pagos, primer pago 28 de octubre, segundo pago 28 de noviembre y tercer pago 28 de diciembre. Cada uno de $2,500 dólares.", ["armar_plan_por_tramos"]],
+  ["el plan de Nadia son 300 dólares cada quincena, los días 1 y 15", ["armar_plan_por_tramos"]],
+  ["armá el plan de pagos de Fernando: 3 cuotas de 2500 dólares los 28", ["armar_plan_por_tramos"]],
+  ["arma el plan de pagos de Juan: 6 meses de 12.000 pesos y después 6 de 10.000", ["armar_plan_por_tramos"]],
 ];
 
 const EQUIPO: Caso[] = [
@@ -681,7 +693,7 @@ test('video: las 37 frases (tuteo y voseo) llegan a su operación por la app', (
 test('imagen: las 10 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(IMAGEN), []);
 });
-test('cobros: las 22 frases (tuteo y voseo) llegan a su operación por la app', () => {
+test('cobros: las 26 frases (tuteo y voseo) llegan a su operación por la app', () => {
   assert.deepEqual(faltan(COBROS), []);
 });
 test('equipo: las 26 frases (tuteo y voseo) llegan a su operación por la app', () => {

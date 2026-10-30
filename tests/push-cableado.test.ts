@@ -68,7 +68,7 @@ test('1. emitirAviso: el push sale después del interruptor, del espaciado y de 
   assert.ok(push > pos(f, 'reclamarEspaciado(', 'el espaciado'), 'el push sale ANTES del espaciado: ignoraría el «cada cuánto»');
   assert.ok(push > pos(f, 'agrupado: true', 'la cola del resumen'), 'el push sale ANTES de la cola: interrumpiría con lo que se pidió juntar');
   assert.ok(push < pos(f, 'enviarAvisoPorEmail(a, texto)', 'el correo'), 'el push tiene que arrancar ANTES del correo (en paralelo)');
-  assert.ok(push < pos(f, 'enviarAlGrupoMaKo(ws, texto)', 'el WhatsApp'));
+  assert.ok(push < pos(f, 'enviarAlGrupoMaKo(ws, texto, null)', 'el WhatsApp'));
   assert.match(f, /const push = await pushP;/, 'el push arranca pero nadie lo espera');
   assert.match(f, /return \{[^}]*\bpush\b[^}]*\}/, 'el resultado no lleva el push');
 });

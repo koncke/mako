@@ -150,6 +150,9 @@ const TENANT_TABLES = new Set<string>([
   // Los productos de un lead ADEMÁS de su casa (mig 0207). Sin esta línea getTenantDb no acota
   // por cliente y el tablero de un producto dibujaría los agregados de TODOS los workspaces.
   'lead_funnel',
+  // La PAPELERA del CRM (mig 0340): la foto de cada lead eliminado, 30 días. Sin esta línea la pantalla de la papelera
+  // listaría los eliminados de TODOS los negocios (la foto trae sus pagos y sus mensajes).
+  'leads_papelera',
   // Los eventos de la agenda (Calendly, Cal.com) vinculados a una etapa de reunión (mig 0293). Sin esta
   // línea, el webhook leería los vínculos de TODOS los negocios y una reserva podría caer en el embudo
   // de otro (el ruteo puro igual los filtra por workspace: lib/agenda-evento-etapa.ts).
@@ -194,10 +197,16 @@ const TENANT_TABLES = new Set<string>([
   // Las reuniones de Fathom que el cron descartó por tipo (mig 0300, 16/10/2026). Sin esta línea
   // getTenantDb() es PASSTHROUGH y la lista «Descartadas» de un negocio mostraría las de todos.
   'plan_reuniones_descartadas',
+  // De la clave de una reunión a su grabador (mig «reuniones_de_cualquier_grabador», sin número, 26/10/2026): sin esta
+  // línea, la clave de una reunión de Loom de un negocio devolvería la de otro.
+  'grabador_reuniones',
   // «Re-priorizar todo»: un trabajo por tablero, con su foto y su avance (mig 0301, 16/10/2026). Sin
   // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
   // de otro, y «uno a la vez» se contaría entre todos los negocios.
   'plan_repriorizaciones',
+  // El libro del recolector del Second Brain (mig 0333, 25/10/2026): qué conversación ya se leyó y hasta dónde. Sin esta
+  // línea getTenantDb() es PASSTHROUGH y la marca de un negocio se mezclaría con la de otro.
+  'second_brain_recolectado',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.

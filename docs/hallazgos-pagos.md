@@ -1266,3 +1266,400 @@ del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutSt
 - **Medido para el diseño:** la `post_pago` del ws1 está ARCHIVADA (a quien paga no le llega bienvenida); el ws10 también
   tiene Stripe conectado; los 12 checkouts del Sprint no traen ninguna atribución (`client_reference_id`, metadata y
   `marketing_attributions` en null) y son anteriores al Pixel en la página.
+
+## La venta de un Payment Link propio ya entra como cobro externo, APAGADA (MAU-10, 27-28/10/2026)
+
+Chat «Zernio y CAPI» (`claude5` lo escribió, `claude4` lo terminó en la PC). Sigue a la entrada de arriba y al diseño
+(docs/diseno-venta-externa-stripe.md, §8 «Lo que cambió al construirlo»).
+
+**Vive en:** `lib/cobros-externos-reglas.ts` (`esVentaExterna`, `filaDeVentaExterna`, `esCobroExterno`) · `lib/cobros.ts`
+(`registrarVentaExterna`; el corte en `reembolsarCobro` y `cancelarSuscripcionCobro`) · `lib/cobros-webhook.ts`
+(`ventaExternaStripe`, `avisarCompraAMeta`, la puerta en la rama de checkout) · `lib/crm-auto-plan.ts` (T2 no mueve a quien
+pagó) · tests/venta-externa.test.ts (de punta a punta) · tests/cobros-externos-reglas.test.ts ·
+tests/venta-externa-no-toca-mako.test.ts.
+
+- **La regla:** una sesión pagada de un Payment Link del negocio, sin cobro de MaKo y sin su metadata, fuera de la
+  plataforma, en el modo del aviso y con `cobros.ventas_externas = '1'`, entra como cobro `pagado` marcado
+  `creado_por = 'externo:stripe:<plink_>'`, con su lead (el del email, si no el del teléfono, si no uno nuevo con origen
+  «stripe»), su cuota y UNA compra a Meta. El interruptor está APAGADO en todos: prenderlo en el ws1 es el paso 5.
+- ⚠️ **El diagnóstico obvio era el equivocado: «el reintento sigue desde el paso que falte».** El diseño reclamaba la venta
+  con el INSERT antes del lead para que un segundo aviso chocara con el `cs_` y siguiera desde ahí. Pero el reintento de
+  Stripe nunca llegaba al escritor: `cobroStripe` encontraba la fila por el `cs_` y la mandaba por el camino de los cobros
+  de MaKo, que decía «ya estaba pagado». Un aviso cortado entre el INSERT y el lead (la base, o el tope de 8 s del webhook,
+  que es donde más tarda: lead, trato, cuota, Meta) dejaba la venta sin lead, sin cuota y sin compra para siempre. Ahora la
+  puerta deja pasar también un cobro EXTERNO encontrado. **Para cualquier camino que reclama antes de completar: el
+  reintento tiene que llegar al mismo código que reclamó, no al que encuentra la fila.**
+- **El `event_id` es `purchase:<cs_>`, no `pi_`/`in_`** (el Cerebro, 27/10): es el único id que conoce la página de
+  gracias, y el Pixel v28 manda el del navegador con el mismo: Meta deduplica en vez de tener que prohibir uno.
+- **Los dos «rojos» de la última tanda del chat cortado no eran de la rama:** tests/pago-link-anulado.test.ts y
+  tests/sin-instagram.test.ts dan verde corridos después de mezclar main (el primero lo arregló main).
+- **Sin modo prueba, se probó con el código real:** el hijo corre `procesarEventoStripe` sobre la base, Stripe y Meta de
+  mentira; con eso salió el agujero de arriba, que ningún test que lee el fuente veía. La prueba en el ws 3 con `sk_test`
+  NO se hizo: no hay claves de prueba de Stripe en el proyecto (las credenciales viven en la base de cada negocio).
+- **Sin hacer:** el script de recuperación de ventas ya ignoradas (paso 6; un aviso ignorado no vuelve, `reclamarEvento`
+  lo da por duplicado); un fallo de Meta en el primer aviso no se reintenta (queda en el historial); `eventSourceUrl` y
+  `visitor_id` no viajan; unir la compra con la visita por el `session_id` del pageview; que el redirect del Payment Link
+  de Mauricio lleve `?session_id={CHECKOUT_SESSION_ID}` (se cambia en SU Stripe); con el interruptor apagado a mitad, el
+  reintento de una venta ya reclamada no la completa.
+
+### Lo que encontró la verificación de la rama unida con Planes (3ca2d8328, 28/10/2026)
+
+Informe del Cerebro: C:/dev/revisiones/2810-verificacion-3ca2d8328.md, «La venta externa». El ALTO (el cruce del
+`client_reference_id`) lo arregló Planes: ver «Un Payment Link con el token de un cobro de MaKo lo marcaba pagado», más abajo.
+Lo de acá lo arregló este chat en `lib/cobros.ts` y el módulo nuevo `lib/cobros-externos-meta.ts`; lo prueba
+tests/venta-externa.test.ts (el reintento de l, o, p, y el cruce de punta a punta en n).
+
+- **Los dos chats arreglaron el cruce a la vez, con la misma función** (`sesionDelCobro`): el Cerebro se lo pasó a los dos y
+  ninguno esperó la respuesta del otro antes de escribir. Se quedó la de Planes. Cuando un hallazgo se reparte entre dos chats,
+  el que lo toma lo dice ANTES de escribir, y el otro espera esa respuesta.
+- ⚠️ **«Todavía no, reintentá» sin status es un 200.** El error del reclamo («otro aviso está registrando esta venta») no
+  llevaba status, `esErrorTransitorio` lo daba por definitivo, la ruta contestaba 200 y Stripe no volvía NUNCA: un «Reenviar»
+  desde el panel de Stripe dentro de los 2 minutos dejaba la venta sin lead para siempre. Ahora va con status 503. **Regla:
+  todo error que signifique «volvé más tarde» lleva su status transitorio.** Y el test del corte probaba la puerta llamando a
+  `procesarEventoStripe` con un error que la ruta NO reintenta (un XX000): un test de «el reintento lo completa» tiene que mirar
+  qué contestaría la ruta (`esErrorTransitorio`), no sólo llamar a la función.
+- **La compra a Meta de una venta cortada en la cuota** la manda ahora también el cron (`reconciliarCobros` →
+  `compraExternaQueFalto`), una sola vez por venta: si el historial ya dice algo de esa compra, no la repite (sin píxel, no
+  deja una línea por pasada).
+- **Sigue sin hacer:** una venta externa pagada y SIN lead (un error permanente al crear el lead, o el corte pasado el tope de
+  8 s, cuando la ruta ya contestó 200) no la completa nadie: el cron sólo repara pagados con lead.
+
+## «No tiene LIBERTAD» (27/10/2026): editar una cuota sin trámites, y la suscripción en el total de la columna
+
+Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`. Martín: «Los pagos funcionan mal, no tiene LIBERTAD... No se cargan
+tampoco el $ en el total de la columna cuando es suscripción».
+
+- **Cada «no se puede» mandaba a hacer otra cosa antes**: una cobrada, «desmárcala primero»; con un recordatorio corriendo,
+  «córtalo para editarla»; con un link sin pagar, «anúlalo para cambiar el monto». Y en la pantalla el campo directamente no
+  aparecía (`montoEditable` / `fechaEditable` lo escondían por la protección). Ahora `editarCuota` (lib/pagos.ts) edita y
+  arregla lo que quedaba viejo DESPUÉS de guardar: corta el recordatorio (llevaba el monto y la fecha de antes; la cobranza la
+  vuelve a tomar con `olvidarAvisosDeCuotas`), anula el link si cambió el monto, y una cobrada A MANO se corrige en el lugar
+  (monto y día del pago) con lo cobrado del lead recalculado (`sincronizarTotalCobrado`). Lo único que no: lo que cobró la
+  PASARELA (es lo que entró), una devuelta y la de un cliente dado de baja.
+- **«Armar el plan» se escondía** con cuotas sueltas sin plan: ahora está siempre (salvo suscripción), y si no se puede armar
+  encima de lo que hay, el server lo dice en el mismo lugar.
+- **El total de Ganado no sumaba las suscripciones** (decisión del 12/10: «un total no puede mezclar una vez con por mes»).
+  Martín lo pidió al revés: ahora suma la mensualidad (la misma «/mes» de la tarjeta); sólo suscripciones, «$444/mes»; mezclado,
+  la suma y el `title` separa las dos (`app/crm/total-columna.ts`).
+
+- **El plan quincenal (ticket #13, Leila: «$300 cada quincena, los días 1 y 15»).** El plan uniforme es de 1 a 6 cuotas y UN
+  día del 1 al 28, y no por una regla de negocio: son los CHECK de la mig 0014 sobre las COLUMNAS del plan del lead. Las
+  cuotas son filas de `pagos` y no tienen ese tope. El plan LIBRE (cada mes, quincena o semana; días a elección; hasta 60) arma
+  la lista (`fechasDelPlan`, lib/pagos-campo.ts) y la guarda por `guardarCuotasAction` con las columnas del plan en lo que
+  entra (lo que no, vacío: `planComoEstaba` recorta igual). Sin migración. El plan uniforme sigue por `ajustarPlanAction`.
+
+**Sin hacer:** el plan libre no tiene Deshacer (el uniforme sí) · el editor del plan sigue escondido para una suscripción (el
+caso de Nadia, lead 2605: primero se pasa la venta a «Pago único») · editar una cobrada deja su línea en el historial como
+«vencimiento» (`lineasDeCuotas`).
+
+## La revisión de b335f972c (27/10/2026): el plan libre duplicaba deuda y editar una cobrada no preguntaba cuál se vio
+
+Revisión adversarial del Cerebro (C:/dev/revisiones/2710-crm-b335f972c.md), con las funciones reales del sha. Arreglado en la
+misma rama (chat «CRM y Chats», `claude4`); tests/pagos-revision-b335.test.ts, probado rompiéndolo.
+
+- **El plan libre se armaba DE CERO sobre un plan con cobros (alta).** Con el inicial de US$1.000 y 3 de 6 cuotas de US$500
+  cobradas, pasar la cantidad a 8 dejaba US$5.000 de deuda en vez de US$2.500: el formulario trae el inicial precargado y lo
+  mandaba otra vez con vencimiento HOY (la cobranza le recordaba al cliente plata que ya pagó), y las 8 cuotas entraban todas
+  nuevas. Y `guardarCuotasAction` va POR ID: sin ids, todo se inserta y una impaga con link o recordatorio queda AL LADO de
+  las nuevas, contada dos veces. Ahora `cuotasDelPlanLibre` (lib/pagos-campo.ts) aplica la regla del plan uniforme: el inicial
+  cobrado no se pide, la cantidad cuenta las cobradas del plan (la pantalla lo dice: «Ya cobrado: …»), y cada impaga que existe
+  toma un lugar de la lista por su id, las protegidas primero. Regla: **una lista que reemplaza cuotas se arma ENCIMA de lo que
+  hay, nunca de cero**; el total que se muestra no avisa nada, porque el uniforme muestra el mismo número contando lo cobrado.
+- **`editarCuota` elegía la columna por lo que LEYÓ (media).** La misma `fecha` es el vencimiento de una impaga y el día del
+  pago de una cobrada. MaKo confirma un `editar_cuota` hasta 120 min después de prepararlo, sin volver a mirar: si en el medio
+  la cobraron, el vencimiento nuevo se escribía como `fecha_pago` (el Cash de octubre pasaba a noviembre) y MaKo contestaba
+  «Listo». La guarda `.eq('pagado', false)` no servía: la rama ya se había elegido. Ahora quien llama dice qué vio (`espera`,
+  «impaga» por defecto) y si no coincide, tira. Regla: **cuando un mismo campo significa dos cosas según el estado, el estado
+  lo dice quien llama**, no la lectura.
+- **Un recordatorio cortado quedaba afuera de la cobranza (media).** Editar sólo el monto cortaba la corrida, pero el olvido
+  del dedup (`cuotasReprogramadas`) sólo mira las cuotas cuya FECHA cambió: `cuota:<id>` seguía «enviada» y el cron la
+  descartaba. El comentario prometía lo contrario. Ahora la cuota del recordatorio cortado se olvida siempre, y la ficha dice
+  «el recordatorio arranca de nuevo».
+- Bajos: el monto de una cobrada en otra moneda ya no se edita como «$» en la ficha (se leía en pesos) y, si llega por otro
+  lado, limpia la moneda y el monto original (lo último que se dijo manda, como en `cobrarCuota`); el Deshacer manda sólo lo
+  que cambió y dice si no se aplicó.
+- **Cómo se probó lo que lee la base:** `editarCuota` corrió REAL contra una base en memoria (el arnés del refutador,
+  adaptado: el `await import('./flujo-corridas')` va por ESM, así que el stub de `Module._load` no lo agarra y hace falta un
+  hook de `module.register`; y las claves del dedup salen de `keyEspaciado`, que las hashea). Sobre b335f972c aparecen los
+  tres defectos; con el arreglo, ninguno.
+
+## La revisión de 0b6d5b754 (27/10/2026): el arreglo del plan libre trajo dos de plata
+
+Segunda revisión adversarial del Cerebro (C:/dev/revisiones/2710-crm-0b6d5b754.md), con las funciones reales del sha. Arreglado
+en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, probados rompiéndolos).
+
+- **El resto de un cobro por menos tomaba un lugar del plan (alta).** `cuotasDelPlanLibre` contaba las cobradas con
+  `esCuotaDelPlan` pero repartía los lugares entre TODAS las impagas: el resto (`resto_de`, lo crea `cobrar_cuota_con_resto`)
+  protegido se quedaba con el lugar de una cuota de US$500, que se borraba y nunca se cobraba (1.100 de deuda en vez de 1.600);
+  sin proteger, el resto se borraba en silencio. Ahora lo que no es del plan va APARTE, con su id, su monto y su fecha: se casa
+  sin cambio y no se borra. Regla: **una regla que separa «del plan» para contar tiene que separarlo también para repartir**;
+  el plan uniforme ya lo hacía (`lugarDe` sólo con `esCuotaDelPlan`).
+- **«Las protegidas primero» con las protecciones de la PANTALLA (media).** La ficha no las relee después de «Mandar link» ni
+  cuando la cobranza arranca un recordatorio, y una lectura fallida da «nada protegido». Al acortar el plan, la protegida quedaba
+  sin lugar y la deuda se contaba dos veces. Ahora el orden lo corrige el server con las protecciones que acaba de leer
+  (`protegidasPrimero` en `reconciliarCuotas`, modo 'porId'): una protegida sin lugar toma el de una sin proteger. Regla: **lo
+  que decide plata se decide con el dato del server, no con el de la pantalla**; la pantalla sólo propone.
+- Baja: cambiar el monto de una cuota con link anula el link, y el Deshacer devuelve el monto pero no el link. Ahora se dice en
+  los dos («el link anterior se anuló: manda uno nuevo»).
+- **La revisión de 1f02dd813 (media):** un #0 que tomó un lugar del plan libre sin inicial (una seña con link), una vez cobrado,
+  contaba como «inicial cobrado» y no como cuota: guardar el mismo plan después armaba una de más (cinco de 300 para un plan
+  de 4). Ahora la ficha le dice a `cuotasDelPlanLibre` si el plan GUARDADO tiene inicial (`planConInicial`); sin él, el #0 es
+  una cuota. Y lo de aparte va `quedaComoEsta`: el server lo casa sin cambiarlo y, si ya no existe, no lo inserta (un resto
+  quitado o cambiado en el medio revivía). El aviso del link anulado sale sólo si se anuló alguno.
+
+## El plan por TRAMOS (29/10/2026, ticket #13 de Leila, ws11): lo que se aprende al pasar de «un monto» a «varios»
+
+Chat «Pagos» (`claude3`), rama `pagos-tramos-2910`. Martín (28/10): «No tiene libertad o diversidad de tipos de cobros». Leila
+tenía que explicarnos sus planes por WhatsApp: Nadia (lead 2605) son US$300 cada quincena, días 1 y 15; otro cliente, «6 meses
+de 12.000 y luego 10.000» en pesos. **Copiado de** las fases de un «subscription schedule» de Stripe (la documentación oficial,
+docs.stripe.com/billing/subscriptions/subscription-schedules: el editor del Dashboard pide una cuenta) y del plan de pagos de
+Kajabi (help.kajabi.com, «Create a payment plan offer»): hasta 10 tramos seguidos, cada uno con su monto, su moneda, cada cuánto
+y cuántas cuotas o hasta qué fecha; el siguiente arranca donde termina el anterior; el anticipo es el «setup fee» de Kajabi; y
+la lista que sale se toca cuota por cuota antes de guardar.
+
+- **Medido en la base (sólo lectura):** Nadia es una SUSCRIPCIÓN de US$4.235,29 × 12 los días 8 (#91 a #102) más un pago
+  suelto de US$423,53 (#113). 4.235,29 = 72.000 / 17 y 423,53 = 7.200 / 17: alguien cargó pesos divididos por una tasa. El
+  editor del plan estaba ESCONDIDO para una suscripción, así que Leila no tenía cómo arreglarlo sola. Ahora se abre también ahí
+  y, al guardar, la venta pasa a «Pago único» (con su compare-and-set) antes de las cuotas, y lo dice antes.
+- **Sin migración, y es a propósito:** un tramo no se guarda; se guardan sus cuotas (filas de `pagos`, con `moneda` y
+  `monto_original`, que ya existían para lo cobrado). Las columnas del plan del lead (`total_cuotas` 1-6, `dia_de_pago` 1-28,
+  mig 0014) son de UN monto: con varios tramos van vacías. Al reabrir, los tramos se LEEN de las cuotas (`tramosDeCuotas`) y lo
+  que no encaja queda como «a mano» (`cambiosContra`). **La prueba de que el editor no rompe nada es «abrir y guardar sin cambiar
+  nada no cambia ninguna cuota»**: está en tests/pagos-tramos.test.ts con las cuotas reales de Nadia.
+- ⚠️ **El diagnóstico obvio era reusar la regla del plan libre, y era el equivocado.** En el libre, «la cantidad cuenta las
+  cobradas» y las que faltan se arman desde «Primera cuota»: la lista es LO QUE FALTA. En los tramos la lista es el plan ENTERO
+  (para que reabrir muestre lo que hay), y con esa regla una cobrada que no es la primera (la cuota 3 de 6) cubría la fila 1:
+  cada impaga tomaba la fecha de la siguiente. **Regla: una cobrada cubre SU lugar** (`lugaresDelPlan`, el mismo orden que
+  `lugarDe` del plan uniforme), y la impaga del lugar i se guarda POR ID en la fila i.
+- ⚠️ **«Las protegidas primero» en la PANTALLA corría todas las cuotas.** El libre ordena las impagas con link o recordatorio
+  primero para que no se queden sin lugar. Con la lista por posición, eso le cambiaba la fecha a cada cuota (y su recordatorio).
+  Acá van por posición, y la protegida que se queda sin fila la acomoda el server con las protecciones que acaba de leer
+  (`protegidasPrimero` en `reconciliarCuotas`), que ya existía por la revisión de 0b6d5b754.
+- **La moneda de una cuota impaga ahora importa, y tenía cuatro lectores que la ignoraban:** el recordatorio de cobranza decía
+  «US$ 600» a quien le pactaron MXN 12.000 (`cuota_monto`, lib/cobranza.ts; `getCuotasPendientes` no leía la moneda), «Marcar
+  pagada» proponía dólares, el link pedía el monto en pesos en blanco, y la ficha editaba la cuota como «$». En pesos, los
+  dólares los DECLARA la persona por tramo (`plataDeCuota`), como el pago a mano: `monto_usd` es lo que suman el Dashboard, el
+  Outstanding y la cobranza, y no hay tasa que inventar. Cambiar sólo los pesos (mismos dólares) es cambiar la plata: anula el
+  link y, con un recordatorio corriendo, no se toca.
+- **Deshacer:** el plan libre no tenía; `guardarCuotasAction(…, { conDeshacer: true })` devuelve las impagas y las columnas de
+  ANTES leídas en el server (con su número y su moneda), y las de después como `vistos`.
+
+**Sin hacer:**
+- Deshacer el cobro de una cuota en pesos (`marcarPago(false)`) deja la moneda de lo COBRADO (`cobrarCuota`: «lo último que se
+  dijo manda»): si se cobró en dólares, vuelve a impaga en dólares y se pierden los pesos pactados (lib/pagos.ts).
+- La API de MaKo arma el plan por tramos desde el 29/10 (`armar_plan_por_tramos`, abajo), pero `editar_cuota` no cambia los
+  pesos de una cuota (lib/api-mako/areas/cobros.*).
+- `guardar_plan_pagos` (el plan uniforme por la API) sobre un plan de UN tramo con columnas llenas lo reimpondría entero; con
+  varios tramos las columnas van vacías y la guarda «se cargaron a mano» lo frena (`ajustarPlanAction`).
+- Un tramo «para siempre» (el «Forever» de Stripe) es una suscripción: el plan siempre termina.
+- Al pasar una suscripción a «Pago único», el monto de la venta queda vacío: lo pide el bloque «Venta», no lo pone el plan.
+- El plan de Nadia NO se cargó (lo arma Leila con la herramienta). El ticket #13 sigue en «esperando_decision» (leído el
+  29/10): con el hito desplegado, el cron no lo cierra hasta que alguien lo apruebe (docs/hallazgos-ticketera.md).
+- No se recorrió en el navegador (la PC con diez chats abiertos no aguanta un build): el editor se DIBUJA con la ficha real de
+  Nadia en tests/_plan-tramos-hijo.ts, sin estilos. Recorrerlo en el ws3 después del deploy.
+
+**Vive en:** lib/pagos-campo.ts (§ «El plan por tramos»: `cuotasDeTramos`, `tramosDeCuotas`, `cuotasDelPlanPorTramos`,
+`plataDeCuota`; la moneda en `reconciliarCuotas`) · lib/pagos.ts (`escribirReconciliacion`, `editarCuota`,
+`getCuotasPendientes`) · lib/cobranza.ts · app/crm/[id]/pagos-campo-actions.ts (`guardarCuotasAction`) ·
+app/crm/lead-view/ficha/pagos/bloques-cobro.tsx (`ArmarPlan`) · tests/pagos-tramos.test.ts.
+
+### La revisión adversarial de 9fc4030dd (29/10/2026): dos de plata, y las dos venían de un valor POR DEFECTO
+
+Integración corrió la cadena real de «Guardar el plan» y de «Marcar pagada» con casos armados a propósito (el informe:
+C:/dev/revisiones/2910-verificacion-pagos-tramos-9fc4030dd.md, fuera del repo). Cada caso quedó como test en
+tests/pagos-tramos.test.ts, con su entrada.
+
+- ⚠️ **Abrir «Marcar pagada» en la moneda de la cuota cambia lo que significa el campo vacío.** «Dólares vacíos = el valor de la
+  cuota» ya estaba y era inocuo mientras el modal abría en dólares. Al abrir en pesos, el cobro a medias normal de Leila (6.000
+  de una cuota de MXN 12.000 = US$600) mandaba US$600: no preguntaba por la diferencia y se perdían 6.000 pesos. El server tenía
+  el mismo agujero para la API de MaKo, que manda los pesos sin los dólares (`monto ?? original` en `cobrarCuota`). **Regla:**
+  un cobro en la moneda de la cuota, sin dólares, va a la tasa que ya se declaró para ESA cuota (`dolaresALaTasaDeLaCuota`,
+  lib/pagos-diferencia.ts), en la pantalla y en el server.
+- ⚠️ **El anticipo del formulario sale de una fila #0 viva, nunca de la columna `cobro_inicial_usd`.** «Quitar» y una devolución
+  dejan la columna escrita, y era el valor por defecto del campo: abrir el editor y guardar sin tocar nada volvía a cobrar HOY
+  un anticipo devuelto (la deuda pasaba de US$1.500 a 2.500). «Abrir y guardar no cambia nada» se rompía por un DEFAULT del
+  formulario, no por la reconciliación, y los tests lo probaban con leads sin anticipo.
+- **Una marca que viaja en una fila no puede seguirla cuando el server le cambia el id.** `soloLoQueCambio` marca «tal cual» la
+  fila que no cambió, y `protegidasPrimero` le daba esa fila (con la marca) a la protegida que se quedaba sin lugar. La protegida
+  no se casaba: no tomaba la fecha que pide el plan, y no se avisaba que su link o su recordatorio no la dejaba cambiar.
+- **Lo que se guarda «a mano» tiene que cubrir TODO lo que una cuota puede tener distinto de su tramo, también la moneda.** Con
+  más de 10 rachas, `tramosDeCuotas` junta las que sobran en el último tramo, y `cambiosContra` sin la moneda ponía en pesos
+  (MXN 9.000) una cuota de US$600 con sólo abrir y guardar. El recordatorio pasaba a pedir pesos.
+- **Mandar el plan ENTERO necesita un compare-and-set.** Con la lista entera, una impaga del plan que la pantalla no vio era
+  «nueva» y se conservaba al lado de las propias: dos pestañas que guardaban «5 cuotas» sobre 3 dejaban 7. El plan uniforme de
+  main era seguro porque mandaba la diferencia. Ahora, con `sobreLoVisto`, el server no escribe nada si el plan tiene una impaga
+  que la pantalla no vio (`planCambiadoAfuera`). El resto de un cobro por menos no cuenta: va aparte.
+- El tope de 60 cuotas cuenta lo que se MANDA (el anticipo y lo de aparte también): la pantalla dejaba pasar 61 y el server
+  contestaba «Son demasiadas cuotas.». El total en dos monedas se lee «US$ 600 + $ 24.000 MXN (US$ 1.800 en total)»: con
+  «$ 24.000 MXN · US$ 1.800» parecía que sumaba dos veces.
+
+**Sin hacer (de esa revisión):**
+- El resto de un cobro a medias en pesos queda en DÓLARES (US$300, no MXN 6.000): lo crea `cobrar_con_resto` (mig 0318) sin
+  moneda. Cambiarlo es SQL (lib/pagos.ts, `cobrarCuota`).
+- El compare-and-set de `sobreLoVisto` lee y después escribe: dos «Guardar» en el mismo instante todavía pasan los dos.
+- Fin de mes: un tramo mensual sin día hereda el día ya recortado del anterior (desde el 31/10, el tramo 2 cae los 30; desde un
+  31/08, los 28). Se ve en la lista antes de guardar (`cuotasDeTramos`).
+- Un plan con una pausa (cobrada en junio, el resto desde diciembre): cambiar el monto del tramo rehace las fechas desde
+  «Primera cuota» y manda las impagas al pasado. El uniforme de main hace lo mismo (`rehacer` en `ArmarPlan`).
+- Acortar el plan por debajo de una cobrada la deja fuera del plan sin decirlo (`cuotasDelPlanPorTramos`).
+- Si el Deshacer falla, la pantalla no se entera: se llama con `void`, igual que el de `ajustarPlan`.
+
+### MaKo arma el plan: `armar_plan_por_tramos` (29/10/2026, ticket #26 de Mauricio, ws1)
+
+En el Ops Center, Mauricio le pidió a MaKo el plan de Fernando Muñoz: «7500 dolares en 3 pagos, primer pago 28 de octubre, segundo
+pago 28 de noviembre y tercer pago 28 de diciembre». MaKo contestó que sus herramientas «leen la cobranza, pero no crean el plan».
+
+- ⚠️ **«Falta la herramienta» era la mitad del diagnóstico.** `guardar_plan_pagos` y `guardar_cuotas` ya existían. Pero el plan
+  uniforme no puede armar este plan: cuenta las cuotas desde la fecha de cierre, de 1 a 6, con día de pago hasta el 28. Y
+  `guardar_cuotas` marca el lead como ganado. Además, la frase NO TRAÍA ninguna herramienta que sirviera. Medido con el turno
+  real del chat de la app (`clasificarIntencion` + `herramientasDelChat`): la frase literal no arranca con un verbo ni dice
+  «cuotas», y traía sólo `guardar_plan_pagos`. «300 dólares cada quincena» traía las tareas del Plan y las plantillas. **Regla:** a
+  una herramienta nueva se la mide con la frase LITERAL del ticket; sin una familia que la reconozca (`plan-dictado`,
+  lib/mako-intencion-app.ts), existe para la API y no para quien la pide.
+- **Una sola regla para la ficha y la API.** `planPorTramosDelServer` (lib/pagos-campo.ts) es la cadena de «Guardar el plan»
+  sin cambios a mano. Sin pantalla, lo que «se vio» son las cuotas que se leen al guardar. `columnasDelPlan` escribe las mismas
+  columnas en los dos caminos. La escritura es `guardarPlanPorTramos` (lib/pagos.ts), y el runner no escribe la base por su
+  cuenta. Repetir el mismo «sí» no cambia nada (probado).
+- **El anticipo por la API sigue la regla de A2:** si no se pasa, queda el #0 sin cobrar que ya tiene (de una fila viva, nunca de
+  la columna), y `sinAnticipo` lo quita. Una suscripción no se convierte sola: se pasa antes con `editar_venta_lead`.
+- ⚠️ **Lo que la persona confirma y lo que se escribe tienen que salir de la MISMA regla.** Con A1 arreglado en `cobrarCuota`, la
+  propuesta de `marcar_pago_cobrado` seguía diciendo «USD 600» de un cobro de MXN 6.000 sobre una cuota de 12.000, y el «sí» dejaba
+  300 pendientes que nadie había leído. Ahora la propuesta usa también `dolaresALaTasaDeLaCuota`. Y `cobranza_lead` le decía
+  «cobrada_en» a una cuota en pesos SIN cobrar: ahora es «pactada_en».
+
+**Sin hacer:**
+- Por la API se arma sólo el plan de la casa, no el de un CRM agregado (la ficha sí lo arma).
+- `editar_cuota` todavía no cambia los pesos de una cuota en otra moneda: sólo sus dólares y su fecha (lib/api-mako/areas/cobros.*).
+- El plan de Fernando (ws1) NO se cargó: lo arma Mauricio con MaKo después del deploy. El ticket #26 está en «esperando_decision».
+- La venta de Fernando sigue sin monto. El plan no la cambia: la propuesta lo dice y nombra `editar_venta_lead`.
+
+### La re-verificación de 805afb460 (29/10/2026): el «sí» llega tarde, y lo confirmado tiene que ser lo que queda
+
+Integración re-verificó con el código real (C:/dev/revisiones/2910-reverificacion-pagos-tramos-805afb460.md, fuera del repo):
+entraba, con cuatro medias nuevas, todas sobre lo que la persona CONFIRMA. Cada una quedó como test en
+tests/api-mako-plan-tramos.test.ts, con su entrada.
+
+- ⚠️ **Una propuesta por chat vive 2 h: lo que se leyó al proponer tiene que VIAJAR en la propuesta (N1).** `guardarPlanPorTramos`
+  leía «lo visto» al ejecutar, así que `sobreLoVisto` sólo cubría milisegundos. Una propuesta armada sobre un lead sin cuotas,
+  confirmada después de que alguien armara 6 en la ficha, reescribía 3 y borraba 3, y contestaba «Listo». Ahora las impagas
+  leídas (`vistas`) van en el payload. `faltaParaConfirmar` (que corre ANTES de reclamar la pendiente, así que no la quema)
+  rechaza si una ya no está por cobrar o si apareció una del plan (`planCambioDesde`), y `guardarPlanPorTramos` lo vuelve a
+  mirar antes de escribir.
+- ⚠️ **El resumen de una acción de plata se arma con lo que va a QUEDAR, no con lo pedido (N2).** Con la #1 cobrada por US$500 y la
+  #3 con un link sin pagar, la propuesta de 3 × US$700 decía «Total: US$ 2.100»: quedaban US$1.700, y el aviso del link salía
+  después del «sí». Ahora la propuesta corre `reconciliarCuotas` sobre lo leído, sin escribir (`cuotasQueQuedan`), y dice cada
+  cuota como queda: la cobrada, la que «queda como está» y por qué, el total y lo ya cobrado. `cuotaExistenteDe` es la misma forma
+  con que el server arma lo que reconcilia, así que la simulación no es una copia.
+- **Un anticipo sobre uno cobrado se rechaza en la propuesta (N4).** La regla ya lo ignoraba (`!inicialCobrado`), pero el resumen
+  prometía los US$800 y el «sí» no creaba nada. En la ficha el campo dice «Cobrado» y no se edita: sólo pasaba por la API.
+- **Una diferencia hereda la moneda de su cuota (N3, mig 0347).** `cobrar_cuota_con_resto` (0318, 0323) insertaba la diferencia
+  sólo en dólares: MXN 6.000 de una cuota de 12.000 quedaban «US$ 300», y el recordatorio, el link y «Marcar pagada» le pedían
+  dólares a quien paga en pesos. La 0347 (APLICADA el 29/10/2026 por el Cerebro, con el sí de Martín) redefine el cuerpo con la
+  misma firma (sin orden de despliegue): lee la moneda pactada
+  ANTES de la toma, que la pisa con la del cobro.
+- B6: dos «sí» a la vez no duplican (el índice único frena el segundo), pero el segundo contestaba el error crudo de la base;
+  ahora lo dice en palabras. B7: «Las cuota del plan…» → «La cuota del plan ya está cobrada».
+- ⚠️ **Una herramienta nueva LARGA le saca el lugar a otra en una frase que no es la suya.** El chat junta herramientas hasta
+  12.000 caracteres, por puntaje. Con 4.300 caracteres, `armar_plan_por_tramos` entraba antes que `editar_cuota` en «las fechas y
+  las cantidades de pago de Ana están mal: son 300 USD cada quincena», y el tren se frenó en tests/mako-no-puedo-falsos.test.ts
+  (caso 2). El arreglo fue achicarla a 3.500, no tocar el presupuesto. La relevancia de una familia no dice «plan», que trae las
+  tareas del Plan. Antes de entregar una operación del chat, se corren también los tests de presupuesto de las frases de otros.
+
+**Sin hacer:**
+- `faltaParaConfirmar` lee y después `ejecutar` escribe: un cambio en ese instante lo frena recién `guardarPlanPorTramos`, que ya
+  consumió la pendiente.
+
+## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
+
+- **El síntoma (el refutador, por la ruta real):** una venta de US$1 por un Payment Link del negocio, con
+  `?client_reference_id=<token>`, dejaba PAGADO un cobro de MaKo de US$1.500, con su cuota, el lead ganado y el historial
+  «Pago de Programa: US$ 1.500 por Stripe». Igual con el interruptor de ventas externas apagado o prendido. Venía de main, de
+  antes de MAU-10.
+- **La causa, y por qué «releer» no alcanzaba:** el aviso busca el cobro por la metadata `mako_cobro` o, si no está, por el
+  `client_reference_id` (`avisoStripe`), y la rama de MaKo relee la sesión y compara la REFERENCIA (`esDelCobro`), que es justo
+  lo que el atacante puso. `confirmarCheckout` no miraba ni el monto ni de dónde salía la sesión. El token viaja en
+  /pagar/<token>, los Payment Links aceptan ese parámetro en la URL, y la landing de Mauricio lo copia a cada link de Stripe.
+- **El arreglo (`sesionDelCobro`, lib/cobros-eventos.ts, en la rama de MaKo del checkout):** la sesión tiene que llevar la
+  metadata de MaKo de ESE cobro, o ser la guardada en el cobro (`proveedor_ref`); nunca salir de un Payment Link; y el monto y
+  la moneda tienen que alcanzar los del cobro. Si Stripe convirtió la moneda (`currency_conversion`), vale el de origen
+  (`leerCheckoutStripe` lo trae). Si no cuadra, no se asienta y se abre un ticket, uno por sesión (`cobro-ajeno:<cs_>`). Un
+  pago diferido que falló en un link ajeno tampoco marca el cobro.
+- **Trampa del doble, para quien lo vuelva a probar:** con un `data.object` recortado (sin `client_reference_id`) el cruce
+  NO aparece. El evento real trae la sesión entera: un doble con el cuerpo recortado esconde toda búsqueda por referencia.
+- **El monto, en UNIDAD MÍNIMA (la verificación de a196d5a93).** Un cobro de 49900.4 CLP se arma en Stripe por 49900 (sin
+  decimales), y comparar contra el 49900.4 rechazaba una sesión que cobró justo lo pedido, con un ticket falso; el cron la
+  asentaba igual media hora después. Ahora se compara `aUnidadMinima` contra `aUnidadMinima`, como se lo pidió MaKo a Stripe,
+  y **el cron pasa por la misma regla** (`pagoDelLinkEnLaPasarela`; lo que el aviso no asienta, el cron tampoco, con el mismo
+  ticket). El ticket vive en lib/cobro-sesion-ajena.ts para que lo usen los dos.
+
+**Sin hacer:** una sesión de Payment Link que trae el token de un cobro de MaKo queda ignorada con su ticket, no registrada
+como venta externa (con el interruptor prendido, la venta de verdad no entra al CRM sola). La puerta es de Zernio
+(`ventaExternaStripe`). Con Mercado Pago no se midió un cruce parecido.
+**Vive en:** lib/cobros-eventos.ts (`sesionDelCobro`) · lib/cobros-webhook.ts (rama de checkout) · lib/cobros.ts
+(`pagoDelLinkEnLaPasarela`) · lib/cobro-sesion-ajena.ts (`avisarSesionQueNoCuadra`) · lib/stripe-api.ts (`leerCheckoutStripe`:
+`montoOrigen`, `monedaOrigen`) · tests/cobro-sesion-ajena.test.ts · C:/dev/revisiones/scratch-3ca2/B-refuta/refuta.ts (H2) ·
+C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r3-monto-cero-decimales.ts y s1-sesion-ajena.ts.
+
+## Una guarda nueva que vale para TODO cobro rompió un caso que no era el suyo: el pago diferido fallido (28/10/2026, a196d5a93)
+
+- **El síntoma:** después de un OXXO, Boleto o SEPA que FALLÓ, /pagar contestaba «ya pagado» y /listo ofrecía «Volver a
+  intentar», que volvía a /pagar: un bucle. El cobro quedaba `fallido` para siempre (y el link de una cuota también:
+  `crearCobro` devuelve el mismo cobro).
+- **La causa:** la guarda «sesión anterior `complete` → ya pagado» se escribió para la PRUEBA de Stripe (que queda `complete`
+  sin cobrar) y se extendió a todo cobro de Stripe para cerrar el doble pago de la sesión vieja. Un pago diferido también deja
+  la sesión `complete` sin pagar (`unpaid`), y ahí no significa «pagado» sino «falló».
+- **La regla:** al generalizar una guarda de un caso a todos, listar los ESTADOS que llegan a ella (acá: `complete` con
+  `paid`, `no_payment_required` y `unpaid`, con el cobro pendiente o fallido) y decidir cada uno. El arreglo: con el cobro
+  `fallido` y la sesión `unpaid`, se arma otra; con el voucher EN CURSO (el cobro pendiente) no, que se pagaría dos veces. Y si
+  Stripe no contesta la lectura de la anterior, no se arma otra (antes armaba B con A todavía abierta).
+- **Y el arreglo abrió un cobro doble (la verificación de e6fd6d88d, scratch-e6fd/cobros-v/v1-segunda-sesion.ts):** al armar
+  B el cobro seguía `fallido`, así que con un SEGUNDO voucher en curso en B la misma excepción («fallido + unpaid») armaba C;
+  pagadas B y C, dos cuotas y ningún aviso (con SEPA el segundo cargo entra solo). La sesión nueva ahora vuelve el cobro a
+  `pendiente` (y borra el motivo) en el mismo compare-and-set. **La regla:** una excepción que mira el ESTADO del cobro tiene
+  que dejar ese estado como corresponde a la sesión nueva; si no, la excepción vale para la sesión siguiente también.
+
+**Vive en:** lib/cobros.ts (`urlParaPagar`) · tests/planes-stripe-afuera.test.ts ·
+C:/dev/revisiones/scratch-a196/cobro-mako-refuta/r1-pagar-tras-fallo.ts.
+
+## «Volver a intentar» una SUSCRIPCIÓN: el fallo tardío de la sesión vieja y la suscripción vieja viva (29/10/2026, la verificación de ddfa645d4)
+
+- **El síntoma (dos ALTAs, C:/dev/revisiones/2910-verificacion-zernio-254856316-planes-ddfa645d4.md):** una suscripción con
+  SEPA cuya primera factura falla se reintenta, y «Volver a intentar» arma la sesión B, que es OTRA suscripción. Con la sesión
+  nueva el cobro vuelve a `pendiente` (be95f7555), pero (1) el SEGUNDO aviso del mismo fallo de A (Stripe manda dos:
+  `invoice.payment_failed` y `checkout.session.async_payment_failed`), o un reintento de Stripe sobre la factura de A, lo
+  devolvía a `fallido` con el SEPA de B en curso, y se armaba C: dos cuotas y tres suscripciones vivas; y (2) MaKo nunca
+  cancelaba sub_A: si su factura se reintentaba y ENTRABA, era otra cuota «renovación» y dos suscripciones cobrando todos los meses.
+- ⚠️ **El diagnóstico obvio era el equivocado: «be95 ya vuelve el cobro a pendiente, alcanza».** Volver a `pendiente` cierra el
+  caso en que nada llega tarde (S3, el control). Pero Stripe avisa el mismo fallo DOS veces y reintenta facturas solo: todo lo
+  que mira «¿es de este cobro?» por el token (`sesionDelCobro` deja pasar por `metadata.mako_cobro`, la factura por la metadata)
+  acepta una sesión o una suscripción VIEJA del mismo cobro. «Es de este cobro» no es «es la vigente».
+- **La regla:** un fallo sólo toca el cobro si es de la sesión VIGENTE (`proveedor_ref`) o de una factura de la suscripción
+  VIGENTE (la anotada o, antes del primer pago, la de la sesión vigente: `suscripcionVigente`, lib/cobros-webhook.ts). Un PAGO
+  de una sesión anterior sí entra (es plata; `urlParaPagar` la expiró si seguía abierta); un pago de una factura de una
+  suscripción anterior NO se asienta y abre un ticket (`avisarFacturaDeOtraSuscripcion`): la plata entró y hay que devolverla.
+  Al armar B, la suscripción de A se cancela antes (si no se puede, no se arma B). `aplicarPagoFallido` escribe con
+  compare-and-set también por la sesión que se leyó (la carrera: un aviso que leyó A antes de que se armara B).
+- ⚠️ **Y el arreglo traía su propio defecto, encontrado antes de entregar:** cancelar sub_A dispara
+  `customer.subscription.deleted` de sub_A, y la rama de suscripción del webhook marcaba el COBRO «cancelada» (y la suscripción
+  del lead: el MRR la dejaba de contar) aunque B estuviera cobrando. La cancelación también se filtra por la vigente. **Regla:**
+  una acción nueva en la pasarela (cancelar, expirar, reembolsar) vuelve como AVISO: mirá qué rama del webhook lo recibe.
+- **Sin medir contra Stripe:** que Stripe reintente la primera factura de una suscripción con SEPA depende de la cuenta (Smart
+  Retries); que una factura abierta de una suscripción cancelada todavía pueda cobrarse (un SEPA en vuelo), también. Por eso el
+  pago tardío de la vieja abre un ticket en vez de suponer que no llega.
+
+**Vive en:** lib/cobros-webhook.ts (las ramas de checkout, factura y suscripción; `suscripcionVigente`) · lib/cobros.ts
+(`urlParaPagar`, `aplicarPagoFallido`, `actualizar` con `ref`) · lib/cobro-sesion-ajena.ts · tests/cobro-reintento.test.ts (el
+guion del refutador, versionado, con dos casos nuevos: la cancelación de sub_A y la carrera).
+
+## La compra a Meta de una venta externa salía DOS veces si el cron y el aviso coincidían (28/10/2026, a196d5a93)
+
+- **El síntoma (z-meta.ts R2):** el cron corría mientras el aviso mandaba la compra a Meta; los dos miraban el historial («¿ya
+  salió?»), ninguno lo encontraba y salían dos `purchase:cs_…` con el mismo event_id. Meta los debería descartar, pero entre dos
+  eventos de SERVIDOR no lo garantiza (docs/hallazgos-ads.md).
+- **El arreglo:** el cron no manda la compra que falta de un cobro externo que cambió hace menos de 10 minutos (el aviso puede
+  estar trabajando); la manda en la vuelta siguiente. R2: antes 2 envíos, ahora 1.
+
+**Sin hacer:** si la línea del historial no se puede escribir NUNCA (lead_audit rota), cada vuelta del cron pasados los 10
+minutos la vuelve a mandar (R5). Lo arregla un reclamo escrito ANTES de mandar, en lib/cobros-externos-meta.ts (de Zernio).
+**Vive en:** lib/cobros.ts (`reconciliarCobros`, `avisoTrabajando`) · tests/venta-externa.test.ts (o, p) ·
+C:/dev/revisiones/scratch-a196/partners-zernio-refuta/z-meta.ts.

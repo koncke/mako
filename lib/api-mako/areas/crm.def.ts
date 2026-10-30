@@ -225,7 +225,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cobranza_lead', area: 'crm', tipo: 'lectura',
     titulo: 'Plan de pagos de un lead',
-    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado. El bloque `cobrado` dice lo cobrado con la misma cuenta que la ficha (texto, estado y semáforo —verde, ámbar, rojo o gris—, cobrado, total, pendiente y vencido en USD, la próxima cuota, cuántas hay cobradas, vencidas y por vencer, la suscripción con su estado y la renovación rechazada si la hay, lo cobrado en otras monedas y si las cuentas cuadran): úsalo para «¿cómo va X con sus pagos?» en vez de sumar a mano. Cada cuota trae cobrada_en. Para cambiar el vencimiento o el monto de una cuota, mandarle su link o cortar su recordatorio están editar_cuota, crear_link_cuota y cortar_recordatorio_cuota (área cobros), con ese mismo id.',
+    descripcion: 'El estado de cobranza de UN lead: total vendido en USD, si es suscripción (con su monto mensual), duración, fecha de cierre e inicio de servicio, si tiene contrato, y cada cuota con su id, monto en USD, vencimiento, si está pagada, fecha de pago y si tiene comprobante. Responde «¿cuánto le falta pagar a X?». Trae también el estado de cuenta de la tab Pagos (qué debe, el detalle y qué hacer ahora: la acción que toca y, si es cobrar una cuota, su id), los últimos movimientos de plata (cobros, rechazos y devoluciones, del más nuevo al más viejo) y los avisos que piden algo (un contracargo, una devolución que falló). El id de cada cuota es el que pide marcar_pago_cobrado. El bloque `cobrado` dice lo cobrado con la misma cuenta que la ficha (texto, estado y semáforo —verde, ámbar, rojo o gris—, cobrado, total, pendiente y vencido en USD, la próxima cuota, cuántas hay cobradas, vencidas y por vencer, la suscripción con su estado y la renovación rechazada si la hay, lo cobrado en otras monedas y si las cuentas cuadran): úsalo para «¿cómo va X con sus pagos?» en vez de sumar a mano. Una cuota en otra moneda trae cobrada_en (cobrada) o pactada_en (sin cobrar: lo que se le pide, en esa moneda; sus dólares son monto_usd). Para cambiar el vencimiento o el monto de una cuota, mandarle su link o cortar su recordatorio están editar_cuota, crear_link_cuota y cortar_recordatorio_cuota (área cobros), con ese mismo id.',
     parametros: [leadId(), { nombre: 'comprobante', tipo: 'boolean', descripcion: 'Chat de la app: true si el único archivo del mensaje es el comprobante de pago de ESTE lead. Si no está claro, no lo pases y pregúntale.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -268,27 +268,6 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'La bandeja /crm/revisar: altas de leads que dejó un canal (Claude, WhatsApp, un formulario) y nadie confirmó todavía, con su link, cuántos contactos trae cada una y hace cuántas horas espera. Responde «¿tengo leads sin confirmar?». Tope de 100 propuestas.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
-  },
-  // El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la prospección en
-  // frío. SIN HTTP: son datos de contacto de terceros (decisión de canales de la casa). Buscar y pasar
-  // al CRM son acciones que CUESTAN PLATA o escriben en lote: van por la pantalla /crm/prospectos.
-  {
-    id: 'listar_prospectos', area: 'crm', tipo: 'lectura',
-    titulo: 'Prospectos de la búsqueda en frío',
-    descripcion: 'La lista de prospectos que encontraron las búsquedas en Google Maps o Instagram (la pantalla /crm/prospectos), ordenada por puntaje: nombre, rubro, ciudad, fuente, si se puede contactar (tiene email o teléfono), el puntaje de 0 a 100 con su razón y su estado (por revisar, en el CRM o descartado). Responde «¿cuáles son los mejores prospectos?» o «¿cuántos me quedan por revisar?». No pasa a nadie al CRM: eso se hace en la pantalla.',
-    parametros: [
-      { nombre: 'estado', tipo: 'string', enum: ['nuevo', 'en_crm', 'descartado'], descripcion: 'nuevo (por revisar, el default), en_crm o descartado.' },
-      { nombre: 'minimo', tipo: 'number', entero: true, minimo: 0, maximo: 100, descripcion: 'puntaje mínimo (default 0).' },
-      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos devolver, de mayor a menor puntaje (default 30, máximo 100).' },
-    ],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
-  },
-  {
-    id: 'busquedas_prospeccion', area: 'crm', tipo: 'lectura',
-    titulo: 'Búsquedas de prospectos',
-    descripcion: 'Las últimas 20 búsquedas de prospectos (Google Maps o Instagram): qué se buscó, dónde, cuántos, si sigue corriendo, terminó o falló (con el motivo) y cuántos prospectos nuevos trajo. Responde «¿ya terminó la búsqueda de inmobiliarias?». No requiere parámetros.',
-    parametros: [],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
   },
   {
     id: 'confirmaciones_crm_automatico', area: 'crm', tipo: 'lectura',
@@ -982,12 +961,13 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'agregar_link_fathom', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
-    titulo: 'Agregar grabación de Fathom',
-    descripcion: 'PROPONE agregar el link de la grabación de Fathom de la R1 o R2 de un lead: deja un link donde una persona revisa la URL exacta y confirma. Destraba el requisito «Fathom» de la etapa y habilita analizar la llamada. Lo normal es que entre solo por Fathom; esto es el camino manual.',
+    // El id quedó con «fathom» (lo usan los clientes de la API); desde el 26/10/2026 acepta el link de cualquier grabador.
+    titulo: 'Agregar la grabación de una reunión',
+    descripcion: 'PROPONE agregar el link de la grabación (de Fathom, Loom, tl;dv, Fireflies, Zoom u otro grabador) de la R1 o R2 de un lead: deja un link donde una persona revisa la URL exacta y confirma. Destraba el requisito «Fathom» de la etapa y habilita analizar la llamada. Lo normal es que entre solo por el grabador conectado; esto es el camino manual (y el único para Loom, que no tiene API).',
     parametros: [
       leadId(),
       cualReunion,
-      { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'link para compartir de Fathom (https://fathom.video/…).' },
+      { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'link de la grabación, con https: de Fathom (fathom.video), Loom, tl;dv, Fireflies, Zoom, Otter, Read AI o Meet.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
     reversible: true, escribe: 'agrega el link a fathom_links del lead y deja historial',
@@ -1009,7 +989,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_plan_pagos', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Guardar plan de pagos uniforme',
-    descripcion: 'PROPONE el plan de cobranza de un lead: cobro inicial, monto por cuota, cantidad de cuotas (1 a 6) y día de pago, todo en USD; deja un link donde una persona revisa los montos y confirma. Regenera las cuotas NO pagadas anclándolas en la fecha de cierre (las cobradas no se tocan). No marca el lead como ganado. Para cuotas de montos o fechas distintas usa guardar_cuotas.',
+    descripcion: 'PROPONE el plan de cobranza de un lead: cobro inicial, monto por cuota, cantidad de cuotas (1 a 6) y día de pago, todo en USD; deja un link donde una persona revisa los montos y confirma. Regenera las cuotas NO pagadas anclándolas en la fecha de cierre (las cobradas no se tocan). No marca el lead como ganado. Para una primera cuota en una fecha dada, quincenas, semanas, otra moneda o tramos de montos distintos usa armar_plan_por_tramos; para cuotas sueltas de montos o fechas distintas, guardar_cuotas.',
     parametros: [
       leadId(),
       { nombre: 'cobro_inicial_usd', tipo: 'number', minimo: 0, descripcion: 'cobro inicial en USD.' },
@@ -1299,7 +1279,8 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'crea un lead por cada número nuevo del grupo, con su etiqueta de origen y su historial (a los que ya son leads no los toca)',
   },
   // 24/10/2026 (el Cerebro: «traer ahora no puede impedir completar los nombres después»): el listado del grupo no trae
-  // nombres, y volver a traer no toca a los que ya están. Lo mismo que «Completar nombres» de la pantalla.
+  // nombres, y volver a traer no toca a los que ya están. (La pantalla ya no tiene «Completar nombres»: desde el 26/10/2026 los
+  // nombres van solos dentro de «Extraer», por la extensión. Esta acción sigue para el chat de MaKo, con lo que sabe la línea.)
   {
     id: 'completar_nombres_de_grupo', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Completar nombres de un grupo',
@@ -1310,6 +1291,16 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'el nombre de los leads del grupo que tenían su número por nombre (cada cambio queda en su historial)',
+  },
+  // «Completar desde mi WhatsApp» (25/10/2026): corre en el NAVEGADOR (la extensión lee el WhatsApp Web de la persona), así
+  // que por la API no se dispara. Esto dice qué haría, con los números del grupo, y cómo se dispara.
+  {
+    id: 'ver_completar_desde_whatsapp', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver completar desde mi WhatsApp',
+    descripcion: 'De los traídos de un grupo de WhatsApp: cuántos tienen teléfono y a cuántos se los encuentra por su identificador en el grupo, para completarlos con lo que la persona ya ve en su WhatsApp Web (nombre, empresa, grupos en común). Eso corre en su navegador con la extensión de MaKo: se dispara desde el CRM, tildándolos y tocando Completar, Desde mi WhatsApp. Esta lectura no toca el WhatsApp de nadie. Solo el administrador.',
+    parametros: [{ nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del grupo del que vinieron, como en grupos_whatsapp.' }],
+    // Sólo el chat de MaKo, como grupos_whatsapp y sus vecinas: lo de un grupo de WhatsApp no sale por HTTP.
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
   },
   // ── «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría de la API) ─────────────────────────
   // El interruptor del «⋯» de la columna Ganado (app/crm/curso-al-ganar-actions.ts): prendido, quien pasa a Ganado en
@@ -1380,6 +1371,69 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'vinculoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el vínculo (de ver_cobro_etapa).' }],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'borra el vínculo del producto con Ganado (cobro_etapa_vinculos); los cobros y planes ya hechos no se tocan',
+  },
+  // ── EN BLOQUE (28/10/2026, tickets #21 y #22 de Leila: los 394 de «Contacto nuevo») ─────────────────────────────
+  // UNA confirmación para todos, no 394: `preparar` congela los ids (la columna entera, paginada, o los que se nombran) y el
+  // resumen dice cuántos y quiénes; `ejecutar` los pasa con las piezas de la barra del tablero (lib/crm-bloque-server.ts).
+  // Lentas (`lenta`): en el chat siguen por detrás. Lo que no llega en el plazo se dice («quedan N»).
+  {
+    id: 'pasar_en_bloque_otra_columna', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Pasar varios a otra columna',
+    descripcion: 'PROPONE pasar EN BLOQUE varios leads a otra columna del mismo CRM, con UNA confirmación para todos (queda pendiente hasta el «sí»): la columna entera de origen (columna, con embudoId si no es el CRM principal) o los ids (leadIds). Para descalificar o perder en bloque, el destino es Descalificado o Perdido, con un motivo. Lo que la columna pida y falte queda pendiente en cada ficha. No manda mensajes. Solo el administrador.',
+    parametros: [
+      { nombre: 'destino', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la columna adonde van: su key (de ver_funnel) o su nombre.' },
+      { nombre: 'columna', tipo: 'string', max: 80, descripcion: 'la columna de origen ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads (de buscar_leads o listar_leads), si no es la columna entera.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+      { nombre: 'motivo', tipo: 'string', max: 300, descripcion: 'el motivo de descalificar o perder («No calificado — sin presupuesto»), uno para todos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'mueve cada lead a la columna, con su historial (a un agregado, en su fila de ese CRM), como la barra en bloque del tablero',
+  },
+  {
+    id: 'pasar_en_bloque_otro_funnel', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Pasar varios a otro funnel',
+    descripcion: 'PROPONE pasar EN BLOQUE leads de un CRM a OTRO, con UNA confirmación para todos (queda pendiente hasta el «sí»): salen del de origen y entran al de destino en la columna que se dice (sin ella, la misma si el destino la tiene, si no la de entrada). Los que ya pagaron en el origen no se pasan (sus pagos son de ahí); los que ya agendaron, sólo con incluirAgendados. El resumen dice cuántos de cada uno. No manda mensajes. Solo el administrador.',
+    parametros: [
+      { nombre: 'haciaEmbudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el CRM de destino, por el id de su embudo (de productos_del_lead o ver_funnel).' },
+      { nombre: 'columna', tipo: 'string', max: 80, descripcion: 'la columna de origen ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads, si no es la columna entera.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM de origen. Sin él, el CRM principal.' },
+      { nombre: 'destino', tipo: 'string', max: 80, descripcion: 'la columna del CRM de destino donde caen: su key o su nombre.' },
+      { nombre: 'incluirAgendados', tipo: 'boolean', descripcion: 'pasar también a los que ya agendaron una reunión (por defecto, no).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'saca a cada lead del CRM de origen y lo deja en el de destino (si el origen era su casa, la casa pasa a ser el destino), con su historial',
+  },
+  {
+    id: 'mandar_en_bloque_a_papelera', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Mandar varios a la papelera',
+    descripcion: 'PROPONE mandar EN BLOQUE leads a la papelera del CRM, con UNA confirmación para todos (queda pendiente hasta el «sí»): salen del CRM con su historial y sus pagos, y nadie recibe ningún mensaje. Durante 30 días se recuperan tal cual con recuperar_de_papelera_crm (la lista, con ver_papelera_crm); después se borran para siempre. La columna entera (columna, con embudoId) o los ids (leadIds). Solo el administrador.',
+    parametros: [
+      { nombre: 'columna', tipo: 'string', max: 80, descripcion: 'la columna ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads, si no es la columna entera.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM de la columna. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'saca a cada lead del CRM y guarda su foto 30 días en la papelera (leads_papelera); se recupera con recuperar_de_papelera_crm',
+  },
+  {
+    id: 'ver_papelera_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver la papelera del CRM',
+    descripcion: 'Los leads que se eliminaron y todavía se pueden recuperar (30 días): su id, nombre, de qué CRM y columna salieron, quién los eliminó y cuántos días les quedan. Para recuperarlos, recuperar_de_papelera_crm.',
+    parametros: [{ nombre: 'buscar', tipo: 'string', max: 80, descripcion: 'un nombre, teléfono o email para filtrar.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'recuperar_de_papelera_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Recuperar de la papelera',
+    descripcion: 'PROPONE devolver leads de la papelera del CRM tal cual estaban (sus mismos ids, pagos, funnels, etiquetas y mensajes), con UNA confirmación (queda pendiente hasta el «sí»). Los ids salen de ver_papelera_crm; con todos=true, todos los de la papelera. Uno que volvió a llegar con sus mismos datos queda en la papelera y se dice. Solo el administrador.',
+    parametros: [
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads (de ver_papelera_crm).' },
+      { nombre: 'todos', tipo: 'boolean', descripcion: 'todos los de la papelera.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'vuelve a crear cada lead con todo lo que tenía y lo saca de la papelera (leads_papelera)',
   },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp

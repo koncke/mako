@@ -13,10 +13,11 @@
 // El código por WhatsApp o correo se manda con un botón y no al abrir: recargar la
 // pantalla no puede mandar un mensaje.
 
-import { useEffect, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
 import { startAuthentication, startRegistration } from '@simplewebauthn/browser';
 import { descargarCodigos } from './descargar-codigos';
 import { CampoCodigo } from './CampoCodigo';
+import { textoDelFallo, type Respuesta } from './respuesta-2fa';
 
 type Metodo = 'passkey' | 'totp' | 'whatsapp' | 'email' | 'recuperacion';
 type Estado = {
@@ -30,7 +31,6 @@ type Estado = {
   /** El factor ya pasó y falta crear la contraseña obligatoria (15/10/2026). */
   falta?: 'contrasena' | null;
 };
-type Respuesta = { ok: boolean; error?: string; next?: string; codigos?: string[]; destino?: string; [k: string]: unknown };
 
 const ORDEN: Metodo[] = ['passkey', 'totp', 'whatsapp', 'email'];
 const TITULO: Record<Metodo, string> = {
@@ -52,7 +52,8 @@ const errorBox: CSSProperties = { marginBottom: '12px', fontSize: '13px', color:
 
 async function pedir(body: Record<string, unknown>): Promise<Respuesta> {
   const r = await fetch('/api/auth/2fa', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  if (r.status === 401) { window.location.href = '/login?error=mfa-vencido'; return { ok: false }; }
+  // El paso intermedio venció (o ya se cerró porque se entró): la pantalla se va al login y no pinta nada (respuesta-2fa.ts).
+  if (r.status === 401) { window.location.href = '/login?error=mfa-vencido'; return { ok: false, vencido: true }; }
   return (await r.json().catch(() => ({ ok: false, error: 'No se pudo conectar.' }))) as Respuesta;
 }
 
@@ -75,6 +76,13 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   const [copiado, setCopiado] = useState(false);
   // Después de entrar, en el teléfono: «¿la próxima vez con la huella?». Guarda adónde ir después.
   const [ofertaHuella, setOfertaHuella] = useState<string | null>(null);
+  // ENTRANDO (25/10/2026, Martín: «me dijo "No coincide"... y luego me dejo entrar igual»): con una respuesta buena la
+  // pantalla queda trabada hasta irse. Antes `correr` volvía a habilitar «Entrar» y el Enter mientras la página cargaba, y un
+  // segundo envío, ya sin el paso intermedio, pintaba «No coincide.». El ref corta un doble toque antes del próximo dibujo.
+  const entrando = useRef(false);
+  const [yendo, setYendo] = useState(false);
+  const trabado = ocupado || yendo;
+  const irA = (url: string) => { entrando.current = true; setYendo(true); window.location.href = url; };
 
   useEffect(() => {
     fetch('/api/auth/2fa').then(async (r) => {
@@ -101,7 +109,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       setOfertaHuella(next);
       return;
     }
-    window.location.href = next;
+    irA(next);
   };
 
   /** Termina: con códigos nuevos, primero se muestran; si no, entra. */
@@ -116,12 +124,13 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   };
 
   const correr = async (fn: () => Promise<void>) => {
+    if (entrando.current) return;
     setOcupado(true); setError(null);
     try { await fn(); } catch (e) {
       // Cancelar el diálogo del navegador no es un error que haya que contar.
       const nombre = e instanceof Error ? e.name : '';
       setError(nombre === 'NotAllowedError' ? 'Se canceló. Vuelve a probar.' : 'No se pudo. Vuelve a probar.');
-    } finally { setOcupado(false); }
+    } finally { if (!entrando.current) setOcupado(false); }
   };
 
   const cambiar = (m: Metodo | null, enrolar = false) => {
@@ -132,32 +141,32 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   // ── Entrar ─────────────────────────────────────────────────────────────────
   const enviar = (canal: 'whatsapp' | 'email') => correr(async () => {
     const j = await pedir({ accion: 'enviar', canal });
-    if (!j.ok) { setError(j.error ?? 'No se pudo mandar.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     setEnviadoA(String(j.destino ?? ''));
   });
   const verificar = (m: Metodo) => correr(async () => {
     const j = await pedir({ accion: 'verificar', metodo: m, codigo, recordar });
-    if (!j.ok) { setError(j.error ?? 'No coincide.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     salir(j);
   });
   const usarPasskey = () => correr(async () => {
     const o = await pedir({ accion: 'passkey-opciones' });
-    if (!o.ok) { setError(o.error ?? 'No se pudo.'); return; }
+    if (!o.ok) { setError(textoDelFallo(o)); return; }
     const respuesta = await startAuthentication({ optionsJSON: o.opciones as Parameters<typeof startAuthentication>[0]['optionsJSON'] });
     const j = await pedir({ accion: 'passkey-verificar', respuesta, recordar });
-    if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     salir(j);
   });
 
   // ── Activar el primero ─────────────────────────────────────────────────────
   const iniciarTotp = () => correr(async () => {
     const j = await pedir({ accion: 'enrolar-totp-iniciar' });
-    if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     setQr({ qr: String(j.qr), secreto: String(j.secreto), uri: typeof j.uri === 'string' ? j.uri : undefined });
   });
   const confirmarTotp = () => correr(async () => {
     const j = await pedir({ accion: 'enrolar-totp-confirmar', codigo, recordar });
-    if (!j.ok) { setError(j.error ?? 'No coincide.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     salir(j);
   });
   /** La huella, ya adentro: la crea /api/perfil/seguridad con la sesión que se acaba de poner. */
@@ -167,20 +176,20 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       return (await r.json().catch(() => ({ ok: false, error: 'No se pudo conectar.' }))) as Respuesta;
     };
     const o = await seg({ accion: 'passkey-opciones' });
-    if (!o.ok) { setError(o.error ?? 'No se pudo.'); return; }
+    if (!o.ok) { setError(textoDelFallo(o)); return; }
     const respuesta = await startRegistration({ optionsJSON: o.opciones as Parameters<typeof startRegistration>[0]['optionsJSON'] });
     const j = await seg({ accion: 'passkey-verificar', respuesta, nombre: 'Celular' });
-    if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
-    window.location.href = next;
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
+    irA(next);
   });
   const enviarEnrolar = (canal: 'whatsapp' | 'email') => correr(async () => {
     const j = await pedir({ accion: 'enrolar-codigo-enviar', canal, destino });
-    if (!j.ok) { setError(j.error ?? 'No se pudo mandar.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     setEnviadoA(String(j.destino ?? ''));
   });
   const confirmarEnrolar = (canal: 'whatsapp' | 'email') => correr(async () => {
     const j = await pedir({ accion: 'enrolar-codigo-confirmar', canal, codigo, recordar });
-    if (!j.ok) { setError(j.error ?? 'No coincide.'); return; }
+    if (!j.ok) { setError(textoDelFallo(j)); return; }
     salir(j);
   });
 
@@ -212,7 +221,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       e.preventDefault();
       void correr(async () => {
         const j = await pedir({ accion: 'crear-contrasena', contrasena: nueva });
-        if (!j.ok) { setError(j.error ?? 'No se pudo.'); return; }
+        if (!j.ok) { setError(textoDelFallo(j)); return; }
         salir(j);
       });
     };
@@ -227,7 +236,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
         <div style={{ margin: '8px 0 12px' }}>
           <button type="button" style={link} onClick={() => setVerNueva((v) => !v)}>{verNueva ? 'Ocultar' : 'Mostrar'}</button>
         </div>
-        <button type="submit" style={btn} disabled={ocupado || !nueva}>Guardar y entrar</button>
+        <button type="submit" style={btn} disabled={trabado || !nueva}>Guardar y entrar</button>
       </form>
     );
   }
@@ -239,10 +248,10 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
         <div style={titulo}>Entra más rápido</div>
         <div style={sub}>La próxima vez, con tu huella o Face ID.</div>
         {error && <div style={errorBox}>{error}</div>}
-        <button type="button" style={{ ...btn, marginBottom: '8px' }} disabled={ocupado} onClick={() => activarHuella(despues)}>Activar</button>
-        <button type="button" style={btnSec} disabled={ocupado} onClick={() => {
+        <button type="button" style={{ ...btn, marginBottom: '8px' }} disabled={trabado} onClick={() => activarHuella(despues)}>Activar</button>
+        <button type="button" style={btnSec} disabled={trabado} onClick={() => {
           try { localStorage.setItem('mako.huella.ahora-no', '1'); } catch { /* sin storage: se vuelve a ofrecer */ }
-          window.location.href = despues;
+          irA(despues);
         }}>Ahora no</button>
       </div>
     );
@@ -260,7 +269,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
   // del 14/10/2026). Los botones de abajo quedan igual, por si alguien prefiere apretar.
   const campoCodigo = (onEnter: () => void, largo: 6 | 11 = 6) => (
     <CampoCodigo
-      valor={codigo} onCambio={setCodigo} onCompleto={onEnter} ocupado={ocupado} error={error} largo={largo}
+      valor={codigo} onCambio={setCodigo} onCompleto={onEnter} ocupado={trabado} error={error} largo={largo}
       estilo={largo === 6 ? campo : { ...campo, fontSize: '16px', letterSpacing: '2px' }}
     />
   );
@@ -299,7 +308,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
           <div style={sub}>{qr ? 'Escanea el código y escribe el número que muestra.' : 'Google Authenticator, Authy o la que uses.'}</div>
           {error && <div style={errorBox}>{error}</div>}
           {!qr ? (
-            <button type="button" style={btn} disabled={ocupado} onClick={iniciarTotp}>Mostrar el código QR</button>
+            <button type="button" style={btn} disabled={trabado} onClick={iniciarTotp}>Mostrar el código QR</button>
           ) : (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
@@ -309,7 +318,7 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
               {estado.esTelefono && qr.uri && <a href={qr.uri} style={{ ...btnSec, display: 'block', textAlign: 'center', textDecoration: 'none', marginBottom: '12px' }}>Abrir en la app</a>}
               {campoCodigo(confirmarTotp)}
               {recordarCasilla}
-              <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={ocupado || codigo.length !== 6} onClick={confirmarTotp}>Activar</button>
+              <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado || codigo.length !== 6} onClick={confirmarTotp}>Activar</button>
             </>
           )}
           {volver}
@@ -330,13 +339,13 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
               onKeyDown={(e) => { if (e.key === 'Enter' && destino) enviarEnrolar(canal); }}
               style={campoTexto}
             />
-            <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={ocupado || !destino.trim()} onClick={() => enviarEnrolar(canal)}>Mandar código</button>
+            <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado || !destino.trim()} onClick={() => enviarEnrolar(canal)}>Mandar código</button>
           </>
         ) : (
           <>
             {campoCodigo(() => confirmarEnrolar(canal))}
             {recordarCasilla}
-            <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={ocupado || codigo.length !== 6} onClick={() => confirmarEnrolar(canal)}>Activar</button>
+            <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado || codigo.length !== 6} onClick={() => confirmarEnrolar(canal)}>Activar</button>
           </>
         )}
         {volver}
@@ -369,24 +378,24 @@ export function SegundoPaso({ cuenta }: { cuenta: string }) {
       {metodo === 'passkey' ? (
         <>
           {recordarCasilla}
-          <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={ocupado} onClick={usarPasskey}>Usar llave de acceso</button>
+          <button type="button" style={{ ...btn, marginTop: '10px' }} disabled={trabado} onClick={usarPasskey}>Usar llave de acceso</button>
         </>
       ) : (metodo === 'whatsapp' || metodo === 'email') && !enviadoA ? (
-        <button type="button" style={btn} disabled={ocupado} onClick={() => enviar(metodo)}>Mandar código</button>
+        <button type="button" style={btn} disabled={trabado} onClick={() => enviar(metodo)}>Mandar código</button>
       ) : (
         <>
           {campoCodigo(() => verificar(metodo), metodo === 'recuperacion' ? 11 : 6)}
           {recordarCasilla}
           <button
             type="button" style={{ ...btn, marginTop: '10px' }}
-            disabled={ocupado || (metodo === 'recuperacion' ? codigo.trim().length < 10 : codigo.length !== 6)}
+            disabled={trabado || (metodo === 'recuperacion' ? codigo.trim().length < 10 : codigo.length !== 6)}
             onClick={() => verificar(metodo)}
           >
-            Entrar
+            {yendo ? 'Entrando…' : 'Entrar'}
           </button>
           {(metodo === 'whatsapp' || metodo === 'email') && (
             <div style={{ marginTop: '10px', textAlign: 'center' }}>
-              <button type="button" style={link} disabled={ocupado} onClick={() => enviar(metodo)}>Reenviar</button>
+              <button type="button" style={link} disabled={trabado} onClick={() => enviar(metodo)}>Reenviar</button>
             </div>
           )}
         </>

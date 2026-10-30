@@ -33,6 +33,7 @@ import 'server-only';
 // Se usa para escribir la URL real en los pasos que la piden (ver ayudaDeCampo).
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
+import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -67,6 +68,14 @@ export type CampoCredencial = {
    *  y solo deja editarlo a mano detrás de "cargar a mano". Meta es el caso: de
    *  sus 6 credenciales, 5 salen del access token (ver lib/meta-descubrir.ts). */
   auto?: boolean;
+  /**
+   * true → la pantalla ya NO lo pide: se ve sólo si el negocio lo tenía cargado (para verlo, cambiarlo o quitarlo). Va con
+   * `opcional`. Existe por la clave de YouTube (27/10/2026): las vistas del VSL son públicas y MaKo las lee con su clave, y
+   * el canal se conecta con el login de Zernio; pedirle a cada negocio una clave de Google Cloud era el laberinto. El token de
+   * Meta también lo es (la misma tarde) y NO es `opcional`, a propósito: `opcional` lo leen los lectores de «conectado», y
+   * Meta ya cuenta conectada con la conexión de Zernio (`metaConectadaConCampos`). La API de MaKo tampoco lo lista si falta.
+   */
+  retirado?: boolean;
   /**
    * true → lo escribe SÓLO el servidor, derivado de otro campo, y NINGÚN «guardar» lo acepta
    * tipeado: ni el de /integraciones, ni el de /metodo, ni detrás de «Prefiero cargarlos a mano».
@@ -131,6 +140,11 @@ export type ServicioMetodo = {
     /** Link directo a donde se crea el token. */
     url?: string;
     urlLabel?: string;
+    /**
+     * Capturas REALES de cada paso, en el mismo orden (`null` = ese paso todavía no tiene una). Con capturas, la ayuda va UN PASO
+     * POR PANTALLA (29/10/2026, el pedido del tutorial de Zernio). Viven en public/tutoriales/<servicio>/. Nunca una imagen armada.
+     */
+    capturas?: ReadonlyArray<string | null>;
   };
   /** true → la UI solo muestra estado, sin inputs (no se carga desde la app).
    *  HOY NINGÚN SERVICIO LO USA: Supabase era el único y salió del catálogo (es
@@ -199,12 +213,19 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     core: true,
     paraQue: 'Campañas, gasto, resultados y salud de la cuenta publicitaria. Sin esto no hay métricas de ads ni Ads Manager.',
     campos: [
-      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Lo único que pegas: el token de un "usuario del sistema", vencimiento "Nunca" y los 8 permisos. MaKo completa el resto.' },
-      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token; si tienes varias cuentas, eliges una. A mano, va con act_ adelante.' },
-      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Lo saca MaKo del "Access token". Trae los contactos de tus formularios de Facebook e Instagram.' },
-      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Si tienes más de un píxel, te pregunta cuál.' },
-      { env: 'META_CAPI_TOKEN', label: 'Token de Conversions API', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Déjalo vacío: MaKo ya usa el "Access token". Solo sirve si tu píxel vive en otro negocio de Meta.' },
-      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Hace que los contactos de tus formularios lleguen a tu cuenta.' },
+      // ⚠️ LOS TOKENS DE META NO SE VEN NUNCA (29/10/2026, ticket #28, Martín: «ya no debería pedirte nada de Access Token. Toda esa
+      // parte de los tokens ya no debería existir»): `retirado`, y el modal de Meta los filtra siempre (`esTokenDeMeta`,
+      // ServicioConfigForm). Meta se conecta en la tarjeta de Zernio (`SE_CONFIGURA_EN`, lib/integraciones-catalogo.ts). El token
+      // GUARDADO no se borra: sigue de respaldo hasta el corte (`CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts).
+      { env: 'META_ACCESS_TOKEN', label: 'Conexión anterior de Meta', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'La conexión de antes: ya no se pide ni se muestra. Meta se conecta en Zernio.' },
+      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo elige MaKo al conectar «Anuncios de Meta» en Zernio; con varias, eliges una ahí. Va con act_ adelante.' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Conexión anterior de la página', secreto: true, opcional: true, auto: true, retirado: true, placeholder: 'EAAG…', nota: 'La conexión de antes: ya no se pide. Los contactos de tus formularios llegan por Zernio.' },
+      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al conectar «Anuncios de Meta» en Zernio. Con más de un píxel, eliges uno ahí.' },
+      // El token del PÍXEL (25/10/2026): con el token de Meta deprecado, es la salida de CAPI cuando la conexión de Facebook por
+      // Zernio no llega al píxel (lib/meta-capi.ts). Ya no es `auto`: MaKo no lo completa (nunca lo hizo) y la persona lo tiene
+      // que VER para pegarlo. Tutorial entero: docs/tutorial-capi-pixel.md.
+      { env: 'META_CAPI_TOKEN', label: 'Conexión anterior del píxel', secreto: true, opcional: true, retirado: true, placeholder: 'EAAG…', nota: 'La salida de antes para tu píxel: ya no se pide. Las conversiones salen por tu Zernio.' },
+      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al conectar con Facebook en Zernio. Hace que tus formularios lleguen a tu cuenta.' },
       // ⚠️ OPCIONAL A PROPÓSITO, Y NO ES UN DETALLE DE COPY. `opcional` es lo que
       // leen los TRES lectores de «está conectado» (lib/credenciales.ts:227,
       // lib/metodo-verificar.ts:601, app/api/metodo/route.ts:28): marcarlo requerido
@@ -219,23 +240,29 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // (medido el 05/10/2026, ver docs/hallazgos-ads.md). Marcarlo `auto` prometería
       // un autocompletado que nunca va a llegar.
       { env: 'META_CRM_DATASET_ID', label: 'ID del conjunto de datos de CRM', opcional: true, placeholder: '1234567890', nota: 'Opcional: el único dato de Meta que MaKo no completa sola. Hace que Meta busque contactos que califiquen.' },
+      // La conexión de Zernio (25/10/2026, lib/meta-via.ts): el `_id` de la conexión de anuncios `metaads` del negocio en SU
+      // Zernio. Un id, no un secreto, y `derivado`: lo escribe SÓLO el server al quedar conectado «Conectar con Facebook»
+      // (una conexión tipeada podría ser la de otro negocio). Con esto y la cuenta publicitaria, Meta cuenta como conectada
+      // sin el token (`metaConectadaConCampos`).
+      { env: 'META_ZERNIO_CUENTA', label: 'Conexión de Facebook (Zernio)', opcional: true, auto: true, derivado: true, nota: 'La completa MaKo al conectar con Facebook. Con esto MaKo lee y publica en Meta por tu Zernio.' },
     ],
     tutorial: {
-      url: 'https://business.facebook.com/settings',
-      urlLabel: 'Configuración del negocio en Meta',
-      // El camino que YA ANDA hoy, mientras la app de MaKo espera la revisión de Meta (23/10/2026): cada negocio
-      // conecta con SU app. Medido ese día en los 10 negocios conectados así (docs/hallazgos-ads.md, «Conectar con
-      // tu propia app»): métricas y leads andan en todos; publicar anuncios con creativo NUEVO anduvo sólo con una
-      // app activa (ws1), y la de ws13, en desarrollo, rebotó 14 de 14 con el 1885183.
-      // ⚠️ Y AUN ASÍ EL TUTORIAL NO PIDE PUBLICAR LA APP: es la regla de Martín del 16/09 («no me menciones más que el
-      // cliente tenga que publicar su app, esa no es opción», lib/meta-publicar-errores.ts). Un paso así entró y salió
-      // el mismo 23/10. Publicar con creativo nuevo va a ir por la Zernio del negocio (en construcción, 23/10).
-      // Estructura copiada de la guía de n8n para Facebook Lead Ads («Create the app»).
+      url: 'https://zernio.com',
+      urlLabel: 'Zernio',
+      // El token SE VA (27/10/2026, pedido del Cerebro tras el alta de los negocios de Joan, que se perdió en el tutorial del
+      // token: «tenía 45 pasos pero estaba muy resumido»). Ya no se enseña a sacarlo: el tutorial avisa el corte
+      // (`CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts; tests/meta-tutorial-app-propia.test.ts fija que la fecha sea la misma)
+      // y lleva a «Conectar con Facebook», que pide la key de Zernio si falta. El de antes (crear la app, el usuario del
+      // sistema, el token con 8 permisos) está en el historial de git.
+      // ⚠️ Sigue valiendo la regla de Martín del 16/09: ningún paso pide publicar ni activar una app.
+      // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». El tutorial ya no nombra
+      // el token (el corte del 03/11 lo dice sólo la nota del campo, que ve quien lo tenía): conectar es con Facebook.
+      // 29/10/2026 (ticket #28): se conecta en la tarjeta de Zernio, en dos pasos. Este modal ya no tiene un botón propio.
       pasos: [
-        'En developers.facebook.com/apps toca "Crear app", tipo "Negocio", con los casos de uso de anuncios y de leads.',
-        'En business.facebook.com/settings → "Usuarios del sistema" crea un "Administrador" con "Control total" de tus activos.',
-        'Toca "Generar nuevo token": tu app, vencimiento "Nunca" y los 8 permisos: ads_read, ads_management, business_management, pages_show_list, pages_read_engagement, pages_manage_ads, leads_retrieval, pages_manage_metadata.',
-        'Copia el token (empieza con EAA, se ve UNA vez) y pégalo en "Access token". MaKo completa el resto.',
+        'Meta se conecta con tu Facebook, por Zernio, en su tarjeta: no hay que crear ninguna app ni copiar nada de Meta.',
+        'Paso 1: pega tu API key de Zernio (zernio.com → "Settings" → "API Keys").',
+        'Paso 2: en «Anuncios de Meta» toca "Conectar con Facebook" y acepta.',
+        'Si tienes varias cuentas publicitarias o píxeles, eliges el tuyo ahí mismo.',
       ],
     },
   },
@@ -246,7 +273,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // las automatizaciones, con Messenger (tests/sin-instagram.test.ts cuenta la historia).
   {
     key: 'zernio',
-    nombre: 'Facebook, Instagram y anuncios (Zernio)',
+    nombre: 'Zernio',
     categoria: 'Mensajería',
     paraQue: 'Conecta tu Facebook, tu Instagram y tus anuncios de Meta con tu cuenta de Zernio, sin salir de MaKo.',
     campos: [
@@ -256,21 +283,36 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // ROUTING_CREDS. La nota es la línea del cobro: cada red cuenta aparte en Zernio, y lo paga el negocio.
       { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,
         nota: 'Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.' },
+      // VARIAS CLAVES (29/10/2026, Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente... y ya tendrías cuatro
+      // redes»): cada una es OTRA cuenta de Zernio del cliente, con su email. `opcional` a propósito: la tarjeta sigue conectada con la
+      // 1 sola. Las redes que se conectan con una quedan atadas a ella (lib/zernio.ts, `cfgDeCuenta`).
+      ...CLAVES_ZERNIO.slice(1).flatMap((env): CampoCredencial[] => [
+        { env, label: `API key de Zernio ${slotDeClaveZernio(env)}`, secreto: true, opcional: true, slot: slotDeClaveZernio(env) ?? undefined,
+          nota: 'De OTRA cuenta de Zernio tuya (otro Gmail): las redes que conectes con ella usan esta clave.' },
+        { env: `${env}_ACCOUNT`, label: `Email de la cuenta de Zernio ${slotDeClaveZernio(env)}`, secreto: false, opcional: true,
+          slot: slotDeClaveZernio(env) ?? undefined, placeholder: 'otromail@gmail.com',
+          nota: 'El Gmail de esa cuenta de Zernio, para saber de un vistazo cuál es. No se usa para nada más.' },
+      ]),
     ],
     tutorial: {
       url: 'https://zernio.com',
       urlLabel: 'Zernio',
+      // Un paso por pantalla, con la captura real de cada uno (29/10/2026, el Cerebro: «el tutorial debe ser claro»). Los nombres de
+      // los botones, tal cual los muestra zernio.com (docs.zernio.com/quickstart: «Open API keys and click Create API key»).
       pasos: [
-        'Entra a zernio.com con tu cuenta, o crea una.',
-        'En "Settings" → "API Keys" toca "Create API Key" y copia la key: se ve UNA sola vez.',
-        'Pégala en "API key de Zernio" y guarda.',
-        'Con la key guardada, conecta Facebook, Instagram o tus anuncios desde esta misma tarjeta en Integraciones.',
+        'Entra a zernio.com y crea tu cuenta con «Continue with Google»: con tu Gmail.',
+        'En «API keys» toca «Create API key» y copia la clave: empieza con sk_ y Zernio la muestra UNA vez.',
+        'Vuelve aquí, pégala en «API key de Zernio» y toca Guardar.',
+        'En el Paso 2 toca «Conectar» en cada red y entra con su usuario. Cada clave conecta 2 redes gratis.',
       ],
+      // El 1, la página real de registro (zernio.com/signup, 29/10/2026). El 2 pide entrar a una cuenta de Zernio, y el 3 y el 4 son
+      // pantallas de MaKo: se suman cuando se puedan sacar de verdad (docs/hallazgos-integraciones.md).
+      capturas: ['/tutoriales/zernio/1-crear-cuenta.webp', null, null, null],
     },
   },
   {
     key: 'email',
-    nombre: 'Email (Resend)',
+    nombre: 'Resend',
     categoria: 'Mensajería',
     paraQue: 'Envío de emails de nutrición, broadcasts y reportes.',
     campos: [
@@ -291,7 +333,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'anthropic',
-    nombre: 'MaKo IA (Anthropic)',
+    nombre: 'Anthropic API',
     categoria: 'Inteligencia',
     core: true,
     // ⚠️ DECÍA «El cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», y era
@@ -321,7 +363,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'openai',
-    nombre: 'OpenAI',
+    nombre: 'OpenAI API',
     categoria: 'Inteligencia',
     paraQue: 'Transcripción de audios/videos (Whisper) y tareas simples de extracción.',
     campos: [
@@ -340,7 +382,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'groq',
-    nombre: 'Groq',
+    nombre: 'Groq API',
     categoria: 'Inteligencia',
     paraQue: 'IA rápida y gratis para tareas simples (clasificar, extraer, titular) y transcripción de notas de voz (Whisper). MaKo la prefiere sobre OpenAI cuando hay key: se limita por tokens/día, no por saldo.',
     campos: [
@@ -361,7 +403,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'gemini',
-    nombre: 'Google Gemini',
+    nombre: 'Gemini API',
     categoria: 'Inteligencia',
     paraQue: 'Tu Gemini: con tu clave, MaKo trabaja solo con tu cuenta. El plan gratis no cobra, pero Google puede usar tus datos para mejorar sus modelos (con revisión humana). Activa la facturación en AI Studio y no los usa.',
     campos: [
@@ -475,6 +517,117 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // Los otros grabadores de reuniones (26/10/2026, lib/grabadores): leen lo mismo que Fathom, por la misma capa. Lo que da
+  // cada API se midió ese día (docs/hallazgos-integraciones.md → «Los grabadores de reuniones»). Loom, Read AI y Google Meet
+  // no están acá: no piden nada (su tarjeta dice por qué no se conectan; lib/integraciones.ts, `sinConexion`).
+  {
+    key: 'tldv',
+    nombre: 'tl;dv',
+    categoria: 'Reuniones',
+    paraQue: 'Apenas termina una reunión grabada con tl;dv, MaKo la lee: saca las tareas al Plan y analiza las llamadas de venta.',
+    // El correo es OBLIGATORIO: es lo que rutea el aviso al negocio (como FATHOM_HOST_EMAIL; tests/webhook-ruteo-obligatorio).
+    campos: [
+      { env: 'TLDV_API_KEY', label: 'API key', secreto: true, nota: 'Con esta key MaKo trae tus reuniones de tl;dv y lo que se habló en cada una.' },
+      { env: 'TLDV_HOST_EMAIL', label: 'Email de la cuenta que graba', placeholder: 'tu@tudominio.com', nota: 'El correo con el que entras a tl;dv. Sin él, el aviso de cada reunión llega y se descarta.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en tl;dv',
+      porque: 'Es por donde tl;dv avisa al terminar una reunión. Sin esto, la reunión entra en la vuelta de cada hora.',
+      valor: '{{APP_URL}}/api/webhooks/tldv',
+      donde: 'En tl;dv: "Settings" → "Webhooks" → "Configure New Webhook", en la dirección de destino.',
+      ojo: [
+        'Elige el evento "MeetingReady": es el que dice quién organizó la reunión.',
+      ],
+    },
+    tutorial: {
+      url: 'https://tldv.io/app/settings/personal-settings/api-keys',
+      urlLabel: 'tl;dv → API Keys',
+      pasos: [
+        'En tldv.io, con la cuenta que organiza las reuniones: "Settings" → "Personal Settings" → "API Keys".',
+        'Toca "Create API Key" y pégala en "API key". Sólo anda con el plan Pro o Business.',
+        'En "Email de la cuenta que graba" escribe el correo con el que entras a tl;dv.',
+        'En "Webhooks" pega la dirección del recuadro amarillo con el evento "MeetingReady".',
+      ],
+    },
+  },
+  {
+    key: 'fireflies',
+    nombre: 'Fireflies.ai',
+    categoria: 'Reuniones',
+    paraQue: 'Cuando Fireflies termina de transcribir una reunión, MaKo la lee: saca las tareas al Plan y analiza las de venta.',
+    campos: [
+      { env: 'FIREFLIES_API_KEY', label: 'API key', secreto: true, nota: 'Con esta key MaKo trae tus reuniones de Fireflies y lo que se habló en cada una.' },
+      { env: 'FIREFLIES_WEBHOOK_SECRET', label: 'Contraseña del webhook', secreto: true, opcional: true, sinEsto: 'Sin ella, tus reuniones entran en la vuelta de cada hora y no al terminar.', nota: 'El "Signing Secret" que escribes en el webhook de Fireflies. Con él, la reunión llega al terminar.' },
+      { env: 'FIREFLIES_HOST_EMAIL', label: 'Email de la cuenta que graba', opcional: true, placeholder: 'tu@tudominio.com', nota: 'El correo de tu cuenta de Fireflies: así MaKo sabe quién es de la casa en cada reunión.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en Fireflies',
+      porque: 'Es por donde Fireflies avisa al terminar de transcribir. Sin esto, la reunión entra en la vuelta de cada hora.',
+      valor: '{{APP_URL}}/api/webhooks/fireflies',
+      donde: 'En app.fireflies.ai: "Integrations" → "Webhooks", en "Webhook URL".',
+      ojo: [
+        'Escribe un "Signing Secret" largo: sin él, MaKo no sabe de qué negocio es el aviso.',
+      ],
+    },
+    tutorial: {
+      url: 'https://app.fireflies.ai/integrations/custom/fireflies',
+      urlLabel: 'Fireflies → API',
+      pasos: [
+        'En app.fireflies.ai, con la cuenta que graba: "Integrations" → "Fireflies API".',
+        'Copia tu API key y pégala en "API key".',
+        'En "Webhooks" pega la dirección del recuadro amarillo y escribe un "Signing Secret".',
+        'Pega ese mismo secreto en "Contraseña del webhook".',
+      ],
+    },
+  },
+  {
+    key: 'zoom',
+    nombre: 'Zoom',
+    categoria: 'Reuniones',
+    paraQue: 'Cuando Zoom termina de transcribir una grabación en la nube, MaKo la lee: saca las tareas al Plan y analiza las de venta.',
+    campos: [
+      { env: 'ZOOM_ACCOUNT_ID', label: 'Account ID', placeholder: 'AbCdEf12GhIj', nota: 'El "Account ID" de tu app Server-to-Server OAuth de Zoom (en "App Credentials").' },
+      { env: 'ZOOM_CLIENT_ID', label: 'Client ID', nota: 'El "Client ID" de esa misma app.' },
+      { env: 'ZOOM_CLIENT_SECRET', label: 'Client Secret', secreto: true, nota: 'El "Client Secret" de esa app: con los tres, MaKo lee tus grabaciones en la nube.' },
+      { env: 'ZOOM_WEBHOOK_SECRET', label: 'Secret Token', secreto: true, opcional: true, sinEsto: 'Sin él, tus grabaciones entran en la vuelta de cada hora y no al terminar.', nota: 'El "Secret Token" de la app (en "Feature"). Con él, la grabación llega al terminar.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en tu app de Zoom',
+      porque: 'Es por donde Zoom avisa cuando la transcripción está lista. Sin esto, entra en la vuelta de cada hora.',
+      valor: '{{APP_URL}}/api/webhooks/zoom',
+      donde: 'En marketplace.zoom.us, tu app → "Feature" → "Event Subscriptions", en "Event notification endpoint URL".',
+      ojo: [
+        'Suma los eventos "Recording Transcript files have completed" y "All Recordings have completed".',
+        'Guarda primero el "Secret Token" en MaKo: Zoom valida la dirección apenas la pegas.',
+      ],
+    },
+    tutorial: {
+      url: 'https://marketplace.zoom.us/develop/create',
+      urlLabel: 'Zoom → Build App',
+      pasos: [
+        'En marketplace.zoom.us, con la cuenta dueña de las grabaciones: "Develop" → "Build App" → "Server-to-Server OAuth".',
+        'En "Scopes" suma los de grabaciones en la nube ("cloud_recording:read") y los de reuniones pasadas.',
+        'Copia "Account ID", "Client ID" y "Client Secret" de "App Credentials" en sus campos.',
+        'Activa la app con "Activate": sin eso, Zoom no entrega el permiso.',
+      ],
+    },
+  },
+  {
+    key: 'otter',
+    nombre: 'Otter.ai',
+    categoria: 'Reuniones',
+    paraQue: 'MaKo lee tus conversaciones de Otter cada hora: saca las tareas al Plan y analiza las llamadas de venta.',
+    campos: [
+      { env: 'OTTER_API_KEY', label: 'API key', secreto: true, nota: 'Sólo existe en el plan Enterprise de Otter. Con ella MaKo trae tus conversaciones.' },
+    ],
+    tutorial: {
+      pasos: [
+        'En otter.ai, con una cuenta del plan Enterprise: "Integrations" → pestaña "Developer".',
+        'Toca "Create key" y copia la key: se ve UNA vez (puedes tener hasta 2).',
+        'Pégala en "API key": MaKo lee tus conversaciones en la vuelta de cada hora.',
+      ],
+    },
+  },
   {
     key: 'panda',
     nombre: 'Panda Video',
@@ -496,26 +649,107 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts). Cada clave alcanza para LEER la lista de videos:
+  // ninguna pide permiso de escribir.
+  {
+    key: 'vimeo',
+    nombre: 'Vimeo',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Vimeo, para elegirlos en tus páginas y tus cursos.',
+    campos: [
+      { env: 'VIMEO_TOKEN', label: 'Token de acceso', secreto: true, placeholder: 'abc123…', nota: 'En developer.vimeo.com/apps → tu app → "Generate an access token", con "Public" y "Private".' },
+    ],
+    tutorial: {
+      url: 'https://developer.vimeo.com/apps',
+      urlLabel: 'Vimeo → Developer → My Apps',
+      pasos: [
+        'En developer.vimeo.com/apps toca "Create an app" (un nombre y una descripción cualquiera alcanzan).',
+        'Adentro de la app, en "Generate an access token", elige "Authenticated (you)".',
+        'Marca "Public" y "Private" (así se ven también tus videos no listados) y toca "Generate".',
+        'Copia el token y pégalo en "Token de acceso". Vimeo lo muestra UNA vez.',
+      ],
+    },
+  },
+  {
+    key: 'wistia',
+    nombre: 'Wistia',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Wistia y cuántas veces los reproducen por día.',
+    campos: [
+      { env: 'WISTIA_TOKEN', label: 'Token de API', secreto: true, placeholder: 'abc123…', nota: 'En Wistia → "Account" → "Settings" → "API Access" → "Create a new token", con "Read all data".' },
+    ],
+    tutorial: {
+      url: 'https://account.wistia.com/account/api',
+      urlLabel: 'Wistia → Settings → API Access',
+      pasos: [
+        'En Wistia abre "Account" → "Settings" → "API Access".',
+        'Toca "Create a new token" y marca "Read all data" (y "Read detailed stats", para los números por día).',
+        'Copia el token y pégalo en "Token de API".',
+      ],
+    },
+  },
+  {
+    key: 'bunny',
+    nombre: 'Bunny Stream',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Bunny Stream y cuántas veces los reproducen por día.',
+    campos: [
+      { env: 'BUNNY_STREAM_KEY', label: 'API key de la biblioteca', secreto: true, placeholder: 'xxxxxxxx-xxxx-…', nota: 'En dash.bunny.net → "Stream" → tu biblioteca → "API". Es la de la BIBLIOTECA, no la de tu cuenta.' },
+      { env: 'BUNNY_STREAM_LIBRARY', label: 'Library ID', placeholder: '123456', nota: 'El número de tu biblioteca, en la misma pantalla "API" (también va en el link de cada video: /embed/<Library ID>/…).' },
+    ],
+    tutorial: {
+      url: 'https://dash.bunny.net/stream',
+      urlLabel: 'Bunny → Stream → tu biblioteca → API',
+      pasos: [
+        'En dash.bunny.net abre "Stream" y entra a la biblioteca donde están tus videos.',
+        'En el menú de la biblioteca toca "API".',
+        'Copia "API Key" y pégala en "API key de la biblioteca".',
+        'Copia "Video Library ID" y pégalo en "Library ID".',
+      ],
+    },
+  },
+  {
+    key: 'cloudflare',
+    nombre: 'Cloudflare Stream',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.',
+    campos: [
+      { env: 'CLOUDFLARE_STREAM_TOKEN', label: 'Token de API', secreto: true, placeholder: 'abc123…', nota: 'En dash.cloudflare.com → "My Profile" → "API Tokens" → "Create Token", con el permiso "Account" → "Stream" → "Read".' },
+      { env: 'CLOUDFLARE_ACCOUNT_ID', label: 'Account ID', placeholder: '32 letras y números', nota: 'En el panel de Cloudflare, en "Stream": la columna de la derecha dice "Account ID".' },
+    ],
+    tutorial: {
+      url: 'https://dash.cloudflare.com/profile/api-tokens',
+      urlLabel: 'Cloudflare → My Profile → API Tokens',
+      pasos: [
+        'En dash.cloudflare.com abre "My Profile" → "API Tokens" → "Create Token" → "Create Custom Token".',
+        'En "Permissions" elige "Account" → "Stream" → "Read", y toca "Continue to summary" → "Create Token".',
+        'Copia el token y pégalo en "Token de API". Cloudflare lo muestra UNA vez.',
+        'En el panel, entra a "Stream": copia el "Account ID" de la columna de la derecha y pégalo en "Account ID".',
+      ],
+    },
+  },
   {
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',
     paraQue: 'Views del VSL alojado en YouTube (si tu VSL vive ahí).',
     campos: [
-      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, placeholder: 'AIza…', nota: 'Empieza con AIza. Sale de console.cloud.google.com → "Credenciales" → "Clave de API", con "YouTube Data API v3".' },
-      { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', opcional: true, placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
+      // La clave ya NO se pide (27/10/2026, pedido del Cerebro, feedback 876470842-22): las vistas de un video son públicas y
+      // MaKo las lee con la suya (`claveDeYoutube`, lib/youtube.ts), y el canal se conecta con el login de Zernio
+      // (lib/zernio-redes.ts). «Conectado» pasa a ser tener el video del VSL; quien ya tenía su clave la sigue usando.
+      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'Ya no hace falta: MaKo lee las vistas con su clave. Déjala sólo si quieres usar tu propia cuota.' },
+      { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'OAuth Client ID', opcional: true, placeholder: '…apps.googleusercontent.com', nota: 'Opcional: déjalo vacío. Solo hace falta para la retención y las vistas diarias de TU canal.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'OAuth Client secret', secreto: true, opcional: true, placeholder: 'GOCSPX-…', nota: 'Opcional. Va de a pares con el "OAuth Client ID". Empieza con GOCSPX- y se ve UNA sola vez.' },
       { env: 'YOUTUBE_OAUTH_REFRESH_TOKEN', label: 'OAuth Refresh token', secreto: true, opcional: true, nota: 'Opcional: el permiso para leer las estadísticas de tu canal, del OAuth Playground de Google. Si no, vacío.' },
     ],
     tutorial: {
-      url: 'https://console.cloud.google.com/apis/credentials',
-      urlLabel: 'Google Cloud Console → Credenciales',
+      url: 'https://studio.youtube.com',
+      urlLabel: 'YouTube Studio',
       pasos: [
-        'En console.cloud.google.com, con tu cuenta de YouTube, crea un proyecto nuevo (selector de proyecto, arriba).',
-        'En "APIs y servicios" → "Biblioteca" busca "YouTube Data API v3" y toca "Habilitar" (es gratis).',
-        'En "APIs y servicios" → "Credenciales" → "Crear credenciales" → "Clave de API", copia la key (AIza…).',
-        'Pégala en "API key". En "ID del video del VSL" va lo que sigue a v= en la dirección de tu video.',
+        'Abre tu video del VSL en YouTube y copia lo que sigue a v= en su dirección.',
+        'Pégalo en "ID del video del VSL" y guarda: MaKo lee sus vistas cada día, sin claves.',
+        'Para conectar tu canal: en la tarjeta de Zernio, en "YouTube", toca "Conectar" y entra con Google.',
         'Los tres campos "OAuth" son opcionales: solo dan la retención de tu canal. Déjalos vacíos.',
       ],
     },
@@ -683,105 +917,14 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  // ⚠️ LAS FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md): el propio
-  // público del negocio entra solo al CRM (lib/fuentes-leads.ts). No hay una API que conectar: el
-  // negocio pega UN secreto y la dirección del recuadro amarillo del otro lado. Ese secreto es el
-  // ÚNICO campo y es obligatorio: es lo que rutea el aviso —su hash va a webhook_routing,
-  // lib/ruteo-hash.ts— y lo que lo prueba. Sin él no entra nadie (tests/webhook-ruteo-obligatorio).
-  //
-  // Los nombres de las pantallas de Hotmart salen de guías de terceros (en inglés y portugués:
-  // «Tools» → «Webhook (API Notifications)» → «Authentication» → «Verification Hottok»), no de la
-  // pantalla en español: NO MEDIDOS. Se corrigen con la primera cuenta real que se conecte.
-  {
-    key: 'hotmart',
-    nombre: 'Hotmart',
-    categoria: 'Pagos',
-    paraQue: 'Cada compra y cada carrito abandonado de tus productos de Hotmart entran solos a tu CRM, con su historial.',
-    campos: [
-      { env: 'HOTMART_HOTTOK', label: 'Hottok', secreto: true, placeholder: 'Tu hottok de Hotmart', nota: 'Está en Hotmart, en Webhook → «Autenticación». Sin esto no entra ninguna compra a tu CRM.' },
-    ],
-    pasoExterno: {
-      titulo: 'Pega esta dirección dentro de Hotmart',
-      porque: 'Es por donde Hotmart avisa cada compra y cada carrito abandonado. Sin esto, no entra nadie a tu CRM.',
-      valor: '{{APP_URL}}/api/webhooks/hotmart',
-      donde: 'En Hotmart: «Herramientas» → «Webhook» → «Registrar webhook», en el campo de la URL.',
-      ojo: [
-        'Elige la versión 2.0.0 y marca los eventos de compra y de carrito abandonado.',
-        'El «Hottok» de esa pantalla es el mismo que va en MaKo: si no coinciden, MaKo rechaza el aviso.',
-      ],
-    },
-    tutorial: {
-      url: 'https://app.hotmart.com/tools/list/producer',
-      urlLabel: 'Hotmart → Herramientas',
-      pasos: [
-        'En app.hotmart.com entra a «Herramientas», busca «Webhook» y abre su tarjeta.',
-        'En la pestaña «Autenticación» copia el «Hottok» y pégalo en «Hottok».',
-        'Toca «Registrar webhook», ponle de nombre MaKo y pega la dirección del recuadro amarillo.',
-        'Elige la versión 2.0.0 y marca los eventos de compra y de carrito abandonado.',
-      ],
-    },
-  },
-  // Skool no tiene un webhook propio documentado: lo oficial son los triggers de su app de Zapier
-  // («Answered Membership Questions», «New Paid Member»), y el Zap termina en «Webhooks by Zapier».
-  // La clave la INVENTA el negocio (como el «Secret» de Cal.com) y viaja en un header, nunca en la
-  // URL. ⚠️ NO MEDIDO: que con «Data» vacío Zapier mande los campos crudos del trigger (es lo que
-  // dice su ayuda del paso POST); el lector (lib/skool-evento.ts) acepta también los campos mapeados.
-  {
-    key: 'skool',
-    nombre: 'Skool',
-    categoria: 'Contenido',
-    paraQue: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas a las preguntas de ingreso.',
-    campos: [
-      { env: 'SKOOL_WEBHOOK_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave del Zap. Sin esto no entra nadie.' },
-    ],
-    pasoExterno: {
-      titulo: 'Pega esta dirección en tu Zap de Skool',
-      porque: 'Skool avisa por Zapier. Sin este paso, quien pide entrar a tu comunidad no llega a tu CRM.',
-      valor: '{{APP_URL}}/api/webhooks/skool',
-      donde: 'En zapier.com: tu Zap con Skool → paso «Webhooks by Zapier» → «POST» → campo «URL».',
-      ojo: [
-        'En «Headers» agrega X-MaKo-Clave con la misma clave de MaKo: sin ella, MaKo rechaza el aviso.',
-        'Deja «Data» vacío: así llegan el email, el nombre y las respuestas tal como los da Skool.',
-      ],
-    },
-    tutorial: {
-      url: 'https://zapier.com/apps/skool/integrations',
-      urlLabel: 'Zapier → Skool',
-      pasos: [
-        'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micomunidad2026clave).',
-        'En zapier.com crea un Zap con el trigger de Skool «Answered Membership Questions».',
-        'Como acción elige «Webhooks by Zapier» → «POST» y pega la dirección del recuadro amarillo.',
-        'En «Headers» agrega X-MaKo-Clave con la misma clave, y publica el Zap.',
-      ],
-    },
-  },
-  // APIFY (15/10/2026, docs/diseno-leads-scraper.md §5): donde corren las búsquedas de prospectos.
-  // BYOK: cada búsqueda se cobra en la cuenta de Apify del negocio, con un techo que MaKo le pasa a
-  // la corrida (`maxTotalChargeUsd`, lib/apify.ts). No recibe webhooks por credencial: el aviso de
-  // vuelta se rutea por la búsqueda (app/api/webhooks/apify), así que no hay fila de ruteo.
-  {
-    key: 'apify',
-    nombre: 'Apify',
-    categoria: 'Datos',
-    paraQue: 'Buscar prospectos en Google Maps e Instagram desde MaKo, con tu cuenta de Apify: pagas sólo lo que encuentras.',
-    campos: [
-      { env: 'APIFY_TOKEN', label: 'Token de Apify', secreto: true, placeholder: 'apify_api_…', nota: 'Está en Apify → Settings → API & Integrations. Cada búsqueda se cobra en tu cuenta, con un techo.' },
-    ],
-    tutorial: {
-      url: 'https://console.apify.com/settings/integrations',
-      urlLabel: 'Apify → Settings → API & Integrations',
-      pasos: [
-        'Crea tu cuenta en apify.com: el plan gratis alcanza para empezar.',
-        'En console.apify.com entra a «Settings» → «API & Integrations».',
-        'Copia tu «Personal API token» y pégalo en «Token de Apify».',
-      ],
-    },
-  },
+  // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper): se fueron el 25/10/2026 sin una sola clave guardada en
+  // producción. Ver tests/leads-scraper-retirado.test.ts.
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
   // app OAuth de la AGENCIA (login + Google Calendar), infra compartida de la
   // plataforma. Un cliente jamás crea su propia app OAuth ni pisa estas
-  // credenciales: conecta su agenda AUTORIZANDO (entra con Google, o el botón
-  // "Conectar Google Calendar" de /integraciones). Sigue en lib/integraciones.ts
+  // credenciales: conecta su agenda AUTORIZANDO (el botón "Conectar Google Calendar" del
+  // modal, en Calendario y el CRM; al entrar con Google sólo con GOOGLE_LOGIN_CON_AGENDA=1,
+  // lib/google-login-agenda.ts). Sigue en lib/integraciones.ts
   // como "Google Calendar", medido por señal real (el refresh token del ws).
 ];
 
@@ -842,7 +985,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_AD_ACCOUNT_ID: {
     pasos: [
         'Para qué sirve: le dice a MaKo de qué cuenta de anuncios traer el gasto y los resultados.',
-        'Normalmente lo completa MaKo al pegar el "Access token"; si tienes varias cuentas, eliges una.',
+        'Normalmente lo elige MaKo al conectar «Anuncios de Meta» en la tarjeta de Zernio; con varias cuentas, eliges una ahí.',
         'A mano: en adsmanager.facebook.com, el número largo junto al nombre de la cuenta, arriba a la izquierda.',
         'Escríbelo con act_ adelante y sin espacios (act_1234567890): sin el act_, el tablero queda en blanco.',
       ],
@@ -851,11 +994,9 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   META_PAGE_ACCESS_TOKEN: {
     pasos: [
-        'Para qué sirve: trae los datos de quien deja su contacto en tus formularios de Facebook e Instagram.',
-        'No lo escribes tú: MaKo lo saca del "Access token". Si queda vacío, falta la página o algún permiso.',
-        'En business.facebook.com/settings → "Usuarios del sistema" → tu usuario → "Agregar activos" → "Páginas".',
-        'Marca tu página con "Control total", guarda y genera un token nuevo con: leads_retrieval, pages_show_list, pages_read_engagement, pages_manage_ads.',
-        'Pega el token nuevo en "Access token" y guarda: el token de la página se completa solo.',
+        'Para qué sirve: ya no se usa. Traía los contactos de tus formularios con la conexión de antes.',
+        'No se pide: esos contactos llegan por Zernio.',
+        'Para recibirlos, conecta «Anuncios de Meta» en la tarjeta de Zernio con la página de tus formularios.',
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',
@@ -863,34 +1004,44 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_PIXEL_ID: {
     pasos: [
         'Para qué sirve: con el píxel, MaKo le devuelve a Meta las ventas que se cierran fuera de la web.',
-        'Normalmente lo completa MaKo al pegar el "Access token"; si tienes varios píxeles, te pregunta cuál.',
+        'Normalmente lo completa MaKo al conectar «Anuncios de Meta» en Zernio; con varios píxeles, eliges uno ahí.',
         'A mano: en business.facebook.com/events_manager2 ("Administrador de eventos") toca tu píxel y copia su número.',
         'Pégalo aquí, solo dígitos. Si no tienes píxel, déjalo vacío: MaKo funciona igual.',
+        'Si tu página ya manda "Schedule" con el píxel, MaKo no lo repite: así Meta no lo cuenta dos veces.',
       ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
   },
   // CAPI: el botón "Generar token de acceso" de Events Manager arma por detrás un
   // token con ads_management sobre ese píxel — no es un tipo especial de token.
-  // Por eso el token principal sirve, siempre que el píxel esté asignado al usuario
-  // de sistema. Este campo queda solo para el caso raro de un píxel de otro negocio.
+  // Desde el 25/10/2026 (el token de Meta deprecado, Meta por Zernio) es la salida de
+  // CAPI cuando la conexión de Facebook por Zernio no llega al píxel. Los pasos, de la
+  // doc de Meta (conversions-api/get-started, leída el 25/10/2026); el detalle con la
+  // deduplicación, en docs/tutorial-capi-pixel.md.
   META_CAPI_TOKEN: {
     pasos: [
-        'Para qué sirve: casi nunca. MaKo ya manda las conversiones con el "Access token": déjalo vacío.',
-        'Solo hace falta si tu píxel vive en OTRO negocio de Meta que no puedes asignar a tu usuario del sistema.',
-        'En business.facebook.com/events_manager2 elige tu píxel → "Configuración" → "Conversions API".',
-        'Toca "Generar token de acceso", copia el código y pégalo en este campo.',
+        'Para qué sirve: ya no se usa. Mandaba tus contactos y agendas a tu píxel con la conexión de antes.',
+        'No se pide: las conversiones salen por tu conexión de Zernio («Anuncios de Meta»).',
+        'Si no llegan, en Meta dale a esa cuenta publicitaria acceso a tu píxel y vuelve a conectar en Zernio.',
       ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
   },
+  // La conexión de Zernio (25/10/2026): no se pega, la escribe MaKo al conectar con Facebook (`derivado`).
+  META_ZERNIO_CUENTA: {
+    pasos: [
+        'Para qué sirve: con esta conexión MaKo lee tus métricas y publica tus anuncios, sin pedirte nada de Meta.',
+        'No la escribes tú: en la tarjeta de Zernio, paso 2, «Anuncios de Meta» → "Conectar con Facebook".',
+        'En la ventana de Facebook elige tu negocio, tu página y tu cuenta publicitaria, y acepta.',
+      ],
+    url: 'https://zernio.com',
+    urlLabel: 'Zernio',
+  },
   META_PAGE_ID: {
     pasos: [
         'Para qué sirve: sin esto, quien deja su teléfono en tus formularios de Facebook e Instagram no llega a ningún lado.',
-        'Lo completa MaKo al pegar el "Access token"; si tienes varias páginas, eliges la de tus anuncios.',
-        'Si quedó vacío: business.facebook.com/settings → "Usuarios del sistema" → tu usuario → "Agregar activos".',
-        'En "Páginas" marca tu página con "Control total" y guarda.',
-        'Toca "Generar nuevo token" y pégalo en "Access token": la página se completa sola.',
+        'Lo completa MaKo al conectar «Anuncios de Meta» en la tarjeta de Zernio; con varias páginas, eliges la de tus anuncios.',
+        'Si quedó vacío, vuelve a conectar ahí y elige la página en la ventana de Facebook.',
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',
@@ -1010,6 +1161,32 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://fathom.video/customize#api-access-header',
     urlLabel: 'Fathom → API Access',
+  },
+  // Los grabadores (26/10/2026): «qué pongo ACÁ» en los campos que no son la API key.
+  TLDV_HOST_EMAIL: {
+    pasos: [
+        'Para qué sirve: le dice a MaKo que la reunión es tuya. Sin esto, el aviso de tl;dv se descarta sin error.',
+        'Escribe el correo de la cuenta de tl;dv que organiza las reuniones: el mismo con el que entras a tldv.io.',
+        'Escríbelo tal cual, sin espacios. Las mayúsculas no importan.',
+      ],
+  },
+  FIREFLIES_WEBHOOK_SECRET: {
+    pasos: [
+        'Para qué sirve: tus reuniones llegan apenas Fireflies termina de transcribir, y no en la vuelta de cada hora.',
+        'En app.fireflies.ai: "Integrations" → "Webhooks". Pega la dirección del recuadro amarillo.',
+        'En "Signing Secret" escribe una contraseña larga, y escribe la MISMA en este campo.',
+      ],
+    url: 'https://app.fireflies.ai/integrations/api/webhook',
+    urlLabel: 'Fireflies → Webhooks',
+  },
+  ZOOM_WEBHOOK_SECRET: {
+    pasos: [
+        'Para qué sirve: tus grabaciones llegan apenas Zoom termina la transcripción.',
+        'En marketplace.zoom.us, tu app → "Feature": copia el "Secret Token" y pégalo en este campo.',
+        'Guárdalo ANTES de pegar la dirección en Zoom: Zoom la valida en el momento, con este token.',
+      ],
+    url: 'https://marketplace.zoom.us/user/build',
+    urlLabel: 'Zoom → tus apps',
   },
   PANDA_API_KEY: {
     pasos: [
@@ -1234,6 +1411,44 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://www.mercadopago.com/developers/panel/app',
     urlLabel: 'Mercado Pago → Tus integraciones',
+  },
+  // Los alojadores de video con DOS campos (25/10/2026): la ayuda del servicio dice cómo conectarlo; la de cada campo,
+  // qué va EN ese campo (tests/tutoriales-legibles.test.ts).
+  BUNNY_STREAM_KEY: {
+    pasos: [
+        'Para qué sirve: con esta clave MaKo lista los videos de tu biblioteca y trae cuántas veces los reproducen por día.',
+        'En dash.bunny.net abre "Stream" y entra a la biblioteca donde están tus videos.',
+        'En el menú de la biblioteca toca "API" y copia "API Key". Es la de la BIBLIOTECA, no la de tu cuenta.',
+      ],
+    url: 'https://dash.bunny.net/stream',
+    urlLabel: 'Bunny → Stream → tu biblioteca → API',
+  },
+  BUNNY_STREAM_LIBRARY: {
+    pasos: [
+        'Para qué sirve: le dice a MaKo cuál de tus bibliotecas de Bunny tiene los videos.',
+        'En la misma pantalla "API" de tu biblioteca, copia "Video Library ID": es un número.',
+        'También está en el link de cada video: /embed/<este número>/…',
+      ],
+    url: 'https://dash.bunny.net/stream',
+    urlLabel: 'Bunny → Stream → tu biblioteca → API',
+  },
+  CLOUDFLARE_STREAM_TOKEN: {
+    pasos: [
+        'Para qué sirve: con este token MaKo lista tus videos de Cloudflare Stream para elegirlos en tus páginas y tus cursos.',
+        'En dash.cloudflare.com abre "My Profile" → "API Tokens" → "Create Token" → "Create Custom Token".',
+        'En "Permissions" elige "Account" → "Stream" → "Read", crea el token y cópialo: Cloudflare lo muestra una sola vez.',
+      ],
+    url: 'https://dash.cloudflare.com/profile/api-tokens',
+    urlLabel: 'Cloudflare → My Profile → API Tokens',
+  },
+  CLOUDFLARE_ACCOUNT_ID: {
+    pasos: [
+        'Para qué sirve: le dice a MaKo en qué cuenta de Cloudflare están tus videos.',
+        'En el panel de Cloudflare entra a "Stream".',
+        'En la columna de la derecha copia "Account ID": son 32 letras y números.',
+      ],
+    url: 'https://dash.cloudflare.com',
+    urlLabel: 'Cloudflare → Stream',
   },
 };
 

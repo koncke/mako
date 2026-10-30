@@ -35,7 +35,7 @@ import {
   monedaDelNegocio, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  avisoDeConservadas, lineasDeCuotas, nombreCuota, ajustarSobre, planComoEstaba, planVacio,
+  avisoDeConservadas, lineasDeCuotas, monedaDeCuota, nombreCuota, ajustarSobre, planComoEstaba, planVacio,
   type CambioObligacion, type CambioVenta, type Obligaciones, type PlanUniforme,
 } from '@/lib/pagos-campo';
 import { cobradoDelLead, noEsDeuda, type Cobrado } from '@/lib/cobrado-lead';
@@ -135,25 +135,28 @@ export async function guardarVentaAction(leadId: number, cambio: CambioVenta, op
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Edita UNA cuota impaga por su id (monto, vencimiento o los dos), sin borrar ni reinsertar: el link, el
- * recordatorio y el dedup siguen apuntando a ella. Deshacer: llamarla con `antes`.
+ * Edita UNA cuota por su id (monto, fecha o los dos), sin borrar ni reinsertar: el link, el recordatorio y el dedup siguen
+ * apuntando a ella. `espera`: cómo estaba la cuota en la pantalla («impaga»: la fecha es el vencimiento; «cobrada»: el día
+ * del pago). Si cambió en el medio, `editarCuota` tira. Deshacer: llamarla con `antes` y la misma `espera`.
  */
-export async function editarCuotaAction(leadId: number, pagoId: number, cambio: { monto?: number | null; fecha?: string | null }): Promise<{ ok: true; antes: { monto: number; fecha: string | null }; despues: { monto: number; fecha: string | null } } | Fallo> {
+export async function editarCuotaAction(leadId: number, pagoId: number, cambio: { monto?: number | null; montoOriginal?: number | null; fecha?: string | null; espera?: 'impaga' | 'cobrada' }): Promise<{ ok: true; antes: { monto: number; fecha: string | null; montoOriginal?: number | null }; despues: { monto: number; fecha: string | null; montoOriginal?: number | null }; recordatorioCortado: boolean; linkAnulado: boolean } | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !idValido(pagoId)) return { ok: false, error: 'Cuota inválida.' };
+    if (cambio?.espera !== undefined && cambio.espera !== 'impaga' && cambio.espera !== 'cobrada') return { ok: false, error: 'Cuota inválida.' };
     const r = await editarCuota(leadId, pagoId, cambio ?? {});
-    const antes = { monto: r.antes.monto_usd, fecha: r.antes.fecha_esperada };
-    const despues = { monto: r.despues.monto_usd, fecha: r.despues.fecha_esperada };
-    if (antes.monto !== despues.monto || antes.fecha !== despues.fecha) {
+    const antes = { monto: r.antes.monto_usd, fecha: r.antes.fecha_esperada, ...(r.moneda ? { montoOriginal: r.antes.monto_original ?? null } : {}) };
+    const despues = { monto: r.despues.monto_usd, fecha: r.despues.fecha_esperada, ...(r.moneda ? { montoOriginal: r.despues.monto_original ?? null } : {}) };
+    if (antes.monto !== despues.monto || antes.fecha !== despues.fecha || antes.montoOriginal !== despues.montoOriginal) {
+      const enMoneda = (m: number | null | undefined) => (r.moneda ? { moneda: r.moneda, monto_original: m ?? null } : {});
       await anotarEnHistorial(leadId, lineasDeCuotas({
-        actualizar: [{ id: pagoId, numero: r.numero, monto_usd: despues.monto, fecha_esperada: despues.fecha, antes: { monto_usd: antes.monto, fecha_esperada: antes.fecha } }],
+        actualizar: [{ id: pagoId, numero: r.numero, monto_usd: despues.monto, fecha_esperada: despues.fecha, ...enMoneda(despues.montoOriginal), antes: { monto_usd: antes.monto, fecha_esperada: antes.fecha, ...enMoneda(antes.montoOriginal) } }],
         insertar: [], borrar: [], conservar: [],
       }), await autor());
       bust(TAG.pagos, TAG.leads);
       revalidar(leadId, true);
     }
-    return { ok: true, antes, despues };
+    return { ok: true, antes, despues, recordatorioCortado: r.recordatorioCortado === true, linkAnulado: r.linkAnulado === true };
   } catch (e) {
     return { ok: false, error: mensaje(e) };
   }
@@ -161,6 +164,12 @@ export async function editarCuotaAction(leadId: number, pagoId: number, cambio: 
 
 /** Lo que cambió en las cuotas, dicho para la pantalla: qué se hizo y qué NO se tocó (con el porqué). */
 type ResultadoCuotas = { ok: true; actualizadas: number; nuevas: number; quitadas: number; sinTocar: string | null };
+
+/** Una cuota como la manda la pantalla: `moneda`/`montoOriginal` sólo si es de un tramo en otra moneda (sin la clave, no se toca). */
+type CuotaDeLaPantalla = { id?: number | null; numero?: number | null; monto: number; fecha: string | null; quedaComoEsta?: boolean; moneda?: string | null; montoOriginal?: number | null };
+
+/** Lo que devuelve un plan guardado con `conDeshacer`: las impagas y el plan de ANTES, y las impagas de después (`vistos`). */
+export type DeshacerPlan = { cuotas: CuotaDeLaPantalla[]; plan: PlanUniforme; vistos: number[] };
 
 /**
  * Las cuotas impagas de una vez, POR ID (el bloque `cuotas` en su modo lista, y el Deshacer de `ajustarPlanAction`):
@@ -171,28 +180,37 @@ type ResultadoCuotas = { ok: true; actualizadas: number; nuevas: number; quitada
 export async function guardarCuotasAction(
   leadId: number,
   /** `numero`: el de una cuota que VUELVE (el Deshacer de `ajustarPlanAction`); sin él, después de la última. */
-  cuotas: Array<{ id?: number | null; numero?: number | null; monto: number; fecha: string | null }>,
+  cuotas: CuotaDeLaPantalla[],
   plan?: PlanUniforme | null,
   /** Los ids de las impagas que la pantalla tenía cargadas: una que no vio no se borra (ver `reconciliarCuotas`). */
   idsVistos?: number[] | null,
   /** El CRM agregado del plan (mig 0324); sin él, la casa. */
   crm: number | null = null,
-): Promise<ResultadoCuotas | Fallo> {
+  /** El plan libre y el por tramos: las protegidas van primero, con las protecciones que se leen ACÁ (lib/pagos-campo.ts →
+   *  protegidasPrimero). `conDeshacer`: devuelve con qué deshacerlo (el plan por tramos, 29/10/2026). `sobreLoVisto`: la lista es
+   *  el plan ENTERO, y si tiene una impaga que la pantalla no vio, no se guarda (lib/pagos.ts → reconciliarYGuardar). */
+  como: { protegidasPrimero?: boolean; conDeshacer?: boolean; sobreLoVisto?: boolean } = {},
+): Promise<(ResultadoCuotas & { deshacer?: DeshacerPlan }) | Fallo> {
   try {
     if (!(await haySesion())) return { ok: false, error: SIN_SESION };
     if (!idValido(leadId) || !Array.isArray(cuotas)) return { ok: false, error: 'Lead inválido.' };
     if (cuotas.length > 60) return { ok: false, error: 'Son demasiadas cuotas.' };
     for (const c of cuotas) {
       if (c?.fecha != null && !/^\d{4}-\d{2}-\d{2}$/.test(String(c.fecha))) return { ok: false, error: 'Una fecha no es AAAA-MM-DD.' };
+      // Una cuota en otra moneda trae su monto en ella (los dólares, en `monto`, los declaró la persona: `plataDeCuota`).
+      if (c?.moneda != null && monedaDeCuota(c.moneda) && !(Number(c.montoOriginal) > 0)) return { ok: false, error: `Falta cuánto es una cuota en ${monedaDeCuota(c.moneda)}.` };
     }
     const quien = await autor();
     const vistos = Array.isArray(idsVistos) ? new Set(idsVistos.filter((x) => idValido(x))) : undefined;
     const trato = await crmDelTrato(leadId, crm);
+    // El Deshacer se arma con lo de ANTES leído acá (no con lo que vio la pantalla), como el de `ajustarPlanAction`.
+    const antes = como?.conDeshacer ? await loDeAntes(leadId, trato) : null;
     const cambios = await guardarCuotasPorId(leadId, cuotas.map((c) => {
       const id = c?.id;
       const numero = typeof c?.numero === 'number' && Number.isInteger(c.numero) && c.numero >= 0 && c.numero <= 60 ? c.numero : null;
-      return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null };
-    }), { vistos, crm: trato });
+      const moneda = c?.moneda === undefined ? {} : { moneda: monedaDeCuota(c.moneda), monto_original: monedaDeCuota(c.moneda) ? Number(c.montoOriginal) : null };
+      return { id: idValido(id) ? id : null, numero, monto_usd: Number(c?.monto), fecha_esperada: c?.fecha ?? null, ...moneda, ...(c?.quedaComoEsta === true ? { quedaComoEsta: true } : {}) };
+    }), { vistos, crm: trato, protegidasPrimero: como?.protegidasPrimero === true, sobreLoVisto: como?.sobreLoVisto === true });
     if (plan) {
       // ⚠️ TAL CUAL ESTABA, nulls incluidos (`planComoEstaba`), no por `validarPlan`: un plan anterior todo en null
       // (las cuotas se habían cargado a mano) fallaba la validación y se descartaba en silencio, así que el
@@ -208,10 +226,21 @@ export async function guardarCuotasAction(
     if (sinTocar) await logLeadEvent(leadId, 'Plan de pagos', `No se tocó: ${sinTocar}`, quien);
     bust(TAG.pagos, TAG.leads);
     revalidar(leadId, true);
-    return { ok: true, actualizadas: cambios.actualizar.length, nuevas: cambios.insertar.length, quitadas: cambios.borrar.length, sinTocar };
+    const deshacer = antes ? { ...antes, vistos: (await getPagosByLead(leadId, trato)).filter((q) => !q.pagado).map((q) => q.id) } : undefined;
+    return { ok: true, actualizadas: cambios.actualizar.length, nuevas: cambios.insertar.length, quitadas: cambios.borrar.length, sinTocar, ...(deshacer ? { deshacer } : {}) };
   } catch (e) {
     return { ok: false, error: mensaje(e) };
   }
+}
+
+/** Las impagas (con su número y su moneda: así vuelven las que se quitan) y las columnas del plan, como están en la base. */
+async function loDeAntes(leadId: number, trato: number | null): Promise<Omit<DeshacerPlan, 'vistos'>> {
+  const fila = (trato != null ? await filaDelTrato(leadId, trato) : await getLead(leadId)) as unknown as Record<string, unknown> | null;
+  const impagas = (await getPagosByLead(leadId, trato)).filter((q) => !q.pagado);
+  return {
+    cuotas: impagas.map((q) => ({ id: q.id, numero: q.numero, monto: Number(q.monto_usd), fecha: q.fecha_esperada, moneda: monedaDeCuota(q.moneda), montoOriginal: monedaDeCuota(q.moneda) && q.monto_original != null ? Number(q.monto_original) : null })),
+    plan: planComoEstaba({ cobro_inicial_usd: fila?.cobro_inicial_usd, monto_cuota_usd: fila?.monto_cuota_usd, total_cuotas: fila?.total_cuotas, dia_de_pago: fila?.dia_de_pago }),
+  };
 }
 
 /**

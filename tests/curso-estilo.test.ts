@@ -258,9 +258,12 @@ test('los tintes del acento van como variables calculadas, no con color-mix (un 
 test('el color: un toque en la paleta cancela el «otro» pendiente, y un guardado que falla vuelve a lo CONFIRMADO', () => {
   const src = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   const i = src.indexOf('const guardarAjuste = async');
-  const f = src.slice(i, src.indexOf('const probarAcento', i));
+  const f = src.slice(i, src.indexOf('const guardarTexto', i));
   assert.ok(f.length > 200, 'no encontré guardarAjuste');
-  assert.match(f, /if \(a\.tipo === 'acento'\) window\.clearTimeout\(timerAcento\.current\)/);
+  // El «otro» vive en «Personalizar» desde el 24/10/2026 (f27): un color de la paleta cancela el pendiente ahí.
+  const pers = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
+  const elegir = pers.slice(pers.indexOf('const elegirAcento = '), pers.indexOf('const probarOtro = '));
+  assert.match(elegir, /window\.clearTimeout\(timer\.current\);/, 'un color de la paleta no cancela el «otro» pendiente');
   // Lo que se vuelve es lo que el server CONFIRMÓ, nunca lo de pantalla (un tono a mitad de camino).
   assert.match(f, /const volver = \(\) => \{ if \(vigente\(\)\) poner\(valorDe\(confirmados\.current\[pid\]/);
   assert.doesNotMatch(f, /valorDe\(estilos\[/);
@@ -272,7 +275,7 @@ test('una respuesta VIEJA no pisa lo que se está tipeando: cada ajuste lleva su
   // de «Uno» llegando última, y el campo quedaba en «Uno» con «Uno dos» guardado.
   const src = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   const i = src.indexOf('const guardarAjuste = async');
-  const f = src.slice(i, src.indexOf('const probarAcento', i));
+  const f = src.slice(i, src.indexOf('const guardarTexto', i));
   assert.match(f, /const clave = `\$\{pid\}:\$\{claveDe\(a\)\}`;/, 'el turno es POR AJUSTE: el color no espera al título');
   assert.match(f, /const turno = \(turnos\.current\[clave\] \?\? 0\) \+ 1;\s*turnos\.current\[clave\] = turno;/);
   assert.match(f, /const vigente = \(\) => turnos\.current\[clave\] === turno;/);

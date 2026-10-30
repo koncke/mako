@@ -79,8 +79,11 @@ test('⚠️ EL PROTOCOLO DE HERRAMIENTAS SÓLO VIAJA SI HAY HERRAMIENTAS', () =
     'el protocolo de herramientas volvió a mandarse siempre');
   // El system se arma DESPUÉS de las tools: si vuelve arriba, no las puede mirar. Desde el 17/10/2026 lo arma
   // `armarSystem(tools)` (la red de plataforma lo rearma con las suyas); antes de eso este assert comparaba
-  // contra `const tools = toolsParaIntencion`, que ya vivía en lib/doer-herramientas.ts: un -1 que pasaba solo.
-  const iTools = src.indexOf('const { tools, ofrece } = turno;');
+  // contra `const tools = toolsParaIntencion`, que ya vivía en lib/doer-herramientas.ts: un -1 que pasaba solo. Desde el
+  // 27/10/2026 `tools` es lo de la selección más el ticket y la agenda (lib/doer-falla.ts), y desde el 28/10 más los tickets de
+  // la persona si pide una función (`pideFuncion`), y desde el 29/10 recortada por la clase de la IA (`leidas`: una pregunta sólo
+  // lee, una acción sólo con las escrituras simples): la lista final es la de esa línea.
+  const iTools = src.indexOf('const tools = leidas;');
   const iSystem = src.indexOf('const system = armarSystem(tools);');
   assert.ok(iTools > 0 && iSystem > iTools,
     'el system volvió a armarse antes de saber cuántas herramientas tiene el turno');

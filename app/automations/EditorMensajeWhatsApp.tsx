@@ -114,7 +114,7 @@ import { datosOfrecidos, type GrupoDatos, type ContextoDatos } from '@/lib/varia
 import { textoParaVozMaKo } from '@/lib/voz-mako-reglas';
 import { cambiosDePaso } from '@/lib/guion-audio';
 import {
-  partesDe, formaGuardada, esUnTexto, TOPE_PARTES, pausaVisible, pausasPosibles, lineaDelPaso, type ParteMensaje,
+  partesDe, formaGuardada, esUnTexto, variantesTrasCambio, TOPE_PARTES, pausaVisible, pausasPosibles, lineaDelPaso, type ParteMensaje,
 } from '@/lib/mensaje-partes';
 import {
   ACEPTA_FOTO_VIDEO, ACEPTA_DOCUMENTO, validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible,
@@ -376,7 +376,9 @@ export function placeholderDe(tipo: PasoSecuenciaDto['tipo'], propio?: string, a
   if (adjunto === 'media') return 'Agrega un texto (opcional)';
   if (adjunto === 'audio') return 'Texto después del audio';
   if (tipo === 'ia') return 'Qué tiene que lograr';
-  return propio ?? 'Escribe un mensaje';
+  // «TAL CUAL» (27/10/2026, MK-24: Joan escribió una instrucción donde va el mensaje, y le llegó al lead así; Martín: «ahí no
+  // va un prompt… Es como manychat»). Para que lo escriba MaKo está el ✦ de la tarjeta («Lo adapta MaKo»).
+  return propio ?? 'Escribe lo que le llega, tal cual';
 }
 
 /** Un adjunto elegido que todavía no se envió (el chip arriba de la barra). El de lib/borrador-barra.ts: se guarda. */
@@ -719,14 +721,15 @@ export function EditorMensajeWhatsApp({
 
   /**
    * Le pasa al lienzo la lista nueva en su forma GUARDADA (`formaGuardada`). Las variantes («↻ N»)
-   * son de UN texto: con cualquier otra cosa se sueltan EXPLÍCITAS (`[]`).
+   * son de UN texto: con cualquier otra cosa, o con un texto que CAMBIA, se sueltan EXPLÍCITAS (`[]`,
+   * `variantesTrasCambio`). `devolver`: las que repone el «Deshacer» del 🗑.
    */
-  const aplicarPartes = (lista: readonly ParteMensaje[]) => {
+  const aplicarPartes = (lista: readonly ParteMensaje[], devolver?: readonly string[] | null) => {
     const antes = pasoVivo.current;
     const f = formaGuardada(lista, antes.tipo === 'ia');
     const despues: PasoSecuenciaDto = {
       ...antes, tipo: f.tipo, cuerpo: f.cuerpo, audio_id: f.audio_id, media_id: f.media_id, partes: f.partes,
-      ...(esUnTexto(lista) ? {} : { variantes: [] }),
+      ...variantesTrasCambio(antes, esUnTexto(lista), f.cuerpo ?? '', devolver),
     };
     // El `onChange` de AHORA (por ref) y el paso nuevo anotado ya: al SALIR del editor (WhatsApp 3) se aplica
     // lo de la barra y después el audio que termina de subir, sin un render en el medio que actualice el paso.
@@ -776,7 +779,8 @@ export function EditorMensajeWhatsApp({
     aplicarPartes(antes.filter((_, j) => j !== i));
     if (editando === i) limpiarBarra();
     else if (editando != null && editando > i) setEditando(editando - 1);
-    show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes); });
+    // «Deshacer» devuelve también las variantes: el 🗑 las soltó (`[]`), y el guardado ya no las repone.
+    show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes, deQuien.variantes); });
   };
 
   // ── UN SOLO MENSAJE (el recordatorio, «MaKo en WhatsApp», la vía oficial): la MISMA interfaz ────
@@ -790,7 +794,8 @@ export function EditorMensajeWhatsApp({
     if (r === 'vacio') return;
     if (r === 'lleno') { avisar('Va un solo mensaje'); return; }
     setError(null);
-    onChange({ cuerpo: r.cuerpo });
+    // Un texto nuevo suelta las variantes del viejo (`variantesTrasCambio`): el motor las sorteaba.
+    onChange({ cuerpo: r.cuerpo, ...variantesTrasCambio(pasoVivo.current, true, r.cuerpo) });
     limpiarBarra();
   };
   /** ✏️ con un solo mensaje: el texto sube a la barra; otra vez, la edición se cierra (WhatsApp 2). */
@@ -962,7 +967,7 @@ export function EditorMensajeWhatsApp({
     if (!varias) {
       // UN SOLO MENSAJE: lo escrito pasa a ser EL mensaje si se puede (editándolo, o si todavía no hay uno).
       const r = enviarUnico(pasoVivo.current.cuerpo ?? '', v.barra, v.editando != null);
-      if (typeof r === 'object') v.onChange({ cuerpo: r.cuerpo });
+      if (typeof r === 'object') v.onChange({ cuerpo: r.cuerpo, ...variantesTrasCambio(pasoVivo.current, true, r.cuerpo) });
       return;
     }
     // Lo escrito para la VOZ DE MaKo no entra como texto (no es lo que se quería mandar) ni se genera solo (cuesta):
@@ -1319,7 +1324,8 @@ export function EditorMensajeWhatsApp({
     if (!textos.length) return;
     if (!varias) {
       const unido = textos.join('\n\n');
-      onChange({ cuerpo: modo === 'reemplazar' ? unido : [paso.cuerpo ?? '', unido].filter((t) => t.trim()).join('\n\n') });
+      const cuerpo = modo === 'reemplazar' ? unido : [paso.cuerpo ?? '', unido].filter((t) => t.trim()).join('\n\n');
+      onChange({ cuerpo, ...variantesTrasCambio(pasoVivo.current, true, cuerpo) });
     } else {
       aplicarPartes(propuestaALista(partesDe(pasoVivo.current), textos, modo));
     }

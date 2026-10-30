@@ -436,7 +436,9 @@ test('11. ⚠️ revisión de 7524ec1c9: «Cambiar el plan» de la ficha sobre u
   assert.match(sinComentarios(leer('lib/cobrado-lead.ts')), /export const esPlataSuelta = [^\n]*\n\s*!!q\.pagado && !esCuotaDelPlan\(q\);/);
   assert.match(sinComentarios(leer('lib/pagos-campo.ts')), /existentes\.filter\(\(x\) => esCuotaDelPlan\(x\) && !x\.devuelta\)/);
   const pagos = sinComentarios(leer('lib/pagos.ts'));
-  assert.match(pagos, /nacio_cobrada: !!q\.nacio_cobrada, resto_de: q\.resto_de \?\? null,/, 'la reconciliación recibe la marca');
+  // (29/10/2026) La forma vive en `cuotaExistenteDe` (lib/pagos-campo.ts), la misma con que MaKo simula la reconciliación.
+  assert.match(sinComentarios(leer('lib/pagos-campo.ts')), /nacio_cobrada: !!q\.nacio_cobrada, resto_de: q\.resto_de \?\? null,/, 'la reconciliación recibe la marca');
+  assert.match(pagos, /return pagos\.map\(\(q\) => cuotaExistenteDe\(q, prot\.get\(q\.id\) \?\? \[\]\)\);/, 'el server no arma sus cuotas con esa forma');
   const pasarela = pagos.slice(pagos.indexOf('export async function registrarCobroDeProveedor('), pagos.indexOf('export async function remarcarCobroDeProveedor('));
   assert.match(pasarela, /fecha_pago: p\.fechaPago,\s*nacio_cobrada: true,\s*\.\.\.marca,/, 'el cobro de un link sin cuota nace cobrado');
   // La 0323: la columna, sin clave foránea, y la función de la 0318 con `p_original`, que la escribe.

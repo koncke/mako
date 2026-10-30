@@ -23,6 +23,7 @@ import { mismaPagina, urlParaAbrir } from '@/lib/landing-paginas';
 import { esClicDelEditor } from '@/lib/landing-conversion';
 import type { VideoLanding } from '@/lib/landing-videos';
 import { NombrarVideos, type VideoDetectado } from './NombrarVideos';
+import { detectadosDeEstaPagina } from '@/lib/videos-de-la-pagina';
 import { borrarPaginaAction, getPaginasAction, guardarPaginaAction } from './landing-actions';
 import { analizarLandingAction } from './landing-config-actions';
 import { finPruebaAction } from './landing-actions';
@@ -111,6 +112,11 @@ function legible(e: Evento): { texto: string; color: string } {
   if (e.tipo === 'video_ajeno') return { texto: 'Tu página tiene un video que no se puede medir', color: 'var(--dim)' };
   if (e.tipo === 'toque_video') return { texto: 'Tocó un video que no se puede medir', color: 'var(--primary)' };
   if (e.tipo === 'scroll') return { texto: e.porcentaje != null ? `Bajó hasta el ${e.porcentaje}% de la página` : 'Bajó por la página', color: 'var(--dim)' };
+  // Pixel v26: las secciones de una página del Web Generator que la persona vio (acumuladas; los ids no dicen nada acá).
+  if (e.tipo === 'secciones') {
+    const n = (e.detalle ?? '').split(' ').filter(Boolean).length;
+    return { texto: n ? `Vio ${n} ${n === 1 ? 'sección' : 'secciones'} de la página` : 'Vio secciones de la página', color: 'var(--dim)' };
+  }
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 
@@ -243,9 +249,14 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     .filter((p) => !detectadosVideo.some((d) => d.id === p.id))
     .map((p) => ({ id: p.id, titulo: null, eventos: 0, url: p.url, pagina: null }));
   const candidatosVideo = [...detectadosVideo, ...deLaPagina];
-  const sinNombre = candidatosVideo.filter(
+  // ⚠️ LA PUERTA QUE SE ABRE SOLA MIRA SÓLO ESTA PÁGINA (27/10/2026, MAU-14): la prueba de la página de gracias de Mauricio le pedía
+  // nombrar los videos de la principal, porque los detectados salen de los eventos de TODAS sus páginas. El lápiz sigue con todos.
+  const deEstaPrueba: VideoDetectado[] = [...detectadosDeEstaPagina(detectadosVideo, url), ...deLaPagina];
+  const sinNombre = deEstaPrueba.filter(
     (d) => !videosGuardados.some((v) => v.id === d.id) && !ocultosVideo.includes(d.id),
   );
+  // Abierto por la puerta (no por el lápiz): la lista es la de esta página.
+  const [soloEstaPagina, setSoloEstaPagina] = useState(false);
   const hayVideos = candidatosVideo.length > 0 || videosGuardados.length > 0;
 
   const aplicar = (r: { paginas: string[]; ocultas: string[] }) => { setPaginas(r.paginas); setOcultas(r.ocultas); };
@@ -488,7 +499,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
     setOcupado(false);
     if (viejo) { cerrarVentana(); setBloqueo(true); return; }
 
-    if (vaAVideos) { setPaso('videos'); return; }
+    if (vaAVideos) { setSoloEstaPagina(true); setPaso('videos'); return; }
     // La persona cerró una de las dos mientras se chequeaba: sin la ventana no hay dónde mirar la prueba, y
     // sin la pestaña no hay dónde hacerla.
     if (!chico || chico.closed || !pestana || pestana.closed) { cerrarVentana(); setPrueba(null); return; }
@@ -641,7 +652,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
       <div style={box}>
         <NombrarVideos
           enLaPagina={videosPagina}
-          detectados={detectadosVideo}
+          detectados={soloEstaPagina ? detectadosDeEstaPagina(detectadosVideo, url) : detectadosVideo}
           videos={videosGuardados}
           onCambio={(v) => setPrevio((p) => (p ? { ...p, videos: v } : p))}
           ocultos={previo?.videosOcultos ?? []}
@@ -787,7 +798,7 @@ export function ProbarTracking({ pruebaInicial, landingFija }: { pruebaInicial?:
                 ? <>Tus videos: {videosGuardados.map((v) => v.nombre).join(' · ')}</>
                 : <>{candidatosVideo.length} {candidatosVideo.length === 1 ? 'video sin identificar' : 'videos sin identificar'} en tu página</>}
             </span>
-            <IconBtn name="pen" title="Cambiar la identificación de cada video" onClick={() => setPaso('videos')} />
+            <IconBtn name="pen" title="Cambiar la identificación de cada video" onClick={() => { setSoloEstaPagina(false); setPaso('videos'); }} />
           </div>
         )}
       </div>

@@ -100,7 +100,11 @@ test('las familias del prototipo: lo diario, y Sales · Marketing · Create; Hom
   assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
   for (const k of ['crm', 'calendario', 'setting', 'customer-success']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
   for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
-  for (const k of ['video-editor', 'video-generator', 'image-editor', 'ads-writer']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  // Copywriting ES el Copywriter desde el 29/10/2026 (key `copywriter`); el Ads Writer sigue por su ruta, en SIN_FILA.
+  for (const k of ['video-editor', 'image-editor', 'copywriter']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  assert.ok(!de('create').includes('ads-writer') && SIN_FILA.some((i) => i.key === 'ads-writer'), 'Ads Writer');
+  // Video Generator dejó de ser fila el 29/10/2026 (Create sin pestañas: es una plantilla de Video). Su key sigue en SIN_FILA.
+  assert.ok(!de('create').includes('video-generator') && SIN_FILA.some((i) => i.key === 'video-generator'), 'Video Generator');
   // «Home» (/general) ya no es fila: redirige al Dashboard (Focus). Su key sigue (capas, onboarding) en SIN_FILA, y el
   // Dashboard se marca estando en /general.
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'general'), 'General volvió a ser fila');
@@ -183,7 +187,7 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   // Desde el 21/10/2026 la misma regla pliega también en una ventana chica (tests/ventana-chica.test.ts), y desde el 22/10
   // con el panel de MaKo abierto (tests/sidebar-mako-abierto.test.ts).
   assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
-  assert.match(sb, /const fija = fijaGuardada && \(!plegadaAca \|\| abiertaAca\);/);
+  assert.match(sb, /const fija = barraFija\(fijaGuardada, plegadaAca, abiertaAca\);/);
   // La barra sigue el modo: blanca en claro, ACOTADA a la barra (en :root las --sidebar* siguen oscuras: son la «isla
   // oscura» de 43 archivos), y su hover con token. La palabra MaKo con la tinta de la barra.
   const ui = leer('app/_ui/ui.css');
@@ -214,10 +218,12 @@ test('el buscador (Ctrl K): «home» y «general» llevan al Dashboard, y encuen
   assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<BuscadorNav /);
 });
 
-test('la cara: la foto real, el nombre y el @usuario, en el menú de la foto y en el More del teléfono', () => {
+test('la cara: la foto real en el botón de la barra y en el More del teléfono (el menú de la foto ya no la repite)', () => {
   const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
-  assert.match(sb, /usuarioDe\(email\)/, 'el menú de la foto no dice el @usuario');
-  assert.match(sb, /\{avatarVisible\s*\?\s*<img src=\{avatarVisible\}/, 'el menú de la foto no dibuja la foto');
+  // Desde el 25/10/2026 (Martín: «no me gusta que... el desplegable del perfil, antes de "settings" tenga nuevamente mi foto de
+  // perfil, que esté solo settings»): la foto y el nombre están en el botón que abre el menú, no adentro (tests/menu-perfil-tuerca).
+  assert.doesNotMatch(sb, /usuarioDe\(/, 'el menú de la foto volvió a repetir la cara');
+  assert.match(sb, /<Identidad open=\{open\} nombre=\{nombreVisible\} avatar=\{avatarVisible\}/, 'el botón de la barra no lleva la foto');
   const piezas = sinComentarios(leer('app/m/_ui/Piezas.tsx'));
   assert.match(piezas, /if \(foto\?\.trim\(\)\) return <img className=\{`m-avatar m-avatar--\$\{tam\} m-avatar--foto`\}/, 'AvatarM no dibuja la foto');
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));
@@ -233,10 +239,17 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
   // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
   const mas = masCompleto('admin', 'completo', false);
   assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), ['Today', 'Sales', 'Marketing', 'Create']);
-  // El Dashboard (la portada de antes, /m/hoy) encabeza lo diario, y detrás sus hojas.
-  assert.deepEqual(mas.find((g) => g.id === 'diario')!.filas.map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]), [['Dashboard', '/m/hoy'], ['Dashboard sheets', '/m/dashboard']]);
+  // UN solo Dashboard (24/10/2026, Martín: «En mobile aparecen 2 dashboards»): quien ve General lo abre unido en /m/hoy, con
+  // las hojas en su segmentado; la fila de las hojas sobra. El closer tiene como Dashboard SU hoja, como en la computadora.
+  const diario = (rol: 'admin' | 'closer') => masCompleto(rol, 'completo', false).find((g) => g.id === 'diario')!.filas
+    .filter((f) => f.tipo !== 'grupo' && (f.href === '/m/hoy' || f.href === '/m/dashboard')).map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]);
+  assert.deepEqual(diario('admin'), [['Dashboard', '/m/hoy']]);
+  assert.deepEqual(diario('closer'), [['Dashboard', '/m/dashboard']]);
+  // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
+  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
   const create = mas.find((g) => g.id === 'create')!;
-  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
+  // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
+  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar']);
 });
 
 test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
@@ -276,18 +289,32 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
-  const RUTAS = ['/admin/copywriting', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
-    '/admin/cobros', '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
+  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts). /admin/cobros y /admin/agente
+  // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts). /admin/copywriting y
+  // /admin/guiones (el método de redacción y las bibliotecas de guiones) se fueron el 29/10/2026 (Martín: «Elimina esto
+  // […], no quiero ninguna mención en todo MaKo»): redirigen al Copywriter y NO tienen casa a propósito (abajo).
+  // /mensajes (MaKo Messages) salió el 26/10/2026 (Martín: «elimina eso»): redirige a Automations (tests/mensajes-mako-retirado).
+  const RUTAS = ['/admin/estrategia', '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
+  for (const ruta of ['/admin/copywriting', '/admin/guiones']) {
+    assert.ok(![...ADMIN_NAV, ...SUPERADMIN_MENU, ...ARRIBA, ...FAMILIAS.flatMap(itemsDe)].some((i) => i.href === ruta), `${ruta} volvió a tener un ítem`);
+    assert.match(sinComentarios(leer(`app${ruta}/page.tsx`)), /redirect\(await rutaConWs\('\/copywriter'\)\);/, `${ruta} no redirige al Copywriter`);
+  }
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');
   const secciones = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => (t.secciones ?? []).map((s) => ({ tab: t, s })));
+  // Strategy y Offer Playbook dejaron de ser secciones de Offer el 29/10/2026 (Martín: «sin otras tabs, incluso en
+  // SuperAdmin»): su casa es el pie de la lista de ofertas, que la pantalla dibuja sólo para el super admin.
+  const offer = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'offer')!;
+  const pieOffer = sinComentarios(leer('app/offer/OfferApp.tsx')).match(/pieLista=\{superAdmin \? \(([\s\S]*?)\) : undefined\}/)?.[1] ?? '';
   for (const ruta of RUTAS) {
     const arriba = ARRIBA.find((i) => i.href === ruta);
     const enTab = secciones.find(({ s }) => s.href === ruta);
     const enMenu = SUPERADMIN_MENU.find((i) => i.href === ruta);
-    const item = arriba ?? enTab?.s ?? enMenu;
-    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto`);
+    const enPie = pieOffer.includes(`<Link href="${ruta}">`) ? ADMIN_NAV.find((i) => i.href === ruta) : undefined;
+    const item = arriba ?? enTab?.s ?? enMenu ?? enPie;
+    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto, ni al pie de Offer`);
+    if (enPie) assert.equal(offer.match(ruta), true, `${ruta}: estando ahí, la barra no marca Offer`);
     assert.equal(item.adminOnly, true, `${ruta} la vería un cliente`);
     assert.equal(puedeVerItem(item, SUPER), true, `${ruta}: el super admin no la ve`);
     assert.equal(puedeVerItem(item, CLIENTE), false, `${ruta}: el admin de un cliente la ve`);
@@ -328,7 +355,7 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
   const existe = (href: string): boolean => {
     const ruta = href.split(/[?#]/)[0].replace(/^\//, '');
     const base = join(RAIZ, 'app', ...ruta.split('/'));
-    // Una ruta dinámica también vale (/clients/community es app/clients/[seccion]/page.tsx).
+    // Una ruta dinámica también vale (/classroom/community es app/classroom/[seccion]/page.tsx).
     const padre = join(base, '..');
     const dinamica = existsSync(padre) && readdirSync(padre).some((d) => d.startsWith('[') && d.endsWith(']') && !d.includes('.') &&existsSync(join(padre, d, 'page.tsx')));
     return ['page.tsx', 'route.ts'].some((f) => existsSync(join(base, f))) || existsSync(join(base, '[[...resto]]', 'page.tsx')) || dinamica;
@@ -342,9 +369,9 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
-    ['Sales', ['CRM', 'Calendar', 'Automations', 'Clients']],
+    ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
     ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
-    ['Create', ['Video', 'Image', 'Copywriting']],
+    ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [

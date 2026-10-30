@@ -38,6 +38,8 @@ document.documentElement.setAttribute('data-mako-puente', manifiesto.version);
 // instaló desde Google. El service worker ya razonaba así (`if (manifest.
 // update_url) return` en background.js); lo que faltaba era decírselo a la web.
 document.documentElement.setAttribute('data-mako-puente-tienda', manifiesto.update_url ? '1' : '0');
+// Para que el worker no lo vuelva a correr en esta pestaña al instalarse o actualizarse (`reponerPuenteEnMako`, 25/10/2026).
+globalThis.__makoPuenteCargado = true;
 
 /** Cuántos ms se espera a que la página conteste el pedido de token. */
 const ESPERA_MS = 12000;
@@ -238,16 +240,84 @@ function esperarEnlace() {
 // leads. Este script es el mensajero: pasa el pedido al service worker, que lo lleva a la pestaña de WhatsApp Web, y
 // devuelve la respuesta por evento con el MISMO `id` (dos pedidos en vuelo no se pisan). Sólo de esta página, como el aviso
 // de trabajo.
+// ⚠️ UN PUENTE HUÉRFANO NO CONTESTA (25/10/2026). Al actualizar la extensión, el script viejo de esta pestaña sigue vivo pero
+// sin la extensión detrás (`chrome.runtime.id` vacío): si contestaba «no encontré la extensión», le ganaba de mano al nuevo.
+const huerfano = () => { try { return !chrome.runtime || !chrome.runtime.id; } catch { return true; } };
 window.addEventListener('MAKO_WA_FICHAS_PIDO', (ev) => {
   if (!ev || ev.target !== window) return;
+  if (huerfano()) return;
   const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
   const id = typeof d.id === 'string' ? d.id : '';
   const telefonos = Array.isArray(d.telefonos) ? d.telefonos.filter((t) => typeof t === 'string').slice(0, 5000) : [];
+  // Desde la 0.71.0: cada teléfono con el `@lid` del lead si MaKo lo sabe, y los nombres de los grupos de donde vinieron.
+  const pedidos = Array.isArray(d.pedidos)
+    ? d.pedidos.filter((p) => p && typeof p.telefono === 'string').slice(0, 5000).map((p) => ({ telefono: p.telefono, lid: typeof p.lid === 'string' ? p.lid : null }))
+    : undefined;
+  const grupos = Array.isArray(d.grupos) ? d.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
+  // Desde la 0.72.0: «Extraer» a la vista (la pestaña de WhatsApp al frente, el desplegable y su registro) con su título.
+  const visible = d.visible === true;
+  const titulo = typeof d.titulo === 'string' ? d.titulo.slice(0, 160) : undefined;
   const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
   try {
-    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', telefonos }, (r) => {
+    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', id, telefonos, pedidos, grupos, visible, titulo }, (r) => {
       if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
       contestar(r);
     });
   } catch { contestar({ ok: false, motivo: 'extension' }); }
+});
+
+// Los perfiles, de a tandas (0.73.2): el pedido de la pantalla al worker; contesta por `MAKO_WA_FICHAS` con el mismo `id`.
+window.addEventListener('MAKO_WA_PERFILES_PIDO', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  const id = typeof d.id === 'string' ? d.id : '';
+  const candidatos = Array.isArray(d.candidatos)
+    ? d.candidatos.filter((c) => c && typeof c.telefono === 'string').slice(0, 20).map((c) => ({ telefono: c.telefono, nombre: typeof c.nombre === 'string' ? c.nombre.slice(0, 80) : null }))
+    : [];
+  const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
+  try {
+    chrome.runtime.sendMessage({
+      tipo: 'WA_PERFILES_PEDIDO', id, grupo: typeof d.grupo === 'string' ? d.grupo.slice(0, 120) : '', candidatos,
+      desde: typeof d.desde === 'number' ? d.desde : 0, total: typeof d.total === 'number' ? d.total : 0,
+    }, (r) => {
+      if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
+      contestar(r);
+    });
+  } catch { contestar({ ok: false, motivo: 'extension' }); }
+});
+
+// El avance que cuenta el worker («Abriendo WhatsApp Web…», «Buscando el grupo…»), a la pantalla, con el `id` del pedido.
+// Y el «Parar» del desplegable (0.72.0): la pantalla deja de guardar.
+chrome.runtime.onMessage.addListener((msg) => {
+  if (msg && msg.tipo === 'WA_FICHAS_PARAR') {
+    window.dispatchEvent(new CustomEvent('MAKO_WA_PARAR', { detail: { id: msg.id } }));
+    return false;
+  }
+  if (!msg || msg.tipo !== 'WA_FICHAS_AVANCE') return false;
+  window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_AVANCE', { detail: { id: msg.id, paso: msg.paso, texto: msg.texto } }));
+  return false;
+});
+
+// Cómo sigue una extracción del lado de MaKo (guardando, el final), al registro del desplegable (0.72.0). Sólo números y
+// textos cortos: los nombres de nadie salen de esta página.
+window.addEventListener('MAKO_WA_EXTRACCION', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  if (typeof d.id !== 'string') return;
+  const m = { tipo: 'WA_EXTRACCION', id: d.id };
+  for (const k of ['fase', 'estado', 'texto']) if (typeof d[k] === 'string') m[k] = d[k].slice(0, 400);
+  for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total', 'perfiles']) if (typeof d[k] === 'number') m[k] = d[k];
+  try { chrome.runtime.sendMessage(m, () => void chrome.runtime.lastError); } catch { /* nada */ }
+});
+
+// La pantalla vio una extensión vieja: el worker mira si su carpeta ya trae la nueva y, si sí, se recarga (0.71.1).
+window.addEventListener('MAKO_EXTENSION_REVISAR', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  try { chrome.runtime.sendMessage({ tipo: 'REVISAR_CARPETA' }, () => void chrome.runtime.lastError); } catch { /* nada */ }
+});
+
+// «Ir a WhatsApp Web» (para iniciar la sesión): el worker pone esa pestaña al frente, o abre una.
+window.addEventListener('MAKO_WA_ENFOCAR', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  try { chrome.runtime.sendMessage({ tipo: 'WA_ENFOCAR' }, () => void chrome.runtime.lastError); } catch { /* sin extensión: nada */ }
 });

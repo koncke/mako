@@ -138,7 +138,7 @@ export const RUNNERS: Runners = {
       try {
         opciones = await opcionesParaPublicar(tipo);
       } catch (e) {
-        return { error: `No pude leer tus ${INFO_TIPO[tipo].titulo.toLowerCase()} (${motivo(e)}).` };
+        return { error: `No pude leer tus ${INFO_TIPO[tipo].titulo.toLowerCase()} (${motivo(e)}).`, falla: true };
       }
       const cosa = opciones.find((o) => o.id === origenId);
       if (!cosa) return { error: `No existe la ${INFO_TIPO[tipo].singular} #${origenId} en este negocio.`, disponibles: opciones.slice(0, 30) };

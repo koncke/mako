@@ -38,6 +38,9 @@ import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
+import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
+import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -55,6 +58,7 @@ import {
   type BotonHoja, type BurbujaHoja,
 } from './pedidos-hoja';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** Un mensaje del hilo. El de MaKo trae lo que cambió y, si cambió algo, la hoja de antes para deshacerlo. */
 export type MensajeEdicion =
@@ -64,8 +68,10 @@ export type MensajeEdicion =
   /** Un pedido que no es de esta hoja (otra hoja, otra tab, crear otra): ./pedidos-hoja.ts. */
   | { k: 'pedido'; id: string; burbuja: BurbujaHoja };
 
-/** El tope de la ruta (`maxDuration = 120`) + margen. */
+/** El tope de la ruta (la cascada, 120 s) + margen. */
 const TOPE_CLIENTE_MS = 125_000;
+/** Con fotos o PDF: la ruta los lee antes (una foto con la visión, ~52 s) y su `maxDuration` es 300. */
+const TOPE_CON_ARCHIVOS_MS = 245_000;
 
 /** Los pedidos de ejemplo del panel vacío: genéricos (AGENTS.md: un ejemplo de pantalla es ficticio por regla). */
 // 17/10/2026: «Probemos…» es Experiments, que se mudó acá (lib/experimentos-catalogo.ts): el ejemplo enseña que existe.
@@ -113,15 +119,20 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   textoInicial?: string;
   /**
    * #862: pasar al otro modo del MISMO MaKo (./ModosMako.tsx). Con esto la cabecera dice «Analizar · Editar» y un análisis
-   * pedido acá ofrece «Analizar la hoja». Sin esto (quien no tiene AI Analyst), la cabecera es el título de siempre.
+   * pedido acá ofrece «Analizar la hoja». Sin esto, la cabecera es el título de siempre. ⚠️ Desde el 24/10/2026 el Dashboard
+   * no lo pasa: el AI Analyst salió y lo de analizar es de la estrella de la tab (que ve la hoja).
    */
   onModo?: (m: ModoMako) => void;
 }) {
   const [texto, setTexto] = useState(textoInicial);
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   /** Desde cuándo piensa MaKo (null = no piensa). */
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
   const [errorDictado, setErrorDictado] = useState<string | null>(null);
+  // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y su lectura va con el pedido, como dato.
+  const adj = useAdjuntosDelChat({ puede: desde == null, onError: setErrorDictado });
   const ctrl = useRef<AbortController | null>(null);
   /** El id de la próxima burbuja (para reemplazarla en el hilo cuando cambia). */
   const idPedido = useRef(0);
@@ -156,42 +167,47 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     // Sólo al cambiar de hoja: una vez que hay hilo, el del editor es la verdad.
   }, [hoja.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const enviar = async (escrito?: string) => {
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  const enviar = async (escrito?: string, { dejarCaja = false } = {}) => {
     const mensaje = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
-    if (!mensaje || pensando) return;
+    // Lo de la caja sale con sus archivos; una sugerencia o una nota, sin ellos.
+    const conArchivos = escrito === undefined && adj.hay;
+    if ((!mensaje && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
+    const archivos = conArchivos ? adj.tomar() : [];
+    const visto = memoriaConArchivos(mensaje, archivos.map((f) => f.name));
     const enviada = hoja;
     const historial = historialDe(hilo);
-    onHilo((h) => [...h, { k: 'yo', texto: mensaje }]);
-    setTexto('');
-    setErrorDictado(null);
+    onHilo((h) => [...h, { k: 'yo', texto: visto }]);
+    if (!dejarCaja) { setTexto(''); setErrorDictado(null); }
     const c = new AbortController();
     ctrl.current = c;
-    const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
+    const tope = setTimeout(() => c.abort(), archivos.length ? TOPE_CON_ARCHIVOS_MS : TOPE_CLIENTE_MS);
     setDesde(Date.now());
     setAhora(Date.now());
     // Lo de este turno, para guardarlo en la base al terminar (./hilo-guardado.ts): el pedido y lo que contestó MaKo.
-    const delTurno: MensajeEdicion[] = [{ k: 'yo', texto: mensaje }];
+    const delTurno: MensajeEdicion[] = [{ k: 'yo', texto: visto }];
     const decir = (m: MensajeEdicion) => { delTurno.push(m); onHilo((h) => [...h, m]); };
     try {
       // 1 · ENTENDER EL PEDIDO (docs/diseno-mako-pedidos.md, «El punto de enganche»): lo de esta hoja sigue a la
       //     edición de siempre; lo demás —otra hoja, otra tab, crear otra— son burbujas (./pedidos-hoja.ts). Si la ruta
       //     falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero es de esta hoja: lo de antes, sin regresión.
-      const r = await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
+      // Sólo con archivos no hay qué interpretar: va entero a esta hoja.
+      const r = !mensaje ? null : await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
       if (ctrl.current !== c) return;
       const interpretacion = interpretacionDe(r, mensaje);
       const deEstaHoja = textoActual(interpretacion);
       const burbujas = burbujasDeHoja(interpretacion, enviada.id);
-      // 2 · Lo de esta hoja, a la edición.
-      if (deEstaHoja) {
-        const res = await fetch('/api/graficos/editar', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          // 17/10/2026: el server sólo cambia la hoja con el modo, «editando» y ESA hoja (`permisoEdicionMako`).
-          body: JSON.stringify({ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada.id }), signal: c.signal,
-        });
+      // 2 · Lo de esta hoja, a la edición (con sus archivos, si los trajo).
+      if (deEstaHoja || archivos.length) {
+        // 17/10/2026: el server sólo cambia la hoja con el modo, «editando» y ESA hoja (`permisoEdicionMako`).
+        const datos = { hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada.id };
+        const res = await fetch('/api/graficos/editar', archivos.length
+          ? { method: 'POST', body: cuerpoConArchivos(datos, archivos), signal: c.signal }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos), signal: c.signal });
         const j = await res.json().catch(() => null) as { ok?: boolean; respuesta?: unknown; cambios?: unknown; avisos?: unknown; hoja?: unknown; analizar?: unknown; error?: string; link?: string } | null;
         if (ctrl.current !== c) return;
         if (!res.ok || !j?.ok) {
-          decir({ k: 'error', texto: j?.error || `Error ${res.status}`, link: j?.link });
+          decir({ k: 'error', texto: j?.error || (res.status === 413 ? ERROR_ADJUNTO.pesado : `Error ${res.status}`), link: j?.link });
         } else {
           const respuesta = typeof j.respuesta === 'string' ? j.respuesta : '';
           const cambios = lista(j.cambios);
@@ -262,6 +278,9 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
   const animo = pensando ? 'trabajando' : 'despierto';
   const items = useMemo(() => itemsDeEdicion(hilo), [hilo]);
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
+  // `enviar`, como lo escrito.
+  const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
 
   /** Lo que sólo tiene este chat, adentro del mensaje de MaKo que lo dijo (./items-edicion.ts). */
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
@@ -323,7 +342,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
         caja={<>
           <div className="co-caja">
             <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
-              ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado} />
+              ocupado={pensando || nota.pendientes} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
+              bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} adjuntos={adj.caja} />
           </div>
           {errorDictado && <p className="em-err">{errorDictado}</p>}
         </>}
@@ -341,8 +361,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
             </div>
           )}
           {/* Las filas del Ops Center, con la estrella de MaKo; mientras piensa, su «Trabajando…» con los segundos. */}
-          <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+          <HiloMako items={nota.conNotas(items)} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
           {pensando && <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>}
           <div ref={fin} />
       </PanelDeChat>

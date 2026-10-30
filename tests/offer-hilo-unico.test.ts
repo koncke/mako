@@ -64,8 +64,12 @@ async function dibujarChat(p: Record<string, unknown> = {}): Promise<string> {
 test('1. el hilo del Ops Center, con lo de Offer en su hueco', async () => {
   const html = await dibujarChat({ extra: (m: { id: string }) => (m.id === 'm2' ? 'TARJETA-DEL-ONBOARDING' : null) });
   assert.match(html, /<div class="co-hilo"><div class="co-hilo__col">/, 'el hilo del Ops Center');
-  assert.match(html, /<div class="co-yo" id="co-msg-t-of-y1">/, 'lo del dueño, a la derecha (FilaMia)');
-  assert.match(html, /<div class="co-el-wa" id="co-msg-t-of-m2"><div class="co-el">/, 'lo de MaKo, con su criatura (FilaDelChat)');
+  // (24/10/2026, P5: el hilo trae el menú del mensaje aunque Offer no le pase el suyo: cada fila lleva el envoltorio de
+  // WhatsApp, `co-wa`, con su botón de opciones. app/_chat/HiloMako.tsx, `MenuDelMensaje`.)
+  assert.match(html, /<div id="co-msg-t-of-y1" class="co-yo co-wa co-wa--yo">/, 'lo del dueño, a la derecha (FilaMia), con el menú del mensaje');
+  assert.match(html, /<div id="co-msg-t-of-m2" class="co-el-wa co-wa">/, 'lo de MaKo, con su criatura (FilaDelChat), con el menú del mensaje');
+  assert.match(html.slice(html.indexOf('id="co-msg-t-of-m2"')), /^[^]*?<div class="co-el">/);
+  assert.match(html, /aria-label="Opciones del mensaje"/, 'el botón del menú (el clic derecho abre lo mismo)');
   const m2 = html.slice(html.indexOf('id="co-msg-t-of-m2"'));
   const iPdf = m2.indexOf('aria-label="Descargar el PDF de tu oferta, versión 2"');
   const iTexto = m2.indexOf('Listo, tu oferta.');
@@ -102,7 +106,7 @@ test('3. la espera: los puntitos o «Analizando», nunca «Trabajando…»; lo q
 
 test('4. la caja única con la nota de voz, en la computadora y en el teléfono', async () => {
   const html = await dibujarChat();
-  assert.match(html, /<div class="co-caja-wrap" style="--good:var\(--ink\);--sobre-good:var\(--surface\)"><div class="co-caja"><div class="co-caja__fila">/);
+  assert.match(html, /<div class="co-caja-wrap" style="--good:var\(--ink\);--sobre-good:var\(--surface\)"><div class="co-caja"><div class="co-caja__fila"[^>]*>/);
   assert.match(html, /aria-label="Grabar una nota de voz"/, 'sin nada escrito, el micrófono GRABA');
   assert.doesNotMatch(html, /wa-composer|Escribe un mensaje…/, 'volvió la barra de WhatsApp');
 
@@ -115,7 +119,7 @@ test('4. la caja única con la nota de voz, en la computadora y en el teléfono'
     puedeAdjuntar: true, onAudio: () => {}, audioEnEspera: null, onReenviarAudio: () => {}, onDescartarAudio: () => {},
     onError: () => {}, onAltura: () => {},
   })));
-  assert.match(movil, /<div class="m-operaciones-caja"><div class="m-operaciones-caja__fila">/, 'la fila de la caja del teléfono del Ops Center');
+  assert.match(movil, /<div class="m-operaciones-caja"><div class="m-operaciones-caja__fila"[^>]*>/, 'la fila de la caja del teléfono del Ops Center');
   assert.match(movil, /aria-label="Grabar una nota de voz"/);
   assert.doesNotMatch(movil, /m-offer-campo|m-offer-mic/, 'volvió la caja propia del teléfono');
   // El «+» (Documento) toma lo que Offer lee y el .zip de una carpeta, como la computadora (hasta el 22/10 el teléfono no).
@@ -130,8 +134,11 @@ test('5. la pantalla de Offer descuenta la barra de arriba, y la caja no queda d
   // `--barra-agencia`. La regla global de app/globals.css sólo toca un alto en línea que EMPIEZA con `height: 100dvh`.
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
+  // Desde el 29/10/2026 la página usa `ESTILO_PAGINA_CREAR` (app/_crear/reglas.ts), el de toda pantalla de Create.
   const pagina = readFileSync(join(__dirname, '..', 'app/offer/page.tsx'), 'utf8');
-  assert.match(pagina, /height: 'calc\(100dvh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)'/,
+  assert.match(pagina, /<Pagina ancho="completo" densidad="compacta" style=\{ESTILO_PAGINA_CREAR\}>/);
+  const reglas = readFileSync(join(__dirname, '..', 'app/_crear/reglas.ts'), 'utf8');
+  assert.match(reglas, /height: 'calc\(100dvh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)'/,
     'con la barra de arriba la página queda más alta que la ventana (medido el 22/10/2026: 50 px)');
 });
 

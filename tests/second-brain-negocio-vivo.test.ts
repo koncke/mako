@@ -60,7 +60,7 @@ test('clientes: UN nodo con el total exacto y los más recientes con tope, cada 
   const hub = g.porId.get('clientes')!;
   assert.equal(hub.etiqueta, `${total} clientes`, 'el total EXACTO, no los que se leyeron');
   assert.equal(hub.area, 'funnel');
-  assert.equal(hub.href, '/clients', 'la tab se llama Clients (lib/clients-rutas.ts): /customer-success es una ruta que redirige');
+  assert.equal(hub.href, '/classroom/clients', 'la tab se llama Clients (lib/clients-rutas.ts): /customer-success es una ruta que redirige');
   assert.equal(g.nodos.filter((x) => x.id.startsWith('cliente:')).length, TOPES_VIVOS.clientes, 'con tope: el volumen no es un nodo por cliente');
   for (const c of recientes.slice(0, TOPES_VIVOS.clientes)) assert.ok(g.arista(`cliente:${c.leadId}`, 'clientes'), `el cliente ${c.leadId} cuelga de «N clientes»`);
   assert.ok(g.arista('clientes', 'leads'), '«N clientes» sale de los leads');
@@ -105,8 +105,10 @@ test('reuniones: las más recientes con tope; cada una cuelga del cliente que co
 
 test('el constructor lee clientes y reuniones sin que una fuente caída tumbe el mapa', () => {
   const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
-  assert.match(g, /leerClientes\(\)\.catch\(\(\) => null\)/);
-  assert.match(g, /leerReuniones\(\)\.catch\(\(\) => \[\]\)/);
+  // Desde el 28/10/2026 la lectura caída AVISA (`vacioAvisando`: el grafo de los chats no guarda uno incompleto), y se
+  // degrada igual a vacío: el mapa no se cae.
+  assert.match(g, /leerClientes\(\)\.catch\(vacioAvisando\(alFallar, 'leerClientes', null\)\)/);
+  assert.match(g, /leerReuniones\(\)\.catch\(vacioAvisando\(alFallar, 'leerReuniones', \[\]\)\)/);
   assert.match(g, /\.eq\('estado_lead', 'ganado'\)/, '«cliente» es un lead con la venta ganada (lib/clientes-ganados.ts)');
   assert.match(g, /\.from\('closing_analyses'\)[\s\S]*?\.eq\('status', 'analizada'\)[\s\S]*?\.eq\('category', 'venta'\)/, 'sólo reuniones de venta ya leídas');
   assert.match(g, /\.limit\(TOPES_VIVOS\.clientes\)/);

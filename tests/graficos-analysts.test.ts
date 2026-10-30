@@ -546,7 +546,9 @@ test('el modo de un rol está enchufado: la página, la ruta y la pantalla (leye
   const pagina = sinComentarios(leer('app/dashboard/page.tsx'));
   assert.match(pagina, /requireRolWs\(\['closer', 'setter'\], \{ nav: 'graphics' \}\)/, 'el closer o el setter no entran al Dashboard');
   assert.match(pagina, /const unica = hojaDeRol\(rol\);/);
-  assert.match(pagina, /if \(!tabEnCapa\(unica\.capa, capa\)\) redirect\(/, 'un rol sin la capa de su hoja la vería');
+  // `sinSuHoja` (app/dashboard/redireccion.ts, 25/10/2026): la misma decisión en la página y en el layout, que redirige antes
+  // del loader (tests/redirige-antes-del-loader.test.ts fija lo que decide).
+  assert.match(pagina, /if \(sinSuHoja\(rol, capa\)\) redirect\(/, 'un rol sin la capa de su hoja la vería');
   assert.match(pagina, /const enMemoria = informeDeRol\(rol\);/, 'el rol no recibe el informe en memoria');
   assert.match(pagina, /soloLectura=\{!!unica\}/);
   assert.match(pagina, /hojaDestino\(tablero, pedida\)/, '?hoja= dejó de pasar por hojaDestino');
@@ -559,11 +561,11 @@ test('el modo de un rol está enchufado: la página, la ruta y la pantalla (leye
   // El rol sólo llega a lo de su hoja ANTES de cualquier acción: el chequeo va antes del primer `accion ===`.
   assert.ok(ruta.indexOf('puedePedir(rol, body)') < ruta.indexOf("body.accion === 'guardar'"), 'el chequeo del rol va después de guardar');
   const ed = sinComentarios(leer('app/dashboard/EditorInforme.tsx'));
-  // Desde la tanda de la topbar (11/10/2026) el closer y el link compartido comparten `soloMirar`, y el AI
-  // Analyst es una opción del ⋮ (no un botón suelto). El setter entra por el mismo `soloLectura`.
+  // Desde la tanda de la topbar (11/10/2026) el closer y el link compartido comparten `soloMirar`. El setter entra por el
+  // mismo `soloLectura`. El AI Analyst ya no está para nadie (24/10/2026, Martín: «Sí, y que la criatura vea la hoja»).
   assert.match(ed, /const guardable = !lecturaFallo && !soloLectura && !compartido;/, 'el rol podría guardar');
   assert.match(ed, /const soloMirar = soloLectura \|\| !!compartido;/, 'el rol dejó de ser «sólo mirar»');
-  assert.match(ed, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"/, 'el rol ve el AI Analyst');
+  assert.doesNotMatch(ed, /<span>AI Analyst<\/span>|<PanelAnalista /, 'volvió el AI Analyst: lo de analizar es de la criatura');
   // «Editar» en azul desde v5 (P4: `lk-pill lk-pill--azul`), y no en blanco (14/10/2026).
   assert.match(ed, /\{!soloMirar && !enBlanco && \(\s*<button type="button" className="lk-pill lk-pill--azul" data-recorrido=\{editando \? 'dash-ver' : 'dash-editar'\}/, 'el rol ve Editar');
   assert.match(ed, /onDetalle=\{editando \|\| soloMirar \? undefined :/, 'el rol abre el detalle de un número (403)');

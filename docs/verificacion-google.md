@@ -1,5 +1,12 @@
 # Verificación de la app de Google de MaKo
 
+> **APROBADA (26/10/2026, Martín: «Ya aprobaron la app de google!»). Confirmado en la consola ese día, sólo leyendo
+> (Verification Center del proyecto mako-500317): «Your branding has been verified» y «Your app's data access has been
+> verified»; en Data Access, los dos scopes sensibles son `calendar.readonly` y `calendar.events`.** Lo que queda: prender la agenda al entrar con Google
+> poniendo `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (producción), cuando la rama de la política esté en main. La política de
+> privacidad ya lee ese mismo interruptor (app/privacidad/page.tsx): con él prendido dice «una sola vez, al entrar», y
+> apagado, los dos momentos de antes. Lo de abajo es la historia de la verificación.
+
 App OAuth del proyecto `mako-500317` (cuenta martinkoncke@gmail.com), cliente «MaKo Web».
 Publicada («In production») el 07/10/2026 y **sin verificar**: quien conecta su agenda ve
 «Google no verificó esta app» y la app tiene un tope de 100 usuarios en toda su vida.
@@ -14,6 +21,14 @@ El 21/10 se grabó el video nuevo y se subió como oculto al canal de martinkonc
 carpeta de arriba del repo). Falta que Martín cree la cuenta del revisor y conteste en ese hilo.
 El borrador de la respuesta está en `verificacion-google-meta-21-10.md`, en esa misma carpeta.
 La marca quedó verificada y publicada el 10/10 ([requisitos oficiales](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)).
+
+**Lo que espera esta verificación desde el 25/10/2026: la agenda AL ENTRAR con Google.** Martín pidió sacar la tarjeta
+de Google Calendar de /integraciones y pedir sus permisos al registrarse con Google. Está hecho detrás de un interruptor,
+`GOOGLE_LOGIN_CON_AGENDA=1` (lib/google-login-agenda.ts), **apagado**: con la app sin verificar, sumar calendar.readonly y
+calendar.events al login le mostraría «Google no verificó esta app» a TODO el que entra con Google y gastaría el tope de
+100 usuarios. Para prenderlo: (1) la verificación aprobada; (2) la política de privacidad reescrita (hoy promete dos
+consentimientos separados: app/privacidad/page.tsx); (3) la variable en Vercel. Los scopes son los mismos que se están
+verificando; lo que cambia es el MOMENTO en que se piden (NO MEDIDO si Google pide verlo en un video nuevo).
 
 ## Lo que pidió Google el 11/10, y por qué falló el primer video
 

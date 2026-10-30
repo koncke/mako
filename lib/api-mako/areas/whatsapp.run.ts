@@ -62,7 +62,10 @@ const isoDeEpoch = (s: number | null | undefined): string | null => (s ? new Dat
 const digitos = (s: string): string => s.replace(/\D/g, '');
 
 const NO_OFICIAL = 'El WhatsApp oficial (Chatwoot) no está conectado en este negocio: no es que no haya conversaciones, es que no hay canal oficial. Se conecta en Integraciones.';
-const NO_EMPRESA = 'Este negocio no tiene vinculado el número de empresa (WhatsApp por QR). Se vincula en la tab WhatsApp.';
+const NO_EMPRESA = 'Este negocio no tiene vinculado el número de empresa (WhatsApp por QR).';
+/** Lo que falta, como dato (`Falta`, 25/10/2026): el link al QR (`/chats?conectar=whatsapp`) lo pone el código. «Se vincula en la
+ *  tab WhatsApp» mandaba a una tab que ya no existe: el QR vive en Chats. */
+const FALTA_EMPRESA = { servicio: 'whatsapp' } as const;
 const NO_ES_DE_ESTE_INBOX = 'Ese contacto no está en el inbox de WhatsApp de este negocio.';
 
 async function leadDeEsteWs(id: number | null): Promise<Lead | null> {
@@ -332,7 +335,7 @@ export const RUNNERS: Runners = {
 
   salud_webhook_evolution: {
     leer: async () => {
-      if (!(await empresaVinculada())) return json({ vinculado: false, nota: NO_EMPRESA });
+      if (!(await empresaVinculada())) return { content: json({ vinculado: false, nota: NO_EMPRESA }), falta: FALTA_EMPRESA };
       const s = await estadoWebhook();
       return json({
         vinculado: true, estado: s.estado, url_actual: s.urlActual, url_esperada: s.urlEsperada,
@@ -478,7 +481,7 @@ export const RUNNERS: Runners = {
   recomendar_mensajes_whatsapp: {
     leer: async (input) => {
       if (!(await integracionConectada('whatsapp')) && (await getInstanciaRow().catch(() => null))?.estado !== 'conectado') {
-        return fallo('WhatsApp no está conectado en este negocio (ni el oficial ni el número de empresa).');
+        return { ...fallo('WhatsApp no está conectado en este negocio (ni el oficial ni el número de empresa).'), falta: FALTA_EMPRESA };
       }
       const mensajes = (Array.isArray(input.mensajes) ? (input.mensajes as In[]) : []).map((m) => ({ saliente: m.saliente === true, texto: typeof m.texto === 'string' ? m.texto : null }));
       const r = await recomendarMensajes({
@@ -544,7 +547,7 @@ export const RUNNERS: Runners = {
 
   reparar_webhook_evolution: {
     preparar: async (): Promise<Preparado> => {
-      if (!(await empresaVinculada())) return { error: NO_EMPRESA };
+      if (!(await empresaVinculada())) return { error: NO_EMPRESA, falta: FALTA_EMPRESA };
       const s = await estadoWebhook();
       if (s.estado === 'ok') return { error: 'El espejo del número de empresa ya está bien: no hay nada que reparar.' };
       if (s.estado !== 'no_registrado') return { error: `El estado es «${s.estado}» y no se arregla re-registrando: avisa al equipo técnico.` };
@@ -573,7 +576,7 @@ export const RUNNERS: Runners = {
 
   sincronizar_chat_whatsapp_empresa: {
     preparar: async (input): Promise<Preparado> => {
-      if (!(await empresaVinculada())) return { error: NO_EMPRESA };
+      if (!(await empresaVinculada())) return { error: NO_EMPRESA, falta: FALTA_EMPRESA };
       const r = await resolverChatEmpresa(str(input, 'chatJid'), false);
       if ('error' in r) return { error: r.error };
       if (!r.ult10) return { error: 'Ese chat no tiene teléfono (es un @lid): pasa el teléfono con lada.' };
@@ -592,7 +595,7 @@ export const RUNNERS: Runners = {
 
   sincronizar_etiquetas_whatsapp: {
     preparar: async (): Promise<Preparado> => {
-      if (!(await empresaVinculada())) return { error: NO_EMPRESA };
+      if (!(await empresaVinculada())) return { error: NO_EMPRESA, falta: FALTA_EMPRESA };
       return { payload: {}, resumen: 'Refrescar el catálogo de etiquetas desde el celular del número de empresa.' };
     },
     // ⚠️ HASTA EL 08/10/2026 ESTO PISABA LOS NOMBRES BUENOS con los de `findLabels`, que vienen sin
@@ -626,7 +629,7 @@ export const RUNNERS: Runners = {
 
   aplicar_etiqueta_lead_whatsapp: {
     preparar: async (input): Promise<Preparado> => {
-      if (!(await empresaVinculada())) return { error: NO_EMPRESA };
+      if (!(await empresaVinculada())) return { error: NO_EMPRESA, falta: FALTA_EMPRESA };
       const lead = await leadDeEsteWs(num(input, 'leadId'));
       if (!lead) return { error: `El lead #${String(input.leadId)} no existe en este negocio.` };
       if (!lead.telefono_normalizado) return { error: `${lead.nombre} no tiene teléfono cargado.` };
@@ -699,7 +702,7 @@ export const RUNNERS: Runners = {
       // Por la línea en la que viene la charla con ese contacto: es el número que conoce.
       await crearBorrador({ leadId: lead?.id ?? null, telefono: tel, texto, chatJid: chat?.chatJid ?? `${tel}@s.whatsapp.net`, origen: 'mako', linea: chat?.linea ?? null });
       const creado = await borradorPendienteIgual(u10, texto);
-      if (creado == null) return { error: 'No pude dejar el borrador en la cola. No se envió nada.' };
+      if (creado == null) return { error: 'No pude dejar el borrador en la cola. No se envió nada.', falla: true };
       // `borradorId`: el link no lo lleva, y el chat lo necesita para retirarlo si MaKo pregunta en el mismo turno (1.9).
       return { id: String(creado), url, nueva: true, extra: { para: lead?.nombre ?? tel, nota: 'Quedó en la cola de borradores de /whatsapp: una persona lo manda con un clic. No se envió nada.', borradorId: creado } };
     },

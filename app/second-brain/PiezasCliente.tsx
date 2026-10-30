@@ -9,8 +9,13 @@
 // panel del Ops Center (PanelChat.tsx) y el teléfono en su hoja (SheetM), como el super admin pone el suyo
 // (Conversacion.tsx y ChatsMovil.tsx). Una sola vez, para que no se separen.
 
-import type { RefObject } from 'react';
+import { useMemo, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { AperturaMako, useApertura } from '@/app/_chat/AperturaMako';
+import { FRASE_RESPONDER } from '@/app/_chat/app-de-escritorio';
+import { useGuiaEnElChat } from '@/app/_ui/guia/store';
+import { ancla } from '@/app/_ui/guia/ancla';
+import { SUPERFICIE_OPS } from '@/lib/aperturas/ops';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako } from '@/app/_chat/HiloMako';
 import { CitaCaja, ContextoWA } from '@/app/admin/operaciones/MensajeWA';
@@ -33,7 +38,7 @@ export function UsoDelCliente({ conectada, onAbrir }: { conectada: boolean | nul
   return (
     <div className="co-barra__abajo">
       <div className="co-uso">
-        <button type="button" className="co-acceso" onClick={onAbrir} title="Tus cuentas de IA">
+        <button type="button" className="co-acceso" onClick={onAbrir} {...ancla('sb-uso')} title="Tus cuentas de IA">
           <Icon name="config" size={17} />Uso
           <span className="co-uso__principal">{conectada == null ? '—' : conectada ? 'Tu IA' : 'Conecta tu IA'}</span>
         </button>
@@ -78,10 +83,42 @@ export function SelectoresDelCliente({ k }: { k: ChatCliente }) {
 }
 const AUTOMATICO_IA = '';
 
-export function HiloDelCliente({ k }: { k: ChatCliente }) {
+/**
+ * LA APERTURA DEL CEREBRO (29/10/2026, «MaKo toma la iniciativa», docs/mako-iniciativa/plan.md): lo que MaKo dice primero en el
+ * Cerebro, el mismo en el Ops Center, la estrella de cada tab y la tarjeta de Create. Gana, en este orden:
+ *   1. la de la tab (`propia`: la del CRM, la del Plan…), que habla de lo que la tab tiene abierto;
+ *   2. la de la GUÍA de la pestaña (la primera vez, «¿Quieres que te ayude a aprender a usar esta pestaña?», app/_ui/guia/);
+ *   3. la escalera del Cerebro (lib/aperturas/ops.ts): hoy, su IA.
+ * Una por pantalla. Calla con MaKo trabajando, con la guía señalando, con la conversación sin cargar y fuera del Cerebro (un chat
+ * de Offer, uno de antes). Las recomendaciones plegadas NO la callan: esperan plegadas, y lo que pide la apertura (su IA) es lo
+ * que deja correr a casi todas.
+ */
+export function useAperturaDelCerebro(k: ChatCliente, o: { libre: boolean; propia?: ReactNode | null }): ReactNode | null {
+  const guia = useGuiaEnElChat();
+  const escritos = useMemo(() => k.items.filter((x) => x.k === 'msg' && x.role === 'user').length, [k.items]);
+  const deLaGuia = k.esJefe && guia.pregunta?.apertura != null;
+  const hechos = k.app == null || k.iaConectada == null ? null : { app: k.app, iaConectada: k.iaConectada };
+  // La guía va primero (la primera vez en la pestaña): mientras decide si pregunta, la escalera espera.
+  const libre = o.libre && k.esJefe && k.cargado && !k.errorCarga && !k.enCurso && !o.propia && !deLaGuia && !guia.senalando && !guia.esperando;
+  const estado = useApertura({ superficie: SUPERFICIE_OPS, hechos, libre, escritos, app: k.app, iaConectada: k.iaConectada, onPedir: k.enviar });
+  const quien = { nombre: k.nombreMuneco, aspecto: k.aspectoMuneco };
+  if (o.propia) return o.propia;
+  if (deLaGuia && guia.pregunta) return <AperturaMako estado={guia.pregunta} quien={quien} acciones={{}} onConectar={() => k.setConectando(true)} />;
+  return estado.apertura ? <AperturaMako estado={estado} quien={quien} acciones={{}} onConectar={() => k.setConectando(true)} /> : null;
+}
+
+export function HiloDelCliente({ k, apertura = null }: {
+  k: ChatCliente;
+  /** Lo que MaKo dice primero (`useAperturaDelCerebro`): con el hilo vacío, en lugar de la portada (también sin la app: sus
+   *  botones andan); con historia, después del último mensaje. Nunca se guarda. */
+  apertura?: ReactNode | null;
+}) {
   // El grupo de WhatsApp se lee: sin el menú de un mensaje (no se responde, no se reacciona; se contesta en el grupo).
   // Sin la app de escritorio (23/10/2026) la conversación se sigue viendo: el cartel va en el lugar de la caja (CajaDelCliente,
-  // 24/10/2026). Vacía, sin la portada: «¿En qué te ayudo?» y sus arranques invitarían a escribir lo que no se puede mandar.
+  // 24/10/2026). Vacía, sin la portada: «¿En qué te ayudo?» y sus arranques invitarían a escribir lo que no se puede mandar. La
+  // apertura sí (29/10/2026): sus botones no escriben nada.
+  // ⚠️ LAS RESPUESTAS RÁPIDAS DEL HILO SIN LA APP (29/10/2026): mandan un mensaje al turno, que sin la app no sale; tocarlas no
+  // hacía nada y no lo decía. Ahora lo dicen (`sinMandar`) y no se tocan.
   return (
     <ContextoWA.Provider value={k.esGrupo || k.esAutomatizacion || k.esEditor ? null : k.accionesWA}>
       {k.esGrupo && k.hayMasDelGrupo && k.cargado && (
@@ -96,7 +133,7 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
           <p className="co-portada__dato">{k.errorCarga}</p>
           <button type="button" className="co-chip" onClick={k.recargar}>Reintentar</button>
         </div>
-      ) : !k.items.length && !k.trabajo ? (k.app === 'bloquea' ? null : (
+      ) : !k.items.length && !k.trabajo ? (apertura ?? (k.app === 'bloquea' ? null : (
         <div className="co-portada">
           <Muneco titulo={k.nombreMuneco} aspecto={k.aspectoMuneco} animo="despierto" size={76} />
           <p className="co-portada__nombre">{k.esGrupo ? 'Todavía no hay mensajes en el grupo.' : k.esAutomatizacion || k.esEditor ? 'Todavía no hay mensajes en esta charla.' : '¿En qué te ayudo?'}</p>
@@ -104,11 +141,12 @@ export function HiloDelCliente({ k }: { k: ChatCliente }) {
             {ARRANQUES_SECOND_BRAIN.map((a) => <button key={a} type="button" className="co-chip" onClick={() => k.enviar(a)}>{a}</button>)}
           </div>}
         </div>
-      )) : (
+      ))) : (<>
         <HiloMako items={k.items} quien={{ nombre: k.nombreMuneco, aspecto: k.aspectoMuneco }} ahora={k.ahora} escribiendo={k.enCurso ? { segs: k.segs } : null}
           tarjeta={k.tarjeta} onTarjeta={(x, a) => void k.correrTarjeta(x, a)} onReintentar={k.reintentar} onRecargar={k.recargar}
-          onResponder={(t) => k.enviar(t)} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
-      )}
+          onResponder={(t) => k.enviar(t)} sinMandar={k.app === 'bloquea' ? FRASE_RESPONDER : null} onTrabajo={k.alTerminarTrabajo} marcas={k.marcas} />
+        {apertura}
+      </>)}
     </ContextoWA.Provider>
   );
 }
@@ -141,7 +179,7 @@ export function CajaDelCliente({ k, campo, seguir, movil = false, angosta = movi
   // producción, 22/10/2026). No con una container query: la contención de `.co-caja` volvería ella el marco de lo `fixed` de
   // adentro (el «+», los emojis).
   const conectar = k.iaConectada === false
-    ? <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)}>Conectar tu IA</button> : null;
+    ? <button type="button" className="co-chip co-conectar-ia" onClick={() => k.setConectando(true)} {...ancla('mk-conectar')}>Conectar tu IA</button> : null;
   // Sin la app de escritorio no hay con qué contestar: LA CAJA MISMA no deja escribir, y en el lugar del micrófono dice «Instalar
   // MaKo» (24/10/2026, Martín: «directamente en el chat donde está el botón de audio se debería reemplazar por "Instalar MaKo"»).
   // Es la misma caja (una sola), con `bloqueo`; sin el «Conectar tu IA», que con la app sin instalar no destraba nada.

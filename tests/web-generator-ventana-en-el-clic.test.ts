@@ -274,7 +274,8 @@ test('urlConVentanaAlAbrir: sólo lo de AFUERA que va a leer al montarse', () =>
   assert.equal(urlConVentanaAlAbrir({ tipo: 'diagnostico' }, analizadas), null);
   assert.equal(urlConVentanaAlAbrir({ tipo: 'replicar', url: URL_L, auto: true }, analizadas), URL_L, 'Replicar con el formato por defecto');
   assert.equal(urlConVentanaAlAbrir({ tipo: 'replicar', url: URL_L, formato: 'presentacion', auto: true }, analizadas), URL_L);
-  assert.equal(urlConVentanaAlAbrir({ tipo: 'replicar', url: URL_L, formato: 'web', auto: true }, analizadas), null, 'la «Página web» no lee en el navegador');
+  // 28/10/2026: Replicar arranca LEYENDO la página (qué tiene, antes de elegir qué replicar), también para la «Página web».
+  assert.equal(urlConVentanaAlAbrir({ tipo: 'replicar', url: URL_L, formato: 'web', auto: true }, analizadas), URL_L, 'la lectura, en cualquier formato');
   assert.equal(urlConVentanaAlAbrir({ tipo: 'replicar' }, analizadas), null);
   assert.equal(urlConVentanaAlAbrir({ tipo: 'crear' }, analizadas), null);
   // La MISMA pantalla no se remonta ni arranca de nuevo: la ventana quedaría huérfana hasta vencer.
@@ -320,15 +321,23 @@ test('el window.open corre en el CLIC, antes de cualquier await: el Diagnóstico
   assert.ok(apl.indexOf('abrirEnElClic()') > 0 && apl.indexOf('abrirEnElClic()') < apl.indexOf('setParaAplicar(true)'));
   assert.match(apl, /void pedirReplica\(urlPegada, 'landing', lectura \? \{ lectura \} : \{ ventana \}, pasarYAbrir\)/);
   // El formulario de Replicar y su «Replicar como…»: en el submit / el clic, sin nada antes.
-  assert.match(REPLICAR, /onSubmit=\{\(e\) => \{ e\.preventDefault\(\); if \(url && !ocupado\) empezar\(url, formato, pideVentana\(formato\) \? abrirEnElClic\(\) : null\); \}\}/);
-  assert.match(REPLICAR, /onProbar=\{\(f\) => \{ if \(!pedida\) return; const v = pideVentana\(f\) \? abrirEnElClic\(\) : null; setFormato\(f\); empezar\(pedida, f, v\); \}\}/);
+  // 28/10/2026: el submit LEE la página (con la ventana del clic); la réplica sale de lo leído y no abre ninguna.
+  assert.match(REPLICAR, /onSubmit=\{\(e\) => \{ e\.preventDefault\(\); if \(url && !ocupado\) leerPagina\(url, abrirEnElClic\(\)\); \}\}/);
+  // 28/10/2026, la copia idéntica: «Replicar» en «Página web» abre la ventana EN ESE CLIC, primera cosa (ahí el lector saca
+  // la foto) y se la pasa a la réplica; la réplica por bloques no abre ninguna: usa la lectura.
+  assert.match(REPLICAR, /onClick=\{\(\) => replicarLeida\(formato, formato === 'web' \? abrirEnElClic\(\) : undefined\)\}/);
+  const replicarLeida = bloque(REPLICAR, 'const replicarLeida = (f: FormatoReplicar, ventanaFoto?: VentanaDelClic | null) => {', '\n  };');
+  assert.doesNotMatch(replicarLeida, /abrirEnElClic\(/, 'la réplica no abre otra ventana: la de la foto viene del clic');
+  assert.match(replicarLeida, /if \(f === 'web'\) \{ void replicar\(lectura\.url, f, \{\}, \{ ventanaFoto: ventanaFoto \?\? null \}\); return; \}/);
+  assert.match(replicarLeida, /lectura\.leidaEnNavegador \? \{ lectura: lectura\.leidaEnNavegador \}/);
 });
 
 test('ningún camino que corre DESPUÉS de un await (o desde un efecto) abre una ventana propia', () => {
   // `analizar` y el `replicar` de useReplicar corren desde efectos y después de pedidos: reciben la ventana.
   const analizar = bloque(PANEL, 'const analizar = useCallback(async (', '\n  }, [');
   const usar = bloque(REPLICAR, 'const replicar = useCallback(async (', '\n  }, [');
-  for (const [nombre, b] of [['analizar', analizar], ['useReplicar', usar]] as const) {
+  const leerReplica = bloque(REPLICAR, 'const leer = useCallback(async (', '\n  }, [');
+  for (const [nombre, b] of [['analizar', analizar], ['useReplicar', usar], ['useLeerParaReplicar', leerReplica]] as const) {
     assert.ok(b.length > 600 && b.length < 4_000, `${nombre}: el bloque mide ${b.length}`);
     assert.doesNotMatch(b, /abrirEnElClic\(|reservarVentanaLectura\(|window\.open\(|leerEnNavegador\(/, nombre);
     assert.match(b, /await pedirConVentana\(/, `${nombre} usa pedirConVentana`);
@@ -354,8 +363,8 @@ test('los arranques automáticos TOMAN la ventana reservada (y la sueltan si no 
   const montaje = bloque(PANEL, 'const reservada = ', 'else sinUsar();');
   assert.match(montaje, /const reservada = !deNuestra && url \? tomarVentanaReservada\(url\) : null;/);
   assert.match(montaje, /if \(!lista\.sugerencias\.length && !lista\.resumen\) void analizar\(\{ ventana: reservada \}\);\s*else sinUsar\(\);/);
-  const auto = bloque(REPLICAR, 'const arrancado = useRef(false);', '}, [auto, urlInicial, formatoInicial, empezar]);');
-  assert.match(auto, /if \(auto && u\) empezar\(u, f, pideVentana\(f\) \? tomarVentanaReservada\(u\) : null\);/);
+  const auto = bloque(REPLICAR, 'const arrancado = useRef(false);', '}, [auto, urlInicial, leerPagina]);');
+  assert.match(auto, /if \(auto && u\) leerPagina\(u, tomarVentanaReservada\(u\)\);/, '28/10/2026: arranca LEYENDO, con la ventana reservada');
 });
 
 test('con `enNavegador` la pantalla lee en la ventana: los dos pedidos preguntan lo mismo que el server contesta', () => {

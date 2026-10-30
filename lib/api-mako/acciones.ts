@@ -51,6 +51,10 @@ import { esAccion, type AccionDef, type Ctx, type Ejecutado } from './tipos';
 import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
 import { anotarEnHiloDeOrigen } from '@/lib/chat-hilo-origen';
 import { bloqueDeResultado } from '@/lib/chat-bloques';
+import { esReglaUOpinion, lineaDelTicket } from '../no-pude';
+import { esFallaTragada } from '../no-pude-frases';
+import { ticketDeNoPude } from '../no-pude-server';
+import { invalidarGrafoChat } from '../cerebro-cache-chat';
 
 /** Cuánto vive un «sí». Dos horas: alcanza para que el dueño conteste y no para que
  *  un «dale» de la tarde ejecute lo que se propuso a la mañana. */
@@ -94,6 +98,8 @@ export async function proponerChat(def: AccionDef, payload: Record<string, unkno
     origen: origenDe(ctx), ttlMin: TTL_PENDIENTE_MIN,
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
     mismoTurnoDesde: ctx.turnStart,
+    // En un grupo, quién la pidió: el «sí» de plata es de esa persona o le habla a MaKo (lib/confirmacion-pura.ts).
+    pidio: ctx.enElGrupo?.quien,
   });
   // El motivo VIAJA (23/10/2026, el ws13): un paso de una automatización lo escribe en `nutricion_envios.error`, y
   // «no pude registrarla» sin él costó diez días de avisos perdidos con la causa en un log que nadie lee. Va APARTE
@@ -128,6 +134,21 @@ export async function proponerPantallaGenerica(def: AccionDef, input: Record<str
  * ejecutar es lo que hace que dos clicks creen UNA sola cosa.
  */
 /** `sinAnotar`: el resultado lo anota otro (un trabajo largo, lib/chat-trabajos.ts, reescribe su «En curso»). */
+/**
+ * SI UNA ACCIÓN CONFIRMADA REVIENTA AL EJECUTARSE, QUEDA UN TICKET (27/10/2026, lib/no-pude.ts). Sólo el catch (la revisión del
+ * 28/10/2026): «Esa decisión ya no estaba abierta» o «El email dejó de estar conectado» son negativas, no fallas. Sólo lo que confirmó una persona
+ * en un chat (la app o WhatsApp): un flujo de Automations o Mensajes (`PREFIJO_FLUJO`) avisa por su lado y la API HTTP no tiene
+ * a quién decírselo. Las guardas de antes de ejecutar son reglas y no llegan acá; una negativa legítima que devuelve el runner
+ * (el rol, una clave, confirmar en pantalla) tampoco abre ticket. Devuelve el número si el ticket es nuevo. Nunca tira.
+ */
+async function ticketSiFallo(ctx: Ctx, operacion: string, herramienta: string, error: string): Promise<number | null> {
+  if ((ctx.canal !== 'app' && ctx.canal !== 'whatsapp') || ctx.canalKey.startsWith(PREFIJO_FLUJO) || esReglaUOpinion(error)) return null;
+  const t = await ticketDeNoPude('ejecucion', {
+    ws: ctx.ws, actor: ctx.actor ?? null, superficie: ctx.canal === 'whatsapp' ? 'whatsapp' : 'ops-center', conv: ctx.canalKey, pedido: ctx.mensajeUsuario ?? '',
+  }, { operacion, herramienta, error });
+  return t && t.nuevo ? t.id : null;
+}
+
 export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado: Record<string, unknown> | null, ctx: Ctx, opciones?: { sinAnotar?: true }): Promise<Ejecutado> {
   return runWithWorkspace(ctx.ws, async () => {
     const prop = await getPropuesta(propuestaId);
@@ -163,12 +184,20 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     const mia = await marcarAplicada(propuestaId, { en_curso: true, por: ctx.actor ?? null });
     if (!mia) return { ok: false, resumen: 'Esta propuesta ya se estaba aplicando.' };
     let r: Ejecutado;
+    /** Reventó al ejecutar (el catch): lo único que abre ticket. Un ok:false del runner es una negativa de estado o de configuración. */
+    let reventoAlEjecutar = false;
     try { r = await run.ejecutar(prep.payload, ctx); }
-    catch (err) { r = { ok: false, resumen: `No se pudo aplicar (${err instanceof Error ? err.message : 'error'}).` }; }
+    catch (err) { reventoAlEjecutar = true; r = { ok: false, resumen: `No se pudo aplicar (${err instanceof Error ? err.message : 'error'}).` }; }
     // El resultado final pisa el «en curso». Si falló, queda aplicada con el error
     // escrito: volver a `pendiente` sería invitar a un segundo click sobre algo que
     // pudo haber escrito a medias.
     await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
+    // Lo que acaba de cambiar se lee en el turno siguiente: el grafo de los chats de este negocio se vuelve a armar (aun si
+    // falló: pudo escribir a medias). lib/cerebro-cache-chat.ts.
+    invalidarGrafoChat(ctx.ws);
+    // Si falló al ejecutarse, el ticket (`ticketSiFallo`) y su línea van con el «No se pudo».
+    const ticket = reventoAlEjecutar || (!r.ok && esFallaTragada(r.resumen)) ? await ticketSiFallo(ctx, def.titulo, def.id, r.resumen) : null;
+    if (ticket) r = { ...r, resumen: `${r.resumen} ${lineaDelTicket(ticket)}` };
     // El chat de donde salió se entera, con lo que dibuja el resultado: como si se hubiera confirmado en su tarjeta.
     const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
     if (!opciones?.sinAnotar) await anotarEnHiloDeOrigen(prop.datos.canalKey, r.ok ? `Hecho: ${r.resumen}` : `No se pudo: ${r.resumen}`, bloque ? [bloque] : []);
@@ -273,6 +302,8 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   // lo reviso» no lo ejecuta. La pendiente sigue viva; el rechazo vuelve al modelo, que repregunta mostrando qué va a salir (lib/confirmacion-pura.ts).
   const rechazoATercero = rechazoSiNoEsConfirmacionPura({
     canal: ctx.canal, aTerceros: def && esAccion(def) ? def.aTerceros : undefined, plata: def && esAccion(def) ? def.plata : undefined, mensaje: ctx.mensajeUsuario, titulo: def?.titulo ?? p.tipo, resumen: p.resumen,
+    enElGrupo: ctx.enElGrupo ? { pidio: p.pidio ?? null, confirma: ctx.enElGrupo.quien, aMaKo: ctx.enElGrupo.aMaKo } : undefined,
+    id: def?.id,
   });
   if (rechazoATercero) return { error: rechazoATercero };
 
@@ -301,15 +332,24 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   if (!mia) return { error: 'Esa acción ya se estaba ejecutando o ya venció.' };
 
   let r: Ejecutado;
+  /** Reventó al ejecutar (el catch): lo único que abre ticket (la revisión del 28/10/2026). */
+  let reventoAlEjecutar = false;
   try {
     r = registrada
       ? await (run as { ejecutar: (payload: Record<string, unknown>, ctx: Ctx) => Promise<Ejecutado> }).ejecutar(p.payload, ctx)
       : await ejecutarAccion(ctx.ws, p.tipo, p.payload);
-  } catch (err) { r = { ok: false, resumen: `No pude ejecutarlo (${err instanceof Error ? err.message : 'error'}).` }; }
+  } catch (err) { reventoAlEjecutar = true; r = { ok: false, resumen: `No pude ejecutarlo (${err instanceof Error ? err.message : 'error'}).` }; }
   // El detalle que el modelo no puede ver (lib/agenda-sin-ia.ts) va directo a la
   // persona. El `resumen` se guarda en la fila y vuelve al modelo: ése no lo lleva.
   if (r.paraLaPersona) ctx.aPersona?.(r.paraLaPersona);
   const quien =ctx.canal === 'http' ? ' (confirmado por la API)' : ctx.actor ? ` (confirmado por ${ctx.actor})` : '';
   await resolverPendiente(ctx.ws, p.id, r.ok ? 'ejecutada' : 'error', `${r.resumen}${quien}`);
-  return { ok: r.ok, id: p.id, tipo: p.tipo, resumen: r.resumen, ...(r.datos ? { datos: r.datos } : {}) };
+  // Lo que acaba de cambiar se lee en el turno siguiente (también el flujo y la escritura directa de la API, que pasan por acá).
+  invalidarGrafoChat(ctx.ws);
+  // Si falló al ejecutarse, el ticket (`ticketSiFallo`): su línea va en el resumen, que leen la tarjeta de la app (también por
+  // detrás, `enSegundoPlano`) y `confirmar_accion` de WhatsApp. El modelo la puede repetir: no dice «no pude» (anti-bucle).
+  // O lo que el runner se TRAGÓ (`esFallaTragada`, lib/no-pude-frases.ts): los `sinLanzar`, ejecutarAccion, agendar.
+  const ticket = reventoAlEjecutar || (!r.ok && esFallaTragada(r.resumen)) ? await ticketSiFallo(ctx, def?.titulo ?? p.tipo, p.tipo, r.resumen) : null;
+  const resumen = ticket ? `${r.resumen} ${lineaDelTicket(ticket)}` : r.resumen;
+  return { ok: r.ok, id: p.id, tipo: p.tipo, resumen, ...(ticket ? { ticket } : {}), ...(r.datos ? { datos: r.datos } : {}) };
 }

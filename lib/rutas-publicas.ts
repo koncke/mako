@@ -257,10 +257,17 @@ export const PUBLICOS_ESCRITURA = [
   // (mig 0217: una sola ruta, también para leer, así el token no queda en la URL).
   '/api/compartido/curso/entrega',
   '/api/compartido/comunidad',
+  // «Reportar a Soporte» del alumno (27/10/2026): el mismo token del portal en el CUERPO; sólo CREA un ticket para el dueño
+  // del curso, con tope por IP y por alumno, y mira el Origin ella misma.
+  '/api/compartido/curso/soporte',
   // Los datos de un informe del Dashboard compartido por link (11/10/2026). NO escribe: es POST para que el
   // token del link viaje en el CUERPO y no en la URL, igual que la comunidad. La credencial entera es ese
   // token (revalidado contra la fila viva en cada pedido) y la ruta no lee la cookie de sesión.
   '/api/compartido/graficos',
+  // Un guion del Copywriter compartido PARA EDITAR (28/10/2026, docs/diseno-copywriter.md, D9): el token del link en el
+  // CUERPO es la credencial entera (revalidado contra la fila viva en cada guardado), el id del guion sale de la fila y
+  // no del pedido, y la ruta no lee la cookie de sesión. Mira el Origin y corta por IP ella misma.
+  '/api/compartido/guion',
   '/api/agente/lead',
   // El comprador cambia el email de su acceso a MaKo (11/10/2026): el token del cobro viaja en el
   // CUERPO y es la credencial entera (ver su entrada en PUBLICOS).

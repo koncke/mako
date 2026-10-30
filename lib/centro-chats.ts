@@ -22,12 +22,13 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
 import { estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
+import { listasEnRenglones } from './respuesta-como-claude';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -87,6 +88,11 @@ export type TrabajoP = {
   adjuntos?: string[];
   /** De esos, los que son FOTOS (23/10/2026): sólo su burbuja le pide la miniatura al servidor (FotosEnviadas.tsx). */
   fotos?: string[];
+  /** Lo mandó como NOTA DE VOZ (26/10/2026): se dibuja el reproductor y `texto` (su transcripción) va en el menú. */
+  voz?: { segundos: number };
+  /** Todavía está SALIENDO, sólo en este navegador (27/10/2026, app/admin/operaciones/envios-en-curso.ts): se dibuja en el
+   *  acto con su reloj, y la subida, la transcripción y la firma corren por detrás. `fallo`: no salió, con su porqué. */
+  local?: { fase: 'enviando' | 'transcribiendo' | 'fallo'; error?: string; clave: string };
 };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -289,6 +295,85 @@ export const CEREBRO = 'Cerebro';
 const NOMBRES_DEL_CEREBRO = new Set(['cerebro', 'estrategia 3 cuentas', 'estrategia']);
 export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titulo));
 
+/** Con qué se juntan dos chats en uno (`unirPorNombre`): el nombre sin mayúsculas ni tildes; el Cerebro, con sus nombres de
+ *  antes. Uno de la nube no se une con el de la PC que se llama igual: es OTRA sesión, y no recibe (sería elegible como destino). */
+export const grupoDeNombre = (c: { titulo: string; nube?: boolean }, sinNombre: string): string =>
+  c.nube ? `nube:${normal(c.titulo) || sinNombre}` : esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || sinNombre;
+
+/**
+ * Las sesiones de la MISMA CADENA (25/10/2026): las que el Ops Center junta en un chat por el nombre (`unirPorNombre`), como un
+ * chat que siguió en otra cuenta. Por sesión, todas las de su cadena (ella incluida). La usa `superarPreguntas`: «Ventas de MaKo»
+ * preguntó con AskUserQuestion en la cuenta 2 (23/10, 19:20), la conversación siguió en la cuenta 1, y la pregunta quedó «Espera
+ * tu respuesta» para siempre: sólo la superaba un turno de la MISMA sesión. Los Runners no son chats: no van.
+ */
+export function cadenasDeSesiones(carteros: ReadonlyArray<{ chats: readonly ChatCartero[] }>): Map<string, string[]> {
+  const grupos = new Map<string, string[]>();
+  for (const cartero of carteros) {
+    for (const ch of cartero.chats) {
+      if (ch.esRunner) continue;
+      const k = grupoDeNombre(ch, ch.local);
+      grupos.set(k, [...(grupos.get(k) ?? []), ch.local]);
+    }
+  }
+  const out = new Map<string, string[]>();
+  for (const sesiones of grupos.values()) {
+    const unicas = [...new Set(sesiones)];
+    for (const s of unicas) out.set(s, unicas);
+  }
+  return out;
+}
+
+/** Un chat del Ops Center que dice «Completado» (para la API de MaKo, 25/10/2026): su clave (la de su ✓), su nombre, su cuenta,
+ *  sus sesiones y el instante de su último «Ya está» sin ✓. */
+export type CompletadoDeChat = { clave: string; titulo: string; cuenta: string | null; locales: string[]; instante: number };
+
+/**
+ * Los chats que dicen «Completado», con LO MISMO que la lista del Ops Center: sus sesiones juntas por el nombre (la clave de
+ * `unirPorNombre`, que es la de su ✓), los últimos turnos de cada sesión (`leerUltimosTurnos`) y los ✓ (`leerYaVistosDe`). Lo usa
+ * la API de MaKo (lib/api-mako/areas/operaciones.run.ts, «Todo MaKo se debe poder utilizar por API», Martín, 25/10/2026). El más
+ * nuevo primero. Ni los Runners ni la nube (no son chats de Martín que cierran).
+ */
+/** Un chat de la lista, juntado por su nombre (todas sus sesiones, de todas las cuentas), con lo que necesita la API. */
+export type ChatPorNombre = { clave: string; titulo: string; cuenta: string | null; locales: string[] };
+
+/** Los chats de las cuentas juntados por su nombre, como la lista del Ops Center (sin el Runner ni lo de la nube). Lo usan los
+ *  «Completado» y los mensajes de un chat por la API: las dos miran el MISMO chat que la pantalla. */
+export function chatsPorNombre(carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>): ChatPorNombre[] {
+  return [...gruposPorNombre(carteros)].map(([g, x]) => ({ clave: `nombre:${g}`, titulo: x.titulo, cuenta: x.cuenta, locales: [...new Set(x.locales)] }));
+}
+
+function gruposPorNombre(carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>) {
+  const grupos = new Map<string, { titulo: string; cuenta: string | null; locales: string[]; actividad: number }>();
+  for (const k of carteros) {
+    for (const ch of k.chats) {
+      if (ch.esRunner || ch.nube) continue;
+      const g = grupoDeNombre(ch, ch.local);
+      const actividad = ch.actividad ? Date.parse(ch.actividad) || 0 : 0;
+      const ya = grupos.get(g);
+      if (!ya) { grupos.set(g, { titulo: g === 'cerebro' ? CEREBRO : ch.titulo, cuenta: k.cuenta, locales: [ch.local], actividad }); continue; }
+      ya.locales.push(ch.local);
+      // El nombre y la cuenta, los de la sesión más reciente (como la fila); el Cerebro se llama siempre «Cerebro».
+      if (actividad > ya.actividad) { if (g !== 'cerebro') ya.titulo = ch.titulo; ya.cuenta = k.cuenta; ya.actividad = actividad; }
+    }
+  }
+  return grupos;
+}
+
+export function completadosDeLasCuentas(
+  carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>,
+  ultimos: Readonly<Record<string, readonly TurnoChat[]>>,
+  vistos: Readonly<YaVistos>,
+): CompletadoDeChat[] {
+  const out: CompletadoDeChat[] = [];
+  for (const [g, x] of gruposPorNombre(carteros)) {
+    const clave = `nombre:${g}`;
+    const lineas: LineaChat[] = x.locales.flatMap((l) => (ultimos[l] ?? []).map((t) => ({ tipo: 'turno' as const, instante: Date.parse(t.at), turno: t })));
+    const t = completadoSinVer(lineas, vistos[clave]);
+    if (t) out.push({ clave, titulo: x.titulo, cuenta: x.cuenta, locales: [...new Set(x.locales)], instante: Date.parse(t.at) });
+  }
+  return out.sort((a, b) => b.instante - a.instante);
+}
+
 /**
  * Junta en UN chat todo lo que se llama igual (sin mayúsculas ni tildes): sus sesiones de las tres cuentas, lo que
  * trabajó cada una y lo anotado sin sesión con ese nombre. Martín (15/10/2026): «todos los chats de todas las cuentas
@@ -298,8 +383,7 @@ export const esCerebro = (titulo: string) => NOMBRES_DEL_CEREBRO.has(normal(titu
 export function unirPorNombre(chats: readonly ChatCentro[]): ChatCentro[] {
   const grupos = new Map<string, ChatCentro[]>();
   for (const c of chats) {
-    // Uno de la nube no se une con el de la PC que se llama igual: es OTRA sesión, y no recibe (sería elegible como destino).
-    const k = c.nube ? `nube:${normal(c.titulo) || c.clave}` : esCerebro(c.titulo) ? 'cerebro' : normal(c.titulo) || c.clave;
+    const k = grupoDeNombre(c, c.clave);
     if (!grupos.has(k)) grupos.set(k, []);
     grupos.get(k)!.push(c);
   }
@@ -531,14 +615,118 @@ export const lineasDeConversacion = (lineas: readonly LineaChat[]): LineaChat[] 
  */
 export function turnosParaOtro(lineas: readonly LineaChat[]): Set<string> {
   const out = new Set<string>();
+  // El Completado del tramo no se pliega (27/10/2026, `completadosDelChat`): el cierre de verdad, aunque no empiece con «Ya está».
+  const completados = new Set(completadosDelChat(lineas).map((x) => x.turno.uuid));
   let deOtro = false;
   for (const l of [...lineas].sort((a, b) => a.instante - b.instante)) {
     if (l.tipo !== 'turno') continue;
     if (l.turno.rol === 'yo') deOtro = false;
-    else if (l.turno.rol === 'otro') deOtro = true;
-    else if (deOtro && !esYaEsta(l.turno.texto)) out.add(l.turno.uuid);
+    else if (l.turno.rol === 'otro') deOtro = !l.turno.encargo;
+    else if (deOtro && !completados.has(l.turno.uuid)) out.add(l.turno.uuid);
   }
   return out;
+}
+
+// ── Los «Avance» seguidos, en UNA burbuja (25/10/2026) ───────────────────────────────────────────────────────────────
+// Martín, desde el Centro y con captura del chat «Cerebro» en el teléfono: «me llegan una cantidad impresionante de mensajes de
+// "avance", podrían agruparlos todos en 1 de ultima y que dentro tenga varios desplegables». Una fila entera (muñeco, burbuja y
+// hora) por cada uno: siete seguidos llenaban la pantalla.
+
+/** Dos o más «Avance» seguidos de un chat, del mismo día: una burbuja (app/admin/operaciones/Hilo.tsx → Avances). */
+export type GrupoDeAvances = { tipo: 'avances'; instante: number; avances: readonly LineaChat[] };
+/** Lo que dibuja el hilo: una línea, o un grupo de avances. */
+export type PiezaDelHilo = LineaChat | GrupoDeAvances;
+/** ¿Es un «Avance»? Un turno que el chat le escribió a OTRO chat (`turnosParaOtro`): lo que se dibuja plegado. */
+export const esAvance = (l: LineaChat): boolean => l.tipo === 'turno' && l.plegado === true;
+const diaDeAR = (t: number) => Math.floor((t - 3 * 3_600_000) / 86_400_000);
+
+/**
+ * Junta en un grupo los «Avance» que van uno detrás del otro en lo que se dibuja (`lineasDeConversacion`), del mismo día.
+ * Cualquier otra línea corta el grupo: una pregunta, un «Completado» (un «Ya está» nunca es un avance), lo que escribió
+ * Martín. El cambio de día también, porque entre medio va la píldora del día. Uno solo queda como estaba.
+ * ⚠️ NO SACA NI AGREGA NADA: es cómo se dibujan. Lo «sin ver», el «Completado» y lo que dice la fila miran las LÍNEAS, no esto.
+ */
+export function agruparAvances(lineas: readonly LineaChat[]): PiezaDelHilo[] {
+  const out: PiezaDelHilo[] = [];
+  let tanda: LineaChat[] = [];
+  const cerrar = () => {
+    if (tanda.length >= 2) out.push({ tipo: 'avances', instante: tanda[tanda.length - 1].instante, avances: tanda });
+    else out.push(...tanda);
+    tanda = [];
+  };
+  for (const l of lineas) {
+    if (esAvance(l)) {
+      if (tanda.length && diaDeAR(tanda[0].instante) !== diaDeAR(l.instante)) cerrar();
+      tanda.push(l);
+    } else {
+      cerrar();
+      out.push(l);
+    }
+  }
+  cerrar();
+  return out;
+}
+
+/**
+ * Lo que dice un chat para la API (`ver_mensajes_operaciones`), con lo MISMO que la conversación de la pantalla
+ * (`historialDelChat`): sus turnos, sus preguntas, y lo que Martín le mandó desde el Ops Center. El trabajo que contesta una
+ * pregunta va ADENTRO de ella; uno con la marca de una pregunta que no se conoce sale como trabajo, para no perderlo. El turno
+ * que la PC guardó de un trabajo no se repite: `lineasDeConversacion` lo saca.
+ * ⚠️ SIN LAS PREGUNTAS, LA API CONTABA OTRA CONVERSACIÓN (26/10/2026, la revisión del tren-m): la respuesta de Martín no salía
+ *    por ningún lado (su trabajo se descartaba y su turno lo saca `lineasDeConversacion`), y dos tandas de avances que la
+ *    pregunta separa en la pantalla salían juntas.
+ */
+export function lineasParaLaApi(turnos: readonly TurnoChat[], trabajos: readonly TrabajoP[], preguntas: readonly PreguntaChat[] = []): LineaChat[] {
+  const out: LineaChat[] = [];
+  const conocidas = new Set(preguntas.map((p) => p.id));
+  const respuestaDe = new Map<string, TrabajoP>();
+  for (const w of trabajos) { const id = preguntaDeTrabajo(w.texto); if (id && conocidas.has(id)) respuestaDe.set(id, w); }
+  const contestan = new Set([...respuestaDe.values()].map((w) => w.id));
+  for (const u of turnos) { const t = fecha(u.at); if (t != null) out.push({ tipo: 'turno', instante: t, turno: u }); }
+  for (const p of preguntas) { const t = fecha(p.at); if (t != null) out.push({ tipo: 'pregunta', instante: t, pregunta: p, trabajo: respuestaDe.get(p.id) ?? null }); }
+  for (const w of trabajos) {
+    const t = fecha(w.created_at);
+    if (t != null && !contestan.has(w.id)) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
+  }
+  return out.sort((x, y) => x.instante - y.instante);
+}
+
+/**
+ * Una pieza de la conversación como la devuelve la API (`ver_mensajes_operaciones`): lo de Martín y lo del chat, un avance
+ * suelto, o un grupo con el último entero y los anteriores del más nuevo al más viejo, cada uno con su primera oración (lo
+ * que se ve en la fila cerrada) y su texto entero (lo que se ve al abrirla). Una nota de voz de Martín dice que es un audio,
+ * con lo que dura y su transcripción aparte (26/10/2026). Ningún turno queda afuera.
+ */
+export function piezaParaLaApi(p: PiezaDelHilo, chat: string) {
+  // Lo del chat, como se dibuja (26/10/2026): un «1) … 2) …» corrido, en renglones (lib/respuesta-como-claude.ts).
+  const delChat = (t: TurnoChat) => (t.rol === 'el' ? listasEnRenglones(t.texto) : t.texto);
+  if (p.tipo === 'avances') {
+    const turnos = p.avances.flatMap((l) => (l.tipo === 'turno' ? [l.turno] : []));
+    const ultimo = turnos[turnos.length - 1];
+    return {
+      tipo: 'avances' as const, cantidad: turnos.length, at: ultimo.at,
+      ultimo: { at: ultimo.at, texto: delChat(ultimo) },
+      anteriores: turnos.slice(0, -1).reverse().map((t) => ({ at: t.at, resumen: primeraOracion(t.texto), texto: delChat(t) })),
+    };
+  }
+  if (p.tipo === 'turno') {
+    return { tipo: p.plegado ? ('avance' as const) : ('mensaje' as const), de: p.turno.rol === 'yo' ? 'Martín' : chat, at: p.turno.at, texto: delChat(p.turno) };
+  }
+  if (p.tipo === 'pregunta') {
+    // Lo que contestó Martín: lo que guardó la pregunta, o el texto de su trabajo sin la marca si no se llegó a guardar.
+    const q = p.pregunta;
+    const respuesta = q.respuesta ? resumenDeRespuesta(q, q.respuesta) : p.trabajo ? (p.trabajo.texto ?? '').replace(/\[pregunta [0-9a-f-]{36}\]\s*/, '').trim() : null;
+    return {
+      tipo: 'pregunta' as const, de: chat, at: q.at, pregunta: q.pregunta, opciones: q.opciones.map((o) => o.titulo),
+      respuesta, abierta: !q.respuesta && !p.trabajo && estaAbierta(q),
+    };
+  }
+  if (p.tipo === 'trabajo') {
+    const w = p.trabajo;
+    if (w.voz) return { tipo: 'audio' as const, de: 'Martín', at: w.created_at, segundos: w.voz.segundos, transcripcion: w.texto ?? '' };
+    return { tipo: 'mensaje' as const, de: 'Martín', at: w.created_at, texto: w.texto ?? '', ...(w.adjuntos?.length ? { adjuntos: w.adjuntos } : {}) };
+  }
+  return { tipo: p.tipo, at: new Date(p.instante).toISOString() };
 }
 
 /** La primera oración de un texto, sin el formato del Markdown, para el renglón plegado de un turno («Avance: …»). */
@@ -691,22 +879,68 @@ export function leerYaVistos(v: unknown): YaVistos {
   return Object.fromEntries(pares.sort((a, b) => b[1] - a[1]).slice(0, MAX_YA_VISTOS));
 }
 
+/**
+ * LOS «COMPLETADO» DE UN CHAT: cada «Ya está», salvo que sea un renglón de A MITAD DE SU RONDA (27/10/2026).
+ * Martín, con la tarjeta «COMPLETADO · Ayer 13:59» del CRM: «la info no me dice nada... No sirve de nada si no sé en qué se
+ * trabajó claramente, sin rodeos». Medido en la base (los turnos del CRM del 26/10): a las 13:59 el chat escribió, a mitad del
+ * trabajo, «Ya está probado: … Ahora dejo escrito lo aprendido en los documentos del repo», y a las 14:01 cerró con lo que
+ * hizo («**Punta: ca01d4c82** …»). Un «Ya está» se reconoce por cómo EMPIEZA el texto (`esYaEsta`), así que el Completado era
+ * el renglón de las 13:59, y el cierre de verdad quedaba plegado como «Avance» (venía después de un mensaje del Cerebro:
+ * `turnosParaOtro`). ⚠️ El diagnóstico obvio («el cartero sube el último renglón suelto») era el equivocado: el cartero subió
+ * bien los dos.
+ * Desde el cartero 1.21.0 cada texto del chat dice de qué RONDA es (`inicio`: el primero de la ronda) y el que la cierra lleva
+ * `fin`. Un «Ya está» que no cierra su ronda cede el lugar al cierre de ESA ronda (con su resumen del wrap_up). ⚠️ Sólo de esa
+ * ronda: lo que el chat escribe en otra (un «Recibido, sigo con…») no le saca el lugar al «Ya está», que espera su ✓ aunque el
+ * chat haya escrito después (la regla del 18/10, tests/centro-ya-visto.test.ts). Sin las marcas (un cartero de antes), como
+ * siempre: el «Ya está».
+ */
+export function completadosDelChat(lineas: readonly LineaChat[]): Array<{ instante: number; turno: TurnoChat }> {
+  const delChat = lineas.filter((l): l is Extract<LineaChat, { tipo: 'turno' }> => l.tipo === 'turno' && l.turno.rol === 'el');
+  const cierres = new Map<string, Extract<LineaChat, { tipo: 'turno' }>>();
+  for (const l of delChat) if (l.turno.fin && l.turno.inicio) cierres.set(l.turno.inicio, l);
+  const out = new Map<string, { instante: number; turno: TurnoChat }>();
+  for (const l of delChat) {
+    if (!esYaEsta(l.turno.texto)) continue;
+    const c = l.turno.fin ? null : cierres.get(l.turno.inicio ?? l.turno.uuid);
+    const x = c && c.instante >= l.instante ? c : l;
+    // Con trabajo de fondo vivo la ronda no terminó (cartero 1.21.0, 27/10 23:07): sigue «Trabajando», no es un Completado.
+    if (x.turno.fondo) continue;
+    out.set(x.turno.uuid, { instante: x.instante, turno: x.turno });
+  }
+  return [...out.values()].sort((a, b) => a.instante - b.instante);
+}
+const ultimoCompletado = (lineas: readonly LineaChat[]) => completadosDelChat(lineas).at(-1) ?? null;
+
 /** El instante del último «Ya está» que escribió el chat, aunque después haya escrito otra cosa. null = ninguno.
  *  ⚠️ «Aunque después»: es la regla de Martín del 18/10/2026 (tests/centro-ya-visto.test.ts), el «Completado» no se va hasta su ✓.
  *  Lo que le faltaba el 22/10 era VERLO al entrar: la fila decía «Espera tu respuesta» y el «Ya está» quedaba tapado por lo
  *  que el chat escribió después. Ahora la fila dice «Completado», lo de otros chats va plegado y el hilo va a él (`yaEstaSinVer`). */
 export function ultimoYaEsta(lineas: readonly LineaChat[]): number | null {
-  let u: number | null = null;
-  for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (u == null || l.instante > u)) u = l.instante;
-  return u;
+  return ultimoCompletado(lineas)?.instante ?? null;
 }
 
 /** El turno del último «Ya está» si todavía no tiene su ✓ (`visto`: el instante del ✓ de este chat): adonde va el hilo al abrir
  *  el chat (Conversacion.tsx). null = no hay, o ya lo vio. */
 export function yaEstaSinVer(lineas: readonly LineaChat[], visto: number | null | undefined): string | null {
-  let u: { instante: number; uuid: string } | null = null;
-  for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (!u || l.instante > u.instante)) u = { instante: l.instante, uuid: l.turno.uuid };
-  return u && !tieneCheck(u.instante, visto) ? u.uuid : null;
+  return completadoSinVer(lineas, visto)?.uuid ?? null;
+}
+
+/** El turno del último «Ya está» si todavía no tiene su ✓: el que hace que la fila diga «Completado», y el que va en el bloque
+ *  de arriba de la caja (app/admin/operaciones/BloqueCompletado.tsx, 25/10/2026). null = no hay, o ya lo vio. */
+export function completadoSinVer(lineas: readonly LineaChat[], visto: number | null | undefined): TurnoChat | null {
+  const u = ultimoCompletado(lineas);
+  return u && !tieneCheck(u.instante, visto) ? u.turno : null;
+}
+
+/** Cuántos «Completado» sin ver muestra el bloque, como mucho (los más nuevos). Los de antes no se pierden: el ✓ es «hasta
+ *  éste», así que darle el ✓ al primero que se ve también se lo pone a ellos. */
+export const MAX_COMPLETADOS_EN_BLOQUE = 8;
+
+/** Los «Ya está» del chat que esperan el ✓, del más viejo al más nuevo (los últimos `max`): el bloque de arriba de la caja los
+ *  muestra de a uno, con las flechas de las preguntas (25/10/2026, Martín: «si tengo varios "completados" pendientes, para eso
+ *  ya tenemos la opción de "espera tu respuesta" tipo modular... con las flechitas»). El último es `completadoSinVer`. */
+export function completadosSinVer(lineas: readonly LineaChat[], visto: number | null | undefined, max = MAX_COMPLETADOS_EN_BLOQUE): TurnoChat[] {
+  return completadosDelChat(lineas).filter((x) => !tieneCheck(x.instante, visto)).slice(-max).map((x) => x.turno);
 }
 
 /**
@@ -749,6 +983,7 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
   let mejor: VistaPrevia | null = null;
   const ver = (v: VistaPrevia) => { if (v.texto && (!mejor || v.instante >= mejor.instante)) mejor = v; };
   const renglon = (s: string) => sinMarkdown(s.split('\n').map((x) => x.trim()).find(Boolean) ?? '');
+  const completados = new Set(completadosDelChat(lineas).map((x) => x.turno.uuid));
   for (const l of lineas) {
     if (l.tipo === 'trabajo') {
       ver({ texto: renglon(l.trabajo.texto ?? ''), propio: true, tick: l.trabajo.estado ?? 'escrito', instante: l.instante });
@@ -764,7 +999,7 @@ export function vistaPrevia(lineas: readonly LineaChat[]): VistaPrevia | null {
       if (r && t != null) ver({ texto: renglon(resumenDeRespuesta(l.pregunta, r)), propio: true, tick: null, instante: t });
     } else if (l.tipo === 'turno') {
       // Lo que contestó (o lo que se le dijo): lo último que pasó en la conversación. El turno de un trabajo ya está.
-      if (l.turno.rol === 'el' && esYaEsta(l.turno.texto)) {
+      if (l.turno.rol === 'el' && completados.has(l.turno.uuid)) {
         const titulo = renglon(l.turno.texto).replace(/^[\s*_#>✅✔·\-–—]*ya est[áa][\s*_.:!,;\-–—]*/i, '').trim();
         ver({ texto: titulo || 'Completado', propio: false, tick: null, instante: l.instante, ya: true });
       } else if (!(l.turno.rol === 'yo' && l.turno.trabajo) && esParaMartin(l.turno)) {
@@ -949,12 +1184,38 @@ export function estadoDelEnvio(
  */
 export function chatTrabajando(chat: Pick<ChatCentro, 'estado' | 'viejo'>, lineas: readonly LineaChat[], ahora: number): boolean {
   if (chat.estado === 'trabajando' && !chat.viejo) return true;
+  // Terminó su turno con trabajo de FONDO vivo (cartero 1.21.0, `fondo`) y nadie le escribió después: sigue trabajando.
+  const ultima = [...lineas].sort((a, b) => a.instante - b.instante).at(-1);
+  if (ultima?.tipo === 'turno' && ultima.turno.rol === 'el' && ultima.turno.fondo && ahora - ultima.instante < FONDO_VIVO_MS) return true;
   const trabajos = lineas.filter((l): l is Extract<LineaChat, { tipo: 'trabajo' }> => l.tipo === 'trabajo');
   const ultimo = trabajos[trabajos.length - 1]?.trabajo;
   if (!ultimo || ultimo.estado !== 'entregado' || ultimo.cierre) return false;
   const entregado = fecha(ultimo.entregado_at ?? null);
   if (entregado == null || ahora - entregado > RECIEN_ENTREGADO_MS) return false;
   return !lineas.some((l) => l.tipo === 'turno' && l.turno.rol === 'el' && l.instante > entregado);
+}
+
+/** Copia de `FONDO_VIVO_MS` del cartero: una tarea de fondo que no avisó en tantas horas ya no cuenta. */
+export const FONDO_VIVO_MS = 3 * 60 * 60 * 1000;
+
+/**
+ * Lo TERMINADO que dice un «Completado» cuando el turno no trae el resumen de su wrap_up (27/10/2026, Martín: «El cuadro de
+ * COMPLETADO debe ser dopamínico: se completó una funcionalidad, se debuggeó A, B, C»): el «hecho» del cierre del trabajo que
+ * respondía (`cartero cierre --hecho`), si se cerró en ese tramo. null = no hay.
+ */
+export function hechoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): string | null {
+  const hasta = Date.parse(ya.at);
+  const desde = desdeDelTramo(lineas, hasta);
+  let mejor: { t: number; hecho: string } | null = null;
+  for (const l of lineas) {
+    if (l.tipo !== 'trabajo' || !l.trabajo.cierre) continue;
+    const t = fecha(l.trabajo.cerrado_at ?? null);
+    const hecho = (l.trabajo.cierre.hecho || '').trim();
+    // Cerrado en el tramo: después del Completado de antes, y hasta 10 minutos después de éste (el cierre llega por otro camino).
+    if (t == null || !hecho || t <= desde || t > hasta + 10 * 60_000) continue;
+    if (!mejor || t > mejor.t) mejor = { t, hecho };
+  }
+  return mejor?.hecho ?? null;
 }
 
 /** ¿Hay algo en camino (escrito o tomado, de hace poco)? Mientras tanto la pantalla se refresca más seguido. */
@@ -1025,37 +1286,50 @@ export type SeccionChats = { clave: string; titulo: string | null; chats: ChatCe
 
 export const SECCION_CEREBRO = 'cerebro';
 
-/** Cuántas cosas esperan a Martín en un chat (sus preguntas sin contestar): lo que lo sube en la lista. */
+/** Cuántas cosas esperan a Martín en un chat (sus preguntas sin contestar y un «Completado» sin ✓): lo que lo sube en la lista. */
 export type AvisosDe = (c: ChatCentro) => number;
+/** Cuántas preguntas suyas esperan a Martín en un chat, SIN el «Completado»: lo que dice «Espera tu respuesta» y va PRIMERO. */
+export type EsperasDe = (c: ChatCentro) => number;
 
 /**
- * El lugar de un chat en la lista (Martín, 17/10/2026: «que los chats trabajando siempre estén arriba... Y los que tienen
- * notificaciones también»): 0 = trabajando AHORA (no una foto vieja), 1 = espera algo de Martín, 2 = el resto.
+ * El lugar de un chat en la lista. Martín, 17/10/2026: «que los chats trabajando siempre estén arriba... Y los que tienen
+ * notificaciones también». Y el 24/10/2026, 23:39: «el tema de los chats de MaKo cuando tienen [...] un espera tu respuesta
+ * deberían posicionarse arriba porque había muchos que estaban abajo y yo no los veo». Así: 0 = espera su respuesta (una
+ * pregunta abierta), 1 = trabaja AHORA (no una foto vieja), 2 = un «Completado» sin ✓, 3 = el resto. Sin `esperas` (quien no
+ * las distingue de un «Completado») no hay 0: lo de antes.
  */
-export function prioridadEnLista(c: ChatCentro, avisos?: AvisosDe): 0 | 1 | 2 {
-  if (c.estado === 'trabajando' && !c.viejo) return 0;
-  return avisos && avisos(c) > 0 ? 1 : 2;
+export function prioridadEnLista(c: ChatCentro, avisos?: AvisosDe, esperas?: EsperasDe): 0 | 1 | 2 | 3 {
+  if (esperas && esperas(c) > 0) return 0;
+  if (c.estado === 'trabajando' && !c.viejo) return 1;
+  return avisos && avisos(c) > 0 ? 2 : 3;
 }
 /** Lo que trabaja o espera a Martín nunca queda escondido detrás de «Mostrar más». */
-export const esPrioritario = (c: ChatCentro, avisos?: AvisosDe) => prioridadEnLista(c, avisos) < 2;
+export const esPrioritario = (c: ChatCentro, avisos?: AvisosDe, esperas?: EsperasDe) => prioridadEnLista(c, avisos, esperas) < 3;
+
+/** Una lista en el orden de `prioridadEnLista`: lo que espera su respuesta y el resto, de lo más reciente a lo más viejo; lo que
+ *  trabaja y los «Completado», en el orden en que llegan. */
+function enOrdenDeLista(chats: readonly ChatCentro[], avisos?: AvisosDe, esperas?: EsperasDe): ChatCentro[] {
+  const porActividad = (p: number) => p === 0 || p === 3;
+  return chats
+    .map((c, i) => ({ c, i, p: prioridadEnLista(c, avisos, esperas) }))
+    .sort((a, b) => a.p - b.p || (porActividad(a.p) ? (b.c.actividad ?? 0) - (a.c.actividad ?? 0) : 0) || a.i - b.i)
+    .map((x) => x.c);
+}
 
 /**
  * Las secciones de la barra: el Cerebro arriba y fijo, y UNA lista con los demás (17/10/2026, Martín: «No entiendo el
- * desplegable de "Sin asignar", no tiene sentido, elimínalo»). Adentro, primero los que trabajan, después los que
- * esperan a Martín, después el resto por actividad; los sub-chats van con su jefe (`porJefe`), que sube con ellos.
+ * desplegable de "Sin asignar", no tiene sentido, elimínalo»). Adentro, primero los que esperan su respuesta, después los que
+ * trabajan, después los «Completado» y el resto por actividad (`prioridadEnLista`); los sub-chats van con su jefe (`porJefe`),
+ * que sube con el primero de los suyos. Los del Cerebro, con el mismo orden debajo de él.
  * ⚠️ Un chat que no se llama como una tab ya no va aparte: está en la lista, y renombrándolo pasa a su jefe.
  */
-export function seccionesDeChats(chats: readonly ChatCentro[], avisos?: AvisosDe): SeccionChats[] {
+export function seccionesDeChats(chats: readonly ChatCentro[], avisos?: AvisosDe, esperas?: EsperasDe): SeccionChats[] {
   // ⚠️ LOS SUB-CHATS DEL CEREBRO VAN CON ÉL (23/10/2026, Martín: «a veces cambian los chats»). «Cerebro › Integración» no se llama
   // «Cerebro»: quedaba en la otra lista, donde `porJefe` le armaba un grupo SIN su fila jefe y el teléfono lo dibujaba suelto
   // («↳ Integración») debajo de lo que tocara arriba, que esa vez era «Integraciones». El Cerebro primero, sus sub-chats debajo.
   const delCerebro = (c: ChatCentro) => esCerebro(partesDelNombre(c.titulo).jefe);
-  const cerebro = chats.filter((c) => esCerebro(c.titulo)).concat(chats.filter((c) => delCerebro(c) && !esCerebro(c.titulo)));
-  const resto = chats
-    .filter((c) => !delCerebro(c))
-    .map((c, i) => ({ c, i, p: prioridadEnLista(c, avisos) }))
-    .sort((a, b) => a.p - b.p || (a.p === 2 ? (b.c.actividad ?? 0) - (a.c.actividad ?? 0) : 0) || a.i - b.i)
-    .map((x) => x.c);
+  const cerebro = chats.filter((c) => esCerebro(c.titulo)).concat(enOrdenDeLista(chats.filter((c) => delCerebro(c) && !esCerebro(c.titulo)), avisos, esperas));
+  const resto = enOrdenDeLista(chats.filter((c) => !delCerebro(c)), avisos, esperas);
   const out: SeccionChats[] = [];
   if (cerebro.length) out.push({ clave: SECCION_CEREBRO, titulo: null, chats: cerebro });
   if (resto.length) out.push({ clave: SECCION_CHATS, titulo: null, chats: resto });
@@ -1260,6 +1534,9 @@ export function rutaDeYaEsta(texto: string): string | null {
 // ⚠️ La negrita que ABRE antes de «Ya está» es la única que se come al cerrarse (`\1`): «**Ya está:** el filtro» deja «el filtro»,
 // pero «Ya está: **el filtro** del CRM» deja «**el filtro** del CRM» y no «el filtro** del CRM» (antes el `*` de después de los dos
 // puntos se tragaba la apertura del título, y quedaba una negrita cruda a la vista).
+/** Lo que sigue al «Ya está» empieza con mayúscula: sin el «Ya está:» de adelante, «traer de un grupo…» se leía cortado (25/10/2026,
+ *  medido en el «Completado» de Offer). Sólo una letra: un `código` o un **formato** de adelante quedan como están. */
+const conMayuscula = (s: string): string => s.replace(/^\p{Ll}/u, (c) => c.toLocaleUpperCase('es'));
 const PREFIJO_YA_ESTA = /^[\s>#✅✔·\-–—]*(\*\*|__|\*|_)?[\s>#✅✔·\-–—]*ya est[áa][.:!,;]*(?:\1)?[\s.:!,;\-–—]*/i;
 
 /** Hasta cuántos caracteres un primer renglón se dibuja como TÍTULO de la tarjeta; más largo es un párrafo. */
@@ -1268,6 +1545,10 @@ export const TITULO_YA_ESTA = 110;
 export const CUERPO_PLEGABLE = 1500;
 /** Cuánto detalle tiene que haber antes de la cola para que valga la pena plegarlo. */
 const DETALLE_PLEGABLE = 600;
+/** Arriba de la caja (BloqueCompletado.tsx) el «Completado» va más corto: desde acá se pliega a su resumen y se abre tocándolo
+ *  (25/10/2026, Martín: «achica el mensaje y hazlo más claro»), con su cola a la vista desde `DETALLE_PLEGABLE_EN_BLOQUE`. */
+export const CUERPO_PLEGABLE_EN_BLOQUE = 500;
+export const DETALLE_PLEGABLE_EN_BLOQUE = 200;
 
 /**
  * El «Completado» partido para dibujarlo ENTERO (17/10/2026, Martín: «tienen 3 puntos al final y no llego a leer todo, esos
@@ -1278,7 +1559,7 @@ const DETALLE_PLEGABLE = 600;
  */
 export function partesDeYaEsta(texto: string): { titulo: string | null; cuerpo: string } {
   const lineas = texto.trim().split('\n');
-  const resto = (lineas[0] ?? '').replace(PREFIJO_YA_ESTA, '').trim();
+  const resto = conMayuscula((lineas[0] ?? '').replace(PREFIJO_YA_ESTA, '').trim());
   const demas = lineas.slice(1).join('\n').trim();
   if (!resto) return { titulo: null, cuerpo: demas };
   if (resto.length <= TITULO_YA_ESTA) return { titulo: resto, cuerpo: demas };
@@ -1297,8 +1578,8 @@ const ABRE_LA_PRUEBA = /^[\s>*_#\-•·]*(?:\d+[.)]\s*)?[*_`]*pr[uú]eba(?:lo|la
  * «Falta» o «Prueba» (fuera de un bloque de código); sin esa marca, es el último párrafo. `null` = no se puede plegar sin
  * esconder algo (corto, sin cola, o casi todo es cola): se dibuja entero.
  */
-export function partirPendiente(cuerpo: string): { detalle: string; cola: string } | null {
-  if (cuerpo.length <= CUERPO_PLEGABLE) return null;
+export function partirPendiente(cuerpo: string, desde = CUERPO_PLEGABLE, detalleMinimo = DETALLE_PLEGABLE): { detalle: string; cola: string } | null {
+  if (cuerpo.length <= desde) return null;
   const lineas = cuerpo.split('\n');
   let dentro = false;
   let corte = -1;
@@ -1314,27 +1595,138 @@ export function partirPendiente(cuerpo: string): { detalle: string; cola: string
   if (corte <= 0) return null;
   const detalle = lineas.slice(0, corte).join('\n').trim();
   const cola = lineas.slice(corte).join('\n').trim();
-  if (detalle.length < DETALLE_PLEGABLE || !cola) return null;
+  if (detalle.length < detalleMinimo || !cola) return null;
   return { detalle, cola };
 }
 
-/** ¿La PC cortó este turno al subirlo? Sube hasta `TOPE_TURNO` caracteres (cartero.mjs) y el resto no llega, sin avisar. */
-export const cortadoPorLaPC = (texto: string): boolean => texto.length >= TOPE_TURNO;
+/** ¿La PC cortó este turno al subirlo? Un cartero de antes de la 1.19.0 cortaba a `TOPE_TURNO_VIEJO` (4000); desde esa, sólo el
+ *  tope técnico (`TOPE_TURNO`). Lo cortado no llega, sin avisar.
+ *  ⚠️ No se AVISA en pantalla (25/10/2026, Martín: «que no haya nunca un limite de caracteres, en todo caso achica el mensaje»):
+ *  el «Completado» largo va plegado a su resumen, y uno cortado termina en «…» (Avance.tsx). */
+export const cortadoPorLaPC = (texto: string): boolean => texto.length === TOPE_TURNO_VIEJO || texto.length >= TOPE_TURNO;
+
+/** Lo que respondió un «Completado»: el texto, y quién se lo pidió (null = Martín; si no, el chat que se lo mandó). */
+export type PedidoDelCompletado = { texto: string; de: string | null };
+
+/** El nombre del chat que mandó un mensaje, para leerlo: el cartero lo trae de la etiqueta del mensaje, a veces con el «›» del
+ *  jefe y su sub-chat convertido en espacios («Cerebro   Integración»). */
+export const nombreDeOtroChat = (de: string | null): string => de?.trim().replace(/\s{2,}/g, ' › ') || 'Otro chat';
+
+/**
+ * Lo que respondió ese «Completado» (25/10/2026, Martín: «Por ejemplo dice "no, no era todo." si no pones antes cual fue mi
+ * prompt no se entiende... Podrias ponerlo con mi foto de perfil allí para que se entienda que fue mio y ahí la respuesta»).
+ * En el TRAMO que cierra (desde el «Ya está» de antes del chat):
+ *   1. lo último que le dijo Martín: un turno suyo (en la app o por la caja) o un trabajo firmado del Ops Center. Un turno que
+ *      trajo un trabajo no cuenta: ese trabajo ya está, con su texto;
+ *   2. si Martín no le dijo nada, lo último que le mandó OTRO chat (`otro`, el Cerebro casi siempre), con su nombre;
+ *   3. si nadie le dijo nada (un segundo «Ya está» de lo mismo), lo último de Martín de antes.
+ * ⚠️ MEDIDO EL 25/10/2026 en producción: el «Completado» de Offer respondía a Integración y no tenía pedido, porque sólo se
+ *    buscaba lo de Martín; casi todo lo que hacen los chats se lo manda el Cerebro. null = no hay nada antes.
+ */
+export function pedidoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): PedidoDelCompletado | null {
+  const hasta = Date.parse(ya.at);
+  const desde = desdeDelTramo(lineas, hasta);
+  let martin: { instante: number; texto: string } | null = null;
+  let otro: { instante: number; texto: string; de: string | null } | null = null;
+  for (const l of lineas) {
+    if (!(l.instante < hasta)) continue;
+    const suyo = deMartin(l);
+    if (suyo && (!martin || l.instante > martin.instante)) martin = { instante: l.instante, texto: suyo };
+    if (l.tipo === 'turno' && l.turno.rol === 'otro' && l.instante > desde && l.turno.texto.trim() && (!otro || l.instante > otro.instante)) {
+      // El encargo con el que abrieron el chat (27/10/2026): su tarea, no el «Background…» de arriba.
+      otro = { instante: l.instante, texto: l.turno.encargo ? textoDelEncargo(l.turno.texto) : l.turno.texto.trim(), de: l.turno.de };
+    }
+  }
+  if (martin && martin.instante > desde) return { texto: martin.texto, de: null };
+  if (otro) return { texto: otro.texto, de: nombreDeOtroChat(otro.de) };
+  return martin ? { texto: martin.texto, de: null } : null;
+}
+
+/** Dónde empieza el tramo que cierra un «Ya está»: el «Ya está» de antes del chat (-Infinity = no hay). */
+function desdeDelTramo(lineas: readonly LineaChat[], hasta: number): number {
+  let desde = -Infinity;
+  for (const x of completadosDelChat(lineas)) if (x.instante < hasta && x.instante > desde) desde = x.instante;
+  return desde;
+}
+/** Lo que dijo Martín en una línea: un turno suyo (en la app o por la caja) o un trabajo firmado. Un turno que trajo un trabajo
+ *  no cuenta: ese trabajo ya está, con su texto. '' = no es suyo. */
+const deMartin = (l: LineaChat): string =>
+  (l.tipo === 'turno' && l.turno.rol === 'yo' && !l.turno.trabajo ? l.turno.texto : l.tipo === 'trabajo' ? l.trabajo.texto ?? '' : '').trim();
+
+/** Cuántos mensajes de Martín muestra como mucho un «Completado»: los últimos de su tramo. */
+export const TOPE_PEDIDOS_DEL_COMPLETADO = 4;
+
+/**
+ * TODO lo que le dijo Martín en el tramo que cierra ese «Completado», del más viejo al más nuevo, cada uno por su lado (26/10/2026,
+ * Martín: «si necesitas poner más de 1 mensaje mio, para que se entienda el contexto, hazlo. No todo en el mismo mensaje, sino
+ * varias cajitas de mensaje con mi foto de perfil»). Los últimos `TOPE_PEDIDOS_DEL_COMPLETADO`. Si Martín no le dijo nada en
+ * el tramo, lo de `pedidoDelCompletado` (lo de otro chat, o lo último de Martín de antes): uno solo, o ninguno.
+ */
+export function pedidosDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): PedidoDelCompletado[] {
+  const hasta = Date.parse(ya.at);
+  const desde = desdeDelTramo(lineas, hasta);
+  const suyos = lineas.filter((l) => l.instante > desde && l.instante < hasta).sort((a, b) => a.instante - b.instante).map(deMartin).filter(Boolean);
+  if (suyos.length) return suyos.slice(-TOPE_PEDIDOS_DEL_COMPLETADO).map((texto) => ({ texto, de: null }));
+  const uno = pedidoDelCompletado(lineas, ya);
+  // Lo relevó otro chat (el Cerebro casi siempre): si trae el prompt de Martín textual, va ESE, con su foto.
+  const citados = uno?.de ? promptsDeMartin(uno.texto) : [];
+  if (citados.length) return citados.slice(-TOPE_PEDIDOS_DEL_COMPLETADO).map((texto) => ({ texto, de: null }));
+  return uno ? [uno] : [];
+}
+
+/** «textual:», «textuales:» o «textualmente», que es como el Cerebro presenta lo que dijo Martín (memoria «Los prompts de
+ *  Martín… textuales»). */
+const TEXTUAL = /textual(?:es|mente)?\b[^«\n]{0,12}/gi;
+
+/** El texto de la cita «…» que abre en `i`, con las de adentro balanceadas (Martín también escribe «»). null = no cierra. */
+function citaBalanceada(texto: string, i: number): { texto: string; fin: number } | null {
+  let nivel = 0;
+  for (let j = i; j < texto.length; j++) {
+    if (texto[j] === '«') nivel += 1;
+    else if (texto[j] === '»' && --nivel === 0) return { texto: texto.slice(i + 1, j).trim(), fin: j + 1 };
+  }
+  return null;
+}
+
+/**
+ * Los prompts de Martín que un relevo trae TEXTUALES (26/10/2026, Martín: «En "completado" de los chats, no pongas "El cerebro me
+ * pasó el pedido de martin" pon mi prompt, con mi foto directamente»). El Cerebro los cita así: «…, textual: «el prompt»» o
+ * «textuales: 1. «uno» 2. «otro»». Sólo lo que viene pegado a esa palabra (con su número de lista, si lo tiene): las demás
+ * comillas del relevo («Completado», el nombre de un botón) no son de Martín. [] = el relevo no trae nada textual.
+ */
+export function promptsDeMartin(texto: string): string[] {
+  const out: string[] = [];
+  for (const m of texto.matchAll(TEXTUAL)) {
+    let i = (m.index ?? 0) + m[0].length;
+    for (;;) {
+      const salto = /^(?:\s|\d{1,2}[.)]|[-•*]|y\b)*/.exec(texto.slice(i))?.[0].length ?? 0;
+      if (texto[i + salto] !== '«') break;
+      const c = citaBalanceada(texto, i + salto);
+      if (!c) break;
+      if (c.texto) out.push(c.texto);
+      i = c.fin;
+    }
+  }
+  return [...new Set(out)];
+}
 
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
 export function yaEstaDelChat(lineas: readonly LineaChat[]): NodoAvance[] {
-  return lineas.flatMap((l): NodoAvance[] => {
-    if (l.tipo !== 'turno' || l.turno.rol !== 'el' || !esYaEsta(l.turno.texto)) return [];
-    const t = l.turno.texto.trim();
-    // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más).
-    const resto = t.replace(PREFIJO_YA_ESTA, '').trim();
-    const ruta = rutaDeYaEsta(t);
-    return [{
-      id: `y:${l.turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante: l.instante,
-      estado: 'hecho', cuentas: [], pasos: [], commits: [], trabajaron: [], cierre: t, motivo: null,
-      revisar: ruta ? { pagina: ruta, sesion: DESTINO_RE.test(l.turno.local) ? l.turno.local : null } : null,
-    }];
-  });
+  return completadosDelChat(lineas).map((x) => nodoDeCompletado(x.turno, x.instante));
+}
+
+/** Un «Completado» como hecho de Review: su título, su texto y la página que dejó. Para el turno que YA se sabe que es uno
+ *  (`completadosDelChat`): el de la tarjeta del hilo, el del bloque de arriba de la caja y el de la API. */
+export function nodoDeCompletado(turno: TurnoChat, instante: number): NodoAvance {
+  const t = turno.texto.trim();
+  // El título es lo que sigue al «Ya está» (o «Ya está», si no dijo más). Un cierre que no empieza así, su primer renglón.
+  const resto = conMayuscula(t.replace(PREFIJO_YA_ESTA, '').trim());
+  const ruta = rutaDeYaEsta(t);
+  return {
+    id: `y:${turno.uuid}`, origen: 'ya_esta', titulo: resto ? tituloDeTexto(resto) : 'Ya está', prompt: t, instante,
+    estado: 'hecho', cuentas: [], pasos: [], commits: [], trabajaron: [], cierre: t, motivo: null,
+    revisar: ruta ? { pagina: ruta, sesion: DESTINO_RE.test(turno.local) ? turno.local : null } : null,
+  };
 }
 
 /**

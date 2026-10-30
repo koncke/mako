@@ -70,13 +70,16 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // `contenido`: un token con escritura en Content Machine no crea ni cambia diseños, y los tokens que ya existen no la tienen.
   imagen: { titulo: 'Image Editor (diseños)', tab: 'Image', ruta: '/image-editor' },
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
-  equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
-  // Los TÍTULOS no cambian (son la clave del área). La tab sí: desde el 17/10/2026 Clientes, Curso y Comunidad son UNA
-  // tab, Clients, con sub-tabs (docs/diseno-clients.md); las rutas viejas redirigen.
-  cs: { titulo: 'Customer Success', tab: 'Clients', ruta: '/clients' },
-  curso: { titulo: 'Curso (módulos y clases)', tab: 'Clients › Classroom', ruta: '/clients/classroom' },
+  // `/configuraciones` redirige desde el 26/10/2026 (se fue «General»): la cuenta empieza en el Perfil de Settings.
+  equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Settings', ruta: '/perfil' },
+  // La CLAVE del área (`cs`) no cambia: la usan los tokens y los permisos. El título sí, porque es lo que MaKo lee y
+  // dice (el prompt de los pedidos, la referencia, el permiso de un token): desde el 17/10/2026 Clientes, Curso y
+  // Comunidad son UNA tab, Clients (docs/diseno-clients.md), y el 24/10 MaKo le mandó a Leandro a buscar los cursos en
+  // «Customer Success», una tab que ya no existe (f30 de la llamada).
+  cs: { titulo: 'Clients (la cartera y su entrega)', tab: 'Classroom › Clients', ruta: '/classroom/clients' },
+  curso: { titulo: 'Curso (módulos y clases)', tab: 'Classroom', ruta: '/classroom' },
   // La comunidad de cada producto (posts, comentarios, eventos), 17/10/2026: sale SÓLO por HTTP, como `curso`.
-  comunidad: { titulo: 'Comunidad', tab: 'Clients › Community', ruta: '/clients/community' },
+  comunidad: { titulo: 'Comunidad', tab: 'Classroom › Community', ruta: '/classroom/community' },
   // Las creaciones que un negocio publica para los demás y sus estrellas (13/10/2026, lib/creaciones.ts). Sin tab
   // en la barra: la galería vive en /creaciones y cada feature pone su botón «Publicar».
   creaciones: { titulo: 'Creaciones de la comunidad (estrellas)', tab: 'Creaciones', ruta: '/creaciones' },
@@ -363,6 +366,10 @@ export type Ctx = {
   mensajeUsuario?: string;
   /** quién confirma (email de la sesión), para el historial */
   actor?: string;
+  /** Sólo en un grupo de WhatsApp: quién escribe (el `participant`, lib/confirmacion-pura.ts `quienEnElGrupo`; null en un lote
+   *  de varios) y si el mensaje le habla a MaKo («sí, MaKo», «@MaKo», la respuesta citada a MaKo). Lo que se propone guarda quién
+   *  lo pidió, y una pendiente de plata sólo la confirma ésa persona o un «sí» a MaKo (`elSiEsDeQuienPidio`). */
+  enElGrupo?: { quien: string | null; aMaKo: boolean };
   /** Sólo en la app: la persona de la sesión que chatea (`usuarios.id` como `sub`). «Mi hoja» es la suya: el Dashboard
    *  y General leen el informe de quien chatea, como la pantalla, salvo que se nombre a otra persona (20/10/2026, Ops
    *  Center = lo principal, pieza 1.5). Se lee con `quienChatea(ctx)`, que lo ignora en otro canal. */
@@ -379,6 +386,10 @@ export type Ctx = {
    *  (WhatsApp, HTTP) se descarta. El camino es de Pagos (20/10/2026, la 2.27); las propuestas, 21/10.
    *  Devuelve `false` si NO lo dibujó (el tope de bloques del mensaje): así el `siSeDibuja` de una lectura no se dice. */
   aDibujar?: (b: Bloque) => boolean | void;
+  /** Por dónde el CÓDIGO le dice a la persona qué conexión le falta (`Falta`, 25/10/2026): el doer de WhatsApp agrega la línea
+   *  con su link (lib/conexiones-catalogo.ts, `lineaParaConectar`) sin que la escriba el modelo. Sin esto, el link viaja en el
+   *  JSON que lee el modelo (`runnerDelRegistro`). */
+  aFalta?: (f: Falta) => void;
   /** Sólo en la app: los archivos que la persona adjuntó en el mensaje de ESTE turno, ya guardados (su `ref` es la de
    *  /api/mako/chat?adjunto=). El estado de cuenta del lead toma el comprobante de acá (la 2.28). */
   adjuntos?: readonly { ref: string; nombre: string; tipo: 'image' | 'document' }[];
@@ -399,6 +410,10 @@ export type Ctx = {
    *  contestó MaKo y los errores que registró el código al correr las herramientas. Lo pone el chat que corre el turno
    *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
   contextoTicket?: () => Record<string, unknown>;
+  /** La imagen o el video que mandaron en el MENSAJE de este turno (29/10/2026, «súbeme este anuncio» desde el grupo,
+   *  `proponer_anuncio_desde_archivo`): lo pone el turno del grupo (lib/mako-doer-in.ts) y lo baja recién cuando se pide. null si
+   *  el mensaje no trae ninguno o no se pudo bajar. */
+  archivoDelMensaje?: () => Promise<{ base64: string; mime: string; nombre: string } | null>;
 };
 
 /** La persona que chatea, sólo en la app (`Ctx.quien`). En WhatsApp, por HTTP o en un flujo no hay nadie «mío». */
@@ -407,13 +422,21 @@ export const quienChatea = (ctx: Pick<Ctx, 'canal' | 'quien'>): { sub: string; e
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────
 
+/**
+ * LO QUE LE FALTA CONECTAR AL NEGOCIO, COMO DATO (25/10/2026, docs/conexiones-y-ayuda.md). Los runners decían «Fathom no está
+ * conectado en este negocio: se conecta en /integraciones», un texto suelto: con eso el código no podía armar el link directo
+ * al modal ni ofrecer ayuda, y el modelo mandaba a la pantalla general. `servicio` es una key de lib/conexiones-catalogo.ts
+ * (la de la tarjeta de /integraciones, o 'pc', 'ia', 'whatsapp').
+ */
+export type Falta = { servicio: string };
+
 /** Igual que el `ToolRunner` de lib/anthropic.ts: texto, o «esto salió mal por
  *  adentro de un resultado válido». Para `formatos`, además el tipo y cabeceras.
  *  `siSeDibuja`: lo que el modelo lee además de `content` SÓLO si el `bloque` se dibujó de verdad («la persona ya lo ve:
  *  no repitas la tabla»). Dicho siempre, con el bloque descartado, el modelo callaba algo que nadie veía (21/10). */
 export type SalidaLectura =
   | string
-  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque; siSeDibuja?: string };
+  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque; siSeDibuja?: string; falta?: Falta };
 
 /** Lo que una acción `chat` deja listo ANTES del «sí»: el payload saneado (lo que
  *  se va a ejecutar, con ids resueltos) y el resumen que lee la persona. `faltan`
@@ -426,11 +449,21 @@ export type Preparado =
   | { payload: Record<string, unknown>; resumen: string; paraLaPersona?: string }
   | {
       error: string; faltan?: string[]; disponibles?: unknown; paraLaPersona?: string;
+      /** La conexión que hace falta para esto (`Falta`). */
+      falta?: Falta;
       /** «Ya está así»: lo pedido YA es el estado actual (el lead ya está en esa secuencia, en
        *  ese producto, ya está marcado). Para un canal con persona es un rechazo como cualquier
        *  otro; para un paso de un flujo (lib/api-mako/flujo.ts) es un éxito sin nada que hacer,
        *  y no le manda una alarma al dueño cada vez que el evento se repite. */
       yaEstaba?: boolean;
+      /** Es una GUARDA (un dato que falta, un pedido que MaKo no deja hacer). Desde el 28/10/2026 lo es TODO `error` de un
+       *  preparar sin `falla` (lib/api-mako/ejecutar.ts): son validaciones por construcción, y son cientos (la verificación de
+       *  692368a60: 734 reglas sin marca abrían ticket). Queda para quien la quiera explícita. */
+      guarda?: true;
+      /** Es una FALLA nuestra (una lectura que no anduvo: «No pude leer las pasarelas conectadas»), no una regla: el «no pude»
+       *  que la sigue abre ticket (lib/no-pude.ts, `esGuardaDeHerramienta`). La pone quien la produce; tests/guarda-por-defecto
+       *  pide que todo `return { error: 'No pude…' }` de un preparar la lleve. */
+      falla?: true;
     };
 
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
@@ -443,7 +476,8 @@ export type Preparado =
 export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown> & { bloque?: Bloque }; paraLaPersona?: string };
 
 /** `extra.bloque`: lo que la propuesta DIBUJA (va por `ctx.aDibujar`; el modelo recibe `extra` sin él). */
-export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string };
+/** `falla`: como en `Preparado`, el error de un proponer es una GUARDA salvo que sea una falla nuestra. */
+export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string; falla?: true };
 
 export type LecturaRun = {
   leer: (input: Record<string, unknown>, ctx: Ctx) => Promise<SalidaLectura>;
@@ -492,4 +526,5 @@ export type Resultado =
   | { ok: true; tipo: 'control'; resultado: string }
   /** `motivo`: lo que contestó la base cuando la pendiente no entró (va al rastro de un flujo, nunca a una persona ni por
    *  HTTP). `noCorrio`: se sabe que NO se ejecutó nada (la pendiente no existe): un flujo lo puede reintentar sin repetir. */
-  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true };
+  /** `guarda`: el 400 es una GUARDA de MaKo, no una falla (`Preparado`, la marca explícita). */
+  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true; falta?: Falta; guarda?: true };

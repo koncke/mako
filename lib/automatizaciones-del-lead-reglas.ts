@@ -7,8 +7,10 @@ import { indiceActual } from './nutricion-grafo-motor';
 import { nombreDeTarjeta, esMako, etiquetaDeAccion } from './flujo-conversacion';
 import { idDe, claseDe, type PasoGrafo } from './flujo-grafo';
 import type { FrenoDelEnvio } from './por-que-no-sale';
-import { leerNoVolvio, ROTULO_REENTRADA, type NoEntro, type InformeMovimiento, type Reentrada } from './reentrada';
+import { leerNoVolvio, ROTULO_REENTRADA, DESENLACE_VOLVER_A_PROBAR, puedeVolverAProbar, type NoEntro, type InformeMovimiento, type Reentrada } from './reentrada';
 import { ESTADOS_EN_CURSO, ESTADOS_QUE_SALEN } from './nutricion-inscripcion-manual';
+import { botonesDeFlujo } from './botones-social';
+export { textoEsperaToque } from './botones-social';
 
 export type { NoEntro, InformeMovimiento };
 
@@ -27,7 +29,20 @@ export type EnAutomatizacion = {
    * «No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale hoy 9:00.». null = nada lo frena.
    */
   frenado?: FrenoDelEnvio | null;
+  /** Está parado en un DM de Instagram o Messenger esperando que toque uno de estos botones (`botonesQueEspera`). */
+  esperaToque?: string[] | null;
 };
+
+/**
+ * ¿ESPERA QUE TOQUE UN BOTÓN? (25/10/2026, lib/botones-social.ts) Los títulos de los botones de flujo del DM en el que está, si
+ * la inscripción corre y no tiene un próximo envío: el motor la deja ahí hasta el toque (`avanceDesde`, `tocarBoton`).
+ * null = no espera un toque. Sin esto la ficha decía «Corriendo» de alguien que está quieto hasta que toque.
+ */
+export function botonesQueEspera(f: Pick<FilaInscripcion, 'estado' | 'proximo_envio_at'>, p: PasoGrafo | undefined): string[] | null {
+  if (f.estado !== 'activa' || f.proximo_envio_at || !p || claseDe(p) !== 'mensaje') return null;
+  const t = botonesDeFlujo(p).map((b) => b.titulo);
+  return t.length ? t : null;
+}
 
 /** Las inscripciones que siguen vivas: corriendo, o frenadas porque contestó. */
 export const ESTADOS_VIVOS = ['activa', 'respondio'] as const;
@@ -61,6 +76,7 @@ export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: re
       estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: pasoEnPalabras(pasos[i], null).que } : null,
       proximoEnvioAt: f.proximo_envio_at, link: `/automations?sec=${s.id}`,
       ...(frenoDe ? { frenado: frenoDe(f, s, canalDelPaso(i >= 0 ? pasos[i] : undefined)) } : {}),
+      ...((() => { const t = botonesQueEspera(f, i >= 0 ? pasos[i] : undefined); return t ? { esperaToque: t } : {}; })()),
     });
     out.set(Number(f.lead_id), lista);
   }
@@ -90,6 +106,24 @@ export function textoDeFrenar(r:
     carrera: `${quien} cambió de paso en ${donde} mientras lo frenaba: prueba de nuevo.`,
   };
   return { ok: false, error: por[r.porque] ?? `${quien} ya no estaba corriendo en ${donde}.` };
+}
+
+/**
+ * «VOLVER A PROBAR» en palabras (ticket #19, `volverAProbarEnAutomatizacion`): si se puede y lo que pasa. No manda nada
+ * ahora: la vuelve a correr lo próximo que la arranca, una vez (lib/reentrada.ts, `DESENLACE_VOLVER_A_PROBAR`).
+ */
+export function textoDeVolverAProbar(
+  f: { estado: string; desenlace: string | null },
+  sec: { nombre: string | null; archivada_at: string | null } | null,
+  lead: string | null,
+): { ok: true; resumen: string } | { ok: false; error: string } {
+  if (!sec) return { ok: false, error: 'Esa automatización no existe en este negocio.' };
+  if (sec.archivada_at) return { ok: false, error: 'La automatización está archivada.' };
+  if (f.estado === 'cancelada' || f.desenlace === 'cancelado') return { ok: false, error: 'La frenaron: una automatización frenada no vuelve a empezar (puede ser una baja).' };
+  if (f.estado === 'handoff') return { ok: false, error: 'La charla la sigue una persona.' };
+  if (!puedeVolverAProbar(f)) return { ok: false, error: 'Todavía la está haciendo: «Volver a probar» es para una que ya terminó.' };
+  const nombre = sec.nombre?.trim() || 'la automatización';
+  return { ok: true, resumen: `${lead?.trim() || 'El lead'} puede volver a probar «${nombre}»: entra de nuevo con lo próximo que la arranca (otro comentario, otro mensaje), una vez.` };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -146,6 +180,7 @@ export function pasoEnPalabras(p: PasoGrafo | undefined, nombreDelLead: string |
   }
   if (c === 'esperar') return { clase: 'otro', canal: null, que: 'Una espera' };
   if (c === 'condicion') return { clase: 'otro', canal: null, que: 'Una condición' };
+  if (c === 'ab') return { clase: 'otro', canal: null, que: 'Una prueba A/B' };
   if (c === 'respuesta') return { clase: 'otro', canal: null, que: 'MaKo contesta' };
   return { clase: 'otro', canal: null, que: 'La entrada' };
 }
@@ -211,11 +246,15 @@ export type InscripcionDelLead = {
   proximo: { at: string; titulo: string; canal: string | null; que?: PasoEnPalabras } | null;
   frenado: FrenoDelEnvio | null;
   enviados: EnvioDelLead[];
-  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
+  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string; volverAProbar?: boolean };
+  /** Ya tiene «Volver a probar» puesto: entra de nuevo con lo próximo que la arranca (ticket #19). */
+  listaParaProbar?: boolean;
   /** Cuándo contestó en ESTA pasada (la línea del motor, `leerContesto`). null = no se sabe. */
   contesto?: string | null;
   /** Qué contestó, citado (`respuestaDelLead`). null = no se encontró el mensaje. */
   respuesta?: string | null;
+  /** Parado en un DM esperando que toque uno de estos botones (`botonesQueEspera`). null = no. */
+  esperaToque?: string[] | null;
 };
 
 export type AutomatizacionesDelLead = { zona: string; inscripciones: InscripcionDelLead[]; noEntro: NoEntro[] };
@@ -284,6 +323,7 @@ export function detalleDe(o: {
       proximo: f.estado === 'activa' && f.proximo_envio_at && i >= 0
         ? { at: f.proximo_envio_at, titulo: titulo(i), canal, que: pasoEnPalabras(pasos[i], o.nombreDelLead ?? null) } : null,
       frenado: o.frenoDe && f.estado === 'activa' ? o.frenoDe(f, s, canal) : null,
+      esperaToque: vive && i >= 0 ? botonesQueEspera(f, pasos[i]) : null,
       enviados: o.envios.filter((e) => Number(e.inscripcion_id) === Number(f.id))
         .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, TOPE_ENVIOS)
         .map((e) => {
@@ -293,7 +333,11 @@ export function detalleDe(o: {
             error: e.error?.trim().slice(0, 300) || null, que: k != null ? pasoEnPalabras(pasos[k], o.nombreDelLead ?? null) : null,
           };
         }),
-      puede: { frenar: vive, empezarDeNuevo: usable && reabre, ...(porQueNo ? { porQueNo } : {}) },
+      // «Volver a probar» (ticket #19): en una que terminó (o en la que contestó), aunque esté en pausa: la marca espera.
+      // (Sólo cuando se puede: ausente = no, como `porQueNo`.)
+      puede: { frenar: vive, empezarDeNuevo: usable && reabre, ...(porQueNo ? { porQueNo } : {}),
+        ...(s.archivada_at == null && f.estado !== 'handoff' && puedeVolverAProbar(f) && f.desenlace !== DESENLACE_VOLVER_A_PROBAR ? { volverAProbar: true } : {}) },
+      ...(f.desenlace === DESENLACE_VOLVER_A_PROBAR ? { listaParaProbar: true } : {}),
       // Sólo la de esta pasada: una línea de antes de que entrara (otra vez) habla de otra vuelta.
       contesto: (() => {
         const at = s.nombre?.trim() ? contestoPorNombre.get(s.nombre.trim()) : undefined;

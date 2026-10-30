@@ -90,29 +90,34 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
   // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
+  // 29/10/2026: Copywriting ES el Copywriter (una pantalla, sin secciones): se gatea con su key, `copywriter`.
   // 17/10/2026, la sidebar nueva: dos familias (Operate con Dashboard y Clients; Sales Machine con Video y Copywriting),
   // Second Brain arriba sin título, y el Mapa y Experiments OCULTOS (sus páginas siguen; no son filas).
   assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia, s.oculta ?? false]), [
     // 17/10/2026 noche, la sidebar del prototipo: lo diario, Sales, Marketing y Create, en el orden de la sidebar.
     ['dashboard', 'graphics', 'diario', false],
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
-    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true],
+    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true], ['agency', 'agency', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
-    ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
+    // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
+    ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
+    // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
+    ['ai-avatar', 'ai-avatar', 'create', false],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
     // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
     ['tickets', 'tickets', null, true], ['configuraciones', 'configuraciones', null, true],
-    // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio).
-    ['mensajes', 'mensajes', null, true], ['modelos-ia', 'modelos-ia', null, true], ['contexto', 'contexto', null, true],
+    // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio). MaKo Messages salió el 26/10/2026.
     ['api-mako', 'api-mako', null, true], ['conocimientos', 'conocimientos', null, true],
     ['cobros', 'admin-cobros', null, true], ['agente', 'admin-agente', null, true],
+    // 26/10/2026: Customers en el teléfono (/m/customers), oculta como las demás del super admin.
+    ['customers', 'admin-customers', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
-    ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],
-    ['carousels', 'carousels', null, true], ['stories', 'stories', null, true],
-    ['admin-copywriting', 'admin-copywriting', null, true],
+    // 29/10/2026: Video Generator queda oculta (una plantilla de Video); Reels y Carousels se retiraron.
+    // 29/10/2026: la fila oculta del método de redacción del super admin se fue (Martín: «no quiero ninguna mención»).
+    ['video-generator', 'video-generator', null, true], ['stories', 'stories', null, true],
   ]);
 });
 
@@ -122,8 +127,8 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
   // se dibuja; lo diario (las hojas del Dashboard; la portada /m/hoy la suma `masCompleto`), Sales, Marketing y Create.
   assert.deepEqual(mas('admin', 'completo'), [
     ['dashboard'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
-    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
-    ['video', 'image', 'copywriting'],
+    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video; AI Avatar (de Pro) desde el 29/10/2026.
+    ['video', 'image', 'copywriting', 'ai-avatar'],
   ]);
   // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
   assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);
@@ -296,18 +301,18 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/customer-success/curso?vista=avance&producto=3', '/m/cs'],
     ['/customer-success/comunidad', '/m/comunidad'], ['/customer-success/comunidad?post=12&ws=3', '/m/comunidad?post=12'],
     // La tab Clients (17/10/2026): Classroom y las cinco sub-tabs de la comunidad, ANTES que Clients.
-    ['/clients', '/m/cs'], ['/clients?producto=3&cliente=21', '/m/cs'], ['/clients/classroom', '/m/curso'],
-    ['/clients/classroom?producto=3', '/m/curso?producto=3'], ['/clients/classroom/preview?producto=3', '/m/curso?producto=3'],
-    ['/clients/community', '/m/comunidad'], ['/clients/community?post=12&ws=3', '/m/comunidad?post=12'],
-    ['/clients/calendar', '/m/comunidad'], ['/clients/members', '/m/comunidad'], ['/clients/leaderboards', '/m/comunidad'],
-    ['/clients/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
+    ['/classroom/clients', '/m/cs'], ['/classroom/clients?producto=3&cliente=21', '/m/cs'], ['/classroom', '/m/curso'],
+    ['/classroom?producto=3', '/m/curso?producto=3'], ['/classroom/preview?producto=3', '/m/curso?producto=3'],
+    ['/classroom/community', '/m/comunidad'], ['/classroom/community?post=12&ws=3', '/m/comunidad?post=12'],
+    ['/classroom/calendar', '/m/comunidad'], ['/classroom/members', '/m/comunidad'], ['/classroom/leaderboards', '/m/comunidad'],
+    ['/classroom/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
     // El prefijo va con barra.
     ['/calendariox', null], ['/offerx', null], ['/second-brainx', null],
   ];
   for (const [p, esperado] of casos) assert.equal(rutaMovil(p), esperado, p);
   // Un Web Push sale por `rutaMovilOHome` y VUELVE a escritorio (lib/push-payload.ts: linkApp → conWs →
   // rutaEscritorio): lo que no se conserva acá, la computadora también lo pierde.
-  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/clients/community?post=12',
+  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/classroom/community?post=12',
     '/calendario?vista=mes&fecha=2026-10-14', '/second-brain?area=voz&vista=persona', '/offer?oferta=7']) {
     assert.equal(rutaEscritorio(rutaMovilOHome(p)), p, p);
   }

@@ -31,7 +31,8 @@ import { Modal } from '@/app/_ui/Modal';
 
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, TIPOS_CRM, TIPO_CRM_OTRO, type EntradaId, type TipoCrmId } from '@/lib/pipeline';
-import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
+import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction, contarPapeleraAction } from './actions';
+import { EVENTO_PAPELERA, PapeleraLeadsModal } from './PapeleraLeads';
 import { crearCrmAction } from './nuevo-crm-actions';
 import { alternarGrupo, alternarHijo, conGrupoAbierto } from './arbol-seleccion';
 import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
@@ -48,7 +49,7 @@ const SANS = "'Geist', sans-serif";
 /** Vista del tablero. La de «pendientes» (datos sin marcar) se borró el 16/10/2026: se resuelven en «A revisar». */
 export type CrmVista = 'kanban' | 'tabla';
 /** Categorías del menú de filtros. El buscador NO es una categoría (no genera chip). */
-export type FiltroCat = 'banda' | 'etapa' | 'origen' | 'creativo' | 'orden';
+export type FiltroCat = 'banda' | 'etapa' | 'origen' | 'creativo';
 
 /**
  * «Estado» del menú: las tres bandas del Kanban (Activo · Nutrición · Descartado).
@@ -70,18 +71,9 @@ export type BandasFiltro = {
 /** El orden en que se dibujan y se ofrecen: la MISMA lista que guarda los filtros. */
 const ORDEN_BANDAS: readonly StageBand[] = BANDAS_KANBAN;
 
-/**
- * «Ordenar» (mig 0200): UNA opción a la vez, y su BASE. Con un orden manual guardado la base
- * es «Manual», así que «Limpiar filtros» vuelve a las posiciones que se arrastraron y el número
- * del botón no cuenta como filtro el orden que la persona misma armó. Martín (06/10/2026):
- * «si quiero volver a la posición que había dejado las tarjetas es simplemente quitar filtros».
- */
-export type OrdenFiltro = {
-  valor: string;
-  base: string;
-  opciones: Record<string, string>;
-  elegir: (v: string) => void;
-};
+// ⚠️ ACÁ VIVÍA `OrdenFiltro`, la categoría «Ordenar» de este menú (mig 0200, 06/10/2026). Se fue el 24/10/2026 al «⋯» de
+// cada columna (app/crm/orden-kanban.ts). Martín: «la sacas de filtros, que no este ordenamientos en el botón de filtros,
+// sino que se pueda ordenar dentro de esos 3 puntos». Un orden no esconde ningún lead: no es un filtro.
 
 /**
  * Una categoría del menú que es una LISTA de valores con su conteo (campaña, creativo).
@@ -222,8 +214,8 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, funnelActivo = null }: {
-  /** El CRM que se está mirando: «Buscar prospectos» lo lleva, y «Volver» de allá vuelve a ÉL (C6, 22/10/2026). */
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+  /** El CRM que se está mirando. Lo llevaba «Buscar prospectos» (C6, 22/10/2026), que se fue con el Leads Scraper el 25/10. */
   funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
@@ -268,20 +260,20 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
             {/* «Que ya no se llame "Importar csv"... Que simplemente sea "Importar
                 leads"»: el pop-up ya se llamaba así, era el menú el que prometía un
                 formato cuando el importador lee planilla, PDF, foto y documento. */}
+            {/* ⚠️ EN ESTE ORDEN DESDE EL 24/10/2026 (Martín: «revisa el orden y los botones de los desplegables, tal vez
+                sobran botones o estan desordenados»): lo que TRAE leads (importar), lo que los SACA
+                (exportar) y, después de la raya, la configuración. El clic derecho del fondo del tablero lleva el mismo
+                orden (`opcionesCrm`, app/crm/menu-contextual-crm.ts). */}
             <MenuItem icon={<UploadIcon size={15} />} label="Importar leads"
               onClick={() => { setOpen(false); onImportar(); }} />
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
               onClick={() => { setOpen(false); onExportar(); }} />
-            {/* El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la
-                prospección en frío. Navega: es una pantalla, no un pop-up, porque la lista vive sola. */}
-            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href={funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'}
-              onClick={() => setOpen(false)} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />
             {/* ⚠️ ABRE UN POP-UP, NO UNA PANTALLA. «Quiero eliminar la ruta de funnel, que
                 todo se edite como un pop-up dentro del mismo CRM». Editar las etapas
                 mirando el tablero que esas etapas dibujan es la mitad del arreglo: antes
                 había que irse, cambiar a ciegas y volver a ver si había quedado bien. */}
-            <MenuItem icon={<FunnelIcon size={15} />} label="Editar las etapas"
+            <MenuItem icon={<FunnelIcon size={15} />} label="Editar etapas"
               onClick={() => { setOpen(false); onEditarEtapas(); }} />
             {/* «Las cards, las debería poder personalizar también, por si el usuario quiere más o menos info»
                 (Martín, 20/10/2026). Un pop-up con una casilla por dato; es de quien mira, no del funnel. */}
@@ -390,7 +382,7 @@ export function Buscador({ value, onChange }: { value: string; onChange: (v: str
 // contenido reemplaza el panel EN EL MISMO LUGAR con un "‹ volver". Nunca hay más
 // de una categoría en pantalla, así el panel no crece con el catálogo del cliente.
 
-export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, setOrigen, listas = [], orden, bandas, abierto, setAbierto }: {
+export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, setOrigen, listas = [], bandas, abierto, setAbierto }: {
   stages: Stage[];
   etapas: Set<string>;
   setEtapas: (s: Set<string>) => void;
@@ -399,9 +391,7 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   setOrigen: (s: Set<string>) => void;
   /** Las categorías de lista (campaña, creativo). Una sin opciones no se ofrece. */
   listas?: ListaFiltro[];
-  /** «Ordenar». Sólo en el kanban: la tabla se ordena por sus columnas. */
-  orden?: OrdenFiltro;
-  /** «Estado» (las bandas del Kanban). Sólo en el kanban, como «Ordenar». */
+  /** «Estado» (las bandas del Kanban). Sólo en el kanban. */
   bandas?: BandasFiltro;
   abierto: FiltroAbierto;
   setAbierto: (v: FiltroAbierto) => void;
@@ -414,12 +404,11 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
   // Un filtro de lista sin ninguna opción es un control que no puede cambiar nada: no se
   // dibuja (p. ej. un negocio sin Meta no tiene campañas).
   const vivas = listas.filter((l) => l.opciones.length > 0);
-  const ordenOn = !!orden && orden.valor !== orden.base;
   // Cada banda APAGADA cuenta como un filtro: es lo que esconde leads del tablero.
   const bandasApagadas = bandas ? ORDEN_BANDAS.filter((b) => !bandas.activas.has(b)).length : 0;
   const elegidosDe = (l: ListaFiltro) => l.sel.size + (l.hijos?.sel.size ?? 0);
-  const n = bandasApagadas + etapas.size + origen.size + listas.reduce((a, l) => a + elegidosDe(l), 0) + (ordenOn ? 1 : 0);
-  const limpiar = () => { bandas?.prenderTodas(); setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) { l.set(new Set()); l.hijos?.set(new Set()); } orden?.elegir(orden.base); };
+  const n = bandasApagadas + etapas.size + origen.size + listas.reduce((a, l) => a + elegidosDe(l), 0);
+  const limpiar = () => { bandas?.prenderTodas(); setEtapas(new Set()); setOrigen(new Set()); for (const l of listas) { l.set(new Set()); l.hijos?.set(new Set()); } };
   // Los grupos del árbol que la persona abrió o cerró a mano. Por defecto van ABIERTOS si
   // son pocos (con una o dos campañas, cerrarlas sólo esconde los anuncios detrás de un
   // clic) y cerrados si son muchos.
@@ -478,7 +467,6 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
         : undefined;
       return { key: l.cat, label: l.label, activo: total > 0, resumen: total === 0 ? l.todas : total === 1 ? (unico ?? '1 elegida') : `${total} elegidas` };
     }),
-    ...(orden ? [{ key: 'orden' as const, label: 'Ordenar', resumen: orden.opciones[orden.valor] ?? orden.valor, activo: ordenOn }] : []),
   ];
   const lista = vivas.find((l) => l.cat === abierto) ?? null;
   const textoBuscar = buscar.trim().toLowerCase();
@@ -563,7 +551,7 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
             <>
               <button type="button" onClick={() => { setBuscar(''); setAbierto('root'); }} style={backBtn}>
                 <span aria-hidden style={{ fontSize: 15, lineHeight: 1 }}>‹</span>
-                {abierto === 'banda' ? 'Estado' : abierto === 'etapa' ? 'Etapa' : abierto === 'origen' ? 'Origen' : abierto === 'orden' ? 'Ordenar' : (lista?.label ?? '')}
+                {abierto === 'banda' ? 'Estado' : abierto === 'etapa' ? 'Etapa' : abierto === 'origen' ? 'Origen' : (lista?.label ?? '')}
               </button>
               {/* VARIAS a la vez, como los tres botones que reemplaza: el menú no vuelve a la
                   raíz al tocar. Cada banda con SU color (el del borde de sus columnas) y su
@@ -582,13 +570,6 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
                   </button>
                 );
               })}
-              {/* UNA opción a la vez: elegir vuelve a la raíz, donde se ve el resumen. */}
-              {abierto === 'orden' && orden && Object.entries(orden.opciones).map(([k, label]) => (
-                <button key={k} type="button" onClick={() => { orden.elegir(k); setAbierto('root'); }} style={rowBtn} aria-pressed={orden.valor === k}>
-                  <span style={{ ...check(orden.valor === k), borderRadius: 999 }}>{orden.valor === k ? '✓' : ''}</span>
-                  <span style={texto}>{label}</span>
-                </button>
-              ))}
               {/* Con muchas campañas o anuncios, buscar es lo que hace usable la lista. */}
               {lista && lista.opciones.length + totalHijos > 8 && (
                 <input autoFocus value={buscar} onChange={(e) => setBuscar(e.target.value)}
@@ -681,6 +662,8 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
 const NUEVA = '__nueva';
 /** El otro renglón que no es un funnel sino una salida: los que se eliminaron. */
 const ARCHIVADOS = '__archivados';
+/** Y el de los LEADS eliminados (la papelera de 30 días, mig 0340). */
+const PAPELERA = '__papelera';
 
 export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: {
   funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
@@ -695,6 +678,9 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
   const [creando, setCreando] = useState(false);
   const [archivados, setArchivados] = useState(false);
   const [hayArchivados, setHayArchivados] = useState(false);
+  const [papelera, setPapelera] = useState(false);
+  /** Cuántos leads hay en la papelera: el renglón se dibuja sólo con alguno, como «CRM eliminados». */
+  const [enPapelera, setEnPapelera] = useState(0);
   // ⚠️ SE RE-PREGUNTA CUANDO CAMBIA LA LISTA DE EMBUDOS, no sólo al montar. Medido en el
   // navegador el 29/09/2026: se eliminó «Prueba 2» —la fila quedó `activo=false` en la base,
   // correcto— y el renglón «Embudos eliminados» NO apareció, porque este efecto había
@@ -709,6 +695,15 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
     void embudosArchivadosAction().then((f) => { if (vivo) setHayArchivados(f.length > 0); }).catch(() => {});
     return () => { vivo = false; };
   }, [cuantosFunnels]);
+  // La papelera se re-cuenta al montar y cada vez que algo se elimina o se recupera (`avisarPapelera`): sin eso, el
+  // renglón no aparecería justo después de la primera vez, que es el mismo error de arriba.
+  useEffect(() => {
+    let vivo = true;
+    const contar = () => { void contarPapeleraAction().then((n) => { if (vivo) setEnPapelera(n); }).catch(() => {}); };
+    contar();
+    window.addEventListener(EVENTO_PAPELERA, contar);
+    return () => { vivo = false; window.removeEventListener(EVENTO_PAPELERA, contar); };
+  }, []);
   if (funnels.length === 0) return null;
   const actual = funnels.find((f) => f.id === activo) ?? funnels.find((f) => f.esDefault) ?? funnels[0];
   // ⚠️ SE MUESTRA EL PRODUCTO, NO EL FUNNEL. «Funnel principal» es el nombre que
@@ -740,7 +735,7 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
     label: comoSeLlama(f),
     acciones: [{
       icono: <LapizIcon />,
-      title: `Editar las etapas de ${comoSeLlama(f)}`,
+      title: `Editar etapas de ${comoSeLlama(f)}`,
       onClick: () => onEditarEtapas(f.id, comoSeLlama(f)),
       // ⚠️ ABRE UN POP-UP: el menú se cierra (llamada con Mauricio del 22/10/2026, min 16:15: «cuando le das al botón de
       // editar, se queda el desplegable del CRM por encima del pop-up que salta»). El menú vive en un portal con su
@@ -769,6 +764,8 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
   // y dos renglones con el mismo peso son dos acciones con el mismo peso — pero una se usa
   // todas las semanas y la otra casi nunca.
   if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'CRM eliminados', sutil: true });
+  // Los LEADS eliminados (28/10/2026, ticket #22): la misma puerta de vuelta, igual de sutil, con cuántos hay.
+  if (enPapelera > 0) opciones.push({ value: PAPELERA, label: `Papelera · ${enPapelera}`, sutil: true });
   // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
   // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
   // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
@@ -803,6 +800,7 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
           // resolver dentro del CRM».
           if (v === NUEVA) { setCreando(true); return; }
           if (v === ARCHIVADOS) { setArchivados(true); return; }
+          if (v === PAPELERA) { setPapelera(true); return; }
           const f = funnels.find((x) => x.id === Number(v));
           // El del negocio va sin parámetro: la URL del CRM no se ensucia por defecto.
           router.push(f?.esDefault ? '/crm' : `/crm?funnel=${v}`);
@@ -813,6 +811,9 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
           onCerrar={() => setCreando(false)}
           onCreado={(funnelId) => { setCreando(false); router.push(`/crm?funnel=${funnelId}`); }}
         />
+      )}
+      {papelera && (
+        <PapeleraLeadsModal funnels={funnels} onCerrar={() => setPapelera(false)} onRecuperados={() => router.refresh()} />
       )}
       {archivados && (
         <ArchivadosModal

@@ -63,16 +63,25 @@ test('3. si una tanda se corta sin contestar, los de esa tanda quedan «sin conf
 
 test('4. el server corta por tiempo y devuelve lo que falta (también lo que pasa de 200); la barra manda de a tandas', () => {
   const acc = sinComentarios(leer('app/crm/actions.ts'));
-  for (const f of ['moverLeadsDeEtapaAction', 'eliminarLeadsAction']) {
-    const i = acc.indexOf(`export async function ${f}(`);
-    const b = acc.slice(i, acc.indexOf('\n}\n', i));
+  const bloque = (f: string) => { const i = acc.indexOf(`export async function ${f}(`); return acc.slice(i, acc.indexOf('\n}\n', i)); };
+  {
+    const f = 'moverLeadsDeEtapaAction', b = bloque(f);
     assert.match(b, /const ids = todos\.slice\(0, TOPE_LOTE\);/, `${f}: sin tope`);
     assert.match(b, /const hasta = Date\.now\(\) \+ PRESUPUESTO_LOTE_MS;/, `${f}: sin corte por tiempo`);
     assert.match(b, /if \(Date\.now\(\) > hasta\) \{ pendientes\.push\(id\); continue; \}/, `${f}: no devuelve lo que no llegó`);
     assert.match(b, /pendientes: \[\.\.\.pendientes, \.\.\.todos\.slice\(TOPE_LOTE\)\]/, `${f}: lo que pasa de 200 se pierde callado`);
   }
+  // «Eliminar» manda a la PAPELERA desde el 28/10/2026 (mig 0340): el corte por tiempo vive en lib/leads-papelera.ts, de a
+  // `TANDA_PAPELERA` por llamada a la base, y lo que no llega vuelve igual en `pendientes` (tests/crm-acciones-bloque.test.ts).
+  {
+    const f = 'eliminarLeadsAction', b = bloque(f);
+    assert.match(b, /const ids = todos\.slice\(0, TOPE_LOTE\);/, `${f}: sin tope`);
+    assert.match(b, /hasta: Date\.now\(\) \+ PRESUPUESTO_LOTE_MS/, `${f}: sin corte por tiempo`);
+    assert.match(b, /pendientes: \[\.\.\.r\.pendientes, \.\.\.todos\.slice\(TOPE_LOTE\)\]/, `${f}: lo que pasa de 200 se pierde callado`);
+    assert.match(sinComentarios(leer('lib/leads-papelera.ts')), /if \(Date\.now\(\) > hasta\) return \{ resultados, pendientes: todos\.slice\(i\) \};/, `${f}: no devuelve lo que no llegó`);
+  }
   const barra = sinComentarios(leer('app/crm/AccionesLoteLeads.tsx'));
-  assert.match(barra, /correrEnTandas\(ids, TANDA_LOTE, \(tanda\) => moverLeadsDeEtapaAction\(tanda, pide\.stage\.key, funnelActivo\),/);
+  assert.match(barra, /correrEnTandas\(ids, TANDA_LOTE, \(tanda\) => moverLeadsDeEtapaAction\(tanda, pide\.stage\.key, funnelActivo, motivo\),/);
   assert.match(barra, /correrEnTandas\(ids, TANDA_LOTE, \(tanda\) => eliminarLeadsAction\(tanda\),/);
   assert.doesNotMatch(barra, /await moverLeadsDeEtapaAction\(ids,|await eliminarLeadsAction\(ids\)/, 'volvió el llamado único con todos');
   assert.match(barra, /colaDelAviso\(t, \['movió', 'movieron'\]\)/, 'el aviso no dice cuántos quedaron');

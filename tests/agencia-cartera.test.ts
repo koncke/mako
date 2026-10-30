@@ -139,10 +139,10 @@ test('la salida NUNCA manda a una ruta que el gate le niega', () => {
   // QUÉ lista se dibuja, que lo decide el server por rol. La función se queda porque
   // el día que se separen otra vez, el que busque «a dónde vuelvo» tiene un solo
   // lugar donde mirar — y porque esta aserción sigue siendo la que lo impide.
-  for (const esSuper of [true, false]) {
-    assert.equal(rutaDeSalida(esSuper), '/customer-success');
-    assert.notEqual(rutaDeSalida(esSuper), '/admin');
-  }
+  // ⚠️ 25/10/2026: se separaron. La agencia vuelve a su Agency Dashboard; el super admin, a Customers.
+  assert.equal(rutaDeSalida(true), '/customers');
+  assert.equal(rutaDeSalida(false), '/agency');
+  for (const esSuper of [true, false]) assert.notEqual(rutaDeSalida(esSuper), '/admin');
 });
 
 test('cada estado de la base tiene su rótulo, y ninguno sobra', () => {

@@ -53,7 +53,7 @@ export function AudioWaveform({ peaks, fromMs = 0, toMs, progress, selectFromMs,
       ctx.clearRect(0, 0, width, height)
       const count = Math.max(1, Math.floor((width + GAP) / (BAR + GAP)))
       const idle = waveColor(canvas, '--wave-idle', '--cv-color-text-subtle', '#8f8589')
-      const played = waveColor(canvas, '--wave-played', '--cv-color-brand', '#6a52d9')
+      const played = waveColor(canvas, '--wave-played', '--cv-color-brand', '#2F6FED')
       const dim = themeColor(canvas, '--cv-color-border-strong', '#d3cacc')
       const bars = peaks ? barsFor(peaks, fromMs, to, count) : new Float32Array(count)
       const gain = peaks ? displayGain(peaks) : 1

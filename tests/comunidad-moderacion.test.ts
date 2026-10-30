@@ -1,6 +1,6 @@
 // =============================================================================
 // comunidad-moderacion — quién modera, que cada escritura lo pregunte antes, y que un alumno SACADO
-// no entre a ninguna acción de su ruta (ni a leer) sin perder su curso
+// no entre a ninguna acción de su ruta (ni a leer) y pierda también el curso de ese programa (24/10/2026)
 // =============================================================================
 // Las reglas (lib/comunidad-reglas.ts) se EJECUTAN acá. Que la capa de datos las pregunte antes de
 // escribir, y que la ruta del alumno no tenga una puerta al costado del portón, se lee del fuente SIN
@@ -142,7 +142,7 @@ test('el calendario: el rango del navegador pasa por `rangoDeCalendario`; un mó
   assert.doesNotMatch(mp, /entregaDeProducto\(/, 'la lectura que cae al default no valida un módulo');
 });
 
-// ── Un alumno SACADO no entra (ni a leer) y no pierde el curso ───────────────────
+// ── Un alumno SACADO no entra (ni a leer) y pierde el curso de ese programa ───────
 
 test('el portón: un baneo VIGENTE (levantado_at null) devuelve null antes de armar el actor', () => {
   const c = cuerpo(DATOS, 'actorDelAlumno');
@@ -173,11 +173,33 @@ test('la ruta del alumno no expone NADA del equipo de la segunda mitad', () => {
   }
 });
 
-test('los sacados no cuentan como miembros (ni para el ranking, ni para mencionarlos); el baneo NO toca el curso', () => {
+test('los sacados no cuentan como miembros (ni para el ranking, ni para mencionarlos)', () => {
   const m = cuerpo(DATOS, 'miembrosDeLaComunidad');
   assert.match(m, /de\(ws, 'comunidad_baneos'\)\.select\('miembro'\)\.eq\('producto_id', productoId\)\.is\('levantado_at', null\)/);
   assert.match(m, /if \(baneados\.has\(k\)\) continue;/);
-  assert.doesNotMatch(MODERACION, /curso_accesos|revocarAcceso/, 'sacar de la comunidad no puede cortar el curso');
+});
+
+// f32/f33 de la llamada con Leandro (24/10/2026): «no me saca del curso, pero me saca de la comunidad». Hasta ese día
+// este archivo fijaba lo contrario (que sacar NO tocara `curso_accesos`); Martín lo dio por bug en la llamada.
+test('sacar le saca el curso de ESE programa, con el instante del baneo, DESPUÉS de escribir el baneo y en su negocio', () => {
+  const s = cuerpo(MODERACION, 'sacarAlumno');
+  assert.match(s, /const ahora = new Date\(\);/);
+  assert.match(s, /levantado_at: null, created_at: ahora\.toISOString\(\),/, 'el baneo con otro instante que el corte');
+  assert.match(s, /curso = await runWithWorkspace\(a\.ws, \(\) => sacarDelCurso\(c\.id, a\.productoId, ahora\)\);/);
+  assert.ok(antesQue(s, '.upsert(', 'sacarDelCurso('), 'el curso antes que el baneo: un fallo dejaría el curso cortado y la comunidad abierta');
+  assert.match(s, /return \{ ok: true, borrados, curso \};/);
+  const d = leer('lib', 'curso-datos.ts');
+  const sc = d.slice(d.indexOf('export async function sacarDelCurso('), d.indexOf('export async function devolverElCurso('));
+  assert.match(sc, /accesoTrasSacar\(saneaProductos\(fila\.productos\), await productosDelAlumno\(leadId\), productoId\)/, 'lo que ve, con la MISMA puerta del portal');
+  assert.match(sc, /if \(r\.tipo === 'cortar'\) \{ await revocarAcceso\(leadId, null, cuando\); return 'cortado'; \}/);
+});
+
+test('admitir le devuelve el curso con el instante de SU baneo (sólo reabre un corte que hizo ese «sacar»)', () => {
+  const a = cuerpo(MODERACION, 'admitirAlumno');
+  assert.match(a, /\.is\('levantado_at', null\)\.select\('created_at'\)/);
+  assert.match(a, /devolverElCurso\(c\.id, a\.productoId, ban\.created_at\)/);
+  assert.ok(antesQue(a, '.update(', 'devolverElCurso('));
+  assert.match(a, /if \(!ban\) return \{ ok: true, cursoCortado: false \};/, 'admitir a alguien que no estaba fuera le tocaría el curso');
 });
 
 test('el leaderboard («qué abre cada nivel»): los módulos del curso DERIVADOS, y al alumno sólo lo suyo (revisión 08/10)', () => {
@@ -201,7 +223,7 @@ test('el leaderboard («qué abre cada nivel»): los módulos del curso DERIVADO
 //     sin `puedeModerar` · comentar un post cerrado · el About sin el equipo · crear eventos sin el
 //     equipo · el link de la llamada viaja en un evento cerrado · el .ics de un evento cerrado.
 //   El alumno SACADO: el portón no mira el baneo · un baneo levantado sigue cerrando · los sacados
-//     siguen contando como miembros · sacar le corta el curso.
+//     siguen contando como miembros. (La de «sacar le corta el curso» se dio vuelta el 24/10/2026: ver abajo.)
 //   En la ruta: un atajo que contesta antes del portón · una acción del `switch` fuera de la lista ·
 //     la ruta expone «sacar» (2 fallos, 13 pases).
 // La REVISIÓN (08/10/2026, scratchpad/revision-comunidad/romper.mjs), contra este archivo de 16 tests:

@@ -136,17 +136,17 @@ test('las sub-rutas de /admin no se comen el título entre sí', () => {
   // propio nombre. Si algo más general se evalúa antes, ese esfuerzo se anula y
   // todas se leen «Clientes».
   //
-  // OJO: la fábrica de guiones ya NO se llama «Guiones». /admin/guiones redirige
-  // a /admin/dev/ads-writer y el título sale del item de Dev, que se llama como
-  // la feature. Este test decía 'MaKo - Guiones' y fue lo único que avisó del
-  // renombre — el pre-push corre tipos, no tests.
-  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Ads Writer');
+  // Una sub-ruta con su ítem lee SU nombre: Strategy vive al pie de Offer (29/10/2026) y la barra marca Offer, pero el
+  // título es el suyo (lib/titulo-tab.ts lee ADMIN_NAV antes que las tabs para las sub-rutas de /admin).
+  // OJO: este test usaba /admin/guiones («Angles & Structures»). Desde el 29/10/2026 esa pantalla no existe (Martín: «no
+  // quiero ninguna mención en todo MaKo»): redirige al Copywriter y su nombre no aparece en ningún lado (el test de abajo).
+  assert.equal(tituloDe('/admin/estrategia'), 'MaKo - Strategy');
   // ⚠️ Desde el 28/09/2026 /admin es un REDIRECT a /customer-success y ya no tiene
   // item propio, así que cae al fallback («Admin», el primer segmento). Está bien:
   // es una ruta de paso, y el nombre que importa lo lee el destino.
   assert.equal(tituloDe('/admin'), 'MaKo - Admin');
-  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/guiones'));
-  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/dev/semaforo'));
+  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/estrategia'));
+  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/ui'));
 });
 
 test('una sub-ruta de /admin SIN item propio no se lee «Clientes»', () => {
@@ -169,7 +169,10 @@ test('una sub-ruta de /admin SIN item propio no se lee «Clientes»', () => {
   // una lista de exclusiones vieja de una al día.
   assert.equal(tituloDe('/admin/friccion'), 'MaKo - Admin');
   assert.equal(tituloDe('/admin/una-ruta-que-todavia-no-existe'), 'MaKo - Admin');
-  // Y la que SÍ tiene item propio sigue leyendo el suyo («Copy Method» desde el 17/10/2026: es una sección de
-  // Copywriting para el super admin, app/_components/nav.ts → HERRAMIENTAS).
-  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Copy Method');
+  // Y la que SÍ tiene item propio sigue leyendo el suyo (Offer Playbook, al pie de Offer: nav.ts → HERRAMIENTAS).
+  assert.equal(tituloDe('/admin/offer-playbook'), 'MaKo - Offer Playbook');
+  // Las dos herramientas de redacción del super admin se fueron el 29/10/2026 (Martín: «Elimina esto […], no quiero
+  // ninguna mención en todo MaKo»): sus rutas redirigen al Copywriter y su nombre no aparece en el título.
+  assert.equal(tituloDe('/admin/copywriting'), 'MaKo - Admin');
+  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Admin');
 });

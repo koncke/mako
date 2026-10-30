@@ -162,7 +162,8 @@ test('el de mirar se abre mirando, el de editar al editar, nunca los dos juntos,
   assert.match(EDITOR, /const conGuia = !compartido && !esGeneral && !esAutomatizacion;/);
   // No se abre solo con un menú o un modal abierto: los flotantes del editor (z 580) quedan arriba del velo.
   // Desde v5 también son capas un pop-up abierto mirando (punto 7) y el modal de Compartir (va en el ⋮).
-  assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| analista \|\| !!detalle \|\| llamada != null \|\| !!popup \|\| compartir;/);
+  // (Sin «analista» desde el 24/10/2026: el AI Analyst salió del Dashboard.)
+  assert.match(EDITOR, /const capaAbierta = !!menu \|\| modalDatos \|\| nuevaHoja \|\| !!detalle \|\| llamada != null \|\| !!popup \|\| compartir;/);
   // El «?» se fue al ⋮ (punto 4): la opción abre la guía del lugar, y el ⋮ es el último paso de las dos.
   assert.match(EDITOR, /\{conGuia && \([\s\S]{0,200}onClick=\{\(\) => \{ setMenu\(null\); \(editando \? recorridoEdicion\.reabrir : recorrido\.reabrir\)\(\); \}\}/);
   assert.match(EDITOR, /className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda"/);

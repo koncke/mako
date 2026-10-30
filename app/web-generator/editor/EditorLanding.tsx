@@ -59,14 +59,14 @@ import '../gamma.css';
 // módulos que cargan los tests).
 import '@/app/admin/operaciones/centro.css';
 import {
-  useCallback, useEffect, useMemo, useRef, useState,
+  Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState,
   type CSSProperties, type DragEvent as DragEventReact,
 } from 'react';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { EditorState, TextSelection } from '@tiptap/pm/state';
 import type { Node as NodoPM } from '@tiptap/pm/model';
 import Link from '@/app/_ui/Link';
-import { temaPorId, varsDeTema } from '@/lib/editor-landing/temas';
+import { TEMAS, temaPorId, urlFuentes, varsDeTema } from '@/lib/editor-landing/temas';
 import {
   NODO, TOPES, docPagina, nuevoId, tarjetaVacia,
   type DocPagina, type JsonNodo, type LandingContenido, type Pagina,
@@ -102,6 +102,7 @@ import DialogoCompartir from './dialogos/DialogoCompartir';
 import DialogoPublicar from './dialogos/DialogoPublicar';
 import DialogoExportar from './dialogos/DialogoExportar';
 import { PanelLandings, RUTA_NUEVA_LANDING } from './paneles/PanelLandings';
+import type { Analizada } from '../panel-reglas';
 import DialogoConfiguracion from './dialogos/DialogoConfiguracion';
 import DialogoAnalitica from './dialogos/DialogoAnalitica';
 import DialogoAtajos from './dialogos/DialogoAtajos';
@@ -126,6 +127,12 @@ const REINTENTOS_SOLOS = 3;
 /** Los niveles de zoom del lienzo, en %. */
 export const ZOOMS = [50, 67, 75, 80, 90, 100, 110, 125, 150, 200] as const;
 
+/**
+ * «Nueva landing» (24/10/2026): el cuadro «¿Qué vas a crear hoy?» del Panel con sus plantillas, montado ACÁ en lugar de la
+ * barra y el lienzo. Perezoso: trae Crear, el Diagnóstico y Replicar, que el editor no usa hasta que se toca «Nueva landing».
+ */
+const InicioEmbebido = lazy(() => import('../Inicio').then((m) => ({ default: m.Inicio })));
+
 type Dispositivo = 'escritorio' | 'tableta' | 'movil';
 const DISPOSITIVOS: { id: Dispositivo; nombre: string; icono: string }[] = [
   { id: 'escritorio', nombre: 'Vista previa del escritorio', icono: 'escritorio' },
@@ -134,7 +141,8 @@ const DISPOSITIVOS: { id: Dispositivo; nombre: string; icono: string }[] = [
 ];
 
 const CLAVE_ZOOM = 'gma.lienzo.zoom';
-const CLAVE_TIRA = 'gma.tira.visible';
+/** La segunda barra (el editor de texto) abierta o cerrada, recordada por quien mira. */
+const CLAVE_FORMATO = 'gma.formato.abierto';
 
 type Sucio = { titulo: boolean; contenido: boolean; config: boolean };
 const LIMPIO: Sucio = { titulo: false, contenido: false, config: false };
@@ -180,6 +188,11 @@ export type PropsEditorLanding = {
   creadoPor: string | null;
   /** Quién mira (el avatar de la barra). */
   autor: string | null;
+  /** Para «Nueva landing» (el cuadro de crear adentro del editor): las landings de afuera ya analizadas, como en el Panel. */
+  analizadas?: Analizada[];
+  errorAnalizadas?: string | null;
+  /** Las bases de las landings publicadas, la vigente primero (`basesLandings`); sin ellas, la de esta landing. */
+  bases?: string[];
 };
 
 export default function EditorLanding(p: PropsEditorLanding) {
@@ -212,7 +225,7 @@ function ErrorDeCarga({ error }: { error: string | null }) {
 // El armazón
 // ─────────────────────────────────────────────────────────────────────────────
 
-function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: LandingCompleta }) {
+function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, bases }: PropsEditorLanding & { doc: LandingCompleta }) {
   const docId = doc.id;
   const mod = useTeclaMod();
 
@@ -232,22 +245,26 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
 
   // ── La pantalla ──
   const [tarjetaActiva, setTarjetaActivaEstado] = useState<string | null>(null);
-  // El agente arranca ABIERTO y se puede plegar (feedback de Martín, 12/10/2026: «No deberían existir
-  // esos botones [Edición manual / Edición con IA], por defecto el editor de IA siempre abierto. Y de
-  // ultima que se pueda plegar»). Con el agente abierto se edita a mano igual.
+  // El agente arranca ABIERTO y ya NO se pliega (24/10/2026, Martín: «La sidebar del chat de MaKo NO se debe poder cerrar
+  // nunca. Elimina el boton de plegar»; el 12/10 había pedido «de ultima que se pueda plegar», lo posterior gana). La
+  // tarjeta siempre está; cambia de vista (el chat, las páginas, tus landings, la tira). Con el agente abierto se edita a
+  // mano igual.
   const [panelIzq, setPanelIzqEstado] = useState<PanelIzq>('agente');
-  /** La persona plegó el agente: cerrar el panel de páginas no lo vuelve a abrir. */
-  const agentePlegado = useRef(false);
+  /** «Nueva landing» abierta (se ve sólo con la lista a la izquierda: salir de la lista la cierra, ver el efecto). */
+  const [nueva, setNuevaEstado] = useState(false);
   const [panelDer, setPanelDer] = useState<PanelDer>(null);
   /** Lo último que pidieron al abrir «Animar» (la vista; ver `abrirAnimar`). */
   const [pedidoAnimar, setPedidoAnimar] = useState<PedidoAnimar | null>(null);
   const [dialogo, setDialogo] = useState<Dialogo>(null);
-  const [tiraVisible, setTiraVisible] = useState(true);
   const [zoom, setZoom] = useState(100);
+  /** La segunda barra, la del editor de texto (botón «Texto»). Cerrada hasta leer lo recordado: el server no tiene navegador. */
+  const [formatoAbierto, setFormatoAbierto] = useState(false);
   const [dispositivo, setDispositivo] = useState<Dispositivo>('escritorio');
   const [toast, setToast] = useState<{ id: number; texto: string; onDeshacer?: () => void } | null>(null);
   const [menuDoc, setMenuDoc] = useState<HTMLElement | null>(null);
   const [menuPublicar, setMenuPublicar] = useState<HTMLElement | null>(null);
+  /** El botón azul «Compartir»: el panel Compartir se abre debajo de él (sin él, abre centrado). */
+  const [anclaCompartir, setAnclaCompartir] = useState<HTMLElement | null>(null);
   const [menuZoom, setMenuZoom] = useState<HTMLElement | null>(null);
   const [agregarBloque, setAgregarBloque] = useState<HTMLElement | null>(null);
 
@@ -757,15 +774,33 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
 
   /** El agente y el modo IA son lo mismo visto de dos lados: se CALCULA, no se sincroniza. */
   const modoIA = panelIzq === 'agente';
-  const setPanelIzq = useCallback((p: PanelIzq) => {
-    if (p === 'agente') agentePlegado.current = false;
-    else if (p === null) agentePlegado.current = true;
-    setPanelIzqEstado(p);
-  }, []);
-  const setModoIA = useCallback((v: boolean) => {
-    agentePlegado.current = !v;
-    setPanelIzqEstado((p) => (v ? 'agente' : p === 'agente' ? null : p));
-  }, []);
+  const setPanelIzq = useCallback((p: PanelIzq) => { setPanelIzqEstado(p); }, []);
+  // El chat no se pliega: «apagar» el modo IA no cierra nada (la tarjeta siempre está); prenderlo vuelve al chat.
+  const setModoIA = useCallback((v: boolean) => { if (v) setPanelIzqEstado('agente'); }, []);
+  /**
+   * «Nueva landing» NO navega ni cambia la tarjeta de la izquierda (24/10/2026, Martín, textual: «NO me debe redireccionar a
+   * otra ruta... Y la sidebar no debe cambiar... Solamente debe aparecer el "¿Qué vas a crear hoy?" con los templates en lugar
+   * de la topbar de edición y el lienzo»). Lo pendiente de esta landing se guarda antes; la barra y el lienzo quedan
+   * montados (ocultos), así que volver a ella es instantáneo y con el deshacer intacto.
+   */
+  const setNueva = useCallback((v: boolean) => {
+    if (v) {
+      void guardarAhora();
+      setPanelDer(null);
+      setPanelIzqEstado('landings');
+    }
+    setNuevaEstado(v);
+  }, [guardarAhora]);
+  // Ir al chat o a las páginas es volver a ESTA landing: «Nueva landing» se cierra (vale también para Mod+E).
+  useEffect(() => {
+    if (panelIzq !== 'landings') setNuevaEstado(false);
+  }, [panelIzq]);
+  const creando = nueva && panelIzq === 'landings';
+  // Las miniaturas de las plantillas se dibujan con la fuente de su tema (el Panel las carga todas en su página).
+  const fuentesPlantillas = useMemo(
+    () => (creando ? urlFuentes([...TEMAS, ...propios.map((p) => temaPorId('ws:' + p.id, propios))]) : ''),
+    [creando, propios],
+  );
 
   const ctx = useMemo<CtxEditorLanding>(() => ({
     docId,
@@ -785,10 +820,13 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
     editor,
     tarjetaActiva,
     irATarjeta,
+    marcarActiva: setTarjetaActiva,
     modoIA,
     setModoIA,
     panelIzq,
     setPanelIzq,
+    nueva: creando,
+    setNueva,
     panelDer,
     setPanelDer,
     abrirAnimar,
@@ -805,7 +843,7 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
-    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, modoIA, setModoIA, panelIzq, setPanelIzq, panelDer, abrirAnimar,
+    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, creando, setNueva, panelDer, abrirAnimar,
     dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 
@@ -818,8 +856,8 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
   // no se hace nada — el atajo del texto gana (AGENTS.md, «el Ctrl+Z nativo gana en un texto»).
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarPanelDer = useCallback(() => setPanelDer(null), []);
-  /** Cerrar el panel de páginas vuelve al agente, salvo que la persona lo haya plegado. */
-  const cerrarPaginas = useCallback(() => setPanelIzqEstado(agentePlegado.current ? null : 'agente'), []);
+  /** Cerrar las páginas o la tira vuelve al chat: la tarjeta nunca queda vacía. */
+  const cerrarPaginas = useCallback(() => setPanelIzqEstado('agente'), []);
   const arriba = useRef({ dialogo, panelDer, panelIzq });
   arriba.current = { dialogo, panelDer, panelIzq };
 
@@ -833,11 +871,10 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
       }
       if (e.defaultPrevented) return;
       if (conMod && !e.shiftKey && (e.key === 'e' || e.key === 'E')) {
+        // Mod+E lleva al chat (ya no lo cierra: el chat no se pliega) y pone el cursor en su caja.
         e.preventDefault();
-        setPanelIzqEstado((p) => {
-          agentePlegado.current = p === 'agente';
-          return p === 'agente' ? null : 'agente';
-        });
+        setPanelIzqEstado('agente');
+        window.requestAnimationFrame(() => document.querySelector<HTMLElement>('.gma-ag textarea')?.focus());
         return;
       }
       if (conMod && e.key === '/') {
@@ -851,7 +888,7 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
         const u = arriba.current;
         if (u.dialogo) setDialogo(null);
         else if (u.panelDer) setPanelDer(null);
-        else if (u.panelIzq === 'paginas') cerrarPaginas();
+        else if (u.panelIzq === 'paginas' || u.panelIzq === 'tira') cerrarPaginas();
       }
     };
     // Mod+Enter presenta AUNQUE el foco esté en el texto: el salto de línea de StarterKit
@@ -878,22 +915,23 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
   }, [guardarAhora]);
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Preferencias de quien mira (zoom, tira): se restauran del navegador si se puede
+  // Preferencias de quien mira (el zoom y la barra del editor de texto): se restauran del navegador si se puede. (La tira
+  // ya no es una columna que se recuerda: es una vista de la tarjeta de la izquierda, 24/10/2026.)
   // ─────────────────────────────────────────────────────────────────────────
   useEffect(() => {
     try {
       const z = Number(localStorage.getItem(CLAVE_ZOOM));
       if ((ZOOMS as readonly number[]).includes(z)) setZoom(z);
-      if (localStorage.getItem(CLAVE_TIRA) === 'no') setTiraVisible(false);
+      if (localStorage.getItem(CLAVE_FORMATO) === 'si') setFormatoAbierto(true);
     } catch { /* sin almacenamiento: quedan las de siempre */ }
   }, []);
   const cambiarZoom = useCallback((z: number) => {
     setZoom(z);
     try { localStorage.setItem(CLAVE_ZOOM, String(z)); } catch { /* sin almacenamiento */ }
   }, []);
-  const cambiarTira = useCallback((v: boolean) => {
-    setTiraVisible(v);
-    try { localStorage.setItem(CLAVE_TIRA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
+  const cambiarFormato = useCallback((v: boolean) => {
+    setFormatoAbierto(v);
+    try { localStorage.setItem(CLAVE_FORMATO, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
   }, []);
   const pasoZoom = (dir: 1 | -1) => {
     const i = (ZOOMS as readonly number[]).indexOf(zoom);
@@ -941,7 +979,8 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
     if (!insertarBloqueEn(ed, id, { pos, tarjetaActiva: tarjetaActivaRef.current, elegirImagen: elegirImagenEstable })) avisar('No se pudo insertar');
   };
 
-  // ── Publicar ▾: Vista previa abre el borrador por el link privado, con lo pendiente mandado ──
+  // ── Compartir ▾ y el panel Compartir: Vista previa abre el borrador por el link privado, con lo pendiente mandado ──
+  // (`window.open` va primero y sin `await` antes: tiene que salir en el mismo clic, o el navegador lo bloquea.)
   const vistaPrevia = async () => {
     const ventana = window.open('', '_blank');
     await guardarAhora();
@@ -1010,35 +1049,78 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
             <section role="complementary" className="gma-izq" data-panel="paginas" aria-label="Páginas">
               <PanelPaginas onCerrar={cerrarPaginas} />
             </section>
+          ) : (
+            // La tira de secciones, en la MISMA tarjeta del chat (24/10/2026, Martín: «"Abrir tira de imagenes" debería ser
+            // un botón en la topbar, y se debería abrir donde está el chat de mako»). Antes era una columna entre la tarjeta
+            // y el lienzo, con su botón flotando en la esquina del lienzo, encima de los controles de la primera sección.
+            <section role="complementary" className="gma-izq" data-panel="tira" aria-label="Secciones">
+              <TiraSecciones revision={revision} onCerrar={cerrarPaginas} />
+            </section>
+          )}
+
+          {/* ── «Nueva landing»: «¿Qué vas a crear hoy?» y las plantillas EN LUGAR de la barra y el lienzo, sin navegar ── */}
+          {creando ? (
+            <div className="gma-centro" role="region" aria-label="Nueva landing">
+              {fuentesPlantillas ? <link rel="stylesheet" href={fuentesPlantillas} precedence="default" /> : null}
+              <Suspense fallback={<div className="gma-vacio"><p className="gma-vacio-texto">Cargando…</p></div>}>
+                <InicioEmbebido
+                  embebido
+                  docs={[]}
+                  errorLista={null}
+                  analizadas={analizadas ?? []}
+                  errorAnalizadas={errorAnalizadas ?? null}
+                  propios={propios}
+                  errorTemas={null}
+                  bases={bases?.length ? bases : [doc.baseLandings]}
+                  ahora={Date.now()}
+                  derechaInicial={{ tipo: 'crear' }}
+                />
+              </Suspense>
+            </div>
           ) : null}
 
-          <main className="gma-centro">
+          {/* La landing abierta queda MONTADA mientras se elige una nueva (oculta): volver es instantáneo y no se pierde el
+              deshacer ni el foco del texto. */}
+          <main className="gma-centro" style={creando ? { display: 'none' } : undefined}>
             {/* ── Barra de herramientas ── */}
             <div className="gma-herramientas" role="toolbar" aria-label="Herramientas">
               {/* Sin «Edición manual / Edición con IA»: con el agente abierto se edita a mano igual. Lo
                   único que queda es volver a abrirlo si se plegó. */}
-              {/* El título y el guardado, al principio de la barra única (los traía la barra de arriba). */}
+              {/* El título, al principio de la barra única, con lugar para leerse: «Guardado» se fue (24/10/2026, Martín:
+                  «Elimina "Guardado", ya que no deja ver bien el título de la pagina... Y extiende mas la sección del titulo»).
+                  El indicador sólo aparece cuando hay algo que hacer (no se guardó, o hay una versión más nueva). */}
               <input
                 className="gma-titulo"
                 value={titulo}
                 placeholder="Sin título"
                 aria-label="Editar título"
+                title={titulo || 'Sin título'}
                 maxLength={TOPES.titulo}
-                size={Math.min(28, Math.max(8, (titulo || 'Sin título').length + 1))}
+                size={Math.min(40, Math.max(12, (titulo || 'Sin título').length + 1))}
                 onChange={(e) => setTitulo(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
               />
               <IndicadorGuardado estado={estado} onReintentar={() => { void guardarAhora(); }} />
               <span className="gma-sep" />
-              {!modoIA && (
-                <button type="button" className="gma-herr-boton gma-tip" data-tip="Abrir MaKo" data-atajo={`${mod}E`} aria-label="Abrir MaKo"
-                  onClick={() => setModoIA(true)}>
-                  <Ico n="destellos" t={16} />
-                </button>
-              )}
+              {/* PRIMERO de las herramientas (25/10/2026, Martín: «el botón de "texto" debe estar al principio de todo, no al
+                  final»). El editor de texto es UN botón que abre la segunda barra, abajo (24/10/2026, Martín: «El editor de texto quedó
+                  en un scroll muy chiquito, lo que te propongo es que sea un botón el editor de texto y se abra otra topbar
+                  tipo edición de texto con todas las opciones»). Como la barra contextual de Canva al tocar un texto. */}
+              <button type="button" className="gma-herr-boton gma-tip" data-tip="Editor de texto" aria-label="Editor de texto"
+                aria-pressed={formatoAbierto} disabled={!editor || paginaRota}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => cambiarFormato(!formatoAbierto)}>
+                <Ico n="texto-aa" t={16} /> <span className="gma-herr-texto">Texto</span>
+              </button>
+              {/* (Acá estaba «Abrir MaKo», para cuando el chat se plegaba: ya no se pliega.) Las otras vistas de la tarjeta de
+                  la izquierda: las páginas y la tira de secciones, que vuelven al chat con un segundo clic. */}
               <button type="button" className="gma-herr-boton gma-tip" data-tip="Páginas" aria-label="Abrir panel de páginas"
                 aria-pressed={panelIzq === 'paginas'} onClick={() => (panelIzq === 'paginas' ? cerrarPaginas() : setPanelIzqEstado('paginas'))}>
                 <Ico n="paginas" t={16} />
+              </button>
+              <button type="button" className="gma-herr-boton gma-tip" data-tip="Tira de imágenes" aria-label="Abrir tira de imágenes"
+                aria-pressed={panelIzq === 'tira'} onClick={() => (panelIzq === 'tira' ? cerrarPaginas() : setPanelIzqEstado('tira'))}>
+                <Ico n="diseno" t={16} />
               </button>
               <DeshacerRehacer editor={editor} mod={mod} />
               <span className="gma-sep" />
@@ -1056,10 +1138,7 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
                 onClick={() => (panelDer === 'animacion' ? setPanelDer(null) : abrirAnimar(tarjetaActivaRef.current ? 'seccion' : 'pagina'))}>
                 <Ico n="brillo" t={16} /> <span className="gma-herr-texto">Animar</span>
               </button>
-              <span className="gma-sep" />
-              <div className="gma-herr-ctx">
-                <BarraFormato modo="fija" />
-              </div>
+              <div className="gma-herr-ctx" />
               <div className="gma-herr-der">
                 <div className="gma-dispositivos" role="group" aria-label="Vista por dispositivo">
                   {DISPOSITIVOS.map((d) => (
@@ -1070,25 +1149,25 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
                   ))}
                 </div>
                 <span className="gma-sep" />
-                {/* «Compartir» lleva también Exportar adentro (Gamma: Share → Export; Canva: Compartir → Descargar). */}
-                <button type="button" className="gma-boton gma-boton--secundario gma-tip" data-tip="Compartir o exportar" aria-label="Compartir o exportar" onClick={() => setDialogo('compartir')}>
-                  <Ico n="candado" t={14} /> <span className="gma-herr-texto">Compartir</span>
-                </button>
+                {/* T3: en una presentación, Presentar sigue a un clic (Gamma pone «Present» al lado de «Share»), chico. */}
+                {presentacion ? (
+                  <button type="button" className="gma-herr-boton gma-tip" data-tip="Presentar" data-atajo={`${mod}↵`} aria-label="Presentar"
+                    onClick={() => setDialogo('presentar')}>
+                    <Ico n="presentar" t={16} />
+                  </button>
+                ) : null}
+                {/* UN solo botón, azul, que dice «Compartir» (24/10/2026, Martín: «Te pedí que "Compartir" y "publicar" sean un
+                    solo botón, azul y que diga "compartir"... Con el desplegable de la vista previa y las otras opciones»).
+                    El botón abre el panel Compartir (enlace, Publicar, Descargar…: DialogoCompartir, copiado de Canva); el ▾,
+                    Publicar, Vista previa, la página publicada, Descargar y Presentar. */}
                 <div className="gma-partido">
-                  {/* T3: en una presentación la acción principal es Presentar (Publicar queda en el ▾). */}
-                  {presentacion ? (
-                    <button type="button" className="gma-boton gma-boton--primario gma-tip" data-tip="Presentar" data-atajo={`${mod}↵`}
-                      onClick={() => setDialogo('presentar')}>
-                      <Ico n="presentar" t={15} /> Presentar
-                    </button>
-                  ) : (
-                    <button type="button" className="gma-boton gma-boton--primario gma-tip"
-                      data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Publicar'}
-                      onClick={() => setDialogo('publicar')}>
-                      <Ico n="subir" t={15} /> Publicar
-                    </button>
-                  )}
-                  <button type="button" className="gma-boton gma-boton--primario" aria-label={presentacion ? 'Más opciones' : 'Más opciones de publicación'}
+                  <button type="button" className="gma-boton gma-boton--primario gma-partido-principal gma-tip"
+                    data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Compartir'}
+                    aria-expanded={dialogo === 'compartir'}
+                    onClick={(e) => { setAnclaCompartir(e.currentTarget); setDialogo(dialogo === 'compartir' ? null : 'compartir'); }}>
+                    <Ico n="compartir" t={15} /> Compartir
+                  </button>
+                  <button type="button" className="gma-boton gma-boton--primario gma-partido-flecha" aria-label="Más opciones para compartir"
                     aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
                     <Ico n="chevron-abajo" t={14} />
                   </button>
@@ -1101,15 +1180,17 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
               </div>
             </div>
 
+            {/* ── La segunda barra: el editor de texto con TODAS sus opciones, sin scroll (se parte en dos renglones si no
+                entra). La abre y la cierra el botón «Texto»; queda recordada en el navegador. ── */}
+            {formatoAbierto ? (
+              <div className="gma-herramientas gma-formato">
+                <BarraFormato modo="fija" />
+              </div>
+            ) : null}
+
             <div className="gma-area">
-              {tiraVisible ? (
-                <TiraSecciones revision={revision} onCerrar={() => cambiarTira(false)} />
-              ) : (
-                <button type="button" className="gma-boton gma-boton--contorno gma-boton--chico gma-boton--icono gma-tira-abrir gma-tip"
-                  data-tip="Abrir tira de imágenes" aria-label="Abrir tira de imágenes" onClick={() => cambiarTira(true)}>
-                  <Ico n="diseno" t={14} />
-                </button>
-              )}
+              {/* (La tira y su botón flotante ya no van acá: la tira es una vista de la tarjeta de la izquierda y su botón
+                  está en la barra. El botón flotaba en la esquina del lienzo, sobre la columna de la primera sección.) */}
 
               {/* ── El lienzo ── */}
               <div
@@ -1174,7 +1255,7 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
           </main>
 
           {/* ── Panel derecho ── */}
-          {panelDer ? (
+          {panelDer && !creando ? (
             <section role="complementary" className="gma-der" aria-label={panelDer === 'tema' ? 'Tema' : panelDer === 'comentarios' ? 'Comentarios' : panelDer === 'animacion' ? 'Animar' : 'Historial de versiones'}>
               {panelDer === 'tema' ? <PanelTema onCerrar={cerrarPanelDer} /> : null}
               {panelDer === 'comentarios' ? <PanelComentarios /> : null}
@@ -1187,25 +1268,16 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
         {/* ── Menús ── */}
         <MenuDocumento abierto={!!menuDoc} ancla={menuDoc} onCerrar={() => setMenuDoc(null)} info={info} />
         {menuPublicar ? (
-          <Menu ancla={menuPublicar} onCerrar={() => setMenuPublicar(null)} alinear="fin" etiqueta={presentacion ? 'Presentar' : 'Publicar'} ancho={240}>
-            {presentacion ? (
-              <>
-                <ItemMenu icono="presentar" texto="Presentar" atajo={`${mod}↵`} onClick={() => setDialogo('presentar')} />
-                <SepMenu />
-              </>
-            ) : null}
-            <ItemMenu icono="globo" texto="Publicar" onClick={() => setDialogo('publicar')} />
+          <Menu ancla={menuPublicar} onCerrar={() => setMenuPublicar(null)} alinear="fin" etiqueta="Compartir" ancho={240}>
+            <ItemMenu icono="globo" texto={urlPublica && cambiosSinPublicar ? 'Actualizar publicación' : 'Publicar'} onClick={() => setDialogo('publicar')} />
             <ItemMenu icono="ojo" texto="Vista previa" onClick={() => { void vistaPrevia(); }} />
             {urlPublica ? (
               <ItemMenu icono="flecha-externa" texto="Ver página publicada"
                 onClick={() => { window.open(urlPublica, '_blank', 'noopener,noreferrer'); }} />
             ) : null}
-            {presentacion ? null : (
-              <>
-                <SepMenu />
-                <ItemMenu icono="presentar" texto="Presentar" atajo={`${mod}↵`} onClick={() => setDialogo('presentar')} />
-              </>
-            )}
+            <SepMenu />
+            <ItemMenu icono="descargar" texto="Descargar…" onClick={() => setDialogo('exportar')} />
+            <ItemMenu icono="presentar" texto="Presentar" atajo={`${mod}↵`} onClick={() => setDialogo('presentar')} />
           </Menu>
         ) : null}
         {menuZoom ? (
@@ -1220,7 +1292,7 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
         {/* ── Diálogos ──
             Los de I1 reciben `onCerrar` (de identidad fija); los de I2 se cierran solos por el
             contexto (`setDialogo(null)` / `setPanelDer(null)`), y Presentar avisa con `onSalir`. */}
-        {dialogo === 'compartir' ? <DialogoCompartir onCerrar={cerrarDialogo} /> : null}
+        {dialogo === 'compartir' ? <DialogoCompartir onCerrar={cerrarDialogo} ancla={anclaCompartir} onVistaPrevia={vistaPrevia} /> : null}
         {dialogo === 'publicar' ? <DialogoPublicar onCerrar={cerrarDialogo} /> : null}
         {dialogo === 'exportar' ? <DialogoExportar onCerrar={cerrarDialogo} /> : null}
         {dialogo === 'configuracion' ? <DialogoConfiguracion onCerrar={cerrarDialogo} /> : null}
@@ -1248,17 +1320,13 @@ function Armazon({ doc, temasPropios, creadoPor }: PropsEditorLanding & { doc: L
 // Piezas chicas de la barra
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** El estado del guardado, chico, al lado del título. */
+/**
+ * El guardado, al lado del título, SÓLO cuando hay algo que hacer. «Guardado», «Guardando…» y «Sin guardar» ya no se
+ * dibujan (24/10/2026, Martín: «Elimina "Guardado", ya que no deja ver bien el título de la pagina»): el autoguardado
+ * trabaja solo. Lo que no se puede callar sigue: no se guardó (con Reintentar) y la versión más nueva (además del aviso).
+ */
 function IndicadorGuardado({ estado, onReintentar }: { estado: EstadoGuardado; onReintentar: () => void }) {
-  if (estado === 'guardando') {
-    return <span className="gma-estado" data-estado={estado} role="status"><Ico n="refrescar" t={13} className="gma-girar" /> Guardando…</span>;
-  }
-  if (estado === 'guardado') {
-    return <span className="gma-estado" data-estado={estado} role="status"><Ico n="nube-check" t={14} /> Guardado</span>;
-  }
-  if (estado === 'sin-guardar') {
-    return <span className="gma-estado" data-estado={estado} role="status">Sin guardar</span>;
-  }
+  if (estado === 'guardando' || estado === 'guardado' || estado === 'sin-guardar') return null;
   if (estado === 'error') {
     return (
       <span className="gma-estado" data-estado={estado} role="status">

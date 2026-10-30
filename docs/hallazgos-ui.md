@@ -12,6 +12,235 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Iniciales cortadas por índice: quedan seis fuera de Automations (27/10/2026)
+
+`nombre.trim()[0]` es la primera unidad UTF-16, no la primera letra. Con «🚀 Ana» sale medio emoji, el server y el navegador
+dibujan cosas distintas, y React tira #418. Automations ya usa `iniciales` (lib/unicode-seguro.ts;
+tests/automations-iniciales.test.ts barre app/automations).
+
+**Quedan, sin tocar** (cada uno es de su chat):
+- app/_components/ServicioVisual.tsx:106
+- app/calendario/ListaLlamadas.tsx:187
+- app/classroom/ClientsShell.tsx:335
+- app/m/_ui/formato.ts:29
+- app/video-editor/_opencut/subtitles/components/texto-a-voz.tsx:72
+- app/web-generator/editor/paneles/PanelComentarios.tsx:46
+
+## El desplegable que se abre y se cierra solo en el teléfono era el TECLADO (26/10/2026)
+
+**Vive en:** `app/components/Dropdown.tsx` (`onResize`, el foco del buscador) · `app/m/layout.tsx` (`interactive-widget`).
+Guard: `tests/settings-movil-26-10.test.ts` #1.
+
+- **Síntoma:** Martín, en su Android, dentro de la hoja de Perfil: «no puedo apretar ningún desplegable, se abre y se cierra
+  automáticamente».
+- **El diagnóstico obvio era el equivocado:** un doble toque, un clic que se propaga al documento o la hoja (`SheetM`) que se
+  come el gesto. Con toques de verdad en el banco (CDP `Input.dispatchTouchEvent`) el menú abría y QUEDABA abierto.
+- **La causa:** /m declara `interactive-widget: resizes-content`, así que en el teléfono el TECLADO achica la ventana y manda
+  `resize`, y el Dropdown cerraba en todo `resize` (para no quedar despegado del botón). El de la zona horaria enfoca su
+  buscador al abrir → teclado → resize → cerrado en el mismo gesto. Y cualquiera, tocado con el teclado ya abierto (venías de
+  escribir en «Cargo»), se cerraba cuando el teclado se iba. Se reprodujo achicando el alto de la ventana con el menú abierto.
+- **La regla:** en la casa un `resize` no es «el usuario se fue»; en el teléfono es el teclado. Un menú flotante se REUBICA
+  con `resize` y se cierra sólo con un scroll afuera o un toque afuera. Y al tacto el buscador no se enfoca solo: el teclado
+  tapa media lista justo cuando se va a elegir con el dedo.
+
+## Sacar MaKo Context, AI Models y Dev: lo que se iba con ellas sin que nadie lo supiera (25/10/2026)
+
+Martín (puntos 13 a 15): «Elimina /contexto... Elimina /modelos-ia... Elimina "dev", ya no lo necesitamos». Medido ANTES
+de borrar, lo que cada pantalla arrastraba y no se veía desde su nombre:
+- ⚠️ **«Prompts» y «Configuración» NO las personaliza cada usuario** (era la premisa del pedido): /contexto era el ÚNICO
+  lugar donde se editaban la persona de MaKo y los 33 prompts de cada pantalla (lib/prompt-registry.ts). Borrar la
+  pantalla dejaba los prompts sin editor. Se mudaron a **Settings › Prompts** (sólo la plataforma, la regla de «Método»).
+  «Conocimiento» (la metodología, `mako_knowledge`) fue a **Classroom › Methodology**, con el editor completo que vivía
+  suelto en /conocimiento. «Fases» quedó deprecado: su dato sigue en `mako.fase.*` y sigue entrando al prompt si tiene algo.
+- ⚠️ **Las bibliotecas de Ads Writer (Ángulos y Estructuras) sólo se editaban en la página de Dev de Ads Writer**
+  (`paneles.tsx`); /admin/guiones redirigía ahí y su TÍTULO de pestaña salía de la fila de Dev. Ahora /admin/guiones las
+  dibuja y es una sección de Copywriting («Angles & Structures»).
+- **El grafo del Second Brain (la construcción de MaKo) enlazaba cada área a /admin/dev/<área>**: hoy abre su `verEnApp`
+  (la tab del área) o nada. Un link a una pantalla que se fue no da error: redirige al Ops Center y parece que anda.
+- **La capacidad «contexto» que MaKo ofrece por la API mandaba a /contexto**, que un cliente ni podía abrir (era del
+  super admin): ahora manda a Second Brain, donde un negocio carga lo suyo. El id se queda (es el contrato).
+- **Lo de Dev que SE QUEDA porque otros lo importan:** las bitácoras (cierre de tickets por `tickets: [n]`, Progreso, el
+  Cerebro), `areas.ts`, `registros.ts`, `roadmap.ts` (Runway), `_registro/Registro.tsx` (la página de la API y el catálogo de
+  UI) y `pricing/Piezas.tsx` (Landing Analyst). Y /admin/docs y /admin/ui: otras pantallas los enlazan; ya no tienen puerta
+  en la barra. Se fueron el mapa de áreas, la página de cada área, sus paneles (Pricing, El semáforo, el roadmap de CS) y el
+  historial generado (`gen-dev-historial.mjs`).
+- **Las rutas viejas redirigen en next.config.ts**: /contexto y /conocimiento → Classroom › Methodology, /modelos-ia y
+  /admin/dev/* → el Ops Center.
+- **Quedó sin hacer:** el CSS del modo Dev (`.mk-sidebar--dev`, `--dev-line` en app/_ui/ui.css) ya no lo usa nadie; y los
+  comentarios de ~30 archivos que dicen «configurable en /modelos-ia» (el override guardado sigue rigiendo en runtime).
+
+**Vive en:** `app/_components/nav.ts` (`SUPERADMIN_MENU`, `ADMIN_FAMILIAS`) · `app/_components/Sidebar.tsx` · `next.config.ts` ·
+`app/classroom/methodology/` · `app/configuraciones/prompts/` · `app/admin/guiones/page.tsx` · `lib/cerebro-construccion.ts`
+
+## La tuerca es Settings en toda la app, y el menú de la foto: sin la cara y con Platform en un ítem (25/10/2026)
+
+Martín (25/10, ~12:00), con la captura del menú: «No me gusta para nada que en el desplegable de super admin me aparezcan
+tantas cosas, de ultima engloba todas esas tabs extras en un solo desplegable que a su vez tenga otro desplegable... Y no me
+gusta que en general el desplegable del perfil, antes de "settings" tenga nuevamente mi foto de perfil, que esté solo settings.
+Y revisa el logo de settings de toda la app, siempre debe ser la tuerca, no ese...».
+
+- **«Ese» era `config`, los controles deslizantes**, y se usaba para Settings y para cosas que no son ajustes (Dev, Uso, los
+  registros de /admin/dev). Cambiar el dibujo de `config` habría puesto tuercas donde no van: se sumó `tuerca` y pasó a lo
+  que ES Settings (la cuenta, el negocio, en la compu y en el teléfono, y las Configuraciones de una automatización), y
+  «Configurar» de los desplegables (`iconos-menu`) es la misma tuerca. `config` queda para lo demás.
+- ⚠️ **Los dos sets de íconos se importan entre sí** (`icons.tsx` toma `TRAZOS_BORRAR` de `iconos-menu.tsx`). Definida en uno y
+  usada en el otro, la tuerca reventaba al cargar («Cannot access 'TUERCA' before initialization»): lo que se comparte entre
+  ellos vive en un módulo aparte (`app/_ui/icono-tuerca.ts`, como `icono-funnel.ts`).
+- **El menú de la foto:** sin la cara arriba (la foto y el nombre ya están en el botón que lo abre; la fila llevaba a Settings
+  dos veces). Lo de la plataforma es UN ítem, «Platform», que se abre en el mismo menú, y adentro «Coming soon» se abre igual:
+  un acordeón, no un menú al costado (nada que se cierre al mover el mouse). El saldo de IA sigue arriba de todo.
+- **Sin mirar en producción:** la tuerca y el menú se vieron dibujados con las piezas reales, no en la app.
+
+**Vive en:** `app/_ui/icono-tuerca.ts` · `app/_components/icons.tsx` (`tuerca`) · `app/_ui/iconos-menu.tsx` (`configurar`) ·
+`app/_components/Sidebar.tsx` (el menú de la foto) · `app/_components/nav.ts` · `lib/movil-rutas.ts` · `tests/menu-perfil-tuerca.test.ts`
+
+## Un alias del buscador que apunta a una key que la barra no le pasa no encuentra nada, sin error (25/10/2026, f31)
+
+Leandro (la llamada de Fathom, f31): «MaKo, no encuentro la sección de curso... Yo pensé que Clients era algo más CRM». Buscó
+en Web Generator y en Offer antes de dar con Clients.
+
+- **El diagnóstico obvio era «falta el alias»: estaba.** `lib/buscador-nav.ts` tenía `curso: 'cs-curso'` y `comunidad:
+  'cs-comunidad'` desde el 17/10. Pero `buscarDestinos` resuelve un alias contra la LISTA que recibe, y la barra
+  (Sidebar.tsx → `<BuscadorNav destinos=…>`) arma esa lista con las filas y sus `secciones`: Classroom y Community son
+  sub-tabs de Clients SIN fila (nav.ts → `SIN_FILA`), así que nunca estaban. El alias no encontraba nada y no se quejaba.
+- **La regla:** una pantalla de adentro de una tab sin barra de secciones se nombra en la fila con `adentro: [keys]`, y la
+  barra se las pasa al buscador (con `puedeVer`, como todo). Un alias nuevo se prueba contra la lista COMO LA ARMA LA BARRA
+  (tests/cursos-en-la-barra.test.ts), no contra `TODOS_LOS_ITEMS`.
+- **Cuando el nombre no dice lo que hay adentro**, la fila lleva `bajada` (una línea chica, «Clientes, cursos y comunidad»),
+  que el buscador también lee. Es una fila más alta: sólo donde la confusión ya pasó.
+
+**Vive en:** `app/_components/nav.ts` (`bajada`, `adentro`) · `app/_components/Sidebar.tsx` (`NavLink`, el `BuscadorNav`) ·
+`lib/buscador-nav.ts` · `app/_ui/ui.css` (`.mk-navrow__bajada`)
+
+## El panel de MaKo de cada tab flota, y en el teléfono la tab NO se corre: si no, el panel se estira con la página (25/10/2026)
+
+Martín (24/10, punto 12): «no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con
+cuadros un poco redondeados... Unifica ese diseño».
+
+- **El marco es UNO: el de `.an`** (el panel de MaKo del Dashboard, app/dashboard/PanelAnalista.tsx): 12 px de aire, bordes de
+  14, el filete y `0 18px 44px rgba(18,21,27,.18)`. Lo copiaron la ficha del CRM (`.fb-mako-panel`) y la estrella de cada tab
+  (`.ch-tab-panel`, app/_chat/chat.css); tests/mako-en-la-tab-flota.test.ts compara el de la estrella con el de `.an`. Un panel
+  de MaKo nuevo copia ese marco, no inventa otro.
+- **Con aire, la tab tiene que dejarle el panel MÁS su aire** (`LUGAR_PANEL` = 440 + 2 × 12 en `--ancho-panel-mako`); si no, el
+  contenido queda 12 px debajo del panel.
+- **Trampa (medida, no supuesta): en el teléfono, `--ancho-panel-mako` corría la tab fuera de la pantalla.** La página pasaba a
+  scrollear de costado, y un `position: fixed` con `left: 0; right: 0` se estira con ese ancho: el panel medía 630 px en una
+  pantalla de 390. En el teléfono el panel tapa todo, así que la variable vale 0 ahí (`html { --ancho-panel-mako: 0px
+  !important; }`: el `!important` de una hoja le gana a una variable puesta en línea). Se mide con `scrollWidth` en un teléfono
+  emulado de verdad (CDP); el Edge sin ventana tiene un ancho mínimo de ~500 px y miente.
+
+**Vive en:** `app/_chat/chat.css` (`.ch-tab-panel`) · `app/_chat/MakoEnLaTab.tsx` (`AIRE_PANEL`, `LUGAR_PANEL`) ·
+`tests/mako-en-la-tab-flota.test.ts`
+
+## Las iniciales de un avatar con medio emoji: diecisiete copias de `w[0]` (25/10/2026)
+
+- **Síntoma** (lo vio Automations): un nombre que empieza con un emoji («🚀 Martín») dibujaba «�M» en el avatar.
+- **Causa:** cada pantalla tenía su copia de «las iniciales» (el Avatar de la casa, la barra dos veces, la Marca, los avisos, la
+  comunidad, los cursos, el equipo, la ficha del super admin, el Dropdown, General, Cobranza, el avatar de WhatsApp, la ventana de
+  Chats, MiFoto, el Perfil, el Plan y la bandeja de email), y todas tomaban `w[0]`, `charAt(0)` o `slice(0, 1)`: la primera
+  UNIDAD UTF-16, que en un emoji es su primera mitad. Es el mismo error de `slice` que tumbó los avisos del ws13 (lib/unicode-seguro.ts).
+- **Regla:** las iniciales salen de `iniciales` (lib/unicode-seguro.ts): la primera letra o número de cada palabra, saltando emojis
+  y símbolos. tests/iniciales-con-emoji.test.ts barre `app/` y falla con una copia nueva hecha a mano. Quedan afuera el teléfono
+  (`inicialesM`, que ya sacaba lo que no es letra) y OpenCut (código de afuera).
+
+- ⚠️ **El mismo día salieron DOS piezas:** la ficha del CRM, por el ticket #10 (React #418: medio emoji es «�» en el HTML del
+  servidor y la hidratación tiraba la pantalla), hizo `inicialesPorLetra` en lib/iniciales.ts, con la misma regla. Ninguna
+  rama veía la otra: una estaba en tren-j y la otra no. Al juntarlas quedó una (`inicialesPorLetra` llama a ésta). Antes de
+  crear una pieza compartida, buscarla también en la rama del tren (`git grep <nombre> tren-j`), no sólo en main.
+
+- ⚠️ **La guarda no conoce `nombre.trim()[0]` (27/10/2026, lo que quedaba del ticket #10).** Barre `split(/\s+/)…w[0]` y
+  `${p[0][0]}…`, pero no la forma de una sola inicial. El panel de comentarios del Web Generator la tenía (arreglado, con su
+  guarda acotada: tests/web-generator-iniciales.test.ts). **Sin hacer, cada una en su área:**
+  - app/automations/PanelProbar.tsx:339
+  - app/automations/social-ui.tsx:108
+  - app/calendario/ListaLlamadas.tsx:187 (`charAt(0)`)
+  - app/classroom/ClientsShell.tsx:335
+  - app/m/_ui/formato.ts:29 (el email)
+  - app/_components/ServicioVisual.tsx:106
+
+  Cuando estén, la forma `.trim()[0]` / `.charAt(0)` va a la guarda de `app/`.
+
+**Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `lib/iniciales.ts` (`inicialesPorLetra`, la llama) · `tests/iniciales-con-emoji.test.ts` · `tests/iniciales-hidratacion.test.ts`
+
+## Settings a todo el ancho y en dos columnas; el teléfono que scrolleaba de costado (25/10/2026)
+
+Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales,
+Tu plan"... Fijate pagina por pagina como lo hacen otras apps... En mobile tampoco se ven bien... Y en desktop es como que esta
+cortado a la mitad, no llega al final del ancho».
+
+- **Copiado de dos referencias abiertas y miradas ese día:** los ajustes de Catalyst (Tailwind, catalyst-demo.tailwindui.com/settings)
+  y la página de descargas de Linear (linear.app/download). Las dos usan secciones de DOS COLUMNAS: su título y para qué sirve a la
+  izquierda, la tarjeta a la derecha, separadas por una línea. Así el ancho entero trabaja. El de shadcn/ui (forms) se descartó:
+  también corta el formulario a 2/3, que es lo que Martín marcó.
+- **El cambio es del molde, no de cada página:** `.aj-cuerpo` sin el `max-width: 720px` y `GrupoAjustes` con la tarjeta adentro de
+  `.aj-grupo-caja` (dos columnas desde 1100 px; abajo, una debajo de la otra). Una lista con columnas (los miembros del equipo) va
+  `ancha`: el título arriba y la tarjeta entera. Lo que dibujaba su propia caja con estilos sueltos (Equipo, Identidades fiscales,
+  Notificaciones) pasó a usar las piezas del molde: si no, quedaba a todo el ancho y fuera de la grilla.
+- **«Notificaciones» estaba DOS veces en el índice**, una por grupo, y las dos se marcaban a la vez (las dos con `activa=
+  "notificaciones"`). Ahora es una, en «Tu cuenta», con lo del negocio abajo para quien lo administra (`#negocio`), y
+  /configuraciones/notificaciones redirige ahí. Un test exige que ningún nombre ni clave se repita en el índice.
+- **Trampa 1 (el teléfono «no se ve bien»): `flex: 1 1 220px` en una fila que pasa a COLUMNA es su ALTO.** El detalle de cada fila
+  medía 220 px de alto en el teléfono: «Nombre» arriba, un hueco, y el valor 200 px más abajo. Era de antes. En columna, `flex: none`.
+- **Trampa 2: el índice de chips ensanchaba la página.** `.aj` tenía `align-items: flex-start` también en el teléfono: el índice
+  (que se desliza) tomaba su ancho entero, 1215 px, y toda la página scrolleaba de costado con el texto cortado. Con `stretch` mide
+  la pantalla y se desliza adentro. Se MIDE así: `scrollWidth === clientWidth` en un teléfono emulado de verdad (CDP, la receta de
+  «Una captura de teléfono»), las seis páginas a 390 px.
+- **Trampa 3: dos interruptores al lado de un nombre no entran en 390 px.** En la computadora, una grilla compartida (las columnas
+  quietas); en el teléfono, la fila es flex y los interruptores bajan debajo del nombre. La fila es `display: contents` arriba de
+  1100 px para que sus celdas sigan en la grilla.
+- **Sin mirar en producción:** se dibujó con las piezas reales y datos de ejemplo (el arnés de esbuild de «Ver una pantalla de
+  cliente sin levantar la app»). Falta recorrerlo con la sesión de Martín.
+
+**Vive en:** `app/_ui/Ajustes.tsx` (`GrupoAjustes`, `ApartadoAjustes`) · `app/_ui/ajustes.css` · `app/perfil/InformacionPersonal.tsx` ·
+`app/perfil/NotificacionesPanel.tsx` · `app/perfil/instalar/InstalarApp.tsx` · `app/equipo/EquipoView.tsx` ·
+`app/configuraciones/IdentidadesFiscalesPanel.tsx` · `app/configuraciones/plan/PlanPanel.tsx` · `tests/ajustes-cuenta-negocio.test.ts`
+
+## Un `<aside>` que flota con aire: la regla de la barra le fuerza el alto, y con la alerta de la voz SOLA no lo baja (25/10/2026)
+
+**Vive en:** la regla `[data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar]` (app/globals.css) · el panel de MaKo
+de la ficha (`.fb-mako-panel`, app/crm/lead-view/ficha/FichaPorBloques.tsx) · tests/barra-inspeccion-alto.test.ts (4).
+
+- **Síntoma:** rojo del tren, «el panel del AI Analyst de la ficha dejó de ser `<aside>`». Seguía siéndolo: el test buscaba
+  la forma vieja (`style={{ position: 'fixed', top: 0, …`) y el panel había pasado a un bloque flotante con 12 px de aire.
+- **El diagnóstico obvio era el equivocado:** «es <aside>, la regla lo baja, alcanza con poner el test al día». MEDIDO en Edge
+  sin ventana (el CSS real de globals.css y del panel): con la barra de inspección la regla lo bajaba a 50 pero le forzaba
+  `height: calc(100vh - barra)` → pegado a la barra y al borde de abajo, sin aire. Y con la alerta de la voz caída SOLA
+  (64 px, la que ve un cliente) la regla sólo toca `aside[data-sidebar]`: el panel quedaba en top 12, TAPADO por la alerta.
+- **Regla:** algo `fixed` que flota con aire no se apoya en la regla de los `<aside>`: suma la barra él mismo
+  (`top: calc(12px + var(--barra-agencia, 0px))`, que vale 50, 64 o 114 según qué barra esté) y, si es `<aside>`, le gana a
+  la regla global en `top` y `height` con un selector más fuerte. Se mide con las tres barras, no sólo con la de inspección.
+- **Quedó SIN medir (por el CSS, el mismo caso):** todo `<aside>` `fixed`/`sticky` en `top: 0` que no sea la sidebar queda
+  debajo de la alerta de la voz cuando está sola. El test 4 da por buena la lateral del Web Generator (`.gp-lateral`,
+  sticky top 0) sólo con la barra de inspección.
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+## Medio emoji en las iniciales tira la pantalla al hidratar: React #418 (ticket #10, 25/10/2026)
+
+**Vive en:** `inicialesPorLetra` (lib/iniciales.ts), que usan `Marca` (app/_components/Marca.tsx, la cabecera de toda
+`CabeceraDetalle`), `Avatar` (app/_ui/Avatar.tsx) y el historial de la ficha · tests/iniciales-hidratacion.test.ts.
+
+- **Síntoma:** «La pantalla «CRM» se rompió» al abrir /crm/3445 del Cliente de Prueba, React #418 con «text» (el texto del
+  servidor no coincide con el del navegador). En la cabecera de la ficha se leía «�M».
+- **El diagnóstico obvio era el equivocado.** Un #418 a las 22:29 de Argentina (01:29 UTC del día siguiente) pide buscar una
+  fecha formateada sin zona fija o un «hace X»: se revisaron todas las de la ficha y estaban bien. Lo destapó leer el TEXTO de
+  la pantalla en producción (`get_page_text`): «�M» arriba, y el nombre en la base, «🧪 Martín arnés contestó…».
+- **Causa:** `w[0]` es la primera unidad de UTF-16, y la de «🧪» (de cualquier emoji, o de una letra fuera del plano básico
+  como «𝒜») es MEDIO carácter, un surrogate suelto. El servidor escribe el HTML en UTF-8, que no puede escribir medio
+  carácter, y manda «�» (U+FFFD); el navegador hidrata con la mitad cruda. Dos textos distintos y React tira el árbol. No es
+  sólo de las iniciales: cualquier `[0]` o `slice` que corte un nombre con emoji y se dibuje en el primer render hace lo mismo.
+- **Regla:** un texto del primer render que sale de CORTAR un string corta por punto de código (`[...s]`, `Array.from`),
+  nunca por índice. La prueba que sirve no compara contra un valor esperado: pasa el resultado por `TextEncoder` y
+  `TextDecoder` (lo que hace el HTML) y exige que vuelva igual.
+- **Quedó SIN hacer (el mismo corte, en piezas de otras tabs):** `app/_components/Sidebar.tsx:85` y `:241` (las iniciales del
+  negocio y de la persona en la barra, que se dibuja en TODAS las pantallas), `app/components/Dropdown.tsx:44`,
+  `app/general/bloques/comun.tsx:203`, `app/general/Cobranza.tsx:41`, `app/automations/social-ui.tsx:108`,
+  `app/web-generator/editor/paneles/PanelComentarios.tsx:46`, `app/_components/ServicioVisual.tsx:94`. Un negocio o una
+  persona cuyo nombre empiece con un emoji rompe esas pantallas igual.
+- **Las otras copias que vio Automations el 24/10 (también SIN hacer):** `app/_components/NotificationsProvider.tsx`,
+  `app/_comunidad/piezas.tsx`, `app/_cursos/ComentariosClase.tsx` y `app/admin/AdminView.tsx`. Y `lib/unicode-seguro.ts` ya existía para cortar por
+  carácter: la próxima pieza usa una de las dos (`inicialesPorLetra` o esa), no una tercera.
+
 ## El `Dropdown` en dos columnas: lo que los tests no ven, y cómo se MIDE que las otras 96 pantallas no cambiaron (24/10/2026)
 
 **Vive en:** `dosColumnas` / `alPie` (app/components/Dropdown.tsx), `columnasDeSeccion` (app/components/dropdown-reglas.ts),
@@ -4633,7 +4862,7 @@ AvisoArriba de NotificationsProvider) usan `app/_ui/descartar.tsx`: la ✕, arra
 - **La regla:** un aviso nuevo esparce `useDeslizarParaCerrar(onCerrar).props` en su caja y su temporizador es
   `setTimeout(esperarPausa(cerrar), ms)`; nunca `setTimeout(() => setX(null))` (lo fija tests/avisos-se-cierran.test.ts).
 
-## La sidebar plegada por defecto: cambiar un default pide clave nueva y primer cuadro nuevo (24/10/2026)
+## La sidebar plegada por defecto: cambiar un default pide clave nueva, primer cuadro nuevo, y mirar quién lo LEÍA (24-25/10/2026)
 
 Martín: «en web generator, como en todas las tabs, haz que por defecto al entrar se pliegue la sidebar principal, pero no
 impidas que se vuelva a desplegar».
@@ -4642,9 +4871,253 @@ impidas que se vuelva a desplegar».
   todas las tabs) y `plegadaAca` (Ops Center, Automations, ventana chica, MaKo abierto: por visita, la flecha la abre sólo
   ahí). Web Generator va en el PRIMERO: con `RUTAS_QUE_PLIEGAN` se volvería a plegar en cada visita, que es justo lo que
   Martín pidió no impedir.
+- **El default nuevo rompió el SEGUNDO mecanismo sin tocarlo (la regresión del 25/10).** Martín: «La sidebar principal en
+  muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada». `fija` era `guardada && (!plegadaAca ||
+  abiertaAca)`: el pliegue temporal SUPONÍA que lo guardado era «si» (lo era por defecto). Con lo guardado en «no» para casi
+  todos, la flecha en Automations, el Ops Center, una ventana de menos de 1200 px o con MaKo abierto abría `abiertaAca`, y
+  `fija` seguía en false: se veía abierta mientras el cursor estaba encima y se plegaba al salir. El diagnóstico obvio
+  («la flecha no guarda») era a medias: guardaba bien fuera de esas pantallas. **Regla:** donde la barra se pliega sola manda
+  lo que hizo la flecha en esa visita (`barraFija`), y desplegarla se guarda SIEMPRE (`loQueGuardaLaFlecha`); plegarla en una
+  de esas pantallas es de ese rato. Al cambiar un default, buscá quién lo leía con un `&&`.
+  - **Lo que queda a propósito:** en una ventana de menos de 1200 px, al RECARGAR, la barra vuelve a arrancar plegada aunque
+    esté guardada abierta (el corte del 21/10, para que no se rompa todo lo de la derecha). Navegando entre tabs se mantiene.
 - **Un default nuevo con la clave vieja no lo ve quien ya tocó la flecha** (tenía «si» guardado). Como el 20/10 con las
   secciones, la clave cambia y todos arrancan plegados una vez.
 - **El `useState` inicial es el primer cuadro.** Con `useState(true)` y el default en plegada, cada carga dibujaba la barra
   abierta y la plegaba al montar. Va `useState(false)`; el salto queda sólo para quien la fijó abierta.
 - **Sin hacer:** mirar en producción cada tab con la barra plegada. El navegador de la app no tiene sesión y el Chrome no
   estaba conectado; el rail es el mismo que ya veía quien la plegaba, y a 934 y 1027 px (21/10) daba 0 desbordes.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`leerFija`, `barraFija`, `loQueGuardaLaFlecha`, `plegadaAca`) ·
+`tests/sidebar-plegada-por-defecto.test.ts` (el recorrido de una persona: Automations → CRM → MaKo abierto y cerrado).
+
+## La criatura «se escondía detrás» de la barra desplegada (24/10/2026, f34)
+
+**El síntoma (la llamada con Leandro, 59:33):** «la animación del muñequito de Mako... cuando se va para abajo y se pone en su
+chat, y si está la sidebar desplegada, es como que se oculta detrás y no se entiende a dónde se fue».
+
+**⚠️ El diagnóstico obvio era el equivocado.** No era la copia que vuela: va en `body` con el z-index más alto
+(app/_ui/VueloDeCarga.tsx), por delante de la barra. Lo que quedaba debajo era su DESTINO: la estrella de abajo
+(`.ch-tab-mako`, z 55) se ponía al lado del `<aside>` de la barra (`useBordeDeLaBarra`, app/_chat/MakoEnLaTab.tsx). Ese
+`<aside>` mide lo del riel y no cambia cuando su panel se despliega ENCIMA al pasar el cursor (z 60). La copia aterrizaba
+bien y la estrella real estaba tapada.
+
+**Qué quedó:** la estrella se mide con el panel, lo que se ve (`panelDeLaBarra`, app/_chat/borde-barra.ts). Con la barra
+desplegada se corre y no queda debajo. El panel del Cerebro sigue con el borde del `<aside>`: si se corriera, saltaría
+440 px cada vez que el cursor pasa por la barra.
+
+**Regla:** un elemento fijo que se pone al lado de la barra se mide con lo que se VE de ella (su panel), no con su caja de
+layout.
+
+**Sin hacer:** no se vio en pantalla. Si la barra se pliega a mitad del vuelo, la copia aterriza donde estaba la estrella
+(son 0,2 s).
+
+Vive en: app/_chat/MakoEnLaTab.tsx · app/_chat/borde-barra.ts · tests/estrella-al-lado-de-la-barra.test.ts.
+
+**Capturas ANTES y DESPUÉS de una pantalla sin levantar la app, con los mismos datos (25/10/2026, Settings).** El banco de
+la ficha (24/10, docs/hallazgos-crm.md) arma los componentes REALES con esbuild y APIs simuladas. Para el «antes» no hace
+falta otro worktree: un plugin `onLoad` de esbuild que, para cada archivo que cambió la rama (`git diff --name-only <base>
+HEAD`), devuelve `git show <base>:<ruta>` en vez del archivo del disco, y el MISMO mock de `fetch`. Así el antes y el después
+muestran los mismos datos, y la diferencia es sólo la pantalla. Trampas: (1) un módulo de `lib/` que lee `process.env` deja
+la página EN BLANCO sin un error a la vista (en la consola: «process is not defined»); un `window.process = { env: {} }`
+antes del bundle lo destraba; (2) el CSS viejo también va por `git show` (si no, el antes sale con el CSS nuevo); (3) las
+acciones `'use server'` se cambian por stubs por nombre de archivo (`negocio-actions`, `horario-actions`…), porque el bundle
+del navegador no puede importarlas; (4) un `python` dentro de un heredoc de Bash pierde las barras invertidas (`\r?\n` llega
+como un salto de línea de verdad): el script va a un archivo con la herramienta de escribir y se corre desde ahí.
+
+## Sacarle las `secciones` a un ítem del nav le cambia las KEYS: el ítem único lleva la de su sección principal (29/10/2026, claude3)
+
+- **Contexto:** Create sin pestañas arriba (docs/diseno-create.md). Lo obvio era borrar `secciones` de «Video» y dejar el
+  ítem con su key de siempre, `video`.
+- **Por qué estaba mal:** `itemsDe()` (nav.ts) APLANA: un ítem con secciones no existe con su key en `TODOS_LOS_ITEMS`;
+  existen las de sus secciones. Las capas (`lib/capas.ts`, `navKeys` con 'video-editor'), la API (`gating.tab`), las
+  funciones de MaKo (lib/funciones-mako.ts), las creaciones (`INFO_TIPO.nav`) y la puerta del teléfono (`puedeVerKey`)
+  preguntan por la key de la SECCIÓN. Con `video` como key, nada se rompe en el server (`tabEnCapa` compara strings) pero
+  el teléfono se cierra en silencio y los tests de funciones fallan.
+- **Regla:** el ítem que queda lleva la key de la que era su sección principal ('video-editor', 'image-editor'). Una
+  pantalla viva que deja de ser fila va a `SIN_FILA` con su key (el Video Generator, 29/10), nunca se borra el ítem.
+  Lo fija tests/crear-pantalla.test.ts.
+
+**Vive en:** app/_components/nav.ts (`itemsDe`, `SIN_FILA`, la familia Create) · tests/crear-pantalla.test.ts
+
+## Un VALOR exportado por un módulo 'use client' llega al server como referencia de cliente (29/10/2026, claude3)
+
+- **Síntoma:** `PantallaCrear.tsx` ('use client') re-exportaba `ESTILO_PAGINA_CREAR` para comodidad; una página server que lo
+  pasaba al `style` de su `<Pagina>` recibía una referencia de cliente, no el objeto. Lo cazó el agente del Video Editor.
+- **Regla:** los valores que usan las páginas server viven en un módulo SIN 'use client' (`app/_crear/reglas.ts`) y no se
+  re-exportan desde el componente: sin el re-export, el import equivocado falla al compilar en vez de romper en silencio.
+  (Es la misma frontera de AGENTS.md, «'use client' es una frontera de DATOS».)
+
+**Vive en:** app/_crear/reglas.ts · app/_crear/PantallaCrear.tsx · tests/video-editor-sidebar.test.ts
+
+## «Las plantillas son rectángulos»: no faltaban plantillas, la tarjeta no tenía dónde mostrar el ejemplo (29/10/2026)
+
+- **Síntoma:** en las cinco tabs de Create, «Nuevo …» mostraba un marco gris con un nombre y un rótulo («15 s»).
+- **El diagnóstico obvio era el equivocado:** «faltan plantillas». Copywriter ya tenía las estructuras, Video sus
+  tiempos y huecos fijados por test, y Offer su agente.
+- **Causa:** `PlantillaCrear` solo tiene `id | nombre | formato | imagen | rotulo`, y ninguna tab pasaba contenido. Video
+  ni siquiera pasaba la miniatura que ya dibuja `MiniaturaPlantilla` en su pestaña Plantillas.
+- **Regla:** una plantilla es la forma más un ejemplo completo de un negocio ficticio más la línea de «cuándo usarla», y
+  la tarjeta dibuja ese ejemplo. Los campos se definen UNA vez en `app/_crear/reglas.ts`: `grupo`, `insignia`, `ayuda`,
+  `ejemplo`, `extracto`, `chips`, `frase` y `video`. Son todos opcionales, porque `PantallaCrear` la comparten las cinco
+  tabs y la que no los pasa se dibuja como hoy. Ninguna tab inventa otro nombre para lo mismo: cada parte del plan
+  había propuesto el suyo (la «insignia» era a veces el tipo y a veces «Ejemplo»).
+
+- **Hecho (tanda 0, 29/10/2026):** la tarjeta es `TarjetaPlantilla`. Elige, de lo más propio a lo más pobre: la
+  `miniatura` de la tab, el `video` con el mouse encima, la hoja con el `extracto`, la imagen a su proporción y el marco
+  de siempre. El rótulo y el primer mensaje del ejemplo salen de app/_crear/ejemplo.ts, iguales en las cinco tabs. Una
+  tarjeta sin los campos nuevos se dibuja igual que antes, y el test lo prueba dibujándola.
+
+**Vive en:** app/_crear/reglas.ts · app/_crear/TarjetaPlantilla.tsx · app/_crear/ejemplo.ts · tests/crear-pantalla.test.ts
+
+## La tarjeta recorta todo lo que no es 4:3 (29/10/2026)
+
+- **Síntoma:** con una miniatura real, a una historia 9:16 solo se le vería el tercio del medio.
+- **Causa:** `.cr-plantilla__mini img` usa `object-fit: cover` (app/_crear/crear.css:106) dentro de la caja 4:3.
+- **Regla:** la miniatura se dibuja a su proporción dentro de la caja (`cajaDeMiniatura(formato)`, `contain`). El
+  recorte solo vale para piezas que ya son 4:3. Sin `formato`, la imagen llena la caja como antes.
+- **La segunda trampa, al implementarlo:** con `height: 90%` y `aspect-ratio`, la historia salió como una FRANJA
+  recortada, igual que antes.
+  - **El diagnóstico obvio era el equivocado:** no era `object-fit`, que ya estaba en `contain`.
+  - **Medido en el banco:** la `<img>` medía 648 px de alto en una caja de 155. La caja es una grilla con la fila `auto`,
+    y esa fila crece hasta el alto NATURAL de la imagen (720 px). El 90 % se calculaba contra eso.
+  - **Por qué el marco vacío no lo sufría:** no tiene tamaño propio, así que la fila se estiraba a la caja.
+- **Regla:** una grilla que dimensiona a sus hijos con `%` necesita la fila del alto de la caja:
+  `grid-template: minmax(0, 1fr) / minmax(0, 1fr)`.
+
+**Vive en:** app/_crear/crear.css (`.cr-plantilla__mini`) · app/_crear/reglas.ts · tests/crear-pantalla.test.ts
+
+## La hoja del ejemplo cede con SU tarjeta, no con la ventana (29/10/2026)
+
+- **Síntoma (banco, a los cuatro anchos):**
+  - a 1366, la insignia junto a «Ejemplo» quedaba «📣 Anuncio · 45…»;
+  - en el teléfono, el último renglón del cuerpo quedaba partido por la mitad debajo de los chips.
+- **Causa:** la grilla decide el ancho de la tarjeta. A 1366, con la tarjeta de MaKo, cada miniatura mide 188 px; en el
+  teléfono, 155. Un `-webkit-line-clamp` fijo no sabe cuánto alto le queda.
+- **Regla:**
+  - la miniatura es `container-type: inline-size` y los renglones ceden con `@container`;
+  - primero ceden renglones del cuerpo, y menos de 195 px esconde la insignia de la hoja (el nombre de abajo ya dice el
+    formato);
+  - el título, los chips y la cinta «Ejemplo» quedan siempre;
+  - un chip que no entra se va entero (`flex-wrap` con el alto de una fila), nunca medio chip;
+  - los renglones van en el CSS y no en un `style` del componente: el `style` le gana al `@container` sin avisar.
+- **Para las tabs:** una insignia larga («Programa · alto ticket») igual se corta con «…» a 1440 (tiene su `title`).
+  Conviene que no pase de 18 caracteres.
+
+**Vive en:** app/_crear/crear.css · app/_crear/TarjetaPlantilla.tsx · capturas en C:/dev/revisiones/plantillas-tanda0/
+
+## Lo que el experto de cada tab lee del negocio vive en un solo lugar (29/10/2026)
+
+- **Síntoma:** el Copywriter leía el negocio con `construirCerebro()` entero, con la física del mapa, en cada pedido.
+  Video e Image no lo leían.
+- **Causa:** `contextoDelNegocio` vivía en lib/copywriter/contexto.ts, y su cabecera decía que `grafoParaChat` no había
+  llegado. Llegó a main el 28/10 (`c272b97dd`).
+- **Regla:**
+  - el negocio y la voz de una pieza de Create se leen de lib/negocio-para-crear.ts: el grafo de los chats, en caché y
+    sin física;
+  - lib/copywriter/contexto.ts quedó como re-exportación, para los imports de siempre;
+  - `vozDelNegocio` se re-exporta y no se muda: sus dos fuentes viven en lib/nutricion-generator.ts y mudarla armaba un
+    ciclo;
+  - ⚠️ `contextoDelNegocio` de lib/plan-senales.ts es OTRA función con el mismo nombre.
+
+**Vive en:** lib/negocio-para-crear.ts · lib/copywriter/contexto.ts · tests/copywriter.test.ts
+
+## Los nombres obvios para las funciones de la tarjeta ya existen (29/10/2026)
+
+- **Síntoma posible:** un import automático trae la función equivocada, o `tsc` falla lejos de donde se tocó.
+- **Causa:** el plan proponía `gruposDePlantillas(plantillas)` y `miniaturaDe(formato)` en app/_crear/reglas.ts.
+  `gruposDePlantillas` ya existe en lib/copywriter/plantillas.ts:162, con otro tipo (la usa
+  tests/copywriter-plantillas.test.ts), y `miniaturaDe` existe dos veces: app/crm/lead-view/ficha/galeria.ts:99 y
+  lib/embeds.ts:665. Es la misma trampa que los dos `contextoDelNegocio` ([COPYWRITER]).
+- **Regla:** antes de nombrar una función nueva, `git grep -n "<nombre>" origin/main`. Las de la tarjeta se llaman
+  `seccionesDeCrear` y `cajaDeMiniatura`.
+
+**Vive en:** app/_crear/reglas.ts · lib/copywriter/plantillas.ts · app/crm/lead-view/ficha/galeria.ts · lib/embeds.ts
+
+## Un elenco único de negocios ficticios, y los nombres se verifican (29/10/2026)
+
+- **Síntoma posible:** un ejemplo con un negocio real o con un cliente real (ya pasó: hay una lista `REALES` con
+  «Martín», «Dental Ramos» y «Vértice»).
+- **Regla:**
+  - un solo elenco para las cinco tabs: Cierre Consultivo, Consulta Rentable, Pulso Dental, Torre Alameda y Voz de
+    Líder, con sus clientes inventados;
+  - los nombres se buscan en la web antes de publicar, **todos**, también los de segunda línea («Sonríe Studio» salió
+    por genérico; «Desarrolladora Altavista» no estaba en la lista de la búsqueda y coincidía con una constructora y un
+    desarrollo de Querétaro, así que salió; un dominio inventado puede existir: el ejemplo usa `example.com`);
+  - `REALES` pasa a `tests/_reales.ts` y la usan los tests de las cinco tabs;
+  - los datos de cada negocio son los mismos en todas las tabs: si una tab cambia uno, cambia en todas (ver la entrada
+    de Offer sobre el marco). **Toda cifra que más de una tab repite va en la tabla del elenco** (README, 2.2). La
+    revisión del 29/10 encontró, con la regla «solo las del elenco» ya escrita: tres mensualidades distintas para Torre
+    Alameda, «31 clínicas» como total en Offer y como activas en Video, el embudo de una alumna contado como de
+    Mariana, y cifras que no estaban en ningún lado («la cohorte se llenó en 6 días»).
+  - **Escasez y garantías que el negocio no controla:** «14 de 96» en pantalla se lee «quedan 14» (quedan 46, y 14
+    tienen vista), y «la vista no te la tapa nadie» promete algo que una desarrolladora no puede cumplir.
+
+**Vive en:** docs/plantillas-reales/README.md (2.2) · tests/variables-aviso.test.ts · tests/_reales.ts (del plan)
+
+## El guard de voseo no ve el texto que vive en .json (29/10/2026)
+
+- **Síntoma posible:** un lienzo de Image con «Escribime» o «acá» pasa CI.
+- **Causa:** `tests/puente-panel-copy.test.ts` recorre solo los `.ts` y `.tsx` (con `git ls-files`). Los ejemplos de
+  Copywriter, Video, AI Avatar y Offer viven en `lib/` y los ve; el texto del lienzo de Image está en
+  `app/image-editor/mako/plantillas/*.json`.
+- **Regla:** todo ejemplo pasa `marcasDeVoseo`, y los que viven en `.json` tienen su propio test. En AI Avatar el guion
+  hablado sigue el acento del negocio (`acentoEsVoseante`): ahí la guarda no se aplica a ciegas.
+- **Tampoco ve regionalismos que no son voseo:** «darla vuelta» y «dé vuelta» (invertir, rioplatense) se colaron en
+  Image y en el prompt `offer.experto`, que va a `lib/`. La lista de argentinismos del test de AI Avatar suma
+  `\b(dar|da|dé|darla|darlo)\s+vuelta\b`; «darle la vuelta» es neutro.
+
+**Vive en:** tests/puente-panel-copy.test.ts · tests/image-editor-plantillas-reales.test.ts (del plan)
+
+## El QA visual de Create sin `next dev`: el banco, y la falsa alarma del scroll de costado (29/10/2026, claude3)
+
+Para mirar TODAS las pantallas de Create a 1920/1440/1366/390 sin levantar la app (local escribe en producción) y sin
+sesión en producción, un banco: las pantallas REALES compiladas con esbuild, datos inventados y `fetch` simulado. Vive en
+la carpeta de notas compartidas del Cerebro, `banco-create-qa/` (build, entrada, capturador con medición, sonda). Lo que
+costó, para la próxima:
+- **Tailwind de verdad.** El editor de Video está hecho con clases de Tailwind: sin compilarlo sale sin estilos.
+  `@tailwindcss/postcss` sobre app/globals.css con `base` en el worktree (~2 min, escanea el repo).
+- **La falsa alarma.** La primera medición dio el documento 58 px más ancho que la ventana en TODAS las pantallas: el banco
+  ponía la <Pagina> al lado de la sidebar, y en app/layout.tsx va adentro de una COLUMNA (`flex: 1; min-width: 0`). Con
+  `flex: 'none'` (ESTILO_PAGINA_CREAR) + el `width: 100%` de Pagina, sin esa columna se pasa por el ancho de la sidebar.
+  En la app no pasa. El armado del banco copia la columna.
+- **El `fetch` simulado se tragaba lo estático**: el motor del Video Editor (/ve/wasm/…) daba 404. Lo que tiene extensión
+  va al servidor de verdad.
+- **El capturador MIDE, no sólo fotografía**: rótulos con «…» (`text-overflow: ellipsis` y `scrollWidth > clientWidth`),
+  botones que se pisan, el ancho de la tarjeta y del centro. Así salió «Páginas 1 / 1» pisado con la cuadrícula a 1366.
+
+## La tarjeta de MaKo se pliega en los editores: un contexto y no un prop en cada chat (29/10/2026, claude3)
+
+El botón de plegar tenía que estar en la cabecera de TRES chats distintos (el Cerebro, el del Video Editor y el del Image
+Editor), cada uno con su `cabecera`. En vez de tocar los tres, `PlegarChatCtx` (app/admin/operaciones/PanelChat.tsx): la
+pantalla de Create lo provee y `CabeceraDeChat` dibuja el botón a la derecha si existe. Fuera de Create es `null` y la
+cabecera queda igual (lo prueba el test dibujándola con y sin el contexto). Plegada, la tarjeta queda MONTADA con `hidden`
+(el hilo y lo escrito siguen). ⚠️ `.cr-tarjeta { display: flex }` le gana al `[hidden]` del navegador: sin
+`.cr-tarjeta[hidden] { display: none }` «plegada» no escondía nada. Se recuerda por tab (`mk-crear-plegada:<tab>`), con
+`useSyncExternalStore` como la sidebar; en el teléfono no se pliega (ya se ve una cosa por vez).
+
+## La guía de cada pestaña: el velo con huecos, y por qué no es el del recorrido (29/10/2026, claude3)
+
+El núcleo de docs/mako-iniciativa/guia.md (G1): lib/guia/ (tipos, reglas, huecos, la primera vez, el índice de catálogos),
+app/_ui/guia/ (el estado, `VeloGuia` montado una vez en app/layout.tsx, `useGuiaDeLaTab`, `ancla()`), app/_ui/useVisto.ts y el
+primer catálogo, app/second-brain/guia-ops-center.ts. Reemplaza al recorrido `sb-inicio` (recorrido-inicio.ts y su test, borrados).
+- **El velo del recorrido no servía para «con el chat a la vista».** `box-shadow 200vmax` da UN hueco: tapaba el chat. Y el de
+  `Senalar` se apagaba con la primera tecla, también la que se escribía en el chat. El nuevo es una máscara SVG con huecos (el
+  ancla y cada `[data-mako-chat]`) y `pointer-events: none`: el toque lo decide `queHacerConElToque` (en el ancla avanza, en el
+  chat nada, en otra parte de la tab pausa; el toque llega igual).
+- **Fuera de la pila de modales.** Registrado como capa, la estrella del Plan y de Clientes se subiría como sobre un modal y
+  `profundidadModales()` diría que hay uno. Va en el piso de los recorridos (400), debajo del toast y del «¿seguro?».
+- **El velo es `--scrim` (40%), no `--sidebar`**: en el tema candidato `true-north` `--sidebar` es claro y el velo aclararía. Y sin
+  `color-mix`: en Safari < 16.2 borra la capa entera.
+- **La pregunta es la frase de Martín**, «¿Quieres que te ayude a aprender a usar esta pestaña?», con [Sí, enséñame ★], los
+  objetivos y [Ya sé usarla]. Rompe `PREGUNTA_DE_ACCION` a propósito: la excepción es por su id (`guia:*`), con el porqué en
+  lib/aperturas/reglas.ts (decisión del Cerebro, docs/mako-iniciativa/README.md).
+- **La guía va primero** (la primera vez en la pestaña): mientras decide si pregunta (`esperando`), la escalera del Cerebro calla;
+  si no, la apertura salía y a los 1,2 s la pisaba la pregunta, y quedaba «vista» de hoy sin que nadie la leyera.
+- **El Ops Center del super admin no tiene guía ni «?»**: su hilo es el de Claude Code, donde MaKo no habla.
+- **SIN HACER:** G2 (lib/onboarding-arranque.ts → `rutaDelHilo` sigue poniendo `?recorrido=sb-inicio`: ya no abre nada, se
+  ignora); los catálogos de cada tab (G3 a G6: `SIN_GUIA_TODAVIA` de tests/guia-catalogo.test.ts es la lista, y sólo se achica);
+  la IA que señala (G4: `senalar_en_pantalla`, el prompt `mako.senalar`); el teléfono (G7); borrar `Recorrido.tsx` y `Senalar.tsx`
+  cuando nadie los use (G8: hasta entonces `useVisto` y `useRecorrido` leen lo mismo por dos caminos); mudar `DONDE` de
+  app/automations/recorrido-automations.ts a lib/guia/donde.ts (con la guía de Automations: cinco tests lo leen ahí). **Nada se vio
+  en el navegador**: falta el recorrido a 1440 y a 700 px con una persona nueva del ws3 (guia.md §6).

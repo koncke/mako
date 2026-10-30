@@ -140,7 +140,7 @@ export function usoPrincipal(cuotas: readonly { cuenta: string; cuota: Cuota | n
 export type CuentaDeUso = { cuenta: string; vistoAt: string | null; cuota: Cuota | null };
 
 /**
- * LAS CUATRO CUENTAS, SIEMPRE, en orden (17/10/2026, Martín: «Tampoco sale el uso de las otras 2 cuentas»). La lista del
+ * TODAS LAS CUENTAS (hoy cinco), SIEMPRE, en orden (17/10/2026, Martín: «Tampoco sale el uso de las otras 2 cuentas»). La lista del
  * Uso salía de los carteros, o sea de las cuentas con un Runner declarado: una cuenta sin Runner no aparecía, y parecía
  * que no existía. Ahora se parte del registro de cuentas (app/admin/dev/_registro/tipos.ts → CUENTAS) y a cada una se le
  * pone su Runner si lo tiene; la que no, queda `vistoAt: null, cuota: null` («Sin Runner todavía»). Un Runner de una

@@ -99,7 +99,9 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.ok(AVISO_SIN_IA.length <= 100, AVISO_SIN_IA);
   // Nombra las IA que puede conectar (su Claude, su GPT, su Gemini: el Cerebro, 22/10/2026), nunca «la gratis».
   assert.doesNotMatch(AVISO_SIN_IA, /api|key|gratis|groq|proveedor|vos|tenés|conectá/i);
-  assert.match(AVISO_SIN_IA, /conecta tu Claude, tu GPT o tu Gemini/);
+  // Sin Gemini desde el 25/10/2026 (Martín: «todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT»).
+  assert.match(AVISO_SIN_IA, /conecta tu Claude o tu GPT/);
+  assert.doesNotMatch(AVISO_SIN_IA, /gemini/i);
   assert.equal(SERVICIO_IA, 'anthropic', 'el modal de su Claude, el mismo que manda WhatsApp (`linkKeysIA`; IA9: antes, Gemini)');
   assert.equal(servicioDeLink(`/integraciones?abrir=${SERVICIO_IA}`), SERVICIO_IA, 'es un modal que se abre suelto en cualquier tab');
   assert.equal(botonConectar(SERVICIO_IA), 'Conectar tu IA');
@@ -162,7 +164,8 @@ test('la grilla: «Conectada» sólo si MaKo la puede usar como del negocio; una
   assert.match(src, /ws === wsSA\) return null/, 'la plataforma usa las suyas');
   // Y el modal lo dice: el campo se ve lleno y no es suyo.
   // Rota: el `alerta` del modal sin la copia → este test falla.
-  assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \? i\.detalle : null;/);
+  // 26/10/2026: y si no, el texto de una tarjeta que no se conecta (Loom «Sin API», lib/grabadores) — nunca «Falta configurar».
+  assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \? i\.detalle : i\.sinConexion\?\.texto \?\? null;/);
 });
 
 test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resuelve el equipo (la baranda)', () => {
@@ -192,8 +195,8 @@ test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resu
   assert.match(integ, /\.\.\.\(v === 'equipo' \? \{ soloServidor: true \} : \{\}\)/, 'sin el formulario del modal');
   const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
   assert.match(board, /const mostrarForm = i\.soloServidor === false;/);
-  assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
-  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO;/, 'no es un pendiente suyo');
+  assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && !i\.sinConexion && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
+  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \|\| !!i\.sinConexion( \|\||;)/, 'no es un pendiente suyo');
 });
 
 test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, lecturas, guardar y la migración', () => {

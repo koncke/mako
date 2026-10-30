@@ -38,17 +38,25 @@ function recibeYa(s: SesionDeChat, carteros: readonly CarteroP[], ahora: number)
   return abierta && !s.viejo && !s.sinRunner && carteroVivo(carteros.find((k) => k.cuenta === s.cuenta), ahora);
 }
 
-/** La sesión que elige «Automático»: primero la que recibe ya; entre ésas, la de más cuota libre (lo que no se sabe va
- *  después de lo que se sabe); y a igualdad, la que se movió último. null = el chat no tiene ninguna sesión. */
+/**
+ * La sesión que elige «Automático»: primero la que recibe ya; si ninguna, una ABIERTA antes que una cerrada; entre ésas, la
+ * de más cuota libre (lo que no se sabe va después de lo que se sabe); y a igualdad, la que se movió último. null = el chat
+ * no tiene ninguna sesión.
+ * ⚠️ «ABIERTA ANTES QUE CERRADA» (25/10/2026). Sin ese escalón, con ninguna sesión lista (la del Cerebro nuevo de la cuenta 5
+ *    todavía sin Runner en su carpeta) desempataba la cuota libre, y la sesión CERRADA de la cuenta 2, con más cuota, le ganaba:
+ *    los seis pedidos de Martín de ese día fueron a parar a un Cerebro cerrado. Mismo orden que `pesoSesion` (centro-chats.ts).
+ */
 export function sesionAutomatica(c: Pick<ChatCentro, 'sesiones'>, carteros: readonly CarteroP[], ahora: number): SesionDeChat | null {
   const cuota = (cuenta: string | null) => carteros.find((k) => k.cuenta === cuenta)?.cuota ?? null;
-  const puntaje = (s: SesionDeChat) => [recibeYa(s, carteros, ahora) ? 1 : 0, libreDe(cuota(s.cuenta), ahora) ?? -1, s.actividad ?? 0];
+  const abierta = (s: SesionDeChat) => s.estado === 'abierto' || s.estado === 'trabajando';
+  const puntaje = (s: SesionDeChat) => [recibeYa(s, carteros, ahora) ? 1 : 0, abierta(s) ? 1 : 0, libreDe(cuota(s.cuenta), ahora) ?? -1, s.actividad ?? 0];
   let mejor: SesionDeChat | null = null;
   let pMejor: number[] = [];
   for (const s of c.sesiones) {
     const p = puntaje(s);
-    const gana = !mejor || p[0] > pMejor[0] || (p[0] === pMejor[0] && (p[1] > pMejor[1] || (p[1] === pMejor[1] && p[2] > pMejor[2])));
-    if (gana) { mejor = s; pMejor = p; }
+    // Gana el primer escalón en que difieren (recibe ya, abierta, cuota, lo último que se movió).
+    const i = p.findIndex((v, n) => v !== pMejor[n]);
+    if (!mejor || (i >= 0 && p[i] > pMejor[i])) { mejor = s; pMejor = p; }
   }
   return mejor;
 }

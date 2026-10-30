@@ -97,12 +97,12 @@ test('las siete nuevas: su ruta del teléfono, la de escritorio, la key que las 
     ['second-brain', '/m/second-brain', '/second-brain', 'second-brain', null],
     ['experimentos', '/m/experimentos', '/experimentos', 'experimentos', null],
     ['offer', '/m/offer', '/offer', 'offer', 'marketing'],
-    // La tab unificada Copywriting abre su sección Ads Writer, y es esa key la que gatea (requireRolWs de /ads-writer).
-    ['copywriting', '/m/copywriting', '/ads-writer', 'ads-writer', 'create'],
+    // Copywriting ES el Copywriter desde el 29/10/2026 (una pantalla, sin tabs internas): su key es la de la pantalla.
+    ['copywriting', '/m/copywriter', '/copywriter', 'copywriter', 'create'],
     // Desde el 17/10/2026 la URL de escritorio es la de la tab Clients (docs/diseno-clients.md).
     // Classroom y Community son sub-tabs de Clients desde el 17/10/2026: filas ocultas (sus pantallas siguen).
-    ['curso', '/m/curso', '/clients/classroom', 'cs-curso', null],
-    ['comunidad', '/m/comunidad', '/clients/community', 'cs-comunidad', null],
+    ['curso', '/m/curso', '/classroom', 'cs-curso', null],
+    ['comunidad', '/m/comunidad', '/classroom/community', 'cs-comunidad', null],
   ]);
 });
 
@@ -117,10 +117,9 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
     assert.equal(familia, fila.familia, `${s.id}: en More va en «${familia}» y en la sidebar en «${fila.familia}»`);
     // Clients: en el teléfono cada sección es su fila, con el nombre y el ícono de la sección.
     const deLaSidebar = fila.item.key === 'clients' && fila.seccion ? fila.seccion : fila.item;
-    // Salvo las hojas del Dashboard (17/10/2026 noche): el nombre «Dashboard» lo lleva el lugar del medio de la barra, y su
-    // fila de More dice «Dashboard sheets» para no repetirlo; la PANTALLA se sigue titulando Dashboard (`titulo`).
-    const rotulo = s.id === 'dashboard' ? s.titulo : s.label;
-    assert.equal(rotulo, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
+    // (Las hojas del Dashboard dijeron «Dashboard sheets» del 17 al 24/10/2026; desde que hay UN solo Dashboard en More, la
+    // fila que sale dice lo que dice la sidebar, como todas.)
+    assert.equal(s.label, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
     assert.equal(s.icon, deLaSidebar.icon, `${s.id}: el ícono no es el de la sidebar`);
     if (s.familia === null) continue;
     assert.ok(fila.orden > anterior, `${s.id}: fuera del orden de la sidebar`);
@@ -166,7 +165,8 @@ test('quién ve qué en More: rol × capa, con la regla de la sidebar (puedeVerK
     ['Sales', ['calendario', 'automations', 'cs']],
     ['Marketing', ['offer', 'landing', 'ads']],
     // Image (la copia de Canva) entró el 17/10/2026, debajo de Video, como en la sidebar (tests/m-creacion.test.ts).
-    ['Create', ['video', 'image', 'copywriting']],
+    // AI Avatar, de Pro desde el 29/10/2026: fila de Create, debajo de Copywriting, como en la sidebar.
+    ['Create', ['video', 'image', 'copywriting', 'ai-avatar']],
   ]);
   // El admin de la capa pm no ve CRM ni Chats: suben las dos primeras de More que ve, en el orden de la sidebar (desde el
   // 20/10/2026 el Ops Center es el lugar del medio y el Dashboard dejó la barra, así que suben sus hojas y Calendar).
@@ -181,7 +181,7 @@ test('el teléfono deja entrar donde deja entrar la página de escritorio (mismo
   // Las cinco que en escritorio son `requireRolWs([], { nav })`: sólo admin, y la capa de ESA key.
   const conRol: Partial<Record<IdSeccionMas, string>> = {
     calendario: 'app/calendario/page.tsx', 'second-brain': 'app/second-brain/page.tsx',
-    experimentos: 'app/experimentos/page.tsx', offer: 'app/offer/page.tsx', copywriting: 'app/ads-writer/page.tsx',
+    experimentos: 'app/experimentos/page.tsx', offer: 'app/offer/page.tsx', copywriting: 'app/copywriter/page.tsx',
   };
   for (const [id, archivo] of Object.entries(conRol) as [IdSeccionMas, string][]) {
     const s = seccion(id);
@@ -210,7 +210,7 @@ test('la ida y vuelta de cada sección, con su query, aunque su página todavía
     'second-brain': ['area', 'vista'],
     experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'],
     offer: ['oferta', 'funnel', 'sesion'],
-    copywriting: ['tab'],
+    copywriting: ['nuevo'],
     // La API de MaKo (17/10/2026): docs · tokens · registro, en los dos lados.
     'api-mako': ['tab'],
     curso: ['producto'],
@@ -246,12 +246,10 @@ test('la cabecera de cada sección vuelve a More, con el nombre de la pantalla; 
     assert.equal(nivel(s.href), 1, s.href);
     assert.equal(tituloDe(s.href), `MaKo - ${tituloSeccion(s)}`, s.href);
   }
-  // Copywriting: la fila dice «Copywriting» (la sidebar) y la pantalla «Ads Writer» (lo que abre, como
-  // la pestaña de /ads-writer en la computadora); su subpantalla vuelve a «Ads Writer».
+  // Copywriting: desde el 29/10/2026 la fila abre el Copywriter, y la pantalla se llama como la fila; una página vuelve a él.
   assert.equal(seccion('copywriting').label, 'Copywriting');
-  assert.equal(cabeceraPorRuta('/m/copywriting').titulo, 'Ads Writer');
-  assert.equal(tituloDe('/ads-writer'), tituloDe('/m/copywriting'), 'la pestaña dice lo mismo en los dos lados');
-  assert.deepEqual(cabeceraPorRuta('/m/copywriting/guion-1').padre, { href: '/m/copywriting', label: 'Ads Writer' });
+  assert.equal(cabeceraPorRuta('/m/copywriter').titulo, 'Copywriting');
+  assert.deepEqual(cabeceraPorRuta('/m/copywriter/gabc12345').padre, { href: '/m/copywriter', label: 'Copywriting' });
   // Los nombres en inglés desde el 17/10/2026 (Course, Community, Calendar), como en la sidebar.
   assert.deepEqual(cabeceraPorRuta('/m/curso/7').padre, { href: '/m/curso', label: 'Classroom' });
   // Curso y Comunidad no son Clientes: el prefijo va con barra.

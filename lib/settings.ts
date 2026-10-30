@@ -9,6 +9,7 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, WS_NINGUNO, wsObligatorio } from './workspace';
 import { upsertRouting } from './webhook-routing';
+import { cabeEnLaUrl, despuesDe } from './settings-cas';
 
 // app_settings es per-workspace (PK compuesta workspace_id+key). Scopeamos
 // explícito. Un cron o un webhook SIN cookie sigue resolviendo al ws1 (lo decide el resolver,
@@ -61,10 +62,15 @@ export async function getSettingEstricto(key: string): Promise<string | null> {
  * Es atómico en la base: de dos requests que compiten por el mismo cambio, gana UNA. Existe
  * porque dos clics a la vez en «Conectar por QR» abrían dos líneas de WhatsApp y el QR de una
  * quedaba huérfano (lib/mako-canal.ts, `rotarCanal`).
+ *
+ * Con un `esperado` largo (más de ~6 KB en la URL, lib/settings-cas.ts) no se compara el valor en el filtro: se lee la fila,
+ * se compara acá y se escribe con la condición en `updated_at`. Sigue siendo atómico: toda escritura de app_settings marca
+ * `updated_at`, así que si otro escribió entre la lectura y la escritura, ésta no encuentra la fila y pierde.
  */
 export async function cambiarSettingSi(key: string, esperado: string | null, nuevo: string): Promise<boolean> {
   const supabase = getSupabaseServer();
   const ws = await wsObligatorio();
+  if (!cabeEnLaUrl(esperado)) return cambiarSettingSiPorFecha(ws, key, esperado as string, nuevo);
   const ahora = new Date().toISOString();
   if (esperado === null) {
     const { data, error } = await supabase
@@ -82,6 +88,22 @@ export async function cambiarSettingSi(key: string, esperado: string | null, nue
     .eq('value', esperado)
     .select('key');
   if (error) throw new Error(`Error guardando setting ${key}: ${error.message}`);
+  return (data?.length ?? 0) > 0;
+}
+
+/** El compare-and-set de un valor largo: compara en el server y filtra por `updated_at` (ver `cambiarSettingSi`). */
+async function cambiarSettingSiPorFecha(ws: number, key: string, esperado: string, nuevo: string): Promise<boolean> {
+  const supabase = getSupabaseServer();
+  const { data: fila, error } = await supabase
+    .from('app_settings').select('value, updated_at').eq('workspace_id', ws).eq('key', key).maybeSingle();
+  if (error) throw new Error(`Error leyendo setting ${key}: ${error.message}`);
+  const leida = fila as { value: unknown; updated_at: string | null } | null;
+  if (!leida || leida.value !== esperado) return false;
+  const base = supabase.from('app_settings').update({ value: nuevo, updated_at: despuesDe(leida.updated_at) })
+    .eq('workspace_id', ws).eq('key', key);
+  const { data, error: e2 } = await (leida.updated_at == null ? base.is('updated_at', null) : base.eq('updated_at', leida.updated_at))
+    .select('key');
+  if (e2) throw new Error(`Error guardando setting ${key}: ${e2.message}`);
   return (data?.length ?? 0) > 0;
 }
 

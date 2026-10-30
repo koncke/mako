@@ -42,6 +42,49 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Medir qué sección se ve: `display: contents` no tiene caja, y cuatro trampas para un evento nuevo (25/10/2026)
+
+**Vive en:** `lib/landing-token.ts` (el Pixel), `lib/editor-landing/render.ts`, `lib/leads.ts`, `lib/vsl-retencion.ts`.
+
+- **Hoy no se puede saber que «la sección 4 no la ve nadie».** El scroll registra hitos de la PÁGINA (25/50/75/100) y
+  `alcancePorSeccion` vuelve null a propósito, aunque la pantalla de Análisis ya lo dibuja.
+- **El selector obvio no ve nada en las landings de MaKo.** Las secciones de «Diseño editable» salen como
+  `div.gm-libre-seccion[data-seccion]` con `display: contents`: no tienen caja y un IntersectionObserver nunca las ve en pantalla.
+  Se observan sus HIJOS. Y una sección más alta que dos pantallas nunca llega a «la mitad en pantalla»: se cuenta con la mitad
+  del elemento o la mitad de la pantalla, lo menor.
+- **El techo de eventos.** `getTrackingEvents` (la ficha del lead) hace `.limit(120)` en la base ANTES de filtrar en JS: un
+  evento por sección le borraría a la ficha los clics y los plays. Va un evento ACUMULADO, fuera de esa lista.
+- **`prueba` del Pixel NO es una variante A/B**: es la marca `?mko_test` del probador y todas las lecturas descartan esas filas.
+  Guardar ahí un A/B borraría su tráfico. Por eso la dimensión «Variante» del Dashboard queda siempre vacía.
+- **`video_variant` (el A/B de Panda) es una copia de `video_id`** y nadie lo lee.
+- **`ES_EVENTO_DE_VIDEO` es `^(play|pausa|retoma|fin|exit|p\d+|s\d+)$`**: un evento nuevo nunca se puede llamar `s<número>`.
+- **El muestreo de grabaciones es 100 por defecto**: el mapa de calor de una rama B no sale vacío (los clics vienen de
+  `vsl_events`); lo que sale de una grabación es sólo la foto de fondo.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
+## Cómo venden con landing los productos parecidos a MaKo, y la trampa del voseo (25/10/2026)
+
+**Vive en:** [como-venden-otros.md](como-venden-otros.md) (80 productos con landing, precios y frases verificados el 25/10, y
+la propuesta para la landing y los planes) · memoria `decisiones-venta-25-10`.
+
+- **Pedido de Martín:** «investigues al 100% como lo venden otros... tipo landing page, no saas super consolidados». Los SaaS
+  grandes van marcados como contraste.
+- **Lo que más se repite:**
+  - vender un EQUIPO (el media buyer, el setter, el diseñador) y compararlo con lo que cuesta contratarlo;
+  - la pila de herramientas que se reemplaza, con la cuenta hecha;
+  - el control (límites, aprobar, deshacer) en todo lo que toca plata.
+- **Los huecos que MaKo puede ocupar:**
+  - nadie vende un media buyer en español para pymes de LATAM por menos de US$100;
+  - ninguno decide por llamadas agendadas del CRM;
+  - nadie usa «tu IA, al costo» como argumento;
+  - nadie cobra la suscripción con Mercado Pago.
+- **La trampa:** los titulares de la investigación vienen en voseo, y la interfaz va en español NEUTRO, con tú: «El producto se
+  usa en México» (`tests/puente-panel-copy.test.ts`). Hay que traducirlos antes de ponerlos. El Cerebro mismo lo pidió mal en
+  el primer mensaje a Landings, y lo corrigió.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## La landing y el sistema de diseño
 
 ### ⚠️ La landing no comparte NI UN token con la app: un rebrand no la toca
@@ -567,6 +610,58 @@ no puedan contradecirse.
 `ganaConLaNueva`) · `app/api/track/vsl/route.ts` (`CONOCIDOS`) · `lib/leads.ts`
 (`getTrackingEvents`) · `app/crm/lead-view/TrackingTimelineCard.tsx` ·
 `tests/landing-snippet-emitido.test.ts`
+
+### Qué sección se ve (snippet v26, 25/10/2026): el primer paso del Landing AI
+
+Martín, 25/10: «al detectar si una sección no es vista que haga variaciones». Diseño: docs/diseno-pruebas-ab.md, L1. Donde
+el diseño y la crítica chocan, manda la crítica (Anexo 2 §C). El Pixel v26 manda UN evento acumulado, `secciones`, con los
+ids de las secciones vistas en `detalle`. `alcancePorSeccion` (la pantalla «Análisis», `ver_analitica_landing` y el Landing
+Analyst) sale de ahí: lib/editor-landing/alcance-secciones.ts.
+
+- **Una sección de «Diseño editable» no tiene caja.** Va en `.gm-libre-seccion` con `display: contents`: un observador de
+  esa `div` nunca la ve en pantalla. Se mide la unión de sus HIJOS. Las 9 landings publicadas del ws9 son todas de ese tipo
+  (9 secciones cada una), así que sin esto no se medía ninguna.
+- **«La mitad de la sección» sola no cuenta nunca una sección más alta que dos pantallas.** Vista = la mitad de la sección O
+  de la pantalla, lo que sea menor, durante 1 s (el segundo se confirma con otra mirada al cumplirse).
+- **Un evento por sección rompía el techo.** Eran hasta 30 por visita, cuando el techo era scroll (4 + cierre) y clics (40).
+  Es UNO acumulado, que sale en los hitos del scroll y al irse, sólo con ids nuevos: 8 por visita como mucho.
+- **`getTrackingEvents` corta con `.limit` en la BASE, antes de filtrar en JS.** Con sólo no dejarlo pasar en el filtro, cada
+  fila de `secciones` le quitaba lugar a un clic o a un play de la ficha del lead. Se saca en la consulta, con
+  `.or('tipo_evento.is.null,tipo_evento.neq.secciones')`: un `neq` solo también tira las filas viejas sin tipo (NULL).
+- **La cuenta se hace desde el primer evento `secciones`, y por página.** Con la ventana de 30 días sola, los visitantes de
+  antes de la v26 entraban al denominador sin haber podido mandar nada, y el alcance salía bajo sin serlo. Una sección de
+  «precios» se divide por quien entró a «precios». Sin eventos, null («No medido»), nunca 0.
+- **⚠️ El diagnóstico obvio era el equivocado: la FOTO publicada no tiene el documento, tiene el HTML.** `publicado.paginas[]`
+  guarda `{ html, ruta, titulo }` ya dibujado. Recorrerla como `doc.content` daba 0 secciones en las 9 landings, sin un
+  error. Las secciones y sus títulos salen de ese HTML (`section.gm-tarjeta#t-<id>` y `div.gm-libre-seccion[data-seccion]`,
+  con la clase exigida: un `data-seccion` adentro de un diseño no es una sección).
+- **Trampas del snippet:**
+  - **Una comilla invertida en un COMENTARIO del snippet cierra el template literal.** El test que lee el texto emitido
+    siguió pasando: recortaba hasta donde podía. Sólo lo vio pixel-cargador, que compila el Pixel. La regla YA estaba en
+    AGENTS.md («adentro de un template literal no va NINGÚN backtick») y se rompió igual escribiendo un comentario: un test
+    exige ahora que el bloque no tenga ninguna. Una regla escrita sin guarda no frena a nadie.
+  - El primer `addEventListener('scroll'` del snippet es el que mira el test del scroll: un bloque nuevo va DESPUÉS.
+- **Cómo se probó sin tocar producción.** Chrome sin ventana sobre el HTML que sirve hola-mako.site para la #32 y sobre una
+  página de bloques dibujada por `htmlDePagina` (lo mismo que guarda «Publicar»):
+  - **pausado:** 9 de 9 y 5 de 5, con la sección de tres pantallas incluida;
+  - **rápido:** las que pasaron en menos de 1 s no cuentan.
+  - Dos trampas del arnés:
+    - la página publicada trae una **CSP con hashes** que sólo deja correr sus scripts y los de hola-mako.com: el Pixel de
+      la rama no corre hasta sacarla en la copia local;
+    - con `keepalive`, `Fetch.requestPaused` de CDP **no entrega el cuerpo del POST**: el beacon se captura envolviendo
+      `fetch` en la página.
+
+Lo que quedó SIN hacer:
+- **La aceptación con datos de producción** («Análisis» de la #32 con su % por sección, y un evento real en `vsl_events`):
+  cuando despliegue. Hoy no hay ninguna página de BLOQUES publicada en el ws9, ni landings publicadas de otros negocios.
+- Las mismas 8 landings se sirven también en hola-mako.com/vsl/<slug> (ISR). Esos eventos no entran a `urlsAMedir`, que sólo
+  mira hola-mako.site.
+- Un dominio propio todavía no se resuelve en el Landing Analyst (`alcanceDeLandingPorUrl` busca por slug en hola-mako.site).
+- Los clics por sección (el `sel` corta en el primer id que encuentra) y la profundidad del video atribuida por página: L3.
+
+**Vive en:** `lib/landing-token.ts` (bloque SECCIONES, v26) · `app/api/track/vsl/route.ts` (`CONOCIDOS`) · `lib/leads.ts`
+(`getTrackingEvents`) · `lib/editor-landing/alcance-secciones.ts` · `lib/editor-landing/server.ts` (`analitica`,
+`alcanceDeLanding`) · `lib/landing-analyst.ts` · `tests/alcance-secciones.test.ts` · `tests/landing-snippet-emitido.test.ts`
 
 ## Retención del VSL
 
@@ -4456,3 +4551,195 @@ la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la au
   la página a cada link `[data-stripe]`.
 - **Sin medir:** quién abrió cada uno de los 12 checkouts (Stripe no guarda el origen; el del 18/10 03:45 UTC es casi
   seguro una prueba de Martín: salió 3 minutos después de mandarle el link).
+
+## Los datos de una persona en las URL que guarda el Pixel (24/10/2026, P6)
+
+**Síntoma:** la página de gracias de Calendly trae `?name=…&email=…` y el Pixel manda la URL de cada página vista: la
+guardábamos ENTERA. Medido (sólo lectura, sin imprimir datos): **487 filas de `vsl_events.landing_url`, 112 de
+`landing_visits.landing_url` y 66 de `landing_visits.referrer`**, de Código Inmobiliario (ws 13, ~75 personas, del 21/08
+al 24/10) y P2P Consulting (ws 14, 3 personas). `replay_sesiones.landing_url` y `vsl_events.detalle`: ninguna (todavía).
+Que el Pixel le pase esos datos a Meta (CAPI) no es el problema: van hasheados y lo hace el navegador.
+
+**Vive en:** `lib/url-datos-personales.ts` (la regla, pura) · `app/api/track/vsl/route.ts` (`urlGuardable`: landing_url,
+la visita, el referrer y el detalle) · `optin/route.ts` · `replay/route.ts` · `normalizarUrl` (lib/landing-paginas.ts) ·
+`scripts/limpiar-datos-personales-urls.mts` (lo ya guardado: cuenta por defecto; `--aplicar` con el OK del Cerebro).
+
+- **La regla:** un parámetro se va si su NOMBRE es de un dato personal o si su NOMBRE o su VALOR traen un email; todo
+  lo demás queda BYTE POR BYTE (una URL sin datos sale idéntica, así nada que compare URLs cambia). ⚠️ **NO por «parece un
+  teléfono»:** en la primera medición, 84 mil filas «tenían teléfonos» y eran los ids de campaña de Meta (`utm_id=1202…`).
+  Un nombre de teléfono (o `doc`, `rut`) es personal sólo si el valor trae 6 dígitos o más (`tel=1` no).
+- **El diagnóstico se quedaba corto (lo encontró la revisión adversarial):** no era sólo `landing_url`. El **referrer** de
+  la página que sigue a /gracias trae la misma query (66 filas), y el **detalle** de un clic es el link entero (un
+  checkout prellenado con nombre y email). Y los nombres no eran sólo `name`/`email`: Calendly prellenado manda las
+  respuestas como `a1…a10`, Hotmart `doc`/`phonenumber`, CF7 `your-name`, en portugués `nome`/`cpf`; claves con corchetes
+  (`data[phone]`), `&amp;`, `;`, un `?` repetido, una URL adentro de otra (`next=…%3Fname%3D…`), un router con `#/ruta?…`,
+  el email como clave o doblemente codificado. Todo entra en `tests/url-datos-personales.test.ts`.
+- **`normalizarUrl` limpia la URL cruda ANTES de parsear:** con un `?` repetido, el dato queda adentro de un valor que
+  `URLSearchParams` no abre.
+- **No rompe:** gracias → Ganado compara por la ruta (`paginaDeGracias`); el probador usa el campo `prueba`; la clave del
+  Pixel por página es host + ruta; nadie lee `email`/`name` de esas URL (grep).
+- **Quién lee la query de lo guardado, y con qué se une la visita al lead** (lo preguntó el Cerebro antes de pedirle a
+  Martín la limpieza; revisado el 24/10 noche, y el Cerebro llegó a lo mismo por su lado): **nadie usa el nombre ni el
+  email de la URL para unir.** La visita se une al lead por el `visitor_id`: llega como `utm_term` en la agenda de
+  Calendly (el webhook lo guarda en `leads.visitor_id`) o por `?l=` (el `meta_lead_id` del link de WhatsApp,
+  app/api/track/vsl/route.ts, «Camino 1»). Los dos parámetros quedan (`utm_term` y `l` no son de una persona). La
+  atribución lee sólo `utm_*` y `fbclid` (lib/atribucion-url.ts, `origenDe` en lib/origen-cuenta.ts, el `ORIGEN` del
+  Pixel); el opt-in identifica por sus campos `email`/`telefono`, no por la URL; el «agendó» viene del webhook de
+  Calendly (con el email del payload) y de la RUTA de /gracias; la CAPI del server no manda `event_source_url` (ningún
+  llamador lo pasa). ⚠️ Si un día se une por el email de la URL, esa unión pierde el dato: que use el `visitor_id`.
+
+Lo que quedó SIN hacer:
+- **La limpieza de lo ya guardado**, escrita y sin correr: Martín la aprobó el 24/10 («sin borrar las visitas») y la
+  corre el Cerebro cuando el saneo al guardar esté en producción (antes, las visitas nuevas seguirían guardando los
+  datos). Saca sólo esos parámetros; no borra filas (la visita a /gracias es la prueba del agendado).
+- El opt-in guarda la página CRUDA en la propuesta del lead (`propuestas.datos.pagina`, app/api/track/optin/route.ts):
+  son los datos de la MISMA persona en su propia ficha, no en una tabla de eventos; se dejó así.
+- **La grabación lleva la URL adentro del lote** (`replay_lotes.cuerpo`: el evento Meta de rrweb con `href`, y los `<a>` de
+  las fotos del DOM): llega comprimida y no se puede sanear en el server; va en el envoltorio de `public/replay/2/r.js`.
+- `leads.pagina_registro` viejos y los settings (`landing.paginas`…) se re-normalizan al leerse, pero lo guardado sigue
+  crudo hasta la próxima escritura. Un email en el PATH (`/gracias/ana@x.com`) no se cubre.
+- Falsos positivos aceptados: `?name=marketing-avanzado` (Calendly usa `name` para la persona) y una UTM con un `@`
+  (`utm_campaign=Promo@Black.Friday`).
+
+## Otros alojadores de video: lo que mide el Pixel en cada uno, medido con un video real (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro): «Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate
+de que funcionen bien». Lo medí con un video REAL de cada alojador (los de su propia documentación), en Chrome sin ventana,
+haciendo clic para reproducir y clic para pausar. Se repite con `scripts/pixel-alojadores-real.mts`.
+
+| Alojador | Antes (v26) | Con la v27 |
+|---|---|---|
+| Panda, Vimeo, Wistia | play, avance y pausa | igual |
+| YouTube como lo da YouTube (`/embed/ID?si=…`) | play, avance y pausa | igual |
+| YouTube con `enablejsapi=1` en una página SIN la API de YouTube | **nada** | play, avance y pausa |
+| Bunny Stream | **nada** | play, avance y pausa |
+| Cloudflare Stream (`customer-…/<uid>/iframe` e `iframe.videodelivery…/<uid>`) | **nada** | play, avance y pausa |
+
+**Lo que no era obvio:**
+- **Bunny habla player.js y NO manda nada sin suscripción.** Al cargar avisa `ready` (como texto JSON), y recién al
+  pedirle `addEventListener` (también como texto JSON) manda `play`, `pause`, `ended` y `timeupdate` con segundos y
+  duración. Un Bunny que cargó antes que el Pixel ya avisó su `ready` a nadie: se lo suscribe al arrancar.
+- **Cloudflare manda TODO sin que se lo pidan**, como objeto (`__privateUnstableMessageType`: `event` y `propertyChange`).
+  Su librería oficial sólo escucha: no hay a qué suscribirse. Lo leí en su SDK y lo confirmé con el video.
+- **El YouTube que ya trae `enablejsapi=1` no medía nada.** El Pixel sólo lo escuchaba, para no romperle la API propia
+  a la página, pero ese iframe no habla si nadie le pide. Ahora: si a los 6 s nadie le habló y en la página no hay API de
+  YouTube (`window.YT` ni su script), se le pide. Si después aparece una, `ytCeder` se lo devuelve.
+- **El mismo video en dos iframes comparte su estado** (el Pixel lleva el estado POR VIDEO): el segundo play sale como
+  «retoma». Pasa con dos copias del mismo VSL en una página; en una prueba, usar videos distintos.
+- **Una prueba que sólo mira los eventos después del clic «pierde» el play de Panda**, porque arranca solo al cargar (sale
+  con `auto: true`). Hay que mirar todo lo del video desde que cargó la página.
+- **El dominio no se escribe entero en el snippet** (`mediadelivery\\.net` con la barra): el analizador de piezas busca
+  los dominios en el texto de la página, y el snippet se delataría a sí mismo. Lo cuida tests/landing-snippet-emitido.test.ts.
+- **El id que arma el Pixel y el que arma el analizador tienen que ser el mismo** (`bunny:<guid>`, `cfs:<uid>`), si no el
+  mismo video sale dos veces en la pantalla que los nombra. tests/alojadores-video-pixel.test.ts corre la función del
+  snippet sobre las mismas URLs que el analizador.
+
+**La duración de cada video, sin la API de Panda (tanda 2, el mismo día).** Hasta acá salía SÓLO de Panda
+(`getDuracionesVsl`, lib/leads.ts), así que los segundos de un video de cualquier otro alojador no se volvían porcentaje ni
+en la ficha del lead ni en «Cuánto ven el video». Cada evento con porcentaje trae los segundos: duración = segundos × 100 /
+porcentaje (`duracionesDeEventos`, lib/vsl-retencion.ts). Con los eventos reales del video de Cloudflare da 29,8 s, y su
+reproductor dice 30. Sólo con porcentaje desde 25, porque el redondeo a entero en un 5 % es un 10 % de error. Se toma la
+mediana y no el promedio: una posición rara no la corre.
+- **La trampa que habría pasado callada: «la única duración conocida».** Los hitos `sNN` de Panda llegan sin porcentaje y,
+  con un solo video en juego, se les presta la única duración conocida. Esa regla contaba TODAS las duraciones:
+  agregando las de otros alojadores, una página con un solo VSL de Panda y un video de YouTube en otra página se quedaba
+  sin respaldo, y su retención volvía a «—». **Regla:** «la única» es la única DE PANDA (un id sin alojador), en los dos
+  resolvedores (lib/leads.ts y lib/graficos-datos-extra.ts, que es una copia).
+
+**El catálogo de cada alojador (tanda 3, el mismo día).** Lo que da la API de cada uno, leído en su documentación, decide
+qué se puede prometer: **las estadísticas por día de Vimeo son sólo de Enterprise** (se piden a soporte); Cloudflare da
+MINUTOS vistos (GraphQL), no reproducciones; Wistia y Bunny dan reproducciones y tiempo por día. Lo que TODOS dan es el
+catálogo: título, reproductor, portada y duración (lib/alojadores-video.ts, puro, y lib/alojadores-video-api.ts con la
+clave). Por eso lo parejo por persona es el Pixel, y el catálogo sirve para nombrar y elegir videos
+(`videosDetectados` y `listar_videos_alojados`). **Las formas están probadas contra la documentación, no contra una
+cuenta de verdad:** hace falta la clave de una cuenta real de cada alojador.
+
+**Elegir un video del catálogo en el editor (tanda 4).** El panel «Insertar» (y el control «Video» de una sección de
+diseño) muestra «Tus videos», los de todos los alojadores conectados. Un clic inserta su reproductor, y sólo si
+`embedDe` lo sabe insertar. Lo pide a la ruta del editor (`videosAlojados` en /api/landing-generator/imagenes), con la
+misma puerta y con el negocio explícito (`runWithWorkspace`). Sin alojadores conectados no se dibuja nada, y la agenda de
+un diseño no ofrece videos. No se pudo ver con clics acá: hay que mirarlo cuando despliegue.
+
+Las tarjetas de Integraciones para cada clave quedaron hechas (docs/hallazgos-integraciones.md → «Vimeo, Wistia, Bunny
+Stream y Cloudflare Stream como integraciones»).
+
+**Los números por día de Wistia y Bunny (tanda 6, decidido por el Cerebro).** El cron `app/api/cron/videos-daily` escribe
+una fila por día con la forma de Panda (`video_*`). Lo leen el funnel, la serie del VSL, sus fuentes y el Dashboard, que
+pasaron de «sólo Panda» a todas las plataformas de video (`PLATAFORMAS_VIDEO`, lib/types.ts).
+- **Sólo el VSL que el negocio marcó, no toda la cuenta.** Panda escribe sólo los ids que se le configuraron. Leer todos los
+  videos de Wistia o Bunny habría metido las clases de un curso en el paso «vio el VSL» del funnel. Sin VSL de ese
+  alojador, el negocio se omite: no es un error.
+- **Bunny no dice en qué unidad viene su tiempo visto** («total watch time»). Se guarda crudo en `raw_payload` y el tiempo
+  medio queda en null, en vez de inventar segundos o minutos. Wistia sí: horas vistas sobre reproducciones.
+- **La base no los aceptaba:** el CHECK de `marketing_metrics_daily.plataforma` sólo admitía meta, youtube y panda.
+  La migración es la 0336 (`supabase/migrations/0336_alojadores_video_plataforma.sql`, número del Cerebro), APLICADA en
+  producción el 25/10/2026 19:27 con el sí de Martín. Antes de aplicarla, el insert rebotaba y el cron lo decía en su respuesta.
+- Los tests del funnel, /general, los gráficos y los crons pasan con las lecturas nuevas.
+
+Lo que quedó SIN hacer: probar el catálogo, los pings y los números con una cuenta real de cada alojador (cuando Martín
+conecte una); aplicar la migración; mirar con clics «Tus videos» del editor cuando despliegue.
+
+## La compra desde la página de gracias: un Purchase sin valor TAPA al del servidor (27/10/2026, Pixel v28, MAU-10)
+
+**Vive en:** `lib/landing-token.ts` (el bloque «La compra», al final del snippet) · `app/api/track/compra/route.ts` ·
+`lib/compra-navegador.ts` · `lib/meta-capi-payload.ts` (`SESION_PAGO_RE`, `eventIdCompra`). Lo fija tests/compra-navegador.test.ts,
+que CORRE el bloque emitido con un `fbq` de mentira.
+
+- ⚠️ **Lo obvio era mandar `fbq('track','Purchase')` con el `eventID` y listo, y era lo equivocado:** Meta, ante el mismo evento
+  del navegador y del servidor, se queda con el que llega PRIMERO («we generally prefer the event that is received first», su
+  página de deduplicación; la regla de «5 minutos a favor del navegador» que circula no está en esa página). El navegador suele
+  llegar antes que el aviso de Stripe, así que uno sin valor ni moneda borraba los del servidor. El Pixel le pregunta a MaKo
+  (`/api/track/compra`, que relee la sesión en Stripe) y sólo con valor y moneda manda el suyo.
+- **El `event_id` es el id de la sesión de Stripe (`purchase:cs_…`), no el del pago:** es lo único que tienen igual el webhook y
+  la página de gracias. Con varias cuentas de Stripe la sesión vive en una sola (en las otras, 404) y una de prueba no existe para
+  la clave real: se busca con la clave del mismo modo.
+- **La compra va al píxel del SITIO y sólo en modo real** (`soloPixel` en lib/meta-capi.ts; `modo` en `compraDeLaSesion`): con un
+  conjunto de datos de CRM cargado, `destinoCAPI` lo prefiere y la compra salía ahí con los campos del CRM; y una venta con
+  `sk_test` entraba al píxel como una compra de verdad. Las dos las había anticipado docs/diseno-venta-externa-stripe.md §5.
+- **El snippet no se delata:** `fbq` sólo con `'Purchase'`, nunca con `init` ni `Schedule` (lo que lee el analizador:
+  `pixelesMetaDe`, `scheduleDelNavegador`), y el comentario no nombra dominios de cobro (`RE_CHECKOUT`).
+
+**Sin hacer (con dónde vive):** el Payment Link del Sprint de Mauricio vuelve a sprint.mauriciobustos.com/gracias.html SIN
+`?session_id={CHECKOUT_SESSION_ID}` (medido el 24/10, docs/hallazgos-pagos.md): hasta que se agregue en Stripe («Después del pago»
+→ redirigir), el navegador no avisa nada (la compra igual le llega a Meta por el servidor). La página necesita la línea del Pixel
+de MaKo y el píxel de Meta. Y la prueba en el ws3 con Stripe en modo prueba (un link de prueba, un pago por la API).
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## La portada apunta a High Ticket: lo que dice hola-mako.com no sale todo del documento (29/10/2026, claude3)
+
+**Vive en:** la #32 del ws de la plataforma (`scripts/landing-principal-high-ticket.mts`) · `app/vsl/portada-metadata.ts` ·
+`app/vsl/PortadaSinJs.tsx` · `app/vsl/landing-html.ts` + `landing-contenido.ts` (el respaldo) · `public/og-landing.jpg` ·
+`tests/portada-high-ticket.test.ts`
+
+Martín pidió que la landing principal dejara de apuntar a «VSL Funnel». El documento de Web Generator decía la frase
+12 veces, pero el HTML que sirve la portada la tenía **34**: cambiar sólo el documento dejaba el `<title>`, la tarjeta para
+compartir (og y twitter, también en los datos de React), la portada sin JavaScript (el respaldo del Suspense, lo que lee
+Meta al verificar) y la IMAGEN de la tarjeta (el texto está dibujado en el JPG) con la frase vieja. Y el respaldo sin
+documento publicado (`landing-html.ts`) la tenía 16 veces. **Regla:** un cambio de copy de la portada se busca en el HTML
+SERVIDO (`curl` a hola-mako.com y contar), no en el documento; lo del código va por un VERDE.
+
+- Con un documento publicado, la portada NO corre `aplicarContenidoLanding` (`Landing.tsx`: `if (!root || diseno) return`):
+  el título de la grilla y las tarjetas que inyecta son sólo del respaldo. Lo que se ve es el documento.
+- **Trampa de la captura:** la portada vive en un `.vsl-root` FIJO del alto de la ventana; el documento mide 900 px y una
+  captura «de página entera» sale de 900. Se suelta el `.vsl-root` (static, alto automático) antes de medir y capturar.
+- **Trampa de la comparación:** el publicador de hoy le agrega a cada sección un ancla vacía
+  (`<span class="gm-ancla-seccion">`) que la foto del 23/10 no tenía: el borrador «no es lo publicado» byte a byte
+  sin una letra cambiada. Se compara sin las anclas.
+- El título para buscadores del documento tiene un tope de 60 letras (el saneo lo recorta en silencio al publicar): va
+  sin «de punta a punta»; el `<title>` de la portada (código) lleva la frase entera.
+
+- **Los precios y el fondo azul (Martín, 29/10 ~11:20) no viven donde parece.** Las tarjetas de precios de la portada NO
+  están en el documento: son las de /planes (`TarjetasPlanes`), montadas por la portada donde estaba la agenda
+  (`montarPrecios`). El azul tampoco es del HTML de la sección (su fondo propio es #F5F7FA): lo pinta un bloque de la HOJA
+  del documento («Realce de la sección CTA»), con el texto en blanco que también tiñe el título de los precios. Lo que
+  cada plan NO trae (✗) y la tabla de la portada salen de `lib/planes-comparacion.ts` (`noIncluyeDe`, `CompararPlanes`):
+  una sola fuente, así que no se contradicen. Y la vista previa en disco tiene que ganarle con el id a
+  `.gm-libre #cal-embed { height: 700px }` como lo hace la portada, o las secciones se pisan (la del sitio no lo tiene).
+- **Gana el código:** Pro decía «Todo lo de Esencial, sin topes» y tiene tope de líneas de WhatsApp y de personas
+  (`lib/topes-plan.ts`). Ahora dice de qué no tiene tope. No hay setting `planes.mako` en la base: valen los del código.
+
+**Sin hacer:** las páginas de cada funcionalidad (`app/vsl/_detalle`, 14 «VSL Funnel», p. ej. «Ads Manager para VSL
+Funnel» en /vsl/ads, a donde lleva la tarjeta del media buyer) y las landings de cada funnel (#33–#40) siguen con la
+frase vieja. El mosaico de 12 íconos de «¿Qué es MaKo?» (decorado, sin texto) muestra funcionalidades que salieron de
+la grilla. La tarjeta de Instagram lleva a la agenda (#beta): no hay página de esa funcionalidad.

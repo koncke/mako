@@ -45,11 +45,31 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* La forma del tamaño en «Crear un diseño»: un rectángulo con la proporción real. */
-.m-image-editor-forma {
-  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 8px; background: var(--primary-bg);
+/* «¿Qué vas a crear hoy?» (la hoja de «Nuevo diseño»): las plantillas de la computadora en dos columnas, la miniatura
+   en 4:3 como las tarjetas de app/_crear/crear.css (`.cr-plantilla`). Sin imagen, el marco del formato con su medida. */
+.m-image-editor-plantillas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; padding: 4px 0 8px; }
+.m-image-editor-plantilla {
+  display: flex; flex-direction: column; gap: 6px; width: 100%; min-width: 0; padding: 0; border: 0; background: none;
+  color: var(--ink); font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
-.m-image-editor-forma i { display: block; border-radius: 2px; border: 2px solid var(--primary); box-sizing: border-box; }
+.m-image-editor-plantilla:disabled { cursor: default; }
+.m-image-editor-plantilla:disabled:not([aria-busy="true"]) { opacity: .55; }
+.m-image-editor-plantilla:focus-visible { outline: none; }
+.m-image-editor-plantilla:focus-visible .m-image-editor-plantilla__mini { box-shadow: var(--focus-ring); }
+.m-image-editor-plantilla__mini {
+  position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; overflow: hidden;
+  border-radius: var(--r-md); background: var(--primary-bg); box-shadow: 0 0 0 1px var(--border);
+}
+.m-image-editor-plantilla__mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.m-image-editor-plantilla__marco { display: block; border-radius: 4px; border: 1.5px dashed var(--primary-weak); background: var(--surface); }
+.m-image-editor-plantilla__rotulo {
+  position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); font-size: var(--fs-meta); color: var(--dim); white-space: nowrap;
+}
+.m-image-editor-plantilla__creando {
+  position: absolute; inset: auto 8px 8px; padding: 4px 8px; border-radius: 999px; text-align: center;
+  background: var(--primary); color: var(--on-primary); font-size: var(--fs-meta); font-weight: 600;
+}
+.m-image-editor-plantilla__nombre { font-size: var(--fs-sm); font-weight: 600; line-height: 1.3; }
 
 /* La hoja de un diseño: su miniatura grande. */
 .m-image-editor-detalle { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 4px 0 8px; }

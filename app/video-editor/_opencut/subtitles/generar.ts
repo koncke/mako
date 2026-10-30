@@ -24,6 +24,7 @@ import {
 import { paramsDePlantilla, plantillaPorId } from "./estilos";
 import { usePreferenciasSubtitulos, useTrabajoSubtitulos } from "./estado";
 import { insertarSubtitulos, lienzoDe } from "./insert";
+import { motivoDeLaFalla, textoDeSubtitulos, type MotivoSubtitulos, type ResultadoSubtitulos } from "./resultado";
 
 // Cada «Generar» lleva un número; cancelar lo cambia. Un trabajo que vuelve de
 // una espera y ya no es el actual (lo cancelaron, quizás arrancó otro) no escribe
@@ -37,13 +38,24 @@ export function cancelarGeneracion(): void {
 	useTrabajoSubtitulos.getState().fijar({ fase: "inactivo", progreso: 0, error: null });
 }
 
-export async function generarSubtitulos(editor: EditorCore): Promise<void> {
+const CANCELADO: ResultadoSubtitulos = { ok: false, motivo: "cancelado" };
+
+/**
+ * No lanza: cada salida es un resultado (./resultado.ts). Lo que no sale queda además
+ * abajo del botón, con el mismo texto que dice el chat. «Ocupado» y «cancelado» no tocan
+ * el store: es de otro trabajo.
+ */
+export async function generarSubtitulos(editor: EditorCore): Promise<ResultadoSubtitulos> {
 	const trabajo = useTrabajoSubtitulos.getState();
-	if (trabajo.fase !== "inactivo") return;
+	if (trabajo.fase !== "inactivo") return { ok: false, motivo: "ocupado" };
 	const { fijar } = trabajo;
+	const falla = (motivo: MotivoSubtitulos): ResultadoSubtitulos => {
+		fijar({ fase: "inactivo", progreso: 0, error: textoDeSubtitulos(motivo) });
+		return { ok: false, motivo };
+	};
 	const prefs = usePreferenciasSubtitulos.getState();
 	const proyecto = editor.project.getActiveOrNull()?.metadata.id;
-	if (!proyecto || !editor.scenes.getActiveSceneOrNull()) return;
+	if (!proyecto || !editor.scenes.getActiveSceneOrNull()) return falla("sin-proyecto");
 
 	const mio = ++trabajoActual;
 	const cancelado = () => mio !== trabajoActual;
@@ -57,22 +69,23 @@ export async function generarSubtitulos(editor: EditorCore): Promise<void> {
 				if (!cancelado()) fijar({ progreso: Math.round(p) });
 			},
 		});
-		if (cancelado()) return;
+		if (cancelado()) return CANCELADO;
 		const muestras = await decodificarMono16k(blob);
-		if (cancelado()) return;
+		if (cancelado()) return CANCELADO;
 
 		const resultado = await transcriptionService.transcribe({
 			audioData: muestras,
 			language: prefs.idioma,
 			onProgress: (p) => {
-				if (cancelado()) return;
-				fijar({
-					fase: p.status === "loading-model" ? "modelo" : "transcribiendo",
-					progreso: Math.round(p.progress),
-				});
+				if (!cancelado()) {
+					fijar({
+						fase: p.status === "loading-model" ? "modelo" : "transcribiendo",
+						progreso: Math.round(p.progress),
+					});
+				}
 			},
 		});
-		if (cancelado()) return;
+		if (cancelado()) return CANCELADO;
 
 		fijar({ fase: "armando", progreso: 100 });
 		if (resultado.precision === "segmento") {
@@ -89,10 +102,7 @@ export async function generarSubtitulos(editor: EditorCore): Promise<void> {
 		}
 
 		// El cliente pudo abrir otro proyecto mientras tanto: no se escribe en él.
-		if (editor.project.getActiveOrNull()?.metadata.id !== proyecto) {
-			fijar({ fase: "inactivo", progreso: 0 });
-			return;
-		}
+		if (editor.project.getActiveOrNull()?.metadata.id !== proyecto) return falla("otro-proyecto");
 		const lienzo = lienzoDe(editor);
 		// Cada subtítulo se queda con sus palabras y su precisión (subtitles/palabras.ts), y
 		// con las muletillas de su tramo marcadas: se sacaron del texto, pero sus tiempos
@@ -101,35 +111,30 @@ export async function generarSubtitulos(editor: EditorCore): Promise<void> {
 			armarSubtitulos({ palabras, maxCaracteres: maxCaracteresPara(lienzo) }),
 			muletillas,
 		).map((c) => ({ ...c, precision: resultado.precision }));
-		if (captions.length === 0) {
-			// `pc_fail_to_recognize_voice`.
-			fijar({ fase: "inactivo", progreso: 0, error: "No se reconoció la voz" });
-			return;
-		}
+		// `pc_fail_to_recognize_voice`.
+		if (captions.length === 0) return falla("sin-voz");
 		const puestos = await insertarSubtitulos({
 			editor,
 			captions,
 			estilo: paramsDePlantilla(plantillaPorId(prefs.plantilla), lienzo),
 			reemplazar: prefs.eliminarActuales,
 		});
+		// Con subtítulos para poner, 0 es que la escena ya no estaba.
+		if (puestos === 0) return falla("sin-proyecto");
 		fijar({ fase: "inactivo", progreso: 0 });
 		// `pc_copywriting_split`.
-		if (puestos > 0) toast.success("Subtítulos generados");
+		toast.success("Subtítulos generados");
+		return { ok: true, subtitulos: puestos };
 	} catch (error) {
 		// Cancelado: el estado ya lo dejó `cancelarGeneracion` (y puede ser de otro
 		// trabajo que arrancó después): no se toca.
-		if (cancelado()) return;
+		if (cancelado()) return CANCELADO;
 		if (error instanceof TranscripcionCancelada) {
 			fijar({ fase: "inactivo", progreso: 0 });
-			return;
+			return CANCELADO;
 		}
 		console.error("[subtítulos] no se pudieron generar", error);
-		const fase = useTrabajoSubtitulos.getState().fase;
-		fijar({
-			fase: "inactivo",
-			progreso: 0,
-			// `pc_tts_download_failed` / `pc_fail_to_recognize`.
-			error: fase === "modelo" ? "No se pudo descargar" : "No se pudo reconocer la voz",
-		});
+		// `pc_tts_download_failed` / `pc_fail_to_recognize`.
+		return falla(motivoDeLaFalla(useTrabajoSubtitulos.getState().fase));
 	}
 }

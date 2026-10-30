@@ -52,6 +52,7 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { canonizarVideoId } from '@/lib/video-id';
 import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import { alVisitarPagina } from '@/lib/landing-gracias';
+import { urlSinDatosPersonales } from '@/lib/url-datos-personales';
 import { ubicacionDeHeaders, type UbicacionVisita } from '@/lib/graficos-datos-puro';
 import { PUENTE_MAPA_VERSION, esPruebaDelMapa } from '@/lib/landing-mapa-puente';
 
@@ -307,6 +308,9 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
   // Sanitizadores de los campos nuevos (opcionales, beacon viejo sigue andando).
   const texto = (v: unknown, max: number): string | null =>
     typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
+  // La URL de la página SIN los datos de una persona (24/10/2026, P6: la página de gracias de Calendly trae `?name=…&email=…`
+  // y la guardábamos entera). Se saca ANTES de cortar a 500: un corte podía dejar medio email adentro.
+  const urlGuardable = (v: unknown): string | null => texto(typeof v === 'string' ? urlSinDatosPersonales(v) : v, 500);
 
   // Un píxel: entero, no negativo y por debajo de un techo generoso.
   //
@@ -343,8 +347,9 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
       const insertarVisita = (conUbicacion: boolean) => supabase.from('landing_visits').insert({
         visitor_id: visitorId,
         // URL exacta de la landing (multi-landing / pruebas A/B) + referrer.
-        landing_url: texto(payload.landing_url, 500),
-        referrer: texto(payload.referrer, 500),
+        landing_url: urlGuardable(payload.landing_url),
+        // El referrer de la página que sigue a /gracias trae la misma query (24/10, revisión adversarial de P6).
+        referrer: urlGuardable(payload.referrer),
         prueba: texto(payload.prueba, 40),
         // ⚠️ ACÁ NO VA `auto`. Una VISITA no se reproduce sola: el autoplay es una
         // propiedad del play, y su columna vive en `vsl_events` (mig 0136), no en
@@ -378,7 +383,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
     // ⚠️ LA VISITA DEL MAPA EN VIVO (`?mko_test=mapa-…`) ES DE MaKo, no de una persona: no gana a nadie ni deja
     // un «llegó a gracias sin lead» en la página del cliente. Sin página, la pregunta de abajo no se hace.
     const pruebaDelMapa = esPruebaDelMapa(payload.prueba);
-    const pagina = pruebaDelMapa ? null : texto(payload.landing_url, 500);
+    const pagina = pruebaDelMapa ? null : urlGuardable(payload.landing_url);
     const wsVisita = wsEnContexto();
     if (pagina && wsVisita != null && !esVistaDePrueba(pagina)) {
       await alVisitarPagina({ ws: wsVisita, visitorId, landingUrl: pagina });
@@ -447,7 +452,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
   // tiene uno» y «alguien lo tocó». Faltaban acá desde la v16 y se guardaban como 'desconocido' —1.731 filas en un
   // workspace en 30 días, medido el 24/10/2026—, que el probador lee como «Pixel desactualizado o modificado» sobre el
   // Pixel del día. Son de la PÁGINA: `esEventoDeVideo` es lista blanca y no los cuenta en la retención.
-  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre', 'video_ajeno', 'toque_video'];
+  // 'secciones' (snippet v26, 25/10/2026) es de la PÁGINA: los ids de las secciones que la persona vio, acumulados, en
+  // `detalle`. Lo lee el alcance por sección (lib/editor-landing/alcance-secciones.ts). No entra a la retención (no
+  // calza con `esEventoDeVideo`) ni a la ficha del lead (`getTrackingEvents`): ahí se lee con tope antes de filtrar.
+  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'secciones', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre', 'video_ajeno', 'toque_video'];
   if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un
@@ -506,7 +514,8 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
       // campo: es una sola pregunta —«¿a qué se refiere esto?»— contestada por
       // cada tipo de evento con lo suyo. En los demás queda NULL, que es la
       // verdad: un default inventaría un dato.
-      detalle: texto(payload.detalle, 300),
+      // El link de un clic (un checkout prellenado con nombre y email) o la URL de un video: sin datos personales, antes de cortar.
+      detalle: texto(typeof payload.detalle === 'string' ? urlSinDatosPersonales(payload.detalle) : payload.detalle, 300),
       // DÓNDE se hizo el clic (mig 0190, snippet v20). Es lo único que le faltaba
       // al clic para poder DIBUJARSE: hasta la v19 se guardaba a dónde iba y nunca
       // en qué punto se hizo. La posición es de la PÁGINA, no de la ventana, y va
@@ -538,7 +547,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
       // decían las visitas, así que con dos landings los videos y los clics de
       // las dos caían en la misma bolsa. NULL en los eventos de un Pixel anterior
       // a la v12: no se sabe, y no se inventa.
-      landing_url: texto(payload.landing_url, 500),
+      landing_url: urlGuardable(payload.landing_url),
       // ⚠️ Un play automático NO es una reproducción (mig 0136). Se guarda como
       // tal para que el chequeo y la retención puedan descartarlo: con autoplay,
       // contar todo play como intención infla el embudo desde el primer escalón.

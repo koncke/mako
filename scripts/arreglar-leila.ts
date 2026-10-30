@@ -25,9 +25,10 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const APLICAR = process.argv.includes('--apply');
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 const log = (s = '') => console.log(s);
 
 /** El proyecto correcto de cada tarea de la reunión (hoy están todas en el 39). */

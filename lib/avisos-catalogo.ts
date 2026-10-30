@@ -199,6 +199,10 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   // reunión: «👤 LEAD» le dice a Mauricio de qué le están hablando desde la primera línea.
   'curso-recordatorio-clases': 'lead',
   'reunion-compromisos-tareas': 'plan', 'reunion-tareas-al-plan': 'plan',
+  // El Claude del negocio que no puede analizar sus llamadas (26/10/2026, el evento de la plataforma `closing_ia_caida`).
+  'closing-ia-caida': 'sistema',
+  // Instagram o Zernio frenan los mensajes de un negocio (28/10/2026, el evento de la plataforma `social_tope`).
+  'social-tope': 'sistema',
   'tareas-autocompletadas': 'plan', 'ads-grabaste': 'plan',
   'plan-proyecto-vence': 'plan',
   'avisos-resumen': 'reporte',
@@ -351,6 +355,11 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   'lead-formulario-meta',
   // Las tareas de las reuniones que MaKo dejó en el Plan (17/10/2026, «nada por detrás»; nace PAUSADA, como nacía apagado).
   'reunion-tareas-al-plan',
+  // El Claude del negocio no puede analizar sus llamadas (26/10/2026): sin crédito, clave borrada o sin permiso. Nace
+  // PRENDIDA: es lo único que le dice al negocio que el Closing dejó de andar (el ws11 juntó 168 fallos sin enterarse).
+  'closing-ia-caida',
+  // Instagram o Zernio frenan los mensajes (28/10/2026, Leandro): nace PRENDIDA, es lo que le dice que no se perdió nada.
+  'social-tope',
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
@@ -905,6 +914,34 @@ https://hola-mako.com/crm/482/resumen
     // ⚠️ DESDE EL 17/10/2026 EL TEXTO ES EL DE SU AUTOMATIZACIÓN de SuperAdmin (evento `reunion_tareas_al_plan`, «nada por
     // detrás»): el código manda sólo los datos (lib/reunion-plan-aviso.ts).
     ejemplo: `📝 Leí tus *3 reuniones* nuevas:\n\n• *Sync semanal* — mié 28 oct · 15:30\n   4 tareas tuyas · 3 de otros\n   https://hola-mako.com/plan/revisar/prop1\n\n• *Ana <> Pablo* — mié 28 oct · 18:00\n   3 tareas tuyas · 4 de otros\n   https://hola-mako.com/plan/revisar/prop2\n\nEn total *7 tareas tuyas*. Cada una se revisa en su propio link, ahí arriba.\n👥 Y 7 de los demás, para repartir.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo`,
+  },
+  {
+    id: 'closing-ia-caida', titulo: 'Tu Claude no puede analizar tus llamadas', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    // 26/10/2026: un EVENTO de la plataforma (`closing_ia_caida`, lib/disparadores.ts). Pedido del Cerebro: en el ws11 el
+    // análisis de llamadas falló 168 veces en tres semanas porque su clave de Claude se quedó sin crédito, y nadie se
+    // enteró (docs/hallazgos-closing.md). Lo emite el Closing UNA vez por incidente (lib/closing-ia-caida.ts) con
+    // `{{ia_caida_motivo}}`, `{{ia_caida_desde}}`, `{{ia_caida_pendientes}}` y `{{ia_caida_link}}`; el texto de cada
+    // motivo lo tiene la automatización del SuperAdmin «Se Cayó el Claude de un Negocio» (`mako-closing-ia-caida`).
+    disparador: 'El Closing intenta analizar una llamada con el Claude del negocio y su cuenta no puede: sin crédito, la clave borrada o sin permiso. Una vez por incidente, no una por llamada.',
+    ejemplo: `⚠️ *Tus llamadas de venta no se están analizando*
+Tu clave de Claude se quedó sin crédito (desde el 8 de octubre), y el Closing la usa para analizar cada llamada.
+
+👉 Cárgale crédito en console.anthropic.com → Billing. Apenas tenga, las 12 llamadas que esperan se analizan solas.
+https://hola-mako.com/integraciones?abrir=anthropic — MaKo`,
+  },
+  {
+    id: 'social-tope', titulo: 'Instagram frenó los mensajes de tus automatizaciones', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'amarillo', requiereRespuesta: false, yaImplementado: 'si',
+    // 28/10/2026: un EVENTO de la plataforma (`social_tope`, lib/disparadores.ts). Pedido de Leandro (ws10): «que MaKo me
+    // avise antes de que se trabe la automatización, para no encontrarme con mil mensajes sin responder». Lo emite el motor
+    // (`avisarTopesSociales`, lib/nutricion.ts) con `{{tope_estado}}`, `{{tope_quien}}`, `{{tope_canal}}`, `{{tope_cuantos}}`,
+    // `{{tope_espera}}` y `{{tope_limite}}`; el texto de cada estado lo tiene la automatización del SuperAdmin.
+    disparador: 'El motor de las automatizaciones manda por Instagram o Messenger y Zernio o Meta contestan que llegó al tope (o lo que salió en la última hora se acerca al de Meta). No más de un aviso por hora; lo que no salió vuelve a salir solo.',
+    ejemplo: `⚠️ *Instagram frenó los mensajes de tus automatizaciones*
+Llegaste al tope de Instagram (750 respuestas por hora): 37 mensajes esperan.
+
+No se pierde ninguno: salen solos en 1 h. — MaKo`,
   },
   {
     id: 'tareas-autocompletadas', titulo: 'MaKo cerró tareas que ya estaban hechas', categoria: 'aviso',

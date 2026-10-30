@@ -14,6 +14,7 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 
@@ -22,7 +23,7 @@ config({ path: resolve(process.cwd(), '.env.local') });
 const FORCE = process.argv.includes('--force');
 const LIMIT = (() => { const i = process.argv.indexOf('--limit'); return i >= 0 ? Number(process.argv[i + 1]) : Infinity; })();
 
-const conn = process.env.DATABASE_URL;
+const conn = urlDeLaBase();
 const KEY = process.env.ANTHROPIC_API_KEY;
 if (!conn) { console.error('Falta DATABASE_URL en .env.local'); process.exit(1); }
 if (!KEY) { console.error('Falta ANTHROPIC_API_KEY en .env.local'); process.exit(1); }

@@ -25,10 +25,22 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir, freemem } from 'node:os';
 
 export const TANDAS = 3;
-export const HEAP_MB = 4096;
+// El heap de cada tanda. 26/10/2026: con tren-m (Grabadores, MaKo recomienda, el Scraper) la tanda 1 «se quedó sin heap» en
+// 4096 MB: el programa entero creció. `MAKO_TIPOS_HEAP_MB` lo sube a mano (entre 4096 y 8192); el piso de RAM sube con él,
+// así que sólo sirve con RAM libre de verdad (después de reiniciar la app de Claude, o con la PC a 32 GB).
+const HEAP_A_MANO_MB = Number(process.env.MAKO_TIPOS_HEAP_MB);
+export const HEAP_MB = Number.isFinite(HEAP_A_MANO_MB) && HEAP_A_MANO_MB >= 4096 ? Math.min(HEAP_A_MANO_MB, 8192) : 4096;
 export const SALIDA_SIN_CHEQUEAR = 99;
 // El piso de RAM de cada tanda: el heap (+0,1 de overhead) + la zona roja del vigía (0,9) + margen. ≈ 5,3 GB.
-export const RAM_MIN_GB = HEAP_MB / 1024 + 0.1 + 0.9 + 0.3;
+// 26/10/2026 (el Cerebro): con la app de Claude abierta la PC dejó de pasar los 4,5 GB disponibles aunque se archivaran cuatro
+// chats (quietos, ya estaban en disco), y el tren esperó horas. La zona roja no protege la PC: con el vigía PRENDIDO, una tanda que
+// la toca muere y el push sale con 99 («sin chequear», nunca un verde falso). `MAKO_TIPOS_RAM_MIN_GB` baja el piso a mano para
+// intentarlo igual, nunca por debajo del heap + 0,3; sin el vigía corriendo no se usa (lo dice docs/hallazgos-infra.md).
+const PISO_POR_DEFECTO_GB = HEAP_MB / 1024 + 0.1 + 0.9 + 0.3;
+const PISO_A_MANO_GB = Number(process.env.MAKO_TIPOS_RAM_MIN_GB);
+export const RAM_MIN_GB = Number.isFinite(PISO_A_MANO_GB) && PISO_A_MANO_GB > 0
+  ? Math.max(HEAP_MB / 1024 + 0.3, Math.min(PISO_A_MANO_GB, PISO_POR_DEFECTO_GB))
+  : PISO_POR_DEFECTO_GB;
 const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
 // El mismo lock que scripts/typecheck-lock.mjs: nunca dos tsc grandes a la vez en esta PC.
 const LOCK = join(tmpdir(), 'mako-typecheck.lock');
@@ -98,6 +110,12 @@ async function main() {
   const guion = existsSync(join(process.cwd(), 'scripts', 'tipos-por-tandas.mjs'))
     ? join(process.cwd(), 'scripts', 'tipos-por-tandas.mjs')
     : join(dirname(fileURLToPath(import.meta.url)), 'tipos-por-tandas.mjs');
+  // ⚠️ LA RAM DE LA PRIMERA TANDA SE ESPERA ANTES DE TOMAR EL LOCK (29/10/2026, el push de tren-y): con el lock tomado y la PC en
+  // 2-3,5 GB, el respaldo esperaba 15 min sin correr ningún tsc y la fila de tipos de TODA la PC quedaba frenada (un chat salió
+  // con 99 sin correr). Afuera del lock no frena a nadie; las tandas 2 y 3 miran la RAM de nuevo, ya con el lock.
+  const ramAntes = await esperar(() => freemem() / 1024 ** 3 >= RAM_MIN_GB, RAM_ESPERA_MAX_MS, 2000,
+    () => `  [tipos por tandas] quedan ${(freemem() / 1024 ** 3).toFixed(1)} GB y pide ${RAM_MIN_GB.toFixed(1)}; espero hasta 15 min SIN tomar el turno…\n`);
+  if (!ramAntes) { process.stderr.write(`  ✖ tanda 1/${TANDAS}: no hubo RAM en 15 min. NO es un error de tipos: no se chequeó.\n`); return SALIDA_SIN_CHEQUEAR; }
   const turno = await esperar(() => {
     if (tomarLock()) return true;
     if (!vivo(duenoDelLock())) { try { unlinkSync(LOCK); } catch { /* lo sacó otro */ } }

@@ -96,7 +96,8 @@ test('el negocio: un racimo sin aristas laterales se engancha a la raíz por su 
   // Y lo hace el armado de verdad, antes del layout (si no, el racimo se dibuja aparte aunque la arista llegue después).
   const g = sinComentarios(leer('lib/cerebro-grafo.ts'));
   const i = g.indexOf('aristas.push(...puentesARaiz(nodos, aristas, RAIZ));');
-  assert.ok(i > 0 && i < g.indexOf('const { posiciones, encuadre } = layoutCerebro(nodos, aristas);'), 'construirCerebro engancha todo antes del layout');
+  // Desde el 28/10/2026 los chats lo piden sin física (`sinLayout`, lib/cerebro-para-chat.ts): el enganche va antes igual.
+  assert.ok(i > 0 && i < g.indexOf('layoutCerebro(nodos, aristas);'), 'construirCerebro engancha todo antes del layout');
 });
 
 test('el cerebro unido: UNA raíz, la construcción colgada de ella, y desde ahí se llega a todo', () => {
@@ -153,7 +154,8 @@ test('las puertas: el servidor manda UN cerebro (pantalla, teléfono y grafo viv
   const op = leer('lib/second-brain-opera.ts');
   assert.match(op, /^import 'server-only';/m);
   assert.match(op, /\? cerebroUnido\(negocio, construccionDeMako\(\)\) : negocio;/, 'a quien no opera, sólo su negocio');
-  assert.match(sinComentarios(leer('app/second-brain/pagina.tsx')), /const cerebro = await cerebroQueSeDibuja\(await construirCerebro\(\{ chatsMako \}\), opera\);\s*return <VistaCerebro cerebro=\{cerebro\} funnelPanel=\{funnelPanel\} \/>;/);
+  // (25/10/2026: con «Aprende solo», el recolector, en la cabecera; sigue siendo UN cerebro.)
+  assert.match(sinComentarios(leer('app/second-brain/pagina.tsx')), /const cerebro = await cerebroQueSeDibuja\(await construirCerebro\(\{ chatsMako \}\), opera\);\s*return <VistaCerebro cerebro=\{cerebro\} funnelPanel=\{funnelPanel\}(?: aprendeSolo=\{<AprendeSolo [^\n]*\/>\})? \/>;/);
   assert.match(leer('app/api/second-brain/cerebro/route.ts'), /const cerebro = await cerebroQueSeDibuja\(await construirCerebro\(/, 'el grafo vivo trae lo mismo: si no, a los 3 minutos la construcción se iría');
   assert.match(leer('app/m/second-brain/mapa/page.tsx'), /grafo = await cerebroQueSeDibuja\(cerebro\);/);
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));

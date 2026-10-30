@@ -23,7 +23,7 @@
 import 'server-only';
 import { seGraba } from './pipeline';
 import { getDiagnosticoFase } from './fase-store';
-import { credWs } from './credenciales';
+import { hayGrabadorConectado } from './grabadores';
 
 /**
  * `true` si de un encuentro de este workspace se espera una grabación.
@@ -35,8 +35,9 @@ import { credWs } from './credenciales';
  */
 export async function encuentroGrabable(): Promise<boolean> {
   try {
-    const [diag, key] = await Promise.all([getDiagnosticoFase(), credWs('FATHOM_API_KEY')]);
-    return seGraba(diag?.canal ?? null, !!key);
+    // Se graba con CUALQUIER grabador conectado (lib/grabadores, 26/10/2026), no sólo con Fathom.
+    const [diag, graba] = await Promise.all([getDiagnosticoFase(), hayGrabadorConectado()]);
+    return seGraba(diag?.canal ?? null, graba);
   } catch (e) {
     console.error('[encuentro-ws] no se pudo decidir si el encuentro es grabable:', e);
     return true;

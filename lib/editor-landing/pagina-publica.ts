@@ -80,7 +80,9 @@
 import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
-import { SCRIPT_DISENO, usaCalendly } from './html-editable';
+import { SCRIPT_DISENO, hayMediosAjenos, origenesDeMedios, usaCalendly, type OrigenesDeMedios } from './html-editable';
+// `origenesDeMedios` vive en html-editable.ts (lo usa también el iframe del editor, que es del navegador).
+export { TOPE_ORIGENES_MEDIOS, origenesDeMedios, type OrigenesDeMedios } from './html-editable';
 import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
 import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
@@ -649,6 +651,11 @@ export type OpcionesPolitica = {
   conDiseno?: boolean;
   /** El diseño embebe la agenda de Calendly con su widget (`data-calendly`). */
   conCalendly?: boolean;
+  /**
+   * La copia idéntica de una página (copia-identica.ts, 28/10/2026): sus imágenes, sus fuentes y sus videos siguen en SU
+   * sitio (por su URL), así que sus orígenes entran en img-src, font-src y media-src (`origenesDeMedios`).
+   */
+  medios?: OrigenesDeMedios;
 };
 
 /**
@@ -677,9 +684,9 @@ export function politicaDeContenido(o: OpcionesPolitica): string {
       ...(o.conCalendly ? ['https://assets.calendly.com'] : []),
     ]],
     ['style-src', ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', ...(o.conCalendly ? ['https://assets.calendly.com'] : [])]],
-    ['font-src', ["'self'", 'https://fonts.gstatic.com', 'data:']],
-    ['img-src', ["'self'", 'data:', ...(app ? [app] : []), ...(bucket ? [bucket] : []), ...(o.conMeta ? ['https://www.facebook.com'] : [])]],
-    ['media-src', ["'self'", ...(bucket ? [bucket] : []), ...(o.conDiseno && app ? [app] : [])]],
+    ['font-src', ["'self'", 'https://fonts.gstatic.com', 'data:', ...(o.medios?.fuentes ?? [])]],
+    ['img-src', ["'self'", 'data:', ...(app ? [app] : []), ...(bucket ? [bucket] : []), ...(o.conMeta ? ['https://www.facebook.com'] : []), ...(o.medios?.imagenes ?? [])]],
+    ['media-src', ["'self'", ...(bucket ? [bucket] : []), ...(o.conDiseno && app ? [app] : []), ...(o.medios?.videos ?? [])]],
     ['connect-src', ["'self'", ...(o.conPixel && app ? [app] : []), ...(o.conMeta ? ['https://www.facebook.com', 'https://connect.facebook.net'] : [])]],
     // 'self': el «HTML personalizado» se sirve desde /l/html/<doc>/<bloque> del MISMO host (T6).
     ['frame-src', ["'self'", ...hostsDeIframes()]],
@@ -721,6 +728,7 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   const token = publico && typeof e.tokenPixel === 'string' && FORMA_TOKEN.test(e.tokenPixel) ? e.tokenPixel : null;
   const meta = publico ? codigoMetaPixel(idMetaPixel(cfg)) : null;
   const cssDiseno = typeof e.cssDiseno === 'string' && e.cssDiseno.trim() ? e.cssDiseno : '';
+  const medios = cssDiseno ? origenesDeMedios(e.html, cssDiseno) : null;
   const politica = politicaDeContenido({
     entorno,
     hashesExtra: [...(meta ? [hashScript(meta.script)] : []), ...(cssDiseno ? [HASH_SCRIPT_DISENO] : [])],
@@ -728,12 +736,16 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
     conMeta: !!meta,
     conDiseno: !!cssDiseno,
     conCalendly: !!cssDiseno && usaCalendly(e.html),
+    ...(medios ? { medios } : {}),
   });
 
   const a = escaparHtml;
   const head: string[] = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${a(politica)}">`,
+    // La copia de una página carga imágenes y fuentes de SU sitio (verificación de 5004dba08, 28/10/2026): sin referrer, el
+    // sitio original no se entera de qué página (ni de qué dominio del cliente) viene cada visitante.
+    ...(medios && hayMediosAjenos(medios) ? ['<meta name="referrer" content="no-referrer">'] : []),
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${a(titulo)}</title>`,
   ];

@@ -31,7 +31,7 @@ const ICONO = ICONO_SECCION_GUION;
  *  independientes pero el campo guardado sigue siendo un solo string. */
 const reconstruir = (secciones: Seccion[]) => secciones.map((s) => `${s.titulo}\n${s.texto}`).join('\n\n');
 
-export function GuionLector({ g, celdaNombre, avatarNombre, anguloEmoji, onCerrar, onEstado, onRetrocederEstado, onEditar, onBorrar, onCopiar, onDescargar, irAlAnuncio }: {
+export function GuionLector({ g, celdaNombre, avatarNombre, anguloEmoji, onCerrar, onEstado, onRetrocederEstado, onEditar, onBorrar, onCopiar, onDescargar, irAlAnuncio, onAbrirEnCopywriter }: {
   g: GuionItem;
   celdaNombre: string;
   avatarNombre?: string;
@@ -46,6 +46,8 @@ export function GuionLector({ g, celdaNombre, avatarNombre, anguloEmoji, onCerra
   onDescargar: () => void;
   /** Solo desde la galería: saltar a la celda de la que salió este guion. */
   irAlAnuncio?: () => void;
+  /** Sólo para quien ya ve el Copywriter (28/10/2026, hoy el super admin): copiar el guion a un documento Ad allá. */
+  onAbrirEnCopywriter?: () => void;
 }) {
   const [copiado, setCopiado] = useState(false);
   const secciones = parsearSecciones(g.texto, undefined, 20);
@@ -119,6 +121,7 @@ export function GuionLector({ g, celdaNombre, avatarNombre, anguloEmoji, onCerra
           {errCopia && <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--bad)' }}>El navegador no dejó copiar — selecciona el texto a mano.</span>}
           <Button variant="secondary" onClick={onDescargar}>Descargar .md</Button>
           {irAlAnuncio && <Button variant="tertiary" onClick={irAlAnuncio}>Ver el anuncio</Button>}
+          {onAbrirEnCopywriter && <Button variant="tertiary" onClick={onAbrirEnCopywriter}>Abrir en Copywriter</Button>}
           <span style={{ flex: 1 }} />
           <IconButton title="Borrar este guion" danger onClick={onBorrar}><IconoBorrar size={18} /></IconButton>
         </div>

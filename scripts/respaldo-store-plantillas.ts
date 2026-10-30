@@ -27,13 +27,14 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const MODO = process.argv[2];
 const WS = Number(process.argv[3] || 1);
 const ARCHIVO = resolve(process.cwd(), `.respaldo-store-plantillas-ws${WS}.json`);
 const CLAVE = 'mako.plantillas.store';
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 async function leerStore(): Promise<Record<string, unknown> | null> {
   const r = await sql`select value from app_settings where workspace_id = ${WS} and key = ${CLAVE} limit 1`;

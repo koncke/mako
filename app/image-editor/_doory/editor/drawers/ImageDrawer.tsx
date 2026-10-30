@@ -37,7 +37,7 @@ function Thumb({ asset, onPlace, onDelete }: { asset: AssetRef; onPlace: () => v
   )
 }
 
-/** «Subidos»: el botón violeta «Subir archivos» (también se sueltan archivos encima) y la grilla de lo subido. */
+/** «Subidos»: el botón azul «Subir archivos» (también se sueltan archivos encima) y la grilla de lo subido. */
 function UploadsTab({ close }: PanelProps) {
   const editor = useEditor()
   const done = useInsertDone(close)

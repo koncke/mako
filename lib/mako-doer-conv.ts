@@ -7,6 +7,7 @@
 
 import 'server-only';
 import { getTenantDb, runWithWorkspace } from '@/lib/workspace';
+import { partirMemoria } from '@/lib/doer-hilo';
 
 export type TurnoConv = { role: 'user' | 'assistant'; content: string };
 
@@ -49,7 +50,44 @@ export async function historialGrupo(ws: number, grupoJid: string, limite = 24):
   });
 }
 
+/** Cuándo habló MaKo por última vez en el grupo (su último turno 'assistant'), o null. Tira si no se pudo leer. */
+export async function ultimaDeMaKo(ws: number, grupoJid: string): Promise<string | null> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('mako_doer_conv').select('created_at')
+      .eq('grupo_jid', grupoJid).eq('role', 'assistant').order('created_at', { ascending: false }).limit(1);
+    if (error) throw new Error(error.message);
+    return (data?.[0] as { created_at?: string } | undefined)?.created_at ?? null;
+  });
+}
+
 export type FilaConv = { role: 'user' | 'assistant'; content: string; created_at: string };
+
+/**
+ * LA MEMORIA DEL GRUPO PARA UN TURNO (26/10/2026, lib/doer-hilo.ts): la charla reciente como TURNOS (los últimos `turnos` de
+ * las últimas 14 h, lo mismo que `historialGrupo`) y lo de antes —lo que quedó afuera por la hora o por la cantidad, hasta
+ * `dias` atrás— como FILAS con su fecha, que el doer vuelve HECHOS en el system (`bloqueYaSeHablo`), nunca turnos: con
+ * turnos viejos, un «sí, cargalo» se pegaba a una charla de cuatro días antes (el 26/07). Una consulta. Si la base no
+ * contesta, las dos vacías: el turno sigue como si fuera la primera vez, como siempre.
+ */
+export async function memoriaDelGrupo(
+  ws: number, grupoJid: string, { turnos = 12, dias = 7, antesMax = 60 }: { turnos?: number; dias?: number; antesMax?: number } = {},
+): Promise<{ reciente: TurnoConv[]; antes: FilaConv[] }> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const desde = new Date(Date.now() - dias * 86_400_000).toISOString();
+    const { data, error } = await db.from('mako_doer_conv')
+      .select('role, content, created_at')
+      .eq('grupo_jid', grupoJid)
+      .gte('created_at', desde)
+      .order('created_at', { ascending: false })
+      .limit(turnos + antesMax);
+    if (error) { console.error('[mako-doer-conv] memoria:', error.message); return { reciente: [], antes: [] }; }
+    const filas = ((data ?? []) as Array<{ role: string; content: string; created_at: string }>)
+      .map((r) => ({ role: r.role === 'assistant' ? 'assistant' : 'user', content: r.content, created_at: r.created_at } as FilaConv));
+    return partirMemoria(filas, Date.now(), { turnos, horas: HORAS_CONTEXTO });
+  });
+}
 
 /**
  * El hilo de un grupo para LEERLO en pantalla (el Second Brain, tanda 8 de docs/diseno-mako-ai-native.md, 16/10/2026),

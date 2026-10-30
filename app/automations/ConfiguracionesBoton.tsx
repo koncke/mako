@@ -27,7 +27,8 @@
 //     «Configuraciones» del «⋯» de la fila. Horario = el propio o el del negocio (`HorarioDeLaAutomatizacion`); Límites =
 //     las horas entre dos mensajes a la misma persona de ESTA (`PersonaDeLaAutomatizacion`) y, abajo, los de la LÍNEA,
 //     que son de todas (`LimitesEnvioPanel` con `personaPorDefecto`: ahí también las horas a la misma persona del NEGOCIO,
-//     las que valen para las que no tienen las suyas). El horario del negocio sigue en Configuraciones › Horario.
+//     las que valen para las que no tienen las suyas). El horario vive acá, en la tuerca de cada automatización (desde el
+//     26/10/2026 no hay un horario del negocio en Settings: «General» se fue).
 //
 // 22/10/2026 (Martín, por el Cerebro, con captura de #289): fuera el subtítulo con el nombre de la automatización y el aire
 // de arriba; y fuera todo el texto suelto de las opciones («Jamás jamás pongas todo eso»): filas con nombre, número, unidad
@@ -35,7 +36,7 @@
 //
 // 23/10/2026 (Martín, por el Cerebro): «Todo vive en UNA sola pantalla, sin pestañas ni nombre de pestaña: sólo el título
 // "Configuraciones"». Eran dos pestañas (Horario y «Anti-ban», antes «Límites»). Ahora el cuerpo es
-// `AjustesDeLaAutomatizacion` (ConfigAutomatizacionPanel.tsx): «Horario de oficina» y un bloque por canal. El modal tiene
+// `AjustesDeLaAutomatizacion` (ConfigAutomatizacionPanel.tsx): «Horario de oficina» y «Todos los canales» (24/10). El modal tiene
 // ALTO FIJO y el cuerpo scrollea. Y desde ese mismo día, nada «para todas» (los límites de la línea ya no se ven acá).
 //
 // ⚠️ EL `onCerrar` DEL MODAL TIENE IDENTIDAD FIJA (`useCerrarEstable`, AGENTS.md: «Todo `<Modal>` recibe un

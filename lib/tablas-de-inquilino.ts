@@ -78,6 +78,8 @@ export const TABLAS_DE_INQUILINO = [
   'email_entrantes', 'email_mensajes', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'flujo_corridas', 'formatos',
+  // De la clave de una reunión a su grabador (mig «reuniones_de_cualquier_grabador», sin número, 26/10/2026).
+  'grabador_reuniones',
   'funnel_config', 'funnel_ofertas', 'funnels',
   // La IA del cliente en SU computadora (migs 0320 y 0321, 21/10/2026): los códigos, las PC y los turnos, por negocio.
   // `ia_pc_llamadas` no tiene `workspace_id`: se va con su turno (on delete cascade). No van en TENANT_TABLES: las lee
@@ -87,17 +89,34 @@ export const TABLAS_DE_INQUILINO = [
   'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'insistencias', 'kpi_registros', 'kpis',
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
+  // La papelera del CRM (mig 0340). ⚠️ La 0340 va ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla
+  // que no existe da error.
+  'leads_papelera',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
-  'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily', 'meta_campaign_drafts',
+  'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
+  // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en
+  // TENANT_TABLES: las lee y escribe lib/media-buyer/store.ts con el cliente de servicio y el ws explícito (corre en un cron).
+  // ⚠️ La 0332 se aplica ANTES del deploy: el reset del cliente de prueba borra de estas dos y una tabla que no existe da error.
+  'media_buyer_config', 'media_buyer_decisiones',
+  'meta_campaign_drafts',
   'montaje_trabajos', 'notificaciones', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias',
   'objectives', 'oferta_productos', 'ofertas', 'offer_sesiones', 'pagos',
   // El código de MaKo Partners de cada negocio (mig 0330): vaciar o borrar el negocio se lleva su código. No va en TENANT_TABLES:
   // la lee y escribe lib/partners-programa.ts con el cliente de servicio, siempre con el ws de la sesión.
   'partner_codigos',
+  // Los códigos que un partner dejó de usar y le siguen acreditando (mig 0341, 27/10/2026). Igual que el de arriba.
+  // ⚠️ La 0341 se aplica ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla que no existe da error.
+  'partner_codigos_anteriores',
   // Los avisos de Stripe y Mercado Pago (mig 0255): `workspace_id` admite null, como email_entrantes.
   // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
   'pasarela_eventos',
+  // El libro del recolector del Second Brain (mig 0333): vaciar o borrar el negocio se lleva lo que ya leyó.
+  'second_brain_recolectado',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
+  // Las pruebas A/B (mig «pruebas_ab», sin número todavía, 25/10/2026): la prueba, sus ramas, quién vio qué, las lecturas y
+  // el porqué. No van en TENANT_TABLES: las lee y escribe lib/pruebas/store.ts con el cliente de servicio y el ws explícito
+  // (la página pública de una landing y el cron no tienen sesión). Sin la migración, el reset avisa y sigue.
+  'prueba_asignaciones', 'prueba_historial', 'prueba_lecturas', 'prueba_variantes', 'pruebas',
   // Las reuniones de Fathom que el cron descartó por tipo, con su motivo (mig 0300, 16/10/2026), y
   // los trabajos de «Re-priorizar todo» (mig 0301, el mismo día).
   'plan_repriorizaciones', 'plan_reprios', 'plan_reuniones_descartadas', 'plan_tareas', 'producto_entrega', 'productos',

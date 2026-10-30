@@ -34,9 +34,12 @@ import { decidirCobro, laCobraLaPasarela, mesesTranscurridos } from '@/lib/cobro
 import { formatoMonto, normalizarMoneda } from '@/lib/pasarela-moneda';
 import { revalidateTag } from 'next/cache';
 import { TAG } from '@/lib/cache';
-import { getTenantDb, wsSuperAdmin } from '@/lib/workspace';
+import { getTenantDb, runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
+import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
+import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
@@ -51,12 +54,17 @@ import { esCuotaDeBaja, noEsDeuda } from '@/lib/cobrado-lead';
 import { cuotasParaBaja, darDeBajaCliente, deshacerBajaCliente } from '@/lib/pagos-baja';
 import {
   anotarEnHistorial, cambiarEstadoSuscripcionManual, cortarRecordatoriosDeCuota, editarCuota, escribirCampoDeal, escribirObligacion,
-  escribirVenta, getPagosByLead, guardarMonedaDelNegocio, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
+  escribirVenta, getPagosByLead, guardarMonedaDelNegocio, guardarPlanPorTramos, monedaDelNegocio, proteccionesDeCuotas, type CambioCampoDeal,
 } from '@/lib/pagos';
 import {
-  aplicarObligacion, esCampoLeadDeal, esParteObligacion, esSeccionDeal, lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta,
-  rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type CambioObligacion, type CambioVenta, type FilaVenta,
+  aplicarObligacion, armadaDe, avisoDeConservadas, cuotaExistenteDe, cuotasQueQuedan, esCampoLeadDeal, esParteObligacion, esSeccionDeal,
+  lineasDeCuotas, nombreCuota, obligacionesDe, patchDeVenta, planCambioDesde, planPorTramosDelServer, plataDeCuota, reconciliarCuotas,
+  rotuloCampoDeal, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, type AnticipoPlan, type CambioObligacion, type CambioVenta,
+  type CuotaQueQueda, type FilaVenta, type PlanDeCuotas, type TramoPlan,
 } from '@/lib/pagos-campo';
+import { bajarAdjunto } from '@/lib/chat-mako-adjuntos';
+import { guardarDocumentoFiscal } from '@/lib/deal-fiscal-doc';
+import { aCompletarAhora, propuestaDocumentoFiscal } from '@/lib/deal-fiscal-doc-reglas';
 
 // ── helpers del archivo ───────────────────────────────────────────────────────
 
@@ -88,10 +96,15 @@ async function seguro(que: string, fn: () => Promise<Ejecutado>): Promise<Ejecut
   }
 }
 
-/** El cobro por id, en ESTE workspace, o null. No lanza (lo llama un preparar de pantalla). */
-async function cobroDe(ws: number, id: unknown): Promise<Cobro | null> {
+/**
+ * El cobro por id, en ESTE workspace: null si no existe, y su `error` con `falla` si la base no contestó. No lanza (lo llama un
+ * preparar de pantalla). Con el `.catch(() => null)` de antes, la base caída salía «No existe el cobro»: MaKo le decía al dueño
+ * que el cobro no estaba, y era una regla sin ticket (la verificación de 692368a60, R7).
+ */
+async function cobroDe(ws: number, id: unknown): Promise<Cobro | null | { error: string; falla: true }> {
   const x = n(id);
-  return x ? getCobro(ws, x).catch(() => null) : null;
+  if (!x) return null;
+  try { return await getCobro(ws, x); } catch { return { error: 'No pude leer el cobro. Prueba de nuevo en un rato.', falla: true }; }
 }
 
 /**
@@ -142,11 +155,11 @@ function vistaDe(c: Cobro) {
   };
 }
 
-/** El cobro, si su pasarela sigue conectada; si no, el error que lo dice. */
-async function conPasarelaConectada(ws: number, c: Cobro): Promise<string | null> {
+/** null si la pasarela del cobro sigue conectada; si no, el error que lo dice (con `falla` si no se pudieron leer: no es una regla). */
+async function conPasarelaConectada(ws: number, c: Cobro): Promise<{ error: string; falla?: true } | null> {
   const conectadas = await pasarelasConectadas(ws).catch(() => null);
-  if (!conectadas) return 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.';
-  return conectadas.includes(c.proveedor) ? null : `${NOMBRE_PASARELA[c.proveedor]} ya no está conectado en Integraciones: reconéctalo para seguir.`;
+  if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
+  return conectadas.includes(c.proveedor) ? null : { error: `${NOMBRE_PASARELA[c.proveedor]} ya no está conectado en Integraciones: reconéctalo para seguir.` };
 }
 
 // ── los runners ───────────────────────────────────────────────────────────────
@@ -170,6 +183,7 @@ export const RUNNERS: Runners = {
   ver_cobro: {
     leer: async (input, ctx): Promise<SalidaLectura> => {
       const c = await cobroDe(ctx.ws, input.cobroId);
+      if (c && 'falla' in c) return fallo(c.error);
       return c ? json(vistaDe(c)) : fallo(noExisteCobro(input.cobroId));
     },
   },
@@ -179,20 +193,21 @@ export const RUNNERS: Runners = {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: `No existe el lead #${String(input.leadId)} en este negocio. Búscalo con buscar_leads.` };
       const activos = await listProductos(true).catch(() => null);
-      if (!activos) return { error: 'No pude leer el catálogo de ofertas. Prueba de nuevo en un rato.' };
+      if (!activos) return { error: 'No pude leer el catálogo de ofertas. Prueba de nuevo en un rato.', falla: true };
       const disponibles = activos.filter((p) => n(p.monto_usd)).map((p) => ({ productoId: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd }));
       const prod = activos.find((p) => p.id === Number(input.productoId));
       if (!prod) return { error: `El producto #${String(input.productoId)} no está activo en el catálogo de ofertas. Pide listar_productos.`, disponibles };
       if (!n(prod.monto_usd)) return { error: `«${prod.nombre}» no tiene precio en el catálogo: cárgalo en el catálogo de ofertas, o crea el link desde la ficha del lead con el monto.`, faltan: ['monto'] };
 
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
-      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' };
+      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
       if (!conectadas.length) return { error: 'Conecta Stripe o Mercado Pago en Integraciones para cobrar.', faltan: ['pasarela'] };
       const pedida = esPasarela(input.pasarela) ? input.pasarela : null;
       // Con las dos conectadas y sin elegir, Stripe: el precio del catálogo está en dólares y es la
       // única de las dos que lo cobra tal cual (ver abajo).
       const pasarela: Pasarela = pedida ?? (conectadas.length === 1 ? conectadas[0] : 'stripe');
-      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.`, disponibles: conectadas.map((p) => NOMBRE_PASARELA[p]) };
+      // `falta`: el link al modal de ESA pasarela lo pone el código (25/10/2026).
+      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en este negocio.`, disponibles: conectadas.map((p) => NOMBRE_PASARELA[p]), falta: { servicio: pasarela } };
       // ⚠️ MERCADO PAGO COBRA EN LA MONEDA DE SU CUENTA (ARS, MXN, BRL…) y el catálogo guarda el
       // precio en USD: `decidirCobro` le exige el monto explícito en esa moneda, y un dólar no se
       // convierte solo (nunca una tasa inventada). Con el precio sólo del catálogo, por acá no se
@@ -255,6 +270,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.estado === 'anulado') return { error: `El link del cobro #${c.id} ya estaba anulado.`, yaEstaba: true };
       if (c.estado !== 'pendiente' && c.estado !== 'fallido') {
         return { error: `Sólo se anula un link que todavía no se pagó: el cobro #${c.id} está ${rotuloEstado(c.estado).toLowerCase()}.${c.estado === 'pagado' ? ' Para devolverlo, reembolsar_cobro.' : ''}` };
@@ -272,12 +288,13 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.estado === 'reembolsado') return { error: `El cobro #${c.id} ya estaba reembolsado.`, yaEstaba: true };
       if (c.estado !== 'pagado' || !c.proveedor_pago_id) {
         return { error: `Sólo se reembolsa un cobro pagado: el cobro #${c.id} está ${rotuloEstado(c.estado).toLowerCase()}.${c.estado === 'pendiente' || c.estado === 'fallido' ? ' Para que no se pague, anular_link_pago.' : ''}` };
       }
       const sinPasarela = await conPasarelaConectada(ctx.ws, c);
-      if (sinPasarela) return { error: sinPasarela };
+      if (sinPasarela) return sinPasarela;
       const motivo = s(input.motivo);
       return {
         payload: { cobroId: c.id, ...(motivo ? { motivo } : {}) },
@@ -294,11 +311,12 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const c = await cobroDe(ctx.ws, input.cobroId);
       if (!c) return { error: noExisteCobro(input.cobroId) };
+      if ('falla' in c) return c;
       if (c.tipo !== 'suscripcion') return { error: `El cobro #${c.id} es un pago único, no una suscripción.` };
       if (c.suscripcion_estado === 'cancelada') return { error: `La suscripción del cobro #${c.id} ya estaba cancelada.`, yaEstaba: true };
       if (!c.proveedor_suscripcion_id) return { error: `La suscripción del cobro #${c.id} todavía no arrancó (nadie pagó el link). Para que no se pague, anular_link_pago.` };
       const sinPasarela = await conPasarelaConectada(ctx.ws, c);
-      if (sinPasarela) return { error: sinPasarela };
+      if (sinPasarela) return sinPasarela;
       return {
         payload: { cobroId: c.id },
         resumen: `Cancelar la suscripción de ${quien(c)}: ${c.concepto}, ${plata(c)} por ${NOMBRE_PASARELA[c.proveedor]}. Deja de cobrarse en el acto y no se puede deshacer.`,
@@ -372,6 +390,35 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: `No se pudo: ${r.error}` };
       invalidarPagos();
       return { ok: true, resumen: r.cambio ? 'Listo: dato del deal guardado.' : 'Ya estaba así: no cambió nada.', datos: { antes: r.antes, despues: r.despues } };
+    }),
+  },
+
+  guardar_documento_fiscal: {
+    // El archivo sale de `ctx.adjuntos` (los de ESTE mensaje, ya guardados) y viaja en la pendiente como `ref`: al confirmar
+    // ya no hay turno. Los datos los pasa el modelo, que leyó el documento; sólo se completa lo VACÍO (lib/deal-fiscal-doc-reglas.ts).
+    preparar: async (input, ctx) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      return propuestaDocumentoFiscal(lead, ctx.adjuntos, input);
+    },
+    ejecutar: (payload, ctx) => seguro('guardar el documento fiscal', async () => {
+      const leadId = Number(payload.leadId);
+      const archivo = await bajarAdjunto(ctx.ws, payload.ref);
+      if (!archivo) return { ok: false, resumen: 'No se pudo: el archivo ya no está en el chat. Que lo vuelva a adjuntar.' };
+      const g = await guardarDocumentoFiscal({ ws: ctx.ws, leadId, bytes: archivo.bytes, mime: archivo.mime, nombre: s(payload.nombre) ?? archivo.nombre });
+      if (!g.ok) return { ok: false, resumen: `No se pudo: ${g.error}` };
+      const lead = await getLead(leadId).catch(() => null);
+      const completados: string[] = [];
+      for (const [campo, valor] of aCompletarAhora(lead?.deal_fiscal, payload.completar)) {
+        const r = await escribirCampoDeal(leadId, { seccion: 'fiscal', campo, valor } as unknown as CambioCampoDeal, autorDe(ctx));
+        if (r.ok && r.cambio) completados.push(rotuloCampoDeal('fiscal', campo));
+      }
+      invalidarPagos();
+      return {
+        ok: true,
+        resumen: `Listo: «${g.docNombre}» quedó como documento fiscal${completados.length ? ` y completé ${completados.join(', ')}` : ''}.`,
+        datos: { documento: g.docNombre, completados },
+      };
     }),
   },
 
@@ -475,7 +522,7 @@ export const RUNNERS: Runners = {
       if (!lead) return { error: noExisteLead(input.leadId) };
       // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
       const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.`, disponibles: pagos.map((p) => ({ cuotaId: p.id, numero: p.numero, monto_usd: p.monto_usd, pagada: p.pagado })) };
       if (q.pagado) return { error: `${nombreCuota(q.numero)} ya está cobrada: para corregirla, desmárcala con marcar_pago_cobrado.` };
@@ -485,7 +532,7 @@ export const RUNNERS: Runners = {
       if (vence && !/^\d{4}-\d{2}-\d{2}$/.test(vence)) return { error: 'El vencimiento tiene que ser AAAA-MM-DD.' };
       // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
       const protMapa = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
-      if (!protMapa) return { error: 'No pude revisar si la cuota tiene un link o un recordatorio. Prueba de nuevo en un rato.' };
+      if (!protMapa) return { error: 'No pude revisar si la cuota tiene un link o un recordatorio. Prueba de nuevo en un rato.', falla: true };
       const prot = protMapa.get(q.id) ?? [];
       if (prot.includes('recordatorio')) return { error: `${nombreCuota(q.numero)} tiene un recordatorio de cobro en curso: córtalo con cortar_recordatorio_cuota para editarla.` };
       if (prot.includes('link') && monto != null && monto !== Number(q.monto_usd)) return { error: `${nombreCuota(q.numero)} tiene un link de pago sin pagar: anúlalo con anular_link_pago para cambiar el monto.` };
@@ -516,15 +563,15 @@ export const RUNNERS: Runners = {
       if (!lead) return { error: noExisteLead(input.leadId) };
       // De CUALQUIER CRM (mig 0324): una cuota de una renovación también se cobra por su id.
       const pagos = await getPagosByLead(lead.id, 'todos').catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
       const q = pagos.find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
       if (q.pagado) return { error: `${nombreCuota(q.numero)} ya está cobrada.`, yaEstaba: true };
       const pasarela: Pasarela = esPasarela(input.pasarela) ? input.pasarela : 'stripe';
       if (pasarela === 'mercadopago') return { error: 'Mercado Pago cobra en la moneda de tu cuenta y la cuota está en dólares: ese link se crea desde la ficha del lead, con el monto en tu moneda.', faltan: ['monto'] };
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
-      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' };
-      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.`, faltan: ['pasarela'] };
+      if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
+      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en este negocio.`, faltan: ['pasarela'], falta: { servicio: pasarela } };
       const vivos = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []);
       const ya = vivos.find((c) => c.pago_id === q.id && (c.estado === 'pendiente' || c.estado === 'fallido'));
       if (ya) {
@@ -560,7 +607,7 @@ export const RUNNERS: Runners = {
       const q = (await getPagosByLead(lead.id, 'todos').catch(() => [])).find((p) => p.id === Number(input.cuotaId));
       if (!q) return { error: `La cuota #${String(input.cuotaId)} no es de ${lead.nombre}. Pide cobranza_lead para ver sus cuotas.` };
       const prot = await proteccionesDeCuotas(lead.id, [q.id]).catch(() => null);
-      if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.' };
+      if (!prot) return { error: 'No pude revisar los recordatorios de la cuota. Prueba de nuevo en un rato.', falla: true };
       if (!prot.get(q.id)?.includes('recordatorio')) return { error: `${nombreCuota(q.numero)} de ${lead.nombre} no tiene un recordatorio de cobro en curso.`, yaEstaba: true };
       return { payload: { leadId: lead.id, cuotaId: q.id }, resumen: `Cortar el recordatorio de cobro de ${nombreCuota(q.numero).toLowerCase()} de ${lead.nombre}: MaKo deja de recordársela. No se deshace.` };
     },
@@ -578,7 +625,7 @@ export const RUNNERS: Runners = {
       const lead = await getLead(Number(input.leadId)).catch(() => null);
       if (!lead) return { error: noExisteLead(input.leadId) };
       const pagos = await getPagosByLead(lead.id).catch(() => null);
-      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.' };
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
       const usdDe = (qs: ReadonlyArray<{ monto_usd: number }>) => Math.round(qs.reduce((t, q) => t + Number(q.monto_usd), 0) * 100) / 100;
       if (input.deshacer === true) {
         const deBaja = pagos.filter(esCuotaDeBaja);
@@ -607,7 +654,7 @@ export const RUNNERS: Runners = {
       const estado = (['cancelada', 'activa'] as const).find((e) => e === input.estado);
       if (!estado) return { error: 'El estado va: cancelada o activa.', faltan: ['estado'] };
       const cobros = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => null);
-      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.' };
+      if (!cobros) return { error: 'No pude leer los cobros del lead. Prueba de nuevo en un rato.', falla: true };
       if (laCobraLaPasarela(cobros)) {
         return { error: `La suscripción de ${lead.nombre} la cobra la pasarela: se cancela con cancelar_suscripcion (pide el cobroId con listar_cobros).` };
       }
@@ -631,6 +678,129 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: r.cambio ? `Listo: la suscripción quedó ${estado}.` : `Ya estaba ${estado}.`, datos: { estado, mesesAntes: r.mesesAntes } };
     }),
   },
+  // ── Customers del super admin (25/10/2026): lib/clientes-plataforma.ts y lib/agente-sesiones.ts ─────────────────
+  // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md).
+  // Va ANTES de vender_plan_mako: tests/api-mako-vender-plan.test.ts recorta ese runner hasta el cierre del objeto, y con
+  // estos dos detrás el recorte pasaba su techo de 7000 caracteres (el test fallaba al cargar).
+  // ⚠️ Y EN LA APP, EL SUPER ADMIN GLOBAL (revisión del tren, hallazgo 8): `rolMinimo: 'admin'` + `soloPlataforma` es el admin
+  // DEL WORKSPACE de la plataforma (lo mismo que dice vender_plan_mako), y /customers exige `getSesionAdmin`. Sin esto, alguien
+  // sumado al equipo de MaKo con rol admin veía por el chat lo que la pantalla le niega. Sólo en la app, que es donde hay
+  // sesión: por WhatsApp habla el grupo de la plataforma, sin cookies. Un flujo corre con canal 'app' y sin sesión: no pasa.
+  ver_clientes_de_mako: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los clientes de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los clientes de MaKo son sólo del super admin.');
+      const v = await vistaDeClientes();
+      const seg = typeof input.segmento === 'string' ? input.segmento : null;
+      const filas = seg ? v.filas.filter((f) => (f.segmentos as string[]).includes(seg)) : v.filas;
+      return json({
+        numeros: {
+          mrr_usd: v.kpis.mrrUsd, suscripciones_sin_dolares: v.kpis.sinDolares, pagan: v.kpis.pagan, activos: v.kpis.activos,
+          nuevos_30_dias: v.kpis.nuevos30, en_riesgo: v.kpis.enRiesgo, por_segmento: v.kpis.porSegmento,
+          cobrado_por_mes: v.cobrado, cuotas_vencidas: v.vencido,
+        },
+        clientes: filas.map((f) => ({
+          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: nombreDePlan(f.capa), estado: f.estado,
+          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, por_que_en_riesgo: f.motivoRiesgo,
+          dias_sin_entrar: f.sinEntrar, leads: f.leads, dias_sin_leads: f.sinLeads, onboarding_hecho: f.onboardingHecho,
+          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, desde: f.creado.slice(0, 10),
+        })),
+        // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
+        para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
+        avisos: v.avisos,
+        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
+      });
+    },
+  },
+
+  ver_agentes_de_clientes: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo del super admin.');
+      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 20;
+      const { sesiones, nombreWs } = await leerSesionesAgente();
+      return json({
+        sesiones: sesiones.slice(0, limite).map((s) => ({
+          negocio: nombreWs.get(s.workspace_id) ?? `Workspace ${s.workspace_id}`, cuando: s.empezo_en ?? s.created_at,
+          titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
+        })),
+        total: sesiones.length,
+        nota: 'Los mensajes textuales están en Customers › Agents.',
+      });
+    },
+  },
+
+  armar_plan_por_tramos: {
+    preparar: async (input) => {
+      const lead = await getLead(Number(input.leadId)).catch(() => null);
+      if (!lead) return { error: noExisteLead(input.leadId) };
+      const tipo = ventaTipoDe(lead.venta_tipo);
+      if (tipo === 'suscripcion') return { error: `${lead.nombre} es una suscripción: pásala a pago único con editar_venta_lead (tipo unico) y después arma el plan.` };
+      if (tipo === 'sin_cobro') return { error: `${lead.nombre} está como becado (sin cobro): si ahora paga, sácalo con editar_venta_lead (tipo unico) y después arma el plan.` };
+      const desde = s(input.primeraCuota);
+      if (!desde || !esDia(desde)) return { error: 'La primera cuota va como AAAA-MM-DD.', faltan: ['primeraCuota'] };
+      const crudos = (Array.isArray(input.tramos) ? input.tramos : []) as Array<Record<string, unknown>>;
+      if (crudos.some((t) => t.hasta !== undefined && !esDia(s(t.hasta)))) return { error: '«hasta» va como AAAA-MM-DD.' };
+      const tramos = crudos.map(tramoDeInput);
+      if (input.anticipo !== undefined && input.sinAnticipo === true) return { error: 'Pasa el anticipo o sinAnticipo, no los dos.' };
+      const pagos = await getPagosByLead(lead.id).catch(() => null);
+      if (!pagos) return { error: 'No pude leer las cuotas. Prueba de nuevo en un rato.', falla: true };
+      // Fail-closed: «no pude ver si tiene un link» no es «no tiene».
+      const protMapa = await proteccionesDeCuotas(lead.id, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id)).catch(() => null);
+      if (!protMapa) return { error: 'No pude revisar si las cuotas tienen un link o un recordatorio. Prueba de nuevo en un rato.', falla: true };
+      const hoy = await hoyEnWorkspace();
+      const planConInicial = (Number(lead.cobro_inicial_usd) || 0) > 0;
+      // El anticipo: el que se pide, ninguno, o el que ya tiene sin cobrar (como la ficha al abrir: sale de una fila #0 VIVA,
+      // nunca de la columna, revisión de 9fc4030dd).
+      let anticipo: AnticipoPlan | null = null;
+      if (input.anticipo !== undefined) {
+        const p = plataDeCuota({ monto: input.anticipo, moneda: input.anticipoMoneda, montoUsd: input.anticipoUsd });
+        if (!p.ok) return { error: `Anticipo: ${p.error}` };
+        const fecha = s(input.anticipoFecha) ?? hoy;
+        if (!esDia(fecha)) return { error: 'La fecha del anticipo va como AAAA-MM-DD.' };
+        anticipo = { monto_usd: p.monto_usd, moneda: p.moneda, monto_original: p.monto_original, fecha };
+      } else if (input.sinAnticipo !== true && planConInicial) {
+        const cero = pagos.find((q) => q.numero === 0 && !q.pagado && !noEsDeuda(q));
+        if (cero) { const a = armadaDe(cero); anticipo = { monto_usd: a.monto_usd, moneda: a.moneda, monto_original: a.monto_original, fecha: cero.fecha_esperada ?? hoy }; }
+      }
+      const plan = planPorTramosDelServer({
+        pagos, protegidas: new Set([...protMapa].filter(([, x]) => x.length > 0).map(([id]) => id)),
+        planConInicial, cobroInicialUsd: lead.cobro_inicial_usd ?? null, desde, tramos, anticipo,
+      });
+      if (!plan.ok) return { error: plan.error };
+      // Un anticipo nuevo sobre uno cobrado no se crea (`cuotasDelPlanPorTramos`): prometerlo era confirmar plata que no queda
+      // como deuda (revisión de 805afb460, N4). La ficha ni lo deja escribir.
+      if (input.anticipo !== undefined && plan.inicialCobrado) return { error: `El anticipo de ${lead.nombre} ya está cobrado: no se pide otro. Para cobrar algo más, agrégalo como un tramo.` };
+      // Lo que se confirma es lo que QUEDA: la reconciliación del server sobre lo leído, sin escribir (N2).
+      const existentes = pagos.map((q) => cuotaExistenteDe(q, protMapa.get(q.id) ?? []));
+      const reconciliado = reconciliarCuotas(existentes, plan.deseadas, 'porId', { vistos: new Set(plan.vistos), protegidasPrimero: true });
+      return {
+        // `vistas`: las impagas leídas acá. El «sí» puede llegar 2 h después, y vale sólo sobre esto (N1, `faltaParaConfirmar`).
+        payload: { leadId: lead.id, primeraCuota: desde, tramos, anticipo, vistas: plan.vistos },
+        resumen: resumenDelPlan(lead, cuotasQueQuedan(existentes, reconciliado), reconciliado, anticipo != null || planConInicial),
+      };
+    },
+    // Antes de reclamar la pendiente (lib/api-mako/acciones.ts): si el plan cambió desde la propuesta, el «sí» no la quema.
+    faltaParaConfirmar: async (payload, ctx) => {
+      if (!Array.isArray(payload.vistas)) return null;
+      const pagos = await runWithWorkspace(ctx.ws, () => getPagosByLead(Number(payload.leadId))).catch(() => null);
+      if (!pagos) return 'No pude revisar si el plan de cuotas cambió. Prueba de nuevo en un rato.';
+      return planCambioDesde(pagos, new Set((payload.vistas as unknown[]).map(Number)));
+    },
+    ejecutar: (payload, ctx) => seguro('armar el plan', async () => {
+      const r = await guardarPlanPorTramos(Number(payload.leadId), {
+        desde: String(payload.primeraCuota), tramos: (payload.tramos as TramoPlan[]) ?? [], anticipo: (payload.anticipo as AnticipoPlan | null) ?? null,
+        vistas: Array.isArray(payload.vistas) ? (payload.vistas as unknown[]).map(Number) : null,
+      }, autorDe(ctx));
+      invalidarPagos();
+      return {
+        ok: true,
+        resumen: r.sinTocar ? `Guardé el plan de ${r.cuotas} cuota(s) menos lo que no se puede cambiar (${r.sinTocar}).` : `Listo: plan de ${r.cuotas} cuota(s) guardado.`,
+        datos: { cuotas: r.cuotas, actualizadas: r.cambios.actualizar.length, nuevas: r.cambios.insertar.length, quitadas: r.cambios.borrar.length, sinTocar: r.sinTocar },
+      };
+    }),
+  },
+
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
   // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
   //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
@@ -653,7 +823,7 @@ export const RUNNERS: Runners = {
       if (!val.ok) return { error: val.error };
       const v = val.venta;
       let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
-      try { comprador = await compradorEnLaPlataforma(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.' }; }
+      try { comprador = await compradorEnLaPlataforma(v.email); } catch { return { error: 'No pude buscar a la persona en el CRM de la plataforma. Intenta de nuevo.', falla: true }; }
       if (comprador && 'ambiguo' in comprador) return { error: 'Hay más de un lead con ese email en el CRM de la plataforma: no elijo uno a ciegas. Unifícalos en el CRM y vuelve a pedirlo.' };
       // Lo que va a cobrar el link, con las reglas de crearCobro: la pasarela, la moneda (la de su cuenta, con Mercado Pago)
       // y el valor en dólares.
@@ -661,7 +831,7 @@ export const RUNNERS: Runners = {
       if (!p.ok) return { error: p.error, faltan: p.faltan };
       if (comprador) {
         let abierto: Awaited<ReturnType<typeof cobroAbiertoDelPlan>>;
-        try { abierto = await cobroAbiertoDelPlan(plataforma, comprador.id, v.capa); } catch { return { error: 'No pude revisar los cobros de esa persona. Intenta de nuevo.' }; }
+        try { abierto = await cobroAbiertoDelPlan(plataforma, comprador.id, v.capa); } catch { return { error: 'No pude revisar los cobros de esa persona. Intenta de nuevo.', falla: true }; }
         if (abierto && 'pendiente' in abierto) {
           const c = abierto.pendiente;
           return {
@@ -673,7 +843,7 @@ export const RUNNERS: Runners = {
         if (abierto) return { error: `Ya pagó ese plan (cobro #${abierto.pagado.id}) y su cuenta todavía no quedó dada de alta: se revisa en Cobros.` };
       }
       let cuenta: Awaited<ReturnType<typeof cuentaDelComprador>>;
-      try { cuenta = await cuentaDelComprador(v.email); } catch { return { error: 'No pude revisar si ese email ya tiene cuenta de MaKo. Intenta de nuevo.' }; }
+      try { cuenta = await cuentaDelComprador(v.email); } catch { return { error: 'No pude revisar si ese email ya tiene cuenta de MaKo. Intenta de nuevo.', falla: true }; }
       if (cuenta === 'plataforma') return { error: 'Ese email es del equipo de MaKo: no se le vende un plan.' };
       if (cuenta === 'equipo') return { error: 'Ese email es del equipo de otro negocio, no su dueño: a esa cuenta no se le vende un plan.' };
       const plan = capaDef(v.capa).nombre;
@@ -706,3 +876,50 @@ export const RUNNERS: Runners = {
     }),
   },
 };
+
+// ── el plan por tramos ────────────────────────────────────────────────────────
+
+const esDia = (f: string | null): f is string => !!f && /^\d{4}-\d{2}-\d{2}$/.test(f);
+const dmy = (f: string): string => `${f.slice(8, 10)}/${f.slice(5, 7)}/${f.slice(0, 4)}`;
+const plataDe = (c: { monto_usd: number; moneda: string | null; monto_original: number | null }): string =>
+  (c.moneda && c.monto_original != null ? `${formatoMonto(c.monto_original, c.moneda)} (${formatoMonto(c.monto_usd, 'USD')})` : formatoMonto(c.monto_usd, 'USD'));
+
+/** Un tramo como lo pide la API, en la forma de la ficha (`tramoDeForm`): sin días, el mes vence el día de su primera cuota y la
+ *  quincena, el 1 y el 15. */
+function tramoDeInput(t: Record<string, unknown>): TramoPlan {
+  const cada: TramoPlan['cada'] = t.cada === 'quincena' ? 'quincena' : t.cada === 'semana' ? 'semana' : 'mes';
+  const d1 = n(t.dia);
+  return {
+    monto: n(t.monto) ?? 0, moneda: s(t.moneda) ?? 'USD', montoUsd: n(t.montoUsd), cada,
+    ...(cada === 'quincena' ? { dias: [d1 ?? 1, n(t.dia2) ?? 15] } : cada === 'mes' && d1 != null ? { dias: [d1] } : {}),
+    cantidad: n(t.cuotas), hasta: s(t.hasta),
+  };
+}
+
+/**
+ * Lo que la persona confirma: el plan como QUEDA (`cuotasQueQuedan`, revisión de 805afb460, N2), no lo pedido. Cada cuota del plan
+ * con su fecha y su monto, la cobrada y la que no se puede cambiar dichas; el total, lo ya cobrado, lo que no se toca y por qué, y
+ * la venta si no dice lo mismo. `conAnticipo`: el #0 es el anticipo. Con más de 24 cuotas, las 12 primeras y las 2 últimas.
+ */
+type LeadDelResumen = { nombre: string; monto_cierre_usd?: number | null };
+function resumenDelPlan(lead: LeadDelResumen, quedan: readonly CuotaQueQueda[], plan: PlanDeCuotas, conAnticipo: boolean): string {
+  const delPlan = quedan.filter((q) => q.delPlan).sort((a, b) => String(a.fecha_esperada ?? '9').localeCompare(String(b.fecha_esperada ?? '9')) || a.numero - b.numero);
+  const anticipo = conAnticipo ? delPlan.find((q) => q.numero === 0) ?? null : null;
+  const cuotas = delPlan.filter((q) => q !== anticipo);
+  const como = (q: CuotaQueQueda) => (q.pagado ? ' (cobrada)' : q.motivo ? ' (queda como está)' : '');
+  const filas = cuotas.map((q) => `${q.fecha_esperada ? dmy(q.fecha_esperada) : 'sin fecha'} ${plataDe(q)}${como(q)}`);
+  const vistas = filas.length > 24 ? [...filas.slice(0, 12), `… ${filas.length - 14} más …`, ...filas.slice(-2)] : filas;
+  const suma = (xs: readonly CuotaQueQueda[]) => Math.round(xs.reduce((t, q) => t + Number(q.monto_usd), 0) * 100) / 100;
+  const total = suma(delPlan);
+  const cobrado = suma(delPlan.filter((q) => q.pagado));
+  const noSeToca = avisoDeConservadas(plan);
+  const venta = Number(lead.monto_cierre_usd) || 0;
+  return [
+    `Plan de ${lead.nombre}: ${cuotas.length} cuota(s)${anticipo ? ` y un anticipo de ${plataDe(anticipo)}${anticipo.fecha_esperada ? ` el ${dmy(anticipo.fecha_esperada)}` : ''}${como(anticipo)}` : ''}.`,
+    `Cuotas: ${vistas.join(' · ')}.`,
+    `Total: ${formatoMonto(total, 'USD')}.${cobrado ? ` Ya cobrado: ${formatoMonto(cobrado, 'USD')}.` : ''}`,
+    noSeToca ? `No se puede cambiar: ${noSeToca}.` : '',
+    'Reemplaza las cuotas sin cobrar del plan.',
+    Math.abs(venta - total) >= 0.01 ? `La venta dice ${venta ? formatoMonto(venta, 'USD') : 'que no tiene monto'}: el plan no la cambia (eso es editar_venta_lead).` : '',
+  ].filter(Boolean).join(' ');
+}

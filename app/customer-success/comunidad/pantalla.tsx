@@ -2,8 +2,8 @@
 // Clients › Community, Calendar, Members, Leaderboards y About (/clients/<seccion>) — la comunidad tipo
 // Skool de cada producto
 // =============================================================================
-// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/clients/[seccion]/page.tsx, una por
-// pestaña de la comunidad; la ruta vieja (/customer-success/comunidad) redirige a /clients/community
+// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/classroom/[seccion]/page.tsx, una por
+// pestaña de la comunidad; la ruta vieja (/customer-success/comunidad) redirige a /classroom/community
 // (docs/diseno-clients.md, D2 y D5).
 //
 // Pedido de Martín (07/10/2026, item 10), textual: «quiero implementar una nueva tab dentro del

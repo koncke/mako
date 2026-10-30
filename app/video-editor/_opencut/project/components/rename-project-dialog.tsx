@@ -1,7 +1,7 @@
 "use client";
 
-// «Renombrar» (`pc_rename`) desde el menú de una tarjeta del inicio. En el
-// editor el nombre se edita en la barra superior, con un clic.
+// «Renombrar» (`pc_rename`): «Cambiar nombre» del «⋯» de un proyecto en la lista de la tarjeta izquierda
+// (VideoEditorCliente). En el editor, el nombre también se edita en la barra superior, con un clic.
 
 import { useState } from "react";
 import {
@@ -71,7 +71,7 @@ export function RenameProjectDialog({
 						type="button"
 						onClick={confirmar}
 						disabled={!limpio}
-						className="h-8 min-w-[76px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-white hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+						className="h-8 min-w-[76px] cursor-pointer rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
 					>
 						Aceptar
 					</button>

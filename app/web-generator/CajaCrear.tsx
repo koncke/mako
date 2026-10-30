@@ -88,13 +88,15 @@ import { DialogoObjetivo } from './crear/DialogoObjetivo';
 import { OPCIONES_FORMATO } from './crear/Replicar';
 import {
   OPCIONES_MODO, TOPE_TEXTO, alEnviar, alEscribir, avisoDeTexto, borrarAlInicio, cabeArchivo, cajaDeSemilla, cambiarFormato, conArchivo, conLeido,
-  conLink, elegirModo, linkSoltado, listoParaEnviar, muestraTuTexto, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
-  type AccionLink, type ArchivoCaja, type EstadoCaja, type ModoCaja, type SemillaCaja,
+  conLink, elegirModo, elegirPastilla, linkSoltado, listoParaEnviar, muestraTuTexto, pastillaDe, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
+  type ArchivoCaja, type EstadoCaja, type ModoCaja, type PastillaLink, type SemillaCaja,
 } from './crear/caja-modos';
+import { adaptaElFormato } from '@/lib/editor-landing/replicar-reglas';
 import { MODOS_TEXTO, paramsIniciales, type ModoGen } from './crear/ajustes';
 import { BotonComo, CSS_AJUSTES, PanelMasAjustes } from './crear/AjustesCaja';
 import { leerIndicaciones, type Indicacion } from './crear/recientes';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** Lo que se eligió en la caja. El Panel lo abre a su derecha (Inicio.tsx, con `derechaDeAccion`). Vive en panel-reglas.ts (puro). */
 export type { AccionCaja };
@@ -115,9 +117,11 @@ export type PropsCajaCrear = {
 };
 
 /** Qué hacer con un link (la pastilla, tanda 6, punto 5). */
-const ACCIONES_LINK: readonly OpcionDesplegable<AccionLink>[] = [
+const ACCIONES_LINK: readonly OpcionDesplegable<PastillaLink>[] = [
   { valor: 'analizar', texto: 'Analiza esta landing', icono: 'reporte' },
   { valor: 'replicar', texto: 'Replica esta landing', icono: 'copiar' },
+  // «Replicar y adaptar» (27/10/2026, Leila): el diseño de la original con el texto de tu oferta.
+  { valor: 'adaptar', texto: 'Replica y adapta a tu oferta', icono: 'varita' },
 ];
 
 /** El «+»: un archivo de texto, oficina, audio o video, o una imagen (las familias de lib/formatos-archivo.ts). */
@@ -144,6 +148,8 @@ export default function CajaCrear({
   /** EL estado del cuadro: el modo, lo escrito, el link y el archivo (crear/caja-modos.ts, puro). */
   const [estado, setEstado] = useState<EstadoCaja>(() => cajaDeSemilla(modo, semilla));
   const [modoGen, setModoGen] = useState<ModoGen>(semilla?.modoGen ?? 'plan');
+  // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026, «En ningun chat»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   const [params, setParams] = useState<ParamsGeneracion>(() => paramsIniciales(semilla, analizadas));
   /** Lo tipeado en el contenedor del link (Analizar / Replicar sin link todavía). */
   const [escritoLink, setEscritoLink] = useState('');
@@ -294,6 +300,7 @@ export default function CajaCrear({
   };
 
   const enviar = () => {
+    if (appEscritorio.bloqueada) return;
     const r = alEnviar(estado, { tipo, modo: modoGen, params }, escritoLink);
     if (r.que === 'chips') { setEscritoLink(''); setEstado(r.estado); alCampo(); return; }
     if (r.que === 'accion') onAccion(r.accion);
@@ -351,9 +358,9 @@ export default function CajaCrear({
         onQuitar={() => { setEstado(quitarLink); alCampo(); }} etiquetaQuitar="Quitar el enlace" />
       {link.accion && (
         <span className="gp-cc-link-accion" onKeyDown={teclaEnPastilla}>
-          <Desplegable etiqueta="Qué hacer" valor={link.accion} onCambio={(a) => setEstado((e) => elegirModo(e, a))} opciones={ACCIONES_LINK} ancho={240} />
+          <Desplegable etiqueta="Qué hacer" valor={pastillaDe(link) ?? link.accion} onCambio={(a) => setEstado((e) => elegirPastilla(e, a))} opciones={ACCIONES_LINK} ancho={260} />
           {link.accion === 'replicar' && (
-            <Desplegable etiqueta="Formato" valor={link.formato} onCambio={(f) => setEstado((e) => cambiarFormato(e, f))} opciones={OPCIONES_FORMATO} ancho={220} />
+            <Desplegable etiqueta="Formato" valor={link.formato} onCambio={(f) => setEstado((e) => cambiarFormato(e, f))} opciones={link.adaptar ? OPCIONES_FORMATO.filter((o) => adaptaElFormato(o.valor)) : OPCIONES_FORMATO} ancho={220} />
           )}
         </span>
       )}
@@ -453,6 +460,7 @@ export default function CajaCrear({
         onValor={(v) => { setError(null); setEstado((e) => alEscribir(e, v)); }}
         onEnviar={enviar}
         onError={setError}
+        bloqueo={appEscritorio.bloqueo}
         refCampo={campo}
         antesDelCampo={chips}
         onBorrarAlInicio={() => {

@@ -35,13 +35,16 @@ import { getPorCobrar, getCuotasPendientes, type CuotaPendiente } from '@/lib/pa
 import { funnelsDelPedido } from '../funnels-del-pedido';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { getDataSources, sourcesToMap } from '@/lib/sources';
-import { hoyEnWorkspace, tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { hoyEnWorkspace, tzActual, tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { bloqueACobrar } from '@/lib/pagos-bloque';
 import { sanearBloque } from '@/lib/chat-bloques';
 import { TIPO_DE_CAMBIO_USD_MXN } from '@/lib/config';
 import { diasAntes, esFechaValida, lunesDeFecha, ayerEnTijuana } from '@/lib/date-utils';
 import { contarFilas, avisoRecorte } from './metricas.helpers';
 import { VENTA_SIN_COBRO } from '@/lib/venta-tipo';
+import { getTenantDb } from '@/lib/workspace';
+import { leerPorPaginas } from '@/lib/supabase-paginado';
+import { esAsistencia, reunionesPorAsistencia, salidaPorAsistencia, type FilaReunionLead } from '@/lib/reuniones-por-asistencia';
 
 // ── utilidades ───────────────────────────────────────────────────────────────
 
@@ -105,6 +108,23 @@ const finDeMes = (s: string): string => {
 // ── runners ──────────────────────────────────────────────────────────────────
 
 export const RUNNERS: Runners = {
+  reuniones_por_asistencia: {
+    leer: async (input) => {
+      // La ventana como metricas_negocio (`rango`: `validarRango`, los mismos 90 días por defecto) y la cuenta con
+      // `estadoDeAsistencia`, la misma de reporteMetricas: si no, la lista y el número difieren.
+      const [{ desde, hasta }, hoy, zona] = await Promise.all([rango(input), hoyEnWorkspace(), tzActual().catch(() => TZ_DEFAULT)]);
+      const filas: FilaReunionLead[] = [];
+      await leerPorPaginas<FilaReunionLead>(
+        await getTenantDb(), 'leads', 'id, nombre, fecha_junta_1, asistio_j1, fecha_junta_2, asistio_j2, closer',
+        (pagina) => { filas.push(...pagina); },
+        { orden: 'id', filtros: (q) => q.or(`and(fecha_junta_1.gte.${desde},fecha_junta_1.lte.${hasta}),and(fecha_junta_2.gte.${desde},fecha_junta_2.lte.${hasta})`) },
+      );
+      const asistencia = esAsistencia(input.asistencia) ? input.asistencia : 'sin_marcar';
+      const reunion = input.reunion === 'R1' || input.reunion === 'R2' ? input.reunion : null;
+      const hora = new Intl.DateTimeFormat('es-AR', { timeZone: zona, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date());
+      return json(salidaPorAsistencia(reunionesPorAsistencia(filas, { desde, hasta, hoy, asistencia, reunion }), { desde, hasta, zona, contadoA: `${hoy} ${hora}`, asistencia }));
+    },
+  },
   metricas_negocio: {
     leer: async (input, ctx) => {
       const formato = (str(input, 'formato') || ctx.formato || 'md').toLowerCase();
@@ -173,7 +193,7 @@ export const RUNNERS: Runners = {
         'alcance_sumado es la suma del alcance DIARIO de cada anuncio: no es el alcance real de la ventana (una persona se cuenta cada día que la alcanzaron).',
         'formularios_instantaneos son los formularios de Meta; reuniones_1_con_fecha_en_ventana sale del CRM: no se dividen entre sí sin aclararlo.',
         'ctr_clics_totales_pct = clics TOTALES ÷ impresiones (incluye clics al perfil, «ver más», reacciones). ctr_link_pct = clics de link ÷ impresiones, que es el imp_click de diagnosticar_funnel: no compares uno con el otro. cpc_usd es por clic total.'];
-      if (sinMeta) notas.unshift('No hay ni una fila de Meta en la ventana (integración sin conectar o sin sincronizar): los campos de meta y el CAC salen null, que significa «no hay datos», no «no hubo inversión».');
+      if (sinMeta) notas.unshift('No hay ni una fila de Meta en la ventana: los campos de meta y el CAC salen null, que significa «no hay datos», no «no invertiste nada». El porqué NO se adivina («sin sincronizar»): la cuenta puede no estar conectada, no haber corrido ningún anuncio o estar FRENADA por Meta (saldo impago, deshabilitada). Antes de decirlo, mira ver_estado_meta.');
       else if (filasMeta == null) notas.unshift('No se pudo comprobar si hay filas de Meta en la ventana: un cero en los números de Meta puede ser «no hay datos», no «no hubo inversión».');
       const deMeta = <T,>(v: T): T | null => (sinMeta ? null : v);
       return json({
@@ -419,6 +439,7 @@ export const RUNNERS: Runners = {
         notas: [
           'plays_por_dia solo trae los días con alguna fila; un día que falta es un día sin dato, no necesariamente cero.',
           'espectadores_panda_suma_diaria suma los únicos de cada día: la misma persona dos días cuenta dos veces. null = Panda sin datos en la ventana.',
+          'Desde el 25/10/2026 los plays y el visionado suman el VSL del negocio en Panda, Wistia o Bunny Stream (el que marcó como VSL); panda_con_datos dice si alguno de esos tiene datos. Wistia y Bunny no dan únicos ni retención por día.',
           'retencion_p50_promedio_pct es el promedio de la retención MEDIANA (p50) diaria de Panda, sin ponderar por plays: no es una retención media, no la compares con una. La ventana termina hoy en UTC.',
         ],
       });

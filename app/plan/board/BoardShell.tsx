@@ -73,7 +73,9 @@ import { RichText, mdAHtml, stripHtml, FOCO_BARRA } from './RichText';
 import type { Board } from './useBoard';
 import { separarRepetidas, textoRepetidas } from '@/lib/tareas-dedup';
 import { esProyectoBandeja, PROYECTO_SIN_PROYECTO, EMOJI_SIN_PROYECTO, COLOR_SIN_PROYECTO, QUE_SIN_PROYECTO } from '@/lib/plan-bandeja';
-import { type BoardTask, type Label, type Prio, type EstadoTarea, type Check, type Actor, type Fuente, type FuenteTipo, type PrioFiltro, ACTOR_LABEL, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, prioFromScore, displayPrio, estadoDe, prioFiltroDe, PFILTRO_LABEL, PRIOS_FILTRO } from './types';
+import { type BoardTask, type Label, type Prio, type EstadoTarea, type Check, type Actor, type Fuente, type FuenteTipo, type PrioFiltro, ACTOR_LABEL, PLABEL, PCOLOR, SWATCHES, MAX_PRIORIDAD, scoreFromPrio, uid, relTime, fechaHora, fuenteEfectiva, esFuenteDeReunion, prioFromScore, displayPrio, estadoDe, prioFiltroDe, PFILTRO_LABEL, PRIOS_FILTRO } from './types';
+import { nombreDeGrabador } from '@/lib/grabadores/catalogo';
+import type { GrabadorId } from '@/lib/grabadores/reunion';
 // EL KANBAN POR ESTADO (16/10/2026): columnas, orden manual, lugar al soltar y los dos filtros
 // nuevos (Prioridad y Responsable). Puro y compartido con el teléfono: ver app/plan/board/kanban.ts.
 import { columnasPorEstado, ordenAlSoltar, pasaPrioYResponsable, esPrioFiltro, esResponsableFiltro, COLOR_ESTADO, COLOR_PRIO_FILTRO, RESPONSABLES_FILTRO, RESPONSABLE_LABEL, type ResponsableFiltro } from './kanban';
@@ -549,7 +551,19 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const [confirm, setConfirm] = useState<{ msg: string; onOk: () => void } | null>(null);
   const [debateId, setDebateId] = useState<string | null>(null);
   const [nuevaTarea, setNuevaTarea] = useState(false);
-  const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión de Fathom
+  const [extraerReunion, setExtraerReunion] = useState(false); // G3: extraer de una reunión grabada
+  // El grabador del botón de reuniones: el que el negocio tiene conectado (lib/grabadores, 26/10/2026). Un logo ajeno es
+  // peor que uno inventado (AGENTS.md): con Loom conectado, el botón no dibuja el de Fathom. Mientras no se sabe, Fathom.
+  const [grabadorDelBoton, setGrabadorDelBoton] = useState<GrabadorId>('fathom');
+  useEffect(() => {
+    if (!repo.fathomExtract) return;
+    let vivo = true;
+    void fetch('/api/plan-fathom', { cache: 'no-store' }).then((r) => r.json()).then((j: { grabadores?: GrabadorId[] }) => {
+      if (vivo && j?.grabadores?.[0]) setGrabadorDelBoton(j.grabadores[0]);
+    }).catch(() => { /* sin dato, queda el de siempre */ });
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repo.fathomExtract]);
   const [exportar, setExportar] = useState(false);             // bajarse el tablero (modal de a 1 pregunta)
   const [reunionArchivo, setReunionArchivo] = useState<File[] | null>(null); // los archivos elegidos en la bandeja → entran al modal de extracción
   const [importar, setImportar] = useState(false);                           // la bandeja de importación
@@ -814,7 +828,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   // Los dos filtros del 16/10/2026 (Prioridad y Responsable) van en el MISMO predicado que el
   // resto, así los cumplen el Kanban y la tabla a la vez. `repo.responsables` falso = el tablero
   // no tiene el dato y el filtro ni se dibuja ni se aplica (`pasaPrioYResponsable`).
-  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo)) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter) && pasaCliente(t) && pasaPrioYResponsable(t, fPrio, repo.responsables ? fResp : null);
+  const passes = (t: BoardTask) => (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos))) && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l))) && (fOrigen.size === 0 || fOrigen.has(origenDelFiltro(fuenteEfectiva(t).tipo))) && (fCuando.size === 0 || fCuando.has(cuandoDe(t, hoyISO()))) && pasaEstado(t.progress, doneFilter) && pasaCliente(t) && pasaPrioYResponsable(t, fPrio, repo.responsables ? fResp : null);
   /**
    * LO QUE SE VE EN «TAREAS» (Kanban y tabla): el universo CON FIN, salvo que estés
    * buscando.
@@ -857,7 +871,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
   const recurrentesVisibles = lasRecurrentes.filter((t) => (
     (idsIA ? idsIA.has(t.id) : (!q || matchTarea(t, q, campos)))
     && (fLabels.size === 0 || t.labels.some((l) => fLabels.has(l)))
-    && (fOrigen.size === 0 || fOrigen.has(fuenteEfectiva(t).tipo))
+    && (fOrigen.size === 0 || fOrigen.has(origenDelFiltro(fuenteEfectiva(t).tipo)))
     && pasaEstado(t.progress, doneFilter)
     && pasaCliente(t)
   ));
@@ -1175,7 +1189,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
     }
     // origen = MaKo (la IA extrajo estas tarjetas) + fuente (Fathom/archivo) + un alta
     // que deja rastro de DE DÓNDE salió (feedback jul-19 / regla del historial).
-    const altaText = fuente?.tipo === 'fathom' ? `Creó la tarjeta — de la reunión «${fuente.etiqueta ?? ''}» (Fathom)`
+    const altaText = esFuenteDeReunion(fuente?.tipo) ? `Creó la tarjeta — de la reunión «${fuente?.etiqueta ?? ''}» (${nombreDeGrabador(fuente!.tipo as GrabadorId)})`
       : fuente?.tipo === 'archivo' ? `Creó la tarjeta — del archivo «${fuente.etiqueta ?? ''}»`
         : undefined;
     // El MINUTO en que se dijo, por tarjeta: el mismo chip que traen las que vienen del
@@ -1437,7 +1451,7 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
           ), menu: { icono: <MakoStar size={15} color="currentColor" />, label: 'Lo que cargó MaKo', badge: welcomeTasks.length,
             desc: 'Las tareas que entraron solas, para revisarlas', onClick: () => setWelcomeVisible(true) } }] : []),
           ...(repo.fathomExtract ? [{ key: 'fathom', nodo: (<>
-          {/* El botón ES el logo de Fathom (feedback jul-18): sin contenedor blanco. Mismo 38×38 que el de subir. */}
+          {/* El botón ES el logo del grabador (feedback jul-18, con Fathom): sin contenedor blanco. Mismo 38×38 que el de subir. */}
           {/* Con borradores esperando, este botón ABRE ESOS BORRADORES (y late para que
               se vea que hay algo). El selector de reuniones de siempre vuelve recién
               cuando no queda nada pendiente: o las cargaste, o las descartaste. Antes,
@@ -1450,19 +1464,19 @@ export function BoardShell({ board, scope, vistaInicial, clientes = [], embebido
               mirar el resto de tus reuniones. El badge ya avisa cuántas esperan, y en
               la lista cada reunión muestra las suyas: no hace falta bloquear nada. */}
           <button type="button" onClick={() => { setReunionArchivo(null); setExtraerReunion(true); }}
-            aria-label={nPendientes + nDeOtros > 0 ? `Tus reuniones — ${pendientes.length} borrador(es) esperando` : 'Tus reuniones de Fathom'}
+            aria-label={nPendientes + nDeOtros > 0 ? `Tus reuniones — ${pendientes.length} borrador(es) esperando` : 'Tus reuniones grabadas'}
             title={nPendientes > 0 ? `Tus reuniones — ${nPendientes} tarea${nPendientes === 1 ? '' : 's'} esperando que las confirmes${nDeOtros ? ` (y ${nDeOtros} de otras personas para repartir)` : ''}`
               : nDeOtros > 0 ? `Tus reuniones — quedan ${nDeOtros} tarea${nDeOtros === 1 ? '' : 's'} de otras personas para repartir`
-              : 'Extraer tareas de una reunión de Fathom (MaKo lee la transcripción)'}
+              : 'Extraer tareas de una reunión grabada (MaKo lee la transcripción)'}
             style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: 'none', background: 'transparent', cursor: 'pointer', flex: 'none', padding: 0, lineHeight: 0, borderRadius: 9, transition: 'opacity .12s', animation: nPendientes > 0 ? 'makoLatido 1.6s ease-in-out infinite' : undefined }}
             onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.82'; }} onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}>
-            <SvcIcon k="fathom" size={22} box={38} radius={9} />
+            <SvcIcon k={grabadorDelBoton} size={22} box={38} radius={9} />
             {nPendientes + nDeOtros > 0 && (
               <span style={{ position: 'absolute', top: -3, right: -3, minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999, background: nPendientes > 0 ? 'var(--primary)' : 'var(--dim)', color: '#fff', fontFamily: MONO, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>{nPendientes + nDeOtros}</span>
             )}
           </button>
           {nPendientes > 0 && <style>{'@keyframes makoLatido{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(47,111,237,0))}50%{transform:scale(1.09);filter:drop-shadow(0 0 6px rgba(47,111,237,.65))}}'}</style>}
-          </>), menu: { icono: <SvcIcon k="fathom" size={15} box={20} radius={5} />, label: 'Tus reuniones', badge: nPendientes + nDeOtros,
+          </>), menu: { icono: <SvcIcon k={grabadorDelBoton} size={15} box={20} radius={5} />, label: 'Tus reuniones', badge: nPendientes + nDeOtros,
             desc: 'MaKo lee la grabación y saca los compromisos', onClick: () => { setReunionArchivo(null); setExtraerReunion(true); } } },
           { key: 'importar', nodo: (<>          {/* Abre la BANDEJA, no el buscador de archivos del sistema. Elegir el
               archivo es el paso 2, no el 1: así se ve qué se está por mandar, entran
@@ -1901,6 +1915,7 @@ function FunnelIcon({ color = 'currentColor', size = 17 }: { color?: string; siz
 // ⚠️ IMPORT **Y** EXPORT, no un `export … from`: ese no crea binding local y este
 // mismo archivo la usa mas abajo. Es la trampa que AGENTS.md ya tiene escrita.
 import { BarraAcciones } from '@/app/_components/BarraAcciones';
+import { iniciales } from '@/lib/unicode-seguro';
 export { BarraAcciones };
 export type { AccionPlegable } from '@/app/_components/BarraAcciones';
 
@@ -2719,10 +2734,19 @@ function ScoreBadge({ score, titulo }: { score: number; titulo?: string }) {
 // WhatsApp, un archivo, Claude Code (con nombre + link del chat), o MaKo. Distinto de
 // "quién": una tarjeta que sacó MaKo de una reunión de Fathom no es lo mismo que una
 // que escribió un dev en el SEED. Si trae url, el chip es un link.
+// Una reunión lleva el nombre y el logo del grabador que la grabó (lib/grabadores, 26/10/2026).
+const chipDeGrabador = (g: GrabadorId) => ({ label: nombreDeGrabador(g), icon: () => <SvcIcon k={g} size={11} box={16} radius={4} />, accent: true });
 const FUENTE_META: Record<FuenteTipo, { label: string; icon: () => ReactNode; accent: boolean } | null> = {
   manual: null,
   mako: { label: 'MaKo', icon: () => <span style={{ color: 'var(--accent)' }}>✦</span>, accent: true },
-  fathom: { label: 'Fathom', icon: () => <SvcIcon k="fathom" size={11} box={16} radius={4} />, accent: true },
+  fathom: chipDeGrabador('fathom'),
+  loom: chipDeGrabador('loom'),
+  tldv: chipDeGrabador('tldv'),
+  fireflies: chipDeGrabador('fireflies'),
+  zoom: chipDeGrabador('zoom'),
+  'meet': chipDeGrabador('meet'),
+  'readai': chipDeGrabador('readai'),
+  otter: chipDeGrabador('otter'),
   whatsapp: { label: 'WhatsApp', icon: () => <SvcIcon k="whatsapp" size={11} box={16} radius={4} />, accent: true },
   archivo: { label: 'Archivo', icon: () => <span>📄</span>, accent: false },
   'claude-code': { label: 'Claude Code', icon: () => <span style={{ fontFamily: MONO, fontWeight: 700 }}>‹╱›</span>, accent: false },
@@ -2981,7 +3005,7 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
   if (actor === 'code') return <span title="Claude Code" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontFamily: MONO, fontWeight: 700, flex: 'none' }}>╱</span>;
   if (avatarUrl) /* eslint-disable-next-line @next/next/no-img-element */
     return <img src={avatarUrl} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />;
-  const ini = (nombre || 'U').trim().slice(0, 1).toUpperCase();
+  const ini = iniciales(nombre, 1, 'U');
   return <span style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.45, fontWeight: 700, flex: 'none' }}>{ini}</span>;
 }
 
@@ -4005,9 +4029,14 @@ function ObjetivoCard({ objetivo, onOpen, prog }: { objetivo: Label; onOpen: () 
 // `labels` opcional: en Proyectos solo va la capa de estado. `fOrigen`/`sortMode`
 // opcionales: si vienen, se muestran esas capas (aplican a tareas y a proyectos).
 const ORIGEN_OPS: Array<[string, string]> = [
-  ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reunión · Fathom'], ['claude-code', '⌨️ Claude Code'],
+  ['whatsapp', '💬 WhatsApp'], ['fathom', '🎙️ Reuniones grabadas'], ['claude-code', '⌨️ Claude Code'],
   ['archivo', '📄 Archivos subidos'], ['mako', '✨ MaKo'], ['manual', '✍️ Manual'],
 ];
+/**
+ * El origen con que FILTRA una tarjeta: las de cualquier grabador van juntas bajo «Reuniones grabadas», cuya clave
+ * guardada sigue siendo 'fathom' (el filtro de quien ya lo tenía elegido no se pierde al sumar Loom o Zoom).
+ */
+const origenDelFiltro = (tipo: string): string => (esFuenteDeReunion(tipo) ? 'fathom' : tipo);
 type FiltroVista = 'root' | 'estado' | 'proyecto' | 'origen' | 'orden' | 'cuando' | 'cliente' | 'prioridad' | 'responsable';
 /**
  * La capa «Cliente» del menú. UNA elección (radio) y no un `Set` como las demás: «¿de quién
@@ -5559,7 +5588,7 @@ function ProyectosView({ board, topProjectId, onOpen, onNew, projFilter, q, camp
   // los crea uno a mano, filtrar por "Reunión · Fathom" devolvía la pantalla vacía
   // aunque las tareas de la reunión estuvieran cargadas adentro — el motivo por el
   // que pareció que una reunión entera no se había cargado.
-  const tieneTareasDe = (id: string) => tasks.some((t) => t.labels.includes(id) && fOrigen.has(fuenteEfectiva(t).tipo));
+  const tieneTareasDe = (id: string) => tasks.some((t) => t.labels.includes(id) && fOrigen.has(origenDelFiltro(fuenteEfectiva(t).tipo)));
   const withProg = ordenados.map((l) => ({ l, prog: projProgress(tasks, l.id), ts: tasks.filter((t) => t.labels.includes(l.id)) }));
   /**
    * ⚠️ BUSCAR ORDENA POR RELEVANCIA, NO POR SCORE. «No está funcionando bien la barra de

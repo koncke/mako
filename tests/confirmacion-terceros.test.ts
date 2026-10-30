@@ -18,7 +18,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { confirmacionPura, rechazoSiNoEsConfirmacionPura } from '../lib/confirmacion-pura';
+import { confirmacionPura, conQuienPidio, elSiEsDeQuienPidio, PIDE_EL_SI_A_MAKO, PIDIO, quienEnElGrupo, rechazoSiNoEsConfirmacionPura, sinQuienPidio } from '../lib/confirmacion-pura';
 import { REGISTRO, porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 
@@ -95,6 +95,8 @@ const A_TERCEROS = [
   'sacar_etiqueta_lead',
   // Empezar de nuevo una secuencia (23/10/2026): le vuelve a disparar el primer envío, como inscribir.
   'empezar_de_nuevo_lead_secuencia',
+  // La difusión desde el CRM (28/10/2026): le escribe a muchos leads a la vez.
+  'difundir_a_leads',
   // Dar acceso a un curso por la API (23/10/2026): le manda la invitación al alumno, como invitar_cliente_curso_cs.
   'dar_acceso_curso',
 ];
@@ -142,6 +144,9 @@ const NO_LLEGAN: Record<string, string> = {
   crear_automatizacion_con_ia: 'nace PAUSADA: no le escribe a nadie hasta que alguien la active',
   asignar_audio_paso: 'a los leads que todavía no son clientes queda como borrador para que alguien lo mande',
   avisar_al_equipo: 'es un aviso al grupo del negocio (el equipo), no al lead',
+  marcar_visto_operaciones: '«No le manda nada al chat»: sólo pone el ✓ de «Ya lo vi» en el Ops Center de la plataforma',
+  configurar_horario_envio: 'cambia el horario de oficina de las automatizaciones: a qué hora PUEDEN escribir, no manda nada al confirmarse',
+  volver_a_probar_lead_secuencia: '«No le manda nada ahora»: marca la inscripción terminada; le escribe recién lo próximo que la arranca (un comentario, un mensaje suyo)',
 };
 
 test('una acción de chat que dice que le escribe, le avisa o le manda algo a alguien está marcada, o su excepción dice por qué no', () => {
@@ -169,7 +174,8 @@ test('confirmarPendiente (y su camino viejo) piden la confirmación pura ANTES d
   assert.ok(iPuerta > 0, 'confirmarPendiente no llama a rechazoSiNoEsConfirmacionPura');
   assert.ok(iPuerta < iReclamo, 'la puerta va DESPUÉS de reclamar la pendiente: un rechazo la dejaría quemada');
   assert.match(cuerpo.slice(iPuerta, iPuerta + 400), /mensaje: ctx\.mensajeUsuario/, 'la puerta no mira el mensaje de la persona (ctx.mensajeUsuario)');
-  assert.match(cuerpo.slice(iPuerta, iPuerta + 400), /return \{ error: rechazoATercero \}|if \(rechazoATercero\) return \{ error/, 'el rechazo no vuelve como el error de confirmar_accion');
+  // (600: la llamada lleva también quién pidió y quién confirma en el grupo, test de la sección 5.)
+  assert.match(cuerpo.slice(iPuerta, iPuerta + 600), /return \{ error: rechazoATercero \}|if \(rechazoATercero\) return \{ error/, 'el rechazo no vuelve como el error de confirmar_accion');
 
   const viejo = leer('lib/mako-doer-acciones.ts');
   const iV = viejo.indexOf("case 'confirmar_accion':");
@@ -191,3 +197,67 @@ test('el doer de WhatsApp le pasa al contexto el mensaje de la persona (sin él 
 // PROBADO ROMPIÉNDOLO, la revisión adversarial de Ops Center 1.2 (22/10/2026, base 9/0): un número sin contar como palabra → 7/2
 // (2 y 5) · la puerta sin mirar `plata` → 8/1 (5) · `proponer_cambio_etapa` sin `aTerceros` → 8/1 (6) · `proponer_estado_campana`
 // sin `plata` → 8/1 (5). La regex ampliada encontró sola a `sacar_etiqueta_lead`.
+
+// --- 5. El «sí» de PLATA en un grupo (28/10/2026) ----------------------------------------------------------------------------------
+
+test('en un grupo, la pendiente de plata la confirma quien la pidió o un «sí» a MaKo; otro «sí» pide «sí, MaKo» y la deja viva', () => {
+  // La verificación de 8cb034a18: el lote junta 8 s, y el «sí» de Pedro a «@Pedro ¿lo confirmo?» de Ana que llega después, solo y
+  // puro, ejecutaba la pendiente de plata. Lo decidió el Cerebro el 28/10.
+  const base = { canal: 'whatsapp', aTerceros: false, plata: true, titulo: 'Editar cuota', resumen: 'la cuota 3 de Nadia a USD 423' };
+  const ANA = '5491111111111@s.whatsapp.net';
+  const PEDRO = '5492222222222@s.whatsapp.net';
+  // Quien la pidió, con un «sí» solo: pasa.
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí', enElGrupo: { pidio: ANA, confirma: ANA, aMaKo: false } }), null);
+  // Otra persona, con un «sí» solo: no pasa, y MaKo pide «sí, MaKo».
+  const otro = rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí', enElGrupo: { pidio: ANA, confirma: PEDRO, aMaKo: false } });
+  assert.ok(otro && otro.includes(PIDE_EL_SI_A_MAKO) && /La pendiente sigue viva/.test(otro), String(otro));
+  assert.equal(PIDE_EL_SI_A_MAKO, '¿Lo confirmo? Respóndeme «sí, MaKo» y lo hago.');
+  // Un «sí» que le habla a MaKo, de cualquiera: pasa («sí, MaKo» es una confirmación pura).
+  assert.ok(confirmacionPura('sí, MaKo') && confirmacionPura('sí mako'));
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí, MaKo', enElGrupo: { pidio: ANA, confirma: PEDRO, aMaKo: true } }), null);
+  // Sin saber quién la pidió (una pendiente de antes) o quién confirma (un lote de varios): pide «sí, MaKo».
+  for (const g of [{ pidio: null, confirma: ANA, aMaKo: false }, { pidio: ANA, confirma: null, aMaKo: false }, { pidio: null, confirma: null, aMaKo: false }])
+    assert.ok(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí', enElGrupo: g })?.includes(PIDE_EL_SI_A_MAKO), JSON.stringify(g));
+  assert.ok(elSiEsDeQuienPidio({ pidio: null, confirma: null, aMaKo: true }));
+  // Lo que no es puro sigue con su rechazo de siempre, antes que el del grupo.
+  assert.match(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí pero esperá', enElGrupo: { pidio: ANA, confirma: ANA, aMaKo: false } }) ?? '', /mueve plata \(un gasto, un monto\)/);
+  // Fuera de un grupo (sin `enElGrupo`) y lo que le llega a un tercero sin mover plata: como antes (aTerceros queda afuera).
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, mensaje: 'sí' }), null);
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, plata: false, aTerceros: true, mensaje: 'sí', enElGrupo: { pidio: ANA, confirma: PEDRO, aMaKo: false } }), null);
+  // La app no pasa por acá.
+  assert.equal(rechazoSiNoEsConfirmacionPura({ ...base, canal: 'app', mensaje: 'sí', enElGrupo: { pidio: ANA, confirma: PEDRO, aMaKo: false } }), null);
+});
+
+test('quién la pidió va en el payload y sale al leerla: ni la bandeja lo muestra ni la acción lo recibe', () => {
+  assert.equal(quienEnElGrupo('5491111111111:12@s.whatsapp.net'), '5491111111111@s.whatsapp.net');
+  assert.equal(quienEnElGrupo('70781665022126@lid'), '70781665022126@lid');
+  assert.equal(quienEnElGrupo(''), null);
+  const con = conQuienPidio({ cuota_id: 3, monto: 423 }, '5491111111111@s.whatsapp.net');
+  assert.deepEqual(con, { cuota_id: 3, monto: 423, [PIDIO]: '5491111111111@s.whatsapp.net' });
+  assert.deepEqual(sinQuienPidio(con), { payload: { cuota_id: 3, monto: 423 }, pidio: '5491111111111@s.whatsapp.net' });
+  assert.deepEqual(conQuienPidio({ a: 1 }, null), { a: 1 });
+  assert.deepEqual(sinQuienPidio({ a: 1 }), { payload: { a: 1 }, pidio: null });
+  // El cableado: la pendiente lo guarda al crearse y lo saca al leerse; los dos caminos que proponen lo pasan, y las dos puertas
+  // lo comparan con quien confirma.
+  const pend = leer('lib/mako-pendientes.ts');
+  assert.match(pend, /const payloadCrudo = conQuienPidio\(dataCruda\.payload \?\? \{\}, dataCruda\.pidio\);/);
+  assert.match(pend, /const \{ payload, pidio \} = sinQuienPidio\(/);
+  const api = leer('lib/api-mako/acciones.ts');
+  assert.match(api, /pidio: ctx\.enElGrupo\?\.quien,/);
+  assert.match(api, /enElGrupo: ctx\.enElGrupo \? \{ pidio: p\.pidio \?\? null, confirma: ctx\.enElGrupo\.quien, aMaKo: ctx\.enElGrupo\.aMaKo \} : undefined,/);
+  const viejo = leer('lib/mako-doer-acciones.ts');
+  assert.match(viejo, /mismoTurnoDesde: turnStart, pidio: enElGrupo\?\.quien \}\);/);
+  assert.match(viejo, /enElGrupo: enElGrupo \? \{ pidio: target\.pidio \?\? null, confirma: enElGrupo\.quien, aMaKo: enElGrupo\.aMaKo \} : undefined,/);
+  // El doer: quién escribe (nadie en un lote de varios) y si le habla a MaKo, al contexto y al runner.
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /quien: data\.loteDeVarios \? null : quienEnElGrupo\(key\?\.participant\) \?\? \(key\?\.fromMe \? 'fromMe' : null\),/);
+  // «Le habla a MaKo»: en un lote, el último de lo que queda (un audio no cuenta); suelto, el nombre, la @ (salvo en la línea del
+  // dueño, donde la @ es él) o la cita a un mensaje de MaKo por su id (la verificación de 9cef25dba).
+  assert.match(doer, /aMaKo: data\.paraQuien \? !!data\.paraQuien\.leHabla\n\s*: \(quien\.aMaKo && !lineaDelDueno\) \|\| nombraAMaKo\(textoDirecto\) \|\| nombraAMaKo\(texto\) \|\| \(await citaAMaKo\(data\)\),/);
+  assert.equal((doer.match(/leHabla: await leHablaAMaKo\(/g) ?? []).length, 2, 'un lote no dice si su último le habla a MaKo');
+  assert.match(doer, /async function citaAMaKo\(data: MsgIn\): Promise<boolean> \{\n\s*const \{ id \} = citaDe\([^\n]*\n\s*return !!id && \(await idsEnviados\(/);
+  assert.match(doer, /if \(await esEcoDeMaKoAhora\(instance, jid, key\)\) return \{ engaged: false, skip: 'eco de mi propia respuesta' \};\n[^\n]*\n\s*await anotarLineaDelDueno\(instance\);/);
+  assert.match(doer, /sinElLlamadoAMaKo\(textoDirecto, lineaDelDueno \? null : await numeroDeLaLinea\(instance\)\)/);
+  assert.match(doer, /mensajeUsuario: texto, enElGrupo,/);
+  assert.match(doer, /crearRunnerAcciones\(wsData, jid, Date\.now\(\), texto, enElGrupo\)/);
+});

@@ -36,7 +36,10 @@ import { after } from 'next/server';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace, OWNER_WS } from './workspace';
 import { leerTodo, leerPorPaginas } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
-import { credWs, integracionConectada } from './credenciales';
+import { integracionConectada } from './credenciales';
+// «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
+import { hayGrabadorConectado } from './grabadores';
+import { accesoDeMeta } from './meta-via';
 import { configWs } from './cron-workspaces';
 import { ayerEnTijuana, diasAntes } from './date-utils';
 import {
@@ -86,9 +89,9 @@ async function jobAplica(key: JobKey): Promise<{ aplica: boolean; motivo?: strin
         ? { aplica: true }
         : { aplica: false, motivo: 'Meta no conectado' };
     case 'fathom_calls':
-      return (await integracionConectada('fathom'))
+      return (await hayGrabadorConectado())
         ? { aplica: true }
-        : { aplica: false, motivo: 'Fathom no conectado' };
+        : { aplica: false, motivo: 'Sin grabador de reuniones conectado' };
     case 'vsl_metrics': {
       // Los videos se leen con `configWs`, el MISMO lector de los crons de YouTube y Panda: el setting y,
       // si no está, la credencial (YOUTUBE_VSL_VIDEO_ID, PANDA_VSL_VIDEO_IDS), que es donde los guarda
@@ -301,7 +304,7 @@ async function jobMetaMetrics(job: JobState, deadline: number, marcar: Marcar): 
         await sleep(30_000);
         try { insights = await fetchMetaInsights(fecha); } catch { return false; }
       } else if (e instanceof MetaTokenError) {
-        throw new Error(`Token de Meta inválido: ${e.message}`);
+        throw new Error(`La conexión anterior de Meta venció: conecta Meta en la tarjeta de Zernio (${e.message})`);
       } else {
         throw e;
       }
@@ -310,7 +313,7 @@ async function jobMetaMetrics(job: JobState, deadline: number, marcar: Marcar): 
     if (insights.length > 0) {
       const metrics = parseInsightsToMetrics(insights, fecha);
       try {
-        const creatives = await fetchAdCreatives(metrics.map((m) => m.ad_id).filter((v): v is string => !!v));
+        const creatives = await fetchAdCreatives(metrics.map((m) => m.ad_id).filter((v): v is string => !!v), fecha);
         applyCreatives(metrics, creatives);
       } catch { /* creativos no fatales */ }
       await upsertMetrics(metrics);
@@ -403,18 +406,17 @@ async function jobTranscripts(deadline: number, marcar: Marcar): Promise<boolean
     getPromptText('transcribe.whisper.prompt', ''),
   ]);
   const prompts = { structureSystem, imagePrompt, whisperGlossary };
-  // FAIL-CLOSED: si el token del cliente desapareció/quedó ilegible a mitad de
-  // la extracción, cortar acá — transcribeAd sin metaToken caería al env del
-  // dueño (token ajeno para los ads del cliente).
-  const metaToken = await credWs('META_ACCESS_TOKEN');
-  if (!metaToken) throw new Error('META_ACCESS_TOKEN no configurado para este workspace — reconecta Meta en el paso 1.');
+  // FAIL-CLOSED: si la conexión del cliente (su Zernio o su token, lib/meta-via.ts) desapareció o quedó ilegible a mitad
+  // de la extracción, cortar acá — transcribeAd sin acceso caería al env del dueño (token ajeno para los ads del cliente).
+  const acceso = await accesoDeMeta();
+  if (!acceso) throw new Error('Meta no está conectado en este negocio: conéctalo en la tarjeta de Zernio («Anuncios de Meta»).');
 
   let procesados = 0;
   let exitos = 0;
   let erroresRun = 0;
   for (const adId of pendientes) {
     if (Date.now() > deadline - 60_000) return false; // una transcripción puede tardar ~1 min; el próximo tick retoma
-    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts, metaToken });
+    const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts, ...acceso });
     const { error: upErr } = await supabase.from('ad_transcripts').upsert({
       ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: sinNulos(res.transcript),
       secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: sinNulos(res.error), updated_at: new Date().toISOString(),

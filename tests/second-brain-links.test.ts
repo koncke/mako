@@ -11,7 +11,7 @@
 //
 // Verificado ROMPIÉNDOLO (20/10/2026, arnés romper.py del scratchpad), contra la base en verde (3 / 0):
 //   · el nodo del cliente otra vez con `/crm?lead=${c.leadId}`                 → 0 / 3
-//   · un link a una ruta que no existe (`/clientes` en vez de `/clients`)      → 2 / 1
+//   · un link a una ruta que no existe (`/clientes` en vez de `/classroom/clients`)      → 2 / 1
 //   · /crm sin declarar `funnel` en sus searchParams                         → 2 / 1
 // =============================================================================
 

@@ -65,7 +65,7 @@ import { Icon } from '@/app/_components/icons';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from '@/app/components/dropdown-lugar';
 import {
-  AVISO_SIN_META, ESPERA_MS, alcanzaParaBuscar, avisoSinResultados, esConexionMeta, esEstadoMeta, perfilManual, pideConectarMeta,
+  AVISO_SIN_INSTAGRAM, AVISO_SIN_META, ESPERA_MS, alcanzaParaBuscar, avisoSinResultados, esConexionMeta, esEstadoMeta, perfilManual, pideConectarMeta,
   urlDePerfil, usuarioDeTexto, type ConexionMeta, type EstadoMeta, type PerfilIg,
 } from '@/lib/instagram-buscar';
 
@@ -409,8 +409,10 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
                   meta: metaDeLaBusqueda,
                   porNombre: actual && 'porNombre' in actual ? actual.porNombre : null,
                 })}</span>
-                {/* Sin Meta conectado, la fila lleva el botón: la frase sola no dejaba hacer nada (22/10/2026). */}
-                {pideConectarMeta(metaDeLaBusqueda) && botonConectar}
+                {/* Sin Meta conectado, la fila lleva el botón: la frase sola no dejaba hacer nada (22/10/2026). ⚠️ UNA VEZ
+                    (24/10/2026: salía «Conectar Meta» DOS veces, acá y debajo del campo): si la línea de debajo ya lo
+                    ofrece, la fila sólo dice el porqué. */}
+                {pideConectarMeta(metaDeLaBusqueda) && !pideConectarMeta(conexion) && botonConectar}
               </div>
             )}
             {opciones.map((p, i) => {
@@ -449,10 +451,11 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
       </div>
       {/* Sin Meta conectado, ANTES de escribir: el porqué y el botón (22/10/2026). Afuera de `cajaRef`: la lista se
           ubica contra el campo, no contra esta línea. */}
-      {pideConectarMeta(conexion) && (
+      {(pideConectarMeta(conexion) || conexion === 'sin-instagram') && (
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 8px', marginTop: 6, fontFamily: SANS, fontSize: 12.5, fontWeight: 400, color: 'var(--dim)' }}>
-          <span>{AVISO_SIN_META}</span>
-          {botonConectar}
+          {/* Con Meta conectada pero sin Instagram (24/10/2026), el porqué SIN botón: conectar no lo arregla. */}
+          <span>{conexion === 'sin-instagram' ? AVISO_SIN_INSTAGRAM : AVISO_SIN_META}</span>
+          {pideConectarMeta(conexion) && botonConectar}
         </div>
       )}
       {integracion.modal}

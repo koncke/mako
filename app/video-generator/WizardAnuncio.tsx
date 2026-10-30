@@ -71,6 +71,7 @@ import {
 } from './video-action';
 import { editarLineaPlanAction, reescribirTomaAction } from './actions';
 import { EditarTexto } from '../components/SeccionCard';
+import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 
 /**
  * El alto de lo enorme.
@@ -919,6 +920,8 @@ export function Estudio({ pregunta, titulo, paso, total, children, boton, consec
           <div style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)', textAlign: 'center' }}>
             {error}
           </div>
+          {/* En la prueba gratis: el botón para empezar el plan ya (lib/topes-plan.ts, `textoTopePrueba`). */}
+          <EmpezarPlanYa texto={error} />
           {errorAccion && (
             <Button variant="secondary" onClick={errorAccion.onClick}>{errorAccion.texto}</Button>
           )}

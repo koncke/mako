@@ -165,6 +165,23 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
+    // Leila (26/10/2026, Fabi Pedraza): mandó la constancia al chat del lead y MaKo contestó «Desde este chat no puedo
+    // adjuntar ni guardar el documento en su ficha». Sólo la app: es la que guarda el archivo del mensaje (`ctx.adjuntos`).
+    id: 'guardar_documento_fiscal', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Guardar el documento fiscal de un lead',
+    descripcion: 'PROPONE guardar en la ficha de un lead, como su documento fiscal (la constancia de situación fiscal, el RFC, el CUIT…), el archivo que la persona adjuntó en ESTE mensaje, y completar los datos fiscales que estén VACÍOS con lo que leíste en el documento (razon, id_fiscal, domicilio, correo): lo ya cargado no se pisa. Si ya tenía un documento, queda el nuevo. El archivo de un mensaje anterior no sirve: que lo vuelva a adjuntar con el pedido. Para cambiar un dato fiscal ya cargado, editar_dato_deal.',
+    escribe: 'sube el archivo a la ficha del lead (deal_fiscal.doc_path y doc_nombre) y completa los datos fiscales vacíos, cada uno con el antes y el después en el historial',
+    parametros: [
+      leadId('id del lead (de buscar_leads).'),
+      { nombre: 'archivo', rotulo: 'Archivo', tipo: 'string', max: 200, descripcion: 'el nombre del archivo, sólo si adjuntó más de uno.' },
+      { nombre: 'razon', rotulo: 'Razón social', tipo: 'string', max: 2000, descripcion: 'la razón social o el nombre que dice el documento.' },
+      { nombre: 'id_fiscal', rotulo: 'Identificación fiscal', tipo: 'string', max: 2000, descripcion: 'el RFC, CUIT, NIT… tal cual lo dice el documento.' },
+      { nombre: 'domicilio', rotulo: 'Domicilio fiscal', tipo: 'string', max: 2000, descripcion: 'el domicilio fiscal, en una línea.' },
+      { nombre: 'correo', rotulo: 'Correo de facturación', tipo: 'string', max: 2000, descripcion: 'el correo de facturación, si aparece.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: G_TAB,
+  },
+  {
     id: 'editar_obligacion_deal', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Editar una obligación del deal',
     descripcion: 'PROPONE agregar, editar o quitar UN renglón de las obligaciones del trato de un lead: lo que tiene que hacer el cliente o lo que tiene que hacer el prestador. Los demás renglones quedan. Pide renglon (empezando en 1) para editar o quitar; si la lista cambió antes del «sí», no se escribe.',
@@ -270,5 +287,61 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o mercadopago. Hace falta sólo si la plataforma tiene las dos conectadas.' },
     ],
     canales: ['whatsapp', 'app'], costo: 'externo', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  // ── Customers del super admin (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12) ─────────────────────────
+  // La vista Customers (app/customers) por chat: los clientes de MaKo por segmento con su MRR, y en qué trabajan en su
+  // Claude Code (lo que era /admin/agente). Sólo la plataforma y, en la app, el super admin global (el runner lo pregunta); sin HTTP: son datos de todos los negocios.
+  {
+    id: 'ver_clientes_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los clientes de MaKo',
+    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR, la suma de las suscripciones activas cobradas por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, lo que entró cada mes (6 meses) y las cuotas vencidas, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados, con un cobro que falló, o sin que nadie de su equipo entre hace 14 días). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR, por qué está en riesgo, cuántos días hace que no entra nadie, cuántos leads tiene y cuándo llegó el último, si terminó su onboarding, sus sesiones del agente en 30 días, si tiene un pago esperando y desde cuándo es cliente. Con segmento, sólo ese.',
+    parametros: [
+      { nombre: 'segmento', rotulo: 'Segmento', tipo: 'string', enum: ['partner', 'agency', 'cliente', 'de-agencia'], descripcion: 'sólo los de ese segmento. Sin esto, todos.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'ver_agentes_de_clientes', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver en qué trabajan los clientes',
+    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (la pestaña Agents de Customers): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están en Customers › Agents.',
+    parametros: [
+      { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'cuántas sesiones, las más nuevas primero. Sin esto, 20.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  // ── El plan por TRAMOS (29/10/2026; ticket #26 de Mauricio: «7500 dólares en 3 pagos… cada uno de 2,500», y MaKo contestó que
+  // sus herramientas no creaban el plan). Lo que arma «Armar el plan» de la ficha, por la MISMA regla (lib/pagos-campo.ts,
+  // `planPorTramosDelServer`) y la misma escritura (lib/pagos.ts, `guardarPlanPorTramos`). Por chat: es UN lead y el resumen dice
+  // cada cuota con su fecha y su monto antes del «sí».
+  {
+    id: 'armar_plan_por_tramos', plata: true, area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Armar el plan de cuotas por tramos',
+    // ⚠️ CORTA A PROPÓSITO (29/10/2026): el chat junta herramientas hasta 12.000 caracteres, y con la descripción larga esta
+    // sacaba a editar_cuota de «las fechas y las cantidades de pago de Ana están mal» (tests/mako-no-puedo-falsos.test.ts).
+    descripcion: 'PROPONE el plan de cuotas de una venta de pago único, como «Armar el plan» de la ficha: uno o varios tramos seguidos, cada uno con el monto de cada cuota, su moneda, cada cuánto (mes, quincena o semana) y cuántas cuotas o hasta qué fecha. Ej.: «7500 dólares en 3 pagos de 2500, el 28 de octubre, noviembre y diciembre» = un tramo de 2500, día 28, 3 cuotas, primera el 28/10. Rehace por su id las cuotas sin cobrar; las cobradas y las que tienen un link o un recordatorio quedan, y se dice. Una suscripción se pasa antes a pago único con editar_venta_lead, que también cambia el monto de la venta.',
+    escribe: 'rehace por su id las cuotas sin cobrar del plan del lead, escribe las columnas del plan y deja el historial',
+    parametros: [
+      leadId('id del lead (de buscar_leads).'),
+      { ...fechaIso('primeraCuota', 'Primera cuota', 'AAAA-MM-DD de la primera cuota.'), obligatorio: true },
+      {
+        nombre: 'tramos', rotulo: 'Tramos', tipo: 'object[]', obligatorio: true, max: 10, descripcion: 'en orden, hasta 10. Un plan parejo es UN tramo.',
+        campos: [
+          { nombre: 'monto', rotulo: 'Monto de cada cuota', tipo: 'number', obligatorio: true, minimo: 0.01, maximo: 100000000, descripcion: 'lo que vale cada cuota, en su moneda.' },
+          { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'USD (sin valor), MXN, ARS…' },
+          { nombre: 'montoUsd', rotulo: 'Cada cuota en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'en otra moneda, obligatorio: cada cuota en dólares.' },
+          { nombre: 'cada', rotulo: 'Cada', tipo: 'string', enum: ['mes', 'quincena', 'semana'], descripcion: 'sin valor, mes.' },
+          { nombre: 'dia', rotulo: 'Día de pago', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'mes: el día (sin valor, el de la primera cuota). Quincena: el primer día (sin valor, 1).' },
+          { nombre: 'dia2', rotulo: 'Segundo día', tipo: 'number', entero: true, minimo: 1, maximo: 31, descripcion: 'quincena: el segundo día (sin valor, 15).' },
+          { nombre: 'cuotas', rotulo: 'Cuántas cuotas', tipo: 'number', entero: true, minimo: 1, maximo: 60, descripcion: 'cuántas cuotas (o «hasta»).' },
+          fechaIso('hasta', 'Hasta', 'AAAA-MM-DD: cobra hasta esa fecha, incluida.'),
+        ],
+      },
+      { nombre: 'anticipo', rotulo: 'Anticipo', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'cobro inicial aparte, en su moneda. Sin él, queda el que ya tenga sin cobrar.' },
+      { nombre: 'anticipoMoneda', rotulo: 'Moneda del anticipo', tipo: 'string', max: 3, descripcion: 'sin ella, USD.' },
+      { nombre: 'anticipoUsd', rotulo: 'Anticipo en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'si no es USD: en dólares.' },
+      fechaIso('anticipoFecha', 'Fecha del anticipo', 'AAAA-MM-DD; sin ella, hoy.'),
+      { nombre: 'sinAnticipo', rotulo: 'Sin anticipo', tipo: 'boolean', descripcion: 'true: quita el anticipo sin cobrar.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
 ];

@@ -62,6 +62,11 @@ const TODOS: ReadonlyArray<{ plantilla: string; evento: string }> = [
   { plantilla: 'mako-lead-formulario-meta', evento: 'lead_formulario_meta' },
   // 17/10/2026, «nada por detrás» (lo toma el Plan): las tareas de las reuniones que MaKo dejó en el Plan. Nacía apagado.
   { plantilla: 'mako-reunion-tareas-al-plan', evento: 'reunion_tareas_al_plan' },
+  // 26/10/2026: el Claude del negocio que no puede analizar sus llamadas (docs/hallazgos-closing.md). Nace PRENDIDA.
+  { plantilla: 'mako-closing-ia-caida', evento: 'closing_ia_caida' },
+  // 28/10/2026: Instagram o Zernio frenan los mensajes de un negocio (el tope, docs/hallazgos-chatbot.md). Nace PRENDIDA.
+  // Faltaba: el paso documentado (`--eventos=social_tope`) tiraba «no está en la mudanza» (verificación de 69b49a31c).
+  { plantilla: 'mako-social-tope', evento: 'social_tope' },
 ];
 // POR TANDAS DE DEPLOY (16/10/2026): la fila de un evento cuyo código todavía no está en producción no correría, así
 // que se mudan sólo los desplegados. Sin `--eventos`, todos.

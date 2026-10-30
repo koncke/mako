@@ -22,7 +22,7 @@
 //  4. EL EQUIPO NO ES TENANT-SCOPED (ver equipo.helpers.ts): todo id de miembro se
 //     resuelve contra equipoDe(ctx.ws), en preparar Y en ejecutar.
 //  5. AVISOS_WA_EN_VIVO NO ES «LO QUE SE DISPARA». Es la lista CURADA que pinta
-//     Configuraciones › Notificaciones. El choke point (emitirAviso → avisoWaActivo)
+//     Settings › Notificaciones. El choke point (emitirAviso → avisoWaActivo)
 //     mira el interruptor de CUALQUIER tipo, y hoy salen avisos que no están en esa
 //     lista (reunion-recordatorio, lead-de-landing, meta-cuenta-frenada…). Por eso
 //     se lista y se deja silenciar todo el catálogo de voz, y la marca es
@@ -33,15 +33,15 @@ import 'server-only';
 import { revalidatePath } from 'next/cache';
 import type { Runners, Preparado, Ejecutado, SalidaLectura } from '../tipos';
 import { getUsuarioActual } from '@/lib/auth';
-import { getWorkspace, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
+import { getWorkspace, getRolWsEfectivo, estaImpersonando, actualizarWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { zonaDelNegocioDetalle, fijarZonaDelNegocio, zonaDelNegocio, zonaDelNegocioEstricta } from '@/lib/timezone';
 import { exigenciasPorNegocio, fijarObligatorioDesde, type ExigenciaNegocio } from '@/lib/mfa-obligatorio';
 import { instanteDelPlazo } from '@/lib/mfa-reglas';
 import { esWsPlataforma } from './integraciones.helpers';
 import { zonaCanonica, textoOrigen } from '@/lib/zona-negocio-reglas';
-import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs } from '@/lib/perfil';
-import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo } from '@/lib/notif-catalogo';
+import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs, setPerfil, usuarioPropio, zonaPropia, getNotifPush, setNotifPush, setNotifInApp, type Perfil } from '@/lib/perfil';
+import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo, normalizarSilencio, PUSH_TIPOS, PUSH_SOLO_ADMINS, type RolPush } from '@/lib/notif-catalogo';
 import { CATALOGO_AVISOS, esAvisoSoloSuperAdmin } from '@/lib/avisos-catalogo';
 import { AVISOS_POR_EVENTO } from '@/lib/aviso-evento';
 import { getDestinatarios, setDestinatarios, type ResultadoGuardar } from '@/lib/notif-destinatarios';
@@ -51,6 +51,12 @@ import { estadoPlantillaReporte, asegurarPlantillaReporte, PLANTILLA_REPORTE_NOM
 import { listDrafts, setDraftStatus } from '@/lib/meta-templates';
 import { listarUsuarios, crearUsuario, actualizarUsuario, eliminarUsuario, type Usuario } from '@/lib/usuarios';
 import { invitarPorEmail } from '@/lib/invitaciones';
+import { getSettingEstricto, setSetting } from '@/lib/settings';
+import { getSupabaseServer } from '@/lib/supabase';
+import { KEY_HORARIO_ENVIO, HORARIO_SUGERIDO, DIAS_PANTALLA, horaTexto, horarioParaGuardar, sanearHorario, type DiaSemana } from '@/lib/horario-envio';
+import { estadoMfa } from '@/lib/mfa';
+import { tieneContrasena } from '@/lib/contrasena';
+import { limpiarNombreNegocio } from '@/lib/nombre-negocio';
 import type { RolWorkspace } from '@/lib/auth-session';
 import {
   EMAIL_RE, equipoDe, miembroDe, esUltimoAdminActivo, buscarEnEquipo,
@@ -108,6 +114,17 @@ async function negociosPedidos(input: Record<string, unknown>): Promise<Exigenci
 const horaEn = (tz: string): string => {
   try { return new Date().toLocaleString('es-MX', { timeZone: tz, dateStyle: 'medium', timeStyle: 'short' }); } catch { return ''; }
 };
+
+// ── Settings por la API (25/10/2026) ──────────────────────────────────────────
+/** Los avisos al celular que se le ofrecen a una persona: los de admin, sólo a admin (la regla de Settings y de /m/cuenta). */
+const tiposPushDe = (rol: RolPush) => PUSH_TIPOS.filter((t) => rol === 'admin' || !PUSH_SOLO_ADMINS.has(t.id));
+/** Cuántos teléfonos de la persona reciben avisos (sin la tabla, ninguno: el código puede llegar antes que la mig 0249). */
+async function telefonosConAvisos(usuarioId: number): Promise<number> {
+  const { data, error } = await getSupabaseServer().from('push_suscripciones').select('id').eq('usuario_id', usuarioId);
+  return error ? 0 : (data ?? []).length;
+}
+/** «miercoles» → 3: los días de configurar_horario_envio, sin tildes (el enum de la API). */
+const DIA_DE_NOMBRE: Record<string, DiaSemana> = { domingo: 0, lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6 };
 
 /** El email de la sesión que está frente a la pantalla, o null (WhatsApp, HTTP). */
 async function emailDeSesion(): Promise<string | null> {
@@ -279,7 +296,7 @@ export const RUNNERS: Runners = {
         total: curados.length + resto.length,
         en_configuraciones: curados.length,
         avisos: [...curados, ...resto],
-        nota: 'Todos se pueden silenciar con configurar_aviso_whatsapp: el envío de cualquier aviso mira ese interruptor. en_configuraciones: false solo dice que no figura en la pantalla Configuraciones › Notificaciones; varios de esos llegan igual (recordatorio de reunión, lead de la landing, cuenta de Meta frenada o recuperada). Esta lista no sabe cuáles del catálogo todavía no tienen un evento que los dispare. Los reportes horario, diario y semanal no están aquí: van con configurar_reporte.',
+        nota: 'Todos se pueden silenciar con configurar_aviso_whatsapp: el envío de cualquier aviso mira ese interruptor. en_configuraciones: false solo dice que no figura en la pantalla Settings › Notificaciones; varios de esos llegan igual (recordatorio de reunión, lead de la landing, cuenta de Meta frenada o recuperada). Esta lista no sabe cuáles del catálogo todavía no tienen un evento que los dispare. Los reportes horario, diario y semanal no están aquí: van con configurar_reporte.',
       });
     },
   },
@@ -485,7 +502,7 @@ export const RUNNERS: Runners = {
         // El principal no sale por chat: cambiarlo mueve la apertura diaria y el número
         // del dueño, agregar_destinatario lo devuelve al FINAL (nunca vuelve a ser el
         // principal), y por WhatsApp cualquiera del grupo corre con rol admin.
-        if (i === 0) return { error: `${d.telefonos[0]} es el teléfono principal (a dónde llega la apertura diaria y con el que MaKo reconoce al dueño): no se quita desde aquí. Se cambia en Configuraciones › Notificaciones.` };
+        if (i === 0) return { error: `${d.telefonos[0]} es el teléfono principal (a dónde llega la apertura diaria y con el que MaKo reconoce al dueño): no se quita desde aquí. Se cambia en Settings › Notificaciones.` };
         partes.push(`sacar el teléfono ${d.telefonos[i]}`);
       }
       if (email) {
@@ -503,7 +520,7 @@ export const RUNNERS: Runners = {
       const tel = typeof payload.telefono === 'string' ? payload.telefono : null;
       const mail = typeof payload.email === 'string' ? payload.email : null;
       // Entre el «sí» y la propuesta el orden pudo cambiar: se vuelve a mirar.
-      if (tel && d.telefonos[0] && mismoTel(d.telefonos[0], tel)) return { ok: false, resumen: `${d.telefonos[0]} pasó a ser el teléfono principal: no se quita desde aquí. Se cambia en Configuraciones › Notificaciones.` };
+      if (tel && d.telefonos[0] && mismoTel(d.telefonos[0], tel)) return { ok: false, resumen: `${d.telefonos[0]} pasó a ser el teléfono principal: no se quita desde aquí. Se cambia en Settings › Notificaciones.` };
       const nuevo = {
         telefonos: tel ? d.telefonos.filter((t) => !mismoTel(t, tel)) : d.telefonos,
         emails: mail ? d.emails.filter((m) => !mismoMail(m, mail)) : d.emails,
@@ -576,7 +593,7 @@ export const RUNNERS: Runners = {
       const i = await identidadFiscalPorId(Number(payload.id));
       if (!i) return { ok: false, resumen: 'Esa identidad fiscal ya no existe.' };
       await guardarIdentidadFiscal(i.id, { nombre: i.nombre, id_fiscal: i.id_fiscal, domicilio: i.domicilio, correo: i.correo, es_default: true });
-      invalidar('/configuraciones');
+      invalidar('/configuraciones/fiscal');
       return `«${i.nombre}» es ahora la identidad fiscal predeterminada.`;
     }),
   },
@@ -720,7 +737,7 @@ export const RUNNERS: Runners = {
       const id = typeof payload.id === 'number' ? payload.id : null;
       if (id && !(await identidadFiscalPorId(id))) return { ok: false, resumen: 'Esa identidad fiscal ya no existe.' };
       const nuevoId = await guardarIdentidadFiscal(id, { nombre, id_fiscal: s(f.id_fiscal), domicilio: s(f.domicilio), correo: s(f.correo), es_default: f.es_default === true });
-      invalidar('/configuraciones');
+      invalidar('/configuraciones/fiscal');
       return { ok: true, resumen: id ? `Identidad fiscal «${nombre}» actualizada.` : `Identidad fiscal «${nombre}» creada.`, datos: { id: nuevoId } };
     }),
   },
@@ -736,7 +753,7 @@ export const RUNNERS: Runners = {
       const i = await identidadFiscalPorId(Number(payload.id));
       if (!i) return { ok: false, resumen: 'Esa identidad fiscal ya no existe.' };
       await borrarIdentidadFiscal(i.id);
-      invalidar('/configuraciones');
+      invalidar('/configuraciones/fiscal');
       return `Identidad fiscal «${i.nombre}» borrada.`;
     }),
   },
@@ -772,7 +789,7 @@ export const RUNNERS: Runners = {
         // La zona DECIDE el instante: estricta. Un negocio sin zona guardada usa la de por defecto,
         // que es lo que ya ve en todas sus pantallas.
         const tz = await zonaDelNegocioEstricta(n.ws).catch(() => null);
-        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.` };
+        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.`, falla: true };
         asignaciones.push({ ws: n.ws, desde: instanteDelPlazo(tz, fecha, hora)!.toISOString() });
       }
       const cambian = asignaciones.filter((a) => {
@@ -826,7 +843,7 @@ export const RUNNERS: Runners = {
     preparar: async (): Promise<Preparado> => {
       const e = await estadoPlantillaReporte();
       if (e.estado === 'approved' || e.estado === 'pending') return { error: `La plantilla «reporte_mako» ya está ${e.estado === 'approved' ? 'aprobada' : 'en revisión'}: no hace falta mandarla.` };
-      if (e.estado === 'error') return { error: `No se pudo consultar Meta (${e.motivo ?? 'sin WhatsApp oficial conectado'}).` };
+      if (e.estado === 'error') return { error: `No se pudo consultar Meta (${e.motivo ?? 'sin WhatsApp oficial conectado'}).`, falla: true };
       // enviarBorradorAMeta solo manda un borrador en `borrador` o `rejected`, y
       // upsertDraft no le resetea el status: si Meta ya no la tiene (o el rechazo no
       // se reconcilió) y acá quedó `pending`/`approved`, el envío falla siempre.
@@ -848,5 +865,244 @@ export const RUNNERS: Runners = {
       return `Plantilla «reporte_mako»: ${r.estado === 'pending' ? 'enviada a aprobación de Meta' : r.estado}.`;
     }),
   },
-};
+  // ── Settings por la API (25/10/2026): lo que la pantalla deja ver o cambiar ──────────────────────
+  // Cada una usa la MISMA función que su pantalla (setPerfil, limpiarNombreNegocio + actualizarWorkspace, setNotifPush,
+  // setNotifInApp, horarioParaGuardar + setSetting, estadoMfa): una segunda implementación se separa sola.
+  ver_avisos_celular: {
+    leer: async (_input, ctx) => {
+      if (ctx.canal !== 'app') return errorLectura('Los avisos al celular son de la persona logueada: solo se ven desde la app.');
+      const u = await usuarioPropio();
+      if (!u) return errorLectura('No hay una sesión con cuenta propia.');
+      const [p, zona, telefonos] = await Promise.all([getNotifPush(), zonaPropia(), telefonosConAvisos(u.id)]);
+      const silencio = normalizarSilencio(p.silencio);
+      return json({
+        avisos_al_celular: p.activo,
+        avisos: tiposPushDe(u.rol).map((t) => ({ id: t.id, titulo: t.titulo, prendido: p.activo && p.items[t.id] !== false })),
+        no_molestar: silencio ? { desde: horaTexto(silencio.desde), hasta: horaTexto(silencio.hasta), zona } : null,
+        telefonos_con_avisos: telefonos,
+        nota: telefonos === 0
+          ? 'Ningún teléfono suyo recibe avisos: hace falta instalar MaKo en el celular y prender los avisos ahí. Lo que se elige aquí vale para todos sus teléfonos.'
+          : 'Lo que se elige aquí vale para todos sus teléfonos. prendido ya incluye el interruptor general.',
+      });
+    },
+  },
 
+  ver_mi_seguridad: {
+    leer: async (_input, ctx) => {
+      if (ctx.canal !== 'app') return errorLectura('La seguridad es de la persona logueada: solo se ve desde la app.');
+      const s = await getUsuarioActual();
+      const id = Number(s?.sub);
+      if (!s || !Number.isInteger(id) || id <= 0) return errorLectura('No hay una sesión con cuenta propia.');
+      const [e, contrasena] = await Promise.all([estadoMfa(id), tieneContrasena(id)]);
+      return json({
+        verificacion_en_2_pasos_con_app: e.totp,
+        llaves_de_acceso: e.passkeys.length,
+        contrasena_creada: contrasena,
+        codigo_por_whatsapp: e.whatsapp,
+        correo_de_respaldo: e.email,
+        codigos_de_recuperacion_restantes: e.codigosRestantes,
+        dispositivos_recordados: e.dispositivos.length,
+        nota: 'Sólo lectura: el segundo paso, la contraseña, las llaves y los dispositivos se cambian en Settings › Seguridad, con la sesión de la persona (una llave de la API no puede cambiar cómo se entra). contrasena_creada null = no se pudo leer.',
+      });
+    },
+  },
+
+  ver_horario_envio: {
+    leer: async (_input, ctx) => {
+      const [raw, zona] = await Promise.all([getSettingEstricto(KEY_HORARIO_ENVIO), zonaDelNegocioDetalle(ctx.ws).then((d) => d.tz)]);
+      const h = sanearHorario(raw);
+      if (!h) return json({ activo: false, zona, nota: 'Sin horario guardado: las automatizaciones escriben a cualquier hora.' });
+      return json({
+        activo: h.activo, desde: horaTexto(h.desde), hasta: horaTexto(h.hasta),
+        dias: DIAS_PANTALLA.filter((d) => h.dias.includes(d.dia)).map((d) => d.nombre), zona,
+        nota: h.activo ? `Escriben sólo en ese horario, en hora de ${zona}.` : 'Apagado: escriben a cualquier hora (lo de arriba es lo guardado para cuando se prenda).',
+      });
+    },
+  },
+
+  editar_mi_perfil: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (ctx.canal !== 'app') return { error: 'El perfil es de la persona logueada: solo se cambia desde la app.' };
+      if (!(await emailDeSesion())) return { error: 'No hay una sesión con cuenta propia: no hay perfil que cambiar.' };
+      const actual = await getPerfil();
+      const cambio: Partial<Perfil> = {};
+      for (const k of ['nombre', 'cargo', 'telefono', 'empresa', 'web', 'bio'] as const) {
+        const v = str(input, k);
+        if (v == null) continue;
+        if (k === 'nombre' && v === VACIAR) return { error: 'El nombre no se puede dejar vacío.', faltan: ['nombre'] };
+        let nuevo = v === VACIAR ? '' : v;
+        if (k === 'telefono' && nuevo) {
+          const d = soloDigitos(nuevo);
+          if (!nuevo.startsWith('+') || d.length < 8) return { error: 'El teléfono va con su código de país, por ejemplo +52 1 686 123 4567.', faltan: ['telefono'] };
+          nuevo = `+${d}`;
+        }
+        if (nuevo !== (actual[k] ?? '')) cambio[k] = nuevo;
+      }
+      const tzCruda = str(input, 'timezone');
+      if (tzCruda != null) {
+        const tz = zonaCanonica(tzCruda);
+        if (!tz) return { error: `«${tzCruda}» no es una zona horaria IANA válida (por ejemplo America/Monterrey).`, faltan: ['timezone'] };
+        if (tz !== actual.timezone) cambio.timezone = tz;
+      }
+      const claves = Object.keys(cambio) as (keyof Perfil)[];
+      if (!claves.length) return { error: 'No hay nada para cambiar: lo pedido ya es lo que tiene el perfil (o no pasaste ningún campo).' };
+      const ROT: Record<string, string> = { nombre: 'nombre', cargo: 'cargo', telefono: 'teléfono', empresa: 'empresa', web: 'sitio web', bio: '«sobre ti»', timezone: 'zona horaria' };
+      return {
+        payload: { cambio },
+        resumen: `Cambiar en el perfil: ${claves.map((k) => `${ROT[k]} → ${cambio[k] ? `«${cambio[k]}»` : 'vacío'}`).join('; ')}.`,
+      };
+    },
+    ejecutar: async (payload) => escribir(async () => {
+      const cambio = (payload.cambio ?? {}) as Partial<Perfil>;
+      const permitidas = ['nombre', 'cargo', 'telefono', 'empresa', 'web', 'bio', 'timezone'];
+      const limpio = Object.fromEntries(Object.entries(cambio).filter(([k, v]) => permitidas.includes(k) && typeof v === 'string')) as Partial<Perfil>;
+      if (!Object.keys(limpio).length) return { ok: false, resumen: 'Pedido inválido.' };
+      await setPerfil(limpio);
+      invalidar('/perfil');
+      return 'Perfil actualizado.';
+    }),
+  },
+
+  renombrar_negocio: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const r = limpiarNombreNegocio(str(input, 'nombre') ?? '');
+      if (!r.ok) return { error: r.error, faltan: ['nombre'] };
+      const antes = await nombreNegocio(ctx.ws);
+      if (antes === r.nombre) return { error: `El negocio ya se llama «${r.nombre}».`, yaEstaba: true };
+      return { payload: { nombre: r.nombre }, resumen: `Cambiar el nombre del negocio de «${antes}» a «${r.nombre}». Se ve en toda la app.` };
+    },
+    ejecutar: async (payload, ctx) => escribir(async () => {
+      const r = limpiarNombreNegocio(payload.nombre);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      await actualizarWorkspace(ctx.ws, { nombre: r.nombre });
+      try { revalidatePath('/', 'layout'); } catch { /* fuera de un request */ }
+      return `El negocio ahora se llama «${r.nombre}».`;
+    }),
+  },
+
+  configurar_aviso_celular: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (ctx.canal !== 'app') return { error: 'Los avisos al celular son de la persona logueada: solo se cambian desde la app.' };
+      const u = await usuarioPropio();
+      if (!u) return { error: 'No hay una sesión con cuenta propia.' };
+      const aviso = str(input, 'aviso');
+      const valor = bool(input, 'valor')!;
+      const p = await getNotifPush();
+      if (!aviso) {
+        if (p.activo === valor) return { error: `Los avisos al celular ya están ${siNo(valor)}s.`, yaEstaba: true };
+        return { payload: { aviso: null, valor }, resumen: `${valor ? 'Prender' : 'Apagar'} todos los avisos al celular.` };
+      }
+      const t = tiposPushDe(u.rol).find((x) => x.id === aviso);
+      if (!t) return { error: `No hay un aviso al celular «${aviso}» para ti. Pide ver_avisos_celular.`, faltan: ['aviso'] };
+      if ((p.items[aviso] !== false) === valor) return { error: `«${t.titulo}» ya está ${siNo(valor)}.`, yaEstaba: true };
+      const ojo = valor && !p.activo ? ' Ojo: los avisos al celular están apagados en general; hasta prenderlos no llega ninguno.' : '';
+      return { payload: { aviso, valor }, resumen: `${valor ? 'Prender' : 'Apagar'} el aviso al celular «${t.titulo}».${ojo}` };
+    },
+    ejecutar: async (payload) => escribir(async () => {
+      const p = await getNotifPush();
+      const valor = payload.valor === true;
+      const aviso = typeof payload.aviso === 'string' ? payload.aviso : null;
+      const r = await setNotifPush(aviso ? { ...p, items: { ...p.items, [aviso]: valor } } : { ...p, activo: valor });
+      if (!r.guardado) return { ok: false, resumen: 'Esta sesión no tiene cuenta propia: no quedó guardado.' };
+      return aviso ? `Aviso al celular ${siNo(valor)}.` : `Avisos al celular: ${siNo(valor)}.`;
+    }),
+  },
+
+  fijar_no_molestar: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (ctx.canal !== 'app') return { error: '«No molestar» es de la persona logueada: solo se cambia desde la app.' };
+      if (!(await usuarioPropio())) return { error: 'No hay una sesión con cuenta propia.' };
+      const p = await getNotifPush();
+      const actual = normalizarSilencio(p.silencio);
+      if (bool(input, 'apagar') === true) {
+        if (!actual) return { error: '«No molestar» ya está apagado.', yaEstaba: true };
+        return { payload: { silencio: null }, resumen: `Sacar el «No molestar» (era de ${horaTexto(actual.desde)} a ${horaTexto(actual.hasta)}).` };
+      }
+      const desde = num(input, 'desde') ?? actual?.desde ?? null;
+      const hasta = num(input, 'hasta') ?? actual?.hasta ?? null;
+      if (desde == null || hasta == null) return { error: 'Falta el horario: pasa desde y hasta (o apagar: true).', faltan: [desde == null ? 'desde' : 'hasta'] };
+      const s = normalizarSilencio({ desde, hasta });
+      if (!s) return { error: 'El horario va en medias horas (22 o 22.5), y desde y hasta no pueden ser iguales.', faltan: ['desde', 'hasta'] };
+      if (actual && actual.desde === s.desde && actual.hasta === s.hasta) return { error: `«No molestar» ya es de ${horaTexto(s.desde)} a ${horaTexto(s.hasta)}.`, yaEstaba: true };
+      const zona = await zonaPropia();
+      return { payload: { silencio: s }, resumen: `«No molestar» de ${horaTexto(s.desde)} a ${horaTexto(s.hasta)} (hora de ${zona}): en ese horario no te llegan avisos al celular.` };
+    },
+    ejecutar: async (payload) => escribir(async () => {
+      const p = await getNotifPush();
+      const s = payload.silencio == null ? null : normalizarSilencio(payload.silencio);
+      if (payload.silencio != null && !s) return { ok: false, resumen: 'Horario inválido.' };
+      const r = await setNotifPush({ ...p, silencio: s });
+      if (!r.guardado) return { ok: false, resumen: 'Esta sesión no tiene cuenta propia: no quedó guardado.' };
+      return s ? `«No molestar» de ${horaTexto(s.desde)} a ${horaTexto(s.hasta)}.` : '«No molestar» apagado.';
+    }),
+  },
+
+  configurar_notificaciones_inapp: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      if (ctx.canal !== 'app') return { error: 'El pop-up y el sonido son de la persona logueada: solo se cambian desde la app.' };
+      if (!(await emailDeSesion())) return { error: 'No hay una sesión con cuenta propia.' };
+      const campo = str(input, 'campo') as 'popup' | 'sonido';
+      const valor = bool(input, 'valor')!;
+      const id = str(input, 'notificacion');
+      const v = await getNotifInApp();
+      if (!id) {
+        if (v[campo] === valor) return { error: `El ${campo === 'popup' ? 'pop-up' : 'sonido'} general ya está ${siNo(valor)}.`, yaEstaba: true };
+        return { payload: { campo, valor, id: null }, resumen: `${valor ? 'Prender' : 'Apagar'} el ${campo === 'popup' ? 'pop-up' : 'sonido'} de la app.` };
+      }
+      const n = NOTIF_IN_APP.find((x) => x.id === id);
+      if (!n) return { error: `No hay una notificación «${id}». Pide ver_notificaciones_inapp.`, faltan: ['notificacion'] };
+      if (campo === 'sonido' && !n.sonido) return { error: `«${n.titulo}» no suena nunca: sólo se muestra.` };
+      if (inAppActivo({ ...v, [campo]: true }, id, campo) === valor) return { error: `El ${campo === 'popup' ? 'pop-up' : 'sonido'} de «${n.titulo}» ya está ${siNo(valor)}.`, yaEstaba: true };
+      return { payload: { campo, valor, id }, resumen: `${valor ? 'Prender' : 'Apagar'} el ${campo === 'popup' ? 'pop-up' : 'sonido'} de «${n.titulo}».` };
+    },
+    ejecutar: async (payload) => escribir(async () => {
+      const campo = payload.campo === 'sonido' ? 'sonido' : payload.campo === 'popup' ? 'popup' : null;
+      if (!campo) return { ok: false, resumen: 'Pedido inválido.' };
+      const valor = payload.valor === true;
+      const v = await getNotifInApp();
+      const id = typeof payload.id === 'string' ? payload.id : null;
+      // El sonido general arrastra el de cada una (la misma regla que la pantalla): un aviso apagado aparte quedaría mudo sin decirlo.
+      const siguiente = id
+        ? { ...v, items: { ...v.items, [id]: { ...(v.items[id] ?? { popup: true, sonido: true }), [campo]: valor } } }
+        : campo === 'sonido'
+          ? { ...v, sonido: valor, items: Object.fromEntries(Object.entries(v.items).map(([k, it]) => [k, { ...it, sonido: valor }])) }
+          : { ...v, popup: valor };
+      const r = await setNotifInApp(siguiente);
+      if (!r.guardado) return { ok: false, resumen: 'Esta sesión no tiene cuenta propia: no quedó guardado.' };
+      return `${campo === 'popup' ? 'Pop-up' : 'Sonido'} ${siNo(valor)}.`;
+    }),
+  },
+
+  configurar_horario_envio: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const raw = await getSettingEstricto(KEY_HORARIO_ENVIO);
+      const actual = sanearHorario(raw) ?? { ...HORARIO_SUGERIDO, activo: false };
+      const diasPedidos = Array.isArray(input.dias) ? (input.dias as string[]) : null;
+      const nuevo = {
+        activo: bool(input, 'activo') ?? actual.activo,
+        desde: num(input, 'desde') ?? actual.desde,
+        hasta: num(input, 'hasta') ?? actual.hasta,
+        dias: diasPedidos ? diasPedidos.map((d) => DIA_DE_NOMBRE[d]).filter((d): d is DiaSemana => d != null) : actual.dias,
+      };
+      const r = horarioParaGuardar(nuevo);
+      if (!r.ok) return { error: r.error };
+      const s = sanearHorario(r.valor)!;
+      if (JSON.stringify(s) === JSON.stringify(sanearHorario(raw))) return { error: 'El horario ya es ése.', yaEstaba: true };
+      const zona = (await zonaDelNegocioDetalle(ctx.ws)).tz;
+      const dias = DIAS_PANTALLA.filter((d) => s.dias.includes(d.dia)).map((d) => d.nombre).join(', ');
+      return {
+        payload: { horario: s },
+        resumen: s.activo
+          ? `Horario de oficina: de ${horaTexto(s.desde)} a ${horaTexto(s.hasta)}, ${dias} (hora de ${zona}). Las automatizaciones le escriben a los contactos sólo ahí.`
+          : 'Apagar el horario de oficina: las automatizaciones escriben a cualquier hora.',
+      };
+    },
+    ejecutar: async (payload) => escribir(async () => {
+      const r = horarioParaGuardar(payload.horario);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      await setSetting(KEY_HORARIO_ENVIO, r.valor);
+      invalidar('/automations');
+      return 'Horario de oficina guardado.';
+    }),
+  },
+};

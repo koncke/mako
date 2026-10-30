@@ -101,6 +101,98 @@ export function decidirSalida(c: ConversacionSocial | null, ahoraMs: number, can
   return { via: null, motivo: `el lead no le escribió a la cuenta de ${nombre}`, terminal: true };
 }
 
+/**
+ * HASTA CUÁNDO PUEDE SALIR un mensaje al lead (`decidirSalida` en el tiempo): `decidirSalida(c, t)` da una vía si y sólo si
+ * `t < salidaHastaMs(c)`. null = no sale nunca. Lo usa la difusión (lib/difusion-reglas.ts) para no prometer por Instagram a
+ * quien el goteo no alcanza antes de que se cierre su ventana (la verificación del Cerebro sobre 69b49a31c, 29/10/2026).
+ */
+export function salidaHastaMs(c: ConversacionSocial | null): number | null {
+  if (!c || !(c.cuentaId ?? '').trim()) return null;
+  let hasta = -Infinity;
+  const ventana = ms(c.ventanaExpiraAt);
+  if ((c.conversacionId ?? '').trim() && Number.isFinite(ventana)) hasta = ventana;
+  const cuando = ms(c.comentarioAt);
+  if ((c.comentarioId ?? '').trim() && (c.comentarioPostId ?? '').trim() && !c.comentarioRespondidoAt && Number.isFinite(cuando)) {
+    hasta = Math.max(hasta, cuando + VENTANA_COMENTARIO_MS);
+  }
+  return Number.isFinite(hasta) ? hasta : null;
+}
+
+/**
+ * LA RESPUESTA PÚBLICA AL COMENTARIO (ticket #17 de Leandro, 28/10/2026: «no hay forma de responder EN PÚBLICO el
+ * comentario»). Una tarjeta con `en_comentario: true` no manda un DM: publica su texto como respuesta debajo del
+ * comentario que la persona dejó (POST /v1/inbox/comments/{postId} con `commentId`, lib/zernio.ts). Pura y con test.
+ *
+ *   · NO depende de la ventana de 24 h ni de los 7 días: es un comentario, no un mensaje privado.
+ *   · NO GASTA la respuesta privada (Meta deja UNA por comentario): `comentarioRespondidoAt` no se mira ni se marca, así
+ *     el DM de la tarjeta siguiente sale igual.
+ *   · Sin un comentario guardado (la persona escribió por DM, no comentó), no sale.
+ *   · ⚠️ SÓLO EL COMENTARIO DEL DISPARO (la revisión del Cerebro, 28/10/2026): con `inscriptoAt`, un comentario de antes de
+ *     que entrara (más de `VENTANA_COMENTARIO_DEL_DISPARO_MS`) no se responde. Sin esto, quien entraba hoy por DM recibía una
+ *     respuesta pública debajo de un comentario de hace 200 días, en otra publicación.
+ *     ⚠️ NI UNO POSTERIOR (la verificación sobre 69b49a31c, 29/10/2026): la conversación guarda el ÚLTIMO comentario, y con la
+ *     pública detrás de una espera, otro comentario de la misma persona en el medio («qué lindo ❤️», en una foto vieja, sin la
+ *     palabra) pisaba el del disparo y la respuesta salía debajo de ése, en otra publicación. Un comentario de más de
+ *     `MARGEN_COMENTARIO_DESPUES_MS` después de inscribirse no es el del disparo: la tarjeta se omite y sigue el DM.
+ * Lo que no sale NO cierra el flujo: la tarjeta se omite y sigue la de después, el DM (`omitir`, lib/canal-zernio.ts).
+ */
+export type SalidaPublica =
+  | { via: 'publica'; comentarioId: string; postId: string; cuentaId: string }
+  | { via: null; motivo: string; terminal: true };
+
+/** Cuánto ANTES de la inscripción puede ser el comentario del disparo: el webhook guarda el comentario y después inscribe. */
+export const VENTANA_COMENTARIO_DEL_DISPARO_MS = 15 * 60_000;
+/** Cuánto DESPUÉS de la inscripción puede figurar el comentario del disparo: la hora del comentario la pone Meta, la de la
+ *  inscripción, el server; el margen es el desfase de relojes, no una ventana para otros comentarios. */
+export const MARGEN_COMENTARIO_DESPUES_MS = 2 * 60_000;
+
+export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: CanalSocial = 'instagram', o: { inscriptoAt?: string | null } = {}): SalidaPublica {
+  const nombre = NOMBRE_CANAL[canal];
+  if (!c) return { via: null, motivo: `el lead no tiene una conversación por ${nombre}`, terminal: true };
+  const cuenta = (c.cuentaId ?? '').trim();
+  if (!cuenta) return { via: null, motivo: `no sé desde qué cuenta de ${nombre} contestar`, terminal: true };
+  const coment = (c.comentarioId ?? '').trim();
+  const post = (c.comentarioPostId ?? '').trim();
+  if (!coment || !post) return { via: null, motivo: `el lead no comentó una publicación: no hay comentario que responder en ${nombre}`, terminal: true };
+  const desde = ms(o.inscriptoAt ?? null);
+  const cuando = ms(c.comentarioAt);
+  if (Number.isFinite(desde) && !(Number.isFinite(cuando) && cuando >= desde - VENTANA_COMENTARIO_DEL_DISPARO_MS)) {
+    return { via: null, motivo: `el comentario que hay en ${nombre} es de antes de que entrara: no se responde en público uno viejo`, terminal: true };
+  }
+  if (Number.isFinite(desde) && cuando > desde + MARGEN_COMENTARIO_DESPUES_MS) {
+    return { via: null, motivo: `el último comentario en ${nombre} no es el que la arrancó (comentó otra vez después): no se responde en público otro`, terminal: true };
+  }
+  return { via: 'publica', comentarioId: coment, postId: post, cuentaId: cuenta };
+}
+
+/**
+ * ¿ESTA TARJETA RESPONDE EN PÚBLICO EL COMENTARIO? Un dato DENTRO del paso de mensaje (AGENTS.md: «si la capacidad sigue
+ * siendo "este nodo manda un mensaje", es un dato adentro del paso»): `en_comentario: true` en un mensaje de Instagram o
+ * Messenger. Ausente = un DM, lo de siempre; en otro canal no significa nada.
+ */
+export function respondeEnComentario(p: unknown): boolean {
+  if (!p || typeof p !== 'object') return false;
+  const o = p as { canal?: unknown; en_comentario?: unknown };
+  return esCanalSocial(o.canal) && o.en_comentario === true;
+}
+
+/**
+ * Lo que frena PUBLICAR en una tarjeta que responde en el comentario: un comentario no lleva botones (Zernio no los
+ * recibe en esa respuesta) y es sólo texto. `nombre`: «la tarjeta m3».
+ */
+export function problemasDeRespuestaPublica(p: unknown, nombre: string): string[] {
+  if (!respondeEnComentario(p)) return [];
+  const o = p as { botones?: unknown; partes?: unknown; cuerpo?: unknown; tipo?: unknown };
+  const err: string[] = [];
+  if (Array.isArray(o.botones) && o.botones.length) err.push(`${nombre}: una respuesta en el comentario no lleva botones`);
+  const partes = Array.isArray(o.partes) && o.partes.length ? (o.partes as Array<{ tipo?: unknown; cuerpo?: unknown }>) : null;
+  const hayTexto = partes
+    ? partes.some((x) => (x.tipo === 'texto' || x.tipo === 'media') && typeof x.cuerpo === 'string' && x.cuerpo.trim() !== '')
+    : o.tipo !== 'audio' && typeof o.cuerpo === 'string' && o.cuerpo.trim() !== '';
+  if (!hayTexto) err.push(`${nombre}: una respuesta en el comentario es de texto, y no tiene`);
+  return err;
+}
+
 /** Hasta cuándo se le puede escribir después de un mensaje suyo que llegó en `iso`. */
 export const ventanaDesde = (iso: string): string => new Date(ms(iso) + VENTANA_META_MS).toISOString();
 
@@ -438,6 +530,11 @@ export type EventoSocial = {
   ref: string | null;
   /** Otra app de la página atiende la charla (handover de Meta): se guarda y no se dispara nada. */
   standby: boolean;
+  /**
+   * El TOQUE de un botón (24/10/2026, lib/botones-social.ts): `metadata.postbackPayload` del webhook. Uno que empieza con
+   * `mako:b:` lo mandó MaKo y lo mueve `tocarBoton`; otro (de otra herramienta) es un mensaje de siempre. Ausente = no es un toque.
+   */
+  postback?: string | null;
   /** Cuándo pasó, como lo dice la plataforma. */
   fecha: string;
 };
@@ -496,6 +593,8 @@ export function eventoSocialDe(body: unknown): { evento: EventoSocial } | { igno
         texto: typeof m.text === 'string' ? m.text : null,
         conversacionId: str(conv?.id) ?? str(m.conversationId), cuentaId, perfilId, mensajeId: str(m.id),
         comentarioId: null, postId: null, anuncioId, ref, standby: md.standby === true,
+        // El toque de un botón (24/10/2026): el `payload` que le pusimos, de vuelta.
+        postback: str(md.postbackPayload),
         fecha: str(m.sentAt) ?? fecha,
       },
     };

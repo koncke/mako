@@ -533,6 +533,16 @@ type InstanciaResp = {
   disconnectionAt?: string | null;
 };
 
+/** El número de la línea (los dígitos de su `ownerJid`), o null si no se pudo leer. Lo usa el doer para reconocer una
+ *  @mención a la propia línea de MaKo (lib/doer-para-quien.ts, 27/10/2026). La fila se busca por NOMBRE: si Evolution
+ *  ignora el filtro, no se adopta otra. */
+export async function numeroDeInstancia(instance: string, topeMs = 2500): Promise<string | null> {
+  const r = await evFetch<Array<Record<string, unknown>>>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
+  const it = r.ok && Array.isArray(r.data) ? r.data.find((i) => (i.name ?? i.instanceName) === instance) : undefined;
+  const jid = String((it?.ownerJid as string) || (it?.owner as string) || (it?.number as string) || '');
+  return jid.replace(/@.*/, '').replace(/:.*/, '').replace(/\D/g, '') || null;
+}
+
 export async function motivoCaida(instance: string, topeMs?: number): Promise<MotivoCaida | null> {
   const r = await evFetch<InstanciaResp[]>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
   if (!r.ok || !Array.isArray(r.data) || !r.data[0]) return null;
@@ -854,6 +864,16 @@ export async function lineasParaMandar(ws: number): Promise<{ lineas: LineaRow[]
     ultima_conexion_at: null, etiqueta: ETIQUETA_LINEA_MAKO, es_default: true,
   };
   return { lineas: [deMako, ...propias.filter((l) => l.instance_name !== deMaKo).map((l) => ({ ...l, es_default: false }))], deMaKo };
+}
+
+/**
+ * LAS LÍNEAS PARA MANDAR DEL NEGOCIO EN CURSO, para los selectores de Automations (27/10/2026, la llamada con Aaron,
+ * 876825880-06: la prueba «le llegó desde el número de MaKo» y la pantalla decía la línea de Martín). El envío y el estado
+ * ya usaban `lineasParaMandar`; los selectores leían `listarLineas`, sin la de MaKo, y en la plataforma mostraban como «la de
+ * por defecto» una que no era la que sale. Fuera de la plataforma, son las del negocio, como siempre.
+ */
+export async function lineasParaMandarAqui(): Promise<LineaRow[]> {
+  return (await lineasParaMandar(await wsEstricto())).lineas;
 }
 
 /** Elegir la línea de un envío sin tirar: el motivo vuelve como el error del envío. */

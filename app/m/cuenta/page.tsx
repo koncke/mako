@@ -27,7 +27,9 @@ import './cuenta.css';
 import { requireMovil, salidaDeVista } from '@/lib/movil-guard';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { getNotifPush, leerPerfil, usuarioPropio } from '@/lib/perfil';
-import { GRUPO_NEGOCIO, seccionesCuenta } from '@/lib/ajustes-secciones';
+import { seccionesCuenta, seccionesNegocio } from '@/lib/ajustes-secciones';
+import { disponiblesNegocio } from '@/lib/ajustes-negocio';
+import { RUTA_CONFIG_M, SECCIONES_NEGOCIO_M } from '@/lib/movil-rutas';
 import { PantallaM } from '../_ui/PantallaM';
 import { CuentaM, type DatosCuenta } from './CuentaM';
 import { nombreDelNegocioAction } from '@/app/configuraciones/negocio-actions';
@@ -43,6 +45,15 @@ export default async function CuentaPagina() {
     // El nombre del negocio, con la MISMA lectura que «Tu negocio» (21/10/2026): va en la hoja de quien lo puede cambiar.
     nombreDelNegocioAction().catch(() => null),
   ]);
+  // «Tu negocio» (26/10/2026): sus secciones DIRECTO en la lista, las mismas de la computadora (`seccionesNegocio`), cada una
+  // con su pantalla del teléfono (/m/configuraciones/<clave>) o, si no tiene, «en la computadora».
+  const verNegocio = puedeVerKey('configuraciones', ctx.rol, ctx.capa);
+  const negocio = verNegocio
+    ? seccionesNegocio(await disponiblesNegocio()).map((s) => {
+        const enTelefono = s.key in SECCIONES_NEGOCIO_M;
+        return { key: s.key, label: s.label, icono: s.icono, href: enTelefono ? `${RUTA_CONFIG_M}/${s.key}` : s.href, enComputadora: !enTelefono };
+      })
+    : null;
 
   // Tu nombre y tu foto salen de TU fila (lo último que guardaste en Información personal); la
   // sesión es el respaldo. Si el perfil leído es el de otro, ni el nombre ni la foto son tuyos.
@@ -58,7 +69,7 @@ export default async function CuentaPagina() {
     // «Configuración del negocio» es la key `configuraciones` del menú de la foto (nav.ts, sin
     // `rolesWs`: sólo quien administra). La misma regla que el menú y que el guard de sus páginas.
     // Desde el 24/10/2026 es un grupo de Settings, como en la computadora: «Tu negocio».
-    negocio: puedeVerKey('configuraciones', ctx.rol, ctx.capa) ? GRUPO_NEGOCIO : null,
+    negocio,
     push,
     guardable: propio != null,
     esAdmin: (propio?.rol ?? ctx.rol) === 'admin',

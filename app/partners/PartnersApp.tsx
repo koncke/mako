@@ -1,8 +1,12 @@
 'use client';
 
 // =============================================================================
-// PartnersApp — la tab MaKo Partners: las cuentas de MaKo de los clientes de la agencia
+// PartnersApp — el panel de AGENCIA: las cuentas de MaKo de los clientes de la agencia (/agency desde el 25/10/2026)
 // =============================================================================
+// ⚠️ SALIÓ DE MaKo Partners el 25/10/2026 (Martín: «Ser Agencia es muy diferente a Partner... quiero que crees otra tab
+// abajo de "Partners" que sea "Agency Dashboard"»). /partners es sólo el programa de referidos; este panel vive en /agency
+// (app/agency/page.tsx) hasta que el chat «Agencias y clientes» arme el Agency Dashboard encima. El archivo sigue acá porque
+// lo importan el CRM, Clients y varios tests.
 // Martín, 17/10/2026: «diseña la tab de "MaKo Partners" con todo lo que habíamos dicho y planeado... Y ahí deberían
 // vivir los clientes de agencia». El diseño, en docs/diseno-clients.md (D7).
 //
@@ -32,9 +36,6 @@ import type { CarteraPartner, CuentaPartner } from '@/lib/partners';
 import { EquipoDeCuenta } from './EquipoDeCuenta';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { ModalLlevarAPartners } from './LlevarAPartners';
-import { PresentacionPartners } from './PresentacionPartners';
-import type { ResumenPrograma } from '@/lib/partners-programa';
-import { textoProgramaSinReferidos } from '@/lib/partners-reglas';
 
 type Vista = 'clients' | 'program';
 
@@ -156,15 +157,15 @@ export function PartnersApp({ cartera, vistaInicial, cuentaInicial, leadNuevo, p
     <Pagina>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <PageHeader
-        titulo="MaKo Partners"
+        titulo="Agency Dashboard"
         estado={cuentas.length ? <Status>{cuentas.length} {cuentas.length === 1 ? 'cliente' : 'clientes'}</Status> : undefined}
         accion={nuevo}
       />
       <Tabs
-        tabs={[{ id: 'clients', label: 'Clients' }, { id: 'program', label: 'Program' }, { id: 'referidos', label: 'Referidos' }]}
+        tabs={[{ id: 'clients', label: 'Clients' }, { id: 'program', label: 'Program' }]}
         activa={vista}
-        // «Referidos» es su propia pantalla (/partners/referidos, 23/10/2026): el tablero de MaKo Partners de cualquier negocio.
-        onCambio={(id) => (id === 'referidos' ? router.push('/partners/referidos') : setVista(id as Vista))}
+        // «Referidos» salió de acá el 25/10/2026: el programa de referidos es /partners, y una agencia no es un partner.
+        onCambio={(id) => setVista(id as Vista)}
       />
 
       {vista === 'program' ? (
@@ -283,53 +284,13 @@ function Programa({ cartera }: { cartera: CarteraPartner }) {
 }
 
 /** Para el super admin sin cliente: las agencias del programa. Entra a cada una con su `?ws=` (un ancla: ctrl+clic). */
-export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: {
+export function AgenciasDeLaPlataforma({ partners }: {
   partners: Array<{ ws: number; nombre: string; cuentas: Record<EstadoCartera, number> }> | null;
-  /** El programa de referidos entero (lib/partners-programa.ts, `resumenDelPrograma`). null = no se pudo leer. */
-  programa: ResumenPrograma | null;
-  /** ¿MaKo cobra en línea? Sin eso no se registra ningún referido, y el programa en cero lo dice. */
-  cobraEnLinea?: boolean;
 }) {
-  const usd = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
-  const alMenos = programa?.truncado ? 'al menos ' : '';
   return (
     <Pagina>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
-      <PageHeader titulo="MaKo Partners" />
-      {/* Primero lo que vende la idea (como lo ven los clientes), después el panel del programa (Martín, 24/10/2026). */}
-      <PresentacionPartners vista="plataforma" />
-      <h3 className="pt-titulo">El programa</h3>
-      {programa == null ? (
-        <ErrorState titulo="No pude leer el programa" detalle="Reintenta en un momento." />
-      ) : (
-        <>
-          <div className="pt-kpis">
-            <div className="pt-kpi"><b>{alMenos}{programa.conLink}</b><span>{programa.conLink === 1 ? 'Negocio con su link' : 'Negocios con su link'}</span></div>
-            <div className="pt-kpi"><b>{alMenos}{programa.referidos}</b><span>{programa.referidos === 1 ? 'Referido' : 'Referidos'}</span></div>
-            <div className="pt-kpi"><b>{alMenos}{usd(programa.acreditadoUsd)}</b><span>Crédito acumulado</span></div>
-          </div>
-          {programa.partners.length === 0
-            ? <EmptyState titulo="Todavía nadie trajo un referido" detalle={textoProgramaSinReferidos(cobraEnLinea)} />
-            : (
-              <ul className="pt-lista">
-                {programa.partners.map((p) => (
-                  <li key={p.ws} className="pt-fila">
-                    <a className="pt-abrir" href={`/partners/referidos?ws=${p.ws}`}>
-                      <Marca icono={null} foto={null} nombre={p.nombre} tam={38} color={colorDe(p.nombre)} />
-                      <span className="pt-txt">
-                        <b>{p.nombre}</b>
-                        <span>{p.referidos} {p.referidos === 1 ? 'referido' : 'referidos'} · {usd(p.acreditadoUsd)} acumulado</span>
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            )}
-        </>
-      )}
-      <h3 className="pt-titulo" style={{ marginTop: 28 }}>
-        Agencias del programa{partners?.length ? <> <Status>{partners.length}</Status></> : null}
-      </h3>
+      <PageHeader titulo="Agencias" estado={partners?.length ? <Status>{partners.length}</Status> : undefined} />
       {partners == null ? (
         <ErrorState titulo="No pude leer las agencias" detalle="Reintenta en un momento." />
       ) : partners.length === 0 ? (
@@ -338,7 +299,7 @@ export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: 
         <ul className="pt-lista">
           {partners.map((p) => (
             <li key={p.ws} className="pt-fila">
-              <a className="pt-abrir" href={`/partners?ws=${p.ws}`}>
+              <a className="pt-abrir" href={`/agency?ws=${p.ws}`}>
                 <Marca icono={null} foto={null} nombre={p.nombre} tam={38} color={colorDe(p.nombre)} />
                 <span className="pt-txt">
                   <b>{p.nombre}</b>
@@ -355,11 +316,6 @@ export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: 
 
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la mitad.
 const CSS = `
-.pt-titulo{ margin:0 0 12px; font-size:20px; font-weight:800; letter-spacing:-.02em; color:var(--ink); display:flex; align-items:center; gap:8px; }
-.pt-kpis{ display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); margin:0 0 16px; }
-.pt-kpi{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; }
-.pt-kpi b{ display:block; font-size:30px; line-height:1.1; font-weight:800; letter-spacing:-.03em; color:var(--ink); }
-.pt-kpi span{ font-size:var(--fs-sm); color:var(--dim); }
 .pt-nuevo{ border:1px solid var(--primary); background:var(--primary); color:var(--on-primary, #fff); border-radius:10px;
   padding:9px 16px; font:inherit; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
 .pt-buscar{ width:100%; max-width:360px; border:1px solid var(--border); border-radius:10px; padding:9px 12px; font:inherit;

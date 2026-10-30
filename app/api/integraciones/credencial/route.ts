@@ -30,7 +30,7 @@ import { verificarServicio } from '@/lib/metodo-verificar';
 import { descubrirMeta, pixelesDeCuenta } from '@/lib/meta-descubrir';
 import { conectarMetaDisponible, guardarConexionMeta } from '@/lib/meta-conexion';
 import { arrancarHistoricoEnSegundoPlano } from '@/lib/onboarding-extract';
-import { reembeberAlConectarGemini } from '@/lib/reembeber-al-conectar';
+import { EMBEBEN, reembeberAlConectarSuIA } from '@/lib/reembeber-al-conectar';
 import { leerResultadoMeta } from '@/lib/meta-login';
 import { descubrirGithub } from '@/lib/github-descubrir';
 import { ayudaDeCampo, ENVS_METODO, servicioDeEnv, servicioMetodo } from '@/lib/metodo-catalogo';
@@ -198,6 +198,8 @@ async function estadoServicio(servicioKey: string, ctx: Contexto) {
       auto: !!c.auto,
       // true → ni «Prefiero cargarlos a mano» lo vuelve editable (ver CampoCredencial.derivado).
       derivado: !!c.derivado,
+      // true → la pantalla ya no lo pide: sólo se ve si estaba cargado (ver CampoCredencial.retirado).
+      retirado: !!c.retirado,
       // Nº de cuenta de una key que admite varias (1 = la de siempre). La UI pliega
       // las de la 2 en adelante: tres inputs de entrada convertían "pegá tu key" en
       // un formulario.
@@ -333,8 +335,9 @@ export async function POST(req: NextRequest) {
       // Guardar Meta, Fathom, YouTube o Panda a mano también los conecta: arranca SU parte del histórico (una vez,
       // en segundo plano; lo que no tiene histórico no hace nada).
       if (guardadas > 0) await arrancarHistoricoEnSegundoPlano(ctx.ws, servicio.key);
-      // IA16: con su Gemini, el buscador de su conocimiento vuelve: lo que quedó sin vector se embebe con su cuenta.
-      if (guardadas > 0 && servicio.key === 'gemini') await reembeberAlConectarGemini(ctx.ws);
+      // Con su IA (su OpenAI, o su Gemini), el buscador de su conocimiento vuelve a entender: lo que quedó sin vector, o con
+      // el de otro modelo, se embebe con su cuenta (25/10/2026; IA16 lo hacía sólo con su Gemini).
+      if (guardadas > 0 && (EMBEBEN as readonly string[]).includes(servicio.key)) await reembeberAlConectarSuIA(ctx.ws);
       const estado = await estadoServicio(servicio.key, ctx);
       return NextResponse.json({ ok: true, guardadas, servicio: estado });
     }

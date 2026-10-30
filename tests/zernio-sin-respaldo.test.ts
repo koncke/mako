@@ -56,14 +56,29 @@ test('cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCre
   assert.match(cfg, /const propia = await credDelClienteEstricta\('ZERNIO_API_KEY', ws, \{ ilegibleTira: true \}\);/);
   assert.match(cfg, /if \(propia\) return \{ apiKey: propia, byok: ws !== OWNER_WS \};/);
   assert.match(cfg, /throw new ZernioError\('Zernio no está configurado', 0, null\);/);
-  assert.doesNotMatch(cfg, /credWs\(|envCred\(/, 'cfg volvió a caer a la cuenta de la plataforma');
+  assert.doesNotMatch(cfg, /credWs\(/, 'cfg volvió a credWs (cae al entorno para el ws1 sin preguntar)');
+  // 28/10/2026 (el Cerebro: «conectar Instagram y Facebook sin pegar una clave de Zernio»): la key de la plataforma vuelve, PERO sólo
+  // DESPUÉS de la propia, detrás del interruptor de la plataforma (apagado por defecto) y nunca para el negocio de la plataforma.
+  const iPropia = cfg.indexOf('if (propia) return');
+  const iGuarda = cfg.indexOf('if (ws !== (await wsSuperAdmin()) && (await plataformaPrestaSuCuenta())) {');
+  const iPlataforma = cfg.indexOf("const deLaPlataforma = await envCred('ZERNIO_API_KEY');");
+  assert.ok(iPropia > 0 && iGuarda > iPropia && iPlataforma > iGuarda, 'la key de la plataforma va después de la propia y detrás del interruptor');
+  assert.equal(cfg.split('envCred(').length, 2, 'un solo envCred en cfg: el de la guarda');
+  assert.match(cfg, /if \(deLaPlataforma\) return \{ apiKey: deLaPlataforma, byok: false \};/, 'con la key de la plataforma va el perfil por negocio (byok: false)');
+  const presta = funcion(ZERNIO, 'export async function plataformaPrestaSuCuenta(): Promise<boolean> {');
+  assert.match(presta, /\.eq\('workspace_id', await wsSuperAdmin\(\)\)\.eq\('key', AJUSTE_CUENTA_PLATAFORMA\)/, 'el interruptor es del negocio de la PLATAFORMA');
+  assert.match(presta, /if \(error\) throw new ZernioError\(/, '«no pude leer» el interruptor se tragaba');
+  assert.match(presta, /=== '1';/);
   const seg = funcion(ZERNIO, 'async function keyDeSeguimiento(ws: number): Promise<string | null> {');
+  // El «¿te sigue?» lee SÓLO la key del negocio, nunca la de la plataforma aunque se prenda el interruptor (Martín, 28/10/2026:
+  // «NO a la cuenta de MaKo, cada negocio con la suya»; lo mismo fija tests/condiciones-instagram.test.ts).
   assert.match(seg, /return credDelClienteEstricta\('ZERNIO_API_KEY', ws\);/);
-  assert.doesNotMatch(seg, /envCred|credWs\(/, 'el «¿te sigue?» volvió a la cuenta de la plataforma');
-  // El único `envCred` que queda en el archivo es el del secreto maestro del webhook (no es una cuenta de Zernio).
-  // Qué claves se leen del entorno, no cuántas veces: `asegurarWebhook` y `leadsEnElWebhook` leen la misma.
-  const usos = [...new Set([...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]))];
-  assert.deepEqual(usos, ['ZERNIO_WEBHOOK_SECRET'], `lib/zernio.ts lee del entorno: ${usos.join(', ')}`);
+  assert.doesNotMatch(seg, /envCred|credWs\(|cfg\(/, 'el «¿te sigue?» volvió a la cuenta de la plataforma');
+  assert.doesNotMatch(seg, /envCred|credWs\(/, 'el «¿te sigue?» lee la key de la plataforma por su cuenta');
+  // Qué claves se leen del entorno: el secreto maestro del webhook y, desde el 28/10, la key de la plataforma SÓLO en cfg.
+  const usos = [...new Set([...ZERNIO.matchAll(/envCred\('([A-Z_]+)'\)/g)].map((m) => m[1]))].sort();
+  assert.deepEqual(usos, ['ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET'], `lib/zernio.ts lee del entorno: ${usos.join(', ')}`);
+  assert.equal(ZERNIO.split("envCred('ZERNIO_API_KEY')").length, 2, 'la key de la plataforma se lee en otro lugar de lib/zernio.ts');
   assert.doesNotMatch(ZERNIO, /import \{[^}]*\bcredWs\b[^}]*\} from '\.\/credenciales'/, 'lib/zernio.ts importa credWs (cae al entorno para el ws1)');
 });
 
@@ -91,10 +106,24 @@ test('ningún código de app ni lib lee la key de Zernio de la plataforma para u
   const archivos = salida.split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f));
   assert.ok(archivos.length >= 3, `git grep devolvió ${archivos.length} archivos que nombren la key: el barrido no está mirando`);
   const SALVO = [/^app\/admin\/dev\//];
+  // LA ÚNICA LECTURA PERMITIDA, en positivo (24/10/2026): publicar anuncios por Zernio (lib/zernio-ads.ts, 001b3184b) usa la
+  // key de la plataforma SÓLO para el negocio de la PLATAFORMA (`wsSuperAdmin`, el de MaKo), donde esa key ES la suya; a un
+  // cliente le lee su fila (`credDelCliente`). El barrido de antes marcaba esa línea sin mirar la guarda y dejó rojo main.
+  // Se quita SÓLO esa línea, exacta y dentro de `claveZernioAnuncios`: cualquier otra lectura, o ésa sin la guarda, cae.
+  const PERMITIDA = { archivo: 'lib/zernio-ads.ts', linea: "  if (ws === (await wsSuperAdmin().catch(() => null))) return envCred('ZERNIO_API_KEY');" };
+  const clave = funcion(sinComentarios(leer(PERMITIDA.archivo)), 'export async function claveZernioAnuncios(ws: number)', 700);
+  assert.equal(clave.split(PERMITIDA.linea).length, 2, 'la key de la plataforma en los anuncios dejó de estar detrás de wsSuperAdmin');
+  assert.match(clave, /\n  const base = await credDelCliente\('ZERNIO_API_KEY', ws\);\n  if \(!base\) return null;\n/, 'un cliente dejó de leer SU key en los anuncios');
+  // Con varias claves (29/10/2026) la dueña de la conexión de anuncios sale de las claves DEL NEGOCIO (`cfgDeCuenta`), o la suya.
+  assert.match(clave, /\n  return \(await cfgDeCuenta\(ws, conexion\)\.catch\(\(\) => null\)\)\?\.apiKey \?\? base;$/);
+  // Y la de `cfg` (28/10/2026): la cuenta de la plataforma para un negocio sin key, detrás del interruptor (la fija el test de arriba).
+  const PERMITIDA_CFG = { archivo: 'lib/zernio.ts', linea: "    const deLaPlataforma = await envCred('ZERNIO_API_KEY');" };
   const culpables: string[] = [];
   for (const f of archivos) {
     if (SALVO.some((r) => r.test(f))) continue;
-    const src = sinComentarios(leer(f));
+    let src = sinComentarios(leer(f));
+    if (f === PERMITIDA.archivo) src = src.replace(PERMITIDA.linea, '');
+    if (f === PERMITIDA_CFG.archivo) src = src.replace(PERMITIDA_CFG.linea, '');
     if (/(envCred|credWs)\(\s*['"`]ZERNIO_API_KEY['"`]|process\.env(\.ZERNIO_API_KEY|\[\s*['"`]ZERNIO_API_KEY)/.test(src)) culpables.push(f);
   }
   assert.deepEqual(culpables, [], `leen la key de la plataforma: ${culpables.join(', ')}`);
@@ -104,10 +133,16 @@ test('la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dicen', 
   const cat = sinComentarios(leer('lib/metodo-catalogo.ts'));
   const i = cat.indexOf("key: 'zernio',");
   assert.ok(i >= 0);
-  const bloque = cat.slice(i, cat.indexOf("key: 'email',", i));
+  const tarjeta = cat.slice(i, cat.indexOf("key: 'email',", i));
+  // Las claves EXTRA (29/10/2026, Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente») SÍ son opcionales: la
+  // tarjeta sigue conectada con la 1 sola. La que no puede serlo es la 1: se mira hasta donde empiezan las extra.
+  const iExtra = tarjeta.indexOf('...CLAVES_ZERNIO.slice(1)');
+  assert.ok(iExtra > 0, 'no encontré las claves extra de Zernio');
+  const bloque = tarjeta.slice(0, iExtra);
   assert.ok(bloque.length < 1_800, `el recorte de la tarjeta de Zernio mide ${bloque.length}`);
   assert.match(bloque, /\{ env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,\n\s+nota: '/);
   assert.doesNotMatch(bloque, /opcional|sinEsto|respaldo|plataforma/i, 'la key volvió a ser opcional o a nombrar la cuenta de la plataforma');
+  assert.doesNotMatch(tarjeta.slice(iExtra), /sinEsto|respaldo|plataforma/i, 'una clave extra nombra la cuenta de la plataforma');
   // La línea del cobro: cada red cuenta aparte, y lo paga el negocio.
   assert.match(bloque, /nota: 'Zernio te cobra a ti\. Cada red cuenta aparte \(página, Instagram, anuncios\): 2 gratis, desde la 3\.ª se paga\.'/);
   const verificar = sinComentarios(leer('lib/metodo-verificar.ts'));
@@ -127,6 +162,8 @@ test('la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dicen', 
 //   B3   cfg vuelve a credWs                                                                          → 2/2 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
 //   B4   keyDeSeguimiento vuelve al respaldo                                                          → 2/2 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
 //   B5   otro archivo lee la key de la plataforma                                                     → 3/1 · ningún código de app ni lib lee la key de Zernio de la plataforma para…
+//   B11  (24/10) los anuncios leen la key de la plataforma sin la guarda de wsSuperAdmin                 → 4/1 · ningún código de app ni lib…
+//   B12  (24/10) un cliente lee la key de la plataforma en los anuncios (credWs, no credDelCliente)      → 4/1 · ningún código de app ni lib…
 //   B6   la key vuelve a ser opcional                                                                 → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
 //   B7   el ping contesta anda sin key                                                                → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
 //   B8   la nota pierde la línea del cobro                                                            → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…

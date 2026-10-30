@@ -41,8 +41,9 @@ test('el menú de un lead: «Llevar a…» sin cuenta, «Ver en…» con cuenta,
   // Un lote (más de un tildado), una columna o el fondo no la ofrecen.
   const lote = opcionesCrm({ ...tarjeta('llevar'), seleccionado: true, seleccionados: 3 } as ContextoCrm);
   assert.ok(!lote.includes('partners_llevar'));
-  assert.equal(OPCION_CRM.partners_llevar.texto, 'Llevar a MaKo Partners');
-  assert.equal(OPCION_CRM.partners_ver.texto, 'Ver en MaKo Partners');
+  // Desde el 25/10/2026 la cartera de la agencia vive en Agency Dashboard (/agency), no en MaKo Partners.
+  assert.equal(OPCION_CRM.partners_llevar.texto, 'Abrirle su cuenta de MaKo');
+  assert.equal(OPCION_CRM.partners_ver.texto, 'Ver en Agency Dashboard');
 });
 
 test('el server decide con la regla de /partners: agencia y su admin, para las dos puertas', () => {
@@ -61,12 +62,13 @@ test('las dos puertas abren la MISMA ventana, «Ver en…» lleva a su cuenta, y
   const tablero = leer('app/crm/CrmBoard.tsx');
   assert.match(tablero, /partners: partners \? \(l\.cuentaPartners != null \? 'ver' : 'llevar'\) : null,/);
   assert.match(tablero, /<ModalLlevarAPartners leadId=\{aPartners\.id\}/);
-  assert.match(tablero, /case 'partners_ver': if \(l\?\.cuentaPartners != null\) router\.push\(`\/partners\?cuenta=\$\{l\.cuentaPartners\}`\); return;/);
+  assert.match(tablero, /case 'partners_ver': if \(l\?\.cuentaPartners != null\) router\.push\(`\/agency\?cuenta=\$\{l\.cuentaPartners\}`\); return;/);
   const ficha = leer('app/crm/lead-view/ficha/FichaPorBloques.tsx');
-  assert.match(ficha, /import \{ ModalLlevarAPartners \} from '@\/app\/partners\/LlevarAPartners';/);
+  assert.match(ficha, /import \{ ModalNuevoCliente as ModalLlevarAPartners \} from '@\/app\/agency\/NuevoCliente';/);
   assert.match(ficha, /<ModalLlevarAPartners leadId=\{lead\.id\}/);
-  assert.match(ficha, /\.\.\.\(data\.partners \? \[lead\.cliente_ws != null/);
-  assert.match(ficha, /router\.push\(`\/partners\?cuenta=\$\{lead\.cliente_ws\}`\)/);
+  // El «⋯» de la ficha abre su menú desde el 24/10/2026 (./menu-contextual-ficha.ts): «Llevar» o «Ver», según la cuenta.
+  assert.match(ficha, /partners: data\.partners \? \(lead\.cliente_ws != null \? 'ver' : 'llevar'\) : null,/);
+  assert.match(ficha, /router\.push\(`\/agency\?cuenta=\$\{lead\.cliente_ws\}`\)/);
   assert.match(leer('app/crm/crm-map.ts'), /cuentaPartners: l\.cliente_ws == null \? null : Number\(l\.cliente_ws\),/);
   assert.match(leer('lib/leads.ts'), /'cliente_ws, ' \+/, 'el tablero no trae la cuenta: «Ver en…» no saldría nunca');
 });

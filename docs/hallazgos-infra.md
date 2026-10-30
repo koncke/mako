@@ -38,6 +38,285 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
+
+**Síntoma.** A las 18:34 la app se cerró y se reabrió a las 18:38: los nueve chats y los dos workflows del Cerebro quedaron
+cortados a mitad. Al volver había 6,5 GB en procesos de node: un tsc acotado de Motion de 2,8 GB HUÉRFANO (su chat ya no
+existía), dos tsc acotados de Copywriter EN PARALELO (1,7 + 1,4 GB) y una barredora de tipos.
+
+**Por qué** (el diagnóstico obvio, «los chats no respetan la regla de un proceso pesado por vez», era el equivocado: la
+regla estaba en cada encargo y no la puede cumplir nadie que no vea a los demás): `scripts/typecheck-lock.mjs`, el
+respaldo de tipos del push y antes-de-subir comparten un lock por máquina (`os.tmpdir()/mako-typecheck.lock`), pero
+`scripts/tsc-acotado.mjs`, que es lo que corre cada chat para su VERDE, no lo tomaba. Y un tsc acotado de un chat que se
+cae sigue vivo comiendo RAM.
+
+**La red:**
+- `scripts/tsc-acotado.mjs` toma el MISMO lock: espera su turno hasta 30 min (después NO corre: sale con 99) y saca el lock
+  de un proceso muerto. Con `MAKO_TURNO_TOMADO=1` no se espera a sí mismo.
+- Mientras eso no llega a cada worktree (los chats corren el script de SU rama), `C:/dev/con-turno.mjs` envuelve cualquier
+  comando pesado con el mismo lock: `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` o `… tests-afectados.mjs …`.
+- **«Correr igual» después de esperar es otra estampida (19:15, el mismo día):** un test colgado sin timeout retuvo el turno
+  y siete trabajos de cinco chats iban a arrancar juntos a los 30 min. Sin turno, ninguno corre (99); el que tiene el turno
+  se corta a los 60 min con su árbol entero (`taskkill /T`: en Windows `kill()` deja vivos a los nietos).
+- **Una sola fila para todo frena a todos (~20:00, el mismo día):** un barrido de tests de 30-60 min tenía el turno y los tsc
+  acotados de cinco chats (minutos cada uno) salían con 99 sin correr. La caída fue por tsc, no por tests: `con-turno` tiene
+  DOS filas, la de tipos (`mako-typecheck.lock`, la misma del push) y la de tests (`mako-tests.lock`: tests-afectados,
+  antes-de-subir, `--test`). Corre uno de cada a la vez.
+- Después de una caída, antes de retomar nada, se cortan los node huérfanos y los duplicados (`Get-CimInstance
+  Win32_Process` con su padre: un padre que no existe es un huérfano).
+
+---
+
+## La pausa del Cerebro, por archivo: pedida por mensaje no frenaba a nadie (28/10/2026)
+
+**Síntoma.** Para subir tren-v el Cerebro pausó los chats por mensaje («nada de tests hasta mi seguí»). El push cayó dos
+veces «sin RAM» y hubo que cortar a mano, en tres rondas, pruebas que los chats lanzaban igual: un tests-afectados de
+Automations, el de desktop offline y los tsc-acotado de Copywriter.
+
+**Por qué el mensaje no alcanza** (el diagnóstico obvio, «los chats no obedecen», era el equivocado):
+- un mensaje a un chat llega recién cuando TERMINA su turno, y un subagente de un workflow no lo ve nunca;
+- tests-afectados espera sólo ~1,3 GB libres (`pisoRam(1)`), y el chequeo de tipos del push pide 4,8 con 4.608 MB de heap.
+  Con 4 GB libres, la prueba del chat arranca y el push queda sin lugar.
+
+**La red:** `scripts/pausa-cerebro.mjs`. El Cerebro la prende con `node scripts/pausa-cerebro.mjs prender "<motivo>"` y la
+apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.txt`).
+- tests-afectados la toma como «no hay RAM»: respeta su tope y el candado de antes-de-subir, y `MAKO_TESTS_SIN_ESPERA` no
+  la saltea.
+- tsc-acotado espera antes de arrancar.
+- Una pausa de más de 90 minutos se da por olvidada, y nadie espera más de 60.
+- El chequeo del propio Cerebro corre con `MAKO_IGNORAR_PAUSA=1`. El hook del push no pasa por acá.
+
+**De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
+programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
+
+---
+
+## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
+
+- **Mensajes entre chats:** después de 10 `SendMessage` a otros chats sin un mensaje de Martín en el chat del
+  Cerebro, el resto se corta («Paused until your user's next message»). Al repartir mucho feedback: un solo mensaje
+  por chat, los de cliente roto primero, y lo que no salió anotado para el próximo turno de Martín.
+- **Abrir chats nuevos:** `start_session` «user_asked» se rechaza en un turno que arrancó por un evento automático (la
+  notificación de un Workflow): sólo queda proponerlos como tarjeta. Se abren en el turno de Martín.
+- **Pedirle a otro chat una lectura de producción** que ese chat tenía pendiente de aprobación lo niega el
+  clasificador («laundering»): no se le pide a un chat lo que a otro no se le aprobó.
+- **Subagentes de un Workflow:** casi todos los lectores recibieron una negación de «Production Reads» y siguieron por
+  otro camino; el de la Ticketera no pudo leer nada. Cada lector tiene que devolver qué no pudo leer.
+
+## «No pude saber qué despliegue sirve hola-mako.com» con el despliegue sano: salió una versión nueva del CLI de Vercel (27/10/2026)
+
+- **Síntoma:** el aviso Meta → Zernio (`scripts/avisar-arreglo-al-grupo.mts`) dio «vercel inspect no dio su url» en 4
+  de 5 negocios, y en el quinto se quedó sin tiempo. A mano, `npx --yes vercel@65.3.1 inspect hola-mako.com` andaba.
+- **Causa:** el script llamaba `npx --no-install vercel`, sin versión. npx busca la ÚLTIMA publicada; ese día salió la
+  65.4.0, que no estaba en la caché, y `--no-install` la rechaza con un error por stderr y nada útil por stdout. El
+  diagnóstico obvio («Vercel no responde» o «el deploy no está») era el equivocado.
+- **Regla:** todo llamado al CLI de Vercel desde un script va con la versión FIJA (`vercel@65.3.1`) y `--yes` de npx.
+- **Y `--scope` siempre (28/10/2026, Cerebro):** desde la 65.5.0, `npx vercel ls` o `inspect` sin `--scope` contesta
+  un JSON `{"status":"action_required","reason":"missing_scope"}` y nada más: ya no toma un equipo por defecto. La espera
+  del deploy de tren-u (un bucle que grepea «Ready») siguió callada 12 minutos con el deploy ya Ready. El script del aviso
+  ya pasaba `--scope`; el que faltaba era el comando a mano del tren. Va `--scope mbustos-4239s-projects` en TODO llamado.
+- **Y el tope:** el envío al ws1 tarda ~134 s en frío (el chequeo de Vercel recorre los commits de main); con 180 s por
+  negocio, el primero de la vuelta se cortaba sin decir nada (`rc=null`). Un tope por negocio de 300 s.
+
+## El host de `DATABASE_URL` es sólo IPv6, y una corrida larga se corta a mitad (27/10/2026)
+
+- Los lectores del 27/10 vieron ENOENT / ENETUNREACH a mitad de una corrida desde la PC de Martín: no es la base,
+  es la red IPv6 del host. Sin hacer: un respaldo por el pooler IPv4 en los scripts que leen la base (propuesto al
+  chat de Infra).
+
+## Un rojo del tren que ya estaba en main (26/10/2026)
+
+- **Síntoma:** `tests-afectados` de tren-l dio rojo en cinco tests cuyos fuentes el tren no tocó: zernio-conectar-redes,
+  ops-sin-silencio, ops-center-estrella-desde, second-brain-chat y dashboard-focus. Tres chats los reportaron como «de main».
+- **El diagnóstico obvio era el equivocado:** parecía que un merge había borrado el manejo de error de la ventana de Zernio
+  (`errorDeVentana` ya no existe en el código). Los cinco salían de DOS commits de tipos del 24/10, que renombraron sin
+  tocar tests/: 2a6a166d8 (`errorDeVentana` → `deLaVentana.msg`) y 32f430356 (`aGuardar` → `conElPedido`, porque la const
+  tapaba la función `aGuardar` de lib/chat-bloques; un alias `hilo` tipado sobre `previos`; `informe` →
+  `informeGeneralODashboard`). El comportamiento es el mismo; lo que quedó vieja es la regex. Arreglados en tren-m, cada
+  uno con el commit que lo explica al lado.
+- **Por qué nadie lo vio en tres días:** `tests-afectados` corre sólo los tests que tocan los archivos del cambio. Un test
+  de regex sobre fuentes queda rojo en main hasta que otro tren toca un archivo vecino.
+- **Regla:** antes de culpar al tren por un rojo, mirar si el test y los fuentes que lee cambiaron en el tren
+  (`git diff --quiet <base> HEAD -- <archivo>`). Si no cambiaron, el rojo es de main: va a su dueño y no frena el tren.
+  Quien arregla tipos renombrando, busca el nombre viejo en tests/ (`git grep`) en el mismo commit.
+- **Volvió en tren-o (27/10/2026), y el culpable que se nombró era otro:** dashboard-en-blanco se atribuyó a la plantilla
+  Inmobiliaria (1e1106021), pero era un SEXTO rojo del mismo 32f430356 (`informe={informe}` en la caja en blanco de
+  EditorInforme), rojo en main desde el 24/10. Los otros seis de esa tanda fueron puntas que cambiaron el código y no su
+  test (5178a7d46 el deshacer de lote de a tandas y «Están todos tus grupos», 6da648600 el nombre de la adaptada,
+  07a4a1449 el aviso de Chrome primero, b11601685 el CLI de Vercel fijo, f78574342 una ruta nueva sin decidir en D6b).
+  Ninguno era una regresión. Para nombrar la punta: `git log -S '<lo que el test esperaba>' -- <fuente>`, no la del tren.
+- **Y el fin de línea:** en `C:/dev/wt-push-q` (core.autocrlf=true) los fuentes llegan en CRLF. Un test que lee un fuente
+  sin normalizar `\r\n` a `\n` da rojo ahí y verde en el worktree de su autor (pasó con editor-web-punta-a-punta-26-10).
+  Esta misma línea salió rota en tren-l: se escribió con un heredoc de Bash, que se come las barras invertidas. Un texto
+  con `\` se escribe con Edit, no con un heredoc.
+
+## Un archivo con CRLF puede chocar ENTERO al mezclar, y el choque real es de una línea (25/10/2026)
+
+**Vive en:** `scripts/mezcla-eol.sh` (la salida) · el repo corre con `core.autocrlf=true` (`.gitattributes`).
+
+- **Síntoma:** al armar el tren-k, `lib/integraciones-catalogo.ts` (Landings contra Zernio) salió en conflicto de la línea 1
+  a la 345: el archivo entero de un lado contra el archivo entero del otro. Después pasó lo mismo con
+  `app/_components/ServicioVisual.tsx`, `app/configuraciones/plan/PlanPanel.tsx` y la bitácora del Ops Center.
+- **El diagnóstico obvio era el equivocado.** Parecía que una rama había reescrito el archivo y había que elegir uno de los
+  dos a mano, perdiendo lo del otro. Las tres versiones (base, nuestra, la de ellos) tenían CRLF en todas sus líneas; la
+  causa exacta de que git las viera enteras distintas no quedó medida.
+- **Lo que anduvo:** pasar las tres versiones a LF y mezclarlas con `git merge-file`. `integraciones-catalogo.ts` salió
+  limpio, con sólo las 7 líneas que sumaba Landings; en los otros quedó el choque real, de 2 a 15 líneas.
+- **Regla:** ante un conflicto que abarca el archivo entero, antes de elegir un lado:
+  `sh scripts/mezcla-eol.sh <archivo>...` con el merge en curso. Deja limpio lo que es sólo fin de línea, y el resto con
+  sus marcadores. Lo escribe con el fin de línea que tenía HEAD.
+
+*25/10/2026, el Cerebro (claude5).*
+
+## Un merge limpio puede dejar el mismo import dos veces, y los tests no lo ven (25/10/2026)
+
+**Vive en:** cualquier merge de dos ramas que suman el mismo import en líneas distintas (lo vio el tren del 25/10 con
+`app/second-brain/AprendeSolo.tsx`).
+
+- **Síntoma:** el pre-push frenó el tren con `TS2300: Duplicate identifier 'BotonIntegracion'` en dos líneas del mismo archivo.
+  Los 8.715 tests del tren habían dado verde.
+- **Causa:** el tren ya traía `import { BotonIntegracion } …` (un arreglo del Cerebro) y la rama de Planes lo sumó en otra
+  línea. Git no lo marca como conflicto porque las líneas no se tocan, y los tests corren con tsx (esbuild), que no chequea tipos.
+  Es la misma familia que los hitos pegados de una bitácora resuelta por unión (TS1117).
+- **Regla:** después de un merge que tocó el mismo archivo desde dos ramas, buscar imports repetidos
+  (`git diff HEAD^1 -- <archivo> | grep "^+import"`) antes de dar el tren por verde. El tsc entero o sus tandas es la red.
+
+*25/10/2026, el Cerebro (claude5).*
+
+## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
+
+**Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
+`~/.claude/guardia/vigia.ps1` · el informe entero, con opciones y costos: [ram-de-la-pc.md](ram-de-la-pc.md).
+
+- **Medido el 24/10 (23:59 a 00:06), con 8 chats y Chrome cerrado:**
+  - quedan ~5,6 GB libres;
+  - la reserva de Windows ocupa 3,6 a 4,3 GB, cada chat ~0,25 GB y la app ~1,2 GB;
+  - el chequeo de tipos entero pide 6,3 GB y ya son 7.723 archivos y 76,5 MB (no los 4.300 de la memoria vieja);
+  - los tests son `node --test` (1.683 archivos), no vitest.
+- **Causa de las muertes:** la guardia admitía un pesado con 1,5 GB libres, y cada uno pide 2 a 2,5 GB. Lo dejaba arrancar y
+  el vigía lo mataba: 81 el 24/10, 70 el 23/10, 886 desde el 11/10. Además, nada frenaba una tanda de `node --test` sin
+  `--test-concurrency`, que arranca un proceso por núcleo (11 en esta PC).
+- **Lo que se cambió esa noche** (Martín: «Cuida la ram para que no se crashee claude por la noche»):
+  - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
+  - como mucho 2 workflows a la vez;
+  - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **El tren no conseguía RAM nunca (25/10, ~18:20 a 19:10):** con 10 chats trabajando la RAM libre no pasó de 3,5 GB en una
+  hora, y cada tanda del chequeo de tipos del pre-push pide 5,3. Subirlo igual, a las 18:14, trabó la PC. Esperar no alcanza:
+  cada chat que termina un pesado arranca otro.
+  - **Regla:** el que sube el tren pone `~/.claude/guardia/reserva-tren` (JSON `{sesion, hasta, motivo}`). Mientras esté,
+    la guardia hace esperar lo pesado y los workflows de las OTRAS sesiones; lo liviano pasa. No se corta a nadie: la RAM
+    se libera sola a medida que terminan los de antes. Vence sola en `hasta`, así un script caído no traba a nadie.
+  - El script que sube la pone, espera 5,5 GB, empuja y la saca al salir (`trap`).
+  - **Trampa:** la guardia mira el comando, y `node scripts/tests-afectados.mjs` no decía nada pesado. Arrancó con la reserva
+    puesta y levantó dos tandas de ~1 GB (la RAM libre bajó de 2,9 a 1,1 GB). Ahora `tests-afectados`, `antes-de-subir`,
+    `tipos-por-tandas` y `tipos-respaldo-push` cuentan como pesados cuando se CORREN con `node` (un `cat` o un `grep` de
+    esos archivos sigue liviano). Lo que ya estaba corriendo no se frena: hay que esperar a que termine.
+  - **Archivar chats quietos NO libera RAM (26/10, 00:30):** se archivaron cuatro y la RAM disponible siguió en 4,5 GB. Un
+    chat quieto ya está casi entero en disco (los procesos de Claude: 7,7 GB privados contra 3,7 en RAM). El diagnóstico
+    obvio, «hay demasiados chats abiertos», era el equivocado; con la app de Claude abierta ése es el techo.
+  - **La zona roja del piso no protege la PC, protege la tanda.** Con el vigía PRENDIDO, una tanda que la toca muere y el
+    push sale con 99 («sin chequear», nunca un verde falso). Lo que trabó la PC a las 18:14 fue subir con el vigía en PAUSA.
+    `MAKO_TIPOS_RAM_MIN_GB=4.4 git push …` baja el piso de las tandas (nunca debajo del heap + 0,3) para intentarlo igual.
+    **Sólo con el vigía corriendo**: sin él, quedar sin RAM es el colgón del 11/10.
+  - **La reserva no hace SUBIR la RAM (26/10, 04:40 a 05:55):** el push de tren-l esperó 75 minutos con la reserva puesta y
+    la RAM disponible BAJÓ de 4,0 a 3,0 GB, porque los chats retienen memoria aunque estén quietos y siguen creciendo con
+    cada turno liviano. Mientras tanto, la reserva frenaba los chequeos de todos. **Regla:** esperar SIN reservar, mirando
+    cada minuto, y reservar recién cuando hay lugar (≥ 4,5 GB) para pushear en el acto. Así salió a las 06:52 y a las 07:36.
+  - **Los 15 minutos del tsc entero son tiempo muerto en esta PC:** el lock (`scripts/typecheck-lock.mjs`) espera hasta 15
+    minutos a tener 6,3 GB, que la PC con la app de Claude abierta nunca tiene. En el intento de las 06:52 la RAM cayó de
+    4,6 a 3,7 GB en esa espera, y la tanda 1 ya no tuvo sus 4,4 (salida 99). `MAKO_TYPECHECK_SIN_ESPERA=1` no sirve:
+    arranca el tsc entero igual y lo mata el vigía.
+  - **TaskStop no mata el `sh` hijo que renueva la reserva:** quedó vivo y la volvía a escribir cada minuto. Hay que matar
+    los dos (`ps -ef | grep <script>`).
+  - **`MAKO_TIPOS_SOLO_TANDAS=1 git push …` (26/10, ~09:30):** el lock sale con 99 en el acto y el pre-push va derecho a las
+    tandas, que chequean todo el repo igual. Opt-in: sin la variable, nada cambia. ⚠️ El hook llama al lock del CLON
+    principal (`$REPO/scripts/typecheck-lock.mjs`), no al del worktree: el cambio se copió ahí a mano y queda en el repo con
+    este tren; si el clon se pone al día, ya lo trae.
+  - **Con tren-m, 4 GB de heap por tanda ya no alcanzan (26/10, ~11:40):** la tanda 1 «se quedó sin heap». No es un error del
+    código: el programa entero creció. `MAKO_TIPOS_HEAP_MB=5120` (scripts/tipos-respaldo-push.mjs, entre 4096 y 8192) pasó las
+    tres tandas, pero pide ~5,4 GB libres: salió recién cuando Martín cerró Chrome (5,5 a 5,8 GB). El siguiente salto de
+    tamaño ya no entra en esta PC con la app de Claude abierta: o 32 GB, o Actions con minutos.
+  - **Una punta entregada «sin tipos» los trae al push:** los 2 errores de lib/closing-entrega.ts eran de Grabadores
+    (`recorded_by` de Fathom contra la Reunion nueva). Sus tests pasaban porque tsx no mira tipos.
+- **Sin hacer:**
+  - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
+  - `--test-concurrency=2` en `npm test`;
+  - lo que es de Martín: pasar a 32 GB (unos USD 290; los zócalos se pueden cambiar), sacar del inicio Copilot, NVIDIA y
+    MEGA, reiniciar, y habilitar la nube de Anthropic en una cuenta.
+
+## «docs/api-mako.md no está en git»: la referencia pasó 1 MB y el chequeo no la podía leer (25/10/2026)
+
+**Vive en:** `scripts/generar-api-doc.mjs` (el `--check` del pre-push).
+
+- **Síntoma:** el pre-push frenaba con «✖ docs/api-mako.md no está en git.», con el archivo commiteado y al día.
+- **El diagnóstico obvio era el equivocado.** Parecía un archivo sin agregar, o la referencia vieja después de juntar dos ramas.
+  Regenerarla no cambiaba nada.
+- **Causa:** la referencia mide 1.076.071 B desde el 25/10, y `execFileSync('git', ['show', 'HEAD:…'])` tiene un tope de salida
+  de 1 MB por defecto. Tiraba ENOBUFS, y el `catch` lo tomaba por «no existe».
+- **Regla:** toda lectura de git o de un proceso con `execFileSync`/`spawnSync` que pueda crecer lleva un `maxBuffer` explícito.
+  Ahí quedó en 64 MB.
+
+## El chequeo de tipos ENTERO ya no entra en su tope de 5 GB, y el acotado dijo «igual en main» de un error que no lo era (25/10/2026)
+
+- **Medido en el push del 25/10:** con 6,1 GB libres, el tsc entero murió por heap («Ineffective mark-compacts near heap limit»,
+  tope 5120 MB). El pre-push cayó a las 3 tandas, y pasaron. Si se repite con RAM de sobra, el tope es corto para el repo y hay
+  que subirlo (`CAP_HEAP_MB`, scripts/typecheck-lock.mjs). Mejor todavía, las opciones de docs/ram-de-la-pc.md.
+- **Las tandas encontraron dos errores reales:** `app/admin/operaciones/mandar.ts:133` (un `Uint8Array` pelado de TypeScript
+  5.7+ es `<ArrayBufferLike>`, y `crypto.subtle.digest` pide uno respaldado por `ArrayBuffer`) y un `possibly 'null'` en un test.
+  El chat dueño había visto el primero en tsc-acotado y lo descartó como «igual en main». Pero en main no estaba: lo trajo su
+  propio merge. **Regla:** un rojo del acotado no se descarta por «está en main» sin correr el mismo archivo en un main limpio.
+- **Y el acotado tampoco ve todo lo que ve el entero.** Ese mismo día, el «Completado» de Ops Center pasó tsc-acotado limpio
+  y el push lo frenó con TS2774 («This condition will always return true since this function is always defined») en
+  `responder ? preguntas.length : 0`, con `responder` obligatorio. Medido después: el acotado sobre esos dos archivos seguía sin
+  marcarlo. El acotado sirve para descartar lo obvio. El que manda es el entero (o sus tandas) del pre-push, y un rojo ahí no se
+  discute con «el acotado dio verde».
+
+## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
+
+**Vive en:** el armado del tren (`C:/dev/wt-push-q`) · `app/admin/dev/*/bitacora.ts`.
+
+- **Síntoma:** Landings avisó que el tren no pasaba tipos: TS1117 ×12 en `app/admin/dev/customer-success/bitacora.ts`.
+- **Causa:** el bloque del conflicto se cortaba en el MEDIO de un hito. «HEAD y después el otro» dejó `revisar: '/partners',`
+  pegado a `fecha: '24 oct', hora: '23:40'`, sin `},{` en el medio. El chequeo que se corrió (`esbuild`) da verde, porque en
+  JavaScript una clave repetida no es error de sintaxis.
+- **Regla:** después de unir un conflicto en un arreglo de objetos, se buscan CLAVES REPETIDAS con el parser de TypeScript
+  (`ts.createSourceFile`, recorriendo cada `ObjectLiteralExpression`), no con esbuild. Pasado sobre las 58 bitácoras: 0.
+- **Y el índice:** `scripts/unir-indice-hallazgos.py` no sabe juntar una fila nueva de un área que main todavía no tiene (falla
+  con «no hay en main una fila del área»). Se resuelve a mano, quedándose con la fila que CONTIENE a la otra.
+
+## Las barredoras de tests-afectados se pasan de los 25 minutos con poca RAM, y el reintento son 796 procesos (25/10/2026)
+
+- **Síntoma:** «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», seguido de «los repito AISLADOS, uno por
+  proceso». Eso son horas.
+- **Causa:** con 1 a 3 GB libres, el proceso compartido pagina y llega al tope (`TOPE_COMPARTIDO_MS`). No es un rojo del código.
+- **Qué hacer:** cortar la corrida y volver a correrla con más RAM libre. Los rojos de verdad se separan corriendo esos tests en
+  un main limpio (`git worktree add --detach … origin/main` más una junction a `node_modules`) y comparando las dos listas de
+  `✖`. El 25/10, de 12 rojos, 4 eran del tren y 8 ya estaban en main.
+
+*25/10/2026, el Cerebro (claude5).*
+
+## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
+
+**Vive en:** cualquier ronda de «probado rompiéndolo» sobre archivos que todavía no están commiteados.
+
+En el chat CRM, la última rotura de una ronda se deshizo con `git checkout -- app/crm/menu-contextual-crm.ts`, como las tres
+anteriores se habían deshecho copiando un respaldo. **El checkout no vuelve a «antes de la rotura»: vuelve a HEAD**, y el
+archivo tenía media hora de trabajo sin commitear. El `git diff --stat` vacío después fue lo único que lo delató (se rehízo
+desde el script de reemplazos, que seguía en el scratchpad). **Regla:** antes de romper, `cp <archivo> <scratchpad>/x.bak`, y
+se restaura con `cp` de vuelta; `git checkout --` sólo sobre un archivo que está igual a HEAD.
+
+## `tsc-acotado | grep "error TS"` esconde el «NO SE PUDO CHEQUEAR»: dos verdes falsos y una tanda con errores (25/10/2026)
+
+**Vive en:** scripts/tsc-acotado.mjs (salida 0 = limpio, 1 = errores, **99 = no chequeó**) y cualquier filtro de su salida.
+
+El chat CRM corría `node scripts/tsc-acotado.mjs … | grep "error TS" | grep -v _opencut; echo fin` para no ver los 14 errores
+ajenos de `_opencut`. Dos corridas terminaron con «fin» y nada más, y se leyeron como limpias: **las había matado el vigía de
+RAM** (código 99, «NO SE PUDO CHEQUEAR», en stderr y sin «error TS», así que el grep lo tiraba). Una tanda salió al tren con
+dos errores de tipos (TS2339 y TS2345 en FichaPorBloques.tsx) que se encontraron recién en la corrida siguiente. Es la misma
+trampa que la del `&&` de abajo, del otro lado: el filtro decide qué se ve, y lo que no matchea parece que no pasó.
+**Regla:** la salida entera a un archivo, `echo "codigo=$?"` después, y recién ahí filtrar el archivo. Con 99 no hay veredicto:
+se espera RAM o se parte la lista (el tablero del CRM solo ya pide ~2,5 GB).
+
 ## El `&&` después de un pipe mide el `tail`, no el chequeo: el tren se subió con 5 errores de tipos (24/10/2026)
 
 **Vive en:** cualquier comando del Cerebro con la forma `chequeo | tail && push`.
@@ -58,6 +337,26 @@ y recién ahí se decide: `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq
 `tail` antes de `git push` la misma noche. Un hallazgo escrito no se aplica solo. Cuando una trampa es de la forma del
 comando y no del código, el lugar donde evita el error no es un documento: es el comando mismo — por eso la receta de
 arriba va textual, para copiarla.
+
+## `tests-afectados` lista como ROJO un test `todo` que falla, aunque su archivo salga con 0 (25/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (los «Rojos:» salen de las líneas `test at …` del resumen de fallas).
+
+En el chat Media Buyer la corrida terminó con «Rojos: …, tests/chats-mako-envio.test.ts, …». Ese archivo, corrido solo, sale
+con **0**: su único fallo es un `test(…, { todo: 'depende de la 1.2 (rama mako-wa)…' })`, y Node pone los `todo` que fallan en
+el mismo resumen «failing tests», con su `test at …`. El script los cuenta como rojos de archivo (el `fail` del total, no).
+**Antes de perseguir un rojo de esa lista, correr el archivo solo y mirar la salida:** si es 0, es un `todo`. Sin arreglar:
+filtrar en el script los `test at` que vienen después de una línea con `# …` de `todo`.
+
+## Chrome sin ventana no baja de ~500 px: una captura «a 390» con `--window-size=390,…` es de una pantalla más ancha recortada (25/10/2026)
+
+**Vive en:** cualquier captura con `chrome --headless=new --window-size=390,… --screenshot`.
+
+En el chat Media Buyer, las capturas a 390 salieron con textos cortados contra el borde derecho y parecía que la pantalla
+se salía en el teléfono. Medido en el navegador con el viewport emulado a 390 (`resize_window`): `scrollWidth` = 390 y nada
+pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: arma la página más ancha y la captura se
+corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
+`--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
@@ -96,6 +395,15 @@ lo que SIRVE el dominio. La huella de los chunks (`curl -sS https://hola-mako.co
 '/_next/static/chunks/[a-zA-Z0-9._-]+\.js' | sort -u | md5sum`, antes y después de pushear) sigue sirviendo para saber
 CUÁNDO cambió lo servido, pero no dice de qué commit es.
 
+**Remedido por la cuenta 5 el mismo 24/10 a las 21:00** (la cosecha vieja, con su «no puede dar verde nunca», había llegado a
+su relevo y se armó encima un segundo arreglo, que se descartó): con el entero aparece `mako-mht66t1ed… ● Ready Production`, con
+el corto `No deployments found`. Dos trampas más que salieron al probar:
+- **«Esta frase nació en ese commit» también se mide** (`git log -S "<frase>"`): la de Partners que se usó como prueba del
+  primer tren nació en `faffeb9f1`, no en `fc8064ee7`, que sólo la citó en `docs/hallazgos-partners.md`.
+- **Git Bash convierte en carpeta de Windows un argumento que empieza con «/»**: `--ruta /crm` llega como
+  `C:/Program Files/Git/crm`, y armado en una URL da `fetch failed`, que se lee como el sitio caído. Va sin la barra o con
+  `MSYS_NO_PATHCONV=1`.
+
 ## Un `redirect()` adentro de una página con `loading.tsx` rompió la app: React #310 (23/10/2026, ticket #7)
 
 **Síntoma:** «La pantalla General se rompió», con «Minified React error #310» (más hooks que en el render anterior) en el
@@ -128,6 +436,142 @@ en su layout. Lo fijan `tests/cargando-mako.test.ts` y `tests/redirige-antes-del
 sessionStorage). Para VER la pantalla de error al reproducir, se pone esa clave en el futuro antes de cargar.
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
+
+## El mismo #310 en /web-generator, y por qué la regla del ticket #7 no alcanzó (24/10/2026, ticket #9)
+
+**Síntoma:** «La pantalla «Web Generator» se rompió» (ticket #9, ws 10, 24/10 21:43 ART, Chrome en Windows), «Minified
+React error #310» al abrir `/web-generator`.
+
+**La causa:** la del ticket #7, en otra tab. Desde el 24/10 (7ae16876e) `/web-generator` pelado salta a la última landing
+con un `redirect()` en la PÁGINA, y `app/web-generator/loading.tsx` existía desde el 23/10: el redirect va en el stream y
+queda en carrera con la hidratación. `/web-generator/analizar` y `/crear` (los links viejos, que siempre redirigen) tenían
+el mismo riesgo: **un loading.tsx envuelve a la página de su carpeta Y a las subrutas**, así que el layout de una
+subcarpeta tampoco sirve: el que queda afuera es el de la carpeta del loader de más arriba.
+
+**Por qué la regla de #7 no lo frenó:** quedó fijada sólo para /plan y /second-brain (un test por ruta). Nadie miraba una
+página NUEVA que redirige debajo de un loader. Ahora `tests/redirige-antes-del-loader.test.ts` recorre todo `app/`: una
+página con `redirect(` debajo de un `loading.tsx`, sin que el layout de la carpeta de ese loader redirija antes, falla.
+
+**El arreglo:** `app/web-generator/layout.tsx` redirige las tres (`redireccionDelLayout`, panel-reglas.ts, con test); las
+páginas conservan su redirect para cuando se llega navegando.
+
+⚠️ **La lista de conocidas quedó VACÍA (25/10):** las páginas de otras tabs que redirigían debajo de un loader pasaron la
+redirección (y su puerta) a su layout: los tres dashboards (la entrada de abajo), /admin/operaciones, /m/chats y
+/m/second-brain (la entrada que sigue: en /m hay una trampa) y las del CRM; las que deciden por ruta están en
+`DECIDEN_POR_RUTA` con su test. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista
+(si no, una regresión suya pasaría callada).
+
+**No se midió en producción:** la pestaña del Chrome de Martín no respondió (24/10). Para medirlo:
+`fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
+con el arreglo.
+
+## Los dashboards redirigen en su layout, y el de /m recibe la ruta de ESCRITORIO (25/10/2026)
+
+**Qué se hizo:** /dashboard, /m/dashboard y /m/dashboard/[hoja] salieron de la lista de conocidas: redirigen en
+`app/dashboard/layout.tsx` y `app/m/dashboard/layout.tsx` (un solo layout para las dos del teléfono: el loader de
+`app/m/dashboard/loading.tsx` envuelve a las dos). La decisión es UNA, la de las páginas: `sinSuHoja`
+(app/dashboard/redireccion.ts: el closer o el setter cuyo negocio no compró la capa de su hoja) y `hojaPropiaDe`
+(app/m/dashboard/datos.ts: una hoja que no se abre en el teléfono vuelve al Dashboard).
+
+**La trampa (el diagnóstico obvio era el equivocado):** el layout de /m/dashboard preguntando `ruta === '/m/dashboard'`
+no se dispara NUNCA. En el teléfono la URL es la de escritorio («las rutas deben ser las mismas»): el proxy REESCRIBE
+`/dashboard?hoja=…`, `/marketing`, `/comercial` o `/graficos` a /m/dashboard, y el header de la ruta lleva la URL pedida
+(`headersSeguros`, proxy.ts). Una /m pedida directo, en cambio, redirige a la de escritorio. Y el layout no recibe el
+`[hoja]` (es de la hija). Por eso `paginaDelPedido` (app/m/dashboard/redireccion.ts) traduce la ruta con `rutaMovil`, la
+MISMA tabla del proxy, y el test compara las dos con `decidirDesvio`.
+
+**Las otras dos reglas que quedan:**
+- **La puerta de la tab, sólo si se va a redirigir.** `requireRolWs` / `requireMovil` preguntan el onboarding y el negocio
+  pausado SIN cache por pedido: correrlas siempre en el layout duplicaba esas consultas en cada carga del Dashboard. Como
+  en /web-generator, el layout decide con lo cacheado (`getRolWsEfectivo`, `getCapaActual`, `contextoMovil`) y llama a la
+  puerta sólo antes de su redirect.
+- **Lo que el layout lee, la página lo reusa.** Para decidir una hoja propia hace falta el informe: `tableroDelPedido`
+  (`cache(leerTablero)`, app/m/dashboard/datos.ts) lo lee una vez por pedido para el layout y la página.
+
+**Sin hacer:** no se midió en producción ni en el teléfono (es un 307 en vez de un 200 con el redirect en el stream; se
+mide con el `fetch(..., { redirect: 'manual' })` de arriba, con un closer en un negocio sin Closing). Las seis conocidas de
+otras tabs siguen en la lista. Vive en: app/dashboard/layout.tsx · app/dashboard/redireccion.ts ·
+app/m/dashboard/layout.tsx · app/m/dashboard/redireccion.ts · tests/redirige-antes-del-loader.test.ts.
+
+*25/10/2026, chat «Automations» (claude5).*
+
+*24/10/2026, chat «Landings» (claude5).*
+
+## En /m, la ruta del header es la del NAVEGADOR: un layout de /m no puede compararla con `/m/…` (25/10/2026, #310)
+
+**Por qué importaba:** /admin/operaciones, /m/chats y /m/second-brain estaban en la lista de conocidas del barrido de arriba.
+/m/second-brain es por donde ENTRA la app del teléfono, y a /m/chats llegan los avisos y MaKo por WhatsApp con un link
+profundo: cargas directas, justo las que se rompen.
+
+**La trampa:** `pedidoActual` (el molde) da la ruta que pidió el NAVEGADOR (`HEADER_RUTA` es `req.nextUrl.pathname`). En un
+teléfono el proxy sirve `/chats` con la página de `/m/chats` (un rewrite), así que el header dice `/chats`: un layout que
+compara con `/m/chats` no redirige NUNCA, y no da ningún error. La query tampoco es la de la página: el rewrite le suma la
+suya (`urlReescrita`), y `/chats?c=ig:5` no es la lista sino el chat `/m/chats/ig%3A5`. Un layout de /m usa
+`pedidoMovilActual` (lib/pedido-actual.ts), que traduce como el proxy (`pedidoInterno`, lib/movil-desvio.ts, con test).
+
+**El arreglo:** el layout de la carpeta de cada loader, con las condiciones COPIADAS de la página (el test exige que estén
+iguales en los dos): app/admin/operaciones/layout.tsx (sin sesión de admin, o con el `?ws=` de un cliente),
+app/m/chats/layout.tsx (los links profundos, sólo en la lista: el layout envuelve también a cada chat) y
+app/m/second-brain/layout.tsx (el Mapa, y el super admin a su Centro; sólo en el chat: envuelve también al Mapa).
+
+**Ojo, sin arreglar:** `requireMovil` también redirige (login, onboarding, la tab que no le toca) y lo llama cada página de /m
+debajo de su loader. El barrido no lo ve porque busca `redirect(` en el archivo de la página. Los dos layouts nuevos lo llaman
+primero, así que ahí sale antes del loader; en el resto de /m sigue igual (lib/movil-guard.ts).
+**La puerta va para TODA la carpeta del loader, no sólo para la ruta que redirige** (lo vio Landings, cuyo guard cuenta las
+puertas): el loader de /m/chats envuelve también a cada chat, así que `requireMovil({ navKey: 'chats' })` va primero y sin
+mirar la ruta; y el Mapa, debajo del loader de /m/second-brain, pasa por OTRA puerta (`second-brain`, no `mako`), que su
+layout repite en esa ruta.
+
+**Sin medir en producción** (la receta, en la entrada de arriba).
+
+*25/10/2026, chat «Ops Center» (claude5).*
+
+## El Web Generator en blanco entrando por el menú: el `redirect()` de un LAYOUT, navegando, queda guardado en el router (28/10/2026)
+
+**Síntoma (Martín):** «Cada vez que entro a web generator, hay un bug que aparece todo en blanco, le tengo que dar a refresh
+para que me cargue la tab» · «Me pasa en la cuenta de superadmin entrando desde cualquier dispositivo».
+
+**La causa (reproducida con el build de producción 23b329b5e, `next start` + Chrome sin ventana, sesión admin en el ws9):**
+el layout de /web-generator redirige a la última landing (lo subió ahí el #310 de arriba). En una CARGA es un 307 y anda.
+Entrando por el MENÚ, el `redirect()` de un layout no es un 307: viaja adentro del RSC, en el nodo del layout
+(`NEXT_REDIRECT;replace;/web-generator/72?ws=9;307;`), y el router GUARDA ese nodo. Al llegar a /web-generator/72, que cuelga
+del MISMO layout, lo reusa, el redirect se vuelve a tirar, y el router renavega a la misma URL cada ~1 s para siempre: en
+blanco (sólo el banner de impersonación) y `/web-generator/72?ws=9&_rsc=…` en la red una y otra vez. El refresh es una carga:
+307 real, el editor. «Sólo el super admin»: el redirect sale sólo si hay landings, y el negocio con landings es el de la
+plataforma (el 9).
+
+**Lo que despistaba:** parecía otra vez el #310 (loader + redirect) o una respuesta pesada que se cortaba (vi «64 KB» y era mi
+propio recorte al imprimir: el RSC llega entero). Y la cura del #310 —subir el redirect al layout para que salga antes del
+loader— es justo lo que lo provoca navegando: las dos reglas valen juntas.
+
+**La regla:** un LAYOUT que redirige a una ruta DEBAJO de sí mismo lo hace sólo en la CARGA del documento; navegando, redirige
+la PÁGINA, cuyo segmento se reemplaza. `esNavegacionDelCliente()` (lib/pedido-actual.ts): `headers()` no deja ver el `RSC: 1`
+(Next saca los `FLIGHT_HEADERS`), pero sí llegan `Next-Url` (lo manda el router) y `Sec-Fetch-Dest` (`empty` en un fetch;
+`document`/`iframe` en una carga; sin ninguno, carga, como siempre). Aplicado en /web-generator, /plan (/plan ↔ /plan/agencia),
+/m/second-brain (→ /mapa, lo encontró el recorrido del test) y el resumen de /crm (al mismo resumen con el `?ws=` del
+negocio del lead; el destino no es literal y el test lo fija aparte). tests/redirige-navegando.test.ts recorre todo `app/`; probado
+rompiéndolo (9 roturas, 9 atrapadas).
+
+**Verificado:** con el build del arreglo (mismo `next start`, misma sesión): desde el menú 5/5 el editor (antes 5/5 en blanco con 4-15
+pedidos `_rsc` repetidos; ahora 0-2); `router.push` a #68, #69 y #70 llega a cada una (antes las tres terminaban en
+/72, en blanco: el redirect guardado secuestra cualquier navegación debajo del layout); directo, el editor, como antes.
+Datos: C:/dev/revisiones/web-generator-blanco/{prueba3,arreglo2}/informe.json.
+
+**Sin hacer:** sin medir en producción ni en el teléfono (después del deploy: entrar a /web-generator desde el menú, con el
+ws9). Los otros layouts con destino calculado se miraron a mano y no caen debajo de sí mismos: /dashboard (→ /plan o /crm)
+y /admin/operaciones (→ /inicio o /second-brain). Un layout NUEVO con destino calculado no lo ve el recorrido del test.
+
+**Para reproducirlo en local (Windows), tres trampas:** `next build --debug-build-paths` (Next 16.2.6) NO compila ninguna ruta de
+`app/` y sale 0: `applyDebugFilter` (node_modules/next/dist/build/route-discovery.js) compara `/x/page.tsx` con `\x\page.tsx`.
+Y los CORCHETES de una ruta son un patrón: `app/web-generator/[id]/page.tsx` no compila esa página (va `?id?`).
+Y `next start` sirve el `.next` VIEJO sin quejarse: las dos primeras corridas midieron un build de otra hora. Parche local en
+ese node_modules (normalizar `\` → `/`), `rm -rf .next` antes de cada build y mirar que el build.log liste las rutas. Además el
+vigía mata el build parcial en zona roja: esperar ≥3 GB libres y compilar sólo las páginas que se miden.
+
+Vive en: lib/pedido-actual.ts · lib/pedido-actual-reglas.ts · app/web-generator/layout.tsx · app/plan/layout.tsx ·
+app/m/second-brain/layout.tsx · app/crm/layout.tsx · tests/redirige-navegando.test.ts.
+
+*28/10/2026, chat «Web Generator: replicar landings» (claude4).*
 
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
@@ -298,6 +742,23 @@ nuevas y nada más.
 Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase termina en un HEAD suelto
 («updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
 rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
+
+## Rehacer una rama limpia con `git checkout <rama-vieja> -- .` revierte en silencio lo NUEVO de otro chat (29/10/2026)
+
+**Qué pasó.** AI Avatar tenía una rama con merges de main y de la rama del Web Generator. Para darle a Integración UN commit
+limpio, se armó una rama nueva desde main, se mergeó la punta del Web Generator, y se iba a copiar el árbol entero de la
+rama vieja con `git checkout <rama-vieja> -- .`. Entre una y otra el Web Generator había sumado un commit (su script de la
+landing): la rama vieja tenía la versión ANTERIOR de ese archivo, y el checkout la habría pisado sin conflicto ni aviso. El
+commit «mío» habría deshecho el trabajo de otro chat.
+
+**La regla.** Copiar un ÁRBOL trae todo lo de ese árbol, también lo viejo de los demás. Lo que se copia es el DIFF propio:
+
+```bash
+T0=$(git merge-tree --write-tree <main-de-entonces> <punta-del-otro-de-entonces>)   # la base sobre la que trabajé
+git diff --binary $T0 <rama-vieja> > mio.patch
+git apply --index mio.patch                                                         # en la rama nueva
+git diff <rama-vieja> HEAD --stat     # sólo deben aparecer los archivos que cambió el OTRO después
+```
 
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 
@@ -5521,6 +5982,18 @@ dos horas después la 0199 ya no conectaba: la red cambió, el código no.
 - Se aplicó pasándole a `apply-migration.mjs` la URL del pooler sólo para ese proceso, armada a
   partir de `DATABASE_URL` sin imprimirla.
 
+**27/10/2026: el pooler es el camino de TODOS los scripts, no un arreglo a mano.** Aaron lo marcó como riesgo, y el
+síntoma era peor que «no conecta»: con la red de la PC entrando y saliendo de IPv6, un script largo conectaba y **moría a
+mitad de corrida, al reconectar** (`ENOENT` / `ENETUNREACH`), con la mitad del trabajo hecho. Medido el 27/10 desde esta PC:
+la directa da `lookup` v6 `ENOENT` y v4 `ENOTFOUND`; el pooler, 3 direcciones IPv4 y `select 1` en 2,4 s.
+- **La regla:** un script que abre Postgres lo hace con `postgres(urlDeLaBase(), …)` (`scripts/url-de-la-base.mjs`), que
+  deriva la URL del pooler de `DATABASE_URL` sin imprimirla. Se pasaron los 79 scripts que leían `DATABASE_URL`, y
+  `tests/url-de-la-base.test.ts` barre `scripts/` para que uno nuevo no vuelva a la directa (probado rompiéndolo).
+- `MAKO_DB_DIRECTA=1` vuelve a la directa para una corrida; `SUPABASE_POOLER_HOST` cambia el host si el cluster deja de ser
+  `aws-1`. Una `DATABASE_URL` que no es la directa de Supabase (una base local) pasa tal cual.
+- Los scripts que importan `postgres` por `createRequire` desde OTRO clon (`curso-aplicar-694`, `curso-marcar-por-area`)
+  importan el helper por ruta relativa al script: es puro y no depende del `node_modules` del clon.
+
 Y una menor del mismo rato: **`vercel ls` escribe la tabla de deploys en STDERR.** Un
 `npx vercel ls 2>/dev/null | grep …` contesta vacío sobre una lista llena, y un bucle que espera
 «Ready» así no termina nunca.
@@ -5686,6 +6159,22 @@ el cast a la `Fila…` en cada llamada.
 
 **Vive en:** `lib/comunidad-datos.ts` (`de`) · `tests/comunidad-modelo.test.ts` (devolver el
 genérico tumba el test) · *2026-10-08 Customer Success*
+
+## Un genérico con un literal suelto se mide contra la RESTRICCIÓN, y frena el tren (24/10/2026)
+
+**Síntoma:** `tests/crm-etapa-dos-columnas.test.ts` pasaba en `node --test` y tenía 5 errores de tipos. Frenó el tren hasta
+que el Cerebro lo arregló (59d228ea1). Los tests corren con tsx, que transpila sin mirar tipos, y los chats de área pasan
+«sin tipos»: el error sólo aparece en el tsc del tren.
+
+**Causa:** `columnasDeSeccion<T extends { lineaArriba?: boolean; alPie?: boolean }>(options: readonly T[])` llamada con un
+literal suelto, `columnasDeSeccion([{ value: 'a' }, { value: 'b' }])`. TS no tiene de dónde inferir `T` más que ese literal,
+así que lo mide contra la restricción, y ahí `value` es una propiedad de más.
+
+**Regla:** si el único lugar de donde se infiere un genérico es un literal, el tipo va explícito, con un `const ab: O[] = …`
+o con `columnasDeSeccion<O>(…)`. Vale sobre todo en tests, que nadie tipa antes del tren.
+
+**Vive en:** `app/components/dropdown-reglas.ts` (`columnasDeSeccion`) · tests/crm-etapa-dos-columnas.test.ts ·
+*24/10/2026, chat «CRM» (claude1)*
 
 ## Dos tests de fuente que se rompen por la FORMA del código (08/10/2026)
 
@@ -6123,6 +6612,17 @@ posterior al leído, o una revisión. La primera escritura (esperado `null`) sí
 
 **Vive en:** `lib/settings.ts` · `lib/automatizacion-chat-db.ts` (el que ya lo esquiva) · *2026-10-12 duodécima
 tanda de Automations*
+
+**28/10/2026: la regla escrita no alcanzó, y ahora la red está en `cambiarSettingSi` mismo.** Copywriter volvió a caer (un
+guion de más de ~6 KB no se guardaba más, y el índice con ~40 guiones congelaba el árbol), y medido ese día en producción el
+`onboarding.historial` ya pasaba los 6 KB codificados en cuatro negocios: su historial había dejado de guardarse en silencio
+(es best-effort). Unas treinta funciones llaman a `cambiarSettingSi` y nadie se acuerda de esta entrada. **El arreglo:** con
+un `esperado` de más de 6 KB en la URL (`lib/settings-cas.ts`, medido codificado: un JSON con comillas pesa el triple),
+`cambiarSettingSi` lee la fila, compara el valor en el server y escribe filtrando por `updated_at`, uno estrictamente
+posterior al leído (toda escritura de app_settings marca `updated_at`, así que si otro escribió en el medio, pierde). Sin
+cambiar a nadie que lo llame. tests/settings-cas-largo.test.ts corre el lib/settings.ts real con una base de mentira que
+anota cada filtro. **Medir antes de culpar al código:** el script del 28/10 (scratchpad del Cerebro, settings-largos.cjs)
+lista las claves de app_settings por peso codificado.
 
 ## El typecheck que «salía con 1 sin errores»: lo mataba el vigía, y el fallo mudo alimentaba la estampida (13/10/2026)
 
@@ -8014,6 +8514,9 @@ lanzamiento es el 25/10.
   «apagalo»**.
 - **n8n**: ningún uso en el código vivo.
 
+> **27/10/2026:** ya son 18 instancias y 1,05 M de mensajes. Lo que pesa en RAM, el techo y lo que cuesta escalar están en
+> «Evolution: TODOS los números en UN proceso de Node», más abajo.
+
 ### Las sesiones están persistidas, en DOS lugares — leído del código fuente, no supuesto
 
 `docs/rotacion-credenciales.md` dejaba abierto «comprobar que Evolution guarda las sesiones
@@ -8350,3 +8853,469 @@ resolvedor sí acertaba en sacar repetidos. Lo que rompía era la forma.
   En las cuatro puntas sanas que se midieron eso no aparece ni una vez. Así que no toca nada que no esté roto.
 
 **Vive en:** `scripts/unir-indice-hallazgos.py` · docs/hallazgos.md
+
+## Las PUERTAS también redirigen debajo del loader, y el guard de #9 no las ve (25/10/2026)
+
+**Síntoma:** ninguno todavía; es el riesgo de los tickets #7 y #9 con otra cara. Arreglando las tres páginas del CRM que el
+guard (`tests/redirige-antes-del-loader.test.ts`) tenía como conocidas, apareció que /crm, /crm/new, la ficha y
+/crm/prospectos redirigían igual adentro de `app/crm/loading.tsx`, sin un solo `redirect(` en su archivo.
+
+**La causa:** las puertas de `lib/tab-access.ts` redirigen por dentro: `requireCapa` (a «no está en tu plan»),
+`guardOnboarding` (a /onboarding: un cliente nuevo que abre una tab con el onboarding pendiente, lo de todos los días),
+`requireRolWs` y `requireSesion`. El guard busca `redirect(` en la página, así que no las cuenta.
+
+**Lo que queda (medido el 25/10 con la lógica del guard, contando las puertas):** seis páginas de otras tabs redirigen SÓLO
+por sus puertas debajo de un loader, sin layout que lo haga antes: app/ads-writer, app/automations, app/calendario,
+app/chats, app/offer y app/web-generator/[id]. La última, además, el guard la daría por buena cuando entre el layout de
+/web-generator, porque mira si el layout tiene ALGÚN `redirect(`, no si cubre esa ruta. **Regla:** el guard tiene que contar
+las puertas como redirecciones (`/\b(requireCapa|guardOnboarding|requireRolWs|requireSesion|requireRol)\(/`), y una tab
+que las tiene repite en su layout la misma puerta de cada página, en el mismo orden (el molde: `app/crm/layout.tsx`).
+
+**Vive en:** lib/tab-access.ts · tests/redirige-antes-del-loader.test.ts · app/crm/layout.tsx + layout-reglas.ts
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+**Lo que se hizo con eso (25/10/2026, chat «Landings»), y lo que el «seis» no veía:**
+
+- **Eran 25 carpetas, no seis.** La lista de seis se midió con las puertas de `lib/tab-access.ts`. Pero hay más funciones
+  que redirigen por dentro:
+  - `requireMovil`, la puerta de todo el teléfono;
+  - `requireEditorImagen` y `requireEditorVideo`;
+  - `requireAiAvatar` y `requireAiAvatarM`.
+
+  Contándolas, aparecieron además **13 carpetas de `/m`** y los dos editores. Además, `plan`, `second-brain` y los dos
+  Dashboards (el de la computadora y el del teléfono) tenían layout, pero no repetían su puerta en cada ruta. Ahora el test
+  busca las puertas solo: toda `export async function require…/guard…` de `lib/` o `app/` que llama a `redirect(` o a otra
+  puerta tiene que estar en `PUERTAS`.
+- ⚠️ **«Pasar la puerta sólo cuando se va a redirigir» no alcanza.** Los dos layouts de Dashboard la llamaban únicamente
+  antes de su propio salto. La razón escrita era ahorrar las consultas del onboarding y del negocio pausado, que no están
+  en caché. Pero la puerta de la PÁGINA también redirige, así que un cliente con el onboarding pendiente iba a /onboarding
+  desde adentro del loader: el mismo #310. Ahora la puerta va primero y siempre.
+  - Lo que cuesta: esas consultas, una vez más por carga.
+  - Lo que no cuesta: tiempo de la página. El layout y la página se dibujan en paralelo; el loader sí sale después de la
+    puerta del layout.
+- **La regla del guard (tests/redirige-antes-del-loader.test.ts), para cada página debajo de un loader:**
+  - **Las puertas del layout.** Están en el layout de la carpeta del loader de más afuera, escritas igual que en la página
+    y en el mismo orden.
+  - **Que la cubran.** O van A LA VISTA (al primer nivel de la función del layout, sin un `if`, y valen para toda ruta), o
+    la carpeta está en `DECIDEN_POR_RUTA`. Esa tabla lista las páginas de la carpeta y nombra el test que lo prueba ruta por
+    ruta (crm, plan, second-brain, web-generator y los dos dashboards).
+  - **Lo que ya no pasa.** Un layout con «algún» `redirect(` ya no cubre a todas las rutas: así pasaba /web-generator/<id>.
+- **El molde de una carpeta con una sola puerta para todas sus páginas** (las 20 nuevas): el layout llama a esa puerta, a
+  la vista, y devuelve `children`. La página conserva la suya.
+- **Quedan conocidas, con su motivo, en `CONOCIDAS_SIN_LAYOUT`:**
+  - `/admin/operaciones`.
+  - Los saltos a la vista de `/m/chats`; su puerta ya está en el layout.
+  - Las dos de `/m/second-brain`: cada una tiene otra puerta (`mako` y `second-brain`), y su layout tendría que saber cuál
+    es con la URL de escritorio que reescribe el proxy, como `app/m/dashboard/redireccion.ts`.
+
+**Vive en:** tests/redirige-antes-del-loader.test.ts (`PUERTAS`, `DECIDEN_POR_RUTA`, `CONOCIDAS_SIN_LAYOUT`) · los
+`layout.tsx` de ads-writer, automations, calendario, chats, offer, image-editor, video-editor y de m/ads, m/automations,
+m/calendario, m/chats, m/crm, m/cs, m/curso, m/hoy, m/inbox, m/landing, m/mas, m/plan, m/video · y la puerta en los de
+web-generator, plan, second-brain, dashboard y m/dashboard.
+
+*25/10/2026, chat «Landings» (`claude5`).*
+
+## Los logs de consola de UN pedido, en producción (26/10/2026, claude5)
+
+`GET https://api.vercel.com/logs/request-logs` (con `requestPath` exacto) trae, además de la duración, los mensajes de
+consola de cada pedido: el `console.log`/`warn` de la función, en orden. Sirve para saber por qué un pedido largo
+salió como salió sin reproducirlo (ej.: una réplica que dejó 17 de 20 secciones sin IA mostraba cada tanda con su
+error del proveedor). El token es `VERCEL_API_TOKEN` de `.env.local` y el equipo, `VERCEL_TEAM_SLUG`
+(`/v2/teams/<slug>` da el id; `/v9/projects` el del proyecto «mako»). Nunca imprimir el token.
+
+## Evolution: TODOS los números en UN proceso de Node — lo medido, el techo y lo que cuesta escalar (27/10/2026, Infra)
+
+Aaron (asesor técnico, llamada del 26/10): *«cada vez que tú conectas un número, se agrega al contenedor y va acaparando
+más la RAM»*. Medido en **sólo lectura**: lecturas a Evolution, el fuente de Evolution 2.3.7 y el de Baileys 7.0.0-rc.9
+(la versión que fija su `package.json`). No se cambió nada en Railway ni en las líneas. **La RAM no se pudo medir** (abajo):
+lo que sigue es una ESTIMACIÓN con los supuestos a la vista, y cuando haya métricas de Railway sólo se corrigen los números.
+
+**Lo que hay (27/10, ~17:30 ART):**
+- **18 instancias** (eran 16 el 23/10): 11 `open`, 2 `close` y **5 `connecting` que nunca se vincularon** — `ws3`, `ws15`,
+  `ws13_7ny3qw` y dos de «Agregar otro número» del 26/10 (`ws10_6dkz1i`, `ws1_rv347e`). `conectar({ nueva: true })` crea la
+  instancia antes del QR, y si nadie escanea queda ahí: no hay limpieza.
+- **1.046.927 mensajes, y 864.518 (82,6 %) son historial ANTERIOR al vínculo**: lo bajó `syncFullHistory: true`. `ws20`:
+  143.532 viejos y 1.413 nuevos en 6 días; `ws22`: 87.916 y 597. El tráfico vivo de toda la casa son ~180 mil mensajes en
+  tres meses (el más activo, `ws11`, ~890 por día). La base de Evolution es, sobre todo, el pasado de los teléfonos.
+- Grupos por línea: de 5 a 124 (`ws11` 124, `ws1` 97, `ws10` 69, `ws9` 61).
+
+**Lo que dice el fuente y no se ve en ningún panel:**
+1. **Un solo proceso para todas las líneas.** La imagen es `node:24-alpine` con `node dist/main`, sin
+   `--max-old-space-size`. Un OOM o un crash corta las 11 líneas juntas, y el reinicio las reconecta juntas.
+2. **El tope que manda es el heap de V8, no la RAM del contenedor.** Sin `--max-old-space-size`, Node le da al heap ~¼ de la
+   memoria que ve el proceso, con techo ~4 GB (medido en esta PC: 15,7 GB → `heap_size_limit` 4,19 GB, Node 24.17). Baileys es
+   JavaScript puro: casi todo lo que cuesta una línea vive ahí. En un contenedor de 8 GB (el máximo por réplica del plan
+   Hobby) son **~2 GB de heap para todas las líneas juntas**, aunque sobren 6 GB.
+3. **Una pérdida chica pero que no se libera.** La primera tanda de historial que recibe una línea desde que arrancó el
+   proceso lee TODAS sus claves (`message.findMany({ select: { key: true } })`) y guarda los ids en un `Set` dentro de
+   `chatwootImport`, que sólo lo borra al importar a Chatwoot — apagado acá —. Queda hasta el próximo reinicio. Medido en V8:
+   **12,8 MB con 169 mil mensajes, 78,5 MB si las 13 líneas con historial lo retienen**, más una copia de ese `Set` en cada
+   tanda siguiente. Para un número recién vinculado nace vacío (la base todavía no tiene nada): el que pesa es el que se arma
+   después de un reinicio, si a la línea le llega cualquier aviso de historial.
+4. **`syncFullHistory: true` apaga `groupsIgnore` en el socket.** `shouldIgnoreJid` devuelve `false` para todo grupo si
+   `syncFullHistory` está prendido, ANTES de mirar `groupsIgnore`. Baileys descifra cada mensaje de grupo (claves de grupo,
+   sesiones de cada participante) y recién `messages.upsert` lo tira. Se paga en CPU y memoria por cada grupo de cada línea.
+5. ⚠️ **Dos diagnósticos obvios que eran los equivocados.**
+   - *«`syncFullHistory` sólo pesa al vincular».* Lo dice el comentario de `setSettings` y es cierto para el historial
+     (`requireFullSync`, en `generateRegistrationNode`), pero Baileys también lo lee en `getWebInfo`, que arma el payload de
+     CADA login. Apagarlo en una línea ya vinculada cambia cómo se presenta el dispositivo en el próximo login: no es «sin
+     riesgo», y por eso no se tocó.
+   - *«Cada tanda del historial relee todas las claves de la línea»* (lo escribí yo en `4a322c36a`, leyendo un resumen del
+     fuente). Las lee UNA vez y las retiene (punto 3): es otra forma de costo, chica y permanente en vez de grande y pasajera.
+     Se corrigió leyendo el handler entero y `chatwoot-import-helper.ts`. **Un resumen de un archivo de 176 mil caracteres no
+     alcanza para afirmar cómo se comporta un bucle.**
+
+**La estimación** (supuestos; se corrige con Railway):
+
+| Pieza | Estimado | De dónde sale |
+|---|---|---|
+| Base del proceso (Nest, Prisma, protobuf de WhatsApp) | ~0,2-0,3 GB | plantillas de Railway: 0,5-0,8 GB en reposo con Postgres y Redis incluidos |
+| Por línea abierta | **80-150 MB** | piso: el único dato de campo hallado (80 MB por instancia, de un desarrollador; no queda claro que fuera Evolution); techo: lo que suma acá el `Set` (hasta 13 MB medido) y los grupos que se descifran. Los «200-500 MB» de proveedores son publicidad de la competencia y no se usaron |
+| Pico de vincular un número con ~150 mil mensajes | ~0,3-0,5 GB, pasajero | cada tanda llega decodificada, se copia a `messagesRaw` y se serializa entera para un `createMany` sin partir |
+
+**El techo:** `líneas = (heap − base − pico de vincular) / costo por línea`.
+
+| Heap | Techo estimado | Hoy (11 abiertas) |
+|---|---|---|
+| ~2 GB (contenedor de 8 GB) | **9-16 líneas** | ya en la zona: vincular otro número con mucho historial es el riesgo |
+| ~4 GB (contenedor de 16 GB o sin límite) | 22-41 líneas | margen |
+| 6 GB (`NODE_OPTIONS=--max-old-space-size=6144` en un contenedor de 8 GB) | 35-66 líneas | margen |
+
+Lo que manda es **qué límite tiene el contenedor** (`MEMORY_LIMIT_GB` en Railway). ⚠️ Subir `--max-old-space-size` acá SÍ
+es lo correcto, al revés que con el `tsc` de la PC (la sección del 13-14/10): en un contenedor dedicado nadie compite por esa
+RAM, y sin subirlo el proceso muere con 6 GB libres. Es un cambio en Railway: pide el sí de Martín.
+
+**Opciones para escalar** (Railway, leído el 27/10: RAM US$10/GB-mes, CPU US$20/vCPU-mes, volumen US$0,15/GB-mes). Una
+línea cuesta en RAM ~US$0,80-1,50 por mes: **el problema no es la plata, es que todo está en un proceso**.
+
+| Opción | Costo | Qué cambia | QR |
+|---|---|---|---|
+| Subir el heap (`NODE_OPTIONS`) | 0 | Una variable en Railway; corre el techo, no saca el punto único de falla | no |
+| Historial de N meses, o ninguno, para los números NUEVOS | 0 | Decisión de producto: el historial enseña la forma de escribir del dueño, da los nombres de los contactos y evita nutrir a quien ya se le hablaba (`lib/evolution.ts`, `setSettings`) | no |
+| 2-3 contenedores de Evolution con el mismo Postgres (`DATABASE_CONNECTION_CLIENT_NAME` distinto, según la doc de Evolution; verificar al armarlo) | ~US$3-5/mes cada uno de base, más la RAM de sus líneas | MaKo guarda en qué servidor vive cada línea (columna en `evolution_instancias` y `evFetch` por línea). Una caída corta un grupo, no todos | no para las nuevas; mudar una vieja es la receta sin QR de arriba |
+| Evolution Go (whatsmeow; su repositorio es de la organización de Evolution) | ~US$5-10/mes según su plantilla de Railway; menos RAM por línea (no medido) | API propia, no la de v2: reescribir `lib/evolution.ts` y el espejo (`findMessages`, `findContacts`, `findChats`, `getBase64FromMediaMessage`). Postgres opcional, sin las integraciones de la versión de Node | **sí: re-escanear las 11** |
+| API oficial (Cloud API) | por mensaje de plantilla | No reemplaza: ver «Las opciones, medidas» en la sección de Railway (grupos, historial, alta por link) | otro número |
+
+**La medición, lista para cuando haya sesión de Railway** (Martín entra con su clic de OAuth en el navegador integrado; un
+token NO se pega en un chat):
+1. Proyecto → servicio de Evolution → **Metrics**, 7 días, y además la pestaña **Usage** (lo que cuesta este mes).
+2. `read_network_requests` con filtro `graphql`: la consulta `metrics` que usa el panel se repite con 30 días y
+   `MEMORY_USAGE_GB` + `MEMORY_LIMIT_GB` + `CPU_USAGE`. Sólo lectura.
+3. Los momentos que dan los números (UTC, `createdAt` de cada instancia): vínculos de `ws18` 16/10 11:57, `ws21` 18/10
+   23:10, **`ws22` 21/10 18:25 y `ws20` 21/10 19:18** (dos historiales grandes en una hora: el pico de vincular), y el
+   reinicio de Evolution del **19/10 ~11:57** (la memoria antes y después es lo acumulado contra la base).
+4. Con eso: escalón de cada vínculo = costo por línea; pico del 21/10 = costo de vincular; `MEMORY_LIMIT_GB` = qué fila de
+   la tabla del techo es la verdadera. Se reemplazan los estimados de esta sección y nada más.
+
+**Sin hacer:**
+- La medición de arriba (espera el login de Martín).
+- `NODE_OPTIONS` en Railway y borrar las 5 instancias `connecting` sin dueño: cambios en producción, piden el sí de Martín.
+- Limpiar la instancia de un «Agregar otro número» que nadie escaneó: `conectar()` no lo hace.
+
+**Fuentes de afuera** (27/10): docs.railway.com/reference/pricing/plans · railway.com/deploy/evolution-go-whatsapp ·
+railway.com/deploy/multi-client-whatsapp-api-self-hosted-evolution--evolution-api-multi-instance ·
+tabnews.com.br (el dato de 80 MB por instancia).
+
+**Vive en:** `lib/evolution.ts` (`setSettings`, `permitirGruposEnInstancia`, `conectar`) · Evolution 2.3.7
+`src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts` (`shouldIgnoreJid`, `messaging-history.set`) y
+`src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts` (`repositoryMessagesCache`) · Baileys 7.0.0-rc.9
+`src/Utils/validate-connection.ts` · *27/10/2026, chat «Infra» (claude5)*
+
+## tren-o: nueve errores de tipos que ninguna punta veía sola, y un JSDoc que rompió un test (27/10/2026, Cerebro)
+
+**Vive en:** el hook de pre-push (`scripts/tipos-respaldo-push.mjs`) · `scripts/operaciones/cartero.mjs`
+
+- **El síntoma:** 14 puntas «VERDE sin tipos», cada una con sus tests en verde. Al juntarlas, el hook frenó el push con
+  9 errores en 6 archivos. Lo esperado: es justo lo que hace el hook del tren.
+- ⚠️ **La trampa de un `.mjs` (allowJs):** `function mensajeTicket(numero, repo, regla = null)` hace que TypeScript le
+  dé a `regla` el tipo `null` para quien la llama desde un `.ts`, y un test que le pasa `'Leila'` no compila. Se
+  arregla con JSDoc. Pero la primera JSDoc (`@param {number} numero`) rompió OTRO test, el que le pasa `'12'` a
+  propósito para ver que el cartero lo rechace: el parámetro que la función valida adentro es `unknown`.
+- **Los otros errores:**
+  - un campo que el código lee y el tipo del cuerpo no declaraba (`aceptaCobro` en `app/api/zernio`);
+  - `duenoDudoso?: true` en un tipo y `boolean` en el otro, siendo dos tipos que viajan juntos;
+  - `urlDeLaBase()`, que devuelve `string | undefined`, en dos scripts `.ts` (llevan `!`, como los demás).
+- ⚠️ **El push espera RAM, y otro proceso se la puede comer:** con el hook esperando 5,4 GB, corría un
+  `tipos-por-tandas` sobre `C:/dev/wt-crm-chats-2710`. El chat de CRM no lo había lanzado (lo dijo y no quedó rastro
+  de quién fue). Antes de culpar a un chat, mirá el padre del proceso (`Win32_Process.ParentProcessId`). El método es
+  «VERDE sin tipos»: los tipos los chequea el hook, una vez, para todos.
+
+## Dos trampas del chequeo del tren en la madrugada del 28/10 (Cerebro)
+
+- **`tests-afectados --concurrencia 1 --compartir` muere con `spawn ENAMETOOLONG`:** con un solo proceso, las ~1.000
+  barredoras que sólo leen van en UNA línea de comando y Windows corta a 32 K. Las tandas pasan y el grupo compartido ni
+  arranca (`tests=2`). Con `--concurrencia 2` se parten en dos grupos y entra. Para bajar la RAM, se baja la tanda, no la
+  concurrencia del grupo compartido.
+- **Un `declare module 'opencut-wasm/…'` para que el tsc acotado no dé rojo NO va en una punta:** el clon no trae los
+  tipos generados de opencut-wasm, y el tsc acotado da 14 rojos en `app/video-editor/_opencut/**` que no son de nadie
+  (fps/utils.ts idéntico a main da los mismos). El chequeo completo del hook pasa sin la declaración. Una declaración
+  global de módulo los puede tapar también ahí. Se usa como archivo temporal, fuera del commit.
+- **Un test que lee el fuente tiene que normalizar CRLF:** con `core.autocrlf` en Windows, el worktree del Cerebro tiene
+  CRLF y `indexOf('\n}\n')` no encuentra el cierre de una función (tests/crm-ticket-14 daba «no está fathomDeFila»). En
+  el worktree del chat, con LF, pasaba. `readFileSync(…).replace(/\r\n/g, '\n')`.
+
+## El corte del 97% vuelve, para guardar TODO antes de cambiar de cuenta (28/10/2026, Cerebro)
+
+**Vive en:** `scripts/claude-hooks/guardia/corte-97.mjs` (copia de `~/.claude/guardia/corte-97.mjs`), `scripts/claude-hooks/bitacora-sesion.sh`, `tests/corte-97.test.ts`
+
+- **Síntoma:** Martín cambia de cuenta cuando se acaba la cuota y escribe «Continua»; la cuenta nueva tenía que reconstruir
+  a mano qué chat hacía qué. Pidió, para todas las cuentas: al 97%, frenar y dejar guardado el contexto de todo el trabajo
+  hecho en esa cuenta.
+- **Causa:** el corte estaba APAGADO desde el 18/10 (`guardia/sin-corte`, por «sacá el límite de 97%»), así que ningún
+  chat recibía nunca la orden de guardar. Y aun prendido, su orden pedía el relevo «de lo que quedó a medias», no el de
+  toda la cuenta, y no dejaba rastro de qué chats habían cortado ni dónde.
+- **Lo que quedó:** al 97% de la semanal o de las 5 horas, el hook pide el relevo de TODA la cuenta y anota cada sesión
+  que cruza en `~/.claude/relevos-cuenta/<cuenta>.tsv` (carpeta, rama, transcript): un registro que no depende de que el
+  chat se acuerde. El SessionStart dice qué hacer con «Continua».
+- ⚠️ **La trampa del diagnóstico obvio: «cortar todo al 97%» habría cortado lo que Martín quería guardar.** El hook
+  niega herramientas, y también las de los subagentes de un workflow que ya corre: la investigación de pedidos perdidos
+  —que él quería justamente para la cuenta siguiente— moría a la mitad. Ahora lo que trae `agent_id`/`agent_type` pasa, y
+  se niega sólo LANZAR uno nuevo.
+- ⚠️ **Un workflow no se reanuda desde otra cuenta:** `resumeFromRunId` es de la MISMA sesión. Lo que la cuenta siguiente
+  puede hacer es LEER `~/.claude/projects/<proyecto>/<sesión>/subagents/workflows/<runId>/journal.jsonl`, donde cada
+  agente dejó lo que devolvió al terminar. Por eso el relevo nombra el runId y esa ruta.
+- **No medido:** que la entrada de un PreToolUse dentro de un subagente traiga `agent_id` en esta versión de la app. Si no
+  lo trae, los subagentes reciben la orden de corte y devuelven lo que tienen: se degrada a «resultado parcial», no a
+  nada. Se mira la próxima vez que una cuenta cruce el 97% con un workflow corriendo (`guardia.log` no lo registra hoy).
+- **28/10 ~21:30 — el primer corte real, y lo que costó la excepción de los subagentes.** A las 21:15 el Cerebro cruzó el
+  97% de la ventana de 5 h. El hook negó un Bash, anotó la sesión en `relevos-cuenta/claude4.tsv`, y los chats cortaron con
+  su relevo commiteado. **Pero el workflow que corría siguió, y la cuenta llegó al 100% igual**: 12 de sus 21 agentes
+  murieron con «You've hit your session limit». No se perdió nada, porque dejar terminar lo que corre fue la decisión de
+  Martín: los 9 que terminaron quedaron en el journal, y al renovarse la ventana el MISMO chat lo reanudó desde la caché.
+  Desde otra cuenta, eso no se puede reanudar; se leería el journal. Si llega a importar el 3% de margen, la palanca es no
+  lanzar un workflow grande pasado el 90%, no cortarle los agentes.
+- **La fila de tests de `C:/dev/con-turno.mjs`, con dos lugares (28/10, 21:33).** Con uno, siete chats hacían fila para
+  barridos de 30-60 min y el que esperaba 30 min salía con 99 y relanzaba: «no se liberó» se leyó como un cuelgue y no lo
+  era. Un barrido pesa ~600 MB y `tests-afectados` ya espera RAM por su cuenta. Ahora son dos lugares, con 90 min de
+  espera; los tsc siguen de a uno con 30. Un con-turno que ya estaba esperando corre el código viejo (un lugar).
+- **28-29/10: lo que se commitea en la rama del tren MIENTRAS corre su push termina en main (causa NO encontrada).** Dos
+  veces seguidas: el push mandó `c17134274` y, 11 s después, origin/main ya estaba en `b59d14943`; después mandó
+  `7f63046be` y 11 s más tarde estaba en `ed8c965d1`. Las dos veces, los commits de más eran del relevo, hechos durante el
+  chequeo de tipos del push. No los empujaba el pre-push, ni el cartero, ni `bitacora-sesion.sh`, y `remote.origin.push` no
+  está configurado (medido). Sólo eran docs y no cambiaron nada para los clientes. **Regla hasta encontrar la causa:**
+  mientras corre el push de un tren, en esa rama no se commitea NADA que no sea docs. Un merge de código va DESPUÉS de que
+  el push termine y el deploy esté Ready.
+
+## Buscar en los logs de Vercel: el filtro con `*` da 0 sin error, y el menú pide las tabs de a pares (29/10/2026, claude3)
+
+**Vive en:** la CLI de Vercel (`npx vercel logs`, v65), usada para encontrar la URL de un ticket y para medir el blanco del
+Web Generator en producción.
+
+- **`-q 'requestPath:"/web-generator*"'` devuelve 0 registros**, con `recordsReturned: 0` y sin error. El comodín no se
+  interpreta. Lo que anduvo: el camino EXACTO (`-q 'requestPath:"/api/landing-generator/replicar/leer"'`) o bajar todo el rato
+  (`vercel logs requests --since <ISO> --until <ISO> --json -n 10000`) y filtrar con un script. Con ~7.000 pedidos en 2 h 20 min,
+  10.000 alcanzan; el resumen final dice `hasMore`.
+- **`vercel logs requests` trae el camino, el estado y el deploy, pero no la URL pedida ni lo que se mandó.** Lo que dijo el
+  server está en los logs de la función (`vercel logs`, sin `requests`) del mismo pedido, y ahí estaba la URL del ticket
+  (`[editor-landing/replicar-lectura] https://100ads.ai/: …`).
+- **Un `GET /web-generator` 200, de a dos por segundo y junto con `/crm`, `/plan`, `/offer`…, es el PREFETCH del menú**, no
+  alguien entrando. Una entrada de verdad es un 307 (la carga directa) seguido de `/web-generator/<id>`, o un
+  `/web-generator/<id>` suelto. Sin sesión, el prefetch da 307 a `/login` en todas las tabs a la vez.
+
+## tests-afectados cuenta como rojos los `todo` cuando el reintento aislado tiene un rojo de verdad (29/10/2026, claude3)
+
+**Vive en:** `scripts/tests-afectados.mjs`, el reintento AISLADO de lo que dio rojo en un proceso compartido.
+
+Una corrida dio «Rojos: chats-mako-envio, doer-recetas-video-imagen, editor-landing-estilo». Sólo el tercero era rojo. Los
+otros dos tienen un `todo` que falla a propósito en main (dependen de la rama mako-wa), y corridos solos dan `fail 0`. Los
+tres archivos se repiten juntos en UNA tanda: el rojo de verdad hace salir con código distinto de 0, y `leerResultado`
+toma los archivos de la lista «✖ failing tests», donde node pone también los `todo` que fallan. **Regla:** antes de
+perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). **Sin hacer:** que el reintento separe los
+`todo` (el arreglo es del parser, en `leerResultado`).
+
+## El chequeo de tren-y con la PC llena: `node --test` sin archivos corre TODO, y la pausa no frena a quien llama a node directo (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` y `scripts/pausa-cerebro.mjs`.
+
+- **La lista vacía.** `node --import tsx --test $(cat lista.txt)` con `lista.txt` vacío (un `grep -l` que no encontró nada)
+  NO falla: node corre TODO `tests/` con su patrón por defecto. Se vio a los 10 minutos, con la PC en 0,7 GB y otro chequeo
+  en el medio. **Regla:** antes de pasarle una lista a `node --test`, `[ -s lista.txt ] || exit 1`.
+- **La tanda «colgada» era la RAM.** Con 0,27 GB libres, la tanda de 43 archivos «pasó los 10 min y se mató» con 517 tests
+  verdes y ninguno rojo: estaba paginando, no colgada. Re-corrida de a 6 archivos con 2 procesos: 608/608 en verde.
+  Un «se colgó» con la RAM libre mínima en 0,0 GB (la última línea de tests-afectados la dice) no es un test roto.
+- **La pausa del Cerebro sólo frena a `tests-afectados` y `tsc-acotado`.** Con la pausa prendida a las 02:46, un chat
+  lanzó `node --import tsx --test …` directo a las 03:06 y sumó nueve procesos de ~300 MB. **Sin hacer:** que la pausa
+  también la mire `C:/dev/con-turno.mjs`, por donde los chats deberían pasar lo pesado.
+- **⚠️ La pausa TRABA el push si los chats pasan el tsc por con-turno (el diagnóstico obvio, «falta RAM», era el
+  equivocado).** `con-turno.mjs` toma `mako-typecheck.lock` ANTES de lanzar `tsc-acotado`, y recién adentro `tsc-acotado`
+  espera la pausa (hasta 60 min, `esperarSinPausa`). Con la pausa prendida, el chat queda con el turno de tipos en la mano y
+  sin correr nada. El hook del push espera ese mismo lock: `typecheck-lock` 10 min y `tipos-respaldo-push` otros 10, y
+  después sale con 99 «no hubo RAM». Así cayó el primer push de tren-y (04:17), con cuatro tsc de chats en la fila.
+  **Regla:** para subir, la pausa NO se prende antes del push. Se apaga, se espera la fila de tipos vacía y se empuja; el
+  push toma el lock y los chats esperan detrás. (04:32: el Cerebro ya hizo que `con-turno` espere la pausa y la RAM ANTES de
+  tomar el turno de tipos; para los `--test`, con-turno sigue sin mirar la pausa.)
+- **Lo que sí subió tren-y (05:46, al tercer intento): tomar los DOS lugares de la fila de tests.** Las barredoras de los chats
+  (2 y 0,9 GB, de a dos por los dos lugares de con-turno) dejaban la PC en 3,7 GB aun con Chrome cerrado. `C:/dev/revisiones/
+  subir-tren.mjs` prende la pausa, toma `mako-tests.lock` y `mako-tests-2.lock` cuando se liberan (con su pid: con-turno ve
+  un dueño vivo y espera), espera la fila de tipos libre y 5,2 GB, empuja y suelta todo. Con eso la PC llegó a 6,3 GB y las
+  tres tandas dieron 0 en ~6 min. Esperar los dos lugares tardó 40 min (una barredora de un chat).
+
+## Las filas de con-turno y el push se esperaban entre sí; un tren con dependencias nuevas no tipa con el node_modules común (29/10/2026, Cerebro e Integración)
+
+**Vive en:** `C:/dev/con-turno.mjs` (fuera del repo; respaldo `con-turno.mjs.antes-29-10`), `scripts/tipos-respaldo-push.mjs`,
+el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (el guion de subida de Integración).
+
+- **El síntoma:** de 03:11 a 05:25 el push de tren-y y las filas de los chats se trabaron tres veces. Ningún tsc corría y
+  todos salían con 99 «no hubo RAM» o «no se liberó el turno». Detalle: `C:/dev/cerebro-herramientas/tickets/por-repartir.md`,
+  «Para Integración».
+- **La causa: esperar algo CON el turno tomado.** Pasó en tres lugares. con-turno tomaba el lock y su tsc-acotado esperaba la
+  pausa adentro. `tipos-respaldo-push.mjs` tomaba el lock y esperaba hasta 15 min la RAM de la tanda 1. Y la fila de tests
+  esperaba la pausa con el lugar tomado.
+- **Lo arreglado:**
+  - **con-turno (el Cerebro, 04:40 y 05:25):** espera la pausa y la RAM AFUERA del turno. En tipos son el pico (min(heap,
+    3,2 GB)) + 1,3 GB; en tests, sólo la pausa. Si al tomar el turno ya no alcanza, lo suelta. Desde el 29/10 usa UN lugar de
+    tests por defecto.
+  - **El vigía:** corta también los workers de `node --test` y el Chrome `--headless`, con la zona roja en 1,2 GB.
+  - **`tipos-respaldo-push.mjs` (Integración, tren-aa):** espera la RAM de la tanda 1 ANTES de tomar el lock. Lo fija
+    `tests/tipos-respaldo-push.test.ts`.
+- **La regla:** nada espera RAM ni pausa con un lock tomado. Se espera afuera, se toma, y si ya no alcanza se suelta.
+- **⚠️ Un tren que suma dependencias necesita su propio node_modules.** Create sumó BlockNote 0.56 y Mantine 8.3. Los
+  worktrees de C:/dev, y entre ellos `C:/dev/wt-push-q`, tienen `node_modules` como JUNCTION al del clon principal, que no las
+  tiene. Ahí los tests y el tsc del push fallan con «Cannot find module». tren-aa se arma en `C:/dev/wt-push-aa`, con el
+  junction al `node_modules` real de `C:/dev/wt-copywriter-notion`, que sí las instaló. **Después del deploy:** `npm ci` en
+  el clon principal, con la app de Claude tranquila, así los demás worktrees las ven. Un `npm install` sobre un junction
+  común cambia el árbol de TODOS los worktrees.
+- **⚠️ Cortar procesos por nombre de test corta los de otros.** Para matar mi batería del Ops Center filtré por
+  `ops-center-bateria`, y cayó también el proceso de barredoras compartidas de otro chat, que tenía ese test en su lista.
+  Se corta por pid propio, o por la línea entera de con-turno con su cwd.
+
+## El tren grande del 29/10: los VERDE sin barrido dejan los rojos para el tren, y dos tests de ramas distintas se contradicen (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` (tren-ab, `1cf06eba9`).
+
+- **El síntoma:** para ganar tiempo, el Cerebro pidió que los chats dejaran de correr `tests-afectados` completo y
+  mandaran el VERDE con tsc y sus tests dirigidos. El tren de 12 puntas dio 8 rojos de esas puntas, y cada uno costó una
+  vuelta con su chat o un arreglo de Integración: reportar-a-soporte (Zernio y AI Avatar), condiciones-instagram,
+  mako-no-puedo-falsos (dos veces: CRM fiscal y Pagos), notificaciones (Copywriter), integraciones-vercel (Zernio) y tres del
+  editor (Web Generator).
+- **El diagnóstico obvio («es la combinación de ramas») acertó dos veces de diez.** Las otras ocho daban rojo también en
+  el árbol de su chat, solo: un test que nombra o barre un archivo de la punta, fuera de sus dirigidos. **Regla:** antes de
+  devolver un rojo del tren, correrlo en el árbol del chat; si ahí también falla, es de la punta.
+- **Dos tests de ramas distintas se contradijeron, dos veces.** `keyDeSeguimiento`: `zernio-sin-respaldo` pedía `cfg(ws)` y
+  `condiciones-instagram` la key propia; ganó la decisión de Martín. `enviarAlGrupoMaKo`: `links-con-ws` fija `texto0` y
+  `grupo-ve-el-grupo` fijaba `texto`. Un test de forma (un regex sobre el fuente) fija un nombre que otra rama cambia sin
+  verlo. **Regla:** al resolver un choque de código, correr los tests de forma de los DOS lados que nombran ese archivo
+  (`grep -l <archivo> tests/`).
+- **Tocar el árbol del tren con los tests corriendo ensucia la corrida** (me pasó dos veces: el revert de Reels y un
+  `git rm`). Los tests leen archivos mientras corren. **Regla:** se mezcla entre corridas, nunca durante; lo que llega en
+  el medio espera y entra con los tests de la diferencia (`tests-afectados --base <el último sha probado>`).
+
+## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
+
+- **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
+  tiene 0340». Al ir a commitearla, la 0340 ya era de `motion-imagen-2610` (`0340_image_editor_propuestas.sql`, rama del
+  26/10 que no estaba en ningún tren) y de su copia `respaldo/motion-2710-nube`. La del código de Partners pasó a 0341.
+- **La causa:** se miró el tren y main, no todas las refs. Y desde que los chats se cortan y siguen en la nube, el trabajo
+  vive también en ETIQUETAS (`respaldo/*`, `nube/*`), que `git branch -a` no lista.
+- **La regla:** el número se elige al commitear, barriendo ramas, remotas, etiquetas y worktrees:
+  `for b in $(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes refs/tags); do git ls-tree --name-only "$b" supabase/migrations/ | sed "s#^#$b: #"; done | sort -u -k2 | tail -8`
+  y `git worktree list` + `ls supabase/migrations` de cada uno (lo sin commitear). El número final lo confirma el Cerebro.
+
+**Vive en:** AGENTS.md (la regla del número de migración, con este caso) · supabase/migrations/.
+
+## «La tanda pasó los 10 min y se mató»: era tipos-por-tandas con la RAM en 0, no el cambio (28/10/2026, Planes)
+
+- **El síntoma:** `tests-afectados --rapido` dio ROJO con «tanda 10/11 · 0 tests · ROJA (? archivos) · la tanda pasó los 10 min 0 s y se
+  mató: un test se colgó», sin decir cuál. La RAM libre mínima de la corrida fue 0,0 GB.
+- **El diagnóstico obvio era el equivocado («algo del cambio se cuelga»):** los 6 de esa tanda, corridos de a uno, daban verde en
+  segundos, salvo `tests/tipos-por-tandas.test.ts`, una BARREDORA que corre siempre, toque lo que toque el cambio. Levanta varios tsc
+  de verdad (`medir-tipos.mjs` con 10 min de tope, tsc de 2 min cada uno): solo y con 4 GB libres da 32/0 en 403 s; en una tanda con
+  otros cinco y la PC en 0 GB, pasa el tope de la tanda.
+- **Las dos trampas para encontrarlo:** la carpeta `tests-afectados-*` con el log de la tanda roja ya no existe al terminar, y
+  `--listar` / `--explicar` dicen POR QUÉ entra cada test, no en qué tanda cae. La tanda se reconstruye con las mismas funciones del
+  script: `planear('origin/main', { profundidad: 1 })` (eso es `--rapido`) y `agrupar(sel.tests, sel.compartibles, { compartir: true })`,
+  y `orden` partido de a 6.
+
+**Vive en:** scripts/tests-afectados.mjs (`planear`, `agrupar`, `TOPE_TANDA_MS`) · tests/tipos-por-tandas.test.ts.
+
+## Editar código desde Python: `\b` y `\1` en una cadena normal son caracteres de control (29/10/2026, claude3)
+
+**Vive en:** cualquier edición con `python - <<'EOF'` que escribe regex de JavaScript.
+
+En una cadena normal de Python, `\b` es un RETROCESO (0x08) y `\1` es el carácter 0x01: el regex que queda en el archivo
+ya no es el que se ve. Pasó dos veces la misma noche: `/<title\b/` quedó con un retroceso y el test pasaba aunque se
+sacara la regla que vigilaba (no buscaba lo que decía), y un `(…)\b(…)<\/\1>` perdió los dos. `grep -c` con el rango
+0x01-0x08 lo delata; el Read del editor no lo muestra. **Regla:** las cadenas con regex van CRUDAS (prefijo `r`), o se
+edita con la herramienta Edit. Y un `find` de un pedazo corto (`const m = /^`) agarra la PRIMERA aparición: así se
+reemplazó media hoja de un archivo. Se ancla con el nombre de la función, y `git diff --stat` antes de seguir.
+
+## tsc-acotado: el código 134 no siempre es el vigía de RAM, también es el heap de 2.560 MB (29/10/2026, claude3)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (`--heap`, default 2560).
+
+Tres veces seguidas «NO SE PUDO CHEQUEAR (código 134, ~1.360 bytes de salida)» sobre 14 archivos que tocaban
+`app/planes/Vitrina.tsx` y `app/vsl/PreciosLanding.tsx`. El mensaje sugiere el vigía de RAM, pero el vigía mata con
+código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esas pantallas no entra en 2.560 MB. Con
+`--heap=3584` (y la RAM libre para darlo: con-turno espera 3,8 GB) corrió y dio los 14 errores conocidos de `_opencut`.
+**Regla:** 134 con salida → subir `--heap`; 1 sin salida → esperar turno o cerrar chats.
+
+## La síntesis concluyó «AI Avatar no se investigó»: la investigación le llegó cortada a 140 mil caracteres (29/10/2026)
+
+- **Síntoma:** la primera síntesis del plan de plantillas dijo que AI Avatar y Offer «no se investigaron» e Image «a
+  medias», y armó esas partes con el código y con propuestas propias. La investigación de las cinco tabs sí estaba hecha.
+- **Causa:** el script del workflow le pasó al sintetizador los resultados del fan-out concatenados y cortados con
+  `slice(0, 140000)`. Lo de AI Avatar y Offer quedó después del corte. No hubo error ni aviso: el sintetizador razonó
+  bien sobre un insumo trunco.
+- **El diagnóstico obvio era el equivocado:** «el agente de AI Avatar falló». Los resultados de los cinco agentes
+  estaban completos en disco.
+- **Regla:** los resultados de un fan-out se le pasan al sintetizador **por archivo o por tab**, nunca cortados con
+  `slice`. Si hay que achicar, se parte en una síntesis por tab y una de unión. El sintetizador dice qué partes leyó, y
+  una parte que «no está» se verifica en el disco antes de escribir «no se investigó».
+
+**Vive en:** los scripts de Workflow del Cerebro (fuera del repo) · el plan resultante, docs/plantillas-reales/README.md
+
+## Leer una licencia sin equivocarse: las herramientas fallan en silencio (29/10/2026)
+
+- **Síntoma:** licencias que «no existían» o que «eran MIT» sin serlo, y páginas de producto que no se pudieron ver.
+- **Causa:**
+  - WebFetch falla con github.com;
+  - un repo puede decir «MIT» en el README sin tener LICENSE (fal-ai-community/skills: `main/LICENSE` y la API de
+    licencias de GitHub dieron 404);
+  - Canva y Gamma dan 403;
+  - Kapwing muestra un contador «0+» por un error de carga suyo;
+  - la URL de plantillas de Adobe Express, `notion.com/templates/offer-builder` y
+    `pandadoc.com/coaching-proposal-template/` dan 404.
+- **Regla:** la licencia se lee en `raw.githubusercontent.com/<dueño>/<repo>/main/LICENSE`. Con un 404 se prueba
+  `master`, `LICENSE.md` y `api.github.com/repos/<dueño>/<repo>/license` antes de concluir «sin licencia». Un README
+  que dice «MIT» no alcanza. Lo que da 403 se mira en el navegador o queda «sin verificar», nunca «verificado».
+
+**Vive en:** el método de investigación (docs/plantillas-reales/README.md, sección 5)
+
+## Leer un Gmail con el conector oficial: la búsqueda no trae fechas (30/10/2026)
+
+- **Síntoma:** al cosechar el Gmail de Martín (40 remitentes, unos 4.300 emails), `search_threads` devolvió los hilos sin fecha y
+  sin resumen, aunque su descripción dice que la vista mínima trae `date` y `snippet`.
+- **Causa:** el conector (gmailmcp.googleapis.com) no llena esos campos en la búsqueda; sólo `get_thread` trae el contenido.
+- **La regla:** para ordenar o filtrar por fecha sin abrir cada hilo, la fecha sale del ID del hilo: los primeros 11 dígitos
+  hexadecimales son milisegundos desde 1970 (`int(id, 16) >> 20`), y coinciden al segundo con la fecha real.
+- **Además:** el conector conectado a la cuenta de claude.ai queda «pending» en la sesión hasta el turno siguiente; sus herramientas
+  aparecen recién ahí (ver session_connectors_status). Y sólo se usan las de lectura: el conector también trae enviar, reenviar,
+  etiquetar y borrar.
+- **Vive en:** las herramientas de la sesión del Cerebro (no es código de MaKo). La cosecha: docs/conocimiento/patrones-email.md.
+- **La primera pasada se quedó corta y nadie lo vio (30/10):** el guion del inventario pedía «hasta 40 remitentes». Martín
+  extrañó a los que conocía, y dos de los tres que nombró ya estaban, pero escondidos: uno escribe desde el dominio de su
+  marca, sin su nombre en el remitente, y otra tiene además un newsletter en otra plataforma, con otro nombre y otro dominio.
+  **La regla:** el inventario no lleva tope (se busca hasta que dos rondas seguidas no traen remitentes nuevos), y a cada
+  persona se la busca por su nombre, por su marca y por el nombre de su newsletter, no sólo por la dirección. La segunda
+  pasada llevó la cosecha a 70 remitentes y unos 5.050 emails.
+- **Quedó sin ficha:** los posteos de comunidades (Skool) de dos o tres autores que ya tienen ficha por sus emails, un segundo
+  dominio de un autor en inglés (~120 emails) y la «sección B» del primer inventario (marketing que sirve menos). La lista
+  está en `remitentes-lista.md`, en el scratchpad de la sesión del Cerebro 4d1a09d4.
+
+## Un número por migración, y el push que falla por RAM le regala la RAM a los demás (30/10/2026, Integración)
+
+- **Ninguna guarda veía dos migraciones con el mismo número.** El 0340 doble (`leads_papelera` en main e
+  `image_editor_propuestas` en `motion-imagen-2610`) lo vio un chat al leerlo. Ahora lo frena
+  `tests/migraciones-numero-unico.test.ts`, que corre sobre el árbol del TREN: ve el choque entre una rama y main, o entre dos
+  ramas del mismo tren. Los 13 repetidos viejos (de la 0024 a la 0223) ya están aplicados con esos nombres y quedan congelados.
+  **Regla:** el número lo confirma el tren, no el chat que eligió «el próximo libre» esa mañana.
+- ⚠️ **Un push que falla por RAM suelta los lugares y la pausa, y en ese segundo los pesados de los chats toman la memoria.**
+  - El 30/10 a las 00:54 el tren-af se rindió con 1,58 GB libres, porque las tandas piden 5,2. En el acto arrancaron un tsc de
+    2 GB y tests de otros dos chats: quedaron 1,24 GB.
+  - El reintento con `SUBIR_UN_LUGAR=1` se rindió a los 2 minutos sin lugar de tests.
+  - Lo que sirvió: `subir-tren.mjs` SIN un lugar (espera los dos), con la pausa prendida. Los lugares tardaron 2 minutos, y
+    con lo que estaba corriendo terminado hubo 5,68 GB. Subió a las 01:11.
+  - **Regla:** cuando el push falla por RAM, el reintento va enseguida y esperando los dos lugares. El Cerebro frena sus
+    workflows mientras tanto.
+  - **Sin hacer:** que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM.

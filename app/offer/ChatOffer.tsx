@@ -33,6 +33,7 @@ import { useWs } from '@/app/_ui/Link';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
+import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
@@ -80,7 +81,7 @@ type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 
 export function ChatOffer({
   sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
-  caja, onArchivos, ocupado, error, onError, armando = null, onVerOferta = null, extra, soloTexto = false, errorExtra,
+  caja, onArchivos, ocupado, error, onError, armando = null, onVerOferta = null, extra, soloTexto = false, errorExtra, enTarjeta = false,
 }: {
   sesion: OfferSesionVista;
   /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista): sale con «Enviando…». */
@@ -122,6 +123,9 @@ export function ChatOffer({
   soloTexto?: boolean;
   /** Lo que va debajo del error (en el arranque, conectar una IA propia si la de MaKo no contesta). */
   errorExtra?: ReactNode;
+  /** Adentro de la tarjeta del chat de Create (app/_crear/PantallaCrear.tsx, 29/10/2026): el borde y el redondeado son de la
+   *  tarjeta, no del hilo (si no, quedan dos marcos). */
+  enTarjeta?: boolean;
 }) {
   const ws = useWs();
   const montado = useSyncExternalStore(sinSuscripcion, () => true, () => false);
@@ -258,11 +262,13 @@ export function ChatOffer({
 
   return (
     <div className="of-hilo" data-esquina-ocupada
-      onDragOver={alArrastrar} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }} onDrop={alSoltar}
-      style={{
-        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
-        background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, overflow: 'hidden',
-      }}>
+      onDragOver={alArrastrar} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }} onDropCapture={() => setEncima(false)} onDrop={alSoltar}
+      style={enTarjeta
+        ? { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative', background: 'var(--surface)', overflow: 'hidden' }
+        : {
+          flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
+          background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, overflow: 'hidden',
+        }}>
       <div className="co-hilo" ref={hilo} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }}>
         <div className="co-hilo__col">
           <HiloMako items={items} quien={quien} ahora={ahora} escribiendo={null}
@@ -293,6 +299,9 @@ export function ChatOffer({
       {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}<ReportarASoporte /></div>}
       {/* La caja va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la grabación guarda el `onAudio` del
           render en que se apretó el micrófono). */}
+      {/* Lo que MaKo recomienda sobre la oferta con lo que dice la gente (26/10/2026): el bloque de preguntas, plegado, justo
+          arriba de la caja (afuera de su envoltorio: la caja es la única, tests/onboarding-caja-centro.test.ts). */}
+      <RecomendacionesDeMako superficie="offer" alPedir={caja.onTexto} />
       <div key={sesion.id} className="co-caja-wrap" style={SIN_VERDE}>
         <div className="co-caja"><CajaChat {...caja} /></div>
       </div>

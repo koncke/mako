@@ -33,6 +33,10 @@ export const CSS_GC = `
 .gc-derecha{margin-left:auto;display:flex;align-items:center;gap:6px}
 .gc-vista{position:relative}
 .gc-vista-boton{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 14px 0 18px;border-radius:999px;border:1px solid var(--border-strong);background:transparent;color:var(--gc-tinta);font-size:14px;font-weight:500;cursor:pointer}
+.gc-que-ver{display:inline-flex;align-items:center;gap:2px;padding:3px;border-radius:999px;border:1px solid var(--border-strong);margin-right:6px}
+.gc-que-ver-op{height:32px;display:inline-flex;align-items:center;padding:0 14px;border-radius:999px;font-size:14px;font-weight:500;color:var(--gc-gris);text-decoration:none}
+.gc-que-ver-op[aria-current="page"]{background:var(--gc-azul-suave);color:var(--gc-azul)}
+.gc-que-ver-op:hover{color:var(--gc-tinta)}
 .gc-vista-boton:hover{background:color-mix(in srgb,var(--gc-tinta) 6%,transparent)}
 .gc-menu{position:fixed;z-index:120;min-width:200px;padding:8px 0;border-radius:6px;background:var(--gc-hoja);box-shadow:var(--gc-sombra);border:1px solid var(--gc-borde)}
 .gc-menu button{display:flex;align-items:center;justify-content:space-between;gap:24px;width:100%;height:36px;padding:0 16px;border:none;background:transparent;color:var(--gc-tinta);font-size:14px;cursor:pointer;text-align:left}
@@ -40,7 +44,7 @@ export const CSS_GC = `
 .gc-menu kbd{font:inherit;font-size:12px;color:var(--gc-gris)}
 .gc-menu-sep{height:1px;margin:8px 0;background:var(--gc-borde)}
 .gc-cuerpo{display:flex;flex:1;min-height:0}
-.gc-lado{width:256px;flex:none;padding:8px 0 16px;overflow-y:auto;display:flex;flex-direction:column}
+.gc-lado{width:256px;flex:none;padding:8px 0 88px;overflow-y:auto;display:flex;flex-direction:column}
 .gc-lado[hidden]{display:none}
 .gc-crear{display:inline-flex;align-items:center;gap:12px;height:56px;padding:0 20px 0 16px;margin:0 0 20px 8px;border-radius:16px;border:none;background:var(--gc-hoja);box-shadow:var(--gc-sombra);font-size:14px;font-weight:500;color:var(--gc-tinta);cursor:pointer;align-self:flex-start;transition:box-shadow .15s ease}
 .gc-crear:hover{box-shadow:0 1px 3px 0 rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15);background:color-mix(in srgb,var(--gc-azul) 4%,var(--gc-hoja))}

@@ -1,27 +1,27 @@
 // =============================================================================
-// SeccionesClientsM — las sub-tabs de Clients en el teléfono: Clients · Community · Classroom
+// SeccionesClientsM — las sub-tabs de Classroom (era Clients) en el teléfono: Classroom · Community · Clients
 // =============================================================================
 // En la computadora, Clientes, Curso y Comunidad son UNA tab, Clients, con sub-tabs (17/10/2026,
 // docs/diseno-clients.md D6). El teléfono DESTILA eso (no lo rediseña): sus tres pantallas de siempre (/m/cs, /m/comunidad,
 // /m/curso) llevan arriba el MISMO trío, en el mismo orden y con los mismos nombres que la cabecera de escritorio, y More
 // pasa a tener una sola fila, Clients. Calendar, Members, Leaderboards y About viven adentro de la comunidad del teléfono.
-// Los href son internos (/m/…): `conWs` los sale como /clients, /clients/community y /clients/classroom.
+// Los href son internos (/m/…): `conWs` los sale como /classroom/clients, /classroom/community y /classroom.
 
 import { SegmentadoM } from '@/app/m/_ui';
 
 export type SeccionClientsM = 'clients' | 'community' | 'classroom';
 
 const OPCIONES: Array<{ id: SeccionClientsM; label: string; href: string }> = [
-  { id: 'clients', label: 'Clients', href: '/m/cs' },
-  { id: 'community', label: 'Community', href: '/m/comunidad' },
   { id: 'classroom', label: 'Classroom', href: '/m/curso' },
+  { id: 'community', label: 'Community', href: '/m/comunidad' },
+  { id: 'clients', label: 'Clients', href: '/m/cs' },
 ];
 
 export function SeccionesClientsM({ activa }: { activa: SeccionClientsM }) {
   return (
     // Estilo en línea y no una clase: lo dibujan tres pantallas, cada una con SU hoja (app/m/_ui/LEEME.md §5).
     <div style={{ marginBottom: 14 }}>
-      <SegmentadoM etiqueta="Clients" valor={activa} opciones={OPCIONES} />
+      <SegmentadoM etiqueta="Classroom" valor={activa} opciones={OPCIONES} />
     </div>
   );
 }

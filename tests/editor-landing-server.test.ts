@@ -214,7 +214,9 @@ test('analítica: el alcance por sección se devuelve null (no medido), NUNCA 0'
   const src = sinComentarios(leer('lib/editor-landing/server.ts'));
   const cuerpo = src.slice(src.indexOf('export async function analitica('), src.indexOf('export async function temasPropiosDe('));
   assert.ok(!/alcancePorSeccion:\s*\[/.test(cuerpo) && !/pct:\s*0\b/.test(cuerpo), 'no se fabrica un alcance');
-  assert.equal((cuerpo.match(/alcancePorSeccion: null/g) ?? []).length, 2);
+  // Desde el Pixel v26 (Landing AI, L1) el alcance se MIDE: sin publicar es null, y medido cae a null si la lectura no trajo nada.
+  assert.equal((cuerpo.match(/alcancePorSeccion: null/g) ?? []).length, 1, 'la landing sin publicar no tiene alcance');
+  assert.match(cuerpo, /alcancePorSeccion:\s*alcance\s*\?\s*alcance\.porSeccion\s*:\s*null/, 'sin lectura, null: nunca un 0 fabricado');
 });
 
 // ── Configuración y textos ───────────────────────────────────────────────────

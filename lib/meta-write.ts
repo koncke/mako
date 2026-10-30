@@ -57,17 +57,52 @@ export async function metaWrite(body: MetaWriteBody, ws: number): Promise<MetaWr
   return r;
 }
 
+/** El cuerpo, validado igual para las dos vías (null = está bien). El id es el numérico de Meta en las dos. */
+function validar(body: MetaWriteBody): MetaWriteResult | null {
+  if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
+    return { ok: false, message: 'id inválido (debe ser el id numérico de Meta)', status: 400 };
+  }
+  if (body.level !== 'campaign' && body.level !== 'adset' && body.level !== 'ad') return { ok: false, message: 'nivel inválido', status: 400 };
+  if (body.op === 'status') {
+    if (body.status !== 'ACTIVE' && body.status !== 'PAUSED') return { ok: false, message: 'status inválido', status: 400 };
+  } else if (body.op === 'budget') {
+    if ((body.level as string) === 'ad') return { ok: false, message: 'un anuncio no tiene presupuesto', status: 400 };
+    const mxn = Number(body.dailyBudgetMxn);
+    if (!Number.isFinite(mxn) || mxn <= 0) return { ok: false, message: 'presupuesto inválido', status: 400 };
+  } else if (body.op === 'name') {
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    if (!name) return { ok: false, message: 'nombre vacío', status: 400 };
+    if (name.length > 400) return { ok: false, message: 'nombre demasiado largo', status: 400 };
+  } else if (body.op !== 'delete') {
+    return { ok: false, message: 'op inválida', status: 400 };
+  }
+  return null;
+}
+
 async function escribirEnMeta(body: MetaWriteBody, ws: number): Promise<MetaWriteResult> {
+  const invalido = validar(body);
+  if (invalido) return invalido;
+  // Por la conexión de Facebook (Zernio) si el negocio conectó por ahí (26/10/2026, lib/meta-escribir-zernio.ts): sin token
+  // también se pausa, prende, presupuesta, renombra y borra. NUNCA cae al token de respaldo para escribir (`CanalMeta`).
+  const { canalMeta } = await import('./meta-via');
+  const canal = await canalMeta(ws);
+  if (canal.via === 'zernio') {
+    const { escribirPorZernio } = await import('./meta-escribir-zernio');
+    const r = await escribirPorZernio(canal, body);
+    if (r.ok && body.op === 'name' && r.applied.name) return { ...r, propagadas: await propagarRename(ws, body.level, body.id, r.applied.name) };
+    return r;
+  }
+
   const ver = process.env.META_API_VERSION; // la fija instrumentation, no es secreto
   const token = await credWs('META_ACCESS_TOKEN', ws);
   // 409 y no 500: no es una falla nuestra, es un workspace que todavía no conectó
   // Meta. El texto dice dónde se arregla.
   if (!ver) return { ok: false, message: 'Meta no configurado', status: 500 };
   if (!token) return { ok: false, message: 'Este espacio de trabajo no tiene Meta conectado. Conéctalo en Integraciones.', status: 409 };
-
-  if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
-    return { ok: false, message: 'id inválido (debe ser el id numérico de Meta)', status: 400 };
-  }
+  // El corte del token para administrar anuncios (lib/zernio-meta-cuerpo.ts → `CORTE_TOKEN_META`): pasado, sin Zernio no se escribe.
+  const { frenoDelTokenMeta } = await import('./meta-via');
+  const freno = await frenoDelTokenMeta(ws);
+  if (freno) return { ok: false, message: freno, status: 409 };
 
   // Que sea de la cuenta publicitaria DE ESTE workspace, antes de pausar, presupuestar,
   // renombrar o borrar. El id lo manda el navegador o el modelo (el doer), y el token

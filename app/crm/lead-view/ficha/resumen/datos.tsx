@@ -70,7 +70,7 @@ export function SetterYCloser({ ctx, puesto, def, titulo, diseno, epico }: Props
     return (
       <Bloque titulo={titulo} epico={false}>
         <div className="fr-props">
-          {quienes.map((c) => <Prop key={c} k={c === 'setter' ? 'Setter' : 'Closer'} editable marca={marcaDato(c)}>{persona(c)}</Prop>)}
+          {quienes.map((c) => <Prop key={c} k={c === 'setter' ? 'Setter' : 'Closer'} dato={c} editable marca={marcaDato(c)}>{persona(c)}</Prop>)}
         </div>
       </Bloque>
     );
@@ -94,7 +94,8 @@ export function SetterYCloser({ ctx, puesto, def, titulo, diseno, epico }: Props
       <div className={quienes.length > 1 ? 'fr-dos' : undefined}>
         {quienes.map((c) => (
           <CajaCampo key={c} marca={marcaDato(c)} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, padding: epico ? '16px 18px' : '10px 12px', borderRadius: 12, background: 'color-mix(in srgb, var(--ink) 4.5%, transparent)' }}>
-            <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2 }}>
+            {/* `data-dato`: personalizando, la ✕ para sacarlo del bloque (`QuitarDeLaFila`, ../Armador.tsx). */}
+            <span data-dato={c} data-dato-nombre={c === 'setter' ? 'Setter' : 'Closer'} style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: 2, flex: 1 }}>
               <span className="fr-sub">{c === 'setter' ? 'Setter' : 'Closer'}</span>
               <span style={{ minWidth: 0 }}>{persona(c)}</span>
             </span>

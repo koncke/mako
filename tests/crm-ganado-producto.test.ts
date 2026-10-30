@@ -15,7 +15,10 @@ const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').repla
 
 test('el asistente pregunta «¿Qué compró?» al cerrar (no en «Completar datos»), obligatorio, con «Otro / personalizado»', () => {
   const d = leer('app/crm/StageMoveDialog.tsx');
-  assert.match(d, /if \(esCierre && !completarDatos && productos && productos\.length > 0\) p\.push\('producto'\);\n\s+if \(\(esCierre && !dealCompleto\) \|\| necesitaDeal\) p\.push\('dealAuto'\);/, 'el paso no va primero en el cierre, o se pide sin catálogo');
+  assert.match(d, /if \(esCierre && !completarDatos && productos && productos\.length > 0\) p\.push\('producto'\);\n/, 'el paso no va primero en el cierre, o se pide sin catálogo');
+  // El contrato ya no se pide al MOVER (27/10/2026, Martín: «Me sigue exigiendo CONTRATO, eso hay que eliminarlo»): sólo en
+  // «Completar datos», cuando se piden las secciones del deal (tests/crm-feedback-27-10.test.ts).
+  assert.match(d, /if \(completarDatos && necesitaDeal\) p\.push\('dealAuto'\);/, 'el contrato volvió a pedirse al mover');
   assert.match(d, /case 'producto': return productoElegido != null;/, 'se puede seguir sin elegir');
   assert.match(d, /<div style=\{\{ fontSize: 15 \}\}>Otro \/ personalizado<\/div>/);
   // Elegir uno completa lo heredado; el monto escrito a mano no se pisa.

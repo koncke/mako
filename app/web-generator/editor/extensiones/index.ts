@@ -124,7 +124,7 @@ const AnimacionSecciones = Extension.create({
 });
 
 export type OpcionesExtensiones = Partial<OpcionesLanding> & Pick<OpcionesLanding, 'subirArchivo' | 'elegirImagen'> & {
-  /** Reemplaza el texto de la línea vacía («Escribe algo o escribe «/» para ver los comandos»). */
+  /** Reemplaza el texto de la línea vacía («Escribe o pulsa «/» para comandos»). */
   placeholder?: string;
 };
 

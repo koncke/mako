@@ -36,9 +36,10 @@ import type { CobroM } from '@/app/m/dashboard/modelo';
 /** El pago que marca la fila; null en la de una suscripción, que no tiene cuota (20/10/2026). */
 const pagoDe = (f: CobroM): number | null => f.pagoId ?? null;
 import { TituloBloque } from './bloques/comun';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const COLOR: Record<'vencida' | 'pronto' | 'al-dia', string> = { vencida: 'var(--bad)', pronto: 'var(--warn-fill)', 'al-dia': 'var(--faint)' };
-const inicial = (n: string) => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
+const inicial = (n: string) => iniciales(n, 2, '·');
 
 export function Cobranza({ filas, tz, error, alcance = null, limite = Infinity, vacio = null, muestra = false, sinCabeza = false, total, alCambiar }: {
   filas: CobroM[]; tz: string; error: string | null;

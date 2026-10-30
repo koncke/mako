@@ -1,0 +1,241 @@
+/* =============================================================================
+   La pantalla de Create (app/_crear/PantallaCrear.tsx): la tarjeta izquierda con el chat de MaKo o la lista de proyectos,
+   y el centro con la pieza o «¿Qué vas a crear hoy?». Copiada de la tarjeta del Web Generator (app/web-generator/gamma.css,
+   `.gma-izq`, y paneles/PanelLandings.tsx) con los TOKENS de MaKo (--surface, --border, --ink, --primary…): así sigue el
+   tema claro y el oscuro de la app sin redefinir nada (memoria «Nord + azul Meta»).
+   ============================================================================= */
+
+.cr { flex: 1; min-height: 0; height: 100%; display: flex; background: var(--bg); color: var(--ink); }
+
+/* ── La tarjeta izquierda: FLOTA, con aire, el borde redondeado y la sombra (la de Automations y el Web Generator) ── */
+.cr-tarjeta {
+  flex: none; width: 340px; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  margin: 8px 0 8px 8px; background: var(--surface); border-radius: var(--r-xl, 18px);
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .06), 0 0 0 1px var(--border);
+}
+.cr-tarjeta > .co-panel { flex: 1; min-height: 0; }
+/* El hilo y la caja a la medida de la TARJETA (29/10/2026): centro.css les da `clamp(16px, 4vw, 56px)`, que mira la
+   VENTANA; en 340 px dejaba 218 a la conversación y las burbujas de Offer salían de 3 o 4 palabras por renglón. Los mismos
+   márgenes que el panel de MaKo en Automations (app/automations/ChatMakoVista.tsx, CSS_COLUMNA). */
+.cr-tarjeta .co-hilo { padding-inline: 14px; }
+.cr-tarjeta .co-caja-wrap { padding-inline: 12px; }
+.cr-volver {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--dim); cursor: pointer; font-size: 16px; line-height: 1;
+}
+.cr-volver:hover { background: var(--velo-hover); color: var(--ink); }
+.cr-volver:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Plegada (29/10/2026): en un editor (Video, Image) la tarjeta se vuelve una barra fina y el editor toma el ancho. El
+   chat queda montado (`hidden`): el hilo y lo escrito siguen ahí al abrirla. La barra entera es UN botón que la abre. ── */
+.cr-tarjeta[hidden] { display: none; }
+.cr-riel {
+  flex: none; width: 52px; margin: 8px 0 8px 8px; padding: 12px 0; display: flex; flex-direction: column; align-items: center;
+  gap: 10px; border: 0; border-radius: var(--r-xl, 18px); background: var(--surface); color: var(--dim); font: inherit; cursor: pointer;
+  box-shadow: 0 1px 2px rgba(18, 21, 27, .06), 0 0 0 1px var(--border);
+}
+.cr-riel:hover { color: var(--ink); box-shadow: 0 1px 2px rgba(18, 21, 27, .06), 0 0 0 1px var(--border-strong); }
+.cr-riel:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cr-riel__rotulo { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12.5px; font-weight: 600; letter-spacing: .02em; }
+/* El botón de plegar va en la cabecera del chat (PanelChat.tsx, `PlegarChatCtx`), a la derecha. */
+.cr-plegar {
+  flex: none; margin-left: auto; width: 30px; height: 30px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: 7px; background: transparent; color: var(--dim); cursor: pointer;
+}
+.cr-plegar:hover { background: var(--velo-hover); color: var(--ink); }
+.cr-plegar:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── La lista (la otra cara de la tarjeta): buscar, la estrella para volver al chat, «Nuevo …» y los proyectos ── */
+.cr-lista { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cr-lista__cab { flex: none; display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; }
+.cr-lista__busca {
+  flex: 1; min-width: 0; height: 34px; box-sizing: border-box; padding: 0 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface); font: inherit; font-size: 13px; color: var(--ink);
+}
+.cr-lista__busca:focus { outline: none; border-color: var(--primary); }
+.cr-lista__mako {
+  flex: none; width: 34px; height: 34px; display: grid; place-items: center; border: 0; border-radius: 10px;
+  background: transparent; cursor: pointer;
+}
+.cr-lista__mako:hover { background: var(--velo-hover); }
+.cr-lista__mako:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+/* La lista crece con el uso: SCROLLEA adentro, con la barra a la vista (la regla de la casa: nunca escondida). */
+.cr-lista__items { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 2px; }
+.cr-item {
+  display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border-radius: 10px; box-sizing: border-box;
+  color: var(--ink); text-decoration: none; font-size: 13.5px; font-weight: 500; border: 0; background: transparent;
+  font-family: inherit; text-align: left; cursor: pointer; width: 100%;
+}
+.cr-item:hover { background: var(--velo-hover); }
+.cr-item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cr-item[aria-current="true"] { background: var(--primary-bg); color: var(--primary-strong); font-weight: 600; }
+.cr-item__nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cr-item__cuando { flex: none; font-size: 12px; font-weight: 400; color: var(--faint); }
+.cr-item__ico { flex: none; display: inline-flex; color: var(--dim); }
+.cr-item--nuevo { border: 1px dashed var(--border-strong); margin-bottom: 4px; color: var(--dim); }
+.cr-item--nuevo[aria-current="true"] { border-style: solid; border-color: transparent; }
+/* Un renglón con «⋯»: el menú aparece al pasar (y siempre en el táctil, donde no hay «pasar»). */
+.cr-fila { position: relative; display: flex; align-items: center; }
+.cr-fila > .cr-item { padding-right: 36px; }
+.cr-menu { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
+.cr-menu__boton {
+  width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent;
+  color: var(--dim); font-size: 16px; line-height: 1; cursor: pointer; opacity: 0;
+}
+.cr-fila:hover .cr-menu__boton, .cr-menu__boton:focus-visible, .cr-menu__boton[aria-expanded="true"], .cr-menu__boton:disabled { opacity: 1; }
+@media (hover: none) { .cr-menu__boton { opacity: 1; } }
+.cr-menu__boton:hover { background: var(--velo-hover); color: var(--ink); }
+.cr-menu__boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.cr-menu__lista {
+  position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 170px; padding: 4px; display: flex; flex-direction: column;
+  background: var(--surface); border-radius: 10px; box-shadow: 0 8px 24px rgba(18, 21, 27, .16), 0 0 0 1px var(--border);
+}
+.cr-menu__item {
+  display: block; width: 100%; padding: 8px 10px; border: 0; border-radius: 7px; background: transparent; color: var(--ink);
+  font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+}
+.cr-menu__item:hover, .cr-menu__item:focus-visible { outline: none; background: var(--velo-hover); }
+.cr-menu__item[data-peligro="si"] { color: var(--bad); }
+.cr-lista__aviso { margin: 0; padding: 12px; font-size: 13px; color: var(--dim); }
+.cr-lista__pie { flex: none; padding: 8px 12px 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.cr-lista__pie a { color: var(--dim); text-decoration: none; }
+.cr-lista__pie a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ── El centro: la pieza abierta o «¿Qué vas a crear hoy?» ── */
+.cr-centro { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; position: relative; }
+/* La pieza queda MONTADA mientras se ve «Nuevo …» (volver a ella es instantáneo y con el deshacer intacto, como el editor del
+   Web Generator): sólo se esconde. */
+.cr-pieza { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.cr-pieza[hidden] { display: none; }
+.cr-nueva { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.cr-nueva__col { box-sizing: border-box; width: 100%; max-width: 1080px; margin: 0 auto; padding: 48px 32px 40px; display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.cr-nueva .gp.cp-casa { gap: 16px; }
+.cr-plantillas { width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.cr-plantillas__titulo { margin: 0; font-size: 18px; font-weight: 600; color: var(--ink); }
+.cr-plantillas__grilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 18px; }
+.cr-plantilla {
+  display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 8px 8px 12px; border: 1px solid var(--border);
+  border-radius: 14px; background: var(--surface); box-shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 20px -8px rgba(0,0,0,.18);
+  color: inherit; font: inherit; text-align: left; cursor: pointer; transition: box-shadow .15s, border-color .15s, transform .15s;
+}
+.cr-plantilla:hover:not(:disabled), .cr-plantilla:focus-visible {
+  outline: none; border-color: var(--primary-weak); box-shadow: 0 0 0 1px var(--primary-weak), 0 12px 24px -10px rgba(0,0,0,.25); transform: translateY(-2px);
+}
+.cr-plantilla:disabled { cursor: default; }
+.cr-plantilla:disabled:not([data-creando="si"]) { opacity: .6; }
+.cr-plantilla__mini {
+  position: relative; display: grid; place-items: center; width: 100%; max-height: 220px; overflow: hidden; border-radius: 8px;
+  background: var(--primary-bg); box-shadow: 0 0 0 1px var(--border);
+  /* La hoja del ejemplo se mide contra la tarjeta (`@container`, abajo), no contra la ventana. */
+  container-type: inline-size;
+  /* ⚠️ La fila del alto de la caja: con la fila `auto`, el `height: 90%` de una imagen se calculaba contra su tamaño NATURAL
+     (la fila crecía a 720 px y la imagen medía 648: una franja recortada). El marco vacío no lo sufría porque no tiene
+     tamaño propio. */
+  grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+}
+.cr-plantilla__mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Sin imagen, el marco del formato: un rectángulo con la proporción de la pieza y su medida adentro. */
+.cr-plantilla__marco { display: block; margin-bottom: 14px; border-radius: 6px; border: 1.5px dashed var(--primary-weak); background: var(--surface); }
+.cr-plantilla__rotulo { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); font-size: 11.5px; font-weight: 500; color: var(--dim); white-space: nowrap; }
+.cr-plantilla__usar {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 14px; border-radius: 9999px; background: var(--primary); color: var(--on-primary); font-size: 13px; font-weight: 600;
+  white-space: nowrap; opacity: 0; transition: opacity .15s; pointer-events: none;
+}
+.cr-plantilla:hover:not(:disabled) .cr-plantilla__usar, .cr-plantilla:focus-visible .cr-plantilla__usar, .cr-plantilla__usar[data-visible="si"] { opacity: 1; }
+.cr-plantilla__nombre { padding: 0 4px; font-size: 14.5px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+
+/* ── El EJEMPLO en la tarjeta (29/10/2026, docs/plantillas-reales/README.md, tanda 0): la pieza llena, no un rectángulo. ── */
+/* La imagen a SU proporción (`cajaDeMiniatura`): el lado que manda va en el style; el otro, automático. Sin `formato`, llena
+   la caja como antes (la regla de arriba). */
+.cr-plantilla__mini img[data-caja] { width: auto; height: auto; border-radius: 4px; box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 14px -6px rgba(0,0,0,.28); }
+.cr-plantilla__video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cr-plantilla__video[style] { width: auto; height: auto; border-radius: 4px; }
+/* La HOJA: el texto real del ejemplo en una página. Lo que no entra se esfuma abajo (en una tarjeta angosta el cuerpo cede
+   primero: el título y los chips quedan). */
+.cr-plantilla__hoja {
+  position: absolute; inset: 7px; display: flex; flex-direction: column; gap: 4px; padding: 28px 10px 9px; box-sizing: border-box;
+  border-radius: 6px; background: var(--surface); box-shadow: 0 0 0 1px var(--border), 0 4px 12px -6px rgba(0,0,0,.18);
+  overflow: hidden; text-align: left;
+}
+.cr-plantilla__titular {
+  flex: none; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  font-size: 13px; font-weight: 700; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere;
+}
+.cr-plantilla__extracto {
+  flex: 0 1 auto; min-height: 0; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; overflow: hidden;
+  font-size: 11.5px; line-height: 1.4; color: var(--ink); overflow-wrap: anywhere;
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 6px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 6px), transparent);
+}
+.cr-plantilla__titular + .cr-plantilla__extracto { color: var(--dim); -webkit-line-clamp: 3; }
+/* La hoja se achica con SU tarjeta y no con la ventana (la grilla decide el ancho: a 1366 con la tarjeta de MaKo, 190 px).
+   Primero ceden renglones del cuerpo, después la insignia; el título, los chips y la cinta «Ejemplo» quedan. Medido en el
+   banco (C:/dev/revisiones/plantillas-tanda0/): sin esto, el último renglón quedaba partido por la mitad. */
+@container (max-width: 215px) {
+  .cr-plantilla__titular + .cr-plantilla__extracto { -webkit-line-clamp: 2; }
+}
+/* A 1366 la miniatura mide 188 px: la insignia junto a «Ejemplo» quedaba «📣 Anuncio · 45…». En la hoja, el nombre de abajo
+   ya dice el formato. */
+@container (max-width: 195px) {
+  .cr-plantilla__mini[data-hoja="si"] .cr-plantilla__insignia { display: none; }
+}
+@container (max-width: 185px) {
+  .cr-plantilla__extracto { -webkit-line-clamp: 3; }
+  .cr-plantilla__titular + .cr-plantilla__extracto { -webkit-line-clamp: 1; }
+}
+@container (max-width: 165px) {
+  .cr-plantilla__extracto { -webkit-line-clamp: 2; }
+  .cr-plantilla__titular + .cr-plantilla__extracto { display: none; }
+}
+/* Una sola fila: un chip que no entra se va entero (nunca medio chip). */
+.cr-plantilla__chips { flex: none; margin-top: auto; display: flex; flex-wrap: wrap; gap: 4px; max-height: 18px; overflow: hidden; }
+.cr-plantilla__chip {
+  flex: none; height: 18px; display: inline-flex; align-items: center; padding: 0 6px; border-radius: 9999px; box-sizing: border-box;
+  background: var(--primary-bg); color: var(--primary-strong); font-size: 10px; font-weight: 600; white-space: nowrap;
+}
+/* Arriba: la insignia (formato y duración) a la izquierda y la cinta «Ejemplo» a la derecha. Sobre la hoja van adentro de
+   su margen de arriba; sobre una imagen o un marco, en las esquinas. */
+.cr-plantilla__marcas { position: absolute; top: 7px; left: 7px; right: 7px; display: flex; align-items: center; gap: 6px; pointer-events: none; }
+.cr-plantilla__mini[data-hoja="si"] .cr-plantilla__marcas { top: 14px; left: 15px; right: 15px; }
+.cr-plantilla__insignia {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 7px; border-radius: 9999px;
+  background: var(--surface); box-shadow: 0 0 0 1px var(--border); color: var(--dim); font-size: 10.5px; font-weight: 600; line-height: 1.3;
+  pointer-events: auto;
+}
+.cr-plantilla__cinta {
+  flex: none; margin-left: auto; padding: 2px 6px; border-radius: 9999px; background: var(--mako-bg); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--border); font-size: 10px; font-weight: 700; line-height: 1.3; pointer-events: auto;
+}
+[data-tema="oscuro"] .cr-plantilla { box-shadow: 0 1px 2px rgba(0,0,0,.4), 0 10px 24px -8px rgba(0,0,0,.6); }
+.cr-giro { width: 13px; height: 13px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; animation: cr-giro .8s linear infinite; }
+@keyframes cr-giro { to { transform: rotate(360deg); } }
+.cr-error { margin: 0; font-size: 13px; color: var(--bad); }
+
+/* ── El interruptor del teléfono: «MaKo | <la tab>». Escondido en la computadora. ── */
+.cr-movil { display: none; }
+
+@media (max-width: 760px) {
+  .cr { flex-direction: column; }
+  .cr-movil {
+    flex: none; display: flex; gap: 4px; margin: 8px 12px 0; padding: 3px; border-radius: 12px; background: var(--surface);
+    box-shadow: 0 0 0 1px var(--border);
+  }
+  .cr-movil__boton {
+    flex: 1; min-height: var(--touch, 40px); display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: 9px; background: transparent; color: var(--dim); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .cr-movil__boton[aria-pressed="true"] { background: var(--primary-bg); color: var(--primary-strong); }
+  .cr-tarjeta { width: auto; flex: 1; margin: 8px 12px 12px; }
+  /* En el teléfono no se pliega: ya se ve una cosa por vez («MaKo | <la tab>»). */
+  .cr-tarjeta[hidden] { display: flex; }
+  .cr-riel, .cr-plegar { display: none; }
+  .cr[data-movil="pieza"] .cr-tarjeta { display: none; }
+  .cr[data-movil="mako"] .cr-centro { display: none; }
+  .cr-nueva__col { padding: 24px 16px 32px; }
+  .cr-plantillas__grilla { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cr-plantilla, .cr-plantilla__usar { transition: none; }
+  .cr-plantilla:hover:not(:disabled) { transform: none; }
+}

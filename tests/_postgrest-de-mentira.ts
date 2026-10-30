@@ -7,7 +7,7 @@
 // (_plan-kanban-hijo, _fathom-carga-hijo, _cobros-conexion-hijo). Ésas siguen como están; el próximo
 // hijo usa éste.
 //
-// Entiende lo que usan esas funciones: `eq.`, `neq.`, `in.(…)`, `is.null`, `not.is.null`,
+// Entiende lo que usan esas funciones: `eq.`, `neq.`, `in.(…)`, `is.null`, `not.is.null`, `like.`/`not.like.` sueltos,
 // `gte./lte./gt./lt.` (numérico si los dos lados son números: «1009» > «999»), `order` (varias
 // columnas), `limit`, GET / HEAD (`count`) / POST (insert o upsert con `on_conflict` y
 // `resolution=ignore-duplicates`) / PATCH / DELETE, y `Accept: application/vnd.pgrst.object+json`
@@ -37,12 +37,68 @@ export function crearPostgrest(o: {
   /** Los defaults de la base para una fila nueva (ids, timestamps, columnas con default). */
   defaults?: (tabla: string, f: Fila) => Fila;
   unicos?: UnicoParcial[];
+  /** El `or=(hasta.is.null,hasta.lt.…)` del candado del grupo (`reclamar`, lib/mako-doer-buffer.ts). Sin esto, `reclamar` pierde
+   *  siempre (la entrada encola y se va): de eso dependen los hijos que no quieren correr el turno. */
+  candado?: boolean;
+  /** El `or=(…)` entero (29/10/2026, la entrega de los tickets al Cerebro): `ticketsSinEntregar` pide
+   *  `aviso_estado.is.null,aviso_estado.in.(…),and(aviso_estado.eq.tomado,aviso_at.lt.…)`. Con esto, cada parte puede ser
+   *  `eq`/`neq`/`is.null`/`in.(…)`/`lt`/`lte`/`gt`/`gte`/`like`, o un `and(…)`/`or(…)` anidado. Aparte de `candado` a propósito:
+   *  sin él, el `or` del candado sigue tirando, y de eso dependen los hijos que no quieren correr el turno. */
+  orCompleto?: boolean;
 }) {
   const db: Record<string, Fila[]> = Object.fromEntries(o.tablas.map((t) => [t, [] as Fila[]]));
   const sinMock = new Set<string>();
   const defaults = o.defaults ?? ((_t: string, f: Fila) => ({ ...f }));
 
   type Filtro = (f: Fila) => boolean;
+  /** Parte en las comas de AFUERA de los paréntesis (`a.in.(x,y),and(b.eq.1,c.lt.2)` → dos partes). */
+  const trozos = (s: string): string[] => {
+    const r: string[] = [];
+    let hondo = 0, desde = 0;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') hondo++;
+      else if (s[i] === ')') hondo--;
+      else if (s[i] === ',' && hondo === 0) { r.push(s.slice(desde, i)); desde = i + 1; }
+    }
+    r.push(s.slice(desde));
+    return r;
+  };
+  /** Una condición del `or` completo (`orCompleto`). Como Postgres, una comparación con null no es verdad. */
+  const condicion = (p: string): Filtro => {
+    for (const [pre, todas] of [['and(', true], ['or(', false]] as const) {
+      if (p.startsWith(pre) && p.endsWith(')')) {
+        const xs = trozos(p.slice(pre.length, -1)).map(condicion);
+        return todas ? (f) => xs.every((x) => x(f)) : (f) => xs.some((x) => x(f));
+      }
+    }
+    const [col, op, ...r] = p.split('.');
+    // Un valor entre comillas (`updated_at.gte."2026-10-29T…"`, lib/tickets-db.ts → `ticketsDelNegocio`) se compara sin ellas.
+    const x = r.join('.').replace(/^"(.*)"$/, '$1');
+    // `estado.not.in.(…)` (29/10/2026, los pedidos del negocio en el turno del grupo): como Postgres, un null no entra.
+    if (op === 'not' && x.startsWith('in.(') && x.endsWith(')')) {
+      const xs = x.slice(4, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
+      return (f) => f[col] != null && !xs.includes(String(f[col]));
+    }
+    if (op === 'eq') return (f) => f[col] != null && String(f[col]) === x;
+    if (op === 'neq') return (f) => f[col] != null && String(f[col]) !== x;
+    if (op === 'is' && x === 'null') return (f) => f[col] == null;
+    if (op === 'in' && /^\(.*\)$/.test(x)) {
+      const xs = x.slice(1, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
+      return (f) => f[col] != null && xs.includes(String(f[col]));
+    }
+    if (op === 'lt' || op === 'lte' || op === 'gt' || op === 'gte') {
+      return (f) => {
+        if (f[col] == null) return false;
+        const c = comparar(f[col], x);
+        return op === 'gte' ? c >= 0 : op === 'lte' ? c <= 0 : op === 'gt' ? c > 0 : c < 0;
+      };
+    }
+    if (op === 'like') {
+      const re = new RegExp(`^${x.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`);
+      return (f) => f[col] != null && re.test(String(f[col]));
+    }
+    throw new Error(`filtro sin mock: or ${p}`);
+  };
   const filtros = (u: URL): Filtro[] => {
     const out: Filtro[] = [];
     for (const [k, v] of u.searchParams) {
@@ -70,12 +126,28 @@ export function crearPostgrest(o: {
           return op === 'gte' ? c >= 0 : op === 'lte' ? c <= 0 : op === 'gt' ? c > 0 : c < 0;
         });
       }
+      // `.like('ref', 'np:11:%')` suelto (27/10/2026, los tickets automáticos y el tope del tercero): `%` y `*` son el comodín.
+      else if (v.startsWith('like.') || v.startsWith('not.like.')) {
+        const no = v.startsWith('not.');
+        const patron = v.slice(no ? 9 : 5);
+        const re = new RegExp(`^${patron.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/[%*]/g, '.*')}$`);
+        out.push((f) => (val(f) != null && re.test(String(val(f)))) !== no);
+      }
+      else if (k === 'or' && /^\(.+\)$/.test(v) && o.orCompleto) {
+        const xs = trozos(v.slice(1, -1)).map(condicion);
+        out.push((f) => xs.some((x) => x(f)));
+      }
       // `.or('clave.like.STRIPE_SECRET_KEY*,…')` (22/10/2026, las cuentas de una pasarela): `*` es el `%` de PostgREST.
       else if (k === 'or' && /^\(.+\)$/.test(v)) {
+        // `is.null` y `lt` (28/10/2026), sólo con `candado`: el del grupo pelea `hasta.is.null,hasta.lt.<ahora>`.
         const partes = v.slice(1, -1).split(',').map((p) => { const [col, op, ...r] = p.split('.'); return { col, op, x: r.join('.') }; });
-        if (partes.some((p) => p.op !== 'like' && p.op !== 'eq')) throw new Error(`filtro sin mock: ${k}=${v}`);
+        const ops = o.candado ? ['like', 'eq', 'is', 'lt'] : ['like', 'eq'];
+        if (partes.some((p) => !ops.includes(p.op) || (p.op === 'is' && p.x !== 'null'))) throw new Error(`filtro sin mock: ${k}=${v}`);
         const re = (x: string) => new RegExp(`^${x.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/\*/g, '.*')}$`);
-        out.push((f) => partes.some((p) => (p.op === 'eq' ? String(f[p.col]) === p.x : re(p.x).test(String(f[p.col] ?? '')))));
+        out.push((f) => partes.some((p) => (p.op === 'eq' ? String(f[p.col]) === p.x
+          : p.op === 'is' ? f[p.col] == null
+          : p.op === 'lt' ? f[p.col] != null && String(f[p.col]) < p.x
+          : re(p.x).test(String(f[p.col] ?? '')))));
       }
       else throw new Error(`filtro sin mock: ${k}=${v}`);
     }
@@ -99,7 +171,7 @@ export function crearPostgrest(o: {
   };
 
   /**
-   * `cobrar_cuota_con_resto` (supabase/migrations/0318 y 0323, 21/10/2026): la toma condicional de la cuota y su diferencia,
+   * `cobrar_cuota_con_resto` (supabase/migrations/0318, 0323 y 0347): la toma condicional de la cuota y su diferencia,
    * JUNTAS (una llamada de node no se intercala con otra: es la transacción). Copia del SQL, que fija
    * tests/pagos-cobro-idempotente.test.ts. Si el número choca con el índice único, no escribe NADA y contesta 23505.
    */
@@ -110,8 +182,16 @@ export function crearPostgrest(o: {
       && (b.p_original == null || Number(p.monto_usd) === Number(b.p_original)));
     if (!c) return json(200, { tomada: false });
     const numero = Math.max(0, ...pagos.filter((p) => Number(p.lead_id) === Number(b.p_lead)).map((p) => Number(p.numero) || 0)) + 1;
+    // Cobrada a medias en SU moneda, la diferencia queda en esa moneda: lo pactado menos lo cobrado (mig 0347). Antes de la toma.
+    const iso = (m: unknown) => (m == null ? '' : String(m).toUpperCase());
+    const pactado = Number(c.monto_original);
+    const enSuMoneda = iso(c.moneda) !== '' && iso(c.moneda) !== 'USD' && pactado > 0 && b.p_moneda != null && iso(b.p_moneda) === iso(c.moneda)
+      && b.p_monto_original != null && pactado - Number(b.p_monto_original) > 0;
     // La diferencia nace marcada con la cuota de la que sale (mig 0323, `resto_de`): no es una cuota del plan.
-    const resto = defaults('pagos', { workspace_id: b.p_ws, lead_id: b.p_lead, numero, monto_usd: b.p_resto, fecha_esperada: b.p_vence, pagado: false, resto_de: c.id });
+    const resto = defaults('pagos', {
+      workspace_id: b.p_ws, lead_id: b.p_lead, numero, monto_usd: b.p_resto, fecha_esperada: b.p_vence, pagado: false, resto_de: c.id,
+      ...(enSuMoneda ? { moneda: c.moneda, monto_original: pactado - Number(b.p_monto_original) } : {}),
+    });
     for (const un of (o.unicos ?? []).filter((x) => x.tabla === 'pagos' && x.donde(resto))) {
       if (pagos.some((f) => un.donde(f) && un.columnas.every((col) => String(f[col]) === String(resto[col])))) {
         return json(409, { code: '23505', message: `duplicate key value violates unique constraint "${un.nombre}"`, details: null, hint: null });

@@ -15,6 +15,9 @@ export const VINETA = '• ';
 /** El texto de un trabajo que sólo lleva adjuntos (el texto firmado no puede ir vacío). La burbuja no lo dibuja: una foto
  *  sola va sin epígrafe, como en WhatsApp (Hilo.tsx). */
 export const TEXTO_SOLO_ADJUNTOS = 'Te mando estos adjuntos.';
+/** Lo que dice la miniatura de un documento: su extensión («PDF», «DOCX», «XLSX»). Vive acá, sin CSS, para que la burbuja
+ *  del chat nuevo (ChatNuevoPiezas.tsx, que se dibuja en un test) la use como la caja (AdjuntosCaja.tsx). */
+export const etiquetaDoc = (nombre: string): string => /\.([a-z0-9]{1,5})$/i.exec(nombre)?.[1]?.toUpperCase() ?? 'DOC';
 const ITEM_RE = /^(\s*)(•|-|\*|(\d{1,3})[.)])\s(.*)$/;
 
 /** El renglón donde está el cursor: dónde empieza y dónde termina. */
@@ -134,3 +137,11 @@ export function borradorQueVale(local: Borrador | null, remoto: Borrador | null)
 export type Scroll = { scrollHeight: number; scrollTop: number; clientHeight: number };
 /** ¿Está abajo del todo (con un margen de unos renglones)? */
 export const estaAbajo = (s: Scroll, margen = 48): boolean => s.scrollHeight - s.scrollTop - s.clientHeight <= margen;
+
+/**
+ * ¿Lo que se manda es ESA nota de voz (26/10/2026)? Sólo si la caja dice lo mismo que se transcribió
+ * (app/_chat/nota-que-se-manda.ts → onNota): si dice otra cosa, o la nota es de antes, lo que sale es texto. Pura (test).
+ */
+export function notaQueSale<N extends { texto: string }>(nota: N | null | undefined, borrador: string): N | null {
+  return nota && nota.texto.trim() && nota.texto.trim() === borrador.trim() ? nota : null;
+}

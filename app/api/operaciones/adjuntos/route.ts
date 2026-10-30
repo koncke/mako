@@ -14,13 +14,17 @@
 // guarda la miniatura de una foto que ya salió (la manda el navegador que la mandó), y `GET ?enviadas=<ids>` da las de
 // esos trabajos con su URL firmada, para verlas en otro dispositivo. Es una ruta y no una action también por eso: las
 // actions se encolan de a una, y una foto no puede hacer esperar al refresco de la conversación.
+//
+// Y las notas de voz (26/10/2026, lib/operaciones-adjuntos.ts → «Las notas de voz enviadas»): `POST ?voz=<trabajo>` guarda el
+// MP3 de una nota que ya salió (la sube el navegador que la grabó) y `GET ?voces=<ids>` da las de esos trabajos, con su URL
+// firmada y la forma de las fotos.
 
 import { after } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
-import { MAX_BYTES_MINIATURA, puedeOperar } from '@/lib/operaciones-reglas';
+import { MAX_BYTES_MINIATURA, MAX_BYTES_VOZ, puedeOperar } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO, MARGEN_MULTIPART_BYTES, TOPE_TOTAL_BYTES } from '@/lib/mako-adjuntos';
-import { barrerSiToca, firmarSubidasCentro, fotosEnviadasDe, guardarMiniaturaEnviada, subirAdjuntosCentro } from '@/lib/operaciones-adjuntos';
+import { barrerSiToca, firmarSubidasCentro, fotosEnviadasDe, guardarMiniaturaEnviada, guardarVozEnviada, subirAdjuntosCentro, vocesEnviadasDe } from '@/lib/operaciones-adjuntos';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +34,18 @@ const NO_PUEDE = 'Entra con tu segundo factor para usar el Centro.';
 export async function GET(req: Request) {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return json({ ok: false, error: NO_PUEDE }, 403);
-  const ids = (new URL(req.url).searchParams.get('enviadas') ?? '').split(',').filter(Boolean);
+  const busca = new URL(req.url).searchParams;
+  if (busca.has('voces')) {
+    try {
+      const voces = await vocesEnviadasDe((busca.get('voces') ?? '').split(',').filter(Boolean));
+      after(() => barrerSiToca());
+      return json({ ok: true, voces });
+    } catch (e) {
+      console.error('[operaciones/adjuntos] voces', e instanceof Error ? e.message : e);
+      return json({ ok: false, error: 'No pude leer las notas de voz.' }, 503);
+    }
+  }
+  const ids = (busca.get('enviadas') ?? '').split(',').filter(Boolean);
   try {
     const fotos = await fotosEnviadasDe(ids);
     // Las vencidas se barren también al leer (como mucho una vez por hora): si no se manda otra foto, igual se van.
@@ -59,6 +74,19 @@ export async function POST(req: Request) {
     } catch (e) {
       console.error('[operaciones/adjuntos] miniatura', e instanceof Error ? e.message : e);
       return json({ ok: false, error: 'No pude guardar la foto: vuelve a intentarlo.' }, 503);
+    }
+  }
+  if (busca.has('voz')) {
+    // Como la miniatura: sin un largo válido no se lee.
+    const largo = Number(req.headers.get('content-length') ?? NaN);
+    if (!(largo > 0 && largo <= MAX_BYTES_VOZ)) return json({ ok: false, error: 'La nota pesa demasiado.' }, 413);
+    try {
+      const r = await guardarVozEnviada(busca.get('voz') ?? '', new Uint8Array(await req.arrayBuffer()));
+      if (r.ok) after(() => barrerSiToca());
+      return r.ok ? json({ ok: true }) : json({ ok: false, error: r.error }, r.status);
+    } catch (e) {
+      console.error('[operaciones/adjuntos] voz', e instanceof Error ? e.message : e);
+      return json({ ok: false, error: 'No pude guardar la nota: vuelve a intentarlo.' }, 503);
     }
   }
   // Con un Runner 1.16.0 (18/10/2026): sin archivos, sólo lo que se va a subir; vuelve una URL firmada por archivo y el

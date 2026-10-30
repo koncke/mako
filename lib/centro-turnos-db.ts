@@ -14,7 +14,7 @@
 import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, unirTurnos, type TurnoChat } from './operaciones-reglas';
+import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, turnosDeLaConversacion, unirTurnos, type TurnoChat } from './operaciones-reglas';
 import { getSupabaseServer } from './supabase';
 import { esYaEsta } from './centro-chats';
 import { superarConTurnos } from './centro-preguntas-chat-db';
@@ -23,8 +23,8 @@ import { hayClave, taparClaves } from './claves-en-el-chat';
 const PREFIJO = 'operaciones.turnos.';
 const parsear = (v: string | null): unknown => { try { return v ? JSON.parse(v) : []; } catch { return []; } };
 
-/** Guarda lo que subió una vuelta. Devuelve cuántos chats tocó. */
-export async function guardarTurnos(turnos: readonly TurnoChat[]): Promise<number> {
+/** Guarda lo que subió una vuelta. Devuelve cuántos chats tocó. `cadena`: las sesiones de cada chat (superarConTurnos). */
+export async function guardarTurnos(turnos: readonly TurnoChat[], cadena?: ReadonlyMap<string, readonly string[]>): Promise<number> {
   const porChat = new Map<string, TurnoChat[]>();
   for (const t of turnos) porChat.set(t.local, [...(porChat.get(t.local) ?? []), t]);
   if (!porChat.size) return 0;
@@ -34,13 +34,19 @@ export async function guardarTurnos(turnos: readonly TurnoChat[]): Promise<numbe
     for (const [local, nuevos] of porChat) {
       const antes = sanearTurnos(parsear(await getSettingEstricto(PREFIJO + local)));
       // Una clave pegada en la app de Claude no queda en el Ops Center (22/10/2026): se guarda tapada.
-      const tapados = nuevos.map((t) => (hayClave(t.texto) ? { ...t, texto: taparClaves(t.texto).texto } : t));
+      // El resumen del wrap_up (cartero 1.21.0) también: es texto del chat.
+      const tapados = nuevos.map((t) => ({
+        ...t,
+        ...(hayClave(t.texto) ? { texto: taparClaves(t.texto).texto } : {}),
+        ...(t.resumen && hayClave(t.resumen) ? { resumen: taparClaves(t.resumen).texto } : {}),
+      }));
       await setSetting(PREFIJO + local, JSON.stringify(unirTurnos(antes, tapados)));
       n++;
     }
     // Lo que Martín (u otro chat) dijo después de una pregunta de wrap_up la deja atrás (20/10/2026): no espera más. Si
-    // falla, los turnos ya quedaron: la pregunta se supera con la próxima vuelta que traiga un turno.
-    await superarConTurnos(turnos).catch((err) => console.error('[operaciones] superar preguntas:', err instanceof Error ? err.message : err));
+    // falla, los turnos ya quedaron: la pregunta se supera con la próxima vuelta que traiga un turno. Con la cadena, también la
+    // de otra sesión del mismo chat (25/10/2026: la conversación siguió en otra cuenta).
+    await superarConTurnos(turnos, cadena).catch((err) => console.error('[operaciones] superar preguntas:', err instanceof Error ? err.message : err));
     return n;
   });
 }
@@ -52,7 +58,9 @@ export async function leerTurnos(locales: readonly string[]): Promise<TurnoChat[
   try {
     const ws = await wsSuperAdmin();
     const listas = await runWithWorkspace(ws, () => Promise.all(validos.map(async (l) => sanearTurnos(parsear(await getSetting(PREFIJO + l))))));
-    return unirTurnos([], listas.flat());
+    // Con su último «Ya está» y lo que respondía, aunque las sesiones juntas pasen los 60 turnos: si no, la lista dice
+    // «Completado» y al abrirlo no hay nada que ver ni ✓ que dar (25/10/2026, el CRM).
+    return turnosDeLaConversacion(listas.flat(), esYaEsta);
   } catch {
     return [];
   }

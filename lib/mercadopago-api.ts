@@ -173,12 +173,23 @@ export async function buscarPagosMp(accessToken: string, referencia: string): Pr
   return { ok: true, pagos: res.map((x) => pagoDe(obj(x))) };
 }
 
-export async function leerSuscripcionMp(accessToken: string, id: string): Promise<R<{ id: string; estado: string | null; referencia: string | null; cobradorId: string | null }>> {
+/**
+ * GET /preapproval/{id}. Además del estado: la CUENTA de quien paga (`payer_id`), la tarjeta guardada con la que autorizó
+ * (`card_id`) y el próximo cobro (`next_payment_date`), los tres en la respuesta documentada de la suscripción. Con ellos se arma
+ * la huella de la prueba gratis (lib/prueba-plan-reglas.ts, `huellaMp`): MP no publica una huella de la tarjeta como Stripe.
+ */
+export async function leerSuscripcionMp(accessToken: string, id: string): Promise<R<{
+  id: string; estado: string | null; referencia: string | null; cobradorId: string | null;
+  pagadorId: string | null; tarjetaId: string | null; proximoCobro: string | null;
+}>> {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
   const r = await llamar(accessToken, 'GET', `/preapproval/${id}`);
   if (!r.ok) return fallo(r);
   const b = r.body;
-  return { ok: true, id: str(b.id) ?? id, estado: str(b.status), referencia: str(b.external_reference), cobradorId: str(b.collector_id) };
+  return {
+    ok: true, id: str(b.id) ?? id, estado: str(b.status), referencia: str(b.external_reference), cobradorId: str(b.collector_id),
+    pagadorId: str(b.payer_id), tarjetaId: str(b.card_id), proximoCobro: str(b.next_payment_date),
+  };
 }
 
 /** Una cuota cobrada de una suscripción: GET /authorized_payments/{id} → a qué preapproval y qué pago. */

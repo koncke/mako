@@ -185,8 +185,7 @@ const TOPE_FILAS_IA = 40;
  * es, de qué período, con qué filtros, y lo que muestra con su unidad (`fmtValor`: «US$1.234», «12,5%»).
  * Sin personas.
  */
-export function contextoDeGrafico(g: Grafico, r: Resultado, ef: Pick<Efectivo, 'desde' | 'hasta' | 'filtros'>): string {
-  const alias = new Alias();
+export function contextoDeGrafico(g: Grafico, r: Resultado, ef: Pick<Efectivo, 'desde' | 'hasta' | 'filtros'>, alias = new Alias()): string {
   const limpio = sinPersonas(g, r, alias);
   const f = fuenteDe(g.fuente);
   const lineas: string[] = [];
@@ -241,6 +240,28 @@ export function loQueSeVeDe(hoja: Hoja, resultados: Record<string, Resultado | u
     out.push({ id: c.id, titulo: tituloDe(c), desde: ef.desde, hasta: ef.hasta, resultado: r });
   }
   return out;
+}
+
+/**
+ * LO QUE LA CRIATURA VE DE LA HOJA ABIERTA (24/10/2026, Martín, al sacar el AI Analyst: «Sí, y que la criatura vea la
+ * hoja»): cada gráfico, en el orden en que se lee, con su período, sus filtros y sus números (`contextoDeGrafico`, el mismo
+ * texto del botón de MaKo de un gráfico), y UN alias para toda la hoja: «Cliente 1» es la misma persona en dos gráficos. Lo
+ * que todavía carga se cuenta, no se inventa. null = no hay ningún gráfico con datos (la criatura no recibe nada).
+ */
+export function pantallaDeHoja(hoja: Hoja, resultados: Record<string, Resultado | undefined>, efectivos: Record<string, Pick<Efectivo, 'desde' | 'hasta' | 'filtros'>>): string | null {
+  const alias = new Alias();
+  const bloques: string[] = [];
+  let cargando = 0;
+  for (const c of enOrden(hoja.componentes)) {
+    if (!esGrafico(c)) continue;
+    const r = resultados[c.id];
+    const ef = efectivos[c.id];
+    if (!r || !ef) { cargando += 1; continue; }
+    bloques.push(contextoDeGrafico(c, r, ef, alias));
+  }
+  if (!bloques.length) return null;
+  const cab = `Hoja «${hoja.nombre}», ${bloques.length} gráfico${bloques.length === 1 ? '' : 's'}${cargando ? ` (y ${cargando} que todavía cargan)` : ''}:`;
+  return [cab, ...bloques].join('\n\n');
 }
 
 // ── El CSV ─────────────────────────────────────────────────────────────────────────────────

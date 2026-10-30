@@ -57,6 +57,7 @@ import { proponerProyecto } from '@/lib/checklist-coach';
 import { proyectosSinTareas, proponerTareasParaProyecto } from '@/lib/plan-proyecto-vacio';
 import { leerSenales, contextoDelNegocio } from '@/lib/plan-senales';
 import { listReunionesRecientes } from '@/lib/plan-fathom';
+import { refTextoDeClave, refsDeClaves } from '@/lib/grabadores';
 // «Re-priorizar todo» (16/10/2026): el MISMO trabajo que el botón del tablero, no una copia.
 import { iniciarRepriorizacion, verRepriorizacion, cuantasEntrarian, type Repriorizacion } from '@/lib/plan-repriorizar';
 import { listarDescartadas } from '@/lib/reunion-descartadas';
@@ -590,7 +591,9 @@ export const RUNNERS: Runners = {
   ver_borrador_de_reunion: {
     leer: async (input) => {
       const rid = num(input, 'recordingId');
-      const p = await getPropuestaPorRef(`fathom:${rid}`);
+      // La ref sale de la clave, de cualquier grabador (Fathom: «fathom:<n>»; los demás, por `grabador_reuniones`).
+      const ref = rid == null ? null : await refTextoDeClave(rid);
+      const p = ref ? await getPropuestaPorRef(ref) : null;
       if (!p) return json({ recordingId: rid, borrador: null, nota: 'Esa reunión todavía no dejó ningún borrador en este negocio.' });
       return json({
         recordingId: rid,
@@ -612,28 +615,33 @@ export const RUNNERS: Runners = {
         cursor: str(input, 'cursor') || null,
         recordedAfter: str(input, 'recordedAfter') || undefined,
       });
-      const refs = pagina.reuniones.map((r) => `fathom:${r.recordingId}`);
+      const refs = pagina.reuniones.map((r) => r.ref);
       // LAS QUE EL CRON NO LEYÓ (mig 0300, 16/10/2026): descartadas por tipo o con la lectura fallida.
       // Sólo en la primera página. `null` = no se pudieron leer (no es «ninguna»).
       const sinLeer = str(input, 'cursor') ? undefined : await listarDescartadas();
-      const borr = await resumenPropuestasPorRefs([...refs, ...(sinLeer ?? []).map((d) => `fathom:${d.recordingId}`)]);
+      // La ref de cada una, de su grabador (lib/grabadores, 26/10/2026): «fathom:<n>» es la de siempre.
+      const refSinLeer = await refsDeClaves((sinLeer ?? []).map((d) => d.recordingId)).catch(() => new Map<number, string>());
+      const refDe = (clave: number) => refSinLeer.get(clave) ?? `fathom:${clave}`;
+      const borr = await resumenPropuestasPorRefs([...refs, ...(sinLeer ?? []).map((d) => refDe(d.recordingId))]);
       return json({
         reuniones: pagina.reuniones.map((r) => {
-          const b = borr[`fathom:${r.recordingId}`];
+          const b = borr[r.ref];
           return {
-            recordingId: r.recordingId, titulo: r.titulo, fecha: r.fecha, dur_min: r.durMin, url: r.url, tipo: r.tipo,
+            recordingId: r.recordingId, grabador: r.grabador, titulo: r.titulo, fecha: r.fecha, dur_min: r.durMin, url: r.url, tipo: r.tipo,
             motivo_del_tipo: r.motivo ?? null,
             participantes: r.participantes.length,
             borrador: b ? { id: b.id, estado: b.estado, ya_cargadas: b.creadas, pendientes_propias: b.pendientesMias, pendientes_de_otras_personas: b.pendientesOtros } : null,
           };
         }),
         siguiente_cursor: pagina.nextCursor,
+        // Un grabador que no contestó: sus reuniones faltan de esta página (las de los otros vienen igual).
+        ...(pagina.fallos?.length ? { grabadores_sin_respuesta: pagina.fallos.map((f) => f.grabador) } : {}),
         ...(sinLeer === undefined ? {} : {
           sin_leer: sinLeer === null ? null : sinLeer
-            .filter((d) => !borr[`fathom:${d.recordingId}`])
+            .filter((d) => !borr[refDe(d.recordingId)])
             .map((d) => ({ recordingId: d.recordingId, titulo: d.titulo, fecha: d.fecha, por_que: d.tipo === 'fallo' ? 'la lectura falló' : `tipo ${d.tipo}`, motivo: d.motivo })),
         }),
-        nota: 'tipo ventas = sus compromisos son del lead, no van al plan. borrador null = la reunión no se leyó todavía. sin_leer = las que el cron no leyó en los últimos 14 días (null: no se pudo saber); se leen desde el modal de Fathom del plan.',
+        nota: 'tipo ventas = sus compromisos son del lead, no van al plan. borrador null = la reunión no se leyó todavía. sin_leer = las que el cron no leyó en los últimos 14 días (null: no se pudo saber); se leen desde el botón de reuniones del plan.',
       });
     },
   },
@@ -1091,7 +1099,7 @@ export const RUNNERS: Runners = {
       try {
         ya = (await terminosDelGlosario()).find((k) => k.titulo.trim().toLowerCase() === termino.toLowerCase());
       } catch {
-        return { error: 'No pude leer el glosario de este negocio para ver si el término ya estaba. Intenta de nuevo en un momento.' };
+        return { error: 'No pude leer el glosario de este negocio para ver si el término ya estaba. Intenta de nuevo en un momento.', falla: true };
       }
       if (ya && ya.cuerpo.trim() === definicion) return { error: `«${termino}» ya está en el glosario con esa misma definición.` };
       // El resumen lleva la definición COMPLETA: lo que se confirma es lo que se escribe.

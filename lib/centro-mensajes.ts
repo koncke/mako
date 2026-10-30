@@ -193,14 +193,20 @@ export const sinOcultos = (lineas: readonly LineaChat[], m: MarcasChat | null | 
   !m?.ocultos.length ? [...lineas] : lineas.filter((l) => { const id = idDeLinea(l); return !id || !m.ocultos.includes(id); });
 
 // ── El menú de un mensaje (mantener apretado, clic derecho o la flechita) ──────────────────────────────────────
-export type OpcionMensaje = { id: 'responder' | 'reenviar' | 'copiar' | 'info' | 'destacar' | 'fijar' | 'eliminar'; label: string };
+export type OpcionMensaje = { id: 'transcripcion' | 'responder' | 'reenviar' | 'copiar' | 'info' | 'destacar' | 'fijar' | 'eliminar'; label: string };
 /**
  * Las opciones de un mensaje, en el ORDEN de WhatsApp en el iPhone (Responder, Reenviar, Copiar, Info, Destacar, Fijar,
  * Eliminar). «Info» sólo en lo PROPIO, como allá: de lo que contestó el chat no hay entregas que mirar. Destacar y Fijar
  * cambian de nombre si ya lo están.
  */
-export function opcionesDelMensaje(m: { id: IdMensaje; propio: boolean }, marcas: MarcasChat): OpcionMensaje[] {
+export function opcionesDelMensaje(
+  m: { id: IdMensaje; propio: boolean; trabajo?: { voz?: unknown } | null }, marcas: MarcasChat,
+  /** La transcripción de esta nota de voz ya está abierta (app/admin/operaciones/voces-enviadas.ts). */
+  transcripcionAbierta = false,
+): OpcionMensaje[] {
   return [
+    // Una nota de voz, primero lo que la lee (26/10/2026, Martín: «de ultima en los 3 puntitos ver la transcripción»).
+    ...(m.trabajo?.voz ? [{ id: 'transcripcion' as const, label: transcripcionAbierta ? 'Ocultar transcripción' : 'Ver transcripción' }] : []),
     { id: 'responder', label: 'Responder' },
     { id: 'reenviar', label: 'Reenviar' },
     { id: 'copiar', label: 'Copiar' },

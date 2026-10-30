@@ -20,7 +20,7 @@
 //    el auto-scroll va AHÍ: durante un arrastre nativo el navegador congela los timers y el rAF.
 // =============================================================================
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { bloqueDef, casaDelBloque, esTabFicha, FUENTES_RESPUESTA, REDES, type BloqueId, type FuenteRespuesta, type LugarFicha, type Red } from '@/lib/ficha/catalogo';
@@ -30,13 +30,51 @@ import { tituloDeBloque } from '@/lib/ficha/registro';
 import { ICONOS_BLOQUE } from '@/lib/ficha/api';
 import { DATOS_AVISABLES, NO_IGNORABLES } from '@/lib/datos-aviso';
 import type { StepId } from '@/lib/stage-requirements';
-import { anchosDeLaBarra, bloquesDeLaGrilla, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
+import { anchosDeLaBarra, bloquesDeLaGrilla, datosSinUno, compartiendoFila, cubreDe, disenoADibujar, disenosOfrecidos, lugarAlSoltar, ocurrencia, type BloqueEnGrilla, type DispositivoFicha } from './armar';
 import { entradaDe } from './registro';
 import { Flotante } from './Flotante';
 import type { CtxFicha } from './tipos';
 import { NOMBRE_FUENTE, preguntasDelLead } from './resumen/logica';
 
 type Soltar = { indice: number; lado: 'antes' | 'despues' };
+
+/**
+ * La ✕ de cada fila del bloque elegido (24/10/2026). El cuerpo del bloque es `inert` personalizando, así que la ✕ no puede
+ * vivir adentro de la fila: se mide dónde quedó cada fila marcada (`[data-dato]`) y se dibuja encima, en la caja del bloque.
+ * Se vuelve a medir si la caja cambia de tamaño. Con una sola fila no hay ✕: el bloque necesita al menos un dato (para no
+ * tenerlo, se quita el bloque).
+ */
+function QuitarDeLaFila({ onQuitar }: { onQuitar: (dato: string) => void }) {
+  const ancla = useRef<HTMLSpanElement>(null);
+  const [filas, setFilas] = useState<Array<{ id: string; nombre: string; top: number; left: number }>>([]);
+  useLayoutEffect(() => {
+    const caja = ancla.current?.parentElement;
+    if (!caja) return;
+    const medir = () => {
+      const r = caja.getBoundingClientRect();
+      setFilas([...caja.querySelectorAll<HTMLElement>('[data-dato]')].map((el) => {
+        const e = el.getBoundingClientRect();
+        return { id: el.dataset.dato ?? '', nombre: el.dataset.datoNombre ?? el.dataset.dato ?? '', top: e.top - r.top + e.height / 2, left: e.right - r.left };
+      }).filter((f) => f.id));
+    };
+    medir();
+    if (typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(medir);
+    ro.observe(caja);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <span ref={ancla} aria-hidden={filas.length < 2 || undefined}>
+      {filas.length > 1 && filas.map((f) => (
+        <button key={f.id} type="button" className="fb-quitar-dato" style={{ top: f.top, left: f.left }}
+          title={`Sacar ${f.nombre} del bloque`} aria-label={`Sacar ${f.nombre} del bloque`}
+          onClick={(e) => { e.stopPropagation(); onQuitar(f.id); }}>
+          <IconoMenu nombre="cerrar" size={12} />
+        </button>
+      ))}
+    </span>
+  );
+}
 
 export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgregar, epico = false, dispositivo = 'escritorio', avisaDe }: {
   /** ¿Ese dato entra en «datos sin marcar» en este funnel? Lo usa «Obligatorio» de la barra del bloque. */
@@ -164,6 +202,18 @@ export function Armador({ tab, lista, ctx, editando, sel, onSel, onCambio, onAgr
           <span className="fb-rotulo" title={incluidos.length ? `Incluye: ${incluidos.join(', ')}` : undefined}>
             <IconoMenu nombre={icono} size={13} /> {titulo}
           </span>
+        )}
+        {/* ⚠️ «QUE SE PUEDA EDITAR CADA COSA» (24/10/2026). Martín: «en el bloque de "Contacto" no puedo sacar EMPRESA, y en
+            general debes revisas que todo sea editable». «Datos ▾» ya lo hacía desde la barra y no se encontraba: el cuerpo
+            del bloque es `inert` acá, y la persona busca sacar la fila desde la fila. Con el bloque elegido, cada fila
+            marcada (`data-dato`) lleva su ✕ al lado, la MISMA operación que «Datos ▾» (o «Opciones ▾» en las redes). */}
+        {elegido && (b.def.datos || b.def.opciones?.includes('redes')) && (
+          <QuitarDeLaFila onQuitar={(dato) => {
+            const redes = !b.def.datos;
+            const quedan = datosSinUno(redes ? (b.puesto.opciones?.redes ?? REDES) : datosDelPuesto(b.def, b.puesto.opciones), dato);
+            if (!quedan) return;
+            onCambio({ op: 'opciones', tab, bloque: b.def.id, n: b.n, opciones: redes ? { redes: quedan as Red[] } : { datos: quedan } });
+          }} />
         )}
         {elegido && (
           <BarraBloque tab={tab} b={b} icono={icono} titulo={titulo} tituloDeSiempre={tituloDeBloque(b.def, ctx.stages)} incluidos={incluidos} onCambio={onCambio} avisaDe={avisaDe} hermanos={hermanos}

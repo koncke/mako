@@ -1,20 +1,18 @@
 // =============================================================================
-// /ai-avatar/plantillas — la galería de temas por tipo de anuncio
+// /ai-avatar/plantillas — DEPRECADA el 29/10/2026: redirige al estudio
 // =============================================================================
-// Copiado de la galería de Templates de HeyGen (categorías de sus anuncios UGC).
+// Era «Templates»: la galería de temas (hoy, los presets de «Nueva») (una de las cuatro secciones copiadas de HeyGen el 17/10). Martín, 29/10: «replica a higgsfield tal
+// cual» y, para Create, «no quiero otras tabs... prefiero deprecar antes que conservar». AI Avatar es UNA pantalla
+// (../Estudio.tsx); la ruta queda para que un link viejo no dé 404, y lleva su query.
 
+import { redirect } from 'next/navigation';
 import { requireAiAvatar } from '../acceso';
-import { Pagina, PageHeader } from '@/app/_ui';
-import { Plantillas } from '../AiAvatarCliente';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PlantillasPage() {
+export default async function PlantillasPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAiAvatar();
-  return (
-    <Pagina>
-      <PageHeader titulo="Templates" proposito="Elige un tema y úsalo con tu cara." />
-      <Plantillas />
-    </Pagina>
-  );
+  await searchParams;
+  redirect(await rutaConWs('/ai-avatar'));
 }

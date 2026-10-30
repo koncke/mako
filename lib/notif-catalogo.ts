@@ -21,9 +21,16 @@
 // usuario un interruptor para algo que nunca se enciende es peor que no
 // ofrecerlo: apaga algo que ya estaba apagado y cree que hizo algo.
 //
-// Al cablear un aviso nuevo, sumá su id acá para que aparezca en la pantalla. Si
-// te olvidás, el aviso igual sale (el default es "activo"): lo que se pierde es
-// la posibilidad de apagarlo, no el aviso.
+// Al cablear un aviso nuevo, sumá su id acá SÓLO SI SALE: que vaya por un evento de MaKo (`AVISOS_POR_EVENTO`) o que
+// tenga `porDefecto` 'on' o 'siempre' en el catálogo. Sin `porDefecto` nace APAGADO (`estaPrendida`, lib/plantillas.ts),
+// y el interruptor de esta pantalla no lo prende: el envío lee el store, no esto. Mostrarlo sería un interruptor que no hace
+// nada. Lo fija tests/notificaciones-solo-lo-que-sale.test.ts.
+//
+// ⚠️ 26/10/2026 (Martín, por el Ops Center: «Sacarlos de Notificaciones»): salieron NUEVE que estaban acá y no le salían a
+// ningún negocio (medido en producción: ninguno los tenía prendidos en su store, y «MaKo Messages», la única pantalla que
+// podía prenderlos, se fue ese día). Son crm-lead-estancado, crm-lead-quieto, tareas-autocompletadas, retro-lista,
+// plan-proyecto-vence, avisos-resumen, objetivo-en-riesgo, meta-alcanzada y quarter-planificar. Siguen en el catálogo y en
+// su código: si un día se quiere que salgan, se les pone `porDefecto` (y vuelven acá). docs/hallazgos-comunicacion.md.
 
 // ── 1. Dentro de la app (pop-up + sonido) ────────────────────────────────────
 export type NotifInAppDef = {
@@ -164,10 +171,6 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'reunion-cancelada', titulo: 'Reunión cancelada o reagendada', sub: 'Se libera o se mueve un horario ya reservado.' },
   { id: 'reunion-ocurrio-fathom', titulo: 'Grabación de reunión lista', sub: 'Termina una reunión y queda la transcripción.' },
   { id: 'reunion-tareas-al-plan', titulo: 'Tareas esperando confirmación', sub: 'De una reunión salieron tareas para revisar en el plan.' },
-  { id: 'tareas-autocompletadas', titulo: 'Tareas cerradas automáticamente', sub: 'MaKo dio por hechas tareas que ya estaban resueltas.' },
-  { id: 'plan-proyecto-vence', titulo: 'Proyectos atrasados o por vencer', sub: 'UN mensaje por día con todos juntos, y solo si algo cambió.' },
-  { id: 'avisos-resumen', titulo: 'El resumen de la mañana', sub: 'El mensaje que junta los avisos que no eran urgentes. Apagarlo NO los devuelve al momento: los deja sin salir.' },
-  { id: 'retro-lista', titulo: 'Retro semanal lista', sub: 'Queda armada la retro de la semana, con su PDF.' },
   { id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp sin responder', sub: 'Un contacto escribe y todavía nadie le contestó.' },
   // Cableado el 06/10/2026 (lib/lineas-vigilante.ts, desde el cron de alertas).
   { id: 'wa-desconectado', titulo: 'Se cayó tu WhatsApp', sub: 'Tu línea por QR dejó de mandar y recibir. Avisa una vez y cada 24 h.' },
@@ -175,11 +178,6 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'wa-reconectado', titulo: 'Volvió tu WhatsApp', sub: 'La línea que se había caído vuelve a mandar y recibir.' },
   { id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo un anuncio', sub: 'Un anuncio publicado necesita aprobación manual para salir.' },
   { id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', sub: 'Se cortó el seguimiento y las métricas quedan ciegas.' },
-  { id: 'objetivo-en-riesgo', titulo: 'Tu objetivo del trimestre va atrasado', sub: 'Lo acumulado quedó por debajo del ritmo que hace falta para llegar.' },
-  { id: 'meta-alcanzada', titulo: 'Cumpliste un objetivo', sub: 'Un objetivo del trimestre llegó a su meta.' },
-  { id: 'quarter-planificar', titulo: 'Falta planificar el trimestre que viene', sub: 'Se está terminando el Quarter y el siguiente todavía está vacío.' },
-  { id: 'crm-lead-estancado', titulo: 'Leads quietos en una etapa', sub: 'MaKo movió los que pasaron el plazo de su columna. UN mensaje por día con todos juntos.' },
-  { id: 'crm-lead-quieto', titulo: 'Leads que pasaron el plazo de su etapa', sub: 'Siguen quietos más días de los que le pusiste a la etapa. UN mensaje por día con todos juntos.' },
 ];
 
 // ── 4. Web Push (MaKo Mobile): lo que le llega al TELÉFONO de una persona ────
@@ -215,8 +213,47 @@ export const PUSH_TIPOS: AvisoWaDef[] = [...PUSH_DE_MAKO, ...AVISOS_WA_EN_VIVO];
 // escritorio son de admin (adeudos, cuotas con montos, reportes), y el teléfono no los abre más.
 export const PUSH_SOLO_ADMINS: ReadonlySet<string> = new Set(['mako-pendiente', 'mako-propuesta']);
 
-/** `activo` = el interruptor de toda la persona; `items[tipo] === false` apaga uno. */
-export type NotifPush = { activo: boolean; items: Record<string, boolean> };
+/** `activo` = el interruptor de toda la persona; `items[tipo] === false` apaga uno. `silencio` = «No molestar» (abajo). */
+export type NotifPush = { activo: boolean; items: Record<string, boolean>; silencio?: Silencio | null };
+
+/**
+ * «NO MOLESTAR» (25/10/2026, Settings › Notificaciones; el «Notification schedule» de Slack, docs/settings/referencia.md):
+ * un horario en el que a la persona NO le llegan avisos al celular. Horas en medias horas (0 a 23.5), en la zona horaria
+ * de SU perfil. `desde > hasta` cruza la medianoche (22 → 8). Lo que cae adentro no se manda (no se acumula para después:
+ * es lo que hace Slack, y un «se juntaron 14 avisos» a las 8 de la mañana es otro problema).
+ */
+export type Silencio = { desde: number; hasta: number };
+
+/** Lo que se ofrece por defecto al prender «No molestar». */
+export const SILENCIO_SUGERIDO: Silencio = { desde: 22, hasta: 8 };
+
+const esMediaHora = (h: unknown): h is number => typeof h === 'number' && Number.isFinite(h) && h >= 0 && h < 24 && Math.round(h * 2) === h * 2;
+
+/** El silencio guardado, o null si no hay uno válido (una ventana de cero horas no es un silencio). */
+export function normalizarSilencio(raw: unknown): Silencio | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const { desde, hasta } = raw as Partial<Silencio>;
+  if (!esMediaHora(desde) || !esMediaHora(hasta) || desde === hasta) return null;
+  return { desde, hasta };
+}
+
+/** La hora del reloj (con minutos, en fracción) en `tz`. Una zona inválida cae en la de MaKo por defecto (Tijuana). */
+function horaEn(tz: string, ahora: Date): number {
+  const leer = (zona: string) => {
+    const partes = new Intl.DateTimeFormat('en-US', { timeZone: zona, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ahora);
+    const n = (t: string) => Number(partes.find((p) => p.type === t)?.value ?? 0);
+    return n('hour') + n('minute') / 60;
+  };
+  try { return leer(tz); } catch { return leer('America/Tijuana'); }
+}
+
+/** ¿`ahora` cae en el «No molestar» de esta persona? Sin silencio guardado, nunca. */
+export function enSilencio(prefs: Pick<NotifPush, 'silencio'>, tz: string, ahora: Date = new Date()): boolean {
+  const s = normalizarSilencio(prefs.silencio);
+  if (!s) return false;
+  const h = horaEn(tz || 'America/Tijuana', ahora);
+  return s.desde < s.hasta ? h >= s.desde && h < s.hasta : h >= s.desde || h < s.hasta;
+}
 
 /** El rol con el que se decide el default. Ausente = no se sabe: se trata como admin (abajo). */
 export type RolPush = 'admin' | 'closer' | 'setter';
@@ -244,9 +281,11 @@ export function normalizarPush(raw: unknown, rol: RolPush): NotifPush {
   // Se conservan TODOS los que vinieron como booleano (no sólo los ofrecidos): un aviso que
   // hoy no está en PUSH_TIPOS y la persona apagó cuando sí estaba no vuelve a sonar solo.
   for (const [k, v] of Object.entries(src)) if (typeof v === 'boolean') items[k] = v;
+  const silencio = normalizarSilencio(o.silencio);
   return {
     activo: typeof o.activo === 'boolean' ? o.activo : rol === 'admin',
     items,
+    ...(silencio ? { silencio } : {}),
   };
 }
 

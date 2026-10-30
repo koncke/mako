@@ -21,6 +21,7 @@
 import { useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
 import { TelefonoConPais } from '../_components/TelefonoConPais';
+import { SELECT_AJUSTES } from '../_ui/Ajustes';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 import { telefonoValido, emailValido, type Destinatarios } from '@/lib/notif-catalogo';
 
@@ -30,7 +31,7 @@ const MONO = "'Geist Mono', monospace";
 export type { Destinatarios };
 
 const inputStyle: CSSProperties = {
-  flex: 1, minWidth: 0, padding: '9px 12px', borderRadius: 10,
+  flex: 1, minWidth: 0, height: 34, padding: '0 10px', borderRadius: 8,
   border: '1px solid var(--border-strong)', background: 'var(--surface)',
   color: 'var(--ink)', fontSize: 14, fontFamily: SANS,
 };
@@ -134,51 +135,34 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
     setNuevo(''); setMotivo(null);
   };
 
+  // EN FILAS, como el resto de Settings (25/10/2026, la referencia de Linear: docs/settings/referencia.md): un destinatario por
+  // fila de la tarjeta, con «Principal» y la ✕ a la derecha, y la última fila es la de agregar. Antes eran cajitas sueltas
+  // con un campo debajo, adentro de otra tarjeta.
   return (
-    <div>
+    <div className="aj-dest">
       {titulo && <span style={labelStyle}>{titulo}</span>}
-      {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: titulo ? -4 : 0, marginBottom: 10, lineHeight: 1.45 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12.5, color: 'var(--dim)', marginBottom: 10, lineHeight: 1.45 }}>{sub}</div>}
 
-      {items.length === 0 && (
-        // El vacío no explica la consecuencia: el campo para arreglarlo está justo
-        // abajo, así que el párrafo ocupaba el lugar del arreglo.
-        <div style={{ fontSize: 12.5, color: 'var(--faint)', marginBottom: 8 }}>Todavía no hay ninguno.</div>
-      )}
+      {items.map((v, i) => (
+        <div key={`${v}-${i}`} className="aj-dest__fila">
+          <span className="aj-fila-icono"><Icon name={icono} size={16} /></span>
+          <span className="aj-dest__valor">{paraLeer(tipo, v)}</span>
+          {i === 0 && items.length > 1 && <span className="aj-pastilla" data-tono="good">Principal</span>}
+          <button
+            type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
+            aria-label={`Quitar ${v}`} title="Quitar" className="aj-boton" data-variante="texto"
+          >
+            Quitar
+          </button>
+        </div>
+      ))}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
-        {items.map((v, i) => (
-          <div key={`${v}-${i}`} style={{
-            display: 'flex', alignItems: 'center', gap: 9, padding: '6px 9px',
-            borderRadius: 9, background: 'var(--surface)', border: '1px solid var(--border)',
-          }}>
-            <span style={{ display: 'flex', color: 'var(--dim)', flex: 'none' }}><Icon name={icono} size={16} /></span>
-            <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{paraLeer(tipo, v)}</span>
-            {i === 0 && (
-              <span style={{
-                flex: 'none', fontSize: 10.5, fontFamily: MONO, letterSpacing: '.06em', textTransform: 'uppercase',
-                color: 'var(--dim)', background: 'var(--surface)', border: '1px solid var(--border-strong)',
-                borderRadius: 999, padding: '2px 8px',
-              }}>
-                Principal
-              </span>
-            )}
-            <button
-              type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
-              aria-label={`Quitar ${v}`} title="Quitar"
-              style={{ flex: 'none', border: 0, background: 'transparent', color: 'var(--faint)', cursor: 'pointer', display: 'flex', padding: 3 }}
-            >
-              <Icon name="x" size={15} />
-            </button>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+      <div className="aj-dest__nuevo">
         <div style={{ flex: 1, minWidth: 0 }}>
           {tipo === 'tel' ? (
             <TelefonoConPais
               lada={lada} numero={nuevo} onLada={cambiarLada} onNumero={escribir}
-              onEnter={agregar} inputStyle={inputStyle} placeholder={placeholder} portalTo={portalTo}
+              onEnter={agregar} inputStyle={inputStyle} placeholder={placeholder} portalTo={portalTo} estiloLada={SELECT_AJUSTES}
             />
           ) : (
             <input
@@ -187,6 +171,7 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); agregar(); } }}
               placeholder={placeholder}
               inputMode="email"
+              aria-label="Agregar un email"
               style={{ ...inputStyle, width: '100%' }}
             />
           )}
@@ -210,19 +195,19 @@ export function Lista({ titulo, sub, items, onChange, placeholder, icono, tipo, 
           title={pendiente ? 'Agregar' : 'Escribe uno para agregarlo'}
           style={{
             flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, borderRadius: 9, cursor: 'pointer',
+            width: 34, height: 34, borderRadius: 8, cursor: 'pointer',
             border: `1px solid ${pendiente ? 'var(--primary)' : 'var(--border-strong)'}`,
             background: pendiente ? 'var(--primary)' : 'var(--surface)',
             color: pendiente ? '#fff' : 'var(--faint)',
             transition: 'background .13s, border-color .13s, color .13s',
           }}
         >
-          <Icon name="check" size={17} />
+          <Icon name="check" size={16} />
         </button>
       </div>
 
       {motivo && (
-        <div style={{ marginTop: 8, fontSize: 12.5, color: 'var(--bad)', lineHeight: 1.45 }}>{motivo}</div>
+        <div className="aj-dest__nota" style={{ color: 'var(--bad)' }}>{motivo}</div>
       )}
     </div>
   );

@@ -403,6 +403,9 @@
   background: var(--surface-2); color: var(--ink); border: 1px solid var(--border);
 }
 .m-icono--azul { background: var(--primary-bg); border-color: transparent; color: var(--primary-strong); }
+/* «Cerrar sesión» como fila (CerrarSesion variante «fila», 26/10/2026): en rojo, con el ícono de salir. */
+.m-salir { color: var(--bad); }
+.m-salir__ico { color: var(--bad); }
 /* La píldora de ESTADO: el color va en el PUNTO; el texto, en tinta. */
 .m-pildora {
   display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;

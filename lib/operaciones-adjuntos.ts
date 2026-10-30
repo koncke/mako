@@ -24,7 +24,7 @@ import { BUCKET_ADJUNTOS } from './chart-chats';
 import { validarAdjuntos } from './mako-adjuntos';
 import {
   DESTINO_RE, MAX_ADJUNTOS, MAX_BYTES_ADJUNTO, MAX_BYTES_ADJUNTO_TURNO, MAX_NOMBRE_ADJUNTO, MIMES_ADJUNTO, MIMES_ADJUNTO_TURNO, UUID_RE,
-  MINIATURA_VENCE_MS, fotosDeFirmado, leerFirmable, mimeDeMiniatura, miniaturasVencidas, problemaDeMiniatura, refAdjuntoTurno,
+  MINIATURA_VENCE_MS, fotosDeFirmado, leerFirmable, mimeDeMiniatura, miniaturasVencidas, problemaDeMiniatura, problemaDeVoz, refAdjuntoTurno, vozDeFirmado,
   type AdjuntoPedido, type FotoDeTrabajo, type MimeAdjunto, type TurnoChat,
 } from './operaciones-reglas';
 
@@ -181,28 +181,81 @@ export async function fotosEnviadasDe(ids: readonly string[], ahora = Date.now()
   return out;
 }
 
+// ── Las notas de voz enviadas, para cualquier dispositivo (26/10/2026) ────────────────────────────────────────────────
+// El MP3 de una nota que Martín grabó en la caja: lo sube el navegador que la grabó, después de mandar, y se ve con la
+// misma URL firmada de 10 minutos que la miniatura de una foto. Por qué y cómo: lib/operaciones-reglas.ts («Las notas de voz
+// enviadas»). Una carpeta propia, por el id del TRABAJO (uno por trabajo), y el mismo barrido de 14 días.
+// ⚠️ SE GUARDA SÓLO EL DE UN TRABAJO QUE FIRMÓ SER UNA NOTA (`vozDeFirmado`), y sólo si es un MP3 (`problemaDeVoz`).
+const CARPETA_VOCES = 'operaciones-voces';
+const rutaVoz = (pedido: string) => `${CARPETA_VOCES}/${pedido}`;
+/** La URL de una nota dura una HORA (la de una foto, 10 minutos): un audio se escucha más tarde que una foto se mira, y
+ *  una URL vencida a mitad de la conversación deja el ▶ apagado. La burbuja pide otra antes (VozEnviada.tsx). */
+const VER_VOZ_S = 60 * 60;
+
+export type GuardadoVoz = GuardadoMiniatura;
+
+/** Guarda el MP3 de la nota de voz del trabajo `pedido`, si de verdad lo fue y es un MP3. */
+export async function guardarVozEnviada(pedido: string, bytes: Uint8Array): Promise<GuardadoVoz> {
+  if (!UUID_RE.test(pedido)) return { ok: false, error: 'No encontré ese mensaje.', status: 404 };
+  const { data, error: noLeyo } = await getSupabaseServer().from('operaciones_pedidos').select('firmado').eq('id', pedido).maybeSingle();
+  if (noLeyo) throw new Error(noLeyo.message);
+  if (!data) return { ok: false, error: 'No encontré ese mensaje.', status: 404 };
+  const problema = problemaDeVoz(bytes, vozDeFirmado(data.firmado as string | null));
+  if (problema) return { ok: false, error: problema, status: 400 };
+  const { error } = await bucket().upload(rutaVoz(pedido), Buffer.from(bytes), {
+    contentType: 'audio/mpeg', upsert: true, headers: { 'cache-control': 'private, max-age=600' },
+  });
+  return error ? { ok: false, error: 'No pude guardar la nota: vuelve a intentarlo.', status: 503 } : { ok: true };
+}
+
+/**
+ * Las notas de voz de estos trabajos, con su URL firmada (una hora), con la forma de las fotos (una por trabajo: así la
+ * pide el mismo pedidor, fotos-remotas.ts). Un trabajo que no firmó ser una nota, sin el MP3 en el servidor (la subida
+ * falló) o de hace más de 14 días no aparece: su burbuja dice la transcripción. Tira si no puede leer o firmar.
+ */
+export async function vocesEnviadasDe(ids: readonly string[], ahora = Date.now()): Promise<Record<string, { nombre: string; url: string }[]>> {
+  const validos = [...new Set(ids)].filter((i) => UUID_RE.test(i)).slice(0, 100);
+  if (!validos.length) return {};
+  const { data, error } = await getSupabaseServer().from('operaciones_pedidos').select('id, firmado').in('id', validos)
+    .gte('created_at', new Date(ahora - MINIATURA_VENCE_MS).toISOString());
+  if (error) throw new Error(error.message);
+  const conVoz = (data ?? []).filter((f) => vozDeFirmado(f.firmado as string | null)).map((f) => String(f.id));
+  if (!conVoz.length) return {};
+  const { data: firmadas, error: noFirmo } = await bucket().createSignedUrls(conVoz.map(rutaVoz), VER_VOZ_S);
+  if (noFirmo || !firmadas) throw new Error(noFirmo?.message ?? 'no pude firmar las notas');
+  const out: Record<string, { nombre: string; url: string }[]> = {};
+  for (const d of firmadas) {
+    const id = d.path?.slice(CARPETA_VOCES.length + 1);
+    if (id && d.signedUrl) out[id] = [{ nombre: 'nota-de-voz.mp3', url: d.signedUrl }];
+  }
+  return out;
+}
+
 /** De a cuántas lista y borra el barrido, y cuántas vueltas da como mucho en una pasada. */
 const POR_BARRIDA = 100;
 const VUELTAS_BARRIDO = 20;
 
 /**
- * Borra las miniaturas vencidas (`MINIATURA_VENCE_MS`). Lista de la más vieja a la más nueva, de a 100, y sigue mientras
- * la tanda entera esté vencida (la primera que no lo está dice que el resto es más nuevo). Nunca tira: es limpieza.
+ * Borra las miniaturas y las notas de voz vencidas (`MINIATURA_VENCE_MS`), cada carpeta por su lado. Lista de la más vieja a
+ * la más nueva, de a 100, y sigue mientras la tanda entera esté vencida (la primera que no lo está dice que el resto es más
+ * nuevo). Nunca tira: es limpieza.
  */
 export async function barrerMiniaturasViejas(ahora = Date.now()): Promise<number> {
   let borradas = 0;
-  try {
-    for (let v = 0; v < VUELTAS_BARRIDO; v += 1) {
-      const { data, error } = await bucket().list(CARPETA_ENVIADAS, { limit: POR_BARRIDA, sortBy: { column: 'created_at', order: 'asc' } });
-      if (error || !data) break;
-      const viejas = miniaturasVencidas(data, ahora);
-      if (!viejas.length) break;
-      const { error: noBorro } = await bucket().remove(viejas.map(rutaEnviada));
-      if (noBorro) break;
-      borradas += viejas.length;
-      if (viejas.length < POR_BARRIDA) break;
-    }
-  } catch { /* es limpieza */ }
+  for (const carpeta of [CARPETA_ENVIADAS, CARPETA_VOCES]) {
+    try {
+      for (let v = 0; v < VUELTAS_BARRIDO; v += 1) {
+        const { data, error } = await bucket().list(carpeta, { limit: POR_BARRIDA, sortBy: { column: 'created_at', order: 'asc' } });
+        if (error || !data) break;
+        const viejas = miniaturasVencidas(data, ahora);
+        if (!viejas.length) break;
+        const { error: noBorro } = await bucket().remove(viejas.map((n) => `${carpeta}/${n}`));
+        if (noBorro) break;
+        borradas += viejas.length;
+        if (viejas.length < POR_BARRIDA) break;
+      }
+    } catch { /* es limpieza */ }
+  }
   return borradas;
 }
 

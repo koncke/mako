@@ -1,6 +1,159 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
-## Estado al 24/10/2026 madrugada (cuenta claude1) — leer primero
+## Estado al 25/10/2026 mediodía (cuenta claude5, chat «Landings») — leer primero
+
+Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace de `tren-j`; la sube el Cerebro.
+- **Hecho y entregado:** las puertas antes del loader; las dos tandas de landings de MaKo (SIN publicar: lo decide Martín);
+  la barra del editor del 25/10 (tooltips en un portal, el asa al margen, Compartir partido, paneles del ancho del chat,
+  «Texto» primero); la prueba gratis de 7 días con `PRUEBA_DIAS`; y **escribir en las secciones de las landings de MaKo**
+  (el clic no llegaba al iframe: docs/hallazgos-editor-landing.md → «Las secciones de las landings de MaKo no dejaban
+  escribir»).
+- **El Landing AI (pruebas A/B que corre solo), docs/diseno-pruebas-ab.md:** L1 hecha (qué sección se ve: Pixel v26, el
+  alcance por sección en «Análisis», la API y el Analyst; docs/hallazgos-landing.md → «Qué sección se ve»). Falta aceptarla
+  con datos de producción cuando despliegue. L2: hechas las reglas puras (lib/editor-landing/prueba-landing.ts: la guarda de estructura,
+  quién va fijo a A, la cookie y las cabeceras). Conectarlo a `responderPublico` espera a A1/A2 de Automations (`lib/pruebas/`,
+  rama aut-2510, ya con `asignar`, `juez`, `store` y el cron `app/api/cron/pruebas/route.ts` en 27a632789) y L3 (el agente; el ws9 queda
+  en «propone» hasta el sí de Martín). **La firma que avisó Automations el 25/10 a la noche, para su entrega que va encima de
+  27a632789:**
+  - `MEDIDORES` va por superficie y después por métrica. Los de la landing van en `MEDIDORES.landing` (`clic_conversion`, `optin`,
+    `play_manual`).
+  - Cada `Medidor` recibe `lugar` (con el doc_id) y TODAS las asignaciones de la época, así congela el primer resultado.
+  - `Asignacion.previo` es un mapa por métrica (`{ agendo: false }`).
+  - `conteosPorRama(..., { ramas, ventanaDias, hasta, metrica })` pide la métrica.
+  - Ejemplo: lib/pruebas/medidores-automatizacion.ts y lib/pruebas/resultados.ts.
+- **Verificado en producción (25/10 tarde, main 9c684f88c):** escribir en una sección de diseño (copia #42, ya en la
+  papelera), y la barra a 1280 y 1440. A 1280 la barra no entraba: arreglado en esta rama (el título cede hasta 160 px).
+- **Todo editable en las páginas de MaKo y el clic derecho (25/10 tarde):** hecho en la rama, con el inventario de la #32
+  medido en producción (docs/hallazgos-editor-landing.md → «Todo editable…»). Falta probarlo con clics cuando despliegue.
+- **La barra «Texto» sin «Editar con IA» (25/10 tarde):** hecho en la rama; la IA queda en el chat, en ⌘E y en la barra
+  que aparece sobre un texto elegido.
+- **El color de fondo de cada sección de las páginas de MaKo (25/10 tarde):** hecho en la rama: menú ⋮, clic derecho y la API
+  (docs/hallazgos-editor-landing.md → «El color de fondo…»). Con el pedido del Cerebro, el margen entre secciones queda
+  adentro de lo pintado: dos pintadas se tocan sin franja. Falta probarlo con clics cuando despliegue.
+- **Los íconos por la API (25/10 tarde):** hecho en la rama (cambiar_icono_landing, ver_iconos_landing, y los `iconos` de cada
+  sección en ver_secciones_landing; docs/hallazgos-api-mako.md → «Los íconos por la API»).
+- **Otros alojadores de video (pedido de Martín por el Cerebro, 25/10 noche).** Tanda 1 hecha en la rama: el Pixel v27 mide
+  Bunny Stream y Cloudflare Stream, y el YouTube con enablejsapi=1 (docs/hallazgos-landing.md → «Otros alojadores de video»).
+  El mapa de dónde depende MaKo de Panda, medido ese día, para las tandas que siguen:
+  - **Los números por API van a `marketing_metrics_daily`** (`plataforma`, CHECK sólo `meta|youtube|panda`, lib/types.ts:16).
+    Los escribe el cron `app/api/cron/panda-daily` (lib/panda.ts). Los leen lib/queries.ts (funnel, serie del VSL,
+    tendencias), lib/sources.ts (`vsl_panda`), lib/graficos-datos.ts y `/general`.
+  - **La duración de cada video sale SÓLO de Panda** (`raw_payload.duration_seconds`, `getDuracionesVsl` en lib/leads.ts:2492):
+    sin ella, los segundos del Pixel no se vuelven porcentaje en el CRM ni en «Cuánto ven el video».
+  - **El catálogo** (título, reproductor, portada) para nombrar videos: `catalogoPanda` en `videosDetectados`
+    (lib/landing-token.ts).
+  - **La clave:** `PANDA_API_KEY` en lib/integraciones-catalogo.ts y lib/metodo-catalogo.ts, con el modal genérico
+    (app/integraciones/ServicioConfigForm.tsx) y «Probar conexión» (lib/metodo-verificar.ts). Settings está limpiando
+    Integraciones: se le preguntó qué toca antes de sumar las nuevas.
+  - **El Web Generator** reconoce YouTube, Vimeo, Loom, Drive, Panda, Wistia, Bunny y Fathom (lib/embeds.ts); **Cloudflare
+    en ningún lado**.
+  - **Los cursos** guardan el tipo (`curso_clases.video_tipo`, CHECK sin panda, wistia ni bunny: van como `url`) y miden
+    el avance con YouTube, Vimeo, Panda y el video propio; **Wistia y Bunny se ven «sin medir»** (lib/curso.ts:436,
+    app/compartido/curso/[token]/Reproductor.tsx).
+  - **La API:** `listar_videos_panda` y `ver_metricas_video_panda` (lib/api-mako/areas/landing.def.ts) son sólo de Panda.
+  - **Tanda 2 hecha:** la duración de cada video sale también de los eventos del Pixel (lib/vsl-retencion.ts →
+    `duracionesDeEventos`), para cualquier alojador y sin clave.
+  - **Tanda 3 hecha:** el catálogo de Vimeo, Wistia, Bunny y Cloudflare (lib/alojadores-video.ts y -api.ts, claves
+    `VIMEO_TOKEN`, `WISTIA_TOKEN`, `BUNNY_STREAM_KEY` + `BUNNY_STREAM_LIBRARY`, `CLOUDFLARE_STREAM_TOKEN` +
+    `CLOUDFLARE_ACCOUNT_ID`), «Nombrar videos» con los títulos de todos, Cloudflare en el editor (lib/embeds.ts), las
+    clases miden Wistia, Bunny y Cloudflare (`VideoAlojado`), y `listar_videos_alojados` en la API.
+  - **Las tarjetas de Integraciones**, hechas en los cuatro registros (claves en CLAVES_ALOJADOR = sus `envs`).
+  - **Los números por día de Wistia y Bunny**, hechos: cron `app/api/cron/videos-daily` (35 13 * * *, sólo el VSL marcado),
+    las lecturas del VSL de todos los alojadores (`PLATAFORMAS_VIDEO`) y la migración SIN NÚMERO
+    `supabase/migrations/0336_alojadores_video_plataforma.sql` (APLICADA el 25/10/2026 19:27, con el sí de Martín).
+  - **El presupuesto del turno de la app** (tren-k): se recortaron ver_secciones_landing y configurar_formulario_landing
+    para que «cambia el formulario de la landing» reciba su operación; margen de 38 caracteres. Antes de sumar o alargar
+    una operación del área, medir con `scripts/presupuesto-turno-app.mts`.
+- **Sigue (alojadores):** mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
+  Wistia y Bunny (pide una migración del CHECK de `marketing_metrics_daily.plataforma` y que lib/queries.ts no lea sólo
+  `panda`); probar el catálogo con una cuenta real de cada uno.
+- **Sigue:**
+  probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;
+  publicar las landings con el OK de Martín;
+  Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
+
+## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings»)
+
+**La tanda de Martín del 24/10 noche** (docs/feedback-24-10.md, «Editor web → chat Landings», puntos 3 a 10) se hace de a
+tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), y la sube el Cerebro por el tren.
+
+- **Tanda 1 (puntos 3, 7 y 9): hecha, sin mirar con clics.** «Nueva landing» se abre adentro del editor (el Panel en modo
+  `embebido` en lugar de la barra y el lienzo, sin navegar); Compartir es UN botón azul con su ▾; el panel Compartir se
+  copió de Canva; «Guardado» se fue. Detalle y trampas: docs/hallazgos-editor-landing.md → «"Nueva landing" adentro del
+  editor…». **Falta mirarla a 1280 px** (la RAM no dio para levantar el editor).
+- **Tanda 2a (punto 5 y la parte de pantalla del 10): hecha, sin mirar con clics.** La columna ⋮ de cada sección va
+  AFUERA en un margen de 40 px del lienzo (en una landing de escritorio); se fue ✨ «Editar con IA»; la tira de secciones
+  es una vista de la tarjeta del chat con su botón en la barra; el chat no se pliega; el placeholder es «Escribe a MaKo».
+  Detalle: docs/hallazgos-editor-landing.md → «Los botones amontonados en la esquina del lienzo…».
+- **Tanda 2b (el resto del 10): hecha, sin mirar con clics.** «Discutir | Editar» en lugar de los chips de alcance;
+  «Discutir» es una acción nueva de la IA (`accion: 'discutir'`, prompts en el registro); «Editar» manda la landing entera
+  con el cursor como pista. Detalle: docs/hallazgos-editor-landing.md → «"Discutir | Editar" en el chat del editor».
+  ⚠️ Automations sigue con su copia del selector (app/automations/ChatMako.tsx): migrarla a app/_chat/SelectorIntencion.tsx.
+- **Tanda 3 (puntos 6 y 8): hecha.** El placeholder de párrafos y títulos es un renglón con «…» (medido con la hoja
+  real en Chrome sin ventana: antes se derramaba en 3 renglones); el editor de texto es un botón «Texto» que abre una
+  segunda barra sin scroll. Detalle: docs/hallazgos-editor-landing.md → «Los placeholders que se iban debajo…».
+- **Tanda 4 (punto 4): hecha.** Escribir dentro de un «Diseño editable» ya andaba (medido por CDP); lo arreglado: el clic
+  adentro activa la sección, la IA del chat ve y cambia sus TEXTOS sin tocar la forma (`{"t":"diseno"}`), y la barrita
+  suma negrita y cursiva. Detalle: docs/hallazgos-editor-landing.md → «Las páginas de MaKo editables por sección…».
+- **Ticket #9 (React #310 al abrir /web-generator): hecho.** El salto a la última landing pasa en
+  `app/web-generator/layout.tsx`, antes del loader; un test revisa toda la app. Detalle: docs/hallazgos-infra.md.
+  **Sin medir en producción** (la pestaña del Chrome de Martín no respondió).
+- **P6 (los datos de una persona en las URL del Pixel): hecho al guardar.** `lib/url-datos-personales.ts` en las rutas
+  del Pixel y en `normalizarUrl`. ⚠️ **Lo YA guardado (unas 670 filas de Código Inmobiliario y P2P Consulting) NO se
+  limpió:** `scripts/limpiar-datos-personales-urls.mts --aplicar` espera el OK del Cerebro. Detalle:
+  docs/hallazgos-landing.md → «Los datos de una persona en las URL…».
+- **P5 (el clic derecho): hecho, sin mirar con clics.** El menú de un mensaje en todos los chats con `HiloMako` (Copiar;
+  Responder en el del editor web, con la cita arriba de la caja) y, en el lienzo, el menú del ⋮ en el punto del clic.
+  Falta Responder en los otros chats (cada pantalla pasa `onCitar`). Detalle: docs/hallazgos-editor-landing.md → «El
+  clic derecho en los chats embebidos y en el lienzo».
+- **La página de Mauricio ya no da 403 en producción** (medido el 24/10 noche, sin escribir nada): docs/hallazgos-editor-landing.md.
+- **Las puertas antes del loader (25/10 madrugada): en la rama `landings-2510-b`, que nace de `tren-j`** (no de
+  `landings-2510`: el test era el mismo que reescribió Automations y el tren ya los tenía juntos). 25 carpetas, el guard
+  que cuenta las puertas, y el layout de /web-generator con la puerta siempre. Detalle: docs/hallazgos-infra.md.
+- **La landing principal con lo que hace la competencia (25/10): armada, SIN publicar.** `scripts/landings-mako-v2.mts`
+  arma las portadas A (`mako-equipo`) y B (`mako-todo-junto`) con el diseño de 100ads; mirado a 1280 y 390 en Chrome sin
+  ventana. Publicar (`--subir`, escribe en producción) lo frenó el permiso: lo decide Martín. La raíz (`--principal`, con
+  `--doc-equipo <id>` para no duplicar) va después de desplegar app/vsl/Landing.tsx. Detalle: docs/hallazgos-editor-landing.md
+  → «La landing principal con lo que hace la competencia».
+- **Sigue:**
+  - **El editor de punta a punta (26/10, prioridad de Martín): primera punta.** El menú que no se cerraba, la barra
+    «Texto» en los diseños, «Botón», reordenar con franjas, la barrita y el ⋮ que se quedan, el video y Calendly reales
+    encima de su lugar, y la red de MaKo. Test: tests/editor-web-punta-a-punta-26-10.test.ts (probado rompiéndolo, 8 de
+    8). Segunda punta: «Aplicar» de un comentario sin sección (a toda la landing) y la réplica sin IA con botones y
+    desplegables de verdad (tests/editor-web-analizador-replicar-26-10.test.ts). Falta: los clics en producción
+    después del deploy. COPIAS DE PRUEBA en producción, sin publicar: #44 (copia de la principal), #45 (desde cero) y
+    #46 (réplica de 100ads.ai): a la papelera al terminar los clics. Detalle: docs/hallazgos-editor-landing.md → «El
+    editor web de punta a punta».
+  - **Todo lo de a mano, también por prompt (27/10, Martín: «si una persona quiere editar lo que sea debería poder. Con
+    prompts en mako»).** Se sumaron tres comandos: el formato de un texto (`dar_formato_texto_landing`), los colores de
+    un botón de diseño (`configurar_boton_landing`) y la imagen de un bloque (`cambiar_imagen_landing`). Por WhatsApp,
+    «pon en negrita…», «subrayá…» y «centrá…» llegan como pedido sobre la landing. La tabla está al final de este archivo.
+    Falta la prueba por prompt en producción, sobre la copia #44, después del deploy. Detalle:
+    docs/hallazgos-editor-landing.md → «Lo que se edita a mano, también por prompt».
+  - **El feedback de las llamadas (27/10).**
+    - «Replicar y adaptar» (Leila): hecho, en la pastilla del link, en el panel y por prompt.
+    - Las iniciales del panel de comentarios: hechas.
+    - La landing principal (#32): la frase central nueva va como BORRADOR de la #32. Publicar es de Martín.
+    - La réplica con animaciones: espera la dirección real, porque sendipro.com no existe en el DNS.
+
+    Detalle: docs/hallazgos-editor-landing.md → «Replicar y adaptar».
+  - **El cierre con los planes (26/10): hecho, SIN publicar.** Las dos portadas y las doce cierran con Esencial y Pro
+    (Pro destacado), «Empezar mis 7 días gratis» al carrito de /planes y «¿Prefieres hablar antes? Déjanos tus datos y te
+    escribimos» debajo. Las vistas previas y las fotos están en la carpeta de notas del Cerebro (`landings-cierre-2610`). El link de abajo
+    lleva al pedido que ya existe (`hablarAntes()`; si Martín quiere WhatsApp, va ahí). Falta su sí para publicar.
+  - **Tanda 2 de la landing: hecha, SIN publicar.** `scripts/landings-mako-v2-funnels.mts`: doce documentos `mako-…`
+    (media buyer y avatares en pausa). Publicar con `--subir`, que pide el permiso de Martín.
+  - **La prueba gratis de 7 días** (Martín, 25/10 ~10:20; reemplaza a la garantía): la línea bajo el botón, el botón y las
+    preguntas, leídos de lib/planes-mako.ts. Espera el nombre del export, que define Planes (se le preguntó el 25/10).
+  - **La barra a 1280 px:** se mira cuando despliegue el tren con las tandas. Producción de las ~19 h del 24/10 todavía
+    no tiene ninguna.
+  - **Responder en los otros chats:** Automations, Offer, el chat general, la ficha del lead, Dashboard, Image Editor,
+    Video Editor y el Advisor de WhatsApp. Se hace cuando entren `ops-2510-regresiones` y `aut-2510`, que tocan la
+    función de mandar de esos mismos archivos.
+    - Soporte no: su conversación nueva arma el ticket con reglas y la cita ensuciaría lo que le llega al equipo.
+  - **La limpieza de P6:** la corre el Cerebro, ya aprobada por Martín.
+
+## Estado al 24/10/2026 madrugada (cuenta claude1)
 
 **Las ocho landings por funnel ya no muestran el VSL de la principal en el hero** (documentos #33 a #40, v2, subidos a las
 02:33-02:35): el hero queda con la promesa del ángulo y su botón, centrado, y el VSL baja debajo con «Así funciona MaKo».
@@ -551,3 +704,39 @@ Sí / Después, «borra la otra landing» con las dos más recientes y la Papele
 - No tocar: el modelo muerto de OpenRouter en `MODELO_DOCS` (lib/ai-cheap.ts) lo arregla Onboarding.
 - De otros chats: Automations engancha su chat y su función de `objetosDeTab`; el Centro, el chat del Second Brain;
   los chats de Image Editor, Dashboard y Video Editor llaman a la ruta (el de Video Editor manda `objetos`).
+
+## Lo que se edita a mano en una landing ↔ el comando que lo cambia por prompt (27/10/2026)
+
+Viven en lib/api-mako/areas/landing-editor.def.ts y landing.def.ts. Todos los que escriben pasan por la confirmación
+del chat y dejan la versión de antes en el historial. Publicar pide siempre el sí del dueño.
+
+| Lo que se edita a mano | El comando |
+|---|---|
+| Un texto: títulos, párrafos, viñetas, botones, y los de un «Diseño editable» | `cambiar_texto_landing` |
+| Su formato: negrita, cursiva, subrayado, tachado, color, tamaño, alineación | `dar_formato_texto_landing` (27/10) |
+| Un botón: lo que dice, a dónde lleva (enlace, ancla #, otra página) y si abre otra pestaña | `configurar_boton_landing` |
+| El estilo de un botón de bloque, o los colores de uno de diseño | `configurar_boton_landing`: `estilo`, o `color` y `colorTexto` (27/10) |
+| Que un botón cobre o deje de cobrar | `cobrar_producto_landing` · `quitar_cobro_landing` |
+| Agregar una sección | `agregar_seccion_landing` |
+| El orden de las secciones; duplicar, ocultar, mostrar o borrar una | `acomodar_seccion_landing` |
+| El estilo de una sección: el fondo (también el de un diseño), el ancho, la alineación, el alto y la imagen de acento | `configurar_seccion_landing` |
+| Los botones flotantes de una sección (la barrita: estilo, mover, duplicar, borrar, editar con IA) | `configurar_seccion_landing` · `acomodar_seccion_landing` · `editar_landing_con_ia` |
+| Agregar un bloque: título, texto, viñetas, cita, botón, pago, formulario, video, agenda, imagen, separador | `agregar_bloque_landing` |
+| Mover, duplicar o borrar un bloque | `acomodar_bloque_landing` |
+| El video: Panda, YouTube, Vimeo, Loom, Wistia o un archivo (también el de un diseño) | `poner_enlace_landing` |
+| La agenda: Calendly o Cal.com | `poner_enlace_landing` |
+| El formulario: los campos, el botón, el mensaje y a dónde lleva | `configurar_formulario_landing` |
+| Una imagen: de un diseño, de un bloque o de un ítem de un diseño optimizado | `cambiar_imagen_landing` (bloque e ítem: 27/10) · `buscar_fotos_landing` · `listar_imagenes_landing` |
+| Un ícono | `cambiar_icono_landing` · `ver_iconos_landing` |
+| Las animaciones de la landing y el efecto de entrada de una sección | `cambiar_animacion_landing` |
+| La red de MaKo (el dibujo animado de una sección de las páginas de MaKo) | Ninguno. No se edita ni a mano: es parte del diseño |
+| Los colores y las fuentes (el tema, y un tema propio) | `cambiar_tema_landing` · `guardar_tema_landing` · `borrar_tema_landing` |
+| Las páginas: agregar, renombrar, cambiar la ruta, mover, duplicar, borrar o hacerla la de inicio | `acomodar_pagina_landing` |
+| La configuración de la página: formato, imagen de fondo, ancho y alineación de todas las secciones | `configurar_landing` |
+| El sitio: nombre, título y descripción para buscadores, Píxel de Meta, «Hecho con MaKo», ícono | `configurar_sitio_landing` |
+| La barra de arriba y el pie | `configurar_navegacion_landing` |
+| El dominio | `conectar_dominio_landing` · `verificar_dominio_landing` · `quitar_dominio_landing` |
+| Las versiones | `guardar_version_landing` · `restaurar_version_landing` |
+| Los comentarios del equipo | `resolver_comentario_equipo_landing` · `aplicar_comentario_landing` · `aplicar_todos_comentarios_landing` |
+| Publicar y despublicar | `publicar_landing` · `despublicar_landing` |
+| Cualquier otra cosa, dicha libre | `editar_landing_con_ia` |

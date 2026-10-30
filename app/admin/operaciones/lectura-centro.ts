@@ -7,8 +7,9 @@
 // =============================================================================
 
 // `turnos` (lo que se dijo en el chat abierto) se suma el 23/10/2026: corre en CADA refresco, y como acción también hacía cola.
-// `pedidos` (los terminados viejos de un chat, al abrirlo) se suma el mismo día: la carga ya no los trae (pedidosDeLaCarga).
-export const LECTURAS_CENTRO = ['pushes', 'foto', 'credito', 'computadoras', 'bandeja', 'turnos', 'pedidos'] as const;
+// `trabajos` (los terminados viejos de un chat, al abrirlo) se suma el mismo día: la carga ya no los trae (pedidosDeLaCarga).
+// Se llamaba `pedidos` hasta el 25/10/2026: en el Centro la palabra es «trabajo» (tests/operaciones.test.ts lo barre).
+export const LECTURAS_CENTRO = ['pushes', 'foto', 'credito', 'computadoras', 'bandeja', 'turnos', 'trabajos'] as const;
 export type LecturaCentro = (typeof LECTURAS_CENTRO)[number];
 
 /** `extra`: los parámetros de la lectura; una lista va repetida (`l=a&l=b`). */

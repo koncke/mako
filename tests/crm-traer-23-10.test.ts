@@ -65,8 +65,10 @@ test('3. sin la línea de «Se ven 300 de 869…»: el número va en la casilla,
 test('4. el pie es el último renglón, con fondo sólido: la vista mide el alto del cuerpo y la que scrollea es la tabla', () => {
   // Desde el 24/10/2026 la regla vive en UNA pieza, `VistaConPie`, que usan las dos vistas de «traer»: la de un grupo de
   // WhatsApp se había copiado de ésta antes del arreglo y se quedó con el pie flotando (tests/grupo-wa.test.ts).
-  assert.match(T, /<VistaConPie\s+lista=\{\{ border: '1px solid var\(--border\)'/);
-  assert.match(T, /pie=\{pie\}/);
+  // Desde el 24/10/2026 las tres vistas de traer comparten el MOLDE (app/crm/MoldeTraer.tsx), que arma su pie adentro de
+  // `VistaConPie` con el borde de la lista (tests/crm-molde-traer.test.ts).
+  assert.match(T, /<MoldeTraer\b/);
+  assert.match(sinComentarios(leer('app/crm/MoldeTraer.tsx')), /<VistaConPie cabecera=\{cabecera\} pie=\{pie\} lista=\{\{ border: '1px solid var\(--border\)', borderRadius: 12, \.\.\.lista \}\}>/);
   assert.doesNotMatch(T, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano, fuera de la pieza');
   const V = sinComentarios(leer('app/_ui/VistaConPie.tsx'));
   assert.match(V, /<div style=\{\{ display: 'flex', flexDirection: 'column', gap: 14, minHeight: 0, height: '100%' \}\}>/);
@@ -80,5 +82,6 @@ test('4. el pie es el último renglón, con fondo sólido: la vista mide el alto
 
 test('la misma vista sigue sirviendo al importador (un solo traedor)', () => {
   assert.match(sinComentarios(leer('app/crm/ImportarLeadsModal.tsx')), /<TraerDeOtroProducto/);
-  assert.match(sinComentarios(leer('app/crm/CrmBoard.tsx')), /alto=\{nuevoLead\.traer \? "min\(88vh, 720px\)" : undefined\}/, 'sin alto fijo, `height: 100%` no mide nada');
+  // «Traer» va en su propio modal desde el 24/10/2026 (tests/crm-modales-encima.test.ts), con el alto fijo.
+  assert.match(sinComentarios(leer('app/crm/CrmBoard.tsx')), /ancho=\{1040\}\s*alto="min\(88vh, 720px\)"/, 'sin alto fijo, `height: 100%` no mide nada');
 });

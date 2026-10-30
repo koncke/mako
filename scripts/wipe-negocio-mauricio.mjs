@@ -12,6 +12,7 @@ import { config } from 'dotenv';
 config({ path: '.env.local' });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { createClient } from '@supabase/supabase-js';
 
 if (!process.env.DATABASE_URL) {
@@ -36,7 +37,7 @@ const SETTINGS_KEYS = [
   'onboarding.state',   // reset → al entrar a /onboarding vuelve a salir el wizard
 ];
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
 
 // Info: la capa del workspace (el wizard SOLO aparece si la capa tiene pasos).
 let capa = '(desconocida)';

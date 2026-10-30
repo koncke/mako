@@ -16,7 +16,9 @@
 //      igual que los de la barra (imán, transiciones, fundidos, animaciones). Los cortes por
 //      tiempo o por frase van al final del lote.
 //   4. Lo que tarda (revertir, congelar, medir para normalizar, subtitular, usar una
-//      plantilla) va DESPUÉS, cada uno con su paso: procesa el archivo, transcribe o arma.
+//      plantilla, borrar los silencios) va DESPUÉS, cada uno con su paso: procesa el archivo,
+//      transcribe, arma o escucha. Lo que va haciendo se cuenta (`alProgreso`, ./armado.ts) para
+//      que se vea construyéndose.
 //      «Restaurar» deshace todos los pasos. Lo que no cambió nada se dice («No se aplica: …»),
 //      no se calla: también un reemplazo que al ejecutarse no entró.
 //
@@ -35,15 +37,19 @@ import { buscarClip } from "@/app/video-editor/_opencut/reemplazo/puro";
 import { TICKS_PER_SECOND, roundMediaTime } from "@/app/video-editor/_opencut/wasm";
 import type { OperacionChat } from "@/lib/editor-video/chat-catalogo";
 import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar";
+import { MOTIVO_SUBTITULOS } from "@/app/video-editor/_opencut/subtitles/resultado";
 import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/element/revertir";
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
+import { quitarSilencios, type ResultadoSilencios } from "@/app/video-editor/_opencut/audio/borrar-silencios";
+import { NO_ENCONTRE, textoSinSilencios } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 import { NORMALIZAR_OBJETIVO } from "@/app/video-editor/_opencut/audio/claves";
 import type { ClipConAudio } from "@/app/video-editor/_opencut/audio/decodificar";
 import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { revisarOperaciones, vistaDeLinea, type OperacionResuelta } from "./linea";
 import { armarLote, esLarga, type OperacionLarga } from "./comandos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
+import type { ProgresoChat } from "./armado";
 
 /** Lo que propuso la IA, con lo necesario para aplicarlo en la línea de tiempo correcta. */
 export type PropuestaChat = {
@@ -76,14 +82,47 @@ const NO_SE_ARMO: Record<Extract<ResultadoUsar, { ok: false }>["motivo"], string
 	error: "no se pudo cargar la plantilla",
 };
 
+/** Por qué no se borraron los silencios (audio/borrar-silencios.ts), para la persona. «Sin pausas» tiene su aviso
+ *  propio, que dice dónde se buscó y qué pedir (audio/silencios-aviso.ts, ticket 31). */
+const SIN_SILENCIOS: Record<Exclude<Extract<ResultadoSilencios, { ok: false }>["motivo"], "sin-silencios">, string> = {
+	"sin-clip": "el clip para borrarle los silencios ya no está",
+	ocupado: "ya se están borrando silencios",
+	"sin-audio": "el clip no tiene audio",
+	"todo-silencio": "el clip es todo silencio: no se borra entero",
+	error: "no se pudo leer el audio",
+};
+
+/** El aviso de un pedido que no cambió nada. «No se aplica: …», salvo el que ya dice qué pasó y qué pedir (ticket 31). */
+const noSeAplica = (descarte: string | undefined, sinNada: string) =>
+	!descarte ? sinNada : descarte.startsWith(NO_ENCONTRE) ? descarte : `No se aplica: ${descarte}`;
+
 /**
  * Una operación larga, contra el elemento de AHORA (el lote pudo moverlo). Devuelve lo que
  * hay que decir de ella (los huecos que quedaron con su muestra, por qué no se armó…).
  */
-async function correrLarga(editor: EditorCore, r: OperacionLarga): Promise<string[]> {
+async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (p: ProgresoChat) => void): Promise<string[]> {
+	if (r.op === "borrar_silencios") {
+		// El MISMO trabajo que el botón de la barra, sobre los clips de la propuesta y nunca el del cabezal.
+		const titulos = new Map(r.els.map((el) => [el.elementId, el.titulo] as const));
+		const hecho = await quitarSilencios(editor, {
+			seleccion: r.els.map((el) => ({ trackId: el.trackId, elementId: el.elementId })),
+			cabezal: false,
+			minimoS: r.minimoS,
+			alPaso: (paso) =>
+				alProgreso?.(paso.tipo === "cortando" ? paso : { ...paso, titulo: titulos.get(paso.elementId) ?? paso.nombre }),
+		});
+		alProgreso?.(hecho.ok ? { tipo: "listo", segundos: hecho.segundos } : { tipo: "fallo" });
+		if (hecho.ok) return [];
+		if (hecho.motivo !== "sin-silencios") return [SIN_SILENCIOS[hecho.motivo]];
+		// Dónde se buscó y qué pedir: a Leila le dijo «no hay» de un clip de 0,9 s cuando pedía el video (ticket 31).
+		const titulo = r.els.length === 1 ? r.els[0].titulo : hecho.titulo;
+		return [textoSinSilencios({ clips: hecho.clips, ...(titulo ? { titulo } : {}), segundos: hecho.segundos, minimoS: hecho.minimoS, todoElVideo: r.todo })];
+	}
 	if (r.op === "generar_subtitulos") {
-		await generarSubtitulos(editor);
-		return [];
+		// generarSubtitulos no lanza: sin leer lo que devuelve, el chat sólo ve que la línea no
+		// cambió y dice «no se pudo generar los subtítulos» por cualquier causa (ticket 23, 28/10).
+		const hecho = await generarSubtitulos(editor);
+		return hecho.ok ? [] : [MOTIVO_SUBTITULOS[hecho.motivo]];
 	}
 	if (r.op === "usar_plantilla") {
 		const plantilla = plantillaPorId(r.plantilla);
@@ -118,6 +157,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	normalizar: "normalizar",
 	generar_subtitulos: "generar los subtítulos",
 	usar_plantilla: "usar la plantilla",
+	borrar_silencios: "borrar los silencios",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */
@@ -135,7 +175,11 @@ function fuentesDeHuecos(editor: EditorCore, p: PropuestaChat): string[] {
 }
 
 /** ACEPTAR. El orden es el contrato (ver la cabecera). */
-export async function aceptarPropuesta(editor: EditorCore, p: PropuestaChat, op: { sinVersion?: boolean } = {}): Promise<ResultadoAceptar> {
+export async function aceptarPropuesta(
+	editor: EditorCore,
+	p: PropuestaChat,
+	op: { sinVersion?: boolean; alProgreso?: (p: ProgresoChat) => void } = {},
+): Promise<ResultadoAceptar> {
 	const enSuLugar = (): { error: string } | { escena: TScene } => {
 		const proyecto = editor.project.getActiveOrNull();
 		const escena = editor.scenes.getActiveSceneOrNull();
@@ -183,7 +227,7 @@ export async function aceptarPropuesta(editor: EditorCore, p: PropuestaChat, op:
 		medios: datos.medios,
 	});
 	const { resueltas, descartes } = revisarOperaciones({ operaciones: p.operaciones, vista, alcance: p.alcance, transcripcion: datos.transcripcion });
-	if (!resueltas.length) return { ok: false, error: descartes[0] ? `No se aplica: ${descartes[0]}` : "Ya no hay nada que cambiar" };
+	if (!resueltas.length) return { ok: false, error: noSeAplica(descartes[0], "Ya no hay nada que cambiar") };
 
 	// 3. Un paso de deshacer para lo que se arma en el momento.
 	const lote = armarLote(resueltas, { idioma: datos.transcripcion.idioma });
@@ -213,14 +257,14 @@ export async function aceptarPropuesta(editor: EditorCore, p: PropuestaChat, op:
 	// 4. Lo que tarda, después y aparte: cada uno con su paso.
 	for (const r of largas) {
 		const previo = actuales();
-		const avisos = await correrLarga(editor, r);
+		const avisos = await correrLarga(editor, r, op.alProgreso);
 		descartes.push(...avisos);
 		if (actuales() !== previo) pasos++;
 		else if (!avisos.length) descartes.push(`no se pudo ${QUE_NO_SE_PUDO[r.op]}${"el" in r ? ` ${r.el.titulo}` : ""}`);
 	}
 	const despues = actuales();
 	// Si la línea de tiempo no cambió, no se aplicó: decir «Aplicado» sería mentir.
-	if (!despues || despues === antes || pasos === 0) return { ok: false, error: descartes[0] ? `No se aplica: ${descartes[0]}` : "No se aplicó el cambio" };
+	if (!despues || despues === antes || pasos === 0) return { ok: false, error: noSeAplica(descartes[0], "No se aplicó el cambio") };
 	return { ok: true, aplicada: { escenaId: p.escenaId, antes, despues, pasos }, descartes };
 }
 

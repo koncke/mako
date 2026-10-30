@@ -1,119 +1,250 @@
 /* =============================================================================
-   Ajustes — el molde de «Tu cuenta» y «Configuración del negocio» (15/10/2026)
+   Ajustes — el molde de Settings, copiado de los ajustes de LINEAR (25/10/2026)
    =============================================================================
-   Copiado de myaccount.google.com (relevado el 15/10/2026, sólo el diseño): un índice a la izquierda con la
-   sección activa en una pastilla, una columna de lectura, tarjetas con borde y sin sombra, y adentro
-   LISTAS AGRUPADAS donde la fila entera es el botón. Sólo tokens de la casa: claro y oscuro salen solos.
-   Abajo de 820 px el índice pasa arriba, en una fila que se desliza (como Google en una ventana angosta). */
+   Martín, 25/10/2026: «Pusiste textos previo a la configuración que están muy de sobra… rediseño completo… Fijate como lo
+   hacen otras apps». Linear (docs/settings/referencia.md, capturas en docs/settings/referencias/): el índice a la izquierda,
+   y en el resto del ancho UNA COLUMNA CENTRADA con el título, una línea, y secciones de nombre + tarjeta con filas (el nombre
+   a la izquierda, el control a la derecha). Sin la columna de párrafos de antes. Sólo tokens de la casa: claro y oscuro salen
+   solos. Abajo de 820 px el índice pasa arriba, en una fila de chips que se desliza. */
 
 .aj { display: flex; gap: 40px; align-items: flex-start; padding: 32px 44px 80px; flex: 1; min-width: 0; }
-/* SETTINGS, UN SOLO LUGAR (24/10/2026, Martín: «juntes todo en "Settings"... y rediseñes todas esas tabs, que se vean muy bien y que
-   tengan coherencia con mobile»). El índice, como los ajustes de Linear y Notion: «Settings» de título, los dos grupos («Tu
-   cuenta», «Tu negocio») con su nombre chico arriba, y cada sección una píldora del ancho de la barra; la activa, en el azul de
-   la acción. En el teléfono (abajo de 820) son chips en una fila que se desliza, sin los nombres de grupo. */
-.aj-indice { position: sticky; top: 24px; flex: none; width: 236px; display: flex; flex-direction: column; gap: 14px; }
-.aj-indice-titulo { font-size: 20px; font-weight: 600; color: var(--ink); padding: 0 10px 2px; letter-spacing: -0.01em; }
-.aj-indice-grupo { display: flex; flex-direction: column; gap: 2px; }
-.aj-indice-grupo-titulo { font-size: 12.5px; font-weight: 600; color: var(--dim); padding: 0 10px 4px; }
-.aj-indice a { display: flex; align-items: center; gap: 11px; height: 38px; padding: 0 10px; border-radius: 10px;
-  color: var(--ink); text-decoration: none; font-size: 14.5px; font-weight: 500; white-space: nowrap; }
+/* El índice, como el de Linear: «Settings» de título, los dos grupos («Tu cuenta», «Tu negocio») con su nombre chico arriba, y
+   cada sección una fila del ancho de la barra; la activa, en el azul de la acción. */
+.aj-indice { position: sticky; top: 24px; flex: none; width: 220px; display: flex; flex-direction: column; gap: 18px; }
+.aj-indice-titulo { display: flex; align-items: center; gap: 9px; font-size: 18px; font-weight: 600; color: var(--ink); padding: 0 10px; letter-spacing: -0.01em; }
+.aj-indice-titulo svg { color: var(--dim); flex: none; }
+.aj-indice-grupo { display: flex; flex-direction: column; gap: 1px; }
+.aj-indice-grupo-titulo { font-size: 12.5px; font-weight: 500; color: var(--faint); padding: 0 10px 6px; }
+.aj-indice a { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 10px; border-radius: 8px;
+  color: var(--ink); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; }
 .aj-indice a:hover { background: var(--velo-hover); }
 .aj-indice a[data-activa="true"] { background: var(--primary-bg); color: var(--primary); font-weight: 600; }
-.aj-indice a svg { color: var(--dim); }
+.aj-indice a svg { color: var(--dim); flex: none; }
 .aj-indice a[data-activa="true"] svg { color: var(--primary); }
 
-.aj-cuerpo { flex: 1; min-width: 0; max-width: 720px; }
-.aj-cuerpo[data-amplio="true"] { max-width: none; }
-.aj-titulo { font-size: 26px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); margin: 2px 0 6px; line-height: 1.2; }
-.aj-bajada { font-size: 15px; color: var(--dim); margin: 0 0 26px; line-height: 1.5; }
-.aj-volver { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--dim); text-decoration: none; margin-bottom: 6px; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
+/* LA COLUMNA CENTRADA (Linear). El cuerpo toma el resto del ancho y la columna se centra adentro: ni pegada a la izquierda con
+   un tercio vacío a la derecha («cortado a la mitad», 25/10/2026), ni estirada a renglones de 1.400 px. */
+.aj-cuerpo { flex: 1; min-width: 0; }
+.aj-columna { max-width: 780px; margin: 0 auto; }
+.aj-cuerpo[data-amplio] .aj-columna { max-width: 1180px; }
+
+.aj-cabecera { padding-bottom: 22px; margin-bottom: 30px; border-bottom: 1px solid var(--border); }
+.aj-cabecera__fila { display: flex; align-items: center; gap: 16px; }
+.aj-cabecera__accion { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.aj-titulo { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); margin: 0; line-height: 1.25; min-width: 0; }
+.aj-bajada { font-size: 14px; color: var(--dim); margin: 6px 0 0; line-height: 1.5; }
+.aj-volver { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; color: var(--dim); text-decoration: none; margin-bottom: 10px; background: none; border: none; padding: 0; cursor: pointer; font-family: inherit; }
 .aj-volver:hover { color: var(--ink); }
 
-.aj-grupo { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg, 16px); margin-bottom: 20px; overflow: hidden; }
-.aj-grupo-cab { padding: 22px 24px 14px; }
-.aj-grupo-cab h2 { font-size: 20px; font-weight: 500; color: var(--ink); margin: 0 0 4px; letter-spacing: -0.005em; }
-.aj-grupo-cab p { font-size: 14px; color: var(--dim); margin: 0; line-height: 1.5; }
-.aj-grupo-cuerpo { padding: 4px 24px 20px; }
-.aj-grupo-pie { border-top: 1px solid var(--border); padding: 14px 24px; }
+/* Una sección: su nombre, y la tarjeta. */
+.aj-grupo { margin-bottom: 34px; }
+.aj-grupo-cab { display: flex; align-items: center; gap: 12px; padding: 0 2px 10px; min-height: 28px; }
+.aj-grupo-cab__texto { flex: 1; min-width: 0; }
+.aj-grupo-cab h2 { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0; letter-spacing: -0.005em; }
+.aj-grupo-cab p { font-size: 13.5px; color: var(--dim); margin: 3px 0 0; line-height: 1.45; }
+.aj-grupo-cab__accion { flex: none; display: flex; gap: 8px; align-items: center; margin: -4px 0; }
+.aj-grupo-cab__accion .aj-boton { height: 28px; font-size: 13px; }
+.aj-grupo-caja { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.aj-grupo-cuerpo { padding: 18px 20px; }
+.aj-grupo-pie { border-top: 1px solid var(--border); padding: 12px 20px; }
+.aj-subtitulo { margin: 6px 0 12px; }
+.aj-subtitulo h2 { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0; }
+.aj-subtitulo p { font-size: 13.5px; color: var(--dim); margin: 3px 0 0; }
 
-.aj-fila { display: flex; align-items: center; gap: 18px; width: 100%; min-height: 64px; padding: 12px 24px; border: none; border-top: 1px solid var(--border);
+/* La fila de Linear: el nombre (y su línea gris) a la izquierda, el control a la derecha. */
+.aj-fila { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 58px; padding: 11px 20px; border: none; border-top: 1px solid var(--border);
   background: none; text-align: left; font-family: inherit; color: var(--ink); text-decoration: none; cursor: pointer; box-sizing: border-box; }
-.aj-grupo-cab + .aj-fila, .aj-grupo > .aj-fila:first-child { border-top-color: var(--border); }
+.aj-grupo-caja > .aj-fila:first-child, .aj-grupo-caja > :first-child > .aj-fila:first-child { border-top: none; }
 .aj-fila:hover { background: var(--velo-hover); }
 .aj-fila[data-quieta="true"] { cursor: default; }
 .aj-fila[data-quieta="true"]:hover { background: none; }
-.aj-fila-icono { flex: none; width: 24px; display: flex; justify-content: center; color: var(--dim); }
-.aj-fila-texto { flex: 1; min-width: 0; display: flex; gap: 4px 24px; align-items: baseline; flex-wrap: wrap; }
-.aj-fila-titulo { font-size: 15px; font-weight: 500; color: var(--ink); min-width: 190px; flex: 0 0 190px; }
-.aj-fila-detalle { font-size: 14px; color: var(--dim); min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.aj-fila[data-apilada="true"] .aj-fila-texto { flex-direction: column; gap: 2px; align-items: flex-start; }
-.aj-fila[data-apilada="true"] .aj-fila-titulo { flex: none; min-width: 0; }
-.aj-fila[data-apilada="true"] .aj-fila-detalle { flex: none; }
-.aj-fila-fin { flex: none; display: flex; align-items: center; gap: 10px; color: var(--faint); }
+.aj-fila:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.aj-fila-icono { flex: none; width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; color: var(--dim); background: var(--surface-2); }
+.aj-fila-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aj-fila-titulo { font-size: 14px; font-weight: 500; color: var(--ink); line-height: 1.35; }
+.aj-fila-titulo[data-peligro] { color: var(--bad); }
+.aj-fila-detalle { font-size: 13px; color: var(--dim); min-width: 0; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; line-height: 1.4; }
+.aj-fila-fin { flex: none; display: flex; align-items: center; gap: 10px; color: var(--faint); max-width: 60%; }
+.aj-fila-valor { font-size: 13.5px; color: var(--dim); display: inline-flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aj-fila-flecha { font-size: 18px; line-height: 1; color: var(--faint); }
 
-.aj-pastilla { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+/* El punto de estado de Linear (verde = prendido, gris = apagado). */
+.aj-punto { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--faint); opacity: .55; }
+.aj-punto[data-tono="good"] { background: var(--good); opacity: 1; }
+.aj-punto[data-tono="warn"] { background: var(--warn); opacity: 1; }
+
+/* Un campo EN LA FILA (el perfil de Linear): a la derecha, del ancho de un dato, sin borde hasta que se lo mira. */
+.aj-en-linea { width: 300px; max-width: 100%; height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px; outline: none; box-sizing: border-box; text-align: left; }
+.aj-en-linea:hover { border-color: var(--border-strong); }
+.aj-en-linea:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.aj-en-linea::placeholder { color: var(--faint); }
+.aj-en-linea:disabled { opacity: .6; }
+textarea.aj-en-linea { height: auto; min-height: 76px; padding: 8px 10px; line-height: 1.45; resize: vertical; }
+/* Una fila cuyo control es alto (un texto largo): el nombre arriba, alineado con la primera línea del campo. */
+.aj-fila[data-alta] { align-items: flex-start; }
+.aj-fila[data-alta] .aj-fila-texto { padding-top: 7px; }
+
+.aj-pastilla { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
 .aj-pastilla[data-tono="good"] { background: var(--good-bg); color: var(--good); }
 .aj-pastilla[data-tono="warn"] { background: var(--warn-bg); color: var(--warn); }
 
-.aj-estado { display: flex; gap: 20px; align-items: center; padding: 24px; }
-.aj-estado-escudo { flex: none; width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.aj-estado { display: flex; gap: 16px; align-items: center; padding: 18px 20px; }
+.aj-estado-escudo { flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .aj-estado[data-protegida="true"] .aj-estado-escudo { background: var(--good-bg); color: var(--good); }
 .aj-estado[data-protegida="false"] .aj-estado-escudo { background: var(--warn-bg); color: var(--warn); }
-.aj-estado h2 { font-size: 20px; font-weight: 500; margin: 0 0 4px; color: var(--ink); }
-.aj-estado p { font-size: 14px; color: var(--dim); margin: 0; }
+.aj-estado h2 { font-size: 15px; font-weight: 600; margin: 0 0 2px; color: var(--ink); }
+.aj-estado p { font-size: 13.5px; color: var(--dim); margin: 0; }
 
-/* Botones del detalle: los de Google son de texto (azul) o rellenos; nada de tachos sueltos. */
-.aj-boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 22px; border-radius: 999px; border: none;
-  background: var(--primary); color: var(--on-primary, #fff); font-family: inherit; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; }
+/* Los botones de Linear: el principal relleno; el de texto, sin caja (como «Send test notification» o «Customize»). */
+.aj-boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 8px; border: none;
+  background: var(--primary); color: var(--on-primary, #fff); font-family: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap; }
 .aj-boton:disabled { opacity: .5; cursor: default; }
-.aj-boton[data-variante="borde"] { background: none; color: var(--primary); border: 1px solid var(--border-strong); }
-.aj-boton[data-variante="texto"] { background: none; color: var(--primary); padding: 0 12px; }
+.aj-boton[data-variante="borde"] { background: var(--surface); color: var(--ink); border: 1px solid var(--border-strong); }
+.aj-boton[data-variante="borde"]:hover:not(:disabled) { background: var(--velo-hover); }
+.aj-boton[data-variante="texto"] { background: none; color: var(--ink); padding: 0 10px; }
+.aj-boton[data-variante="texto"]:hover:not(:disabled) { background: var(--velo-hover); }
 .aj-boton[data-variante="peligro"] { background: none; color: var(--bad); border: 1px solid var(--border-strong); }
-.aj-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 18px; }
-.aj-campo { width: 100%; height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
-  font-family: inherit; font-size: 15px; outline: none; box-sizing: border-box; }
+.aj-acciones { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 16px; }
+.aj-campo { width: 100%; height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink);
+  font-family: inherit; font-size: 14px; outline: none; box-sizing: border-box; }
 .aj-campo:focus { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 .aj-rotulo { display: block; font-size: 13px; font-weight: 500; color: var(--dim); margin: 0 0 6px; }
-.aj-texto { font-size: 14px; color: var(--dim); line-height: 1.55; margin: 0 0 14px; }
+.aj-texto { font-size: 13.5px; color: var(--dim); line-height: 1.5; margin: 0 0 14px; }
 .aj-error { font-size: 13.5px; color: var(--bad); background: var(--bad-bg); border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; }
 
-/* «Instalar la app»: las TRES instalaciones (24/10/2026), una tarjeta por lugar, como las páginas de descarga de Notion o Slack.
-   Cada una: su ícono en un círculo, el nombre del lugar, una línea de para qué, y su acción a la vista (la píldora azul). */
-.aj-instalar { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-.aj-instalar__tarjeta { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 20px; border: 1px solid var(--border); border-radius: var(--r-lg, 16px); background: var(--surface); }
-.aj-instalar__icono { display: grid; place-items: center; width: 44px; height: 44px; margin-bottom: 4px; border-radius: 12px; background: var(--primary-bg); color: var(--primary); }
-.aj-instalar__titulo { margin: 0; font-size: 17px; font-weight: 600; color: var(--ink); }
-.aj-instalar__texto { margin: 0; font-size: 14px; line-height: 1.5; color: var(--dim); }
-.aj-instalar__qr { margin: 6px 0 2px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
-.aj-instalar__pasos { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.7; color: var(--ink); }
-.aj-instalar__boton { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin-top: auto; padding: 0 18px;
-  border: 0; border-radius: 999px; background: var(--primary); color: var(--on-primary, #fff); font-family: inherit; font-size: 14px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; }
-.aj-instalar__boton:hover { filter: brightness(1.06); }
-.aj-instalar__nota { margin: 0; font-size: 12.5px; color: var(--dim); }
-/* El renglón de debajo del botón, del mismo alto en las tres: así los botones quedan a la misma altura. */
-.aj-instalar__boton + .aj-instalar__nota { min-height: 2.8em; }
-.aj-instalar__nota b { color: var(--ink); font-weight: 500; }
-.aj-instalar__otro { text-decoration: none; }
-.aj-instalar__otro:hover { color: var(--primary); text-decoration: underline; }
+/* La foto del perfil, en su fila (Linear: «Profile picture» con la foto a la derecha). */
+.aj-foto { flex: none; width: 40px; height: 40px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: var(--primary-bg); color: var(--primary); font-size: 16px; font-weight: 600; }
+.aj-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* La foto de Perfil (26/10/2026): grande, y ELLA es el botón (abre el selector de la app). El lápiz dice que se toca. */
+.aj-foto--grande { position: relative; width: 72px; height: 72px; font-size: 26px; border: none; padding: 0; cursor: pointer; overflow: visible; }
+.aj-foto--grande img { border-radius: 50%; }
+.aj-foto--grande:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.aj-foto__lapiz { position: absolute; right: -2px; bottom: -2px; width: 24px; height: 24px; border-radius: 50%; display: grid;
+  place-items: center; background: var(--surface); border: 1px solid var(--border-strong); color: var(--ink); font-size: 12px; }
+/* La cabecera del Perfil de antes: la usan /m/cuenta y quien todavía no se pasó a la fila. */
+.aj-perfil { display: flex; align-items: center; gap: 18px; padding: 18px 20px; flex-wrap: wrap; }
+.aj-perfil__foto { flex: none; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: var(--primary-bg); color: var(--primary); font-size: 26px; font-weight: 600; }
+.aj-perfil__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.aj-perfil__quien { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.aj-perfil__nombre { font-size: 16px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aj-perfil__correo { font-size: 13.5px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aj-perfil__acciones { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-/* VENTANA CHICA DE ESCRITORIO (21/10/2026): el índice de 236 px, 40 de separación y 44 de margen a cada lado dejaban a
-   /integraciones en ~315 px de cuerpo a 934 de ventana (medido). Debajo de 1200 la barra principal ya va plegada; acá
-   el índice se angosta y los márgenes bajan, y el cuerpo recupera ~120 px más. */
+/* Un apartado de la página (ApartadoAjustes): su título, separado de lo de arriba. */
+.aj-apartado { margin-top: 40px; scroll-margin-top: 24px; }
+.aj-apartado-titulo { font-size: 19px; font-weight: 600; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 14px; }
+
+/* Un horario (No molestar): desde y hasta, dos selects de hora en la fila. */
+.aj-horario { display: flex; align-items: center; gap: 8px; color: var(--dim); font-size: 13.5px; }
+.aj-hora { height: 34px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font-family: inherit; font-size: 14px; cursor: pointer; }
+.aj-hora:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+
+/* Notificaciones › el editor de destinatarios de un canal (WhatsApp, Email): una fila por destinatario y la de agregar. */
+.aj-dest__fila { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 20px; border-top: 1px solid var(--border); }
+.aj-grupo-caja > .aj-dest__fila:first-child, .aj-dest > .aj-dest__fila:first-child { border-top: none; }
+.aj-dest__valor { flex: 1; min-width: 0; font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aj-dest__nuevo { display: flex; gap: 8px; align-items: flex-start; padding: 12px 20px; border-top: 1px solid var(--border); }
+.aj-dest__nuevo:first-child { border-top: none; }
+.aj-dest__nota { padding: 10px 20px 12px; border-top: 1px solid var(--border); font-size: 13px; line-height: 1.45; }
+
+/* Notificaciones › En la app (la grilla de antes, que todavía usa el teléfono): una fila por aviso con sus dos interruptores. */
+.aj-notif-app { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto auto; padding: 0 20px; align-items: center; }
+.aj-notif-app__fila { display: contents; }
+.aj-notif-app__fila > span { padding: 14px 0; border-top: 1px solid var(--border); min-height: 36px; display: flex; align-items: center; }
+.aj-notif-app__fila > .aj-notif-app__control { padding-left: 10px; }
+.aj-notif-app__fila:first-child > span { border-top: none; }
+.aj-notif-app__icono { color: var(--dim); }
+.aj-notif-app__fila > .aj-notif-app__nombre { display: block; font-size: 14px; font-weight: 500; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 36px; }
+
+/* «Tu plan»: el plan que tienes arriba de su tarjeta, grande, como la facturación de Vercel y Linear. */
+.aj-plan { display: flex; align-items: center; gap: 16px; padding: 18px 20px; }
+.aj-plan__icono { flex: none; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--primary-bg); color: var(--primary); }
+.aj-plan__texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.aj-plan__nombre { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 17px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+.aj-plan__precio { font-size: 13.5px; color: var(--dim); }
+.aj-plan__precio b { color: var(--ink); font-weight: 600; }
+
+/* Equipo (como Members de Linear): la invitación en una línea, y una fila por persona. */
+.aj-invitar { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 160px auto; gap: 12px; align-items: end; }
+.aj-invitar__campo { display: flex; flex-direction: column; min-width: 0; }
+.aj-invitar .aj-boton { height: 40px; }
+.aj-miembro { padding: 0 20px; border-top: 1px solid var(--border); }
+.aj-grupo-caja > .aj-miembro:first-child { border-top: none; }
+.aj-miembro__fila { display: flex; align-items: center; gap: 14px; min-height: 62px; padding: 10px 0; }
+.aj-miembro__foto { flex: none; width: 34px; height: 34px; border-radius: 50%; overflow: hidden; display: grid; place-items: center;
+  background: var(--primary-bg); color: var(--primary); font-weight: 600; font-size: 13px; }
+.aj-miembro__foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.aj-miembro__quien { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.aj-miembro__nombre { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aj-miembro__correo { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aj-miembro__login { flex: none; width: 128px; text-align: right; font-size: 12.5px; color: var(--faint); }
+.aj-miembro__rol { flex: none; width: 140px; }
+
+/* Identidades fiscales: el formulario en la misma tarjeta, debajo de las filas. */
+.aj-fiscal-form { border-top: 1px solid var(--border); }
+.aj-grupo-caja > .aj-fiscal-form:first-child { border-top: none; }
+.aj-fiscal-form__leer { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.aj-fiscal-form__campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.aj-fiscal-form__defecto { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; color: var(--ink); cursor: pointer; }
+@media (max-width: 1280px) { .aj-miembro__login { display: none; } }
+@media (max-width: 820px) {
+  .aj-invitar { grid-template-columns: 1fr; }
+  .aj-miembro { padding: 0 16px; }
+  /* En el teléfono, dos renglones: la foto, el nombre y el «⋯» arriba; el estado y el rol debajo, alineados con el nombre. */
+  .aj-miembro__fila { flex-wrap: wrap; row-gap: 8px; column-gap: 12px; }
+  .aj-miembro__quien { flex: 1 1 calc(100% - 34px - 40px - 24px); }
+  .aj-miembro__mas { order: 1; }
+  .aj-miembro__estado { order: 2; margin-left: 46px; }
+  .aj-miembro__rol { order: 3; width: auto; flex: 1 1 120px; }
+  .aj-miembro__estado + .aj-miembro__login + .aj-miembro__rol { margin-left: 0; }
+  .aj-miembro__fila > .aj-miembro__rol:nth-child(4) { margin-left: 46px; }
+}
+
+/* «Instalar la app»: las filas de cada sistema (FilaAjustes, con el botón a la derecha); el teléfono, el código para la
+   cámara al lado de los pasos. */
+.aj-telefono { display: flex; gap: 28px; align-items: center; padding: 20px; flex-wrap: wrap; }
+.aj-telefono__qr { flex: none; border: 1px solid var(--border); border-radius: 14px; background: #fff; padding: 6px; }
+.aj-telefono__pasos { flex: 1 1 240px; margin: 0; padding-left: 20px; font-size: 14px; line-height: 1.9; color: var(--ink); }
+.aj-telefono__pasos b { font-weight: 600; }
+
+/* VENTANA CHICA DE ESCRITORIO (21/10/2026): debajo de 1200 la barra principal ya va plegada; acá el índice se angosta y los
+   márgenes bajan, y el cuerpo recupera ~120 px más. */
 @media (max-width: 1199.98px) {
   .aj { padding: 26px 26px 72px; gap: 24px; }
   .aj-indice { width: 196px; }
 }
 
 @media (max-width: 820px) {
-  .aj { flex-direction: column; gap: 18px; padding: 20px 16px 60px; }
+  /* `stretch`: con el `flex-start` de la computadora, el índice tomaba su ancho entero (1215 px de chips) y la página entera
+     scrolleaba de costado en el teléfono, con el texto cortado a la derecha (medido el 25/10/2026). */
+  .aj { flex-direction: column; gap: 18px; padding: 18px 16px 60px; align-items: stretch; }
   .aj-indice { position: static; width: auto; flex-direction: row; overflow-x: auto; gap: 6px; margin: 0 -16px; padding: 0 16px 4px; }
   .aj-indice-titulo, .aj-indice-grupo-titulo { display: none; }
   .aj-indice-grupo { display: contents; }
-  .aj-indice a { margin-left: 0; padding: 0 14px; height: 36px; border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; }
+  .aj-indice a { margin-left: 0; padding: 0 14px; height: 34px; border-radius: 999px; border: 1px solid var(--border); font-size: 13.5px; }
   .aj-indice a[data-activa="true"] { border-color: transparent; }
-  .aj-cuerpo { max-width: none; }
-  .aj-fila { padding: 12px 16px; gap: 14px; }
-  .aj-fila-titulo { flex: none; min-width: 0; }
-  .aj-fila-texto { flex-direction: column; gap: 2px; align-items: flex-start; }
-  .aj-grupo-cab, .aj-grupo-cuerpo, .aj-grupo-pie, .aj-estado { padding-left: 16px; padding-right: 16px; }
+  .aj-cabecera { padding-bottom: 16px; margin-bottom: 22px; }
+  .aj-titulo { font-size: 22px; }
+  .aj-fila { padding: 10px 14px; gap: 12px; }
+  /* En el teléfono el control de una fila con campo baja debajo del nombre, a lo ancho (un campo de 300 px no entra al lado). */
+  .aj-fila[data-campo] { flex-wrap: wrap; }
+  .aj-fila[data-campo] .aj-fila-fin { flex: 1 1 100%; max-width: none; }
+  .aj-fila[data-campo] .aj-en-linea { width: 100%; }
+  .aj-fila[data-campo] [role="group"] { justify-content: flex-start !important; }
+  .aj-fila-fin { max-width: 55%; }
+  .aj-grupo-cuerpo, .aj-grupo-pie, .aj-estado, .aj-perfil, .aj-plan, .aj-telefono { padding-left: 14px; padding-right: 14px; }
+  .aj-dest__fila, .aj-dest__nuevo, .aj-dest__nota { padding-left: 14px; padding-right: 14px; }
+  .aj-grupo { margin-bottom: 26px; }
+  .aj-horario { flex-wrap: wrap; }
+  /* Notificaciones (la grilla del teléfono): cada aviso, el nombre arriba y los dos interruptores debajo. */
+  .aj-notif-app { display: block; padding: 0 14px; }
+  .aj-notif-app__fila { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 6px; padding: 12px 0; border-top: 1px solid var(--border); }
+  .aj-notif-app__fila:first-child { border-top: none; }
+  .aj-notif-app__fila > span { padding: 0; border-top: none; min-height: 0; }
+  .aj-notif-app__fila > .aj-notif-app__nombre { flex: 1 1 calc(100% - 44px); line-height: 1.4; }
+  .aj-notif-app__fila > .aj-notif-app__control { padding-left: 0; }
+  .aj-notif-app__fila > .aj-notif-app__icono { width: 34px; flex: none; }
 }

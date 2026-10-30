@@ -27,6 +27,7 @@ import { useState, useTransition, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { deleteLeadAction, type LeadFullData } from '../actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import { ConfirmDialog } from '@/app/components/ConfirmDialog';
 import { deriveStageKey, stageMetaOpt } from '@/lib/pipeline';
 import type { FathomLink } from '@/lib/leads';
@@ -35,7 +36,7 @@ import type { StepId } from '@/lib/stage-requirements';
 import { FunnelYEtapa, useProductosDeLaFicha } from '../lead-view/ProductoDelLead';
 import { crmEnVista } from '../lead-view/ficha/pagos/trato';
 import { DatosSinMarcarCard } from '../lead-view/DatosSinMarcarCard';
-import { CabeceraLead, SANGRIA_NOMBRE_LEAD } from '../lead-view/CabeceraLead';
+import { CabeceraLead } from '../lead-view/CabeceraLead';
 import { EtiquetasDelLead, versionDeEtiquetas } from '../lead-view/EtiquetasDelLead';
 // ⚠️ LAS TABS Y SUS BLOQUES SON LA MISMA PIEZA QUE LA DEL POP-UP DEL TABLERO (14/10/2026): esta ruta y
 // app/crm/LeadSheet.tsx montan `FichaPorBloques` con los MISMOS datos (`getLeadFullAction`).
@@ -106,6 +107,8 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // resuelve la ficha (`pedido`, lead-view/ficha/FichaPorBloques.tsx), con el asistente sólo de respaldo.
   const [pedido, setPedido] = useState<{ id: StepId; n: number } | null>(null);
   const solucionarDato = (id: StepId) => setPedido({ id, n: Date.now() });
+  // El dato que se tocó y que esta ficha no dibuja (`onNoEsta`): el asistente pide ESE (lib/datos-aviso.ts, `loQueSePide`).
+  const [datoPedido, setDatoPedido] = useState<StepId | null>(null);
 
   const moveInfo: MoveLeadInfo = {
     id: lead.id,
@@ -152,7 +155,7 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       // quedarse mirando un lead borrado no es una opción. (El modal usa la versión
       // que no redirige, porque ahí la pantalla de atrás sigue viva.)
       try { await deleteLeadAction(lead.id); }
-      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo borrar. Reintenta.'); }
+      catch (e) { setDelErr(e instanceof Error ? e.message : 'No se pudo mandar a la papelera. Reintenta.'); }
     });
   };
 
@@ -162,7 +165,9 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
   // solo (lead-view/ProductoDelLead.tsx), sin wizard.
   const pickStage = (key: string) => {
     if (!key || key === currentStage) return;
-    if (pideWizardAlElegir(stages, key)) setMoveTo(key); else setMoverDirecto(key);
+    // La reunión ya cargada (a mano) no abre el wizard: se mueve directo (27/10/2026, `reunionYaCargada`).
+    const reuniones = { fechaJ1: lead.fecha_junta_1, fechaJ2: lead.fecha_junta_2, asistioJ1: lead.asistio_j1, asistioJ2: lead.asistio_j2 };
+    if (pideWizardAlElegir(stages, key, reuniones)) setMoveTo(key); else setMoverDirecto(key);
   };
 
   // ⚠️ LA CABECERA ES LA DEL POP-UP (lead-view/CabeceraLead.tsx), en su caja (`marco`): acá atrás
@@ -200,8 +205,8 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       {/* La fila de pestañas queda pegada arriba al scrollear la página (punto 16). Las tabs son las
           del pop-up (`FichaPorBloques`): en esta ruta el lead viene del server y el refresh lo trae. */}
       {/* El título de la hoja a la altura del nombre del lead: la cabecera es una caja del mismo ancho que la ficha. */}
-      <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA} sangria={`${SANGRIA_NOMBRE_LEAD}px`}
-        pedido={pedido} onNoEsta={() => setMoveTo(currentStage)} crm={crmEnVista(fichaProd, data)} />
+      <FichaPorBloques data={data} initialTab={initialTab} fondoTabs="var(--bg)" arribaTabs="var(--barra-agencia, 0px)" altoChat={ALTO_CHAT_EN_LA_RUTA}
+        pedido={pedido} onNoEsta={(paso) => { setDatoPedido(paso); setMoveTo(currentStage); }} crm={crmEnVista(fichaProd, data)} />
       {/* ⚠️ BORRAR LEAD NO SE FUE CON EL BOTÓN DE EDITAR. Vivía al pie del formulario,
           que era el único lugar de ESTA ruta donde se podía borrar (el modal tiene el
           suyo). Es irreversible, así que queda al fondo y con su confirmación
@@ -213,10 +218,11 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
       </div>
 
       {confirmDelete && (
+        // A la PAPELERA desde el 28/10/2026 (mig 0340): la misma pregunta que la barra y la tarjeta.
         <ConfirmDialog
-          title="Borrar lead"
-          message={<>Vas a borrar definitivamente a <b style={{ color: 'var(--ink)' }}>{nombre}</b> y todo su historial. <b style={{ color: 'var(--bad)' }}>No se puede deshacer.</b></>}
-          confirmLabel="Borrar definitivamente"
+          title={preguntaDePapelera(1, nombre).titulo}
+          message={preguntaDePapelera(1, nombre).mensaje}
+          confirmLabel="Mandar a la papelera"
           onConfirm={borrar}
           onCancel={() => setConfirmDelete(false)}
           zIndex={130}
@@ -231,10 +237,11 @@ export function LeadDetailBody({ data, initialTab, initialSolucionar }: {
           move={{ to: moveTo }}
           titulo={moveTo === currentStage ? 'Completar datos' : undefined}
           completarDatos={moveTo === currentStage}
-          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar) : undefined}
+          faltantes={moveTo === currentStage ? loQueSePide(faltantes, datos?.avisar, datoPedido) : undefined}
+          datoPedido={moveTo === currentStage ? datoPedido : null}
           equipo={equipo}
-          onClose={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); }}
-          onDone={() => { setMoveTo(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
+          onClose={() => { setMoveTo(null); setDatoPedido(null); if (initialSolucionar) router.replace(pathname); }}
+          onDone={() => { setMoveTo(null); setDatoPedido(null); if (initialSolucionar) router.replace(pathname); router.refresh(); }}
         />
       )}
 

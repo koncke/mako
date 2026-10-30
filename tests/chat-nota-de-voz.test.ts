@@ -17,7 +17,7 @@
 //   · `listaParaMandar` que manda con la caja todavía vacía               → 1 fallo (1);
 //   · la caja sin `voz` de vuelta a `grabacion={null}` (el micrófono dicta) → 1 fallo (2);
 //   · transcribir el webm sin pasarlo a MP3                                 → 1 fallo (2);
-//   · el «Nuevo chat» con el `BotonMandar` que dicta sin nada escrito       → 1 fallo (3);
+//   · el «Nuevo chat» con el `BotonMandar` que dicta sin nada escrito       → 1 fallo (3; desde el 28/10/2026, su caja con `voz`);
 //   · la onda sin micrófono con `animation: mako-wave`                      → 1 fallo (4);
 //   · el anillo `co-escucha` de vuelta en el micrófono                      → 1 fallo (4).
 // =============================================================================
@@ -49,24 +49,24 @@ test('2. toda caja de chat graba: con `voz` la manda la pantalla; sin `voz`, se 
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <CajaConNota \{\.\.\.p\} \/>;/);
   assert.doesNotMatch(c, /grabacion=\{null\}/, 'ninguna caja sin grabación: el micrófono ya no dicta en un chat');
-  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic \}\);/,
+  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic, onNota: p\.onNota, onGrabada: p\.onGrabada \}\);/,
     'manda con el `onMandar` de la pantalla (el Ops Center lo firma en el dispositivo)');
-  assert.match(c, /const enviando = !!p\.enviando \|\| transcribiendo;/, 'mientras se pasa a texto, la caja está saliendo');
+  assert.match(c, /const enviando = !!p\.enviando \|\| transcribiendo \|\| leidos\.leyendo;/, 'mientras se pasa a texto, la caja está saliendo');
   // Con «Reportar a Soporte» desde el 24/10/2026: un error es un aviso (tests/reportar-a-soporte.test.ts).
   assert.match(c, /\{nota\?\.error && !p\.onErrorMic && <p className="co-caja__estado" role="alert">\{nota\.error\}<ReportarASoporte \/><\/p>\}/, 'si no salió, se dice');
 
   const n = sinComentarios(leer('app/_chat/nota-que-se-manda.ts'));
-  assert.match(n, /mp3 = await notaEnMp3\(blob\);[\s\S]{0,200}?transcribirNota\(mp3, 90_000, 'chat'\)/, 'MP3 antes de transcribir: el webm de Chrome no lo toma');
+  assert.match(n, /mp3 = await notaEnMp3\(blob\);[\s\S]{0,200}?transcribirNota\(mp3, 300_000, 'chat'\)/, 'MP3 antes de transcribir: el webm de Chrome no lo toma');
   assert.match(n, /if \(listaParaMandar\(pendiente, texto\)\) \{ setPendiente\(null\); mandar\.current\(\); \}/);
   assert.match(n, /if \('error' in r\) \{ decir\(r\.error\); return; \}/, 'una nota fallida no pone nada en la caja');
 });
 
 test('3. el «Nuevo chat» del Ops Center graba igual, y ya no dicta', () => {
-  const c = sinComentarios(leer('app/admin/operaciones/ChatNuevoPiezas.tsx'));
-  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: n\.texto, onTexto: n\.setTexto, onMandar: \(\) => void n\.mandar\(\) \}\);/);
-  assert.match(c, /\{!hayQueMandar && !nota\.transcribiendo && n\.fase !== 'decidiendo' \? \(\n\s*<button type="button" className="co-enviar co-enviar--mic" onClick=\{\(\) => void nota\.grabacion\.start\(\)\}/,
-    'sin nada escrito, el botón GRABA (no el BotonMandar, que dicta)');
-  assert.match(c, /<BarraGrabacion voz=\{nota\.grabacion\}/);
+  // Desde el 28/10/2026 su caja es la ÚNICA (CajaChat, CajaChatNuevo.tsx): sin `voz`, el micrófono GRABA y la nota sale en el
+  // acto (`onGrabada`). Que la caja única grabe sin nada escrito lo fija el (2).
+  const c = sinComentarios(leer('app/admin/operaciones/CajaChatNuevo.tsx'));
+  assert.match(c, /<CajaChat texto=\{n\.texto\} onTexto=\{n\.setTexto\} onMandar=\{\(\) => void n\.mandar\(\)\} onGrabada=\{n\.mandarNota\}/);
+  assert.doesNotMatch(c, /\bvoz=\{|useNotaQueSeManda|BotonMandar/, 'ni un micrófono propio ni el botón que dicta');
 });
 
 test('4. la onda sin micrófono que escuchar queda QUIETA, y los anillos que latían siempre igual se fueron', () => {
@@ -96,7 +96,7 @@ test('5. el dictado queda sólo donde se escribe un texto', () => {
 });
 
 test('6. la transcripción de una nota de chat se anota con su motivo', () => {
-  assert.match(leer('app/_components/useDictar.ts'), /if \(para\) fd\.append\('para', para\);/);
+  assert.match(leer('app/_components/transcribir-nota.ts'), /if \(para\) fd\.append\('para', para\);/);
   const r = leer('app/api/plan-dictado/route.ts');
   assert.match(r, /const motivo = form\.get\('para'\) === 'chat' \? 'Nota de voz de un chat' : 'Dictar una tarea del plan';/);
   assert.match(r, /transcribirAudio\(base64, file\.type \|\| 'audio\/webm', \{ motivo, pii: true \}\)/, 'sigue siendo un dato de un cliente (`pii`)');

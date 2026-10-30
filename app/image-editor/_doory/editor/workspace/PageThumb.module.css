@@ -42,11 +42,11 @@
   border-radius: var(--cv-radius-sm);
 }
 .thumb:hover {
-  /* Canva: al pasar, un anillo gris en el mismo lugar que el violeta de la elegida */
+  /* Canva: al pasar, un anillo gris en el mismo lugar que el azul de la elegida */
   outline-color: var(--cv-color-border-strong);
 }
 .thumb:focus-visible {
-  outline-color: #3d8bff; /* Canva: borde de foco de teclado */
+  outline-color: var(--cv-color-brand); /* Canva: borde de foco de teclado */
 }
 .thumb img {
   display: block;
@@ -56,7 +56,7 @@
   pointer-events: none;
 }
 
-/* Canva: la elegida lleva un anillo #8B3DFF de 2 px separado 2 px de la miniatura */
+/* Canva: la elegida lleva un anillo azul (--primary) de 2 px separado 2 px de la miniatura */
 .active .thumb,
 .active .thumb:hover {
   outline-color: var(--cv-selection-color);

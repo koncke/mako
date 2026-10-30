@@ -80,6 +80,7 @@ import {
 } from "@/app/video-editor/_opencut/audio/claves";
 import { buscarFrase, muletillasDe, palabrasEnOrden, type ParrafoTx } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import type { Disponibles } from "./disponibles";
+import { PAUSA_MIN_S, segundosDeAviso } from "@/app/video-editor/_opencut/audio/silencios-aviso";
 
 export type TipoRef = "video" | "imagen" | "texto" | "audio" | "sticker" | "grafico" | "efecto";
 
@@ -720,6 +721,9 @@ export type OperacionResuelta =
 	| { op: "congelar"; el: RefElemento; desde: number }
 	| { op: "normalizar"; el: RefElemento; objetivo: string }
 	| { op: "generar_subtitulos" }
+	/** «Borrar silencios» de estos clips: escucha el audio al aceptar (audio/borrar-silencios.ts), por eso va último.
+	 *  `todo`: se pidió para todo el video (sin "ref" ni selección), y el aviso lo dice; `minimoS`: la pausa más corta. */
+	| { op: "borrar_silencios"; els: RefElemento[]; todo: boolean; minimoS: number }
 	/** Sola, con la línea de tiempo vacía. `medios`: hueco → id del medio de Multimedia. */
 	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> };
 
@@ -1021,6 +1025,8 @@ export function revisarOperaciones({
 			o.op === "eliminar_muletillas",
 	);
 	const hayCortes = operaciones.some((o) => o.op === "cortar_frase" || o.op === "cortar_tramo" || o.op === "eliminar_muletillas");
+	// «Borrar silencios» también parte los clips (y corre lo que sigue), pero al FINAL: lo que tarda y busca el clip por su id va aparte.
+	const partenClips = hayCortes || operaciones.some((o) => o.op === "borrar_silencios");
 	// Los cortes por texto salen de los tiempos por palabra de los subtítulos, que no se
 	// mueven con un recorte o una velocidad de la principal: en el mismo pedido, cortarían
 	// otra parte del video. (Congelar y revertir no cuentan: con un corte, son ELLOS los que
@@ -1035,7 +1041,7 @@ export function revisarOperaciones({
 	for (const op of operaciones) {
 		if (op.op === "usar_plantilla") continue; // Ya se miró arriba: con la línea de tiempo con algo, no va.
 		if (op.op === "cortar_frase" || op.op === "cortar_tramo" || op.op === "eliminar_muletillas") { cortes.push(op); continue; }
-		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar") { diferidas.push(op); continue; }
+		if (op.op === "generar_subtitulos" || op.op === "revertir" || op.op === "congelar" || op.op === "borrar_silencios") { diferidas.push(op); continue; }
 		if (op.op === "reemplazar_en_subtitulos") {
 			// Sin distinguir mayúsculas, como «Buscar y reemplazar» (subtitles/palabras.ts → reemplazarEnTexto).
 			const b = op.buscar.toLowerCase();
@@ -1617,7 +1623,36 @@ export function revisarOperaciones({
 	}
 
 	// ── Lo que tarda: después del lote ─────────────────────────────────────────
+	// «Borrar silencios», el último de todos: corta según el audio, y lo de antes ya quedó donde va.
+	diferidas.sort((a, b) => Number(a.op === "borrar_silencios") - Number(b.op === "borrar_silencios"));
 	for (const op of diferidas) {
+		if (op.op === "borrar_silencios") {
+			if (hayCortes) { descartes.push("borrar los silencios va en un pedido aparte: los otros cortes parten el clip"); continue; }
+			// Sin ref: cada clip con sonido de la pista principal; con el alcance de la selección, los elegidos.
+			const pedidos = op.ref !== undefined
+				? [op.ref]
+				: [...refs.values()].filter((r) => !r.nuevo && SONOROS.has(r.tipo) && (alcance === "seleccion" ? elegidos.has(r.ref) : r.principal)).map((r) => r.ref);
+			const els: RefElemento[] = [];
+			for (const ref of pedidos) {
+				const r = resolver(ref);
+				if ("motivo" in r) { descartes.push(r.motivo); continue; }
+				const el = r.el;
+				const e = estado.get(el.ref)!.e;
+				// Sin ref, un clip mudo de la principal no se nombra: no hay nada que escuchar.
+				if (!SONOROS.has(el.tipo) || e.sinAudio) { if (op.ref !== undefined) descartes.push(`${el.titulo} no tiene sonido`); continue; }
+				// Cortar sólo el video o sólo su audio extraído los desfasa: el botón tampoco lo hace bien.
+				if (el.extraido || e.audioSeparado) { descartes.push(`${el.titulo} tiene el audio extraído: recupéralo antes de borrar los silencios`); continue; }
+				els.push(el);
+			}
+			if (!els.length) {
+				if (op.ref === undefined && !pedidos.length) descartes.push(alcance === "seleccion" ? "no elegiste un video ni un audio con sonido" : "no hay un video con sonido en la pista principal");
+				continue;
+			}
+			const minimoS = op.pausa_min ?? PAUSA_MIN_S;
+			resueltas.push({ op: "borrar_silencios", els, todo: op.ref === undefined && alcance !== "seleccion", minimoS });
+			for (const el of els) cambios.push({ tipo: "quita", titulo: `Silencios de ${el.titulo}`, antes: `las pausas de ${segundosDeAviso(minimoS)} o más (se buscan al aceptar, escuchando el audio)`, despues: "" });
+			continue;
+		}
 		if (op.op === "generar_subtitulos") {
 			const conSonido = [...refs.values()].some((r) => (r.tipo === "video" || r.tipo === "audio") && !estado.get(r.ref)?.borrado);
 			if (!conSonido) { descartes.push("no hay video ni audio para subtitular"); continue; }
@@ -1632,7 +1667,7 @@ export function revisarOperaciones({
 		const st = estado.get(el.ref)!;
 		// Normalizar y revertir corren después del lote y buscan el clip por su id: con un
 		// corte en el mismo pedido, el clip ya está partido y sólo se procesaría el primer pedazo.
-		if (hayCortes && (op.op === "normalizar" || op.op === "revertir") && (el.principal || el.extraido)) {
+		if (partenClips && (op.op === "normalizar" || op.op === "revertir") && (el.principal || el.extraido)) {
 			descartes.push(`${op.op === "normalizar" ? "normalizar" : "revertir"} ${el.titulo} va en un pedido aparte: los cortes parten el clip`);
 			continue;
 		}
@@ -1652,7 +1687,7 @@ export function revisarOperaciones({
 			continue;
 		}
 		// Congelar: el segundo que vio la IA, contado desde el principio del clip.
-		if (hayCortes) { descartes.push(`congelar ${el.titulo} va en un pedido aparte: los cortes corren el video`); continue; }
+		if (partenClips) { descartes.push(`congelar ${el.titulo} va en un pedido aparte: los cortes corren el video`); continue; }
 		const desde = op.en - el.inicio;
 		if (desde < 0 || desde > st.fin - st.inicio - MARGEN_CORTE) { descartes.push(`el segundo ${textoSegundos(op.en)} cae fuera de ${el.titulo}`); continue; }
 		resueltas.push({ op: "congelar", el, desde });

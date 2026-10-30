@@ -78,7 +78,7 @@ export type PayloadPedido = {
   /** El id del chat: `local_…` para uno de la app de escritorio, `cli_…` para una sesión de
    *  terminal. Nunca el nombre: se repiten entre cuentas y dentro de una. */
   destino: string;
-  /** claude1 … claude4, o null si el cartero no lo sabe. Informativo. */
+  /** claude1 … claude5, o null si el cartero no lo sabe. Informativo. */
   cuenta: string | null;
   /** El título del chat al firmar. Informativo: el cartero entrega por `destino`. */
   titulo: string | null;
@@ -90,6 +90,8 @@ export type PayloadPedido = {
   esfuerzo?: Esfuerzo | null;
   /** Las fotos y los PDF que van con el trabajo (17/10/2026). Ausente = sin adjuntos: el texto firmado es el de siempre. */
   adjuntos?: AdjuntoPedido[];
+  /** Lo mandó como NOTA DE VOZ (26/10/2026): `texto` es su transcripción. Ausente = escrito («Las notas de voz enviadas»). */
+  voz?: VozDelPedido;
 };
 
 // ── Los adjuntos de un trabajo (17/10/2026) ──────────────────────────────────────────────────────────────────────────
@@ -303,6 +305,50 @@ export function miniaturasVencidas(objetos: ReadonlyArray<{ name?: string | null
   });
 }
 
+// ── Las notas de voz enviadas (26/10/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín, desde el Centro, con captura de su nota de voz dibujada como texto: «Y esto fue un audio, se deberia mandar el
+// audio directamente... Y de ultima en los 3 puntitos ver la transcripción». Lo que se graba en la caja se sigue
+// TRANSCRIBIENDO y el chat recibe ese texto, como siempre (app/_chat/nota-que-se-manda.ts). Lo nuevo:
+//   · el trabajo FIRMA que fue una nota (`voz: { segundos }`). Los dos validadores (este y el del cartero) dejan pasar una
+//     clave que no conocen, así que la PC lo entrega igual y no hace nada con él: no hace falta un cartero nuevo;
+//   · el navegador que la grabó sube el MP3, y queda del lado del servidor como la miniatura de una foto: bucket privado,
+//     URL firmada de 10 minutos, sólo para quien puede operar, 14 días (lib/operaciones-adjuntos.ts → «Las notas de voz»);
+//   · la burbuja dibuja el reproductor de la casa (AudioPlay) y la transcripción va en el menú del mensaje.
+// ⚠️ EL AUDIO NUNCA VA A LA PC: no es un adjunto (no está en `adjuntos`), y el cartero sólo baja lo que nombra `adjuntos`.
+export type VozDelPedido = { segundos: number };
+/** Lo que dura como mucho una nota (lo mismo que se transcribe sin cortar no pasa de unos minutos). */
+export const MAX_SEGUNDOS_VOZ = 60 * 60;
+/** Lo que pesa como mucho el MP3 de una nota: lo que entra en un POST a Vercel (~4,5 MB). A 96 kbps son ~5 minutos. */
+export const MAX_BYTES_VOZ = 4 * 1024 * 1024;
+/** Los segundos de una nota, enteros y en su rango (null = no vale). */
+export function segundosDeVoz(x: unknown): number | null {
+  if (typeof x !== 'number' || !Number.isFinite(x)) return null;
+  const s = Math.round(x);
+  return s >= 1 && s <= MAX_SEGUNDOS_VOZ ? s : null;
+}
+/** La nota de voz de un texto firmado (null = no lo fue, o no se lee). */
+export function vozDeFirmado(firmado: string | null | undefined): VozDelPedido | null {
+  try {
+    const o = JSON.parse(firmado ?? '') as { voz?: { segundos?: unknown } | null };
+    const segundos = o?.voz && typeof o.voz === 'object' ? segundosDeVoz(o.voz.segundos) : null;
+    return segundos ? { segundos } : null;
+  } catch {
+    return null;
+  }
+}
+/** ¿Es un MP3? Por los BYTES: la etiqueta ID3, o un cuadro MPEG (la sincronía de 11 bits). Lo que arma la caja es un MP3. */
+export function esMp3(b: Uint8Array): boolean {
+  if (b.length < 4) return false;
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) return true;
+  return b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0;
+}
+/** null si el audio vale para ESE trabajo (que FIRMÓ ser una nota); si no, el motivo (lo que contesta la ruta). */
+export function problemaDeVoz(bytes: Uint8Array, voz: VozDelPedido | null): string | null {
+  if (!voz) return 'Ese mensaje no es una nota de voz.';
+  if (!bytes.length || bytes.length > MAX_BYTES_VOZ) return 'La nota pesa demasiado.';
+  return esMp3(bytes) ? null : 'Solo una nota de voz.';
+}
+
 // ── Abrir un chat de terminal con un clic (17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────
 // Martín: «un clic + el permiso de la PC», nunca pegar un comando en PowerShell. Es un trabajo firmado como cualquiera,
 // con `destino: 'nuevo'`: la `cuenta` dice en qué terminal, el `titulo` es el nombre del chat y el `texto` su primer
@@ -328,6 +374,10 @@ export function sanearAbre(x: unknown): string[] {
 /** El cartero que abre chats (`abrir`): con uno de antes, el trabajo quedaría escrito para siempre. */
 export const VERSION_ABRIR = '1.11.1';
 export const aceptaAbrir = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ABRIR);
+/** El cartero que baja los adjuntos de un chat NUEVO y los nombra en su primer mensaje (28/10/2026). Uno de antes rechaza el
+ *  trabajo («un chat nuevo no lleva adjuntos»): la caja del chat nuevo los ofrece sólo con éste. */
+export const VERSION_ADJUNTOS_EN_NUEVO = '1.22.0';
+export const aceptaAdjuntosEnNuevo = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS_EN_NUEVO);
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -347,13 +397,16 @@ export function armarFirmable(p: PayloadPedido): string {
     ...(p.esfuerzo ? { esfuerzo: p.esfuerzo } : {}),
     // Los adjuntos, sólo si hay: sin ellos, el texto firmado es el de siempre.
     ...(p.adjuntos?.length ? { adjuntos: p.adjuntos.map((a) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: a.bytes, sha256: a.sha256 })) } : {}),
+    // La nota de voz, sólo si lo fue: sin ella, el texto firmado es el de siempre.
+    ...(p.voz ? { voz: { segundos: p.voz.segundos } } : {}),
   });
 }
 
 export function nuevoPayload(entrada: {
   id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
-  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[];
+  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[]; voz?: VozDelPedido | null;
 }, ahora: number): PayloadPedido {
+  const segundos = entrada.voz ? segundosDeVoz(entrada.voz.segundos) : null;
   return {
     v: VERSION_PEDIDO,
     id: entrada.id,
@@ -367,6 +420,7 @@ export function nuevoPayload(entrada: {
     modelo: entrada.modelo ?? null,
     esfuerzo: entrada.esfuerzo ?? null,
     ...(entrada.adjuntos?.length ? { adjuntos: [...entrada.adjuntos] } : {}),
+    ...(segundos ? { voz: { segundos } } : {}),
   };
 }
 
@@ -387,10 +441,10 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
-  // Un chat nuevo dice en qué cuenta y con qué nombre, y no lleva adjuntos (todavía no hay a quién dárselos).
+  // Un chat nuevo dice en qué cuenta y con qué nombre. Desde el cartero 1.22.0 (28/10/2026) también lleva adjuntos: los baja
+  // la PC antes de abrirlo (VERSION_ADJUNTOS_EN_NUEVO).
   if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
   if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
-  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
@@ -538,7 +592,23 @@ export type TurnoChat = {
   local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null;
   /** Lo que Martín adjuntó en la app de Claude (cartero 1.17.0): sólo en un turno «yo». */
   adjuntos?: AdjuntoTurno[];
+  /** El ENCARGO con el que otra sesión abrió este chat (`esEncargoDeOtraSesion`): un `otro` del Cerebro que sí se dibuja,
+   *  plegado. Nunca es de Martín. */
+  encargo?: true;
+  /** El resumen del `wrap_up` del turno que CIERRA (cartero 1.21.0, 27/10/2026): lo que hizo, en dos o tres oraciones. El
+   *  «Completado» lo muestra primero (BloqueCompletado.tsx); el texto entero queda abajo, plegado. */
+  resumen?: string;
+  /** De qué RONDA del chat es este texto (cartero 1.21.0): el uuid del primero de la ronda. `fin`: es el que la cierra. Con
+   *  eso, un «Ya está» de a mitad de la ronda cede el «Completado» al cierre de esa ronda (lib/centro-chats.ts →
+   *  completadosDelChat). */
+  inicio?: string;
+  fin?: true;
+  /** El turno terminó con trabajo de FONDO vivo (cartero 1.21.0: una tarea en segundo plano, un Monitor, un Workflow): no es un
+   *  «Completado» y el chat sigue «Trabajando» (Martín, 27/10 23:07: «El cuadro de COMPLETADO debe ser dopamínico»). */
+  fondo?: true;
 };
+/** Copia de `TOPE_RESUMEN` del cartero: un tope técnico, no de lectura. */
+export const TOPE_RESUMEN = 2000;
 
 // ── El Ops Center sólo muestra lo que es para Martín (22/10/2026) ─────────────────────────────────────────────────────
 // Martín, desde el teléfono y con captura: «me salen estos textos largos innecesarios en muchos chats... No los quiero». En
@@ -556,9 +626,22 @@ export type TurnoChat = {
 export const esResumenDeCompactacion = (texto: string): boolean =>
   /^\s*This session is being continued from a previous conversation/i.test(texto);
 
-/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no. */
-export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'>): boolean =>
-  t.rol !== 'otro' && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
+/**
+ * ¿Es el ENCARGO con el que otra sesión abrió este chat? (27/10/2026, Martín: «Yo NO envié ese mensaje confuso y largo».) El
+ * chat que el Cerebro abre con `start_session` arranca con un mensaje que en el transcript es del USUARIO («Background (from
+ * the session that started this one): … Task: …»), y el cartero lo sube como `yo`: se dibujaba como un mensaje de Martín, con
+ * su foto. Lo escribió el Cerebro. `sanearTurnos` lo vuelve un `otro` del Cerebro con `encargo`, al subir y al leer.
+ */
+export const esEncargoDeOtraSesion = (texto: string): boolean =>
+  /^\s*Background \(from the session that started this one\):/.test(texto);
+/** Lo que se le pidió en el encargo: su «Task:» (sin el «Background…» de arriba), o el texto sin el rótulo. */
+export const textoDelEncargo = (texto: string): string =>
+  /\n\s*Task:\s*\n?([\s\S]+)/.exec(texto)?.[1]?.trim() ?? texto.replace(/^\s*Background \(from the session that started this one\):\s*/, '').trim();
+
+/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no, salvo el
+ *  encargo con el que lo abrieron (va plegado: «Encargo del Cerebro»). */
+export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'> & { encargo?: boolean }): boolean =>
+  (t.rol !== 'otro' || t.encargo === true) && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
 
 // ── Lo que Martín adjunta DIRECTO en la app de Claude (20/10/2026, el punto 4 del 18/10; cartero 1.17.0) ──────────────
 // Martín: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center». En el transcript, una
@@ -587,10 +670,21 @@ export function sanearAdjuntosTurno(x: unknown, local: string, uuid: string): Ad
   }
   return out;
 }
-/** Lo más largo de un turno que se guarda (la PC ya lo corta). */
-export const TOPE_TURNO = 4000;
-/** Lo que escribió Martín (rol «yo») no se corta como lo demás: puede ser largo, y es suyo (18/10/2026). */
-export const TOPE_TURNO_YO = MAX_TEXTO_LARGO;
+/**
+ * Lo más largo de un turno que se guarda. ⚠️ ES UN TOPE TÉCNICO, NO UN CORTE (25/10/2026, Martín: «que no haya nunca un limite
+ * de caracteres, en todo caso achica el mensaje y hazlo más claro»): hasta ese día eran 4000, la PC cortaba ahí y el «Completado»
+ * decía «Cortado a los 4000 caracteres». Ahora el texto llega entero; esto sólo frena un abuso, y lo largo se ve plegado con
+ * «Ver todo» (app/admin/operaciones/Avance.tsx). El cartero tiene su copia (scripts/operaciones/cartero.mjs, desde la 1.19.0).
+ * El servidor acepta lo largo ANTES de que llegue un cartero que lo mande: uno viejo sigue mandando 4000 y no se rompe nada.
+ */
+export const TOPE_TURNO = 200_000;
+/** Lo que cortaba un cartero de antes de la 1.19.0: un texto de justo este largo llegó cortado (`cortadoPorLaPC`). */
+export const TOPE_TURNO_VIEJO = 4000;
+/** Lo que escribió Martín (rol «yo»): entero también, con el mismo tope técnico (hasta el 25/10/2026, `MAX_TEXTO_LARGO`). */
+export const TOPE_TURNO_YO = TOPE_TURNO;
+/** Cuánto texto se guarda por chat, sumando sus turnos (25/10/2026). Con turnos enteros, los `TURNOS_POR_CHAT` de un chat podían
+ *  pesar megas en cada lectura: se quedan los más nuevos que entren, y el último entra siempre, aunque solo lo pase. */
+export const TEXTO_POR_CHAT = 600_000;
 /** Cuántos turnos sube una vuelta, como mucho (la primera de un chat largo trae su historia). */
 export const MAX_TURNOS_VUELTA = 300;
 /** Cuántos turnos se guardan por chat (los últimos). */
@@ -612,22 +706,74 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (typeof o.texto !== 'string' || (!o.texto.trim() && !adjuntos.length)) continue;
     const at = typeof o.at === 'string' ? Date.parse(o.at) : NaN;
     if (!Number.isFinite(at)) continue;
+    // El encargo de otra sesión no es de Martín (`esEncargoDeOtraSesion`): es del Cerebro, y se dibuja plegado.
+    if (o.rol === 'yo' && !o.trabajo && esEncargoDeOtraSesion(o.texto)) {
+      out.push({ local: o.local, uuid: o.uuid, rol: 'otro', de: 'Cerebro', texto: o.texto.slice(0, TOPE_TURNO), at: new Date(at).toISOString(), trabajo: null, encargo: true });
+      continue;
+    }
     out.push({
       local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
       texto: o.texto.slice(0, o.rol === 'yo' ? TOPE_TURNO_YO : TOPE_TURNO), at: new Date(at).toISOString(),
       trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
       ...(adjuntos.length ? { adjuntos } : {}),
+      ...(o.rol === 'otro' && o.encargo === true ? { encargo: true as const } : {}),
+      ...(o.rol === 'el' && typeof o.resumen === 'string' && o.resumen.trim() ? { resumen: o.resumen.trim().slice(0, TOPE_RESUMEN) } : {}),
+      ...(o.rol === 'el' && typeof o.inicio === 'string' && /^[\w-]{8,64}$/.test(o.inicio) ? { inicio: o.inicio } : {}),
+      ...(o.rol === 'el' && o.fin === true ? { fin: true as const } : {}),
+      ...(o.rol === 'el' && o.fondo === true ? { fondo: true as const } : {}),
     });
   }
   return out;
 }
 
 /** Une lo que había con lo nuevo: sin repetir (por `uuid`: dos Runners pueden subir lo mismo), por hora, y sólo los
- *  últimos `TURNOS_POR_CHAT`. */
+ *  últimos `TURNOS_POR_CHAT` que entren en `TEXTO_POR_CHAT` (el último, siempre). */
 export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoChat[]): TurnoChat[] {
   const porId = new Map<string, TurnoChat>();
   for (const t of [...antes, ...nuevos]) porId.set(t.uuid, t);
-  return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-TURNOS_POR_CHAT);
+  const ultimos = [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-TURNOS_POR_CHAT);
+  let total = ultimos.reduce((n, t) => n + t.texto.length, 0);
+  let desde = 0;
+  while (total > TEXTO_POR_CHAT && desde < ultimos.length - 1) total -= ultimos[desde++].texto.length;
+  return desde ? ultimos.slice(desde) : ultimos;
+}
+
+/**
+ * Los turnos de la conversación de un chat, de TODAS sus sesiones: los últimos `TURNOS_POR_CHAT` (`unirTurnos`) y, aunque hayan
+ * quedado afuera, su último «Ya está» y lo que hace falta para saber qué respondía (`pedidoDelCompletado`, lib/centro-chats.ts):
+ * el «Ya está» de antes (donde empieza ese tramo), lo último de Martín y lo último de otro chat en el tramo, y lo último de
+ * Martín de antes. `esYa` es `esYaEsta` (vive en lib/centro-chats.ts, que importa este módulo).
+ * ⚠️ MEDIDO EL 25/10/2026: el CRM decía «Completado» en la lista (`resumirTurnos` guarda el último «Ya está» de CADA sesión) y al
+ *    abrirlo no había bloque ni ✓ que dar, y la fila dejaba de decirlo: su «Ya está» era del 23/10, de una sesión vieja, y sus
+ *    6 sesiones juntas pasaban los 60 turnos. Al cerrarlo volvía a decir «Completado»: no había forma de darlo por visto.
+ */
+/**
+ * El CIERRE de la ronda de un «Ya está» (cartero 1.21.0: `inicio` y `fin`), si el «Ya está» no la cierra él mismo. Es el que
+ * la conversación muestra como «Completado» (lib/centro-chats.ts → completadosDelChat): los recortes de la fila y de la
+ * conversación lo tienen que traer, o la fila, la API y el chat abierto eligen distinto (revisión de 928bdde0d, media).
+ */
+export function cierreDeLaRonda(turnos: readonly TurnoChat[], ya: TurnoChat): TurnoChat | null {
+  if (ya.fin) return null;
+  const ronda = ya.inicio ?? ya.uuid;
+  return turnos.find((t) => t.rol === 'el' && t.fin && t.inicio === ronda && Date.parse(t.at) >= Date.parse(ya.at)) ?? null;
+}
+
+export function turnosDeLaConversacion(todos: readonly TurnoChat[], esYa: (texto: string) => boolean): TurnoChat[] {
+  const unidos = unirTurnos([], todos);
+  const orden = [...new Map(todos.map((t) => [t.uuid, t])).values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const esSuYa = (t: TurnoChat) => t.rol === 'el' && esYa(t.texto);
+  const deMartin = (t: TurnoChat) => t.rol === 'yo' && !t.trabajo;
+  const iy = orden.findLastIndex(esSuYa);
+  if (iy < 0) return unidos;
+  const antes = orden.slice(0, iy);
+  const ip = antes.findLastIndex(esSuYa);
+  const tramo = antes.slice(ip + 1);
+  const estan = new Set(unidos.map((t) => t.uuid));
+  const faltan = new Map<string, TurnoChat>();
+  for (const t of [orden[iy], cierreDeLaRonda(orden, orden[iy]), antes[ip], tramo.findLast(deMartin), tramo.findLast((x) => x.rol === 'otro'), antes.findLast(deMartin)]) {
+    if (t && !estan.has(t.uuid)) faltan.set(t.uuid, t);
+  }
+  return faltan.size ? [...faltan.values(), ...unidos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : unidos;
 }
 
 // ── Lo último de CADA chat, para su fila de la lista (17/10/2026, el aviso del «Completado» que no salía) ─────────────────
@@ -653,7 +799,12 @@ export function resumirTurnos(
   const orden = turnos.filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const ultimos = orden.slice(-ULTIMOS_POR_CHAT);
   const ya = esYa ? [...orden].reverse().find((t) => t.rol === 'el' && esYa(t.texto)) : undefined;
-  return (ya && !ultimos.includes(ya) ? [ya, ...ultimos] : ultimos).map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
+  // Y el cierre de su ronda (revisión de 928bdde0d): es el «Completado» que la fila tiene que ofrecer y cerrar con su ✓.
+  const cierre = ya ? cierreDeLaRonda(orden, ya) : null;
+  const extra = [ya, cierre].filter((t): t is TurnoChat => !!t && !ultimos.includes(t));
+  // El resumen del wrap_up también va recortado: la lista viaja en cada refresco (revisión de 928bdde0d, baja).
+  return [...extra, ...ultimos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+    .map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO), ...(t.resumen ? { resumen: t.resumen.slice(0, ULTIMOS_TEXTO) } : {}) }));
 }
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */

@@ -312,21 +312,22 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
   // conectar. La regla de la skill pone la plomería al final, salvo lo que bloquea — y
   // acá la cuenta publicitaria bloquea todo: la tabla ES la cuenta de Meta.
   //
-  // Los tres pasos los DERIVA la page al abrir (app/ads-manager/onboarding-datos.ts):
-  // cuenta leída, página guardada, al menos una campaña. Así un cliente que ya opera su
-  // cuenta no ve nunca el wizard. No hay `requiere`: alcanza con Meta (no se encadena con
-  // ads-writer, que es otra tab con su propio recorrido).
+  // Desde el 25/10/2026 la tab es el Media Buyer (la réplica de Meta Ads Manager se borró). Sus tres pasos son las tres
+  // etapas de siempre: CONECTAR la cuenta (Meta o la Zernio del negocio; la prueba de vida es que MaKo la lea), el
+  // CONTEXTO que ya está en la app (qué resultado se busca, y su objetivo, que MaKo recomienda con los datos de la cuenta)
+  // y PRENDERLO (arranca en «propone»: el ensayo es la primera tanda de decisiones, que la persona lanza o descarta).
+  // Los marca app/api/media-buyer/route.ts. No hay `requiere`: alcanza con Meta.
   //
   // ⚠️ Prefijo `am_`: el registro de pasos es COMPARTIDO entre tabs
   // (tests/onboarding-keys-colision.test.ts).
   'ads-manager': {
     key: 'ads-manager',
-    titulo: 'Configuración del Ads Manager',
-    nombre: 'Ads Manager',
+    titulo: 'Configuración del Media Buyer',
+    nombre: 'Media Buyer',
     pasos: [
       { key: 'am_cuenta', label: 'Tu cuenta publicitaria' },
-      { key: 'am_pagina', label: 'La página que firma tus anuncios' },
-      { key: 'am_campana', label: 'Tu primera campaña en pausa' },
+      { key: 'am_resultado', label: 'El resultado que buscas' },
+      { key: 'am_prender', label: 'El Media Buyer prendido' },
     ],
   },
 
@@ -422,7 +423,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'cs_clientes', label: 'Tus clientes' },
       { key: 'cs_ficha', label: 'Ficha de un cliente' },
     ],
-    href: '/clients',
+    href: '/classroom/clients',
   },
 
   // ── Curso (Customer Success): el programa que ven los clientes en su portal ──
@@ -464,7 +465,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'curso_vista', label: 'Vista del alumno' },
       { key: 'curso_invitar', label: 'Tu primer alumno', opcional: true },
     ],
-    href: '/clients/classroom',
+    href: '/classroom',
   },
 
   // ── Comunidad (Customer Success): el feed tipo Skool de cada producto (07/10/2026) ──
@@ -489,7 +490,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'comunidad_post', label: 'Tu primer post' },
       { key: 'comunidad_alumnos', label: 'Un alumno participa', opcional: true },
     ],
-    href: '/clients/community',
+    href: '/classroom/community',
   },
 
   // ── Stories: el writer de secuencias de stories ──

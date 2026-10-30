@@ -9,7 +9,7 @@
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
+import { AjustesPagina } from '../_ui/Ajustes';
 import { EquipoView } from './EquipoView';
 
 export const dynamic = 'force-dynamic';
@@ -19,8 +19,9 @@ export default async function EquipoPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'equipo')} activa="equipo">
-      <TituloAjustes titulo="Equipo" bajada={<>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</>} />
-      <EquipoView />
+      {/* El título (con «Invitar») lo pone EquipoView, como Members de Linear. Qué ve cada rol va en el modal de invitar, al lado
+          del rol, donde se elige (25/10/2026). */}
+      <EquipoView roles={<>El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</>} />
     </AjustesPagina>
   );
 }

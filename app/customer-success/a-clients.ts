@@ -14,12 +14,12 @@
 import 'server-only';
 import { redirect } from 'next/navigation';
 import { rutaConWs } from '@/lib/workspace';
-import { RUTA_CLIENTS, queryDeSearchParams, rutaNuevaDeVieja } from '@/lib/clients-rutas';
+import { RUTA_CLASSROOM, queryDeSearchParams, rutaNuevaDeVieja } from '@/lib/clients-rutas';
 
 export async function aClients(
   rutaVieja: string,
   searchParams: Promise<Record<string, string | string[] | undefined>>,
 ): Promise<never> {
   const q = queryDeSearchParams(await searchParams);
-  redirect(await rutaConWs(rutaNuevaDeVieja(rutaVieja, q) ?? RUTA_CLIENTS));
+  redirect(await rutaConWs(rutaNuevaDeVieja(rutaVieja, q) ?? RUTA_CLASSROOM));
 }

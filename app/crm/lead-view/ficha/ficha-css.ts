@@ -57,6 +57,9 @@ export const CSS_FICHA = `
 .fb-bloque--editando { cursor: grab; }
 .fb-bloque--editando > .fb-cuerpo { user-select: none; }
 .fb-marco { position: absolute; inset: -6px; border: 1.5px dashed var(--border-strong); border-radius: 18px; pointer-events: none; z-index: 1; }
+.fb-quitar-dato { position: absolute; z-index: 3; translate: calc(-100% - 6px) -50%; width: 24px; height: 24px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid var(--border-strong); background: var(--surface); color: var(--bad); cursor: pointer; box-shadow: 0 2px 6px rgba(18,21,27,.12); }
+.fb-quitar-dato:hover { background: var(--bad-bg, var(--surface-2)); }
+.fb-quitar-dato:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .fb-bloque--editando:hover > .fb-marco { border-color: var(--primary); }
 .fb-bloque--sel > .fb-marco { border: 2px solid var(--primary); }
 .fb-bloque--arrastrado > .fb-marco { border: 2px solid var(--primary); box-shadow: 0 6px 18px rgba(18, 21, 27, .14); }

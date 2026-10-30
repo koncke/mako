@@ -89,6 +89,8 @@ export type PermisoClaveDelNegocio = PermisoClaude & {
   readonly clave: string;
   /** La clave es el crédito de Max de la PLATAFORMA (el ws10): su gasto se anota como del crédito, no del negocio. */
   readonly esCredito?: true;
+  /** El crédito de los GRUPOS (`CLAVES_CREDITO_DE_LOS_GRUPOS`): el número de la cuenta que pagó, para el Uso (`creditoQuePago`). */
+  readonly cuentaDelCredito?: number;
 };
 
 export type PermisoDeclarado = {
@@ -341,11 +343,18 @@ export const CREDITO_DE_LA_PLATAFORMA = {
  * sigue como si el crédito no existiera: con datos de clientes, sin nada gratis que entrene (AGENTS.md). El
  * Plan, además, queda afuera siempre (`FEATURES_DEL_PLAN`): el plan de arranque del cierre del onboarding
  * (`plan-seed-ia`) no está, a propósito.
+ *
+ * `soloLaPlataforma` (26/10/2026): Martín, en el Centro, a «¿Le damos a MaKo una IA paga de último recurso para lo suyo (editor
+ * de landings, réplicas)?» eligió «1. Claude de la plataforma». Lo INTERNO de MaKo (su espacio, el super admin) y sólo eso: un
+ * negocio sigue pagando su IA. Lo llama la cascada DESPUÉS de que fallaron las gratis (lib/ai-cheap.ts), nunca antes.
  */
-export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; para: string }> = [
+export const CREDITO_HABILITADO_PARA: ReadonlyArray<{ feature: string; soloDuranteElOnboarding: boolean; soloLaPlataforma?: boolean; para: string }> = [
   { feature: 'El Archivero', soloDuranteElOnboarding: true, para: 'leer los documentos que le manda al chat de arranque' },
   { feature: 'onboarding-extract', soloDuranteElOnboarding: true, para: 'sacar el brief de sus documentos' },
   { feature: 'offer', soloDuranteElOnboarding: true, para: 'el chat de Offer del primer ingreso: nombre, oferta, funnel y primer CRM' },
+  { feature: 'landing-editor', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: generar y replicar landings cuando sus Gemini no contestan' },
+  { feature: 'landing-editor-ia', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: editar con IA en el editor de landings cuando sus Gemini no contestan' },
+  { feature: 'landing-analyst', soloDuranteElOnboarding: false, soloLaPlataforma: true, para: 'el espacio de MaKo: el analizador de landings cuando sus Gemini no contestan' },
 ];
 
 /**
@@ -364,6 +373,18 @@ export const CREDITO_DE_UN_NEGOCIO: readonly CreditoDeUnNegocio[] = [
 ];
 /** El interruptor, en el workspace de la PLATAFORMA (el negocio no lo puede tocar): «apagado» lo apaga; sin fila, prendido. */
 export const claveDelInterruptorDeCredito = (ws: number): string => `ia.credito_negocio.${ws}`;
+
+/**
+ * EL CRÉDITO DE LOS PLANES 200 PARA LOS GRUPOS DE WHATSAPP DE MaKo (28/10/2026). Martín, textual: «te pedí que habilites las API que
+ * tenemos disponibles con todas las cuentas de planes 200», después de que MaKo le contestara cualquier cosa a Leandro (ws10) por un
+ * Gemini que no respondió. El turno de texto de un grupo (`FEATURE_DE_LOS_GRUPOS`) de CUALQUIER negocio sin su Claude contesta con el
+ * crédito de las cuentas Max que tienen clave, repartido entre ellas (lib/credito-negocio.ts, `cuentasDelCreditoDeLosGrupos`). Entra
+ * por la puerta 2 como el crédito asignado: el modelo barato (Haiku), nunca el Plan, y su gasto con la marca del crédito. Su Claude
+ * propio, si lo conecta, gana. Se apaga con la fila `CLAVE_INTERRUPTOR_CREDITO_GRUPOS` («apagado») de la plataforma.
+ * Las cuentas son las del Uso (`CLAVES_CREDITO_DE_LOS_GRUPOS`, lib/credito-api.ts, de `CUENTAS_DEL_CREDITO`): N, no cuatro fijas.
+ */
+export const FEATURE_DE_LOS_GRUPOS = 'mako-doer-in';
+export const CLAVE_INTERRUPTOR_CREDITO_GRUPOS = 'ia.credito_grupos';
 export const esInterruptorPrendido = (valor: string | null | undefined): boolean => valor !== 'apagado';
 
 /** La marca del gasto de este crédito en `anthropic_usage`, al PRINCIPIO del motivo (ver la del negocio). */
@@ -386,6 +407,8 @@ export type PermisoCredito = PermisoClaude & { readonly clave: string; readonly 
 export function evaluarCreditoDeLaPlataforma(p: {
   feature?: string; model?: string; pausa?: boolean; hoy?: Date;
   clave?: string | null; creditos: ReadonlyArray<string | null | undefined>;
+  /** ¿El que pide es el espacio de la PLATAFORMA (el super admin)? Lo lee el llamador; sin saberlo, se toma que no. */
+  esLaPlataforma?: boolean;
   /** ¿El onboarding del negocio que pide está en curso? Lo lee el llamador; sin saberlo, se toma que no. */
   onboardingEnCurso?: boolean;
 }): { ok: true; permiso: PermisoCredito } | { ok: false; razon: string } {
@@ -398,6 +421,9 @@ export function evaluarCreditoDeLaPlataforma(p: {
   if (!habilitado) return { ok: false, razon: `el crédito no está habilitado para «${feature}»: lo decide Martín («Por ahora solo en onboarding»).` };
   if (habilitado.soloDuranteElOnboarding && p.onboardingEnCurso !== true) {
     return { ok: false, razon: `«${feature}» usa el crédito sólo durante el onboarding, y el de este negocio no está en curso.` };
+  }
+  if (habilitado.soloLaPlataforma && p.esLaPlataforma !== true) {
+    return { ok: false, razon: `«${feature}» usa el crédito sólo en el espacio de MaKo, como último recurso: un negocio paga su IA.` };
   }
   if (diaISO(p.hoy ?? new Date()) > CREDITO_DE_LA_PLATAFORMA.hasta) {
     return { ok: false, razon: `el permiso del crédito de la plataforma venció el ${CREDITO_DE_LA_PLATAFORMA.hasta}. Renuévalo con una fecha nueva o déjalo vencido.` };

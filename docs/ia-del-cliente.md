@@ -423,8 +423,13 @@ prueba en el ws3.
 
 - **La firma del programa** (Windows y Apple): plata, Cerebro.
 - **La autorización de Anthropic** para este uso: Cerebro con Martín.
-- **El doer de WhatsApp** (`lib/mako-doer-in.ts`): si un negocio con su Claude tiene que contestar por WhatsApp con su
-  PC, eso es de «MaKo en WhatsApp». Por ahora WhatsApp no va por la suscripción (es lo de fondo, D6a).
+- **El doer de WhatsApp** (`lib/mako-doer-in.ts`, «MaKo en WhatsApp»). ~~Por ahora WhatsApp no va por la suscripción (es lo
+  de fondo, D6a).~~ **Desde el 25/10/2026, el grupo de MaKo del DUEÑO contesta con su computadora** cuando escribe la
+  persona que la conectó (Martín: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o
+  GPT»; docs/conexiones-y-ayuda.md, decisión 2). No es «lo de fondo»: es la persona escribiéndole a su MaKo, como el chat de
+  la app. El webhook no trae la cookie, así que la puerta prueba otra cosa: el teléfono que manda WhatsApp es de UNA sola
+  persona activa del negocio y es quien conectó esa PC (`encolarTurno` con `delGrupo`, lib/ia-pc.ts), y el lote entero lo
+  escribió ella. Las respuestas a los leads, Automations, la nutrición y los avisos siguen sin ir a la PC (D6a entera).
 - **Lo de fondo sin Gemini** (D6b, más allá de los turnos): AI Step, nutrición, reuniones. Cada uno es de su chat.
 - **Las rutas que D6b deja afuera como decisión pendiente** (`FUERA_DE_D6B` en tests/d6b-rutas.test.ts): la API de MaKo
   (`v1`, `agente`), Offer y `onboarding/arranque` (lo decide Offer), y las demás tabs (CRM, Ads, Landing, Chat Agent,

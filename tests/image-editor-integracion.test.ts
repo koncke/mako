@@ -7,10 +7,11 @@
 //      todos los workspace»): la fila se ve en todos los workspaces y el guard de las pages
 //      (`acceso.ts`) es la pregunta de toda tab, rol y capa. Si se abre una sin la otra, o
 //      el cliente no la encuentra, o la ve y rebota.
-//   2. EL CRÉDITO DE DOORY SE MUESTRA. El motor es Doory (Attribution Assurance License):
-//      cada apertura del editor tiene que mostrar el nombre del autor, su identificación
-//      y la URL, y el LICENSE viaja con el código. Sacar el cartel sin permiso escrito
-//      del autor es incumplir la licencia (docs/editor-imagen/repos/doory.md §1).
+//   2. EL CRÉDITO DE DOORY NO SE MUESTRA (desde el 29/10/2026): Martín decidió sacar el
+//      crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco;
+//      cuando no quede nada suyo, la licencia deja de aplicar. El LICENSE, el NOTICE y el
+//      COMMIT siguen en el repo (no se muestran). Hasta ese día era al revés: el cartel se
+//      exigía (Attribution Assurance License, docs/editor-imagen/repos/doory.md §1).
 //   3. NADIE EN EL EDITOR NAVEGA SIN EL `?ws=`: ni `next/link` ni el router de Next a
 //      pelo en los archivos de MaKo del editor (el motor de Doory no navega).
 //   4. EL MOTOR ES CLIENTE POR SU ÚNICA PUERTA: ningún módulo del server importa de
@@ -19,8 +20,9 @@
 // Correr: node --import tsx --test tests/image-editor-integracion.test.ts
 // PROBADO ROMPIÉNDOLO (14/10/2026, de a una y restaurando; corrido con --test-name-pattern):
 //   R1 (14/10, cuando era sólo del super admin) sin `adminOnly` → 1a: 0/1. Desde el 15/10 ver 1a y 1c.
-//   R2 PantallaEditor sin `<CreditoDoory />`               → 2:  0/1
-//   R3 un `import NextLink from 'next/link'` en Inicio.tsx  → 3:  0/1
+//   R2 (29/10/2026, al revés) «Doory by Siam» de vuelta en PantallaEditor → 2: 0/1
+//   R3 un `import NextLink from 'next/link'` en Inicio.tsx  → 3:  0/1 (Inicio.tsx se borró el 29/10/2026: la portada es
+//      la de PantallaCrear; la regla barre igual todo app/image-editor)
 // Restaurado: 5/0.
 // =============================================================================
 
@@ -46,28 +48,33 @@ function archivosDe(dir: string): string[] {
   return out;
 }
 
-test('1a: la sección del nav es la primera de «Image», la tab apunta ahí y ninguna sección de Image es adminOnly', () => {
-  const image = FAMILIAS.flatMap((f) => f.bloques.flat()).find((i) => i.key === 'image');
+// Desde el 29/10/2026 «Image» es UNA pantalla, sin secciones (Martín: «para todas las secciones de "create" no quiero otras
+// tabs… prefiero deprecar antes que conservar»): el ítem lleva la key del editor ('image-editor'), la que miran las capas,
+// la API y el guard. Image Generator y Thumbnails (que nunca pasaron de «pronto») y Carousels se fueron.
+test('1a: «Image» es la entrada image-editor del nav, sin secciones, y no es adminOnly ni «pronto»', () => {
+  const image = FAMILIAS.flatMap((f) => f.bloques.flat()).find((i) => i.label === 'Image');
   assert.ok(image, 'no encontré la tab «Image» en el nav');
+  assert.equal(image.key, 'image-editor', 'la key del editor: la miran las capas, la API y el guard');
   assert.equal(image.href, '/image-editor');
-  assert.equal(image.secciones?.[0]?.key, 'image-editor', 'el editor tiene que ser la primera sección de «Image»');
+  assert.equal(image.secciones, undefined, 'Image es UNA pantalla (app/_crear/PantallaCrear.tsx)');
   const ie = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'image-editor');
   assert.ok(ie, 'no encontré la entrada image-editor');
   assert.equal(ie.href, '/image-editor');
-  // 15/10/2026, Martín: «Que Image aparezca en todos los workspace». Las que todavía no están siguen con su «pronto».
+  // 15/10/2026, Martín: «Que Image aparezca en todos los workspace».
   // PROBADO ROMPIÉNDOLO: con `adminOnly: true` en image-editor, 0/1.
-  for (const s of image.secciones ?? []) assert.ok(!s.adminOnly, `${s.key} no puede ser adminOnly: Image se ve en todos los workspaces`);
-  const pronto = (image.secciones ?? []).filter((s) => s.comingSoon).map((s) => s.key).sort();
-  assert.deepEqual(pronto, ['image-generator', 'thumbnails'], 'Image Generator y Thumbnails siguen diciendo que todavía no están');
+  assert.ok(!image.adminOnly, 'Image no puede ser adminOnly: se ve en todos los workspaces');
+  assert.ok(!image.comingSoon, 'Image no es «pronto»');
 });
 
 test('1c: Sales Machine → «Image» lleva al editor en la barra del super admin, mirando un cliente y en la del cliente', () => {
   // 14/10/2026, Martín: «No veo la tab en la sidebar principal»; 15/10: «Que Image aparezca en todos los workspace».
   // Medido en el DOM de la Sidebar real ese día: antes, la fila sólo estaba para el super admin en su cuenta; mirando un
   // cliente con `?ws=` y para un admin de cliente no estaba (y con Content Machine plegada no está para nadie).
-  // PROBADO ROMPIÉNDOLO: image-editor con `comingSoon: true` → la tab lleva a /carousels, 0/1.
+  // PROBADO ROMPIÉNDOLO (cuando Image tenía secciones): image-editor con `comingSoon: true` → la tab llevaba a /carousels, 0/1.
+  // Desde el 29/10/2026 «Image» es la entrada image-editor misma (sin secciones); 1a y 1c se reescribieron para eso y la
+  // versión vieja daba 5/2 contra el nav nuevo. No se volvió a romper: el nav (app/_components/nav.ts) no es de este chat.
   // Desde el 17/10/2026 en Sales Machine (Martín: «elimina Content Machine y que todo esté dentro de Sales Machine»).
-  const image = FAMILIAS.find((f) => f.key === 'create')?.bloques.flat().find((i) => i.key === 'image');
+  const image = FAMILIAS.find((f) => f.key === 'create')?.bloques.flat().find((i) => i.key === 'image-editor');
   assert.ok(image, 'la tab «Image» no está en la familia Sales Machine');
   assert.equal(resolverTab(image, { adminShell: true, rolWs: 'admin', capa: 'superadmin' })?.href, '/image-editor', 'en su barra, «Image» tiene que llevar al editor');
   assert.equal(resolverTab(image, { adminShell: false, rolWs: 'admin', capa: 'completo' })?.href, '/image-editor', 'mirando un cliente o como admin de un cliente, también');
@@ -88,12 +95,13 @@ test('1b: las pages llaman al guard, y el guard es la pregunta de toda tab (rol 
   assert.match(sinLineas(leer('lib/image-editor/acceso.ts')), /tabEnCapa\('image-editor'/, 'la API pregunta lo mismo: la tab en la capa');
 });
 
-test('2: el crédito de Doory se dibuja en el editor y la licencia viaja con el código', () => {
-  const credito = leer('app/image-editor/editor/CreditoDoory.tsx');
-  assert.match(credito, /Siam/);
-  assert.match(credito, /Creator and maintainer of Doory/);
-  assert.match(credito, /https:\/\/github\.com\/shaongitbd\/doory/);
-  assert.match(sinLineas(leer('app/image-editor/editor/PantallaEditor.tsx')), /<CreditoDoory \/>/, 'PantallaEditor no monta el crédito');
+test('2: el crédito de Doory NO se muestra, y la licencia sigue viajando con el código', () => {
+  // 29/10/2026, Martín: «Borra igualmente la mención a Doory... es mi decisión y a mi riesgo». Fuera de _doory/, ningún
+  // archivo del producto nombra al autor ni su repo (lo de adentro de _doory/ no se dibuja: `newIssueUrl` no lo usa nadie).
+  assert.ok(!existsSync(join(RAIZ, 'app/image-editor/editor/CreditoDoory.tsx')), 'volvió el componente del crédito');
+  const fuera = [...archivosDe('app'), ...archivosDe('lib')].filter((f) => !f.includes('/_doory/'));
+  const nombran = fuera.filter((f) => /shaongitbd|Doory by Siam/.test(leer(f)));
+  assert.deepEqual(nombran, [], 'el crédito de Doory volvió a la pantalla');
   for (const f of ['LICENSE-DOORY', 'NOTICE-DOORY', 'COMMIT-DOORY']) {
     assert.ok(existsSync(join(RAIZ, 'app/image-editor/_doory', f)), `falta _doory/${f}`);
   }

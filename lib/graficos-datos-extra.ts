@@ -37,6 +37,8 @@ import { enRango, queTableroLeer, fechaTj, funnelsAgregados, leer, leerPorIds, l
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
+// «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
+import { hayGrabadorConectado } from './grabadores';
 import { getQuadrantData } from './ads-analyst';
 import { getAngles } from './script-angles';
 import { getAvatares } from './script-avatares';
@@ -300,7 +302,10 @@ async function filasToques(rg: Rango): Promise<Fila[]> {
  * videos no se presta nada. Si esa función se exporta, esto pasa a ser un import.
  */
 function duracionPara(videos: Set<string>, durs: Map<string, number>): (videoId: string | null) => number | null {
-  const unica = durs.size === 1 ? [...durs.values()][0] : null;
+  // «La única duración conocida» es la ÚNICA DE PANDA (un id sin alojador): desde el 25/10/2026 también hay duraciones
+  // de otros alojadores (de los eventos del Pixel), y contarlas apagaba el respaldo de Panda aunque hubiera un solo video.
+  const dePanda = [...durs].filter(([k]) => !idDeclaraHost(k));
+  const unica = dePanda.length === 1 ? dePanda[0][1] : null;
   const hayUnoSolo = videos.size <= 1;
   return (videoId) => {
     const v = videoId?.trim();
@@ -477,7 +482,7 @@ type FLlamadaVenta = {
  * Sin Fathom la tab no muestra nada (pide la key): la tarjeta lo dice en vez de dibujar ceros mudos
  * que se leen como «no hubo llamadas».
  */
-export const exigirFathom = async () => { if (!(await integracionConectada('fathom'))) throw new SinConexionError('Conecta Fathom en Integraciones'); };
+export const exigirFathom = async () => { if (!(await hayGrabadorConectado())) throw new SinConexionError('Conecta tu grabador de reuniones (Fathom, tl;dv, Fireflies, Zoom…) en Integraciones'); };
 
 /**
  * Las llamadas de venta analizadas, el universo de la tab (getClosingViewData). Cada fila es UNA llamada con

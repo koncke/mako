@@ -69,7 +69,9 @@ export async function GET(req: NextRequest) {
   for (const ws of orden) {
     if (Date.now() - t0 > maxDuration * 1000 - RESERVA_MS) { sinTurno.push(ws); continue; }
     try {
-      const r = await runWithWorkspace(ws, () => reconciliarCobros(ws));
+      // Con su propio límite (28/10/2026): uno con cientos de pruebas no se come la corrida ni lo que va después (agencia, accesos,
+      // Partners); lo que no entró sigue en la próxima.
+      const r = await runWithWorkspace(ws, () => reconciliarCobros(ws, { hasta: t0 + maxDuration * 1000 - 2 * RESERVA_MS }));
       resultados.push({ ws, ok: true, ...r });
       if (delDia) await runWithWorkspace(ws, () => mantenerAvisosStripe(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Stripe:`, msg(e)));
       if (r.cambiados || r.errores) {
@@ -105,7 +107,7 @@ export async function GET(req: NextRequest) {
 
 
   // MAKO PARTNERS (23/10/2026, lib/partners-programa.ts): el referido queda en su negocio con sus dos bienvenidas, y con su
-  // 2º mes pagado, el crédito al partner (una sola vez: el índice único de partner_creditos). Nunca tira.
+  // 2º mes pagado, lo que gana el partner: el 100% de su primer mes (una sola vez: el índice único de partner_creditos). Nunca tira.
   const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
   if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
 

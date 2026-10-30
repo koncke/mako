@@ -21,12 +21,13 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { writeFileSync } from 'node:fs';
 
 /** Extensiones que hacen pedidos de red, abren conexiones o leen archivos: con la clave anon en `public` son un SSRF o peor. */
 const EXTENSIONES_PELIGROSAS = ['http', 'pg_net', 'dblink', 'postgres_fdw', 'file_fdw', 'plpython3u', 'plperlu', 'adminpack'];
 
-const conn = process.env.DATABASE_URL;
+const conn = urlDeLaBase();
 if (!conn) { console.error('Falta DATABASE_URL (corré con: node --env-file=C:/dev/mako-api/.env.local scripts/medir-funciones-publicas.mjs)'); process.exit(1); }
 const iJson = process.argv.indexOf('--json');
 const salidaJson = iJson > 0 ? process.argv[iJson + 1] : null;

@@ -265,4 +265,117 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '27 oct', hora: '18:40', chat: 'Motion / Imagen', sesion: 'local_8acca90d-82d5-4194-a1a2-6ed3bc9958d2', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Importar un video: si no se puede, dice por qué y qué hacer (ticket #15)',
+    puntos: [
+      '**El ticket #15** (Leila: «No se pudo importar. ESP_Fabi sentada_limpio.mp4», sin error técnico): cualquier falla al leer el video daba ese mismo aviso con sólo el nombre, y la causa quedaba en la consola. Sin el archivo no se puede saber cuál fue; ahora el aviso dice qué pasó y qué hacer, y «Reportar a Soporte» manda el error técnico, el tipo y el peso.',
+      'Si el video no se puede leer, ya NO se suma a la biblioteca un clip roto (sin duración ni tamaño), que era lo que pasaba antes.',
+      'La miniatura que no se puede decodificar ya no tumba la importación: entra avisando que puede verse mal, como un códec que el navegador no decodifica. Un archivo sin imagen pero con sonido entra como audio.',
+      'Los porqués: archivo vacío o de la nube sin descargar (OneDrive, Google Drive, Dropbox), formato que no se reconoce, archivo incompleto o dañado, sin espacio en el navegador.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/media/importar-motivo.ts — la decisión y el porqué, puros',
+      'app/video-editor/_opencut/media/processing.ts · mediabunny.ts — la lectura y el aviso con el detalle técnico',
+      'tests/video-editor-importar-motivo.test.ts — 6 roturas',
+    ],
+    revisar: '/video-editor',
+    tickets: [15],
+  },
+  {
+    fecha: '28 oct', hora: '11:40', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_c698e704-db3d-44cd-b032-a6e23e88b79b', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Reducir el ruido» como CapCut (RNNoise), «Borrar silencios» desde el chat, y el video cortado (ticket #15)',
+    puntos: [
+      '**Reducir el ruido** ahora usa la misma red que CapCut (RNNoise), servida desde MaKo. Medido con una voz y ruido 15 dB por debajo: las pausas bajan unos 40 dB (antes 16 a 19, y casi nada con un ruido que cambia); la voz queda igual; un estéreo con el ruido en un solo lado ya se limpia (antes 7 dB); una voz sin ruido sale intacta.',
+      '**Borrar silencios desde el chat**: Leila se lo pidió a MaKo y le dijo que no podía, porque esa función nunca había entrado al chat ni a la API. Ahora se pide con palabras y, al aceptar, se ve cada silencio que encuentra, de a uno, antes de cortar.',
+      '**El ticket #15** («No se pudo importar»): un video bajado o copiado a medias se leía como un archivo sin imagen y decía «impórtalo como audio». Ahora dice que parece incompleto y qué hacer. Es una causa probable del de Leila; la de su archivo se sabe si lo vuelve a importar (el aviso de ahora lleva el detalle técnico).',
+      'Con ruido de fondo fuerte, «Borrar silencios» no encontraba las pausas (también desde el botón): lo arregla el hito siguiente.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/dsp/ruido.ts y rnnoise.ts — la red decide la ganancia por banda; se aplica sobre el audio original',
+      'public/ve/wasm/rnnoise-0.2-jitsi-0.2.1.wasm — RNNoise 0.2 (de @jitsi/rnnoise-wasm@0.2.1), con su licencia',
+      'app/video-editor/_opencut/chat/ (linea, comandos, aplicar, armado, PanelChat) y lib/editor-video/chat-catalogo.ts — la operación borrar_silencios',
+      'app/video-editor/_opencut/media/importar-motivo.ts — el porqué del video cortado',
+      'tests/video-editor-ruido.test.ts, video-editor-chat.test.ts (51), video-editor-importar-motivo.test.ts (5)',
+    ],
+    revisar: '/video-editor',
+    tickets: [15],
+  },
+  {
+    fecha: '28 oct', hora: '13:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_c698e704-db3d-44cd-b032-a6e23e88b79b', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Borrar silencios» encuentra las pausas aunque el video tenga ruido de fondo',
+    puntos: [
+      'Con ruido de fondo (un ventilador, el aire, el soplido del micrófono), «Borrar silencios» no encontraba ninguna pausa: ni desde el botón ni desde el chat. Ahora escucha el audio sin el ruido para decidir dónde cortar, y corta el video original.',
+      'Medido con una voz y ruido 10 a 20 dB por debajo: antes 0 pausas; ahora las mismas que con el audio limpio, con los bordes a menos de una vigésima de segundo. Con una voz sin ruido, queda igual que antes. No corta voz.',
+      'Tarda lo mismo que «Reducir el ruido» (unos segundos por minuto de video).',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/dsp/silencios-sin-ruido.ts — junta el audio del clip, le saca el ruido y busca las pausas',
+      'app/video-editor/_opencut/audio/borrar-silencios.ts — el botón y el chat usan eso',
+      'tests/video-editor-silencios.test.ts (con ruido, voz limpia, el juntador y el cableado) y tests/_voz-y-ruido.ts',
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '29 oct', hora: '23:20', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: '«Borrar silencios» busca en todo el video, y si no encuentra pausas dice dónde buscó y qué pedir (tickets #31 y #32)',
+    puntos: [
+      '**El ticket #31** (Leila: «Quiero borrar silencios y me dice que no hay cuando sobran»): el chat buscó en UN pedazo de 0,9 segundos de su video, no en el video entero, y ahí no entra ninguna pausa. Ahora, si no nombras un clip, busca en todo el video.',
+      'Si no encuentra pausas, el aviso dice en qué clip buscó y cuánto duraba, y la frase para pedir lo que sigue: «borra los silencios de todo el video» o «borra las pausas de 0,2 s o más».',
+      'Se pueden pedir pausas más cortas o más largas (de 0,2 a 2 segundos), desde el chat y desde la API de MaKo.',
+      'El botón «Borrar silencios» de la barra ya no dice sólo «Sin silencios»: dice en qué clip buscó, y si hay más clips donde buscar.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/audio/silencios-aviso.ts — el aviso y el rango de la pausa, puros',
+      'app/video-editor/_opencut/audio/borrar-silencios.ts · chat/aplicar.ts · chat/linea.ts — la pausa pedida y dónde se buscó',
+      'lib/editor-video/chat-catalogo.ts · chat-api.ts — el ejemplo sin clip y el parámetro pausa_min',
+      'tests/video-editor-chat.test.ts (test 53) y tests/video-editor-silencios.test.ts — 11 roturas',
+    ],
+    revisar: '/video-editor',
+    tickets: [31, 32],
+  },
+  {
+    fecha: '30 oct', hora: '02:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de abajo del reproductor ya no se encima a ningún ancho',
+    puntos: [
+      'Con el reproductor angosto (un video vertical, o el chat abierto), el tiempo, el botón de reproducir, «Completa», la lupa, «Relación» y pantalla completa se encimaban. Ahora la barra se acomoda a su ancho.',
+      'Ancha, como siempre. Más angosta, el tiempo se acorta (00:12 / 01:00) y los botones pasan a íconos que dicen su valor al pasar el mouse. Si tampoco entra, va en dos o tres filas.',
+      'Probado de 120 a 700 px de panel, con un video de un minuto y otro de más de una hora: nada encimado ni cortado.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/preview/barra-niveles.ts — los niveles por ancho, puros',
+      'app/video-editor/_opencut/preview/components/toolbar.tsx — la barra, que mide su ancho',
+      'app/m/video-editor/video-editor.css — el teléfono la sigue escondiendo, por su marca',
+      'tests/video-editor-barra-reproductor.test.ts — 5 roturas',
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '30 oct', hora: '03:45', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra de herramientas de la línea de tiempo ya no esconde herramientas',
+    puntos: [
+      'Con el chat abierto, en pantallas de 1366 o menos, las últimas herramientas de la barra de la línea de tiempo (el zoom, «Acercar») quedaban fuera de la vista. Ahora, si falta lugar, primero se esconde el deslizador del zoom (− y + siguen) y, si aun así no entra, la barra pasa a dos filas.',
+      'Probado a 1280, 1366 y 1440, con el chat abierto y plegado: todas las herramientas a la vista.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/timeline/components/timeline-toolbar.tsx — la barra, que se parte',
+      'app/video-editor/_opencut/timeline/barra-ancho.ts — desde qué ancho entra lo prescindible',
+      'tests/video-editor-barra-linea.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
+  {
+    fecha: '30 oct', hora: '04:30', chat: 'Video Editor: el ruido y los silencios de Leila', sesion: 'local_2f82a70c-cb85-4d21-a49a-2672571ad0af', cuenta: 'claude3', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los paneles del editor ya no se achican hasta no leerse',
+    puntos: [
+      'Arrastrando los divisores, la biblioteca y el panel de la derecha podían quedar tan angostos que «Importar» y los datos del proyecto se cortaban. Ahora cada panel tiene un ancho mínimo en el que todo se lee.',
+      'En los datos del proyecto, los nombres largos («Cuadros por segundo») pasan a dos renglones en vez de cortarse.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/components/editor/minimos-paneles.ts — los mínimos en píxeles',
+      'app/video-editor/_opencut/editor-page.tsx · panels/properties/detalles.tsx',
+      'tests/video-editor-paneles-minimos.test.ts',
+    ],
+    revisar: '/video-editor',
+  },
 ];

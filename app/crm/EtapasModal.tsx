@@ -42,8 +42,9 @@
 //  · SIN «Plazo». «Elimina lo de "Ponerle un plazo", para eso ya tenemos la tab de
 //    "Automations"». Lo que quedó del plazo, en la cabecera de lib/lead-quieto-aviso.ts.
 //  · (cuarto feedback, misma tarde) EL FUNNEL SE EDITA ARRIBA DE LAS ETAPAS: el tipo de funnel
-//    (una opción, se guarda al elegir) y, si es de anuncios, sus campañas de Meta en el paso 2,
-//    con una flecha para volver (`SeccionFunnel`). La entrada no lleva lápiz ni «Campañas de
+//    (una opción, se guarda al elegir; `SeccionFunnel`). Hasta el 24/10/2026, si era de anuncios, sus campañas de Meta
+//    iban en un paso 2: se fueron («elimina lo de "Asignar campañas", para eso ya tenemos los 3 puntos en cada
+//    columna», Martín) y viven en el «⋯» de la columna de entrada. La entrada no lleva lápiz ni «Campañas de
 //    Meta». «+ Agregar etapa» va arriba de todo. Sin flechas: cada etapa lleva su ASA y se
 //    arrastra; las de nutrición también (entre ellas), se renombran y se quitan TODAS, Manual
 //    incluida. Ganado y descartes sin pastilla, con la caja punteada. Borrar es el tacho rojo.
@@ -63,14 +64,12 @@ import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { MAX_LABEL_ETAPA, ENTRADAS, TIPOS_FUNNEL, tipoDeFunnel, fechaFijaDelEvento, type EntradaId } from '@/lib/pipeline';
 import type { CanalId } from '@/lib/fase-diagnostico';
 import { puedeTenerTipo, cambioDeReuniones, reunionSinLugar, tipoDeEtapa, tieneEtapaDeReunion, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
-import { LogoMeta } from '@/app/_components/ServicioVisual';
 import {
   editarEtapaAction, embudoEnDetalleAction, renombrarEmbudoAction, archivarEmbudoAction,
   restaurarEmbudoAction, extrasDelEmbudoAction, declararEntradasAction,
   type EmbudoEnDetalle, type EtapaDelFunnel, type OpEtapa, type DeshacerEtapa, type ExtrasDelEmbudo,
 } from './actions';
 import type { EventoDecl } from './EmbudoEntradas';
-import { CampanasModal } from './CampanasModal';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
@@ -883,9 +882,6 @@ export function EtapasModal({ funnelId, nombre, semilla, onCerrar, onRenombrado,
                 key={emb.id ?? 'principal'}
                 entradas={emb.entradas} evento={emb.evento} canal={extras?.canal ?? null}
                 funnelId={funnelId ?? undefined}
-                // El principal va como `null`, igual que desde el tablero (ver CrmBoard).
-                funnelIdCampanas={emb.esDefault || funnelId == null ? null : funnelId}
-                nombreProducto={emb.nombre}
                 onGuardado={() => { void cargar(); router.refresh(); }}
               />
             )}
@@ -1057,30 +1053,26 @@ const DIAS_EVENTO = [
  *  · «elimina los botones de "guardar y dejar como estaba" cuando el usuario clickea en algo ya se
  *    guarda automáticamente» → elegir guarda en el acto (optimista; si el server dice que no,
  *    vuelve a lo de antes y lo dice);
- *  · «al clickear una opción de anuncios, ahí se ponga por defecto abierta el modal de "Campañas de
- *    Meta" en donde estaba el form del tipo de funnel... Si quiero cambiar de funnel una flechita
- *    para ir al paso de atrás» → dos pasos en la misma caja, con la flecha;
- *  · «Solo el funnel "prospección" no debería tener la opción de "Campañas de Meta" por ningún lado».
+ *  · ⚠️ SIN EL PASO DE LAS CAMPAÑAS DESDE EL 24/10/2026. Del 12/10 al 24/10, elegir un tipo de anuncios abría en la
+ *    misma caja «Asignar campañas» (con la flecha para volver al tipo). Martín: «En el editor de CRM, elimina lo de
+ *    "Asignar campañas", para eso ya tenemos los 3 puntos en cada columna...». Las campañas se asignan desde el «⋯» de
+ *    la columna de entrada (`col_campanas`, app/crm/menu-contextual-crm.ts), que abre el mismo `CampanasModal`.
  *
  * ⚠️ El tipo se guarda como la ENTRADA de siempre (`declararEntradasAction`), así que lo siguen
  * leyendo los audios, el ensayo, las secuencias y el opt-in de la landing. Y lo ya declarado que no
  * es un tipo (p. ej. «Agendan llamada») se MUESTRA elegido hasta que alguien elija otro: esconderlo
  * no es lo mismo que no ofrecerlo, y hidratar no escribe.
  */
-function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, nombreProducto, onGuardado }: {
+function SeccionFunnel({ entradas, evento, canal, funnelId, onGuardado }: {
   entradas: EntradaId[];
   evento: EventoDecl | null;
   canal: CanalId | null;
   /** Cuál embudo declara esto. `undefined` = el del NEGOCIO. */
   funnelId?: number;
-  /** El mismo embudo para las campañas, con el principal como `null` (ver `destino` en campanas-actions.ts). */
-  funnelIdCampanas: number | null;
-  nombreProducto: string;
   onGuardado: () => void;
 }) {
   const [sel, setSel] = useState<EntradaId[]>(entradas);
   const tipo = tipoDeFunnel(sel);
-  const [paso, setPaso] = useState<'tipo' | 'campanas'>(tipo?.anuncios ? 'campanas' : 'tipo');
   const [guardando, setGuardando] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // El encuentro de fecha fija (un taller todos los miércoles) sólo se pregunta donde la fecha la
@@ -1111,37 +1103,21 @@ function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, no
 
   async function elegir(t: (typeof TIPOS_FUNNEL)[number]) {
     if (guardando) return;
-    // El que ya está: con anuncios, vuelve a sus campañas; sin anuncios, no hay nada que hacer.
-    if (tipo?.id === t.id) { if (t.anuncios) setPaso('campanas'); return; }
+    // El que ya está: no hay nada que hacer.
+    if (tipo?.id === t.id) return;
     const antes = sel;
     setSel([t.entrada]);
-    if (await guardar([t.entrada], eventoDe(), antes) && t.anuncios) setPaso('campanas');
+    await guardar([t.entrada], eventoDe(), antes);
   }
 
   /** Guardar el evento (al salir de un campo): sólo si ya hay un tipo, que es lo que lleva. */
   const guardarEvento = (o?: { dias?: number[] }) => { if (sel.length && !guardando) void guardar(sel, eventoDe(o), sel); };
 
-  if (paso === 'campanas' && tipo?.anuncios) {
-    return (
-      <div style={CAJA_SECCION}>
-        {/* «En lugar del texto "Anuncios a Landing", que ahí diga "Asignar campañas" y que tenga el logo
-            de Meta, no el logo del mundo» (sexto feedback del 12/10/2026, punto 7). */}
-        <CabeceraSeccion icono={<LogoMeta size={16} />} titulo="Asignar campañas" antes={(
-          <button type="button" onClick={() => setPaso('tipo')} aria-label="Cambiar el tipo de funnel" title="Cambiar el tipo de funnel"
-            style={{ width: 30, height: 30, flex: 'none', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', cursor: 'pointer' }}>
-            <svg aria-hidden width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
-          </button>
-        )} />
-        <CampanasModal enLinea funnelId={funnelIdCampanas} nombreProducto={nombreProducto} />
-      </div>
-    );
-  }
-
   // Lo ya declarado que no es un tipo se muestra ELEGIDO, al final (la regla del `<select>`).
   const fuera = tipo ? [] : sel.filter((x) => !TIPOS_FUNNEL.some((t) => t.entrada === x));
   // ⚠️ UNA LISTA DE TARJETAS, como las etapas (sexto feedback del 12/10/2026, punto 9: «que el paso
   // anterior donde se selecciona el tipo de funnel, que sea igual en diseño, tipo lista, no botones»). La
-  // elegida va con el anillo azul y su tilde; las de anuncios llevan la flecha a sus campañas.
+  // elegida va con el anillo azul y su tilde. Sin flecha en las de anuncios desde el 24/10/2026: ya no llevan a un paso.
   const opcion = (on: boolean): CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 10, width: '100%', minHeight: ALTO_TARJETA, padding: '12px',
     borderRadius: 12, border: 'none', textAlign: 'left',
@@ -1162,11 +1138,6 @@ function SeccionFunnel({ entradas, evento, canal, funnelId, funnelIdCampanas, no
               <span style={{ display: 'inline-flex', flex: 'none', color: on ? 'var(--primary)' : 'var(--dim)' }}><IconoMenu nombre={ICONO_TIPO[t.id]} size={16} /></span>
               <span style={{ flex: 1, minWidth: 0 }}>{t.label}</span>
               {on && <span style={{ display: 'inline-flex', flex: 'none', color: 'var(--primary)' }}><IconoMenu nombre="check" size={16} /></span>}
-              {t.anuncios && (
-                <span aria-hidden style={{ display: 'inline-flex', flex: 'none', color: 'var(--faint)' }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6" /></svg>
-                </span>
-              )}
             </button>
           );
         })}

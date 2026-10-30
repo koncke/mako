@@ -4,6 +4,72 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## El PEDIDO DELEGADO desde el grupo: la regla del negocio no alcanza, y lo que escribe el Cerebro tiene tres puertas (30/10/2026, claude3)
+
+**Vive en:** `delegadoQueDecideMartin` y `DELEGADO_SEGURO`, `clasificar` (opción `decideMartin`), `textoDelAviso`, `paraElCliente`,
+`sinLoInterno` (lib/tickets-reglas.ts) · `crearTicket` (lib/tickets-db.ts) · `bloqueDePedidos` (lib/pedidos-del-negocio.ts). Las
+revisiones: C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md y 3010-reverificacion-wa-despachante-d49539722.md.
+
+- ⚠️ **Una lista de lo PROHIBIDO no frena nada.** La primera guarda del «hazlo» buscaba palabras de plata, envíos y borrados: la
+  re-verificación probó 23 frases dichas de otra manera («subile a 50 por día», «activá la secuencia», «sacá a Juan del CRM») y 15
+  salían con el «hazlo» por la regla de Leandro, Leila o Mauricio. **La regla:** lo que se hace sin Martín es una lista CERRADA de lo
+  seguro (`DELEGADO_SEGURO`: landings, tareas y plan, notas, borradores de copy, reportes), con los vetos encima; todo lo demás, a
+  Martín. Es una guarda dura en `clasificar`: ni la regla del negocio la saltea. El pedido compuesto pasa por el mismo lugar.
+- ⚠️ **La respuesta del Cerebro tiene TRES puertas al cliente, no una.** El aviso al grupo (`textoDelAviso`), el bloque de pedidos
+  que lee cada turno del grupo 3 días (`bloqueDePedidos`) y /tickets y /m/tickets (`paraElCliente`). Arreglar el aviso solo dejaba
+  las otras dos crudas. En un pedido delegado: el «listo» es fijo en las tres, lo demás pasa por `sinLoInterno` y el turno no lo ve.
+  **La regla:** antes de dar por filtrado un texto que va al cliente, buscar todo `respuesta` que lo lea.
+- **`sinLoInterno` no conoce los negocios** (es pura): reconoce ids, `ws`, commits, rutas, links ajenos y «Nombre Apellido». Un nombre
+  de pila suelto («lo de Leila») todavía pasa; para eso habría que pasarle los nombres de los otros negocios (no se hizo).
+
+- **El síntoma (medido esa noche por el Cerebro):** había 8 tickets en `esperando_decision` (Leila, Leandro, Martín) que no
+  le llegaron al Cerebro, uno de 6 minutos antes. Y el #15 (Video Editor de Leila) siguió «esperando la decisión» con su
+  arreglo en producción y su hito `tickets: [15]`.
+- **La causa:** el camino del Runner se diseñó el 17/10 para los bugs del triage (`despacho = 'runner'` + `en_curso`); lo
+  demás iba a llegar con la firma de Martín al aprobarlo. Desde su regla del 27/10 («siempre lee todos los tickets e
+  implementalos») el Cerebro trabaja tickets que Martín no aprobó todavía, y esos no tenían camino. El cierre
+  (`cerrarLosDesplegados`) miraba sólo `en_curso`/`arreglado` por la misma suposición: el hito llegaba DESPUÉS de la decisión.
+- **La regla que queda:** un ticket que espera a Martín (`nuevo`/`esperando_decision`, sin despacho) le llega al Cerebro con
+  su PROPIA marca (`cerebro_*`, mig 0343) y su propio texto fijo (`mensajeTicketNuevo`, en lib/tickets-aviso.ts y en el
+  cartero, comparados por un test). `aviso_*` no se reutiliza: la bandeja lo dibuja como «Entregado al Cerebro» y quiere
+  decir «es un bug del triage que ya se está arreglando». Va en un array APARTE (`ticketsNuevos`) y sólo a un cartero ≥ 1.23.0:
+  en `tickets`, un cartero de antes le mandaría el texto de «BUG EVIDENTE». El deploy cierra todo lo ABIERTO
+  (`ESTADOS_QUE_CIERRA_EL_DEPLOY`); uno rechazado o duplicado no se reabre.
+- **Trampa — una marca nueva no puede ser nullable si se filtra por «no entregado»:** `cerebro_estado <> 'entregado'` en SQL
+  deja afuera los null, y un ticket sin marca no saldría NUNCA (sin error: la vuelta da vacío). Por eso arranca en
+  `'pendiente'`, `not null`, y la vuelta filtra con un `in`.
+- **Trampa — todo texto fijo nuevo que el Runner le escribe a un chat va a la lista de textos que NO se suben como
+  conversación** (`cartero.mjs`, la línea del `CRUZADO_RE`): si no, el Centro de Operaciones muestra el aviso como algo que
+  dijo un chat.
+- **Trampa — subir la versión del cartero rompe cinco tests que la fijan con `equal`** (chat-en-el-acto, feedback-2710-tanda1,
+  ops-center-decisiones; y la lista de preguntas-cadena-y-ask y turnos-enteros). No es un rojo del cambio: se actualizan.
+- **Trampa — `tests/tickets.test.ts` corta lib/tickets-aviso.ts desde el PRIMER `export function mensajeTicket`:** una función
+  nueva cuyo nombre empieza igual tiene que ir DESPUÉS, o el corte agarra el resto del archivo y el «no interpola nada del
+  ticket» da rojo por un `titulo` de otra función.
+- **Correr `cicloCartero` fuera de Next (para un test por la entrada real):** usa `after` de `next/server`, que tira fuera de un
+  request, y cargar `next/server` ya tira «AsyncLocalStorage accessed in runtime where it is not available». Se resuelve en el
+  hijo: `globalThis.AsyncLocalStorage = AsyncLocalStorage` ANTES de cargar lib/operaciones (import dinámico), y la vuelta
+  adentro de `workAsyncStorage.run({ afterContext: { after } })`. Molde: tests/_tickets-al-cerebro-hijo.ts.
+- **En el arnés del cartero (`cartero.mjs ciclo` de verdad), un chat de la CLI es `cli_<sessionId>`, no `local_…`:** un destino
+  `local_` cae en «El Cerebro se cerró antes de avisarle» y la entrega da vacía sin otro error. Y las carpetas del arnés van en
+  POSIX (`/dev/x`, `cwds: ['/dev/']`): `enCwds` compara texto, y un `C:\…` en un test frena en `tests/rutas-windows-en-tests.test.ts`
+  (en Linux es una ruta relativa). El molde (tests/cartero-carpetas.test.ts) usa Windows porque está en su lista blanca.
+- **El PostgREST de mentira no entendía el `or` de `ticketsSinEntregar`** (`in.(…)` y `and(…)` anidado): tiraba «filtro sin mock».
+  Ahora existe `orCompleto`, opt-in: el `or` del candado sigue tirando sin `candado`, y de eso dependen otros hijos.
+- **Probado rompiéndolo:** la tabla al pie de tests/tickets-al-cerebro.test.ts. Lo que falta, en «Lo que quedó sin hacer».
+
+## Leer la Ticketera de producción pide el sí de Martín, también al Cerebro (27/10/2026)
+
+- El 27/10 el clasificador de permisos negó `scripts/tickets.ts pendientes` y toda lectura de `tickets` /
+  `ticket_eventos` al Cerebro y a sus subagentes, aunque Martín había pedido «revisa los tickets». Una revisión de
+  tickets necesita su sí escrito en el chat del Cerebro (o que él corra `pendientes`). Un lector que no pudo leer lo
+  tiene que decir: el de ese día sacó los estados de los docs, y pueden estar viejos.
+- `scripts/tickets.ts` lee el `.env.local` del cwd: desde un worktree sin `.env.local` (como `C:/dev/wt-push-q`)
+  falla; se corre con cwd en el clon principal.
+- `pendientes` no muestra el historial: el estado y el porqué de un ticket salen de `ver <n>`.
+- Tickets arreglados en código pero SIN hito `tickets: [n]` no se cierran solos: el #5 y el #6 (Mauricio, «Claude
+  vetado» y «sin proveedor gratis», desplegados el 24/10) hay que cerrarlos a mano.
+
 ## La Ticketera del cliente es un CHAT con MaKo, y todo error tiene «Reportar a Soporte» (23/10/2026)
 
 Martín (22/10): «Mira la ticketera, se ve bastante feo... Cuando podría tener el mismo diseño que un chat y que los usuarios le
@@ -494,10 +560,41 @@ del archivo.
 conocen: `sanearReporte`, `ticketDeError` y `sanearContexto`. Ojo: `chat.donde` acepta como mucho 40 caracteres de `[a-z0-9-]`.
 Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
+## Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10/2026, 20:37)
+
+**Vive en:** `lib/no-existe*.ts` (rama `mako-inteligente-2710-c4`) · `lib/tickets-reglas.ts` · `lib/tickets-db.ts` · `lib/mako-turno-app.ts`
+
+- **La decisión de Martín:** «Siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un
+  ticket». Reemplaza, para ese caso, el «MaKo PROPONE la tarjeta» del 17/10.
+- **Medido en producción (14 días, sólo GET):** el detector de «no puedo» marcó 15 de 105 respuestas de la app y 11 de 192
+  de WhatsApp. En ese tiempo sólo se registraron 2 huellas de MaKo. Hoy abren ticket solos únicamente el error de una
+  herramienta y la falla de la IA nuestra. Quedan afuera:
+  - la acción confirmada que falla al ejecutarse;
+  - el «no puedo» que sólo está en el texto;
+  - los carteles de IA;
+  - los chats de los editores.
+- ⚠️ **El vigía no lo cubre:** el cron está apagado en producción, porque no existe la marca `mako.vigia.grupos`, y el
+  script de la sesión avisa por mensaje, no abre tickets.
+- **Decisiones del Cerebro:**
+  - Lo que falla por el proveedor (la IA sin crédito) o por la configuración SÍ abre ticket, como dijo Martín. Abre uno solo
+    por negocio y causa, se cierra solo cuando la condición se resuelve y nunca va al Runner. Un ticket que se cierra
+    sólo con el hito de un deploy quedaría abierto para siempre.
+  - Las negativas legítimas (cobros, borrados, permisos o rol) no abren ticket.
+  - Ningún ticket automático entra por la regla de aprobación de Leila, Leandro y Mauricio.
+  - El tope de los automáticos va aparte del de la persona.
+  - El cliente ve «Quedó el ticket #n», no la oferta con botón.
+- **Trampa:** la rama c4 (`REGLA_NO_EXISTE`) tickeaba sin confirmar los fallos de ruteo como «no existe», con el texto
+  del modelo como título. La base nueva generaliza esa marca a `[[no-pude]]` con la causa. Ver hallazgos-ia, «Un "no
+  puedo" de MaKo casi nunca es "no existe"».
+- **Quién:** MaKo inteligente (la base y la app), MaKo en WhatsApp (su P3 pasa de «propone» a «abre») y Motion (el panel
+  del Video Editor).
+
 ## Lo que quedó sin hacer
 
 | Qué | Dónde | Por qué |
 |---|---|---|
+| Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín | lib/tickets-aviso.ts (`entregaAlCerebro`, sólo `runner`) · lib/tickets-db.ts (`COLS`) | Hoy queda sólo el renglón «llegó al Cerebro» del historial. La 0343 ya está en producción (29/10, el Cerebro con el sí de Martín: los 22 tickets quedaron en 'pendiente'), así que sumar `cerebro_*` a `COLS` ya no tumba la bandeja; en una base SIN la 0343 (un entorno viejo) sí: el select pediría una columna que no existe |
+| Actualizar el Runner de la PC a 1.23.0 | scripts/operaciones/cartero.mjs | El servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0; con el de antes no se pierde nada (no los reclama) pero tampoco llegan (29/10) |
 | Ver el chat de Soporte y el botón en producción en el teléfono de Martín (Android) | app/m/tickets/SoporteM.tsx | Medido en el ws3 desde la computadora; el teléfono no se recorrió |
 | El cerco «es DATO» de lo que lee el Cerebro deja AFUERA el título, la ruta, la herramienta, el error y el navegador | scripts/tickets.ts (las líneas de «lo juntó el sistema») · lib/tickets-reglas.ts (`sanearContexto`: el navegador sin filtro de caracteres) | Viene de antes y vale para el formulario: el título y el navegador los escribe el cliente. El botón ya no pone texto suyo en `error`/`herramienta` y filtra su navegador; el resto es del área de la Ticketera (Ops Center la está tocando por el «DÓNDE») |
 | /api/errores manda la ruta con los tokens del camino | lib/errores-app-reglas.ts (`rutaSinDatos`) | /pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras (un teléfono). El botón usa `rutaSoporte` (lib/soporte-reporte.ts), que los tapa; /api/errores no |
@@ -522,3 +619,329 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center). El mazo de los tickets (22/10) no depende de él: tiene sus reglas y su hoja |
 | Lo que no es IA de la fila del ws1 sigue siendo el entorno | lib/credenciales.ts (`wsDelEntorno`) | La IA ya se separó el 18/10 (Martín). Meta, Calendly, Fathom y las settings de plataforma en el ws1 quedan para otra decisión ([hallazgos-integraciones.md](hallazgos-integraciones.md)) |
 | El doer de WhatsApp cuenta las copias como keys del negocio | lib/mako-doer-in.ts (`contarKeysIA`) | Cuenta `clavesCargadas`, con las copias de la plataforma: en el ws1 nunca daría `sin_keys`. Leído en el código, no medido. Es del chat «MaKo en WhatsApp» |
+
+## Un negocio aprobado por regla (Leandro) va por el arreglo automático, no por una firma de Martín (26/10/2026)
+
+**El pedido:** Martín, desde el Centro: «los tickets que vengan de Leandro pasen 100% sin mi aprobación... y tú después le tienes
+que ir avisando... por el grupo de WhatsApp de MaKo los tickets que ya van siendo resueltos».
+
+**Lo que no era obvio:** «como aprobado por Martín» NO puede ser el camino de «Aprobar»: ese firma un pedido en el dispositivo
+de Martín, y el servidor no firma por él. El camino que ya existía sin Martín es el del arreglo automático (`despacho:
+'runner'`): el Runner le escribe al Cerebro un texto FIJO con el número. Ese texto dice «bug evidente» y que un pedido se
+devuelva a Martín, y cambiarlo pide un cartero nuevo en cada PC. Por eso la regla viaja en el triage (`regla`) y la lee el
+Cerebro en `scripts/tickets.ts ver`, que le dice que NO lo reclasifique.
+
+**La regla:**
+- `APROBADOS_POR_REGLA` (lib/tickets-reglas.ts) es la lista: hoy, el ws 10 (Leandro). Su ticket va al arreglo automático sea bug,
+  pedido o pregunta, y lleva la marca «Aprobado por regla: Leandro» en la bandeja y en lo que lee el Cerebro.
+- Sigue esperando a Martín lo delicado (`zonaSensible`), lo que escribe en producción (`ESCRIBE_EN_PRODUCCION`) y todo con el
+  interruptor apagado. Lo que choca con una decisión de Martín no se ve en el texto: lo frena el chat que lo trabaja.
+- El tope de 8 arreglos por día no lo frena (Martín pidió el 100%). Al quedar desplegado (el hito con `tickets: [n]` en ESE build),
+  el aviso va a su grupo de MaKo por `avisarArregloAlGrupo` (lib/tickets-cierre.ts), salvo que el ticket haya venido por WhatsApp.
+
+**Lo que quedó SIN hacer:** el texto fijo del cartero (`mensajeTicket`, scripts/operaciones/cartero.mjs) sigue diciendo «bug
+evidente» también para un pedido de Leandro. Lo corrige lo que lee el Cerebro, no el texto; cambiarlo pide un cartero nuevo.
+
+**Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `clasificar`) · `lib/tickets-db.ts` (`crearTicket`) ·
+`lib/tickets-cierre.ts` (`avisarUno`) · `scripts/tickets.ts` (`ver`) · `app/tickets/bandeja/BandejaTickets.tsx` · `tests/tickets-por-regla.test.ts`
+
+## Un ticket que levanta alguien de AFUERA del negocio: el alumno de un curso (27/10/2026, 874749710-18)
+
+El alumno reporta desde su portal y el ticket le llega al DUEÑO del curso (el lado del portal, en
+[hallazgos-customer-success.md](hallazgos-customer-success.md) → «El alumno reporta a soporte con su token»). Lo que hay que
+saber antes de abrir otra puerta así:
+
+- **El ticket es del dueño, no del alumno.** Lo del cliente se lee por (workspace, email): un ticket a nombre de
+  `alumno:<lead>` no lo vería nadie más que Martín en la bandeja. El dueño lo ve en su Ticketera y le llega el aviso cuando se
+  resuelve; la descripción dice que lo reportó un alumno y su ficha (`/crm/<id>`), nunca su nombre.
+- ⚠️ **La regla de Leandro abría el arreglo automático a cualquiera con el link de su curso.** `aprobadoPorRegla(ws)` mira sólo
+  el negocio: un alumno del ws 10 que escribiera «dejó de andar» mandaba SU texto al Runner. `crearTicket` con `tercero` pasa
+  `deTercero` al triage, que corta antes de la regla: lo decide Martín, siempre.
+- ⚠️ **El tope del día se le gastaba al dueño.** Se cuenta por (workspace, email) y el email es el del dueño: unos pocos alumnos
+  lo dejaban sin tickets el día. El de un tercero se cuenta por el comienzo de su `ref` (`alumno:<ws>:<lead>:`,
+  `TOPE_POR_DIA_TERCERO` = 3), y `crearTicket` rechaza una `ref` que no empieza con su clave.
+- ⚠️ **`rutaSoporte` dejaba pasar el token del portal entero.** Reconocía un token como un segmento de letras, números, `_` y
+  `-`; el del portal es `c1.<ws>.<lead>.<versión>.<firma>`, con puntos, y pasaba tal cual a la pantalla del ticket: la
+  credencial del alumno a la vista del equipo y del Cerebro. Ahora el punto cuenta, y además la ruta del alumno pone la pantalla
+  del portal ella misma (`rutaDelPortal`).
+
+**Vive en:** `lib/tickets-db.ts` (`crearTicket`, `tercero`) · `lib/tickets-reglas.ts` (`clasificar`, `deTercero`,
+`TOPE_POR_DIA_TERCERO`) · `lib/soporte-reporte.ts` (`rutaSoporte`, `ticketDelAlumno`, `claveDelAlumno`) ·
+`tests/curso-soporte-alumno.test.ts` (6 roturas, cada una cae)
+
+## Leila con vía libre «hasta un día», y la regla le llega al Cerebro por un nombre que el cartero ya conoce (27/10/2026)
+
+**Lo decidido:** Martín le dio a Leila (ws 11) la vía libre en la llamada del 26/10, y el Cerebro la configuró así: lo que el
+triage estima en MÁS DE UN DÍA de trabajo va a Martín (`hastaUnDia`).
+
+**Lo que no era obvio:**
+- «Más de un día» no lo puede estimar el triage con una IA (no paga IA, es una decisión). Se estima con reglas
+  (`estimaMasDeUnDia`): un pedido que nombra algo grande (integrarse con otro servicio, una pantalla o una app nueva, rehacer
+  algo entero) o de más de 1500 caracteres. Un bug o una pregunta, nunca. En la duda va a Martín.
+- El cartero no toma texto de MaKo para el mensaje que le escribe al Cerebro (si MaKo estuviera comprometida, lo peor tiene
+  que ser que no llegue). La regla viaja como un NOMBRE, y el cartero 1.20.0 la usa sólo si está en `REGLAS_CONOCIDAS`, su copia
+  de `APROBADOS_POR_REGLA` (test diferencial). Sumar a alguien a la regla pide sumarlo en las DOS listas y una instalación.
+
+**Lo que quedó SIN hacer:** instalar el cartero 1.20.0 en cada PC. Hasta entonces el Cerebro recibe el texto de «bug evidente», y
+lo corrige `scripts/tickets.ts ver`.
+
+**Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `estimaMasDeUnDia`) · `lib/tickets-runner.ts` · `scripts/operaciones/cartero.mjs`
+(`mensajeTicket`, `REGLAS_CONOCIDAS`) · `tests/feedback-2710-tanda1.test.ts`
+
+## «Siempre que MaKo diga que no pudo, un ticket»: el automático con su causa (27/10/2026, claude4, Martín y Leila)
+
+**Síntoma:** Leila recibía «no lo puedo hacer» y nadie se enteraba. Medido por el Cerebro (sólo lectura, 14 días): el detector
+de «no puedo» marcaba 15 de 105 respuestas de la app y en ese tiempo hubo 2 tickets de MaKo, ninguno en los últimos 9 días.
+Sólo el error de una herramienta abría ticket solo; la acción confirmada que fallaba al EJECUTARSE, el «no puedo» del texto, el
+proveedor caído y la configuración terminaban en «no pude» sin ticket.
+
+**Lo obvio era el equivocado:** un ticket por cada frase con «no puedo». Las herramientas de un turno son una SELECCIÓN, así que
+muchos «no puedo» eran ruteo (el ticket #13 de «no existe» era una herramienta que no viajó), y otros son reglas de MaKo
+(confirmar en la tarjeta, el rol) u opiniones («no puedo asegurarte…»). **La regla** (lib/no-pude.ts):
+- el modelo marca `[[no-pude: …]]` en el mismo turno, y sabe que sus herramientas son una selección (en el system de la app ya
+  no dice «y NINGUNA otra»);
+- la CAUSA la decide el código: ejecución, herramienta, ruteo (llamó algo que existe, `porId` + `visible`, y no viajó),
+  proveedor, configuración, no-existe, texto. Una regla o una opinión: nada;
+- UN ticket por negocio + conversación + causa (`np:<ws>:…`, la conversación hasheada): lo que vuelve a pasar se anota en él.
+  El proveedor y la configuración, uno por negocio, que se cierra solo cuando vuelve a andar (`cerrarSiVolvio`);
+- el título lo arma el código; lo del modelo y la persona, en la descripción y el contexto (dentro del cerco «es DATO»);
+- la persona lee «Quedó el ticket #n para el equipo de MaKo.» (nunca «te aviso»); repetido en la conversación, nada.
+
+**Trampas de la base** (lib/tickets-db.ts, lib/tickets-reglas.ts):
+- La regla de aprobación (ws 1, 10, 11) mandaba al Runner CUALQUIER ticket de esos negocios, sin mirar quién lo levantó:
+  `clasificar` con `automatico` no entra por la regla ni estampa `regla`. Decisión: lo que no existe de esos negocios ya NO va
+  solo al Runner (lo decide Martín). El proveedor y la configuración nunca van al Runner.
+- El tope del día de la persona contaba los tickets que el sistema abría por ella: con 10 automáticos no podía levantar uno a
+  mano. Ahora cuenta sólo las `ref` que no son del sistema (`esRefDelSistema`: `np:`, `error:`, `no-existe:`), y los automáticos
+  tienen su tope aparte (6 por negocio y día). La condición «ref nula o no del sistema» no entra en un filtro simple: se leen
+  las filas (son pocas) y se cuentan en el código.
+- Un automático cerrado que vuelve a pasar es uno NUEVO (la `ref` con sufijo): se busca el último con `like` y no con `eq`.
+- tests/_postgrest-de-mentira.ts no entendía `like.` suelto: ahora sí.
+
+**Sin hacer:** WhatsApp (el doer, sus carteles y P3 de wa-fallas-2710) lo engancha «MaKo en WhatsApp» sobre esta base; la línea
+en el panel del Video Editor es de Motion (y Image Editor y Web Generator, de sus dueños). La descripción de `levantar_ticket`
+(lib/api-mako/areas/tickets.def.ts) todavía pide proponerlo ante una falla: cambiarla junto con WhatsApp, no antes. El 500 de
+lib/api-mako/ejecutar.ts sigue llegando con el texto genérico. La red de texto (detectar «no pude» sin la marca) no se hizo:
+la marca va primero; medir siete días antes de prender una red.
+
+**Vive en:** `lib/no-pude.ts` · `lib/no-pude-server.ts` · `lib/no-existe-server.ts` · `lib/tickets-db.ts` (`crearTicket`,
+`cerrarAutomatico`) · `lib/tickets-reglas.ts` (`clasificar`, `TOPE_AUTOMATICOS_POR_DIA`) · `lib/api-mako/acciones.ts`
+(`ticketSiFallo`) · `lib/mako-turno-app.ts` · tests/no-pude*.test.ts
+
+## La revisión de «no existe» contra producción: tres medios, con su test rojo-verde (27/10/2026, claude4)
+
+La revisión adversarial del Cerebro sobre 34b0687f0 confirmó tres defectos del «no existe» automático. Los cubre la base del
+ticket automático (lib/no-pude*.ts); tests/no-existe-revision.test.ts los fija y se midió ROJO sobre 34b0687f0 y VERDE encima:
+1. en el ws 10 un «no existe» que marcó el modelo nacía aprobado por la regla de Leandro y se iba al Runner;
+2. un fallo de RUTEO salía como «no existe» (y el arranque de Offer, sin el catálogo de MaKo, llevaba la regla que hace marcar);
+3. los automáticos gastaban el tope de 10 de la persona y le trababan el Soporte.
+
+**Trampas al medirlo:** «borrar los silencios» no sirve para probar la regla de aprobación: la zona delicada («borrados») ya la
+frenaba; hace falta un pedido neutro. Y diez «no existe» en la MISMA conversación ya son un solo ticket: para medir los topes
+hacen falta conversaciones distintas. **Lo nuevo:** con el tope de los automáticos lleno, lo que sigue se anota en el último
+automático del negocio («Otro más, con el tope del día lleno»): no se pierde callado.
+
+## La revisión del 28/10/2026 de la base del ticket automático (claude4)
+
+**Lo obvio era el equivocado otra vez: «si la acción confirmada falló, ticket».** Un `ok:false` del runner casi nunca es una falla:
+«Esa decisión ya no estaba abierta», «El email dejó de estar conectado» son negativas de estado o de configuración (hay ~600 en los
+*.run.ts), y con el error en el contexto el triage las daba por «bug evidente» y las mandaba SOLAS al Runner. **La regla:** sólo abre
+ticket lo que REVENTÓ al ejecutar (el catch, `reventoAlEjecutar` en lib/api-mako/acciones.ts).
+
+Y además:
+- **Un ticket por falla:** si `registrarError` ya dejó el suyo (la huella), la marca del modelo sólo se saca (`yaRegistrado`).
+- **El ruteo solo no abre nada:** cuenta si MaKo además dijo que no pudo o que no existe.
+- **Uno por pedido distinto:** la `ref` lleva lo que falló (lo marcado, o la herramienta), no sólo la conversación y la causa.
+- **La negativa legítima se mira en la respuesta**, no sólo en la marca (la marca dice el qué, no el porqué).
+- **La configuración se cierra sola sólo si contesta la cuenta que falló** (`contexto.herramienta`, `soloSi`).
+- **Lo que levanta el SISTEMA** (un error de la app, `declaradoPor: 'sistema'`) tampoco entra por la regla de aprobación.
+Cada uno con su test rojo-verde (tests/no-pude*.test.ts).
+
+
+
+**La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
+- «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
+  `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
+  (Error guardando setting …)»); una negativa de estado o de configuración no. `esFallaTragada` (lib/no-pude-frases.ts) los separa.
+- La regla mirada en TODA la respuesta tapaba fallas que nombran «el token» o «tu pantalla»: se mira la oración que explica la
+  marca, y la regla tiene que tener forma de regla («se confirma en tu tarjeta», «pega tu clave»), no la palabra suelta. Sólo
+  apaga el «no pude», nunca el «no existe» de la misma respuesta.
+- `yaRegistrado` sólo cuando registrarError DEJÓ ticket, y sólo apaga el «no pude».
+- La clave de un fallo son sus dos primeras palabras con peso: «crear la tarea» y «crear la tarea en el plan» son el mismo.
+- Sin ticket no hay línea: el test rompe la base para probarlo (no alcanza con el tope, que devuelve el último).
+**La regla para medir:** cada arreglo de un detector se prueba también con las frases VECINAS de las del ticket, no sólo con ésas.
+
+**El #16 de Leila, en producción y sin cerrarse (28/10/2026, claude4).** El arreglo (toda caja de chat adjunta y lee cualquier
+documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas, y la obvia era sólo una:
+- No tenía hito: el número iba en el MENSAJE del commit («(ticket #16 de Leila)»), que el cron no lee. Sólo cuenta
+  `tickets: [n]` en el hito de la bitácora del área (ahora en app/admin/dev/second-brain/bitacora.ts).
+- Seguía en «esperando_decision»: `cerrarLosDesplegados` (lib/tickets-cierre.ts) sólo toma «en_curso» y «arreglado». Un
+  ticket que un chat arregla por el pedido de Martín, sin que pase por el mazo, no lo cierra el hito hasta que alguien lo
+  apruebe; aprobado, el cron lo cierra en la vuelta siguiente porque el hito ya está desplegado. Cambiarle el estado a mano
+  es escribir en producción: pide el sí de Martín.
+**La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
+(sólo lectura) y avisa si no está «en curso».
+
+## Soporte sin adjuntos: el «+» sólo daba emojis (28/10/2026)
+
+Martín (28/10): «las personas no están pudiendo usar la ticketera porque nuevamente el chat está mal configurado, solamente
+permite emojis, no permite adjuntar ni archivos ni capturas ni documentos».
+
+- **La causa:** la caja de Soporte (`CajaSoporte`, app/tickets/soporte/PiezasSoporte.tsx; el teléfono usa la misma) montaba la
+  caja compartida SIN `adjuntos`, y sin esa prop el «+» de `CajaChat` sólo ofrece emojis. No falló nada: nunca se cableó.
+  Regla: **una caja de chat nueva nace con adjuntos y voz, o dice por qué no** (lo barre el test de las cajas unificadas).
+- **Dónde quedan, sin migración:** los archivos suben al bucket privado `archivero`, en `<ws>/tickets/<uuid>`
+  (app/api/tickets/adjuntos/route.ts, con el negocio de la SESIÓN), y el ticket guarda sus referencias en el `datos` de su
+  evento (`ticket_eventos.datos`, jsonb, que en los comentarios estaba siempre vacío): el «creado» para lo de la conversación
+  nueva, cada «comentario» para lo de una respuesta. Cada referencia se valida contra el negocio de la sesión
+  (`sanearAdjuntosTicket`): un path de otro negocio no se guarda.
+- ⚠️ **`contexto` del ticket NO sirve para esto:** pasa por `sanearContexto`, una lista blanca que tira sin aviso cualquier clave
+  que no conoce.
+- **El Cerebro los ve** con `scripts/tickets.ts ver <n>` (la sección ADJUNTOS, con un link firmado de 1 hora), y el triage los
+  nombra en su «porque».
+
+### La revisión de 046d9e028: la foto se iba con el ticket SIGUIENTE, y el reintento grababa un «📎» falso (28/10/2026)
+
+La revisión del Cerebro (C:/dev/revisiones/2810-ticketera-046d9e028.md) corrió el hook real con la subida en pausa. Lo que se
+había anotado como «sin hacer» era peor de lo que decía:
+
+- **El síntoma:** en la conversación nueva, el ticket que se levanta mientras una foto sube salía SIN la foto, y la descripción
+  igual decía «📎 foto.jpg». Y la subida que terminaba después se sumaba a la conversación siguiente: la foto se iba con el
+  próximo ticket de esa persona. **La causa:** `mandar()` metía la línea «📎» al relato en el acto y subía con un `.then` suelto
+  que escribía en `delTicket` sin saber de qué conversación era; `mandarTicket` leía `delTicket` en el clic. **La regla:** el
+  mensaje con archivos se ve ya («Enviando…») pero entra al relato recién cuando subió; el ticket ESPERA las subidas en curso
+  («Subiendo archivos…»); una subida que termina en otra conversación (`ref.current` cambió) se descarta.
+- **El reintento:** el turno guardaba el texto VISTO («📎 captura.png»), y «Reintentar» lo mandaba como texto de la persona y sin
+  el archivo; en el historial del equipo no se distingue de un envío real. **La regla:** el turno guarda lo dicho, sus `File` y,
+  si ya subieron, sus referencias (`dicho`, `archivos`, `subidos` en `Turno`): el reintento manda lo mismo y no sube dos veces.
+- **Trampa al arreglarlo:** después de `await` de las subidas, React todavía no volvió a dibujar, así que la tarjeta «de ahora»
+  (un ref sincronizado en un efecto) puede estar vieja. La descripción se completa con los nombres de lo que va con el ticket.
+- **De paso:** el tope es POR TICKET en la conversación nueva (el alta recortaba el sexto en silencio; ahora la caja y las
+  acciones lo dicen); la persona ve sus archivos en el ticket aunque haya escrito algo (`paraElCliente`, sólo nombres); y la
+  ruta pone un tope por día por negocio (30 archivos o 50 MB), contado en el bucket y no en memoria (vale en todas las
+  instancias; si listar falla, no traba).
+- **Cómo se prueba:** `tests/ticketera-subidas.test.ts` arma el hook REAL con esbuild, un mini runtime de hooks (los efectos
+  corren después de cada dibujo) y la subida en pausa. Sirve de molde para probar otro hook sin levantar la app.
+
+**Sin hacer:** el barrido de los archivos huérfanos de `archivero/<ws>/tickets` (una conversación que no se levanta, una
+respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
+(lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.
+
+### Lo adjuntado es de SU conversación (la verificación de tren-t, 28/10/2026)
+
+- **El síntoma:** una foto adjuntada en un ticket abierto aparecía en el ticket cerrado que se abría después. Ahí la caja está
+  apagada y, desde que la caja quieta no deja quitar (hallazgos-operaciones.md, «El chat nuevo lleva sus archivos»), no había
+  forma de sacarla hasta volver a un ticket abierto.
+- **La causa:** `useSoporte` tenía UNA lista de adjuntos para todo Soporte; `abrir` y `nuevo` no la tocaban. El defecto venía de
+  antes: la caja quieta sólo lo hizo visible.
+- **La regla:** lo de la caja es de su conversación (`claveCaja`): `soporte:<id>` para un ticket, y UNA sola clave,
+  `soporte:nuevo`, para la conversación nueva, así lo que no se mandó sigue en la siguiente, como lo escrito. Si la persona
+  levanta el ticket y le quedó algo sin mandar, no lo ve en el ticket: lo encuentra en la conversación nueva. Las notas de
+  voz, en cambio, van por conversación (`claveNotas`, `soporte:nuevo:<id>`): una nota grabada no sale en la siguiente.
+- **El obvio era el equivocado (la verificación de d2f690673):** mudar lo adjuntado de la clave vieja a la nueva al empezar otra
+  conversación (`otraConversacion`). Mudaba lo de la pantalla, pero lo que la caja LEE (abajo) quedaba en la clave vieja, y una
+  lectura en curso al levantar el ticket también terminaba ahí: el .pptx desaparecía sin aviso. Con una clave fija no hay nada
+  que mudar.
+- **Vive en:** app/tickets/soporte/useSoporte.ts (`claveCaja`, `claveNotas`, `adjuntosPor`) ·
+  tests/ticketera-subidas.test.ts («lo adjuntado es de SU conversación» y «la caja de la conversación nueva tiene UNA clave»).
+- **Y lo que la caja LEE (la verificación de 05d7c3187):** lo de arriba cubría lo que toma la pantalla (fotos, PDF, Office); lo
+  que la caja lee sola (.pptx, .md, audio, video) seguía pasando de un ticket a otro, y lo que se leía al cambiar de ticket salía
+  en el otro. Ahora la caja también lo guarda por conversación (`conversacion={s.claveCaja}`, PiezasSoporte.tsx): ver
+  hallazgos-chat.md, «La caja QUIETA».
+- **El ticket espera lo que la caja lee (la verificación de 1d586a686):** la tarjeta se apagaba sólo con las notas y el envío
+  del ticket, y `mandarTicket` esperaba las SUBIDAS pero no la lectura de la caja. «Mandárselo al equipo» con un .pptx o un audio
+  leyéndose levantaba el ticket sin ese mensaje. Ahora la caja avisa (`onLeyendo`) y la tarjeta dice «Leyendo lo que
+  adjuntaste…» (`leyendoCaja` en useSoporte.ts).
+- **Y hasta que el mensaje LLEGA a la tarjeta (la verificación de 5ddf1672a):** la tarjeta se volvía a encender al terminar de
+  leer, pero el mensaje recién entra a la charla un dibujo después, sube su foto y MaKo lo contesta en 700 ms: apretarla en esa
+  ventana levantaba el ticket SIN el mensaje, y el mensaje se perdía. El obvio, armar la descripción con la charla de ahora,
+  no alcanzaba: lo que MaKo todavía no contestó tampoco está en la charla. La regla: la tarjeta espera mientras el mensaje va
+  camino (`mensajeEnCamino`: la caja lee o entrega, un turno «enviando», MaKo escribiendo), con «Esperando tu mensaje…».
+
+**La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
+- «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
+  `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
+  (Error guardando setting …)»); una negativa de estado o de configuración no. `esFallaTragada` (lib/no-pude-frases.ts) los separa.
+- La regla mirada en TODA la respuesta tapaba fallas que nombran «el token» o «tu pantalla»: se mira la oración que explica la
+  marca, y la regla tiene que tener forma de regla («se confirma en tu tarjeta», «pega tu clave»), no la palabra suelta. Sólo
+  apaga el «no pude», nunca el «no existe» de la misma respuesta.
+- `yaRegistrado` sólo cuando registrarError DEJÓ ticket, y sólo apaga el «no pude».
+- La clave de un fallo son sus dos primeras palabras con peso: «crear la tarea» y «crear la tarea en el plan» son el mismo.
+- Sin ticket no hay línea: el test rompe la base para probarlo (no alcanza con el tope, que devuelve el último).
+**La regla para medir:** cada arreglo de un detector se prueba también con las frases VECINAS de las del ticket, no sólo con ésas.
+
+**El #16 de Leila, en producción y sin cerrarse (28/10/2026, claude4).** El arreglo (toda caja de chat adjunta y lee cualquier
+documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas, y la obvia era sólo una:
+- No tenía hito: el número iba en el MENSAJE del commit («(ticket #16 de Leila)»), que el cron no lee. Sólo cuenta
+  `tickets: [n]` en el hito de la bitácora del área (ahora en app/admin/dev/second-brain/bitacora.ts).
+- Seguía en «esperando_decision»: `cerrarLosDesplegados` (lib/tickets-cierre.ts) sólo toma «en_curso» y «arreglado». Un
+  ticket que un chat arregla por el pedido de Martín, sin que pase por el mazo, no lo cierra el hito hasta que alguien lo
+  apruebe; aprobado, el cron lo cierra en la vuelta siguiente porque el hito ya está desplegado. Cambiarle el estado a mano
+  es escribir en producción: pide el sí de Martín.
+**La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
+(sólo lectura) y avisa si no está «en curso».
+
+**La otra mitad de base 7 (28/10/2026, claude4): la guarda de una herramienta es una regla aunque el modelo no la explique.**
+- El formato de la marca pide el QUÉ («borrar el lead de Juan»), no el porqué: la red de TEXTO (`esReglaUOpinion` sobre la marca y
+  la oración que la explica) sólo ve la regla si el modelo la escribe. La señal que no depende del modelo es la salida de la
+  herramienta: un 400 vuelve como TEXTO con `ok:false` y su `error`, SIN isError (`runnerDelRegistro`, lib/api-mako/ejecutar.ts);
+  la heredada, como «❌ …». `esGuardaDeHerramienta` (lib/no-pude.ts) lo reconoce, y el turno de la app pasa `regla` cuando hubo
+  una y nada falló de verdad (isError) ni hubo ruteo: con cualquiera de los dos, el «no pude» puede ser de eso.
+- Lo que un runner se TRAGÓ también vuelve como 400 (el catch de `ejecutarOperacion` manda a 400 lo que no huele a
+  infraestructura): con el error técnico entre paréntesis (`esFallaTragada`) NO es una guarda.
+- `regla` apaga sólo el «no pude»: lo que no existe sigue, y con un ruteo es un ruteo (`causaDelNoPude`).
+- **Lo obvio («una guarda y ningún error → regla») era el equivocado** (la verificación de 96e7840e8, el chat de WhatsApp):
+  `errorParaTicket` sólo ve isError, y lo que un runner se TRAGA vuelve sin isError. «Falta el monto» (guarda) y un reintento que
+  se traga un error de la base daba regla y la falla real quedaba sin ticket; una guarda vieja tapaba también otro «no pude». Es
+  regla sólo si lo ÚLTIMO que corrió fue la guarda y no hubo errores ni tragadas (`esLaReglaDeUnaGuarda`,
+  `esFallaTragadaDeHerramienta`, lib/no-pude.ts, que el doer de WhatsApp importa de ahí).
+- **Y «lo último» tenía dos agujeros más** (la verificación de tren-t): una herramienta que REVIENTA después de una guarda no
+  pasaba por «la última» (se anotaba después del `await`, y el loop atrapa el throw sin `errorParaTicket`): la guarda vieja le
+  comía el ticket. Ahora lo que revienta cuenta como tragada (el `.catch` del `await`). Al revés, una LECTURA que anduvo entre la
+  guarda y el «me falta el monto» la apagaba y abría un ticket por una regla: `laUltimaFueGuarda` (lib/no-pude.ts) deja que sólo
+  una guarda la prenda y que la apaguen una escritura, un error o una tragada. El costo: guarda + lectura + un «no pude» de otra
+  cosa queda como regla.
+- **Y la guarda misma se adivinaba por el texto** (la verificación de 2cb1cf67e, D4): cualquier `ok:false` sin isError, o un
+  «❌ …», era guarda. Fallas NUESTRAS tenían esa forma y no abrían ticket: la pendiente que no se pudo guardar
+  (`crearRunnerAcciones`, lib/mako-doer-acciones.ts, que `traducirLegado` hace 400) y el 400 de las pasarelas (cobros.run.ts).
+  **La regla:** es guarda sólo lo que MARCA quien lo produce, `{ ok:false, error, guarda:true }` (lib/api-mako/ejecutar.ts y el
+  runner del doer lo ponen, lo hace el chat de WhatsApp); `esGuardaDeHerramienta` no mira el texto. Sin la marca, lo peor es un
+  ticket de más. Lo tragado sí se sigue leyendo por el texto: nadie lo marca.
+  ⚠️ **«Un ticket de más» eran cientos** (la verificación de 692368a60): ninguna área marcaba sus reglas, y «Quedó el ticket
+  #N» salía en el grupo del cliente por «Sólo se reembolsa un cobro pagado». Desde el 28/10 el productor marca al revés: el
+  error de un preparar ES guarda, y la falla lleva `falla: true` (docs/hallazgos-api-mako.md).
+**Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) todavía no pasa la señal (va
+con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
+Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda
+que mirar; su red es la del texto. Si uno suma herramientas, cuenta las guardas como el turno de la app (AGENTS.md).
+
+## El despachante de MaKo en el grupo: un hito con tickets de dos negocios se le mostraba entero a uno (29/10/2026, Integración)
+
+La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en el tren-ae y volvió a su chat. El informe está en
+`C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`.
+
+- ⚠️ **ALTA: el filtro de hitos era por los tickets del negocio, pero el hito se mostraba ENTERO, con título y 3 puntos.**
+  - La bitácora de mako-doer es GLOBAL: un hito puede nombrar tickets de varios negocios. Por ejemplo, `app/admin/dev/crm/bitacora.ts`
+    tiene `tickets: [13, 26]`: el #13 es de Leila y el #26 de Mauricio.
+  - Con la rama sobre main, el turno del ws1 recibía para su #26 el punto «Ticket #13 (Leila): …6 meses de $12.000 MXN…», y la
+    voz de la consulta le pedía contestar con eso.
+  - Se verificó corriendo la función de la rama sobre las bitácoras de main. **Regla:** a un negocio sólo le llega un hito que
+    nombra tickets SUYOS y nada más; si nombra otros, ni los puntos ni el título.
+- ⚠️ **ALTA: el pedido delegado le decía al Cerebro «hazlo» aunque el triage dijera «lo decide Martín».**
+  - Le pasaba justo a lo que `ACCIONES_SIMPLES` deja afuera: plata, envíos y borrados. Eso es lo que se delega, y lo puede pedir
+    cualquiera del grupo, sin el «sí» de nadie.
+  - El texto autorizaba «una escritura que no es del negocio», donde el de ticket le reserva a Martín «una escritura en producción»
+    (`lib/tickets-aviso.ts`).
+  - El Runner marca `delegado` sin mirar el triage ni el estado (`lib/tickets-runner.ts`, `cartero.mjs`).
+  - **Regla:** un pedido delegado respeta el triage igual que un ticket. Lo que es de Martín espera a Martín.
+- **MEDIA:**
+  - El «listo» de un pedido delegado es texto libre del Cerebro y llega tal cual al grupo del cliente. Sólo pasa el filtro de
+    promesas y groserías; nada saca ids, nombres de otros negocios ni notas internas.
+  - El clasificador usa la clave del negocio. Si no tiene, usa el crédito de los grupos de la plataforma: tope de US$200 por cuenta
+    y por mes, sin tope por negocio ni por grupo.
+  - El DEBUG lo habilita el GRUPO (el de la plataforma y los de prueba de la allowlist), no quién escribe. Desde el grupo oficial
+    de un cliente no se llega, y está verificado.
+- **Lo que está bien (verificado):**
+  - La puerta del DEBUG desde un cliente está cerrada.
+  - Los textos fijos del ticket y del pedido los arma el código.
+  - Cada cosa vuelve a su grupo.

@@ -101,6 +101,25 @@ const nextConfig: NextConfig = {
       // de acción, notificaciones, bookmarks) siguen andando con este redirect.
       { source: '/leads', destination: '/crm', permanent: false },
       { source: '/leads/:path*', destination: '/crm/:path*', permanent: false },
+      // /clients se renombró a /classroom (25/10/2026, Martín: «La tab de "clients" pasa a llamarse "Classroom". También
+      // su ruta.»). La tab abre en el curso; el kanban de la entrega es /classroom/clients. Lo más largo primero (gana el
+      // primero que coincide). La tabla es la de `rutaNuevaDeVieja` (lib/clients-rutas.ts), que la fija su test.
+      { source: '/clients', destination: '/classroom/clients', permanent: false },
+      { source: '/clients/classroom', destination: '/classroom', permanent: false },
+      { source: '/clients/classroom/:path*', destination: '/classroom/:path*', permanent: false },
+      { source: '/clients/:path*', destination: '/classroom/:path*', permanent: false },
+      // MaKo Context, AI Models y Dev se fueron el 25/10/2026 (Martín, puntos 13 a 15). Lo que sabe MaKo (el Conocimiento,
+      // y /conocimiento, su editor completo) está en Classroom › Methodology; los prompts, en Settings › Prompts; los modelos
+      // los elige cada negocio con su IA y el Ops Center. Los links viejos caen en su lugar nuevo, no en un 404.
+      { source: '/contexto', destination: '/classroom/methodology', permanent: false },
+      { source: '/conocimiento', destination: '/classroom/methodology', permanent: false },
+      { source: '/modelos-ia', destination: '/admin/operaciones', permanent: false },
+      { source: '/admin/dev', destination: '/admin/operaciones', permanent: false },
+      { source: '/admin/dev/:path*', destination: '/admin/operaciones', permanent: false },
+      // «MaKo Messages» salió de Automations el 26/10/2026 (Martín: «elimina eso»; app/_components/nav.ts dice por qué). Sus
+      // links caen en Automations, en la computadora y en el teléfono.
+      { source: '/mensajes', destination: '/automations', permanent: false },
+      { source: '/m/mensajes', destination: '/m/automations', permanent: false },
       // hola-mako.com/extension → la ficha en la Chrome Web Store.
       //
       // El link de Google no se puede acortar: el id (`gapbem…`) es un hash de la

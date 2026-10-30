@@ -27,7 +27,8 @@ import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, makoPidioDatos, esPedidoDeAgenda, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { promesasDe, groseriasDe, sanearSalida, SIN_HACER, SIN_HACER_LO_DEMAS } from '../lib/doer-salida';
-import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '../lib/doer-ticket';
+import { actorDeWhatsApp } from '../lib/doer-ticket';
+import { lineaDelTicket, LINEA_YA_AVISADO } from '../lib/no-pude';
 import type { Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
@@ -126,10 +127,11 @@ test('ws13: «Si 18 de noviembre» —la fecha que MaKo pidió— sigue el pedid
   const r = turno(m, { siguePedidoDeAgenda: true }, `${pedido}\n${pidio}`);
   assert.equal(r.veredicto.intencion, 'actuar', r.veredicto.porque);
   trae(m, 'proponer_agendar_agenda', r);
-  // El router lo leía como charla («si») y el camino barato corría SIN herramientas, antes de mirar la intención.
+  // El router lo leía como charla («si») y el camino barato corría SIN herramientas, antes de mirar la intención. Desde el
+  // 28/10/2026 el grupo no tiene camino barato (el diagnóstico del Cerebro, G2: tampoco llevaba historial): no vuelve.
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /const pideHerramientas = intencion\.intencion !== 'charlar' && !intencion\.dudosa;/);
-  assert.match(doer, /if \(ruta\.tier === 'cheap' && !mediaBlocks && !pideHerramientas\)/, 'el camino barato vuelve a correr sin mirar si el clasificador pidió herramientas');
+  assert.doesNotMatch(doer, /ruta\.tier === 'cheap'/, 'volvió el camino barato del grupo');
+  assert.doesNotMatch(doer, /\bchatCheap\(/, 'el grupo volvió a contestar por `chatCheap`, sin historial ni el system del grupo');
 });
 
 test('ws13: «Pasamelo» después de «Eso lo miro y te lo paso» reclama el pedido de antes, con sus herramientas', () => {
@@ -194,9 +196,10 @@ test('el ticket sabe QUIÉN escribió en el grupo: el teléfono, o el nombre si 
   // Un @lid es el identificador anónimo de WhatsApp: NO es un teléfono.
   assert.equal(actorDeWhatsApp('118288712345678@lid', 'Joan Pérez'), 'whatsapp:Joan Pérez');
   assert.equal(actorDeWhatsApp(undefined, undefined), undefined);
-  // La línea que agrega el código dice lo que YA pasó (el error quedó registrado): no es una promesa, y el saneo y el
-  // vigía no la marcan. La de la app («te aviso por aquí cuando esté arreglado») sí lo sería.
-  assert.deepEqual(promesasDe(LINEA_ERROR_AVISADO), []);
+  // La línea que agrega el código dice lo que YA pasó (el ticket quedó, o ya estaba): no es una promesa, y el saneo y el
+  // vigía no la marcan. La de la app («te aviso por aquí cuando esté arreglado») sí lo sería. Desde el 27/10/2026, las de
+  // lib/no-pude.ts, las mismas en todos los chats.
+  for (const l of [lineaDelTicket(12), LINEA_YA_AVISADO]) assert.deepEqual(promesasDe(l), [], l);
   assert.ok(promesasDe('Le avisé al equipo de MaKo: te aviso por aquí cuando esté arreglado.').length > 0, 'la línea de la app no se ve como promesa: el detector se ablandó');
   // Y la promesa que reemplazaría a esa pregunta sí se ve.
   assert.ok(promesasDe('Ya le aviso al equipo de MaKo y te lo arreglo.').length > 0, '«ya le aviso… te lo arreglo» no se ve como promesa');
@@ -206,25 +209,31 @@ test('el ticket sabe QUIÉN escribió en el grupo: el teléfono, o el nombre si 
 test('el doer le pasa al ticket quién escribe y el contexto, y si algo falló lo registra SOLO, sin preguntar', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   const ctx = doer.slice(doer.indexOf('const ctxApi: CtxApi = {'), doer.indexOf('};', doer.indexOf('const ctxApi: CtxApi = {')));
-  assert.match(ctx, /actor: actorDeWhatsApp\(key\?\.participant, data\.pushName\)/, 'el ticket no sabe quién escribió: preparar() contesta «No sé quién eres»');
+  // Desde el 30/10/2026 con `participante`: el teléfono de `participantAlt` en un grupo de `@lid` (si no, `participant`).
+  assert.match(ctx, /actor: actorDeWhatsApp\(participante, data\.pushName\)/, 'el ticket no sabe quién escribió: preparar() contesta «No sé quién eres»');
+  assert.match(doer, /const participante = telefonoDelParticipante\(key\?\.participantAlt\) \? key\?\.participantAlt : key\?\.participant;/);
   assert.match(ctx, /contextoTicket: \(\) => \(\{/, 'el ticket no recibe el contexto del turno');
   assert.match(ctx, /erroresDelTurno\[0\]/, 'el contexto del ticket no lleva el error que registró el código');
   // El teléfono sobrevive al lote: los dos mensajes que arma el doer copian `participant`.
-  assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant/g) ?? []).length, 2, 'un lote pierde quién escribió');
+  assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant, participantAlt: ultimo\.key\?\.participantAlt/g) ?? []).length, 2, 'un lote pierde quién escribió');
+  // Y los dos marcan el lote de VARIOS: el último no prueba quién pidió lo de arriba (el permiso del pedido delegado y del DEBUG).
+  assert.equal((doer.match(/\{ loteDeVarios: true \}/g) ?? []).length, 2, 'un lote de dos personas pide con el permiso del último');
   // Viaja con las de siempre, y cada salida de herramienta se mira con `errorParaTicket`.
-  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\];/);
+  // Y desde el 28/10/2026 lo que hace MaKo (`CAPACIDADES_TOOLS`, F2c del diagnóstico del Cerebro).
+  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS, \.\.\.CAPACIDADES_TOOLS\];/);
   const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const nuevoIntento'));
   assert.match(rt, /errorParaTicket\(name, out\)/, 'las fallas de las herramientas no se registran para el ticket');
-  // Si algo falló y el modelo no levantó el ticket, el código REGISTRA la falla (Martín: «todo lo solucionás
-  // automáticamente»), con quién escribió, y a la persona se le dice sólo si entró como ticket.
-  const prop = doer.slice(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto'), doer.indexOf('const nPuntos'));
+  // Si algo falló, el código REGISTRA la falla (Martín: «todo lo solucionás automáticamente»), con quién escribió, y a la
+  // persona se le dice sólo si entró como ticket. Desde el 27/10/2026 aunque el modelo haya propuesto un ticket.
+  const prop = doer.slice(doer.indexOf('if (erroresDelTurno.length) {'), doer.indexOf('const nPuntos'));
+  assert.doesNotMatch(doer, /ticketPropuesto/, 'volvió `!ticketPropuesto`: la falla depende otra vez de que el modelo no proponga');
   assert.match(prop, /registrarError\(\{ origen: 'mako', nombre: e\.herramienta, mensaje: e\.error \}, quien\)/, 'si algo falló, no se registra solo');
   assert.match(prop, /identidadDelActor\(wsData, ctxApi\.actor\)/, 'la falla se registra sin quién escribió: el aviso de arreglado no sabe a qué grupo ir');
   assert.match(prop, /reg\.ok && reg\.ticketId/, 'a la persona se le dice que el equipo lo sabe aunque no haya entrado (el ruido de la IA)');
-  assert.match(prop, /LINEA_ERROR_AVISADO/, 'la falla se registra y nadie le dice a la persona');
+  assert.match(prop, /reg\.nuevo \? lineaDelTicket\(reg\.ticketId\) : LINEA_YA_AVISADO/, 'la falla se registra y nadie le dice a la persona');
   assert.doesNotMatch(prop, /runRegistro\(LEVANTAR_TICKET/, 'volvió a PREGUNTARLE a la persona en vez de registrarlo solo');
   // Y va DESPUÉS del saneo: la línea es del código, no del modelo.
-  assert.ok(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto') > doer.indexOf('const saneo = sanearSalida('), 'la línea del ticket quedó antes del saneo');
+  assert.ok(doer.indexOf('if (erroresDelTurno.length) {') > doer.indexOf('const saneo = sanearSalida('), 'la línea del ticket quedó antes del saneo');
 });
 
 // --- 2. Lo que sale ------------------------------------------------------------------------------
@@ -283,11 +292,12 @@ test('las groserías del 16/10 se ven, y la oración que las trae no sale', () =
 
 test('el doer sanea ANTES de mandar, con las herramientas que corrieron, y lo deja en el Saldo de IA', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  const i = doer.indexOf('sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, finDeTurno: true })');
+  // Desde el 27/10/2026 la llamada lleva también `enElGrupo` (tests/doer-hecho-grupo.test.ts), en varias líneas.
+  const i = doer.search(/sanearSalida\(respuesta, \{\s*corrioHerramientas: corridasDelTurno > 0, finDeTurno: true[,\s]/);
   assert.ok(i > 0, 'el doer no sanea la salida, o no le pasa si corrió alguna herramienta');
   assert.ok(i < doer.indexOf('const v = validarRespuestaDoer(respuesta'), 'el saneo quedó después de la compuerta');
   assert.ok(i < doer.indexOf('enviarAGrupoJid(jid, enviar[i])'), 'el saneo quedó después del envío');
-  assert.match(doer.slice(i - 400, i + 900), /recordUsage\('saneo-doer'/, 'lo saneado no queda en ningún lado: el vigía no lo ve');
+  assert.match(doer.slice(i - 400, i + 1400), /recordUsage\('saneo-doer'/, 'lo saneado no queda en ningún lado: el vigía no lo ve');
   // El contador se suma en CADA corrida (también lo que devuelve el memo: eso se hizo).
   const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const previo = memo.previo(name)'));
   assert.match(rt, /corridasDelTurno\+\+/, 'corridasDelTurno no cuenta las corridas');

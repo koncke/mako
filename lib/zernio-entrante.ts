@@ -58,11 +58,13 @@ const ES_RESPUESTA: ReadonlySet<EventoSocial['subtipo']> = new Set(['mensaje', '
  * (`escuchaElEvento`, lib/disparadores.ts): la misma pregunta que hace el motor al inscribir. Un CRON
  * «comenta tu publicación» crea el lead de quien comenta, y no el de quien manda un DM.
  */
-export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial['subtipo']): Promise<boolean> {
+export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial['subtipo'], texto?: string | null, publicacion?: string | null): Promise<boolean> {
   const sub = subtipoDelEvento(canal, subtipo);
   if (!sub) return false;
   const { getSecuenciasActivas } = await import('./nutricion');
-  return escuchaElEvento(await getSecuenciasActivas(), canal, { subtipo: sub });
+  // Con lo que COMENTÓ (ticket #17) y DÓNDE (ticket #25): un CRON con palabras clave, o con su publicación, no crea el lead
+  // de quien comentó otra cosa u otra publicación.
+  return escuchaElEvento(await getSecuenciasActivas(), canal, { subtipo: sub, texto: texto ?? null, publicacion: publicacion ?? null });
 }
 
 /**
@@ -70,21 +72,55 @@ export async function hayQuienEscuche(canal: CanalSocial, subtipo: EventoSocial[
  * `disparaPorEvento` (lib/disparadores.ts): el subtipo, en las palabras del CRON (`subtipoDelEvento`).
  * Un evento que ningún CRON escucha (una mención en una historia) no inscribe a nadie.
  */
-export async function dispararEventoSocial(leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo']): Promise<number> {
+export async function dispararEventoSocial(leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo'], texto?: string | null, publicacion?: string | null): Promise<number> {
   const sub = subtipoDelEvento(canal, subtipo);
   if (!sub) return 0;
   const { enrolarPorEvento } = await import('./nutricion');
-  return enrolarPorEvento(leadId, canal, { subtipo: sub });
+  // El texto de ESTE comentario (ticket #17) y su publicación (ticket #25): se miran en cada uno, no en el que creó el lead.
+  return enrolarPorEvento(leadId, canal, { subtipo: sub, texto: texto ?? null, publicacion: publicacion ?? null });
+}
+
+/**
+ * Los eventos en los que la persona ESCRIBIÓ un mensaje privado (un DM, una respuesta a la historia, el primer texto que
+ * sigue a un anuncio o a un enlace de referencia). Un comentario no: es público, y su respuesta es otra (la privada).
+ */
+const ES_MENSAJE_QUE_SE_CONTESTA: ReadonlySet<EventoSocial['subtipo']> = new Set(['mensaje', 'historia', 'anuncio', 'referencia']);
+
+/**
+ * EL AI STEP CONTESTA EL MENSAJE QUE ARRANCÓ LA AUTOMATIZACIÓN (28/10/2026, la (a) del Cerebro, como ManyChat): DESPUÉS de
+ * `dispararEventoSocial`, con lo que escribió. Lo decide el motor (`contestarElDisparo`): sólo una automatización de ESTE
+ * evento cuya primera tarjeta es el AI Step, y sólo la inscripción que todavía no mandó nada.
+ */
+export async function contestarDisparoSocial(
+  leadId: number, canal: CanalSocial, subtipo: EventoSocial['subtipo'], extra: { texto?: string | null; cuenta?: string | null; fecha?: string | null },
+): Promise<number> {
+  if (!ES_MENSAJE_QUE_SE_CONTESTA.has(subtipo) || !extra.texto?.trim()) return 0;
+  const sub = subtipoDelEvento(canal, subtipo);
+  if (!sub) return 0;
+  const { contestarElDisparo } = await import('./nutricion');
+  return contestarElDisparo(leadId, canal, sub, { texto: extra.texto, cuenta: extra.cuenta ?? null, recibidoAt: extra.fecha ?? null });
 }
 
 /**
  * La respuesta por Instagram o Messenger de alguien que ya es un lead: anota que contestó y, si una
  * automatización suya tiene un AI Step de ese medio, le contesta por ahí (ver la cabecera). `texto`: lo que
- * escribió; `cuenta`: la cuenta de Zernio que lo recibió. Devuelve cuántas inscripciones anotó.
+ * escribió; `cuenta`: la cuenta de Zernio que lo recibió. Devuelve cuántas inscripciones anotó y si ESTE mensaje
+ * ya tuvo su respuesta (`contestada`: un AI Step o la charla abierta le contestó o le dejó el borrador).
  */
-export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial, extra: { texto?: string | null; cuenta?: string | null } = {}): Promise<number> {
+export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial, extra: { texto?: string | null; cuenta?: string | null } = {}): Promise<{ pausadas: number; contestada: boolean }> {
   const { pausarPorRespuesta } = await import('./nutricion');
-  return pausarPorRespuesta(leadId, { origen: canal, texto: extra.texto ?? undefined, cuenta: extra.cuenta ?? null });
+  const atencion = { contestada: false };
+  const pausadas = await pausarPorRespuesta(leadId, { origen: canal, texto: extra.texto ?? undefined, cuenta: extra.cuenta ?? null, atencion });
+  return { pausadas, contestada: atencion.contestada };
+}
+
+/**
+ * EL TOQUE DE UN BOTÓN de un mensaje de MaKo (24/10/2026, lib/botones-social.ts): lo mueve el motor (`tocarBoton`). 'no_es' =
+ * no es un botón de MaKo (y el texto no es el título de uno que esperaba): quien llama sigue con lo de siempre.
+ */
+export async function tocarBotonSocial(leadId: number, t: { payload?: string | null; texto?: string | null }): Promise<string> {
+  const { tocarBoton } = await import('./nutricion');
+  return tocarBoton(leadId, t);
 }
 
 type Fila = { id: number; lead_id: number | null };
@@ -151,7 +187,7 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
 
   let leadId = yaEraLead;
   if (leadId == null) {
-    if (!(await hayQuienEscuche(e.canal, e.subtipo))) return { accion: `${accion}_sin_automatizacion`, leadId: null, disparar: false, pausar: false };
+    if (!(await hayQuienEscuche(e.canal, e.subtipo, e.texto, e.postId))) return { accion: `${accion}_sin_automatizacion`, leadId: null, disparar: false, pausar: false };
     leadId = await crearLeadDe(e, fila.id);
     accion = `${accion}_lead_nuevo`;
   }

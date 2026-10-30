@@ -309,7 +309,7 @@ test('el lazo del motor: las flechas del resultado arrancan por la puerta, y un 
   assert.ok(ini > 0 && fin > ini, 'no encontré el bloque de los nodos de control');
   const ctl = NUTRI.slice(ini, fin);
   assert.ok(ctl.length < 6000, `el recorte mide ${ctl.length}: está mirando otra cosa`);
-  assert.match(ctl, /const nuevos = r\.tipo === 'faltan_hechos' \? \[\] : nuevosDe\(sec, r\.repartos, lead\);/);
+  assert.match(ctl, /const nuevos = r\.tipo === 'faltan_hechos' \|\| r\.tipo === 'falta_rama_ab' \? \[\] : nuevosDe\(sec, r\.repartos, lead\);/);
   assert.match(ctl, /const cerroElFlujo = porCondicion && !nuevos\.length;/);
   assert.match(ctl, /await cerrar\(cerroElFlujo \? 'la condición cerró el flujo sin mandar nada' : r\.motivo, cerroElFlujo && esPrimerPaso\(sec\.pasos, idxLeido\)\);/);
   // El cierre de ESTE camino pasa los hilos que arrancan a la puerta (que hace el compare-and-set).

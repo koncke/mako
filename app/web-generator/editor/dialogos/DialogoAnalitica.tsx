@@ -38,6 +38,18 @@ export function textoDeAlcance(pct: number | null | undefined): string {
   return `${Math.round(Math.max(0, Math.min(100, pct)))} %`;
 }
 
+/**
+ * Sobre qué se midió el alcance (Pixel v26): desde el primer evento `secciones` y cuántos visitantes. Sin esto, «el 40 %»
+ * de los primeros días se lee como un dato de 30 días, y era de 12 personas.
+ */
+export function textoDeMedicion(m: { desde: string; visitantes: number } | null | undefined): string | null {
+  if (!m) return null;
+  const t = Date.parse(m.desde);
+  if (!Number.isFinite(t)) return null;
+  const dia = new Date(t).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+  return `Desde el ${dia} · ${m.visitantes} ${m.visitantes === 1 ? 'visitante' : 'visitantes'}`;
+}
+
 /** El ancho de la barra de alcance (0..100), o null si no se mide: sin barra, no una barra vacía. */
 export function anchoDeAlcance(pct: number | null | undefined): number | null {
   if (pct == null || !Number.isFinite(pct)) return null;
@@ -139,6 +151,7 @@ export function DialogoAnalitica({ onCerrar }: { onCerrar?: () => void } = {}) {
 
             <section className="gma-an-bloque">
               <h3 className="gma-an-h">Alcance por sección</h3>
+              {textoDeMedicion(a.alcanceMedido) && <p className="gma-an-nota">{textoDeMedicion(a.alcanceMedido)}</p>}
               {alcance === null || alcance.length === 0
                 ? <p className="gma-an-nota">{NO_MEDIDO} todavía</p>
                 : (
@@ -147,7 +160,7 @@ export function DialogoAnalitica({ onCerrar }: { onCerrar?: () => void } = {}) {
                       const ancho = anchoDeAlcance(s.pct);
                       return (
                         <li key={s.tarjetaId} className="gma-an-fila">
-                          <span className="gma-an-sec" title={secciones.get(s.tarjetaId)?.titulo}>{secciones.get(s.tarjetaId)?.titulo ?? 'Sección eliminada'}</span>
+                          <span className="gma-an-sec" title={secciones.get(s.tarjetaId)?.titulo ?? s.titulo}>{secciones.get(s.tarjetaId)?.titulo ?? s.titulo ?? 'Sección eliminada'}</span>
                           <span className="gma-an-carril" aria-hidden>{ancho !== null && <span className="gma-an-barra" style={{ width: `${ancho}%` }} />}</span>
                           <span className="gma-an-pct" data-sin={ancho === null ? '' : undefined}>{textoDeAlcance(s.pct)}</span>
                         </li>

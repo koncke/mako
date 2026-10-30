@@ -9,8 +9,16 @@
 // Credenciales:
 //   - META_CRM_DATASET_ID (OPCIONAL — el destino PREFERIDO: ver `destinoCAPI`)
 //   - META_PIXEL_ID     (el destino de siempre; hace falta uno de los dos)
-//   - META_CAPI_TOKEN   (OPCIONAL — si no está, se usa META_ACCESS_TOKEN)
+//   - META_CAPI_TOKEN   (el token del PÍXEL, el que genera Events Manager: ver abajo)
 //   - META_API_VERSION  (opcional, default 'v24.0' — matchea Marketing API)
+//
+// POR DÓNDE SALE (25/10/2026, Martín: «revisa el tema de CAPI y alimentar al pixel»):
+//   1. Por la Zernio del negocio (`POST /v1/ads/conversions`), con la MISMA conexión de anuncios con la que MaKo lee
+//      y publica: el negocio no pega nada más. Zernio hashea la identidad (va en claro: lib/zernio-meta-cuerpo.ts).
+//   2. Si Zernio no tiene permiso sobre ese píxel (una conexión con «Administrar campañas» puede no alcanzar: no está
+//      medido), o el negocio no tiene Zernio, por la Graph API con el token del píxel (`META_CAPI_TOKEN`, el botón
+//      «Generar token de acceso» de Events Manager → tutorial en docs/tutorial-capi-pixel.md y en /integraciones).
+//   3. El token de Meta de siempre (`META_ACCESS_TOKEN`), deprecado, para los negocios que lo conservan.
 //
 // Regla de oro: CAPI NUNCA debe romper el flujo de negocio. Cualquier error
 // se loguea (console.error) pero NO se propaga. updateLead debe seguir
@@ -33,6 +41,9 @@ import crypto from 'node:crypto';
 import { credWs, credWsEstricta } from './credenciales';
 import type { AdondeVaLaCalificacion } from './meta-capi-payload';
 import { CUSTOM_DATA_CRM, adondeDe, destinoCAPI, falloEnRespuesta, eventosRecibidos, hayIdentidad, leadIdDeMeta, tiempoDelHecho } from './meta-capi-payload';
+import { canalMeta, type CanalMeta } from './meta-via';
+import { zFetch, ZernioError } from './zernio';
+import { esFalloDePermiso, eventoParaZernio, resultadoConversionZernio, type EventoZernio } from './zernio-meta-cuerpo';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -68,6 +79,16 @@ export type CAPIEventParams = {
   eventSourceUrl?: string;
   /** Por defecto 'system_generated'; usar 'website' para deduplicar con el pixel. */
   actionSource?: CAPIDataEntry['action_source'];
+  /**
+   * El código de «Probar eventos» del Administrador de eventos (`TEST…`): el evento se ve en esa pestaña y NO cuenta en los
+   * datos del píxel. Sólo para probar (`probar_capi_meta` de la API de MaKo); un envío real nunca lo lleva.
+   */
+  testCode?: string;
+  /**
+   * Al píxel del SITIO aunque el negocio tenga conjunto de datos de CRM (27/10/2026): la COMPRA de una página no es un evento del
+   * CRM, y ahí iría con los campos del CRM (`CUSTOM_DATA_CRM`). docs/diseno-venta-externa-stripe.md §5.
+   */
+  soloPixel?: true;
 };
 
 /** Por qué no entró. Cada motivo es una acción distinta, así que no se funden. */
@@ -147,18 +168,21 @@ function hashPhone(phone: string | null): string | null {
  * A dónde va un evento y con qué token. Lo usan el envío y la pregunta de la ficha
  * (`adondeVaLaCalificacion`): dos lecturas distintas contestarían distinto.
  */
-async function destinoYToken(): Promise<{ destino: ReturnType<typeof destinoCAPI>; accessToken: string | null }> {
+async function destinoYToken(soloPixel = false): Promise<{ destino: ReturnType<typeof destinoCAPI>; accessToken: string | null; canal: CanalMeta }> {
   // Primero el conjunto de datos de CRM si el cliente lo creó, y si no el píxel del
-  // sitio: el porqué y el centinela PENDING están en `destinoCAPI`.
-  const destino = destinoCAPI(await credWs('META_CRM_DATASET_ID'), await credWs('META_PIXEL_ID'));
+  // sitio: el porqué y el centinela PENDING están en `destinoCAPI`. `soloPixel`: la compra (CAPIEventParams).
+  const destino = destinoCAPI(soloPixel ? null : await credWs('META_CRM_DATASET_ID'), await credWs('META_PIXEL_ID'));
+  const canal = await canalMeta();
   // El token de CAPI dejó de ser obligatorio: el botón "Generar token de acceso"
   // de Events Manager arma por detrás un token con ads_management sobre ese píxel
   // — no es un tipo especial de credencial. El token principal sirve igual si el
   // píxel está asignado al usuario de sistema (verificado contra la API real).
   // META_CAPI_TOKEN queda como override para el píxel que vive en OTRO negocio.
+  // Desde el 25/10/2026 el token del píxel deja de ser «sólo para el píxel de otro negocio»: con el token de Meta
+  // deprecado, es la salida de un negocio que conectó por Zernio cuando su conexión no alcanza para el píxel.
   const usado = await credWs('META_CAPI_TOKEN');
   const accessToken = usado && !usado.startsWith('PENDING') ? usado : await credWs('META_ACCESS_TOKEN');
-  return { destino, accessToken };
+  return { destino, accessToken, canal };
 }
 
 /**
@@ -173,21 +197,23 @@ async function destinoYToken(): Promise<{ destino: ReturnType<typeof destinoCAPI
  */
 export async function adondeVaLaCalificacion(ws: number): Promise<AdondeVaLaCalificacion | null> {
   try { await credWsEstricta('META_PIXEL_ID', ws); } catch { return null; }
-  const { destino, accessToken } = await destinoYToken();
-  return adondeDe(destino, accessToken);
+  const { destino, accessToken, canal } = await destinoYToken();
+  // Con la conexión de Zernio el evento sale aunque no haya token: Zernio hace de token (no se pega nada).
+  return adondeDe(destino, canal.via === 'zernio' ? 'zernio' : accessToken);
 }
 
 export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIResultado> {
-  const { destino, accessToken } = await destinoYToken();
+  const { destino, accessToken, canal } = await destinoYToken(params.soloPixel === true);
   const apiVersion = process.env.META_API_VERSION || 'v24.0';
 
   if (!destino) {
     console.error('[capi] skip: no hay destino (ni META_CRM_DATASET_ID ni META_PIXEL_ID)');
     return { ok: false, motivo: 'sin_pixel', detalle: 'no hay conjunto de datos ni píxel de Meta configurado' };
   }
-  if (!accessToken || accessToken.startsWith('PENDING')) {
-    console.error('[capi] skip: no hay token para CAPI (ni META_CAPI_TOKEN ni META_ACCESS_TOKEN)');
-    return { ok: false, motivo: 'sin_token', detalle: 'no hay token de Meta cargado' };
+  const hayToken = !!accessToken && !accessToken.startsWith('PENDING');
+  if (!hayToken && canal.via !== 'zernio') {
+    console.error('[capi] skip: no hay por dónde mandar (ni la conexión de Zernio, ni META_CAPI_TOKEN, ni META_ACCESS_TOKEN)');
+    return { ok: false, motivo: 'sin_token', detalle: 'no hay conexión de Meta por Zernio ni token del píxel cargado' };
   }
 
   const emHash = hashEmail(params.email);
@@ -208,17 +234,37 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
     return { ok: false, motivo: 'sin_identidad', detalle: 'el lead no tiene email, teléfono ni id de formulario de Meta' };
   }
 
+  const t = tiempoDelHecho(params.eventTime, new Date());
+  if (t.recortado) {
+    console.warn(`[capi] ${params.eventName}: el hecho es de ${t.real} y cae fuera de la ventana de CAPI — se manda en el borde`);
+  }
+
+  // El `custom_data` es el mismo por los dos caminos: los dos campos de CRM van PRIMERO (si un llamador declara su
+  // propio `event_source`, el suyo gana), y sólo cuando el destino es el conjunto de datos de CRM — mandarlos al píxel
+  // del sitio es lo que la doc de Meta prohíbe.
+  const customData = params.customData || t.recortado || destino.esCrm
+    ? { ...(destino.esCrm ? CUSTOM_DATA_CRM : {}), ...params.customData, ...(t.recortado && t.real ? { hecho_en: t.real } : {}) }
+    : null;
+
+  // 1) Por Zernio. Si no tiene permiso sobre el píxel y hay un token, sigue por el token; cualquier otro fallo se devuelve.
+  if (canal.via === 'zernio') {
+    const ev = eventoParaZernio({
+      eventName: params.eventName, segundos: t.segundos, eventId: params.eventId, actionSource: params.actionSource,
+      eventSourceUrl: params.eventSourceUrl, email: params.email, phone: params.phone, leadId, externalId: params.externalId, customData,
+    });
+    const r = await enviarPorZernio(canal, destino.id, ev, params.testCode);
+    if (r.ok) return { ok: true, recibidos: r.recibidos };
+    if (!r.permiso || !hayToken) return { ok: false, motivo: r.motivo, detalle: r.detalle };
+    console.warn(`[capi] ${params.eventName}: Zernio sin permiso sobre el píxel (${r.detalle}) — sigo con el token del píxel`);
+  }
+
+  // 2) Por la Graph API con el token del píxel (o el de Meta de siempre).
   const user_data: CAPIDataEntry['user_data'] = {};
   if (emHash) user_data.em = [emHash];
   if (phHash) user_data.ph = [phHash];
   if (leadId) user_data.lead_id = leadId;
   const uid = typeof params.externalId === 'string' ? params.externalId.trim().toLowerCase() : '';
   if (uid) user_data.external_id = [sha256Hex(uid)];
-
-  const t = tiempoDelHecho(params.eventTime, new Date());
-  if (t.recortado) {
-    console.warn(`[capi] ${params.eventName}: el hecho es de ${t.real} y cae fuera de la ventana de CAPI — se manda en el borde`);
-  }
 
   const entry: CAPIDataEntry = {
     event_name: params.eventName,
@@ -227,12 +273,7 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
     ...(params.eventId ? { event_id: params.eventId } : {}),
     ...(params.eventSourceUrl ? { event_source_url: params.eventSourceUrl } : {}),
     user_data,
-    // Los dos campos de CRM van PRIMERO: si un llamador declara su propio
-    // `event_source`, el suyo gana. Y solo cuando el destino es el conjunto de datos
-    // de CRM — mandarlos al píxel del sitio es lo que la doc de Meta prohíbe.
-    ...(params.customData || t.recortado || destino.esCrm
-      ? { custom_data: { ...(destino.esCrm ? CUSTOM_DATA_CRM : {}), ...params.customData, ...(t.recortado && t.real ? { hecho_en: t.real } : {}) } }
-      : {}),
+    ...(customData ? { custom_data: customData } : {}),
   };
 
   const url = `https://graph.facebook.com/${apiVersion}/${destino.id}/events`;
@@ -244,6 +285,7 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
       body: JSON.stringify({
         data: [entry],
         access_token: accessToken,
+        ...(params.testCode ? { test_event_code: params.testCode } : {}),
       }),
     });
 
@@ -275,5 +317,40 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[capi] ${params.eventName} network error: ${msg}`);
     return { ok: false, motivo: 'red', detalle: msg };
+  }
+}
+
+/**
+ * Un evento por la Zernio del negocio (`POST /v1/ads/conversions`). Nunca tira. `permiso`: el fallo es de PERMISO sobre el
+ * píxel (vale probar con el token del píxel); un fallo de red o de datos no, porque repetiría el mismo error.
+ * ⚠️ Un rechazo de Meta viene en un 200 (`eventsFailed`), no en el status.
+ */
+async function enviarPorZernio(
+  canal: Extract<CanalMeta, { via: 'zernio' }>,
+  destinoId: string,
+  ev: EventoZernio,
+  testCode?: string,
+): Promise<{ ok: true; recibidos: number } | { ok: false; motivo: CAPIMotivo; detalle: string; permiso: boolean }> {
+  try {
+    const body = await zFetch<unknown>(canal.clave, '/ads/conversions', {
+      method: 'POST',
+      body: JSON.stringify({ accountId: canal.accountId, destinationId: destinoId, events: [ev], ...(testCode ? { testCode } : {}) }),
+    }, 30_000);
+    const r = resultadoConversionZernio(body);
+    if (r.ok) {
+      console.log(`[capi] event sent por Zernio: ${ev.eventName} (recibidos=${r.recibidos}${ev.user.leadId ? ', con lead_id' : ''})`);
+      return r;
+    }
+    console.error(`[capi] ${ev.eventName} RECHAZADO por Meta (por Zernio) — ${r.detalle}`);
+    return { ok: false, motivo: 'rechazado', detalle: `por Zernio: ${r.detalle}`, permiso: esFalloDePermiso(200, r.detalle) };
+  } catch (e) {
+    if (e instanceof ZernioError) {
+      const detalle = `Zernio ${e.status}: ${e.message}`.slice(0, 300);
+      console.error(`[capi] ${ev.eventName} por Zernio — ${detalle}`);
+      return { ok: false, motivo: e.status >= 400 ? 'http' : 'red', detalle, permiso: esFalloDePermiso(e.status, e.message) };
+    }
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error(`[capi] ${ev.eventName} por Zernio, error de red: ${msg}`);
+    return { ok: false, motivo: 'red', detalle: `por Zernio: ${msg}`, permiso: false };
   }
 }

@@ -40,7 +40,7 @@ import { deshacerCampoLeadAction, guardarCampoLeadAction } from '../actions';
 import { opcionesEquipo } from '../equipo-opciones';
 import { esMaKo, MAKO_STAR_URI } from '../mako-setter';
 import { ChipTri } from './chip-tri';
-import { FATHOM_URL, INGRESO_MAX_USD, instagramDeLaFicha, montoDeTexto, telefonoAGuardar, usuarioInstagram, type CampoInline, type ValorInline } from '../campo-inline';
+import { esLinkDeGrabacion, INGRESO_MAX_USD, instagramDeLaFicha, montoDeTexto, telefonoAGuardar, usuarioInstagram, type CampoInline, type ValorInline } from '../campo-inline';
 import { InstagramBuscador } from '@/app/crm/new/InstagramBuscador';
 import type { MiembroEquipo } from '../actions';
 
@@ -452,10 +452,10 @@ export function EnlaceFathomEditable({ leadId, campo, url, titulo }: {
               const nuevo = v.trim() || null;
               if (nuevo === actual) return;
               // Cinco palabras y dicen qué hacer, no la regla. El porqué vive arriba.
-              if (nuevo && !FATHOM_URL.test(nuevo)) { show('Pega un link de Fathom', undefined, 'bad'); return; }
+              if (nuevo && !esLinkDeGrabacion(nuevo)) { show('Pega el link de la grabación (Fathom, Loom, tl;dv, Zoom…)', undefined, 'bad'); return; }
               guardar(nuevo, actual);
             }}
-            placeholder="Pega el link de Fathom"
+            placeholder="Pega el link de la grabación"
             titulo={titulo}
             maxLargo={500}
           />

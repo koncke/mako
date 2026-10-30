@@ -66,14 +66,19 @@ test('las lecturas por id piden account_id y lo comprueban antes de devolver nad
     'export async function getCampaignBasics(',
   ]) {
     const b = bloque(src, firma);
-    assert.match(b, /'fields', 'account_id,/, `${firma} no pide account_id`);
-    assert.match(b, /const data = await graphGet\(url\.toString\(\)\);\n\s*await exigirDeLaCuenta\(data\.account_id\);/, `${firma} no lo comprueba apenas lee`);
+    // Desde el 26/10/2026 la lectura puede ir por Zernio (`leerObjetoMeta`, el paso directo de Meta con los MISMOS campos, o
+    // `anuncioMetaPorZernio`): lo que se cuida es igual, que se pida account_id y se compruebe apenas se lee, antes de devolver.
+    assert.match(b, /['`]account_id,/, `${firma} no pide account_id`);
+    const lee = Math.max(b.lastIndexOf('await graphGet(url.toString())'), b.lastIndexOf('await leerObjetoMeta('));
+    const comprueba = b.indexOf('await exigirDeLaCuenta(data.account_id);');
+    assert.ok(lee > 0 && comprueba > lee, `${firma} no lo comprueba después de leer`);
+    assert.ok(!/\breturn\b/.test(b.slice(lee, comprueba)), `${firma} devuelve algo antes de comprobar la cuenta`);
   }
 });
 
 test('editar el público comprueba la cuenta ANTES de escribir', () => {
   const b = bloque(sinComentarios(leer('../lib/meta-ads-create.ts')), 'export async function updateAdsetTargeting(');
-  const chequeo = b.indexOf('await exigirDeLaCuenta(await cuentaDelObjeto(adsetId));');
+  const chequeo = b.indexOf("await exigirDeLaCuenta(await cuentaDelObjeto(adsetId, 'adset'));");
   const escritura = b.indexOf('await graphPost(adsetId');
   assert.ok(chequeo > 0 && escritura > chequeo, 'el chequeo tiene que ir antes del graphPost');
 });

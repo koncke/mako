@@ -7,19 +7,23 @@ import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
+import { AvisoExtensionVieja } from './_components/AvisoExtensionVieja';
 import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
+import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
+import { PuertaDeLaApp } from './_components/PuertaDeLaApp';
 import { TemaCandidato } from './_components/TemaCandidato';
 import { ModoArranque } from './_components/ModoArranque';
 import { ModoDelUsuario } from './_components/ModoDelUsuario';
 import { PuenteEnlace } from './video-generator/PuenteEnlace';
 import { ZonaDelNegocio } from './_components/ZonaDelNegocio';
 import { ReportadorDeErrores } from './_components/ReportarErrores';
+import { VeloGuia } from './_ui/guia/VeloGuia';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { WsProvider } from './_ui/Link';
@@ -160,6 +164,10 @@ export default async function RootLayout({
             le pega el `?ws=` de la pestaña a todas las llamadas a /api. Va lo más
             arriba posible del árbol para que el chunk cargue antes que nadie. */}
         <WsFetch />
+        {/* LA APP DE ESCRITORIO PIDE EL LOGIN (25/10/2026, Martín: «jamás me pidió login... entró directo a la cuenta de
+            Mauricio»): cada ventana nueva de la app instalada, o del acceso «MaKo», pasa por el login de la persona. Fuera de
+            la app no hace nada. Va arriba: su tapa tiene que estar antes de que se vea la cuenta del perfil. */}
+        <PuertaDeLaApp />
         {/* ⚠️ EL ENLACE DEL PUENTE VA EN EL LAYOUT, y no adentro de
             /video-generator. Su alcance tiene que ser el MISMO que el del content
             script que le habla, y ése está declarado en el manifest de la
@@ -261,6 +269,8 @@ export default async function RootLayout({
                   pisarse. Ver app/_components/EsquinaAvisos.tsx. */}
               <EsquinaAvisos>
                 <AvisoPixelViejo />
+                {/* La extensión de MaKo instalada y vieja, en cualquier pantalla (27/10/2026: Leila en la 0.70 con la 0.74). */}
+                {sesion && <AvisoExtensionVieja />}
                 {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
                 {sesion && <AvisoMoraPlan />}
                 <MakoConfirmGate />
@@ -272,6 +282,12 @@ export default async function RootLayout({
                   ⚠️ Y TAMBIÉN EN EL TELÉFONO (21/10/2026): adentro de <HideOnPublicLanding>, que apaga el cromo de escritorio en
                   un teléfono, no se montaba nunca ahí, y la Ticketera no tenía ni un error de MaKo Mobile. */}
               {sesion && <FueraDeLoPublico><ReportadorDeErrores /></FueraDeLoPublico>}
+              {/* La guía de cada pestaña (29/10/2026, «MaKo te enseña señalando»): el velo con sus huecos, UNA vez para toda la
+                  app. Sin una tab que registre su guía (app/_ui/guia/useGuiaDeLaTab.ts) no dibuja nada. */}
+              {sesion && <VeloGuia />}
+              {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
+                  25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
+              {sesion && <CartelPagoCliente />}
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

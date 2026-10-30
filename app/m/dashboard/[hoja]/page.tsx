@@ -15,14 +15,16 @@ import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { rutaConWs } from '@/lib/workspace';
 import { hoyEnTijuana } from '@/lib/date-utils';
-import { leerTablero } from '@/lib/graficos-tablero';
-import { hojaDeRol, hojaDestino } from '@/lib/graficos-plantillas';
+import { hojaDeRol } from '@/lib/graficos-plantillas';
 import { CabeceraM, ComputadoraM, PantallaM } from '@/app/m/_ui';
 import { DashboardM } from '../DashboardM';
-import { entraEnTelefono, esHojaInicial, hojaPropia, periodoPropio } from '../datos';
+import { hojaPropia, hojaPropiaDe, periodoPropio, tableroDelPedido } from '../datos';
+import { VOLVER_AL_DASHBOARD } from '../redireccion';
 import { periodoDeParam, periodosParaHoja } from '../modelo';
 import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
-import { avisoDeClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
+import { avisoDeLaHojaClosing, esHojaClosing } from '@/app/dashboard/aviso-closing';
+import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
+import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
 import '../dashboard.css';
 
 export const dynamic = 'force-dynamic';
@@ -36,28 +38,28 @@ export default async function HojaPropiaPagina({ params, searchParams }: {
   searchParams: Promise<Busqueda>;
 }) {
   const ctx = await requireMovil({ navKey: 'graphics' });
-  const volver = '/m/dashboard';
-  if (hojaDeRol(ctx.rol)) redirect(await rutaConWs(volver));
+  // ⚠️ Las dos vueltas las hace ANTES el layout (../layout.tsx, la carga directa: un redirect debajo de ../loading.tsx va
+  //    en el stream, React #310); éstas quedan para cuando se llega navegando. La MISMA cuenta en los dos.
+  if (hojaDeRol(ctx.rol)) redirect(await rutaConWs(VOLVER_AL_DASHBOARD));
 
-  const [{ hoja: crudo }, p, lectura] = await Promise.all([params, searchParams, leerTablero()]);
+  // El informe sale de `tableroDelPedido`: el layout ya lo leyó para decidir, y no se lee dos veces.
+  const [{ hoja: crudo }, p, lectura] = await Promise.all([params, searchParams, tableroDelPedido()]);
   let id = crudo;
   try { id = decodeURIComponent(crudo); } catch { /* un % suelto: se busca tal cual */ }
-  // El id exacto, o el nombre de una plantilla (`closing`, `landing`…) como lo resuelve escritorio
-  // con `?hoja=` (hojaDestino): los links de escritorio llegan así por rutaMovil. Si escritorio
-  // tendría que AGREGAR la hoja, el teléfono no la agrega (eso escribe el informe): vuelve.
-  const destino = hojaDestino(lectura.tablero, id);
-  const h = destino.agregar ? undefined : lectura.tablero.hojas.find((x) => x.id === destino.hojaId);
-  if (!h || esHojaInicial(h) || !entraEnTelefono(h)) redirect(await rutaConWs(volver));
+  const h = hojaPropiaDe(lectura.tablero, id);
+  if (!h) redirect(await rutaConWs(VOLVER_AL_DASHBOARD));
 
   const def = periodoPropio(h);
   const periodos = def ? periodosParaHoja(def) : [];
   const periodo = def ? periodoDeParam(uno(p.periodo), periodos, def) : null;
-  const [hoja, closing] = await Promise.all([
+  const [hoja, closing, caida] = await Promise.all([
     hojaPropia(h, periodo, hoyEnTijuana()),
     // La hoja Closing sin con qué analizar (IA12, app/dashboard/aviso-closing.ts). Conectar es en la computadora.
     esHojaClosing(h) ? conQueAnalizaElClosing().catch(() => 'no-se' as const) : null,
+    // Y con su clave caída, la causa (27/10/2026, lib/closing-ia-caida.ts).
+    esHojaClosing(h) ? iaCaidaParaLaHoja() : null,
   ]);
-  const aviso = avisoDeClosing(closing, CONECTA_TU_CLAUDE_CLOSING);
+  const aviso = avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida));
 
   return (
     <PantallaM>

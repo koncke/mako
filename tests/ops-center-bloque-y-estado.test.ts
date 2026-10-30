@@ -192,7 +192,10 @@ test('8. UN solo bloque: la Ticketera, lo que pregunta el chat y lo de la app, e
   }));
   assert.equal((html.match(/class="co-preg co-preg--arriba/g) ?? []).length, 1, 'UNA tarjeta, no tres');
   assert.equal((html.match(/class="co-preg__plegar"/g) ?? []).length, 1, 'una flecha');
-  assert.match(html, />1 de 3</, 'una navegación para las tres');
+  // Sin «1 de 3» a la vista (Martín, 24/10/2026: «Si ya aparecen los puntitos en las preguntas, no hace falta "1 de 3"»):
+  // lo dicen los puntos, y el lector de pantalla lo oye en su rótulo. PROBADO ROMPIÉNDOLO (25/10): con el texto de vuelta → rojo.
+  assert.match(html, /class="co-preg__puntos" role="group" aria-label="1 de 3"/, 'una navegación para las tres, con su rótulo');
+  assert.doesNotMatch(html, />\s*1 de 3\s*</, '«1 de 3» volvió a la vista');
   assert.equal((html.match(/class="co-preg__punto"/g) ?? []).length, 3);
   assert.match(html, /Cuesta dinero/, 'abre en la primera: la de la Ticketera');
   // Montado UNA vez, en las dos pantallas, con las tres fuentes.

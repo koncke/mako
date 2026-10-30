@@ -35,7 +35,7 @@
 //     por qué no se borraron).
 //   · Lo que NO es de la espera y la pantalla no promete: el anti-ban de 20 h por canal (un segundo
 //     WhatsApp al mismo lead espera 20 h aunque el DELAY diga 10 s) y el HORARIO DE ENVÍO del negocio,
-//     que es opcional y viene apagado (lib/horario-envio.ts, Configuraciones › Horario).
+//     que es opcional y viene apagado (lib/horario-envio.ts; se pone en la tuerca de cada automatización).
 //   · «Probar» (lib/simulador-grafo.ts) no espera: dice «⏳ Esperar 30 s» y sigue.
 //
 // ⚠️ EL DATO SIGUE SIENDO `espera.minutos` (lib/flujo-grafo.ts), CON DECIMALES PARA LOS SEGUNDOS:

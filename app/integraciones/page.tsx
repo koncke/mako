@@ -11,6 +11,7 @@
 import { getMetaHealth, type MetaHealth } from '@/lib/meta-health';
 import { FALTAN_PERMISOS_META } from '@/lib/meta-permisos';
 import { getIntegraciones } from '@/lib/integraciones';
+import { DEFS } from '@/lib/integraciones-catalogo';
 import { reconciliarIncidentes, problemaMeta, leerIncidentes, type ProblemaActual, type Incidente } from '@/lib/meta-health-history';
 import { integracionConectada } from '@/lib/credenciales';
 import { getOrCreateLandingToken, landingSnippet } from '@/lib/landing-token';
@@ -41,7 +42,14 @@ export const maxDuration = 300;
 
 export default async function IntegracionesPage() {
   await requireRolWs([], { nav: 'integraciones' });
-  const integraciones = await getIntegraciones();
+  // La grilla, y APARTE las que no son tarjetas (`oculto`: las cuatro IA y Google Calendar), en UNA lectura (25/10/2026).
+  // Las de «Costo de MaKo» (la caja de Claude, OpenAI o Gemini y «¿Cargaste créditos? Regístralos →») abren el modal de
+  // SU integración: sin ellas en el tablero, el clic no abría nada desde que dejaron la grilla. Se lee una vez con
+  // `conOcultas` y se separa (no dos `getIntegraciones`: cada una calcula el estado de todas).
+  const todas = await getIntegraciones({ conOcultas: true });
+  const esOculta = (key: string) => DEFS.some((d) => d.key === key && d.oculto);
+  const integraciones = todas.filter((i) => !esOculta(i.key));
+  const sinTarjeta = todas.filter((i) => esOculta(i.key));
   let health: MetaHealth | null = null;
   let metaError: string | null = null;
   try {
@@ -139,8 +147,8 @@ export default async function IntegracionesPage() {
 
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'integraciones')} activa="integraciones" amplio>
-    {/* Sin «WhatsApp» (24/10/2026): salió del catálogo el 09/10 y la bajada lo seguía nombrando. */}
-    <TituloAjustes titulo="Integraciones" bajada="Tu IA, Meta, tu web y todo lo que se conecta a tu negocio." />
+    {/* Sin bajada desde el 25/10/2026 (Settings copiada de Linear: el título y la configuración, docs/settings/referencia.md). */}
+    <TituloAjustes titulo="Integraciones" />
     {/* Su Claude, en su computadora (docs/ia-del-cliente.md §6): arriba, porque sin IA el Ops Center no contesta. Desde el
         24/10/2026 es la tarjeta destacada (el lugar del carrusel de Vercel Marketplace): su estado en una línea, y al tocarla
         el MISMO modal «Tus cuentas de IA» del Ops Center. El bloque entero desplegado era lo más grande de la página. */}
@@ -148,6 +156,7 @@ export default async function IntegracionesPage() {
     <IntegracionesBoard
       embebido
       integraciones={integraciones}
+      sinTarjeta={sinTarjeta}
       health={health}
       metaError={metaError}
       incidentes={incidentes}

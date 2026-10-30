@@ -24,7 +24,6 @@ export const MARCA = 'MaKo';
 const EXTRA: Record<string, string> = {
   '/marketing/salud': 'Salud de Meta',
   '/martinkoncke': 'Plan',
-  '/conocimiento': 'Conocimiento',
   '/integraciones': 'Integraciones',
   '/comercial': 'Dashboard',
   '/marketing': 'Dashboard',
@@ -63,7 +62,7 @@ const EXTRA_KEYS = Object.keys(EXTRA).sort((a, b) => b.length - a.length);
 // ADMIN_NAV sigue yendo ANTES que USER_NAV. El motivo original ya no aplica
 // —USER_NAV tenía un item 'admin' con `starts('/admin')` que se tragaba las
 // sub-rutas, y ese item se eliminó el 8/8— pero el orden se queda: adentro de
-// ADMIN_NAV el item de Clientes EXCLUYE a mano /admin/guiones, /admin/ui,
+// ADMIN_NAV el item de Clientes EXCLUYE a mano /admin/ui,
 // /admin/docs y /admin/dev para que cada una lea su propio nombre, y ese trabajo
 // solo sirve si nada más general se evalúa primero.
 const TODOS: NavItem[] = [
@@ -114,7 +113,12 @@ export function tituloDe(pathname: string): string {
     if (escritorio !== pathname) return tituloDe(escritorio);
   }
   for (const k of EXTRA_KEYS) if (pathname === k || pathname.startsWith(k + '/')) return conMarca(EXTRA[k]);
-  const item = TODOS.find((i) => i.match(pathname));
+  // Una sub-ruta de /admin lee el nombre de SU herramienta antes que el de la pantalla de producto que la marca en la
+  // barra. Desde el 29/10/2026 Strategy y Offer Playbook viven al pie de Offer: dejaron de ser secciones, que ganaban
+  // por ir antes. La tab sigue marcándose (su `match` las incluye),
+  // pero el título es de la herramienta. Una sub-ruta sin ítem propio sigue cayendo en «Admin» (tests/notificaciones).
+  const deAdmin = pathname.startsWith('/admin/') ? ADMIN_NAV.find((i) => i.match(pathname)) : undefined;
+  const item = deAdmin ?? TODOS.find((i) => i.match(pathname));
   const label = item?.label ?? desdeLaRuta(pathname);
   return label ? conMarca(label) : MARCA;
 }

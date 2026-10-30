@@ -44,10 +44,11 @@ import { listarAnalizadas } from '@/lib/landing-analyst';
 import { CSS_CONTENIDO } from '@/lib/editor-landing/css';
 import { TEMAS, temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import type { LandingResumen, TemaPropio } from '@/lib/editor-landing/api-tipos';
-import { consultaDerecha, derechaDeQuery, landingMasReciente, type Analizada } from './panel-reglas';
+import { consultaDerecha, derechaDeQuery, esPanelPelado, landingMasReciente, type Analizada } from './panel-reglas';
 import { redirect } from 'next/navigation';
 import { rutaConWs } from '@/lib/workspace';
 import { Inicio } from './Inicio';
+import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -82,7 +83,9 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
   // abre la última automatización; las otras están a un clic en la lista de la tarjeta (editor/paneles/PanelLandings.tsx).
   // El Panel sale sin landings, con `?panel=1` («Nueva landing», «Ver todo en el Panel») o con un pedido en la URL
   // (crear, analizar, diagnóstico). Una lista que no se pudo leer tampoco salta: el Panel dice el error.
-  if (!errorLista && Object.keys(sp).every((k) => k === 'ws')) {
+  // ⚠️ En una carga directa salta ANTES el layout (./layout.tsx, ticket #9): acá adentro del loading.tsx el redirect va en
+  // el stream y tiró React #310. Esto queda para cuando se llega navegando (el layout no se vuelve a dibujar).
+  if (!errorLista && esPanelPelado(sp)) {
     const ultima = landingMasReciente(docs);
     if (ultima) redirect(await rutaConWs(`/web-generator/${ultima.id}`));
   }
@@ -102,6 +105,7 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0 }}>
       <style dangerouslySetInnerHTML={{ __html: CSS_CONTENIDO }} />
       {fuentes && <link rel="stylesheet" href={fuentes} />}
+      <FranjaPrueba cosas={['web.landings_publicadas']} style={{ margin: '12px 16px 0' }} />
       <Inicio
         docs={docs}
         errorLista={errorLista}

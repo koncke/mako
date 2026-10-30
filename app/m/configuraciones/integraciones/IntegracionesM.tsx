@@ -9,6 +9,9 @@ import { Button } from '@/app/_ui/Button';
 import { useWs } from '@/app/_ui/Link';
 import { FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM } from '@/app/m/_ui';
 import { abrirEnComputadora } from '@/app/m/_ui/EnComputadoraM';
+import dynamic from 'next/dynamic';
+// Las líneas de WhatsApp (29/10/2026), las mismas que en la computadora. El QR no: no se escanea con el mismo teléfono.
+const LineasWhatsApp = dynamic(() => import('@/app/integraciones/LineasWhatsApp'), { ssr: false });
 
 export type IntegracionM = {
   key: string; nombre: string; categoria: string; descripcion: string; estado: 'conectada' | 'falta'; detalle: string;
@@ -25,22 +28,27 @@ export type IntegracionM = {
 };
 export type ProblemaM = { id: number; servicio: string; estado: string; detalle: string | null; rojo: boolean; confirmado: boolean; enCurso: boolean };
 
-export function IntegracionesM({ conectadas, sinConectar, historial, abrir }: {
+export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suelta = null }: {
   conectadas: IntegracionM[]; sinConectar: IntegracionM[]; historial: ProblemaM[]; abrir: string | null;
+  /** La que pidió el link y no es una fila (`oculto`: las cuatro IA y Google Calendar, 25/10/2026). No se dibuja en la
+   *  lista: sólo abre su hoja. */
+  suelta?: IntegracionM | null;
 }) {
   const ws = useWs();
   // `?abrir=<key>` (el link de un aviso, «Conectar Meta») abre esa hoja de entrada, como el modal en la computadora.
-  const [abierta, setAbierta] = useState<IntegracionM | null>(() => [...conectadas, ...sinConectar].find((i) => i.key === abrir) ?? null);
+  // También la de una sin fila (`suelta`): el link que MaKo manda por WhatsApp para conectar una IA o la agenda.
+  const [abierta, setAbierta] = useState<IntegracionM | null>(() => [...conectadas, ...sinConectar].find((i) => i.key === abrir)
+    ?? (suelta?.key === abrir ? suelta : null));
   const [problema, setProblema] = useState<ProblemaM | null>(null);
 
-  if (!conectadas.length && !sinConectar.length) return <VacioM frase="Tu plan no tiene integraciones para configurar." />;
+  if (!conectadas.length && !sinConectar.length && !suelta) return <VacioM frase="Tu plan no tiene integraciones para configurar." />;
 
   return (
     <>
       {/* Lo mismo que la computadora, en el mismo orden (24/10/2026): «Tus cuentas de IA» arriba —su casa es /m/cuenta/ia—,
           «Conectadas», «Sin conectar» y el «Historial de problemas». */}
       <ListaM>
-        <FilaM titulo="Tus cuentas de IA" segunda="Tu Claude, tu GPT o tu Gemini" href="/perfil/ia" />
+        <FilaM titulo="Tus cuentas de IA" segunda="Tu Claude o tu GPT" href="/perfil/ia" />
       </ListaM>
       {conectadas.length > 0 && (
         <SeccionM titulo="Conectadas">
@@ -81,16 +89,18 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir }: {
         pie={abierta && !abierta.soloServidor ? (
           <PieM consecuencia="Conectar se hace en la computadora por ahora.">
             <Button variant={abierta.estado === 'falta' ? 'primary' : 'secondary'} size="lg" full onClick={() => abrirEnComputadora(abierta.enComputadora, ws)}>
-              {abierta.estado === 'falta' ? 'Conectar en la computadora' : 'Abrir en la computadora'}
+              {abierta.key === 'whatsapp' ? 'Agregar una línea en la computadora' : abierta.estado === 'falta' ? 'Conectar en la computadora' : 'Abrir en la computadora'}
             </Button>
           </PieM>
         ) : undefined}>
         {abierta && (
           <>
             <p className="m-configuraciones-aviso" data-tono={abierta.estado === 'conectada' ? undefined : 'warn'}>
-              {abierta.estado === 'conectada' ? 'Conectada' : 'Falta conectarla'}{abierta.detalle ? ` · ${abierta.detalle}` : ''}
+              {/* «Falta configurar: ANTHROPIC_API_KEY» nombra la variable, no algo que el cliente reconozca (25/10/2026): no va. */}
+              {abierta.estado === 'conectada' ? 'Conectada' : 'Falta conectarla'}{abierta.detalle && !abierta.detalle.startsWith('Falta configurar') ? ` · ${abierta.detalle}` : ''}
             </p>
             <p className="m-configuraciones-texto">{abierta.descripcion}</p>
+            {abierta.key === 'whatsapp' && <LineasWhatsApp soloLectura />}
             {abierta.paraQue && <p className="m-configuraciones-texto m-configuraciones-texto--gris">{abierta.paraQue}</p>}
             {abierta.soloServidor && <p className="m-configuraciones-texto m-configuraciones-texto--gris">La configura el equipo de MaKo.</p>}
           </>

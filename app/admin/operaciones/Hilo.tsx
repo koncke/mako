@@ -21,12 +21,14 @@
 // HTML del server y la hidratación tienen que decir lo mismo.
 
 import { Icon } from '@/app/_components/icons';
-import { ROTULO, type EstadoPedido } from '@/lib/operaciones-reglas';
-import { chatTrabajando, esYaEsta, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
+import { ROTULO, type EstadoPedido, textoDelEncargo } from '@/lib/operaciones-reglas';
+import { agruparAvances, chatTrabajando, completadosDelChat, estadoDelEnvio, lineasDeConversacion, primeraOracion, type CarteroP, type ChatCentro, type GrupoDeAvances, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { YaEstaMensaje } from './Avance';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
-import type { TurnoChat } from '@/lib/operaciones-reglas';
+import type { Cierre, TurnoChat } from '@/lib/operaciones-reglas';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
+import { listasEnRenglones } from '@/lib/respuesta-como-claude';
+import { diaAR, horaAR, rotuloDia } from '@/lib/centro-fechas';
 import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -35,6 +37,8 @@ import type { Responder } from './PreguntaChat';
 import { textoDeDecision } from '@/lib/centro-preguntas-chat';
 import { TEXTO_SOLO_ADJUNTOS, bloquesDeMensaje } from '@/lib/centro-caja';
 import { AdjuntosDeLaApp, AdjuntosEnBurbuja } from './FotosEnviadas';
+import { VozEnviada } from './VozEnviada';
+import { descartarEnvio, reintentarEnvio } from './envios-en-curso';
 import { MiFoto } from './MiFoto';
 import { ConLinks } from './ConLinks';
 import { memo, useState, type ReactNode } from 'react';
@@ -44,14 +48,12 @@ import type { PasoDelTurno } from '@/lib/centro-pasos';
 import { Trabajando } from './Trabajando';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-/** «10:52», con el reloj de Argentina. */
-const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const diaAR = (t: number) => Math.floor((t - 3 * 3_600_000) / 86_400_000);
-function rotuloDia(t: number, ahora: number): string {
-  const d = diaAR(ahora) - diaAR(t);
-  if (d <= 0) return 'Hoy';
-  if (d === 1) return 'Ayer';
-  return new Date(t).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: 'numeric', month: 'short' });
+// La hora de cada mensaje y la píldora del día, con el reloj de Argentina: lib/centro-fechas.ts (las usa también el «Completado»).
+
+/** Lo que todavía está SALIENDO (envios-en-curso.ts, 27/10/2026): el reloj de WhatsApp, y ✕ si no salió. */
+function TickLocal({ local }: { local: NonNullable<TrabajoP['local']> }) {
+  if (local.fase === 'fallo') return <span className="co-tick co-tick--mal" title="No salió"><Icon name="x" size={12} /></span>;
+  return <span className="co-tick co-tick--saliendo" title={local.fase === 'transcribiendo' ? 'Transcribiendo y mandando' : 'Mandando'}><Icon name="reloj" size={12} /></span>;
 }
 
 /** Los ticks de WhatsApp: ✓ escrito, ✓✓ entregado, ✓✓ azul hecho, ✕ no salió. */
@@ -79,6 +81,16 @@ function TextoMio({ texto: crudo, lineas = [] }: { texto: string; lineas?: reado
       {reenvio && <span className="co-reenviado"><span aria-hidden>↪</span>{` Reenviado de ${reenvio.de}`}</span>}
       {conCita && <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={lineas} />}
       <TextoConListas texto={texto} />
+    </>
+  );
+}
+/** Una nota de voz de Martín (26/10/2026, VozEnviada.tsx): la cita arriba si respondía a un mensaje, y el reproductor. */
+function NotaMia({ w, lineas }: { w: TrabajoP & { voz: { segundos: number } }; lineas: readonly LineaChat[] }) {
+  const conCita = leerCita(w.texto ?? '');
+  return (
+    <>
+      {conCita && <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={lineas} />}
+      <VozEnviada key={w.id} id={w.id} segundos={w.voz.segundos} creado={w.created_at} transcripcion={<TextoConListas texto={conCita?.resto ?? w.texto ?? ''} />} />
     </>
   );
 }
@@ -110,7 +122,7 @@ export type VivoDelHilo = {
 
 /** Lo del «Ya está» de un chat (17/10/2026, la C): sus tareas del Plan y responder sobre lo que dijo. */
 export type ExtrasDelHilo = {
-  tareas?: readonly TareaDelChat[]; onFeedback?: (titulo: string) => void;
+  tareas?: readonly TareaDelChat[]; onFeedback?: (t: TurnoChat) => void;
   /** El ✓ de los «Completado» (18/10/2026): hasta qué «Ya está» lo vio Martín, y cómo se marca uno. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
 };
@@ -122,20 +134,31 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
   const mal = estado === 'no_entregado' || estado === 'incierto' || estado === 'cancelado';
   const c = w.cierre;
   // «Enviado» → «La PC lo recibió», y por qué tarda si tarda (Martín, 17/10/2026: «no pasó nada por varios segundos»).
-  const va = vivo ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora, !!vivo.trabado) : null;
+  // Lo que todavía está saliendo de este navegador no tiene nada de eso: su reloj alcanza (27/10/2026).
+  const va = vivo && !w.local ? estadoDelEnvio(w, vivo.chat, vivo.carteros, ahora, !!vivo.trabado) : null;
   return (
     <>
       <Deslizable m={mensajeDeLinea(l, quien.titulo)} className="co-yo">
-        <div className={`co-burbuja${w.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
+        <div className={`co-burbuja${w.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}${w.voz ? ' co-burbuja--voz' : ''}`}>
           {/* Las fotos arriba del texto, como WhatsApp (FotosEnviadas.tsx: por qué no se veían y de dónde salen). */}
           {w.adjuntos?.length ? <AdjuntosEnBurbuja key={w.id} id={w.id} nombres={w.adjuntos} fotos={w.fotos} creado={w.created_at} /> : null}
-          {!(w.adjuntos?.length && w.texto === TEXTO_SOLO_ADJUNTOS) && <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />}
-          <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}<Tick estado={estado} /></span>
+          {w.voz ? <NotaMia w={{ ...w, voz: w.voz }} lineas={wa.lineas} />
+            : !(w.adjuntos?.length && w.texto === TEXTO_SOLO_ADJUNTOS) && <TextoMio texto={w.texto ?? ''} lineas={wa.lineas} />}
+          <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{Number.isFinite(t) ? horaAR(t) : ''}{w.local ? <TickLocal local={w.local} /> : <Tick estado={estado} />}</span>
         </div>
         <MiFoto />
         <ReaccionWA id={id} marcas={wa.marcas} />
         {/* Un aviso se ve como aviso (17/10/2026: «los mensajes especiales se tienen que ver más llamativos»). */}
         {mal && <p className="co-nota co-nota--mal co-aviso" role="alert"><Icon name="x" size={12} />{`${ROTULO[estado]}${w.motivo ? ` · ${w.motivo}` : ''}`}<ReportarASoporte /></p>}
+        {/* Lo que no salió de este navegador dice qué falló y se reintenta en el lugar (27/10/2026). */}
+        {w.local?.fase === 'fallo' && (
+          <p className="co-nota co-nota--mal co-aviso co-envio-fallo" role="alert">
+            <span><Icon name="x" size={12} />{` No salió${w.local.error ? ` · ${w.local.error}` : ''}`}</span>
+            <button type="button" className="co-chip" onClick={() => reintentarEnvio(w.id)}>Reintentar</button>
+            <button type="button" className="co-chip co-chip--quieto" onClick={() => descartarEnvio(w.id)}>Descartar</button>
+            <ReportarASoporte />
+          </p>
+        )}
         {va && (
           <p className={`co-envio co-envio--${va.fase}${va.porQue ? ' co-envio--tarda' : ''}`} role="status">
             <span className="co-envio__paso">{va.texto}</span>
@@ -148,16 +171,7 @@ function Trabajo({ l, w, quien, vivo, ahora, wa }: { l: LineaChat; w: TrabajoP; 
           <Muneco titulo={quien.titulo} aspecto={quien.aspecto} animo="despierto" size={26} />
           <div className="co-el__cuerpo">
             <p className="co-el__rotulo">{`${ROTULO[estado]}${w.cerrado_at ? ` · ${horaAR(Date.parse(w.cerrado_at))}` : ''}`}</p>
-            <p className="co-el__texto">{conFormato(c.hecho || c.decidido, 'ci-h')}</p>
-            {/* El cierre se ve ENTERO (Martín, 17/10/2026): antes, con `hecho`, lo «decidido» no se dibujaba. */}
-            {((c.hecho && c.decidido && c.decidido !== c.hecho) || c.comprobado || c.sigue || c.prueba) && (
-              <dl className="co-el__dl">
-                {c.hecho && c.decidido && c.decidido !== c.hecho && <><dt>Decidido</dt><dd>{conFormato(c.decidido, 'ci-d')}</dd></>}
-                {c.comprobado && <><dt>Comprobado</dt><dd>{conFormato(c.comprobado, 'ci-c')}</dd></>}
-                {c.sigue && <><dt>Sigue</dt><dd>{conFormato(c.sigue, 'ci-s')}</dd></>}
-                {c.prueba && <><dt>Prueba</dt><dd>{conFormato(c.prueba, 'ci-p')}</dd></>}
-              </dl>
-            )}
+            <CierreDelChat c={c} />
           </div>
         </div>
       )}
@@ -207,10 +221,46 @@ export function FilaDelChat({ m, quien, marcas, hora, especial = false, ancho = 
 }
 
 /** El Markdown de una respuesta, MEMORIZADO por su texto: es lo más caro de dibujar, y el refresco (cada 8 s, o 2,5 s con
- *  algo en camino) vuelve a armar la conversación aunque la respuesta sea la misma. */
+ *  algo en camino) vuelve a armar la conversación aunque la respuesta sea la misma. Como una respuesta de Claude (26/10/2026):
+ *  un «1) … 2) …» corrido es una lista (lib/respuesta-como-claude.ts), y con el aire de sus párrafos. */
 const MarkdownDeTurno = memo(function MarkdownDeTurno({ texto }: { texto: string }) {
-  return <Markdown text={texto} enlaces />;
+  return <Markdown text={listasEnRenglones(texto)} enlaces aire />;
 });
+
+/** Hasta cuánto una parte del cierre va en columna con su rótulo en la computadora (en el teléfono, nunca). */
+const PARTE_CORTA = 90;
+
+/**
+ * El cierre de un chat, como una respuesta de Claude (26/10/2026; Martín, con captura del teléfono: «Mira que feo el formato
+ * de las respuestas, mejora eso... Que se parezca a Claude las respuestas»). Arriba lo que hizo (o lo que decidió), en
+ * Markdown; debajo cada parte con su rótulo ARRIBA de su texto, nunca en una columna angosta. En la computadora, si todas son
+ * cortas, el rótulo va al lado (centro.css → `.co-cierre--corto`). La prueba, chica y gris al pie. El cierre se ve ENTERO
+ * (Martín, 17/10/2026): antes, con `hecho`, lo «decidido» no se dibujaba.
+ */
+function CierreDelChat({ c }: { c: Cierre }) {
+  const partes: Array<[string, string]> = [
+    ...(c.hecho && c.decidido && c.decidido !== c.hecho ? [['Decidido', c.decidido] as [string, string]] : []),
+    ...(c.comprobado ? [['Comprobado', c.comprobado] as [string, string]] : []),
+    ...(c.sigue ? [['Sigue', c.sigue] as [string, string]] : []),
+  ];
+  const cortas = partes.every(([, t]) => t.length <= PARTE_CORTA && !t.includes('\n') && listasEnRenglones(t) === t);
+  return (
+    <>
+      <div className="co-el__texto co-el__md"><MarkdownDeTurno texto={c.hecho || c.decidido} /></div>
+      {partes.length > 0 && (
+        <div className={`co-cierre${cortas ? ' co-cierre--corto' : ''}`}>
+          {partes.map(([rotulo, texto]) => (
+            <div key={rotulo} className="co-cierre__parte">
+              <p className="co-cierre__rotulo">{rotulo}</p>
+              <div className="co-cierre__texto co-el__md"><MarkdownDeTurno texto={texto} /></div>
+            </div>
+          ))}
+        </div>
+      )}
+      {c.prueba && <p className="co-cierre__prueba">{conFormato(c.prueba, 'ci-p')}</p>}
+    </>
+  );
+}
 
 /** Un turno: lo de Martín a la derecha en su burbuja; lo de otra sesión, igual pero con su nombre; lo que contestó el chat,
  *  a la izquierda con su muñeco, en Markdown (los chats contestan con listas y negritas), como Claude y ChatGPT. */
@@ -219,7 +269,8 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
   const id = idDeLinea(l);
   const m = mensajeDeLinea(l, quien.titulo);
   // El «Ya está» es un mensaje aparte (17/10/2026, la C): qué cambió, dónde revisarlo, su tarea del Plan y responder.
-  if (t.rol === 'el' && esYaEsta(t.texto)) {
+  // Desde el 27/10/2026, el de su TRAMO (`completadosDelChat`): un «Ya está probado…» a mitad del trabajo no es la tarjeta.
+  if (t.rol === 'el' && wa.completados.has(t.uuid)) {
     return (
       <FilaDelChat m={m} quien={quien} marcas={wa.marcas} hora={hora} especial idTurno={`co-turno-${t.uuid}`}>
         <YaEstaMensaje t={t} chat={vivo?.chat} tareas={extras?.tareas} onFeedback={extras?.onFeedback} yaVisto={extras?.yaVisto} onYaVisto={extras?.onYaVisto} />
@@ -241,6 +292,18 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
       </FilaDelChat>
     );
   }
+  // El encargo con el que otra sesión abrió este chat (27/10/2026, Martín: «Yo NO envié ese mensaje confuso y largo»): del
+  // Cerebro, con el ícono de chats y plegado. Nunca con la foto de Martín.
+  if (t.encargo) {
+    return (
+      <FilaMia m={m} marcas={wa.marcas} foto={<span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}>
+        <div className="co-burbuja co-burbuja--encargo">
+          <EncargoPlegado texto={t.texto} />
+          <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{hora}</span>
+        </div>
+      </FilaMia>
+    );
+  }
   return (
     <FilaMia m={m} marcas={wa.marcas} foto={t.rol === 'yo' ? undefined : <span className="co-mifoto co-mifoto--otro" aria-hidden><Icon name="chats" size={14} /></span>}>
       <div className={`co-burbuja${t.adjuntos?.length ? ' co-burbuja--con-adjuntos' : ''}`}>
@@ -253,6 +316,21 @@ function Turno({ l, t, quien, vivo, extras, wa }: { l: LineaChat; t: TurnoChat; 
         <span className="co-burbuja__pie"><MarcasEnHora id={id} marcas={wa.marcas} />{t.rol === 'yo' && !t.trabajo && <span className="co-burbuja__desde" title="Lo escribiste directo en la app de Claude">En la app de Claude</span>}{hora}</span>
       </div>
     </FilaMia>
+  );
+}
+
+/** El encargo del Cerebro (`esEncargoDeOtraSesion`): plegado en qué se le pidió (su «Task:»), y tocarlo lo abre entero. */
+function EncargoPlegado({ texto }: { texto: string }) {
+  const [abierto, setAbierto] = useState(false);
+  const pedido = textoDelEncargo(texto);
+  return (
+    <>
+      <span className="co-burbuja__cita">Encargo del Cerebro</span>
+      <button type="button" className="co-avance co-avance--encargo" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)} title={abierto ? 'Plegar' : 'Ver el encargo entero'}>
+        {primeraOracion(pedido)}
+      </button>
+      {abierto && <div className="co-avance__abierto co-el__md"><MarkdownDeTurno texto={texto} /></div>}
+    </>
   );
 }
 
@@ -269,8 +347,76 @@ function Avance({ texto }: { texto: string }) {
   );
 }
 
+type TurnoLinea = Extract<LineaChat, { tipo: 'turno' }>;
+/** Desde cuántos caracteres el último avance de un grupo se pliega a su comienzo (y se abre tocándolo). */
+const AVANCE_LARGO = 700;
+/** Cuántos de los anteriores se ven sin tocar «Ver los otros»: con 30 seguidos, la burbuja no puede volver a ser la pantalla. */
+const AVANCES_A_LA_VISTA = 5;
+
+/** Uno de los anteriores de un grupo: su hora y su primera oración; tocarlo lo abre entero, y otra vez lo cierra. */
+function AvanceAnterior({ t }: { t: TurnoLinea['turno'] }) {
+  const [abierto, setAbierto] = useState(false);
+  const hora = horaAR(Date.parse(t.at));
+  return (
+    <li id={`co-turno-${t.uuid}`}>
+      <button type="button" className="co-avances__item" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
+        <span className="co-avances__flecha" aria-hidden>{abierto ? '▾' : '▸'}</span>
+        <span className="co-avances__hora">{hora}</span>
+        <span className="co-avances__linea">{primeraOracion(t.texto)}</span>
+      </button>
+      {abierto && <div className="co-avances__abierto co-el__md"><MarkdownDeTurno texto={t.texto} /></div>}
+    </li>
+  );
+}
+
+/**
+ * Los «Avance» seguidos de un chat, en UNA burbuja (25/10/2026, Martín: «agruparlos todos en 1 de ultima y que dentro tenga
+ * varios desplegables»; la regla de qué va junto es `agruparAvances`, lib/centro-chats.ts). Arriba el último, entero (si es
+ * muy largo, su comienzo, y se abre tocándolo); abajo los anteriores, del más nuevo al más viejo, cada uno con su flecha, su
+ * hora y su primera oración. La burbuja es la del último: su hora, sus marcas y su respuesta (deslizar para responder).
+ */
+function AvancesSinMemo({ g, quien, wa }: { g: GrupoDeAvances; quien: Quien; wa: DelHiloWA }) {
+  const ultimo = g.avances[g.avances.length - 1] as TurnoLinea;
+  const t = ultimo.turno;
+  const anteriores = (g.avances.slice(0, -1) as TurnoLinea[]).reverse();
+  const [abierto, setAbierto] = useState(false);
+  const [todos, setTodos] = useState(false);
+  const plegado = t.texto.length > AVANCE_LARGO && !abierto;
+  const aLaVista = todos ? anteriores : anteriores.slice(0, AVANCES_A_LA_VISTA);
+  const abrir = (e: { target: EventTarget | null }) => {
+    if ((e.target as HTMLElement | null)?.closest?.('a') || window.getSelection()?.toString()) return;
+    setAbierto(true);
+  };
+  return (
+    <FilaDelChat m={mensajeDeLinea(ultimo, quien.titulo)} quien={quien} marcas={wa.marcas} hora={horaAR(Date.parse(t.at))} idTurno={`co-turno-${t.uuid}`}>
+      <div className="co-avances" role="group" aria-label={`${g.avances.length} avances`}>
+        <p className="co-avances__rotulo">{`Avance · ${g.avances.length}`}</p>
+        {plegado ? (
+          <div className="co-avances__ultimo co-avances__ultimo--plegado co-el__md" role="button" tabIndex={0} aria-expanded={false}
+            title="Tocar para leer todo" onClick={abrir}
+            onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); setAbierto(true); } }}>
+            <MarkdownDeTurno texto={t.texto} />
+          </div>
+        ) : <div className="co-avances__ultimo co-el__md"><MarkdownDeTurno texto={t.texto} /></div>}
+        <ol className="co-avances__lista" aria-label="Los anteriores">
+          {aLaVista.map((a) => <AvanceAnterior key={a.turno.uuid} t={a.turno} />)}
+        </ol>
+        {anteriores.length > aLaVista.length && (
+          <button type="button" className="co-avances__mas" onClick={() => setTodos(true)}>
+            {`Ver ${anteriores.length - aLaVista.length === 1 ? 'el otro' : `los otros ${anteriores.length - aLaVista.length}`}`}
+          </button>
+        )}
+      </div>
+    </FilaDelChat>
+  );
+}
+/** Memorizado por sus líneas (estables, lib/centro-estable.ts): el refresco no vuelve a dibujar un grupo que no cambió. */
+const Avances = memo(AvancesSinMemo, (a, b) => a.quien === b.quien && a.wa.marcas === b.wa.marcas
+  && a.g.avances.length === b.g.avances.length && a.g.avances.every((x, i) => x === b.g.avances[i]));
+
 /** Lo de WhatsApp que el hilo necesita para dibujar: las marcas de Martín y la conversación (para encontrar lo citado). */
-type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[] };
+/** `completados`: los turnos que son el «Completado» de su tramo (lib/centro-chats.ts → completadosDelChat, 27/10/2026). */
+type DelHiloWA = { marcas: MarcasChat | null | undefined; lineas: readonly LineaChat[]; completados: ReadonlySet<string> };
 
 function LineaSinMemo({ l, pushes, ahora, quien, vivo, extras, wa }: { l: LineaChat; pushes: readonly PushP[]; ahora: number; quien: Quien; vivo?: VivoDelHilo; extras?: ExtrasDelHilo; wa: DelHiloWA }) {
   if (l.tipo === 'turno') return <Turno l={l} t={l.turno} quien={quien} vivo={vivo} extras={extras} wa={wa} />;
@@ -381,7 +527,7 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas,
 } & ExtrasDelHilo) {
   // Lo que Martín eliminó para él no se dibuja (WhatsApp: «Eliminar para mí»).
   const lineas = sinOcultos(lineasDeConversacion(todas), marcas);
-  const wa: DelHiloWA = { marcas, lineas };
+  const wa: DelHiloWA = { marcas, lineas, completados: new Set(completadosDelChat(todas).map((x) => x.turno.uuid)) };
   const trabaja = vivo ? chatTrabajando(vivo.chat, todas, ahora) : false;
   if (!lineas.length) {
     return (
@@ -393,20 +539,25 @@ function HiloSinMemo({ lineas: todas, pushes, ahora, vacio, quien, vivo, tareas,
     );
   }
   const ocultas = mostrar != null && onVerAnteriores ? Math.max(0, lineas.length - mostrar) : 0;
-  const items: Array<{ k: string; dia?: string; l?: LineaChat }> = [];
+  // Los «Avance» seguidos van en UNA burbuja (`agruparAvances`, 25/10/2026). Se agrupa lo que se ve: «Ver N mensajes
+  // anteriores» sigue contando mensajes, y la clave de un grupo es la de su primera línea (crece sin perder lo abierto).
+  const indice = new Map(lineas.map((l, i) => [l, i] as const));
+  const items: Array<{ k: string; dia?: string; l?: LineaChat; g?: GrupoDeAvances }> = [];
   let ultimoDia: number | null = null;
-  lineas.forEach((l, i) => {
-    if (i < ocultas) return;
-    const d = diaAR(l.instante);
-    if (d !== ultimoDia) { items.push({ k: `d${i}`, dia: rotuloDia(l.instante, ahora) }); ultimoDia = d; }
-    items.push({ k: `l${i}`, l });
-  });
+  for (const p of agruparAvances(lineas.slice(ocultas))) {
+    const primera = p.tipo === 'avances' ? p.avances[0] : p;
+    const i = indice.get(primera) ?? items.length;
+    const d = diaAR(primera.instante);
+    if (d !== ultimoDia) { items.push({ k: `d${i}`, dia: rotuloDia(primera.instante, ahora) }); ultimoDia = d; }
+    items.push(p.tipo === 'avances' ? { k: `g${i}`, g: p } : { k: `l${i}`, l: p });
+  }
   return (
     <>
       {ocultas > 0 && <button type="button" className="co-anteriores" onClick={onVerAnteriores}>{`Ver ${ocultas} mensajes anteriores`}</button>}
       {items.map((it) => (it.dia
         ? <span key={it.k} className="co-dia">{it.dia}</span>
-        : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} extras={{ tareas, onFeedback, yaVisto, onYaVisto }} wa={wa} />))}
+        : it.g ? <Avances key={it.k} g={it.g} quien={quien} wa={wa} />
+          : <Linea key={it.k} l={it.l!} pushes={pushes} ahora={ahora} quien={quien} vivo={vivo} extras={{ tareas, onFeedback, yaVisto, onYaVisto }} wa={wa} />))}
       {/* «Trabajando…» con sus pasos desplegables, UNA pieza para todos los chats (Trabajando.tsx). Con la clave del chat: al
           cambiar de chat arranca cerrada. */}
       {trabaja && <Trabajando key={quien.titulo} titulo={quien.titulo} aspecto={quien.aspecto} pasos={pasos} />}

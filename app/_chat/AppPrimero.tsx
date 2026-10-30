@@ -22,15 +22,15 @@
 // LA DESCARGA Y LA DETECCIÓN DEL SISTEMA son de IA del cliente (app/integraciones/CuentasYDispositivos.tsx → DescargarMaKo): acá se
 // montan, no se reescriben.
 
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import './chat.css';
 import { DescargarMaKo, avisoAlAbrir } from '@/app/integraciones/CuentasYDispositivos';
 import { Icon } from '@/app/_components/icons';
+import { FRASE_APP, FRASE_INSTALAR, marcarDescargado, useDescargado } from './app-de-escritorio';
 
-/** Lo que falta, en el campo apagado de la caja. */
-export const FRASE_APP = 'Instala MaKo para escribir';
-/** El paso siguiente, ya descargado (con lo que dice el sistema al abrirlo, en el `title` del botón). */
-export const FRASE_INSTALAR = 'Abre lo que descargaste';
+// Las frases del campo apagado viven con la pregunta compartida (./app-de-escritorio.ts): las usan también las cajas con su
+// propio motor (./useAppDeEscritorio.tsx).
+export { FRASE_APP, FRASE_INSTALAR };
 export const FRANJA_APP = 'Descarga MaKo en tu computadora: desde ahí trabaja con tu Claude.';
 
 /**
@@ -38,20 +38,24 @@ export const FRANJA_APP = 'Descarga MaKo en tu computadora: desde ahí trabaja c
  * «Instalar MaKo» (descarga el de esta computadora); después, «Ya lo instalé: conectar», que abre «Tus cuentas de IA» ahí mismo.
  */
 export function useBloqueoApp(onConectar: () => void): { frase: string; boton: ReactNode } {
-  const [descargado, setDescargado] = useState(false);
+  // El «ya lo descargó» es el COMPARTIDO de la página (29/10/2026): el «Instalar MaKo» de una apertura (AperturaMako.tsx) y el de
+  // la caja pasan juntos a «Ya lo instalé: conectar». Las marcas `mk-*` son las anclas de la guía (lib/guia/).
+  const descargado = useDescargado();
   return descargado ? {
     frase: FRASE_INSTALAR,
     boton: (
-      <button type="button" className="co-instalar" onClick={onConectar} title={avisoAlAbrir()} data-app-primero="conectar">
+      <button type="button" className="co-instalar" onClick={onConectar} title={avisoAlAbrir()} data-app-primero="conectar" data-recorrido="mk-conectar">
         <Icon name="check" size={16} />Ya lo instalé: conectar
       </button>
     ),
   } : {
     frase: FRASE_APP,
     boton: (
-      <DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick={() => setDescargado(true)}>
-        <Icon name="descargar" size={16} />
-      </DescargarMaKo>
+      <span className="ch-ancla" data-recorrido="mk-instalar">
+        <DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick={marcarDescargado}>
+          <Icon name="descargar" size={16} />
+        </DescargarMaKo>
+      </span>
     ),
   };
 }

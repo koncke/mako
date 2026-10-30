@@ -28,6 +28,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { ICONO_FUNNEL } from './icono-funnel';
+import { TUERCA } from './icono-tuerca';
 
 /**
  * EL TACHO DE BORRAR (general 9, textual: «Cambia el botón de BORRAR con ese ícono de basura que no se
@@ -64,6 +65,8 @@ const TRAZOS = {
   pausar: <path d="M9 5.5v13M15 5.5v13" />,
   mover: <><path d="M4.5 12h15" /><path d="m15 7.5 4.5 4.5-4.5 4.5" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
+  // Un enchufe (26/10/2026): «Integraciones» se lee como conexiones, no como un link (Martín: «Parece un link»).
+  enchufe: <><path d="M9 3v4.5M15 3v4.5" /><path d="M6.5 7.5h11v3a5.5 5.5 0 0 1-11 0v-3Z" /><path d="M12 16v5" /></>,
   ver: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.8" /></>,
   ocultar: <><path d="M4 4l16 16" /><path d="M9.9 6A9.6 9.6 0 0 1 12 5.5C18 5.5 21.5 12 21.5 12a17 17 0 0 1-2.6 3.4M6.6 7.7C3.9 9.4 2.5 12 2.5 12S6 18.5 12 18.5a9 9 0 0 0 4.1-1" /></>,
   buscar: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.4-4.4" /></>,
@@ -72,7 +75,8 @@ const TRAZOS = {
   subir: <><path d="M12 15V4" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M5 20h14" /></>,
   enviar: <><path d="M20.5 3.5 10 14" /><path d="M20.5 3.5 14 20.5l-4-6.5-6.5-4 17-6.5Z" /></>,
   emoji: <><circle cx="12" cy="12" r="8.5" /><path d="M8.5 14.2a4.3 4.3 0 0 0 7 0" /><path d="M9.2 9.8h.01M14.8 9.8h.01" /></>,
-  configurar: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
+  // «Configurar» es la TUERCA, la misma de Settings en la barra (25/10/2026: «siempre debe ser la tuerca»).
+  configurar: <><path d={TUERCA} /><circle cx="12" cy="12" r="3" /></>,
   etiqueta: <><path d="M3.5 11.6V4.5a1 1 0 0 1 1-1h7.1l8.9 8.9-8.1 8.1-8.9-8.9Z" /><circle cx="8" cy="8" r="1.3" /></>,
   'etiqueta-mas': <><path d="M3.5 11.6V4.5a1 1 0 0 1 1-1h7.1l8.9 8.9-8.1 8.1-8.9-8.9Z" /><path d="M11.5 10v5M9 12.5h5" /></>,
   'etiqueta-menos': <><path d="M3.5 11.6V4.5a1 1 0 0 1 1-1h7.1l8.9 8.9-8.1 8.1-8.9-8.9Z" /><path d="M9 12.5h5" /></>,
@@ -129,6 +133,8 @@ const TRAZOS = {
   cita: <><path d="M5 6v12" /><path d="M9.5 8h9.5M9.5 12h9.5M9.5 16h6" /></>,
   arriba: <><path d="M12 19.5V5" /><path d="m6.5 10.5 5.5-5.5 5.5 5.5" /></>,
   abajo: <><path d="M12 4.5V19" /><path d="m6.5 13.5 5.5 5.5 5.5-5.5" /></>,
+  // «Ordenar» (24/10/2026, el «⋯» de cada columna del CRM): una flecha que sube y otra que baja, como el orden de una tabla.
+  ordenar: <><path d="M7.5 19V5" /><path d="m3.5 9 4-4 4 4" /><path d="M16.5 5v14" /><path d="m12.5 15 4 4 4-4" /></>,
   pregunta: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" /><path d="M12 17h.01" /></>,
   // El elemento «Insertar» del Dashboard (11/10/2026): una página de otro sitio adentro de la hoja. Los
   // corchetes angulares de un código, que es lo que la persona pega.

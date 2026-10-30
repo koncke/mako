@@ -1,4 +1,4 @@
-/* Buscador de Canva: caja de 40 px, radio 8, borde gris fuerte, foco violeta (relevamiento §1.2 «Campo»). */
+/* Buscador de Canva: caja de 40 px, radio 8, borde gris fuerte, foco azul (relevamiento §1.2 «Campo»). */
 .search {
   position: relative;
   display: flex;
@@ -14,7 +14,7 @@
     box-shadow var(--ed-dur) var(--ed-ease);
 }
 .search:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar */
+  border-color: var(--cv-color-field-hover); /* Canva: borde de campo al pasar */
 }
 .search:focus-within {
   border-color: var(--cv-color-brand);
@@ -207,7 +207,7 @@
   background: var(--cv-color-bg-muted);
 }
 .cell:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 .cell:focus-visible {
   outline: none;

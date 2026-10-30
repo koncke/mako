@@ -112,7 +112,8 @@ function cuerpoDelIntento(): string {
   // Contra un recorte desbocado: medido el 20/10/2026, unos 3.600 caracteres; el 22/10/2026, unos 8.100 (el modelo que
   // elige el negocio y el crédito de Martín, IA5, y las claves de la plataforma en su propia función, en el medio).
   // El 22/10/2026 a la noche, unos 10.800: el crédito asignado a un negocio (lib/credito-negocio.ts), al principio.
-  assert.ok(b.length > 800 && b.length < 12_000, `el recorte mide ${b.length}: está mirando otra cosa`);
+  // El 28/10/2026, unos 12.300: la cuenta del crédito de los grupos de WhatsApp (`cuentaDeLosGrupos`, lib/credito-negocio.ts).
+  assert.ok(b.length > 800 && b.length < 13_500, `el recorte mide ${b.length}: está mirando otra cosa`);
   return sinComentarios(b);
 }
 
@@ -155,7 +156,8 @@ test('la llamada con la clave del negocio se registra con la marca PRIMERO', () 
   const b = cuerpoDelIntento();
   assert.match(b, /recordUsage\([^)]*\[marcaDelGasto\(permiso\), /, 'la marca tiene que ir al principio del motivo');
   // Y la marca es la del negocio, salvo que su clave sea el crédito de Max de la plataforma (revisión del lote 2).
-  assert.match(sinComentarios(leer('lib/anthropic.ts')), /const marcaDelGasto = \(permiso: PermisoClaveDelNegocio\): string =>\s*permiso\.esCredito \? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;/);
+  // La cuenta del crédito de los grupos va primero, con su número (28/10/2026, tests/credito-grupos.test.ts 3).
+  assert.match(sinComentarios(leer('lib/anthropic.ts')), /const marcaDelGasto = \(permiso: PermisoClaveDelNegocio\): string =>\s*permiso\.cuentaDelCredito \? `\$\{MOTIVO_CREDITO_PLATAFORMA\} \(cuenta \$\{permiso\.cuentaDelCredito\}\)`\s*: permiso\.esCredito \? MOTIVO_CREDITO_SU_CLAVE : MOTIVO_CLAVE_DEL_NEGOCIO;/);
   assert.match(leer('lib/veto-claude.ts'), /export const MOTIVO_CREDITO_SU_CLAVE = `\$\{MOTIVO_CREDITO_PLATAFORMA\} \(su clave es el crédito\)`;/, 'la marca del crédito tiene que empezar como la del crédito de la plataforma (costos-ia la saca del gasto de MaKo)');
 });
 

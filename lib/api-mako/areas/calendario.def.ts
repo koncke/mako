@@ -100,4 +100,20 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
+  {
+    // 28/10/2026 (Martín a Teo: «publicás reels e historias desde el Calendar los días y a la hora que elijas»). Publica
+    // AFUERA, a la vista de todos, por Zernio: se confirma. Cada publicación ya tiene su cuenta, su archivo y su hora en el
+    // Calendario (lib/calendario-publicar.ts): acá no se sube nada ni se elige la cuenta.
+    id: 'programar_publicacion', area: 'calendario', tipo: 'accion', confirmacion: 'chat', aTerceros: true,
+    titulo: 'Programar publicaciones en las redes',
+    descripcion: 'Propone programar en Instagram, Facebook, TikTok o YouTube las publicaciones del Calendario que ya tienen su cuenta, su archivo y su hora: las que se nombran por id, o todas las que están listas entre dos fechas (en serie). Salen solas a la hora del Calendario y le llegan a los seguidores de esa cuenta. No sube archivos ni elige la cuenta: eso se arma en el Calendario. Úsala cuando pidan «programa los reels de esta semana».',
+    parametros: [
+      { nombre: 'eventos', tipo: 'string[]', max: 40, descripcion: 'Los ids de los eventos (de listar_eventos_calendario). Si se omite, todas las publicaciones listas entre «desde» y «hasta».' },
+      { nombre: 'desde', tipo: 'string', max: 10, descripcion: 'Inicio, inclusive, YYYY-MM-DD. Si se omite, hoy.', ejemplo: '2026-11-03' },
+      { nombre: 'hasta', tipo: 'string', max: 10, descripcion: 'Fin, inclusive, YYYY-MM-DD. Si se omite, 7 días después de «desde». Máximo 62 días.', ejemplo: '2026-11-09' },
+    ],
+    canales: TODOS, costo: 'externo', gating: GATING,
+    reversible: true,
+    escribe: 'programa los posts en Zernio y anota su estado en calendario_eventos',
+  },
 ];

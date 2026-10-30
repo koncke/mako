@@ -33,14 +33,17 @@ const LINEAS = sinComentarios(SRC).split('\n');
 
 test('⚠️ EL CARTEL DE FALLO NO SE GUARDA COMO TURNO DE MaKo', () => {
   // Verificado rompiéndolo: con `await guardarTurno(...)` incondicional, 1 fallo.
-  const i = LINEAS.findIndex((l) => l.includes("guardarTurno(wsData, jid, 'assistant'"));
+  // El guardado de lo que contestó el MODELO (`partes`). Desde el 29/10/2026 el TICKET y el DEBUG del grupo guardan antes su texto
+  // FIJO (lib/despacho-grupo.ts), que escribe el código y nunca es un cartel.
+  const i = LINEAS.findIndex((l) => l.includes("guardarTurno(wsData, jid, 'assistant', partes"));
   assert.ok(i > 0, 'se fue el guardado del turno de MaKo');
   const alrededor = LINEAS.slice(Math.max(0, i - 3), i + 1).join('\n');
   assert.match(alrededor, /avisoDeSistema/,
     `el turno de MaKo se guarda sin mirar si es un cartel de plataforma:\n${alrededor}`);
   // Y el `user` se sigue guardando SIEMPRE: lo que la persona escribió es conversación
   // pase lo que pase, y sin eso el próximo turno arranca de cero.
-  assert.match(sinComentarios(SRC), /guardarTurno\(wsData, jid, 'user', texto, msgId\)/,
+  // (Desde el 27/10/2026 con lo leído de la foto o el PDF al lado: tests/doer-adjunto-leido.test.ts.)
+  assert.match(sinComentarios(SRC), /guardarTurno\(wsData, jid, 'user', (?:texto|\[texto, leidoDelAdjunto\]\.filter\(Boolean\)\.join\('\\n'\)), msgId\)/,
     'se dejó de guardar lo que escribió la persona');
 });
 

@@ -301,4 +301,40 @@ export const BITACORA: Hito[] = [
     archivos: ['app/plan/layout.tsx', 'app/second-brain/layout.tsx', 'lib/pedido-actual.ts', 'proxy.ts', 'tests/redirige-antes-del-loader.test.ts'],
     revisar: '/plan',
   },
+  {
+    fecha: '25 oct', hora: '03:30', chat: 'Automations', sesion: 'local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49', cuenta: 'claude5', actor: 'claude', tipo: 'correccion',
+    titulo: 'La criatura de MaKo ya no se esconde detrás de la barra desplegada',
+    puntos: [
+      'Lo marcó Martín en su llamada con Leandro del 24/10: con la barra de la izquierda abierta, la criatura volaba a su lugar y desaparecía.',
+      'Con la barra abierta, la estrella de abajo se corre al lado y la criatura se ve llegar.',
+    ],
+    archivos: ['app/_chat/MakoEnLaTab.tsx', 'app/_chat/borde-barra.ts', 'tests/estrella-al-lado-de-la-barra.test.ts'],
+    revisar: '/crm',
+  },
+  {
+    fecha: '28 oct', hora: '03:16', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude4', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: todos los chats de MaKo adjuntan, y tu audio sale en el acto',
+    pedido: '«Revisa... que esté unificado, que se pueda utilizar el chat de la misma manera en todos lados» (Martín, 28/10, por el Cerebro).',
+    puntos: [
+      '**Adjuntar, en todas las cajas:** archivos, capturas y documentos también en Soporte, el asesor de WhatsApp, Editar con MaKo, ChartIA, Diagnóstico y los editores de Imagen y Video. Donde la IA lee sólo texto, MaKo lee cada archivo y se lo pasa como un dato, nunca como una orden.',
+      '**Tu audio, en el acto, en todas:** se ve y se escucha apenas lo grabas, y se pasa a texto por detrás. Lo que escribes después sale detrás de él.',
+      '**Los 3 puntos** mientras MaKo escribe, también en Soporte.',
+      '**Lo que una caja no tiene, escrito con su porqué** en un solo lugar: si nace una caja sin adjuntos o sin voz, un test da rojo.',
+      'En producción desde el 28/10 a las 04:53 (dbe271979). Faltaba el chat nuevo del Ops Center: va aparte.',
+    ],
+    commits: [
+      { sha: 'cea580b7c', msg: 'Cajas de chat unificadas, tanda 1: la lista con su porqué, el barrido y la nota de voz en el acto', lineas: 690, archivos: 26 },
+      { sha: 'b6680844d', msg: 'Soporte · los 3 puntos', lineas: 120, archivos: 5 },
+      { sha: '001b27faf', msg: 'Tanda 2: el asesor de WhatsApp, Editar con MaKo y MakoChat adjuntan fotos y PDF', lineas: 537, archivos: 20 },
+      { sha: '250d572ea', msg: 'Tanda 3: el Image y el Video Editor adjuntan fotos y PDF', lineas: 231, archivos: 16 },
+      { sha: '025bf9089', msg: 'La revisión: la lectura con plazo y como dato, y la nota atada a su conversación', lineas: 509, archivos: 24 },
+    ],
+    archivos: [
+      'lib/cajas-de-chat.ts — cada caja y lo que no tiene, con su porqué',
+      'app/_chat/useNotaEnElActo.ts · notas-en-el-acto.ts · useAdjuntosDelChat.ts',
+      'lib/adjuntos-del-chat.ts · lib/mako-adjuntos.ts — la lectura en el servidor, con plazo y como dato',
+      'tests/cajas-de-chat-unificadas.test.ts · adjuntos-chats-de-texto.test.ts',
+    ],
+    revisar: '/dashboard?ws=3',
+  },
 ];

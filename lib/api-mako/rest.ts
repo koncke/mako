@@ -42,6 +42,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/calendario/links-agenda', 'link_agenda_llamada'],
   ['GET', '/calendario/recurrentes', 'ver_proximas_recurrentes'],
   ['GET', '/calendario/anticipacion', 'anticipacion_agenda'],
+  ['POST', '/calendario/publicaciones/programaciones', 'programar_publicacion'],
   // ── general ───────────────────────────────────────────────────────────────
   ['GET', '/general/arranque/pendientes', 'listar_pendientes_arranque'],
   ['GET', '/general/capacidad', 'ver_capacidad_instalada'],
@@ -114,6 +115,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/cobro-ganado/vinculos', 'vincular_cobro_etapa'],
   ['PUT', '/crm/cobro-ganado/vinculos/{vinculoId}/cuentas', 'cuentas_cobro_etapa'],
   ['DELETE', '/crm/cobro-ganado/vinculos/{vinculoId}', 'desvincular_cobro_etapa'],
+  // EN BLOQUE (28/10/2026, tickets #21 y #22): POST porque cada uno es UNA orden sobre muchos (la columna o los ids van en
+  // el cuerpo). La papelera: GET la lista, POST manda, y recuperar es una «recuperación» nueva.
+  ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
+  ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
+  ['GET', '/crm/papelera', 'ver_papelera_crm'],
+  ['POST', '/crm/papelera', 'mandar_en_bloque_a_papelera'],
+  ['POST', '/crm/papelera/recuperaciones', 'recuperar_de_papelera_crm'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
   ['GET', '/crm/campanas', 'ver_campanas_funnels'],
   // «Invitar al curso al ganar» (23/10/2026): el CRM va por `embudoId` (opcional), como /crm/automatizaciones/estado.
@@ -255,6 +263,30 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/ads/guiones/{ad_id}/transcripcion', 'ver_transcript_anuncio'],
   ['GET', '/ads/identidades', 'listar_identidades_meta'],
   ['GET', '/ads/incidentes', 'listar_incidentes_meta'],
+  // El Media Buyer (25/10/2026): TODO lo que hace su pantalla (tests/media-buyer-api.test.ts). Lo que mueve plata (lanzar,
+  // deshacer, el modo, los topes, una táctica, la cuenta) cuesta «dinero»: por HTTP propone y devuelve el link a la pantalla.
+  ['GET', '/ads/media-buyer', 'ver_media_buyer'],
+  ['PUT', '/ads/media-buyer/agentes/{agente}', 'modo_agente_media_buyer'],
+  ['POST', '/ads/media-buyer/agentes-propios', 'agente_media_buyer'],
+  ['DELETE', '/ads/media-buyer/agentes-propios/{agenteId}', 'borrar_agente_media_buyer'],
+  ['POST', '/ads/media-buyer/analisis', 'analizar_cuenta_media_buyer'],
+  ['GET', '/ads/media-buyer/automatizaciones', 'ver_automatizaciones_media_buyer'],
+  ['PATCH', '/ads/media-buyer/automatizaciones/{tactica}', 'automatizacion_media_buyer'],
+  ['GET', '/ads/media-buyer/biblioteca', 'ver_biblioteca_media_buyer'],
+  ['GET', '/ads/media-buyer/campanas', 'ver_campanas_media_buyer'],
+  ['POST', '/ads/media-buyer/campanas', 'proponer_crear_campana'],
+  ['PUT', '/ads/media-buyer/cuenta', 'cuenta_media_buyer'],
+  ['POST', '/ads/media-buyer/decisiones/{decisionId}/descarte', 'descartar_decision_media_buyer'],
+  ['PUT', '/ads/media-buyer/decisiones/{decisionId}/estrellas', 'calificar_decision_media_buyer'],
+  ['POST', '/ads/media-buyer/decisiones/{decisionId}/hooks-video', 'hooks_al_video_media_buyer'],
+  ['POST', '/ads/media-buyer/decisiones/{decisionId}/lanzamiento', 'lanzar_decision_media_buyer'],
+  ['POST', '/ads/media-buyer/decisiones/{decisionId}/reapertura', 'reabrir_decision_media_buyer'],
+  ['POST', '/ads/media-buyer/decisiones/{decisionId}/reversion', 'deshacer_decision_media_buyer'],
+  ['PUT', '/ads/media-buyer/hasta', 'hasta_media_buyer'],
+  ['PATCH', '/ads/media-buyer/metas', 'metas_media_buyer'],
+  ['PUT', '/ads/media-buyer/modo', 'modo_media_buyer'],
+  ['PATCH', '/ads/media-buyer/topes', 'topes_media_buyer'],
+  ['PUT', '/ads/media-buyer/zona', 'zona_media_buyer'],
   ['GET', '/ads/motivos-venta-llamada', 'listar_motivos_venta_llamada'],
   ['GET', '/ads/pixeles', 'listar_pixeles_meta'],
   ['GET', '/ads/pixeles/{pixel}/eventos', 'listar_eventos_pixel_meta'],
@@ -322,9 +354,16 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/chatbot/onboarding', 'estado_onboarding_chatbot'],
   ['POST', '/chatbot/onboarding/reaperturas', 'reabrir_onboarding_chatbot'],
   ['GET', '/chatbot/secuencias', 'listar_secuencias_nutricion'],
+  ['POST', '/chatbot/secuencias', 'crear_automatizacion_con_ia'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'ver_prueba_ab'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'empezar_prueba_ab'],
+  ['DELETE', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'detener_prueba_ab'],
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}', 'cambiar_botones_mensaje'],
+  // El texto de un WhatsApp o un email (25/10/2026): la misma ruta por tarjeta, con /texto (METODO+RUTA no se repiten).
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}/texto', 'cambiar_texto_mensaje'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
@@ -445,6 +484,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/landings/diagnostico', 'ver_diagnostico_landing'],
   ['GET', '/landing/landings/piezas', 'detectar_piezas_landing'],
   ['GET', '/landing/panda/videos', 'listar_videos_panda'],
+  // Los de todos los alojadores conectados (25/10/2026).
+  ['GET', '/landing/videos-alojados', 'listar_videos_alojados'],
   ['GET', '/landing/panda/videos/{videoId}/metricas', 'ver_metricas_video_panda'],
   ['GET', '/landing/pixel/codigo', 'ver_codigo_pixel'],
   ['GET', '/landing/pixel/estado', 'ver_estado_pixel'],
@@ -465,10 +506,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/busqueda/fotos', 'buscar_fotos_landing'],
   // La biblioteca de imágenes y videos del negocio (corrección de la tanda 7): URLs públicas del bucket de las landings.
   ['GET', '/landing/imagenes', 'listar_imagenes_landing'],
+  // La biblioteca de íconos del editor (25/10/2026): lo que pide cambiar_icono_landing.
+  ['GET', '/landing/iconos', 'ver_iconos_landing'],
   ['DELETE', '/landing/documentos/{id}', 'borrar_landing_creada'],
   // Las animaciones (15/10/2026, el panel «Animar»): PATCH porque cambia sólo lo que se pasa (el interruptor, el estilo o una sección).
   ['PATCH', '/landing/documentos/{id}/animaciones', 'cambiar_animacion_landing'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
+  ['PATCH', '/landing/documentos/{id}/iconos', 'cambiar_icono_landing'],
+  ['PATCH', '/landing/documentos/{id}/imagenes', 'cambiar_imagen_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],
   ['GET', '/landing/documentos/{id}/configuracion', 'ver_configuracion_landing'],
   ['PATCH', '/landing/documentos/{id}/configuracion', 'configurar_landing'],
@@ -489,6 +534,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/landing/documentos/{id}/sitio', 'configurar_sitio_landing'],
   ['PUT', '/landing/documentos/{id}/tema', 'cambiar_tema_landing'],
   ['PATCH', '/landing/documentos/{id}/textos', 'cambiar_texto_landing'],
+  ['PATCH', '/landing/documentos/{id}/formato', 'dar_formato_texto_landing'],
   ['POST', '/landing/documentos/{id}/versiones', 'guardar_version_landing'],
   ['GET', '/landing/documentos/{id}/versiones/{version}', 'ver_version_landing'],
   ['POST', '/landing/documentos/{id}/vista-previa', 'compartir_borrador_landing'],
@@ -533,6 +579,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
   ['GET', '/negocio/plan', 'ver_mi_plan'],
   ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],
+  // La prueba gratis (25/10/2026): lo que dice el cartel «Versión de prueba», y «Empezar mi plan ya» (abre el pago desde hoy).
+  ['GET', '/negocio/plan/prueba', 'ver_mi_prueba'],
+  ['POST', '/negocio/plan/prueba/fin', 'empezar_mi_plan_ya'],
+  // MaKo Partners (25/10/2026): el panel del negocio, hacerse partner y dónde cobra (lo de la plataforma no sale por HTTP).
+  ['GET', '/negocio/partners', 'ver_mi_programa_partners'],
+  ['POST', '/negocio/partners', 'hacerme_partner'],
+  ['PUT', '/negocio/partners/cobro', 'cambiar_cobro_partners'],
+  ['PUT', '/negocio/partners/codigo', 'cambiar_codigo_partners'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
@@ -561,8 +615,25 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/guiones', 'listar_guiones_anuncio'],
   ['GET', '/contenido/guiones/cobertura', 'cobertura_guiones_anuncio'],
   ['GET', '/contenido/limites-instagram/{formato}', 'limites_formato_instagram'],
+  ['GET', '/contenido/rendimiento-redes', 'ver_rendimiento_redes'],
   ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
   ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
+  // El Copywriter (28/10/2026): los documentos, con el juego del MCP de mila.gg. DELETE manda a la Papelera (no borra).
+  ['GET', '/contenido/documentos', 'listar_documentos_copywriter'],
+  ['POST', '/contenido/documentos', 'crear_documento_copywriter'],
+  ['GET', '/contenido/documentos/{documentoId}', 'leer_documento_copywriter'],
+  ['PATCH', '/contenido/documentos/{documentoId}', 'renombrar_documento_copywriter'],
+  ['DELETE', '/contenido/documentos/{documentoId}', 'papelera_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/bloques', 'agregar_al_documento_copywriter'],
+  ['PUT', '/contenido/documentos/{documentoId}/contenido', 'reemplazar_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/restauracion', 'restaurar_documento_copywriter'],
+  // «Nueva» con templates y MaKo escribiendo EN la página (29/10/2026, docs/diseno-copywriter.md D13).
+  ['GET', '/contenido/plantillas', 'listar_plantillas_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/edicion', 'editar_documento_copywriter'],
+  // Compartir un documento para editar (28/10/2026): sus links, crear uno y revocarlo.
+  ['GET', '/contenido/documentos/{documentoId}/enlaces', 'enlaces_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/enlaces', 'compartir_documento_copywriter'],
+  ['DELETE', '/contenido/enlaces/{enlaceId}', 'revocar_enlace_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],
@@ -591,10 +662,25 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
   ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
   ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // Con qué IA trabaja el negocio y cómo se conecta cada cosa (25/10/2026, docs/conexiones-y-ayuda.md). `que` va en la query:
+  // es texto libre («mi claude»).
+  ['GET', '/integraciones/ia-del-negocio', 'ver_ia_del_negocio'],
+  ['GET', '/integraciones/conexiones', 'como_conectar'],
+  // Meta por Zernio (25/10/2026): la conexión de «Conectar con Facebook» es UN recurso (`meta`); elegir cuenta, píxel o
+  // página es reemplazar ese dato (PUT), y la prueba de CAPI es una lectura con el código de «Probar eventos».
+  ['GET', '/integraciones/meta/conexion', 'ver_conexion_meta'],
+  ['PUT', '/integraciones/meta/cuenta', 'elegir_cuenta_meta'],
+  ['PUT', '/integraciones/meta/pixel', 'elegir_pixel_meta'],
+  ['PUT', '/integraciones/meta/pagina', 'elegir_pagina_meta'],
+  ['GET', '/integraciones/meta/prueba-capi', 'probar_capi_meta'],
   // ── equipo ────────────────────────────────────────────────────────────────
   ['GET', '/equipo/negocio', 'ver_workspace'],
   ['GET', '/equipo/negocio/zona-horaria', 'ver_zona_horaria_workspace'],
   ['PUT', '/equipo/negocio/zona-horaria', 'fijar_zona_horaria_workspace'],
+  // Settings por la API (25/10/2026): el nombre, el horario de oficina y el criterio de las reuniones del negocio.
+  ['PATCH', '/equipo/negocio', 'renombrar_negocio'],
+  ['GET', '/equipo/negocio/horario-envio', 'ver_horario_envio'],
+  ['PATCH', '/equipo/negocio/horario-envio', 'configurar_horario_envio'],
   ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
   ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
   ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],
@@ -606,6 +692,12 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── curso (08/10/2026: migrar un curso con Claude) ─────────────────────────
   ['GET', '/curso/cursos', 'listar_cursos'],
   ['GET', '/curso/cursos/{productoId}', 'ver_curso'],
+  // El programa entero (25/10/2026): como un repo de GitHub. POST a /copias es el «Create a fork»; PATCH lo renombra;
+  // DELETE lo archiva (vuelve: no es un borrado) y la restauración lo devuelve, como la de una clase.
+  ['PATCH', '/curso/cursos/{productoId}', 'renombrar_curso'],
+  ['DELETE', '/curso/cursos/{productoId}', 'eliminar_curso'],
+  ['POST', '/curso/cursos/{productoId}/copias', 'duplicar_curso'],
+  ['PUT', '/curso/cursos/{productoId}/restauracion', 'restaurar_curso'],
   ['POST', '/curso/cursos/{productoId}/modulos', 'crear_modulo_curso'],
   ['PUT', '/curso/cursos/{productoId}/modulos', 'ordenar_modulos_curso'],
   ['PATCH', '/curso/cursos/{productoId}/modulos/{clave}', 'renombrar_modulo_curso'],
@@ -690,6 +782,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PUT', '/cobros/ventas/{leadId}/suscripcion', 'estado_suscripcion_manual'],
   // La baja del cliente (#871) es un estado de la VENTA, como la suscripción: PUT la pone y `deshacer` la saca.
   ['PUT', '/cobros/ventas/{leadId}/baja', 'baja_del_cliente'],
+  // El plan por tramos (29/10/2026) es el plan ENTERO de la venta: PUT lo fija.
+  ['PUT', '/cobros/ventas/{leadId}/plan', 'armar_plan_por_tramos'],
   ['PATCH', '/cobros/cuotas/{cuotaId}', 'editar_cuota'],
   ['POST', '/cobros/cuotas/{cuotaId}/links-pago', 'crear_link_cuota'],
   ['DELETE', '/cobros/cuotas/{cuotaId}/recordatorios', 'cortar_recordatorio_cuota'],
@@ -711,7 +805,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/mako/pendientes/{id}', 'ver_pendiente'],
   ['POST', '/mako/pendientes/{id}/confirmacion', 'confirmar_accion'],
   ['GET', '/mako/propuestas', 'listar_propuestas_revisar'],
-  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],];
+  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],
+  // MaKo recomienda (26/10/2026): la lista de hoy y lo que se decide sobre una (GitHub: POST a la colección de decisiones).
+  ['GET', '/mako/recomendaciones', 'que_recomienda_mako'],
+  ['POST', '/mako/recomendaciones/decisiones', 'decidir_recomendacion'],];
 
 type Compilada = { metodo: MetodoRest; ruta: string; operacion: string; segs: string[] };
 const COMPILADAS: Compilada[] = RUTAS_REST.map(([metodo, ruta, operacion]) => ({ metodo, ruta, operacion, segs: ruta.split('/').filter(Boolean) }));

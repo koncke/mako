@@ -42,6 +42,7 @@
 //      se puede mover sólo si su campo es público, igual que cualquier otro (la pantalla tampoco dibuja la
 //      barra sobre un campo de personas, app/dashboard/BuscarEnHoja.tsx).
 
+import { grabadorDelLink as grabadorDeUnLink } from '@/lib/grabadores/catalogo';
 import {
   AGRUPAR, MAX_COMPONENTES, MAX_VALORES, TIPOS_ELEMENTO, campoDe, efectivoDe, esElemento, esGrafico, tituloDe,
   type Componente, type ControlVista, type Elemento, type FiltroDim, type Grafico, type Hoja, type Tablero, type TipoElemento,
@@ -99,12 +100,15 @@ export const ELEMENTOS_QUE_NO_SALEN: Readonly<Partial<Record<TipoElemento, strin
  */
 export function esGrabacionDeLlamada(url: string | null | undefined): boolean {
   if (!url) return false;
+  // De CUALQUIER grabador (Fathom, Loom, tl;dv, Zoom…: lib/grabadores/catalogo.ts, 26/10/2026): todas son grabaciones de
+  // una llamada y ninguna sale a un tercero.
   try {
-    const h = new URL(url).hostname.toLowerCase();
-    return h === 'fathom.video' || h.endsWith('.fathom.video');
+    new URL(url);
   } catch {
     return false;
   }
+  // Acá se esconde de MÁS a propósito: un http:// de un grabador también es una grabación (el CRM, en cambio, exige https).
+  return grabadorDeUnLink(url.trim().replace(/^http:/i, 'https:')) != null;
 }
 
 /** ¿Este componente sale en un link? Un gráfico, salvo los tipos de arriba; un elemento, sólo los de la lista. */

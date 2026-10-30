@@ -37,6 +37,7 @@ import type { ApiComunidad } from '@/app/_comunidad/api';
 import type { ComentarioVista, HiloClaseVista, MiembroVista } from '@/lib/comunidad-tipos';
 import { TOPE_COMENTARIO, haceCuanto, mencionesDeTokens, nombraA, type TokenTexto } from '@/lib/comunidad-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /** Cuánto queda a la vista un aviso de la línea de estado (no hay toast adentro del curso). */
 const AVISO_MS = 4000;
@@ -177,8 +178,6 @@ function Caja({ n, acciones, children }: { n: number | null; acciones: ReactNode
   );
 }
 
-const iniciales = (nombre: string) =>
-  nombre.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
 function Cara({ m, chica = false }: { m: Pick<MiembroVista, 'nombre' | 'foto'>; chica?: boolean }) {
   const [rota, setRota] = useState(false);

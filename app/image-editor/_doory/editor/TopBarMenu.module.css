@@ -60,7 +60,7 @@
   background: transparent;
 }
 
-/* El botón violeta de ancho completo de los paneles de Canva («Descargar»). */
+/* El botón azul de ancho completo de los paneles de Canva («Descargar»). */
 .primary {
   justify-content: center;
   margin: var(--cv-space-1) 0;

@@ -14,6 +14,8 @@ import { CLAVE_ENCUESTA, llegadaDe } from '@/lib/onboarding-arranque';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
 import { CAPA_DEFAULT, esCapaValida, CAPAS_VENDIBLES, type CapaId } from '@/lib/capas';
 import { avisarCambioDePlan } from '@/lib/aviso-plan';
+import { ponerPlanAMano } from '@/lib/plan-a-mano';
+import { DIAS_PLAN_A_MANO } from '@/lib/plan-a-mano-reglas';
 import { darDeAltaCliente } from '@/lib/alta-cliente';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 
@@ -72,6 +74,8 @@ type Body = {
   adminEmail?: string; adminNombre?: string;
   /** La cara del cliente (mig 0179). `null` en cualquiera = volver al default. */
   portada?: string | null; portadaY?: number | null; icono?: string | null; avatarY?: number | null;
+  /** El plan a mano con vencimiento (28/10/2026): 7, 14 o 30 días; 0 = sin vencimiento. */
+  dias?: number;
 };
 
 export async function POST(req: NextRequest) {
@@ -151,6 +155,23 @@ export async function POST(req: NextRequest) {
           aviso = { enviado: false, error: e instanceof Error ? e.message : String(e) };
         }
         return NextResponse.json({ ok: true, workspace, aviso });
+      }
+      /**
+       * EL PLAN A MANO CON VENCIMIENTO (28/10/2026, lib/plan-a-mano.ts): el plan que ya tiene, por 7, 14 o 30 días, con los topes
+       * de la prueba; al vencer, avisa (no pausa: el corte general está apagado). 0 = sin vencimiento. Nunca a la plataforma.
+       */
+      case 'plan_a_mano': {
+        if (typeof body.id !== 'number') return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
+        if (body.id === (await wsSuperAdmin())) {
+          return NextResponse.json({ ok: false, error: 'Ese es el espacio de la plataforma: no tiene plan.' }, { status: 400 });
+        }
+        const dias = Number(body.dias);
+        if (dias !== 0 && !(DIAS_PLAN_A_MANO as readonly number[]).includes(dias)) {
+          return NextResponse.json({ ok: false, error: `Los días van ${DIAS_PLAN_A_MANO.join(', ')} o 0 (sin vencimiento).` }, { status: 400 });
+        }
+        if (!(await getWorkspace(body.id))) return NextResponse.json({ ok: false, error: 'ese cliente ya no está' }, { status: 404 });
+        const planAMano = await ponerPlanAMano(body.id, dias);
+        return NextResponse.json({ ok: true, planAMano });
       }
       /**
        * LA CARA del cliente: su portada, su marca y los dos encuadres (mig 0179).

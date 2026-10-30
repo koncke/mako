@@ -83,7 +83,7 @@ import {
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS, TOPE_OBJETIVO,
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
-  borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep,
+  borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, MIN_PCT_AB, PASO_PCT_AB,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { respuestaAPasoIA } from './paso-ia-convertir';
@@ -106,16 +106,18 @@ import {
   condicionPorId, problemaDeFila, OPERADORES, seccionesDeCondiciones, deValorOpcion, opcionesDe, normalizarTexto, valoresDeFila,
   type OperadorCondicion, type CatalogosCondicion, type AmbitoDisparo, type DefCondicion, type CatalogoValor,
 } from './condiciones-catalogo';
-import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, type CanalSocial } from './canal-social';
+import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, respondeEnComentario, type CanalSocial } from './canal-social';
+import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON, botonesDe, type BotonSocial } from './botones-social';
 import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
 import { paramsConPartes } from './mako-tarjeta';
+import { variantesTrasCambio } from './mensaje-partes';
 import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
 import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './plantillas-automatizaciones';
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
 import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
 import type { CronAviso } from './cron-aviso';
-import { respuestaDelModelo } from './flujo-ia-consulta';
+import { faltaDelModelo, respuestaDelModelo } from './flujo-ia-consulta';
 import { OP_MOVER_ETAPA } from './flujo-legado';
 import { sinCitas, citasQueFaltan, minutosDelPedido } from './flujo-ia-intencion';
 
@@ -365,6 +367,8 @@ export type ResultadoEdicion = Omit<ResultadoIA, 'disparador'> & {
    * `pasos` son el borrador tal cual.
    */
   respuesta?: string;
+  /** Con la respuesta: lo que pidió y no está en MaKo (24/10/2026, f23). El globo ofrece pasárselo al equipo. */
+  falta?: string;
   /**
    * LO PEDIDO QUE NO SE HIZO (22/10/2026): lo que el modelo armó y no se pudo poner, y lo que el dueño pegó y no quedó en el
    * lienzo (`faltantesDelPedido`, la ruta). Va en ROJO; `avisos` son reparaciones, en gris. Con algo acá, MaKo no dice «Listo».
@@ -494,7 +498,7 @@ export function aliasDeVariable(key: string): string | null {
 
 // ── El JSON del modelo, tarjeta por tarjeta ───────────────────────────────────────
 
-type TipoTarjeta = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'ir_a' | 'si_responde';
+type TipoTarjeta = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'ir_a' | 'si_responde' | 'prueba_ab';
 
 /**
  * `ir_a` sigue en el mapa SÓLO para reconocerlo y sacarlo con su aviso propio (decisión 3 de la
@@ -511,6 +515,8 @@ const TIPOS: Record<string, TipoTarjeta> = {
   accion: 'accion',
   ir_a: 'ir_a', ira: 'ir_a', salto: 'ir_a',
   si_responde: 'si_responde', respuesta: 'si_responde', siresponde: 'si_responde',
+  // Tanda A3 de las pruebas A/B: la tarjeta «A/B TEST» (lo que lee `aIA` es `prueba_ab`).
+  prueba_ab: 'prueba_ab', ab: 'prueba_ab', ab_test: 'prueba_ab', prueba: 'prueba_ab',
 };
 
 function tipoDe(x: unknown): TipoTarjeta | null {
@@ -987,13 +993,20 @@ function claveDeLink(v: unknown, ctx: CtxIA): string | null {
 
 type NodoIA = {
   tmp: string;
-  clase: 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a';
+  clase: 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'ab';
   paso: Partial<PasoIA>;
   /** mensaje, acción, espera: [el que sigue, ...los paralelos]. */
   sigue: string[];
   ramas: Array<{ modo: 'todas' | 'cualquiera'; filas: FilaCondicion[]; sigue: string | null }>;
   siNo: string | null;
   casos: Array<{ titulo: string; cuando: string; sigue: string | null }>;
+  /**
+   * Sólo un mensaje de Instagram o Messenger (24/10/2026, lib/botones-social.ts): sus BOTONES. Uno con `url` abre un link
+   * guardado; uno con `sigue` es una salida, como una rama (lo que pasa al tocarlo).
+   */
+  botones: Array<{ titulo: string; url: string | null; sigue: string | null }>;
+  /** Sólo la prueba A/B (tanda A3): sus ramas, la primera es la de siempre (A). */
+  abRamas: Array<{ pct: number; nombre: string; sigue: string | null }>;
   /** Se SACA: lo que colgaba de él pasa a colgar de su padre (`seguir`). Un `ir_a` nace sacado. */
   quitar: boolean;
 };
@@ -1002,7 +1015,14 @@ const relleno = (): Pick<PasoIA, 'orden' | 'canal' | 'delay_horas' | 'asunto' | 
   { orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null, proveedor: 'no_oficial' }
 );
 
-const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], quitar: false });
+/** Porcentajes parejos de a 5 que suman 100 (la primera se queda con lo que sobra: 40/30/30), para una prueba A/B. */
+const repartoParejo = (n: number): number[] => {
+  if (n <= 0) return [];
+  const cada = Math.floor(100 / n / PASO_PCT_AB) * PASO_PCT_AB;
+  return Array.from({ length: n }, (_, k) => cada + (k === 0 ? 100 - cada * n : 0));
+};
+
+const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], botones: [], abRamas: [], quitar: false });
 
 function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje): string {
   const r = limpiarTexto(str(v).slice(0, tope * 2), { destino, deja: linksDelPedido(est.ctx.pedido) });
@@ -1029,6 +1049,21 @@ function canalDeTarjeta(c: Card, est: Estado): CanalIA {
     if (k === 'instagram' || k === 'messenger' || k === 'whatsapp') return k;
   }
   return est.canalDefecto;
+}
+
+/**
+ * ¿PUEDE ESTE MENSAJE RESPONDER EN EL COMENTARIO? (ticket #17, 28/10/2026). Por Instagram o Messenger, y con un CRON que no
+ * sea otro evento de ese canal (`instagram:dm` no deja comentario que responder). Un CRON sin el evento (`trigger:instagram`)
+ * o sin elegir no frena: lo dice el motor si no hay comentario. Si no puede, el porqué va en los avisos.
+ */
+function respondeEnElComentario(social: CanalSocial | null, est: Estado): boolean {
+  if (!social) { est.avisos.push('Responder en el comentario es de Instagram y Messenger: va como mensaje'); return false; }
+  const m = /^(instagram|messenger):(.+)$/.exec(est.cron ?? '');
+  if (m && (m[1] !== social || m[2] !== 'comentario')) {
+    est.avisos.push('Responder en el comentario es con un CRON de comentario: va por mensaje privado');
+    return false;
+  }
+  return true;
 }
 
 function nodoDe(c: Card, est: Estado): NodoIA {
@@ -1081,6 +1116,37 @@ function nodoDe(c: Card, est: Estado): NodoIA {
         const url = k ? ctx.links[k].url : '';
         if (k) cuerpo = cuerpo ? `${social ? cuerpo.slice(0, Math.max(0, tope - url.length - 2)).trim() : cuerpo}\n\n${url}` : url;
         else avisos.push(`No tengo guardado el link «${str(link)}»: el mensaje va sin link`);
+      }
+      // LOS BOTONES (24/10/2026, lib/botones-social.ts): sólo por Instagram y Messenger, hasta 3. Uno con "link" abre una
+      // página guardada (de LINKS: nunca una inventada); uno con "sigue" es una salida, como una rama.
+      if (Array.isArray(raw.botones) && raw.botones.length) {
+        if (!social) avisos.push('Los botones son de Instagram y Messenger: los saqué');
+        else {
+          if (raw.botones.length > TOPE_BOTONES) avisos.push(`Instagram muestra hasta ${TOPE_BOTONES} botones: dejé los primeros`);
+          for (const b of (raw.botones as unknown[]).slice(0, TOPE_BOTONES)) {
+            const o = b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null;
+            const titulo = str(o?.titulo ?? o?.texto).trim().slice(0, TOPE_TITULO_BOTON);
+            if (!o || !titulo) continue;
+            if (o.link != null && o.link !== '') {
+              const k = claveDeLink(o.link, ctx);
+              if (k) n.botones.push({ titulo, url: ctx.links[k].url, sigue: null });
+              else avisos.push(`No tengo guardado el link «${str(o.link)}»: saqué el botón «${titulo}»`);
+              continue;
+            }
+            n.botones.push({ titulo, url: null, sigue: refs(o.sigue)[0] ?? null });
+          }
+          // Con botones, Meta corta el texto en 640 (la burbuja de su plantilla de botones).
+          if (n.botones.length && cuerpo.length > TOPE_TEXTO_CON_BOTONES) {
+            cuerpo = cuerpo.slice(0, TOPE_TEXTO_CON_BOTONES).trim();
+            avisos.push(`Con botones, Instagram corta el texto en ${TOPE_TEXTO_CON_BOTONES} caracteres: lo acorté`);
+          }
+        }
+      }
+      // LA RESPUESTA PÚBLICA (ticket #17 de Leandro, 28/10/2026): "en_comentario": true publica el texto debajo del comentario
+      // que disparó el flujo. Sólo por Instagram o Messenger con un CRON de comentario, y sin botones.
+      if (raw.en_comentario === true && respondeEnElComentario(social, est)) {
+        paso.en_comentario = true;
+        if (n.botones.length) { n.botones = []; avisos.push('Una respuesta en el comentario no lleva botones: los saqué'); }
       }
       if (!cuerpo && paso.tipo !== 'audio' && paso.tipo !== 'media') { avisos.push('Saqué un mensaje vacío'); n.quitar = true; return n; }
       paso.cuerpo = cuerpo;
@@ -1149,6 +1215,25 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       if (!n.ramas.length) { avisos.push('Saqué una condición que no tenía ninguna rama válida'); n.quitar = true; }
       return n;
     }
+    case 'prueba_ab': {
+      // LA PRUEBA A/B (tanda A3): de 2 a 4 ramas; la primera es la de siempre. Porcentajes que no suman 100 (o que no van de
+      // a 5, o bajan de 10) se reparten en partes iguales: lo que se prueba lo decide el juez, no el porcentaje del modelo.
+      const n = vacio(c.tmp, 'ab');
+      const ramas = Array.isArray(raw.ramas) ? raw.ramas : [];
+      for (const r0 of ramas.slice(0, MAX_RAMAS_AB)) {
+        if (!r0 || typeof r0 !== 'object' || Array.isArray(r0)) continue;
+        const r = r0 as Record<string, unknown>;
+        n.abRamas.push({ pct: Math.round(Number(r.pct) || 0), nombre: str(r.nombre).trim().slice(0, 40), sigue: refs(r.sigue)[0] ?? null });
+      }
+      if (ramas.length > MAX_RAMAS_AB) avisos.push(`La prueba A/B tenía más de ${MAX_RAMAS_AB} ramas: dejé las primeras`);
+      const suma = n.abRamas.reduce((s, r) => s + r.pct, 0);
+      if (suma !== 100 || n.abRamas.some((r) => r.pct < MIN_PCT_AB || r.pct % PASO_PCT_AB !== 0)) {
+        const pcts = repartoParejo(n.abRamas.length);
+        n.abRamas = n.abRamas.map((r, k) => ({ ...r, pct: pcts[k] }));
+      }
+      if (n.abRamas.length < MIN_RAMAS_AB) { avisos.push('Saqué una prueba A/B con una sola rama: sigue la de siempre'); n.quitar = true; }
+      return n;
+    }
     case 'si_responde': {
       const n = vacio(c.tmp, 'respuesta');
       const casos = Array.isArray(raw.casos) ? raw.casos : [];
@@ -1178,7 +1263,7 @@ function nodoDe(c: Card, est: Estado): NodoIA {
 // ── Armar: conectar, reparar y materializar ───────────────────────────────────────
 
 type Hilo = 'salida' | 'respuesta';
-type Conexion = { sig: string | null; par: string[]; ramas: Array<string | null>; siNo: string | null; casos: Array<string | null> };
+type Conexion = { sig: string | null; par: string[]; ramas: Array<string | null>; siNo: string | null; casos: Array<string | null>; botones?: Array<string | null> };
 type Raiz = { ref: string; hilo: Hilo };
 
 type OpcionesArmar = {
@@ -1230,6 +1315,8 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const quedanHilos = () => TOPE_HILOS - 1 - o.hilosPrevios - paralelos;
   const avisados = new Set<string>();
   const avisoUnaVez = (k: string, m: string) => { if (!avisados.has(k)) { avisados.add(k); est.avisos.push(m); } };
+  /** La prueba A/B que queda (tanda A3): la primera que se recorre; las demás se sacan (una por automatización). */
+  let abElegida: string | null = null;
   const AVISO_DOS_LUGARES = 'Una tarjeta seguía en dos lugares: la dejé en el primero';
 
   type Destino = { tipo: 'nada' } | { tipo: 'tarjeta'; tmp: string; extraPar: string[] } | { tipo: 'ocupada' } | { tipo: 'base'; id: string };
@@ -1254,8 +1341,13 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
     // Adentro de «Si responde» todo corre en el momento: una espera ahí se saca.
     const esperaEnRespuesta = hilo === 'respuesta' && n.clase === 'esperar';
     if (esperaEnRespuesta) avisoUnaVez(`esp:${ref}`, 'Saqué una espera de «Si responde»: ahí se contesta en el momento');
-    if (n.quitar || esperaEnRespuesta) {
+    // Una prueba A/B no va adentro de «Si responde» (`validarGrafo`) ni dos por automatización: se saca, y sigue la de siempre.
+    const abDeMas = n.clase === 'ab' && (hilo === 'respuesta' || (abElegida != null && abElegida !== n.tmp));
+    if (n.clase === 'ab' && !abDeMas && !n.quitar) abElegida = n.tmp;
+    if (abDeMas) avisoUnaVez(`ab:${ref}`, hilo === 'respuesta' ? 'Saqué una prueba A/B de «Si responde»: va en la salida' : 'Saqué una prueba A/B de más: va una por automatización');
+    if (n.quitar || esperaEnRespuesta || abDeMas) {
       if (n.clase === 'condicion') return seguir(n.siNo, hilo, visto);
+      if (n.clase === 'ab') return seguir(n.abRamas[0]?.sigue ?? null, hilo, visto);
       if (n.clase === 'ir_a') return { tipo: 'nada' };
       const d = seguir(n.sigue[0], hilo, visto);
       const extra = n.sigue.slice(1);
@@ -1314,9 +1406,21 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
           cx.par.push(d.tmp);
           paralelos++;
         }
+        // LOS BOTONES (24/10/2026): cada uno de flujo es una salida, como una rama. Uno puede VOLVER a una tarjeta que ya
+        // tiene lugar («Ya te sigo» → la condición «¿Te sigue?»): el toque de la persona es la espera, y es el flujo de ManyChat.
+        if (n.clase === 'mensaje' && n.botones.length) {
+          cx.botones = n.botones.map((b) => {
+            if (b.url || !b.sigue) return null;
+            if (reclamado.has(b.sigue) && !nodos.get(b.sigue)?.quitar) return b.sigue;
+            return unaSalida(b.sigue, hilo).destino;
+          });
+        }
       } else if (n.clase === 'condicion') {
         for (const r of n.ramas) cx.ramas.push(unaSalida(r.sigue, hilo).destino);
         cx.siNo = unaSalida(n.siNo, hilo).destino;
+      } else if (n.clase === 'ab') {
+        // Las ramas de la prueba son salidas como las de una condición, y pueden volver a juntarse más abajo.
+        for (const r of n.abRamas) cx.ramas.push(r.sigue && reclamado.has(r.sigue) && !nodos.get(r.sigue)?.quitar ? r.sigue : unaSalida(r.sigue, hilo).destino);
       } else if (n.clase === 'respuesta') {
         for (const c of n.casos) cx.casos.push(unaSalida(c.sigue, 'respuesta').destino);
         cx.siNo = unaSalida(n.siNo, 'respuesta').destino;
@@ -1363,6 +1467,13 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
       });
       continue;
     }
+    if (n.clase === 'ab') {
+      out.push({
+        ...relleno(), id, nodo: 'ab',
+        ramas_ab: n.abRamas.map((x, k) => ({ clave: CLAVES_AB[k], pct: x.pct, ...(k === 0 ? { nombre: 'Sin cambio' } : x.nombre ? { nombre: x.nombre } : {}), siguiente: r(cx.ramas[k] ?? null) })),
+      } as PasoIA);
+      continue;
+    }
     if (n.clase === 'respuesta') {
       out.push({
         ...relleno(), id, nodo: 'respuesta',
@@ -1385,6 +1496,12 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
       }
       // «MaKo contesta» nace como BORRADOR explícito, como `agregarCaso` y el conversor.
       if (p.tipo === 'ia') p.revisar = true;
+    }
+    // Los BOTONES, con los ids reales (24/10/2026). Sólo si sigue siendo un DM: arriba un mensaje de «Si responde» pasa a WhatsApp.
+    if (n.clase === 'mensaje' && n.botones.length && esCanalSocial(p.canal)) {
+      p.botones = n.botones.map((b, k) => (b.url
+        ? { id: `b${k + 1}`, titulo: b.titulo, url: b.url }
+        : { id: `b${k + 1}`, titulo: b.titulo, siguiente: r(cx.botones?.[k] ?? null) }));
     }
     out.push(p);
   }
@@ -1991,7 +2108,7 @@ export function cambioDeCanal(pedido: unknown): CanalSocial | null {
 /** El canal de un mensaje guardado: email, un DM, o WhatsApp (lo de siempre). */
 const canalDePaso = (p: PasoGrafo): CanalIA => (p.canal === 'email' ? 'email' : esCanalSocial(p.canal) ? p.canal : 'whatsapp');
 
-type ClaseEditable = 'mensaje' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'respuesta' | 'ir_a' | 'inicio';
+type ClaseEditable = 'mensaje' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'respuesta' | 'ir_a' | 'inicio' | 'ab';
 /** La clase de una tarjeta guardada, con la de etiqueta aparte (en el lienzo son dos tarjetas distintas). */
 function claseEditable(p: PasoGrafo): ClaseEditable {
   const c = claseDe(p);
@@ -2001,6 +2118,7 @@ function claseEditable(p: PasoGrafo): ClaseEditable {
 }
 const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
   mensaje: 'mensaje', email: 'mensaje', esperar: 'esperar', condicion: 'condicion', etiqueta: 'etiqueta', accion: 'accion', ir_a: 'ir_a', si_responde: 'respuesta',
+  prueba_ab: 'ab',
 };
 // (Hasta el 23/10/2026 acá vivía `AVISO_MISMA_PERSONA`: una espera corta entre dos WhatsApp no se cumplía porque «Misma
 // persona» frenaba el segundo. «Misma persona» se fue del motor: la espera que se pide es la que se cumple.)
@@ -2116,6 +2234,8 @@ export function haySeguimiento(pasos: readonly PasoGrafo[]): boolean {
   return pasos.some((p) => {
     if (claseDe(p) !== 'esperar' || (p.espera as { modo?: string } | undefined)?.modo === 'antes_reunion') return false;
     let q = m.get(String(p.siguiente ?? ''));
+    // Una prueba A/B en el medio (tanda A3) es transparente: se sigue por la A, el camino de antes.
+    if (q && claseDe(q) === 'ab') q = m.get(String(q.ramas_ab?.[0]?.siguiente ?? ''));
     if (q && claseDe(q) === 'condicion') q = m.get(String(q.ramas?.[0]?.siguiente ?? ''));
     return !!q && claseDe(q) === 'mensaje';
   });
@@ -2227,7 +2347,8 @@ export function ultimoMensajeDelCamino(pasos: readonly PasoGrafo[]): string | nu
     const p = porId.get(x);
     if (!p) break;
     if (claseDe(p) === 'mensaje') ultimo = x;
-    x = claseDe(p) === 'condicion' ? (p.ramas?.[0]?.siguiente ?? null) : (p.siguiente ?? null);
+    // Una prueba A/B (tanda A3): por la A, el camino de antes.
+    x = claseDe(p) === 'condicion' ? (p.ramas?.[0]?.siguiente ?? null) : claseDe(p) === 'ab' ? (p.ramas_ab?.[0]?.siguiente ?? null) : (p.siguiente ?? null);
   }
   return ultimo;
 }
@@ -2281,7 +2402,7 @@ function quitarTarjeta(pasos: PasoIA[], id: string, est: Estado, aviso?: string)
   const i = indicePorId(pasos, id);
   if (i < 0 || claseDe(pasos[i]) === 'inicio') { est.avisos.push('No encontré una tarjeta para sacar'); return pasos; }
   const c = claseDe(pasos[i]);
-  const nombre = c === 'condicion' ? 'la condición' : esPasoIA(pasos[i]) ? 'el AI Step' : c === 'respuesta' ? 'el Si responde' : 'una tarjeta';
+  const nombre = c === 'condicion' ? 'la condición' : c === 'ab' ? 'la prueba A/B' : esPasoIA(pasos[i]) ? 'el AI Step' : c === 'respuesta' ? 'el Si responde' : 'una tarjeta';
   const out = borrarNodo(pasos, id);
   const colgaban = pasos.length - out.length - 1;
   if (aviso) est.avisos.push(aviso);
@@ -2295,7 +2416,7 @@ function quitarTarjeta(pasos: PasoIA[], id: string, est: Estado, aviso?: string)
  * re-limpiarlo lo borraría); un canal nuevo vuelve a pasar el audio, el archivo y la IA por `nodoDe`, que los saca con su
  * aviso donde no van. null = el cambio la dejaba incompleta.
  */
-function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): PasoIA | null {
+function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, existentes?: ReadonlySet<string>): PasoIA | null {
   const toca = (...ks: string[]) => ks.some((k) => x[k] !== undefined);
   const antes = canalDePaso(p);
   const tipoX = normNombre(x.tipo);
@@ -2334,6 +2455,9 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): Paso
     q.cuerpo = cuerpoAntes.slice(0, TOPE_TEXTO_SOCIAL).trim();
     est.avisos.push(`Acorté un mensaje: por ${NOMBRE_CANAL[social]} va hasta ${TOPE_TEXTO_SOCIAL} caracteres`);
   }
+  // Un texto que CAMBIA suelta las variantes del viejo (`variantesTrasCambio`, lib/mensaje-partes.ts): el motor las sortea, y a
+  // 4 de cada 5 leads les seguía llegando lo de antes (la revisión del tren-k, 25/10/2026).
+  Object.assign(q, variantesTrasCambio({ cuerpo: cuerpoAntes, variantes: (p as { variantes?: string[] }).variantes }, true, String(q.cuerpo ?? '')));
   if (q.canal === 'email') {
     if (toca('asunto') || !String(p.asunto ?? '').trim()) q.asunto = np.asunto ?? null;
     if (toca('vista_previa', 'preheader')) { if (np.preheader) q.preheader = np.preheader; else delete q.preheader; }
@@ -2354,7 +2478,66 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): Paso
     delete q.partes;
     est.avisos.push(`Por ${social ? NOMBRE_CANAL[social] : 'email'} va un solo mensaje: dejé el primero`);
   }
+  // LOS BOTONES (25/10/2026, lib/botones-social.ts): sólo por Instagram y Messenger. Sin nombrarlos, quedan como estaban;
+  // "botones" es la lista NUEVA entera (`botonesDelParche`). Si el mensaje pasa a otro canal, se van (con su porqué).
+  if (!social) {
+    if (botonesDe(q).length) { delete q.botones; est.avisos.push('Los botones son de Instagram y Messenger: los saqué'); }
+  } else if (toca('botones')) {
+    const bs = botonesDelParche(x.botones, botonesDe(p), existentes, est);
+    if (bs.length) q.botones = bs; else delete q.botones;
+    if (bs.length && String(q.cuerpo ?? '').length > TOPE_TEXTO_CON_BOTONES) {
+      q.cuerpo = String(q.cuerpo).slice(0, TOPE_TEXTO_CON_BOTONES).trim();
+      est.avisos.push(`Con botones, Instagram corta el texto en ${TOPE_TEXTO_CON_BOTONES} caracteres: lo acorté`);
+    }
+  }
+  // LA RESPUESTA EN EL COMENTARIO (ticket #17, 28/10/2026): "en_comentario" true o false. Sin nombrarla queda como estaba; si el
+  // mensaje deja Instagram y Messenger, se va. Prendida, el mensaje no lleva botones.
+  if (toca('en_comentario')) {
+    if (x.en_comentario === true && respondeEnElComentario(social, est)) {
+      q.en_comentario = true;
+      if (botonesDe(q).length) { delete q.botones; est.avisos.push('Una respuesta en el comentario no lleva botones: los saqué'); }
+    } else delete q.en_comentario;
+  } else if (!social) delete q.en_comentario;
   return q;
+}
+
+/**
+ * LOS BOTONES QUE PIDIÓ EL MODELO AL EDITAR (25/10/2026): hasta 3, cada uno {titulo, sigue: id} o {titulo, link}. «sigue» va a
+ * una tarjeta que YA está (las nuevas se cuelgan de "btn:<id>" con "agregar"); «link» es uno guardado (LINKS) o el que ese
+ * botón ya tenía, nunca uno inventado. Un botón que ya estaba conserva su id (lo que cuelga de su puerto sigue colgado).
+ */
+function botonesDelParche(v: unknown, antes: readonly BotonSocial[], existentes: ReadonlySet<string> | undefined, est: Estado): BotonSocial[] {
+  const lista = Array.isArray(v) ? v : [];
+  if (lista.length > TOPE_BOTONES) est.avisos.push(`Instagram muestra hasta ${TOPE_BOTONES} botones: dejé los primeros`);
+  const crudos: Array<Record<string, unknown>> = [];
+  for (const b of lista.slice(0, TOPE_BOTONES)) {
+    const o = b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null;
+    const titulo = str(o?.titulo ?? o?.texto).trim().slice(0, TOPE_TITULO_BOTON);
+    if (!o || !titulo) continue;
+    const previo = antes.find((a) => a.id === str(o.id).trim()) ?? antes.find((a) => normNombre(a.titulo) === normNombre(titulo));
+    const id = previo?.id ?? null;
+    if (o.link != null && o.link !== '') {
+      const k = claveDeLink(o.link, est.ctx);
+      const url = k ? est.ctx.links[k].url : previo?.url && str(o.link).trim() === previo.url ? previo.url : null;
+      if (url) crudos.push({ ...(id ? { id } : {}), titulo, url });
+      else est.avisos.push(`No tengo guardado el link «${str(o.link)}»: saqué el botón «${titulo}»`);
+      continue;
+    }
+    const sig = refs(o.sigue)[0] ?? null;
+    if (sig && existentes && !existentes.has(sig)) est.avisos.push(`El botón «${titulo}» iba a una tarjeta que no está: conéctalo en el lienzo`);
+    crudos.push({ ...(id ? { id } : {}), titulo, siguiente: sig });
+  }
+  // Uno nuevo toma un id libre: con el de su lugar («b1») podía chocar con uno que se quedó en otro lugar y se renombraba.
+  const usados = new Set(crudos.map((c) => c.id).filter((x): x is string => typeof x === 'string'));
+  let n = 1;
+  for (const c of crudos) {
+    if (c.id) continue;
+    while (usados.has(`b${n}`)) n++;
+    const libre = `b${n}`;
+    c.id = libre;
+    usados.add(libre);
+  }
+  return botonesDe({ botones: crudos }, existentes);
 }
 
 /** EL PARCHE DE UNA ESPERA: horas, días y «antes de la reunión»; lo que no nombra, como estaba. */
@@ -2521,7 +2704,7 @@ function cambiarTarjeta(pasos: PasoIA[], x: Record<string, unknown>, ed: Edicion
   }
   let q: PasoIA | null;
   switch (clase) {
-    case 'mensaje': q = parcheMensaje(p, x, est); break;
+    case 'mensaje': q = parcheMensaje(p, x, est, new Set(pasos.map((y) => y.id!).filter(Boolean))); break;
     case 'esperar': q = parcheEspera(p, x, est); break;
     case 'etiqueta': q = parcheEtiqueta(p, x, est); break;
     case 'accion': q = parcheAccion(p, x, est); break;
@@ -2584,9 +2767,11 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   // terminaba en «Cambié 1» con el texto del video reescrito.
   const respuesta = respuestaDelModelo(o);
   if (respuesta) {
+    // Y si dijo que lo pedido no está en MaKo, lo que falta (f23, 24/10/2026): el globo ofrece pasárselo al equipo.
+    const falta = faltaDelModelo(o);
     return {
       pasos: base.map((p) => p as PasoIA), etiquetasNuevas: [], avisos: [], nombre: null,
-      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta,
+      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta, ...(falta ? { falta } : {}),
     };
   }
   let pasos = base.map((p, i) => ({ ...(p as PasoIA), id: idDe(p, i) })) as PasoIA[];
@@ -3314,6 +3499,12 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compact
         if (p.tipo === 'ia') t.ia = true;
         if (p.tipo === 'audio') t.audio = p.audio_id;
         if (p.tipo === 'media') t.archivo = p.media_id;
+        // LOS BOTONES (25/10/2026, «Editar con IA» los conoce): con su id (para colgar de "btn:<id>"), a qué tarjeta sigue
+        // cada uno o qué link abre. Sin esto el modelo no los veía, y un pedido sobre ellos no tenía de dónde agarrarse.
+        const bs = botonesDe(p);
+        if (bs.length) t.botones = bs.map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, sigue: b.siguiente ?? null }));
+        // La respuesta pública (ticket #17): sin esto, «sacá la respuesta pública» no sabía cuál era.
+        if (respondeEnComentario(p)) t.en_comentario = true;
         t.sigue = sigue();
         tarjetas.push(t);
         return;
@@ -3368,6 +3559,14 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compact
         tarjetas.push(d && 'secuencia_id' in d ? { id, tipo: 'ir_a', automatizacion: d.secuencia_id } : { id, tipo: 'ir_a', a: d && 'nodo' in d ? d.nodo : null });
         return;
       }
+      case 'ab':
+        // LA PRUEBA A/B (tanda A3): el modelo la LEE (sin esto, lo que cuelga de ella le parecía suelto). Se cambia en el
+        // lienzo: `cambiarTarjeta` la deja como está.
+        tarjetas.push({
+          id, tipo: 'prueba_ab',
+          ramas: ramasABDe(p).map((r) => ({ letra: r.clave, pct: r.pct, ...(r.nombre ? { nombre: r.nombre } : {}), sigue: r.siguiente ?? null })),
+        });
+        return;
     }
   });
   return { inicio: raicesSalida(pasos), tarjetas };
@@ -3503,13 +3702,46 @@ function bloquesDeContexto(ctx: CtxIA, d: DatosPedido, o: { cron?: false | ((x: 
  * dejaba afuera de la cascada, y Groq es el único proveedor que le contesta al ws1. Sin lugar, va el ejemplo de siempre
  * (el del system).
  */
+/**
+ * LOS BOTONES DE UN DM (24/10/2026, lib/botones-social.ts), SÓLO en un pedido de Instagram o Messenger: en el system pesaban
+ * ~100 tokens para TODOS los pedidos y el techo de Groq no los deja (tests/crear-ia-tercera.test.ts). El gate de seguidor
+ * es el flujo de ManyChat que pidió Martín (trabajo 36c79085), y va dicho porque el borrador de antes le regalaba el link a
+ * quien no seguía: lo ponía en el primer DM y en el de «no te sigue».
+ */
+/** ¿El pedido habla de botones, o de que la persona siga la cuenta (el gate)? Entonces el modelo necesita las reglas. */
+const RX_PIDE_BOTONES = /\bbot[oó]n(es)?\b|\b(me|nos|te|lo|la) sigue\b|\bsiga(n)? (la cuenta|a)\b|\bseguidor/i;
+
+/** ¿El pedido habla de una prueba A/B (tanda A3)? Entonces el modelo necesita la regla de la tarjeta (y sólo entonces: Groq). */
+export const RX_PIDE_AB = /\b(prueba|test|testear|probar)\s*a\s*\/\s*b\b|\ba\s*\/\s*b\s*(test|testing)?\b|\bab\s*test\b|\bdos versiones\b|\bsplit\s*test\b/i;
+
+/** La tarjeta «A/B TEST» para el modelo (tanda A3): va en el mensaje del usuario, nunca en el system (diseño 3.1). */
+export const PRUEBA_AB_IA = 'PRUEBA A/B: para probar dos versiones de algo, una tarjeta {"tipo":"prueba_ab","ramas":[{"pct":50,"sigue":"<lo de siempre>"},{"pct":50,"nombre":"<qué cambia, corto>","sigue":"<la versión nueva>"}]}. De 2 a 4 ramas, suman 100, la primera es la de siempre. Las ramas se vuelven a juntar después de lo que se prueba. Una por automatización, nunca en «Si responde».';
+
+/** Al EDITAR (25/10/2026): cambiar los botones de un mensaje y colgar tarjetas nuevas de uno. */
+export const BOTONES_AL_EDITAR = 'Para cambiar los botones de un mensaje: en "cambiar", su id con "botones" (la lista NUEVA entera; cada "sigue" a una tarjeta que ya está). Para colgar tarjetas nuevas de un botón: en "agregar", "despues_de": el id del mensaje y "salida": "btn:<id del botón>".';
+
+/**
+ * LA RESPUESTA PÚBLICA AL COMENTARIO (ticket #17 de Leandro, 28/10/2026), SÓLO si el pedido habla de responder en público o
+ * el flujo ya la tiene: el techo de Groq no deja sumarla a todos (tests/crear-ia-tercera.test.ts).
+ */
+export const RX_PIDE_PUBLICO = /\bp[uú]blic(o|a|os|as|amente)\b|\b(respond|contest)\w*\s+(el|al|los|a\s+los|su|sus)\s+comentarios?\b/i;
+
+export const RESPUESTA_PUBLICA = 'RESPUESTA PÚBLICA: con un CRON de comentario, un "mensaje" con "en_comentario": true se publica DEBAJO del comentario, a la vista de todos (sólo texto, sin botones). Va ANTES del mensaje privado y es corta («¡Te lo mandé por mensaje!»); el contenido va en el privado.';
+
+/** Al EDITAR: prenderla o apagarla en un mensaje que ya está. */
+export const RESPUESTA_PUBLICA_AL_EDITAR = 'Para prenderla o apagarla: en "cambiar", su id con "en_comentario": true o false.';
+
+export const BOTONES_SOCIAL = 'BOTONES: un "mensaje" puede llevar "botones": hasta 3, {"titulo" (hasta 20 letras), "sigue": id} (tocarlo sigue por ahí y puede volver a una tarjeta de antes) o {"titulo", "link"}. Un recurso a cambio de seguir la cuenta: el primer mensaje con un botón («Obtener recurso») que sigue en una "condicion" con "sigue_instagram"; el link va SÓLO en el mensaje del sí, y el del no lleva un botón («Ya te sigo») que vuelve a esa condición.';
+
 export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
   // El canal social del pedido (o el elegido), dicho: es el que `validarIA` hace cumplir. WhatsApp y email no se dicen
   // (un pedido de WhatsApp con un email en el medio es lo de siempre).
   const canal = canalDelFlujo({ canalElegido: ctx.canalElegido, pedido: ctx.pedido ?? d.pedido });
   const pedido = [
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
-    ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`] : []),
+    ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`, BOTONES_SOCIAL] : []),
+    ...(canal && esCanalSocial(canal) && RX_PIDE_PUBLICO.test(d.pedido) ? [RESPUESTA_PUBLICA] : []),
+    ...(RX_PIDE_AB.test(d.pedido) ? [PRUEBA_AB_IA] : []),
     ...(d.recurrente ? [d.recurrente.linea] : []),
     'Arma la automatización.',
   ];
@@ -3622,8 +3854,17 @@ export function userDeEditar(ctx: CtxIA, d: DatosPedido, pasos: readonly PasoGra
   const social = socialDelPedido(d.pedido);
   const cron = pideCron(d.pedido) ? undefined : social ? (x: DisparadorIA) => canalDeValor(x.value) === social || x.value === ctx.disparadorActual : false;
   const k = cron !== false && ctx.disparadorActual ? ctx.disparadores.findIndex((x) => x.value === ctx.disparadorActual) : -1;
+  // LOS BOTONES (25/10/2026), sólo si el flujo ya los tiene o el pedido habla de ellos (o de que lo sigan): pesan ~250 tokens y
+  // «cambia WhatsApp por Instagram» con el CRON pasaba el techo de Groq (tests/editar-ia-cambiar-quitar.test.ts).
+  const conRedes = pasos.some((p) => botonesDe(p).length > 0) || RX_PIDE_BOTONES.test(d.pedido);
+  // La respuesta pública (ticket #17): sólo si el flujo ya la tiene o el pedido habla de ella.
+  const conPublica = pasos.some((p) => respondeEnComentario(p)) || RX_PIDE_PUBLICO.test(d.pedido);
   return [
     ...bloquesDeContexto(ctx, d, { cron }),
+    ...(conRedes ? [BOTONES_SOCIAL, BOTONES_AL_EDITAR] : []),
+    ...(conPublica ? [RESPUESTA_PUBLICA, RESPUESTA_PUBLICA_AL_EDITAR] : []),
+    // La prueba A/B: sólo si el pedido habla de ella (el flujo que ya la tiene la muestra en `aIA` como "prueba_ab").
+    ...(RX_PIDE_AB.test(d.pedido) ? [PRUEBA_AB_IA] : []),
     ...(k >= 0 ? [`CRON ACTUAL: ${claveDisparo(k)}`] : []),
     `EL FLUJO ACTUAL (ids reales):\n${JSON.stringify(aIA(pasos, ctx))}`,
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
@@ -3872,10 +4113,13 @@ export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
  * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada), su GPT o su Gemini. Desde IA6 (lote 2 de IA,
  * 22/10/2026) un negocio con su IA corre la cascada con SU OpenAI y, desde IA16, también con SU Gemini (`PROVS_SU_IA`,
  * lib/solo-su-ia.ts; Martín: «Cada usuario debe poder pagar su token, su propia IA de gemini»). Lo cambió el chat de IA en
- * IA16, de acuerdo con Automations. tests/ia-aviso-sin-ia-propia.test.ts lo ata a `PROVS_SU_IA`.
+ * IA16, de acuerdo con Automations.
+ * ⚠️ LO QUE SE OFRECE NO ES LO QUE SE USA (Martín, 25/10/2026): ningún texto le ofrece Gemini a un negocio como «su IA»; se
+ * le ofrece su Claude o su GPT. Quien ya tiene su Gemini lo sigue usando (`PROVS_SU_IA` lo nombra): es sólo el texto.
+ * tests/ia-aviso-sin-ia-propia.test.ts lo fija.
  */
-export const SU_IA = 'tu Claude, tu GPT o tu Gemini';
-export const SU_CLAVE = 'tu clave de Claude, de OpenAI o de Gemini';
+export const SU_IA = 'tu Claude o tu GPT';
+export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
 
 /** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
 const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;
@@ -3958,6 +4202,8 @@ export type ListoIA = {
   cron?: CronAviso | null;
   /** Crear: lo que dijo MaKo («Creé «X»: sale … Manda «…»»), armado por el server con lo guardado (`textoDeCreada`). */
   texto?: string;
+  /** Qué IA lo contestó, en palabras («Con tu Claude», lib/quien-contesto.ts, 27/10/2026); ausente si no se sabe. */
+  ia?: string;
 } & Partial<ExtrasEdicionIA>;
 
 /**

@@ -32,7 +32,7 @@
   color: var(--cv-color-text-subtle);
 }
 .search input:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo en hover #1C213080 */
+  border-color: var(--cv-color-field-hover);
 }
 .search input:focus {
   outline: none;
@@ -63,7 +63,7 @@
 .chipOn:hover {
   border: 2px solid var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
   font-weight: 600;
 }
 .chip:focus-visible {
@@ -156,7 +156,7 @@
 .rowOn,
 .rowOn:hover {
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
 }
 .rowHi,
 .rowOn.rowHi {

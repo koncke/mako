@@ -94,6 +94,10 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // Cuántos teléfonos de la persona reciben avisos (Settings › Notificaciones › Celular, 25/10/2026): lee push_suscripciones.
+  { unidad: 'app/api/push/suscripcion/route.ts#GET', usa: ['getSupabaseServer', 'getUsuarioActual', 'usuarioPropio'], porque: 'cuenta los teléfonos de la persona con avisos (push_suscripciones): no le pide nada a una IA' },
+  // El interruptor de «Aprende solo» (P8, 25/10/2026): guarda el setting second-brain.recolector; la vuelta que le pide a la IA es el cron, adentro de conSuIADelNegocio.
+  { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector del negocio (un setting): no le pide nada a una IA; la que lee es la vuelta del cron, con la IA del negocio' },
   // Cómo se ve la tarjeta de una tarea (21/10/2026, las plantillas de tarjeta): de quien mira, en `usuarios.perfil`.
   { unidad: 'app/plan/board/tarjeta-actions.ts#guardarTarjetaPlanAction', usa: ['exigirSesion', 'getRolWsEfectivo', 'setTarjetaPlan'], porque: 'guarda cómo se ve la tarjeta de quien mira (usuarios.perfil): no le pide nada a una IA' },
   // El chat: abrir y listar las conversaciones (el turno, el POST, prende).
@@ -110,6 +114,9 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   // El Second Brain: leer el mapa, El Archivero sin leer documentos, y las áreas sin generar (sus POST prenden).
   { unidad: 'app/api/second-brain/cerebro/route.ts#GET', usa: ['cerebroQueSeDibuja', 'chatsMakoDeQuienMira', 'construirCerebro', 'soloAdminDeTab'], porque: 'arma el mapa con lecturas (lib/cerebro-grafo.ts)' },
   { unidad: 'app/api/second-brain/exportar/route.ts#POST', usa: ['AREAS', 'construirCerebro', 'construirVault', 'requireRolWs'], porque: 'exporta el mapa que ya está armado' },
+  // «Aprende solo» (25/10/2026, el recolector): el interruptor guarda un setting del negocio; la vuelta que lee y resume corre en el
+  // cron, adentro de `conSuIADelNegocio` (app/api/cron/second-brain-recolector).
+  { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector (un setting del negocio): no le pide nada a una IA' },
   { unidad: 'app/api/onboarding/archivero/route.ts#GET', usa: ['buildEstado', 'resolverWsAdmin', 'runWithWorkspace'], porque: 'lee el estado de El Archivero' },
   { unidad: 'app/api/onboarding/archivero/route.ts#DELETE', usa: ['borrarBinario', 'buildEstado', 'deleteFileRow', 'getFile', 'listFiles', 'resolverWsAdmin', 'runWithWorkspace', 'setPanorama'], porque: 'borra un documento y recalcula sin IA' },
   { unidad: 'app/api/onboarding/archivero/download/route.ts#GET', usa: ['getFile', 'resolverWsAdmin', 'runWithWorkspace', 'urlDescarga', 'urlPreview'], porque: 'firma el link de un archivo guardado' },
@@ -139,6 +146,12 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   { unidad: 'app/api/ia-del-negocio/probar-clave/route.ts#POST', usa: ['PROVS_SU_CLAVE', 'limitePorClave', 'personaDelRequest', 'probarSuClave'], porque: 'prueba la clave del negocio con un pedido que no cobra (lib/su-clave.ts): ninguna IA gratis' },
   // Llegó con el merge de main (Pagos en el chat, 2.27): lee la cobranza de la base y la arma, sin IA.
   { unidad: 'app/_chat/bloques/cobranza-actions.ts#leerCobranzaDelHilo', usa: ['TZ_DEFAULT', 'armarCobranza', 'cobrosDeFilas', 'getPorCobrar', 'getRolWsEfectivo', 'getWorkspaceActual', 'hoyEnWorkspace', 'tzDeWorkspace'], porque: 'lee «A quién cobrar» del hilo, de la base' },
+  // «Reportar a Soporte» del portal del ALUMNO (f78574342, 27/10/2026): el botón de toda la app (app/_ui/ReportarASoporte.tsx,
+  // que el Ops Center monta) lo nombra, por eso es del Ops Center. Llega a la cascada sólo DE PASO: `resolverAccesoPortal`
+  // vive en lib/curso-datos.ts → app/customer-success/entrega.ts → lib/nutricion.ts → lib/ai-cheap.ts. Lo que hace es validar
+  // el token del alumno y CREAR el ticket (lib/tickets-db.ts no llega a ninguna IA: /api/soporte/reportar, el mismo ticket con
+  // sesión, ni aparece en el grafo); su triage es con reglas (lib/tickets-reglas.ts), sin IA.
+  { unidad: 'app/api/compartido/curso/soporte/route.ts#POST', usa: ['SIN_ACCESO_PORTAL', 'TOPE_BYTES', 'claveDelAlumno', 'clientIp', 'crearTicket', 'emailDuenoWorkspace', 'identidadDe', 'leerJsonTopeado', 'leerTokenPortal', 'rateLimit', 'resolverAccesoPortal', 'runWithWorkspace', 'rutaDelPortal', 'sanearReporteSoporte', 'semillaDeRef', 'ticketDelAlumno'], porque: 'el alumno reporta un error: valida su token del portal y crea el ticket para el dueño del curso; no le pide nada a una IA' },
 ];
 
 /** Sus carpetas. Lo de app/ fuera de éstas (y de las compartidas, `app/_…`) es de OTRA tab. app/onboarding/ es suya por las
@@ -545,15 +558,15 @@ test('7. con sólo su PC (su Claude), las rutas de verdad no mandan NADA a una I
   const b = R.conSuPc.buscar.cuerpo;
   assert.equal(b.porTexto, true);
   assert.equal(b.ids, null);
-  assert.match(String(b.explico), /^Con tu propio Claude, para buscar con MaKo necesito tu clave de Claude, de OpenAI o de Gemini.* por texto\.$/);
-  // El Archivero: la foto y el texto piden su clave (de Claude, de OpenAI o de Gemini: IA16, su Gemini es su IA). Nunca la
+  assert.match(String(b.explico), /^Con tu propio Claude, para buscar con MaKo necesito tu clave de Claude o de OpenAI.* por texto\.$/);
+  // El Archivero: la foto y el texto piden su clave (de Claude o de OpenAI: sin ofrecer Gemini desde el 25/10/2026). Nunca la
   // IA de la plataforma.
-  assert.match(String(R.conSuPc.archiveroFoto.cuerpo.warnings?.[0]), /las fotos y los PDF escaneados los leo con tu clave de Claude, de OpenAI o de Gemini/);
-  assert.match(String(R.conSuPc.archiveroTexto.cuerpo.warnings?.[0]), /para leer tus documentos necesito tu clave de Claude, de OpenAI o de Gemini/);
+  assert.match(String(R.conSuPc.archiveroFoto.cuerpo.warnings?.[0]), /las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI/);
+  assert.match(String(R.conSuPc.archiveroTexto.cuerpo.warnings?.[0]), /para leer tus documentos necesito tu clave de Claude o de OpenAI/);
   // «tu clave … de Gemini» sí (es SU Gemini, IA16); la Gemini gratis de la plataforma, no.
   for (const c of Object.values(R.conSuPc)) assert.doesNotMatch(JSON.stringify(c.cuerpo), /IA gratis|Gemini \(gratis\)|Gemini gratis/, 'con su propio Claude no se le ofrece la Gemini gratis');
   // Un área (lib/ai-cheap.ts, `errorDeCascada`): sin nada suyo, lo de D6b; con un error suyo, tiene IA (nunca «no hay ninguna IA»).
-  assert.equal(R.errorAdentro, 'Con tu propio Claude, para armar los productos necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).');
+  assert.equal(R.errorAdentro, 'Con tu propio Claude, para armar los productos necesito tu clave de Claude o de OpenAI (en Integraciones).');
   assert.doesNotMatch(R.errorAdentroConSuyo, /No hay ninguna IA|Gemini/);
 });
 
@@ -563,7 +576,7 @@ test('8. el AI Analyst PROGRAMADO falla CERRADO con su PC: la fila queda en erro
   assert.equal(c.cuerpo.fallidos, 1, `el análisis vencido tenía que correr y fallar (${JSON.stringify(c.cuerpo)})`);
   // Rota: sacar `conSuIADelNegocio` del cron → sale a Gemini (prueba 7) y el error es el de la cascada, no éste.
   assert.equal(c.fila?.estado, 'error');
-  assert.equal(c.fila?.error, 'Con tu propio Claude, para analizar tus gráficos necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).');
+  assert.equal(c.fila?.error, 'Con tu propio Claude, para analizar tus gráficos necesito tu clave de Claude o de OpenAI (en Integraciones).');
   // Y el control llegó a la IA (corrió el análisis de verdad, no se cortó antes por no poder leer la hoja).
   assert.equal(R.sinSuIA.cronAnalista.fila?.estado, 'error');
   assert.doesNotMatch(String(R.sinSuIA.cronAnalista.fila?.error), /Con tu propio Claude/);

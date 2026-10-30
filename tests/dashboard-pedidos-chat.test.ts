@@ -21,6 +21,7 @@
 //   · se crea aunque MaKo no armó nada                         -> 9 / 1
 //   · archivar borra para siempre (borrarArchivada)            -> 9 / 1
 //   · la ruta lista las hojas de General sin la puerta         -> 9 / 1
+//   · el `tab` vuelve a `TAB_DEL_INFORME[informe]` (24/10)      -> 9 / 1
 //
 // Correr: npx tsx --test tests/dashboard-pedidos-chat.test.ts
 
@@ -125,9 +126,12 @@ test('General: sus bloques son de la hoja aunque la palabra sea de otra tab, tam
 
 test('el panel: entiende el pedido ANTES de editar, y a la edición va sólo lo de esta hoja', () => {
   const p = leer('app', 'dashboard', 'PanelEditarMako.tsx');
-  const i = p.indexOf('await pedirPedidos({ texto: mensaje, tab: TAB_DEL_INFORME[informe], actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });');
+  // El `tab` se decide en el lugar (5ed5728c6, 24/10/2026): `TAB_DEL_INFORME[informe]` daba `undefined` para el informe de
+  // una automatización («Métricas» de Automations), que vive en el Dashboard: todo lo que no es General va a su tab.
+  const i = p.indexOf("await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });");
   assert.ok(i > 0 && i < p.indexOf("fetch('/api/graficos/editar'"), 'la ruta de los pedidos va antes de la edición');
-  assert.match(p, /body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \}\)/);
+  assert.doesNotMatch(p, /TAB_DEL_INFORME\[informe\]/, 'con el informe de una automatización, `tab` sería undefined');
+  assert.match(p, /const datos = \{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \};[\s\S]*?body: JSON\.stringify\(datos\)/);
   assert.ok(p.indexOf("decir({ k: 'pedido'") > p.indexOf("fetch('/api/graficos/editar'"), 'las burbujas, después de lo de esta hoja');
   assert.match(p, /fetch\('\/api\/graficos\/ia', \{[\s\S]*?body: JSON\.stringify\(\{ pedido: efecto\.pedido\.slice\(0, TOPE_PEDIDO_IA\), informe \}\)/);
   assert.match(p, /if \(creada\) onCrearHoja\(creada\);/);

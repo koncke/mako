@@ -15,6 +15,8 @@ import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import type { ToolDef, ToolRunner } from '@/lib/anthropic';
 import { getWorkspaceActual, getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { veCopywriter } from '@/lib/copywriter/puerta';
+import { esCharlaDelCopywriter } from '@/lib/chart-chats-reglas';
 import { toolsDelRegistro, REGISTRO, type Vista } from '@/lib/api-mako/registro';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { canalKeyDe } from '@/lib/api-mako/canal';
@@ -28,6 +30,8 @@ import {
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { getPromptText } from '@/lib/prompt-render';
 import { CHART_PROMPT_SALUDO_DEFAULT, CHART_TITULO_DEFAULT } from '@/lib/prompt-defaults';
+import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos-del-chat';
+import { memoriaConArchivos, pedidoConLecturas, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
 // ⚠️ 300 Y NO MÁS, A PROPÓSITO (tanda 7 del Web Generator, 15/10/2026). El pendiente decía «/api/mako-doer sin
@@ -63,16 +67,17 @@ Nunca inventes nombres, números, fechas ni mensajes: si una herramienta no lo t
  * del workspace (como siempre); los de un closer o setter son SUYOS (`mako-doer:u<id>`), como los del
  * teléfono, y no abre ningún otro.
  */
-async function quienPide(): Promise<{ admin: boolean; clave: string }> {
-  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+async function quienPide(): Promise<{ admin: boolean; clave: string; veCopywriter: boolean }> {
+  const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);
   const admin = rolWs === 'admin';
-  return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}` };
+  return { admin, clave: admin ? CHART_KEY : `${CHART_KEY}:u${sesion?.sub ?? 'sin-sesion'}`, veCopywriter: copy };
 }
 
-/** ¿Este id es un chat que quien pide puede abrir? Un admin, cualquiera (salvo los del teléfono, aparte). */
-async function puedeAbrir(sessionId: number, q: { admin: boolean; clave: string }): Promise<boolean> {
-  if (q.admin) return true;
+/** ¿Este id es un chat que quien pide puede abrir? Un admin, cualquiera (salvo los del teléfono, aparte, y la charla de un
+ *  guion del Copywriter si no pasa su puerta: 28/10/2026). */
+async function puedeAbrir(sessionId: number, q: { admin: boolean; clave: string; veCopywriter: boolean }): Promise<boolean> {
   const s = Number.isInteger(sessionId) && sessionId > 0 ? await getSession(sessionId) : null;
+  if (q.admin) return !s || !esCharlaDelCopywriter(s.chart_key) || q.veCopywriter;
   return !!s && s.chart_key === q.clave;
 }
 
@@ -188,7 +193,7 @@ export async function GET(req: NextRequest) {
   try {
     const q = await quienPide();
     // Un closer o setter sólo ve los SUYOS: ni la lista de todos ni los chats de otro.
-    if (sp.get('all')) return Response.json({ sessions: q.admin ? await listAllSessions(arch) : await listSessions(q.clave, arch) });
+    if (sp.get('all')) return Response.json({ sessions: q.admin ? (await listAllSessions(arch)).filter((s) => !esCharlaDelCopywriter(s.chart_key) || q.veCopywriter) : await listSessions(q.clave, arch) });
     const sessionId = sp.get('sessionId');
     // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta (por workspace) no se abre
     // (lib/chart-chats.ts, `esSesionDelTelefono`).
@@ -211,7 +216,16 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   let body: { action?: string; sessionId?: number; titulo?: string; mensaje?: string; valor?: boolean };
-  try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
+  let adjuntos: AdjuntoListo[] = [];
+  if (traeArchivos(req)) {
+    // Con fotos o PDF (28/10/2026, las cajas unificadas): se leen acá (lib/adjuntos-del-chat.ts) y su lectura va con el pedido.
+    const p = await pedidoConArchivos(req);
+    if (!p.ok) return Response.json({ error: p.error }, { status: p.status });
+    try { body = JSON.parse(p.campos.datos ?? '{}'); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
+    adjuntos = p.adjuntos;
+  } else {
+    try { body = await req.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
+  }
   const { action, titulo = 'Chat' } = body;
 
   try {
@@ -247,16 +261,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === 'send') {
-      const { sessionId, mensaje } = body;
-      if (!sessionId || !mensaje) return Response.json({ error: 'sessionId y mensaje requeridos' }, { status: 400 });
+      const { sessionId } = body;
+      const escrito = (body.mensaje ?? '').trim();
+      if (!sessionId || (!escrito && !adjuntos.length)) return Response.json({ error: 'sessionId y mensaje requeridos' }, { status: 400 });
+      const { lecturas, noLeidos } = await leerLosArchivos(adjuntos, 'mako-chat');
+      const noPude = noLeidos.length ? `No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escríbeme lo que dice.` : '';
+      if (adjuntos.length && !lecturas.length && !escrito) return Response.json({ error: noPude }, { status: 422 });
+      // A la memoria, lo escrito con los nombres; al modelo, con lo que el sistema leyó.
+      const mensaje = memoriaConArchivos(escrito, adjuntos.map((a) => a.nombre));
+      const pedido = pedidoConLecturas(escrito, lecturas, adjuntos[0]?.tipo);
       const s = await getSession(sessionId);
       if (!s) return Response.json({ error: 'sesión inexistente' }, { status: 404 });
       const history = await getSessionMessages(sessionId);
       await appendMessage(sessionId, 'user', mensaje);
-      const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? 'Chat', query: mensaje, admin: q.admin }), await buildMsgs(history, mensaje), mensaje);
+      const resp = await responder(await buildDoerSystem({ titulo: s.titulo ?? 'Chat', query: escrito || mensaje, admin: q.admin }), await buildMsgs(history, pedido), escrito || mensaje);
       await appendMessage(sessionId, 'assistant', resp);
       if (!s.titulo) { const t = await generarTitulo(`${mensaje}\n${resp}`); if (t) await renameSession(sessionId, t); }
-      return Response.json({ messages: await getSessionMessages(sessionId) });
+      return Response.json({ messages: await getSessionMessages(sessionId), ...(noPude ? { aviso: noPude } : {}) });
     }
 
     if (action === 'rename') {

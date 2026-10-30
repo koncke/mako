@@ -19,7 +19,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Elemento } from '@/lib/graficos-catalogo';
 import { metricaExperimento, textoDireccion, type PropuestaExperimento } from '@/lib/experimentos-catalogo';
-import { fmtDelta, fmtFechaCorta, fmtVal } from '@/lib/experimentos-formato';
+import { esPruebaAB, fmtDelta, fmtFechaCorta, fmtVal } from '@/lib/experimentos-formato';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 type Punto = { fecha: string; valor: number | null };
@@ -28,7 +28,7 @@ type Leido = {
   metrica: string; metrica_label: string | null; direccion: 'subir' | 'bajar'; ventana_dias: number;
   baseline_valor: number | null; resultado_valor: number | null; veredicto: 'validada' | 'refutada' | 'no_concluyente' | null;
   aprendizaje: string | null; fecha_inicio: string | null; fecha_fin: string | null;
-  config: { serie_cierre?: Punto[] } | null;
+  config: { serie_cierre?: Punto[]; variante?: string } | null;
   medicion: {
     baseline: number | null; actual: number | null; dias_corridos: number; dias_total: number; delta_pct: number | null;
     va_bien: boolean | null; serie: Punto[]; baseline_desde: string; baseline_hasta: string;
@@ -116,7 +116,10 @@ export function ElementoExperimento({ e, editando, compartido }: { e: Elemento; 
     return (
       <Caja>
         <Cabeza titulo={titulo} estado={v.texto} color={v.color} />
-        <Numeros nombre={nombreMetrica} antes={fmtVal(leido.baseline_valor, metrica)} ahora={fmtVal(leido.resultado_valor, metrica)} />
+        {/* Una prueba A/B (lib/pruebas/concluir.ts) no es «antes / ahora»: es A contra B, al mismo tiempo. */}
+        <Numeros nombre={nombreMetrica}
+          antes={esPruebaAB(metrica) ? `A ${fmtVal(leido.baseline_valor, metrica)}` : fmtVal(leido.baseline_valor, metrica)}
+          ahora={esPruebaAB(metrica) ? `${leido.config?.variante ?? 'B'} ${fmtVal(leido.resultado_valor, metrica)}` : fmtVal(leido.resultado_valor, metrica)} />
         {leido.aprendizaje && <p style={S.aprendizaje}>{leido.aprendizaje}</p>}
         <Serie puntos={leido.config?.serie_cierre ?? []} color={v.color} />
       </Caja>

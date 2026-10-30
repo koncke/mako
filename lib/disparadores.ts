@@ -38,6 +38,9 @@ import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo, ty
 import { OP_AVISAR } from './flujo-legado';
 import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
+// Las PALABRAS CLAVE del CRON de comentario (ticket #17 de Leandro, 28/10/2026, como ManyChat). Puro.
+import { sanearPalabras, esCoincidencia, comentarioDispara, textoDePalabras, type Coincidencia } from './palabras-clave';
+import { sanearPublicacion, publicacionDispara, textoDePublicacion, type PublicacionCron } from './publicacion-cron';
 
 // ── Los tipos de disparador nuevos ──────────────────────────────────────────────────────────────
 
@@ -144,14 +147,19 @@ export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: s
 export type EventoCanal = { subtipo: string; label: string; apagado?: string };
 
 /**
- * LOS DE INSTAGRAM, COMO LOS OFRECE MANYCHAT (CRON punto 6, con la captura). El clic en un anuncio
- * ManyChat lo muestra apagado (Meta lo habilita por cuenta y por campaña): acá también.
+ * LOS DE INSTAGRAM, COMO LOS OFRECE MANYCHAT (CRON punto 6, con la captura). El clic en un anuncio nació apagado, como lo
+ * muestra ManyChat (Meta lo habilita por cuenta y por campaña).
+ * ⚠️ PRENDIDO EL 28/10/2026 (la llamada con Teo: Martín vendió Automations como «ManyChat 2.0», y el Cerebro lo pidió): el
+ * webhook YA lo producía (`subtipoDeReferral`, lib/canal-social.ts: un mensaje con `metadata.referral.ad_id`), sólo la
+ * pantalla lo escondía. Ojo: Meta manda primero el post del anuncio SIN referral (cuenta como «envía un mensaje») y el
+ * referral en el mensaje que sigue; por eso arranca con el primer texto de la persona, no con el toque. Nunca se probó con
+ * un anuncio de verdad.
  */
 export const EVENTOS_INSTAGRAM: readonly EventoCanal[] = [
   { subtipo: 'comentario', label: 'El usuario comenta tu publicación o Reel' },
   { subtipo: 'historia', label: 'El usuario responde a tu historia' },
   { subtipo: 'dm', label: 'El usuario envía un mensaje' },
-  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Instagram', apagado: 'Todavía no' },
+  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Instagram' },
   { subtipo: 'en_vivo', label: 'El usuario comenta en tu En vivo' },
   { subtipo: 'ref', label: 'El usuario hace clic en un enlace de referencia' },
 ];
@@ -165,7 +173,8 @@ export const EVENTOS_INSTAGRAM: readonly EventoCanal[] = [
  * tests/disparadores-canal-social.test.ts cruza las dos tablas.
  */
 export const EVENTOS_MESSENGER: readonly EventoCanal[] = [
-  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Facebook', apagado: 'Todavía no' },
+  // El de Facebook, prendido con el de Instagram (28/10/2026): el webhook lo produce igual (`referral.received` también).
+  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Facebook' },
   { subtipo: 'comentario', label: 'El usuario comenta tu publicación' },
   { subtipo: 'dm', label: 'El usuario envía un mensaje' },
   { subtipo: 'ref', label: 'El usuario hace clic en un enlace de referencia' },
@@ -196,7 +205,7 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
   | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
-  | 'reunion_tareas_al_plan';
+  | 'reunion_tareas_al_plan' | 'closing_ia_caida' | 'social_tope';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -226,7 +235,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -323,6 +332,15 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // fathom-plan (lib/reunion-auto.ts), UNO por corrida, con lo que leyó (lib/reunion-plan-aviso.ts). Si fue una o varias y si
   // completa una lectura a medias lo preguntan las CONDITION (`plan_varias`, `plan_resto`).
   { subtipo: 'reunion_tareas_al_plan', aviso: 'reunion-tareas-al-plan', label: 'MaKo deja en el Plan de un negocio las tareas de sus reuniones', trae: ['reunionplan'], plataforma: true },
+  // EL CLAUDE DE UN NEGOCIO NO PUEDE ANALIZAR SUS LLAMADAS (26/10/2026, docs/hallazgos-closing.md): sin crédito, la clave
+  // borrada o sin permiso. Lo emite el Closing (lib/closing-ia-caida.ts) UNA vez por incidente, con los datos
+  // (`datosIaCaida`). El texto de cada motivo, literal, lo elige la CONDITION de su fila (`ia_caida_motivo`).
+  { subtipo: 'closing_ia_caida', aviso: 'closing-ia-caida', label: 'El Claude de un negocio no puede analizar sus llamadas', trae: ['iacaida'], plataforma: true },
+  // INSTAGRAM O ZERNIO FRENAN LOS MENSAJES DE UN NEGOCIO (28/10/2026, Leandro: «que MaKo me avise antes de que se trabe»). Lo
+  // emite el motor al final de una corrida que se topó con un tope (o que se acerca al de Meta), no más de uno por hora
+  // (`avisarTopesSociales`, lib/nutricion.ts), con los datos (`datosTopeSocial`, lib/tope-social.ts). Lo que no salió no
+  // se pierde: vuelve a salir solo. El texto de «frenado» y de «cerca» lo elige la CONDITION de su fila (`tope_estado`).
+  { subtipo: 'social_tope', aviso: 'social-tope', label: 'Instagram o Zernio frenan los mensajes de un negocio', trae: ['tope'], plataforma: true },
 ];
 
 /**
@@ -414,6 +432,18 @@ export type Disparador = {
   ignorar?: number[];
   /** Instagram / Messenger / Email: CUÁL de sus eventos (`EVENTOS_*`). */
   subtipo?: string | null;
+  /**
+   * Sólo el CRON de comentario de Instagram o Messenger (ticket #17, lib/palabras-clave.ts): arranca sólo si el comentario
+   * tiene una de estas palabras. Ausente o vacía = cualquier comentario, como siempre.
+   */
+  palabras?: string[];
+  /** Cómo se comparan las `palabras`: ausente = «contiene». */
+  coincidencia?: Coincidencia;
+  /**
+   * Sólo el CRON de comentario (ticket #25, lib/publicacion-cron.ts): arranca sólo con los comentarios de ESA publicación o
+   * Reel. Ausente = cualquier publicación, como siempre.
+   */
+  publicacion?: PublicacionCron;
   /** Recurrente: cuándo (lib/cron-aviso.ts). Con horario, el disparador NO responde a eventos. */
   cron?: CronAviso | null;
   /** Recurrente: la próxima ocurrencia agendada (el ancla; ver lib/nutricion-agenda.ts). */
@@ -452,6 +482,14 @@ const CON_IGNORAR: ReadonlySet<string> = new Set([TRIGGER_ETIQUETA_AGREGADA, TRI
 /** Las que llevan `subtipo` (el evento de MaKo también: cuál de `EVENTOS_MAKO`). */
 const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO, TRIGGER_PAGO]);
 
+/** ¿Este CRON lleva palabras clave? El comentario a una publicación o Reel (y al En vivo) de Instagram o Messenger. */
+export const conPalabras = (t: string, subtipo: string | null | undefined): boolean =>
+  (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && (subtipo === 'comentario' || subtipo === 'en_vivo');
+
+/** ¿Este CRON puede elegir la publicación (ticket #25)? Sólo el comentario a una publicación o Reel: un En vivo no se elige de antemano. */
+export const conPublicacion = (t: string, subtipo: string | null | undefined): boolean =>
+  (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && subtipo === 'comentario';
+
 /**
  * CADA DISPARADOR LLEVA SÓLO LOS CAMPOS DE SU TIPO. Un campo de otro tipo que sobrevive a un cambio
  * es un ámbito que nadie ve (la etiqueta vieja de un disparador que ahora es de etapa) — la misma
@@ -474,6 +512,19 @@ function higiene(d: Disparador): Disparador {
   if (t === TRIGGER_ETIQUETA) out.etiqueta_id = d.etiqueta_id ?? null;
   if (CON_IGNORAR.has(t)) out.ignorar = [...new Set((d.ignorar ?? []).filter((n) => idPositivo(n) != null))].slice(0, TOPE_IGNORAR);
   if (CON_SUBTIPO.has(t)) out.subtipo = d.subtipo ?? null;
+  // Las palabras clave, sólo en un CRON de comentario (ticket #17): en otro evento serían un filtro que nadie ve.
+  if (conPalabras(t, out.subtipo)) {
+    const palabras = sanearPalabras(d.palabras);
+    if (palabras.length) {
+      out.palabras = palabras;
+      if (d.coincidencia === 'exacta') out.coincidencia = 'exacta';
+    }
+  }
+  // La publicación, sólo en un CRON de comentario (ticket #25): en otro evento sería un filtro que nadie ve.
+  if (conPublicacion(t, out.subtipo)) {
+    const p = sanearPublicacion(d.publicacion);
+    if (p) out.publicacion = p;
+  }
   if (d.cron) {
     out.cron = d.cron;
     out.cron_proxima_at = d.cron_proxima_at ?? null;
@@ -498,6 +549,9 @@ export function sanearDisparador(raw: unknown): Disparador | null {
     etiqueta_id: idPositivo(o.etiqueta_id),
     ignorar: Array.isArray(o.ignorar) ? o.ignorar.map(idPositivo).filter((n): n is number => n != null) : [],
     subtipo: typeof o.subtipo === 'string' && /^[a-z_]{1,30}$/.test(o.subtipo) ? o.subtipo : null,
+    palabras: sanearPalabras(o.palabras),
+    ...(esCoincidencia(o.coincidencia) ? { coincidencia: o.coincidencia } : {}),
+    ...(sanearPublicacion(o.publicacion) ? { publicacion: sanearPublicacion(o.publicacion)! } : {}),
     cron: o.cron == null ? null : sanearCron(o.cron),
     cron_proxima_at: fechaIso(o.cron_proxima_at),
     grupo: o.grupo === true,
@@ -578,7 +632,10 @@ export function disparadoresDe(row: FilaDisparadores): Disparador[] {
   const primero = higiene({
     ...cols,
     id: mismo ? g0.id : (g0 && !guardados.slice(1).some((d) => d.id === 'd1') ? 'd1' : nuevoIdDisparador(guardados.map((d) => d.id))),
-    ...(mismo ? { ignorar: g0.ignorar, subtipo: g0.subtipo, grupo: g0.grupo } : {}),
+    // ⚠️ Y LAS PALABRAS CLAVE (ticket #17, 28/10/2026): el primero se rearma de las COLUMNAS, que no las tienen; sin
+    // esto, el CRON de comentario de una automatización con un solo CRON las perdía en cada lectura, sin un error.
+    // Y LA PUBLICACIÓN (ticket #25): la misma trampa, con la misma salida.
+    ...(mismo ? { ignorar: g0.ignorar, subtipo: g0.subtipo, grupo: g0.grupo, palabras: g0.palabras, coincidencia: g0.coincidencia, publicacion: g0.publicacion } : {}),
   });
   const resto = guardados.slice(1).filter((d) => d.id !== primero.id);
   return [primero, ...resto].slice(0, TOPE_DISPARADORES);
@@ -611,6 +668,10 @@ export function firmaDisparador(d: Disparador): string {
     h.trigger_tipo, DE_ETAPA.has(h.trigger_tipo) ? normalizarEtapas(h.etapas?.length ? h.etapas : [h.etapa ?? '']) : null,
     h.funnel_id ?? null, h.producto_id ?? null, h.etiqueta_id ?? null,
     [...(h.ignorar ?? [])].sort((a, b) => a - b), h.subtipo ?? null, firmaCron(h.cron), h.grupo === true,
+    // Las palabras clave (ticket #17): «fiesta» y «guía» no es el mismo CRON que cualquier comentario.
+    ...(h.palabras?.length ? [[...h.palabras].map((x) => x.toLowerCase()).sort(), h.coincidencia ?? 'contiene'] : []),
+    // La publicación (ticket #25): la de la guía no es el mismo CRON que cualquier publicación. Sólo el id: el texto es cómo se la nombra.
+    ...(h.publicacion ? [`publicacion:${h.publicacion.id}`] : []),
   ]);
 }
 
@@ -810,6 +871,16 @@ export const MOTIVO_EVENTO_RETIRADO = 'Ese evento se retiró: va en «Un Lead Ag
 export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'pago';
 
 /**
+ * Lo que el evento dice de sí para decidir: la etiqueta, el subtipo del canal y, de un comentario, lo que escribió la persona
+ * (`texto`: las palabras clave del CRON de comentario, ticket #17).
+ */
+export type CtxDisparo = {
+  etiquetaId?: number | string | null; subtipo?: string | null; texto?: string | null;
+  /** De qué publicación es el comentario (`comment.platformPostId`): la publicación del CRON, ticket #25. */
+  publicacion?: string | null;
+};
+
+/**
  * ¿ESTE disparador arranca con ESTE evento? Es la pregunta fina del evento (la gruesa, qué
  * `trigger_tipo` mirar, la hace `TRIGGERS_POR_EVENTO` en lib/nutricion.ts).
  *
@@ -819,13 +890,14 @@ export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | '
  *   · «Se le puso «X»»: sólo X.
  *   · «Se agrega / se elimina etiqueta a un lead»: CUALQUIERA, salvo las de `ignorar` (CRON punto 3).
  *   · Instagram / Messenger: el MISMO evento (`subtipo`). Sin subtipo en el evento, nada: un webhook
- *     que no dice qué pasó no puede caer en «entonces todos».
+ *     que no dice qué pasó no puede caer en «entonces todos». Y el de comentario, con sus PALABRAS CLAVE si tiene
+ *     (`comentarioDispara`, lib/palabras-clave.ts): sin el texto del comentario, no arranca.
  *   · Email: el email recibido.
  */
 export function disparaPorEvento(
   d: Pick<Disparador, 'trigger_tipo'> & Partial<Disparador>,
   evento: EventoDisparador | string,
-  ctx?: { etiquetaId?: number | string | null; subtipo?: string | null } | null,
+  ctx?: CtxDisparo | null,
 ): boolean {
   if (d.cron) return false;
   const t = d.trigger_tipo;
@@ -838,7 +910,11 @@ export function disparaPorEvento(
   }
   if (evento === 'instagram' || evento === 'messenger') {
     const sub = typeof ctx?.subtipo === 'string' ? ctx.subtipo : '';
-    return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub;
+    // Las PALABRAS CLAVE del comentario (ticket #17): con el texto de ESTE comentario, no el de cuando nació el lead.
+    // Y LA PUBLICACIÓN (ticket #25): con una elegida, sólo los comentarios de ésa; uno que no dice de cuál es, ninguno.
+    return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub
+      && comentarioDispara(ctx?.texto, conPalabras(t, sub) ? d.palabras : null, d.coincidencia)
+      && publicacionDispara(conPublicacion(t, sub) ? d.publicacion : null, ctx?.publicacion);
   }
   if (evento === 'email_recibido') return t === TRIGGER_EMAIL_RECIBIDO;
   // Pagos: el MISMO evento (`subtipo`), como Instagram. Sin subtipo, nada: un aviso de la pasarela que no
@@ -923,7 +999,7 @@ export function unaPorSecuencia<T extends { id: number }>(vistas: readonly T[]):
 export function escuchaElEvento(
   secs: readonly SecuenciaConDisparo[],
   evento: EventoDisparador | string,
-  ctx?: { etiquetaId?: number | string | null; subtipo?: string | null } | null,
+  ctx?: CtxDisparo | null,
 ): boolean {
   return secs.some((s) => vistasPorDisparador(s).some((v) => disparaPorEvento(v.disparador, evento, ctx)));
 }
@@ -935,6 +1011,21 @@ export function escuchaElEvento(
  */
 export function tieneRecurrenteAlGrupo(sec: SecuenciaConDisparo): boolean {
   return vistasPorDisparador(sec).some((v) => v.cron != null && v.disparador.grupo === true);
+}
+
+/**
+ * LOS CANALES EN LOS QUE LA AUTOMATIZACIÓN ARRANCA CON UN COMENTARIO a una publicación (ticket #17 de Leandro,
+ * 28/10/2026): ahí el editor del mensaje ofrece «Responder en público, debajo del comentario». El En vivo no: la
+ * respuesta pública es a una publicación o un Reel.
+ */
+export function canalesConComentario(lista: readonly Pick<Disparador, 'trigger_tipo' | 'subtipo'>[]): Array<'instagram' | 'messenger'> {
+  const out = new Set<'instagram' | 'messenger'>();
+  for (const d of lista) {
+    if (d.subtipo !== 'comentario') continue;
+    if (d.trigger_tipo === TRIGGER_INSTAGRAM) out.add('instagram');
+    else if (d.trigger_tipo === TRIGGER_MESSENGER) out.add('messenger');
+  }
+  return [...out];
 }
 
 // ── El Recurrente: «A quién» ─────────────────────────────────────────────────────────────────────
@@ -1048,7 +1139,11 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
   if (t === TRIGGER_ETIQUETA_QUITADA) return TEXTO_ETIQUETA_QUITADA;
   if (CON_SUBTIPO.has(t)) {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
-    return ev?.label ?? 'Elige el evento';
+    // Con las palabras clave del comentario (ticket #17): «El usuario comenta tu publicación o Reel con «fiesta» o «guía»».
+    const palabras = conPalabras(t, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
+    // Y la publicación (ticket #25): «El usuario comenta tu publicación o Reel «Te dejo la guía…» con «fiesta»».
+    const publicacion = conPublicacion(t, d.subtipo) ? textoDePublicacion(d.publicacion) : '';
+    return ev ? [ev.label, publicacion, palabras].filter(Boolean).join(' ') : 'Elige el evento';
   }
   // Un evento de antes se dice como es, SIN marca (revisión de las tarjetas, 23/10/2026, punto 12). «(de antes)» era
   // un estado interno pegado a la tarjeta, y la undécima tanda ya lo había rechazado: «Fuera (de antes)»
@@ -1132,7 +1227,15 @@ export type EntradaCronIA = {
   productos: readonly ProductoParaDisparo[];
   etiquetas: readonly EtiquetaParaDisparo[];
   conectados: CanalesConectadosIA;
+  /**
+   * Ofrecer el «clic en un anuncio» (prendido el 28/10/2026): SÓLO si el pedido habla de anuncios (`PIDE_ANUNCIO`). Son dos
+   * opciones más (Instagram y Messenger) y el prompt de Crear con IA está en el techo de Groq (tests/crear-ia-tercera).
+   */
+  anuncio?: boolean;
 };
+
+/** ¿El pedido habla de anuncios? Entonces la IA ve el CRON «clic en un anuncio» (`opcionesCronIA`). */
+export const PIDE_ANUNCIO = /\banuncios?\b|\bads?\b|publicidad/i;
 
 /** El título de la sección de cada clase: el rótulo de su botón en la primera pantalla del CRON. */
 const tituloDeClase = (clase: ClaseDisparador): string => CLASES_DISPARADOR.find((c) => c.clase === clase)?.label ?? clase;
@@ -1176,7 +1279,8 @@ export function opcionesCronIA(e: EntradaCronIA): Array<{ title: string; options
   });
   for (const clase of CLASES_DE_EVENTOS) {
     if (e.conectados[clase] !== true) continue;
-    const options = eventosParaIA(clase).map((ev) => ({ value: valorEventoIA(clase, ev.subtipo), label: ev.label }));
+    const options = eventosParaIA(clase).filter((ev) => ev.subtipo !== 'anuncio' || e.anuncio === true)
+      .map((ev) => ({ value: valorEventoIA(clase, ev.subtipo), label: ev.label }));
     if (options.length) out.push({ title: tituloDeClase(clase), options });
   }
   return out;
@@ -1269,7 +1373,7 @@ export function textosParaElGrupo(pasos: readonly PasoGrafo[]): string[] {
     if (i < 0) return;
     const p = pasos[i];
     const clase = claseDe(p);
-    if (clase === 'condicion' || clase === 'respuesta' || clase === 'ir_a') return;
+    if (clase === 'condicion' || clase === 'respuesta' || clase === 'ir_a' || clase === 'ab') return;
     if (clase === 'mensaje' && p.canal !== 'email') {
       const partes = partesExplicitas(p as Parameters<typeof partesExplicitas>[0]);
       if (partes) {

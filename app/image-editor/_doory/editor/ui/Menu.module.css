@@ -33,15 +33,15 @@
 .item:hover,
 .item:focus-visible {
   outline: none;
-  background: rgb(64 79 109 / 0.06); /* Canva: #404F6D0F */
+  background: var(--cv-color-bg-muted);
 }
 
 .item:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-color-press);
 }
 
 .item[aria-disabled='true'] {
-  color: rgb(28 33 48 / 0.5);
+  color: var(--cv-color-field-hover);
   cursor: default;
   pointer-events: none;
 }

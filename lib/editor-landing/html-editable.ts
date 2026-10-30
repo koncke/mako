@@ -31,9 +31,23 @@
 //    política de la página publicada (pagina-publica.ts): si se toca una coma, el hash cambia solo.
 // =============================================================================
 
-import { NODO, TOPES, textoDeHtmlEditable, type JsonNodo } from './doc';
+import { NODO, TOPES, textoDeHtmlEditable, tituloDeTarjeta, type JsonNodo } from './doc';
 
 export { textoDeHtmlEditable };
+
+/**
+ * El nombre corto de una sección (su franja al reordenar en el editor, 26/10/2026): en una de diseño, el primer título
+ * (h1–h3) de su HTML, porque su primer texto suele ser una etiqueta chica o el menú; en una de bloques, su título.
+ */
+export function rotuloDeSeccion(t: JsonNodo): string {
+  const html = (t.content ?? []).find((n) => n.type === NODO.htmlEditable)?.attrs?.html;
+  if (typeof html === 'string') {
+    const h = /<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/i.exec(html)?.[1] ?? '';
+    const texto = h.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    if (texto) return texto.slice(0, 80);
+  }
+  return tituloDeTarjeta(t).trim().slice(0, 80);
+}
 
 /** La raíz de una página libre (y de la vista de una sección en el editor). */
 export const CLASE_LIBRE = 'gm-libre';
@@ -76,7 +90,7 @@ export function tieneEditables(paginas: ReadonlyArray<{ doc?: { content?: JsonNo
  * Más `.gm-libre-seccion { display: contents }`: el header pegajoso tiene que tener a la PÁGINA como
  * contenedor (una caja por sección lo dejaría pegado sólo a su propio alto).
  */
-export const CSS_BASE_LIBRE = [
+const CSS_PREFLIGHT_LIBRE = [
   '@layer gm-libre-base {',
   '.gm-libre, .gm-libre *, .gm-libre ::after, .gm-libre ::before, .gm-libre ::backdrop { box-sizing: border-box; margin: 0; padding: 0; border: 0 solid; }',
   '.gm-libre { line-height: 1.5; -webkit-text-size-adjust: 100%; tab-size: 4; -webkit-tap-highlight-color: transparent; }',
@@ -101,8 +115,68 @@ export const CSS_BASE_LIBRE = [
   '.gm-libre :is(button, input:where([type="button"], [type="reset"], [type="submit"])) { appearance: button; }',
   '.gm-libre [hidden]:where(:not([hidden="until-found"])) { display: none !important; }',
   '}',
+];
+
+/** Lo que una página libre necesita SIEMPRE (también la copia de una página, que no lleva la base de Tailwind). */
+const CSS_ESTRUCTURA_LIBRE = [
   '.gm-libre-seccion { display: contents; }',
-].join('\n');
+  // El ancla de una sección de diseño (render.ts): una caja de alto 0, con el mismo aire arriba que una de bloques.
+  '.gm-libre-seccion > .gm-ancla-seccion { display: block; height: 0; scroll-margin-top: 5em; }',
+];
+
+export const CSS_BASE_LIBRE = [...CSS_PREFLIGHT_LIBRE, ...CSS_ESTRUCTURA_LIBRE].join('\n');
+
+/**
+ * La base de una página libre según su hoja: la COPIA de una página (`config.diseno.sinBase`, copia-identica.ts) va sin
+ * el preflight de Tailwind. La página original se apoyaba en los márgenes y tamaños del navegador donde su hoja no dice
+ * nada (un h1 con su tamaño, una lista con viñetas), y el preflight se los sacaba.
+ */
+export const baseLibre = (sinBase?: boolean): string => (sinBase ? CSS_ESTRUCTURA_LIBRE.join('\n') : CSS_BASE_LIBRE);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los envoltorios de una copia
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cuántas etiquetas pueden envolver una sección, y lo que mide cada una (con su clase y su estilo en línea). */
+export const TOPES_ENVOLTORIOS = { cantidad: 14, caracteres: 6_000 } as const;
+/** Las etiquetas que pueden envolver: cajas, nada que cargue o haga algo. */
+const ENVOLTORIOS_PERMITIDOS = new Set(['div', 'section', 'main', 'article', 'header', 'footer', 'nav', 'aside', 'span', 'ul', 'ol', 'li', 'figure']);
+const RE_APERTURA = /^<([a-z][a-z0-9]*)(?:\s[^<>]*)?>$/i;
+
+/** Los envoltorios de una sección, con forma (`<tag …>`, sólo cajas, con sus topes). null si no hay o no sirven. */
+export function envoltoriosValidos(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || !raw.length || raw.length > TOPES_ENVOLTORIOS.cantidad) return null;
+  const out: string[] = [];
+  for (const e of raw) {
+    if (typeof e !== 'string' || e.length > TOPES_ENVOLTORIOS.caracteres) return null;
+    const m = RE_APERTURA.exec(e.trim());
+    if (!m || !ENVOLTORIOS_PERMITIDOS.has(m[1].toLowerCase())) return null;
+    out.push(e.trim());
+  }
+  return out;
+}
+
+/** La etiqueta que cierra un envoltorio (`<main class="x">` → `</main>`). */
+export const cierreDe = (apertura: string): string => `</${(RE_APERTURA.exec(apertura)?.[1] ?? 'div').toLowerCase()}>`;
+/** La marca de la caja que el editor edita (adentro de los envoltorios): lo de afuera no se guarda con la sección. */
+export const ATTR_RAIZ_EDITABLE = 'data-gm-raiz';
+/** La marca de la raíz en un HTML que viene de afuera (se saca: la pone sólo el editor). */
+export const RE_ATTR_RAIZ = /\sdata-gm-raiz(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*))?/gi;
+
+/**
+ * Los enlaces «a otra página» de un diseño (`href="pagina:<id>"`, el selector de destino) a la dirección de esa página, al
+ * PUBLICAR (26/10/2026): el HTML de un diseño va tal cual a la página, y un `pagina:` crudo haría que el navegador busque
+ * una aplicación para ese esquema. `resolver` es el de los botones de bloque (render.ts, `resolverHref`); lo que no
+ * resuelve, o un id que no es de página, queda en `#`. Lo demás vuelve byte por byte.
+ */
+export function conEnlacesDePaginas(html: string, resolver?: (href: string) => string | null): string {
+  if (!html.includes('pagina:')) return html;
+  return html.replace(/(\shref=")(pagina:[^"]*)(")/gi, (_t, abre: string, h: string, cierra: string) => {
+    const r = /^pagina:[A-Za-z0-9_-]{1,60}$/.test(h) && resolver ? resolver(h) : null;
+    const v = r && !r.startsWith('pagina:') ? r : '#';
+    return abre + v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + cierra;
+  });
+}
 
 /**
  * ¿Un medio (src, poster, srcset, un url() de un estilo) puede cargarse desde una sección de diseño? Sólo una URL
@@ -113,13 +187,25 @@ export const CSS_BASE_LIBRE = [
 export function medioPermitido(raw: string): boolean {
   const v = raw.trim();
   if (/^data:image\/(png|jpe?g|gif|webp|avif);/i.test(v)) return true;
+  // Un SVG en base64 (el logo de una copia, copia-identica-server.ts): como imagen o fondo no corre nada ni carga nada.
+  if (/^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/i.test(v)) return true;
   if (!/^https:\/\//i.test(v)) return false;
   try {
-    const ruta = decodeURIComponent(new URL(v).pathname).replace(/\/+/g, '/').toLowerCase();
+    const u = new URL(v);
+    // La ruta /api/ sólo importa en NUESTROS dominios (la cookie de MaKo); la de otro sitio no lleva nada nuestro (28/10/2026:
+    // respond.io sirve sus imágenes desde assets1-proxy.respond.io/api/v1/image/…).
+    if (!esDominioPropio(u.hostname)) return true;
+    const ruta = decodeURIComponent(u.pathname).replace(/\/+/g, '/').toLowerCase();
     return !ruta.startsWith('/api/') && ruta !== '/api';
   } catch {
     return false;
   }
+}
+
+/** ¿Un host de MaKo (la app, las landings publicadas, sus despliegues)? Ahí una ruta /api/ va con la sesión. */
+export function esDominioPropio(host: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  return /(^|\.)hola-mako\.(com|site)$/.test(h) || /(^|\.)makodigital\.app$/.test(h) || h.endsWith('.vercel.app') || h === 'localhost';
 }
 
 /** Lo único que puede importar la hoja del diseño: una fuente de Google Fonts. */
@@ -142,15 +228,114 @@ const DE_GOOGLE_FONTS = /^@import\s*(?:url\(\s*)?["']?https:\/\/fonts\.googleapi
  */
 export function cssDisenoLimpio(raw: unknown): string {
   if (typeof raw !== 'string' || !raw.trim() || raw.length > TOPES.cssDiseno) return '';
-  return raw
+  const limpia = raw
     .replace(/\u0000/g, '')
     .replace(/</g, '')
     .replace(/-->/g, '')
     .replace(RE_IMPORT, (todo: string) => (DE_GOOGLE_FONTS.test(todo) ? todo : ''))
     // Un `@import` con otra forma (sin url ni comillas) no se lee: se va.
     .replace(/@import(?![^;]*fonts\.googleapis\.com)[^;]*;?/gi, '')
-    // Un url() de la hoja carga en el editor con la sesión de quien lo abre (`medioPermitido`): sólo los permitidos.
-    .replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) || /^https:\/\/fonts\.googleapis\.com\//i.test(url) ? todo : 'url()'));
+    // Un url() de la hoja carga en el editor con la sesión de quien lo abre (`medioPermitido`): sólo los permitidos (y el
+    // fragmento de un gradiente de SVG, `url(#g)`, que no pide nada).
+    .replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (referenciaPermitida(url) || /^https:\/\/fonts\.googleapis\.com\//i.test(url) ? todo : 'url()'));
+  // Y lo que el patrón literal no ve: los escapes (`\75 rl(`, `u\rl(`, `@\69mport`), image-set, cross-fade (verificación de
+  // 5004dba08, 28/10/2026: un GET a /api/ con la sesión de quien abre el editor).
+  return cssSinCargasAjenas(limpia);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El CSS como lo lee el NAVEGADOR (verificación de 5004dba08, 28/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// El iframe del editor es del MISMO origen que la app (sandbox con allow-same-origin, para poder editar): un pedido de
+// una imagen a /api/ sale con la sesión de quien abre el editor, y la CSP de la app no tiene img-src. Mirar el patrón
+// literal `url(` no alcanza: el navegador lee `\75 rl(` y `u\rl(` como `url(`, `@\69mport` como `@import`, y image-set,
+// cross-fade y src() piden un STRING como dirección. Por eso cada declaración se mira sin escapes ni comentarios, y la
+// que pide algo que no es un medio permitido (o arma la dirección con var() o attr(), que no se puede saber) se va ENTERA.
+
+/** Un texto de CSS sin comentarios ni escapes, para MIRARLO (nunca para servirlo): `\75 rl` → `url`, `u\rl` → `url`. */
+export function cssSinEscapes(s: string): string {
+  return s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\\([0-9a-fA-F]{1,6})[ \t\n\r\f]?|\\([\s\S])/g, (_t: string, hex: string | undefined, c: string | undefined) => {
+    if (hex) {
+      const n = parseInt(hex, 16);
+      return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : '�';
+    }
+    return c === '\n' ? '' : (c ?? '');
+  });
+}
+
+/**
+ * ¿Una referencia de CSS se puede cargar? Un fragmento (`#grad`: un gradiente de SVG, no pide nada), un medio permitido, o
+ * un SVG en un data: con cualquier codificación: como imagen de CSS no corre código ni carga nada (los íconos de
+ * respond.io, reportei.com y closermood.com van así, `data:image/svg+xml,%3Csvg…`, y se perdían).
+ */
+// (Un `url()` VACÍO no pide nada: es lo que deja el paso literal de `cssDisenoLimpio` en lugar de uno no permitido.)
+export const referenciaPermitida = (u: string): boolean => /^\s*(?:#[\w-]*)?\s*$/.test(u) || /^\s*data:image\/svg\+xml[;,]/i.test(u) || DATA_FUENTE.test(u) || medioPermitido(u);
+/** Una fuente en un data: (los íconos de respond.io y reportei.com van así): no corre código, y font-src deja data:. */
+const DATA_FUENTE = /^\s*data:(?:font\/|application\/(?:x-)?font-|application\/font-|application\/vnd\.ms-fontobject[;,]|application\/octet-stream[;,])/i;
+
+/**
+ * Lo que un pedazo de CSS (ya sin escapes) le pide al navegador: el de cada url(), y los strings de image-set, cross-fade
+ * y src(). null si una de esas funciones arma la dirección con var(), attr() o env() (no se puede saber a dónde va).
+ */
+export function referenciasDeCss(n: string): string[] | null {
+  const out: string[] = [];
+  for (const m of n.matchAll(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi)) out.push(m[1] ?? m[2] ?? m[3] ?? '');
+  for (const m of n.matchAll(/(?:-webkit-)?(?:image-set|cross-fade)\s*\(|(?<![\w-])src\s*\(/gi)) {
+    const ini = (m.index ?? 0) + m[0].length;
+    let prof = 1;
+    let q = '';
+    let i = ini;
+    for (; i < n.length && prof > 0; i++) {
+      const c = n[i];
+      if (q) { if (c === q) q = ''; continue; }
+      if (c === '"' || c === "'") q = c;
+      else if (c === '(') prof++;
+      else if (c === ')') prof--;
+    }
+    const args = n.slice(ini, Math.max(ini, i - 1));
+    if (/(?:var|attr|env)\s*\(/i.test(args)) return null;
+    for (const s of args.matchAll(/"([^"]*)"|'([^']*)'/g)) out.push(s[1] ?? s[2] ?? '');
+  }
+  return out;
+}
+
+/** ¿Un pedazo de CSS (una declaración, un preludio, un `@import`) sólo pide lo permitido? */
+export function regionCssSegura(region: string): boolean {
+  const n = cssSinEscapes(region);
+  if (/^\s*@import\b/i.test(n)) return /^\s*@import\s*(?:url\(\s*)?["']?https:\/\/fonts\.googleapis\.com\//i.test(n);
+  // Lo que corría código en navegadores viejos: no hace nada en uno de hoy, pero tampoco tiene por qué estar.
+  if (/expression\s*\(|(?:^|[\s;{])behavior\s*:|-moz-binding/i.test(n)) return false;
+  const refs = referenciasDeCss(n);
+  return refs !== null && refs.every(referenciaPermitida);
+}
+
+/**
+ * El CSS (una hoja o el valor de un `style`) sin las declaraciones que piden algo que no es un medio permitido: se corta en
+ * los `{`, `}` y `;` del primer nivel (fuera de strings, comentarios y paréntesis) y cada pedazo se mira con
+ * `regionCssSegura`. El pedazo que no pasa se va entero; lo demás vuelve byte por byte.
+ */
+export function cssSinCargasAjenas(css: string): string {
+  let out = '';
+  let ini = 0;
+  let q = '';
+  let prof = 0;
+  const cerrar = (fin: number) => {
+    const region = css.slice(ini, fin);
+    out += regionCssSegura(region) ? region : '';
+  };
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i];
+    if (q) { if (c === '\\') i++; else if (c === q) q = ''; continue; }
+    if (c === '\\') { i++; continue; }
+    if (c === '/' && css[i + 1] === '*') { const f = css.indexOf('*/', i + 2); i = f < 0 ? css.length : f + 1; continue; }
+    if (c === '"' || c === "'") { q = c; continue; }
+    if (c === '(') prof++;
+    else if (c === ')') prof = Math.max(0, prof - 1);
+    else if (prof === 0 && (c === '{' || c === '}' || c === ';')) { cerrar(i); out += c; ini = i + 1; }
+  }
+  cerrar(css.length);
+  return out;
 }
 
 /**
@@ -158,11 +343,11 @@ export function cssDisenoLimpio(raw: unknown): string {
  * después de cualquier regla no vale y el navegador lo ignora sin avisar (medido el 23/10/2026: con la base
  * primero, la Geist de la landing no cargaba en hola-mako.site y todos los textos salían más angostos).
  */
-export function hojaDeDiseno(css: string): string {
+export function hojaDeDiseno(css: string, op: { sinBase?: boolean } = {}): string {
   const limpia = cssDisenoLimpio(css);
   const imports: string[] = [];
   const resto = limpia.replace(RE_IMPORT, (todo: string) => { imports.push(todo.trim()); return ''; });
-  return [...imports, CSS_BASE_LIBRE, resto.trim()].filter(Boolean).join('\n');
+  return [...imports, baseLibre(op.sinBase), resto.trim()].filter(Boolean).join('\n');
 }
 
 /**
@@ -170,17 +355,133 @@ export function hojaDeDiseno(css: string): string {
  * Sin scripts: el iframe va con `sandbox` sin `allow-scripts`. La base y la hoja del diseño adelante,
  * el HTML de la sección adentro de `.gm-libre` (la misma raíz que en la página publicada).
  */
-export function documentoEditable(html: string, css: string): string {
+export function documentoEditable(html: string, css: string, op: { envoltorios?: readonly string[] | null; sinBase?: boolean } = {}): string {
+  // Los envoltorios de una copia alrededor de la sección; el de más adentro lleva la marca de la raíz que se edita.
+  const env = (envoltoriosValidos(op.envoltorios) ?? []).map((e) => e.replace(RE_ATTR_RAIZ, ''));
+  const abre = env.map((e, i) => (i === env.length - 1 ? e.replace(/\s*>$/, ' ' + ATTR_RAIZ_EDITABLE + '>') : e)).join('');
+  const cierra = [...env].reverse().map(cierreDe).join('');
+  // La copia de una página (`sinBase`): su `vh`, contra una ventana fija (ver `conVhFijo`).
+  const fijo = (t: string) => (op.sinBase ? conVhFijo(t) : t);
+  // Una marca de raíz que venga en el HTML no es la del editor: cambiaría qué se guarda (verificación de 5004dba08).
+  const propio = html.replace(RE_ATTR_RAIZ, '');
+  const hojaLimpia = css ? cssDisenoLimpio(css) : '';
+  // La copia: su política (sólo sus orígenes, nunca los nuestros) y sin referrer, ANTES de cualquier cosa que cargue.
+  const cabeza = op.sinBase
+    ? '<meta http-equiv="Content-Security-Policy" content="' + politicaDelEditor(abre + propio, hojaLimpia).replace(/"/g, '&quot;') + '"><meta name="referrer" content="no-referrer">'
+    : '';
   return [
-    '<!doctype html><html><head><meta charset="utf-8">',
+    '<!doctype html><html><head><meta charset="utf-8">' + cabeza,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<style>html,body{margin:0;padding:0;background:transparent}</style>',
-    '<style>' + CSS_BASE_LIBRE + '</style>',
-    css ? '<style>' + cssDisenoLimpio(css) + '</style>' : '',
+    '<style>' + baseLibre(op.sinBase) + '</style>',
+    hojaLimpia ? '<style>' + fijo(hojaLimpia) + '</style>' : '',
+    op.sinBase ? '<style>' + CSS_CAJA_BODY_EN_EL_EDITOR + '</style>' : '',
     '</head><body><div class="' + CLASE_LIBRE + '">',
-    html,
+    abre + (op.sinBase ? propio.replace(/(\sstyle=")([^"]*)(")/gi, (_t, a: string, v: string, c: string) => a + conVhFijo(v) + c) : propio) + cierra,
     '</div></body></html>',
   ].join('');
+}
+
+/** Los orígenes de donde un diseño carga sus imágenes, sus fuentes y sus videos (sólo https, con su tope). */
+export type OrigenesDeMedios = { imagenes: string[]; fuentes: string[]; videos: string[] };
+/** Cuántos orígenes por directiva: una copia real usa 2-6 (su CDN, el de imágenes, Google). */
+export const TOPE_ORIGENES_MEDIOS = 24;
+
+/**
+ * De dónde carga un diseño lo que muestra: las imágenes (src, srcset y poster del HTML, y los url() de la hoja y de los
+ * estilos en línea), las fuentes (los url() de un @font-face) y los videos (el src de un <video>). PURO. Sólo orígenes
+ * https (`https://host`): un data: ya está permitido, y lo que no es https no entra.
+ */
+export function origenesDeMedios(html: string, css: string): OrigenesDeMedios {
+  const imagenes = new Set<string>();
+  const fuentes = new Set<string>();
+  const videos = new Set<string>();
+  const origen = (u: string): string | null => {
+    // Sólo un host LIMPIO (letras, dígitos, punto y guion): el parser de URL acepta un `;` en el host, y un origen así partía
+    // las directivas de la política (`https://a;script-src.example`, verificación de 5004dba08).
+    try { const x = new URL(u.trim().replace(/&amp;/g, '&')); return x.protocol === 'https:' && /^https:\/\/[a-z0-9.-]+(?::\d{1,5})?$/i.test(x.origin) ? x.origin : null; } catch { return null; }
+  };
+  const sumar = (set: Set<string>, u: string) => { const o = origen(u); if (o && set.size < TOPE_ORIGENES_MEDIOS) set.add(o); };
+  const urlsDe = (t: string) => [...t.matchAll(/url\(\s*(["']?)(https:[^"')\s]+)\1\s*\)/gi)].map((m) => m[2]);
+  const RE_FUENTE = /@font-face\s*\{[^}]*\}/gi;
+  for (const m of css.matchAll(RE_FUENTE)) for (const u of urlsDe(m[0])) sumar(fuentes, u);
+  for (const u of urlsDe(css.replace(RE_FUENTE, ''))) sumar(imagenes, u);
+  for (const m of html.matchAll(/<(img|source|video)\b[^>]*>/gi)) {
+    const tag = m[1].toLowerCase();
+    for (const a of m[0].matchAll(/\s(src|poster|srcset)\s*=\s*"([^"]*)"/gi)) {
+      const nombre = a[1].toLowerCase();
+      const valores = nombre === 'srcset' ? a[2].split(/,\s+/).map((c) => c.trim().split(/\s+/)[0] ?? '') : [a[2]];
+      // El src de un <video> (o de su <source> con un archivo de video) es un video; un poster o un srcset, una imagen.
+      const esVideo = nombre === 'src' && (tag === 'video' || (tag === 'source' && /\.(mp4|webm|mov|m3u8)(\?|$)/i.test(a[2])));
+      for (const v of valores) sumar(esVideo ? videos : imagenes, v);
+    }
+  }
+  for (const m of html.matchAll(/\sstyle\s*=\s*"([^"]*)"/gi)) for (const u of urlsDe(m[1].replace(/&quot;/g, '"'))) sumar(imagenes, u);
+  return { imagenes: [...imagenes], fuentes: [...fuentes], videos: [...videos] };
+}
+
+/** ¿Algún origen de los medios es de AFUERA de MaKo? (una copia de otra página, no un diseño de MaKo) */
+export const hayMediosAjenos = (m: OrigenesDeMedios): boolean =>
+  [...m.imagenes, ...m.fuentes, ...m.videos].some((o) => !esDominioPropio(new URL(o).hostname));
+
+/**
+ * La política del iframe del editor para la COPIA de una página (verificación de 5004dba08, 28/10/2026): el iframe es del
+ * mismo origen que la app, así que lo que la copia pida a NUESTROS dominios sale con la sesión de quien edita. Ésta deja
+ * cargar sólo los orígenes de la copia (`origenesDeMedios`, sin los nuestros), aunque algo se le escape al saneo.
+ */
+export function politicaDelEditor(html: string, css: string): string {
+  const m = origenesDeMedios(html, css);
+  const afuera = (l: string[]) => l.filter((o) => !esDominioPropio(new URL(o).hostname)).join(' ');
+  return [
+    `img-src data: blob: ${afuera(m.imagenes)}`,
+    `media-src data: blob: ${afuera([...m.videos, ...m.imagenes])}`,
+    `font-src data: https://fonts.gstatic.com ${afuera(m.fuentes)}`,
+    "style-src 'unsafe-inline' https://fonts.googleapis.com",
+    "script-src 'none'",
+    "connect-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].map((d) => d.trim()).join('; ');
+}
+
+/**
+ * La caja con las clases del <body> de una copia (`data-gm-copia="body"`, copia-identica.ts) envuelve a TODAS las secciones:
+ * en la publicada, una vez alrededor de la página; en el editor, una vez por sección. Su alto mínimo (`min-h-screen` en
+ * 100ads.ai) era de la página entera, y en el editor estiraba cada sección a una pantalla: un `<div>` vacío medía 900 px
+ * (29/10/2026). Sólo en el editor (`documentoEditable`).
+ */
+export const CSS_CAJA_BODY_EN_EL_EDITOR = '[data-gm-copia="body"]{min-height:0!important}';
+
+/**
+ * El ancho al que el editor dibuja una COPIA en escritorio (29/10/2026). El lienzo del editor mide ~980 px en la pantalla de
+ * Martín (1536, con los paneles), y una copia dibujada a ese ancho elegía su diseño de TABLETA por sus media queries: «las
+ * páginas clonadas se desfasaron». Se dibuja a este ancho y se achica al lienzo (`escalaDeCopia`).
+ */
+export const ANCHO_COPIA_ESCRITORIO = 1440;
+
+/**
+ * Cuánto se achica una copia en el editor: en ESCRITORIO, con un lienzo más angosto que `ANCHO_COPIA_ESCRITORIO`, lo que
+ * entra; si no, 1 (en tableta y celular el lienzo ya tiene el ancho del aparato, y sus media queries tienen que verlo).
+ * `dispositivo`: el `data-dispositivo` del lienzo (gamma.css), null fuera de él.
+ */
+export function escalaDeCopia(anchoLienzo: number, dispositivo: string | null): number {
+  if (dispositivo !== 'escritorio' || !(anchoLienzo > 0) || anchoLienzo >= ANCHO_COPIA_ESCRITORIO) return 1;
+  return Math.round((anchoLienzo / ANCHO_COPIA_ESCRITORIO) * 10_000) / 10_000;
+}
+
+/** La ventana contra la que se mide un `vh` de una copia en el iframe del editor: 1vh = 9 px (una ventana de 900). */
+export const PX_POR_VH_EDITOR = 9;
+
+/**
+ * En el iframe del editor un `vh` es el alto del IFRAME, que el editor ajusta a su contenido: una sección de `110vh` lo
+ * agrandaba, el iframe crecía, el `vh` también, y así sin fin (closermood.com, 28/10/2026: 16.000 px). Ahí cada `vh`
+ * (y `svh`, `lvh`, `dvh`) de una declaración se mide contra una ventana fija. La página publicada usa el `vh` real.
+ * Sólo en VALORES: en un selector un `vh` va adentro de una clase escapada de Tailwind (`.h-\[100vh\]`,
+ * `.h-\[calc\(100vh-2rem\)\]`), con un corchete o una barra delante, y ése queda como está.
+ */
+export function conVhFijo(css: string): string {
+  return css.replace(/(?<![\w\\[.#-])(?<!\\.)(-?\d*\.?\d+)(?:s|l|d)?vh\b/g, (_t: string, n: string) => `calc(${n} * ${PX_POR_VH_EDITOR}px)`);
 }
 
 /** ¿El HTML lleva una agenda de Calendly del diseño (`data-calendly`)? La política de la página la deja cargar. */

@@ -264,14 +264,14 @@ test('el plan de la cuenta se sanea: texto corto, sin caracteres raros; sin plan
   assert.equal('plan' in (sanearCuota({ ...cuota(), plan: 5 }) ?? {}), false);
 });
 
-test('las cuatro cuentas salen siempre y en orden, con o sin Runner', () => {
+test('las cinco cuentas salen siempre y en orden, con o sin Runner', () => {
   // Martín (17/10/2026): «Tampoco sale el uso de las otras 2 cuentas». La lista salía de los carteros: sin Runner, la cuenta no existía.
   const vacia = cuentasDeUso([]);
-  assert.deepEqual(vacia.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4']);
+  assert.deepEqual(vacia.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4', 'claude5']);
   for (const c of vacia) assert.deepEqual({ v: c.vistoAt, q: c.cuota }, { v: null, q: null }, `${c.cuenta} sin Runner`);
   const visto = '2026-10-16T12:59:30Z';
   const hay = cuentasDeUso([{ cuenta: 'claude4', vistoAt: visto, cuota: cuota() }, { cuenta: 'claude2', vistoAt: visto }]);
-  assert.deepEqual(hay.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4'], 'en orden aunque lleguen desordenadas');
+  assert.deepEqual(hay.map((c) => c.cuenta), ['claude1', 'claude2', 'claude3', 'claude4', 'claude5'], 'en orden aunque lleguen desordenadas');
   assert.deepEqual(hay[1], { cuenta: 'claude2', vistoAt: visto, cuota: null }, 'sin `cuota` en el Runner: null, no undefined');
   assert.equal(hay[3].cuota?.semana?.pct, 47);
   assert.equal(hay[0].vistoAt, null);
@@ -284,7 +284,7 @@ test('las cuatro cuentas salen siempre y en orden, con o sin Runner', () => {
 /** Lo que se lee de cada cuenta del desplegable, en texto plano (una entrada por cuenta). */
 const tarjetas = (h: string) => h.split('<section').slice(1).map((s) => `<section${s}`.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
 
-test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido hace X» y ningún comando', () => {
+test('el desplegable: las cinco cuentas, su plan, las dos ventanas, «Medido hace X» y ningún comando', () => {
   const visto = '2026-10-16T12:59:30Z';
   const cuentas = cuentasDeUso([
     // 1: Runner de su terminal midiendo, medición de hace 5 minutos, con plan.
@@ -296,8 +296,8 @@ test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido ha
   ]);
   const h = renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora: AHORA }));
   const t = tarjetas(h);
-  assert.equal(t.length, 4, 'las cuatro cuentas');
-  assert.deepEqual(t.map((x) => x.slice(0, 8)), ['Cuenta 1', 'Cuenta 2', 'Cuenta 3', 'Cuenta 4'], 'en orden 1-4');
+  assert.equal(t.length, 5, 'las cinco cuentas (la 5, «Ananda», desde el 24/10/2026)');
+  assert.deepEqual(t.map((x) => x.slice(0, 8)), ['Cuenta 1', 'Cuenta 2', 'Cuenta 3', 'Cuenta 4', 'Cuenta 5'], 'en orden 1-5');
   // 1: vivo y al día: plan, las dos ventanas con su reinicio, y desde el 17/10 también cuándo se midió (Martín: el Uso
   //    mostraba datos viejos como de ahora; «Medido hace X» va siempre que haya un número).
   assert.match(t[0], /^Cuenta 1 Max Runner activo Sesión de 5 horas 12% usado Se reinicia a las 14:00 Semana 47% usado Se reinicia el mié 21 a las 06:00 Medido hace 5 min$/);
@@ -317,10 +317,10 @@ test('el desplegable: las cuatro cuentas, su plan, las dos ventanas, «Medido ha
   assert.match(t[3], /Medido hace 5 min$/);
   // Ningún comando ni botón de copiar (Martín: «no quiero copiar en PowerShell, que se instale todo solo»).
   assert.doesNotMatch(h, /PowerShell|<button|Copiar|comando/i);
-  // El botón cerrado: un punto por cuenta (cuatro) y el conteo sobre las cuatro.
+  // El botón cerrado: un punto por cuenta (cinco) y el conteo sobre las cinco.
   const boton = renderToStaticMarkup(createElement(BotonUso, { cuentas, ahora: AHORA }));
-  assert.equal((boton.match(/co-punto /g) ?? []).length, 4);
-  assert.match(boton, /title="2 de 4 Runners activos"/);
+  assert.equal((boton.match(/co-punto /g) ?? []).length, 5);
+  assert.match(boton, /title="2 de 5 Runners activos"/);
 });
 
 const leerJson = (f: string) => JSON.parse(readFileSync(f, 'utf8'));

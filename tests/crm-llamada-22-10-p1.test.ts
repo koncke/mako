@@ -53,7 +53,7 @@ test('C4: crear una etapa se ve: «Creando…» en su lugar, en el pop-up de eta
 
 test('C5: el lápiz del selector de CRMs cierra el desplegable al abrir el pop-up', () => {
   const t = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
-  const i = t.indexOf('title: `Editar las etapas de ${comoSeLlama(f)}`');
+  const i = t.indexOf('title: `Editar etapas de ${comoSeLlama(f)}`');
   assert.ok(i > 0);
   assert.match(t.slice(i, i + 200), /cierra: true,/);
   // La marca la entiende el desplegable de la casa.
@@ -66,8 +66,10 @@ test('C5: el lápiz del selector de CRMs cierra el desplegable al abrir el pop-u
 test('C7: todas las hojas de la ficha a la vista, como tabs del mismo rango (también en el teléfono)', () => {
   const t = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
   assert.match(t, /<div ref=\{lista\} role="tablist" aria-label="Hojas de la ficha"/);
-  assert.match(t, /\{tabs\.map\(\(t\) => \{/, 'cada hoja es una tab, la abierta también');
-  assert.match(t, /const elegir = \(key: string\) => \{ setMenu\(null\); ir\(key\); onChange\?\.\(key\); \};/);
+  // Las que no entran van a «Ver más» desde el 24/10/2026 (tests/ficha-ver-mas.test.ts): siguen siendo tabs, a un clic.
+  assert.match(t, /\{enFila\.map\(\(t\) => \{/, 'cada hoja es una tab, la abierta también');
+  assert.match(t, /\{enVerMas\.map\(\(t\) => \(/, 'las que no entran, en «Ver más»');
+  assert.match(t, /const elegir = \(key: string\) => \{ setMenu\(null\); setVerMas\(null\); ir\(key\); onChange\?\.\(key\); \};/);
   assert.match(t, /onClick=\{\(\) => elegir\(t\.key\)\}/, 'una tab va por el camino de siempre');
   assert.doesNotMatch(t, /MenuHojasFicha|lt-atajos|lt-tit-btn/, 'volvió el título con desplegable');
   assert.match(t, /@media \(max-width: 720px\) \{[^\n]*\.lt-accion \{ display: none; \} \}/, 'en el teléfono se esconde sólo lo de personalizar');
@@ -81,13 +83,11 @@ test('C7: todas las hojas de la ficha a la vista, como tabs del mismo rango (tam
 // del «⋯» de la barra (/crm/prospectos). Y «Volver al CRM» de allá iba a /crm pelado: desde «Sprint 3 días» devolvía al
 // CRM principal. Probado rompiéndolo (base 5 / 0): sin la flecha → 4 / 1 · sin llevar el CRM → 4 / 1 · «Volver» a /crm
 // pelado → 4 / 1.
-test('C6: «Buscar prospectos» avisa que abre otra pantalla, lleva el CRM, y «Volver» vuelve a ESE CRM', () => {
+// 25/10/2026: «Buscar prospectos» se fue con el Leads Scraper entero (tests/leads-scraper-retirado.test.ts), y con él la
+// pantalla y su «Volver». Queda la regla: un renglón que navega lo DICE con la flecha.
+test('C6: el renglón que navega lo dice, y el «⋯» ya no manda a la pantalla de prospectos', () => {
   const t = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
   assert.match(t, /\{href && <span aria-hidden style=\{\{ marginLeft: 'auto', fontSize: 13, color: 'var\(--faint\)' \}\}>→<\/span>\}/, 'el renglón que navega no lo dice');
-  assert.match(t, /label="Buscar prospectos" href=\{funnelActivo != null \? `\/crm\/prospectos\?funnel=\$\{funnelActivo\}` : '\/crm\/prospectos'\}/);
-  assert.match(BOARD, /onPersonalizarTarjetas=\{\(\) => setPersonalizando\(true\)\} funnelActivo=\{funnelActivo\} \/>/);
-  const page = sinComentarios(leer('app/crm/prospectos/page.tsx'));
-  assert.match(page, /const desde = funnels\.find\(\(f\) => String\(f\.id\) === sp\.funnel && !f\.esDefault\);/);
-  const app = sinComentarios(leer('app/crm/prospectos/ProspectosApp.tsx'));
-  assert.match(app, /<Link href=\{volver\?\.href \?\? '\/crm'\}[^>]*>\{volver \? `Volver a «\$\{volver\.nombre\}»` : 'Volver al CRM'\}<\/Link>/, '«Volver» no vuelve al CRM del que se vino');
+  assert.doesNotMatch(t, /crm\/prospectos/, 'volvió el renglón a la pantalla de prospectos');
+  assert.doesNotMatch(sinComentarios(BOARD), /crm\/prospectos/, 'el clic derecho del tablero sigue mandando a prospectos');
 });

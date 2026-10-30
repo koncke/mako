@@ -1,28 +1,20 @@
 // =============================================================================
-// /ads-manager/<ad_id> — el Ads Manager con UN anuncio abierto
+// /ads-manager/<ad_id> — el link viejo a un anuncio
 // =============================================================================
-// El deep link a un anuncio. El id es el ad_id de META (el mismo que usa la Graph
-// API y el que ya viaja en senales.ad_id), y no un id interno: así el link se
-// puede cruzar contra Meta y sobrevive a cualquier resync.
-//
-// Es la MISMA pantalla que /ads-manager, con el detalle del anuncio abierto: el
-// browser ya trae el árbol entero, así que no hace falta una vista aparte ni una
-// consulta distinta. Si el anuncio no está en el rango de fechas o no existe, el
-// browser lo dice y te deja en la tabla (no rompe).
+// Lo lleva a /anuncio/<ad_id> el layout de /ads-manager (app/ads-manager/layout.tsx), antes del loader. Esta página sólo
+// se dibuja si el id no es un número (un link roto): dice dónde está ahora lo que buscaba.
 // =============================================================================
 
-import { AdsManagerView } from '../AdsManagerView';
+import { Pagina } from '@/app/_ui/Pagina';
+import { EmptyState } from '@/app/_ui/Estados';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
-export default async function AdsManagerAdPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ adId: string }>;
-  searchParams: Promise<{ desde?: string; hasta?: string }>;
-}) {
-  const { adId } = await params;
-  return <AdsManagerView searchParams={searchParams} adInicial={adId} />;
+export default function AnuncioViejoPage() {
+  return (
+    <Pagina>
+      <EmptyState titulo="Ese anuncio no existe" detalle="El Media Buyer reemplazó al Ads Manager. Los anuncios se abren desde sus decisiones."
+        accion={{ label: 'Ir al Media Buyer', href: '/ads-manager' }} />
+    </Pagina>
+  );
 }

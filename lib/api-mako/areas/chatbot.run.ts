@@ -19,7 +19,13 @@ import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada'
 import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nutricion-inscripcion-manual';
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, problemasDeTarjetaAB, type PasoGrafo } from '@/lib/flujo-grafo';
+// La prueba A/B de la tarjeta «A/B TEST» (tanda A3).
+import { detenerPruebaDeLaTarjeta, empezarPruebaDeLaTarjeta, estadoDeLaTarjeta } from '@/lib/pruebas/automatizacion';
+import { tarjetaABDe } from '@/lib/pruebas/tarjeta-ab';
+import { botonesDe } from '@/lib/botones-social';
+import { respondeEnComentario } from '@/lib/canal-social';
+import { botonesParaGuardar, textoParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -31,7 +37,9 @@ import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatosParaEquipo } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, conPublicacion, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { textoDePalabras } from '@/lib/palabras-clave';
+import { buscarPublicacion, esLinkDePublicacion, textoDePublicacion } from '@/lib/publicacion-cron';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
@@ -96,6 +104,30 @@ const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: t
 const num = (input: Record<string, unknown>, k: string): number => Number(input[k]);
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
 
+/**
+ * LO QUE PIDIÓ LA DIFUSIÓN (`difundir_a_leads`), saneado: la columna o los ids, los canales, el mismo texto para cada canal
+ * (el email con su asunto) y el goteo (por defecto, el de la hoja). Un dato que no se entiende vuelve como error.
+ */
+function pedidoDeDifusion(input: Record<string, unknown>):
+  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: { minutos: number; dia: number }; texto: string }
+  | { error: string } {
+  const etapa = str(input, 'etapa');
+  const ids = (Array.isArray(input.leadIds) ? input.leadIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+  if (!etapa && !ids.length) return { error: 'Falta a quién: la etapa (la columna del CRM) o los leadIds.' };
+  const f = num(input, 'funnelId');
+  const seleccion = etapa ? { etapa, funnelId: Number.isInteger(f) && f > 0 ? f : null } : { leadIds: ids };
+  const canales = [...new Set((Array.isArray(input.canales) ? input.canales : []).filter((c): c is 'whatsapp' | 'email' | 'instagram' => c === 'whatsapp' || c === 'email' || c === 'instagram'))];
+  const texto = str(input, 'mensaje');
+  const asunto = str(input, 'asunto');
+  const mensajes = {
+    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: texto } } : {}),
+    ...(canales.includes('email') ? { email: { asunto, cuerpo: texto } } : {}),
+    ...(canales.includes('instagram') ? { instagram: { cuerpo: texto } } : {}),
+  };
+  const goteo = { minutos: input.minutos == null ? 3 : num(input, 'minutos'), dia: input.porDia == null ? 40 : num(input, 'porDia') };
+  return { seleccion, canales, mensajes, goteo, texto };
+}
+
 // Hasta el 17/09 acá había un `avisoTope()` que contaba las filas reales y avisaba
 // «los conteos quedan CORTOS» porque getSecuenciasConStats, getSettingData y
 // planificarInscripciones/Envios leían sin paginar. Las cuatro paginan ahora, así
@@ -138,28 +170,23 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
     partes.push(`horario propio, ${textoDeHorario(horario)}`);
   }
   // (Hasta el 23/10/2026 había «Misma persona»: horasWhatsapp, horasEmail y personaNegocio. Se fue de la pantalla y del motor.)
-  // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea.
+  // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea. UNO SOLO para
+  // todos los canales desde el 24/10/2026 (Martín, f21): hasta ese día había otro del email (goteoEmail…), que ya no existe.
   if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
   else {
     const g: Record<string, number> = {};
     if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
-    if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} WhatsApp por día`); }
+    if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} por día en cada canal`); }
     if (Object.keys(g).length) cambio.goteo = g;
   }
-  // EL GOTEO DEL EMAIL (23/10/2026, Martín: «en Email también pon goteo y tope por día»).
-  if (input.sinGoteoEmail === true) { cambio.goteoEmail = null; partes.push('sin goteo de emails'); }
-  else {
-    const g: Record<string, number> = {};
-    if (input.goteoEmailMinutos != null) { g.minutos = num(input, 'goteoEmailMinutos'); partes.push(`un email cada ${g.minutos} min`); }
-    if (input.goteoEmailPorDia != null) { g.dia = num(input, 'goteoEmailPorDia'); partes.push(`hasta ${g.dia} emails por día`); }
-    if (Object.keys(g).length) cambio.goteoEmail = g;
-  }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo de WhatsApp (goteoMinutos, goteoPorDia) o el de email (goteoEmailMinutos, goteoEmailPorDia).' };
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o el goteo (goteoMinutos, goteoPorDia), que vale para todos los canales.' };
   const prueba = configParaGuardar({}, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
 }
 
+/** Lo que tiene el modelo para crear con IA por /api/v1, que corta a 60 s (`crear_automatizacion_con_ia`). */
+const PLAZO_CREAR_HTTP_MS = 40_000;
 const noExiste = (id: number) => `No existe la secuencia #${id} vigente en este negocio (puede estar archivada). Pide el id con listar_secuencias_nutricion.`;
 
 /** Los pasos con el audio puesto (o sacado) en el paso `orden`: lo mismo en la propuesta y en el «sí». */
@@ -271,10 +298,39 @@ function textoDeUnCron(d: Disparador): string {
   if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
   const clase = claseDeDisparador(d);
   const evento = esClaseDeEventos(clase) ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
-  if (evento) return evento;
+  // Con las palabras clave del comentario (la revisión del Cerebro, 28/10/2026): sin ellas, «fiesta», «guía» y ninguna se
+  // resumían igual, y lo que se confirma por WhatsApp es sólo esto.
+  if (evento) {
+    const palabras = conPalabras(d.trigger_tipo, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
+    // Y la publicación (ticket #25): «la de la guía» y «cualquiera» no se pueden resumir igual.
+    const publicacion = conPublicacion(d.trigger_tipo, d.subtipo) ? textoDePublicacion(d.publicacion) : '';
+    return [evento, publicacion, palabras].filter(Boolean).join(' ');
+  }
   if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
   if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
   return nombre;
+}
+
+/**
+ * LA PUBLICACIÓN QUE LLEGA COMO TEXTO (ticket #25): el LINK o el id del Reel, en `crons[].publicacion`. Se busca entre las
+ * últimas de la cuenta (`publicacionesParaElCron`) y se guarda con su id y su nombre. Un link que no está ahí es un error
+ * (adivinar el id de un link no se puede); un id que no está entre las últimas se guarda igual, sin nombre.
+ */
+async function resolverPublicaciones(crons: unknown): Promise<{ crons: unknown } | { error: string }> {
+  if (!Array.isArray(crons)) return { crons };
+  const out: unknown[] = [];
+  for (const c of crons) {
+    const v = c && typeof c === 'object' ? (c as { publicacion?: unknown }).publicacion : undefined;
+    if (typeof v !== 'string' || !v.trim()) { out.push(c); continue; }
+    const red = (c as { trigger_tipo?: unknown }).trigger_tipo === 'messenger' ? 'messenger' : 'instagram';
+    const { publicacionesParaElCron } = await import('@/lib/disparadores-canales');
+    const lista = await publicacionesParaElCron(red).catch(() => null);
+    const p = lista ? buscarPublicacion(v, lista) : null;
+    if (p) out.push({ ...(c as object), publicacion: { id: p.id, ...(p.texto ? { texto: p.texto } : {}) } });
+    else if (esLinkDePublicacion(v)) return { error: lista ? 'No encontré esa publicación entre las últimas 25 de la cuenta: pasa su id.' : 'No pude leer las publicaciones de la cuenta para encontrar ese link: pasa su id.' };
+    else out.push(c);
+  }
+  return { crons: out };
 }
 
 /**
@@ -348,6 +404,8 @@ export const RUNNERS: Runners = {
           ramas: p.ramas ?? null, casos: esPasoIA(p) ? undefined : p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
           // El CRON: qué hace cada camino cuando el lead contesta (14/10/2026). Sin la clave, el de fábrica (sigue).
           ...(p.nodo === 'inicio' ? { paralelos: p.paralelos ?? [] } : {}),
+          // LA PRUEBA A/B (tanda A3): cada rama con su letra (su puerto), su porcentaje y a qué tarjeta sigue.
+          ...(p.nodo === 'ab' ? { ramas_ab: (p.ramas_ab ?? []).map((r) => ({ letra: r.clave, pct: r.pct, nombre: r.nombre ?? null, sigue: r.siguiente ?? null })) } : {}),
           ...(esPasoIA(p) ? fichaPasoIA(p) : {}),
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
@@ -361,6 +419,10 @@ export const RUNNERS: Runners = {
           // espejo de la PRIMERA parte; sin esto, quien lee la ficha creía que el paso era sólo eso.
           ...(partesExplicitas(p) ? { partes: partesExplicitas(p) } : {}),
           revisar: p.revisar ?? null, siguiente: siguienteDe(pasos, i),
+          // LOS BOTONES de un DM (25/10/2026): «sigue» es la tarjeta a la que lleva el toque, por el puerto «btn:<id>».
+          ...(botonesDe(p).length ? { botones: botonesDe(p).map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, puerto: `btn:${b.id}`, sigue: b.siguiente ?? null })) } : {}),
+          // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): se cambia con cambiar_botones_mensaje.
+          ...(respondeEnComentario(p) ? { en_comentario: true } : {}),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
@@ -369,6 +431,7 @@ export const RUNNERS: Runners = {
         notas: [
           'Un «Si responde» con paso_ia=true es un AI Step: UN AI Step por medio, con un objetivo y sus escenarios adentro (hasta 10). Contesta cuando el lead escribe, hasta lograr el objetivo. Cada escenario dice cuándo entra (cuando), cómo responde (responder; null = no contesta) y su libertad: avisa (sólo te avisa), aprueba (deja la respuesta para aprobar y te avisa) o sola (sale sola, nunca si habla de plata). lo_demas es lo que pasa con lo que no encaja en ningún escenario: avisa o aprueba. Un escenario nuevo entra con agregar_escenario_secuencia.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
+          'Un mensaje de Instagram o Messenger puede llevar botones (hasta 3): uno con «sigue» lleva a esa tarjeta cuando el lead lo toca (aunque sea una por la que ya pasó: sus mensajes salen otra vez; hasta 10 toques por inscripción); uno con «link» abre esa dirección. Un mensaje con botones de «sigue» y sin siguiente espera el toque. Se cambian con cambiar_botones_mensaje.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
         ],
@@ -560,7 +623,7 @@ export const RUNNERS: Runners = {
       return json({
         inscribiria: { total: ins.length, mostrados: Math.min(ins.length, TOPE), filas: ins.slice(0, TOPE) },
         enviaria: { total: env.length, mostrados: Math.min(env.length, TOPE), filas: env.slice(0, TOPE) },
-        nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, el horario de envío del negocio (si puso uno en Configuraciones) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
+        nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, el horario de envío (si la automatización tiene uno en su tuerca) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
         avisos: [] as string[],
       });
     },
@@ -584,6 +647,8 @@ export const RUNNERS: Runners = {
           ...(vivas.has(Number(f.secuencia_id)) ? {
             paso: vivas.get(Number(f.secuencia_id))!.paso?.titulo ?? null,
             automatizacion_pausada: !vivas.get(Number(f.secuencia_id))!.automatizacionActiva,
+            // Parado en un DM con botones, esperando que toque uno (25/10/2026): los títulos.
+            ...(vivas.get(Number(f.secuencia_id))!.esperaToque?.length ? { espera_toque: vivas.get(Number(f.secuencia_id))!.esperaToque } : {}),
           } : {}),
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
@@ -662,11 +727,15 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload, ctx) => {
       // 170 s: el turno del doer corre en un `after()` con `maxDuration` 300 y ya gastó lo suyo. El chat de la fila nueva
-      // dice por dónde llegó el pedido (`via`).
+      // dice por dónde llegó el pedido (`via`). POR HTTP (25/10/2026, el Cerebro: «todo MaKo se debe poder utilizar por API»,
+      // y Leandro arma con su Claude) la ruta corta a 60 s: 40 para el modelo y el resto para escribir. Cada intento se acota
+      // a lo que queda (`hastaMs`), y si no alcanza vuelve un error sin haber escrito nada.
       const via = ctx.canal === 'whatsapp' ? 'whatsapp' : 'app';
-      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs: 170_000, respuestas: sanearRespuestas(payload.respuestas), via });
+      const plazoMs = ctx.canal === 'http' ? PLAZO_CREAR_HTTP_MS : 170_000;
+      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs, respuestas: sanearRespuestas(payload.respuestas), via });
       // Algo cambió entre proponer y confirmar (o preguntó el modelo): la pregunta vuelve a la persona, numerada.
-      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta) };
+      // Por HTTP vuelve como `faltan` (lib/api-mako/flujo.ts, `aplicarEnElActo`): el parámetro que la contesta.
+      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta), datos: { faltan: [r.pregunta.sobre] } };
       if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
       // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser
       // exacto). `/automations?sec=<id>&mako=1` abre el lienzo de esa automatización CON el chat de MaKo abierto (§2.5),
@@ -869,8 +938,7 @@ export const RUNNERS: Runners = {
       return json({
         secuencia: { id, nombre: s.nombre },
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
-        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null },
-        goteo_email: { vale: textoDeGoteo(config.goteoEmail), minutos: config.goteoEmail?.minutos ?? null, por_dia: config.goteoEmail?.dia ?? null },
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
@@ -1016,6 +1084,76 @@ export const RUNNERS: Runners = {
         const msg = e instanceof Error ? e.message : String(e);
         console.error('[api-mako chatbot] empezar_de_nuevo_lead_secuencia:', msg);
         return { ok: false, resumen: `No se pudo hacer empezar de nuevo al lead #${leadId} en la secuencia #${secuenciaId} (${msg}).` };
+      }
+    },
+  },
+
+  // LA DIFUSIÓN (28/10/2026): la MISMA que la hoja del CRM (lib/difusion.ts). Preparar lee a quién le llega por cada canal y lo
+  // dice con el ritmo (no escribe); confirmar vuelve a leer y crea la automatización.
+  difundir_a_leads: {
+    preparar: async (input, ctx) => {
+      const pedido = pedidoDeDifusion(input);
+      if ('error' in pedido) return { error: pedido.error };
+      const { prepararDifusion } = await import('@/lib/difusion');
+      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracion, goteoValido } = await import('@/lib/difusion-reglas');
+      // El goteo fuera de rango se dice ANTES del «sí» (la verificación de 69b49a31c: fallaba recién al confirmar).
+      const goteo = goteoValido(pedido.goteo);
+      if (!goteo) {
+        const { RANGOS_GOTEO } = await import('@/lib/config-automatizacion');
+        return { error: `El goteo va de ${RANGOS_GOTEO.minutos[0]} a ${RANGOS_GOTEO.minutos[1]} minutos y de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]} por día.` };
+      }
+      const v = await prepararDifusion(ctx.ws, pedido.seleccion, pedido.canales, goteo);
+      if (pedido.canales.includes('whatsapp') && !v.whatsappQr) return { error: 'No hay un WhatsApp por QR conectado: el oficial hoy no manda. Sácalo de los canales o conecta uno.' };
+      const falta = problemaDeDifusion({ canales: pedido.canales, mensajes: pedido.mensajes, alcance: v.alcance });
+      if (falta) return { error: `${falta}.` };
+      const porCanal = v.alcance.porCanal.map((c) => `${NOMBRE_CANAL_DIFUSION[c.canal]} ${c.llegan}${c.afuera.length ? ` (afuera: ${c.afuera.map((a) => `${a.cuantos} ${TEXTO_AFUERA[a.motivo]}`).join(', ')})` : ''}`);
+      const de = v.etapa ? `de «${v.etapa}»` : 'elegidos';
+      return {
+        payload: { ...input },
+        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal (${textoDeDuracion(Math.max(0, ...v.alcance.porCanal.map((c) => c.llegan)), pedido.goteo)}).${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const pedido = pedidoDeDifusion(payload);
+      if ('error' in pedido) return { ok: false, resumen: pedido.error };
+      try {
+        const { crearDifusion } = await import('@/lib/difusion');
+        const r = await crearDifusion(ctx.ws, { seleccion: pedido.seleccion, canales: pedido.canales, mensajes: pedido.mensajes, goteo: pedido.goteo, autor: ctx.actor?.trim() || 'MaKo' });
+        // El MISMO pedido otra vez retoma la difusión que ya existía (lib/difusion.ts): se dice, para que no parezca otra.
+        const yaEstaba = r.ok && r.yaEstaban != null
+          ? `Esa misma difusión ya estaba: «${r.nombre}». ${r.leads - r.yaEstaban ? `Sumé a los ${r.leads - r.yaEstaban} que faltaban; ` : 'No la mandé dos veces; '}le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}. Está en Automations.`
+          : null;
+        return r.ok
+          ? { ok: true, resumen: yaEstaba ?? `Listo: «${r.nombre}» le escribe a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}, con su goteo. Está en Automations.`, datos: { secuenciaId: r.secuenciaId, leads: r.leads } }
+          : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] difundir_a_leads:', msg);
+        return { ok: false, resumen: `No se pudo mandar la difusión (${msg}).` };
+      }
+    },
+  },
+
+  // «Volver a probar» (28/10/2026, ticket #19): el núcleo de la ficha (`volverAProbarEnAutomatizacion`), con `soloVer` al
+  // preparar (decide sin escribir) y de verdad al confirmar, que vuelve a decidir contra la base.
+  volver_a_probar_lead_secuencia: {
+    preparar: async (input) => {
+      const leadId = num(input, 'leadId'); const secuenciaId = num(input, 'secuenciaId');
+      const { volverAProbarEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+      const v = await volverAProbarEnAutomatizacion(leadId, secuenciaId, 'MaKo', { soloVer: true });
+      if (!v.ok) return { error: v.error };
+      return { payload: { leadId, secuenciaId }, resumen: `${v.resumen} No le sale nada ahora.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId); const secuenciaId = Number(payload.secuenciaId);
+      try {
+        const { volverAProbarEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+        const r = await volverAProbarEnAutomatizacion(leadId, secuenciaId, ctx.actor?.trim() || 'MaKo');
+        return r.ok ? { ok: true, resumen: `Listo: ${r.resumen}`, datos: { leadId, secuenciaId } } : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] volver_a_probar_lead_secuencia:', msg);
+        return { ok: false, resumen: `No se pudo dejar al lead #${leadId} para volver a probar la secuencia #${secuenciaId} (${msg}).` };
       }
     },
   },
@@ -1343,6 +1481,109 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // Los botones de un DM (25/10/2026; la def explica el porqué). Lo que se sabe sin escribir lo decide `botonesParaGuardar`
+  // (lib/botones-api.ts, puro y con test); se guarda por la misma puerta que editar_pasos (`publicarPasos`).
+  cambiar_botones_mensaje: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      // Sin «botones», se quedan los que hay ([] los saca); sin «texto», el texto (25/10: el texto de un DM, por la API).
+      const lista = Array.isArray(input.botones) ? (input.botones as BotonPedido[]) : null;
+      const nuevoTexto = typeof input.texto === 'string' ? input.texto : undefined;
+      // La respuesta PÚBLICA al comentario (ticket #17, 28/10/2026): true la prende, false la apaga.
+      const enComentario = typeof input.en_comentario === 'boolean' ? input.en_comentario : undefined;
+      if (!lista && nuevoTexto === undefined && enComentario === undefined) return { error: 'Pasa los botones ([] los saca), el texto o «en_comentario».', faltan: ['botones'] };
+      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto, enComentario);
+      if (!r.ok) return { error: r.error };
+      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+      return { ok: true, resumen: `Mensaje de Instagram de la automatización #${id} guardado.` };
+    },
+  },
+
+  // El texto de un WhatsApp o un email en un flujo con ramas (25/10/2026; la def explica el porqué): la misma puerta que el DM.
+  cambiar_texto_mensaje: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const texto = typeof input.texto === 'string' ? input.texto : undefined;
+      const asunto = typeof input.asunto === 'string' ? input.asunto : undefined;
+      if (texto === undefined && asunto === undefined) return { error: 'Pasa el texto, el asunto (en un email) o los dos.', faltan: ['texto'] };
+      const r = textoParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), String(s.nombre ?? ''), { texto, asunto });
+      if (!r.ok) return { error: r.error };
+      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+      return { ok: true, resumen: `Mensaje de la automatización #${id} guardado.` };
+    },
+  },
+
+  // LA PRUEBA A/B (tanda A3; la def explica el porqué). Lo que se puede saber sin escribir falla en `preparar()`.
+  ver_prueba_ab: {
+    leer: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      if (!(await secuenciaVigente(id))) return errorLectura(noExiste(id));
+      return json(await estadoDeLaTarjeta(ctx.ws, id));
+    },
+  },
+
+  empezar_prueba_ab: {
+    preparar: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const nodo = tarjetaABDe(s.pasos as PasoGrafo[]);
+      if (!nodo) return { error: `«${s.nombre}» no tiene una tarjeta «A/B TEST»: se agrega en el lienzo de Automations (＋ → Prueba A/B).` };
+      const mal = problemasDeTarjetaAB(nodoPorId(s.pasos as PasoGrafo[], nodo)!, nodo, true);
+      if (mal.length) return { error: `Antes de empezar: ${mal[0]}.` };
+      const viva = await estadoDeLaTarjeta(ctx.ws, id);
+      if (viva.estado === 'corriendo' || viva.estado === 'propuesta') return { error: `«${s.nombre}» ya tiene una prueba: ${viva.texto}` };
+      const efecto = Number(input.efecto);
+      return { payload: { secuenciaId: id, nodoId: nodo, ...(efecto > 0 ? { efecto } : {}) }, resumen: `Empezar la prueba A/B de «${s.nombre}»` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await empezarPruebaDeLaTarjeta(ctx.ws, Number(payload.secuenciaId), String(payload.nodoId), ctx.actor?.trim() || 'MaKo',
+        Number(payload.efecto) > 0 ? { mdeRel: Number(payload.efecto) } : {});
+      return r.ok ? { ok: true, resumen: `Prueba A/B en marcha. ${r.plan}`, datos: { pruebaId: r.pruebaId } } : { ok: false, resumen: r.error };
+    },
+  },
+
+  detener_prueba_ab: {
+    preparar: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const e = await estadoDeLaTarjeta(ctx.ws, id);
+      if (e.estado !== 'corriendo' && e.estado !== 'propuesta') return { error: `«${s.nombre}» no tiene una prueba corriendo.`, yaEstaba: true };
+      return { payload: { secuenciaId: id }, resumen: `Detener la prueba A/B de «${s.nombre}» (todos a A)` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await detenerPruebaDeLaTarjeta(ctx.ws, Number(payload.secuenciaId), ctx.actor?.trim() || 'MaKo');
+      return r.ok ? { ok: true, resumen: 'Prueba A/B detenida: todos van a A.' } : { ok: false, resumen: r.error ?? 'No pude detenerla.' };
+    },
+  },
+
   // Los CRON de una automatización, por la MISMA puerta que la pantalla (lib/disparadores-guardar.ts).
   // `preparar` chequea TODO lo que se puede saber sin escribir (la etapa, el producto, la etiqueta, el
   // evento): un rechazo al confirmar consumiría la pendiente.
@@ -1354,7 +1595,10 @@ export const RUNNERS: Runners = {
       // `ignorar` y `cron.dias` llegan como textos (el validador no tiene listas de números): el saneador
       // del CRON (`sanearDisparador` / `sanearCron`) ya los convierte, como con lo que manda la pantalla.
       try {
-        const { lista, previos } = await prepararDisparadores(id, input.crons);
+        // La publicación por su link o su id (ticket #25): resuelta ANTES de sanear, que sólo guarda un id.
+        const resueltos = await resolverPublicaciones(input.crons);
+        if ('error' in resueltos) return { error: resueltos.error };
+        const { lista, previos } = await prepararDisparadores(id, resueltos.crons);
         if (firmaLista(lista) === firmaLista(previos)) return { error: `«${s.nombre}» ya arranca por esos CRON.`, yaEstaba: true };
         // Sin leer la zona del negocio: `tzDeWorkspace` la ESCRIBE si falta, y preparar() no escribe.
         const textos = lista.map(textoDeUnCron);

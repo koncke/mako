@@ -370,14 +370,15 @@ test('(8) la posición se escribe y se compara: el motor lee y guarda `nodo_actu
   // y `proximo_envio_at`, que es el próximo del cursor cuando se convierte en el hilo principal.)
   // (Undécima tanda, M4: y `estado` y `desenlace`, el compare-and-set de una 'respondio' con el carril del
   // recordatorio vivo y cómo termina.)
-  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace'\)/);
+  assert.match(proc, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace(, inscripto_at)?'\)/);
   const mig0228 = leer('../supabase/migrations/0228_hilos_paralelos.sql');
   for (const col of ['hilos jsonb', 'hilos_rev integer not null default 0']) assert.ok(mig0228.includes(`add column if not exists ${col}`), `falta ${col} en la 0228`);
   assert.match(mig0228, /ANTES DEL DEPLOY/, 'la 0228 no dice en qué orden se aplica');
   assert.match(proc, /const idxLeido = sec \? indiceActual\(sec\.pasos, insc\) : -1;/);
   assert.ok((proc.match(/nodo_id: idDe\(paso, insc\.paso_actual\),/g) ?? []).length >= 3, 'un envío sin el nodo que lo dejó');
   // El tope de 20 «Ir a» seguidos va por `resolverControl`, que lo devuelve como un cierre.
-  assert.match(proc, /resolverControl\(sec\.pasos, idxLeido, \{/);
+  // (Tanda A3: el contexto va en `ctxCtl`, para volver a resolver con la rama de la prueba A/B.)
+  assert.match(proc, /resolverControl\(sec\.pasos, idxLeido, ctxCtl\)/);
   const mig = leer('../supabase/migrations/0223_flujo_grafo.sql');
   for (const col of ['nodo_actual text', 'nodo_id text', 'etiqueta_id bigint', 'audio_id bigint', 'adjunto_id bigint']) {
     assert.ok(mig.includes(`add column if not exists ${col}`), `falta ${col} en la 0223`);

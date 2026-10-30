@@ -62,13 +62,17 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
+import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta, lugarInventado } from '@/lib/flujo-ia-intencion';
 import { revisarEdicion, etapaQueNoExiste, textoEtapaQueNoExiste } from '@/lib/flujo-ia-revision-editar';
 import {
-  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
+  sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron, textosDeRespuestas,
 } from '@/lib/flujo-ia-preguntas';
 import { sanearChat, type EventoPreguntaIA, type MensajeChatMako, type PreguntaMako } from '@/lib/automatizacion-chat';
 import { leerChat, agregarAlChat } from '@/lib/automatizacion-chat-db';
+import { textoDeQuienContesto } from '@/lib/quien-contesto';
+import { getUsuarioActual } from '@/lib/auth';
+import { lineaDelPedido } from '@/lib/no-existe';
+import { ticketDeNoExiste } from '@/lib/no-existe-server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -254,8 +258,10 @@ export async function POST(req: NextRequest) {
           }
           // Sin id el chat lo volcó `crearConIA` al nacer la fila; con id, lo cierra la ruta.
           // Lo que dice MaKo lo armó el core con lo guardado (20/10/2026: cuándo sale, a quién y qué manda).
-          await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos })]);
-          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}) });
+          // Y QUÉ IA LO ESCRIBIÓ (27/10/2026, lib/quien-contesto.ts): el chat lo dice («Con tu Claude»).
+          const ia = textoDeQuienContesto(r.quien);
+          await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos, ...(ia ? { ia } : {}) })]);
+          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}), ...(ia ? { ia } : {}) });
           return;
         }
 
@@ -271,7 +277,11 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        const [leido, disparadorActual] = await Promise.all([armarContexto(ws, pedido), cronGuardado()]);
+        // ⚠️ CON EL CRON DEL ANUNCIO GUARDADO, EL CONTEXTO LO TRAE (la revisión del Cerebro, 28/10/2026): el anuncio entra al
+        // catálogo sólo si el pedido lo nombra (el techo de Groq), y «¿Qué hace esta automatización?» no lo nombra: el rótulo
+        // del CRON no se encontraba y MaKo contestaba «no tiene CRON».
+        const disparadorActual = await cronGuardado();
+        const leido = await armarContexto(ws, pedido, { anuncio: /:anuncio$/.test(disparadorActual ?? ''), textos: textosDeRespuestas(respuestas) });
         const { perfil, voz } = leido;
         const leyendo = leyendoDe(leido.ctx, perfil);
         send({ t: 'fase', fase: 'contexto', leyendo, texto: leyendoTexto(leyendo) });
@@ -280,12 +290,26 @@ export async function POST(req: NextRequest) {
         const { ctx, pedido: pedidoEditar } = aplicarRespuestas({ ...leido.ctx, disparadorActual }, pedido, respuestas);
 
         /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
-        const contestar = async (respuesta: string) => {
+        // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo. Desde el 27/10/2026 (ticket 874749710-14 de Leandro) el
+        // pedido sale SOLO a la Ticketera, como en todos los chats de MaKo (lib/no-existe-server.ts), y la línea que lo dice la
+        // escribe el código. El botón «Pedírselo al equipo» (./falta/route.ts) queda sólo si no se pudo levantar.
+        // `ia`: qué IA lo contestó (lib/quien-contesto.ts); lo que se contesta sin el modelo no lo lleva.
+        const contestar = async (respuestaIA: string, faltaPedida?: string, ia?: string | null) => {
           if (req.signal.aborted) return;
-          await anotar([mensajeChat('mako', respuesta, 'app')]);
+          let respuesta = respuestaIA;
+          let falta = faltaPedida;
+          if (falta) {
+            const sesion = await getUsuarioActual().catch(() => null);
+            const id = sesion?.email ? await ticketDeNoExiste(falta, {
+              ws, actor: sesion.email, nombre: sesion.nombre ?? '', chat: `automations «${nombreSec || `#${secuenciaId}`}»`,
+              ruta: `/automations?sec=${secuenciaId}`, pedido,
+            }) : null;
+            if (id) { respuesta = `${respuesta.trim()}\n\n${lineaDelPedido(id)}`; falta = undefined; }
+          }
+          await anotar([mensajeChat('mako', respuesta, 'app', { ...(falta ? { falta } : {}), ...(ia ? { ia } : {}) })]);
           send({
             t: 'listo', modo, secuenciaId: secuenciaId!, pasos: base, nombre: nombreSec, orden: [], avisos: [], etiquetasNuevas: [],
-            resumen: respuesta, cambiadas: [], quitadas: [],
+            resumen: respuesta, cambiadas: [], quitadas: [], ...(falta ? { falta } : {}), ...(ia ? { ia } : {}),
           });
         };
         // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
@@ -303,13 +327,19 @@ export async function POST(req: NextRequest) {
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
           const user = [userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido }), ...extras].join('\n\n');
           send({ t: 'fase', fase: 'respuesta' });
-          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: deIARespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
+          // Y un lugar de Configuraciones que no existe es un error, como en Editar (24/10/2026, f22: `lugarInventado`).
+          const traducirRespuesta = (obj: Record<string, unknown>) => {
+            const x = deIARespuesta(obj);
+            const falso = x.r.respuesta ? lugarInventado(x.r.respuesta) : null;
+            return falso ? { ...x, errores: [...x.errores, falso] } : x;
+          };
+          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: traducirRespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
           if ('error' in g) {
             await anotar([mensajeChat('mako', g.error, 'app')]);
             send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
             return;
           }
-          await contestar(g.r.respuesta);
+          await contestar(g.r.respuesta, g.r.falta, textoDeQuienContesto(g.quien));
           return;
         }
 
@@ -336,8 +366,9 @@ export async function POST(req: NextRequest) {
           return;
         }
         const r = g.r;
+        const ia = textoDeQuienContesto(g.quien);
         // La capa 2 de la consulta: el modelo de editar contestó en vez de cambiar (`deIAEdicion` no aplicó nada).
-        if (r.respuesta) { await contestar(r.respuesta); return; }
+        if (r.respuesta) { await contestar(r.respuesta, r.falta, ia); return; }
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
         // Cancelado mientras el modelo escribía: no queda nada escrito.
@@ -365,6 +396,7 @@ export async function POST(req: NextRequest) {
           avisos: ordenados, cambios: { cambiadas: r.cambiadas.length, quitadas: r.quitadas.length, agregadas: r.agregadas.length },
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
           ...(noHecho.length ? { noHecho } : {}),
+          ...(ia ? { ia } : {}),
         })]);
         send({
           t: 'listo', modo, secuenciaId: secuenciaId!, pasos, nombre: nombreSec,
@@ -373,6 +405,7 @@ export async function POST(req: NextRequest) {
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
           ...(disparadores ? { disparadores } : {}),
           ...(noHecho.length ? { noHecho } : {}),
+          ...(ia ? { ia } : {}),
         });
       } catch (err) {
         console.error(`[api:secuencias/ia] ${msg(err)}`);

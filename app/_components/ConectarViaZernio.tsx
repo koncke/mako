@@ -37,20 +37,28 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button } from '@/app/_ui';
+import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useConectarIntegracion } from './ConectarIntegracion';
 import {
-  CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, estadoDeRed, guardarVuelta,
-  leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
+  CLAVE_SIGUE_ZERNIO,
+  EVENTO_OTRA_CLAVE_ZERNIO,
+  CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, esperaDeLaPausa, estadoDeRed, guardarVuelta,
+  errorDeVueltaAjena, leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
   type ConexionZernio, type MensajeVentana, type MotivoZernio, type RedZernio,
 } from '@/lib/zernio-redes';
 
 export type FaseZernio = 'listo' | 'abriendo' | 'esperando' | 'conectado' | 'error';
-export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string | null };
+/** `pageId`: la página de los anuncios de Meta (`metaads`): con varias concedidas y sin ella, Zernio no crea la conexión. */
+export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; aceptaCobro?: boolean };
 
 /** Lo que contesta POST /api/zernio (las acciones de esta pieza). */
 type RespuestaApi = {
   ok?: boolean; motivo?: MotivoZernio; error?: string; pagoUrl?: string | null;
+  // Con `pausa` (un 429 de Zernio, ticket #34): cuánto pidió esperar.
+  esperaMs?: number | null;
+  // Con el aviso de la 3.ª red: ¿queda lugar para otra clave de Zernio? (varias claves, 29/10/2026).
+  puedeAgregarClave?: boolean;
   tipo?: 'url' | 'ya-conectada'; url?: string; conexiones?: ConexionZernio[]; total?: number;
   ruteo?: 'ok' | 'ocupado' | 'error';
   // Lo manda recibirConexion (lib/zernio-conectar.ts:204) y la 158 lo lee: sin el campo, `c.webhook` no tipa.
@@ -116,6 +124,8 @@ export function useConectarViaZernio(opts: {
   const [error, setError] = useState<string | null>(null);
   const [pagoUrl, setPagoUrl] = useState<string | null>(null);
   const [nota, setNota] = useState<string | null>(null);
+  // El aviso del cobro de Zernio (27/10/2026): la red y lo que se iba a pedir, para repetirlo con `aceptaCobro` desde un clic NUEVO.
+  const [avisoCobro, setAvisoCobro] = useState<{ red: RedZernio; extra: ExtraZernio; texto: string; otraClave: boolean } | null>(null);
   const vivo = useRef(true);
   const corrida = useRef(0);
   const adelantar = useRef(false);
@@ -160,6 +170,13 @@ export function useConectarViaZernio(opts: {
       if (!c || !c.ok || c.ruteo === 'error' || c.webhook === 'error') ponerNota('Quedó conectada, pero no pudimos armar la recepción de mensajes. Vuelve a conectarla.');
       else if (c.ruteo === 'ocupado') ponerNota('Quedó conectada, pero esa cuenta ya recibe sus mensajes en otro negocio de MaKo. Avisa a soporte.');
     }
+    // Meta por Zernio (25/10/2026): la conexión de ANUNCIOS se guarda en el negocio venga del botón que venga (el modal de Meta, la
+    // tarjeta de Zernio, el Media Buyer). Sin esto sólo la guardaba el modal de Meta.
+    if (r === 'metaads') {
+      const g = await api('conectada-meta', { accountId: nueva.accountId });
+      if (!vivo.current) return;
+      if (g && g.ok === false && typeof g.error === 'string') ponerNota(`Quedó conectada en Zernio, pero MaKo no la pudo guardar: ${g.error}`);
+    }
     optsRef.current.onConectado?.(delaRed(r, ahora), nueva, r);
   }, [ponerNota]);
 
@@ -196,8 +213,12 @@ export function useConectarViaZernio(opts: {
       const motivo = res.motivo ?? 'error';
       if (motivo === 'sin-clave' || motivo === 'clave-mala') {
         if (optsRef.current.keyAca) { fallar(`${MENSAJES_DE_MOTIVO[motivo]} Está arriba, en esta misma pantalla.`, null); return; }
+        // Zernio PRIMERO, ahí mismo, y después el login de esta red (29/10/2026): el paso 2 la resalta al guardar la clave.
+        try { window.sessionStorage.setItem(CLAVE_SIGUE_ZERNIO, redElegida); } catch { /* sin almacenamiento: el paso 2 lista todas */ }
         setFase('listo'); ponerNota(MENSAJES_DE_MOTIVO[motivo]); abrirIntegracion('zernio'); return;
       }
+      // Ésta se paga en SU Zernio: se pregunta antes de abrir Facebook. «Conectar igual» es otro clic (la ventana se abre sin bloqueo).
+      if (motivo === 'cobro') { setFase('listo'); setAvisoCobro({ red: redElegida, extra, texto: res.error || MENSAJES_DE_MOTIVO.cobro, otraClave: res.puedeAgregarClave !== false }); return; }
       fallar(res.error || MENSAJES_DE_MOTIVO[motivo], res.pagoUrl ?? null);
       return;
     }
@@ -268,8 +289,14 @@ export function useConectarViaZernio(opts: {
           if (motivo === 'sin-clave' || motivo === 'clave-mala' || motivo === 'clave-en-uso' || motivo === 'pausada' || motivo === 'pago') {
             cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return;
           }
-          fallosSeguidos = motivo === ultimoFallo ? fallosSeguidos + 1 : 1; ultimoFallo = motivo;
-          if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
+          if (motivo === 'pausa') {
+            // ⚠️ Un 429 es el tope por minuto de Zernio (ticket #34): NO es una falla ni se cuenta. La próxima medición, después de lo
+            // que pidió esperar; seguir midiendo cada 4 s lo estiraba, y el resto de la pantalla también se quedaba sin cupo.
+            ultima = Date.now() + esperaDeLaPausa(j?.esperaMs) - SONDEO_MS;
+          } else {
+            fallosSeguidos = motivo === ultimoFallo ? fallosSeguidos + 1 : 1; ultimoFallo = motivo;
+            if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
+          }
         }
         // El error de la ventana se dice con lo que trajo, y la ventana NO se cierra: la landing queda unos segundos para que se alcance a leer.
         if (deLaVentana.msg) { fallar(textoDeErrorDeRetorno(deLaVentana.msg.error, deLaVentana.msg.mensaje), null); return; }
@@ -299,13 +326,19 @@ export function useConectarViaZernio(opts: {
     // cambio de URL, y su router vuelve a escribir los parámetros en el próximo cambio; con `null` copia su estado y sincroniza la URL (app-router.js).
     window.history.replaceState(null, '', `${window.location.pathname}${sinParamsDeVuelta(clave)}${window.location.hash}`);
     const r = ret.red;
-    // ⚠️ SÓLO si ESTA pestaña salió a hacer este login (y hace menos de 30 minutos): un link armado a mano, o la vuelta de otra red, no hace nada.
+    // ⚠️ SÓLO si ESTA pestaña salió a hacer este login (y hace menos de 30 minutos): un link armado a mano, o la vuelta de otra red, no conecta
+    // nada. Un error sí se dice (sin el texto de la URL): si no, quien aceptó en Facebook nunca sabe por qué no conectó.
     let guardada = null as ReturnType<typeof leerVueltaGuardada>;
     try {
       guardada = leerVueltaGuardada(window.sessionStorage.getItem(CLAVE_VUELTA), r, Date.now());
       if (guardada) window.sessionStorage.removeItem(CLAVE_VUELTA);
     } catch { /* sin almacenamiento */ }
-    if (!guardada) return;
+    if (!guardada) {
+      // Un ERROR igual se dice, con el texto de MaKo y no el de la URL (lib/zernio-redes.ts → errorDeVueltaAjena).
+      const ajeno = errorDeVueltaAjena(ret);
+      if (ajeno) { setRed(r); fallar(ajeno, null); }
+      return;
+    }
     const g = guardada;
     setRed(r);
     if (ret.error) { fallar(textoDeErrorDeRetorno(ret.error, ret.mensaje), null); return; }
@@ -331,7 +364,46 @@ export function useConectarViaZernio(opts: {
     return () => window.removeEventListener('pageshow', alVolver);
   }, []);
 
-  return { fase, red, error, pagoUrl, nota, conectar, modal };
+  /**
+   * [Agregar otra clave] del aviso de la 3.ª red: deja la marca en la pestaña y avisa (`EVENTO_OTRA_CLAVE_ZERNIO`). Si el modal de
+   * Zernio ya está abierto (`keyAca`), su formulario abre ahí el campo de la clave siguiente; si no, se abre y lo lee al montarse.
+   */
+  const pedirOtraClave = useCallback(() => {
+    try { window.sessionStorage.setItem(EVENTO_OTRA_CLAVE_ZERNIO, '1'); } catch { /* sin almacenamiento: el evento alcanza si está abierto */ }
+    window.dispatchEvent(new Event(EVENTO_OTRA_CLAVE_ZERNIO));
+    if (!optsRef.current.keyAca) abrirIntegracion('zernio');
+  }, [abrirIntegracion]);
+
+  const modalTodo = (
+    <>
+      {modal}
+      {avisoCobro && (
+        // `anidada`: se abre desde el modal de Zernio o el de Meta y es parte de la misma tarea (el de atrás no se apaga).
+        <Modal titulo="Esta red se paga en tu Zernio" ancho={440} anidada onCerrar={() => setAvisoCobro(null)}
+          pie={(
+            <>
+              {/* La salida gratis (Martín, 29/10): otra clave de Zernio, de otra cuenta del cliente. Abre su campo en la tarjeta de Zernio. */}
+              {avisoCobro.otraClave ? (
+                <Button size="sm" variant="primary" data-agregar-otra-clave
+                  onClick={() => { setAvisoCobro(null); pedirOtraClave(); }}>
+                  Agregar otra clave
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={() => setAvisoCobro(null)}>Cancelar</Button>
+              )}
+              <Button size="sm" variant={avisoCobro.otraClave ? 'secondary' : 'primary'} data-conectar-igual
+                onClick={() => { const a = avisoCobro; setAvisoCobro(null); conectar(a.red, { ...a.extra, aceptaCobro: true }); }}>
+                Conectar igual
+              </Button>
+            </>
+          )}>
+          <p data-aviso-cobro-zernio style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink)' }}>{avisoCobro.texto}</p>
+        </Modal>
+      )}
+    </>
+  );
+
+  return { fase, red, error, pagoUrl, nota, conectar, modal: modalTodo };
 }
 
 // ── La pantalla ──────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
@@ -24,11 +25,11 @@ const COMMIT = argv.includes('--commit');
 const DIAS = Number(flag('dias', '7'));
 const WS = Number(flag('ws', '1'));
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
 
 // Salvaguarda: mostrar a qué DB estamos por escribir (host, sin credenciales).
 try {
-  const u = new URL(process.env.DATABASE_URL);
+  const u = new URL(urlDeLaBase());
   console.log(`DB destino: ${u.host}${u.pathname}`);
 } catch { /* noop */ }
 

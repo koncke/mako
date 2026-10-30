@@ -38,7 +38,7 @@ import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
 import { productoDeHref, urlPasoPago } from './pago-landing';
 import { animacionDeSeccion } from './animaciones';
-import { CLASE_LIBRE, CLASE_SECCION_LIBRE, esTarjetaEditable } from './html-editable';
+import { CLASE_LIBRE, CLASE_SECCION_LIBRE, cierreDe, conEnlacesDePaginas, esTarjetaEditable } from './html-editable';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -86,6 +86,8 @@ export type OpRender = {
   animacion?: { pagina: { animaciones: boolean; estiloAnimacion?: unknown }; indice?: number };
   /** La hoja del documento (`config.diseno.css`) para un «Diseño editable» en una sección suelta (html-editable.ts). */
   cssDiseno?: string;
+  /** La copia de una página (`config.diseno.sinBase`): la sección suelta va sin la base de Tailwind. */
+  sinBaseDiseno?: boolean;
 };
 
 /** La dirección de MaKo del sello «Hecho con MaKo». */
@@ -428,6 +430,7 @@ export function htmlDeTarjeta(tarjeta: JsonNodo, tema: Tema, op?: Partial<OpRend
   if (!esObj(tarjeta) || tarjeta.type !== NODO.tarjeta) return '';
   const ctx = ctxDe(op, tema, idConFormulario([tarjeta]));
   ctx.spec.cssDiseno = typeof op?.cssDiseno === 'string' ? op.cssDiseno : '';
+  ctx.spec.sinBaseDiseno = op?.sinBaseDiseno === true;
   if (op?.animacion && esObj(op.animacion.pagina)) {
     const indice = typeof op.animacion.indice === 'number' && op.animacion.indice >= 0 ? Math.floor(op.animacion.indice) : 0;
     ctx.spec.seccion = { indice, animacion: animacionDeSeccion(attrsTarjeta(tarjeta.attrs), op.animacion.pagina, indice) };
@@ -447,6 +450,7 @@ export function htmlDePagina(pagina: Pagina, config: ConfigLanding, tema: Tema, 
   const ctx = ctxDe(op, tema, idConFormulario(tarjetas));
   const cfg = sanearConfig(config).config;
   ctx.spec.cssDiseno = cfg.diseno?.css ?? '';
+  ctx.spec.sinBaseDiseno = cfg.diseno?.sinBase === true;
   // Una página con diseño editable se publica «libre» (html-editable.ts): sin el marco de Gamma.
   if (ctx.modo === 'publico' && tarjetas.some(esTarjetaEditable)) return htmlDePaginaLibre(pagina, tarjetas, cfg, tema, ctx);
   // Cada sección con su lugar entre las VISIBLES (el orden que ve quien entra: una oculta no cuenta, ni cuando la
@@ -497,6 +501,10 @@ function htmlDePaginaLibre(pagina: Pagina, tarjetas: Record<string, unknown>[], 
     if (tramo.length) partes.push(conRaiz(htmlDeArbol(['main', { class: 'gm-pagina' }, 0], tramo.join(''))));
     tramo = [];
   };
+  // Los envoltorios de una COPIA (copia-identica.ts): abiertos una sola vez alrededor de las secciones seguidas que los
+  // comparten, como en la página original. Una sección que no los comparte cierra los que no son suyos.
+  const abiertos: string[] = [];
+  const cerrarHasta = (n: number) => { while (abiertos.length > n) partes.push(cierreDe(abiertos.pop() as string)); };
   let visibles = 0;
   for (const t of tarjetas) {
     const a = attrsTarjeta(t.attrs);
@@ -505,13 +513,33 @@ function htmlDePaginaLibre(pagina: Pagina, tarjetas: Record<string, unknown>[], 
     else if (!ctx.incluirOcultas) continue;
     if (esTarjetaEditable(t)) {
       cerrarTramo();
-      const html = (t.content as unknown[]).map((n) => attrsHtmlEditable(esObj(n) ? n.attrs : null).html).join('');
-      partes.push(htmlDeArbol(['div', { class: CLASE_SECCION_LIBRE, 'data-seccion': a.id }, 0], html));
+      const nodos = (t.content as unknown[]).map((n) => attrsHtmlEditable(esObj(n) ? n.attrs : null));
+      const env = nodos.length === 1 ? nodos[0].envoltorios : undefined;
+      if (env) {
+        // Sin el `div.gm-libre-seccion` ni el ancla: entre el envoltorio y la sección no puede haber otra caja (un
+        // `main > section` del original dejaría de valer). La sección se encuentra por sus propios ids.
+        let comun = 0;
+        while (comun < abiertos.length && comun < env.length && abiertos[comun] === env[comun]) comun++;
+        cerrarHasta(comun);
+        for (const e of env.slice(comun)) { partes.push(e); abiertos.push(e); }
+        partes.push(conEnlacesDePaginas(nodos[0].html, (h) => resolverHref(h, ctx)));
+        continue;
+      }
+      cerrarHasta(0);
+      // Los enlaces «a otra página» del diseño, a su dirección (como los de un botón de bloque).
+      const html = (t.content as unknown[]).map((n) => conEnlacesDePaginas(attrsHtmlEditable(esObj(n) ? n.attrs : null).html, (h) => resolverHref(h, ctx))).join('');
+      // El ancla de la sección (25/10/2026): un botón que lleva a esta sección dice `#t-<id>` (SelectorDestino, como en una de
+      // bloques), y este `div` no puede llevar el id: con `display: contents` no tiene caja, y un ancla sin caja no hace
+      // scroll. Va un `span` vacío y de alto 0 adelante (`.gm-ancla-seccion`, html-editable.ts).
+      const ancla = /^[A-Za-z0-9_-]{1,40}$/.test(a.id) ? `<span id="t-${a.id}" class="gm-ancla-seccion" aria-hidden="true"></span>` : '';
+      partes.push(htmlDeArbol(['div', { class: CLASE_SECCION_LIBRE, 'data-seccion': a.id }, 0], ancla + html));
       continue;
     }
+    cerrarHasta(0);
     ctx.spec.seccion = { indice, animacion: animacionDeSeccion(a, cfg.pagina, indice) };
     try { tramo.push(htmlDeNodo(t, ctx, 0)); } finally { ctx.spec.seccion = undefined; }
   }
+  cerrarHasta(0);
   cerrarTramo();
   const nav = cfg.sitio.nav.mostrar ? navArbol(cfg, ctx) : null;
   const pie = cfg.sitio.pie.mostrar && cfg.sitio.pie.texto.trim() ? htmlDeArbol(pieArbol(cfg.sitio.pie.texto.trim())) : '';

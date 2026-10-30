@@ -37,15 +37,20 @@ const PROYECTOS = path.join(os.homedir(), '.claude', 'projects');
 // que se trabaje aún más al límite... Yo ya cerré todo lo que no sea Claude, sobre todo Chrome»). Un escalón abajo:
 // workflow 3,5→2,5 · pesado 2,0→1,5 · agente 1,5→1,0 · liviano 0,8→0,6 · tope de workflows 2→3. El de antes quedó
 // en memoria.mjs.antes-12-10. Si vuelve a colgarse la app, esto es lo primero que se sube.
+// 25/10/2026 (el Cerebro, cuenta 5): Martín, antes de dejar la PC trabajando de noche: «Cuida la ram para que no se crashee
+// claude por la noche». Medido el 24/10 (vigia.csv): el vigía MATÓ 81 pesados ese día y 70 el 23/10, porque esta guardia los
+// dejaba arrancar con 1,5 GB y cada uno pide 2-2,5 (tsc acotado, tandas de tests). Pesado 1,5→2,5 y su enfriamiento 20→40 s;
+// tope de workflows 3→2; y las tandas grandes de `node --test` sin `--test-concurrency` cuentan como pesado (arrancan un
+// proceso por núcleo: 11 en esta PC). El de antes quedó en memoria.mjs.antes-25-10. Informe: docs/hallazgos-infra.md.
 const REGLAS = {
   workflow: { minGb: 2.5, esperaS: 120, enfriamientoS: 45 },
-  pesado:   { minGb: 1.5, esperaS: 240, enfriamientoS: 20 },
+  pesado:   { minGb: 2.5, esperaS: 240, enfriamientoS: 40 },
   agente:   { minGb: 1.0, esperaS: 60,  enfriamientoS: 0 },
   liviano:  { minGb: 0.6, esperaS: 20,  enfriamientoS: 0, dejarPasar: true },
 };
 // Más de esto a la vez y la RAM no alcanza aunque cada uno arranque con margen:
 // los agentes crecen DESPUÉS de la admisión.
-const MAX_WORKFLOWS = 3;
+const MAX_WORKFLOWS = 2;
 const SONDEO_MS = 3000;
 
 // Lo que pide GBs: tsc directo, la suite de tests, builds, instalaciones.
@@ -59,7 +64,18 @@ const PESADO = new RegExp([
   String.raw`\bplaywright\b`, String.raw`\beslint\b`, String.raw`\bnext\s+build\b`,
   String.raw`\bnpm\s+(ci|install|i|test|t)\b`, String.raw`\bnpm\s+run\s+(build|test|lint|check)\b`,
   String.raw`\b(pnpm|yarn)\s+(install|test|build)\b`,
+  // 25/10/2026 ~19:20 (el Cerebro): los scripts del repo que corren por adentro tandas de tests o el chequeo de tipos. El
+  // comando es un `node scripts/...` que no dice nada pesado: `tests-afectados` arrancó con la reserva del tren puesta y
+  // levantó dos tandas de ~1 GB cada una (la RAM libre bajó de 2,9 a 1,1 GB). Sólo el script corriendo, no un `cat` de su test.
+  String.raw`\bnode\b[^|;&]*\bscripts/(tests-afectados|antes-de-subir|tipos-por-tandas|tipos-respaldo-push)\.mjs\b`,
 ].join('|'), 'i');
+
+// Los tests de este repo corren con `node --test` (o `tsx --test`), no con vitest: un archivo suelto es liviano, pero una
+// tanda (3+ archivos o un comodín) sin `--test-concurrency` levanta un proceso por núcleo. Ésa cuenta como pesada.
+function tandaDeTestsSinFreno(cmd) {
+  if (!/(\bnode\b|\btsx\b)[^|;&]*\s--test\b/.test(cmd) || /--test-concurrency[= ]\d/.test(cmd)) return false;
+  return (cmd.match(/\.test\.[cm]?[jt]sx?\b/g) || []).length >= 3 || /--test\b[^|;&]*\*/.test(cmd);
+}
 
 const libreGb = () => os.freemem() / GB;
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -81,7 +97,7 @@ function clasificar(ent) {
   if (tool === 'Agent' || tool === 'Task') return 'agente';
   if (tool === 'Bash' || tool === 'PowerShell') {
     const cmd = String(ent.tool_input?.command || '');
-    return PESADO.test(cmd) ? 'pesado' : 'liviano';
+    return PESADO.test(cmd) || tandaDeTestsSinFreno(cmd) ? 'pesado' : 'liviano';
   }
   return null;
 }
@@ -123,6 +139,21 @@ function marcarAdmision(tipo) {
   try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(marcaPath(tipo), String(process.pid)); } catch {}
 }
 
+// RESERVA DEL TREN (25/10/2026 ~19:10, el Cerebro, cuenta 5): con 10 chats trabajando la RAM libre no pasó de 3,5 GB en una hora
+// y el tren esperó los 5,3 GB que pide cada tanda del chequeo de tipos del pre-push; cuando subió igual (18:14), la PC se trabó.
+// Mientras exista `reserva-tren` (JSON {sesion, hasta, motivo}), lo PESADO y los WORKFLOWS de las OTRAS sesiones esperan: no se
+// corta a nadie, sólo no arranca nada nuevo, y la RAM se libera sola a medida que terminan los de antes. Vence sola en `hasta`
+// (un script caído no traba a nadie más de eso). La pone y la saca el script que sube el tren.
+const RESERVA = path.join(DIR, 'reserva-tren');
+function reservaVigente(ent) {
+  try {
+    const r = JSON.parse(fs.readFileSync(RESERVA, 'utf8'));
+    if (!r || !(Number(r.hasta) > Date.now())) return null;
+    if (r.sesion && String(ent.session_id || '').startsWith(String(r.sesion))) return null;
+    return r;
+  } catch { return null; }
+}
+
 function negar(razon) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: razon },
@@ -155,6 +186,14 @@ async function main() {
       cupoOk = vivos.length < MAX_WORKFLOWS;
       if (!cupoOk) motivo = `hay ${vivos.length} workflows corriendo en la máquina (tope ${MAX_WORKFLOWS})`;
     }
+    const reserva = tipo === 'pesado' || tipo === 'workflow' ? reservaVigente(ent) : null;
+    if (reserva) {
+      const hh = new Date(Number(reserva.hasta)).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      motivo = `${reserva.motivo || 'el Cerebro está subiendo el tren a main'} y reservó la RAM hasta las ${hh} (o hasta que termine)`;
+      if (Date.now() >= hasta) break;
+      await dormir(SONDEO_MS);
+      continue;
+    }
     if (libre >= regla.minGb && !enfriando && cupoOk) {
       if (regla.enfriamientoS) marcarAdmision(tipo);
       const espero = Math.round((Date.now() - inicio) / 1000);
@@ -172,7 +211,7 @@ async function main() {
   log(`${tipo} NEGADO: ${motivo} sesion=${sesion}`);
   const consejo = {
     workflow: 'No lances el workflow ahora. Esperá unos minutos y reintentá, o hacé el trabajo directo / con menos agentes en paralelo.',
-    pesado: 'No lo corras ahora. Reintentá en un par de minutos (no es un error del código).',
+    pesado: 'No lo corras ahora. Reintentá en un par de minutos (no es un error del código). Mientras tanto, seguí con lo que no pide RAM.',
     agente: 'Esperá un minuto y reintentá, o hacelo directo sin subagente.',
   }[tipo];
   negar(`Guardia de RAM: ${motivo}. Con la RAM agotada se cuelga la app de Claude y se caen TODOS los chats abiertos (pasó el 11/10). ${consejo}`);

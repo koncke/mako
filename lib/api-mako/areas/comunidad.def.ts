@@ -40,7 +40,7 @@ import {
 import { VACIAR } from './comunidad.helpers';
 
 const HTTP = ['http'] as const;
-/** La tab vive en Customer Success: la misma capa que pide la página (`requireCapa('customer-success')`). */
+/** La tab vive en Clients: la misma capa que pide la página (`requireCapa('customer-success')`, la clave de siempre). */
 const GATING = { tab: 'customer-success' } as const;
 /** Configurar la comunidad (categorías, niveles, ajustes) es de un admin: `puedeConfigurar`. */
 const GATING_ADMIN = { tab: 'customer-success', rolMinimo: 'admin' } as const;
@@ -156,7 +156,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_comunidades', area: 'comunidad', tipo: 'lectura',
     titulo: 'Listar las comunidades',
-    descripcion: 'Los productos de Customer Success de este negocio (los mismos del selector de la tab Comunidad), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.',
+    descripcion: 'Los programas de Clients de este negocio (los mismos del selector de la cabecera de Clients), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.',
     parametros: [],
     salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
   },
@@ -495,7 +495,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'sacar_alumno_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Sacar a un alumno',
-    descripcion: 'Saca a un alumno de la comunidad, con un motivo: deja de verla y de escribir, pero NO pierde el curso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.',
+    descripcion: 'Saca a un alumno del curso de ese producto y de su comunidad, con un motivo: deja de ver las clases, de leer y de escribir. Si era el único curso que tenía, se le corta el acceso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.',
     parametros: [
       productoId, fijo(leadId),
       { nombre: 'motivo', tipo: 'string', max: TOPE_MOTIVO_API, descripcion: `el motivo (hasta ${TOPE_MOTIVO_API} letras). Lo ve el equipo, no el alumno.` },
@@ -503,16 +503,16 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
-    escribe: 'el baneo del alumno en la comunidad (comunidad_baneos) y, con borrarContenido, borra sus posts y comentarios de 7 días',
+    escribe: 'el baneo del alumno en la comunidad (comunidad_baneos), le saca ese curso a su acceso (curso_accesos.productos) o, si era el único, lo corta (revocado_at); con borrarContenido, borra sus posts y comentarios de 7 días',
   },
   {
     id: 'admitir_alumno_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Volver a admitir a un alumno',
-    descripcion: 'Vuelve a dejar entrar a la comunidad a un alumno que se había sacado (lo que se borró al sacarlo no vuelve).',
+    descripcion: 'Vuelve a dejar entrar a un alumno que se había sacado: la comunidad y el curso de ese producto (lo que se borró al sacarlo no vuelve). Si a su acceso lo cortó otra persona, sigue cortado y lo dice.',
     parametros: [productoId, leadId],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'chat', reversible: true,
-    escribe: 'levanta el baneo (comunidad_baneos.levantado_at); la fila se conserva con su fecha',
+    escribe: 'levanta el baneo (comunidad_baneos.levantado_at; la fila se conserva con su fecha) y le devuelve ese curso a su acceso (curso_accesos)',
   },
 
   // ── El calendario ───────────────────────────────────────────────────────────────

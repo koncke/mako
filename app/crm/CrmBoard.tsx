@@ -13,10 +13,13 @@ import { empujeDeColumna } from './arrastre-columna';
 import { anchoMinimo, columnasQueEntran, plantillaDeColumnas } from './tabla-columnas';
 import { CeldasLead, TitulosLista, estiloEncabezado, estiloFila } from './TablaListaLeads';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
-import { useRouter, useWs } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { BANDAS_KANBAN, claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
 import { ayudaDelTotal, textoDelTotal, totalDeColumna } from './total-columna';
+import { fotoDeTarjeta } from '@/lib/contacto-lead';
+import { reunionYaCargada } from './mover-etapa';
 import { Fragment,
   useCallback,
   useEffect,
@@ -65,8 +68,10 @@ import {
   linkDeAgendaAction,
   editarEtapaAction,
   eliminarLeadsAction,
+  recuperarLeadsAction,
   type OpEtapa,
 } from './actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
 import type { ReagendarResultado, StageMoveData, StageMoveResultado } from './actions';
 import type { TokenDeshacer } from '@/lib/deshacer-movimiento';
 import { ImportarLeadsModal } from './ImportarLeadsModal';
@@ -116,7 +121,7 @@ import {
 } from './CrmToolbar';
 import { arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '@/lib/campana-atribucion';
 import { antesDeQuien, columnaConInsercion, mismaLista } from '@/app/customer-success/orden-manual';
-import { ordenarKanbanManual, ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
+import { conOrdenDe, ordenarColumna, ordenarKanbanManual, ordenesDeColumna, ORDEN_KANBAN, type DatoParaOrdenar, type OrdenKanban } from './orden-kanban';
 import { ordenarColumnaCrmAction } from './orden-actions';
 import { moverEtapaEnProductoAction } from './lead-funnel-actions';
 import { cambiarCursoAlGanarAction } from './curso-al-ganar-actions';
@@ -133,6 +138,7 @@ import { BotonReuniones } from './ReunionesProximas';
 import { ReunionesParaPreparar, type ReunionParaPreparar } from './TarjetaReunion';
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
@@ -145,13 +151,19 @@ import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, noEntroDelMovi
 import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
 import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
-import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { ModalNuevoCliente as ModalLlevarAPartners } from '@/app/agency/NuevoCliente';
 import { EstiloTarjetas, FichaRapida, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
 import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, FONDO_COLUMNA, NOMBRE_CAMPO_TARJETA, PLANTILLAS_TARJETA_LEAD, colorDeNombre, fechaReunionCorta, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
 import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
 import { guardarCamposTarjetaAction } from './tarjeta-campos-actions';
 import { avisoAlQuitarEtapa } from './aviso-quitar-etapa';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import dynamic from 'next/dynamic';
+import { seleccionDeColumna, type SeleccionDifusion } from './seleccion-difusion';
+
+// La hoja de la DIFUSIÓN es de Automations (app/automations/difusion/HojaDifusion.tsx): trae sus editores de cada canal, así
+// que se carga recién al abrirla y no con el tablero.
+const HojaDifusion = dynamic(() => import('@/app/automations/difusion/HojaDifusion').then((m) => m.HojaDifusion), { ssr: false });
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -202,7 +214,7 @@ export type CrmLead = {
   /** La etapa guardada que este funnel ya no contiene. null = está donde dice. */
   stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
-  telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
+  telefonoNorm: string | null;   // teléfono solo-dígitos — para `tel:` y para saber si hay WhatsApp
   /**
    * El usuario de Instagram, sin @ (`leads.instagram`): el buscador lo encuentra (22/10/2026, `arrobaInstagram`).
    * Y desde el 23/10/2026 un lead puede entrar con el @ como ÚNICO canal (la prospección: un perfil público no da ni
@@ -330,8 +342,9 @@ const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
 const rotPoner = (nombre: string) => `Seleccionar «${nombre}» para moverlo o editarlo junto con otros`;
 const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
-/** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
-const waDe = (telefono: string) => `https://wa.me/${telefono}`;
+// «WhatsApp» abre la conversación del lead ADENTRO de MaKo, en Chats, no WhatsApp Web. Martín en la llamada con Leandro
+// (24/10, f15): «ahí si apretás el botón de WhatsApp debería llevarte al chat dentro de Maco». Un lead sin mensajes también
+// abre: Chats pide esa conversación sola (`claveDelLink`). La misma función que la ficha del teléfono (`rutaChatsDeLead`).
 const rotIg = (nombre: string) => `Abrir el Instagram de ${nombre}`;
 const igDe = (usuario: string) => `https://www.instagram.com/${encodeURIComponent(usuario)}/`;
 /**
@@ -1065,7 +1078,9 @@ export function CrmBoard({
     // resuelto, que `funnelActivo` nombra como null), y nombra a este mismo tablero.
     if (lead.deFila != null) { moverEnProducto(lead, lead.deFila, stageKey, guardarLugar); return; }
     if (stageKey === 'manual') { openManualNutri(id); return; }
-    if (esEtapaCalendly(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
+    // La reunión ya cargada (a mano o por la reserva) no pregunta por Calendly: se mueve como cualquier etapa (27/10/2026,
+    // Martín: «no si la agendé a mano, por defecto la busca»).
+    if (esEtapaCalendly(stageKey) && !reunionYaCargada(stages, stageKey, lead)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
     // YA NO se abre el wizard de datos al soltar (08-T22). Antes, si la etapa pedía
@@ -1743,7 +1758,8 @@ export function CrmBoard({
     },
   ];
   const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || campanaFilter.size > 0 || creativoFilter.size > 0 || search.trim().length > 0;
-  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); setOrdenElegido(null); };
+  // Sin el orden (24/10/2026): «Ordenar» se fue de «Filtrar» al «⋯» de cada columna, y limpiar los filtros no lo toca.
+  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); };
 
   /**
    * EL ORDEN DE LA TABLA. Es lo que separa una tabla de una lista: el plan ordena por
@@ -1815,7 +1831,28 @@ export function CrmBoard({
    *  esta (lo borro otra pestaña, se movio de producto) no puede seguir contando. */
   const elegidos = useMemo(() => leads.filter((l) => selLeads.has(l.id)), [leads, selLeads]);
   const idsVisibles = filtered.map((l) => l.id);
+  // ¿Lo tildado es UNA columna entera? (28/10/2026, ticket #21: «todos los de esta etapa, con el conteo real»). Sólo sin
+  // filtros: con uno puesto, la casilla tilda «los N que se ven» y no la columna. La barra lo dice («Los 394 de Contacto
+  // nuevo») y la difusión manda a la COLUMNA, que resuelve el server (sin el tope de lo cargado).
+  // El funnel que se mira, CON su id aunque sea el principal (`funnelActivo` puede venir null): sin id, el server tomaría la
+  // etapa en TODOS los funnels (app/crm/seleccion-difusion.ts).
+  const funnelDeDifusion = funnelActivo ?? funnels.find((f) => f.esDefault)?.id ?? null;
+  const columnaEntera = (() => {
+    if (hayFiltros || !elegidos.length) return null;
+    const k = effStage(elegidos[0]);
+    if (!elegidos.every((l) => effStage(l) === k)) return null;
+    if (filtered.filter((l) => effStage(l) === k).length !== elegidos.length) return null;
+    const s = stages.find((x) => x.key === k);
+    return s ? { etapa: k, label: s.label, funnelId: funnelDeDifusion } : null;
+  })();
   const todosSel = idsVisibles.length > 0 && idsVisibles.every((id) => selLeads.has(id));
+  /** Las tarjetas de una columna que se ven ahora (con los filtros puestos). */
+  const visiblesDe = (key: string): number[] => filtered.filter((l) => effStage(l) === key).map((l) => l.id);
+  /** «Mandar mensaje de difusión» en el «⋯» de una columna: sólo el admin, y con alguien en la columna. */
+  const difusionDeColumna = (key: string): { visibles: number; filtrado: boolean } | null => {
+    const n = visiblesDe(key).length;
+    return puedeCrearCrm && n > 0 ? { visibles: n, filtrado: hayFiltros } : null;
+  };
 
   // ── worklist "datos sin marcar" ──
   const marcarPending = marcar.length;
@@ -1886,6 +1923,18 @@ export function CrmBoard({
   const abiertoNombre = selected?.name ?? '';
   useEffect(() => { publicarLeadAbierto(abiertoId != null ? { id: abiertoId, nombre: abiertoNombre } : null); }, [abiertoId, abiertoNombre]);
   useEffect(() => () => publicarLeadAbierto(null), []);
+  // `?abrir=<id>` (27/10/2026, lib/pagina-vieja.ts): la ficha de una pestaña de antes de un despliegue se recarga sola en
+  // la versión nueva y vuelve a abrir ESE lead. Una vez; el parámetro sale de la dirección sin navegar.
+  const abrirDeUrl = useRef(sp.get('abrir'));
+  useEffect(() => {
+    const v = Number(abrirDeUrl.current);
+    if (!abrirDeUrl.current || !Number.isInteger(v) || v <= 0 || !leads.some((l) => l.id === v)) return;
+    abrirDeUrl.current = null;
+    setSelectedId(v);
+    const q = new URLSearchParams(window.location.search);
+    q.delete('abrir');
+    window.history.replaceState(null, '', `${window.location.pathname}${q.size ? `?${q}` : ''}`);
+  }, [leads]);
 
   // Leads que esperan tu validación (los que están en "Datos sin marcar").
   const pendingLeadIds = new Set(marcar.map((m) => m.leadId));
@@ -1899,6 +1948,9 @@ export function CrmBoard({
   // la columna de entrada. Si en el medio se trajeron leads, al cerrar se refresca: si no,
   // el tablero sigue sin los que acaban de llegar.
   const [campanasAbierto, setCampanasAbierto] = useState(false);
+  // «Mandar mensaje de difusión» (29/10/2026, el pedido de Leila): la selección de la barra en bloque o la columna del «⋯».
+  // Sólo el admin (la difusión lo exige, app/automations/difusion/actions.ts): la misma pregunta que «Nuevo CRM».
+  const [difusion, setDifusion] = useState<SeleccionDifusion | null>(null);
   // «Asignar evento» de una etapa de reunión (16/10/2026): qué evento de Calendly o Cal.com cae en ella.
   const [eventoDe, setEventoDe] = useState<{ etapa: string; nombre: string } | null>(null);
   // «Vincular cobro» de Ganado (22/10/2026, app/crm/CobroDeEtapaModal.tsx): qué producto cobra ahí, y por qué cuentas.
@@ -1950,6 +2002,14 @@ export function CrmBoard({
   }, [fichaTrasAlta, altaPendiente, hayDialogoDeSoltar, altaAbierta]);
   /** Cierra el modal de alta. Estable: es el `onCerrar` del Modal (ver su nota). */
   const cerrarAlta = useCallback(() => setNuevoLead(null), []);
+  /**
+   * Cerrar «Traer de otro funnel» o el Scraper VUELVE a «Nuevo lead» (24/10/2026, Martín: «si me salgo haciendo click
+   * afuera debería tener abierto el modal anterior. Siempre todos los modales deben tener esa "navegación" interna»).
+   * Identidad fija, como `cerrarAlta`.
+   */
+  const volverAlAlta = useCallback(() => setNuevoLead((n) => (n ? { ...n, traer: false } : n)), []);
+  /** «Importar» abierto desde «Nuevo lead»: al cerrarlo, el alta sigue ahí (la pila de la casa la vuelve a mostrar). */
+  const cerrarImportar = useCallback(() => setImportar(false), []);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
   // renglón del selector puede abrir uno que no es el del tablero.
   const [etapasDe, setEtapasDe] = useState<{ id: number | null; nombre: string; entradas?: boolean } | null>(null);
@@ -2012,18 +2072,19 @@ export function CrmBoard({
   const [ordenMovs, setOrdenMovs] = useState<Record<string, number[]>>({});
   const claveCol = (etapa: string) => `${funnelActivo ?? 0}:${etapa}`;
   const listaManual = (etapa: string): number[] | undefined => ordenMovs[claveCol(etapa)] ?? ordenManual[etapa];
-  const hayOrdenManual = stages.some((s) => (listaManual(s.key)?.length ?? 0) > 0);
   /**
-   * «Ordenar». `null` = nadie eligió en este embudo, y manda la BASE: «Manual» si hay algo
-   * arrastrado, si no la fecha de llegada.
+   * «Ordenar» de CADA COLUMNA (24/10/2026: del «⋯» de la columna, ya no de «Filtrar»; app/crm/orden-kanban.ts). Lo que
+   * eligió la persona, por etapa; una etapa que no está manda su BASE: «Manual» si tiene algo arrastrado, si no la fecha
+   * de llegada.
    *
    * ⚠️ SE CALCULA, NO SE INICIALIZA. Arrancando en un `useState` fijo, el orden armado
    * arrastrando desaparecería en cada F5 (se leería como que no se guardó), y al cambiar de
-   * embudo quedaría el criterio del anterior. Y por la misma cuenta «Limpiar filtros» vuelve
-   * a lo arrastrado: es volver a la base.
+   * embudo quedaría el criterio del anterior.
    */
-  const [ordenElegido, setOrdenElegido] = useState<{ funnel: number | null; valor: OrdenKanban } | null>(null);
-  const ordenBase: OrdenKanban = hayOrdenManual ? 'manual' : 'llegada';
+  const [ordenElegido, setOrdenElegido] = useState<{ funnel: number | null; porEtapa: Readonly<Record<string, OrdenKanban>> } | null>(null);
+  const ordenesDelFunnel: Readonly<Record<string, OrdenKanban>> = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.porEtapa : {};
+  const ordenBaseDe = (etapa: string): OrdenKanban => ((listaManual(etapa)?.length ?? 0) > 0 ? 'manual' : 'llegada');
+  const ordenDe = (etapa: string): OrdenKanban => ordenesDelFunnel[etapa] ?? ordenBaseDe(etapa);
 
   // ── Los filtros sobreviven a un F5 y a irse de la tab ──
   // «Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros»
@@ -2043,29 +2104,53 @@ export function CrmBoard({
     setOriginFilter(new Set(f.origenes));
     setCampanaFilter(new Set(f.campanas));
     setCreativoFilter(new Set(f.anuncios));
-    setOrdenElegido(f.orden ? { funnel: funnelActivo, valor: f.orden } : null);
+    setOrdenElegido(Object.keys(f.ordenes).length ? { funnel: funnelActivo, porEtapa: f.ordenes } : null);
     setActiveBands(new Set(KANBAN_BANDS.filter((b) => !f.ocultas.includes(b))));
     recienRestaurado.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- se restaura al cambiar de cliente o de embudo, no en cada render
   }, [claveGuardado]);
   useEffect(() => {
     if (recienRestaurado.current) { recienRestaurado.current = false; return; }
-    const orden = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : null;
+    const ordenes = ordenElegido && ordenElegido.funnel === funnelActivo ? { ...ordenElegido.porEtapa } : {};
     try {
       window.localStorage.setItem(claveGuardado, escribirFiltros({
-        etapas: [...stageFilter], origenes: [...originFilter], campanas: [...campanaFilter], anuncios: [...creativoFilter], orden,
+        etapas: [...stageFilter], origenes: [...originFilter], campanas: [...campanaFilter], anuncios: [...creativoFilter], ordenes,
         ocultas: BANDAS_KANBAN.filter((b) => !activeBands.has(b)),
       }));
     } catch { /* sin almacenamiento: los filtros duran lo que dure la pantalla */ }
   }, [claveGuardado, stageFilter, originFilter, campanaFilter, creativoFilter, ordenElegido, funnelActivo, activeBands]);
-  const ordenKanban: OrdenKanban = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : ordenBase;
-  const elegirOrden = (v: OrdenKanban) => setOrdenElegido(v === ordenBase ? null : { funnel: funnelActivo, valor: v });
-  /** «Ordenar» del menú, sólo en el kanban: la tabla se ordena por sus columnas. */
-  const ordenFiltro = vista === 'kanban'
-    ? { valor: ordenKanban, base: ordenBase, opciones: ORDEN_KANBAN, elegir: (v: string) => elegirOrden(v === 'manual' ? 'manual' : 'llegada') }
-    : undefined;
+  /** Elegir el orden de una columna. El de su base no se guarda: es lo que ya manda sin elegir nada. */
+  const elegirOrden = (etapa: string, v: OrdenKanban) => setOrdenElegido({
+    funnel: funnelActivo, porEtapa: conOrdenDe(ordenesDelFunnel, etapa, v === ordenBaseDe(etapa) ? null : v),
+  });
+  /**
+   * Lo de cada tarjeta que mira «Ordenar». `respondio` es el chip de la tarjeta (`chipDeAutomatizacion`): contestó a una
+   * automatización, está en una, o en ninguna. El monto es lo vendido y, si no hay, lo estimado.
+   */
+  const datoParaOrdenar = (l: CrmLead): DatoParaOrdenar => {
+    const auts = enAut.get(l.id);
+    return {
+      nombre: l.name, creado: l.createdISO,
+      respondio: auts?.some((a) => a.estado === 'respondio') ? 0 : auts?.length ? 1 : 2,
+      monto: l.monto > 0 ? l.monto : l.ingresoEstimado, reunion: l.fechaJ1, vence: l.nutriManualDeadline,
+    };
+  };
+  /** Qué criterios tiene con qué cada columna (los que no, no se ofrecen). */
+  const hayParaOrdenar = (etapa: string) => {
+    const ls = leads.filter((l) => effStage(l) === etapa);
+    return {
+      manual: (listaManual(etapa)?.length ?? 0) > 0,
+      respondio: ls.some((l) => enAut.has(l.id)),
+      monto: ls.some((l) => l.monto > 0 || (l.ingresoEstimado ?? 0) > 0),
+      reunion: ls.some((l) => !!l.fechaJ1),
+      vence: ls.some((l) => !!l.nutriManualDeadline),
+    };
+  };
   /** Una columna en el orden en que se dibuja con el criterio de ahora. */
-  const enOrden = (ls: CrmLead[]) => (ordenKanban === 'manual' ? ordenarKanbanManual(ls, (l) => l.id, effStage, listaManual) : ls);
+  const enOrden = (ls: CrmLead[], etapa: string) => {
+    const o = ordenDe(etapa);
+    return o === 'manual' ? ordenarKanbanManual(ls, (l) => l.id, effStage, listaManual) : ordenarColumna(ls, o, datoParaOrdenar);
+  };
 
   /**
    * Soltar en un lugar de una columna: guarda la columna ENTERA con la tarjeta ahí y deja
@@ -2082,7 +2167,7 @@ export function CrmBoard({
    * columna ofrece uno que devuelve la lista y el criterio de antes, y lo escribe en el server.
    */
   const reordenarColumna = (id: number, etapa: string, antesDe: number | null, mueve: boolean) => {
-    const columna = enOrden(leads.filter((l) => effStage(l) === etapa)).map((l) => l.id);
+    const columna = enOrden(leads.filter((l) => effStage(l) === etapa), etapa).map((l) => l.id);
     const nueva = columnaConInsercion(columna, [id], antesDe);
     if (!mueve && mismaLista(nueva, columna)) return;
     const clave = claveCol(etapa);
@@ -2090,7 +2175,8 @@ export function CrmBoard({
     const elegidoAntes = ordenElegido;
     const funnel = funnelActivo;
     setOrdenMovs((v) => ({ ...v, [clave]: nueva }));
-    setOrdenElegido(null);   // con algo arrastrado, la base pasa a ser «Manual»
+    // Con algo arrastrado, la base de ESTA columna pasa a ser «Manual» (las otras siguen con lo suyo).
+    setOrdenElegido({ funnel, porEtapa: conOrdenDe(ordenesDelFunnel, etapa, null) });
     startTransition(async () => {
       // ⚠️ UNA ACCIÓN QUE NO LLEGA (sin red) RECHAZA LA PROMESA, y adentro de una transición eso
       // tumba la pantalla entera. Se ataja como un error más (medido en Customer Success).
@@ -2152,7 +2238,7 @@ export function CrmBoard({
       for (const tanda of enTandasDe(ids)) {
         const r = await enAutomatizacionesAction(tanda).catch(() => null);
         if (!vivo || r === null) return;
-        for (const [k, v] of Object.entries(r)) if (v.length) out.set(Number(k), v);
+        for (const [k, v] of Object.entries(r)) if (v?.length) out.set(Number(k), v);
       }
       if (vivo) setEnAut(out);
     })();
@@ -2544,6 +2630,7 @@ export function CrmBoard({
           // La MISMA condición que el renglón del «⋯» (y su test, tests/crm-curso-al-ganar.test.ts).
           curso: cursoAlGanar && terminalEstadoFor(c.key) === 'ganado' ? cursoPrendido : null,
           borrable: colsBorrables.has(c.key),
+          difusion: difusionDeColumna(c.key),
         },
       };
     }
@@ -2631,11 +2718,11 @@ export function CrmBoard({
       case 'abrir': if (l) openDetail(l); return;
       case 'que_hacer': if (l) abrirQueHacer(l.id); return;
       case 'mover_etapa': if (l && valor) { idASoltar.current = l.id; handleDrop(valor); } return;
-      case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
+      case 'whatsapp': if (l) router.push(rutaChatsDeLead(l.id)); return;
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
       case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
       case 'partners_llevar': if (l) setAPartners(l); return;
-      case 'partners_ver': if (l?.cuentaPartners != null) router.push(`/partners?cuenta=${l.cuentaPartners}`); return;
+      case 'partners_ver': if (l?.cuentaPartners != null) router.push(`/agency?cuenta=${l.cuentaPartners}`); return;
       case 'seleccionar':
       case 'quitar_seleccion': if (l) alternarSel(l.id); return;
       // La MISMA confirmación que el tacho de la fila.
@@ -2657,9 +2744,13 @@ export function CrmBoard({
       case 'personalizar_tarjetas': setPersonalizando(true); return;
       // El «Nuevo lead» del «⋯» de esa columna, por el mismo camino (`altaPendiente`).
       case 'col_nuevo_lead': if (c) { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); } return;
+      // Del submenú, el criterio elegido (`valor`).
+      case 'col_ordenar': if (c && valor && valor in ORDEN_KANBAN) elegirOrden(c.key, valor as OrdenKanban); return;
       case 'col_izquierda': if (c) moverCol(c.key, -1); return;
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
+      // La columna ENTERA sin tildar nada (sin filtros), o «los N que se ven» (`seleccionDeColumna`).
+      case 'col_difusion': if (c) setDifusion(seleccionDeColumna({ etapa: c.key, funnelId: funnelDeDifusion }, visiblesDe(c.key), hayFiltros)); return;
       case 'col_evento': if (c) setEventoDe({ etapa: c.key, nombre: c.label }); return;
       case 'col_cobro': if (c) setCobroDe({ etapa: c.key, nombre: c.label }); return;
       // Del submenú, el tipo elegido (`valor`); sin submenú (no se sabía el tipo), el pop-up de siempre.
@@ -2689,12 +2780,14 @@ export function CrmBoard({
       etiquetas, sinEtiquetas,
       funnels: destinosLote,
       tipoActual: c && columnaConTipo(c) ? tipoDeColumna(c) : null,
+      orden: c ? { opciones: ordenesDeColumna(hayParaOrdenar(c.key), ordenDe(c.key)), actual: ordenDe(c.key) } : undefined,
       // «Una etapa de tipo Reunión sin evento vinculado muestra un warning... Lo mismo una etapa Ganado sin cobro» (Martín, 22/10/2026).
       avisos: c ? avisosDeColumna(c) : undefined,
       logoMeta: <LogoMeta size={17} />,
       // Las flechas, con el dibujo del «⋯». La que no tiene a dónde ir se apaga (ver `moverCol`: en la
       // punta derecha, `soltarCol` reescribiría el mismo orden).
       flechas: { izquierda: iProp > pisoCol, derecha: iProp >= 0 && iProp < colsPropias.length - 1, iconoIzquierda: <FlechaIzquierdaIcon />, iconoDerecha: <FlechaDerechaIcon /> },
+      difusion: abierto.ctx.sobre === 'columna' ? abierto.ctx.difusion : undefined,
     });
     const sobre = abierto.ctx.sobre;
     // ⚠️ NO el `ariaLabel` del «⋯» de la columna, a propósito: tests/funnel-estructura.test.ts ubica ese
@@ -2728,13 +2821,16 @@ export function CrmBoard({
   const renderColumn = (c: Stage) => {
     // Le falta su vínculo (22/10/2026): el «⋯» lleva el punto ámbar y su renglón, el aviso.
     const falta = faltaVincular(c, vinculados);
-    const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
+    const cards = enOrden(filtered.filter((l) => effStage(l) === c.key), c.key);
     // Las que se DIBUJAN (una tanda, y más al llegar al fondo). El conteo, la casilla de la columna, el lote y el orden al
     // soltar siguen mirando `cards`, la columna entera.
     const dibujadas = cards.slice(0, cuantasDibujar(cards.length, tandas[c.key]));
     // Lo que tilda la casilla del encabezado: lo que se VE en esta columna (con el filtro puesto, lo que el filtro dejó).
     const idsCol = cards.map((x) => x.id);
     const colSel = estadoDeColumna(idsCol, selLeads);
+    // Ordenada con otro criterio que su base (24/10/2026): la cabecera lo dice, para que un orden elegido no se olvide.
+    const ordenCol = ordenDe(c.key);
+    const ordenAparte = ordenCol !== ordenBaseDe(c.key);
     const total = totalesCol.get(c.key) ?? null;
     const bandC = CATEGORY[bandToCategory(c.band)].c;
     // Dónde está esta columna entre las reordenables, y si la marca de destino cae acá.
@@ -2858,6 +2954,14 @@ export function CrmBoard({
                   style={{ flex: '0 1 auto', minWidth: 0, textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: 0, cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                 >{c.label}</button>
                 <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
+                {/* Ordenada con un criterio elegido (24/10/2026): el ícono de «Ordenar» en azul, y el criterio en su `title`.
+                    Sin esto, un «Nombre (A-Z)» elegido una vez se olvida y la columna parece desordenada. */}
+                {ordenAparte && (
+                  <span role="img" aria-label={`Ordenada: ${ORDEN_KANBAN[ordenCol]}`} title={`Ordenada: ${ORDEN_KANBAN[ordenCol]}`}
+                    style={{ flex: 'none', display: 'inline-flex', color: 'var(--primary)' }}>
+                    <IconoMenu nombre="ordenar" size={14} />
+                  </span>
+                )}
                 {/* ⚠️ EL HUECO VA DESPUÉS DEL CONTADOR, no entre el título y el contador: ahí
                     el `space-between` le empujaría el número al otro extremo, que es el layout
                     que Martín pidió cambiar. Y es por donde se agarra para arrastrar. */}
@@ -2950,7 +3054,7 @@ export function CrmBoard({
                 marcada={leadDelMenu === l.id}
                 titulo={l.origin && l.origin !== l.canal ? l.origin : undefined}
                 nombre={l.name}
-                foto={l.foto}
+                foto={fotoDeTarjeta(l.foto, l.phone, wsTab)}
                 insignia={insigniaDeCanal(l.canal)}
                 /* Qué datos, en qué orden y con qué diseño: «Personalizar tarjetas» (`propsDeTarjeta`, arriba del return). */
                 {...propsDeTarjeta(l, campos, diseno)}
@@ -3167,9 +3271,9 @@ export function CrmBoard({
             etapas={stageFilter} setEtapas={setStageFilter}
             origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
             listas={listasFiltro}
-            orden={ordenFiltro}
             // Las bandas son una propiedad del KANBAN (qué columnas se ven): sólo viajan en
-            // esa vista, como «Ordenar». Eran tres botones sueltos en esta fila (punto 25).
+            // esa vista. Eran tres botones sueltos en esta fila (punto 25). «Ordenar» se fue al «⋯» de cada columna
+            // (24/10/2026, Martín: «que no este ordenamientos en el botón de filtros»).
             bandas={vista === 'kanban' ? {
               activas: activeBands,
               alternar: toggleBand,
@@ -3276,11 +3380,14 @@ export function CrmBoard({
             productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
             equipo={equipo}
             funnelActivo={funnelActivo}
+            columnaEntera={columnaEntera}
             // «Completar» en lote (24/10/2026): sólo el admin, la misma pregunta que «Nuevo CRM» (`puedeCrearCrm`).
             puedeCompletar={!!puedeCrearCrm}
             // Mientras «Completar» corre, la barra queda montada aunque la selección se vacíe por otro camino (el clic derecho,
             // la casilla de una columna): sin barra no hay avance ni «Parar» (la revisión del 24/10/2026).
             onCorriendo={setCompletandoLote}
+            // «Mandar mensaje» de la barra: la hoja de la difusión, con lo tildado o la columna entera.
+            onMandarMensaje={puedeCrearCrm ? setDifusion : undefined}
             onLimpiar={limpiarSel}
             // ⚠️ EL DESHACER DEL LOTE LO CUELGA EL TABLERO, no la barra: la barra se desmonta
             // al limpiar la selección y un aviso suyo moriría con ella. Hoy lo trae «agregar a
@@ -3290,6 +3397,9 @@ export function CrmBoard({
               // «Frenar automatización» del lote cambia en qué automatizaciones está cada uno: se vuelve a leer.
               setVersionAut((v) => v + 1);
               const deshacer = r.deshacer;
+              // Lo que ya se dijo en el desplegable de la extensión no se repite abajo (Martín, 26/10/2026: «no me gusta que
+              // salga el cartel negro abajo»).
+              if (r.enLaExtension) { router.refresh(); return; }
               // `r.tono`: un «Completar» a medias (paró, se cortó o faltan) no se canta como un «listo».
               mostrarAviso(r.texto, deshacer ? () => {
                 startTransition(async () => {
@@ -3456,13 +3566,13 @@ export function CrmBoard({
                   {/* Solo con telefono: un boton de WhatsApp sin numero no puede ir a ningun
                       lado, y uno apagado en cada fila es ruido por fila. */}
                   {l.telefonoNorm && (
-                    <a href={waDe(l.telefonoNorm)} target="_blank" rel="noopener noreferrer"
+                    <Link href={rutaChatsDeLead(l.id)}
                       onClick={(ev) => ev.stopPropagation()}
                       title={rotWa(l.name)} aria-label={rotWa(l.name)}
                       className="mk-icon-btn" data-tone="dim"
                       style={{ width: 28, height: 28, textDecoration: 'none' }}>
                       <IconoWhatsapp />
-                    </a>
+                    </Link>
                   )}
                   {/* Sin teléfono ni email pero con @: escribirle es por Instagram. */}
                   {soloInstagram(l) && (
@@ -3540,6 +3650,13 @@ export function CrmBoard({
             }} />
         );
       })()}
+      {difusion && (
+        <HojaDifusion abierta seleccion={difusion} onCerrar={() => setDifusion(null)}
+          onCreada={(r) => mostrarAviso(<>
+            {r.yaEstaban ? `Esa difusión ya estaba creada: no se mandó dos veces (${r.leads} en total).` : `Listo: la difusión sale a ${r.leads} ${r.leads === 1 ? 'lead' : 'leads'}.`}{' '}
+            <a href={`/automations?sec=${r.secuenciaId}`} style={{ color: 'inherit', fontWeight: 700 }}>Verla en Automations</a>
+          </>)} />
+      )}
       {campanasAbierto && (
         <CampanasModal
           // ⚠️ EL PRINCIPAL VA COMO `null`: `funnelActivo` puede traer su id numérico, y con
@@ -3552,7 +3669,8 @@ export function CrmBoard({
             if (cambiaronCampanas.current) { cambiaronCampanas.current = false; router.refresh(); }
           }} />
       )}
-      {importar && <ImportarLeadsModal funnelId={funnelActivo} productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))} onClose={() => setImportar(false)} onListo={(resumen) => { setImportar(false); setFlashCsv(resumen); router.refresh(); }} />}
+      {/* Al terminar se cierran los dos (la importación y, si se abrió desde ahí, el alta): ya no hay nada que cargar. */}
+      {importar && <ImportarLeadsModal funnelId={funnelActivo} productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))} onClose={cerrarImportar} onListo={(resumen) => { setImportar(false); setNuevoLead(null); setFlashCsv(resumen); router.refresh(); }} />}
       {exportar && <ExportarLeadsModal onClose={() => setExportar(false)} />}
       {/* ⚠️ LA SEMILLA VA SÓLO SI EL POP-UP ABRE SOBRE EL EMBUDO QUE SE ESTÁ MIRANDO.
           Desde el desplegable se puede editar OTRO producto sin cambiar de tablero, y
@@ -3578,52 +3696,21 @@ export function CrmBoard({
           ficha no se abre (`selected` la busca en `leads`) y sin el aviso el botón
           se leería como que no hizo nada. */}
       {nuevoLead && (
-        // ⚠️ DOS VISTAS, DOS TAMAÑOS. El alta son CUATRO campos uno debajo del otro (puntos
-        // 27-28 del 12/10/2026) y entra en 560; traer de otro producto es una tabla con seis
-        // columnas, su buscador y su filtro, y ahí 720 deja cada fila en dos renglones. Por
-        // eso la vista la decide el PADRE y no el form: un formulario no puede cambiar el
-        // tamaño de la caja que lo contiene. Y el alto va FIJO en «traer», o la caja salta al
-        // cambiar de vista.
-        // `onCerrar` de identidad FIJA (`cerrarAlta`): con una flecha nueva por render del
-        // tablero, el Modal le devuelve el foco atrás y el campo pierde la letra (AGENTS.md).
-        <Modal
-          titulo={nuevoLead.traer === 'grupo' ? 'Traer de un grupo de WhatsApp' : nuevoLead.traer ? 'Traer de otro funnel' : 'Nuevo lead'}
-          ancho={nuevoLead.traer ? 1040 : 560}
-          alto={nuevoLead.traer ? "min(88vh, 720px)" : undefined}
-          onCerrar={cerrarAlta}
-        >
-          {/* Los contactos de un grupo de WhatsApp (23/10/2026, ./TraerDeGrupoWA.tsx): sólo el admin, que es quien la ve. */}
-          {nuevoLead.traer === 'grupo' ? (
-            <TraerDeGrupoWA
-              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
-              destino={funnelActivo}
-              onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos).
-              onTraidos={(resumen) => { mostrarAviso(resumen); router.refresh(); }}
-            />
-          ) : nuevoLead.traer ? (
-            <TraerDeOtroProducto
-              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
-              destino={funnelActivo}
-              onAtras={() => setNuevoLead({ ...nuevoLead, traer: false })}
-              onTraidos={(movidos, fallaron, deshacer) => {
-                setNuevoLead(null);
-                const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
-                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
-                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
-                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
-                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
-                } : undefined);
-                router.refresh();
-              }}
-            />
-          ) : (
+        // ⚠️ «TRAER» Y EL SCRAPER SE ABREN ENCIMA, EN SU PROPIO MODAL (24/10/2026). Hasta acá reemplazaban el contenido de
+        // ESTE modal (dos vistas, dos tamaños), y un clic afuera cerraba todo. Martín: «Si le doy a "Scraper" o algun boton
+        // asi, se me abre el modal nuevo, si me salgo haciendo click afuera debería tener abierto el modal anterior». Ahora
+        // es la regla de la casa (app/_components/pila-modales.ts): el de abajo se esconde sin desmontarse —lo escrito en el
+        // alta queda— y cerrar el de arriba lo vuelve a mostrar. El alta son CUATRO campos y entra en 560; «traer» es una
+        // tabla de seis columnas, 1040, con el alto FIJO (abajo).
+        // `onCerrar` de identidad FIJA (`cerrarAlta`, `volverAlAlta`): con una flecha nueva por render del tablero, el Modal
+        // le devuelve el foco atrás y el campo pierde la letra (AGENTS.md).
+        <Modal titulo="Nuevo lead" ancho={560} onCerrar={cerrarAlta}>
           <NewLeadForm enModal={{
             funnelId: funnelActivo,
             onTraer: () => setNuevoLead({ ...nuevoLead, traer: true }),
             ...(puedeCrearCrm ? { onTraerGrupo: () => setNuevoLead({ ...nuevoLead, traer: 'grupo' }) } : {}),
-            // «Importar», el tercero de arriba (24/10/2026): cierra el alta y abre la importación de siempre.
-            onImportar: () => { setNuevoLead(null); setImportar(true); },
+            // «Importar», el tercero de arriba (24/10/2026): la importación de siempre, ENCIMA del alta (al cerrarla, vuelve).
+            onImportar: () => setImportar(true),
             onCreado: (id) => {
               const etapa = nuevoLead.etapa;
               setNuevoLead(null);
@@ -3641,12 +3728,48 @@ export function CrmBoard({
               router.refresh();
             },
           }} />
+        </Modal>
+      )}
+      {nuevoLead?.traer && (
+        <Modal
+          titulo={nuevoLead.traer === 'grupo' ? 'Extraer de un grupo de WhatsApp' : 'Traer de otro funnel'}
+          ancho={1040}
+          alto="min(88vh, 720px)"
+          onCerrar={volverAlAlta}
+        >
+          {/* Los contactos de un grupo de WhatsApp (23/10/2026, ./TraerDeGrupoWA.tsx): sólo el admin, que es quien la ve. */}
+          {nuevoLead.traer === 'grupo' ? (
+            <TraerDeGrupoWA
+              destino={funnelActivo}
+              onAtras={volverAlAlta}
+              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos). Sin aviso abajo
+              // (Martín, 26/10/2026: «no me gusta que salga el cartel negro abajo»): el resultado ya está en el pie del modal y en
+              // el desplegable de la extensión.
+              onTraidos={() => router.refresh()}
+              onCerrar={() => setNuevoLead(null)}
+            />
+          ) : (
+            <TraerDeOtroProducto
+              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
+              destino={funnelActivo}
+              onAtras={volverAlAlta}
+              onTraidos={(movidos, fallaron, deshacer) => {
+                setNuevoLead(null);
+                const falla = fallaron ? ` · ${fallaron} no se pudieron` : '';
+                // Con su «Deshacer» (22/10/2026): el componente lo mandaba y el tablero lo tiraba. Traer 1.050 de una vez
+                // sin vuelta atrás es justo lo que no puede pasar; borra SÓLO las filas que este lote creó.
+                mostrarAviso(`${movidos} ${movidos === 1 ? 'lead traído' : 'leads traídos'}${falla}`, deshacer ? () => {
+                  void deshacer().then(() => router.refresh(), () => mostrarAviso('No se pudo deshacer', undefined, 'bad'));
+                } : undefined);
+                router.refresh();
+              }}
+            />
           )}
         </Modal>
       )}
-      {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote, en singular y nombrando
-          al lead: «No se puede deshacer» es lo unico que convierte un icono chico al
-          borde de una fila en una decision. */}
+      {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote (`preguntaDePapelera`), en singular y nombrando
+          al lead. Desde el 28/10/2026 va a la PAPELERA (mig 0340): el aviso trae su «Deshacer», y 30 días
+          después se borra para siempre. */}
       {/* LA FICHA RÁPIDA de «Ver info» (17/10/2026): la cara, el paso del recorrido, unos datos, Llamar / WhatsApp / la
           ficha completa, y «Mover a…» por el MISMO camino que soltar la tarjeta en esa columna (`handleDrop`: cada
           columna abre su wizard, igual que el menú del clic derecho). La ficha completa NO cambia. */}
@@ -3663,7 +3786,7 @@ export function CrmBoard({
         return (
           <FichaRapida
             nombre={l.name}
-            foto={l.foto}
+            foto={fotoDeTarjeta(l.foto, l.phone, wsTab)}
             insignia={insigniaDeCanal(l.canal)}
             subtitulo={subtituloLead(plata, l.canal)}
             avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, texto: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}` } : null}
@@ -3678,7 +3801,7 @@ export function CrmBoard({
               { k: 'Entró', v: l.created },
             ]}
             acciones={[
-              ...(l.telefonoNorm ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', href: waDe(l.telefonoNorm), externo: true }] : []),
+              ...(l.telefonoNorm ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', onClick: () => { cerrar(); router.push(rutaChatsDeLead(l.id)); } }] : []),
               { texto: 'Abrir ficha', onClick: () => { cerrar(); openDetail(l); }, primaria: !l.telefonoNorm },
             ]}
             mover={stages.map((s) => ({ id: s.key, label: s.label, aqui: s.key === etapa }))}
@@ -3693,23 +3816,32 @@ export function CrmBoard({
         <ModalLlevarAPartners leadId={aPartners.id} nombre={aPartners.name} email={aPartners.email || null}
           onCerrar={() => setAPartners(null)} onListo={() => router.refresh()} />
       )}
-      {borrarUno && (
-        <ConfirmDialog
-          title={`¿Eliminar «${borrarUno.name}»?`}
-          message="Se va con su historial y sus pagos. No se puede deshacer."
-          confirmLabel="Eliminar"
-          tone="danger"
-          onConfirm={() => {
-            const id = borrarUno.id;
-            const nombre = borrarUno.name;
-            setBorrarUno(null);
-            void eliminarLeadsAction([id]).then((r) => {
-              mostrarAviso(r.borrados ? `Eliminado «${nombre}»` : 'No se pudo eliminar');
-              router.refresh();
-            });
-          }}
-          onCancel={() => setBorrarUno(null)} />
-      )}
+      {borrarUno && (() => {
+        const q = preguntaDePapelera(1, borrarUno.name);
+        return (
+          <ConfirmDialog
+            title={q.titulo}
+            message={q.mensaje}
+            confirmLabel="Mandar a la papelera"
+            tone="danger"
+            onConfirm={() => {
+              const id = borrarUno.id;
+              const nombre = borrarUno.name;
+              setBorrarUno(null);
+              void eliminarLeadsAction([id]).then((r) => {
+                mostrarAviso(r.borrados ? `«${nombre}» a la papelera` : `No se pudo: ${r.motivo ?? 'no contestó'}`, r.borrados ? () => {
+                  startTransition(async () => {
+                    const v = await recuperarLeadsAction([id]).catch(() => null);
+                    if (!v?.recuperados) mostrarAviso(`No se pudo recuperar: ${v?.motivo ?? 'no contestó'}`, undefined, 'bad');
+                    router.refresh();
+                  });
+                } : undefined, r.borrados ? undefined : 'bad');
+                router.refresh();
+              }).catch((e: unknown) => mostrarAviso(e instanceof Error ? e.message : 'No se pudo', undefined, 'bad'));
+            }}
+            onCancel={() => setBorrarUno(null)} />
+        );
+      })()}
       <Toast state={avisoBoard} onClose={limpiarAviso} />
 
       {/* EL CLIC DERECHO. Va acá, al nivel del <main>, y no adentro de la tarjeta o la columna: un evento de
@@ -3989,7 +4121,7 @@ export function CrmBoard({
                     )}
                     <button type="button" onClick={() => elegirQhEtapa(o.to)} style={btnOpcion(activo)}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14.5, fontWeight: 700 }}>
-                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category].c }} />
+                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category]?.c ?? 'var(--dim)' }} />
                         {o.label}
                       </div>
                       {o.sub && o.sub !== o.label && (

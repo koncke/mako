@@ -55,10 +55,11 @@ const finalEsBorrar = (xs: ReadonlyArray<IdOpcionCrm | null>, id: IdOpcionCrm) =
 
 // Roturas: WhatsApp sin la condición `conWhatsapp` → 1 fallo. «Eliminar» antes de «Seleccionar» → 1 fallo.
 test('una tarjeta: su menú, con WhatsApp y copiar sólo si hay el dato, y «Eliminar» al final y separado', () => {
+  // «Seleccionar» va con abrir y mover desde el 24/10/2026 (solo entre dos rayas era un grupo de un renglón).
   const pelado = opcionesCrm(lead());
-  assert.deepEqual(pelado, ['abrir', 'mover_etapa', null, 'personalizar_tarjeta', null, 'seleccionar', null, 'eliminar'], 'sin teléfono ni email no hay a dónde escribir ni qué copiar');
+  assert.deepEqual(pelado, ['abrir', 'mover_etapa', 'seleccionar', null, 'personalizar_tarjeta', null, 'eliminar'], 'sin teléfono ni email no hay a dónde escribir ni qué copiar');
   const completo = opcionesCrm(lead({ conWhatsapp: true, conTelefono: true, conEmail: true }));
-  assert.deepEqual(completo.slice(0, 6), ['abrir', 'mover_etapa', null, 'whatsapp', 'copiar_telefono', 'copiar_email']);
+  assert.deepEqual(completo.slice(0, 7), ['abrir', 'mover_etapa', 'seleccionar', null, 'whatsapp', 'copiar_telefono', 'copiar_email']);
   finalEsBorrar(completo, 'eliminar');
   // La fila de la lista es el mismo lead: el mismo menú, menos «Personalizar tarjeta» (una fila no es una tarjeta).
   assert.deepEqual(opcionesCrm(lead({ sobre: 'fila' })), pelado.filter((x, i) => x !== 'personalizar_tarjeta' && !(x === null && pelado[i - 1] === 'personalizar_tarjeta')));
@@ -87,15 +88,17 @@ test('con selección, el clic sobre un tildado actúa sobre TODOS; sobre uno sin
 
 // Roturas: las campañas sin la condición `entrada` → 1 fallo. «Eliminar etapa» sin `borrable` → 1 fallo.
 test('la columna: flechas si se arrastra, campañas en la entrada, el curso en Ganado, «Eliminar etapa» si el server la borra', () => {
-  // Por SECCIONES desde el 22/10/2026 (Columnas · Leads · Etapa, y «Eliminar etapa» sola): los títulos los pone `itemsCrm`.
+  // Por SECCIONES desde el 22/10/2026; en este orden desde el 24/10/2026 (Martín: «lo primero debe ser nuevo lead. Y el
+  // editor de columnas abajo del todo, claro que eliminar siempre por ultimo... Y ahí pon la opción de "ordenar"»):
+  // Leads (Nuevo lead, Ordenar) · Etapa · Columnas (las flechas y Agregar etapa) · «Eliminar etapa» sola.
   const comun = opcionesCrm(col());
-  assert.deepEqual(comun, ['col_izquierda', 'col_derecha', 'col_agregar', 'col_nuevo_lead', 'col_renombrar', null, 'col_eliminar']);
+  assert.deepEqual(comun, ['col_nuevo_lead', 'col_ordenar', 'col_renombrar', 'col_izquierda', 'col_derecha', 'col_agregar', null, 'col_eliminar']);
   finalEsBorrar(comun, 'col_eliminar');
   // La entrada: no se mueve ni se borra (el server la fuerza primera), y es donde viven las campañas de Meta.
-  assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_agregar', 'col_nuevo_lead', 'col_campanas', 'col_renombrar']);
+  assert.deepEqual(opcionesCrm(col({ mover: false, entrada: true, borrable: false })), ['col_nuevo_lead', 'col_ordenar', 'col_campanas', 'col_renombrar', 'col_agregar']);
   assert.ok(!comun.includes('col_campanas'), 'las campañas sólo en la entrada');
-  // La de reunión: «Asignar evento», como en su «⋯» (21/10/2026: también en el clic derecho).
-  assert.deepEqual(opcionesCrm(col({ reunion: true })), ['col_izquierda', 'col_derecha', 'col_agregar', 'col_nuevo_lead', 'col_renombrar', 'col_evento', null, 'col_eliminar']);
+  // La de reunión: «Vincular evento», como en su «⋯» (21/10/2026: también en el clic derecho).
+  assert.deepEqual(opcionesCrm(col({ reunion: true })), ['col_nuevo_lead', 'col_ordenar', 'col_renombrar', 'col_evento', 'col_izquierda', 'col_derecha', 'col_agregar', null, 'col_eliminar']);
   assert.ok(!comun.includes('col_evento'), 'el evento sólo en una etapa de reunión');
   // Ganado: el rótulo dice lo que va a pasar al tocarlo (sin subtítulo «Prendido»/«Apagado»).
   assert.ok(opcionesCrm(col({ curso: true })).includes('col_curso_apagar'));
@@ -104,7 +107,8 @@ test('la columna: flechas si se arrastra, campañas en la entrada, el curso en G
 });
 
 // Rotura: «Quitar la selección» sin la condición → 1 fallo.
-test('el fondo: lo del «⋯» de la barra, y «Quitar la selección» sólo con selección', () => {
+test('el fondo: lo del «⋯» de la barra, en su orden, y «Quitar selección» sólo con selección', () => {
+  // El orden del «⋯» desde el 24/10/2026: lo que trae leads, lo que los saca, y la configuración.
   assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 0 }), ['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas']);
   assert.deepEqual(opcionesCrm({ sobre: 'fondo', seleccionados: 4 }).slice(-2), [null, 'lote_limpiar']);
 });
@@ -141,7 +145,7 @@ test('los renglones: «Mover a etapa» sin la etapa donde ya está, las flechas 
 
   const columna = itemsCrm(opcionesCrm(col()), DATOS);
   assert.equal(columna.filter((x) => x && (x.id === 'col_izquierda' || x.id === 'col_derecha')).length, 0, 'las flechas no van sueltas');
-  const linea = columna[0];
+  const linea = porId(columna, 'col_izquierda+col_derecha');
   assert.deepEqual(linea?.enLinea?.map((b) => [b.id, !!b.deshabilitado]), [['col_izquierda', true], ['col_derecha', false]], 'la que no tiene a dónde ir, apagada');
   assert.equal(EN_LINEA.length, 1);
 });
@@ -202,7 +206,9 @@ test('mover entra por `handleDrop`; las de lote, por la barra, con las MISMAS fu
   assert.match(manija, /asignar: pedirPersona,/);
   assert.match(lote, /onChange=\{pedirEtapa\}/, 'el desplegable «Etapa» pregunta lo mismo');
   assert.match(lote, /onChange=\{\(v\) => pedirPersona\(campo, v\)\}/, 'y «Closer»/«Setter» también');
-  assert.match(lote, /onChange=\{\(v\) => agregarAFunnel\(v === 'default' \? null : Number\(v\)\)\}/, 'y «Funnel»');
+  // «Funnel» (28/10/2026): su renglón «Pasar a otro funnel…» abre su pregunta; los demás AGREGAN como el menú.
+  assert.match(lote, /onChange=\{elegirFunnel\}/, 'y «Funnel»');
+  assert.match(lote, /if \(v === PASAR\) \{ setPide\(\{ tipo: 'pasar' \}\); return; \}\n\s+agregarAFunnel\(v === 'default' \? null : Number\(v\)\);/, 'y «Funnel» agrega con la misma función');
   assert.match(lote, /const destinos = destinosDeLote\(productos, funnelActivo\);/);
   assert.match(BOARD, /destinosDeLote\(funnels\.map/, 'el menú ofrece los MISMOS funnels que la barra');
 });

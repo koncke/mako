@@ -29,6 +29,7 @@
 //   mako-pc mako://conectar?codigo=ABCD2345   (el ENLACE de «Conectar mi computadora», sin terminal: pregunta en una ventana)
 //   mako-pc mako://iniciar-sesion             (la sesión de Claude sin terminal: una página LOCAL para pegar el código, 0.4.0)
 //   mako-pc app                               (MaKo.app en la Mac, 0.4.2: sin Terminal; el código, del portapapeles)
+//   mako-pc abrir                             (el acceso «MaKo» del menú Inicio y del escritorio: abre MaKo en el navegador)
 // =============================================================================
 
 import { spawn, spawnSync } from 'node:child_process';
@@ -39,7 +40,8 @@ import { pathToFileURL } from 'node:url';
 import { homedir, hostname } from 'node:os';
 import { dirname, join } from 'node:path';
 
-export const VERSION = '0.4.2';
+// 0.4.3 (27/10/2026): «MaKo» en el menú Inicio y en el escritorio (`abrir`) y entrar con otra cuenta de Claude (b10eb3b04).
+export const VERSION = '0.4.3';
 const CARPETA = process.env.MAKO_PC_DIR || join(homedir(), '.mako-pc');
 const CONFIG = join(CARPETA, 'config.json');
 const REGISTRO = join(CARPETA, 'registro.txt');
@@ -396,6 +398,28 @@ const aUtf16 = (s) => Buffer.from(`${s}\0`, 'utf16le');
 const comillasAs = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 
 /**
+ * El ícono de las ventanas de la Mac: el de MaKo (MaKo.icns, de installer/marca) en vez del genérico «note» (25/10/2026, el
+ * instalador con el diseño de MaKo). La app firmada corre DENTRO del paquete (…/Contents/MacOS/MaKo → ../Resources); la sin
+ * firmar corre desde ~/.mako-pc/bin, y su guion lo deja en ~/.mako-pc (lib/ia-pc-reglas.ts → lanzadorDeLaAppMac). Sin el
+ * archivo (una 0.4.2), el de siempre.
+ */
+export function iconoDeDialogo({ ejecutable = process.execPath, casa = homedir(), existe = existsSync } = {}) {
+  const f = [join(dirname(ejecutable), '..', 'Resources', 'MaKo.icns'), join(casa, '.mako-pc', 'MaKo.icns')].find((c) => existe(c));
+  return f ? `with icon (POSIX file ${comillasAs(f)})` : 'with icon note';
+}
+
+/**
+ * `osascript` con el ícono de MaKo. ⚠️ SIN PROBAR EN UNA MAC (25/10/2026): si el ícono hace fallar la ventana por otra cosa que
+ * «Cancelar» (el -128 de AppleScript), se repite con el genérico. Una ventana que no sale es un «no»: nunca puede trabar el
+ * conectar por un ícono. `correr` es para los tests.
+ */
+export function dialogoMac(guion, { correr = spawnSync, icono = iconoDeDialogo() } = {}) {
+  const r = correr('osascript', ['-e', `${guion} ${icono}`], { encoding: 'utf8' });
+  if (r.status === 0 || icono === 'with icon note' || /-128/.test(r.stderr ?? '')) return r;
+  return correr('osascript', ['-e', `${guion} with icon note`], { encoding: 'utf8' });
+}
+
+/**
  * Una ventana del SISTEMA, sin consola. `botones`: 'si-no' devuelve true con «Sí»; 'ok' sólo avisa. En Windows, `MessageBoxW`
  * de user32 (con `bun:ffi`, dentro del ejecutable); en la Mac, `osascript`. Sin poder mostrarla, false: nunca se conecta sin
  * que la persona diga que sí. `MAKO_PC_SI=1` contesta «sí» sin ventana: sólo para la prueba de punta a punta.
@@ -416,7 +440,7 @@ export async function ventana(titulo, texto, botones = 'si-no') {
     }
     if (process.platform === 'darwin') {
       const b = botones === 'si-no' ? '{"No", "Sí, conectar"} default button 1 cancel button 1' : '{"Listo"} default button 1';
-      const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} with title ${comillasAs(titulo)} buttons ${b} with icon note`], { encoding: 'utf8' });
+      const r = dialogoMac(`display dialog ${comillasAs(texto)} with title ${comillasAs(titulo)} buttons ${b}`);
       return botones === 'si-no' ? r.status === 0 && /Sí, conectar/.test(r.stdout ?? '') : r.status === 0;
     }
   } catch (e) {
@@ -524,6 +548,17 @@ export function codigoDeLogin(crudo) {
 
 const escHtml = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]);
 
+/**
+ * OTRA CUENTA DE CLAUDE (25/10/2026, la llamada con Leandro, f03: «Ahí te debería dejar elegir otra cuenta, no solamente
+ * detectar la que ya está abierta»). «Entrar a Claude» abre la autorización en el navegador de siempre, y Claude la da con la
+ * cuenta que ya está abierta ahí, sin preguntar. Para usar otra, el MISMO enlace en una ventana de incógnito (sin ninguna sesión
+ * de Claude): entra con la otra cuenta, y el código que muestra se pega acá igual.
+ */
+export function otraCuenta(urlClaude) {
+  if (!urlClaude) return '';
+  return `<details><summary>¿Otra cuenta de Claude?</summary><p class="nota">«Entrar a Claude» usa la cuenta que ya está abierta en tu navegador. Para usar otra, copia este enlace, ábrelo en una ventana de incógnito (Ctrl+Mayús+N, o Cmd+Mayús+N en la Mac), entra con esa cuenta y pega aquí el código que te muestra.</p><input readonly value="${escHtml(urlClaude)}" aria-label="El enlace para entrar a Claude"></details>`;
+}
+
 /** La página local. `estado`: 'pedir' (el botón y el campo, con `aviso` si lo pegado no sirve), 'listo' o 'error'. */
 export function paginaDeLogin({ estado, urlClaude = '', aviso = '', error = '' }) {
   const cuerpo = estado === 'listo'
@@ -533,7 +568,7 @@ export function paginaDeLogin({ estado, urlClaude = '', aviso = '', error = '' }
       : `<h1>Inicia sesión en tu Claude</h1>
 <ol><li><a class="boton" href="${escHtml(urlClaude)}" target="_blank" rel="noopener noreferrer">Entrar a Claude</a> con tu cuenta de siempre (Pro o Max). Si ya se abrió en otra pestaña, usa ésa.</li>
 <li>Claude te muestra un código: cópialo y pégalo acá.</li></ol>
-${aviso ? `<p class="aviso">${escHtml(aviso)}</p>` : ''}<form method="post"><input name="codigo" autocomplete="off" autofocus required placeholder="Pega el código de Claude"><button type="submit">Listo</button></form>
+${otraCuenta(urlClaude)}${aviso ? `<p class="aviso">${escHtml(aviso)}</p>` : ''}<form method="post"><input name="codigo" autocomplete="off" autofocus required placeholder="Pega el código de Claude"><button type="submit">Listo</button></form>
 <p class="nota">Esta página es de tu computadora: el código va directo a tu Claude. MaKo nunca lo ve.</p>`;
   return `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MaKo · Iniciar sesión en Claude</title><style>body{font:16px/1.5 system-ui,sans-serif;max-width:560px;margin:48px auto;padding:0 16px;color:#2e3440;background:#eceff4}h1{font-size:22px}.boton,button{display:inline-block;background:#1877f2;color:#fff;border:0;border-radius:8px;padding:8px 14px;text-decoration:none;font:inherit;cursor:pointer}input{font:inherit;padding:8px;width:100%;box-sizing:border-box;margin:8px 0;border:1px solid #c8ccd4;border-radius:8px}.nota{color:#5e6779;font-size:14px}.aviso{color:#bf616a}li{margin:8px 0}</style></head><body>${cuerpo}</body></html>`;
 }
@@ -675,7 +710,7 @@ export function portapapeles() {
 export async function pedirTexto(titulo, texto, inicial = '') {
   if (process.platform !== 'darwin') return null;
   try {
-    const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} default answer ${comillasAs(inicial)} with title ${comillasAs(titulo)} buttons {"Cancelar", "Conectar"} default button 2 cancel button 1 with icon note`], { encoding: 'utf8' });
+    const r = dialogoMac(`display dialog ${comillasAs(texto)} default answer ${comillasAs(inicial)} with title ${comillasAs(titulo)} buttons {"Cancelar", "Conectar"} default button 2 cancel button 1`);
     if (r.status !== 0) return null;
     const m = /text returned:(.*)$/m.exec(r.stdout ?? '');
     return m ? m[1].trim() : null;
@@ -977,6 +1012,31 @@ async function correrSiempre() {
   }
 }
 
+// ── «¿Cómo abro MaKo?» (25/10/2026, la llamada con Leandro, f02) ─────────────────────────────────────────────────────────
+// Leandro, recién instalado: «¿Cómo abro MaKo? (...) No, ya la instalé. (...) Se me descargó algo, pero en la computadora no lo
+// puedo ver». El instalador deja este programa corriendo ESCONDIDO (contesta los turnos y arranca con Windows) y no creaba ningún
+// acceso: no había nada que abrir. Ahora el menú Inicio y el escritorio tienen «MaKo» (installer/windows/mako.iss), que corre
+// `mako-pc abrir`: MaKo en el navegador, en el Ops Center si esta computadora ya está conectada, o en «Tus cuentas de IA» para
+// conectarla si no. (MaKo entero en una ventana propia es otra cosa, decidida por Martín y sin código todavía: f04.)
+
+/**
+ * A dónde lleva el acceso «MaKo»: el Ops Center del negocio conectado; sin conexión, a conectarla. Con `app=1` (25/10/2026,
+ * Martín: «la app de desktop jamás me pidió login... entró directo a la cuenta de Mauricio»): esa ventana pide el login de la
+ * persona aunque el navegador tenga una sesión abierta, que puede ser de otro (lib/app-escritorio-reglas.ts). Estar conectada
+ * para la IA nunca abre una cuenta: la conexión de la PC no viaja en el enlace.
+ */
+export function destinoDeAbrir(c) {
+  if (!c?.token) return `${SERVIDOR_DEFAULT}/perfil/ia?computadora=1&app=1`;
+  const servidor = typeof c.servidor === 'string' && /^https:\/\/[^/\s]+$/.test(c.servidor) ? c.servidor : SERVIDOR_DEFAULT;
+  return `${servidor}/second-brain?app=1`;
+}
+
+/** El acceso «MaKo»: abre el destino en el navegador. 0 = se abrió. `p` es para los tests. */
+export function abrirMaKo(p = {}) {
+  const { abrir = abrirEnElNavegador, config = leerConfig() } = p;
+  return abrir(destinoDeAbrir(config)) ? 0 : 1;
+}
+
 function estado() {
   const c = leerConfig();
   decir(c?.token ? `Conectada a «${c.negocio ?? c.servidor}» como «${c.nombre}», con ${cuentasDe(c).length} cuenta(s). Versión ${VERSION}.` : 'Esta computadora no está conectada a MaKo.');
@@ -1013,6 +1073,7 @@ if (esPrincipal) {
   else if (cmd === 'sesion') sesion().then(salir, fallar);
   else if (cmd === 'agregar-cuenta') agregarCuenta().then(salir, fallar);
   else if (cmd === 'estado') salir(estado());
+  else if (cmd === 'abrir') salir(abrirMaKo());
   else {
     process.on('uncaughtException', (e) => log(`Error suelto: ${e instanceof Error ? e.message : String(e)}`));
     process.on('unhandledRejection', (e) => log(`Error suelto: ${e instanceof Error ? e.message : String(e)}`));

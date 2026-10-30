@@ -198,7 +198,7 @@ export type ArranqueIA = {
 export type AccionCaja =
   | { que: 'ia'; tipo: TipoCrear; arranque: ArranqueIA }
   | { que: 'analizar'; url?: string }
-  | { que: 'replicar'; url?: string; formato?: FormatoReplicar };
+  | { que: 'replicar'; url?: string; formato?: FormatoReplicar; adaptar?: boolean };
 
 /**
  * La derecha del Panel para lo que se eligió en la caja (tanda 6, punto 5: «si yo pego un link, me
@@ -217,7 +217,7 @@ export function derechaDeAccion(a: AccionCaja, docs: readonly LandingResumen[], 
     const propia = docDeUrl(url, docs, bases);
     return propia ? { tipo: 'diagnostico', docId: propia } : { tipo: 'diagnostico', url };
   }
-  return a.url ? { tipo: 'replicar', url: a.url, ...(a.formato ? { formato: a.formato } : {}), auto: true } : { tipo: 'replicar' };
+  return a.url ? { tipo: 'replicar', url: a.url, ...(a.formato ? { formato: a.formato } : {}), ...(a.adaptar ? { adaptar: true } : {}), auto: true } : { tipo: 'replicar' };
 }
 
 /**
@@ -238,7 +238,7 @@ export type Derecha =
   | { tipo: 'papelera' }
   | { tipo: 'diagnostico'; docId?: number; url?: string }
   | { tipo: 'ia'; doc: TipoCrear; arranque: ArranqueIA }
-  | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; auto?: boolean };
+  | { tipo: 'replicar'; url?: string; formato?: FormatoReplicar; adaptar?: boolean; auto?: boolean };
 
 /** El modo del cuadro que muestra esa derecha, o null si no es el cuadro (un resultado, una galería). */
 export function modoCajaDe(d: Derecha): ModoCaja | null {
@@ -269,8 +269,8 @@ export function derechaDeCaja(modo: ModoCaja, doc: TipoCrear = 'landing', semill
  * lector-navegador.ts) si ESTA regla dice que el arranque la puede necesitar:
  *   · el Diagnóstico de una página de AFUERA que todavía no se analizó (una ya analizada abre lo guardado y
  *     no analiza: abrir una ventana ahí sería un parpadeo por nada). Una NUESTRA se lee de su contenido;
- *   · Replicar con link, arrancando solo, salvo la «Página web»: la copia fiel necesita el HTML del server y
- *     no lee en el navegador.
+ *   · Replicar con link, arrancando solo: desde el 28/10/2026 lo primero es LEER la página (también para la «Página
+ *     web», que antes no leía en el navegador).
  * Y nunca si la derecha `actual` es la MISMA pantalla (el mismo `key` en Inicio.tsx: no se remonta, así que no
  * arranca de nuevo y la ventana quedaría abierta hasta vencer).
  */
@@ -284,7 +284,8 @@ export function urlConVentanaAlAbrir(d: Derecha, analizadas: readonly Analizada[
     const k = claveUrl(d.url);
     return k && analizadas.some((a) => claveUrl(a.url) === k) ? null : d.url;
   }
-  if (d.tipo === 'replicar') return d.url && d.auto && d.formato !== 'web' ? d.url : null;
+  // Desde el 28/10/2026 Replicar arranca LEYENDO la página (qué tiene, antes de elegir qué replicar), en cualquier formato.
+  if (d.tipo === 'replicar') return d.url && d.auto ? d.url : null;
   return null;
 }
 
@@ -551,6 +552,25 @@ export function landingMasReciente(docs: readonly LandingResumen[]): LandingResu
 
 /** El Panel con el cuadro de crear: `?panel=1` hace que `/web-generator` no salte a la última landing. */
 export const RUTA_NUEVA_LANDING = '/web-generator?panel=1';
+
+/** `/web-generator` sin nada en la URL (o sólo el `?ws=` de la pestaña): la que salta a la última landing tocada. */
+export function esPanelPelado(query: Query): boolean {
+  return Object.keys(query).every((k) => k === 'ws');
+}
+
+/**
+ * Qué rutas de la tab REDIRIGEN, para que lo haga su layout ANTES del loader (24/10/2026, ticket #9: «La pantalla «Web
+ * Generator» se rompió», React #310 en producción). `app/web-generator/loading.tsx` es un Suspense que envuelve a la página
+ * Y a las subrutas: un `redirect()` de ahí adentro va en el stream (200 + meta refresh, no 307) y queda en carrera con la
+ * hidratación del router (el mismo #310 del ticket #7, docs/hallazgos-infra.md). Las tres que redirigen: la pelada (a la
+ * última landing, desde el 24/10), `/analizar` y `/crear` (los links viejos). null = no redirige: el layout no hace nada.
+ */
+export function redireccionDelLayout(ruta: string | null, query: Query): 'ultima' | 'analizar' | 'crear' | null {
+  if (ruta === '/web-generator') return esPanelPelado(query) ? 'ultima' : null;
+  if (ruta === '/web-generator/analizar') return 'analizar';
+  if (ruta === '/web-generator/crear') return 'crear';
+  return null;
+}
 
 /** Las que se muestran: sin la papelera, la más tocada primero, filtradas por lo que se busca. */
 export function landingsDeLaLista(docs: readonly LandingResumen[], busca: string): LandingResumen[] {

@@ -1,62 +1,82 @@
 // =============================================================================
 // /m/partners — MaKo Partners en el teléfono (la URL que se ve es /partners: LAS MISMAS RUTAS)
 // =============================================================================
-// Destila la tab de escritorio (app/partners/PartnersApp.tsx, docs/diseno-clients.md D7): la lista de las cuentas de
-// MaKo de los clientes de la agencia, cada una con su estado y lo que espera de la agencia (pagar su primer mes,
-// activar la renovación), y «+ Nuevo cliente». Pedir sumar gente a un equipo queda en la computadora.
+// Lo mismo que la computadora (app/partners/page.tsx, 25/10/2026): el programa de referidos.
+//   · el super admin sin cliente: el programa (ProgramaM; «Marcar pagado», en la computadora);
+//   · el ADMIN de un negocio que no se hizo partner: la landing (la misma, que en el teléfono se apila) con «Hacerme
+//     partner», y con `?alta=1` el onboarding corto (AltaPartner, el mismo);
+//   · el partner: su panel (ReferidosM), y la landing con `?landing=1`.
+// La cartera de una AGENCIA salió de acá: es /m/agency (app/m/agency). Un `?cuenta=` viejo lleva allá.
 //
-// ⚠️ La puerta: la key `partners` de la fila de More (desde el 24/10/2026, el admin de CUALQUIER negocio, la misma regla
-//    que la barra) y el rol (admin), que se pregunta acá igual que en la página de escritorio. Después reparte el
-//    PROGRAMA (`esAgencia`): la agencia ve su cartera; el resto, su tablero de referidos (ReferidosM.tsx).
+// ⚠️ La puerta: la key `partners` de la fila de More (el admin de CUALQUIER negocio, la misma regla que la barra) y el rol
+//    (admin), que se pregunta acá igual que en la página de escritorio.
 
 import './partners.css';
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { adminDeWorkspaceActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
-import { cuentasDePartner } from '@/lib/partners';
-import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
-import { PartnersM } from './PartnersM';
-import { ReferidosM } from './ReferidosM';
-import { tableroDe } from '@/lib/partners-programa';
+import { getSupabaseServer } from '@/lib/supabase';
+import { CabeceraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { ProgramaM, ReferidosM } from './ReferidosM';
+import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
+import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
+import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
+import { RUTA_CAMBIAR_PLAN, textoSoloPro } from '@/lib/topes-plan';
+import { RUTA_MAS } from '@/lib/movil-rutas';
+import { LandingPartners } from '@/app/mako-partners/LandingPartners';
+import { AltaPartner } from '@/app/partners/AltaPartner';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { EMAIL_MAKO } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PartnersPagina() {
-  // La key de la fila de More (17/10/2026, jefe «Sidebar»): el admin de un workspace agencia, la misma regla que la barra.
+const cobraEnLinea = () => ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true);
+
+export default async function PartnersPagina({ searchParams }: { searchParams: Promise<{ alta?: string; landing?: string; cuenta?: string }> }) {
   await requireMovil({ navKey: 'partners' });
+  const sp = await searchParams;
   const ws = await getWorkspaceActual();
   if (ws == null) redirect(await rutaConWs('/m/cs'));
+  const esSuper = (await getSesionAdmin()) != null;
   // Sólo el admin, como en la computadora (app/partners/page.tsx).
-  if ((await adminDeWorkspaceActual()) == null && (await getSesionAdmin()) == null) redirect(await rutaConWs('/m/cs'));
-  // El negocio que NO es agencia (24/10/2026: la fila la ve el admin de cualquier negocio): su tablero de referidos,
-  // como /partners/referidos en la computadora. La agencia sigue con su cartera.
-  if (!(await esAgencia(ws))) {
-    const [tablero, cobraEnLinea] = await Promise.all([
-      tableroDe(ws).catch(() => null),
-      ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
-    ]);
-    return (
-      <PantallaM>
-        {tablero ? <ReferidosM tablero={tablero} cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO} /> : <ErrorM frase="No pudimos leer tu tablero. No es nada tuyo." />}
-      </PantallaM>
-    );
+  if ((await adminDeWorkspaceActual()) == null && !esSuper) redirect(await rutaConWs('/m/cs'));
+  // Un link viejo de la cartera de una agencia: a su pantalla (/m/agency).
+  if (sp.cuenta) redirect(await rutaConWs('/m/agency'));
+  const cabecera = <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />;
+
+  // El super admin sin cliente (o parado en la plataforma): el programa, y la landing con «Ver la landing».
+  if ((esSuper && !(await estaImpersonando())) || ws === (await wsSuperAdmin().catch(() => null))) {
+    if (sp.landing === '1') return <PantallaM>{cabecera}<LandingPartners modo="app" accion={{ href: RUTA_PARTNERS, texto: 'Volver al panel del programa' }} /></PantallaM>;
+    const [programa, enLinea] = await Promise.all([resumenDelPrograma().catch(() => null), cobraEnLinea()]);
+    return <PantallaM>{programa ? <ProgramaM programa={programa} cobraEnLinea={enLinea} /> : <>{cabecera}<ErrorM frase="No pudimos leer el programa. No es nada tuyo." /></>}</PantallaM>;
   }
-  const cartera = await cuentasDePartner(ws);
-  if (!cartera.ok) {
-    return (
-      <PantallaM>
-        <ErrorM frase="No pudimos leer tus clientes. No es nada tuyo." />
-      </PantallaM>
-    );
+
+  const [alta, agencia, nombre] = await Promise.all([
+    altaDePartner(ws).catch(() => null),
+    esAgencia(ws).catch(() => false),
+    getSupabaseServer().from('workspaces').select('nombre').eq('id', ws).maybeSingle().then((r) => (r.data as { nombre?: string } | null)?.nombre ?? null, () => null),
+  ]);
+  if (!alta) {
+    // SÓLO MaKo Pro (27/10/2026), como en la computadora (app/partners/page.tsx): un Esencial ve «Pasar a Pro».
+    if (await esEsencialDeLaSesion()) {
+      return (
+        <PantallaM>{cabecera}
+          <p style={{ margin: '0 16px 12px', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>{textoSoloPro('partners')}</p>
+          <LandingPartners modo="app" accion={{ href: await rutaConWs(RUTA_CAMBIAR_PLAN), texto: ROTULO_PASAR_A_PRO }} />
+        </PantallaM>
+      );
+    }
+    if (sp.alta === '1') return <PantallaM>{cabecera}<AltaPartner nombreNegocio={nombre} /></PantallaM>;
+    return <PantallaM>{cabecera}<LandingPartners modo="app" accion={{ href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' }} /></PantallaM>;
   }
+  if (sp.landing === '1') return <PantallaM>{cabecera}<LandingPartners modo="app" accion={{ href: RUTA_PARTNERS, texto: 'Ir a mi panel' }} /></PantallaM>;
+  const [tablero, enLinea] = await Promise.all([tableroDe(ws).catch(() => null), cobraEnLinea()]);
   return (
     <PantallaM>
-      <PartnersM cuentas={cartera.cuentas} usd={cartera.precio.usd} />
-      <ComputadoraM que="Sumar personas al equipo de una cuenta" />
+      {tablero ? <ReferidosM tablero={tablero} agencia={agencia} cobraEnLinea={enLinea} emailMako={EMAIL_MAKO} nombreNegocio={nombre} /> :<>{cabecera}<ErrorM frase="No pudimos leer tu panel. No es nada tuyo." /></>}
     </PantallaM>
   );
 }

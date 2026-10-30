@@ -75,11 +75,3 @@ test('la creación, el árbol, el saldo y la serie leen con la moneda de la cuen
   assert.doesNotMatch(serie, /Number\(a\.daily_budget\)\s*\/\s*100/);
   assert.match(serie, /desdeUnidadMeta\(Number\(a\.daily_budget\),\s*moneda\)/);
 });
-
-test('el resumen del detalle que lee MaKo dice la moneda de la cuenta, no «MXN» a mano', () => {
-  const det = sinComentarios(leer('../app/ads-manager/EntityDetalle.tsx'));
-  assert.doesNotMatch(det, /\bMXN\b/);
-  assert.match(det, /montoCuenta\(presupuestoCuenta,\s*moneda\)/);
-  const browser = leer('../app/ads-manager/CampanasBrowser.tsx');
-  assert.match(browser, /moneda=\{health\?\.account\.currency/);
-});

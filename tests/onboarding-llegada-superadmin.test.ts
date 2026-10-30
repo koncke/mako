@@ -3,7 +3,7 @@
 // =============================================================================
 // docs/relevo/onboarding.md: «una pantalla del super admin que junte "cómo llegó" de todos los clientes». La respuesta
 // se guardaba (`onboarding.encuesta`, al cerrar el arranque) y sólo se leía cliente por cliente (la API de MaKo,
-// `ver_estado_onboarding`). Ahora va en la tabla de /clients (la del super admin) y en su CSV.
+// `ver_estado_onboarding`). Ahora va en la tabla de /classroom/clients (la del super admin) y en su CSV.
 //
 // PROBADO ROMPIÉNDOLO (17/10/2026): llegadaDe sin el rótulo del interés → 1 fallo; la ruta sin leer la encuesta → 1
 // fallo; la tabla sin la columna → 1 fallo. Base: 3 / 0.

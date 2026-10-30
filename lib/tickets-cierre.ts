@@ -19,8 +19,9 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
-import { anotarDelCerebro } from './tickets-db';
-import { pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
+import { anotarDelCerebro, ticketsDelNegocioEntre } from './tickets-db';
+import { HORAS_MAX_SIN_TOMAR, MIN_SIN_TOMAR, delegadosParaAvisar, textoDelegadoSinTomar, type DelegadoSinTomar } from './despacho-grupo';
+import { aprobadoPorRegla, hitosDeLosTickets, hitosDelNegocio, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, ticketsQueNombran, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
@@ -31,16 +32,74 @@ export function ticketsDesplegados(): Map<number, HitoDeTicket> {
   return ticketsDeHitos(REGISTROS_SLUGS.map((slug) => ({ area: slug, bitacora: registroDe(slug).bitacora })));
 }
 
+/** El renglón del historial de un delegado al que ya se le avisó la demora: un aviso por pedido, nunca uno cada 15 minutos. */
+export const TIPO_DEMORA_AVISADA = 'demora_avisada';
+
 /**
- * Cierra los tickets en curso cuyo arreglo ya está en el código que corre, y sus duplicados. Compare-and-set sobre el
+ * EL PEDIDO DELEGADO QUE NADIE TOMÓ (29/10/2026, el Cerebro, por la llamada con Thiago: «si un pedido delegado no se toma en 30
+ * minutos, MaKo avisa en el grupo»; lib/despacho-grupo.ts). Lo corre el cron de tickets (cada 15 minutos): los delegados por
+ * WhatsApp que siguen nuevos o esperando la decisión entre 30 minutos y 6 horas reciben UN aviso en su grupo. El renglón del
+ * historial va aunque el aviso no salga (sin grupo, Evolution caída): /tickets dice el estado, y reintentar cada 15 minutos sería
+ * ruido. Devuelve cuántos salieron.
+ */
+export async function avisarDelegadosSinTomar(ahoraMs = Date.now()): Promise<number> {
+  const db = getSupabaseServer();
+  const desde = new Date(ahoraMs - HORAS_MAX_SIN_TOMAR * 3600_000).toISOString();
+  const hasta = new Date(ahoraMs - MIN_SIN_TOMAR * 60_000).toISOString();
+  const { data, error } = await db.from(T).select('id, workspace_id, titulo, estado, created_at, canal, contexto')
+    .in('estado', ['nuevo', 'esperando_decision']).eq('canal', 'whatsapp').gte('created_at', desde).lte('created_at', hasta)
+    .order('created_at', { ascending: true }).limit(50);
+  if (error) throw new Error(error.message);
+  const filas = (data ?? []) as DelegadoSinTomar[];
+  if (!filas.length) return 0;
+  const { data: ev, error: eEv } = await db.from('ticket_eventos').select('ticket_id').in('ticket_id', filas.map((f) => f.id)).eq('tipo', TIPO_DEMORA_AVISADA);
+  // Sin poder leer a quién ya se avisó, no se avisa: mejor ninguno que uno repetido cada 15 minutos.
+  if (eEv) throw new Error(eEv.message);
+  const avisados = new Set((ev ?? []).map((e) => Number(e.ticket_id)));
+  let salieron = 0;
+  for (const f of delegadosParaAvisar(filas, avisados, ahoraMs)) {
+    const { enviarAlGrupoMaKo } = await import('./mako-grupo');
+    const r = await enviarAlGrupoMaKo(Number(f.workspace_id), textoDelegadoSinTomar(f.id, f.titulo), { de: 'equipo', ticket: f.id })
+      .catch((e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+    await db.from('ticket_eventos').insert({
+      ticket_id: f.id, actor: 'sistema', tipo: TIPO_DEMORA_AVISADA,
+      texto: r.ok ? 'Sin tomar a los 30 minutos: se le avisó en su grupo.' : `Sin tomar a los 30 minutos: el aviso no salió (${'error' in r ? String(r.error).slice(0, 160) : 'sin detalle'}).`,
+      datos: null,
+    });
+    if (r.ok) salieron++;
+  }
+  return salieron;
+}
+
+/**
+ * Lo que salió en ESTE build para los tickets `ids` del negocio `ws`, con sus puntos: lo lee el turno del grupo
+ * (`PedidoDelNegocio.desplegado`). Sólo los hitos cuyos tickets son TODOS de ese negocio (A1 de la revisión de privacidad,
+ * `hitosDelNegocio`): de quién son los que nombran se lee de la base, y sin poder leerlo tira (el turno sigue sin hitos).
+ */
+export async function hitosDesplegadosDelNegocio(ws: number, ids: readonly number[]): Promise<Map<number, { titulo: string; puntos: string[] }>> {
+  const hitos = hitosDeLosTickets(REGISTROS_SLUGS.map((slug) => ({ bitacora: registroDe(slug).bitacora })));
+  const nombrados = ticketsQueNombran(hitos, ids);
+  if (!nombrados.length) return new Map();
+  return hitosDelNegocio(hitos, ids, await ticketsDelNegocioEntre(ws, nombrados));
+}
+
+/**
+ * Lo que cierra el deploy: todo ticket ABIERTO, espere a quien espere. Hasta el 29/10/2026 eran sólo `en_curso` y `arreglado`,
+ * y el #15 (Video Editor de Leila) siguió «esperando la decisión» con su arreglo en producción: Martín pidió que todo ticket se
+ * lea y se implemente sin esperarlo (27/10), así que el hito puede llegar antes que la decisión. Uno cerrado no se reabre.
+ */
+export const ESTADOS_QUE_CIERRA_EL_DEPLOY = ['nuevo', 'esperando_decision', 'esperando_cliente', 'en_curso', 'arreglado'] as const;
+
+/**
+ * Cierra los tickets abiertos cuyo arreglo ya está en el código que corre, y sus duplicados. Compare-and-set sobre el
  * estado: dos crons a la vez no cierran dos veces. Devuelve los ids cerrados.
  */
 export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): Promise<number[]> {
   if (!desplegados.size) return [];
   const db = getSupabaseServer();
   const ids = [...desplegados.keys()];
-  const { data, error } = await db.from(T).select('id, respuesta').in('id', ids).in('estado', ['en_curso', 'arreglado']);
-  if (error) throw new Error(`no pude leer los tickets en curso: ${error.message}`);
+  const { data, error } = await db.from(T).select('id, respuesta').in('id', ids).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]);
+  if (error) throw new Error(`no pude leer los tickets abiertos: ${error.message}`);
   const cerrados: number[] = [];
   const ahora = new Date().toISOString();
   for (const f of data ?? []) {
@@ -48,7 +107,7 @@ export async function cerrarLosDesplegados(desplegados = ticketsDesplegados()): 
     const hito = desplegados.get(id)!;
     const respuesta = (f.respuesta as string | null) || `Ya está arreglado: ${hito.titulo}.`;
     const { data: ok } = await db.from(T).update({ estado: 'resuelto', resuelto_at: ahora, respuesta: respuesta.slice(0, 2000), avisado_at: null, updated_at: ahora })
-      .eq('id', id).in('estado', ['en_curso', 'arreglado']).select('id');
+      .eq('id', id).in('estado', [...ESTADOS_QUE_CIERRA_EL_DEPLOY]).select('id');
     if (!ok?.length) continue;
     cerrados.push(id);
     await anotarDelCerebro(id, `En producción: ${hito.titulo}`, 'sistema');
@@ -121,7 +180,9 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
       // de algo hecho (el cierre): «te avisamos cuando esté» de un duplicado lo cumple el código, no es una promesa suelta.
       const { sanearSalida } = await import('./doer-salida');
       const { enviarAlGrupoMaKo } = await import('./mako-grupo');
-      const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto);
+      // Es la respuesta del EQUIPO a su ticket: al anillo del equipo, no como turno de MaKo (lib/doer-equipo.ts).
+      // Con su ticket: si la persona le contesta en el grupo, va a ESE ticket (lib/doer-equipo.ts, `respuestaAlEquipo`).
+      const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto, { de: 'equipo', ticket: Number(f.id) });
       if (r.ok) salio.push('whatsapp');
     } catch (e) { console.error(`[tickets] WhatsApp de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
   }
@@ -151,6 +212,23 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
     }
     // Lo vea o no un cliente, el ticket del sistema ya está en /tickets y en la bandeja: no se reintenta para siempre.
     if (!salio.length) salio.push('tickets');
+  }
+  // Un negocio con la regla de Martín (Leandro, 26/10/2026: «tú después le tienes que ir avisando... por el grupo de WhatsApp de
+  // MaKo los tickets que ya van siendo resueltos»): ARREGLADO Y DESPLEGADO, el aviso va a su grupo por el camino del equipo
+  // (`avisarArregloAlGrupo`), con la MISMA prueba que exige (el hito de ESTE build con `tickets: [n]`). Por WhatsApp ya salió
+  // arriba (`enviarAlGrupoMaKo`): no se repite.
+  if (aprobadoPorRegla(ws) && f.canal !== 'sistema' && f.canal !== 'whatsapp' && f.estado === 'resuelto') {
+    const hito = desplegados.get(f.id) ?? (f.duplicado_de ? desplegados.get(f.duplicado_de) : undefined);
+    if (hito) {
+      try {
+        const { avisarArregloAlGrupo } = await import('./aviso-arreglo');
+        const prueba = pruebaDeProduccion({ ticket: f.id, hito: hito.titulo, area: hito.area, commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null, deploy: process.env.VERCEL_URL ?? null });
+        // El ws 1 (Mauricio) va con `ws1Seguro`: es SU ticket y SU grupo (27/10/2026, MAU-09), no una lista que se arma sola.
+        const r = await avisarArregloAlGrupo({ ws, clave: `ticket:${f.id}`, texto: textoArregloAlGrupo(f), prueba, origen: 'ticketera', ws1Seguro: ws === 1 });
+        if (r.ok) salio.push(`grupo de ws ${ws}`);
+        else if (r.motivo !== 'ya-avisado') console.error(`[tickets] aviso al grupo de ws ${ws} por #${f.id}: ${r.motivo} — ${r.detalle}`);
+      } catch (e) { console.error(`[tickets] aviso al grupo de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
+    }
   }
   // Por el formulario no hay canal de vuelta más que /tickets: el estado ya está ahí, y eso cuenta como avisado.
   if (f.canal === 'formulario' || f.canal === 'api') salio.push('tickets');

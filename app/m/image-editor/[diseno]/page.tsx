@@ -7,11 +7,12 @@
 // chrome/ed.module.css). Es exactamente el editor de Canva en el teléfono. Así que el teléfono NO tiene un editor
 // propio: monta el de escritorio por su ÚNICA puerta (ImageEditorCliente, 'use client' y sin SSR:
 // tests/image-editor-integracion.test.ts, contrato 4), con el mismo diseño de la base, el mismo guardado
-// (compare-and-set por versión) y el crédito de Doory que exige su licencia (editor/CreditoDoory.tsx).
+// (compare-and-set por versión). El crédito de Doory: 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.
 //
 // Lo único del teléfono es el marco: la capa a pantalla completa (../../_creacion/PantallaCompletaM.tsx), porque en
 // Canva del teléfono el editor tapa todo y trae su propia barra («‹» vuelve al inicio, que acá es /image-editor:
-// en el teléfono, ../page.tsx).
+// en el teléfono, ../page.tsx; `salir`). Adentro, la pantalla de Create de escritorio en su modo angosto
+// (app/_crear/crear.css): arriba el interruptor «MaKo | Image» y se ve uno por vez, el chat de MaKo del editor o el editor.
 // Quién: la MISMA puerta que escritorio, `requireRolWs([], { nav: 'image-editor' })`.
 // =============================================================================
 
@@ -30,7 +31,7 @@ export default async function DisenoPagina({ params }: { params: Promise<{ disen
     <PantallaM>
       <CabeceraM titulo="Image Editor" trabajo />
       <PantallaCompletaM etiqueta="Image Editor">
-        <ImageEditorCliente vista="editor" disenoId={diseno} ws={ctx.ws} senales={senales} />
+        <ImageEditorCliente vista="editor" disenoId={diseno} ws={ctx.ws} senales={senales} salir="/image-editor" />
       </PantallaCompletaM>
     </PantallaM>
   );

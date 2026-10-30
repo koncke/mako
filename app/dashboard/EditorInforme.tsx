@@ -14,7 +14,7 @@
 //     pone «Archivo · Vista · Página · Ayuda»; los tres se editan con un clic, también mirando. A la
 //     derecha: los FILTROS de la hoja (./BarraControles.tsx, siempre a la vista; agregarlos o quitarlos,
 //     sólo editando), Compartir (./CompartirInforme.tsx, del paquete «Compartir»), Editar/Ver y el ⋮ con
-//     AI Analyst, Exportar (CSV y PDF) y la guía. Sin pestañas, sin el ícono de la tab, sin «Restablecer
+//     Exportar (CSV y PDF) y la guía. Sin pestañas, sin el ícono de la tab, sin «Restablecer
 //     el informe» y sin «Guardado»: un guardado que falla avisa con un toast.
 //   · LA BARRA DE EDICIÓN, sólo editando, DEBAJO de la topbar (la topbar no se mueve al apretar Editar),
 //     en el orden de la de Looker: deshacer, rehacer · Añadir datos · Añadir un gráfico · lo que se
@@ -23,8 +23,8 @@
 //   · EL LIENZO, que es lo único que scrollea: la grilla. Una sola superficie: var(--bg) de punta a punta
 //     (./editor-css.ts), sin filete entre la topbar y el lienzo.
 //   · EL PANEL DE PROPIEDADES, sólo con algo elegido (./Propiedades.tsx): el CONTENIDO del componente.
-//   · EL AI ANALYST, un panel en la fila del lienzo (./PanelAnalista.tsx): es un `aside` de alto completo,
-//     no un modal.
+//   · SIN AI ANALYST desde el 24/10/2026 (Martín: «Sí, y que la criatura vea la hoja»): lo que hacía lo hace la
+//     criatura de la tab (`MakoEnLaTab`), que recibe lo que hay en pantalla (`pantallaDeHoja`, ./exportar.ts).
 //
 // ESTADO, en tres capas que no se mezclan:
 //   1. EL INFORME (`tablero`): lo que se guarda. Todo cambio pasa por `mutar`, que apila el deshacer, y
@@ -120,9 +120,8 @@ import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '
 import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
-import type { ModoMako } from './ModosMako';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
-import { ChatMakoGrafico, LogoMako, PanelAnalista, PuntoNuevo, useAnalisisNuevo } from './PanelAnalista';
+import { ChatMakoGrafico } from './PanelAnalista';
 import { PanelEditarMako, type MensajeEdicion } from './PanelEditarMako';
 import { CLAVE_HILOS, filasDeHilo, hilosGuardados, tituloDeHoja } from './hilo-guardado';
 import { guardarEnHiloDeTab } from '@/lib/hilo-de-tab-cliente';
@@ -146,7 +145,7 @@ import {
 } from './Galeria';
 import { CSS } from './editor-css';
 import { CSS_EDICION } from './edicion-css';
-import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
+import { conBusqueda, contextoDeGrafico, csvDeHoja, enOrden, idBusquedaDe, loQueSeVeDe, nombreArchivo, pantallaDeHoja, pedidosDeHoja, periodoDeHoja, type PedidosHoja } from './exportar';
 import { crearColaGuardado, leerRespuestaGuardado, type ColaGuardado } from './guardado';
 import { pedidoDeLectura, type Compartido } from './lectura-compartida';
 import { AccionesFilaProvider } from './entidades/acciones-fila';
@@ -269,10 +268,9 @@ function conPosiciones(t: Tablero, idHoja: string, duenoId: string | null, pos: 
 
 /**
  * De qué lado va el panel (punto 19): del lado OPUESTO a lo elegido. Lo que ocupa casi todo el ancho (y nada
- * elegido), a la derecha como en Looker; con el AI Analyst abierto (que va a la derecha), a la izquierda.
+ * elegido), a la derecha como en Looker.
  */
-function ladoDelPanel(c: Componente | null, analista: boolean): 'izq' | 'der' {
-  if (analista) return 'izq';
+function ladoDelPanel(c: Componente | null): 'izq' | 'der' {
   if (!c || c.w >= 10) return 'der';
   return c.x + c.w / 2 <= COLS / 2 ? 'der' : 'izq';
 }
@@ -304,7 +302,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, cabeceraPropia = null,
+  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, accionClosing = 'Conectar Claude', cabeceraPropia = null, avisoFijo = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -319,6 +317,13 @@ export function EditorInforme({
   aviso?: string | null;
   /** «Conecta tu Claude»: el Closing Analyst no tiene con qué analizar (./aviso-closing.ts). Fijo arriba de la hoja Closing. */
   avisoClosing?: string | null;
+  /** El texto del botón del aviso (./aviso-closing.ts, `accionDeLaHojaClosing`): conectar Claude, o abrir la que ya tiene. */
+  accionClosing?: string;
+  /**
+   * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
+   * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
+   */
+  avisoFijo?: ReactNode | null;
   /** El closer: mira la hoja Closing, exporta, y nada más. */
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
@@ -380,7 +385,6 @@ export function EditorInforme({
   const [modalDatos, setModalDatos] = useState(false);
   const [nuevaHoja, setNuevaHoja] = useState(() => plantillasInicial && !lecturaFallo && !soloLectura && !compartido);
   const [enBlanco, setEnBlanco] = useState(sinPaginas && !soloLectura && !compartido);
-  const [analista, setAnalista] = useState(false);
   // «Editar con MaKo» (16/10/2026, ./PanelEditarMako.tsx): el panel, y el hilo de cada hoja (cerrar y abrir el panel no lo
   // pierde; recargar tampoco: desde el 22/10 está en la base y el panel lo trae).
   const [makoEditar, setMakoEditar] = useState(!!probarInicial);
@@ -488,7 +492,7 @@ export function EditorInforme({
 
   // ── El recorrido: uno para mirar y otro para editar (el «?» abre el del lugar) ─────────────────
   // No se abre solo con un menú o un modal abierto: los flotantes del editor van por encima del velo.
-  const capaAbierta = !!menu || modalDatos || nuevaHoja || analista || !!detalle || llamada != null || !!popup || compartir;
+  const capaAbierta = !!menu || modalDatos || nuevaHoja || !!detalle || llamada != null || !!popup || compartir;
   // En un link compartido no hay guía: quien entra no tiene sesión (`soloLocal`: no le pregunta nada al
   // server) y el ⋮ es sólo Exportar.
   const conGuia = !compartido && !esGeneral && !esAutomatizacion;
@@ -964,21 +968,10 @@ export function EditorInforme({
       window.history.replaceState(null, '', `${window.location.pathname}${q ? `?${q}` : ''}`);
     } catch { /* sin history: recargar la vuelve a abrir, nada más */ }
   }, [plantillasInicial]);
-  const cerrarAnalista = useCallback(() => setAnalista(false), []);
-  // Los dos paneles van en el mismo lugar (`.an`): abrir uno cierra el otro.
-  const alternarAnalista = useCallback(() => { setMenu(null); setMakoEditar(false); setAnalista((v) => !v); }, []);
   const cerrarMakoEditar = useCallback(() => { setMakoEditar(false); setProbar(''); }, []);
-  const alternarMakoEditar = useCallback(() => { setMenu(null); setAnalista(false); setProbar(''); setMakoEditar((v) => !v); }, []);
-  // #862: «Analizar · Editar» en la cabecera del panel de MaKo, sin cerrarlo: el AI Analyst y «Editar con MaKo» son el
-  // MISMO MaKo en dos modos. Sólo si la persona tiene los dos (el AI Analyst no es del que sólo mira; editar, sí del que guarda).
-  // 17/10/2026: y sólo EDITANDO. Mirando, el MaKo de la hoja es el AI Analyst y no ofrece pasar a Editar.
-  const conModosMako = editando && !soloMirar && guardable && !enBlanco && !compartido;
-  const cambiarModoMako = useCallback((m: ModoMako) => {
-    setMenu(null);
-    setProbar('');
-    setAnalista(m === 'analizar');
-    setMakoEditar(m === 'editar');
-  }, []);
+  // Sin el AI Analyst (24/10/2026) «Editar con MaKo» ya no tiene un «Analizar · Editar» (#862): lo de analizar es de la
+  // criatura de la tab, que mira la hoja con su vista (`pantallaMako`, abajo).
+  const alternarMakoEditar = useCallback(() => { setMenu(null); setProbar(''); setMakoEditar((v) => !v); }, []);
   /** La hoja de ese id como está AHORA en el informe (el panel compara por referencia antes de aplicar o deshacer). */
   const leerHoja = useCallback((id: string) => tableroRef.current.hojas.find((h) => h.id === id) ?? null, []);
   /**
@@ -993,9 +986,11 @@ export function EditorInforme({
   const cerrarModalDatos = useCallback(() => setModalDatos(false), []);
   const abrirCompartir = useCallback(() => { setMenu(null); setCompartir(true); }, []);
   const cerrarCompartir = useCallback(() => setCompartir(false), []);
-  const loQueSeVe = useMemo(() => (analista ? loQueSeVeDe(hoja, resultados, efectivosHoja) : []), [analista, hoja, resultados, efectivosHoja]);
-  // El punto de «hay un análisis nuevo», en el ⋮ y en su opción. Al closer y a un link, nada: no tienen AI Analyst.
-  const analisisNuevo = useAnalisisNuevo(hoja.id, analista, !soloMirar);
+  // LO QUE LA CRIATURA VE (24/10/2026, Martín, al sacar el AI Analyst: «Sí, y que la criatura vea la hoja»): los gráficos de
+  // la hoja abierta con el período y los filtros que la persona puso, en texto (`pantallaDeHoja`). Viaja con cada mensaje de
+  // la estrella. Sólo donde está la estrella (ni en un link compartido ni en las Métricas de una automatización).
+  const conEstrella = !compartido && !esAutomatizacion;
+  const pantallaMako = useMemo(() => (conEstrella ? pantallaDeHoja(hoja, resultados, efectivosHoja) : null), [conEstrella, hoja, resultados, efectivosHoja]);
 
   // ── Exportar ─────────────────────────────────────────────────────────────────────────────────
   const exportarCsv = () => {
@@ -1098,7 +1093,7 @@ export function EditorInforme({
   const primerGrafico = ordenados.find(esGrafico)?.id ?? null;
   const primerConMako = ordenados.find((c): c is Grafico => esGrafico(c) && conMako(c) && !!datos[c.id]?.resultado)?.id ?? null;
   // Al tocar «Ver» con «Editar con MaKo» abierto, el panel pasa a Analizar (17/10/2026): mirando, MaKo asesora.
-  const alternarEdicion = () => { if (editando && makoEditar) { setMakoEditar(false); setProbar(''); setAnalista(true); } setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
+  const alternarEdicion = () => { if (editando && makoEditar) { setMakoEditar(false); setProbar(''); } setEditando((v) => !v); setSelId(null); setConSel(null); setConectando(null); setEditPopup(null); setMenu(null); setDetalle(null); };
   const puedeNuevaHoja = guardable && tablero.hojas.length < MAX_HOJAS;
   /**
    * Un elemento de la barra de inserción (o de su menú), agregado al lienzo. `inicial` es lo que trae una variante
@@ -1193,16 +1188,15 @@ export function EditorInforme({
       case 'nueva_hoja': setNuevaHoja(true); return;
       case 'copiar_dashboard': copiarHoja(hoja.id); return;
       case 'compartir': abrirCompartir(); return;
-      case 'analista': alternarAnalista(); return;
       case 'csv': exportarCsv(); return;
       case 'pdf': exportarPdf(); return;
     }
   };
 
   // ── De qué lado va el panel (punto 19): se fija AL ELEGIR y no se mueve mientras se arrastra ─────────
-  const claveSel = `${sel?.id ?? (conectorSel ? `k:${conectorSel.id}` : '')}|${analista ? 'a' : ''}`;
+  const claveSel = `${sel?.id ?? (conectorSel ? `k:${conectorSel.id}` : '')}`;
   const [lado, setLado] = useState<{ clave: string; lado: 'izq' | 'der' }>({ clave: '', lado: 'der' });
-  if (lado.clave !== claveSel) setLado({ clave: claveSel, lado: ladoDelPanel(sel, analista) });
+  if (lado.clave !== claveSel) setLado({ clave: claveSel, lado: ladoDelPanel(sel) });
 
   /**
    * Lo que la pantalla le cuenta a un elemento (interfaz I3): la hoja ENTERA (una caja de IA la manda al generar),
@@ -1391,11 +1385,11 @@ export function EditorInforme({
             {/* «Editar con MaKo» (16/10/2026): el logo solo sobre negro, chico (punto 3 de la tanda de la topbar: «solo el
                 logo con el fondo negro, nada más»). Sólo quien puede guardar, con una hoja, y EDITANDO: es el que cambia. Hasta
                 el 24/10/2026, mirando abría el AI Analyst (17/10, «al estar en VISTA del dashboard debería asesorar»); ver abajo. */}
-            {/* ⛔ «ANALIZAR CON MaKo» YA NO ESTÁ EN LA BARRA (24/10/2026, Martín: «debería eliminarse completamente y también
-                en el dashboard, porque para eso ya tenemos el chat de la criatura de MaKo»). Mirando, al lado de la estrella,
-                era un segundo MaKo. El AI Analyst sigue en el ⋮ porque hace lo que la criatura todavía no hace: analiza la
-                hoja entera con la vista puesta, cita las cifras de los datos y se programa. Sacarlo también del ⋮ lo decide
-                Martín (docs/hallazgos-graficos.md, «"Analizar con MaKo" sale de la barra»). */}
+            {/* ⛔ NI «ANALIZAR CON MaKo» NI EL AI ANALYST (24/10/2026). Primero salió el botón de la barra (Martín: «debería
+                eliminarse completamente y también en el dashboard, porque para eso ya tenemos el chat de la criatura de MaKo»);
+                después, a la pregunta de sacarlo también del ⋮: «Sí, y que la criatura vea la hoja». Lo que el analista hacía y
+                la criatura no (mirar la hoja entera con la vista puesta) se lo da `pantallaMako`. Medido ese día: ninguna hoja
+                lo tenía programado (docs/hallazgos-graficos.md, «"Analizar con MaKo" sale de la barra»). */}
             {guardable && !enBlanco && !compartido && editando && (
               <BotonMako lado={30} title="Editar con MaKo" encendido={makoEditar} onClick={alternarMakoEditar} />
             )}
@@ -1405,12 +1399,11 @@ export function EditorInforme({
                 {editando ? <><SvgOjo /> Ver</> : <><SvgLapiz /> Editar</>}
               </button>
             )}
-            {/* El ⋮ (punto 4): el AI Analyst, Exportar y la guía. «Restablecer el informe» se fue (punto 2). */}
+            {/* El ⋮ (punto 4): Compartir, Exportar y la guía. «Restablecer el informe» se fue (punto 2). */}
             {!enBlanco && (
-              <button type="button" className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda" aria-label={analisisNuevo ? 'Más opciones: hay un análisis nuevo' : 'Más opciones'}
+              <button type="button" className="lk-pill lk-pill--icono lk-mas" data-recorrido="dash-ayuda" aria-label="Más opciones"
                 title="Más opciones" aria-haspopup="menu" aria-expanded={menu?.tipo === 'mas'} onClick={abrirMenu('mas')}>
                 <span aria-hidden>⋮</span>
-                {analisisNuevo && <PuntoNuevo />}
               </button>
             )}
           </>
@@ -1475,7 +1468,7 @@ export function EditorInforme({
         </div>
       )}
 
-      {/* ── El lienzo (lo único que scrollea) y, encima, el panel de propiedades y el AI Analyst ── */}
+      {/* ── El lienzo (lo único que scrollea) y, encima, el panel de propiedades y «Editar con MaKo» ── */}
       <div className="lk-cuerpo">
         <div className="lk-lienzo" style={varsTema} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo} onClick={() => { if (editando) { setSelId(null); setConSel(null); } }}>
           <div className="lk-pagina" ref={containerRef} data-dispositivo={dispositivo === 'escritorio' ? undefined : dispositivo}>
@@ -1493,8 +1486,11 @@ export function EditorInforme({
             {avisoClosing && !closingConectado && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>{avisoClosing}</span>
-                {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>Conectar Claude</BotonIntegracion>}
+                {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
               </div>
+            )}
+            {avisoFijo && !dueno && !enBlanco && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" data-aviso-fijo onClick={(e) => e.stopPropagation()}>{avisoFijo}</div>
             )}
             {enBlanco ? (
               // 14/10/2026 — Martín (para General y para el Dashboard): «en lugar del botón de "nuevo dashboard" te pido que
@@ -1578,14 +1574,12 @@ export function EditorInforme({
           </aside>
         )}
 
-        {/* El AI Analyst es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del
-            lienzo en la compu (./edicion-css.ts). Con la vista: el análisis a mano mira lo que la persona eligió. */}
-        {/* #862: los dos son el MISMO MaKo en dos modos («Analizar · Editar», ./ModosMako.tsx), cuando la persona tiene los dos. */}
-        {analista && <PanelAnalista hoja={hoja} loQueSeVe={loQueSeVe} vista={vista} onCerrar={cerrarAnalista} onModo={conModosMako ? cambiarModoMako : undefined} />}
+        {/* «Editar con MaKo» es un panel (un `aside` de alto completo), no un modal: va en esta fila, encima del lienzo en la
+            compu (./edicion-css.ts). Desde el 24/10/2026 es el único: el AI Analyst salió (lo de analizar es de la criatura). */}
         {makoEditar && editando && guardable && !enBlanco && !compartido && (
           <PanelEditarMako editando={editando} hoja={hoja} informe={informe} hilo={hilosMako[hoja.id] ?? []} onHilo={alHiloMako} leerHoja={leerHoja}
             onAplicar={ponerHojaDeMako} onDeshacer={ponerHojaDeMako} onCrearHoja={crearHoja} onAbrirHoja={irAHoja} onArchivarHoja={eliminarHoja}
-            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} onModo={conModosMako ? cambiarModoMako : undefined} />
+            onCerrar={cerrarMakoEditar} textoInicial={pedidoDeProbar(probar)} />
         )}
       </div>
 
@@ -1636,7 +1630,7 @@ export function EditorInforme({
           <PanelEstilo tema={hoja.tema} onCambiar={cambiarTema} ajustes />
         </Flotante>
       )}
-      {/* El ⋮: AI Analyst (no al closer ni a un link), Exportar y la guía (no en un link). */}
+      {/* El ⋮: Compartir, Exportar y la guía (no en un link). Sin el AI Analyst desde el 24/10/2026: lo hace la criatura. */}
       {menu?.tipo === 'mas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={240}>
           <div className="lk-lista" role="menu">
@@ -1654,16 +1648,6 @@ export function EditorInforme({
             {guardable && !esGeneral && !esAutomatizacion && (
               <>
                 <RenglonCompartir onClick={abrirCompartir} />
-                <div className="lk-sep-h" />
-              </>
-            )}
-            {!soloMirar && (
-              <>
-                <button type="button" role="menuitem" className="lk-opcion lk-opcion--mako" data-abierto={analista || undefined} onClick={alternarAnalista}
-                  title="MaKo analiza los gráficos de esta hoja">
-                  <LogoMako lado={22} /> <span>AI Analyst</span>
-                  {analisisNuevo && <PuntoNuevo enMenu />}
-                </button>
                 <div className="lk-sep-h" />
               </>
             )}
@@ -1727,7 +1711,8 @@ export function EditorInforme({
           edita es «Editar con MaKo», el único escritor de la hoja abierta). Nunca en un link compartido (no hay sesión). */}
       {/* En las Métricas de una automatización NO va la estrella de MaKo de la tab (Rendimiento, 23/10/2026): /automations ya
           tiene su chat de MaKo, y una segunda puerta adentro de la misma pantalla es otra conversación. */}
-      {!compartido && !esAutomatizacion && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} />}
+      {/* Y VE LA HOJA (24/10/2026, «que la criatura vea la hoja»): `pantallaMako`, los gráficos con la vista puesta. */}
+      {conEstrella && <MakoEnLaTab tab={esGeneral ? 'General' : 'Dashboard'} entidad={entidadDeHoja(hoja)} modo="analizar" pedido={pedidoMako} pantalla={pantallaMako} />}
 
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}

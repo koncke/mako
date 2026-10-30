@@ -14,12 +14,12 @@ import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe } 
 import { credWs } from './credenciales';
 import { leerCuentaMp } from './mercadopago-api';
 import { leerCuentaStripe } from './stripe-api';
-import { cuentaDeApify } from './apify';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { esKeySoloEnvio, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import { problemaDelRemitente } from './resend-remitente';
+import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
 
 type Valores = Record<string, string>;
 
@@ -60,6 +60,11 @@ function haceCuanto(iso: string | undefined): string | null {
 // ── un ping barato por servicio, con el estilo de auth real de cada lib ─────
 const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   async meta(v) {
+    // Conectado por Zernio (25/10/2026) y sin token: se prueba por ahí (lib/meta-conexion-zernio.ts).
+    if (!v.META_ACCESS_TOKEN && v.META_ZERNIO_CUENTA) {
+      const { pingMetaPorZernio } = await import('./meta-conexion-zernio');
+      return pingMetaPorZernio(v);
+    }
     const ver = process.env.META_API_VERSION || 'v24.0';
     // ⚠️ Normaliza IGUAL que el guardado (lib/meta-cuenta-id.ts), y esa igualdad
     // es el punto: cuando cada lado normalizaba por su cuenta, este ping daba
@@ -315,6 +320,65 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     }
     return { ok: true, detalle: 'Key válida — MaKo puede clonar voces y convertir audio.', facts };
   },
+  // Los otros grabadores de reuniones (26/10/2026, lib/grabadores): leer UNA reunión con la clave, como Fathom. Las respuestas
+  // a una clave mala se midieron ese día contra las APIs reales (docs/hallazgos-integraciones.md).
+  async tldv(v) {
+    const { status, body } = await fetchJson('https://pasta.tldv.io/v1alpha1/meetings?limit=1', { headers: { 'x-api-key': v.TLDV_API_KEY, accept: 'application/json' } });
+    // Medido: falta de key y key mala dan el MISMO 401 (AuthorizationRequiredError).
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida (¿tu plan de tl;dv es Pro o Business?).' };
+    if (status >= 400 || !Array.isArray(body.results)) return { ok: false, error: `tl;dv respondió ${status}.` };
+    const u = (body.results as Array<{ name?: string; happenedAt?: string }>)[0];
+    const cuando = haceCuanto(u?.happenedAt);
+    return { ok: true, detalle: 'Key válida.', facts: u?.name ? [{ k: 'Tu última reunión', v: cuando ? `${u.name} · ${cuando}` : u.name, c: 'var(--good)' }] : [{ k: 'Reuniones', v: 'Key válida, sin reuniones todavía', c: 'var(--warn)' }] };
+  },
+
+  async fireflies(v) {
+    const { status, body } = await fetchJson('https://api.fireflies.ai/graphql', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${v.FIREFLIES_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ transcripts(limit: 1) { title date } }' }),
+    });
+    // ⚠️ Una key mala contesta 500 con `auth_failed`, no 401 (medido el 26/10/2026).
+    const errores = Array.isArray(body.errors) ? (body.errors as Array<{ code?: string; message?: string }>) : [];
+    if (status === 401 || status === 403 || errores.some((e) => e.code === 'auth_failed')) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400 || errores.length) return { ok: false, error: `Fireflies respondió ${status}${errores[0]?.message ? `: ${errores[0].message}` : ''}.` };
+    const lista = ((body.data as { transcripts?: Array<{ title?: string; date?: number }> } | undefined)?.transcripts) ?? [];
+    const u = lista[0];
+    const cuando = u?.date ? haceCuanto(new Date(u.date).toISOString()) : null;
+    return { ok: true, detalle: 'Key válida.', facts: u?.title ? [{ k: 'Tu última reunión', v: cuando ? `${u.title} · ${cuando}` : u.title, c: 'var(--good)' }] : [{ k: 'Reuniones', v: 'Key válida, sin reuniones todavía', c: 'var(--warn)' }] };
+  },
+
+  async zoom(v) {
+    const cuenta = (v.ZOOM_ACCOUNT_ID ?? '').trim();
+    const basic = Buffer.from(`${(v.ZOOM_CLIENT_ID ?? '').trim()}:${(v.ZOOM_CLIENT_SECRET ?? '').trim()}`).toString('base64');
+    const tok = await fetchJson(`https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(cuenta)}`, { method: 'POST', headers: { Authorization: `Basic ${basic}` } });
+    // Medido: credenciales malas = 400 «Invalid client_id or client_secret»; una cuenta que no es = 400 también.
+    if (tok.status >= 400 || typeof tok.body.access_token !== 'string') {
+      return { ok: false, error: `Zoom no aceptó la app${typeof tok.body.reason === 'string' ? `: ${tok.body.reason}` : ''}. Revisa los tres datos y que la app esté activada.` };
+    }
+    const desde = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+    const { status, body } = await fetchJson(`https://api.zoom.us/v2/users/me/recordings?from=${desde}&page_size=1`, { headers: { Authorization: `Bearer ${tok.body.access_token}` } });
+    if (status === 401 || status === 403 || (status === 400 && /scope/i.test(String(body.message ?? '')))) {
+      return { ok: false, error: 'La app entra, pero no tiene permiso de leer las grabaciones: suma los scopes de "cloud_recording".' };
+    }
+    if (status >= 400 || !Array.isArray(body.meetings)) return { ok: false, error: `Zoom respondió ${status}${body.message ? `: ${String(body.message)}` : ''}.` };
+    const u = (body.meetings as Array<{ topic?: string; start_time?: string }>)[0];
+    const cuando = haceCuanto(u?.start_time);
+    return { ok: true, detalle: 'App válida.', facts: u?.topic ? [{ k: 'Tu última grabación en la nube', v: cuando ? `${u.topic} · ${cuando}` : u.topic, c: 'var(--good)' }] : [{ k: 'Grabaciones', v: 'Sin grabaciones en la nube en los últimos 30 días', c: 'var(--warn)' }] };
+  },
+
+  async otter(v) {
+    const { status, body } = await fetchJson('https://api.otter.ai/v1/conversations?limit=1', { headers: { Authorization: `Bearer ${v.OTTER_API_KEY}`, accept: 'application/json' } });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida (la API de Otter es sólo del plan Enterprise).' };
+    if (status >= 400) return { ok: false, error: `Otter respondió ${status}.` };
+    const lista = Array.isArray(body.data) ? body.data : Array.isArray(body.conversations) ? body.conversations : null;
+    // La forma de la lista no se pudo medir sin una cuenta Enterprise: si no es la esperada, se dice (no «sin reuniones»).
+    if (!lista) return { ok: false, error: `Otter contestó con una forma que MaKo no conoce (${Object.keys(body).join(', ') || 'vacía'}). Avísanos.` };
+    const u = (lista as Array<{ title?: string; created_at?: string }>)[0];
+    const cuando = haceCuanto(u?.created_at);
+    return { ok: true, detalle: 'Key válida.', facts: u?.title ? [{ k: 'Tu última conversación', v: cuando ? `${u.title} · ${cuando}` : u.title, c: 'var(--good)' }] : [{ k: 'Conversaciones', v: 'Key válida, sin conversaciones todavía', c: 'var(--warn)' }] };
+  },
+
   async fathom(v) {
     const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },
@@ -350,9 +414,57 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     };
   },
 
+  // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts): leer UN video de la lista con la clave.
+  async vimeo(v) {
+    const { status, body } = await fetchJson('https://api.vimeo.com/me/videos?per_page=1&fields=name', {
+      headers: { Authorization: `bearer ${v.VIMEO_TOKEN}`, Accept: 'application/vnd.vimeo.*+json;version=3.4' },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'Token inválido, o sin permiso para ver tus videos ("Private").' };
+    if (status >= 400 || !Array.isArray(body.data)) return { ok: false, error: `Vimeo respondió ${status}.` };
+    const v0 = (body.data as Array<{ name?: string }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: v0?.name ? [{ k: 'Tu último video', v: v0.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
+  async wistia(v) {
+    const { status, body } = await fetchJson('https://api.wistia.com/v1/medias.json?per_page=1', { headers: { Authorization: `Bearer ${v.WISTIA_TOKEN}` } });
+    if (status === 401 || status === 403) return { ok: false, error: 'Token inválido, o sin permiso de leer ("Read all data").' };
+    const lista = body as unknown;
+    if (status >= 400 || !Array.isArray(lista)) return { ok: false, error: `Wistia respondió ${status}.` };
+    const m0 = (lista as Array<{ name?: string }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: m0?.name ? [{ k: 'Tu último video', v: m0.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
+  async bunny(v) {
+    const lib = (v.BUNNY_STREAM_LIBRARY ?? '').trim();
+    if (!/^\d{1,12}$/.test(lib)) return { ok: false, error: 'El Library ID es un número (está en "API", en tu biblioteca).' };
+    const { status, body } = await fetchJson(`https://video.bunnycdn.com/library/${lib}/videos?page=1&itemsPerPage=1`, { headers: { AccessKey: v.BUNNY_STREAM_KEY } });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida: va la de la BIBLIOTECA, no la de tu cuenta.' };
+    if (status === 404) return { ok: false, error: 'No hay una biblioteca con ese Library ID.' };
+    if (status >= 400 || !Array.isArray(body.items)) return { ok: false, error: `Bunny respondió ${status}.` };
+    const i0 = (body.items as Array<{ title?: string }>)[0];
+    return { ok: true, detalle: 'Clave válida.', facts: i0?.title ? [{ k: 'Tu último video', v: i0.title, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Biblioteca vacía todavía', c: 'var(--warn)' }] };
+  },
+
+  async cloudflare(v) {
+    const cuenta = (v.CLOUDFLARE_ACCOUNT_ID ?? '').trim();
+    if (!/^[0-9a-f]{32}$/i.test(cuenta)) return { ok: false, error: 'El Account ID son 32 letras y números (está en "Stream", a la derecha).' };
+    const { status, body } = await fetchJson(`https://api.cloudflare.com/client/v4/accounts/${cuenta}/stream?limit=1`, { headers: { Authorization: `Bearer ${v.CLOUDFLARE_STREAM_TOKEN}` } });
+    // ⚠️ Un token con forma rara NO da 401: da 400 con el código 9106 «Authentication failed» (medido el 25/10/2026). Uno
+    // con buena forma pero inexistente da 401 (10000). Los dos son «el token no sirve».
+    const codigos = Array.isArray(body.errors) ? (body.errors as Array<{ code?: number }>).map((e) => e.code) : [];
+    if (status === 401 || status === 403 || codigos.includes(9106) || codigos.includes(10000)) return { ok: false, error: 'Token inválido, o sin el permiso "Stream" → "Read" en esa cuenta.' };
+    if (status >= 400 || body.success !== true || !Array.isArray(body.result)) return { ok: false, error: `Cloudflare respondió ${status}.` };
+    const r0 = (body.result as Array<{ meta?: { name?: string } }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: r0?.meta?.name ? [{ k: 'Tu último video', v: r0.meta.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
   async youtube(v) {
     const id = v.YOUTUBE_VSL_VIDEO_ID || 'dQw4w9WgXcQ'; // cualquier video público valida la key
-    const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(v.YOUTUBE_API_KEY)}`;
+    // Sin clave propia (ya no se pide, 27/10/2026) se prueba el VIDEO con la de MaKo: lo que importa es que se encuentre.
+    const { claveDeYoutube } = await import('./youtube');
+    const clave = v.YOUTUBE_API_KEY || (await claveDeYoutube());
+    if (!clave) return { ok: false, error: 'MaKo no tiene su clave de YouTube cargada. Avísale a Soporte.' };
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(clave)}`;
     const { status, body } = await fetchJson(url);
     if (status === 400 || status === 403) return { ok: false, error: 'API key inválida o sin la YouTube Data API habilitada.' };
     if (status >= 400) return { ok: false, error: `YouTube respondió ${status}.` };
@@ -385,11 +497,19 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     // La key es OBLIGATORIA desde el 23/10/2026 (sin respaldo de la plataforma): sin ella no hay Zernio, y el ping no puede
     // contestar «anda» (la API de MaKo reusa este ping para decir si la integración responde).
     if (!key) return { ok: false, error: 'Falta la API key de Zernio.' };
-    const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    });
-    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde Zernio.' };
-    if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
+    // VARIAS CLAVES (29/10/2026): se prueba CADA una que vino (el servidor completa con las guardadas, así que pegar la 2 trae
+    // también la 1) y se dice cuál falla. Probar sólo la 1 daba «anda» a una clave 2 rota.
+    const claves = CLAVES_ZERNIO.map((env) => ({ env, valor: (v[env] ?? '').trim() })).filter((x) => x.valor);
+    let body: Record<string, unknown> = {};
+    for (const k of claves) {
+      const r = await fetchJson('https://zernio.com/api/v1/profiles', {
+        headers: { authorization: `Bearer ${k.valor}`, 'content-type': 'application/json' },
+      });
+      const cual = k.env === 'ZERNIO_API_KEY' ? 'Esa API key' : `La API key de Zernio ${slotDeClaveZernio(k.env)}`;
+      if (r.status === 401 || r.status === 403) return { ok: false, error: `${cual} no es válida. Cópiala de nuevo desde Zernio.` };
+      if (r.status >= 400) return { ok: false, error: `Zernio respondió ${r.status}${k.env === 'ZERNIO_API_KEY' ? '' : ` con la clave ${slotDeClaveZernio(k.env)}`}.` };
+      if (k.env === 'ZERNIO_API_KEY') body = r.body;
+    }
     const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
     return {
       ok: true,
@@ -480,43 +600,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: `Conectada a tu cuenta de Mercado Pago${r.modo === 'prueba' ? ' (modo prueba)' : ''}.`, facts };
   },
 
-  // LAS FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md). Su único
-  // campo es un SECRETO que no se comprueba contra nadie hasta que llega el primer aviso: el hottok
-  // no abre ninguna API de Hotmart, y la clave de Skool la inventa el negocio. Como el «Secret» de
-  // Cal.com: rechazarlo por no poder comprobarlo sería impedir guardar lo único de lo que depende
-  // todo. El tope de largo es el mismo con el que el webhook lee el header (`secretoDelHeader`).
-  async hotmart(v) {
-    const t = (v.HOTMART_HOTTOK ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta el hottok: sin eso no entra ninguna compra.' };
-    if (t.length > 200) return { ok: false, error: 'Ese hottok es demasiado largo. Cópialo de nuevo desde Hotmart.' };
-    return {
-      ok: true,
-      detalle: 'Tu hottok está guardado. Las compras entran en cuanto registres la dirección en Hotmart.',
-      facts: [{ k: 'Compras en vivo', v: 'Listas, cuando registres la dirección en Hotmart', c: 'var(--good)' }],
-    };
-  },
-
-  async skool(v) {
-    const t = (v.SKOOL_WEBHOOK_CLAVE ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta la clave del aviso: sin eso no entra nadie de tu comunidad.' };
-    // Es lo ÚNICO que separa tu CRM de cualquiera que conozca la dirección: corta, se adivina.
-    if (t.length < 12) return { ok: false, error: 'Usa una clave de 12 caracteres o más: es lo que protege tu CRM.' };
-    if (t.length > 200) return { ok: false, error: 'Esa clave es demasiado larga: usa una de menos de 200 caracteres.' };
-    return {
-      ok: true,
-      detalle: 'Tu clave está guardada. Las solicitudes entran en cuanto publiques el Zap con la misma clave.',
-      facts: [{ k: 'Solicitudes en vivo', v: 'Listas, cuando publiques el Zap', c: 'var(--good)' }],
-    };
-  },
-
-  // Apify (15/10/2026): la cuenta de la key. Sin plan pago igual busca (el gratis trae saldo).
-  async apify(v) {
-    const t = (v.APIFY_TOKEN ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta el token de Apify.' };
-    const r = await cuentaDeApify(t);
-    if (!r.ok) return { ok: false, error: r.error };
-    return { ok: true, detalle: `Conectada a la cuenta ${r.usuario} de Apify.`, facts: [{ k: 'Cuenta', v: r.usuario }, ...(r.plan ? [{ k: 'Plan', v: r.plan }] : [])] };
-  },
+  // (Hotmart, Skool y Apify tenían su ping acá: salieron el 25/10/2026 con el Leads Scraper.)
 
   // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,
   // no una credencial que el cliente cargue) → verificarServicio('google') corta
@@ -565,8 +649,13 @@ export async function verificarServicio(
   if (hostDelRequest && secretoDeStorage) {
     return { ok: false, error: 'Para probar con una URL nueva, completa también las credenciales secretas de este servicio.' };
   }
-  if (faltan.length) {
-    return { ok: false, error: `Falta completar: ${faltan.join(', ')}.` };
+  // Meta por Zernio: la conexión reemplaza al token (`metaConectadaConCampos`). Sin esto, un negocio conectado por Zernio no
+  // podía guardar ni su píxel: el tilde decía «Falta completar: Access token».
+  const porZernio = servicio.key === 'meta' && !!valores.META_ZERNIO_CUENTA && !valores.META_ACCESS_TOKEN;
+  const etiquetaToken = servicio.campos.find((c) => c.env === 'META_ACCESS_TOKEN')?.label;
+  const faltanDeVerdad = porZernio ? faltan.filter((l) => l !== etiquetaToken) : faltan;
+  if (faltanDeVerdad.length) {
+    return { ok: false, error: `Falta completar: ${faltanDeVerdad.join(', ')}.` };
   }
 
   try {

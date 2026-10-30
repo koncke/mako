@@ -44,8 +44,10 @@ const GraficoHilo = dynamic(() => import('./bloques/GraficoHilo'), {
 const CONSULTA_INICIAL_MS = 3_000;
 const CONSULTA_MAX_MS = 15_000;
 
-export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
+export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado, sinMandar = null }: {
   b: Bloque;
+  /** Por qué no puede salir lo que se toque (sin la app de escritorio, 29/10/2026): lo dice ahí, y las opciones no se tocan. */
+  sinMandar?: string | null;
   /** Contestar una pregunta (G1): lo elegido sale como un mensaje de la persona. Sin esto, las opciones se ven y no se tocan.
    *  `false` = no salió (MaKo estaba trabajando): la pregunta NO dice «Respondiste». */
   onResponder?: (texto: string) => boolean | void;
@@ -83,7 +85,7 @@ export function BloqueHilo({ b, onResponder, respondida, onTermina, ocupado }: {
   // La red atrapa el pedazo que no carga (el import de `next/dynamic` rechazado tira al dibujar): sin ella, subía a
   // app/error.tsx y se caía la pantalla entera, chat incluido. Adentro, GraficoHilo tiene la suya para el dibujo.
   if (b.t === 'grafico') return <RedDeBloque nombre={b.titulo} reiniciarCon={[b]}><GraficoHilo b={b} /></RedDeBloque>;
-  return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} />;
+  return <PreguntaHilo b={b} onResponder={onResponder} respondida={respondida} ocupado={ocupado} sinMandar={sinMandar} />;
 }
 
 /**
@@ -182,13 +184,16 @@ function Creado({ b }: { b: BloqueCreado }) {
 }
 
 /** G1: las opciones, la recomendada marcada; de a una (tocar contesta) o varias (se marcan y «Listo»). */
-function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; onResponder?: (texto: string) => boolean | void; respondida?: string; ocupado?: boolean }) {
+function PreguntaHilo({ b, onResponder, respondida, ocupado, sinMandar }: { b: Pregunta; onResponder?: (texto: string) => boolean | void; respondida?: string; ocupado?: boolean; sinMandar?: string | null }) {
   const [marcadas, setMarcadas] = useState<number[]>([]);
   const [enviada, setEnviada] = useState<string | null>(null);
   const [noSalio, setNoSalio] = useState(false);
   // Contestada al recargar, o escribiendo después de la pregunta (`conRespuestas`): vale lo que dijo la persona.
   const dicha = respondida ?? enviada;
-  const quieta = !onResponder || dicha != null || !!ocupado;
+  // ⚠️ SIN LA APP NO SALE NADA (29/10/2026): antes se tocaba, no pasaba nada y decía «espera a que MaKo termine». Ahora se dice
+  //    por qué, de entrada, y no se toca.
+  const sinApp = !!sinMandar && dicha == null;
+  const quieta = !onResponder || dicha != null || !!ocupado || sinApp;
   // ⚠️ «Respondiste» SÓLO SI SALIÓ (revisión del 21/10/2026): tocar mientras MaKo trabajaba marcaba la opción y no
   //    mandaba nada, sin aviso.
   const responder = (t: string) => {
@@ -216,8 +221,8 @@ function PreguntaHilo({ b, onResponder, respondida, ocupado }: { b: Pregunta; on
           </button>
         ))}
       </div>
-      {noSalio && dicha == null && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.<ReportarASoporte /></p>}
-      {dicha == null ? (
+      {noSalio && dicha == null && !sinApp && <p className="ch-tarjeta__nota" role="alert">No salió: espera a que MaKo termine y vuelve a tocar.<ReportarASoporte /></p>}
+      {sinApp ? <p className="ch-sin-mandar" role="note">{sinMandar}</p> : dicha == null ? (
         <div className="ch-tarjeta__botones">
           {b.varias && (
             <button type="button" className="ch-abrir" disabled={quieta || !marcadas.length}

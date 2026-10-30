@@ -446,7 +446,7 @@ export function avisoPorEmail(asunto: string): { titulo: string; asuntoEmail: st
  * · TAL CUAL (desde un flujo, con `partes`, sin `respuesta`): las partes como están, sin envoltorio, sin
  *   rótulo, SIN `dedupKey`/`dedupTtlMin` (el reclamo del motor ya impide el doble envío, y dos tarjetas del
  *   mismo lead —«Nuevo agendado» y «Reunión en 30 min»— son dos mensajes) y con el estado FIJO: el
- *   interruptor es la automatización, no Configuraciones › Notificaciones. El feed lleva los textos unidos.
+ *   interruptor es la automatización, no Settings › Notificaciones. El feed lleva los textos unidos.
  * · COMO SIEMPRE (una tarjeta de antes, el «Otra cosa» del AI Step con `respuesta`, o la API): el texto
  *   envuelto («🟡 título», lo que escribió el lead, nombre · teléfono, el link, «— MaKo»), el dedup por lead
  *   (o por respuesta) de 12 h y el interruptor del store. Si la tarjeta tiene audio o archivos, salen
@@ -529,7 +529,7 @@ export type ResultadoAviso = {
  */
 export function resultadoDelAviso(r: ResultadoAviso, lead: { nombre: string } | null, porEmail = false): { ok: boolean; resumen: string } {
   if (r.deduped) return { ok: true, resumen: `${AVISO_REPETIDO}${lead ? ` de ${lead.nombre}` : ''} hace poco.` };
-  if (r.apagado) return { ok: true, resumen: 'El aviso está apagado en Configuraciones › Notificaciones: quedó sólo en la app.' };
+  if (r.apagado) return { ok: true, resumen: 'El aviso está apagado en Settings › Notificaciones: quedó sólo en la app.' };
   if (r.agrupado) return { ok: true, resumen: 'Quedó para el resumen de la mañana.' };
   if (!r.ok) return { ok: false, resumen: 'No pude avisarle al equipo.' };
   // Por email (16/10/2026), «le escribí» sólo si salió alguno: sin destinatarios, o con Resend caído, es un fallo.

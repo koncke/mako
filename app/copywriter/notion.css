@@ -1,0 +1,224 @@
+/* =============================================================================
+   Copywriter — la hoja del editor, copiada de Notion (medidas) con los colores de la casa (tokens)
+   =============================================================================
+   Diseño: docs/diseno-copywriter.md (D2). Lo de Notion son las MEDIDAS y la estructura: la página de 708 px con 96 px de
+   aire a los costados, el ícono de 78 px, el título de 40 px en 700, el cuerpo de 16 px con 1,5 de interlínea, los
+   encabezados 1,875 / 1,5 / 1,25 em, los bloques con 3 px arriba y abajo, el asa ⋮⋮ en el margen, la columna del árbol
+   en gris con renglones de 28 px, el menú «/» con su cuadrito de 46 px y su descripción gris. Los COLORES son los de la
+   casa (AGENTS.md, «NINGUNA pantalla se diseña de cero»: los colores, la tipografía y los íconos son los de la casa), así
+   que el oscuro sale solo: los tokens de app/globals.css ya cambian bajo [data-tema="oscuro"].
+   Todo limitado a `.nt` (Next deja la hoja cargada al salir de la ruta). Los menús flotantes se montan adentro de la raíz
+   `.nt` (AGENTS.md, «Un tema limitado a una clase no llega a los PORTALES»).
+   ============================================================================= */
+
+.nt {
+  --nt-texto: var(--ink);
+  --nt-tenue: var(--dim);
+  --nt-suave: var(--faint);
+  --nt-fondo: var(--surface);
+  --nt-gris: var(--surface-2);
+  --nt-hover: var(--velo-hover);
+  --nt-linea: var(--border);
+  --nt-linea-fuerte: var(--border-strong);
+  --nt-azul: var(--primary);
+  --nt-azul-fondo: var(--primary-bg);
+  --nt-sombra: 0 0 0 1px rgba(15, 15, 15, .05), 0 3px 6px rgba(15, 15, 15, .1), 0 9px 24px rgba(15, 15, 15, .2);
+  --nt-letra: 'Geist', ui-sans-serif, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  /* ⚠️ El alto es un NÚMERO que DESCUENTA la barra de la agencia (el molde de .gma-app, app/web-generator/gamma.css: con
+     100dvh entero la barra «Estás viendo el dashboard de…» tapaba la de arriba del editor). Los hijos estiran con flex. */
+  display: flex;
+  height: calc(100vh - var(--barra-agencia, 0px));
+  height: calc(100dvh - var(--barra-agencia, 0px));
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--nt-fondo);
+  color: var(--nt-texto);
+  font-family: var(--nt-letra);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── La columna de MaKo (el chat): la del Web Generator ───────────────────── */
+.nt-mako { display: flex; flex-direction: column; width: 360px; flex: none; min-height: 0; border-right: 1px solid var(--nt-linea); background: var(--nt-fondo); }
+.nt-mako > .co-panel { flex: 1; min-height: 0; background: transparent; }
+.nt-mako .co-cab { min-height: 48px; padding: 0 8px 0 12px; gap: 8px; }
+.nt-mako .co-hilo { padding: 8px 12px 12px; }
+.nt-mako .co-caja-wrap { padding: 0; }
+.nt-mako-pie { display: grid; gap: 8px; padding: 8px 12px 12px; }
+.nt-mako-bienvenida { align-self: flex-start; max-width: 100%; padding: 10px 14px; border-radius: 14px; background: var(--nt-gris); font-size: 13.5px; line-height: 1.5; }
+.nt-mako-pildoras { display: flex; flex-wrap: wrap; gap: 6px; }
+.nt-mako-pildora { padding: 6px 12px; border: 0; border-radius: 999px; background: var(--nt-azul-fondo); color: var(--nt-texto); font: inherit; font-size: 12.5px; font-weight: 500; text-align: left; cursor: pointer; }
+.nt-mako-pildora:hover:not(:disabled) { background: var(--nt-hover); }
+.nt-mako-pildora:disabled { opacity: .5; cursor: default; }
+.nt-mako-error { padding: 10px 14px; border-radius: 14px; background: var(--nt-gris); color: var(--nt-texto); font-size: 13.5px; }
+.nt-mako-estado { font-size: 12px; color: var(--nt-suave); }
+
+/* ── Los botones de ícono de la barra de la página ─────────────────────────── */
+.nt-boton-ico { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: none; border: 0; border-radius: 5px; background: transparent; color: var(--nt-suave); font: inherit; font-size: 15px; line-height: 1; cursor: pointer; }
+.nt-boton-ico:hover, .nt-boton-ico[aria-expanded="true"] { background: var(--nt-hover); color: var(--nt-texto); }
+
+/* ── El documento ──────────────────────────────────────────────────────────── */
+.nt-doc { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
+.nt-barra { display: flex; align-items: center; gap: 6px; height: 45px; padding: 0 12px; flex: none; }
+.nt-migas { display: flex; align-items: center; gap: 2px; flex: 1; min-width: 0; font-size: 14px; color: var(--nt-tenue); }
+.nt-miga { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 220px; height: 26px; padding: 0 6px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.nt-miga:hover { background: var(--nt-hover); color: var(--nt-texto); }
+.nt-miga > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-miga-sep { color: var(--nt-suave); }
+.nt-guardado { flex: none; font-size: 13px; color: var(--nt-suave); white-space: nowrap; }
+.nt-guardado[data-error] { color: var(--nt-texto); }
+.nt-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; }
+/* Los 96 px de aire de Notion en una ventana ancha; en una angosta se achican (Notion hace lo mismo), nunca menos de 24. */
+.nt-pagina { position: relative; width: 100%; max-width: calc(708px + 192px); margin: 0 auto; padding: 0 clamp(24px, 8%, 96px) 30vh; box-sizing: border-box; }
+.nt-portada { height: 80px; }
+.nt-icono { display: inline-flex; align-items: center; justify-content: center; width: 78px; height: 78px; margin: 0 0 4px -4px; border: 0; border-radius: 6px; background: transparent; font-size: 70px; line-height: 1; cursor: pointer; }
+.nt-icono:hover { background: var(--nt-hover); }
+.nt-titulo { display: block; width: 100%; margin: 0; padding: 3px 2px; border: 0; outline: none; resize: none; overflow: hidden; background: transparent; color: var(--nt-texto); font: inherit; font-size: 40px; font-weight: 700; line-height: 1.2; field-sizing: content; }
+.nt-titulo::placeholder { color: var(--nt-suave); opacity: .55; }
+/* `minmax(0, 1fr)`: un item de grilla no se achica por debajo de su contenido sin esto, y un valor largo empujaba la fila. */
+.nt-props { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; margin: 10px 0 0; }
+.nt-prop { display: flex; align-items: center; min-height: 34px; font-size: 14px; }
+.nt-prop-nombre { display: flex; align-items: center; gap: 8px; width: 160px; flex: none; padding: 0 6px; color: var(--nt-tenue); }
+.nt-prop-nombre > span:first-child { width: 16px; text-align: center; color: var(--nt-suave); }
+/* Un valor largo («PAS (Problema → Agitación → Solución)») se corta con «…»: nunca empuja la página de costado. */
+.nt-prop-valor { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; overflow: hidden; }
+.nt-prop-valor select { min-width: 0; text-overflow: ellipsis; }
+.nt-prop-valor select, .nt-prop-valor input { max-width: 100%; height: 30px; padding: 0 6px; border: 0; border-radius: 4px; background: transparent; color: var(--nt-texto); font: inherit; font-size: 14px; cursor: pointer; }
+.nt-prop-valor select:hover, .nt-prop-valor input:hover, .nt-prop-valor select:focus-visible, .nt-prop-valor input:focus-visible { background: var(--nt-hover); outline: none; }
+.nt-prop-valor input { width: 90px; cursor: text; }
+.nt-prop-vacio { color: var(--nt-suave); }
+.nt-separador-props { height: 1px; margin: 12px 0 8px; background: var(--nt-linea); }
+
+/* El cuerpo: BlockNote (./editor/CuerpoNotion.tsx) con las MEDIDAS de Notion (16 px, 1,5 de interlínea, los
+   encabezados 1,875 / 1,5 / 1,25 em, 3 px arriba y abajo de cada bloque) y los colores de la casa (el tema apunta a los
+   tokens). El margen izquierdo es el del asa: BlockNote la dibuja ahí (el «+» y el ⋮⋮), como Notion. */
+.nt-bn { margin-left: -50px; }
+.nt-bn .bn-container, .nt-bn .bn-editor { background: transparent; }
+.nt-bn .bn-editor { padding-inline: 50px 0; font-family: var(--nt-letra); font-size: 16px; caret-color: var(--nt-texto); }
+.nt-bn .bn-default-styles { font-family: var(--nt-letra); }
+.nt-bn .bn-block-outer { line-height: 1.5; }
+.nt-bn .bn-block-content { padding: 3px 2px; }
+.nt-bn [data-content-type="heading"] { --level: 1.875em; padding-top: 1.1em; }
+.nt-bn [data-content-type="heading"][data-level="2"] { --level: 1.5em; padding-top: .9em; }
+.nt-bn [data-content-type="heading"][data-level="3"] { --level: 1.25em; padding-top: .6em; }
+.nt-bn .bn-block-outer:not([data-prev-type]) > .bn-block > .bn-block-content[data-content-type="heading"] { font-weight: 600; line-height: 1.3; }
+.nt-bn [data-content-type="quote"] blockquote { color: inherit; border-left: 3px solid currentColor; padding-left: 14px; font-size: 1.2em; }
+.nt-bn [data-content-type="divider"] hr { border-top-color: var(--nt-linea); }
+.nt-bn .bn-inline-content a { color: inherit; text-decoration: underline; text-decoration-color: var(--nt-linea-fuerte); }
+.nt-bn .bn-inline-content code { padding: .2em .4em; border-radius: 4px; background: var(--nt-gris); color: var(--bad); font-size: 85%; }
+.nt-bn [data-content-type="checkListItem"][data-checked="true"] .bn-inline-content { color: var(--nt-suave); }
+.nt-bn [data-content-type="checkListItem"] input { accent-color: var(--nt-azul); }
+.nt-bn .bn-editor [data-content-type="table"] th, .nt-bn .bn-editor [data-content-type="table"] td { border-color: var(--nt-linea); padding: 6px 8px; }
+.nt-bn .bn-editor [data-content-type="table"] th { background: var(--nt-gris); font-weight: 600; }
+.nt-bn .bn-block-content:has(.ProseMirror-trailingBreak:only-child)::after { color: var(--nt-suave); font-style: normal; }
+.nt-bn .bn-side-menu { color: var(--nt-suave); }
+.nt-bn-icono { display: inline-flex; align-items: center; justify-content: center; width: 18px; font-size: 14px; font-weight: 600; }
+/* El menú «/» de Notion: un cuadrito por bloque y su descripción gris. */
+.bn-suggestion-menu .bn-mt-suggestion-menu-item-section[data-position="left"] { border: 1px solid var(--border); border-radius: 4px; padding: 6px; background: var(--surface); color: var(--ink); }
+/* El atajo («#», «-», «[]») en gris, como Notion (BlockNote lo pinta con los colores del tooltip). */
+.bn-suggestion-menu .bn-mt-suggestion-menu-item .mantine-Badge-root { background: transparent; color: var(--faint); font-weight: 500; }
+.bn-suggestion-menu .bn-mt-suggestion-menu-item-subtitle { color: var(--faint); }
+.nt-bn-mako { color: var(--primary); font-weight: 500; white-space: nowrap; }
+
+/* El «Texto destacado» (callout de Notion): fondo gris, el emoji a la izquierda; tocarlo abre los íconos. */
+.nt-destacado { position: relative; display: flex; gap: 10px; width: 100%; padding: 14px 16px 14px 12px; border-radius: 4px; background: var(--nt-gris); }
+.nt-destacado-lado { position: relative; flex: none; }
+.nt-destacado-emoji { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; line-height: 1; cursor: pointer; }
+.nt-destacado-emoji:hover { background: var(--nt-hover); }
+.nt-destacado-texto { flex: 1; min-width: 0; }
+.nt-destacado-menu { position: absolute; top: 28px; left: 0; z-index: 30; display: grid; grid-template-columns: repeat(5, 32px); gap: 2px; width: auto; max-height: none; padding: 6px; }
+.nt-destacado-menu button { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; cursor: pointer; }
+.nt-destacado-menu button:hover { background: var(--nt-hover); }
+
+/* Los menús flotantes (el «/» y el del asa): la tarjeta de Notion. */
+.nt-menu { position: fixed; z-index: 60; width: 324px; max-height: min(40vh, 380px); overflow-y: auto; padding: 6px 0; border-radius: 10px; background: var(--nt-fondo); box-shadow: var(--nt-sombra); color: var(--nt-texto); font-size: 14px; }
+.nt-menu[data-chico] { width: 240px; }
+.nt-menu-grupo { padding: 8px 14px 4px; font-size: 12px; font-weight: 500; color: var(--nt-suave); }
+.nt-menu-fila { display: flex; align-items: center; gap: 10px; width: calc(100% - 8px); margin: 0 4px; min-height: 30px; padding: 4px 10px 4px 6px; border: 0; border-radius: 6px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.nt-menu-fila[data-activa], .nt-menu-fila:hover { background: var(--nt-hover); }
+.nt-menu-fila[data-peligro] { color: var(--bad); }
+.nt-menu-cuadro { display: inline-flex; align-items: center; justify-content: center; width: 46px; height: 46px; flex: none; border: 1px solid var(--nt-linea); border-radius: 4px; background: var(--nt-fondo); font-size: 16px; font-weight: 600; }
+.nt-menu[data-chico] .nt-menu-cuadro { width: 22px; height: 22px; border: 0; background: transparent; font-size: 14px; }
+.nt-menu-textos { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.nt-menu-nombre { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-menu-desc { font-size: 12px; color: var(--nt-suave); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-menu-atajo { flex: none; font-size: 12px; color: var(--nt-suave); }
+.nt-menu-vacio { padding: 8px 14px; color: var(--nt-suave); }
+.nt-menu-sep { height: 1px; margin: 4px 0; background: var(--nt-linea); }
+.nt-emojis { display: grid; grid-template-columns: repeat(8, 32px); gap: 2px; padding: 8px; }
+.nt-emojis button { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; cursor: pointer; }
+.nt-emojis button:hover { background: var(--nt-hover); }
+
+/* La propuesta de MaKo en el documento (Notion AI la marca hasta que se acepta): el fondo del azul de la casa, suave.
+   Y en el chat, su tarjeta: Aceptar (el botón azul) · Descartar · Reintentar. */
+/* Las marcas de la propuesta en el cuerpo las pone CuerpoNotion por id de bloque (`--nt-propuesta`). */
+.nt-bn { --nt-propuesta: var(--nt-azul-fondo); }
+.nt-propuesta-tarjeta { display: grid; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--nt-linea); border-radius: 12px; background: var(--nt-fondo); }
+.nt-propuesta-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nt-propuesta-aviso { font-size: 12.5px; color: var(--warn, var(--nt-tenue)); }
+.nt-boton-primario { height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--nt-azul); color: var(--on-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.nt-boton-texto { height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--nt-tenue); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.nt-boton-texto:hover { background: var(--nt-hover); color: var(--nt-texto); }
+
+/* El «@» de la caja (mila.gg): la lista arriba de la caja y lo citado como chips. */
+.nt-mako .nt-ref-menu { position: static; width: auto; max-height: 260px; margin-bottom: 6px; }
+.nt-ref-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.nt-ref-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border-radius: 999px; background: var(--nt-azul-fondo); color: var(--nt-texto); font-size: 12.5px; font-weight: 500; }
+.nt-ref-chip button { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--nt-tenue); font-size: 14px; line-height: 1; cursor: pointer; }
+.nt-ref-chip button:hover { background: var(--nt-hover); }
+
+/* El aviso cuando no se pudo leer la lista (adentro del shell de Create). */
+.nt-inicio { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.nt-aviso { margin: 0 auto; max-width: 708px; padding: 10px 14px; border-radius: 8px; background: var(--nt-gris); font-size: 14px; }
+
+/* El teléfono: un paso por pantalla. Sin asa (no hay cursor), con la página a lo ancho. */
+.nt[data-movil] { height: auto; min-height: 0; flex-direction: column; }
+.nt[data-movil] .nt-pagina { padding: 0 16px 40vh; }
+.nt[data-movil] .nt-portada { height: 12px; }
+.nt[data-movil] .nt-icono { width: 52px; height: 52px; font-size: 44px; }
+/* Más fuerte que el 16 px de los campos del teléfono (app/m/m.css, para que iOS no haga zoom): el título es un título.
+   ⚠️ Aquella regla es `[data-m] :is(input:not(…):not(…):not(…), textarea, select)`, y un `:is()` pesa lo que su argumento
+   MÁS fuerte, (0,4,1): con `.nt[data-movil] textarea.nt-titulo` (0,3,1) el título seguía en 16 px (medido en la maqueta). */
+.nt.nt[data-movil] .nt-pagina textarea.nt-titulo { font-size: 30px; }
+.nt[data-movil] .nt-prop-nombre { width: 110px; }
+.nt[data-movil] .nt-mako { width: 100%; border-right: 0; height: calc(100dvh - 160px); }
+.nt[data-movil] .nt-menu { width: min(324px, calc(100vw - 24px)); }
+.nt[data-movil] .nt-bn input, .nt[data-movil] .nt-prop-valor select, .nt[data-movil] .nt-prop-valor input { font-size: 16px; }
+
+/* Una propiedad que se lee y no se cambia (con un link para editar) y «Última edición» (D9). Si lo último lo guardó
+   alguien de afuera, el dueño lo ve en azul. */
+.nt-prop-fija { padding: 0 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 30px; }
+.nt-prop-valor[data-afuera] { color: var(--nt-azul); font-weight: 500; }
+
+/* Un guion abierto con un link para EDITAR (/compartido/<token>, D9): la franja del link arriba y la página abajo. */
+.nt.nt-compartido { flex-direction: column; }
+.nt-compartido-barra { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; flex: none; padding: 8px 16px; border-bottom: 1px solid var(--nt-linea); background: var(--nt-gris); font-size: 13px; color: var(--nt-tenue); }
+.nt-compartido-que { font-weight: 600; color: var(--nt-texto); }
+.nt-compartido-quien { margin-left: auto; }
+.nt-compartido-nombre { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.nt-compartido-nombre input { width: min(240px, 56vw); height: 30px; padding: 0 10px; border: 1px solid var(--nt-linea-fuerte); border-radius: 6px; background: var(--nt-fondo); color: var(--nt-texto); font: inherit; font-size: 14px; }
+.nt-compartido-nombre input:focus { outline: none; border-color: var(--nt-azul); }
+.nt[data-movil] .nt-compartido-nombre { margin-left: 0; width: 100%; }
+.nt[data-movil] .nt-compartido-nombre input { flex: 1; width: auto; font-size: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nt *, .nt *::before, .nt *::after { transition: none !important; animation: none !important; }
+}
+
+/* ── Adentro del shell único de Create (app/_crear/PantallaCrear.tsx, 29/10/2026): la tarjeta izquierda es el chat de MaKo
+   y el centro, la página. `.nt` deja de medir la ventana: llena lo que el shell le da. ─────────────────────────────── */
+.nt[data-en-tarjeta], .nt[data-en-crear] { flex: 1; height: auto; min-height: 0; }
+.nt[data-en-tarjeta] { background: transparent; }
+.nt[data-en-tarjeta] .nt-mako { width: 100%; border-right: 0; background: transparent; }
+.nt[data-en-crear] .nt-doc { min-width: 0; }
+.nt-papelera { display: grid; gap: 2px; }
+.nt-papelera-lista { display: grid; gap: 2px; max-height: 220px; overflow-y: auto; padding: 0 4px 4px; }
+.nt-papelera-fila { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 6px; font-size: 13.5px; }
+/* La franja de la plantilla de la página (EditorGuion): de cuál nació, o lo que queda del ejemplo, y «Ver ejemplo». */
+.nt-aviso.nt-restos { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-top: 10px; }
+/* «Ver ejemplo»: el ejemplo de la plantilla, de sólo lectura, dentro de la caja (no en la página). */
+.nt-ejemplo-nota { margin: 0 0 10px; font-size: 13px; color: var(--nt-suave); }
+.nt.nt-ejemplo { height: auto; border: 1px solid var(--nt-linea); border-radius: 10px; padding: 6px 0 10px; overflow: visible; }
+/* Las preguntas de MaKo al crear desde una plantilla (PanelMaKo): lo que ya contestó, como su burbuja. */
+.nt-mako-par { display: contents; }
+.nt-mako-respuesta { align-self: flex-end; max-width: 85%; padding: 6px 12px; border-radius: 14px; background: var(--nt-azul); color: #fff; font-size: 13.5px; }

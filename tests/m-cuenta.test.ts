@@ -83,8 +83,10 @@ test('los pasos de instalar son los del sistema del teléfono, con íconos que e
 
 test('las filas de «Tu cuenta» van en el orden de la computadora, cada una con su regla', () => {
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
-  // La pantalla, desde que arranca CuentaM hasta el Modo oscuro (después vienen las hojas).
-  const lista = cuenta.slice(cuenta.indexOf('export function CuentaM('), cuenta.indexOf('<ModoOscuro />'));
+  // La pantalla, desde que arranca CuentaM hasta «Tu negocio» (la fila «Modo oscuro» salió el 26/10/2026: es el sol/luna de la
+  // cabecera, tests/settings-movil-26-10.test.ts).
+  const lista = cuenta.slice(cuenta.indexOf('export function CuentaM('), cuenta.indexOf('{datos.negocio &&'));
+  assert.ok(cuenta.indexOf('{datos.negocio &&') > 0, 'no encontré «Tu negocio»: el recorte se rompió');
   assert.ok(lista.length > 200, `recorte: ${lista.length}`);
   const posiciones = SECCIONES_CUENTA.map((s) => lista.indexOf(`titulo={ROTULO.${s.key}}`));
   for (const [i, s] of SECCIONES_CUENTA.entries()) {
@@ -110,11 +112,13 @@ test('mirando a un cliente, lo tuyo se esconde SÓLO junto con la salida', () =>
 
 // Desde el 17/10/2026 tiene SU pantalla en el teléfono (/m/configuraciones, «Mobile 2»): la fila lleva ahí, no a «En la
 // computadora».
-test('«Configuración del negocio»: la regla del menú de la foto, y su pantalla del teléfono', () => {
+test('«Tu negocio»: la regla del menú de la foto, y sus secciones DIRECTO en la lista', () => {
   const pagina = sinComentarios(leer('app/m/cuenta/page.tsx'));
-  assert.match(pagina, /negocio: puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\) \? GRUPO_NEGOCIO : null/);
+  assert.match(pagina, /const verNegocio = puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\);/);
+  assert.match(pagina, /const negocio = verNegocio\s*\?\s*seccionesNegocio\(await disponiblesNegocio\(\)\)\.map/);
   const cuenta = sinComentarios(leer('app/m/cuenta/CuentaM.tsx'));
-  assert.match(cuenta, /\{datos\.negocio && \(\s*<SeccionM titulo=\{GRUPO_NEGOCIO\}>\s*<ListaM etiqueta=\{GRUPO_NEGOCIO\}>\s*<FilaM navegacion icono="config" titulo=\{datos\.negocio\} segunda="[^"]+" href="\/m\/configuraciones" \/>/);
+  // 26/10/2026 (Martín: «"tu negocio" sin un desplegable, directamente allí»): una fila por sección, no una que abre otra pantalla.
+  assert.match(cuenta, /\{datos\.negocio && datos\.negocio\.length > 0 && \(\s*<SeccionM titulo=\{GRUPO_NEGOCIO\}>\s*<ListaM etiqueta=\{GRUPO_NEGOCIO\}>\s*\{datos\.negocio\.map/);
 });
 
 test('refrescar trae las preferencias nuevas y vuelve a leer el teléfono', () => {

@@ -6,6 +6,26 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Servir otra versión de una página publicada: lo que lee la foto de A y lo que publica el borrador (25/10/2026)
+
+**Vive en:** `lib/editor-landing/pagina-publica.ts`, `lib/editor-landing/publicar.ts`, `lib/editor-landing/pago-landing.ts`,
+`app/l/html/[docId]/[bloque]/route.ts`.
+
+- **Las rutas laterales leen la foto PUBLICADA, no la que se sirvió.** `/l/html/[docId]/[bloque]` lee `publicado.htmlLibre` y el
+  pago valida contra `publicado.pagos`. Una versión B con otros pagos, formularios o `htmlLibre` rompe en esas rutas: B tiene que
+  tener los mismos, o se rechaza.
+- **`publicar` publica el contenido ACTUAL de la fila.** Si el dueño tiene cambios sin publicar, salen junto con lo que se quiso
+  publicar. Algo que publica solo (un agente) sólo puede hacerlo si `version == publicado_version`.
+- **`lib/texto-critico.ts` no está conectado ni al editor ni al Media Buyer**, y sólo cuida placeholders, links y números (no
+  oferta, garantía, formularios ni Pixel).
+- **Una versión distinta por User-Agent para bots es cloaking** (Google) y con Meta el anuncio se aprueba mirando otra página.
+  Sólo el lector de MaKo, la vigilancia y la vista previa van fijos a la versión de siempre.
+- **Una variante como otro `landing_doc` cuenta para el tope del plan** (`frenoDeTope`) y respondería 402: va como foto aparte.
+- **hola-mako.com (la raíz y `/vsl/<slug>`) es ISR de 5 minutos más `unstable_cache`**: ahí no se puede servir una versión por
+  persona sin volverla dinámica.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |
@@ -2337,7 +2357,7 @@ cambios de allí y se apliquen. Revisa que no se dañe la landing». Contrato: l
   `<img src="/api/…">` o un url() relativo salía con la cookie de quien abre. Medios sólo https absolutos y nunca /api/.
 
 Lo que quedó SIN hacer:
-- «Editar con IA» no reescribe el texto de un diseño editable: lo conserva entero (`conservar` en ia-bloques.ts).
+- ~~«Editar con IA» no reescribe el texto de un diseño editable: lo conserva entero (`conservar` en ia-bloques.ts).~~ **Hecho el 24/10/2026** (abajo, «Las páginas de MaKo editables por sección»): viajan sus textos (`{"t":"diseno"}`).
 - La miniatura de una sección de diseño es un iframe de 640 px de alto (no se sabe su alto antes de dibujarla).
 - «Replicar → Página web» sigue armando HTML personalizado (aislado, sin texto editable); podría usar este bloque.
 - El tsc acotado de esta tanda lo cortó el vigía de RAM: los tipos los vio Integración.
@@ -2584,3 +2604,1229 @@ Al convertir el editor en el molde de Automations (docs/diseno-editor-web-como-a
 - **La lista de la tarjeta lee con `pedirDocs({ accion: 'listar' })`**, el mismo del Panel, y un error de lectura se dice
   («No pude leer tus landings» + Reintentar), no se dibuja como una lista vacía. La redirección tampoco salta con la lista
   sin leer.
+
+## «Nueva landing» adentro del editor, «Compartir» en un solo botón y sin «Guardado» (24/10/2026 noche, tanda 1 de claude5)
+
+Pedidos de Martín del 24/10, textuales en `docs/feedback-24-10.md` (sección «Editor web → chat Landings», puntos 3, 7 y 9).
+**El 3 y el 7 ya se habían dado por hechos ese mismo día (7ae16876e) y no cumplían.**
+
+**Vive en:** `app/web-generator/editor/EditorLanding.tsx` (`setNueva`, `creando`, la barra) ·
+`app/web-generator/editor/paneles/PanelLandings.tsx` · `app/web-generator/Inicio.tsx` (`embebido`) ·
+`app/web-generator/editor/dialogos/DialogoCompartir.tsx` · `app/web-generator/[id]/page.tsx` (las analizadas y las bases).
+
+- **El diagnóstico equivocado: «Nueva landing abre las plantillas» se leyó como «llega a las plantillas por cualquier
+  camino».** Lo entregado era un `<Link>` a `/web-generator?panel=1`: otra RUTA y otra barra lateral (la del Panel). Martín:
+  «NO me debe redireccionar a otra ruta... Y la sidebar no debe cambiar». **Regla:** cuando Martín dice «que no me
+  redirija», no cambia la URL NI la columna de la izquierda; se reemplaza sólo el área que nombra.
+- **Cómo quedó:** «Nueva landing» es un botón que prende `nueva` en el editor; la barra y el lienzo quedan MONTADOS y
+  ocultos (`display: none`: volver es instantáneo, con el deshacer intacto) y en su lugar va el Panel ENTERO en modo
+  `embebido` (sin su barra de documentos, sin reescribir la URL y con la lista leída al montar). Es el mismo `Inicio`, no
+  una copia: crear, Analizar, Replicar y las plantillas son los del Panel. Se carga perezoso (`lazy`): trae Crear, el
+  Diagnóstico y Replicar, que el editor no necesita hasta ese clic.
+- ⚠️ **El Panel reescribe la URL con lo que muestra** (`queryDeDerecha` + `history.replaceState`): montado adentro del
+  editor, ponía `?panel=1` sobre `/web-generator/<id>`. Embebido, ese efecto no corre.
+- **`nueva` se ve sólo con la LISTA a la izquierda** (`creando = nueva && panelIzq === 'landings'`) y salir de la lista lo
+  apaga: ir al chat (la criatura, Mod+E) es volver a ESTA landing, y el chat edita la abierta.
+- **El panel Compartir es de Canva, no de Gamma:** se abre DEBAJO del botón (un `Flotante` con su ancla, no un modal),
+  el enlace con UN botón grande y una fila de atajos (Descargar, Vista previa, Enlace privado, Presentar). Lo que tiene
+  opciones (Descargar, Enlace privado) cambia el panel con «←», sin otro modal encima. Se fueron las pestañas, «Quién
+  puede editar» y los tres botones del pie. El ▾ del botón lleva Publicar, Vista previa, la publicada, Descargar y Presentar.
+- **En una presentación, Presentar quedó como ícono al lado de Compartir** (T3 pedía «tal cual Gamma», que pone «Present»
+  junto a «Share»); el azul es uno solo en las dos.
+- **«Guardado» no se dibuja, los problemas sí:** «No se guardó · Reintentar» y «Versión más nueva» siguen (callarlos sería
+  la app contando algo que no pasa). El título no baja de 160 px (`flex: 0 0 auto`); lo que cede es el formato del medio.
+
+Lo que quedó SIN hacer:
+- **No se miró con clics ni a 1280 px.** Con ~2 GB libres el vigía mató el chequeo de tipos de 2,4 GB, y el editor en
+  `next dev` pide 5-6 GB. Lo de la barra a 1280 sigue en «Sin verificar en pantalla» (docs/pendientes.md).
+- El clic derecho (P5), los botones amontonados del lienzo (5), la sidebar del chat que no se pliega (10), los
+  placeholders tapados (6), la segunda barra de formato (8) y las páginas de MaKo editables por sección (4): tandas que siguen.
+
+## Los botones amontonados en la esquina del lienzo y el chat que no se pliega (24/10/2026 noche, tanda 2a de claude5)
+
+Puntos 5 y 10 del 24/10 (docs/feedback-24-10.md). **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts`
+(`.gmc-lado`) · `app/web-generator/gamma.css` (el margen del lienzo) · `nodos/TarjetaVista.tsx` · `EditorLanding.tsx`
+(`PanelIzq`, la barra) · `paneles/PanelAgente.tsx`.
+
+- **La causa del amontonamiento NO era el botón de la tira (que se movió igual): eran TRES piezas que caen en el mismo
+  punto.** En una landing toda sección va a sangre (css.ts, 15c), así que la columna ⋮ ✨ ▤ iba ADENTRO, a 12 px de la
+  esquina; el asa de cada bloque (AsaBloque) se ubica 52 px a la izquierda del bloque, que con el padding de 3,5em del
+  cuerpo y el lienzo de ~850 px (padding-inline de la sección en 0) es justo el borde de la sección; y el primer bloque
+  del header es el logo. **Regla:** en una landing de escritorio la columna va AFUERA, en un margen de 40 px que el
+  lienzo le deja a la página (sólo en el editor); adentro queda donde lo de afuera se recorta (el marco de teléfono o
+  tableta tiene `overflow: hidden`) y en una diapositiva a sangre.
+- **La columna en una landing es UN botón (⋮):** el ✨ «Editar con IA» se fue (el chat de la tarjeta está siempre) y las
+  notas del orador quedan sólo en una presentación (en una landing siguen en el ⋮).
+- **La tira de secciones es una vista de la TARJETA de la izquierda** (`PanelIzq = 'tira'`), con su botón en la barra,
+  como Páginas. Ya no es una columna entre la tarjeta y el lienzo: el lienzo ganó ~150 px, que a 1280 hacen falta.
+- **El chat no se pliega:** `PanelIzq` ya no admite `null` (el tipo lo impide), se fueron el «⇤» de la cabecera, «Abrir
+  MaKo» de la barra y el `agentePlegado`; Mod+E lleva al chat y le pone el cursor. Cerrar Páginas o la tira vuelve al chat.
+  El 12/10 Martín había pedido «de ultima que se pueda plegar»: lo del 24/10 es posterior y gana.
+- **El placeholder partido** («Envía un mensaje al / agente…») no cabía al lado del «+», los emojis y el micrófono: va
+  «Escribe a MaKo», el molde del Ops Center («Escribe a <quién>»), y el `::placeholder` no corta renglón.
+
+Lo que quedó SIN hacer:
+- **«Discutir / Editar» en lugar de «Toda la landing / Sin título»** (la otra mitad del punto 10): «Discutir» necesita que
+  la IA del editor conteste sin tocar la landing, y hoy sólo sabe editar (`accion: 'editar'`, lib/editor-landing/ia.ts).
+  Va en la tanda 2b, con su prompt y su lugar en la API de MaKo.
+- La columna en el teléfono y la tableta sigue ADENTRO (el marco recorta lo de afuera) y ahí todavía puede encimarse con
+  el asa del primer bloque.
+- Sin mirar con clics (la RAM no dio para levantar el editor).
+
+## «Discutir | Editar» en el chat del editor (24/10/2026 noche, tanda 2b de claude5)
+
+La otra mitad del punto 10: «Tampoco pongas los botones de "toda la landing, sin titulo" pon los botones de "Discutir,
+editar"». **Vive en:** `app/_chat/SelectorIntencion.tsx` (el selector, compartido) · `app/web-generator/editor/paneles/PanelAgente.tsx`
+(`pedirDiscusion`, `pedirEdicion`) · `lib/editor-landing/ia.ts` (`discutir`, la pista en `editar`) ·
+`lib/editor-landing/ia-reglas.ts` (los prompts y lo puro) · `lib/prompt-registry.ts` · `app/api/landing-generator/ia/route.ts`.
+
+- **«Sin título» no era un bug de título: era el chip de la SECCIÓN con el cursor** (una sección sin encabezado se llama
+  «Sin título»). Los chips eran el alcance de la edición; sin ellos, el alcance se decide solo.
+- **Regla del alcance sin chips:** «Editar» manda la landing ENTERA y la sección del cursor viaja como PISTA (`enFoco` →
+  `focoParaEditar`, en el slot `alcance` que arma el código: el prompt editable no cambió): si la instrucción no dice
+  dónde («mejora la escritura»), es ésa; si nombra otra parte, la IA hace eso. Antes, con el chat abierto y una sección
+  tocada, se mandaba SÓLO esa sección por defecto. Si la página no entra de una vez (`MUCHO_PARA_EDITAR`, compartida en
+  api-tipos), se vuelve a pedir sólo la sección del cursor y la respuesta lo dice; sin cursor, pide tocar una.
+- **«Discutir» es una acción nueva de la IA (`accion: 'discutir'`), no «editar» con otra bandera:** lee el TEXTO de cada
+  sección (no el JSON), lo último de la charla (sin eso «como te dije» no existe: la lección de Automations, 22/10), los
+  archivos de la caja y el negocio; devuelve texto. Sus dos prompts están en el registro (/configuraciones), con el
+  mismo contrato que los demás del editor (lo fija tests/editor-landing-ia.test.ts).
+- **El selector es UNO para los chats** (`app/_chat/SelectorIntencion.tsx`, la misma clave `mako-chat-intencion`): quien
+  eligió «Discutir» en Automations lo encuentra igual acá. ⚠️ **Automations todavía dibuja su copia** (app/automations/ChatMako.tsx,
+  `SelectorIntencion`): no se tocó porque ese chat estaba trabajando en el archivo. Al migrarla, se borra la copia.
+- **No va a la API de MaKo, a propósito:** «Discutir» no configura nada; quien usa la API ya es una IA que lee la
+  página con `ver_secciones_landing` y opina sola. Lo que la API sí tiene es `editar_landing_con_ia`.
+
+Lo que quedó SIN hacer:
+- Sin mirar con clics ni con la IA de verdad: el modelo de mentira fija lo que le llega y lo que vuelve, no la calidad de
+  lo que contesta.
+
+## Los placeholders que se iban debajo de otras secciones, y el editor de texto en una segunda barra (24/10/2026 noche, tanda 3 de claude5)
+
+Puntos 6 y 8 del 24/10. **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts` (el placeholder) ·
+`extensiones/esquema.ts` (`PLACEHOLDER_GENERAL`) · `EditorLanding.tsx` (el botón «Texto» y `.gma-formato`) · `gamma.css`.
+
+- **La causa (sin la captura de Martín, deducida del código y medida en Chrome sin ventana):** el placeholder de TipTap
+  es un `::before` que FLOTA con alto 0, para que el cursor quede al principio. Alto 0 = no ocupa lugar: si el texto no
+  entra en un renglón (una columna angosta, un título grande), los renglones de más se derraman hacia abajo, encima de lo
+  que sigue, y la sección siguiente lo tapa (cada sección es su capa, `isolation: isolate`, y pinta su fondo encima).
+  Medido con la hoja real (scratchpad, `ph-antes.png` / `ph-ahora.png`): en una columna de 150 px, «Escribe algo o
+  escribe «/» para ver los comandos» ocupaba 3 renglones en un párrafo de 1.
+- **Regla:** en un párrafo o un título, el placeholder es ABSOLUTO sobre su renglón (`left: 0; right: 0`), en UN renglón
+  y cortado con «…». No empuja al cursor y queda alineado como el texto (flotando, un título centrado lo mostraba a la
+  izquierda). ⚠️ **No vale «alto 0 + `overflow: hidden`»**: con alto 0, el recorte lo borra entero. Los demás nodos (el
+  botón, la pregunta de un desplegable) siguen flotando: tienen padding y no se derraman.
+- El texto general se acortó a «Escribe o pulsa «/» para comandos».
+- **El editor de texto es un botón «Texto» (Aa) que abre una SEGUNDA barra** debajo de la de herramientas, con todas las
+  opciones de `BarraFormato` y sin scroll (si no entran, se parten en renglones). Se recuerda en el navegador
+  (`gma.formato.abierto`). La barra flotante sobre la selección sigue igual. Con la segunda barra cerrada, Mod+K para un
+  enlace lo atiende la flotante (aparece con la selección).
+
+Lo que quedó SIN hacer:
+- Sin mirar con clics en el editor de verdad (la medición fue con la hoja real en una página armada a mano).
+
+## Las páginas de MaKo editables por sección, sin romper el diseño (24/10/2026 noche, tanda 4 de claude5)
+
+Punto 4 del 24/10: «Todas las paginas de MaKo no son editables, clickeo y no se pueden editar las secciones... Deben
+serlo. Y eso no implica romper el diseño, en todo caso agregar funcionalidades al editor web.» **Vive en:**
+`lib/editor-landing/html-editable-textos.ts` (nuevo, puro) · `lib/editor-landing/ia-bloques.ts` (el bloque `diseno`) ·
+`app/web-generator/editor/nodos/HtmlEditableVista.tsx` · `contexto.ts` (`marcarActiva`).
+
+- **El diagnóstico obvio era el equivocado: escribir adentro SÍ andaba.** Se midió en Chrome sin ventana por CDP, con un
+  iframe igual al del editor (`sandbox="allow-same-origin"`, sin scripts): el clic llega, se escribe y el editor se
+  entera (`mousedown`, `input`). Lo que no andaba era todo lo de ALREDEDOR: (1) un clic adentro del diseño pasa en el
+  iframe y ProseMirror no lo ve, así que la sección nunca quedaba ACTIVA (ni sus controles ni el chat se enteraban);
+  (2) la IA del chat recibía cada sección de diseño como `{"t":"conservar"}`, una caja cerrada: MaKo no veía ni una
+  palabra, y pedirle «cambia el título» no cambiaba nada.
+- **Regla para que la IA edite un diseño sin romperlo:** viaja la LISTA DE TEXTOS de la sección, en orden (`{"t":"diseno",
+  "ref","textos"}`), y vuelve con la MISMA cantidad; cada texto va a su lugar exacto del HTML. Etiquetas, clases,
+  estilos en línea y atributos no se tocan; lo que escribe la IA se escapa (nunca abre una etiqueta); un texto igual deja
+  su pedazo byte por byte; otra cantidad = la sección queda como estaba (y queda en los descartes). Los textos de un
+  `<style>`, un `<script>` o un ícono `<svg>` no viajan. Más de 400 textos en una sección: cerrada, como antes.
+- ⚠️ **El tokenizador es propio (sin DOM ni parser):** ia-bloques corre en el server, en el navegador y en los tests. Un
+  atributo entre comillas puede traer `>` (`data-x="a>b"`): la expresión de etiqueta lo respeta. El HTML que llega ya
+  pasó el saneo del server (sin scripts).
+- **Clic adentro = sección activa:** `ctx.marcarActiva(id)` (sin mover el cursor ni el scroll), buscando la tarjeta del
+  diseño desde `getPos()`. Las escuchas del iframe se ponen una vez al cargar: leen el contexto por un ref.
+- **Negrita y cursiva** en la barrita del diseño, con el comando de edición del documento del iframe (el botón no le roba
+  el foco). La API de MaKo hereda sola lo de la IA: `editar_landing_con_ia` usa la misma `editar`.
+
+Lo que quedó SIN hacer:
+- La prueba de que la IA no inventa (`quitarPruebaInventada`) mira los nodos de Gamma, no los textos de un diseño: un
+  testimonio o una cifra que la IA escriba en una página de MaKo no se vacía sola.
+- El ⋮ de una sección de diseño ofrece cosas de Gamma que no le aplican (color de fondo, estilo, «Probar nuevo diseño»).
+- Sin mirar con clics en el editor de verdad.
+
+## El clic derecho en los chats embebidos y en el lienzo (24/10/2026 noche, P5 de claude5)
+
+Martín, 24/10: «en Automations o Web Generator, si le doy click derecho, no hace nada» y «en el lienzo de Web tambien
+debería funcionar el click derecho, como en otros editores». Plan en [diseno-editor-web-como-automations.md](diseno-editor-web-como-automations.md) §5.
+**Vive en:** `app/_chat/HiloMako.tsx` (`MenuDelMensaje`) · `app/web-generator/editor/paneles/PanelAgente.tsx` y
+`ChatAgente.tsx` (la cita) · `app/web-generator/editor/nodos/TarjetaVista.tsx` (el lienzo) · `extensiones/piezas.tsx`
+(`Flotante` con un punto).
+
+- **La causa:** el menú de un mensaje vive en `MensajeWA` y se prende con `ContextoWA`; sólo lo daban el Ops Center, el
+  teléfono y el Second Brain. **Regla:** `HiloMako` pone uno MÍNIMO si quien lo monta no trae el suyo (Copiar siempre;
+  Responder si la pantalla le pasa `onCitar`). Si viene uno de afuera, gana el de afuera. Así lo heredan los chats que
+  dibujan con `HiloMako` sin tocar cada pantalla; **Responder sólo aparece donde la pantalla sabe poner la cita en su caja**
+  (hoy, el editor web). En la caja va `CitaCaja` del Ops Center y lo escrito sale con `armarConCita`, igual que allá.
+- **Con el dedo no se abre:** en Android el `contextmenu` que llega después del mantener apretado cierra el menú en el mismo
+  gesto (MensajeWA.tsx, «POR QUÉ SE CERRABA SOLO»). Los embebidos son de la computadora; el teléfono trae su ContextoWA.
+- **El lienzo de Automations no se pisa:** su `onContextMenu` (app/_components/Lienzo.tsx) mira si el clic fue ADENTRO de
+  su caja por el DOM (`caja.current.contains`), no por el árbol de React, así que un chat en un portal no le abre el menú.
+- **El lienzo del editor web:** el clic derecho sobre una sección abre el MISMO menú del ⋮, en el punto del clic (no una
+  lista nueva: lo que crece en el ⋮ crece acá). Lo que se abre desde ahí (estilo, notas, diseños) se sigue anclando al ⋮.
+  Quedan con el menú del navegador: Shift + clic derecho, y el clic derecho con texto elegido (copiar, el corrector).
+- ⚠️ **Trampa para quien sume otro clic derecho adentro de una sección:** el de la sección es un listener NATIVO en su
+  elemento, y React escucha en la raíz: el nativo corre ANTES que cualquier `onContextMenu` de React de un bloque de
+  adentro, así que `e.preventDefault()` en React llega tarde. Un bloque que quiera su propio menú se escucha también con un
+  listener nativo (en su elemento) y hace `preventDefault`: el de la sección respeta `defaultPrevented`.
+- **Un `Diseño editable` (iframe) no lo dispara:** el `contextmenu` adentro del iframe no sale del iframe. Ahí queda el del
+  navegador (que es el que sirve para copiar y pegar texto del diseño).
+
+Lo que quedó SIN hacer:
+- Responder en los demás chats que dibujan con `HiloMako` (Automations, Offer, el onboarding, Dashboard…): hoy traen
+  Copiar; cada pantalla suma Responder pasándole `onCitar` y la cita a su caja (`arriba` de CajaChat).
+- Sin mirar con clics en el editor de verdad.
+
+## La página de Mauricio ya no da 403 en producción, y cómo medirlo sin escribir nada (24/10/2026 noche, claude5)
+
+Medido en producción (el despliegue de las ~19 h, con c3af56f7b) desde el Chrome de Martín, en el Cliente de Prueba: la
+vista aislada del Diagnóstico (`GET /api/landing-generator/diagnostico/pagina?url=https://sprint.mauriciobustos.com`)
+bajó la página y avisó «listo». Usa `paginaParaVer` → `bajarHtml`, el MISMO camino (con el reintento ante un 403) que
+Offer y el análisis (`extraerLanding`), así que el 403 que vio Martín no sale más.
+
+- ⚠️ **Esa ruta responde 200 también cuando NO pudo leer la página:** el error va ADENTRO, como un documento que avisa
+  por `postMessage({ gmDg: 1, tipo: 'error', mensaje })` (`documentoErrorDiagnostico`). El código de estado no dice nada;
+  para medirla desde afuera hay que escuchar el mensaje: `tipo: 'listo'` = la bajó, `tipo: 'error'` = no.
+- **Medirla sin escribir:** es un GET de sólo lectura, pero sólo se sirve a un iframe (`Sec-Fetch-Dest: iframe`). Se
+  arma con un `<iframe sandbox="allow-scripts">` desde cualquier página de hola-mako.com con la sesión del admin, y
+  `&ws=3`. No crea análisis ni filas en ningún negocio.
+- **La pestaña del editor se cuelga con la extensión** (dos veces el 24/10: `Runtime.evaluate` sin respuesta a los 45 s).
+  Una página liviana del mismo dominio (`/api/auth/me`) sirve de base para medir rutas: responde enseguida.
+
+## La landing principal con lo que hace la competencia: dos portadas, precios vivos y nada prometido de más (25/10/2026, claude5)
+
+Martín (25/10): «investigues al 100% como lo venden otros». La investigación del Cerebro (80 productos, §6a) propone la landing
+sección por sección; `scripts/landings-mako-v2.mts` la arma como dos documentos de Web Generator (portada A «el equipo», slug
+`mako-equipo`; portada B «todo junto», `mako-todo-junto`), una sección por «Diseño editable». **El diseño es el de 100ads.ai**
+(abierto el 25/10: etiqueta chica, titular apretado con una línea en cursiva serif, tarjetas grises, franja oscura de precios,
+preguntas en dos columnas, el fundador con tres números), con la tinta, el azul y la estrella de MaKo, y Geist.
+
+- **Los precios, nunca escritos en el documento.** Una foto publicada se queda con el precio del día en que se publicó. La
+  landing MARCA (`data-mako-desde`, `data-mako-precio="pro"`) y deja el lugar de las columnas (`data-mako-planes`);
+  hola-mako.com los llena con los planes de hoy (`conPreciosEnHtml`, lib/editor-landing/precios-en-landing.ts, en
+  app/vsl/Landing.tsx). Lo de adentro es el respaldo del editor, y sale de lib/planes-mako.ts, no de un número tipeado.
+- **Planes ya ponía las columnas de precios del lado del cliente**, en el lugar de la agenda (`[data-calendly]`) o antes del
+  pie. Reusar `data-calendly` en un diseño nuevo hacía cargar Calendly en el editor y en hola-mako.site. El lugar propio gana.
+- ⚠️ **La garantía de 14 días está «decidida» (docs/ofertas-mako.md) pero /reembolsos dice que el mes pagado no se devuelve.**
+  La landing no la promete (`GARANTIA = null` en el script; un test la ata a /reembolsos). La escribe Planes.
+- ⚠️ **No hay demo por WhatsApp todavía.** «Escríbele a MaKo» como demo (Aurora, Skalex) necesita un número público y un
+  setter que atienda a desconocidos: el botón secundario es «Ver los planes». Tampoco hay un video corto de demo (el de
+  Mauricio es el caso real, no una demo de producto).
+- ⚠️ **WhatsApp se conecta sólo por QR**: la bandeja oficial (Cloud API) se borró el 09/10. Las preguntas frecuentes lo dicen.
+- **La voz es «tú», no voseo**, aunque la investigación recomienda voseo: la regla de Martín (español neutro, audiencia
+  México) la vigila `tests/puente-panel-copy.test.ts`, que barre también los scripts. Cambiarla es una decisión de Martín.
+- **La cuenta del ahorro se arma de la misma tabla que se muestra** (`AHORRO`, sin el media buyer: US$352 sin él), y «más de
+  US$350» se redondea hacia abajo para que sea cierto.
+- **Trampas de las herramientas:** un reset `.mkv p { margin: 0 }` le gana por especificidad a cada clase y se come sus
+  márgenes (va con `:where`); un `.mts` se importa con extensión `.mjs`; un módulo con `server-only` se importa adentro de la
+  función (y su prueba corre en un node aparte con `--conditions=react-server`); tsx compila a CommonJS un `.mts` importado
+  desde un test `.ts`, y ahí no hay `await` de primer nivel.
+
+Lo que quedó SIN hacer:
+- **Publicar.** `--subir` escribe en producción (ws 9) y el permiso se lo pide a Martín; la portada (`--principal`) recién
+  después de que se despliegue el cambio de app/vsl/Landing.tsx (antes, los precios saldrían dos veces).
+- La portada C («del anuncio a la llamada»), la sección del control (los límites del media buyer) y la fila del media buyer
+  en la cuenta: con el media buyer en producción.
+- La demo por WhatsApp y el video corto de demo. (La garantía ya no va: la reemplaza la prueba gratis, abajo.)
+- Las landings por funcionalidad y por avatar: hechas en la tanda 2 (abajo).
+
+**Tanda 2 (25/10, tarde): las landings por funcionalidad y por avatar** (`scripts/landings-mako-v2-funnels.mts`, §6b)
+- **Doce documentos NUEVOS, con slug `mako-…`:** páginas de venta, setter, tableros, creativos, avatares, media buyer, closing,
+  cursos, coaches, infoproductores, inmobiliarias y agencias. Las ocho del 23/10 (crear-landings, coaches…) pueden estar en
+  anuncios corriendo: no se pisan. Cada slug está en `LANDINGS_MAKO` (lib/origen-cuenta.ts), con `media-buyer`, `closing` y
+  `cursos` como funcionalidades nuevas y `agencias` como avatar nuevo. Nadie fuera de origen-cuenta usa esos tipos.
+- **Se arman y NO se suben (`pausada`, con su motivo):** la del media buyer (no está en producción) y la de avatares (en
+  pausa desde el 23/10). El `--subir` las saltea, y un test lo vigila.
+- **Lo que se verificó en el código antes de escribirlo:**
+  - El análisis de llamadas usa las grabaciones de Fathom y puntúa siete partes, del diagnóstico al cierre. Por eso el titular
+    dice «en qué parte se te cae», no «en qué objeción».
+  - No hay un resumen diario de números para el dueño. La landing de tableros dice «pregúntale a MaKo cómo va tu negocio».
+  - Esencial y Pro abren las mismas tabs (cambian los topes). Por eso «va en MaKo Pro» sólo donde lo dice el plan: el análisis
+    de llamadas y lo de agencia.
+- **Las piezas son las de la principal** (exportadas de landings-mako-v2.mts), más cinco bloques: tarjetas, pasos, una
+  conversación de ejemplo (sin cifras), una comparación en tabla y la tarjeta de prueba. Las preguntas salen de un catálogo con
+  clave: un cambio en una respuesta llega a todas las landings.
+- **La prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía de devolución). La fuente es UN número,
+  `PRUEBA_DIAS` (lib/planes-mako.ts, de Planes). El botón («Empieza tus 7 días gratis») y la línea corta («7 días gratis ·
+  Cancela cuando quieras · Usas tu propia IA») se arman con ese número en `botonDePrueba`/`lineaDePrueba`
+  (precios-en-landing.ts). El cierre y la pregunta de cómo cancelar dicen lo mismo que /planes (app/planes/Vitrina.tsx): el
+  día del cobro es `PRUEBA_DIAS + 1` y la baja se hace desde «Tu plan». Lo que va bajo el botón de CADA plan («Después US$
+  97/mes…», `textoDespuesDeLaPrueba`) ya lo pone la columna, porque las columnas de la landing son las de /planes.
+  Los textos que se ven llevan la marca `data-mako-prueba` (linea, boton, dias, cobro). hola-mako.com los llena con
+  `PRUEBA_DIAS`, como los precios. Un test frena un «7 días gratis» escrito a mano en un script, días que no son (0,
+  negativos, con coma) y cualquier «garantía» o «te devolvemos» de vuelta. El pie sí enlaza a /reembolsos, la política legal.
+  - **La trampa: un nombre adelantado para no esperar CAMBIA.** Para no frenar, el Cerebro fijó un objeto `PRUEBA_GRATIS`
+    (días, línea, botón, «se cobra sola»), y se programó contra un sustituto local. Planes exportó otra cosa: un número y una
+    función con monto y período. Cuando la fuente es de otro chat, se depende de lo MÍNIMO (aquí, los días) y las frases se
+    arman de este lado. Así un cambio de forma toca un import, no cuatro archivos.
+
+## Los tooltips tapados, el «+ ⠿» encima del logo, Compartir con el ▾ redondo y los paneles que saltan (25/10/2026, claude5)
+
+Martín, 25/10 (~11:30 y ~11:40), con capturas de la landing principal (#32): «Los placeholder... se siguen ocultando detrás de
+otras secciones y no se leen», «Los botones... se siguen superponiendo», «El desplegable al lado de "compartir" no debe ser
+redondo», «"tira de imagenes" y "pagina" no deben cambiar el ancho de la sidebar del chat... con un botón de flecha para
+regresar... No la X» y «el botón de "texto" debe estar al principio de todo». **Vive en:** editor/TooltipsFlotantes.tsx (nuevo)
+· editor/AsaBloque.tsx · gamma.css · EditorLanding.tsx · PanelPaginas.tsx · TiraSecciones.tsx · layout.tsx.
+
+- **Lo que Martín llama «placeholders» eran los TOOLTIPS:** el «Editor de texto» debajo de la barra de formato y el «Volver al
+  ch…» cortado en el borde del panel. Eran `::after`/`::before` (`.gma-tip`, `.gmc-tip`): un pseudo-elemento vive adentro de
+  su botón, así que lo corta el `overflow` de cualquier ancestro y lo tapa la capa de al lado. **No hay z-index que lo arregle
+  para todos.** Ahora es UN tooltip en un portal en `body`, `position: fixed`, dado vuelta si no entra y corrido para quedar en
+  la ventana; montado en el layout de /web-generator, apaga los pseudo-elementos con `html[data-tips-flotantes]`.
+- **El ▾ redondo era un `:last-child`:** con cambios sin publicar, el último hijo de `.gma-partido` es el puntito azul, y la
+  regla del ▾ (`.gma-boton:last-child`) dejaba de aplicar: quedaba un botón suelto, redondo. **Regla:** las mitades de un botón
+  partido llevan su clase (`gma-partido-principal`, `gma-partido-flecha`), nunca una posición.
+- **El «+ ⠿» y el ⋮ se pisaban en el margen:** el asa va 52 px a la izquierda del bloque, y en una sección a sangre («Diseño
+  editable») eso caía encima del ⋮ (en el margen de 40 px) y del borde. Ahora el margen de una landing en escritorio es de 88 px
+  y el asa va a 84 px de la sección (`ASA_FUERA_DE_LA_SECCION`): [+ ⠿] [⋮] | sección. Un test hace la cuenta.
+- **«Páginas» medía 280 px y el chat 340:** el lienzo saltaba al abrirla. Ningún panel de la izquierda tiene ancho propio.
+  Para volver, la flecha del chat («←», arriba a la izquierda) en «Páginas» y en la tira; «Texto» es la primera herramienta.
+
+Lo que quedó SIN hacer:
+- ~~Que se pueda escribir en las secciones de las landings de MaKo (el punto 1 de Martín).~~ Hecho: la sección de abajo.
+- Mirarlo con clics a 1280 y 1440 (la barra, los paneles y los tooltips): cuando despliegue el tren con esta rama.
+
+## Las secciones de las landings de MaKo no dejaban escribir: el clic NUNCA llegaba al iframe (25/10/2026, claude5)
+
+Martín, 25/10 ~11:30: «Las landing de MaKo NO son editables, no puedo ni cambiar un título de lo que ya esta, cada bloque debe
+ser editable». Es el mismo pedido del 24/10 («clickeo y no se pueden editar las secciones»), que se dio por arreglado.
+
+- **La causa:** una regla del 11/10 en BarraFormato (`CSS_G2`), `.gmx-nv:not([data-activo="si"]) iframe{pointer-events:none}`,
+  para que un video o un embed no se trague el clic que elige su bloque. El «Diseño editable» (23/10) es un iframe dentro de
+  un `.gmx-nv`, y su sección se activa con el `mousedown` de ADENTRO del iframe. Era un círculo: sin activar no recibe el
+  clic, y sin el clic no se activa. Ni cursor, ni sección activa, ni barra. **El arreglo:** una regla en `CSS_EDITABLE`
+  (HtmlEditableVista.tsx) que le devuelve el clic a ese iframe y gana por ESPECIFICIDAD (0,3,1 contra 0,2,1), no por orden: las
+  dos hojas son `<style>` distintos y su orden de carga no está garantizado.
+- **El diagnóstico obvio era el equivocado, dos veces.** El 24/10 se leyó como «el clic pasa en el iframe y ProseMirror no lo
+  ve», y se sumó `marcarSeccion()` al `mousedown` del iframe. Ese `mousedown` nunca llegaba, así que el arreglo no podía
+  andar. «Escribir ya andaba, medido por CDP» se había medido en un iframe SUELTO. El 25/10, con las 9 secciones reales de la
+  #32 y su CSS, también se escribía en Chrome sin ventana, aun dentro de un padre `contenteditable`. **Lo que faltaba era la
+  hoja del editor.** **Regla:** un «en Chrome anda» sobre una maqueta no cierra un «no puedo hacer clic» del editor. Lo que
+  lo cierra es `document.elementFromPoint(x, y)` en el editor REAL, en el punto exacto del clic. Si devuelve otra cosa que el
+  elemento que debería recibirlo, la causa está en el CSS de la página (`pointer-events`, una capa encima), no en el
+  componente. Así salió en un minuto: el clic caía en `div.gmx-nv-marco.gmx-editable-vivo`.
+- **Cómo se midió, sin tocar la publicada:**
+  - En la #32, sólo clics y lectura: hoy no hay foco, ni cursor, ni barra. Con la regla apagada nada más que en la pestaña,
+    el cursor entra al H1 y aparece la barra de la sección.
+  - En una COPIA (#41, «Duplicar landing»): con la regla apagada se escribió, guardó solo y siguió ahí al recargar. El
+    guardado nunca estuvo roto. La copia quedó en la papelera.
+  - **Trampa:** «Duplicar» vuelve a guardar lo pendiente del original, y la fecha de edición de la #32 se movió sin que
+    nada cambiara. Se comprobó comparando las 9 secciones y el CSS con el borrador bajado antes.
+- **El test** (tests/editor-web-diseno-editable-clic.test.ts) no busca un texto. Arma el camino del DOM que dibuja la vista
+  (`.gmx-nv` sin activar > marco > iframe), junta todas las reglas de `pointer-events` de las dos hojas y decide la ganadora
+  por especificidad; un empate cuenta como falla. También vigila que los embeds sigan sin tragarse el clic. Se probó
+  rompiéndolo (5 roturas, cada una cae). Además, en Chrome sin ventana con las dos hojas reales en los dos órdenes, el clic
+  cae en el iframe y escribe; sin la regla nueva, cae en el envoltorio (como en producción).
+
+- **Por la API pasaba lo mismo:** `ver_landing_creada` no veía ni una palabra de estas páginas y `cambiar_texto_landing` no
+  las encontraba. Arreglado el mismo día: docs/hallazgos-api-mako.md, «Las páginas de MaKo no se leían ni se cambiaban por
+  la API».
+
+**Verificado en producción (25/10, ~14:55, main 9c684f88c), con clics sobre una COPIA (#42, ya en la papelera):**
+- con la sección sin activar, el clic cae en el iframe;
+- se escribió « PRUEBA» en el título, se guardó solo y siguió ahí al recargar;
+- la #32 no cambió.
+
+**Y a 1280 la barra no entraba (lo vio la misma prueba):**
+- pedía 872 px en 848, y el «⋯» (Menú del documento) quedaba cortado fuera de la pantalla;
+- la app tiene `overflow-x: hidden`, pero un foco igual la scrollea: al abrir «Páginas» todo se corría 15 px. Era el salto
+  que parecía del ancho del panel;
+- la causa: el título con `flex: 0 0 auto` (24/10) no cedía nada, y lo que «cedía» (el formato del medio) está vacío sin un
+  texto elegido;
+- el arreglo: `flex: 0 1 auto`, que no baja de 160 px. Medido en la pestaña: entra justo; chat, «Páginas» y la tira quedan en
+  el mismo lugar (340 px, el lienzo en x=424). A 1440 ya entraba.
+
+**Regla:** un `overflow: hidden` no impide que el contenedor se scrollee: sólo esconde la barra. Si algo adentro desborda,
+un `focus()` o un `scrollIntoView` lo corre. Lo que hay que medir es `scrollWidth > clientWidth`, no que «no se vea la barra».
+
+Lo que quedó SIN hacer:
+- La tira de secciones muestra en gris las miniaturas de las secciones «Diseño editable» hasta que cargan (a 1280 todas
+  grises un rato; a 1440 algunas se dibujaron). A mirar si cargan todas.
+- `editable` en HtmlEditableVista se lee una vez, al cargar el iframe (`editor.isEditable` no es reactivo ahí). Si el editor
+  cambia de editable a no editable con la sección cargada, el `contenteditable` del iframe no lo sigue. Hoy no se ve: el
+  editor abre editable. Si algún día se abre en modo lectura (una versión vieja), hay que seguirlo con `useEditorState`, como
+  TarjetaVista.
+
+## Servir una prueba A/B de una landing: las reglas que no dependen del motor (Landing AI, L2; 25/10/2026, claude5)
+
+docs/diseno-pruebas-ab.md, L2; manda la crítica (Anexo 2 §E). El motor (`lib/pruebas/`: `asignar`, el store, la foto de B en
+`prueba_variantes.contenido`) lo arma Automations en A1/A2, y al 25/10 todavía no existe. Lo que sí quedó, puro y probado,
+en lib/editor-landing/prueba-landing.ts:
+
+- **B tiene la MISMA estructura que A, o no se sirve.** Las rutas laterales leen la foto de A (el iframe de `htmlLibre`, el pago
+  contra `publicado.pagos`), y el Landing AI nunca toca precio, oferta, links, formularios, pagos ni Pixel. Se compara lo que
+  la foto guarda (config, pagos, htmlLibre, título y descripción de cada página) y lo que el HTML lleva (destinos, formularios,
+  iframes, scripts, marcas de precio) **como multiconjunto**: subir una sección cambia el orden, no qué hay. Probado contra la
+  foto real de la #32: otro hook con dos secciones intercambiadas pasa; un botón a otro lado, no.
+- **Fijo a A va sólo lo de MaKo**: el lector (`?mako_leer`) y el análisis y la vigilancia (User-Agent `MaKoPixel/`). Nunca un bot
+  de terceros por su User-Agent: con Google es cloaking, y con Meta el anuncio se aprueba mirando A.
+- **La rama vive en `mko_ab_<prueba>`, HttpOnly y del servidor**, que se renueva en cada respuesta: la cookie del visitante la
+  reescribe el Pixel por JavaScript, y Safari corta esas a los 7 días. Una rama apagada no se respeta (se asigna de nuevo).
+- **Con prueba, la respuesta es `private, no-cache` + `Vary: Cookie`** (hoy `public`).
+
+Lo que quedó SIN hacer (espera a A1/A2 de Automations, que pasa las firmas):
+- Conectarlo en `responderPublico` (pagina-publica.ts): la marca de prueba en la misma fila que ya lee (sin una lectura extra por
+  visita), `asignar`, la foto de la rama, las cabeceras y la cookie; la vista previa con `?variante=B`; publicar a mano detiene la
+  prueba; el medidor `clic_conversion` contra la interfaz `Medidor`; y la API (crear, ver, aprobar, detener).
+
+## Todo editable en las páginas de MaKo (cada botón, video, imagen e ícono) y el clic derecho (25/10/2026, claude5)
+
+Martín, 25/10 ~15:10: «en las landing de MaKo, quiero que TODO sea editable, cada botón, cada video, cada cosa que hay...
+Para eso ya tenemos casi todo construido de funcionalidades dentro del editor... Y no funciona aún el click derecho en el
+editor web».
+
+**El hecho: qué tenía la #32 y qué se podía editar, medido en producción el 25/10 (copia #43; todas las secciones son de
+«Diseño editable»):**
+
+| Elemento | En la #32 | Antes (producción) | Ahora (esta rama), con el control que ya existía |
+|---|---|---|---|
+| Títulos y textos | 8 títulos, 25 párrafos | se escribían (desde el arreglo del clic) | igual; negrita y cursiva en la barrita |
+| Texto de los botones | 29 botones (5 «Agenda tu llamada», 23 tarjetas a hola-mako.com/vsl/…, 1 del encabezado) | se escribía | igual |
+| A dónde lleva un botón o enlace | 29 + 3 enlaces | un campo de texto suelto, después de tocarlo | **SelectorDestino**, el del botón de un bloque: secciones, páginas, enlace, pestaña nueva |
+| Imágenes | 10 | «Imagen», después de tocarla | igual (el selector de imágenes); el botón se marca al elegirla |
+| Video del VSL (Panda, `iframe`) | 1 | sólo por «Código» | **el panel «Pegar una URL» del bloque Insertar** |
+| Videos de archivo (`<video>`) | 3 | sólo por «Código» | **el selector en modo video**, el del bloque Video |
+| Íconos (`svg`) | 75 | sólo por «Código» | **SelectorIcono**, con el tamaño y la clase del que estaba |
+| Fondos con imagen, precios, formularios, listas | 0 | — | — |
+| Clic derecho | — | no abría nada (el evento quedaba en el iframe) | **el menú de la sección**, en el punto |
+
+**Lo que costó, y la regla de cada uno:**
+- **Un clic derecho adentro de un iframe NO sube a la página.** La sección (TarjetaVista) escuchaba `contextmenu` en su elemento y
+  nunca se enteraba: se medía con `window.__ctx` adentro del iframe (llegaba) y ningún menú del editor abría. Se reenvía al
+  marco con el punto pasado a la página (`r.left + e.clientX`). Quedan con el menú del navegador lo mismo que en un bloque: con
+  Shift y con texto elegido. Probado en Chrome: la sección recibe el punto exacto, y con Shift o texto elegido, nada.
+- **Un video del diseño se tragaba el clic que lo elige**: un `iframe` o `video` adentro del iframe del diseño se lleva el
+  mouse. Adentro del editor van con `pointer-events: none` (esa hoja no se guarda) y se eligen por su CAJA.
+- **«Una sección» como destino (`#t-<id>`) no existía en una sección de diseño**: SelectorDestino escribe `#t-<id>`, y el
+  `div.gm-libre-seccion` no puede llevar el id (con `display: contents` no tiene caja, y un ancla sin caja no hace scroll). El
+  render le pone adelante un `span#t-<id>` de alto 0, con el mismo `scroll-margin-top` que una de bloques. Sin esto, un botón
+  apuntado a una sección de diseño no iba a ningún lado, sin un error.
+- **La barrita de la sección chocaba con el «+ ✦ ⌄» de entre secciones** y le tapaba el tacho (captura del 25/10). Ahora va
+  con íconos y el nombre en el tooltip (el portal de los tooltips): ~280 px, lejos del centro.
+- **Por la API, lo mismo** (lib/editor-landing/html-editable-elementos.ts, sin DOM). Se toca SÓLO lo pedido, el resto vuelve
+  byte por byte, y lo nuevo se escapa. `configurar_boton_landing` cambia los botones de un diseño (con `seccion` o `todos` para
+  los cinco iguales; un ancla del diseño, `#beta`, vale como destino; el estilo es parte del diseño). `poner_enlace_landing`
+  cambia el reproductor de un diseño (y un `<video>` con un .mp4). `cambiar_imagen_landing` es NUEVA: una imagen de un diseño
+  por un pedazo de su dirección o su alt, copiada a la biblioteca al confirmar. `ver_secciones_landing` trae los elementos de
+  cada diseño. Un botón con título y bajada (las tarjetas) no se cambia de un golpe: cada texto, con cambiar_texto_landing.
+
+Lo que quedó SIN hacer:
+- **Probarlo con clics en producción, a 1280 y 1440, cuando despliegue** (en una copia). Mirar también que la barrita ya no
+  choque con el «+ ✦ ⌄».
+- Los íconos por la API (sólo en la pantalla); borrar o duplicar un elemento adentro de un diseño (hoy, por «Código»).
+- Fondos con imagen, precios, formularios y listas adentro de un diseño: la #32 no tiene ninguno; cuando una página los traiga,
+  medir de nuevo.
+
+## Las cajas vacías y las franjas grises de las páginas de MaKo en el editor (25/10/2026, claude5)
+
+Martín, 25/10, sobre la #36: «en muchas secciones hay como una separación, no entiendo por que» y «toda esta sección en
+blanco, realmente copiaste muy mal a las landing de MaKo... Eso significa que no funciona bien el editor web».
+
+**El recorrido (las 23 landings: las 9 publicadas desde su borrador, las 14 nuevas desde el generador), dibujadas como el
+editor en Chrome sin ventana, y la publicada en hola-mako.site:**
+
+| Landing | Lo que se veía mal en el editor | En hola-mako.site |
+|---|---|---|
+| #32 a #40 (las 9 publicadas) | franja de 255 px debajo del encabezado; de 230 px al final; de ~26 px en «¿Qué es MaKo…»; **la caja blanca de 700 px** en «Sé uno de los primeros» (la agenda); el VSL de Panda, una caja negra | bien: la agenda de Calendly y el video cargan, sin franjas |
+| Las 14 nuevas (2 portadas y 12 por funcionalidad o avatar) | franja de 255 px debajo del encabezado, de 19 px en «Tu IA, al costo» y de 64 px al final | no están publicadas |
+
+Después del arreglo, el mismo recorrido: **nada raro en las 23** (ni franjas, ni cajas vacías, ni contenido recortado).
+
+- **Las franjas: el alto salía del `scrollHeight` del DOCUMENTO del iframe, que nunca es menor que la ventana del iframe.** Una
+  sección arrancaba en 320 px y no bajaba nunca (el encabezado mide 65 px: 255 px de gris), y una que se achicaba al cargar sus
+  fuentes dejaba la diferencia. **Regla:** el alto de un iframe se mide por su CONTENIDO (la caja de la raíz, con `flow-root` para
+  que los márgenes queden adentro, más lo que se sale), nunca por el `scrollHeight` de su documento.
+- **La caja blanca era la agenda** (`#cal-embed[data-calendly]`): una caja de 700 px que en hola-mako.site llena el script del
+  diseño (SCRIPT_DISENO) con Calendly, y en hola-mako.com Landing.tsx cambia por las columnas de precios. El editor no corre
+  scripts: quedaba en blanco. **El VSL** (el iframe de Panda) adentro de un iframe sin scripts es una caja negra.
+- **El arreglo, sólo del editor y sin tocar el contenido** (lib/editor-landing/vista-embeds.ts): una ficha que dice qué es (su
+  ícono, «Agenda de Calendly» o «Video de Panda», su enlace) y se cambia con el control «Video» (pegando el enlace; la agenda
+  guarda la página de Calendly sin la query del embed). La ficha va marcada y `leer` la saca al guardar; el saneo del server
+  borra igual cualquier `srcdoc`.
+
+Lo que quedó SIN hacer:
+- Probarlo con clics en producción, a 1280 y 1440, cuando despliegue (sobre una copia).
+- En hola-mako.com la agenda de las 9 publicadas se ve como columnas de precios y en hola-mako.site como Calendly: dos cosas
+  distintas para la misma página. Que diga lo mismo en las dos es una decisión de Martín (las 12 nuevas ya traen las columnas).
+
+## Una regla de CSS fijada por DOS tests: arreglar uno y correr sólo ese deja el otro roto (25/10/2026, claude5)
+
+El arreglo de la barra a 1280 (`8a1fb5af9`, el título de `flex: 0 0 auto` a `0 1 auto`) se probó con
+tests/editor-web-ui-25-10.test.ts, que lo pide. Pero tests/editor-web-como-automations.test.ts fijaba la regla vieja
+TEXTUAL y quedó rojo hasta el commit siguiente: nadie lo corrió porque «no era de la barra».
+
+**Regla:** antes de cambiar una regla de CSS o un trozo de JSX que un test lee como texto, buscar el texto viejo en
+`tests/` (`grep -rn "flex: 0 0 auto" tests`) y correr TODOS los que lo nombran, no sólo el del arreglo.
+
+## El color de fondo de una sección de las páginas de MaKo: el menú lo ofrecía y no hacía nada (25/10/2026, claude5)
+
+Martín, 25/10: «tampoco puedo editar el color del bg de cada sección». El menú de la sección (⋮ y clic derecho) ya decía
+«Cambiar el color de fondo»: abría el panel de estilo y guardaba `fondo`/`fondoColor` en la TARJETA. **En una sección de
+«Diseño editable» eso no llega a ningún lado:** se publica a sangre, su HTML tal cual (render.ts), y en el editor el iframe
+tapa el fondo de la tarjeta. No daba error: no cambiaba nada.
+
+**De dónde sale el fondo que se ve (medido en la #32 y en las 14 nuevas):** del `style` de la raíz
+(`<section style="background:#F5F7FA">`); de una clase de la hoja (`.mkv-sec-gris`); de una regla con `!important`
+(`.gm-libre #beta`, que le gana al `style` de la raíz); o de nada, porque la raíz es una columna de 1080-1120 px centrada y se
+ve el fondo de la página (el hero, «¿Qué es MaKo?» y «Cómo funciona» de la #32).
+
+**Y entre secciones hay MÁRGENES** (`margin-top`: 96 px en «historia», 40 px en «para quién» y en «beta» de la #32). Muestran
+el fondo de la página. Con el color en la raíz, el margen quedaba afuera de lo pintado: pintado el hero, aparecía una franja
+blanca de 96 px, justo la «separación» de la que se quejó Martín.
+
+**El arreglo (lib/editor-landing/fondo-de-diseno.ts), en el HTML, que es lo que se publica:**
+- Cada sección pintada va en una envoltura de ancho completo:
+  `<div data-gm-fondo data-gm-envoltura style="background:…;display:flow-root">`. **`flow-root` deja los márgenes de la raíz
+  ADENTRO**, así dos secciones pintadas se tocan sin franja. Sin pintar, nada cambia.
+- **El margen NO se pasó a padding.** Las 14 nuevas cambian su padding por pantalla con `@media`, y un padding escrito en el
+  `style` lo pisaría en el celular.
+- Si la raíz trae fondo propio, se suma `background:transparent !important` AL FINAL de su `style` (marca
+  `data-gm-fondo="transparent"`). Un `style` con `!important` gana también a la regla `!important` de la hoja.
+- **Una raya de arriba con margen arriba quedaba flotando 96 px adentro de lo pintado** (el `border-top` de «historia», que
+  marcaba dónde empezaba): se hace transparente (`data-gm-sin-borde`). Sin margen, la raya sigue en el borde y se queda.
+- Lo que traía queda escrito, y el `;` que separa lo agregado es siempre uno nuevo: «Del diseño» vuelve byte por byte (las 9
+  de la #32, y un `style` que ya terminaba en `;`).
+- **El encabezado pegajoso nunca se envuelve:** adentro de una caja de su mismo alto deja de pegarse. Su color va al `style`.
+- Medido en Chrome sin ventana, a 1280 y 1440, y en el editor: lo pintado se toca en las 4 uniones, el contenido no se mueve
+  un píxel y el encabezado sigue pegado. En el editor, los 96 px de arriba de «historia» son del color.
+- **Trampa de la medición:** el pie «se movía» 58 px entre corridas, para un lado o para el otro. Era el alto de
+  «testimonios», que depende de qué imágenes cargaron. Medir después de cargarlas todas (`loading="eager"`, `onload`, las
+  fuentes listas), no con una espera fija.
+
+**Regla:** en una sección de diseño, todo lo que se cambie tiene que ir a su HTML. Un atributo de la tarjeta (ancho,
+acento, alto, fondo) no llega a lo publicado: el panel ahora es sólo «Color de sección», y la API dice que lo demás no aplica.
+
+Lo que quedó SIN hacer:
+- Pintada una sección cuya VECINA de abajo no está pintada, el margen de la vecina sigue con el color de la página: es de
+  ella, y el diseño lo puso así. Se ve si se pinta el hero y no «historia».
+- Probarlo con clics en producción cuando despliegue, sobre una copia.
+
+## El cierre de las landings de MaKo con los planes y la prueba gratis (26/10/2026, claude5)
+
+Martín (26/10 01:23), a «¿el bloque de cierre muestra los planes con la prueba gratis o la agenda para una llamada?»:
+«Los planes con la prueba gratis». `cierre()` (scripts/landings-mako-v2.mts) es UNO para las dos portadas y las doce de
+`scripts/landings-mako-v2-funnels.mts`: ahora dibuja las tarjetas de los planes activos, con el molde de /planes
+(app/planes/Tarjetas.tsx). Pro va destacado porque así lo dice el plan, y cada botón «Empezar mis 7 días gratis» lleva a
+`/planes/<plan>?landing=<slug>`. La llamada queda como un link chico debajo.
+
+- **Un botón `inline-flex` se come los espacios.** `.mkv-btn` es `display: inline-flex`. Con texto suelto y una marca
+  adentro (`Empezar mis <span data-mako-prueba="dias">7</span> días`), cada pedazo queda como un elemento aparte y el
+  espacio entre ellos desaparece: se leía «Empezar mis7días gratis». **Regla:** en un botón flex, el texto con marcas va
+  envuelto en UN `<span>`, como `data-mako-prueba="boton"` de la portada. El test fija el `<span>` y la foto lo muestra.
+- **El texto del botón no es el de la marca `boton`.** `botonDePrueba` dice «Empieza tus 7 días gratis» y hola-mako.com
+  lo pisa en cada `data-mako-prueba="boton"`. El cierre pide «Empezar mis…», así que va con la marca `dias` adentro de su
+  propia frase. Si fuera con `boton`, en producción saldría otro texto que el de la vista previa.
+- **El cierre NO es el lugar de las columnas.** `data-mako-planes` tiene que estar una sola vez por página, porque
+  hola-mako.com pone ahí las columnas de Planes. El cierre arma sus tarjetas en el HTML, con el precio por marca
+  (`data-mako-precio`). Por eso se ven igual en la vista previa suelta y en producción.
+- **La vista previa suelta no es la página entera.** Los `.html` de `--salida` no corren app/vsl/Landing.tsx. La franja
+  oscura de precios (`#planes`) muestra su respaldo, no las columnas de Planes. El cierre sí se ve como saldrá.
+
+Lo que quedó SIN hacer:
+- **Si Martín quiere WhatsApp en el link de abajo.** MaKo no tiene agenda en sus landings (Martín sacó Calendly el 24/10),
+  y su número es el de los grupos de los clientes: no se publica sin su sí. Por eso el link dice «¿Prefieres hablar antes?
+  Déjanos tus datos y te escribimos» y `hablarAntes()` lleva al pedido que ya existe, el del Acelerador (el Cerebro, 26/10).
+  Se cambia en ese único lugar.
+- **Publicar.** Espera el sí de Martín, después de ver las vistas previas (`--subir`, en producción).
+
+## El editor web de punta a punta con las páginas de MaKo: lo que un iframe sin scripts no deja ver (26/10/2026, claude5)
+
+Martín pidió probar el editor de punta a punta y listó siete cosas: el menú del clic derecho que no se cierra, la barra
+de texto gris, los botones, las secciones que no se acomodan, el video, los botones flotantes que se van, la animación de
+MaKo y el Calendly. Se reprodujeron en producción sobre una COPIA de la landing principal (#44) y sobre una creada desde
+cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de MaKo es un «Diseño editable», un iframe
+`sandbox="allow-same-origin"` SIN scripts.
+
+- **Un clic adentro de un diseño no existe para la página.** Los menús y paneles se cierran con un `pointerdown` en el
+  `document` de la página, y el clic pasa en el documento del iframe. Como en una landing de MaKo casi todo «otro lado»
+  es otro iframe, el menú no se cerraba nunca. El diseño reenvía su `pointerdown` al marco, igual que ya hacía con el
+  clic derecho. **Regla:** un panel nuevo se cierra con `pointerdown` en captura. AskAgent usaba `mousedown` y no se
+  enteraba.
+- **El sandbox se HEREDA.** Un iframe de Panda o de Calendly ADENTRO del diseño tampoco puede correr scripts, aunque lleve
+  su propio `sandbox` abierto. Por eso se veía la ficha y no el video. Lo real va en una capa ENCIMA de su lugar, en la
+  página, con el `sandbox` de los insertados. Medido: el reproductor de Panda carga ahí. La capa no recibe el mouse hasta
+  que se elige el elemento, así el primer clic elige y el segundo ya es del reproductor.
+- **El diagnóstico obvio era el equivocado (los botones).** Se pensaba que el texto de un botón de diseño no se podía
+  escribir: medido, sí se podía (el `<a>` es editable adentro del `contentEditable`). Lo que faltaba era un control: al
+  elegirlo sólo aparecía «Enlace», un ícono chico, y nada para sus colores. Ahora aparece «Botón» con su nombre a la vista:
+  texto, a dónde lleva y los dos colores. El color va con `!important`, porque la hoja de un diseño lo escribe así
+  (`.mkv-btn { color: #fff !important }`) y un estilo sin él no gana. En una landing creada desde cero el botón ya andaba.
+- **«El SVG de MaKo» es un canvas que dibuja un script** (`/vsl-assets/mako-anim.js`). **El diagnóstico obvio era el
+  equivocado:** la primera versión cargaba el dibujante en la página y pintaba en el canvas DEL IFRAME, que es del mismo
+  origen. En producción el canvas tenía el dibujo (17.143 píxeles opacos) y la pantalla lo mostraba en blanco. Medido en
+  Chrome sin ventana: un iframe con `sandbox` sin `allow-scripts` NO presenta lo que se le pinta desde afuera; el mismo
+  iframe sin `sandbox`, sí. Ahora la red va como el video: un canvas de LA PÁGINA encima del lugar del canvas del diseño
+  (`vivos`, tipo `red`), y se pinta ése, sólo mientras se ve. El `width`/`height` que una versión vieja pudo dejar en
+  el canvas del diseño se saca antes de guardar.
+- **Una captura de la pestaña con el panel del navegador OCULTO no prueba lo de adentro de un iframe**: una página de
+  fondo no repinta (Calendly cargó, con 4 subframes, y la captura lo mostraba negro). Para una prueba visual, el panel a la
+  vista, o un Chrome sin ventana con la misma estructura.
+- **La barra «Texto» quedaba gris porque lee la selección de ProseMirror**, y el cursor de un diseño está en su iframe.
+  `puente-diseno.ts` le dice qué documento tiene el cursor, y `acciones-diseno.ts` hace ahí lo mismo con
+  `execCommand`. Medido: funciona con el foco en el botón de la barra, y «deshacer» del iframe lo vuelve atrás. Los
+  estilos que no son una etiqueta HTML (antetítulo, grande, pequeño, tareas) y la etiqueta no se ofrecen en un diseño.
+- **Arrastrar por la mitad de la sección no sirve con secciones de 2.000 px.** «Mover arriba/abajo» del menú andaba. El
+  arrastre del ⋮ no movía nada, porque la mitad de la sección vecina quedaba unos 900 px fuera de la pantalla. Mientras se
+  arrastra, cada sección se ve como una franja de 132 px (`body[data-gm-reordenando]`): entran todas y se suelta donde
+  se ve. Medido en producción: la franja de un diseño es casi siempre su margen de arriba, en blanco, así que cada una
+  lleva el nombre de su sección encima (`data-rotulo`, el primer h1–h3 de su HTML: `rotuloDeSeccion`).
+- **Controles que se van con el hover:** la barrita del diseño estaba 12 px por arriba y se iba con el `mouseleave` al
+  cruzar ese aire. Ahora se queda mientras su diseño es el activo y va pegada arriba de lo que se ve (un ancla `sticky`
+  de alto 0, que no mueve nada). El ⋮ de la sección también va `sticky` y tarda medio segundo en irse. `pointer-events`
+  no tiene transición; `visibility` sí, con retardo, y mientras se ve se puede apretar.
+- **Tests que fijaban nombres:** `setActivo(true)` en el `mousedown`, `boton('Enlace'…)` y el `className` de la
+  barrita. Se respetaron los nombres; sólo se cambió la activación, que ahora es el puente.
+- **El test nuevo pasaba acá y caía en el tren:** leía los fuentes sin normalizar el fin de línea y buscaba `\n`. En este
+  worktree los archivos estaban en LF; en wt-push-q (`core.autocrlf=true`) llegan en CRLF. La regla ya estaba en
+  AGENTS.md («Fin de línea»): todo `readFileSync` de un fuente va con `.replace(/\r\n/g, '\n')`. **Cómo se prueba:**
+  pasar a CRLF los fuentes que lee el test y correrlo (`probar-crlf.mjs` del scratchpad). Con la lectura vieja daba 7/1;
+  con la normalizada, 8/8.
+
+**El analizador y «Replicar», con una de la competencia (100ads.ai).** El análisis dejó 2 comentarios. «Aplicar» replicó
+la página (#46), pasó los comentarios y aplicó el que tenía sección: el documento cambió de verdad. Lo que falló:
+- **Un comentario SIN sección no tenía «Aplicar».** Su cita estaba en el título de la pestaña (el del voseo), así que no
+  se ubicó en ninguna sección. No tenía botón ni en la pantalla ni en la API, y el aplicado automático de la copia
+  terminaba en «No ubiqué esa sección». Ahora se aplica a TODA la página de inicio: `editar` con alcance `landing`,
+  que cambia sólo las secciones que el comentario toca. «Aplicar todos» los suma al final.
+- **La réplica dejaba los botones como texto.** Medido en los logs: la IA del negocio no contestó a tiempo (17 de 20
+  secciones sin IA). Ese paso no es de esta área: se le avisó al Cerebro. El respaldo (`tarjetaDesdeEsquema`) volcaba
+  cada renglón en una viñeta, con las marcas del lector escritas («[BOTÓN] Ver todo lo que incluye»). Ahora
+  `[BOTÓN] texto → destino` es un botón (hasta 3 en la fila) y `[DESPLEGABLE] pregunta → respuesta` es un
+  desplegable. Un destino en palabras queda `#`: no se inventa una dirección. Sin marcas sigue igual (uno es un
+  párrafo, varios son viñetas), porque lo usa también `agregar_seccion_landing`.
+- **«Aplicar» con la IA cayéndose escribió «[BOTÓN] Quiero ver la demo gratis» como texto.** Lo copió de la sección,
+  que ya tenía esas marcas. Con el respaldo nuevo, la sección trae botones de verdad.
+- **Las descripciones de la API se ACORTARON** (−33 en landing.def.ts) para decir «sin sección, toca la landing entera»:
+  el presupuesto del turno de la app tiene 38 caracteres de margen (más arriba, «El presupuesto del turno de la app»).
+
+Lo que quedó SIN hacer (en este documento cuando se haga):
+- Los clics en producción de todo esto, cuando se despliegue la punta (sobre la copia #44 y la #45; la réplica #46).
+- Que la IA del editor de landings del ws9 no corra en Gemini (saturado y con timeouts el 26/10): es del área de IA.
+
+## Lo que se veía bien en el editor y se perdía al GUARDAR un diseño (26/10/2026, claude5)
+
+La revisión adversarial de tren-l lo encontró en lo nuevo de la barra «Texto» y de «Botón» en los diseños. Se veía bien
+en el editor, pero el HTML de un diseño pasa por el saneo del server (html-editable-seguro.ts) al guardar, al abrir y al
+publicar, y tres cosas se iban sin aviso:
+
+- **`execCommand` sin `styleWithCSS` escribe etiquetas VIEJAS.** El tachado sale `<strike>` y un color, `<font
+  color>`. La lista blanca del saneo no las tenía y su modo es `discard`: se va la etiqueta, queda el texto y el formato
+  se pierde. **Regla:** antes de un formato con `execCommand`, `styleWithCSS` en `true` (sale un `span` con estilo);
+  y el saneo pasa `strike`/`del` a `s` y `font color` a `span` con su color. Eso cubre también lo ya guardado y
+  lo pegado.
+- **Un enlace «a otra página» (`pagina:<id>`) se borraba**, porque `pagina` no era un esquema permitido. Y aunque pasara,
+  el HTML de un diseño se publica TAL CUAL: `resolverHref` corría sólo en los botones de bloque. Ahora el esquema se acepta
+  en `<a>` con un id válido, y al publicar `conEnlacesDePaginas` (html-editable.ts, desde render.ts y especificacion.ts)
+  lo cambia por la dirección de la página, o por `#` si ya no existe.
+- **Un precio con formato quedaba congelado.** La marca (`data-mako-precio`, `data-mako-desde`, `data-mako-prueba`) se
+  reconocía sólo con texto plano adentro (`[^<]*`). Una negrita encima la dejaba con el precio del día de publicar, aunque
+  cambiara en Planes. Ahora se reemplaza sólo el texto y las etiquetas de formato quedan. Con formato sobre una PARTE, el
+  número va al primer pedazo. Esto arregla también lo ya publicado con negrita o cursiva.
+
+Test: tests/editor-web-guardado-diseno-26-10.test.ts (probado rompiéndolo: 6 roturas, cada una 2/1).
+
+## Lo que se edita a mano, también por prompt: lo que faltaba y por qué no llegaba (27/10/2026, claude5)
+
+Martín (27/10): «si una persona quiere editar lo que sea debería poder. Con prompts en mako». Se cruzó cada control del
+editor con el comando de la API que lo cambia. La tabla está en docs/relevo/landing-generator.md. Faltaban tres:
+
+- **El formato de un texto.** La barra «Texto» (negrita, cursiva, subrayado, tachado, color, tamaño, alineación) no tenía
+  comando. Ahora está `dar_formato_texto_landing`.
+- **Los colores de un botón de diseño.** Ahora `configurar_boton_landing` acepta `color` y `colorTexto`.
+- **La imagen de un bloque y la de un ítem de un «diseño optimizado».** `cambiar_imagen_landing` sólo encontraba las de
+  un «Diseño editable». Para cambiar las otras había que agregar una imagen nueva y borrar la vieja. Ahora
+  `ver_secciones_landing` da la dirección de cada imagen de bloque, para poder nombrarla.
+
+Las trampas:
+
+- **Un bloque y un diseño no tienen los mismos colores.** Un bloque usa los del tema (`acento`, `paleta-1`…), y un
+  botón de bloque elige su `estilo`. Un diseño trae su propia hoja: ahí un color del tema no existe y el color va en hex.
+  Cada lado rechaza lo del otro y dice por qué. El color de un botón de diseño se escribe con `!important` en su `style`.
+  `conDeclaracion` (html-editable-elementos.ts) reemplaza la declaración; no la apila.
+- **El tamaño en un diseño no es el de un bloque.** Los escalones de la barra en un diseño (`TAM_EN_DISENO`,
+  app/web-generator/editor/acciones-diseno.ts: l 1.125em, xl 1.375em) son distintos de los de un bloque (css.ts: l 1.25em,
+  xl 1.5em). La API copia los del diseño en `TAM_DISENO` (landing-contenido.helpers.ts), porque lib no importa de app.
+  Si cambia uno, hay que cambiar el otro.
+- **El diagnóstico obvio era el presupuesto, y al principio no lo era.** «pon en negrita «Aprende a vender» en mi
+  landing» llegaba por WhatsApp sin la herramienta. El clasificador lo leía como `pensar`: la frase citada dejaba
+  «landing» a más de 3 palabras del verbo, y «negrita» no era una pieza de la landing. Ahora son piezas (negrita, cursiva,
+  subrayado, tachado, alineación, tamaño, letra). Y un verbo de formato (subrayá, tachá, centrá, resaltá, alineá) cuenta
+  con la landing nombrada.
+- **Después sí era el presupuesto.** Las palabras del formato estaban sólo en la descripción, que suma 1 punto. Así
+  empataba con una docena de operaciones declaradas antes y quedaba afuera. Ahora van en el título (2 puntos):
+  «Negrita, cursiva, subrayado, tachado o centrado». Ver docs/hallazgos-api-mako.md → «El presupuesto del turno de la app».
+- **Lo citado es texto de la landing.** «subrayá «Agenda tu llamada»» se cortaba por «llamada», una palabra de otra área
+  (las llamadas). Con un verbo de formato, lo citado se saca antes de buscar otra área (`sinCitas`, lib/mako-intencion.ts).
+
+Tests:
+- tests/api-mako-landing-contenido.test.ts
+- tests/api-mako-landing-diseno-editable.test.ts
+- tests/mako-intencion-landing.test.ts
+
+Probados rompiéndolos, una falla por vez: cada rotura la atrapa su test.
+
+Sin hacer:
+- **La red de MaKo.** Es el dibujo animado de una sección de las páginas de MaKo. No se cambia ni a mano ni por prompt,
+  porque es parte del diseño. El efecto de entrada de su sección sí: `cambiar_animacion_landing`.
+- **La prueba por prompt en producción.** Espera el deploy de esta punta.
+
+## «Replicar y adaptar»: el diseño de afuera con el texto del negocio, y la réplica con animaciones (27/10/2026, claude5)
+
+Leila, en la llamada (ticket 876470842-27): «Replicar y adaptar». Ya existía «Replica esta landing», con el texto de la
+original. Ahora el cuadro de crear tiene las dos opciones en la pastilla del link, y el panel «Replicar landing» también
+(«Tal cual» y «Adaptada a tu oferta»). Por prompt: `replicar_landing` con `adaptar`.
+
+- **Cómo adapta sin tocar el diseño.** En «Landing», el esquema sigue en «Conservar»: salen las mismas secciones en el
+  mismo orden, y el estilo y las imágenes de la original se ponen igual que siempre. La que reescribe es la tanda de
+  secciones, con `modoTexto: 'generar'` y `INSTRUCCION_ADAPTAR` (replicar-reglas.ts). El contexto del negocio ya
+  viajaba en cada tanda (`buildLandingBrief`). En «Presentación», la instrucción va en las dos tandas.
+- **Trampa: la sección que no pasa por la IA queda con el texto de la OTRA.** La réplica sin IA usa el texto de la
+  original (`tarjetaDesdeEsquema`). En una copia «tal cual» eso está bien. En una adaptada es el texto del competidor
+  dentro de la landing del negocio. El aviso lo dice con esas palabras («quedó con el texto de la original: adáptala con
+  MaKo»), no con el «quedó sin diseño» de siempre.
+- La copia adaptada se llama «Adaptada de <dominio>», no con el título del competidor. La «Página web» (la copia
+  idéntica) no se adapta: el server contesta con `probar: 'landing'`, y la pantalla no ofrece ese formato con adaptar.
+
+**La réplica de una landing con animaciones (ticket 876825880-07): el diagnóstico obvio era el equivocado.** «La copia
+fiel saca los scripts» no es cierto. `sinRastreadores` (replicar-reglas.ts) saca sólo los rastreadores conocidos
+(`RE_RASTREADOR`), y los demás scripts viajan a la copia. Lo que sí no corre es lo atado al scroll de la página, y eso
+ya lo avisa `AVISO_SCROLL`. **Sin medir:** sendipro.com, la página del ticket, no existe en el DNS (ENOTFOUND, con y
+sin www, medido el 27/10), y una búsqueda tampoco la encuentra. Falta la dirección exacta para ver qué no se copió.
+
+Tests: tests/web-generator-replicar-adaptar.test.ts y tests/editor-landing-replicar.test.ts. Probados rompiéndolos.
+
+## Replicar por partes: diseño, estructura, ángulos y texto, y la estructura que perdía secciones (28/10/2026, claude4)
+
+Martín: «una cosa es replicar el branding, otra cosa es replicar la estructura, otra cosa es replicar los ángulos de
+comunicación, los copies». «Replicar landing» lee primero la página y muestra su estructura, sus ángulos y su diseño.
+Después pregunta QUÉ replicar con cuatro partes combinables: Diseño · Estructura · Ángulos · Texto literal. El default es
+el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para SU oferta. Vive en
+`lib/editor-landing/replicar-partes.ts` (las reglas), `replicar-estructura.ts`, `replicar-angulos.ts`,
+`replicar-lectura.ts` (POST `/api/landing-generator/replicar/leer`) y `app/web-generator/crear/Replicar.tsx`.
+
+- **El diagnóstico obvio era el equivocado: «la réplica tiene las mismas secciones» no era cierto en una landing larga.**
+  «Conservar» (`esquemaConservado`, el de «Pegar texto») cortaba en CADA `#`, `##` y `###` y se quedaba con las primeras
+  20 (`MAX_SECCIONES`), sin avisar. Medido el 28/10 con el HTML real y el respaldo sin IA: 100ads.ai llegaba con 965 de
+  2.148 palabras (45%), 3 de 8 botones y SIN la garantía, las preguntas ni el cierre; gohighlevel 79%, kommo 68%,
+  hotmart 83%, leadsales 90%. Y cada tarjeta de una grilla (un `###` adentro de un `##`) salía como sección suelta.
+  **Regla:** una página LEÍDA se corta en su NIVEL DE SECCIÓN (el título más alto que aparece dos veces; un h1 solo es
+  el hero), lo de adentro queda como subtítulo `### …`, y si sobran secciones se JUNTAN las vecinas más chicas: nunca se
+  tira texto (`esquemaDeReplica`). Ahora: 100% de las palabras y de los botones en las cinco. Lo usa también «Importar»
+  con «Conservar» (ia.ts); lo pegado por la persona sigue como antes.
+- **El respaldo sin IA escribía el `###` como texto.** `tarjetaDesdeEsquema` ahora lo dibuja como subtítulo
+  (`RE_SUBTITULO_LEIDO`, ia-reglas.ts).
+- **El ws3 no tiene NINGUNA IA** (0 filas en `credenciales`), y el crédito de Claude para `landing-editor` está
+  habilitado sólo en el espacio de MaKo (`CREDITO_HABILITADO_PARA`, `soloLaPlataforma`). La cascada barata de la
+  plataforma no contestó. En el ws3 sólo se puede medir lo que no usa IA: la lectura de la estructura y del diseño, y la
+  réplica «texto literal» con el respaldo. Los ángulos y la reescritura necesitan otro negocio con IA.
+- **Medir desde un script, sin levantar la app:** `runWithWorkspace(3, …)` (lib/workspace.ts) fija el negocio. `crear` llama
+  a `cookies()` para el autor: fuera de un pedido tira «`cookies` was called outside a request scope». En el script se
+  reemplaza `next/headers` con un `Module._load` que devuelve un almacén vacío (el autor queda null). Se corre con
+  `node --env-file=<.env.local> --conditions=react-server --require <stub> --import tsx`.
+- **La instrucción de la réplica va con las REGLAS primero y los datos al final** (el molde de cada sección y los
+  ángulos), y con el tope de `instrucciones` (5.000): si algo no entra, se recorta un dato, nunca «no copies frases».
+- **Los ángulos son una lectura aparte del Landing Analyst**: el Analyst diagnostica una página PROPIA contra su tráfico
+  (veredicto, puntajes, hallazgos) y guarda una fila en `landing_analyses`; para replicar hace falta CÓMO vende una página
+  AJENA (promesa, dolores, forma de venta, objeciones, tipo de prueba y el ángulo de cada sección). No se guarda: viaja en
+  la pantalla y vuelve con el pedido de la réplica (no se paga dos veces). Su prompt es editable
+  (`landing_editor.angulos.*` en lib/prompt-registry.ts).
+- **100ads.ai cambia su h1 entre una bajada y otra** («100 anuncios en lo que dura un café» / «en lo que tardás en hacer
+  uno» / «Lo que te lleva horas, listo en 10 minutos»): prueba A/B de su portada. Medir dos veces la misma página puede
+  dar dos títulos; la estructura no cambia.
+- **El presupuesto del turno de la app:** `replicar_landing` sumó `partes` y quedó MÁS CHICA (2.464 → 2.437 caracteres,
+  `scripts/presupuesto-turno-app.mts`), recortando la descripción.
+- **`quitarPruebaInventada` deja pasar justo lo de la competencia** en una réplica reescrita: sus testimonios y sus
+  cifras «están en el material» (el material ES la página de otro). La red en código es `quitarPruebaDeLaOriginal`
+  (ia-reglas.ts): una cita TEXTUAL de la original o una cifra con sus mismos números se vacían, y las frases iguales a
+  la original se cuentan en el log y en el aviso. Los números se comparan ENTEROS (ver la revisión, más abajo).
+- **Mirar la pantalla sin build:** con ~10 chats, el vigía mató el `next build --debug-build-paths` de `/web-generator`
+  dos veces (2,3 y 3,4 GB privados, con 0,7 GB libres). Lo que anduvo: renderizar los componentes REALES con
+  `renderToStaticMarkup` (tsx, `NODE_PATH` al `node_modules` del worktree y `import React`), con las hojas del Panel
+  (`CSS_GP`, `CSS_PANEL`, `CSS_TIPO`, `CSS_REPLICAR`) y los datos medidos, servirlo con `python -m http.server` en
+  127.0.0.1 (un `file://` el panel del navegador lo muestra como foto y no deja medir) y medirlo a 375 px y en
+  escritorio. Encontró dos cosas: la grilla de temas compartida pide 180 px por columna y en un teléfono son seis
+  tarjetas altas antes de «Replicar» (en Replicar va de a dos), y un chip con `--gp-azul-50` no cambia en el modo
+  oscuro (va con los tokens `activo`).
+
+- **Un test que lee el fuente como TEXTO da verde sobre un archivo que no compila.** Un script de edición convirtió el
+  `'
+'` de un `.join` en un salto de línea real dentro del string, y el test de replicar (que hace `readFileSync` +
+  regex) siguió en 10/10. Lo cazó `tests-afectados --rapido`, por los tests que IMPORTAN replicar.ts. **Regla:** después
+  de editar con un script, transpilar cada archivo tocado (`esbuild.transformSync`); el test de replicar lo hace ahora
+  (test 0). Y escribir el reemplazo con el editor, no con escapes anidados (bash → python → TS).
+- **«Cómo está acomodado» con lo que ya se lee:** el estilo trae las imágenes de cada parte de la página
+  (`ImagenOriginal.seccion`, `fondo`); con los subtítulos del molde alcanza para decir «una imagen junto al texto»,
+  «imagen de fondo», «6 imágenes (galería o logos)» o «3 tarjetas con su subtítulo» (`acomodoDeSeccion`). Va al final
+  de cada línea del molde. Sin el diseño, el estilo se lee igual, pero SÓLO para eso: nada de él pasa a la copia
+  (`const estilo = partes.diseno ? estiloLeido : null`), y la IA deja el hueco de la imagen donde la otra tenía una.
+- **El molde no entraba en la instrucción.** La instrucción es UNA para todas las tandas, con tope de 5.000 caracteres.
+  Medido con ángulos de largo real: con 16 a 20 secciones (gohighlevel, leadsales, kommo) se cortaban las últimas líneas
+  del molde y del ángulo de cada sección. **Regla:** lo que es de UNA sección viaja CON la sección. `SeccionEsquema.nota`
+  (opcional, ≤ 400) lleva su ángulo, su forma y su acomodo, y `pedidoDeTanda` la escribe junto a su título. Así cada
+  tanda manda sólo las suyas. Sin nota, el pedido es el de siempre (todos los demás usos del editor).
+- **Otro tope que corta callado:** `esquemaDelPedido` deja 60 renglones por sección (`slice(0, 60)`), y la tanda pasa
+  por ahí. Ninguna sección de las cinco medidas pasa de 46. Pero `juntarHasta` puede armar una más larga al juntar
+  vecinas en una página de muchas secciones: ahí la IA no vería el final de esa sección (el respaldo sí).
+- **El Diagnóstico de una de afuera copiaba todo directo** (el menú «Replicar» con los tres formatos). Ahora el menú
+  arranca con «Elegir qué replicar…», que abre «Replicar landing» con esa página: la lee y pregunta las partes. Los
+  formatos directos quedan como «copia completa».
+
+### Las 5 landings de Martín (28/10/2026, noche): Reportei, Holo, MasterAds, Closermood y respond.io
+
+- **El diagnóstico obvio era el equivocado otra vez: no era el prompt, era la OFERTA.** Con IA (ws9, el espacio de MaKo)
+  la réplica «adaptada» seguía hablando de la competencia: Reportei quedó nombrada 11 veces en su copia, respond.io 22,
+  y 15 a 28 frases quedaban iguales a la original. El perfil del negocio del ws9 está VACÍO
+  (`buildLandingBrief` → «PERFIL DEL NEGOCIO» sin nada): la IA no tenía de qué hablar y volvía sobre lo único que tenía.
+  **Regla:** reescribir «para tu oferta» exige la oferta. La lectura dice si el negocio la tiene (`tieneOferta`), el
+  panel pide «Tu oferta» (y avisa si el perfil está vacío), la instrucción la pone PRIMERO como la que manda y nombra la
+  marca de la referencia para que no aparezca (`marcaDeUrl`), y las menciones que queden se cuentan y se dicen
+  (`mencionesDe`).
+- **Un `<header>` fijo es la barra del sitio, aunque no tenga `<nav>`.** respond.io tiene su megamenú y el selector de
+  idiomas en `<header class="fixed …">`: entraban ~80 renglones a la primera sección. El extractor lo trata como un
+  `<nav>` (sus botones pasan). En las otras 11 páginas medidas no cambió nada.
+- **Letras dobles de una animación:** tryholo.ai escribe cada letra dos veces («a a d d s s»); `sinLetrasDobles` las junta
+  (dos pares o más de letras sueltas iguales).
+- **Un testimonio entero en un `h3`** (reportei): el respaldo cortaba el subtítulo en 120 caracteres (el tope de un título
+  de sección) y se perdían 124 palabras. Va con el tope de un texto.
+- **El destino de un botón no es texto:** el lector del navegador escribe «[BOTÓN] Crear mi cuenta → envía el formulario»;
+  `palabrasDe` lo contaba como palabras de la original.
+- **Leer una página con el lector de la app SIN la app:** `scriptLector(id, 'pixel', origen)` corre en la página real si
+  `window.opener` es la propia ventana (el saludo y el «dale» van y vienen ahí). El navegador del panel no deja que una
+  página pública le pida algo a 127.0.0.1, así que se corre en un Chrome sin ventana por CDP (Node 24 trae WebSocket;
+  `--headless=new --mute-audio`). Script: notas del Cerebro, `replicar-landings-scripts/leer-cdp.mts`.
+- **Server o navegador:** en reportei y respond.io el lector del navegador anota cada link y cada pestaña como botón (167 y
+  71); el server da una estructura más limpia. El orden de la app (server primero, navegador si no puede) es el correcto.
+  MasterAds (una app que se arma en el navegador) sólo se lee en el navegador: 7 secciones, 431 palabras.
+- **Réplica «texto literal» con su tema, en el ws3 (#49 a #53):** Reportei 16/16 secciones · 39/39 títulos · 68/68 textos ·
+  8/8 botones; Holo 12/12 · 20/20 · 223/224 · 3/3; MasterAds 7/7 · 19/19 · 72/72 · 11/11; Closermood 8/8 · 21/21 · 79/79 ·
+  6/6; respond.io 8/8 · 26/26 · 82/82 · 3/3. El 100% de las palabras en las cinco (con los dos arreglos de arriba).
+- **Con «Tu oferta» (la de MaKo, en las palabras de su landing principal), en el ws9, #60 a #64**, antes → ahora:
+  menciones de la otra marca Reportei 11→3, respond.io 22→1, Closermood 4→0, Holo 2→0, MasterAds 2→0; frases iguales
+  a la original Reportei 27→9, Closermood 28→0, MasterAds 15→1. Las secciones, todas y en su orden (16, 12, 7, 8, 8).
+  El largo se respeta peor donde la página tiene decenas de renglones cortos (carruseles, sugerencias de un chat): Holo
+  53% y respond.io 65% de las palabras; MasterAds 140%. La forma de cada sección viaja en su nota; la IA (Gemini Flash
+  Lite) la sigue mejor en secciones de texto que en listas largas.
+- **Mirar una réplica sin la app:** `htmlDePagina` (render.ts) + `documentoExportable` (exportar-html.ts) son puros: con el
+  documento y el tema de la base dan la página como la publicaría MaKo. Servida en 127.0.0.1, se mide a 375 px y en
+  escritorio en el navegador del panel.
+- **En la app (build parcial + `next start`, sesión del ws3 firmada con `crearToken`):** el link de la caja abre la lectura
+  sola, «Qué replicar» arranca en el caso de Martín, y al replicar se ve armarse: las fases con su tilde, un punto por
+  sección y la lista que crece de a una (con el ws3 sin IA, las 8 secciones llegaron juntas a los 25 s y se mostraron en
+  1,6 s), y después se abre la copia. **Un bug que sólo se vio ahí:** arrancaba con las cuatro partes prendidas, porque
+  `partesDePedido(null)` es «todas» (el pedido viejo de la API) y el `?? PARTES_INICIALES` nunca entraba.
+- **Trampas del build parcial:** en `--debug-build-paths`, `[id]` es un patrón de caracteres (no matchea la carpeta
+  `[id]`) y la ruta no entra; con `app/web-generator/**` entra (pide ~4 GB: el vigía lo mató a los 3,1 con la máquina
+  llena, y anduvo en 97 s con la RAM reservada por el Cerebro). **Y aun compilada, una ruta DINÁMICA da 404:** el
+  `routes-manifest.json` de un build parcial sale sin `dynamicRoutes`. Para mirarla en local se agrega a mano
+  (`{ page: '/web-generator/[id]', regex, routeKeys: { nxtPid }, namedRegex }`) y se reinicia `next start`. Con eso la copia
+  replicada abrió en el editor: 8 secciones, 8 títulos, `contenteditable` y con foco.
+  La cookie de la sesión se pone desde una página de 127.0.0.1 en OTRO puerto (las cookies no miran el puerto), sin pasar
+  el token por ninguna herramienta.
+- **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
+  llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
+
+### La revisión adversarial de 45a8e5234 (Cerebro, 28/10/2026): siete defectos, todos arreglados
+
+Informe: `C:/dev/revisiones/2810-replicar-45a8e5234.md`. Cada uno con su test (10a a 10d) y su rotura (R16 a R27).
+
+- **El tope en el lugar equivocado colapsaba la página entera.** `nivelDeSeccion` bajaba de h1 a h2 «mientras no pase
+  del tope de 20». Una página con un h1 en el hero y otro en el cierre (Webflow, Framer) y 19 h2 o más quedaba en DOS
+  secciones, la primera con todo adentro; con 1 h1 y los mismos 20 h2 daba 20. **Regla:** el nivel de corte no mira el
+  tope. Lo que sobra lo junta `juntarHasta`, que ya estaba para eso. Un tope que decide QUÉ nivel usar en vez de cuánto
+  juntar convierte «una sección de más» en «18 secciones de menos».
+- **Comparar números como texto vacía cifras propias.** `quitarPruebaDeLaOriginal` buscaba cada número con `includes`
+  sobre la página ajena: «100%» del negocio se vaciaba porque «100» está dentro de «2.100», y «24/7» porque «24» y «7»
+  están en cualquier página. Y el aviso le echaba la culpa a la original. **Regla:** los números van como tokens enteros
+  («2.100» es 2100, con límites a los dos lados). Una cifra es de la otra si TODOS sus números están entre los de la
+  otra, y al menos uno tiene 3 cifras o más y no es redondo (100, 1000).
+- **Los botones de la copia mandaban a la competencia.** Venía de antes de esta rama: «Replicar y adaptar» ya lo hacía.
+  Ahora es el camino por defecto, y el destino no se ve en el texto del editor. La IA veía «[BOTÓN] Probar → https://
+  app.competidor.com/signup» en su tanda, y el respaldo sin IA armaba el botón con ese href. **Regla:** con el texto
+  escrito de nuevo, la tanda no ve los destinos (`sinDestinoDeBoton`). Todo enlace al dominio de la original, con
+  cualquier subdominio (`dominioBase`), pasa a «#» en todas las tarjetas, también las de respaldo
+  (`sinEnlacesALaOriginal`). Se cuenta en el aviso. Sólo se lee el destino cuando la página la lee el NAVEGADOR: el
+  server escribe «[BOTÓN] texto» sin destino.
+  **El dominio no alcanzaba (segunda pasada, 28/10):** su Calendly y su «wa.me/549…» no son de «competidor.com», y el
+  respaldo los armaba igual. La IA, además, los ve en un renglón que no es botón: «[CALENDARIO] Calendly (https://…)».
+  **Regla:** un enlace de la copia que APARECE en el texto de la original es de la competencia (`enlacesDeLaOriginal`:
+  host sin www y camino, sin consulta; uno dentro del otro también cuenta, porque la IA acorta). Un host pelado
+  («calendly.com») no alcanza, y lo que no estaba en la original (el Calendly del negocio) se queda. Corre sólo con las
+  mismas secciones, que es cuando el esquema ES el texto de la original.
+- **«Replicar y adaptar» por la API pagaba una IA más, ANTES del esquema.** Sin `partes`, el pedido viejo de adaptar
+  pasa a tener ángulos. La API no trae la lectura, así que se bajaba la página y se llamaba a la IA por los ángulos (hasta
+  60 s). Ese tiempo salía del plazo de las tandas: con la IA lenta, entraban menos tandas y quedaban más secciones con el
+  texto de la competencia. **El diagnóstico obvio («correrlos en paralelo») no hacía falta:** con la estructura, el
+  esquema no los usa, y el texto de la original ya trae los ángulos sección por sección. Ahora se leen ahí sólo SIN la
+  estructura, que es cuando el esquema los necesita.
+- **En una Presentación, la «original» del chequeo era el esquema que ya había escrito la IA.** Se vaciaban cifras
+  propias, se contaban frases «iguales» contra texto propio, y el aviso decía «quedó con el texto de la original». Ahora
+  `adaptar` (el chequeo y ese aviso) va sólo con las MISMAS secciones (Landing con estructura).
+- **La lectura y la réplica cortaban distinto un texto pegado con títulos.** La lectura usaba `esquemaDeReplica` y la
+  réplica el `esquemaConservado` de «Pegar». Se perdía el final, y el ángulo de la «sección 3» caía en otra sección.
+  Ahora el pedido de esquema lleva `corte: 'pagina'` (ia.ts). El «Pegar texto» del editor no cambia.
+- **La «Página web» de la caja pagaba ángulos al abrir y se pasaba sola a «Landing».** Ahora arranca con las cuatro
+  partes, y su lectura va sin ángulos (`angulos: false` en /leer, `conAngulos` en `leerParaReplicar`). La copia
+  idéntica no los usa.
+- **El tsc acotado de estos archivos trae 14 errores que no son de ellos:** `app/video-editor/_opencut` no resuelve
+  `opencut-wasm/opencut_wasm_bg.js` (TS7016) y de ahí salen los TS2305. Antes de creerle a un rojo del acotado, mirar si
+  el archivo es tuyo.
+
+Lo que quedó SIN hacer:
+- Leer una SPA en la ventana del clic DENTRO de la app (el camino del lector con la ventana aislada): se midió el mismo
+  lector por CDP (MasterAds), no el ida y vuelta de la ventana. Y la réplica con IA en vivo dentro de la app (en el ws3
+  no hay IA: las secciones llegaron todas juntas al final).
+- Un tope de 60 renglones por sección en `esquemaDelPedido` (la tanda): ninguna sección medida pasa de 46.
+- La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda
+  qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
+  cajas.
+- De la revisión (los restos, de severidad baja): «Leer de nuevo» en Replicar.tsx vuelve a pagar los ángulos (no hay
+  caché por URL, y uno guardado no reintentaría la lectura que falló). Y sin la estructura, si la lectura volvió sin
+  ángulos, replicar.ts se los pide a la IA ANTES del esquema y ese tiempo sale del plazo de las tandas: ahí el esquema
+  sí los necesita, y correr t0 pasaría el maxDuration de 300 s.
+- Que Martín abra una copia del ws9 en PRODUCCIÓN con su sesión: el recorrido entero se vio con el build real (la #66
+  abre en el editor con sus 8 secciones), pero no en hola-mako.com, donde ningún navegador de esta máquina tiene su
+  sesión.
+
+Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 31 roturas, cada una caza), y los de Replicar
+que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).
+
+## La copia fiel deja ciego al chat del editor, y pasarla a «Diseño editable» le saca el diseño (28/10/2026, Cerebro)
+
+**Vive en:** `lib/editor-landing/doc.ts:333-407` · `html-editable-seguro.ts:11-13` · `ia.ts:676` · `ia-reglas.ts:692-724`
+
+- **El síntoma:** Martín revisó la réplica de respond.io en producción: «esta horriblemente mal, no solo el diseño no se
+  parece en nada, sino que tampoco los copy». Quiere primero una copia IDÉNTICA y después pedirle cambios por prompt.
+- **Lo que hay que saber antes de tocarlo:**
+  - la copia fiel (`htmlLibre`) es invisible para Editar y Discutir: `textoDe` devuelve '' y Discutir recibe «Sección N:
+    (sin texto)». Ningún pedido por prompt puede leerla;
+  - pasarla a `htmlEditable` para que se pueda editar pierde el diseño: el saneo saca `style`, `link` y `meta`, y el
+    bloque se publica sin iframe. El CSS de la original tiene que ir a `config.diseno.css` (tope 200k, contra 400k de
+    `htmlLibre`);
+  - `quitarPruebaInventada` y `quitarPruebaDeLaOriginal` no miran el HTML de un diseño editable.
+- **La regla:** la fidelidad se mide con capturas lado a lado (1440 y 390) y el diff del texto visible, ANTES de elegir el
+  formato del bloque.
+
+## El chat del Web Generator no sabía qué función de MaKo vende la landing (28/10/2026, claude4)
+
+**Síntoma:** Martín: «hacé de esta copia la landing de los Chats». El brief de Editar y Discutir (`buildLandingBrief`,
+lib/landing-writer.ts) era funnel + perfil del onboarding + 4 del RAG: «MaKo en general» (y en el ws 9 el perfil está vacío),
+nada de Chats. «Discutir» además lleva la regla de lo que no existe sin ningún catálogo: podía negar una función real.
+- **Lo que quedó:** en la PLATAFORMA, antes del perfil, todas las funciones en una línea (`catalogoCorto`) y la que vende ESTA
+  landing entera, por id con profundidad 0 y sus vecinos aparte (`funcionEntera`), con la regla de no prometer lo que figura
+  en «No hace»; el perfil pasa a ser «la marca que la vende». En un cliente el brief queda como siempre.
+- **Cómo se elige la función** (`funcionQueVende`, lib/cerebro-funciones.ts): la que nombra el PEDIDO (nombre 2, alias 1,
+  sin empate); si no nombra ninguna («cambia el hero»), la que la PÁGINA nombra al menos dos veces y el doble que la siguiente;
+  si no, ninguna. «Landing», «página», «web» nombran lo que se edita, no el Web Generator: no cuentan.
+- **Trampa:** «Tu oferta» de Replicar por partes NO se guarda en la landing (queda en el navegador). Lo que sí queda es la
+  original (`config.origen.basadoEnUrl`), pero Editar no la recibe. La copia idéntica ya viaja como «Diseño editable» y su
+  texto se lee (`textoDe`), así que la página de una copia de respond.io alcanza para elegir Chats.
+
+**Sin hacer:** guardar la función en la landing (MaKo pregunta con opciones del catálogo y Martín confirma, en el mismo flujo
+que el producto: `productoDelPedido`); usar la original como pista; los generadores de marketing con el mismo brief (Ads
+Manager, los writers de Instagram, Email) siguen sin la función.
+
+## La copia idéntica de una página: la foto del navegador, editable por sección (28/10/2026, claude4)
+
+Martín (28/10, ~09:40), sobre la réplica reescrita de respond.io: «esta horriblemente mal, no solo el diseño no se parece
+en nada, sino que tampoco los copy... Enfocate primero en replicar tal cual, tanto en diseño como copy y luego vemos de
+personalizarlo». Replicar arranca ahora en la copia IDÉNTICA: el lector, en el navegador de la persona, saca la FOTO de la
+página ya armada (copia-identica-script.ts) y el server la arma en secciones «Diseño editable» (copia-identica.ts), con
+el texto palabra por palabra y en su idioma (nada pasa por una IA). Personalizar es otro paso, que todavía no existe.
+
+**Cómo lo resuelven los que clonan, y qué se tomó.** SingleFile guarda el DOM ya armado, sin scripts, con sus hojas, y
+saca las reglas que no usa nada: eso es esta copia. html.to.design y html-to-figma leen el estilo CALCULADO de cada
+elemento a UN ancho: pierden las media queries (importan el teléfono aparte), las animaciones y los ::before. Por eso acá
+viajan las hojas con sus media queries, y la MISMA copia se ve a 1440 y a 390.
+
+Medido con las 5 de Martín, en un Chrome sin ventana, con la foto sacada por el lector de la app (el mismo protocolo que la
+ventana), armada por las funciones del server y dibujada con el render de la página publicada (con su política). Las
+capturas lado a lado y el diff del texto: `C:/dev/revisiones/replica-tal-cual/`.
+
+| Landing | Texto a 1440 (renglones · palabras) | Texto a 390 | Alto 1440 original → copia | Alto 390 | Imágenes rotas |
+|---|---|---|---|---|---|
+| respond.io | 98,9 % · 93,8 % (a) | 100 % · 100 % | 7.237 → 7.237 | 10.555 → 10.555 | 0 |
+| reportei.com/es | 100 % · 100 % | 100 % · 100 % | 14.039 → 11.160 (b) | 16.000+ → 14.607 | 1 → 1 (la misma) |
+| tryholo.ai | 99,2 % · 99,1 % | 98,9 % · 98,3 % | 16.000+ → 16.000+ | 16.000+ → 16.000+ | 0 |
+| masterads.ai/mkt/register | 81,7 % · 93,9 % (c) | 81,6 % · 93,9 % (c) | 4.849 → 4.849 | 6.790 → 6.790 | 0 |
+| closermood.com | 93,9 % · 95,8 % (a) | 98,5 % · 97,8 % | 6.093 → 6.093 | 9.561 → 9.561 | 0 |
+
+(a) un componente que rota solo (el «Capture / Convert» de respond.io, la demo de closermood) salió en otro estado en la
+captura que en la foto. (b) la original tiene un hueco blanco de contenido que no había cargado. (c) las 23 opciones de
+su `<select>` (el innerText las trae todas) y los placeholders de los campos.
+
+Las trampas, en el orden en que aparecieron (cada una con su test en tests/web-generator-copia-identica.test.ts):
+
+- **La comilla escapada de Tailwind se comía la hoja.** El lector de CSS tomaba el `\'` de `.content-\[\'\'\]` por el
+  comienzo de un string y lo que seguía quedaba adentro: de la hoja de respond.io se leían 623 de unas 1.250 reglas, y la
+  copia salía sin estilos. **Regla:** afuera de un string, una barra escapa lo que sigue.
+- **Lo ESCAPADO es parte de la clase.** La poda tomaba el `\[` de `.\[\&\>\*\]\:p-2` por un atributo, el `\(` de
+  `.max-w-\(--page-max-width\)` por un argumento, el `\#` de `.bg-\[\#0A0B14\]` por un id y el `\.` de
+  `.p-\[0\.060rem\]` por otra clase, y tiraba reglas vivas: en tryholo.ai el contenedor de 1.080 px quedaba en 1.377 y
+  se perdían TODOS los fondos oscuros. Y un `>` adentro de `class="[&>*]:p-2"` cortaba la etiqueta al leer las clases.
+- **Un tope de cantidad que corta en silencio.** La foto de respond.io traía 120 de sus 208 hojas y la mitad de abajo
+  salía desarmada (los bloques de Builder.io sin su `display:flex`, los íconos 3D volando al hero). **El diagnóstico obvio
+  era el equivocado:** «el lector baja demasiado rápido y las islas no llegan a hidratarse con su `<style>`». Se le dio al
+  lector una bajada lenta con la foto (250 ms por paso, 40 s de tope) y siguió en 120. Al terminar el lector la página YA
+  tenía las 208: el que cortaba era `TOPES_COPIA.hojas` (120) en `sanearInstantanea`, sin avisar (Builder.io mete un
+  `<style>` por bloque). Ahora el tope es 1.000 y el tamaño lo cuida `hojasTotal`. La bajada lenta quedó (sin medir que
+  haga falta: a 60 ms por paso, una isla puede no alcanzar a hidratarse). **Regla:** antes de culpar a la página, contar
+  lo que hay en la página y lo que llegó, en el mismo momento.
+- **sanitize-html borra lo vacío que esconde.** Por defecto sólo deja vacío `alt`: un `hidden=""` y un `popover=""` se iban
+  y aparecía lo escondido (el menú de idiomas de respond.io, abierto). `allowedEmptyAttributes` ahora los nombra.
+- **«Nunca una ruta /api/» no era de cualquier dominio.** respond.io sirve sus imágenes desde
+  `assets1-proxy.respond.io/api/v1/image/…` y `medioPermitido` las rechazaba todas. La guarda cuida que una imagen del
+  editor no salga con la cookie de MaKo: sólo importa en NUESTROS dominios (`esDominioPropio`).
+- **La política de la publicada sólo deja imágenes del bucket y fuentes de Google.** Una copia con las imágenes de la
+  original se veía bien en el editor y ROTA publicada (125 imágenes en respond.io). Los orígenes de la copia entran en
+  img-src, font-src y media-src (`origenesDeMedios`, pagina-publica.ts). Copiarlas al bucket no se pudo: el bucket
+  `landing-imagenes` sólo acepta png, jpeg, webp, gif, mp4 y webm (mig 0246), ni fuentes ni SVG ni avif.
+- **Un elemento propio de la página no pasa el saneo.** respond.io envuelve sus secciones en `<astro-island>` con 477 KB de
+  props en UN atributo: el envoltorio no pasaba y la sección quedaba suelta. **Regla:** sin caja (`display: contents`) se
+  suelta; con caja pasa a `<div>`; un atributo de más de 2.000 caracteres que no dibuja nada se va.
+- **El corte del primer nivel no alcanza.** El `<main>` de respond.io (648 KB) iba en UNA sección, pasaba el tope (200 KB) y
+  se vaciaba. Abrir todo lo grande, en cambio, daba en reportei.com (Elementor) 116 secciones de 1-3 KB y 15 niveles de
+  envoltorio (los topes son 60 secciones y 14 envoltorios). **Regla:** lo grande se abre en sus hijos y lo chico vecino se
+  junta (`juntarVecinas`, 16 KB), con tope de profundidad.
+- **Los envoltorios repetidos en cada sección cambian la página.** Un `min-height:100vh` del envoltorio se repetiría por
+  sección, y el `gap` del `<main>` y el `main > section` dejarían de valer. **Regla:** la página publicada los abre UNA vez
+  alrededor de las secciones que los comparten, sin la caja `.gm-libre-seccion` en el medio; el editor los pone adentro del
+  iframe y edita sólo lo de adentro (`data-gm-raiz`).
+- **La base de Tailwind del «Diseño editable» pisa la original.** El preflight le sacaba los márgenes y los tamaños del
+  navegador en los que la página se apoyaba. La copia va con `config.diseno.sinBase`.
+- **La foto se traía la cara de «ya bajé» de lo fijo.** Al bajar, el header de reportei.com (Astra) pasa a
+  `ast-header-sticked` y la barra de respond.io se corre: la foto, que sale después de bajar y volver, se lo traía, y en
+  la copia el menú quedaba debajo del título. **Regla:** el lector anota la cara de cada elemento ANTES de bajar
+  (`JS_ANTES_DE_BAJAR`); lo fijo o pegajoso, y lo que tiene adentro, vuelve a esa cara. Lo demás queda como quedó al bajar.
+- **Una aparición que se DESHACE al salir de pantalla.** tryholo.ai esconde de nuevo lo que ya no se ve, y la foto (que
+  sale arriba de todo) traía media página invisible: el texto estaba, la opacidad en 0. **Regla:** en cada paso de la
+  bajada el lector anota la cara VISIBLE de lo que está en pantalla (`JS_MIRAR_VISIBLES`); lo que se vio y quedó
+  escondido vuelve a esa cara (con `!important`: si la esconde una animación, una regla común no le gana). Lo que nunca se
+  vio (un menú cerrado, un tooltip) queda como está.
+- **`o.src` de un `<img src="">` es la dirección de la PÁGINA.** Seis imágenes rotas en la copia de respond.io: el src
+  se lee del atributo, no de la propiedad.
+- **Un `vh` en el iframe del editor es el alto del iframe**, y el editor lo ajusta al contenido: una sección de `110vh`
+  agrandaba el iframe, el `vh` crecía con él, y así sin fin (closermood.com en la vista del editor: 16.000 px). En el
+  iframe de una copia el `vh` se mide contra una ventana fija de 900 px (`conVhFijo`); la publicada usa el real.
+- **Un `<canvas>` en PNG no entra.** El fondo animado de closermood.com medía ~700 KB y sacaba su sección del tope: va en
+  WebP, y si pasa de 150 KB queda vacío.
+- **La hoja de una copia pasa el tope de la de un diseño.** La de reportei.com, ya podada, mide ~380 KB y con 200 KB se
+  quitaba entera: el tope de `TOPES.cssDiseno` es 600 KB.
+- **El diff del texto ve diferencias que no se ven.** El `innerText` de un `<select>` trae TODAS sus opciones (masterads: 23
+  países que en pantalla no están), un placeholder no cuenta en la original y sí en la copia (va como texto), y la
+  publicada suma «Hecho con MaKo». Y un componente que rota solo (el «Capture / Convert» de respond.io) sale en otro estado
+  en la captura que en la foto. Leer el diff con eso en la cabeza.
+
+### La verificación de 5004dba08 (Cerebro): el HTML AJENO en el MISMO origen
+
+Informe: `C:/dev/revisiones/2810-verificacion-5004dba08.md`, con sus cargas en `C:/dev/revisiones/scratch-5004/`. El
+rojo-verde de esas cargas da 1 de 23 seguras antes y 23 de 23 después (`rojo-antes.txt`, `verde-despues.txt`). Su batería
+`ataques.ts` daba 4 casos con hallazgos de 37 y ahora da 0.
+
+- **El filtro de url() era ciego a cómo lee CSS el navegador.** El iframe del editor es del MISMO origen que la app
+  (`allow-same-origin`, para poder editar), y lo que pide sale con la sesión de quien edita. La CSP de la app no tiene
+  img-src. `medioPermitido` miraba el literal `url(`, pero el navegador lee `\75 rl(` y `u\rl(` como `url(` y
+  `@\69mport` como `@import`. Y `image-set`, `cross-fade` y `src()` piden un STRING como dirección. Pasaban un GET a
+  `/api/ads-manager/ad-aprobacion`, que manda un WhatsApp, y `mask`, `fill` y `clip-path` de un SVG. **Regla:** el CSS se
+  mira sin escapes ni comentarios, declaración por declaración (`cssSinCargasAjenas`), y la que pide algo no permitido se
+  va entera. También se va la que arma la dirección con `var()`, `attr()` o `env()`, porque no se puede saber a dónde va.
+  Vale para la hoja, los `style`, los envoltorios y los atributos de SVG. **La segunda capa:** el iframe de una COPIA
+  lleva su propia política (`politicaDelEditor`), con sus orígenes y NUNCA los nuestros, antes de cualquier cosa que
+  cargue. Aunque algo se escape del filtro, el navegador no lo pide.
+- **El filtro viejo, de paso, rompía lo legítimo.** Un `url(#grad)` de un SVG, que no pide nada, quedaba en `url()`. Los
+  íconos en `data:image/svg+xml,%3Csvg…` y las fuentes de íconos en `data:application/font-woff;base64` también se
+  perdían: respond.io, reportei.com y closermood.com las usan. Un SVG o una fuente como recurso de CSS no corre código ni
+  carga nada. Medido sobre las hojas de las 5 copias, el filtro nuevo no saca ni una declaración legítima.
+- **`target="_BLANK"` con `rel="opener"` se colaba.** El guardia comparaba `=== '_blank'`, pero el navegador no distingue
+  mayúsculas, y un nombre (`target="pwn"`) también abre otra pestaña. **Regla:** con CUALQUIER target va
+  `rel="noopener noreferrer"`.
+- **La copia le avisaba al sitio original de cada visita.** Sus imágenes y fuentes se piden a SU sitio (la política de la
+  publicada deja pasar sus orígenes) con el Referer del dominio del cliente. Ahora la publicada de una copia y el iframe
+  del editor van con `referrer: no-referrer`. El IP del visitante igual le llega, así que lo que falta es el bucket o un
+  proxy (sin hacer).
+- **Una agenda de la página copiada con `position:fixed` y 12.000 px** se dibujaba en la app encima de TODO el lienzo, y
+  los clics iban a la agenda: `vivosDe` medía la caja entera. Ahora la capa se recorta a la caja del iframe.
+- **Un origen con `;` partía la política.** El parser de URL acepta `;` en el host (`https://a;script-src.example`). Ahora
+  un origen entra sólo con un host de letras, dígitos, punto y guion.
+- **La copia idéntica mandaba los leads a la otra.** Su Calendly o su HubSpot embebidos, y sus enlaces al registro o al
+  WhatsApp. **Regla:** en una copia idéntica todo enlace que no sea un ancla de la misma página pasa a «#». La agenda
+  embebida se reemplaza por una caja vacía del mismo tamaño, marcada (`data-gm-agenda-original`), y un `data-calendly`
+  se va. El aviso lo dice.
+- **Un `data-gm-raiz` que venga en el HTML** cambiaba qué guardaba el editor. El saneo lo saca, y el editor también.
+
+Lo que quedó SIN hacer:
+- Copiar las imágenes y las fuentes al bucket: hoy quedan en el sitio de la original (si la otra las cambia o bloquea el
+  enlace, la copia lo sufre). Pide sumar fuentes, SVG y avif a `landing-imagenes` (una migración) o un bucket aparte.
+  Mientras tanto la original ve el IP de cada visitante y cada `:hover` que pide una imagen. Con el bucket o un proxy de
+  MaKo, eso se termina.
+- La política propia del iframe va sólo en las COPIAS. Un diseño de MaKo usa imágenes de la app (`/vsl-assets`), y
+  queda cubierto sólo por el filtro.
+- Lo que hace el JavaScript de la original: un carrusel queda en su primera diapositiva, un menú del teléfono no abre, un
+  acordeón queda como estaba. Los formularios se ven pero no envían (copiados tal cual en nuestro dominio serían phishing).
+- El Pixel no mide por sección en una copia: sus secciones van sin `.gm-libre-seccion` (alcance-secciones.ts y el Pixel
+  v26 las buscan por esa caja).
+- La API de MaKo (`replicar_landing`, «Página web») no tiene navegador: sin foto sigue saliendo la copia vieja en iframes.
+- Personalizar sobre la copia (el texto para el negocio, su marca, sus ángulos) como paso aparte.
+- El editor con una copia abierta NO se vio en un navegador: se midió el documento que arma (`documentoEditable` con los
+  envoltorios) y la página publicada, no la pantalla con sus clics. Tampoco el pedido entero por la ruta (la foto por la
+  ventana del lector de la app y el POST): se midió con las mismas funciones, llamadas desde un script.
+- Los popups que la original abre sola («You've got a surprise!» de tryholo.ai) no se copian: son JavaScript.
+
+Para lo que viene (Martín, ~09:50: personalizar después, POR PROMPTS y por FUNCIÓN: respond.io → la landing de los Chats
+de MaKo): por qué la copia es «Diseño editable» y no la «Página web» vieja en iframes (`htmlLibre`). El chat del editor
+está ciego sobre `htmlLibre` (`textoDe` da '' y Discutir recibe «(sin texto)»); sobre un diseño editable LEE los textos
+(`textoDe`, `textosDeHtmlEditable`), la sección se llama por su primer título (`rotuloDeSeccion`) y `conTextos` cambia un
+texto sin rehacer la sección. Medido con la copia real de respond.io: 12 textos en el hero, el título es el 3.º, y al
+cambiarlo cambió sólo ese texto (el resto, igual byte por byte). La API de MaKo edita un diseño con `{ ...attrs, html }`:
+los envoltorios sobreviven. Toda réplica guarda `config.origen.basadoEnUrl` (la URL de la original): de ahí se puede saber
+qué función de MaKo reemplaza a quién. «Tu oferta» de Replicar por partes NO se guarda en la landing.
+
+Tests: tests/web-generator-copia-identica.test.ts (14; los 13 primeros, probados rompiéndolo: 21 roturas, cada una caza). El arnés
+de medición y la comparación quedan en el scratchpad de la sesión (`medir-identica.mts`, `comparar-identica.mts`,
+`sondear.mts`): sacan la foto por el lector de la app, la arman y la dibujan como la publicada.
+
+## «No pude sacar la foto de la página»: la ventana del lector le borraba el árbol a una app de Next (29/10/2026, claude3)
+
+**Vive en:** `lib/editor-landing/replicar-reglas.ts` (`sinRastreadores`, `esDatosDeLaPagina`), `lib/editor-landing/lector-pagina.ts`
+(`documentoLector`), `lib/editor-landing/lector-script.ts` (`sacarFoto`, `terminar`), `lib/editor-landing/lector.ts`
+(`MOTIVOS_SIN_FOTO`), `lib/editor-landing/lector-navegador.ts` (`mensajeSinFoto`), `app/web-generator/crear/Replicar.tsx`.
+
+El ticket de Martín (ws9, /web-generator/68, «Replicar», 29/10 00:38): «No pude sacar la foto de la página. Vuelve a
+intentar.» con https://100ads.ai/ (la URL salió del log de Vercel de `/api/landing-generator/replicar/leer`: el ticket no la traía).
+
+- **El diagnóstico obvio era el equivocado.** La sospecha era el tope de 40 s del lector: que una página larga llegara al
+  tope antes de la foto. Los pedidos de Vercel lo descartaron en un minuto: la ventana abrió a las 03:38:41 y a las 03:38:53,
+  y el ticket salió a las 03:38:58. El segundo intento falló en menos de 5 s. **Regla:** antes de culpar a un tope, mirar
+  CUÁNTO tardó la falla en los logs.
+- **Inyectar el lector directo en la página daba foto (8,4 s).** El camino de Martín era otro: 100ads.ai no tiene el Pixel y
+  se lee en la ventana AISLADA (`responderPaginaLector`, con la política sandbox). Reproducida tal cual (la misma función,
+  servida en 127.0.0.1, y una página «MaKo» que la abre como `leerEnNavegador`): fin a los 3 s, **0 palabras**, y la foto con
+  el cuerpo VACÍO, que `sanearInstantanea` tiraba sin decir nada.
+- **La causa:** 100ads.ai es una app de Next (App Router). Su árbol viaja en pedazos `self.__next_f.push(…)` y uno, de
+  113 KB, es la página entera. Nombra a Facebook y a Clarity porque el layout los carga, y `sinRastreadores` saca cualquier
+  `<script>` que nombre a un rastreador. Sin ese pedazo React no puede armar la página («Connection closed», error #423), la
+  borra, y el `<body>` queda sólo con scripts. **Regla:** un script de DATOS (el árbol de Next, un
+  `<script type="application/json">` como `__NEXT_DATA__` o `__NUXT_DATA__`) no es un rastreador: nombrarlo no lo corre.
+  En la ventana se quedan (`guardarDatos`), porque el preludio ya apagó los rastreadores antes de la página (`fbq` mudo y
+  los pedidos a sus dominios atajados). Con eso: 684 palabras y la foto de 115 KB, 12 de 12.
+- **Cerrar la ventana 300 ms después de mandar la foto la PERDÍA** (2 de 18 corridas). No era una demora: MaKo esperó 4 s
+  más y la foto nunca llegó. **Regla:** con un mensaje de megas, lo cierra quien lo recibe (`leerEnNavegador` al recibirlo);
+  el cierre propio del lector, con foto, es un respaldo a los 10 s.
+- **Lo que corre un editor devuelve su motivo** (AGENTS.md). Sin foto, el lector manda `sinFoto` (`vacia`, `excepcion` con
+  el error, `error`, `salio`, `tope`) y el saneo suma `grande` y `vacia` si la foto vino y no pasa. Si llega el tope sin
+  foto, la saca igual (parcial). La pantalla dice un texto por motivo, y «Vuelve a intentar» sólo con `tope`; para el
+  resto ofrece el formato Landing.
+
+**Sin hacer:**
+- La vista del Diagnóstico (`documentoDiagnostico`, diagnostico.ts) y la copia fiel (`copiaFiel`) siguen sacando los datos.
+  Ninguna de las dos apaga los rastreadores antes de la página, así que una app de Next ahí probablemente también queda en
+  blanco. No está medido.
+- Los errores de hidratación #418 (los `<script>` de rastreadores que se sacan del HTML) siguen; React rearma la página
+  en el navegador y se ve, pero es más lenta de armar.
+
+Tests: tests/web-generator-foto.test.ts (8; el lector corre de verdad en un `vm` con un DOM y un reloj de mentira, y el
+reloj frena los temporizadores como en una ventana en segundo plano para que el tope llegue antes que la foto). Probado
+rompiéndolo: 18 roturas, cada una caza. El arnés de la ventana aislada y las mediciones: `C:/dev/revisiones/web-generator-foto/`
+(`ventana-repro.mts`: `node --conditions=react-server --import tsx ventana-repro.mts <worktree> <url> <salida.json>`).
+
+## «Las páginas clonadas se desfasaron todas»: la publicada era fiel, el EDITOR no (29/10/2026, claude3)
+
+**Vive en:** `lib/editor-landing/copia-identica-script.ts` (`JS_HIJOS_JUNTOS`), `lib/editor-landing/copia-identica.ts`
+(`partirParaCopia`, `esCajaJunta`, `esParteVacia`), `lib/editor-landing/html-editable.ts` (`documentoEditable`,
+`CSS_CAJA_BODY_EN_EL_EDITOR`), `app/web-generator/editor/nodos/HtmlEditableVista.tsx`.
+
+Martín: «Lo que más me interesa es que funcione al 100% Web Generator, porque las páginas clonadas se desfasaron todas».
+Medido DOM contra DOM (`C:/dev/revisiones/clonadas-2910/`, arnés `medir-clonadas.mts`): cada sección con su primer texto
+como ancla, y dónde cae (x, y, ancho, letra) en la ORIGINAL, la PUBLICADA (armarFoto + armarDocumento) y el EDITOR (un
+iframe por sección con `documentoEditable`, alto medido como `medir()`), a 1440 y a 390, con las copias reales #68–#72.
+
+- **El diagnóstico obvio era el equivocado.** Parecía la copia (CSS perdido, fuentes, medidas). La PUBLICADA estaba bien
+  en las 5: el mismo alto que la original a 1440 y a 390, y cada ancla a menos de 100 px. Lo que se desfasaba era el
+  EDITOR, y las capturas «como las dibuja el editor» del 28/10 ya lo mostraban; nadie las comparó. **Regla:** una copia
+  se verifica también en el EDITOR, no sólo en la publicada.
+- **La causa grande: el corte partía columnas.** La publicada arma las secciones juntas en un documento, con los
+  envoltorios abiertos una vez; el editor pone CADA sección sola en su iframe. `partirParaCopia` abría una caja en sus
+  hijos sin saber si eran franjas apiladas o columnas de una fila (el HTML no lo dice). El hero de tryholo.ai, una grilla
+  de dos columnas, eran dos secciones: en el editor «30+ posts a month» pasaba de x 727 · y 170 a x 197 · y 1064. Ahora
+  la foto marca con la geometría de la página armada las cajas cuyos hijos van juntos (columnas, encimados, un absoluto:
+  `data-gm-junto`) y el corte no las abre si entran en `TOPES.htmlEditable`, **tampoco bajando por un envoltorio de un
+  solo hijo** (por ahí se llegaba al hero, y la primera versión del arreglo no cambió nada). En holo, la mediana del
+  corrimiento en el editor bajó de 912 a 177 px.
+- **La caja del <body> se repetía por sección.** Lleva las clases del body (`min-h-screen` en 100ads.ai): en la
+  publicada envuelve la página una vez; en el editor, cada sección, y un `<div>` vacío medía 900 px. En el editor no
+  impone su alto (`CSS_CAJA_BODY_EN_EL_EDITOR`). Y lo que no dibuja nada (`<div hidden>`, el anunciador de rutas de
+  Next) ya no es una sección (`esParteVacia`; ojo: llega con comentarios de Suspense adentro). Con eso, la copia NUEVA de
+  100ads.ai mide en el editor lo mismo que la original: 10.330 px a 1440 y 11.590 a 390.
+- **Trampa del arnés:** una página sin `<meta viewport>` con la emulación de teléfono se dibuja a 980 px, y sus iframes
+  también. El editor se mide en escritorio (el lienzo «movil» es una columna de 390 en la computadora).
+
+- **El editor dibujaba al ancho del LIENZO** (~980 px en la pantalla de Martín) y la copia elegía su diseño de tableta.
+  Ahora una copia en escritorio se dibuja a 1440 y se achica al lienzo (`escalaDeCopia`, `transform: scale`); en tableta
+  y celular, como siempre. El clic, el cursor y la selección los lleva el navegador a través del transform; lo que la
+  vista pasa entre el iframe y la página (el clic reenviado, las capas vivas) va × escala. Medido con clics REALES (CDP
+  `Input.dispatchMouseEvent`, arnés `clic-escalado.mts`) a escala 0,68: cada clic llega a su punto exacto (±1 px).
+  **Trampa del arnés:** al llevar un elemento a la vista cargan imágenes diferidas de arriba y la sección se corre
+  (588 px): el punto se recalcula hasta que se queda quieto.
+- **Lo FIJO** (el aviso de cookies, un encabezado fijo) era una sección propia: en el editor, un bloque al final. La foto
+  lo marca (`data-gm-fijo`) y el corte lo pega adentro de la primera sección en flujo (`pegarLoFijo`), también cuando
+  viene detrás de algo vacío o adentro de una caja que sólo lo tiene a él. Y un `<title>` en el body no es una sección.
+- **Antes y después, DOM contra DOM** (`C:/dev/revisiones/clonadas-2910/final/tabla.md`, cada ancla). Mediana de la
+  distancia de cada ancla en el editor a la original, antes (producción, copia vieja) → después (copia nueva): holo
+  913 → 98 px a 1440 y 1.755 → 107 a 980 (el lienzo); respond 42 → 2 y 1.264 → 8; reportei 870 → 289 y 1.035 → 295;
+  closermood y masterads 0 → 0 a 1440 y 248/230 → 0 a 980; 100ads, sin copia (la foto no salía) → 0.
+
+**Sin hacer:**
+- A 390, holo y reportei están corridos también en la PUBLICADA (~320 px en holo): la foto se saca a 1280 y lo que la
+  página arma recién en el celular no viaja igual. Es de la copia, no del editor.
+- Una sección de holo mide en el editor ~486 px más que en la publicada (la de «from bakeries to B2B SaaS.», con algo
+  pegajoso adentro). Sin mirar.
+- Las copias viejas (#68–#72) se abren igual (no cambia cómo se guardan) y ganan con la escala y la regla del body, pero
+  sus columnas siguen partidas: para tenerlas tal cual, replicarlas de nuevo.
+
+Tests: tests/web-generator-copia-franjas.test.ts (10; la geometría corre en un `vm` con cajas de mentira). Probado
+rompiéndolo: 33 roturas, cada una caza (`romper_franjas.py`).
+
+## Lo que la landing puede vender (medido el 29/10/2026, el taller del Cerebro)
+
+**Vive en:** las tarjetas de la #32 (`scripts/landing-principal-high-ticket.mts`, `TARJETAS`) · lo que promete cada plan
+(`lib/planes-mako.ts`, `incluye`) · la tabla (`lib/planes-comparacion.ts`) · el detalle del taller en el journal
+`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/subagents/workflows/wf_081f1b8b-822/journal.jsonl`
+
+Martín vio las 6 tarjetas que elegí («lo que anda hoy, como un equipo») y contestó: «Esas no son las funcionalidades más
+hot... ¿Y el scraper? ¿Y el Avatar con IA? ¿Y la edición?». **El diagnóstico obvio («lo hot es lo que vende el rubro») era
+el equivocado sin el inventario:** lo hot es lo que el cliente VE y le resuelve algo hoy, y eso hay que medirlo pantalla
+por pantalla, no recordarlo. El taller (inventario + lo que vende el rubro + tres jurados) dio 9 tarjetas, 3 x 3.
+
+- **En producción y lo ve el cliente:** el setter de WhatsApp, el CRM automático, Instagram (comentario → DM), el scraper
+  de grupos de WhatsApp (sólo Pro), el Video Editor (sólo Pro), el Web Generator, el media buyer (apagado por defecto),
+  Closing (sólo Pro), el consultor y la grabación de la visita con su mapa de calor.
+- **A medias o sólo para el super admin:** AI Avatar (sólo super admin, sin probar con un look real: entra cuando un
+  cliente lo abra y le salga el video), la difusión (hasta tren-ab), Image con IA, Video Generator, y los otros scrapers
+  (Leads Scraper retirado el 25/10, ce27df948; LinkedIn nunca).
+- **Ya no existe:** crear campañas desde el Ads Manager.
+- **Gana el código, y quedó anotado:** Pro prometía «crea campañas» y «avatares con IA» (/planes dejó de venderlos el
+  28/10, `TABS_TODAVIA_CERRADAS`) y decía «sin topes» con tope de WhatsApp y de personas: corregido en `incluye`. Image
+  Editor y Video Generator se abren por la CAPA (`requireRolWs`), no sólo para el super admin.
+- **Que el código lo abra no alcanza (corregido a la tarde, el Cerebro recorriendo la portada en producción):** yo había
+  dejado en la tabla «Videos para tus anuncios, armados con IA» (✓ en los tres planes) y «Crear y retocar imágenes con IA»
+  porque el código los da. Pero el Video Generator depende de la extensión y de los créditos de Flow del cliente, y al motor
+  nunca se lo midió en vivo; y generar imágenes con IA no existe (`NO_SE_PUEDE_CHAT_IMAGEN`): el editor tipo Canva sí. La
+  fila del video salió, la de imágenes dice «Diseñar tus imágenes sin salir de MaKo», y Pro promete edición de video y de
+  imágenes. Guarda: `tests/portada-high-ticket.test.ts` («no prometen videos ni imágenes hechos con IA»). Sin tocar: la
+  pregunta de la prueba en /planes (Vitrina.tsx) cuenta «1 video con avatar de IA» y «20 imágenes» como TOPES de la prueba;
+  la fija `tests/prueba-topes.test.ts`, y cambiarla es decisión de Planes.
+
+**Regla:** una tarjeta o un renglón de precios sale de un inventario MEDIDO ese día (qué abre el cliente, con qué plan) y
+del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda». Y algo a medias no se
+promete aunque el código lo abra: se vende cuando un cliente lo usó y le salió.

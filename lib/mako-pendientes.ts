@@ -12,22 +12,28 @@ import { getTenantDb, runWithWorkspace } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { pendienteRepetida, MARGEN_RELOJ_MS } from './turno-sin-duplicar';
 import { datosSinMediosEmojis } from './unicode-seguro';
+import { conQuienPidio, sinQuienPidio } from './confirmacion-pura';
 
 export type EstadoPendiente = 'pendiente' | 'confirmada' | 'ejecutada' | 'cancelada' | 'vencida' | 'error';
 export type Pendiente = {
   id: number; grupoJid: string; tipo: string; payload: Record<string, unknown>;
   resumen: string; estado: EstadoPendiente; venceAt: string; origen: string | null; createdAt: string;
+  /** Quién la pidió en el grupo (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); null fuera de un grupo o si no se sabe. */
+  pidio?: string | null;
 };
 
 type Row = {
   id: number; grupo_jid: string; tipo: string; payload: unknown; resumen: string;
   estado: string; vence_at: string; origen: string | null; created_at: string;
 };
-const toP = (r: Row): Pendiente => ({
-  id: r.id, grupoJid: r.grupo_jid, tipo: r.tipo,
-  payload: (r.payload && typeof r.payload === 'object' ? r.payload : {}) as Record<string, unknown>,
-  resumen: r.resumen, estado: r.estado as EstadoPendiente, venceAt: r.vence_at, origen: r.origen, createdAt: r.created_at,
-});
+const toP = (r: Row): Pendiente => {
+  // Quién la pidió viaja en el payload y sale acá: ni la bandeja lo muestra ni la acción lo recibe.
+  const { payload, pidio } = sinQuienPidio((r.payload && typeof r.payload === 'object' ? r.payload : {}) as Record<string, unknown>);
+  return {
+    id: r.id, grupoJid: r.grupo_jid, tipo: r.tipo, payload,
+    resumen: r.resumen, estado: r.estado as EstadoPendiente, venceAt: r.vence_at, origen: r.origen, createdAt: r.created_at, pidio,
+  };
+};
 
 /**
  * Crea una acción pendiente de confirmación (ttl por default 2h). Devuelve el id.
@@ -48,9 +54,14 @@ const toP = (r: Row): Pendiente => ({
 export type PendienteCreada = { id: number } | { error: string };
 export async function crearPendiente(
   ws: number,
-  dataCruda: { grupoJid: string; tipo: string; payload?: Record<string, unknown>; resumen: string; origen?: string; ttlMin?: number; mismoTurnoDesde?: number },
+  dataCruda: {
+    grupoJid: string; tipo: string; payload?: Record<string, unknown>; resumen: string; origen?: string; ttlMin?: number; mismoTurnoDesde?: number;
+    /** Quién la pidió en el grupo (lib/confirmacion-pura.ts, `quienEnElGrupo`): va en el payload y sale al leerla (`toP`). */
+    pidio?: string | null;
+  },
 ): Promise<PendienteCreada> {
-  const data = { ...dataCruda, ...datosSinMediosEmojis({ grupoJid: dataCruda.grupoJid, tipo: dataCruda.tipo, payload: dataCruda.payload ?? {}, resumen: dataCruda.resumen, origen: dataCruda.origen }) };
+  const payloadCrudo = conQuienPidio(dataCruda.payload ?? {}, dataCruda.pidio);
+  const data = { ...dataCruda, ...datosSinMediosEmojis({ grupoJid: dataCruda.grupoJid, tipo: dataCruda.tipo, payload: payloadCrudo, resumen: dataCruda.resumen, origen: dataCruda.origen }) };
   return runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     if (data.mismoTurnoDesde && data.mismoTurnoDesde > 0) {
@@ -184,6 +195,26 @@ export async function reclamarPendiente(ws: number, id: number): Promise<boolean
       .eq('id', id).eq('estado', 'pendiente').gt('vence_at', new Date().toISOString())
       .select('id');
     return (data ?? []).length > 0;
+  });
+}
+
+/**
+ * Lo que MaKo PROPUSO en un grupo los últimos `dias`, ya resuelto (hecho, cancelado, vencido o con error), lo más reciente
+ * primero: el doer lo cuenta como hecho («LO QUE PROPUSISTE O HICISTE AHÍ», lib/doer-hilo.ts). Las vigentes no: ésas ya van
+ * en «ACCIONES PENDIENTES DE CONFIRMACIÓN». Si la base no contesta, ninguna.
+ */
+export async function accionesDelGrupo(
+  ws: number, grupoJid: string, dias = 7, limite = 12,
+): Promise<Array<{ id: number; resumen: string; estado: string; resultado: string | null; created_at: string }>> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('mako_acciones_pendientes')
+      .select('id, resumen, estado, resultado, created_at')
+      .eq('grupo_jid', grupoJid).neq('estado', 'pendiente')
+      .gte('created_at', new Date(Date.now() - dias * 86_400_000).toISOString())
+      .order('created_at', { ascending: false }).limit(limite);
+    if (error) return [];
+    return (data ?? []) as Array<{ id: number; resumen: string; estado: string; resultado: string | null; created_at: string }>;
   });
 }
 

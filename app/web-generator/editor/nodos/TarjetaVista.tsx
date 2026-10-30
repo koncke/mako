@@ -13,8 +13,9 @@
 //   · `.gm-tarjeta-fondo` (el NodeViewWrapper: pinta el fondo propio, detrás);
 //   · `.gm-acento` (la imagen de acento; sin imagen, el hueco «Agregar imagen»);
 //   · `.gm-tarjeta-cuerpo`: el contentDOM de ProseMirror con los bloques (lo marca index.ts);
-//   · los controles de Gamma 5, todos en `.gma` y `contentEditable={false} suppressContentEditableWarning`: la columna de 3
-//     botones a la izquierda POR FUERA del módulo (⋮ opciones y asa · ✨ Ask Agent · ▤ notas),
+//   · los controles de Gamma 5, todos en `.gma` y `contentEditable={false} suppressContentEditableWarning`: la columna a la
+//     izquierda POR FUERA del módulo (⋮ opciones y asa; ▤ notas, sólo en una presentación; el ✨ «Editar con IA» se fue
+//     el 24/10/2026 — el agente de la tarjeta de la izquierda está siempre),
 //     el «+» entre secciones, la mini barra [+ | ✨ | ▾] debajo de la activa y la marca de oculta.
 //
 // ⚠️ Los `data-*` del contrato (`data-diseno`, `data-ancho`…) los escribe index.ts en cada
@@ -37,11 +38,11 @@ import { EditorLandingContext } from '../contexto';
 import { attrsTarjeta, specTarjeta, srcImagen } from '@/lib/editor-landing/especificacion';
 import { varsDeFondoPropio } from '@/lib/editor-landing/temas';
 import { DISENOS_SECCION } from '@/lib/editor-landing/plantillas';
-import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
+import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES, esPresentacion, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { NODO, TOPES, tituloDeTarjeta, type AttrsTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import AskAgent, { type ModoAskAgent } from '../AskAgent';
-import EstiloSeccion, { ESTILO_RESTABLECIDO } from '../paneles/EstiloSeccion';
+import EstiloSeccion, { ESTILO_RESTABLECIDO, escribirFondoDeDiseno } from '../paneles/EstiloSeccion';
 import {
   borrarTarjeta, combinarConAnterior, duplicarTarjeta, insertarDisenoSeccion, insertarTarjetaEn, moverTarjeta, seccionPorId,
 } from '../insertar';
@@ -49,12 +50,15 @@ import { CSS_NODOS } from '../extensiones/estilos-nodos';
 import { Flotante, FilaMenu, Ico, SepMenu, sinRobarFoco } from '../extensiones/piezas';
 import { opcionesLanding } from '../extensiones/plugins';
 import { attrsDeRaiz } from '../extensiones/comun';
+import { rotuloDeSeccion } from '@/lib/editor-landing/html-editable';
 
 /** Los modos del Ask Agent (AskAgent.tsx, paquete I2): editar la sección, probar diseños, agregar una. */
 type ModoAgente = ModoAskAgent;
 
 type Panel =
-  | { tipo: 'menu' | 'notas' | 'estilo' | 'disenos'; ancla: HTMLElement }
+  /** El menú de la sección: desde el ⋮ (su botón) o desde el clic derecho sobre la sección (el punto del clic). */
+  | { tipo: 'menu'; ancla: HTMLElement | { x: number; y: number } }
+  | { tipo: 'notas' | 'estilo' | 'disenos'; ancla: HTMLElement }
   | { tipo: 'agente'; ancla: HTMLElement; modo: ModoAgente };
 
 /** El contenedor que scrollea al lienzo (para el auto-scroll del arrastre). */
@@ -90,12 +94,16 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
   const estiloSeccion = attrsDeRaiz(spec).style;
   const estiloFondo = (spec.slice(1).find((h) => Array.isArray(h) && (attrsDeRaiz(h as typeof spec).class ?? '') === 'gm-tarjeta-fondo') as typeof spec | undefined);
   const cssFondo = estiloFondo ? attrsDeRaiz(estiloFondo).style : undefined;
+  // El rótulo de la franja mientras se reordena (estilos-nodos.ts): sin él, la franja de una sección de diseño es su
+  // margen de arriba, en blanco, y no se sabe cuál es cuál (medido en producción el 26/10/2026).
+  const rotulo = rotuloDeSeccion(node.toJSON() as JsonNodo);
   useLayoutEffect(() => {
     const sec = fondoRef.current?.parentElement;
     if (!sec) return;
     if (estiloSeccion) sec.setAttribute('style', estiloSeccion); else sec.removeAttribute('style');
     if (activa) sec.setAttribute('data-activa', 'si'); else sec.removeAttribute('data-activa');
-  }, [estiloSeccion, activa]);
+    if (rotulo) sec.setAttribute('data-rotulo', rotulo); else sec.removeAttribute('data-rotulo');
+  }, [estiloSeccion, activa, rotulo]);
 
   // ── Escribir atributos: UNA transacción por gesto, cada una su paso de deshacer ──
   const setAttrs = useCallback((cambios: Partial<AttrsTarjeta>, cerrar = true) => {
@@ -237,11 +245,14 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
     g.linea?.remove();
     fondoRef.current?.parentElement?.removeAttribute('data-arrastrando');
     document.body.style.removeProperty('cursor');
+    document.body.removeAttribute('data-gm-reordenando');
     if (!g.arrastrando) return;
     trasArrastre.current = true;
-    if (soltar && g.destino !== g.desde && g.destino !== g.desde + 1) {
-      moverTarjeta(editor, g.desde, g.destino > g.desde ? g.destino - 1 : g.destino);
-    }
+    const a = g.destino > g.desde ? g.destino - 1 : g.destino;
+    if (soltar && g.destino !== g.desde && g.destino !== g.desde + 1) moverTarjeta(editor, g.desde, a);
+    // Las secciones vuelven a su alto: se ve la que se movió, donde quedó.
+    const queda = soltar && g.destino !== g.desde && g.destino !== g.desde + 1 ? a : g.desde;
+    requestAnimationFrame(() => secciones()[queda]?.scrollIntoView({ block: 'start' }));
   };
   useEffect(() => () => terminarArrastre(false), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -282,6 +293,29 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
   // El panel que se abre desde el menú se ancla al ⋮ (el menú se cierra al elegir).
   const asaRef = useRef<HTMLButtonElement | null>(null);
   const desdeMenu = (accion: () => void) => () => { setPanel(null); accion(); };
+  /** El ancla de lo que se abre desde el menú: el ⋮ (aunque el menú se haya abierto con el clic derecho, en otro punto). */
+  const anclaSub = (): HTMLElement => asaRef.current ?? (panel && panel.ancla instanceof HTMLElement ? panel.ancla : fondoRef.current!);
+
+  /**
+   * EL CLIC DERECHO SOBRE LA SECCIÓN (24/10/2026, Martín: «en el lienzo de Web tambien debería funcionar el click derecho,
+   * como en otros editores»; docs/diseno-editor-web-como-automations.md §5): abre el MISMO menú del ⋮, en el punto del
+   * clic, como Canva. Quedan con el menú del navegador: con Shift (la salida de siempre de los editores), y con texto
+   * elegido adentro de la sección (copiar, pegar, el corrector). Un bloque de adentro que ya atendió el clic derecho
+   * (`defaultPrevented`) se queda con el suyo.
+   */
+  useEffect(() => {
+    const seccion = fondoRef.current?.parentElement;
+    if (!seccion || !editable) return;
+    const alClicDerecho = (e: MouseEvent) => {
+      if (e.shiftKey || e.defaultPrevented) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.anchorNode && seccion.contains(sel.anchorNode)) return;
+      e.preventDefault();
+      setPanel({ tipo: 'menu', ancla: { x: e.clientX, y: e.clientY } });
+    };
+    seccion.addEventListener('contextmenu', alClicDerecho);
+    return () => seccion.removeEventListener('contextmenu', alClicDerecho);
+  }, [editable]);
 
   // El hero con VIDEO de fondo (animaciones.ts, `VideoFondo`) se dibuja con su póster, como en el render del editor
   // (especificacion.ts, `acentoConVideo`): el video sólo corre en la publicada. Hoy ninguna pantalla pone un
@@ -358,6 +392,7 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
         <>
           {/* La columna de Gamma 5, por fuera del módulo a la izquierda */}
           <div className="gma gmc gmc-lado" contentEditable={false} suppressContentEditableWarning data-abierto={panel ? '' : undefined}>
+            <div className="gmc-lado-in">
             <button
               ref={asaRef}
               type="button"
@@ -390,6 +425,11 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
                   g.scroll = contenedorConScroll(editor.view.dom as HTMLElement);
                   fondoRef.current?.parentElement?.setAttribute('data-arrastrando', 'si');
                   document.body.style.cursor = 'grabbing';
+                  // Las secciones, en franjas (estilos-nodos.ts): entran todas. La que se arrastra queda bajo el puntero.
+                  document.body.setAttribute('data-gm-reordenando', 'si');
+                  const sec = fondoRef.current?.parentElement;
+                  const r = sec?.getBoundingClientRect();
+                  if (r) g.scroll.scrollBy({ top: r.top + Math.min(r.height, 132) / 2 - g.yPuntero });
                   g.raf = requestAnimationFrame(autoScroll);
                 }
                 ubicarLinea();
@@ -408,14 +448,16 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
             >
               <Ico n="puntos-vertical" />
             </button>
-            <button type="button" className="gmc-btn gmc-tip" data-tip="Editar con IA" aria-label="Editar la sección con IA" aria-expanded={panel?.tipo === 'agente' && panel.modo === 'editar'}
-              onMouseDown={sinRobarFoco} onClick={(e) => abrir('agente', e.currentTarget, 'editar')}>
-              <Ico n="destellos" />
-            </button>
-            <button type="button" className="gmc-btn gmc-tip" data-tip="Notas del orador" aria-label="Notas del orador" aria-expanded={panel?.tipo === 'notas'}
-              data-con-notas={a.notas ? '' : undefined} onMouseDown={sinRobarFoco} onClick={(e) => abrir('notas', e.currentTarget)}>
-              <Ico n="notas" />
-            </button>
+            {/* (Acá estaba ✨ «Editar con IA»: se fue el 24/10/2026. Martín: «Hay un botón que dice "Editar con IA" eso
+                eliminalo... Por defecto siempre esta el editor de IA», el chat de la tarjeta de la izquierda.) Las notas del
+                orador son de una presentación: en una landing quedan sólo en el ⋮, y la columna es UN botón. */}
+            {esPresentacion(ctx?.config ?? {}) && (
+              <button type="button" className="gmc-btn gmc-tip" data-tip="Notas del orador" aria-label="Notas del orador" aria-expanded={panel?.tipo === 'notas'}
+                data-con-notas={a.notas ? '' : undefined} onMouseDown={sinRobarFoco} onClick={(e) => abrir('notas', e.currentTarget)}>
+                <Ico n="notas" />
+              </button>
+            )}
+            </div>
           </div>
 
           {/* El «+» del hueco de arriba: una sección en blanco ACÁ */}
@@ -458,18 +500,22 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
           <FilaMenu icono="duplicar" texto={`Duplicar ${uno}`} onClick={desdeMenu(() => { duplicarTarjeta(editor, id); })} />
           <FilaMenu icono="flecha-arriba" texto="Combinar con lo anterior" apagado={iMenu <= 0} onClick={desdeMenu(() => { combinarConAnterior(editor, id); })} />
           <SepMenu />
-          <FilaMenu icono="paleta" texto="Cambiar el color de fondo" onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
-          <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
+          <FilaMenu icono="paleta" texto="Cambiar el color de fondo" onClick={() => setPanel({ tipo: 'estilo', ancla: anclaSub() })} />
+          <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: anclaSub() })} />
           {/* El panel «Animar» en la vista de ESTA sección (paneles/PanelAnimacion.tsx). */}
           {ctx && <FilaMenu icono="brillo" texto={`Animar ${uno}`} onClick={desdeMenu(() => ctx.abrirAnimar('seccion', id))} />}
-          <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => setAttrs(ESTILO_RESTABLECIDO))} />
-          <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: asaRef.current ?? panel.ancla })} />
+          {/* En una sección de diseño, también vuelve su fondo al del diseño (está en su HTML: paneles/EstiloSeccion.tsx). */}
+          <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => {
+            setAttrs(ESTILO_RESTABLECIDO);
+            escribirFondoDeDiseno(editor, id, null, ctx?.config.diseno?.css ?? '');
+          })} />
+          <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: anclaSub() })} />
           <FilaMenu icono="enlace" texto="Copiar enlace" onClick={desdeMenu(copiarEnlace)} />
           <SepMenu />
           <FilaMenu icono="chevron-arriba" texto="Mover arriba" apagado={iMenu <= 0} onClick={desdeMenu(() => { moverTarjeta(editor, iMenu, iMenu - 1); })} />
           <FilaMenu icono="chevron-abajo" texto="Mover abajo" apagado={iMenu < 0 || iMenu >= n - 1} onClick={desdeMenu(() => { moverTarjeta(editor, iMenu, iMenu + 1); })} />
           <FilaMenu icono={a.oculta ? 'ojo' : 'ojo-tachado'} texto={a.oculta ? 'Mostrar' : 'Ocultar'} onClick={desdeMenu(() => setAttrs({ oculta: !a.oculta }))} />
-          <FilaMenu icono="varita" texto="Probar nuevo diseño" onClick={() => setPanel({ tipo: 'agente', ancla: asaRef.current ?? panel.ancla, modo: 'disenos' })} />
+          <FilaMenu icono="varita" texto="Probar nuevo diseño" onClick={() => setPanel({ tipo: 'agente', ancla: anclaSub(), modo: 'disenos' })} />
           <SepMenu />
           <FilaMenu icono={<IconoBorrar size={16} />} texto="Eliminar" peligro onClick={desdeMenu(eliminar)} />
         </Flotante>

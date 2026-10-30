@@ -54,7 +54,7 @@ import { entraAEtapaDeReunion } from './nutricion-familias';
 import { limpiaEtapaAlReservar } from './nutricion-etapa';
 import type { InformeMovimiento } from './reentrada';
 import type { Stage, StageDerivable } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, etapaContradiceElEstado, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
 // LEAD (no el del negocio): lo que valida un movimiento son los requisitos del
 // recorrido de ESE lead.
@@ -69,7 +69,7 @@ import { faltaColumnaNuevaDelAlta, sinColumnasNuevas, traeColumnasNuevas } from 
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
 import { etapaVigenteDe } from './funnel-etapas';
-import { avanceDe, esEventoDeVideo } from './vsl-retencion';
+import { avanceDe, duracionesDeEventos, esEventoDeVideo } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
 import { limpiaNoShow, textoNoShow } from './reagenda-no-show';
 import { cachedRead, TAG, TTL } from './cache';
@@ -488,9 +488,12 @@ async function filasDeAgregados(supabase: SupabaseClient, funnelId: number | nul
   try {
     const id = funnelId ?? (await idDelFunnelDefault());
     if (id == null) return null;
-    const { data, error } = await supabase.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', id);
-    if (error) throw new Error(error.message);
-    return { id, filas: (data ?? []) as Array<{ lead_id: number | string; etapa: string }> };
+    // ⚠️ PAGINADO (28/10/2026, ticket #21: «más de 1000 no se trunca»): con un `select` solo, PostgREST devolvía las
+    // primeras 1.000 filas y callaba; un CRM con 1.200 agregados dibujaba 1.000, y la casilla de la columna tildaba 1.000.
+    const filas = await leerTodo<{ lead_id: number | string; etapa: string }>(supabase, 'lead_funnel', 'lead_id, etapa', {
+      orden: 'id', filtros: (q) => q.eq('funnel_id', id),
+    });
+    return { id, filas };
   } catch (e) {
     console.warn('[leads] no pude leer los agregados del tablero:', e instanceof Error ? e.message : e);
     return null;
@@ -1012,8 +1015,17 @@ async function casaParaElAlta(supabase: SupabaseClient, pedido: number | null | 
   }
 }
 
-export async function createLead(input: LeadCreateInput & { permitirDuplicado?: boolean }): Promise<Lead> {
-  if (!input.nombre || !input.nombre.trim()) {
+export async function createLead(input: LeadCreateInput & {
+  permitirDuplicado?: boolean;
+  /**
+   * Puede nacer SIN nombre si trae por dónde contactarlo (27/10/2026, Martín: «en NOMBRE se pone el teléfono»). Lo usa el
+   * alta desde un chat: sin el nombre de la agenda ni uno que el contacto se haya puesto, el lead nace con el nombre vacío
+   * (la ficha dice «Sin nombre») y no con sus dígitos (`nombreParaAlta`, lib/contacto-lead.ts).
+   */
+  nombreOpcional?: boolean;
+}): Promise<Lead> {
+  const sinNombrePermitido = input.nombreOpcional === true && !!(input.telefono?.trim() || input.email?.trim());
+  if ((!input.nombre || !input.nombre.trim()) && !sinNombrePermitido) {
     throw new Error('Nombre es requerido');
   }
   if (!input.permitirDuplicado) {
@@ -1026,7 +1038,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
   // Uno ajeno (o que no se pudo comprobar) nace en el CRM del negocio, con su log (`casaDelAlta`).
   const casa = await casaParaElAlta(supabase, input.funnel_id);
   const fila: Record<string, unknown> = {
-      nombre: input.nombre.trim(),
+      nombre: (input.nombre ?? '').trim(),
       email: input.email?.trim() || null,
       telefono: input.telefono?.trim() || null,
       // Sin esto el lead manual nunca matchea su chat de WhatsApp ni el
@@ -1111,8 +1123,12 @@ export async function updateLead(
    * (`revertMoveAction`, `revertAuditChangeAction`): lo que vuelve es una foto de antes, armada con
    * `desenlaceAntesDelMovimiento` (lib/lead-desenlace.ts), no una decisión sobre la venta. Pasado por la
    * regla, volver un lead de «Facturando» de un Ganado por error le borraba el monto (17/10/2026).
+   *
+   * `etapaAparte` = el caller escribe la columna del tablero él mismo, justo después (`setPipelineStage`, el Deshacer de
+   * un movimiento con su etapa): sin esto, un cambio de estado que contradice la columna guardada la vuelve a la
+   * derivación (`etapaContradiceElEstado`, lib/pipeline.ts: el lead 2371, «ganado» en la columna de Perdido).
    */
-  opts?: { disparoDeEtapa?: boolean; desenlaceExacto?: Desenlace },
+  opts?: { disparoDeEtapa?: boolean; desenlaceExacto?: Desenlace; etapaAparte?: boolean },
 ): Promise<Lead> {
   const supabase = (await getTenantDb());
 
@@ -1208,6 +1224,12 @@ export async function updateLead(
     monto_primer_pago: merged.monto_primer_pago,
     total_cobrado_usd: merged.total_cobrado_usd,
     fecha_inicio_servicio: merged.fecha_inicio_servicio,
+    // ⚠️ EL ESTADO CAMBIÓ Y LA COLUMNA GUARDADA DICE OTRA COSA: la tarjeta vuelve a la derivación, que sale del estado
+    // nuevo (27/10/2026, el lead 2371: ganado por un camino que no mueve, con la tarjeta en «Perdido»). Sólo si el estado
+    // cambia en ESTE guardado: un lead ya descalzado no se «arregla» hacia un lado al re-guardar otro campo.
+    ...(opts?.etapaAparte !== true && merged.estado_lead !== actual.estado_lead && etapaContradiceElEstado(actual.pipeline_stage, merged.estado_lead)
+      ? { pipeline_stage: null }
+      : {}),
   };
 
   const { data, error } = await supabase
@@ -1460,7 +1482,14 @@ export async function upsertLeadFromMeta(input: {
   meta_created_at?: string | number | null;
   /** Los `name` que el parser no reconoció. Van al historial del lead, no a una pantalla nueva. */
   meta_campos_no_reconocidos?: string[];
-}): Promise<{ created: boolean; lead: Lead }> {
+}, opc: {
+  /**
+   * Sólo crear (el barrido de Zernio, lib/zernio-leads-barrido.ts): si la persona YA es un lead (por teléfono o email), se devuelve
+   * ésa SIN TOCARLA (`created: false`). Sin esto, una persona con dos formularios tenía la ficha yendo y viniendo entre los dos
+   * `meta_lead_id` en cada pasada, perdía la campaña y avisaba «lead fusionado» cada media hora (revisión de privacidad, 29/10, M3).
+   */
+  noTocarExistente?: boolean;
+} = {}): Promise<{ created: boolean; lead: Lead }> {
   if (!input.meta_lead_id) {
     throw new Error('meta_lead_id es requerido');
   }
@@ -1489,6 +1518,7 @@ export async function upsertLeadFromMeta(input: {
   let existing: Lead | null = null;
   if (telNorm) existing = await primerLeadPorTelefono(supabase, telNorm, 'instant form de Meta', emailNorm);
   if (!existing && emailNorm) existing = await primerLeadPor(supabase, 'email', emailNorm, 'instant form de Meta');
+  if (existing && opc.noTocarExistente) return { created: false, lead: existing };
 
   // Campos de Meta — siempre se escriben (es info nueva de atribución)
   //
@@ -1790,9 +1820,9 @@ export async function applyFathomRecording(
 
   if (!markedAsistencia && !addedLink) return { markedAsistencia: false, addedLink: false };
 
-  // La asistencia pasa por updateLead → dispara Meta CAPI QualifiedLead si el lead
-  // ya estaba calificado (antes el UPDATE directo bypaseaba el CAPI). Los links no
-  // son campo de updateLead, así que van por update directo.
+  // La asistencia pasa por updateLead (sus reglas y su historial). Desde el 05/10/2026 la asistencia ya NO manda
+  // eventos a Meta: sólo `calificado` dispara el CAPI (revisión del tren m, 26/10/2026: este comentario decía lo
+  // contrario). Los links no son campo de updateLead, así que van por update directo.
   if (markedAsistencia) {
     await updateLead(lead.id, which === 'j1' ? { asistio_j1: asistValue } : { asistio_j2: asistValue });
   }
@@ -2508,6 +2538,29 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
   } catch (e) {
     console.error('[getDuracionesVsl] falló:', e instanceof Error ? e.message : e);
   }
+  // ⚠️ Y LA DE CUALQUIER OTRO ALOJADOR, DE LOS EVENTOS DEL PROPIO PIXEL (25/10/2026). Hasta acá sólo había duración de
+  // Panda, y sólo con su API conectada: un video de Vimeo, YouTube, Wistia, Bunny, Cloudflare o uno propio no tenía con
+  // qué volver porcentaje sus segundos. Lo de Panda manda (es la de su API); esto completa lo que falta. Los 90 días más
+  // nuevos, 1.000 filas como mucho (el tope de PostgREST): para una mediana alcanza. Un player sin identificar
+  // (`iframeN`) no es un video: no se le inventa duración.
+  try {
+    const supabase = await getTenantDb();
+    const desde = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const { data } = await supabase
+      .from('vsl_events')
+      .select('video_id, porcentaje, segundos')
+      .gte('created_at', desde)
+      .gte('porcentaje', 25)
+      .gt('segundos', 0)
+      .not('video_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    const filas = ((data ?? []) as Array<{ video_id: string | null; porcentaje: number | null; segundos: number | null }>)
+      .filter((r) => !/^iframe\d+$/.test(r.video_id?.trim() ?? ''));
+    for (const [vid, dur] of duracionesDeEventos(filas)) if (!out.has(vid)) out.set(vid, dur);
+  } catch (e) {
+    console.error('[getDuracionesVsl] los eventos del Pixel fallaron:', e instanceof Error ? e.message : e);
+  }
   return out;
 }
 
@@ -2542,7 +2595,10 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
 // `lib/video-id.ts`, que es el que conoce los prefijos que el repo escribe.
 
 function resolverDuracion(videosEnJuego: Set<string>, durs: Map<string, number>): (videoId: string | null | undefined) => number | null {
-  const unica = durs.size === 1 ? [...durs.values()][0] : null;
+  // «La única duración conocida» es la ÚNICA DE PANDA (un id sin alojador): desde el 25/10/2026 también hay duraciones
+  // de otros alojadores (de los eventos del Pixel), y contarlas apagaba el respaldo de Panda aunque hubiera un solo video.
+  const dePanda = [...durs].filter(([k]) => !idDeclaraHost(k));
+  const unica = dePanda.length === 1 ? dePanda[0][1] : null;
   const hayUnoSolo = videosEnJuego.size <= 1;
   return (videoId) => {
     const v = videoId?.trim();
@@ -2807,6 +2863,10 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
       supabase.from('vsl_events')
         .select('created_at, tipo_evento, porcentaje, event, video_id, vsl_titulo, detalle')
         .eq('visitor_id', visitorId)
+        // ⚠️ El evento `secciones` del Pixel v26 (25/10/2026) se saca EN LA BASE, no abajo: el `.limit` corta antes del
+        // filtro de JS, y cada fila suya le quitaba el lugar a un clic o a un play de la ficha. Con `or` y no con `neq`:
+        // un `neq` también tira las filas viejas sin `tipo_evento` (NULL <> 'x' no es verdadero en SQL).
+        .or('tipo_evento.is.null,tipo_evento.neq.secciones')
         .order('created_at', { ascending: false })
         .limit(limit),
     ]);
@@ -3125,7 +3185,7 @@ export async function setPipelineStage(
   // (El disparo de la etapa DERIVADA de `updateLead`, M1-b, no se cruza con este movimiento: un cambio de estado no
   // dispara, y sin cambio de estado —traiga o no `estado_lead` el `sync`— sólo una asistencia que se limpia —el
   // «Reagenda R1»— lo deja en «Agenda R1», que es justo la etapa que se escribe abajo.)
-  await updateLead(id, sync);
+  await updateLead(id, sync, { etapaAparte: true });
 
   // 2) Guardar el override de la columna del tablero. El deadline de nutrición
   //    manual solo vive mientras el lead está en 'manual'; al moverlo a cualquier

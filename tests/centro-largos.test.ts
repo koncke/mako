@@ -51,18 +51,19 @@ test('2. la caja ofrece más de 8000 sólo si el Runner de esa cuenta lo acepta'
   assert.equal(aceptaTextoLargo(null), false);
   const motor = leer('app/admin/operaciones/useCentro.ts');
   assert.match(motor, /aceptaTextoLargo\(k\.version\)\) \? MAX_TEXTO_LARGO : MAX_TEXTO/, 'el tope sale de la versión del Runner');
-  assert.match(motor, /titulo: c\.titulo, tope: topeDe\(c\) \}, texto, 'solo_esto', como, subidos\)/, 'la caja lo usa al mandar');
-  assert.match(leer('app/admin/operaciones/mandar.ts'), /const tope = d\.tope \?\? MAX_TEXTO;/, 'sin tope, el de siempre');
+  assert.match(motor, /const tope = topeDe\(c\);[\s\S]*titulo: c\.titulo, tope \}, texto, 'solo_esto', como, subidos, voz\)/, 'la caja lo usa al mandar');
+  assert.match(leer('app/admin/operaciones/mandar.ts'), /tope: number = MAX_TEXTO\): string \| null \{/, 'sin tope, el de siempre');
 });
 
-test('3. lo que escribió Martín no se corta; lo demás, a 4000 como siempre', async () => {
+test('3. lo que escribió Martín no se corta; y desde el 25/10/2026 lo que contesta el chat tampoco (tests/turnos-enteros)', async () => {
   const largo = 'y'.repeat(12_000);
   const [yo, el] = sanearTurnos([
     { local: S, uuid: 'u-yo-00000001', rol: 'yo', de: null, texto: largo, at: '2026-10-18T12:00:00Z', trabajo: null },
     { local: S, uuid: 'u-el-00000001', rol: 'el', de: null, texto: largo, at: '2026-10-18T12:01:00Z', trabajo: null },
   ]);
   assert.equal(yo.texto.length, 12_000, 'MaKo guarda entero lo de Martín');
-  assert.equal(el.texto.length, TOPE_TURNO);
+  assert.equal(el.texto.length, 12_000, 'y lo del chat (hasta el 25/10 se cortaba a 4000)');
+  assert.ok(TOPE_TURNO >= 200_000, 'el tope es técnico, no un corte');
   const { turnosDeLineas } = await import('../scripts/operaciones/cartero.mjs');
   const linea = JSON.stringify({ type: 'user', uuid: 'u-yo-00000002', timestamp: '2026-10-18T12:02:00Z', message: { content: largo } });
   assert.equal(turnosDeLineas([linea]).turnos[0].texto.length, 12_000, 'y la PC lo sube entero');

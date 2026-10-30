@@ -29,6 +29,7 @@ import { getResumenLead, type LlamadaResumen } from '@/lib/lead-resumen';
 import { estadoDelAnalisis } from '@/lib/closing-job';
 import { AnalizarLlamada } from './AnalizarLlamada';
 import { workspaceDeLeadParaAdmin } from '@/lib/leads';
+import { destinoDelResumen } from '../../layout-reglas';
 import { getPipelineStagesDeLead } from '@/lib/funnels';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { deriveStageKey, stageMetaOpt, DEFAULT_STAGES, type Stage } from '@/lib/pipeline';
@@ -179,7 +180,8 @@ async function ResumenAjeno({ leadId }: { leadId: number }) {
     workspaceDeLeadParaAdmin(leadId),
     getWorkspaceActual().catch(() => null),
   ]);
-  if (wsDueno != null && wsDueno !== wsActual) redirect(`/crm/${leadId}/resumen?ws=${wsDueno}`);
+  // En una carga directa ya redirigió app/crm/layout.tsx, antes del loader; esto queda para cuando se llega navegando.
+  if (wsDueno != null && wsDueno !== wsActual) redirect(destinoDelResumen(leadId, wsDueno));
 
   return (
     <Pagina densidad="compacta">

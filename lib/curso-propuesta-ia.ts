@@ -29,7 +29,8 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { chatClaude } from './anthropic';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
-import { fetchMeetingContent, type FathomMeeting } from './fathom-api';
+import { leerReunionPorClave } from './grabadores';
+import type { TurnoReunion } from './grabadores/reunion';
 import { transcriptWithSeconds } from './closing';
 import { modeloDeFeature } from './model-registry';
 import { provsDe, type ProvName } from './ai-cheap';
@@ -77,7 +78,9 @@ const MAX_TOKENS = 16_000;
 const TOPE_TRANSCRIPT = 150_000;
 
 /** Lo que el análisis de la sesión ya tenía en la mano: así no se le vuelve a pedir a Fathom. */
-export type SesionEnMemoria = { items: NonNullable<FathomMeeting['transcript']>; resumenFathom: string | null };
+/** La transcripción y el resumen de una sesión, de cualquier grabador (lib/grabadores, 26/10/2026). `resumenFathom`
+ *  quedó con su nombre: es la variable del prompt (lib/prompt-registry.ts). */
+export type SesionEnMemoria = { items: TurnoReunion[]; resumenFathom: string | null };
 
 export type ResultadoPropuestas = {
   /** Sesiones miradas (y marcadas) en esta corrida. */
@@ -170,12 +173,12 @@ async function candidatasDeLead(leadId: number, sesionAt: number): Promise<Candi
   return out;
 }
 
-/** El transcript y el resumen de Fathom: de la memoria del análisis, o bajados de nuevo. */
+/** El transcript y el resumen del grabador: de la memoria del análisis, o bajados de nuevo. */
 async function sesionDe(recordingId: number, cache: ReadonlyMap<number, SesionEnMemoria> | undefined): Promise<SesionEnMemoria> {
   const ya = cache?.get(recordingId);
   if (ya) return ya;
-  const m = await conPlazo(fetchMeetingContent({ recording_id: recordingId }), TOPE_FATHOM_MS, 'Fathom');
-  return { items: m.transcript ?? [], resumenFathom: m.default_summary?.markdown_formatted?.trim() || null };
+  const m = await conPlazo(leerReunionPorClave(recordingId), TOPE_FATHOM_MS, 'El grabador');
+  return { items: m.transcripcion ?? [], resumenFathom: m.resumen?.trim() || null };
 }
 
 /**
@@ -184,7 +187,7 @@ async function sesionDe(recordingId: number, cache: ReadonlyMap<number, SesionEn
  */
 async function proponerSobre(s: FilaSesion, cands: Candidata[], deadline: number, cache: ReadonlyMap<number, SesionEnMemoria> | undefined): Promise<{ escritas: number; nota: string }> {
   const ses = await sesionDe(s.recording_id, cache);
-  if (!ses.items.some((it) => (it.text ?? '').trim())) return { escritas: 0, nota: 'sin transcript: no hay de dónde proponer' };
+  if (!ses.items.some((it) => (it.texto ?? '').trim())) return { escritas: 0, nota: 'sin transcript: no hay de dónde proponer' };
 
   const metadatos = [
     `Título: ${s.title?.trim() || '(sin título)'}`,

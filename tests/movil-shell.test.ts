@@ -210,8 +210,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
   // Las secciones de More vuelven a More; sus subpantallas, a la sección.
   assert.deepEqual(cabeceraPorRuta('/m/dashboard'), t('Dashboard', { href: '/m/mas', label: 'More' }));
-  // «Clients» desde el 17/10/2026 (la sidebar nueva: los nombres de las tabs en inglés).
-  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clients', { href: '/m/mas', label: 'More' }));
+  // «Clients» desde el 17/10/2026 (la sidebar nueva: los nombres de las tabs en inglés); «Classroom» desde el 25/10/2026.
+  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Classroom', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
   // «My Profile» desde el 17/10/2026 noche (lib/ajustes-secciones.ts, en inglés como las tabs).
@@ -223,7 +223,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   // «Ops Center» desde el 18/10/2026 (la fila del negocio se llama así: nav.ts → MAKO_NAV). Desde el 20/10/2026 es el lugar
   // del medio de la barra: una raíz de trabajo, que CONSERVA la barra (sin ella no hay salida).
   assert.deepEqual(cabeceraPorRuta('/m/second-brain/mapa').padre, { href: '/m/second-brain', label: 'Ops Center' });
-  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video' }, true, false));
+  // «Video Generator» desde el 29/10/2026: la fila «Video» abre el editor; /m/video es la lista de lo generado.
+  assert.deepEqual(cabeceraPorRuta('/m/video/7'), t('', { href: '/m/video', label: 'Video Generator' }, true, false));
   assert.deepEqual(cabeceraPorRuta('/m/landing/3'), t('', { href: '/m/landing', label: 'Web Generator' }, true, false));
   assert.equal(esTrabajo('/m/video'), false, 'la LISTA de videos es una sección normal');
   // El chat de WhatsApp de un lead: de trabajo desde el server, y vuelve a SU ficha.

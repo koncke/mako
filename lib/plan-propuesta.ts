@@ -25,6 +25,7 @@ import { tipoDeResponsable } from '@/lib/reunion-reparto';
 import type { Pregunta, TipoPregunta } from '@/lib/preguntas-contrato';
 import { corregirMarca } from '@/lib/mako-gramatica';
 import type { Prio, Fuente, FuenteTipo } from '@/app/plan/board/types';
+import { esGrabador } from './grabadores/reunion';
 
 import { tableroDeCapa } from './tablero-de-capa';
 import { recortarPrueba } from './cierre-tarjeta';
@@ -54,6 +55,9 @@ export type PropuestaTarea = {
   // dentro del borrador para que el modal de confirmación muestre las mismas tabs
   // (Mías + una por colaborador) que la extracción manual.
   dueno?: string; duenoEmail?: string; esDeOtro?: boolean;
+  /** El dueño salió SÓLO de la etiqueta del hablante, que Fathom cruza (lib/tarea-dueno.ts, `duenoPorLaEtiqueta`): la
+   *  persona lo confirma antes de que se le mande a nadie. Se apaga cuando lo confirma o lo cambia. */
+  duenoDudoso?: boolean;
   /**
    * «Se repite para siempre» (mig 0163): la reunión de los miércoles, el seguimiento
    * diario. Viaja DESDE LA EXTRACCIÓN hasta el alta, porque una tarea tiene que poder
@@ -156,7 +160,7 @@ export type Propuesta = {
   fuenteTitulo?: string; fuenteUrl?: string;
   /** CUÁNDO fue la reunión (ISO). Distinto de createdAt, que es cuándo la leyó MaKo. */
   fuenteFecha?: string;
-  /** clave del hecho que la generó (fathom:<recordingId>) — candado anti-duplicado. */
+  /** clave del hecho que la generó (fathom:<recordingId>, loom:<id>…) — candado anti-duplicado. */
   ref?: string;
   /** las que ya se cargaron al plan desde este borrador (sigue abierto por las de otros). */
   aplicadas?: PropuestaAplicada[];
@@ -221,6 +225,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     dueno: o.dueno ? str(o.dueno).trim().slice(0, 80) : undefined,
     duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
     esDeOtro: o.esDeOtro === true ? true : undefined,
+    duenoDudoso: o.duenoDudoso === true ? true : undefined,
     minuto: Number.isFinite(Number(o.minuto)) && Number(o.minuto) >= 0 ? Math.round(Number(o.minuto)) : undefined,
     minutos: Array.isArray(o.minutos)
       ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)
@@ -271,7 +276,7 @@ export type CrearPropuestaDraft = {
   fuenteTitulo?: string; fuenteUrl?: string; fuenteFecha?: string;
   /** el cliente de la reunión, si lo era (resolverClienteDeReunion). */
   clienteNombre?: string; clienteLeadId?: number;
-  /** clave anti-duplicado (fathom:<recordingId>). Si ya existe una con esta ref en el ws, no crea otra. */
+  /** clave anti-duplicado (fathom:<recordingId>, loom:<id>…). Si ya existe una con esta ref en el ws, no crea otra. */
   ref?: string;
   /** workspace destino. Por defecto el del request; se pasa explícito para MANDARLE tareas a otra persona. */
   ws?: number;
@@ -696,7 +701,9 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
       // La FUENTE de cada tarea: de qué reunión salió y EN QUÉ MINUTO se dijo. Con eso,
       // el chip del detalle de la tarjeta abre la grabación parada en ese segundo — el
       // contexto queda a un click para siempre, no solo mientras se revisa el borrador.
-      const fuenteTipo = (['whatsapp', 'fathom', 'mako', 'archivo', 'claude-code'].includes(str((data as Row).origen)) ? str((data as Row).origen) : 'whatsapp') as FuenteTipo;
+      // Una reunión de CUALQUIER grabador (lib/grabadores, 26/10/2026) es su propio origen: «loom» no cae a WhatsApp.
+      const origenFila = str((data as Row).origen);
+      const fuenteTipo = (esGrabador(origenFila) || ['whatsapp', 'mako', 'archivo', 'claude-code'].includes(origenFila) ? origenFila : 'whatsapp') as FuenteTipo;
       const tituloFuente = prop?.fuenteTitulo?.trim() ?? '';
       const urlFuente = prop?.fuenteUrl?.trim() ?? '';
       const reloj = (seg: number): string => (seg >= 3600
@@ -804,7 +811,7 @@ export async function aplicarPropuestas(lotes: LoteAplicar[]): Promise<Resultado
           }
         }
         if (aAmpliar.length) {
-          const n = await ampliarTareasCliente(aAmpliar.map((a) => ({ id: Number(a.id), detalle: a.detalle })), fuenteTipo === 'fathom' ? 'de la reunión' : 'MaKo')
+          const n = await ampliarTareasCliente(aAmpliar.map((a) => ({ id: Number(a.id), detalle: a.detalle })), esGrabador(fuenteTipo) ? 'de la reunión' : 'MaKo')
             .catch((e) => { console.error('[plan-propuesta] ampliar cliente:', e instanceof Error ? e.message : String(e)); return 0; });
           ampliadas += n;
           for (const a of aAmpliar) creadas.push({ titulo: a.titulo, tareaId: a.id });

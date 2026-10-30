@@ -33,10 +33,37 @@ export type GrupoWA = { jid: string; nombre: string; tamano: number | null };
  * Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país), su nombre si se conoce, y su `@lid`
  * (el alias interno de WhatsApp: con él la agenda de la línea guarda a muchos contactos, y por ahí también sale el nombre).
  */
-export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: string | null };
+export type ParticipanteWA = {
+  telefono: string; nombre: string | null; lid?: string | null;
+  /** Admin del grupo (Evolution: `admin: 'admin' | 'superadmin'`). «Ignorar admins» (Martín, 26/10/2026) los destilda. */
+  admin?: boolean;
+};
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
+/**
+ * ⚠️ LA LISTA COMPLETA TARDA MÁS QUE ESE TOPE (medido el 25/10/2026 en la línea de la plataforma, 285 grupos: `fetchAllGroups`
+ * contestó en 33 s, y `findChats` en 0,5 s con sólo 61). Martín: «el cargar los grupos, tarda muchísimo». Con el tope de 15 s
+ * la persona esperaba 15 s para terminar con 61 de 285. Ahora: al abrir, lo GUARDADO de la última vez (o, la primera vez, los
+ * de la base, al instante), y la lista completa se pide APARTE, con este tope, y se guarda para la próxima.
+ */
+export const TOPE_GRUPOS_COMPLETO_MS = 50_000;
+/** Pasado esto, la lista guardada se muestra igual pero se vuelve a pedir completa por detrás (un grupo nuevo aparece solo). */
+export const VIEJA_GRUPOS_MS = 10 * 60_000;
+
+/** La lista de grupos guardada de una línea (`app_settings`), leída como texto ajeno. null = no hay, o no se entiende. */
+export function gruposGuardados(raw: string | null): { at: number; grupos: GrupoWA[] } | null {
+  if (!raw) return null;
+  let o: unknown;
+  try { o = JSON.parse(raw); } catch { return null; }
+  if (!o || typeof o !== 'object') return null;
+  const x = o as { at?: unknown; grupos?: unknown };
+  const at = typeof x.at === 'number' ? x.at : Date.parse(String(x.at ?? ''));
+  if (!Number.isFinite(at) || !Array.isArray(x.grupos)) return null;
+  const grupos = x.grupos.filter((g): g is GrupoWA => !!g && typeof g === 'object' && esJidDeGrupo((g as GrupoWA).jid) && typeof (g as GrupoWA).nombre === 'string')
+    .map((g) => ({ jid: g.jid, nombre: g.nombre, tamano: typeof g.tamano === 'number' ? g.tamano : null }));
+  return grupos.length ? { at, grupos } : null;
+}
 /** El tope para los participantes de UN grupo (medido: 0,4 s). */
 export const TOPE_PARTICIPANTES_MS = 30_000;
 /** De a cuántos los trae la pantalla: cada lead son varias lecturas y escrituras, y una acción del server tiene 60 s. */
@@ -105,7 +132,8 @@ export function participantesDe(json: unknown, propio?: string | null): { partic
     if (vistos.has(telefono) || (propioDig && telefono === propioDig)) continue;
     vistos.add(telefono);
     const lid = typeof o.id === 'string' && o.id.endsWith('@lid') ? o.id : typeof o.lid === 'string' && o.lid.endsWith('@lid') ? o.lid : null;
-    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid });
+    const admin = o.admin === 'admin' || o.admin === 'superadmin' || o.admin === true;
+    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid, ...(admin ? { admin: true } : {}) });
   }
   return { participantes, sinNumero };
 }
@@ -150,9 +178,11 @@ export function esNombreDeRelleno(nombre: string | null | undefined): boolean {
 }
 
 /**
- * La etiqueta de ORIGEN de los que se traen. La elige la persona («Formación de Jan», «Evento Cancún»: el Cerebro, 23/10/2026,
- * para la base de venta de Martín), y viene con el nombre del grupo. Entra en el tope de una etiqueta del CRM
- * (`TOPE_NOMBRE_ETIQUETA`, 40): más larga, `limpiarNombreEtiqueta` la cortaba sin decirlo.
+ * La etiqueta de ORIGEN de los que se traen: EL NOMBRE DEL GRUPO, tal cual (Martín, 26/10/2026: «al agregarse al CRM siempre
+ * con una etiqueta con el nombre del grupo donde vinieron. Con las etiquetas que ya existen... y tampoco quiero cambiar el
+ * nombre del grupo, que se llame exactamente igual»). Hasta el 26/10 la pantalla la dejaba editar. Entra entera en el tope de
+ * una etiqueta (`TOPE_NOMBRE_ETIQUETA`, 100 desde la mig 0338: el asunto de un grupo de WhatsApp llega a 100); sólo se le
+ * sacan los espacios de más.
  */
 export function etiquetaDeGrupo(nombre: string): string {
   return limpiarNombreEtiqueta(nombre) || 'Grupo de WhatsApp';
@@ -216,7 +246,11 @@ export function etapasQueDisparan(
 // consulta es tráfico en la RED de una línea no oficial (lib/fotos-contacto.ts): se hace de a una y despacio.
 
 /** Lo que sirve del perfil de empresa de un número. null = no es una cuenta de empresa (o no contestó). */
-export type PerfilEmpresa = { rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null };
+export type PerfilEmpresa = {
+  rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null;
+  /** Las otras redes que no tienen columna en el lead («facebook: https://…»), leídas del perfil en WhatsApp Web (0.73.0). */
+  redes?: string[];
+};
 
 /** La cuenta de Instagram de un link (`instagram.com/<usuario>`), sin las rutas que no son una cuenta. */
 function instagramDe(s: string | null | undefined): string | null {
@@ -258,7 +292,7 @@ export function parcheDePerfil(lead: Partial<Record<CampoDelPerfil, string | nul
 
 /** El renglón del historial con lo que no tiene columna: el rubro y la descripción. null si no trae ninguno. */
 export function lineaDePerfil(p: PerfilEmpresa): string | null {
-  const partes = [p.rubro, p.descripcion].filter((x): x is string => !!x);
+  const partes = [p.rubro, p.descripcion, ...(p.redes ?? [])].filter((x): x is string => !!x);
   return partes.length ? `Perfil de empresa en WhatsApp: ${partes.join(' · ')}` : null;
 }
 
@@ -269,7 +303,34 @@ export function lineaDePerfil(p: PerfilEmpresa): string | null {
 // empresa si es una cuenta de empresa, y en qué grupos suyos está.
 
 /** Una ficha como la manda la extensión. Viene del NAVEGADOR: entrada no confiable, se limpia con `fichaLimpia`. */
-export type FichaWa = { telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[] };
+export type FichaWa = {
+  telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[];
+  /** Lo que dijo SU PERFIL al abrirlo en WhatsApp Web (0.73.0, «Extraer»): links, redes, correo. Limpio (`perfilLimpio`). */
+  perfil?: PerfilEmpresa | null;
+};
+
+/**
+ * El perfil que mandó el NAVEGADOR (no confiable): cada campo, un texto útil y con forma (la web un http(s), el correo un
+ * correo, el Instagram una cuenta), y a lo sumo 6 redes. null si no queda nada: un perfil vacío no inventa datos.
+ */
+export function perfilLimpio(x: unknown): PerfilEmpresa | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const corto = (v: unknown, tope: number) => { const t = texto(v); return t && [...t].length <= tope ? t : null; };
+  const web = corto(o.web, 300);
+  const email = corto(o.email, 200);
+  const instagram = corto(o.instagram, 30);
+  const p: PerfilEmpresa = {
+    rubro: corto(o.rubro, 120),
+    descripcion: corto(o.descripcion, 600),
+    web: web && /^https?:\/\/[^\s]+$/i.test(web) ? web : null,
+    instagram: instagram && /^[A-Za-z0-9._]{1,30}$/.test(instagram) ? instagram : null,
+    email: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    direccion: corto(o.direccion, 300),
+    redes: (Array.isArray(o.redes) ? o.redes : []).map((r) => corto(r, 300)).filter((r): r is string => !!r && /^[a-z]+: https?:\/\//.test(r)).slice(0, 6),
+  };
+  return p.rubro || p.descripcion || p.web || p.instagram || p.email || p.direccion || p.redes?.length ? p : null;
+}
 
 /** La ficha limpia: teléfono en dígitos, textos útiles y cortos, a lo sumo 50 grupos. null si no sirve. */
 export function fichaLimpia(x: unknown): FichaWa | null {
@@ -278,7 +339,8 @@ export function fichaLimpia(x: unknown): FichaWa | null {
   const telefono = String(o.telefono ?? '').replace(/\D/g, '');
   if (telefono.length < 8 || telefono.length > 15) return null;
   const grupos = (Array.isArray(o.grupos) ? o.grupos : []).map((g) => texto(g)?.slice(0, 120) ?? null).filter((g): g is string => !!g).slice(0, 50);
-  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos };
+  const perfil = perfilLimpio(o.perfil);
+  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos, ...(perfil ? { perfil } : {}) };
 }
 
 /**
@@ -287,6 +349,39 @@ export function fichaLimpia(x: unknown): FichaWa | null {
  */
 export function nombreDeFicha(f: FichaWa): string | null {
   return f.agenda ?? f.empresa ?? f.pushname ?? null;
+}
+
+// ── De qué grupo vino cada lead (25/10/2026, «Completar desde mi WhatsApp» del lote) ──────────────────────────────────────
+// Martín: «Si ya sabe el nombre del grupo debería buscarlos dentro». El nombre queda en el historial del lead al traerlo
+// (`traerDelGrupo`, app/crm/grupo-wa-server.ts): `«Formación de Jan», a «Prospección › Tibio»`.
+
+/** El campo del historial que deja traer a alguien de un grupo. Lo escribe `traerDelGrupo` y lo lee el lote. */
+export const EVENTO_TRAIDO_DE_GRUPO = 'Traído de un grupo de WhatsApp';
+
+/** El grupo de ese evento; null si el texto no tiene esa forma. */
+export function grupoDelEvento(valor: string | null | undefined): string | null {
+  const m = /^«(.+?)», a «/.exec(String(valor ?? ''));
+  const g = m ? m[1].trim().slice(0, 120) : '';
+  return g || null;
+}
+
+/** Un nombre de grupo para comparar: la MISMA regla que la extensión (`asuntoComparable`, extension/wa-fichas-reglas.js). */
+export function asuntoComparable(s: string | null | undefined): string {
+  return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+/** Los grupos de un lote, del que trajo más leads al que menos, a lo sumo `tope`. */
+export function gruposDelLote(valores: ReadonlyArray<string | null | undefined>, tope = 5): string[] {
+  const cuenta = new Map<string, { nombre: string; n: number }>();
+  for (const v of valores) {
+    const g = grupoDelEvento(v);
+    if (!g) continue;
+    const k = asuntoComparable(g);
+    if (!k) continue;
+    const prev = cuenta.get(k);
+    cuenta.set(k, { nombre: prev?.nombre ?? g, n: (prev?.n ?? 0) + 1 });
+  }
+  return [...cuenta.values()].sort((a, b) => b.n - a.n).slice(0, tope).map((x) => x.nombre);
 }
 
 /** El renglón del historial con sus grupos en común (señal de interés). null si no está en ninguno. */
@@ -299,17 +394,24 @@ export function lineaDeGrupos(grupos: readonly string[]): string | null {
 /** De a cuántas fichas manda la pantalla: cada una son unas pocas escrituras (~0,3 s), lejos de los 60 s de una acción. */
 export const TANDA_FICHAS = 40;
 
-// ── «Datos de empresa» con TOPE (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo antes
-// de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── «Datos de empresa» con TOPE POR DÍA (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo
+// antes de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────
 // Cada consulta de perfil es tráfico en la RED de una línea no oficial (riesgo de baneo, docs/hallazgos-comunicacion.md).
 // El cupo del día y los teléfonos ya consultados viven en `app_settings`, por línea (app/crm/grupo-wa-server.ts).
+// ⚠️ SIN TOPE POR CORRIDA desde el 25/10/2026. Martín en la llamada con Leandro (24/10, f14): «no debería volver a tocar nada,
+// o sea, debería extraerte todo». El de 40 por corrida sólo partía el trabajo en toques: lo que cuida la línea es la espera
+// entre consultas (`ESPERA_PERFIL_MS`) y el tope del DÍA, que siguen. NO era por el costo de Apify (eso fue otra cosa, que se
+// revirtió el 24/10): era por el baneo. Un toque consulta todo lo que falta hasta el tope del día.
 
 /** Cuántos leads toma un lote de «Completar» del tablero: lo mismo que la extensión lee de una vez (extension/wa-fichas.js). */
 export const TOPE_LOTE_COMPLETAR = 5000;
 
-/** Cuántos perfiles consulta UNA corrida (un toque del botón). */
-export const TOPE_PERFILES_CORRIDA = 40;
-/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. */
+/** Los minutos de «Datos de empresa» por la extensión (27/10/2026): ~6 s por perfil (buscarlo, abrirlo, esperar sus datos, la pausa). */
+export function minutosDeLaPasada(perfiles: number): number {
+  return Math.max(1, Math.round((perfiles * 6) / 60));
+}
+
+/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. Cuida la línea de un baneo. */
 export const TOPE_PERFILES_DIA = 120;
 /** Lo que tarda cada consulta, medido: ~0,6 s de respuesta más la espera de 2 s entre una y otra. */
 export const SEGUNDOS_POR_PERFIL = 2.6;
@@ -346,9 +448,9 @@ export function vistosConNuevos(raw: string | null, nuevos: readonly string[]): 
   return JSON.stringify(todos.slice(-TOPE_VISTOS));
 }
 
-/** Cuántos consulta ESTA corrida: lo que falta, lo que queda hoy y lo que le queda a la corrida (`hechas` ya consultados). */
-export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number; hechas: number }): number {
-  return Math.max(0, Math.min(p.pendientes, p.quedanHoy, TOPE_PERFILES_CORRIDA - Math.max(0, p.hechas)));
+/** Cuántos consulta ESTA corrida: todo lo que falta, hasta lo que queda hoy (sin tope por corrida desde el 25/10, f14). */
+export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number }): number {
+  return Math.max(0, Math.min(p.pendientes, p.quedanHoy));
 }
 
 /** Los minutos que se le dicen a la persona antes de arrancar (redondeado para arriba: mejor que sobre a que falte). */

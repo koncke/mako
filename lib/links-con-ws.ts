@@ -18,6 +18,38 @@
 
 import { conWs } from './ws-tab';
 
+/** Distancia de edición (inserción, borrado, cambio de una letra). Sólo para hosts: cortos. */
+function distancia(a: string, b: string): number {
+  let fila = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const nueva = [i];
+    for (let j = 1; j <= b.length; j++) nueva[j] = Math.min(fila[j] + 1, nueva[j - 1] + 1, fila[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    fila = nueva;
+  }
+  return fila[b.length];
+}
+
+/**
+ * EL DOMINIO QUE EL MODELO INVENTA (28/10/2026, el relevamiento de pedidos perdidos: a Código Inmobiliario le salió
+ * «hola-malo.com/crm/2761», conv 1502). El modelo reescribe el link de una herramienta y le cambia una letra al dominio; el
+ * link lleva a otro sitio. Un host a una o dos letras del de MaKo (`base`), y que no es el de MaKo, se corrige al de MaKo
+ * (`hola-malo.com`, `holamako.com`, `hola-mako.co`). Uno distinto de verdad (google.com, el sitio del negocio) no se toca, ni
+ * los otros dominios propios (`otros`, p. ej. makodigital.app). Va ANTES de `linksConWs`, que sólo reconoce el host exacto.
+ */
+export function conElDominioDeMaKo(texto: string, base: string, otros: readonly string[] = []): string {
+  if (!texto) return texto;
+  let host: string;
+  try { host = new URL(base.includes('://') ? base : `https://${base}`).host.replace(/^www\./, '').toLowerCase(); } catch { return texto; }
+  const propios = new Set([host, ...otros.map((o) => o.toLowerCase())]);
+  return texto.replace(/(https?:\/\/)?(www\.)?((?:[a-z0-9-]+\.)+[a-z]{2,})(?=[/\s]|$)/gi, (todo: string, esquema: string | undefined, www: string | undefined, h: string) => {
+    const bajo = h.toLowerCase();
+    if (propios.has(bajo)) return todo;
+    const d = distancia(bajo, host);
+    if (d === 0 || d > 2) return todo;
+    return `${esquema ?? ''}${www ?? ''}${host}`;
+  });
+}
+
 /** Lo que cierra un link en un texto de chat: no es parte de la URL (punto final, coma, el `*` del negrita…). */
 const COLA = /[.,;:!?)\]}*_>»"'`]+$/;
 
@@ -39,5 +71,19 @@ export function linksConWs(texto: string, ws: number | null, base: string): stri
     const conElWs = conWs(ruta, ws);
     if (conElWs === ruta) return todo;
     return `${esquema ?? ''}${www ?? ''}${host}${conElWs}${cola}`;
+  });
+}
+
+/**
+ * LO MISMO, PARA TODO LO QUE VA AL GRUPO DE UN NEGOCIO (27/10/2026, Leila, ws11: reenvió «Mira el resumen del lead:
+ * hola-mako.com/crm/482/resumen» y al abrirlo, «Este lead no es de esta cuenta»). `linkApp` ya pegaba el `ws` a lo que arma
+ * el código; un aviso cuyo texto escribió una persona en su tarjeta («MaKo en WhatsApp», «Avisar al equipo») podía traer el
+ * link pelado. Se completa en la SALIDA al grupo (lib/mako-grupo.ts): el texto y el pie de un archivo. Puro.
+ */
+export function partesConLinksDeWs<T extends { tipo: string; texto?: string; caption?: string }>(partes: readonly T[], ws: number | null, base: string): T[] {
+  return partes.map((p) => {
+    if (p.tipo === 'texto' && typeof p.texto === 'string') return { ...p, texto: linksConWs(p.texto, ws, base) };
+    if (typeof p.caption === 'string') return { ...p, caption: linksConWs(p.caption, ws, base) };
+    return p;
   });
 }

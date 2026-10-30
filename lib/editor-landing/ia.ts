@@ -54,13 +54,17 @@ import {
   prepararAlternativa, elegirAlternativas,
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
+  seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
-import type { Esquema, ParamsGeneracion, FuenteImagenes, AccionTexto } from './api-tipos';
+import { MUCHO_PARA_EDITAR, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
 import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
 import { adjuntosDelPedido, contextoConAdjuntos } from './adjuntos';
+import { REGLA_NO_EXISTE } from '../no-existe';
+import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
+import { esquemaDeReplica } from './replicar-estructura';
 
 /**
  * T3 (tanda 2): ¿el pedido es para una PRESENTACIÓN? Se lee del pedido CRUDO porque
@@ -105,6 +109,7 @@ const PLAZOS = {
   texto: { ia: 40_000 },
   disenos: { ia: 60_000 },
   notas: { ia: 30_000 },
+  discutir: { ia: 60_000 },
 } as const;
 
 /** El tope de lo que se le manda a «Edición con IA» de una vez. */
@@ -218,7 +223,11 @@ function esTarjeta(n: unknown): n is JsonNodo {
  * con JavaScript o que no deja leerse a nuestro servidor. Llega del navegador sin forma confiable: la
  * sanea `sanearLectura`.
  */
-export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion> };
+/**
+ * `corte: 'pagina'` (28/10/2026): un texto pegado que es una PÁGINA (el de una réplica) se corta con `esquemaDeReplica`, como
+ * la lectura que vio la persona; sin él, «Pegar texto» corta como siempre.
+ */
+export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion>; corte?: 'pagina' };
 
 /**
  * El esquema de la landing. Tres puertas, como la pantalla de crear de Gamma:
@@ -278,9 +287,11 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     return invalido('Modo desconocido.');
   }
 
-  // «Conservar»: el texto de la persona ES el esquema, palabra por palabra.
+  // «Conservar»: el texto de la persona ES el esquema, palabra por palabra. Una página LEÍDA se corta en su nivel de
+  // sección y sin tope que tire texto (`esquemaDeReplica`, 28/10/2026: con `esquemaConservado` una landing de 33 títulos
+  // perdía las 13 últimas secciones); lo pegado, como siempre.
   if (p.modo !== 'generar' && params.modoTexto === 'conservar') {
-    const e = esquemaConservado(texto, tituloFallback);
+    const e = p.modo === 'importar' || p.corte === 'pagina' ? esquemaDeReplica(texto, tituloFallback) : esquemaConservado(texto, tituloFallback);
     if (!e.secciones.length) return invalido('No encontré secciones en el texto.');
     await marcarGenerar();
     return { ok: true, esquema: e };
@@ -427,8 +438,11 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
 // editar
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** `adjuntos`: los archivos del mensaje, ya leídos en la pantalla (./adjuntos.ts). Llegan sin validar. */
-export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: unknown };
+/**
+ * `adjuntos`: los archivos del mensaje, ya leídos en la pantalla (./adjuntos.ts). Llegan sin validar.
+ * `enFoco`: la sección con el cursor, como PISTA en «toda la landing» (`focoParaEditar`, 24/10/2026).
+ */
+export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: unknown; enFoco?: unknown };
 
 /**
  * «Edición con IA». Devuelve SOLO las secciones que cambian: las que ya existían
@@ -451,17 +465,21 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
   const formularioId = idTarjetaConFormulario(originales);
   const vista = seccionesParaEditar(originales, (t) => tarjetaABloques(t, { formularioId }));
   const json = JSON.stringify({ tarjetas: vista }, null, 1);
-  if (json.length > MAX_JSON_EDICION) return invalido('Es mucho de una vez. Edita por sección.');
+  if (json.length > MAX_JSON_EDICION) return invalido(MUCHO_PARA_EDITAR);
+  // La sección con el cursor, por su id (sólo en «toda la landing»: con una sección, ya es ésa).
+  const foco = p.alcance === 'seccion' || typeof p.enFoco !== 'string' ? -1 : originales.findIndex((t) => attrsDe(t).id === p.enFoco);
 
   try {
     // Los archivos del mensaje van en el CONTEXTO, como datos (./adjuntos.ts): así también cuentan como respaldo de
     // lo que la IA cite (`quitarPruebaInventada` mira `fuente`, que lo incluye) y un testimonio del PDF no se vacía.
     const adjuntos = adjuntosDelPedido(p.adjuntos);
-    const contexto = contextoConAdjuntos(await buildLandingBrief(instruccion), adjuntos);
+    // La página va para saber qué función de MaKo vende cuando la instrucción no la nombra («cambia el hero»).
+    const contexto = contextoConAdjuntos(await buildLandingBrief(instruccion, { pagina: originales.map((t) => textoDe(t)).join('\n') }), adjuntos);
     const sys = await system(PROMPTS_EDITOR.editarSystem, { gramatica: GRAMATICA_IA, idioma: bloqueIdioma(params.idioma), formato: FORMATO_EDITAR });
     const user = await renderPrompt(PROMPTS_EDITOR.editarUser.key, PROMPTS_EDITOR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       alcance: (p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca')
+        + focoParaEditar(foco)
         + `\n${esDiapositivas(p.params) ? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA}`,
       secciones: contenidoNoConfiable(json, 'secciones'),
       contexto,
@@ -630,5 +648,50 @@ export async function notas(p: { tarjeta: unknown }): Promise<ResultadoIA<{ nota
     return { ok: true, notas: n };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'escribir las notas'), status: 502 };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// discutir (el chat del editor en «Discutir», 24/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Llega sin validar: las tarjetas, el foco y la charla vienen del navegador. */
+export type PedidoDiscutir = { pregunta: string; tarjetas: unknown; enFoco?: unknown; charla?: unknown; adjuntos?: unknown };
+
+/**
+ * «Discutir»: MaKo contesta y sugiere SIN tocar la página (para cambiarla está «Editar»). Lee el TEXTO de cada sección
+ * (no el JSON: no va a editar), lo último de la charla y el contexto del negocio. Devuelve texto plano.
+ */
+export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respuesta: string }>> {
+  const t0 = Date.now();
+  const pregunta = String(p.pregunta ?? '').trim().slice(0, 4_000);
+  if (!pregunta) return invalido('Escribe qué quieres pensar.');
+  const tarjetas = (Array.isArray(p.tarjetas) ? p.tarjetas : []).filter(esTarjeta).slice(0, TOPES.tarjetasPorPagina);
+  const foco = typeof p.enFoco === 'string' ? tarjetas.findIndex((t) => attrsDe(t).id === p.enFoco) : -1;
+  const charla = charlaParaDiscutir(p.charla);
+  try {
+    // Lo que no existe en MaKo se dice y se marca (lib/no-existe.ts): abajo se saca la marca y se levanta el pedido.
+    const sys = `${await system(PROMPTS_EDITOR.discutirSystem, { idioma: bloqueIdiomaDelTexto() })}\n\n${REGLA_NO_EXISTE}`;
+    const user = await renderPrompt(PROMPTS_EDITOR.discutirUser.key, PROMPTS_EDITOR.discutirUser.tpl, {
+      pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
+      foco: focoParaDiscutir(foco),
+      secciones: contenidoNoConfiable(seccionesParaDiscutir(tarjetas.map((t) => ({ texto: textoDe(t) }))), 'secciones'),
+      charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
+      contexto: contextoConAdjuntos(await buildLandingBrief(pregunta, { pagina: tarjetas.map((t) => textoDe(t)).join('\n') }), adjuntosDelPedido(p.adjuntos)),
+    });
+    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+      feature: FEATURE_EDITAR,
+      motivo: 'Discutir la landing',
+      maxTokens: 1_200,
+      thinking: false,
+      hastaMs: t0 + PLAZOS.discutir.ia,
+    });
+    // Lo que no existe en MaKo (lib/no-existe.ts): la marca no le llega a la persona y el pedido sale solo a la Ticketera.
+    const ne = await conPedidoDeNoExisteDeLaSesion(limpiarTextoDelModelo(salida), { chat: 'web-generator (Discutir)', ruta: '/web-generator', pedido: pregunta });
+    const respuesta = [ne.texto.slice(0, 2_000), ne.linea].filter(Boolean).join('\n\n');
+    if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
+    return { ok: true, respuesta };
+  } catch (err) {
+    return { ok: false, error: await falloIA(err, 'contestar'), status: 502 };
   }
 }

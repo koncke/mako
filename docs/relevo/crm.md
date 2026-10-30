@@ -6,6 +6,184 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω29. 27/10/2026 (chat «CRM», cuenta `claude5`): el feedback de Leila, Leandro, Aaron y el grupo Makito (del Cerebro)
+
+Misma rama. Lo aprendido, en hallazgos-crm («Feedback de Leila, Leandro y Aaron»), hallazgos-chatbot y hallazgos-extension.
+- Hecho (con tests, sin probar en vivo): mover de etapa no espera el primer mensaje; la ficha de una pestaña vieja se recarga
+  sola y abre el lead; etiquetar de a tandas sin tope y campañas sin recorte callado; «Traer de grupo» con cartel de éxito,
+  «Están todos tus grupos» y los con nombre primero; «Datos de empresa» por la extensión en una pasada; la etapa de Ganado
+  usada como paso del medio, marcada; el aviso de extensión vieja en toda la app; el registro de la extensión con el tiempo
+  de cada etapa y si corrió oculta (0.74.3).
+- **Falta:** medir mover y la ficha en vivo después del despliegue; cuántos llegan sin teléfono (Aaron); la tienda de Chrome
+  al día para que se actualice sola (Martín); lo de Skool de Leila, bloqueado hasta que reactive la suscripción.
+
+## 0-Ω28. 27/10/2026 (chat «CRM», cuenta `claude5`): la corrida que GUARDA perfiles, y la extensión 0.74.1 / 0.74.2
+
+Misma rama `crm-extraer-2610`. Lo medido y las causas, en hallazgos-extension («La corrida que GUARDA perfiles»).
+- **Hecho y verificado en su Chrome:** «Extraer» del grupo de agosto (108, todos ya en el CRM: no crea leads) guardó el perfil
+  de 25 (21 webs, 18 correos, 1 Instagram, 2 redes) sólo en lo vacío; visto en la ficha de un lead. Volvió a la pestaña de
+  origen. Capturas: notas del Cerebro, capturas-perfiles-guardados.
+- **0.74.1:** la web escrita sin «https://»; un latido a la pantalla cada 10 s mientras WhatsApp Web tarda; cuando la
+  pantalla da la extracción por terminada, el recorrido se para; «ocupado» y el corte de los perfiles se dicen; con la pestaña
+  oculta, la búsqueda se escribe de una vez.
+- **0.74.2 (sin probar en vivo):** espera los datos de una cuenta de empresa (llegan después de abrir el panel). Copiada a su
+  carpeta; Chrome se cerró antes de correrla.
+- ⚠️ La app de Claude es SIEMPRE VISIBLE y tapa a Chrome: sus pestañas quedan ocultas y frenadas. Ver la regla en hallazgos.
+
+## 0-Ω30. 27/10/2026 (chat «CRM y Chats», cuentas `claude5` → `claude4`): el feedback de Martín y Mauricio, y los tickets #13 y #14
+
+Rama `crm-chats-2710` (desde bbb459f33) en C:/dev/wt-crm-chats-2710. Lo aprendido, en hallazgos-crm, hallazgos-pagos y
+hallazgos-comunicacion; los requisitos de cada etapa, en docs/crm-requisitos-de-etapa.md (para que decida Martín).
+- Hecho (con tests, sin probar en vivo): los 7 puntos de Martín (pagos que se editan sin trámites y el total de Ganado con
+  las suscripciones; sin contrato al mover y R1 con la reunión a mano, que le gana a Calendly; el nombre de la agenda, nunca
+  el teléfono; sin la fila duplicada en Chats; el «⋯» con «Agregar al CRM»; la foto de WhatsApp en la tarjeta), los 3 de
+  Mauricio (filtro por funnel con sus etapas y conteos en Chats; el día de Tijuana y no el de UTC en la búsqueda de
+  reuniones, con el filtro de Calendly; el estado que contradice la columna), el ticket #13 (plan libre: quincenas en los
+  días elegidos, más de 6 cuotas, sin migración) y el #14 (los accesos sin guarda que rompían /crm: links de Fathom sin url,
+  leads sin nombre).
+- **La revisión adversarial de b335f972c** (1 alto y 2 medios de plata en Pagos) se arregló en la misma rama: el plan libre
+  ya no duplica lo cobrado, corregir una cobrada es explícito y un recordatorio cortado vuelve a la cobranza
+  (hallazgos-pagos, «La revisión de b335f972c»).
+- **El #14 no se reprodujo**: se arregló por búsqueda en el código. Después del despliegue, mirarlo en el ws3 (nunca el ws1)
+  y confirmar con Martín que no sale más el TypeError.
+- **Pide el sí de Martín (vía el Cerebro):** la fila del lead 2371 (ws1, «ganado» con la tarjeta en «Perdido»: primero el
+  SELECT, después el UPDATE condicionado) y el plan de Nadia (lead 2605, ws11), que Leila rehace desde la ficha con «Armar
+  el plan» cuando esté desplegado. Las consultas, en la nota de traspaso del Cerebro (crm-chats-claude5-27-10.md). Falta que
+  Leila diga cuántas quincenas son y si alguna de las 12 cuotas viejas está cobrada.
+- **Sin hacer:** «Enviar a todos» de una etapa (es de Automations), el panel «Qué escribir» (medir por qué tarda, con la
+  línea en vivo), cumpleaños (pide migración), y que nada pida R1/R2 si el negocio no las usa (lo que queda es «Tipo de
+  evento de R1» al conectar Calendly: es del chat de Integraciones).
+
+## 0-Ω27. 26/10/2026 (chat «CRM», cuenta `claude5`): «Extraer» de un grupo, a la vista, con el desplegable (extensión 0.72)
+
+Rama `crm-extraer-2610` (desde origin/main ede2bbaab) en C:/dev/wt-crm-2510. Pedido textual en la bitácora. Lo medido y lo
+aprendido, en hallazgos-extension («Extraer» a la vista) y hallazgos-crm («Extraer» de un grupo).
+- Hecho: «Extraer N» (no «Traer») arranca la extensión en el acto: su pestaña de WhatsApp al frente (nunca una segunda), el
+  desplegable abierto con la animación, el grupo recorrido a la vista, y los nombres guardados solos (sin «Completar
+  nombres»). Sin «Entran a» (el CRM que se mira, su entrada que no manda nada), sin los chips de texto, «Ignorar admins», la
+  etiqueta = el nombre del grupo (mig 0339: tope 100). La barra del lote, sin «extrayendo» ni cartel negro. El desplegable con
+  navegación (Inicio: Scraper | Flow → registro → extracción) y su registro (las últimas 30).
+- **Probado en su Chrome** (la extensión 0.72.2 ya corre ahí: se recarga sola desde la carpeta): disparado desde su pestaña de
+  MaKo, sin pedir ni guardar datos de nadie. Entró al grupo de los 221, recorrió los 247, el desplegable se abrió solo con la
+  animación, WhatsApp quedó como estaba y volvió a MaKo. `vistos: 40` (nombres con teléfono que la base no tenía). Capturas y
+  GIF: notas del Cerebro, capturas-extraer-072.
+- **Falta:** desplegar la pantalla (y la mig 0339 ANTES) y la corrida con la pantalla nueva: crear los leads con su etiqueta y
+  guardar los nombres. ⚠️ Abrir el grupo marca como leídos sus mensajes (dicho en la política).
+- **No reviertas** (aviso del Cerebro, 26/10): los tests crm-auto-sla-etapa y lead-quieto (Automations, aut-2510); no se tocaron.
+- **En producción (781d069b3, 26/10 12:22):** «Extraer 105» de «Anuncio Ganador - 09,10,11 de Agosto» en su Chrome: 105
+  nuevos · 41 nombres · 41 empresas, en Lead entrante con la etiqueta del grupo (verificado en una ficha). El desplegable no se
+  abrió en esa corrida (clic por CDP: sin el foco del sistema); en la de otra pestaña, a la misma hora, sí. Capturas y GIF:
+  notas del Cerebro, capturas-extraer-prod.
+- **Después, los perfiles y lo de Leandro (666fe43e1 → db8aae187, 0.73.0 → 0.73.6):** «Extraer» abre la información de
+  cada uno (de a uno, de a tandas de 12 pedidas por la pantalla, tope 60, empresas primero) y guarda links, redes y correo
+  sólo en lo vacío; sin la extensión, pop-up de instalar y no arranca; los nombres que firman los mensajes del grupo
+  (notifyName: MEDIDO que los mensajes no lo traen; la fuente real es la lista de miembros y la fila del buscador, 0.73.8).
+  ⚠️ La 0.73.6 no cargó por un U+FFFF literal en wa-fichas.js (no por las recargas, como dije primero): el
+  Cerebro lo arregló en su carpeta y el guard nuevo lo frena. Sin probar todavía:
+  la corrida que guarda perfiles (server sin desplegar) y lo de Leandro (sin medir).
+- **Después (be19b8c91, 0.72.3), lo de Flow en el Scraper:** si WhatsApp Web pide el QR lo dice, pone la pestaña al frente y
+  espera cinco minutos; el desplegable dice cómo está WhatsApp Web (con «Abrir» / «Ir a WhatsApp Web»). El QR probado sólo con
+  tests (su sesión está abierta); en vivo, que con la sesión abierta no se confunde. Martín: el «visto» no importa.
+- **Después (68fc2c238, 0.74.0), la vuelta a la pestaña exacta:** al terminar «Extraer» (o si se corta) vuelve a la pestaña
+  desde la que se tocó (`sender.tab`), no a otra de MaKo; si ya no está, el desplegable lo dice. Probado en su Chrome con dos
+  CRM y Ads Writer abiertos (volvió al CRM desde el que se pidió) y con el test roto a propósito. Corre en su Chrome (su
+  carpeta); para los demás, cuando la rama llegue a main.
+
+## 0-Ω26. 25/10/2026 (chat «CRM», cuenta `claude5`): «Completar desde mi WhatsApp» de punta a punta, extensión 0.71.0
+
+Rama `crm-ext-2510` (desde origin/main 5785115b6; `crm-2510` ya estaba entera en main) en C:/dev/wt-crm-2510. Pedido textual
+en la bitácora. Lo medido y lo aprendido, en hallazgos-extension («No contestó» y los nombres que no salían).
+- Hecho: la opción gris abre la instalación y arranca sola; el worker abre, despierta y repara WhatsApp Web y espera sus chats;
+  el grupo sale del historial y el `@lid` de la lista del grupo; el nombre de `displayNameLID`; cada paso a la vista; la API
+  (`ver_completar_desde_whatsapp`, sólo el chat de MaKo). ZIP 0.71.0.
+- La 0.71.0 está COPIADA en la carpeta de Martín (C:\Users\marti\OneDrive\Escritorio\mako-puente; la 0.70.0, respaldada en el
+  scratchpad de la sesión). **Falta:** que Martín toque «Recargar» en chrome://extensions (desde acá no se puede manejar esa
+  página) y la prueba de punta a punta en su Chrome con la pantalla desplegada (antes del despliegue, la pantalla vieja).
+- ⚠️ Al medir se abrió una segunda pestaña de WhatsApp Web y le sacó la sesión a la de Martín («Usar aquí»).
+- **26/10 madrugada:** en producción (c8f1c4a57) probado el paso 1 en su Chrome con la 0.70.0 (la opción ya no es gris, abre
+  la instalación, la barra espera; el texto cortado, arreglado en 96246ee92). La 0.71.1 (`alDiaConSuCarpeta`) se recarga sola
+  cuando la carpeta trae una versión nueva: desde ahí, no hace falta tocar «Recargar». MEDIDO: el grupo de los 221 tiene 247
+  participantes; el nombre de las cuentas de empresa vive en `verified-business-name` (83), que la 0.71.0 no leía: Martín
+  corrió la 0.71.0 y dio 0; con la 0.71.1 el ensayo da 77 de 221 (hallazgos-extension). Falta que toque «Recargar» una vez.
+  Corrida completa lista en las notas del Cerebro (capturas-completar-wa/CORRIDA-COMPLETA.md).
+
+## 0-Ω25. 24-25/10/2026, noche (chat «CRM», cuenta `claude5` «Ananda»): los puntos 12 a 21 del 24/10
+
+Los pedidos, TEXTUALES, en docs/feedback-24-10.md («CRM → chat CRM», puntos 12 a 21). Rama `crm-2510` en C:/dev/wt-crm-2510,
+sobre origin/main 59d228ea1. Se entrega de a tandas al Cerebro (él arma el tren y sube). Lo aprendido, en hallazgos-crm
+(«"Ordenar" es de cada COLUMNA…») y hallazgos-infra (restaurar de una copia al romper un test).
+
+**Tanda 1 — puntos 13, 15 y 17:**
+- 13: el «⋯» de cada columna arranca con «Nuevo lead» y «Ordenar ›» (por columna: Manual, más nuevos, más viejos, nombre,
+  respondió primero, mayor monto, fecha de reunión, vence primero; lo que la columna no tiene, no se ofrece), «Cambiar nombre»,
+  las flechas y «Agregar etapa» abajo, «Eliminar etapa» último. «Ordenar» salió de «Filtrar». El «⋯» de la barra y el clic
+  derecho del fondo van en el mismo orden (importar, buscar prospectos, exportar · editar etapas, personalizar tarjetas); el de
+  una tarjeta junta «Seleccionar» con abrir y mover.
+- 15: «Asignar campañas» se fue del editor de etapas (se asignan desde el «⋯» de la columna de entrada).
+- 17: «Traer de otro funnel» muestra a los que ya están, abajo, en gris y sin casilla, como en los grupos de WhatsApp.
+
+**Sin ver en pantalla** (la PC con ~4 GB libres y 7 chats: no se levantó `next dev`): el «⋯» de una columna con «Ordenar ›»,
+el ícono azul de una columna ordenada, y «Traer de otro funnel» con los grises. Se mira en el ws3 cuando esté desplegado.
+
+**Tanda 2 — puntos 14, 16 y 21:**
+- 14: las hojas de la ficha arrancan al borde (sin la sangría del nombre), sin la flechita de la tab, y las que no entran van a
+  «Ver más» con «Nueva hoja» adentro. El «⋯» de al lado de «Editar» es el menú de la ficha (el del clic derecho), por
+  secciones y con lo de la hoja abierta.
+- 16: «A revisar» trae sólo los leads cuya casa es el CRM del tablero.
+- 21: medido con la conexión de Mauricio: Meta conectada SIN Instagram (ningún permiso de Instagram, la página sin cuenta
+  vinculada). La pantalla ya no pide «Conectar Meta» ahí, y el botón sale una vez. **La foto no llega**: ninguna fuente puede
+  leer Instagram en esa cuenta. Fue al Ops Center la pregunta a Martín (el Instagram de MaKo + permiso, gratis; o Apify, pago).
+  Sin ver en pantalla, igual que la tanda 1.
+
+**Tanda 2, arreglo:** `b38cfd930` (dos errores de tipos de la ficha que se colaron: ver hallazgos-infra, el filtro que
+escondía el «NO SE PUDO CHEQUEAR»). La pregunta de Instagram se rehízo sin Apify (Martín lo descartó el 24/10).
+
+**Tanda 3 — puntos 19 y 20:**
+- 19: «Traer», el Scraper e «Importar» se abren ENCIMA de «Nuevo lead» (la pila de la casa): cerrarlos vuelve al alta con lo
+  escrito.
+- 20: los tres con un molde (app/crm/MoldeTraer.tsx), **copiado del «Preview import» de Attio** (su documentación oficial,
+  captura del 25/10 en el scratchpad de la sesión): de dónde arriba con un «⋯», «Entran a», el resumen con chips, la lista, y
+  abajo sólo «Atrás» y la acción. El importador dejó `WizardShell`.
+
+**Tanda 4 — punto 12:** el panel de MaKo de la ficha flota (el marco `.an` del Dashboard), y con un bloque elegido cada
+fila de dato lleva su ✕ para sacarla (la captura c06 mostraba que «Datos ▾» existía y no se encontraba: el cuerpo es inerte).
+
+**Tanda 5 — punto 18:** medido antes de tocar (hallazgos-crm, «Los grupos de WhatsApp tardan muchísimo»): la lista de
+grupos abre al instante (guardada, o la base) y la completa (33 s en la línea de la plataforma) llega por detrás y se
+guarda; traer va de a cuatro.
+
+**Martín contestó la pregunta de Instagram** (25/10, por el Ops Center): sí vincular el Instagram de MaKo, y preguntó si hay
+otra forma gratis. Se le contestó: no espera la verificación (cuenta propia, acceso estándar) y la forma gratis es la
+extensión de MaKo leyendo Instagram con su sesión (como folk). **Pendiente:** los clics de Martín en Meta for Developers (el
+caso de uso de Instagram en la app MaKo, vincular el Instagram a «Hola MaKo», token con instagram_basic) y, si dice que sí,
+la lectura por la extensión.
+
+**Ticket #10 (25/10, primero por ser un cliente roto):** la ficha de /crm/3445 se caía con React #418. No era una fecha sin
+zona: el lead se llama «🧪 Martín…» y la marca de la cabecera cortaba el emoji por la mitad (`b6a7ede22`, la cosecha en
+hallazgos-ui). Las copias del mismo corte que quedaban en piezas de otras tabs ya no son de este chat: el Cerebro las
+repartió el 27/10/2026 a Automations, Landings y un chat nuevo de Classroom/Calendario (la lista, en hallazgos-ui).
+
+**Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
+Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). **Redirigir antes del loader (25/10, del Cerebro):** hecho
+para las siete páginas de /crm, no sólo las tres que pidió (app/crm/layout.tsx; hallazgos-crm). Cuando entre el guard de
+Landings, sacar las tres de su `CONOCIDAS_SIN_LAYOUT`.
+
+**La llamada con Leandro (25/10):** f15 (WhatsApp abre el chat de MaKo, en las cuatro puertas), f12 («Completar nombres»
+por la extensión: pide instalarla y arranca sola), f13 (la pregunta de «Datos de empresa» en una línea) y f11 («Completar
+nombres» en el pie). f14 (decidido por el Cerebro): «Datos de empresa» en una sola pasada, sin el tope de 40 por corrida; el de 120 por día
+queda, porque cuida la línea de un baneo (no era por Apify, como creía el Cerebro: hallazgos-crm). **Los cortes de emoji**
+de otras tabs los hizo el Ops Center (lib/unicode-seguro.ts, `iniciales`): cuando su rama entre al tren, dejar UN solo
+helper (Marca, Avatar y el historial a esa; borrar lib/iniciales.ts; tests/iniciales-hidratacion apuntando a la que queda). **Pendiente de la extensión** (no de este chat):
+reponer mako-puente.js en las pestañas abiertas en `onInstalled`, para que f12 arranque sin recargar (hallazgos-crm).
+
+**El panel de MaKo y la barra (25/10, rojo del tren):** flota 12 px debajo de la barra de inspección y de la alerta de la voz
+(`f36918c92`); con la alerta sola quedaba tapado. Cosecha en hallazgos-ui.
+
+**Pendiente con Martín:** la comprobación del chip del @ de un lead con sólo Instagram en producción (el Cerebro: crear
+«Prueba @ solo» en el ws3, mirarlo en kanban, lista y ficha, probar el duplicado y borrarlo). En el ws3 no hay ninguno así
+(medido en la base el 25/10), y crear y borrar en producción pide su sí en el chat. El Chrome de Martín no respondía. Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
+`b1c4924fd`, 17 hallazgos por arreglar) NO sube antes del lunes 26/10.
+
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos
 
 Rama `crm-grupo-completar-2410` en C:/dev/wt-crm-grupo, sobre origin/main ebcfd9eb0, pasada al tren: `5478b15a5`

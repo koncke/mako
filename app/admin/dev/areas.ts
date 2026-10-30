@@ -26,8 +26,8 @@
 //   · El ROADMAP sale del plan. Cada área declara sus `proyectos` y la pantalla lee
 //     las tareas abiertas de la base. Un roadmap escrito a mano se queda viejo el
 //     martes; éste es el tablero, que es donde el trabajo ya vive.
-//   · El CHANGE HISTORY sale de git. `scripts/gen-dev-historial.mjs` corre
-//     `git log` sobre las rutas de `vive` y deja `_historial.generado.ts`.
+//   · El CHANGE HISTORY salía de git (`scripts/gen-dev-historial.mjs` → `_historial.generado.ts`) para las pantallas de
+//     /admin/dev, que se fueron el 25/10/2026 (Martín: «Elimina "dev", ya no lo necesitamos»): ya no se genera.
 //     Las bitácoras escritas a mano (`<area>/bitacora.ts`) NO se reemplazan:
 //     tienen el pedido TEXTUAL del dueño y el porqué, que ningún commit contiene.
 //     Donde existen, mandan ellas. Cuáles son sale de `registros.ts`, nunca de una
@@ -356,7 +356,7 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'flow-editor', titulo: 'Flow Editor', familia: 'Operate', grupo: 'Agenda y flujos',
-    estado: 'parcial', verEnApp: '/mensajes',
+    estado: 'parcial', verEnApp: '/automations',
     alcance: 'El motor (lib/flujos.ts, 5 eventos desde 5 webhooks) y lo único suyo que un aviso sí ejecuta: el paso `insistir`, que hoy se edita en el nodo «Si no contestas» del lienzo de cada mensaje — junto con el disparador por evento y los pasos, que desde el 30/09/2026 tienen UN solo dueño (`FlujoAviso`): con dos, `setFlujo` reemplaza el flujo entero y el segundo en guardar se lleva puesto lo del primero. ⚠️ El EDITOR DE FLUJO COMPLETO se retiró el 29/09/2026 (ver la bitácora de configuraciones): salía de «editar el flujo (avanzado)», que el dueño mandó a sacar, y medido antes de borrarlo había 4 flujos guardados en toda la base, los 4 sin un solo paso, y CERO filas en insistencias. El motor sigue vivo y sin pantalla.',
     vive: ['lib/flujos-tipos.ts', 'lib/flujos.ts', 'lib/flujo-pasos.ts', 'lib/flujo-corridas.ts', 'lib/insistencias.ts',
       'app/agencia/FlujoAviso.tsx', 'app/api/cron/insistencias/route.ts', 'app/api/cron/flujo-corridas/route.ts',
@@ -470,7 +470,7 @@ export const AREAS: AreaDev[] = [
     // la ficha nacieron el 05/10 y la lista archivo por archivo no los veía.
     // La tab Clients (17/10/2026, docs/diseno-clients.md): la cabecera y las rutas nuevas, y MaKo Partners (las cuentas
     // de los clientes de una agencia, que salieron de esta carpeta).
-    vive: ['app/clients/', 'lib/clients-rutas.ts', 'app/partners/', 'lib/partners.ts', 'docs/diseno-clients.md', 'docs/hallazgos-partners.md',
+    vive: ['app/classroom/', 'lib/clients-rutas.ts', 'app/partners/', 'lib/partners.ts', 'docs/diseno-clients.md', 'docs/hallazgos-partners.md',
       'app/customer-success/', 'lib/servicio-etapas.ts', 'lib/cs-mover-etapa.ts', 'lib/entrega-servicio.ts', 'lib/clientes-ganados.ts', 'app/plan/board/filtro-cliente.ts',
       // La cartera (#109, 07/10/2026): el último contacto como UNA regla y la alerta de baja al dueño.
       'lib/cs-contacto.ts', 'lib/cs-sin-contacto.ts', 'app/api/cron/cs-sin-contacto/',
@@ -728,8 +728,8 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'image-generator', titulo: 'Image Generator', familia: 'Content Machine', grupo: 'Ads',
-    estado: 'por-construir', verEnApp: '/image-generator',
-    alcance: 'Generar la imagen del anuncio. ComingSoon; sus dos insumos ya existen (Brand Persona con las fotos y el formato de imagen elegido en el Ad Detail), falta el generador.',
+    estado: 'por-construir', verEnApp: '/image-editor',
+    alcance: 'RETIRADA el 29/10/2026 sin pasar de «pronto» (Martín: «para todas las secciones de "create" no quiero otras tabs… prefiero deprecar antes que conservar»): /image-generator redirige a Image. Generar la imagen del anuncio, si vuelve, es una plantilla de «Nuevo diseño» en Image (app/_crear/PantallaCrear.tsx), no una pestaña.',
     vive: ['app/image-generator/page.tsx', 'lib/persona.ts', 'app/admin/dev/ads-writer/bitacora.ts'],
     proyectos: ['Feature: Image Generator'],
   },
@@ -770,16 +770,16 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'image-editor', titulo: 'Image Editor', familia: 'Content Machine', grupo: 'Image',
     estado: 'parcial', verEnApp: '/image-editor',
-    alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin, con el crédito de Doory en cada apertura.',
+    alcance: 'El «Canva» de MaKo: el editor de diseño de Doory (fabric.js 7, licencia de atribución) portado y re-vestido como Canva por tandas. Diseños multipágina, texto, formas, imágenes, marcos, QR, capas, recortar, filtros, animaciones, presentar y descargar PNG/JPG/PDF/SVG. Hoy guarda en el navegador por workspace y lo ve sólo el super admin.',
     // ⚠️ Sin nav.ts: es de los archivos más calientes del repo y desplazaría el Change History propio.
     vive: ['app/image-editor', 'docs/diseno-editor-imagen.md', 'docs/editor-imagen', 'tests/image-editor-integracion.test.ts'],
     hallazgos: 'hallazgos-editor-imagen',
-    nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución: modificarlo no saca la obligación del crédito (app/image-editor/editor/CreditoDoory.tsx).',
+    nota: 'Lo que hay adentro de _doory/ es código de un tercero con licencia de atribución. 29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.',
   },
   {
     slug: 'reels', titulo: 'Reels', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'parcial', verEnApp: '/reels',
-    alcance: 'El GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',
+    estado: 'parcial', verEnApp: '/copywriter?nuevo=reel',
+    alcance: 'RETIRADA como tab el 29/10/2026 (Martín: «"Reels" literalmente es de guiones... estará en "Copywriting" pero no como tab, sino como template»): /reels redirige al Copywriter (`?nuevo=reel`); la pantalla y /m/reels se borraron (el teléfono muestra la URL de escritorio) y el motor (lib/ig-writer.ts) sigue para la API. Lo de antes: el GUION del reel de Instagram, construido el 15/08: pedido (tema + objetivo + duración) → guion tipado (gancho con frase, título en pantalla y visual · escenas con locución e indicación de cámara · moraleja · CTA con palabra clave · caption) → «Copiar el guion». Hasta el 06/10/2026 además lo dejaba como borrador en /instagram; salió con esa tab. Falta historial durable y que los prompts sean editables desde /configuraciones.',
     // ⚠️ Este `vive` declaraba DOS rutas y una de ellas era app/_components/nav.ts,
     // que es de las más calientes del repo: el Change History derivado se queda con
     // los últimos 12 commits, así que nav.ts se los comía TODOS. Medido el 17/08 en
@@ -787,8 +787,7 @@ export const AREAS: AreaDev[] = [
     // `carousels`, y ninguno habla de ninguna de las dos tabs. Un archivo compartido
     // adentro de un `vive` no suma historia: DESPLAZA la propia.
     vive: [
-      'app/reels/page.tsx', 'app/reels/ReelsApp.tsx', 'app/reels/actions.ts',
-      'app/reels/reel-pedido.ts', 'app/reels/reels-datos.ts',
+      'app/reels/page.tsx',
       'lib/ig-writer.ts', 'lib/ig-formatos.ts',
       'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
     ],
@@ -798,15 +797,14 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'carousels', titulo: 'Carousels', familia: 'Content Machine', grupo: 'Instagram',
-    estado: 'parcial', verEnApp: '/carousels',
-    alcance: 'El carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → «Copiar el carrusel». El borrador en /instagram salió el 06/10/2026 con esa tab. El historial se pierde al recargar y los prompts todavía no son editables.',
+    estado: 'parcial', verEnApp: '/image-editor',
+    alcance: 'RETIRADA como tab el 29/10/2026 («prefiero deprecar antes que conservar»): /carousels redirige a Image (y /m/carousels se borró), donde «Carrusel de Instagram» es una plantilla de «Nuevo diseño»; la pantalla se borró y el motor (lib/ig-writer.ts) sigue para la API. Lo de antes: el carrusel de Instagram lámina por lámina, construido el 15/08: pedido (tema + tipo educativo/storytelling/venta) → slides tipadas (texto dentro de la imagen + escena visual) + caption → «Copiar el carrusel». El borrador en /instagram salió el 06/10/2026 con esa tab. El historial se pierde al recargar y los prompts todavía no son editables.',
     // ⚠️ Mismo caso que reels: el `vive` declaraba DOS rutas, una de ellas
     // app/_components/nav.ts, y el Change History derivado (últimos 12 commits) se
     // llenaba con commits de la barra. Medido el 17/08: el bloque `"carousels"` de
     // _historial.generado.ts es idéntico al de `"reels"` y no habla de ninguna tab.
     vive: [
-      'app/carousels/page.tsx', 'app/carousels/CarouselsApp.tsx',
-      'app/carousels/OnboardingCarousels.tsx', 'app/carousels/actions.ts',
+      'app/carousels/page.tsx',
       'lib/ig-writer.ts', 'lib/ig-formatos.ts',
       'lib/model-catalogo.ts', 'lib/tab-onboarding-state.ts', 'app/_components/nav.ts',
     ],
@@ -840,8 +838,8 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'thumbnails', titulo: 'Thumbnails', familia: 'Content Machine', grupo: 'YouTube',
-    estado: 'por-construir', verEnApp: '/thumbnails',
-    alcance: 'Generar las miniaturas del video. ComingSoon sin backend: la ruta son 8 líneas. Lo único decidido es el lugar (Content Machine · YouTube) y la economía — US$0,068 las 2 variantes, 160 MT, cobrado por INTENTO (app/admin/dev/pricing/modelo.ts). Los 12 thumbnails/mes del Growth son un supuesto sin medir.',
+    estado: 'por-construir', verEnApp: '/image-editor',
+    alcance: 'RETIRADA el 29/10/2026 sin pasar de «pronto»: /thumbnails redirige a Image (una miniatura de YouTube es un tamaño de «Nuevo diseño»). Lo de antes: generar las miniaturas del video. ComingSoon sin backend: la ruta son 8 líneas. Lo único decidido es el lugar (Content Machine · YouTube) y la economía — US$0,068 las 2 variantes, 160 MT, cobrado por INTENTO (app/admin/dev/pricing/modelo.ts). Los 12 thumbnails/mes del Growth son un supuesto sin medir.',
     // ⚠️ El área NO tiene código propio más allá del ComingSoon, así que su Change
     // History automático se llena de commits de `nav.ts` que no son suyos (12 medidos,
     // ninguno del área). Lo que sí es suyo está en su bitácora escrita a mano — por eso
@@ -874,16 +872,20 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'contexto-de-mako', titulo: 'Contexto de MaKo', familia: 'MaKo',
-    estado: 'listo', verEnApp: '/contexto',
-    alcance: 'La tab donde la agencia le carga el cerebro a MaKo: Conocimiento (RAG), Fases y Prompts. No es configuración de tu cuenta.',
-    vive: ['app/contexto/page.tsx', 'app/contexto/ContextoTabs.tsx'],
+    estado: 'listo', verEnApp: '/classroom/methodology',
+    // /contexto se fue el 25/10/2026 (Martín, punto 13): el Conocimiento (RAG) vive en Classroom › Methodology y los prompts
+    // en Settings › Prompts, los dos sólo para el super admin. Fases quedó deprecado (su dato sigue en `mako.fase.*`).
+    alcance: 'El cerebro de MaKo que carga la plataforma: el Conocimiento (RAG, en Classroom › Methodology) y los prompts (Settings › Prompts). No es configuración de tu cuenta.',
+    vive: ['app/classroom/methodology/page.tsx', 'app/classroom/methodology/ConocimientoView.tsx', 'app/configuraciones/prompts/page.tsx', 'app/configuraciones/prompts/PromptsMaKo.tsx', 'app/configuraciones/Configuraciones.tsx'],
     proyectos: ['Feature: Contexto de MaKo'],
   },
   {
     slug: 'modelos-ia', titulo: 'Modelos IA', familia: 'MaKo',
     estado: 'listo', verEnApp: '/modelos-ia',
     alcance: 'Qué modelo/IA corre cada tarea de la app, con la recomendación del audit y el override que re-rutea las llamadas de verdad en runtime. Es el control de COSTO, no la infraestructura.',
-    vive: ['app/modelos-ia/page.tsx', 'app/modelos-ia/ModelosIA.tsx', 'lib/model-registry.ts', 'app/api/admin/modelos/route.ts'],
+    // La pantalla /modelos-ia se fue el 25/10/2026 (Martín, punto 14: «eso ya lo configura el usuario y el propio Ops Center de
+    // manera automática»). El override guardado sigue rigiendo en runtime y su API (/api/admin/modelos) sigue respondiendo.
+    vive: ['lib/model-registry.ts', 'app/api/admin/modelos/route.ts'],
     proyectos: ['Feature: Modelos IA'],
   },
   {
@@ -897,7 +899,7 @@ export const AREAS: AreaDev[] = [
     slug: 'ai-runtime-cascada', titulo: 'AI Runtime & Cascada', familia: 'MaKo',
     estado: 'listo',
     alcance: 'El motor que ejecuta toda llamada de IA: chatClaude y el loop de tool-use, la cascada de proveedores gratis antes de pagar, y el override de qué modelo usa cada feature desde /modelos-ia.',
-    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/stt-degenerado.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/modelos-ia/ModelosIA.tsx', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
+    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/stt-degenerado.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
     hallazgos: 'hallazgos-ia',
     nota: 'Las «916 líneas» son lib/anthropic.ts (301) + lib/ai-cheap.ts (615), verificado. Dos trampas: el override de /modelos-ia SOLO aplica si el caller no pasó `model` explícito (cualquier `chatClaude(..., { model })` se saltea el registro entero), y el catálogo vive aparte en lib/model-catalogo.ts —sin `server-only`, para poder testearlo— pero nadie lo importa directo: model-registry.ts lo re-exporta. El fallback pago está adentro de chatClaude, no en el registro: si toda la cascada gratis falla cae a claude-sonnet-5 y deja la nota visible en el historial.',
   },
@@ -931,7 +933,7 @@ export const AREAS: AreaDev[] = [
     estado: 'parcial',
     alcance: 'Cuánto cuesta la IA de verdad y qué plan la aguanta: el costo medido por acción, los escenarios de ruteo, los cupos de MaKo Tokens y lo que falta para poder cobrarlos.',
     verEnApp: '/integraciones#saldo-ia',
-    vive: ['app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'lib/costos-ia.ts', 'app/api/costos-ia/route.ts', 'docs/costos-ia-y-planes.md'],
+    vive: ['app/admin/dev/pricing/modelo.ts', 'lib/costos-ia.ts', 'app/api/costos-ia/route.ts', 'docs/costos-ia-y-planes.md'],
     proyectos: ['Feature: Cobros y planes'],
     hallazgos: 'hallazgos-ia',
     nota: 'El hallazgo que decide no es de costos sino de PRECIO: ChartMogul mide 23% de retención bruta anual en productos AI-native de menos de US$50/mes (45% entre 50 y 249, 70% arriba de 250), o sea que el Pro a US$47 cae en la peor banda por dos dólares. Y una reunión de venta cuesta US$666-900 contra un ACV de US$564. Ojo con el solape: esta área es el MODELO DE NEGOCIO; el medidor de consumo es `ai-spend-cuotas`. Cada número de modelo.ts dice si es medido, publicado o supuesto — y hay uno marcado «no usar» que circula por ocho sitios sin estudio primario detrás.',
@@ -1044,7 +1046,7 @@ export const AREAS: AreaDev[] = [
     // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
     // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
     // verdad, no solo los componentes de la pantalla.
-    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'tests/tickets-decisiones-mazo.test.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'tests/tickets-decisiones-mazo.test.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
     nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta y la estrategia viven en /admin/estrategia (antes /vsl/estrategia, que redirige; desde el 10/10/2026 importa sus números de modelo.ts y del runway) —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
@@ -1266,7 +1268,7 @@ export const AREAS: AreaDev[] = [
     slug: 'self-healing-dev-agent', titulo: 'Self-Healing Dev Agent', familia: 'Platform', grupo: 'Dev',
     estado: 'por-construir', agente: true,
     alcance: 'JUSTAMENTE el agente que esta sección viene a alimentar. Todavía no existe.',
-    vive: ['lib/cerrar-por-commits.ts', 'lib/github-commits.ts', 'app/api/cron/cerrar-por-commits/route.ts', 'app/admin/dev/', 'scripts/gen-dev-historial.mjs', 'tests/dev-areas.test.ts', 'docs/dev-areas.mjs', 'docs/dev-tabs-mapa.md'],
+    vive: ['lib/cerrar-por-commits.ts', 'lib/github-commits.ts', 'app/api/cron/cerrar-por-commits/route.ts', 'app/admin/dev/', 'tests/dev-areas.test.ts', 'docs/dev-areas.mjs', 'docs/dev-tabs-mapa.md'],
   },
 
   // ───────────────────────────────────────────────────────────── Infra

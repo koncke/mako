@@ -15,7 +15,7 @@
 //   1. cada frase como la escribe (o la dicta) Martín llega como acción, con el área `chatbot` y la herramienta;
 //   2. una PREGUNTA por las automatizaciones no se toma como pedido de crear (MaKo ofrece, no crea);
 //   3. el INFINITIVO de una lista («Crear automatización de cobranza») no es el pedido: así se dicta una tarea del plan;
-//   4. la herramienta no sale por HTTP y la ve un admin por WhatsApp.
+//   4. la herramienta la ve un admin por WhatsApp (y desde el 25/10/2026 también por HTTP: tests/api-mako-botones.test.ts).
 //
 // PROBADO ROMPIÉNDOLO: ver las roturas al pie.
 // =============================================================================
@@ -97,11 +97,11 @@ test('el infinitivo de una lista («Crear automatización de cobranza») no es e
 
 // ── 4. La herramienta ──────────────────────────────────────────────────────────────
 
-test('la herramienta la ve un admin por WhatsApp y NO sale por HTTP (tarda minutos y /api/v1 corta a 60 s)', () => {
+test('la herramienta la ve un admin por WhatsApp (y por HTTP, con su plazo de 40 s: 25/10/2026)', () => {
   const def = porId(OP);
   assert.ok(def, `${OP} no está en el registro`);
   assert.ok(visible(def, vista), 'un admin del grupo no la ve');
-  assert.ok(!visible(def, { ...vista, canal: 'http' }), 'sale por HTTP');
+  assert.ok(visible(def, { ...vista, canal: 'http' }), 'no sale por HTTP: el Claude de un cliente no puede crear');
   // Un setter es un `miembro` (`Rol`, lib/api-mako/tipos.ts: 'admin' | 'miembro'); 'setter' no tipaba.
   assert.ok(!visible(def, { ...vista, rol: 'miembro' }), 'la ve un miembro (un setter): crear es de un admin');
 });

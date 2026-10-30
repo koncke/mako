@@ -15,6 +15,15 @@
 // =============================================================================
 
 import type { CapaId } from './capas';
+import { TOPES } from './topes-plan';
+
+// LO QUE SE LEE EN LA VITRINA (24/10/2026, Martín: «Lo hiciste con lenguaje interno, las personas no saben que es "Ops Center"
+// y muchas otras cosas... Tienes que VENDER»). `resumen` dice para quién es según la etapa del negocio (como Kajabi: «¿ya
+// vendes? escala») e `incluye`, lo que la persona CONSIGUE, sin nombres de tabs: ni «Ops Center», ni «Offer», ni «Closing
+// Analyst». QUÉ incluye cada plan no cambió (docs/ofertas-mako.md): cambió cómo se dice. Los números salen de los topes que
+// el código hace cumplir (lib/topes-plan.ts), nunca escritos a mano.
+const T = TOPES;
+const n = (v: number | null): string => (v == null ? 'sin tope' : v.toLocaleString('es-AR'));
 
 export type PlanMako = {
   /** El id público (va en la URL: /planes/<id>). */
@@ -36,7 +45,10 @@ export type PlanMako = {
   destacado?: boolean;
   /** Un plan apagado no se ofrece en /planes, pero quien ya lo paga lo sigue pagando. */
   activo: boolean;
-  /** El precio por año (2 meses gratis). ⚠️ Todavía no se vende: el checkout cobra por mes. */
+  /**
+   * El precio por año (2 meses gratis: `MESES_GRATIS_ANUAL`). Desde el 25/10/2026 se muestra (el Cerebro) y SIEMPRE se pide:
+   * el checkout cobra por mes, así que el anual deja el pedido en el CRM y se da de alta a mano (`periodo: 'anual'`).
+   */
   precioAnualUsd?: number | null;
   /**
    * Lo que se le ofrece antes de darse de baja (docs/ofertas-mako.md, «Baja»): un descuento por meses, pausar meses gratis,
@@ -47,6 +59,27 @@ export type PlanMako = {
 
 export const CLAVE_PLANES = 'planes.mako';
 
+/** Cuántos meses regala el anual (US$470 = 10 × 47): lo más usado en el rubro (docs/como-venden-otros.md §6c). */
+export const MESES_GRATIS_ANUAL = 2;
+
+/**
+ * LA PRUEBA GRATIS (25/10/2026, Martín: «quiero implementar la prueba gratuita de 7 días, y eliminar la garantia de
+ * devolución... para darte de alta en la prueba gratuita debes poner la tarjeta, tal cual como una suscripción, y se te
+ * cobra automático luego de esos 7 días»). Reemplaza a la garantía de 14/30 días, que se fue entera: después del primer
+ * cobro, lo pagado no se devuelve. La dicen las tarjetas, las preguntas y /reembolsos §1, de esta constante.
+ */
+export const PRUEBA_DIAS = 7;
+
+/** Lo que va debajo del botón de un plan: cuánto se cobra después de la prueba y hasta cuándo se cancela sin pagar. */
+export const textoDespuesDeLaPrueba = (montoUsd: number, periodo: 'mes' | 'año'): string =>
+  `Después US$ ${montoUsd.toLocaleString('es-AR')}/${periodo}. Cancela cuando quieras antes del día ${PRUEBA_DIAS + 1}.`;
+
+/** El precio del plan en pesos argentinos, si el plan lo tiene: nunca se calcula con una tasa (`preciosLocales`). */
+export const precioEnPesos = (p: Pick<PlanMako, 'preciosLocales'>): number | null => {
+  const v = p.preciosLocales?.ARS;
+  return typeof v === 'number' && v > 0 ? v : null;
+};
+
 /** Los planes de hoy (23/10/2026). Cambiar acá es un deploy; cambiar el setting `planes.mako`, no. */
 export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
   {
@@ -56,8 +89,17 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 47,
     precioAnualUsd: 470,
     preciosLocales: {},
-    resumen: 'Para el que arranca solo y quiere vender con un embudo.',
-    incluye: ['Ops Center con MaKo y tu propia IA', 'CRM: 1 funnel, hasta 2.000 leads', '1 WhatsApp más Instagram', 'Hasta 3 automatizaciones y 3 landings', 'Calendar, Plan, Offer y Cobros'],
+    resumen: 'Para empezar a vender con un embudo, por tu cuenta.',
+    incluye: [
+      'MaKo, tu asistente con IA, trabajando en tu negocio',
+      `Tu CRM: ${n(T.completo['crm.funnels'])} embudo de ventas y hasta ${n(T.completo['crm.leads'])} contactos`,
+      `${n(T.completo['chats.lineas_whatsapp'])} WhatsApp más Instagram, en una sola bandeja`,
+      `Hasta ${n(T.completo['automations.activas'])} automatizaciones de mensajes y ${n(T.completo['web.landings_publicadas'])} páginas de venta`,
+      // 29/10/2026: el avatar con IA NO va acá aunque la tab esté abierta en los tres planes: no se vende hasta que ande de punta a
+      // punta (`AI_AVATAR_SE_VENDE`, lib/planes-comparacion.ts). Y un renglón no pasa de 80 letras: el setting `planes.mako` lo corta.
+      'Tu oferta armada con IA, tu agenda, tus tareas y tus cobros',
+      `Tu media buyer con IA: ${n(T.completo['ads.recomendaciones_dia'])} recomendaciones por día para tus anuncios, y tú decides si las aplicas`,
+    ],
     activo: true,
     retencion: { pausa: { meses: 1 } },
   },
@@ -68,8 +110,20 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 97,
     precioAnualUsd: 970,
     preciosLocales: {},
-    resumen: 'Para el que ya vende y quiere escalar con anuncios y equipo.',
-    incluye: ['Todo Esencial, sin topes', 'Ads Manager, Dashboard y Closing Analyst', 'Hasta 3 WhatsApp y 5 usuarios', 'Image Editor, Video Editor y AI Avatar', 'Los negocios de tus clientes (agencia)'],
+    resumen: '¿Ya vendes? Para escalar con anuncios, contenido y equipo.',
+    incluye: [
+      // 29/10/2026: decía «sin topes», y Pro SÍ tiene (las líneas de WhatsApp y las personas, dos renglones más abajo, de
+      // lib/topes-plan.ts). Gana el código: sin tope es lo que la tabla dice «Sin tope».
+      'Todo lo de Esencial, sin tope de contactos, páginas ni automatizaciones',
+      // 29/10/2026 (el taller del Cerebro): crear campañas desde MaKo ya no existe, y los avatares con IA no se venden todavía
+      // (`AI_AVATAR_SE_VENDE`). Lo que Pro suma: el media buyer que aplica solo y el Video Editor.
+      'Tu media buyer con IA aplica las mejoras de tus anuncios solo, sin pasarse de tu presupuesto',
+      'Análisis de tus llamadas de venta con IA',
+      // Y generar imágenes con IA no existe: el editor de imágenes sí (lib/planes-comparacion.ts, `NOMBRE_TAB_PRO`).
+      'Edición de tus videos (silencios, ruido, subtítulos y cortes) y de tus imágenes',
+      `Hasta ${n(T.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(T.agencia['equipo.usuarios'])} personas de tu equipo`,
+      'Si eres agencia, los negocios de tus clientes en tu cuenta',
+    ],
     destacado: true,
     activo: true,
     retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'esencial' },
@@ -81,7 +135,7 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 297,
     preciosLocales: {},
     resumen: 'MaKo Pro y la asesoría grupal de Martín, al terminar el Acelerador.',
-    incluye: ['MaKo Pro', 'La asesoría grupal de los jueves'],
+    incluye: ['MaKo Pro', 'La asesoría grupal en vivo de cada semana'],
     activo: false,
     retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'pro' },
   },
@@ -103,22 +157,52 @@ export type ProgramaMako = {
   incluye: string[];
   /** Lo que sigue al terminar, si quiere. */
   despues: { nombre: string; precioUsd: number };
+  /**
+   * La PROMESA de resultados (Martín, 24/10: «tiene que tener un factor de PROMESA de resultados, ya no solo software»).
+   * Es un resultado con plazo, NO una garantía: lo que se devuelve está en `garantia`. null = no hay, y la vitrina no
+   * inventa una.
+   */
+  promesa: string | null;
+  /**
+   * La garantía, sobre los ENTREGABLES y no sobre el resultado (como Ropofy: docs/como-venden-otros.md §6c). Una de
+   * resultado recién cuando haya datos para medirla. El detalle (qué cuenta como «armado», qué se devuelve) está en
+   * /reembolsos §2, y los dos tienen que decir lo mismo: lo fija tests/planes-tres-bloques.test.ts.
+   */
+  garantia: string | null;
 };
+
+/**
+ * El tope de horas de la implementación de la semana 1 (25/10/2026, decidido por el Cerebro con docs/como-venden-otros.md
+ * §6c: «entregables escritos con tope de horas», el molde de Mercately, que cobra US$1.499 con tope de 10 horas). Si
+ * Martín lo cambia, se cambia acá y lo dicen la tarjeta y /reembolsos.
+ */
+export const HORAS_SEMANA_1 = 10;
+/** Cuántas asesorías grupales en vivo trae el programa: una por semana, los 3 meses (docs/ofertas-mako.md §3). */
+export const ASESORIAS_DEL_PROGRAMA = 12;
 
 export const PROGRAMA_ACELERADOR: ProgramaMako = {
   id: 'acelerador',
   nombre: 'MaKo Acelerador',
   precioUsd: 1500,
   cuotas: 3,
-  resumen: 'Para el que quiere que lo acompañen a armar y vender, no sólo la herramienta.',
+  resumen: 'Para que te acompañemos a armar tu embudo y a vender, no sólo darte la herramienta.',
+  // Todo lo de docs/ofertas-mako.md §3, dicho entero: antes la tarjeta mostraba cinco renglones y se veía como «Pro más
+  // caro» (Martín, 24/10: «el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido»).
+  // Cada entregable con su tope (§6c: «entregables escritos con tope de horas»): lo que se promete se puede contar.
   incluye: [
-    'MaKo Pro por 3 meses',
-    'La asesoría grupal de Martín, una por semana',
-    'Tu funnel armado en la primera semana',
-    'Plantillas probadas: landings, prospección y guiones',
-    'El grupo de WhatsApp de tu cohorte',
+    `Tu embudo armado en la primera semana, con hasta ${HORAS_SEMANA_1} horas de nuestro equipo: página de venta, CRM, mensajes de apertura y seguimientos`,
+    'Tu IA conectada y lista para trabajar desde el primer día',
+    `${ASESORIAS_DEL_PROGRAMA} asesorías grupales en vivo con Martín, una por semana: revisamos tus embudos, tus anuncios y tus mensajes`,
+    'Las grabaciones de cada asesoría',
+    'Plantillas probadas: páginas por tipo de cliente, mensajes de prospección y guiones de video y de llamada',
+    'Un grupo de WhatsApp con tu cohorte y respuestas de Martín',
+    'MaKo Pro incluido los 3 meses',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
+  // 25/10/2026, el Cerebro (Martín: «no hagas preguntas»), sobre la frase que propuso: un resultado con plazo, dicho en lo
+  // que el cliente ve en su cuenta. No dice «vas a vender X»: eso sería una garantía de resultado, y todavía no hay datos.
+  promesa: 'En 90 días, tu embudo andando en MaKo: tus anuncios, tu setter con IA y tu agenda, y tus primeras llamadas de venta agendadas desde ahí.',
+  garantia: 'Si al terminar la primera semana tu embudo no está armado, te devolvemos la cuota y no pagas las que siguen.',
 };
 
 const CAPAS_DE_PLAN: ReadonlySet<string> = new Set(['pm', 'completo', 'agencia']);

@@ -10,8 +10,8 @@
 // tipo de servicio de ruteo), la ruta y los archivos que sólo existían para ella. Ninguno falla ruidoso al volver: una tarjeta
 // sin su ping deja un tilde que contesta «servicio inválido», y una fila de ruteo sin ruta es una clave que nadie lee.
 //
-// Lo que este guard NO toca, a propósito, y comprueba que sigue: Skool, Hotmart y Apify. Skool también avisa «por Zapier» (su
-// lector dice la palabra en un comentario y en un texto), pero es otra fuente con su ruta, su clave y su tarjeta.
+// Lo que este guard NO tocaba, a propósito, y comprobaba que seguía: Skool, Hotmart y Apify. Se fueron el 25/10/2026, con su
+// propio guard (tests/leads-scraper-retirado.test.ts), y el control de abajo pasó a mirar lo que queda: Stripe y Mercado Pago.
 //
 // ⚠️ SE BUSCA UNA CADENA O UN NOMBRE PROPIO DEL PUENTE, NO LA PALABRA «Zapier» (AGENTS.md): la palabra aparece en prosa de medio
 // repo (los tokens de la API de MaKo se nombran «Zapier Prod», el aviso de Calendly mira `hooks.zapier.com`). Y se saltean los
@@ -27,7 +27,6 @@ import { join } from 'node:path';
 import { DEFS } from '../lib/integraciones-catalogo';
 import { SLIDES } from '../lib/servicio-slides';
 import { RUTEO_POR_HASH } from '../lib/ruteo-hash';
-import { esIntegracionDeLeads } from '../lib/fuentes-leads-catalogo';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -137,7 +136,7 @@ test('la tarjeta, los campos, las slides y el ruteo por hash ya no tienen el ser
   assert.doesNotMatch(sinComentarios(leer('lib/metodo-verificar.ts')), /async zapier\(/, 'su ping sigue en el verificador');
   assert.equal('zapier' in SLIDES, false, 'sus slides siguen');
   assert.equal(RUTEO_POR_HASH.has('ZAPIER_LEADS_CLAVE'), false, 'su clave sigue ruteando por hash');
-  assert.equal(esIntegracionDeLeads('zapier'), false, 'la grilla lo sigue tratando como una integración de leads opcional');
+  // (`esIntegracionDeLeads` se fue el 25/10/2026 con el Leads Scraper: no queda una lista de «opcionales de leads» que lo nombre.)
 });
 
 test('el ruteo y el logo, leídos del fuente (los módulos son `server-only` o de la pantalla)', () => {
@@ -154,18 +153,14 @@ test('el ruteo y el logo, leídos del fuente (los módulos son `server-only` o d
 
 // ── 4. Lo que NO se tocó ──────────────────────────────────────────────────────
 
-test('Skool, Hotmart y Apify siguen: un retiro torpe no se lleva lo que no era', () => {
-  for (const k of ['skool', 'hotmart', 'apify']) assert.ok(DEFS.some((d) => d.key === k), `se fue la tarjeta de ${k}`);
+// El control (25/10/2026): Skool, Hotmart y Apify se fueron con el Leads Scraper (tests/leads-scraper-retirado.test.ts). Lo que
+// queda del lado de cobros, y que un retiro torpe podría llevarse, son las pasarelas.
+test('Stripe y Mercado Pago siguen: un retiro torpe no se lleva lo que no era', () => {
+  for (const k of ['stripe', 'mercadopago']) assert.ok(DEFS.some((d) => d.key === k), `se fue la tarjeta de ${k}`);
   const metodo = sinComentarios(leer('lib/metodo-catalogo.ts'));
-  const ping = sinComentarios(leer('lib/metodo-verificar.ts'));
-  for (const k of ['skool', 'hotmart']) {
-    assert.match(metodo, new RegExp(`key:\\s*'${k}'`), `se fueron los campos de ${k}`);
-    assert.match(ping, new RegExp(`async ${k}\\(`), `se fue el ping de ${k}`);
-  }
-  assert.deepEqual([...RUTEO_POR_HASH].sort(), ['HOTMART_HOTTOK', 'SKOOL_WEBHOOK_CLAVE'], 'el ruteo por hash cambió de contenido');
-  for (const k of ['skool', 'hotmart', 'apify']) assert.equal(esIntegracionDeLeads(k), true, `${k} dejó de ser una integración de leads`);
-  assert.ok(existsSync(join(RAIZ, 'app/api/webhooks/skool/route.ts')), 'se fue el webhook de Skool');
-  assert.ok(existsSync(join(RAIZ, 'lib/skool-evento.ts')), 'se fue el lector de Skool');
+  for (const k of ['stripe', 'mercadopago']) assert.match(metodo, new RegExp(`key:\\s*'${k}'`), `se fueron los campos de ${k}`);
+  assert.deepEqual([...RUTEO_POR_HASH], [], 'el ruteo por hash cambió de contenido (vacío desde el 25/10/2026)');
+  assert.ok(existsSync(join(RAIZ, 'app/api/webhooks/stripe/route.ts')), 'se fue el webhook de Stripe');
 });
 
 test('el guard sabe leer: el barrido ve cientos de archivos y reconoce lo que busca', () => {

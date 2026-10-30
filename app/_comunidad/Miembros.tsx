@@ -125,7 +125,7 @@ function Sacados({ lista, onCambio }: { lista: SacadoVista[]; onCambio: () => vo
     const r = await api.admitir(s.miembro.clave);
     setEnCurso(null);
     if (!r.ok) { aviso(r.error); return; }
-    aviso('Volvió a la comunidad');
+    aviso(r.cursoCortado ? 'Volvió a la comunidad. Su acceso sigue cortado: se habilita en su ficha' : 'Volvió al curso y a la comunidad');
     onCambio();
   };
   if (!lista.length) return <p className="cmu-dim" style={{ margin: 0 }}>Nadie fuera.</p>;
@@ -151,8 +151,9 @@ function Sacados({ lista, onCambio }: { lista: SacadoVista[]; onCambio: () => vo
 }
 
 /**
- * Sacar a un alumno de la comunidad (sin cortarle el curso). Con la casilla, además se borra lo que
- * escribió en los últimos 7 días (como el ban de Skool): eso no tiene vuelta atrás, y lo dice al lado.
+ * Sacar a un alumno del programa: pierde este curso y su comunidad (f32/f33, 24/10/2026; si era el único curso que
+ * tenía, se le corta el acceso). Con la casilla, además se borra lo que escribió en los últimos 7 días (como el ban de
+ * Skool): eso no tiene vuelta atrás, y lo dice al lado.
  */
 export function SacarModal({ miembro, onCerrar, onListo }: {
   miembro: Pick<MiembroVista, 'clave' | 'nombre'>;
@@ -171,7 +172,7 @@ export function SacarModal({ miembro, onCerrar, onListo }: {
     const r = await api.sacar(miembro.clave, { motivo, borrarContenido: borrar });
     setEnCurso(false);
     if (!r.ok) { setError(r.error); return; }
-    aviso('Fuera de la comunidad');
+    aviso(r.curso === 'cortado' ? 'Fuera del curso: su acceso quedó cortado' : 'Fuera del curso y de la comunidad');
     onListo();
   };
   return (
@@ -179,11 +180,11 @@ export function SacarModal({ miembro, onCerrar, onListo }: {
       pie={(
         <>
           <Button variant="tertiary" onClick={onCerrar}>No sacar</Button>
-          <Button variant="danger" loading={enCurso} onClick={() => void sacar()}>Sacar de la comunidad</Button>
+          <Button variant="danger" loading={enCurso} onClick={() => void sacar()}>Sacar del curso</Button>
         </>
       )}>
       <div className="cmu-form">
-        <p className="cmu-chico" style={{ margin: 0 }}>Deja de ver la comunidad. Su curso sigue abierto.</p>
+        <p className="cmu-chico" style={{ margin: 0 }}>Pierde este curso y su comunidad. Si es su único curso, se le corta el acceso.</p>
         <label className="cmu-campo-l">Motivo (lo ve el equipo)
           <Input value={motivo} maxLength={300} onChange={(e) => setMotivo(e.target.value)} />
         </label>
@@ -233,7 +234,7 @@ export function PerfilModal({ clave, onCerrar }: { clave: string; onCerrar: () =
   ) : <Button variant="secondary" icon={<Ico n="lapiz" size={14} />} onClick={empezar}>Editar mi perfil</Button>)
     // Moderación: el equipo saca a un alumno desde su perfil (el server vuelve a preguntar `puedeSacar`).
     : p?.puedoSacar && sacar ? (
-      <Button variant="tertiary" onClick={() => { onCerrar(); sacar({ clave: p.clave, nombre: p.nombre }); }}>Sacar de la comunidad</Button>
+      <Button variant="tertiary" onClick={() => { onCerrar(); sacar({ clave: p.clave, nombre: p.nombre }); }}>Sacar del curso</Button>
     ) : undefined;
 
   return (

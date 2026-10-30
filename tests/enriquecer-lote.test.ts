@@ -84,7 +84,7 @@ test('3. la cobertura y el aviso: lo que su WhatsApp tiene, lo escrito, y si par
   assert.match(resumenDeFichas(221, fichas, { ...base, error: 'Se cortó guardando: quedaron 9 sin guardar.' }), /quedaron 9 sin guardar\.$/, 'el corte no se dice');
 });
 
-const perf = (o: Partial<{ revisados: number; empresas: number; completados: number; campos: number; pendientes: number; sinRespuesta: string[]; sigue: boolean; corte: 'dia' | 'corrida' | null }>) => ({
+const perf = (o: Partial<{ revisados: number; empresas: number; completados: number; campos: number; pendientes: number; sinRespuesta: string[]; sigue: boolean; corte: 'dia' | null }>) => ({
   ok: true as const, total: 221, pendientes: o.pendientes ?? 221, quedanHoy: 120, estaCorrida: 40, revisados: o.revisados ?? 0, empresas: o.empresas ?? 0,
   completados: o.completados ?? 0, campos: o.campos ?? 0, errores: 0, sinRespuesta: o.sinRespuesta ?? [], sigue: o.sigue ?? false, corte: o.corte ?? null,
 });
@@ -94,19 +94,22 @@ test('4. «Datos de empresa»: suma lo hecho entre llamadas, saltea a los que no
   const respuestas = [
     perf({ revisados: 15, empresas: 6, completados: 2, campos: 3, pendientes: 221, sinRespuesta: ['1155550001'], sigue: true }),
     perf({ revisados: 15, empresas: 5, completados: 1, campos: 1, pendientes: 207, sigue: true }),
-    perf({ revisados: 10, empresas: 3, pendientes: 192, corte: 'corrida' }),
+    perf({ revisados: 10, empresas: 3, pendientes: 192, corte: 'dia' }),
   ];
   const a = await correrPerfiles({ pendientes: 221, estaCorrida: 40 }, async (hechas, saltear) => { pedidos.push({ hechas, saltear }); return respuestas[pedidos.length - 1]; }, { parar: () => false });
-  assert.deepEqual(pedidos.map((x) => x.hechas), [0, 15, 30], 'el tope de la corrida necesita lo ya consultado');
+  assert.deepEqual(pedidos.map((x) => x.hechas), [0, 15, 30], 'el avance necesita lo ya consultado');
   assert.deepEqual(pedidos[1].saltear, ['1155550001'], 'el que no contestó vuelve a ser el primero de la llamada siguiente');
   assert.equal(a.hechas, 40);
   assert.equal(a.empresas, 14);
   assert.equal(a.completados, 3);
   assert.equal(a.pendientes, 182);
-  assert.equal(a.corte, 'corrida');
-  assert.equal(resumenDePerfiles(a), '14 de 40 tienen cuenta de empresa · 3 con datos nuevos (4 entre web, Instagram, correo y dirección). Faltan 182: vuelve a tocar «Datos de empresa» para seguir.');
-  // No dice «mañana sigue»: no sigue nada solo, hay que volver a tocar.
-  assert.match(resumenDePerfiles({ ...a, corte: 'dia' }), /Por hoy se terminaron las consultas de esta línea: mañana vuelve a tocar «Datos de empresa» para seguir con los 182 que faltan \(los ya consultados no se repiten\)\.$/);
+  assert.equal(a.corte, 'dia');
+  // UNA SOLA PASADA (25/10/2026, f14: «no debería volver a tocar nada»): lo único que corta es el tope del día, y se dice en
+  // una línea. No dice «mañana sigue»: no sigue nada solo, hay que tocarlo (MaKo no hace nada por detrás).
+  assert.equal(resumenDePerfiles(a), '14 de 40 tienen cuenta de empresa · 3 con datos nuevos (4 entre web, Instagram, correo y dirección). Faltan 182: tócalo mañana (120 consultas por día cuidan tu línea de un bloqueo).');
+  // Sin el tope del día, los que quedan son los que no contestaron: nada de «vuelve a tocar para seguir».
+  assert.equal(resumenDePerfiles({ ...a, corte: null, pendientes: 3 }), '14 de 40 tienen cuenta de empresa · 3 con datos nuevos (4 entre web, Instagram, correo y dirección). 3 no contestaron.');
+  assert.doesNotMatch(resumenDePerfiles({ ...a, corte: null }), /vuelve a tocar/);
 });
 
 test('5. «Datos de empresa» no corta callado: el server que no consulta ninguno, el error, la red, el tope de vueltas y «Parar»', async () => {
@@ -119,11 +122,12 @@ test('5. «Datos de empresa» no corta callado: el server que no consulta ningun
   assert.equal(tira.error, 'Failed to fetch');
   let n = 0;
   const siempre = await correrPerfiles(cuenta, async () => {
-    if (++n > 25) throw new Error('un bucle sin fin'); // el doble corta solo: una regresión es un rojo, no un test colgado
+    if (++n > 60) throw new Error('un bucle sin fin'); // el doble corta solo: una regresión es un rojo, no un test colgado
     return perf({ revisados: 1, sigue: true });
   }, { parar: () => false });
-  assert.ok(n <= 20, 'un bucle sin fin');
-  assert.match(siempre.error ?? '', /Se cortó después de 20 consultas/, 'el tope de vueltas cortó callado');
+  // 30 vueltas (25/10/2026, sin tope por corrida): alcanzan para las 120 del día aunque cada llamada consulte sólo 4.
+  assert.ok(n <= 30, 'un bucle sin fin');
+  assert.match(siempre.error ?? '', /Se cortó después de 30 consultas/, 'el tope de vueltas cortó callado');
   let llamadas = 0;
   const parado = await correrPerfiles(cuenta, async () => { llamadas++; return perf({ revisados: 15, sigue: true }); }, { parar: () => llamadas >= 1 });
   assert.equal(llamadas, 1);
@@ -131,14 +135,14 @@ test('5. «Datos de empresa» no corta callado: el server que no consulta ningun
   assert.match(resumenDePerfiles(parado), / Paraste antes de terminar\.$/);
 });
 
-test('6. la pregunta antes de consultar: cuántos faltan, cuántos ahora, en cuánto, y cuántos quedan hoy', () => {
-  assert.equal(
-    preguntaDePerfiles({ pendientes: 221, total: 230, quedanHoy: 120, estaCorrida: 40 }, 'los 230 tildados con teléfono', 2, 120),
-    'Faltan 221 de los 230 tildados con teléfono. Ahora se consultan 40, de a uno: unos 2 min. Los otros 181, en otra vuelta. Hoy quedan 120 de 120 consultas en esta línea. Sólo se completa lo vacío, y no les llega nada.',
-  );
-  assert.ok(!preguntaDePerfiles({ pendientes: 3, total: 3, quedanHoy: 120, estaCorrida: 3 }, 'x', 1, 120).includes('otra vuelta'));
-  // Desde el tablero la línea no se ve: se nombra (el cupo es de ESA línea).
-  assert.match(preguntaDePerfiles({ pendientes: 3, total: 3, quedanHoy: 80, estaCorrida: 3 }, 'x', 1, 120, 'Ventas'), /Hoy quedan 80 de 120 consultas en la línea «Ventas»./);
+// La pregunta, CORTA (25/10/2026): Martín en la llamada con Leandro (24/10, f13), sobre la de antes —que decía además el cupo del
+// día y que sólo se completa lo vacío, unas 40 palabras—: «el texto muy largo. No me gustan textos largos».
+test('6. la pregunta antes de consultar: cuántos ahora de cuántos faltan y en cuánto, en una línea', () => {
+  assert.equal(preguntaDePerfiles({ pendientes: 221, estaCorrida: 40 }, 2), '40 de los 221 que faltan, unos 2 min. No les llega nada.');
+  assert.equal(preguntaDePerfiles({ pendientes: 3, estaCorrida: 3 }, 1), 'Los 3 que faltan, un minuto. No les llega nada.');
+  // Desde el tablero la línea no se ve: se nombra (la consulta sale por ESA línea).
+  assert.equal(preguntaDePerfiles({ pendientes: 3, estaCorrida: 3 }, 1, 'Ventas'), 'Los 3 que faltan, un minuto, desde «Ventas». No les llega nada.');
+  assert.ok(preguntaDePerfiles({ pendientes: 1_221, estaCorrida: 40 }, 12, 'Ventas').split(/\s+/).length <= 16, 'volvió a ser un párrafo (la de antes: unas 40 palabras)');
 });
 
 test('7. el server del lote: sólo los tildados, por los MISMOS núcleos del grupo, y sólo el admin', () => {
@@ -159,7 +163,8 @@ test('7. el server del lote: sólo los tildados, por los MISMOS núcleos del gru
   // Las acciones: TODAS con la puerta del admin, y con techo de tiempo las que escriben.
   const acciones = leer('app/crm/enriquecer-actions.ts');
   const exportadas = [...acciones.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  assert.deepEqual(exportadas, ['telefonosDeLeadsAction', 'completarFichasDeLeadsAction', 'completarPerfilesDeLeadsAction']);
+  // `pedidosDeFichasAction` reemplazó a `telefonosDeLeadsAction` el 25/10/2026 (teléfono, `@lid` y grupo de cada tildado).
+  assert.deepEqual(exportadas, ['pedidosDeFichasAction', 'completarFichasDeLeadsAction', 'completarPerfilesDeLeadsAction']);
   for (const f of exportadas) {
     const cuerpo = acciones.slice(acciones.indexOf(`export async function ${f}`));
     assert.match(cuerpo.slice(0, 400), /await exigirSesion\(\);\n {2}if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false, error: SOLO_ADMIN \};/, `${f}: sin la puerta del admin`);
@@ -167,7 +172,13 @@ test('7. el server del lote: sólo los tildados, por los MISMOS núcleos del gru
   assert.equal([...acciones.matchAll(/hasta: Date\.now\(\) \+ 40_000/g)].length, 2, 'una acción que escribe sin techo de tiempo');
   // Los ids que manda el navegador, limpios en las TRES (enteros positivos, sin repetir, con tope).
   assert.equal([...acciones.matchAll(/ids: idsLimpios\(p\.ids\)/g)].length, 2, 'una acción usa los ids del navegador sin limpiar');
-  assert.match(acciones, /telefonosDeLeads\(idsLimpios\(ids\)\)/, 'los teléfonos, con ids sin limpiar');
+  assert.match(acciones, /pedidosDeFichas\(idsLimpios\(ids\)\)/, 'los teléfonos, con ids sin limpiar');
+  // Los pedidos: el grupo sale del HISTORIAL del lead, y el `@lid` de la LISTA del grupo (una lectura con caché), nunca de una
+  // consulta de perfil por persona (eso sí gasta la red de la línea).
+  const pedidos = lote.slice(lote.indexOf('export async function pedidosDeFichas('), lote.indexOf('/** Las fichas de SU WhatsApp Web'));
+  assert.match(pedidos, /\.from\('lead_audit'\)\.select\('valor_nuevo'\)\.eq\('campo', EVENTO_TRAIDO_DE_GRUPO\)\.in\('lead_id', ids\.slice\(i, i \+ 200\)\)/);
+  assert.match(pedidos, /const leidos = await participantesDelGrupo\(l\.linea, g\.jid\)/);
+  assert.doesNotMatch(pedidos, /fetchBusinessProfile|\bev\(|fresco|true\)/, 'los pedidos consultan perfiles o releen el grupo sin caché');
   const lote2 = leer('app/crm/enriquecer-lote-server.ts');
   assert.match(lote2, /\.filter\(\(x\): x is number => Number\.isInteger\(x\) && \(x as number\) > 0\)\)\]\.slice\(0, TOPE_LOTE_COMPLETAR\)/);
 });
@@ -176,16 +187,19 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   const barra = sinComentarios(leer('app/crm/AccionesLoteLeads.tsx'));
   assert.match(barra, /\{puedeCompletar && \(\n\s+<Dropdown\n\s+value="" resetAfterSelect placeholder="Completar"/, 'sin el desplegable, o sin la puerta del admin');
   assert.match(leer('app/crm/CrmBoard.tsx'), /puedeCompletar=\{!!puedeCrearCrm\}/, 'el tablero no le dice a la barra quién es admin');
-  // Sin la extensión, la opción se ve apagada y dice qué falta.
-  assert.match(barra, /value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp', disabled: extWa !== 'si',/);
+  // Sin la extensión, la opción dice qué falta, y SE PUEDE TOCAR (25/10/2026, Martín: «Si me dice "Instala la extensión de
+  // MaKo", si le apreto debería automáticamente salirme el desplegable»): abre la instalación y espera (tests/wa-fichas-071).
+  assert.match(barra, /value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp',\n/);
+  assert.doesNotMatch(barra, /disabled: extWa !== 'si'/, 'la opción volvió a ser un texto muerto');
   assert.match(barra, /extWa === 'vieja' \? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'/);
   // Las dos preguntan antes; «Datos de empresa» cuenta ANTES de preguntar.
-  assert.match(barra, /if \(v === 'whatsapp'\) \{ if \(extWa === 'si'\) setPide\(\{ tipo: 'whatsapp' \}\); return; \}/);
+  assert.match(barra, /if \(v === 'whatsapp'\) \{\n\s+if \(extWa === 'si'\) \{ setPide\(\{ tipo: 'whatsapp' \}\); return; \}/);
   assert.match(barra, /const c = await completarPerfilesDeLeadsAction\(\{ ids, soloContar: true \}\);/);
   assert.match(barra, /\{pide\?\.tipo === 'whatsapp' && \(\n\s+<Confirm/);
   assert.match(barra, /\{pide\?\.tipo === 'empresa' && \(\n\s+<Confirm[\s\S]{0,200}message=\{preguntaDePerfiles\(pide\.cuenta,/);
   // Las corridas: con las máquinas compartidas, la pregunta cerrada ANTES (si no, tapa el avance y el «Parar»).
-  assert.match(barra, /const correrWhatsapp = async \(\) => \{\n\s+cerrar\(\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\('Leyendo tu WhatsApp Web…'\)\) return;/);
+  // Desde la 0.72.0 (26/10/2026) «Desde mi WhatsApp» no escribe en la barra: su avance va al desplegable de la extensión.
+  assert.match(barra, /const correrWhatsapp = async \(\) => \{\n\s+cerrar\(\);\n\s+setEsperaExt\(false\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\(''\)\) return;\n\s+setEnExtension\(true\);/);
   assert.match(barra, /const correrEmpresa = async \(cuenta: CuentaPerfiles\) => \{\n\s+cerrar\(\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\(`Consultando perfiles: 0 de/);
   assert.match(barra, /await guardarFichasEnTandas\(fichas, \(tanda\) => completarFichasDeLeadsAction\(\{ ids: deEstos, fichas: tanda \}\), \{\n\s+parar: \(\) => parar\.current,/);
   assert.match(barra, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeLeadsAction\(\{ ids: deEstos, hechas, saltear \}\), \{\n\s+parar: \(\) => parar\.current,/);
@@ -220,11 +234,12 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   assert.match(board, /\{\(elegidos\.length > 0 \|\| completandoLote\) && \(/, 'el tablero desmonta la barra (con su «Parar») si se vacía la selección por otro camino');
   assert.match(board, /onCorriendo=\{setCompletandoLote\}/);
   assert.match(board, /\} : undefined, r\.tono\);/, 'el aviso de un lote a medias sale como un «listo» de 3 s');
-  assert.match(barra, /setAvance\(`Completando \$\{miles\(guardados\)\} de \$\{miles\(total\)\}…`\)/);
-  assert.match(barra, /\{largo && \(\n\s+<button type="button" data-parar-completar onClick=\{\(\) => \{ parar\.current = true;/, 'sin «Parar»');
+  // El «Completando N de M» de la barra pasó al desplegable (0.72.0); el «Parar» de la barra sigue para «Datos de empresa».
+  assert.match(barra, /alAvanzar: \(guardados, total\) => avisarExtraccion\(id, \{ fase: 'guardando', guardados, total \}\),/);
+  assert.match(barra, /\{largo && !enExtension && \(\n\s+<button type="button" data-parar-completar onClick=\{\(\) => \{ parar\.current = true;/, 'sin «Parar»');
   assert.match(barra, /onClick=\{largo \? undefined : onLimpiar\}/, 'limpiar la selección a mitad desmonta la barra con su «Parar»');
-  // La extensión lee SÓLO los teléfonos de los tildados.
-  assert.match(barra, /const t = await telefonosDeLeadsAction\(deEstos\);[\s\S]{0,300}pedirFichasDeWhatsappWeb\(t\.telefonos\.map\(\(x\) => x\.telefono\)\)/);
+  // La extensión lee SÓLO los teléfonos de los tildados (con su `@lid` y sus grupos, desde el 25/10/2026), y cuenta cada paso.
+  assert.match(barra, /const t = await pedidosDeFichasAction\(deEstos\);[\s\S]{0,600}pedirFichasDeWhatsappWeb\(t\.pedidos\.map\(\(p\) => \(\{ telefono: p\.telefono, lid: p\.lid \}\)\), \{\n\s+grupos: t\.grupos, visible: true, titulo, id,/);
   // Más de 5.000 tildados: la pregunta dice que se toman los primeros (nunca un corte callado).
   assert.equal([...barra.matchAll(/n > TOPE_LOTE_COMPLETAR \? ` Se toman los primeros/g)].length, 2);
 });
@@ -247,23 +262,26 @@ test('8b. el núcleo de perfiles: candado por línea, y el corte por tiempo deja
 
 test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo, en gris, sin casilla, y el pie lo cuenta', () => {
   const ui = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(ui, /setSel\(new Set\(r\.participantes\.filter\(\(p\) => !p\.enElCrm\)\.map\(\(p\) => p\.telefono\)\)\);/, 'arranca con los que ya están tildados');
-  assert.match(ui, /return \[\.\.\.pasan\.filter\(\(p\) => !p\.enElCrm\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que ya están no van abajo');
+  // Sin los admins si se pidió «Ignorar admins» (26/10/2026).
+  assert.match(ui, /setSel\(new Set\(r\.participantes\.filter\(\(p\) => !p\.enElCrm && !\(sinAdminsAhora\.current && p\.admin\)\)\.map\(\(p\) => p\.telefono\)\)\);/, 'arranca con los que ya están tildados');
+  // Y entre los nuevos, los que tienen nombre primero (27/10/2026): los que ya están siguen abajo.
+  assert.match(ui, /return \[\.\.\.nuevosAhora\.filter\(\(p\) => !!p\.nombre\), \.\.\.nuevosAhora\.filter\(\(p\) => !p\.nombre\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que ya están no van abajo');
   assert.match(ui, /const todos = nuevos\.length > 0 && nuevos\.every\(\(p\) => sel\.has\(p\.telefono\)\);/);
   assert.match(ui, /setSel\(todos \? new Set\(\) : new Set\(nuevos\.map\(\(p\) => p\.telefono\)\)\)/, '«tildar todos» tilda también a los que ya están');
   assert.match(ui, /if \(p\.enElCrm\) return; \/\/ ya está: no se trae, no se tilda/);
-  assert.match(ui, /const tels = \[\.\.\.sel\]\.filter\(\(t\) => !yaEnElCrm\.has\(t\)\);/, 'se mandan a traer los que ya están');
+  assert.match(ui, /const tels = soloNombres \? \[\] : \[\.\.\.sel\]\.filter\(\(t\) => !yaEnElCrm\.has\(t\)\);/, 'se mandan a traer los que ya están');
   // El renglón gris: sin casilla y con el rótulo que dice cuántos.
   const gris = ui.slice(ui.indexOf('if (p.enElCrm) {'), ui.indexOf('const on = sel.has(p.telefono);'));
   assert.ok(gris.length > 100, 'no encontré los renglones de los que ya están');
   assert.doesNotMatch(gris, /type="checkbox"|onClick=/, 'el que ya está tiene casilla o se puede tildar');
   assert.match(gris, /color: 'var\(--faint\)'/, 'no va en gris');
-  assert.match(gris, /`Ya están en tu CRM · \$\{miles\(yaEstan\)\} · no se traen`/);
-  // El pie: «Traigo 86 · 135 ya estaban».
-  assert.match(ui, /`Traigo \$\{miles\(sel\.size\)\}\$\{yaEstan \? ` · \$\{miles\(yaEstan\)\} ya \$\{yaEstan === 1 \? 'estaba \(abajo, en gris\)' : 'estaban \(abajo, en gris\)'\}` : ''\}\.`/);
+  assert.match(gris, /`Ya están en tu CRM · \$\{miles\(yaEstan\)\}`/);
+  // La línea de resumen (26/10/2026, Martín: «Elimina los textos innecesarios»): sólo «86 para extraer», sin los chips.
+  assert.match(ui, /texto: `\$\{miles\(sel\.size\)\} para extraer`,/);
+  assert.doesNotMatch(ui, /tono: 'gris' as const/, 'volvieron los chips «ya están · sin número · no les manda nada»');
   // Y el server tampoco los vuelve a cargar (la API de MaKo trae «todos»): ni funnel ni etiqueta.
   const server = leer('app/crm/grupo-wa-server.ts');
-  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; continue; \}/);
+  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; return; \}/);
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /\$\{ya \? ` \(\$\{ya\} ya son leads: no se vuelven a cargar\)` : ''\}/, 'la API todavía promete sumarlos');
   assert.match(run, /Traer \$\{p\.participantes\.length - ya\} contactos nuevos/);
@@ -276,10 +294,12 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   assert.match(op, /A los que ya son leads del CRM no los toca/);
   // El modal: un corte va al resumen, que releer el grupo no borra.
   const modal = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(modal, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}`\);/, 'el corte de «Completar desde mi WhatsApp» se borra al releer el grupo');
+  // Desde el 26/10/2026 los nombres van dentro de «Extraer»: el corte de los dos (traer y guardar) va al mismo resumen.
+  assert.match(modal, /const corte = t\?\.corte \|\| a\?\.error \|\| \(a\?\.parado \? 'La paraste\.' : ''\);/, 'el corte de los nombres se borra al releer el grupo');
+  assert.match(modal, /setHecho\(titular \? `\$\{resumen\}\.\$\{cola\}` : `«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/);
   assert.doesNotMatch(modal, /if \(a\.error\) setErr\(a\.error\);/);
-  assert.match(modal, /if \(r\.pendientes\.length >= tanda\.length\) \{ corte = 'WhatsApp está tardando\.'; break; \}/, 'el corte de «Traer» va a err y se borra al releer');
-  assert.match(modal, /Se cortó: \$\{corte\} Quedaron \$\{miles\(tels\.length - hechos\)\} sin traer: vuelve a tocar «Traer» para seguir\./);
+  assert.match(modal, /if \(r\.pendientes\.length >= tanda\.length\) \{ corte = 'WhatsApp está tardando\.'; break; \}/, 'el corte de «Extraer» va a err y se borra al releer');
+  assert.match(modal, /corte \? ` \$\{corte\}\$\{t && t\.quedan > 0 \? ` Quedaron \$\{miles\(t\.quedan\)\}: vuelve a tocar «Extraer»\.` : ''\}` : '',/);
 });
 
 test('10. un aviso largo se puede leer: el Toast le da tiempo según el largo, y uno a medias se queda', () => {

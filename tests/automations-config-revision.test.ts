@@ -178,9 +178,9 @@ test('m. un horario sin `activo` booleano se rechaza; apagado con días vacíos 
   // Prendido, lo de siempre.
   assert.equal(configParaGuardar({}, { horario: { activo: true, desde: 18, hasta: 9, dias: [1] } }).ok, false);
   // «Como el negocio» en todo = vacía: quien guarda BORRA la clave.
-  const v = configParaGuardar({ horario: null, goteo: { minutos: 3 }, goteoEmail: { dia: 30 } }, { horario: null, goteo: null, goteoEmail: null });
+  const v = configParaGuardar({ horario: null, goteo: { minutos: 3 } }, { horario: null, goteo: null });
   assert.ok(v.ok && v.vacia);
-  const lleno = configParaGuardar({}, { goteoEmail: { minutos: 3 } });
+  const lleno = configParaGuardar({}, { goteo: { minutos: 3 } });
   assert.ok(lleno.ok && !lleno.vacia);
   const db = sinComentarios(leer('lib/config-automatizacion-db.ts'));
   assert.match(db, /if \(r\.vacia\) await borrarConfig\(ws, secuenciaId\);\n\s+else await setSetting\(claveConfigAutomatizacion\(secuenciaId\), r\.valor\);/);
@@ -224,13 +224,14 @@ test('m. el tick: la lectura de los horarios propios trae sólo los prendidos, c
 });
 
 // 22/10/2026: el goteo (23/10/2026: de WhatsApp y de Email; sin «Misma persona») en UN componente (`AntibanDeLaAutomatizacion`) y UN guardado por respiro.
-test('m. el anti-ban de esta automatización: lo tocado se ve ya y los cambios del respiro se juntan (las dos partes)', () => {
+test('m. el anti-ban de esta automatización: lo tocado se ve ya y los cambios del respiro se juntan (los dos campos)', () => {
   const p = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
-  const g = cuerpo(p, "const guardar = (parte: ParteGoteo, cambio: Record<string, number | null>) => {", '\n  };');
-  assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \[parte\]: \{ \.\.\.\(pendiente\.current\[parte\] \?\? \{\}\), \.\.\.cambio \} \};/);
-  assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.Object\.fromEntries\(Object\.entries\(cambio\)\.map\(\(\[k, v\]\) => \[`\$\{parte\}\.\$\{k\}`, v\]\)\) \}\)\);/);
-  assert.match(g, /const envio = pendiente\.current;\n\s+pendiente\.current = \{\};[\s\S]*saveConfigAutomatizacionAction\(secuenciaId, envio\)/);
-  assert.match(p, /if \(k in local\) return local\[k\] \?\? undefined;\n\s+return \(d\?\.config\[parte\] as Record<string, number> \| undefined\)\?\.\[campo\];/);
+  // Desde el 24/10/2026 (f21) es UN goteo para todos los canales: los campos van sueltos y se guardan en `goteo`.
+  const g = cuerpo(p, "const guardar = (cambio: CambioGoteo) => {", '\n  };');
+  assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \.\.\.cambio \};/);
+  assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.cambio \}\)\);/);
+  assert.match(g, /const envio = pendiente\.current;\n\s+pendiente\.current = \{\};[\s\S]*saveConfigAutomatizacionAction\(secuenciaId, \{ goteo: envio \}\)/);
+  assert.match(p, /const leido = \(campo: 'minutos' \| 'dia'\): number \| undefined => \(campo in local \? local\[campo\] \?\? undefined : d\?\.config\.goteo\?\.\[campo\]\);/);
 });
 
 test('m. la tuerca la ve también quien no es admin (el modal entra en sólo lectura)', () => {

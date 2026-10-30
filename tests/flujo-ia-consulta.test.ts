@@ -133,8 +133,9 @@ test('la ruta: la consulta va ANTES de editar y devuelve el borrador tal cual', 
   const editar = ruta.indexOf("getPromptText('chatbot.editar-ia.system'");
   assert.ok(consulta > 0 && editar > consulta, 'la consulta se decide antes del prompt de editar');
   assert.match(ruta.slice(consulta, editar), /getPromptText\('chatbot\.explicar-ia\.system', EXPLICAR_IA_SYSTEM_TEMPLATE\)/);
-  assert.match(ruta, /const contestar = async[\s\S]{0,400}pasos: base,[\s\S]{0,200}cambiadas: \[\], quitadas: \[\]/, 'contestar devuelve el borrador sin cambios');
-  assert.match(ruta, /if \(r\.respuesta\) \{ await contestar\(r\.respuesta\); return; \}/, 'la capa 2: editar contestó');
+  assert.match(ruta, /const contestar = async[\s\S]{0,1200}pasos: base,[\s\S]{0,200}cambiadas: \[\], quitadas: \[\]/, 'contestar devuelve el borrador sin cambios');
+  // (24/10/2026, f23: con lo que falta en MaKo, si lo dijo. Y desde el 27/10/2026, con qué IA contestó.)
+  assert.match(ruta, /if \(r\.respuesta\) \{ await contestar\(r\.respuesta, r\.falta, ia\); return; \}/, 'la capa 2: editar contestó');
   // (22/10/2026: la revisión vive en `revisarEdicion`, lib/flujo-ia-revision-editar.ts.)
   const rev = leer('lib/flujo-ia-revision-editar.ts');
   assert.match(rev, /if \(r\.respuesta\) \{[\s\S]{0,300}?return \{ r, errores: e \? \[e\] : \[\] \};/, 'una respuesta no se reintenta por «no cambió nada»');

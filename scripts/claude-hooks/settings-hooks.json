@@ -69,6 +69,17 @@
             "statusMessage": "Guardia de RAM..."
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/guardia/sin-ask.mjs\"",
+            "timeout": 30,
+            "statusMessage": "Mandando la pregunta al Ops Center..."
+          }
+        ]
       }
     ]
   }

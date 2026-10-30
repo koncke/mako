@@ -39,23 +39,28 @@ const sinComentarios = (src: string) => src
   .replace(/\{\s*\}/g, '{}');
 
 const APP = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
+const SHELL = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
 const NUEVO = sinComentarios(leer('app/customer-success/curso/NuevoProducto.tsx'));
 
-test('el menú de la marca ofrece «+ Nuevo producto» a quien edita, al final de la lista de cursos', () => {
-  const ini = APP.indexOf('const menuMarca = ');
-  const marca = APP.slice(ini, APP.indexOf('if (!servicio) {', ini));
-  assert.ok(marca.length > 500 && marca.length < 9000, `el recorte del menú mide ${marca.length}`);
-  // `pedirSalida` primero (revisión final del 08/10/2026): crear navega DURO, y con la lección a medio
-  // guardar la salida la atajaba el `beforeunload` con el producto ya creado. Roto (sin `pedirSalida`): 4 / 1.
-  const item = /\{puedeEditar && \(\s*<ItemMenuUgc onClick=\{\(\) => \{ cerrar\(\); leccionAbierta\.pedirSalida\(\(\) => setCreandoProducto\(true\)\); \}\}>\+ Nuevo producto<\/ItemMenuUgc>\s*\)\}/;
-  assert.match(marca, item, '«+ Nuevo producto» sin la puerta de quien edita, sin cerrar el menú, o sin preguntar por la lección sin guardar');
-  assert.ok(marca.indexOf('servicios.map(') < marca.search(item), 'va al FINAL de la lista de cursos');
+// ⚠️ SE MUDÓ A LA CABECERA DE CLIENTS el 24/10/2026 (f28 de la llamada con Leandro: un curso es un producto, y hay UN
+//    selector). Con la lección a medio guardar, crear navega DURO y la pregunta la hace el `beforeunload` de la lección
+//    (que ya no se salta: el producto se crea recién al tocar «Crear producto»).
+test('el programa de la cabecera ofrece «+ Nuevo producto» a un admin, al final de la lista de programas', () => {
+  const prog = SHELL.slice(SHELL.indexOf('function Programa('), SHELL.indexOf('function Personalizar('));
+  assert.ok(prog.length > 500 && prog.length < 9000, `el recorte del programa mide ${prog.length}`);
+  const item = /\{onNuevo && \(\s*<>\s*<div className="cls-sep" \/>\s*<button type="button" role="menuitem" className="cls-opcion cls-opcion--nuevo" onClick=\{\(\) => \{ setAbierto\(false\); onNuevo\(\); \}\}>\s*\+ Nuevo producto\s*<\/button>/;
+  assert.match(prog, item, '«+ Nuevo producto» sin cerrar la lista');
+  assert.ok(prog.indexOf('programas.map(') < prog.search(item), 'va al FINAL de la lista de programas');
+  assert.match(SHELL, /onNuevo=\{puedePersonalizar \? \(\) => setCreando\(true\) : null\}/, '«+ Nuevo producto» sin la puerta del admin');
+  assert.match(prog, /if \(programas\.length < 2 && !onNuevo\) \{/, 'con un programa, un admin no tiene dónde crear otro');
+  assert.doesNotMatch(APP, /NuevoProducto|creandoProducto/, 'el Classroom volvió a crear productos: dos lugares para lo mismo');
 });
 
-test('el diálogo va AFUERA del curso, montado por la pantalla', () => {
-  const finCurso = APP.indexOf('textos={TEXTOS_EDITOR}');
-  const dialogo = APP.indexOf('{creandoProducto && <NuevoProducto onCerrar={() => setCreandoProducto(false)} />}');
-  assert.ok(finCurso > 0 && dialogo > finCurso, 'el diálogo quedó adentro de <CursoUgc> (sus botones salen sin piel)');
+test('el diálogo va AFUERA del curso, montado por la cabecera', () => {
+  const finCuerpo = SHELL.indexOf("<div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>{children}</div>");
+  const dialogo = SHELL.indexOf('{creando && <NuevoProducto onCerrar={cerrarCreando} />}');
+  assert.ok(finCuerpo > 0 && dialogo > finCuerpo, 'el diálogo quedó adentro del cuerpo (la hoja del curso le saca la piel a sus botones)');
+  assert.match(SHELL, /const cerrarCreando = useCallback\(\(\) => setCreando\(false\), \[\]\);/, 'el onCerrar del diálogo cambia en cada render (el foco salta)');
 });
 
 test('crea con la CADENA del CRM (producto → oferta → embudo), nunca con upsertProducto', () => {
@@ -73,7 +78,7 @@ test('crea con la CADENA del CRM (producto → oferta → embudo), nunca con ups
 test('al crearlo se navega DURO al curso nuevo, con el ?ws= de la pestaña; con error, el diálogo se queda', () => {
   assert.match(NUEVO, /const ws = useWs\(\);/);
   assert.match(NUEVO, /window\.location\.href = conWs\(rutaDelCurso\(r\.productoId\), ws\);/);
-  assert.match(NUEVO, /const rutaDelCurso = \(id: number\) => `\/clients\/classroom\?producto=\$\{id\}`;/);
+  assert.match(NUEVO, /const rutaDelCurso = \(id: number\) => `\/classroom\?producto=\$\{id\}`;/);
   assert.doesNotMatch(NUEVO, /router\.refresh\(\)/, 'un refresh llega tarde para lo que cambió QUÉ EXISTE');
   // Un error no cierra el diálogo: se dice y se puede corregir el nombre.
   assert.match(NUEVO, /if \(!r\.ok\) \{ setError\(r\.error\); setCreando\(false\); return; \}/);
@@ -204,7 +209,8 @@ test('ningún componente de la tab Curso se define ADENTRO de otro (se remontar�
 // ── ROTURAS ──────────────────────────────────────────────────────────────────────
 // Medido el 08/10/2026 (scratchpad/general/romper.mjs + roturas.mjs, en memoria y sin git). Con todo en
 // su lugar: 5 pass / 0 fail. Cada rotura, sola, dio 4 / 1:
-//  33. «+ Nuevo producto» sin `puedeEditar`        → «el menú de la marca ofrece…»
+//  33. «+ Nuevo producto» sin `puedeEditar`        → «el menú de la marca ofrece…» (desde el 24/10: sin la puerta del
+//      admin en la cabecera → «el programa de la cabecera ofrece…»)
 //  34. navega sin el `?ws=` · 36. con error navega igual → «al crearlo se navega DURO…»
 //  35. crea con `upsertProducto`                   → «crea con la CADENA del CRM…»
 //  37. el diálogo no se monta afuera del curso     → «el diálogo va AFUERA del curso…»

@@ -19,13 +19,17 @@ import { Button, Confirm, Toast, useToast } from '@/app/_ui';
 import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
 import { cobrosDelTrato, cobrosSinLosDe } from '@/lib/pagos-crm';
-import { ajustarSobre, type PlanUniforme } from '@/lib/pagos-campo';
+import {
+  aplicarCambios, armadaDe, cambiosContra, columnasDelPlan, cuotasDeTramos, cuotasDelPlanPorTramos, lugaresDelPlan, plataDeCuota, soloLoQueCambio, tramosDeCuotas, TOPE_CUOTAS_PLAN, TOPE_TRAMOS,
+  type AnticipoPlan, type CadaPlan, type CambioDeCuota, type PlanUniforme, type TramoPlan,
+} from '@/lib/pagos-campo';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 import { planEnLead } from '@/lib/muestra-pagos';
 import { fechaEnPalabras } from '@/lib/date-utils';
 import { marcaDato } from '@/lib/datos-aviso';
 import type { VentaTipo } from '@/lib/venta-tipo';
 import type { Pago } from '@/lib/pagos';
-import { ajustarPlanAction, cambiarEstadoSuscripcionAction, cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
+import { cambiarEstadoSuscripcionAction, cortarRecordatoriosCuotaAction, editarCuotaAction, guardarCuotasAction, guardarVentaAction } from '@/app/crm/[id]/pagos-campo-actions';
 import { bajaDelClienteAction, proteccionesDeCuotasAction, quitarCuotaAction } from './cuotas-actions';
 import type { Proteccion } from '@/lib/pagos-campo';
 import { cancelarSuscripcionAction } from '@/app/crm/[id]/cobros-actions';
@@ -33,7 +37,7 @@ import { quitarSinCobroAction } from '@/app/crm/[id]/deal-actions';
 import { CobrarConLink } from '@/app/crm/[id]/CobrarConLink';
 import { CobrosDelLead } from '@/app/crm/[id]/CobrosDelLead';
 import type { CtxFicha, PropsBloque } from '../tipos';
-import { refrescarCobros, useCobrosDelLead } from './datos';
+import { refrescarCobros, useCobrosDelLead, useMonedaDelNegocio } from './datos';
 import { sinTratoLeido } from './trato';
 import { useCobrar } from './cobrar';
 import { EnLinea } from './EnLinea';
@@ -177,13 +181,32 @@ export function Cuotas(props: PropsBloque) {
     show(r.cortados ? 'Recordatorio cortado' : 'No había recordatorio');
   });
 
-  const editar = (q: Pago, cambio: { monto?: number; fecha?: string | null }) =>
-    editarCuotaAction(lead.id, q.id, cambio).then((r) => {
+  // `espera`: el estado del renglón que se dibujó (la fecha de una impaga es el vencimiento; la de una cobrada, el día del
+  // pago). Si la cuota cambió en el medio (se cobró, se desmarcó), el server tira en vez de escribir la otra columna.
+  // El Deshacer manda SÓLO lo que cambió (una cobrada sin día del pago no se puede «volver» a sin día), y dice si falló.
+  const editar = (q: Pago, cambio: { monto?: number; montoOriginal?: number; fecha?: string | null }) => {
+    const espera = q.pagado ? 'cobrada' as const : 'impaga' as const;
+    return editarCuotaAction(lead.id, q.id, { ...cambio, espera }).then((r) => {
       if (!r.ok) return r.error;
       ctx.releer();
-      show('Cuota cambiada', () => start(async () => { await editarCuotaAction(lead.id, q.id, { monto: r.antes.monto, fecha: r.antes.fecha }); ctx.releer(); }));
+      const volver = {
+        ...(r.antes.monto !== r.despues.monto ? { monto: r.antes.monto } : {}),
+        ...(r.antes.montoOriginal != null && r.antes.montoOriginal !== r.despues.montoOriginal ? { montoOriginal: r.antes.montoOriginal } : {}),
+        ...(r.antes.fecha !== r.despues.fecha ? { fecha: r.antes.fecha } : {}),
+        espera,
+      };
+      // El link anulado no vuelve con el Deshacer (revisión de 0b6d5b754): se dice en los dos.
+      const aviso = r.linkAnulado ? 'Cuota cambiada · el link anterior se anuló: manda uno nuevo'
+        : r.recordatorioCortado ? 'Cuota cambiada · el recordatorio arranca de nuevo' : 'Cuota cambiada';
+      show(aviso, () => start(async () => {
+        const d = await editarCuotaAction(lead.id, q.id, volver);
+        if (!d.ok) show(`No se deshizo: ${d.error}`, undefined, 'bad');
+        else if (r.linkAnulado) show('Monto devuelto · el link quedó anulado: manda uno nuevo');
+        ctx.releer();
+      }));
       return null;
     });
+  };
   // ⚠️ QUITAR VA SOLA Y CON CONFIRMACIÓN, SIN DESHACER (revisión del 16/10/2026). Sola: mandar la lista entera le
   // reescribía su valor viejo a una cuota que otra pestaña había cambiado. Sin Deshacer: volver a insertarla le daba
   // otro id y otro número (el inicial volvía como «Cuota N», y su recordatorio se volvía a mandar), así que no era
@@ -254,27 +277,48 @@ export function Cuotas(props: PropsBloque) {
         {lista.map((q) => {
           const r = renglonDeCuota(q, ctx.hoy);
           const prot = protegidas[q.id] ?? [];
-          // Con un recordatorio corriendo no se edita nada; con un link vivo, el monto no (el link cobra ese monto).
-          const montoEditable = r.editable && !prot.includes('link') && !prot.includes('recordatorio');
-          const fechaEditable = r.editable && !prot.includes('recordatorio');
+          // ⚠️ TODO SE EDITA EN EL LUGAR (27/10/2026, Martín: «Los pagos funcionan mal, no tiene LIBERTAD»). Antes, con un
+          // recordatorio corriendo no se editaba nada, con un link vivo el monto no, y una cobrada había que desmarcarla
+          // primero. Ahora el server corta el recordatorio, anula el link si cambia el monto y corrige la cobrada a mano en
+          // el lugar (`editarCuota`, lib/pagos.ts). Lo que cobró la pasarela no: es lo que entró.
+          const cobradaAMano = r.estado === 'cobrada' && r.accion === 'deshacer';
+          // Una cobrada en otra moneda muestra «MX$8.600 · US$500»: editarla como «$500» se leía en pesos. Su monto se corrige
+          // desmarcándola y cobrándola otra vez en su moneda; el día del pago sí se edita en el lugar.
+          const enOtraMoneda = !!q.moneda && q.moneda.toUpperCase() !== 'USD';
+          const montoEditable = r.editable || (cobradaAMano && !enOtraMoneda);
+          // Una impaga pactada en otra moneda (un tramo en pesos, 29/10/2026): sus dos montos, cada uno en el lugar.
+          const impagaEnOtra = r.editable && enOtraMoneda && q.monto_original != null;
+          const fechaEditable = r.editable || cobradaAMano;
           const saliendo = quitando.has(q.id);
           return (
             <div key={q.id} aria-busy={saliendo || undefined} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: saliendo ? 0.55 : r.estado === 'devuelta' || r.estado === 'baja' ? 0.7 : 1 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--ink)' }}>{r.nombre}</span>
                 <span style={{ fontSize: 14, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', minWidth: 70 }}>
-                  {montoEditable && !editando
+                  {impagaEnOtra && !editando
+                    ? <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' }}>
+                        <EnLinea valor={String(Number(q.monto_original))} tipo="numero" prefijo={`${String(q.moneda).toUpperCase()} `} titulo={`Edita el monto de ${r.nombre.toLowerCase()} en ${String(q.moneda).toUpperCase()}`}
+                          onGuardar={(v) => editar(q, { montoOriginal: Number(v) })} />
+                        <span style={{ color: 'var(--dim)' }}>·</span>
+                        <EnLinea valor={String(Number(q.monto_usd))} tipo="numero" prefijo="US$" titulo={`Edita cuánto es ${r.nombre.toLowerCase()} en dólares`}
+                          estilo={{ fontSize: 13, color: 'var(--dim)' }} onGuardar={(v) => editar(q, { monto: Number(v) })} />
+                      </span>
+                    : montoEditable && !editando
                     ? <EnLinea valor={String(Number(q.monto_usd))} tipo="numero" prefijo="$" titulo={`Edita el monto de ${r.nombre.toLowerCase()}`}
                       onGuardar={(v) => editar(q, { monto: Number(v) })} />
                     : r.montoTexto}
                 </span>
                 <span style={{ fontSize: 13, color: TONO_UI[r.tono] === 'bad' ? 'var(--bad)' : TONO_UI[r.tono] === 'warn' ? 'var(--warn)' : 'var(--dim)' }}>
-                  {fechaEditable && !editando
+                  {fechaEditable && !editando && cobradaAMano
+                    // La cobrada: el día del pago («cobrada el …»), y lo demás del renglón como estaba.
+                    ? <>cobrada el <EnLinea valor={(q.fecha_pago ?? '').slice(0, 10)} tipo="fecha" vacio="sin fecha" titulo={`Edita el día del pago de ${r.nombre.toLowerCase()}`}
+                      estilo={{ fontSize: 13, color: 'inherit' }} onGuardar={(v) => editar(q, { fecha: v || null })} />{r.cuando.includes(' · ') ? ` · ${r.cuando.split(' · ').slice(1).join(' · ')}` : ''}</>
+                    : fechaEditable && !editando
                     ? <EnLinea valor={q.fecha_esperada ?? ''} tipo="fecha" vacio="sin fecha" titulo={`Edita el vencimiento de ${r.nombre.toLowerCase()}`}
                       estilo={{ fontSize: 13, color: 'inherit' }} onGuardar={(v) => editar(q, { fecha: v || null })} />
                     : r.cuando}
                 </span>
-                {fechaEditable && r.estado !== 'futura' && r.estado !== 'sin-fecha' && <span style={{ fontSize: 12.5, color: r.estado === 'vencida' ? 'var(--bad)' : 'var(--warn)' }}>{r.cuando.split(' · ')[1]}</span>}
+                {r.editable && r.estado !== 'futura' && r.estado !== 'sin-fecha' && <span style={{ fontSize: 12.5, color: r.estado === 'vencida' ? 'var(--bad)' : 'var(--warn)' }}>{r.cuando.split(' · ')[1]}</span>}
                 {prot.includes('link') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>Link enviado</span>}
                 {prot.includes('recordatorio') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)' }}>Recordatorio en curso</span>}
               </div>
@@ -318,12 +362,13 @@ export function Cuotas(props: PropsBloque) {
       )}
       {!editando && diseno !== 'proxima' && !becado && (
         armando
-          ? <ArmarPlan ctx={ctx} onListo={(m) => { setArmando(false); if (m) show(m.texto, m.deshacer); }} />
+          ? <ArmarPlan ctx={ctx} protegidas={protegidas} onListo={(m) => { setArmando(false); if (m) show(m.texto, m.deshacer); }} />
           : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(conPlan || vivas.filter((q) => !q.pagado).length === 0) && lead.venta_tipo !== 'suscripcion' && (
-                <Button variant="secondary" size="sm" onClick={() => setArmando(true)}>{conPlan ? 'Cambiar el plan' : 'Armar el plan'}</Button>
-              )}
+              {/* Siempre a mano (27/10/2026: «no tiene LIBERTAD»): con cuotas sueltas sin plan el botón se escondía; si el
+                  plan no se puede armar encima de lo que hay, el server lo dice en el mismo lugar. Y también en una suscripción
+                  (29/10, Nadia, lead 2605): el plan por tramos la pasa a «Pago único» al guardar, y lo dice antes. */}
+              <Button variant="secondary" size="sm" onClick={() => setArmando(true)}>{conPlan || vivas.some((q) => !q.nacio_cobrada) ? 'Cambiar el plan' : 'Armar el plan'}</Button>
               <Button variant="tertiary" size="sm" onClick={cobrar.agregarCuota}>+ Agregar una cuota</Button>
               {puedeDarDeBaja && <Button variant="tertiary" size="sm" onClick={() => setPreguntarBaja(true)}>Baja del cliente</Button>}
             </div>
@@ -336,52 +381,258 @@ export function Cuotas(props: PropsBloque) {
 }
 
 /**
- * El plan uniforme: cobro inicial, cuota, cuántas (1 a 6) y qué día del mes (1 a 28). Va por `ajustarPlanAction`:
- * la cuota que existe se actualiza POR ID, la que falta se agrega y la que sobra se quita sólo si no tiene link ni
- * recordatorio; las cobradas no se tocan, y NO gana el lead. Deshacer devuelve las cuotas y el plan de antes.
+ * El plan POR TRAMOS (29/10/2026, ticket #13 de Leila: «$300 cada quincena, los días 1 y 15», «6 meses de 12.000 y luego 10.000»;
+ * Martín: «No tiene libertad o diversidad de tipos de cobros»). Copiado de las fases de un «subscription schedule» de Stripe
+ * (tramos seguidos, cada uno con su monto, su moneda, cada cuánto y cuántas cuotas o hasta cuándo; «+ Agregar un tramo» es su
+ * «+ Add phase») y del plan de pagos de Kajabi (el anticipo es su «setup fee»; el orden de los campos, el suyo: monto, moneda,
+ * cuántas, cada cuánto). Debajo, las cuotas que salen, y cada una se toca a mano antes de guardar. Las reglas: lib/pagos-campo.ts.
+ *
+ * Abre con el plan que el lead YA tiene (`tramosDeCuotas`): lo que no encaja en un tramo aparece como cuota tocada a mano, así que
+ * guardar sin cambiar nada no cambia nada. Se guarda POR ID encima de lo que hay (`cuotasDelPlanPorTramos` → `guardarCuotasAction`),
+ * con Deshacer. Reemplaza al plan uniforme y al libre en la ficha: los dos son un tramo solo. Una suscripción pasa a «Pago único».
  */
-function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: string; deshacer?: () => void } | null) => void }) {
+type TramoForm = { monto: string; moneda: string; usd: string; cada: CadaPlan; dia: string; dia2: string; fin: 'cantidad' | 'hasta'; cantidad: string; hasta: string };
+type AnticipoForm = { monto: string; moneda: string; usd: string; fecha: string; cobrado: boolean };
+
+const numero = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(',', '.')));
+const tramoVacio = (): TramoForm => ({ monto: '', moneda: 'USD', usd: '', cada: 'mes', dia: '', dia2: '15', fin: 'cantidad', cantidad: '', hasta: '' });
+const formDeTramo = (t: TramoPlan): TramoForm => ({
+  monto: String(t.monto), moneda: t.moneda ?? 'USD', usd: t.montoUsd != null ? String(t.montoUsd) : '', cada: t.cada,
+  dia: t.dias?.[0] != null ? String(t.dias[0]) : '', dia2: t.dias?.[1] != null ? String(t.dias[1]) : '15',
+  fin: t.hasta ? 'hasta' : 'cantidad', cantidad: t.cantidad != null ? String(t.cantidad) : '', hasta: t.hasta ?? '',
+});
+const tramoDeForm = (f: TramoForm): TramoPlan => {
+  const d1 = numero(f.dia);
+  return {
+    monto: numero(f.monto) ?? 0, moneda: f.moneda, montoUsd: numero(f.usd), cada: f.cada,
+    dias: f.cada === 'semana' ? undefined : f.cada === 'quincena' ? [d1 ?? 1, numero(f.dia2) ?? 15] : d1 != null ? [d1] : undefined,
+    cantidad: f.fin === 'cantidad' ? numero(f.cantidad) : null, hasta: f.fin === 'hasta' ? f.hasta || null : null,
+  };
+};
+/** «US$ 300» o «$ 12.000 MXN (US$ 600)»: una cuota del plan, dicha. */
+const plataDe = (c: { monto_usd: number; moneda: string | null; monto_original: number | null }): string =>
+  (c.moneda && c.monto_original != null ? `${formatoMonto(c.monto_original, c.moneda)} (${formatoMonto(c.monto_usd, 'USD')})` : formatoMonto(c.monto_usd, 'USD'));
+
+export function ArmarPlan({ ctx, protegidas, onListo }: { ctx: CtxFicha; protegidas: Record<number, Proteccion[]>; onListo: (m: { texto: string; deshacer?: () => void } | null) => void }) {
   const l = ctx.lead;
-  // El plan como estaba AL ABRIR (no se recalcula si la ficha se relee mientras se escribe): se manda SÓLO lo que la
-  // persona cambió contra esto, y el server lo escribe encima de lo que tiene (`ajustarSobre`). Mandar los cuatro
-  // campos volvía a escribir un valor que otra pantalla había cambiado en el medio (revisión del 16/10/2026).
-  const [antes] = useState<PlanUniforme>(() => ({ cobro_inicial_usd: l.cobro_inicial_usd, monto_cuota_usd: l.monto_cuota_usd, total_cuotas: l.total_cuotas, dia_de_pago: l.dia_de_pago }));
-  const [plan, setPlan] = useState({ inicial: l.cobro_inicial_usd ? String(l.cobro_inicial_usd) : '', cuota: l.monto_cuota_usd ? String(l.monto_cuota_usd) : '', cantidad: l.total_cuotas ? String(l.total_cuotas) : '', dia: l.dia_de_pago ? String(l.dia_de_pago) : '' });
+  const crm = ctx.crm?.id ?? null;
+  const esSus = l.venta_tipo === 'suscripcion';
+  const monedaNegocio = useMonedaDelNegocio();
+  // ¿El #0 es el anticipo? Sí si el plan guardado tiene cobro inicial (revisión de 1f02dd813: si no, es una cuota más).
+  const [planConInicial] = useState(() => (l.cobro_inicial_usd ?? 0) > 0);
+  // Las cuotas como se vieron AL ABRIR: los lugares, los `vistos` y lo que la persona no cambia (`soloLoQueCambio`) salen de acá.
+  // Si la ficha se relee en el medio (otra pestaña agregó una cuota), lo nuevo no toma una fila: el server lo conserva («nueva»).
+  const [abiertas] = useState(() => ctx.data.pagos);
+  const lugares = lugaresDelPlan(abiertas, planConInicial);
+  // Lo que el lead YA tiene, leído UNA vez al abrir (si la ficha se relee mientras se escribe, el formulario no se pisa).
+  const [inicio] = useState(() => {
+    const leido = tramosDeCuotas(lugares, ctx.hoy);
+    let cambios: Record<number, CambioDeCuota> = {};
+    if (leido) {
+      const a = cuotasDeTramos(leido);
+      // Sólo las impagas: una cobrada cubre su lugar, y lo que se cobró (un descuento) no es un cambio del plan.
+      if (a.ok) cambios = Object.fromEntries(Object.entries(cambiosContra(a.cuotas, lugares.map(armadaDe))).filter(([k]) => !lugares[Number(k)]?.pagado));
+    }
+    const delLead: TramoForm = { ...tramoVacio(), monto: l.monto_cuota_usd ? String(l.monto_cuota_usd) : '', cantidad: l.total_cuotas ? String(l.total_cuotas) : '', dia: l.dia_de_pago ? String(l.dia_de_pago) : '' };
+    // ⚠️ EL ANTICIPO SALE DE UNA FILA #0 VIVA, NUNCA DE LA COLUMNA (revisión de 9fc4030dd, alta): «Quitar» no limpia
+    // `cobro_inicial_usd`, y una devolución tampoco. Con la columna, el anticipo quitado o devuelto volvía al abrir el editor, y
+    // guardarlo sin tocar nada lo cobraba HOY otra vez (la deuda de US$1.500 pasaba a 2.500). Sin #0 vivo, vacío.
+    const cero = planConInicial ? abiertas.find((q) => q.numero === 0 && !noEsDeuda(q)) ?? null : null;
+    const c0 = cero ? armadaDe(cero) : null;
+    const anticipo: AnticipoForm = cero && c0
+      ? { monto: String(c0.moneda ? c0.monto_original : c0.monto_usd), moneda: c0.moneda ?? 'USD', usd: c0.moneda ? String(c0.monto_usd) : '', fecha: cero.fecha_esperada ?? ctx.hoy, cobrado: cero.pagado }
+      : { monto: '', moneda: 'USD', usd: '', fecha: ctx.hoy, cobrado: false };
+    return { desde: leido?.desde ?? ctx.hoy, tramos: leido ? leido.tramos.map(formDeTramo) : [delLead], cambios, anticipo };
+  });
+  const [desde, setDesde] = useState(inicio.desde);
+  const [tramos, setTramos] = useState<TramoForm[]>(inicio.tramos);
+  const [cambios, setCambios] = useState<Record<number, CambioDeCuota>>(inicio.cambios);
+  const [anticipo, setAnticipo] = useState<AnticipoForm>(inicio.anticipo);
+  const [rehechas, setRehechas] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
-  const n = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(',', '.')));
-  const nuevo: Partial<PlanUniforme> = { cobro_inicial_usd: n(plan.inicial), monto_cuota_usd: n(plan.cuota), total_cuotas: n(plan.cantidad), dia_de_pago: n(plan.dia) };
-  const cambiado = Object.fromEntries((Object.keys(nuevo) as Array<keyof PlanUniforme>).filter((k) => (nuevo[k] ?? null) !== (antes[k] ?? null)).map((k) => [k, nuevo[k]])) as Partial<PlanUniforme>;
-  const v = ajustarSobre(antes, nuevo);
+  const monedas = [...new Set(['USD', ...(monedaNegocio ? [monedaNegocio.toUpperCase()] : []), ...tramos.map((t) => t.moneda), anticipo.moneda])];
+
+  // Cambiar un tramo (o la primera fecha) rehace la lista: lo tocado a mano se pierde, y se dice.
+  const rehacer = () => { if (Object.keys(cambios).length) { setCambios({}); setRehechas(true); } };
+  const tramo = (i: number, cambio: Partial<TramoForm>) => { rehacer(); setTramos((ts) => ts.map((t, k) => (k === i ? { ...t, ...cambio } : t))); };
+
+  const armado = cuotasDeTramos({ desde, tramos: tramos.map(tramoDeForm) });
+  const lista = armado.ok ? aplicarCambios(armado.cuotas, cambios) : [];
+  const plataAnticipo = numero(anticipo.monto) ? plataDeCuota({ monto: numero(anticipo.monto), moneda: anticipo.moneda, montoUsd: numero(anticipo.usd) }) : null;
+  const anticipoPlan: AnticipoPlan | null = plataAnticipo?.ok ? { monto_usd: plataAnticipo.monto_usd, moneda: plataAnticipo.moneda, monto_original: plataAnticipo.monto_original, fecha: anticipo.fecha || ctx.hoy } : null;
+  const encima = armado.ok ? cuotasDelPlanPorTramos({
+    pagos: abiertas, protegidas: new Set(Object.entries(protegidas).filter(([, p]) => p.length).map(([id]) => Number(id))),
+    anticipo: anticipoPlan, lista, planConInicial,
+  }) : null;
+  const firma = JSON.stringify([desde, tramos]);
+
+  // Lo que se va a cobrar (lo cubierto por lo ya cobrado no): por moneda, y en dólares.
+  const aCobrar = [...(anticipoPlan && !anticipo.cobrado ? [anticipoPlan] : []), ...lista.filter((_, i) => !lugares[i]?.pagado)];
+  const porMoneda = new Map<string, number>();
+  for (const c of aCobrar) if (c.moneda && c.monto_original != null) porMoneda.set(c.moneda, (porMoneda.get(c.moneda) ?? 0) + c.monto_original);
+  const totalUsd = aCobrar.reduce((s, c) => s + c.monto_usd, 0);
+  // «US$ 600 + $ 24.000 MXN (US$ 1.800 en total)»: con «· US$ 1.800» al lado de los pesos, se leía como si sumara dos veces.
+  const soloUsd = aCobrar.filter((c) => !c.moneda || c.monto_original == null).reduce((s, c) => s + c.monto_usd, 0);
+  const total = porMoneda.size
+    ? `${[...(soloUsd > 0 ? [formatoMonto(soloUsd, 'USD')] : []), ...[...porMoneda].map(([m, v]) => formatoMonto(v, m))].join(' + ')} (${formatoMonto(totalUsd, 'USD')} en total)`
+    : formatoMonto(totalUsd, 'USD');
+
   const guardar = () => {
-    if (!v.ok) { setErr(v.error); return; }
-    if (!Object.keys(cambiado).length) { onListo(null); return; }
+    setErr(null);
+    if (!armado.ok) { setErr(armado.error); return; }
+    if (plataAnticipo && !plataAnticipo.ok && !anticipo.cobrado) { setErr(`Anticipo: ${plataAnticipo.error}`); return; }
+    if (!encima) return;
+    if (!encima.ok) { setErr(encima.error); return; }
+    // Las columnas del plan (de UN monto, con sus CHECK): las mismas que arma la API (lib/pagos-campo.ts).
+    const columnas: PlanUniforme = columnasDelPlan({ tramos: tramos.map(tramoDeForm), cuotas: lista.length, anticipoUsd: anticipo.cobrado ? l.cobro_inicial_usd ?? null : anticipoPlan?.monto_usd ?? null });
+    const { aparte, vistos, nuevas } = encima;
+    const cuotas = soloLoQueCambio(encima.cuotas, abiertas);
     start(async () => {
-      const r = await ajustarPlanAction(l.id, cambiado, ctx.crm?.id ?? null);
-      if (!r.ok) { setErr(r.error); return; }
+      // Una suscripción con un plan de cuotas es un pago único en cuotas: primero la venta, con su compare-and-set.
+      let ventaAtras: Parameters<typeof guardarVentaAction>[1][] = [];
+      if (esSus) {
+        const v = await guardarVentaAction(l.id, { campo: 'tipo', valor: 'unico' }, { tipoVisto: 'suscripcion', crm });
+        if (!v.ok) { setErr(v.error); return; }
+        ventaAtras = v.deshacer;
+        ctx.parchear({ venta_tipo: v.ventaTipo, suscripcion_monto_usd: null, suscripcion_meses: null });
+      }
+      const r = await guardarCuotasAction(l.id, [...cuotas, ...aparte], columnas, vistos, crm, { protegidasPrimero: true, conDeshacer: true, sobreLoVisto: true });
+      // Sin las cuotas, la venta vuelve a ser la suscripción que era: un «Pago único» sin su plan no es lo que se pidió.
+      if (!r.ok) { setErr(r.error); if (ventaAtras.length) await deshacerVenta(l.id, ventaAtras, 'unico', crm); ctx.releer(); return; }
       ctx.releer();
       const d = r.deshacer;
+      const conAnticipo = cuotas.some((c) => c.numero === 0);
       onListo({
-        texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : 'Plan guardado',
-        deshacer: () => { void guardarCuotasAction(l.id, d.cuotas, d.plan, d.vistos, ctx.crm?.id ?? null).then(() => ctx.releer()); },
+        texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : `Plan guardado: ${nuevas} cuota${nuevas === 1 ? '' : 's'}${conAnticipo ? ' y el anticipo' : ''}`,
+        deshacer: d ? () => {
+          void guardarCuotasAction(l.id, d.cuotas, d.plan, d.vistos, crm)
+            .then(() => (ventaAtras.length ? deshacerVenta(l.id, ventaAtras, 'unico', crm) : undefined))
+            .then(() => ctx.releer());
+        } : undefined,
       });
     });
   };
-  const campo = (k: keyof typeof plan, rot: string, ayuda?: string) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--dim)' }}>
+
+  const etiqueta: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--dim)', minWidth: 0 };
+  const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))', gap: 10 };
+  const caja: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, padding: 12, borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)' };
+  const entrada = (rot: string, valor: string, cambiar: (v: string) => void, o: { tipo?: 'number' | 'date'; ayuda?: string } = {}) => (
+    <label style={etiqueta}>
       {rot}
-      <input className="mk-input" type="number" inputMode="decimal" min={0} value={plan[k]} onChange={(e) => setPlan({ ...plan, [k]: e.target.value })} placeholder={ayuda} />
+      <input className="mk-input" type={o.tipo ?? 'number'} inputMode={o.tipo === 'date' ? undefined : 'decimal'} min={o.tipo === 'date' ? undefined : 0} value={valor} placeholder={o.ayuda} onChange={(e) => cambiar(e.target.value)} />
     </label>
   );
+  const selectMoneda = (valor: string, cambiar: (v: string) => void) => (
+    <label style={etiqueta}>
+      Moneda
+      <select className="mk-input" value={valor} onChange={(e) => cambiar(e.target.value)}>
+        {monedas.map((m) => <option key={m} value={m}>{m}</option>)}
+      </select>
+    </label>
+  );
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
-        {campo('inicial', 'Cobro inicial (USD)')}
-        {campo('cuota', 'Cada cuota (USD)')}
-        {campo('cantidad', 'Cuántas cuotas', '1 a 6')}
-        {campo('dia', 'Día de pago', '1 a 28')}
+      {esSus && <Aviso tono="ambar">Es una suscripción: al guardar el plan pasa a «Pago único».</Aviso>}
+
+      <div style={grilla}>
+        {anticipo.cobrado
+          ? <span style={{ ...etiqueta, justifyContent: 'flex-end' }}>Anticipo<span style={{ fontSize: 14, color: 'var(--ink)' }}>Cobrado</span></span>
+          : <>
+              {entrada(`Anticipo (${anticipo.moneda})`, anticipo.monto, (v) => setAnticipo({ ...anticipo, monto: v }), { ayuda: 'Sin anticipo' })}
+              {monedas.length > 1 && selectMoneda(anticipo.moneda, (v) => setAnticipo({ ...anticipo, moneda: v }))}
+              {anticipo.moneda !== 'USD' && entrada('En dólares', anticipo.usd, (v) => setAnticipo({ ...anticipo, usd: v }), { ayuda: 'US$' })}
+              {numero(anticipo.monto) ? entrada('Se cobra el', anticipo.fecha, (v) => setAnticipo({ ...anticipo, fecha: v }), { tipo: 'date' }) : null}
+            </>}
+        {entrada('Primera cuota', desde, (v) => { rehacer(); setDesde(v); }, { tipo: 'date' })}
       </div>
-      {v.ok && <span style={{ fontSize: 13, color: 'var(--dim)' }}>Total del plan: {usd((v.plan.cobro_inicial_usd ?? 0) + (v.plan.monto_cuota_usd ?? 0) * (v.plan.total_cuotas ?? 0))}</span>}
+
+      {tramos.map((t, i) => (
+        <div key={i} style={caja}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)' }}>{tramos.length > 1 ? `Tramo ${i + 1}` : 'Cuotas'}</span>
+            {tramos.length > 1 && <Button variant="tertiary" size="sm" onClick={() => { rehacer(); setTramos((ts) => ts.filter((_, k) => k !== i)); }}>Quitar</Button>}
+          </div>
+          <div style={grilla}>
+            {entrada(`Monto (${t.moneda})`, t.monto, (v) => tramo(i, { monto: v }))}
+            {monedas.length > 1 && selectMoneda(t.moneda, (v) => tramo(i, { moneda: v }))}
+            {t.moneda !== 'USD' && entrada('En dólares', t.usd, (v) => tramo(i, { usd: v }), { ayuda: 'US$ c/u' })}
+            <label style={etiqueta}>
+              Dura
+              <select className="mk-input" value={t.fin} onChange={(e) => tramo(i, { fin: e.target.value as TramoForm['fin'] })}>
+                <option value="cantidad">Cuántas cuotas</option>
+                <option value="hasta">Hasta una fecha</option>
+              </select>
+            </label>
+            {t.fin === 'cantidad'
+              ? entrada('Cuotas', t.cantidad, (v) => tramo(i, { cantidad: v }), { ayuda: `1 a ${TOPE_CUOTAS_PLAN}` })
+              : entrada('Hasta', t.hasta, (v) => tramo(i, { hasta: v }), { tipo: 'date' })}
+            <label style={etiqueta}>
+              Cada
+              <select className="mk-input" value={t.cada} onChange={(e) => tramo(i, { cada: e.target.value as CadaPlan })}>
+                <option value="mes">Mes</option>
+                <option value="quincena">Quincena</option>
+                <option value="semana">Semana</option>
+              </select>
+            </label>
+            {t.cada === 'mes' && entrada('Día de pago', t.dia, (v) => tramo(i, { dia: v }), { ayuda: '1 a 31' })}
+            {t.cada === 'quincena' && entrada('Primer día', t.dia, (v) => tramo(i, { dia: v }), { ayuda: '1' })}
+            {t.cada === 'quincena' && entrada('Segundo día', t.dia2, (v) => tramo(i, { dia2: v }), { ayuda: '15' })}
+          </div>
+        </div>
+      ))}
+      {tramos.length < TOPE_TRAMOS && (
+        <div>
+          <Button variant="tertiary" size="sm" onClick={() => { rehacer(); setTramos((ts) => [...ts, { ...tramoVacio(), moneda: ts[ts.length - 1]?.moneda ?? 'USD', cada: ts[ts.length - 1]?.cada ?? 'mes', dia: ts[ts.length - 1]?.dia ?? '', dia2: ts[ts.length - 1]?.dia2 ?? '15' }]); }}>+ Agregar un tramo</Button>
+        </div>
+      )}
+
+      {!armado.ok && tramos.some((t) => t.monto.trim()) && <span style={{ fontSize: 13, color: 'var(--warn)' }}>{armado.error}</span>}
+      {lista.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <span style={{ fontSize: 13, color: 'var(--dim)' }}>
+            {lista.length} cuota{lista.length === 1 ? '' : 's'}{aCobrar.length ? ` · se cobran ${total}` : ''}
+            {encima?.ok && encima.cubiertas ? ` · ${encima.cubiertas} ya cobrada${encima.cubiertas === 1 ? '' : 's'}` : ''}
+          </span>
+          {rehechas && <span style={{ fontSize: 12.5, color: 'var(--warn)' }}>Cambiaste los tramos: las cuotas tocadas a mano se rehicieron.</span>}
+          <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 320, overflowY: 'auto' }}>
+            {lista.map((c, i) => {
+              const cobrada = lugares[i]?.pagado ? lugares[i] : null;
+              const aMano = !!cambios[i];
+              const fila: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '6px 10px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13 };
+              const celda = (campo: 'fecha' | 'monto' | 'usd', valor: string, ancho: number) => (
+                <input key={`${firma}:${i}:${campo}`} className="mk-input" type={campo === 'fecha' ? 'date' : 'number'} inputMode={campo === 'fecha' ? undefined : 'decimal'} min={campo === 'fecha' ? undefined : 0}
+                  defaultValue={valor} aria-label={`${campo === 'fecha' ? 'Vencimiento' : campo === 'usd' ? 'En dólares' : 'Monto'} de la cuota ${i + 1}`}
+                  style={{ width: ancho, padding: '4px 8px', fontSize: 13 }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                  onBlur={(e) => {
+                    const v = e.target.value;
+                    if (campo === 'fecha') { if ((v || null) !== (c.fecha ?? null)) setCambios((x) => ({ ...x, [i]: { ...x[i], fecha: v || null } })); return; }
+                    const n = numero(v);
+                    if (n == null || !(n > 0)) { e.target.value = valor; return; }
+                    const clave = campo === 'usd' || !c.moneda ? 'monto_usd' : 'monto_original';
+                    setCambios((x) => ({ ...x, [i]: { ...x[i], [clave]: n } }));
+                  }} />
+              );
+              return (
+                <li key={i} style={{ ...fila, opacity: cobrada ? 0.65 : 1 }}>
+                  <span style={{ fontFamily: MONO, fontSize: 12, color: 'var(--faint)', minWidth: 22 }}>{i + 1}</span>
+                  {cobrada
+                    ? <span style={{ color: 'var(--dim)' }}>Cobrada · {plataDe(armadaDe(cobrada))}</span>
+                    : <>
+                        {celda('fecha', c.fecha ?? '', 150)}
+                        {c.moneda ? <>{celda('monto', String(c.monto_original ?? ''), 110)}<span style={{ color: 'var(--dim)' }}>{c.moneda} ·</span>{celda('usd', String(c.monto_usd), 90)}<span style={{ color: 'var(--dim)' }}>USD</span></>
+                          : <>{celda('monto', String(c.monto_usd), 110)}<span style={{ color: 'var(--dim)' }}>USD</span></>}
+                        {aMano && <span style={{ fontSize: 12, color: 'var(--primary)' }}>a mano</span>}
+                      </>}
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
+      {encima && !encima.ok && <span style={{ fontSize: 13, color: 'var(--warn)' }}>{encima.error}</span>}
       {err && <Aviso tono="rojo">{err}</Aviso>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="secondary" size="sm" onClick={() => onListo(null)} disabled={pending}>Cancelar</Button>

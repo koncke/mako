@@ -11,9 +11,10 @@
 //     pantalla de la computadora) · Seguridad (/m/cuenta/seguridad) · Notificaciones (una hoja con los
 //     avisos de ESTE teléfono) · Instalar la app (los pasos, o el aviso de Chrome) · Tus cuentas de IA
 //     (/m/cuenta/ia, 21/10/2026: el estado de sus computadoras y «Desconectar»; conectar una, en la computadora);
-//   · Modo oscuro (la misma preferencia que el botón de la barra de escritorio);
-//   · «Configuración del negocio», sólo para quien lo administra (su pantalla, /m/configuraciones, desde el 17/10/2026);
-//   · Cerrar sesión.
+//   · «Tu negocio», sólo para quien lo administra: sus secciones DIRECTO en la lista (26/10/2026), las mismas de la computadora;
+//   · Cerrar sesión, sola, en rojo y con su ícono.
+// El modo oscuro es el sol/luna de la CABECERA (26/10/2026, Martín: «El modo oscuro lo quiero arriba en la topbar, donde dice
+// «settings» con el botón del sol y la luna, y sin texto»): el mismo botón de la barra de escritorio, sin una fila acá.
 // «Versión de computadora» NO se repite acá: vive una sola vez, en More (app/m/mas/VersionComputadora.tsx).
 //
 // ⚠️ EL PERMISO DE NOTIFICACIONES SE PIDE DENTRO DEL TOQUE, nunca al cargar:
@@ -40,18 +41,18 @@
 // la lista con la CSS de esta carpeta (.m-cuenta-boton).
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
-import { aplicarModo } from '@/app/_components/InterruptorModo';
-import { ATTR_MODO } from '@/lib/temas-candidatos';
+import { InterruptorModo } from '@/app/_components/InterruptorModo';
 import { haptico } from '@/lib/haptico';
 import { esIOS, estaInstalada, pedirInstalacion, puedeOfrecerInstalacion, suscribirInstalacion } from '@/lib/movil-instalar';
 import { activarAvisos, desactivarAvisos, estadoSuscripcion, probar, type EstadoAvisos } from '@/lib/push-cliente';
 import { PUSH_SOLO_ADMINS, PUSH_TIPOS, type AvisoWaDef, type NotifPush } from '@/lib/notif-catalogo';
 import {
-  AvatarM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SeccionM, SheetM, useConexion, useToastM,
+  AvatarM, CabeceraM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SeccionM, SheetM, useConexion, useToastM,
 } from '../_ui';
+import { FilaEnComputadoraM } from '../_ui/EnComputadoraM';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { GRUPO_CUENTA, GRUPO_NEGOCIO, SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
 import { InformacionPersonal, type NegocioDelPerfil } from '@/app/perfil/InformacionPersonal';
@@ -70,8 +71,11 @@ export type DatosCuenta = {
   vista: { cliente: string; salida: string; modoAgencia: boolean } | null;
   /** Las keys de «Tu cuenta» que se ofrecen (`seccionesCuenta`): mirando a un cliente, sólo 'info'. */
   secciones: string[];
-  /** El rótulo de «Configuración del negocio» si quien mira lo administra; null = no lo ve. */
-  negocio: string | null;
+  /**
+   * Las secciones de «Tu negocio» si quien mira lo administra (las de la computadora, `seccionesNegocio`); null = no lo ve.
+   * `href` es la pantalla del teléfono; `enComputadora`, que no tiene (se abre en la computadora).
+   */
+  negocio: SeccionNegocioFila[] | null;
   push: NotifPush;
   /** false = la sesión no tiene fila propia (no se pueden guardar preferencias). */
   guardable: boolean;
@@ -81,6 +85,8 @@ export type DatosCuenta = {
   /** El nombre del negocio para la hoja de Información personal (`nombreDelNegocioAction`). null = no se leyó. */
   nombreNegocio: NegocioDelPerfil | null;
 };
+
+export type SeccionNegocioFila = { key: string; label: string; icono: NombreIconoMenu; href: string; enComputadora: boolean };
 
 // Sin «ia» desde el 24/10/2026: «Tus cuentas de IA» salió de Settings (Martín: «para eso ya tenemos Integraciones»); su pantalla
 // /m/cuenta/ia sigue para el instalador y los links que ya salieron.
@@ -92,7 +98,10 @@ const ICONO = Object.fromEntries(SECCIONES_CUENTA.map((s) => [s.key, s.icono])) 
 
 /** El ícono de una sección en la baldosa de las filas de /m (`.m-icono` del shell), con el dibujo del índice de escritorio. */
 function IconoSeccion({ k }: { k: ClaveCuenta }) {
-  return <span className="m-icono" aria-hidden><IconoMenu nombre={ICONO[k]} size={18} /></span>;
+  return <IconoNegocio n={ICONO[k]} />;
+}
+function IconoNegocio({ n }: { n: NombreIconoMenu }) {
+  return <span className="m-icono" aria-hidden><IconoMenu nombre={n} size={18} /></span>;
 }
 
 export function CuentaM({ datos }: { datos: DatosCuenta }) {
@@ -102,9 +111,13 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
   const tipos = tiposParaRol(PUSH_TIPOS, PUSH_SOLO_ADMINS, datos.esAdmin);
   const ve = (k: ClaveCuenta) => datos.secciones.includes(k);
   const fila = filaInstalar(avisos.plat ? { ...avisos.plat, puedePedir: avisos.puedePedir } : null);
+  // El sol/luna, la acción de la cabecera (una sola, de 44×44: app/m/_ui/CabeceraM.tsx). Memorizado: la cabecera se vuelve a
+  // escribir cada vez que cambia lo que se le pasa.
+  const modo = useMemo(() => <InterruptorModo variante="cabecera" />, []);
 
   return (
     <div className="m-cuenta">
+      <CabeceraM accion={modo} />
       <div className="m-cuenta-cab">
         {datos.foto
           // eslint-disable-next-line @next/next/no-img-element -- la foto que subió la persona (una URL de Storage), como en la barra de escritorio
@@ -155,22 +168,22 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
       </ListaM>
       </SeccionM>
 
-      <ListaM>
-        <ModoOscuro />
-      </ListaM>
-
-      {/* «Configuración del negocio» tiene su pantalla en el teléfono desde el 17/10/2026 (/m/configuraciones): hasta ese
-          día esta fila decía «En la computadora». */}
-      {datos.negocio && (
+      {/* «Tu negocio» SIN DESPLEGABLE (26/10/2026, Martín: «las configuraciones de «tu negocio» sin un desplegable, directamente
+          allí»): sus secciones son filas de esta lista, las mismas y en el mismo orden que la computadora. Hasta ese día era
+          UNA fila que abría /m/configuraciones (y desde afuera parecía que faltaban secciones). */}
+      {datos.negocio && datos.negocio.length > 0 && (
         <SeccionM titulo={GRUPO_NEGOCIO}>
         <ListaM etiqueta={GRUPO_NEGOCIO}>
-          <FilaM navegacion icono="config" titulo={datos.negocio} segunda="Equipo, integraciones, avisos y tu plan" href="/m/configuraciones" />
+          {datos.negocio.map((s) => (s.enComputadora
+            ? <FilaEnComputadoraM key={s.key} leading={<IconoNegocio n={s.icono} />} titulo={s.label} href={s.href} motivo="Esta sección se usa en la computadora." />
+            : <FilaM key={s.key} navegacion leading={<IconoNegocio n={s.icono} />} titulo={s.label} href={s.href} />))}
         </ListaM>
         </SeccionM>
       )}
 
+      {/* Sola, en rojo y con su ícono (26/10/2026, Martín: «cerrar sesión en rojo y aparte del texto, un ícono»). */}
       <ListaM>
-        <div className="m-cuenta-boton"><CerrarSesion variante="tertiary" /></div>
+        <CerrarSesion variante="fila" />
       </ListaM>
 
       {datos.perfil && ve('info') && (
@@ -377,33 +390,5 @@ function TiposDeAviso({ prefs, tipos, onGuardar }: {
         </ListaM>
       )}
     </div>
-  );
-}
-
-// ── Modo oscuro ──────────────────────────────────────────────────────────────
-
-/**
- * La MISMA preferencia que el botón de la barra de escritorio (`aplicarModo`, InterruptorModo): se
- * recuerda en el navegador y el shell de /m la sigue (claro por defecto; oscuro sólo si se eligió).
- * Como en los ajustes de Google, una fila con interruptor, y la fila entera lo cambia. El botón de
- * escritorio no se monta tal cual: está pintado para la barra lateral.
- */
-function ModoOscuro() {
-  const [oscuro, setOscuro] = useState(false);
-  useEffect(() => {
-    const sync = () => setOscuro(document.documentElement.getAttribute(ATTR_MODO) === 'oscuro');
-    sync();
-    // El tema candidato también toca el atributo (lo mismo que escucha InterruptorModo).
-    window.addEventListener('mako-modo', sync);
-    window.addEventListener('mako-tema-candidato', sync);
-    return () => {
-      window.removeEventListener('mako-modo', sync);
-      window.removeEventListener('mako-tema-candidato', sync);
-    };
-  }, []);
-  return (
-    <FilaM navegacion titulo="Modo oscuro"
-      onClick={() => { haptico('light'); aplicarModo(!oscuro); }}
-      control={<InterruptorM etiqueta="Modo oscuro" activo={oscuro} onCambio={(v) => aplicarModo(v)} />} />
   );
 }

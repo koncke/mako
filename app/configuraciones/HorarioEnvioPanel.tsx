@@ -109,6 +109,8 @@ export type FuenteHorario = {
 export const AVISO_ZONA_NEGOCIO = 'El huso vale para todo el negocio.';
 const FUENTE_NEGOCIO: FuenteHorario = { leer: () => getHorarioEnvioAction(), guardar: (h) => saveHorarioEnvioAction(h) };
 
+// (Del 25 al 26/10/2026 tuvo una cara en filas para Settings › General, `filas`. «General» se fue: el horario vive en la tuerca
+// de cada automatización, y la zona del negocio en Perfil.)
 export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO }: {
   onGuardado?: (h: HorarioEnvio) => void;
   onSucio?: (sucio: boolean) => void;
@@ -176,6 +178,26 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
   const alternarDia = (d: DiaSemana) => cambiar({ dias: h.dias.includes(d) ? h.dias.filter((x) => x !== d) : [...h.dias, d].sort((a, b) => a - b) });
 
   const off = !puedeEditar;
+  // UN selector de huso y UNA escritura (`cambiarZona`) (tests/automations-config-revision.test.ts).
+  const selectorZona = (ancho: number | string) => (
+    <Dropdown value={zona} options={opcionesDeZona(zona, navegador)} width={ancho} search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
+  );
+  const dias = (
+    <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+      {DIAS_PANTALLA.map((d) => {
+        const on = h.dias.includes(d.dia);
+        return (
+          <button key={d.dia} type="button" disabled={off} aria-pressed={on} aria-label={d.nombre} title={d.nombre} onClick={() => alternarDia(d.dia)}
+            style={{
+              width: 38, height: 38, borderRadius: '50%', fontFamily: SANS, fontSize: 13.5, fontWeight: 700,
+              border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
+              background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)',
+              cursor: off ? 'default' : 'pointer',
+            }}>{d.corto}</button>
+        );
+      })}
+    </div>
+  );
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontFamily: SANS }}>
@@ -200,7 +222,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
             </>
           )}
           <div style={{ flex: '1 1 160px', minWidth: 0 }}>
-            <Dropdown value={zona} options={opcionesDeZona(zona, navegador)} width="100%" search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
+            {selectorZona('100%')}
           </div>
         </div>}
         {fuente.zonaDelNegocio && h.activo && (
@@ -208,22 +230,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
         )}
         {/* Los días CENTRADOS en el recuadro (décima tanda de Automations, general 3, 11/10/2026: «En "Horarios
             de Oficina" pon los días centrado en el recuadro, no alineado a la izquierda»). */}
-        {h.activo && (
-          <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
-            {DIAS_PANTALLA.map((d) => {
-              const on = h.dias.includes(d.dia);
-              return (
-                <button key={d.dia} type="button" disabled={off} aria-pressed={on} aria-label={d.nombre} title={d.nombre} onClick={() => alternarDia(d.dia)}
-                  style={{
-                    width: 38, height: 38, borderRadius: '50%', fontFamily: SANS, fontSize: 13.5, fontWeight: 700,
-                    border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
-                    background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)',
-                    cursor: off ? 'default' : 'pointer',
-                  }}>{d.corto}</button>
-              );
-            })}
-          </div>
-        )}
+        {h.activo && dias}
         {/* (14/10/2026 al 15/10/2026 vivió acá la casilla «Los avisos al equipo salen igual». Se fue a la tarjeta «MaKo en
             WhatsApp», donde se piensa ese envío: lib/mako-tarjeta.ts, `FueraDeHorario`.) */}
       </div>

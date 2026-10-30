@@ -99,7 +99,7 @@ function CasoMauricio() {
         <div className="mk-hist-txt">
           <p className="mk-hist-lead">No existe ningún método estándar que hubiera resuelto el caso de Mauricio.</p>
           {[
-            { t: 'Ninguna app de marketing lo habría resuelto.', d: 'No existe una pensada para un VSL Funnel: todas le mostraban datos sueltos, nunca su negocio completo ni qué hacer con ellos.' },
+            { t: 'Ninguna app de marketing lo habría resuelto.', d: 'No existe una pensada para vender High Ticket: todas le mostraban datos sueltos, nunca su negocio completo ni qué hacer con ellos.' },
             { t: 'Ningún curso de anuncios lo habría sacado adelante.', d: 'Te enseñan una fórmula que funcionó en otro negocio, no la lectura de lo que estaba pasando, en vivo, dentro del suyo.' },
             { t: 'Un media buyer le habría subido el presupuesto.', d: 'Indefinidamente, creyendo que gastar más lo arregla todo — sin ver que escalaba una campaña que nunca iba a funcionar.' },
           ].map((x) => (
@@ -169,7 +169,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
               <h1 className="mk-h1">{f.headline}</h1>
               <p className="mk-lead mk-lead-punch" dangerouslySetInnerHTML={{ __html: f.lead }} />
               <a href={CALENDLY} className="mk-btn-hero"><CalIcon />Agenda tu llamada</a>
-              <p className="mk-hero-nota">Diagnóstico gratuito de tu VSL Funnel</p>
+              <p className="mk-hero-nota">Diagnóstico gratuito de tu venta High Ticket</p>
             </div>
             <div className="mk-hero-media">
               {/* El recuadro (.mk-vsl), las esquinas y el flotante con su botón
@@ -271,7 +271,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
         {/* ── Explorá el resto: mismas cards que la landing principal.
             La feature ACTUAL aparece marcada "Tú estás aquí" y no es clickeable. */}
         <nav className="mk-more" aria-label="Otras funcionalidades">
-          <h2 className="mk-more-h">Todo lo que tu VSL Funnel necesita, en una sola app</h2>
+          <h2 className="mk-more-h">Tu equipo de ventas High Ticket, en una sola app</h2>
           {/* Las cards salen TAL CUAL de la landing principal (ver grid-landing.ts):
               mismos colores de marca y misma card oscura de MaKo, sin copia paralela. */}
           <div className="mk-more-grid" dangerouslySetInnerHTML={{ __html: gridHtml(slug) }} />
@@ -288,7 +288,7 @@ export default function FeatureDetail({ slug }: { slug: string }) {
             <span className="mk-logo-mark"><svg width="20" height="20" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E" /></svg></span>
             <span className="mk-logo-txt">MaKo</span>
           </a>
-          <p className="mk-foot-tag">El software para vender High Ticket con VSL Funnel.</p>
+          <p className="mk-foot-tag">El mejor SaaS para ventas High Ticket, de punta a punta.</p>
           <div className="mk-foot-links">
             <a href="/">Funcionalidades</a>
             <a href={CALENDLY}>Agenda tu llamada</a>

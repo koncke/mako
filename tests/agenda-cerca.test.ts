@@ -95,7 +95,7 @@ function correr(pasos: PasoGrafo[], st: EstadoSim): string[] {
     e = r.estado;
     if (!r.evento) { if (e.terminado || !e.hilos.length) break; continue; }
     const ev: EventoSim = r.evento;
-    out.push(ev.t === 'mensaje' ? `💬${ev.paso.cuerpo}` : ev.t === 'fin' ? '■' : ev.t === 'condicion' ? '◇' : ev.texto);
+    out.push(ev.t === 'mensaje' ? `💬${ev.paso.cuerpo}` : ev.t === 'fin' ? '■' : ev.t === 'condicion' ? '◇' : ev.t === 'ab' ? '⑂' : ev.texto);
     if (ev.t === 'fin' || ev.t === 'condicion') break;
   }
   return out;

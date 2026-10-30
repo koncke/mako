@@ -176,7 +176,9 @@ test('el aviso existe en los cuatro registros, con su rótulo y su interruptor',
   assert.ok(cat, 'falta en CATALOGO_AVISOS');
   assert.equal(cat.categoria, 'aviso');
   assert.equal(areaDeAviso('crm-lead-quieto'), 'lead');
-  assert.ok(AVISOS_WA_EN_VIVO.some((a) => a.id === 'crm-lead-quieto'), 'sin esto no se puede apagar');
+  // Ya NO está en Notificaciones (26/10/2026, Martín: «Sacarlos de Notificaciones»): sin `porDefecto` nace apagado y esa
+  // pantalla no lo prende (tests/notificaciones-solo-lo-que-sale.test.ts).
+  assert.ok(!AVISOS_WA_EN_VIVO.some((a) => a.id === 'crm-lead-quieto'), 'un interruptor que no hace nada volvió a Notificaciones');
   assert.ok(AVISOS_AGRUPABLES.has('crm-lead-quieto'));
   for (const real of ['Mauricio', 'Leila', 'Martín', 'Código Inmobiliario', 'Negocio que Escala']) {
     assert.ok(!cat.ejemplo.includes(real), `el ejemplo nombra a alguien real: ${real}`);

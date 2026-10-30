@@ -474,4 +474,55 @@ export const BITACORA: Hito[] = [
       'tests/api-mako-vender-plan.test.ts y tests/capas-vendibles.test.ts — 18 roturas',
     ],
   },
+  {
+    fecha: '25 oct', hora: '15:10', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que falta conectar viaja como dato (`falta: { servicio }`), y dos lecturas nuevas: con qué IA trabaja el negocio y cómo se conecta cada cosa',
+    puntos: [
+      'Martín, 25/10, por Florencia (ws21): «que si detecta que alguien le falta una conexión o algo que le ofrezca ayuda, que le de el link». Tanda 2 de docs/conexiones-y-ayuda.md.',
+      '**`falta: { servicio }`** en la salida del runner, el Resultado, HTTP y `ctx.aFalta`. Lo devuelven el Closing (Fathom, y su Claude por clave para el análisis), cobros, Panda y el WhatsApp de empresa; `panorama_closing` sin Fathom lo dice.',
+      '⚠️ **El link lo pone UNO solo:** con `aFalta` (el doer) el modelo recibe `falta` sin link; si no, lo escribiría él y saldría dos veces.',
+      '**`ver_ia_del_negocio`** (sus claves, sus computadoras y qué contesta cada canal) y **`como_conectar`** (pasos y link, por cómo lo dice la gente), del catálogo único lib/conexiones-catalogo.ts. `ver_integracion` trae los pasos del tutorial.',
+    ],
+    archivos: [
+      'lib/api-mako/tipos.ts y lib/api-mako/ejecutar.ts — `Falta`, `aFalta`, `faltaParaElModelo`',
+      'lib/conexiones-catalogo.ts — el catálogo (puro)',
+      'lib/api-mako/areas/integraciones.def.ts y .run.ts — las dos lecturas',
+      'tests/conexiones-api.test.ts — 7 tests, 12 roturas con su fallo',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '23:10', chat: 'Landings', cuenta: 'claude5', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Cambia el formulario de la landing» vuelve a llegarle a MaKo con su herramienta',
+    pedido: 'Cerebro: «"cambia el formulario de la landing: agrega el teléfono" no trae configurar_formulario_landing (en su lugar entra cambiar_imagen_landing)... Preferí acortar las descripciones nuevas antes que tocar el orden de relevancia»',
+    puntos: [
+      'Con las herramientas nuevas de las landings (imágenes, íconos, videos), un pedido de cambiar el formulario dejaba de llegarle a MaKo con la herramienta del formulario.',
+      'Se acortaron dos descripciones, sin cambiar qué hace cada herramienta. Ahora vuelve a llegar.',
+      'Quedó una herramienta para medir qué recibe MaKo en cada pedido, antes de sumar otra.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing-editor.def.ts — las dos descripciones',
+      'scripts/presupuesto-turno-app.mts — la medición',
+      'docs/hallazgos-api-mako.md — por qué y la regla',
+    ],
+  },
+  {
+    fecha: '28 oct', hora: '17:30', chat: 'CRM y Chats', cuenta: 'claude4', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo dice las horas del negocio, el día de la semana correcto y los totales ya sumados',
+    pedido: 'Cerebro, del diagnóstico de MaKo en WhatsApp: en Código Inmobiliario, MaKo dijo «Horario: 20:00 hs» cuando era a las 17:00, «lunes 27/10» cuando era martes, y para el mismo período dio 25 no-shows y después 28.',
+    puntos: [
+      '**Las horas, en la hora del negocio:** lo que MaKo lee de sus herramientas trae, al lado de cada hora, la de tu negocio, no la de Londres. La reunión de las 17:00 se dice a las 17:00.',
+      '**Reservar sigue andando:** el horario libre que MaKo tiene que devolver tal cual para agendar llega intacto (la verificación encontró que la primera versión lo cambiaba y la reserva fallaba).',
+      '**Cada fecha con su día:** MaKo ya no calcula el día de la semana de lo que lee.',
+      '**Los totales, ya sumados:** «¿cuántos no-shows tuve?» sale del total del período, con las reuniones 1 y 2 juntas, y no de sumar los meses a mano.',
+      'Vale para WhatsApp y para el chat de la app, en las herramientas nuevas de MaKo (las viejas de la ficha siguen como antes). La API para programas sigue igual.',
+    ],
+    archivos: [
+      'lib/api-mako/horas-del-negocio.ts — la hora del negocio y el día · ejecutar.ts — runnerDelRegistro',
+      'lib/metricas-modelo.ts — totalesDelPeriodo, arriba de la tabla',
+      'tests/horas-del-negocio.test.ts',
+    ],
+  },
 ];

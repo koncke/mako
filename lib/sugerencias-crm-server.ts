@@ -39,7 +39,7 @@ import { entregasDeProductos } from '@/lib/entrega-servicio';
 import type { EntregaConfig } from '@/lib/servicio-etapas';
 import { leerTodo, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import { CAMPO_ETAPA } from '@/lib/etapa-historial';
-import { credWs } from '@/lib/credenciales';
+import { hayGrabadorConectado } from '@/lib/grabadores';
 import { estadoMedios } from '@/lib/disparadores-canales';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { hoyEnTz } from '@/lib/date-utils';
@@ -346,7 +346,9 @@ async function calcular(ws: number, crm: CrmDeLaPantalla): Promise<Calculo> {
     automatizacionesVivas(),
     getDiagnosticoFase().catch(() => null),
     productoDeFunnel([crm.id]).then((m) => m.get(crm.id) ?? null).catch(() => null),
-    credWs('FATHOM_API_KEY', ws).then((v) => !!v?.trim()).catch(() => null),
+    // «Fathom conectado» = un grabador de reuniones, cualquiera (lib/grabadores, 26/10/2026): con Fireflies tampoco hace
+    // falta pegar el link a mano.
+    hayGrabadorConectado(ws).catch(() => null),
     estadoMedios(['whatsapp']).then((m) => m.whatsapp?.porDefecto?.conectado ?? null).catch(() => null),
   ]);
   // Un funnel que no se pudo leer cae al pipeline de fábrica: sugerir sobre etapas que el CRM no tiene es inventar.

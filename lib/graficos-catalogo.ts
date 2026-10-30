@@ -295,14 +295,14 @@ const FUENTES_BASE: readonly Fuente[] = [
   },
   // ── Customer Success ──────────────────────────────────────────────────────────────────
   {
-    id: 'entrega', nombre: 'Clientes en entrega', area: 'Customer Success',
+    id: 'entrega', nombre: 'Clientes en entrega', area: 'Clients',
     descripcion: 'En qué etapa de la entrega está cada cliente, por producto.',
     fechas: [{ id: 'actual', nombre: 'Hoy', sinRango: true }, { id: 'desde', nombre: 'Llegó a la etapa' }],
     dimensiones: [...TIEMPO, cat('producto', 'Funnel'), cat('etapa', 'Etapa'), cat('cliente', 'Cliente')],
     metricas: [m('clientes', 'Clientes')],
   },
   {
-    id: 'avance_cursos', nombre: 'Avance en los cursos', area: 'Customer Success',
+    id: 'avance_cursos', nombre: 'Avance en los cursos', area: 'Clients',
     descripcion: 'Las clases que vio cada alumno y cuánto avanzó.',
     fechas: [{ id: 'fecha', nombre: 'La vio' }],
     dimensiones: [...TIEMPO, cat('estado', 'Estado'), cat('area', 'Área')],

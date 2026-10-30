@@ -84,6 +84,33 @@ el de la casa. Las opciones las arma una función pura con test, como `opcionesC
 | 1. Tooltips de la columna del bloque | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
 | 1. El título dos veces | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
 | 2. La tarjeta lista ↔ chat, el Panel sólo sin landings | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
-| 3. Una sola barra, Compartir con Exportar | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
-| 4. «Nueva landing» abre las plantillas | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
-| 5. El menú mínimo en `HiloMako` y el clic derecho del lienzo | **sin hacer**: el plan está arriba |
+| 3. Una sola barra, Compartir con Exportar | **hecho**, 7ae16876e; **corregido el 24/10 noche** (claude5): Compartir y Publicar eran DOS botones; ahora uno azul «Compartir» con su ▾, y el panel copiado de Canva |
+| 4. «Nueva landing» abre las plantillas | **NO cumplía** (iba al Panel: otra ruta y otra barra lateral); **corregido el 24/10 noche** (claude5): se abre adentro del editor, en lugar de la barra y el lienzo |
+| 5. El menú mínimo en `HiloMako` y el clic derecho del lienzo | **hecho el 24/10 noche** (claude5): Copiar en todos los chats con `HiloMako` y Responder en el del editor web; en el lienzo, el clic derecho abre el menú del ⋮ en el punto del clic (no una lista nueva). Falta Responder en los otros chats (cada uno pasa `onCitar`) y mirarlo con clics |
+
+## Cómo se verifica en pantalla (pendiente: nadie lo miró desplegado)
+
+En producción desde el tren del 24/10/2026 (7ae16876e). No se recorrió: el Chrome de Martín estaba desconectado y el navegador
+de la app pide login. La landing 32 es del **ws9**: con la sesión en otro negocio da 404.
+
+**A. El editor** (hola-mako.com/web-generator/32, ws9):
+1. **A 1280 de ancho, con el chat abierto** (tarjeta de 340 px), la barra de arriba entra en UNA fila sin montarse: título y
+   «Guardado» · MaKo (sólo con el chat plegado), Páginas, deshacer/rehacer, Agregar bloque, Animar, el formato · los 3
+   dispositivos, Compartir (sólo el ícono bajo 1440), Publicar ▾ y ⋯. **Es la de más riesgo.** Si algo se monta:
+   `.gma-herramientas .gma-titulo { max-width: 240px }` y `@media (max-width: 1440px)` (pliega `.gma-herr-texto`) en
+   app/web-generator/gamma.css; bajar el título a 180 px o plegar antes resuelve casi todo. Al tocarlo, mirar la pantalla
+   ENTERA, no sólo la barra.
+2. No queda una segunda barra arriba, ni avatar, ni casa.
+3. La cabecera del chat dice «← MaKo · en línea», no el título (es lo primero que Martín va a mirar). La «←» muestra la lista
+   en la misma tarjeta sin cambiar la URL; la criatura vuelve al chat.
+4. En la lista, «Nueva landing» abre /web-generator?panel=1 con «¿Qué vas a crear hoy?»; tocar otra landing la abre.
+5. /web-generator pelado abre la última landing tocada; con ?panel=1, el Panel.
+6. El tooltip de la columna de un bloque sale a la DERECHA del botón y no tapa los otros dos.
+7. Compartir → al pie, «Exportar…».
+
+**B. El 403 desde producción** (sprint.mauriciobustos.com, que ya tiene la página de venta restaurada):
+1. Diagnóstico: Panel → Analizar → el link → lee «Sprint de Diseño para la Ejecución Empresarial».
+2. Offer: pegar el link → lo lee directo.
+3. Medido por el Cerebro: el bloqueo es por UA, no por IP (el bot pelado da 200 y un Chrome da 403 desde la misma IP). Si
+   desde Vercel igual da 403 con el UA de bot, ahí sí es por IP: extender al Diagnóstico el lector de afuera que Offer ya usa
+   (lib/offer-lector-externo.ts).

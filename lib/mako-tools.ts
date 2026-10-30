@@ -22,7 +22,7 @@ import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez, type Lead,
 } from './leads';
 import { etapasDeLeads, getFunnelDefault, getPipelineStagesDeLead } from './funnels';
-import { etapaParaModelo, datosDeLaFicha, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
+import { etapaParaModelo, datosDeLaFicha, horasDeLasReuniones, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { buscarReunionesAutomatico } from './auto-reuniones';
@@ -47,13 +47,19 @@ function str(input: Record<string, unknown>, key: string): string {
   return typeof v === 'string' ? v : '';
 }
 
-async function requireLead(input: Record<string, unknown>): Promise<Lead> {
+/**
+ * El lead del pedido, o la GUARDA que lo dice (`{ ok:false, error, guarda:true }`, lib/no-pude.ts `esGuardaDeHerramienta`): un
+ * `leadId` que falta o que no está es un pedido corregible. Tiraba (la verificación de 2cb1cf67e): para el turno, una herramienta
+ * que revienta es una falla real, y con otra guarda en el turno sobraba un ticket.
+ */
+async function requireLead(input: Record<string, unknown>): Promise<{ lead: Lead } | { guarda: string }> {
   const id = num(input, 'leadId');
-  if (id == null) throw new Error('Falta leadId (número). Primero usa buscar_leads para ubicarlo.');
+  if (id == null) return { guarda: guardaDelPedido('Falta leadId (número). Primero usa buscar_leads para ubicarlo.') };
   const lead = await getLead(id);
-  if (!lead) throw new Error(`No existe un lead con id ${id} en este workspace.`);
-  return lead;
+  if (!lead) return { guarda: guardaDelPedido(`No existe un lead con id ${id} en este workspace.`) };
+  return { lead };
 }
+const guardaDelPedido = (error: string): string => JSON.stringify({ ok: false, error, guarda: true });
 
 /**
  * Resumen compacto de un lead (para no gastar tokens de más en el tool_result).
@@ -63,12 +69,13 @@ async function requireLead(input: Record<string, unknown>): Promise<Lead> {
  * en todo lead sin override —la etapa casi siempre se DERIVA de las fechas— y una etapa que el funnel ya
  * no tiene en los leads con un override huérfano.
  */
-function resumenLead(l: Lead, etapas?: readonly EtapaParaModelo[] | null) {
+// `tz`: la zona del NEGOCIO, para la hora de las reuniones (`horasDeLasReuniones`, el ticket #35).
+function resumenLead(l: Lead, etapas: readonly EtapaParaModelo[] | null | undefined, tz: string | null) {
   return {
     id: l.id, nombre: l.nombre, empresa: l.empresa, telefono: l.telefono, email: l.email,
     estado: l.estado_lead, ...etapaParaModelo(l, etapas),
     madurez: labelMadurez(estadoMadurezLead(l)).label,
-    fecha_agenda: l.fecha_agenda, fecha_junta_1: l.fecha_junta_1, fecha_junta_2: l.fecha_junta_2,
+    fecha_agenda: l.fecha_agenda, fecha_junta_1: l.fecha_junta_1, fecha_junta_2: l.fecha_junta_2, ...horasDeLasReuniones(l, tz),
     asistio_j1: l.asistio_j1, asistio_j2: l.asistio_j2, calificado: l.calificado,
     fecha_cierre: l.fecha_cierre, monto_cierre_usd: l.monto_cierre_usd, motivo_perdida: l.motivo_perdida,
     origen: l.meta_campaign_name ?? l.utm_campaign ?? l.origen_lead ?? null,
@@ -216,26 +223,29 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const encontrados = (await listLeads())
         .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q))
         .slice(0, 20);
-      const etapas = await etapasDeLeads(encontrados.map((l) => l.id)).catch(() => null);
-      const hits = encontrados.map((l) => resumenLead(l, etapas?.get(l.id) ?? null));
+      const [etapas, tz] = await Promise.all([etapasDeLeads(encontrados.map((l) => l.id)).catch(() => null), tzActual().catch(() => null)]);
+      const hits = encontrados.map((l) => resumenLead(l, etapas?.get(l.id) ?? null, tz));
       return JSON.stringify({ encontrados: hits.length, leads: hits });
     }
 
     case 'ficha_lead': {
-      const lead = await requireLead(input);
+      const pedido = await requireLead(input);
+      if ('guarda' in pedido) return pedido.guarda;
+      const { lead } = pedido;
       // DEL LEAD: las etapas con que la ficha dibuja la suya (`getPipelineStagesDeLead`, como
       // app/crm/[id]/page.tsx), así MaKo y el equipo dicen la misma etapa.
-      const [respuestas, etapas, oferta] = await Promise.all([
+      const [respuestas, etapas, oferta, tz] = await Promise.all([
         getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] })),
         getPipelineStagesDeLead(lead).catch(() => null),
         ofertaDeLaFicha(lead.oferta_id),
+        tzActual().catch(() => null),
       ]);
       // Lo del formulario de Meta va APARTE de `respuestas`: getLeadRespuestas lo usan los
       // datos faltantes y el chatbot, y mezclarlo ahí les cambia lo que leen. El porqué, en
       // formularioParaModelo (lib/meta-leads-campos.ts). Lo de la landing, igual y al lado.
       // `datosDeLaFicha` (lib/mako-ficha-lead.ts): lo que la ficha muestra y esto no traía.
       return JSON.stringify({
-        lead: { ...resumenLead(lead, etapas), ...datosDeLaFicha(lead, oferta) },
+        lead: { ...resumenLead(lead, etapas, tz), ...datosDeLaFicha(lead, oferta) },
         respuestas, ...formularioParaModelo(lead.meta_field_data), ...landingParaModelo(lead.optin_respuestas),
       });
     }
@@ -250,7 +260,9 @@ export const runMakoTool: ToolRunner = async (name, input) => {
     }
 
     case 'reuniones_lead': {
-      const lead = await requireLead(input);
+      const pedido = await requireLead(input);
+      if ('guarda' in pedido) return pedido.guarda;
+      const { lead } = pedido;
       // Sin Google Calendar: esto lo lee un modelo (lib/agenda-sin-ia.ts).
       const r = await buscarReunionesAutomatico(lead, { conGoogle: false }).catch(() => null);
       // Llamadas analizadas por el análisis de cierres → su recording_id sirve para el deep

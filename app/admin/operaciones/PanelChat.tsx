@@ -16,8 +16,9 @@
 // ⚠️ ARRASTRAR Y SOLTAR es del panel: toda la conversación es la zona (18/10/2026; sin esto el navegador abría el archivo en la
 //    pestaña). Lo soltado va a `adjuntos.onSumar`, lo mismo que el «+» de la caja.
 
-import { useEffect, useState, type ReactNode, type RefObject } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { ContextoSoltar } from '@/app/_chat/soltar-en-la-caja';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { Muneco, type Animo } from './Muneco';
@@ -47,6 +48,14 @@ export type CabeceraChat = {
 };
 
 /** La cabecera: «volver» (en la ventana angosta), la criatura, el título que se renombra en el lugar. */
+/**
+ * «Plegar el chat» (29/10/2026, Martín: en los editores de Create «el chat a la izquierda le come lugar al editor»). Lo provee
+ * la pantalla de Create (app/_crear/PantallaCrear.tsx) cuando la tarjeta se puede plegar a una barra fina; con él, la cabecera
+ * de CUALQUIER chat que viva ahí (el Cerebro, el del Video Editor, el del Image Editor) dibuja el botón a la derecha. Fuera de
+ * Create es `null` y la cabecera no cambia.
+ */
+export const PlegarChatCtx = createContext<(() => void) | null>(null);
+
 export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, aspecto, animo, espera = 0, onMuneco, onRenombrar, acciones, antes, onVolver }: CabeceraChat) {
   // El título se renombra en el lugar: `editando` es lo que se está escribiendo.
   const [editando, setEditando] = useState<{ texto: string; error: string | null; mandando: boolean } | null>(null);
@@ -58,6 +67,7 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
     if (mal) setEditando({ ...editando, mandando: false, error: mal }); else setEditando(null);
   };
   const criatura = <Muneco titulo={deCriatura} aspecto={aspecto} animo={animo} size={34} espera={espera} />;
+  const plegar = useContext(PlegarChatCtx);
   return (
     <header className="co-cab">
       {onVolver && (
@@ -90,6 +100,13 @@ export function CabeceraDeChat({ clave, titulo, criatura: deCriatura = titulo, a
         {editando?.error && <span className="co-cab__error" role="alert">{editando.error}<ReportarASoporte /></span>}
       </div>
       {acciones}
+      {plegar && (
+        <button type="button" className="cr-plegar" onClick={plegar} title="Plegar el chat" aria-label="Plegar el chat de MaKo">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <rect x="3.5" y="4" width="17" height="16" rx="2.5" /><path d="M9 4v16M15.5 10l-2 2 2 2" />
+          </svg>
+        </button>
+      )}
     </header>
   );
 }
@@ -114,12 +131,17 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
 }) {
   /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
   const [soltando, setSoltando] = useState(false);
+  // Lo soltado va a los adjuntos de la CAJA de adentro (los de la pantalla y los que ella lee, app/_chat/soltar-en-la-caja.ts):
+  // con los de la pantalla solos, un Word rebotaba en el Second Brain y donde no había ninguno no se podía soltar (ticket #16).
+  const enLaCaja = useRef<AdjuntosDeCaja | undefined>(undefined);
+  const destino = () => enLaCaja.current ?? adjuntos;
   return (
-    <section className="co-panel" aria-label={`Conversación con ${cabecera.titulo}`} data-soltando={soltando || undefined}
-      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = adjuntos?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
+    <ContextoSoltar.Provider value={enLaCaja}>
+    <section className="co-panel" aria-label={`Conversación con ${cabecera.titulo}`} data-soltando={soltando || undefined} data-mako-chat=""
+      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = destino()?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); }}
-      onDrop={(e) => { setSoltando(false); alSoltar(e, adjuntos); }}>
-      {soltando && <div className="co-soltar" aria-hidden>{adjuntos?.puede ? 'Suelta para adjuntar' : 'Este chat no recibe archivos'}</div>}
+      onDropCapture={() => setSoltando(false)} onDrop={(e) => { setSoltando(false); alSoltar(e, destino()); }}>
+      {soltando && <div className="co-soltar" aria-hidden>{destino()?.puede ? 'Suelta para adjuntar' : destino()?.espera ?? 'Este chat no recibe archivos'}</div>}
       <CabeceraDeChat {...cabecera} />
       <div className="co-cuerpo">
         <div className="co-conv">
@@ -135,5 +157,6 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
         </div>
       </div>
     </section>
+    </ContextoSoltar.Provider>
   );
 }

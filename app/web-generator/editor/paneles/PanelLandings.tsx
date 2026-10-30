@@ -8,10 +8,15 @@
 // cual como en Automations, para elegir otra». Copiado de la tarjeta de Automations (app/automations/SecuenciaPerfil.tsx):
 // buscar, «Nueva …» como primer renglón, los ítems y la criatura de MaKo arriba a la derecha para volver al chat.
 //
-// La `←` de la cabecera del chat (paneles/PanelAgente.tsx) trae acá SIN navegar; un renglón abre esa landing; «Nueva
-// landing» abre el Panel con «¿Qué vas a crear hoy?» y sus plantillas (pedido 4 del mismo día). Y al pie «Ver todo en el
-// Panel»: el Panel ya no es la entrada (app/web-generator/page.tsx), y ahí siguen el Diagnóstico, Analizar, las carpetas
-// y la papelera. El plan entero: docs/diseno-editor-web-como-automations.md.
+// La `←` de la cabecera del chat (paneles/PanelAgente.tsx) trae acá SIN navegar; un renglón abre esa landing. Y al pie
+// «Ver todo en el Panel»: el Panel ya no es la entrada (app/web-generator/page.tsx), y ahí siguen el Diagnóstico, Analizar,
+// las carpetas y la papelera. El plan entero: docs/diseno-editor-web-como-automations.md.
+//
+// «Nueva landing» NO navega (24/10/2026, Martín, textual: «Cuando le doy a "Nueva landing" NO me debe redireccionar a otra
+// ruta... Y la sidebar no debe cambiar... Solamente debe aparecer el "¿Qué vas a crear hoy?" con los templates en lugar de
+// la topbar de edición y el lienzo»). Lo que se había entregado ese mismo día llevaba al Panel (`/web-generator?panel=1`),
+// con otra ruta y otra barra lateral. Ahora es un botón: el editor cambia la barra y el lienzo por el cuadro de crear
+// (`setNueva`, EditorLanding.tsx) y esta lista queda como está, con «Nueva landing» marcada.
 // =============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -25,6 +30,7 @@ import { landingsDeLaLista, RUTA_NUEVA_LANDING } from '../../panel-reglas';
 export { RUTA_NUEVA_LANDING };
 import { useEditorLanding } from '../contexto';
 import { Ico } from '../../Ico';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const CSS = `
 .gma-ls { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -40,7 +46,9 @@ const CSS = `
 .gma-ls-item:hover { background: var(--gma-hover); }
 .gma-ls-item[aria-current="true"] { background: var(--gma-activo); color: var(--gma-sobre-activo); font-weight: 600; }
 .gma-ls-item span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.gma-ls-nueva { border: 1px dashed var(--gma-borde); margin-bottom: 4px; color: var(--gma-tenue); }
+.gma-ls-nueva { width: 100%; box-sizing: border-box; border: 1px dashed var(--gma-borde); margin-bottom: 4px; background: transparent;
+  font: inherit; font-size: 13.5px; font-weight: 500; text-align: left; color: var(--gma-tenue); cursor: pointer; }
+.gma-ls-nueva[aria-current="true"] { border-style: solid; border-color: transparent; }
 .gma-ls-aviso { padding: 12px; font-size: 13px; color: var(--gma-tenue); }
 .gma-ls-pie { flex: none; padding: 8px 12px 12px; border-top: 0.8px solid var(--gma-borde-suave); }
 .gma-ls-pie a { font-size: 13px; color: var(--gma-tenue); text-decoration: none; }
@@ -48,7 +56,7 @@ const CSS = `
 `;
 
 export function PanelLandings() {
-  const { docId, guardarAhora, setPanelIzq } = useEditorLanding();
+  const { docId, guardarAhora, setPanelIzq, nueva, setNueva } = useEditorLanding();
   const [docs, setDocs] = useState<LandingResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
@@ -76,17 +84,17 @@ export function PanelLandings() {
         </button>
       </div>
       <nav className="gma-ls-lista" aria-label="Tus landings">
-        <Link href={RUTA_NUEVA_LANDING} className="gma-ls-item gma-ls-nueva" onClick={alIrse}>
+        <button type="button" className="gma-ls-item gma-ls-nueva" aria-current={nueva ? 'true' : undefined} onClick={() => setNueva(true)}>
           <Ico n="mas" t={14} /><span>Nueva landing</span>
-        </Link>
+        </button>
         {error ? (
-          <p className="gma-ls-aviso" role="alert">No pude leer tus landings. <button type="button" className="gma-boton gma-boton--chico" onClick={() => { void cargar(); }}>Reintentar</button></p>
+          <p className="gma-ls-aviso" role="alert">No pude leer tus landings. <button type="button" className="gma-boton gma-boton--chico" onClick={() => { void cargar(); }}>Reintentar</button><ReportarASoporte /></p>
         ) : docs === null ? (
           <p className="gma-ls-aviso">Cargando…</p>
         ) : visibles.length === 0 ? (
           <p className="gma-ls-aviso">{busca.trim() ? 'Ninguna se llama así.' : 'Todavía no hay otras.'}</p>
         ) : visibles.map((d) => (
-          <Link key={d.id} href={`/web-generator/${d.id}`} className="gma-ls-item" aria-current={d.id === docId ? 'true' : undefined}
+          <Link key={d.id} href={`/web-generator/${d.id}`} className="gma-ls-item" aria-current={!nueva && d.id === docId ? 'true' : undefined}
             onClick={d.id === docId ? (e) => { e.preventDefault(); setPanelIzq('agente'); } : alIrse} title={d.titulo || 'Sin título'}>
             <Ico n="paginas" t={14} /><span>{d.titulo || 'Sin título'}</span>
           </Link>

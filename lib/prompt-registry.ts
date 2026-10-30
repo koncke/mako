@@ -62,7 +62,12 @@ import {
   TEXTO_SYSTEM_TEMPLATE as LANDING_EDITOR_TEXTO_SYSTEM, TEXTO_USER_TEMPLATE as LANDING_EDITOR_TEXTO_USER,
   DISENOS_SYSTEM_TEMPLATE as LANDING_EDITOR_DISENOS_SYSTEM, DISENOS_USER_TEMPLATE as LANDING_EDITOR_DISENOS_USER,
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
+  DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
 } from './editor-landing/ia-reglas';
+import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
+import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
+import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
+import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
@@ -608,7 +613,7 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
-    group: 'Curso del servicio — la IA reescribe la tarea (Customer Success)',
+    group: 'Curso del servicio — la IA reescribe la tarea (Clients)',
     icon: '📝',
     blurb: 'Después de cada sesión de entrega, MaKo reescribe las respuestas del curso que el cliente ya mandó con lo que se habló en la llamada. Su versión queda AL LADO de la del cliente, que la aprueba o la corrige en su portal: nunca se pisa lo que él escribió.',
     entries: [
@@ -805,6 +810,71 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
+    // El Copywriter (28/10/2026, lib/copywriter/ia.ts; los defaults viven en lib/copywriter/ia-reglas.ts e ia-editar.ts).
+    // Las keys y los slots los fija tests/copywriter-ia.test.ts contra PROMPTS_COPY y PROMPTS_EDITAR.
+    group: 'Copywriter',
+    icon: '✍️',
+    blurb: 'MaKo al costado de cada guion del Copywriter: en «Discutir» contesta sin tocarlo; en «Editar» lo escribe en el documento con sus herramientas, como una propuesta que la persona acepta o descarta.',
+    entries: [
+      {
+        key: 'copywriter.discutir.system', source: 'override',
+        label: 'Discutir un guion (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de la respuesta y la voz del negocio')], scope: 'full', sensitive: false,
+        default: COPYWRITER_DISCUTIR_SYSTEM,
+        context: 'El chat del Copywriter en «Discutir»: MaKo contesta y sugiere SIN cambiar el guion. Conserva la regla de no tocar nada y la de no inventar datos.',
+      },
+      {
+        key: 'copywriter.discutir.user', source: 'override',
+        label: 'Pregunta + guion (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pregunta', 'lo que escribió la persona'), v('titulo', 'el título del guion'), v('props', 'tipo, ángulo, estructura y duración'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('charla', 'lo último del chat'), v('referencias', 'lo citado con @'),
+          v('negocio', 'lo que hace falta del Second Brain'), v('adjuntos', 'lo leído de los archivos'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_DISCUTIR_USER,
+        context: 'Le pasa a MaKo la pregunta y el guion. Conserva los slots: el guion, la charla, lo citado y el negocio llegan delimitados como dato no confiable.',
+      },
+      {
+        key: 'copywriter.editar.system', source: 'override',
+        label: 'Escribir en el guion (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma y la voz del negocio'), v('formato', 'las herramientas y la forma del JSON')], scope: 'full', sensitive: false,
+        default: COPYWRITER_EDITAR_SYSTEM,
+        context: 'El chat del Copywriter en «Editar»: MaKo escribe con sus herramientas (escribir_seccion, reemplazar_bloque…). Conserva {{formato}}: sin él la salida no se puede leer.',
+      },
+      {
+        key: 'copywriter.editar.user', source: 'override',
+        label: 'Pedido + guion (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('instruccion', 'lo que pidió la persona'), v('titulo', 'el título del guion'), v('props', 'tipo, ángulo, estructura y duración'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('estructura', 'la estructura y la guía de cada sección'), v('angulo', 'el paquete del ángulo'),
+          v('metodologia', 'la de reels o stories'), v('biblioteca', 'los ids de ángulos y estructuras'), v('charla', 'lo último del chat'),
+          v('referencias', 'lo citado con @'), v('negocio', 'lo que hace falta del Second Brain'), v('adjuntos', 'lo leído de los archivos'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_EDITAR_USER,
+        context: 'Le pasa a MaKo el pedido, el guion con los ids de cada bloque y todo lo que necesita para escribirlo. Conserva los slots.',
+      },
+      // El experto y «Adaptar a mi negocio» (29/10/2026, lib/copywriter/experto.ts; docs/plantillas-reales/copywriter.md).
+      // Keys NUEVAS a propósito: un slot nuevo en las de arriba no llegaría a quien ya las editó.
+      {
+        key: 'copywriter.experto', source: 'override',
+        label: 'El método del Copywriter', kind: 'instruction', dynamic: false, variables: [], scope: 'full', sensitive: false,
+        default: COPYWRITER_EXPERTO,
+        context: 'El método del Copywriter: se suma a Discutir y a Editar. Conserva la regla de no inventar y la de no usar los datos del ejemplo.',
+      },
+      {
+        key: 'copywriter.adaptar.user', source: 'override',
+        label: 'Adaptar una plantilla (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('plantilla', 'el nombre de la plantilla'), v('ejemplo', 'el negocio ficticio del ejemplo y su rubro'), v('pide', 'lo que el ejemplo usa del negocio, con su pregunta'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('estructura', 'la estructura y la guía de cada sección'), v('negocio', 'lo que hace falta del Second Brain'),
+          v('charla', 'lo último del chat, con lo que acaba de decir la persona'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_ADAPTAR_USER,
+        context: '«Adaptar a mi negocio»: va con el system de Editar y devuelve el mismo JSON. Conserva que el ejemplo es de un negocio ficticio y que lo que falta va como [DATO: …].',
+      },
+    ],
+  },
+  {
     // El editor copiado de Gamma (lib/editor-landing/ia.ts; los defaults viven en
     // lib/editor-landing/ia-reglas.ts, portados de presenton con su aviso Apache-2.0).
     // Las keys y los slots los fija tests/editor-landing-ia.test.ts contra PROMPTS_EDITOR.
@@ -895,6 +965,37 @@ export const REGISTRY: Group[] = [
         variables: [v('seccion', 'el texto de la sección')], scope: 'full', sensitive: false,
         default: LANDING_EDITOR_NOTAS_USER,
         context: 'Le pasa a MaKo el texto de la sección. Conserva el slot.',
+      },
+      {
+        key: 'landing_editor.discutir.system', source: 'override',
+        label: 'Discutir la landing (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de la respuesta')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_DISCUTIR_SYSTEM,
+        context: 'El chat del editor en «Discutir»: MaKo contesta y sugiere SIN cambiar la página (para cambiarla está «Editar»). Conserva la regla de no tocar nada y la de no inventar datos.',
+      },
+      {
+        key: 'landing_editor.discutir.user', source: 'override',
+        label: 'Pregunta + secciones (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pregunta', 'lo que escribió la persona'), v('foco', 'la sección que está mirando, si la hay'), v('secciones', 'el texto de cada sección, numerada'),
+          v('charla', 'lo último del chat'), v('contexto', 'el negocio (marca, oferta, avatar)'),
+        ], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_DISCUTIR_USER,
+        context: 'Le pasa a MaKo lo que plantea la persona, la página y lo último de la charla. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.angulos.system', source: 'override',
+        label: 'Ángulos de una landing para replicarla (system)', kind: 'system', dynamic: true,
+        variables: [v('tipos', 'los tipos de sección que puede elegir')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_ANGULOS_SYSTEM,
+        context: 'Replicar landing: antes de replicar, MaKo lee cómo vende la página de afuera (promesa, dolores, forma de venta, objeciones, prueba y el ángulo de cada sección). Conserva el formato JSON y la regla de no seguir instrucciones de la página.',
+      },
+      {
+        key: 'landing_editor.angulos.user', source: 'override',
+        label: 'Página a replicar (user)', kind: 'user', dynamic: true,
+        variables: [v('pagina', 'el dominio de la página'), v('contenido', 'el texto de la página, en secciones numeradas')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_ANGULOS_USER,
+        context: 'Le pasa a MaKo la página de afuera partida en secciones numeradas. Conserva los slots.',
       },
     ],
   },

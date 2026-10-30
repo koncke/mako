@@ -28,6 +28,14 @@ import { leerFunnels } from '@/lib/funnels';
 import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
+import { resumenDePrueba } from '@/lib/prueba-uso';
+import { empezarPlanAhora } from '@/lib/empezar-plan';
+import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
+import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
+import { mensajesParaCopiar } from '@/lib/partners-recursos';
+import { NOMBRE_COSA_PRUEBA, textoSoloPro } from '@/lib/topes-plan';
+import { esEsencialDe } from '@/lib/plan-esencial';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
@@ -50,6 +58,7 @@ import { cuantosEnEntrega } from '@/lib/entrega-servicio';
 import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
+import { grafoParaChat } from '@/lib/cerebro-para-chat';
 import { construirVault } from '@/lib/vault';
 import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
@@ -81,7 +90,7 @@ const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e))
 /** preparar() de la pantalla genérica no puede lanzar: se envuelve. */
 const seguro = (fn: (input: Record<string, unknown>, ctx: Ctx) => Promise<Preparado>) =>
   async (input: Record<string, unknown>, ctx: Ctx): Promise<Preparado> => {
-    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar la propuesta contra la base (${msg(e)}).` }; }
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar la propuesta contra la base (${msg(e)}).`, falla: true }; }
   };
 
 /** ejecutar() nunca lanza: si algo falla, ok:false con el motivo. */
@@ -202,7 +211,8 @@ export const RUNNERS: Runners = {
       if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({
         plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
-        estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida' : 'activo',
+        estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida'
+          : esPruebaDePlan(sus) && sus.estado === 'pendiente' ? 'en prueba gratis (ver_mi_prueba)' : 'activo',
         ...(esBajaPedida(sus.motivo) ? { baja: sus.motivo } : {}),
         para_darse_de_baja: 'dar_de_baja_mi_plan, o el botón «Darme de baja» de Tu plan',
         link: donde,
@@ -217,12 +227,135 @@ export const RUNNERS: Runners = {
       if (!sus) return { error: `El plan de este negocio no se cobra por la pasarela: para darlo de baja hay que escribir a ${EMAIL_MAKO}.` };
       if (sus.suscripcion_estado === 'cancelada') return { error: 'El plan ya estaba dado de baja.', yaEstaba: true };
       if (esBajaPedida(sus.motivo)) return { error: sus.motivo ?? 'La baja ya estaba pedida.', yaEstaba: true };
-      const como = sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
+      const como = esPruebaDePlan(sus) && sus.estado === 'pendiente'
+        ? 'Está en su prueba gratis: no se le cobra nada, y sigue usando MaKo hasta el día que iba a cobrarse.'
+        : sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
       return { payload: {}, resumen: `Dar de baja el plan de MaKo (${formatoMonto(sus.monto, sus.moneda)} por mes, por ${NOMBRE_PASARELA[sus.proveedor]}). ${como}` };
     }),
     ejecutar: sinLanzar(async (_payload, ctx) => {
       const r = await darDeBajaMiPlan(ctx.ws, ctx.actor?.trim() || 'MaKo');
       return r.ok ? { ok: true, resumen: r.resumen, datos: { codigo: r.codigo } } : { ok: false, resumen: r.resumen };
+    }),
+  },
+
+  // La prueba gratis (25/10/2026): lo mismo que el cartel «Versión de prueba» y la franja de cada tope.
+  ver_mi_prueba: {
+    leer: async (_input, ctx) => {
+      const r = await resumenDePrueba(ctx.ws);
+      const link = linkApp('/configuraciones/plan', ctx.ws);
+      if (!r.enPrueba) return json({ en_prueba: false, link });
+      return json({
+        en_prueba: true, dias_que_quedan: r.dias, primer_cobro: r.hasta, plan: r.plan, al_terminar_se_cobra: r.despues,
+        usos: r.usos.map((u) => ({ que: NOMBRE_COSA_PRUEBA[u.tope][1], usado: u.usado, de: u.de })),
+        exportar_en_masa: 'se habilita con el primer cobro',
+        para_empezar_ya: 'empezar_mi_plan_ya', para_cancelar_sin_cobro: 'dar_de_baja_mi_plan', link,
+      });
+    },
+  },
+
+  // «Empezar mi plan ya» (25/10/2026): la misma función que el botón de Tu plan (lib/empezar-plan.ts).
+  empezar_mi_plan_ya: {
+    preparar: seguro(async (_input, ctx) => {
+      const r = await resumenDePrueba(ctx.ws);
+      if (!r.enPrueba) return { error: 'Este negocio no está en su prueba gratis: su plan ya se cobra solo.' };
+      return { payload: {}, resumen: `Empezar ${r.plan} desde hoy${r.despues ? ` (${r.despues})` : ''}: se abre el pago, y la prueba se cancela cuando ese pago entre.` };
+    }),
+    ejecutar: sinLanzar(async (_payload, ctx) => {
+      const r = await empezarPlanAhora(ctx.ws, ctx.actor?.trim() || 'MaKo');
+      return r.ok ? { ok: true, resumen: `Listo: el pago está abierto. Para pagarlo: ${r.link}`, datos: { link: r.link } } : { ok: false, resumen: r.resumen };
+    }),
+  },
+
+  // MaKo Partners (25/10/2026): lo mismo que /partners (lib/partners-programa.ts).
+  ver_mi_programa_partners: {
+    leer: async (_input, ctx) => {
+      const link = linkApp(RUTA_PARTNERS, ctx.ws);
+      const t = await tableroDe(ctx.ws);
+      if (!t.alta) return json({ es_partner: false, gana: 'el 100% del primer mes de cada negocio nuevo que traiga, en dinero', para_hacerse: 'hacerme_partner', link });
+      return json({
+        es_partner: true, desde: t.alta.at, link_para_compartir: t.link, codigo: t.codigo,
+        visitas_al_link: t.visitas.total, visitas_este_mes: t.visitas.esteMes,
+        ganado_usd: t.resumen.ganadoUsd, a_cobrar_usd: t.resumen.aCobrarUsd, en_camino_usd: t.resumen.porGanarUsd, cobrado_usd: t.resumen.pagadoUsd,
+        se_le_transfiere_a: t.alta.cobro ?? 'sin cargar (cambiar_cobro_partners)',
+        negocios: t.referidos.map((r) => ({ nombre: r.nombre, plan: r.plan, desde: r.desde, estado: TEXTO_ESTADO_REFERIDO[r.estado], le_deja_usd: r.estado === 'se-fue' ? 0 : r.gananciaUsd })),
+        pagos: t.pagos.map((p) => ({ fecha: p.fecha, monto_usd: p.montoUsd })),
+        cuando_se_gana: `cuando cada negocio paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes`, link,
+        // Los recursos para recomendar (27/10/2026, lib/partners-recursos.ts): los mismos mensajes del panel, con su link. El
+        // PDF de venta se arma en el navegador (/partners, «Descargar el PDF de venta»).
+        ...(t.link && t.codigo ? { mensajes_para_recomendar: mensajesParaCopiar({ link: t.link, codigo: t.codigo }).map((m) => ({ para: m.titulo, texto: m.texto })) } : {}),
+      });
+    },
+  },
+  hacerme_partner: {
+    preparar: seguro(async (input, ctx) => {
+      const alta = altaLimpia(input);
+      const ya = await altaDePartner(ctx.ws).catch(() => null);
+      // Sólo MaKo Pro (27/10/2026): no se propone lo que `hacermePartner` va a frenar.
+      if (!ya && (await esEsencialDe(ctx.ws))) return { error: textoSoloPro('partners') };
+      const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
+      const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
+      const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);
+      return { payload: { cuantos: alta.cuantos, como: alta.como, cobro: alta.cobro }, resumen: `${ya ? 'Actualizar el alta de MaKo Partners' : 'Hacer partner de MaKo a este negocio'}: ${partes.join(' · ')}. Gana el 100% del primer mes de cada negocio que traiga.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await hacermePartner(ctx.ws, payload);
+      return r.ok ? { ok: true, resumen: `Listo: ya es partner. Su link: ${r.link} (código ${r.codigo}).`, datos: { link: r.link, codigo: r.codigo } } : { ok: false, resumen: r.error };
+    }),
+  },
+  cambiar_cobro_partners: {
+    preparar: seguro(async (input, ctx) => {
+      const cobro = cobroLimpio(input.cobro);
+      if (!cobro) return { error: 'Falta a dónde transferirle: su alias, su CBU o el email de PayPal.' };
+      const alta = await altaDePartner(ctx.ws);
+      if (!alta) return { error: 'Este negocio todavía no es partner: primero hacerme_partner.' };
+      return { payload: { cobro }, resumen: `Transferirle lo que gane en MaKo Partners a: ${cobro}${alta.cobro ? ` (antes: ${alta.cobro})` : ''}.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await cambiarCobroPartner(ctx.ws, payload.cobro);
+      return r.ok ? { ok: true, resumen: `Listo: se le transfiere a ${r.cobro}.` } : { ok: false, resumen: r.error };
+    }),
+  },
+  // Cambiar el código (27/10/2026): lo mismo que «Cambiar» del panel (lib/partners-programa.ts, `cambiarCodigoPartner`).
+  cambiar_codigo_partners: {
+    preparar: seguro(async (input, ctx) => {
+      const v = codigoNuevoValido(input.codigo);
+      if (!v.ok) return { error: v.error };
+      const t = await tableroDe(ctx.ws);
+      if (!t.alta || !t.codigo) return { error: 'Este negocio todavía no es partner: primero hacerme_partner.' };
+      if (t.codigo === v.codigo) return { error: `Su código ya es ${v.codigo}.`, yaEstaba: true };
+      return { payload: { codigo: v.codigo }, resumen: `Cambiar el código de MaKo Partners de ${t.codigo} a ${v.codigo}. El link y el código de antes le siguen acreditando.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await cambiarCodigoPartner(ctx.ws, payload.codigo);
+      return r.ok ? { ok: true, resumen: `Listo: su código es ${r.codigo} y su link ${r.link}.`, datos: { codigo: r.codigo, link: r.link } } : { ok: false, resumen: r.error };
+    }),
+  },
+  ver_programa_partners: {
+    leer: async () => {
+      const p = await resumenDelPrograma();
+      return json({
+        partners: p.partners, partners_este_mes: p.partnersEsteMes, negocios_referidos: p.referidos,
+        ganado_usd: p.ganadoUsd, transferido_usd: p.pagadoUsd, a_pagar_usd: p.aPagarUsd, numeros_al_menos: p.truncado,
+        lista: p.lista.map((x) => ({ ws: x.ws, nombre: x.nombre, desde: x.desde, negocios: x.referidos, ganado_usd: x.ganadoUsd, pagado_usd: x.pagadoUsd, a_pagar_usd: x.aCobrarUsd, se_le_transfiere_a: x.cobro })),
+        para_anotar_un_pago: 'registrar_pago_partner',
+      });
+    },
+  },
+  registrar_pago_partner: {
+    preparar: seguro(async (input) => {
+      const ws = Number(input.partnerWs);
+      if (!Number.isInteger(ws) || ws <= 0) return { error: 'Falta el partner (partnerWs, de ver_programa_partners).' };
+      const p = (await resumenDelPrograma()).lista.find((x) => x.ws === ws);
+      if (!p) return { error: 'Ese negocio no es partner.' };
+      if (!(p.aCobrarUsd > 0)) return { error: `${p.nombre} no tiene nada a cobrar.` };
+      const monto = input.montoUsd == null ? p.aCobrarUsd : Math.round(Number(input.montoUsd) * 100) / 100;
+      if (!(monto > 0) || monto > p.aCobrarUsd) return { error: `El pago tiene que ser de hasta ${formatoMonto(p.aCobrarUsd, 'USD')}, lo que tiene a cobrar.` };
+      const nota = cobroLimpio(input.nota);
+      return { payload: { partnerWs: ws, montoUsd: monto, nota }, resumen: `Anotar que le transferiste ${formatoMonto(monto, 'USD')} a ${p.nombre}${p.cobro ? ` (${p.cobro})` : ''}. Se le avisa por email.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await registrarPagoAPartner({ ws: Number(payload.partnerWs), montoUsd: Number(payload.montoUsd), nota: payload.nota == null ? null : String(payload.nota), autor: ctx.actor?.trim() || 'MaKo' });
+      return r.ok ? { ok: true, resumen: r.resumen, datos: { monto_usd: r.montoUsd } } : { ok: false, resumen: r.error };
     }),
   },
 
@@ -488,7 +621,8 @@ export const RUNNERS: Runners = {
 
   buscar_en_segundo_cerebro: {
     leer: async (input) => {
-      const cerebro = await construirCerebro();
+      // El grafo de los chats (lib/cerebro-para-chat.ts): sin física, en caché, y en la plataforma con sus funciones.
+      const cerebro = await grafoParaChat();
       const area = str(input, 'area') as AreaId | '';
       const nodos = nodosDeDatos(cerebro.nodos).filter((n) => !area || n.area === area);
       const texto = str(input, 'texto');
@@ -501,7 +635,7 @@ export const RUNNERS: Runners = {
       }
       const campos = (Array.isArray(input.campos) && input.campos.length ? input.campos : ['nombre']) as CampoCerebro[];
       const hallados = nodos.filter((n) => matchNodo(n, texto, campos));
-      const nombreArea = (id: string) => AREAS_CEREBRO.find((a) => a.id === id)?.nombre ?? id;
+      const nombreArea = (id: string) => (cerebro.taxonomia?.areas ?? AREAS_CEREBRO).find((a) => a.id === id)?.nombre ?? id;
       return json({
         resultados: hallados.slice(0, TOPE_RESULTADOS_CEREBRO).map((n) => ({
           id: n.id, area: nombreArea(n.area), etiqueta: n.etiqueta, detalle: recorte(n.detalle, 600), fuente: n.fuente || null,
@@ -535,12 +669,12 @@ export const RUNNERS: Runners = {
   },
 
   indice_segundo_cerebro: {
-    leer: async () => indiceDelCerebro(await construirCerebro()),
+    leer: async () => indiceDelCerebro(await grafoParaChat()),
   },
 
   recuperar_del_segundo_cerebro: {
     leer: async (input) => {
-      const p = recuperar(await construirCerebro(), {
+      const p = recuperar(await grafoParaChat(), {
         pregunta: str(input, 'pregunta'),
         ids: Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [],
         profundidad: typeof input.profundidad === 'number' ? input.profundidad : undefined,

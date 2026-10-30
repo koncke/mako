@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import {
   conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll,
   lineaDePerfil, nombreUtil, parcheDePerfil, participantesDe, perfilDeEmpresa, telefonoDeJid,
-  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_CORRIDA, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
+  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
   vistosConNuevos, vistosDe,
 } from '../lib/grupo-wa-reglas';
 
@@ -64,7 +64,8 @@ test('3. los participantes: el teléfono sale de phoneNumber (el id es un @lid),
   // Con su @lid (24/10/2026): la agenda de la línea guarda a muchos contactos por ahí, y de ahí sale el nombre (test 9).
   assert.deepEqual(r.participantes, [
     { telefono: '5491100000001', nombre: 'Ana', lid: '11111111111111@lid' },
-    { telefono: '5491100000002', nombre: null, lid: '22222222222222@lid' },
+    // El admin del grupo, marcado («Ignorar admins», Martín 26/10/2026).
+    { telefono: '5491100000002', nombre: null, lid: '22222222222222@lid', admin: true },
     { telefono: '5491100000003', nombre: 'Beto', lid: null },
   ]);
   assert.equal(r.sinNumero, 1, 'el que sólo trae un @lid no se trae: se cuenta');
@@ -76,11 +77,13 @@ test('4. lo que llega del navegador se valida, y la etiqueta de origen viene con
   assert.equal(esJidDeGrupo('120363000000000001@g.us'), true);
   assert.equal(esJidDeGrupo('5491100000000-1600000000@g.us'), true);
   for (const malo of ['120363@g.us/../x', 'x@g.us', '5491100000001@s.whatsapp.net', '', null, 3]) assert.equal(esJidDeGrupo(malo), false, String(malo));
-  // La elige la persona («Formación de Jan», «Evento Cancún»); viene con el nombre del grupo, limpio.
+  // ES el nombre del grupo (Martín, 26/10/2026: «que se llame exactamente igual»), sólo sin los espacios de más.
   assert.equal(etiquetaDeGrupo('  Formación de   Jan '), 'Formación de Jan');
   assert.equal(etiquetaDeGrupo(''), 'Grupo de WhatsApp');
-  // Entra en el tope de una etiqueta del CRM (40, `TOPE_NOMBRE_ETIQUETA`): más largo, se cortaba sin decirlo.
-  assert.equal(etiquetaDeGrupo('x'.repeat(100)).length, 40);
+  // ENTERO: el de los 221 de Martín tiene 47 y con el tope de 40 salía cortado. El de un grupo llega a 100 (mig 0339).
+  const largo = '16, 17 y 18 de JUNIO | RETO del Anuncio Ganador';
+  assert.equal(etiquetaDeGrupo(largo), largo);
+  assert.equal(etiquetaDeGrupo('x'.repeat(100)).length, 100);
 });
 
 test('4b. por defecto: el CRM «Prospección» si existe, y ahí «Tibio» si no manda nada', () => {
@@ -140,29 +143,39 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(server, /return lineas\.find\(\(l\) => l\.linea === linea\) \?\? null;/, 'una línea pedida que no es del negocio no se usa');
   assert.match(server, /const leidos = await participantesDelGrupo\(p\.linea, p\.jid\);[\s\S]{0,400}leidos\.participantes\.filter\(\(x\) => pedidos\.has\(x\.telefono\)\)/, 'lo del navegador sólo ELIGE entre los participantes leídos de nuevo');
   assert.match(server, /if \(destino\.manda\) return \{ ok: false, error:/, 'el server acepta una etapa que manda');
-  assert.match(server, /if \(existente === null\) \{ salteados\+\+; continue; \}/, 'un número compartido por dos leads se saltea');
+  assert.match(server, /if \(existente === null\) \{ salteados\+\+; return; \}/, 'un número compartido por dos leads se saltea');
   // Desde el 24/10 (Martín: «si ... detecta que esos números ya están, no me debe cargar nuevamente»), el que ya es lead NO SE
   // TOCA: ni se suma a este funnel ni se etiqueta. Reemplaza la regla del 23/10 («dos grupos, dos etiquetas»).
-  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; continue; \}/, 'el que ya es lead se vuelve a cargar');
+  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; return; \}/, 'el que ya es lead se vuelve a cargar');
   const traerSrv = server.slice(server.indexOf('export async function traerDelGrupo('), server.indexOf('export async function etiquetaDeOrigen(')).replace(/^\s*\/\/.*$/gm, ''); // el código, sin los comentarios
   assert.doesNotMatch(traerSrv, /agregarAProducto|traidos\.push\(existente\)/, 'el que ya estaba se suma al funnel o se etiqueta');
   assert.match(server, /origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id/, 'nace con su origen: es lo que lo deja quieto (test 7)');
   assert.match(server, /const r = await ponerEtiquetaLote\(ids, id, \{ autor \}\);/, 'la etiqueta en LOTE (no dispara)');
-  assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,1200}for \(const \[i, x\] of quienes\.entries\(\)\)/, 'la etiqueta se mira ANTES de traer a nadie');
-  assert.match(server, /if \(secuenciasDeEtiqueta\(vistas, e\.id\)\.length\) return \{ ok: false,/, 'una etiqueta con automatización: el barrido inscribe al grupo');
+  // Con una elegida a mano (la API) frena; con la del nombre del grupo (la pantalla, sin campo para elegir otra desde el
+  // 26/10/2026) trae igual, sin etiqueta, y lo dice (`sinEtiqueta`).
+  assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok && p\.etiqueta\?\.trim\(\)\) return origen;[\s\S]{0,4000}for \(let i = 0; i < quienes\.length; i \+= PARALELO\)/, 'la etiqueta se mira ANTES de traer a nadie');
+  assert.match(server, /const etiqueta = traidos\.length && origen\.ok \? await etiquetarDelGrupo\(traidos, origen, p\.autor\)/, 'con una etiqueta que tiene una automatización, igual la pone');
+  assert.match(server, /sinEtiqueta: origen\.ok \? null : origen\.sinEtiqueta,/, 'trae sin la etiqueta y no lo dice');
+  // De a cuatro a la vez desde el 25/10/2026 (medido: ~135 ms por lead, uno detrás del otro), con el tope de tiempo entre cada cuatro.
+  assert.match(server, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) \{ pendientes = quienes\.slice\(i\)\.map\(\(q\) => q\.telefono\); break; \}\n {4}await Promise\.all\(quienes\.slice\(i, i \+ PARALELO\)\.map\(uno\)\);/);
+  assert.match(server, /if \(secuenciasDeEtiqueta\(vistas, e\.id\)\.length\) \{\n\s+return \{ ok: false,/, 'una etiqueta con automatización: el barrido inscribe al grupo');
   assert.match(acciones, /hasta: Date\.now\(\) \+ 45_000,/, 'con tope también desde la pantalla');
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
   assert.match(pantalla, /const tanda = cola\.splice\(0, TANDA_GRUPO\);/, 'de a tandas');
   assert.match(pantalla, /if \(r\.pendientes\.length >= tanda\.length\) \{[^}]*break; \}\n {6}cola\.unshift\(\.\.\.r\.pendientes\);/, 'lo que cortó por tiempo vuelve a la cola (y sin avance, para)');
-  assert.match(pantalla, /const usables = etapas\.filter\(\(e\) => !e\.manda\);/, 'las etapas que mandan no se ofrecen');
-  assert.match(pantalla, /\{!!gente\?\.length && \(\n\s*<span[^\n]*>\n\s*\{\[[\s\S]{0,400}?'No les manda nada\.',/, 'la pantalla lo dice, siempre');
+  // Desde el 26/10/2026 no se elige etapa: la de ENTRADA del server, que es la primera que no manda nada (`etapasParaTraer`).
+  // El «No les manda nada» ya no se dibuja (Martín: «Elimina los textos innecesarios»), pero sigue siendo así.
+  assert.match(pantalla, /setEntrada\(r\.etapas\.find\(\(e\) => e\.key === r\.entrada\) \?\? null\);/, 'entran a otra etapa que la de entrada');
+  assert.match(pantalla, /etapa: entrada\?\.key \?\? '',/);
+  assert.match(server, /const entrada = lista\.find\(\(e\) => e\.key === primera && !e\.manda\)\?\.key \?\? lista\.find\(\(e\) => !e\.manda\)\?\.key \?\? null;/, 'la entrada puede ser una que manda');
   assert.match(leer('app/crm/CrmBoard.tsx'), /\.\.\.\(puedeCrearCrm \? \{ onTraerGrupo: \(\) => setNuevoLead\(\{ \.\.\.nuevoLead, traer: 'grupo' \}\) \} : \{\}\),/, 'sólo el admin ve la opción');
   // La API de MaKo: admin, SÓLO en la app (por WhatsApp el rol es siempre 'admin'), por chat, y corta a tiempo.
   const def = leer('lib/api-mako/areas/crm.def.ts');
   const ops = def.slice(def.indexOf("id: 'grupos_whatsapp'"), def.indexOf("id: 'ver_cobro_etapa'"));
   assert.ok(ops.includes("id: 'traer_contactos_de_grupo'"), 'las dos, antes de los cobros');
   assert.match(ops.slice(ops.indexOf("id: 'traer_contactos_de_grupo'")), /confirmacion: 'chat'/);
-  assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 3, 'las tres (con completar_nombres_de_grupo), sólo en la app');
+  // 25/10/2026: la cuarta es `ver_completar_desde_whatsapp` (el avance de «Completar desde mi WhatsApp», crm-ext-2510).
+  assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 4, 'las cuatro (con completar_nombres_de_grupo y ver_completar_desde_whatsapp), sólo en la app');
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /telefonos: 'todos', autor: autorDe\(ctx\), hasta: Date\.now\(\) \+ 45_000,\n {8}etiqueta:/);
   assert.match(run, /if \(!funnels\.some\(\(f\) => f\.id === funnelId\)\) return \{ error:/, 'la API, tampoco un funnel ajeno');
@@ -283,7 +296,7 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
   const server = leer('app/crm/grupo-wa-server.ts');
   // Los nombres entran en el MISMO lugar que lee todo el camino (la pantalla, traer y la API), sin tráfico a la red.
-  assert.match(server, /return \{ ok: true, linea: l\.linea, participantes: await nombresConocidos\(l\.linea, participantes\), sinNumero \};/);
+  assert.match(server, /const v: Leidos = \{ ok: true, linea: l\.linea, participantes: await nombresConocidos\(l\.linea, participantes\), sinNumero \};/);
   assert.match(server, /fetchContactosEvolution\(linea\)\.catch\(\(\) => \[\]\),\n\s+getNombresContacto\(\)\.catch\(/, 'si una lectura falla, traer no se frena');
   const completar = server.slice(server.indexOf('export async function completarNombresDelGrupo('), server.indexOf('export async function marcarEnElCrm('));
   assert.ok(completar.length > 200, 'no encontré completarNombresDelGrupo');
@@ -299,11 +312,14 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   assert.match(esc, /campo: 'Nombre', valor_anterior: antes, valor_nuevo: nombre, autor/);
   // La pantalla: el botón aparece con gente que ya está, y la vista usa la pieza del pie (el que flotaba, 24/10/2026).
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts);
-  // sin ella, este.
-  assert.match(pantalla, /\{yaEstan > 0 && extWa === 'no' && \(\n\s+<button type="button" onClick=\{\(\) => void completar\(\)\}/);
-  assert.match(pantalla, /const r = await completarNombresDeGrupoAction\(\{ linea, jid \}\)/);
-  assert.match(pantalla, /<VistaConPie\n\s+lista=/);
+  // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts).
+  // Sin ella, «Completar nombres» ya NO corre este camino del server (25/10/2026, f12 de la llamada con Leandro: «ese botón te
+  // debería decir instala la extensión de Maco y que ahí directamente comience»): lo fija tests/crm-completar-con-extension.test.ts.
+  // Desde el 26/10/2026 no hay «Completar nombres»: los nombres van solos dentro de «Extraer» (tests/wa-extraer-072.test.ts).
+  assert.doesNotMatch(pantalla.replace(/^[ \t]*\/\/.*$/gm, ''), /Completar nombres/);
+  assert.match(pantalla, /const mas: OpcionMas\[\] = trayendo \|\| !yaEstan \? \[\] : \[/);
+  assert.doesNotMatch(pantalla, /completarNombresDeGrupoAction/, 'la pantalla volvió al camino que completaba «algunos o ninguno» sin decir por qué');
+  assert.match(pantalla, /<MoldeTraer\b/);
   assert.doesNotMatch(pantalla, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano: flota (ver app/_ui/VistaConPie.tsx)');
   // Una línea sin conectar (una segunda a medio conectar queda «conectando» en la base) se dice, y no se elige si hay otra.
   assert.match(pantalla, /setLinea\(\(r\.lineas\.find\(\(l\) => l\.conectada\) \?\? r\.lineas\[0\]\)\?\.linea \?\? null\);/);
@@ -362,25 +378,40 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(cuerpo, /if \(p\.soloContar\) return \{ ok: true, \.\.\.cuenta,/, 'la cuenta de la pregunta consulta perfiles');
   assert.ok(cuerpo.indexOf('if (p.soloContar) return') < cuerpo.indexOf('fetchBusinessProfile'), 'la cuenta tiene que salir antes de cualquier consulta');
   assert.match(cuerpo, /if \(!\(await reservarPerfil\(p\.linea, hoy\)\)\) \{ corte = 'dia'; break; \}\n\s+const \{ telefono, id \} = ahora\[i\];\n\s+revisados\+\+;\n\s+const r = await ev\(`\/chat\/fetchBusinessProfile/, 'consulta sin reservar el cupo del día antes');
-  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan, hechas \}\);/);
+  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan \}\);/);
   assert.match(cuerpo, /for \(let i = 0; i < estaCorrida; i\+\+\)/, 'el bucle no respeta el tope de la corrida');
   assert.match(cuerpo, /const faltan = conLead\.filter\(\(x\) => !vistos\.has\(x\.telefono\.slice\(-10\)\)\);/, 'vuelve a consultar a los que ya contestaron');
   assert.match(cuerpo, /if \(r == null\) \{ sinRespuesta\.push\(telefono\.slice\(-10\)\); continue; \}\n\s+nuevos\.push\(/, 'lo que no contestó quedó como consultado');
   const reservar = server.slice(server.indexOf('async function reservarPerfil('), server.indexOf('export async function completarPerfilesDelGrupo('));
   assert.match(reservar, /await cambiarSettingSi\(claveCupo\(linea\), raw, JSON\.stringify\(\{ dia: hoy, usadas: c\.usadas \+ 1 \}\)\)/, 'el cupo sin compare-and-set: dos corridas a la vez se pasan del tope');
   assert.match(reservar, /if \(quedanHoy\(c\) <= 0\) return false;/);
-  // La pantalla: primero la cuenta, la pregunta con la cuenta y el tiempo, «Parar», y sigue sumando `hechas`.
+  // ⚠️ LA PANTALLA YA NO VA POR ACÁ (27/10/2026; el Cerebro: «el tope de 120 por día se mantiene mientras vaya por
+  // Evolution»). «Datos de empresa» del Scraper es la extracción a la vista por la EXTENSIÓN, con todos los perfiles y sin
+  // tope por día: tests/grupo-wa.test.ts (12c). El camino por Evolution, con su cupo, queda en el server (lo de arriba).
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(pantalla, /onClick=\{\(\) => void contarPerfiles\(\)\}/);
-  assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, soloContar: true \}\)/);
-  assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
-  assert.match(pantalla, /message=\{preguntaDePerfiles\(cuentaPerfiles, `los \$\{miles\(cuentaPerfiles\.total\)\} que ya están`, minutosDePerfiles\(cuentaPerfiles\.estaCorrida\), TOPE_PERFILES_DIA\)\}/, 'la pregunta no dice cuántos ni cuánto tarda');
-  const cliente = leer('app/crm/enriquecer-cliente.ts');
-  assert.match(cliente, /Ahora se consultan \$\{miles\(c\.estaCorrida\)\}, de a uno: unos \$\{minutos\} min\./);
-  assert.match(cliente, /Hoy quedan \$\{miles\(c\.quedanHoy\)\} de \$\{miles\(topeDia\)\} consultas \$\{cual\}\./);
-  assert.match(cliente, /const cual = linea \? `en la línea «\$\{linea\}»` : 'en esta línea';/);
-  assert.match(pantalla, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\), \{/);
-  assert.match(pantalla, /\{perfilando \? 'Parar' : 'Datos de empresa'\}/);
+  assert.doesNotMatch(pantalla, /completarPerfilesDeGrupoAction/, 'el Scraper volvió a consultar perfiles por la línea (120 por día)');
+});
+
+test('12c. «Datos de empresa» del Scraper: por la extensión, TODOS los perfiles en una pasada, con la pregunta de cuántos y cuánto', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const pantalla = readFileSync(join(__dirname, '..', 'app/crm/TraerDeGrupoWA.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(pantalla, /\{ id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: datosDeEmpresa \}/);
+  // Sin la extensión, el mismo pop-up de instalarla que «Extraer».
+  assert.match(pantalla, /const datosDeEmpresa = \(\) => \{\n\s+if \(!grupo \|\| trayendo \|\| !entrada\) return;\n\s+if \(extWa !== 'si'\) \{ setPideExt\(true\); return; \}\n\s+setPideEmpresa\(yaEstan\);/);
+  // El botón dice «Leer», nunca «Traer» (Martín, 26/10: «Extraer», no «Traer»).
+  assert.match(pantalla, /<Confirm tone="primary" title="¿Leer los datos de empresa\?" confirmLabel=\{`Leer \$\{miles\(pideEmpresa\)\} perfiles`\}/);
+  assert.match(pantalla, /onConfirm=\{\(\) => \{ setPideEmpresa\(null\); void extraer\(true, \{ todosLosPerfiles: true \}\); \}\}/, 'no corre la extracción sobre los que ya están');
+  // TODOS los perfiles: el tope de «Extraer» (60) no corre acá.
+  assert.match(pantalla, /\.\.\.\(o\?\.todosLosPerfiles \? \{ tope: pedidos\.length \} : \{\}\)/, 'Datos de empresa quedó con el tope de 60');
+  // El pulido (Leila, 26/10): primero los que tienen nombre; el cartel de éxito con cuántos, etapa y etiqueta, y «Ver en el
+  // CRM»; y el pie avisa cuando llegó la lista completa de grupos.
+  assert.match(pantalla, /return \[\.\.\.nuevosAhora\.filter\(\(p\) => !!p\.nombre\), \.\.\.nuevosAhora\.filter\(\(p\) => !p\.nombre\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que tienen nombre no van primero');
+  assert.match(pantalla, /leads nuevos'\} en «\$\{entrada\.label\}»\$\{t\?\.sinEtiqueta \? '' : ` con la etiqueta «\$\{etiquetaDeGrupo\(grupo\.nombre\)\}»`\}/, 'el cartel no dice etapa ni etiqueta');
+  assert.match(pantalla, /accion: \{ texto: 'Ver en el CRM', onClick: onCerrar \}/);
+  assert.match(pantalla, /texto: `Están todos tus grupos · \$\{miles\(todosGrupos\)\}`/);
+  const { minutosDeLaPasada } = await import('../lib/grupo-wa-reglas');
+  assert.deepEqual([minutosDeLaPasada(1), minutosDeLaPasada(108), minutosDeLaPasada(247)], [1, 11, 25]);
 });
 
 test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados no se repiten', () => {
@@ -392,13 +423,14 @@ test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados 
   assert.deepEqual(cupoDeHoy('{"dia":"2026-10-24","usadas":-3}', hoy), { dia: hoy, usadas: 0 });
   assert.equal(quedanHoy({ dia: hoy, usadas: 100 }), TOPE_PERFILES_DIA - 100);
   assert.equal(quedanHoy({ dia: hoy, usadas: TOPE_PERFILES_DIA + 5 }), 0);
-  // Esta corrida: lo menor entre lo que falta, lo que queda hoy y lo que le queda a la corrida.
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: 0 }), TOPE_PERFILES_CORRIDA);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7, hechas: 0 }), 7);
-  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120, hechas: 0 }), 3);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA - 5 }), 5);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA + 9 }), 0);
-  assert.ok(TOPE_PERFILES_CORRIDA <= TOPE_PERFILES_DIA);
+  // Esta corrida: TODO lo que falta, hasta lo que queda hoy. Sin tope por corrida desde el 25/10/2026 (f14 de la llamada con
+  // Leandro: «no debería volver a tocar nada»): el de 40 sólo partía el trabajo; lo que cuida la línea es el del día.
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120 }), 120);
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7 }), 7);
+  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120 }), 3);
+  assert.equal(cuantosEstaCorrida({ pendientes: 90, quedanHoy: 120 }), 90, 'volvió el tope por corrida: «vuelve a tocar para seguir»');
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 0 }), 0);
+  assert.equal(TOPE_PERFILES_DIA, 120, 'el tope del día cuida la línea de un baneo: no se mueve sin medir');
   // Los ya consultados: sin repetir, los nuevos al final, recortado a los más recientes.
   assert.deepEqual([...vistosDe('["1155550001","x",7,"1155550002"]')], ['1155550001', '1155550002']);
   assert.deepEqual([...vistosDe('roto')], []);

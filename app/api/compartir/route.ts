@@ -26,6 +26,14 @@
 //   · El mail lo firma MaKo igual que el de Conocimientos (`invitar`, más abajo) y dice qué informe y de
 //     qué negocio.
 //   · Los recursos de la plataforma siguen como siempre: sólo el super admin, en el workspace de siempre.
+//
+// ── UN GUION DEL COPYWRITER, PARA EDITAR (28/10/2026, docs/diseno-copywriter.md, D9) ─────────────────────────────
+// «Tu cliente entra y edita lo que le presentás» (Martín a Teo). `recurso='copywriter'` es la TERCERA puerta: quien ve
+// el Copywriter (`veCopywriter`, hoy el super admin) sobre los guiones del workspace de la pestaña, que es donde viven.
+//   · El share SIEMPRE es `alcance: 'item'` con `permiso: 'editar'` (lo que manda el body en `alcance` no se lee), y
+//     `recursoId` tiene que ser un guion VIVO de ese workspace: no se acuña un link a algo que no existe.
+//   · El nombre de hoy es el título del guion (el índice del negocio); el mail dice «el guion «X»».
+//   · Lo de siempre vale igual: toda acción con un id pregunta `administraShare` antes de tocar la fila.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
@@ -40,12 +48,15 @@ import {
   crearShare, listarShares, revocarShare, agregarInvitado, listarInvitados,
   revocarInvitado, marcarEnviado, getShare, parseDestinatarios, regenerarTokenInvitado, regenerarTokenShare,
   leerTokenShare, leerTokenInvitado, shareDeInvitado, administraShare, puedeCompartirInforme,
-  RECURSO_INFORME, RECURSOS_PLATAFORMA,
+  RECURSO_GUION, RECURSO_INFORME, RECURSOS_PLATAFORMA,
   type Administrador, type Share, type ShareAlcance, type ShareModo, type Destinatario,
 } from '@/lib/shares';
 import { nombreDeShare } from '@/lib/share-nombre';
 import { buscarCurso } from '@/app/conocimientos/catalogo';
 import { titulosElegidos } from '@/lib/conocimiento-ajustes-datos';
+import { veCopywriter } from '@/app/copywriter/acceso';
+import { abrir as abrirGuion, listar as listarGuiones } from '@/lib/copywriter/server';
+import { esIdPagina, SIN_TITULO } from '@/lib/copywriter/tipos';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -62,24 +73,27 @@ const base = (req: NextRequest) => process.env.NEXT_PUBLIC_APP_URL || req.nextUr
 // ── Quién administra, en este pedido ────────────────────────────────────────────────────────────
 
 type AdminInforme = Extract<Administrador, { tipo: 'informe' }>;
-type Admins = { plataforma: Administrador | null; informe: AdminInforme | null };
+type AdminGuion = Extract<Administrador, { tipo: 'guion' }>;
+type Admins = { plataforma: Administrador | null; informe: AdminInforme | null; guion: AdminGuion | null };
 
 /**
- * Las DOS puertas, resueltas una vez por pedido. Vacías las dos = 403, como antes.
+ * Las TRES puertas, resueltas una vez por pedido. Vacías las tres = 403, como antes.
  * Todas las lecturas están cacheadas por request (lib/auth.ts, lib/workspace.ts): no son consultas de más.
  */
 async function administradores(): Promise<Admins> {
-  const [admin, sesion, rolWs, capa, ws] = await Promise.all([
-    getSesionAdmin(), getUsuarioActual(), getRolWsEfectivo(), getCapaActual(), getWorkspaceActual(),
+  const [admin, sesion, rolWs, capa, ws, copy] = await Promise.all([
+    getSesionAdmin(), getUsuarioActual(), getRolWsEfectivo(), getCapaActual(), getWorkspaceActual(), veCopywriter(),
   ]);
   const quien = { rolWs, tabDashboard: tabEnCapa('graphics', capa), ws, sub: sesion?.sub };
+  const wsValido = typeof ws === 'number' && Number.isInteger(ws) && ws > 0;
   return {
     plataforma: admin ? { tipo: 'plataforma', ws: WS } : null,
     informe: puedeCompartirInforme(quien) ? { tipo: 'informe', ws: ws as number, sub: String(sesion!.sub) } : null,
+    guion: copy && wsValido ? { tipo: 'guion', ws: ws as number } : null,
   };
 }
 
-const nadie = (a: Admins) => !a.plataforma && !a.informe;
+const nadie = (a: Admins) => !a.plataforma && !a.informe && !a.guion;
 const SOLO_ADMIN = () => NextResponse.json({ ok: false, error: 'solo admin' }, { status: 403 });
 const NO_ENCONTRADO = () => NextResponse.json({ ok: false, error: 'no encontrado' }, { status: 404 });
 
@@ -90,7 +104,7 @@ const NO_ENCONTRADO = () => NextResponse.json({ ok: false, error: 'no encontrado
  */
 async function shareAdministrable(a: Admins, id: number): Promise<{ adm: Administrador; share: Share } | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
-  for (const adm of [a.informe, a.plataforma]) {
+  for (const adm of [a.informe, a.guion, a.plataforma]) {
     if (!adm) continue;
     const share = await getShare(adm.ws, id);
     if (share && administraShare(adm, share)) return { adm, share };
@@ -162,6 +176,13 @@ async function resolvedorDeTitulos(): Promise<(slug: string) => string | undefin
  * Se resuelve por los DOS lados —la fila y lo que pide la pantalla— porque el reemplazo
  * puede ir en cualquier dirección según cuál de los dos slugs tenga guardado cada uno.
  */
+/** El título de HOY de un guion del workspace de la pestaña (el índice). Es un rótulo: si la lectura falla, null. */
+async function tituloDelGuion(id: string): Promise<string | null> {
+  const r = await listarGuiones().catch(() => null);
+  if (!r?.ok) return null;
+  return r.paginas.find((p) => p.id === id)?.titulo ?? null;
+}
+
 const canonico = (recurso: string, id: string | null) =>
   (recurso === 'curso' && id ? buscarCurso(id)?.slug ?? id : id);
 
@@ -204,6 +225,20 @@ export async function GET(req: NextRequest) {
 
     const recurso = req.nextUrl.searchParams.get('recurso') || 'curso';
     const recursoId = req.nextUrl.searchParams.get('recursoId');
+
+    if (recurso === RECURSO_GUION) {
+      // ── Un guion: SÓLO las filas de ese guion en este workspace ─────────────
+      const adm = admins.guion;
+      if (!adm) return SOLO_ADMIN();
+      if (!esIdPagina(recursoId)) return NextResponse.json({ ok: false, error: 'falta qué guion' }, { status: 400 });
+      const filas = (await listarShares(adm.ws, RECURSO_GUION, recursoId)).filter((s) => administraShare(adm, s as unknown as Share));
+      const titulo = await tituloDelGuion(recursoId);
+      return responderLista(await Promise.all(filas.map(async (s) => ({
+        ...s,
+        titulo: nombreDeShare(s as unknown as Share, () => undefined, titulo),
+        invitados: await invitadosDe(s),
+      }))));
+    }
 
     if (recurso === RECURSO_INFORME) {
       // ── El informe: SÓLO las filas de esta persona en este workspace ─────────
@@ -379,6 +414,11 @@ export async function POST(req: NextRequest) {
       if (share.revocado_at) return NextResponse.json({ ok: false, error: 'enlace revocado' }, { status: 400 });
       if (malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
       if (!dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });
+      if (hallado.adm.tipo === 'guion') {
+        const nombre = nombreDeShare(share, () => undefined, share.recurso_id ? await tituloDelGuion(share.recurso_id) : null);
+        const enviados = await invitar(share.id, dests, raiz, `el guion «${nombre}», para editarlo`);
+        return NextResponse.json({ ok: true, id: share.id, enlace: null, invitados: enviados });
+      }
       if (hallado.adm.tipo === 'plataforma') {
         const tituloDeCurso = await resolvedorDeTitulos();
         // ⚠️ EL NOMBRE DERIVADO, NO `share.etiqueta`. La etiqueta guardada es la foto del
@@ -396,6 +436,29 @@ export async function POST(req: NextRequest) {
 
     const recurso = String(body.recurso || 'curso');
     const modo = String(body.modo || 'link') as ShareModo;
+
+    // ── Compartir un guion PARA EDITAR ──────────────────────────────────────
+    // Siempre UN guion (`item`) y siempre `editar`: el alcance y el permiso no se leen del body.
+    if (recurso === RECURSO_GUION) {
+      const adm = admins.guion;
+      if (!adm) return SOLO_ADMIN();
+      const id = typeof body.recursoId === 'string' ? body.recursoId : '';
+      if (!esIdPagina(id)) return NextResponse.json({ ok: false, error: 'falta qué guion' }, { status: 400 });
+      const vivo = await abrirGuion(id);
+      if (!vivo.ok || vivo.pagina.papelera) return NO_ENCONTRADO();
+      if (!MODOS.includes(modo)) return NextResponse.json({ ok: false, error: 'modo inválido' }, { status: 400 });
+      if (modo === 'invitados' && malos.length) return NextResponse.json({ ok: false, error: `email inválido: ${malos[0]}` }, { status: 400 });
+      if (modo === 'invitados' && !dests.length) return NextResponse.json({ ok: false, error: 'agrega al menos un email' }, { status: 400 });
+      const titulo = vivo.pagina.titulo || SIN_TITULO;
+      const sesion = await getUsuarioActual();
+      const { id: shareId, token } = await crearShare({
+        ws: adm.ws, recurso: RECURSO_GUION, alcance: 'item', recursoId: id, modo, permiso: 'editar',
+        etiqueta: titulo, expiraAt: body.expiraAt ? String(body.expiraAt) : null, creadoPor: sesion?.sub ?? null,
+      });
+      const enlace = modo === 'link' ? `${raiz}/compartido/${token}` : null;
+      const enviados = modo === 'invitados' ? await invitar(shareId, dests, raiz, `el guion «${titulo}», para editarlo`) : [];
+      return NextResponse.json({ ok: true, id: shareId, enlace, invitados: enviados });
+    }
 
     // ── Compartir el informe del Dashboard ──────────────────────────────────
     // El workspace y la persona salen de la SESIÓN; `recursoId` y `alcance` del body no se leen.

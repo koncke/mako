@@ -17,14 +17,15 @@
 // ⚠️ LA GUARDA NO VIVE ACÁ: los datos de entrada los lee el servidor DESPUÉS de `puedeOperar` (las dos páginas del
 //    Centro y la del Second Brain, tests/operaciones.test.ts), y cada acción la vuelve a pedir (acciones.ts).
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosEnNuevo, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
+import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
@@ -45,12 +46,16 @@ import type { LecturaCredito } from '@/lib/credito-api';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/centro-estable';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
-import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
+import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, notaQueSale, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
-import { barrerEnviadasViejas, recordarEnviadas } from './fotos-enviadas';
+import { barrerEnviadasViejas, recordarEnviadas, verFotosLocales } from './fotos-enviadas';
+import { recordarVozEnviada, verVozLocal } from './voces-enviadas';
+import type { NotaGrabada } from '@/app/_chat/nota-que-se-manda';
+import { prepararNota } from '@/app/_chat/preparar-nota';
+import { conLoQueSale, enviosEnCurso, escucharEnvios, idDeEnvioLocal, ponerEnCamino, sinEnvios, type EnvioLocal } from './envios-en-curso';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
-import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
+import { TEXTO_SOLO_ADJUNTOS, copiar, problemaAntesDeMandar, subirAdjuntos, useFirma } from './mandar';
 
 const REFRESCO_MS = 8000;
 /** Una lista vacía que no cambia entre renders: las piezas memorizadas comparan por identidad. */
@@ -108,7 +113,9 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
   ...(p.adjuntos?.length ? { adjuntos: p.adjuntos } : {}),
   ...(p.fotos?.length ? { fotos: p.fotos } : {}),
+  ...(p.voz ? { voz: p.voz } : {}),
 });
+
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
   const { base, sub, tabs, responder, deshacer } = d;
@@ -153,7 +160,9 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /** El modelo y el esfuerzo del próximo trabajo (null = «Automático»): vuelven a Automático después de mandar. */
   const [modelo, setModelo] = useState<Modelo | null>(null);
   const [esfuerzo, setEsfuerzo] = useState<Esfuerzo | null>(null);
-  const [enviando, setEnviando] = useState(false);
+  // Ya no hay «mandando» que frene la caja (27/10/2026): lo que sale se dibuja en el acto y sale por detrás
+  // (envios-en-curso.ts). Queda en false para las pantallas que lo leen.
+  const enviando = false;
   /** Los archivos elegidos (o pegados) en la caja de cada chat. El ref los tiene al día para sumar sin esperar un render. */
   const [adjuntos, setAdjuntos] = useState<Record<string, AdjuntoCaja[]>>({});
   const adjuntosRef = useRef(adjuntos);
@@ -245,7 +254,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const faltan = pedidosQueFaltan(c.pedidos, { has: (id) => pedidosRef.current.has(id) || pidiendo.current.has(id) });
     if (faltan.length) {
       faltan.forEach((id) => pidiendo.current.add(id));
-      void leerCentro<Awaited<ReturnType<typeof pedidosDelChatAction>>>('pedidos', { id: faltan })
+      void leerCentro<Awaited<ReturnType<typeof pedidosDelChatAction>>>('trabajos', { id: faltan })
         .then((r) => { if (r.ok && r.pedidos.length) setViejos((v) => [...v, ...r.pedidos.filter((p) => !pedidosRef.current.has(p.id))]); })
         .catch(() => { faltan.forEach((id) => pidiendo.current.delete(id)); });
     }
@@ -275,10 +284,12 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const citar = (clave: string, cita: Cita | null) => setCitas((x) => ({ ...x, [clave]: cita }));
 
 
+  // Lo que está saliendo (envios-en-curso.ts) vive fuera de React: volver a esta pantalla lo vuelve a mostrar.
+  const enCurso = useSyncExternalStore(escucharEnvios, enviosEnCurso, sinEnvios);
   const trabajos = useMemo(() => {
     const deCola = cola.map(trabajoDe);
-    return [...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola];
-  }, [cola, locales]);
+    return conLoQueSale([...locales.filter((l) => !deCola.some((w) => w.id === l.id)), ...deCola], enCurso);
+  }, [cola, locales, enCurso]);
   const carteros = useMemo(() => estado?.carteros ?? [], [estado]);
   // Lo que espera a Martín en cada sesión: las tarjetas de la Ticketera y las preguntas del formulario de su chat.
   const esperas = useMemo(() => {
@@ -442,6 +453,21 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     void guardarAdjuntos(dir, []);
   };
 
+  /**
+   * La caja se vacía A LA VISTA al mandar, pero lo GUARDADO (el borrador y los adjuntos, acá y en MaKo) se borra recién cuando
+   * el mensaje quedó firmado (revisión de 928bdde0d, media): lo que está en camino vive en memoria, y si la pestaña se recarga
+   * o el envío falla, el texto vuelve a la caja al abrirla. Devuelve lo que hay que llamar cuando salió; si mientras tanto se
+   * escribió otra cosa en la caja, no la pisa.
+   */
+  const vaciarCajaHastaQueSalga = (clave: string): (() => void) => {
+    setBorradores((b) => ({ ...b, [clave]: '' }));
+    const e = relojes.current[clave];
+    if (e) { window.clearTimeout(e.local); window.clearTimeout(e.remota); }
+    const desde = Date.now();
+    editado.current[clave] = desde;
+    return () => { if ((editado.current[clave] ?? 0) <= desde) limpiarBorrador(clave); };
+  };
+
   /** Lo que se acaba de mandar, para que se vea en su chat mientras llega el refresco. */
   const anotarEnviado = (t: TrabajoP) => { setLocales((l) => [t, ...l]); refrescar(); };
 
@@ -452,14 +478,28 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const puedeAbrirEn = (cuenta: string) => tieneTerminal(cuenta) && carteros.some((k) => k.cuenta === cuenta && aceptaAbrir(k.version));
   /** Cómo va el último que se pidió abrir (un trabajo `nuevo` no es de ningún chat de la lista). */
   const apertura = estadoDeApertura(trabajos);
-  async function abrirChat(b: { nombre: string; cuenta: string; texto?: string }): Promise<boolean> {
+  /** ¿Lleva adjuntos un chat NUEVO (cartero 1.22.0, 28/10/2026)? En esa cuenta, o sin cuenta en alguna de las que abren. */
+  const adjuntaEnNuevo = (cuenta?: string) => carteros.some((k) => (!cuenta || k.cuenta === cuenta) && puedeAbrirEn(k.cuenta) && aceptaAdjuntosEnNuevo(k.version));
+  async function abrirChat(b: { nombre: string; cuenta: string; texto?: string; archivos?: readonly File[] }): Promise<boolean> {
     const nombre = b.nombre.replace(/\s+/g, ' ').trim();
     if (problemaDeNombreNuevo(nombre)) { avisar('Sólo letras y números', 'bad'); return false; }
     if (!puedeAbrirEn(b.cuenta)) { avisar('Todavía no abre chats', 'bad'); return false; }
-    const texto = b.texto?.trim() || primerMensajeNuevo(nombre);
-    const r = await firma.mandar({ sesion: DESTINO_NUEVO, cuenta: b.cuenta, titulo: nombre }, texto, 'solo_esto');
+    // Los archivos del primer mensaje (28/10/2026): firmados con él, los baja la PC antes de abrir el chat (cartero 1.22.0).
+    const archivos = b.archivos ?? [];
+    if (archivos.length && !adjuntaEnNuevo(b.cuenta)) { avisar('Ese Runner todavía no lleva archivos a un chat nuevo', 'bad'); return false; }
+    const texto = b.texto?.trim() || (archivos.length ? TEXTO_SOLO_ADJUNTOS : primerMensajeNuevo(nombre));
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const s = await subirAdjuntos(archivos, carteros.some((k) => k.cuenta === b.cuenta && aceptaAdjuntosGrandes(k.version)));
+      if (!s.ok) { avisar(s.error, 'bad'); return false; }
+      subidos = s.adjuntos;
+    }
+    const r = await firma.mandar({ sesion: DESTINO_NUEVO, cuenta: b.cuenta, titulo: nombre }, texto, 'solo_esto', {}, subidos);
     if (!r.ok) { avisar(r.error, 'bad'); return false; }
-    anotarEnviado({ id: r.id, destino: DESTINO_NUEVO, destino_titulo: nombre, destino_cuenta: b.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    anotarEnviado({
+      id: r.id, destino: DESTINO_NUEVO, destino_titulo: nombre, destino_cuenta: b.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null,
+      ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
     avisar('Se abre en 2 minutos', 'good');
     return true;
   }
@@ -467,14 +507,29 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /**
    * Mandar un texto a un chat que YA existe sin pasar por su caja: el «Nuevo chat» sin modal decidió, con el primer mensaje, que va
    * a ese chat (17/10/2026). Sale por el mismo camino firmado que la caja (`firma.mandar`) y se anota igual en su conversación.
+   * Con los archivos del primer mensaje (28/10/2026), como los manda la caja de ese chat: con su Runner y sus topes.
    */
-  async function mandarTextoA(c: ChatCentro, texto: string): Promise<boolean> {
+  async function mandarTextoA(c: ChatCentro, texto: string, archivos: readonly File[] = []): Promise<boolean> {
     const d = destinoDeChat(c);
     const envio = envioDe(c);
     if (!d.sesion || !envio.puede) { avisar(textoDeEnvio(envio) ?? 'No recibe ahora', 'bad'); return false; }
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto');
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const grandes = grandesDe(c);
+      const problema = puedeAdjuntar(c) ? problemaDeAdjuntosCaja(archivos.map((f) => f.size), grandes) : 'Ese chat todavía no recibe archivos';
+      if (problema) { avisar(problema, 'bad'); return false; }
+      const s = await subirAdjuntos(archivos, grandes);
+      if (!s.ok) { avisar(s.error, 'bad'); return false; }
+      subidos = s.adjuntos;
+    }
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', {}, subidos);
     if (!r.ok) { avisar(r.error, 'bad'); return false; }
-    anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    // Las fotos se ven en su conversación, como las que salen de su caja.
+    if (subidos.length) recordarEnviadas(r.id, archivos, subidos);
+    anotarEnviado({
+      id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null,
+      ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
     return true;
   }
 
@@ -498,9 +553,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntosGrandes(k.version));
   };
-  const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
+  /** `conGrandes`: la caja que no es de ningún chat de la lista (la del chat nuevo) dice ella si van los topes grandes. */
+  const sumarAdjuntos = async (clave: string, lista: readonly File[], conGrandes?: boolean) => {
     if (!lista.length) return;
-    const grandes = grandesDe(chats.find((x) => x.clave === clave));
+    const grandes = conGrandes ?? grandesDe(chats.find((x) => x.clave === clave));
     // Fotos y PDF siempre; Word, Excel, PowerPoint y texto, con un Runner 1.16.0 (18/10/2026). Nunca un ejecutable.
     const validos = lista.filter((f) => tipoDeElegidoCentro(f, grandes) != null);
     if (validos.length < lista.length) avisar(grandes ? 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' : ERROR_ADJUNTO.formato, 'bad');
@@ -509,7 +565,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       // Lo que la PC acepta tal cual no se toca; lo demás (un HEIC, una foto enorme con un Runner de antes) se achica.
       const tipoOk = /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
       const talCual = tipoOk && (grandes || f.size <= TAL_CUAL_BYTES);
-      try { listos.push(talCual ? f : await achicarImagen(f)); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); }
+      let listo: File;
+      try { listo = talCual ? f : await achicarImagen(f); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); continue; }
+      // LEÍDO YA, no al mandar (ticket #8, 25/10/2026): en Android, un archivo de la galería o de la cámara deja de poder
+      // leerse si la app pasa a segundo plano, y al «Firmar y mandar» salía «No pude subir los adjuntos» (./leer-adjunto.ts).
+      try { listos.push(await enMemoria(listo)); } catch { avisar(ERROR_SUBIDA.leer(f.name), 'bad'); }
     }
     if (!listos.length) return;
     const antes = adjuntosRef.current[clave] ?? [];
@@ -532,40 +592,126 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (dir) void guardarAdjuntos(dir, quedan.map((x) => x.file));
   };
   /** Después de mandar: la caja queda vacía. */
+  // La nota de voz que la caja grabó y transcribió (26/10/2026): sale como nota (VozEnviada.tsx), con su texto.
+  const notas = useRef<Record<string, NotaGrabada>>({});
+  const notaGrabada = (clave: string, n: NotaGrabada) => { notas.current[clave] = n; };
+
   const vaciarAdjuntos = (clave: string) => {
     for (const a of adjuntosRef.current[clave] ?? []) URL.revokeObjectURL(a.url);
     ponerAdjuntos(clave, []);
   };
+  /** Lo que se había tomado de la caja vuelve a ella TAL CUAL, delante de lo que haya (el chat nuevo, cuando la nota con la
+   *  que salía no se entendió: 28/10/2026). Ya pasó por `sumarAdjuntos`: no se vuelve a validar ni a achicar. */
+  const devolverAdjuntos = (clave: string, xs: readonly AdjuntoCaja[]) => {
+    if (!xs.length) return;
+    const todos = [...xs, ...(adjuntosRef.current[clave] ?? [])];
+    ponerAdjuntos(clave, todos);
+    const dir = direccionDe(clave);
+    if (dir) void guardarAdjuntos(dir, todos.map((a) => a.file));
+  };
 
-  async function mandar(c: ChatCentro) {
+  /**
+   * Mandar lo de la caja SIN ESPERAR NADA (27/10/2026, Martín: «tarda un montón en verse en el chat. Debe ser automático; si
+   * hay procesos por detrás, se tiene que enviar igual»). Se dibuja en el acto con su reloj y la caja queda libre; subir los
+   * archivos, firmar y encolar corren por detrás, en la cola de ESTE chat (envios-en-curso.ts). Lo que ya se sabe que no
+   * sale (sin Token, una clave pegada, muy largo) se dice en el acto y la caja no se vacía.
+   */
+  function mandar(c: ChatCentro) {
     // Lo que sale es Markdown de verdad: las viñetas de la caja («• ») vuelven a ser «- » (lib/centro-caja.ts).
     // Con la cita arriba si responde a un mensaje (lib/centro-mensajes.ts → armarConCita): la PC entrega sólo lo firmado.
     const texto = armarConCita(citas[c.clave] ?? null, textoParaMandar(borradorDe(c.clave)));
-    const archivos = adjuntosRef.current[c.clave] ?? [];
+    const archivos = (adjuntosRef.current[c.clave] ?? []).map((a) => a.file);
+    const nota = notaQueSale(notas.current[c.clave], borradorDe(c.clave));
+    delete notas.current[c.clave];
     const d = destinoDeChat(c);
-    if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
-    setEnviando(true);
-    // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
-    let subidos: AdjuntoPedido[] = [];
-    if (archivos.length) {
-      const s = await subirAdjuntos(archivos.map((a) => a.file), grandesDe(c));
-      if (!s.ok) { setEnviando(false); avisar(s.error, 'bad'); return; }
-      subidos = s.adjuntos;
-    }
+    if (!d.sesion || !envioDe(c).puede || (!texto.trim() && !archivos.length)) return;
+    const tope = topeDe(c);
+    const antes = problemaAntesDeMandar(!!firma.clave, texto, archivos.length > 0, tope);
+    if (antes) { avisar(antes, 'bad'); return; }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', como, subidos);
-    setEnviando(false);
-    if (!r.ok) { avisar(r.error, 'bad'); return; }
-    anotarEnviado({
-      id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
-      estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    const voz = nota ? { segundos: Math.max(1, Math.round(nota.segundos)) } : null;
+    const grandes = grandesDe(c);
+    const sesion = d.sesion;
+    const id = idDeEnvioLocal();
+    const queSale = texto.trim() || TEXTO_SOLO_ADJUNTOS;
+    // Las fotos y la nota se ven en el acto, con el id local (fotos-enviadas.ts, voces-enviadas.ts).
+    verFotosLocales(id, archivos);
+    if (nota) verVozLocal(id, nota.audio);
+    const w: EnvioLocal = {
+      id, destino: sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: new Date().toISOString(), texto: queSale,
+      estado: 'escrito', motivo: null, cierre: null, ...(archivos.length ? { adjuntos: archivos.map((f) => f.name) } : {}), ...(voz ? { voz } : {}),
+      local: { fase: 'enviando', clave: c.clave },
+    };
+    const mandarFirmado = firma.mandar;
+    const salio = vaciarCajaHastaQueSalga(c.clave);
+    ponerEnCamino(w, async () => {
+      // Primero los archivos: el trabajo se firma con el `ref` de cada uno y el sha256 que calculó este navegador.
+      let subidos: AdjuntoPedido[] = [];
+      if (archivos.length) {
+        const s = await subirAdjuntos(archivos, grandes);
+        if (!s.ok) return s;
+        subidos = s.adjuntos;
+      }
+      const r = await mandarFirmado({ sesion, cuenta: d.cuenta, titulo: c.titulo, tope }, texto, 'solo_esto', como, subidos, voz);
+      if (!r.ok) return r;
+      // La nota y las fotos, con el id de verdad: su MP3 y sus miniaturas suben para verlas en otro dispositivo.
+      if (nota) recordarVozEnviada(r.id, nota.audio);
+      if (subidos.length) recordarEnviadas(r.id, archivos, subidos);
+      salio();
+      refrescar();
+      return {
+        ok: true, trabajo: {
+          id: r.id, destino: sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: queSale, estado: 'escrito',
+          motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}), ...(voz ? { voz } : {}),
+        },
+      };
     });
-    // Las fotos se ven en el acto en este navegador, y su miniatura sube al servidor para verla en otro dispositivo
-    // (FotosEnviadas.tsx: el bucket borra el original al entregar). `subidos` va en el orden de `archivos`.
-    if (subidos.length) recordarEnviadas(r.id, archivos.map((a) => a.file), subidos);
     vaciarAdjuntos(c.clave);
-    limpiarBorrador(c.clave);
+    citar(c.clave, null);
+    setModelo(null);
+    setEsfuerzo(null);
+  }
+
+  /**
+   * La nota de voz SALE EN EL ACTO (27/10/2026, Martín: «Apenas envío el audio... se debe enviar automáticamente; yo puedo
+   * reproducirlo. Si tarda unos segundos después en leerlo, eso es un proceso interno»). La caja la da apenas se grabó
+   * (CajaChat → `onGrabada`); acá se dibuja con su reproductor y, por detrás, se pasa a MP3, se transcribe y se firma. La PC
+   * recibe la transcripción, como siempre; si la transcripción falla, la burbuja lo dice y ofrece reintentar.
+   */
+  function mandarNota(c: ChatCentro, audio: Blob, segundos: number) {
+    const d = destinoDeChat(c);
+    const sale = envioDe(c);
+    if (!d.sesion || !sale.puede) { avisar(textoDeEnvio(sale) ?? 'No recibe ahora', 'bad'); return; }
+    if (!firma.clave) { avisar('Crea tu Token para comenzar a chatear', 'bad'); return; }
+    const cita = citas[c.clave] ?? null;
+    const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
+    const voz = { segundos: Math.max(1, Math.round(segundos)) };
+    const sesion = d.sesion;
+    const tope = topeDe(c);
+    const id = idDeEnvioLocal();
+    verVozLocal(id, audio);
+    const mandarFirmado = firma.mandar;
+    let preparada: { mp3: Blob; texto: string } | null = null;
+    ponerEnCamino({
+      id, destino: sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: new Date().toISOString(), texto: '', estado: 'escrito',
+      motivo: null, cierre: null, voz, local: { fase: 'transcribiendo', clave: c.clave },
+    }, async (fase) => {
+      // Reintentar no vuelve a transcribir lo que ya se transcribió (revisión de 928bdde0d, baja): si falló la firma, sólo firma.
+      if (!preparada) {
+        const p = await prepararNota(audio);
+        if ('error' in p) return { ok: false, error: p.error };
+        preparada = p;
+      }
+      const p = preparada;
+      fase('enviando');
+      const texto = armarConCita(cita, p.texto);
+      const r = await mandarFirmado({ sesion, cuenta: d.cuenta, titulo: c.titulo, tope }, texto, 'solo_esto', como, [], voz);
+      if (!r.ok) return r;
+      recordarVozEnviada(r.id, p.mp3);
+      refrescar();
+      return { ok: true, trabajo: { id: r.id, destino: sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null, voz } };
+    });
     citar(c.clave, null);
     setModelo(null);
     setEsfuerzo(null);
@@ -677,13 +823,13 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
-    envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
-    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
+    envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,
+    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos, devolverAdjuntos, notaGrabada,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
     /** «Pegar» del «+» sin nada que pegar (20/10/2026). */
     sinImagen: (puedeLeer: boolean) => avisar(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar', 'bad'),
-    puedeAbrirEn, apertura, abrirChat, mandarTextoA,
+    puedeAbrirEn, adjuntaEnNuevo, apertura, abrirChat, mandarTextoA,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar, renombrarChat,

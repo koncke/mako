@@ -31,3 +31,6 @@ scripts/claude-hooks/*.sh text eol=lf
 # y el push queda sin guardas. Van siempre en LF.
 scripts/claude-hooks/pre-push text eol=lf
 scripts/guardas-push.sh text eol=lf
+
+# La mezcla con fin de línea normalizado (25/10/2026, docs/hallazgos-infra.md): con CRLF, `sh` falla en la primera línea.
+scripts/mezcla-eol.sh text eol=lf

@@ -19,7 +19,7 @@ import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-m
 import { llevaDatosPersonales } from './mako-pedidos';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
-import { registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
+import { esDestructiva, registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
 import { sinVerboAlArranque, ordenDelPedido, pideQuitar } from './mako-intencion-app';
 
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
@@ -180,6 +180,11 @@ export type EntradaTurno<T extends { name: string }> = {
    * (medido el 08/10: entraban 20 lecturas y ninguna escritura de agenda).
    */
   contextoDelSi?: string | null;
+  /**
+   * Cuando el turno SIGUE el pedido del hilo (`veredicto.sigueElHilo`, lib/doer-hilo.ts): el texto de ese pedido. «pausala»
+   * no nombra ningún área, y sin esto las herramientas se elegían sólo por él (26/10/2026).
+   */
+  hilo?: string | null;
   /** Hay un pedido de agenda abierto (el código le acaba de mostrar opciones). */
   agendaAbierta: boolean;
   /** Las de siempre (lib/mako-tools.ts + lib/mako-doer-acciones.ts). */
@@ -232,6 +237,8 @@ const INSTRUCCION_MOVER_SIN_OBJETO = `TE PIDEN MOVER ALGO A OTRO DÍA U HORA SIN
 
 export type Turno<T> = {
   tools: Array<T | ToolDef>; delRegistro: ToolDef[]; areas: Area[]; ofrece: boolean;
+  /** En una pregunta (`ofrece`), los NOMBRES de lo que escribe y se puede ofrecer: no viajan sus esquemas (27/10/2026). */
+  ofrecibles?: string[];
   /** Una línea más para el system de ESTE turno, o null. Hoy, sólo la de mover sin decir qué
    *  y la de «la tarea» cuando no viaja con qué cambiarle la fecha. */
   instruccion: string | null;
@@ -242,7 +249,9 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   const v = p.veredicto;
   // Lo que escribió la persona: el encabezado de un lote es nuestro y no puede puntuar.
   const propio = sinPrefijoDeLote(p.texto);
-  const sobre = v.sigueOfrecimiento && p.contextoDelSi ? `${p.contextoDelSi}\n${propio}` : propio;
+  const sobre = v.sigueOfrecimiento && p.contextoDelSi ? `${p.contextoDelSi}\n${propio}`
+    : v.sigueElHilo && p.hilo ? `${p.hilo}\n${propio}`
+    : propio;
   const areasDelTexto = CONTRATO[v.intencion].tools === null && !v.dudosa ? areasDelMensaje(sobre) : [];
   const areas = [...new Set<Area>([
     ...areasDelTexto,
@@ -288,7 +297,9 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
    */
   const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
   const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa, !!v.adivina)
-    .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
+    .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')))
+    // Un seguimiento levantado desde «sin señal clara» no resuelve lo pendiente (lib/doer-hilo.ts, `noResuelvePendientes`).
+    .filter((t) => !(v.noResuelvePendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
   // Lo dice el VEREDICTO, no el texto leído otra vez: con una propuesta de agenda abierta el
   // clasificador ya decidió que es la reunión y no marca nada. Re-leer el texto acá tenía su
   // propio preludio, y «buen día, movela al viernes» llegaba con la agenda y el plan y SIN la
@@ -298,5 +309,19 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
     : v.mover === 'sin-decir-que' ? [INSTRUCCION_MOVER_SIN_OBJETO, sinFecha].filter(Boolean).join(' ')
     : v.mover === 'tarea' ? sinFecha
     : null;
-  return { tools, delRegistro, areas, ofrece, instruccion };
+  // LO QUE SE PUEDE OFRECER (27/10/2026, la constancia fiscal de Leila): en una pregunta, o con un adjunto para interpretar, las
+  // que escriben no viajan («la ofrece», arriba), y sin sus NOMBRES MaKo decía «no puedo» de lo que con un «sí» se hace. Sólo los
+  // nombres, de las áreas del pedido y por su relevancia: el esquema viaja con el «sí». Lo dice el turno de la app
+  // (lib/mako-turno-app.ts, `lineaDeOfrecibles`).
+  const ofrecibles = ofrece && areas.length
+    ? toolsDelRegistro({ vista: p.vista, areas, incluirAcciones: true, excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA })
+      // Sin las DESTRUCTIVAS (la revisión del 28/10/2026): en una pregunta no se ofrece reembolsar, dar de baja ni despublicar.
+      .map((t) => t.name).filter((n) => { const d = porId(n); return escribe(n) && !!d && !esDestructiva(d) && !tools.some((t) => t.name === n); }).slice(0, 4)
+    : [];
+  return { tools, delRegistro, areas, ofrece, instruccion, ofrecibles };
+}
+
+/** La línea del system con lo que se puede ofrecer (`ofrecibles`). */
+export function lineaDeOfrecibles(nombres: readonly string[]): string {
+  return `LO QUE PUEDES OFRECER EN ESTE TURNO (no las tienes ahora: con su «sí» viajan): ${nombres.join(', ')}. Si lo que pide o lo que te mandó lleva a una de éstas, nunca digas que no se puede: contesta y OFRÉCELA en una línea.`;
 }

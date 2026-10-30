@@ -55,7 +55,7 @@ const FUENTES = readdirSync(join(RAIZ, CARPETA)).filter((n) => /\.tsx?$/.test(n)
 /** De qué archivo de escritorio sale cada rótulo de `R`. A MANO: si se agrega uno a R, se agrega acá. */
 const ORIGEN: Record<keyof typeof R, string> = {
   curso: 'app/customer-success/curso/CursoApp.tsx',
-  cursos: 'app/customer-success/curso/CursoApp.tsx',
+  cursos: 'app/classroom/ClientsShell.tsx',
   acceso: 'app/customer-success/curso/MenuCurso.tsx',
   publico: 'app/customer-success/curso/MenuCurso.tsx',
   privado: 'app/customer-success/curso/MenuCurso.tsx',

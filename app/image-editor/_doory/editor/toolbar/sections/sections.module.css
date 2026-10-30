@@ -83,7 +83,7 @@
 .maskOn:hover {
   border: 2px solid var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
 }
 .maskBtn:focus-visible {
   outline: none;
@@ -159,7 +159,7 @@
 .arrowOn:hover {
   border-color: var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
 }
 .arrowBtn:focus-visible {
   outline: none;
@@ -212,7 +212,7 @@
 .segmentBtn[aria-pressed='true'] {
   border: 2px solid var(--cv-selection-color);
   background: var(--cv-color-brand-soft);
-  color: var(--cv-violet-800);
+  color: var(--cv-color-selected-text);
   font-weight: 600;
 }
 .segmentBtn:focus-visible {

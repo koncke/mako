@@ -80,7 +80,10 @@ test('⚠️ el doer saca las herramientas que ESCRIBEN en una pregunta, y arma 
   const sel = sinComentarios(leer('../lib/doer-herramientas.ts'));
   assert.match(sel, /const ofrece = v\.intencion === 'consultar' \|\| v\.intencion === 'pensar'/);
   assert.match(sel, /\.filter\(\(t\) => !ofrece \|\| !escribe\(t\.name\)/, 'en una pregunta vuelven a viajar las escrituras');
-  assert.match(src, /const \{ tools, ofrece \} = turno;/, 'el doer dejó de usar lo que eligió la selección');
+  // Desde el 27/10/2026 el doer le SUMA a la selección el ticket ante una falla y `agenda_del_dia` al pedir ver la agenda
+  // (lib/doer-falla.ts, tests/doer-falla.test.ts); la base sigue siendo lo que eligió la selección.
+  assert.match(src, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools[,.][^\n]*\n\s*: turno\.tools;/, 'el doer dejó de usar lo que eligió la selección');
+  assert.match(src, /const \{ ofrece \} = turno;/, 'el doer dejó de usar lo que eligió la selección');
   assert.match(src, /recetasDelTurno\(permitidasDelTurno, ofrece\)/, 'las recetas dejaron de salir de lo que viajó');
   assert.match(src, /makoPregunto: makoPreguntoAlgo\(/, 'el clasificador no sabe si MaKo ofreció algo');
 });

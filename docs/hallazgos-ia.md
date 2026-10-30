@@ -4,6 +4,277 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «El respaldo de Automations es Gemini»: el orden ya era el pedido, faltaba decir quién contestó (27/10/2026)
+
+El Cerebro (876825880-04): «primero la IA que eligió el admin del negocio; Gemini sólo como último respaldo, y el chat dice
+qué IA contestó». **El obvio, «cambiar el orden de la cascada», era el equivocado.** `chatCheapCascade` (lib/ai-cheap.ts) ya
+va en este orden: su Claude, sus claves (con D6b: su ChatGPT y su Gemini), el crédito de Claude y la red de MaKo al final.
+Gemini ya queda último para quien eligió otra IA.
+
+**Lo que faltaba era decirlo:**
+- `quienOut` (opcional) anota el proveedor y de quién era la cuenta en cada `return t` de la cascada;
+- `textoDeQuienContesto` (lib/quien-contesto.ts) lo pasa a palabras;
+- el globo de MaKo de Automations lo dibuja al pie: «Con tu Claude», «Con el crédito de Claude de MaKo», «Con la Gemini de
+  MaKo (respaldo)».
+
+**«Con tu X» es honesto** porque `provsDe` ya saca, con `soloLasPropias`, las «propias» que son copia de una clave de la
+plataforma.
+
+**La regla:** un `return t` nuevo en la cascada lleva su `anotarQuien` (tests/automations-quien-contesto.test.ts los cuenta:
+5).
+
+**Sin investigar:** el 26/10 a las 23:38Z, el chat del lienzo del ws9 (#700, «Una Cuota Venció») contestó dos veces «Gemini
+está saturado. Prueba en un rato.». En esa hora, el ws9 sólo registra IA de Gemini (dictado y Landing Analyst). Falta saber
+por qué ese pedido no cayó al crédito de Claude.
+
+## «La reunión es a las 11 y MaKo dice 10»: la ficha que lee MaKo no traía la hora (30/10/2026, el ticket #35, claude3)
+
+**Vive en:** `horasDeLasReuniones` / `horaEnLaZona` (lib/mako-ficha-lead.ts) · `resumenLead` (lib/mako-tools.ts: `buscar_leads` y
+`ficha_lead`).
+
+- **El síntoma:** Código Inmobiliario (ws13) le pidió a MaKo en su grupo «la fecha, horario y datos de contacto» de dos leads, y las
+  dos salieron «a las 10:00»; eran a las 11 y a las 15.
+- ⚠️ **El diagnóstico obvio era el equivocado.** 11 → 10 parece la zona horaria, pero 15 → 10 no. La base estaba BIEN (`junta_1_at`
+  14:00Z y 18:00Z, la zona del negocio Buenos Aires). `fecha_junta_1` es un DATE (sólo el día) y la hora vive en `junta_1_at`;
+  `resumenLead` pasaba sólo el día, y el modelo completaba «10:00» (el ejemplo de hora de varias herramientas es «10:00»). La
+  herramienta de las reuniones (`reuniones`) ya ponía la hora en la zona del negocio; la ficha no.
+- **Por qué no lo frenó la red:** `numerosSinFuente` (lib/doer-salida.ts) no mira las HORAS a propósito (en las herramientas van en
+  UTC y el modelo las pasa a la zona), así que una hora inventada sale. **La regla:** todo dato con hora que se le pasa al modelo va
+  YA en la zona del negocio, y si no hay hora, una nota de que no hay; un DATE solo, al lado de «fecha y horario», se completa.
+
+## El buscador de conocimiento sin Gemini: con la IA del negocio, o por palabras (25/10/2026)
+
+El Cerebro, 25/10/2026, cerrando la excepción que había quedado abierta (abajo, «Ningún cartel le ofrece Gemini»): «Embebe
+con la IA del negocio que la tenga: su OpenAI (text-embedding-3-small, 1536) primero, su Gemini si es lo único que tiene. Sin
+ninguna de las dos, búsqueda por palabras (la de Postgres), nunca la Gemini de la plataforma y nunca "conecta tu Gemini". Cada
+fila guarda con qué se embebió. Una pregunta sólo se compara contra filas del mismo modelo, y el resto se re-embebe solo, de a
+poco, cuando el negocio conecta su IA».
+
+**El síntoma:** un negocio con sólo su GPT no tenía buscador —ni de lo suyo ni del método de MaKo—, sus filas quedaban en
+`error` con «Conecta tu Gemini en Integraciones…» y el Second Brain («Aprende solo») le decía «conecta tu Gemini».
+
+**Cómo quedó:**
+- Embebe `embebedorDelNegocio` (lib/embeddings.ts): su OpenAI, si no su Gemini, si no `null`. En la plataforma (ws9) y para el
+  método de MaKo (`deMako`), la Gemini de la plataforma, como desde IA16: es contenido de MaKo, no del negocio.
+- Sin su IA NO es un error: `embed` tira `SinEmbebedor`, la fila queda `pendiente` con `POR_PALABRAS` en el campo `error`
+  («Se busca por palabras hasta que conectes tu GPT.») y `falloDelRag()` queda en null.
+- `searchKnowledge`: por vector, sólo las filas del MISMO modelo que la pregunta (coseno > 0,15); después, las demás —sin
+  vector o de otro modelo— por palabras (lib/conocimiento-palabras.ts, umbral 0,25). Completan, no compiten con el coseno.
+- Re-embeber: `reembeberLoQueFalta(limite)` toma lo del negocio sin vector o con el de otro modelo, de a `limite`. Lo dispara
+  guardar su OpenAI o su Gemini (lib/reembeber-al-conectar.ts: tandas de 40, hasta 40 s) y el GOTEO de cada búsqueda.
+
+**Lo que no se ve:**
+- ⚠️ **El diagnóstico obvio («re-embeber también el método de MaKo en OpenAI») era el equivocado.** Habría que pagarlo con la
+  OpenAI de la plataforma (sin crédito desde el 04/10) o con la del negocio (contenido de MaKo en su cuenta, una copia por
+  negocio). Un negocio que embebe con su OpenAI encuentra el método **por palabras**: el método sigue en Gemini.
+- ⚠️ **`.not('embedding', 'is', null)` en la consulta dejaba afuera, para siempre, lo que no tenía vector.** Sin su IA el
+  buscador volvía vacío con 119 filas cargadas. Salió: lo sin vector es justo lo que se busca por palabras.
+- ⚠️ **Guardar la clave no alcanza para «el resto, solo»:** un negocio que YA tenía su GPT no la vuelve a guardar, y sus filas
+  (las que IA16 dejó en `error` por no tener su Gemini) se quedarían por palabras para siempre. Por eso el goteo
+  (`gotear`, lib/mako-knowledge.ts): una búsqueda que ve filas del negocio sin el vector de su IA re-embebe 10, con `after()`,
+  una vez cada 10 minutos por negocio y proceso. Sin pedido en curso `after` tira y no corre: lo hace la próxima búsqueda.
+  Las filas que ya fallaron van al final de cada tanda: si no, una que falla siempre se quedaba con el lugar de las demás.
+- ⚠️ **Re-indexar sin su IA no borra un vector que todavía es de ESE texto** (`content_hash` igual): sigue sirviendo con su
+  modelo. El de un cuerpo que cambió sí sale (si no, la pregunta se compararía con el texto viejo).
+- **«La de Postgres» va en la app, no en Postgres:** las filas ya vienen en la consulta (las de UN negocio más el método, pocas)
+  y así la regla se prueba con datos de mentira. Si el conocimiento de un negocio pasa a miles de filas, pasarla a
+  `to_tsvector` con su índice (otra migración).
+- **La migración es la 0337** (supabase/migrations/0337_mako_knowledge_modelo.sql: `embedding_modelo` + marcar las filas con
+  vector por su largo), APLICADA a mano en producción el 25/10/2026 20:56 (el Cerebro, con el sí de Martín): 77 filas de
+  1536 (las de OpenAI de antes del 22/10) quedaron en `text-embedding-3-small`, 42 sin vector en null, ninguna de 768. El
+  código anda también sin ella (una base local o de prueba): el select contesta 42703 y el PATCH, PGRST204; lo detecta, deja de pedir la
+  columna en ese proceso y el modelo sale del largo (`modeloDelVector`).
+- El PostgREST de mentira (tests/_postgrest-de-mentira.ts) acepta CUALQUIER columna: «sin la migración» no se ve si no se
+  simula (`sinColumna` en tests/_ia16-hijo.ts).
+- El «buscar con MaKo» del Second Brain (app/api/second-brain/buscar) NO es este buscador: es la cascada sobre el mapa, y su
+  texto (`conSuIASinClave`) ya pide su Claude o su OpenAI. La advertencia de abajo sobre él quedó sin objeto.
+
+**Vive en:** lib/embeddings.ts, lib/conocimiento-palabras.ts, lib/mako-knowledge.ts (`embedRow`, `reembeberLoQueFalta`,
+`gotear`, `searchKnowledge`), lib/reembeber-al-conectar.ts (`EMBEBEN`, `reembeberAlConectarSuIA`),
+app/api/integraciones/credencial/route.ts, app/second-brain/AprendeSolo.tsx y scripts/reembeber-conocimiento.mts (ya no hace
+falta correrlo: el goteo hace lo mismo solo). Tests: tests/ia16-cada-uno-su-ia.test.ts (4, 6, 7 y 9) y
+tests/conocimiento-sin-gemini.test.ts. Probado rompiéndolo (25/10/2026): 18 roturas, una por vez (su OpenAI no va primero, la
+Gemini de la plataforma sin su IA, el coseno entre modelos, vuelve el `.not`, sin palabras, «sin IA» como fallo, re-indexar
+borra un vector que sirve, el cuerpo cambiado conserva el viejo, sin «de a poco», no re-embebe lo de otro modelo, sin tolerar
+la base sin la columna, al conectar sólo su Gemini, «conecta tu Gemini» en «Aprende solo» y en el texto, sin goteo, el plural,
+el saludo y las que fallaron adelante): todas rojas, y todo verde al restaurar.
+
+**Sin hacer:**
+- El goteo no se prueba en un pedido real (el hijo no tiene `after`): lo fija el test de fuente. Medirlo en producción con el
+  log `[conocimiento] ws N: re-embebí … (goteo)`.
+
+## «No es seguro», el instalador con la marca y «Conecta MaKo» sin texto (MaKo Desktop, 25/10/2026)
+
+Martín, 25/10 ~11:30: «me dice que no es seguro, que podemos hacer para que no salga eso? Y el instalador de MaKo debe estar
+personalizado con el diseño de mako... En "tus cuentas de IA" cuando le doy a conectar... rediseña eso, que se vea facil, mira
+la cantidad de texto».
+
+**La firma NO saca el aviso de un día para el otro (el diagnóstico obvio era el equivocado).** «Firmamos y listo» es falso:
+- SmartScreen («Windows protegió su PC») mira la reputación del ARCHIVO (su hash) y la del CERTIFICADO. Con la firma IV, el
+  cartel pasa a decir «Editor: Martín Koncke» en vez de «Editor desconocido», pero **sigue saliendo** hasta que el certificado
+  junta reputación. Microsoft no da un número: «varias semanas y cientos de instalaciones limpias»
+  (learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation). En un foro, un OV nuevo siguió bloqueado 7
+  semanas y se destrabó a los ~7 meses (forum.xojo.com, 2025-2026). Lo que ayuda: firmar TODAS las versiones con el mismo
+  certificado (las nuevas heredan la reputación), no tocar el archivo después de firmar, y mandar el instalador a
+  microsoft.com/wdsi/filesubmission como «Microsoft Defender SmartScreen» si el aviso es incorrecto.
+- **EV ya no sirve para esto:** desde 2024 un certificado EV dejó de dar reputación instantánea («all Code Signing certificates
+  will be treated equally», learn.microsoft.com/security/trusted-root/program-requirements). Comprar el EV caro no lo acelera.
+- **Azure Artifact Signing (ex Trusted Signing) no es para Martín:** a personas sólo en EE. UU. y Canadá.
+- **El aviso de Chrome es otro** («archivo sospechoso», Safe Browsing por reputación de descarga): Google no publica que un
+  certificado nuevo lo saque, ni hay formulario para un archivo «poco común» (el de Safe Browsing es para páginas).
+- **Smart App Control** (Windows 11 nuevo) BLOQUEA un .exe sin firma y sin reputación: ahí no hay «Ejecutar de todas formas».
+  Es la razón más fuerte para firmar aunque el aviso tarde en irse.
+- **Desde marzo de 2026 un certificado dura como máximo 460 días** (SSL.com: 458): hay renovación todos los años, y no está
+  documentado que la reputación pase al certificado renovado.
+- Lo que SÍ evita SmartScreen es publicar en la Microsoft Store (cuenta individual gratis desde el 10/09/2025, acepta un
+  .exe firmado, sin el cartel al instalar desde la Store); no cambia nada para quien baja de hola-mako.com. Sin hacer.
+- **Mac:** sin firmar ni notarizar, en Sequoia ya no anda «clic derecho › Abrir»: Ajustes › Privacidad y seguridad › «Abrir
+  igualmente» (support.apple.com/102445). Firmada con Developer ID y notarizada, un «¿Abrir?» común. Un .zip no se engrapa: se
+  engrapa la app y se zipea después (lo hace `publicar-binarios`); sin engrapar, la Mac busca el ticket en internet.
+
+**Verificar la firma es lo que dice WINDOWS, no que el .exe tenga una firma.** `peFirmado` sólo mira que haya una tabla de
+certificados; un certificado sin cadena, vencido o un archivo tocado después la tienen igual. `verificarFirmaWindows`
+(`Get-AuthenticodeSignature`) mira `Valid`, el editor y la marca de tiempo, y `publicar-binarios` no sube sin las tres. Medido
+en esta PC: el `ISCC.exe` de Inno da «Pyrsys B.V., con marca de tiempo»; nuestro instalador, `NotSigned`. Dos trampas: la ruta
+va por el entorno (con comillas o «Muñoz» en la línea se rompía) y PowerShell 5.1 escribe en la página de códigos OEM: sin
+`[Console]::OutputEncoding = UTF8`, «Martín» llega como «Mart¡n».
+
+**El asistente de Inno con la marca (Inno 6.7 en esta PC).** Se copió la estructura de VS Code (que también es Inno: la imagen
+grande en la bienvenida y el final, la chica arriba, en siete tamaños, y el ícono propio), con la criatura y el logo sacados del
+código de la marca (`scripts/ia-pc/marca.mjs`, sin dibujar nada a mano). Lo que no se ve en el código:
+- **`DisableReadyPage=yes` NO cambia «Siguiente» por «Instalar»** en la página anterior (lo dice la ayuda): hace falta el
+  `[Code]` de `CurPageChanged`. Sin eso, la bienvenida decía «Siguiente» y el toque instalaba.
+- **Inno 6 trae `DisableWelcomePage=yes` por defecto:** la página de la imagen grande no salía. Y el `Spanish.isl` de fábrica
+  habla de usted («Haga clic en Siguiente…», «en su sistema»): todo texto que se ve está pisado en `[Messages]`, también
+  `ClickNext`, que aparece en la bienvenida aunque no esté en la lista de lo que uno cambia.
+- ISCC lee el .iss en UTF-8 sin BOM (los «¡» y las tildes salen bien), y desde la 6.6 acepta PNG con transparencia.
+- **El instalador de verdad NO se corre en esta PC** (cierra `mako-pc.exe` del ws1 y toca el registro): `/DVista` arma las
+  mismas páginas sin archivos, registro, accesos ni programas, y `scripts/ia-pc/vista-instalador.ps1` las fotografía fuera de
+  la pantalla. Dos trampas de esa foto: PowerShell le pasa `""` (no null) a un string `$null` y `FindWindow` no encuentra nada
+  (`[NullString]::Value`), y sin `SetProcessDPIAware` la foto sale recortada con la pantalla al 125 %.
+
+**«Conecta MaKo» con un botón (la página de Zoom).** El código no se muestra: el botón «Conectar» ES el «acepto» (el texto va
+abajo) y abre `mako://conectar` solo; si vence o la persona dice «No», el mismo botón pide otro. Lo que costó:
+- Para mirar la pantalla sin `next dev` (la RAM no da), un esbuild de `TusCuentasIA` con la API simulada. **El `mako://` de esa
+  vista le llegaba a la app de ESTA PC** (la del ws1, que lo tiene registrado): la vista va en un `<iframe sandbox>` sin
+  `allow-popups` ni `allow-top-navigation`, y Chrome no deja salir un protocolo externo de ahí (medido: ningún `mako-pc` nuevo).
+  `ConectarIntegracion` arrastra server actions al bundle: en la vista se reemplaza.
+- **En la Mac el `mako://` no le llega al programa** (MaKo.app es un guion, no recibe el Apple Event): el botón deja el código
+  en el portapapeles. Safari exige que esa escritura salga DEL toque, y el código llega después de un fetch: va un
+  `ClipboardItem` con la promesa adentro. Sin permiso (el iframe de la vista), cae a mostrar el código con «Copiar».
+- Las ventanas de la Mac llevan el ícono de MaKo (`with icon (POSIX file …)`). **Sin probar en una Mac:** si el ícono hace
+  fallar la ventana por otra cosa que «Cancelar» (-128), se repite con el genérico; una ventana que no sale es un «No».
+
+**El grupo de WhatsApp del dueño a su computadora: la prueba es el TELÉFONO, y la hace la puerta** (rama `desktop-api-2510`,
+`encolarTurno` con `delGrupo`; docs/conexiones-y-ayuda.md, decisión 2). El doer corre en un after() del webhook, sin cookie,
+así que `laPersonaEstaAdentro` no sirve. La prueba: el teléfono que manda WhatsApp (nunca un @lid, un jid ni un «whatsapp:…»)
+es de UNA sola persona ACTIVA del negocio, comparado con `mismoContacto` (el 9 de Argentina y el 1 de México cambian la forma),
+y esa persona es la que conectó la PC. Dos del equipo con el mismo número no son nadie. Va ADENTRO de la puerta y no en el doer,
+por lo mismo que la cookie: la refutación de D6a mostró que una guarda en quien llama se saltea con un alias.
+`tests/ia-pc-puerta-grupo.test.ts`. Quien llama (el doer) es de «MaKo en WhatsApp».
+
+**Lo que quedó SIN hacer:**
+- Publicar la 0.4.3 (la marca, el ícono de la Mac y lo de la llamada con Leandro): `VERSION_PC` y `VERSION` juntos, y
+  `publicar-binarios --aplicar` ANTES de desplegar; los pasos en `docs/relevo/mako-desktop.md`.
+- El ícono del PROGRAMA (`mako-pc.exe`, el de Bun): los accesos y «Aplicaciones instaladas» usan `mako.ico`, pero el .exe trae
+  el genérico. `bun build --windows-icon` no se probó (el `--windows-hide-console` de Bun 1.2.21 no andaba).
+- Un `.dmg` con fondo («arrastra MaKo a Aplicaciones») no se arma en Windows; y que el `mako://` le llegue a MaKo.app pide un
+  ejecutable que reciba el Apple Event (`CFBundleURLTypes` solo no alcanza con un guion).
+- La Microsoft Store como segundo canal sin SmartScreen.
+
+**Vive en:** `installer/windows/mako.iss` · `installer/marca/` (de `scripts/ia-pc/marca.mjs`) · `scripts/ia-pc/vista-instalador.ps1`
+· `scripts/ia-pc/firmar-windows.mjs` (`verificarFirmaWindows`, `verificar <archivo>`) · `app/integraciones/TusCuentasIA.tsx`
+(`Tutorial`) · `lib/ia-pc-reglas.ts` (`abreEnlacesMako`, `ICONO_APP_MAC`) · `scripts/ia-pc/mako-pc.mjs` (`dialogoMac`) ·
+`tests/ia-pc-marca.test.ts`, `tests/ia-pc-firma.test.ts` (5), `tests/ia-pc-instalador-040.test.ts` (1)
+
+## El grupo de MaKo del dueño, a su computadora: la otra prueba de identidad (25/10/2026)
+
+Martín, 25/10/2026: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Decisión 2
+de [conexiones-y-ayuda.md](conexiones-y-ayuda.md): el grupo de MaKo del DUEÑO es él escribiéndole a su MaKo, como el chat de
+la app, y contesta con su computadora. La puerta la hizo MaKo Desktop (`encolarTurno` con `delGrupo`, lib/ia-pc.ts,
+lib/ia-pc-grupo-reglas.ts); el que la pide, «MaKo en WhatsApp» (`pcDeQuienEscribe`, lib/mako-doer-in.ts). Lo fijan
+tests/ia-pc-nunca-a-leads.test.ts (7), tests/ia-pc-puerta-grupo.test.ts y tests/doer-cartel-sin-ia.test.ts (7).
+
+- ⚠️ **El diseño decía «el turno va como `turnoApp`», y no encaja.** `turnoApp` es un turno de chat de la app (su sesión, su
+  historial, sus herramientas); el doer tiene pendientes, borrador, agenda y su memoria. El doer conserva su turno y sólo la
+  llamada al modelo va a la PC, por la misma puerta y con las mismas herramientas (`runTool` como `Ejecutor`).
+- **La identidad no es la cookie: es el teléfono que manda WhatsApp** (`participant`, nunca lo que dice el mensaje), de UNA sola
+  persona activa del negocio, y ésa es quien conectó la PC. Lo prueba la PUERTA, no el doer. ⚠️ Consecuencia: si el dueño no
+  tiene su número en su perfil de MaKo, su computadora nunca contesta el grupo; el cartel se lo dice.
+- **Un lote de varias personas no va a la PC.** El mensaje sintético del lote lleva el `participant` del ÚLTIMO: con dos
+  autores, ése no prueba quién pidió lo de arriba (`loteDeVarios`).
+- `sesion_id` de `ia_pc_turnos` es NOT NULL (mig 0320) y nadie lo lee: el grupo va con 0, sin migración.
+- Con la PC apagada o sin contestar, el camino de siempre (su clave, si tiene); sin clave, el cartel dice qué pasó con SU
+  computadora («préndela», «no me contestó a tiempo»). «Aquí no, en la app» quedó sólo para quien no la conectó.
+
+**SIN hacer:** medirlo con una computadora de verdad (no se probó en vivo); que «Tus cuentas de IA» diga que la computadora
+también contesta el grupo (es de MaKo Desktop); las notas de voz siguen necesitando su GPT (Claude no escucha).
+
+## Lo que MaKo sabe de cómo conectar cada cosa, de un solo lugar: el prompt, las capacidades y la intención (25/10/2026)
+
+Tanda 3 de [conexiones-y-ayuda.md](conexiones-y-ayuda.md). Vive en `lib/hechos-mako.ts`, `lib/mako-capacidades.ts`, los
+`DEEP_LINKS` de `lib/mako-doer-in.ts` y `lib/mako-intencion.ts`; el catálogo es `lib/conexiones-catalogo.ts`. Lo fija
+`tests/conexiones-un-solo-lugar.test.ts`.
+
+- **El prompt le prohibía a MaKo dar el link que hacía falta.** `hechosMako` (va en TODOS los prompts) tenía tres links
+  escritos a mano —meta, anthropic, landing— y la regla «no te salgas de esta lista»: MaKo no podía darle a Florencia el de
+  Fathom, el de Zernio ni el de su computadora. Ahora la lista sale del catálogo (`EN_EL_PROMPT`, las once que más se piden:
+  todas no, porque viaja en cada turno) y para las demás está `como_conectar`.
+- ⚠️ **Trampa: el `\b` de JavaScript es ASCII.** La expresión nueva del área integraciones terminaba «conect(ar|o|é|…)\b», y
+  «ya conecté instagram?» no entraba: después de una «é» no hay borde de palabra para JavaScript (sin la bandera `u`, y aun con
+  ella `\b` sigue siendo ASCII). Tras una vocal con tilde va un lookahead (`(?![a-záéíóúñ])`), no `\b`.
+- **«instagram» o «facebook» solos no traen el área integraciones**: van en cada pedido de anuncios, y el presupuesto del
+  registro (12.000 caracteres) es uno solo; sumarle las herramientas de conectar a un turno de anuncios le saca otras. Entran por
+  «conectar instagram».
+- **Los textos del prompt que mandaban a «/integraciones» a secas** (dónde se pega el Pixel, dónde se cargó el píxel de Meta)
+  ahora nombran la tarjeta; la guarda (test 4) barre los runners de la API, los carteles y el prompt.
+
+**SIN hacer:** los textos de la app que nombran Gemini (lib/ia-mensajes.ts, lib/mako-turno-app-reglas.ts, lib/flujo-ia.ts y
+los de MaKo Desktop) y que la app (`turnoApp`) ponga `aFalta`.
+
+## Ningún cartel le ofrece Gemini como «su IA» (25/10/2026; reemplaza lo del 22/10)
+
+Martín, 25/10/2026, por el audio de Florencia (ws21): «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos
+que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». El 22/10 (IA16) había sumado su Gemini
+como «su IA»; desde hoy ningún texto lo ofrece. El plan, en [conexiones-y-ayuda.md](conexiones-y-ayuda.md); el cartel del
+grupo, en [hallazgos-comunicacion.md](hallazgos-comunicacion.md) (misma fecha).
+
+- **Qué se ofrece y dónde:** en la app, su Claude con MaKo Desktop (el chat ya exige la computadora,
+  lib/chat-mako-reglas.ts); en WhatsApp y en lo que corre solo, su GPT por clave, que escucha audios y corre los turnos con
+  herramientas. Un negocio que YA tiene su Gemini sigue andando con él (la cascada lo prueba): lo que no se hace es mandarlo
+  a conectar uno.
+- **El cartel del grupo ya lo cumple** (lib/fallo-ia-texto.ts): el test 8 de tests/doer-cartel-sin-ia.test.ts recorre las
+  siete causas por cada pedido, claves, errores y contexto. **Y los textos de la app de «MaKo en WhatsApp» también** (tanda
+  6): `CONECTA_TU_IA`, `FALTA_TU_IA` y el «activa la facturación de tu Gemini» (lib/ia-mensajes.ts), `conSuIASinClave` y
+  `CON_SU_IA_SIN_VISION` (lib/fallo-ia-texto.ts), `AVISO_SIN_IA`, `AVISO_NO_LEI_SU_IA` y `AVISO_SIN_ARCHIVERO`
+  (lib/mako-turno-app-reglas.ts). **Quedan, de otros dueños:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts, Automations),
+  lib/ai-cheap.ts:1116, lib/persona.ts:219 y las bajadas de «Tus cuentas de IA» (lib/ia-pc-reglas.ts:890, TusCuentasIA.tsx,
+  /perfil/ia: MaKo Desktop). `conSuIASinClave` también lo dice la búsqueda del Second Brain, que NO embebe: es la cascada
+  sobre el mapa (app/api/second-brain/buscar), y su GPT alcanza.
+- **La excepción del conocimiento, DECIDIDA el mismo día:** embebe con la IA del negocio (su OpenAI primero) y, sin ninguna,
+  busca por palabras. Arriba: «El buscador de conocimiento sin Gemini».
+- ⚠️ **La marca «red gratis salteada» de lib/ai-cheap.ts (≈:891 y :896) se deja sin preguntar si había red**, también
+  cuando el negocio tiene su IA (`soloSuIA()`). `sinRedPorDatos` reconoce las dos, y por eso nutrición (lib/nutricion.ts)
+  y el simulador de setting le dicen `CONECTA_TU_CLAUDE` a negocios que ya la tienen. Es el arreglo que el doer tuvo el
+  24/10 (preguntar por la red ANTES de marcar), en otro módulo. SIN hacer.
+
+## «¿Cómo abro MaKo?» y «quiero otra cuenta de Claude»: la app de escritorio, en la llamada con Leandro (25/10/2026)
+
+- **f02** (Leandro, recién instalado): «¿Cómo abro MaKo? (...) Se me descargó algo, pero en la computadora no lo puedo ver». No
+  era que no se instaló: `mako-pc` corre ESCONDIDO a propósito (contesta los turnos y arranca con Windows), y el instalador no
+  creaba ningún acceso. Ahora deja «MaKo» en el menú Inicio y en el escritorio (`installer/windows/mako.iss`, `[Icons]`), que
+  corre `mako-pc abrir`: el Ops Center del negocio conectado en el navegador, o «Tus cuentas de IA» para conectarla si no lo está.
+- **f03:** «Ahí te debería dejar elegir otra cuenta, no solamente detectar la que ya está abierta». La autorización de Claude se
+  abre en el navegador de siempre y Claude la da con la cuenta que ya está abierta ahí, sin preguntar. La página local de
+  `mako-pc` ofrece «¿Otra cuenta de Claude?»: el MISMO enlace para abrir en una ventana de incógnito; el código se pega igual.
+- **⚠️ NO llega sola a nadie:** hace falta armar y publicar la 0.4.3 (Inno Setup en esta PC, `scripts/ia-pc/publicar-binarios.mts`)
+  y recién ahí subir `VERSION_PC` (lib/ia-pc-reglas.ts) y la de `mako-pc.mjs`. Subir la versión ANTES rompe «Descargar MaKo»
+  (el nombre del archivo sale de `VERSION_PC`), y armar con 0.4.2 pisaría el binario publicado. La Mac (MaKo.app) no tiene
+  accesos que crear: abrirla desde Finder ya hace lo suyo.
+
+**Vive en:** `scripts/ia-pc/mako-pc.mjs` (`destinoDeAbrir`, `abrirMaKo`, `otraCuenta`) · `installer/windows/mako.iss` ·
+`tests/ia-pc-abrir.test.ts`
+
 **Lo que más muerde acá:**
 
 - El prompt que leés en el archivo **no es** el que recibe el modelo: `brandSystem` le
@@ -1201,6 +1472,23 @@ versiones de historial, y la IA vuelve al texto de fábrica **en silencio**.
 
 **Vive en:** lib/prompt-registry.ts · lib/prompt-render.ts (`getPromptText`) ·
 `app_settings['mako.prompt-overrides']` · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense*
+
+
+**29/10/2026, plantillas reales: Un slot NUEVO en un prompt ya editado nunca llega: el experto de cada tab va en una key aparte.** (docs/plantillas-reales/)
+- **Síntoma posible:** agregarle `{{plantilla}}` o `{{negocio}}` a `copywriter.editar.user`, `offer.turno.system` o
+  `video_editor.chat.user`. Quien ya los editó tiene su versión guardada, sin el slot, y el dato no llega nunca, sin
+  error.
+- **Causa:** el override reemplaza el template entero. Además, los system de los chats de Video e Image son `sensitive`
+  y `static-only` (llevan `{{catalogo}}` y `{{formato}}`), así que tocarlos no aplica nada.
+- **Regla:** el método de un experto va en una **key nueva que el código suma** al system de siempre:
+  - `copywriter.experto`, `video_editor.experto` e `image_editor.experto` son instruction sin slots;
+  - `offer.experto` lleva sus slots y se suma solo si la conversación nació de una plantilla.
+
+  El pedido de adaptar va en una key `user` nueva (`<grupo>.adaptar.user`). Una tab sin chat previo (AI Avatar)
+  estrena su par (`ai_avatar.director.system` y `.user`). Después de tocar el registro, `verify-prompt-registry-sync`.
+
+**Vive en:** lib/prompt-registry.ts · lib/copywriter/experto.ts · lib/editor-video/chat-prompts.ts ·
+lib/image-editor/chat/prompts.ts · lib/offer-ia.ts · lib/ai-avatar/director-reglas.ts (todos del plan)
 
 ### ⚠️ Los prompts de la matriz de razones y de los ángulos nunca se registraron
 
@@ -4806,6 +5094,12 @@ y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
   `anthropic` → `ai-cheap`). La guarda que sirve no es «llega» sino «prende el contexto o está decidida»:
   tests/d6b-rutas.test.ts recorre el grafo (resolviendo `@/` y siguiendo las llamadas, no una lista a mano), y lo que
   llaman las pantallas del Ops Center (app/second-brain, app/mako, app/onboarding, app/_chat…) no puede ir afuera.
+  - **Una ruta pública del portal del ALUMNO también puede ser «del Ops Center» (27/10/2026):** el botón compartido
+    app/_ui/ReportarASoporte.tsx (lo monta el Ops Center) nombra /api/compartido/curso/soporte, y toda ruta del portal
+    llega a la cascada DE PASO por `resolverAccesoPortal` (lib/curso-datos.ts → app/customer-success/entrega.ts →
+    lib/nutricion.ts → lib/ai-cheap.ts). Como del Ops Center, `FUERA_DE_D6B` no se acepta: si no le pide nada a una IA va
+    a `SIN_IA` con lo que usa fijado (así quedó: valida el token y crea el ticket; lib/tickets-db.ts no llega a ninguna IA,
+    su triage es con reglas).
 - **lib/transcribe.ts es una SEGUNDA cascada sin el corte de D6b**: va directo a Groq y Gemini con las keys del entorno.
   Envolver una ruta que la use no la protege. Hoy la usan ads-manager, cron/transcribe-ads, mako/knowledge y
   lib/onboarding-extract (ninguna del Ops Center).
@@ -6188,7 +6482,8 @@ interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthro
 - `lib/solo-su-ia.ts` (`PROVS_SU_IA = ['gemini', 'openai']`) y `lib/ia-del-negocio.ts` (`CLAVES_SU_IA` con Gemini).
 - `lib/embeddings.ts`, `scripts/reembeber-conocimiento.mts` (por workspace).
 - `lib/conectar-ia-reglas.ts` y `app/integraciones/TusCuentasIA.tsx`.
-- `lib/reembeber-al-conectar.ts` (al guardar su Gemini) y `reembeberLoQueFalta` (lib/mako-knowledge.ts).
+- `lib/reembeber-al-conectar.ts` (al guardar su Gemini; desde el 25/10, su OpenAI o su Gemini) y `reembeberLoQueFalta`
+  (lib/mako-knowledge.ts).
 - «Tus cuentas de IA» con su Gemini: `lib/su-clave-reglas.ts`, `lib/su-clave.ts`.
 - `tests/ia16-cada-uno-su-ia.test.ts` (con `tests/_ia16-hijo.ts`).
 
@@ -6756,3 +7051,409 @@ corre. Lo que queda sin hacer: que la etapa de tests de `antes-de-subir` reinten
 por plazo (scripts/antes-de-subir.mjs).
 
 **Vive en:** tests/ia-pc-binarios.test.ts · tests/ia-pc-segunda-revision.test.ts · *2026-10-24, chat «IA del cliente» (claude1)*
+
+## La réplica del ws9 sin IA: había a dónde caer, y el plazo no dejaba llegar (26/10/2026)
+
+**Síntoma** (Landings, logs de Vercel, 05:52 UTC): `/api/landing-generator/replicar` en el espacio de MaKo dejó 17 de 20
+secciones de la réplica de una página SIN IA, en 135 s. Errores: «gemini · cuenta 3: The operation was aborted due to timeout»
+y «gemini · cuenta 4: This model is currently experiencing high demand».
+
+**El diagnóstico obvio era el equivocado:** «la cascada de Gemini no tiene a dónde caer». En el ws9 es cierto que no hay OTRA IA:
+la OpenAI de MaKo no tiene crédito (decisión de Martín, 22/10), Claude está vetado para `landing-editor` (no está en la lista
+blanca; el crédito de la plataforma es sólo para el onboarding), Groq quedó para las notas de voz y Cerebras, Mistral y
+OpenRouter se fueron. Pero la cascada SÍ tenía una salida gratis: el respaldo de modelo, `gemini-flash-lite-latest`
+(`MODELOS_RESPALDO`, medido el 16/08 y el 07/10 que contesta cuando `flash-latest` da «high demand»). **Nunca llegaba a probarse:**
+
+- Cada tanda de 3 secciones tiene 42 s de IA (`PLAZOS.secciones.ia`, lib/editor-landing/ia.ts) y el intento recibía TODO lo que
+  quedaba (`plazoDeIntento`). Un `flash-latest` colgado se comía los 42 s; el respaldo no tenía tiempo.
+- Un timeout o un 503 es «transitorio» y se reintentaba en el MISMO modelo (espera de 1,5 s y otro cuelgue).
+- La tanda siguiente volvía a empezar por el colgado: nadie recordaba que ese modelo estaba saturado.
+- Y la réplica terminó en 135 s con un plazo de 240: sobraban 105 s y no había segunda vuelta.
+
+**Lo que cambió** (vale para TODO lo que pasa por la cascada, no sólo el Web Generator):
+
+1. **Un modelo saturado no se reintenta si hay a dónde ir**: «high demand», «overloaded» o 503 (`esSaturacion`). Un 429 NUNCA
+   cuenta: es la cuota de UNA cuenta, y la arregla otra cuenta.
+2. **El modelo que DIJO estar saturado queda anotado 3 minutos en el proceso** (lib/ia-saturacion.ts, el molde de
+   lib/gemini-esfuerzo.ts) y `modelosAProbar` lo pone AL FINAL: el pedido siguiente, de cualquier negocio, empieza por el
+   respaldo. La saturación es de Google, no de un negocio: la memoria compartida no guarda ningún dato de nadie. Anotan
+   `chatCheap` y el turno con herramientas (MaKo en WhatsApp), SÓLO con el 503; los tres lazos que rotan modelos (texto,
+   herramientas y audio) leen el orden.
+3. **Un cuelgue (timeout) queda anotado en el PEDIDO, no en el proceso** (`conMemoriaDelPedido`): la réplica entera corre con
+   su memoria, y la tanda siguiente y la segunda vuelta de ESA réplica empiezan por el respaldo.
+4. **La réplica da UNA segunda vuelta** a las secciones que quedaron sin IA, mientras quede plazo para una tanda entera.
+
+**Medido** con la cascada real contra un Google de mentira (tests/_ia-saturacion-hijo.ts): un 503 pasa al respaldo sin
+reintentar el mismo modelo y el pedido siguiente empieza por `flash-lite`; un timeout no marca a nadie; adentro de una réplica,
+la tanda que sigue a un cuelgue empieza por el respaldo, y afuera no; la última opción real sí reintenta su 503, también con una
+red pedida que no corre. 12 roturas, cada una cae (la de «un 429 no cuenta» dio verde la primera vez: el mensaje de cuota del
+test no traía ninguna palabra de saturación).
+
+### La primera versión tenía dos errores que vio la revisión del tren-l (26/10/2026)
+
+- **Reservarle 15 s a la opción siguiente convertía un pedido LENTO en uno SATURADO, para todos los negocios.** El intento pedía
+  lo que quedaba menos `MIN_INTENTO_MS`: una tanda de 3 secciones (7.400 tokens, 42 s de plazo) quedaba con 26,8 s, se cortaba
+  sana a los 27-30 s (lo normal para ese tamaño: el hero solo tarda 16-21 s) y, como 26,8 s pasaba el umbral fijo de 25 s, el
+  corte anotaba `flash-latest` como saturado. Tres minutos de todo el proceso empezando por `flash-lite`, sin que Google tuviera
+  nada. **La regla:** un timeout cuenta como saturación sólo si el intento tuvo TODO el plazo que su tamaño necesitaba
+  (`fallaDeSaturacion(mensaje, plazoDelIntento, plazoEsperadoMs(maxTokens))`, la misma fórmula que escala `chatClaude`). Y la
+  reserva se sacó: lo que hace llegar al respaldo es el 503 que no se reintenta y el modelo anotado, no recortarle el plazo al
+  primero.
+- **«Hay otra opción» contaba proveedores SIN clave.** `orden` sale de `ordenarPorCuota`, que no mira si el proveedor tiene
+  cuentas: un negocio con sólo su Gemini tiene `['gemini', 'openai']`, y en `flash-lite` (su última opción real) el código creía
+  que quedaba OpenAI. Su 503 no se reintentaba y la cascada devolvía vacío en dos pedidos. **La regla:** las cuentas de cada
+  proveedor se cargan UNA vez antes del lazo (`instanciasDe`), y «otra opción» es otro modelo, otra cuenta, otro proveedor CON
+  clave o la red de la plataforma cuando de verdad corre. `ultimoRecurso` usa lo mismo: tenía el error desde antes.
+
+### Y la segunda versión, dos más que vio la verificación del tren-m (26/10/2026)
+
+- **Ningún umbral de plazo separa un modelo colgado de un pedido sano.** La segunda versión contaba un timeout si el intento
+  tuvo «su plazo necesario», y en el turno con herramientas el necesario era el timeout DEL QUE LLAMA: la red de MaKo en
+  WhatsApp corta a los 10 s (lib/mako-doer-in.ts), un paso sano tarda 12, y eso marcaba `flash-latest` 3 minutos para TODOS los
+  negocios. Lo mismo con los 30 s por default de `chatCheap` (pasos sanos medidos de 32 s) y con lib/graficos-ia-red.ts y
+  lib/offer-ia.ts, que recortan el plazo. **Lo obvio era afinar el umbral; la regla es otra: al proceso lo marca sólo lo que
+  el proveedor DICE (503, «high demand», «overloaded»), nunca un timeout.** El cuelgue se recuerda donde no daña a nadie: en
+  el pedido (`conMemoriaDelPedido`, con `AsyncLocalStorage`), que en la réplica abarca todas sus tandas.
+- **La red «pedida» no es la red que «corre».** `hayRed` miraba `redDePlataforma` y «sólo su IA», pero abajo la red además se
+  corta con datos de clientes (`pii`) y en el super admin. El AI Step que le contesta a un lead va con `pii: true`: con sólo su
+  Gemini, la cascada creía que quedaba la red, no reintentaba el 503 de su última opción y el lead iba a hand-off. **La regla:**
+  «otra opción» se le pregunta a la MISMA función que la ejecuta. ⚠️ La primera corrección copió los cortes a mano y se olvidó
+  del más grande: `provsGratisDePlataforma` devuelve `[]` fuera del super admin (la red no corre para ningún negocio desde el
+  22/10), y el bloque de la red sólo entra afuera del super admin. O sea, la red gratis no corre NUNCA para un cliente, y
+  `hayRed` daba true para cualquiera sin datos de clientes: un negocio con sólo su Gemini perdía el reintento que producción
+  tenía. Ahora `hayRed` llama a `provsGratisDePlataforma` (hoy da false siempre), y el crédito de lo interno de MaKo se mide
+  igual: `hayCreditoDeLaPlataforma` es la misma cuenta que hace su puerta (claves cargadas, sin pausa, sin agotar).
+- ⚠️ Lo que decía esta entrada en la segunda versión era falso: «la segunda vuelta empieza por el respaldo porque el cuelgue con
+  plazo completo lo anotó». Una tanda de 7.400 tokens con 42 s nunca tuvo los 88,8 s «necesarios»: no se anotaba, y la segunda
+  vuelta volvía a empezar por el colgado. Ahora lo anota la memoria del pedido.
+
+**Otras áreas con la misma cascada:** no hay otra forma «sin salida»: todas pasan por `chatCheapCascade`, `chatCheapTools` o la
+rotación del audio, y las tres arman la lista con `modelosAProbar`. Las features con `fallback: []` o `sinRespaldoDeModelo` siguen
+sin respaldo A PROPÓSITO (no se degradan): para ellas el arreglo es sólo que el intento no se coma el plazo.
+
+**Lo que decidió Martín (26/10/2026, en el Centro: «1. Claude de la plataforma»):** el ws9 no tenía una segunda IA, y ahora su
+último recurso es el crédito de Claude de la plataforma, SÓLO para lo interno de MaKo. Tres líneas más en `CREDITO_HABILITADO_PARA`
+(lib/veto-claude.ts) con `soloLaPlataforma`: `landing-editor` (generar y replicar), `landing-editor-ia` (editar) y
+`landing-analyst` (el analizador). Cómo no gasta de más:
+- **Nunca primero:** la cascada lo llama DESPUÉS del lazo de las gratis (sus Gemini y el respaldo de modelo), y sólo si queda un
+  intento entero de plazo. La red de la plataforma no corría en el super admin: sin esto, ahí no había nada. Con el crédito
+  esperando, el 503 de `flash-lite` NO se reintenta (cuenta como «otra opción», si está de verdad): los tres reintentos le
+  dejaban 15-17 s, que no alcanzan para una tanda.
+- **El mismo tope:** el `maxTokens` de la tarea viaja tal cual (sin él, la puerta pedía 1.024).
+- **Registrado:** cada llamada queda en `anthropic_usage` con la marca del crédito y «último recurso: las gratis no contestaron»
+  en el motivo; lib/costos-ia.ts no la suma como gasto de MaKo y la cuenta aparte (`delCredito`), para que se vea cuánto se usa.
+  ⚠️ También la que se CORTA: un timeout después de mandar no traía `usage` y no dejaba fila, pero Anthropic puede haber cobrado.
+  Ahora queda con 0 tokens, la marca y «puede haber gastado hasta N tokens de salida».
+- **Un negocio no:** el veto pide `esLaPlataforma`, la puerta (`conCreditoDeLaPlataforma`) lo mira ANTES de leer las claves, y
+  la cascada sólo entra en el espacio de MaKo. Tres frenos, y el test rompe cada uno.
+
+⚠️ Lo que sigue sin resolver: el crédito recibe el plazo que QUEDA. Si un CUELGUE (no un 503) de las gratis se come la tanda,
+no llega a probarse en esa tanda; sí en la segunda vuelta de la réplica.
+Y sin la reserva, un `flash-latest` COLGADO (no un 503) se sigue comiendo el plazo de LA tanda en que se cuelga: esa sección
+sale en la segunda vuelta, que empieza por el respaldo porque el cuelgue quedó en la memoria de la réplica.
+
+**Trampa del arnés:** el timer de `AbortSignal.timeout` no mantiene vivo a Node. Con un pedido colgado como única espera, el
+proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sostiene mientras corre).
+
+**Vive en:** lib/ia-saturacion.ts (`conMemoriaDelPedido`) · lib/ai-cheap.ts (`plazoDeIntento`, `modelosAProbar`, `hayRed`,
+`chatCheap`, `chatCheapTools`) · lib/editor-landing/replicar.ts (la segunda vuelta y la memoria de la réplica) ·
+tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
+*2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*
+
+---
+
+## Cada fila de `anthropic_usage` es un pedido para la cuota del día: una marca nueva no puede repetir la de otra (27/10/2026)
+
+**Síntoma** (al entregar la rama de MaKo en WhatsApp, leyendo el código): un 429 de Gemini que cubría `flash-lite` dejaba DOS
+filas del mismo pedido: `rebote429:<modelo>` (`anotarRebote429`) y `rebote:<modelo>`, la nueva que cuenta las bajadas de modelo
+desde la base.
+
+**La trampa:** `plegarUso` (lib/ia-cuotas-calculo.ts) suma CADA fila como un pedido del día, también las de 0 tokens. Es a
+propósito: un rebote viajó y el proveedor lo contó. Con dos filas por pedido, la barra de la cuota se infla y `ordenarPorCuota`
+deja antes esa cuenta.
+
+**La regla:** antes de escribir una fila de marca nueva, se mira si otra fila ya anota ESE pedido. Si no es una llamada que
+contestó, va también en `MARCAS_NO_CONTESTO` (lib/su-clave-reglas.ts).
+
+**Vive en:** lib/ai-cheap.ts (`chatCheapTools`, la condición `tipo !== 'cuota'`) · lib/ia-cuotas-calculo.ts (`plegarUso`) ·
+tests/doer-modelo.test.ts ·
+*2026-10-27, chat «MaKo en WhatsApp: conexiones» (claude4)*
+
+---
+
+## MaKo inventaba funciones, y el pedido no le llegaba a nadie (27/10/2026, claude5)
+
+**Síntoma:** Leandro (ticket 874749710-14): MaKo le describió «un bloque de Instagram con tope de comentarios» que no existe.
+Automations ya lo frenaba (`lugarInventado`, lib/flujo-ia-intencion.ts) y ofrecía un botón; los otros chats, nada.
+
+**Lo obvio era el equivocado:** agrandar `lugarInventado` con más palabras. Un detector de frases inventadas sólo ve las
+inventadas que alguien ya vio; la próxima trae otro nombre. **La regla:** el modelo dice que no existe y lo MARCA
+(`[[no-existe: …]]`, `REGLA_NO_EXISTE` de lib/no-existe.ts, y `reglaNoExisteEn(campo)` para los chats que contestan en
+JSON); el CÓDIGO saca la marca, levanta el pedido sin preguntar y escribe la línea con el número (lib/no-existe-server.ts).
+Así el modelo nunca promete ni inventa un número de ticket, y la persona nunca ve la marca.
+
+- **Dónde va:** el Ops Center (`turnoApp`: también el teléfono, el CRM y el Analyst del lead), Offer y el onboarding, «Discutir»
+  del Web Generator, los chats del Image Editor y del Video Editor, y Automations (su `falta` sale sola; el botón «Pedírselo al
+  equipo» queda de respaldo si el ticket no salió). tests/mako-no-existe.test.ts exige la regla y el procesado en cada uno.
+- **Trampa:** los editores de imagen y video se quedaban con la PRIMERA línea de `resumen`: la marca se saca ANTES de cortar.
+- **Un pedido es UN ticket:** `refDeNoExiste` (negocio, chat y el pedido sin mayúsculas ni tildes).
+- **WhatsApp** (mako-wa-conexiones, P3) usa el mismo criterio para lo que FALLA (ahí se propone el ticket, hay algo que
+  confirmar); lo que no existe en el grupo puede usar `conPedidoDeNoExiste` con `actor: whatsapp:…` y `canal: 'whatsapp'`.
+
+**Sin hacer:** la corrida con el MODELO REAL (`scripts/probar-no-existe.mts`): el clasificador de permisos negó leer las claves
+locales («Credential Exploration»), así que la corre quien tenga el permiso. El Dashboard no se tocó: no es un chat donde se
+pidan funciones (arma análisis de los datos).
+
+## «Eso es una distracción total»: MaKo descalificaba lo que le pedían (27/10/2026, claude4, la crítica de Leila)
+
+**Síntoma:** a «¿tenemos registro de cumpleaños de los clientes activos?» MaKo le contestó a Leila «eso es una distracción
+total». La frase no está en el código: sale de la persona (lib/mako-persona.ts: «honestidad radical», «el orden importa más que
+las tácticas»), que se edita desde la app y la guardada le gana al default.
+
+**Lo obvio era el equivocado, dos veces.** Corregir la persona no alcanza (la de cada negocio puede estar guardada), y ponerlo en
+`MAKO_NUCLEO` tampoco: su comentario decía «Núcleo FIJO — reglas duras, no editables» y NO lo es, porque `buildSystemPrompt` lo
+lee con `getPromptText('mako.nucleo', MAKO_NUCLEO)` y un override guardado lo reemplaza entero (el comentario ya lo dice).
+**La regla:** lo que no se puede sacar va como constante del código DESPUÉS de lo editable: `REGLA_NO_DESCALIFICAR`
+(lib/no-existe.ts) en `buildSystemPrompt` (lean y completo: la app, WhatsApp y su red, /api/mako-doer) y en el asesor de
+WhatsApp (lib/whatsapp-advisor.ts). Nunca «distracción», «no importa», «no es prioridad»: primero contesta, si no existe lo dice
+y propone cómo, y lo urgente va después como sugerencia. tests/mako-no-descalifica.test.ts, con la pregunta de cumpleaños.
+
+**Sin hacer:** medirlo con el MODELO REAL: `scripts/probar-no-existe.mts` ya trae la pregunta de cumpleaños con la persona de
+verdad y `descalificaElPedido`, y no se corrió (pide las claves de IA y registra el uso en la base). El campo de cumpleaños
+lo hace CRM/Chats.
+
+## Los «no puedo» falsos de la app: la herramienta existía y no viajaba (27/10/2026, claude4, Leila)
+
+**Síntoma:** MaKo le dijo «no puedo» a Leila con cosas que sí hace: editar las cuotas de un lead, corregir su plan de pagos
+(terminó en el ticket #13 como «no existe»), guardar los datos de una constancia fiscal. El diagnóstico (sólo lectura, con el
+selector real) mostró que en los tres casos la herramienta no llegaba al turno.
+
+**Lo que no se ve en el modelo, se ve en el selector:** las herramientas de un turno son una SELECCIÓN (clasificador +
+presupuesto de 12.000). Medirlo con `deSiempre: []` miente: libera presupuesto y da otra selección; el test usa
+`MAKO_TOOLS` + `MAKO_ACCION_TOOLS` de verdad.
+
+- **El plan de pagos sin la palabra «cuota»** (lib/mako-intencion.ts): «las fechas y cantidades de pago», «cada quincena», «la
+  mensualidad de Ana», «el plan de pagos» no sumaban cobros. Ahora son el tipo `plan` (editar_venta_lead y editar_cuota
+  primero; `guardar_cuotas` también marca GANADO). Trampa: `DEL_PLAN_COBRO` tomaba «el plan de pagos» como la tab Plan. La
+  mensualidad de MaKo («mi mensualidad») no entra.
+- **La ficha en «Editar»** (lib/mako-analyst-lead*.ts): la pista de diseño va adelante a propósito, pero se adueñaba de un DATO.
+  `pistaDeEdicion` elige la pista del dato si es un cobro que no nombra la vista. Sin «ficha» en esa pista: es una palabra de la
+  vista. Además, en «Editar» la pantalla bloquea los montos (bloques-cobro.tsx, `bloqueado={editando}`): MaKo ahora lo dice.
+- **Los datos fiscales** no sumaban ningún área: `editar_dato_deal` (cobros) no llegaba ni pedido explícito. Y con la constancia
+  ADJUNTA el turno es «pensar», donde lo que escribe no viaja por diseño («la ofrece»): sin sus NOMBRES, MaKo no tenía qué
+  ofrecer y decía «no puedo». **La regla:** `herramientasDelTurno` devuelve `ofrecibles` (los nombres, sin esquema) y el turno
+  de la app los dice en el system. WhatsApp todavía no los usa.
+- **«Anotado» sin escribir nada** (el horario, dos veces): `afirmacionesDeHecho` sólo miraba pretéritos; ahora también
+  «Anotado», «queda guardado», «lo recordaré», mirando la oración ENTERA (en «Anotado: X» el «:» no presenta, afirma).
+
+**Sin hacer:** en la PANTALLA, un aviso junto a los montos bloqueados en «Editar» (es del CRM: app/crm/lead-view/ficha/pagos/
+bloques-cobro.tsx:504). Corregir un dato YA cargado del perfil desde el chat: `guardar_campo_perfil` sólo completa vacíos
+(negocio.def.ts:431), se corrige en el Archivero. WhatsApp: la edición de montos con una foto (regla 9, media → pensar) es de
+«MaKo en WhatsApp». Los datos de Nadia (lead 2605, 12 cuotas de 4235.29) son producción de ws 11: los decide Martín.
+## Con la computadora del cliente APAGADA: qué deja de andar y qué no (27/10/2026, Infra)
+
+Aaron (llamada del 26/10) preguntó qué pasa con la PC del usuario apagada. Leído en el código (no probado apagando una PC):
+
+**Cómo lo sabe el servidor.** La PC late cada 30 s (`LATIDO_MS`); a los **90 s sin latido** está «Sin conexión»
+(`EN_LINEA_MS`, lib/ia-pc-reglas.ts). Con más de 90 s apagada, el turno **ni se encola**: falla como `'apagada'` y va al
+respaldo (lib/mako-turno-app.ts). Si se apagó dentro de esos 90 s, se encola y vence a los 35 s sin que nadie lo tome
+(`SIN_TOMAR_MS`) o a los 75 s sin latido si ya lo había tomado (`SIN_LATIDO_MS`). **No espera a que vuelva** y no se le avisa al
+dueño cuando vuelve: lo que pidió con la PC apagada no se hace después.
+
+⚠️ **El diagnóstico obvio era el equivocado: «si la PC está apagada, contesta otra IA».** Una PC conectada cuenta como «su
+IA» AUNQUE ESTÉ APAGADA (`negocioConPc` mira que esté activa, no que lata; `negocioConSuIA` en lib/ia-del-negocio.ts). El
+negocio sigue en D6b, «sólo su IA»: nunca Groq, nunca la cascada barata, nunca el Claude de MaKo (salvo el crédito de Claude
+que Martín le asigna a un negocio, que entra como su clave: lib/anthropic.ts). El respaldo es SU clave, si tiene.
+
+| Qué | Con la PC apagada |
+|---|---|
+| El chat de la app en Automático | Contesta su clave (OpenAI, Gemini o su Claude). Sin clave: «Tu computadora está apagada: préndela y mándamelo de nuevo» |
+| El chat con «Tu computadora» elegida en el «+» | Error, sin respaldo: eligió ésa |
+| «Tu computadora» en el selector | **Se sigue ofreciendo**: `pcDe` no mira si está en línea (lib/chat-ia.ts) |
+| El grupo de WhatsApp del dueño | Su OpenAI y después su Claude, por clave; sin clave, el cartel de «préndela» |
+| Notas de voz | Nunca usaron la PC: las escucha su OpenAI o Gemini |
+| Leads, Automations, nutrición, avisos, crons, Plan, reuniones | Nunca dependieron de la PC (`tests/ia-pc-nunca-a-leads.test.ts`) |
+| Descargar e instalar el programa | Es del servidor: URL firmada de 600 s del bucket privado `ia-pc` |
+
+**Y no toca Storage.** El programa de la PC sólo habla con `/api/ia-pc/*`: no sube ni baja nada de ningún bucket, así que
+los buckets públicos no tienen nada que ver con que la PC esté prendida. Fuera de `ia-pc`, lo que sí necesita una PC prendida
+es lo que corre en una extensión o un worker: el puente a Google Flow y el montaje de video.
+
+**Sin hacer:** sacar «Tu computadora» del selector mientras no late (o marcarla «apagada»); avisarle al dueño lo que pidió
+con la PC apagada.
+
+**Vive en:** lib/ia-pc-reglas.ts (`LATIDO_MS`, `EN_LINEA_MS`, `SIN_TOMAR_MS`, `SIN_LATIDO_MS`, `pcUsable`) · lib/ia-pc.ts
+(`encolarTurno`, `negocioConPc`, `pcDe`) · lib/mako-turno-app.ts · lib/chat-ia.ts · scripts/ia-pc/mako-pc.mjs ·
+*27/10/2026, chat «Infra» (claude5)*
+
+## «Chrome me lo marca como malware»: antes del aviso del sistema está el de Chrome, y el botón desaparece al tocarlo (27/10/2026)
+
+**El síntoma:** Leandro, en la llamada del 26/10: Chrome le frenó el instalador de MaKo como peligroso, y el botón de descargar no
+decía nada.
+
+**Lo que no era obvio:**
+- La ayuda decía sólo lo del sistema («Windows protegió su PC», Gatekeeper en Mac), pero ANTES pasa Chrome: con un programa sin
+  firmar y nuevo, frena la descarga. `AVISO_CHROME` va primero en `avisoAlAbrir`. Lo que lo destraba de verdad es la firma
+  (scripts/ia-pc/firmar-windows.mjs, lista), y el certificado lo compra Martín.
+- Un «Descargando…» en el botón no se ve nunca: las tres pantallas que lo usan lo CAMBIAN por «Ya lo instalé: conectar» en el
+  mismo clic. El estado va en lo que queda: el título de la tarjeta y la frase de la caja dicen «Se está descargando».
+
+**Vive en:** `lib/ia-pc-reglas.ts` (`AVISO_CHROME`) · `app/integraciones/CuentasYDispositivos.tsx` (`avisoAlAbrir`) · `TusCuentasIA.tsx` ·
+`app/_chat/app-de-escritorio.ts`
+
+## MaKo no lee los chats de Claude o ChatGPT del cliente: no hay nada que ignorar todavía (27/10/2026)
+
+**El pedido:** Leila, en la llamada del 26/10 (Fathom 876470842, 00:06:52–00:08:01): tiene chats y proyectos PERSONALES en su
+Claude y su ChatGPT y no los quiere en el contexto de MaKo. Martín le prometió un botón para ignorar cada chat.
+
+**Medido:** MaKo no los lee. `mako-pc` (scripts/ia-pc/mako-pc.mjs) tiene como regla no tocar `~/.claude` ni el Keychain: sólo corre
+`claude` con lo que MaKo le pide. Y lo único que lee chats (`leerTurnos`, `leerCarteros`) es el Ops Center de MaKo, con los chats de
+las cuentas del equipo, no los de un cliente. Lo personal de Leila no entra al Second Brain ni al contexto. El botón no se armó.
+
+**La regla:** si algún día MaKo empieza a leer los chats o los proyectos del cliente (para usarlos como contexto), eso nace con el
+botón de ignorar cada uno, y lo ignorado no entra a ningún lado y se puede deshacer. Leer `~/.claude` del cliente es una decisión de
+Martín: hoy la regla de `mako-pc` es no tocarlo.
+
+**Vive en:** `scripts/ia-pc/mako-pc.mjs` (la cabecera: «no toca ~/.claude») · `lib/centro-turnos-db.ts`
+
+## Un «no puedo» de MaKo casi nunca es «no existe»: los 10 de Leila en dos días (27/10/2026, Cerebro)
+
+**Vive en:** `lib/mako-intencion.ts` · `lib/doer-herramientas.ts` · `lib/mako-analyst-lead.ts` · `lib/editor-video/chat-catalogo.ts`
+
+- **El síntoma:** Leila (ws11) pide editar algo y MaKo le dice que no puede, cuando sí se podía. Martín (27/10, 20:37):
+  «siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un ticket».
+- ⚠️ **Ninguno de los 10 era algo que no existe.** Las causas, medidas con los datos de producción:
+  - **El catálogo del chat no tiene lo que la pantalla sí:** «¿Puedes eliminar los silencios?» → «No puedo», con el botón
+    «Borrar silencios» ahí desde el 14/10. El prompt dice «SOLO PUEDES USAR ESTAS OPERACIONES» y la op no está.
+  - **La regla 9-bis del clasificador:** un mensaje que arranca con «No…» y tiene ≤60 caracteres da `charlar` y 0
+    herramientas («No me deja editar sus cuotas», «No puedo cambiar la fecha de la cuota 2»). La regex `CONFIRMACION`
+    NO es la que se arregla: la usan `corrigeAgenda` y la regla 1 (hallazgos-comunicacion, «no, movela al viernes»).
+  - **El modo «Editar» de la ficha se adueña del pedido:** `PISTA_EDICION_FICHA` lo vuelve «diseño» y no viajan
+    `editar_cuota`, `editar_venta_lead` ni `guardar_cuotas`; además la pantalla traba los montos en ese modo.
+  - **Las cuotas exigen la palabra «cuota»:** «fechas y cantidades de pago» o «quincena» no suman el área cobros, y el
+    presupuesto de 12000 deja afuera `guardar_cuotas`. Así nació el ticket #13, un «no existe» falso.
+  - **La IA del cliente sin crédito:** todo cae a gpt-4o-mini, que promete («Voy a…») sin mandar la op.
+- **La regla:** antes de declarar «no existe» (y de que un ticket automático lo diga), mirar el clasificador y el
+  catálogo de esa superficie. El ticket automático lleva su `causa` (no-existe, ruteo, herramienta, ejecución, texto), y
+  el título nunca es el texto del modelo.
+- **Quién:** MaKo inteligente (el ruteo y la base del ticket, sobre la rama c4), MaKo en WhatsApp y Motion. Diagnóstico:
+  workflow `wf_80b91164-275` del Cerebro.
+
+**La revisión del 28/10/2026 de los «no puedo» falsos (claude4):**
+- **En México «quincena» es de todos los días** («la segunda quincena», «las ventas de la quincena son 12»): sólo cuenta como
+  frecuencia de PAGO («cada quincena», «quincenal»), la mensualidad sólo si es de alguien («de Ana», «su»; en la ficha del lead,
+  `delLead`), una pregunta sin verbo de cambiar no es un pedido, y la agenda le gana al plan. Medir con frases de la clienta, no
+  sólo con las del ticket: la señal ancha recreaba el «no puedo» falso en la agenda.
+- **Lo que se ofrece no lleva destructivas** (reembolsar, dar de baja, despublicar) y en modo «analizar» no se ofrece nada: con el
+  «sí» lo que escribe no viaja. Un ofrecible es una promesa: tiene que pasar las mismas puertas que la herramienta.
+- **«Anotado» sin sujeto, sí; un estado LEÍDO, no** («La cuota 13 quedó registrada como cobrada» es un dato de cobranza_lead). La
+  regla de precisión de lib/doer-salida.ts ya lo decía: un estado puede ser lo que MaKo leyó.
+
+**La verificación del 28/10/2026 (claude4):** angostar la señal del plan se pasó de largo con frases vecinas. Un «están mal,
+¿me ayudas?» es un pedido (la pregunta del final no lo anula si dice que algo está mal); la llamada o la cita como CONTEXTO no le
+gana al plan (sólo un pedido de MOVERLA: `MUEVE_AGENDA`); y el estilo de la vista («mostrar», «formato», «más grande») vale sólo en
+«Editar» (`nombraLaVistaDeLaFicha`), no en todo esPedidoDeCobro, donde «me mostró» o «la orden de compra» son datos. «Anotado, …»,
+«Anotado 👍» y «Anotado y guardado» siguen siendo un «Anotado»; con una pendiente, la queja suelta («No anda») tampoco es un «no».
+
+## El grupo de WhatsApp usaba el prompt del DASHBOARD (28/10/2026, claude4, el diagnóstico del Cerebro, F1)
+
+**El síntoma:** «Mira… no es arrancar por los flujos locos, sino por definir el disparador… armamos el experimento para
+validarlo» (Leandro), «el problema no es que falte interés, sino…» (Brigitte), «Te voy a ser directo» dos veces en 6 minutos
+(Sergio), y «¡Buen día, Martín!» a Joan, en un grupo donde nunca escribió nadie llamado Martín.
+
+**La causa:** el turno del grupo armaba su system con `buildSystemPrompt` como el chat general del dashboard: la persona
+«consultor IA de Martín Koncke» (lib/mako-persona.ts, escrita para el negocio de Martín), MAKO_NUCLEO («NUNCA termines con una
+pregunta», «CIERRA PROPONIENDO INICIAR UN EXPERIMENTO»), «CONTEXTO: chat general del dashboard», la fase de la sección y 4
+fragmentos de metodología de copy, todo ANTES de DOER_WA_VOZ, que pedía lo contrario. Fue la causa más frecuente: 15 de 49.
+⚠️ **Cambiar a Claude no lo arreglaba:** el system es el mismo para cualquier modelo. Y el «Martín» sale de la persona, no de
+que falte el autor en la memoria.
+
+**La regla (lib/nucleo-grupo.ts, lib/mako-context.ts con `canal: 'grupo'`):**
+- NUCLEO_GRUPO va primero y FIJO en código, como REGLA_NO_DESCALIFICAR: ningún override de Configuraciones lo saca (medido el
+  28/10, sólo lectura: ningún negocio tiene `mako.prompt-overrides` ni `mako.prompts`; sólo ws1 y ws4, `mako.fase.general`);
+- sin la persona, sin MAKO_NUCLEO, sin «chat general del dashboard» y sin la fase de la sección; también en la red (lean);
+- el contexto del NEGOCIO (fase, objetivos, metodología, experimentos, funnel, cara de marca, tabs sin configurar) sólo si el
+  turno piensa o consulta sus números, su copy o sus anuncios (`conElNegocio`);
+- lo que no entiende se pregunta (DOER_WA_VOZ ya no dice «¿te lo anoto como tarea?»); un link sólo si lleva a lo concreto (nada
+  de /plan ni /dashboard de relleno), y /automations entre los links; `**x**` y `##` salen como `*x*` (`aFormatoWhatsapp`).
+- La app y los gráficos siguen con la persona y el núcleo de siempre (lib/mako-turno-app.ts): no se tocó MAKO_NUCLEO.
+- ⚠️ NUCLEO_GRUPO no nombra la marca `[[ya-pedido]]`: todavía no existe, y el modelo la escribiría y le llegaría al cliente.
+  Entra con F2b (los tickets del negocio en el system).
+
+## El detector de voseo de la IA era una lista de 21 palabras, y el bueno vivía adentro de un test (29/10/2026, Copywriter)
+
+- **Síntoma:** al romper a propósito un botón del Copywriter con «Escribime por mensaje», el test de voseo siguió verde.
+  «Agendá», «mandame» y «decime» también pasaban como neutros.
+- **El diagnóstico obvio era el equivocado.** Parecía que faltaban palabras en la lista de `marcasDeVoseo`
+  (lib/puestas-data.ts), pero un generador completo ya existía: el del guard del repo (tests/puente-panel-copy.test.ts).
+  Conjuga desde ~200 verbos (presente, imperativo, clíticos, la grafía sin tilde) y su lista de neutros descarta sola lo
+  que también es de tú. Como vivía en un test, la IA no lo podía usar. Eran dos detectores de lo mismo: el del repo veía
+  «escribime» en una pantalla, y el de la IA lo dejaba pasar en lo que escribía para un cliente.
+- **Una regla sólo por terminación no sirve, y no por falta de ganas:**
+  - el imperativo de vos de un -ir («elegí», «viví», «escribí») es igual al pretérito de 1.ª persona;
+  - «-rás» es el futuro de tú («verás», «tendrás»);
+  - «-és» trae gentilicios («inglés») y «después»;
+  - «-ar + te» cae encima del inglés («create», «validate»).
+
+  El generador parte de los verbos y deja escritas, con su porqué, las excepciones (`HOMOGRAFOS`).
+- **La regla que queda:** un detector que usan un test y el código de producción vive en `lib/` y el test lo importa.
+  `lib/voseo.ts` es la única fuente; `marcasDeVoseo` y el guard la comparten. Sumar un verbo trae sus ~30 formas a las dos
+  puntas.
+- **En lo que escribe la IA aparecen homógrafos que el copy del repo no tenía:** «Tomás» (un nombre) y «mandala».
+  Quedaron en `HOMOGRAFOS`.
+- **Sin hacer:** el alcance es la lista de verbos. Un verbo que no está (por ejemplo «chequear») no se ve conjugado. Se
+  suma en `REGULARES` o `IRREGULARES` de lib/voseo.ts.
+- ⚠️ **Mudar el léxico a `lib/` lo pone bajo el guard que lo usa** (tren-ag, Integración, 30/10). `lib/voseo.ts` nombra
+  `vos`, `acá` y `laburo` para BUSCARLOS, y `tests/puente-panel-copy.test.ts` lo frenó como copy. En el árbol del chat pasó
+  porque el guard lista con `git ls-files` y el archivo nuevo todavía no estaba en el índice. Ahora está en la lista de los que
+  pueden nombrar el voseo (`512f49af5`). **Regla:** un archivo nuevo que el guard tiene que ver se commitea ANTES de correr
+  el guard.
+
+## El clasificador del grupo va con Haiku, sin razonamiento en la salida y sin forzar la herramienta (29/10/2026, claude3)
+
+**Vive en:** `lib/mako-intencion-ia.ts` (`SYSTEM_DE_CLASE`, `leerClase`) · `lib/mako-doer-in.ts` (`clasificadorDelGrupo`) ·
+`lib/veto-claude.ts` (`evaluarClaveDelNegocio`)
+
+- **Qué modelo corre:** primero el Claude del negocio, si tiene (`soloSuClaude`); si no, el crédito de los grupos
+  (`cuentaDeLosGrupos`), y el veto le da Haiku 4.5 (`modelos[0]`). Martín, 29/10: «Sigue Haiku. No toques el veto». Lo que se
+  mide en el banco es Haiku.
+- ⚠️ **Sin un campo de razonamiento en la salida.** En la familia 5.x, pedir `reasoning` o `<thinking>` en el texto puede volver
+  como `stop_reason: refusal` con HTTP 200 (categoría `reasoning_extraction`): parece un éxito y no trae clase. El esquema es
+  `{clase, resumen, reenviado, secundaria, negocio}` y el porqué lo arma el código.
+- ⚠️ **Nada de `tool_choice: any`/`tool` para forzar el JSON:** da 400 en Opus 5.5, Sonnet 5.5 y Fable 5.1 (y el prefill, en toda la
+  familia 4.6+). La salida se lee buscando el primer objeto JSON; lo que no se puede leer es null, nunca una clase por default, y
+  mandan las reglas.
+- **Gasto medido en el banco (29/10, 66 llamadas):** ~2.000 tokens de entrada y ~67 de salida por mensaje = US$0,0023 por mensaje
+  clasificado. Con lo que llega hoy a los grupos (49 turnos en 6,9 días, ~7 por día) son ~US$0,02 por día; a 100 mensajes por día,
+  ~US$0,23. El turno que contesta una PREGUNTA o una ACCIÓN es aparte (el de siempre).
+- **Dato para decidir, no se cambió:** Haiku 5.5 (`claude-haiku-5-5`) cuesta US$0,10 / US$0,50 por millón de tokens, diez veces menos
+  que Haiku 4.5 (US## El detector de voseo de la IA era una lista de 21 palabras, y el bueno vivía adentro de un test (29/10/2026, Copywriter)
+
+- **Síntoma:** al romper a propósito un botón del Copywriter con «Escribime por mensaje», el test de voseo siguió verde.
+  «Agendá», «mandame» y «decime» también pasaban como neutros.
+- **El diagnóstico obvio era el equivocado.** Parecía que faltaban palabras en la lista de `marcasDeVoseo`
+  (lib/puestas-data.ts), pero un generador completo ya existía: el del guard del repo (tests/puente-panel-copy.test.ts).
+  Conjuga desde ~200 verbos (presente, imperativo, clíticos, la grafía sin tilde) y su lista de neutros descarta sola lo
+  que también es de tú. Como vivía en un test, la IA no lo podía usar. Eran dos detectores de lo mismo: el del repo veía
+  «escribime» en una pantalla, y el de la IA lo dejaba pasar en lo que escribía para un cliente.
+- **Una regla sólo por terminación no sirve, y no por falta de ganas:**
+  - el imperativo de vos de un -ir («elegí», «viví», «escribí») es igual al pretérito de 1.ª persona;
+  - «-rás» es el futuro de tú («verás», «tendrás»);
+  - «-és» trae gentilicios («inglés») y «después»;
+  - «-ar + te» cae encima del inglés («create», «validate»).
+
+  El generador parte de los verbos y deja escritas, con su porqué, las excepciones (`HOMOGRAFOS`).
+- **La regla que queda:** un detector que usan un test y el código de producción vive en `lib/` y el test lo importa.
+  `lib/voseo.ts` es la única fuente; `marcasDeVoseo` y el guard la comparten. Sumar un verbo trae sus ~30 formas a las dos
+  puntas.
+- **En lo que escribe la IA aparecen homógrafos que el copy del repo no tenía:** «Tomás» (un nombre) y «mandala».
+  Quedaron en `HOMOGRAFOS`.
+- **Sin hacer:** el alcance es la lista de verbos. Un verbo que no está (por ejemplo «chequear») no se ve conjugado. Se
+  suma en `REGULARES` o `IRREGULARES` de lib/voseo.ts.
+- ⚠️ **Mudar el léxico a `lib/` lo pone bajo el guard que lo usa** (tren-ag, Integración, 30/10). `lib/voseo.ts` nombra
+  `vos`, `acá` y `laburo` para BUSCARLOS, y `tests/puente-panel-copy.test.ts` lo frenó como copy. En el árbol del chat pasó
+  porque el guard lista con `git ls-files` y el archivo nuevo todavía no estaba en el índice. Ahora está en la lista de los que
+  pueden nombrar el voseo (`512f49af5`). **Regla:** un archivo nuevo que el guard tiene que ver se commitea ANTES de correr
+  el guard.
+ / US$5), pero viene con el razonamiento adaptativo prendido (habría que medirlo en el banco antes). Cambiarlo
+  es tocar el veto: es de Martín.

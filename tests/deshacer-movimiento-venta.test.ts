@@ -252,7 +252,7 @@ test('CABLEADO historial: la fecha de cierre tiene línea y Restaurar la devuelv
   assert.match(rev, /LINEA_DEL_DESENLACE\.fecha_cierre/);
   const grupo = cuerpo(acc, 'export async function revertMoveAction(');
   assert.match(grupo, /desenlaceAntesDelMovimiento\(desenlaceDe\(actual\), grupo, new Date\(\)\.toISOString\(\)\.slice\(0, 10\), createdAt\)/);
-  assert.match(grupo, /await updateLead\(leadId, upd, \{ desenlaceExacto \}\)/);
+  assert.match(grupo, /await updateLead\(leadId, upd, \{ desenlaceExacto, etapaAparte: etapa\.set \}\)/);
   assert.match(cuerpo(audit, 'export async function updateLead('), /Object\.assign\(merged, opts\?\.desenlaceExacto \?\? desenlaceAlGuardar\(actual, input, /);
 });
 

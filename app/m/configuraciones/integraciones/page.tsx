@@ -19,13 +19,12 @@
 
 import '../configuraciones.css';
 import { requireMovil } from '@/lib/movil-guard';
-import { getIntegraciones } from '@/lib/integraciones';
+import { getIntegraciones, getIntegracion, type Integracion } from '@/lib/integraciones';
 import { getIncidentes } from '@/lib/meta-health-history';
 import { SIN_MODAL_SUELTO } from '@/lib/integracion-en-tab';
-import { ordenCategoria } from '@/lib/integraciones-catalogo';
+import { DEFS, ordenCategoria } from '@/lib/integraciones-catalogo';
 import { ordenIA } from '@/lib/ia-labels';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
 import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { IntegracionesM, type IntegracionM, type ProblemaM } from './IntegracionesM';
@@ -38,7 +37,7 @@ export default async function IntegracionesMovil({ searchParams }: { searchParam
   // Los incidentes abiertos de cada servicio: el problema de una conectada se lee en SU fila (como en la computadora).
   const abiertos = new Map(incidentes.filter((x) => x.resolvedAt == null).map((x) => [x.service, x]));
   // Al navegador va sólo lo que la pantalla dibuja.
-  const integraciones: IntegracionM[] = lista.map((i) => {
+  const aM = (i: Integracion): IntegracionM => {
     const inc = abiertos.get(i.key);
     return {
       key: i.key, nombre: i.nombre, categoria: i.categoria, descripcion: i.descripcion, estado: i.estado, detalle: i.detalle,
@@ -47,11 +46,12 @@ export default async function IntegracionesMovil({ searchParams }: { searchParam
       conectada: i.estado === 'conectada' || i.detalle === POR_QUE_LA_CONFIGURA_MAKO,
       // La clave que pegó es la de MaKo: sin conectar, con algo que hacer (como en la tarjeta de la computadora).
       problema: inc ? { estado: inc.statusLabel, rojo: inc.severidad === 'rojo' } : i.detalle === POR_QUE_IA_DE_MAKO ? { estado: 'Revisa tu clave', rojo: false } : null,
-      opcional: esPasarela(i.key) || esIntegracionDeLeads(i.key),
+      opcional: esPasarela(i.key),
       // El link de escritorio que abre SU modal (o la grilla, para las que no se abren sueltas).
       enComputadora: SIN_MODAL_SUELTO.includes(i.key) ? '/integraciones' : `/integraciones?abrir=${encodeURIComponent(i.key)}`,
     };
-  });
+  };
+  const integraciones = lista.map(aM);
   // El orden de la computadora: por categoría (lib/integraciones-catalogo.ts) y, en Inteligencia, primero las de pago.
   const enOrden = (a: IntegracionM, b: IntegracionM) => ordenCategoria(a.categoria) - ordenCategoria(b.categoria) || ordenIA(a.key) - ordenIA(b.key);
   const rango = (i: IntegracionM) => (i.problema ? (i.problema.rojo ? 0 : 1) : 2);
@@ -62,10 +62,17 @@ export default async function IntegracionesMovil({ searchParams }: { searchParam
     rojo: x.severidad === 'rojo', confirmado: x.confirmado, enCurso: x.resolvedAt == null,
   }));
   const abrir = (sp.abrir ?? sp.servicio ?? '').trim().toLowerCase() || null;
+  // ⚠️ EL LINK DE UNA SIN TARJETA ABRE SU HOJA (25/10/2026). MaKo manda `/integraciones?abrir=anthropic` (o openai, gemini,
+  // groq, google) por WhatsApp, y en el teléfono cae acá (lib/movil-rutas.ts). Esas cinco son `oculto` y la lista de
+  // arriba no las trae: el link dejaba a la persona en una lista sin la conexión que le falta y sin nada abierto. Se lee
+  // SÓLO la pedida (`getIntegracion` no mira `oculto`, como el modal suelto de la computadora) y va aparte: abre su hoja,
+  // con «Conectar en la computadora», y no se suma a la lista.
+  const suelta = abrir && !lista.some((i) => i.key === abrir) && DEFS.some((d) => d.key === abrir && d.oculto)
+    ? await getIntegracion(abrir).catch(() => null) : null;
   return (
     <PantallaM>
       <CabeceraM titulo="Integraciones" />
-      <IntegracionesM conectadas={conectadas} sinConectar={sinConectar} historial={historial} abrir={abrir} />
+      <IntegracionesM conectadas={conectadas} sinConectar={sinConectar} historial={historial} abrir={abrir} suelta={suelta ? aM(suelta) : null} />
     </PantallaM>
   );
 }

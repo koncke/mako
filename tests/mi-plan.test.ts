@@ -96,7 +96,8 @@ test('el código de baja: uno por cobro, en un texto que se reconoce, y que moti
 test('el plan del negocio: el cobro de la PLATAFORMA cuya alta creó ESTE workspace', () => {
   const f = cuerpo(fuente('lib/cobros.ts'), 'suscripcionDeMakoDe');
   assert.match(f, /if \(ws === plataforma\) return null;/);
-  assert.match(f, /\.eq\('workspace_id', plataforma\)\.eq\('alta_ws', ws\)\.eq\('tipo', 'suscripcion'\)\.eq\('estado', 'pagado'\)/,
+  // Con la prueba gratis (25/10/2026): la pagada o la prueba autorizada (FILTRO_SUSCRIPCION_DE_MAKO, tests/prueba-plan.test.ts).
+  assert.match(f, /\.eq\('workspace_id', plataforma\)\.eq\('alta_ws', ws\)\.eq\('tipo', 'suscripcion'\)\.or\(FILTRO_SUSCRIPCION_DE_MAKO\)/,
     'sin `alta_ws = ws`, un negocio daría de baja el plan de otro');
 });
 
@@ -125,11 +126,11 @@ test('la pantalla: dos pasos (el botón y la confirmación), sin el portal de St
 });
 
 test('la sección, la API y los textos legales', () => {
-  const plan = seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).find((s) => s.key === 'plan');
+  const plan = seccionesNegocio({ integraciones: false, plan: true }).find((s) => s.key === 'plan');
   assert.equal(plan?.href, '/configuraciones/plan', 'la sección no está en Configuración del negocio');
   // La plataforma no tiene un plan de MaKo: ni la sección en su índice, ni la página (visto en producción el 15/10/2026:
   // decía «SuperAdmin — Acordado con MaKo — para darte de baja, escríbenos»).
-  assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: false }).some((s) => s.key === 'plan'));
+  assert.ok(!seccionesNegocio({ integraciones: true, plan: false }).some((s) => s.key === 'plan'));
   assert.match(fuente('lib/ajustes-negocio.ts'), /plan: ws != null && ws !== plataforma,/);
   assert.match(fuente('app/configuraciones/plan/page.tsx'), /if \(ws == null \|\| ws === \(await wsSuperAdmin\(\)\)\) redirect\('\/configuraciones'\);/);
   assert.equal(porId('ver_mi_plan')?.gating?.rolMinimo, 'admin');

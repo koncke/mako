@@ -113,11 +113,12 @@ import {
   flujoParaProbar, firmaFlujo, iniciar, siguiente, pausarPorRespuesta, entrarEnRespuesta,
   escenarioParaRedactar, textoDeEjemplo, correoDeEjemplo, debeSalirDeVerdad, burbujaDeArchivo,
   hechosDeLeadNuevo, leadNuevoDelCron, elegirComoLead, sanearDestinoPrueba, contactoParaProbar, CONTACTO_COMPLETO,
-  elegir, escenariosDePrueba, reunionMinDe, type EscenarioPrueba,
+  elegir, escenariosDePrueba, reunionMinDe, tocar, esperaUnToque, type EscenarioPrueba,
   type EstadoSim, type NombresSim, type OpcionRama, type MensajePrueba, type DestinosGuardados, type ContactoPrueba, type EmisorPrueba,
   type EventoSim,
 } from '@/lib/simulador-grafo';
 import { partesDe, sinVistaPrevia, type ParteMensaje } from '@/lib/mensaje-partes';
+import { botonesDe, puertoDeBoton, type BotonSocial } from '@/lib/botones-social';
 import { ICONOS_MAS, frenoDelFlujo } from '@/lib/flujo-conversacion';
 import { TRIGGER_RECORDATORIO, EJEMPLOS_RECORDATORIO } from '@/lib/recordatorio-automatizacion';
 import { TRIGGER_AVISO_MAKO } from '@/lib/disparadores';
@@ -139,6 +140,7 @@ import {
 } from '@/lib/probar-grupo';
 import { TEXTO_SOLO_AUDIO } from '@/lib/mako-tarjeta';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -190,8 +192,9 @@ export const CANALES_PROBAR: Record<CanalProbar, DefCanalProbar> = {
  * que más importa leer— era lo que se cortaba. Ahora el renglón ENVUELVE, y la flecha va PEGADA al destino con
  * un espacio duro, así nunca queda sola al final de una línea y el destino arranca la siguiente. Pura (test).
  */
+// «SALE DESDE» (27/10/2026, la llamada con Aaron: «De otro número, el de Mac»): desde qué número sale, dicho, no sólo el nombre.
 export function lineaDeEnvio(emisor: string | null, destino: string): string {
-  return emisor ? `${emisor} →\u00a0${destino}` : `Llega a\u00a0${destino}`;
+  return emisor ? `Sale desde ${emisor} →\u00a0${destino}` : `Llega a\u00a0${destino}`;
 }
 
 /** De qué canal es un mensaje del flujo. Un paso sin canal es un WhatsApp, como en el motor. */
@@ -335,7 +338,8 @@ function SobreGmail() {
 function Inicial({ nombre }: { nombre: string }) {
   return (
     <span aria-hidden style={{ width: 32, height: 32, borderRadius: '50%', flex: 'none', background: 'var(--primary)', color: 'var(--on-primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
-      {(nombre.trim()[0] ?? '·').toUpperCase()}
+      {/* La primera LETRA (lib/unicode-seguro): `trim()[0]` partía un emoji y daba React #418. */}
+      {iniciales(nombre, 1, '·')}
     </span>
   );
 }
@@ -759,8 +763,8 @@ export function MenuDestinos({ refCaja, esEmail, guardados, onElegir, nuevo, onN
         </div>
       )}
       {emisor && (
-        <div role="group" aria-label="De" style={{ borderBottom: '1px solid var(--border)', marginBottom: 4, paddingBottom: 4 }}>
-          <div style={rotuloSeccion}>De</div>
+        <div role="group" aria-label="Sale desde" style={{ borderBottom: '1px solid var(--border)', marginBottom: 4, paddingBottom: 4 }}>
+          <div style={rotuloSeccion}>Sale desde</div>
           {emisor.opciones === null && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--faint)' }}>Cargando…</div>}
           {emisor.opciones === 'error' && <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--dim)' }}>{esEmail ? 'No pude leer tu remitente' : 'No pude leer tus números'}</div>}
           {Array.isArray(emisor.opciones) && emisor.opciones.length === 0 && (
@@ -1178,6 +1182,23 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
   const firma = () => ctx.current.negocio || 'Tu negocio';
   const nuevoId = (pre: string) => `${pre}-${++seq.current}`;
   const poner = (m: HiloMsg) => { msgsRef.current = [...msgsRef.current, m]; setMensajes(msgsRef.current); };
+  /**
+   * LOS BOTONES DE CADA DM DE LA PRUEBA (25/10/2026), por el id de su globo: el panel social los dibuja y quien prueba los toca
+   * (`tocarEnLaPrueba`). Con la tarjeta de la que salió el DM, que es lo que `tocar` necesita.
+   */
+  const [botonesMsg, setBotonesMsg] = useState<ReadonlyMap<string, { nodo: string; botones: BotonSocial[] }>>(new Map());
+  const botonesRef = useRef(new Map<string, { nodo: string; botones: BotonSocial[] }>());
+  const ponerBotones = (msgId: string, nodo: string, botones: BotonSocial[]) => {
+    botonesRef.current = new Map(botonesRef.current).set(msgId, { nodo, botones });
+    setBotonesMsg(botonesRef.current);
+  };
+  /** «Toca un botón para seguir», una vez por espera. */
+  const avisoToque = useRef(false);
+  const limpiarBotones = () => { botonesRef.current = new Map(); setBotonesMsg(botonesRef.current); avisoToque.current = false; };
+  /** Un DM con botones y nada más que correr: la prueba espera el toque (sin «Fin»), y lo dice una vez. */
+  const siEsperaUnToque = (estado: EstadoSim) => {
+    if (esperaUnToque(estado) && !avisoToque.current) { avisoToque.current = true; sistema('Toca un botón para seguir'); }
+  };
   /** El mail que acaba de llegar es el único que entra con la animación (`entra` de la bandeja). */
   const [entra, setEntra] = useState<string | null>(null);
   const ponerCorreo = (c: CorreoRecibido) => { correosRef.current = [...correosRef.current, c]; setCorreos(correosRef.current); setEntra(c.id); };
@@ -1244,6 +1265,18 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     }
   };
   /** La pastilla de una espera, un salto o una ⚡ Acción. La «MaKo en WhatsApp», en WhatsApp, además le escribe al grupo. */
+  /**
+   * LA PRUEBA A/B (tanda A3): la rama no sale de los hechos del lead. La elige el ESCENARIO de la barra (uno por rama); sin
+   * escenario, la A. Se dice por cuál siguió.
+   */
+  const seguirPruebaAB = (evento: Extract<EventoSim, { t: 'ab' }>) => {
+    const forzado = escRef.current?.elecciones[evento.nodo];
+    const op = evento.opciones.find((o) => o.puerto === forzado) ?? evento.opciones[0];
+    if (!op) { sistema('Fin'); setTerminado(true); return; }
+    simRef.current = elegir(simRef.current, op.puerto);
+    sistema(`🧪 Prueba A/B: sigue por ${op.texto}`);
+    luego(PILDORA_MS, avanzar);
+  };
   const pildora = (e: Extract<EventoSim, { t: 'espera' | 'accion' | 'salto' }>) => {
     if (e.t === 'accion' && ctx.current.canal === 'whatsapp' && vaAlGrupo(e.paso)) alGrupo(e.paso);
     else sistema(e.texto);
@@ -1319,7 +1352,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
    * es innecesario»): al lead le llega una nota de voz, no un texto debajo.
    */
   // `sinTarjeta`: los links del texto sin la vista previa, como al lead (`sinVistaPrevia` del paso, #869).
-  const mostrarParte = (parte: ParteMensaje, clave: string, enRespuesta: boolean, sinTarjeta = false) => {
+  const mostrarParte = (parte: ParteMensaje, clave: string, enRespuesta: boolean, sinTarjeta = false, botones?: { nodo: string; lista: BotonSocial[] }) => {
     const c = ctx.current;
     const ahora = new Date().toISOString();
     if (parte.tipo === 'audio') {
@@ -1339,7 +1372,10 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       return;
     }
     const texto = textoDeEjemplo(parte.cuerpo, c.negocio, datosDelMomento());
-    poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: texto.trim() || 'Sin escribir', fecha: ahora });
+    const id = nuevoId('tx');
+    poner({ id, fromMe: false, autor: firma(), texto: texto.trim() || 'Sin escribir', fecha: ahora });
+    // Los botones van con la ÚLTIMA parte de texto, como los manda el motor (lib/canal-zernio.ts).
+    if (botones?.lista.length) ponerBotones(id, botones.nodo, botones.lista);
     if (texto.trim()) mandarReal({ canal: 'whatsapp', tipo: 'texto', texto, ...(sinTarjeta ? { sin_vista_previa: true } : {}) }, clave, enRespuesta);
   };
 
@@ -1366,10 +1402,14 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
       if (!lista.length) { poner({ id: nuevoId('tx'), fromMe: false, autor: firma(), texto: 'Sin escribir', fecha: ahora }); return 0; }
       // `luego` corta solo si la prueba se reinicia en el medio (↻, el lead que escribe).
       const sinTarjeta = sinVistaPrevia(p);
+      // Un DM de Instagram o Messenger con botones (25/10/2026): van debajo de su último texto.
+      const bts = esCanalSocial(p.canal) ? botonesDe(p) : [];
+      const ultimoTexto = lista.map((x) => x.tipo).lastIndexOf('texto');
       lista.forEach((parte, k) => {
         const clave = lista.length > 1 ? `${nodo}#${k}` : nodo;
-        if (k === 0) mostrarParte(parte, clave, enRespuesta, sinTarjeta);
-        else luego(k * ENTRE_PARTES_MS, () => mostrarParte(parte, clave, enRespuesta, sinTarjeta));
+        const conBotones = bts.length && k === ultimoTexto ? { nodo, lista: bts } : undefined;
+        if (k === 0) mostrarParte(parte, clave, enRespuesta, sinTarjeta, conBotones);
+        else luego(k * ENTRE_PARTES_MS, () => mostrarParte(parte, clave, enRespuesta, sinTarjeta, conBotones));
       });
       return (lista.length - 1) * ENTRE_PARTES_MS;
     }
@@ -1381,11 +1421,30 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     return 0;
   };
 
+  /**
+   * QUIEN PRUEBA TOCA UN BOTÓN DEL DM (25/10/2026): el toque sale como lo ve el lead (su texto, de su lado) y la prueba sigue
+   * por la tarjeta del botón (`tocar`, como `tocarBoton` del motor). Uno de link abre la página. No cuenta como que contestó.
+   */
+  const tocarEnLaPrueba = (msgId: string, b: BotonSocial) => {
+    const x = botonesRef.current.get(msgId);
+    if (!x) return;
+    if (b.url) { window.open(b.url, '_blank', 'noopener,noreferrer'); return; }
+    const antes = simRef.current;
+    const despues = tocar(antes, x.nodo, puertoDeBoton(b.id));
+    poner({ id: nuevoId('tq'), fromMe: true, texto: b.titulo, fecha: new Date().toISOString() });
+    if (despues === antes) { sistema('Ese botón no lleva a ninguna tarjeta'); return; }
+    simRef.current = despues;
+    avisoToque.current = false;
+    setTerminado(false);
+    // Si la prueba estaba quieta esperando el toque, arranca; si corría, el camino nuevo ya está en la cola.
+    if (esperaUnToque(antes) || antes.hilos.length === 0) luego(ENTRE_MS, avanzar);
+  };
+
   /** Corre UN evento del flujo y agenda el que sigue. */
   function avanzar() {
     const { evento, estado } = siguiente(flujoRef.current, simRef.current, ctx.current.nombres);
     simRef.current = estado;
-    if (!evento) return;
+    if (!evento) { siEsperaUnToque(estado); return; }
     switch (evento.t) {
       case 'mensaje': {
         const paso = evento.paso as PasoSecuenciaDto;
@@ -1437,6 +1496,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         pildora(evento);
         luego(PILDORA_MS, avanzar);
         return;
+      case 'ab': seguirPruebaAB(evento); return;
       // ⚠️ CUARTA TANDA, PUNTOS 3 Y 17: «elimina los botones de "Tiene WhatsApp" y "Si no", eso no
       // tiene sentido». Con una condición primera la prueba se quedaba PARADA esperando la rama. Sin
       // botones, la condición se decide sola.
@@ -1488,6 +1548,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     simRef.current = iniciar(flujoVivo, { medio: medioIA, reunionMin: reunionDeLaPrueba() });
     contactoRef.current = contactoDe(flujoVivo);
     msgsRef.current = [];
+    limpiarBotones();
     correosRef.current = [];
     yaSalioUno.current = false;
     enviadosReal.current = new Set();
@@ -1781,7 +1842,8 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     case 'instagram':
     case 'messenger':
       // El DM como lo ve el lead (parte «canales»): el MISMO recorrido, con la cara de Instagram o Messenger.
-      simulador = <SimuladorSocial key={escenarioSel?.id ?? 'uno'} canal={canal} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio} />;
+      simulador = <SimuladorSocial key={escenarioSel?.id ?? 'uno'} canal={canal} mensajes={mensajes} typing={typing} onEnviarTexto={enviarTexto} negocio={negocio}
+        botones={botonesMsg} onTocar={tocarEnLaPrueba} />;
       break;
     case 'whatsapp':
     default:
@@ -1850,7 +1912,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         {rolAdmin && !real && !social && !enElGrupo && (sinConectar
           // SIN CONECTAR, «Conectar» (GENERAL 6): el modal del medio ahí mismo, sin salir de la pestaña.
           ? <Button size="sm" data-conectar-medio={medioProbar ?? undefined} aria-haspopup="dialog" onClick={() => { cerrarMenu(); setVinculando('conectar'); }}>Conectar</Button>
-          : <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu}
+          : <Button ref={setBtnProbar} size="sm" aria-haspopup="dialog" aria-expanded={menu} title={rotuloEmisor ? `Sale desde: ${rotuloEmisor}` : undefined}
             onClick={() => (menu ? cerrarMenu() : !frenado() && setMenu(true))}>{def.probarEn}</Button>
         )}
         <button type="button" onClick={() => reiniciar()} title="Reiniciar" aria-label="Reiniciar" style={iconBtn}>↻</button>

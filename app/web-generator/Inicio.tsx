@@ -138,6 +138,13 @@ export type PropsInicio = {
   ahora: number;
   /** Lo que pide la URL para la derecha (`derechaDeQuery`, en la página). */
   derechaInicial: Derecha;
+  /**
+   * Montado ADENTRO del editor, en lugar de la barra y el lienzo (24/10/2026, Martín: «Cuando le doy a "Nueva landing" NO me
+   * debe redireccionar a otra ruta... Y la sidebar no debe cambiar... Solamente debe aparecer el "¿Qué vas a crear hoy?" con
+   * los templates en lugar de la topbar de edición y el lienzo»). Sin la barra de documentos (la de la izquierda es la tarjeta
+   * del editor), sin tocar la URL (es la de la landing abierta) y con la lista leída al montar.
+   */
+  embebido?: boolean;
 };
 
 type PlantillaGaleria = Plantilla | PlantillaPresentacion;
@@ -188,22 +195,25 @@ export function Inicio(props: PropsInicio) {
     return () => window.clearInterval(t);
   }, []);
 
-  // Ctrl/⌘ K = «Ir a» (Gamma): enfoca la búsqueda.
+  // Ctrl/⌘ K = «Ir a» (Gamma): enfoca la búsqueda. Adentro del editor no hay «Ir a».
   useEffect(() => {
+    if (props.embebido) return;
     const tecla = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); busqueda.current?.focus(); }
     };
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
-  }, []);
+  }, [props.embebido]);
 
-  // La derecha viaja en la URL (sin recargar: history.replaceState conserva el ?ws=).
+  // La derecha viaja en la URL (sin recargar: history.replaceState conserva el ?ws=). Adentro del editor la URL es la de la
+  // landing abierta y no se toca: «Nueva landing» no navega.
   useEffect(() => {
+    if (props.embebido) return;
     // Sin nada que escribir queda `?panel=1`: `/web-generator` pelado ya no es el Panel sino la última landing (page.tsx,
     // 24/10/2026), y un F5 sobre el Panel tiene que seguir en el Panel.
     const s = queryDeDerecha(window.location.search, derecha) || '?panel=1';
     if (s !== window.location.search) window.history.replaceState(null, '', window.location.pathname + s + window.location.hash);
-  }, [derecha]);
+  }, [derecha, props.embebido]);
 
   // El campo de «Cambiar nombre» toma el foco con el texto elegido, como en Gamma.
   const idRenombrando = renombrando?.id ?? null;
@@ -402,6 +412,12 @@ export function Inicio(props: PropsInicio) {
     setErrorLista(null);
     setLista(r.docs);
   };
+  // Adentro del editor la lista no viene del server (la página es la de una landing): se lee al montar. La usan Analizar y
+  // Replicar para reconocer una dirección que es nuestra (`derechaDeAccion`).
+  useEffect(() => {
+    if (props.embebido) void recargarLista();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez, al montar
+  }, []);
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -511,6 +527,7 @@ export function Inicio(props: PropsInicio) {
         copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
         onCerrar={cerrarDiagnostico}
         onAnalizada={sumarAnalizada}
+        onReplicarPorPartes={(u) => abrirDerechaEnElClic({ tipo: 'replicar', url: u, auto: true })}
       />
     );
   } else if (derecha.tipo === 'ia') {
@@ -527,7 +544,7 @@ export function Inicio(props: PropsInicio) {
       />
     );
   } else if (derecha.tipo === 'replicar') {
-    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} auto={derecha.auto} />;
+    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} propios={props.propios} />;
   } else if (derecha.tipo === 'plantillas') {
     contenido = (
       <>
@@ -557,11 +574,12 @@ export function Inicio(props: PropsInicio) {
   const mf = menu?.fila;
 
   return (
-    <div className="gma gp gp-panel">
+    <div className={props.embebido ? 'gma gp gp-panel gp-embebido' : 'gma gp gp-panel'}>
       <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_PANEL }} />
       <link rel="stylesheet" href={URL_FUENTE_CHROME} />
 
-      <aside className="gp-lateral" aria-label="Web Generator">
+      {/* Adentro del editor, la columna de la izquierda es la tarjeta del editor (la lista de landings): ésta no va. */}
+      {!props.embebido && <aside className="gp-lateral" aria-label="Web Generator">
         <label className="gp-ir-a">
           <Ico n="buscar" t={14} />
           <input ref={busqueda} type="search" value={q} placeholder="Ir a" aria-label="Buscar por nombre" onChange={(e) => setQ(e.target.value)} />
@@ -595,7 +613,7 @@ export function Inicio(props: PropsInicio) {
           {itemNav('temas', 'Temas', 'paleta')}
           {itemNav('papelera', 'Papelera', 'papelera')}
         </nav>
-      </aside>
+      </aside>}
 
       {/* Un <div> y no un <main>: el <main> de la pantalla es el de `Pagina` (AGENTS.md). */}
       {/* `data-vista`: el cuadro es «crear» en sus cuatro modos (la misma hoja y el mismo aire arriba). */}
@@ -888,6 +906,10 @@ function DialogoEliminar({ frase, onCerrar, onConfirmar }: { frase: string; onCe
 
 const CSS_PANEL = `
 .gp.gp-panel { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: calc(100vh - var(--barra-agencia, 0px)); background: var(--gp-fondo); }
+/* Adentro del editor («Nueva landing», 24/10/2026): ocupa el lugar de la barra y el lienzo, con el mismo borde redondeado, y
+   scrollea él (el editor tiene el alto de la ventana: hijos con flex 1 + min-height 0, AGENTS.md). */
+.gp.gp-panel.gp-embebido { grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow-y: auto; align-content: start;
+  border-radius: var(--gma-radio-xl) var(--gma-radio-xl) 0 0; box-shadow: 0 0 0 0.8px var(--gma-borde-suave); }
 .gp .gp-lateral { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: 14px 10px 10px; background: var(--gp-superficie); border-right: 1px solid var(--gp-borde-suave); }
 .gp .gp-ir-a { display: flex; align-items: center; gap: 8px; flex: none; height: 34px; margin-bottom: 8px; padding: 0 10px; border-radius: 8px; background: var(--gp-fondo); color: var(--gp-debil); }
 .gp .gp-ir-a input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 13.5px; outline: none; }

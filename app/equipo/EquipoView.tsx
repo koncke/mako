@@ -12,25 +12,27 @@
 // faltaba avisarle — el botón ya le había dicho que la invitación estaba hecha. Ahora
 // el mail sale solo (lib/invitaciones.ts) y la pantalla dice si salió o no.
 
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { ConfirmDialog } from '../_components/ChatItemMenu';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import Link from '@/app/_ui/Link';
+import { CuerpoGrupo, FilaAjustes, GrupoAjustes, SELECT_AJUSTES, TituloAjustes } from '@/app/_ui/Ajustes';
+import { Modal } from '@/app/_ui/Modal';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /** `pasarAPro`: el tope de usuarios del plan (lib/tope-equipo-reglas.ts): el cartel lleva el link para pasar a Pro. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null; pasarAPro?: string };
 
 function Aviso({ aviso }: { aviso: AvisoInvitacion }) {
   return (
-    <div style={{ fontSize: 13, fontWeight: 600, marginTop: 12, lineHeight: 1.5, color: aviso.tono === 'ok' ? 'var(--good)' : 'var(--warn)' }}>
+    <div role="status" style={{ fontSize: 13, fontWeight: 600, margin: '0 0 16px', lineHeight: 1.5, color: aviso.tono === 'ok' ? 'var(--good)' : 'var(--warn)' }}>
       {aviso.texto}
     </div>
   );
 }
 
-const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
 
 type Miembro = {
   id: number; email: string; nombre: string; foto_url: string | null;
@@ -39,12 +41,7 @@ type Miembro = {
   invitacion_enviada_at: string | null;
 };
 
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 22 };
-const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
-const labelStyle: CSSProperties = { fontFamily: MONO, fontSize: 10.5, letterSpacing: '.09em', textTransform: 'uppercase', color: 'var(--dim)', marginBottom: 6, display: 'block' };
-const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
 const chip = (bg: string, color: string): CSSProperties => ({ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 999, background: bg, color, fontSize: 11.5, fontWeight: 600, whiteSpace: 'nowrap', flex: 'none' });
-const bannerError: CSSProperties = { background: 'var(--bad-bg)', border: '1px solid var(--bad)', borderRadius: 12, padding: '11px 15px', fontSize: 13, color: 'var(--bad)', fontWeight: 600, lineHeight: 1.5, marginBottom: 16 };
 
 const ROL_OPTS = [
   { value: 'setter', label: 'Setter', sub: 'CRM, WhatsApp, Email' },
@@ -57,20 +54,18 @@ const fmtLogin = (iso: string | null) => {
   const d = new Date(iso);
   return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
 };
-const inicialesTxt = (base: string) => {
-  const p = (base || '?').trim().split(/\s+/).filter(Boolean);
-  return (p.length >= 2 ? `${p[0][0]}${p[1][0]}` : (base || '?').slice(0, 1)).toUpperCase();
-};
+const inicialesTxt = (base: string) => iniciales(base);
 
 function ChipEstado({ u }: { u: Miembro }) {
-  if (u.estado === 'activo') return <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>;
-  if (u.estado === 'suspendido') return <span style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
+  if (u.estado === 'activo') return null;
+  if (u.estado === 'suspendido') return <span className="aj-miembro__estado" style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
   // «Invitado» a secas afirmaba algo que no había pasado. Si no se le avisó, lo dice.
-  if (!u.invitacion_enviada_at) return <span style={chip('var(--bad-bg)', 'var(--bad)')}>sin avisar</span>;
-  return <span style={chip('var(--warn-bg)', 'var(--warn)')}>invitado</span>;
+  if (!u.invitacion_enviada_at) return <span className="aj-miembro__estado" style={chip('var(--bad-bg)', 'var(--bad)')}>sin avisar</span>;
+  return <span className="aj-miembro__estado" style={chip('var(--warn-bg)', 'var(--warn)')}>invitación enviada</span>;
 }
 
-export function EquipoView() {
+/** `roles`: qué ve cada rol, en la línea de «Tu equipo» (lo escribe la página: tests/tabs-retiradas.test.ts lo fija ahí). */
+export function EquipoView({ roles = null }: { roles?: ReactNode } = {}) {
   const [equipo, setEquipo] = useState<Miembro[] | null>(null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
 
@@ -86,6 +81,8 @@ export function EquipoView() {
   const [accionando, setAccionando] = useState(false);
   const [aEliminar, setAEliminar] = useState<Miembro | null>(null);
   const [avisoReenvio, setAvisoReenvio] = useState<{ id: number; aviso: AvisoInvitacion } | null>(null);
+  const [invitando, setInvitando] = useState(false);
+  const [buscar, setBuscar] = useState('');
 
   const cargar = async () => {
     setErrCarga(null);
@@ -111,6 +108,7 @@ export function EquipoView() {
       if (!j.ok) { setErrCrear(j.error ?? 'No se pudo invitar.'); setAPro(j.pasarAPro ?? null); return; }
       setNombre(''); setEmail(''); setRol('setter');
       setHintCrear(avisoInvitacion(j.invitacion, destino));
+      setInvitando(false);
       await cargar();
     } finally { setCreando(false); }
   };
@@ -136,85 +134,109 @@ export function EquipoView() {
     } finally { setAccionando(false); }
   };
 
-  if (errCarga) return <div style={bannerError}>{errCarga}</div>;
-  if (!equipo) return <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
+  // COMO MEMBERS DE LINEAR (25/10/2026, Settings copiada de Linear, docs/settings/referencia.md; Martín: «Pusiste textos previo a
+  // la configuración que están muy de sobra»). Arriba el título con «Invitar», que abre un modal (nombre, correo y rol, con qué
+  // ve cada rol al lado del rol, donde se elige); debajo, una fila por persona: la foto, su nombre y correo, su estado sólo si NO
+  // está activa, cuándo entró, el rol en un select y el «⋯» con lo demás. Se fue la tarjeta «Sumar al equipo» siempre abierta
+  // y su línea, y la línea larga de los roles arriba de la lista.
+  const titulo = (
+    <TituloAjustes titulo="Equipo" accion={<button type="button" className="aj-boton" onClick={() => { setInvitando(true); setErrCrear(null); setAPro(null); }}>Invitar</button>} />
+  );
+  if (!equipo) {
+    return (
+      <>
+        {titulo}
+        <GrupoAjustes>
+          {errCarga ? <CuerpoGrupo><p className="aj-error" role="alert" style={{ margin: 0 }}>{errCarga}<ReportarASoporte /></p></CuerpoGrupo> : <FilaAjustes titulo="Cargando…" />}
+        </GrupoAjustes>
+      </>
+    );
+  }
+
+  const q = buscar.trim().toLowerCase();
+  const visibles = q ? equipo.filter((u) => `${u.nombre} ${u.email}`.toLowerCase().includes(q)) : equipo;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Invitar */}
-      <div style={card}>
-        <div style={{ fontWeight: 600, fontSize: 16, color: 'var(--ink)', marginBottom: 16 }}>Sumar al equipo</div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr 150px auto', gap: 12, alignItems: 'end' }}>
-          <div><label style={labelStyle}>Nombre</label><input style={input} value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellido" /></div>
-          <div><label style={labelStyle}>Email</label><input style={input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@email.com" onKeyDown={(e) => { if (e.key === 'Enter' && email.trim()) invitar(); }} /></div>
-          <div><label style={labelStyle}>Rol</label><Dropdown value={rol} options={ROL_OPTS} onChange={setRol} width="100%" ariaLabel="Rol del miembro" /></div>
-          <button style={{ ...btnDark, opacity: creando || !email.trim() ? 0.5 : 1 }} disabled={creando || !email.trim()} onClick={invitar}>{creando ? 'Invitando…' : 'Invitar'}</button>
-        </div>
-        {errCrear && <div style={{ fontSize: 13, color: 'var(--bad)', fontWeight: 600, marginTop: 12 }}>{errCrear}{aPro && <> <Link href={aPro} style={{ color: 'var(--primary)' }}>Pasar a Pro</Link></>}</div>}
-        {hintCrear && <Aviso aviso={hintCrear} />}
-      </div>
+    <>
+      {titulo}
+      {hintCrear && <Aviso aviso={hintCrear} />}
 
-      {errAccion && <div style={bannerError}>{errAccion}</div>}
-
-      {equipo.length === 0 ? (
-        <div style={{ ...card, color: 'var(--dim)', fontSize: 13.5, lineHeight: 1.5 }}>
-          Todavía eres el único. Suma a tu Closer o Setter arriba.
-        </div>
-      ) : (
-        <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
-          {equipo.map((u, i) => (
-            <div key={u.id} style={{ padding: '0 18px', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 0' }}>
-              <div style={{ width: 36, height: 36, flex: 'none', borderRadius: 10, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: '#171511', overflow: 'hidden' }}>
+      <GrupoAjustes titulo={equipo.length === 1 ? '1 persona' : `${equipo.length} personas`}
+        accion={equipo.length > 5 && <input className="aj-en-linea" style={{ width: 220 }} value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Buscar" aria-label="Buscar en el equipo" />}>
+        {errAccion && <CuerpoGrupo><p className="aj-error" role="alert" style={{ margin: 0 }}>{errAccion}<ReportarASoporte /></p></CuerpoGrupo>}
+        {equipo.length === 0 ? (
+          <FilaAjustes titulo="Todavía eres el único" fin={<button type="button" className="aj-boton" data-variante="borde" onClick={() => setInvitando(true)}>Invitar</button>} />
+        ) : visibles.map((u) => (
+          <div key={u.id} className="aj-miembro">
+            <div className="aj-miembro__fila">
+              <span className="aj-miembro__foto">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                {u.foto_url ? <img src={u.foto_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : inicialesTxt(u.nombre || u.email)}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.nombre || '—'}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email}</div>
-              </div>
+                {u.foto_url ? <img src={u.foto_url} alt="" /> : inicialesTxt(u.nombre || u.email)}
+              </span>
+              <span className="aj-miembro__quien">
+                <span className="aj-miembro__nombre">{u.nombre || '—'}</span>
+                <span className="aj-miembro__correo">{u.email}</span>
+              </span>
               <ChipEstado u={u} />
-              <div style={{ flex: 'none', width: 140 }} title="Rol en el negocio">
+              <span className="aj-miembro__login" title="La última vez que entró">{fmtLogin(u.ultimo_login)}</span>
+              <div className="aj-miembro__rol" title="Rol en el negocio">
                 <Dropdown
                   value={u.rol_ws ?? 'admin'} options={ROL_OPTS}
                   onChange={(v) => accion({ action: 'rolws', id: u.id, rol_ws: v })}
                   width="100%" align="right" disabled={accionando}
-                  ariaLabel={`Rol de ${u.email}`} buttonStyle={{ padding: '6px 10px', fontSize: 12.5, borderRadius: 9 }}
+                  ariaLabel={`Rol de ${u.email}`} buttonStyle={SELECT_AJUSTES}
                 />
               </div>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)', flex: 'none', width: 118, textAlign: 'right' }} title="Último login">{fmtLogin(u.ultimo_login)}</span>
-              <Dropdown
-                value="" resetAfterSelect align="right" placeholder="Acciones"
-                ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando}
-                buttonStyle={{ padding: '7px 11px', fontSize: 12.5, borderRadius: 9 }}
+              <span className="aj-miembro__mas"><Dropdown
+                value="" resetAfterSelect align="right" placeholder="⋯" sinFlecha
+                ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando} width={40}
+                buttonStyle={{ ...SELECT_AJUSTES, justifyContent: 'center', padding: 0, fontSize: 18, border: 'none', background: 'transparent' }}
                 options={[
                   { value: 'reinvitar', label: u.invitacion_enviada_at ? 'Reenviar acceso' : 'Mandarle el acceso', icono: 'enviar' },
                   { value: 'estado', label: u.estado === 'suspendido' ? 'Reactivar' : 'Suspender', icono: u.estado === 'suspendido' ? 'activar' : 'pausar' },
-                  { value: 'eliminar', label: 'Eliminar…', icono: 'borrar' },
+                  { value: 'eliminar', label: 'Quitar del equipo…', icono: 'borrar' },
                 ]}
                 onChange={(v) => {
                   if (v === 'reinvitar') reenviar(u);
                   else if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
                   else if (v === 'eliminar') setAEliminar(u);
                 }}
-              />
+              /></span>
             </div>
             {avisoReenvio?.id === u.id && <div style={{ paddingBottom: 12 }}><Aviso aviso={avisoReenvio.aviso} /></div>}
-            </div>
-          ))}
-        </div>
+          </div>
+        ))}
+        {equipo.length > 0 && visibles.length === 0 && <FilaAjustes titulo="Nadie con ese nombre o correo" />}
+      </GrupoAjustes>
+
+      {invitando && (
+        <Modal titulo="Invitar al equipo" ancho={480} onCerrar={() => setInvitando(false)}
+          pie={(
+            <>
+              <button type="button" className="aj-boton" data-variante="texto" onClick={() => setInvitando(false)}>Cancelar</button>
+              <button type="button" className="aj-boton" disabled={creando || !email.trim()} onClick={invitar}>{creando ? 'Invitando…' : 'Invitar'}</button>
+            </>
+          )}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <label className="aj-invitar__campo"><span className="aj-rotulo">Correo</span><input className="aj-campo" type="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="persona@email.com" onKeyDown={(e) => { if (e.key === 'Enter' && email.trim()) invitar(); }} /></label>
+            <label className="aj-invitar__campo"><span className="aj-rotulo">Nombre</span><input className="aj-campo" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre y apellido" /></label>
+            <div className="aj-invitar__campo"><span className="aj-rotulo">Rol</span><Dropdown value={rol} options={ROL_OPTS} onChange={setRol} width="100%" ariaLabel="Rol del miembro" buttonStyle={{ ...SELECT_AJUSTES, height: 40 }} /></div>
+            {roles && <p className="aj-texto" style={{ margin: 0, fontSize: 13 }}>{roles}</p>}
+            {errCrear && <div className="aj-error" role="alert" style={{ margin: 0 }}>{errCrear}{aPro && <> <Link href={aPro} style={{ color: 'var(--primary)' }}>Pasar a Pro</Link></>}<ReportarASoporte /></div>}
+          </div>
+        </Modal>
       )}
 
       {aEliminar && (
         <ConfirmDialog
-          titulo={`¿Eliminar a ${aEliminar.nombre || aEliminar.email}?`}
-          detalle="Pierde el acceso al dashboard. Esta acción no se puede deshacer."
-          confirmLabel="Eliminar"
+          titulo={`¿Quitar a ${aEliminar.nombre || aEliminar.email} del equipo?`}
+          detalle="Pierde el acceso a MaKo. Esta acción no se puede deshacer."
+          confirmLabel="Quitar"
           danger
           onCancel={() => setAEliminar(null)}
           onConfirm={() => { const u = aEliminar; setAEliminar(null); accion({ action: 'eliminar', id: u.id }); }}
         />
       )}
-    </div>
+    </>
   );
 }

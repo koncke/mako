@@ -1,7 +1,7 @@
 // =============================================================================
-// Clients › Classroom (/clients/classroom) — el curso de cada servicio
+// Classroom (/classroom, la tab entera abre acá) — el curso de cada servicio
 // =============================================================================
-// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/clients/classroom/page.tsx; la ruta
+// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/classroom/page.tsx; la ruta
 // vieja (/customer-success/curso) redirige allá (docs/diseno-clients.md, D2).
 //
 // Pedido de Martín (06/10/2026), textual: «implementes la tab de "CURSO" que ya teníamos en
@@ -21,7 +21,8 @@
 
 import { redirect } from 'next/navigation';
 import { requireCapa } from '@/lib/tab-access';
-import { adminDeWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { adminDeWorkspaceActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { sacadosPorProducto } from '@/lib/comunidad-moderacion';
 import { clasesDelProducto, progresoDeClientes } from '@/lib/curso-datos';
 import { accesosDeClientes } from '@/lib/curso-admin';
 import { estilosLeidos } from '@/lib/curso-estilo-datos';
@@ -57,7 +58,7 @@ export async function PantallaClassroom({ searchParams }: { searchParams: Promis
   //    producto y la pestaña del cliente que se estaba mirando (`rutaConWs`: sin el `?ws=`, el super
   //    admin terminaría mirando su propio workspace).
   if (sp.vista === 'avance') {
-    redirect(await rutaConWs(`/clients?vista=avance${productoId ? `&producto=${productoId}` : ''}`));
+    redirect(await rutaConWs(`/classroom/clients?vista=avance${productoId ? `&producto=${productoId}` : ''}`));
   }
   const inicial: { productoId: number | null; vista: VistaCurso } = { productoId, vista: 'clases' };
 
@@ -144,10 +145,14 @@ export async function PantallaClassroom({ searchParams }: { searchParams: Promis
   try {
     const clientes = await clientesGanados();
     const ids = clientes.map((c) => c.leadId);
-    const [progreso, accesos] = await Promise.all([
+    const ws = await getWorkspaceActual();
+    const [progreso, accesos, sacados] = await Promise.all([
       progresoDeClientes(ids),
       // El acceso es lo único que puede faltar sin tumbar la tabla: sin él la columna dice «—».
       accesosDeClientes(ids).catch((e) => { console.warn('[curso] no pude leer los accesos:', mensaje(e, '')); return null; }),
+      // Los sacados de cada programa no van en su Avance ni en «Invitar alumnos» (se ven en Members → «Fuera»).
+      (ws ? sacadosPorProducto(ws) : Promise.resolve(new Map<number, Set<number>>()))
+        .catch((e) => { console.warn('[curso] no pude leer a los sacados:', mensaje(e, '')); return new Map<number, Set<number>>(); }),
     ]);
 
     // Cuántos clientes ya tienen algo en cada clase (lo vio o la contestó): lo dice el aviso de
@@ -160,7 +165,7 @@ export async function PantallaClassroom({ searchParams }: { searchParams: Promis
       const keys = s.etapas.map((e) => e.key);
       const asignacion = entrega.porServicio[s.productoId] ?? {};
       const filas = clientes
-        .filter((c) => esDelProducto(c.leadId, s.productoId, entrega.casaPorLead, asignacion))
+        .filter((c) => esDelProducto(c.leadId, s.productoId, entrega.casaPorLead, asignacion) && !sacados.get(s.productoId)?.has(c.leadId))
         .map((c): FilaAvance => {
           const etapa = etapaDelCliente(keys, asignacion[c.leadId]?.etapa);
           const a = avanceDeCliente(listas[i], keys, etapa, progreso.get(c.leadId));

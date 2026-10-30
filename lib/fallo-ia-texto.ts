@@ -24,6 +24,8 @@
 // se paga peor: manda a tocar algo que está bien.
 // =============================================================================
 
+import { conexion, rutaDeTarjeta } from './conexiones-catalogo';
+
 export type CausaFalloIA =
   /** No hay NINGUNA key cargada: sin eso MaKo no puede pensar. */
   | 'sin_keys'
@@ -199,12 +201,13 @@ export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva dato
  * contesta los turnos del chat, no los pedidos de una pantalla. La misma frase que `AVISO_SIN_ARCHIVERO` del chat
  * (lib/mako-turno-app-reglas.ts). Lo dicen pantallas del admin (las áreas y la búsqueda del Second Brain): la clave es suya.
  * `tema` va adentro de la frase: 'generar las razones', 'leer tus documentos'…
+ * Martín, 25/10/2026: ningún texto ofrece Gemini como «su IA» (docs/conexiones-y-ayuda.md, decisión 1); quien ya lo tiene, lo usa.
  */
-export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).`;
+export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude o de OpenAI (en Integraciones).`;
 
-/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude ven su OpenAI y su Gemini (IA16). El mismo criterio
- *  que `AVISO_NO_LEI_SU_IA` del chat. */
-export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude, de OpenAI o de Gemini (en Integraciones).';
+/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude ven su OpenAI (y su Gemini, si ya lo tiene: IA16). El
+ *  mismo criterio que `AVISO_NO_LEI_SU_IA` del chat, y sin ofrecer Gemini (25/10/2026). */
+export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI (en Integraciones).';
 
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
@@ -212,18 +215,81 @@ export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrado
 const NOMBRE_IA: Record<string, string> = { gemini: 'Gemini', openai: 'GPT', anthropic: 'Claude', groq: 'Groq' };
 
 /**
- * Qué IA de OTRA marca cubre a ésta, en la frase de `ia_lenta`: las que corren el turno de MaKo con herramientas, su
- * OpenAI y su Gemini (`PROVS_SU_IA`, lib/solo-su-ia.ts; se repite acá para que esto siga sin `server-only`).
- * ⚠️ CLAUDE NO VA, Y NO ES OLVIDO (24/10/2026). En WhatsApp su Claude entra sólo si el turno no corrió NINGUNA
- * herramienta (WA1, lib/mako-doer-in.ts: otro modelo después de una escritura la duplicaría), y el turno del ws15 se
- * colgó después de dos: «conecta tu Claude» le prometía un respaldo que justo en ese caso no está. Para escuchar un
- * audio tampoco: Claude no escucha (`CASCADA_STT`, lib/ai-cheap.ts).
+ * ⚠️ NINGÚN CARTEL LE OFRECE GEMINI COMO «SU IA» (Martín, 25/10/2026, por el audio de Florencia del ws21): «le sigue diciendo
+ * que debe conectar su IA de Gemini, cuando dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su
+ * claude o GPT». Reemplaza lo del 22/10 que sumaba Gemini como «su IA» (IA16). Lo que se ofrece, y dónde:
+ *   · aquí en WhatsApp, su GPT por CLAVE: es lo primero que prueba el grupo (`PROVS_SU_IA`), escucha las notas de voz y
+ *     corre los turnos con herramientas. Su Claude por clave entra sólo en un turno sin NINGUNA herramienta (WA1,
+ *     lib/mako-doer-in.ts: otro modelo después de una escritura la duplicaría; el turno del ws15 del 24/10 se colgó
+ *     después de dos), así que ofrecérselo para el grupo es prometer un respaldo que justo cuando hace falta no está. Y
+ *     Claude no escucha (`CASCADA_STT`, lib/ai-cheap.ts);
+ *   · en la app, su Claude con MaKo en su computadora (MaKo Desktop): el chat de la app ya exige la computadora
+ *     (lib/chat-mako-reglas.ts). Y desde el 25/10 (tanda 4) también el grupo, cuando escribe quien la conectó: con ella
+ *     encendida, el grupo ni llega al cartel.
+ * Un negocio que YA tiene su Gemini sigue andando con él (la cascada lo prueba): lo que no se hace es mandarlo a conectar uno.
  */
-const CUBREN_EL_TURNO = ['openai', 'gemini'] as const;
+const CUBREN_EL_TURNO = ['openai'] as const;
 const respaldosDe = (prov: string): string[] => CUBREN_EL_TURNO.filter((p) => p !== prov);
-const otrasMarcas = (prov: string): string => respaldosDe(prov).map((p) => `tu ${NOMBRE_IA[p]}`).join(' o ');
-/** El link a Integraciones con el modal del respaldo que se le sugiere (`?abrir=openai`), no el de Claude de `linkKeysIA`. */
-const conAbrir = (link: string, servicio: string): string => link.replace(/([?&]abrir=)[^&#\s]*/, `$1${servicio}`);
+
+/**
+ * LAS CONEXIONES QUE NOMBRA UN CARTEL, cada una con SU link (25/10/2026: el aviso del 24/10 al ws21 nombraba «tu Claude, tu
+ * GPT o tu Gemini, y también Fathom» con UN solo link, el de Claude). Las rutas salen del catálogo único
+ * (lib/conexiones-catalogo.ts), que son contrato: `/integraciones?abrir=<key>` abre el modal de esa tarjeta y la computadora
+ * va directo a «Conecta MaKo», que trae «Descargar MaKo» para quien no la tiene. `/second-brain`, el chat de la app (el Ops
+ * Center), no es una conexión: va aparte.
+ */
+export type ConexionDelCartel = 'openai' | 'anthropic' | 'fathom' | 'pc' | 'app' | 'perfil';
+const delCatalogo = (key: string): string => conexion(key)?.ruta ?? rutaDeTarjeta(key);
+export const RUTA_CONEXION: Record<ConexionDelCartel, string> = {
+  openai: delCatalogo('openai'),
+  anthropic: delCatalogo('anthropic'),
+  fathom: delCatalogo('fathom'),
+  pc: delCatalogo('pc'),
+  perfil: delCatalogo('perfil'),
+  app: '/second-brain',
+};
+
+/**
+ * Lo que un pedido necesita además de la IA, según el ÁREA que nombra (lib/mako-intencion.ts, `areasDelMensaje`). Hoy, el
+ * Closing: sus llamadas salen de Fathom (`gating.integracion`, lib/api-mako/areas/closing.def.ts). Es lo que preguntó
+ * Florencia el 22/10 («Estas analizando mis fathom?»): el cartel le pidió una IA y no le dijo que también le faltaba Fathom.
+ */
+const CONEXION_DEL_AREA: Record<string, ConexionDelCartel> = { closing: 'fathom' };
+export const conexionesDelPedido = (areas: readonly string[]): ConexionDelCartel[] =>
+  [...new Set(areas.map((a) => CONEXION_DEL_AREA[a]).filter((c): c is ConexionDelCartel => !!c))];
+
+/**
+ * El link de OTRA conexión, con la misma base y el mismo `?ws=` que el link que recibió el cartel. El doer arma ese link de
+ * dos formas: el de texto sin `ws` (lo suma `linksConWs` al mandar) y el del audio con él (sale directo, `linkApp`).
+ */
+export function enlaceA(link: string, conexion: ConexionDelCartel): string {
+  const base = /^https?:\/\/[^/?#]+/.exec(link)?.[0] ?? '';
+  const ws = /[?&]ws=(\d+)/.exec(link)?.[1];
+  const ruta = RUTA_CONEXION[conexion];
+  return `${base}${ruta}${ws ? `${ruta.includes('?') ? '&' : '?'}ws=${ws}` : ''}`;
+}
+
+/** Lo que el cartel sabe del negocio además de las claves (25/10/2026). */
+export type ContextoCartel = {
+  /** Alguien del negocio conectó su computadora (MaKo Desktop). En el grupo contesta sólo a quien la conectó (decisión 2). */
+  conPc?: boolean;
+  /**
+   * Lo que pasó con la computadora de QUIEN ESCRIBE, si es la persona que la conectó (el doer, `pcDeQuienEscribe`): apagada o
+   * sin internet, o no contestó a tiempo. Sin esto y con `conPc`, quien escribe no es quien la conectó.
+   */
+  laPcDelQueEscribe?: 'apagada' | 'no-contesto';
+  /** Tiene su Claude por clave: para una nota de voz, «tu Claude no escucha» en vez de «no conectaste una IA». */
+  suClaude?: boolean;
+  /** Lo que el pedido necesita además de la IA y no está conectado (`conexionesDelPedido`, filtrado por el doer). */
+  faltan?: readonly ConexionDelCartel[];
+};
+
+/** Cada conexión que falta, en una línea con su link. */
+const LINEA_FALTA: Partial<Record<ConexionDelCartel, string>> = {
+  fathom: 'Y para leer tus llamadas, conecta tu Fathom 👇',
+};
+const lineasDeLoQueFalta = (link: string, faltan: readonly ConexionDelCartel[] = []): string[] =>
+  faltan.filter((c) => LINEA_FALTA[c]).flatMap((c) => ['', LINEA_FALTA[c]!, enlaceA(link, c)]);
 
 /**
  * El doer de WhatsApp sin keys propias y con un turno que lleva datos de clientes (17/10/2026): la red gratis no corre
@@ -258,46 +324,97 @@ export function textoFalloIA(
   keysDelCliente = 1,
   /** Los errores DEL NEGOCIO con que se eligió la causa: `ia_lenta` saca de ahí qué IA fue (`proveedoresDeLosErrores`). */
   errores: readonly string[] = [],
+  ctx: ContextoCartel = {},
 ): string {
+  const gpt = enlaceA(link, 'openai');
+  // Qué IA del negocio falló, si los errores lo dicen y es UNA sola marca.
+  const provs = proveedoresDeLosErrores(errores).filter((p) => NOMBRE_IA[p]);
+  const prov = provs.length === 1 ? provs[0] : null;
   switch (causa) {
     case 'ia_lenta': {
       // ⚠️ NI «SE CAYÓ» NI «CARGA UNA SEGUNDA»: ver TIMEOUT. Dice qué pasó (y que lo cortamos nosotros: nada por
       // detrás), que lo mande de nuevo —casi siempre anda al rato— y, si TODA su IA es de una marca, qué le da respaldo.
-      const provs = proveedoresDeLosErrores(errores).filter((p) => NOMBRE_IA[p]);
-      if (provs.length !== 1) {
-        return [
-          `⚠️ No pude ${que}: tu IA tardó demasiado en responder y corté para no dejarte esperando.`,
-          '',
-          'No es nada tuyo ni de tus keys. Mándamelo de nuevo en un rato.',
-        ].join('\n');
-      }
+      // El respaldo es su GPT (`CUBREN_EL_TURNO`): con su GPT lento no se le ofrece nada, ni su Gemini.
+      const respaldo = prov ? respaldosDe(prov)[0] : undefined;
+      const quien = prov ? `${NOMBRE_IA[prov]}, tu IA,` : 'tu IA';
+      const lento = `⚠️ No pude ${que}: ${quien} tardó demasiado en responder y corté para no dejarte esperando.`;
+      if (!respaldo) return [lento, '', 'No es nada tuyo ni de tus keys. Mándamelo de nuevo en un rato.'].join('\n');
       return [
-        `⚠️ No pude ${que}: ${NOMBRE_IA[provs[0]]}, tu IA, tardó demasiado en responder y corté para no dejarte esperando.`,
+        lento,
         '',
-        `Mándamelo de nuevo. Si conectas otra IA tuya (${otrasMarcas(provs[0])}), la uso de respaldo cuando una se pone lenta 👇`,
-        conAbrir(link, respaldosDe(provs[0])[0]),
+        'Mándamelo de nuevo. Si conectas también tu GPT (una clave de OpenAI), lo uso de respaldo cuando una se pone lenta 👇',
+        gpt,
       ].join('\n');
     }
     case 'sin_keys':
       // ⚠️ IA16 (22/10/2026): CADA NEGOCIO PAGA SU IA. Decía «Las de Google y Groq son *gratis*», y desde IA16 Groq sólo
-      // escucha notas de voz: el negocio que cargaba una de Groq seguía sin MaKo, y el link abría su Claude. Lo que lo
-      // arregla es SU IA, la frase de `CONECTA_TU_IA` (lib/ia-mensajes.ts; no se importa: ese módulo importa éste).
-      // Y una nota de voz no la escucha su Claude: la escuchan su Gemini y su GPT (`CASCADA_STT`).
+      // escucha notas de voz. Desde el 25/10, sin Gemini (ver `CUBREN_EL_TURNO`) y con un link por cada cosa que falta.
+      // ⚠️ CON LA COMPUTADORA CONECTADA, «NO TIENE SU IA» ES FALSO (25/10/2026). `negocioConSuIA` da `suIA` a todo negocio
+      // con MaKo Desktop, y como la computadora no cuenta claves, la causa salía `sin_keys` y el grupo le decía «tu negocio
+      // todavía no tiene su IA conectada» a quien la tenía.
       if (que === 'escuchar tu audio') {
+        // Una nota de voz no la escucha su Claude, ni por clave ni en su computadora: la escucha su GPT.
+        if (ctx.conPc || ctx.suClaude) {
+          return [
+            '⚠️ No puedo escuchar tu audio: tu Claude no escucha notas de voz.',
+            '',
+            'Escríbemelo, o conecta tu GPT (una clave de OpenAI) y te escucho los audios 👇',
+            gpt,
+          ].join('\n');
+        }
         return [
-          '⚠️ No puedo escuchar tu audio: tu negocio no tiene conectada una IA que escuche.',
+          '⚠️ No puedo escuchar tu audio: tu negocio todavía no conectó una IA que escuche.',
           '',
-          'Las notas de voz las escucho con tu Gemini o tu GPT. Conecta uno y lo hago 👇',
-          link,
+          'Las notas de voz las escucho con tu GPT. Conecta tu clave de OpenAI y lo hago 👇',
+          gpt,
+        ].join('\n');
+      }
+      // ⚠️ DESDE LA TANDA 4 (25/10/2026), EL GRUPO DEL DUEÑO CONTESTA CON SU COMPUTADORA: «aquí no, en la app» dejó de ser cierto
+      // para quien la conectó. Lo cierto depende de qué pasó con la computadora de QUIEN ESCRIBE (`laPcDelQueEscribe`).
+      if (ctx.conPc && ctx.laPcDelQueEscribe === 'apagada') {
+        return [
+          `⚠️ No puedo ${que}: tu computadora con MaKo está apagada o sin internet, y aquí te contesto desde ella.`,
+          '',
+          'Préndela y mándamelo de nuevo. Para que te conteste aunque esté apagada, conecta también tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          ...lineasDeLoQueFalta(link, ctx.faltan),
+        ].join('\n');
+      }
+      if (ctx.conPc && ctx.laPcDelQueEscribe === 'no-contesto') {
+        return [
+          `⚠️ No pude ${que}: tu computadora con MaKo no me contestó a tiempo.`,
+          '',
+          'Mándamelo de nuevo en un rato. Para que te conteste aunque tu computadora no responda, conecta también tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          ...lineasDeLoQueFalta(link, ctx.faltan),
+        ].join('\n');
+      }
+      if (ctx.conPc) {
+        return [
+          `⚠️ Aquí no puedo ${que}: la IA de tu negocio está en una computadora con MaKo, y en WhatsApp contesta sólo a quien la conectó, desde su número.`,
+          '',
+          'Para que te conteste a ti aquí, conecta tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          '',
+          'Si la conectaste tú, revisa que tu número de WhatsApp esté en tu perfil de MaKo 👇',
+          enlaceA(link, 'perfil'),
+          '',
+          'Y en la app te contesto con MaKo en tu computadora 👇',
+          enlaceA(link, 'app'),
+          ...lineasDeLoQueFalta(link, ctx.faltan),
         ].join('\n');
       }
       return [
-        `⚠️ No puedo ${que}: tu negocio todavía no tiene su IA conectada.`,
+        `⚠️ No puedo ${que}: tu negocio todavía no conectó su IA.`,
         '',
-        'Pienso con la IA de tu negocio. Conecta tu Claude, tu GPT o tu Gemini y lo hago 👇',
-        link,
+        'Para que te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
+        gpt,
+        '',
+        'O instala MaKo en tu computadora y conecta tu Claude: te contesto aquí y en la app 👇',
+        enlaceA(link, 'pc'),
+        ...lineasDeLoQueFalta(link, ctx.faltan),
       ].join('\n');
-    case 'sin_cuota':
+    case 'sin_cuota': {
       // ⚠️ CON VARIAS CUENTAS, EL TEXTO DE UNA SOLA ES UN INSULTO. Le pedía
       // «cargá otra, podés tener varias y las voy rotando» a alguien que ya tenía
       // TRES cargadas. El dueño lo reportó así: «no puede ser que tengo 3 API de
@@ -325,27 +442,39 @@ export function textoFalloIA(
       // proveedor que contestó devolvió OCHO veces HTTP 200. `keysDelCliente` sigue
       // eligiendo la RAMA (con dos o más, pedirle «cargá otra» es un insulto) y ya no
       // sale escrito: son dos preguntas distintas y una sola no las puede contestar.
+      // El link abre el modal de la IA que llegó al tope (otra cuenta de esa); si fue su Gemini, el de su GPT: no se lo
+      // manda a conectar otro Gemini (ver `CUBREN_EL_TURNO`).
+      const otraCuenta = prov === 'openai' || prov === 'anthropic' ? enlaceA(link, prov) : gpt;
       if (keysDelCliente >= 2) {
         return [
           `⚠️ No puedo ${que}: la IA que tengo conectada me está rebotando por límite.`,
           '',
           'Puede ser el límite por minuto o el del día. Si es el del minuto se destraba solo: vuelve a intentarlo en un rato. Si sigue igual, una cuenta más lo resuelve 👇',
-          link,
+          otraCuenta,
         ].join('\n');
       }
       return [
         `⚠️ Te quedaste sin cuota de IA, por eso no puedo ${que}.`,
         '',
         'Tu API key llegó al tope. Puede ser el del minuto —y ahí se destraba solo en un rato— o el del día. Si cargas otra sigo funcionando *ahora*: puedes tener varias y las voy rotando 👇',
-        link,
+        otraCuenta,
       ].join('\n');
-    case 'sin_respaldo':
+    }
+    case 'sin_respaldo': {
+      // ⚠️ NI «SE CAYÓ» NI «CARGA UNA SEGUNDA (SON GRATIS)» (25/10/2026). No sabemos que se cayó: no contestó. Y desde IA16
+      // nada es gratis; una segunda del MISMO proveedor no cubre su bache, y su Gemini no se ofrece (`CUBREN_EL_TURNO`). Lo
+      // que lo cubre es su GPT, salvo que su única IA YA sea su GPT: ahí no hay otra que ofrecer (su Claude no corre los
+      // turnos con herramientas ni escucha audios), y se dice sólo que lo mande de nuevo.
+      const respaldo = prov ? respaldosDe(prov)[0] : undefined;
+      const noContesto = `⚠️ ${prov ? `${NOMBRE_IA[prov]}, tu IA,` : 'Tu IA'} no me contestó justo ahora y no pude ${que}.`;
+      if (!respaldo) return [noContesto, '', 'Mándamelo de nuevo en un rato.'].join('\n');
       return [
-        `⚠️ Tu proveedor de IA se cayó justo ahora y no puedo ${que}.`,
+        noContesto,
         '',
-        'Tienes *una sola* API key cargada, así que cuando esa falla me quedo sin nada. Carga una segunda (son gratis) y esto deja de frenarte 👇',
-        link,
+        'Mándamelo de nuevo en un rato. Tienes *una sola* IA conectada: si conectas también tu GPT (una clave de OpenAI), lo uso de respaldo cuando la otra falla 👇',
+        gpt,
       ].join('\n');
+    }
     case 'proveedor_caido':
       // ⚠️ ACÁ NO SE CULPA A NADIE, y es a propósito: tiene sus keys en orden. Un
       // mensaje que lo mande a revisar su configuración le hace perder el tiempo
@@ -378,16 +507,17 @@ export function textoFalloIA(
 }
 
 /**
- * La pantalla donde se cargan las keys, con el modal ya abierto. Su Claude (IA9); para una nota de voz, su Gemini
- * (24/10/2026): su Claude no escucha audio, y el modal de Claude le pedía al negocio algo que no lo arregla.
+ * La pantalla de la IA que destraba a MaKo en WhatsApp, con el modal ya abierto: su GPT, para texto Y para audio (25/10/2026,
+ * ver `CUBREN_EL_TURNO`). Antes, su Claude para el texto (IA9) y su Gemini para la nota de voz (24/10), y las dos cosas
+ * mandaban a conectar algo que en el grupo no lo resuelve: su Claude no corre los turnos con herramientas ni escucha, y
+ * Gemini no se ofrece. Las otras conexiones que nombra un cartel salen de éste con `enlaceA`.
  * ⚠️ Lo que sale por WhatsApp va con su `?ws=` (`linkApp`, lib/app-url.ts): el aviso de la nota de voz se manda directo, sin
  * pasar por `linksConWs` como la respuesta de texto, y salía sin él.
  */
-export const rutaKeysIA = (uso: 'texto' | 'audio' = 'texto'): string =>
-  `/integraciones?abrir=${uso === 'audio' ? 'gemini' : 'anthropic'}`;
+export const rutaKeysIA = (): string => RUTA_CONEXION.openai;
 
 /** `rutaKeysIA` con la base de la app adelante. */
-export const linkKeysIA = (base: string, uso: 'texto' | 'audio' = 'texto'): string => `${base}${rutaKeysIA(uso)}`;
+export const linkKeysIA = (base: string): string => `${base}${rutaKeysIA()}`;
 
 /**
  * QUÉ CARTEL SALE en el doer de WhatsApp cuando ninguna IA contestó (24/10/2026, el incidente del ws21): el texto Y la fila
@@ -401,4 +531,19 @@ export const linkKeysIA = (base: string, uso: 'texto' | 'audio' = 'texto'): stri
  */
 export function cartelDelFallo(causa: CausaFalloIA, erroresRed: readonly string[]): CausaFalloIA | 'sin_red_por_datos' {
   return causa === 'sin_keys' && sinRedPorDatos(erroresRed) ? 'sin_red_por_datos' : causa;
+}
+
+/**
+ * EL MOTIVO DE LA FILA `cartel-ia`, CON EL TEXTO QUE LE LLEGÓ A LA PERSONA (25/10/2026). El cartel no entra al historial del
+ * grupo (`avisoDeSistema`, lib/mako-doer-in.ts), y la fila decía sólo «ws21 · consultar · 0 keys · 0 probadas · 0
+ * contestaron»: lo que leyó Florencia el 22/10 hubo que reconstruirlo desde el código de esa hora. El vigía
+ * (lib/vigia-mako-grupos.ts) lee este motivo; el `ws` va primero porque de ahí saca el negocio. El texto va antes que los
+ * errores, que son largos, y en una sola línea.
+ */
+export const MOTIVO_CARTEL_MAX = 1500;
+export function motivoDelCartel(datos: readonly string[], texto: string, errores: readonly string[] = []): string {
+  const enUnaLinea = texto.split('\n').map((l) => l.trim()).filter(Boolean).join(' / ');
+  const partes = [...datos.filter(Boolean), `texto: «${enUnaLinea}»`];
+  if (errores.length) partes.push(`errores: ${errores.join(' · ').slice(0, 300)}`);
+  return partes.join(' · ').slice(0, MOTIVO_CARTEL_MAX);
 }

@@ -12,12 +12,13 @@
 // la PC decide si la acepta.
 
 import { useCallback, useEffect, useState } from 'react';
-import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo } from '@/lib/operaciones-reglas';
+import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo, type VozDelPedido } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
+import { ERROR_SUBIDA, porQueFallo } from './leer-adjunto';
 
 /** A quién va: la SESIÓN del chat (nunca su título: se repiten entre cuentas). */
 /** `tope`: el largo que acepta el Runner de esa cuenta (useCentro.ts → topeDe); sin él, el de siempre (MAX_TEXTO). */
@@ -46,18 +47,14 @@ export function useFirma(sub: string) {
     }
   }, [sub]);
 
-  const mandar = useCallback(async (d: DestinoTrabajo, texto: string, alcance: Alcance, como: ComoCorre = {}, adjuntos: readonly AdjuntoPedido[] = []): Promise<ResultadoMandar> => {
-    if (!clave) return { ok: false, error: 'Crea tu Token para comenzar a chatear' };
-    if (!texto.trim() && !adjuntos.length) return { ok: false, error: 'Escribe algo para mandarlo' };
-    // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
-    const tope = d.tope ?? MAX_TEXTO;
-    if (texto.length > tope) return { ok: false, error: `Acórtalo a ${tope} caracteres para mandarlo` };
-    // Una clave pegada NO SALE (22/10/2026): lo firmado se guarda tal cual en el pedido y en lo que sube el cartero.
-    if (hayClave(texto)) return { ok: false, error: AVISO_CLAVE_EN_EL_CENTRO };
+  /** `voz`: lo que se manda es la transcripción de una nota de voz (26/10/2026). Va firmado; la PC entrega el texto igual. */
+  const mandar = useCallback(async (d: DestinoTrabajo, texto: string, alcance: Alcance, como: ComoCorre = {}, adjuntos: readonly AdjuntoPedido[] = [], voz: VozDelPedido | null = null): Promise<ResultadoMandar> => {
+    const antes = problemaAntesDeMandar(!!clave, texto, adjuntos.length > 0, d.tope);
+    if (antes || !clave) return { ok: false, error: antes ?? 'Crea tu Token para comenzar a chatear' };
     try {
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,
-        modelo: como.modelo ?? null, esfuerzo: como.esfuerzo ?? null, adjuntos,
+        modelo: como.modelo ?? null, esfuerzo: como.esfuerzo ?? null, adjuntos, voz,
       }, Date.now());
       const firmado = armarFirmable(payload);
       const firma = await firmar(clave, firmado);
@@ -69,6 +66,20 @@ export function useFirma(sub: string) {
   }, [clave]);
 
   return { clave, crear, mandar };
+}
+
+/**
+ * Lo que se sabe ANTES de subir y de firmar nada (27/10/2026): el mensaje se dibuja en el acto y sale por detrás
+ * (envios-en-curso.ts), así que lo que ya se sabe que no sale se dice en el acto, y la caja no se vacía. null = puede salir.
+ */
+export function problemaAntesDeMandar(conClave: boolean, texto: string, conAdjuntos: boolean, tope: number = MAX_TEXTO): string | null {
+  if (!conClave) return 'Crea tu Token para comenzar a chatear';
+  if (!texto.trim() && !conAdjuntos) return 'Escribe algo para mandarlo';
+  // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
+  if (texto.length > tope) return `Acórtalo a ${tope} caracteres para mandarlo`;
+  // Una clave pegada NO SALE (22/10/2026): lo firmado se guarda tal cual en el pedido y en lo que sube el cartero.
+  if (hayClave(texto)) return AVISO_CLAVE_EN_EL_CENTRO;
+  return null;
 }
 
 /** El texto de un trabajo que sólo lleva adjuntos: vive en lib/centro-caja.ts (la burbuja no lo muestra, como WhatsApp). */
@@ -89,21 +100,29 @@ export async function subirAdjuntos(
   if (grandes) return subirDirecto(archivos);
   const fallo = { ok: false as const, error: 'No pude subir los adjuntos: vuelve a mandarlo' };
   try {
-    const propios = await Promise.all(archivos.map(async (f) => ({ bytes: f.size, sha256: hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())) })));
+    // Cada falla dice la suya (ticket #8, 25/10/2026): el genérico de abajo queda para lo que no se esperaba.
+    const propios: { bytes: number; sha256: string }[] = [];
+    for (const f of archivos) {
+      try { propios.push({ bytes: f.size, sha256: hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())) }); }
+      catch { return { ok: false, error: ERROR_SUBIDA.leer(f.name) }; }
+    }
     const fd = new FormData();
     for (const f of archivos) fd.append('adjuntos', f, f.name);
-    const r = await fetch('/api/operaciones/adjuntos', { method: 'POST', body: fd, signal: AbortSignal.timeout(120_000) });
+    let r: Response;
+    try { r = await fetch('/api/operaciones/adjuntos', { method: 'POST', body: fd, signal: AbortSignal.timeout(120_000) }); }
+    catch { return { ok: false, error: ERROR_SUBIDA.red }; }
     // El 413 de Vercel es TEXTO PLANO: se lee como texto antes de parsear.
     if (r.status === 413) return { ok: false, error: ERROR_ADJUNTO.pesado };
     let o: { ok?: boolean; error?: string; adjuntos?: AdjuntoPedido[] } = {};
-    try { o = JSON.parse(await r.text()); } catch { return fallo; }
-    if (!r.ok || !o.ok) return { ok: false, error: o.error || fallo.error };
+    try { o = JSON.parse(await r.text()); } catch { return { ok: false, error: ERROR_SUBIDA.servidor(r.status) }; }
+    if (!r.ok || !o.ok) return { ok: false, error: o.error || ERROR_SUBIDA.servidor(r.status) };
     const suyos = o.adjuntos;
-    if (!Array.isArray(suyos) || suyos.length !== archivos.length) return fallo;
+    if (!Array.isArray(suyos) || suyos.length !== archivos.length) return { ok: false, error: ERROR_SUBIDA.servidor(r.status) };
     if (suyos.some((a, i) => a.sha256 !== propios[i].sha256 || a.bytes !== propios[i].bytes)) return { ok: false, error: 'Un adjunto llegó distinto: vuelve a mandarlo' };
     return { ok: true, adjuntos: suyos.map((a, i) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: propios[i].bytes, sha256: propios[i].sha256 })) };
-  } catch {
-    return fallo;
+  } catch (e) {
+    // Lo que no se esperaba dice qué fue (27/10/2026): leer, la red o su nombre (leer-adjunto.ts → porQueFallo).
+    return { ok: false, error: porQueFallo(e) || fallo.error };
   }
 }
 
@@ -117,31 +136,40 @@ async function subirDirecto(archivos: readonly File[]): Promise<{ ok: true; adju
   try {
     const propios: { nombre: string; mime: MimeAdjunto; bytes: number; sha256: string }[] = [];
     for (const f of archivos) {
-      const b = new Uint8Array(await f.arrayBuffer());
+      // `<ArrayBuffer>`: crypto.subtle.digest pide un BufferSource respaldado por un ArrayBuffer, y el `Uint8Array` pelado de
+      // TypeScript 5.7+ es `<ArrayBufferLike>` (podría ser un SharedArrayBuffer): el chequeo de tipos entero lo frenaba.
+      let b: Uint8Array<ArrayBuffer>;
+      try { b = new Uint8Array(await f.arrayBuffer()); } catch { return { ok: false, error: ERROR_SUBIDA.leer(f.name) }; }
       const mime = mimeDeArchivoCentro(b, f.name);
       if (!mime || !(MIMES_ADJUNTO as readonly string[]).includes(mime)) return { ok: false, error: 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' };
       const nombre = f.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, MAX_NOMBRE_ADJUNTO) || 'adjunto';
       propios.push({ nombre, mime: mime as MimeAdjunto, bytes: b.byteLength, sha256: hex(await crypto.subtle.digest('SHA-256', b)) });
     }
-    const r = await fetch('/api/operaciones/adjuntos', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify({ archivos: propios.map(({ nombre, mime, bytes }) => ({ nombre, mime, bytes })) }),
-    });
+    let r: Response;
+    try {
+      r = await fetch('/api/operaciones/adjuntos', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({ archivos: propios.map(({ nombre, mime, bytes }) => ({ nombre, mime, bytes })) }),
+      });
+    } catch { return { ok: false, error: ERROR_SUBIDA.red }; }
     let o: { ok?: boolean; error?: string; subidas?: { ref: string; url: string }[] } = {};
-    try { o = JSON.parse(await r.text()); } catch { return fallo; }
-    if (!r.ok || !o.ok || !Array.isArray(o.subidas) || o.subidas.length !== archivos.length) return { ok: false, error: o.error || fallo.error };
+    try { o = JSON.parse(await r.text()); } catch { return { ok: false, error: ERROR_SUBIDA.servidor(r.status) }; }
+    if (!r.ok || !o.ok || !Array.isArray(o.subidas) || o.subidas.length !== archivos.length) return { ok: false, error: o.error || ERROR_SUBIDA.servidor(r.status) };
     const subidas = o.subidas;
     // De a uno: un minuto, más uno por cada 100 KB (un archivo grande por una conexión lenta entra).
     for (const [i, f] of archivos.entries()) {
-      const s = await fetch(subidas[i].url, {
-        method: 'PUT', body: f, headers: { 'content-type': propios[i].mime, 'x-upsert': 'false' },
-        signal: AbortSignal.timeout(60_000 + Math.ceil(f.size / 100_000) * 1000),
-      });
-      if (!s.ok) return { ok: false, error: `No pude subir «${propios[i].nombre}»: vuelve a mandarlo` };
+      let s: Response;
+      try {
+        s = await fetch(subidas[i].url, {
+          method: 'PUT', body: f, headers: { 'content-type': propios[i].mime, 'x-upsert': 'false' },
+          signal: AbortSignal.timeout(60_000 + Math.ceil(f.size / 100_000) * 1000),
+        });
+      } catch { return { ok: false, error: ERROR_SUBIDA.red }; }
+      if (!s.ok) return { ok: false, error: ERROR_SUBIDA.almacen(propios[i].nombre, s.status) };
     }
     return { ok: true, adjuntos: propios.map((p, i) => ({ ref: subidas[i].ref, ...p })) };
-  } catch {
-    return fallo;
+  } catch (e) {
+    return { ok: false, error: porQueFallo(e) || fallo.error };
   }
 }
 

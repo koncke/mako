@@ -92,7 +92,7 @@ const LOADING_PERMITIDOS = [
   // router de Next y la app entera cayó. Una página que redirige siempre no lleva loading.tsx (lo fija tests/cargando-mako.test.ts).
   'app/chats/loading.tsx',
   'app/calendario/loading.tsx',
-  'app/clients/loading.tsx',
+  'app/classroom/loading.tsx',
   'app/offer/loading.tsx',
   'app/web-generator/loading.tsx',
   'app/ads-manager/loading.tsx',
@@ -200,7 +200,7 @@ const PAGINAS: Array<[string, () => ReactElement, string, number?]> = [
   ['/terminos', () => createElement(Terminos), 'Responsable del servicio'],
   // La política de reembolsos (11/10/2026): la piden Stripe y Mercado Pago para aprobar la cuenta, y
   // su revisor la abre sin cuenta y puede que sin JavaScript, igual que el de Google las otras dos.
-  ['/reembolsos', () => createElement(Reembolsos), 'El mes ya pagado no se reembolsa', 2000],
+  ['/reembolsos', () => createElement(Reembolsos), 'lo ya pagado no se reembolsa', 2000],
 ];
 
 for (const [ruta, pagina, frase, minimo = 5000] of PAGINAS) {

@@ -36,6 +36,8 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Ticketera (los tickets de los usuarios) | `Leé docs/hallazgos-ticketera.md y docs/diseno-ticketera-usuarios.md y seguimos desde ahí.` |
 | Second Brain | `Leé docs/hallazgos-second-brain.md y docs/diseno-second-brain-centro.md y seguimos desde ahí.` |
 | Sidebar | `Leé docs/diseno-sidebar.md y seguimos desde ahí.` |
+| Copywriter (mila.gg + Notion, rama copywriter-2810) | `Leé docs/relevo/copywriter.md y seguimos desde ahí.` |
+| Settings (las nueve pestañas, el molde de Linear) | `Lee docs/relevo/settings.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
 | Automations (ex Chatbot) | `Leé docs/relevo/automations.md y docs/relevo/chatbot.md y seguimos desde ahí.` (automations.md: la prospección del Sprint, 21/10) |
@@ -51,15 +53,20 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Clients (ex Customer Success, el curso y la comunidad) | `Leé docs/relevo/customer-success.md y docs/diseno-clients.md y seguimos desde ahí.` |
 | Plan / Perro Guardián | `Leé docs/relevo/plan-perro-guardian.md y seguimos desde ahí.` |
 | MaKo en WhatsApp (el doer de los grupos y su vigía) | `Lee docs/relevo/mako-en-whatsapp.md y seguimos desde ahí.` |
+| MaKo en WhatsApp: conexiones, ayuda y tickets (las tandas del doer del Cerebro, desde el 27/10) | `Lee docs/relevo/mako-en-whatsapp-conexiones.md y seguimos desde ahí.` |
 | Infra (fallas en la PC, build, tests y Actions) | `Leé docs/relevo/infra-y-build.md y seguimos desde ahí.` |
+| **Planes** (los planes de MaKo, MaKo Partners y la suscripción) | `Leé docs/relevo/suscripcion.md, docs/hallazgos-partners.md y docs/hallazgos-planes-y-cobro.md y seguimos desde ahí.` |
 | Strategy / Pricing MaKo (tab Strategy, runway y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y docs/relevo/super-admin.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
-| Ads Manager | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
+| Media Buyer (la tab /ads-manager desde el 25/10) | `Leé docs/relevo/media-buyer.md y seguimos desde ahí.` |
+| Zernio y CAPI (Meta por la Zernio del negocio, el token de Meta deprecado, desde el 25/10) | `Leé docs/relevo/zernio-capi.md y seguimos desde ahí.` |
+| Ads Manager (historia: la vista que reemplazó el Media Buyer) | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Ciberseguridad | `Leé docs/relevo/ciberseguridad.md y docs/relevo/seguridad-aislamiento.md y seguimos desde ahí.` |
 | Chats (la bandeja única de todos los canales) | `Leé docs/diseno-chats.md y seguimos desde ahí.` |
 | IA del cliente («Tu ChatGPT», su Claude en su PC, la ola 3 con Codex) | `Leé docs/relevo/ia-del-cliente.md y seguimos desde ahí.` |
-| Leads Scraper | `Leé docs/diseno-leads-scraper.md y seguimos desde ahí.` |
+| MaKo Desktop (el instalador, la firma y «Conecta MaKo»; la app con todas las tabs) | `Leé docs/relevo/mako-desktop.md y seguimos desde ahí.` |
+| Leads Scraper | RETIRADO el 25/10/2026 (Hotmart, Skool, Apify y /crm/prospectos): ver `tests/leads-scraper-retirado.test.ts`. No se retoma. |
 | Lector de reuniones | `Leé docs/relevo/lector-reuniones.md y seguimos desde ahí.` |
 | Tareas de llamada con Mauricio | `Leé docs/relevo/tareas-llamada-mauricio.md y seguimos desde ahí.` |
 

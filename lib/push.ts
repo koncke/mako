@@ -43,7 +43,7 @@ import { getSupabaseServer } from './supabase';
 import { credWsEstricta } from './credenciales';
 import { wsSuperAdmin } from './workspace';
 import { EMAIL_MAKO } from './app-url';
-import { normalizarPush, quierePush, rolPushDeFila, PUSH_SOLO_ADMINS } from './notif-catalogo';
+import { enSilencio, normalizarPush, quierePush, rolPushDeFila, PUSH_SOLO_ADMINS } from './notif-catalogo';
 import { accionTrasError, armarPayloadPush, wsDelLink, type PayloadPush } from './push-payload';
 
 export const CLAVE_VAPID = 'WEB_PUSH_VAPID';
@@ -210,7 +210,9 @@ export async function enviarPush(ws: number, e: EntradaPush): Promise<ResultadoP
       const rol = rolPushDeFila(u);
       if (soloAdmins && rol !== 'admin') return false;
       const perfil = (u.perfil && typeof u.perfil === 'object' ? u.perfil : {}) as Record<string, unknown>;
-      return quierePush(normalizarPush(perfil.notifPush, rol), e.tipo);
+      const prefs = normalizarPush(perfil.notifPush, rol);
+      // «No molestar» (Settings › Notificaciones, 25/10/2026): en SU horario y en SU zona, no le llega.
+      return quierePush(prefs, e.tipo) && !enSilencio(prefs, typeof perfil.timezone === 'string' ? perfil.timezone : '');
     });
     if (!quienes.length) return VACIO();
 

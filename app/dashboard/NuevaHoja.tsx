@@ -78,6 +78,7 @@ import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-c
 import { leerDashPegado } from './copia-dash-cliente';
 import { CSS_MINIATURA, MiniaturaHoja, hojaDeMuestra } from './MiniaturaHoja';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** El tope de la ruta (`maxDuration = 120`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 125_000;
@@ -191,6 +192,8 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
   useEffect(() => { props.current = { onCrear, onRellenar, enBlanco, onListo }; });
 
   const [pedido, setPedido] = useState('');
+  // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026, «En ningun chat»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   /** Desde cuándo piensa MaKo (null = no piensa). */
   const [desde, setDesde] = useState<number | null>(null);
   const [error, setError] = useState<{ texto: string; link?: string } | null>(null);
@@ -334,7 +337,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
   const listo = dash ? !!dash.nombre : archivo ? archivo.estado === 'listo' : !!pedido.trim();
 
   const enviar = async () => {
-    if (pensando || !listo) return;
+    if (pensando || !listo || appEscritorio.bloqueada) return;
     if (dash) { void pegarDash(dash.token); return; }
     const escrito = pedido.trim();
     const texto = archivo?.estado === 'listo'
@@ -395,7 +398,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
           <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={pedido} onValor={alEscribir} onEnviar={() => { void enviar(); }}
             listo={listo} ejemplos={informe === 'general' ? EJEMPLOS_GENERAL : EJEMPLOS_HOJA} animar={!archivo} placeholderQuieto={archivo ? PLACEHOLDER_ARCHIVO : PLACEHOLDER_QUIETO}
             etiqueta="Qué quieres ver en la hoja" tope={TOPE_PEDIDO_IA} deshabilitado={pensando}
-            onError={(m) => setError(m ? { texto: m } : null)}
+            onError={(m) => setError(m ? { texto: m } : null)} bloqueo={appEscritorio.bloqueo}
             adjunto={archivo ? (
               <ChipCaja icono={archivo.imagen ? 'imagen' : 'archivo'} texto={archivo.nombre} error={archivo.estado === 'error'}
                 detalle={archivo.estado === 'leyendo' ? 'Leyendo…' : null} onQuitar={quitarArchivo} etiquetaQuitar="Quitar el archivo" />

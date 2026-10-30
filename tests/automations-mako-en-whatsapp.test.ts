@@ -303,7 +303,8 @@ test('5. `listarPlantillas` deja afuera los tres eventos en las dos vistas, y la
   // (15/10/2026: y la línea caída y la que volvió, Mensajes de MaKo de la PLATAFORMA; dejan /mensajes como los demás.)
   // (16/10/2026: y el reporte de los lunes, que pasó a ser una automatización de la plataforma, «MaKo por email».)
   // (16/10/2026, tarde: «WhatsApp cerró la sesión» es su propio aviso, `wa-desvinculado`: docs/inventario-nada-por-detras.md.)
-  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['cuota-vencida', 'dashboard-analisis-listo', 'oferta-lista', 'pago-recibido', 'reporte-semanal', 'reunion-nuevo-agendado', 'reunion-ocurrio-fathom', 'reunion-recordatorio', 'seguridad-contrasena-cambiada', 'seguridad-contrasena-restablecer', 'wa-desconectado', 'wa-desvinculado', 'wa-mensaje-entrante', 'wa-reconectado', 'meta-cuenta-frenada', 'meta-cuenta-recuperada', 'reunion-cancelada', 'lead-fusionado', 'curso-recordatorio-clases', 'flow-puente-ausente', 'tracking-apagado', 'tracking-desactualizado', 'landing-cambio', 'lead-de-landing', 'prueba-recibida', 'prueba-grabada', 'lead-formulario-meta', 'reunion-tareas-al-plan'].sort());
+  // (28/10/2026: y el tope de Instagram o Zernio que frenó los mensajes de un negocio, `social-tope`.)
+  assert.deepEqual([...AVISOS_POR_EVENTO].sort(), ['closing-ia-caida', 'cuota-vencida', 'curso-recordatorio-clases', 'dashboard-analisis-listo', 'flow-puente-ausente', 'landing-cambio', 'lead-de-landing', 'lead-formulario-meta', 'lead-fusionado', 'meta-cuenta-frenada', 'meta-cuenta-recuperada', 'oferta-lista', 'pago-recibido', 'prueba-grabada', 'prueba-recibida', 'reporte-semanal', 'reunion-cancelada', 'reunion-nuevo-agendado', 'reunion-ocurrio-fathom', 'reunion-recordatorio', 'reunion-tareas-al-plan', 'seguridad-contrasena-cambiada', 'seguridad-contrasena-restablecer', 'tracking-apagado', 'social-tope', 'tracking-desactualizado', 'wa-desconectado', 'wa-desvinculado', 'wa-mensaje-entrante', 'wa-reconectado'].sort());
   assert.deepEqual(AVISOS_DEL_CLIENTE, [], '«Todos arrancan vacíos»: un mensaje de MaKo del cliente es una automatización');
   // El reporte de los lunes es del super admin: desde el 16/10/2026, su automatización de la plataforma (sólo email).
   assert.ok(AVISOS_SOLO_SUPERADMIN.includes('reporte-semanal'));
@@ -333,22 +334,15 @@ test('5. MaKo no prende ni apaga los tres eventos (`configurar_aviso_whatsapp`),
 test('5. Configuraciones › Notificaciones ya no monta la lista de mensajes (ni el link a /automations)', () => {
   const panel = fuente('app/perfil/NotificacionesPanel.tsx');
   assert.doesNotMatch(panel, /PlantillasView|enlaceAMensajeMako|editarEnChatbot|\/api\/perfil\/plantillas/);
-  // Sin la prop de los mensajes: la única que tiene es qué mitad dibuja (15/10/2026, «Tu cuenta» y
-  // «Configuración del negocio»).
-  assert.match(panel, /export function NotificacionesPanel\(\{ parte \}: \{ parte: 'persona' \| 'negocio' \}\) \{/);
+  // Sin la prop de los mensajes: desde el 25/10/2026 (Settings copiada de Linear) son el canal abierto, si administra el
+  // negocio y la zona de su «No molestar» — ninguna de mensajes.
+  assert.match(panel, /export function NotificacionesPanel\(\{ canal, admin, zona \}: \{/);
   assert.doesNotMatch(fuente('app/configuraciones/notificaciones/page.tsx'), /mensajesEnChatbot/);
   assert.doesNotMatch(fuente('app/configuraciones/page.tsx'), /mensajesEnChatbot/);
 });
 
-// Mudado de tests/chatbot-mensajes-mako.test.ts (borrado el 11/10/2026): /mensajes sigue editando en el lugar.
-test('5. sin `enlaceEditar` (el catálogo de la agencia en /mensajes) se sigue editando en el lugar', () => {
-  const pv = fuente('app/agencia/PlantillasView.tsx');
-  // La rama de siempre sigue: el «Editar» abre el detalle acá mismo.
-  assert.match(pv, /onClick=\{\(\) => setVista\('editar'\)\} title="Editar plantilla"/);
-  // /mensajes no lo pasa: es el catálogo entero de la agencia.
-  assert.doesNotMatch(fuente('app/mensajes/MensajesMaKo.tsx'), /enlaceEditar/);
-  assert.match(fuente('app/mensajes/MensajesMaKo.tsx'), /<PlantillasView iniciales=\{iniciales\} \/>/);
-});
+// El caso 5 (/mensajes, el catálogo de la agencia, se editaba en el lugar) se fue con la pantalla el 26/10/2026: «MaKo
+// Messages» salió de Automations (tests/mensajes-mako-retirado.test.ts).
 
 // ── 6. El CRON del emisor, dibujado ──────────────────────────────────────────────
 

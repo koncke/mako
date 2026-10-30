@@ -78,6 +78,8 @@ async function pasada(p: {
  */
 export async function editarHojaIA(p: {
   hoja: Hoja; pedido: string; historial?: readonly TurnoEdicion[]; alcance?: AlcanceIA; inicio: number; plazoMs?: number;
+  /** Lo que el sistema leyó de los archivos del pedido (userDeEdicion lo pone aparte, como dato). */
+  archivos?: string;
 }): Promise<ResultadoEdicion | FalloIA> {
   const system = await getPromptText(CLAVE_PROMPT_EDITAR, EDITAR_HOJA_IA_SYSTEM_TEMPLATE);
   // LOS EXPERIMENTOS QUE YA EXISTEN (17/10/2026): sin esto, los de antes y los que crea la API no se veían en ninguna
@@ -86,7 +88,7 @@ export async function editarHojaIA(p: {
     ? { ...(p.alcance ?? {}), experimentos: await experimentosConocidos() }
     : p.alcance;
   p = { ...p, alcance };
-  const user = userDeEdicion({ hoja: p.hoja, pedido: p.pedido, historial: p.historial, alcance: p.alcance });
+  const user = userDeEdicion({ hoja: p.hoja, pedido: p.pedido, historial: p.historial, alcance: p.alcance, archivos: p.archivos });
   const { provs, modelos } = await proveedoresHojaIA();
   const hastaMs = p.inicio + (p.plazoMs ?? PLAZO_MODELO_MS);
   const quedan = () => hastaMs - Date.now();

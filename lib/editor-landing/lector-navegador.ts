@@ -44,11 +44,12 @@
 
 import { RUTA_DIAGNOSTICO, RUTA_PAGINA_DIAGNOSTICO } from './diagnostico';
 import { urlParaReplicar } from './replicar-reglas';
+import type { Instantanea } from './copia-identica';
 import { conWs, wsDeBusqueda } from '../ws-tab';
 import {
   PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, TIPO_MENSAJE_LECTURA,
   aLecturaDelServer, idLecturaValido, nuevoIdLectura, origenDeLecturaValido, sanearMensajeLectura,
-  type CaminoPedido, type LecturaDelServer, type LecturaDetallada,
+  type CaminoPedido, type LecturaDelServer, type LecturaDetallada, type MotivoSinFoto, type SinFoto,
 } from './lector';
 
 /** Por qué no hubo lectura. */
@@ -56,7 +57,8 @@ export type MotivoSinLectura = 'bloqueadas' | 'cerrada' | 'tiempo' | 'error' | '
 
 export type ResultadoLectura =
   /** `lectura` va TAL CUAL al server (el `lectura` de ia «importar», del Diagnóstico y de Replicar). */
-  | { ok: true; lectura: LecturaDelServer; detalle: LecturaDetallada }
+  /** Con `foto` pedida y sin foto, `sinFoto` dice por qué (`mensajeSinFoto`). */
+  | { ok: true; lectura: LecturaDelServer; detalle: LecturaDetallada; foto?: Instantanea; sinFoto?: SinFoto }
   | { ok: false; motivo: MotivoSinLectura; mensaje: string };
 
 export type OpcionesLectura = {
@@ -73,12 +75,16 @@ export type OpcionesLectura = {
    * se lee en ésa, con el mismo protocolo y la misma firma.
    */
   ventana?: Window;
+  /** La copia idéntica (28/10/2026): pedirle al lector la FOTO de la página ya armada (copia-identica-script.ts). */
+  foto?: boolean;
 };
 
 /** Hasta que la página saluda (cargar una app lenta incluido). */
 export const TOPE_LECTURA_MS = 25_000;
 /** Desde el saludo: el lector tiene su propio tope de 17 s adentro (lector-script.ts). */
 export const TOPE_DESDE_HOLA_MS = 21_000;
+/** Con la foto de la copia idéntica, el lector baja despacio (lo que se arma al verse mete su hoja): hasta 40 s. */
+export const TOPE_FOTO_DESDE_HOLA_MS = 45_000;
 /** Un bloqueador que deja abrir y cierra al instante: se mira antes de navegar. */
 const ESPERA_CIERRE_MS = 250;
 
@@ -92,6 +98,29 @@ export const MENSAJE_SIN_LECTURA: Record<MotivoSinLectura, string> = {
 };
 
 const falla = (motivo: MotivoSinLectura, mensaje = MENSAJE_SIN_LECTURA[motivo]): ResultadoLectura => ({ ok: false, motivo, mensaje });
+
+/**
+ * Lo que dice la pantalla cuando la lectura volvió SIN la foto que se pidió, por motivo (lector.ts → MOTIVOS_SIN_FOTO).
+ * «Vuelve a intentar» sólo donde reintentar puede servir (AGENTS.md: lo que corre un editor devuelve su motivo); en el
+ * resto, la pantalla ofrece el formato Landing. Antes era un solo texto para todo: «No pude sacar la foto de la página.
+ * Vuelve a intentar.» (el ticket de Martín del 29/10/2026 con https://100ads.ai/, donde reintentar no servía).
+ */
+export const MENSAJE_SIN_FOTO: Record<MotivoSinFoto, string> = {
+  tope: 'La página tardó demasiado en armarse. Vuelve a intentar.',
+  vacia: 'La página quedó en blanco al abrirla, no hay nada que copiar tal cual.',
+  excepcion: 'La página no dejó sacarle la foto',
+  error: 'La lectura de la página se cortó',
+  salio: 'La página se fue a otra dirección mientras la leía.',
+  grande: 'La página pesa demasiado para copiarla tal cual.',
+  otro: 'No pude sacar la foto de la página y no sé por qué.',
+};
+
+/** El texto de una lectura sin foto: el del motivo, y el error de la página cuando lo hay. */
+export function mensajeSinFoto(s: SinFoto | undefined): string {
+  if (!s) return MENSAJE_SIN_FOTO.otro;
+  const base = MENSAJE_SIN_FOTO[s.motivo] ?? MENSAJE_SIN_FOTO.otro;
+  return (s.motivo === 'excepcion' || s.motivo === 'error') ? `${base}${s.detalle ? ` (${s.detalle})` : ''}.` : base;
+}
 
 /** La dirección de la ventana: la ruta de la página de afuera con el id, el camino si no es `auto`, y la firma del server. */
 export function rutaLector(url: string, id: string, camino: CaminoPedido = 'auto', ws: number | null = null, firma: string | null = null): string {
@@ -220,14 +249,14 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
       const m = sanearMensajeLectura(ev.data, { id, url: pedida });
       if (!m || (ev.source === null && m.fase === 'hola')) return;
       if (m.fase === 'hola') {
-        if (!saludo) { saludo = true; limite = Math.max(limite, Date.now() + TOPE_DESDE_HOLA_MS); }
+        if (!saludo) { saludo = true; limite = Math.max(limite, Date.now() + (opciones.foto ? TOPE_FOTO_DESDE_HOLA_MS : TOPE_DESDE_HOLA_MS)); }
         // A un origen opaco («null», la ventana aislada) sólo se le puede escribir con '*': el destino ya
         // es ESA ventana, y lo que viaja es el id que ella misma mandó.
-        try { ventana.postMessage({ tipo: TIPO_MENSAJE_LECTURA, id, fase: 'dale' }, ev.origin === 'null' ? '*' : ev.origin); } catch { /* se cerró */ }
+        try { ventana.postMessage({ tipo: TIPO_MENSAJE_LECTURA, id, fase: 'dale', ...(opciones.foto ? { foto: true } : {}) }, ev.origin === 'null' ? '*' : ev.origin); } catch { /* se cerró */ }
         return;
       }
       if (m.fase === 'error') { terminar(falla('error', m.mensaje)); return; }
-      terminar({ ok: true, lectura: aLecturaDelServer(m.detalle), detalle: m.detalle });
+      terminar({ ok: true, lectura: aLecturaDelServer(m.detalle), detalle: m.detalle, ...(m.foto ? { foto: m.foto } : {}), ...(m.sinFoto ? { sinFoto: m.sinFoto } : {}) });
     };
     window.addEventListener('message', alMensaje);
 

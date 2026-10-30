@@ -48,15 +48,9 @@ test('Sin campañas nuevas lo dice como algo de Meta, no como un error de MaKo',
   assert.equal(avisoSinCampanasNuevas({ hayCampanas: true, ultima: null }, hoy), null);
 });
 
-test('Las dos pantallas lo dibujan, y sólo con Meta contestando', () => {
-  const browser = leer('../app/ads-manager/CampanasBrowser.tsx');
-  assert.match(browser, /etiquetaCuentaMeta\(\{ id: health\.account\.accountId, nombre: health\.account\.nombre/);
-  assert.match(browser, /const cuentaLeida = health && !error \?/);
-  // Sin cuenta (el health «Sin conexión») no hay aviso de cuenta vacía.
-  assert.match(browser, /const avisoCuenta = health && cuentaLeida && !loading/);
-
+// Hasta el 25/10/2026 eran dos pantallas: la tabla del Ads Manager se borró (la reemplazó el Media Buyer).
+test('El modal de campañas del CRM lo dibuja, y sólo con Meta contestando', () => {
   // El «Cuenta» lo pone la función: una pantalla que lo sume afuera vuelve a duplicarlo.
-  assert.doesNotMatch(browser, />Cuenta \{/);
   const modal = leer('../app/crm/CampanasModal.tsx');
   assert.doesNotMatch(modal, />Cuenta \{/);
   assert.match(modal, /estado\?\.cuentaMeta && etiquetaCuentaMeta\(estado\.cuentaMeta\.cuenta\)/);

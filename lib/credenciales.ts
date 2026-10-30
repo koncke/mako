@@ -29,6 +29,7 @@ import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs, soltarIdentificador, n
 import { CUENTA_PRINCIPAL, baseDeClave, cuentaDeClave } from './cuentas-integracion';
 import { identificadorDeRuteo } from './ruteo-hash';
 import { esClaveDeCuenta, esClaveDeIA } from './ia-keys';
+import { metaConectadaConCampos } from './zernio-meta-cuerpo';
 import { problemaDeRemitenteGuardado } from './email-remitente';
 
 export type CredencialMeta = {
@@ -293,6 +294,11 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
   const objetivo = requeridos.length ? requeridos : s.campos;
   const vals = await Promise.all(objetivo.map((c) => credWs(c.env, w)));
   const principal = requeridos.length ? vals.every(esValorReal) : vals.some(esValorReal);
+  // Meta por Zernio (25/10/2026): la conexión de Zernio reemplaza al token (lib/zernio-meta-cuerpo.ts).
+  if (servicioKey === 'meta' && !principal) {
+    const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, esValorReal(await credWs(e, w))] as const)));
+    return metaConectadaConCampos((e) => tiene.get(e) === true);
+  }
   if (principal || (servicioKey !== 'stripe' && servicioKey !== 'mercadopago')) return principal;
   // Una pasarela con sólo una cuenta de más (la principal desconectada) también cobra (22/10/2026): sus claves con sufijo.
   const nombres = await clavesGuardadasConBase(w, objetivo.map((c) => c.env)).catch(() => [] as string[]);
@@ -398,14 +404,16 @@ export async function esDeLaPlataforma(clave: string, valor: string | null | und
  * salió de /integraciones. La guarda queda igual: no cuesta nada, y el ws11 y el
  * ws13 todavía tienen su propia key cargada.
  */
-const BYOK_NUNCA_PLATAFORMA: ReadonlySet<string> = new Set(['ZERNIO_API_KEY']);
+// Y las claves EXTRA de Zernio (29/10/2026): pegar la de la plataforma como la 2 es lo mismo que pegarla como la 1.
+const BYOK_NUNCA_PLATAFORMA: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_API_KEY_2', 'ZERNIO_API_KEY_3', 'ZERNIO_API_KEY_4', 'ZERNIO_API_KEY_5']);
 
 /** Guarda cifrado en el workspace. Solo el dueño refleja el cambio a process.env. */
 export async function guardarCredencial(ws: number, clave: string, valor: string, servicio: string, updatedBy: string | null): Promise<void> {
   // Guard en POSITIVO contra la key de plataforma pegada como propia. Aplica a
   // todo workspace que no sea el dueño (para el dueño ese valor ES su cuenta).
   if (ws !== OWNER_WS && BYOK_NUNCA_PLATAFORMA.has(clave)) {
-    const plataforma = await envCred(clave);
+    // Una clave EXTRA de Zernio se compara con la de la plataforma (la de la casa es UNA: `ZERNIO_API_KEY`).
+    const plataforma = await envCred(/^ZERNIO_API_KEY_\d$/.test(clave) ? 'ZERNIO_API_KEY' : clave);
     if (plataforma && valor === plataforma) throw new KeyDePlataformaError(clave);
   }
   // ⚠️ EL REMITENTE DE MaKo NO ES DE NADIE (undécima tanda): ni el ws1, ni un cliente, ni la plataforma lo guardan
@@ -667,7 +675,7 @@ export async function hidratarCredenciales(): Promise<void> {
  * lo copiaría al workspace de prueba. Un CLIENTE sigue pegando el suyo desde /integraciones.
  */
 const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
-  'ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY',
+  'ZERNIO_API_KEY', 'ZERNIO_API_KEY_2', 'ZERNIO_API_KEY_3', 'ZERNIO_API_KEY_4', 'ZERNIO_API_KEY_5', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY',
   'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
   'RESEND_FROM',

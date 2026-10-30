@@ -42,6 +42,7 @@ import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
+import { alojadoresConectados, catalogoDeVideos } from '@/lib/alojadores-video-api';
 import { urlsDescubiertas, getComportamiento, borrarAnalisis } from '@/lib/landing-analyst';
 import { listarDrafts, borrarDraft } from '@/lib/landing-writer';
 import { specAMarkdown, objetivoLabel } from '@/lib/landing-spec';
@@ -67,7 +68,8 @@ import { motivoNoCobra, type MotivoNoCobra, type ProductoDePago } from '@/lib/ed
 import type { LandingContenido } from '@/lib/editor-landing/doc';
 // «Replicar» (tanda 6): el MISMO server que la ruta de la pantalla (app/api/landing-generator/replicar).
 import { replicar as replicarEnEditor } from '@/lib/editor-landing/replicar';
-import { NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
+import { ERROR_ADAPTAR_WEB, NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
+import { ERROR_WEB_PARCIAL, NOMBRE_PARTE, formatoConPartes, listaDePartes, partesDePedido } from '@/lib/editor-landing/replicar-partes';
 // El nombre del estilo de animación copiado (tanda 8), el del catálogo.
 import { estiloPorId } from '@/lib/editor-landing/animaciones';
 import { estadoValido, type ResumenDiagnostico, type Sugerencia } from '@/lib/editor-landing/diagnostico';
@@ -79,7 +81,7 @@ import {
   nombreDeDiseno, nombreDeObjetivo, yaPublicadaAsi, resumenPublicar, urlDeLanding, formatoParaApi,
   estaPublicada, direccionParaPublicar, siFallaNuestra, comentariosParaApi, nombreDeEstado, urlPublicaParaApi,
   botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, type BotonDeLanding,
-  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi,
+  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi, NOTA_ALCANCE,
   type FilaPublicable, type DisponibilidadSlug,
 } from './landing-editor.helpers';
 
@@ -174,7 +176,6 @@ function noSeAplica(c: ComentarioConLanding | null, id: number): string | null {
   if (!c) return noExisteComentario(id);
   if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. Primero se replica (replicar_landing) y se pasan los comentarios a la copia (pasar_comentarios_a_copia_landing), y se aplica el de la copia; o en el Web Generator → Diagnóstico, «Aplicar» hace las dos cosas.';
   if (c.estado !== 'pendiente') return `Ese comentario ya está ${nombreDeEstado(c.estado)}: no hay nada que aplicar.`;
-  if (!c.seccionId) return 'No sé en qué sección de la landing está ese comentario (su cita no se encontró): no se puede aplicar solo. Propón el cambio en el chat o hazlo en el editor.';
   return null;
 }
 /** Lo que mira publicar_landing de la fila. Con el contenido: lo que publicar() rechazaría por él se dice en preparar(). */
@@ -438,7 +439,8 @@ export const RUNNERS: Runners = {
 
   listar_videos_panda: {
     leer: async (input) => {
-      if (!(await pandaConectado())) return json({ conectado: false, videos: [], nota: 'Panda Video no está conectado en este negocio.' });
+      // `falta` (25/10/2026): el link al modal de Panda lo pone el código.
+      if (!(await pandaConectado())) return { content: json({ conectado: false, videos: [], nota: 'Panda Video no está conectado en este negocio.' }), falta: { servicio: 'panda' } };
       const limite = num(input, 'limite') ?? 50;
       const todos = [...(await catalogoPanda()).entries()];
       return json({
@@ -450,13 +452,30 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // Los videos de todos los alojadores conectados (25/10/2026, «otros alojadores de video»), con el id del Pixel.
+  listar_videos_alojados: {
+    leer: async (input) => {
+      const filtro = str(input, 'alojador');
+      const limite = num(input, 'limite') ?? 100;
+      const [{ videos, fallas }, otros, panda] = await Promise.all([catalogoDeVideos(), alojadoresConectados(), pandaConectado()]);
+      const todos = videos.filter((v) => !filtro || v.alojador === filtro);
+      return json({
+        conectados: [...(panda ? ['panda'] : []), ...otros],
+        videos: todos.slice(0, limite).map((v) => ({ id: v.id, alojador: v.alojador, titulo: v.titulo, reproductor: v.player, duracion_seg: v.duracion, reproducciones: v.reproducciones })),
+        total: todos.length, afuera: Math.max(0, todos.length - limite),
+        ...(fallas.length ? { no_se_pudo_leer: fallas } : {}),
+        nota: 'El id es el que manda el Pixel (vimeo:…, w:… de Wistia, bunny:…, cfs:… de Cloudflare; el de Panda va sin prefijo). duracion_seg y reproducciones en null = el alojador no las da en su listado (las reproducciones por persona están en tracking_lead). Un alojador sin conectar no aparece: se conecta en Integraciones.',
+      });
+    },
+  },
+
   ver_metricas_video_panda: {
     leer: async (input) => {
       const videoId = str(input, 'videoId') ?? '';
       const desde = str(input, 'desde') ?? '';
       const hasta = str(input, 'hasta');
       if (!fechaValida(desde) || (hasta && !fechaValida(hasta))) return errorLectura('Las fechas van en formato AAAA-MM-DD.');
-      if (!(await pandaConectado())) return errorLectura('Panda Video no está conectado en este negocio.');
+      if (!(await pandaConectado())) return { content: 'Panda Video no está conectado en este negocio.', isError: true, falta: { servicio: 'panda' } };
       try {
         if (!hasta || hasta === desde) {
           const s = await fetchPandaDailyStat(videoId, desde);
@@ -534,10 +553,17 @@ export const RUNNERS: Runners = {
         ventana: { desde: c.primer_evento, hasta: c.ultimo_evento, alcance: 'toda la historia del Pixel' },
         de_donde_vienen: c.top_referrers.map((r) => ({ origen: r.ref, visitas: r.n })),
         visitantes_compartidos: c.visitantes_compartidos,
+        // Pixel v26: sólo en las páginas del Web Generator del negocio (últimos 30 días). null = no se mide, nunca 0.
+        alcance_por_seccion: c.alcance_secciones
+          ? c.alcance_secciones.secciones.map((x) => ({ titulo: x.titulo, porcentaje: x.pct }))
+          : null,
+        alcance_medido_desde: c.alcance_secciones?.desde ?? null,
+        alcance_visitantes: c.alcance_secciones?.visitantes ?? null,
         nota: [
           'llegaron_al_50 y llegaron_al_final en null = no se pudo medir, NUNCA es 0. «Al final» es 90% o más.',
           'con_eventos_de_video cuenta a toda persona con algún evento de video, incluidos los que arrancaron solos (autoplay): no es intención de ver.',
           'agendaron = visitantes de esta página con una llamada agendada; no se verifica el orden, pudieron agendar antes de visitar.',
+          NOTA_ALCANCE,
           c.visitantes_compartidos ? 'Estos visitantes también entraron a otras páginas del negocio: la profundidad del video puede ser de la otra.' : null,
           c.hay_datos ? null : 'hay_datos false puede ser que el Pixel nunca reportó esta URL o que la lectura falló: esta función no distingue.',
         ].filter(Boolean).join(' '),
@@ -910,12 +936,20 @@ export const RUNNERS: Runners = {
       if (!formato) return { error: 'Falta el formato: presentacion, landing o web.', faltan: ['formato'] };
       const texto = str(input, 'texto');
       if (texto && formato === 'web') return { error: 'La copia idéntica («web») necesita la página, no su texto. Con el texto pegado, elige «landing» o «presentacion».' };
+      // «Replicar y adaptar» (27/10/2026): el texto se reescribe con la oferta del negocio; la copia idéntica no.
+      const adaptar = input.adaptar === true;
+      if (adaptar && formato === 'web') return { error: ERROR_ADAPTAR_WEB };
+      // 28/10/2026: QUÉ se replica (replicar-partes.ts). Sin el campo, lo de siempre.
+      const conPartes = Array.isArray(input.partes) && input.partes.length > 0;
+      const partes = partesDePedido(conPartes ? input.partes : undefined, adaptar);
+      if (!partes) return { error: 'Las partes son diseno, estructura, angulos y texto.' };
+      if (!formatoConPartes(formato, partes)) return { error: ERROR_WEB_PARCIAL };
       if (texto && texto.split(/\s+/).filter(Boolean).length < 40) {
         return { error: 'El texto pegado es muy corto para armar la landing (mínimo 40 palabras). Pide el contenido completo, de arriba a abajo.' };
       }
       return {
-        payload: { url, formato, ...(texto ? { texto } : {}) },
-        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Web Generator${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
+        payload: { url, formato, ...(texto ? { texto } : {}), ...(adaptar ? { adaptar: true } : {}), ...(conPartes ? { partes: listaDePartes(partes) } : {}) },
+        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Web Generator${conPartes ? `, copiando ${listaDePartes(partes).map((k) => NOMBRE_PARTE[k].nombre.toLowerCase()).join(', ')}${partes.texto ? '' : ' (el texto, escrito para la oferta del negocio)'}` : adaptar ? ', con el texto adaptado a la oferta del negocio' : ''}${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
@@ -923,7 +957,7 @@ export const RUNNERS: Runners = {
       const formato = formatoReplicar(payload.formato);
       if (!formato) return { ok: false, resumen: 'Ese formato no existe.' };
       try {
-        const r = await replicarEnEditor({ url, formato, texto: typeof payload.texto === 'string' ? payload.texto : undefined });
+        const r = await replicarEnEditor({ url, formato, texto: typeof payload.texto === 'string' ? payload.texto : undefined, partes: Array.isArray(payload.partes) ? payload.partes : undefined, adaptar: payload.adaptar === true });
         if (!r.ok) {
           if (r.enNavegador) {
             return {
@@ -1232,7 +1266,7 @@ export const RUNNERS: Runners = {
         const pedidos = (Array.isArray(input.productos) ? input.productos : []).map((x) => Number(String(x).trim()));
         if (pedidos.some((n) => !Number.isSafeInteger(n) || n <= 0)) return { error: 'Cada producto va por su embudoId (un número). Pide listar_landings (productosDisponibles).' };
         const asignables = await productosAsignables().catch(() => []);
-        if (!asignables.length) return { error: 'No pude leer los productos del negocio. Intenta de nuevo.' };
+        if (!asignables.length) return { error: 'No pude leer los productos del negocio. Intenta de nuevo.', falla: true };
         const faltan = pedidos.filter((id) => !asignables.some((p) => p.id === id));
         if (faltan.length) return { error: `No hay un producto con embudoId ${faltan.join(', ')}.`, disponibles: asignables.map((p) => ({ embudoId: p.id, nombre: p.nombre })) };
         productos = [...new Set(pedidos)];
@@ -1443,7 +1477,7 @@ export const RUNNERS: Runners = {
       let disp: DisponibilidadSlug | null = null;
       if (pedida || !f.slug) {
         const d = await docsEditor.slugDisponible(id, pedida ?? '');
-        if (!d.ok) { siFallaNuestra(d); return { error: `No pude revisar la dirección (${d.error}).` }; }
+        if (!d.ok) { siFallaNuestra(d); return { error: `No pude revisar la dirección (${d.error}).`, falla: true }; }
         disp = d;
       }
       const dir = direccionParaPublicar(pedida, f.slug, disp);

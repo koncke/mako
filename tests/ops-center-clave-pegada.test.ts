@@ -31,7 +31,8 @@ const OPENAI = `sk-proj-${'Ab1x'.repeat(14)}`;
 test('1. reconoce la de Apify (y las de Anthropic y OpenAI), sin tapar texto normal', () => {
   const t = taparClaves(`Otra: ${APIFY}`);
   assert.equal(t.tapadas, 1);
-  assert.equal(t.servicio, 'apify', 'el servicio de /integraciones');
+  // Sin servicio desde el 25/10/2026: Apify salió de /integraciones y no hay «Conectar» que ofrecer. Se tapa igual.
+  assert.equal(t.servicio, null, 'Apify ya no es una integración: sin botón de conectar');
   assert.ok(!t.texto.includes(APIFY));
   for (const k of [ANTHROPIC, OPENAI]) assert.ok(hayClave(`te paso la clave ${k}`), k.slice(0, 8));
   for (const normal of ['el apify_api no anda', 'creala con apify.com y avisame', '/products/sk-ii-facial-treatment-essence-230ml']) {
@@ -41,9 +42,12 @@ test('1. reconoce la de Apify (y las de Anthropic y OpenAI), sin tapar texto nor
 
 test('2. no sale: mandar.ts la frena antes de firmar, y el servidor no guarda un pedido que la traiga', () => {
   const mandar = sinComentarios(leer('app/admin/operaciones/mandar.ts'));
-  const frena = mandar.indexOf('if (hayClave(texto)) return { ok: false, error: AVISO_CLAVE_EN_EL_CENTRO };');
+  // Desde el 27/10/2026 la regla vive en `problemaAntesDeMandar` (el mensaje se dibuja en el acto: lo que no sale se dice antes).
+  const frena = mandar.indexOf('if (hayClave(texto)) return AVISO_CLAVE_EN_EL_CENTRO;');
   assert.ok(frena > 0, 'la frena');
-  assert.ok(frena < mandar.indexOf('await firmar(clave, firmado)'), 'ANTES de firmar');
+  const usa = mandar.indexOf('const antes = problemaAntesDeMandar(!!clave, texto, adjuntos.length > 0, d.tope);');
+  assert.ok(usa > 0 && usa < mandar.indexOf('await firmar(clave, firmado)'), 'ANTES de firmar');
+  assert.match(sinComentarios(leer('app/admin/operaciones/useCentro.ts')), /const antes = problemaAntesDeMandar\(!!firma\.clave, texto, archivos\.length > 0, tope\);\n    if \(antes\) \{ avisar\(antes, 'bad'\); return; \}/, 'la caja la dice en el acto, sin ponerla en camino');
   const ops = sinComentarios(leer('lib/operaciones.ts'));
   const corta = ops.indexOf('if (hayClave(l.p.texto)) return { ok: false, error: AVISO_CLAVE_EN_EL_CENTRO };');
   assert.ok(corta > 0 && corta < ops.indexOf('.from(T_PEDIDOS).insert('), 'antes de guardar el pedido');
@@ -61,7 +65,7 @@ test('3. la caja y el «Otra» lo dicen apenas aparece, con el botón a /integra
 
 test('4. lo que sube el cartero se guarda tapado', () => {
   const db = sinComentarios(leer('lib/centro-turnos-db.ts'));
-  assert.match(db, /const tapados = nuevos\.map\(\(t\) => \(hayClave\(t\.texto\) \? \{ \.\.\.t, texto: taparClaves\(t\.texto\)\.texto \} : t\)\);/);
+  assert.match(db, /\.\.\.\(hayClave\(t\.texto\) \? \{ texto: taparClaves\(t\.texto\)\.texto \} : \{\}\),\n\s*\.\.\.\(t\.resumen && hayClave\(t\.resumen\) \? \{ resumen: taparClaves\(t\.resumen\)\.texto \} : \{\}\),/);
   assert.match(db, /JSON\.stringify\(unirTurnos\(antes, tapados\)\)/);
 });
 

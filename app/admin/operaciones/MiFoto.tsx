@@ -10,6 +10,7 @@
 // (ChatsMovil.tsx → «Tu foto») la avisa con `ponerMiFoto`: se ve en el acto en todos los globos.
 
 import { useEffect, useState } from 'react';
+import { iniciales } from '@/lib/unicode-seguro';
 
 type Yo = { foto: string | null; inicial: string };
 let yo: Yo | null = null;
@@ -22,7 +23,7 @@ function leerYo(): Promise<Yo> {
     .then((r) => r.json())
     .then((j: { ok?: boolean; perfil?: { nombre?: string; avatarUrl?: string } }) => {
       const nombre = j?.perfil?.nombre?.trim() || 'Tú';
-      yo = { foto: j?.perfil?.avatarUrl || null, inicial: nombre.charAt(0).toUpperCase() };
+      yo = { foto: j?.perfil?.avatarUrl || null, inicial: iniciales(nombre, 1, 'T') };
       return yo;
     })
     .catch(() => { pidiendo = null; return { foto: null, inicial: '' }; });

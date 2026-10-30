@@ -81,9 +81,11 @@ const TABLA: Array<[string, Esperado]> = [
   [PANDA, { tipo: 'panda', medible: true, embed: PANDA }],
   ['<div style="position:relative;padding-top:56.25%;"><iframe id="panda-x" src="https://player-vz-dd4ad08b-375.tv.pandavideo.com.br/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f" style="border:none;" allow="accelerometer;gyroscope;autoplay;encrypted-media;picture-in-picture" allowfullscreen=true width="720" height="360" fetchpriority="high"></iframe></div>',
     { tipo: 'panda', medible: true, embed: 'https://player-vz-dd4ad08b-375.tv.pandavideo.com.br/embed/?v=8d035c87-3767-4b84-8a3d-da41efc6524f' }],
-  // Wistia y Bunny: adentro, «sin medir».
-  ['https://fast.wistia.net/embed/iframe/e4a27b971d', { tipo: 'iframe', medible: false, embed: 'https://fast.wistia.net/embed/iframe/e4a27b971d' }],
-  ['https://iframe.mediadelivery.net/embed/12345/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', { tipo: 'iframe', medible: false, embed: 'https://iframe.mediadelivery.net/embed/12345/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' }],
+  // Wistia, Bunny y Cloudflare Stream: adentro y MEDIDOS desde el 25/10/2026 (iban «sin medir»; Cloudflare no se reconocía).
+  ['https://fast.wistia.net/embed/iframe/e4a27b971d', { tipo: 'alojado', medible: true, embed: 'https://fast.wistia.net/embed/iframe/e4a27b971d' }],
+  ['https://iframe.mediadelivery.net/embed/12345/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', { tipo: 'alojado', medible: true, embed: 'https://iframe.mediadelivery.net/embed/12345/0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' }],
+  ['https://customer-f33zs165nr7gyfy4.cloudflarestream.com/6b9e68b07dfee8cc2d116e4c51d6a957/watch', { tipo: 'alojado', medible: true, embed: 'https://customer-f33zs165nr7gyfy4.cloudflarestream.com/6b9e68b07dfee8cc2d116e4c51d6a957/iframe' }],
+  ['<iframe src="https://iframe.videodelivery.net/5d5bc37ffcf54c9b82e996823bffbb81" allow="autoplay" allowfullscreen></iframe>', { tipo: 'alojado', medible: true, embed: 'https://iframe.videodelivery.net/5d5bc37ffcf54c9b82e996823bffbb81' }],
   // Un archivo directo se mide con <video>; un link cualquiera se abre afuera, como siempre.
   ['https://cdn.ejemplo.com/clases/uno.mp4', { tipo: 'directo', medible: true }],
   ['https://ejemplo.com/una-pagina', { tipo: 'afuera', medible: false }],
@@ -139,7 +141,7 @@ test('la tapa de la tarjeta: Panda va sin miniatura (no se inventa una), los dem
 test('el reproductor de Panda: mide con lo que publica SU iframe, sin autoplay, y pone los minutos solos', () => {
   const rep = sinComentarios(leer('app/compartido/curso/[token]/Reproductor.tsx'));
   assert.match(rep, /case 'panda':\s*return <VideoPanda /);
-  const panda = rep.slice(rep.indexOf('function VideoPanda('), rep.length);
+  const panda = rep.slice(rep.indexOf('function VideoPanda('), rep.indexOf('function VideoAlojado('));
   assert.ok(panda.length > 400 && panda.length < 3000, `VideoPanda mide ${panda.length}`);
   // Sólo los mensajes de ESTE iframe: su ventana Y su origen (un guard de origen se escribe con origin).
   assert.match(panda, /if \(!ref\.current \|\| e\.source !== ref\.current\.contentWindow \|\| e\.origin !== origen\) return;/);
@@ -152,6 +154,31 @@ test('el reproductor de Panda: mide con lo que publica SU iframe, sin autoplay, 
   assert.match(panda, /const src = srcDePandaParaClase\(embed\);/);
   assert.match(panda, /<iframe ref=\{ref\} src=\{src\}/);
   assert.match(panda, /window\.removeEventListener\('message', alMensaje\); enviar\(\);/, 'al cerrar la clase, lo último sale');
+});
+
+test('Wistia, Bunny y Cloudflare: el lector con los mensajes REALES de cada reproductor, y el componente', async () => {
+  // Los mensajes, tal cual los mandaron el 25/10/2026 los videos de la documentación de cada uno (Chrome sin ventana).
+  const { lecturaDeAlojador, suscripcionPlayerJs } = await import('../lib/embeds');
+  assert.deepEqual(lecturaDeAlojador('wistia', '{"method":"_trigger","args":["timechange",12.27]}'), [{ tipo: 'avance', seg: 12.27 }]);
+  assert.deepEqual(lecturaDeAlojador('wistia', JSON.stringify({ method: '_trigger', args: ['transmit-stats', JSON.stringify({ media_duration: 125.4 })] })), [{ tipo: 'duracion', seg: 125.4 }]);
+  assert.deepEqual(lecturaDeAlojador('wistia', '{"method":"_trigger","args":["pause"]}'), [{ tipo: 'corte', seg: null }]);
+  assert.deepEqual(lecturaDeAlojador('bunny', '{"context":"player.js","version":"0.0.11","event":"ready","value":{"src":"x"}}'), [{ tipo: 'listo' }]);
+  assert.deepEqual(lecturaDeAlojador('bunny', '{"context":"player.js","version":"0.0.11","event":"timeupdate","value":{"seconds":11.36,"duration":22.7},"listener":"mko-timeupdate"}'),
+    [{ tipo: 'duracion', seg: 22.7 }, { tipo: 'avance', seg: 11.36 }]);
+  assert.deepEqual(lecturaDeAlojador('cloudflare', { __privateUnstableMessageType: 'propertyChange', property: 'duration', value: 30 }), [{ tipo: 'duracion', seg: 30 }]);
+  assert.deepEqual(lecturaDeAlojador('cloudflare', { __privateUnstableMessageType: 'propertyChange', property: 'currentTime', value: 8.93 }), [{ tipo: 'avance', seg: 8.93 }]);
+  assert.deepEqual(lecturaDeAlojador('cloudflare', { __privateUnstableMessageType: 'event', eventName: 'pause' }), [{ tipo: 'corte', seg: null }]);
+  assert.deepEqual(lecturaDeAlojador('cloudflare', { __privateUnstableMessageType: 'event', eventName: 'timeupdate' }), [], 'el tiempo llega como propiedad, no en el evento');
+  assert.deepEqual(lecturaDeAlojador('bunny', 'no es json'), []);
+  assert.ok(suscripcionPlayerJs().every((m) => JSON.parse(m).context === 'player.js' && JSON.parse(m).method === 'addEventListener'));
+  // El componente: sólo ESTE iframe (ventana y origen), Bunny suscripto al cargar y en su saludo, y lo último sale al cerrar.
+  const rep = sinComentarios(leer('app/compartido/curso/[token]/Reproductor.tsx'));
+  assert.match(rep, /case 'alojado':\s*return <VideoAlojado token=\{token\} claseId=\{claseId\} proveedor=\{video\.proveedor\} embed=\{video\.embed\}/);
+  const al = rep.slice(rep.indexOf('function VideoAlojado('));
+  assert.match(al, /if \(!ref\.current \|\| e\.source !== ref\.current\.contentWindow \|\| e\.origin !== origen\) return;/);
+  assert.match(al, /if \(l\.tipo === 'listo'\) \{ suscribir\(\); continue; \}/);
+  assert.match(al, /f\?\.addEventListener\('load', suscribir\);/);
+  assert.match(al, /window\.removeEventListener\('message', alMensaje\); f\?\.removeEventListener\('load', suscribir\); enviar\(\);/);
 });
 
 test('YouTube que no se deja ver acá: se dice por qué, nombrando a YouTube, con «Ver en YouTube»', () => {

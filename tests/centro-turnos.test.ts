@@ -28,7 +28,7 @@ import { createServer } from 'node:http';
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync, appendFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { sanearTurnos, unirTurnos, type TurnoChat } from '../lib/operaciones-reglas';
+import { TOPE_TURNO, sanearTurnos, unirTurnos, type TurnoChat } from '../lib/operaciones-reglas';
 import { historialDelChat, lineasDeConversacion, type ChatCentro } from '../lib/centro-chats';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -99,7 +99,9 @@ test('lo que llega de la PC se sanea, y unir dos vueltas no repite ni se pasa de
   const sucios = [t(1), { ...t(2), local: 'CRM' }, { ...t(3), rol: 'sistema' }, { ...t(4), texto: '  ' }, { ...t(5), at: 'ayer' }, { ...t(6), texto: 'x'.repeat(5000) }, { ...t(7), de: 'Cerebro' }];
   const limpios = sanearTurnos(sucios);
   assert.deepEqual(limpios.map((x) => x.uuid.slice(-1)), ['1', '6', '7']);
-  assert.equal(limpios[1].texto.length, 4000);
+  // Entero desde el 25/10/2026 (tests/turnos-enteros.test.ts): el tope es técnico, no un corte a 4000.
+  assert.equal(limpios[1].texto.length, 5000);
+  assert.equal(sanearTurnos([{ ...t(8), texto: 'x'.repeat(TOPE_TURNO + 10) }])[0].texto.length, TOPE_TURNO);
   assert.equal(limpios[2].de, null, 'sólo un turno de «otro» lleva quién');
   const unidos = unirTurnos([t(1), t(2)], [t(2), t(3)]);
   assert.deepEqual(unidos.map((x) => x.texto), ['t1', 't2', 't3'], 'el mismo turno subido por dos Runners queda una vez');

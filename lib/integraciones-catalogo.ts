@@ -15,24 +15,62 @@
  *  negocio del cliente). Solo la ve el super-admin. Ver el mismo flag en
  *  lib/metodo-catalogo.ts: los DOS catálogos tienen que declarar lo mismo o la UI de uno
  *  la esconde y la del otro la muestra. */
+import { QUE_HACE_MAKO, REDES, REDES_CON_TARJETA, SIN_USO_TODAVIA, tarjetaDeRed } from './zernio-redes';
+
 export type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean; soloPlataforma?: boolean; /** No se dibuja como tarjeta: se configura dentro de otra. */ oculto?: boolean };
+
+// 25/10/2026, Martín (docs/feedback-25-10-tarde.md): «Fijate los nombres, no inventes nombres como "MaKo AI", pon los nombres
+// correctamente» → el NOMBRE REAL de cada producto («Anthropic API», «OpenAI API», «Resend»). Y «elimina las IA dentro de las
+// integraciones, para eso tenemos el bloque que dice "Tus cuentas de IA" arriba del todo»: las cuatro IA van `oculto` (no son
+// tarjetas de la grilla; se conectan desde «Tus cuentas de IA», con el MISMO modal: `getIntegracion` no mira `oculto`).
+// «Depreca Hotmart, Skool... Elimina Apify» (mismo día): salieron, con su ruta y su API. «Elimina la de Google Calendar»:
+// `oculto`, porque la agenda sigue (ver su entrada).
+/**
+ * DÓNDE SE CONFIGURA una integración que no se configura en su propia tarjeta (29/10/2026, ticket #28, Martín: «en una sola
+ * pestaña, la de Zernio, se pueda configurar tanto para pegar primero tu API y después para loguearte... ya no debería pedirte
+ * nada de Access Token»). Meta se conecta en la tarjeta de Zernio: paso 1 la clave de Zernio, paso 2 «Anuncios de Meta» con
+ * Facebook. La tarjeta de Meta queda como el ESTADO de la cuenta publicitaria (saldo, medio de pago, entrega). Lo usan
+ * `?abrir=` (avisos, la API de MaKo, MaKo en WhatsApp) y el botón de conectar de cualquier tab (`useConectarIntegracion`).
+ */
+export const SE_CONFIGURA_EN: Readonly<Record<string, string>> = {
+  meta: 'zernio',
+  // Cada red social (29/10/2026): su tarjeta dice si está conectada; se conecta en el paso 2 de Zernio, con su login.
+  ...Object.fromEntries(REDES_CON_TARJETA.filter((r) => !SIN_USO_TODAVIA[r]).map((r) => [tarjetaDeRed(r), 'zernio'])),
+};
+/** La integración cuyo modal se abre para CONFIGURAR `key` (la misma, salvo las de `SE_CONFIGURA_EN`). */
+export const integracionQueConfigura = (key: string): string => SE_CONFIGURA_EN[key] ?? key;
+/** Lo que dice la tarjeta de Meta sin conectar: dónde se conecta, nunca qué campo falta (el token ya no se pide). */
+export const META_SE_CONECTA_EN_ZERNIO = 'Se conecta en la tarjeta de Zernio: tu API key y después «Anuncios de Meta».';
 
 export const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
   // WhatsApp (Chatwoot) salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
-  { key: 'email', nombre: 'Email (Resend)', categoria: 'Mensajería', descripcion: 'Envío de emails de nutrición y reportes.', envs: ['RESEND_API_KEY'] },
+  { key: 'email', nombre: 'Resend', categoria: 'Mensajería', descripcion: 'Envío de emails de nutrición y reportes.', envs: ['RESEND_API_KEY'] },
   // Instagram y Messenger como canales de las automatizaciones (09/10/2026, sexta tanda): salió el
   // 06/10 con la tab y vuelve como canal. BYOK SIN respaldo de plataforma desde el 23/10/2026 (lib/zernio.ts): cada
   // negocio con SU key de Zernio. Desde esa fecha también conecta Facebook y los anuncios de Meta (lib/zernio-conectar.ts).
-  { key: 'zernio', nombre: 'Facebook, Instagram y anuncios (Zernio)', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
+  // 25/10/2026, Martín: «Zernio no debe decir (Facebook, Instagram...), el nombre real de las apps en integraciones». Lo que
+  // conecta lo dice la descripción.
+  // WhatsApp por QR (29/10/2026, Martín: «En Integraciones falta el logo de WhatsApp para que aparezca eso también, con el QR obvio,
+  // con las múltiples líneas, claro»). Es el NO oficial (Evolution): cada línea se vincula con su QR, y puede haber varias (una por
+  // setter). Sin `envs`: el estado sale de las líneas del negocio (lib/integraciones.ts, `estadoWhatsApp`), sin la de MaKo. ⚠️ NO entra a
+  // lib/metodo-catalogo.ts: `integracionConectada('whatsapp')` es la pregunta del OFICIAL (el de Chatwoot, que se fue el 09/10) en la
+  // API de MaKo, y tiene que seguir dando false.
+  { key: 'whatsapp', nombre: 'WhatsApp', categoria: 'Mensajería', descripcion: 'Tus números de WhatsApp, cada uno con su QR. Pueden ser varios: uno por setter.', envs: [] },
+  { key: 'zernio', nombre: 'Zernio', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
+  // UNA TARJETA POR RED SOCIAL (29/10/2026, Martín: «aprovechar todas las conexiones que tiene [Zernio]... Y que aparezcan en
+  // integraciones»). Sin `envs`: el estado sale de las cuentas conectadas en Zernio (lib/integraciones.ts, `estadoDeRedZernio`), y
+  // se conectan en la tarjeta de Zernio (`SE_CONFIGURA_EN`). La línea dice lo que MaKo hace con cada una, y lo que no.
+  ...REDES_CON_TARJETA.map((red): Def => ({ key: tarjetaDeRed(red), nombre: REDES[red].etiqueta, categoria: 'Redes sociales', descripcion: QUE_HACE_MAKO[red], envs: [] })),
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
-  { key: 'anthropic', nombre: 'MaKo IA (Anthropic)', categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
-  { key: 'openai', nombre: 'OpenAI', categoria: 'Inteligencia', descripcion: 'Tu GPT: con tu clave, MaKo trabaja solo con tu cuenta, escucha audios y mira fotos.', envs: ['OPENAI_API_KEY'] },
-  { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'Pasa a texto tus notas de voz. Con tu Claude, tu GPT o tu Gemini conectado, no se usa.', envs: ['GROQ_API_KEY'] },
-  { key: 'gemini', nombre: 'Google Gemini', categoria: 'Inteligencia', descripcion: 'Tu Gemini: con tu clave de AI Studio, MaKo trabaja solo con tu cuenta, lee documentos largos y busca en tu conocimiento.', envs: ['GEMINI_API_KEY'] },
+  { key: 'anthropic', nombre: 'Anthropic API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
+  { key: 'openai', nombre: 'OpenAI API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu GPT: con tu clave, MaKo trabaja solo con tu cuenta, escucha audios, mira fotos y busca en tu conocimiento.', envs: ['OPENAI_API_KEY'] },
+  { key: 'groq', nombre: 'Groq API', oculto: true, categoria: 'Inteligencia', descripcion: 'Pasa a texto tus notas de voz. Con tu Claude, tu GPT o tu Gemini conectado, no se usa.', envs: ['GROQ_API_KEY'] },
+  { key: 'gemini', nombre: 'Gemini API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu Gemini: con tu clave de AI Studio, MaKo trabaja solo con tu cuenta, lee documentos largos y busca en tu conocimiento.', envs: ['GEMINI_API_KEY'] },
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (0, 0 y 12 llamadas útiles en 30 días). Sus filas
-  // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
+  // guardadas en `credenciales` quedan huérfanas e inertes: borrarlas es SQL, y la Cerebras del ws1 la decide Martín.
+  // ⚠️ ES BYOK DESDE EL 02/09/2026: la key la trae el CLIENTE.
   //
   // Estuvo marcada `soloPlataforma` con un porqué que sigue siendo cierto —la voz
   // es MEDIOS, US$0,045/min contra US$0,00067 del texto, 67×— y esa misma cifra es
@@ -54,6 +92,17 @@ export const DEFS: Def[] = [
   // no funciona — es el error clásico que la skill add-provider-integration advierte.
   { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'], soloPlataforma: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
+  // Los otros grabadores de reuniones (26/10/2026, Martín: «implementa otras integraciones de grabadores de reuniones,
+  // como Loom, etc... Así no solo se puede grabar con fathom»). Lo que da cada uno se midió (lib/grabadores/catalogo.ts):
+  // los que se conectan, con sus claves; Loom, Read AI y Google Meet, sin claves: su tarjeta dice por qué (`sinConexion`,
+  // lib/integraciones.ts). Las claves, iguales a las que leen sus lectores (lib/grabadores/<grabador>.ts; test).
+  { key: 'tldv', nombre: 'tl;dv', categoria: 'Reuniones', descripcion: 'Tus reuniones grabadas con tl;dv: MaKo las lee, saca las tareas y analiza las de venta.', envs: ['TLDV_API_KEY', 'TLDV_HOST_EMAIL'] },
+  { key: 'fireflies', nombre: 'Fireflies.ai', categoria: 'Reuniones', descripcion: 'Tus reuniones grabadas con Fireflies: MaKo las lee, saca las tareas y analiza las de venta.', envs: ['FIREFLIES_API_KEY'] },
+  { key: 'zoom', nombre: 'Zoom', categoria: 'Reuniones', descripcion: 'Las grabaciones en la nube de tu Zoom, con su transcripción.', envs: ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'] },
+  { key: 'otter', nombre: 'Otter.ai', categoria: 'Reuniones', descripcion: 'Tus conversaciones de Otter (plan Enterprise).', envs: ['OTTER_API_KEY'] },
+  { key: 'loom', nombre: 'Loom', categoria: 'Reuniones', descripcion: 'Loom no tiene API: pega el link del Loom en el lead y sube su transcripción en el Plan.', envs: [] },
+  { key: 'readai', nombre: 'Read AI', categoria: 'Reuniones', descripcion: 'Tus reuniones de Read AI: se conectan con su inicio de sesión, que llega pronto.', envs: [] },
+  { key: 'meet', nombre: 'Google Meet', categoria: 'Reuniones', descripcion: 'Las transcripciones de Meet: piden un permiso de Google que llega pronto.', envs: [] },
   { key: 'calendly', nombre: 'Calendly', categoria: 'Reuniones', descripcion: 'Agenda de reuniones (R1/R2) y asistencia.', envs: ['CALENDLY_API_TOKEN'] },
   // ⚠️ Cal.com es OTRO producto, no una variante de Calendly: otra empresa, otra API,
   // otra firma y otro payload. Un cliente que vende por Cal.com no tenía por dónde
@@ -72,19 +121,18 @@ export const DEFS: Def[] = [
   // (app/integraciones/IntegracionesBoard.tsx).
   { key: 'stripe', nombre: 'Stripe', categoria: 'Pagos', descripcion: 'Cobra con un link de pago y cada pago entra solo a tu CRM.', envs: ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET'] },
   { key: 'mercadopago', nombre: 'Mercado Pago', categoria: 'Pagos', descripcion: 'Cobra en tu moneda con un link de Mercado Pago y cada pago entra solo a tu CRM.', envs: ['MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID'] },
-  // Las FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md): el propio
-  // público del negocio entra solo al CRM. Opcionales como las pasarelas (`esFuenteQueAvisa`,
-  // lib/fuentes-leads-catalogo.ts): sin configurar no bajan el medidor de nadie.
-  { key: 'hotmart', nombre: 'Hotmart', categoria: 'Pagos', descripcion: 'Cada compra y cada carrito abandonado de Hotmart entran solos a tu CRM.', envs: ['HOTMART_HOTTOK'] },
-  { key: 'skool', nombre: 'Skool', categoria: 'Contenido', descripcion: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas.', envs: ['SKOOL_WEBHOOK_CLAVE'] },
-  // Donde corren las búsquedas de prospectos del Leads Scraper (15/10/2026, decisión 5): la cuenta de
-  // Apify de cada negocio, que paga lo que encuentra. Opcional como las de arriba.
-  { key: 'apify', nombre: 'Apify', categoria: 'Datos', descripcion: 'Busca prospectos en Google Maps e Instagram con tu cuenta de Apify.', envs: ['APIFY_TOKEN'] },
+  // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper del 14/10/2026): se fueron el 25/10/2026, Martín: «Depreca
+  // Hotmart, Skool... Elimina Apify». Medido antes, en producción: 0 claves, 0 ruteos, 0 leads y 0 búsquedas.
+  // Ver tests/leads-scraper-retirado.test.ts.
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
   // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL
   // (ver estadoGoogleCalendar), como la landing.
-  { key: 'google', nombre: 'Google Calendar', categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
+  // `oculto` desde el 25/10/2026 (Martín: «Elimina la de Google Calendar, entiendo que cuando se registran con Google ya le
+  // podríamos preguntar esos permisos»): la agenda se conecta donde se usa (Calendario, el CRM) y, con la app de Google
+  // verificada, al entrar con Google (`GOOGLE_LOGIN_CON_AGENDA`, app/api/auth/google/route.ts). Las agendas ya conectadas
+  // siguen: el estado, el modal suelto (`getIntegracion` no mira `oculto`) y `?abrir=google` andan igual.
+  { key: 'google', nombre: 'Google Calendar', oculto: true, categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
   // ⚠️ ACÁ ESTABA LA PLATAFORMA DE CURSOS DE TERCEROS, y se fue el 06/10/2026
   // («que utilicemos directamente MaKo»). El curso vive en MaKo: las clases, los
   // videos (link o subido al bucket `curso-videos`), cuánto vio cada cliente y sus
@@ -94,7 +142,16 @@ export const DEFS: Def[] = [
   // nombre del proveedor, en docs/hallazgos-customer-success.md. Con esto la
   // categoría «Contenido» quedó sin tarjetas: el tablero no dibuja una vacía.
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
-  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
+  // Los otros alojadores de video (25/10/2026, Martín: «Implementa otros alojadores de video, no solo panda»): su lista
+  // de videos (para nombrarlos y elegirlos en el editor y en los cursos) y, Wistia y Bunny, sus números por día. Cuánto
+  // vio cada persona lo mide el Pixel en todos por igual (lib/alojadores-video.ts). Las claves, en CLAVES_ALOJADOR.
+  { key: 'vimeo', nombre: 'Vimeo', categoria: 'Datos', descripcion: 'Tus videos de Vimeo, para elegirlos en tus páginas y tus cursos.', envs: ['VIMEO_TOKEN'] },
+  { key: 'wistia', nombre: 'Wistia', categoria: 'Datos', descripcion: 'Tus videos de Wistia y cuántas veces los reproducen por día.', envs: ['WISTIA_TOKEN'] },
+  { key: 'bunny', nombre: 'Bunny Stream', categoria: 'Datos', descripcion: 'Tus videos de Bunny Stream y cuántas veces los reproducen por día.', envs: ['BUNNY_STREAM_KEY', 'BUNNY_STREAM_LIBRARY'] },
+  { key: 'cloudflare', nombre: 'Cloudflare Stream', categoria: 'Datos', descripcion: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.', envs: ['CLOUDFLARE_STREAM_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'] },
+  // Sin clave desde el 27/10/2026: el video del VSL alcanza (las vistas son públicas y MaKo las lee con su clave); el canal se
+  // conecta con el login de Zernio (lib/zernio-redes.ts).
+  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_VSL_VIDEO_ID'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el
   // cliente conecte (y su credencial no puede vivir dentro de la propia base).
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
@@ -157,7 +214,7 @@ export const DEFS_TEST = DEFS;
 // por eso). Ya no filtra: una categoría nueva va al final, en orden alfabético, y agregar una integración sigue siendo tres
 // registros más el logo.
 // 'Pagos' (Stripe y Mercado Pago, 11/10/2026) va después de Mensajería: es lo que cierra la venta que las dos de arriba empezaron.
-export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
+export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Redes sociales', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
 
 /** El lugar de una categoría: las que no están en ORDEN_CATEGORIAS, al final (y entre ellas, como las ordene quien llama). */
 export function ordenCategoria(cat: string): number {

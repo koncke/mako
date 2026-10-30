@@ -95,7 +95,7 @@ import { temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import { tarjetasDe } from '@/lib/editor-landing/doc';
 import { formatoDe, proporcionDe, type LandingCompleta, type TemaPropio } from '@/lib/editor-landing/api-tipos';
 import {
-  RUTA_APLICAR_DIAGNOSTICO, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
+  RUTA_APLICAR_DIAGNOSTICO, TOPES_DIAGNOSTICO, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
   ordenarParaRecorrido, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, tarjetaDeRecorrido,
   type Aplicacion, type EstadoSugerencia, type PedidoAplicarDiagnostico, type PedidoDiagnostico, type RespuestaAplicar,
   type RespuestaAplicarDiagnostico, type RespuestaDiagnostico, type RespuestaListaDiagnostico, type RespuestaPasar, type Sugerencia,
@@ -131,6 +131,12 @@ type Props = {
    * «Aplicar» la usa en vez de replicar otra vez.
    */
   copia?: number | null;
+  /**
+   * «Elegir qué replicar…» (28/10/2026, Martín: «es muy importante que al momento de replicar una landing se defina qué se
+   * quiere replicar»): el Panel abre «Replicar landing» con esta página, que la lee y pregunta las partes. Es un CLIC: el
+   * Panel reserva la ventana de lectura ahí (`abrirDerechaEnElClic`).
+   */
+  onReplicarPorPartes?: (url: string) => void;
 };
 
 /** El análisis piensa y una página de afuera además se baja: el plazo de la ruta (300 s) y un margen. */
@@ -185,7 +191,7 @@ export default function PanelDiagnostico(props: Props) {
   return <PanelInterno key={clave} {...props} />;
 }
 
-function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props) {
+function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes }: Props) {
   const deNuestra = docId != null;
   const objetivo = useMemo(() => (deNuestra ? { docId } : { url: url ?? '' }), [deNuestra, docId, url]);
   // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
@@ -449,7 +455,10 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
    */
   const aplicarTodos = useCallback(async (base: readonly Sugerencia[]) => {
     if (docId == null || trabajando.current || colaCorriendo.current) return;
-    const { grupos } = gruposParaAplicar(base, ordenRef.current);
+    const { grupos: porSeccion, sinUbicar } = gruposParaAplicar(base, ordenRef.current);
+    // Los que no están en una sección, al final y a toda la landing (diagnostico-aplicar.ts, «SIN SECCIÓN»).
+    const grupos: Array<{ seccionId: string | null; ids: number[] }> = [...porSeccion];
+    for (let i = 0; i < sinUbicar.length; i += TOPES_DIAGNOSTICO.aplicarDeUnaVez) grupos.push({ seccionId: null, ids: sinUbicar.slice(i, i + TOPES_DIAGNOSTICO.aplicarDeUnaVez) });
     if (!grupos.length) return;
     trabajando.current = true;
     setTodos({ hecho: 0, total: grupos.length });
@@ -587,8 +596,8 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
     unaVez.current = null;
     if (u.todos) { void aplicarTodos(sugerencias); return; }
     const elegida = sugerencias.find((x) => u.ids?.includes(x.id) && x.estado === 'pendiente');
-    if (elegida?.seccionId) void aplicarUno(elegida);
-    else if (u.ids?.length) avisar('No ubiqué esa sección');
+    // Sin sección también: se aplica a toda la landing (antes: «No ubiqué esa sección» y no pasaba nada).
+    if (elegida) void aplicarUno(elegida);
   }, [cargando, sugerencias, aplicarTodos, aplicarUno, avisar]);
 
   // ── Preguntar a MaKo ───────────────────────────────────────────────────────
@@ -609,7 +618,8 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
   const nombre = deNuestra ? (doc?.titulo || 'Landing') : hostDe(urlVista ?? '');
   const enCurso = Object.values(arreglos).some((a) => a?.fase === 'aplicando' || a?.fase === 'en-cola' || a?.fase === 'deshaciendo');
   const ocupado = !!todos || replicando || abriendoCopia || Object.values(arreglos).some((a) => a?.fase === 'deshaciendo');
-  const puedeAplicar = (s: Sugerencia) => s.estado === 'pendiente' && (deNuestra ? !!s.seccionId : !!urlPegada);
+  // En una nuestra, también sin sección: va a toda la landing (diagnostico-aplicar.ts). De afuera, replica primero.
+  const puedeAplicar = (s: Sugerencia) => s.estado === 'pendiente' && (deNuestra || !!urlPegada);
   const aplicables = pendientes.filter(puedeAplicar).length;
   const visibles = sugerencias.filter((s) => s.estado === filtro
     || (filtro === 'pendiente' && recientes.includes(s.id) && arreglos[s.id]?.fase === 'aplicado'));
@@ -687,6 +697,9 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
       ) : null}
       {menuReplicar && (
         <MenuFlotante ancla={menuReplicar} onCerrar={() => setMenuReplicar(null)} ancho={220} alinear="derecha">
+          {onReplicarPorPartes && urlPegada && (
+            <ItemMenu icono="paginas" texto="Elegir qué replicar…" onClick={() => { setMenuReplicar(null); onReplicarPorPartes(urlPegada); }} />
+          )}
           {FORMATOS_REPLICAR.map((f) => (
             <ItemMenu key={f} icono={ICONO_FORMATO[f]} texto={NOMBRE_FORMATO_REPLICAR[f]} onClick={() => replicar(f)} />
           ))}

@@ -1,0 +1,383 @@
+# Hallazgos — Copywriter (app/copywriter, lib/copywriter)
+
+Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026). El diseño y sus decisiones están en
+[diseno-copywriter.md](diseno-copywriter.md); acá va lo que no se deduce del código.
+
+## `adminOnly` esconde la fila; la puerta es otra cosa (28/10/2026)
+
+- **Síntoma posible:** una tab nueva «sólo para el super admin» con `adminOnly: true` en nav.ts y
+  `requireRolWs([], { nav })` en la página **se abre para el admin de CUALQUIER negocio** que escriba la URL: esa puerta
+  pregunta el rol del workspace y la capa, no si es la agencia.
+- **Dónde vive la puerta:** `app/copywriter/acceso.ts` (`veCopywriter`, con `getSesionAdmin`), el molde de AI Avatar. La
+  preguntan las dos páginas de escritorio, las dos del teléfono (`app/m/copywriter/puerta.ts`) y las dos rutas /api.
+- **Y la API de MaKo también** (desde la tanda 2, 62a9b1b28; la tanda 1 no tenía operaciones): su `gating.tab` mira la
+  CAPA del negocio, y las capas `completo` y `agencia` ven todas las tabs. Cada runner del Copywriter pregunta
+  `veCopywriterEnApi` (lib/copywriter/puerta-api.ts: sólo el negocio de la plataforma). El día que Martín lo abra, se
+  cambian LOS DOS archivos (lib/copywriter/puerta.ts y puerta-api.ts).
+- **Y las CHARLAS con MaKo de cada guion** (verificación del Cerebro del 28/10/2026): `copywriter:<guion>` se guarda por
+  /api/hilo-de-tab, y esa ruta, la lista del Ops Center, el hilo de «antes» y el doer sólo miraban el rol del workspace.
+  El dueño de un negocio leía y escribía la charla del super admin sobre un guion de su negocio, y le salía en su Ops
+  Center. La puerta (`veCopywriter`) se mudó a lib/copywriter/puerta.ts y las reglas comunes de las charlas
+  (lib/chart-chats-reglas.ts, `pasaLaPuertaDeSuTab`) la piden, cerradas por defecto: quien arma `QuienChatea` sin decir
+  que la pasa, no las ve. Una tab con puerta propia que guarda charlas tiene que cerrar TAMBIÉN ese camino.
+- **La regla:** una tab que nace para el super admin lleva su `acceso.ts` desde el primer commit, y
+  `tests/redirige-antes-del-loader.test.ts` (PUERTAS) tiene que conocer sus `require…`.
+
+## El «/» del Web Generator era de Gamma por dentro (28/10/2026)
+
+- **Lo que parecía:** un plugin genérico del menú «/» (app/web-generator/editor/extensiones/barra.ts) que cualquier editor
+  podía montar.
+- **Lo que era:** `consultaValida` le preguntaba al catálogo de GAMMA si lo escrito con espacios todavía era un comando,
+  y el plugin traía los atajos de Gamma, donde «> » es una cita. En Notion «> » es una **lista desplegable** y la cita es
+  «" ». Montado tal cual en el Copywriter, «/pedirle a» se cerraba solo y «> » armaba una cita.
+- **Cómo quedó:** el plugin recibe `buscar` (el catálogo) y `atajos` (los de Gamma, que el Copywriter apaga). Sin opciones
+  hace lo de siempre. Los atajos de Notion van en una EXTENSIÓN con prioridad 101 (`AtajosNotion`, app/copywriter/editor/
+  extensiones.ts): las reglas se prueban en el orden de las extensiones y gana la primera.
+- ⚠️ **No subirle la prioridad a un NODO para que su regla gane:** la prioridad de un nodo cambia el orden del esquema, y el
+  primer nodo del grupo `block` es el que TipTap usa para rellenar un documento.
+
+## Los guiones viven en `app_settings`, con compare-and-set (28/10/2026)
+
+- Un índice (`mako.copywriter.indice`) y un documento por guion (`mako.copywriter.doc.<id>`), como los guiones del Ads
+  Writer en `mako.razones`: sin migración, y testeable en local sin tocar el esquema de producción.
+- El índice se lee, se cambia con una función pura (lib/copywriter/arbol.ts) y se reescribe sólo si nadie lo cambió en el
+  medio, hasta 4 veces. El documento exige la `version` que se abrió (409 → «Recargar», nunca pisa).
+- ⚠️ **Un guion y su índice son valores LARGOS.** La tanda 1 usó `cambiarSettingSi`, que ponía el valor ENTERO en la URL
+  del PATCH; la regla ya estaba escrita (docs/hallazgos-infra.md, 12/10: «sólo para valores cortos») y no la leí. La
+  verificación del Cerebro lo midió: desde ~900 palabras el guion no se guardaba MÁS (cada reintento, y hasta borrar casi
+  todo, comparaba contra el valor grande ya guardado) y desde ~40 guiones el árbol se congelaba, con un documento huérfano
+  por cada «crear» fallido. El Cerebro lo arregló en la RAÍZ (f92b74992: `cambiarSettingSi` compara un valor largo en el
+  server, para todos los que lo llaman); el Copywriter suma que `crear` borra el documento si el índice no entra.
+  tests/copywriter-guardar.test.ts corre el `guardar` REAL contra el PostgREST de mentira con el límite de URL de prod.
+- **Sin hacer:** `borrarSettingSi` no tiene ese desvío: un documento de más de ~6 KB cuyo índice no entra queda huérfano
+  igual (lib/settings.ts).
+- Si un negocio llega a cientos de guiones con versiones, se muda a una tabla con su migración (y sus tres registros: ver
+  la cabecera de `supabase/migrations/0246_editor_landing.sql`).
+
+## Lo que crees MIENTRAS corren los tests afectados lo ven las barredoras (28/10/2026)
+
+- **Síntoma:** `tests/api-mako-registro.test.ts` rojo en la corrida de la tanda 1 («nadie mira estos runners:
+  copywriter»), con un archivo que NO era de esa tanda.
+- **Causa:** `tests-afectados` arma su lista al empezar, pero las barredoras que recorren carpetas con `readdir` leen el
+  disco cuando les toca (a los 13 minutos, con poca RAM). `lib/api-mako/areas/copywriter.run.ts` se escribió en el medio.
+- **La regla:** mientras corren los afectados, no se crean archivos en carpetas que barre un test (lib/api-mako/areas,
+  app/m, app/api). Se escriben después, o en otro worktree.
+
+## MaKo escribía y las marcas de la propuesta no aparecían (28/10/2026)
+
+- **Síntoma (en la maqueta):** «Editar» construía el guion y la tarjeta decía «3 bloques nuevos, marcados», pero el
+  documento no marcaba ninguno.
+- **El diagnóstico obvio era el equivocado:** parecía la decoración de ProseMirror (el plugin, el CSS). La causa era que
+  cada pasada de las herramientas (`aplicarTodo` para el resultado, `cuadrosDeConstruccion` para la animación) llamaba a
+  `bloqueAJson`, que inventaba ids NUEVOS: los cuadros y el resultado no compartían un solo id, y las marcas buscaban
+  ids que no estaban.
+- **Cómo quedó:** el id de cada bloque lo pone `sanearOperaciones`, UNA vez; aplicar después es determinista.
+  `tests/copywriter-operaciones.test.ts` compara el último cuadro con el resultado con `deepEqual` (ids incluidos).
+- **La regla:** si dos caminos aplican la misma propuesta (mostrar y aceptar), lo que se inventa (ids, fechas) se fija
+  antes, no adentro de cada camino.
+
+## Capturas sin build: la maqueta con los componentes reales (28/10/2026)
+
+- `next build --debug-build-paths` de un editor TipTap pide ~4 GB (la sesión de replicar-landings lo vio morir a 3,1), y
+  con 9 chats abiertos no entra. Lo que anduvo: esbuild (el de node_modules del repo) sobre los componentes REALES, con
+  stubs para `next/navigation`, `next/dynamic`, `next/link`, `server-only`, lo de Node, y cada archivo `'use server'`
+  reemplazado por funciones que contestan «maqueta» (en Next son llamadas remotas; empaquetados, arrastran el server
+  entero). `globals.css` sin su `@import "tailwindcss"`. Un servidor FALSO en memoria con las funciones puras de
+  lib/copywriter. Capturas con Chrome sin ventana por CDP al tamaño real (el panel del navegador de Claude es de 800×500 y
+  recorta la emulación). Los scripts: side-session-notes/…/copywriter-maqueta/.
+- Lo que encontró que los tests no veían: el árbol se comía el documento a 800 px, el título del teléfono en 16 px, un
+  valor largo que empujaba la fila, el texto de la caja en dos renglones y las marcas de la propuesta.
+- ⚠️ **El `:is()` de app/m/m.css pesa (0,4,1)** (`[data-m] :is(input:not(…):not(…):not(…), textarea, select)`: un
+  `:is()` vale lo que su argumento MÁS fuerte). Una regla de pantalla sobre un campo del teléfono necesita más que eso.
+
+## YouTube no tiene estructura, y no se inventa (28/10/2026)
+
+- Reel y Story salieron de `METODOLOGIA_REEL` / `METODOLOGIA_STORY` (lib/ig-formatos.ts, los cursos que ya usa MaKo).
+  Para YouTube no hay fuente en el repo (YouTube Writer era un «pronto» vacío): el guion de YouTube ofrece las de anuncios
+  y lo dice. Cuando Martín diga de qué curso sale, va a lib/guion-estructuras.ts con `tipos: ['youtube']`.
+- Que el selector «caiga» a otras estructuras es a propósito: un selector vacío deja el documento sin secciones, y MaKo
+  escribe peor sin ellas (`estructurasDelTipo`, `propias: false`).
+- La biblioteca de estructuras dejó de ser sólo de anuncios: lo que eso rompía está en
+  [hallazgos-ads.md](hallazgos-ads.md) («La biblioteca de estructuras era de anuncios sin decirlo»).
+
+
+**29/10/2026, plantillas reales: YouTube ya tiene fuente: `youtube-retencion` cierra la D6** (implementada el mismo día).
+- **Hallazgo:** claude-youtube (MIT, «Copyright (c) 2025 Daniel Agrici», LICENSE leído) trae la estructura de
+  retención: el gancho de 30 s en 3 tiempos, los bloques con interrupción, el CTA al 25 % y el regancho al 60 %. Sus
+  metas numéricas (el 70 % de retención a los 30 s) no citan fuente y no entran.
+- **Regla:** `conLasDeOrganicoNuevas` suma `youtube-retencion` aunque el super admin ya tenga la biblioteca guardada.
+  `CON_TILDE` suma «CTA medio».
+
+**Vive en:** lib/guion-estructuras.ts · lib/guion-estructuras-store.ts · lib/copywriter/doc.ts · docs/diseno-copywriter.md (D6)
+
+## Compartir para editar: lo de seguridad está en su documento (28/10/2026)
+
+- El link que EDITA un guion es la primera ruta pública que escribe en los datos de un negocio. Lo que costó (la puerta
+  que nadie usaba, el índice entero que devolvía renombrar, la sesión de quien abre el link) está en
+  [hallazgos-seguridad.md](hallazgos-seguridad.md), «Un guion del Copywriter se EDITA por link».
+- ⚠️ **Fines de línea mezclados:** varios archivos del Copywriter quedaron con renglones LF adentro de un archivo CRLF
+  (ediciones de tandas anteriores). Un reemplazo que arma el texto con un solo tipo de salto no encuentra nada y no avisa
+  por qué: se normaliza a `\n`, se reemplaza y se vuelve a escribir con el salto del archivo.
+
+## Cambiar el editor NO era reescribir el guardado (29/10/2026, «Copywriter = Notion»)
+
+- El obvio era el equivocado: pasar de la TipTap propia a BlockNote parecía pedir otro formato de documento (el de
+  BlockNote) y reescribir el saneo, las operaciones de MaKo, el texto exportado y la API. No hizo falta: lo guardado sigue
+  siendo el JSON de doc.ts y `lib/copywriter/notion-bloques.ts` traduce en los dos sentidos. Lo que costó fue el conversor,
+  no la casa: una lista son N ítems en BlockNote (vuelven a ser UNA con el `bid` del primero), un uuid tiene que dar
+  SIEMPRE el mismo `bid` (si no, MaKo apunta a otro bloque en el turno siguiente), y BlockNote exige ids únicos en todo
+  el documento (un `bid` repetido en un hijo rompe el editor; el segundo entra sin id).
+- **Regla:** el esquema del editor es EXACTAMENTE lo que el formato guarda. BlockNote ofrece colores, alineación,
+  imágenes, código y encabezados 4-6: si el esquema los deja, la persona los usa y desaparecen al recargar, sin un error.
+  Lo que el formato no anida (un párrafo con hijos, Tab) sale a continuación, nunca se tira. El saneo tiraba un desplegable
+  dentro de otro con lo escrito: ahora lo acepta (la profundidad tiene su tope).
+
+## BlockNote en la casa: tres trampas (29/10/2026)
+
+- **Los íconos del «/» salían en blanco:** el cuadrito de cada bloque usa los colores del TOOLTIP del tema de BlockNote
+  (texto `var(--surface)` sobre `var(--ink)`); al pintarle el fondo claro de Notion, el ícono quedó blanco sobre blanco.
+  Se le da `color` explícito (notion.css).
+- **`@blocknote/react/style.css` sólo existe con la condición «style»** de `exports`: esbuild (la maqueta) no lo encuentra
+  sin `conditions: ['style', …]`. Next la resuelve sola.
+- **El asa ⋮⋮ no aparece con un `mousemove` de JavaScript:** BlockNote la ubica con el ratón de verdad. En las capturas
+  por CDP va `Input.dispatchMouseEvent` (el plan de la maqueta tiene `raton` y `clic`).
+
+## Las capturas de esta tanda (29/10/2026)
+
+- Claude in Chrome no estaba conectado y producción pide sesión (entrar con una contraseña no lo hace Claude): no hay
+  «antes» de producción de la tab vieja. El «antes» es el Copywriter de la tanda del 28/10 (C:/dev/revisiones/copywriter-2810/)
+  y el «después», la maqueta con los componentes reales en Chrome sin ventana (C:/dev/revisiones/copywriter-notion-2910/:
+  d* escritorio, t* teléfono). Los scripts, en el scratchpad de la sesión y copiados a side-session-notes del Cerebro.
+- El test del tope de la mudanza daba verde con el padre sin contar: con 10 lugares y una sola matriz da lo mismo. Hizo
+  falta el caso de 5 (tres guiones + su padre, y no entra el Reel con el suyo) para que la rotura se viera.
+- `lib/razones.ts` es `server-only`: lo puro que necesita leer un guion de la matriz (la mudanza, con su test) copia la
+  normalización mínima en vez de importarla.
+
+## Dos ramas que tocan nav.ts: la que crea la ruta hace la fila (29/10/2026)
+
+- El chat de Create y éste editaban el MISMO bloque de nav.ts (la familia Create). Lo que destrabó fue repartir por
+  dependencia, no por archivo: la fila de Copywriting apunta a `/copywriter`, que existe sólo en esta rama, así que la hizo
+  esta rama ENCIMA del merge de la otra. Si la hubiera hecho la rama del shell, sus clientes iban a una ruta que todavía no
+  estaba en main. Por lo mismo, las dos ramas suben juntas (o la del Copywriter primero).
+
+## Los tests del Copywriter daban verde y la barra estaba rota (29/10/2026)
+
+- Correr «los tests del Copywriter» (los 12 que nombran copywriter, crear, m-creacion…) dio verde; `tests-afectados` dio
+  10 rojos en 8 archivos que NO se llaman copywriter: la barra (`barra-sin-dev`: «lo que se editaba sólo ahí tiene casa»),
+  la API REST (`api-mako-rest`: cada operación HTTP necesita su fila en `RUTAS_REST`, y generar-api-doc NO lo avisa), el
+  catálogo de MaKo (`funciones-mako`: una key del nav que deja de ser `comingSoon` pasa a necesitar una función) y el
+  teléfono (`movil-mas-secciones`: una query de `QUERY_DE_SECCION` tiene que volver por `RUTAS_CREACION`).
+- **Regla:** sacar pestañas o abrir una key toca lo que la barra prometía. Antes del VERDE va `tests-afectados`, no la
+  lista de tests con el nombre de la tab.
+- Las herramientas del super admin que eran pestañas: Offer (rama de Create) ya las había mudado al pie de su lista
+  (`pieLista={superAdmin ? (…Link…) : undefined}`), y `tests/sidebar-nueva` busca ese pie por texto. El Copywriter copia
+  la MISMA forma (`{deLaPlataforma && (<span …><Link href=…>`), y el test mira los dos pies. Una pantalla hermana que
+  resolvió lo mismo distinto es una tercera forma que el test no conoce.
+- `ideas` se había caído del nav al sacar las secciones, y `app/ideas/page.tsx` la pide (`requireRolWs({ nav: 'ideas' })`):
+  la vio `movil-rutas` (`/ideas` → «pronto»), no un test del Copywriter. Antes de borrar una sección, `grep` de su key.
+- `tsc-acotado` con BlockNote se queda sin heap con 30 archivos y el heap por defecto (código 134, que NO es el vigía):
+  van tandas de ~15 con `--heap=3000`. Y una tanda que arrastra `app/video-editor/_opencut` o `<style jsx>` da rojos que no
+  son de nadie: se suman `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts` y `node_modules/styled-jsx/global.d.ts`
+  a la lista (declaran módulos para todo el repo y el acotado no los ve solo).
+
+## La mudanza se duplicaba al reintentar, y la marca «una vez» no lo evitaba (29/10/2026)
+
+Verificación del Cerebro de 544991179: C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md (arnés en
+C:/dev/revisiones/scratch-cw/). Arreglado en ac588e955 y fijado en tests/copywriter-mudanza.test.ts.
+- **Síntoma:** si la última escritura (la marca «hecha») no llegaba, a los 10 minutos se mudaba todo otra vez: 7 → 14
+  páginas, con dos «Guiones del Ads Writer». En ws1 eran ~150 duplicados.
+- **El diagnóstico obvio era el equivocado:** «la marca por compare-and-set la hace idempotente». La marca protege de
+  DOS PESTAÑAS A LA VEZ, no de un CORTE A LA MITAD. Con ids al azar nada recuerda qué ya se mudó.
+- **Regla (AGENTS.md):** lo que se puede cortar y reintentar crea con ids que salen de su origen y saltea lo que ya está.
+- **Una compensación que borra después de un error AMBIGUO** rompe lo que sí llegó. La escritura del índice llegó y se
+  perdió la respuesta, `crearVarias` creyó que falló y borró los documentos: 6 de 7 páginas abrían «No existe». Con id
+  estable no hace falta borrar: el reintento adopta el documento (`cambiarSettingSi(…, null, …)` da `false` = «ya
+  existía», y tira ante un error, así que `false` nunca es «no sé»). `crear` (una página) sigue borrando: abajo.
+- **«Lo que no entró queda donde estaba» deja de ser cierto si la mudanza es la única salida del dato.** La tab Reels se
+  retiró, así que un Reel que fallaba una vez (la marca quedaba «hecha» con menos) ya no lo veía nadie. Por eso: «hecha»
+  sólo si no faltó nada, y los Reels primero en el tope.
+- El lugar del tope se cuenta SIN lo ya mudado. Si no, el reintento (con el índice más lleno) elige otras páginas y las
+  que faltaron quedan afuera.
+
+## MaKo no puede escribir tablas: «adaptar» borraría las del Reel, las Stories, el Carrusel y los Ganchos (29/10/2026)
+
+- **Causa:** `TIPOS_BLOQUE_IA` (lib/copywriter/operaciones.ts) no tiene `tabla`, y `escribir_seccion` reemplaza el
+  cuerpo entero de la sección. La tabla se convierte en párrafos sin que nada falle.
+- **Regla:** el bloque `tabla` (saneo, topes, `bloqueAJson`, truncado y `FORMATO_EDITAR`) va **antes** que «Adaptar a
+  mi negocio».
+
+**Vive en:** lib/copywriter/operaciones.ts · lib/copywriter/ia-editar.ts · tests/copywriter-operaciones.test.ts
+
+## Un renglón en MAYÚSCULA abre una sección (29/10/2026)
+
+- **Causa:** `bloquesDeTexto` toma como sección toda línea de 20 caracteres o menos en mayúscula que pase `esEtiqueta`,
+  y antes le quita los dos puntos del final. `CTA`, `NEGOCIO:` o un texto en pantalla sin comillas como
+  `43 DE 50 FALLAN` parten el documento.
+- **Regla:** en los ejemplos el texto en pantalla va siempre entre «». `docDeEjemplo` usa la misma lectura, y
+  `bloquesDeTexto` no cambia, porque lo usa la API de MaKo.
+
+**Vive en:** lib/copywriter/texto.ts
+
+## La API de MaKo le dejaría a un cliente el anuncio del negocio ficticio (29/10/2026)
+
+- **Causa:** `crear_documento_copywriter` con `plantillaId` crea la página con `pl.contenido()`. Con el ejemplo
+  adentro, un agente externo le crea al cliente el anuncio de Cierre Consultivo.
+- **Regla:** cada plantilla tiene `esqueleto()` (las secciones vacías). La API y «Solo la estructura» usan el esqueleto;
+  solo la galería abre el ejemplo.
+
+**Vive en:** lib/api-mako/areas/copywriter.run.ts · lib/copywriter/plantillas.ts
+
+## «Guion de anuncio» seguía la estructura del super admin (29/10/2026)
+
+- **Causa:** usaba `estructuraPorDefecto(c, 'ad')`, la primera de la biblioteca editable. Un ejemplo escrito con las
+  etiquetas de PAS se rompe si el override la cambia o la apaga.
+- **Regla:** una plantilla con ejemplo fija su estructura (`'pas'`). Si el override la cambió o la apagó, la página
+  nace con el ejemplo y sin estructura elegida.
+
+**Vive en:** lib/copywriter/plantillas.ts · lib/guion-estructuras-store.ts
+
+## Las variantes no van en la página, y las llaves de las variables muerden (29/10/2026)
+
+- **Variantes:** «3 ganchos y 2 CTA» debajo del guion se leen como guion en el teleprompter y al copiar. Van en la
+  respuesta del chat, como una oferta («¿Te armo 2 aperturas más?»).
+- **Llaves:** Email Marketing usa `{nombre}`, con una llave (lib/template-vars.ts). Con `{{nombre}}`, el ejemplo pasa
+  por `renderPrompt` como si fuera un slot.
+- **Links:** el ejemplo usa `example.com` (RFC 2606); un dominio inventado puede existir.
+
+**Vive en:** lib/copywriter/plantillas-ejemplos.ts · lib/template-vars.ts
+
+## Los ejemplos tampoco pueden tener las muletillas que el prompt prohíbe, ni durar otra cosa que su estructura (29/10/2026)
+
+- **Síntoma:** el primer borrador traía «no son presentaciones: son diagnósticos» y «no fue el anuncio, fue…», y un
+  Reel de 35 s dentro de `reel-viral`, que pide de 50 a 60 s (`gancho-valor-cta` es solo de anuncios).
+- **El diagnóstico obvio era el equivocado:** después de reescribir esos dos, el plan dio por hecho que solo quedaba el
+  contraste del ángulo contrarian. La revisión encontró seis más fuera del gancho (el texto del anuncio de la 1, la
+  moraleja y el caption de la 5, «No son nervios» en la 6, el email 2 de la 9, «el problema nunca fue el anuncio» y
+  «no alcance» en la 10), una cifra sin fuente («la persona habla el 70 % del tiempo») y una clase de 45 min con una
+  estructura que llega a 42. AI Avatar repetía el error de duración: un guion de ~26 s en `reel-viral`.
+- **Regla:** cada ejemplo pasa la misma revisión que le pide el experto a la IA: sin muletillas, sin voseo
+  («Guárdalo», «aquí»), sin cifras sin fuente y con la duración y las etiquetas de su estructura. Un test fija las
+  etiquetas de cada ejemplo **y cuenta los contrastes** («no es… es», «no… sino»): como mucho uno por pieza, y solo en
+  el gancho. Una lista revisada a ojo no alcanza.
+
+**Vive en:** lib/copywriter/plantillas-ejemplos.ts · tests/copywriter-plantillas.test.ts (el contraste cuenta también
+«no son X: son Y» y «no fue X, fue Y», las dos formas que el borrador tuvo que reescribir)
+
+## Implementar las plantillas reales: lo que no estaba en el plan (29/10/2026)
+
+- **Lo que queda del ejemplo no es todo lo que se parece al ejemplo.** El ✂️ del caption y «Una sola idea en todo el
+  día» están en el ejemplo Y en el esqueleto: son la forma. Contados como «restos», una página que dejó solo la
+  estructura seguía diciendo «quedan bloques del ejemplo». `restosDelEjemplo` descuenta lo que también está en el
+  esqueleto, y el test exige 0 sobre cada esqueleto.
+- **«Solo la estructura» vive en la página, no en el chat.** Lo que pone el chat en el editor (`DocVivo.poner`) no pasa
+  por `alCambiar` (CuerpoNotion lo saltea a propósito), así que no se guardaba. Va donde vive `marcar` (EditorGuion), y el
+  chat lo pide por `ApiPagina.soloLaEstructura`.
+- **La respuesta de la persona a la pregunta de «adaptar» viaja en la charla.** `copywriter.adaptar.user` no tiene un slot
+  para la instrucción y no se le agrega uno (la misma regla de los overrides): `charla` lleva lo último, con «LA PERSONA,
+  AHORA: …» al final.
+- **`bloquesDeTexto` y `docDeEjemplo` son la misma lectura con un interruptor** (`leer(texto, ejemplo)`): copiar la
+  función habría dejado dos lecturas de «MAYÚSCULA abre sección» que se desfasan; el test fija que la de la API no lee
+  destacados, tablas ni negritas.
+- **`PropsGuion.plantilla` es opcional en el tipo** (el saneo y `propsNuevas` la devuelven siempre): obligatoria, cada
+  objeto de propiedades armado a mano en el código y en los tests dejaba de compilar sin aportar nada.
+- **Los avisos de licencia son el texto literal** de cada LICENSE (leído de raw.githubusercontent.com), en
+  `lib/avisos/`. Create arma la misma carpeta en su tanda 0: los dos con el mismo archivo byte a byte, o uno solo.
+
+**Vive en:** lib/copywriter/plantillas.ts · app/copywriter/editor/EditorGuion.tsx · lib/copywriter/ia.ts ·
+lib/copywriter/texto.ts · lib/copywriter/tipos.ts · lib/avisos/
+
+## Hay dos `contextoDelNegocio` (29/10/2026)
+
+- **Síntoma posible:** al mover el contexto del negocio a un `lib/` común, para que lo lean Video, Image y AI Avatar,
+  un import automático trae el equivocado.
+- **Causa:** `lib/copywriter/contexto.ts` exporta `contextoDelNegocio(pedido): Promise<string>` (el Second Brain, con
+  1,800 tokens), y `lib/plan-senales.ts` exporta `contextoDelNegocio(): Promise<ContextoNegocio>`, otra cosa.
+- **Regla:** el común se mueve con un nombre que no choque, o se importa siempre con su ruta explícita.
+
+**Vive en:** lib/copywriter/contexto.ts · lib/plan-senales.ts
+
+## Un comentario viejo daba por pendiente lo que ya estaba en main: `grafoParaChat` (29/10/2026)
+
+- **Síntoma:** el plan decía «`grafoParaChat` sigue sin llegar a main» y dejaba al Copywriter leyendo
+  `construirCerebro()`.
+- **Causa:** la frase salió de la cabecera de lib/copywriter/contexto.ts (líneas 12 a 15), que dice que vive en otra
+  rama. `grafoParaChat` está en main desde el 28/10 (`c272b97dd`, lib/cerebro-para-chat.ts:33), y
+  lib/api-mako/areas/negocio.run.ts ya lo usa.
+- **El diagnóstico obvio era el equivocado:** un comentario del código no es el estado del código. Se verifica con
+  `git grep -n <nombre> origin/main` antes de escribir «falta».
+- **Lo que queda:** cambiar `const GRAFO = () => construirCerebro()` (contexto.ts:24) y su comentario. El `lib/` común
+  de la tanda 0 nace leyendo `grafoParaChat`.
+
+**Vive en:** lib/copywriter/contexto.ts · lib/cerebro-para-chat.ts
+
+## «Ninguna mención en todo MaKo»: un nombre vivía en ocho lugares (29/10/2026)
+
+Martín: «Elimina esto "Copy Method · Angles & Structures", no quiero ninguna mención en todo MaKo».
+- **Dónde estaba el nombre:** el pie de la lista del Copywriter, las dos `HERRAMIENTAS` de nav.ts (y el `match` de la fila
+  de Copywriting), el `metadata.title` de /admin/guiones, la fila oculta del teléfono (lib/movil-creacion.ts, también en
+  `IdCreacion` y en `RUTAS_CREACION`), la razón de «en la computadora» (`SOLO_ESCRITORIO['admin-guiones']`), los títulos
+  que fijaban dos tests y los comentarios. Sacar «la fila» dejaba seis.
+- **Regla:** un pedido de «que no aparezca» se fija con un BARRIDO (tests/barra-sin-dev.test.ts, el 5: `git ls-files`
+  de app/, lib/ y components/), no con un test por archivo: el próximo lugar donde alguien lo escriba no tiene test.
+- **Lo que no se tocó, a propósito:** lo que la IA lee (lib/copywriting-metodo.ts, los stores de ángulos y estructuras,
+  sus rutas de datos y los overrides guardados). La pantalla y el dato son cosas distintas: borrar la pantalla no cambia
+  cómo escribe MaKo.
+- **Consecuencia que hay que saber:** esas bibliotecas y el método ya no tienen dónde editarse desde la app (sólo sus
+  rutas de datos). Si Martín quiere cambiarlas, es código o un pedido a un chat.
+- **Una página del teléfono que sólo redirige no pasa los barridos del teléfono** (movil-mismas-rutas: toda /m tiene su URL
+  de escritorio; movil-refrescar: toda /m dibuja PantallaM). Se borra, como /m/reels: el link de escritorio redirige solo.
+
+**Vive en:** app/_components/nav.ts · app/copywriter/Copywriter.tsx · app/admin/{copywriting,guiones}/page.tsx ·
+lib/movil-creacion.ts · lib/movil-rutas.ts · tests/barra-sin-dev.test.ts
+
+## Sacar el ejemplo de la página apagaba a MaKo y dejaba a la IA sin modelo (29/10/2026)
+
+- **Crear con el esqueleto parecía un cambio de una línea, y no lo era.** El primer mensaje de MaKo («¿Lo adapto?») salía
+  sólo si `restosDelEjemplo(página) > 0`, o sea, si la página todavía era el ejemplo. Con la página naciendo vacía, esa
+  condición da 0 siempre: el mensaje no volvía a salir, y sin un error. Las preguntas nuevas dependen de que la página
+  recuerde su plantilla (`props.plantilla`) y de que el chat esté vacío, no de lo que tenga escrito.
+- **La IA de «adaptar» leía el ejemplo de la página.** Con el esqueleto, el modelo recibía secciones vacías y nada que
+  imitar. El ejemplo va ahora dentro del slot `estructura` de `copywriter.adaptar.user`, marcado como forma y no como
+  dato. No se agrega un slot: un override guardado desde /configuraciones-prompts no lo tendría.
+- **Una guía con la etiqueta mal escrita no se ve nunca.** `GUIAS` se busca por la etiqueta de la sección
+  (`attrs.seccion`). Si la clave no coincide (un acento, un plural), esa sección queda sin guía y sin error. El test exige
+  una guía debajo de cada sección y que cada clave sea una sección real.
+- **`ofertas = []` como default de una prop rehace los `useMemo` en cada render**: es un arreglo nuevo cada vez. Va una
+  constante fija (`SIN_OFERTAS`).
+- **En el teléfono se ve una vista por vez**: las preguntas en la vista de MaKo quedaban detrás de «Página». La página
+  recién creada desde una plantilla abre en MaKo (`?mako`).
+- **Trampa del entorno:** un heredoc de Bash con un script de Node que lleva comillas simples y backticks se cortó
+  («unexpected EOF while looking for matching `''»). Los scripts de edición van a un archivo con Write y se corren con
+  `node archivo.cjs`.
+
+**Vive en:** lib/copywriter/iniciativa.ts · lib/copywriter/plantillas-guias.ts · lib/copywriter/plantillas.ts
+(`conGuias`) · lib/copywriter/ia.ts · app/copywriter/PanelMaKo.tsx · app/copywriter/editor/EditorGuion.tsx ·
+app/m/copywriter/GuionM.tsx
+
+## Qué quedó sin hacer
+
+- La búsqueda web con fuentes de mila.gg (MaKo no tiene una para los chats): docs/diseno-copywriter.md → «Qué queda».
+- Versiones guardadas del documento (hoy: deshacer, y la foto de antes mientras hay una propuesta de MaKo).
+- Mudar las preguntas de MaKo al patrón común «MaKo toma la iniciativa» cuando el Cerebro lo arme: hoy los pasos salen de
+  lib/copywriter/iniciativa.ts y PanelMaKo los dibuja. Y app/_crear/ejemplo.ts (de Create) todavía dice que el
+  Copywriter abre con «Adaptar a mi negocio» y «Solo la estructura»: el Copywriter ya no lo usa.
+- La calidad de las guías de cada sección (lib/copywriter/plantillas-guias.ts) se revisó a ojo: el test fija que estén,
+  que sean cortas y sin voseo, no que digan lo correcto.
+- Los `evals` del experto (un pedido, la salida esperada y sus verificaciones): la calidad de «adaptar» no tiene prueba
+  automática. Y los ejemplos de las VSL ocultas (`vsl-anti-solucion`, `vsl-diagnostico`, `vsl-historia-fundador`).
+- Las cifras de los ejemplos contra la tabla del elenco (docs/plantillas-reales/README.md, 2.2) se revisaron a ojo: no
+  hay test.
+- El arrastre del árbol de Notion (reordenar y anidar páginas) se perdió al entrar al shell único de Create (su lista es
+  plana): docs/diseno-copywriter.md, D15. Retirar `/m/stories`, `/ideas` y el «pronto» de YouTube Writer del teléfono (sin
+  fila, todavía vivos; lib/movil-rutas.ts, lib/movil-creacion.ts y sus tests).
+- Borrar StoriesApp/OnboardingStories (sin entrada desde el 29/10) y decidir qué pasa con la matriz y «Analizar guion» del
+  Ads Writer (siguen por su ruta).
+- `grafoParaChat` ya está en main (lib/cerebro-para-chat.ts, c272b97dd): falta cambiar `const GRAFO` en lib/copywriter/contexto.ts (docs/plantillas-reales/README.md, tanda 0).
+- Las bajas de la verificación de la mudanza (C:/dev/revisiones/2910-verificacion-mudanza-copywriter.md):
+  - `crear` (lib/copywriter/server.ts) borra el documento si el índice «falla», aunque haya llegado: abre «No existe» (B7);
+  - el link compartido de una página cuya madre está en la Papelera sigue editando: app/api/compartido/guion/route.ts
+    mira sólo `pagina.papelera`; falta `escondida(paginas, id)` (B6);
+  - después de mudar, /copywriter abre una página mudada y no la última del usuario: nacen con `actualizado = ahora` (B3);
+  - con el índice casi lleno no entra nada y la marca queda «hecha» con 0 (B4);
+  - un `reels.historial` con JSON roto se toma como «no hay» (B5).
+- «Compartir para editar» desde el teléfono del dueño (la vista del guion del teléfono no tiene el menú ⋯): D9.

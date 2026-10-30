@@ -84,12 +84,11 @@ const enteroDe = (v: unknown): number | null => {
 async function laApp(persona: PersonaChat, req: NextRequest): Promise<AppDeEscritorio> {
   // La app de escritorio (23/10/2026, lib/chat-mako-reglas.ts → appDeEscritorio, «Bloqueá igual»). El teléfono sale del pedido,
   // con la misma pregunta del proxy (`tipoDeDispositivo`): ahí no se instala, así que no se bloquea. Si no se pudo saber, `tiene`:
-  // un bache de la base no le tapa el chat a nadie.
+  // un bache de la base no le tapa el chat a nadie. El negocio de la plataforma también (25/10/2026: «ni en la mia... No debería»).
   try {
-    const plataforma = persona.ws === (await wsSuperAdmin());
-    const conComputadora = !plataforma && (await pcDe(persona.ws, persona.actor)) != null;
+    const conComputadora = (await pcDe(persona.ws, persona.actor)) != null;
     const telefono = tipoDeDispositivo(req.headers.get('user-agent'), req.headers.get('sec-ch-ua-mobile')) !== 'escritorio';
-    return appDeEscritorio({ plataforma, conComputadora, telefono });
+    return appDeEscritorio({ conComputadora, telefono });
   } catch {
     return 'tiene';
   }
@@ -125,6 +124,9 @@ export async function GET(req: NextRequest) {
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
     if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
     // Y las cuentas que el «+» de la caja deja elegir para ESTE chat (8b, lib/chat-ia.ts): sin ellas, el selector no se dibuja.
+    // Sólo la app de escritorio (25/10/2026): la pregunta de los chats con caja propia (app/_chat/useAppDeEscritorio.tsx), sin
+    // las cuentas ni la IA conectada, que esos chats no dibujan.
+    if (sp.get('app')) return json({ ok: true, app: await laApp(persona, req) });
     if (sp.get('suIA')) {
       const [conectada, cuentas, app] = await Promise.all([conSuIA(persona), cuentasDeIA(persona).catch(() => []), laApp(persona, req)]);
       return json({ ok: true, conectada, cuentas, app });

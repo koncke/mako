@@ -49,7 +49,7 @@ import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
-import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial } from '@/lib/zernio-entrante';
+import { procesarEventoSocial, dispararEventoSocial, contestarDisparoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
 import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
 import { leerLeadDeZernio } from '@/lib/zernio-lead';
 import { cargarLeadDeZernio, alNacerLeadDeZernio } from '@/lib/zernio-leads';
@@ -224,19 +224,45 @@ export async function POST(req: NextRequest) {
         // ⚠️ LA PAUSA PRIMERO, Y DESPUÉS EL DISPARO: el mismo DM puede arrancar una automatización de
         // «Te envía un mensaje», y pausar después pausaría la que este mensaje acaba de arrancar.
         after(async () => {
+          // EL TOQUE DE UN BOTÓN VA PRIMERO, Y NO ES UNA RESPUESTA (24/10/2026, lib/botones-social.ts): «Obtener recurso» mueve la
+          // automatización a la rama del botón y no pasa por «Contestó» ni arranca un «Te envía un mensaje». Lo mismo con un
+          // texto que ES el título de un botón que esperaba (el botón no se vio). Lo demás, lo de siempre.
+          // ⚠️ UN TOQUE NUNCA ES UNA RESPUESTA (ticket #33 de Leandro, 30/10/2026): un postback que no se pudo resolver iba a la
+          // pausa como un mensaje escrito y pasaba TODAS las inscripciones del lead a «respondió», también las completadas. Con
+          // el payload va también el título: si el payload no se lee, se resuelve por el título (`tocarBoton`).
+          const { postback, texto } = ev.evento;
+          let toque = 'no_es';
+          if (postback || (r.pausar && texto)) {
+            try { toque = await runWithWorkspace(wsFinal, () => tocarBotonSocial(leadId, postback ? { payload: postback, texto } : { texto })); }
+            catch (e) { console.error(`[webhook:zernio] botón ${canal} lead ${leadId}: ${msg(e)}`); }
+            if (toque !== 'no_es' || postback) { console.log(`[webhook:zernio] ${canal} lead ${leadId} ws=${wsFinal}: botón (${toque})`); return; }
+          }
+          // ¿ESTE mensaje ya tuvo su respuesta? (un AI Step o la charla abierta le contestó). ⚠️ No es cuántas inscripciones se
+          // pausaron (la reverificación de Integración, 29/10/2026): una automatización sin AI Step también se pausa, no contesta
+          // nada, y con ese número la «envía un mensaje» tampoco contestaba: el primer DM quedaba sin respuesta y sin aviso.
+          let contestada = false;
           if (r.pausar) {
             try {
               // Con lo que escribió y la cuenta que lo recibió: el AI Step de ese medio le contesta por ahí.
-              const n = await runWithWorkspace(wsFinal, () => pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId }));
-              console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: respondió, ${n} pausada(s)`);
+              const p = await runWithWorkspace(wsFinal, () => pausarRespuestaSocial(leadId, canal, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId }));
+              contestada = p.contestada;
+              console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: respondió, ${p.pausadas} pausada(s)${p.contestada ? ', ya contestado' : ''}`);
             } catch (e) {
               console.error(`[webhook:zernio] pausar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);
             }
           }
           if (!r.disparar) return;
           try {
-            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo));
+            // Con lo que escribió (ticket #17) y en qué publicación (ticket #25): las palabras clave y la publicación del CRON.
+            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto, ev.evento.postId));
             console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: ${n} automatización(es)`);
+            // EL AI STEP CONTESTA ESTE MISMO MENSAJE si es la primera tarjeta (28/10/2026, como ManyChat): después de inscribir.
+            // ⚠️ SÓLO SI NADIE LO CONTESTÓ YA (la revisión del Cerebro, 29/10/2026): un lead con una charla abierta y otra
+            // automatización «envía un mensaje» con el AI Step primero recibía DOS respuestas al mismo DM. Una, y siempre una.
+            if (n > 0 && !contestada) {
+              const c = await runWithWorkspace(wsFinal, () => contestarDisparoSocial(leadId, canal, subtipo, { texto: ev.evento.texto, cuenta: ev.evento.cuentaId, fecha: ev.evento.fecha }));
+              if (c > 0) console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: el AI Step contestó el mensaje que la arrancó (${c})`);
+            }
           } catch (e) {
             console.error(`[webhook:zernio] disparar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);
           }

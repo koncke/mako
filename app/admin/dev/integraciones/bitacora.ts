@@ -1167,4 +1167,42 @@ export const BITACORA: Hito[] = [
       'lib/webhook-routing.ts · lib/ruteo-hash.ts · lib/webhook-ruteo-huella.ts — el ruteo, sin el servicio',
     ],
   },
+  {
+    fecha: '26 oct', hora: '00:20', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Se pueden conectar Vimeo, Wistia, Bunny Stream y Cloudflare Stream',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate de que funcionen bien»',
+    puntos: [
+      'Cuatro tarjetas nuevas en Integraciones, cada una con su logo, sus pasos para sacar la clave y su «Probar conexión».',
+      'Con la clave conectada, tus videos de esa cuenta aparecen en el editor de páginas y en los cursos, con su nombre.',
+      '«Probar conexión» dice qué está mal si la clave no sirve (por ejemplo, en Bunny, si pegaste la clave de la cuenta en vez de la de la biblioteca).',
+      'Falta probarlo con una cuenta real de cada uno.',
+    ],
+    archivos: [
+      'lib/metodo-catalogo.ts — lo que pide cada tarjeta y sus pasos',
+      'lib/metodo-verificar.ts — «Probar conexión»',
+      'docs/hallazgos-integraciones.md — lo que no era obvio',
+    ],
+  },
+  {
+    fecha: '30 oct', hora: '09:55', chat: 'Zernio, CAPI y la venta externa de Mauricio', sesion: 'local_4a831c28-9fae-4ee1-b98c-9b0e46607acf', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Si Zernio pide una pausa, la pantalla lo dice y espera: ya no manda a «volver a conectar con Facebook»',
+    revisar: '/integraciones?abrir=zernio',
+    puntos: [
+      '**El ticket #34** (Código Inmobiliario): al conectar Facebook, Integraciones decía «Zernio no contestó (429). Vuelve a conectar con Facebook.» La conexión andaba: Zernio deja 60 pedidos por minuto, y en ese minuto la misma clave la usaban la conexión que se estaba midiendo, las lecturas de la tarjeta y un control automático.',
+      'Ahora dice «Zernio pidió una pausa… tu conexión está bien», espera lo que pide Zernio y vuelve a leer sola. Mientras conecta, la espera no cuenta como falla.',
+      'No fue el barrido de leads: corrió una sola vez en ese momento (medido en los registros de producción).',
+    ],
+    commits: [
+      { sha: '53c39572', msg: 'Ticket #34: un 429 de Zernio es una pausa, no una conexión rota (Código Inmobiliario, /integraciones)', lineas: 201, archivos: 11 },
+    ],
+    archivos: [
+      'lib/zernio-redes.ts — el motivo `pausa`, cuánto esperar y qué decir',
+      'app/_components/ConectarViaZernio.tsx — la conexión espera en vez de fallar',
+      'lib/meta-conexion-zernio.ts · app/integraciones/ConectarMetaZernio.tsx — «Anuncios de Meta» lo dice y se relee',
+      'tests/zernio-pausa-429.test.ts (10 roturas)',
+    ],
+    tickets: [34],
+  },
 ];

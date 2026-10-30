@@ -29,8 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
-import { familiasDev } from '@/app/admin/dev/nav-dev';
+import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, SIN_FILA, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { BuscadorNav, type Destino } from './BuscadorNav';
@@ -42,6 +41,8 @@ import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
+import { iniciales } from '@/lib/unicode-seguro';
+import { CartelPrueba } from './CartelPrueba';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -81,10 +82,6 @@ type Tema = 'oscuro' | 'claro';
  * Las familias que el usuario plegó, en el navegador (17/10/2026). Es una comodidad de esta persona en esta
  * computadora, no un dato: si el almacenamiento no está (ventana privada, bloqueado), todas abiertas.
  */
-/** Las iniciales de un nombre (la foto cuando no hay foto). */
-const inicialesDe = (nombre: string) => nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || '·';
-/** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base). */
-const usuarioDe = (email: string) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
 
 /**
  * Lo plegado se recuerda en el navegador. La clave cambió el 20/10/2026 (feedback del 18/10, pt 10; Martín: «quiero que
@@ -144,6 +141,26 @@ function useVentanaAngosta(): boolean {
     () => window.matchMedia(MQ_ANGOSTA).matches,
     () => false,
   );
+}
+/**
+ * ¿La barra va abierta y fija? (25/10/2026, la regresión del 24/10). Donde se pliega SOLA (`plegadaAca`: el Ops Center,
+ * Automations, la ventana chica, MaKo abierto) manda lo que la flecha hizo EN ESA VISITA; en el resto, lo guardado.
+ * ⚠️ Era `guardada && (!plegadaAca || abiertaAca)`: cuando la guardada era «si» por defecto andaba, pero desde que la barra
+ *    arranca plegada (`mk-nav-fija-v2`, 24/10) la guardada es «no» para casi todos, y la flecha en esas pantallas abría la
+ *    barra en `abiertaAca` sin que `fija` se enterara: se desplegaba con el cursor encima y se volvía a plegar al salir.
+ *    Martín: «La sidebar principal en muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada».
+ */
+export function barraFija(guardada: boolean, plegadaAca: boolean, abiertaAca: boolean): boolean {
+  return plegadaAca ? abiertaAca : guardada;
+}
+/**
+ * Qué guarda la flecha (`null`: nada). DESPLEGARLA SE RECUERDA SIEMPRE, también donde la barra se pliega sola: así la
+ * próxima tab la encuentra abierta. Plegarla en una de esas pantallas es de ese rato y no se guarda (22/10: «si antes la tenía
+ * desplegada y fija, al cerrar MaKo debe volver a su lugar»).
+ */
+export function loQueGuardaLaFlecha(v: boolean, plegadaAca: boolean): boolean | null {
+  if (v) return true;
+  return plegadaAca ? null : false;
 }
 function guardarFija(v: boolean) {
   try { window.localStorage.setItem(FIJA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
@@ -238,7 +255,7 @@ export function identidadStyle(open: boolean, activo: boolean): CSSProperties {
 export function Identidad({ open, nombre, avatar, subrotulo }: {
   open: boolean; nombre: string; avatar?: string; subrotulo: string;
 }) {
-  const iniciales = nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
+  const ini = iniciales(nombre, 2, '');
   return (
     <>
       {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de perfil
@@ -247,7 +264,7 @@ export function Identidad({ open, nombre, avatar, subrotulo }: {
         {avatar
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : iniciales}
+          : ini}
       </div>
       {open && (
         <>
@@ -284,7 +301,13 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
         <ItemIcon item={item} size={size} />
         {!expanded && <Contador n={badge} compacto />}
       </span>
-      {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && !item.bajada && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && item.bajada && (
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+          <span className="mk-navrow__bajada">{item.bajada}</span>
+        </span>
+      )}
       {expanded && <Contador n={badge} />}
       {expanded && pro && <Candado />}
       {expanded && item.comingSoon && (
@@ -292,7 +315,8 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
       )}
     </>
   );
-  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : item.label, ...(pro ? { 'data-pro': '' } : {}) };
+  const nombre = item.bajada ? `${item.label} · ${item.bajada}` : item.label;
+  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : nombre, ...(pro ? { 'data-pro': '' } : {}) };
   if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
   if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
@@ -455,8 +479,9 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [perfilNombre, setPerfilNombre] = useState(inicial?.nombre ?? '');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>(inicial?.rol ?? '');
-  const [email, setEmail] = useState<string>('');
   const [verPronto, setVerPronto] = useState(false);
+  // «Platform» del menú de la foto, plegado: un ítem, y adentro lo de la plataforma (25/10/2026).
+  const [verPlataforma, setVerPlataforma] = useState(false);
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
   // MaKo Esencial por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
@@ -497,10 +522,12 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const plegadaAca = enOpsCenter || angosta || makoAbierto;
   const [abiertaAca, setAbiertaAca] = useState(false);
   useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
-  const fija = fijaGuardada && (!plegadaAca || abiertaAca);
+  const fija = barraFija(fijaGuardada, plegadaAca, abiertaAca);
   const setFija = (v: boolean) => {
-    if (plegadaAca) { setAbiertaAca(v); if (!v) setExpanded(false); return; }
-    setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false);
+    const guardar = loQueGuardaLaFlecha(v, plegadaAca);
+    if (guardar != null) { setFijaEstado(guardar); guardarFija(guardar); }
+    if (plegadaAca) setAbiertaAca(v);
+    if (!v) setExpanded(false);
   };
   const open = fija || expanded || userOpen || !!flyout;
 
@@ -558,7 +585,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
       .then((j) => {
         if (!alive || !j?.ok || !j.autenticado) return;
         setRol((j.rol as string) || '');
-        setEmail((j.email as string) || '');
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
         setPlanEsencial(j.planEsencial === true);
@@ -623,23 +649,11 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
    * subió arriba de todo y lo que es configuración de la plataforma está en el menú de la foto (nav.ts → HERRAMIENTAS).
    */
   /**
-   * MODO DEV. `/admin/dev` no es una sección más de Admin: es otro modo, y la
-   * barra se reemplaza ENTERA por el mapa de las 122 áreas (`familiasDev`).
-   *
-   * Por qué un modo y no un desplegable: 122 áreas en ocho familias no entran
-   * en un flyout, y aunque entraran, mirarlas desde afuera no es lo que hacés
-   * ahí — entrás a recorrerlas. El desplegable te deja parado en Admin.
-   *
-   * La familia `dev` de ADMIN_FAMILIAS ya no se pinta como carpeta, pero SIGUE
-   * exportada: es de donde `ADMIN_NAV` saca sus keys y `lib/titulo-tab.ts` el
-   * título de esas rutas. Borrarla dejaría media docena de pantallas sin nombre.
+   * El MODO DEV (/admin/dev cambiaba la barra entera por el mapa de las 122 áreas) se fue el 25/10/2026 (Martín: «Elimina
+   * "dev", ya no lo necesitamos»). La familia `dev` de ADMIN_FAMILIAS sigue exportada con Docs, UX/UI y el Grafo: es de
+   * donde `ADMIN_NAV` saca sus keys y `lib/titulo-tab.ts` el título de esas rutas, que otras pantallas enlazan.
    */
-  const enDev = pathname.startsWith('/admin/dev');
-  const familias = enDev
-    //  es opcional en NavFamilia y obligatorio en la vista: se normaliza
-    // acá, igual que con las de admin, y no se afloja el tipo de la vista.
-    ? familiasDev().map((f) => ({ ...f, grupos: f.grupos ?? [] }))
-    : familiasProducto;
+  const familias = familiasProducto;
 
   const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
@@ -679,22 +693,19 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   // ninguna sección en el modo Dev.
   const familiaDeRuta = [...FAMILIAS, ...ADMIN_FAMILIAS].find((f) => itemsDe(f).some((i) => i.match(pathname)))?.key ?? null;
   const [rutaVista, setRutaVista] = useState(familiaDeRuta);
-  const [abiertaDev, setAbiertaDev] = useState<string | null>(familiaDeRuta ?? 'operate');
   const [plegadas, setPlegadas] = useState<ReadonlySet<string>>(() => new Set());
   useEffect(() => { setPlegadas(leerPlegadas()); }, []);
   if (familiaDeRuta && familiaDeRuta !== rutaVista) {
     setRutaVista(familiaDeRuta);
-    setAbiertaDev(familiaDeRuta);
     if (plegadas.has(familiaDeRuta)) {
       const sinEsa = new Set(plegadas);
       sinEsa.delete(familiaDeRuta);
       setPlegadas(sinEsa);
     }
   }
-  const estaAbierta = (k: string) => (enDev ? abiertaDev === k : !plegadas.has(k));
+  const estaAbierta = (k: string) => !plegadas.has(k);
   const alternarFamilia = (k: string) => {
     setExpanded(true);
-    if (enDev) { setAbiertaDev((prev) => (prev === k && open ? null : k)); return; }
     setPlegadas((prev) => {
       const n = new Set(prev);
       // Plegada la barra (el rail), el ícono de una familia plegada sólo la despliega: no se pliega lo que no se ve.
@@ -809,6 +820,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   }, [userOpen]);
 
   /** Una fila del menú de la foto. */
+  const FILA_QUE_ABRE: CSSProperties = { width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: 500, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' };
   const filaMenu = (it: NavItem) => {
     const on = it.match(pathname);
     return (
@@ -825,7 +837,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
     <aside data-sidebar data-fija={fija ? 'si' : 'no'} style={{ width: fija ? FULL : RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
-        className={enDev ? 'mk-sidebar--dev' : undefined}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         // Fin de la animación de ancho: recién acá la barra tiene su medida
@@ -854,35 +865,14 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           )}
         </div>
 
-        {/* La marca del modo. Va ARRIBA de todo y con su propio filete: la
-            pregunta que responde es «¿dónde estoy?», y esa se contesta antes de
-            leer un renglón. Plegada quedan el filete y las tres letras, que es
-            lo máximo que entra y alcanza para no confundirse de shell. */}
-        {enDev && (
-          <div style={{ flex: 'none', margin: open ? '2px 2px 10px' : '2px 0 10px' }}>
-            <div style={{ height: 2, background: 'var(--dev-line)', borderRadius: 2, marginBottom: 9 }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: open ? 'space-between' : 'center', gap: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', color: 'var(--dev-line)', fontWeight: 700 }}>
-                {open ? 'MODO DEV' : 'DEV'}
-              </span>
-              {open && <a href="/clients" className="mk-dev-salir">← Regresar a Clientes</a>}
-            </div>
-            {/* Plegada la salida no entra como texto: queda la flecha sola,
-                que es el mismo destino y sigue siendo alcanzable. */}
-            {!open && (
-              <a href="/clients" title="Regresar a Clientes" aria-label="Regresar a Clientes"
-                style={{ display: 'block', textAlign: 'center', marginTop: 6, color: 'var(--dev-line)', fontSize: 14, textDecoration: 'none' }}>←</a>
-            )}
-          </div>
-        )}
-
         {/* EL BUSCADOR (17/10/2026 noche, Ctrl K): tabs, pantallas de adentro, ajustes y Platform, de lo que ESTA persona ve. */}
-        {!enDev && (
+        {(
           <div style={{ flex: 'none', marginBottom: 12 }}>
             <BuscadorNav abierta={open} onAbrir={() => setExpanded(true)} destinos={[
               ...familiasProducto.flatMap((f) => f.bloques.flat().flatMap((t): Destino[] => [
                 { item: t, donde: f.sinRotulo ? null : f.label },
                 ...(t.secciones ? seccionesVisibles(t, vistaNav).filter((x) => x.href !== t.href).map((item) => ({ item, donde: t.label })) : []),
+                ...(t.adentro ?? []).map((k) => SIN_FILA.find((x) => x.key === k)).filter((x): x is NavItem => !!x && puedeVer(x)).map((item) => ({ item, donde: t.label })),
               ])),
               ...USER_NAV.filter((it) => (!it.adminOnly || adminShell) && puedeVer(it)).map((item): Destino => ({ item, donde: 'Settings' })),
               ...(adminShell ? [...SUPERADMIN_MENU, ...PRONTO].map((item): Destino => ({ item, donde: 'Platform' })) : []),
@@ -918,6 +908,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
+          {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
+          <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
           {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
               la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}
@@ -977,45 +969,36 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               </>
             )}
 
-            {/* LA CARA (17/10/2026 noche, prototipo de coherencia): la foto real, el nombre y el @usuario, igual que el
-                More del teléfono. Lleva a My Profile (la clave `perfil`); por eso esa fila no se repite abajo. */}
-            {(() => {
-              const perfil = USER_NAV.find((it) => it.key === 'perfil');
-              if (!perfil || !puedeVer(perfil)) return null;
-              return (
-                <Link href={perfil.href + dateQuery} onClick={() => setUserOpen(false)} className="mk-navrow mk-navrow--claro"
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, textDecoration: 'none' }}>
-                  <span style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, overflow: 'hidden', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                    {avatarVisible
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={avatarVisible} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : inicialesDe(nombreVisible)}
-                  </span>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontWeight: 600, fontSize: 'var(--fs-md)', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</span>
-                    {usuarioDe(impersonando ? '' : email) && <span style={{ display: 'block', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{usuarioDe(email)}</span>}
-                  </span>
-                </Link>
-              );
-            })()}
-            <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
-            {/* «Settings» PRIMERO (24/10/2026): es la key `perfil`, que va primera en USER_NAV. La cara de arriba también lleva ahí. */}
+            {/* SIN LA CARA (25/10/2026, Martín: «no me gusta que en general el desplegable del perfil, antes de "settings" tenga
+                nuevamente mi foto de perfil, que esté solo settings»): la foto y el nombre ya están en el botón que abre este menú.
+                Hasta ese día iban acá arriba (17/10, la cara del prototipo), y la fila llevaba a Settings dos veces. */}
+            {/* «Settings» PRIMERO (24/10/2026), con la TUERCA (25/10/2026): es la key `perfil`, que va primera en USER_NAV. */}
             {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
-            {/* PLATFORM (17/10/2026): lo que era la familia Admin y es de la plataforma, y las «pronto» (prototipo: «lo
-                poco usado detrás de More»). Sólo el super admin sin mirar un cliente. «Coming soon» se abre ACÁ, en el
-                mismo menú: nada de modales. */}
+            {/* PLATFORM, UN ÍTEM (25/10/2026, Martín: «No me gusta para nada que en el desplegable de super admin me aparezcan tantas
+                cosas, de ultima engloba todas esas tabs extras en un solo desplegable que a su vez tenga otro desplegable»): lo de la
+                plataforma (lo que era la familia Admin) se abre ACÁ, en el mismo menú, y adentro «Coming soon» se abre igual. Sólo el
+                super admin sin mirar un cliente. Nada de modales ni de un menú al costado. */}
             {adminShell && (
               <>
                 <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
-                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 15px 2px' }}>Platform</div>
-                {SUPERADMIN_MENU.map(filaMenu)}
-                <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPronto} onClick={() => setVerPronto((v) => !v)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: 500, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                  <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="reloj" size={17} /></span>
-                  <span style={{ flex: 1 }}>Coming soon</span>
-                  <span style={{ fontSize: 10, transform: verPronto ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPlataforma} onClick={() => setVerPlataforma((v) => !v)}
+                  style={FILA_QUE_ABRE}>
+                  <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="admin" size={17} /></span>
+                  <span style={{ flex: 1 }}>Platform</span>
+                  <span style={{ fontSize: 10, transform: verPlataforma ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
                 </button>
-                {verPronto && PRONTO.map(filaMenu)}
+                {verPlataforma && (
+                  <div role="group" aria-label="Platform" style={{ paddingLeft: 14 }}>
+                    {SUPERADMIN_MENU.map(filaMenu)}
+                    <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPronto} onClick={() => setVerPronto((v) => !v)}
+                      style={FILA_QUE_ABRE}>
+                      <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="reloj" size={17} /></span>
+                      <span style={{ flex: 1 }}>Coming soon</span>
+                      <span style={{ fontSize: 10, transform: verPronto ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                    </button>
+                    {verPronto && <div role="group" aria-label="Coming soon" style={{ paddingLeft: 14 }}>{PRONTO.map(filaMenu)}</div>}
+                  </div>
+                )}
               </>
             )}
             <div style={{ height: 1, background: 'var(--border)', margin: '5px 0 0' }} />

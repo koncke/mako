@@ -144,7 +144,8 @@ test('un lead SIN email ya es candidato: era el caso textual de la tarjeta', () 
 // ── 3 · «no pude leer Fathom» no es «no hay grabaciones» ─────────────────────
 test('la lectura de Fathom NO se traga: propaga para que alguien se entere', () => {
   const index = bloque(AUTO, 'async function grabaciones()');
-  assert.match(index, /const meetings = await fetchAllMeetings\(\{ includeSummary: false \}\);/);
+  // De todos los grabadores desde el 26/10/2026 (lib/grabadores): si fallan TODOS, `listarTodasLasReuniones` tira.
+  assert.match(index, /const \{ reuniones: meetings, fallos \} = await listarTodasLasReuniones\(\);/);
   assert.doesNotMatch(
     index,
     /\.catch\(/,

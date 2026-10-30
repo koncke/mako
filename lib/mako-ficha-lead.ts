@@ -122,6 +122,37 @@ export function datosDeLaFicha(l: LeadParaModelo, oferta: OfertaParaModelo | nul
   return out;
 }
 
+/** «11:00»: la hora de un instante en la zona del NEGOCIO, en 24 horas. null sin el instante o sin la zona. */
+export function horaEnLaZona(iso: string | null | undefined, tz: string | null | undefined): string | null {
+  if (!iso || !tz) return null;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return null;
+  try {
+    return new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: tz });
+  } catch { return null; }
+}
+
+/**
+ * ⚠️ LA HORA DE LA REUNIÓN (30/10/2026, el ticket #35 de Código Inmobiliario: «la reunión es a las 11 y MaKo dice 10», «es a las 15
+ * y dice 10»). `fecha_junta_1/2` es un DATE —sólo el día—; la hora está en `junta_1_at/2_at` (el instante de Calendly). La ficha que
+ * leía MaKo (`resumenLead`, lib/mako-tools.ts) pasaba sólo el día, y al pedirle «fecha, horario» el modelo completaba «a las 10:00»
+ * en las dos. Ahora va la hora en la zona del negocio y, si no hay, la nota de que NO hay (no se inventa). La base estaba bien.
+ */
+export function horasDeLasReuniones(
+  l: { fecha_junta_1?: string | null; junta_1_at?: string | null; fecha_junta_2?: string | null; junta_2_at?: string | null },
+  tz: string | null | undefined,
+): Record<string, unknown> {
+  const h1 = horaEnLaZona(l.junta_1_at, tz);
+  const h2 = horaEnLaZona(l.junta_2_at, tz);
+  const sinHora = (l.fecha_junta_1 && !h1) || (l.fecha_junta_2 && !h2);
+  return {
+    ...(l.fecha_junta_1 ? { hora_junta_1: h1 } : {}),
+    ...(l.fecha_junta_2 ? { hora_junta_2: h2 } : {}),
+    ...(h1 || h2 ? { zona_horaria: tz } : {}),
+    ...(sinHora ? { nota_hora: 'Sin hora registrada para esa reunión: di sólo el día. Nunca inventes una hora.' } : {}),
+  };
+}
+
 /** Los topes de lo que contestó en la landing, como los de `formularioParaModelo`. */
 export const TOPE_LANDING_MODELO = { preguntas: 12, pregunta: 60, respuesta: 300 } as const;
 

@@ -21,9 +21,10 @@ import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
-import { cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
+import { listasEnRenglones } from '@/lib/respuesta-como-claude';
+import { CUERPO_PLEGABLE, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, nodoDeCompletado, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
-import { TOPE_TURNO, type TurnoChat } from '@/lib/operaciones-reglas';
+import type { TurnoChat } from '@/lib/operaciones-reglas';
 
 /**
  * Las tabs del menú, en el MISMO orden que `nombresDeTabs` (app/admin/operaciones/tabs.ts): el nombre de una tab se repite
@@ -31,7 +32,7 @@ import { TOPE_TURNO, type TurnoChat } from '@/lib/operaciones-reglas';
  * Se importa `nav.ts` acá y no se trae del servidor: es una tabla pura que el Sidebar ya lleva al navegador, y así el link
  * anda igual en la computadora y en el teléfono (tests/centro-revisar.test.ts vigila que el orden sea el mismo).
  */
-const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
+export const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
 
 /** El chat del mensaje: su título trae su tab, y su clave y su sesión arman el link de «Revisar». */
 export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
@@ -46,20 +47,25 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
    *  lo vio, y cómo lo marca. Sin `onYaVisto`, la tarjeta no lleva ✓. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
   /** Responder sobre este «Ya está»: la caja de abajo arranca con «Sobre «…»: » (Conversacion.tsx). */
-  onFeedback?: (titulo: string) => void;
+  /** «Responder sobre esto» (26/10/2026): cita ESTE «Ya está» arriba de la caja, como responder un mensaje. */
+  onFeedback?: (t: TurnoChat) => void;
 }) {
-  const [n] = yaEstaDelChat([{ tipo: 'turno', instante: Date.parse(t.at), turno: t }]);
+  const n = nodoDeCompletado(t, Date.parse(t.at));
   const destino = n ? destinoDeReview(n, chat, TABS_DEL_MENU) : null;
   // El título de la tarjeta es el primer renglón ENTERO y el cuerpo es todo lo demás (lib/centro-chats.ts → partesDeYaEsta):
   // `n.titulo` es el de la FILA de una lista (72 caracteres y «…») y acá cortaba lo más importante (Martín, 17/10/2026).
-  const { titulo: tituloEntero, cuerpo } = partesDeYaEsta(t.texto);
+  // ⚠️ NUNCA «Cortado a los N caracteres» (25/10/2026, Martín: «que no haya nunca un limite de caracteres, en todo caso achica
+  //    el mensaje»): lo que la PC cortó al subirlo termina en «…», y lo largo se pliega a su resumen, con «Ver todo».
+  const { titulo: tituloEntero, cuerpo } = partesDeYaEsta(cortadoPorLaPC(t.texto) ? `${t.texto.trimEnd()}…` : t.texto);
   const suyas = tareas.filter((x) => x.ya === t.uuid);
   // En pantalla un «Ya está» se dice «Completado» (Martín, 17/10/2026). El chat lo sigue escribiendo «Ya está»: es lo que
   // lee el servidor (`esYaEsta`, el Plan automático) y no se toca. Para el aria-label y el «Responder sobre esto» sí sirve
   // el título corto de la fila.
   const titulo = n?.titulo && n.titulo !== 'Ya está' ? n.titulo : 'Completado';
-  // Un cuerpo muy largo se pliega SÓLO en su detalle; lo que sigue pendiente y cómo probarlo queda siempre a la vista.
-  const plegable = partirPendiente(cuerpo);
+  // Un cuerpo muy largo se pliega SÓLO en su detalle; lo que sigue pendiente y cómo probarlo queda siempre a la vista. Sin esa
+  // cola, se pliega entero (antes quedaba abierto, tan largo como fuera).
+  const largo = cuerpo.length > CUERPO_PLEGABLE;
+  const plegable = largo ? partirPendiente(cuerpo) ?? { detalle: cuerpo, cola: '' } : null;
   const [abierto, setAbierto] = useState(false);
   const instante = Date.parse(t.at);
   const visto = tieneCheck(instante, yaVisto);
@@ -80,14 +86,13 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
       {tituloEntero && <p className="co-ya__titulo">{conFormato(tituloEntero, 'ya-t')}</p>}
       {plegable ? (
         <>
-          <div className={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}><Markdown text={plegable.detalle} enlaces /></div>
+          <div className={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}><Markdown text={listasEnRenglones(plegable.detalle)} enlaces aire /></div>
           <button type="button" className="co-chip co-ya__mas" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
             {abierto ? 'Ver menos' : 'Ver todo'}
           </button>
-          <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={plegable.cola} enlaces /></div>
+          {plegable.cola && <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={listasEnRenglones(plegable.cola)} enlaces aire /></div>}
         </>
-      ) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={cuerpo} enlaces /></div>}
-      {cortadoPorLaPC(t.texto) && <p className="co-ya__corte" role="note">{`Cortado a los ${TOPE_TURNO} caracteres. El resto está en el chat de la PC.`}</p>}
+      ) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={listasEnRenglones(cuerpo)} enlaces aire /></div>}
       {(destino || suyas.length > 0) && (
         <div className="co-ya__links">
           {destino && (
@@ -107,7 +112,7 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
       )}
       {onFeedback && (
         <div className="co-ya__pie">
-          <button type="button" className="co-chip" onClick={() => onFeedback(titulo)}>Responder sobre esto</button>
+          <button type="button" className="co-chip" onClick={() => onFeedback(t)}>Responder sobre esto</button>
         </div>
       )}
     </article>
