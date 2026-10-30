@@ -370,6 +370,35 @@ pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: 
 corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
 `--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
 
+## 615 barredoras «rojas» con 0,1 GB libres: era la máquina, no los tests (30/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (el grupo compartido de las barredoras) · la PC de Martín (16 GB).
+
+**El síntoma.** Con `--tanda 4 --concurrencia 1`, las 13 tandas del cambio dieron verde (50 archivos), y después: `grupo compartido 1/1 · 615 archivos · 0 tests · ROJO (? archivos)`,
+a los 8 min 13 s. El final dice `✖ ROJO · 646 tests de 665 archivos · 28 min 51 s · RAM libre mínima 0.1 GB` y lista los 615 en «Rojos».
+
+**La lectura obvia era la equivocada.** Parecen 615 tests rotos, y no falló ninguna aserción: **`0 tests`** con `?` archivos es un proceso que murió sin contar nada. Tampoco es un
+verde: esos tests no pasaron. La salida completa estaba en un log de Temp que ya no existía cuando se fue a leer: lo que importa hay que copiarlo enseguida.
+
+**Por qué no entra.** La corrida arrancó con 1,6 GB libres y llegó a 0,1. Medido el mismo día por el Cerebro: cada chat abierto cuesta ~580 MB, y con seis abiertos el chequeo entero (5,3 GB) no entra
+nunca. No es que a veces falte memoria: **esta máquina no sostiene al equipo y a una barredora a la vez.** Levantar una PAUSA del Cerebro tampoco dice que haya RAM: el relanzamiento automático salió
+apenas se levantó, sin mirarla.
+
+**Los umbrales no se hablan, y es la causa de fondo de los dos incidentes del día.**
+- `tests-afectados` arranca con ~1,3 GB (`pisoRam(1)`: 0,9 de la zona roja del vigía + 0,35 + 0,05), y el chequeo de tipos del push pide 5,3: lo liviano arranca justo cuando lo pesado
+  todavía no puede, y le come el lugar. Estaba escrito desde el 28/10 (más arriba en este documento), y se volvió a vivir entero.
+- **La pausa frena bien y se suelta mal:** al apagarla arrancaron cinco chats a la vez con 1,6 GB libres. Cada uno miró la RAM y vio lugar, porque el otro todavía no la había pedido.
+- **El piso de las barredoras no escala:** `COSTO_COMPARTIDO_GB = 0.8` se midió con 24 barredoras (~725 MB) y se aplica igual a un grupo de 615 (`pisoCompartido(1)` = 1,75 GB). Cuánto pide con 615
+  no está medido: el proceso murió antes de contar.
+
+**SIN hacer (`scripts/pausa-cerebro.mjs`, `esperarRam` en `scripts/tests-afectados.mjs`):**
+- soltar la pausa escalonada: un turno por vez, con el siguiente recién cuando el anterior ya haya pedido su memoria;
+- que el que arranca reste lo que necesita el que está esperando (una cola de pedidos con su costo, no sólo «¿hay lugar para mí?»);
+- que `pisoCompartido` crezca con la cantidad de barredoras, o partir el grupo; primero hay que medir cuánto pide con 615.
+
+**La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió». Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
+que Martín puso la tarjeta, y no se repiten en esa PC. En la PC, sólo los tests del cambio, midiendo la RAM antes.
+
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
 **Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · `lib/vercel-salida.ts` · cualquier chequeo que use

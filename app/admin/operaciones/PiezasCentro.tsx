@@ -39,6 +39,7 @@ import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { cuentasDeUso } from '@/lib/centro-uso';
+import { CartelLimbo } from './CartelLimbo';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
@@ -172,6 +173,8 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
   return (
     <>
+      {/* Lo que no salió, arriba de todo: un mensaje a un chat cerrado se perdía en silencio (30/10/2026, CartelLimbo.tsx). */}
+      <CartelLimbo centro={k} />
       {sinNoticias != null && (
         <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
       )}
@@ -238,7 +241,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
   return (
     <Conversacion
       turnos={k.turnosDe(chat)} carteros={k.carteros}
-      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)}
+      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)} avisoCerrado={(p) => k.avisoDePregunta(chat, p)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
       // El ✓ de sus «Completado» (18/10/2026): guardado en MaKo, vale en el teléfono.

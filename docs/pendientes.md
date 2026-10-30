@@ -37,6 +37,8 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 - Las **dos columnas** del desplegable de etapas de la ficha
 - Que el **403 esté arreglado desde la app desplegada** (se midió que el bloqueo es por UA y no por IP, pero no se
   probó desde los rangos de Vercel)
+- El **cartel de los mensajes sin entregar** y el **botón del Uso** como super admin (101eaea96, cuando se despliegue), y su **hoja en el teléfono** (`SheetM`), que el arnés
+  no monta. Con los 8 mensajes reales: los tickets #5, #6 y #8 y 5 respuestas. Necesita la sesión de Martín: el Chrome disponible está con la de Leandro
 
 ## Rojos en `main` sin dueño
 

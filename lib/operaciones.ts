@@ -36,6 +36,7 @@ import {
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido, type VozDelPedido,
 } from './operaciones-reglas';
 import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
+import { MOTIVO_VENCIO, VENCE_PEDIDO_MS } from './centro-limbo';
 import { guardarTurnos } from './centro-turnos-db';
 import { guardarTitular } from './centro-titulares-db';
 import { guardarPasos } from './centro-pasos-db';
@@ -106,11 +107,19 @@ export async function trabajoDeLaCola(id: string): Promise<{ destino: string; te
 }
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
-  const { data, error } = await getSupabaseServer()
+  const db = getSupabaseServer();
+  const { data: recientes, error } = await db
     .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
+  // ⚠️ LOS ÚLTIMOS 100 NO ALCANZAN (30/10/2026): un mensaje que espera un chat cerrado es justo el que se va quedando viejo, y sale
+  // de esa ventana sin haber salido nunca. Lo que no se entregó y lo vencido vienen siempre (lib/centro-limbo.ts): son pocos.
+  const { data: sinSalir, error: e2 } = await db.from(T_PEDIDOS).select(`${COLS}, firmado`)
+    .or(`estado.eq.escrito,and(estado.eq.no_entregado,motivo.eq."${MOTIVO_VENCIO}")`).order('created_at', { ascending: false }).limit(200);
+  if (e2) throw new Error(`no pude leer la cola: ${e2.message}`);
+  const ya = new Set((recientes ?? []).map((p) => p.id));
+  const data = [...(recientes ?? []), ...(sinSalir ?? []).filter((p) => !ya.has(p.id))];
   // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, cuáles son fotos, y si fue una nota de voz.
-  return (data ?? []).map(({ firmado, ...p }) => {
+  return data.map(({ firmado, ...p }) => {
     const adjuntos = nombresDeAdjuntos(firmado as string | null);
     const fotos = fotosDeFirmado(firmado as string | null).map((f) => f.nombre);
     const voz = vozDeFirmado(firmado as string | null);
@@ -193,6 +202,19 @@ export async function cancelarPedido(id: string): Promise<boolean> {
   const { data, error } = await getSupabaseServer().from(T_PEDIDOS)
     .update({ estado: 'cancelado', motivo: 'Lo canceló Martín', updated_at: new Date().toISOString() })
     .eq('id', id).eq('estado', 'escrito').select('id, firmado');
+  if (error) throw new Error(error.message);
+  await borrarAdjuntosDe((data ?? []).map((f) => f.firmado as string | null));
+  return (data ?? []).length > 0;
+}
+
+/**
+ * Dar de baja un mensaje del cartel de los que no salieron (30/10/2026, lib/centro-limbo.ts): lo que espera, y también lo que ya venció,
+ * que `cancelarPedido` no mira. Con compare-and-set: si la PC lo tomó entretanto, salió y no se toca.
+ */
+export async function descartarDelLimbo(id: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from(T_PEDIDOS)
+    .update({ estado: 'cancelado', motivo: 'Lo descartó Martín', updated_at: new Date().toISOString() })
+    .eq('id', id).in('estado', ['escrito', 'no_entregado']).select('id, firmado');
   if (error) throw new Error(error.message);
   await borrarAdjuntosDe((data ?? []).map((f) => f.firmado as string | null));
   return (data ?? []).length > 0;
@@ -450,9 +472,10 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   }
 
   // Lo vencido no se entrega: se dice, con el motivo.
-  const limite = new Date(Date.now() - 15 * 86_400_000).toISOString();
+  // Y no en silencio (30/10/2026): sigue en el cartel de arriba del Ops Center hasta que Martín lo descarte (lib/centro-limbo.ts).
+  const limite = new Date(Date.now() - VENCE_PEDIDO_MS).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
-    .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
+    .update({ estado: 'no_entregado', motivo: MOTIVO_VENCIO, updated_at: ahoraIso })
     .eq('estado', 'escrito').lt('created_at', limite).select('id, firmado');
   for (const f of venc ?? []) terminados.push(f.firmado as string | null);
   // Lo tomado que nunca acusó (17/10/2026, la revisión de seguridad de los adjuntos): el acuse era su ÚNICA salida, y
