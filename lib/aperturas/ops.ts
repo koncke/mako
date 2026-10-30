@@ -33,7 +33,7 @@ export const ID_IA = 'ops:ia';
  * instalar la app o conectarla ahí mismo. En el teléfono no: ahí no se instala (la caja ya lo dice, `FranjaApp`) y su escalera
  * es la T16 del plan.
  */
-export function aperturaOps(h: HechosOps, r: Respuestas): Apertura | null {
+export function aperturaOps(h: HechosOps, r: Respuestas): Apertura<never> | null {
   if (h.app == null || h.iaConectada == null || h.app === 'en-la-computadora') return null;
   const falta = h.app === 'bloquea' || h.iaConectada === false;
   if (!falta) return null;
@@ -71,7 +71,7 @@ export function aperturaOps(h: HechosOps, r: Respuestas): Apertura | null {
   };
 }
 
-/** La superficie del Cerebro. Sus acciones son las comunes (instalar, conectar): las hace la pieza. */
+/** La superficie del Cerebro. Sus acciones son SÓLO las comunes (instalar, conectar), que hace la pieza: `Apertura<never>`. */
 export const SUPERFICIE_OPS: Superficie<HechosOps> = { id: 'ops', acciones: [], apertura: aperturaOps };
 
 /** Los pasos que puede decir, con su porqué (lo lee tests/aperturas.test.ts). */
