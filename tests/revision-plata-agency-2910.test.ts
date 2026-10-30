@@ -6,7 +6,8 @@
 // lib/agencia-cobro.ts, lib/plan-acceso.ts, lib/workspace.ts, lib/plan-esencial.ts, lib/vender-plan.ts, lib/compra-plan.ts,
 // lib/partners.ts y lib/partners-programa.ts. La cosecha, en docs/hallazgos-agencias.md y docs/hallazgos-partners.md.
 //
-// Y una SEGUNDA PASADA del mismo revisor sobre los arreglos (1f49ea387): cinco hallazgos nuevos (A-E), arreglados acá.
+// Y una SEGUNDA PASADA del mismo revisor sobre los arreglos (1f49ea387): cinco hallazgos nuevos (A-E), arreglados acá. Y una
+// TERCERA, corta (775a83ef4): la clave de idempotencia del día, el monto de la subida pendiente y la pausa programada sin topes.
 //
 // Probado rompiéndolo (29/10/2026; base 12 / 0). Una rotura por vez, restaurando (pasan / fallan):
 //   · la baja cancela sólo la marcada `activa` (la pagada sin estado sigue cobrando)  -> 11 / 1
@@ -24,6 +25,9 @@
 //   · la pausa programada marca la cuenta pausada en el acto                         -> 11 / 1
 //   · el partner gana lo cobrado cuando la compra no anota el plan                    -> 11 / 1
 //   · el primer plan propio con la agencia todavía pagando                           -> 11 / 1
+//   · la clave de idempotencia por día (ir y volver dos veces el mismo día)          -> 11 / 1
+//   · la subida pendiente con un pago de cualquier monto                             -> 11 / 1
+//   · la cuenta en pausa programada, sin topes                                       -> 11 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -84,9 +88,10 @@ test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () 
   assert.equal(subeEnElActo({ diferenciaCobrada: false, algoPagado: true }), false, 'Mercado Pago, o el primer mes ya pagado: pendiente');
   const cambio = leerCambioDePlan(JSON.stringify({ at: '2026-10-29T12:00:00.000Z', plan: 'pro', pendiente: true }));
   assert.ok(cambio?.pendiente);
-  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-10-29' }]), false, 'un pago del mismo día pudo ser el de antes');
-  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29T09:00:00.000Z' }]), true);
-  assert.equal(subidaCobrada({ ...cambio!, pendiente: false }, [{ fecha_pago: '2026-11-29' }]), false);
+  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-10-29', alcanza: true }]), false, 'un pago del mismo día pudo ser el de antes');
+  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29T09:00:00.000Z', alcanza: true }]), true);
+  assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29', alcanza: false }]), false, 'un cobro de Esencial (la pasarela no tomó el monto) no sube');
+  assert.equal(subidaCobrada({ ...cambio!, pendiente: false }, [{ fecha_pago: '2026-11-29', alcanza: true }]), false);
   const plan = fuente('lib/agencia-plan.ts');
   assert.match(plan, /const enElActo = p\.plan === 'esencial' \|\| subeEnElActo\(\{ diferenciaCobrada: diferenciaCobrada && vivas\.every\(\(c\) => c\.proveedor === 'stripe'\), algoPagado \}\);\n\s*if \(enElActo\) \{/);
   // El cron la aplica con el primer pago de una suscripción anotada en Pro.
@@ -97,7 +102,10 @@ test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () 
 test('cambiar el plan (2a, 2b, 2c, 2d): subir con Stripe cobra la diferencia, la clave lleva el día, el precio se valida antes y el primer mes sin pagar se rehace', () => {
   const plan = fuente('lib/agencia-plan.ts');
   assert.match(plan, /else if \(p\.plan === 'pro'\) \{\n\s*const r = await subirPlanStripe\(key, c\.proveedor_suscripcion_id, \{ mensual: monto, anual: null, moneda: c\.moneda, idem \}\);/);
-  assert.match(plan, /const idem = `mako-plan-agencia-\$\{c\.id\}-\$\{plan\.id\}-\$\{hoy\}`;/);
+  // Una clave por PEDIDO (tercera pasada): la del día se repetía al ir y volver dos veces, y Stripe devolvía la guardada.
+  assert.match(plan, /const pedido = Date\.now\(\)\.toString\(36\);/);
+  assert.match(plan, /const idem = `mako-plan-agencia-\$\{c\.id\}-\$\{plan\.id\}-\$\{pedido\}`;/);
+  assert.match(plan, /else if \(Math\.abs\(r\.monto - monto\) > 0\.01\) fallo = /, 'Mercado Pago tiene que tomar el monto');
   const valida = plan.indexOf('const v = await precioDelPlanEn(plan, m);');
   assert.ok(valida > 0 && valida < plan.indexOf('subirPlanStripe(key'), 'el precio en la moneda de la cuenta, antes de la pasarela');
   assert.match(plan, /for \(const c of primerMesSinPagar\) \{\n\s*const r = await rehacerPrimerMes\(c\.id, plan, p\.autor\);/);
@@ -126,13 +134,16 @@ test('los candados de Pro (4): el Esencial de una cuenta de agencia los tiene, p
   const e = fuente('lib/plan-esencial.ts');
   assert.match(e, /if \(!capaVendida\) \{\n\s*const \{ data: cart, error: eCart \} = await getSupabaseServer\(\)\.from\('agencia_clientes'\)\.select\('cliente_ws'\)\.eq\('cliente_ws', ws\)\.neq\('estado', 'revocado'\)/);
   assert.match(e, /if \(cart\?\.length\) capaVendida = capa \?\? null;/);
+  // Y la que su agencia soltó y todavía usa lo que pagó (tercera pasada): candados y topes.
+  assert.match(e, /else if \(await soltadaPorSuAgencia\(ws\)\) capaVendida = capa \?\? null;/);
+  assert.match(fuente('lib/topes-plan-server.ts'), /if \(\(data \?\? \[\]\)\.length > 0\) return true;\n[^\n]*\n\s*return soltadaPorSuAgencia\(ws\);/);
   // B (segunda pasada): el ex cliente que paga su propio Esencial (sin `alta_capa`) también.
   assert.match(e, /if \(!capaVendida && data\) capaVendida = capa \?\? null;/);
 });
 
 test('la venta a mano (6, 12): el partner gana la lista de la capa vendida, y sin el código guardado no queda el link', () => {
   const pp = fuente('lib/partners-programa.ts');
-  assert.match(pp, /const plan = PLANES_MAKO_DEFAULT\.filter\(\(p\) => p\.capa === c\.alta_capa\)\.sort\(\(a, b\) => a\.precioUsd - b\.precioUsd\)\[0\];/);
+  assert.match(pp, /const plan = porPrecio\.find\(\(p\) => p\.capa === c\.alta_capa\) \?\? porPrecio\[0\];/, 'una capa sin plan, al más barato de todos');
   assert.equal((pp.match(/precioDeListaPorMes\(conPlanDeLista\(c\), listaDe\)/g) ?? []).length, 2, 'en el panel y en la acreditación');
   assert.equal((pp.match(/select\('alta_ws, (ref_codigo, )?monto_usd, plan_mako, alta_capa, meses, created_at'\)/g) ?? []).length, 2);
   const v = fuente('lib/vender-plan.ts');

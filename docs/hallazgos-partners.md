@@ -398,5 +398,5 @@ La llamada con Thiago (docs/promesas/2910-llamada-thiago.md, *(Planes y Partners
   precio especial se acreditaba entero. **El primer arreglo era el equivocado: escribir `plan_mako` en la venta.** Con un
   plan anotado, esa venta entraba a las ofertas de retención y `reactivarPlan` la reactivaba a precio de lista en vez del
   pactado. El arreglo vive en la acreditación (`conPlanDeLista`): sin plan anotado, la lista del plan más barato de la capa
-  vendida (`alta_capa`). Un partner nunca gana más que la lista. Si el link que ya existía tiene el código de otro partner,
-  se dice en vez de contestar «ok».
+  vendida (`alta_capa`); una capa sin plan en el catálogo (p. ej. `pm`), el más barato de todos. Un partner nunca gana más
+  que la lista. Si el link que ya existía tiene el código de otro partner, se dice en vez de contestar «ok».

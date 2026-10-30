@@ -10,11 +10,15 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { suscripcionDeMakoDe } from './cobros';
+import { soltadaPorSuAgencia } from './plan-esencial';
 
-/** true = se le aplican los topes de su plan: MaKo le cobra el plan por la pasarela, o es la cuenta de un cliente de agencia. */
+/** true = se le aplican los topes de su plan: MaKo le cobra el plan por la pasarela, es la cuenta de un cliente de agencia, o
+ *  una que su agencia soltó (`sin-agencia`). */
 export async function aplicanTopes(ws: number): Promise<boolean> {
   if ((await suscripcionDeMakoDe(ws)) != null) return true;
   const { data, error } = await getSupabaseServer().from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
   if (error) throw new Error(`No pude leer si es cliente de una agencia: ${error.message}`);
-  return (data ?? []).length > 0;
+  if ((data ?? []).length > 0) return true;
+  // La que su agencia soltó y todavía usa lo que pagó (la pausa programada): sus topes siguen (tercera pasada de la revisión).
+  return soltadaPorSuAgencia(ws);
 }

@@ -12,6 +12,19 @@ import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { esEsencialPorPasarela } from './plan-esencial-reglas';
 import { FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
+import { CLAVE_CORTE, leerCorte } from './plan-acceso-reglas';
+
+/**
+ * ¿La cuenta la soltó su agencia y sigue con el corte `sin-agencia` vigente (lib/agencia-baja.ts)? Mientras usa lo que ya
+ * pagó (la pausa programada), no tiene cartera ni plan propio, y sin esto quedaba con lo de Pro y sin topes (tercera pasada
+ * de la revisión de plata). La usan `esEsencialDe` y `aplicanTopes` (lib/topes-plan-server.ts). Tira si no se puede leer.
+ */
+export async function soltadaPorSuAgencia(ws: number): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_CORTE).maybeSingle();
+  if (error) throw new Error(error.message);
+  const c = leerCorte((data as { value?: string } | null)?.value ?? null);
+  return c?.motivo === 'sin-agencia' && c.vigente;
+}
 
 /** El negocio `ws`, con la capa que tiene hoy (si se sabe; si no, se lee). */
 export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promise<boolean> {
@@ -43,6 +56,7 @@ export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promi
       const { data: cart, error: eCart } = await getSupabaseServer().from('agencia_clientes').select('cliente_ws').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
       if (eCart) throw new Error(eCart.message);
       if (cart?.length) capaVendida = capa ?? null;
+      else if (await soltadaPorSuAgencia(ws)) capaVendida = capa ?? null;
     }
     return esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida });
   } catch (e) {

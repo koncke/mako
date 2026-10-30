@@ -15,8 +15,10 @@
 //     cobrada), la subida queda PENDIENTE y la capa sube con el primer pago a precio de Pro (`aplicarSubidasPendientes`, el
 //     cron). Bajar es en el acto. Un «un cambio cada 30 días» no lo cerraba: con Mercado Pago alcanzaba para Pro la mitad de
 //     los meses, y en el primer mes regalaba uno.
-//   · LA CLAVE DE IDEMPOTENCIA LLEVA EL DÍA: la de siempre por cobro y plan hacía que Stripe devolviera la respuesta guardada
-//     de un «→Pro» anterior sin aplicarlo, con la base diciendo 97.
+//   · LA CLAVE DE IDEMPOTENCIA ES UNA POR PEDIDO: por cobro y plan (y después por día) se repetía al ir y volver, y Stripe
+//     devolvía la respuesta GUARDADA del «→Pro» anterior sin aplicarlo, con la base diciendo 97. Reintentar no cobra dos
+//     veces: `subirPlanStripe` lee la suscripción antes y contesta `yaEstaba` si ya cobra ese precio. Y Mercado Pago tiene
+//     que devolver el monto pedido: si no lo tomó, no se sigue.
 //   · EL PLAN NUEVO TIENE QUE TENER PRECIO EN LA MONEDA DE LA CUENTA antes de tocar nada (`precioDelPlanEn`).
 //   · VIVA ES TAMBIÉN LA PAGADA SIN `suscripcion_estado` (`esSuscripcionViva`): un aviso de Mercado Pago sin el id la dejaba
 //     sin marcar, y su precio no cambiaba aunque la capa sí.
@@ -103,11 +105,11 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
   const precioEnMoneda = (moneda: string) => precios.get(moneda.toUpperCase())!;
 
   // 1. Lo que se cobra.
-  const hoy = new Date().toISOString().slice(0, 10);
+  const pedido = Date.now().toString(36);
   let diferenciaCobrada = false;
   for (const c of vivas) {
     const monto = precioEnMoneda(c.moneda);
-    const idem = `mako-plan-agencia-${c.id}-${plan.id}-${hoy}`;
+    const idem = `mako-plan-agencia-${c.id}-${plan.id}-${pedido}`;
     let fallo: string | null = null;
     if (c.proveedor === 'stripe') {
       const key = await credDelCliente('STRIPE_SECRET_KEY', plataforma);
@@ -124,6 +126,7 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
       const id = c.proveedor_suscripcion_id ?? c.proveedor_ref;
       const r = token && id ? await montoSuscripcionMp(token, id, monto, idem) : null;
       if (!r?.ok) fallo = r && !r.ok ? r.error : 'Mercado Pago no está conectado';
+      else if (Math.abs(r.monto - monto) > 0.01) fallo = `Mercado Pago quedó cobrando ${r.monto} en vez de ${monto}`;
     }
     if (fallo) return { ok: false, error: `No pude cambiar lo que se le cobra: ${fallo}. Prueba otra vez en un minuto.` };
     await db.from('cobros').update({ monto, monto_usd: plan.precioUsd, plan_mako: plan.id, concepto: c.concepto.replace(/^MaKo [A-Za-zé ]+ · /, `${conceptoDelPlan(plan).replace(/ · mensual$/, '')} · `).slice(0, 200) })
@@ -184,6 +187,7 @@ export async function aplicarSubidasPendientes(): Promise<{ subidas: number; err
     .filter((x) => x.cambio?.pendiente && x.cambio.plan === 'pro');
   if (!pendientes.length) return out;
   const plataforma = await wsSuperAdmin();
+  const pro = (await planesMako()).find((x) => x.id === 'pro') ?? null;
   for (const { ws, cambio } of pendientes) {
     try {
       const { data: cart } = await db.from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
@@ -193,9 +197,17 @@ export async function aplicarSubidasPendientes(): Promise<{ subidas: number; err
       if (eSubs) throw new Error(eSubs.message);
       const ids = ((subs ?? []) as Array<{ id: number }>).map((x) => x.id);
       if (!ids.length) continue;
-      const { data: pagos, error: ePagos } = await db.from('pagos').select('fecha_pago').eq('workspace_id', plataforma).in('cobro_id', ids).eq('pagado', true).limit(200);
+      const { data: pagos, error: ePagos } = await db.from('pagos').select('fecha_pago, monto_usd, moneda, monto_original').eq('workspace_id', plataforma).in('cobro_id', ids).eq('pagado', true).limit(200);
       if (ePagos) throw new Error(ePagos.message);
-      if (!subidaCobrada(cambio, (pagos ?? []) as Array<{ fecha_pago: string | null }>)) continue;
+      // Un pago de AL MENOS el precio de Pro en su moneda (tercera pasada, hallazgo 2): si la pasarela no tomó el monto nuevo,
+      // el cobro de Esencial no sube la capa.
+      const conMonto = await Promise.all(((pagos ?? []) as Array<{ fecha_pago: string | null; monto_usd: number | null; moneda: string | null; monto_original: number | null }>).map(async (x) => {
+        const moneda = (x.moneda ?? 'USD').toUpperCase();
+        const monto = moneda === 'USD' ? Number(x.monto_usd) : Number(x.monto_original);
+        const precio = pro ? await precioDelPlanEn(pro, moneda) : null;
+        return { fecha_pago: x.fecha_pago, alcanza: precio != null && Number.isFinite(monto) && monto >= precio - 0.01 };
+      }));
+      if (!subidaCobrada(cambio, conMonto)) continue;
       const { error: eCapa } = await db.from('workspaces').update({ capa: CAPA_DE_PLAN.pro }).eq('id', ws);
       if (eCapa) throw new Error(eCapa.message);
       await guardarCambio(ws, 'pro', false);

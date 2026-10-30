@@ -50,7 +50,9 @@ const nombreDelPlan = (plan: string | null | undefined): string | null => (plan 
  */
 function conPlanDeLista<T extends { plan_mako: string | null; alta_capa?: string | null }>(c: T): T {
   if (c.plan_mako || !c.alta_capa) return c;
-  const plan = PLANES_MAKO_DEFAULT.filter((p) => p.capa === c.alta_capa).sort((a, b) => a.precioUsd - b.precioUsd)[0];
+  // Una capa sin plan en el catálogo (p. ej. `pm`) se topea al plan más barato de todos (tercera pasada de la revisión).
+  const porPrecio = [...PLANES_MAKO_DEFAULT].sort((a, b) => a.precioUsd - b.precioUsd);
+  const plan = porPrecio.find((p) => p.capa === c.alta_capa) ?? porPrecio[0];
   return plan ? { ...c, plan_mako: plan.id } : c;
 }
 

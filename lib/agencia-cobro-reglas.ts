@@ -248,11 +248,14 @@ export function subeEnElActo(p: { diferenciaCobrada: boolean; algoPagado: boolea
   return p.diferenciaCobrada || !p.algoPagado;
 }
 
-/** ¿Ya entró el primer pago a precio de Pro después de pedir la subida? (los pagos de sus suscripciones anotadas en Pro) */
-export function subidaCobrada(cambio: CambioDePlan | null, pagosEnPro: readonly { fecha_pago: string | null }[]): boolean {
+/**
+ * ¿Ya entró el primer pago a precio de Pro después de pedir la subida? (los pagos de sus suscripciones anotadas en Pro; `alcanza`:
+ * el pago es de al menos el precio de Pro en su moneda, porque una pasarela que no tomó el monto nuevo cobra el de Esencial).
+ */
+export function subidaCobrada(cambio: CambioDePlan | null, pagosEnPro: readonly { fecha_pago: string | null; alcanza: boolean }[]): boolean {
   if (!cambio || !cambio.pendiente || cambio.plan !== 'pro') return false;
   // Por DÍA y estrictamente después (`fecha_pago` puede venir sin hora): un pago del mismo día pudo ser el de antes, a precio de
   // Esencial. Si la renovación cae justo ese día, Pro llega con la siguiente.
   const dia = cambio.at.slice(0, 10);
-  return pagosEnPro.some((x) => !!x.fecha_pago && x.fecha_pago.slice(0, 10) > dia);
+  return pagosEnPro.some((x) => x.alcanza && !!x.fecha_pago && x.fecha_pago.slice(0, 10) > dia);
 }
