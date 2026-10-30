@@ -26,14 +26,17 @@ export default function InstalarMaKo() {
   const [conectando, setConectando] = useState(false);
   if (!descargado) {
     return (
-      <DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick={marcarDescargado}>
-        <Icon name="descargar" size={16} />
-      </DescargarMaKo>
+      // La marca de la guía (lib/guia/, «Conectar tu IA») va en un envoltorio: DescargarMaKo es de IA del cliente.
+      <span className="ch-ancla" data-recorrido="mk-instalar">
+        <DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick={marcarDescargado}>
+          <Icon name="descargar" size={16} />
+        </DescargarMaKo>
+      </span>
     );
   }
   return (
     <>
-      <button type="button" className="co-instalar" onClick={() => setConectando(true)} title={avisoAlAbrir()} data-app-primero="conectar">
+      <button type="button" className="co-instalar" onClick={() => setConectando(true)} title={avisoAlAbrir()} data-app-primero="conectar" data-recorrido="mk-conectar">
         <Icon name="check" size={16} />Ya lo instalé: conectar
       </button>
       {conectando && createPortal(

@@ -61,7 +61,8 @@ test('3. sin la app, LA CAJA MISMA no deja escribir: «Instalar MaKo» en el lug
   assert.match(caja, /alFinal=\{angosta \|\| bloqueada \? null : conectar\}/, 'sin «Conectar tu IA»: sin la app no destraba nada');
   assert.doesNotMatch(p, /<AppPrimero/, 'el cartel que reemplazaba la caja se fue');
   const hilo = p.slice(p.indexOf('export function HiloDelCliente('), p.indexOf('export function CajaDelCliente('));
-  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada, sin la portada ni sus arranques');
+  // Vacía y bloqueada: sin la portada ni sus arranques, PERO con la apertura (29/10/2026: sus botones no escriben nada).
+  assert.match(hilo, /!k\.items\.length && !k\.trabajo \? \(apertura \?\? \(k\.app === 'bloquea' \? null : \(/, 'vacía y bloqueada: la apertura, sin la portada');
   assert.match(p, /\{k\.app === 'en-la-computadora' && <FranjaApp \/>\}/, 'en el teléfono, el aviso arriba de la caja');
   // La caja: el campo apagado con la frase, y en el lugar del botón el que la destraba.
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
@@ -72,8 +73,10 @@ test('3. sin la app, LA CAJA MISMA no deja escribir: «Instalar MaKo» en el lug
   const pieza = sinComentarios(leer('app/_chat/AppPrimero.tsx'));
   assert.match(pieza, /import \{ DescargarMaKo, avisoAlAbrir \} from '@\/app\/integraciones\/CuentasYDispositivos';/);
   assert.doesNotMatch(pieza, /\/api\/ia-pc\/descargar|navigator\./, 'la descarga y la detección no se reescriben');
-  assert.match(pieza, /<DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick=\{\(\) => setDescargado\(true\)\}>/);
-  assert.match(pieza, /<button type="button" className="co-instalar" onClick=\{onConectar\} title=\{avisoAlAbrir\(\)\} data-app-primero="conectar">/);
+  // El «ya lo descargó» es el compartido de la página (29/10/2026): la apertura y la caja pasan juntas a «Ya lo instalé».
+  assert.match(pieza, /const descargado = useDescargado\(\);/);
+  assert.match(pieza, /<DescargarMaKo className="co-instalar" texto="Instalar MaKo" onClick=\{marcarDescargado\}>/);
+  assert.match(pieza, /<button type="button" className="co-instalar" onClick=\{onConectar\} title=\{avisoAlAbrir\(\)\} data-app-primero="conectar" data-recorrido="mk-conectar">/);
   assert.match(pieza, /Ya lo instalé: conectar/);
 });
 

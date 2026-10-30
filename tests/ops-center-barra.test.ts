@@ -46,7 +46,8 @@ test('1. arriba: el tutorial, la búsqueda y el filtro, en una fila; el filtro, 
   // Lo dibujado: en una fila, el ?, el buscador y el filtro (en ese orden), y nada más arriba.
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   const arriba = sb.slice(sb.indexOf('<div className="co-barra__arriba">'), sb.indexOf('<nav className="co-lista"'));
-  assert.match(arriba, /<div className="co-barra__fila">\n\s*<button type="button" className="co-ayuda" onClick=\{tutorial\.reabrir\} aria-label="Ver el tutorial"/);
+  // El «?» es la guía de la pestaña desde el 29/10/2026 (la del cliente: la del super admin no tiene a MaKo en su hilo).
+  assert.match(arriba, /<div className="co-barra__fila">\n\s*(?:\{\}\n\s*)?\{!ops && \(\n\s*<button type="button" className="co-ayuda" onClick=\{\(\) => guia\.ofrecer\(\)\} aria-label="Que MaKo te enseñe esta pestaña"/);
   assert.ok(arriba.indexOf('co-ayuda') < arriba.indexOf('co-buscar') && arriba.indexOf('co-buscar') < arriba.indexOf('<FiltroChats'), 'el orden de Automations');
   assert.match(arriba, /valores=\{filtros\} onCambio=\{setFiltros\} conEstado=\{!!centro\} \/>/);
   assert.doesNotMatch(arriba, /Ticketera|Second Brain/, 'arriba ya no van');
