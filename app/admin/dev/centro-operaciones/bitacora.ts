@@ -2056,7 +2056,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '30 oct', hora: '18:30', chat: CH, cuenta: 'claude1',
+    fecha: '30 oct', hora: '18:30', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Se ve si la PC no da noticias o si nadie entrega, y lo que espera un chat cerrado le llega al Cerebro',
     revisar: '/admin/operaciones',
@@ -2073,7 +2073,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '30 oct', hora: '18:35', chat: CH, cuenta: 'claude1',
+    fecha: '30 oct', hora: '18:35', chat: CH, sesion: 'local_60dde796-c69c-4cab-a626-b7770594e354', cuenta: 'claude1',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Un mensaje a un chat abierto de una cuenta sin Runner ya sale en el cartel, y lo que se reenvía es lo que firmaste',
     revisar: '/admin/operaciones',

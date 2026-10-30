@@ -1778,7 +1778,12 @@ código nuevo:
   cierre) se borra sólo si MaKo dice que ENTRÓ (`cierresIds`): con el buzón compartido, «se subió» no es «entró».
   ⚠️ Nunca se copian las `.key` de `<carpeta>/sessions/` a otra carpeta para «hacerlo andar»: es la protección contra
   un canal que nadie avaló.
-- **LO QUE CORRE SIN UN CHAT NO LATE COMO RUNNER, NO RECLAMA Y LO DICE** (30/10/2026; `cartero.mjs servicio`, 1.25.0). Manda
+- **LO QUE EXISTE PARA CUANDO FALTA EL RUNNER SE PRUEBA SIN RUNNER** (30/10/2026; docs/hallazgos-operaciones.md, «Seis días sin Runner»): todas las cuentas calladas, una sí y otra no, la foto vieja.
+  Corriendo la regla con ese caso, no buscando su texto en el código. Romper prueba el test que hay, no que sea el caso que importa: 66 roturas en rojo, y la revisión igual encontró 15 defectos.
+- **SUBIR LA `VERSION` DE `cartero.mjs` ROMPE LOS TESTS QUE LA FIJAN:** chat-en-el-acto, feedback-2710-tanda1, ops-center-decisiones, preguntas-cadena-y-ask y turnos-enteros (30/10/2026: `grep -l "VERSION" tests/*.ts`). Los afectados
+  de una rama salen de buscar en `tests/` los archivos del diff entero, no de una lista de memoria: tres tandas en verde escondían 8 casos en rojo.
+- **LO QUE CORRE SIN UN CHAT NO LATE COMO RUNNER, NO RECLAMA Y LO DICE** (30/10/2026; `cartero.mjs servicio`, 1.25.0). **No reemplaza a un chat:** sin uno no se entrega ni se
+  mide la cuota, así que ningún texto dice que ya no hace falta abrir el Runner. Manda
   `entregables: []` (la lista vacía: sin ella, MaKo reclama todos los vivos), `abre: []` y `servicio: { version, desde }`. No llama a
   `latir` ni a `vuelta`, y a `carpetasConRunner` le pasa `null`: un chat con nombre y sin cron (lo que deja un `/clear`) no cuenta.
   Una vuelta a la vez en la PC (`tomarVuelta`, `vuelta.lock`): quien lo encuentra tomado saltea, y `vigilar` la reintenta. Todo el

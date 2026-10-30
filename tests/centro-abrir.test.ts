@@ -353,7 +353,7 @@ test('MaKo le da un chat nuevo sólo al cartero que dice que lo abre, y las inst
   assert.deepEqual(sanearAbre(['claude2', 'claude2', 'x', 3, 'claude12']), ['claude2', 'claude12']);
   const lib = sinComentarios(leer('lib/operaciones.ts'));
   const ciclo = lib.slice(lib.indexOf('export async function cicloCartero'));
-  assert.match(ciclo, /if \(sanearAbre\(e\.abre\)\.includes\(cuenta\)/, 'sólo con `abre`');
+  assert.match(ciclo, /if \(!servicio && sanearAbre\(e\.abre\)\.includes\(cuenta\)/, 'sólo con `abre`, y nunca una vuelta del servicio (30/10/2026)');
   assert.match(ciclo, /\.eq\('destino', DESTINO_NUEVO\)\.eq\('destino_cuenta', cuenta\)/, 'y sólo los de SU cuenta');
   const { INSTRUCCIONES_RUNNER, COMANDO_RUNNER } = await import('../lib/runner');
   assert.ok(INSTRUCCIONES_RUNNER.includes(`${COMANDO_RUNNER} abrir\``) && INSTRUCCIONES_RUNNER.includes(`${COMANDO_RUNNER} abrir-permitir`));

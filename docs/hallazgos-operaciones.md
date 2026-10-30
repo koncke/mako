@@ -3042,9 +3042,9 @@ HH:MM», pero era gris, sólo de la computadora, y no decía que había pedidos 
 sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de algo se mide desde otro lado: el servidor dice
 «la PC no da noticias desde…» y «nadie entrega: N pedidos esperan», en rojo y en el teléfono también.
 
-**Sin hacer (se construye el lunes 26/10):** todo el diseño de docs/diseno-cartero-servicio.md (el servicio que mide y
-sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
-(§2.4).
+**Sin hacer (el 26/10 no se construyó; se retomó el 30/10):** el servicio y los dos carteles ya están escritos, sin subir ni
+instalar (ver «Seis días sin Runner»). Falta la entrega por cualquier chat que arranque (docs/diseno-cartero-servicio.md §2.3) y
+la pregunta del `.exe` al chat de IA del cliente (§2.4).
 
 ## El `/clear` borró el cron del Cartero, y el que avisaba era el cron (24/10/2026)
 
@@ -3071,9 +3071,9 @@ y por eso se rearmó igual. Después del `/clear`, `CronList`.
 «Cartero» sin latido fresco (6 minutos, `LATIDO_VENCE_MS`). Después del `/clear` el chat seguía vivo y con el nombre justo,
 y aun así dejó de contar como Runner. El nombre solo no alcanza, y este caso lo prueba.
 
-**Para cuando se construya el servicio:** hoy `vuelta()` llama siempre a `latir(propio)`. Si el servicio corre esa misma vuelta, va a
-latir como Runner y va a tapar justo este caso: un chat abierto, con su nombre y sin cron. Quedó escrito en
-docs/diseno-cartero-servicio.md §2.1: el servicio deja su latido aparte.
+**Y el servicio no lo tapa:** `vuelta()` llama siempre a `latir(propio)`. Si el servicio corriera esa misma vuelta, latiría como Runner
+y taparía justo este caso: un chat abierto, con su nombre y sin cron. Por eso no pasa por `vuelta()`, deja su latido aparte
+(`servicio.json`) y le pasa `null` a `carpetasConRunner` (cartero 1.25.0, tests/cartero-servicio.test.ts).
 
 **La misma trampa, una capa más abajo:** el prompt rearmado palabra por palabra seguía apuntando al scratchpad VIEJO
 (`8f83ea88…/scratchpad`), donde vivían `vigia.cjs`, `vigia-estado.json` y el propio LEEME. Andaba porque esa carpeta
@@ -3091,8 +3091,9 @@ aviso de mudanza.
   `cartero.mjs medir` con lo que da `get_usage`, y ese paso no estaba en el prompt. Ahora es el paso 0. Con la app en otra
   cuenta, `medir` no anota: la huella del reinicio semanal lo frena (`problemaDeHuella`).
 
-**Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10. Por eso el Runner estuvo parado del 24/10
-al 30/10. El comando existe desde el 30/10 (cartero 1.25.0), sin instalar: ver «El servicio no le saca pedidos al Runner».
+**Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10, y del 24/10 al 30/10 el Runner estuvo parado
+sin que nada lo dijera. El comando existe desde el 30/10, sin instalar, y no evita esto: sólo hace que se vea. Un cron vencido o
+borrado por un `/clear` sigue dejando a la cuenta sin entrega hasta que alguien lo rearma: ver «Seis días sin Runner».
 
 ## Un pedido a un chat cerrado se pierde en silencio, con 15 días de retraso (30/10/2026)
 
@@ -3146,7 +3147,50 @@ dice «78% · medido hace 6 días». Lo que engaña es el renglón de al lado, �
 **La regla:** cuando un proceso sube los datos de otro, la hora de la subida no dice nada del dato. Cada dato lleva la hora
 en que se midió, y lo que se muestra al lado no la contradice.
 
-**Sin hacer:** cambiar ese texto cuando la medición está vieja (`textoRunner` en `app/admin/operaciones/Uso.tsx`).
+**Ya no queda sin hacer:** `textoRunner` (`app/admin/operaciones/Uso.tsx`) dice «No se mide ahora» cuando la medición está vieja (`estadoRunnerUso`, lib/centro-uso.ts).
+
+## Seis días sin Runner y nadie se enteró: qué compra el servicio y qué no (30/10/2026)
+
+**Qué compra y qué NO: no es «el Runner ya no se muere», es «si el Runner se muere, se ve».** Sin un chat abierto sigue sin entregarse nada y sin medirse la cuota: `SendMessage` y
+`get_usage` sólo los puede llamar un chat. El servicio sube lo que sale de archivos (chats, turnos, pasos, acuses) y hace visible la ausencia. No reemplaza a un chat.
+
+**El síntoma:** del 24/10 al 30/10 ningún Runner dio vueltas. No se midió, no se subió, no se entregó nada, y nadie se enteró. Al volver, 11 mensajes de Martín seguían en «escrito». La
+solución estaba diseñada para el 26/10 y no se construyó.
+
+**La causa:** todo colgaba de un chat con un cron de sesión, y lo que avisaba de su ausencia estaba en el mismo lugar: un renglón gris, una línea dentro de un chat que nadie abre, y un
+vigía que corre en el Runner. Qué lo frenó esta vez no quedó medido. Un apagado forzado, un `/clear` y el cron que vence a los 7 días dejan lo mismo.
+
+**El diagnóstico obvio era el equivocado, tres veces:**
+- **«Un servicio que lo reemplace.»** No se puede, y cualquier texto que diga «ya no hace falta abrir el Runner» es falso. Por eso el aviso a Martín tiene que seguir diciendo qué abrir.
+- **«Lo que se ve lo trae el servicio.»** Lo trae el SERVIDOR: `cartelDeLaPc` lee lo que ya tiene MaKo. Con sólo migrar y desplegar, sin instalar nada, los Runners parados ya dan «La PC no da
+  noticias desde…» (el caso del 24/10, que corre en tests/centro-cartel-pc.test.ts). Lo que agrega el servicio es distinguir «apagada» de «prendida y sin Runner», y la foto de los chats al día.
+  **Y cobra:** es un segundo escritor de `visto_at`, así que instalado antes del deploy apaga la alarma que había («Activo» sin nadie que entregue); y vencer un pedido pasa a correr sin nadie
+  que entregue. Por eso `instalar-servicio` pregunta primero (`?servicio-listo=1`).
+- **«Si cada rotura da rojo, está probado.»** Antes de la revisión había 68 roturas: 66 en rojo y 2 equivalentes. La revisión igual encontró 15 defectos, y los tres más graves eran el caso
+  mismo: sin Runner se ofrecían chats cerrados rotulados «Abierto», un Runner en una cuenta callaba lo que esperaba en otra, y una foto vieja decía cerrado o abierto al revés. Romper prueba que el
+  test vigila lo que escribió, no que escribió el caso que importa. Dos de esas guardas sólo buscaban el texto del filtro en el código, y un cartel que no dibujaba nada daba 11 de 11.
+
+**Y lo que nadie corrió estaba en rojo.** Cada tanda corrió «los afectados» con su propia lista, y todas daban verde. Al buscar en `tests/` lo que nombra algún archivo del diff entero salieron 7 archivos en rojo, con 8 casos, y
+un octavo archivo que iba a caer. El código estaba bien; los tests estaban viejos: cinco fijan la `VERSION` del cartero, tres leían un renglón que cambió (`!servicio`, `r.salteada`, `avisoCerrado`) y `progreso.test.ts`, de las guardas que se rompen por cualquier cosa, pedía `sesion` en dos hitos.
+
+**La regla:**
+- Una ausencia la dice quien sigue vivo. Lo que depende de la PC calla justo cuando la PC no está.
+- **Lo que existe para cuando falta el Runner se prueba sin Runner:** todas las cuentas calladas, una sí y otra no, la foto vieja. Corriendo la regla con ese caso, no buscándola en el código.
+  El detalle de cada defecto, en la entrada de abajo.
+
+**Vive en:** `lib/centro-chats.ts` (`cartelDeLaPc`, `comoSale`, `chatRecibe`) · `lib/operaciones-reglas.ts` (`comoEstaElDestino`, `carteroVivo`) · `lib/centro-limbo.ts` · `scripts/operaciones/cartero.mjs` (`servicio`, `instalarServicio`)
+· docs/diseno-cartero-servicio.md (§4, lo que aprueba Martín)
+
+**Sin hacer:**
+- **Subir y activar:** nada está en `main`. Falta `supabase/migrations/0355_operaciones_runner_visto.sql`, el deploy y, si Martín lo decide, `cartero.mjs instalar-servicio`, en ese orden.
+- **Verlo:** ni `app/admin/operaciones/CartelPc.tsx` ni `CartelLimbo.tsx` se miraron en un navegador: bootear local escribe en producción. Se dibujaron con `renderToStaticMarkup`.
+- **Probarlo en la PC:** el lanzador `mako-cartero.vbs` y la clave Run sólo corrieron con un registro simulado (`scripts/operaciones/cartero.mjs`). Tampoco se midió cuánta RAM pide una vuelta cada 2 minutos.
+- **La entrega por cualquier chat que arranque:** `cartero.mjs hay`, aflojar `exigirRunner` y el hook `SessionStart` (`~/.claude/bitacora-sesion.sh`). Lo aprueba Martín: toca a todos los chats.
+- **La API:** `lib/api-mako/areas/operaciones.def.ts` y `.run.ts` no leen el cartel de la PC ni los mensajes que esperan con su causa (`mensajesEnLimbo`), y `descartarDelLimbo` (lib/operaciones.ts) no está
+  declarada. La descripción de `ver_carteros_operaciones` no cuenta `ultimaNoticiaDeLaPc`. Reenviar a otro chat no va: se firma en el dispositivo.
+- **`/m/second-brain`** también lista los chats y no tiene estos carteles (`app/m/second-brain/SecondBrainCentroM.tsx`).
+- **Tipos:** el tsc entero no se corrió. `CartelLimbo.tsx`, `useCentro.ts`, `app/tickets/bandeja/cerebro.ts`, `lib/operaciones.ts`, `app/api/operaciones/cartero/route.ts` y `acciones.ts` quedaron sin chequear después de los arreglos, por falta de heap.
+- **La pregunta del `.exe`,** para el chat de IA del cliente: docs/diseno-cartero-servicio.md §4. No se abre ahora.
 
 ## La revisión del servicio: lo que sólo se rompe sin Runner, o con la PC callada (30/10/2026, cartero 1.26.1)
 
