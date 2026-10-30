@@ -37,7 +37,12 @@ export type EstadoMetaZernio = {
   paginas: Pagina[]; pagina: { pageId: string | null; preguntar: boolean; sugerida: string | null };
   /** ¿Le llegan a MaKo los leads de los formularios? (lib/meta-conexion-zernio.ts, 29/10/2026). Sin el campo acá, no tipaba. */
   leads?: 'si' | 'sin-permiso' | 'sin-webhook' | null;
+  /** Un 429 de Zernio: en cuánto se vuelve a leer sola (ticket #34). */
+  reintentarEnMs?: number | null;
 };
+
+/** Hasta cuántas veces se relee sola después de un 429 (después, lo dice y espera a la persona). */
+const RELECTURAS_TRAS_PAUSA = 3;
 
 const ID_PAGINA = /^\d{5,20}$/;
 /** El valor del selector para «escribir el ID a mano». */
@@ -81,6 +86,16 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
 
   const leer = useCallback(async () => aplicar(await pedir()), [aplicar]);
   useEffect(() => { void leer(); }, [leer]);
+  // Un 429 de Zernio (su tope por minuto) se relee solo después de lo que pidió esperar (ticket #34), unas pocas veces.
+  const relecturas = useRef(0);
+  const reintentarEnMs = estado?.reintentarEnMs ?? null;
+  useEffect(() => {
+    if (reintentarEnMs == null) { relecturas.current = 0; return; }
+    if (relecturas.current >= RELECTURAS_TRAS_PAUSA) return;
+    relecturas.current++;
+    const t = setTimeout(() => { void leer(); }, reintentarEnMs);
+    return () => clearTimeout(t);
+  }, [estado, reintentarEnMs, leer]);
   useEffect(() => {
     if (estado) onEstado?.({ activo: estado.activo, conectada: !!estado.conexion && !!estado.cuenta });
   }, [estado, onEstado]);

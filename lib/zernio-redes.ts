@@ -163,7 +163,7 @@ export function claveConLugar(
 }
 
 /** Por qué no se pudo seguir, en una palabra que la pantalla sabe leer. */
-export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'respuesta' | 'error';
+export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'pausa' | 'respuesta' | 'error';
 
 export type RespuestaConectar =
   | { ok: true; tipo: 'url'; url: string }
@@ -184,6 +184,7 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'cobro': 'Esta clave de Zernio ya tiene 2 redes: la tercera se paga. Para no pagar, agrega otra clave de Zernio.',
   'sin-perfil': 'Tu cuenta de Zernio no tiene ningún perfil. Crea uno en Zernio.',
   'sin-red': 'Zernio no contestó. Prueba de nuevo.',
+  'pausa': 'Zernio pidió una pausa: recibió muchos pedidos en un minuto. Tu conexión está bien; prueba de nuevo en un minuto.',
   'respuesta': 'Zernio contestó algo que no entendimos. Prueba de nuevo.',
   'error': 'No se pudo conectar.',
 };
@@ -591,8 +592,30 @@ export function motivoDeRespuesta(status: number, cuerpo: unknown, code?: string
   if (status === 401) return { motivo: 'clave-mala', pagoUrl: null, texto: null };
   if (status === 402) return { motivo: razon === 'free_tier_exceeded' ? 'pago' : 'pausada', pagoUrl: urlDePagoDeZernio(cuerpo), texto: null };
   if (status === 403 && (codigo === 'platform_account_limit' || razon === 'platform_account_limit')) return { motivo: 'limite', pagoUrl: null, texto: null };
-  if (status === 429 || status >= 500) return { motivo: 'sin-red', pagoUrl: null, texto: null };
+  // ⚠️ Un 429 es el TOPE de pedidos por minuto (60 por equipo de Zernio, docs.zernio.com/rate-limits), no una conexión rota: se espera
+  //    y se sigue (ticket #34, 30/10/2026: «Zernio no contestó (429). Vuelve a conectar con Facebook» mandaba a reconectar algo que andaba).
+  if (status === 429) return { motivo: 'pausa', pagoUrl: null, texto: null };
+  if (status >= 500) return { motivo: 'sin-red', pagoUrl: null, texto: null };
   return { motivo: 'error', pagoUrl: null, texto };
+}
+
+/** Cuánto esperar ante un 429: lo que pidió Zernio (`Retry-After`), entre 5 s y 1 minuto; sin dato, 30 s. */
+export function esperaDeLaPausa(esperaMs: number | null | undefined): number {
+  if (esperaMs == null || !Number.isFinite(esperaMs)) return 30_000;
+  return Math.min(60_000, Math.max(5_000, Math.round(esperaMs)));
+}
+
+/**
+ * Lo que se dice cuando una LECTURA de Zernio falla (el estado de «Anuncios de Meta»), y si se vuelve a leer sola. Un 429 dice lo que
+ * pasó y se relee después de la espera; NUNCA «vuelve a conectar»: eso hacía reconectar una conexión que andaba (ticket #34). Lo demás
+ * (una conexión vencida, un 401) sí se arregla volviendo a conectar.
+ */
+export function errorDeLecturaZernio(status: number, esperaMs: number | null | undefined): { error: string; reintentarEnMs: number | null } {
+  if (status === 429) {
+    const ms = esperaDeLaPausa(esperaMs);
+    return { error: `Zernio pidió una pausa: recibió muchos pedidos en un minuto. Tu conexión está bien; lo vuelvo a leer en ${Math.ceil(ms / 1000)} segundos.`, reintentarEnMs: ms };
+  }
+  return { error: `Zernio no contestó (${status}). Vuelve a conectar con Facebook.`, reintentarEnMs: null };
 }
 
 // ── La vuelta de página entera, atada al clic que la inició ──────────────────

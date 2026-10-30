@@ -3,6 +3,13 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 30/10/2026 mañana, sexta tanda (cuenta `claude3`) — ticket #34 (Código Inmobiliario, ws17): el 429 de Zernio
+
+El Cerebro me desarchivó por el ticket #34: «Zernio no contestó (429). Vuelve a conectar con Facebook» en /integraciones. Medido con
+`vercel logs`: no fue el barrido (una pasada en la ventana); fue el momento de conectar, con todo leyendo la misma clave en un minuto.
+Hecho: el 429 tiene su motivo (`pausa`), espera `Retry-After`, el sondeo no lo cuenta como falla y el estado de «Anuncios de Meta» se
+relee solo. tests/zernio-pausa-429.test.ts. Cosecha en docs/hallazgos-integraciones.md. **Sin hacer:** gastar menos al conectar.
+
 ## ESTADO 30/10/2026 madrugada, quinta tanda (cuenta `claude3`) — N1 de la re-verificación
 
 La re-verificación de `da3cff9f7` (`C:/dev/revisiones/2910-reverificacion-zernio-leads-da3cff9f7.md`) dio «entra con bajas» y va en

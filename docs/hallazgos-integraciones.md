@@ -2502,3 +2502,30 @@ volvió a su chat. El informe está en `C:/dev/revisiones/2910-revision-privacid
   - **N5 y N6 (sospechas, dependen de Zernio):** una cuenta que vuelve sin `profileId` pasa el filtro, y un id de cuenta en otra
     forma deja el barrido en cero sin que el log lo diga.
   - El interruptor `zernio.cuenta_de_la_plataforma` sigue apagado.
+
+## Un 429 de Zernio es una PAUSA, no una conexión rota (30/10/2026, ticket #34)
+
+Código Inmobiliario (ws17) reportó desde /integraciones: «Zernio no contestó (429). Vuelve a conectar con Facebook.» Medido en los logs
+de producción (`vercel logs`, ver docs/hallazgos-infra.md del 17/10): pegó su clave a las 12:27Z y conectó Facebook a las 12:29Z; a las
+12:30:37Z, en el MISMO minuto, la clave la usaban el sondeo de conectar (12 a 14 `POST /api/zernio` por minuto, cada uno un `GET
+/accounts`), dos lecturas del estado de «Anuncios de Meta» (cada una, hasta 9 pedidos: páginas, cuentas publicitarias, píxeles,
+webhook), dos cargas de /integraciones con el árbol de Meta por Zernio, el cron `alerta-critica` y una pasada del barrido de leads.
+
+**Vive en:** `lib/zernio-redes.ts` (`motivoDeRespuesta`, `esperaDeLaPausa`, `errorDeLecturaZernio`) · `lib/zernio-conectar.ts`
+(`ZernioConectarError.esperaMs`) · `app/api/zernio/route.ts` · `app/_components/ConectarViaZernio.tsx` (el sondeo) ·
+`lib/meta-conexion-zernio.ts` (`estadoMetaZernio`, `pingMetaPorZernio`) · `app/integraciones/ConectarMetaZernio.tsx` ·
+tests/zernio-pausa-429.test.ts.
+
+- ⚠️ **El diagnóstico obvio era el equivocado: no fue el barrido.** Corrió UNA vez en esa ventana (12:30:25Z, `vistos=0`), unos pocos
+  pedidos cada 30 minutos. Lo que llena los 60 pedidos por minuto de un equipo de Zernio (docs.zernio.com/rate-limits) es el momento
+  de CONECTAR: el sondeo cada 4 s, más lo que cada pantalla vuelve a leer al terminar, más un cron que cae justo en ese minuto.
+- ⚠️ **Un 429 se decía como una conexión rota.** `estadoMetaZernio` (y el «Probar» de Meta) convertían CUALQUIER error de Zernio en
+  «Vuelve a conectar con Facebook», y el sondeo lo leía como `sin-red` y lo contaba como falla (tres seguidas cortaban la conexión).
+  **Regla:** un 429 tiene su motivo (`pausa`): se dice lo que pasó («Zernio pidió una pausa… tu conexión está bien»), se espera lo que
+  pide `Retry-After` (entre 5 s y 1 minuto; sin dato, 30 s), y se sigue: el sondeo no lo cuenta como falla y el estado se relee solo
+  (hasta 3 veces). Volver a conectar queda para lo que se arregla así (un 401, una conexión vencida).
+- La ruta anota cada pausa con `console.warn` (`tope de Zernio (429), espera N ms`): cuántos 429 hay es el dato para decidir si hace
+  falta gastar menos al conectar.
+- **Sin hacer:** gastar menos al conectar (el sondeo podría usar el `accountId` de la vuelta antes de listar, y el estado de «Anuncios
+  de Meta» lee hasta 5 páginas por apertura); que `alerta-critica` no lea por Zernio un negocio que está conectando; el resto de los
+  lugares que muestran un error de Zernio (Automations, Calendario) siguen diciendo «no contestó» ante un 429.

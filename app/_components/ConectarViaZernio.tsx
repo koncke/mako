@@ -43,7 +43,7 @@ import { useConectarIntegracion } from './ConectarIntegracion';
 import {
   CLAVE_SIGUE_ZERNIO,
   EVENTO_OTRA_CLAVE_ZERNIO,
-  CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, estadoDeRed, guardarVuelta,
+  CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, esperaDeLaPausa, estadoDeRed, guardarVuelta,
   errorDeVueltaAjena, leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
   type ConexionZernio, type MensajeVentana, type MotivoZernio, type RedZernio,
 } from '@/lib/zernio-redes';
@@ -287,8 +287,14 @@ export function useConectarViaZernio(opts: {
           if (motivo === 'sin-clave' || motivo === 'clave-mala' || motivo === 'clave-en-uso' || motivo === 'pausada' || motivo === 'pago') {
             cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return;
           }
-          fallosSeguidos = motivo === ultimoFallo ? fallosSeguidos + 1 : 1; ultimoFallo = motivo;
-          if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
+          if (motivo === 'pausa') {
+            // ⚠️ Un 429 es el tope por minuto de Zernio (ticket #34): NO es una falla ni se cuenta. La próxima medición, después de lo
+            // que pidió esperar; seguir midiendo cada 4 s lo estiraba, y el resto de la pantalla también se quedaba sin cupo.
+            ultima = Date.now() + esperaDeLaPausa(j?.esperaMs) - SONDEO_MS;
+          } else {
+            fallosSeguidos = motivo === ultimoFallo ? fallosSeguidos + 1 : 1; ultimoFallo = motivo;
+            if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
+          }
         }
         // El error de la ventana se dice con lo que trajo, y la ventana NO se cierra: la landing queda unos segundos para que se alcance a leer.
         if (deLaVentana.msg) { fallar(textoDeErrorDeRetorno(deLaVentana.msg.error, deLaVentana.msg.mensaje), null); return; }
