@@ -21,6 +21,14 @@ ws1 lo dice en su ticket); TICKET con texto fijo y sin modelo; PREGUNTA sólo co
 - **«Súbeme este anuncio»: b860ef8f8 (29/10 ~22:00).** `proponer_anuncio_desde_archivo` (ads), detrás de ZERNIO_ANUNCIOS_PROBADO
   (sigue en false: lo prende la prueba de Martín); el doer lee el videoMessage; la regla de una guarda ya no se delega. Roturas D2 y
   D23–D27 cazadas. Verificación final en `C:/dev/verif-b860ef8f8` (sacarlo después: `cmd /c rmdir` del junction primero).
+- **La revisión de privacidad de Integración (29/10 ~23:00): d30862b59.** El despachante SALIÓ del tren-ae por dos ALTA; sin ellas
+  no entra. A1: un hito que nombra tickets de varios negocios va sin puntos (sólo el título; `hitosDeLosTickets`,
+  lib/tickets-reglas.ts). A2: la cola de lo que espera a Martín (`ticketsNuevosParaElCartero`) ya no marca `delegado`, así que el
+  Cerebro no recibe «hazlo» sin el sí del triage; el texto del delegado dice «el triage lo aprobó» y vuelve a Martín ante plata,
+  envíos a terceros, borrados o migraciones. También M2 (el banco usa CUENTA2 primero) y B3 (`taparClaves` en el DEBUG). Roturas
+  D28–D30. Quedan sin hacer y documentados en docs/hallazgos-comunicacion.md: M1 (el «listo» chequeado en código), M3 (el DEBUG
+  por grupo y no por quién escribe), el tope de crédito por negocio y B1. El informe:
+  `C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`. Va en el tren-af, con una revisión nueva.
 - **(lo que había antes de esa tanda, para la historia)** «subime este anuncio» con un Drive, o un video o una imagen
   mandados al grupo. Lo que hay: `proponer_agregar_anuncio` (ads.def.ts: anuncio EN PAUSA, pantalla /mako/revisar, pide
   `image_hash`/`video_id` ya subidos), `uploadAdImage` / `uploadAdVideo` / `uploadAdVideoByUrl` (lib/meta-ads-create.ts, por el
