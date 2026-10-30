@@ -73,7 +73,8 @@ test('la lista muestra SÓLO el nombre, entero en dos renglones, y busca por nom
   // (tests/automations-lista-sin-publicar.test.ts). Desde el 22/10/2026 el punto de estado tiene
   // su contracara: la pausada lleva «⏸» en el mismo lugar (Martín: «se puede pausar el envío
   // desde Automations»), un ícono sin texto (tests/pausa-y-frenar-en-automatizacion.test.ts).
-  assert.equal((item.match(/<span /g) ?? []).length, 7, 'el emoji, el giro, el punto (o el ⏸ de pausada), el nombre, «sin publicar» y el «⋯»: nada más');
+  // Desde el 30/10/2026, el ⚠ de la prendida sin goteo o sin horario: un ícono sin texto, con la frase al pasar el cursor (lib/ritmo-al-activar.ts).
+  assert.equal((item.match(/<span /g) ?? []).length, 8, 'el emoji, el giro, el punto (o el ⏸ de pausada), el nombre, «sin publicar», el ⚠ y el «⋯»: nada más');
   assert.deepEqual([...item.matchAll(/>\{([a-zA-Z.]+)\}</g)].map((m) => m[1]).sort(), ['menu', 'nombre'], 'un texto más que el nombre en la fila');
   assert.doesNotMatch(lista, /slice\(0, 42\)|estrategia\?\.gancho|pasosQueLlegan/);
   // El buscador busca por lo que se ve.

@@ -1042,7 +1042,7 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
   creando?: boolean;
   /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
   sinPublicar?: boolean;
-  /** Prendida sin goteo o sin horario (`aviso_ritmo`): el rótulo, y la frase entera al pasar el cursor. */
+  /** Prendida sin goteo o sin horario (`aviso_ritmo`): un ícono, y la frase entera al pasar el cursor. */
   aviso?: { texto: string; rotulo: string };
   /** Se está renombrando: el nombre es un campo. Guardar recibe lo escrito; cancelar, nada. */
   editarNombre?: { onGuardar: (escrito: string) => void; onCancelar: () => void };
@@ -1080,7 +1080,8 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
             <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
               style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
           )}
-          {aviso && <span data-sin-goteo title={aviso.texto} style={{ fontSize: 11, fontWeight: 600, color: 'var(--warn)', flex: 'none', maxWidth: 76, textAlign: 'right', lineHeight: 1.2 }}>{aviso.rotulo}</span>}
+          {/* Un ícono y no un rótulo: el único TEXTO de la fila es el nombre (tests/chatbot-probar.test.ts). La frase, al pasar el cursor y en su pantalla. */}
+          {aviso && <span data-sin-goteo role="img" aria-label={aviso.rotulo} title={aviso.texto} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none' }}>⚠</span>}
         </button>
       )}
       {menu && !editarNombre && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
