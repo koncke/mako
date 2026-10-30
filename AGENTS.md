@@ -10742,6 +10742,10 @@ hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-
   Si la lectura falla, no hay tope.
 - Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.
 
+## Un «extendé la duración» que arrastra los límites de otra cosa (30/10/2026)
+
+Antes de alargar algo, mirá qué más viene pegado a esa duración. Lo que se prometió es lo que la persona va a tener, no el número. Martín le ofreció a Gabriela «acceso a la app gratis por 6 meses», y el pedido fue «sumá el número a la prueba a mano»: la prueba lleva sus topes (3 videos, 1 avatar, 1 landing, sin exportar), así que cumplir la orden al pie de la letra rompía la promesa. Los 6 meses son otra cosa (`DIAS_REGALO`, `llevaTopesDePrueba`, lib/plan-a-mano-reglas.ts).
+
 ## Traer leads de a muchos a una ETAPA: sólo a una que no mande nada (23/10/2026)
 
 Un camino que crea o suma leads en lote (un grupo de WhatsApp, una lista) y los deja en una etapa elegida NO puede dejarlos en
