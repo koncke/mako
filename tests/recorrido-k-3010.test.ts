@@ -29,7 +29,10 @@ test('1. el botón de MaKo vive en la ranura de la barra, no encima del rincón 
   const mako = leer('app/_chat/MakoEnLaTab.tsx');
   assert.match(mako, /document\.querySelector<HTMLElement>\('\[data-ranura-mako\]'\)/);
   assert.match(mako, /const enBarra = ranura != null && !\(encimaDeModales && prof > 0\);/, 'encima de un modal de la tab tiene que seguir flotando (CR4)');
-  assert.match(mako, /if \(!abierto && enBarra\) \{\s*return createPortal\(\s*<button type="button" className="ch-tab-mako ch-tab-mako--en-barra"/);
+  assert.match(mako, /if \(!abierto && enBarra\) \{\s*return \(\s*<>\s*\{createPortal\(\s*<button type="button" className="ch-tab-mako ch-tab-mako--en-barra"[^>]*data-mako-chat="">/, 'en la barra, sin data-mako-chat el velo de la guía lo tapa');
+  // Los globos de la guía (el merge del 30/10/2026): salen también con el botón en la barra, pegados a su borde.
+  assert.match(mako, /\{createPortal\([\s\S]*?ranura,\s*\)\}\s*\{globos\}\s*<\/>/, 'con el botón en la barra, la guía se queda sin globo');
+  assert.match(mako, /const leftGlobo = enBarra \? bordeVisible - 56 : bordeVisible \+ 16;/, 'el globo queda suelto en el medio de la tab');
   // El de respaldo (sin barra) sigue siendo el de siempre: lo fijan tests/estrella-al-lado-de-la-barra.test.ts y el CR4.
   assert.match(mako, /className="ch-tab-mako" style=\{\{ left: bordeVisible \+ 16,/);
   // En la ranura no flota: sin `position: fixed`.
