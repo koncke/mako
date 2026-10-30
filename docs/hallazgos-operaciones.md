@@ -3125,9 +3125,13 @@ Antes de ejecutar uno, el chat que lo recibe lo mira contra el estado de hoy.
 llegan igual; si no, vencen. Se cierran a propósito con `cancelarPedido`, de a uno, cuando el chat que lo recibió confirma que
 lo hizo o que ya no aplica. Y la firma fija el destino: reenviar a otro chat es firmar de nuevo en el dispositivo de Martín.
 
-**Sin hacer:** el cartel rojo en el Ops Center (computadora y teléfono) con la cuenta del lado del servidor, y el aviso al
-Cerebro por el Runner, con texto fijo (los dos, del Runner, con el servicio); avisar antes de firmar en la bandeja de tickets
-y en la tarjeta de preguntas (del chat Ops Center).
+**Sin hacer:** el cartel rojo en el Ops Center (computadora y teléfono) con la cuenta del lado del servidor, y avisar antes de
+firmar en la bandeja de tickets y en la tarjeta de preguntas (los dos, del chat Ops Center); el aviso al Cerebro por el
+Runner, con texto fijo (del Runner, con el servicio).
+
+**Una trampa de la coordinación:** ese cartel cambió de dueño cuatro veces en una hora, porque un mensaje a un chat ocupado
+queda encolado y llega después de la decisión que lo corrige. Lo cortó el chat que iba a escribirlo, preguntándole directo al
+otro «¿ya lo empezaste?». Antes de escribir algo que cambió de dueño, se le pregunta al otro chat, no al que repartió.
 
 **Vive en:** `lib/operaciones.ts` · `lib/centro-chats.ts` (`envioDe`, `chat_cerrado`) · `app/tickets/bandeja/cerebro.ts`
 

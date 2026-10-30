@@ -97,6 +97,10 @@ corre lo pesado según la prioridad de siempre (cliente roto > plata > traba a M
 La pausa de arriba es de todo o nada: para dar el turno a dos chats y frenar al resto, hoy sólo está el mensaje, con la
 misma limitación (llega al terminar el turno, y un subagente de un workflow no lo ve).
 
+**La enfermedad de fondo: no nos falta escribir, nos falta leer lo escrito antes de actuar.** El mismo 30/10, el Cerebro
+anunció como hallazgo esto mismo, que estaba en esta sección desde el 28/10, y rompió la regla de qué cuenta soy diez minutos
+después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/hallazgos*` y en `AGENTS.md`.
+
 ---
 
 ## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
