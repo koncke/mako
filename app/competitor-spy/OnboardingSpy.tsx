@@ -41,7 +41,7 @@ const PREGUNTA: Record<Paso, { pregunta: string; sub?: string }> = {
   spy_primero: { pregunta: 'Tu primer competidor', sub: '¿A quién quieres mirar? Alcanza con un dato suyo.' },
   spy_canales: { pregunta: 'Dónde mirarlo', sub: 'Cada canal que agregues es un bloque más de su ficha.' },
   spy_lectura: { pregunta: 'La primera lectura', sub: 'Vamos a leerlo ahora para que veas qué sale y qué no.' },
-  spy_conectar: { pregunta: 'Conectar Instagram', sub: 'Opcional. Sin esto igual ves su sitio, sus videos y los anuncios que guardes tú.' },
+  spy_conectar: { pregunta: 'Conectar Meta', sub: 'Opcional. Sin esto igual ves su sitio, sus videos y los anuncios que guardes tú.' },
 };
 
 const CAJA: React.CSSProperties = {
@@ -318,12 +318,12 @@ export function OnboardingSpy({ alSalir }: { alSalir: () => void }) {
       {paso === 'spy_conectar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <BotonIntegracion servicio="meta" style={{ ...BOTON, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="plug" size={15} /> Conectar Instagram
+            <Icon name="plug" size={15} /> Conectar Meta
           </BotonIntegracion>
           <Contexto titulo="Qué cambia si lo conectas">
             Sin conectar nada, Competitor Spy ya lee el sitio de tus competidores y sus videos de
-            YouTube, y guarda los anuncios que pegues. Con Instagram conectado suma sus publicaciones
-            con vistas y «me gusta».
+            YouTube, y guarda los anuncios que pegues. Con Meta conectado suma sus publicaciones de
+            Instagram con vistas y «me gusta».
             <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
               Instagram pide una cuenta profesional vinculada a tu página de Facebook; es el mismo
               permiso que ya usa el buscador de perfiles del CRM. YouTube no pide nada: MaKo lo lee

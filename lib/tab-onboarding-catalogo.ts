@@ -536,7 +536,7 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'spy_primero', label: 'Tu primer competidor' },
       { key: 'spy_canales', label: 'Dónde mirarlo' },
       { key: 'spy_lectura', label: 'La primera lectura' },
-      { key: 'spy_conectar', label: 'Conectar Instagram', opcional: true },
+      { key: 'spy_conectar', label: 'Conectar Meta', opcional: true },
     ],
   },
 };
