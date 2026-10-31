@@ -39,7 +39,6 @@ import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { CartelLimbo } from './CartelLimbo';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
@@ -173,8 +172,6 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);
   return (
     <>
-      {/* Lo que no salió, arriba de todo: un mensaje a un chat cerrado se perdía en silencio (30/10/2026, CartelLimbo.tsx). */}
-      <CartelLimbo centro={k} />
       {sinNoticias != null && (
         <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
       )}

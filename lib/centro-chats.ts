@@ -1122,9 +1122,10 @@ function porQueTarda(
   if (lleno) return `La cuenta ${n} llegó a su límite${lleno.reinicia ? `: sigue a las ${horaAR(lleno.reinicia)}` : ''}.`;
   if (!carteroVivo(suyo, ahora)) {
     const pc = sinNoticiasDesde(carteros, ahora);
-    if (pc != null) return `La PC no responde desde las ${horaAR(pc)}: puede estar dormida.`;
+    // ⚠️ Dice lo que se sabe, no lo que se supone (31/10/2026): con la PC prendida salió «no responde», y una mentira en esta pantalla cuesta más que el silencio.
+    if (pc != null) return `Sin noticias de la PC desde las ${horaAR(pc)}: puede estar dormida.`;
     const visto = fecha(suyo?.vistoAt);
-    return visto != null ? `El Runner de la cuenta ${n} no responde desde las ${horaAR(visto)}: ábrelo para que salga.` : `Abre el Runner de la cuenta ${n} para que salga.`;
+    return visto != null ? `Sin noticias del Runner de la cuenta ${n} desde las ${horaAR(visto)}: ábrelo para que salga.` : `Abre el Runner de la cuenta ${n} para que salga.`;
   }
   const estado = chat?.estado ?? (subido ? (subido.vivo ? 'abierto' : 'cerrado') : 'sin_dato');
   if (estado !== 'trabajando' && estado !== 'abierto') return `Abre este chat en la cuenta ${n} para que lo reciba.`;

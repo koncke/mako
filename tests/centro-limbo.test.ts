@@ -9,11 +9,13 @@
 // Verificado ROMPIÉNDOLO (30/10/2026, con tests/avisar-antes-de-firmar.test.ts, base 13 / 0; cada una da 12 / 1), de a una y restaurando a mano:
 //   · `pedidosSinChatVivo` sin mirar si el chat está vivo · lo vencido sin marcar · «en rojo» sólo el último día
 //   · `listarPedidos` sin la segunda lectura · vencer con otro motivo · mandárselo a un chat también cerrado · ofrecer chats cerrados
-//   · el cartel fuera de la computadora · el cartel fuera del teléfono
+//
+// El cartel rojo se sacó el 31/10/2026, por pedido de Martín: «elimina el cartel rojo». Verificado volviendo a poner el componente en
+// cada pantalla: el último test da rojo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { MOTIVO_VENCIO, VENCE_PEDIDO_MS, chatsParaMandarle, mensajesEnLimbo, textoDeVence, textoDelCartel } from '../lib/centro-limbo';
 import { SIN_CHAT_VIVO_MS, destinoVivo, pedidosSinChatVivo } from '../lib/operaciones-reglas';
 
@@ -91,20 +93,14 @@ test('la carga trae lo que no salió aunque quede fuera de los últimos 100, y v
   assert.match(op.slice(op.indexOf('export async function descartarDelLimbo(')), /\.eq\('id', id\)\.in\('estado', \['escrito', 'no_entregado'\]\)/);
 });
 
-test('el cartel está en la computadora y en el teléfono, y mandarlo lo firma de nuevo antes de dar de baja el viejo', () => {
-  assert.match(sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx')), /<CartelLimbo centro=\{k\} \/>/);
-  assert.match(sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx')), /<CartelLimbo centro=\{k\} Hoja=\{SheetM\} \/>/);
-  const uc = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
-  const fn = uc.slice(uc.indexOf('async function mandarDelLimbo('), uc.indexOf('const avisoDePregunta'));
-  assert.ok(fn.indexOf('firma.mandar(') > 0 && fn.indexOf('firma.mandar(') < fn.indexOf('descartarDelLimbo(p)'), 'da de baja el viejo sin haber firmado el nuevo');
-  assert.match(fn, /envio\.espera === 'chat_cerrado'/, 'lo manda a otro chat cerrado');
-  const cartel = sinComentarios(leer('app/admin/operaciones/CartelLimbo.tsx'));
-  assert.match(cartel, /return e\.puede && e\.espera !== 'chat_cerrado';/, 'ofrece chats cerrados');
+test('el texto de la pantalla, sin voseo', () => {
+  const s = sinComentarios(leer('lib/centro-limbo.ts'));
+  assert.doesNotMatch(s, /\b(tenés|podés|abrí|acá|mandá)\b/);
 });
 
-test('el texto de la pantalla, sin voseo', () => {
-  for (const p of ['app/admin/operaciones/CartelLimbo.tsx', 'lib/centro-limbo.ts']) {
-    const s = sinComentarios(leer(p));
-    assert.doesNotMatch(s, /\b(tenés|podés|abrí|acá|mandá)\b/, p);
+test('el cartel rojo no vuelve: ni en la computadora, ni en el teléfono', () => {
+  for (const p of ['app/admin/operaciones/PiezasCentro.tsx', 'app/m/operaciones/CentroAppMovil.tsx']) {
+    assert.doesNotMatch(sinComentarios(leer(p)), /CartelLimbo/, p);
   }
+  assert.equal(existsSync(new URL('../app/admin/operaciones/CartelLimbo.tsx', import.meta.url)), false);
 });
