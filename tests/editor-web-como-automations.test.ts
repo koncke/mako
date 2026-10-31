@@ -54,7 +54,7 @@ test('«Nueva landing» NO navega: «¿Qué vas a crear hoy?» ocupa la barra y 
   assert.match(editor, /const creando = nueva && panelIzq === 'landings';/);
   // El Panel embebido no dibuja su barra de documentos ni reescribe la URL (la de la landing abierta).
   const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
-  assert.match(inicio, /\{!props\.embebido && <aside className="gp-lateral"/);
+  assert.match(inicio, /\{\(!props\.embebido \|\| props\.conLista\) && <aside className="gp-lateral"/);
   assert.match(inicio, /useEffect\(\(\) => \{\s*if \(props\.embebido\) return;\s*const s = queryDeDerecha\(window\.location\.search, derecha\)/);
 });
 
