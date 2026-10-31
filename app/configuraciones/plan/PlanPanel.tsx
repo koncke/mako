@@ -85,6 +85,9 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   // otras apps»). Era UNA tarjeta con todo en filas iguales: el plan, recomendar, subir y darse de baja, del mismo tamaño. Ahora,
   // como la facturación de Vercel y Linear: arriba el plan que tienes (su nombre grande, el estado, cuánto y por dónde se cobra) con
   // lo que lo mejora debajo; después recomendar; y la baja en su propia sección al final, como el «Danger Zone» de GitHub.
+  // SIN TÍTULOS QUE REPITEN LA FILA (30/10/2026, medido en el banco): el título de la página, el de la sección y la fila decían lo
+  // mismo («Recomienda MaKo» dos veces y su frase dos veces). Es el «texto de sobra» que Martín rechazó el 25/10: cada tarjeta dice
+  // lo suyo una vez, en su fila.
   // «Empezar mi plan ya» (25/10/2026, la prueba gratis): arriba si se llegó desde un tope de la prueba, si no debajo del plan.
   const filaEmpezar = enPrueba && puedeDarseDeBaja && (
     <FilaAjustes icono="subir" titulo="Empezar mi plan ya" detalle={`Pagas ${suscripcion!.monto} desde hoy y tienes todo, sin los topes de la prueba.`}
@@ -93,7 +96,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   const tono = suscripcion ? (suscripcion.cancelada || suscripcion.baja ? 'warn' : 'good') : undefined;
   return (
     <>
-      <GrupoAjustes titulo="Tu plan" descripcion="Lo que pagas por MaKo y cómo se cobra.">
+      <GrupoAjustes>
         {destacarEmpezar && filaEmpezar}
         <div className="aj-plan">
           <span className="aj-plan__icono"><IconoMenu nombre="repetir" size={22} /></span>
@@ -118,13 +121,13 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
       </GrupoAjustes>
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
       {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo. Desde el 25/10 gana DINERO: el 100% del primer mes. */}
-      <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
+      <GrupoAjustes>
         <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
       </GrupoAjustes>
       {puedeDarseDeBaja && (
-        <GrupoAjustes titulo="Darte de baja" descripcion={enPrueba ? 'No se te cobra nada, y tus datos quedan guardados.' : 'Lo sigues usando hasta el fin del mes pagado, y tus datos quedan guardados.'}>
+        <GrupoAjustes>
           <FilaAjustes icono="pausar" titulo="Darme de baja"
-            detalle={enPrueba ? 'No se te cobra nada, y lo sigues usando hasta el fin de la prueba.' : 'Lo sigues usando hasta el fin del mes pagado.'}
+            detalle={enPrueba ? 'No se te cobra nada, y lo sigues usando hasta el fin de la prueba. Tus datos quedan guardados.' : 'Lo sigues usando hasta el fin del mes pagado. Tus datos quedan guardados.'}
             onClick={corriendo ? undefined : () => (ofertaViva ? setOfrecer(true) : setPreguntar(true))} apilada />
         </GrupoAjustes>
       )}

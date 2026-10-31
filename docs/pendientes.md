@@ -9,17 +9,17 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 | # | Qué | Por qué traba |
 |---|---|---|
-| M1 | **La sesión de MaKo en el navegador de la app** (`Ctrl+Shift+B` → «Continuar con Google») | **Tres chats parados.** Sin sesión no se verifica nada en pantalla y el login es suyo |
-| M3 | **Aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea. **Stripe no es opción: Argentina no es país habilitado** |
+| M3 | **URGENTE: aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea: medido el 30/10 en producción, /planes/esencial dice «Todavía no cobramos en línea» y sólo deja dejar los datos. **Stripe no es opción: Argentina no es país habilitado** |
 | M5 | **Mauricio:** el redirect del Payment Link con `{CHECKOUT_SESSION_ID}` | Su página de venta ya está restaurada; falta eso |
+| M6 | **La foto del buscador de Instagram** (Mauricio y la plataforma): vincular el Instagram de MaKo a su página y sumar `instagram_basic` al token. Y para cuentas personales, decidir si se usa la extensión con la sesión de la persona | Gratis, sólo cuentas de empresa o creador, y anda con la rama `crm-instagram-3010` subida. Lo de las personales es un endpoint no oficial, con MaKo en App Review. Detalle: docs/hallazgos-crm.md, en esa rama |
 
 ## Sin hacer, con dueño
 
 | # | Qué | Dónde vive | Origen |
 |---|---|---|---|
-| P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center) y las opciones que no se tocan en el teléfono → Ops Center; tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
+| P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center), arreglado el 25/10 (`enMemoria`, `ERROR_SUBIDA`; causa la más probable, no se vio pasar: si vuelve, el aviso dice cuál de las tres fue); las opciones que no se tocan en el teléfono, CERRADAS el 24/10 (era un AskUserQuestion, docs/hallazgos-operaciones.md); tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
 | P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
-| P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
+| P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones): rehecho el 25-26/10 con el molde de Linear (docs/relevo/settings.md). Falta mirarlo en producción, con la sesión de Martín | Ops Center | 20 puntos, #9 |
 | P5 | **El clic derecho en los 11 chats embebidos y en el lienzo del editor.** Es UNA pieza (`HiloMako`), no once: relevo escrito, sin implementar | Landings | editor web, #2 |
 | P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario | Ventas (apagado) | 6 puntos, #2 |
 | P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
@@ -38,12 +38,15 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
   probó desde los rangos de Vercel)
 - El **cartel de los mensajes sin entregar** y el **botón del Uso** como super admin (101eaea96, cuando se despliegue), y su **hoja en el teléfono** (`SheetM`), que el arnés
   no monta. Con los 8 mensajes reales: los tickets #5, #6 y #8 y 5 respuestas. Necesita la sesión de Martín: el Chrome disponible está con la de Leandro
+- **Settings en producción, lo que falta:** mirado el 30/10 como super admin, con main `e8b3eb040` (docs/hallazgos-ajustes.md). Falta **«Tu plan»** con un negocio que pague (la plataforma no lo tiene: sólo se vio en el banco), Integraciones y las secciones de negocio en el teléfono, y los arreglos del 30/10, cuando se desplieguen
+- **La flecha de la sidebar con la ventana por debajo de 1200 px y en /admin/operaciones.** /crm, /plan y /automations quedaron verificadas en producción el 30/10
+- **Una cuenta sin computadora conectada:** «Instalar MaKo» en vez de la caja en Automations, Offer, Web Generator, Dashboard y el «Editar con IA» de una sección; «Probar nuevo diseño» no pide nada
+- **Strategy › «Cómo cobrar MaKo»** (/admin/estrategia/cobrar) como super admin, en la app desplegada: si el .md no viajó al deploy, la pantalla dice «No se pudo leer la investigación»
 
 ## Rojos en `main` sin dueño
 
 - `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
 - `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
-- `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
 
 ---
 
