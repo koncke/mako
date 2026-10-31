@@ -168,24 +168,23 @@ test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await conciliarPrimerMes\(\)/);
 });
 
-// Roturas (30/10/2026; base 12 / 0, y re-corridas sobre la cookie de Landings), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):
-//   · el interruptor prendido                                  -> 0 / 1
-//   · Mercado Pago nace a precio lleno                         -> 10 / 2
-//   · el primer pago se asienta lleno (no lo veía: el test miraba sólo los dólares; ahora mira también su moneda) -> 11 / 1
-//   · el primer pago entra lleno al cash                       -> 11 / 1
-//   · el cupón de Stripe no vence; Stripe sin el cupón         -> 11 / 1 cada una
-//   · Mercado Pago no sube al primer pago                      -> 10 / 2
-//   · el cron pisa una retención; no avisa; no sube            -> 11 / 1 cada una
-//   · el reloj vencido regala; cobra lleno sin decirlo         -> 11 / 1 cada una
-//   · sin el límite por email; una cuenta que existe lo usa    -> 11 / 1 cada una
-//   · un abandono viejo o quien ya pagó vuelve a tenerlo       -> 11 / 1 cada una (el de «ya pagó» no lo veía: la fila tenía más de 24 h y caía por la otra regla)
-//   · el cobro guarda la mitad                                 -> 10 / 2
-//   · sigue habiendo prueba para las altas nuevas              -> 0 / 1
-//   · a quien está en prueba se le quitan los días             -> 11 / 1
-//   · sin gracia; la gracia también para quien no lo vio       -> 11 / 1 cada una
-//   · el descuento en un plan que no está en el cartel; con el interruptor apagado -> 11 / 1 cada una
-//   · el descuento dura para siempre en Tu plan                -> 11 / 1
-//   · la landing sigue prometiendo días gratis                 -> 11 / 1
-//   · las tarjetas de /planes o la página del plan no lo dicen -> 11 / 1 cada una
+// Roturas (31/10/2026; sobre la cookie de lib/promo-entrada.ts; base 13 / 0), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):
+//   · Mercado Pago nace a precio lleno                                -> 11 / 2
+//   · el primer pago se asienta lleno                                 -> 12 / 1 (al principio no lo veía: el test miraba sólo los dólares)
+//   · el cupón de Stripe no vence                                     -> 12 / 1
+//   · un reloj vencido regala (la ruta no mira la cookie)             -> 11 / 2
+//   · la ruta no lee la cookie; sin gracia                            -> 0 / 1 cada una
+//   · la gracia también para quien no lo vio                          -> 12 / 1
+//   · un reloj vencido cobra lleno sin decirlo                        -> 12 / 1
+//   · el descuento fuera de los planes del cartel                     -> 0 / 1
+//   · quien eligió seguir igual recibe el error                       -> 0 / 1
+//   · las tarjetas no lo dicen; lo dicen siempre                      -> 12 / 1 cada una
+//   · la página del plan no lo sabe                                   -> 12 / 1
+//   · el cartel y el cobro con dos números                            -> 10 / 3
+// Y sobre el token anterior, las reglas que no cambiaron (base 12 / 0): el interruptor prendido 0 / 1; el primer pago entra lleno al cash, Stripe sin el
+// cupón, el cron pisa una retención, no avisa o no sube, sin el límite por email, una cuenta que existe lo usa, un abandono viejo o quien ya pagó vuelve a
+// tenerlo (éste no lo veía: la fila tenía más de 24 h y caía por la otra regla), a quien está en prueba se le quitan los días, el descuento para siempre
+// en Tu plan, la landing promete días gratis: 11 / 1 cada una. Mercado Pago no sube al primer pago y el cobro guarda la mitad: 10 / 2 cada una.
+// Sigue habiendo prueba para las altas nuevas: 0 / 1.
 // Lo que NO corre acá: Stripe y Mercado Pago de verdad. `PUT /preapproval` nunca se midió con claves reales; falta un cobro real, y
 // para eso hace falta el sí de Martín. Mercado Pago además necesita los precios en pesos cargados (`preciosLocales`, hoy vacío).

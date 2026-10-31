@@ -71,5 +71,5 @@ export function usdPrimerMesVigente(c: { monto_usd?: number | null; creado_por?:
 // ── Los textos del rechazo: siempre se dice, y siempre con la salida de seguir a precio normal ─────────────────────────
 
 export const TEXTO_PROMO_VENCIDA = 'Tu descuento ya venció. Puedes seguir con el precio normal.';
-export const TEXTO_OFERTA_USADA = 'Ese email ya usó su descuento del primer mes. Puedes seguir con el precio normal.';
-export const TEXTO_OFERTA_CUENTA = 'Ese email ya tiene una cuenta de MaKo, y el descuento es para negocios nuevos. Puedes seguir con el precio normal.';
+export const TEXTO_PROMO_USADA = 'Ese email ya usó su descuento del primer mes. Puedes seguir con el precio normal.';
+export const TEXTO_PROMO_CUENTA = 'Ese email ya tiene una cuenta de MaKo, y el descuento es para negocios nuevos. Puedes seguir con el precio normal.';

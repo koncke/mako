@@ -42,7 +42,7 @@ import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
-import { creadoPorPrimerMes, TEXTO_OFERTA_CUENTA, TEXTO_OFERTA_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
+import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
 import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
 
@@ -258,13 +258,13 @@ export type ResultadoCompra =
  */
 async function puedeUsarPromo(email: string, plataforma: number, ahoraMs: number): Promise<{ ok: true } | { ok: false; texto: string }> {
   try {
-    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, texto: TEXTO_OFERTA_CUENTA };
+    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, texto: TEXTO_PROMO_CUENTA };
     const { data, error } = await getSupabaseServer().from('cobros').select('estado, created_at')
       .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:primer-mes-%').limit(20);
     if (error) throw new Error(error.message);
     const yaUsado = ((data ?? []) as Array<{ estado: string; created_at: string }>)
       .some((c) => c.estado === 'pagado' || c.estado === 'reembolsado' || ahoraMs - Date.parse(c.created_at) > 24 * 3600_000);
-    return yaUsado ? { ok: false, texto: TEXTO_OFERTA_USADA } : { ok: true };
+    return yaUsado ? { ok: false, texto: TEXTO_PROMO_USADA } : { ok: true };
   } catch (e) {
     console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su descuento; se lo dejo:`, msg(e));
     return { ok: true };
