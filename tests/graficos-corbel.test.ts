@@ -172,7 +172,7 @@ test('lo que no entra en un tercio va a lo ancho', () => {
 
 test('las pantallas lo usan: el editor y la miniatura llevan la paleta y los tiles', () => {
   const e = leer('app/dashboard/EditorInforme.tsx');
-  assert.match(e, /<div data-paleta=\{paleta\} className=\{`lk lk-app/);
+  assert.match(e, /<div className=\{`lk lk-app[^`]*`\} data-paleta=\{paleta\}/);
   assert.match(e, /data-tile=\{tiles\?\.get\(c\.id\)\}/);
   assert.match(e, /<style>\{CSS_CORBEL\}<\/style>/);
   assert.match(e, /marcoDePortada\(c, acentoDePortada\(hoja\.tema\)\)/);
@@ -184,7 +184,12 @@ test('las pantallas lo usan: el editor y la miniatura llevan la paleta y los til
   assert.match(g, /maximo=\{portada \? e\.kpiMaximoPortada \?\? MAXIMO_PORTADA : e\.kpiMaximo\}/);
 });
 
-test('lo que no tiene hoja sigue con lo de antes: el chat y la ficha del lead', () => {
+test('lo que no tiene hoja sigue con lo de antes: el chat, y la ficha del lead si nadie le eligió un estilo', () => {
   assert.match(leer('app/_chat/bloques/GraficoHilo.tsx'), /sanearTema\(\{ plantilla: 'clasica' \}\)/);
-  assert.match(leer('app/crm/lead-view/ficha/armar.ts'), /plantilla: 'clasica'/);
+  assert.match(leer('app/crm/lead-view/ficha/armar.ts'), /const conTema = temaPropio\(t\);/);
+  // Sin `data-paleta` (la ficha no la lleva), la tarjeta cae a los tokens de la casa y no queda transparente.
+  const v = varsDeTema(sanearTema({ esquinas: 'rectas' }));
+  assert.match(v['--dash-tarjeta-fondo'], /var\(--cb-glass, var\(--surface\)\)/);
+  assert.match(v['--dash-tarjeta-sombra'], /var\(--cb-rim, transparent\)/);
+  assert.match(seriesDeEscena('mono')[0], /^var\(--cb-c1, #121212\)$/);
 });

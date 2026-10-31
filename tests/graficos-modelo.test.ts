@@ -11,6 +11,7 @@ import {
 } from '../lib/graficos-catalogo';
 import { filtrarFilas, agregar, SIN_DATO, type Fila } from '../lib/graficos-agregar';
 import { PLANTILLAS_TEMA, sanearTema, estiloEfectivo, paletaDe, varsDeTema } from '../lib/graficos-temas';
+import { PALETAS_CORBEL } from '../lib/graficos-corbel';
 import { instanciarPlantilla, PLANTILLAS_HOJA, tableroInicial } from '../lib/graficos-plantillas';
 
 const HOY = '2026-10-11';
@@ -184,7 +185,14 @@ test('temas: un id roto cae a MaKo, y cada color de serie se lee sobre la superf
   const contraste = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
   for (const p of PLANTILLAS_TEMA) {
     assert.equal(p.paleta.length, 8, p.id);
-    for (const col of p.paleta) {
+    // Las de Corbel son variables, con sus valores medidos para cada tema (tests/graficos-corbel.test.ts): sus grises claros
+    // no llegan a 2:1 y son el pedido. Lo que tiene que leerse siempre es la primera serie, sobre SU superficie.
+    if (p.escena) {
+      const { claro, oscuro } = PALETAS_CORBEL[p.escena];
+      assert.ok(contraste(claro['--cb-c1'], claro['--surface']) >= 3, `${p.id} claro`);
+      assert.ok(contraste(oscuro['--cb-c1'], oscuro['--surface']) >= 3, `${p.id} oscuro`);
+    }
+    for (const col of p.escena ? [] : p.paleta) {
       // 2:1 sobre las dos superficies: un trazo o una barra (no un texto) se distingue del fondo.
       assert.ok(contraste(col, '#FFFFFF') >= 2, `${p.id} ${col} sobre claro: ${contraste(col, '#FFFFFF').toFixed(2)}`);
       assert.ok(contraste(col, '#2A2F39') >= 2, `${p.id} ${col} sobre oscuro: ${contraste(col, '#2A2F39').toFixed(2)}`);
