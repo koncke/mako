@@ -33,7 +33,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { esElemento, esGrafico, sanearHoja, tituloDe, type Componente, type Elemento, type Hoja } from '@/lib/graficos-catalogo';
 import type { PlantillaHoja } from '@/lib/graficos-plantillas';
-import { paletaDe, varsDeTema } from '@/lib/graficos-temas';
+import { acentoDePortada, paletaDe, paletaDeEscena, varsDeTema } from '@/lib/graficos-temas';
 import { PAGINA_MINIATURA, lugarEnMiniatura, resultadoDeMuestra } from '@/lib/graficos-muestra';
 import { VARIABLES_TEXTO, conVariables, esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { CuerpoGrafico, esTarjetaNumero } from './Grafico';
@@ -41,6 +41,7 @@ import { TAMANOS_TEXTO } from './Elemento';
 import { CuerpoSeccion } from './Seccion';
 import { PiezaGeneralDeMuestra, useVariablesInforme } from './ElementoGeneral';
 import { marcoDePortada } from '@/lib/graficos-identidad';
+import { tilesDeComponentes } from './Grafico';
 
 /** El ancho de la página que se dibuja (px): la grilla y el lugar de cada componente salen de `lugarEnMiniatura`. */
 const ANCHO_REF = PAGINA_MINIATURA.ancho;
@@ -58,16 +59,16 @@ const hoyLocal = (): string => {
 };
 
 /** Un componente, como lo dibuja la hoja. `vivo`: ya montado y a la vista (los cuerpos entran recién ahí). */
-function Pieza({ c, hoja, vivo, hoy }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string }): ReactNode {
+function Pieza({ c, hoja, vivo, hoy, tile }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string; tile?: string }): ReactNode {
   const variables = useVariablesInforme();
   // La portada (lib/graficos-identidad.ts): la misma tarjeta pintada que en la hoja (con el color de la hoja, si tiene).
-  const portada = marcoDePortada(c, hoja.tema.acento);
+  const portada = marcoDePortada(c, acentoDePortada(hoja.tema));
   const conPortada = (clase: string): string => (portada ? `${clase} ${portada.clase}` : clase);
   const estilo = { flex: 1, ...(portada?.estilo ?? {}) } as CSSProperties;
   if (esGrafico(c)) {
     const kpi = esTarjetaNumero(c.tipo);
     return (
-      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}`)} style={estilo} data-forma={portada?.forma}>
+      <div className={conPortada(`lk-comp${kpi ? ' lk-comp--kpi' : ''}`)} style={estilo} data-forma={portada?.forma} data-tile={tile}>
         <div className="lk-comp-cab"><div className="lk-comp-tit"><span>{tituloDe(c)}</span></div></div>
         {!kpi && c.subtitulo && <div className="lk-comp-sub">{c.subtitulo}</div>}
         {vivo && <CuerpoGrafico g={c} estado={{ cargando: false, resultado: resultadoDeMuestra(c, hoy) }} tema={hoja.tema} />}
@@ -143,6 +144,7 @@ export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | n
     return () => { ro.disconnect(); io.disconnect(); };
   }, []);
 
+  const tiles = hoja && paletaDeEscena(hoja.tema) ? tilesDeComponentes(hoja.componentes) : null;
   const pagina: CSSProperties = {
     ...(hoja ? varsDeTema(hoja.tema) : {}),
     width: ANCHO_REF,
@@ -151,12 +153,12 @@ export function MiniaturaHoja({ hoja, proporcion = '16 / 10' }: { hoja: Hoja | n
   } as CSSProperties;
 
   return (
-    <div ref={caja} className="mh" style={{ aspectRatio: proporcion }}>
+    <div ref={caja} className="mh" style={{ aspectRatio: proporcion }} data-paleta={hoja ? paletaDeEscena(hoja.tema) : undefined}>
       {hoja && (
         <div className="mh-pagina" style={pagina}>
           <div className="mh-cabeza"><span aria-hidden>{hoja.emoji}</span> {hoja.nombre}</div>
           {hoja.componentes.map((c) => {
-            return <div key={c.id} className="mh-pos" style={lugarEnMiniatura(c)}><Pieza c={c} hoja={hoja} vivo={vivo && !!hoy} hoy={hoy} /></div>;
+            return <div key={c.id} className="mh-pos" style={lugarEnMiniatura(c)}><Pieza c={c} hoja={hoja} vivo={vivo && !!hoy} hoy={hoy} tile={tiles?.get(c.id)} /></div>;
           })}
         </div>
       )}

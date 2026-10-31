@@ -23,6 +23,7 @@
 
 import { FUENTES as LETRAS_CURSO } from '../app/_cursos/fuentes';
 import { radioDe, trazoDe } from './graficos-gordo';
+import { PALETAS_CORBEL, seriesDeEscena, type EscenaCorbel } from './graficos-corbel';
 
 export type TemaHoja = {
   /** El id de PLANTILLAS_TEMA. Un id que no existe cae a la de MaKo. */
@@ -86,7 +87,7 @@ export type PlantillaTema = {
   };
   titulo: { tam: number; peso: number; mayus: boolean };
   /** El rótulo de una KPI: en mono y mayúsculas (como las viejas) o en la letra de la hoja. */
-  kpi: { etiqueta: 'mono' | 'letra'; tamValor: number };
+  kpi: { etiqueta: 'mono' | 'letra'; tamValor: number; /** El tope del número: fijo, como en Corbel. Sin tope, llena su tarjeta. */ maximo?: number; maximoPortada?: number };
   graficos: {
     /** Con etiquetas de valor: las que ENTRAN sin pisarse (lib/graficos-gordo.ts), nunca una por punto. */
     etiquetas: boolean;
@@ -104,6 +105,8 @@ export type PlantillaTema = {
   };
   /** La tipografía de la plantilla (id de TIPOGRAFIAS). */
   fuente: string;
+  /** Una paleta de Corbel (lib/graficos-corbel.ts): la hoja se pinta con sus tokens, en claro y en oscuro. */
+  escena?: EscenaCorbel;
 };
 
 /** El hex de un color, o null. EN POSITIVO: sólo `#rrggbb` (el valor termina en un `style`). */
@@ -122,6 +125,7 @@ export type Tipografia = { id: string; nombre: string; tipo: string; pila: strin
  */
 export const TIPOGRAFIAS: readonly Tipografia[] = [
   { id: 'geist', nombre: 'Geist', tipo: 'La de MaKo', pila: "'Geist', system-ui, sans-serif", hoja: null },
+  { id: 'urbanist', nombre: 'Urbanist', tipo: 'Geométrica', pila: "'Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", hoja: 'https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap' },
   ...LETRAS_CURSO.filter((f) => f.id !== 'archivo').map((f) => ({ id: f.id, nombre: f.nombre, tipo: f.tipo, pila: f.pila, hoja: f.hoja })),
 ];
 export const tipografiaDe = (id: string | null | undefined): Tipografia => TIPOGRAFIAS.find((f) => f.id === id) ?? TIPOGRAFIAS[0];
@@ -131,13 +135,33 @@ export const tipografiaDe = (id: string | null | undefined): Tipografia => TIPOG
 /** La paleta de las tabs viejas (el azul de los embudos y los cuatro de Tendencias). */
 export const PALETA_MAKO = ['#3B6FB0', '#C8870C', '#0E8E7E', '#6A4BD8', '#D0504A', '#1E9E57', '#B04A8C', '#2E8FB8'] as const;
 
+/** Un estilo de Corbel: todo igual (el esqueleto de su demo) menos la paleta. */
+function conEscena(id: string, nombre: string, linea: string, escena: EscenaCorbel): PlantillaTema {
+  return {
+    id, nombre, linea, escena,
+    paleta: seriesDeEscena(escena),
+    tarjeta: { fondo: 'surface', borde: 'no', radio: 22, sombra: true, filete: false },
+    titulo: { tam: 15, peso: 600, mayus: false },
+    kpi: { etiqueta: 'letra', tamValor: 26, maximo: 26, maximoPortada: 34 },
+    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 3.5, radioBarra: 10, compacto: false },
+    fuente: 'urbanist',
+  };
+}
+
 /**
  * EL CATÁLOGO, CERRADO. El id es lo que se guarda: no se renombra (un id viejo cae a «mako» en el
  * saneo, sin error). El orden es el del menú.
  */
 export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
+  // EL DE POR DEFECTO (Martín, 31/10/2026: «tipo blanco y negro… el más sólido»): Corbel, con sus valores
+  // (lib/graficos-corbel.ts). El id sigue siendo «mako» porque el id es lo que se guarda: toda hoja que nunca eligió otro
+  // pasa a este sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como «Clásica».
+  conEscena('mako', 'Blanco y negro', 'Negro sobre gris: el más sólido.', 'mono'),
+  conEscena('pastel', 'Pastel', 'Tiles de color claro y azul de acento.', 'pastel'),
+  conEscena('oceano', 'Océano', 'Azules de punta a punta.', 'ocean'),
+  conEscena('salvia', 'Salvia', 'Verdes tranquilos.', 'sage'),
   {
-    id: 'mako', nombre: 'MaKo', linea: 'Las tarjetas de siempre, con el número grande.',
+    id: 'clasica', nombre: 'Clásica', linea: 'Las tarjetas de antes, con el número grande.',
     paleta: PALETA_MAKO,
     tarjeta: { fondo: 'surface', borde: 'suave', radio: 16, sombra: false, filete: true },
     titulo: { tam: 21, peso: 600, mayus: false },
@@ -292,6 +316,9 @@ export type EstiloEfectivo = {
   /** Cómo va el rótulo de una KPI. */
   kpiEtiqueta: 'mono' | 'letra';
   kpiTamValor: number;
+  /** El tope del número de una tarjeta y el de una portada. Sin tope, llena lo que tenga. */
+  kpiMaximo?: number;
+  kpiMaximoPortada?: number;
   /** El filete de las KPI. */
   filete: boolean;
 };
@@ -317,6 +344,8 @@ export function estiloEfectivo(tema: TemaHoja): EstiloEfectivo {
     radioBarra: radioDe(p.graficos.radioBarra),
     kpiEtiqueta: p.kpi.etiqueta,
     kpiTamValor: p.kpi.tamValor,
+    kpiMaximo: p.kpi.maximo,
+    kpiMaximoPortada: p.kpi.maximoPortada,
     filete: p.tarjeta.filete,
   };
 }
@@ -329,21 +358,37 @@ export function estiloEfectivo(tema: TemaHoja): EstiloEfectivo {
 export function varsDeTema(tema: TemaHoja): Record<string, string> {
   const p = plantillaEfectiva(tema);
   const letra = tipografiaDe(tema.fuente ?? p.fuente);
-  const fondo = p.tarjeta.fondo === 'surface' ? 'var(--surface)' : p.tarjeta.fondo === 'surface-2' ? 'var(--surface-2)' : 'transparent';
+  // Con Corbel la tarjeta es de vidrio y la sombra lleva el borde interior de luz (el respaldo es para una hoja sin `data-paleta`).
+  const fondo = p.tarjeta.fondo === 'surface' ? (p.escena ? 'var(--cb-glass, var(--surface))' : 'var(--surface)') : p.tarjeta.fondo === 'surface-2' ? 'var(--surface-2)' : 'transparent';
   const borde = p.tarjeta.borde === 'no' ? 'transparent' : p.tarjeta.borde === 'fuerte' ? 'var(--border-strong)' : 'var(--border)';
+  const sombra = !p.tarjeta.sombra ? 'none' : p.escena ? 'inset 0 0 0 1px var(--cb-rim, transparent), var(--cb-shadow, 0 1px 2px rgba(18,21,27,.06))' : '0 1px 2px rgba(18,21,27,.06), 0 8px 24px rgba(18,21,27,.08)';
   return {
     '--dash-letra': letra.pila,
     '--dash-tarjeta-fondo': fondo,
     '--dash-tarjeta-borde': borde,
     '--dash-tarjeta-radio': `${p.tarjeta.radio}px`,
-    '--dash-tarjeta-sombra': p.tarjeta.sombra ? '0 1px 2px rgba(18,21,27,.06), 0 8px 24px rgba(18,21,27,.08)' : 'none',
-    '--dash-tarjeta-pad': p.tarjeta.fondo === 'transparente' ? '8px 4px' : '20px 22px',
+    '--dash-tarjeta-sombra': sombra,
+    '--dash-tarjeta-pad': p.tarjeta.fondo === 'transparente' ? '8px 4px' : p.escena ? '20px' : '20px 22px',
     '--dash-titulo-tam': `${p.titulo.tam}px`,
     '--dash-titulo-peso': String(p.titulo.peso),
     '--dash-titulo-mayus': p.titulo.mayus ? 'uppercase' : 'none',
-    '--dash-titulo-espacio': p.titulo.mayus ? '.04em' : '-0.015em',
+    '--dash-titulo-espacio': p.titulo.mayus ? '.04em' : p.escena ? '-0.075px' : '-0.015em',
     '--dash-acento': paletaDe(tema)[0],
   };
+}
+
+/** El valor de `data-paleta` de una hoja (lib/graficos-corbel.ts), o undefined si su estilo no es de Corbel. */
+export const paletaDeEscena = (tema: TemaHoja): EscenaCorbel | undefined => plantillaDe(tema.plantilla).escena;
+
+/**
+ * El color con que se pinta una PORTADA en esta hoja: el que eligió (`acento`), el negro de su paleta de Corbel (que no
+ * cambia por plantilla: la tapa de color de cada una es de «Clásica»), o null = el de su identidad. En hex porque las
+ * series de la portada se mezclan con él; lo que se ve lo pisa `--cb-ocean`, que además cambia en oscuro.
+ */
+export function acentoDePortada(tema: TemaHoja): string | null {
+  if (tema.acento) return tema.acento;
+  const escena = paletaDeEscena(tema);
+  return escena ? PALETAS_CORBEL[escena].claro['--cb-ocean'] : null;
 }
 
 /**
@@ -416,7 +461,7 @@ export const VOCABULARIO: Record<Procedencia, { nombre: string; comoSeVe: string
  */
 export function aclarar(hex: string, t: number): string {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return hex;
+  if (!m) return hex.startsWith('var(') ? `color-mix(in srgb, ${hex} ${Math.round(t * 100)}%, white)` : hex;
   const n = parseInt(m[1], 16);
   const canal = (c: number) => Math.round(255 - (255 - c) * t).toString(16).padStart(2, '0');
   return `#${canal((n >> 16) & 255)}${canal((n >> 8) & 255)}${canal(n & 255)}`;

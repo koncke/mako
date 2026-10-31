@@ -7,6 +7,27 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## El estilo por defecto es Corbel, y sus valores no estaban en los JSON (31/10/2026)
+
+**Vive en:** `lib/graficos-corbel.ts`, `lib/graficos-temas.ts`, `lib/graficos-portadas.ts` (`comoCorbel`), `docs/diseno/tokens-corbel.json`, `tests/graficos-corbel.test.ts`.
+
+**Síntoma.** Martín: «Sigo viendo los templates viejos». Lo aplicado era el adentro del gráfico; las plantillas seguían con las tapas de color copiadas de Canva.
+
+**El diagnóstico obvio estaba mal.** Parecía que alcanzaba con los cuatro JSON de `docs/diseno/` y que «el blanco y negro» era Pacely, por su acento casi negro. Pacely es piedra cálida con naranja. El que él describe es **Corbel con su paleta Mono**, y Corbel no está en esos JSON: se leyó el 31/10 con el navegador. Trae además las otras tres paletas (Pastel, Ocean, Sage), y su panel dice «Los colores de estado conservan su significado».
+
+**Lo que hay que saber antes de tocarlo:**
+
+- **El id `mako` ES el blanco y negro.** El id es lo que se guarda: redefinirlo pasa al estilo nuevo a toda hoja que nunca eligió otro, sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como `clasica`.
+- **El oscuro y las paletas salen de redefinir los tokens** adentro de `data-paleta`, como hace la portada. Las series son `var(--cb-c1, #hex)`: `aclarar` y los que hacen cuentas con hex tienen que aceptar una variable. El respaldo hace falta: el chat y la ficha del lead no tienen `data-paleta`, y por eso siguen con `clasica`.
+- **Los tiles no se guardan: salen de la posición** (`tilesDeHoja`). Las hojas guardadas los traen solas; también la tarjeta negra, porque `acentoDePortada` pisa el color de su identidad. El color de cada plantilla (`COLOR_DASHBOARD`) sólo se ve con «Clásica».
+- **Una hoja guardada conserva su acomodo.** `comoCorbel` arma las plantillas de la galería; una hoja que ya existe cambia de estilo, pero su tapa sigue a lo ancho, en negro. No se le mueve nada por detrás.
+- **El rayado NO se copió, a propósito.** En Corbel las columnas van rayadas de adorno; acá rayado es «Estimado» (`VOCABULARIO`), y una medición rayada diría lo contrario.
+- **El número ya no llena la tarjeta:** 26 px, y 34 en la negra (`kpiMaximo`). Tampoco se pinta de verde o rojo: el significado lo dice el chip. Con los estilos de antes sigue como estaba.
+- **Sólo el Dashboard.** Las plantillas de General siguen con `conPortada` y su tema `general`.
+- **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
+
+**Sin hacer:** las medidas de teléfono de Corbel (todo se leyó a 1440), el medidor de arco de su tarjeta negra, la animación de claro y oscuro y la de aparición en todas las tabs, y el espaciado en CRM y Kanban.
+
 ## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
 
 **Vive en:** `lib/experimentos-formato.ts`, `app/dashboard/ElementoExperimento.tsx`, `lib/graficos-catalogo.ts`, `lib/graficos-datos.ts`.

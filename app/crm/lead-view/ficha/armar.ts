@@ -307,7 +307,8 @@ export function estiloDeFicha(e: EstiloFicha): { clases: string[]; vars: Record<
   const conTema = temaPropio(t);
   if (conTema) {
     clases.push('fb--tema');
-    vars = { ...varsDeTema(t) };
+    // La ficha no lleva `data-paleta`: el «mako» de una ficha sigue siendo el de antes.
+    vars = { ...varsDeTema(t.plantilla === TEMA_BASE.plantilla ? { ...t, plantilla: 'clasica' } : t) };
     if (t.acento || t.plantilla !== TEMA_BASE.plantilla) vars['--primary'] = paletaDe(t)[0];
     if ((t.fuente ?? p.fuente) !== 'geist') clases.push('fb--letra');
   }
