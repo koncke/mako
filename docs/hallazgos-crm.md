@@ -278,8 +278,11 @@ FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
 - **El panel de MaKo de la ficha («Editar con MaKo» y el AI Analyst) es el bloque flotante del Dashboard** (`.an`: 12 px de
   aire, bordes de 14, sombra, sin la raya de color). Sin hacer: el panel de la estrella de MaKo en cada tab
   (`.ch-tab-panel`, app/_chat/chat.css) sigue siendo el cuadrado de borde a borde; es de la pieza compartida del chat.
-- **Sin hacer:** las reuniones, las cuotas y los datos fiscales muestran varios datos y no eligen cuáles (no tienen `datos`
-  en el catálogo): ahí sólo se puede pedir u ocultar el bloque entero.
+- **El 30/10 se sumaron Datos fiscales, Servicio vendido y Promesa** (`DATOS_FISCALES`, `DATOS_SERVICIO`, `DATOS_PROMESA`,
+  tests/ficha-datos-del-deal.test.ts). De entrada traen todos sus datos: una ficha guardada se ve igual. El aviso va atado a
+  un dato (`razon`, `documento`, `que_es`, `resultado`): sin ese dato adentro, el bloque deja de pedirlo.
+- **Sin hacer:** las reuniones ya se parten en bloques (R2, Agendar, Lo que salió), pero la R1 no elige sus datos. Las cuotas
+  tampoco, y no conviene tocarlas hasta que entre la rama `crm-cuotas-espera-revision`, que cambia ese bloque.
 
 ## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
 
@@ -299,6 +302,10 @@ FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
 - **Sin hacer:** «en todos lados» va más allá del CRM. Fuera de app/crm no se barrió qué modales reemplazan su contenido o
   cierran para abrir otro; el patrón a buscar es `setX(null); setY(true)` en un `onClick` y un `Modal` con el título que
   depende de una vista.
+- **Barrido del 30/10 (por patrón, leyendo código, sin verlo en pantalla).** Cierran un modal para abrir otro, y el clic afuera
+  ya no vuelve: app/plan/board/EliminarModal.tsx (Completar y Debate), app/plan/board/PrioridadAMano.tsx (Debate y abrir otra
+  tarea), app/_comunidad/Busqueda.tsx (abrir perfil o post). Quedan sin hacer, para el chat de cada tab. Los modales con título
+  según una vista que aparecieron son crear o editar, no navegación. El patrón no ve los que se cierran desde otro archivo.
 
 ## El buscador de Instagram en la cuenta de Mauricio: Meta conectada SIN Instagram, y ninguna fuente trae la foto (25/10/2026)
 
@@ -321,8 +328,28 @@ app/crm/new/InstagramBuscador.tsx · tests: instagram-meta-sin-instagram (3 rotu
   es de Martín (fue al Ops Center como pregunta): el Instagram de MaKo vinculado a su página + `instagram_basic` en el token
   de la plataforma (gratis, sólo cuentas de empresa o creador), o una clave de Apify de la plataforma (cualquier perfil
   público, se paga por lectura, con tope por día ya armado en lib/instagram-perfil-server.ts).
-- **Sin hacer:** sumar `instagram_basic` a los permisos que el catálogo pide para el token de Meta (es de Integraciones:
-  lib/metodo-catalogo.ts, la línea de «Generar nuevo token»).
+- **El 30/10 ya no hay línea de «Generar nuevo token» en lib/metodo-catalogo.ts:** el token se pide de otra forma, así que no
+  se sumó `instagram_basic` ahí.
+- **Medido el 30/10 (sólo lectura, sin imprimir tokens). Sigue sin haber fuente para Mauricio ni para la plataforma:**
+  - El ws 1 y el ws 9: sin ningún permiso de Instagram y sin Instagram vinculado.
+  - El ws 13, 15, 18 y 20: **la página devuelve `instagram_business_account` sin ningún permiso de Instagram.** «Tiene id» no
+    quiere decir «puede buscar»: Business Discovery pide `instagram_basic` (no se probó una búsqueda con ellos).
+  - Sólo el ws 11 tiene los permisos, y su token es de un cliente: no se le presta a otro negocio.
+- **Dos trampas que dejaban sin foto aunque se destrabara, arregladas el 30/10:**
+  - El buscador sólo le preguntaba a Apify después de la Meta del negocio; **a la Meta de la plataforma, nunca**. Ahora va
+    `['meta-plataforma', 'apify']`.
+  - `CAMPOS_PERFIL`, los campos de LA función de Instagram, **no pedía `profile_picture_url`**: habría encontrado la cuenta y
+    devuelto `foto: null`, sin error. El buscador tiene su propia lista de campos; ésta no.
+- **Lo que falta es de Martín: el Instagram de MaKo vinculado a su página y `instagram_basic` en el token de la plataforma.** Con
+  eso anda sin tocar código, gratis, sólo para cuentas de empresa o creador.
+- **El otro camino, no construido: la extensión, con la sesión de Instagram de la persona** (`web_profile_info` contesta 401 sin
+  sesión). Traería también cuentas personales, y Apify ya está descartado por costo. Tres cosas a saber antes:
+  - Es un endpoint no oficial y MaKo está en la App Review de Meta (lib/instagram-perfil.ts ya lo descartó por eso): es aceptar
+    un riesgo, y por eso va a Martín.
+  - El permiso tiene que ser `optional_host_permissions`: uno obligatorio deshabilita la extensión a todos hasta que acepten, y
+    con ella se corta Flow. Y hay que sumarlo a la política de privacidad (tests/wa-fichas-extension.test.ts, test 10).
+  - **Sin medir:** ni la respuesta con sesión ni si el CDN deja mostrar la foto en otra página (si no, la extensión tiene que
+    bajarla). El 30/10 no había ningún Chrome conectado para probarlo.
 
 ## «A revisar» corta por el CRM que se mira: la casa del lead, como el tablero (25/10/2026)
 

@@ -55,7 +55,7 @@ y cada punto se marcó como hecho (sale de la lista), a medias (queda con «a me
 
 De los 296 de la mañana se cerraron 100 hoy (abajo, para que los revises), 29 quedan a medias y 167 siguen como estaban. Se sumaron 25 nuevos.
 
-**Quedan 221 pendientes.**
+**Quedan 222 pendientes.**
 
 14 le fallan hoy a un cliente y 42 son de plata, seguridad o envíos.
 
@@ -143,7 +143,9 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Seguridad** — Poner Cloudflare delante de MaKo sin romper webhooks ni dominios de clientes. _no hay protección contra DDoS y cambia el DNS de hola-mako.com_ · grande · **depende de Martín** · `docs/relevo/ciberseguridad.md → punto 3`
 - **Web Generator** — Medir el cobro con Stripe en una landing con dominio propio, en Chrome y en Safari. _el checkout puede fallar en el dominio del cliente; Safari pide un iPhone o Mac_ · chico · **depende de Martín** · `docs/relevo/landing-generator.md → Lo que sigue (15/10) 1, decisión 8`
 
-## Traba a Martín (11)
+## Traba a Martín (12)
+
+- **CRM** — El buscador de Instagram sigue sin foto para Mauricio y la plataforma: vincular el Instagram de MaKo a su página y sumar `instagram_basic` al token (gratis, sólo cuentas de empresa o creador; anda sin tocar código). Para cuentas personales, decidir si se usa la extensión con la sesión de la persona (endpoint no oficial, con MaKo en App Review). · chico · **depende de Martín** · `docs/hallazgos-crm.md → El buscador de Instagram`
 
 - **Ops Center** — En curso (Ops Center 7): los puntos de tu pedido de las 22:45 que tocan el Ops Center: el «+» y la carita alineados, el Completado entero, los íconos, MaKo en WhatsApp fuera de la lista, el aviso de Completado que no salía, el Runner que pide medir solo, el chat que trabaja sin decir «Trabajando…», el Second Brain que no se cierra al tocar un chat, los chats dormidos y el Markdown con links azules. _son cosas que te traban hoy; al llegar se revisa si tocó el cartero y se cierran d8b9023a y 8e3ce267_ · medio · se puede hacer ya · `docs/relevo/cerebro.md → 18/10 ~01:45 UTC`
 - **Avisos** — Los avisos mudados a automatizaciones nacieron pausados (cambio de landing, lead de landing, pruebas del Pixel, lead fusionado, puente de Flow, formulario de Meta, y la #280 «Tareas de Reuniones al Plan»): prender los que quieras — a medias: falta que los prendas; la #280 necesita antes una CONDITION que excluya al ws13 (Código Inmobiliario la tenía apagada a mano). _hoy no le llegan a ningún negocio_ · chico · **depende de Martín** · `docs/hallazgos-comunicacion.md → Nada por detrás, lote 3; docs/relevo/cerebro.md → 21:55 UTC`

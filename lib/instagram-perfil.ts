@@ -59,7 +59,7 @@ export type LecturaInstagram = { ok: true; perfil: PerfilInstagram } | { ok: fal
 /** Cuántas publicaciones se piden: las últimas dicen de qué se trata la cuenta, no hace falta el archivo entero. */
 export const POSTS_A_LEER = 6;
 /** Los campos de Business Discovery que se piden. */
-export const CAMPOS_PERFIL = `username,name,biography,website,followers_count,media_count,media.limit(${POSTS_A_LEER}){caption,timestamp,media_type}`;
+export const CAMPOS_PERFIL = `username,name,profile_picture_url,biography,website,followers_count,media_count,media.limit(${POSTS_A_LEER}){caption,timestamp,media_type}`;
 
 const esObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);

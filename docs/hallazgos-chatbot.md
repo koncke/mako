@@ -7123,6 +7123,32 @@ error de un tercero (o de la base) se propaga ENTERO hasta la fila que alguien v
 
 ---
 
+## «MaKo no les escribió a sus leads»: eran avisos al equipo y borradores por aprobar (30/10/2026, ws13)
+
+**Síntoma.** Código Inmobiliario: 21 fallos del 13 al 23/10 y 10 borradores de IA sin salir. Leído como «diez días creyendo que
+MaKo les escribía a sus leads».
+**El diagnóstico obvio era el equivocado.** Ninguno de los 21 era un mensaje a un lead: eran el paso `avisar_al_equipo`
+(`estado='fallo'` no dice a quién iba; hay que leer `accion.operacion` del paso, en `$[*].accion`, no en `$[*].operacion`). La
+causa ya estaba arreglada desde el 23/10 (`0a5f6c9b6`, docs/hallazgos-api-mako.md): desde el 24/10, 11 bien y 0 fallos. Los
+borradores no son una falla: IA por WhatsApp no oficial, a un lead que no pagó, sin «sale sola», queda para aprobar
+(lib/mensajes-por-aprobar.ts). Lo nuestro fue que la pantalla no lo decía hasta el 20/10.
+**Antes de decir «se perdió un lead», medir qué le pasó.** De los 21, 16 recibieron mensajes después y los otros 5 están en
+descalificado (4) o no responde (1); de los 10 borradores, 9 recibieron mensajes por otro lado y 2 son ganados. No se midió quién
+los movió. Por eso **no se reenvió nada**: un aviso de hace dos semanas y un saludo a un lead ya ganado hacen más daño que el hueco.
+**Y un arreglo hacia adelante no barre lo que ya quedó.** El 24/10 `archivarSecuencias` empezó a descartar borradores, y a mano se
+descartaron sólo los 4 que frenaban otra automatización. Los otros 7 de la #241 siguieron aprobables hasta el 30/10: se descartaron
+con el mismo texto en el historial del lead (6 líneas; el séptimo no tiene lead). **Regla:** al arreglar una regla de cierre, medir
+cuántas filas viejas siguen abiertas por la regla vieja, no sólo las que hoy molestan.
+**Sin hacer:**
+- `tieneBorradorNutriPendiente` mira TODOS los borradores del lead, también los de una automatización pausada. En el ws 11, 33
+  borradores del 20/10 de la #282 y la #284 (pausadas) caen sobre leads de 26 inscripciones activas de la #249 (pausada). Hoy no sale
+  nada; al prenderla, un mensaje de IA sin «sale sola» de la #249 esperaría a esos borradores. Pausar no es archivar: es de quien
+  lleve Automations y del dueño de esos borradores.
+- La #264 del ws13 dice «Nuevo agendado» y también dispara en la etapa «lead»: es del cliente, va a Martín.
+**Vive en:** lib/nutricion.ts (`saleSoloEste`) · lib/evolution-envio.ts (`tieneBorradorNutriPendiente`) · lib/secuencias-huecos.ts
+
+---
+
 ## Archivar no es cerrar: los borradores de una automatización archivada seguían vivos (24/10/2026, ws13)
 
 **Síntoma.** El 24/10 la #264 del ws13 tenía 4 inscripciones en 'respondio' que llevaban 4 días frenadas, y cada 6 horas
