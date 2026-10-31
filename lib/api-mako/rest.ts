@@ -121,6 +121,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
   ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
+  ['GET', '/crm/nombres', 'ver_nombres_del_crm'],
+  ['POST', '/crm/nombres/palabra', 'marcar_palabra_no_nombre'],
   ['POST', '/crm/papelera', 'mandar_en_bloque_a_papelera'],
   ['POST', '/crm/papelera/recuperaciones', 'recuperar_de_papelera_crm'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.
@@ -352,6 +354,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/chatbot/lead-magnets', 'crear_lead_magnet'],
   ['GET', '/chatbot/leads/{leadId}/inscripciones', 'inscripciones_lead'],
   ['GET', '/chatbot/metricas', 'metricas_chatbot'],
+  ['GET', '/chatbot/quienes', 'quienes_de_automatizacion'],
   ['GET', '/chatbot/objetivos', 'listar_objetivos_secuencia'],
   ['POST', '/chatbot/objetivos', 'agregar_objetivo_custom'],
   ['GET', '/chatbot/onboarding', 'estado_onboarding_chatbot'],

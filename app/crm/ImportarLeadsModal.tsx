@@ -29,7 +29,7 @@
 
 import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import { Modal } from '@/app/_ui/Modal';
-import { MoldeTraer } from './MoldeTraer';
+import { CAMPO_TRAER, MoldeTraer } from './MoldeTraer';
 import { importarLeadsRevisadosAction } from './actions';
 import { TraerDeOtroProducto, type ProductoOrigen } from './TraerDeOtroProducto';
 import { TablaRevisionLeads } from './TablaRevisionLeads';
@@ -83,6 +83,8 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
   const [file, setFile] = useState<File | null>(null);
   const [sobre, setSobre] = useState(false);
   const [filas, setFilas] = useState<FilaImport[]>([]);
+  /** La etiqueta de toda la lista (31/10/2026, Leila: separar su base en tres ramas). Se suma a la columna del archivo, si hay. */
+  const [etiqueta, setEtiqueta] = useState('');
   const [viaIA, setViaIA] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -141,7 +143,7 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
   const importar = () => {
     setCargando(true);
     setErr(null);
-    importarLeadsRevisadosAction(filas, funnelId)
+    importarLeadsRevisadosAction(filas, funnelId, etiqueta.trim() || null)
       .then((r) => {
         // «Completé 2 fichas» es un resultado, así que un error con 0 creados y 2
         // completadas NO es una importación fallida: antes se mostraba el error y se
@@ -290,6 +292,9 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
         <MoldeTraer
           arriba={paso === 0 ? selectorOrigen : undefined}
           pasos={{ nombres: ['Archivo', 'Revisar'], actual: paso }}
+          destino={paso === 1 ? (
+            <input value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)} maxLength={100} placeholder="Etiqueta para toda la lista" aria-label="Etiqueta para toda la lista" style={{ ...CAMPO_TRAER, flex: '1 1 240px', maxWidth: 320 }} />
+          ) : undefined}
           // Lo que va a pasar, en números (como «0 will be created · 495 will be updated» de Attio).
           resumen={paso === 1 ? {
             texto: haceAlgo ? `${haceAlgo} de ${filas.length} van a entrar` : 'No hay nada tildado',
@@ -297,6 +302,7 @@ export function ImportarLeadsModal({ onListo, onClose, funnelId = null, producto
               ...(c.tildadas ? [{ texto: `${c.tildadas} se crean`, tono: 'nuevo' as const }] : []),
               ...(c.aEnriquecer ? [{ texto: `${c.aEnriquecer} se completan`, tono: 'nuevo' as const }] : []),
               ...(filas.length - haceAlgo > 0 ? [{ texto: `${filas.length - haceAlgo} no entran`, tono: 'gris' as const }] : []),
+              ...(filas.some((f) => f.etiquetas?.length) ? [{ texto: `${filas.filter((f) => f.etiquetas?.length).length} con etiqueta del archivo`, tono: 'gris' as const }] : []),
             ],
           } : undefined}
           estado={err ? { texto: err, tono: 'mal' } : cargando ? { texto: paso === 0 ? 'Leyendo el archivo…' : 'Importando…' } : null}

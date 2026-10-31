@@ -1509,6 +1509,30 @@ export const RUNNERS: Runners = {
       return { ok: r.hechos.length > 0, resumen: `Listo: ${r.hechos.length} a la papelera (se recuperan con recuperar_de_papelera_crm).${mal}${quedan(r.pendientes)}` };
     }),
   },
+  ver_nombres_del_crm: {
+    leer: async () => {
+      const { nombresDelNegocio } = await import('@/lib/nombres-negocio');
+      return json(await nombresDelNegocio());
+    },
+  },
+  marcar_palabra_no_nombre: {
+    preparar: async (input) => {
+      const palabra = String(input.palabra ?? '').trim();
+      if (!palabra) return { error: 'Falta la palabra.' };
+      const noEs = input.noEs !== false;
+      return { payload: { palabra, noEs }, resumen: noEs ? `Saltar «${palabra}» al saludar: no es un nombre` : `Volver a tratar «${palabra}» como un nombre` };
+    },
+    ejecutar: (payload) => seguro('marcar la palabra', async () => {
+      const { guardarNoSon, noSonDelNegocio } = await import('@/lib/nombres-negocio');
+      const { normalizarNoSon } = await import('@/lib/nombre-partes');
+      const [k] = normalizarNoSon([String(payload.palabra)]);
+      if (!k) return { ok: false, resumen: 'Esa palabra no sirve.' };
+      const hoy = new Set(await noSonDelNegocio());
+      if (payload.noEs === false) hoy.delete(k); else hoy.add(k);
+      await guardarNoSon([...hoy]);
+      return { ok: true, resumen: payload.noEs === false ? `«${String(payload.palabra)}» vuelve a contar como un nombre.` : `Listo: «${String(payload.palabra)}» ya no se usa para saludar.` };
+    }),
+  },
   ver_bajas_de_leads: {
     leer: async (input) => {
       const leadId = Number(input.leadId);

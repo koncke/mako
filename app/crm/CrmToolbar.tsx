@@ -214,7 +214,7 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, onNombres }: {
   /** El CRM que se está mirando. Lo llevaba «Buscar prospectos» (C6, 22/10/2026), que se fue con el Leads Scraper el 25/10. */
   funnelActivo?: number | null;
   onImportar: () => void;
@@ -224,6 +224,8 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
   onEditarEtapas: () => void;
   /** Qué datos muestra la tarjeta de un lead, para quien mira (20/10/2026). */
   onPersonalizarTarjetas?: () => void;
+  /** «Nombres de tus leads» (31/10/2026, ./NombresModal.tsx): cómo los saluda MaKo. */
+  onNombres?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -280,6 +282,10 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
             {onPersonalizarTarjetas && (
               <MenuItem icon={<IconoMenu nombre="configurar" size={15} />} label="Personalizar tarjetas"
                 onClick={() => { setOpen(false); onPersonalizarTarjetas(); }} />
+            )}
+            {onNombres && (
+              <MenuItem icon={<IconoMenu nombre="texto" size={15} />} label="Nombres de tus leads"
+                onClick={() => { setOpen(false); onNombres(); }} />
             )}
             {/* ⚠️ ACÁ HABÍA TRES RENGLONES MÁS, y se fueron el 14/10/2026. Martín: «ya
                 eliminarías en los 3 puntos los botones de "avisos y resumen"... Y elimina el

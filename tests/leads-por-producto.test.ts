@@ -320,7 +320,7 @@ test('⚠️ lo IMPORTADO nace en el tablero desde donde se importó', () => {
   //   · la action deja de recibir el funnel      -> 9 / 1
   //   · el modal deja de pasárselo               -> 9 / 1
   const ac = limpio(leer('app/crm/actions.ts'));
-  assert.match(ac, /export async function importarLeadsRevisadosAction\(filas: FilaImport\[\], funnelId\?: number \| null\)/,
+  assert.match(ac, /export async function importarLeadsRevisadosAction\(filas: FilaImport\[\], funnelId\?: number \| null, etiquetaGeneral\?: string \| null\)/,
     'la importación volvió a no saber a qué producto van los leads');
   // Y lo ESCRIBE: recibirlo y no pasarlo a `createLead` es el mismo bug con un parámetro más.
   const cuerpo = ac.slice(ac.indexOf('importarLeadsRevisadosAction(filas'));
@@ -328,7 +328,7 @@ test('⚠️ lo IMPORTADO nace en el tablero desde donde se importó', () => {
   assert.match(cuerpo.slice(0, 6000), /funnel_id: funnelId \?\? null/,
     'la importación recibe el funnel y no lo escribe');
   const mod = limpio(leer('app/crm/ImportarLeadsModal.tsx'));
-  assert.match(mod, /importarLeadsRevisadosAction\(filas, funnelId\)/,
+  assert.match(mod, /importarLeadsRevisadosAction\(filas, funnelId,/,
     'el modal de importar dejó de pasar el producto que se está mirando');
 });
 

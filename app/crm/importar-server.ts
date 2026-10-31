@@ -1,3 +1,5 @@
+import { crearEtiqueta, listarEtiquetas, ponerEtiquetaLote } from '@/lib/etiquetas';
+import { claveNombre } from '@/lib/etiquetas-reglas';
 import 'server-only';
 
 // =============================================================================
@@ -87,6 +89,27 @@ export type IndiceContactos = {
    */
   igs: Map<string, number | null>;
 };
+
+/**
+ * LAS ETIQUETAS DE UNA IMPORTACIÓN (31/10/2026): la que ya existe con ese nombre, o una nueva, y en lote, que NO dispara ninguna automatización:
+ * importar no le escribe a nadie. Devuelve lo que no se pudo: los leads ya entraron, y eso no se deshace por una etiqueta.
+ */
+export async function etiquetarImportados(porEtiqueta: ReadonlyMap<string, number[]>, autor: string): Promise<string[]> {
+  if (!porEtiqueta.size) return [];
+  const todas = await listarEtiquetas();
+  const errores: string[] = [];
+  for (const [nombre, ids] of porEtiqueta) {
+    try {
+      const ya = todas.find((t) => !t.archivada_at && claveNombre(t.nombre) === claveNombre(nombre));
+      const id = ya?.id ?? (await crearEtiqueta({ nombre })).etiqueta.id;
+      const r = await ponerEtiquetaLote(ids, id, { autor });
+      if (!r.ok) errores.push(`La etiqueta «${nombre}»: ${r.error}`);
+    } catch (e) {
+      errores.push(`La etiqueta «${nombre}»: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return errores;
+}
 
 export async function indiceContactos(): Promise<IndiceContactos> {
   const db = await getTenantDb();

@@ -1425,6 +1425,24 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
   },
   {
+    id: 'ver_nombres_del_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver cómo se saluda a los leads',
+    descripcion: 'Cuántos leads quedan sin nombre para saludar (su mensaje sale sin nombre) y qué primeras palabras se repiten en la base («Kun Fabiola Pedraza»), con un ejemplo de cómo sale. Úsala antes de una campaña con {{nombre}}.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'marcar_palabra_no_nombre', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Marcar palabra que no es nombre',
+    descripcion: 'PROPONE marcar (o desmarcar) una palabra que en este negocio no es un nombre, como un lugar con que se agenda a los contactos: {{nombre}} la salta (queda pendiente hasta el «sí»). No cambia ningún lead.',
+    parametros: [
+      { nombre: 'palabra', tipo: 'string', obligatorio: true, max: 60, descripcion: 'la palabra, como está en el nombre.' },
+      { nombre: 'noEs', tipo: 'boolean', descripcion: 'false para volver a tratarla como un nombre. Por defecto, true.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'cambia la lista de palabras que {{nombre}} salta en este negocio',
+  },
+  {
     id: 'ver_bajas_de_leads', area: 'crm', tipo: 'lectura',
     titulo: 'Ver lo que se borró del CRM',
     descripcion: 'Quién, cuándo, cuántos y por qué camino se borraron leads de este negocio (eliminar, unificar, un duplicado automático). Queda para siempre, también después de que la papelera purga. Sirve para contestar «¿qué pasó con estos leads?». Sólo trae ids; se registra desde el 30/10/2026.',
