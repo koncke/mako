@@ -1,7 +1,7 @@
 // =============================================================================
 // POST /api/planes/comprar — el checkout público de un plan de MaKo (lib/compra-plan.ts)
 // =============================================================================
-// Lo postea el formulario de /planes/<plan> (nombre, email, la pasarela si hay dos, el origen que mandó la landing y el
+// Lo postea el formulario de /planes/<plan> (nombre, email, WhatsApp, la pasarela si hay dos, el origen que mandó la landing y el
 // código de MaKo Partners). Devuelve `{ link }` (/pagar/<token>, que lleva al checkout vivo) o el error para mostrar.
 //
 // ⚠️ PÚBLICA Y DE ESCRITURA: va EXACTA en PUBLICOS y PUBLICOS_ESCRITURA (lib/rutas-publicas.ts). NO LEE LA COOKIE DE
@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { TEXTO_CODIGO_NO_EXISTE, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, TEXTO_WHATSAPP_MAL, codigoQueCuenta, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
   if (!leido.ok) return leido.bot ? Response.json({ ok: true }) : Response.json({ error: leido.error }, { status: 400 });
   const pedido = leido.pedido;
   if (!rateLimit(`planes-comprar:email:${pedido.email}`, 6, HORA)) return Response.json({ error: 'Demasiados intentos con ese email. Prueba en un rato.' }, { status: 429 });
+  if (pedido.whatsappEscritoMal) return Response.json({ error: TEXTO_WHATSAPP_MAL, campo: 'whatsapp' }, { status: 400 });
   // El código de partner (`codigoDeLaCompra`): el que escribió en el carrito; si no, el PRIMERO que lo trajo (revisión del
   // 23/10, media 14: la cookie que dejó /r/<código> gana sobre el `?ref=`). Uno escrito que no es de ningún partner se le dice
   // (no se guarda un código que nunca va a contar); si no se pudo leer, la compra sigue con él y el cron no lo cuenta.

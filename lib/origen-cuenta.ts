@@ -15,6 +15,23 @@
 
 export const CLAVE_ORIGEN_CUENTA = 'cuenta.origen';
 
+/**
+ * EL WHATSAPP QUE DEJÓ AL PAGAR (31/10/2026, acordado con Ops Center): `app_settings` de la cuenta NUEVA, sólo dígitos. Sin número, no hay
+ * clave. ⚠️ NO ESTÁ PROBADO: sale de un formulario público. El onboarding lo ofrece cargado en su tarjeta y recién con el código por
+ * WhatsApp vale para el grupo; hasta el toque de la persona, nada le escribe.
+ */
+export const CLAVE_WHATSAPP_DEL_PAGO = 'cuenta.whatsapp_del_pago';
+
+/** El que escribió en esta compra (`cobros.origen.whatsapp`); si dejó el campo vacío, el de su ficha. null = no hay. */
+export function whatsappDelPago(origenDelCobro: unknown, telefonoDelLead: unknown): string | null {
+  const delCobro = origenDelCobro && typeof origenDelCobro === 'object' ? (origenDelCobro as Record<string, unknown>).whatsapp : null;
+  for (const v of [delCobro, telefonoDelLead]) {
+    const d = typeof v === 'string' ? v.replace(/\D/g, '') : '';
+    if (d.length >= 8 && d.length <= 15) return d;
+  }
+  return null;
+}
+
 export const AVATARES = ['inmobiliarias', 'infoproductores', 'coaches', 'agencias'] as const;
 export const FUNCIONALIDADES = ['landings', 'automatizaciones', 'dashboards', 'contenidos', 'avatares-ia', 'media-buyer', 'closing', 'cursos'] as const;
 export type AvatarOrigen = (typeof AVATARES)[number];

@@ -27,7 +27,7 @@ export function crmDeLlamadasDe(crudo: string | null | undefined): number | null
 }
 
 /**
- * EL WHATSAPP DE QUIEN YA ENTRÓ, A SU LEAD (30/10/2026). El checkout no lo pide (cada campo baja la conversión): se pide al entrar, y el
+ * EL WHATSAPP DE QUIEN YA ENTRÓ, A SU LEAD (30/10/2026). El checkout lo pide desde el 31/10, sin obligar: quien no lo dejó ahí lo da al entrar, y el
  * número del dueño de la cuenta (`guardarNumeroDueno`, lib/mako-grupo.ts) es el mismo por el que se lo llama. Sólo llena un teléfono
  * vacío (`enriquecerLead`: lo cargado gana) y sólo si hay UN lead de esa cuenta. Es otro negocio: corre con el ws de la plataforma. Nunca tira.
  */

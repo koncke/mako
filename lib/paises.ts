@@ -90,6 +90,23 @@ export function unirTelefono(lada: string, local: string): string {
   return `${lada}${local}`.replace(/\D/g, '');
 }
 
+/** La lada que arranca elegida para quien está en ese país (dos letras). Un país que no está en la lista, o que no se sabe, la de siempre. */
+export function ladaDelPais(iso2: string | null | undefined): string {
+  return PAISES.find((p) => p.iso2 === iso2)?.dial ?? DIAL_DEFAULT;
+}
+
+/**
+ * Lo que manda un formulario público con `TelefonoConPais`: los dígitos con su lada, o '' si no escribió ningún número (la lada
+ * sola no es un número). Sin el 0 de larga distancia del número local: «+54 011…» no existe. Un `+código` que el selector no
+ * reconoció sigue en el campo (`numeroTecleado`): ahí ya viene el país, y sumarle la lada serían dos.
+ */
+export function telefonoDeFormulario(lada: string, local: string): string {
+  const t = (local || '').trim();
+  const digitos = t.replace(/\D/g, '');
+  if (!digitos) return '';
+  return t.startsWith('+') ? digitos : unirTelefono(lada, digitos.replace(/^0+/, ''));
+}
+
 /**
  * Lo que se escribió o se pegó en el campo del NÚMERO de `TelefonoConPais`: si arranca con `+`, lo
  * que sigue es el código de país, y va al selector (`lada`); si no, `lada: null` (no se toca).

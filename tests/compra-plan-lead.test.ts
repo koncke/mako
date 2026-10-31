@@ -15,27 +15,31 @@ import { leadDeLaCompra } from '../lib/compra-plan-reglas';
 
 const leer = (r: string) => readFileSync(r, 'utf8').replace(/\r\n/g, '\n');
 const c = (motivo: 'email' | 'telefono' | 'instagram' | 'nombre', id: number, email: string | null = null) => ({ motivo, lead: { id, email } });
+const E = 'a@x.com';
 
 test('1. el mismo contacto es el mismo lead; un homónimo con otro email es otra persona', () => {
-  assert.equal(leadDeLaCompra([c('email', 7, 'a@x.com')]), 7);
-  assert.equal(leadDeLaCompra([c('telefono', 8, 'otro@x.com')]), 8, 'mismo teléfono: se reusa aunque tenga otro email');
-  assert.equal(leadDeLaCompra([c('nombre', 9, 'otro@x.com'), c('telefono', 8)]), 8, 'el contacto gana sobre el nombre');
-  assert.equal(leadDeLaCompra([c('nombre', 9, 'otro@x.com')]), null, 'homónimo con otro email: no se le ata la compra');
-  assert.equal(leadDeLaCompra([]), null);
+  assert.equal(leadDeLaCompra([c('email', 7, 'a@x.com')], E), 7);
+  assert.equal(leadDeLaCompra([c('telefono', 8)], E), 8, 'mismo teléfono y la ficha sin email: es él');
+  assert.equal(leadDeLaCompra([c('telefono', 8, 'A@X.com ')], E), 8, 'mismo teléfono y mismo email');
+  assert.equal(leadDeLaCompra([c('telefono', 8, 'otro@x.com')], E), null, 'mismo teléfono con OTRO email: no se le ata la compra');
+  assert.equal(leadDeLaCompra([c('telefono', 8, 'otro@x.com'), c('email', 7, 'a@x.com')], E), 7, 'el email gana');
+  assert.equal(leadDeLaCompra([c('nombre', 9, 'otro@x.com'), c('telefono', 8)], E), 8, 'el contacto gana sobre el nombre');
+  assert.equal(leadDeLaCompra([c('nombre', 9, 'otro@x.com')], E), null, 'homónimo con otro email: no se le ata la compra');
+  assert.equal(leadDeLaCompra([], E), null);
 });
 
 test('2. cargado a mano sin email y con ese nombre: es él (lo cargan antes de que compre); con dos así, no se adivina', () => {
-  assert.equal(leadDeLaCompra([c('nombre', 5)]), 5);
-  assert.equal(leadDeLaCompra([c('nombre', 5, '   ')]), 5);
-  assert.equal(leadDeLaCompra([c('nombre', 5), c('nombre', 6)]), null);
-  assert.equal(leadDeLaCompra([c('nombre', 5), c('nombre', 6, 'otro@x.com')]), null);
-  assert.equal(leadDeLaCompra([c('nombre', 5), c('email', 5)]), 5);
+  assert.equal(leadDeLaCompra([c('nombre', 5)], E), 5);
+  assert.equal(leadDeLaCompra([c('nombre', 5, '   ')], E), 5);
+  assert.equal(leadDeLaCompra([c('nombre', 5), c('nombre', 6)], E), null);
+  assert.equal(leadDeLaCompra([c('nombre', 5), c('nombre', 6, 'otro@x.com')], E), null);
+  assert.equal(leadDeLaCompra([c('nombre', 5), c('email', 5)], E), 5);
 });
 
 test('3. el checkout reusa o crea: un duplicado por nombre nunca frena la compra', () => {
   const s = leer('lib/compra-plan.ts');
   const f = s.slice(s.indexOf('async function leadDelComprador'), s.indexOf('«LO QUIERO» SIN PASARELA'));
-  assert.match(f, /const mismo = leadDeLaCompra\(e\.coincidencias\);/);
+  assert.match(f, /const mismo = leadDeLaCompra\(e\.coincidencias, p\.email\);/);
   assert.match(f, /enriquecerLead\(mismo, \{ email: p\.email, telefono: datos\.telefono \}, 'Checkout de MaKo'\)/, 'el reusado no se queda sin el email con el que compró');
   assert.match(f, /createLead\(\{ \.\.\.datos, permitirDuplicado: true \}\)/);
   assert.doesNotMatch(f, /throw e;\n {2}\}\n\}/, 'volvió a tirar el duplicado');
@@ -54,7 +58,7 @@ test('5. el número del dueño llega a su lead: sólo lo vacío, con UN lead, en
 
 test('4. al pagar el PRIMER mes queda para llamarlo, después de la cuenta; sin setting no pasa nada', () => {
   const s = leer('lib/cobros.ts');
-  assert.match(s, /await altaSiCorresponde\(actual\);\n[^]{0,800}?if \(!renovacion\) await anotarParaLlamar\(actual\);/);
+  assert.match(s, /await altaSiCorresponde\(actual\);\n[^]{0,1500}?if \(!renovacion\) await anotarParaLlamar\(actual\);/);
   const l = leer('lib/compra-plan-llamada.ts');
   assert.match(l, /if \(!c\.lead_id \|\| !c\.alta_capa\) return;/, 'una venta que no es un plan de MaKo no se llama');
   assert.match(l, /if \(c\.workspace_id !== await wsSuperAdmin\(\)\) return;/, 'un cliente con su Stripe no entra acá');

@@ -12,7 +12,7 @@
 //   2. La pasarela: las conectadas en el workspace de la plataforma, y de esas las que tienen precio en su moneda (MP
 //      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece). Y según el PAÍS de quien
 //      compra (27/10/2026): Mercado Pago sólo en el de su cuenta, Stripe en el resto (`pasarelasDelPais`).
-//   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña.
+//   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña y su WhatsApp.
 //   4. Si ya tiene un link VIVO de ese plan por esa pasarela (de las últimas 23 h), se devuelve ése: dos clics o
 //      volver atrás no crean otro checkout.
 //   5. `crearCobro` con `altaCapa` (sólo la plataforma puede: lib/cobros.ts lo valida en positivo).
@@ -30,8 +30,8 @@ import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
-import { createLead, enriquecerLead, logLeadEvent } from './leads';
-import { esLeadDuplicado } from './leads-duplicados';
+import { createLead, enriquecerLead, getLead, logLeadEvent } from './leads';
+import { esLeadDuplicado, telefonoComparable } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
 import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
@@ -176,6 +176,23 @@ export async function guardarPrecioLocal(planId: string, moneda: string, monto: 
   });
 }
 
+/**
+ * El WhatsApp de quien compra en una ficha que YA existe. Se completa sólo si está vacía: la ruta es pública, y cualquiera puede escribir el
+ * email de otro. Si la ficha tiene otro número, no se pisa y queda en su historial. Nunca frena la compra.
+ */
+async function whatsappEnFicha(leadId: number, whatsapp: string | null | undefined): Promise<void> {
+  if (!whatsapp) return;
+  const tel = `+${whatsapp}`;
+  try {
+    if ((await enriquecerLead(leadId, { telefono: tel }, 'Checkout de MaKo')).length) return;
+    const actual = await getLead(leadId);
+    if (telefonoComparable(actual?.telefono_normalizado ?? actual?.telefono) === telefonoComparable(tel)) return;
+    await logLeadEvent(leadId, 'WhatsApp', `Dejó este WhatsApp al comprar: ${tel}. No se cambió el de la ficha.`, 'Checkout de MaKo');
+  } catch (e) {
+    console.warn(`[compra-plan] no pude anotar el WhatsApp en el lead ${leadId}:`, msg(e));
+  }
+}
+
 /** El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. */
 async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuevo: boolean }> {
   const db = await getTenantDb();
@@ -186,7 +203,10 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
     return leadPorEmail((data ?? []) as Array<{ id: number; email: string | null }>, p.email);
   };
   const ya = await buscar();
-  if (ya) return { leadId: ya.id, nuevo: false };
+  if (ya) {
+    await whatsappEnFicha(ya.id, p.whatsapp);
+    return { leadId: ya.id, nuevo: false };
+  }
   const o = p.origen ?? {};
   const datos = {
     nombre: p.nombre, email: p.email, telefono: p.whatsapp ? `+${p.whatsapp}` : null, origen_lead: 'landing',
@@ -198,17 +218,23 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
   } catch (e) {
     if (!esLeadDuplicado(e)) throw e;
     const otro = await buscar();
-    if (otro) return { leadId: otro.id, nuevo: false };
+    if (otro) {
+      await whatsappEnFicha(otro.id, p.whatsapp);
+      return { leadId: otro.id, nuevo: false };
+    }
     // ⚠️ UN DUPLICADO NUNCA FRENA UNA COMPRA (30/10/2026): `createLead` también frena por NOMBRE, y acá eso era «No pudimos registrar tu
     // compra» a quien se llama igual que otro lead (la plataforma tiene 219 traídos de grupos). El mismo contacto, o uno cargado a
     // mano sin email, es el mismo lead (`leadDeLaCompra`) y se completa. Un homónimo con otro email es otra persona: se crea, y la
     // ficha lo marca en «Posibles duplicados».
-    const mismo = leadDeLaCompra(e.coincidencias);
+    const mismo = leadDeLaCompra(e.coincidencias, p.email);
     if (mismo != null) {
       await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, 'Checkout de MaKo').catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
+      await whatsappEnFicha(mismo, p.whatsapp);
       return { leadId: mismo, nuevo: false };
     }
     const lead = await createLead({ ...datos, permitirDuplicado: true });
+    const mismoNumero = e.coincidencias.filter((c) => c.motivo === 'telefono').map((c) => c.lead.id);
+    if (mismoNumero.length) await logLeadEvent(Number(lead.id), 'WhatsApp', `Ese WhatsApp también está en la ficha ${mismoNumero.join(', ')}.`, 'Checkout de MaKo').catch(() => {});
     return { leadId: Number(lead.id), nuevo: true };
   }
 }
@@ -370,7 +396,8 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     // Lo que el cobro tiene que recordar: el plan, de dónde vino y quién lo refirió. Antes de devolver el link: nadie
     // puede haber pagado todavía. Best effort (sin la mig 0330 el cobro vale igual).
     const { error } = await getSupabaseServer().from('cobros')
-      .update({ plan_mako: plan.id, origen: p.origen, ref_codigo: p.ref })
+      // El WhatsApp viaja con el origen: lo que la persona escribió en ESTA compra, que es lo que su onboarding le ofrece (`guardarWhatsappDelPago`).
+      .update({ plan_mako: plan.id, origen: p.whatsapp ? { ...p.origen, whatsapp: p.whatsapp } : p.origen, ref_codigo: p.ref })
       .eq('id', r.cobro.id).eq('workspace_id', ws);
     if (error) console.warn(`[compra-plan] no pude anotar plan/origen/ref en el cobro ${r.cobro.id}: ${error.message}`);
     if (lead.nuevo || !r.yaEstaba) {

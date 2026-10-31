@@ -1868,3 +1868,20 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
   - Las marcas `data-mako-prueba="dias"` y `="cobro"` de las landings publicadas y scripts/landings-mako-v2.mts siguen diciendo días gratis: es de Landings.
   - MaKo Partners paga el primer mes a precio de lista (`gananciaDelReferido`), aunque ese mes haya entrado a mitad, y su landing dice «todo lo que paga el negocio»: decisión de Martín.
   - Lo ya pagado no se reembolsa, y ahora sin prueba previa: en Argentina, la Ley 24.240 (art. 34) da 10 días para arrepentirse de una compra a distancia. No se tocó la política: lo tiene que mirar Martín.
+
+## El WhatsApp en el checkout: un campo nuevo es una llave nueva para encontrar fichas (31/10/2026)
+
+**El pedido.** Martín: «antes de ir al checkout de mako, donde te pide el nombre y el correo, que le pida también el whatsapp». Se pide con su código de país y no frena el pago: vacío, compra igual. Mal escrito se le dice en el campo, como a un código de referido, y dejarlo vacío sigue. Que sea obligatorio lo decide Martín.
+
+**El diagnóstico obvio era el equivocado.** Parecía un campo más y era un cambio de identidad: hasta hoy el comprador se reconocía sólo por el email, y `createLead` ahora también compara por el número. `leadDeLaCompra` decía «mismo teléfono: se reusa aunque tenga otro email», escrito cuando el checkout no pedía teléfono. Con un formulario público, un dígito mal o el dueño que compra para su segundo negocio ataban el pago a la ficha de OTRA persona: la marca Ganado y `asentarAlta` le pisa `cliente_ws`, sin rastro. Ahora: otro email y el mismo número es otra ficha, con una nota que nombra la otra; una ficha de más se funde, escribir sobre la equivocada no se deshace.
+
+**Lo que se perdía sin error:**
+- Una ficha que ya existía por el email se devolvía sin mirar el número. Se completa si está vacía. Si tiene otro, no se pisa (cualquiera puede escribir el email de otro) y queda en su historial.
+- `TelefonoConPais` guarda número sin lada y una lada que siempre está elegida: mandar los dos juntos convertía un campo vacío en un «número» de dos dígitos. `telefonoDeFormulario` devuelve vacío y saca el 0 de larga distancia.
+- El estilo de `/planes` es `input[type=tel]`, y el campo de `TelefonoConPais` no declara `type`: sin `inputStyle` se ve como un input pelado. Ningún test lo vio; se vio en el banco.
+
+**La otra mitad, acordada con Ops Center.** La pregunta del onboarding se queda, porque el número del checkout no está probado y el código es lo que permite sumarlo al grupo. Al dar el alta se guarda `cuenta.whatsapp_del_pago` (`CLAVE_WHATSAPP_DEL_PAGO`, lib/origen-cuenta.ts): la tarjeta arranca con él y un toque manda el código. Nada le escribe antes. El que vale es el escrito en ESA compra (`cobros.origen.whatsapp`) y, si dejó el campo vacío, el de su ficha.
+
+**Medido: `/planes` ya cobra (31/10, GET anónimo).** La plataforma pasó de no tener pasarela (30/10) a ofrecer Mercado Pago real en pesos: «$ 73.555 ARS por mes». Lo que se escribió el 30/10 sobre «no tiene ninguna pasarela» ya no vale, y ningún POST de prueba se hace sin el sí de Martín.
+
+**Sin hacer:** el número del checkout no se muestra en el aviso de «Entró un pago», sólo el link a la ficha (lib/cobros.ts, `avisarPagoRecibido`). Una lada elegida mal por el país de la IP con un número local no se detecta: lo escrito tiene longitud válida. La pantalla se vio sólo en el banco (app/planes/[plan]/CompraPlan.tsx); en producción, después del deploy.

@@ -1,5 +1,5 @@
 // =============================================================================
-// /planes/<plan> — nombre, email y a pagar (el checkout público de un plan de MaKo)
+// /planes/<plan> — nombre, email, WhatsApp y a pagar (el checkout público de un plan de MaKo)
 // =============================================================================
 // El formulario es ./CompraPlan.tsx y postea a /api/planes/comprar (lib/compra-plan.ts), que devuelve el link
 // /pagar/<token>. Al pagarse, el alta automática crea la cuenta y manda el mail de bienvenida (lib/cobros.ts).
@@ -21,6 +21,7 @@ import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
 import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
+import { ladaDelPais } from '@/lib/paises';
 import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
 import { QuieroPlan } from './QuieroPlan';
@@ -56,9 +57,10 @@ export default async function PlanPage({ params, searchParams }: {
   }
   // Una pasarela en modo prueba sólo la ve el super admin (la prueba de humo): lib/compra-plan.ts, `ofertaDelPlan`. Mercado
   // Pago sólo a quien está en su país (27/10/2026: a una clienta de México le rechazó el pago); afuera, Stripe.
+  const pais = paisDelVisitante((await headers()).get('x-vercel-ip-country'));
   const oferta = await ofertaDelPlan(id, {
     conPrueba: (await getSesionAdmin().catch(() => null)) != null,
-    pais: paisDelVisitante((await headers()).get('x-vercel-ip-country')),
+    pais,
   });
   if (!oferta) notFound();
   const { plan, pasarelas } = oferta;
@@ -84,7 +86,7 @@ export default async function PlanPage({ params, searchParams }: {
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1' || !PRUEBA_GRATIS_PRENDIDA} promo={conPromo} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1' || !PRUEBA_GRATIS_PRENDIDA} promo={conPromo} ladaInicial={ladaDelPais(pais)} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

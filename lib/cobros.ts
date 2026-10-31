@@ -63,7 +63,7 @@ import {
 import { urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
 import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
-import { guardarOrigenDeAlta } from './origen-cuenta-server';
+import { guardarOrigenDeAlta, guardarWhatsappDelPago } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
 import { PRUEBA_DIAS } from './planes-mako';
@@ -1062,6 +1062,7 @@ async function asentarAlta(c: Cobro, plataforma: number, cuenta: { id: number; n
   // El ORIGEN de la cuenta (de qué landing / funnel de MaKo vino) para su onboarding: lib/origen-cuenta.ts.
   // Accesorio: la cuenta ya existe.
   try { await guardarOrigenDeAlta(cuenta.id, c.lead_id, c.id); } catch (e) { console.error(`[cobros] origen de la cuenta ${cuenta.id}: ${e instanceof Error ? e.message : String(e)}`); }
+  try { await guardarWhatsappDelPago(cuenta.id, c.lead_id, c.id); } catch (e) { console.error(`[cobros] WhatsApp de la cuenta ${cuenta.id}: ${e instanceof Error ? e.message : String(e)}`); }
 }
 
 /**

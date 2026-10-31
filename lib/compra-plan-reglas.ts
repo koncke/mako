@@ -90,8 +90,13 @@ export function diagnosticoEnTexto(d: readonly RespuestaDePuerta[]): string {
 
 export type PedidoCompra = {
   plan: string; nombre: string; email: string; pasarela: Pasarela | null; origen: OrigenCompra | null; ref: string | null;
-  /** El WhatsApp (sólo dígitos), para el pedido sin pasarela: por ahí se le da de alta. */
+  /**
+   * El WhatsApp (sólo dígitos). En el pedido sin pasarela es obligatorio: por ahí se le da de alta. En la compra se pide y no frena el
+   * pago (31/10/2026, Martín: «que le pida también el whatsapp»): vacío, compra igual. `whatsappEscritoMal`: escribió algo que no
+   * puede ser un número; se le dice, como a un código de referido mal escrito, y dejarlo vacío sigue.
+   */
   whatsapp: string | null;
+  whatsappEscritoMal?: boolean;
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
   /** El diagnóstico de la puerta (sólo lo manda el pedido del Acelerador). Incompleto = null: el pedido entra igual. */
@@ -118,6 +123,9 @@ export type PedidoCompra = {
 
 /** Lo que se le dice a quien escribe un código de referido que no es de ningún partner. */
 export const TEXTO_CODIGO_NO_EXISTE = 'Ese código de referido no existe. Revísalo, o deja el campo vacío para seguir.';
+
+/** Lo que se le dice a quien escribe un WhatsApp que no puede ser un número. Nunca frena la compra: vacío, sigue. */
+export const TEXTO_WHATSAPP_MAL = 'Ese WhatsApp no parece completo. Revísalo, o deja el campo vacío para seguir.';
 
 /**
  * Qué código de partner vale en una compra: el que ESCRIBIÓ en el carrito; si no escribió ninguno, el de la cookie de
@@ -170,6 +178,7 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     ok: true,
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
+      whatsappEscritoMal: typeof b.whatsapp === 'string' && b.whatsapp.trim() !== '' && !whatsapp,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
       promo: b.promo === true, sinPromo: b.sinPromo === true,
       codigoEscrito: codigoRefLimpio(b.codigo),
@@ -258,7 +267,7 @@ export function bajadaDePlanes(algunoCobrable: boolean, prueba: boolean = PRUEBA
 }
 
 /**
- * El WhatsApp del pedido sin pasarela: sólo dígitos (con el código de país), de 8 a 15 (E.164). null = no sirve. No se
+ * El WhatsApp del pedido: sólo dígitos (con el código de país), de 8 a 15 (E.164). null = no sirve. No se
  * inventa el país: lo que la persona no escribió no se agrega.
  */
 export function whatsappLimpio(v: unknown): string | null {
@@ -267,11 +276,17 @@ export function whatsappLimpio(v: unknown): string | null {
 }
 
 /**
- * ¿De estos parecidos, cuál ES el comprador? (30/10/2026) El mismo email, teléfono o Instagram, sí. Por nombre sólo si es UNO y no tiene
- * email: lo cargó alguien a mano antes de que comprara. Con otro email es un homónimo, y la compra no se le ata a otra persona.
+ * ¿De estos parecidos, cuál ES el comprador? (30/10/2026) El mismo email, sí. El mismo teléfono o Instagram, si esa ficha no tiene otro email.
+ * Por nombre sólo si es UNO y no tiene email: lo cargó alguien a mano antes de que comprara. Con otro email es un homónimo, y la compra no
+ * se le ata a otra persona.
+ *
+ * ⚠️ OTRO EMAIL Y EL MISMO NÚMERO (31/10/2026): con el WhatsApp en el checkout, ese número lo escribe cualquiera en un formulario público. Atarle
+ * la compra a esa ficha la marca Ganado y le pisa la cuenta (`asentarAlta`): un dígito mal, o el dueño que compra para su segundo negocio.
+ * Se crea otra ficha, que se funde después si eran la misma persona.
  */
-export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: string; lead: { id: number; email?: string | null } }>): number | null {
-  const fuerte = coincidencias.find((c) => c.motivo !== 'nombre');
+export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: string; lead: { id: number; email?: string | null } }>, email: string): number | null {
+  const sinOtroEmail = (x: string | null | undefined) => !x?.trim() || x.trim().toLowerCase() === email.trim().toLowerCase();
+  const fuerte = coincidencias.find((c) => c.motivo === 'email' || (c.motivo !== 'nombre' && sinOtroEmail(c.lead.email)));
   if (fuerte) return fuerte.lead.id;
   return coincidencias.length === 1 && !coincidencias[0].lead.email?.trim() ? coincidencias[0].lead.id : null;
 }

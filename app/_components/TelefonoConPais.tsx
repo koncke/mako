@@ -59,7 +59,7 @@ function opcionesPorLada() {
 
 export function TelefonoConPais({
   lada, numero, onLada, onNumero, onEnter, inputStyle, placeholder = '223 355 0684',
-  portalTo, anchoLada = 128, autoFocus, estiloLada,
+  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete,
 }: {
   lada: string;
   numero: string;
@@ -74,6 +74,8 @@ export function TelefonoConPais({
   autoFocus?: boolean;
   /** La cara del selector de país (el `buttonStyle` del Dropdown): en Settings, del alto de sus campos (SELECT_AJUSTES). */
   estiloLada?: CSSProperties;
+  /** El del campo del número: «tel» en un formulario público, para que el navegador lo complete. */
+  autoComplete?: string;
 }) {
   const opciones = useMemo(opcionesPorLada, []);
 
@@ -104,6 +106,7 @@ export function TelefonoConPais({
         value={numero}
         placeholder={placeholder}
         inputMode="tel"
+        autoComplete={autoComplete}
         autoFocus={autoFocus}
         aria-label="Número sin el código de país"
         // Se dejan espacios y guiones para que pueda escribirlo como lo lee; los
