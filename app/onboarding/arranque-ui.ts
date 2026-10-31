@@ -61,6 +61,7 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
     case 'origen': return 'Cómo llegaste';
     case 'objetivo': return 'Tu objetivo';
     case 'que_hace': return 'A qué se dedica';
+    case 'telefono': return 'Tu WhatsApp, con el código de país';
     case 'codigo': return 'El código de 6 dígitos';
     // Las preguntas con opciones también se contestan escribiendo (20/10/2026, Florencia: no sabía que podía).
     case 'fase': case 'interes': return 'Elige una opción o escríbelo con tus palabras';
@@ -79,5 +80,5 @@ export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' =
   // este lado no es el de la pregunta, la respuesta optimista se dibuja arriba, fuera de la vista, y abajo sólo salen
   // los puntitos (Martín, punto 11). tests/onboarding-respuesta-visible.test.ts recorre todas las etapas.
   if (etapa === 'fase' || etapa === 'origen' || etapa === 'interes') return modo === 'oferta' ? 'despues' : 'antes';
-  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
+  return etapa === 'telefono' || etapa === 'codigo' || etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }

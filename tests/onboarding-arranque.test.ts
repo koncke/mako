@@ -69,7 +69,7 @@ const bloque = (src: string, desde: string, hasta: string) => {
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Martín Koncke', nombreWorkspace: 'Negocio que Escala', faseGuardada: false,
-  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: false, terminado: false,
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
 // Con las dos del final ya contestadas (desde el 18/10 van antes del teléfono): así las etapas de en medio se ven solas.
@@ -77,7 +77,7 @@ const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: f
 const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Negocio que Escala', origen: 'Instagram', interes: 'ventas', pdfOk: 'si' };
 
 // ── La etapa ────────────────────────────────────────────────────────────────
-test('modo oferta: quién es → lo que vende → la fase → el CRM → el teléfono → cierra, sin esperar ninguna oferta', () => {
+test('modo oferta: quién es → lo que vende → la fase → el CRM → cierra, sin esperar ninguna oferta (el WhatsApp, antes de todo: tests/onboarding-whatsapp-primero.test.ts)', () => {
   assert.equal(etapaDeArranque({}, H), 'nombre');
   assert.equal(etapaDeArranque({ nombre: 'M' }, H), 'negocio');
   // Del negocio, directo a lo que vende: sin el objetivo a 90 días (18/10/2026). Las dos del 17/10 van AL FINAL.
@@ -89,14 +89,15 @@ test('modo oferta: quién es → lo que vende → la fase → el CRM → el tel�
   assert.equal(etapaDeArranque(QUIEN, { ...H, loQueVende: true }), 'fase');
   const vende = { ...H, loQueVende: true, faseGuardada: true };
   assert.equal(etapaDeArranque(QUIEN, vende), 'crm');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, vende), 'telefono');
-  // «¿Cómo llegaste?» y «¿Qué resolver primero?»: después del CRM y antes del teléfono.
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada' }, vende), 'cierre');
+  // «¿Cómo llegaste?» y «¿Qué resolver primero?»: después del CRM.
   assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada' }, vende), 'origen');
   assert.equal(etapaDeArranque({ nombre: 'M', negocio: 'N', crmTipo: 'llamada', origen: 'Instagram' }, vende), 'interes');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, vende), 'codigo');
+  const conTel = { ...vende, conTelefono: true };
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'codigo' }, conTel), 'codigo');
   // Ya no hay una etapa que espere la oferta armada: el análisis es de la tab Offer.
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, vende), 'cierre');
-  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'verificado' }, vende), 'cierre');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'postergado' }, conTel), 'cierre');
+  assert.equal(etapaDeArranque({ ...QUIEN, crmTipo: 'llamada', telefono: 'verificado' }, conTel), 'cierre');
   assert.equal(etapaDeArranque({}, { ...H, terminado: true }), 'listo');
 });
 
@@ -185,12 +186,13 @@ test('las respuestas: texto libre, una opción, el código y «ahora no»', () =
   const verOtros = mensajesDeArranque(QUIEN, h).despues.find((m) => m.id === 'arr-crm')!.opciones!.indexOf(VER_OTROS_TIPOS);
   assert.deepEqual(leerRespuesta(QUIEN, h, { opcion: verOtros }), { ok: true, patch: { crmVerTodos: true } });
   assert.equal(leerRespuesta(QUIEN, h, { texto: 'cualquier cosa' }).ok, false, 'el CRM se elige, no se escribe');
+  const conTel = { ...h, conTelefono: true };
   const tel = { ...QUIEN, crmTipo: 'llamada' as const };
-  assert.deepEqual(leerRespuesta(tel, h, { opcion: 0 }), { ok: true, patch: { telefono: 'postergado' } });
-  assert.equal(mensajesDeArranque(tel, h).despues.find((m) => m.id === 'arr-telefono')?.opciones?.[0], AHORA_NO);
+  assert.deepEqual(leerRespuesta(tel, conTel, { opcion: 0 }), { ok: true, patch: { telefono: 'postergado' } });
+  assert.equal(mensajesDeArranque(tel, conTel).antes.find((m) => m.id === 'arr-telefono')?.opciones?.[0], AHORA_NO);
   const cod = { ...tel, telefono: 'codigo' as const, telefonoNumero: '+5215512345678' };
-  assert.deepEqual(leerRespuesta(cod, h, { opcion: 0 }), { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } });
-  assert.equal(mensajesDeArranque(cod, h).despues.find((m) => m.id === 'arr-codigo')?.opciones?.[0], CAMBIAR_NUMERO);
+  assert.deepEqual(leerRespuesta(cod, conTel, { opcion: 0 }), { ok: true, patch: { telefono: undefined, telefonoNumero: undefined } });
+  assert.equal(mensajesDeArranque(cod, conTel).antes.find((m) => m.id === 'arr-codigo')?.opciones?.[0], CAMBIAR_NUMERO);
 });
 
 test('el diagnóstico del modo plan: el canal va antes del volumen, y al completarlo devuelve las respuestas', () => {
@@ -298,7 +300,7 @@ test('el producto que deja el cierre no lleva un precio inventado, y la oferta n
 });
 
 test('una opción de una pregunta vieja no contesta la de hoy', () => {
-  const h = { ...H, loQueVende: true, faseGuardada: true };
+  const h = { ...H, loQueVende: true, faseGuardada: true, conTelefono: true };
   const tel = { ...QUIEN, crmTipo: 'llamada' as const };
   // La pestaña vieja muestra el CRM («Llamada de venta» es la 0) y el server ya está en el teléfono.
   const r = leerRespuesta(tel, h, { opcion: 0, opcionTexto: 'Llamada de venta' });
@@ -316,7 +318,7 @@ test('un email no se ofrece como nombre, y los reportes van al contacto del nego
   const { antes } = mensajesDeArranque({}, { ...H, nombreCuenta: 'cliente@negocio.com' });
   assert.equal(antes[0].opciones, undefined, 'ofreció un email como «¿Cómo te llamo?»');
   const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
-  const tel = bloque(ruta, "case 'telefono':", "case 'preparar':");
+  const tel = bloque(ruta, 'const pedirCodigo = async', "case 'responder':");
   assert.doesNotMatch(tel, /getUsuarioActual/, 'el email de los reportes volvió a ser el de quien está logueado');
   assert.match(tel, /email: previo\?\.email \|\| perfil\?\.email/);
 });

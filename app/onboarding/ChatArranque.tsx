@@ -62,7 +62,7 @@ async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
 export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: VistaArranque; arbolVacio: ArbolOffer; opcionArmar: string }) {
   const [vista, setVista] = useState<VistaArranque>(inicial);
   // La animación va UNA vez, y sólo al principio de todo (con algo contestado, se entra directo al chat).
-  const [intro, setIntro] = useState(!inicial.introVista && inicial.etapa === 'nombre');
+  const [intro, setIntro] = useState(!inicial.introVista && (inicial.etapa === 'telefono' || inicial.etapa === 'nombre'));
   const [ocupado, setOcupado] = useState(false);
   const [pendiente, setPendiente] = useState<string | null>(null);
   const [aviso, setAvisoRaw] = useState<Aviso | null>(null);

@@ -21,7 +21,7 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Martín Koncke', nombreWorkspace: 'Consultorio Sonrisa', faseGuardada: true,
-  canalNegocio: 'llamadas', loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: 'llamadas', loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const QUIEN: EstadoArranque = { nombre: 'Martín', negocio: 'Consultorio Sonrisa', origen: 'Instagram', interes: 'ventas', pdfOk: 'si' };
 

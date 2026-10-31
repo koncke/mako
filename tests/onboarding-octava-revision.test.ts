@@ -22,7 +22,7 @@ import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'ana@gmail.com', nombreWorkspace: '', faseGuardada: false,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const responder = (e: EstadoArranque, r: Respuesta, h = H) => leerRespuesta(e, h, { ...preguntaQueContesta(mensajesDeArranque(e, h)), ...r });
 

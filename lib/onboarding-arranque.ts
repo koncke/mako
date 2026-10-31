@@ -15,9 +15,9 @@
 // dibuja.
 //
 // DOS MODOS, porque las capas no ven lo mismo (lib/capas.ts):
-//   · 'oferta' (Completo, Agencia): nombre → negocio → objetivo → LO QUE VENDE (la conversación de Offer,
-//     reducida) → el PDF con lo que vende → el diagnóstico de fase (con sus opciones) → el CRM que elige → el
-//     teléfono (o «ahora no») → cierre.
+//   · 'oferta' (Completo, Agencia): el WhatsApp (o «ahora no»; lo primero desde el 30/10) → nombre → negocio → LO QUE
+//     VENDE (la conversación de Offer, reducida) → el PDF con lo que vende → el diagnóstico de fase (con sus opciones) →
+//     el CRM que elige → cierre.
 //   · 'plan' (Project Manager: no ve Offer ni el CRM): nombre → negocio → objetivo → a qué se dedica → el
 //     diagnóstico de fase (las preguntas originales, con sus opciones) → cierre con el plan de arranque.
 //
@@ -196,6 +196,23 @@ export const cortar = (s: string, n: number): string => { const a = Array.from(s
  * a preguntar de la nada»).
  */
 export const SALUDO_ARRANQUE = '¡Hola! Soy MaKo. Para dejar tu cuenta lista necesito conocer tu negocio: son unas preguntas rápidas, menos de 5 minutos. Para empezar, ¿cómo te llamas?';
+/** EL WHATSAPP, LO PRIMERO (30/10/2026, estrategia de lanzamiento): quien compró ya pagó, y sin su número nadie puede escribirle. */
+export const PREGUNTA_TELEFONO = '¡Hola! Soy MaKo. ¿A qué WhatsApp te escribo con los avisos y los reportes?';
+/** El saludo cuando ya saludó con la pregunta del WhatsApp. */
+export const SALUDO_TRAS_TELEFONO = 'Para dejar tu cuenta lista necesito conocer tu negocio: son unas preguntas rápidas, menos de 5 minutos. Para empezar, ¿cómo te llamas?';
+export const PIDE_TELEFONO = 'Escribe tu WhatsApp con el código de país (como +52…), o toca «Ahora no».';
+/**
+ * El WhatsApp escrito en la caja del chat y no en la tarjeta (31/10/2026: es lo primero que ve quien pagó, y escribirlo ahí
+ * contestaba «Ahora no estoy esperando eso»). Sin la tarjeta no hay lada: hace falta el país, con «+» o con el número largo.
+ * Un número local («1155551234») no se adivina. Devuelve los dígitos, o null.
+ */
+export function telefonoEscrito(texto: string): string | null {
+  const t = (texto || '').trim();
+  if (!/^\+?[\d\s().-]+$/.test(t)) return null;
+  const digitos = t.replace(/\D/g, '');
+  if (digitos.length > 15 || digitos.startsWith('0')) return null;
+  return digitos.length >= (t.startsWith('+') ? 8 : 11) ? digitos : null;
+}
 
 /** El PDF de lo que vende, con su confirmación (18/10/2026). */
 export const PDF_PREGUNTA = 'Perfecto: ya tengo claro qué vendes. Te armé un PDF con tu oferta, ¿está correcto?';
@@ -934,11 +951,15 @@ export function conFaseDeOffer(e: EstadoArranque, h: Pick<HechosArranque, 'faseO
  */
 export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArranque {
   if (h.terminado) return 'listo';
+  // Lo primero. El código por WhatsApp va con él: recién con el número probado MaKo lo suma a su grupo (auditoría del 14/10).
+  if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
+    return e.telefono === 'codigo' ? 'codigo' : 'telefono';
+  }
   if (!e.nombre) return 'nombre';
   if (!e.negocio) return 'negocio';
   // Sin el objetivo a 90 días (18/10/2026, Martín: «eliminar "Y en los próximos 90 días, ¿qué quieres lograr?"»): del
   // negocio se pasa directo a lo que vende. Una conversación de antes que lo contestó lo guarda (va al brief), pero ya
-  // no se dibuja ni se pregunta. Y «¿Cómo llegaste?» y «¿Qué resolver primero?» van AL FINAL, antes del teléfono.
+  // no se dibuja ni se pregunta. Y «¿Cómo llegaste?» y «¿Qué resolver primero?» van AL FINAL.
   if (h.modo === 'plan') {
     if (!e.queHace) return 'que_hace';
     if (!h.faseGuardada) return 'fase';
@@ -956,9 +977,6 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   }
   if (!e.origen) return 'origen';
   if (h.modo === 'oferta' && !e.interes) return 'interes';
-  if (h.conTelefono && e.telefono !== 'verificado' && e.telefono !== 'postergado') {
-    return e.telefono === 'codigo' ? 'codigo' : 'telefono';
-  }
   return 'cierre';
 }
 
@@ -986,8 +1004,12 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   // El 20/10 volvió el nombre del alta como botón y el Cerebro lo retiró esa noche: el pedido de Martín es literal y
   // también lo cubre. tests/onboarding-preguntas.test.ts y tests/onboarding-nombre-negocio.test.ts.
   // El nombre que va al perfil se confirma antes (quinta revisión, 21/10): «¿Te llamo «Ana»?».
+  if (h.conTelefono) {
+    antes.push(...mensajesDelTelefono(e, etapa));
+    if (etapa === 'telefono' || etapa === 'codigo') return { antes, despues };
+  }
   const nombrePendiente = !e.nombre ? e.nombrePorConfirmar : undefined;
-  preguntar(antes, 'nombre', SALUDO_ARRANQUE, e.nombre ?? nombrePendiente?.escrito);
+  preguntar(antes, 'nombre', h.conTelefono ? SALUDO_TRAS_TELEFONO : SALUDO_ARRANQUE, e.nombre ?? nombrePendiente?.escrito);
   if (nombrePendiente) preguntar(antes, 'nombre-ok', `¿Te llamo «${nombrePendiente.nombre}»?`, undefined, [...NOMBRE_CONFIRMAR]);
   if (etapa === 'nombre') return { antes, despues };
   // Lo escrito se CONFIRMA antes de escribirlo (20/10/2026, Florencia): la confirmación sí lleva «Sí» / «No».
@@ -996,7 +1018,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   if (pendiente) preguntar(antes, 'negocio-ok', `¿Tu negocio se llama «${pendiente.nombre}»?`, undefined, [...NEGOCIO_CONFIRMAR]);
   if (etapa === 'negocio') return { antes, despues };
 
-  // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del teléfono y del cierre.
+  // Las dos del 17/10 (`ORIGENES`, `INTERESES`), AL FINAL desde el 18/10 (Martín): antes del cierre.
   const finales = (lista: MensajeArranque[]): boolean => {
     // Sin «Antes de terminar» ni «Última cosa» (18/10/2026, Martín: «no me puede estar diciendo "Antes de terminar"...
     // cada rato»): cada pregunta va directa y el cierre se dice una vez, al final (tests/onboarding-sin-anuncios.test.ts).
@@ -1017,7 +1039,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     if (etapa === 'que_hace') return { antes, despues };
     if (preguntarFase(antes, e, preguntar)) return { antes, despues };
     if (finales(antes)) return { antes, despues };
-    return { antes, despues: cierre(e, h, etapa, nombre) };
+    return { antes, despues: cierre(etapa, nombre) };
   }
 
   // 2b. Modo 'oferta': el pase a la conversación de lo que vende (sus mensajes los dibuja Offer).
@@ -1072,7 +1094,7 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
   }
 
   if (finales(despues)) return { antes, despues };
-  despues.push(...cierre(e, h, etapa, nombre));
+  despues.push(...cierre(etapa, nombre));
   return { antes, despues };
 }
 
@@ -1103,20 +1125,24 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
   return false;
 }
 
-/** El teléfono y el cierre (los dos modos). */
-function cierre(e: EstadoArranque, h: HechosArranque, etapa: EtapaArranque, nombre: string): MensajeArranque[] {
+/** El WhatsApp y su código: lo primero de la conversación (30/10/2026; hasta ese día, lo último antes del cierre). */
+function mensajesDelTelefono(e: EstadoArranque, etapa: EtapaArranque): MensajeArranque[] {
   const out: MensajeArranque[] = [];
-  if (h.conTelefono) {
-    out.push({ id: 'arr-telefono', de: 'mako', texto: '¿A qué WhatsApp te escribo con los avisos y los reportes?', ...(etapa === 'telefono' ? { opciones: [AHORA_NO], tarjeta: 'telefono' as const } : {}) });
-    if (e.telefono === 'postergado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: AHORA_NO });
-    else if (e.telefono === 'codigo' || e.telefono === 'verificado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: e.telefonoNumero || 'Mi WhatsApp' });
-    if (etapa === 'telefono') return out;
-    if (e.telefono === 'codigo' || e.telefono === 'verificado') {
-      out.push({ id: 'arr-codigo', de: 'mako', texto: `Te mandé un código de 6 dígitos por WhatsApp${e.telefonoNumero ? ` al ${e.telefonoNumero}` : ''}. Escríbelo aquí.`, ...(etapa === 'codigo' ? { opciones: [CAMBIAR_NUMERO, AHORA_NO] } : {}) });
-      if (etapa === 'codigo') return out;
-      if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: CODIGO_CARGADO });
-    }
+  out.push({ id: 'arr-telefono', de: 'mako', texto: PREGUNTA_TELEFONO, ...(etapa === 'telefono' ? { opciones: [AHORA_NO], tarjeta: 'telefono' as const } : {}) });
+  if (e.telefono === 'postergado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: AHORA_NO });
+  else if (e.telefono === 'codigo' || e.telefono === 'verificado') out.push({ id: 'arr-telefono-r', de: 'yo', texto: e.telefonoNumero || 'Mi WhatsApp' });
+  if (etapa === 'telefono') return out;
+  if (e.telefono === 'codigo' || e.telefono === 'verificado') {
+    out.push({ id: 'arr-codigo', de: 'mako', texto: `Te mandé un código de 6 dígitos por WhatsApp${e.telefonoNumero ? ` al ${e.telefonoNumero}` : ''}. Escríbelo aquí.`, ...(etapa === 'codigo' ? { opciones: [CAMBIAR_NUMERO, AHORA_NO] } : {}) });
+    if (etapa === 'codigo') return out;
+    if (e.telefono === 'verificado') out.push({ id: 'arr-codigo-r', de: 'yo', texto: CODIGO_CARGADO });
   }
+  return out;
+}
+
+/** El cierre (los dos modos). */
+function cierre(etapa: EtapaArranque, nombre: string): MensajeArranque[] {
+  const out: MensajeArranque[] = [];
   if (etapa === 'listo') {
     out.push({ id: 'arr-listo', de: 'mako', texto: `¡Listo${nombre ? `, ${nombre}` : ''}! Tu MaKo ya está armado.`, tarjeta: 'listo' });
   }
@@ -1362,7 +1388,10 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     if (opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
     return { ok: false, error: 'Escribe el código de 6 dígitos.' };
   }
-  if (etapa === 'telefono' && opcion === AHORA_NO) return { ok: true, patch: { telefono: 'postergado' } };
+  if (etapa === 'telefono') {
+    if (normal(texto).trim() === normal(AHORA_NO)) return { ok: true, patch: { telefono: 'postergado' } };
+    return { ok: false, error: PIDE_TELEFONO };
+  }
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
     if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta).tipos[0].id } };

@@ -20,7 +20,7 @@ import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Ayelen', nombreWorkspace: 'Cliente de Prueba', faseGuardada: false,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const E: EstadoArranque = { nombre: 'Ayelen', negocio: 'Consultesis' };
 /** Como la pantalla: con la pregunta que contesta. */
