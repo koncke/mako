@@ -24,7 +24,7 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Simón Pérez', nombreWorkspace: '', faseGuardada: false,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const CON_EMAIL: HechosArranque = { ...H, nombreCuenta: 'ana@gmail.com' };
 const E: EstadoArranque = { nombre: 'Simón', negocio: 'Acme' };

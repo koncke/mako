@@ -1,3 +1,100 @@
+# Lo pendiente — capa del 31/10/2026 (LA MÁS NUEVA, y el registro vivo)
+
+<sub>Lo de abajo (24/10 y 17/10) **puede estar hecho**: esta noche se repartieron seis cosas que ya estaban
+terminadas porque nadie las había tachado. **Antes de implementar cualquier punto de este archivo, medílo contra el
+código.** Y si hay un pedido POSTERIOR de Martín que lo contradiga, **manda el posterior**.</sub>
+
+<sub>Martín, 31/10: «Intenta que no se te olvide nada de nada… tu eres el encargado de que no se te olvide nada».
+Este bloque es ese registro. **Cruza tres fuentes**: `pendientes-30-10.md` (el cierre de la cuenta claude3, con la
+llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</sub>
+
+## ⏰ CON FECHA — esto es lo único que no se puede correr
+
+| Cuándo | Qué | Estado |
+|---|---|---|
+| **Lunes 2/11, 12 h (hora de Leila)** | Reunión con Leila. Martín le prometió **los errores resueltos antes** (4.3) para que empiece los tutoriales | Carruseles y el horario de automatizaciones: en el tren. **El segundo nombre: recién arrancado** |
+| **Jueves 5/11, 17 h** | Reunión con Thiago | Las 3 fallas de Agency: **en el tren** |
+| **Black November** (arranca ya) | La campaña de Leila a toda su base | **Bloqueada por el segundo nombre** |
+
+## 🔴 Lo que bloquea una campaña de un cliente — EN MARCHA (CRM, 31/10)
+
+Del `pendientes-30-10.md`, sección 5. Todo esto es de **Leila para Black November**:
+
+- **El segundo nombre** (2.1 · 4.5 · 5.4, **ALTA**). Sus contactos son «[país] Nombre Apellido» («MX Nadia Calderón»),
+  así que hoy el saludo sale **«Hola MX»**. Hace falta elegir primer, segundo, tercer nombre o completo. ⚠️ **Si no se
+  puede determinar, no se inventa**: mejor sin nombre que «Hola Kun».
+- **Segmentar en tres ramas** (5.2): no hicieron la Academia / sí la hicieron / dueños de negocio.
+- **Importar su CRM exportado** de la academia (5.3) — no quiere rehacerlo adentro.
+- **Variantes de mensaje con arranque gradual** (5.8). La lección del número de Mauricio bloqueado 24 h: ~60 mensajes
+  idénticos. Con Automations.
+- **Métricas clicables** (5.11 / 2.3): que «respondieron 8» muestre quiénes.
+- **Ver el nombre como lo agendó ella o como se llama él** (2.2 / 5.5).
+- ⚠️ **La lógica del embudo (5.6) NO es código**: Leila necesita que Martín la ayude a definir condiciones y etiquetas.
+
+## 🟡 En marcha ahora, con dueño (31/10 madrugada)
+
+| Qué | Quién | Estado |
+|---|---|---|
+| El segundo nombre y Black November | CRM | recién arrancado |
+| El WhatsApp en el checkout, junto al nombre y el email | Planes (con Ops Center) | Martín lo pidió el 31/10 y **revierte** mi decisión de pedirlo después de pagar |
+| La pasarela **Creem** (tercera pasarela, LatAm y USD) | nube | la clave de producción ya está y **funciona**; falta el secreto del webhook |
+| **Competitors Spy**: plan y qué repo copiar | nube | arrancado |
+| **El diseño de los dashboards aplicado** (las 8 piezas del Dashboard) | nube | arrancado |
+| El tope del chequeo y por qué 1.028 archivos no ejecutaban | nube | **cerrado**, en el tren |
+
+## 🟢 En el tren, esperando producción (164 commits, `integracion`)
+
+Carruseles (el chat recuerda, pone fotos, arma todas las páginas) · el cartel del Media Buyer que mentía · los datos
+personales de 82 personas · el acceso de Agency con dos dueños y la baja que no se podía terminar · el scraper con
+aviso y confirmación · el homónimo que impedía comprar · los 6 meses avisando 14 días antes · el clic derecho · el
+Video Generator · el 50% del primer mes (apagado hasta que el cobro descuente) · la prueba gratis apagable · Settings ·
+la herramienta del push que decía «rojo» cuando no podía chequear.
+
+## ⚪ SIN DUEÑO todavía — lo que falta construir
+
+1. **Knowledge** (el conocimiento de los cursos para toda MaKo, modular como el Second Brain). *«El análisis quedó
+   pausado; no hay plan ni nada construido.»* **Sin empezar.**
+2. **Lead Magnet Generator** y **las tendencias del nicho**. Hay relevamiento, falta el plan.
+3. **MaKo toma la iniciativa, completo**: el primer ingreso (bienvenida, cargar la oferta, elegir funnel) y las
+   aperturas tab por tab — Offer, Create, CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image,
+   Classroom, AI Avatar y Mobile.
+4. **Plantillas con estructura y «Ver ejemplo»** en todas las tabs (está sólo en Copywriter), **privadas o públicas, con
+   estrellas** (2.5 · 2.6 · 3.7 · 4.8).
+5. **Los patrones de email del Gmail** (70 remitentes, ~5.050 emails) usados de verdad en Copywriter, Newsletter,
+   recordatorios y WhatsApp.
+6. **Video Editor**: la cabecera, Motion, **subtítulos con resaltado y presets por marca** (1.14 · 2.7), **edición
+   automática con B-roll tipo Submagic** (2.15 · 4.9) y **clips mágicos tipo Opus Clip** (2.8).
+7. **El recorrido visual**: 8 de 22 pantallas miradas, 22 problemas sin repartir, 14 pantallas sin mirar.
+8. **Lo de la llamada con Thiago que no existe** (`docs/promesas/2910-llamada-thiago.md`).
+9. **Image Editor sin Gemini** (decidido el 22/10, sigue por defecto).
+10. **Brand board en el Second Brain** (2.9): que MaKo lo pida y lo use en los editores. **De esto depende que los
+    carruseles apliquen la marca completa (1.3).**
+11. **Elementos de marketing en las landings** (2.10, «súper importante»): cuenta regresiva, prueba social, escasez.
+12. **Botones Discutir / Editar siempre** en el chat de edición (2.12 · 4.12).
+13. **Carruseles también en Web Generator** (2.14 · 3.9 · 4.10).
+14. **Strategy / el Estratega** (3.3): hoy sólo Meta Ads.
+15. **Guía de IA por pestaña** (3.6 · 4.17) · **QA automático con Claude** (3.8 · 4.11).
+16. **Conectar GPT desde la computadora** (1.12 · 4.13).
+
+## 🔵 Volvió con fallas — lo retoma quien lo tenga
+
+- **Calendario y Classroom**: 4 fallas en Clientes, una de privacidad. Detrás espera el botón de MaKo que tapa
+  contenido en Calendario, Plan, CRM y Dashboard.
+- **Newsletter**: cualquier admin entra a la tab y a su API; doble envío en «Enviar ahora»; lo programado sale vencido.
+  Hoy sin riesgo porque nadie tiene el email prendido.
+
+## 🟣 Lo que es de Martín (nadie más puede)
+
+- **El secreto del webhook de Mercado Pago** y **el de Creem** (sin eso, un pago aprobado no se asienta).
+- **Cada cuánto se actualiza el precio en pesos** (hoy $73.555 y $151.805, al blue del 31/10).
+- **Si les avisa a Código Inmobiliario y P2P Consulting** por los datos de sus leads.
+- **En qué landing vio los placeholders tapados** (el único de sus 24 puntos que nadie pudo reproducir).
+- **Probar un pago real** antes de publicar anuncios.
+- **La lógica del embudo de Black November** con Leila.
+- **Extraer un grupo** con el scraper en su Chrome, para confirmar la vuelta a MaKo.
+- Generar un look real del AI Avatar · mandarle a Thiago la grabación · el clic de la prueba de Zernio · decidir
+  LinkedIn · **la política de reembolso** (al apagar la prueba gratis, la ley argentina da 10 días de arrepentimiento).
+
 # Lo que quedó pendiente — capa del 24/10/2026 (la más nueva)
 
 <sub>Abajo sigue la foto del 17/10, que no se tocó. **Esta capa es la que vale hoy**: lo de abajo puede estar hecho.
@@ -9,9 +106,9 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 | # | Qué | Por qué traba |
 |---|---|---|
-| M1 | **La sesión de MaKo en el navegador de la app** (`Ctrl+Shift+B` → «Continuar con Google») | **Tres chats parados.** Sin sesión no se verifica nada en pantalla y el login es suyo |
-| M3 | **Aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea. **Stripe no es opción: Argentina no es país habilitado** |
+| M3 | **URGENTE: aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea: medido el 30/10 en producción, /planes/esencial dice «Todavía no cobramos en línea» y sólo deja dejar los datos. **Stripe no es opción: Argentina no es país habilitado** |
 | M5 | **Mauricio:** el redirect del Payment Link con `{CHECKOUT_SESSION_ID}` | Su página de venta ya está restaurada; falta eso |
+| M6 | **La foto del buscador de Instagram** (Mauricio y la plataforma): vincular el Instagram de MaKo a su página y sumar `instagram_basic` al token. Y para cuentas personales, decidir si se usa la extensión con la sesión de la persona | Gratis, sólo cuentas de empresa o creador, y anda con la rama `crm-instagram-3010` subida. Lo de las personales es un endpoint no oficial, con MaKo en App Review. Detalle: docs/hallazgos-crm.md, en esa rama |
 
 ## Sin hacer, con dueño
 
@@ -20,8 +117,9 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 | ⚠️ A0 | **Un lead borrado se lleva en cascada sus envíos, y quién lo borró no quedó registrado.** Cualquier cosa que le haya pasado a un lead borrado es irreconstruible, y no sabemos quién borra. Es un agujero de trazabilidad, no un bug de automatizaciones: 4.457 filas de historial de leads que ya no existen, y la papelera en 0 en todos los negocios (a los 30 días se purga, y dos caminos no pasan por ella). | `docs/hallazgos-crm.md` (arriba); `lib/leads-papelera.ts`, `lib/leads-unificar.ts:190`, `lib/zernio-entrante.ts:235` | Automations, 30/10 |
 | ⚠️ A1 | **Un mensaje de IA más adelante en el flujo puede quedar para aprobar sin que lo diga: el aviso mira sólo el primero.** El aviso al activar vuelve a decir algo que no es exacto, un paso más adentro. | `lib/ritmo-al-activar.ts` (`primeroQuedaParaAprobar`); la regla de todo el flujo ya está en `dejaBorradores`, lib/mensajes-por-aprobar.ts | Automations, 30/10 |
 | P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center) y las opciones que no se tocan en el teléfono → Ops Center; tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
+| P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center), arreglado el 25/10 (`enMemoria`, `ERROR_SUBIDA`; causa la más probable, no se vio pasar: si vuelve, el aviso dice cuál de las tres fue); las opciones que no se tocan en el teléfono, CERRADAS el 24/10 (era un AskUserQuestion, docs/hallazgos-operaciones.md); tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
 | P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
-| P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
+| P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones): rehecho el 25-26/10 con el molde de Linear (docs/relevo/settings.md). Falta mirarlo en producción, con la sesión de Martín | Ops Center | 20 puntos, #9 |
 | P5 | **El clic derecho en los 11 chats embebidos y en el lienzo del editor.** Es UNA pieza (`HiloMako`), no once: relevo escrito, sin implementar | Landings | editor web, #2 |
 | P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario. **El código está cerrado (30/10, rama `nube/pii-vsl-events`)**: la entrada pasa por una lista BLANCA (`PARAMS_QUE_SE_GUARDAN`, lib/url-datos-personales.ts) —la lista negra del 24/10 dejaba pasar el `attendeeName` de Cal.com— y lo ya guardado lo limpia la migración `0357_urls_sin_datos_personales.sql`, ensayada en seco contra producción (665 filas cambian, 0 quedan con datos). **Faltan dos cosas, las dos de decisión:** (a) **aplicar la 0357** en producción (la aplica el Cerebro, DESPUÉS del deploy); (b) **avisarle o no a la agencia**: lo decide Martín, con los datos de la medición en docs/hallazgos-landing.md → «El arreglo del 24/10 estaba desplegado y la fuga seguía entrando» | Ventas (apagado) | 6 puntos, #2 |
 | P5 | **Responder con clic derecho en Automations** (acordado aparte). Copiar anda en todos (`HiloMako`), el lienzo tiene su menú y las listas su clic derecho; Responder ya está en el resto (`useCitaDelChat`) | Landings | editor web, #2 |
@@ -50,6 +148,10 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
   probó desde los rangos de Vercel)
 - El **cartel de los mensajes sin entregar** y el **botón del Uso** como super admin (101eaea96, cuando se despliegue), y su **hoja en el teléfono** (`SheetM`), que el arnés
   no monta. Con los 8 mensajes reales: los tickets #5, #6 y #8 y 5 respuestas. Necesita la sesión de Martín: el Chrome disponible está con la de Leandro
+- **Settings en producción, lo que falta:** mirado el 30/10 como super admin, con main `e8b3eb040` (docs/hallazgos-ajustes.md). Falta **«Tu plan»** con un negocio que pague (la plataforma no lo tiene: sólo se vio en el banco), Integraciones y las secciones de negocio en el teléfono, y los arreglos del 30/10, cuando se desplieguen
+- **La flecha de la sidebar con la ventana por debajo de 1200 px y en /admin/operaciones.** /crm, /plan y /automations quedaron verificadas en producción el 30/10
+- **Una cuenta sin computadora conectada:** «Instalar MaKo» en vez de la caja en Automations, Offer, Web Generator, Dashboard y el «Editar con IA» de una sección; «Probar nuevo diseño» no pide nada
+- **Strategy › «Cómo cobrar MaKo»** (/admin/estrategia/cobrar) como super admin, en la app desplegada: si el .md no viajó al deploy, la pantalla dice «No se pudo leer la investigación»
 
 ## Rojos en `main` sin dueño
 
@@ -62,6 +164,8 @@ Los otros dos **ya estaban arreglados cuando se anotaron acá** y se cerraron el
 a las 20:58 y 20:59 — 95 minutos después de esta lista. Verificados en verde sobre `origin/main` (6/0 y 10/0) y probados
 rompiéndolos (5/1 y 9/1): los dos tests tienen dientes. **Antes de tomar un rojo de acá, correlo sobre `origin/main`**
 → `docs/hallazgos-infra.md` → «Dos «rojos en `main` sin dueño» que ya estaban arreglados».
+- `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
+- `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
 
 ---
 

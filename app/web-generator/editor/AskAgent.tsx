@@ -28,9 +28,13 @@
 //    cualquier `overflow` del lienzo.
 // ⚠️ MIENTRAS PIENSA O HAY ALGO PARA REVISAR, UN CLIC AFUERA NO LO CIERRA: se perdería la
 //    respuesta. Ahí se cierra con la ✕ o con Escape (que además corta el pedido).
+// ⚠️ SIN LA APP DE ESCRITORIO NO SE PIDE NADA (30/10/2026; Martín: «En ningun chat, no solo en Ops Center»): era la única caja de
+//    MaKo que quedaba afuera. No es `CajaChat` ni `CajaPedido`, así que el inventario de
+//    tests/app-de-escritorio-todos-los-chats.test.ts no la veía: la nombra aparte. «Probar nuevo diseño» arranca solo, y por eso
+//    espera a saber la respuesta (`useApp`): un pedido que sale antes de saberla no lo corta nadie.
 // =============================================================================
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { useEditorLanding } from './contexto';
@@ -42,6 +46,8 @@ import {
 } from './paneles/PanelAgente';
 import { comoSeccionesNuevas, idDe, tarjetasDelDoc, tituloVisible } from './diff-tarjetas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useApp } from '@/app/_chat/app-de-escritorio';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 export type ModoAskAgent = 'editar' | 'disenos' | 'agregar';
 /** El elemento al que se ancla (el botón ✨), o un rectángulo de la ventana. */
@@ -123,6 +129,9 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
   useLayoutEffect(() => { onCerrarRef.current = onCerrar; });
 
   const capa = useCapaModal(true, { anidada: true });
+  const appEscritorio = useAppDeEscritorio();
+  const app = useApp();
+  const puedePedir = app !== null && app !== 'bloquea';
   const [fase, setFase] = useState<Fase>(modo === 'disenos' ? { f: 'corriendo' } : { f: 'pedir' });
   const [texto, setTexto] = useState('');
   const [traducir, setTraducir] = useState(false);
@@ -152,6 +161,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
 
   // ── Pedidos ──────────────────────────────────────────────────────────────
   const correrEdicion = async (pedido: string, crear: boolean) => {
+    if (appEscritorio.bloqueada) return;
     const original = seccion();
     if (!original) { setFase({ f: 'mensaje', texto: `La ${terminoTarjeta(ctxRef.current.config)} ya no está.`, error: true }); return; }
     if (!pedido.trim()) return;
@@ -170,6 +180,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
   };
 
   const correrDisenos = async () => {
+    if (appEscritorio.bloqueada) return;
     const original = seccion();
     if (!original) { setFase({ f: 'mensaje', texto: `La ${terminoTarjeta(ctxRef.current.config)} ya no está.`, error: true }); return; }
     setFase({ f: 'corriendo' });
@@ -188,7 +199,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
   // `modo: 'disenos'` arranca solo. Una vez: con StrictMode el efecto corre dos veces.
   const arranco = useRef(false);
   useEffect(() => {
-    if (modo !== 'disenos' || arranco.current) return;
+    if (modo !== 'disenos' || !puedePedir || arranco.current) return;
     arranco.current = true;
     void correrDisenos();
     // ⚠️ Y si el componente se desmonta (StrictMode lo hace una vez en dev, y React puede hacerlo
@@ -197,7 +208,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
     // acciones y no corría nunca (medido el 11/10/2026: el pedido salía y volvía cortado en 83 ms).
     return () => { arranco.current = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modo]);
+  }, [modo, puedePedir]);
 
   const elegirOpcion = (op: Opciones, t: JsonNodo) => {
     setFase({ f: 'revisar', estado: 'pendiente', op, propuesta: { paginaId: ctxRef.current.paginaActual, enviadas: [op.original], tarjetas: [t], anclaNuevas: idDe(op.original) } });
@@ -312,7 +323,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
     display: capa.visible ? undefined : 'none',
   };
 
-  return createPortal(
+  const marco = (cuerpo: ReactNode) => createPortal(
     <div ref={cajaRef} className="gma gma-pb gma-ask" style={estilo} role="dialog" aria-label="Pídele algo a MaKo">
       <EstilosPanelesB />
       <EstilosContenido tema={ctx.tema} />
@@ -322,7 +333,17 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
         <span className="gma-ask-donde" title={tituloSeccion}>{modo === 'agregar' ? 'Después de: ' : ''}{tituloSeccion || terminoTarjeta(ctx.config, { mayuscula: true })}</span>
         <button type="button" className="gma-pb-iconbtn" onClick={cerrar} aria-label="Cerrar" title="Cerrar"><Ico n="cerrar" t={14} /></button>
       </div>
+      {cuerpo}
+    </div>,
+    document.body,
+  );
 
+  if (appEscritorio.bloqueo) {
+    return marco(<div className="gma-ask-sinapp"><span>{appEscritorio.bloqueo.frase}</span>{appEscritorio.bloqueo.boton}</div>);
+  }
+
+  return marco(
+    <>
       {(fase.f === 'pedir' || fase.f === 'corriendo' || fase.f === 'mensaje') && (
         <div className="gma-ask-entrada" data-ocupada={ocupado ? '' : undefined}>
           <Ico n="destellos" t={16} />
@@ -413,8 +434,7 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
           onDescartar={descartar}
         />
       )}
-    </div>,
-    document.body,
+    </>,
   );
 }
 
@@ -429,6 +449,7 @@ const CSS_ASK = `
 .gma-ask-entrada[data-ocupada]{background:var(--pb-sup)}
 .gma-ask-input{flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--pb-texto);font:inherit;font-size:14px}
 .gma-ask-input::placeholder{color:var(--pb-suave)}
+.gma-ask-sinapp{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:6px 6px 6px 12px;border-radius:12px;font-size:13.5px;color:var(--pb-tenue);box-shadow:0 0 0 1px var(--pb-borde)}
 .gma-ask-ir{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:none;border:0;border-radius:50%;background:var(--pb-borde);color:var(--pb-fondo);cursor:pointer;transition:background .15s ease}
 .gma-ask-ir[data-listo]{background:var(--pb-vivo);color:#ffffff}
 .gma-ask-ir:disabled{cursor:default}

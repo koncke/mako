@@ -4,6 +4,14 @@
 
 ---
 
+**Lo último, de la tarde del 24/10** (el detalle, más abajo en «El titular, puesto a prueba»):
+
+- **El monotributo tiene techo:** categoría K, ARS 126.610.838,75 al año, unos **US$81.700** al dólar vendedor BNA de 1.550 del 23/10/2026. Cuatro ventas por mes del programa de US$1.500 ya son US$72.000: conviene planificar como responsable inscripto.
+- **Stripe no opera en Argentina.** En América Latina soporta directamente sólo a México y Brasil. La recomendación no lo usa en ningún paso.
+- **El programa de US$1.500 no va por pasarela:** va por llamada de ventas, y se cobra por transferencia o Mercado Pago.
+
+---
+
 Aclaración, una sola vez: esto es un relevamiento de hechos públicos, cada uno con fuente y fecha, hecho para que llegues a un contador con las opciones medidas y las preguntas correctas. No somos contadores ni abogados y la decisión la firma un profesional.
 
 ---

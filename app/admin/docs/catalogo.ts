@@ -146,6 +146,10 @@ export const CATALOGO: Record<string, FichaDoc> = {
     grupo: 'Referencia', tabs: ['/crm', '/second-brain'],
     hace: ['El modelo de datos que manda: producto, oferta, funnel y participacion', 'El SQL de cada migracion y el test de aceptacion'],
   },
+  'estrategia-financiera-mako': {
+    grupo: 'Referencia', tabs: ['/admin/estrategia/cobrar'],
+    hace: ['Cómo cobrar MaKo desde Argentina: estructura, pasarela y cómo llega la plata', 'Se lee en Strategy, en «Cómo cobrar MaKo»'],
+  },
   hallazgos: {
     grupo: 'Referencia', tabs: [],
     hace: ['El índice de todos los hallazgos', 'Cómo está armado cada documento'],

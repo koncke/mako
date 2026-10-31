@@ -16,7 +16,7 @@ const ANUNCIA = /antes de terminar|[uú]ltima cosa|una cosa m[aá]s|por [uú]lti
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Ayelen Ruiz', nombreWorkspace: 'Consultesis', faseGuardada: true,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 
 const textosDeMako = (e: EstadoArranque, h: HechosArranque) => {
@@ -24,10 +24,10 @@ const textosDeMako = (e: EstadoArranque, h: HechosArranque) => {
   return [...antes, ...despues].filter((m) => m.de === 'mako').map((m) => m.texto);
 };
 
-test('modo oferta: de la primera pregunta a la del teléfono, ninguna anuncia el final', () => {
-  // En la etapa del teléfono se dibuja TODA la conversación hasta la última pregunta.
-  const e: EstadoArranque = { nombre: 'Ayelen', negocio: 'Consultesis', crmTipo: 'llamada', origen: 'Instagram', interes: 'ventas' };
-  const textos = textosDeMako(e, H);
+test('modo oferta: de la pregunta del teléfono a la última, ninguna anuncia el final', () => {
+  // Con todo contestado se dibuja TODA la conversación.
+  const e: EstadoArranque = { telefono: 'postergado', nombre: 'Ayelen', negocio: 'Consultesis', crmTipo: 'llamada', origen: 'Instagram', interes: 'ventas' };
+  const textos = textosDeMako(e, { ...H, conTelefono: true });
   assert.ok(textos.length >= 6, `esperaba la conversación entera y vinieron ${textos.length} mensajes`);
   assert.ok(textos.some((t) => /WhatsApp/.test(t)), 'no llegó a la pregunta del teléfono');
   for (const t of textos) assert.doesNotMatch(t, ANUNCIA, `«${t}» anuncia el final antes de tiempo`);

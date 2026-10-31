@@ -797,12 +797,12 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     if (!renovacion) await habilitarClienteDeAgencia(actual);
     // 5d. «Empezar mi plan ya» (25/10/2026): el plan desde hoy ya se cobró, la prueba que reemplaza se cancela. No tira.
     if (!renovacion) await cerrarPruebaAlEmpezarYa(actual);
+    // 5e. La plataforma: quien pagó su plan queda en la lista de llamadas (30/10/2026, lib/compra-plan-llamada.ts). No tira.
+    if (!renovacion) await anotarParaLlamar(actual);
     // Mercado Pago no vuelve solo al precio lleno. Si esto falla, lo reintenta el cron (`conciliarPrimerMes`): la plata ya entró.
     if (nuevo && !renovacion && actual.proveedor === 'mercadopago' && pctDelPrimerMes(actual.creado_por) != null) {
       await volverAlPrecioLleno(actual).catch((e) => console.error(`[cobros] no pude volver al precio lleno el cobro ${actual.id}:`, e instanceof Error ? e.message : String(e)));
     }
-    // 5e. La plataforma: quien pagó su plan queda en la lista de llamadas (30/10/2026, lib/compra-plan-llamada.ts). No tira.
-    if (!renovacion) await anotarParaLlamar(actual);
     // 5c. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
     //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
     if (actual.alta_ws != null) {
