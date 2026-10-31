@@ -141,8 +141,14 @@ function Bloque({ canal, piezas, competidor }: { canal: CanalSpy; piezas: PiezaV
           ))}
 
           {canal === 'landing' && competidor.landing_url && (
-            <a href={`/web-generator?replicar=${encodeURIComponent(competidor.landing_url)}`} style={{ ...BOTON, textDecoration: 'none', alignSelf: 'flex-start', marginTop: 4 }}>
-              Replicar su sitio
+            // ⚠️ El parámetro es `?analizar=`, que es el que el Web Generator entiende
+            // (`derechaDeQuery`, app/web-generator/panel-reglas.ts): abre el Diagnóstico de esa
+            // página, que es desde donde se replica. Un `?replicar=` —que es lo que uno escribe
+            // de memoria— no existe en ese contrato: la query se ignora, la pantalla abre en su
+            // vista por omisión, y el botón parece andar. Una ruta que apunta a la nada no rompe
+            // nada, y por eso es cara.
+            <a href={`/web-generator?analizar=${encodeURIComponent(competidor.landing_url)}`} style={{ ...BOTON, textDecoration: 'none', alignSelf: 'flex-start', marginTop: 4 }}>
+              Analizar y replicar su sitio
             </a>
           )}
           {delCanal.length > 0 && <p style={{ ...TENUE, margin: '4px 0 0', lineHeight: 1.5 }}>{ETAPA_ES_NUESTRO_CRITERIO}</p>}

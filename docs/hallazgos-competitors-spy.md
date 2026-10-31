@@ -275,6 +275,21 @@ el regex de `AREA_KEYWORDS`, y con palabras que no signifiquen otra cosa en MaKo
    escrita: su pantalla, `SOLO_ESCRITORIO` con el motivo, o `EN_CAMINO` con quién la escribe. Graduar
    una tab y mandarla al teléfono son el mismo commit, o una decisión explícita.
 
+### Un deep link a otra tab se escribe LEYENDO su contrato, no de memoria
+
+El botón «Replicar su sitio» de la ficha salió apuntando a `/web-generator?replicar=<url>`, que es lo
+que uno escribe de memoria porque la función se llama así. El Web Generator entiende
+**`?analizar=<url>`** (`derechaDeQuery`, `app/web-generator/panel-reglas.ts`), y `replicar` es un
+valor de **otro** parámetro (`?vista=plantillas|temas|papelera|replicar`).
+
+Con el parámetro inventado la query **se ignora en silencio**: la pantalla abre en su vista por
+omisión y el botón parece andar. No hay error, no hay 404, y nadie lo nota hasta que alguien dice
+«le di a replicar y no pasó nada». Es la versión barata de «una ruta que apunta a la nada no rompe
+nada, y por eso es cara».
+
+**Regla:** antes de escribir un link a otra tab, leer qué parámetros acepta su página. Los nombres de
+las funciones y los de la query no son el mismo vocabulario.
+
 ### El plan de esta tab no está en `main`
 
 El commit del plan (`b4d7726d1`) y los dos documentos viven en `origin/integracion` y en
