@@ -7,7 +7,8 @@
 //   2. lo que se dibuja: el saludo una sola vez, y el resto de la charla no vuelve a preguntarlo;
 //   3. la capa sin teléfono (Project Manager) sigue arrancando por el nombre;
 //   4. las dos trampas de adelantarlo: la entrada de MaKo se dispara también en esta etapa, y el grupo no nace «MaKo <> tu negocio»;
-//   5. escribirlo en la caja del chat vale: era lo primero que hacía quien pagó, y le contestaba «Ahora no estoy esperando eso».
+//   5. escribirlo en la caja del chat vale: era lo primero que hacía quien pagó, y le contestaba «Ahora no estoy esperando eso»;
+//   6. quien lo dio al pagar no lo escribe de nuevo: la tarjeta arranca con él, y lo manda un toque, nunca solo.
 //
 // Correr: node --import tsx --test tests/onboarding-whatsapp-primero.test.ts
 // PROBADO ROMPIÉNDOLO: ver el pie.
@@ -21,7 +22,7 @@ import {
   AHORA_NO, CAMBIAR_NUMERO, PIDE_TELEFONO, PREGUNTA_TELEFONO, SALUDO_ARRANQUE, SALUDO_TRAS_TELEFONO,
   etapaDeArranque, leerRespuesta, mensajesDeArranque, telefonoEscrito, type EstadoArranque, type HechosArranque,
 } from '../lib/onboarding-arranque';
-import { ladoDeLaPregunta, placeholderDe } from '../app/onboarding/arranque-ui';
+import { ladoDeLaPregunta, placeholderDe, tarjetaConNumero } from '../app/onboarding/arranque-ui';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -108,7 +109,36 @@ test('5. el WhatsApp escrito en la caja vale, con su país; lo demás pide el n�
   assert.ok(placeholderDe('telefono'), 'la caja dice qué escribir');
 });
 
+test('6. el WhatsApp del pago: arranca cargado, editable, y nada lo usa hasta el toque', () => {
+  assert.deepEqual(tarjetaConNumero('5491122334455'), { lada: '+54', numero: '91122334455' });
+  assert.deepEqual(tarjetaConNumero('526861234567'), { lada: '+52', numero: '6861234567' });
+  // Sin número, con basura, o con un país que no se conoce: vacía. `splitTelefono` le pondría +52 a un número de otro país.
+  const vacia = tarjetaConNumero('');
+  assert.equal(vacia.numero, '');
+  for (const raro of [null, undefined, 'abc', '123', '+5491122334455', '1234567890123456', '999999999999']) {
+    assert.deepEqual(tarjetaConNumero(raro), vacia, String(raro));
+  }
+
+  const server = leer('lib/onboarding-arranque-server.ts');
+  assert.match(server, /telefonoDelPago: etapa === 'telefono' \? \(await getSetting\(CLAVE_WHATSAPP_DEL_PAGO\)/, 'sólo en la etapa del teléfono');
+  const chat = leer('app/onboarding/ChatArranque.tsx');
+  assert.match(chat, /<TarjetaTelefono inicial=\{vista\.telefonoDelPago\}/);
+  assert.match(chat, /useState\(\(\) => tarjetaConNumero\(inicial\)\.numero\)/);
+  // Nadie más lo lee: sin probar no llega al contacto de los reportes ni dispara un código (auditoría del 14/10).
+  assert.equal(server.split('(CLAVE_WHATSAPP_DEL_PAGO').length - 1, 1, 'una sola lectura: la de la vista');
+  assert.doesNotMatch(leer('app/api/onboarding/arranque/route.ts'), /whatsapp_del_pago|WHATSAPP_DEL_PAGO|telefonoDelPago/);
+  assert.equal(chat.split('telefonoDelPago').length - 1, 1, 'la pantalla sólo se lo da a la tarjeta');
+
+  // El mismo texto que escribe el alta, apenas esa constante exista en el árbol.
+  const declarada = /CLAVE_WHATSAPP_DEL_PAGO = '([^']+)'/.exec(server)?.[1];
+  assert.equal(declarada, 'cuenta.whatsapp_del_pago');
+  const delAlta = /export const CLAVE_WHATSAPP_DEL_PAGO = '([^']+)'/.exec(leer('lib/origen-cuenta.ts'))?.[1];
+  if (delAlta !== undefined) assert.equal(delAlta, declarada, 'el alta y el onboarding leen claves distintas');
+});
+
 // PROBADO ROMPIENDO (31/10/2026, base 5/0): el teléfono de vuelta al final, 3/2; el saludo repetido, 4/1; la respuesta lejos de la pregunta,
 // 4/1; sin la entrada de MaKo, 4/1; el grupo con «tu negocio», 4/1; el grupo sin tomar el nombre del negocio, 4/1. Con el test 5 (base 6/0): la
 // ruta sin mirar lo escrito, 5/1; un número local aceptado, 5/1; una frase con un número aceptada, 5/1 (la primera versión del caso pasaba igual,
-// por el largo: de ahí «tengo 5491155551234 clientes»); lo escrito sin pedir el número, 5/1; «ahora no» escrito sin valer, 5/1.
+// por el largo: de ahí «tengo 5491155551234 clientes»); lo escrito sin pedir el número, 5/1; «ahora no» escrito sin valer, 5/1. Con el test 6 (base 7/0): un país desconocido con el de por defecto, 6/1;
+// cualquier cosa aceptada como número, 6/1; leído en todas las etapas, 6/1; otra clave, 6/1; la tarjeta sin recibirlo, 6/1; la ruta usándolo, 6/1;
+// el alta con otra clave en lib/origen-cuenta.ts, 6/1.

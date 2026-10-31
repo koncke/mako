@@ -3022,6 +3022,14 @@ teléfono arranca sin teléfono; si un paso nuevo va primero, ese test no tiene 
 - `scripts/reconstruir-historial-onboarding.mts` pondría el teléfono arriba en quien lo contestó al final. Hoy no tiene a quién
   reconstruir. Hay que mirarlo antes de volver a correrlo.
 
-**Sin hacer:** visto sólo en el banco, con `ChatArranque` y las reglas reales y la ruta simulada (la entrada, la pregunta, el código y
+**Quien lo dio al pagar no lo escribe de nuevo (31/10, acordado con Planes).** El checkout de /planes pide el WhatsApp, optativo, y el
+alta lo deja en `cuenta.whatsapp_del_pago`. La pregunta del onboarding se queda: ese número sale de un formulario público y no está
+probado, y sólo el código permite sumarlo al grupo. La tarjeta arranca con él, editable; lo manda un toque, nunca solo, porque si lo
+escribió mal el código le llega a otra persona. **La trampa:** `splitTelefono` no devuelve «no sé» con un país desconocido: le pone el
+de por defecto a todos los dígitos, y el número se ve correcto. Por eso `tarjetaConNumero` arranca vacía en ese caso.
+
+**Sin hacer:** el texto de esa clave está en los dos lados para que las dos puntas suban en cualquier orden, y un test los compara
+apenas exista `CLAVE_WHATSAPP_DEL_PAGO` en `lib/origen-cuenta.ts`. Después de subir, se reemplaza por el import en
+`lib/onboarding-arranque-server.ts`. Visto sólo en el banco, con `ChatArranque` y las reglas reales y la ruta simulada (la entrada, la pregunta, el código y
 «Ahora no»). Sin ver: el código llegando a un WhatsApp de verdad, el grupo con el nombre corregido y el número escrito en la caja pasando por la
 ruta de verdad (`telefonoEscrito` tiene test; que la ruta lo use, sólo un test que lee el código). Eso se prueba con un alta real.

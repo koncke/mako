@@ -7,6 +7,19 @@
 
 import type { OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import type { EtapaArranque, MensajeArranque, TarjetaArranque } from '@/lib/onboarding-arranque';
+import { DIAL_DEFAULT, numeroTecleado } from '@/lib/paises';
+
+/**
+ * Con qué arranca la tarjeta del WhatsApp: el número que dio al pagar, partido en su país y el resto (31/10/2026). Viene de un
+ * formulario público y no está probado, así que sólo se muestra: lo manda un toque. Un país que no se conoce arranca vacía:
+ * `splitTelefono` le pondría el de por defecto, y el código saldría a otra persona.
+ */
+export function tarjetaConNumero(digitos: string | null | undefined): { lada: string; numero: string } {
+  const vacia = { lada: DIAL_DEFAULT, numero: '' };
+  if (!digitos || !/^\d{8,15}$/.test(digitos)) return vacia;
+  const { lada, numero } = numeroTecleado(`+${digitos}`);
+  return lada ? { lada, numero } : vacia;
+}
 
 /** Una conversación vacía: para dibujar los mensajes del arranque antes de que exista la de la oferta. */
 export const SESION_VACIA: OfferSesionVista = {
