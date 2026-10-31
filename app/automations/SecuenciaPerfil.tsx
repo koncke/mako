@@ -40,6 +40,7 @@ import type { FinIA } from './stream-ia';
 import Link from '@/app/_ui/Link';
 import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
 import { duplicadaDe, duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { avisoDisparadorQueNoDice, disparadorQueNoDice } from '@/lib/automatizacion-disparador-dice';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
@@ -115,6 +116,7 @@ export const Z_CAPA_MAKO = 58;
 /** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa y debajo de la barra de la app. */
 export const Z_CHAT_ENCIMA = 59;
 
+const botonDisparadorDice: CSSProperties = { appearance: 'none', border: 0, background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' };
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
   padding: '7px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
@@ -1080,6 +1082,16 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * que arma lo que ve «Crear con IA» (`armarContexto`, lib/flujo-ia-crear.ts): con dos copias, una se queda vieja.
    */
   const etapasCond: SeccionEtapas[] = etapasDeCondicion(productos);
+  /**
+   * LO QUE DICE CONTRA LO QUE LA DISPARA (30/10/2026, lib/automatizacion-disparador-dice.ts): la #264 del ws13 avisa «Nuevo agendado» y
+   * se dispara también en Lead. Es del cliente: se le dice en una línea y lo corrige él. «Está bien así» se recuerda en este navegador
+   * mientras no cambie lo que se dijo.
+   */
+  const disparadorDice = rolAdmin ? disparadorQueNoDice({ nombre, pasos, disparan: crons.lista.filter((d) => d.trigger_tipo === TRIGGER_ETAPA && !d.cron).flatMap((d) => d.etapas?.length ? d.etapas : d.etapa ? [d.etapa] : []), etapas: (etapasCond.find((s) => s.funnelId === secuencia.funnel_id) ?? etapasCond[0])?.options ?? [] }) : null;
+  const firmaDisparador = disparadorDice ? `${disparadorDice.dice}|${disparadorDice.otras.join(',')}` : null;
+  const claveDisparador = `mako.disparador-dice.${secuencia.id}`;
+  const [yaVistoDisparador, setYaVistoDisparador] = useState<string | null>(null);
+  useEffect(() => { try { setYaVistoDisparador(window.localStorage.getItem(claveDisparador)); } catch { /* sin recordarlo */ } }, [claveDisparador]);
 
   /**
    * LOS MEDIOS QUE USA EL FLUJO Y SU ESTADO (la MISMA lectura que pinta el chip de la tarjeta). Se leen acá, antes de
@@ -1429,6 +1441,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
             {/* LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES (20/10/2026: el Recurrente de Leila «no salió» y eran 31
                 borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
+            {disparadorDice && yaVistoDisparador !== firmaDisparador && (
+              <span data-disparador-dice="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 420, display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 10px', fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
+                <span>{avisoDisparadorQueNoDice(disparadorDice)}</span>
+                <button type="button" onClick={() => { setCronAbierto(crons.primero?.id ?? 'nuevo'); setFoco((f) => ({ id: ID_INICIO, vez: (f?.vez ?? 0) + 1 })); }} style={botonDisparadorDice}>Cambiar disparador</button>
+                {disparadorDice.fuente === 'nombre' && <button type="button" onClick={() => setEditandoNombre(true)} style={botonDisparadorDice}>Cambiar nombre</button>}
+                <button type="button" onClick={() => { setYaVistoDisparador(firmaDisparador); try { if (firmaDisparador) window.localStorage.setItem(claveDisparador, firmaDisparador); } catch { /* sin recordarlo */ } }} style={{ ...botonDisparadorDice, color: 'var(--dim)' }}>Está bien así</button>
+              </span>
+            )}
             {dupActiva && (
               <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
                 {avisoDuplicada(dupActiva)}

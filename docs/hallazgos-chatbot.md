@@ -7144,7 +7144,9 @@ cuántas filas viejas siguen abiertas por la regla vieja, no sólo las que hoy m
   borradores del 20/10 de la #282 y la #284 (pausadas) caen sobre leads de 26 inscripciones activas de la #249 (pausada). Hoy no sale
   nada; al prenderla, un mensaje de IA sin «sale sola» de la #249 esperaría a esos borradores. Pausar no es archivar: es de quien
   lleve Automations y del dueño de esos borradores.
-- La #264 del ws13 dice «Nuevo agendado» y también dispara en la etapa «lead»: es del cliente, va a Martín.
+- La #264 del ws13: su aviso dice «Nuevo agendado» y también dispara en la etapa «lead». Es del cliente y no se le toca. Desde el 30/10 la pantalla lo dice en una línea
+  (lib/automatizacion-disparador-dice.ts). ⚠️ El nombre solo no alcanzaba: se llama «Nueva automatización». Se lee el nombre y el primer renglón de cada aviso al equipo, nunca
+  un mensaje al lead («Agenda tu llamada» en Lead es lo correcto).
 **Vive en:** lib/nutricion.ts (`saleSoloEste`) · lib/evolution-envio.ts (`tieneBorradorNutriPendiente`) · lib/secuencias-huecos.ts
 
 ---
