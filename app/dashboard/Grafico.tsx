@@ -35,10 +35,11 @@ import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   AreaChart, Area, ComposedChart, Treemap, Sankey, FunnelChart, Funnel, LabelList,
 } from 'recharts';
-import { Spinner } from '@/app/_ui';
+import { Spinner, TABULAR } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
-import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
+import { colorDeTono, estiloEfectivo, fondoDeTarjeta, pinturaDe, type Procedencia, type TemaHoja } from '@/lib/graficos-temas';
+import { DefsRayado } from './graficos/Vocabulario';
 import { identidadEfectiva, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
 import {
   anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, ESCALA_EPICA, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, tamChip, tamProtagonista, tamSecundaria, modoPorAlto, ocultoPorCero,
@@ -69,9 +70,16 @@ export const MONO = "'Geist Mono', monospace";
 const GRIS = 'var(--border-strong)';
 const TIP = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: LETRA.tooltip, color: 'var(--ink)', boxShadow: '0 6px 20px rgba(18,21,27,.08)', padding: '8px 12px' };
 const TIP_ETIQUETA = { color: 'var(--dim)', fontSize: LETRA.tooltipRotulo, marginBottom: 4 };
-/** Los ticks: 13 px en la letra de la hoja, var(--dim) (no mono ni gris tenue). El color va en `style`. */
-const EJE = { fontSize: LETRA.tick, style: { fill: 'var(--dim)' } };
-const EJE_CATEGORIA = { fontSize: LETRA.categoria, style: { fill: 'var(--ink)' } };
+/**
+ * Los ticks: 13 px en la letra de la hoja, var(--dim) (no mono ni gris tenue). El color va en `style`.
+ *
+ * Con CIFRAS TABULARES (`TABULAR`): una marca de eje se RE-ETIQUETA cuando cambia el filtro o el rango
+ * —y durante el morfeo interpola, pasando por valores intermedios—, así que es el texto de la pantalla
+ * que más veces cambia de dígitos. Sin ancho fijo por dígito, la columna de marcas se mueve a lo ancho
+ * en cada cuadro y el eje entero tiembla.
+ */
+const EJE = { fontSize: LETRA.tick, style: { fill: 'var(--dim)', fontVariantNumeric: TABULAR } };
+const EJE_CATEGORIA = { fontSize: LETRA.categoria, style: { fill: 'var(--ink)', fontVariantNumeric: TABULAR } };
 /** La cuadrícula: sólo horizontal, sólida, en las marcas del eje Y. */
 const GRILLA = { stroke: 'var(--border)', strokeWidth: 1 };
 
@@ -191,6 +199,26 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
     const c = (i: number, etiqueta?: string) => (etiqueta === OTROS ? GRIS : e.colores[i % e.colores.length]);
     /** El color de una categoría: el que declara su dimensión (`Dimension.colores`), o null. */
     const colorFijo = (etiqueta: string): string | null => (etiqueta === OTROS ? GRIS : dim?.colores?.[etiqueta] ?? null);
+    /**
+     * DE DÓNDE SALIÓ lo que se dibuja (el vocabulario de lib/graficos-temas.ts). Un resultado de
+     * MUESTRA son números inventados (lib/graficos-muestra.ts: la miniatura de la galería), y un
+     * número inventado no se puede dibujar igual que uno medido: con el relleno sólido, la
+     * miniatura de una plantilla afirma con la misma voz que la hoja del negocio.
+     *
+     * Hoy esta es la única procedencia que el DATO sabe: no hay métrica proyectada en el catálogo,
+     * y marcar a mano algo como estimado sería inventarlo. Cuando exista un pronóstico, su
+     * `Procedencia` entra por acá y el resto ya está puesto.
+     */
+    const proc: Procedencia = r.muestra ? 'no-medido' : 'medido';
+    /** Un color concreto, pintado según la procedencia: tal cual si está medido, rayado si no. */
+    const rellenoDe = (color: string) => (proc === 'medido' ? color : pinturaDe(proc, color, e.trazo).fill);
+    /** El relleno de la serie `i`. */
+    const relleno = (i: number, etiqueta?: string) => rellenoDe(c(i, etiqueta));
+    /**
+     * Los colores que necesitan su `<pattern>`: la paleta, el gris de «Otros» y los fijos de la
+     * dimensión (que las `<Cell>` de una sola métrica usan en vez de la paleta). Medido = ninguno.
+     */
+    const coloresRayado = proc === 'medido' ? [] : [...e.colores, GRIS, ...Object.values(dim?.colores ?? {})];
     const info = tipoDe(g.tipo);
     const fmt = (v: number | null, f: Formato) => fmtValor(v, f, e.compacto);
     const tick = (f: Formato) => (v: number) => fmtValor(v, f, true);
@@ -644,10 +672,13 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 </defs>
                 {grilla}{ejeX}{ejeY}
                 {tip}
+                <DefsRayado colores={coloresRayado} />
                 {ley}
                 {s.claves.map((k, i) => (
                   <Area key={k} yAxisId="a" type="monotone" dataKey={k} name={s.nombres[i]} stackId={apilada ? 'a' : undefined}
-                    hide={oculta(k, s.claves)} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round" fill={`url(#ar-${g.id}-${i})`}
+                    hide={oculta(k, s.claves)} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
+                    // Medido: el degradado de siempre. No medido: el rayado, que pesa más que un degradado y es el punto.
+                    fill={proc === 'medido' ? `url(#ar-${g.id}-${i})` : relleno(i, s.nombres[i])}
                     dot={apilada ? false : puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)} isAnimationActive={false} connectNulls />
                 ))}
                 {e.etiquetas && ejes && !apilada && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves)} modo="series" fmt={fmtEtq} halo={halo} />}
@@ -701,13 +732,14 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <>{ejeX}{ejeY}</>
               )}
               <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={fmtTip} cursor={{ fill: 'var(--surface-2)' }} />
+              <DefsRayado colores={coloresRayado} />
               {!unaSola && ley}
               {s.claves.map((k, i) => (
-                <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={c(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
+                <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={relleno(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
                   hide={oculta(k, s.claves)} cursor={cursorGrupo} onClick={grupoAbre ? (_d: unknown, j: number) => abrirGrupo(s.datos[j]?.__clave, k) : undefined}
                   radius={radio(k)} isAnimationActive={false} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
                   {/* Una sola métrica: cada categoría con el color que declara su dimensión, «Otros» en gris, y si no, uno solo. */}
-                  {unaSola && s.datos.map((d, j) => <Cell key={j} fill={colorFijo(String(d.etiqueta)) ?? c(0)} />)}
+                  {unaSola && s.datos.map((d, j) => <Cell key={j} fill={rellenoDe(colorFijo(String(d.etiqueta)) ?? c(0))} />)}
                 </Bar>
               ))}
               {e.etiquetas && ejes && !cien && (unaSola || apilada) && (
@@ -761,11 +793,11 @@ function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre
   return (
     <div ref={ref} style={{ containerType: 'inline-size', width: '100%', minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: enLinea ? 'row' : 'column', alignItems: enLinea ? 'center' : 'flex-start', gap: enLinea ? ENTRE_NUMERO_Y_CHIP : 8 }}>
-        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{texto}</span>
+        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{texto}</span>
         {chip && (
           // La comparación habla en la letra de la etiqueta del tema: en mono sólo si la etiqueta va en mono (en el tema
           // «General», que es para leer de una pasada, «↑ 1,3×» en mono se leía como un dato técnico).
-          <span title="Contra el período anterior" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', fontFamily: monoChip ? MONO : 'inherit', fontSize: chipTam, fontWeight: 600, padding: `${Math.round(chipTam * 0.3)}px ${Math.round(chipTam * 0.75)}px`, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{chip}</span>
+          <span title="Contra el período anterior" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', fontFamily: monoChip ? MONO : 'inherit', fontSize: chipTam, fontWeight: 600, padding: `${Math.round(chipTam * 0.3)}px ${Math.round(chipTam * 0.75)}px`, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{chip}</span>
         )}
       </div>
       {secundaria && <div className="gr-numero-sec" title={secundaria} style={w ? { fontSize: tamSecundaria(prota) } : undefined}>{secundaria}</div>}
@@ -862,7 +894,7 @@ function Bala({ v, objetivo, max, color, texto, textoObj, grande = false }: { v:
   const p = (x: number) => `${Math.min(100, Math.max(0, (x / max) * 100))}%`;
   return (
     <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: enFila ? 'row' : 'column', alignItems: enFila ? 'center' : 'stretch', justifyContent: grande ? 'flex-end' : 'center', gap: enFila ? 20 : grande ? 22 : 8 }}>
-      <div style={{ flex: 'none', fontSize: grande ? 'clamp(48px, 13cqi, 200px)' : enFila ? 28 : 24, lineHeight: grande ? 0.95 : 1.05, fontWeight: grande ? 800 : 600, letterSpacing: grande ? '-0.045em' : '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      <div style={{ flex: 'none', fontSize: grande ? 'clamp(48px, 13cqi, 200px)' : enFila ? 28 : 24, lineHeight: grande ? 0.95 : 1.05, fontWeight: grande ? 800 : 600, letterSpacing: grande ? '-0.045em' : '-0.02em', color: 'var(--ink)', fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>
         {texto}{textoObj && <span style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: 'var(--dim)', letterSpacing: 0 }}> de {textoObj}</span>}
       </div>
       <div style={{ position: 'relative', flex: enFila ? 1 : 'none', minWidth: 0, height: grande ? 'clamp(26px, 5cqi, 56px)' : enFila ? 22 : 16, background: 'var(--surface-2)', borderRadius: grande ? 16 : 8, overflow: 'hidden' }}>
@@ -898,7 +930,7 @@ function Indicador({ v, max, objetivo, color, rangos, texto }: { v: number; max:
           </>
         )}
         {objetivo != null && (() => { const [a, b] = pt(ang(objetivo), 94); const [c2, d] = pt(ang(objetivo), 66); return <line x1={a} y1={b} x2={c2} y2={d} strokeWidth={3.5} style={{ stroke: 'var(--ink)' }} />; })()}
-        <text x={100} y={96} textAnchor="middle" fontSize={24} fontWeight={600} style={{ fill: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{texto}</text>
+        <text x={100} y={96} textAnchor="middle" fontSize={24} fontWeight={600} style={{ fill: 'var(--ink)', fontVariantNumeric: TABULAR }}>{texto}</text>
       </svg>
     </div>
   );
@@ -937,7 +969,7 @@ function EmbudoVertical({ pasos, base, compacto, alPaso, grande = false }: { pas
                 {/* El nombre entra en la parte ANGOSTA del escalón (su borde de abajo), con «…»: centrado y sin tope, el trapecio
                     lo cortaba por los dos lados en el celular («lificadas que asistier»). */}
                 <span title={p.nombre} style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: '#454C57', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: `${Math.max(20, 100 - 2 * corte(i + 1, n) - 6)}%` }}>{p.nombre}</span>
-                <span style={{ fontWeight: grande ? 800 : 600, fontSize: grande ? 'clamp(27px, 4cqi, 44px)' : 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
+                <span style={{ fontWeight: grande ? 800 : 600, fontSize: grande ? 'clamp(27px, 4cqi, 44px)' : 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: TABULAR }}>{fmtValor(p.valor, p.formato, compacto)}</span>
               </div>
             </Clic>
           </div>
@@ -960,7 +992,7 @@ function EmbudoBarras({ pasos, vertical, color, compacto, alPaso, sobre }: { pas
         const al = alPaso?.(i) ?? null;
         return vertical ? (
           <Clic key={p.nombre} al={al} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ fontSize: grande ? 'clamp(22px, 3.4cqi, 40px)' : LETRA.etiqueta, fontWeight: grande ? 800 : 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
+            <span style={{ fontSize: grande ? 'clamp(22px, 3.4cqi, 40px)' : LETRA.etiqueta, fontWeight: grande ? 800 : 600, color: 'var(--ink)', fontVariantNumeric: TABULAR }}>{fmtValor(p.valor, p.formato, compacto)}</span>
             <div style={{ width: '70%', height: tam, background: color(i), borderRadius: grande ? '14px 14px 0 0' : '8px 8px 0 0' }} />
             <span style={{ fontSize: grande ? LETRA.leyenda : LETRA.tick, fontWeight: grande ? 600 : undefined, color: 'var(--dim)', textAlign: 'center' }}>{p.nombre}</span>
             {/* El primer escalón no tiene de dónde pasar: lleva el chip invisible, así su nombre queda a la altura de los otros. */}
@@ -971,7 +1003,7 @@ function EmbudoBarras({ pasos, vertical, color, compacto, alPaso, sobre }: { pas
             <span style={{ fontSize: grande ? 'clamp(15px, 2cqi, 22px)' : LETRA.leyenda, fontWeight: grande ? 700 : undefined, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
             <div style={{ display: 'flex', justifyContent: 'center', ...(grande ? { height: '100%' } : {}) }}>
               {/* minWidth: el número entra siempre; un escalón chico se estira lo justo en vez de cortar «42 · 45%» por la mitad. */}
-              <div style={{ width: tam, minWidth: 'max-content', background: color(i), color: sobre ?? '#fff', fontSize: grande ? 'clamp(18px, 2.6cqi, 30px)' : LETRA.leyenda, fontWeight: grande ? 800 : 600, padding: grande ? '0 16px' : '7px 10px', display: grande ? 'flex' : undefined, alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: grande ? 14 : 8, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ width: tam, minWidth: 'max-content', background: color(i), color: sobre ?? '#fff', fontSize: grande ? 'clamp(18px, 2.6cqi, 30px)' : LETRA.leyenda, fontWeight: grande ? 800 : 600, padding: grande ? '0 16px' : '7px 10px', display: grande ? 'flex' : undefined, alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: grande ? 14 : 8, whiteSpace: 'nowrap', fontVariantNumeric: TABULAR }}>
                 {fmtValor(p.valor, p.formato, compacto)}{conv != null ? ` · ${conv}%` : ''}
               </div>
             </div>
@@ -992,7 +1024,7 @@ function CeldaTreemap({ x = 0, y = 0, width = 0, height = 0, name, size, fill, f
       {width >= 90 && height >= 44 && (
         <>
           <text x={x + 10} y={y + 22} fontSize={LETRA.etiqueta} fontWeight={600} style={{ fill: '#fff' }}>{conTope(String(name ?? ''), Math.floor((width - 16) / (LETRA.etiqueta * 0.6)))}</text>
-          <text x={x + 10} y={y + 40} fontSize={LETRA.leyenda} style={{ fill: '#fff', fontVariantNumeric: 'tabular-nums' }} opacity={0.92}>{fmtValor(size ?? 0, formato, compacto || true)}</text>
+          <text x={x + 10} y={y + 40} fontSize={LETRA.leyenda} style={{ fill: '#fff', fontVariantNumeric: TABULAR }} opacity={0.92}>{fmtValor(size ?? 0, formato, compacto || true)}</text>
         </>
       )}
     </g>
@@ -1066,7 +1098,7 @@ function Torta({ datos, anillo, etiquetas, leyenda, halo, cursor, fmtTotal, fmt,
                 const tam = Math.min(LETRA.panelNumero, Math.floor(hueco / (0.6 * Math.max(3, [...texto].length))));
                 return tam >= LETRA_MINIMA ? (
                   <text x={t.w / 2} y={t.h / 2} textAnchor="middle" dominantBaseline="central" fontSize={tam} fontWeight={600}
-                    style={{ fill: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{texto}</text>
+                    style={{ fill: 'var(--ink)', fontVariantNumeric: TABULAR }}>{texto}</text>
                 ) : null;
               })()}
               <Tooltip contentStyle={TIP} formatter={(v, n) => [`${fmt(Number(v) || 0)} · ${pct(Number(v) || 0)}%`, String(n)]} />

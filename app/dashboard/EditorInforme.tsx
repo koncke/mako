@@ -100,7 +100,7 @@ import { esHojaClosing, SERVICIO_CLAUDE } from './aviso-closing';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import {
   AREAS, COLS, FUENTES, MAX_ARCHIVADAS, MAX_COMPONENTES, MAX_CONECTORES, MAX_CONTROLES, MAX_HOJAS, MAX_IA_POR_HOJA, MAX_POPUP, TIPOS_ELEMENTO,
-  abajoDeTodo, campoDe, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
+  abajoDeTodo, campoDe, definicionDeGrafico, efectivoDe, esElemento, esGrafico, hojaVacia, minimoDeComponente, nuevoControlVista, nuevoElemento, nuevoGrafico, nuevoId,
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
@@ -1264,13 +1264,17 @@ export function EditorInforme({
     // Punto 15: mirando, una tarjeta con «ocultar si da cero» que da cero no se dibuja (tampoco ocupa lugar).
     if (!editando && ocultaSiCero(c, est)) return null;
     const kpi = esTarjetaNumero(c.tipo);
+    /** La fórmula en castellano de su métrica (lib/graficos-catalogo.ts), o null si no tiene una escrita. */
+    const definicion = definicionDeGrafico(c);
     // El filete y el color de una KPI salen de lo que SIGNIFICA su métrica (lo cobrado, verde; lo
     // pendiente, rojo), no de un color elegido a mano: el estilo es de la hoja.
     const filete = kpi && estilo.filete;
     const tono = filete ? colorDeTono(tonoDe(c.fuente, c.metricas[0]), hoja.tema) : null;
     // Un número de media hoja o más es el TITULAR de la hoja (lib/graficos-plantillas.ts, TITULARES): en la pila del celular va a
     // lo ancho, no de a dos como los otros números.
-    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
+    // La INVERTIDA no se da vuelta sobre una portada (que ya trae su propio fondo y su tinta): dos
+    // inversiones encimadas no son más jerarquía, son un fondo que pelea con el otro.
+    const clases = ['lk-comp', kpi && 'lk-comp--kpi', kpi && c.w >= 6 && c.h >= 5 && 'lk-comp--titular', enPila && solosPila.has(c.id) && 'lk-comp--solo', kpi && !portada && estilo.kpiEtiqueta === 'mono' && 'lk-comp--mono', filete && !portada && 'lk-comp--filete', c.invertida && !portada && 'lk-comp--invertida', portada?.clase, (elegido || marcada) && 'lk-comp--sel'].filter(Boolean).join(' ');
     // La barra de búsqueda de una tabla (interfaz I2): lo escrito va a la VISTA, en el control de su barra
     // (`idBusquedaDe`/`conBusqueda`, ./exportar.ts). Sin ese control (sobre el campo ya hay otro filtro), no hay barra.
     const conBarra = !!c.tabla?.buscar && !!idBusquedaDe(c);
@@ -1282,7 +1286,10 @@ export function EditorInforme({
         data-recorrido={c.id === primerGrafico ? (editando ? 'dash-componente' : 'dash-grafico') : undefined}>
         <div className="lk-comp-cab">
           <div className="lk-comp-tit">
-            <span title={tituloDe(c)}>{tituloDe(c)}</span>
+            {/* LA MÉTRICA SE NOMBRA DOS VECES: el título dice cómo se llama, la definición dice qué mide.
+                En una KPI la definición va en el `title` y no en una tercera línea, que le comería el alto
+                al número (el documento de diseño lo pide así: en el teléfono es el contenido del ⓘ). */}
+            <span title={kpi && definicion ? `${tituloDe(c)} — ${definicion}` : tituloDe(c)}>{tituloDe(c)}</span>
             {est.cargando && est.resultado && <span className="lk-mini-giro" aria-label="Actualizando" />}
           </div>
           <div className="lk-comp-acciones lk-no-arrastrar" onClick={(e) => e.stopPropagation()}>
@@ -1307,7 +1314,9 @@ export function EditorInforme({
             )}
           </div>
         </div>
-        {!kpi && c.subtitulo && <div className="lk-comp-sub" title={c.subtitulo}>{c.subtitulo}</div>}
+        {/* El subtítulo escrito a mano GANA (alguien decidió qué decir ahí); sin él, la definición de la
+            métrica. Si la métrica no tiene definición escrita, no se dibuja nada: no se inventa una. */}
+        {!kpi && (c.subtitulo || definicion) && <div className="lk-comp-sub" title={c.subtitulo || definicion!}>{c.subtitulo || definicion}</div>}
         {/* El detalle de un número pide `detalle` a /api/graficos: al closer le contesta 403, y en un link
             compartido no se ofrece (son listas de personas; el endpoint del link también lo contesta 403).
             Sin `onDetalle`, el clic en un número no hace nada y no se pinta como clicable. Desde v5, lo que

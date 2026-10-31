@@ -115,9 +115,12 @@ export function BarraSuperior({ hoja, propia = null, editable, conHojas, hojasAb
               <h1 className="lk-top-tit">{hoja.nombre}</h1>
             )}
           </div>
+          {/* El subtítulo de la hoja SIGNIFICA qué mide, no es decoración: el placeholder lo pide así
+              («Agrega un subtítulo» invitaba a escribir cualquier cosa). No bloquea —una hoja sin
+              subtítulo se sigue guardando—, porque trabar el guardado por un texto sería peor. */}
           {editable ? (
             <p className="lk-top-sub">
-              <EditableInline key={hoja.id} valor={hoja.subtitulo} maxLargo={140} placeholder="Agrega un subtítulo" titulo="Subtítulo de la hoja"
+              <EditableInline key={hoja.id} valor={hoja.subtitulo} maxLargo={140} placeholder="Qué mide esta hoja" titulo="Qué mide esta hoja"
                 onGuardar={(v) => onCambiar({ subtitulo: v })} />
             </p>
           ) : hoja.subtitulo ? <p className="lk-top-sub">{hoja.subtitulo}</p> : null}

@@ -28,4 +28,4 @@ export { Toast, useToast, type ToastState } from './Toast';
 export { Pagina, Lectura } from './Pagina';
 export { PageHeader, Section, Eyebrow } from './PageHeader';
 export { Tabs, type Tab } from './Tabs';
-export { SANS, MONO, radius, space, type, weight, shadow, TOUCH, FOCUS, EASE, TONO, type Tono } from './tokens';
+export { SANS, MONO, radius, space, type, weight, TABULAR, tracking, shadow, TOUCH, FOCUS, EASE, TONO, type Tono } from './tokens';
