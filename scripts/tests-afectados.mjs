@@ -425,12 +425,32 @@ export function indiceConNuevos(nuevos, carpetaTmp) {
 }
 
 /** Mira el disco y arma el plan: qué cambió y qué tests lo miran. null si la base no existe. */
+/**
+ * DEMASIADO LENTOS PARA LA FASE QUE FRENA EL TREN (31/10/2026). No se saltean: los corre `--resto`, que en Actions va
+ * DESPUÉS de los afectados y no bloquea el avance de `main`.
+ *
+ * ⚠️ POR QUÉ, y costó cuatro corridas de Actions averiguarlo. `grupo-leandro-2910` levanta la entrada REAL de un grupo de
+ * WhatsApp y recorre doce escenas. Acá tarda 119 s; en el runner, MÁS DE 360 — se midió subiéndole la paciencia al vigía a
+ * 6 minutos y volviendo a morir. Y como node imprime la salida de un archivo cuando el ARCHIVO termina, mientras él no
+ * termina la tanda entera parece colgada y se lleva sus otros 99 archivos con un 99 o un rojo que no es de ellos.
+ *
+ * NO es que el test esté mal ni que sobre: es un end-to-end y vale. Lo que está mal es tenerlo en la fase de «fallar
+ * rápido», que existe para dar un veredicto en minutos. Un end-to-end de doce escenas no pertenece ahí.
+ *
+ * Para sacar uno de acá: medí cuánto tarda en el runner, no en tu PC — fue la trampa de las cuatro corridas.
+ */
+export const LENTOS_FUERA_DE_LA_FASE_RAPIDA = new Map([
+  ['tests/grupo-leandro-2910.test.ts', '12 escenas de un grupo real: 119 s acá, >360 s en el runner (31/10/2026)'],
+]);
+
 export function planear(base, { profundidad = Infinity } = {}) {
   const cambios = leerCambios(base);
   if (!cambios) return null;
   const archivos = [...lineasZ(git(['ls-files', '-z'])), ...cambios.nuevos];
   const sel = seleccionar({ cambiados: cambios.cambiados, archivos, leer: leerDisco, profundidad });
   if (cambios.cambiados.length === 0) sel.tests = new Map();     // sin cambios no hay nada «que corra siempre»
+  // Los lentos salen de los AFECTADOS, así que `--resto` (todos menos los afectados) los toma solo: nadie queda sin correr.
+  for (const f of LENTOS_FUERA_DE_LA_FASE_RAPIDA.keys()) sel.tests.delete(f);
   return { cambios, archivos, sel };
 }
 

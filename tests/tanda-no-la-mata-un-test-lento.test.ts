@@ -28,10 +28,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { elQueNoDejoAvanzar, porQueSeMato, sinAvanceDe, sinComentarios, titulosDe, topeDeclarado, TOPE_SIN_AVANCE_MS } from '../scripts/tests-afectados.mjs';
+import { elQueNoDejoAvanzar, LENTOS_FUERA_DE_LA_FASE_RAPIDA, planear, porQueSeMato, sinAvanceDe, sinComentarios, titulosDe, topeDeclarado, TOPE_SIN_AVANCE_MS } from '../scripts/tests-afectados.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const leer = (f: string) => readFileSync(join(REPO, f), 'utf8');
@@ -238,4 +238,24 @@ test('el tope declarado se lee del fuente, y los comentarios no cuentan', () => 
   // citarlo textual, este archivo se declaró a sí mismo más lento que el vigía y rompió su propio primer test.
   const propio = topeDeclarado(['tests/tanda-no-la-mata-un-test-lento.test.ts']);
   assert.equal(propio, 120_000, 'tiene que leer el tope real de su hijo, no uno citado en un comentario');
+});
+
+// ── LA LISTA DE LENTOS NO ES UNA ALFOMBRA (31/10/2026) ────────────────────────────────────
+// Sacar un test de la fase que frena el tren es legítimo cuando es un end-to-end largo, y es una forma barata de
+// esconder un test molesto. Lo que lo separa es que SIGA CORRIENDO: `--resto` es «todos menos los afectados», así que
+// lo que sale de afectados cae ahí solo. Esto cuida las dos mitades.
+test('los lentos salen de la fase rápida, siguen existiendo, y cada uno dice por qué', () => {
+  for (const [f, motivo] of LENTOS_FUERA_DE_LA_FASE_RAPIDA) {
+    assert.ok(existsSync(join(REPO, f)), `${f} está en la lista de lentos pero NO EXISTE: se renombró o se borró y la lista quedó apuntando a la nada`);
+    assert.ok(/\d/.test(motivo), `${f} no dice CUÁNTO tarda: el motivo tiene que traer el número medido, o nadie puede saber si ya se puede sacar de acá`);
+    assert.ok(/runner|Actions/i.test(motivo), `${f}: el motivo tiene que estar medido en el RUNNER, no en la PC de quien lo escribió — esa fue la trampa que costó cuatro corridas`);
+  }
+});
+
+test('un lento NO queda en los afectados', () => {
+  const plan = planear('origin/main');
+  if (!plan) return;  // sin git o sin base: no hay nada que afirmar
+  for (const f of LENTOS_FUERA_DE_LA_FASE_RAPIDA.keys()) {
+    assert.ok(!plan.sel.tests.has(f), `${f} volvió a los afectados: va a frenar el tren otra vez`);
+  }
 });
