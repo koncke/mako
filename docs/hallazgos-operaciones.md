@@ -3490,17 +3490,19 @@ firmar se mira `espera`, no sólo `puede`.
 
 **Vive en:** `lib/operaciones-reglas.ts` (`CARTERO_VIVO_MS`) · `lib/centro-chats.ts` (`porQueTarda`) · y afuera del repo, en la PC: `~/.claude/operaciones/vigilar-continuo.sh` y `LEEME-cartero.md`.
 
-**El síntoma.** Martín le escribió al Cerebro a las 17:25 desde el teléfono, y debajo del mensaje salió «La PC no responde desde las 17:20: puede estar dormida». Se lo mandó al Runner: «Me dice que no responde...».
+**El síntoma.** Un aviso falso en la pantalla de Martín. Le escribió al Cerebro a las 17:25 desde el teléfono, y debajo del mensaje salió «La PC no responde desde las 17:20: puede estar dormida». Se lo mandó al Runner: «Me dice que no responde...». Una mentira ahí cuesta más que el silencio: la próxima vez que el Centro diga que algo está roto, va a dudar.
 
 **El diagnóstico obvio era el equivocado.** La PC estaba prendida y el Runner, sano: la vuelta de las 17:19 había salido sin errores. El comentario de `CARTERO_VIVO_MS` decía que el cartero pasa «cada uno o dos minutos», y el cron se había estirado a 10 sin mirar quién dependía de ese número. Pasados 4 minutos de cada vuelta, MaKo daba a la PC por muerta. Además, `vigilar` cubría sus 100 s y lo que se escribía después esperaba hasta 8 minutos: el mensaje de las 17:25 recién se entregó a las 17:28.
 
-**El arreglo.** Sin tocar MaKo: `vigilar` corre en fila desde un Monitor del chat Runner, que sólo despierta al chat cuando hay algo. Da noticias cada menos de 2 minutos, entrega en segundos y no gasta cuota en silencio.
+**El arreglo, en dos partes.** En la PC: `vigilar` corre en fila desde un Monitor del chat Runner, que sólo despierta al chat cuando hay algo. Da noticias cada menos de 2 minutos, entrega en segundos y no gasta cuota en silencio. En MaKo: el aviso dice lo que se sabe («Sin noticias de la PC desde las 17:20») en vez de afirmar que no responde. **Subir el 4 a 11 no era la cura:** con vueltas cada 20 minutos, la constante vuelve a mentir.
 
-**La regla.** Un umbral de «está vivo» es un contrato con quien da las noticias. El que cambia la frecuencia del que avisa mira primero quién lee ese número.
+**La regla.** Un umbral de vida se deriva del intervalo real de quien da las noticias; no es una constante al lado. Mientras no se pueda derivar, la pantalla dice el hecho («visto a las 17:20») y no la conclusión («no responde»). Es la misma familia que la entrada del botón del Uso de abajo: allá un dato cierto se leía como si fuera de otra cosa, acá una falta de noticias se leía como una falla.
 
 **Trampa.** Dos `vigilar` a la vez pisan `vuelta.json` y pueden devolver el mismo pedido mientras no tenga acuse. El continuo escribe en `vuelta-continua.json`, y la vuelta del cron no corre `vigilar` si `continuo.latido` tiene menos de 4 minutos.
 
-**SIN hacer:** con la app de Claude cerrada no hay Monitor ni cron, y el aviso vuelve a salir, esta vez con razón. Lo que lo resuelve es `runner-servicio-3010`, sin activar.
+**SIN hacer:**
+- `CARTERO_VIVO_MS` sigue siendo un número suelto, en `lib/operaciones-reglas.ts`. Derivarlo pide que el cartero publique cada cuánto pasa, y que MaKo lo guarde en `operaciones_carteros`.
+- Con la app de Claude cerrada no hay Monitor ni cron, y el aviso vuelve a salir, esta vez con razón. Lo que lo resuelve es `runner-servicio-3010`, sin activar.
 
 ## El botón del Uso mostraba un número cierto de otra cuenta, y «Runner activo» con una medición de hace 6 días (30/10/2026)
 
