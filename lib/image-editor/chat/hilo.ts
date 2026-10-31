@@ -46,7 +46,7 @@ export type MensajeGuardado =
       links?: Array<{ texto: string; href: string }>;
     };
 
-export const TOPES_HILO = { mensajes: 80, texto: 4000, cambios: 40, descartes: 20, refs: 4000, total: 400_000 } as const;
+export const TOPES_HILO = { mensajes: 80, texto: 4000, cambios: 80, descartes: 20, refs: 4000, total: 400_000 } as const;
 
 /** El aviso de una propuesta que se estaba aplicando cuando se cortó la pestaña. */
 export const AVISO_CORTADA = 'Se cortó mientras se aplicaba: mira el diseño antes de volver a pedirlo.';
@@ -147,6 +147,53 @@ export function hiloParaGuardar(raw: unknown): MensajeGuardado[] {
   let lista = [...porId.values()].sort(enOrden).slice(-TOPES_HILO.mensajes);
   while (lista.length > 1 && JSON.stringify(lista).length > TOPES_HILO.total) lista = lista.slice(1);
   return lista;
+}
+
+// ── La memoria: lo que ya se habló, para la IA ───────────────────────────────
+// Cada pedido iba solo: a «Puedes aplicar los cambios que te pedí?» MaKo contestó que no había nada (Leila, 30/10/2026).
+// Va como DATO (ia.ts): sirve para entender a qué se refiere el pedido de ahora, no es una orden.
+
+export const TOPES_MEMORIA = { mensajes: 10, porMensaje: 4_000, total: 8_000 } as const;
+export type LineaMemoria = { de: 'yo' | 'mako'; texto: string };
+
+const QUE_PASO: Partial<Record<EstadoPropuesta, string>> = {
+  pendiente: 'sin aceptar todavía', aplicada: 'la persona lo aceptó', descartada: 'la persona lo descartó', restaurada: 'la persona lo deshizo',
+};
+
+/** Se queda con lo último que entra en los topes, en su orden. */
+function dentroDeLosTopes(lineas: readonly LineaMemoria[]): LineaMemoria[] {
+  const out: LineaMemoria[] = [];
+  let total = 0;
+  for (const l of lineas.slice(-TOPES_MEMORIA.mensajes).reverse()) {
+    const texto = l.texto.slice(0, TOPES_MEMORIA.porMensaje);
+    if (total + texto.length > TOPES_MEMORIA.total) break;
+    total += texto.length;
+    out.unshift({ de: l.de, texto });
+  }
+  return out;
+}
+
+/** Del hilo a lo que viaja: sin los errores (no son parte de la charla) y con qué pasó con cada propuesta. */
+export function memoriaDelHilo(mensajes: ReadonlyArray<{ de: string; texto?: unknown; error?: unknown; estado?: unknown; aviso?: unknown }>): LineaMemoria[] {
+  return dentroDeLosTopes(mensajes.flatMap((m): LineaMemoria[] => {
+    if ((m.de !== 'yo' && m.de !== 'mako') || m.error || typeof m.texto !== 'string' || !m.texto.trim()) return [];
+    // Con aviso no se sabe: una aplicación cortada queda «descartada» sin que nadie la haya descartado (`hiloAlAbrir`).
+    const paso = m.de === 'mako' && !m.aviso ? QUE_PASO[m.estado as EstadoPropuesta] : undefined;
+    return [{ de: m.de, texto: paso ? `${m.texto.trim()} (${paso})` : m.texto.trim() }];
+  }));
+}
+
+/** Lo que llega a la ruta: viene del navegador, no se le cree la forma ni el tamaño. */
+export function sanearMemoria(raw: unknown): LineaMemoria[] {
+  if (!Array.isArray(raw)) return [];
+  return dentroDeLosTopes(raw.slice(-TOPES_MEMORIA.mensajes).flatMap((x): LineaMemoria[] => {
+    const l = x as { de?: unknown; texto?: unknown } | null;
+    return l && (l.de === 'yo' || l.de === 'mako') && typeof l.texto === 'string' && l.texto.trim() ? [{ de: l.de, texto: l.texto }] : [];
+  }));
+}
+
+export function memoriaParaIA(lineas: readonly LineaMemoria[]): string {
+  return lineas.map((l) => `${l.de === 'yo' ? 'La persona' : 'MaKo'}: ${l.texto}`).join('\n');
 }
 
 /** Lo que se MUESTRA al abrir: «aplicando» se cortó a la mitad y queda descartada con su aviso. */

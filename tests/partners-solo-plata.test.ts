@@ -39,7 +39,9 @@ test('lo que se gana: el 100% del primer mes a precio de LISTA por mes (el anual
   assert.equal(precioDeListaPorMes({ plan_mako: null, monto_usd: null }, lista), null, 'no se sabe: no se inventa');
   assert.equal(porGanar([{ estado: 'registrado', gananciaUsd: 97 }, { estado: 'primer-pago', gananciaUsd: 47 }, { estado: 'acreditado', gananciaUsd: 97 }, { estado: 'se-fue', gananciaUsd: 47 }]), 144, 'en camino: los que siguen');
   const p = fuente('lib/partners-programa.ts');
-  assert.match(p, /primero\.set\(Number\(c\.alta_ws\), \{ codigo: c\.ref_codigo, precio: precioDeListaPorMes\(c, listaDe\) \}\)/, 'el cron usa el precio de lista');
+  // 29/10/2026: con la compra sin plan anotado (la venta a mano), la lista de la capa vendida (`conPlanDeLista`,
+  // tests/revision-plata-agency-2910.test.ts).
+  assert.match(p, /primero\.set\(Number\(c\.alta_ws\), \{ codigo: c\.ref_codigo, precio: precioDeListaPorMes\(conPlanDeLista\(c\), listaDe\) \}\)/, 'el cron usa el precio de lista');
   assert.match(p, /const monto = gananciaDelReferido\(precio\);/);
 });
 

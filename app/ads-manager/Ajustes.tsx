@@ -78,9 +78,11 @@ function CampoFila({ valor, onGuardar, etiqueta, placeholder, prefijo, sufijo, a
 export function Ajustes({ config: inicial, cupo }: { config: Config; cupo: CupoMediaBuyer }) {
   const [config, setConfig] = useState(inicial);
   // DÓNDE y HASTA: el control responde al toque y guarda SU campo; `config` vuelve del servidor (y con él, lo de otra pestaña).
-  const [zona, setZona] = useState<LugarZona[]>(inicial.zona);
+  // ⚠️ `zona` puede NO VENIR: la migración 0350 (zona y fechas) no está aplicada en todos los entornos, y una config sin ella
+  // llega sin el campo. `ElegirLugares` hace `elegidos.length`, así que sin el `?? []` la pantalla entera tira un TypeError.
+  const [zona, setZona] = useState<LugarZona[]>(inicial.zona ?? []);
   const [hasta, setHasta] = useState(inicial.hasta ?? '');
-  useEffect(() => { setZona(config.zona); setHasta(config.hasta ?? ''); }, [config.zona, config.hasta]);
+  useEffect(() => { setZona(config.zona ?? []); setHasta(config.hasta ?? ''); }, [config.zona, config.hasta]);
   const [zernio, setZernio] = useState<EstadoZernio | null>(null);
   const { toast, show, clear } = useToast();
   const leerZernio = () => { void api<EstadoZernio>({ op: 'estado_zernio' }).then((r) => { if (r.ok) setZernio({ tieneClave: r.tieneClave, cuenta: r.cuenta, conectado: r.conectado }); }); };

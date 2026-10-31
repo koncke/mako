@@ -16,7 +16,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { wsSuperAdmin } from '@/lib/workspace';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import {
-  cancelarPedido, crearTokenCartero, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
+  cancelarPedido, crearTokenCartero, descartarDelLimbo, encolarPedido, leerCarteros, listarPedidos, trabajoDeLaCola,
   type EstadoCarteros, type Pedido,
 } from '@/lib/operaciones';
 import { areasDeProgreso, leerPushes, type LecturaPushes } from '@/lib/progreso';
@@ -287,6 +287,19 @@ export async function cancelarPedidoAction(id: string): Promise<{ ok: boolean; e
   try {
     const hecho = await cancelarPedido(id);
     return hecho ? { ok: true } : { ok: false, error: 'Ya salió: no se puede cancelar.' };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/** Dar de baja un mensaje del cartel de los que no salieron (CartelLimbo.tsx). */
+export async function descartarDelLimboAction(id: string): Promise<{ ok: boolean; error?: string }> {
+  const admin = await getSesionAdmin();
+  if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
+  if (typeof id !== 'string') return { ok: false, error: 'Falta el mensaje.' };
+  try {
+    const hecho = await descartarDelLimbo(id);
+    return hecho ? { ok: true } : { ok: false, error: 'Ya salió: no hace falta descartarlo.' };
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

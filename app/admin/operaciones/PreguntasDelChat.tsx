@@ -169,7 +169,7 @@ export function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta
   );
 }
 
-export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, delChat = [], onResponder, deLaApp = [], deLaTab = [] }: {
+export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, delChat = [], onResponder, deLaApp = [], deLaTab = [], avisoCerrado }: {
   /** El chat (su clave en el Ops Center): el plegado se recuerda por chat y por lo que espera. */
   chat: string;
   /** Las decisiones de la Ticketera que espera este chat (`preguntasDelChat`); sin `responderTicketera`, no se ofrecen. */
@@ -182,6 +182,8 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
   deLaApp?: readonly PreguntaChat[];
   /** Lo que le pregunta la tab donde está la estrella (MakoEnLaTab → `preguntas`): las sugerencias del CRM. */
   deLaTab?: readonly PreguntaDeLaTab[];
+  /** Si el chat de esa pregunta está cerrado, la línea que lo dice ANTES de firmar (`preguntaDeChatCerrado`, 30/10/2026). */
+  avisoCerrado?: (p: PreguntaChat) => string | null;
 }) {
   const items = useMemo(() => itemsDelBloque(responderTicketera ? ticketera : [], onResponder ? delChat : [], deLaApp, deLaTab),
     [ticketera, responderTicketera, delChat, onResponder, deLaApp, deLaTab]);
@@ -335,6 +337,7 @@ export function BloqueDePreguntas({ chat, ticketera = [], responderTicketera, de
       ) : it.de === 'app' ? (
         <CuerpoDeLaApp p={it.p} />
       ) : p ? (<>
+        {avisoCerrado?.(p) && <p className="co-preg__aviso-app" role="note">{avisoCerrado(p)}</p>}
         <p className="co-preg__texto">{conLinks(p.pregunta, 'pq')}</p>
         {p.contexto && <p className="co-preg__contexto">{conLinks(p.contexto, 'pc')}</p>}
         <ol className="co-preg__ops">

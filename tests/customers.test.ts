@@ -168,7 +168,9 @@ test('Customers dibuja lo suyo: plata sólo si entró algo, «Para mirar», chip
   assert.doesNotMatch(page, /searchParams[^\n]*\bws\?/, '?ws= hace mirar a un cliente: la ficha va en ?cuenta=');
   assert.match(leer('app/admin/AdminView.tsx'), /const \[abierto, setAbierto\] = useState<number \| null>\(abrirInicial\);/);
   const pantalla = leer('app/customer-success/pantalla.tsx');
-  assert.match(pantalla, /if \(\(await getSesionAdmin\(\)\) && !\(await estaImpersonando\(\)\)\) redirect\('\/customers'\);/);
+  // Desde el 29/10/2026 el super admin ve acá el directorio de la comunidad («Members»); un link que nombra a un cliente sigue
+  // yendo a Customers. La guarda de que no lee leads está en tests/cs-kanban-ficha-ui.test.ts.
+  assert.match(pantalla, /if \(\(await getSesionAdmin\(\)\) && !\(await estaImpersonando\(\)\)\) \{\s*if \(leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\) != null\) redirect\('\/customers'\);\s*return <MiembrosDeLaPlataforma searchParams=\{searchParams\} \/>;\s*\}/);
   assert.doesNotMatch(pantalla, /<AdminView/, '/clients volvió a dibujar la grilla del super admin');
 });
 
@@ -239,7 +241,7 @@ test('el teléfono: /m/customers con la puerta de escritorio y los MISMOS datos;
 // ── 6. La API ────────────────────────────────────────────────────────────────────
 
 test('la API: dos lecturas, sólo la plataforma y su admin, sin HTTP; el runner repregunta la plataforma', () => {
-  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {
     const d = DEFS.find((x) => x.id === id);
     assert.ok(d, `falta ${id}`);
     assert.equal(d.tipo, 'lectura');
@@ -248,7 +250,7 @@ test('la API: dos lecturas, sólo la plataforma y su admin, sin HTTP; el runner 
     assert.ok(!d.canales.includes('http' as never), `${id}: datos de todos los negocios, no salen por HTTP`);
   }
   const run = leer('lib/api-mako/areas/cobros.run.ts');
-  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {
     const i = run.indexOf(`${id}: {`);
     assert.ok(i > 0, `falta el runner de ${id}`);
     assert.match(run.slice(i, i + 300), /if \(ctx\.ws !== \(await wsSuperAdmin\(\)\)\) return fallo\(/, `${id}: el runner no repregunta`);
@@ -301,7 +303,7 @@ test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no
   assert.doesNotMatch(app + movil, /haceTxt\((f|c)\.sinEntrar\)/, 'la «Última vez» se dice con ultimaVezTxt en las dos pantallas');
   // 8. En la app, el super admin GLOBAL (como la pantalla), no el admin del workspace de la plataforma.
   const run = leer('lib/api-mako/areas/cobros.run.ts');
-  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar']) {
     const i = run.indexOf(`${id}: {`);
     assert.match(run.slice(i, i + 400), /if \(ctx\.canal === 'app' && !\(await esSuperAdmin\(\)\)\) return fallo\(/, `${id}: sin el super admin`);
   }

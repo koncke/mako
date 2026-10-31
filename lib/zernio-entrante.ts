@@ -28,10 +28,11 @@
 // que ese mensaje acaba de arrancar.
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
+import { borrarLeadConCamino } from './leads-bajas';
 import { createLead, logLeadEvent } from './leads';
 import {
-  plataformaDe, ventanaDesde, nombreDeParticipante, instagramDelEvento, entradaSocialDe, lineaDeEntradaSocial, NOMBRE_CANAL,
+  plataformaDe, ventanaDesde, nombreDeParticipante, instagramDelEvento, entradaSocialDe, lineaDeEntradaSocial, metadataParaGuardar, NOMBRE_CANAL,
   type CanalSocial, type EventoSocial,
 } from './canal-social';
 import { escuchaElEvento, subtipoDelEvento } from './disparadores';
@@ -172,6 +173,15 @@ export async function procesarEventoSocial(e: EventoSocial, body: unknown): Prom
       texto: e.texto, adjuntos: adjuntosDe(body), zernio_message_id: e.mensajeId,
     }, { onConflict: 'workspace_id,zernio_message_id', ignoreDuplicates: true });
     if (eMsg) throw new Error(`ig_mensajes (insert): ${eMsg.message}`);
+    // Lo que vino con el mensaje (ticket #33). En una escritura APARTE y sin tirar: es para poder mirarlo después, y guardarlo
+    // (o que la columna no esté todavía) nunca puede hacer que se pierda el mensaje ni que Zernio reintente.
+    const metadata = metadataParaGuardar(body);
+    if (metadata) {
+      try {
+        const { error: eMeta } = await db.from('ig_mensajes').update({ metadata_zernio: metadata }).eq('zernio_message_id', e.mensajeId);
+        if (eMeta) console.error(`[zernio-entrante] lo que vino con el mensaje ${e.mensajeId}: ${eMeta.message}`);
+      } catch (err) { console.error(`[zernio-entrante] lo que vino con el mensaje ${e.mensajeId}: ${err instanceof Error ? err.message : String(err)}`); }
+    }
   }
 
   // Alguien que YA era un lead y escribió: es una respuesta, y lo que le estaban escribiendo se pausa
@@ -223,7 +233,11 @@ async function quitarHuerfano(huerfano: number, ganador: number | null, anuncioI
     }
   }
   if (ganador === huerfano) return;
-  const { error } = await db.from('leads').delete().eq('id', huerfano);
+  // ⚠️ NO VA A LA PAPELERA, A PROPÓSITO: nació segundos antes en esta misma corrida, nadie lo vio y lo que traía ya se le pasó al
+  // ganador. Una foto suya llenaría la papelera de duplicados que nadie eliminó. Queda anotado (mig 0356).
+  const ws = await getWorkspaceActual();
+  if (ws == null) { console.error(`[zernio-entrante] el lead ${huerfano} quedó huérfano: no sé de qué negocio es`); return; }
+  const { error } = await borrarLeadConCamino(db, ws, huerfano, 'zernio_duplicado', 'MaKo');
   if (error) console.error(`[zernio-entrante] el lead ${huerfano} quedó huérfano (no pude quitarlo): ${error.message}`);
 }
 

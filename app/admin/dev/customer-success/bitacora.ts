@@ -1289,4 +1289,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/partners',
   },
+  {
+    fecha: '29 oct', hora: '23:55', chat: 'Calendario y Classroom', sesion: 'local_18ef0a3f-77e6-48c6-b5a5-29a5ce64ca4c', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Unir Clients y Members en una sola pestaña, con el botón de Kanban o lista',
+    pedido: 'dentro de la pestaña de Classroom… unificar la tab de clientes con la tab de miembros, porque al fin y al cabo es el típico botón que tenemos en el CRM u otros lugares, del botón de Kanban o botón de lista. Son lo mismo, no deberían ser dos tabs',
+    puntos: ['Lo pasó el Cerebro.'],
+    revisar: '/classroom/clients',
+  },
+  {
+    fecha: '29 oct', hora: '23:55', chat: 'Calendario y Classroom', sesion: 'local_18ef0a3f-77e6-48c6-b5a5-29a5ce64ca4c', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Classroom: Clients y Members son una sola pestaña',
+    puntos: [
+      'La pestaña Members ya no está: los miembros son una vista más de Clients, en el mismo botón que Kanban y Lista.',
+      'La vista de miembros tiene todo lo de antes: Todos, Equipo, En línea, Fuera, la búsqueda, el perfil y sacar o volver a admitir.',
+      'Los links viejos a Members abren Clients en la vista de miembros. La vista que elegiste queda en el link.',
+      'Para la plataforma la pestaña se sigue llamando Members y muestra sólo los miembros (sus clientes son los negocios, en Customers).',
+    ],
+    archivos: [
+      'lib/clients-rutas.ts — las sub-tabs sin Members, y el redirect de las rutas viejas',
+      'app/customer-success/ClientesApp.tsx — la vista Miembros en el selector',
+      'app/customer-success/MiembrosClientes.tsx — el directorio de la comunidad adentro de Clients',
+      'tests/clients-rutas.test.ts — 5 roturas, cada una cae',
+    ],
+    revisar: '/classroom/clients?vista=miembros',
+  },
 ];

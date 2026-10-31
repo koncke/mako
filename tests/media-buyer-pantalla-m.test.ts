@@ -38,7 +38,15 @@ test('Ajustes: filas de nombre y control, sin «Guardar» (guarda al instante) y
   assert.match(html, /class="aj-fila"/, 'el molde de Settings de la casa');
   assert.doesNotMatch(texto(html), /\bGuardar\b/);
   assert.ok((html.match(/<button/g) ?? []).length <= 7, 'el interruptor, el modo, el resultado y conectar: nada más');
-  assert.doesNotMatch(html, /mk-hint|mba-/, 'sin la ayuda debajo de cada campo de antes');
+  assert.doesNotMatch(html, /mk-hint/, 'sin la ayuda debajo de cada campo de antes');
+  // `mba-lugares*` es de ElegirLugares (main, 29/10): la ÚNICA pieza de la hoja vieja que sigue acá, dentro de «Dónde y hasta
+  // cuándo». Las tarjetas `mba-card`/`mba-grilla` de antes no vuelven.
+  assert.doesNotMatch(html, /mba-(?!lugares)/, 'volvieron las tarjetas de la hoja vieja');
+  // Y que «Dónde y hasta cuándo» siga estando: lo agregó main el 29/10 y un merge lo puede perder sin que nada más se queje.
+  assert.match(texto(html), /Dónde y hasta cuándo/, 'se perdió la sección de la zona y la fecha de fin');
+  assert.match(html, /type="date"/, 'se perdió el campo de la fecha de fin');
+  // ⚠️ CONFIG no trae `zona` ni `hasta` A PROPÓSITO: sin la migración 0350 la config llega así, y `ElegirLugares` hace
+  // `elegidos.length`. Si Ajustes deja de defenderse con `?? []`, este render tira un TypeError y el test lo caza.
   const src = sinComentarios(leer('app/ads-manager/Ajustes.tsx'));
   // Un monto que no se entiende NO sale: `JSON.stringify(NaN)` es null, y el «NaN para que lo rechace el servidor» lo BORRABA.
   assert.doesNotMatch(src, /Number\.NaN/);

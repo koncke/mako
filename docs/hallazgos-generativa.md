@@ -14,6 +14,81 @@ MaKo. Corrida de 9 agentes, 2026-08-18.
 
 ---
 
+## `composer.ts` y `Composer.tsx` en la misma carpeta: verde en el CI, roto en Windows (30/10/2026)
+
+**El síntoma.** Al rescatar `nube/video-generator-2710`, el tsc acotado sobre el estudio dio tres rojos en un archivo que la
+rama había escrito entera y que supuestamente estaba verde:
+
+```
+EstudioVideo.tsx(38,10): TS2305: Module '"./Composer"' has no exported member 'Composer'.
+EstudioVideo.tsx(38,26): TS1149: File name '…/Composer.ts' differs from already included file
+                                 name '…/composer.ts' only in casing.
+EstudioVideo.tsx(140,18): TS7006: Parameter 'item' implicitly has an 'any' type.
+```
+
+**La causa real.** `app/video-generator/estudio/` traía los dos: `composer.ts` (el módulo puro con las reglas del botón
+«Generar anuncio») y `Composer.tsx` (la pantalla). El `import { Composer } from './Composer'` de `EstudioVideo.tsx` resuelve
+probando extensiones **en orden**: `./Composer.ts` antes que `./Composer.tsx`. En un filesystem que no distingue mayúsculas
+—NTFS— `./Composer.ts` **es** `composer.ts`: el import trae el módulo puro, que no exporta ningún `Composer`, y el TS7006 es
+la cascada de un componente que quedó `any`. En Linux `./Composer.ts` no existe, el resolvedor pasa de largo y encuentra
+`Composer.tsx`.
+
+**⚠️ El diagnóstico obvio era el equivocado, dos veces.** Primero: «hay un choque de nombres en el checkout». No lo hay — los
+dos archivos coexisten en NTFS porque las extensiones difieren (`Composer.tsx` ≠ `composer.ts` también sin mayúsculas), y
+`git ls-files` y `ls` muestran los dos. El choque es del **resolvedor de módulos**, no del disco. Segundo: «si el CI estaba
+verde, el rojo es un artefacto del acotado» — es al revés. AGENTS.md enseña a desconfiar de un rojo del acotado (los overloads
+de `createElement`, los `declare module` de TipTap), y acá ese reflejo tapa un bug real: **Actions y el build de Vercel corren
+en Linux y nunca lo van a ver**, y con `typescript.ignoreBuildErrors: true` el build tampoco frena. Verde donde se mide, roto
+en la máquina donde se trabaja.
+
+**La regla.** En una carpeta no van dos nombres que sólo se distingan por la caja. El módulo puro de una pantalla lleva el
+sufijo `-reglas`, que es la convención que la carpeta ya tenía (`chat-reglas.ts` es el puro de `ChatVideo.tsx`): el archivo
+quedó como **`composer-reglas.ts`** y no se renombra de vuelta. Está anotado en el encabezado de `Composer.tsx` y en AGENTS.md
+→ «Para validar lo tuyo sin el tsc completo».
+
+**Lo que lo frena, desde el 30/10/2026.** `tests/colision-de-nombres.test.ts` recorre `git ls-files` y falla si dos archivos de
+la misma carpeta comparten el basename **sin extensión** en minúsculas. Medido: `origin/main` y `origin/integracion`, 0; el árbol
+anterior al arreglo (`9012f6070`), 1 —justo éste—; el árbol con el arreglo (`9b5b2346e`), 0. Probado rompiéndolo, base 4 pases / 0
+fallos: devolver `composer-reglas.ts` a `composer.ts` da 3/1, y las dos formas ingenuas del detector (comparar el nombre COMPLETO,
+o no bajar las mayúsculas) dan 2/2 porque le pasan limpias al árbol del bug.
+
+Cuatro cosas de ese barrido que no se ven leyéndolo:
+
+- **La lista de extensiones es la pieza que sostiene al guard**, no un detalle de implementación. Son las que TypeScript prueba sin
+  que el import las nombre (`.ts .tsx .js .jsx .mts .cts .mjs .cjs`, con `allowJs` y `moduleResolution: bundler`). Con `.css`
+  adentro aparecen **cinco falsos positivos** que son la convención de la casa (`app/_ui/Ajustes.tsx` + `ajustes.css`, y cuatro más):
+  una hoja de estilos no la resuelve un import sin extensión, así que no divergen entre filesystems. Sumar una extensión a esa lista
+  es medir cuántos hallazgos agrega antes, no después.
+- **Exige que los nombres DIFIERAN en la caja.** `foo.ts` + `foo.js` caen en el mismo casillero y no son este bug: ahí el resolvedor
+  elige el `.ts` igual en Windows que en Linux. Lo que el guard persigue es la DIVERGENCIA entre filesystems, que la produce la
+  mayúscula y nada más.
+- **El caso hermano entra en el mismo test, y también está en 0:** una carpeta con `index` y un archivo vecino que se llaman igual en
+  minúsculas (`./Foo` prueba `./Foo.ts` antes que `./Foo/index.ts`, y en NTFS ese `./Foo.ts` es el `foo.ts` de al lado).
+- **`git ls-files` lista el ÍNDICE**: con el archivo renombrado y sin stagear, el barrido no lo ve. Es la misma letra chica que
+  AGENTS.md → «`npm test` antes del `git add` no ve los archivos nuevos», y es por qué la rotura de arriba se probó con `git mv`.
+
+## El saldo de Flow guardado NO es el de ahora, y la tarjeta de filmar lo afirmaba (30/10/2026)
+
+**El síntoma.** La confirmación de `filmar_toma_anuncio` —`plata: true`, `costo: 'dinero'`, la única operación del estudio que
+gasta créditos de la cuenta de Google del cliente— cerraba con `Te quedan 42.`
+
+**La causa real.** Ese número sale de `leerSaldoGuardado()` (app/video-generator/saldo-datos.ts), que **no le pregunta nada a
+Google**: devuelve la última lectura guardada en los settings. Refrescarla contra Flow se hace desde la tab
+(`pedirSaldoAction`), y el propio inventario de la rama lo dice: «preguntarle a Google en cada turno es tráfico contra su
+sesión». Así que el saldo podía tener días, y la frase lo daba por actual, en la tarjeta donde el cliente decide gastar. El
+repo ya tenía la convención escrita en los dos lugares que importan y la rama no la siguió: `SaldoFlow.at` se documenta como
+«un saldo sin fecha no se puede juzgar», y la misma lectura por el chat (`ver_saldo_flow`, `lib/api-mako/areas/video.run.ts`)
+devuelve `leido_el` y la nota «Es la última lectura guardada (…): el saldo real puede ser otro».
+
+**Lo que NO era.** No es un dato inventado: el número se midió de verdad, alguna vez. Es un dato **medido en un momento
+desconocido, afirmado como presente** — el mismo daño, y más difícil de ver, porque buscando puntajes derivados del índice
+(`score = 0.95 - idx*0.05`) o tiempos `idx*15` este no aparece: no hay ninguno en los 40 archivos.
+
+**La regla.** Un número con fecha se dice con su fecha; sin fecha no se afirma. `video-estudio.run.ts` ahora dice
+`En la última lectura (27/10) te quedaban 42.`, y si `at` viene `null` **omite la oración entera** — no escribe «falta»,
+y el costo de la toma, que es lo que decide, va igual. De paso, el `catch` del costo dejó de repetir el `15` a mano
+(`COSTO_CLIP_ESTIMADO`), que es el valor que ya se validaba al leer.
+
 ## El diagnóstico obvio era el equivocado: BYOK de medios está PROHIBIDO
 
 La intuición razonable —«para texto cada cliente pone su key, hacemos lo mismo con
@@ -7194,3 +7269,56 @@ cliente** (el Chrome de Martín no estaba conectado a esta cuenta). Lo que se mi
 - si «Upload» usa `input.click()`, `showPicker()` u otra cosa.
 Y sin construir: cuando la cara guardada (`KEY_CARAS_FLOW`) no está en el proyecto, nada la vuelve a
 subir sola (`video-action.ts`, `caraEnFlow`); la persona ve «Tu foto no está en este proyecto de Flow».
+
+## El estudio de video copiado de Arcads (27/10/2026)
+
+*Sesión en la nube, a pedido del Cerebro. Martín: «implementar Video Generator, que nos quedó a medias... Tiene una cantidad
+de pestañas absurdas, el diseño, que se parezca a una app que tomemos de referencia».*
+
+**La referencia: Arcads** (arcads.ai), la app de anuncios UGC con actores de IA. Se eligió porque resuelve el MISMO problema
+(un guion, una persona que lo dice a cámara, un anuncio vertical) en un solo panel: el guion arriba, el actor elegido de una
+biblioteca de videos, «Generate», y los proyectos en una lista al costado. HeyGen y Captions se descartaron: el primero es un
+editor de escenas por diapositiva y el segundo, un editor de lo ya grabado. Las pantallas se vieron por su centro de ayuda
+(la app pide cuenta paga y la red de la nube bloquea casi todo lo que no es el buscador):
+[Getting started](https://help.arcads.ai/en/articles/14531683-getting-started-with-arcads),
+[un actor que habla](https://help.arcads.ai/en/articles/13239650-how-to-create-a-talking-actor-video-no-product),
+[un anuncio UGC](https://help.arcads.ai/en/articles/17595045-how-do-i-make-an-ai-ugc-ad-in-arcads),
+[la guía de la plataforma](https://help.arcads.ai/en/articles/15503340-everything-you-can-do-on-arcads-complete-platform-guide).
+
+**Qué se copió:** una ruta y tres columnas (`app/video-generator/estudio/`). A la izquierda, «Nuevo anuncio» y los proyectos
+(en curso con en qué anda cada uno, y los terminados con su miniatura); en el centro, el anuncio nuevo en UNA pantalla
+(guion, formato como biblioteca de videos, lugar como chips y un solo botón con su consecuencia) o el anuncio abierto; a la
+derecha, MaKo. Abrir, crear o cambiar de proyecto no cambia de ruta: el abierto viaja en `?plan=` con `history.replaceState`
+(Next lo sincroniza con `useSearchParams`) y se conserva el `?ws=` (`urlConPlan`).
+
+**Lo que se sacó:** el catálogo de guiones como pantalla aparte, la galería de formatos aparte, el paso del lugar después
+del guion (si se eligió al crear: `lugarEnElAlta`), la «previa volante» del onboarding (`PreviaVolante.tsx`) y el negro
+forzado de la tab (`TemaOscuroScript`): el estudio va en los tokens de MaKo, claro u oscuro. `VideoGeneratorApp.tsx` se
+borró (lo reemplaza `EstudioVideo.tsx`).
+
+**Lo que no se ve en el código:**
+- **El chat es el de la app, no el de Web Generator.** El pedido decía «como en Web Generator», pero el motor de ese chat es
+  de landings. Lo que se reusó es lo que comparten los dos, el chat único (PanelDeChat + `useChatCliente`, el motor del Ops
+  Center), montado como el del Second Brain: una conversación por persona (`mako-movil:<persona>:video-generator`), el
+  anuncio abierto como entidad (`anuncio` en lib/chat-desde.ts, que mete su `planId`) y, al terminar cada turno, el estudio
+  relee los proyectos y abre el anuncio que MaKo haya creado (`proyectoNuevo`).
+- **Los runners del chat llaman a las server actions de la tab**, y eso contradice el encabezado de video.run.ts («fuera de
+  un navegador contestan "solo el administrador"»). No lo contradice: es cierto para WhatsApp y HTTP. En la app, el turno y
+  la confirmación de la tarjeta corren en un pedido del navegador de la persona, con su cookie, y el registro corre adentro
+  de `runWithWorkspace(ctx.ws)`. Por eso las 21 operaciones salen sólo por `['app']`, están en `NO_EN_FLUJOS` y su runner
+  rechaza además la clave de un flujo (`soloDesdeLaApp`).
+- **Las acciones se cargan con `import()` al usarlas.** El registro (lib/api-mako/runners.ts) lo importan WhatsApp, los
+  crons y los webhooks; con un import fijo, cada una de esas rutas cargaba el Video Generator entero.
+- **`generarTomaAction` contesta `ok: true` SIN filmar** sobre una toma ya filmada o en vuelo (su freno de plata). Por chat
+  eso sería un «listo» que no hizo nada: `porQueNoFilmar` (estudio/filmar.ts) pregunta antes de proponer y otra vez al
+  confirmar (`faltaParaConfirmar`), y el runner mira la marca que dejó la acción, no su `ok`.
+- **El inventario botón ↔ operación son las server actions exportadas** (estudio/inventario.ts): un botón nuevo sin su
+  operación o su motivo no pasa tests/video-estudio-api.test.ts. Lo que queda por motivo: los sondeos de la pantalla, los
+  prompts técnicos (el chat no los muestra), lo que lleva un archivo de la computadora y el onboarding.
+
+**Medido en la nube y no en vivo:** la nube no tiene la base ni Flow. Nada de esto se vio con un puente conectado: la prueba
+en vivo está en docs/relevo/video-generator.md, paso a paso. Y dos rojos que no son de este cambio, medidos en una copia
+limpia de HEAD: `tests/ops-center-clasificador-app.test.ts` (el import de `MAKO_ACCION_TOOLS` por `--input-type=module`
+falla igual en HEAD en Linux) y 14 errores de tipos en `app/video-editor/_opencut/wasm` (el paquete wasm no está compilado
+en el contenedor).
+

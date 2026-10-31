@@ -20,6 +20,8 @@ export type VistaNav = {
   rolWs: string;
   /** La capa que compró el cliente (lib/capas.ts). */
   capa: string;
+  /** La cuenta de un cliente de una AGENCIA (29/10/2026): no ve lo marcado `noParaClienteDeAgencia` (MaKo Partners). */
+  clienteDeAgencia?: boolean;
 };
 
 /**
@@ -34,6 +36,8 @@ export function puedeVerItem(it: NavItem, v: VistaNav): boolean {
     && (!it.soloCapas || v.adminShell || (it.soloCapas.includes(v.capa) && !rolCliente))
     // `noEnPlataforma` (26/10/2026): Partners y Agency, fuera de la barra del super admin; sus programas los mira en Customers.
     && !(it.noEnPlataforma && v.adminShell)
+    // `noParaClienteDeAgencia` (29/10/2026, Thiago: «yo no me meto con ese cliente»): MaKo no le ofrece nada al cliente de una agencia.
+    && !(it.noParaClienteDeAgencia && v.clienteDeAgencia)
     && tabEnCapa(it.key, v.capa || undefined);
 }
 

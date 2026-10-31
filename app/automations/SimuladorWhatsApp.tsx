@@ -64,6 +64,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type ComponentType } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
+import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, Z_CHAT_ENCIMA, type EdicionLocal } from './SecuenciaPerfil';
@@ -621,7 +622,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       setDescartando(false); setADescartar(null);
     }
   };
-  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {
+  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean; sinRitmo?: boolean }) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
     // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
     if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
@@ -640,6 +641,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinAviso) {
       const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia);
       if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra) }); return; }
+    }
+    // Y CUÁNTOS Y A QUÉ RITMO (Martín, 25/10/2026, lib/ritmo-al-activar.ts). «No pude preguntar» no frena.
+    if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinRitmo) {
+      setErrFila(null); setOcupada(j.id);
+      const a = await fetch(`/api/whatsapp/secuencias?ritmo=${j.id}`)
+        .then((r) => r.json())
+        .then((r: { ok?: boolean; ritmo?: AvisoDeRitmo | null }) => (r.ok ? r.ritmo ?? null : null))
+        .catch(() => null);
+      setOcupada(null);
+      if (a) { setAvisoRitmo({ j, sinAviso: !!o?.sinAviso, ...a }); return; }
     }
     setErrFila(null); setOcupada(j.id);
     try {
@@ -663,6 +674,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     }
   };
 
+  /** El «Activar» del «⋯» que espera la respuesta al aviso de cuántos y a qué ritmo. */
+  const [avisoRitmo, setAvisoRitmo] = useState<(AvisoDeRitmo & { j: SecuenciaDto; sinAviso: boolean }) | null>(null);
   /** El «Activar» del «⋯» que espera la respuesta al aviso de duplicada, con su texto. */
   const [avisoActivar, setAvisoActivar] = useState<{ j: SecuenciaDto; texto: string } | null>(null);
   /** «Activar igual»: sale el Activar de siempre (el aviso ya se contestó). */
@@ -766,6 +779,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       <div key={creando ? j.clave : j.id}>
         <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={nombreDe(j)} creando={creando}
           sinPublicar={sinPublicarDe(j, j.id === selId && sinPublicar)}
+          aviso={j.activa ? j.aviso_ritmo ?? undefined : undefined}
           onClick={() => elegir(j.id)}
           editarNombre={renombrando === j.id && rolAdmin && !creando
             ? { onGuardar: (t) => void guardarNombre(j, t), onCancelar: () => setRenombrando(null) }
@@ -983,6 +997,11 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       )}
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
+      {avisoRitmo && (
+        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.poner ? 'Activar igual' : 'Activar'} cancelLabel={avisoRitmo.poner ?? 'Cancelar'} tone="primary"
+          onConfirm={() => { const a = avisoRitmo; setAvisoRitmo(null); void accionFila(a.j, 'activa', { sinAviso: a.sinAviso, sinRitmo: true }); }}
+          onCancel={() => { const a = avisoRitmo; setAvisoRitmo(null); if (a.poner) setConfigDe({ id: a.j.id, nombre: a.j.nombre }); }} />
+      )}
       {avisoActivar && (
         <Confirm message={avisoActivar.texto} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"
           onConfirm={activarIgual} onCancel={() => setAvisoActivar(null)} />
@@ -1015,7 +1034,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  * RENOMBRANDO (undécima tanda, punto 5: `editarNombre`): el mismo emoji y, en lugar del botón, un campo con el
  * nombre (`CampoNombre`); el «⋯» se esconde mientras tanto.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, editarNombre }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, aviso, editarNombre }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
@@ -1023,6 +1042,8 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
   creando?: boolean;
   /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
   sinPublicar?: boolean;
+  /** Prendida sin goteo o sin horario (`aviso_ritmo`): un ícono, y la frase entera al pasar el cursor. */
+  aviso?: { texto: string; rotulo: string };
   /** Se está renombrando: el nombre es un campo. Guardar recibe lo escrito; cancelar, nada. */
   editarNombre?: { onGuardar: (escrito: string) => void; onCancelar: () => void };
 }) {
@@ -1059,6 +1080,8 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
             <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
               style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
           )}
+          {/* Un ícono y no un rótulo: el único TEXTO de la fila es el nombre (tests/chatbot-probar.test.ts). La frase, al pasar el cursor y en su pantalla. */}
+          {aviso && <span data-sin-goteo role="img" aria-label={aviso.rotulo} title={aviso.texto} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none' }}>⚠</span>}
         </button>
       )}
       {menu && !editarNombre && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}

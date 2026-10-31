@@ -120,6 +120,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/crm/en-bloque/columna', 'pasar_en_bloque_otra_columna'],
   ['POST', '/crm/en-bloque/funnel', 'pasar_en_bloque_otro_funnel'],
   ['GET', '/crm/papelera', 'ver_papelera_crm'],
+  ['GET', '/crm/bajas', 'ver_bajas_de_leads'],
   ['POST', '/crm/papelera', 'mandar_en_bloque_a_papelera'],
   ['POST', '/crm/papelera/recuperaciones', 'recuperar_de_papelera_crm'],
   // Una campaña o un conjunto de Meta va a uno o varios funnels (#893, 17/10/2026). PUT porque FIJA la lista entera.

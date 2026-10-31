@@ -52,7 +52,7 @@ import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { canonizarVideoId } from '@/lib/video-id';
 import { esPreviewDeEditor } from '@/lib/landing-paginas';
 import { alVisitarPagina } from '@/lib/landing-gracias';
-import { urlSinDatosPersonales } from '@/lib/url-datos-personales';
+import { urlDeEntradaGuardable, urlSinDatosPersonales } from '@/lib/url-datos-personales';
 import { ubicacionDeHeaders, type UbicacionVisita } from '@/lib/graficos-datos-puro';
 import { PUENTE_MAPA_VERSION, esPruebaDelMapa } from '@/lib/landing-mapa-puente';
 
@@ -308,9 +308,13 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
   // Sanitizadores de los campos nuevos (opcionales, beacon viejo sigue andando).
   const texto = (v: unknown, max: number): string | null =>
     typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
-  // La URL de la página SIN los datos de una persona (24/10/2026, P6: la página de gracias de Calendly trae `?name=…&email=…`
-  // y la guardábamos entera). Se saca ANTES de cortar a 500: un corte podía dejar medio email adentro.
-  const urlGuardable = (v: unknown): string | null => texto(typeof v === 'string' ? urlSinDatosPersonales(v) : v, 500);
+  // La URL de la página con SÓLO los parámetros que se guardan (24/10/2026, P6: la página de gracias de Calendly trae
+  // `?name=…&email=…` y la guardábamos entera). Se saca ANTES de cortar a 500: un corte podía dejar medio email adentro.
+  // ⚠️ LISTA BLANCA desde el 30/10/2026 (`PARAMS_QUE_SE_GUARDAN`, lib/url-datos-personales.ts). Antes era una lista
+  // negra de nombres personales, y Cal.com manda el nombre de quien agendó en `attendeeName=` — que no estaba en ella,
+  // así que seguía entrando después del arreglo. Lo que no está nombrado en la lista no se guarda, parezca de alguien
+  // o no: es lo único que no se queda corto cuando el proveedor de agendas agrega un parámetro nuevo.
+  const urlGuardable = (v: unknown): string | null => texto(typeof v === 'string' ? urlDeEntradaGuardable(v) : v, 500);
 
   // Un píxel: entero, no negativo y por debajo de un techo generoso.
   //

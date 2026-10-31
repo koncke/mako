@@ -116,7 +116,8 @@ test('«Tu plan» ofrece Pro por pedido, y /mako-partners no nombra un plan que 
   const pagina = fuente('app/configuraciones/plan/page.tsx');
   assert.match(pagina, /proPorLlamada\(\{ capa, subidaEnLinea: subir != null \}\)/);
   assert.match(pagina, /href: `\/planes\/\$\{pro\.id\}`/);
-  assert.match(pagina, /porLlamada=\{porLlamada\}/);
+  // Salvo al cliente de una agencia (29/10/2026): su plan lo cambia su agencia (tests/cliente-de-agencia-y-partners-2910.test.ts).
+  assert.match(pagina, /porLlamada=\{deAgencia \? null : porLlamada\}/);
   assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /porLlamada && <FilaAjustes[^>]*href=\{porLlamada\.href\}/);
   for (const rel of ['app/mako-partners/page.tsx', 'app/mako-partners/LandingPartners.tsx']) assert.doesNotMatch(fuente(rel), /Growth/, rel);
 });

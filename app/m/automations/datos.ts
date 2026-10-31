@@ -90,6 +90,7 @@ export async function leerAutomations(o: { conNumeros: boolean }): Promise<Lectu
         id: s.id,
         nombre: s.nombre,
         activa: s.activa,
+        avisoRitmo: s.aviso_ritmo,
         disparador: lineaDelDisparador(s, nombres),
         pasos: enBorrador ? [...cron, ...pasosEnLectura(enBorrador, nombresTarjetas)] : publicados,
         borrador: enBorrador && visto ? {

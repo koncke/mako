@@ -20,6 +20,7 @@ import { getTenantDb, getWorkspaceActual } from './workspace';
 import { getLead } from './leads';
 import { listarFunnels, funnelsConUmbrales } from './funnels';
 import { productosDelLead } from './lead-funnel';
+import { borrarLeadConCamino } from './leads-bajas';
 import { nombreVisible } from './lead-funnel-reglas';
 import { etapaVigenteDe } from './funnel-etapas';
 import {
@@ -187,7 +188,9 @@ export async function aplicarUnificar(plan: Extract<PlanUnificar, { ok: true }>,
       case 'borrar-ficha': {
         const colgando = await quedaColgando(db, ws, plan.seVa);
         if (colgando.length) throw new Error(`No borré «${plan.previa.seVa.nombre}»: todavía le cuelga ${colgando.join(', ')}. Vuelve a unificar.`);
-        ok(await db.from('leads').delete().eq('id', plan.seVa), 'borrar la ficha que se va');
+        // ⚠️ NO VA A LA PAPELERA, A PROPÓSITO: todo lo que le colgaba ya se mudó (`quedaColgando` lo acaba de medir) y lo decidido
+        // está en el historial de la que queda. Recuperarla devolvería una ficha duplicada y vacía. Queda anotada (mig 0356).
+        ok(await borrarLeadConCamino(db, ws, plan.seVa, 'unificar', autor), 'borrar la ficha que se va');
         break;
       }
     }

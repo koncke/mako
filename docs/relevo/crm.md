@@ -6,6 +6,22 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω31. 30/10/2026 (chat «CRM», cuenta `claude1`): Calendario, Newsletter y el registro de bajas
+
+**Tres puntas, ninguna en main todavía al escribir esto.** Medí el estado antes de creerme esta lista: `git merge-base --is-ancestor <sha> origin/main`.
+
+- **Calendario + recorrido: `6524c130b`** (rama `recorrido-k-3010`, tag `respaldo/calendario-recorrido-3010`). La tiene el Cerebro para el tren.
+  - Afectados `--rapido`: 3.533 tests, 1 rojo (`docs/api-mako.md`), regenerada y verificada SÓLA, sin repetir el conjunto.
+  - Sin mirar en pantalla: la posición del globo de la guía con el botón en la barra (`bordeVisible - 56`) es un cálculo, una hipótesis.
+- **Registro de bajas: `b8e6e842e`** (rama `crm-bajas-3010`, tag `respaldo/crm-bajas-3010`). La tiene el Cerebro para el tren. La mig 0356 YA ESTÁ APLICADA con ese nombre: no se renumera.
+  - ⚠️ **Tests: 5 arreglados y verificados uno por uno, sin repetir el conjunto. NO es una corrida completa en verde.** Los afectados dieron 2.467 tests de 407 archivos con 5 rojos, y además 179 archivos «flaky» con 0,2 GB de RAM libre como mínimo: la máquina se quedó sin memoria, y esos no están medidos acá. Van a Actions con el resto.
+  - Sin verificar: el botón «Eliminar» en pantalla (falta sesión en el navegador integrado). Las funciones se midieron por PostgREST, en el Cliente de Prueba.
+- **Newsletter: `4bf893671`** (rama `newsletter-2910`, worktree `C:/dev/wt-newsletter-2910`). **Sin tag y sin afectados.** Las 4 fallas de la revisión están arregladas (15 roturas, 15 rojos); la mig 0351 ya está aplicada (medido).
+  - **Falta, en este orden, cuando Calendario esté en main:** traer main con merge (choca en `AGENTS.md`, `app/calendario/comun.ts`, `lib/calendario-modelo.ts` y `docs/hallazgos.md`), correr sus afectados, etiquetar y pasarle la punta al Cerebro.
+  - Queda para antes de sacarlo de PRONTO: M5 y las bajas del informe (`docs/hallazgos-newsletters.md`). El interruptor de una landing se le pregunta a Martín.
+- **Cuotas de la ficha: `c7ff7d7fc`** (tag `respaldo/crm-diseno-t17-2410`): hechas, esperando una revisión adversarial que no sea de quien las escribió. No se reimplementan.
+- **Para mirar en producción cuando haya sesión:** el «Creando…» de los «+» de etapas (crear y borrar en el Cliente de Prueba), el selector de funnel del teléfono, las dos columnas de la ficha, el globo de arriba y «Eliminar».
+
 ## 0-Ω29. 27/10/2026 (chat «CRM», cuenta `claude5`): el feedback de Leila, Leandro, Aaron y el grupo Makito (del Cerebro)
 
 Misma rama. Lo aprendido, en hallazgos-crm («Feedback de Leila, Leandro y Aaron»), hallazgos-chatbot y hallazgos-extension.

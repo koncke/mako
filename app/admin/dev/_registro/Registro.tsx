@@ -150,7 +150,7 @@ function Meta({ h }: { h: Hito }) {
         Nombre del chat: <span style={{ color: 'var(--dim)' }}>{h.chat}</span>
       </span>
       <span aria-hidden>·</span>
-      <span style={{ whiteSpace: 'nowrap' }}>Cuenta {c.n}: <span style={{ color: 'var(--dim)' }}>{c.nombre}</span></span>
+      <span style={{ whiteSpace: 'nowrap' }}>{c.n ? `Cuenta ${c.n}: ` : ''}<span style={{ color: 'var(--dim)' }}>{c.nombre}</span></span>
     </div>
   );
 }

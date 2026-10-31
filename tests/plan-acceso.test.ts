@@ -138,8 +138,12 @@ test('a la agencia que mira un cliente pausado, la pantalla le dice qué hacer e
 // suscripción activa pausa a quien paga; las cuotas sin paginar): queda APAGADO hasta su arreglo y su revisión.
 test('el corte de acceso por falta de pago está APAGADO: el cron no toca nada y un pausado se abre como siempre', () => {
   assert.match(fuente('lib/plan-acceso-reglas.ts'), /export const CORTE_DE_ACCESO_PRENDIDO: boolean = false;/);
-  assert.match(fuente('lib/plan-acceso.ts'), /if \(!CORTE_DE_ACCESO_PRENDIDO\) return out;/);
-  assert.match(fuente('lib/workspace.ts'), /export const negocioPausado = cache\(async \(ws: number\): Promise<boolean> => CORTE_DE_ACCESO_PRENDIDO && /);
+  // ⚠️ 29/10/2026: SALVO la cuenta que su agencia dio de baja (el corte `sin-agencia`, tests/agencia-baja.test.ts): el cron
+  // sólo la mira a ella, nunca corta por el cobro, y un pausado sin ese corte se abre como siempre.
+  const acceso = fuente('lib/plan-acceso.ts');
+  assert.match(acceso, /const sinAgencia = CORTE_DE_ACCESO_PRENDIDO \? null : await cuentasSinAgencia\(opts\.soloWs\);\n\s*if \(sinAgencia && !sinAgencia\.size\) return out;/);
+  assert.match(acceso, /if \(sinAgencia && paso\.tipo === 'cortar'\) continue;/);
+  assert.match(fuente('lib/workspace.ts'), /if \(corte\?\.motivo === 'sin-agencia' && corte\.vigente\) return !\(Date\.parse\(corte\.desde\) > Date\.now\(\)\);\n\s*return CORTE_DE_ACCESO_PRENDIDO;/);
 });
 
 // =============================================================================

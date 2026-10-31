@@ -38,6 +38,11 @@ no tenemos), y adelante **Clients**: el kanban de la entrega. Va primero y es la
 siendo lo que es en Skool (las personas de la comunidad, con su nivel y si están en línea); no se fusiona con el kanban:
 son dos preguntas («¿en qué etapa está?» y «¿quién participa?») y fusionarlas obligaba a elegir cuál pierde.
 
+> ⚠️ **SUPERADA el 29/10/2026** (Martín: «unificar la tab de clientes con la tab de miembros… Son lo mismo, no deberían ser dos
+> tabs»). Members es la vista «Miembros» del selector de Clients (Kanban · Lista · Miembros · Avance) y `/classroom/members`
+> redirige a `/classroom/clients?vista=miembros`. Ninguna de las dos preguntas perdió: cada una es una vista. Detalle en
+> [hallazgos-customer-success.md](hallazgos-customer-success.md) → «Clients y Members, UNA sub-tab».
+
 ### D2. Las rutas nuevas, y el código donde estaba
 
 `/clients` · `/clients/community` · `/clients/classroom` (+ `/clients/classroom/preview`, la vista del alumno) ·

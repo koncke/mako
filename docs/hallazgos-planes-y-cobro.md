@@ -10,6 +10,29 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Una suscripción ya cancelada en la pasarela frenaba la baja PARA SIEMPRE (30/10/2026)
+
+- **Síntoma:** `cancelarSuscripcionCobro` (`lib/cobros.ts:1603`) no podía terminar nunca una baja cuya suscripción ya
+  estaba cancelada del lado de la pasarela y seguía `activa` en la fila.
+- **Causa real:** «ya está cancelada» llega como un **error** (404, o un «already canceled»), y el código salía por
+  `ok: false` antes de `aplicarSuscripcionCancelada(c)`. El estado del mundo ya era el que se pedía; lo único que
+  faltaba era asentarlo, y el reintento fallaba igual: la fila quedaba `activa` eternamente. Pasa cuando se canceló a
+  mano en Stripe, o cuando una corrida anterior murió entre la pasarela y la base.
+- **A quién le dolía:** `darDeBajaMiPlan` llama a esta función para la prueba gratis (`:1670`) y devuelve su error tal
+  cual, así que el cliente no podía darse de baja; y `cerrarPruebaAlEmpezarYa` (`:1584`) sólo lo loguea y se va.
+- **La regla que queda:** en una pasarela, **una cancelación es idempotente**: «ya cancelada» es éxito, no error. El 404
+  pasa; cualquier otro error se chequea **releyendo** la suscripción y vale si está cancelada.
+- ⚠️ **No se inventó: el molde ya estaba en el mismo archivo**, en `reusarOCrearCheckout` (`lib/cobros.ts:602-606`), con
+  esa condición exacta (`!x.ok && x.status !== 404`, y si no, releer y aceptar `canceled`). Antes de escribir un
+  criterio nuevo para la pasarela, conviene buscar el que ya está escrito 1.000 líneas más arriba.
+- ⚠️ **Los nombres del estado NO coinciden entre pasarelas y no se escriben a mano:** Stripe dice `canceled` y Mercado
+  Pago dice `cancelled` al leer y `canceled` al cancelar. Para eso está `suscripcionMpCancelada`
+  (`lib/cobros-eventos.ts:450`), que cubre las dos grafías; un `=== 'cancelled'` a mano se rompe según por dónde entró.
+- **Lo que queda abierto:** `anularCobro` (`lib/cobros.ts:1318`) sigue cerrando el link viejo con mejor esfuerzo
+  (`cerrarLinkEnLaPasarela` nunca tira), así que un link anulado que la pasarela no cerró puede seguir cobrable.
+- Salió arreglando P14 de Agency; el resto de esa revisión está en
+  [hallazgos-agencias.md](hallazgos-agencias.md) → «P14 no vive en `main`».
+
 ## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
 
 El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).
@@ -1681,6 +1704,9 @@ tests/planes-stripe-afuera.test.ts · tests/prueba-stripe-cobro-perdido.test.ts.
 
 ## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
 
+⚠️ **29/10/2026: MaKo Partners salió de Pro** (las landings dicen «gratis» y «cualquier plan»): docs/hallazgos-partners.md →
+«Cualquier plan es partner…». Lo de abajo sobre Partners quedó como historia; el scraper sigue siendo de Pro.
+
 Leila (Fathom 876470842-16), sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»: «Una
 persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper de WhatsApp. Martín, ya decidido
 (876470842-15): el scraper y hacerse partner, sólo en Pro.
@@ -1741,6 +1767,8 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
   suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
 - Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+- **Un «extendé la duración» que arrastra los límites de otra cosa: los 6 meses gratis NO son una prueba larga (30/10, lo que Martín le ofreció a Gabriela; la regla general, en AGENTS.md).** El pedido obvio era sumar «180 días» a la lista, y le habría dado seis meses con los topes de la prueba (3 videos, 1 avatar, 1 landing, sin exportar). Mientras duran, `estadoDePrueba` no la da «en prueba» y tiene su plan entero; vencidos sin resolver, quedan como una prueba vencida y avisan con su propio texto. Son 183 días, para no quedar nunca cortos.
+  **Sin hacer:** la fecha de fin no se ve en Customers (no está «en prueba»): se dice al guardarla y llega el aviso al vencer. Tampoco hay aviso antes de que termine: enterarse el día que se corta es tarde para un cliente (docs/pendientes.md, P16).
 - ⚠️ **Quien ya pagó seguía con los topes (29/10, la verificación de ddfa645d4, ALTA):** si el negocio compra por /planes con el
   email de SU cuenta, el cobro queda `ya_tenia_cuenta` y SIN atar (`alta_ws` null) hasta que Martín lo ata en /admin/cobros, y
   `estadoDePrueba` sólo miraba los cobros atados: seguía «en prueba» y al vencer le llegaba «Terminó tu prueba». Ahora un cobro

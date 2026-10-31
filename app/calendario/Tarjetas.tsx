@@ -23,7 +23,7 @@ import { BotonBorrar, IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import { useCerrarEstable } from '@/app/customer-success/curso/dialogo-foco';
 import {
-  FORMATOS_PUBLICACION, ROTULO_FORMATO, ROTULO_TIPO, sumarDias,
+  FORMATOS_PUBLICACION, ROTULO_FORMATO, ROTULO_TIPO, capaDeTipo, sumarDias,
   type FormatoPublicacion, type ItemCalendario,
 } from '@/lib/calendario-modelo';
 import { COLORES_EVENTO_GOOGLE, TOPE_TITULO_GOOGLE, type CalendarioGoogle, type EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
@@ -189,8 +189,11 @@ export function RapidoNuevo({ ancla, inicial, editables, guardando, error, onCer
   useEffect(() => { tituloRef.current?.focus(); }, []);
   const poner = (p: Partial<BorradorNuevo>) => setB((x) => ({ ...x, ...p }));
   const aGoogle = vaAGoogle(b, editables);
-  const color = aGoogle ? (editables.find((c) => c.id === b.calendarioId)?.color ?? editables[0].color)
-    : COLOR_CAPA[b.tipo === 'publicacion' ? 'publicaciones' : b.tipo === 'llamada' ? 'llamadas' : 'bloques'];
+  // Sin Google donde escribir, un «Evento» se guarda en MaKo como un bloque (`entradaPropia`).
+  const capa = capaDeTipo(b.tipo === 'evento' ? 'bloque' : b.tipo);
+  const color = aGoogle ? (editables.find((c) => c.id === b.calendarioId)?.color ?? editables[0].color) : COLOR_CAPA[capa];
+  // «Evento» es el de Google: sin un calendario donde escribir no se ofrece (29/10/2026, los cuatro usos).
+  const tipos = TIPOS_RAPIDO.filter((t) => t.id !== 'evento' || editables.length > 0);
   const enviar = () => { if (!guardando) onGuardar({ ...b, calendarioId: aGoogle ? (b.calendarioId ?? editables[0].id) : null }); };
 
   return createPortal(
@@ -202,7 +205,7 @@ export function RapidoNuevo({ ancla, inicial, editables, guardando, error, onCer
         <input ref={tituloRef} className="gc-rapido-titulo" placeholder="Agregar título" value={b.titulo} maxLength={TOPE_TITULO_GOOGLE}
           onChange={(e) => poner({ titulo: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') enviar(); }} />
         <div className="gc-pestanas" role="group" aria-label="Qué es">
-          {TIPOS_RAPIDO.map((t) => (
+          {tipos.map((t) => (
             <button key={t.id} type="button" className="gc-pestana" aria-pressed={b.tipo === t.id} onClick={() => poner({ tipo: t.id })}>{t.nombre}</button>
           ))}
         </div>
@@ -237,7 +240,7 @@ export function RapidoNuevo({ ancla, inicial, editables, guardando, error, onCer
             </select>
           ) : <span>{editables[0].nombre}</span>
         ) : (
-          <span>{b.tipo === 'evento' ? 'MaKo · Bloques de trabajo' : `MaKo · ${NOMBRE_CAPA[b.tipo === 'publicacion' ? 'publicaciones' : b.tipo === 'llamada' ? 'llamadas' : 'bloques']}`}</span>
+          <span>{`MaKo · ${NOMBRE_CAPA[capa]}`}</span>
         )}
       </Fila>
       {error && <div role="alert" style={{ padding: '4px 16px 0 64px', fontSize: 13, color: 'var(--bad)' }}>{error}<ReportarASoporte /></div>}

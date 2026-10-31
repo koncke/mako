@@ -49,10 +49,12 @@ if [ "$A_INTEGRACION" -eq 1 ] && [ "$A_MAIN" -eq 0 ] && [ "${MAKO_SIN_ANTES_DE_S
     ANTES=$?
     VEREDICTO="$(cat "$LINEA" 2>/dev/null)"
     rm -f "$LINEA"
-    # 99 = «no corrió» (sin RAM, o el vigía lo mató): NO es un test roto ni un error de tipos.
+    # 99 = «no se pudo chequear»: falta de RAM, el turno del candado que no tocó, o un proceso de tests que murió SIN ejecutar un
+    # test (30/10/2026: un grupo de 495 barredoras murió a los 25 min con 0,7 GB libres y el veredicto los listó como 495 rojos).
+    # NO es un test roto ni un error de tipos. La línea del veredicto —la última de este push— dice cuál de los tres fue.
     if [ "$ANTES" -eq 99 ]; then
       echo ""
-      echo "  ✖ PUSH BLOQUEADO: antes-de-subir NO pudo correr (falta RAM). Esto NO es un rojo del código."
+      echo "  ✖ PUSH BLOQUEADO: antes-de-subir NO pudo chequear (la línea de abajo dice qué). Esto NO es un rojo del código."
       echo "    Cerrá unos chats de Claude y volvé a pushear, o MAKO_SIN_ANTES_DE_SUBIR=1 git push …: lo chequea Actions."
       echo ""
       [ -n "$VEREDICTO" ] && echo "$VEREDICTO"

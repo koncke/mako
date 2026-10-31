@@ -15,6 +15,8 @@
 // Arriba, sólo Hoy · Campañas · Biblioteca, «Actividad» (lo hecho con su Deshacer) y la tuerca (los agentes y los ajustes).
 // Una cuenta NUEVA, o un día sin cambios, ve la captura 2: «¿En qué te ayudo hoy?» con cuatro sugerencias y la caja; «Lanzar
 // una campaña» abre la charla del arranque con la calculadora (ArranqueMediaBuyer.tsx).
+// ⚠️ Un día SIN CAMBIOS no dice «todo anda bien»: el título, la bajada y el próximo paso salen de lo que el agente midió
+// (lib/media-buyer/cartel-hoy.ts) — sin cuenta, sin campañas, todo en pausa, apagado o sin lectura dicen cosas distintas.
 // Lo que escribe va a /api/media-buyer (y todo, también por la API de MaKo); lo que decide, a lib/media-buyer/*.
 // =============================================================================
 
@@ -35,6 +37,7 @@ import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
 import { ArranqueMediaBuyer } from './ArranqueMediaBuyer';
 import { LienzoCampanas, type Lienzo } from './Lienzo';
+import { ROTULO_PASO, cartelDeHoy, type PasoHoy } from '@/lib/media-buyer/cartel-hoy';
 import { Biblioteca } from './Biblioteca';
 import { PanelAgentes } from './Agentes';
 import { ArbolDeHoy } from './Arbol';
@@ -151,6 +154,14 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   const conectada = tieneMeta || !!zernio?.conectado;
   const nueva = config.existeTabla && (!conectada || (!config.encendido && !config.ultimaCorrida));
   const aplicar = (d: Decision, extra: Record<string, unknown> = {}) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicado');
+  // ⚠️ UN DÍA SIN CAMBIOS NO ES «TODO BIEN»: el cartel sale de lo que el agente MIDIÓ (lib/media-buyer/cartel-hoy.ts), no del
+  // interruptor. `conectada` va en `null` mientras no volvió el estado de Zernio: no se le dice «conecta tu cuenta» a quien
+  // ya la tiene conectada, nada más porque la respuesta no llegó.
+  const cartel = useMemo(() => cartelDeHoy({
+    encendido: config.encendido,
+    conectada: tieneMeta ? true : zernio === null ? null : zernio.conectado,
+    corrida: config.ultimaCorridaInfo,
+  }), [config.encendido, config.ultimaCorridaInfo, tieneMeta, zernio]);
 
   // Lanza en fila lo que se puede lanzar sin abrir nada (sin los textos de la IA) y dice lo que el servidor ajustó o frenó:
   // un presupuesto que se recalculó, o uno que otra decisión ya había cambiado (revisión de tren-l, fallas 0 y 1).
@@ -233,6 +244,17 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     );
   }
 
+  // Dónde se hace cada próximo paso EN LA COMPUTADORA. ⚠️ Acá ya se pasó el `if (nueva)`: la charla del arranque no se
+  // dibuja en esta rama, así que conectar NO puede ser `setArrancando(true)` (no mostraría nada). Conectar y el interruptor
+  // del agente viven los dos en Ajustes (la tuerca sólo trae las tácticas).
+  const PASOS: Record<PasoHoy, { href?: string; onClick?: () => void }> = {
+    conectar: { href: '/ads-manager/ajustes' },
+    crear_campana: { href: '/ads-manager/nueva' },
+    prender_campana: { onClick: () => setVista('campanas') },
+    prender_agente: { href: '/ads-manager/ajustes' },
+    analizar: { onClick: () => void analizar() },
+  };
+
   return (
     <div className="aa">
       <nav className="aa-top" aria-label="Media Buyer">
@@ -279,12 +301,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
               onAbrir={(d) => setAbierta(d.id)} onAplicar={(d) => void aplicar(d)} onAplicarTodas={() => void aplicarTodas()} />
           </div>
         )
-        /* EL CARTEL VACÍO: la única condición de qué dice la pantalla cuando hoy no hay cambios. Una cuenta SIN campañas
-           cae acá y lee «Todo anda dentro de tu objetivo», que es falso: lo está arreglando nube/media-buyer-cartel-falso
-           (30/10). Si agregás un caso, agregalo acá y en ningún otro lado. Y acá va un comentario de JS pelado, no uno
-           de JSX con llaves: esto es el MEDIO DE UN TERNARIO, no hijos de JSX (con llaves, tsc da TS1005/TS1381). */
-        : <NuevoChat titulo="Hoy no hay cambios"
-            bajada={!config.encendido ? 'Estoy apagado: préndeme en la tuerca para que mire tu cuenta.' : 'Todo anda dentro de tu objetivo. Vuelvo a mirar mañana.'}
+        : <NuevoChat titulo={cartel.titulo} bajada={cartel.bajada}
+            accion={cartel.paso ? { rotulo: ROTULO_PASO[cartel.paso], ...PASOS[cartel.paso] } : null}
             onSugerencia={sugerencia} onPedir={pedir} />)}
 
       {vista === 'campanas' && (

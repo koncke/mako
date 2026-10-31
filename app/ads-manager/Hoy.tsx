@@ -15,6 +15,7 @@
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';
+import { Button, ButtonLink } from '@/app/_ui';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { Criatura } from '@/app/_components/Criatura';
@@ -37,14 +38,22 @@ export function CajaDeOrden({ placeholder, onPedir }: { placeholder: string; onP
   );
 }
 
+/** El aire del botón del próximo paso, sin tocar aa.css (nada más lo usa). */
+const PASO = { marginTop: 18 } as const;
+
 export type Sugerencia = 'lanzar' | 'disenar' | 'como' | 'buscar';
 const SUGERENCIAS: Array<[Sugerencia, string]> = [
   ['lanzar', 'Lanzar una campaña'], ['disenar', 'Diseñar un anuncio'], ['como', '¿Cómo vamos?'], ['buscar', 'Buscar oportunidades'],
 ];
 
-export function NuevoChat({ titulo, bajada, onSugerencia, onPedir }: {
+export function NuevoChat({ titulo, bajada, accion, onSugerencia, onPedir }: {
   titulo: string;
   bajada: string;
+  /**
+   * El próximo paso de ESTE caso (conectar la cuenta, lanzar la primera campaña, prenderla, prenderme): acción + objeto.
+   * Las cuatro sugerencias son siempre las mismas; esto es lo que al negocio le falta hoy (lib/media-buyer/cartel-hoy.ts).
+   */
+  accion?: { rotulo: string; href?: string; onClick?: () => void } | null;
   onSugerencia: (s: Sugerencia) => void;
   onPedir: (texto: string) => void;
 }) {
@@ -53,6 +62,13 @@ export function NuevoChat({ titulo, bajada, onSugerencia, onPedir }: {
       <Criatura nombre="MaKo" size={44} estrella />
       <h1>{titulo}</h1>
       <p>{bajada}</p>
+      {accion && (accion.href || accion.onClick) && (
+        <div style={PASO}>
+          {accion.href
+            ? <ButtonLink href={accion.href}>{accion.rotulo}</ButtonLink>
+            : <Button onClick={accion.onClick}>{accion.rotulo}</Button>}
+        </div>
+      )}
       <div className="aa-sugs">
         {SUGERENCIAS.map(([s, t]) => <button key={s} type="button" className="aa-sug" onClick={() => onSugerencia(s)}>{t}</button>)}
       </div>

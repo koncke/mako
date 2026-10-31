@@ -61,6 +61,7 @@ import {
   type Disparador, type SubtipoMako,
 } from './disparadores';
 import { TOPE_NOMBRE_SECUENCIA } from './setting-estrategia';
+import { HORARIO_SUGERIDO, type HorarioEnvio } from './horario-envio';
 // Los escenarios del AI Step: UNA copia (undécima tanda), la galería los toma de ahí.
 import { escenarioTipico } from './ai-step-escenarios';
 // La tarjeta «MaKo en WhatsApp» con su lista (`partes`): la MISMA forma que escribe el editor.
@@ -153,6 +154,8 @@ export type PlantillaAutomatizacion = {
    * sólo la plataforma en su ws). Un negocio no la ve en la galería ni la puede crear (`crearDesdePlantilla`).
    */
   soloPlataforma?: true;
+  /** El horario y el goteo con que nace (lib/config-automatizacion.ts). Ausente = los del negocio y sin goteo. */
+  ritmo?: { horario: HorarioEnvio; goteo: { minutos: number; dia: number } };
 };
 
 /** El tope de la línea de una tarjeta: el de una fila de una lista de N (AGENTS.md, «La pantalla dice QUÉ pasó»). */
@@ -324,9 +327,11 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     // (1b) PROSPECCIÓN: APERTURA A LOS QUE MUEVO A UNA ETAPA (22/10/2026, A4 de la llamada con Mauricio: buscó en la galería
     // «una plantilla para hacer la automatización de mensajes» a su base y no había ninguna). El CRON es la etapa a la que
     // se MUEVE a quien se quiere contactar (no la de entrada: así sale sólo a los que se eligen, de a tantos por día). Una
-    // sola apertura, sólo a quien nunca le escribiste; la apertura nace PARA APROBAR (en frío, lo decide la persona con
-    // «Sale sola», a la vista) y el goteo de la automatización la reparte. MaKo NO contesta: sin AI Step (el aviso de quien
-    // responde, si se quiere, es «Si responde» → «MaKo en WhatsApp», que lleva el link a la charla).
+    // sola apertura, sólo a quien nunca le escribiste. MaKo NO contesta: sin AI Step (el aviso de quien responde, si se quiere, es
+    // «Si responde» → «MaKo en WhatsApp», que lleva el link a la charla).
+    // ⚠️ NACE CON HORARIO Y GOTEO (`ritmo`, el bug de Leila, 30/10/2026). Decía «nace para aprobar y el goteo la reparte», y las dos
+    // cosas eran falsas: desde el 23/10 un mensaje fijo sale solo (`saleSolo`, el `revisar` de abajo ya no frena) y nadie ponía un
+    // goteo. La de Leila le escribió en frío a 68 personas, 6 por hora, hasta las 23:01, y la pausó a mano.
     id: 'prospeccion-apertura',
     nombre: 'Prospección: apertura',
     emoji: '🎯',
@@ -334,6 +339,7 @@ export const PLANTILLAS: readonly PlantillaAutomatizacion[] = [
     origen: 'llamada con Mauricio del 22/10/2026 (A4): la campaña del Sprint',
     objetivo: 'captar',
     cron: { pide: 'etapa_venta', ayuda: 'La etapa a la que mueves a quien quieres contactar (no la de entrada).' },
+    ritmo: { horario: HORARIO_SUGERIDO, goteo: { minutos: 10, dia: 30 } },
     pasos: [
       condicion('pa_entrada', [[[NUNCA_LE_ESCRIBISTE, TIENE_WHATSAPP], 'pa_w1']], null),
       whatsapp('pa_w1', 'Hola {{nombre}}, ¿sigues al frente de tu empresa?', null, { revisar: true }),

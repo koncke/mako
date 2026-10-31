@@ -31,6 +31,7 @@ import {
 import { PRESETS } from '@/lib/plan-recurrentes';
 import { reglaDePublicacion, textoDeRegla } from '@/lib/calendario-recurrentes-reglas';
 import { MIMES_PUBLICAR, ROTULO_RED, topeDeTexto, type DatosPublicacion } from '@/lib/calendario-publicar-reglas';
+import { MENSAJES_DE_MOTIVO } from '@/lib/zernio-redes';
 import type { CuentaParaPublicar } from '@/lib/calendario-publicar';
 
 type Cuentas = { ok: true; cuentas: CuentaParaPublicar[] } | { ok: false; motivo: string };
@@ -226,9 +227,12 @@ export function PublicarEnRed({ id, sinGuardar, onProgramada, onCambio }: {
           {d.publicacion === null && d.publicacion_motivo && <span style={DIM}>{d.publicacion_motivo}</span>}
           {cuentas && !cuentas.ok ? (
             <span style={{ ...DIM, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-              {cuentas.motivo === 'sin-clave' ? 'Conecta Instagram, Facebook, TikTok o YouTube para programar desde aquí.' : 'No pude leer tus cuentas conectadas.'}
+              {cuentas.motivo === 'sin-clave' ? 'Conecta Instagram, Facebook, TikTok o YouTube para programar desde aquí.' : cuentas.motivo === 'pausa' ? MENSAJES_DE_MOTIVO.pausa : 'No pude leer tus cuentas conectadas.'}
               {/* Sin salir de la tab (tests/integracion-sin-salir.test.ts): el modal de Zernio de /integraciones, acá. */}
-              <Button variant="secondary" size="sm" onClick={() => integracion.abrir('zernio')}>Conectar una cuenta</Button>
+              {/* Ante una pausa la conexión está bien: ofrecer «Conectar» la haría reconectar (ticket #34). */}
+              {cuentas.motivo === 'pausa'
+                ? <Button variant="secondary" size="sm" onClick={() => void cargar()}>Probar de nuevo</Button>
+                : <Button variant="secondary" size="sm" onClick={() => integracion.abrir('zernio')}>Conectar una cuenta</Button>}
             </span>
           ) : (
             <Select label="Dónde se publica" value={d.cuenta_red ?? ''} disabled={ocupado || !lista.length}

@@ -24,7 +24,7 @@ export async function planAManoDe(ws: number): Promise<PlanAMano | null> {
 }
 
 /**
- * Le da al negocio el plan que ya tiene con un vencimiento a los `dias` (7, 14 o 30, desde Customers). 0 = sin vencimiento (se
+ * Le da al negocio el plan que ya tiene con un vencimiento a los `dias` (7, 14, 30 o los 6 meses gratis, desde Customers). 0 = sin vencimiento (se
  * quita). Nunca a la plataforma. Tira si no se pudo guardar: quien llama lo dice.
  */
 export async function ponerPlanAMano(ws: number, dias: number): Promise<PlanAMano | null> {
@@ -69,11 +69,11 @@ export async function avisarPlanesAManoVencidos(opts: { ahoraMs?: number; enSeco
       if (!w) continue;
       const a = avisosPlanAManoVencido({
         negocio: w.nombre, plan: nombreDePlan(w.capa), hasta: p.hasta,
-        linkPlan: linkApp('/configuraciones/plan', ws), linkCustomers: linkApp('/admin', plataforma),
+        linkPlan: linkApp('/configuraciones/plan', ws), linkCustomers: linkApp('/admin', plataforma), regalo: p.regalo,
       });
       const duenio = (await emailDuenoWorkspace(ws)).trim().toLowerCase();
       const aLaPersona = duenio
-        ? await avisarDePlataforma({ to: duenio, tag: 'plan-a-mano-fin', asunto: a.persona.asunto, preheader: 'Tu prueba de MaKo terminó.', cuerpo: a.persona.cuerpo })
+        ? await avisarDePlataforma({ to: duenio, tag: 'plan-a-mano-fin', asunto: a.persona.asunto, preheader: p.regalo ? 'Tus 6 meses gratis de MaKo terminaron.' : 'Tu prueba de MaKo terminó.', cuerpo: a.persona.cuerpo })
         : { enviado: false, error: 'el negocio no tiene dueño con email' };
       const aMartin = await avisarDePlataforma({ to: EMAIL_MAKO, tag: 'plan-a-mano-fin', asunto: a.martin.asunto, preheader: 'Una prueba dada a mano venció.', cuerpo: a.martin.cuerpo });
       if (!aMartin.enviado) { errores++; console.warn(`[plan-a-mano] no salió el aviso a Martín del negocio ${ws}: ${aMartin.error ?? 'sin detalle'}`); continue; }

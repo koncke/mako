@@ -10,6 +10,10 @@
 // «Avance» (Kanban · Tabla · Avance, la tabla que vivía en la tab Curso) y, en el menú de cada
 // tarjeta, «Invitar al curso» y «Permisos del curso». Los datos los arma page.tsx (`curso`).
 //
+// Desde el 29/10/2026, también los MIEMBROS de la comunidad del programa (era la sub-tab Members; Martín: «unificar la
+// tab de clientes con la tab de miembros… Son lo mismo, no deberían ser dos tabs»): una vista más del mismo selector,
+// que monta el directorio de siempre (./MiembrosClientes.tsx). Se elige sin navegar y queda en la URL (`?vista=`).
+//
 // ⚠️ LA GRILLA DE TARJETAS NO EXISTE MÁS (05/10/2026). «No quiero que exista la vista
 // de Tarjetas, es la vista de kanban por default y la otra es la vista de tabla. Solo
 // que dentro del kanban, las tarjetas no son como las del CRM, son como las nuevas que
@@ -32,7 +36,8 @@ import { FichaCliente } from './FichaCliente';
 import type { TrabajoDeCliente } from './trabajo';
 import type { BoardUser } from '@/app/plan/board/types';
 import { NuevoCliente } from './NuevoCliente';
-import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, ORDEN_LABEL, entraEnVentana, opcionesDeFase, faseVigente, clientesEnPantalla, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
+import { BarraClientes, FILTRO_LABEL, CUANDO_LABEL, ORDEN_LABEL, VistaToggleClientes, entraEnVentana, opcionesDeFase, faseVigente, clientesEnPantalla, type FiltroClientes, type OrdenClientes, type VistaClientes } from './BarraClientes';
+import { MiembrosClientes } from './MiembrosClientes';
 import { KanbanEntrega, type Asignacion } from './KanbanEntrega';
 import { EstilosTarjeta } from '@/app/_components/TarjetaEntidad';
 import { EtapasEntregaModal } from './EtapasEntregaModal';
@@ -258,7 +263,13 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
    * abre siempre la misma pantalla vacía.
    */
   const hayAvance = hayKanban && curso != null && (!curso.avance.ok || Object.values(curso.conCurso).some(Boolean));
-  const vistasDisponibles: VistaClientes[] = hayKanban ? ['kanban', 'tabla', ...(hayAvance ? ['avance' as const] : [])] : ['tabla'];
+  /**
+   * «Miembros» (29/10/2026): la comunidad es de un PROGRAMA, y los programas son los servicios de la entrega (la misma
+   * lista, `productosOfrecibles`). Sin servicios —o con la entrega sin leer— no hay de qué comunidad listar a nadie.
+   */
+  const vistasDisponibles: VistaClientes[] = hayKanban
+    ? ['kanban', 'tabla', 'miembros', ...(hayAvance ? ['avance' as const] : [])]
+    : ['tabla'];
   const vista: VistaClientes = vistaElegida && vistasDisponibles.includes(vistaElegida)
     ? vistaElegida
     : (vistasDisponibles[0] ?? 'tabla');
@@ -274,6 +285,24 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
    *  encontré» aparece sobre un tablero o desaparece sobre una tabla. */
   const enKanban = vista === 'kanban' && Boolean(servicio);
   const enAvance = vista === 'avance' && Boolean(servicio);
+  const enMiembros = vista === 'miembros' && Boolean(servicio);
+  /**
+   * Elegir una vista la deja en la URL (`?vista=`), sin navegar: un F5 o un link copiado vuelven a ella, y
+   * /classroom/members (la sub-tab que ya no existe) cae acá con `?vista=miembros`. La primera, que es el default, no la
+   * ensucia. Replace y no push, como el programa (app/classroom/programa-url.ts): el Atrás saca de la pantalla.
+   */
+  const elegirVista = (v: VistaClientes) => {
+    setVista(v);
+    try {
+      const { pathname, search, hash } = window.location;
+      const sp = new URLSearchParams(search);
+      if (v === vistasDisponibles[0]) sp.delete('vista'); else sp.set('vista', v);
+      const qs = sp.toString();
+      window.history.replaceState(null, '', `${pathname}${qs ? `?${qs}` : ''}${hash}`);
+    } catch { /* sin URL no se pierde nada: la vista elegida sigue en pantalla */ }
+  };
+  /** El selector, para las vistas que no tienen la barra de Clients (Miembros y la cartera vacía). */
+  const selectorVista = <VistaToggleClientes vista={vista} onSet={elegirVista} vistas={vistasDisponibles} />;
 
   /**
    * LO QUE SE INVITÓ ACÁ ADENTRO, encima del acceso que trajo el server. Mismo trato que `imgs` y
@@ -962,7 +991,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
 
       {/* EL ONBOARDING DE LA TAB (#109): una lista arriba de la cartera mientras falte algo, y se
           va sola. No tapa nada — el ws1 entra con todo hecho y no la ve. */}
-      {!error && conLista && pasosOnb && (
+      {!error && conLista && pasosOnb && !enMiembros && (
         <ChecklistClientes
           estado={pasosOnb}
           onCargar={() => setCreando('')}
@@ -970,20 +999,28 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
         />
       )}
 
-      {error ? (
+      {enMiembros && servicio ? (
+        /* LOS MIEMBROS DEL PROGRAMA (29/10/2026): el directorio de la comunidad, con sus filtros, su búsqueda, el perfil y
+           la moderación («Fuera», volver a admitir). El programa es el de la cabecera, el mismo del kanban. */
+        <MiembrosClientes productoId={servicio.productoId} selector={selectorVista} />
+      ) : error ? (
         <ErrorState titulo="No pude leer tus clientes" detalle={error} detalleTecnico={error} />
       ) : lista.length === 0 ? (
         // EL VACÍO ES EL CASO PRINCIPAL: un workspace que recién empieza no ganó a nadie
         // todavía. Y ahora tiene DOS salidas, porque no todo cliente pasó por el CRM.
-        <EmptyState
-          titulo="Todavía no tienes clientes"
-          detalle="Cárgalo aquí, o marca la venta de un lead como ganada en el CRM."
-          accion={{ label: 'Cargar un cliente', onClick: () => setCreando('') }}
-        />
+        // El selector queda arriba (29/10/2026): sin clientes, el equipo de la comunidad igual está en «Miembros».
+        <>
+          {vistasDisponibles.length > 1 && <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>{selectorVista}</div>}
+          <EmptyState
+            titulo="Todavía no tienes clientes"
+            detalle="Cárgalo aquí, o marca la venta de un lead como ganada en el CRM."
+            accion={{ label: 'Cargar un cliente', onClick: () => setCreando('') }}
+          />
+        </>
       ) : (
         <>
           <BarraClientes
-            q={q} onQ={setQ} vista={vista} onVista={setVista}
+            q={q} onQ={setQ} vista={vista} onVista={elegirVista}
             filtros={FILTRO_SIN_CUENTAS}
             /* ⚠️ LAS VISTAS QUE ESTA PANTALLA PUEDE DIBUJAR, en positivo. Sin servicios
                —o con la lectura de la entrega caída— el kanban no se ofrece: un botón que

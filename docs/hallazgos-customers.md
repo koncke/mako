@@ -5,6 +5,28 @@ grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/age
 [feedback-25-10-tarde.md](feedback-25-10-tarde.md) puntos 10 y 12, y el rediseño del 26/10 abajo. Las 16 referencias de
 diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
 
+
+## «Quieren entrar»: quien pedía entrar desaparecía en silencio (30/10/2026)
+
+- **Síntoma (Martín):** «Me llegó una solicitud de ingreso de Gabriela González por la landing, eso como en agencia debería aparecerme en super admin para aceptarla».
+- **Lo medido:** no había ninguna solicitud en la base ni en los mails de Resend. Su ficha del CRM era del 13/10 y lo único de ese día era su WhatsApp («Avísame cuando autorices el correo para entrar»). Lo más probable, sin confirmar: intentó entrar, vio «no autorizada» y le escribió a Martín, porque lo tenía a mano.
+- **La causa:** `app/api/auth/callback/google/route.ts` contestaba `no-autorizado` y no dejaba registro ni aviso. **El diagnóstico obvio («es como lo de agencia») era el equivocado:** `AprobacionesDeAgencia` sólo lista lo que pide una agencia; una persona directa no tenía ningún camino. Y aprobar una cuenta de agencia SÍ tiene pantalla.
+- **La regla que queda:**
+  - La bandeja se llena con el correo que Google CONFIRMÓ (`email_verified === true`, no «distinto de false»). La contraseña y el link por correo no entran: cualquiera llenaría la bandeja con correos ajenos.
+  - Los pedidos de /planes entran con el rótulo «Correo sin verificar»: los escribió la persona.
+  - No hay estado «aceptado»: la bandeja no muestra a quien ya tiene usuario, así que darle de alta por cualquier camino la saca sola. Un suspendido tampoco es un pedido: cae en el mismo «no autorizado» y no tiene que pedir entrar.
+  - La pantalla promete sólo si quedó registrado (`pedido-registrado`); si no, dice lo de siempre.
+- **«0 pedidos» no se prueba con un pedido en el negocio de prueba:** `/api/planes/comprar` escribe SIEMPRE en el negocio de la plataforma, aunque se esté mirando otro. Probarlo en producción deja un lead y un mail reales. El pedido entero corre con el código real sobre una base de mentira en `tests/_pedidos-ingreso-hijo.ts`.
+
+- **`/admin` no es donde están las cosas.** Redirige a `/customers`, que abre en la pestaña Customers; «Nuevo cliente» y `AprobacionesDeAgencia` están en Accounts. Los pedidos de las agencias quedaban a una pestaña de distancia y sin nada que avisara. Por eso el cartel arriba de las pestañas, con los dos conteos.
+- **Lo que confirmó Martín el 30/10:** Gabriela le escribió directo por WhatsApp, no hubo ningún aviso perdido. Pero antes de la bandeja, «nadie se anotó» no se podía distinguir de «intentaron y rebotaron».
+
+**Sin hacer:**
+- En el teléfono se ve y no se decide: no hay alta ni «Descartar» en `/m/customers`. Vive en `app/m/customers/page.tsx`.
+- Quien intenta con contraseña sin tener cuenta sigue sin dejar rastro, a propósito (el correo no está confirmado).
+
+**Vive en:** `lib/pedidos-ingreso.ts` · `lib/pedidos-ingreso-reglas.ts` · `app/admin/PedidosDeIngreso.tsx` · `app/api/admin/pedidos-ingreso/route.ts` · `tests/pedidos-ingreso.test.ts`.
+
 ## El MRR NO es el precio del plan (25/10/2026)
 
 - Lo obvio era sumar el precio de cada plan (Esencial 47, Pro 97) y daba un número inflado. Mauricio (ws 1), Leila y

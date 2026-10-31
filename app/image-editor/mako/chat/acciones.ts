@@ -21,6 +21,7 @@ import type { EditorEngine } from '../../_doory/editor/extensions';
 import { TOPES_CHAT_IMAGEN, validarOperaciones } from '@/lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
+import { memoriaDelHilo } from '@/lib/image-editor/chat/hilo';
 import { FUENTES } from '../fuentes';
 import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type MensajeNuevo, type Propuesta } from './hilo';
 import { cuerpoConArchivos } from '@/app/_chat/useAdjuntosDelChat';
@@ -61,7 +62,10 @@ export function fuenteDelEditor(doc: unknown): (nombre: string) => string | null
 const rotuloSeleccion = (n: number) => (n === 1 ? '1 elemento elegido' : `${n} elementos elegidos`);
 export { rotuloSeleccion };
 
-type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
+type Respuesta = { ok: true; resumen: string; operaciones: unknown[]; descartes?: string[] } | { ok: false; error: string };
+
+/** Lo que no se perdió aunque se descarte: ya estaba así, o sólo faltó la fuente y el texto entró con otra. */
+const NO_SE_PERDIO = /\bya (dice|está)\b|^la fuente /;
 
 async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
   const plazo = new AbortController();
@@ -99,6 +103,8 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
 
   const elegidosIds = editor.state.selection.ids.slice();
   const alcanceReal: AlcanceChat = alcance === 'seleccion' && elegidosIds.length ? 'seleccion' : 'diseno';
+  // Antes de sumar el mensaje de ahora, que ya va como instrucción.
+  const memoria = memoriaDelHilo(leerHilo(disenoId).mensajes);
   cambiarHilo(disenoId, (h) => ({
     corriendo: true,
     mensajes: [...h.mensajes, conId({ de: 'yo', texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === 'seleccion' ? rotuloSeleccion(elegidosIds.length) : null })],
@@ -119,7 +125,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     terminar({ de: 'mako', texto: 'El diseño es muy grande para el chat. Elige unos elementos y pídelo sobre la selección.', error: true });
     return;
   }
-  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal }, corte.signal, archivos);
+  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal, memoria }, corte.signal, archivos);
   if (!r.ok) {
     terminar({ de: 'mako', texto: r.error, error: !('cortado' in r) });
     return;
@@ -140,13 +146,17 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     doc, operaciones, vista: refsDe(propuesta), nuevoId: nuevoIdObjeto, activePageId,
     soloRefs: alcanceReal === 'seleccion' ? new Set(elegidos) : null, fuente: fuenteDelEditor(doc),
   });
-  const descartes = [...deForma, ...prueba.descartes];
+  // `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
+  const descartes = [...(r.descartes ?? []), ...deForma, ...prueba.descartes];
+  const perdidas = descartes.filter((d) => !NO_SE_PERDIO.test(d)).length;
   if (!prueba.aplicadas) {
-    terminar({ de: 'mako', texto: r.resumen || 'Sin cambios.', ...(descartes.length ? { descartes } : {}) });
+    terminar({ de: 'mako', texto: `${perdidas ? 'No pude hacerlo. ' : ''}${r.resumen || 'Sin cambios.'}`, ...(descartes.length ? { descartes } : {}) });
     return;
   }
+  // Si se perdió más de lo que queda, el resumen de la IA promete de más («Voy a crear el carrusel») y sólo cambia el fondo.
+  const parcial = perdidas > prueba.aplicadas ? 'Pude hacer sólo una parte. ' : '';
   terminar({
-    de: 'mako', texto: r.resumen || 'Listo.', estado: 'pendiente', cambios: prueba.cambios,
+    de: 'mako', texto: `${parcial}${r.resumen || 'Listo.'}`, estado: 'pendiente', cambios: prueba.cambios,
     ...(descartes.length ? { descartes } : {}), propuesta,
   });
 }

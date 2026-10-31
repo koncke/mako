@@ -107,7 +107,11 @@ const nextConfig: NextConfig = {
       { source: '/clients', destination: '/classroom/clients', permanent: false },
       { source: '/clients/classroom', destination: '/classroom', permanent: false },
       { source: '/clients/classroom/:path*', destination: '/classroom/:path*', permanent: false },
+      // Members es la vista «Miembros» de Clients desde el 29/10/2026 (Martín: «unificar la tab de clientes con la tab de
+      // miembros… Son lo mismo, no deberían ser dos tabs»). La query del pedido viaja sola y se suma a la del destino.
+      { source: '/clients/members', destination: '/classroom/clients?vista=miembros', permanent: false },
       { source: '/clients/:path*', destination: '/classroom/:path*', permanent: false },
+      { source: '/classroom/members', destination: '/classroom/clients?vista=miembros', permanent: false },
       // MaKo Context, AI Models y Dev se fueron el 25/10/2026 (Martín, puntos 13 a 15). Lo que sabe MaKo (el Conocimiento,
       // y /conocimiento, su editor completo) está en Classroom › Methodology; los prompts, en Settings › Prompts; los modelos
       // los elige cada negocio con su IA y el Ops Center. Los links viejos caen en su lugar nuevo, no en un 404.
