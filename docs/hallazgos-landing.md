@@ -4663,7 +4663,22 @@ personales, 0 quedan vacías**, y las 109.219 filas de `vsl_events` sin datos pe
 iguales. Las 665 afectadas no traen **ni un** parámetro de la lista blanca, así que quedan como su dirección sin
 query: no se pierde un utm ni un fbclid.
 
-Dos trampas del entorno, de regalo:
+Tres trampas del entorno, de regalo:
+
+- **El `tsc` ACOTADO sobre una ruta del Pixel da 17 rojos que no son del código**, y la lista es la misma
+  siempre: `app/api/track/optin/route.ts` llega por `lib/avisos` hasta `lib/editor-video/chat-hilo.ts`, que
+  importa un tipo de `app/video-editor/_opencut/`, y de ahí al WASM del editor. Con `files` + `include: []` el
+  acotado no carga los `.d.ts` AMBIENTALES, así que salen 15 TS2305/TS7016 del editor y 2 TS2322 de
+  `<style jsx>` de un archivo que ni se tocó. Se arregla sumando los dos a la lista —
+  `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts` y
+  `node_modules/next/dist/styled-jsx/types/global.d.ts` (en el completo entra por `next-env.d.ts`, que está
+  en .gitignore y un worktree ni tiene)— y ahí da **0 sobre 5**. ⚠️ Y un **código 1 con CERO bytes de salida
+  no es un error de tipos**: es el vigía de RAM; el 134 con salida es sin heap, y se sube con `--heap=`.
+- **Un worktree puede DESAPARECER a mitad de la sesión** (otra sesión limpia worktrees) y el síntoma es
+  `Cannot find module …/scripts/tsc-acotado.mjs` seguido de `fatal: not a git repository`. No se perdió nada:
+  el commit y la rama viven en el `.git` COMPARTIDO, así que se rehace con
+  `git worktree add <otra ruta> <rama>` y el junction a `node_modules`. Lo que no sobrevive es lo que estaba
+  sin commitear — razón de más para commitear en cuanto algo está entero.
 
 - **La tabla del replay se llama `replay_sesiones`, no `replay_sessions`** (y no tiene `created_at`, tiene `inicio`).
   Un script que pregunta por el nombre en inglés contesta «la columna no existe» y se lee como «esa tabla no guarda
