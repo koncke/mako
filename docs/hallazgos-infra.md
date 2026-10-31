@@ -173,9 +173,17 @@ en `.gitignore`, así que la junction no se commitea.
 
 **Y la otra mitad de la trampa:** pushear la rama **desde el clon principal** (que sí tiene
 dependencias) parece la salida fácil y no lo es — ahí el pre-push chequea **el árbol de
-trabajo**, que tiene el trabajo a medio hacer de las otras sesiones en paralelo, y bloquea
-por un archivo que no es tuyo. En este caso fue `extension/puede-filmar.js`. **Cada rama se
-pushea desde su propio worktree.**
+trabajo del clon**, no la rama que se pushea, y bloquea por un archivo que no es tuyo. En
+este caso fue `extension/puede-filmar.js`. **Cada rama se pushea desde su propio worktree.**
+
+⚠️ **Y el archivo del clon no está «a medio hacer»: está VIEJO.** Medido el 31/10 en una
+segunda sesión que chocó con lo mismo (el ref es compartido, así que el push funciona y sólo
+el veredicto es falso): el clon compartido de esta máquina tiene `main` checkouteado y estaba
+**4.592 commits atrás**, y `extension/puede-filmar.js` en la punta está al día. No hace falta
+ninguna sesión en paralelo para que pase — alcanza con que el clon esté atrasado, que es su
+estado normal. Es la misma causa que
+[Una guarda nueva NO corre en el push de un worktree](#una-guarda-nueva-no-corre-en-el-push-de-un-worktree-el-hook-usa-las-guardas-del-clon-30102026):
+las guardas salen del clon y, si se las deja, también juzgan sus archivos.
 
 Lo que queda sin hacer: que estos chequeos distingan «difieren» de «no pude correr». Hoy los
 dos dan el mismo cartel, y el cartel acusa al archivo equivocado.
@@ -759,28 +767,10 @@ código que se sube; las guardas baratas, no.
 toca sin avisar; además hay un pliegue: el hook no está versionado, así que arreglar la copia de `scripts/claude-hooks/pre-push`
 no cambia nada hasta que alguien la instale.
 
-### Y la otra mitad: una guarda sin `node_modules` ACUSA AL DOCUMENTO en vez de decir «no pude chequear» (31/10/2026)
-
-Las guardas corren con el `cwd` del worktree, o sea que juzgan **sus archivos** — y casi todas son
-`node --import tsx scripts/sync-*.mjs --check`. **Un worktree recién creado no tiene `node_modules`**, así que `tsx` no se
-resuelve, el script muere con `ERR_MODULE_NOT_FOUND`, y la guarda lee ese código de salida como «el documento quedó viejo».
-
-El mensaje es de su dominio y suena cierto: `X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de
-lib/mako-gramatica.ts` — sobre un documento que la rama no toca y que está perfecto. **Es el modo de falla de siempre: no da un
-error de entorno, da un veredicto plausible sobre otra cosa.** Y como el que pushea sabe que no tocó ese documento, el diagnóstico
-natural («alguien lo dejó viejo en la punta») también es el equivocado.
-
-⚠️ **Y el atajo obvio —pushear desde la carpeta del clon, que sí tiene `node_modules`— es peor:** el ref es compartido y el push
-funciona, pero entonces el `cwd` es el clon y las guardas juzgan **los archivos del clon**, 4.592 commits atrás. Acá bloqueó por
-`extension/puede-filmar.js quedo viejo`, que en la punta está al día. Se cambia un veredicto falso por otro.
-
-**La regla:** un worktree nuevo lleva su junction a `node_modules` ANTES del primer push, no cuando algo falle
-(`cmd //c "mklink /J <worktree>\node_modules <clon>\node_modules"` — y es junction porque en Git Bash `ln -s` **copia**: serían
-GB). Es la misma regla del disco lleno del 17/10, y acá se ve por qué también es una regla de correctitud y no sólo de espacio.
-
-**Cómo distinguirlo en 5 segundos**, antes de creerle a la acusación: correr el `--check` que nombra el mensaje a mano en el
-worktree. Si imprime un stack de `ERR_MODULE_NOT_FOUND`, el documento no tiene nada; falta el junction. Si imprime `✓ al día`, la
-guarda está juzgando otro árbol (ver arriba).
+**Y la consecuencia sobre los ARCHIVOS, no sólo sobre qué versión de las guardas corre**, está en
+[Un worktree nuevo no puede pushear](#un-worktree-nuevo-no-puede-pushear-y-el-pre-push-culpa-a-un-documento-que-está-al-día-31102026):
+el junction a `node_modules` va antes del primer push, y pushear desde el clon para esquivarlo hace
+que las guardas juzguen los archivos atrasados del clon.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
