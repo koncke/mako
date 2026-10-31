@@ -39,7 +39,6 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
-
 ## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
 
 **El síntoma.** El push del tren de 91 commits a `integracion` se bloqueó después de 52 minutos con:
@@ -184,6 +183,54 @@ ninguna sesión en paralelo para que pase — alcanza con que el clon esté atra
 estado normal. Es la misma causa que
 [Una guarda nueva NO corre en el push de un worktree](#una-guarda-nueva-no-corre-en-el-push-de-un-worktree-el-hook-usa-las-guardas-del-clon-30102026):
 las guardas salen del clon y, si se las deja, también juzgan sus archivos.
+
+Lo que queda sin hacer: que estos chequeos distingan «difieren» de «no pude correr». Hoy los
+dos dan el mismo cartel, y el cartel acusa al archivo equivocado.
+
+---
+
+## Un worktree nuevo no puede pushear, y el pre-push culpa a un documento que está al día (31/10/2026)
+
+**El síntoma.** Primer push desde un `git worktree add` recién creado:
+
+```
+X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+Corre esto y volve a pushear:
+    node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+**El diagnóstico obvio era el equivocado.** El documento no estaba viejo. Los dos archivos
+eran **idénticos a `origin/main`** (`git diff origin/main -- docs/branding-mako.md
+lib/mako-gramatica.ts` sale vacío) y el commit no los tocaba. Correr el script que pide el
+mensaje tampoco funciona: tira `ERR_MODULE_NOT_FOUND`.
+
+**La causa.** Un worktree nuevo **no tiene `node_modules`** (está en `.gitignore`, así que
+`git worktree add` no lo trae). El chequeo del pre-push corre
+`node --import tsx scripts/…--check`, **`tsx` no resuelve, el proceso muere con exit ≠ 0, y
+el hook lee cualquier exit ≠ 0 como «el documento quedó viejo»**. El hook no distingue
+«comparé y difieren» de «no pude comparar» — es el mismo error que ya está documentado para
+`tsc-acotado | grep "error TS"`, que esconde el «NO SE PUDO CHEQUEAR».
+
+**Lo que lo confirma:** el mismo chequeo desde el clon principal (que sí tiene
+`node_modules`) **pasa** y el push avanza hasta un chequeo distinto.
+
+**El arreglo, y es de un comando.** Una **junction de Windows** al `node_modules` del clon
+principal. No es una copia (no gasta disco) y no es un symlink de Git Bash, que en este
+sistema **sí copia**:
+
+```bash
+cd /c/dev/wt-<rama>
+cmd //c "mklink /J node_modules C:\ruta\al\clon\principal\node_modules"
+```
+
+Después, `sync-gramatica-doc.mjs --check` da `✓ al día` y el push sale. `node_modules` está
+en `.gitignore`, así que la junction no se commitea.
+
+**Y la otra mitad de la trampa:** pushear la rama **desde el clon principal** (que sí tiene
+dependencias) parece la salida fácil y no lo es — ahí el pre-push chequea **el árbol de
+trabajo**, que tiene el trabajo a medio hacer de las otras sesiones en paralelo, y bloquea
+por un archivo que no es tuyo. En este caso fue `extension/puede-filmar.js`. **Cada rama se
+pushea desde su propio worktree.**
 
 Lo que queda sin hacer: que estos chequeos distingan «difieren» de «no pude correr». Hoy los
 dos dan el mismo cartel, y el cartel acusa al archivo equivocado.
@@ -9777,3 +9824,33 @@ ahí el rojo era viejo y real; acá la anotación es vieja y el rojo ya no exist
   justamente la que falló.
 - **Sin hacer:** el tercero, `tests/paso-ia.test.ts:135` (`lib/nutricion.ts`), **también da verde (13/0)** sobre
   `origin/main`. Tiene dueño, así que su línea quedó donde estaba para que la cierre él.
+
+## `tsc-acotado` muere por RAM en los `.tsx` grandes del Dashboard, y eso NO es verde (31/10/2026)
+
+**El síntoma.** `node scripts/tsc-acotado.mjs app/dashboard/Grafico.tsx` termina con
+`NO SE PUDO CHEQUEAR (código 134)` y **exit 99**, con 1,4–1,8 GB libres. Código 134 es `SIGABRT`: el
+proceso de `tsc` se queda sin memoria antes de terminar de armar el grafo de tipos.
+
+**Lo que sí anduvo, en la misma máquina y en el mismo minuto:** los archivos de `lib/` y los tests, de a
+uno o de a dos (`lib/graficos-catalogo.ts`, `lib/graficos-plantillas.ts`, `app/dashboard/editor-css.ts`,
+`app/_ui/tokens.ts`, los dos tests nuevos) dan `✓` en segundos. Los que no se pudieron chequear nunca
+fueron `app/dashboard/Grafico.tsx` (1.100 líneas, arrastra recharts entero y el catálogo),
+`app/dashboard/EditorInforme.tsx`, `app/dashboard/Cabecera.tsx` y `app/dashboard/PanelEstilo.tsx`.
+⚠️ **Achicar la lista a UN archivo no alcanza** si ese archivo es uno de ésos: el costo es del grafo que
+arrastra, no de la cantidad de archivos de la lista.
+
+**La regla:** 99 no es verde y no se reporta como «sin tipos» — se dice **«tipos: los corre Actions»**,
+que corre en Linux y con memoria. Y antes de darlo por perdido conviene PARTIR la lista: un 99 de seis
+archivos puede ser un ✓ de cinco más un 99 del pesado, que es información bastante distinta.
+
+**El reemplazo barato mientras tanto, que caza la clase de error que importa al editar a ciegas:** un
+parseo sintáctico con `ts.createSourceFile(...).parseDiagnostics`. No valida tipos, es casi gratis en
+memoria, y encuentra el paréntesis o el backtick que rompe el archivo entero (el caso real está en
+[hallazgos-graficos.md](hallazgos-graficos.md): un backtick adentro del CSS de `editor-css.ts`).
+
+**Y para VER una pantalla sin levantar la app:** `next dev` no entra con esa RAM. El panel del navegador
+de Claude **no abre `file://` ni un `localhost` nuestro** (ni un artifact privado, si esa sesión del
+panel no está logueada en claude.ai), pero **Chrome headless sí**:
+`chrome.exe --headless --disable-gpu --screenshot=<png> file:///<html>` rinde un arnés estático con los
+tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
+patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.

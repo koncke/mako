@@ -1681,3 +1681,86 @@ tests/dashboard-editar-mako-muneco.test.ts · *22/10/2026, chat «Chats de las t
   versión tenía un link a /integraciones y la frenó tests/integracion-sin-salir.test.ts: un aviso que conecta algo no
   manda a otra pantalla. Al conectarlo, el aviso se va sin recargar la hoja.
 - El closer mira su hoja en sólo lectura y no conecta: lee el aviso sin botón. Un link compartido no lo muestra.
+
+## Aplicar el diseño de los 114 tableros: lo que la medición desmintió del propio documento (31/10/2026)
+
+**Vive en:** `lib/graficos-temas.ts` (el vocabulario), `app/dashboard/Grafico.tsx` (el morfeo),
+`app/dashboard/graficos/Vocabulario.tsx`, `lib/graficos-plantillas.ts`, `app/dashboard/PanelEstilo.tsx`.
+El análisis es [diseno-dashboards-codeandchill.md](diseno-dashboards-codeandchill.md).
+
+**Tres cosas que el documento daba por ciertas y no lo eran.** Se escribió mirando demos ajenas y
+leyendo nuestro código por encima, y en tres puntos acusa al archivo equivocado. Antes de aplicar una
+de sus fichas, **abrí el archivo**:
+
+- **«El delta no sigue al filtro» (A3) no es un bug nuestro.** Es el defecto de Corbel, y la ficha
+  pedía *verificar* que nosotros lo leyéramos con los filtros efectivos. Lo hacemos:
+  `datosDeGraficos` filtra las DOS lecturas con los mismos `filtros`, y `firmaDe` los lleva, así que
+  un cambio de filtro vuelve a pedir los datos. No había nada que arreglar; quedó un test que lo
+  bloquea, porque la línea que lo cumple es una sola y sacarla no rompe ninguna otra cosa.
+- **«La muestra de cada plantilla es un cuadradito de acento» (A6) es falso.** `Muestra` de
+  `PanelEstilo.tsx` ya dibuja CUATRO barras con la paleta de esa plantilla, más su fondo, su borde, su
+  radio, su sombra y su letra — o sea, ya es más informativa que la rueda de cuatro cuartos que el
+  documento propone copiar. No se tocó. Lo que sí faltaba de A6 era la FRASE.
+- **«La pieza ya existe: Fondo: Oscuro» (A4) es de otra cosa.** Esa opción es de los bloques de
+  `/general` (`lib/general-piezas.ts`, `ElementoGeneral.tsx`), no de un bloque del Dashboard: una KPI
+  del Dashboard no tenía con qué invertirse. Hubo que agregar `Grafico.invertida` y su CSS.
+
+**Por qué `isAnimationActive` estaba en `false` en los 13 lugares, y el diagnóstico obvio era el
+equivocado.** Parece «nadie se tomó el trabajo de animar». No: la animación de recharts, **al montar,
+hace crecer las marcas desde CERO**, y eso dibuja un cero que parece medido — justo lo que nuestra
+regla prohíbe. Prenderla a lo bruto reintroduce el defecto que el mismo documento pone entre lo que NO
+hay que copiar. La forma correcta es animar **sólo cuando el dato cambió entre dos dibujos que YA
+tenían datos** (`useMorfeo`): en el montaje y en la primera llegada de datos, nada.
+
+**El morfeo tiene dos modos y el segundo necesita REMONTAR.** Mismas categorías y otros valores →
+recharts deforma las marcas en el lugar solo. Otro conjunto de categorías u otra marca → hay que
+cambiarle la `key` al gráfico: recharts recalcula el dominio, el eje sale ya nuevo y las marcas entran
+desde su base. Sin la `key`, morfear entre dos conjuntos distintos manda un punto a un lugar que no
+significa lo mismo, y con distinta cantidad de puntos lo hace mal. La `forma` que decide es
+`grupo del tipo | tipo | dimensión | desglose | claves de las filas`.
+
+⚠️ **recharts NO toma una `cubic-bezier`**: sólo las curvas con nombre (`ease-out`, `linear`…). Nuestro
+`--ease-out` (`cubic-bezier(.23,1,.32,1)`) no se le puede pasar; lo que sí usa el token es el CSS.
+
+**`agregar` NO recorta por período: eso lo hace el lector.** A `agregar(g, filas, desde, hasta)` le
+llegan las filas ya leídas para ese rango, y el `desde`/`hasta` le sirven para armar los casilleros del
+tiempo. Por eso `datosDeGraficos` hace DOS lecturas con dos claves de caché. Un test que arma un
+período y el anterior con el MISMO arreglo de filas suma todo dos veces y da el doble, sin error.
+
+**Un período filtrado que queda vacío da 0, no `null`** (en una métrica de suma; el `null` es de las
+razones y los atributos). Lo que salva al chip de comparación no es el total: es `chipComparar`, que no
+divide por cero.
+
+**La paleta de series PISA el semáforo, y quedó SIN hacer a propósito.** Medido el 31/10: en `mako`,
+`minimal`, `elevada` y `general`, la serie 4 es `#D0504A` —exactamente `--bad`— y la serie 5 es
+`#1E9E57` —exactamente `--good`—. El ACENTO no colisiona (los primeros colores son todos azules) y eso
+sí quedó blindado en `tests/graficos-temas-semaforo.test.ts`. Lo de las series no se cambió porque
+repinta todas las hojas que ya existen: es una decisión de producto, no una corrección que un test deba
+forzar. Si se toca, se toca en `PALETA_MAKO` y en las tres paletas propias de `lib/graficos-temas.ts`.
+
+**Un backtick adentro de `editor-css.ts` rompe TODA la hoja de estilos.** El archivo es CSS dentro de un
+template literal de TypeScript: escribir `` `Grafico.invertida` `` en un comentario de CSS cierra el
+string y el archivo deja de compilar. Los comentarios de ese archivo van con «comillas angulares», no
+con backticks. `tsc` lo caza (TS1005), pero el mensaje apunta a la línea de abajo, no al backtick.
+
+**Dónde va un hook en `CuerpoGrafico`.** Su cuerpo es una IIFE con varios `return` tempranos (sin
+resultado, con error…). Cualquier cosa que necesite un hook va ARRIBA de la IIFE, con los `useState`:
+el propio archivo ya lo avisa, y es la pantalla en blanco de `AGENTS.md`.
+
+**Lo que quedó SIN hacer de la §9, y dónde vive:**
+
+- **A5, el chip de filtro desde el gesto** (`app/dashboard/BarraControles.tsx`, `MenuFiltro.tsx`): entero.
+  Es el que el documento pone último porque depende de los otros siete.
+- **El cross-fade de 160 ms del texto** (`app/dashboard/EditorInforme.tsx`): no se hizo porque **hoy no
+  tiene disparador** — ningún control cambia la métrica de un bloque en vivo, así que el título y el
+  subtítulo no cambian cuando cambia el filtro. El token (`MORFEO.texto`) está puesto.
+- **El eje que interpola sus marcas numéricamente** (el detalle de Kairo): no se hizo. recharts
+  re-etiqueta de golpe. El documento dice que la variante de Talvo (blanquear las marcas durante el
+  tránsito) también sirve y es más barata.
+- **El contador de una KPI** (`NumeroGrande`, `app/dashboard/Grafico.tsx`): el número sigue saltando.
+  Cuando se haga, la regla de `AGENTS.md` ya está escrita (entre dos valores reales, nunca desde cero).
+- **La torta no morfea** (`Torta`, el único `isAnimationActive={false}` que quedó): no tiene eje, así
+  que los dos modos de A2 no la gobiernan.
+- **El rayado está cableado en barras y áreas**, no en torta, treemap ni sankey. Y la única procedencia
+  que el dato sabe hoy es `Resultado.muestra`: **no hay métrica proyectada en el catálogo**, así que
+  marcar algo más como estimado sería inventarlo.

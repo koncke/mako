@@ -30,6 +30,20 @@ export type Dimension = {
  */
 export type Metrica = {
   id: string; nombre: string; formato: Formato;
+  /**
+   * LA FÓRMULA EN CASTELLANO: qué cuenta esta métrica, en una frase. No es una descripción
+   * comercial ni un texto de ayuda — es la definición, y se escribe para zanjar una duda.
+   *
+   * Por qué existe: tenemos CUATRO definiciones distintas de «cerró»
+   * (`docs/hallazgos-graficos.md`), y el documento dice textual: «Antes de "arreglar" un número
+   * que no coincide con otra pantalla, mirá cuál de las cuatro definiciones es». Esta frase es el
+   * lugar donde esa ambigüedad deja de costar tiempo: la pantalla la muestra debajo del título
+   * del bloque (y en el `title` de una KPI, que no tiene alto para una tercera línea).
+   *
+   * Una frase, ~110 caracteres, sin jerga nuestra: la lee el dueño del negocio, no nosotros.
+   * Se pone donde el número se puede malinterpretar; una métrica obvia no necesita una.
+   */
+  definicion?: string;
   distinto?: true;
   /**
    * `minimo` (v5): con un denominador MENOR que esto, la razón no se da como número —se dibuja «X de Y» o
@@ -84,3 +98,8 @@ export const cat = (id: string, nombre: string): Dimension => ({ id, nombre, cla
 export const m = (id: string, nombre: string, formato: Formato = 'numero'): Metrica => ({ id, nombre, formato });
 export const dist = (id: string, nombre: string): Metrica => ({ id, nombre, formato: 'numero', distinto: true });
 export const r = (id: string, nombre: string, formato: Formato, num: string, den: string, factor = 1): Metrica => ({ id, nombre, formato, razon: { num, den, factor } });
+/**
+ * Le pone su DEFINICIÓN a una métrica, sin repetir el resto: `def(m('cierres', 'Cierres'), '…')`.
+ * Envuelve en vez de ser un parámetro más para no tocar los cientos de `m(...)` que no la llevan.
+ */
+export const def = <T extends Metrica>(metrica: T, definicion: string): T => ({ ...metrica, definicion });

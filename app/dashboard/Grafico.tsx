@@ -30,15 +30,16 @@
 // no se dibuja clickeable. Y la LEYENDA prende y apaga series (estado local, no se guarda; la última no
 // se apaga): es lo que hacía el selector de métricas de la vieja Tendencias.
 
-import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   AreaChart, Area, ComposedChart, Treemap, Sankey, FunnelChart, Funnel, LabelList,
 } from 'recharts';
-import { Spinner } from '@/app/_ui';
+import { Spinner, TABULAR } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
-import { colorDeTono, estiloEfectivo, fondoDeTarjeta, type TemaHoja } from '@/lib/graficos-temas';
+import { colorDeTono, estiloEfectivo, fondoDeTarjeta, pinturaDe, type Procedencia, type TemaHoja } from '@/lib/graficos-temas';
+import { DefsRayado } from './graficos/Vocabulario';
 import { identidadEfectiva, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
 import {
   anchoEjeY, anchoTexto, BARRA, colorDeCategoria, columnaConBarra, EJES, ESCALA_EPICA, intervaloPorAncho, LETRA, LETRA_MINIMA, MARGEN, tamChip, tamProtagonista, tamSecundaria, modoPorAlto, ocultoPorCero,
@@ -69,9 +70,16 @@ export const MONO = "'Geist Mono', monospace";
 const GRIS = 'var(--border-strong)';
 const TIP = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: LETRA.tooltip, color: 'var(--ink)', boxShadow: '0 6px 20px rgba(18,21,27,.08)', padding: '8px 12px' };
 const TIP_ETIQUETA = { color: 'var(--dim)', fontSize: LETRA.tooltipRotulo, marginBottom: 4 };
-/** Los ticks: 13 px en la letra de la hoja, var(--dim) (no mono ni gris tenue). El color va en `style`. */
-const EJE = { fontSize: LETRA.tick, style: { fill: 'var(--dim)' } };
-const EJE_CATEGORIA = { fontSize: LETRA.categoria, style: { fill: 'var(--ink)' } };
+/**
+ * Los ticks: 13 px en la letra de la hoja, var(--dim) (no mono ni gris tenue). El color va en `style`.
+ *
+ * Con CIFRAS TABULARES (`TABULAR`): una marca de eje se RE-ETIQUETA cuando cambia el filtro o el rango
+ * —y durante el morfeo interpola, pasando por valores intermedios—, así que es el texto de la pantalla
+ * que más veces cambia de dígitos. Sin ancho fijo por dígito, la columna de marcas se mueve a lo ancho
+ * en cada cuadro y el eje entero tiembla.
+ */
+const EJE = { fontSize: LETRA.tick, style: { fill: 'var(--dim)', fontVariantNumeric: TABULAR } };
+const EJE_CATEGORIA = { fontSize: LETRA.categoria, style: { fill: 'var(--ink)', fontVariantNumeric: TABULAR } };
 /** La cuadrícula: sólo horizontal, sólida, en las marcas del eje Y. */
 const GRILLA = { stroke: 'var(--border)', strokeWidth: 1 };
 
@@ -112,6 +120,63 @@ function aclarar(hex: string, t: number): string {
   const n = parseInt(m[1], 16);
   const canal = (c: number) => Math.round(255 - (255 - c) * t).toString(16).padStart(2, '0');
   return `#${canal((n >> 16) & 255)}${canal((n >> 8) & 255)}${canal(n & 255)}`;
+}
+
+// ── EL MORFEO: cuando cambia el filtro, el gráfico RESPONDE en vez de recargarse ──────────
+// Hasta el 31/10/2026 todo iba con `isAnimationActive={false}`: cambiar un filtro volvía a dibujar de
+// golpe y se veía como una recarga, no como una respuesta.
+//
+// ⚠️ POR QUÉ ESTABA APAGADO, Y POR QUÉ NO SE PRENDE A LO BRUTO: la animación de recharts, al MONTAR,
+// hace crecer las marcas DESDE CERO. Eso dibuja un cero que parece medido, y es justo lo que nuestra
+// regla prohíbe («nunca un cero, nunca un "falta"»; el documento de diseño lo llama «el cero creíble al
+// montar» y lo pone entre lo que NO hay que copiar). Por eso `animar` es false en el primer dibujo y
+// sólo se prende cuando el dato CAMBIÓ — o sea, cuando lo movió el usuario, entre dos valores reales.
+//
+// Y hay DOS MODOS, que es la parte que se nota si se elige mal (§A2 del documento):
+//
+//   · MISMAS CATEGORÍAS, otros valores (un filtro de canal, de sede, de métrica comparable)
+//     → MORFEO PUNTO A PUNTO: las marcas no desaparecen, se deforman en el lugar.
+//
+//   · OTRO CONJUNTO DE CATEGORÍAS (12 meses → 7 días) u OTRO TIPO DE MARCA (área → barras)
+//     → BORRADO Y REDIBUJO: el área se vacía, el eje se re-escala PRIMERO y las marcas crecen desde la
+//       base. Se consigue REMONTANDO el gráfico (una `key` nueva): recharts recalcula el dominio y
+//       dibuja el eje ya nuevo, y las marcas entran desde su base. Morfear entre dos conjuntos de
+//       categorías distintos no es una animación, es un punto que viaja a un lugar que no significa lo
+//       mismo — y con distinta cantidad de puntos, recharts lo hace mal.
+
+/** Las dos velocidades. El orden es ESTADO (0 ms) → TEXTO (160) → GEOMETRÍA (400), nunca al revés. */
+export const MORFEO = { texto: 160, geometria: 400 } as const;
+/**
+ * ⚠️ recharts sólo acepta las curvas con nombre ('ease', 'ease-in', 'ease-out', 'ease-in-out',
+ * 'linear'): NO toma una `cubic-bezier`, así que nuestro `--ease-out` (`cubic-bezier(.23,1,.32,1)`) no
+ * se le puede pasar. 'ease-out' es la de la familia que más se le parece. Lo que sí usa el token es el
+ * texto y la píldora del segmentado, que se animan con CSS.
+ */
+const CURVA = 'ease-out';
+
+/**
+ * Qué cambió desde el dibujo anterior. `forma` es la identidad del gráfico (el grupo del tipo, la
+ * dimensión y el CONJUNTO de categorías); `valores`, los números.
+ *
+ * Devuelve `animar` (sólo si algo cambió: en el montaje, no) y `remonte`, que sube de a uno cada vez
+ * que cambia la forma y entra en la `key` del gráfico.
+ *
+ * ⚠️ No usa estado ni efectos a propósito: con `useState` + `useEffect` el primer cambio se pierde (el
+ * efecto corre después del dibujo) y en modo estricto el doble render haría animar el montaje. Acá
+ * `animar` sale de comparar contra lo ÚLTIMO ANOTADO, así un segundo render con los mismos datos no
+ * anima nada.
+ */
+function useMorfeo(forma: string, valores: string, conDatos: boolean): { animar: boolean; remonte: number } {
+  const visto = useRef<{ forma: string; valores: string; remonte: number; conDatos: boolean } | null>(null);
+  const antes = visto.current;
+  const cambioForma = !!antes && antes.forma !== forma;
+  const cambioValores = !!antes && antes.valores !== valores;
+  const remonte = (antes?.remonte ?? 0) + (cambioForma ? 1 : 0);
+  visto.current = { forma, valores, remonte, conDatos };
+  // ⚠️ Se anima SÓLO entre dos dibujos que YA tenían datos. La primera vez que los datos llegan la forma
+  // también «cambia» (de vacío a lleno), y animar eso sería hacer crecer las barras desde cero: un cero
+  // que parece medido, que es exactamente lo que la regla prohíbe. Ese caso entra sin animación.
+  return { animar: (cambioForma || cambioValores) && conDatos && !!antes?.conDatos, remonte };
 }
 
 /** Las series de un gráfico de ejes: las métricas, o las columnas del desglose si lo hay. */
@@ -164,6 +229,19 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
   // #860: el anuncio que se está reproduciendo (el ▶ de una tarjeta de anuncio), o null.
   const [video, setVideo] = useState<{ adId: string; nombre: string } | null>(null);
 
+  // EL MORFEO (ver el bloque de arriba), ACÁ ARRIBA Y NO ADENTRO DEL CUERPO: `cuerpo` es una función con
+  // varios `return` tempranos, y un hook detrás de un `return` es la pantalla en blanco de AGENTS.md.
+  // Las dos claves salen del resultado TAL CUAL llega (`estado.resultado`): la FORMA lleva el grupo del
+  // tipo, el tipo, la dimensión, el desglose y las CLAVES de las filas —si cambia cualquiera de esas, es
+  // otro conjunto de categorías u otra marca, y va borrado y redibujo—; los VALORES son los números, y si
+  // sólo cambian ellos, las marcas se deforman en el lugar.
+  const rMorfeo = estado.resultado;
+  const formaMorfeo = [tipoDe(g.tipo)?.grupo ?? '', g.tipo, g.dimension ?? '', g.desglose ?? '', (rMorfeo?.filas ?? []).map((f) => f.clave).join('\u0001')].join('|');
+  const valoresMorfeo = (rMorfeo?.filas ?? []).map((f) => f.valores.join(',')).join(';');
+  const { animar, remonte } = useMorfeo(formaMorfeo, valoresMorfeo, (rMorfeo?.filas?.length ?? 0) > 0);
+  /** Lo que se le pasa a cada marca de recharts para que morfee (y para que al montar no haga nada). */
+  const anim = { isAnimationActive: animar, animationDuration: MORFEO.geometria, animationEasing: CURVA } as const;
+
   // El hueco de la ola 2: un tipo con dibujo propio (el mapa de calor de página) recibe todo y dibuja él.
   const Propio = DIBUJOS_PROPIOS[g.tipo];
   const cuerpo = ((): ReactNode => {
@@ -191,6 +269,26 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
     const c = (i: number, etiqueta?: string) => (etiqueta === OTROS ? GRIS : e.colores[i % e.colores.length]);
     /** El color de una categoría: el que declara su dimensión (`Dimension.colores`), o null. */
     const colorFijo = (etiqueta: string): string | null => (etiqueta === OTROS ? GRIS : dim?.colores?.[etiqueta] ?? null);
+    /**
+     * DE DÓNDE SALIÓ lo que se dibuja (el vocabulario de lib/graficos-temas.ts). Un resultado de
+     * MUESTRA son números inventados (lib/graficos-muestra.ts: la miniatura de la galería), y un
+     * número inventado no se puede dibujar igual que uno medido: con el relleno sólido, la
+     * miniatura de una plantilla afirma con la misma voz que la hoja del negocio.
+     *
+     * Hoy esta es la única procedencia que el DATO sabe: no hay métrica proyectada en el catálogo,
+     * y marcar a mano algo como estimado sería inventarlo. Cuando exista un pronóstico, su
+     * `Procedencia` entra por acá y el resto ya está puesto.
+     */
+    const proc: Procedencia = r.muestra ? 'no-medido' : 'medido';
+    /** Un color concreto, pintado según la procedencia: tal cual si está medido, rayado si no. */
+    const rellenoDe = (color: string) => (proc === 'medido' ? color : pinturaDe(proc, color, e.trazo).fill);
+    /** El relleno de la serie `i`. */
+    const relleno = (i: number, etiqueta?: string) => rellenoDe(c(i, etiqueta));
+    /**
+     * Los colores que necesitan su `<pattern>`: la paleta, el gris de «Otros» y los fijos de la
+     * dimensión (que las `<Cell>` de una sola métrica usan en vez de la paleta). Medido = ninguno.
+     */
+    const coloresRayado = proc === 'medido' ? [] : [...e.colores, GRIS, ...Object.values(dim?.colores ?? {})];
     const info = tipoDe(g.tipo);
     const fmt = (v: number | null, f: Formato) => fmtValor(v, f, e.compacto);
     const tick = (f: Formato) => (v: number) => fmtValor(v, f, true);
@@ -270,7 +368,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <stop offset="100%" stopColor={c(0)} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area type="monotone" dataKey="valor" stroke={c(0)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round" fill={`url(#${gid})`} dot={false} isAnimationActive={false} />
+            <Area type="monotone" dataKey="valor" stroke={c(0)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round" fill={`url(#${gid})`} dot={false} {...anim} />
             <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={(x) => [fmt(typeof x === 'number' ? x : null, col?.formato ?? 'numero'), col?.nombre ?? '']} labelFormatter={(l) => String(l)} />
           </AreaChart>
         );
@@ -319,7 +417,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <Tooltip contentStyle={TIP} formatter={(v, n) => [fmt(typeof v === 'number' ? v : null, 'numero'), String(n)]} />
                 {/* El número va ADENTRO del escalón sólo si el escalón es ancho (un 22 % del primero); si no, al lado del nombre:
                     en la punta del embudo, «33» en blanco salía cortado sobre un triángulo de 10 px. */}
-                <Funnel dataKey="valor" nameKey="nombre" isAnimationActive={false}
+                <Funnel dataKey="valor" nameKey="nombre" {...anim}
                   data={pasos.map((p, i) => {
                     const adentro = p.valor >= maxPaso * 0.22;
                     return { ...p, fill: c(i), adentro: adentro ? fmtValor(p.valor, p.formato, true) : '', rotulo: adentro ? p.nombre : `${p.nombre} · ${fmtValor(p.valor, p.formato, true)}` };
@@ -396,7 +494,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
       return (
         <AreaMedida>
           {(t) => (
-            <Treemap width={t.w} height={t.h} data={datos} dataKey="size" nameKey="name" isAnimationActive={false} stroke={fondoDeTarjeta(tema)}
+            <Treemap width={t.w} height={t.h} data={datos} dataKey="size" nameKey="name" {...anim} stroke={fondoDeTarjeta(tema)}
               onClick={grupoAbre ? (n) => abrirGrupo(n.name) : undefined} style={grupoAbre ? { cursor: 'pointer' } : undefined}
               content={<CeldaTreemap formato={col.formato} compacto={e.compacto} halo={halo} />} />
           )}
@@ -461,7 +559,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <XAxis dataKey="etiqueta" tick={EJE} interval={intervaloPorAncho(franjas.map((x) => x.etiqueta), t.w - 40, null)} tickMargin={8} axisLine={false} tickLine={false} hide={!ejes} />
                 <YAxis yAxisId="a" tick={EJE} allowDecimals={false} tickCount={EJES.marcasY} width={anchoEjeY([String(Math.max(0, ...franjas.map((f) => f.cuantos)))])} axisLine={false} tickLine={false} hide={!ejes} />
                 <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => [String(v), 'Cantidad']} />
-                <Bar yAxisId="a" dataKey="cuantos" name="Cantidad" fill={c(0)} radius={[e.radioBarra, e.radioBarra, 0, 0]} isAnimationActive={false} />
+                <Bar yAxisId="a" dataKey="cuantos" name="Cantidad" fill={c(0)} radius={[e.radioBarra, e.radioBarra, 0, 0]} {...anim} />
                 {e.etiquetas && ejes && <CapaEtiquetas datos={franjas} series={[{ key: 'cuantos', formato: 'numero', eje: 'a' }]} modo="columnas" fmt={(v) => String(v)} halo={halo} />}
               </BarChart>
             );
@@ -491,8 +589,8 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <XAxis dataKey="etiqueta" tick={EJE} interval={intervaloPorAncho(datos.map((d) => d.etiqueta), t.w - 80, null)} tickMargin={8} axisLine={false} tickLine={false} hide={!ejes} />
                 <YAxis tick={EJE} tickFormatter={tick(col.formato)} tickCount={EJES.marcasY} width={anchoEjeY(datos.map((d) => fmtValor(d.base + d.alto, col.formato, true)))} axisLine={false} tickLine={false} hide={!ejes} />
                 <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(_v, _n, it) => [fmt((it?.payload as { v?: number })?.v ?? null, col.formato), col.nombre]} />
-                <Bar dataKey="base" stackId="c" fill="transparent" isAnimationActive={false} />
-                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={BARRA.maxVertical} isAnimationActive={false}>
+                <Bar dataKey="base" stackId="c" fill="transparent" {...anim} />
+                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={BARRA.maxVertical} {...anim}>
                   {datos.map((d, i) => <Cell key={i} fill={i === datos.length - 1 ? c(0) : d.sube ? 'var(--good)' : 'var(--bad)'} />)}
                 </Bar>
               </BarChart>
@@ -518,7 +616,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
               <XAxis type="number" domain={['dataMin', 'dataMax']} tick={EJE} tickFormatter={fecha} tickCount={EJES.maxMarcasX} axisLine={false} tickLine={false} hide={!e.ejes} />
               <YAxis type="category" dataKey="etiqueta" tick={EJE_CATEGORIA} width={Math.min(180, Math.ceil(Math.max(...datos.map((d) => anchoTexto(corto(d.etiqueta), LETRA.categoria)))) + 10)} axisLine={false} tickLine={false} tickFormatter={corto} />
               <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => { const [a, b] = v as [number, number]; return [`${fecha(a)} → ${fecha(b - 1)}`, 'Del … al …']; }} />
-              <Bar dataKey="rango" fill={c(0)} isAnimationActive={false} radius={e.radioBarra} />
+              <Bar dataKey="rango" fill={c(0)} {...anim} radius={e.radioBarra} />
             </BarChart>
           )}
         </AreaMedida>
@@ -617,14 +715,14 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
           if (info?.grupo === 'Serie temporal' || g.tipo === 'lineas' || g.tipo === 'lineas_suaves') {
             const curva = g.tipo === 'serie_suave' || g.tipo === 'lineas_suaves' ? 'monotone' : 'linear';
             return (
-              <LineChart {...comun}>
+              <LineChart key={`m${remonte}`} {...comun}>
                 {grilla}{ejeX}{ejeY}
                 {tip}
                 {ley}
                 {s.claves.map((k, i) => (
                   <Line key={k} yAxisId="a" type={curva} dataKey={k} name={s.nombres[i]} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
                     dot={puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)}
-                    hide={oculta(k, s.claves)} isAnimationActive={false} connectNulls />
+                    hide={oculta(k, s.claves)} {...anim} connectNulls />
                 ))}
                 {e.etiquetas && ejes && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves)} modo="series" fmt={fmtEtq} halo={halo} />}
               </LineChart>
@@ -633,7 +731,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
 
           if (info?.grupo === 'Áreas') {
             return (
-              <AreaChart {...comun} stackOffset={cien ? 'expand' : 'none'}>
+              <AreaChart key={`m${remonte}`} {...comun} stackOffset={cien ? 'expand' : 'none'}>
                 <defs>
                   {s.claves.map((k, i) => (
                     <linearGradient key={k} id={`ar-${g.id}-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -644,11 +742,14 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 </defs>
                 {grilla}{ejeX}{ejeY}
                 {tip}
+                <DefsRayado colores={coloresRayado} />
                 {ley}
                 {s.claves.map((k, i) => (
                   <Area key={k} yAxisId="a" type="monotone" dataKey={k} name={s.nombres[i]} stackId={apilada ? 'a' : undefined}
-                    hide={oculta(k, s.claves)} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round" fill={`url(#ar-${g.id}-${i})`}
-                    dot={apilada ? false : puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)} isAnimationActive={false} connectNulls />
+                    hide={oculta(k, s.claves)} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
+                    // Medido: el degradado de siempre. No medido: el rayado, que pesa más que un degradado y es el punto.
+                    fill={proc === 'medido' ? `url(#ar-${g.id}-${i})` : relleno(i, s.nombres[i])}
+                    dot={apilada ? false : puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)} {...anim} connectNulls />
                 ))}
                 {e.etiquetas && ejes && !apilada && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves)} modo="series" fmt={fmtEtq} halo={halo} />}
               </AreaChart>
@@ -660,16 +761,16 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
             const nBarras = g.tipo === 'combinado' ? 1 : Math.max(1, s.claves.length - 1);
             const ultimaBarra = s.claves.slice(0, nBarras).filter((k) => !oculta(k, s.claves)).pop();
             return (
-              <ComposedChart {...comun} barCategoryGap={BARRA.separacion}>
+              <ComposedChart key={`m${remonte}`} {...comun} barCategoryGap={BARRA.separacion}>
                 {grilla}{ejeX}{ejeY}{ejeB}
                 <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={fmtTip} cursor={{ fill: 'var(--surface-2)' }} />
                 {ley}
                 {s.claves.map((k, i) => (i < nBarras ? (
                   <Bar key={k} yAxisId={eje(s.formatos[i])} dataKey={k} name={s.nombres[i]} fill={c(i)} stackId={g.tipo === 'combinado_apilado' ? 'a' : undefined}
-                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} isAnimationActive={false} maxBarSize={BARRA.maxVertical} />
+                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} {...anim} maxBarSize={BARRA.maxVertical} />
                 ) : (
                   <Line key={k} yAxisId={eje(s.formatos[i])} type="monotone" dataKey={k} name={s.nombres[i]} stroke={c(i)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
-                    dot={puntosDe(s.datos, k, c(i), halo)} activeDot={puntoActivo(c(i), halo)} hide={oculta(k, s.claves)} isAnimationActive={false} />
+                    dot={puntosDe(s.datos, k, c(i), halo)} activeDot={puntoActivo(c(i), halo)} hide={oculta(k, s.claves)} {...anim} />
                 )))}
                 {/* La línea lleva su etiqueta en el último punto SIEMPRE si va contra el eje escondido: si no, su escala no se lee. */}
                 {(e.etiquetas || !!ejeB) && ejes && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves.slice(nBarras))} modo="series" fmt={fmtEtq} halo={halo} />}
@@ -690,7 +791,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
           // tercio de hoja eran agujas de 8 px (capturas del 15/10/2026, «Edad y género»). Entre grupos va menos aire.
           const separacion = !apilada && !horizontal && visibles.length > 1 ? BARRA.separacionGrupo : BARRA.separacion;
           return (
-            <BarChart {...comun} layout={horizontal ? 'vertical' : 'horizontal'} stackOffset={cien ? 'expand' : 'none'} barCategoryGap={separacion} barGap={2} onClick={undefined}>
+            <BarChart key={`m${remonte}`} {...comun} layout={horizontal ? 'vertical' : 'horizontal'} stackOffset={cien ? 'expand' : 'none'} barCategoryGap={separacion} barGap={2} onClick={undefined}>
               {e.cuadricula && ejes && <CartesianGrid {...GRILLA} horizontal={!horizontal} vertical={horizontal} />}
               {horizontal ? (
                 <>
@@ -701,13 +802,14 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <>{ejeX}{ejeY}</>
               )}
               <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={fmtTip} cursor={{ fill: 'var(--surface-2)' }} />
+              <DefsRayado colores={coloresRayado} />
               {!unaSola && ley}
               {s.claves.map((k, i) => (
-                <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={c(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
+                <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={relleno(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
                   hide={oculta(k, s.claves)} cursor={cursorGrupo} onClick={grupoAbre ? (_d: unknown, j: number) => abrirGrupo(s.datos[j]?.__clave, k) : undefined}
-                  radius={radio(k)} isAnimationActive={false} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
+                  radius={radio(k)} {...anim} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
                   {/* Una sola métrica: cada categoría con el color que declara su dimensión, «Otros» en gris, y si no, uno solo. */}
-                  {unaSola && s.datos.map((d, j) => <Cell key={j} fill={colorFijo(String(d.etiqueta)) ?? c(0)} />)}
+                  {unaSola && s.datos.map((d, j) => <Cell key={j} fill={rellenoDe(colorFijo(String(d.etiqueta)) ?? c(0))} />)}
                 </Bar>
               ))}
               {e.etiquetas && ejes && !cien && (unaSola || apilada) && (
@@ -761,11 +863,11 @@ function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre
   return (
     <div ref={ref} style={{ containerType: 'inline-size', width: '100%', minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: enLinea ? 'row' : 'column', alignItems: enLinea ? 'center' : 'flex-start', gap: enLinea ? ENTRE_NUMERO_Y_CHIP : 8 }}>
-        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{texto}</span>
+        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{texto}</span>
         {chip && (
           // La comparación habla en la letra de la etiqueta del tema: en mono sólo si la etiqueta va en mono (en el tema
           // «General», que es para leer de una pasada, «↑ 1,3×» en mono se leía como un dato técnico).
-          <span title="Contra el período anterior" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', fontFamily: monoChip ? MONO : 'inherit', fontSize: chipTam, fontWeight: 600, padding: `${Math.round(chipTam * 0.3)}px ${Math.round(chipTam * 0.75)}px`, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', whiteSpace: 'nowrap' }}>{chip}</span>
+          <span title="Contra el período anterior" style={{ flex: 'none', display: 'inline-flex', alignItems: 'center', fontFamily: monoChip ? MONO : 'inherit', fontSize: chipTam, fontWeight: 600, padding: `${Math.round(chipTam * 0.3)}px ${Math.round(chipTam * 0.75)}px`, borderRadius: 8, background: 'var(--surface-2)', color: 'var(--dim)', fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{chip}</span>
         )}
       </div>
       {secundaria && <div className="gr-numero-sec" title={secundaria} style={w ? { fontSize: tamSecundaria(prota) } : undefined}>{secundaria}</div>}
@@ -862,7 +964,7 @@ function Bala({ v, objetivo, max, color, texto, textoObj, grande = false }: { v:
   const p = (x: number) => `${Math.min(100, Math.max(0, (x / max) * 100))}%`;
   return (
     <div ref={ref} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: enFila ? 'row' : 'column', alignItems: enFila ? 'center' : 'stretch', justifyContent: grande ? 'flex-end' : 'center', gap: enFila ? 20 : grande ? 22 : 8 }}>
-      <div style={{ flex: 'none', fontSize: grande ? 'clamp(48px, 13cqi, 200px)' : enFila ? 28 : 24, lineHeight: grande ? 0.95 : 1.05, fontWeight: grande ? 800 : 600, letterSpacing: grande ? '-0.045em' : '-0.02em', color: 'var(--ink)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      <div style={{ flex: 'none', fontSize: grande ? 'clamp(48px, 13cqi, 200px)' : enFila ? 28 : 24, lineHeight: grande ? 0.95 : 1.05, fontWeight: grande ? 800 : 600, letterSpacing: grande ? '-0.045em' : '-0.02em', color: 'var(--ink)', fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>
         {texto}{textoObj && <span style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: 'var(--dim)', letterSpacing: 0 }}> de {textoObj}</span>}
       </div>
       <div style={{ position: 'relative', flex: enFila ? 1 : 'none', minWidth: 0, height: grande ? 'clamp(26px, 5cqi, 56px)' : enFila ? 22 : 16, background: 'var(--surface-2)', borderRadius: grande ? 16 : 8, overflow: 'hidden' }}>
@@ -898,7 +1000,7 @@ function Indicador({ v, max, objetivo, color, rangos, texto }: { v: number; max:
           </>
         )}
         {objetivo != null && (() => { const [a, b] = pt(ang(objetivo), 94); const [c2, d] = pt(ang(objetivo), 66); return <line x1={a} y1={b} x2={c2} y2={d} strokeWidth={3.5} style={{ stroke: 'var(--ink)' }} />; })()}
-        <text x={100} y={96} textAnchor="middle" fontSize={24} fontWeight={600} style={{ fill: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{texto}</text>
+        <text x={100} y={96} textAnchor="middle" fontSize={24} fontWeight={600} style={{ fill: 'var(--ink)', fontVariantNumeric: TABULAR }}>{texto}</text>
       </svg>
     </div>
   );
@@ -937,7 +1039,7 @@ function EmbudoVertical({ pasos, base, compacto, alPaso, grande = false }: { pas
                 {/* El nombre entra en la parte ANGOSTA del escalón (su borde de abajo), con «…»: centrado y sin tope, el trapecio
                     lo cortaba por los dos lados en el celular («lificadas que asistier»). */}
                 <span title={p.nombre} style={{ fontSize: LETRA.leyenda, fontWeight: 500, color: '#454C57', marginBottom: 5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: `${Math.max(20, 100 - 2 * corte(i + 1, n) - 6)}%` }}>{p.nombre}</span>
-                <span style={{ fontWeight: grande ? 800 : 600, fontSize: grande ? 'clamp(27px, 4cqi, 44px)' : 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
+                <span style={{ fontWeight: grande ? 800 : 600, fontSize: grande ? 'clamp(27px, 4cqi, 44px)' : 27, letterSpacing: '-0.02em', color: '#12151B', fontVariantNumeric: TABULAR }}>{fmtValor(p.valor, p.formato, compacto)}</span>
               </div>
             </Clic>
           </div>
@@ -960,7 +1062,7 @@ function EmbudoBarras({ pasos, vertical, color, compacto, alPaso, sobre }: { pas
         const al = alPaso?.(i) ?? null;
         return vertical ? (
           <Clic key={p.nombre} al={al} etiqueta={`Ver detalle: ${p.nombre}`} estilo={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <span style={{ fontSize: grande ? 'clamp(22px, 3.4cqi, 40px)' : LETRA.etiqueta, fontWeight: grande ? 800 : 600, color: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{fmtValor(p.valor, p.formato, compacto)}</span>
+            <span style={{ fontSize: grande ? 'clamp(22px, 3.4cqi, 40px)' : LETRA.etiqueta, fontWeight: grande ? 800 : 600, color: 'var(--ink)', fontVariantNumeric: TABULAR }}>{fmtValor(p.valor, p.formato, compacto)}</span>
             <div style={{ width: '70%', height: tam, background: color(i), borderRadius: grande ? '14px 14px 0 0' : '8px 8px 0 0' }} />
             <span style={{ fontSize: grande ? LETRA.leyenda : LETRA.tick, fontWeight: grande ? 600 : undefined, color: 'var(--dim)', textAlign: 'center' }}>{p.nombre}</span>
             {/* El primer escalón no tiene de dónde pasar: lleva el chip invisible, así su nombre queda a la altura de los otros. */}
@@ -971,7 +1073,7 @@ function EmbudoBarras({ pasos, vertical, color, compacto, alPaso, sobre }: { pas
             <span style={{ fontSize: grande ? 'clamp(15px, 2cqi, 22px)' : LETRA.leyenda, fontWeight: grande ? 700 : undefined, color: 'var(--dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.nombre}</span>
             <div style={{ display: 'flex', justifyContent: 'center', ...(grande ? { height: '100%' } : {}) }}>
               {/* minWidth: el número entra siempre; un escalón chico se estira lo justo en vez de cortar «42 · 45%» por la mitad. */}
-              <div style={{ width: tam, minWidth: 'max-content', background: color(i), color: sobre ?? '#fff', fontSize: grande ? 'clamp(18px, 2.6cqi, 30px)' : LETRA.leyenda, fontWeight: grande ? 800 : 600, padding: grande ? '0 16px' : '7px 10px', display: grande ? 'flex' : undefined, alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: grande ? 14 : 8, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+              <div style={{ width: tam, minWidth: 'max-content', background: color(i), color: sobre ?? '#fff', fontSize: grande ? 'clamp(18px, 2.6cqi, 30px)' : LETRA.leyenda, fontWeight: grande ? 800 : 600, padding: grande ? '0 16px' : '7px 10px', display: grande ? 'flex' : undefined, alignItems: 'center', justifyContent: 'center', textAlign: 'center', borderRadius: grande ? 14 : 8, whiteSpace: 'nowrap', fontVariantNumeric: TABULAR }}>
                 {fmtValor(p.valor, p.formato, compacto)}{conv != null ? ` · ${conv}%` : ''}
               </div>
             </div>
@@ -992,7 +1094,7 @@ function CeldaTreemap({ x = 0, y = 0, width = 0, height = 0, name, size, fill, f
       {width >= 90 && height >= 44 && (
         <>
           <text x={x + 10} y={y + 22} fontSize={LETRA.etiqueta} fontWeight={600} style={{ fill: '#fff' }}>{conTope(String(name ?? ''), Math.floor((width - 16) / (LETRA.etiqueta * 0.6)))}</text>
-          <text x={x + 10} y={y + 40} fontSize={LETRA.leyenda} style={{ fill: '#fff', fontVariantNumeric: 'tabular-nums' }} opacity={0.92}>{fmtValor(size ?? 0, formato, compacto || true)}</text>
+          <text x={x + 10} y={y + 40} fontSize={LETRA.leyenda} style={{ fill: '#fff', fontVariantNumeric: TABULAR }} opacity={0.92}>{fmtValor(size ?? 0, formato, compacto || true)}</text>
         </>
       )}
     </g>
@@ -1066,7 +1168,7 @@ function Torta({ datos, anillo, etiquetas, leyenda, halo, cursor, fmtTotal, fmt,
                 const tam = Math.min(LETRA.panelNumero, Math.floor(hueco / (0.6 * Math.max(3, [...texto].length))));
                 return tam >= LETRA_MINIMA ? (
                   <text x={t.w / 2} y={t.h / 2} textAnchor="middle" dominantBaseline="central" fontSize={tam} fontWeight={600}
-                    style={{ fill: 'var(--ink)', fontVariantNumeric: 'tabular-nums' }}>{texto}</text>
+                    style={{ fill: 'var(--ink)', fontVariantNumeric: TABULAR }}>{texto}</text>
                 ) : null;
               })()}
               <Tooltip contentStyle={TIP} formatter={(v, n) => [`${fmt(Number(v) || 0)} · ${pct(Number(v) || 0)}%`, String(n)]} />

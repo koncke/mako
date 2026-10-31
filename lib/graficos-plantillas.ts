@@ -73,7 +73,9 @@ const MARKETING: PlantillaHoja = {
       // 1 · Los KPIs estrella
       kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', 'contra el período anterior', 0, 0, { comparar: true }),
       kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', 'Spend ÷ cierres del período', 3, 0),
-      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', 'Cash ÷ Spend · lo que entró', 6, 0),
+      // LA INVERTIDA de esta fila: Marketing pregunta «¿el gasto en anuncios vuelve?», y el ROAS cash
+      // es la respuesta. Una sola por fila (ver `Grafico.invertida`), y la elige la plantilla.
+      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', 'Cash ÷ Spend · lo que entró', 6, 0, { invertida: true }),
       kpi(id('mk-roas-sold'), 'negocio', 'roas_vendido', 'ROAS sold', 'Sold ÷ Spend · comprometido', 9, 0),
       // 2 · Salud del Funnel — Marketing: el embudo y las cuatro de eficiencia
       { id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'], titulo: 'Salud del Funnel — Marketing', x: 0, y: 4, w: 6, h: 12 },
@@ -133,7 +135,9 @@ const COMERCIAL: PlantillaHoja = {
         //     (este mes completo, como el bloque de antes, que llegaba al fin de mes).
         { id: id('co-revenue-barra'), clase: 'grafico', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], titulo: 'Revenue', x: 0, y: 3, w: 12, h: 3 },
         kpi(id('co-revenue-vendido'), 'revenue', 'vendido', 'Sold Revenue', '', 0, 0, { h: 3, secundaria: 'cierres' }),
-        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 3, 0, { h: 3, comparar: true }),
+        // LA INVERTIDA de esta fila: Comercial pregunta «¿cuánta plata entró?», y es el Cash Collected
+        // (no el vendido, que está comprometido pero no cobrado).
+        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 3, 0, { h: 3, comparar: true, invertida: true }),
         kpi(id('co-revenue-pendiente'), 'revenue', 'pendiente', 'Outstanding', '', 6, 0, {
           h: 3, controles: [periodoVisible(id('co-revenue-pendiente-fecha'), 'este_mes_completo')],
         }),
