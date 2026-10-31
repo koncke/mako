@@ -15,13 +15,16 @@
 // preguntar (el Archivero, la oferta guardada). No es lo mismo que confirmado: por
 // eso no lleva el check verde hasta que el dueño lo dice en el chat o en un archivo.
 
-import { useId, useState } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Button } from '@/app/_ui';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual, type PropsMenuFila } from '@/app/_ui/useMenuContextual';
 import { Icon } from '@/app/_components/icons';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { PIEZAS, type PiezasSabidas } from '@/lib/offer-marco';
 import { GRUPOS_PIEZAS, contarSabidas, estadoDePieza, piezasAgrupadas, tituloDePieza, type EstadoPieza } from './ayudas';
+import { itemsTuOferta } from './menu-contextual-offer';
 
 export type AccionesPiezas = {
   puedeConcluir: boolean;
@@ -110,10 +113,29 @@ function Acciones({ puedeConcluir, hayConclusion, etiquetaArmar, ocupado, onArma
   );
 }
 
+/**
+ * El clic derecho (y mantener presionado) de «Tu oferta»: sus dos botones, en un menú (menu-contextual-offer.ts). Lo usan el
+ * riel y la barra del celular; sin ninguno de los dos botones no hay menú y el clic derecho es el del navegador.
+ */
+function useMenuTuOferta(acciones: AccionesPiezas): { props: PropsMenuFila; menu: ReactNode } {
+  const m = useMenuContextual<null>();
+  const items = itemsTuOferta(acciones);
+  return {
+    props: m.propsDe(null, items.length > 0),
+    menu: m.abierto && items.length > 0 ? (
+      <MenuContextual key={m.abierto.n} punto={{ x: m.abierto.x, y: m.abierto.y }} porDedo={m.abierto.porDedo}
+        items={items} etiqueta="Acciones de tu oferta" onCerrar={m.cerrar}
+        onElegir={(id) => { if (id === 'armar') acciones.onArmar(); else if (id === 'ver') acciones.onVer(); }} />
+    ) : null,
+  };
+}
+
 /** El riel de escritorio. Se esconde solo en pantalla chica (estilos.ts → .of-riel). */
 export function RielPiezas({ piezas, acciones }: { piezas: PiezasSabidas; acciones: AccionesPiezas }) {
+  const menu = useMenuTuOferta(acciones);
   return (
-    <aside className="of-riel" aria-label="Tu oferta" style={{ flex: 'none', width: 264, flexDirection: 'column', minHeight: 0 }}>
+    <aside className="of-riel" aria-label="Tu oferta" style={{ flex: 'none', width: 264, flexDirection: 'column', minHeight: 0 }} {...menu.props}>
+      {menu.menu}
       {/* La tarjeta ESTIRA hasta el alto del chat (flex 1 1 auto: Martín, 11/10/2026, «la columna de
           "Tu oferta" debe ser del mismo alto que el chat»). Con flex y no con un alto en porcentaje:
           contra un padre que estira con flex, un porcentaje da cero en Safari (AGENTS.md, «Dos reglas de
@@ -142,8 +164,10 @@ export function RielPiezas({ piezas, acciones }: { piezas: PiezasSabidas; accion
 export function BarraPiezasMovil({ piezas, acciones }: { piezas: PiezasSabidas; acciones: AccionesPiezas }) {
   const [abierta, setAbierta] = useState(false);
   const id = useId();
+  const menu = useMenuTuOferta(acciones);
   return (
-    <div className="of-barra-movil" style={{ flex: 'none', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+    <div className="of-barra-movil" style={{ flex: 'none', flexDirection: 'column', gap: 8, marginBottom: 10 }} {...menu.props}>
+      {menu.menu}
       <button type="button" className="of-pill" aria-expanded={abierta} aria-controls={id} onClick={() => setAbierta((v) => !v)}
         style={{ width: '100%', justifyContent: 'space-between', borderRadius: 14 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>

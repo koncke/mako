@@ -22,11 +22,7 @@ export type AltaDeChat =
   | { ok: false; elegir: ProductoParaAlta[] }
   | { ok: false; error: string | null };
 
-/** ¿Este chat se puede agregar? Tiene que tener una identidad que dé de alta (un grupo no tiene teléfono de persona). */
-export function sePuedeAgregar(chat: Pick<ChatResumen, 'leadId' | 'canales'>): boolean {
-  if (chat.leadId != null) return false;
-  return chat.canales.some((c) => (c.canal === 'whatsapp' && !!c.telefono) || c.canal === 'instagram' || c.canal === 'messenger');
-}
+export { sePuedeAgregar } from './lista-reglas';
 
 /**
  * El nombre que la pantalla le propone al server: el que se ve, salvo que sea el teléfono (sin nombre, el server busca el
