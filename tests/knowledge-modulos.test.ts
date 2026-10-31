@@ -219,6 +219,10 @@ test('9. el cableado: el grafo de los chats cuelga Knowledge, el turno la saca s
   // ⚠️ DOS asserts, y ninguno busca sólo el NOMBRE: con `const bloqueDeModulos = () => ''` adentro del archivo, un
   // guard que buscara «bloqueDeModulos» quedaba verde sobre un prompt sin índice (probado el 31/10/2026). Uno exige que
   // el índice venga DEL CATÁLOGO, el otro que se PEGUE al prompt.
+  // Y el paquete del NEGOCIO de las 5 tabs de Create va sin la capa: su pregunta nombra «oferta», «producto», «precio»,
+  // las mismas palabras de los módulos, y con la capa puesta éstos le comen presupuesto a los datos reales del cliente.
+  assert.match(fuente('lib/negocio-para-crear.ts'), /const grafo = sinKnowledge\(await grafoParaChat\(\)\);/,
+    'el contexto del negocio de Create volvió a leer el grafo CON la capa de Knowledge: los módulos del método compiten con la oferta y el avatar reales por el presupuesto');
   const ctx = fuente('lib/mako-context.ts');
   assert.match(ctx, /const \{ bloqueDeModulos \} = await import\('\.\/knowledge-modulos'\);/, 'buildSystemPrompt dejó de traer el índice de Knowledge DEL CATÁLOGO: si lo arma en otro lado, un módulo nuevo no llega al prompt');
   assert.match(ctx, /base \+= `\\n\\n\$\{bloqueDeModulos\(\)\}`/, 'buildSystemPrompt ya no pega el índice de Knowledge en el prompt: MaKo no sabe que el método existe y va a negarlo');
@@ -271,4 +275,6 @@ test('9. el cableado: el grafo de los chats cuelga Knowledge, el turno la saca s
 //     sin índice. Por eso son dos asserts: de dónde viene y dónde se pega.
 // 12. lib/api-mako/areas/negocio.def.ts: muevo las dos operaciones de Knowledge al medio del área
 //     → 9/1, cae el 9: «las operaciones de Knowledge no son las ÚLTIMAS del área».
+// 13. lib/negocio-para-crear.ts: `sinKnowledge(await grafoParaChat())` → `await grafoParaChat()`
+//     → 9/1, cae el 9: «el contexto del negocio de Create volvió a leer el grafo CON la capa de Knowledge».
 // =============================================================================
