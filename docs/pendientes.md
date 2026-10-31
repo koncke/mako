@@ -16,6 +16,12 @@ llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</s
 | **Jueves 5/11, 17 h** | Reunión con Thiago | Las 3 fallas de Agency: **en el tren** |
 | **Black November** (arranca ya) | La campaña de Leila a toda su base | **Bloqueada por el segundo nombre** |
 
+## ALERTAS DEL CLIENTE DE UNA AGENCIA (31/10, ticket #37)
+
+- **Las dos filas de la plataforma (ws 9), ANTES del deploy:** `node --conditions react-server --import tsx scripts/mudanza-avisos-plataforma.mts --env=C:/dev/mako-api/.env.local --eventos=meta_cuenta_frenada_agencia,meta_cuenta_recuperada_agencia --aplicar`. Sin ellas la alerta de Meta de un cliente de agencia no le sale a nadie. Simulacro del 31/10: crea las dos, prendidas.
+- **El texto de la fila viva #261:** dos estados siguen diciendo «Tu cuenta» sin «publicitaria» (`gracia` y `liquidacion`). La plantilla ya está corregida, pero no se copia a una fila que existe. Se edita en Automations de SuperAdmin.
+- **El correo del rechazo avisa una pausa que hoy no pasa:** el corte de acceso está apagado (`CORTE_DE_ACCESO_PRENDIDO`, `lib/plan-acceso-reglas.ts`).
+
 ## LO QUE FALTA EL DÍA QUE SE CONECTE CREEM (31/10)
 
 Los nueve del barrido y los peores que aparecieron después quedaron arreglados en el código: el mapa, en

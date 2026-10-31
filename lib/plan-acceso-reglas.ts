@@ -359,7 +359,7 @@ export function pasoDeAcceso(v: Vigencia, estadoWs: 'activo' | 'pausado', corte:
 const fechaCorta = (d: string): string => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 /** El texto de la pantalla del negocio cortado. Corto, y dice qué hacer. */
-export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boolean } = {}): { titulo: string; detalle: string } {
+export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boolean; pagaSuAgencia?: boolean } = {}): { titulo: string; detalle: string } {
   if (!c) return { titulo: opts.paraAgencia ? 'Este cliente está pausado' : 'Tu cuenta está pausada', detalle: 'Si crees que es un error, escríbenos y lo vemos.' };
   const fecha = fechaCorta(c.hasta);
   if (c.motivo === 'renovacion-sin-autorizar') {
@@ -367,6 +367,11 @@ export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boo
     return opts.paraAgencia
       ? { titulo: 'Falta activar su renovación', detalle: `El mes pagado de este cliente terminó el ${fecha}. Actívala desde MaKo Partners para que vuelva a entrar.` }
       : { titulo: 'Falta activar la renovación', detalle: `El mes pagado terminó el ${fecha}. Tu agencia tiene que activar la renovación para volver a entrar.` };
+  }
+  // La cuenta que paga la agencia (31/10/2026, ticket #37): el cliente no debe nada, y a la agencia hay que decirle dónde resolverlo.
+  if (c.motivo !== 'sin-agencia') {
+    if (opts.pagaSuAgencia) return { titulo: 'Tu cuenta está pausada', detalle: 'Tu agencia tiene que regularizar el pago para que vuelvas a entrar. Tus datos están guardados.' };
+    if (opts.paraAgencia) return { titulo: 'Este cliente está pausado', detalle: `Lo pagado cubría hasta el ${fecha}. Regulariza su pago desde MaKo Partners para que vuelva a entrar.` };
   }
   if (c.motivo === 'impago') {
     return { titulo: 'Tu pago no entró', detalle: `Tu plan está pagado hasta el ${fecha} y la renovación no se pudo cobrar. Tus datos están guardados: paga y vuelves a entrar en el acto.` };
