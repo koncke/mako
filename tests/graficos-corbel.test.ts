@@ -25,8 +25,10 @@ const EQUIVALE: Readonly<Record<string, string>> = {
   '--good': '--up', '--bad': '--down', '--warn': '--warn',
   '--cb-glass': '--glass', '--cb-rim': '--rim', '--cb-shadow': '--shadow', '--cb-ocean': '--ocean', '--cb-on-ocean': '--on-ocean',
   '--cb-sky': '--sky', '--cb-mint': '--mint', '--cb-lemon': '--lemon', '--cb-coral': '--coral',
-  '--cb-c1': '--c1', '--cb-c2': '--c2', '--cb-c3': '--c3', '--cb-c4': '--c4', '--cb-c5': '--c5',
+  '--cb-c1': '--c1', '--cb-c3': '--c3', '--cb-c4': '--c4',
 };
+/** El 2 y el 5 de la demo: algunos no llegan a 2:1 y se cambiaron (`seriesDeEscena`). Lo que se ve tiene que ser un valor medido. */
+const todosLosMedidos = (o: unknown): string => JSON.stringify(o).toLowerCase();
 
 test('cada color de la tabla es el que se leyó de la demo, en las cuatro paletas y en los dos temas', () => {
   let comparados = 0;
@@ -41,6 +43,11 @@ test('cada color de la tabla es el que se leyó de la demo, en las cuatro paleta
     }
   }
   assert.ok(comparados > 120, `se compararon ${comparados}: el test no puede pasar por no mirar nada`);
+  const medidos = todosLosMedidos(MEDIDO.paletas);
+  for (const escena of Object.keys(PALETAS_CORBEL) as EscenaCorbel[]) for (const modo of ['claro', 'oscuro'] as const) for (let n = 1; n <= 8; n++) {
+    const v = PALETAS_CORBEL[escena][modo][`--cb-c${n}`];
+    assert.ok(medidos.includes(`"${v}"`), `${escena}/${modo} c${n} = ${v}: no es un valor de la demo`);
+  }
 });
 
 test('el semáforo es el mismo en las cuatro paletas: lo que cambia es la paleta, no lo que significa', () => {
@@ -58,12 +65,13 @@ test('el de por defecto es el blanco y negro, y lo trae toda hoja que nunca elig
   assert.equal(paletaDeEscena(sanearTema(null)), 'mono');
   assert.equal(paletaDeEscena(sanearTema({ plantilla: 'inventada' })), 'mono');
   assert.equal(plantillaDe('mako').fuente, 'urbanist');
+  assert.equal(plantillaDe('general').escena, 'mono', 'las hojas de General también: «incluso los dashboard ya creados»');
   assert.deepEqual(plantillaDe('mako').paleta.slice(0, 2), seriesDeEscena('mono').slice(0, 2));
 });
 
 test('los demás se ELIGEN y no desaparecen: las otras tres paletas y los estilos de antes', () => {
   for (const id of ['pastel', 'oceano', 'salvia']) assert.ok(plantillaDe(id).escena, id);
-  for (const id of ['clasica', 'minimal', 'suave', 'contraste', 'elevada', 'general', 'editorial']) {
+  for (const id of ['clasica', 'minimal', 'suave', 'contraste', 'elevada', 'editorial']) {
     assert.equal(plantillaDe(id).id, id);
     assert.equal(plantillaDe(id).escena, undefined, `${id} no se pinta con Corbel`);
     assert.equal(paletaDeEscena(sanearTema({ plantilla: id })), undefined);

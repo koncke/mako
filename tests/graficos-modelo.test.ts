@@ -12,6 +12,7 @@ import {
 import { filtrarFilas, agregar, SIN_DATO, type Fila } from '../lib/graficos-agregar';
 import { PLANTILLAS_TEMA, sanearTema, estiloEfectivo, paletaDe, varsDeTema } from '../lib/graficos-temas';
 import { PALETAS_CORBEL } from '../lib/graficos-corbel';
+import { readFileSync } from 'node:fs';
 import { instanciarPlantilla, PLANTILLAS_HOJA, tableroInicial } from '../lib/graficos-plantillas';
 
 const HOY = '2026-10-11';
@@ -183,19 +184,26 @@ test('temas: un id roto cae a MaKo, y cada color de serie se lee sobre la superf
     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
   };
   const contraste = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  // Se leen del CSS, no se copian: si alguien cambia `--surface`, este test mide contra el nuevo.
+  const css = readFileSync('app/globals.css', 'utf8').replace(/\r\n/g, '\n');
+  const SUP_CLARA = /--surface:\s*(#[0-9a-f]{6})/i.exec(css)![1];
+  const SUP_OSCURA = /--surface:\s*(#[0-9a-f]{6})/i.exec(css.slice(css.indexOf('[data-tema="oscuro"] {')))![1];
   for (const p of PLANTILLAS_TEMA) {
     assert.equal(p.paleta.length, 8, p.id);
-    // Las de Corbel son variables, con sus valores medidos para cada tema (tests/graficos-corbel.test.ts): sus grises claros
-    // no llegan a 2:1 y son el pedido. Lo que tiene que leerse siempre es la primera serie, sobre SU superficie.
+    // Las de Corbel son variables: cada color se mide en SU tema y sobre SU superficie. El mismo 2:1 que las demás.
     if (p.escena) {
       const { claro, oscuro } = PALETAS_CORBEL[p.escena];
-      assert.ok(contraste(claro['--cb-c1'], claro['--surface']) >= 3, `${p.id} claro`);
-      assert.ok(contraste(oscuro['--cb-c1'], oscuro['--surface']) >= 3, `${p.id} oscuro`);
+      for (const [nombre, t] of [['claro', claro], ['oscuro', oscuro]] as const) {
+        for (let n = 1; n <= 8; n++) {
+          const col = t[`--cb-c${n}`];
+          assert.ok(contraste(col, t['--surface']) >= 2, `${p.id} c${n} ${col} sobre ${nombre}: ${contraste(col, t['--surface']).toFixed(2)}`);
+        }
+      }
     }
     for (const col of p.escena ? [] : p.paleta) {
-      // 2:1 sobre las dos superficies: un trazo o una barra (no un texto) se distingue del fondo.
-      assert.ok(contraste(col, '#FFFFFF') >= 2, `${p.id} ${col} sobre claro: ${contraste(col, '#FFFFFF').toFixed(2)}`);
-      assert.ok(contraste(col, '#2A2F39') >= 2, `${p.id} ${col} sobre oscuro: ${contraste(col, '#2A2F39').toFixed(2)}`);
+      // 2:1 sobre las dos superficies de app/globals.css: un trazo o una barra (no un texto) se distingue del fondo.
+      assert.ok(contraste(col, SUP_CLARA) >= 2, `${p.id} ${col} sobre claro: ${contraste(col, SUP_CLARA).toFixed(2)}`);
+      assert.ok(contraste(col, SUP_OSCURA) >= 2, `${p.id} ${col} sobre oscuro: ${contraste(col, SUP_OSCURA).toFixed(2)}`);
     }
     // La tarjeta va con TOKENS: nada en hex que no se dé vuelta en oscuro.
     const vars = varsDeTema({ plantilla: p.id, acento: null, fuente: null });

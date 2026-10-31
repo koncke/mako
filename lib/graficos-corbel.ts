@@ -52,24 +52,24 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
     claro: {
       ...ESTADO_CLARO, ...SOBRE_NEGRO,
       '--bg': '#efefed', '--surface': '#fcfcfb', '--ink': '#121212', '--dim': '#4f4f4c', '--faint': '#636360',
-      '--border': '#11111117', '--border-strong': '#1111112b', '--surface-2': '#1111110f',
+      '--border': '#11111117', '--border-strong': '#1111112b', '--surface-2': '#f0f0ef',
       '--primary': '#121212', '--on-primary': '#fff', '--primary-bg': '#e4e4e1',
       '--cb-glass': '#ffffffa3', '--cb-rim': '#ffffffeb',
       '--cb-shadow': '0 1px 0 #fffc inset, 0 22px 44px -30px #00000038',
       '--cb-ocean': '#121212', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#121212', '--cb-sky-ink': '#f3f7f8', '--cb-mint': '#fff', '--cb-lemon': '#e2e2de', '--cb-coral': '#d2d2cd', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#121212', '--cb-c2': '#b4b4af', '--cb-c3': '#6a6a66', '--cb-c4': '#8e8e89', '--cb-c5': '#c8c8c3', '--cb-c6': '#a6a6a1', '--cb-c7': '#696965', '--cb-c8': '#d0d0cc',
+      '--cb-c1': '#121212', '--cb-c2': '#b4b4af', '--cb-c3': '#6a6a66', '--cb-c4': '#8e8e89', '--cb-c5': '#a6a6a1', '--cb-c6': '#3f3f3c', '--cb-c7': '#a3a39e', '--cb-c8': '#4f4f4c',
     },
     oscuro: {
       ...ESTADO_OSCURO, ...SOBRE_CLARO,
       '--bg': '#0b0b0b', '--surface': '#161616', '--ink': '#ededeb', '--dim': '#a9a9a5', '--faint': '#8e8e8a',
-      '--border': '#ffffff16', '--border-strong': '#ffffff29', '--surface-2': '#ffffff11',
+      '--border': '#ffffff16', '--border-strong': '#ffffff29', '--surface-2': '#262626',
       '--primary': '#ededeb', '--on-primary': '#111', '--primary-bg': '#ffffff1a',
       '--cb-glass': '#ffffff0b', '--cb-rim': '#ffffff13',
       '--cb-shadow': '0 1px 0 #ffffff0d inset, 0 24px 48px -30px #000c',
       '--cb-ocean': '#222', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#f0f0ee', '--cb-sky-ink': ON_TILE, '--cb-mint': '#d6d6d2', '--cb-lemon': '#c2c2bd', '--cb-coral': '#ababa6', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#ededeb', '--cb-c2': '#6c6c68', '--cb-c3': '#a9a9a5', '--cb-c4': '#8e8e8a', '--cb-c5': '#c4c4bf', '--cb-c6': '#8a8a86', '--cb-c7': '#4c4c4a', '--cb-c8': '#2e2e2e',
+      '--cb-c1': '#ededeb', '--cb-c2': '#6c6c68', '--cb-c3': '#a9a9a5', '--cb-c4': '#8e8e8a', '--cb-c5': '#c4c4bf', '--cb-c6': '#8a8a86', '--cb-c7': '#4c4c4a', '--cb-c8': '#d6d6d2',
     },
   },
   pastel: {
@@ -78,7 +78,7 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
       '--bg': '#e6ecef', '--primary': '#2a6f9a', '--primary-bg': '#d6e8f5',
       '--cb-ocean': '#1f4d6a', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#a9d2f1', '--cb-sky-ink': ON_TILE, '--cb-mint': '#a7e1ca', '--cb-lemon': '#f1e08f', '--cb-coral': '#f6b4a3', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#2a6f9a', '--cb-c2': '#8ec3ea', '--cb-c3': '#2f9a7e', '--cb-c4': '#df7659', '--cb-c5': '#cf9426', '--cb-c6': '#1f4d6a', '--cb-c7': '#a7e1ca', '--cb-c8': '#f6b4a3',
+      '--cb-c1': '#2a6f9a', '--cb-c2': '#5f6d78', '--cb-c3': '#2f9a7e', '--cb-c4': '#df7659', '--cb-c5': '#cf9426', '--cb-c6': '#1f4d6a', '--cb-c7': '#4c5a65', '--cb-c8': '#14202a',
     },
     oscuro: {
       ...OSCURO_COLOR, ...ESTADO_OSCURO, ...SOBRE_CLARO,
@@ -94,14 +94,14 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
       '--bg': '#e4ebf0', '--primary': '#2a6f9a', '--primary-bg': '#d6e8f5',
       '--cb-ocean': '#173f5f', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#9fcbef', '--cb-sky-ink': ON_TILE, '--cb-mint': '#9fdce0', '--cb-lemon': '#cfe3f5', '--cb-coral': '#8fc6d6', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#2a6f9a', '--cb-c2': '#8ec3ea', '--cb-c3': '#2f9a7e', '--cb-c4': '#df7659', '--cb-c5': '#cf9426', '--cb-c6': '#173f5f', '--cb-c7': '#9fdce0', '--cb-c8': '#8fc6d6',
+      '--cb-c1': '#2a6f9a', '--cb-c2': '#5f6d78', '--cb-c3': '#2f9a7e', '--cb-c4': '#df7659', '--cb-c5': '#cf9426', '--cb-c6': '#173f5f', '--cb-c7': '#4c5a65', '--cb-c8': '#14202a',
     },
     oscuro: {
       ...OSCURO_COLOR, ...ESTADO_OSCURO, ...SOBRE_CLARO,
       '--bg': '#0a1118', '--primary': '#79b6e3', '--primary-bg': '#79b6e326',
       '--cb-ocean': '#1e4c70', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#9fcbef', '--cb-sky-ink': ON_TILE, '--cb-mint': '#9fdce0', '--cb-lemon': '#cfe3f5', '--cb-coral': '#8fc6d6', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#79b6e3', '--cb-c2': '#b8daf3', '--cb-c3': '#5fcaa8', '--cb-c4': '#f09a82', '--cb-c5': '#e7b552', '--cb-c6': '#1e4c70', '--cb-c7': '#9fdce0', '--cb-c8': '#8fc6d6',
+      '--cb-c1': '#79b6e3', '--cb-c2': '#b8daf3', '--cb-c3': '#5fcaa8', '--cb-c4': '#f09a82', '--cb-c5': '#e7b552', '--cb-c6': '#9fcbef', '--cb-c7': '#9fdce0', '--cb-c8': '#8fc6d6',
     },
   },
   sage: {
@@ -110,21 +110,26 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
       '--bg': '#e9ebe4', '--primary': '#2f6b4f', '--primary-bg': '#dcede3',
       '--cb-ocean': '#234a3a', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#bfe0c4', '--cb-sky-ink': ON_TILE, '--cb-mint': '#a9dcc6', '--cb-lemon': '#ece2a8', '--cb-coral': '#e9c9a7', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#2f6b4f', '--cb-c2': '#9ccdb2', '--cb-c3': '#5c9a3e', '--cb-c4': '#d0864f', '--cb-c5': '#c79a2a', '--cb-c6': '#234a3a', '--cb-c7': '#a9dcc6', '--cb-c8': '#e9c9a7',
+      '--cb-c1': '#2f6b4f', '--cb-c2': '#5f6d78', '--cb-c3': '#5c9a3e', '--cb-c4': '#d0864f', '--cb-c5': '#c79a2a', '--cb-c6': '#234a3a', '--cb-c7': '#4c5a65', '--cb-c8': '#14202a',
     },
     oscuro: {
       ...OSCURO_COLOR, ...ESTADO_OSCURO, ...SOBRE_CLARO,
       '--bg': '#0c120f', '--primary': '#8fd1ad', '--primary-bg': '#8fd1ad26',
       '--cb-ocean': '#2a5845', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#bfe0c4', '--cb-sky-ink': ON_TILE, '--cb-mint': '#a9dcc6', '--cb-lemon': '#ece2a8', '--cb-coral': '#e9c9a7', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#8fd1ad', '--cb-c2': '#c9e8d3', '--cb-c3': '#a6d36f', '--cb-c4': '#f0a576', '--cb-c5': '#e7c159', '--cb-c6': '#2a5845', '--cb-c7': '#a9dcc6', '--cb-c8': '#e9c9a7',
+      '--cb-c1': '#8fd1ad', '--cb-c2': '#c9e8d3', '--cb-c3': '#a6d36f', '--cb-c4': '#f0a576', '--cb-c5': '#e7c159', '--cb-c6': '#bfe0c4', '--cb-c7': '#a9dcc6', '--cb-c8': '#e9c9a7',
     },
   },
 };
 
-/** Los ocho colores de serie de una paleta: variables, porque cambian entre claro y oscuro. El respaldo es el claro. */
+/**
+ * Los ocho colores de serie de una paleta: variables, porque cambian entre claro y oscuro. El respaldo es el claro.
+ * ⚠️ No son los cinco de la demo tal cual: los que no llegan a 2:1 sobre su superficie (el #c8c8c3 de Mono, el segundo de
+ * cada paleta con color) se cambiaron por otro valor medido de la misma paleta, porque una serie que no se ve miente
+ * (tests/graficos-modelo.test.ts). Y Salvia abre con su tercero: su verde de acento es casi el verde de «bueno».
+ */
 export const seriesDeEscena = (escena: EscenaCorbel): readonly string[] =>
-  [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `var(--cb-c${n}, ${PALETAS_CORBEL[escena].claro[`--cb-c${n}`]})`);
+  (escena === 'sage' ? [3, 1, 2, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]).map((n) => `var(--cb-c${n}, ${PALETAS_CORBEL[escena].claro[`--cb-c${n}`]})`);
 
 /** El tile de un número en la hoja. */
 export type TileCorbel = 'sky' | 'mint' | 'lemon' | 'coral';

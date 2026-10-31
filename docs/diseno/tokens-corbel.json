@@ -55,7 +55,7 @@
         "--ocean": "#121212", "--on-ocean": "#f3f7f8", "--sky": "#121212", "--mint": "#fff", "--lemon": "#e2e2de", "--coral": "#d2d2cd", "--on-tile": "#14202a",
         "--c1": "#121212", "--c2": "#b4b4af", "--c3": "#6a6a66", "--c4": "#8e8e89", "--c5": "#c8c8c3",
         "--up": "#22735c", "--up-soft": "#d5eee4", "--down": "#b1412a", "--down-soft": "#f8e1da", "--warn": "#85580a", "--warn-soft": "#f5ead2",
-        "--hatch": "#00000029", "--hatch-bg": "#00000009",
+        "--sea": "#3f3f3c", "--hatch": "#00000029", "--hatch-bg": "#00000009",
         "--heat-0": "#e8e8e5", "--heat-1": "#d0d0cc", "--heat-2": "#a6a6a1", "--heat-3": "#696965", "--heat-4": "#121212",
         "--mesh-a": "#e1e1de", "--mesh-b": "#f9f9f7", "--mesh-c": "#e6e6e3",
         "--shadow": "0 1px 0 #fffc inset, 0 22px 44px -30px #00000038",

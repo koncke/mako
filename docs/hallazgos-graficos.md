@@ -23,7 +23,13 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **Una hoja guardada conserva su acomodo.** `comoCorbel` arma las plantillas de la galería; una hoja que ya existe cambia de estilo, pero su tapa sigue a lo ancho, en negro. No se le mueve nada por detrás.
 - **El rayado NO se copió, a propósito.** En Corbel las columnas van rayadas de adorno; acá rayado es «Estimado» (`VOCABULARIO`), y una medición rayada diría lo contrario.
 - **El número ya no llena la tarjeta:** 26 px, y 34 en la negra (`kpiMaximo`). Tampoco se pinta de verde o rojo: el significado lo dice el chip. Con los estilos de antes sigue como estaba.
-- **Sólo el Dashboard.** Las plantillas de General siguen con `conPortada` y su tema `general`.
+- **El esqueleto de toda la app también es Corbel Mono** (`:root` y `[data-tema="oscuro"]` de `app/globals.css`). `varsDeTema` sólo escribe `--dash-*`: redefinir el estilo de la hoja, sin esto, no cambiaba las pastillas, el fondo ni los bloques de General, que dibujan con `--primary`, `--bg` y `--surface`. Martín, mirando una hoja: «no veo que haya cambiado absolutamente nada».
+- **El tema `general` también lleva `escena: 'mono'`.** Las hojas de General guardan ese id, no `mako`: era el motivo de que la pantalla de la captura quedara afuera. Su acomodo sigue siendo el de `conPortada`, con la tapa a lo ancho.
+- **`'Geist'` es Urbanist, por un `@font-face` en `globals.css`.** Hay 357 `'Geist'` a mano en 223 archivos y cambiarlos chocaría con todos los chats. La hoja de Google de `app/layout.tsx` ya no lo pide. `Geist Mono` sigue: Corbel no tiene mono y acá se usa para códigos.
+- **Los radios son los de Corbel (8, 14, 22, 28), no los 10, 14, 18, 24 de las otras doce**, y la curva es `.2, .8, .2, 1`, no `.22, 1, .36, 1`: el estilo elegido es Corbel. El kanban usa los de Merrin, que es su referencia.
+- **`--surface-2` es sólido a propósito** (`#f0f0ef`, `--well` sobre `--surface`): Corbel lo tiene con alfa, y acá hay encabezados de tabla pegados que dejarían ver lo que scrollea debajo.
+- **Las series no son las cinco de la demo tal cual.** El `#c8c8c3` de Mono y el segundo de cada paleta con color no llegan a 2:1 sobre su superficie: se cambiaron por otro valor medido de la misma paleta. `tests/graficos-modelo.test.ts` mide cada color en su tema, y lee `--surface` del CSS.
+- **Un tema candidato del taller le gana a todo esto** (`[data-tema-candidato]`, guardado en el navegador). Si alguien dice «no cambió», mirar primero `mako.tema-candidato` en su localStorage.
 - **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
 
 **Sin hacer:** las medidas de teléfono de Corbel (todo se leyó a 1440), el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.

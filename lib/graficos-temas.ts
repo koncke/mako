@@ -210,7 +210,10 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     // dashboard... textos enormes, cosas grandes, porque justamente es para ver de una pasada»): sin bordes ni filete,
     // la tarjeta flota, el título y el número más grandes y la etiqueta en la letra de la hoja (no en mono).
     id: 'general', nombre: 'General', linea: 'Números enormes y tarjetas que flotan, para leer de una pasada.',
-    paleta: PALETA_MAKO,
+    // 31/10/2026: el blanco y negro también acá. Las hojas de General guardan este id: Martín, mirando una, «no veo que
+    // haya cambiado absolutamente nada... Tiene que cambiar todo, incluso los dashboard ya creados».
+    escena: 'mono',
+    paleta: seriesDeEscena('mono'),
     // ÉPICO (14/10/2026, la séptima vuelta): el título de cada tarjeta es un RÓTULO —13 px, mayúsculas— y lo grande es lo
     // de adentro, como el teléfono que Martín aprobó (app/general/bloques/comun.tsx tiene la escala).
     tarjeta: { fondo: 'surface', borde: 'no', radio: 22, sombra: true, filete: false },
