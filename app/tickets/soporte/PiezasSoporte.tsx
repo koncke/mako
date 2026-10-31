@@ -37,7 +37,7 @@ export function HiloSoporte({ s, hilo }: { s: Soporte; hilo: RefObject<HTMLEleme
   const enMensaje = (x: { id: string }): EnMensaje | null => (x.id === s.idTarjeta && !s.ticket ? { abajo: <TarjetaTicket s={s} /> } : null);
   return (
     <HiloMako items={s.items} quien={QUIEN_SOPORTE} ahora={Date.now()} escribiendo={s.escribiendo} tarjeta={null} onTarjeta={() => {}}
-      onReintentar={s.reintentar} onDescartar={s.descartar} onRecargar={() => s.abrir(s.abierto)} onResponder={(t) => s.mandar(t)} enMensaje={enMensaje} />
+      onReintentar={s.reintentar} onDescartar={s.descartar} onRecargar={() => s.abrir(s.abierto)} onResponder={(t) => s.mandar(t)} enMensaje={enMensaje} onCitar={s.citar} />
   );
 }
 
@@ -131,7 +131,7 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       ocupado={s.notasPendientes}
       placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil} campo={campo} seguir={seguir}
       // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
-      arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
+      arriba={hayClave(s.texto) ? <AvisoClave /> : s.arribaCita}
       // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
       adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
       // Lo que la caja LEE (un .pptx, un audio) también es de su conversación, como lo adjuntado (la verificación de 05d7c3187).

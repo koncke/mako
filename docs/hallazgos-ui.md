@@ -69,7 +69,7 @@ Lo que parecía simple y encontró la revisión (ya arreglado):
 
 ### Lo que quedó sin hacer
 
-- **Responder en Offer, Soporte y Automations:** ahí sólo está Copiar. Offer manda con refs y el arranque tiene su propio flujo (`OfferApp.tsx`); en Soporte el texto va al equipo (`useSoporte.ts`); Automations quedó acordado aparte (`docs/pendientes.md`). Second Brain usa su propio menú completo.
+- **Responder en Automations:** sigue sólo Copiar, acordado aparte (`docs/pendientes.md`). Second Brain usa su propio menú completo. En Offer no se cita en el arranque (lo escrito contesta SU pregunta) ni con archivos en la vista previa (`enviarVista`: la cita queda para el próximo texto).
 - Que el «⋯» de Chats y del Web Generator abran ESTE menú (sus chats).
 - ⚠️ **La rama estuvo tres días colgada (27 al 30/10) y al traerla el menú de Chats ya mentía:** Martín le había cambiado el «⋯» el 27/10 (sin Cerrar ni Posponer; Agregar al CRM, Abrir ficha, Asignar). Un cherry-pick sin conflicto en ese archivo habría vuelto a ofrecer Cerrar. El cruce por test lo agarra: al traer un menú viejo, se adapta al de ahora y no al revés. Y `docs/pendientes.md` seguía diciendo «sin implementar» de Copiar y del lienzo, que estaban desde el 24/10: antes de implementar algo de esa lista, mirar el código.
 - Integraciones: el clic derecho tiene que hacer lo mismo que el clic (`abrirTarjeta`: una red social abre Zernio), no abrir la tarjeta suelta.

@@ -74,3 +74,18 @@ test('una cita con archivos y sin texto sale igual, y el hilo la lee antes de pa
   const hilo = leer('app/_chat/HiloMako.tsx');
   assert.ok(hilo.indexOf('leerCita(crudo)') > 0 && hilo.indexOf('leerCita(crudo)') < hilo.indexOf('partirPegados(conCita'));
 });
+
+test('Offer y Soporte: Responder, sin meter la cita donde no va', () => {
+  const offer = leer('app/offer/OfferApp.tsx');
+  assert.match(offer, /useCitaDelChat\(sesion\?\.id \?\? null\)/);
+  assert.match(offer, /texto: cita\.con\(t\), docs: \[\], fuente: linksDe\(t\)/, 'un link del mensaje citado no cuenta como uno nuevo');
+  assert.match(offer, /if \(res === 'salio'\) \{ cita\.soltar\(\); return; \}/, 'si no salió, la cita sigue');
+  assert.match(offer, /arriba: arranque\?\.manda \? undefined : cita\.arriba/, 'en el arranque se contesta SU pregunta');
+  assert.match(leer('app/offer/ChatOffer.tsx'), /<HiloMako[\s\S]{0,300}onCitar=\{onCitar\}/);
+  const soporte = leer('app/tickets/soporte/useSoporte.ts');
+  assert.match(soporte, /useCitaDelChat\(abierto \?\? null\)/);
+  assert.match(soporte, /dicho \?\? conCita\(texto, archivos\.length > 0\)/);
+  const piezas = leer('app/tickets/soporte/PiezasSoporte.tsx');
+  assert.match(piezas, /onCitar=\{s\.citar\}/);
+  assert.match(piezas, /hayClave\(s\.texto\) \? <AvisoClave \/> : s\.arribaCita/);
+});
