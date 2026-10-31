@@ -7140,7 +7140,7 @@ descartaron sólo los 4 que frenaban otra automatización. Los otros 7 de la #24
 con el mismo texto en el historial del lead (6 líneas; el séptimo no tiene lead). **Regla:** al arreglar una regla de cierre, medir
 cuántas filas viejas siguen abiertas por la regla vieja, no sólo las que hoy molestan.
 **Sin hacer:**
-- `tieneBorradorNutriPendiente` mira TODOS los borradores del lead, también los de una automatización pausada. En el ws 11, 33
+- `tieneBorradorNutriPendiente` mira TODOS los borradores del lead, también los de una automatización pausada. En el ws 11, 31
   borradores del 20/10 de la #282 y la #284 (pausadas) caen sobre leads de 26 inscripciones activas de la #249 (pausada). Hoy no sale
   nada; al prenderla, un mensaje de IA sin «sale sola» de la #249 esperaría a esos borradores. Pausar no es archivar: es de quien
   lleve Automations y del dueño de esos borradores.
