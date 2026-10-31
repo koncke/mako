@@ -128,10 +128,10 @@ test('CASO 1 — un grupo con 0 tests: NO es un rojo. Sale 99, la línea no llev
     assert.match(lineas.join('\n'), /NO CORRIÓ \(0 tests juzgados\)/, 'la línea del grupo lo dice en el momento');
     assert.match(lineas.join('\n'), /NO SE SABE si están rotos/);
 
-    const v = armarVeredicto({ sha: 'ab12cd34e', sinChequear: [`tests: ${r.sinCorrer.size} archivo(s) NO corrieron (su proceso murió sin juzgar un test)`], ramMin: 0.7, detalle: 'C:/Users/marti/.claude/antes-de-subir/2026-10-30T18-14-22-ab12cd34e' });
+    const v = armarVeredicto({ sha: 'ab12cd34e', sinChequear: [`tests: ${r.sinCorrer.size} archivo(s) NO corrieron (su proceso murió sin juzgar un test)`], ramMin: 0.7, detalle: '/casa/.claude/antes-de-subir/2026-10-30T18-14-22-ab12cd34e' });
     assert.equal(v.codigo, SALIDA_SIN_CORRER, '99: «no pude chequear», no «hay tests rotos»');
     assert.doesNotMatch(v.linea, /ROJO/, 'la palabra ROJO es lo único que lee quien pushea: no puede aparecer sin un rojo');
-    assert.equal(v.linea, 'SIN CHEQUEAR ab12cd34e: tests: 24 archivo(s) NO corrieron (su proceso murió sin juzgar un test) — NO es un rojo del código: volvé a correrlo con menos chats abiertos, o pusheá dejándole el chequeo a Actions · RAM libre mínima 0.7 GB · detalle: C:/Users/marti/.claude/antes-de-subir/2026-10-30T18-14-22-ab12cd34e');
+    assert.equal(v.linea, 'SIN CHEQUEAR ab12cd34e: tests: 24 archivo(s) NO corrieron (su proceso murió sin juzgar un test) — NO es un rojo del código: volvé a correrlo con menos chats abiertos, o pusheá dejándole el chequeo a Actions · RAM libre mínima 0.7 GB · detalle: /casa/.claude/antes-de-subir/2026-10-30T18-14-22-ab12cd34e');
     assert.equal(v.guardarDetalle, true, 'el log se conserva: es lo único que separa al caído por memoria del roto de verdad');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -144,9 +144,9 @@ test('CASO 2 — un grupo con tests que FALLAN: sale 1, con el nombre del archiv
   try {
     assert.deepEqual([...r.rojos], [roto1], 'un rojo CONFIRMADO: corrió y falló');
     assert.equal(r.sinCorrer.size, 0);
-    const v = armarVeredicto({ sha: 'ab12cd34e', rojos: [`tests: ${[...r.rojos].map((f) => f.replace(/^tests\//, '').replace(/\.test\.ts$/, '')).join(', ')}`], ramMin: 3.1, detalle: 'C:/d' });
+    const v = armarVeredicto({ sha: 'ab12cd34e', rojos: [`tests: ${[...r.rojos].map((f) => f.replace(/^tests\//, '').replace(/\.test\.ts$/, '')).join(', ')}`], ramMin: 3.1, detalle: '/casa/d' });
     assert.equal(v.codigo, 1);
-    assert.equal(v.linea, 'ROJO: tests: barre-00 · RAM libre mínima 3.1 GB · detalle: C:/d');
+    assert.equal(v.linea, 'ROJO: tests: barre-00 · RAM libre mínima 3.1 GB · detalle: /casa/d');
     assert.equal(v.guardarDetalle, true);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -157,7 +157,7 @@ test('CASO 3 — todo verde: sale 0, y la línea del VERDE sigue siendo la que e
   try {
     assert.equal(r.rojos.size, 0);
     assert.equal(r.sinCorrer.size, 0);
-    const v = armarVeredicto({ sha: 'ab12cd34e', ramMin: 3.1, detalle: 'C:/d' });
+    const v = armarVeredicto({ sha: 'ab12cd34e', ramMin: 3.1, detalle: '/casa/d' });
     assert.equal(v.codigo, 0);
     assert.equal(v.linea, 'VERDE ab12cd34e', 'un VERDE no lleva RAM ni detalle: no hay nada que creer o no, y el formato es el que ya se lee');
     assert.equal(v.guardarDetalle, false, 'y el detalle se borra: lo que nadie va a mirar no ocupa disco');
@@ -180,11 +180,11 @@ test('CASO 4 — LA MEZCLA: un grupo que no corrió y otro con un rojo real. Gan
       rojos: ['tests: barre-01'],
       sinChequear: ['tests: 12 archivo(s) NO corrieron (su proceso murió sin juzgar un test)'],
       ramMin: 0.7,
-      detalle: 'C:/d',
+      detalle: '/casa/d',
     });
     assert.equal(v.codigo, 1, 'gana el rojo: si hay algo roto, no se sube');
     assert.match(v.linea, /^ROJO: tests: barre-01 · ⚠ y ADEMÁS tests: 12 archivo\(s\) NO corrieron/);
-    assert.match(v.linea, /la lista de rojos puede estar incompleta · RAM libre mínima 0\.7 GB · detalle: C:\/d$/, 'el que lee tiene que saber que faltan');
+    assert.match(v.linea, /la lista de rojos puede estar incompleta · RAM libre mínima 0\.7 GB · detalle: \/casa\/d$/, 'el que lee tiene que saber que faltan');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
