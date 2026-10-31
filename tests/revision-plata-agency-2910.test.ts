@@ -93,7 +93,14 @@ test('cambiar el plan (2a, C): Pro se tiene cuando se paga a precio de Pro', () 
   assert.equal(subidaCobrada(cambio, [{ fecha_pago: '2026-11-29', alcanza: false }]), false, 'un cobro de Esencial (la pasarela no tomó el monto) no sube');
   assert.equal(subidaCobrada({ ...cambio!, pendiente: false }, [{ fecha_pago: '2026-11-29', alcanza: true }]), false);
   const plan = fuente('lib/agencia-plan.ts');
-  assert.match(plan, /const enElActo = p\.plan === 'esencial' \|\| yaTeniaPro \|\| subeEnElActo\(\{ diferenciaCobrada: diferenciaCobrada && vivas\.every\(\(c\) => c\.proveedor === 'stripe'\), algoPagado, hayQueCobrar \}\);\n\s*if \(enElActo\) \{/);
+  // Citaba la línea entera con `c.proveedor === 'stripe'` y se puso roja cuando la tercera pasarela obligó a
+  // preguntar por CAPACIDAD en vez de por nombre (31/10/2026). Lo que se cuida no es la forma: es que el plan sólo
+  // suba EN EL ACTO cuando la diferencia se cobró de verdad, y eso depende de que la pasarela sepa cobrarla.
+  assert.match(plan, /const enElActo = p\.plan === 'esencial' \|\| yaTeniaPro \|\| subeEnElActo\(\{ diferenciaCobrada: diferenciaCobrada &&/,
+    'el plan sube en el acto por `subeEnElActo`, con la diferencia cobrada como condición');
+  assert.match(plan, /vivas\.every\(\(c\) => CAPACIDADES_PASARELA\[c\.proveedor\]\.subidaCobraLaDiferencia\)/,
+    'la diferencia cuenta sólo si TODAS las pasarelas vivas saben cobrarla, preguntado por capacidad y no por nombre: con un `=== \'stripe\'` la tercera pasarela sube el plan sin haber cobrado');
+  assert.match(plan, /if \(enElActo\) \{/, 'y ese veredicto es el que manda');
   // El cron la aplica con el primer pago de una suscripción anotada en Pro.
   assert.match(plan, /\.eq\('tipo', 'suscripcion'\)\.eq\('plan_mako', 'pro'\)/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await aplicarSubidasPendientes\(\)/);
@@ -127,7 +134,11 @@ test('la renovación (2d, 3a, 10, 11): sin precio del plan no se crea, la devuel
   assert.match(cobro, /if \(eRev\) throw new Error\(`No pude leer las cuentas dadas de baja/);
   const releo = cobro.indexOf("const { data: cart, error: eCart } = await db.from('agencia_clientes').select('estado')");
   assert.ok(releo > 0 && releo < cobro.indexOf('const r = await crearCobro(plataforma, {\n        leadId: f.lead_id'), 'la cartera, releída antes de crear la renovación');
-  assert.match(cobro, /if \(eAnotar && f\.proveedor === 'stripe'\) \{[\s\S]*?await anularCobro\(plataforma, r\.cobro\.id,/);
+  // Ídem: era `f.proveedor === 'stripe'` y ahora pregunta si la pasarela DIFIERE el primer cobro. La condición se
+  // invirtió al derivarla de la capacidad (`!difiereElPrimerCobro`), que dice lo mismo para Stripe y además acierta
+  // con Creem. Lo que se cuida: si la pasarela NO puede diferir, el cobro que quedó anotado se ANULA.
+  assert.match(cobro, /if \(eAnotar && !CAPACIDADES_PASARELA\[f\.proveedor\]\.difiereElPrimerCobro\) \{[\s\S]*?await anularCobro\(plataforma, r\.cobro\.id,/,
+    'con una pasarela que no difiere el primer cobro, el anotado se anula; preguntado por capacidad y no por nombre');
 });
 
 test('los candados de Pro (4): el Esencial de una cuenta de agencia los tiene, por su cartera', () => {
