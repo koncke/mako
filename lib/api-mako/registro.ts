@@ -64,6 +64,8 @@ import { DEFS as creaciones } from './areas/creaciones.def';
 import { DEFS as cobros } from './areas/cobros.def';
 import { DEFS as operaciones } from './areas/operaciones.def';
 import { DEFS as calendario } from './areas/calendario.def';
+// Competitors Spy (31/10/2026, docs/diseno-competitors-spy.md): los competidores que mira el negocio.
+import { DEFS as spy } from './areas/spy.def';
 import { DEFS as mako } from './areas/mako.def';
 // Los tickets al equipo de MaKo (17/10/2026): del área `mako`, en su propio archivo (docs/diseno-ticketera-usuarios.md).
 import { DEFS as tickets } from './areas/tickets.def';
@@ -71,7 +73,7 @@ import { DEFS as tickets } from './areas/tickets.def';
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
   general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
-  landing, closing, negocio, contenido: [...contenido, ...copywriter], video: [...video, ...videoEstudio], imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako: [...mako, ...tickets],
+  landing, closing, negocio, contenido: [...contenido, ...copywriter], video: [...video, ...videoEstudio], imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, spy, mako: [...mako, ...tickets],
 };
 
 export const REGISTRO: readonly OperacionDef[] = AREAS.flatMap((a) => POR_AREA[a]);

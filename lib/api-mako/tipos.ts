@@ -34,7 +34,7 @@ import type { Bloque } from '../chat-bloques';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'cobros', 'mako',
+  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'cobros', 'spy', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -91,6 +91,9 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   calendario: { titulo: 'Calendario', tab: 'Calendario', ruta: '/calendario' },
   // El Centro de Operaciones (15/10/2026): sólo la plataforma, sólo lecturas (operaciones.def.ts).
   operaciones: { titulo: 'Centro de Operaciones (pedidos a los chats de Claude)', tab: 'Centro de Operaciones', ruta: '/admin/operaciones' },
+  // Competitors Spy (31/10/2026, docs/diseno-competitors-spy.md): mira a los competidores que el negocio eligió.
+  // El ÁREA se llama `spy` y la TAB «Competitor Spy», con la nav key 'market-an', que está escrita en la base.
+  spy: { titulo: 'Competidores', tab: 'Competitor Spy', ruta: '/competitor-spy' },
   // Desde el 16/10/2026 el chat con MaKo es el Second Brain (etapa 2 de docs/diseno-mako-ai-native.md).
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Second Brain', ruta: '/second-brain' },
 };
@@ -116,7 +119,11 @@ export const DATOS_DE_CLIENTES_POR_AREA: Record<Area, boolean> = {
   // Los datos del equipo y las identidades fiscales del negocio son de personas que no son quien escribe.
   equipo: true, cs: true, curso: true,
   // Posts, comentarios y miembros son de personas que no son quien escribe (los alumnos del negocio).
-  comunidad: true, calendario: false, creaciones: false, operaciones: false, cobros: true, mako: true,
+  comunidad: true, calendario: false, creaciones: false, operaciones: false, cobros: true,
+  // Un competidor NO es un cliente del negocio: lo que se guarda de él es público y no sale de ninguna
+  // conversación, ningún lead ni ningún cobro.
+  spy: false,
+  mako: true,
 };
 
 /** Por dónde puede entrar un pedido. Lo declara CADA operación, en positivo. */

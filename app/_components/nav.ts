@@ -371,6 +371,11 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
+        // Competitor Spy: vino de Analyze el 17/10/2026 y estuvo en PRONTO hasta el 31/10/2026, cuando dejó de ser
+        // ComingSoon (la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding). Marketing es
+        // la casa que el comentario de PRONTO ya le había asignado. Sigue `adminOnly` desde el 12/10/2026 (Martín:
+        // «Elimina "Competitors Spy" y que solo se vea en super admin»): vigila lo que hacen los demás.
+        { key: 'market-an', adminOnly: true, label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
       ],
     ],
   },
@@ -432,9 +437,6 @@ export const PRONTO: NavItem[] = [
   { key: 'newsletters', adminOnly: true, label: 'Newsletters', href: '/newsletters', icon: 'newsletter', comingSoon: true, match: starts('/newsletters') },
   { key: 'closing-script', adminOnly: true, label: 'Closing Script', href: '/closing-script', icon: 'closingscript', comingSoon: true, rolesWs: ['closer'], match: starts('/closing-script') },
   { key: 'sales-roleplay', adminOnly: true, label: 'Sales Roleplay', href: '/sales-roleplay', icon: 'roleplay', comingSoon: true, rolesWs: ['closer', 'setter'], match: starts('/sales-roleplay') },
-  // Vino de Analyze el 17/10/2026. Sólo el super admin desde el 12/10/2026 (Martín: «Elimina "Competitors
-  // Spy" y que solo se vea en super admin»): vigila lo que hacen los demás.
-  { key: 'market-an', adminOnly: true, label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', comingSoon: true, match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
 ];
 
 /**
