@@ -43,13 +43,13 @@ lib/cobros.ts (`aplicarPagoAprobado`, 5e) · tests/compra-plan-lead.test.ts (10 
 - ⚠️ **Lo que sí estaba roto: un homónimo frenaba la compra.** `createLead` también frena por NOMBRE, y `leadDelComprador` sólo sabía resolver un duplicado por email: con
   otro email tiraba, y el comprador leía «No pudimos registrar tu compra» sin poder pagar. La plataforma tiene 219 leads traídos de grupos, con nombre. **Regla:** en una puerta pública, un
   duplicado nunca frena. El mismo contacto es el mismo lead. Por nombre sólo si es UNO y no tiene email (lo cargó alguien antes de que comprara). Un homónimo con otro email es otra persona:
-  se crea, y la ficha lo marca en «Posibles duplicados». ⚠️ Un lead cargado a mano con sólo teléfono y con OTRO nombre no se encuentra: el checkout pide email y no teléfono.
+  se crea, y la ficha lo marca en «Posibles duplicados». ⚠️ Un lead cargado a mano con sólo teléfono y con OTRO nombre no se encontraba porque el checkout no pedía teléfono: desde el 31/10 lo pide (abajo, «El WhatsApp en el checkout»).
 - **Ganado es el final de esa venta, no una lista de llamadas.** Quien paga se AGREGA además al CRM de `planes.crm_llamadas` (agregar no dispara automatizaciones; sólo el primer pago, sólo
   un plan de MaKo, sólo la plataforma). Sin el setting no pasa nada. Una prueba gratis no llega acá: no pasa por `aplicarPagoAprobado` al empezar.
 - **El high ticket era configuración, no código:** el catálogo de la plataforma no lo tenía y `crearCrm` arma el CRM, el producto y la oferta juntos. Se creó «MaKo Acelerador» con los datos
   de `PROGRAMA_ACELERADOR`. Falta decidir si se cobra con link: «Vincular cobro» en el ⋯ de su Ganado.
 - **El origen sigue siendo «Landing», a propósito:** es de dónde vino. Que compró lo dicen `cobros` (con `plan_mako` y `origen`) y estar en ese CRM.
-- **El teléfono no se pide en el checkout, se pide al entrar** (el Cerebro, 30/10: cada campo baja la conversión). El número del dueño de la cuenta, al guardarse, llena el teléfono vacío de su lead en la
+- **El teléfono no se pedía en el checkout, se pedía al entrar** (el Cerebro, 30/10: cada campo baja la conversión; Martín lo cambió el 31/10: abajo, «El WhatsApp en el checkout»). El número del dueño de la cuenta, al guardarse, llena el teléfono vacío de su lead en la
   plataforma (`anotarTelefonoDelComprador`). **Ya se pregunta, al final del arranque** («¿A qué WhatsApp te escribo…?», `lib/onboarding-arranque.ts`, con código por DM: se guarda recién al verificarlo). **Sin hacer:** adelantar esa pregunta al primer paso; la tomó Ops Center.
 - **El aviso «Entró un pago» es una automatización de la plataforma** (#714, de la galería, prendida el 30/10): sale por `avisar_al_equipo`, al grupo de MaKo del ws 9.
 
@@ -1875,7 +1875,12 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 
 **El diagnóstico obvio era el equivocado.** Parecía un campo más y era un cambio de identidad: hasta hoy el comprador se reconocía sólo por el email, y `createLead` ahora también compara por el número. `leadDeLaCompra` decía «mismo teléfono: se reusa aunque tenga otro email», escrito cuando el checkout no pedía teléfono. Con un formulario público, un dígito mal o el dueño que compra para su segundo negocio ataban el pago a la ficha de OTRA persona: la marca Ganado y `asentarAlta` le pisa `cliente_ws`, sin rastro. Ahora: otro email y el mismo número es otra ficha, con una nota que nombra la otra; una ficha de más se funde, escribir sobre la equivocada no se deshace.
 
+**Un número sin probar le ganaba al probado (lo encontró la revisión).** Con la ficha ya llena desde el formulario, «sólo se completa lo vacío» dejaba afuera el número que WhatsApp sí reconoce, sin una línea en el historial, y por esa ficha se lo llama. Ahora ese número reemplaza SÓLO al escrito en el checkout (`anotarTelefonoDelComprador` lo compara con `cobros.origen.whatsapp`). Lo cargado a mano sigue ganando: también entra por ahí el número principal de los avisos, que puede ser el de un asistente.
+
 **Lo que se perdía sin error:**
+- Dos códigos de país sin el `+` («54 9 11…», «0054…», o el `+` tapado por las marcas invisibles de una app de contactos): 15 dígitos pasan `whatsappLimpio`. Con 11 o más y arrancando con la lada, se saca. Con menos no: 5512345678 es un celular de México.
+- +1809 y +1787 traen el código de área adentro: por IP arrancan en +1.
+- `whatsappLimpio` pide 8 dígitos contando la lada: +54 y «112233» pasaba por completo. En el checkout son 10; el pedido sin pasarela sigue como estaba.
 - Una ficha que ya existía por el email se devolvía sin mirar el número. Se completa si está vacía. Si tiene otro, no se pisa (cualquiera puede escribir el email de otro) y queda en su historial.
 - `TelefonoConPais` guarda número sin lada y una lada que siempre está elegida: mandar los dos juntos convertía un campo vacío en un «número» de dos dígitos. `telefonoDeFormulario` devuelve vacío y saca el 0 de larga distancia.
 - El estilo de `/planes` es `input[type=tel]`, y el campo de `TelefonoConPais` no declara `type`: sin `inputStyle` se ve como un input pelado. Ningún test lo vio; se vio en el banco.
@@ -1884,4 +1889,4 @@ La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-l
 
 **Medido: `/planes` ya cobra (31/10, GET anónimo).** La plataforma pasó de no tener pasarela (30/10) a ofrecer Mercado Pago real en pesos: «$ 73.555 ARS por mes». Lo que se escribió el 30/10 sobre «no tiene ninguna pasarela» ya no vale, y ningún POST de prueba se hace sin el sí de Martín.
 
-**Sin hacer:** el número del checkout no se muestra en el aviso de «Entró un pago», sólo el link a la ficha (lib/cobros.ts, `avisarPagoRecibido`). Una lada elegida mal por el país de la IP con un número local no se detecta: lo escrito tiene longitud válida. La pantalla se vio sólo en el banco (app/planes/[plan]/CompraPlan.tsx); en producción, después del deploy.
+**Sin hacer:** el número del checkout no se muestra en el aviso de «Entró un pago», sólo el link a la ficha (lib/cobros.ts, `avisarPagoRecibido`). El 15 del celular argentino («11 15 2233 4455») queda adentro: sacarlo pide saber cuánto mide cada código de área, y no se midió contra WhatsApp si llega igual; la verificación del onboarding lo corrige. Una lada elegida mal por el país de la IP con un número local no se detecta. Un número de una ficha sin email ata la compra a esa ficha (`leadDeLaCompra`, decisión del 30/10), y `asentarAlta` le escribe `cliente_ws` sin mirar si ya tenía. La pantalla se vio sólo en el banco (app/planes/[plan]/CompraPlan.tsx); en producción, después del deploy.

@@ -4,7 +4,7 @@
 // Pedido de Martín (22/10/2026): «si alguien paga se ingresa automáticamente a la app con el email de bienvenida».
 // El alta automática ya existía (lib/cobros.ts, `altaSiCorresponde` → lib/alta-cliente.ts → `invitarPorEmail`), pero
 // su ÚNICO disparador era un link armado a mano en /admin/cobros. Esto es la puerta pública: el comprador elige un
-// plan, deja nombre y email, y sale al checkout de la pasarela con un cobro de SUSCRIPCIÓN que al pagarse da el alta.
+// plan, deja sus datos, y sale al checkout de la pasarela con un cobro de SUSCRIPCIÓN que al pagarse da el alta.
 //
 // QUÉ HACE, en orden:
 //   1. El plan sale de lib/planes-mako.ts (con el setting `planes.mako` de la plataforma): la capa y el precio NUNCA
@@ -31,7 +31,7 @@ import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
 import { createLead, enriquecerLead, getLead, logLeadEvent } from './leads';
-import { esLeadDuplicado, telefonoComparable } from './leads-duplicados';
+import { esLeadDuplicado } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
 import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
@@ -186,7 +186,8 @@ async function whatsappEnFicha(leadId: number, whatsapp: string | null | undefin
   try {
     if ((await enriquecerLead(leadId, { telefono: tel }, 'Checkout de MaKo')).length) return;
     const actual = await getLead(leadId);
-    if (telefonoComparable(actual?.telefono_normalizado ?? actual?.telefono) === telefonoComparable(tel)) return;
+    // Todos los dígitos: corregir sólo el país deja iguales los últimos 10, y eso también es otro número.
+    if (String(actual?.telefono_normalizado ?? actual?.telefono ?? '').replace(/\D/g, '') === whatsapp) return;
     await logLeadEvent(leadId, 'WhatsApp', `Dejó este WhatsApp al comprar: ${tel}. No se cambió el de la ficha.`, 'Checkout de MaKo');
   } catch (e) {
     console.warn(`[compra-plan] no pude anotar el WhatsApp en el lead ${leadId}:`, msg(e));

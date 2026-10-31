@@ -87,9 +87,9 @@ export function CompraPlan(p: {
       <input id="cp-nombre" type="text" autoComplete="name" value={nombre} onChange={(e) => setNombre(e.target.value)} required />
       <label htmlFor="cp-email">Tu email</label>
       <input id="cp-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <label>Tu WhatsApp</label>
-      <TelefonoConPais lada={lada} numero={numero} onLada={setLada} onNumero={(v) => { setNumero(v); setErrorWhatsapp(null); }}
-        inputStyle={CAMPO_TEL} estiloLada={CARA_LADA} anchoLada={112} autoComplete="tel" />
+      <label htmlFor="cp-whatsapp">Tu WhatsApp</label>
+      <TelefonoConPais lada={lada} numero={numero} onLada={(v) => { setLada(v); setErrorWhatsapp(null); }} onNumero={(v) => { setNumero(v); setErrorWhatsapp(null); }}
+        inputStyle={CAMPO_TEL} estiloLada={CARA_LADA} anchoLada={112} autoComplete="tel" inputId="cp-whatsapp" />
       {errorWhatsapp && <p className="planes-error planes-codigo-error" role="status" aria-live="polite">{errorWhatsapp}</p>}
       <div className="planes-trampa" aria-hidden="true">
         <label htmlFor="cp-web">Web</label>

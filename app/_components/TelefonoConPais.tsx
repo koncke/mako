@@ -59,7 +59,7 @@ function opcionesPorLada() {
 
 export function TelefonoConPais({
   lada, numero, onLada, onNumero, onEnter, inputStyle, placeholder = '223 355 0684',
-  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete,
+  portalTo, anchoLada = 128, autoFocus, estiloLada, autoComplete, inputId,
 }: {
   lada: string;
   numero: string;
@@ -76,6 +76,8 @@ export function TelefonoConPais({
   estiloLada?: CSSProperties;
   /** El del campo del número: «tel» en un formulario público, para que el navegador lo complete. */
   autoComplete?: string;
+  /** Con un `<label htmlFor>` propio: el rótulo visible nombra al campo, en vez del aria-label. */
+  inputId?: string;
 }) {
   const opciones = useMemo(opcionesPorLada, []);
 
@@ -108,7 +110,8 @@ export function TelefonoConPais({
         inputMode="tel"
         autoComplete={autoComplete}
         autoFocus={autoFocus}
-        aria-label="Número sin el código de país"
+        id={inputId}
+        aria-label={inputId ? undefined : 'Número sin el código de país'}
         // Se dejan espacios y guiones para que pueda escribirlo como lo lee; los
         // dígitos se extraen al guardar. Un `+` al principio es el código de país
         // y se muda al selector (`numeroTecleado`, lib/paises.ts): dejarlo adentro

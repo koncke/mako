@@ -178,7 +178,8 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     ok: true,
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
-      whatsappEscritoMal: typeof b.whatsapp === 'string' && b.whatsapp.trim() !== '' && !whatsapp,
+      // Con la lada ya elegida, 8 dígitos dejan pasar un número a medias (+54 y «112233»): ningún WhatsApp del mundo tiene menos de 10 con su país.
+      whatsappEscritoMal: !quiero && typeof b.whatsapp === 'string' && b.whatsapp.trim() !== '' && (whatsapp ?? '').length < 10,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
       promo: b.promo === true, sinPromo: b.sinPromo === true,
       codigoEscrito: codigoRefLimpio(b.codigo),

@@ -90,21 +90,31 @@ export function unirTelefono(lada: string, local: string): string {
   return `${lada}${local}`.replace(/\D/g, '');
 }
 
-/** La lada que arranca elegida para quien está en ese país (dos letras). Un país que no está en la lista, o que no se sabe, la de siempre. */
+/**
+ * La lada que arranca elegida para quien está en ese país (dos letras). Un país que no está en la lista, o que no se sabe, la de siempre.
+ * República Dominicana y Puerto Rico están como +1809 y +1787, que ya traen el código de área: quien escribe su número entero (829…) lo
+ * tendría dos veces, así que arrancan en +1.
+ */
 export function ladaDelPais(iso2: string | null | undefined): string {
-  return PAISES.find((p) => p.iso2 === iso2)?.dial ?? DIAL_DEFAULT;
+  const dial = PAISES.find((p) => p.iso2 === iso2)?.dial ?? DIAL_DEFAULT;
+  return /^\+1\d/.test(dial) ? '+1' : dial;
 }
 
 /**
  * Lo que manda un formulario público con `TelefonoConPais`: los dígitos con su lada, o '' si no escribió ningún número (la lada
  * sola no es un número). Sin el 0 de larga distancia del número local: «+54 011…» no existe. Un `+código` que el selector no
- * reconoció sigue en el campo (`numeroTecleado`): ahí ya viene el país, y sumarle la lada serían dos.
+ * reconoció sigue en el campo (`numeroTecleado`): ahí ya viene el país, y sumarle la lada serían dos. Lo mismo sin el `+` («54 9 11…»,
+ * «0054…»): con 11 dígitos o más ya no es un número local, y si arranca con la lada elegida, ésa es la que trae. Con menos no se toca:
+ * 5512345678 es un celular de México, no un +52 sin terminar.
  */
 export function telefonoDeFormulario(lada: string, local: string): string {
   const t = (local || '').trim();
   const digitos = t.replace(/\D/g, '');
   if (!digitos) return '';
-  return t.startsWith('+') ? digitos : unirTelefono(lada, digitos.replace(/^0+/, ''));
+  if (t.startsWith('+')) return digitos;
+  const pais = lada.replace(/\D/g, '');
+  const sinCero = digitos.replace(/^0+/, '');
+  return unirTelefono(lada, sinCero.length >= 11 && sinCero.startsWith(pais) ? sinCero.slice(pais.length) : sinCero);
 }
 
 /**
@@ -119,8 +129,10 @@ export function telefonoDeFormulario(lada: string, local: string): string {
  * dígitos que se guardan son los mismos.
  */
 export function numeroTecleado(texto: string): { lada: string | null; numero: string } {
-  const t = (texto || '').trimStart();
-  if (!t.startsWith('+')) return { lada: null, numero: (texto || '').replace(/[^\d\s-]/g, '') };
+  // Sin las marcas invisibles que agregan las apps de contactos alrededor de un número pegado: con ellas, el `+` no se veía como el primero.
+  const pegado = (texto || '').replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '');
+  const t = pegado.trimStart();
+  if (!t.startsWith('+')) return { lada: null, numero: pegado.replace(/[^\d\s-]/g, '') };
   const digitos = t.replace(/\D/g, '');
   const p = splitTelefono(digitos);
   // `splitTelefono` cae a la lada por defecto con TODOS los dígitos cuando ninguna coincide.

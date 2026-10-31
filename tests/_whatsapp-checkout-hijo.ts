@@ -76,6 +76,7 @@ async function main() {
   const cobros = await imp('lib/cobros.ts');
   const { guardarWhatsappDelPago } = await imp('lib/origen-cuenta-server.ts');
   const { CLAVE_WHATSAPP_DEL_PAGO } = await imp('lib/origen-cuenta.ts');
+  const { anotarTelefonoDelComprador } = await imp('lib/compra-plan-llamada.ts');
 
   const cred = (clave: string, valor: string, servicio: string) => db.credenciales.push({ workspace_id: PLATAFORMA, clave, valor_enc: cifrar(valor, PLATAFORMA, clave), servicio });
   db.workspaces.push({ id: PLATAFORMA, nombre: 'MaKo', capa: 'superadmin', estado: 'activo' });
@@ -139,6 +140,11 @@ async function main() {
   out.igual = await pedir('igual@ejemplo.com', '5215500000002');
   out.igualNotas = notas(12);
 
+  // Corrigió sólo el país: los últimos 10 son iguales, y la ficha se queda con el primero.
+  ficha(17, { nombre: 'Corrige', email: 'corrige@ejemplo.com', telefono: '+5291122334466', telefono_normalizado: '5291122334466' });
+  await pedir('corrige@ejemplo.com', '5491122334466');
+  out.soloPaisNotas = notas(17);
+
   // ── EL MISMO NÚMERO EN OTRA FICHA, CON OTRO EMAIL: la venta no se pierde y no se escribe sobre la otra persona ──
   ficha(13, { nombre: 'La otra persona', email: 'laotra@ejemplo.com', telefono: '+5215577777777', telefono_normalizado: '5215577777777', cliente_ws: 500 });
   out.otraPersona = await pedir('compradora@ejemplo.com', '5215577777777');
@@ -177,6 +183,38 @@ async function main() {
   db.cobros.find((c) => c.id === pagoNuevo.id)!.origen = { whatsapp: '5215533333333' };
   await guardarWhatsappDelPago(pagoNuevo.alta_ws, pagoNuevo.lead_id, pagoNuevo.id);
   out.reintento = delPago(pagoNuevo.alta_ws);
+
+  // ── El número que WhatsApp reconoce, contra lo que ya está en la ficha ──
+  await pedir('mal-tipeado@ejemplo.com', '5491199990000');
+  const pagoMal = await pagar('mal-tipeado@ejemplo.com');
+  await anotarTelefonoDelComprador(pagoMal.alta_ws, '5491199998888');
+  const lMal = leadDe('mal-tipeado@ejemplo.com')!;
+  out.verificado = { telefono: lMal.telefono, norm: lMal.telefono_normalizado };
+  out.verificadoNotas = notas(lMal.id);
+  await anotarTelefonoDelComprador(pagoMal.alta_ws, '5491199998888');
+  out.verificadoOtraVez = notas(lMal.id).length;
+  // Lo escribió bien: el mismo número no reemplaza ni se anota.
+  await pedir('bien@ejemplo.com', '5491188880000');
+  const pagoBien = await pagar('bien@ejemplo.com');
+  await anotarTelefonoDelComprador(pagoBien.alta_ws, '5491188880000');
+  out.bienEscrito = notas(leadDe('bien@ejemplo.com')!.id);
+  // Alguien lo corrigió a mano después del checkout: ya no es el del formulario.
+  await pedir('amano@ejemplo.com', '5491177779999');
+  const pagoMano = await pagar('amano@ejemplo.com');
+  Object.assign(leadDe('amano@ejemplo.com')!, { telefono: '+5491177770000', telefono_normalizado: '5491177770000' });
+  await anotarTelefonoDelComprador(pagoMano.alta_ws, '5491177771111');
+  out.aMano = leadDe('amano@ejemplo.com')!.telefono;
+  // Sin número en la ficha, se llena.
+  await pedir('llena@ejemplo.com', '');
+  const pagoLlena = await pagar('llena@ejemplo.com');
+  await anotarTelefonoDelComprador(pagoLlena.alta_ws, '5491166660000');
+  out.vaciaLlena = leadDe('llena@ejemplo.com')!.telefono;
+  // Dos fichas atadas a la misma cuenta.
+  await pedir('dos@ejemplo.com', '5491155550000');
+  const pagoDos = await pagar('dos@ejemplo.com');
+  ficha(18, { nombre: 'Segunda', email: 'segunda@ejemplo.com', cliente_ws: pagoDos.alta_ws });
+  await anotarTelefonoDelComprador(pagoDos.alta_ws, '5491155551111');
+  out.dosFichas = leadDe('dos@ejemplo.com')!.telefono;
 
   // Comprar no le escribe a nadie: ninguna llamada salió a un proveedor de mensajes.
   out.otrosHosts = [...new Set(otrosHosts)];

@@ -53,7 +53,8 @@ test('5. el número del dueño llega a su lead: sólo lo vacío, con UN lead, en
   assert.match(f, /if \(cuentaWs === plataforma\) return;/);
   assert.match(f, /runWithWorkspace\(plataforma,/, 'el lead es de la plataforma, no de la cuenta');
   assert.match(f, /\.eq\('cliente_ws', cuentaWs\)/);
-  assert.match(f, /if \(filas\.length === 1\) await enriquecerLead\(/, 'con dos leads de la misma cuenta no se adivina');
+  assert.match(f, /if \(filas\.length !== 1\) return;/, 'con dos leads de la misma cuenta no se adivina');
+  assert.match(f, /await enriquecerLead\(id, \{ telefono: /);
 });
 
 test('4. al pagar el PRIMER mes queda para llamarlo, después de la cuenta; sin setting no pasa nada', () => {

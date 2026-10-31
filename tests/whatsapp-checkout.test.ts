@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DIAL_DEFAULT, ladaDelPais, telefonoDeFormulario } from '../lib/paises';
+import { DIAL_DEFAULT, ladaDelPais, numeroTecleado, telefonoDeFormulario } from '../lib/paises';
 import { leerPedidoCompra, TEXTO_WHATSAPP_MAL } from '../lib/compra-plan-reglas';
 import { whatsappDelPago } from '../lib/origen-cuenta';
 
@@ -41,11 +41,21 @@ test('la lada del país y lo que manda el formulario', () => {
   assert.equal(ladaDelPais('MX'), '+52');
   assert.equal(ladaDelPais(null), DIAL_DEFAULT);
   assert.equal(ladaDelPais('ZZ'), DIAL_DEFAULT);
+  assert.equal(ladaDelPais('DO'), '+1', '+1809 ya trae el código de área');
+  assert.equal(ladaDelPais('PR'), '+1');
   assert.equal(telefonoDeFormulario('+54', ''), '', 'la lada sola no es un número');
   assert.equal(telefonoDeFormulario('+54', '  - '), '');
   assert.equal(telefonoDeFormulario('+54', '9 11 2233-4455'), '5491122334455');
   assert.equal(telefonoDeFormulario('+54', '011 2233-4455'), '541122334455', 'sin el 0 de larga distancia');
   assert.equal(telefonoDeFormulario('+52', '+999 123456'), '999123456', 'un + que el selector no reconoció ya trae su país');
+  assert.equal(telefonoDeFormulario('+54', '54 9 11 2233 4455'), '5491122334455', 'el país sin el +: no van dos');
+  assert.equal(telefonoDeFormulario('+54', '0054 9 11 2233 4455'), '5491122334455');
+  assert.equal(telefonoDeFormulario('+52', '5212345678'), '525212345678', 'un número de México que empieza como su lada');
+  assert.equal(telefonoDeFormulario('+1', '829 555 1234'), '18295551234');
+  assert.equal(telefonoDeFormulario('+1', '1 829 555 1234'), '18295551234');
+  const conMarcas = numeroTecleado('\u202a+54 9 11 2233-4455\u202c');
+  assert.equal(conMarcas.lada, '+54', 'pegado de una app de contactos');
+  assert.equal(telefonoDeFormulario(conMarcas.lada!, conMarcas.numero), '5491122334455');
 });
 
 test('la regla: vacío sigue, algo que no puede ser un número se dice; en el pedido sin pasarela sigue siendo obligatorio', () => {
@@ -58,6 +68,9 @@ test('la regla: vacío sigue, algo que no puede ser un número se dice; en el pe
   assert.deepEqual([leer({}).whatsapp, leer({}).whatsappEscritoMal], [null, false]);
   assert.deepEqual([leer({ whatsapp: '' }).whatsapp, leer({ whatsapp: '  ' }).whatsappEscritoMal], [null, false]);
   assert.deepEqual([leer({ whatsapp: '5412' }).whatsapp, leer({ whatsapp: '5412' }).whatsappEscritoMal], [null, true]);
+  assert.equal(leer({ whatsapp: '54112233' }).whatsappEscritoMal, true, 'la lada no cuenta como número: a medias se dice');
+  assert.equal(leer({ whatsapp: '5491122334455' }).whatsappEscritoMal, false);
+  assert.equal(leer({ whatsapp: '54112233', quiero: true }).whatsappEscritoMal, false, 'el pedido sin pasarela sigue como estaba');
   assert.equal(leer({ whatsapp: '5491122334455' }).whatsapp, '5491122334455');
   assert.equal(leerPedidoCompra({ ...b, quiero: true }).ok, false);
 });
@@ -89,6 +102,20 @@ test('una ficha por su email: se completa si está vacía, nunca se pisa', () =>
   assert.match(R.conOtroNotas.join(), /\+5215599999999/, 'lo que dejó no se pierde');
   assert.equal(R.igual.link, true);
   assert.deepEqual(R.igualNotas, [], 'el mismo número no se anota');
+});
+
+test('corregir sólo el país también deja rastro', () => {
+  assert.match(R.soloPaisNotas.join(), /\+5491122334466/);
+});
+
+test('el número que WhatsApp reconoce le gana al escrito en el checkout, y a nada más', () => {
+  assert.deepEqual(R.verificado, { telefono: '+5491199998888', norm: '5491199998888' });
+  assert.match(R.verificadoNotas.join(), /\+5491199998888.*\+5491199990000/);
+  assert.equal(R.verificadoOtraVez, 1, 'el mismo número no se anota de nuevo');
+  assert.deepEqual(R.bienEscrito, [], 'lo escribió bien: no hay nada que reemplazar');
+  assert.equal(R.aMano, '+5491177770000', 'lo cargado a mano gana');
+  assert.equal(R.vaciaLlena, '+5491166660000', 'la ficha vacía se llena como siempre');
+  assert.equal(R.dosFichas, '+5491155550000', 'con dos fichas de la cuenta no se adivina');
 });
 
 test('el mismo número en la ficha de otra persona: no pierde la venta ni escribe sobre ella', () => {
@@ -146,6 +173,11 @@ test('whatsappDelPago: lo que no puede ser un número no llega al onboarding', (
 //   · el campo pasa a obligatorio                      -> 11 / 1
 //   · el formulario no manda el número                 -> 11 / 1
 //   · arranca siempre con el país por defecto          -> 11 / 1
+// Segunda ronda, lo que encontró la revisión (base 14 / 0): el número reconocido no reemplaza nada, reemplaza también lo cargado a mano, no deja rastro
+// del reemplazo, anota otra vez el mismo número, con dos fichas adivina, dos códigos sin el +, a un número que empieza como su lada se le saca, las
+// marcas invisibles tapan el +, Dominicana arranca con el código de área, un número a medias pasa, el pedido sin pasarela también lo frena, corregir el
+// país no deja rastro: 13 / 1 cada una. Dos sobrevivieron la primera vez y por eso se reforzó el test: el «5512345678» no empezaba con +52, y el
+// número repetido caía por la regla siguiente.
 // Sobrevive acá «ni con la ficha sin email se reconoce» (12 / 0): con UN parecido entra por la regla del nombre y da lo mismo. Lo ve
 // tests/compra-plan-lead.test.ts, que pasa dos parecidos.
 // Lo que NO corre acá: Mercado Pago y Stripe de verdad, y la pantalla en producción (se miró en un banco, con la regla real y la ruta simulada).
