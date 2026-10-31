@@ -302,18 +302,26 @@
 /* El botón partido de Compartir: [Compartir][▾], UNA pastilla (radios 24px 0 0 24px y 0 24px 24px 0) con el divisor.
    Con clases propias y no :first-child/:last-child (25/10/2026, Martín: «El desplegable al lado de "compartir" no debe ser
    redondo»): con cambios sin publicar, el último hijo es el puntito azul, y el ▾ quedaba suelto, como un círculo aparte. */
-.gma-partido { display: inline-flex; align-items: stretch; position: relative; }
+.gma-partido { display: inline-flex; align-items: stretch; position: relative; border-radius: 24px; background: var(--gma-primario); }
 .gma-partido > .gma-partido-principal { border-radius: 24px 0 0 24px; padding: 0 12px 0 12px; }
+/* SE VE COMO UN SOLO BOTÓN, con su ▾ adentro (30/10/2026, sobre el pedido de Martín del 24/10: «un solo botón, azul y que diga
+   "compartir"»): eran dos mitades con una raya en el medio. Siguen siendo dos blancos de clic, pero el fondo es del contenedor:
+   dos fondos pegados dejan una línea en la unión cuando el ancho cae entre dos píxeles. */
+.gma-partido:hover { background: var(--gma-primario-hover); }
+.gma-partido:active { background: var(--gma-b900); }
+.gma-partido > .gma-boton--primario,
+.gma-partido > .gma-boton--primario:hover,
+.gma-partido > .gma-boton--primario:active { background: transparent; }
+.gma-partido > .gma-partido-principal { padding-right: 2px; }
 .gma-partido > .gma-partido-flecha {
-  width: 32px;
-  padding: 0;
+  width: 26px;
+  padding: 0 4px 0 0;
   border-radius: 0 24px 24px 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
 }
 .gma-punto-cambios {
   position: absolute;
   top: -2px;
-  right: 30px;
+  right: 22px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -506,7 +514,7 @@
 }
 @container gma-barra (max-width: 640px) {
   .gma-partido-texto { display: none; }
-  .gma-partido > .gma-partido-principal { padding: 0 10px; }
+  .gma-partido > .gma-partido-principal { padding: 0 2px 0 10px; }
 }
 @container gma-barra (max-width: 560px) {
   .gma-herramientas .gma-titulo { min-width: 100px; }

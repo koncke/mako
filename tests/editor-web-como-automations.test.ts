@@ -34,8 +34,7 @@ test('la lista de la tarjeta: sin la papelera, la más tocada primero, y buscar 
   assert.deepEqual(landingsDeLaLista(docs, '').map((d) => d.id), [2, 1]);
   assert.deepEqual(landingsDeLaLista(docs, 'coach').map((d) => d.id), [1]);
   assert.deepEqual(landingsDeLaLista(docs, 'borr'), []);
-  // «Ver todo en el Panel» va al Panel de verdad (sin ?panel=1, /web-generator saltaría a una landing). «Nueva landing» ya
-  // no: se abre adentro del editor (el test de abajo).
+  // El Panel de verdad (sin ?panel=1, /web-generator saltaría a una landing). Desde el editor ya no se navega a él: el test de abajo.
   assert.equal(RUTA_NUEVA_LANDING, '/web-generator?panel=1');
 });
 
@@ -217,4 +216,22 @@ test('la barra se pliega por lo que ella mide, y Compartir y el ⋯ son lo últi
   const editor = leer('app/web-generator/editor/EditorLanding.tsx');
   assert.doesNotMatch(editor, /gma-herr-plegable[^>]*(?:Menú del documento|Más opciones para compartir)/);
   assert.equal((editor.match(/gma-herr-plegable/g) ?? []).length, 4, 'Agregar bloque, Animar, Deshacer y Rehacer');
+});
+
+// El 30/10/2026, sobre lo que Martín pidió el 24/10: si queda un camino que navega al Panel, es el que va a tocar. Roturas:
+// volver al <Link> → 1 fallo. Ofrecer la landing abierta en la columna → 1 fallo (se podría eliminar la que se está editando).
+// Una raya en el medio de Compartir → 1 fallo.
+test('«Ver todo en el Panel» tampoco navega, y Compartir se ve como un solo botón', () => {
+  const lista = sinComentarios(leer('app/web-generator/editor/paneles/PanelLandings.tsx'));
+  assert.match(lista, /<button type="button" className="gma-ls-ver"[^>]*onClick=\{verPanel\}>Ver todo en el Panel<\/button>/);
+  assert.doesNotMatch(lista, /<Link href=\{RUTA_NUEVA_LANDING\}/);
+  const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
+  assert.match(inicio, /f\.tipo === 'analizada' \|\| f\.doc\.id !== props\.docAbierto/);
+  const css = leer('app/web-generator/gamma.css');
+  const flecha = css.replace(/\r\n/g, '\n').match(/\.gma-partido > \.gma-partido-flecha \{[^}]*\}/)![0];
+  assert.doesNotMatch(flecha, /border-left/);
+  // El fondo es del contenedor: dos fondos pegados dejan una línea cuando el ancho cae entre dos píxeles.
+  assert.match(css, /\.gma-partido \{[^}]*background: var\(--gma-primario\); \}/);
+  assert.match(css, /\.gma-partido:hover \{ background: var\(--gma-primario-hover\); \}/);
+  assert.match(css, /\.gma-partido > \.gma-boton--primario,\s*\.gma-partido > \.gma-boton--primario:hover,\s*\.gma-partido > \.gma-boton--primario:active \{ background: transparent; \}/);
 });

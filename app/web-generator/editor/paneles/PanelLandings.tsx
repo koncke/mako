@@ -17,6 +17,9 @@
 // la topbar de edición y el lienzo»). Lo que se había entregado ese mismo día llevaba al Panel (`/web-generator?panel=1`),
 // con otra ruta y otra barra lateral. Ahora es un botón: el editor cambia la barra y el lienzo por el cuadro de crear
 // (`setNueva`, EditorLanding.tsx) y esta lista queda como está, con «Nueva landing» marcada.
+//
+// «Ver todo en el Panel» tampoco navega (30/10/2026, el Cerebro: lo que Martín pidió es que ir al Panel no cambie de ruta ni
+// de barra, y si queda un camino que navega es el que va a tocar): el mismo lugar, con la columna del Panel (`verPanel`).
 // =============================================================================
 
 import { useEffect, useMemo, useState } from 'react';
@@ -51,12 +54,13 @@ const CSS = `
 .gma-ls-nueva[aria-current="true"] { border-style: solid; border-color: transparent; }
 .gma-ls-aviso { padding: 12px; font-size: 13px; color: var(--gma-tenue); }
 .gma-ls-pie { flex: none; padding: 8px 12px 12px; border-top: 0.8px solid var(--gma-borde-suave); }
-.gma-ls-pie a { font-size: 13px; color: var(--gma-tenue); text-decoration: none; }
-.gma-ls-pie a:hover { color: var(--gma-texto); text-decoration: underline; }
+.gma-ls-ver { padding: 0; border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--gma-tenue); cursor: pointer; }
+.gma-ls-ver:hover { color: var(--gma-texto); text-decoration: underline; }
+.gma-ls-ver[aria-current="true"] { color: var(--gma-texto); font-weight: 600; }
 `;
 
 export function PanelLandings() {
-  const { docId, guardarAhora, setPanelIzq, nueva, setNueva } = useEditorLanding();
+  const { docId, guardarAhora, setPanelIzq, nueva, setNueva, panelEntero, verPanel, revisionLista } = useEditorLanding();
   const [docs, setDocs] = useState<LandingResumen[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState('');
@@ -68,7 +72,7 @@ export function PanelLandings() {
     if (!r.ok) { setError(r.error); return; }
     setDocs(r.docs);
   };
-  useEffect(() => { void cargar(); }, []);
+  useEffect(() => { void cargar(); }, [revisionLista]);
 
   const visibles = useMemo(() => landingsDeLaLista(docs ?? [], busca), [docs, busca]);
   // Al irse a otra, lo pendiente de ésta se guarda antes (el mismo gesto que la casa de antes).
@@ -94,14 +98,14 @@ export function PanelLandings() {
         ) : visibles.length === 0 ? (
           <p className="gma-ls-aviso">{busca.trim() ? 'Ninguna se llama así.' : 'Todavía no hay otras.'}</p>
         ) : visibles.map((d) => (
-          <Link key={d.id} href={`/web-generator/${d.id}`} className="gma-ls-item" aria-current={!nueva && d.id === docId ? 'true' : undefined}
+          <Link key={d.id} href={`/web-generator/${d.id}`} className="gma-ls-item" aria-current={!nueva && !panelEntero && d.id === docId ? 'true' : undefined}
             onClick={d.id === docId ? (e) => { e.preventDefault(); setPanelIzq('agente'); } : alIrse} title={d.titulo || 'Sin título'}>
             <Ico n="paginas" t={14} /><span>{d.titulo || 'Sin título'}</span>
           </Link>
         ))}
       </nav>
       <div className="gma-ls-pie">
-        <Link href={RUTA_NUEVA_LANDING} onClick={alIrse}>Ver todo en el Panel</Link>
+        <button type="button" className="gma-ls-ver" aria-current={panelEntero ? 'true' : undefined} onClick={verPanel}>Ver todo en el Panel</button>
       </div>
     </div>
   );

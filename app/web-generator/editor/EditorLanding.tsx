@@ -252,6 +252,9 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
   const [panelIzq, setPanelIzqEstado] = useState<PanelIzq>('agente');
   /** «Nueva landing» abierta (se ve sólo con la lista a la izquierda: salir de la lista la cierra, ver el efecto). */
   const [nueva, setNuevaEstado] = useState(false);
+  const [panelEntero, setPanelEntero] = useState(false);
+  const [revisionLista, setRevisionLista] = useState(0);
+  const listaCambio = useCallback(() => setRevisionLista((n) => n + 1), []);
   const [panelDer, setPanelDer] = useState<PanelDer>(null);
   /** Lo último que pidieron al abrir «Animar» (la vista; ver `abrirAnimar`). */
   const [pedidoAnimar, setPedidoAnimar] = useState<PedidoAnimar | null>(null);
@@ -790,7 +793,9 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
       setPanelIzqEstado('landings');
     }
     setNuevaEstado(v);
+    setPanelEntero(false);
   }, [guardarAhora]);
+  const verPanel = useCallback(() => { setNueva(true); setPanelEntero(true); }, [setNueva]);
   // Ir al chat o a las páginas es volver a ESTA landing: «Nueva landing» se cierra (vale también para Mod+E).
   useEffect(() => {
     if (panelIzq !== 'landings') setNuevaEstado(false);
@@ -825,8 +830,11 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     setModoIA,
     panelIzq,
     setPanelIzq,
-    nueva: creando,
+    nueva: creando && !panelEntero,
     setNueva,
+    panelEntero: creando && panelEntero,
+    verPanel,
+    revisionLista,
     panelDer,
     setPanelDer,
     abrirAnimar,
@@ -843,7 +851,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
-    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, creando, setNueva, panelDer, abrirAnimar,
+    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, panelEntero, verPanel, revisionLista, creando, setNueva, panelDer, abrirAnimar,
     dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 
@@ -1060,11 +1068,15 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
 
           {/* ── «Nueva landing»: «¿Qué vas a crear hoy?» y las plantillas EN LUGAR de la barra y el lienzo, sin navegar ── */}
           {creando ? (
-            <div className="gma-centro" role="region" aria-label="Nueva landing">
+            <div className="gma-centro" role="region" aria-label={panelEntero ? 'Panel' : 'Nueva landing'}>
               {fuentesPlantillas ? <link rel="stylesheet" href={fuentesPlantillas} precedence="default" /> : null}
               <Suspense fallback={<div className="gma-vacio"><p className="gma-vacio-texto">Cargando…</p></div>}>
                 <InicioEmbebido
                   embebido
+                  key={panelEntero ? 'panel' : 'nueva'}
+                  conLista={panelEntero}
+                  docAbierto={docId}
+                  onCambioLista={listaCambio}
                   docs={[]}
                   errorLista={null}
                   analizadas={analizadas ?? []}

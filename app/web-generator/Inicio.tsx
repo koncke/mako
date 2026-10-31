@@ -148,6 +148,15 @@ export type PropsInicio = {
    * del editor), sin tocar la URL (es la de la landing abierta) y con la lista leída al montar.
    */
   embebido?: boolean;
+  /** «Ver todo en el Panel» adentro del editor: con la columna del Panel, menos lo que ya está en la tarjeta. */
+  conLista?: boolean;
+  /**
+   * La landing abierta en el editor. No se ofrece en la columna: renombrarla o eliminarla acá dejaría al editor guardando
+   * sobre lo que ya no es.
+   */
+  docAbierto?: number;
+  /** El Panel cambió la lista: la tarjeta del editor la vuelve a leer. */
+  onCambioLista?: () => void;
 };
 
 type PlantillaGaleria = Plantilla | PlantillaPresentacion;
@@ -254,7 +263,20 @@ export function Inicio(props: PropsInicio) {
   }, []);
 
   const temaDe = useCallback((id: string) => temaPorId(id, props.propios), [props.propios]);
-  const filas = useMemo(() => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q), [lista, analizadas, props.bases, q]);
+  const filas = useMemo(
+    () => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q).filter((f) => f.tipo === 'analizada' || f.doc.id !== props.docAbierto),
+    [lista, analizadas, props.bases, q, props.docAbierto],
+  );
+  // Adentro del editor, la primera vez es la lectura al montar: no cambió nada.
+  const listaVista = useRef(lista);
+  const listaLeida = useRef(false);
+  const { onCambioLista } = props;
+  useEffect(() => {
+    if (listaVista.current === lista) return;
+    listaVista.current = lista;
+    if (listaLeida.current) onCambioLista?.();
+    listaLeida.current = true;
+  }, [lista, onCambioLista]);
   const urlBuscada = useMemo(() => urlDeBusqueda(q), [q]);
 
   // ── Acciones ─────────────────────────────────────────────────────────────
@@ -595,21 +617,22 @@ export function Inicio(props: PropsInicio) {
   };
 
   return (
-    <div className={props.embebido ? 'gma gp gp-panel gp-embebido' : 'gma gp gp-panel'}>
+    <div className={props.embebido ? 'gma gp gp-panel gp-embebido' : 'gma gp gp-panel'} data-con-lista={props.conLista ? '' : undefined}>
       <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_PANEL }} />
       <link rel="stylesheet" href={URL_FUENTE_CHROME} />
 
-      {/* Adentro del editor, la columna de la izquierda es la tarjeta del editor (la lista de landings): ésta no va. */}
-      {!props.embebido && <aside className="gp-lateral" aria-label="Web Generator">
+      {/* Adentro del editor, la columna de la izquierda es la tarjeta del editor (la lista de landings): ésta no va, salvo en
+          «Ver todo en el Panel», que trae lo que la tarjeta no tiene (lo analizado, sus menús, Plantillas, Temas y Papelera). */}
+      {(!props.embebido || props.conLista) && <aside className="gp-lateral" aria-label="Web Generator">
         <label className="gp-ir-a">
           <Ico n="buscar" t={14} />
           <input ref={busqueda} type="search" value={q} placeholder="Ir a" aria-label="Buscar por nombre" onChange={(e) => setQ(e.target.value)} />
           <kbd>Ctrl K</kbd>
         </label>
-        <button type="button" className="gp-doc-nuevo" aria-current={modoCaja ? 'page' : undefined} onClick={nuevaLanding}>
+        {!props.embebido && <button type="button" className="gp-doc-nuevo" aria-current={modoCaja ? 'page' : undefined} onClick={nuevaLanding}>
           <span className="gp-doc-nuevo-mas"><Ico n="mas" t={13} /></span>
           <span>Nueva landing</span>
-        </button>
+        </button>}
         <ul className="gp-docs" aria-label="Tus landings">
           {errorLista && (
             <li className="gp-docs-aviso" role="alert">
@@ -938,6 +961,9 @@ const CSS_PANEL = `
    scrollea él (el editor tiene el alto de la ventana: hijos con flex 1 + min-height 0, AGENTS.md). */
 .gp.gp-panel.gp-embebido { grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow-y: auto; align-content: start;
   border-radius: var(--gma-radio-xl) var(--gma-radio-xl) 0 0; box-shadow: 0 0 0 0.8px var(--gma-borde-suave); }
+/* «Ver todo en el Panel» adentro del editor: su columna al lado de lo que muestra, con el alto de la caja que scrollea. */
+.gp.gp-panel.gp-embebido[data-con-lista] { grid-template-columns: 248px minmax(0, 1fr); }
+.gp.gp-panel.gp-embebido[data-con-lista] .gp-lateral { height: calc(100dvh - 24px - var(--barra-agencia, 0px)); }
 .gp .gp-lateral { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: 14px 10px 10px; background: var(--gp-superficie); border-right: 1px solid var(--gp-borde-suave); }
 .gp .gp-ir-a { display: flex; align-items: center; gap: 8px; flex: none; height: 34px; margin-bottom: 8px; padding: 0 10px; border-radius: 8px; background: var(--gp-fondo); color: var(--gp-debil); }
 .gp .gp-ir-a input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 13.5px; outline: none; }
