@@ -14,8 +14,9 @@ import { CLAVE_ENCUESTA, llegadaDe } from '@/lib/onboarding-arranque';
             // Un cliente nuevo ya NO arranca con secuencias sembradas.
 import { CAPA_DEFAULT, esCapaValida, CAPAS_VENDIBLES, type CapaId } from '@/lib/capas';
 import { avisarCambioDePlan } from '@/lib/aviso-plan';
-import { ponerPlanAMano } from '@/lib/plan-a-mano';
-import { DIAS_PLAN_A_MANO } from '@/lib/plan-a-mano-reglas';
+import { planesAManoPorNegocio, ponerPlanAMano } from '@/lib/plan-a-mano';
+import { DIAS_PLAN_A_MANO, DIAS_REGALO, textoDePlanAMano, type PlanAMano } from '@/lib/plan-a-mano-reglas';
+import { pagaSuPlan } from '@/lib/prueba-uso';
 import { darDeAltaCliente } from '@/lib/alta-cliente';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 
@@ -34,7 +35,7 @@ export async function GET() {
      * con un `select` pelado, los workspaces cuyos leads caen después del corte
      * aparecerían con menos clientes de los que tienen y nadie lo notaría.
      */
-    const [workspaces, usuarios, ganados, encuestas] = await Promise.all([
+    const [workspaces, usuarios, ganados, encuestas, planesAMano] = await Promise.all([
       listarWorkspaces(),
       listarUsuarios(),
       leerTodo<{ workspace_id: number | null }>(
@@ -48,7 +49,15 @@ export async function GET() {
           if (error) { console.warn(`[admin/workspaces] no pude leer ${CLAVE_ENCUESTA}: ${error.message}`); return []; }
           return (data ?? []) as Array<{ workspace_id: number | null; value: string | null }>;
         }),
+      // Hasta cuándo va cada plan a mano (30/10/2026). Si no se puede leer, la tabla sale igual, sin el dato.
+      planesAManoPorNegocio().catch((e) => { console.warn('[admin/workspaces] no pude leer los planes a mano:', e instanceof Error ? e.message : e); return new Map<number, PlanAMano>(); }),
     ]);
+    const ahoraMs = Date.now();
+    // Una prueba vencida no se dibuja acá: «le di 7 días y pagó el día 3» es el final esperado, y esta lista no lee los cobros.
+    const manoTxt = (id: number): string | null => {
+      const p = planesAMano.get(id);
+      return p && (p.regalo || Date.parse(p.hasta) > ahoraMs) ? textoDePlanAMano(p, ahoraMs) : null;
+    };
     const llegada = new Map<number, ReturnType<typeof llegadaDe>>();
     for (const e of encuestas) if (e.workspace_id != null) llegada.set(e.workspace_id, llegadaDe(e.value));
     const conteo = new Map<number, number>();
@@ -62,6 +71,7 @@ export async function GET() {
         usuarios: conteo.get(w.id) ?? 0,
         clientes: conClientes.get(w.id) ?? 0,
         llegada: llegada.get(w.id) ?? null,
+        planAManoTxt: manoTxt(w.id),
       })),
     });
   } catch (e) {
@@ -170,6 +180,10 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: false, error: `Los días van ${DIAS_PLAN_A_MANO.join(', ')} o 0 (sin vencimiento).` }, { status: 400 });
         }
         if (!(await getWorkspace(body.id))) return NextResponse.json({ ok: false, error: 'ese cliente ya no está' }, { status: 404 });
+        // Los 6 meses no frenan lo que su tarjeta va a pagar: decirlo acá, y no que siga cobrándose «gratis» sin que nadie lo vea.
+        if (dias === DIAS_REGALO && await pagaSuPlan(body.id)) {
+          return NextResponse.json({ ok: false, error: 'Este cliente ya paga con su tarjeta, y los 6 meses gratis no frenan ese cobro. Si se los quieres dar, primero dalo de baja.' }, { status: 400 });
+        }
         const planAMano = await ponerPlanAMano(body.id, dias);
         return NextResponse.json({ ok: true, planAMano });
       }

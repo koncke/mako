@@ -14,7 +14,7 @@
 
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
-import { PRUEBA_DIAS } from '@/lib/planes-mako';
+import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
 export const dynamic = 'force-dynamic';
@@ -173,10 +173,18 @@ export default function Page() {
           <strong>Los planes mensuales son una suscripción</strong>: se cobran por adelantado y se
           renuevan solos cada mes, con el mismo medio de pago, hasta que los canceles.
         </li>
-        <li>
-          <strong>Empiezan con {PRUEBA_DIAS} días gratis</strong>, con tu tarjeta cargada: si te das de baja antes
-          del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período.
-        </li>
+        {PRUEBA_GRATIS_PRENDIDA && (
+          <li>
+            <strong>Empiezan con {PRUEBA_DIAS} días gratis</strong>, con tu tarjeta cargada: si te das de baja antes
+            del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período.
+          </li>
+        )}
+        {!PRUEBA_GRATIS_PRENDIDA && (
+          <li>
+            <strong>Se paga al empezar</strong>: cuando el pago se confirma, entras a MaKo. Un descuento del primer mes vale sólo
+            para ese primer cobro. Si empezaste con una prueba gratis, sigue con las condiciones con las que la empezaste.
+          </li>
+        )}
         <li>
           <strong>Puedes darte de baja cuando quieras</strong>, tú mismo con el botón «Darme de baja» de{' '}
           <strong>Configuración del negocio → Tu plan</strong>, o escribiéndonos a{' '}

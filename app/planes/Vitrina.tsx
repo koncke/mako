@@ -10,12 +10,14 @@
 // (./Tarjetas.tsx, copiados de ClickFunnels y Kajabi); arriba, en una frase, las dos maneras de trabajar; abajo, la
 // comparación por grupos y sin nombres de tabs, y las preguntas que contesta toda página de precios («¿qué plan me
 // conviene?», como Kajabi).
+// El título vende el EQUIPO, no el software (30/10/2026; docs/como-venden-otros.md §1, la investigación de productos con landing:
+// «Vendé un equipo, no un software»), y dice sólo lo que los tres planes traen. Antes: «Elige cómo quieres crecer con MaKo».
 // =============================================================================
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, type PlanMako } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from '@/lib/planes-mako';
 import { celdaDeCapa, filasDeComparacion, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 import { CSS_TARJETAS, TEXTO_PAGOS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
@@ -52,7 +54,9 @@ export const CSS_VITRINA = `
 }
 `;
 
-export function VitrinaPlanes({ ofertas, sufijo }: {
+export function VitrinaPlanes({ ofertas, sufijo, ofertaVigente = false }: {
+  /** El reloj del 50% del primer mes sigue vivo en este navegador: las tarjetas lo dicen. */
+  ofertaVigente?: boolean;
   ofertas: ReadonlyArray<{ plan: PlanMako; cobrable: boolean }>;
   /** Lo que la URL trae y pasa tal cual al plan elegido (el origen y el código de partner). */
   sufijo: string;
@@ -75,14 +79,14 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
       <div className="planes-wrap planes-ancho">
         <header className="planes-cabeza">
           <div className="planes-marca">MaKo</div>
-          <h1>Elige cómo quieres crecer con MaKo</h1>
+          <h1>Tu equipo de ventas con IA{Number.isFinite(desde) ? `, desde US$\u00A0${desde.toLocaleString('es-AR')} por mes` : ''}</h1>
           <p className="planes-sub">
-            {Number.isFinite(desde) ? `Úsalo por tu cuenta desde US$ ${desde.toLocaleString('es-AR')} por mes, o deja` : 'Úsalo por tu cuenta, o deja'} que
-            te acompañemos a armar tu embudo y a vender.
+            Tus anuncios, tus mensajes, tus páginas de venta y tus cobros en un solo lugar, con una IA que conoce tu negocio. Lo usas
+            por tu cuenta, o lo armamos contigo.
           </p>
           <p className="planes-alta">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
         </header>
-        <TarjetasPlanes planes={planes} sufijo={sufijo} />
+        <TarjetasPlanes planes={planes} sufijo={sufijo} ofertaVigente={ofertaVigente} />
 
         <CompararPlanes planes={planes} />
 
@@ -107,7 +111,16 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
             <summary>¿Puedo cambiar de plan o darme de baja?</summary>
             <p>Sí. Pasas a otro plan o te das de baja cuando quieras, desde «Tu plan», adentro de MaKo.</p>
           </details>
-          <details>
+          {!PRUEBA_GRATIS_PRENDIDA && (
+            <details>
+              <summary>¿Cuándo pago y cuándo entro?</summary>
+              <p>
+                Pagas al empezar y entras en el acto. Tu plan se renueva cada mes y te das de baja cuando quieras, desde «Tu plan». Lo
+                ya pagado no se devuelve. <Link href="/reembolsos">Las condiciones</Link>.
+              </p>
+            </details>
+          )}
+          {PRUEBA_GRATIS_PRENDIDA && <details>
             <summary>¿Cómo es la prueba gratis?</summary>
             <p>
               Tienes {PRUEBA_DIAS} días gratis con el plan que elijas. Pones tu tarjeta al empezar y no se te cobra nada hasta el
@@ -118,10 +131,10 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
               En la prueba, lo que se crea con IA tiene tope: hasta {TOPES_PRUEBA['prueba.videos']} videos armados,{' '}
               {TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, {TOPES_PRUEBA['prueba.imagenes']} imágenes y{' '}
               {TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. El resto
-              de MaKo (tu CRM, tus mensajes, tus automatizaciones y tu Plan) anda entero. Si quieres todo antes, empiezas tu plan
+              de MaKo (tus contactos, tus mensajes, tus seguimientos y tus tareas) anda entero. Si quieres todo antes, empiezas tu plan
               cuando quieras.
             </p>
-          </details>
+          </details>}
           <details>
             <summary>¿Puedo pagar en pesos?</summary>
             <p>{TEXTO_PAGOS} Desde otro país, en dólares.</p>

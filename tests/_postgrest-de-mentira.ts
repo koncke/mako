@@ -79,6 +79,8 @@ export function crearPostgrest(o: {
       const xs = x.slice(4, -1).split(',').map((s) => s.replace(/^"|"$/g, ''));
       return (f) => f[col] != null && !xs.includes(String(f[col]));
     }
+    // `suscripcion_estado.not.is.null` (30/10/2026, `FILTRO_SUSCRIPCION_DE_MAKO`, la lectura de quién está en prueba).
+    if (op === 'not' && x === 'is.null') return (f) => f[col] != null;
     if (op === 'eq') return (f) => f[col] != null && String(f[col]) === x;
     if (op === 'neq') return (f) => f[col] != null && String(f[col]) !== x;
     if (op === 'is' && x === 'null') return (f) => f[col] == null;

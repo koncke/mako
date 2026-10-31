@@ -42,7 +42,7 @@ import { FichaWorkspace } from './FichaWorkspace';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import { CAPA_DEFAULT, CAPAS_LISTA, CAPAS_VENDIBLES, capaDef, type CapaId } from '@/lib/capas';
 import { avisoAltaAMano } from '@/lib/plan-esencial-reglas';
-import { DIAS_PLAN_A_MANO, rotuloDeDias } from '@/lib/plan-a-mano-reglas';
+import { DIAS_AVISO_REGALO, DIAS_PLAN_A_MANO, rotuloDeDias } from '@/lib/plan-a-mano-reglas';
 import type { UsuarioConCara as Usuario } from './tipos';
 import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { AprobacionesDeAgencia, useAgencias } from './AprobacionesDeAgencia';
@@ -1001,6 +1001,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
                     <>
                       {esDueno && <span style={chip('var(--accent-soft)', '#171511')}>Dueño</span>}
                       <span style={chip('var(--primary-bg)', 'var(--primary)')}>{capaDef(w.capa).nombre}</span>
+                      {w.planAManoTxt && <span style={chip('var(--surface-2)', 'var(--dim)')}>{w.planAManoTxt}</span>}
                       {/* ⛔ ACA HABIA UN CHIP «Agencia» APARTE, y desde que ser agencia
                           es el PLAN decia «Agencia» DOS VECES en la misma linea. El chip
                           del plan ya lo dice. Es lo que pasa cuando un hecho se muda de
@@ -1731,7 +1732,7 @@ function PermisosDialog({ w, nClientes, ocupado, onCancel, onConfirm }: {
           vencer les avisa a Martín y al dueño; no pausa (el corte de acceso general está apagado). */}
       <div className="pm-mano">
         <b>Prueba a mano</b>
-        <span>Con los topes de la prueba, salvo los 6 meses gratis, con su plan entero. Al vencer, les avisamos a ti y al dueño.</span>
+        <span>Con los topes de la prueba, salvo los 6 meses gratis, con su plan entero. Te avisamos a ti y al dueño al vencer, y en los 6 meses, también {DIAS_AVISO_REGALO} días antes.</span>
         <div className="pm-dias">
           {DIAS_PLAN_A_MANO.map((d) => (
             <button key={d} type="button" className={`pm-dia${dias === d ? ' pm-on' : ''}`} onClick={() => setDias(dias === d ? null : d)}>{rotuloDeDias(d)}</button>

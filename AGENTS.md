@@ -10886,6 +10886,10 @@ hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-
   Si la lectura falla, no hay tope.
 - Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.
 
+## Una guarda que mira una parte de la pantalla da falsos verdes cuando el texto se muda (30/10/2026)
+
+Una guarda de texto mira lo que la persona lee entero, dibujado, no la lista de donde hoy sale ese texto. Leila sacó la jerga de la tabla de /planes el 27/10 y la guarda miraba sólo las filas: «embudo», «CRM», «media buyer», «setter» y «cohorte» siguieron tres días en las tarjetas y en la promesa, lo primero que se lee, con la guarda en verde. El ejemplo: `la pantalla entera se entiende`, tests/planes-tres-bloques.test.ts, que dibuja la página y mira el resultado.
+
 ## Un «extendé la duración» que arrastra los límites de otra cosa (30/10/2026)
 
 Antes de alargar algo, mirá qué más viene pegado a esa duración. Lo que se prometió es lo que la persona va a tener, no el número. Martín le ofreció a Gabriela «acceso a la app gratis por 6 meses», y el pedido fue «sumá el número a la prueba a mano»: la prueba lleva sus topes (3 videos, 1 avatar, 1 landing, sin exportar), así que cumplir la orden al pie de la letra rompía la promesa. Los 6 meses son otra cosa (`DIAS_REGALO`, `llevaTopesDePrueba`, lib/plan-a-mano-reglas.ts).

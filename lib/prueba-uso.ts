@@ -81,6 +81,18 @@ async function deUnPlanAMano(ws: number, nada: EstadoPrueba): Promise<EstadoPrue
 }
 
 /**
+ * ¿Este negocio paga su plan (o lo está probando con su tarjeta)? Lo que corta a los 6 meses gratis (30/10/2026): no se le dan
+ * ni se le avisa que terminan a quien tiene una suscripción, porque el regalo no frena lo que su tarjeta va a pagar. La misma
+ * lectura que `estadoDePrueba`, más lo pagado con su email. Tira si no se puede leer: quien llama no lo toma como «no paga».
+ */
+export async function pagaSuPlan(ws: number): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('cobros').select('id')
+    .eq('workspace_id', await wsSuperAdmin()).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO).limit(1);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown[]).length > 0 || (await pagoConElEmailDeSusAdmins(ws));
+}
+
+/**
  * ¿Hay un cobro PAGADO de la plataforma, `ya_tenia_cuenta` y sin atar, con el email de un admin de este negocio? Tira si no se
  * puede leer (el que llama lo toma como «sin topes»).
  */

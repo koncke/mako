@@ -26,6 +26,7 @@ import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_TARJ
 import { emailEnmascarado, mailDeAccesoNoSalio } from '@/lib/cobros-reglas';
 import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
+import { montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { nombreDelNegocio, usuarioDelAlta } from '../../acceso';
 import { cambiosRestantes, dentroDeLaVentana } from '../../cambio-email';
 import { AccesoMako } from './AccesoMako';
@@ -116,7 +117,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
   const pagarDeNuevo = `/pagar/${c.token}`;
   const detalle = (
     <>
-      <p className="pagar-detalle">{c.concepto} · {formatoMonto(c.monto, c.moneda)}</p>
+      <p className="pagar-detalle">{c.concepto} · {formatoMonto(montoDelPrimerPago(c), c.moneda)}</p>
       {c.modo === 'prueba' && <span className="pagar-chip">Pago de prueba</span>}
     </>
   );
