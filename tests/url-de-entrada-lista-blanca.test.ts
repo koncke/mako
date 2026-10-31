@@ -16,13 +16,15 @@
 // Correr: node --import tsx --test tests/url-de-entrada-lista-blanca.test.ts
 // ⚠️ Con `node --test` pelado los imports sin extensión fallan con un ERR_MODULE_NOT_FOUND falso.
 //
-// PROBADO ROMPIÉNDOLO (a mano, restaurado, con la base en verde: 8 pasan / 0 fallan):
-//   · `urlDeEntradaGuardable` → `urlSinDatosPersonales` en las tres rutas .............. 7 / 1
-//   · `paramSeGuarda` devolviendo `!esParametroPersonal(k, v)` (volver a la lista negra)  5 / 3
+// PROBADO ROMPIÉNDOLO (cada rotura aplicada a mano y restaurada, con la BASE EN VERDE: 8 pasan / 0 fallan —
+// un rojo previo haría pasar por «detectado» lo que ya estaba roto). Las siete, medidas el 31/10/2026:
+//   · `urlDeEntradaGuardable` → `urlSinDatosPersonales` en la ruta vsl ................. 7 / 1
+//   · `paramSeGuarda` devolviendo `!esParametroPersonal(…)` (volver a la lista negra) .. 4 / 4
 //   · sacar `'attendeename'` de la lista de nombres personales ......................... 7 / 1
-//   · sacar `'utm_source'` de `PARAMS_QUE_SE_GUARDAN` .................................. 5 / 3
-//   · sacar `'mko_test'` del array de la migración 0357 ................................ 7 / 1
+//   · sacar `'utm_source'` de `PARAMS_QUE_SE_GUARDAN` .................................. 3 / 5
+//   · cambiar un nombre del array de la migración 0357 ................................. 7 / 1
 //   · `if (EMAIL.test(k) || EMAIL.test(v)) return false;` fuera de `paramSeGuarda` ..... 7 / 1
+//   · que la migración 0357 borre filas (un `delete from`) ............................. 7 / 1
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
