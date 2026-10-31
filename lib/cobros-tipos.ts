@@ -48,17 +48,26 @@ export type CapacidadesPasarela = {
   bajaAlFinDelPeriodo: boolean;
   /** Es merchant of record: cobra y remite el impuesto de cada país, y MaKo no informa impuestos. */
   merchantOfRecord: boolean;
+  /**
+   * Sólo le cobra a quien está en el país de SU cuenta. Mercado Pago rechaza al de afuera («la cuenta del vendedor es de
+   * otro país»); Stripe y Creem cobran en todo el mundo. Lo pregunta quien tiene que elegir una pasarela SIN saber el
+   * país de quien paga, y existe porque esa pregunta se escribía `=== 'mercadopago'`: con dos pasarelas «el otro» era
+   * Stripe, con tres son dos, y con cuatro no se sabe (31/10/2026).
+   */
+  soloEnSuPais: boolean;
 };
 
 export const CAPACIDADES_PASARELA: Readonly<Record<Pasarela, CapacidadesPasarela>> = {
   stripe: {
     monedaFija: 'USD', emailParaSuscripcion: false, difiereElPrimerCobro: false, pruebaConTarjeta: true,
-    descuentoDeUnCiclo: true, bajaAlFinDelPeriodo: true, merchantOfRecord: false,
+    descuentoDeUnCiclo: true, bajaAlFinDelPeriodo: true, merchantOfRecord: false, soloEnSuPais: false,
   },
   mercadopago: {
     // Mercado Pago cobra en la moneda del sitio de SU cuenta (ARS, MXN…): hay que preguntarle cuál es.
     monedaFija: null, emailParaSuscripcion: true, difiereElPrimerCobro: true, pruebaConTarjeta: true,
     descuentoDeUnCiclo: false, bajaAlFinDelPeriodo: false, merchantOfRecord: false,
+    // Le cobra SÓLO a quien está en el país de su cuenta: al de afuera le contesta «la cuenta del vendedor es de otro país».
+    soloEnSuPais: true,
   },
   creem: {
     // Creem fija el precio del producto en USD o EUR (enum cerrado del OpenAPI). MaKo cobra en USD.
@@ -75,6 +84,8 @@ export const CAPACIDADES_PASARELA: Readonly<Record<Pasarela, CapacidadesPasarela
     // `{ mode: 'scheduled' }` deja la suscripción activa hasta `current_period_end_date`.
     bajaAlFinDelPeriodo: true,
     merchantOfRecord: true,
+    // Cobra en todo el mundo (es justamente lo que lo hace la pasarela de LatAm): no está atada al país del vendedor.
+    soloEnSuPais: false,
   },
 };
 

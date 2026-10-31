@@ -25,6 +25,7 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
 
 const mp = { pasarela: 'mercadopago' as const, moneda: 'ARS', monto: 47000 };
 const st = { pasarela: 'stripe' as const, moneda: 'USD', monto: 47 };
+const cr = { pasarela: 'creem' as const, moneda: 'USD', monto: 47 };
 
 test('la pasarela: MP en su país, Stripe afuera (EUR en la zona euro), Stripe primero sin país', () => {
   assert.deepEqual(cobroDeLaCuenta({ pais: 'AR', opciones: [mp], eur: null }), mp);
@@ -33,6 +34,17 @@ test('la pasarela: MP en su país, Stripe afuera (EUR en la zona euro), Stripe p
   assert.deepEqual(cobroDeLaCuenta({ pais: 'MX', opciones: [st], eur: 44 }), st);
   assert.deepEqual(cobroDeLaCuenta({ pais: null, opciones: [mp, st], eur: null }), st, 'MP rechaza a quien no es de su país');
   assert.equal(cobroDeLaCuenta({ pais: 'ES', opciones: [], eur: 44 }), null);
+});
+
+// ⚠️ ESTE CASO NO EXISTÍA, Y ES POR ESO QUE EL BUG PASÓ (31/10/2026). La función buscaba los dos nombres viejos
+// (`=== 'mercadopago'` y `=== 'stripe'`) y con Creem conectado devolvía null: «MaKo todavía no tiene una pasarela que
+// cobre en ese país» en México, Colombia, Chile, Perú, Brasil, Uruguay, Paraguay, Bolivia y Ecuador — o sea que la
+// agencia no podía abrir NINGUNA cuenta de LatAm, que es justo para lo que se conectó Creem.
+test('Creem es la pasarela de LatAm: con ella conectada, una cuenta de allá SÍ se puede cobrar', () => {
+  assert.deepEqual(cobroDeLaCuenta({ pais: 'MX', opciones: [cr], eur: null }), cr, 'sola, es la que cobra');
+  assert.deepEqual(cobroDeLaCuenta({ pais: 'MX', opciones: [cr], eur: 44 }), cr, 'el precio en euros es de Stripe: Creem cobra en USD');
+  assert.deepEqual(cobroDeLaCuenta({ pais: null, opciones: [mp, cr], eur: null }), cr, 'sin país tampoco va Mercado Pago, que sólo cobra en el suyo');
+  assert.deepEqual(cobroDeLaCuenta({ pais: 'AR', opciones: [mp, cr], eur: null }), mp, 'en Argentina manda la local, en pesos');
 });
 
 test('el país por la zona horaria de la agencia (cuando no hay encabezado)', () => {

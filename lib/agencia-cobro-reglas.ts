@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { sumarMeses } from './cobrado-lead';
-import type { EstadoCobro, Pasarela } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, type EstadoCobro, type Pasarela } from './cobros-tipos';
 
 /** El precio de un cliente de agencia, en `app_settings` de la plataforma. */
 export const KEY_PRECIO_CLIENTE_AGENCIA = 'agencia.precio_cliente';
@@ -148,12 +148,24 @@ export type OpcionDeCobro = { pasarela: Pasarela; moneda: string; monto: number 
  * todo el mundo. null = hoy no se puede cobrar.
  */
 export function cobroDeLaCuenta(p: { pais: string | null; opciones: readonly OpcionDeCobro[]; eur: number | null }): OpcionDeCobro | null {
-  const mp = p.opciones.find((o) => o.pasarela === 'mercadopago');
-  const stripe = p.opciones.find((o) => o.pasarela === 'stripe');
-  if (mp && (p.pais || !stripe)) return mp;
-  if (!stripe) return null;
-  if (p.pais && EUROZONA.has(p.pais) && p.eur != null && p.eur > 0) return { pasarela: 'stripe', moneda: 'EUR', monto: p.eur };
-  return stripe;
+  // ⚠️ ESTO BUSCABA LOS DOS NOMBRES VIEJOS Y DEVOLVÍA null CON CREEM CONECTADO (31/10/2026): `p.opciones` ya viene
+  // filtrado por país y en LatAm deja Creem, así que `mp` y `stripe` eran los dos `undefined` y la agencia recibía
+  // «MaKo todavía no tiene una pasarela que cobre en ese país» en nueve países. Ninguna cuenta se podía abrir.
+  // El comentario de arriba decía que este bug ya estaba arreglado: se derivó el TIPO y no se tocó el cuerpo.
+  // Ahora la pregunta no es por NOMBRE sino por capacidad, y vive en la tabla (`CAPACIDADES_PASARELA`): la pasarela #4
+  // no compila hasta que alguien decida si cobra afuera de su país.
+  const local = p.opciones.find((o) => CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais);
+  // Las que cobran afuera, en el orden en que las dejó el país: `pasarelasDelPais` ya eligió (Creem en LatAm, Stripe en
+  // el resto del mundo), así que acá NO se vuelve a decidir — se respeta lo que quedó.
+  const afuera = p.opciones.filter((o) => !CAPACIDADES_PASARELA[o.pasarela].soloEnSuPais);
+  if (local && (p.pais || !afuera.length)) return local;
+  const elegida = afuera[0];
+  if (!elegida) return null;
+  // El precio en euros es de Stripe: Creem tiene el enum de monedas cerrado y MaKo le cobra en USD (la misma tabla).
+  if (elegida.pasarela === 'stripe' && p.pais && EUROZONA.has(p.pais) && p.eur != null && p.eur > 0) {
+    return { pasarela: 'stripe', moneda: 'EUR', monto: p.eur };
+  }
+  return elegida;
 }
 
 /**
