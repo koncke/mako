@@ -255,3 +255,13 @@ export function whatsappLimpio(v: unknown): string | null {
   const d = (typeof v === 'string' ? v : '').replace(/[^\d]/g, '');
   return d.length >= 8 && d.length <= 15 ? d : null;
 }
+
+/**
+ * ¿De estos parecidos, cuál ES el comprador? (30/10/2026) El mismo email, teléfono o Instagram, sí. Por nombre sólo si es UNO y no tiene
+ * email: lo cargó alguien a mano antes de que comprara. Con otro email es un homónimo, y la compra no se le ata a otra persona.
+ */
+export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: string; lead: { id: number; email?: string | null } }>): number | null {
+  const fuerte = coincidencias.find((c) => c.motivo !== 'nombre');
+  if (fuerte) return fuerte.lead.id;
+  return coincidencias.length === 1 && !coincidencias[0].lead.email?.trim() ? coincidencias[0].lead.id : null;
+}

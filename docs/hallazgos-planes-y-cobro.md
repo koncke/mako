@@ -10,6 +10,26 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El lead del comprador: el checkout ya lo dejaba, y frenaba al que se llamaba igual que otro (30/10/2026)
+
+**Vive en:** lib/compra-plan.ts (`leadDelComprador`) · lib/compra-plan-reglas.ts (`leadDeLaCompra`) · lib/compra-plan-llamada.ts ·
+lib/cobros.ts (`aplicarPagoAprobado`, 5a) · tests/compra-plan-lead.test.ts (10 roturas cazadas).
+
+- **El diagnóstico obvio («la compra no crea lead») era el equivocado.** `iniciarCompraDePlan` lo crea o reusa al ABRIR el pago, con `origen_lead: 'landing'`
+  y sus UTM, y `aplicarPagoAprobado` lo pasa a Ganado con su cuota y su suscripción. Los leads con monto de la plataforma dicen «Cargado a mano» porque
+  **nunca hubo un cobro: la tabla `cobros` tiene 0 filas** (medido el 30/10). No hay ninguna compra real que confirme este camino: el primero que pague lo estrena.
+- ⚠️ **Lo que sí estaba roto: un homónimo frenaba la compra.** `createLead` también frena por NOMBRE, y `leadDelComprador` sólo sabía resolver un duplicado por email: con
+  otro email tiraba, y el comprador leía «No pudimos registrar tu compra» sin poder pagar. La plataforma tiene 219 leads traídos de grupos, con nombre. **Regla:** en una puerta pública, un
+  duplicado nunca frena. El mismo contacto es el mismo lead. Por nombre sólo si es UNO y no tiene email (lo cargó alguien antes de que comprara). Un homónimo con otro email es otra persona:
+  se crea, y la ficha lo marca en «Posibles duplicados». ⚠️ Un lead cargado a mano con sólo teléfono y con OTRO nombre no se encuentra: el checkout pide email y no teléfono.
+- **Ganado es el final de esa venta, no una lista de llamadas.** Quien paga se AGREGA además al CRM de `planes.crm_llamadas` (agregar no dispara automatizaciones; sólo el primer pago, sólo
+  un plan de MaKo, sólo la plataforma). Sin el setting no pasa nada. Una prueba gratis no llega acá: no pasa por `aplicarPagoAprobado` al empezar.
+- **El high ticket era configuración, no código:** el catálogo de la plataforma no lo tenía y `crearCrm` arma el CRM, el producto y la oferta juntos. Se creó «MaKo Acelerador» con los datos
+  de `PROGRAMA_ACELERADOR`. Falta decidir si se cobra con link: «Vincular cobro» en el ⋯ de su Ganado.
+- **El origen sigue siendo «Landing», a propósito:** es de dónde vino. Que compró lo dicen `cobros` (con `plan_mako` y `origen`) y estar en ese CRM.
+- **Sin hacer:** el checkout no pide teléfono. Stripe puede pedirlo en su propia pantalla, y el webhook ya lo lee (`customer_details.phone`, `phone_number_collection` en el checkout); es un campo
+  más y baja la conversión: lo decide Martín. Y el aviso al equipo («Entró un pago») sale sólo si la plataforma agregó esa automatización de la galería.
+
 ## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
 
 El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).

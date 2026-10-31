@@ -28,6 +28,7 @@ import { credDelCliente } from './credenciales';
 import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
 import { createLead, enriquecerLead, findLeadByContacto, getLead, logLeadEvent, setPipelineStage } from './leads';
+import { anotarParaLlamar } from './compra-plan-llamada';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
@@ -785,6 +786,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
 
     // 5. La plataforma: el alta automática de MaKo (decisión de Martín, 11/10/2026).
     await altaSiCorresponde(actual);
+    // 5a. La plataforma: quien pagó su plan queda en la lista de llamadas (30/10/2026, lib/compra-plan-llamada.ts). No tira.
+    if (!renovacion) await anotarParaLlamar(actual);
     // 5b. La plataforma: el primer mes de un CLIENTE DE AGENCIA lo habilita solo (#866, 17/10/2026). No tira.
     if (!renovacion) await habilitarClienteDeAgencia(actual);
     // 5d. «Empezar mi plan ya» (25/10/2026): el plan desde hoy ya se cobró, la prueba que reemplaza se cancela. No tira.
