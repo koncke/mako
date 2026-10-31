@@ -283,6 +283,8 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   //    `nombre`, `nombre_completo`, `apellido` y `empresa` son los del motor de siempre
   //    (lib/template-vars.ts): los mensajes guardados ya los usan.
   { key: 'nombre', label: 'Nombre', ejemplo: 'Sofía', alcance: 'lead', grupo: 'lead', fuente: 'nombre' },
+  { key: 'segundo_nombre', label: 'Segunda palabra del nombre', ejemplo: 'Contreras', alcance: 'lead', grupo: 'lead', fuente: 'nombre' },
+  { key: 'tercer_nombre', label: 'Tercera palabra del nombre', ejemplo: 'Ruiz', alcance: 'lead', grupo: 'lead', fuente: 'nombre' },
   { key: 'nombre_completo', label: 'Nombre completo', ejemplo: 'Sofía Contreras', alcance: 'lead', grupo: 'lead', fuente: 'nombre' },
   { key: 'apellido', label: 'Apellido', ejemplo: 'Contreras', alcance: 'lead', grupo: 'lead', fuente: 'nombre' },
   { key: 'lead_email', label: 'Email', ejemplo: 'sofia@ejemplo.com', alcance: 'lead', grupo: 'lead', fuente: 'ficha' },

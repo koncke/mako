@@ -14,6 +14,7 @@
 //
 // Los `import type` se borran en compilación, así que no arrastran nada del server.
 
+import { partesDelNombre } from './nombre-partes';
 import type { Lead } from './leads';
 import type { Pago } from './pagos';
 import type { Clase, Progreso } from './curso';
@@ -48,17 +49,19 @@ const ROTULO_ESTADO: Readonly<Record<string, string>> = {
 };
 
 /**
- * El nombre del lead partido como lo parte el motor (lib/template-vars.ts, `valoresVariablesLead`):
- * `nombre` es el PRIMERO —para saludar «Hola Sofía» y no «Hola Sofía Contreras»—, `apellido` el
- * resto. `lead_nombre` es el nombre de antes de los avisos (el completo). Vacío no entra.
+ * El nombre del lead partido como lo parte el motor (lib/nombre-partes.ts): `nombre` es el primero que ES un nombre —«Hola Sofía», no
+ * «Hola MX» ni «Hola 5491155550002»—, `apellido` el resto. `nombre_completo` y `lead_nombre` son tal como está guardado (esto también lo leen
+ * los avisos al equipo: le sirve el código o el teléfono para saber quién es). Vacío no entra.
  */
 export function valoresDelNombre(nombreCompleto: string | null | undefined): Record<string, string> {
   const full = (nombreCompleto ?? '').trim().replace(/\s+/g, ' ');
   if (!full) return {};
-  const partes = full.split(' ');
-  const out: Record<string, string> = { nombre: partes[0]!, nombre_completo: full, lead_nombre: full };
-  const apellido = partes.slice(1).join(' ');
-  if (apellido) out.apellido = apellido;
+  const p = partesDelNombre(full);
+  const out: Record<string, string> = { nombre_completo: full, lead_nombre: full };
+  if (p.nombre) out.nombre = p.nombre;
+  if (p.apellido) out.apellido = p.apellido;
+  if (p.segunda) out.segundo_nombre = p.segunda;
+  if (p.tercera) out.tercer_nombre = p.tercera;
   return out;
 }
 

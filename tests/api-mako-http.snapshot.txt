@@ -431,6 +431,7 @@ marcar_asistencia_reunion
 marcar_avisos_leidos_comunidad
 marcar_calificado
 marcar_pago_cobrado
+marcar_palabra_no_nombre
 marcar_paso_onboarding_tab
 marcar_reunion_manual
 medicion_experimento
@@ -668,6 +669,7 @@ ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
+ver_nombres_del_crm
 ver_novedades_pixel
 ver_objetivo_principal
 ver_papelera_crm

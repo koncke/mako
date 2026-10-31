@@ -6,13 +6,17 @@
 // tanto la UI (dropdown de insertar variable) como el motor de envío.
 // =============================================================================
 
+import { partesDelNombre, sinNombresVacios } from './nombre-partes';
+
 export type VarLead = { key: string; label: string; ejemplo: string; descripcion: string };
 
 // Orden = orden en el dropdown. nombre = SOLO el primer nombre; nombre_completo =
 // nombre y apellido; apellido = el resto. (Distinción pedida para no saludar con
 // el nombre completo cuando solo querés el nombre.)
 export const VARIABLES_LEAD: VarLead[] = [
-  { key: 'nombre', label: 'Nombre', ejemplo: 'Luis', descripcion: 'Solo el primer nombre del lead' },
+  { key: 'nombre', label: 'Nombre', ejemplo: 'Luis', descripcion: 'El primer nombre del lead (salta «MX», «Dra.» y lo que no es un nombre)' },
+  { key: 'segundo_nombre', label: 'Segunda palabra del nombre', ejemplo: 'Pérez', descripcion: 'La segunda palabra, tal como está guardada' },
+  { key: 'tercer_nombre', label: 'Tercera palabra del nombre', ejemplo: 'Gómez', descripcion: 'La tercera palabra, tal como está guardada' },
   { key: 'nombre_completo', label: 'Nombre completo', ejemplo: 'Luis Pérez', descripcion: 'Nombre y apellido' },
   { key: 'apellido', label: 'Apellido', ejemplo: 'Pérez', descripcion: 'Apellido(s) del lead' },
   { key: 'empresa', label: 'Empresa', ejemplo: 'Acme', descripcion: 'Empresa del lead (si la tenemos)' },
@@ -50,20 +54,22 @@ const KEYS = new Set<string>([...VARIABLES_LEAD.map((v) => v.key), ...CLAVES_SIN
 export const esVariableConocida = (k: string): boolean => KEYS.has(k);
 
 // Rellena TODAS las variables del catálogo a partir del lead. El template usa las
-// que necesite; las demás se ignoran. nombre = 1er token, apellido = el resto.
+// que necesite; las demás se ignoran. nombre = el primero que ES un nombre (lib/nombre-partes.ts: «MX Nadia» se saluda Nadia, un teléfono no
+// saluda), apellido = el resto. `noSon`: las palabras que el negocio marcó (`crm.nombres.no_son`). `paraEquipo`: `nombre_completo` tal como está
+// guardado: al equipo le sirven el código y el teléfono para saber quién es.
 export function valoresVariablesLead(
   lead: { nombre?: string | null; empresa?: string | null },
-  ctx?: { negocio?: string | null },
+  ctx?: { negocio?: string | null; noSon?: ReadonlySet<string>; paraEquipo?: boolean },
 ): Record<string, string> {
   const full = (lead.nombre ?? '').trim().replace(/\s+/g, ' ');
-  const parts = full ? full.split(' ') : [];
-  const nombre = parts[0] ?? '';
-  const apellido = parts.slice(1).join(' ');
+  const partes = partesDelNombre(full, ctx?.noSon);
   const negocio = (ctx?.negocio ?? '').trim();
   return {
-    nombre,
-    nombre_completo: full,
-    apellido,
+    nombre: partes.nombre ?? '',
+    segundo_nombre: partes.segunda ?? '',
+    tercer_nombre: partes.tercera ?? '',
+    nombre_completo: ctx?.paraEquipo ? full : partes.completo ?? '',
+    apellido: partes.apellido ?? '',
     empresa: (lead.empresa ?? '').trim(),
     // ⚠️ SÓLO SI HAY VALOR. Con la clave puesta en vacío, `{{negocio}}` se reemplaza
     // por nada y el mensaje sale cojo sin que nadie se entere; sin la clave queda
@@ -83,7 +89,7 @@ export function valoresVariablesLead(
 export function aplicarVariables(texto: string, vars: Record<string, string>): string {
   // Defensa: el valor sale de jsonb (puede no ser string en runtime pese al tipo).
   if (typeof texto !== 'string' || !texto) return '';
-  return texto.replace(/\{\{\s*([a-z0-9_]+)\s*\}\}|\{\{?\s*([a-z_]+)\s*\}?\}/gi, (match, conDigitos: string | undefined, rawKey: string | undefined) => {
+  return sinNombresVacios(texto, vars).replace(/\{\{\s*([a-z0-9_]+)\s*\}\}|\{\{?\s*([a-z_]+)\s*\}?\}/gi, (match, conDigitos: string | undefined, rawKey: string | undefined) => {
     const key = (conDigitos ?? rawKey ?? '').toLowerCase();
     return Object.prototype.hasOwnProperty.call(vars, key) ? vars[key] : match;
   });

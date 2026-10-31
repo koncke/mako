@@ -24,6 +24,7 @@ import { LLENA_EL_FLUJO } from '@/lib/api-mako/flujo-params';
 import { getVslEngagementMap } from '@/lib/leads';
 import { pipelineStageOf } from '@/lib/pipeline';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
+import { noSonDelNegocio } from '@/lib/nombres-negocio';
 import { datosParaElLead } from '@/lib/variables-resolver';
 // EL TEXTO CON SUS DATOS (undécima tanda): el renglón opcional y después los datos. Lo usan TODOS los envíos del motor.
 import { textoConDatos, valoresDeLoEscrito } from '@/lib/variables-del-lead';
@@ -4275,6 +4276,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   // la fila. Si no se puede leer, `{{negocio}}` sale crudo (no vacío) — ver
   // `valoresVariablesLead`.
   const negocio = await getWorkspace(wsCorrida ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
+  // Las palabras que en este negocio no son un nombre (lib/nombre-partes.ts): una vez por corrida, como el negocio.
+  const noSon = await noSonDelNegocio();
 
   /**
    * LA REUNIÓN QUE PREPARA ES LA DEL ÚLTIMO PASO QUE SALIÓ (#789). Se anota al inscribir,
@@ -5418,7 +5421,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         } else {
           // El catálogo entero del «{ }», como el WhatsApp no oficial y el email (`datosParaElLead`), PUESTO acá con
           // el renglón opcional (`partesConDatos`): Zernio recibe el texto final y ningún dato más.
-          const varsSocial = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
+          const varsSocial = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio, noSon }), { ws: wsCorrida, leadId: insc.lead_id });
           const r = await enviarPasoSocial({
             ws: wsCorrida, leadId: insc.lead_id, canal: paso.canal, partes: partesConDatos(partesDe(paso), varsSocial),
             // La clave lleva la VUELTA (`claveDeEnvio`, lib/reentrada.ts): la inscripción reusada de «Volver a probar» no reusa la de antes.
@@ -5456,7 +5459,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         // el paso NOMBRE del catálogo (la etapa, la reunión, el curso…), una lectura por entidad
         // nombrada. Se mira el paso ENTERO (todas sus partes y el pie): un token en la segunda parte
         // también cuenta. `datosParaElLead`, lib/variables-resolver.ts.
-        const varsNO = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
+        const varsNO = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead ?? {}, { negocio, noSon }), { ws: wsCorrida, leadId: insc.lead_id });
         const cuerpoNO = textoConDatos(textoDelPaso(paso), varsNO);
         // PASO EN MODO IA: el texto se escribe recién en la rama que lo manda, DESPUÉS
         // de cada guarda que corta el envío (sin teléfono, línea caída, bloqueado,
@@ -5723,7 +5726,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           terminal = hayOtrosHilos(sanearHilos(insc.hilos), insc.h ?? null);
         } else {
           // Los datos del «{ }», como el WhatsApp de arriba (`datosParaElLead`).
-          const vars = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead, { negocio }), { ws: wsCorrida, leadId: insc.lead_id });
+          const vars = await datosParaElLead(JSON.stringify(paso), valoresVariablesLead(lead, { negocio, noSon }), { ws: wsCorrida, leadId: insc.lead_id });
           // El cuerpo con el renglón opcional (`textoConDatos`); el asunto y el preheader son UNA línea (sin el
           // renglón: se iría el asunto entero) y el HTML no se recorta (docs/diseno-undecima-tanda.md §10).
           const cuerpo = textoConDatos(paso.cuerpo, vars);
@@ -7145,7 +7148,7 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
     if (p.canal !== canal) return no(`Un mensaje de la rama no es de ${nombre}: no salió.`);
     if (ws == null) return no('No le contesté: no sé de qué negocio es.');
     const negocioSocial = await getWorkspace(ws).then((w) => w?.nombre ?? '').catch(() => '');
-    const varsSocial = await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead ?? {}, { negocio: negocioSocial }), { ws, leadId });
+    const varsSocial = await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead ?? {}, { negocio: negocioSocial, noSon: await noSonDelNegocio() }), { ws, leadId });
     const partes = partesConDatos(partesDe(p), varsSocial);
     const textoPartes = partes.map((pt) => (pt.tipo === 'texto' ? pt.cuerpo : pt.tipo === 'media' ? (pt.cuerpo?.trim() || '(un archivo)') : '(una nota de voz)'))
       .map((t) => t.trim()).filter(Boolean).join('\n\n');
@@ -7179,7 +7182,7 @@ async function mandarMensajeDeRespuesta(c: CtxRespuesta, p: PasoSecuencia, i: nu
   if (await estaBloqueado(lead.telefono).catch(() => true)) { await registrar('omitido', 'contacto bloqueado', null); return no('No le contesté: el contacto está bloqueado.'); }
   const negocio = await getWorkspace(ws ?? 0).then((w) => w?.nombre ?? '').catch(() => '');
   // Los datos del «{ }», como los mensajes de la salida (`datosParaElLead`).
-  const pie = textoConDatos(textoDelPaso(p), await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead, { negocio }), { ws: ws ?? null, leadId }));
+  const pie = textoConDatos(textoDelPaso(p), await datosParaElLead(JSON.stringify(p), valoresVariablesLead(lead, { negocio, noSon: await noSonDelNegocio() }), { ws: ws ?? null, leadId }));
   const sale = saleSolo(p, secuencia.envio_automatico) || await esLeadCliente(leadId);
 
   if (p.tipo === 'audio' && Number(p.audio_id) > 0) {

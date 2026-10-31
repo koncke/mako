@@ -296,6 +296,19 @@ FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
 - **Sin hacer:** las reuniones ya se parten en bloques (R2, Agendar, Lo que salió), pero la R1 no elige sus datos. Las cuotas
   tampoco, y no conviene tocarlas hasta que entre la rama `crm-cuotas-espera-revision`, que cambia ese bloque.
 
+## El nombre con que se saluda: «Hola MX», «Hola Kun» y «Hola 5491155550002» (31/10/2026)
+
+**Vive en:** lib/nombre-partes.ts · lib/template-vars.ts (`valoresVariablesLead`, `aplicarVariables`) · lib/nombres-negocio.ts · app/crm/NombresModal.tsx («⋯» del CRM → «Nombres de tus leads») ·
+tests/nombre-partes.test.ts (13 roturas cazadas).
+
+- **Medido en la base de Leila (494 leads con nombre, 31/10):** 143 son sólo un teléfono, y `{{nombre}}` los saludaba con el número; 21 empiezan con un código (MX, PERÚ, COL, ARG, ECU). «Kun Fabiola» no estaba en la base: viene del CRM de la Academia, que todavía no importó.
+- **«Kun» no se puede adivinar.** Una palabra que se repite adelante puede ser un lugar o Ana: por frecuencia no se distinguen. Por eso tres capas, de lo seguro a lo que sólo sabe el negocio: `{{nombre}}` salta lo que seguro no es un nombre (sin letras, con dígitos, entre corchetes, códigos, títulos); el negocio marca sus palabras; y `{{segundo_nombre}}` / `{{tercer_nombre}}`, la opción que pidió Martín, son la palabra en ESA posición, tal como está guardada, para una base entera con la misma forma.
+- ⚠️ **La posición no se calcula sobre el nombre limpio.** En «MX Nadia Calderón», «segundo» es Nadia. Sobre el limpio sería Calderón, y el pedido era justamente para esa forma.
+- ⚠️ **Al equipo se le muestra como está.** Un aviso necesita el código o el teléfono para saber quién es: `nombre_completo` queda tal cual en los avisos (`paraEquipo`, y `valoresDelNombre`). Sólo al lead se le limpia. Sin esto, `sinRenglonesVacios` se comía el renglón del aviso de un lead con nombre de teléfono.
+- **Un nombre vacío no deja el mensaje cojo** (`sinNombresVacios`, adentro de `aplicarVariables`): «Hola {{nombre}}, ¿cómo estás?» sale «Hola, ¿cómo estás?». El renglón no se borra: una clave en vacío es un valor (`sinRenglonesVacios`), y se comería el mensaje entero.
+- **Sigue cambiando lo que ya estaba escrito:** `{{nombre}}` es la misma variable en todas las automatizaciones, y desde ahora «MX Nadia» dice Nadia y un teléfono no saluda. Es lo que se quería, y no se le toca el nombre guardado a nadie.
+- **Sin hacer:** una sigla que no está en la lista, en mayúsculas y con la fila en minúsculas se salta («IVY Stone» → Stone). `valoresDelNombre` (los avisos) no lee la lista del negocio: el motor pasa la suya y gana. La lista no se ofrece todavía al importar.
+
 ## «Extraer»: el resultado era una línea en el pie, y el aviso no se perdía (30/10/2026)
 
 **Vive en:** lib/extraccion-estado.ts · app/crm/ExtraccionModal.tsx (lo monta CrmBoard) · app/crm/TraerDeGrupoWA.tsx · extension/background.js

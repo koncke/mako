@@ -250,7 +250,7 @@ async function leadDelAviso(leadId: number): Promise<{ id: number; nombre: strin
 async function textoDelAviso(texto: string, lead: { id: number; nombreCrudo: string | null; empresa: string | null } | null, ws: number): Promise<string> {
   const t = texto.trim();
   if (!t) return t;
-  const base = lead ? valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa }) : {};
+  const base = lead ? valoresVariablesLead({ nombre: lead.nombreCrudo, empresa: lead.empresa }, { paraEquipo: true }) : {};
   // UNDÉCIMA TANDA (docs/diseno-undecima-tanda.md §5): con `textoConDatos`, la MISMA función de todo envío. Un renglón
   // cuyo dato del catálogo no tiene valor se va entero («📱 {{lead_telefono}}» de un lead sin teléfono no sale); lo que
   // no se conoce queda crudo. Sin token, ni una lectura.
