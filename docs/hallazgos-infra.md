@@ -39,6 +39,22 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Cinco falsas alarmas al medir sobre una copia o un barrido (30/10/2026)
+
+**«0 vivas» con el test ya rojo es un falso verde.** Una corrida de roturas dio 0 vivas de 74 con un test que ya caía antes de romper nada, por un renombre a medias: toda rotura «caía» sola. **La regla:** las roturas sólo valen con el test en verde justo antes, y el script tiene que comprobarlo primero. `«0 tests» no es rojo` tiene este gemelo: «cae» no es prueba si caía de antes.
+
+**`tsc-acotado` con código 134 es memoria, no tipos.** Con 21 archivos que arrastran `lib/nutricion.ts` se quedó sin heap a 2.560 MB: salida 99, no es un veredicto. En dos tandas y con `--heap=3584` terminó, y aun así una tanda dio 99 en otra pasada. Los 16 errores de `app/conocimientos/Compartir.tsx` y `app/video-editor/_opencut` son de archivos arrastrados por los imports: piden declaraciones globales que el acotado no ve.
+
+**Parar una tarea de fondo no saca su turno de la fila del candado.** Corté con TaskStop un barrido que esperaba en `candado-pesado`. Su `node` siguió vivo y, 28 minutos después, tomó el candado sin servidor de salida: 438 líneas de «0 tests · ROJO» en segundos, y un archivo de resultados que parecía un desastre. **La regla:** después de cortar una tarea en fila, se borra su archivo de salida y no se lee nada de lo que escriba. Mejor aún: si no empezó, no se corta y se la deja correr sobre un árbol quieto.
+
+**Un rojo en una copia parcial de main no era del código.** `tests/paso-ia.test.ts` dio 12 / 1 sobre un `git archive` de main con sólo lo que el test parecía usar: lee `supabase/migrations`, que no estaba. Con esa carpeta, 13 / 0. **La regla:** antes de creer un rojo en una copia, mirar qué lee el test del disco. ⚠️ Y un `grep -E "^. "` no encontró el resumen del test: «ℹ» ocupa varios bytes, y el conteo salió vacío.
+
+**«0 tests» no es un rojo del código.** Sale cuando el proceso se quedó sin memoria o sin tiempo antes de contar nada. En un barrido se escribe distinto de un test que falló, con la RAM mínima al lado, y se vuelve a correr solo antes de mirarlo.
+
+**`rm -rf` sobre una carpeta con el junction de `node_modules`.** Los worktrees usan un junction al `node_modules` del clon: borrar la carpeta temporal con `rm -rf` puso en riesgo el compartido de todos los chats. Esa vez quedó entero (745 paquetes contados después), y eso no prueba que sea seguro. **La regla:** primero se saca el junction, con `[IO.Directory]::Delete(ruta)` desde PowerShell, que quita el enlace y no lo que apunta; recién después se borra la carpeta. `rmdir /s` en Git Bash ni corre («Invalid switch»).
+
+---
+
 ## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
 
 **El síntoma.** El push del tren de 91 commits a `integracion` se bloqueó después de 52 minutos con:

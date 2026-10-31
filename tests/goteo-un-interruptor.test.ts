@@ -90,7 +90,7 @@ test('el motor: una lectura del uso por canal; el freno, las frenadas y lo que s
   assert.match(uso, /const clave = claveDeGoteo\(canalDelGoteo\(f\.canal\), Number\(f\.secuencia_id\)\);/, 'el uso se juntaba sin el canal');
   const ini = motor.indexOf('export async function procesarEnvios(');
   const proc = motor.slice(ini, motor.indexOf('\n}\n', ini));
-  assert.match(proc, /frenoDeGoteo\(goteos\.get\(secId\), usoGoteo\.get\(claveDeGoteo\(canalDelGoteo\(canal\), secId\)\) \?\? SIN_USO, Date\.now\(\)\);/);
+  assert.match(proc, /frenoDeGoteo\(goteoDelCanal\(secId, canal\), usoGoteo\.get\(claveDeGoteo\(canalDelGoteo\(canal\), secId\)\) \?\? SIN_USO, Date\.now\(\)\);/);
   assert.match(proc, /sinLugarDelMensaje\(canal, sinLugarEnLaLinea\(insc\.lead_id\), \(c\) => frenoGoteo\(insc\.secuencia_id, c\)\.frena\)/);
   assert.match(proc, /const clave = claveDeGoteo\(canalDelGoteo\(canal\), insc\.secuencia_id\);\s+const k = frenadasGoteo\.get\(clave\) \?\? 0;/, 'las frenadas no van por canal');
   assert.match(proc, /const clave = claveDeGoteo\(canalDelGoteo\(paso\.canal\), insc\.secuencia_id\);\s+usoGoteo\.set\(clave, conEnvio\(/, 'lo que sale no cuenta en su canal');

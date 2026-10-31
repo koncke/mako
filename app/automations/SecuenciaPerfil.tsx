@@ -49,6 +49,7 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { Icon } from '@/app/_components/icons';
 import type { ComponentType } from 'react';
 import { Confirm } from '@/app/_ui/Confirm';
+import { AvisoRitmoConfirm } from './AvisoRitmoConfirm';
 // Leila 2 (28/10/2026): al activar una por etapa, los que YA están en la etapa y no entran solos.
 import { hayQuePreguntar, preguntaExistentes, textoAlActivar, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
 import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
@@ -1331,8 +1332,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
 
             {/* «Poner goteo», «Poner horario»: abre Configuraciones y NO la prende. Cerrar el aviso nunca manda nada. */}
             {avisoRitmo && (
-              <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.poner ? 'Activar igual' : 'Activar'}
-                cancelLabel={avisoRitmo.poner && Configuraciones ? avisoRitmo.poner : 'Cancelar'} tone="primary"
+              <AvisoRitmoConfirm aviso={avisoRitmo} secuenciaId={secuencia.id} incluir={incluirExistentes.current} puedePoner={!!Configuraciones}
+                onDescartado={(a) => { setAvisoRitmo((v) => (v ? { ...a, seguir: v.seguir } : v)); onCambio(); }}
                 onConfirm={() => { const s = avisoRitmo.seguir; setAvisoRitmo(null); s(); }}
                 onCancel={() => { const abrir = !!avisoRitmo.poner && !!Configuraciones; setAvisoRitmo(null); if (abrir) setConfigAbierta(true); }} />
             )}

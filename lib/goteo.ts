@@ -26,7 +26,63 @@
 // es de cada canal porque el riesgo lo es (el baneo de un número no tiene que ver con el tope de Meta).
 // =============================================================================
 
-export type Goteo = { minutos?: number; dia?: number };
+/**
+ * EL ARRANQUE GRADUAL (Leila, llamada del 30/10/2026, punto 5.8): el número de Mauricio quedó bloqueado 24 h al pasar de unos 20 a 60 por día. Empieza con `dia` y
+ * sube `sube` cada vez que un día llegó a su tope, hasta el tope del goteo. SÓLO WHATSAPP: lo que se bloquea es el número, y en Instagram dejaba gente afuera de su
+ * ventana de 24 h. Por LO QUE MANDÓ, no por fecha (`subidasDelArranque`): una pausada que vuelve a las dos semanas no volvió a estar «caliente».
+ */
+export type ArranqueGoteo = { dia: number; sube: number };
+export type Goteo = { minutos?: number; dia?: number; arranque?: ArranqueGoteo };
+
+/** Hasta cuántos días puede tardar en llegar al tope: se lee esa historia en cada corrida, y un arranque más lento no llegaría nunca. */
+export const ARRANQUE_MAX_DIAS = 60;
+export const arranqueLlega = (dia: number, a: ArranqueGoteo): boolean => (dia - a.dia) / a.sube <= ARRANQUE_MAX_DIAS;
+/** Cuántos días para atrás hace falta mirar: los que tarda en llegar al tope, y unos de más por los huecos. */
+export const diasQueMiraElArranque = (g: { dia: number; arranque: ArranqueGoteo }): number => Math.min(ARRANQUE_MAX_DIAS, Math.ceil(Math.max(0, g.dia - g.arranque.dia) / g.arranque.sube)) + 7;
+
+/**
+ * CUÁNTAS VECES YA SUBIÓ, sin contar hoy. `dias`: cuántos WhatsApp salieron cada día, en AAAA-MM-DD y en la zona del negocio.
+ * ⚠️ UN DÍA SUBE SÓLO SI LLEGÓ A SU TOPE (la revisión del 31/10/2026). Contando «mandó algo», una difusión lanzada a las 20:40 mandaba 5 antes de cerrar, y al otro
+ * día ya podía 40: pasaba de 5 a 34 sin pasar por 20. Lo mismo un día en que otra automatización se comió la línea. Quien no llega a su tope no necesita subirlo.
+ * ⚠️ Un hueco de hasta 2 días sin mandar no corta: con un horario de lunes a viernes, el lunes sigue. Más que eso vuelve a empezar: el número ya no está acostumbrado.
+ */
+export function subidasDelArranque(dias: ReadonlyMap<string, number>, hoy: string, g: { dia: number; arranque: ArranqueGoteo }): number {
+  const numero = (d: string) => Date.parse(`${d}T00:00:00Z`) / DIA_MS;
+  const h = numero(hoy);
+  const orden = [...dias].map(([d, cuantos]) => ({ n: numero(d), cuantos })).filter((x) => Number.isFinite(x.n) && x.n < h && x.cuantos > 0).sort((a, b) => b.n - a.n);
+  const tanda: number[] = [];
+  let anterior = h;
+  for (const x of orden) {
+    if (anterior - x.n > 3) break;
+    tanda.unshift(x.cuantos);
+    anterior = x.n;
+  }
+  let k = 0;
+  for (const cuantos of tanda) if (cuantos >= (goteoDeHoy(g, k)?.dia ?? g.dia)) k += 1;
+  return k;
+}
+
+/** El goteo de HOY: el mismo, con el tope que le toca por los días que ya mandó. Sin arranque, o sin tope, el que tiene. */
+export function goteoDeHoy(g: Goteo | null | undefined, yaMando: number): Goteo | undefined {
+  if (!g) return undefined;
+  if (!g.arranque || g.dia == null) return g;
+  return { ...g, dia: Math.min(g.dia, g.arranque.dia + g.arranque.sube * Math.max(0, yaMando)) };
+}
+
+/** En qué día de la tanda (desde 0) y en qué lugar de ese día sale el k-ésimo mensaje (desde 0). */
+export function diaDelTurno(k: number, g: { dia: number; arranque?: ArranqueGoteo }): { dia: number; enElDia: number } {
+  let resto = Math.max(0, k);
+  let dia = 0;
+  for (;;) {
+    const tope = Math.max(1, Math.floor(goteoDeHoy(g, dia)?.dia ?? g.dia));
+    if (resto < tope || tope >= g.dia) {
+      const mas = Math.floor(resto / tope);
+      return { dia: dia + mas, enElDia: resto - mas * tope };
+    }
+    resto -= tope;
+    dia += 1;
+  }
+}
 
 /** Los canales con goteo. Cada uno cuenta sus mensajes; los dos de Meta van aparte (son cuentas distintas). */
 export const CANALES_DEL_GOTEO = ['whatsapp', 'email', 'instagram', 'messenger'] as const;
@@ -125,6 +181,6 @@ export function frenoAlAprobar(g: Goteo | null | undefined, uso: UsoGoteo, ahora
 /** Cómo se dice el goteo (la pantalla y la API de MaKo). */
 export function textoDeGoteo(g: Goteo | null | undefined): string {
   if (!g || (g.minutos == null && g.dia == null)) return 'sin goteo: sale todo lo que deje el tope de la línea';
-  const partes = [g.minutos != null ? `uno cada ${g.minutos} min` : '', g.dia != null ? `hasta ${g.dia} por día` : ''].filter(Boolean);
+  const partes = [g.minutos != null ? `uno cada ${g.minutos} min` : '', g.dia != null ? `hasta ${g.dia} por día` : '', g.arranque && g.dia != null ? `por WhatsApp arranca con ${g.arranque.dia} y sube ${g.arranque.sube} por día` : ''].filter(Boolean);
   return `${partes.join(', ')}, dentro del tope de la línea`;
 }

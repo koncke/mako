@@ -67,7 +67,7 @@ export type AutomatizacionM = {
   /** null = quien mira no ve /chat-analyst, o es una de «MaKo en WhatsApp» (le escriben al grupo, no a leads). */
   numeros: NumerosM | null;
   /** No tiene goteo u horario: lo que se le dice al dueño (`avisoDeUnaPrendida`). Se muestra sólo si está prendida. */
-  avisoRitmo?: { texto: string; rotulo: string } | null;
+  avisoRitmo?: { texto: string; rotulo: string; poner: string | null } | null;
 };
 
 // ⛔ ACÁ VIVÍA `SeccionAutoM`: la lista partida en «Chatbot» y «MaKo en WhatsApp», como el escritorio de

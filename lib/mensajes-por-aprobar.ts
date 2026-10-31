@@ -41,11 +41,23 @@ export function contarPorAprobar(filas: ReadonlyArray<{ secuencia_id: number | s
 }
 
 /**
- * ¿Algún mensaje de WhatsApp de este flujo le va a quedar como borrador a un lead que no pagó? Con la MISMA regla del
+ * Los mensajes de WhatsApp de este flujo que le van a quedar como borrador a un lead que no pagó. Con la MISMA regla del
  * motor (`saleSolo`): `revisar` del mensaje y, si no tiene, el «sale sola» de la automatización. Las respuestas de
  * «Si responde» no cuentan: tienen su regla propia (contestan solas sólo con `revisar === false`) y no salen al activar.
+ * ⚠️ SÓLO WHATSAPP: Instagram y Messenger no tienen bandeja, y el motor los manda sin pasar por `saleSolo` (`procesarEnvios`).
  */
-export function dejaBorradores(pasos: readonly PasoGrafo[], envioAutomatico: boolean): boolean {
+export function mensajesQueQuedan(pasos: readonly PasoGrafo[], envioAutomatico: boolean): PasoGrafo[] {
   const respuestas = subarbolRespuesta(pasos);
-  return pasos.some((p, i) => esNodoMensaje(p) && p.canal === 'whatsapp' && !respuestas.has(idDe(p, i)) && !saleSolo(p, envioAutomatico));
+  return pasos.filter((p, i) => esNodoMensaje(p) && p.canal === 'whatsapp' && !respuestas.has(idDe(p, i)) && !saleSolo(p, envioAutomatico));
+}
+
+/** Todos los mensajes del flujo, de cualquier canal, sin las respuestas de «Si responde»: el total contra el que se dice cuántos quedan. */
+export function mensajesDelFlujo(pasos: readonly PasoGrafo[]): PasoGrafo[] {
+  const respuestas = subarbolRespuesta(pasos);
+  return pasos.filter((p, i) => esNodoMensaje(p) && !respuestas.has(idDe(p, i)));
+}
+
+/** ¿Alguno de este flujo queda para aprobar? (`mensajesQueQuedan`). */
+export function dejaBorradores(pasos: readonly PasoGrafo[], envioAutomatico: boolean): boolean {
+  return mensajesQueQuedan(pasos, envioAutomatico).length > 0;
 }

@@ -185,6 +185,8 @@ export type EditorMensajeWhatsAppProps = {
    * micrófono ni «Audios guardados» (aunque venga `permiteAudio`), y el clip suma «Voz de MaKo» (ver la cabecera).
    */
   vozMako?: boolean;
+  /** Deja escribir otras formas de decir el mensaje («↻»): sólo donde el motor las sortea, WhatsApp por QR. */
+  conVersiones?: boolean;
   /**
    * Una espera de MINUTOS antes del mensaje `i` (WhatsApp 2, 10/10/2026): quien monta PARTE la tarjeta
    * en dos con una espera en el medio (lib/flujo-edicion.ts, `partirConEspera`). Sin esto, sólo segundos.
@@ -542,6 +544,8 @@ const cacheVoces = new Map<string, { t: number; lista: AudioSetting[] }>();
 const juntarAudios = (xs: readonly AudioSetting[], nuevas: readonly AudioSetting[]): AudioSetting[] =>
   [...xs, ...nuevas.filter((n) => !xs.some((x) => x.id === n.id))];
 
+/** Las que guarda `setSecuenciaPasos`. */
+const TOPE_VERSIONES = 8;
 const chip: CSSProperties = { height: 28, padding: '0 10px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: "'Geist', sans-serif", fontSize: 12.5, fontWeight: 600, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 };
 const cajaPopover: CSSProperties = { width: 280, maxHeight: 340, overflowY: 'auto', padding: 10, background: 'var(--surface)', border: '1px solid var(--border-strong)', borderRadius: 12, boxShadow: '0 12px 34px rgba(18,21,27,.18)', fontFamily: "'Geist', sans-serif", display: 'flex', flexDirection: 'column', gap: 8 };
 const accionBurbuja: CSSProperties = { width: 28, height: 28, flex: 'none', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--dim)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: 0 };
@@ -574,7 +578,7 @@ export function horaDeAhora(): string {
 
 export function EditorMensajeWhatsApp({
   paso, onChange, audios, onAudioNuevo, variables, datos, permiteIA, onModoIA, permiteAudio: pidenAudio = true, permiteAdjuntos = true,
-  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon: redactaPedido, onPartirConEspera, vozMako,
+  negocio, placeholder, adjuntos, onAdjuntoNuevo, paraGuion, disparador, deshabilitado, onError, autor, redactaCon: redactaPedido, onPartirConEspera, vozMako, conVersiones,
   contexto, chatMako = null,
 }: EditorMensajeWhatsAppProps) {
   const ws = useWs();
@@ -720,6 +724,22 @@ export function EditorMensajeWhatsApp({
   }, [vocesQueFaltan, ws]);
 
   /**
+   * ⚠️ Corregir el texto suelta las otras formas de decirlo (`variantesTrasCambio`), y escritas a mano costaron: se dice, y «Deshacer» las devuelve ABIERTAS. Siguen
+   * diciendo lo de antes: el motor las sortearía, y ese fue el error del 25/10. Quedan a la vista para corregirlas.
+   */
+  const avisarSiSeVan = (cuerpo: string, unTextoAhora = true) => {
+    const deQuien = pasoVivo.current;
+    const antes = deQuien.variantes ?? [];
+    const r = variantesTrasCambio(deQuien, unTextoAhora, cuerpo);
+    if (!antes.length || !r.variantes || r.variantes.length) return;
+    show('Se fueron las otras formas de decirlo', () => {
+      if (!mismoPaso(pasoVivo.current, deQuien)) return;
+      vivo.current.onChange({ variantes: [...antes] });
+      setAbierto('variantes');
+    });
+  };
+
+  /**
    * Le pasa al lienzo la lista nueva en su forma GUARDADA (`formaGuardada`). Las variantes («↻ N»)
    * son de UN texto: con cualquier otra cosa, o con un texto que CAMBIA, se sueltan EXPLÍCITAS (`[]`,
    * `variantesTrasCambio`). `devolver`: las que repone el «Deshacer» del 🗑.
@@ -727,6 +747,7 @@ export function EditorMensajeWhatsApp({
   const aplicarPartes = (lista: readonly ParteMensaje[], devolver?: readonly string[] | null) => {
     const antes = pasoVivo.current;
     const f = formaGuardada(lista, antes.tipo === 'ia');
+    if (!devolver?.length) avisarSiSeVan(f.cuerpo ?? '', esUnTexto(lista));
     const despues: PasoSecuenciaDto = {
       ...antes, tipo: f.tipo, cuerpo: f.cuerpo, audio_id: f.audio_id, media_id: f.media_id, partes: f.partes,
       ...variantesTrasCambio(antes, esUnTexto(lista), f.cuerpo ?? '', devolver),
@@ -794,6 +815,7 @@ export function EditorMensajeWhatsApp({
     if (r === 'vacio') return;
     if (r === 'lleno') { avisar('Va un solo mensaje'); return; }
     setError(null);
+    avisarSiSeVan(r.cuerpo);
     // Un texto nuevo suelta las variantes del viejo (`variantesTrasCambio`): el motor las sorteaba.
     onChange({ cuerpo: r.cuerpo, ...variantesTrasCambio(pasoVivo.current, true, r.cuerpo) });
     limpiarBarra();
@@ -1193,6 +1215,10 @@ export function EditorMensajeWhatsApp({
   const unTexto = varias ? esUnTexto(partes) : (!paso.tipo || paso.tipo === 'texto' || paso.tipo === 'ia');
   // Sin variantes en «MaKo en WhatsApp» (`vozMako`): el aviso al equipo no las sortea.
   const variantes = unTexto && !vozMako ? (paso.variantes ?? []) : [];
+  // Otras formas de decirlo, escritas a mano (Leila, 30/10/2026: el mismo texto a muchos es lo que hace reportar un número). Antes sólo las generaba MaKo al armar
+  // el flujo, y sin ninguna no había dónde tocar. Un mensaje de IA ya sale distinto para cada uno. El motor toma hasta 8 (`setSecuenciaPasos`).
+  // `conVersiones`: la tarjeta lo pide, y sólo donde el motor las sortea (WhatsApp por QR): en el oficial, el recordatorio o el aviso al grupo se guardaban y no salían.
+  const agregaVersiones = !!conVersiones && unTexto && !vozMako && paso.tipo !== 'ia' && !!(paso.cuerpo ?? '').trim();
   const ocupado = !!deshabilitado || !!fase || !!subida;
 
   const pastillaPausa = (i: number) => {
@@ -1231,9 +1257,9 @@ export function EditorMensajeWhatsApp({
   const filaDeBurbuja = (i: number, burbuja: ReactNode, alEditar: () => void, alBorrar: () => void, conVariantes: boolean) => (
     <div key={`p-${i}`} data-parte={i} style={{ display: 'flex', flexDirection: saliente ? 'row' : 'row-reverse', alignItems: 'center', justifyContent: 'flex-end', gap: 6, alignSelf: 'stretch', minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 4, flex: 'none' }}>
-        {conVariantes && variantes.length > 0 && (
-          <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
-            onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={{ ...chip, height: 28 }}>↻ {variantes.length}</button>
+        {conVariantes && (variantes.length > 0 || agregaVersiones) && (
+          <button type="button" ref={setBtnVariantes} disabled={ocupado} title="Otras formas de decirlo" aria-label="Otras formas de decirlo" aria-expanded={abierto === 'variantes'}
+            onClick={() => setAbierto((a) => (a === 'variantes' ? null : 'variantes'))} style={{ ...chip, height: 28 }}>↻{variantes.length > 0 ? ` ${variantes.length}` : ''}</button>
         )}
         {/* Otra vez sobre la que se edita, CIERRA la edición (décima tanda, WhatsApp 2: `alTocarEditar`). */}
         <button type="button" disabled={ocupado} onClick={alEditar} title={editando === i ? 'Cerrar edición' : 'Editar'} aria-pressed={editando === i}
@@ -1325,6 +1351,7 @@ export function EditorMensajeWhatsApp({
     if (!varias) {
       const unido = textos.join('\n\n');
       const cuerpo = modo === 'reemplazar' ? unido : [paso.cuerpo ?? '', unido].filter((t) => t.trim()).join('\n\n');
+      avisarSiSeVan(cuerpo);
       onChange({ cuerpo, ...variantesTrasCambio(pasoVivo.current, true, cuerpo) });
     } else {
       aplicarPartes(propuestaALista(partesDe(pasoVivo.current), textos, modo));
@@ -1482,6 +1509,9 @@ export function EditorMensajeWhatsApp({
                   style={{ background: 'none', border: 'none', color: 'var(--faint)', cursor: 'pointer', fontSize: 13, padding: '5px 2px' }}>✕</button>
               </div>
             ))}
+            {agregaVersiones && variantes.length < TOPE_VERSIONES && (
+              <button type="button" onClick={() => onChange({ variantes: [...variantes, ''] })} style={{ ...chip, alignSelf: 'flex-start' }}>＋ Otra forma de decirlo</button>
+            )}
           </div>
         </PopoverWA>
       )}

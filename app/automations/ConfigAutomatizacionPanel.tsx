@@ -101,7 +101,7 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
 }
 
 /** Un cambio del goteo de esta automatización: los campos que cambian (`null` = se saca). */
-type CambioGoteo = Record<string, number | null>;
+type CambioGoteo = Record<string, number | null | { dia: number; sube: number }>;
 
 /** El ⓘ del bloque: para qué canales vale, y cómo cuenta (lib/goteo.ts). */
 export const INFO_TODOS_LOS_CANALES = 'Valen para WhatsApp, email, Instagram y Messenger: cada canal cuenta sus mensajes.';
@@ -127,7 +127,7 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
    * (el valor no cambiaba hasta que volvía el server) y un ▲ en Email dentro del respiro tiraba el de WhatsApp. `local`
    * es lo que se ve hasta que el server contesta (null = sacado); `pendiente`, lo que sale al vencer el respiro.
    */
-  const [local, setLocal] = useState<Record<string, number | null>>({});
+  const [local, setLocal] = useState<CambioGoteo>({});
   const pendiente = useRef<CambioGoteo>({});
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
@@ -153,7 +153,7 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
     }, 350);
   };
   /** Lo guardado de un campo, con lo tocado encima (undefined = ausente). */
-  const leido = (campo: 'minutos' | 'dia'): number | undefined => (campo in local ? local[campo] ?? undefined : d?.config.goteo?.[campo]);
+  const leido = (campo: 'minutos' | 'dia'): number | undefined => (campo in local ? (local[campo] as number | null) ?? undefined : d?.config.goteo?.[campo]);
   /**
    * UNA FILA COMO EN AJUSTES DE iOS (23/10/2026, Martín: «que el botón de "on-off" esté al lado de donde se configuran el
    * resto de cosas no es muy intuitivo»): el nombre con su interruptor en la fila, y el número en un renglón de abajo SÓLO
@@ -184,8 +184,34 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
     filas: d ? [
       filaGoteo('minutos', 'Goteo', 'el goteo', 'Uno cada', 'min', 'Los mensajes salen de a uno, con esta espera entre dos.', 5),
       filaGoteo('dia', 'Tope por día', 'el tope por día', 'Hasta', 'por día', 'Cuántos mensajes de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
+      <FilaArranque key="arranque" tope={leido('dia')} arranque={('arranque' in local ? local.arranque as { dia: number; sube: number } | null : d.config.goteo?.arranque) ?? undefined}
+        off={off} error={invalido.arranque} guardar={guardar} onInvalido={(e) => setInvalido((p) => ({ ...p, arranque: e ?? '' }))} />,
     ] : [],
   };
+}
+
+/** EL ARRANQUE GRADUAL (lib/goteo.ts): sólo con tope por día, que es hasta dónde sube, y al apagar el tope se va con él (`configParaGuardar`). */
+function FilaArranque({ tope, arranque, off, error, guardar, onInvalido }: {
+  tope: number | undefined; arranque: { dia: number; sube: number } | undefined; off: boolean; error?: string;
+  guardar: (c: CambioGoteo) => void; onInvalido: (e: string | null | undefined) => void;
+}) {
+  if (tope === undefined) return null;
+  const on = !!arranque;
+  return (
+    <FilaOpcion nombre="Arranque gradual" info="Sólo WhatsApp. Empieza con menos y sube cada día que llega a su tope, hasta el tope por día. Si pasa más de 2 días sin mandar, vuelve a empezar." error={error} datos={{ 'data-goteo-campo': 'arranque' }}
+      interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? 'Apagar el arranque gradual' : 'Prender el arranque gradual'} onCambio={(x) => guardar({ arranque: x ? { dia: Math.min(20, tope), sube: 20 } : null })} />}
+      debajo={arranque ? (
+        <>
+          <Unidad>Empieza con</Unidad>
+          <Numero valor={arranque.dia} min={RANGOS_GOTEO.dia[0]} max={RANGOS_GOTEO.dia[1]} disabled={off} etiqueta="Arranque gradual · el primer día"
+            onCambio={(n) => guardar({ arranque: { ...arranque, dia: n } })} onInvalido={onInvalido} />
+          <Unidad>y sube</Unidad>
+          <Numero valor={arranque.sube} min={RANGOS_GOTEO.dia[0]} max={RANGOS_GOTEO.dia[1]} disabled={off} etiqueta="Arranque gradual · cuánto sube por día"
+            onCambio={(n) => guardar({ arranque: { ...arranque, sube: n } })} onInvalido={onInvalido} />
+          <Unidad>por día</Unidad>
+        </>
+      ) : undefined} />
+  );
 }
 
 /**
