@@ -11326,3 +11326,38 @@ tabs» (Classroom: Clients y Members; el Calendario: el desplegable de vistas y 
   clic) y la lee el server: un F5 o un link vuelven a ella.
 - **Antes de decidir qué vista reemplaza a cuál, mirá cuáles ya hay.** Clients ya tenía una Lista; reemplazarla por Members perdía
   una columna. Detalle: [docs/hallazgos-customer-success.md](docs/hallazgos-customer-success.md) → «Clients y Members, UNA sub-tab».
+
+# «No existe» es una HIPÓTESIS: antes de construir, medí el ÁRBOL contra la rama del brief
+
+El `main` de este clon compartido **no es** `origin/main`: las sesiones trabajan en worktrees y
+el checkout principal se queda atrás. Medido el 30/10/2026: estaba **4.431 commits detrás** de
+`origin/main` (y 12 adelante, con trabajo local de otras sesiones). En ese árbol `app/ads-manager/`
+todavía era la réplica de Meta Ads Manager que se borró el 25/10, así que un chat construyó de
+cero «la calculadora de presupuesto de anuncios» —módulo, pantalla, operación de la API y 16
+tests— que **ya existía** (`lib/calculadora-presupuesto-ads.ts`, 22/10), con su propio docblock
+citando el pedido de Martín.
+
+**Y el trabajo nuevo no choca contra nada hasta el final.** El módulo era puro, los tests pasaban,
+el `tsc` acotado daba 0 y las defs de la API auto-mergearon: lo único que delató la divergencia
+fue el `cherry-pick`, con dos conflictos `DU` —*deleted by us, modified by them*— sobre archivos
+que en la rama de verdad ya no existen.
+
+Antes de escribir una línea, y son cuatro comandos:
+
+```sh
+git fetch origin integracion main
+git rev-list --count HEAD..origin/integracion        # cuánto te falta (si no es 0, no estás ahí)
+git log --oneline -5 origin/integracion -- <la carpeta que vas a tocar>
+grep -rln "<el nombre de la feature>" lib/ app/      # ¿ya existe?
+```
+
+⚠️ **LA SEÑAL MÁS BARATA: un archivo que el brief NOMBRA y no está en el árbol de trabajo.** Si el
+brief cita `docs/<algo>.md` y hay que ir a buscarlo con `git show <sha>:<ruta>` porque en disco no
+está, el árbol **no es la rama del brief** — y eso se sabe antes de abrir un editor. Ahí se cambia
+de base (o se arma el worktree sobre la rama correcta), no se sigue.
+
+⚠️ **Y si igual se construyó de más, lo que se agrega va al MÓDULO QUE YA EXISTE, no al lado.**
+Dos cuentas del mismo presupuesto se desincronizan y la pantalla y el chat terminan diciendo
+números distintos: es «una cosa, un lugar» con la versión nueva de uno mismo como el segundo
+lugar. Lo que se descarta se DICE en la cosecha, con lo que quedó medido, para que el próximo no
+lo vuelva a construir.

@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  calcularPresupuestoAds, opciones, titularDelPlan, textoParaMako, RESULTADOS_PARA_DECIDIR, RESULTADOS_APRENDIZAJE, MAX_POR_DIMENSION,
+  calcularPresupuestoAds, opciones, titularDelPlan, textoParaMako, RESULTADOS_PARA_DECIDIR, RESULTADOS_APRENDIZAJE, MAX_POR_DIMENSION, landingsDelPresupuesto, PISO_LANDING,
   type EntradaCalculadora, type PlanCalculadora,
 } from '../lib/calculadora-presupuesto-ads';
 import { RECON_LEADS_VALIDACION } from '../lib/config';
@@ -199,3 +199,77 @@ test('a MaKo le llegan las entradas y el plan, no sólo la pregunta', () => {
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
+
+// ── Las LANDINGS: el paso 1 del lanzamiento, y el piso que dice que NO (30/10/2026) ──
+// La calculadora ya repartía ángulos entre avatares y funcionalidades; lo que faltaba de la
+// llamada del 30/10 (docs/estrategia-lanzamiento-low-to-high.md § 6) es CUÁNTAS LANDINGS, con
+// los dos números de Martín como calibración y —lo que importa— con la respuesta «no te
+// alcanza» en vez de un reparto más fino.
+//
+// ⚠️ PROBADO ROMPIÉNDOLO (base en verde: 25 pasan, 0 fallan). Cada rotura se aplicó en
+// lib/calculadora-presupuesto-ads.ts, se corrió este archivo y se revirtió:
+//   #  Qué se rompió                                             Resultado   Qué cayó
+//   1  `PISO_LANDING = 500` → `333`                              21 / 4      los dos de Martín, el «tres no» y el piso exacto
+//   2  `Math.floor(total / piso)` → `Math.ceil(...)`             22 / 3      el piso exacto y los dos del NO
+//   3  el early-return de `landings < 1` borrado                 23 / 2      «dice que NO» y «no da un plan»
+//   4  `porQueNoMas` devolviendo siempre null                    24 / 1      «explica por qué no una más»
+//   5  la línea de landings fuera de `textoParaMako`             24 / 1      «a MaKo le llegan las landings»
+
+test('US$1.000 son 2 landings, a US$500 cada una (Martín, 30/10)', () => {
+  const l = landingsDelPresupuesto(1000);
+  assert.equal(l.alcanza, true);
+  assert.equal(l.landings, 2);
+  assert.equal(l.porLanding, 500);
+  assert.equal(l.veredicto, 'Con US$1,000 te alcanza para probar 2 landings, a US$500 cada una.');
+});
+
+test('tres NO: a US$333 cada una va corto, y lo dice', () => {
+  const l = landingsDelPresupuesto(1000);
+  assert.notEqual(l.landings, 3);
+  assert.equal(l.porQueNoMas, '3 no: a US$333 cada una vas corto y ninguna te da un resultado claro.');
+});
+
+test('US$2.000 son 4 landings, «porque son 500 en cada una»', () => {
+  const l = landingsDelPresupuesto(2000);
+  assert.equal(l.landings, 4);
+  assert.equal(l.porLanding, 500);
+});
+
+test('el piso es exacto: US$500 es una landing y US$499 no es ninguna', () => {
+  assert.equal(landingsDelPresupuesto(500).landings, 1);
+  assert.equal(landingsDelPresupuesto(499).landings, 0);
+});
+
+test('un presupuesto que no alcanza para una landing dice que NO, con lo que falta', () => {
+  const l = landingsDelPresupuesto(400);
+  assert.equal(l.alcanza, false);
+  assert.equal(l.landings, 0);
+  assert.equal(l.faltan, 100);
+  assert.equal(l.veredicto, 'Con US$400 no te alcanza para probar ni una landing.');
+  assert.equal(l.queHacer, 'No lo repartas más fino: por debajo de US$500 por landing el resultado no te dice nada y la plata se gasta igual. Te faltan US$100 para probar una.');
+  assert.equal(l.porLanding, 0);
+  assert.equal(l.porQueNoMas, null);
+});
+
+test('menos presupuesto es MENOS landings, nunca un reparto más fino', () => {
+  const l = landingsDelPresupuesto(900);
+  assert.equal(l.landings, 1);
+  assert.equal(l.porLanding, 900);
+  assert.ok(l.porLanding >= PISO_LANDING);
+});
+
+test('el plan las trae, y a MaKo le llegan', () => {
+  const e = martin();
+  const p = plan(e);
+  assert.equal(p.landings.landings, 4);
+  assert.ok(textoParaMako(e, p).includes('te alcanza para probar 4 landings'));
+});
+
+test('la tarjeta del arranque DIBUJA las landings (si no, la salida queda huérfana)', () => {
+  // La trampa que este assert cubre es la de siempre: el campo nuevo del plan existe, tipa y
+  // no lo lee nadie. Se mira el veredicto Y el `queHacer`, que es la mitad que sólo aparece
+  // con un presupuesto corto — o sea justo la que nadie prueba a mano.
+  const s = fuente('app/ads-manager/ArranqueMediaBuyer.tsx');
+  assert.match(s, /plan\.landings\.veredicto/);
+  assert.match(s, /plan\.landings\.queHacer/);
+});

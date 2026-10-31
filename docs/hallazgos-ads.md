@@ -5556,3 +5556,101 @@ archivos; nunca entró a un tren. Se rescató en `nube/media-buyer-rescate`.
   `mb.css` restaurado va a sobrar el día que «Nueva campaña» adopte `aa.css`: ahí sí se borra, con sus dos archivos, el
   import de `nueva/page.tsx` y la excepción de `tests/media-buyer-pantalla-m.test.ts`. Nada de esto se vio en pantalla, y
   el `tsc` acotado NO se pudo correr en esta máquina (134/99, que no es verde): los tipos los corre Actions.
+---
+
+## La calculadora de presupuesto YA EXISTÍA, y la base local estaba 4.431 commits atrás (30/10/2026)
+
+**Síntoma:** un chat arrancó a construir «la calculadora de presupuesto de anuncios» con el
+encuadre de que **no existía**, la construyó entera —módulo puro, pantalla propia en
+`/ads-manager/presupuesto`, operación en la API de MaKo, 16 tests con ocho roturas— y al ir a
+pushear descubrió que `lib/calculadora-presupuesto-ads.ts` existe desde el 22/10, que la
+pantalla vive adentro del arranque del Media Buyer (`ArranqueMediaBuyer.tsx`) y que su propio
+docblock cita a Martín pidiéndola: «en el onboarding, me imagino a la calculadora que hicimos
+para saber cuanto invertir, todo con el chat de MaKo, como Offer».
+
+**La causa real no fue el encuadre: fue el ÁRBOL.** El `main` del clon compartido estaba
+**4.431 commits detrás de `origin/main`** (y 12 adelante con trabajo local de otras sesiones).
+En ese árbol:
+
+- `app/ads-manager/` todavía era la réplica de Meta Ads Manager (`AdsManagerView.tsx`,
+  `CampanasBrowser.tsx`, `OnboardingAdsManager.tsx`), borrada el 25/10 cuando la tab pasó a ser
+  el Media Buyer de IA.
+- `docs/estrategia-lanzamiento-low-to-high.md` **no estaba en el árbol de trabajo**: vive en
+  `origin/integracion`, y el chat lo leyó con `git show a4c4d35dd:…` sin preguntarse por qué no
+  estaba en disco. **Ésa era la señal, y se la pasó por alto.** Un documento que el brief nombra
+  y que no está en el árbol significa que el árbol no es la rama del brief.
+
+Y el trabajo nuevo no choca contra nada hasta el final: el módulo nuevo era puro, los tests
+pasaban, el typecheck acotado daba 0, las defs de la API auto-mergearon. Lo único que delató la
+divergencia fue el `cherry-pick`, con dos conflictos `DU` (**deleted by us, modified by them**)
+sobre `AdsManagerView.tsx` y `OnboardingAdsManager.tsx`.
+
+**La regla que queda, y es barata:** antes de construir una feature, **medir el árbol contra la
+rama del brief**, no contra lo que esté checkouteado:
+
+```sh
+git fetch origin integracion main
+git rev-list --count HEAD..origin/integracion     # cuánto te falta
+git log --oneline -5 origin/integracion -- <la carpeta que vas a tocar>
+grep -rln "<el nombre de la feature>" lib/ app/   # ¿ya existe?
+```
+
+⚠️ **Y «no existe» en un brief es una HIPÓTESIS, no un dato.** Un `grep` de «calculadora» sobre
+`lib/` en la rama correcta la encontraba en un segundo. Es «antes de construir una máquina
+nueva, buscá qué pantalla del producto ya hace algo parecido», aplicado a la rama en vez de a la
+pantalla: ahí el aviso era que el control de al lado ya hacía el trabajo; acá, que el documento
+del brief no estaba en el disco.
+
+### Lo que SÍ faltaba, y es lo que quedó
+
+De la llamada del 30/10 la calculadora del 22/10 no tiene **las LANDINGS**: reparte ángulos
+entre avatares y funcionalidades con la vara del Recon (`RESULTADOS_PARA_DECIDIR`), pero no
+contesta «¿cuántas landings pruebo?», que es el número que Martín dio. Se agregó al MISMO módulo
+(`PISO_LANDING`, `landingsDelPresupuesto`, el campo `landings` del plan y su renglón en la
+tarjeta del arranque y en el texto que lee MaKo), nunca como un segundo módulo: dos cuentas del
+mismo presupuesto se desincronizan y la pantalla y el chat dirían números distintos.
+
+El piso (US$500) es un **CRITERIO con su cita**, no una medición: con menos, la respuesta es
+«te alcanza para MENOS landings» —y en el borde, «no te alcanza ni para una», con lo que falta—,
+nunca «repártelo entre más». Lo fija el test con los dos números de Martín y con un presupuesto
+que no alcanza, probado con seis roturas.
+
+### Dos cosas más que se midieron de paso
+
+- **Una guarda del pre-push de la familia «lee el DISCO, no lo que se publica» sigue viva:**
+  `scripts/sync-puede-filmar.mjs --check` hace `readFileSync` del destino, así que un
+  `extension/puede-filmar.js` **ajeno y sin commitear** bloqueó un push que no lo tocaba. Las
+  cinco hermanas ya se arreglaron leyendo de HEAD (`git ls-tree` + `git show`); ésta no.
+  Mientras siga así, un push desde el clon compartido depende de que el vecino no tenga ese
+  archivo a medias — y la salida es el worktree limpio, que cuesta un `git worktree add` más un
+  junction a `node_modules`.
+- ⚠️ **`origin/integracion` tiene un rojo de tipos que NO es de esta tanda:** `lib/nutricion.ts`
+  importa `TRIGGER_AVISO_MAKO` **dos veces en el mismo `import`** (líneas 66 y 67 de
+  `0b9d35027`) → TS2300 «Duplicate identifier». Es una línea y la caza el `tsc` completo, o sea
+  el run de Actions que avanza `main`. Se midió de rebote con el acotado y queda avisado acá
+  porque no es de este chat; el otro rojo que apareció en la misma corrida
+  (`lib/api-mako/areas/crm.run.ts:1513`, TS2322: una lectura que devuelve un objeto donde el
+  tipo pide `SalidaLectura`) tampoco. **Vive en:** `lib/nutricion.ts`, `lib/api-mako/areas/crm.run.ts`.
+- **`presupuesto` dice «en la moneda de la cuenta» y todo el módulo lo escribe con `usd()`**
+  (`textoParaMako`, `titularDelPlan`, la tarjeta). Para una cuenta que no cobra en dólares las
+  dos cosas no pueden ser ciertas, y el piso de US$500 hereda la ambigüedad. No se tocó en esta
+  tanda: es una decisión (¿la calculadora habla en USD y convierte, o habla en la moneda de la
+  cuenta y el piso también?). **Vive en:** `lib/calculadora-presupuesto-ads.ts`.
+
+### Lo que quedó SIN hacer
+
+- **No verificado en pantalla.** La guardia de RAM no dejó levantar el `next dev` en esta
+  ventana: la tarjeta del arranque con el renglón de las landings no se abrió en un navegador.
+- **El resto de lo construido sobre el árbol viejo se descartó a propósito**: la pantalla
+  `/ads-manager/presupuesto`, el módulo `lib/presupuesto-anuncios.ts` y una operación
+  `ver_presupuesto_anuncios` de la API — que además ya existe como `calcular_presupuesto_anuncios`
+  (`lib/api-mako/areas/ads.run.ts`), y como es `SIN_HTTP` no aparece en `docs/api-mako.md`, así
+  que agregarle las landings a su descripción no mueve la referencia.
+- **Y una pantalla propia NO hace falta**, medido: la charla del arranque con la calculadora no
+  es sólo del primer ingreso — la vuelve a abrir el botón «Lanzar una campaña»
+  (`app/ads-manager/MediaBuyer.tsx`, `arrancando`), y vuelve sola si quedó a medias. Una ruta
+  hermana habría sido un segundo lugar para la misma pregunta. Si algún día hace falta, quedó
+  medido que `/ads-manager/nueva` y `/ads-manager/ajustes` son el molde y que
+  `app/ads-manager/layout.tsx` sólo desvía `/ads-manager/<dígitos>` a `/anuncio/<id>`.
+
+*30/10/2026, cuenta 1 (claude1), chat «Ads Manager · Presupuesto».*
