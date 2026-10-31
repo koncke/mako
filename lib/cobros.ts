@@ -60,14 +60,14 @@ import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
   asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, facturasPagadasStripe, leerCheckoutStripe, leerPruebaStripe, leerSuscripcionStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
-import { urlAvisoStripe } from './cobros-conexion';
+import { urlAvisoCreem, urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
 import { credCreemDe, credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { guardarOrigenDeAlta, guardarWhatsappDelPago } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 import {
   buscarTransaccionesCreem, cancelarSuscripcionCreem, crearCheckoutCreem as crearCheckoutCreemAPI, crearDescuentoDeEntradaCreem,
-  crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem,
+  crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem, repararAvisoCreem,
 } from './creem-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaCreem, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa, transaccionQueCobra } from './prueba-plan-reglas';
 import { PRUEBA_DIAS } from './planes-mako';
@@ -1479,6 +1479,20 @@ export async function mantenerAvisosStripe(ws: number): Promise<void> {
   for (const x of (await cuentasDePago(ws, 'stripe')).filter((y) => y.conectada)) {
     const stripe = await credStripe(ws, x.cuenta);
     if (stripe) await asegurarEventosDelAviso(ws, stripe.key, x.cuenta);
+  }
+}
+
+/**
+ * Que el aviso de cada cuenta de Creem llegue con su id (`repararAvisoCreem`). Lo llama el cron en CADA vuelta y no una vez por día:
+ * mientras esté roto, cada pago rebota con 401, y es sólo un GET cuando ya está bien. Nunca tira: una cuenta no frena a las otras.
+ */
+export async function mantenerAvisosCreem(ws: number): Promise<void> {
+  for (const x of (await cuentasDePago(ws, 'creem')).filter((y) => y.conectada)) {
+    const creem = await credCreem(ws, x.cuenta);
+    if (!creem) continue;
+    const r = await repararAvisoCreem(creem.key, creem.webhookId, urlAvisoCreem());
+    if (!r.ok) console.error(`[cobros] el aviso de Creem de la cuenta ${x.cuenta} del ws ${ws} no se pudo revisar: ${r.error}`);
+    else if (r.reparado) console.warn(`[cobros] el aviso de Creem de la cuenta ${x.cuenta} del ws ${ws} no llevaba su id: reparado`);
   }
 }
 

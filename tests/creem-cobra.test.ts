@@ -5,7 +5,7 @@
 // Mercado Pago. Lo de plata corre REAL en tests/_creem-cobra-hijo.ts, sobre un Creem en memoria y con una Mercado Pago conectada
 // al lado (sin ella, el bug no se ve). Lo que NO prueba: que Creem se comporte así de verdad; el doble sale de su OpenAPI.
 //
-// PROBADO ROMPIÉNDOLO (31/10/2026), una rotura por vez: 67 aplicadas, y las 67 las ve algún test. Base 29 / 0. Cuatro sobrevivieron
+// PROBADO ROMPIÉNDOLO (31/10/2026), una rotura por vez: 70 aplicadas, y las 70 las ve algún test. Base 30 / 0. Cuatro sobrevivieron
 // la primera vez y forzaron a reforzarlo: entregar sin `trialing`, pedir transacciones sin el cliente, y no mirar el id ni el
 // token del checkout de un reembolso (los tapaba la búsqueda por transacción). Una quinta, «cualquier link con fecha futura», acá
 // no se puede ver porque el checkout de Creem tiene su propio candado: esa línea la miran tests/agencia-cobro.test.ts y
@@ -268,6 +268,15 @@ test('Conectar Creem deja el aviso con su id: si no, todos los pagos rebotan con
   assert.equal(R.reparaLaVieja.ok, true);
   assert.match(R.reparaLaVieja.url, /\?w=wh_viejo$/, 'una ya registrada sin id no se repara');
   assert.equal(R.sinPatchNoConecta, false, 'sin poder escribir el id se conectaría una cuenta cuyos avisos rebotan todos');
+});
+
+test('La cuenta que ya estaba conectada con el aviso roto la repara el cron, sola y sin crear otro', () => {
+  assert.equal(R.reparaElCron.url, 'https://mako.test/api/webhooks/creem?w=wh_plataforma', 'una cuenta conectada no ofrece «Volver a conectar»: queda rota para siempre');
+  assert.equal(R.reparaElCron.patches, 1);
+  assert.equal(R.reparaElCron.otraVuelta, 1, 'una ya reparada no se vuelve a escribir');
+  assert.equal(R.reparaElCron.creados, 0, 'un aviso nuevo nace con otro secreto, que nadie guardaría');
+  assert.equal(R.reparaElCron.sinTirar, true, 'una cuenta no frena el cron de las otras');
+  assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /\n\s*await runWithWorkspace\(ws, \(\) => mantenerAvisosCreem\(ws\)\)/, 'corre en cada vuelta: mientras esté roto, cada pago rebota');
 });
 
 test('Desconectar no pide borrar el aviso: su id es la identidad de la cuenta en sus cobros', () => {

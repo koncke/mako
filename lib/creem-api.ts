@@ -547,6 +547,21 @@ export type WebhookCreem = { id: string; url: string | null; secreto: string | n
  * guardada lo llevaba y ningún código lo hacía: la ruta rechazaba con 401 TODOS los avisos, y Creem abandona a las 24 h. Ningún
  * pago habría entrado nunca. Si no se puede escribir se falla la conexión, como sin secreto. También repara una ya registrada.
  */
+/**
+ * LA REPARACIÓN DEL CRON: le escribe el `?w=` a un aviso YA conectado. El arreglo de `asegurarWebhookCreem` sólo corre al conectar, y
+ * una cuenta conectada no ofrece «Volver a conectar»: la que se conectó antes quedaba rota para siempre, sin ningún error (pasó de
+ * verdad: la plataforma se conectó el 31/10/2026 con el código viejo).
+ * ⚠️ NUNCA CREA: si ese id ya no existe devuelve el error. Uno nuevo nacería con otro secreto, que nadie guardaría.
+ */
+export async function repararAvisoCreem(key: string, id: string, url: string): Promise<R<{ reparado: boolean }>> {
+  const r = await llamar(key, 'GET', `/webhooks/${encodeURIComponent(id)}`);
+  if (!r.ok) return fallo(r);
+  const destino = `${url.split('?')[0]}?w=${encodeURIComponent(id)}`;
+  if (str(r.body.url) === destino) return { ok: true, reparado: false };
+  const p = await llamar(key, 'PATCH', `/webhooks/${encodeURIComponent(id)}`, { url: destino });
+  return p.ok ? { ok: true, reparado: true } : fallo(p);
+}
+
 export async function asegurarWebhookCreem(key: string, url: string): Promise<R<WebhookCreem>> {
   const lista = await llamar(key, 'GET', '/webhooks?page_size=100');
   if (!lista.ok) return fallo(lista);

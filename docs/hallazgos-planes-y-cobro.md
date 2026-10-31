@@ -23,6 +23,19 @@ estos lugares ya estaban arreglados. Dos tenían, **once y sesenta líneas más 
 propio commit diciendo que ese bug se derivó de `Pasarela` — y debajo seguía la lista de dos escrita a
 mano. Un comentario que afirma que algo se arregló no es evidencia: se lee el código.
 
+**Ya es un patrón de este repo, no un descuido suelto:** tres veces el mismo día, y las tres del mismo commit: `cobroDeLaCuenta` y
+`cobro-etapa`, con su comentario en pasado encima del bug, y el `?w=`, con dos comentarios afirmando que la URL lo llevaba. El
+comentario se escribe con la intención, y cuando el cuerpo no acompaña queda declarado muerto un bug vivo: nadie lo vuelve a mirar.
+
+**Y lo mismo vale para un estado:** «Creem no está conectado» estaba escrito acá, en `pendientes.md` y en cada mensaje del día, mientras
+Martín lo conectaba a las 19:22 UTC; apareció sólo al ir a medir otra cosa. Y lo contrario: el bug de la prueba del día 8 se iba a
+reportar como que le pasaba a clientes de hoy, y la base decía que no (la prueba apagada, y 2 cobros en total). Lo que importa para
+decidir se mide en el momento.
+
+**Un arreglo a lo que se hace AL CONECTAR no repara lo ya conectado.** El `?w=` se corregía en `asegurarWebhookCreem`, y una cuenta
+conectada ni siquiera ofrece «Volver a conectar»: desplegarlo dejaba rota, sin un error, la única cuenta que existía. Por eso
+`repararAvisoCreem` corre en cada vuelta del cron, y por eso NO crea nada: un aviso nuevo tendría otro secreto, que nadie guardaría.
+
 **Dónde estaba el error de verdad, cuando no era el que decía la lista:**
 
 - **«La prueba gratis no entrega la cuenta» era el SEGUNDO escalón.** El primero: `crearCobro` rechazaba
