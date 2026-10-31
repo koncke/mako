@@ -52,8 +52,17 @@ la herramienta del push que decía «rojo» cuando no podía chequear.
 
 ## ⚪ SIN DUEÑO todavía — lo que falta construir
 
-1. **Knowledge** (el conocimiento de los cursos para toda MaKo, modular como el Second Brain). *«El análisis quedó
-   pausado; no hay plan ni nada construido.»* **Sin empezar.**
+1. **Knowledge** (el conocimiento de los cursos para toda MaKo, modular como el Second Brain). **El esqueleto está
+   construido** y espera en la etiqueta `nube/knowledge-3110` (no es rama: no dispara build). El análisis que acá decía
+   «pausado» SÍ existía —21/07, tres decisiones de Martín— en un transcript que un barrido de seguridad borró del repo;
+   está resumido en docs/hallazgos-conocimiento.md → «Knowledge: el conocimiento de los cursos para TODA la app».
+   **No es una tab nueva**: se ve en Classroom › Methodology (el pedido del 25/10 manda sobre el análisis del 21/07).
+   Hay 7 módulos por tema (`lib/knowledge-modulos.ts`), capa del Second Brain, índice en el prompt de todos los chats,
+   dos operaciones de la API y la pantalla con cuánto tiene cargado cada uno. **Lo que falta: la CURACIÓN** —destilar
+   los cursos en fichas, que Martín decidió hacer afuera de la app por los créditos de IA— y las «plantillas de
+   influencers» del pedido del 30/10 (3.2), de las que no hay análisis en ninguna parte y cuyos links scrapeados no
+   están en el repo. ⚠️ Una ficha cargada desde la pantalla sale con `fuente: 'manual'` y **no le llega a ningún
+   negocio**: la curación escribe `fuente: 'mako'`.
 2. **Lead Magnet Generator** y **las tendencias del nicho**. Hay relevamiento, falta el plan.
 3. **MaKo toma la iniciativa, completo**: el primer ingreso (bienvenida, cargar la oferta, elegir funnel) y las
    aperturas tab por tab — Offer, Create, CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image,
