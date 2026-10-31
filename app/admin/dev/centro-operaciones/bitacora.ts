@@ -2055,4 +2055,19 @@ export const BITACORA: Hito[] = [
       'tests/centro-limbo.test.ts y tests/avisar-antes-de-firmar.test.ts (17 roturas)',
     ],
   },
+  {
+    fecha: '31 oct', hora: '17:45', chat: CH, sesion: SESION_CH, cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Sale el cartel rojo de los mensajes sin entregar',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**Martín, desde el teléfono:** «elimina el cartel rojo de "9 mensajes tuyos..."». Se fue de la computadora y del teléfono, con su lista, «Mandárselo a otro chat» y «Descartar».',
+      '**Los mensajes siguen en la base, sin tocar:** no le llegan a nadie y vencen a los 15 días. El vigía del Runner los sigue contando y le avisa al Cerebro.',
+      '**Queda sin botón:** la acción de descartar y las reglas de lib/centro-limbo.ts siguen, con sus tests. La rama del servicio del Runner toca esos archivos: limpiarlos ahora le choca.',
+    ],
+    archivos: [
+      'app/admin/operaciones/CartelLimbo.tsx (borrado) · PiezasCentro.tsx · useCentro.ts · centro.css · app/m/operaciones/CentroAppMovil.tsx',
+      'tests/centro-limbo.test.ts — el cartel no vuelve',
+    ],
+  },
 ];

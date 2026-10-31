@@ -292,7 +292,7 @@ export async function cancelarPedidoAction(id: string): Promise<{ ok: boolean; e
   }
 }
 
-/** Dar de baja un mensaje del cartel de los que no salieron (CartelLimbo.tsx). */
+/** Dar de baja un mensaje que espera un chat cerrado. Sin botón desde que Martín sacó el cartel (31/10/2026). */
 export async function descartarDelLimboAction(id: string): Promise<{ ok: boolean; error?: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };

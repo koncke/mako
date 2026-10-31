@@ -65,6 +65,7 @@ Del `pendientes-30-10.md`, sección 5. Todo esto es de **Leila para Black Novemb
 | **Competitors Spy**: plan y qué repo copiar | nube | arrancado |
 | **El diseño de los dashboards aplicado** (las 8 piezas del Dashboard) | nube | arrancado |
 | El tope del chequeo y por qué 1.028 archivos no ejecutaban | nube | **cerrado**, en el tren |
+| **El umbral de «Runner vivo» sale de su intervalo real**: hoy `CARTERO_VIVO_MS` es un número suelto en `lib/operaciones-reglas.ts`. El cartero (`scripts/operaciones/cartero.mjs`) tiene que publicar cada cuánto pasa, y MaKo guardarlo en `operaciones_carteros`, con migración. El síntoma ya está curado: la pantalla dice desde cuándo no hay noticias | Runner | **sin empezar**, a propósito: pedido por el Cerebro el 31/10, va cuando se vacíe la cola del tren. Causa en `docs/hallazgos-operaciones.md` |
 
 ## 🟢 En el tren, esperando producción (164 commits, `integracion`)
 

@@ -10054,3 +10054,26 @@ panel no está logueada en claude.ai), pero **Chrome headless sí**:
 `chrome.exe --headless --disable-gpu --screenshot=<png> file:///<html>` rinde un arnés estático con los
 tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
 patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.
+
+## El tren tiene UN carril: pushear un coche nuevo CANCELA el run del anterior (31/10/2026)
+
+**Vive en:** `.github/workflows/integracion.yml` (`concurrency: {group: integracion, cancel-in-progress: true}`).
+
+**El síntoma que no se ve.** No falla nada: el run viejo pasa a `cancelled` y empieza uno nuevo sobre la punta. La regla es
+correcta —la punta contiene a lo anterior, así no se gastan minutos en commits que ya quedaron atrás— y está escrita en el
+encabezado del flujo. Lo que no estaba escrito es su consecuencia cuando lo que viaja es **urgente**.
+
+**La consecuencia.** Si un arreglo urgente va en un coche chico y encima se pushea un coche grande, el arreglo deja de tener
+su propio veredicto: ahora depende de que el coche grande salga verde. Si el grande sale rojo, `main` no avanza y el arreglo
+urgente sigue sin desplegar mientras se arregla un rojo que no tiene nada que ver. **Pasó el 31/10 con la reparación del aviso
+de Creem** (la cuenta ya conectada rebotaba todos los webhooks con 401): estaba corriendo sola en `a4687b351` y había un coche
+de 19 commits listo. Se retuvo el grande hasta que el chico aterrizó.
+
+**Los números, para que la decisión no sea a ojo** (runs de `integracion`, 31/10): un verde completo tarda **31 y 35 minutos**;
+un rojo de guardas o de tests citados muere a los **3-4 minutos**; el rojo de tests de verdad tardó 23. O sea: esperar a que
+aterrice un coche chico cuesta media hora como máximo y se sabe de antemano. Pisarlo cuesta un rojo ajeno de duración
+desconocida con producción esperando.
+
+**La regla:** cuando el coche que está corriendo lleva algo que producción necesita YA, no se pushea encima. Se mira cuánto
+le falta (`run_started_at` + 35 min es el techo conocido), se avisa a quien armó el coche grande, y se sube después. Al
+revés también vale: si lo urgente todavía no salió, conviene que viaje en el coche MÁS CHICO posible, no sumarlo al tren.

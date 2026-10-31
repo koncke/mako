@@ -36,6 +36,17 @@ decidir se mide en el momento.
 conectada ni siquiera ofrece «Volver a conectar»: desplegarlo dejaba rota, sin un error, la única cuenta que existía. Por eso
 `repararAvisoCreem` corre en cada vuelta del cron, y por eso NO crea nada: un aviso nuevo tendría otro secreto, que nadie guardaría.
 
+**Y LO MÁS CARO DEL DÍA: no había que esperar el deploy. Lo roto era el DATO, no el código.** La ruta 
+`app/api/webhooks/creem/route.ts` ya estaba en producción exigiendo el `?w=` (`req.nextUrl.searchParams.get('w')` →
+`wsPorIdentificadorEstricto` → el secreto → la firma): lo único mal era la URL guardada EN CREEM. Se arregló a mano el 31/10
+a las 20:30 UTC con un PATCH a `/v1/webhooks/{id}` y el mismo destino que escribe el código
+(`${url.split('?')[0]}?w=${encodeURIComponent(id)}`), y los avisos entraron en el acto — con el tren todavía corriendo.
+Medido antes y después contra la API de Creem, y el último eslabón también: el `wh_…` resuelve al ws 9, cuenta `principal`.
+**La regla:** cuando un bug de producción es una CONFIGURACIÓN GUARDADA que el código ya desplegado espera, el arreglo es
+dato y no viaja en el tren. Preguntarse siempre, antes de esperar un deploy: ¿qué parte de esto es código y qué parte es un
+valor que puedo corregir ahora? El arreglo del cron sigue valiendo igual, pero para que NO VUELVA a pasar y para las cuentas
+que se conecten mañana, no para esta.
+
 **Dónde estaba el error de verdad, cuando no era el que decía la lista:**
 
 - **«La prueba gratis no entrega la cuenta» era el SEGUNDO escalón.** El primero: `crearCobro` rechazaba
