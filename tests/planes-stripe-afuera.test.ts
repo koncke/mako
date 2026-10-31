@@ -69,7 +69,8 @@ const sesion = () => json(200, { id: 'cs_test_1', url: 'https://checkout.stripe.
 
 test('Stripe ARMA la prueba: 7 días con la tarjeta siempre; sin prueba, nada de eso', async () => {
   const { crearCheckoutStripe } = await api();
-  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe']);
+  // Las TRES que arman la prueba con tarjeta (31/10/2026): Creem la hace con `trial_period_days` en el PRODUCTO.
+  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe', 'creem']);
   llamadas = []; contestar = sesion;
   await crearCheckoutStripe(KEY, { ...base, tipo: 'suscripcion', diasDePrueba: 7 });
   const f = form(llamadas[0]);
@@ -137,7 +138,7 @@ test('un link de una prueba de Stripe ya empezada NO abre una segunda suscripci�
   const f = cuerpo('lib/cobros.ts', 'urlParaPagar');
   const guardia = f.indexOf("if (esPruebaDePlan(c) && c.suscripcion_estado) return { error: 'ya_pagado' };");
   const completa = f.indexOf("if (s.ok && s.estado === 'complete' && !(c.estado === 'fallido' && s.pagoEstado === 'unpaid')) return { error: 'ya_pagado' };");
-  const rehace = f.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
+  const rehace = f.indexOf('const r = await crearCheckout(c, { stripe, mp: null, creem: null }, vuelta);');
   assert.ok(guardia > 0 && completa > guardia && rehace > completa, 'las dos guardias, antes de rehacer la sesión');
 });
 
@@ -170,7 +171,7 @@ test('rehacer el link expira ANTES la sesión anterior que sigue abierta, en tod
   const resto = f.slice(guarda);
   const abierta = resto.indexOf("if (s.ok && s.estado === 'open') {");
   const expira = resto.indexOf('const x = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);');
-  const rehace = resto.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
+  const rehace = resto.indexOf('const r = await crearCheckout(c, { stripe, mp: null, creem: null }, vuelta);');
   assert.ok(abierta > 0 && expira > abierta && rehace > expira, 'abierta → se expira → recién ahí la nueva');
   assert.match(resto, /if \(!x\.ok\) \{\n\s*const otra = await leerCheckoutStripe\(stripe\.key, c\.proveedor_ref\);\n\s*if \(otra\.ok && otra\.estado === 'complete'\) return \{ error: 'ya_pagado' \};\n\s*return c\.url_proveedor \? \{ url: c\.url_proveedor \} : \{ error: 'pasarela', detalle: x\.error \};/,
     'si no se pudo cerrar (o se completó en el medio), no se arma otra');

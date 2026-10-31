@@ -9,7 +9,7 @@
 // al azar del cobro se genera en lib/cobros.ts, que es server-only.
 
 import type { EstadoCobro, Pasarela, TipoCobro } from './cobros-tipos';
-import { NOMBRE_PASARELA } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from './cobros-tipos';
 import { formatoMonto } from './pasarela-moneda';
 
 /**
@@ -291,12 +291,16 @@ export function decidirCobro(p: ParametrosCobro): DecisionCobro {
   let pasarela = p.pasarela ?? null;
   if (!pasarela) {
     if (p.conectadas.length === 1) pasarela = p.conectadas[0];
-    else if (p.conectadas.length === 0) return { ok: false, error: 'Conecta Stripe o Mercado Pago en Integraciones para cobrar.' };
+    else if (p.conectadas.length === 0) return { ok: false, error: 'Conecta una pasarela de pagos en Integraciones para cobrar.' };
     else return { ok: false, error: 'Elige con qué pasarela cobrar.', faltan: ['pasarela'] };
   }
   if (!p.conectadas.includes(pasarela)) return { ok: false, error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.` };
 
-  const porDefecto = pasarela === 'stripe' ? 'USD' : (p.monedaDeLaCuenta ?? null);
+  // ⚠️ LA PREGUNTA VA EN POSITIVO POR MERCADO PAGO, no por Stripe (31/10/2026, al entrar Creem). Escrito al revés
+  // (`=== 'stripe' ? 'USD' : monedaDeLaCuenta`) la tercera pasarela caía en la rama de Mercado Pago y se quedaba sin
+  // moneda, o peor: con la moneda de la cuenta de MP, o sea un cobro en pesos por una pasarela que sólo cobra en USD.
+  // Mercado Pago es el ÚNICO que cobra en la moneda de su cuenta; el resto tiene su moneda fija (`CAPACIDADES_PASARELA`).
+  const porDefecto = pasarela === 'mercadopago' ? (p.monedaDeLaCuenta ?? null) : (CAPACIDADES_PASARELA[pasarela].monedaFija ?? null);
   const moneda = (p.moneda ?? porDefecto ?? '').toUpperCase();
   if (!/^[A-Z]{3}$/.test(moneda)) return { ok: false, error: 'Falta la moneda del cobro.', faltan: ['moneda'] };
 

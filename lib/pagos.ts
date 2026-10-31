@@ -55,7 +55,7 @@ export type Pago = {
   pago_hora?: string | null;
   // De qué cobro de la pasarela salió (mig 0255). null = cargada a mano o por un plan.
   cobro_id?: number | null;
-  proveedor?: 'stripe' | 'mercadopago' | null;
+  proveedor?: Pasarela | null;
   proveedor_pago_id?: string | null;
   moneda?: string | null;          // la del cobro real; null = USD
   monto_original?: number | null;  // en esa moneda
@@ -1347,7 +1347,7 @@ export async function registrarCobroDeProveedor(p: {
   leadId: number;
   cobroId: number;
   pagoId?: number | null;
-  proveedor: 'stripe' | 'mercadopago';
+  proveedor: Pasarela;
   proveedorPagoId: string;
   montoUsd: number;
   montoOriginal: number;
@@ -1489,7 +1489,7 @@ export async function registrarCobroDeProveedor(p: {
  */
 export async function remarcarCobroDeProveedor(p: {
   leadId: number;
-  proveedor: 'stripe' | 'mercadopago';
+  proveedor: Pasarela;
   proveedorPagoId: string;
   fechaPago: string;
 }): Promise<{ remarcado: boolean }> {
@@ -1519,7 +1519,7 @@ export async function remarcarCobroDeProveedor(p: {
  */
 export async function desmarcarCobroDeProveedor(p: {
   leadId: number;
-  proveedor: 'stripe' | 'mercadopago';
+  proveedor: Pasarela;
   proveedorPagoId: string;
 }): Promise<{ desmarcado: boolean; quedanPagadas: number }> {
   const db = await getTenantDb();

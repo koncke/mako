@@ -42,12 +42,14 @@ import { textoContracargo } from './cobros-reglas';
 import {
   avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
   mismoModo, nombreModo, planDePagoMp, sesionDelCobro, suscripcionMpCancelada, tokenReleido,
-  type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
+  avisoCreem,
+  type ClaveCobro, type EventoCreem, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
   facturaDePagoStripe, leerCargoStripe, leerCheckoutExternoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
+import { buscarTransaccionesCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem } from './creem-api';
 
 const ignorado = (motivo: string, cobroId: number | null = null): ResultadoEvento => ({ estado: 'ignorado', motivo, cobroId });
 const procesado = (cobroId: number, motivo: string | null = null): ResultadoEvento => ({ estado: 'procesado', motivo, cobroId });
@@ -466,4 +468,135 @@ export async function aplicarNotificacionMp(ws: number, l: LecturaMp, cuenta: st
     return procesado(c.id, `contracargo: ${plan.detalle ?? 'sin detalle'}`);
   }
   return ignorado(plan.motivo, c.id);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Creem (31/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Un aviso de Creem, ya ruteado y con la firma verificada, entra al CRM.
+ *
+ * EL ORDEN es el mismo que los otros dos, y por el mismo motivo: lo que se aplica sale de RELEER a Creem con la clave
+ * de ESE negocio, nunca del cuerpo del aviso. Acá importa más que en Mercado Pago, porque el aviso de Creem SÍ trae el
+ * objeto entero y la plata: sería cómodo creerle, y es justo lo que no se hace.
+ *
+ * ⚠️ Y hay un motivo extra, propio de Creem: su firma NO lleva timestamp (es HMAC del cuerpo pelado), así que una firma
+ * válida capturada vale para siempre. La deduplicación por `id` cubre el reintento automático, pero no un reenvío a
+ * mano (que llega con `id` nuevo). Lo único que de verdad corta ahí es que el estado y el monto salgan de la relectura:
+ * un cuerpo repetido hace releer, y releer dos veces da el mismo resultado idempotente.
+ */
+export async function procesarEventoCreem(ws: number, ev: EventoCreem, cuenta: string = CUENTA_PRINCIPAL, webhookId?: string | null): Promise<ResultadoEvento> {
+  const a = avisoCreem(ev);
+  if (a.accion === 'ignorar') return ignorado(a.motivo);
+
+  const key = await credPasarela(claveDeCuenta('CREEM_API_KEY', cuenta), ws);
+  // null acá es «no está conectado»; `credPasarela` ya tiró si no se pudo LEER (con la base caída, un null se
+  // ignoraría con 200 y el aviso se perdería para siempre: Creem abandona a las 24 h).
+  if (!key) return ignorado('Creem no está conectado en este negocio');
+
+  // ── El cobro, SIEMPRE dentro del ws ruteado ──
+  const cobro = await cobroDelAviso(ws, {
+    proveedor: 'creem', token: a.token, ref: a.checkoutId, suscripcionId: a.suscripcionId,
+  });
+  if (!cobro) return ignorado(`no es un cobro de MaKo (${ev.tipo})`);
+  if (deOtraCuenta(cobro, { cuenta, ref: webhookId ?? null })) {
+    return ignorado('el cobro es de otra cuenta de Creem de este negocio', cobro.id);
+  }
+  // El MODO: un aviso de una clave de prueba no aplica un cobro real, ni al revés.
+  const modoClave = modoDeClaveCreem(key);
+  if (modoClave && modoClave !== cobro.modo) {
+    return ignorado(`el aviso es de una clave ${modoClave} y el cobro es ${cobro.modo}`, cobro.id);
+  }
+
+  switch (a.accion) {
+    case 'aprobado': {
+      // ⚠️ LA PLATA SALE DE LA RELECTURA. En una suscripción, el id del pago es el de la TRANSACCIÓN y no el de la
+      // suscripción ni el del checkout: hay una transacción por mes, y usar el id de la suscripción haría que la
+      // renovación del mes siguiente se leyera como una reentrega del primer pago (y no se asentaría nunca).
+      const susId = a.suscripcionId ?? cobro.proveedor_suscripcion_id;
+      if (cobro.tipo === 'suscripcion') {
+        if (!susId) return ignorado('el aviso no dice de qué suscripción es', cobro.id);
+        const s = await leerSuscripcionCreem(key, susId);
+        if (!s.ok) throw errorDelProveedor('Creem', 'la suscripción', s);
+        if (s.referencia && s.referencia !== cobro.token) {
+          return ignorado('la suscripción del aviso no es la de este cobro', cobro.id);
+        }
+        const tx = await buscarTransaccionesCreem(key, susId);
+        if (!tx.ok) throw errorDelProveedor('Creem', 'las transacciones de la suscripción', tx);
+        const pagadas = tx.transacciones.filter((x) => x.estado === 'paid');
+        if (!pagadas.length) return ignorado('la suscripción todavía no tiene un cobro pagado', cobro.id);
+        // La más NUEVA: es la que acaba de entrar. `aplicarPagoAprobado` es idempotente por el id del pago, así que
+        // una reentrega no asienta dos veces y una renovación entra como lo que es.
+        const ultima = pagadas.slice().sort((x, y) => Date.parse(y.fecha ?? '') - Date.parse(x.fecha ?? ''))[0];
+        // `monto` es SIN impuesto: lo que cobra el plan. El impuesto lo cobra y lo remite Creem (merchant of record),
+        // no es ingreso de MaKo y no se asienta como tal.
+        await aplicarPagoAprobado(cobro, {
+          proveedorPagoId: ultima.id, monto: ultima.monto ?? undefined, moneda: ultima.moneda ?? undefined,
+          pagadoAt: ultima.fecha ?? undefined, suscripcionId: susId, autor: `Creem · ${ev.tipo}`,
+        });
+        invalidarLecturas();
+        return procesado(cobro.id);
+      }
+      // Pago ÚNICO: la verdad está en el checkout.
+      const refCheckout = a.checkoutId ?? cobro.proveedor_ref;
+      if (!refCheckout) return ignorado('el aviso no dice de qué checkout es', cobro.id);
+      const ch = await leerCheckoutCreem(key, refCheckout);
+      if (!ch.ok) throw errorDelProveedor('Creem', 'el checkout', ch);
+      if (ch.estado !== 'completed') return ignorado(`el checkout está en ${ch.estado ?? 'sin estado'}`, cobro.id);
+      if (ch.referencia !== cobro.token) return ignorado('el checkout del aviso no es de este cobro', cobro.id);
+      if (!ch.transaccionId) return ignorado('el checkout todavía no tiene la transacción del pago', cobro.id);
+      await aplicarPagoAprobado(cobro, {
+        proveedorPagoId: ch.transaccionId, monto: ch.monto ?? undefined, moneda: ch.moneda ?? undefined,
+        suscripcionId: null, autor: `Creem · ${ev.tipo}`,
+      });
+      invalidarLecturas();
+      return procesado(cobro.id);
+    }
+    case 'fallido': {
+      // `past_due` / `unpaid` son el período de gracia mientras Creem reintenta. Se anota el fallo (el CRON «Pagos»
+      // y la ficha lo muestran) y NO se cancela nada: un reintento puede volver a `active`.
+      // ⚠️ CUÁNTAS VECES Y CADA CUÁNTO REINTENTA CREEM: NO ESTÁ DOCUMENTADO en ninguna página de su doc (dice
+      // «according to the retry schedule» y nunca define el schedule). Por eso MaKo no predice cuándo se da por
+      // perdido: espera el `subscription.canceled`, que es el único estado terminal.
+      await aplicarPagoFallido(cobro, `Creem: ${ev.tipo.replace('subscription.', '')}`);
+      invalidarLecturas();
+      return procesado(cobro.id, 'cobro rechazado: Creem lo está reintentando');
+    }
+    case 'cancelada': {
+      const susId = a.suscripcionId ?? cobro.proveedor_suscripcion_id;
+      if (!susId) return ignorado('el aviso no dice de qué suscripción es', cobro.id);
+      // Se RELEE: el estado sale de Creem, no del nombre del evento (hay eventos cuyo ejemplo oficial llega con
+      // `status: "active"`). Sólo `canceled` es terminal.
+      const s = await leerSuscripcionCreem(key, susId);
+      if (!s.ok && s.status !== 404) throw errorDelProveedor('Creem', 'la suscripción cancelada', s);
+      if (s.ok && s.estado !== 'canceled') return ignorado(`la suscripción está en ${s.estado ?? 'sin estado'}, no cancelada`, cobro.id);
+      await aplicarSuscripcionCancelada(cobro);
+      invalidarLecturas();
+      return procesado(cobro.id, 'suscripción cancelada');
+    }
+    case 'reembolso': {
+      // El objeto del evento es el reembolso. `aplicarReembolso` es idempotente.
+      await aplicarReembolso(cobro, { proveedorPagoId: cobro.proveedor_pago_id, total: true });
+      invalidarLecturas();
+      return procesado(cobro.id, 'reembolso registrado');
+    }
+    case 'disputa': {
+      // `plataAfuera: null` = «no se sabe todavía». La doc de Creem tiene el evento `dispute.created` pero NO dice si
+      // al abrirse la disputa la plata ya se descontó (en Stripe eso se lee del balance transaction). Con null,
+      // `aplicarContracargo` anota la disputa y NO toca la cuota del CRM: no se desmarca un pago que puede seguir ahí.
+      await aplicarContracargo(cobro, {
+        fase: 'abierto', texto: textoContracargo({ pasarela: 'creem', fase: 'abierto' }),
+        plataAfuera: null, proveedorPagoId: null, fechaCargo: ev.creado,
+      });
+      invalidarLecturas();
+      return procesado(cobro.id, 'contracargo abierto');
+    }
+    default: {
+      // El guard va sobre `a`, no sobre `a.accion`: acá `a` ya es `never` (el switch cubre todas las acciones), y
+      // pedirle una propiedad a `never` no compila. Así, una acción nueva en `AvisoCreem` rompe el build.
+      const _x: never = a;
+      return ignorado(`acción desconocida: ${JSON.stringify(_x)}`);
+    }
+  }
 }

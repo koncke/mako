@@ -11,8 +11,11 @@
 import { MAX_CUOTAS_PRODUCTO, type CuentaPago, type FotoCobroEtapa, type ProductoCobro, type ProductoCobroInput } from '@/lib/cobro-etapa';
 import type { PrecioDeStripe } from '@/lib/stripe-catalogo-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
+import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 
-export const NOMBRE_PROVEEDOR_PAGO: Record<CuentaPago['proveedor'], string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago' };
+// Por la tabla total de lib/cobros-tipos.ts, no por una copia (31/10/2026): tres rótulos escritos en tres archivos se
+// desincronizan, y acá además faltaba el de la pasarela nueva (TS2741).
+export const NOMBRE_PROVEEDOR_PAGO: Record<CuentaPago['proveedor'], string> = NOMBRE_PASARELA;
 export const MAX_NOMBRE_PRODUCTO = 80;
 
 const usd = (n: number) => `USD ${n.toLocaleString('es-MX', { maximumFractionDigits: 2 })}`;

@@ -36,6 +36,7 @@ import { leadPorEmail } from './editor-landing/pago-pedido';
 import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
+import { modoDeClaveCreem } from './creem-api';
 import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
@@ -73,6 +74,18 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
     if (!PASARELAS_CON_PRUEBA.includes(p)) continue;
     if (p === 'stripe') {
       out.push({ pasarela: 'stripe', moneda: 'USD', prueba: modoDeClaveStripe(await credDelCliente('STRIPE_SECRET_KEY', ws)) === 'prueba' });
+      continue;
+    }
+    // ⚠️ RAMA PROPIA, NO EL `else` DE MERCADO PAGO (31/10/2026). Antes esto era `if (p === 'stripe') {…}` y después,
+    // sin else, leía el token de Mercado Pago: con Creem conectado, o no se ofrecía nada (sin token de MP) o se
+    // empujaba una opción con `pasarela: 'mercadopago'` escrito literal, o sea una opción DUPLICADA de Mercado Pago
+    // con la moneda de su cuenta, mientras Creem quedaba invisible.
+    if (p === 'creem') {
+      const key = await credDelCliente('CREEM_API_KEY', ws);
+      if (!key) continue;
+      // Creem fija el precio del producto en USD o EUR (enum cerrado): MaKo cobra en USD, y el plan tiene que tener
+      // precio en dólares o no se ofrece. No se inventa ninguna tasa (`precioEn` lo resuelve después).
+      out.push({ pasarela: 'creem', moneda: 'USD', prueba: modoDeClaveCreem(key) === 'prueba' });
       continue;
     }
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws);

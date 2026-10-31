@@ -21,7 +21,7 @@
 // =============================================================================
 
 import { sumarMeses } from './cobrado-lead';
-import type { EstadoCobro } from './cobros-tipos';
+import type { EstadoCobro, Pasarela } from './cobros-tipos';
 
 /** El precio de un cliente de agencia, en `app_settings` de la plataforma. */
 export const KEY_PRECIO_CLIENTE_AGENCIA = 'agencia.precio_cliente';
@@ -136,7 +136,10 @@ export const planDeCapa = (capa: string | null | undefined): PlanCuenta => (capa
 
 const EUROZONA: ReadonlySet<string> = new Set(['ES', 'FR', 'DE', 'IT', 'PT', 'NL', 'BE', 'AT', 'IE', 'FI', 'GR', 'LU', 'SK', 'SI', 'EE', 'LV', 'LT', 'CY', 'MT', 'HR']);
 
-export type OpcionDeCobro = { pasarela: 'stripe' | 'mercadopago'; moneda: string; monto: number };
+// La pasarela DERIVADA, no copiada (31/10/2026): con la unión a mano, una opción de la tercera pasarela no se podía
+// asignar acá y, peor, `cobroDeLaCuenta` sólo buscaba las dos viejas y devolvía null («MaKo todavía no tiene una
+// pasarela que cobre en ese país») con la nueva conectada y cobrando.
+export type OpcionDeCobro = { pasarela: Pasarela; moneda: string; monto: number };
 
 /**
  * Con qué se cobra una cuenta: de las opciones que YA filtró el país (`pasarelasDelPais`), Mercado Pago si quedó y se sabe

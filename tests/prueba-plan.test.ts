@@ -52,7 +52,10 @@ test('qué cobro es una PRUEBA: una suscripción de la plataforma con alta, crea
   assert.equal(finDeLaPrueba(T0), new Date(T0 + 7 * DIA).toISOString());
   // Desde el 27/10/2026 también Stripe (con `trial_period_days`): sin ella, /planes nunca ofrecía Stripe y a quien compraba
   // desde México le llegaba el link de la Mercado Pago argentina (tests/planes-stripe-afuera.test.ts).
-  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe'], 'las dos que la arman con tarjeta');
+  // Las TRES que la arman con tarjeta (31/10/2026, al entrar Creem). ⚠️ Esta lista NO se ensancha sola y es la que
+  // decide si una pasarela se OFRECE en /planes (`monedasDeLaPlataforma` saltea la que no esté): una pasarela nueva
+  // que sepa hacer la prueba y que nadie agregue acá queda conectada, cobrando e invisible en la vitrina.
+  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe', 'creem'], 'las que la arman con tarjeta');
 });
 
 test('la HUELLA de Mercado Pago: la cuenta que paga y la tarjeta guardada; una coincidencia en cualquiera es la misma persona', () => {

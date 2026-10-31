@@ -15,12 +15,18 @@ import { PRUEBA_DIAS } from './planes-mako';
 import type { Pasarela } from './cobros-tipos';
 
 /**
- * Las pasarelas que arman la prueba con tarjeta: Mercado Pago (la de MaKo para Argentina, con `start_date`) y, desde el
- * 27/10/2026, Stripe (con `trial_period_days`). Antes era sólo Mercado Pago, y por eso /planes nunca ofrecía Stripe aunque
+ * Las pasarelas que arman la prueba con tarjeta: Mercado Pago (la de MaKo para Argentina, con `start_date`), Stripe
+ * (con `trial_period_days`, desde el 27/10/2026) y Creem (con `trial_period_days` en el PRODUCTO, desde el 31/10/2026).
+ *
+ * ⚠️ ESTA LISTA NO SE ENSANCHA SOLA, y es la que decide si una pasarela se OFRECE en /planes
+ * (`monedasDeLaPlataforma` saltea la que no esté acá). Una pasarela nueva que sepa hacer la prueba y que nadie agregue
+ * acá queda conectada, cobrando y invisible en la vitrina, sin ningún error. Lo que dice si sabe hacerla es
+ * `CAPACIDADES_PASARELA[p].pruebaConTarjeta` (lib/cobros-tipos.ts): si las dos no coinciden, manda la capacidad y esta
+ * lista está vieja. Antes era sólo Mercado Pago, y por eso /planes nunca ofrecía Stripe aunque
  * estuviera conectada: una clienta de México recibió el link de la Mercado Pago argentina y MP la rechazó («La cuenta del
  * vendedor es de otro país»; docs/hallazgos-planes-y-cobro.md, «Fuera de Argentina se cobra con Stripe»).
  */
-export const PASARELAS_CON_PRUEBA: readonly Pasarela[] = ['mercadopago', 'stripe'];
+export const PASARELAS_CON_PRUEBA: readonly Pasarela[] = ['mercadopago', 'stripe', 'creem'];
 
 const DIA_MS = 86_400_000;
 /** Cuántos días antes del primer cobro se le avisa por email (el Cerebro, 25/10). */

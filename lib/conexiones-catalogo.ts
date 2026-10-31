@@ -86,6 +86,7 @@ const SINONIMOS: Record<string, readonly string[]> = {
   calcom: ['cal.com', 'calcom'],
   stripe: ['stripe'],
   mercadopago: ['mercado pago', 'mercadopago'],
+  creem: ['creem', 'creem.io'],
   // Hotmart, Skool y Apify salieron el 25/10/2026 (el Leads Scraper, tests/leads-scraper-retirado.test.ts); entran los
   // alojadores de video que se sumaron ese día.
   panda: ['panda', 'panda video'],

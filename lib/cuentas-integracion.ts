@@ -19,7 +19,17 @@
 // Puro y sin `server-only`: lo leen el servidor, la pantalla de Integraciones y los tests (tests/cuentas-pago.test.ts).
 // =============================================================================
 
-export type ProveedorConCuentas = 'stripe' | 'mercadopago';
+import { esPasarela, type Pasarela } from './cobros-tipos';
+
+/**
+ * Las pasarelas de cobro con varias cuentas. ⚠️ SE DERIVA DE `Pasarela`, no se copia (31/10/2026, al entrar Creem):
+ * hasta hoy esto era `'stripe' | 'mercadopago'` escrito a mano, una SEGUNDA copia de la unión, y por eso todo el
+ * subsistema de cuentas (nombres de claves con sufijo, ruteo de avisos, «Vincular cobro») no daba un solo error de
+ * compilación al agregar la tercera pasarela: simplemente no sabía que existía. Las dos uniones tienen que moverse
+ * juntas o la que se queda atrás descarta al proveedor nuevo en silencio.
+ */
+export type ProveedorConCuentas = Pasarela;
+export const esProveedorConCuentas = (v: unknown): v is ProveedorConCuentas => esPasarela(v);
 
 /**
  * La agenda (fase B, 23/10/2026): Calendly y Cal.com, con el MISMO modelo de sufijo. Una cuenta de agenda no cobra:
@@ -80,7 +90,10 @@ export const idDeCuenta = (p: ProveedorConCuentas, cuenta: string): string => `$
 export function partirIdDeCuenta(id: unknown): { proveedor: ProveedorConCuentas; cuenta: string } | null {
   if (typeof id !== 'string') return null;
   const [p, c] = id.split(':', 2);
-  if (p !== 'stripe' && p !== 'mercadopago') return null;
+  // Por el predicado compartido (31/10/2026): con la lista a mano, `creem:principal` devolvía null y las cuentas de la
+  // pasarela nueva se DESCARTABAN EN SILENCIO en `cuentaSinElegir` y en `sufijosUsados` — su pago no encontraba su
+  // vínculo, y su sufijo `c2` se podía reusar (un link viejo pendiente se pagaría con las claves de otra cuenta).
+  if (!esProveedorConCuentas(p)) return null;
   return cuentaValida(c) ? { proveedor: p, cuenta: c } : null;
 }
 
@@ -88,11 +101,16 @@ export function partirIdDeCuenta(id: unknown): { proveedor: ProveedorConCuentas;
 export const CLAVES_BASE: Readonly<Record<ProveedorConCuentas, { clave: string; identificador: string; secretoAviso: string; alias: string }>> = {
   stripe: { clave: 'STRIPE_SECRET_KEY', identificador: 'STRIPE_ACCOUNT_ID', secretoAviso: 'STRIPE_WEBHOOK_SECRET', alias: 'STRIPE_ALIAS' },
   mercadopago: { clave: 'MERCADOPAGO_ACCESS_TOKEN', identificador: 'MERCADOPAGO_USER_ID', secretoAviso: 'MERCADOPAGO_WEBHOOK_SECRET', alias: 'MERCADOPAGO_ALIAS' },
+  // ⚠️ EL IDENTIFICADOR DE CREEM ES EL ID DE SU AVISO (`wh_…`), no un id de cuenta. Creem NO tiene un endpoint que
+  // diga de quién es una clave (Stripe tiene `GET /v1/account` → `acct_…`; Mercado Pago `GET /users/me` → `user_id`),
+  // y el ruteo necesita algo estable por cuenta. El endpoint de aviso que MaKo registra en esa cuenta lo es, es de esa
+  // cuenta y sólo lo conoce quien tiene la clave. Viaja en la URL del aviso como `?w=<id>` (lib/creem-api.ts).
+  creem: { clave: 'CREEM_API_KEY', identificador: 'CREEM_WEBHOOK_ID', secretoAviso: 'CREEM_WEBHOOK_SECRET', alias: 'CREEM_ALIAS' },
 };
 
 /** El nombre de fábrica de cada proveedor con cuentas (el de la principal sin nombre propio). */
 const NOMBRE_BASE: Readonly<Record<ProveedorConCuentas | ProveedorAgendaConCuentas, string>> = {
-  stripe: 'Stripe', mercadopago: 'Mercado Pago', calendly: 'Calendly', calcom: 'Cal.com',
+  stripe: 'Stripe', mercadopago: 'Mercado Pago', creem: 'Creem', calendly: 'Calendly', calcom: 'Cal.com',
 };
 
 /** El nombre que ve la persona: el que le puso, o «Stripe» / «Stripe 2» (lo mismo para Calendly y Cal.com). */
