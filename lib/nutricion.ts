@@ -64,7 +64,7 @@ import { decidirAgenda } from '@/lib/nutricion-agenda';
 import {
   disparadoresDe, conEtapasDelCron, vistasPorDisparador, unaPorSecuencia, disparaPorEvento, barreElDisparador, textosParaElGrupo,
   TRIGGERS_SOLO_EVENTO, TRIGGER_AVISO_MAKO, TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER,
-  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_AVISO_MAKO, TRIGGER_PAGO,
+  TRIGGER_EMAIL_RECIBIDO, TRIGGERS_DEL_EMISOR, TRIGGER_PAGO,
   type Disparador,
 } from '@/lib/disparadores';
 import { frenoDelEvento, eventoDeFila } from '@/lib/aviso-evento';
@@ -83,9 +83,11 @@ import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, pue
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
 import { esPasoAccion, sanearAccion, correrPasoAccion, type AccionDelPaso } from '@/lib/nutricion-paso-accion';
-import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, primeroQuedaParaAprobar, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
+import { avisoDeRitmo, avisoDeUnaPrendida, canalDelPrimerMensaje, naceConHorario, clasificarBorradores, porAprobarDelFlujo, resumirViejos, seFrenaPorBorradores, seFrenaAlEntrar, seFrenaDesde, BORRADOR_VIEJO_DIAS, type FilaBorrador, type AvisoDeRitmo, type AvisoDeUnaPrendida } from '@/lib/ritmo-al-activar';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { PREFIJO_CLAVE_DIFUSION } from '@/lib/difusion-reglas';
+import { descartarBorradoresAnotando, type DbDescarte } from '@/lib/borradores-descartar';
+import { mensajesDelFlujo } from '@/lib/mensajes-por-aprobar';
 import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
@@ -1976,35 +1978,175 @@ async function leTocaHorarioDeFabrica(secuenciaId: number): Promise<boolean> {
 export async function ritmoAlActivar(secuenciaId: number, o: { incluirExistentes?: boolean } = {}): Promise<AvisoDeRitmo | null> {
   const sec = await secuenciaDeId(secuenciaId);
   if (!sec) return null;
-  const canal = canalDelPrimerMensaje(sec.pasos);
-  if (!canal) return null;
+  const conMensajes = mensajesDelFlujo(sec.pasos).length > 0;
+  const canal = conMensajes ? canalDelPrimerMensaje(sec.pasos) : null;
+  // Sólo acciones: no hay ritmo que decir, pero un borrador pendiente las frena igual (`seFrenaPorBorradores`).
+  if (!canal && !seFrenaPorBorradores(sec.pasos)) return null;
   const [config, limites, delNegocio] = await Promise.all([leerConfigAutomatizacion(secuenciaId).catch(() => null), limitesDeEnvio(), horarioDeEnvio()]);
   let personas: number | null = 0;
+  let entran = new Set<number>();
   try {
-    const supabase = (await getTenantDb());
-    const vistos = new Set<number>();
-    for (const vista of vistasPorDisparador(sec)) {
-      if (!barridoInscribe(vista) || !barreElDisparador(vista)) continue;
-      const candidatos = (await aTiempo(supabase, vista, await leadsDeCohorte(vista.trigger_tipo, etapasDe(vista), vista.funnel_id, vista.producto_id, vista.etiqueta_id)))
-        .filter((id) => !vistos.has(id));
-      if (!candidatos.length) continue;
-      const { nuevas, reusar } = await aInscribir(supabase, vista, candidatos);
-      for (const x of [...nuevas, ...reusar]) vistos.add(x.lead_id);
-    }
-    personas = vistos.size + (o.incluirExistentes ? (await existentesEnEtapa(secuenciaId))?.viejos ?? 0 : 0);
+    entran = await leadsQueEntranAlActivar(sec, o);
+    personas = entran.size;
   } catch (e) {
     console.error(`[nutricion] ritmo al activar #${secuenciaId}: ${e instanceof Error ? e.message : String(e)}`);
     personas = null;
   }
+  // «No pude leerlos» no frena ni afirma nada: no saber si hay no es «no hay», y tampoco es «hay».
+  const borradores = await borradoresAlActivar(sec, entran).catch((e: unknown) => {
+    console.error(`[nutricion] borradores viejos al activar #${secuenciaId}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  });
+  // ⚠️ Los que entran y están frenados no se dicen en «Entran N»: el cartel decía que salían y, dos frases después, que no salía nada.
+  // Sólo si se frenan antes de que les salga algo: un flujo que arranca por email se lo manda igual (`seFrenaAlEntrar`).
+  const entranFrenados = borradores && seFrenaAlEntrar(sec.pasos) ? [...borradores.liberados, ...borradores.siguenFrenados].filter((id) => entran.has(id)).length : 0;
+  const liberados = new Set(borradores?.liberados);
+  const parados = new Set([...(borradores?.liberados ?? []), ...(borradores?.siguenFrenados ?? [])]);
+  const vencidasParadas = [...(borradores?.vencidas ?? [])].filter((id) => parados.has(id));
   return avisoDeRitmo({
-    personas, canal, goteo: config?.goteo, topes: limites === 'ilegible' ? null : limites,
+    personas: personas == null ? null : personas - entranFrenados, canal, goteo: config?.goteo, topes: limites === 'ilegible' ? null : limites,
     // El aviso de MaKo también dispara por su evento, pero le escribe al equipo: no es el caso que asusta.
     porEvento: vistasPorDisparador(sec).some((v) => TRIGGERS_SOLO_EVENTO.has(v.trigger_tipo) && v.trigger_tipo !== TRIGGER_AVISO_MAKO),
-    quedaParaAprobar: primeroQuedaParaAprobar(sec.pasos, sec.envio_automatico),
+    porAprobar: porAprobarDelFlujo(sec.pasos, sec.envio_automatico),
+    adentro: (await inscripcionesVivas(secuenciaId).catch(() => 0)) + entranFrenados,
+    adentroVencidos: Math.max(0, (await vencidasAlPrenderla(sec).catch(() => 0)) - vencidasParadas.length),
+    adentroLiberables: vencidasParadas.filter((id) => liberados.has(id)).length,
+    viejos: borradores ? resumirViejos({ ...borradores, ids: borradores.descartables.map((f) => f.id), personas: borradores.liberados.length, zona: await tzActual(), ahora: Date.now() }) : null,
+    siguenFrenados: borradores?.siguenFrenados.length ?? 0,
     // Sin poder leerlo, no se afirma nada. Y dice el horario con que va a salir: el de fábrica, si le toca al prenderla.
     horario: config == null || delNegocio === 'ilegible' ? undefined
       : (await leTocaHorarioDeFabrica(secuenciaId).catch(() => false)) ? HORARIO_SUGERIDO : horarioDeLaAutomatizacion(config, delNegocio),
   });
+}
+
+/** Las inscripciones que el motor mueve al prenderla: los estados y el reloj de `procesarEnvios`. */
+async function inscripcionesVivas(secuenciaId: number): Promise<number> {
+  const supabase = (await getTenantDb());
+  const { count, error } = await supabase.from('nutricion_inscripciones').select('id', { count: 'exact', head: true })
+    .eq('secuencia_id', secuenciaId).in('estado', ['activa', 'respondio']).not('proximo_envio_at', 'is', null);
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+/**
+ * Las que salen al prenderla: lo vencido durante la pausa (`setSecuenciaActiva`). Si el flujo termina con quien contestó (`cierraAlContestar`), sólo las activas:
+ * es un piso, y no se afirma que les sale algo a los que el motor va a cerrar.
+ */
+async function vencidasAlPrenderla(sec: Secuencia): Promise<number> {
+  const supabase = (await getTenantDb());
+  const cierran = usaContesto(sec.pasos) && raizRespuesta(sec.pasos) == null;
+  const { count, error } = await supabase.from('nutricion_inscripciones').select('id', { count: 'exact', head: true })
+    .eq('secuencia_id', sec.id).in('estado', cierran ? ['activa'] : ['activa', 'respondio']).lte('proximo_envio_at', ahoraISO());
+  if (error) throw new Error(error.message);
+  return count ?? 0;
+}
+
+/** El mensaje en el que está parado quien contestó: el motor le cierra la automatización antes de mandarlo, si ya le salió algo (`procesarEnvios`). */
+function cierraAlContestar(pasos: readonly PasoGrafo[], i: number): boolean {
+  const n = pasos[i];
+  return !!n && claseDe(n) === 'mensaje' && usaContesto(pasos) && raizRespuesta(pasos) == null && !esHiloDelCarril(pasos, i) && !ramaDeQuienContesto(pasos).has(idDe(n, i));
+}
+
+/**
+ * A quiénes inscribiría el barrido si la prenden ahora, con la MISMA puerta (`planificarInscripciones`). Con `incluirExistentes`, también los que están en
+ * la etapa fuera de la ventana (`existentesPorCron`): si no, se dicen en «Entran» y sus borradores no se miran. Sólo lee.
+ */
+async function leadsQueEntranAlActivar(sec: Secuencia, o: { incluirExistentes?: boolean } = {}): Promise<Set<number>> {
+  const supabase = (await getTenantDb());
+  const vistos = new Set<number>();
+  for (const vista of vistasPorDisparador(sec)) {
+    if (!barridoInscribe(vista) || !barreElDisparador(vista)) continue;
+    const candidatos = (await aTiempo(supabase, vista, await leadsDeCohorte(vista.trigger_tipo, etapasDe(vista), vista.funnel_id, vista.producto_id, vista.etiqueta_id)))
+      .filter((id) => !vistos.has(id));
+    if (!candidatos.length) continue;
+    const { nuevas, reusar } = await aInscribir(supabase, vista, candidatos);
+    for (const x of [...nuevas, ...reusar]) vistos.add(x.lead_id);
+  }
+  if (o.incluirExistentes) {
+    for (const c of await existentesPorCron(sec)) for (const x of [...c.viejos.nuevas, ...c.viejos.reusar]) vistos.add(x.lead_id);
+  }
+  return vistos;
+}
+
+/**
+ * LOS BORRADORES QUE LA VAN A FRENAR (el Cerebro, 30/10/2026, medido en Leila; lib/ritmo-al-activar.ts). Se lee lo que hace falta y decide `clasificarBorradores`.
+ * Todos los pendientes de automatización, de cualquier fecha: el motor no mira la fecha, y el corte de «viejo» es sólo para lo que se ofrece descartar.
+ * Los que están adentro son los que el motor mueve, activos o que contestaron (`inscripcionesVivas`), más los que entrarían. Sólo `origen: 'nutricion'`: el
+ * borrador de una charla del setter no frena a nadie (`tieneBorradorNutriPendiente`). null = no hay ninguno. Sólo lee.
+ */
+async function borradoresAlActivar(sec: Secuencia, entran: ReadonlySet<number>) {
+  const supabase = (await getTenantDb());
+  const filas: FilaBorrador[] = [];
+  // ⚠️ Paginado: PostgREST corta en 1000 sin avisar, y un número de menos acá es un aviso que miente.
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await supabase.from('wa_borradores').select('id, lead_id, secuencia_id, created_at')
+      .eq('origen', 'nutricion').eq('estado', 'pendiente').order('id').range(desde, desde + 999);
+    if (error) throw new Error(error.message);
+    filas.push(...((data ?? []) as FilaBorrador[]));
+    if ((data ?? []).length < 1000) break;
+  }
+  if (!filas.length) return null;
+
+  const adentro = new Set<number>();
+  const vencidas = new Set<number>();
+  const pagaron = new Set<number>();
+  const seFrena = seFrenaPorBorradores(sec.pasos);
+  if (seFrena) {
+    const conBorrador = [...new Set(filas.flatMap((f) => (f.lead_id != null ? [Number(f.lead_id)] : [])))];
+    for (const id of conBorrador) if (entran.has(id)) adentro.add(id);
+    for (let i = 0; i < conBorrador.length; i += 200) {
+      const lote = conBorrador.slice(i, i + 200);
+      const [insc, leads] = await Promise.all([
+        supabase.from('nutricion_inscripciones').select('id, lead_id, estado, paso_actual, nodo_actual, hilos, proximo_envio_at').eq('secuencia_id', sec.id).in('estado', ['activa', 'respondio']).not('proximo_envio_at', 'is', null).in('lead_id', lote),
+        supabase.from('leads').select('id, fecha_primer_pago').in('id', lote),
+      ]);
+      if (insc.error) throw new Error(insc.error.message);
+      if (leads.error) throw new Error(leads.error.message);
+      for (const x of (insc.data ?? []) as Array<{ id: number; lead_id: number; estado: string; paso_actual: number; nodo_actual: string | null; hilos: unknown; proximo_envio_at: string }>) {
+        // Dónde está cada uno, como lo busca el motor: con hilos, o si su tarjeta ya no está, se cuenta como que espera.
+        const i = x.hilos ? -1 : indiceActual(sec.pasos, x);
+        if (i >= 0 && !seFrenaDesde(sec.pasos, i)) continue;
+        if (x.estado === 'respondio' && i >= 0 && cierraAlContestar(sec.pasos, i) && await yaLeSalioAlgo(supabase, x.id)) continue;
+        adentro.add(Number(x.lead_id));
+        if (Date.parse(x.proximo_envio_at) <= Date.now()) vencidas.add(Number(x.lead_id));
+      }
+      for (const x of (leads.data ?? []) as Array<{ id: number; fecha_primer_pago: string | null }>) if (x.fecha_primer_pago) pagaron.add(Number(x.id));
+    }
+  }
+
+  const idsOtras = [...new Set(filas.filter((f) => f.secuencia_id != null && Number(f.secuencia_id) !== sec.id).map((f) => Number(f.secuencia_id)))];
+  const { data: otras, error: eOtras } = idsOtras.length ? await supabase.from('nutricion_secuencias').select('id, nombre, activa').in('id', idsOtras) : { data: [], error: null };
+  if (eOtras) throw new Error(eOtras.message);
+  const filasOtras = (otras ?? []) as Array<{ id: number; nombre: string | null; activa: boolean }>;
+  const clas = clasificarBorradores({
+    filas, secuenciaId: sec.id, corte: Date.now() - BORRADOR_VIEJO_DIAS * 86_400_000, seFrena, adentro, pagaron,
+    activas: new Set(filasOtras.filter((s) => s.activa).map((s) => Number(s.id))),
+  });
+  const vienen = new Set(clas.descartables.map((f) => Number(f.secuencia_id)));
+  return {
+    ...clas, vencidas, fechas: clas.descartables.map((f) => f.created_at),
+    propios: clas.descartables.filter((f) => Number(f.secuencia_id) === sec.id).length,
+    otras: filasOtras.filter((s) => vienen.has(Number(s.id))).map((s) => s.nombre?.trim() || 'otra automatización'),
+  };
+}
+
+/**
+ * «DESCARTARLOS AHÍ MISMO», desde el aviso al activar: de los que se le dijeron a la persona (`ids`), sólo los que HOY se siguen pudiendo descartar: si otra
+ * automatización se prendió en el medio, los suyos ya no. Por el camino de archivar (`descartarBorradoresAnotando`), con su renglón en el historial de cada
+ * lead. Lo que seguía esperando ese borrador en su flujo sigue su camino, como al descartarlo en Chats › Borradores. No prende nada. Devuelve cuántos.
+ */
+export async function descartarBorradoresViejos(secuenciaId: number, o: { ids: readonly number[]; autor: string; incluirExistentes?: boolean }): Promise<number> {
+  const sec = await secuenciaDeId(secuenciaId);
+  if (!sec) return 0;
+  const entran = await leadsQueEntranAlActivar(sec, o).catch(() => new Set<number>());
+  const leidos = await borradoresAlActivar(sec, entran);
+  if (!leidos) return 0;
+  const pedidos = new Set(o.ids);
+  const ids = leidos.descartables.map((f) => Number(f.id)).filter((id) => pedidos.has(id));
+  if (!ids.length) return 0;
+  const hechos = await descartarBorradoresAnotando(((await getTenantDb()) as unknown as DbDescarte), { ids },
+    () => `Borrador descartado al ir a activar «${sec.nombre?.trim() || `#${sec.id}`}»: era viejo, y su mensaje ya no corresponde. No se le mandó nada.`, o.autor);
+  return hechos.length;
 }
 
 /**
@@ -4937,9 +5079,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
       // está dibujado para quien contestó; y nada se corta antes de que a esa inscripción le haya salido algo: quien le
       // escribió al negocio por otra cosa mientras esperaba el goteo recibe su primer mensaje.)
       const nodoAhora = sec.pasos[insc.paso_actual];
-      if (enRespuesta && nodoAhora && claseDe(nodoAhora) === 'mensaje' && usaContesto(sec.pasos) && raizRespuesta(sec.pasos) == null
-          && !esHiloDelCarril(sec.pasos, insc.paso_actual) && !ramaDeQuienContesto(sec.pasos).has(idDe(nodoAhora, insc.paso_actual))
-          && await yaLeSalioAlgo(supabase, insc.id)) {
+      if (enRespuesta && nodoAhora && cierraAlContestar(sec.pasos, insc.paso_actual) && await yaLeSalioAlgo(supabase, insc.id)) {
         if (await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance: 'hilo' })) {
           res.omitidos += 1;
           await anotarCierreSinEnvio(insc, nodoAhora, lead, 'el lead contestó: no le sale nada más de esta automatización');

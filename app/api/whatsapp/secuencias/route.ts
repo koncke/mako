@@ -17,8 +17,9 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { getSecuenciasConStats, setSecuenciaActiva, existentesEnEtapa, ritmoAlActivar, incluirExistentes, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
+import { getSecuenciasConStats, setSecuenciaActiva, existentesEnEtapa, ritmoAlActivar, descartarBorradoresViejos, incluirExistentes, publicarPasos, setSecuenciaLinea, setSecuenciaReentrada, vozDeAIStepQueFalta, DuplicadaError, PasosInvalidosError, TopeDelPlanError, type PasoSecuencia } from '@/lib/nutricion';
 import { getRolWsEfectivo, getTenantDb, getWorkspaceActual } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
 import { envioWhatsappHabilitado, envioEmailHabilitado } from '@/lib/envio-flags';
 import { asegurarAvisosSociales, disparadoresDeSecuencia, lineaDeSecuencia, medioSinConectar, SIN_MEDIOS } from '@/lib/disparadores-canales';
 import { comprobarVisto, type DbBorrador } from '@/lib/secuencia-borrador';
@@ -76,7 +77,7 @@ export async function PATCH(req: NextRequest) {
   if ((await getRolWsEfectivo()) !== 'admin') {
     return Response.json({ ok: false, error: 'Solo el admin del workspace puede editar las secuencias.' }, { status: 403 });
   }
-  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown; aunqueDuplique?: unknown; incluirExistentes?: unknown };
+  let body: { id?: unknown; activa?: unknown; pasos?: unknown; linea?: unknown; visto?: unknown; reentrada?: unknown; aunqueDuplique?: unknown; incluirExistentes?: unknown; descartarViejosIds?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -88,6 +89,18 @@ export async function PATCH(req: NextRequest) {
   }
   let aviso: string | null = null;
   try {
+    // «Descartarlos ahí mismo», desde el aviso al activar (lib/nutricion.ts). No prende nada: vuelve con el aviso de nuevo, ya sin ellos.
+    if (Array.isArray(body.descartarViejosIds)) {
+      const sesion = await getUsuarioActual();
+      const incluirExist = body.incluirExistentes === true;
+      const descartados = await descartarBorradoresViejos(id, { ids: body.descartarViejosIds.map(Number).filter(Number.isInteger), autor: sesion?.email ?? 'MaKo', incluirExistentes: incluirExist });
+      // Ya se descartaron: si no se puede releer el aviso, se dice lo hecho, no que falló.
+      const ritmo = await ritmoAlActivar(id, { incluirExistentes: incluirExist }).catch((e: unknown) => {
+        console.error(`[api:whatsapp/secuencias PATCH descartar] ${e instanceof Error ? e.message : String(e)}`);
+        return null;
+      });
+      return Response.json({ ok: true, descartados, ritmo });
+    }
     if (Array.isArray(body.pasos)) {
       // ⚠️ PUBLICAR DESDE UNA FOTO (MaKo Mobile, 12/10/2026): el teléfono publica el borrador TAL COMO LO
       // LEYÓ, quizá hace horas. Si después la computadora guardó otro borrador o publicó otra cosa, publicar

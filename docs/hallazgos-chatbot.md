@@ -75,7 +75,58 @@ alargan. ⚠️ El tope de la línea no separa, corta la tanda: usarlo como un g
 hay a quién contar: quedaba puesto donde el riesgo es menor y callado en Instagram, donde es mayor. El aviso no está para decir a
 cuántos, está para que no te enteres del goteo después. **Un aviso que miente es peor que ninguno:** si el primer mensaje lo escribe la
 IA y no sale solo (`saleSolo`), queda para aprobar, y el aviso lo dice en vez de «sale». Desde el 23/10 un mensaje fijo siempre sale, así
-que este caso es sólo el de la IA: ninguna de las 44 medidas el 30/10 cae ahí, así que ese texto nunca se leyó con un caso real.
+que este caso es sólo el de la IA.
+
+**El aviso miraba sólo el primer mensaje, y se equivocaba para los dos lados (30/10).** Uno de IA más adentro quedaba esperando sin que nadie
+lo dijera: el negocio creía que MaKo había escrito. Y al revés: `primeroQuedaParaAprobar` contaba todo lo que no fuera email, así que de un
+mensaje de IA por Instagram decía «queda en Borradores», y Instagram no tiene bandeja: el motor lo manda. ⚠️ **Un test fijaba ese error** («queda
+para aprobar: no se va de golpe», sobre un paso de Instagram), porque lo escribió quien escribió el código. Medido el 30/10, en las 555 de la base:
+13 dejan algo para aprobar, en 12 no es el primero (la plantilla «Un Lead Entró», 1 de 5) y ninguna de esas 12 está prendida; ninguna usa IA por
+Instagram o Messenger, así que los dos errores no le pasaron a nadie todavía. **La regla:** una sola lista, `mensajesQueQuedan`
+(lib/mensajes-por-aprobar.ts), de la que salen `dejaBorradores` y `porAprobarDelFlujo`; y lo que queda para aprobar se dice siempre, también sin
+nadie a quien contar, con cuántos y de cuántos. «Hasta»: con ramas nadie pasa por todos, y a quien ya pagó le sale directo. ⚠️ Una prendida con
+goteo y horario NO lleva ⚠ sólo por esto: la línea de la automatización ya cuenta los que esperan (`textoPorAprobar`). ⚠️ `envio_automatico` no es
+una columna, vive en `estrategia`: un script que la pide directo falla.
+
+**Un borrador pendiente frena TODO el WhatsApp de ese lead, en cualquier automatización, no sólo la IA (30/10, medido en Leila).** El diagnóstico que llegó
+decía «sus mensajes de IA sin "sale sola" se frenan»: no. «Seguimiento a leads que no cierran» (pausada) **no tiene un solo mensaje de IA** y 27 de sus
+personas igual se frenarían (contando también a las que ya contestaron): la guarda del motor (`tieneBorradorNutriPendiente`) va antes de mirar el tipo, y mira cualquier borrador de automatización del
+lead, de cualquier automatización y fecha. Esperan los mensajes de WhatsApp no oficial y las acciones; no esperan los «N antes de la reunión», «Si responde», el
+oficial, el email ni Instagram, y a quien ya pagó no lo frena (`seFrenaPorBorradores`, `clasificarBorradores`, lib/ritmo-al-activar.ts). Eran 27 borradores del
+20/10 de dos automatizaciones pausadas: si la prendían, el negocio creía que MaKo escribía y MaKo no escribía; y aprobar uno mandaba un mensaje de hace diez
+días. **La regla:** el aviso al prender dice cuántos, de qué fecha, de dónde y qué pasa, y ofrece descartarlos ahí, por `descartarBorradoresAnotando`
+(lib/borradores-descartar.ts), el camino de archivar. ⚠️ Una medición tiene fecha, y lo que cuenta depende del filtro: CRM midió 33 y yo 31 el mismo día; los
+otros 2 son de `origen: 'setter-asistido'`, del 28/10, y no frenan a nadie.
+
+**⚠️ Descartar un borrador NO es neutro: suelta lo que venía detrás, y la primera versión de esto lo hacía por una automatización que nadie miraba.** Al crear el
+borrador la inscripción ya avanzó; lo que la tiene quieta es ese borrador. Descartar uno de otra automatización PRENDIDA desde el aviso de ésta le mandaba al
+lead su segundo mensaje sin el primero, aunque después se apretara «Cancelar». No le pasó a nadie: no se subió, y lo encontró la revisión independiente, que
+además no era obvia para quien la escribió. **La regla:** de una prendida no se ofrece; lo reciente tampoco (`BORRADOR_VIEJO_DIAS`, 3: se dice, y se resuelve en
+Chats › Borradores); y la frase dice la consecuencia de descartar, no sólo la de aprobar.
+
+**Un cartel con un botón adentro: Enter sobre ese botón confirmaba.** `Confirm` escucha el teclado antes que nadie y confirmaba con cualquier foco: Enter sobre
+«Descartar», o sobre «Poner goteo», PRENDÍA la automatización. Y con las flechas que le pasa cada pantalla, cada render le robaba el foco al botón que se miraba.
+Valía para todos los carteles de la app. Ahora, Enter sobre otro botón es ese botón, y el foco va una vez. Escape, con algo en vuelo, no cierra.
+
+**La misma revisión, en una línea cada una:** los que contestaron también se mueven (`['activa','respondio']`, no `'pendiente'`, que el motor ni levanta); con
+«Incluirlas» se contaba en «Entran» a gente cuyos borradores no se miraban; el cartel decía que salían y, dos frases después, que no salía nada (`entranFrenados`);
+con ramas, «el primer mensaje» y «más adelante» mentían para una de ellas (`mezcla`); el primero para aprobar callaba la falta de horario de los que sí salen solos.
+
+**La segunda revisión (31/10), sobre los arreglos de la primera: 7 de 8 hallazgos eran reales, y dos caían en el miedo original de Martín.** Un arreglo de una revisión también se revisa. No le pasó a nadie: no estaba subido.
+- **«Descartar» soltaba mensajes sin haber dicho nunca que no tiene goteo.** El ritmo contaba sólo a los que entran, y prender una pausada también manda lo vencido de los de adentro (`setSecuenciaActiva`). Con 27 adentro y nadie nuevo, el aviso callaba el goteo. **La regla:** lo que sale al prender se cuenta entero, los que entran y los que ya estaban (`fraseDeAdentro`), y lo que suelta el botón se dice antes de apretarlo.
+- **«Se frena» miraba el flujo, no a la persona.** «Algún paso del flujo espera» restaba de «Entran» a quien recibe el primer email igual, y con los 200 frenados callaba el goteo con 200 emails saliendo. Y ofrecía descartar el borrador de alguien que ya pasó ese WhatsApp, o al que el motor le cierra la automatización porque contestó: se perdía un mensaje sin soltar a nadie. **La regla:** se pregunta por lo que le queda a cada uno (`seFrenaDesde`, `seFrenaAlEntrar`), y el cierre es la misma función del motor (`cierraAlContestar`), no una copia.
+- **Descartar un borrador de alguien a quien otro lo sigue frenando no lo suelta,** y la frase decía «sigue con el próximo». Ya no se ofrece: se ofrece cuando se resuelva el otro.
+- **Una de sólo acciones se frena igual,** y el aviso cortaba antes de mirar: la etiqueta no se ponía y nadie se enteraba.
+- **Enter, otra vez.** El arreglo de arriba dejó dos huecos: al volver de descartar el foco caía en ningún lado, y el mismo Enter prendía sin haber leído el aviso nuevo; y con Tab a un botón de atrás del velo, Enter lo clickeaba. **⚠️ El diagnóstico del revisor sobre el segundo estaba mal, y lo corrigió el refutador:** Enter ya lo clickeaba antes, y además confirmaba. Solo acotar a los botones del cartel volvía al doble efecto: hace falta `preventDefault`. Y hay que dejar pasar el Enter de OTRO cartel, porque los dos escuchan en `document`.
+- **Lo refutado:** «cerrar Configuraciones del teléfono con la X pierde el refresh» es falso en Next 16.2.6: el reducer del refresh es síncrono, no queda en `pending` cuando llega el popstate. Sale de leer el código, no de un teléfono: el punto 7 de `docs/relevo/automations.md` lo mira.
+- **Permisos: nada.** Un id de otro negocio no pasa el cruce con lo que se puede descartar, y las tablas van por `getTenantDb`.
+
+**⚠️ Un test que lee el fuente no compila.** `tests/ritmo-al-activar.test.ts` dio 29 / 0 con `lib/nutricion.ts` sin poder compilar: agregué `inscripcionesVencidas` y ese nombre ya existía. Lo agarró la lectura real contra la base, no el test. **La regla:** después de tocar el motor, algo tiene que importarlo de verdad antes de creerle a un verde.
+
+**El aviso decía y no llevaba a ningún lado (Martín, 30/10: «ella no sabia donde se configuraba el horario de oficina nada mas»).** No era un
+bug del motor, era la pantalla. En la computadora «Poner horario» ya abría Configuraciones, pero el ⚠ de la fila era un dibujo, y **en el teléfono no
+había camino**: el aviso era un texto, y Configuraciones no existía. Ahora, un toque desde el aviso en los tres lugares. El teléfono usa los MISMOS
+ajustes (`AjustesDeLaAutomatizacion`, por `dynamic`, app/m/automations/ConfiguracionesM.tsx), no una copia. Al cerrar se relee, y el aviso se va.
 
 **Un aviso que sale al activar no alcanza a las que ya viajan (el hallazgo de este punto).** Medido el 30/10: las 7 activas de Instagram
 leídas no tienen goteo. El riesgo que Martín temía no es futuro, está prendido. **La regla:** el valor de un aviso no está en el momento
@@ -88,11 +139,11 @@ quien ve la automatización, en la computadora y en el teléfono: un setter no l
 
 **Cambiar una línea rompe los tests que leen el fuente de ese archivo, aunque el comportamiento no cambie.** Este aviso dejó siete rojos en el tren, y correr «los tests de lo que toqué» de memoria no encontró ninguno. Los encontraron la corrida del tren (dos) y correr TODOS los que nombran los archivos tocados (cinco, en 298 archivos, una hora de máquina). ⚠️ **No eran todos iguales:** `tests/chatbot-probar.test.ts` cuidaba una regla de diseño de verdad, que el único texto de una fila de la lista es el nombre, y ahí se cambió el código, no el test. **La regla:** antes de pasar una punta se corren los que leen el fuente de lo tocado, y un rojo se lee antes de ajustarlo. ⚠️ El barrido corre sobre un árbol que se sigue arreglando: lo que corrió antes de un arreglo hay que volver a correrlo.
 
-**Decisiones de Automations:** con menos de 2 personas, y sin evento, no hay ritmo que decir. No poder contar no frena, pero sin goteo se
+**Decisiones de Automations:** con menos de 2 personas que salgan, contando a las de adentro con lo suyo vencido, y sin evento, no hay ritmo que decir. No poder contar no frena, pero sin goteo se
 dice igual.
 
 **Sin hacer:** el interruptor de /email y «MaKo escribe tu nutrición» (app/email/EmailApp.tsx, app/_components/NutricionGenerar.tsx)
-prenden sin este aviso. El aviso mira el PRIMER mensaje: uno de IA más adelante puede quedar para aprobar sin que lo diga. Una con horario cuenta a los de hoy, no a los de su próxima vez. El tope de Meta para Instagram no entra en la cuenta.
+prenden sin este aviso. Una con horario cuenta a los de hoy, no a los de su próxima vez. El tope de Meta para Instagram no entra en la cuenta. Una que ya está prendida con sólo borradores viejos no avisa nada (`avisoDeUnaPrendida`, lib/ritmo-al-activar.ts). Chats › Borradores no dice que uno es de hace diez días: aprobarlo lo manda igual. Con hilos, las acciones esperan sólo a su mensaje anterior, y `seFrenaPorBorradores` lo aproxima.
 **Sin ver en pantalla:** probado con tests, roturas y el dato real de producción, no en el navegador (sin servidor local por la RAM).
 
 ## El botón de un DM viejo no andaba y pausaba todo (30/10/2026, ticket #33 de Leandro)

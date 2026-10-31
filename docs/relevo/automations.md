@@ -9,7 +9,30 @@
 Tres arreglos: el paso de una inscripción sin tarjeta (`indiceDeLaFila`), lo que manda Instagram (`ig_mensajes.metadata_zernio`,
 migración 0353, ya aplicada) y la pausa de Zernio en Automations y Calendario. Encima, el aviso al activar: cuántos y a qué ritmo
 (lib/ritmo-al-activar.ts). La cosecha, en docs/hallazgos-chatbot.md y docs/hallazgos-integraciones.md. **Mirar cuando despliegue:** el
-aviso en pantalla (no se vio en el navegador) y `ig_mensajes.metadata_zernio` con el próximo toque de un DM viejo.
+aviso en pantalla (no se vio en el navegador: la lista exacta de qué mirar, abajo) y `ig_mensajes.metadata_zernio` con el próximo toque de un DM viejo.
+**Después, la misma noche:** el aviso cuenta lo que queda para aprobar en todo el flujo (`porAprobarDelFlujo`), ya no sólo el primero; dice los borradores viejos
+que la van a frenar y ofrece descartarlos (`borradoresAlActivar`, `descartarBorradoresViejos`); y el camino hasta Configuraciones sale del aviso mismo también en el ⚠ de la fila y en el
+teléfono (`ConfiguracionesM`).
+
+**QUÉ HAY QUE MIRAR EN PANTALLA, nadie lo vio.** El 30/10 no había sesión de MaKo en el navegador de la app, y el código todavía no estaba desplegado. Abrir el
+aviso no prende nada; cerrarlo o cancelarlo, tampoco. Se prueba en el **Cliente de Prueba**, con «🧪 Prueba chats 22/10» (apagada, 2 de sus 5 mensajes quedan para
+aprobar: es el caso real de ese texto):
+1. **Computadora, el interruptor** y **«⋯ › Activar»:** el aviso dice «Más adelante, 2 de sus 5 mensajes no salen solos: quedan hasta N en Borradores…», se lee
+   entero en el modal, y «Poner goteo» / «Poner horario» abre Configuraciones sin prenderla.
+2. **Configuraciones:** «Poner goteo» abre arriba, en Horario de oficina. Mirar si el goteo se ve sin bajar; si no se ve, no es un toque.
+3. **La fila de una prendida sin goteo u horario:** el ⚠ alineado, sin pisar el «⋯»; la frase al pasar el cursor; un clic abre Configuraciones de ESA sin cambiar
+   la elegida; al poner lo que falta y cerrar, el ⚠ se va. Con un setter, el ⚠ no hace nada.
+4. **La pantalla de una prendida:** el aviso de arriba de «Activar» abre Configuraciones, y al cerrar se va.
+5. **Teléfono, al activar:** la hoja con el texto entero y «Activar igual» / «Poner…» / «Cancelar». «Poner…» abre Configuraciones.
+6. **Teléfono, una prendida:** la píldora en la lista, y adentro el texto con su botón «Poner…». ⚠️ Cierra una hoja y abre otra en el mismo toque: mirar que no
+   quede trabada y que el «atrás» ande.
+7. **Teléfono, Configuraciones:** es la pieza de la computadora adentro de una hoja, nunca probada ahí. Mirar que entre a 375 de ancho y que los desplegables de
+   huso y de horas abran y se puedan elegir adentro de la hoja. Al cerrar, el aviso se va.
+8. **Los borradores viejos:** el único caso real es de Leila, «Seguimiento a leads que no cierran». **Abrir el aviso alcanza, y NO tocar «Descartar los 27» sin que
+   Leila o Martín lo pidan: descarta de verdad.** Mirar que el botón se lea al lado del texto, y que con el modal angosto no se corte. Para probar el botón hay
+   que armar un borrador viejo en el Cliente de Prueba.
+9. **El teclado en el cartel** (Cliente de Prueba, cambió `app/_ui/Confirm.tsx`, que usan todos los carteles): con Tab hasta «Poner goteo» y Enter, abre Configuraciones y NO prende.
+   Enter recién abierto sigue confirmando. Mientras descarta, Escape no cierra. Después de descartar, Enter no hace nada hasta ir con Tab a un botón. Con Tab a un botón de atrás del velo, Enter confirma y no lo clickea. Mirar también un cartel de otra pantalla, por ejemplo borrar algo: Enter sigue andando.
 
 ## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
 

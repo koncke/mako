@@ -64,6 +64,7 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type ComponentType } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
+import { AvisoRitmoConfirm } from './AvisoRitmoConfirm';
 import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
@@ -513,7 +514,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const [renombrando, setRenombrando] = useState<number | null>(null);
   /** «Configuraciones» del «⋯» de una fila (20/10/2026): de cuál está abierto el modal. */
   const [configDe, setConfigDe] = useState<{ id: number; nombre: string } | null>(null);
-  const cerrarConfigDe = useCallback(() => setConfigDe(null), []);
+  // Identidad fija (la regla del Modal). Al cerrar se relee: si le pusieron goteo u horario, el ⚠ de la fila se va.
+  const alCerrarConfigDe = useRef<() => void>(() => {});
+  alCerrarConfigDe.current = () => { if (secuencias.find((s) => s.id === configDe?.id)?.aviso_ritmo) onReload(); };
+  const cerrarConfigDe = useCallback(() => { setConfigDe(null); alCerrarConfigDe.current(); }, []);
   const [nombresOptimistas, setNombresOptimistas] = useState<ReadonlyMap<number, string>>(() => new Map());
   // El optimista se va cuando la lista ya trae ese nombre (o la fila ya no está). Se calcula AL DIBUJAR, sin efecto:
   // un efecto pintaría un cuadro con el nombre de antes.
@@ -780,6 +784,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={nombreDe(j)} creando={creando}
           sinPublicar={sinPublicarDe(j, j.id === selId && sinPublicar)}
           aviso={j.activa ? j.aviso_ritmo ?? undefined : undefined}
+          onAviso={rolAdmin && Configuraciones ? () => setConfigDe({ id: j.id, nombre: j.nombre }) : undefined}
           onClick={() => elegir(j.id)}
           editarNombre={renombrando === j.id && rolAdmin && !creando
             ? { onGuardar: (t) => void guardarNombre(j, t), onCancelar: () => setRenombrando(null) }
@@ -998,7 +1003,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
       {avisoRitmo && (
-        <Confirm message={avisoRitmo.texto} confirmLabel={avisoRitmo.poner ? 'Activar igual' : 'Activar'} cancelLabel={avisoRitmo.poner ?? 'Cancelar'} tone="primary"
+        <AvisoRitmoConfirm aviso={avisoRitmo} secuenciaId={avisoRitmo.j.id} puedePoner
+          onDescartado={(a) => { setAvisoRitmo((v) => (v && v.j.id === avisoRitmo.j.id ? { ...a, j: v.j, sinAviso: v.sinAviso } : v)); onReload(); }}
           onConfirm={() => { const a = avisoRitmo; setAvisoRitmo(null); void accionFila(a.j, 'activa', { sinAviso: a.sinAviso, sinRitmo: true }); }}
           onCancel={() => { const a = avisoRitmo; setAvisoRitmo(null); if (a.poner) setConfigDe({ id: a.j.id, nombre: a.j.nombre }); }} />
       )}
@@ -1034,7 +1040,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  * RENOMBRANDO (undécima tanda, punto 5: `editarNombre`): el mismo emoji y, en lugar del botón, un campo con el
  * nombre (`CampoNombre`); el «⋯» se esconde mientras tanto.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, aviso, editarNombre }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, aviso, onAviso, editarNombre }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
@@ -1044,6 +1050,8 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
   sinPublicar?: boolean;
   /** Prendida sin goteo o sin horario (`aviso_ritmo`): un ícono, y la frase entera al pasar el cursor. */
   aviso?: { texto: string; rotulo: string };
+  /** El ⚠ lleva a Configuraciones, de un clic (Martín, 30/10/2026: «no sabia donde se configuraba»). Sin esto (quien no es admin), sólo se lee. */
+  onAviso?: () => void;
   /** Se está renombrando: el nombre es un campo. Guardar recibe lo escrito; cancelar, nada. */
   editarNombre?: { onGuardar: (escrito: string) => void; onCancelar: () => void };
 }) {
@@ -1080,10 +1088,13 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
             <span data-sin-publicar role="img" aria-label="Sin publicar" title="Tiene cambios sin publicar: todavía sale lo de antes"
               style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--warn)', flex: 'none' }} />
           )}
-          {/* Un ícono y no un rótulo: el único TEXTO de la fila es el nombre (tests/chatbot-probar.test.ts). La frase, al pasar el cursor y en su pantalla. */}
-          {aviso && <span data-sin-goteo role="img" aria-label={aviso.rotulo} title={aviso.texto} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none' }}>⚠</span>}
         </button>
       )}
+      {/* Un ícono y no un rótulo: el único TEXTO de la fila es el nombre (tests/chatbot-probar.test.ts). La frase, al pasar el cursor y en su pantalla.
+          Afuera del botón de la fila: un botón no va adentro de otro. */}
+      {aviso && !editarNombre && (onAviso
+        ? <button type="button" data-sin-goteo aria-label={aviso.rotulo} title={aviso.texto} onClick={onAviso} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none', padding: '4px 6px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>⚠</button>
+        : <span data-sin-goteo role="img" aria-label={aviso.rotulo} title={aviso.texto} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none', padding: '4px 6px' }}>⚠</span>)}
       {menu && !editarNombre && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
     </div>
   );

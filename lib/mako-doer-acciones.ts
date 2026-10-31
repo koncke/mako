@@ -17,6 +17,7 @@ import { REGLA_NOMBRE_PROYECTO, canonNombre } from '@/lib/plan-proyectos-catalog
 import { wsEnContexto, runWithWorkspace, getTenantDb, OWNER_WS } from '@/lib/workspace';
 import { crearPendiente, resolverPendiente, pendientesVigentes, reclamarPendiente } from '@/lib/mako-pendientes';
 import { porId } from '@/lib/api-mako/registro';
+import { textoEnteroDelAviso } from '@/lib/ritmo-al-activar';
 import { esAccion } from '@/lib/api-mako/tipos';
 import { rechazoSiNoEsConfirmacionPura } from '@/lib/confirmacion-pura';
 import { getLead, setPipelineStage, faltantesParaMover, esRequisitosFaltantes, logLeadEvent } from '@/lib/leads';
@@ -838,7 +839,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         // Y CUÁNTOS Y A QUÉ RITMO (lib/ritmo-al-activar.ts): la persona confirma sabiéndolo. No poder contarlo no frena.
         const ritmo = activa ? await runWithWorkspace(ws, () => ritmoAlActivar(secuenciaId)).catch(() => null) : null;
         return proponer('nutricion_toggle', { secuenciaId, activa, ...(otra ? { aunqueDuplique: true } : {}) },
-          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra)}` : ''}${ritmo ? `. ${ritmo.texto}` : ''}`);
+          `${activa ? 'Activar' : 'Pausar'} la secuencia de nutrición "${sec.nombre}"${otra ? `. ${avisoDuplicada(otra)}` : ''}${ritmo ? `. ${textoEnteroDelAviso(ritmo)}` : ''}`);
       }
 
       case 'proponer_renombrar_campana': {
