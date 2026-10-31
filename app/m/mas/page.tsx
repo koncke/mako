@@ -73,7 +73,8 @@ export default async function MasPagina() {
   // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, con «Pasar a Pro» debajo (lib/plan-esencial-reglas.ts).
   const esencial = await esEsencialDeLaSesion();
   // El cliente de una agencia (29/10/2026): el candado sin «Pasar a Pro»; su plan lo cambia su agencia.
-  const deAgencia = esencial && (await esClienteDeAgencia(ctx.ws));
+  // ⚠️ `!== false` y con sus paréntesis (P15, 30/10/2026): el «no sé» de `esClienteDeAgencia` no ofrece «Pasar a Pro».
+  const deAgencia = esencial && (await esClienteDeAgencia(ctx.ws)) !== false;
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
   // LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): el cartel de la barra lateral, en el menú del teléfono.
   const prueba = ctx.ws != null ? await estadoDePrueba(ctx.ws) : null;

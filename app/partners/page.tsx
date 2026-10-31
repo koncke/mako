@@ -77,7 +77,8 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/clients'));
   if ((await adminDeWorkspaceActual()) == null) redirect(await rutaConWs('/clients'));
   // El cliente de una AGENCIA no ve MaKo Partners (29/10/2026, Thiago: «yo no me meto con ese cliente»).
-  if (await esClienteDeAgencia(ws)) redirect(await rutaConWs('/inicio'));
+  // ⚠️ Comparado contra `false` (P15, 30/10/2026): es una PUERTA, y el `null` («no pude leer la cartera») no entra.
+  if ((await esClienteDeAgencia(ws)) !== false) redirect(await rutaConWs('/inicio'));
   // Como toda tab: con el onboarding sin terminar, primero el onboarding (lib/tab-access.ts).
   await guardOnboarding();
 

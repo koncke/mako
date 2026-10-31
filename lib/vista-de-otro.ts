@@ -36,9 +36,16 @@ export type VistaDeOtro = {
  * ¿La cuenta que se está mirando es de una agencia? (lo que la barra le esconde: lib/nav-visibilidad.ts). Vive acá y no en la
  * ruta para que `/api/auth/me` tenga UNA sola lectura de «a quién se mira»: esta función lee la MISMA `getWorkspaceActual` que
  * `vistaDeOtro`, y devuelve un sí o un no, que no puede nombrar a otro cliente.
+ *
+ * ⚠️ ACÁ SE RESUELVE EL «NO SÉ», Y POR ESO SIGUE DEVOLVIENDO `boolean` (P15, 30/10/2026). `esClienteDeAgencia` contesta
+ * sí/no/`null`, y esto es la FRONTERA: lo que sale va como JSON a la barra del navegador, que no puede tener un tercer
+ * estado. El `null` se resuelve como **sí** (`!== false`): esconder MaKo Partners por una falla de la base cuesta un
+ * renglón del menú, mostrárselo al cliente de una agencia le rompe el trato a la agencia (Thiago, 29/10/2026).
+ * ⚠️ Y el `boolean` de esta firma NO autoriza a volver `esClienteDeAgencia` booleana: es la resolución de UN uso, no el tipo
+ * de la pregunta.
  */
 export async function cuentaActualEsDeAgencia(): Promise<boolean> {
-  return esClienteDeAgencia(await getWorkspaceActual());
+  return (await esClienteDeAgencia(await getWorkspaceActual())) !== false;
 }
 
 /** null = cada uno en su cuenta (o sin sesión). */

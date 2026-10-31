@@ -51,7 +51,9 @@ test('el dato sale de la base: /api/auth/me lo lee de lib/vista-de-otro.ts y la 
 
 test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomienda MaKo», y dice que lo maneja su agencia', () => {
   const page = fuente('app/configuraciones/plan/page.tsx');
-  assert.match(page, /const deAgencia = await esClienteDeAgencia\(ws\);/);
+  // ⚠️ `!== false` desde el 30/10/2026 (P15): `esClienteDeAgencia` contesta sí/no/**no sé**, y acá el «no sé» NO OFRECE.
+  //    Leerla por verdad le ofrecería «Pasar a Pro» al cliente de una agencia cuando la cartera no se pudo leer.
+  assert.match(page, /const deAgencia = \(await esClienteDeAgencia\(ws\)\) !== false;/);
   assert.match(page, /subir=\{deAgencia \? null : subir\} porLlamada=\{deAgencia \? null : porLlamada\} clienteDeAgencia=\{deAgencia\}/);
   const panel = fuente('app/configuraciones/plan/PlanPanel.tsx');
   const recomienda = panel.indexOf('titulo="Recomienda MaKo"');
@@ -62,8 +64,9 @@ test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomiend
 });
 
 test('/partners y /m/partners: el cliente de una agencia vuelve al inicio', () => {
-  assert.match(fuente('app/partners/page.tsx'), /if \(await esClienteDeAgencia\(ws\)\) redirect\(await rutaConWs\('\/inicio'\)\)/);
-  assert.match(fuente('app/m/partners/page.tsx'), /esClienteDeAgencia\(ws\)\)\) redirect\(await rutaConWs\('\/m'\)\)/);
+  // ⚠️ Comparado contra `false` (P15, 30/10/2026): son PUERTAS, y con el «no sé» de `esClienteDeAgencia` no se entra.
+  assert.match(fuente('app/partners/page.tsx'), /if \(\(await esClienteDeAgencia\(ws\)\) !== false\) redirect\(await rutaConWs\('\/inicio'\)\)/);
+  assert.match(fuente('app/m/partners/page.tsx'), /deAgencia !== false\) redirect\(await rutaConWs\('\/m'\)\)/);
 });
 
 test('la venta a mano: el código de partner se limpia, uno mal escrito se frena, y sin código queda null', () => {

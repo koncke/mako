@@ -37,7 +37,8 @@ export default async function NoEstaEnTuPlanPage({ searchParams }: { searchParam
   const [inicio, plan] = await Promise.all([rutaConWs('/inicio'), rutaConWs(RUTA_CAMBIAR_PLAN)]);
   // El cliente de una agencia (29/10/2026): «Ver mi plan», no «Pasar a Pro» (su plan lo cambia su agencia; «Tu plan» lo dice).
   const ws = pro ? await getWorkspaceActual() : null;
-  const deAgencia = await esClienteDeAgencia(ws);
+  // ⚠️ `!== false` (P15, 30/10/2026): con el «no sé» de `esClienteDeAgencia` va «Ver mi plan», no «Pasar a Pro».
+  const deAgencia = (await esClienteDeAgencia(ws)) !== false;
   return (
     <main style={{ flex: 1, minWidth: 0, padding: '34px 16px 60px', display: 'grid', placeItems: 'start center' }}>
       <div style={{ width: '100%', maxWidth: 520 }}>

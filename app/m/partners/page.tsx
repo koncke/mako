@@ -42,7 +42,9 @@ export default async function PartnersPagina({ searchParams }: { searchParams: P
   // Sólo el admin, como en la computadora (app/partners/page.tsx).
   if ((await adminDeWorkspaceActual()) == null && !esSuper) redirect(await rutaConWs('/m/cs'));
   // El cliente de una AGENCIA no ve MaKo Partners (29/10/2026), como en la computadora.
-  if (!esSuper && (await esClienteDeAgencia(ws))) redirect(await rutaConWs('/m'));
+  // ⚠️ Comparado contra `false` (P15, 30/10/2026): es una PUERTA, y el `null` («no pude leer la cartera») no entra.
+  const deAgencia = await esClienteDeAgencia(ws);
+  if (!esSuper && deAgencia !== false) redirect(await rutaConWs('/m'));
   // Un link viejo de la cartera de una agencia: a su pantalla (/m/agency).
   if (sp.cuenta) redirect(await rutaConWs('/m/agency'));
   const cabecera = <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />;

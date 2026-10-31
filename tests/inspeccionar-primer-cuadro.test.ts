@@ -68,7 +68,11 @@ test('/api/auth/me y el layout leen al cliente de UN solo lugar', () => {
   assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia\] = await Promise\.all\(\[[^\]]*\bvistaDeOtro\(\)[^\]]*\bcuentaActualEsDeAgencia\(\)/);
   assert.equal((me.match(/vistaDeOtro\(\)/g) ?? []).length, 1);
   assert.doesNotMatch(me, /getWorkspace\(|agenciaDeCliente\(|esClienteDeAgencia\(/, 'una segunda cuenta de «a quién se mira» puede nombrar a otro cliente');
-  assert.match(sinComentarios(leer('lib/vista-de-otro.ts')), /return esClienteDeAgencia\(await getWorkspaceActual\(\)\);/, 'la MISMA lectura del negocio que `vistaDeOtro`');
+  // ⚠️ `!== false` desde el 30/10/2026 (P15): `esClienteDeAgencia` contesta sí/no/**no sé**, y ACÁ es la frontera que
+  //    resuelve el «no sé» (lo que sale va como JSON a la barra y no puede tener tres estados). Se resuelve como SÍ:
+  //    esconder MaKo Partners por una falla de la base cuesta un renglón; mostrárselo al cliente de una agencia le rompe
+  //    el trato a la agencia. Lo que este assert fija sigue siendo lo mismo: la MISMA lectura del negocio que `vistaDeOtro`.
+  assert.match(sinComentarios(leer('lib/vista-de-otro.ts')), /return \(await esClienteDeAgencia\(await getWorkspaceActual\(\)\)\) !== false;/, 'la MISMA lectura del negocio que `vistaDeOtro`, con el «no sé» resuelto acá');
   for (const campo of ['clienteNombre: vista?.clienteNombre ?? null', 'clienteWs: vista?.clienteWs ?? null', 'salida: vista?.salida ?? rutaDeSalida(esSuperAdmin)', 'const agencia = vista?.agencia ?? null;']) {
     assert.ok(me.includes(campo), `falta «${campo}»`);
   }

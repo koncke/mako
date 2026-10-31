@@ -10,6 +10,29 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Una suscripción ya cancelada en la pasarela frenaba la baja PARA SIEMPRE (30/10/2026)
+
+- **Síntoma:** `cancelarSuscripcionCobro` (`lib/cobros.ts:1603`) no podía terminar nunca una baja cuya suscripción ya
+  estaba cancelada del lado de la pasarela y seguía `activa` en la fila.
+- **Causa real:** «ya está cancelada» llega como un **error** (404, o un «already canceled»), y el código salía por
+  `ok: false` antes de `aplicarSuscripcionCancelada(c)`. El estado del mundo ya era el que se pedía; lo único que
+  faltaba era asentarlo, y el reintento fallaba igual: la fila quedaba `activa` eternamente. Pasa cuando se canceló a
+  mano en Stripe, o cuando una corrida anterior murió entre la pasarela y la base.
+- **A quién le dolía:** `darDeBajaMiPlan` llama a esta función para la prueba gratis (`:1670`) y devuelve su error tal
+  cual, así que el cliente no podía darse de baja; y `cerrarPruebaAlEmpezarYa` (`:1584`) sólo lo loguea y se va.
+- **La regla que queda:** en una pasarela, **una cancelación es idempotente**: «ya cancelada» es éxito, no error. El 404
+  pasa; cualquier otro error se chequea **releyendo** la suscripción y vale si está cancelada.
+- ⚠️ **No se inventó: el molde ya estaba en el mismo archivo**, en `reusarOCrearCheckout` (`lib/cobros.ts:602-606`), con
+  esa condición exacta (`!x.ok && x.status !== 404`, y si no, releer y aceptar `canceled`). Antes de escribir un
+  criterio nuevo para la pasarela, conviene buscar el que ya está escrito 1.000 líneas más arriba.
+- ⚠️ **Los nombres del estado NO coinciden entre pasarelas y no se escriben a mano:** Stripe dice `canceled` y Mercado
+  Pago dice `cancelled` al leer y `canceled` al cancelar. Para eso está `suscripcionMpCancelada`
+  (`lib/cobros-eventos.ts:450`), que cubre las dos grafías; un `=== 'cancelled'` a mano se rompe según por dónde entró.
+- **Lo que queda abierto:** `anularCobro` (`lib/cobros.ts:1318`) sigue cerrando el link viejo con mejor esfuerzo
+  (`cerrarLinkEnLaPasarela` nunca tira), así que un link anulado que la pasarela no cerró puede seguir cobrable.
+- Salió arreglando P14 de Agency; el resto de esa revisión está en
+  [hallazgos-agencias.md](hallazgos-agencias.md) → «P14 no vive en `main`».
+
 ## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
 
 El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).

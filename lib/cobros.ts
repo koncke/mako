@@ -51,7 +51,7 @@ import {
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
-import { motivoSinDatos, primerCobroDeLaPrueba, sesionDelCobro, type FaseContracargo } from './cobros-eventos';
+import { motivoSinDatos, primerCobroDeLaPrueba, sesionDelCobro, suscripcionMpCancelada, type FaseContracargo } from './cobros-eventos';
 import { avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
@@ -1608,16 +1608,32 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
   if (c.tipo !== 'suscripcion' || !susId) return { ok: false, resumen: 'Ese cobro no es una suscripción activa.' };
   if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Esa suscripción ya estaba cancelada.' };
   if (esCobroExterno(c)) return { ok: false, resumen: 'Esta suscripción entró por un link de pago de tu Stripe: se cancela desde Stripe.' };
+  // ⚠️ YA CANCELADA EN LA PASARELA **ES** CANCELADA, y sin esto la baja se frenaba entera (P14, 30/10/2026). El caso:
+  //    la suscripción se canceló por fuera (a mano en Stripe, o una corrida anterior que murió entre la pasarela y la
+  //    base) y acá la fila todavía dice `activa`. La pasarela contesta 404 —o un «already canceled»— que es un error,
+  //    así que se salía por `ok: false` y `aplicarSuscripcionCancelada` NO corría: la base quedaba `activa` para
+  //    siempre y la baja no se podía terminar NUNCA, ni reintentando. El estado del mundo ya era el que se pedía y lo
+  //    único que faltaba era asentarlo.
+  // ⚠️ Es el MISMO criterio que ya usa `reusarOCrearCheckout` en este archivo (el 404 pasa; cualquier otro error se
+  //    chequea releyendo la suscripción y vale si está cancelada): acá se copia, no se inventa. La diferencia de las
+  //    dos pasarelas es el nombre del estado — Stripe dice `canceled` y MP dice `cancelled` al leer y `canceled` al
+  //    cancelar, y por eso del lado de MP se pregunta con `suscripcionMpCancelada` y no con un string a mano.
   if (c.proveedor === 'stripe') {
     const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
     const r = await cancelarSuscripcionStripe(stripe.key, susId, idemBaja(c.id));
-    if (!r.ok) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
+    if (!r.ok && r.status !== 404) {
+      const sub = await leerSuscripcionStripe(stripe.key, susId);
+      if (!(sub.ok && sub.estado === 'canceled')) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
+    }
   } else {
     const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
     const r = await cancelarSuscripcionMp(mp.token, susId, idemBaja(c.id));
-    if (!r.ok) return { ok: false, resumen: `Mercado Pago no canceló la suscripción: ${r.error}` };
+    if (!r.ok && r.status !== 404) {
+      const sub = await leerSuscripcionMp(mp.token, susId);
+      if (!(sub.ok && suscripcionMpCancelada(sub.estado))) return { ok: false, resumen: `Mercado Pago no canceló la suscripción: ${r.error}` };
+    }
   }
   await aplicarSuscripcionCancelada(c);
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Suscripción cancelada', `Pedido por ${autor}`, autor));

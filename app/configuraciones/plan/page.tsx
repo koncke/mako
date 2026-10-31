@@ -60,7 +60,10 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   const porLlamada = pro && proPorLlamada({ capa, subidaEnLinea: subir != null })
     ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Pídelo y te lo activamos.`, href: `/planes/${pro.id}` }
     : null;
-  const deAgencia = await esClienteDeAgencia(ws);
+  // ⚠️ `!== false`, no por verdad (P15, 30/10/2026): `esClienteDeAgencia` contesta sí/no/**no sé** (`null` = no se pudo leer
+  //    la cartera), y acá el «no sé» NO OFRECE. Si no sabemos si tiene dueño, no le pisamos el cliente a una agencia:
+  //    ofrecer de menos por una falla de la base cuesta una venta, ofrecer de más le rompe el trato a la agencia.
+  const deAgencia = (await esClienteDeAgencia(ws)) !== false;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}
