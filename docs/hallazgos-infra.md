@@ -502,6 +502,36 @@ por su TEXTO, así que un comando que sólo ESCRIBE documentación —si el text
 `*.test.ts`— se cuenta como una tanda de tests y se niega por falta de RAM. El contenido largo va a un archivo (con la herramienta
 de escritura) y el comando sólo lo aplica.
 
+## Una guarda nueva NO corre en el push de un worktree: el hook usa las guardas del CLON (30/10/2026)
+
+**Vive en:** `.git/hooks/pre-push` (no versionado) línea 23: `REPO="$(dirname "$(git rev-parse --git-common-dir)")"`, y su
+`sh "$REPO/scripts/guardas-push.sh"`. El versionado es `scripts/claude-hooks/pre-push`.
+
+**El síntoma.** Se agregó una guarda a `scripts/guardas-push.sh` en una rama, se verificó a mano (`sh scripts/guardas-push.sh
+origin` la imprime última) y al pushear la rama **la guarda no apareció en la salida del push**. Ninguna otra falló, así que no
+había nada que mirar: simplemente no estaba.
+
+**La causa.** `git rev-parse --git-common-dir` en un worktree devuelve el `.git` del CLON, no el del worktree, así que `REPO` es la
+carpeta del clon y el hook corre **`<clon>/scripts/guardas-push.sh`**, la versión de la rama que el clon tenga checkouteada (acá,
+`main`), con el `cwd` del worktree que se está pusheando. Medido: la lista de `main` termina en la guarda de la referencia de la
+API, que es exactamente la última línea que imprimió el push.
+
+**Las dos consecuencias, y las dos muerden:**
+- una guarda NUEVA no protege a nadie hasta que su rama llega al clon: la rama que la agrega se pushea sin ella;
+- **un clon atrasado corre guardas atrasadas sobre el código de todas las ramas.** El clon compartido de esta máquina estuvo 4.431
+  commits atrás, y los worktrees de ese clon son casi todo el trabajo.
+
+Lo que sí sale del worktree es `antes-de-subir.mjs` (el hook lo invoca sin `$REPO`), así que las etapas de tipos y tests miran el
+código que se sube; las guardas baratas, no.
+
+**Cómo verificarlo en 2 segundos**, antes de creerle a un push: `grep -c <la guarda nueva> "$(dirname "$(git rev-parse
+--git-common-dir)")/scripts/guardas-push.sh"`. Un 0 quiere decir que esa guarda no corrió.
+
+**SIN hacer (hay que decidirlo, no lo decide un chat suelto):** que el hook resuelva las guardas con `git rev-parse
+--show-toplevel` (las del código que se sube) en vez del clon. Es el hook COMPARTIDO de todas las sesiones de esta máquina y no se
+toca sin avisar; además hay un pliegue: el hook no está versionado, así que arreglar la copia de `scripts/claude-hooks/pre-push`
+no cambia nada hasta que alguien la instale.
+
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
 **Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · `lib/vercel-salida.ts` · cualquier chequeo que use
