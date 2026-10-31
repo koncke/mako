@@ -83,7 +83,7 @@ export const CSS_COMUNIDAD = `
 
 /* ── Chips de categoria y el orden ──────────────────────────────────────────── */
 .cmu-barra{ display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.cmu-chips{ display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
+.cmu-chips{ display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 240px; min-width: 0; }
 .cmu-chip{
   display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 12px;
   border: 1px solid var(--cm-line); border-radius: 999px; background: var(--cm-card); color: var(--cm-dim);

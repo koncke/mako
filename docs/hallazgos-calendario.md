@@ -334,7 +334,8 @@ listas» (en serie) · la operación `programar_publicacion` · mig 0342 · test
 - **Invitar gente, la videollamada nueva y la repetición** al crear un evento de Google desde acá (Google los tiene en
   «Más opciones»). Mover o borrar UNA ocurrencia de una serie funciona (es la instancia); cambiar la serie entera, no.
 - **Buscar** (la lupa de Google) no está.
-- **La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google (las sesiones de Customer Success son
+- ~~**La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google~~ **Desde el 29/10/2026 es un tipo propio, `entrega`**
+  (ver «A la medida del negocio», abajo); lo que sigue vale para las sesiones de CS. Lo de antes: sale sólo de la agenda de Google (las sesiones de Customer Success son
   grabaciones pasadas, no turnos futuros). Si CS agenda sesiones en MaKo, se suma como capa. Vive en `lib/calendario.ts`.
 - **Las sesiones en vivo de la comunidad del curso** (`comunidad_eventos`) no se leen todavía: son otra capa posible.
 - ~~**Publicaciones de Instagram, TikTok, YouTube… programadas de verdad**~~ **HECHO el 28/10/2026**: ver «Una Publicación se
@@ -491,3 +492,5 @@ eso **la 0349 no se aplica, aunque Martín diga que sí, hasta que estén arregl
   - **N8:** el «Deshacer» del molde puede hacer renacer veces borradas.
   - **N7:** borrar el molde no avisa que lo ya programado sale igual.
   - **N2 (sospecha):** un 409 de Zernio por contenido publica DE MENOS en una serie diaria. Nunca publica dos veces.
+
+| El desplegable de seis vistas y las vistas **Año** (no dibujaba eventos) y **4 días** | un selector: Día · Semana · Mes · Agenda · Llamadas (con «Calendario \ | Llamadas», que era otro control). `?vista=anio` abre el Mes y `4dias`, la Semana |

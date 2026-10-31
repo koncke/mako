@@ -96,4 +96,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-generator',
   },
+  {
+    fecha: '27 oct', hora: '19:00', chat: 'Cerebro', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Terminar el Video Generator: menos pantallas, copiado de una app de referencia, con MaKo al costado',
+    pedido: 'implementar Video Generator, que nos quedó a medias... Tiene una cantidad de pestañas absurdas, el diseño, que se parezca a una app que tomemos de referencia etc...',
+    puntos: [
+      'Lo pasó el Cerebro a una sesión en la nube, con lo que cuenta como hecho: una app de referencia elegida y copiada tal cual, el flujo en el mínimo de pantallas, los proyectos al costado sin cambiar de ruta, el chat de MaKo al costado como en Web Generator, todo lo de los botones también por prompt, los colores de MaKo y la generación por el puente de siempre.',
+      'Sin tocar el Video Editor, el Image Editor ni la extensión. Todavía sin VidIQ ni Submagic.',
+    ],
+  },
+  {
+    fecha: '27 oct', hora: '19:45', chat: CH, sesion: 'cli_638a660a-c026-54e2-bfa1-38ca0a0103d4', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El estudio de video, copiado de Arcads: proyectos, anuncio y MaKo en una pantalla',
+    puntos: [
+      'La referencia es Arcads (su «New Project»: el guion, el actor de una biblioteca de videos, «Generate»; los proyectos a la izquierda). Se copió la estructura, con los colores de la casa.',
+      'Una ruta, tres columnas: los anuncios en la barra (en curso con en qué anda cada uno, y los terminados), el anuncio en el centro y el chat de MaKo a la derecha. Abrir o crear un anuncio no cambia de ruta: viaja en ?plan= y conserva el ?ws=.',
+      'El anuncio nuevo es UNA pantalla (guion, formato y lugar) en vez de cuatro pasos; el wizard del anuncio abierto ya no pregunta el lugar si se eligió al crear.',
+      'El chat es el de la app (el mismo que el del Second Brain), con el anuncio abierto como entidad. 21 operaciones nuevas en la API (lib/api-mako/areas/video-estudio.def.ts) que llaman a la MISMA acción que cada botón, sólo por el chat de la app y nunca en una automatización; filmar se confirma en pantalla, de a una toma.',
+      'La tab deja el negro forzado de Flow: los tokens de MaKo, claro u oscuro según elija la persona.',
+    ],
+    archivos: [
+      'app/video-generator/estudio/ — el estudio: barra, composer, chat, inventario botón ↔ operación',
+      'lib/api-mako/areas/video-estudio.def.ts y .run.ts — las operaciones del chat',
+      'tests/video-estudio.test.ts, video-estudio-api.test.ts, video-estudio-chat.test.ts — 19 tests, 17 roturas',
+    ],
+    revisar: '/video-generator',
+  },
 ];

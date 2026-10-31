@@ -30,6 +30,9 @@ import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-avis
 import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
 import { ModalNuevoCliente } from './NuevoCliente';
 import { PlantillaDeModelo } from './PlantillaDeModelo';
+import { DarDeBaja } from './DarDeBaja';
+import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
+import { cambiarPlanClienteAction } from './actions';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
 type Tono = 'warn' | 'good' | 'neutral' | 'bad';
@@ -109,6 +112,16 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
   }, [abierta]);
 
   const cerrarFicha = useCallback(() => setAbiertaWs(null), []);
+  const [cambiandoPlan, setCambiandoPlan] = useState(false);
+  // Con confirmación (29/10/2026, revisión de plata): subir con tarjeta cobra la diferencia hoy; si no, Pro llega con el próximo cobro.
+  const [planAConfirmar, setPlanAConfirmar] = useState<{ ws: number; plan: 'esencial' | 'pro'; nombre: string } | null>(null);
+  const cambiarPlan = async (ws: number, plan: 'esencial' | 'pro') => {
+    setPlanAConfirmar(null);
+    setCambiandoPlan(true);
+    const r = await cambiarPlanClienteAction(ws, plan).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    setCambiandoPlan(false);
+    if (r.ok) { show(r.resumen); router.refresh(); } else show(r.error, undefined, 'bad');
+  };
   const cerrarAlta = useCallback(() => setAlta(null), []);
   const cerrarPago = useCallback(() => setPago(null), []);
 
@@ -233,6 +246,15 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
         </>
       )}
 
+      {planAConfirmar && (
+        <ConfirmDialog titulo={`¿Pasar ${planAConfirmar.nombre} a MaKo ${planAConfirmar.plan === 'pro' ? 'Pro' : 'Esencial'}?`}
+          detalle={planAConfirmar.plan === 'pro'
+            ? 'Con tarjeta se cobra hoy la diferencia de este mes y tiene Pro en el acto. Con Mercado Pago, o si todavía no se cobró su renovación, tiene Pro desde su próximo cobro, que ya es al precio de Pro.'
+            : 'Pasa a Esencial en el acto, con sus topes, y desde el próximo cobro se cobra el precio de Esencial.'}
+          confirmLabel={planAConfirmar.plan === 'pro' ? 'Pasar a Pro' : 'Pasar a Esencial'}
+          onCancel={() => setPlanAConfirmar(null)} onConfirm={() => void cambiarPlan(planAConfirmar.ws, planAConfirmar.plan)} />
+      )}
+
       {abierta && (
         <Modal titulo={abierta.nombre} encabezado="Cuenta de MaKo" ancho={620} onCerrar={cerrarFicha}
           pie={<span className="ad-fila-acc">{accionDe(abierta)}</span>}>
@@ -240,7 +262,24 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
             <div><dt>Estado</dt><dd>{estadoDe(abierta).texto}</dd></div>
             <div><dt>Quién paga</dt><dd>{ROTULO_QUIEN_PAGA[abierta.paga]}</dd></div>
             <div><dt>Desde</dt><dd>{fecha(abierta.desde)}</dd></div>
-            {abierta.plan && <div><dt>Plan</dt><dd>{abierta.plan}</dd></div>}
+            {abierta.plan && (
+              <div><dt>Plan</dt><dd>{abierta.plan}
+                {/* Cambiar el plan (29/10/2026, lib/agencia-plan.ts): la agencia, con la cuenta no dada de baja. */}
+                {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && abierta.planElegido && (
+                  <button type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
+                    onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: abierta.planId === 'pro' ? 'esencial' : 'pro', nombre: abierta.nombre })}>
+                    {cambiandoPlan ? 'Cambiando…' : abierta.planId === 'pro' ? 'Pasar a Esencial' : 'Pasar a Pro'}
+                  </button>
+                )}
+                {/* Las de antes del 29/10, sin el plan elegido, siguen como Pro hasta que la agencia lo elija (lib/plan-esencial-reglas.ts). */}
+                {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && !abierta.planElegido && (['esencial', 'pro'] as const).map((pl) => (
+                  <button key={pl} type="button" className="ad-acc" style={{ marginLeft: 10 }} disabled={cambiandoPlan}
+                    onClick={() => setPlanAConfirmar({ ws: abierta.ws, plan: pl, nombre: abierta.nombre })}>
+                    {cambiandoPlan ? 'Cambiando…' : pl === 'pro' ? 'Elegir Pro' : 'Elegir Esencial'}
+                  </button>
+                ))}
+              </dd></div>
+            )}
             <div><dt>En tu CRM</dt><dd>{abierta.lead ? <Link href={`/crm/${abierta.lead.id}`}>{abierta.lead.nombre} →</Link> : 'No está'}</dd></div>
             {abierta.cobro?.renovacion?.activada && <div><dt>Renovación</dt><dd>Activa</dd></div>}
           </dl>
@@ -267,6 +306,15 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
               onError={(m) => { if (m) show(m, undefined, 'bad'); }} onPedido={() => router.refresh()} />
           ) : (
             <p className="ad-nota">Cuando la cuenta quede habilitada, aquí ves quién entra.</p>
+          )}
+          {/* DAR DE BAJA (29/10/2026, lib/agencia-baja.ts): la agencia, nunca el super admin desde acá. */}
+          {abierta.estado !== 'revocado' && puedeAbrir && !superAdmin && (
+            <>
+              <h3 className="ad-sub">Dar de baja</h3>
+              <p className="ad-nota">Deja de cobrarse, dejas de administrarla y sus datos quedan guardados para tu cliente.</p>
+              <DarDeBaja clienteWs={abierta.ws} nombre={abierta.nombre}
+                onListo={(t) => { show(t); cerrarFicha(); router.refresh(); }} onError={(m) => show(m, undefined, 'bad')} />
+            </>
           )}
         </Modal>
       )}

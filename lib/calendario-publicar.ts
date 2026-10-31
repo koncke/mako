@@ -40,6 +40,7 @@ import { getSupabaseServer } from './supabase';
 import { conexionesViaZernio, type ZernioConectarError } from './zernio-conectar';
 import { borrarPostZernio, crearPostZernio, huellasDelNegocio, leerPostZernio } from './zernio-publicar';
 import { ZernioError } from './zernio';
+import { MENSAJES_DE_MOTIVO } from './zernio-redes';
 import { esFormato, sumarDias, type FormatoPublicacion } from './calendario-modelo';
 import { instanteDe } from './cron-aviso';
 import {
@@ -186,7 +187,7 @@ export async function cuentasParaPublicar(): Promise<{ ok: true; cuentas: Cuenta
 
 /** La cuenta (red, id) entre las del negocio, o el motivo por el que no se puede usar. */
 function cuentaDelNegocio(cuentas: Awaited<ReturnType<typeof cuentasParaPublicar>>, red: string | null, accountId: string | null): CuentaParaPublicar | string {
-  if (!cuentas.ok) return 'No pude leer tus cuentas conectadas: vuelve a intentarlo en un momento.';
+  if (!cuentas.ok) return cuentas.motivo === 'pausa' ? MENSAJES_DE_MOTIVO.pausa : 'No pude leer tus cuentas conectadas: vuelve a intentarlo en un momento.';
   const c = cuentas.cuentas.find((x) => x.accountId === accountId && (red == null || x.red === red));
   return c ?? 'Esa cuenta no está conectada en este negocio: elige una de las tuyas.';
 }
@@ -260,6 +261,8 @@ export async function subidaDelArchivo(id: string, mime: string): Promise<{ ok: 
 /** Un fallo de Zernio o de la red, en una línea para el evento (sin la clave ni el cuerpo entero). */
 function motivoDeFallo(e: unknown): string {
   if (e instanceof ZernioError) {
+    // Un 429 es una pausa (ticket #34): lo que pasó, nunca «Rate limit exceeded». Sigue siendo un `fallo`: Zernio no la creó.
+    if (e.status === 429) return MENSAJES_DE_MOTIVO.pausa;
     const b = e.body;
     const det = b?.platformError ? ` (${String(typeof b.platformError === 'string' ? b.platformError : JSON.stringify(b.platformError)).slice(0, 120)})` : '';
     return `Zernio no la programó: ${(b?.error ?? e.message).slice(0, 160)}${det}`.slice(0, 300);

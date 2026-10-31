@@ -27,6 +27,7 @@ habilita a darle mejores prompts al otro Claude».
 - **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
 - **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 - **El paso «Tipos» de Actions murió por MEMORIA (exit 134, 21/10) y en GitHub se ve igual que un error de tipos** — y «subí el tope» ya se había hecho cuatro veces en una semana (2.048 → 5.120): el programa pasó de >4,1 a >5,1 GB en siete días. El paso ahora dice SIN MEMORIA / ERRORES DE TIPOS, y deja la memoria viva real en cada run → [El paso «Tipos» se quedó sin memoria](#el-paso-tipos-de-actions-se-quedó-sin-memoria-exit-134-en-github-se-ve-igual-que-un-error-de-tipos-y-subí-el-tope-ya-se-hizo-cuatro-veces-en-una-semana-21102026).
+- **El veredicto del push dijo «495 archivos rojos» y ese grupo había corrido CERO tests (30/10)**: el grupo compartido salió «495 archivos · **0 tests** · ROJO» en 25 min y la corrida entera marcó «RAM libre mínima **0,7 GB**». Un proceso que muere sin ejecutar un test no es un rojo del código, pero el veredicto lo escribe con la misma palabra y con una lista de 495 nombres de archivo, que es lo más parecido a una catástrofe que uno puede leer a la medianoche → [El veredicto dijo «rojo» y el grupo había corrido cero tests](#el-veredicto-dijo-rojo-y-el-grupo-había-corrido-cero-tests-30102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -37,6 +38,102 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+
+## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
+
+**El síntoma.** El push del tren de 91 commits a `integracion` se bloqueó después de 52 minutos con:
+
+```
+ROJO: tests: accion-invitar-curso.test.ts, adjuntos-chats-de-texto.test.ts, admin-view-props.test.ts,
+ads-manager-credenciales.test.ts, agenda-cerca.test.ts, agenda-evento-etapa.test.ts…
+  ✖ PUSH BLOQUEADO: antes-de-subir dio ROJO.
+```
+
+Una lista alfabética que arranca en la «a» y sigue. Leído así, parece que el tren rompió media app.
+
+**Lo que decía el log doce líneas más arriba:**
+
+```
+grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s
+  ↻ 495 archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso
+  ✖ 6143 tests de 1143 archivos · 49 min 55 s · RAM libre mínima 0.7 GB
+```
+
+**`0 tests`.** El proceso compartido estuvo 25 minutos y no ejecutó un solo test: murió antes. Eso no es
+un rojo del código, es el contrato de salida **99** («no se pudo chequear») escrito con la palabra de 1
+(«rojo»). El script ya distingue los dos casos —su encabezado dice «0 verde · 1 rojo · 99 no corrió por
+falta de RAM (no es un rojo)»— y el hook también; lo que falta es que un grupo que termina con **cero
+tests corridos** se clasifique como 99 en vez de contar sus 495 archivos como rojos.
+
+**La causa real, y es de orquestación, no del script.** La RAM mínima fue 0,7 GB. El Cerebro despertó
+cinco chats a la vez **mientras el tren corría las barredoras**, y cada chat abierto pesa ~0,7 GB. La
+máquina pasó de 2,3 GB libres a 0,7 y el grupo compartido se quedó sin aire. Es la segunda vez que la
+misma estampida mata la misma fase.
+
+**Lo que NO se puede concluir, y acá me apuré.** Al repetirlos aislados **sí corrieron 6.143 tests de
+1.143 archivos**, así que no todos murieron: entre los 495 del veredicto final puede haber rojos reales.
+El log del detalle (`%TEMP%/antes-de-subir-xxxxx/compartido-aislado.log`) **se borra al terminar**, así que
+cuando el veredicto llega ya no se puede separar al caído por memoria del roto de verdad. Dije «no era
+código roto» con la evidencia del grupo compartido y eso cubría 0 de los 495, no los 495.
+
+**Reglas que quedan:**
+
+- **«0 tests · ROJO» no es un rojo del código.** Antes de salir a arreglar un lote de barredoras rojas,
+  leé cuántos tests corrieron y la RAM mínima de la corrida. Las dos están en el log, arriba del veredicto.
+- **El veredicto final no alcanza para decidir**, porque llega con el log del detalle ya borrado. Si vas
+  a necesitar ese detalle, corré con `TEMP`/`TMP` apuntando a una carpeta propia (ya está documentado más
+  abajo, por otro motivo: la carpeta de `os.tmpdir()` desaparecía a mitad de la corrida).
+- **No se despiertan chats mientras un tren corre su fase pesada.** El turno de la máquina se reparte con
+  `scripts/candado-pesado.mjs` (`tomarTurno`), que da de a uno y suelta el lugar si no hay memoria. El
+  Cerebro les había dicho a los cinco chats «esperá mi aviso de RAM» sin saber que esa fila ya existía.
+- **Cuando la PC no da, el chequeo pesado va a Actions**: `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin
+  <rama>:integracion`. Las guardas siguen corriendo y Actions corre el completo. No es `--no-verify`. Con
+  presupuesto de Actions disponible, gastar un run es más barato que una hora de máquina trabada.
+- **Y el exit code hay que leerlo del comando, no del envoltorio.** El push corrió en segundo plano dentro
+  de un script que terminó con 0; el `RC_DEL_PUSH=1` que se guardó aparte fue lo único que delató que el
+  push estaba bloqueado. Sin esa línea, el tren se habría dado por subido. El molde es
+  `cmd > archivo 2>&1; rc=$?`, nunca `cmd | tail && siguiente`.
+
+**Lo que quedó sin hacer:** que `scripts/antes-de-subir.mjs` devuelva **99** cuando un grupo compartido
+termina con cero tests corridos (hoy devuelve 1 y bloquea el push), y que el veredicto diga la RAM mínima
+en la misma línea del ROJO, para no tener que subir doce líneas en el log para saber si hay que creerle.
+
+## Qué se rompe cuando una rama queda tres días sin subir, y por qué «la punta del tren» no es una rama (30/10/2026)
+
+**El síntoma.** `nube/video-generator-2710` (40 archivos, 27/10 22:54) nunca entró a un tren. Tres días después el brief del
+rescate decía: partí de `origin/integracion`, donde está el tren de 91 commits; los choques están medidos contra la punta,
+`b2b8adf05`. **Las tres referencias querían decir otra cosa de la que decían.**
+
+**Lo que había de verdad, medido antes de tocar nada:**
+
+| lo que decía el brief | lo que era |
+|---|---|
+| `origin/integracion` = la punta del tren | **ancestro de `origin/main`**: el tren ya había aterrizado, y main le llevaba 455 commits |
+| `b2b8adf05` = la punta del tren | una rama **LOCAL y sin pushear** (`tren-ai`), `origin/main` + 91 commits |
+| «main se movió 91 commits» | 91 es el delta de `tren-ai` sobre main; desde la base de la rama, main movió **783** |
+
+**La causa real.** `integracion` no es un lugar donde el tren *está*: es un lugar por donde el tren *pasa*. Una vez mezclada en
+`main`, la rama queda atrás y seguir apuntándole devuelve un árbol viejo — con la trampa de que `git merge` contra ella
+**funciona igual** y da un merge limpio de algo que ya no es la realidad. Y «la punta» era un commit que no existe para nadie
+más: `git branch --contains` lo pone en tres ramas locales y en un tag de respaldo, y `git for-each-ref` no lo encuentra en
+ningún `refs/remotes`. Un brief puede nombrar con total precisión un commit que no se puede pushear.
+
+**La regla:**
+- **Antes de elegir la base, medí la topología; no la leas del brief.** Tres comandos:
+  `git merge-base --is-ancestor origin/integracion origin/main` (si da 0, integracion está atrás y la base es `main`),
+  `git rev-list --left-right --count A...B` para el delta de verdad, y `git for-each-ref --contains <sha>` para saber si una
+  punta existe fuera de esta máquina.
+- **Una rama que se va a pushear se basa en algo pusheado.** Basarla en `tren-ai` habría publicado 91 commits que el Cerebro
+  todavía no subió y que puede rebasear; y «en producción» es lo desplegado, que sale de `origin/main`.
+- Qué se rompe por esperar: no es el merge —fueron cinco choques de una línea cada uno— es que **los choques se multiplican por
+  cada feature que pasa por el registro de la API** (ver [hallazgos-api-mako.md](hallazgos-api-mako.md)), y que un bug de la
+  rama sobrevive tres días sin que nadie lo vea. El de esta rama (`composer.ts` / `Composer.tsx`, verde en Linux y roto en
+  Windows: [hallazgos-generativa.md](hallazgos-generativa.md)) no lo frenaba ningún tren, porque **Actions corre en Linux**.
+
+**Lo que quedó sin hacer.** Esta rama de rescate (`nube/video-generator-rescate`) está basada en `origin/main`, así que cuando
+`tren-ai` suba hay que **volver a mezclar `docs/hallazgos.md`**: es el único de los cinco archivos en choque que `tren-ai`
+toca (37 commits), y los otros cuatro —los del registro— no los toca ninguno de sus 91 commits.
 
 ## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
 
@@ -88,6 +185,18 @@ apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.
 
 **De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
 programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
+
+**El límite de esta PC no es un número de chats (30/10/2026):** es cuántos corren algo pesado a la vez. Seis chats leyendo
+entran; dos corriendo tests, no siempre. Ese día había 1,0 GB libres de 16, con 31 procesos de node que sumaban 6,6 GB. La
+guardia de RAM frena recién en rojo, y frena al que llega, no al que más importa: paró una tanda del Runner, que no
+urgía, y lo mismo pudo parar a un cliente roto. **Repartir el turno de la máquina es trabajo del Cerebro:** decide quién
+corre lo pesado según la prioridad de siempre (cliente roto > plata > traba a Martín > features) y le avisa al que sigue.
+La pausa de arriba es de todo o nada: para dar el turno a dos chats y frenar al resto, hoy sólo está el mensaje, con la
+misma limitación (llega al terminar el turno, y un subagente de un workflow no lo ve).
+
+**La enfermedad de fondo: no nos falta escribir, nos falta leer lo escrito antes de actuar.** El mismo 30/10, el Cerebro
+anunció como hallazgo esto mismo, que estaba en esta sección desde el 28/10, y rompió la regla de qué cuenta soy diez minutos
+después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/hallazgos*` y en `AGENTS.md`.
 
 ---
 
@@ -357,6 +466,36 @@ se salía en el teléfono. Medido en el navegador con el viewport emulado a 390 
 pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: arma la página más ancha y la captura se
 corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
 `--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
+
+## 615 barredoras «rojas» con 0,1 GB libres: era la máquina, no los tests (30/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (el grupo compartido de las barredoras) · la PC de Martín (16 GB).
+
+**El síntoma.** Con `--tanda 4 --concurrencia 1`, las 13 tandas del cambio dieron verde (50 archivos), y después: `grupo compartido 1/1 · 615 archivos · 0 tests · ROJO (? archivos)`,
+a los 8 min 13 s. El final dice `✖ ROJO · 646 tests de 665 archivos · 28 min 51 s · RAM libre mínima 0.1 GB` y lista los 615 en «Rojos».
+
+**Las dos lecturas obvias eran las equivocadas.** No son 615 tests rotos: **`0 tests`** con `?` archivos es un proceso que murió sin contar nada. Y tampoco es «ruido de la máquina»: **dos de esos 615
+estaban rojos de verdad** (`operaciones` y `ops-center-decisiones`, los dos por el mismo cambio), y salieron recién al correrlos de a uno sobre la punta del tren. Una lista de 615 que no
+corrieron esconde a los que sí fallan: no se descarta entera ni se da por buena; se corre donde entre. La salida completa estaba en un log de Temp que ya no existía cuando se fue a leer: lo que importa hay que copiarlo enseguida.
+
+**Por qué no entra.** La corrida arrancó con 1,6 GB libres y llegó a 0,1. Medido el mismo día por el Cerebro: cada chat abierto cuesta ~580 MB, y con seis abiertos el chequeo entero (5,3 GB) no entra
+nunca. No es que a veces falte memoria: **esta máquina no sostiene al equipo y a una barredora a la vez.** Levantar una PAUSA del Cerebro tampoco dice que haya RAM: el relanzamiento automático salió
+apenas se levantó, sin mirarla.
+
+**Los umbrales no se hablan, y es la causa de fondo de los dos incidentes del día.**
+- `tests-afectados` arranca con ~1,3 GB (`pisoRam(1)`: 0,9 de la zona roja del vigía + 0,35 + 0,05), y el chequeo de tipos del push pide 5,3: lo liviano arranca justo cuando lo pesado
+  todavía no puede, y le come el lugar. Estaba escrito desde el 28/10 (más arriba en este documento), y se volvió a vivir entero.
+- **La pausa frena bien y se suelta mal:** al apagarla arrancaron cinco chats a la vez con 1,6 GB libres. Cada uno miró la RAM y vio lugar, porque el otro todavía no la había pedido.
+- **El piso de las barredoras no escala:** `COSTO_COMPARTIDO_GB = 0.8` se midió con 24 barredoras (~725 MB) y se aplica igual a un grupo de 615 (`pisoCompartido(1)` = 1,75 GB). Cuánto pide con 615
+  no está medido: el proceso murió antes de contar.
+
+**SIN hacer (`scripts/pausa-cerebro.mjs`, `esperarRam` en `scripts/tests-afectados.mjs`):**
+- soltar la pausa escalonada: un turno por vez, con el siguiente recién cuando el anterior ya haya pedido su memoria;
+- que el que arranca reste lo que necesita el que está esperando (una cola de pedidos con su costo, no sólo «¿hay lugar para mí?»);
+- que `pisoCompartido` crezca con la cantidad de barredoras, o partir el grupo; primero hay que medir cuánto pide con 615.
+
+**La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió». Antes de pasar una punta con barredoras sin correr, se corren a mano las que nombran lo que se tocó (`grep -l` del archivo en tests/). Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
+que Martín puso la tarjeta, y no se repiten en esa PC. En la PC, sólo los tests del cambio, midiendo la RAM antes.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
@@ -8366,6 +8505,10 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.
+  **Lo mismo con `node --test` pelado**, que es el error fácil: Node 24 saca los tipos solo, así que corre y falla igual.
+  Medido el 30/10: `node --test tests/vuelo-mako.test.ts` da `ERR_MODULE_NOT_FOUND` con
+  `url: file:///…/app/_ui/vuelo-mako` y **0/1**; el mismo archivo con `--import tsx` da **6/0**. Un rojo así no es del
+  código ni del test: es el runner, y se reportan seis cosas rotas que estaban bien.
 
 ## Una batería con piso pasa en la tanda compartida y falla SOLA: el rojo de OC1 llegó a main (22/10/2026, Cerebro › Integración)
 
@@ -9319,3 +9462,43 @@ código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esa
   - **Regla:** cuando el push falla por RAM, el reintento va enseguida y esperando los dos lugares. El Cerebro frena sus
     workflows mientras tanto.
   - **Sin hacer:** que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM.
+
+## Dos «rojos en `main` sin dueño» que ya estaban arreglados: la anotación le sobrevivió al bug (30/10/2026)
+
+**Vive en:** `docs/pendientes.md` → «Rojos en `main` sin dueño» · `tests/vuelo-mako.test.ts` ·
+`tests/dashboard-pedidos-chat.test.ts` · `app/automations/ChatMako.tsx` · `app/admin/operaciones/PanelChat.tsx` ·
+`app/dashboard/PanelEditarMako.tsx`. Hermano del de más arriba, «Un rojo del tren que ya estaba en main (26/10)»:
+ahí el rojo era viejo y real; acá la anotación es vieja y el rojo ya no existe.
+
+- **Síntoma:** `docs/pendientes.md` listaba tres rojos de `main` «sin dueño», y se los culpaba de que cada corrida de
+  Actions fallara por algo ya sabido (~15 min pagos por corrida). Sobre `origin/main` los tres dan **verde**: 6/0, 10/0 y 13/0.
+- **Causa real: la anotación le sobrevivió al bug por 95 minutos.** La lista la escribió el relevo `281e4db0e` el 24/10 a
+  las **19:23**. Los dos primeros los arregló claude5 el mismo día a las **20:58** (`85e4cd7db`) y **20:59** (`583c29434`),
+  cada uno con un commit que se llama «Rojo de main: …». `docs/pendientes.md` se editó seis veces más entre el 25 y el
+  29/10 (hasta `bf7e86c27`) y nadie borró la sección.
+- **Por qué un rojo se queda sin dueño: porque ya no existe.** Nadie adopta un rojo que no puede reproducir. El que lo
+  intenta lo corre, lo ve verde, no entiende y lo deja donde estaba. Una lista de rojos no caduca sola.
+- **El diagnóstico obvio era el equivocado, dos veces:**
+  - «`ChatMako.tsx` perdió la criatura al unificar los chats» se lee como que el código perdió algo que debía conservar.
+    No lo perdió: la criatura **se mudó a propósito** a la cabecera única (`PanelChat.tsx`, adentro de
+    `[data-chat-sidebar]`, con `role="img"`) en `d85c86611`, que es el pedido de Martín «Tienes que UNIFICAR los chats con
+    MaKo». Devolvérsela a `ChatMako.tsx` habría des-unificado el chat **y puesto el test en rojo**: hoy el test exige que
+    `ChatMako` NO le pase `onMuneco` (con él la cabecera dibuja el botón «Cambiar la criatura», sin `role="img"` ni
+    «MaKo», y el vuelo deja de llegar). El selector del vuelo (`DESTINOS_CASA`) nunca se rompió.
+  - Con el test y el código los dos en su lugar, el reflejo es aflojar el test para pintar el tablero. Los dos arreglos del
+    24/10 hicieron lo contrario: lo **apretaron**, sumando guardas negativas — `assert.doesNotMatch` sobre `onMuneco`, y
+    sobre `TAB_DEL_INFORME[informe]`, que para el informe de una automatización («Métricas» de Automations) daba
+    `undefined`. Comprobado rompiendo el código el 30/10: 6/0 → **5/1** y 10/0 → **9/1**, los mismos números que cada
+    commit había anotado en su cabecera de ROTURAS.
+- **Y el clon compartido fabricaba el rojo.** El clon de `Escritorio/dashboard-marketing-main/dashboard-marketing` estaba
+  en `main` del 23/10: 10 commits adelante y **4.431 atrás** de `origin/main`. Ahí `tests/vuelo-mako.test.ts` ni existe
+  («Could not find»), y los cinco archivos de este hallazgo difieren. Un rojo medido en un checkout atrasado es un rojo
+  inventado: el trabajo va en un worktree desde `origin/main` (`git worktree add -b <rama> /c/dev/<x> origin/main`, con
+  `node_modules` por `mklink /J`, que en Git Bash `ln -s` copia).
+- **Regla:** antes de tomar un rojo de una lista, correlo sobre `origin/main` recién traído y mirar si alguien ya lo cerró
+  después de la fecha de la nota (`git log --oneline --since=<fecha de la nota> -- <el test> <el fuente>`; acá los dos
+  commits se llaman «Rojo de main: …»). Y quien cierra un rojo borra su línea de `docs/pendientes.md` **en el mismo
+  commit**: esa regla ya está escrita en ese documento («Al cerrar uno, borralo de acá en el mismo commit») y es
+  justamente la que falló.
+- **Sin hacer:** el tercero, `tests/paso-ia.test.ts:135` (`lib/nutricion.ts`), **también da verde (13/0)** sobre
+  `origin/main`. Tiene dueño, así que su línea quedó donde estaba para que la cierre él.

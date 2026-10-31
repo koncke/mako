@@ -30,7 +30,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
   SECCIONES_CLIENTS, SECCIONES_COMUNIDAD, PESTANA_DE_SECCION, esSeccionComunidad, seccionDePestana, seccionDeRuta,
-  esVistaPrevia, hrefSeccion, hrefConPrograma, rutaNuevaDeVieja, queryDeSearchParams,
+  esVistaPrevia, hrefSeccion, hrefConPrograma, rutaNuevaDeVieja, queryDeSearchParams, seccionesDe,
 } from '../lib/clients-rutas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -42,15 +42,27 @@ const leer = (rel: string) => sinComentarios(crudo(rel));
 // ── 1. Las sub-tabs ───────────────────────────────────────────────────────────────
 
 test('las sub-tabs: Classroom (la raíz), Community y Clients adelante y después las de Skool, en su orden, en inglés', () => {
-  assert.deepEqual(SECCIONES_CLIENTS.map((s) => s.label), ['Classroom', 'Community', 'Clients', 'Calendar', 'Members', 'Leaderboards', 'About']);
+  // Sin Members desde el 29/10/2026: es la vista «Miembros» de Clients (Martín: «Son lo mismo, no deberían ser dos tabs»).
+  assert.deepEqual(SECCIONES_CLIENTS.map((s) => s.label), ['Classroom', 'Community', 'Clients', 'Calendar', 'Leaderboards', 'About']);
   assert.deepEqual(SECCIONES_CLIENTS.map((s) => s.href), [
-    '/classroom', '/classroom/community', '/classroom/clients', '/classroom/calendar', '/classroom/members', '/classroom/leaderboards', '/classroom/about',
+    '/classroom', '/classroom/community', '/classroom/clients', '/classroom/calendar', '/classroom/leaderboards', '/classroom/about',
   ]);
-  // Las cinco de la comunidad son una página y cada una es una pestaña de app/_comunidad/Comunidad.tsx.
-  assert.deepEqual([...SECCIONES_COMUNIDAD], ['community', 'calendar', 'members', 'leaderboards', 'about']);
+  // Las cuatro de la comunidad son una página y cada una es una pestaña de app/_comunidad/Comunidad.tsx.
+  assert.deepEqual([...SECCIONES_COMUNIDAD], ['community', 'calendar', 'leaderboards', 'about']);
   for (const s of SECCIONES_COMUNIDAD) assert.equal(seccionDePestana(PESTANA_DE_SECCION[s]), s, s);
   assert.equal(esSeccionComunidad('classroom'), false);
   assert.equal(esSeccionComunidad('clients'), false);
+  assert.equal(esSeccionComunidad('members'), false, 'Members ya no es una pestaña de la comunidad: no se cambia a ella sin navegar');
+});
+
+test('Clients y Members son UNA sub-tab: la plataforma la ve como «Members», y un negocio como «Clients»', () => {
+  const negocio = seccionesDe(false).map((s) => s.label);
+  assert.equal(negocio.filter((l) => l === 'Clients' || l === 'Members').length, 1, 'dos sub-tabs para la misma gente');
+  assert.ok(negocio.includes('Clients'));
+  const plataforma = seccionesDe(true);
+  assert.deepEqual(plataforma.filter((s) => s.href === '/classroom/clients').map((s) => s.label), ['Members'],
+    'la plataforma no tiene kanban de leads ganados: de esta sub-tab ve sólo los miembros');
+  assert.ok(!plataforma.some((s) => s.label === 'Clients'), 'sus clientes son negocios: Customers');
 });
 
 test('la sub-tab sale del pathname; la vista previa es de Classroom y se reconoce aparte', () => {
@@ -60,7 +72,7 @@ test('la sub-tab sale del pathname; la vista previa es de Classroom y se reconoc
   assert.equal(seccionDeRuta('/classroom/clients?producto=3'), 'clients');
   assert.equal(seccionDeRuta('/classroom/classroom'), null, 'el curso es la raíz, no un tramo');
   assert.equal(seccionDeRuta('/clients/members'), null, 'lo viejo ya llega redirigido');
-  assert.equal(seccionDeRuta('/classroom/members'), 'members');
+  assert.equal(seccionDeRuta('/classroom/members'), null, 'redirige a Clients antes de dibujar (next.config.ts)');
   assert.equal(seccionDeRuta('/classroom/preview'), 'classroom');
   assert.equal(esVistaPrevia('/classroom/preview'), true);
   assert.equal(esVistaPrevia('/classroom'), false);
@@ -73,13 +85,17 @@ test('la sub-tab sale del pathname; la vista previa es de Classroom y se reconoc
 // ── 2. Lo que viaja ───────────────────────────────────────────────────────────────
 
 test('cambiar de sub-tab conserva el programa y el workspace, y nada que sea de UNA pantalla', () => {
-  assert.equal(hrefSeccion('members', '?producto=3&ws=13&cliente=21&post=9&vista=avance'), '/classroom/members?producto=3&ws=13');
+  assert.equal(hrefSeccion('calendar', '?producto=3&ws=13&cliente=21&post=9&vista=avance'), '/classroom/calendar?producto=3&ws=13');
+  // La vista de Clients (`?vista=miembros`) es de esa pantalla: no viaja a otra sub-tab.
+  assert.equal(hrefSeccion('community', '?vista=miembros&producto=3'), '/classroom/community?producto=3');
   assert.equal(hrefSeccion('clients', ''), '/classroom/clients');
   assert.equal(hrefSeccion('classroom', new URLSearchParams('ws=13')), '/classroom?ws=13');
 });
 
 test('cambiar de programa cambia `producto`, conserva el resto y suelta lo que es de un programa', () => {
-  assert.equal(hrefConPrograma('/classroom/members', '?ws=13&producto=3&post=9', 5), '/classroom/members?ws=13&producto=5');
+  assert.equal(hrefConPrograma('/classroom/community', '?ws=13&producto=3&post=9', 5), '/classroom/community?ws=13&producto=5');
+  assert.equal(hrefConPrograma('/classroom/clients', '?vista=miembros&producto=3', 5), '/classroom/clients?vista=miembros&producto=5',
+    'cambiar de programa en Miembros se queda en Miembros');
   assert.equal(hrefConPrograma('/classroom/clients/', '?cliente=21&vista=avance', 5), '/classroom/clients?vista=avance&producto=5');
 });
 
@@ -101,7 +117,10 @@ test('cada ruta vieja va a la nueva, con su query entera', () => {
     ['/clients/classroom', '?producto=3', '/classroom?producto=3'],
     ['/clients/classroom/preview', '?producto=3', '/classroom/preview?producto=3'],
     ['/clients/community', '?post=12', '/classroom/community?post=12'],
-    ['/clients/members', '', '/classroom/members'],
+    // Members, una vista de Clients desde el 29/10/2026: el alias viejo va DIRECTO, sin pasar por /classroom/members.
+    ['/clients/members', '', '/classroom/clients?vista=miembros'],
+    ['/classroom/members', '?producto=3&ws=13', '/classroom/clients?producto=3&ws=13&vista=miembros'],
+    ['/classroom/members/', '?vista=kanban', '/classroom/clients?vista=miembros'],
     ['/classroom/clients', '', null],
     ['/classroom', '', null],
   ];
@@ -113,11 +132,16 @@ test('cada ruta vieja va a la nueva, con su query entera', () => {
     ['/clients', '/classroom/clients'],
     ['/clients/classroom', '/classroom'],
     ['/clients/classroom/:path*', '/classroom/:path*'],
+    ['/clients/members', '/classroom/clients?vista=miembros'],
     ['/clients/:path*', '/classroom/:path*'],
   ], 'lo más largo primero: gana la primera que coincide');
-  for (const [vieja, nueva] of [['/clients', '/classroom/clients'], ['/clients/classroom', '/classroom'], ['/clients/classroom/preview', '/classroom/preview'], ['/clients/members', '/classroom/members']]) {
+  for (const [vieja, nueva] of [['/clients', '/classroom/clients'], ['/clients/classroom', '/classroom'], ['/clients/classroom/preview', '/classroom/preview'], ['/clients/members', '/classroom/clients?vista=miembros']]) {
     assert.equal(rutaNuevaDeVieja(vieja, ''), nueva, `next.config.ts y rutaNuevaDeVieja dicen distinto para ${vieja}`);
   }
+  // Members se fue el 29/10/2026: la redirige el servidor, con la query del pedido (Next la suma a la del destino).
+  assert.ok(config.includes("{ source: '/classroom/members', destination: '/classroom/clients?vista=miembros', permanent: false }"),
+    '/classroom/members sin redirect: el segmento de la comunidad le da un 404');
+  assert.equal(rutaNuevaDeVieja('/classroom/members', ''), '/classroom/clients?vista=miembros');
   assert.equal(queryDeSearchParams({ a: '1', b: ['2', '3'], c: undefined }), 'a=1&b=2&b=3');
 });
 
@@ -236,4 +260,32 @@ test('la cabecera: entre pestañas de la comunidad no navega, y la vista previa 
   // El Classroom va embebido: el alto lo da la cabecera (un flex), nunca la ventana.
   assert.match(shell, /const alto = seccion === 'classroom';/);
   assert.match(leer('app/customer-success/curso/CursoApp.tsx'), /<CursoUgc[\s\S]*?modo="embebido"/);
+});
+
+// ── 7. Clients y Members, una sola sub-tab (29/10/2026) ─────────────────────────────
+
+test('Miembros es una vista del selector de Clients, con la pieza de siempre y sin la fila de la comunidad', () => {
+  const app = leer('app/customer-success/ClientesApp.tsx');
+  // La misma lista de vistas, con Miembros: el selector compartido del CRM, no uno propio.
+  assert.match(app, /\['kanban', 'tabla', 'miembros', \.\.\.\(hayAvance \? \['avance' as const\] : \[\]\)\]/);
+  assert.match(app, /<VistaToggleClientes vista=\{vista\} onSet=\{elegirVista\} vistas=\{vistasDisponibles\} \/>/);
+  assert.match(app, /onVista=\{elegirVista\}/, 'la barra del kanban cambia de vista sin dejarla en la URL');
+  assert.match(app, /<MiembrosClientes productoId=\{servicio\.productoId\} selector=\{selectorVista\} \/>/);
+  assert.match(leer('app/customer-success/BarraClientes.tsx'), /<SelectorVista vistas=\{ORDEN_VISTAS\.filter/, 'otro selector, no el de la casa');
+  const miembros = leer('app/customer-success/MiembrosClientes.tsx');
+  assert.match(miembros, /<Comunidad key=\{productoId\} api=\{api\} tema="equipo" piel="app" pestana="miembros" sinPestanas sinBarra extraMiembros=\{selector\} \/>/);
+  // Los filtros, la búsqueda, el perfil y la moderación son los de Members: la MISMA pieza.
+  const comunidad = leer('app/_comunidad/Comunidad.tsx');
+  assert.match(comunidad, /\{pestana === 'miembros' && <Miembros version=\{version\} extra=\{extraMiembros\} \/>\}/);
+  assert.match(comunidad, /\{!sinBarra && <nav /);
+  const pieza = leer('app/_comunidad/Miembros.tsx');
+  for (const f of ["{ id: 'todos', label: 'Todos'", "{ id: 'equipo', label: 'Equipo'", "{ id: 'en_linea', label: 'En línea'", "label: 'Fuera'"]) {
+    assert.ok(pieza.includes(f), `Miembros perdió el filtro ${f}`);
+  }
+  // `?vista=` la lee el server, para que el redirect de Members abra en Miembros sin un parpadeo del kanban.
+  const pantalla = leer('app/customer-success/pantalla.tsx');
+  assert.match(pantalla, /const VISTAS_DE_URL = \['kanban', 'tabla', 'miembros', 'avance'\] as const;/);
+  assert.match(pantalla, /const vistaInicial = vistaDeUrl\(sp\.vista\);/);
+  // La plataforma ve sólo los miembros; un link viejo con `?cliente=` (un NEGOCIO) sigue yendo a Customers.
+  assert.match(pantalla, /if \(leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\) != null\) redirect\('\/customers'\);\s*return <MiembrosDeLaPlataforma searchParams=\{searchParams\} \/>;/);
 });

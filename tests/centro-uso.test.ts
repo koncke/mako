@@ -71,14 +71,15 @@ test('un número viejo no se muestra como de ahora: pasado el reinicio no vale, 
   assert.deepEqual(usoDeCuenta(null, AHORA), { cinco: null, semana: null, medido: null, viejo: true, vencido: true });
 });
 
-test('el botón muestra la semana MÁS usada entre las cuentas con un dato vigente', () => {
+// Hasta el 30/10/2026 el botón era la MÁS usada: «95% · Cuenta 3» trabajando en la 1, un número que no se movía con nada.
+test('el botón muestra LA CUENTA EN USO: la medida más recientemente, con un dato vigente', () => {
   const cuentas = [
-    { cuenta: 'claude1', cuota: cuota({ semana: { pct: 30, reinicia: '2026-10-21T09:00:00Z' } }) },
+    { cuenta: 'claude1', cuota: cuota({ semana: { pct: 95, reinicia: '2026-10-21T09:00:00Z' }, medido: '2026-10-16T12:40:00Z' }) },
     { cuenta: 'claude2', cuota: null },
-    { cuenta: 'claude3', cuota: cuota({ semana: { pct: 71, reinicia: '2026-10-21T09:00:00Z' } }) },
-    { cuenta: 'claude4', cuota: cuota({ semana: { pct: 99, reinicia: '2026-10-15T09:00:00Z' } }) },
+    { cuenta: 'claude3', cuota: cuota({ semana: { pct: 9, reinicia: '2026-10-21T09:00:00Z' } }) },
+    { cuenta: 'claude4', cuota: cuota({ semana: { pct: 99, reinicia: '2026-10-15T09:00:00Z' }, medido: '2026-10-16T12:59:00Z' }) },
   ];
-  assert.deepEqual(usoPrincipal(cuentas, AHORA), { cuenta: 'claude3', pct: 71, viejo: false, medido: Date.parse('2026-10-16T12:55:00Z') }, 'la de 99% ya se reinició: no cuenta');
+  assert.deepEqual(usoPrincipal(cuentas, AHORA), { cuenta: 'claude3', pct: 9, viejo: false, medido: Date.parse('2026-10-16T12:55:00Z') }, 'la de 95% se midió antes, y la de 99% ya se reinició');
   assert.equal(usoPrincipal([{ cuenta: 'claude2', cuota: null }], AHORA), null);
   // Una medida hace tres días no le gana a una de recién, aunque diga más (revisión adversarial, 16/10/2026).
   const vieja = { cuenta: 'claude1', cuota: cuota({ semana: { pct: 85, reinicia: '2026-10-21T09:00:00Z' }, medido: '2026-10-13T12:00:00Z' }) };
@@ -92,12 +93,12 @@ test('el botón muestra la semana MÁS usada entre las cuentas con un dato vigen
   assert.equal(usoPrincipal([vieja], AHORA), null, 'una medición de hace tres días no es el número del botón');
 });
 
-test('el Runner del Uso: activo sólo si su terminal mide; si otro Runner recorre la cuenta, se dice', () => {
+test('el Runner del Uso: activo sólo si se midió hace poco; si otro Runner recorre la cuenta, se dice', () => {
   // El Runner de ~/.claude pasa por las tres cuentas y les refresca visto_at: con sólo eso, la cuenta 2 salía «activa»
   // aunque su terminal no tuviera Runner, y su Uso no se medía nunca (revisión adversarial, 16/10/2026).
   assert.equal(estadoRunnerUso(true, cuota(), AHORA), 'mide');
   assert.equal(estadoRunnerUso(true, null, AHORA), 'sin_terminal');
-  assert.equal(estadoRunnerUso(true, cuota({ cinco: null }), AHORA), 'sin_terminal', 'la de la app sola sólo trae la semanal');
+  assert.equal(estadoRunnerUso(true, cuota({ cinco: null }), AHORA), 'mide', 'la de la app sólo trae la semanal, y se midió: no es «No se mide ahora»');
   assert.equal(estadoRunnerUso(true, cuota({ medido: '2026-10-16T10:00:00Z' }), AHORA), 'sin_terminal', 'medido hace tres horas: no está midiendo');
   assert.equal(estadoRunnerUso(false, cuota(), AHORA), 'apagado');
 });
@@ -320,7 +321,7 @@ test('el desplegable: las cinco cuentas, su plan, las dos ventanas, «Medido hac
   // El botón cerrado: un punto por cuenta (cinco) y el conteo sobre las cinco.
   const boton = renderToStaticMarkup(createElement(BotonUso, { cuentas, ahora: AHORA }));
   assert.equal((boton.match(/co-punto /g) ?? []).length, 5);
-  assert.match(boton, /title="2 de 5 Runners activos"/);
+  assert.match(boton, /title="2 de 5 cuentas midiendo ahora"/);
 });
 
 const leerJson = (f: string) => JSON.parse(readFileSync(f, 'utf8'));

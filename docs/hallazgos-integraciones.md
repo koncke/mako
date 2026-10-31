@@ -2527,5 +2527,13 @@ tests/zernio-pausa-429.test.ts.
 - La ruta anota cada pausa con `console.warn` (`tope de Zernio (429), espera N ms`): cuántos 429 hay es el dato para decidir si hace
   falta gastar menos al conectar.
 - **Sin hacer:** gastar menos al conectar (el sondeo podría usar el `accountId` de la vuelta antes de listar, y el estado de «Anuncios
-  de Meta» lee hasta 5 páginas por apertura); que `alerta-critica` no lea por Zernio un negocio que está conectando; el resto de los
-  lugares que muestran un error de Zernio (Automations, Calendario) siguen diciendo «no contestó» ante un 429.
+  de Meta» lee hasta 5 páginas por apertura); que `alerta-critica` no lea por Zernio un negocio que está conectando.
+- **Los otros lugares (Automations y Calendario, 30/10):** el texto de la pausa ya está en los dos. ⚠️ Ninguno decía literalmente «no
+  contestó»: el selector de publicaciones del CRON decía «No pude leer tus publicaciones» (`publicacionesParaElCron` se comía el 429
+  y devolvía null: ahora, si ninguna cuenta contestó y alguna pidió pausa, TIRA el `ZernioError` y la ruta lo dice), y Calendario
+  decía «Zernio no la programó: Rate limit exceeded» o «No pude leer tus cuentas» con un botón «Conectar una cuenta», que es otra vez
+  mandar a reconectar algo que anda. **En Calendario no cambia ningún estado:** un 429 en el primer pedido sigue siendo `fallo`
+  (Zernio no la creó) y en un reintento sigue siendo `dudosa` con su texto (el primer pedido pudo haber quedado).
+- **Una ruta no mira un `ZernioError`:** el cliente de Zernio se habla sólo desde el canal, y `tests/sin-instagram.test.ts` frenó el tren por importarlo en la ruta. La pregunta «¿es una pausa?» vive en el canal (`pausaDeZernio`).
+- **Sin tocar, a propósito:** `estadoMedios` (lib/disparadores-canales.ts) ante un 429 dice «Sin comprobar»: no es falso. **Sin tocar,
+  de otra área:** lib/media-buyer/datos.ts:111 sigue avisando «Zernio no contestó: …» ante cualquier error, también un 429.

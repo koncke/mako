@@ -96,3 +96,33 @@
 - La deuda queda: quien vuelve paga primero lo pendiente y después reactiva.
 - Retención: 50% por 2 meses, una vez por negocio (`RETENCION`).
 - Pro = capa completo, Growth = capa agencia (el 97 incluye agencia: docs/referidos.md). Las ofertas finales las pasa el Cerebro.
+
+## 29/10/2026 — lo prometido a Thiago (rama `agency-thiago-2910`, worktree `C:/dev/wt-agency`)
+
+Pedido del Cerebro: lo marcado *(Agency)* y *(Planes y Partners)* en docs/promesas/2910-llamada-thiago.md (rama
+`promesas-thiago-2910`). Lo aprendido, en [hallazgos-agencias.md](../hallazgos-agencias.md) → «Lo prometido a Thiago» y
+[hallazgos-partners.md](../hallazgos-partners.md) → «Cualquier plan es partner». Pasó la revisión adversarial de plata en dos
+pasadas; lo arreglado lo fija tests/revision-plata-agency-2910.test.ts. **Sin migración.**
+
+| Qué | Dónde |
+|---|---|
+| «Dar de baja» (computadora, teléfono y API `dar_de_baja_cliente_agency`): cancela lo que cobra, pausa (el corte `sin-agencia`, que vale con el corte general apagado), revoca y avisa; si la paga el cliente, su plan pasa a ser suyo | `lib/agencia-baja.ts` · `queHacerEnLaBaja` · `lib/workspace.ts` → negocioPausado · `lib/plan-acceso.ts` |
+| El cliente soltado elige y paga su plan (/cuenta-pausada → reactivar → `primerPlanPropio`, con la pasarela de su país) | `lib/compra-plan.ts` · `app/api/plan/pagar` |
+| Cada cuenta con su plan (Esencial o Pro) al abrirla, y «Pasar a Pro/Esencial» en su ficha: Pro se tiene cuando se paga a precio de Pro (Stripe cobra la diferencia; si no, queda pendiente y la sube el cron) | `lib/agencia-plan.ts` · `aplicarSubidasPendientes` · `app/agency/NuevoCliente.tsx` · `AgencyApp.tsx` |
+| Cobro por país: Mercado Pago sólo en su país, afuera Stripe (EUR en la zona euro si el plan tiene precio en EUR) | `cobroDeLaCuenta` · `lib/agencia-cobro.ts` |
+| Topes y candados de Pro también para las cuentas de agencia | `aplicanTopes` (lib/topes-plan-server.ts) · `esEsencialDe` |
+| El cliente de una agencia no ve «Pasar a Pro», «Recomienda MaKo» ni MaKo Partners | `noParaClienteDeAgencia` · /api/auth/me `clienteDeAgencia` · PlanPanel |
+| MaKo Partners en todos los planes, y el código de partner en la venta a mano (/admin/cobros y `vender_plan_mako`) | `FUNCIONES_SOLO_PRO` · `lib/vender-plan.ts` · `conPlanDeLista` |
+
+**Stripe en modo real (paso de Martín):** 1) en /integraciones de la plataforma (ws 9), pegar la clave secreta LIVE de Stripe
+(`sk_live_…`): MaKo registra su webhook solo (`asegurarWebhookStripe`); 2) si quiere cobrar en EUR en la zona euro, cargar el
+precio en EUR de cada plan en el setting `planes.mako` (`preciosLocales.EUR`): hoy no hay pantalla, y sin él España paga en
+USD; 3) en Stripe, revisar los reintentos de cobro (Smart Retries) y que la cuenta acepte tarjetas de afuera.
+
+**La decisión de Martín (H1 de la verificación independiente):** las cuentas de agencia que ya existían (6 de la agencia
+ws13) siguen como Pro hasta que su agencia les elija el plan. Si Martín dice que pasen a Esencial:
+`CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO = false` en lib/plan-esencial-reglas.ts (y el test que la fija), sin migración.
+
+**Lo que falta:** los carteles de tope con «Pasar a Pro» de otras áreas (CRM, WhatsApp, Equipo, Landings, Integraciones)
+también los ve el cliente de una agencia; el teléfono abre la cuenta sin elegir plan; la API no tiene «cambiar el plan»; el
+precio en EUR no tiene pantalla. El detalle, en hallazgos-agencias.md → «Lo que quedó SIN hacer (29/10)».

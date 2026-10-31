@@ -30,7 +30,7 @@
 //   · configDeReplica de 'presentacion' sin proporción 16:9                            -> 10 / 1
 //   · formatoReplicar ignora el `modo` viejo                                           -> 10 / 1
 //   · ia.ts importa con `extraerLanding(url, {})` (sin talCual: pierde el www)         -> 10 / 1
-//   · replicar.ts baja con `htmlDePagina(url, {})` (sin talCual)                       -> 10 / 1
+//   · replicar.ts baja con `paginaConDireccion(url, {})` (sin talCual)                       -> 10 / 1
 //   · la ruta del diagnóstico sin pasar `lectura`                                      -> 10 / 1
 //   · landing-fetch con 16 KB de cabeceras                                             -> 10 / 1
 //   · replicar_landing con canal http                                                  -> 10 / 1
@@ -47,8 +47,7 @@ import {
 } from '../lib/editor-landing/lectura-reglas';
 import { MOTIVOS_EN_NAVEGADOR } from '../lib/editor-landing/lectura-tipos';
 import {
-  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, configDeReplica, formatoReplicar,
-} from '../lib/editor-landing/replicar-reglas';
+  FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, configDeReplica, formatoReplicar, baseDeDocumento } from '../lib/editor-landing/replicar-reglas';
 import { PARTES_REPLICA } from '../lib/editor-landing/replicar-partes';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
@@ -192,7 +191,7 @@ test('Replicar: el formato y la lectura llegan a replicar(), y la copia idéntic
   // 28/10/2026: y lo de replicar por partes (tests/web-generator-replicar-partes.test.ts).
   assert.match(ruta, /replicar\(\{ url: body\.url, formato: body\.formato, modo: body\.modo, lectura: body\.lectura, texto: body\.texto, partes: body\.partes, tema: body\.tema, angulos: body\.angulos, adaptar: body\.adaptar, foto: body\.foto \}\)/);
   const rep = sinComentarios(leer('lib/editor-landing/replicar.ts'));
-  assert.match(rep, /htmlDePagina\(url, \{ talCual: true \}\)/);
+  assert.match(rep, /paginaConDireccion\(url, \{ talCual: true \}\)/);
   assert.match(rep, /configDeReplica\(formato, url, \{ adaptar: p\.adaptar === true \}\)/);
   assert.match(rep, /crear\(\{ accion: 'crear', titulo, contenido, config \}\)/, 'la landing nace con el formato y el origen de su receta');
   assert.doesNotMatch(rep, /buscarYCopiar|fuenteImagenes: 'stock'/);
@@ -263,4 +262,11 @@ test('analizar_landing dice el motivo nuevo cuando la página se lee en el naveg
   const bloque = run.slice(i, i + 3500);
   assert.match(bloque, /en_navegador: true, motivo: r\.motivo/);
   assert.match(bloque, /Web Generator → Diagnóstico/);
+});
+
+test('la base del documento: lo mismo que el navegador, también con un <base> comentado o sin href', () => {
+  const final = 'https://sitio.com/inmersion/';
+  assert.equal(baseDeDocumento('<!-- <base href="https://viejo.example/"> --><img src="a.png">', final), final);
+  assert.equal(baseDeDocumento('<base target="_blank"><base href="/sub/">', final), 'https://sitio.com/sub/');
+  assert.equal(baseDeDocumento('<base href="/sub/"><base href="/otra/">', final), 'https://sitio.com/sub/');
 });

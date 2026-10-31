@@ -35,6 +35,7 @@
 // un control que va a contestar que no.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { MENSAJES_DE_MOTIVO } from '@/lib/zernio-redes';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el email en el modal de la tab; y conectar algo vacía la
@@ -408,24 +409,42 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
 }
 
 /** Las publicaciones de la visita, por red: abrir otra vez el CRON no le vuelve a preguntar a Zernio. Una lectura que falló, sí. */
-const publicacionesDeLaVisita = new Map<'instagram' | 'messenger', Promise<PublicacionDeLaCuenta[] | null>>();
-function usePublicaciones(red: 'instagram' | 'messenger'): PublicacionDeLaCuenta[] | null | undefined {
-  const [lista, setLista] = useState<PublicacionDeLaCuenta[] | null | undefined>(undefined);
+const publicacionesDeLaVisita = new Map<'instagram' | 'messenger', Promise<LecturaPublicaciones>>();
+/** `pausa`: Zernio pidió esperar (un 429, ticket #34), en palabras; `reintentarEnMs`: cuándo se relee sola. */
+type LecturaPublicaciones = { lista: PublicacionDeLaCuenta[] | null; pausa: string | null; reintentarEnMs: number | null };
+/** Las veces que se relee sola tras una pausa (las mismas que el estado de «Anuncios de Meta»). Después, lo dice y queda. */
+const RELECTURAS_TRAS_PAUSA = 3;
+function usePublicaciones(red: 'instagram' | 'messenger'): LecturaPublicaciones | undefined {
+  const [lectura, setLectura] = useState<LecturaPublicaciones | undefined>(undefined);
+  const [vuelta, setVuelta] = useState(0);
+  const relecturas = useRef(0);
   useEffect(() => {
     let vivo = true;
+    let espera: ReturnType<typeof setTimeout> | undefined;
     let p = publicacionesDeLaVisita.get(red);
     if (!p) {
       p = fetch(`/api/chat-agent/secuencias?publicaciones=${red}`, { cache: 'no-store', signal: AbortSignal.timeout(20_000) })
         .then((r) => r.json())
-        .then((j: { ok?: boolean; publicaciones?: PublicacionDeLaCuenta[] }) => (j?.ok && Array.isArray(j.publicaciones) ? j.publicaciones : null))
-        .catch(() => null);
+        .then((j: { ok?: boolean; publicaciones?: PublicacionDeLaCuenta[]; error?: string; reintentarEnMs?: number | null }): LecturaPublicaciones => {
+          if (j?.ok && Array.isArray(j.publicaciones)) return { lista: j.publicaciones, pausa: null, reintentarEnMs: null };
+          const ms = j?.reintentarEnMs ?? null;
+          return { lista: null, pausa: ms != null ? (j?.error ?? MENSAJES_DE_MOTIVO.pausa) : null, reintentarEnMs: ms };
+        })
+        .catch((): LecturaPublicaciones => ({ lista: null, pausa: null, reintentarEnMs: null }));
       publicacionesDeLaVisita.set(red, p);
-      void p.then((x) => { if (x == null) publicacionesDeLaVisita.delete(red); });
+      void p.then((x) => { if (x.lista == null) publicacionesDeLaVisita.delete(red); });
     }
-    void p.then((x) => { if (vivo) setLista(x); });
-    return () => { vivo = false; };
-  }, [red]);
-  return lista;
+    void p.then((x) => {
+      if (!vivo) return;
+      if (x.reintentarEnMs == null) { setLectura(x); return; }
+      if (relecturas.current >= RELECTURAS_TRAS_PAUSA) { setLectura({ ...x, pausa: MENSAJES_DE_MOTIVO.pausa }); return; }
+      relecturas.current += 1;
+      setLectura(x);
+      espera = setTimeout(() => setVuelta((v) => v + 1), x.reintentarEnMs);
+    });
+    return () => { vivo = false; if (espera) clearTimeout(espera); };
+  }, [red, vuelta]);
+  return lectura;
 }
 
 /**
@@ -436,14 +455,15 @@ function usePublicaciones(red: 'instagram' | 'messenger'): PublicacionDeLaCuenta
 export function PublicacionDelCron({ d, red, onCambiar, disabled }: {
   d: Disparador; red: 'instagram' | 'messenger'; onCambiar: (p: PublicacionCron | null) => void; disabled?: boolean;
 }) {
-  const lista = usePublicaciones(red);
+  const lectura = usePublicaciones(red);
+  const lista = lectura?.lista;
   const elegida = d.publicacion ?? null;
   const opciones: DropdownOption[] = [
     { value: '', label: 'Cualquier publicación' },
     ...(elegida && !(lista ?? []).some((p) => p.id === elegida.id) ? [{ value: elegida.id, label: elegida.texto || 'La publicación elegida' }] : []),
     ...(lista ?? []).map((p) => ({ value: p.id, label: rotuloDePublicacion(p), buscar: p.texto, ...(p.imagen ? { avatar: p.imagen, avatarCuadrado: true } : {}) })),
   ];
-  const aviso = lista === undefined ? 'Cargando tus publicaciones…' : lista === null ? 'No pude leer tus publicaciones.' : null;
+  const aviso = lista === undefined ? 'Cargando tus publicaciones…' : lista === null ? (lectura?.pausa ?? 'No pude leer tus publicaciones.') : null;
   return (
     <div data-publicacion-cron="" style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', alignItems: 'center', gap: 8 }}>
       <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)' }}>Publicación</span>

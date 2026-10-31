@@ -58,7 +58,7 @@ test('1. al activar se compara lo PUBLICADO de las dos y sus CRON guardados', ()
 
 test('1. el «⋯» de la lista pregunta antes de Activar, con lo publicado, y «Activar igual» sigue sin volver a preguntar', () => {
   const lista = sinComentarios(leer('app/automations/SimuladorWhatsApp.tsx'));
-  const a = cuerpo(lista, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {', '\n  };');
+  const a = cuerpo(lista, 'const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean; sinRitmo?: boolean }) => {', '\n  };');
   assert.match(a, /if \(accion === 'activa' && !j\.activa && rolAdmin && !o\?\.sinAviso\) \{\n\s+const otra = duplicadaAlActivar\(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores\[\], disparadoresDeSecuencia\);\n\s+if \(otra\) \{ setErrFila\(null\); setAvisoActivar\(\{ j, texto: avisoDuplicada\(otra\) \}\); return; \}/);
   // Antes del PATCH: la pregunta va ANTES de prender.
   assert.ok(a.indexOf('duplicadaAlActivar(') < a.indexOf("pedir('/api/whatsapp/secuencias', 'PATCH'"));
@@ -78,7 +78,7 @@ test('1. una ACTIVA que ya le escribe lo mismo a la misma gente lo dice al lado 
 
 test('2. el interruptor «Activar» del lienzo y la nota del chat miran lo PUBLICADO, no el borrador', () => {
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
-  assert.match(perfil, /conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void toggle\(\)\), abiertoPublicado\)/);
+  assert.match(perfil, /conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void conRitmo\(\(\) => void toggle\(\)\)\), abiertoPublicado\)/);
   assert.match(perfil, /if \(!activa && dejaBorradores\(abiertoPublicado, est\?\.envio_automatico === true\)\) \{/);
   // Publicar sí compara lo del lienzo: es lo que pasa a mandarse.
   assert.match(perfil, /conAvisoDuplicada\(activa, 'Publicar igual', \(\) => void publicar\(\)\)/);

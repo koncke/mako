@@ -58,6 +58,8 @@ const PUBLICACIONES = [
     permalink: 'https://www.instagram.com/p/VIEJA77/', picture: 'https://cdn.test/vieja.jpg', mediaType: 'IMAGE' },
 ];
 const consultasPublicaciones: string[] = [];
+/** Lo que contesta Zernio a las publicaciones: 429 es una pausa (ticket #34). */
+let estadoPublicaciones = 200;
 // «¿Te sigue?»: lo que dice Meta AHORA, y lo que Zernio guardó (por cuenta y persona) la última vez que le preguntó.
 let sigueDeVerdad = false;
 const cacheSigue = new Map<string, boolean>();
@@ -77,6 +79,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
     if (metodo === 'GET' && path === '/profiles') return json(200, { profiles: [{ _id: 'prof_10', name: 'Fiesta Music', isDefault: true }] });
     if (metodo === 'GET' && path === '/accounts') return json(200, { accounts: [{ _id: 'acc_10', platform: 'instagram', username: 'fiestamusic', isActive: true, profileId: 'prof_10' }] });
     const publicaciones = /^\/accounts\/([^/]+)\/posts$/.exec(path);
+    if (publicaciones && metodo === 'GET' && estadoPublicaciones !== 200) return json(estadoPublicaciones, { error: 'Rate limit exceeded' }, { 'Retry-After': '23' });
     if (publicaciones && metodo === 'GET') { consultasPublicaciones.push(publicaciones[1]); return json(200, { status: 'success', posts: PUBLICACIONES }); }
     const seguimiento = /^\/accounts\/([^/]+)\/follow-status\/([^/]+)$/.exec(path);
     if (seguimiento && metodo === 'GET') {
@@ -198,6 +201,8 @@ const anotar = (n: string, extra: Record<string, unknown> = {}) => {
     envios: db.nutricion_envios.map((e) => `${e.nodo_id} ${e.estado}`),
     marca: db.app_settings.find((s) => String(s.key).startsWith('nutricion.boton.'))?.value ?? null,
     historial: db.lead_audit.map((a) => String(a.valor_nuevo ?? '')).filter((t) => t.startsWith('Tocó')),
+    // Lo que quedó guardado de lo que vino con cada mensaje (ticket #33).
+    metadataZernio: db.ig_mensajes.map((m) => m.metadata_zernio ?? null),
   };
 };
 
@@ -251,6 +256,14 @@ if (ESC === 'publicacion') {
   const conLink = await runWithWorkspace(WS, () => run.preparar(cron('https://instagram.com/reel/DOS222?igsh=abc')));
   const linkAjeno = await runWithWorkspace(WS, () => run.preparar(cron('https://www.instagram.com/reel/AJENO99/')));
   anotar('3_lista_y_api', { lista, conLink, linkAjeno, consultasPublicaciones: [...consultasPublicaciones] });
+  // 5. Zernio pide una pausa (ticket #34): TIRA el 429 con su espera, para que la ruta lo diga. Un 500 sigue siendo «no pude leer».
+  estadoPublicaciones = 429;
+  const conPausa = await runWithWorkspace(WS, () => publicacionesParaElCron('instagram')).then(
+    (x: unknown) => ({ devolvio: x }), (e: { status?: number; esperaMs?: number | null }) => ({ status: e.status, esperaMs: e.esperaMs }));
+  estadoPublicaciones = 500;
+  const conCaida = await runWithWorkspace(WS, () => publicacionesParaElCron('instagram')).then((x: unknown) => ({ devolvio: x }), (e: { status?: number }) => ({ status: e.status }));
+  estadoPublicaciones = 200;
+  anotar('4_pausa', { conPausa, conCaida });
 }
 
 if (ESC.startsWith('duplicadas')) {

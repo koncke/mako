@@ -63,9 +63,16 @@ test('el layout se lo pasa a los dos, y abre el hueco de la barra desde el HTML 
 test('/api/auth/me y el layout leen al cliente de UN solo lugar', () => {
   const me = sinComentarios(leer('app/api/auth/me/route.ts'));
   // Desde el 23/10/2026, en el Promise.all de la ruta (tests/rendimiento-pedido.test.ts): sigue siendo UNA lectura.
-  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial\] = await Promise\.all\(\[[^\]]*\bvistaDeOtro\(\)/);
+  // Desde el 30/10/2026 también `cuentaActualEsDeAgencia`, que vive en el mismo lib/vista-de-otro.ts y contesta sí o no (no
+  // nombra a nadie). Medido con dos negocios en tests/agencia-dos-negocios.test.ts.
+  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia\] = await Promise\.all\(\[[^\]]*\bvistaDeOtro\(\)[^\]]*\bcuentaActualEsDeAgencia\(\)/);
   assert.equal((me.match(/vistaDeOtro\(\)/g) ?? []).length, 1);
-  assert.doesNotMatch(me, /getWorkspace\(|agenciaDeCliente\(/, 'una segunda cuenta de «a quién se mira» puede nombrar a otro cliente');
+  assert.doesNotMatch(me, /getWorkspace\(|agenciaDeCliente\(|esClienteDeAgencia\(/, 'una segunda cuenta de «a quién se mira» puede nombrar a otro cliente');
+  // ⚠️ `!== false` desde el 30/10/2026 (P15): `esClienteDeAgencia` contesta sí/no/**no sé**, y ACÁ es la frontera que
+  //    resuelve el «no sé» (lo que sale va como JSON a la barra y no puede tener tres estados). Se resuelve como SÍ:
+  //    esconder MaKo Partners por una falla de la base cuesta un renglón; mostrárselo al cliente de una agencia le rompe
+  //    el trato a la agencia. Lo que este assert fija sigue siendo lo mismo: la MISMA lectura del negocio que `vistaDeOtro`.
+  assert.match(sinComentarios(leer('lib/vista-de-otro.ts')), /return \(await esClienteDeAgencia\(await getWorkspaceActual\(\)\)\) !== false;/, 'la MISMA lectura del negocio que `vistaDeOtro`, con el «no sé» resuelto acá');
   for (const campo of ['clienteNombre: vista?.clienteNombre ?? null', 'clienteWs: vista?.clienteWs ?? null', 'salida: vista?.salida ?? rutaDeSalida(esSuperAdmin)', 'const agencia = vista?.agencia ?? null;']) {
     assert.ok(me.includes(campo), `falta «${campo}»`);
   }

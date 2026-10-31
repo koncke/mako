@@ -4,14 +4,20 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
+## LO ÚLTIMO: 30/10/2026, rama `aut-restos-tickets-3010`: los restos de los tickets #33 y #34
+
+Tres arreglos: el paso de una inscripción sin tarjeta (`indiceDeLaFila`), lo que manda Instagram (`ig_mensajes.metadata_zernio`,
+migración 0353, ya aplicada) y la pausa de Zernio en Automations y Calendario. Encima, el aviso al activar: cuántos y a qué ritmo
+(lib/ritmo-al-activar.ts). La cosecha, en docs/hallazgos-chatbot.md y docs/hallazgos-integraciones.md. **Mirar cuando despliegue:** el
+aviso en pantalla (no se vio en el navegador) y `ig_mensajes.metadata_zernio` con el próximo toque de un DM viejo.
+
+## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
 
 **Lo pedido** (el Cerebro): con copias de la 680, el botón de un DM viejo no anda y pasa todo el lead a «respondió». **Lo
 hecho:** un toque nunca va a la pausa; el payload que no se lee se resuelve por el título (la más vieja si hay varias). Test
 por el webhook de verdad: tests/boton-dm-viejo.test.ts (escenarios 'duplicadas*' de tests/_boton-vuelve-hijo.ts), 4 roturas
 en rojo. Hito con `tickets: [33]`. La cosecha, con lo medido y lo que quedó sin hacer, en docs/hallazgos-chatbot.md.
-**Sin hacer:** el paso que dice la API de una inscripción sin tarjeta (GANCHOS: «Todavía no te veo» con el recurso enviado;
-lib/automatizaciones-del-lead.ts); guardar el payload del postback; soltar las 8 de @leantejado (producción, con el «dale»).
+**Sin hacer:** soltar las 8 de @leantejado (al desplegarse el arreglo). Lo demás, en la sección de arriba.
 
 ## 29/10/2026 noche, cuenta 3 (claude3), sesión local_7f005343: el ticket #25 de Leandro
 

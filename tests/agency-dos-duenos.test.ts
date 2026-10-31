@@ -52,6 +52,40 @@ type Salida = {
   sinMock: string[];
 };
 
+/**
+ * Cada llamada a `esClienteDeAgencia` del fuente, y si su «no sé» quedó RESUELTO.
+ *
+ * ⚠️ Se cierra el paréntesis CONTANDO (el argumento puede traer otra llamada adentro:
+ * `esClienteDeAgencia(await getWorkspaceActual())`), que es lo que una regex `[^)]*` no
+ * puede hacer — ésa paraba en el `)` de adentro y daba un falso rojo.
+ *
+ * Resuelto = o lo sigue un `!== false`, o se guarda en una variable que el archivo
+ * compara así. Las dos formas están en uso a propósito y las dos son correctas.
+ */
+function usosEnElFuente(src: string): { resuelto: boolean; contexto: string }[] {
+  const out: { resuelto: boolean; contexto: string }[] = [];
+  const marca = 'esClienteDeAgencia(';
+  for (let i = src.indexOf(marca); i >= 0; i = src.indexOf(marca, i + 1)) {
+    // Saltea la declaración y el import: los usos son LLAMADAS.
+    const antes = src.slice(Math.max(0, i - 40), i);
+    if (/export const\s*$|import \{[^}]*$/.test(antes)) continue;
+    let hondo = 0, j = i + marca.length - 1;
+    for (; j < src.length; j++) {
+      if (src[j] === '(') hondo++;
+      else if (src[j] === ')' && --hondo === 0) break;
+    }
+    const despues = src.slice(j + 1, j + 24).replace(/\s+/g, '');
+    let resuelto = despues.startsWith(')!==false') || despues.startsWith('!==false');
+    if (!resuelto) {
+      // ¿Se guarda en una variable que después se compara contra false?
+      const nombre = /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=\s*[^;]*$/.exec(src.slice(0, i))?.[1];
+      if (nombre && new RegExp(`\\b${nombre}\\s*!==\\s*false`).test(src)) resuelto = true;
+    }
+    out.push({ resuelto, contexto: src.slice(Math.max(0, i - 60), j + 24).replace(/\s+/g, ' ').trim() });
+  }
+  return out;
+}
+
 let cache: Salida | null = null;
 const correr = (): Salida => {
   if (cache) return cache;
@@ -125,6 +159,84 @@ for (const [cual, pagina, destino] of [
     assert.ok(src.indexOf('const deAgencia') < src.indexOf('cuentasDePartner(ws)'), 'la puerta, antes de los datos');
   });
 }
+
+// ── 3. UNA sola función, y cada uso resuelve el «no sé» por el lado seguro ────────
+
+test('`esClienteDeAgencia` se declara UNA sola vez (el merge del 30/10 no compilaba por esto)', () => {
+  // ⚠️ ESTE GUARD EXISTE POR UN MERGE QUE SE VIO LIMPIO Y NO COMPILABA. La función nació DOS veces el mismo día: acá con el
+  //    tri-estado y en la rama de Agency devolviendo `boolean` (con «no se pudo leer» = `false`). Los dos bloques viven en
+  //    lugares distintos del archivo, así que git los unió SIN conflicto y lo que quedó fue
+  //    «Multiple exports with the same name "esClienteDeAgencia"»: un archivo que no compila, con un merge en verde.
+  const crudo = readFileSync(join(RAIZ, 'lib/agencia.ts'), 'utf8');
+  const cuantas = (sinComentarios(crudo).match(/export const esClienteDeAgencia\b/g) ?? []).length;
+  assert.equal(cuantas, 1, 'dos declaraciones = el archivo no compila, y el merge no lo avisa');
+  // Y el tipo es el tri-estado: `Promise<boolean>` pelado es la versión que colapsa el «no sé» en «no».
+  assert.match(crudo, /esClienteDeAgencia = cache\(async \([^)]*\): Promise<boolean \| null> =>/,
+    'el tri-estado está en el tipo; un `Promise<boolean>` acá vuelve a leer el «no sé» como «no»');
+  assert.match(crudo, /NO VUELVAS A COLAPSARLA EN UN `boolean`/, 'y queda escrito al lado de la función');
+});
+
+test('LOS NUEVE USOS de `esClienteDeAgencia` resuelven el «no sé» por el lado seguro', () => {
+  // ⚠️ `false` NO ES EL LADO SEGURO EN NINGUNO DE LOS NUEVE: en una puerta deja entrar, y en un upsell se lo ofrece al
+  //    cliente de una agencia (Thiago, 29/10/2026: «yo no me meto con ese cliente»). Por eso todos comparan contra `false`
+  //    en vez de usar el valor por verdad. Lo que cambia entre ellos es la CONSECUENCIA, no la lectura del `null`.
+  const usos: [string, string][] = [
+    // Puertas: con «no sé», no entra.
+    ['app/agency/page.tsx', 'la puerta del Agency Dashboard'],
+    ['app/m/agency/page.tsx', 'la misma puerta en el teléfono'],
+    ['app/partners/page.tsx', 'la puerta de MaKo Partners'],
+    ['app/m/partners/page.tsx', 'MaKo Partners en el teléfono'],
+    ['lib/partners-programa.ts', 'hacerse partner por la API'],
+    // Upsells: con «no sé», no se ofrece.
+    ['app/configuraciones/plan/page.tsx', '«Pasar a Pro» en «Tu plan»'],
+    ['app/m/mas/page.tsx', '«Pasar a Pro» en el menú del teléfono'],
+    ['app/no-esta-en-tu-plan/page.tsx', '«Pasar a Pro» en el cartel del candado'],
+    // La frontera que alimenta a la barra: resuelve el «no sé» y devuelve boolean.
+    ['lib/vista-de-otro.ts', 'lo que la barra le esconde, vía /api/auth/me'],
+  ];
+  for (const [rel, que] of usos) {
+    const src = leer(rel);
+    assert.match(src, /esClienteDeAgencia\(/, `${rel} tiene que llamarla (${que})`);
+    for (const uso of usosEnElFuente(src)) {
+      assert.equal(uso.resuelto, true,
+        `${rel}: este uso lee el «no sé» como «no» (${que}). Va \`!== false\`, o guardalo y comparalo así.\n    ${uso.contexto}`);
+    }
+  }
+  // Y la lista está CERRADA: un uso nuevo rompe el test y ahí se elige de qué lado cae su «no sé».
+  const llaman = execFileSync('git', ['grep', '-l', 'esClienteDeAgencia', '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8' })
+    .split('\n').map((s) => s.trim()).filter(Boolean)
+    .filter((rel) => /\besClienteDeAgencia\(/.test(leer(rel)));
+  assert.deepEqual(llaman.sort(), usos.map(([r]) => r).sort(),
+    'un uso nuevo: decidí si su «no sé» BLOQUEA o NO OFRECE, y sumalo acá');
+});
+
+test('el escáner de usos CAZA la lectura por verdad (probado con las dos formas del bug)', () => {
+  // ⚠️ El escáner es el que sostiene el test de arriba, así que se prueba con las roturas escritas a mano: sin esto,
+  //    un escáner que no caza nada deja ese test en verde sobre los nueve usos rotos.
+  const malas = [
+    'if (!esSuper && (await esClienteDeAgencia(ws))) redirect(x);',          // por verdad, directo
+    'const deAgencia = await esClienteDeAgencia(ws);\nif (deAgencia) irse();', // guardado y leído por verdad
+    'const d = esencial && (await esClienteDeAgencia(ctx.ws));',              // el de m/mas, sin resolver
+    'return esClienteDeAgencia(await getWorkspaceActual());',                 // devuelto crudo
+  ];
+  for (const mala of malas) {
+    const usos = usosEnElFuente(mala);
+    assert.equal(usos.length, 1, `el escáner tiene que ver el uso: ${mala}`);
+    assert.equal(usos[0].resuelto, false, `el escáner tiene que marcarlo SIN resolver: ${mala}`);
+  }
+  const buenas = [
+    'const deAgencia = await esClienteDeAgencia(ws);\nif (!esSuper && deAgencia !== false) redirect(x);',
+    'const deAgencia = (await esClienteDeAgencia(ws)) !== false;',
+    'const deAgencia = esencial && (await esClienteDeAgencia(ctx.ws)) !== false;',
+    'return (await esClienteDeAgencia(await getWorkspaceActual())) !== false;',
+    'if ((await esClienteDeAgencia(ws)) !== false) redirect(x);',
+  ];
+  for (const buena of buenas) {
+    const usos = usosEnElFuente(buena);
+    assert.equal(usos.length, 1, `el escáner tiene que ver el uso: ${buena}`);
+    assert.equal(usos[0].resuelto, true, `el escáner tiene que aceptarlo: ${buena}`);
+  }
+});
 
 test('`esClienteDeAgencia` es la única que decide, y `agenciaDeCliente` lo dice en su propio comentario', () => {
   const crudo = readFileSync(join(RAIZ, 'lib/agencia.ts'), 'utf8');

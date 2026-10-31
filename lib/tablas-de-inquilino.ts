@@ -92,6 +92,8 @@ export const TABLAS_DE_INQUILINO = [
   // La papelera del CRM (mig 0340). ⚠️ La 0340 va ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla
   // que no existe da error.
   'leads_papelera',
+  // Lo que se borró (mig 0356). ⚠️ Vaciar `leads` escribe acá (es un trigger): `vaciarTablas` la barre otra vez al final.
+  'leads_bajas',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
   // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en

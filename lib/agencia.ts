@@ -147,14 +147,43 @@ export async function agenciasDeCliente(clienteWs: number): Promise<FilaCarteraU
  * revocada ya no es dueña).
  *
  * ⚠️ Y EL TERCER VALOR NO ES UN LUJO. `null` es «no pude leer la cartera», que
- * NO es «no». Quien decide un permiso con esto tiene que tratar el `null` como
- * el sí —fail-closed, lo mismo que dice la cabecera de este módulo— y por eso se
+ * NO es «no». Quien decide con esto tiene que tratar el `null` como el sí
+ * —fail-closed, lo mismo que dice la cabecera de este módulo— y por eso se
  * compara contra `false` y no por verdad: `if (deAgencia !== false)`. Un
  * `if (deAgencia)` vuelve a leer el «no sé» como «no», que es el molde del bug
  * que esto vino a cerrar.
  *   · `true`  — tiene al menos un dueño vigente;
  *   · `false` — la cartera se leyó y no tiene ninguno;
  *   · `null`  — no se pudo leer (base caída, tabla sin migrar, ws inválido).
+ *
+ * ⚠️ **NO VUELVAS A COLAPSARLA EN UN `boolean`, Y ÉSTE ES EL AVISO QUE LO DICE.**
+ * Nació dos veces, con dos criterios, y el 30/10/2026 al juntarlas una tenía el
+ * `null` y la otra devolvía `boolean` con «no se pudo leer = no». El tipo
+ * `boolean` es más cómodo en los cuatro `const deAgencia = await …` de abajo, y
+ * es exactamente lo que hay que NO hacer: `false` en una puerta DEJA ENTRAR.
+ * Si te tienta simplificar, lo que estás por borrar es la diferencia entre «no
+ * tiene dueño» y «no pude preguntar».
+ *
+ * ⚠️ **EL `null` SE RESUELVE IGUAL EN LOS SEIS USOS —como «sí, puede ser de una
+ * agencia»— Y LO QUE CAMBIA ES LA CONSECUENCIA, NO LA LECTURA.** Es el detalle
+ * que hace que `!== false` sirva en todos y que igual haya que pensar cada caso:
+ *
+ * | Uso | Qué habilita | Con `null` |
+ * |---|---|---|
+ * | `app/agency/page.tsx` · `app/m/agency/page.tsx` | la puerta del Agency Dashboard | **no entra** |
+ * | `app/m/partners/page.tsx` | la puerta de MaKo Partners | **no entra** |
+ * | `app/configuraciones/plan/page.tsx` | «Pasar a Pro» en «Tu plan» | **no se ofrece** |
+ * | `app/m/mas/page.tsx` | «Pasar a Pro» en el menú del teléfono | **no se ofrece** |
+ * | `app/no-esta-en-tu-plan/page.tsx` | «Pasar a Pro» en el cartel del candado | **no se ofrece** |
+ *
+ * Las dos primeras filas son fail-closed de acceso; las tres últimas son la
+ * regla de producto de Thiago (29/10/2026: «yo no me meto con ese cliente»): si
+ * NO SABEMOS si tiene dueño, no le pisamos el cliente a una agencia. Ofrecer de
+ * menos por una falla de la base cuesta una venta; ofrecer de más le rompe el
+ * trato a la agencia, y eso no se deshace.
+ *
+ * ⚠️ Y NO NOMBRA A NADIE, a propósito: contesta sí/no/no sé y nunca de quién es.
+ * Quién es el dueño lo contesta `agenciaDeCliente`, y sólo para DECIRLO.
  */
 export const esClienteDeAgencia = cache(async (clienteWs: number | null | undefined): Promise<boolean | null> => {
   if (!esWsValido(clienteWs)) return null;

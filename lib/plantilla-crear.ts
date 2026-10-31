@@ -81,6 +81,8 @@ export type DepsPlantilla = {
    * producto está archivado). null = es otra cosa (la base): ésa sí deshace todo.
    */
   motivoDeCron?: (e: unknown) => string | null;
+  /** `guardarConfigAutomatizacion` (lib/config-automatizacion-db.ts): el `ritmo` con que nace la plantilla que lo trae. */
+  setConfig?: (id: number, cambio: unknown) => Promise<{ ok: boolean }>;
   /** Para el test: la clave nueva. Sin pasar nada, una al azar como la de «＋ Nueva». */
   clave?: () => string;
   /**
@@ -152,10 +154,17 @@ export async function crearDesdePlantilla(plantillaId: unknown, deps: DepsPlanti
     throw e;
   }
 
-  if (!elegido) return { id: nueva.id, nombre, pide: p.cron.pide ?? null, aviso: null };
+  // EL RITMO CON QUE NACE. No poder ponerlo no tumba la automatización: nace apagada, y se dice para que no se prenda creyendo que lo tiene.
+  let sinRitmo: string | null = null;
+  if (p.ritmo) {
+    const puesto = await Promise.resolve(deps.setConfig?.(nueva.id, p.ritmo)).then((r) => r?.ok === true, () => false);
+    if (!puesto) sinRitmo = 'No pude ponerle horario y goteo: revísalos en Configuraciones antes de activarla.';
+  }
+
+  if (!elegido) return { id: nueva.id, nombre, pide: p.cron.pide ?? null, aviso: sinRitmo };
   try {
     await deps.setDisparadores(nueva.id, [elegido]);
-    return { id: nueva.id, nombre, pide: null, aviso: null };
+    return { id: nueva.id, nombre, pide: null, aviso: sinRitmo };
   } catch (e) {
     const motivo = deps.motivoDeCron?.(e) ?? null;
     if (motivo == null) { await borrar(); throw e; }

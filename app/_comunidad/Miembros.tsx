@@ -8,7 +8,7 @@
 // su nivel, bio, links, desde cuándo y su última actividad. El propio se edita ahí (bio, links,
 // ubicación); el nombre y la foto salen de su ficha y no se tocan desde la comunidad.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button, Checkbox, Input, Modal, Spinner, Textarea } from '@/app/_ui';
 import type { FiltroMiembros, MiembroVista, MiembrosVista, PerfilVista, SacadoVista } from '@/lib/comunidad-tipos';
 import { REDES, ROTULO_RED, TOPE_BIO, TOPE_UBICACION, type Red } from '@/lib/comunidad-reglas';
@@ -21,9 +21,11 @@ const fecha = (iso: string | null) => {
   return d && Number.isFinite(d.getTime()) ? d.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }) : null;
 };
 
-export function Miembros({ version = 0 }: {
+export function Miembros({ version = 0, extra }: {
   /** Cambia cuando alguien entra o sale de la comunidad (moderación): se vuelve a pedir la lista. */
   version?: number;
+  /** Lo que va al final de la barra (adentro de Clients, el selector de vistas: 29/10/2026). */
+  extra?: ReactNode;
 }) {
   const { api, abrirPerfil, comunidad } = useComunidad();
   const [filtro, setFiltro] = useState<FiltroMiembros | 'fuera'>('todos');
@@ -65,6 +67,8 @@ export function Miembros({ version = 0 }: {
   return (
     <div className="cmu-card" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="cmu-barra">
+        {/* Adelante, donde lo tiene la barra del kanban: el selector no cambia de lugar al cambiar de vista. */}
+        {extra}
         <div className="cmu-chips" role="tablist" aria-label="Filtro">
           {chips.map((c) => (
             <button key={c.id} type="button" role="tab" className="cmu-chip" data-on={filtro === c.id} aria-selected={filtro === c.id} onClick={() => setFiltro(c.id)}>

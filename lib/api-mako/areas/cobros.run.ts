@@ -21,6 +21,7 @@
 // ejecutar, y un error en ejecutar() consume la pendiente.
 // =============================================================================
 
+import { pedidosPendientes } from '@/lib/pedidos-ingreso';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { getLead, logLeadEvent } from '@/lib/leads';
@@ -713,6 +714,22 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_quieren_entrar: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Quién quiere entrar a MaKo es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Quién quiere entrar a MaKo es sólo del super admin.');
+      const { pedidos, hayMas } = await pedidosPendientes();
+      return json({
+        pedidos: pedidos.map((p) => ({
+          email: p.email, nombre: p.nombre, correo_verificado: p.correo_verificado, detalle: p.detalle, whatsapp: p.whatsapp,
+          lead_id: p.lead_id, intentos: p.intentos, primer_intento: p.primer_at, ultimo_intento: p.ultimo_at,
+        })),
+        hay_mas: hayMas,
+        nota: 'Para darle de alta: Customers › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
+      });
+    },
+  },
+
   ver_agentes_de_clientes: {
     leer: async (input, ctx) => {
       if (ctx.ws !== (await wsSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo de la plataforma.');
@@ -819,7 +836,7 @@ export const RUNNERS: Runners = {
       // preguntar»). Y el workspace del cobro es SIEMPRE el de la plataforma, nunca el que traiga el pedido.
       const plataforma = await wsSuperAdmin();
       if (ctx.ws !== plataforma) return { error: 'Vender un plan de MaKo es sólo de la plataforma.' };
-      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null });
+      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null, refCodigo: s(input.codigoPartner) });
       if (!val.ok) return { error: val.error };
       const v = val.venta;
       let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
@@ -852,7 +869,7 @@ export const RUNNERS: Runners = {
         : ' Al pagarlo se le crea la cuenta y le llega el acceso.';
       return {
         payload: { ...v },
-        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar} El link queda en Cobros.`,
+        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar}${v.refCodigo ? ` Lo trajo el partner «${v.refCodigo}».` : ''} El link queda en Cobros.`,
       };
     },
     // Corre antes de marcar la propuesta aplicada (lib/api-mako/acciones.ts): un «no» acá no la quema.

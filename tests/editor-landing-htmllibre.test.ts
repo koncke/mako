@@ -595,10 +595,28 @@ test('copia fiel: una página que se ARMA en el navegador propone «Landing» (c
   assert.equal(copiaFiel(PAGINA.replace('</head>', '<script type="module" src="/a.js"></script></head>'), 'https://ejemplo.com/oferta').ok, true);
 });
 
-test('el base: el de la página, si no el canonical, si no el pedido', () => {
-  assert.equal(baseDeDocumento('<link rel="canonical" href="https://b.com/x/">', 'https://a.com/y'), 'https://b.com/x/');
+test('el base: el <base> de la página y, si no, su dirección final; el canonical no decide (como el navegador)', () => {
+  // Medido el 30/10/2026 (la landing #88): resolver contra el canonical o contra lo pegado rompía las imágenes.
+  assert.equal(baseDeDocumento('<link rel="canonical" href="https://b.com/x/">', 'https://a.com/y/'), 'https://a.com/y/');
+  assert.equal(baseDeDocumento('<meta property="og:url" content="https://b.com/x/">', 'https://a.com/y/'), 'https://a.com/y/');
   assert.equal(baseDeDocumento('<p>nada</p>', 'https://a.com/y'), 'https://a.com/y');
   assert.equal(baseDeDocumento('<base href="javascript:alert(1)">', 'https://a.com/y'), 'https://a.com/y');
+  assert.equal(baseDeDocumento('<base href="https://cdn.com/z/">', 'https://a.com/y'), 'https://cdn.com/z/');
+  assert.equal(baseDeDocumento('<base href="sub/">', 'https://a.com/y/'), 'https://a.com/y/sub/', 'un <base> relativo va contra la final');
+});
+
+test('⚠️ una página que redirige a la barra final conserva su carpeta en las imágenes de la copia', () => {
+  const pagina = '<html><head><title>T</title></head><body><section><h1>Hola, esta es una página con texto de verdad para copiar.</h1><img src="kit/x.webp"></section></body></html>';
+  const conLaFinal = copiaFiel(pagina, 'https://sitio.com/inmersion/');
+  assert.ok(conLaFinal.ok);
+  assert.match(JSON.stringify(conLaFinal), /https:\/\/sitio\.com\/inmersion\/kit\/x\.webp/);
+  // Y los cuatro caminos le piden la final al lector (el que vuelva a `htmlDePagina` pierde la carpeta en silencio).
+  const leer = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+  assert.match(leer('lib/editor-landing/replicar.ts'), /\{ html, final \} = await paginaConDireccion\(url, \{ talCual: true \}\)[\s\S]*copiaFiel\(html, final\)/);
+  assert.match(leer('lib/editor-landing/estilo-server.ts'), /\{ html, final \} = await paginaConDireccion[\s\S]*baseDeDocumento\(html, final\)/);
+  assert.match(leer('lib/editor-landing/diagnostico.ts'), /documentoDiagnostico\(html, final, \{ embebible \}\)/);
+  assert.match(leer('lib/editor-landing/lector-pagina.ts'), /documentoLector\(crudo, final, id, origen, modulos\)/);
+  assert.match(leer('app/api/landing-generator/diagnostico/pagina/route.ts'), /final: p\.final/);
 });
 
 test('headLimpio y esRastreador: lo que espía y lo que rompe, afuera; los estilos, adentro', () => {

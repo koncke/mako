@@ -72,7 +72,8 @@ test('2: el Uso no se contradice: sin medición dice lo que pasa con su Runner (
   // La cuenta 2 con su Runner conectado y sin ninguna medición; la 3 sin Runner ni número.
   const cuentas = cuentasDeUso([{ cuenta: 'claude2', vistoAt: visto }]);
   const texto = renderToStaticMarkup(createElement(ListaUso, { cuentas, ahora })).split('<section').slice(1).map((s) => s.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
-  assert.match(texto[1], /Runner activo/);
+  // «No se mide ahora» desde el 30/10/2026: `visto_at` lo refresca la vuelta para todas; «Runner activo» es sólo si se midió hace poco.
+  assert.match(texto[1], /No se mide ahora/);
   assert.match(texto[1], /Sin medir: su terminal no tiene Runner abierto$/, 'recorrida por otro Runner y sin medir: lo dice (no «Runner conectado»)');
   assert.doesNotMatch(texto[1], /Su uso aparece|Runner conectado/, 'ni el texto de «sin Runner» ni una conexión que no es de esa cuenta');
   assert.match(texto[2], /Sin Runner todavía Su uso aparece cuando su Runner esté conectado$/, 'sin Runner: el de siempre');

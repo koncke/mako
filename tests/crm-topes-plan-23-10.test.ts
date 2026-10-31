@@ -53,7 +53,7 @@ test('la decisión: Esencial frena el alta 2.001 y el segundo CRM; Pro y quien n
 
 test('sólo a quien MaKo cobra por la pasarela; un error nuestro no le corta el trabajo a nadie', () => {
   const t = sinComentarios(leer('lib/topes-crm.ts'));
-  assert.match(t, /if \(!\(await suscripcionDeMakoDe\(ws\)\)\) return null;/, 'el ws1 y los acuerdos a mano también son `completo`');
+  assert.match(t, /if \(!\(await aplicanTopes\(ws\)\)\) return null;/, 'el ws1 y los acuerdos a mano también son `completo` (aplicanTopes: la pasarela o una cuenta de agencia)');
   assert.match(t, /\} catch \(e\) \{[\s\S]*?return null;\s*\}/);
   assert.match(t, /select\('id', \{ count: 'exact', head: true \}\)/, 'contar sin traer: PostgREST corta en 1.000');
 });

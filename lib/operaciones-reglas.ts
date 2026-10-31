@@ -854,6 +854,24 @@ export const estadoDeCierre = (c: Cierre): EstadoPedido => (c.prueba ? 'comproba
 // donde SendMessage funciona. La pantalla junta lo que suben los tres.
 export type VistaCartero = { cuenta: string; vistoAt: string | null; chats: ChatCartero[] };
 
+/** Un mensaje que todavía no salió, desde cuándo cuenta como sin chat: antes de esto, lo normal es que la PC no haya dado la vuelta. */
+export const SIN_CHAT_VIVO_MS = 10 * 60_000;
+
+/** ¿La PC dice que ese chat está abierto ahora? Uno que no figura en ningún cartero (viejo, de una cuenta sin Runner) NO está vivo. */
+export function destinoVivo(destino: string, carteros: ReadonlyArray<{ chats?: ReadonlyArray<{ local: string; vivo?: boolean }> }>): boolean {
+  return carteros.some((k) => (k.chats ?? []).some((c) => c.local === destino && !!c.vivo));
+}
+
+/**
+ * Los mensajes `escrito` hace más de `SIN_CHAT_VIVO_MS` sin un chat vivo que los reciba (30/10/2026): la cuenta es de MaKo, con lo que
+ * subió la PC, así que sigue en pie con la PC apagada. La usan el cartel del Ops Center (lib/centro-limbo.ts) y el vigía del Runner.
+ */
+export function pedidosSinChatVivo<P extends { created_at: string; destino: string; estado: string }>(
+  pedidos: readonly P[], carteros: ReadonlyArray<{ chats?: ReadonlyArray<{ local: string; vivo?: boolean }> }>, ahora: number,
+): P[] {
+  return pedidos.filter((p) => p.estado === 'escrito' && ahora - Date.parse(p.created_at) > SIN_CHAT_VIVO_MS && !destinoVivo(p.destino, carteros));
+}
+
 export function carteroVivo(c: { vistoAt: string | null } | null | undefined, ahora: number): boolean {
   if (!c?.vistoAt) return false;
   const t = Date.parse(c.vistoAt);

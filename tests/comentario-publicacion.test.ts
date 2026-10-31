@@ -61,6 +61,13 @@ test('2. el selector: las últimas publicaciones de la cuenta, la más nueva pri
   assert.equal(rotuloDePublicacion(p.lista![2]), '01/09 · Publicación · Sin texto');
 });
 
+test('Zernio pide una pausa: ninguna cuenta contestó y una dijo 429 → tira el 429 con su espera; un 500 sigue siendo null', () => {
+  const p = correr().pasos['4_pausa'] as unknown as { conPausa: { status?: number; esperaMs?: number }; conCaida: { devolvio?: unknown } };
+  assert.equal(p.conPausa.status, 429);
+  assert.equal(p.conPausa.esperaMs, 23_000);
+  assert.equal(p.conCaida.devolvio, null);
+});
+
 test('3. MaKo con el LINK de un Reel: lo encuentra y lo guarda con su id y su nombre; uno ajeno, lo dice', () => {
   const p = correr().pasos['3_lista_y_api'];
   const payload = p.conLink!.payload as { crons: Disparador[] };
@@ -141,3 +148,5 @@ test('6. el editor, el webhook, la API (corta: el presupuesto del turno) y /docs
 //   la higiene la tira → 3 / 3 · la firma no la mira → 4 / 2 · el webhook no la pasa al motor → 4 / 2 ·
 //   el lead nace sin mirarla → 4 / 2 · sin saber la publicación, dispara igual → 5 / 1 ·
 //   el link comparado entero, sin el código → 5 / 1 · la API sin resolver el link → 5 / 1.
+
+// ROTURAS de la pausa (30/10/2026; base 7 / 0): las publicaciones se comen el 429 → 6 / 1 · un 500 también se dice pausa → 6 / 1.

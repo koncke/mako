@@ -42,6 +42,7 @@
 import '@/app/admin/operaciones/centro.css';
 import './chat.css';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Modal } from '@/app/_ui';
 import { profundidadModales, useCapaModal, useProfundidadModales, zEncimaDeModales } from '@/app/_components/pila-modales';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
@@ -168,6 +169,12 @@ export function MakoEnLaTab({ tab, apertura = null, arriba = null, preguntas = n
   const borde = useBordeDeLaBarra();
   // La estrella, al lado de lo que SE VE de la barra (f34): con la barra desplegada encima, se corre y no queda debajo.
   const bordeVisible = useBordeDeLaBarra(true);
+  // ⚠️ EN LA BARRA, NO ENCIMA DE LA TAB (30/10/2026, el recorrido visual de producción: K2, P1, C3, D4). Flotando al lado de la
+  //    barra, el botón tapaba lo que cada tab tenía en su rincón de abajo a la izquierda (la casilla de un calendario de Google,
+  //    una fecha del Plan, una tarjeta del CRM, el eje de un gráfico) y ninguna tab le reservaba el lugar. La barra le deja una
+  //    RANURA al pie (`data-ranura-mako`, app/_components/Sidebar.tsx) y el botón se monta ahí. Flota como antes sólo si no hay
+  //    ranura (una pantalla sin la barra) o si tiene que quedar ENCIMA de un modal de la tab (CR4: la barra queda bajo el velo).
+  const ranura = useRanuraDeLaBarra();
   // Lo que MaKo terminó en otra tab sin que nadie lo mirara: suma al globito.
   const trabajos = useTrabajosSinVer();
   const espera = aviso + trabajos.length;
@@ -221,6 +228,33 @@ export function MakoEnLaTab({ tab, apertura = null, arriba = null, preguntas = n
   useEffect(() => { if (abierto) cerrada.callar(); }, [abierto]); // eslint-disable-line react-hooks/exhaustive-deps
   const zEstrella = encimaDeModales && prof > 0 ? zEncimaDeModales(prof) : undefined;
 
+  const enBarra = ranura != null && !(encimaDeModales && prof > 0);
+  const rotulo = espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`;
+  // El globo va a la derecha de la estrella (`left` + 66, GloboDeLaEstrella). En la barra, pegado a su borde: la estrella ya no
+  // flota al lado, y a 66 px quedaba suelto en el medio de la tab (el merge del 30/10/2026 con la guía).
+  const leftGlobo = enBarra ? bordeVisible - 56 : bordeVisible + 16;
+  const globos = (
+    <>
+      {pregunta?.apertura && (
+        <GloboDeLaEstrella left={leftGlobo} texto={pregunta.apertura.texto} apertura={pregunta.apertura} onElegir={pregunta.elegir}
+          onAbrir={abrir} onCerrar={() => pregunta.elegir({ tipo: 'callar', rotulo: 'Ahora no' })} zIndex={zEstrella} />
+      )}
+      {corto && <GloboDeLaEstrella left={leftGlobo} texto={corto} onAbrir={abrir} onCerrar={cerrada.callar} zIndex={zEstrella} />}
+    </>
+  );
+  if (!abierto && enBarra) {
+    return (
+      <>
+        {createPortal(
+          <button type="button" className="ch-tab-mako ch-tab-mako--en-barra" aria-label={rotulo} title="MaKo" onClick={abrir} data-mako-chat="">
+            <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={34} espera={espera} />
+          </button>,
+          ranura,
+        )}
+        {globos}
+      </>
+    );
+  }
   return abierto
     ? <PanelDelCerebro tab={tab} izquierda={borde} apertura={apertura} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} apartado={guia.apartar} />
     : (<>
@@ -228,12 +262,26 @@ export function MakoEnLaTab({ tab, apertura = null, arriba = null, preguntas = n
         title="MaKo" onClick={abrir} data-mako-chat="">
         <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={espera} />
       </button>
-      {pregunta?.apertura && (
-        <GloboDeLaEstrella left={bordeVisible + 16} texto={pregunta.apertura.texto} apertura={pregunta.apertura} onElegir={pregunta.elegir}
-          onAbrir={abrir} onCerrar={() => pregunta.elegir({ tipo: 'callar', rotulo: 'Ahora no' })} zIndex={zEstrella} />
-      )}
-      {corto && <GloboDeLaEstrella left={bordeVisible + 16} texto={corto} onAbrir={abrir} onCerrar={cerrada.callar} zIndex={zEstrella} />}
+      {globos}
     </>);
+}
+
+/**
+ * La ranura del pie de la barra de la app, donde se monta el botón (30/10/2026). La barra va en su propio Suspense
+ * (app/layout.tsx) y puede llegar después que la tab: si al montar no está, se la espera. `null` = no hay barra (flota).
+ */
+function useRanuraDeLaBarra(): HTMLElement | null {
+  const [ranura, setRanura] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const buscar = () => document.querySelector<HTMLElement>('[data-ranura-mako]');
+    const ya = buscar();
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- se mide el DOM de otra pieza (la barra): no hay cómo calcularlo antes
+    if (ya) { setRanura(ya); return; }
+    const mo = new MutationObserver(() => { const r = buscar(); if (r) { setRanura(r); mo.disconnect(); } });
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
+  return ranura;
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center, flotando al lado de la barra. */

@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, destinoVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -1130,6 +1130,21 @@ function porQueTarda(
   if (estado !== 'trabajando' && estado !== 'abierto') return `Abre este chat en la cuenta ${n} para que lo reciba.`;
   if (chat?.sinRunner || subido?.runner === false) return `Abre el Runner de la cuenta ${n} para que salga.`;
   return null;
+}
+
+/**
+ * ¿Contestar esta pregunta firmaría hacia un chat cerrado? (30/10/2026) Lo dice ANTES de firmar: la tarjeta lo muestra y
+ * `contestarPregunta` no sale. Una respuesta a un chat cerrado se quedaba `escrito` hasta vencer, sin que nadie se enterara. Mira la
+ * SESIÓN de la pregunta, no el chat: un chat del Centro junta sesiones de varias cuentas, y puede estar abierto en otra.
+ * Con la cuenta sin noticias, no se sabe (`vivo` es de la última vuelta): null, como `comoSale`. null = sale.
+ */
+export function preguntaDeChatCerrado(
+  local: string, cuenta: string | null, carteros: readonly Pick<CarteroP, 'cuenta' | 'vistoAt' | 'chats'>[], ahora: number,
+): string | null {
+  if (destinoVivo(local, carteros)) return null;
+  if (!carteroVivo(carteros.find((k) => k.cuenta === cuenta), ahora)) return null;
+  const n = cuenta?.replace(/^claude/, '');
+  return `Este chat está cerrado: ábrelo${n ? ` en la cuenta ${n}` : ''} para contestarle.`;
 }
 
 /**

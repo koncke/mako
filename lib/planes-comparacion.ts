@@ -67,7 +67,6 @@ export const NOMBRE_AI_AVATAR = 'Videos con una persona hecha con IA que habla p
 
 export const NOMBRE_FUNCION_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Sumar a tu lista los contactos de tus grupos de WhatsApp',
-  partners: 'Ganar el primer mes de cada negocio que traes a MaKo',
 };
 
 export const GRUPOS_COMPARACION = [
@@ -99,7 +98,8 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPro(anuncios, NOMBRE_TAB_PRO['video-editor']),
     filaDeTope(equipo, 'Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'),
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
-    soloPro(recomendar, NOMBRE_FUNCION_PRO.partners),
+    // MaKo Partners, en todos los planes desde el 29/10/2026 (como lo dicen las landings).
+    enTodos(recomendar, 'Ganar el primer mes de cada negocio que traes a MaKo'),
     soloPrograma(acompanamiento, 'Tus páginas, mensajes y anuncios armados en la primera semana'),
     soloPrograma(acompanamiento, 'La asesoría grupal en vivo con Martín, cada semana'),
     soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),

@@ -17,6 +17,8 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 | # | Qué | Dónde vive | Origen |
 |---|---|---|---|
+| ⚠️ A0 | **Un lead borrado se lleva en cascada sus envíos, y quién lo borró no quedó registrado.** Cualquier cosa que le haya pasado a un lead borrado es irreconstruible, y no sabemos quién borra. Es un agujero de trazabilidad, no un bug de automatizaciones: 4.457 filas de historial de leads que ya no existen, y la papelera en 0 en todos los negocios (a los 30 días se purga, y dos caminos no pasan por ella). | `docs/hallazgos-crm.md` (arriba); `lib/leads-papelera.ts`, `lib/leads-unificar.ts:190`, `lib/zernio-entrante.ts:235` | Automations, 30/10 |
+| ⚠️ A1 | **Un mensaje de IA más adelante en el flujo puede quedar para aprobar sin que lo diga: el aviso mira sólo el primero.** El aviso al activar vuelve a decir algo que no es exacto, un paso más adentro. | `lib/ritmo-al-activar.ts` (`primeroQuedaParaAprobar`); la regla de todo el flujo ya está en `dejaBorradores`, lib/mensajes-por-aprobar.ts | Automations, 30/10 |
 | P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center) y las opciones que no se tocan en el teléfono → Ops Center; tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
 | P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
 | P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
@@ -25,23 +27,35 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 | P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
 | P8 | **El recolector del Second Brain** | `docs/diseno-second-brain-recolector.md` | 20 puntos, #17 |
 | P11 | **Verificar que el aviso de «cuenta de anuncios frenada por falta de pago»** llegue al grupo | Avisos | 20 puntos, #4 |
+| P16 | **Los 6 meses gratis: avisar antes de que terminen y mostrar la fecha** (en `16b78704a`). Hoy se avisa el día que vencen, y la fecha de fin sólo se dice al guardarla: no se ve en Customers | Planes · `lib/plan-a-mano.ts` · `app/customers/` | [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md), 30/10 |
 | P13 | **Los grabadores que faltan (26/10, chat «grabadores»).** Hecho: tl;dv, Fireflies, Zoom y Otter se leen como Fathom (capa `lib/grabadores`); Loom, Read AI y Google Meet tienen tarjeta que dice por qué no se conectan. Falta: **(a)** aplicar la migración `0338_reuniones_de_cualquier_grabador.sql` (con el sí de Martín; el orden con el deploy da igual: sin ella, «Leer igual» y «Volver a analizar» no abren una reunión que no es de Fathom, y Customer Success deja esperando sus sesiones sin gastarles intentos); **(b)** Read AI con su OAuth 2.1 (registro dinámico, token de 10 min que rota): probar si acepta la vuelta a MaKo antes de dibujar el botón; **(c)** Google Meet: pedir el permiso `meetings.space.readonly` (sensible) en la verificación de la app de Google; **(d)** Grain, MeetGeek, Avoma, Granola y Krisp tienen API con clave (medido): tarjeta + lector con el molde de tl;dv; **(e)** medir con una cuenta real de cada uno (la lista de Otter no se pudo medir sin Enterprise; el aviso TranscriptReady de tl;dv no coincide con su ejemplo) | `lib/grabadores/`, `docs/hallazgos-integraciones.md` → «Los grabadores de reuniones» | Martín, 26/10 ~01:50 |
 | P12 | **Fathom en MaKo + Closing Script en vivo.** Martín, 25/10: «Depreca Fathom... Replica esa app en MaKo. Si ya tenemos la extensión, la app desktop y todo, estoy seguro que existe un repo o algo que reemplace... Esto nos va a permitir implementar lo que teniamos pensado de "Closing Script" que MaKo te acompañe en tus llamadas de venta, transcriba en tiempo real y te de recomendaciones de closing... (Todo esto de farhom y closing, dejalo anotado para mas tarde, seguro lo haga con otra cuenta)». Grabar y transcribir las llamadas con la extensión o MaKo Desktop (buscar un repo abierto que haga lo de Fathom), y sobre eso el acompañamiento en vivo. Fathom queda hasta que esto ande | sin dueño: lo arranca Martín con otra cuenta | docs/feedback-25-10-tarde.md |
+| P14 | **Agency, lo que dejó abierto la re-verificación de plata (en `05d2ded3c`, sin tocar).** MEDIA: una fila de cartera cargada a mano sobre el negocio de Mauricio o sobre un Pro directo deja que la agencia lo pause o lo rebaje (el 29/10 no había ninguna). BAJAS: H5 levanta el corte de más (un plan propio cancelado o devuelto que todavía cubre días); la pausa programada no se actualizó con H5; «Elegir Esencial» sin cobros es de ida y no lo avisa. De antes: el link viejo sin cerrar en `lib/cobros.ts`, la baja con la suscripción ya cancelada en la pasarela, H7 | Agency · `lib/plan-acceso-reglas.ts` · `lib/agencia-plan.ts` · `lib/agencia-baja.ts` · `lib/cobros.ts` | `C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md` |
+| P15 | **Las pantallas de Agency preguntan con `agenciaDeCliente` (en `05d2ded3c`):** con dos dueños contesta null, así que el cliente de dos agencias entra al Agency Dashboard. La pregunta correcta es `esClienteDeAgencia`. Hoy ningún cliente tiene dos | Agency · `app/agency/page.tsx` · `app/m/agency/page.tsx` | [hallazgos-agencias.md](hallazgos-agencias.md), 30/10 |
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
 
+- «Quieren entrar» (rama `quieren-entrar-3010`), al desplegarse: la bandeja de Customers › Accounts, el cartel arriba de las pestañas, la lista en el teléfono, el mensaje del login a quien rebota, que es lo único que ve esa persona, y la opción «6 meses gratis» del diálogo del plan, lo primero que va a tocar Martín
+
+- El **aviso al activar una automatización** (cuántos, a qué ritmo y entre qué horas), al desplegar: el interruptor, el «⋯» con «Poner goteo» / «Poner horario» y el teléfono; y **el de las ya prendidas sin goteo o sin horario**, en su pantalla, su tarjeta y el teléfono. Probado con tests y con el dato real, no en el navegador (`lib/ritmo-al-activar.ts`). El texto de «queda para aprobar» nunca se leyó con un caso real
 - La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
 - El **«Creando…»** de los «+» del editor de etapas (se prueba en el **Cliente de Prueba**, nunca en un cliente real)
 - El **selector de funnel del teléfono**
 - Las **dos columnas** del desplegable de etapas de la ficha
 - Que el **403 esté arreglado desde la app desplegada** (se midió que el bloqueo es por UA y no por IP, pero no se
   probó desde los rangos de Vercel)
+- El **cartel de los mensajes sin entregar** y el **botón del Uso** como super admin (101eaea96, cuando se despliegue), y su **hoja en el teléfono** (`SheetM`), que el arnés
+  no monta. Con los 8 mensajes reales: los tickets #5, #6 y #8 y 5 respuestas. Necesita la sesión de Martín: el Chrome disponible está con la de Leandro
 
 ## Rojos en `main` sin dueño
 
-- `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
-- `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
 - `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
+
+Los otros dos **ya estaban arreglados cuando se anotaron acá** y se cerraron el 30/10 sin tocar una línea de código:
+`tests/vuelo-mako.test.ts` por 85e4cd7db y `tests/dashboard-pedidos-chat.test.ts:129` por 583c29434, los dos el 24/10
+a las 20:58 y 20:59 — 95 minutos después de esta lista. Verificados en verde sobre `origin/main` (6/0 y 10/0) y probados
+rompiéndolos (5/1 y 9/1): los dos tests tienen dientes. **Antes de tomar un rojo de acá, correlo sobre `origin/main`**
+→ `docs/hallazgos-infra.md` → «Dos «rojos en `main` sin dueño» que ya estaban arreglados».
 
 ---
 
@@ -88,7 +102,9 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Landing / Pixel** — Código Inmobiliario, Leila, P2P y el ws4 no graban visitas hasta pegar la línea nueva del Pixel (escribirles o hacerlo nosotros). _sin grabaciones ni mapa de calor; P2P no tiene canal para el aviso_ · chico · **depende de Martín** · `docs/hallazgos-landing.md (14/10); docs/relevo/pixel-clarity-landing.md §4.1; docs/relevo/integraciones.md`
 - **MaKo en WhatsApp** — Código Inmobiliario tiene una sola key de IA: si Google se satura, MaKo no contesta; sumar otra key o una red paga de último recurso. _es gasto de IA y lo decidís vos_ · chico · **depende de Martín** · `docs/relevo/mako-en-whatsapp.md §4; memory/ia-red-audio-y-openai-sin-credito.md`
 - **Plan / Reuniones** — Cambiar la key de Gemini de Mauricio (Google la bloqueó) y extraer a mano sus reuniones del 8 al 15/10. _sus compromisos de esas reuniones no llegaron al Plan_ · chico · **depende de Martín** · `docs/hallazgos-ia.md → «Quién sigue llamando a la Gemini muerta del ws1»; docs/hallazgos-plan.md (15/10)`
-- **Video / Ads** — Montar el servidor que arma los videos (y el alta en Epidemic Sound): dos montajes de Mauricio y Leila nunca se procesaron. _el anuncio armado del cliente queda trabado_ · medio · **depende de Martín** · `docs/hallazgos-ads.md → #797; docs/hallazgos-video-pipeline.md §13`
+- **Video / Ads** — Montar un anuncio desde el chat: la API sólo lee el montaje, no existe `montar_anuncio_video`. _medido en 366993012; un video pedido por chat no sale armado_ · medio · `docs/hallazgos-video-pipeline.md §14`
+- **Video / Ads** — Renderizar un video pedido por chat, en servidor de MaKo y en MaKo Desktop (Martín, 25/10: las dos vías). Hoy el Video Editor exporta sólo en el navegador. _medido en 366993012_ · grande · `docs/hallazgos-video-pipeline.md §14`
+- **Video / Ads** — Los dos montajes de septiembre (Mauricio y Leila) quedaron fallidos por vencidos y nadie los volvió a pedir: montarlos de nuevo es decisión de producto. Y el alta en Epidemic Sound. _medido en 366993012_ · chico · **depende de Martín** · `docs/hallazgos-video-pipeline.md §14`
 
 ## Plata, seguridad y envíos (42)
 

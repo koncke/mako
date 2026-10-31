@@ -1704,6 +1704,9 @@ tests/planes-stripe-afuera.test.ts · tests/prueba-stripe-cobro-perdido.test.ts.
 
 ## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
 
+⚠️ **29/10/2026: MaKo Partners salió de Pro** (las landings dicen «gratis» y «cualquier plan»): docs/hallazgos-partners.md →
+«Cualquier plan es partner…». Lo de abajo sobre Partners quedó como historia; el scraper sigue siendo de Pro.
+
 Leila (Fathom 876470842-16), sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»: «Una
 persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper de WhatsApp. Martín, ya decidido
 (876470842-15): el scraper y hacerse partner, sólo en Pro.
@@ -1764,6 +1767,8 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
   suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
 - Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+- **Un «extendé la duración» que arrastra los límites de otra cosa: los 6 meses gratis NO son una prueba larga (30/10, lo que Martín le ofreció a Gabriela; la regla general, en AGENTS.md).** El pedido obvio era sumar «180 días» a la lista, y le habría dado seis meses con los topes de la prueba (3 videos, 1 avatar, 1 landing, sin exportar). Mientras duran, `estadoDePrueba` no la da «en prueba» y tiene su plan entero; vencidos sin resolver, quedan como una prueba vencida y avisan con su propio texto. Son 183 días, para no quedar nunca cortos.
+  **Sin hacer:** la fecha de fin no se ve en Customers (no está «en prueba»): se dice al guardarla y llega el aviso al vencer. Tampoco hay aviso antes de que termine: enterarse el día que se corta es tarde para un cliente (docs/pendientes.md, P16).
 - ⚠️ **Quien ya pagó seguía con los topes (29/10, la verificación de ddfa645d4, ALTA):** si el negocio compra por /planes con el
   email de SU cuenta, el cobro queda `ya_tenia_cuenta` y SIN atar (`alta_ws` null) hasta que Martín lo ata en /admin/cobros, y
   `estadoDePrueba` sólo miraba los cobros atados: seguía «en prueba» y al vencer le llegaba «Terminó tu prueba». Ahora un cobro

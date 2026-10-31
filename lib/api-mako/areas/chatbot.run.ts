@@ -635,7 +635,7 @@ export const RUNNERS: Runners = {
       const filas = await inscripcionesDeLead(leadId);
       // 22/10/2026 (el CRM: «en qué paso está»): de las vivas, la tarjeta como la nombra el lienzo y si la automatización está
       // pausada (lib/automatizaciones-del-lead.ts, lo mismo que ve el CRM).
-      const vivas = new Map(((await enAutomatizaciones([leadId])).get(leadId) ?? []).map((a) => [a.secuenciaId, a]));
+      const vivas = new Map(((await enAutomatizaciones([leadId], { ultimoEnvio: true })).get(leadId) ?? []).map((a) => [a.secuenciaId, a]));
       return json({
         total: filas.length, tope: TOPE_INSCRIPCIONES_LEAD,
         inscripciones: filas.map((f) => ({
@@ -646,6 +646,8 @@ export const RUNNERS: Runners = {
           tarjeta: f.nodo_actual, caminos_en_paralelo: Array.isArray(f.hilos) ? f.hilos.length : 0,
           ...(vivas.has(Number(f.secuencia_id)) ? {
             paso: vivas.get(Number(f.secuencia_id))!.paso?.titulo ?? null,
+            // Qué nombra `paso` (ticket #33): sin tarjeta no está parado en ninguna, y es lo último que le salió.
+            paso_es: !vivas.get(Number(f.secuencia_id))!.paso ? null : vivas.get(Number(f.secuencia_id))!.paso?.ultimoEnviado ? 'lo_ultimo_que_le_salio' : 'donde_esta',
             automatizacion_pausada: !vivas.get(Number(f.secuencia_id))!.automatizacionActiva,
             // Parado en un DM con botones, esperando que toque uno (25/10/2026): los títulos.
             ...(vivas.get(Number(f.secuencia_id))!.esperaToque?.length ? { espera_toque: vivas.get(Number(f.secuencia_id))!.esperaToque } : {}),
@@ -653,7 +655,7 @@ export const RUNNERS: Runners = {
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
         nota: filas.length
-          ? 'pasos_avanzados incluye pasos omitidos y los que quedaron como borrador para el setter: no son todos envíos. Un lead no vuelve a entrar a una secuencia en la que ya estuvo (completada, cancelada o fallida), salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la misma inscripción vuelve a correr, con inscripto en la fecha nueva. A mano (inscribir_lead_secuencia) sí vuelve a una que terminó.'
+          ? 'paso_es dice qué nombra paso: donde_esta (la tarjeta donde está parado) o lo_ultimo_que_le_salio (ya no está parado en ninguna: terminó o respondió). pasos_avanzados incluye pasos omitidos y los que quedaron como borrador para el setter: no son todos envíos. Un lead no vuelve a entrar a una secuencia en la que ya estuvo (completada, cancelada o fallida), salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la misma inscripción vuelve a correr, con inscripto en la fecha nueva. A mano (inscribir_lead_secuencia) sí vuelve a una que terminó.'
           : 'Este lead no está ni estuvo en ninguna secuencia (o no existe en este negocio).',
       });
     },
@@ -782,6 +784,7 @@ export const RUNNERS: Runners = {
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          setConfig: guardarConfigAutomatizacion,
           plataforma: await esWsPlataforma(ctx.ws),
         }, { disparador: payload.disparador ?? undefined });
         // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser exacto).

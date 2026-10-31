@@ -193,7 +193,8 @@ test('el cableado: la página anota con lo que ya leyó; la pantalla dibuja la l
   assert.match(bloque(PAGE, '    <ClientesApp\n      clientes={clientesConFicha}', '/>'), /onboarding=\{onboarding\}/);
   // La pantalla: la lista mientras falte algo, y el ensayo anotado sobre lo que SE VE (la ficha
   // abierta por cualquier camino), por `atajar`, una vez, y sólo si no estaba hecho.
-  assert.match(APP, /\{!error && conLista && pasosOnb && \(\s*<ChecklistClientes/);
+  // En la vista Miembros (29/10/2026) no: el directorio no es la cartera que esa lista ayuda a cargar.
+  assert.match(APP, /\{!error && conLista && pasosOnb && !enMiembros && \(\s*<ChecklistClientes/);
   const efecto = bloque(APP, 'const fichaAnotada = useRef(false);', '}, [idEnUrl]);');
   assert.match(efecto, /if \(idEnUrl == null \|\| !onboarding \|\| onboarding\.cs_ficha \|\| fichaAnotada\.current\) return;/);
   assert.match(efecto, /await atajar\(anotarFichaAbiertaAction\(\), /);

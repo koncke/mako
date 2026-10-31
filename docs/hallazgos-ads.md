@@ -5297,3 +5297,125 @@ y releer) y M1, M5 y M6 quedaron hechas en `b4ee3c411`: ver la entrada de arriba
     la zona no frena una campaña ya creada.
 - **Abierto (BAJA, entre otras del informe):** dentro de una automatización no hay ninguna guarda al ejecutar
   `proponer_crear_campana`; sólo el editor la saca de la lista.
+
+## «Hoy no hay cambios — Todo anda dentro de tu objetivo»: el cartel que le decía que estaba todo bien a quien no había empezado (30/10/2026)
+
+**Síntoma.** El Media Buyer sin cambios para hoy mostraba *«Hoy no hay cambios — Todo anda
+dentro de tu objetivo. Vuelvo a mirar mañana.»* Una cuenta recién conectada, **sin una sola
+campaña y sin haber gastado un peso**, leía que todo andaba dentro de su objetivo. No
+fallaba nada: entregaba, con la cara del éxito, el peor cartel posible.
+
+**Causa — no era la frase, era con qué se elegía.** La condición mira **dos** cosas: que
+`hoy.length === 0` y que `config.encendido` sea `true`. Nunca pregunta si el negocio tiene
+campañas. Y el diagnóstico obvio —«pasale las campañas a la pantalla»— era el equivocado:
+**esa pantalla no tiene las campañas y no las puede pedir.** `app/ads-manager/page.tsx`
+carga config, decisiones, metas del mes, token y cupo; el árbol de la cuenta **en vivo** lo
+trae `lienzoMediaBuyer`, y a propósito sólo cuando se abre la pestaña Campañas, porque lee
+Meta. Pedirlo en «Hoy» es una llamada a Meta en cada carga de la tab.
+
+El dato que **sí** llega es el resumen de la última corrida (`ultima_corrida_info`, el mismo
+canal por el que ya viajan las alertas de Protect para dibujarse sin releer Meta). Ahí no
+estaban las campañas: `ResumenCorrida` guardaba propuestas, lanzadas y alertas, pero no
+**qué había en la cuenta**. Contarlas del `datos.arbol` con que el agente YA decidió no
+cuesta ninguna lectura más.
+
+**Tres trampas del dato, que es donde se pierde el tiempo:**
+
+- **Un resumen de abstención no tiene números.** La corrida vuelve temprano con `parcial`,
+  `datos_viejos`, `moneda_sin_tasa`, `cuenta_compartida`, `apagado` o `sin_tabla`. Si los
+  contadores se ponen en cualquiera de esos returns, la pantalla afirma «no tienes campañas»
+  sobre una cuenta que **no se vio entera**. Van **sólo** en el return de `ok`.
+- **`marcarCorrida` hace upsert: el resumen de hoy borra el de ayer.** Apagar el agente deja
+  `{estado:'apagado'}` y con eso se pierden los contadores de la última corrida buena. Es
+  correcto que se pierdan —no sabemos qué hay ahora— y por eso apagado dice «estoy apagado»
+  y no inventa el estado de las campañas.
+- **Un resumen VIEJO dice `ok` y no trae los números.** Todo negocio que ya corrió antes de
+  este cambio cae ahí hasta su próxima corrida. No alcanza para afirmar nada: `estado === 'ok'`
+  **y** `activas > 0` es la única combinación que habilita «no hay nada que mover».
+
+**Orden de los estados: el del próximo paso, no el del dato.** Sin cuenta no hay nada más
+que decir. Con la cuenta **vacía** o con **todo en pausa**, prender el agente no mueve un
+peso: esos dos van **antes** del interruptor. Y la frase medida va última.
+
+**Regla.** *Un estado vacío es una afirmación: si no sale de algo que medimos, no se
+escribe.* Es la misma de [Tres cosas que Ads Manager afirmaba sin haberlas
+mirado](#tres-cosas-que-ads-manager-afirmaba-sin-haberlas-mirado-0809) («si el motivo no
+sale de la respuesta que acabás de recibir, es una adivinanza con cara de dato»), aplicada
+al cartel de una pantalla en vez de a un modal. Y la que la sostiene: **la decisión de qué
+dice un estado vacío va en un módulo puro, fuera de las pantallas.** Acá eran dos pantallas
+(computadora y teléfono) con la misma frase escrita a mano dos veces, y una rama que
+reescribía la pantalla sin tocar la falla.
+
+**Cómo se prueba que sigue arreglado.** `tests/media-buyer-cartel-hoy.test.ts` cubre los
+siete estados, y además **lee las dos pantallas** y falla si alguna vuelve a escribir
+`Todo anda dentro de tu objetivo` o a fijar el título sin mirar si hay campañas. Esa guarda
+atrapa el regreso por merge, que es como la falla volvería.
+
+**Lo que quedó SIN hacer:**
+
+- **El teléfono no sabe si la cuenta está conectada.** `app/m/ads/page.tsx` manda
+  `conectada: token ? true : null`: con token es `true`, y sin token queda en «no sé», porque
+  preguntarle a Zernio sería una llamada al abrir la pantalla. Un negocio **sin token y sin
+  Zernio** cae en el estado del interruptor o en «todavía no sé cómo vienes», no en «conecta
+  tu cuenta». Se arregla el día que haya un estado de conexión cacheado por negocio.
+- **El otro cartel de la misma pantalla no se tocó:** la rama `nueva` de `MediaBuyer.tsx`
+  (`¿En qué te ayudo hoy? — Muevo tu presupuesto de Meta hacia lo que vende`) es una promesa,
+  no una afirmación sobre la cuenta, así que no miente; pero tampoco dice en qué estado está
+  el negocio.
+- **Nada de esto se vio dibujado:** no hay sesión de navegador en la máquina donde se hizo.
+  El botón del próximo paso en `NuevoChat` usa `Button`/`ButtonLink` con `marginTop: 18`
+  inline, sin clase nueva en `aa.css` (que la rama `nube/media-buyer-2710` reescribe), y en
+  el teléfono el paso es un `<p className="aa-m-nota">`. **No verificado en pantalla.**
+
+**Vive en:** `lib/media-buyer/cartel-hoy.ts` (puro, el criterio y los siete textos),
+`lib/media-buyer/corrida.ts` (`ResumenCorrida.campanas` / `.activas`, contadas del árbol en
+el return de `ok`), `app/ads-manager/MediaBuyer.tsx` y `app/m/ads/MediaBuyerM.tsx` (las dos
+pantallas), `app/ads-manager/Hoy.tsx` (`NuevoChat` acepta `accion`), `app/m/ads/page.tsx`
+(`conectada`), `tests/media-buyer-cartel-hoy.test.ts`.
+- **Falla 1, el presupuesto que cambió por otro lado.** `presupuestoYaCambiado` mira sólo las decisiones del Media Buyer: un
+  cambio a mano, por chat (`proponer_presupuesto_*`) o desde el Administrador no se veía, y «el mismo % sobre el de hoy» componía.
+  Ahora, al lanzar, el presupuesto en vivo se compara con el de cuando se propuso (`antes.presupuesto`, tolerancia 1%): si cambió,
+  la decisión **vence** con el motivo y la corrida de mañana la vuelve a mirar. No se escala: un número que alguien movió a
+  propósito no se sabe si se movió por la misma razón.
+- **Falla 2, la mezcla de tácticas.** `mezclarTacticas` mezclaba por táctica: una pestaña vieja que cambiaba el estado de un
+  agente mandaba la táctica entera y pisaba los umbrales o las campañas que otra había cambiado. Ahora mezcla campo por campo
+  (los umbrales, por id; `campanas: null` es «toda la cuenta») y el panel de agentes y la API mandan sólo `{ estado }`.
+- **Falla 9, la IA que se gastaba de más.** Con el cupo del Esencial lleno por el motor, a cada agente propio se le preguntaba en
+  cada corrida y su respuesta se descartaba. `lugaresParaPropios` (cupo − lo de hoy − lo nuevo del motor) se calcula antes, y con
+  0 no se llama a la IA.
+- **La baja de 80% o más.** El freno de ×5 de la falla 4 también frenaba una baja deliberada, y el mensaje culpaba al separador
+  de miles. Ahora `revisarMontoEditado` separa: subir 5 veces o más no sale (eso SÍ suele ser un separador mal leído); bajar 5
+  veces o más pide una confirmación que lo dice («Bajarlo de $100 a $15 por día es 85% menos») con «Bajar a $15 por día» y «No
+  bajar». Por la API, `lanzar_decision_media_buyer` pone el aviso en el resumen que se confirma (`confirmarBaja` en el payload).
+- ⚠️ **Ajustes BORRABA un monto que no entendía.** La versión de Madgicx mandaba `Number.NaN` «para que lo rechace el servidor»,
+  y `JSON.stringify(NaN)` es `null`: el servidor recibía «sin tope» y lo guardaba. Ahora el monto ilegible no sale y lo dice un
+  aviso (`conMonto`). La regla: un valor que se quiere rechazar no se codifica como un valor que JSON no tiene.
+- **La pantalla.** Ajustes y Automatizaciones con el molde de Settings de la casa (`app/_ui/Ajustes.tsx`: nombre a la izquierda,
+  control a la derecha, guarda al instante); Automatizaciones, una fila por táctica con su estado y su detalle (el interruptor
+  vive en el detalle, y `?t=surf` lo abre: antes el link del lápiz no abría nada). Protect como la lista de Actividad (un punto,
+  el título y un botón). Campañas y Biblioteca con la caja del chat arriba, como Hoy, y los números del mes en una línea del pie
+  del árbol (`lineaDelMes`). `mb.css` y `mb-paleta.css` borrados: el modal de subir creativos usaba clases de `mb.css` que en
+  `/ads-manager` no se cargaban (sólo las subpáginas la importaban), así que se veía sin estilos. Pasó a `aa.css`.
+- **Las quince rutas viejas de `app/api/ads-manager`, borradas** (las usaba sólo el Ads Manager borrado el 25/10; queda
+  `creative-signurl`). ⚠️ **El diagnóstico obvio («nadie las llama, se borran») era la mitad:** `creative-upload` era la que
+  BARRÍA el staging en cada subida, y sin ella nada limpiaba el bucket. El barrido pasó a la firma (cada subida empieza
+  firmando). Quedaron sin call site `estadoVideo` y `generatePreviews` de `lib/meta-ads-create.ts` y `montadosDelWorkspace` /
+  `tomasDelWorkspace` de `lib/creativo-mako-fuentes.ts`: no se borraron (el último lo sigue leyendo el Video Editor para resolver
+  una referencia). Después de borrar rutas, en una PC: `npx next typegen`.
+- **Subir creativos por la API de MaKo.** Estaba en `FALTA` («por la API no hay cómo mandar un video»). Entró en los dos pasos de
+  la pantalla: `preparar_subida_media_buyer` (lectura, sólo HTTP: los conjuntos, los textos de partida del conjunto y una URL
+  firmada por archivo para un PUT) y `subir_creativos_media_buyer` (acción de plata, confirmada en `/mako/revisar`). La firma
+  (`lib/ads-staging-firma.ts`), el pedido (`leerPedidoDeSubida`) y la revisión (`revisarSubida`) son las MISMAS funciones que usa
+  la pantalla. Al proponer se mira que cada archivo esté en el staging (`faltanEnStaging`, de a uno por su nombre: la carpeta
+  es de todos los negocios y no se lista entera).
+- ⚠️ **`fijoAlRevisar` no protegía una lista de objetos.** `aplicarPropuestaGenerica` comparaba con `String()`, y
+  `String([{…}])` es «[object Object]» para cualquier lista del mismo largo: los archivos de una subida se podían cambiar al
+  revisar bajo el resumen de otros. `distintoAlRevisar` compara una lista de objetos (o un objeto) entera; lo demás, como siempre.
+- ⚠️ **La firma de una sesión en la nube NO va en `CUENTAS`** (`app/admin/dev/_registro/tipos.ts`). Para firmar el hito se sumó
+  una fila «nube» y el Uso del Ops Center pasó a listar SEIS cuentas: `lib/centro-uso.ts` toma cada fila de esa tabla como una
+  cuenta con su cuota. Lo cazaron dos tests de `tests/centro-uso.test.ts` en la corrida contra la base; la firma vive aparte
+  (`FIRMA_NUBE`, `cuentaDeHito`). Una tabla que se usa para dos cosas no se amplía por una sola.
+- **Lo que queda sin hacer:** un video tarda minutos en Zernio y la confirmación de `/mako/revisar` tiene 300 s, igual que la
+  pantalla (`/api/media-buyer`): con varios videos en una subida se puede cortar a mitad (lo creado queda registrado y se
+  deshace). El path del staging no lleva el negocio (es `nueva/<ms>-<azar>-<nombre>`): lo protege el azar, no un dueño. No se
+  midió contra una cuenta real (las escrituras las mide el Cerebro en la PC).

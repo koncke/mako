@@ -296,8 +296,8 @@ async function upsertInstancia(instance: string, patch: Record<string, unknown>)
  */
 async function topeDeLineaNueva(ws: number, usadas: number): Promise<TopeLineaNueva> {
   try {
-    const [capa, { suscripcionDeMakoDe }] = await Promise.all([getCapaActual(), import('./cobros')]);
-    return topeParaLineaNueva({ ws, capa, cobradoPorPasarela: (await suscripcionDeMakoDe(ws)) != null, usadas });
+    const [capa, { aplicanTopes }] = await Promise.all([getCapaActual(), import('./topes-plan-server')]);
+    return topeParaLineaNueva({ ws, capa, cobradoPorPasarela: await aplicanTopes(ws), usadas });
   } catch (e) {
     console.warn(`[evolution] tope de líneas del ws ${ws}: no se pudo leer el plan (${e instanceof Error ? e.message : String(e)}); se deja conectar`);
     return { ok: true };

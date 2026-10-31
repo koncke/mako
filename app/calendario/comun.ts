@@ -36,21 +36,28 @@ export function entidadDelItem(it: ItemCalendario | null): EntidadChat | null {
   return null;
 }
 
-/** El color de cada calendario de MaKo, de la paleta de eventos de Google (los mismos hex que su web). */
+/**
+ * El color de cada calendario de MaKo, de la paleta de eventos de Google (los mismos hex que su web).
+ * ⚠️ CUATRO COLORES, UNO POR USO (29/10/2026, «a la medida del negocio»): Publicaciones violeta, el Plan naranja (sus deadlines
+ *    y lo que se repite, que son tareas del Plan), Ventas azul y Entregas verde. Lo demás (bloques, cobros, objetivos) va en
+ *    gris: «Otros» no compite con los cuatro.
+ */
 export const COLOR_CAPA: Record<CapaCalendario, string> = {
   publicaciones: '#8e24aa',
   llamadas: '#039be5',
-  bloques: '#33b679',
+  entregas: '#33b679',
+  bloques: '#616161',
   plan: '#f4511e',
-  recurrentes: '#7986cb',
-  cobros: '#0b8043',
+  recurrentes: '#f4511e',
+  cobros: '#616161',
   objetivos: '#616161',
 };
 
 /** El nombre de cada calendario de MaKo en la barra lateral. */
 export const NOMBRE_CAPA: Record<CapaCalendario, string> = {
   publicaciones: 'Publicaciones',
-  llamadas: 'Llamadas',
+  llamadas: 'Llamadas de venta',
+  entregas: 'Entregas',
   bloques: 'Bloques de trabajo',
   plan: 'Plan',
   recurrentes: ROTULO_RECURRENTE,
@@ -59,6 +66,23 @@ export const NOMBRE_CAPA: Record<CapaCalendario, string> = {
 };
 
 export const LLAVES_MAKO = CAPAS_CALENDARIO.map((c) => `mk:${c.id}`);
+
+/**
+ * LOS CUATRO USOS del Calendario (Martín, 29/10/2026: «Esa pestaña es principalmente para gestionar publicaciones, para
+ * recordatorios de deadlines del propio Plan, para reuniones de llamadas de ventas, reuniones de entrega de servicio»). Cada
+ * uno es un filtro con su color (la leyenda) y se crea en un clic (`crea`: el tipo propio, o `null` si vive en otra tab y
+ * se crea ahí: un deadline es una tarea del Plan). Lo que no es de ninguno (bloques, cobros, objetivos) va en «Otros».
+ */
+export type UsoCalendario = 'publicaciones' | 'plan' | 'ventas' | 'entregas' | 'otros';
+export const USOS_CALENDARIO: ReadonlyArray<{ id: UsoCalendario; nombre: string; capas: readonly CapaCalendario[]; color: string; crea: TipoEvento | null }> = [
+  { id: 'publicaciones', nombre: 'Publicaciones', capas: ['publicaciones'], color: COLOR_CAPA.publicaciones, crea: 'publicacion' },
+  { id: 'plan', nombre: 'Plan', capas: ['plan', 'recurrentes'], color: COLOR_CAPA.plan, crea: null },
+  { id: 'ventas', nombre: 'Ventas', capas: ['llamadas'], color: COLOR_CAPA.llamadas, crea: 'llamada' },
+  { id: 'entregas', nombre: 'Entregas', capas: ['entregas'], color: COLOR_CAPA.entregas, crea: 'entrega' },
+  { id: 'otros', nombre: 'Otros', capas: ['bloques', 'cobros', 'objetivos'], color: COLOR_CAPA.bloques, crea: null },
+];
+/** El uso de una capa de MaKo. */
+export const usoDeCapa = (c: CapaCalendario): UsoCalendario => USOS_CALENDARIO.find((u) => u.capas.includes(c))?.id ?? 'otros';
 
 export const llaveDe = (it: ItemCalendario): string => (it.google ? `g:${it.google.calendarioId}` : `mk:${it.capa}`);
 export const colorDe = (it: ItemCalendario): string => it.google?.color ?? COLOR_CAPA[it.capa];
@@ -128,11 +152,15 @@ export const rotuloDeIr = (it: ItemCalendario): string =>
 
 /** Qué se crea: un evento (de Google si hay dónde, si no de MaKo) o uno de MaKo de un tipo. */
 export type TipoRapido = 'evento' | TipoEvento;
+/**
+ * Los tipos de «crear» en el lugar (computadora y teléfono). Desde el 29/10/2026, los de los cuatro usos (el Bloque de trabajo
+ * se fue: no es ninguno) y el evento de Google. Un deadline no está: es una tarea del Plan y se crea en el Plan.
+ */
 export const TIPOS_RAPIDO: ReadonlyArray<{ id: TipoRapido; nombre: string }> = [
   { id: 'evento', nombre: 'Evento' },
   { id: 'publicacion', nombre: 'Publicación' },
-  { id: 'bloque', nombre: 'Bloque de trabajo' },
-  { id: 'llamada', nombre: 'Llamada' },
+  { id: 'llamada', nombre: 'Llamada de venta' },
+  { id: 'entrega', nombre: 'Entrega' },
 ];
 
 /** Lo que se armó en «crear»: con eso se guarda o se abre «Más opciones». */
@@ -164,7 +192,7 @@ export const duracionEntre = (ini: string, fin: string | null): number | null =>
 
 /** El borrador como evento de MaKo (lo que manda `crearEventosAction`). Sin título, el nombre del tipo. */
 export const entradaPropia = (b: BorradorNuevo): EntradaEvento => ({
-  titulo: b.titulo.trim() || (b.tipo === 'publicacion' ? 'Publicación' : b.tipo === 'llamada' ? 'Llamada' : 'Bloque de trabajo'),
+  titulo: b.titulo.trim() || (b.tipo === 'publicacion' ? 'Publicación' : b.tipo === 'llamada' ? 'Llamada de venta' : b.tipo === 'entrega' ? 'Reunión de entrega' : 'Bloque de trabajo'),
   tipo: b.tipo === 'evento' ? 'bloque' : b.tipo, formato: b.tipo === 'publicacion' ? b.formato : null,
   fecha: b.fecha, hora: b.hora, duracionMin: b.hora ? duracionEntre(b.hora, b.horaFin) : null,
 });

@@ -24,6 +24,8 @@
 // =============================================================================
 
 import 'server-only';
+import { registrarPedido } from './pedidos-ingreso';
+import { pedidoLimpio } from './pedidos-ingreso-reglas';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
@@ -31,10 +33,10 @@ import { credDelCliente } from './credenciales';
 import { createLead, logLeadEvent } from './leads';
 import { esLeadDuplicado } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
-import { crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
+import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
-import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
+import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
@@ -228,6 +230,8 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     // El diagnóstico de la puerta del Acelerador (lib/compra-plan-reglas.ts): con eso arranca la llamada.
     const diag = p.diagnostico ? ` Diagnóstico: ${diagnosticoEnTexto(p.diagnostico)}.` : '';
     await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}${diag}`, 'Planes de MaKo').catch(() => {});
+    // También en «Quieren entrar» (30/10/2026), para darle de alta sin ir a buscarlo al CRM. Con el rótulo de correo sin verificar.
+    await registrarPedido(pedidoLimpio({ email: p.email, nombre: p.nombre, origen: 'planes', verificado: false, detalle: `Quiere ${nombrePlan}`, whatsapp: p.whatsapp, leadId: lead.leadId }));
     // El aviso al equipo, en el momento: el domingo nadie tiene que estar mirando el CRM para enterarse. Best effort.
     await avisarDePlataforma({
       to: EMAIL_MAKO, tag: 'planes-pedido', asunto: `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',
@@ -334,7 +338,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
  * nueva atada a SU negocio (`alta_ws`, sin `alta_capa`: no crea otra cuenta). Con deuda, primero la deuda
  * (lib/plan-deuda.ts): quien llama lo decide con `pagarDeuda`.
  */
-export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null }): Promise<ResultadoCompra> {
+export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null; pais?: string | null }): Promise<ResultadoCompra> {
   const plataforma = await wsSuperAdmin();
   if (ws === plataforma) return { ok: false, status: 400, error: 'La cuenta de MaKo no tiene plan.' };
   const db = getSupabaseServer();
@@ -344,7 +348,9 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
   const cobros = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
   // La base es la ÚLTIMA SUSCRIPCIÓN (revisión del 23/10, alta 7): un cobro único de deuda tiene N meses de precio y otro concepto.
   const base = cobros.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado'));
-  if (!base || !base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
+  // Nunca tuvo un plan PROPIO (la pagaba su agencia, que la dio de baja: lib/agencia-baja.ts): se le abre, con su plan de hoy.
+  if (!base) return primerPlanPropio(ws, p, cobros);
+  if (!base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
   // Una suscripción que la pasarela SIGUE cobrando no se duplica: sería cobrar dos veces el mismo mes.
   if (cobros.some((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado') && c.suscripcion_estado !== 'cancelada')) {
     return { ok: false, status: 409, error: 'Tu suscripción sigue activa: no hace falta reactivarla.' };
@@ -391,4 +397,59 @@ export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | '
     id: plan.id, nombre: plan.nombre, capa: plan.capa, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado,
     precioAnualUsd: plan.precioAnualUsd ?? null, preciosLocales: plan.preciosLocales, cobrable,
   }));
+}
+
+/**
+ * EL PRIMER PLAN PROPIO de una cuenta que pagaba su agencia y la dio de baja (29/10/2026, lib/agencia-baja.ts: «la cuenta
+ * queda del cliente, sin la agencia y pausada; si quiere seguir, paga él»). El plan es el de su capa (Pro si tenía Pro, si
+ * no Esencial), con la pasarela con que la cobraba su agencia si sigue conectada y tiene precio en esa moneda (si no, la que
+ * sirva). El cobro es de SU ficha en el CRM de MaKo (por su email, nunca la de la agencia) y nace atado a su negocio.
+ */
+async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, propios: readonly Cobro[]): Promise<ResultadoCompra> {
+  const plataforma = await wsSuperAdmin();
+  const db = getSupabaseServer();
+  // Sólo la cuenta que ya NO tiene agencia (revisión de plata, hallazgo 7): con la agencia pagándola, un plan propio la
+  // cobraba dos veces (la renovación de la agencia seguía). La agencia la suelta con «Dar de baja» (lib/agencia-baja.ts).
+  const { data: cart, error: eCart } = await db.from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
+  if (eCart) return { ok: false, status: 503, error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' };
+  if (cart?.length) return { ok: false, status: 409, error: 'Tu cuenta la maneja tu agencia: tu plan lo cambia ella.' };
+  const desde = new Date(Date.now() - 23 * 3600_000).toISOString();
+  const vivo = propios.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pendiente' || c.estado === 'fallido') && c.created_at >= desde && c.creado_por === `reactivar:${ws}`);
+  if (vivo) return { ok: true, link: linkDelCobro(vivo.token) };
+  const [{ data: w }, { data: deAgencia }] = await Promise.all([
+    db.from('workspaces').select('capa, nombre').eq('id', ws).maybeSingle(),
+    db.from('cobros').select('proveedor').eq('workspace_id', plataforma).eq('cliente_ws', ws).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const capa = (w as { capa?: string } | null)?.capa;
+  const plan = (await planesMako()).find((x) => x.id === (capa === 'agencia' ? 'pro' : 'esencial'));
+  if (!plan) return { ok: false, status: 404, error: 'No encontramos tu plan: escríbenos y lo activamos.' };
+  // Con la pasarela de SU país (hallazgo 7): la de la agencia era de otro país, y Mercado Pago rechaza a quien no es del suyo.
+  const opciones = pasarelasDelPais(p.pais ?? null, (await monedasDeLaPlataforma(plataforma)).filter((m) => !m.prueba).map((m) => ({ ...m, monto: precioEn(plan, m.moneda) }))
+    .filter((x): x is { pasarela: Pasarela; moneda: string; prueba: boolean; monto: number } => x.monto != null));
+  const antes = (deAgencia as { proveedor?: string } | null)?.proveedor;
+  const via = opciones.find((o) => o.pasarela === antes) ?? opciones.find((o) => o.pasarela === 'stripe') ?? opciones[0];
+  if (!via) return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };
+  const nombre = (p.nombre ?? '').trim() || String((w as { nombre?: string } | null)?.nombre ?? '').trim() || p.email.split('@')[0];
+  return runWithWorkspace(plataforma, async () => {
+    let lead: { leadId: number };
+    try {
+      lead = await leadDelComprador({ plan: plan.id, nombre, email: p.email.trim().toLowerCase(), pasarela: via.pasarela, origen: null, ref: null } as PedidoCompra);
+    } catch (e) {
+      console.error(`[compra-plan] primer plan propio ws=${ws}: no pude crear su ficha:`, e instanceof Error ? e.message : String(e));
+      return { ok: false, status: 503, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    const r = await crearCobro(plataforma, {
+      leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
+      monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre, creadoPor: `reactivar:${ws}`,
+    });
+    if (!r.ok) { console.error(`[compra-plan] primer plan propio ws=${ws}: ${r.error}`); return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' }; }
+    // ⚠️ ATADO A SU NEGOCIO ANTES DE DEVOLVER EL LINK: sin `alta_ws` el pago no le devolvería el acceso.
+    const { error } = await db.from('cobros').update({ alta_ws: ws, plan_mako: plan.id }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
+    if (error) {
+      console.error(`[compra-plan] primer plan propio ws=${ws}: no pude atar el cobro ${r.cobro.id}: ${error.message}`);
+      await anularCobro(plataforma, r.cobro.id, 'MaKo (no se pudo atar el plan)').catch(() => {});
+      return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    return { ok: true, link: r.link };
+  });
 }

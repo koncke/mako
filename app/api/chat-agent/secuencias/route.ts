@@ -72,14 +72,14 @@ import { envioWhatsappHabilitadoEstricto } from '@/lib/envio-flags';
 // «Duplicar» del «⋯» de la lista (tercera tanda, decisión 6). La copia entra por las puertas de cada
 // campo: los pasos por `setSecuenciaPasos` y el horario por `setCronSecuencia` (lib/secuencia-duplicar.ts).
 import { duplicarSecuencia, type DbDuplicar } from '@/lib/secuencia-duplicar';
-import { copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
+import { copiarConfigAutomatizacion, guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarPosicionesSecuencia, type DbPosiciones } from '@/lib/secuencia-posiciones';
 // El BORRADOR del lienzo (sexta tanda, mig 0240): lo que no se puede publicar todavía, en su columna.
 import { guardarBorradorSecuencia, descartarBorradorSecuencia, type DbBorrador } from '@/lib/secuencia-borrador';
 // VARIOS CRON (sexta tanda, mig 0241): guardar la lista y saber qué canales se pueden ofrecer.
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
-import { estadoCanalesDisparo, estadoMedios, publicacionesParaElCron } from '@/lib/disparadores-canales';
+import { estadoCanalesDisparo, estadoMedios, pausaDeZernio, publicacionesParaElCron } from '@/lib/disparadores-canales';
 import { mediosDeConsulta } from '@/lib/medios-automatizacion';
 // LA GALERÍA (10/10/2026): crear una automatización desde una plantilla. Los pasos van por
 // `setSecuenciaPasos` y el CRON por `guardarDisparadores`, las puertas de siempre (lib/plantilla-crear.ts).
@@ -127,6 +127,9 @@ export async function GET(req: NextRequest) {
       return publicaciones ? Response.json({ ok: true, publicaciones }) : Response.json({ ok: false, error: 'No pude leer tus publicaciones' });
     } catch (e) {
       console.error(`[api:setting/secuencias GET publicaciones] ${msg(e)}`);
+      // Un 429 es una pausa, no un «no pude» (ticket #34): lo dice y la pantalla relee sola después de la espera.
+      const pausa = pausaDeZernio(e);
+      if (pausa) return Response.json({ ok: false, ...pausa }, { status: 429 });
       return Response.json({ ok: false, error: 'No pude leer tus publicaciones' }, { status: 500 });
     }
   }
@@ -488,6 +491,7 @@ export async function POST(req: NextRequest) {
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          setConfig: guardarConfigAutomatizacion,
           // Una plantilla de SuperAdmin (`soloPlataforma`) sólo se crea en el ws de la plataforma.
           plataforma: await esPlataformaActual(),
         }, { disparador: body.disparador });

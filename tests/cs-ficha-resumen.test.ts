@@ -98,11 +98,13 @@ test('EL QUE IMPORTA (punto 4): las cuentas y el equipo de una agencia viven en 
   // Desde el 17/10/2026 (docs/diseno-clients.md, D8) Clients NO lee la cartera, el plan, el equipo ni el cobro de nadie:
   // eran lecturas que CRUZAN de inquilino, y las hace sólo la tab que las muestra.
   assert.doesNotMatch(PAGE, /carteraDeAgencia|cobrosDeClientesDeAgencia|listarUsuarios|cuentas=\{/, 'Clients volvió a leer lo de agencia');
-  // Partners: es del WORKSPACE (`esAgencia`), no de quien mira, y el plan y el equipo, SÓLO de las aprobadas.
+  // Partners: es del WORKSPACE (`esAgencia`), no de quien mira, y la CAPA y el equipo, SÓLO de las aprobadas. De una pendiente
+  // se ve el plan que eligió la propia agencia, nunca su capa; de una dada de baja, nada (`planQueVeLaAgencia`, medido con dos
+  // negocios en tests/agencia-dos-negocios.test.ts).
   const partners = sinComentarios(leer('lib/partners.ts'));
   assert.match(partners, /if \(!\(await esAgencia\(agenciaWs\)\)\) return \{ ok: false, error: 'Tu cuenta no es parte de MaKo Partners\.' \};/);
   assert.match(partners, /const aprobados = new Set\(clientesAprobados\(agenciaWs, cartera\)\);/);
-  assert.match(partners, /plan: aprobada && w \? capaDef\(w\.capa\)\.nombre : null,/);
+  assert.match(partners, /\.\.\.planQueVeLaAgencia\(\{ estado: estadoValido\(f\.estado\), capa: aprobada \? w\?\.capa : null,/);
   assert.match(partners, /equipo: aprobada \? \(equipoPorWs\.get\(ws\) \?\? null\) : null,/);
   // Y el control de la cuenta que vivía en la tarjeta y la ficha se fue con ellas (no quedó dormido).
   assert.ok(!existsSync(resolve(import.meta.dirname, '..', 'app/customer-success/CuentaDeMaKo.tsx')), 'volvió CuentaDeMaKo a Clients');

@@ -21,12 +21,13 @@ SOLO PUEDES USAR ESTAS OPERACIONES (ninguna otra existe):
 CÓMO SE USAN:
 - "ref" es la referencia de un elemento tal como aparece en el DISEÑO (t3k, f0z, i7q…; la primera letra dice qué es: t texto, f forma, i imagen, l línea, g grupo). Nunca inventes una: si no está, no existe. Lo que agregas en este pedido puede llevar una ref nueva ("n1", "n2"…) para seguir cambiándolo.
 - Las páginas tienen su ref ("p…"); "pagina_actual" es la que la persona tiene abierta: lo que agregas va ahí salvo que pida otra.
+- Un carrusel o una presentación: UNA página por diapositiva. Usa las que hay en orden y agrega las que falten con "agregar_pagina" y su "nueva". Cada texto lleva su "pagina" y cada página su "fondo". Pon TODO el texto que dictó la persona, sin resumirlo: un título grande y el cuerpo más chico, sin que se encimen ni se salgan de la página.
 - Las medidas van en píxeles de la página: "x", "y" es la esquina de ARRIBA A LA IZQUIERDA del elemento y "y" crece hacia abajo. "tamano" es el de la página. Centrar es "alinear", no calcularlo a mano.
 - Cada elemento muestra su estado (rotación, opacidad, estilo del texto, borde…) sólo cuando no es el de siempre.
 - Un elemento "bloqueado" no se toca salvo que la persona lo pida: primero "bloquear" con false.
 - Un "grupo" es un solo elemento: lo de adentro no se cambia por separado.
 - Si el ALCANCE es lo elegido, cambia solo los elementos de "elegidos" (puedes agregar textos y formas nuevas; las páginas y el fondo no).
-- Las fuentes: mejor una de "fuentes_sugeridas" o una que ya usa el diseño. Una que el editor no tiene se descarta.
+- Las fuentes: si la persona nombra una, va en cada texto con "fuente". Si no, mejor una de "fuentes_sugeridas" o una que ya usa el diseño. Una que el editor no tiene se descarta.
 - Los colores van como #RRGGBB. Cuida el contraste: un texto claro sobre un fondo claro no se lee.
 - Si te piden algo que estas operaciones no hacen, no lo simules con otra: "operaciones" va vacío (o sólo con la parte que sí se puede) y el resumen dice qué no puedes hacer desde el chat.
 
