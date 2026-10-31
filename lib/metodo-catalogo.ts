@@ -934,8 +934,10 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     tutorial: {
       url: 'https://creem.io/dashboard/developers',
       urlLabel: 'Creem → Developers',
+      // SIN «Para qué sirve» de primer paso, igual que Stripe y Mercado Pago (31/10/2026): el para qué del SERVICIO lo
+      // dice `paraQue` acá arriba, y el de la clave lo dice AYUDA_CAMPO.CREEM_API_KEY —donde el test SÍ lo exige y donde
+      // esta misma línea sigue estando. Acá era un paso de más: se entra por la acción.
       pasos: [
-        'Para qué sirve: con esta clave MaKo crea tus links de pago en Creem y anota cada cobro en la ficha del lead.',
         'Entra a creem.io/dashboard/developers con la cuenta donde quieres recibir el dinero.',
         'En "API Keys" copia la clave de producción (empieza con creem_) y pégala en "Clave de Creem".',
         'Eso es todo: MaKo registra solo el aviso de pagos y guarda su firma.',

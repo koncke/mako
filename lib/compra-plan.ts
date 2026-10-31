@@ -31,7 +31,7 @@ import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
 import { createLead, enriquecerLead, getLead, logLeadEvent } from './leads';
-import { esLeadDuplicado } from './leads-duplicados';
+import { esLeadDuplicado, porMotivo } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
 import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
@@ -247,7 +247,7 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
       return { leadId: mismo, nuevo: false };
     }
     const lead = await createLead({ ...datos, permitirDuplicado: true });
-    const mismoNumero = e.coincidencias.filter((c) => c.motivo === 'telefono').map((c) => c.lead.id);
+    const mismoNumero = porMotivo(e.coincidencias, 'telefono').map((c) => c.lead.id);
     if (mismoNumero.length) await logLeadEvent(Number(lead.id), 'WhatsApp', `Ese WhatsApp también está en la ficha ${mismoNumero.join(', ')}.`, 'Checkout de MaKo').catch(() => {});
     return { leadId: Number(lead.id), nuevo: true };
   }

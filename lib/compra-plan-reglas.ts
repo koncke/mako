@@ -8,6 +8,8 @@
 import { esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
 import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
+// De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
+import type { MotivoDuplicado } from './leads-duplicados';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CODIGO_REF_RE = /^[a-z0-9-]{3,32}$/;
@@ -321,9 +323,27 @@ export function whatsappLimpio(v: unknown): string | null {
  * la compra a esa ficha la marca Ganado y le pisa la cuenta (`asentarAlta`): un dígito mal, o el dueño que compra para su segundo negocio.
  * Se crea otra ficha, que se funde después si eran la misma persona.
  */
-export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: string; lead: { id: number; email?: string | null } }>, email: string): number | null {
+/**
+ * ¿Un parecido de ESTE motivo le ata la compra a esa ficha? Es una decisión de PLATA, así que es un `Record` TOTAL: un
+ * motivo nuevo de `buscarDuplicados` NO COMPILA hasta que alguien diga qué hace con el dinero de otra persona
+ * (31/10/2026). Antes la condición era `c.motivo !== 'nombre'`, o sea un `else` con todo adentro: cuando se sumó
+ * 'instagram' entró solo en «le ata la compra», sin que nadie lo decidiera.
+ */
+const ATA_LA_COMPRA: Readonly<Record<MotivoDuplicado, 'siempre' | 'si-no-tiene-otro-email' | 'nunca'>> = {
+  // Ese email ES la persona que está comprando.
+  email: 'siempre',
+  // El número y el usuario los escribe cualquiera en un formulario público: sólo si esa ficha no tiene OTRO email.
+  telefono: 'si-no-tiene-otro-email',
+  instagram: 'si-no-tiene-otro-email',
+  // Un homónimo es otra persona. (El caso de UNA sola coincidencia por nombre y sin email se resuelve más abajo.)
+  nombre: 'nunca',
+};
+export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: MotivoDuplicado; lead: { id: number; email?: string | null } }>, email: string): number | null {
   const sinOtroEmail = (x: string | null | undefined) => !x?.trim() || x.trim().toLowerCase() === email.trim().toLowerCase();
-  const fuerte = coincidencias.find((c) => c.motivo === 'email' || (c.motivo !== 'nombre' && sinOtroEmail(c.lead.email)));
+  const fuerte = coincidencias.find((c) => {
+    const ata = ATA_LA_COMPRA[c.motivo];
+    return ata === 'siempre' || (ata === 'si-no-tiene-otro-email' && sinOtroEmail(c.lead.email));
+  });
   if (fuerte) return fuerte.lead.id;
   return coincidencias.length === 1 && !coincidencias[0].lead.email?.trim() ? coincidencias[0].lead.id : null;
 }

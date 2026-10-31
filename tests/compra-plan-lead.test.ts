@@ -22,6 +22,10 @@ test('1. el mismo contacto es el mismo lead; un homónimo con otro email es otra
   assert.equal(leadDeLaCompra([c('telefono', 8)], E), 8, 'mismo teléfono y la ficha sin email: es él');
   assert.equal(leadDeLaCompra([c('telefono', 8, 'A@X.com ')], E), 8, 'mismo teléfono y mismo email');
   assert.equal(leadDeLaCompra([c('telefono', 8, 'otro@x.com')], E), null, 'mismo teléfono con OTRO email: no se le ata la compra');
+  // El usuario de Instagram vale lo mismo que el teléfono, y hasta el 31/10/2026 NADIE lo probaba: la decisión entró en
+  // 2024 por un `!== 'nombre'` que se lo tragaba sin que nadie la tomara. Cada motivo de `ATA_LA_COMPRA` tiene su caso acá.
+  assert.equal(leadDeLaCompra([c('instagram', 8)], E), 8, 'mismo Instagram y la ficha sin email: es él');
+  assert.equal(leadDeLaCompra([c('instagram', 8, 'otro@x.com')], E), null, 'mismo Instagram con OTRO email: no se le ata la compra');
   assert.equal(leadDeLaCompra([c('telefono', 8, 'otro@x.com'), c('email', 7, 'a@x.com')], E), 7, 'el email gana');
   assert.equal(leadDeLaCompra([c('nombre', 9, 'otro@x.com'), c('telefono', 8)], E), 8, 'el contacto gana sobre el nombre');
   assert.equal(leadDeLaCompra([c('nombre', 9, 'otro@x.com')], E), null, 'homónimo con otro email: no se le ata la compra');
