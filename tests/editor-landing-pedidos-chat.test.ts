@@ -413,16 +413,16 @@ function cuerpoDe(src: string, firma: string, siguiente: string): string {
 test('enviar: la interpretación ANTES de «editar», que lleva sólo lo actual y no corre sin nada actual', () => {
   const pedir = cuerpoDe(PANEL, 'async function pedirEdicion(', 'const MUCHO_SIN_FOCO');
   assert.ok(pedir.length < 5000, `el recorte de pedirEdicion mide ${pedir.length}: está mirando otra cosa`);
-  const interpretar = pedir.indexOf('await pedirPedidos(cuerpoPedidos(texto, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal })');
+  const interpretar = pedir.indexOf('await pedirPedidos(cuerpoPedidos(lemos, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal })');
   const editar = pedir.indexOf("pedirIA({ accion: 'editar', instruccion: paraEditar,");
   assert.ok(interpretar >= 0, 'enviar no pide la interpretación (con su plazo y el «Detener»)');
   assert.ok(editar >= 0, '«editar» no lleva el texto de lo actual');
   assert.ok(interpretar < editar, 'se edita antes de interpretar');
   assert.equal((pedir.match(/pedirIA\(/g) ?? []).length, 1);
   const entre = pedir.slice(interpretar, editar);
-  assert.match(entre, /paraEditar = textoActual\(interp\);/);
+  assert.match(entre, /paraEditar = conCita\(textoActual\(interp\)\);/);
   assert.match(entre, /if \(!paraEditar\) \{ terminar\(\.\.\.burbujas\); return; \}/, 'sin nada actual igual se llama a «editar»');
-  assert.match(entre, /const interp = interpretacionDe\(ri, texto\);/, 'la respuesta no pasa por la validación (la falla no vuelve a lo de siempre)');
+  assert.match(entre, /const interp = interpretacionDe\(ri, lemos\);/, 'la respuesta no pasa por la validación (la falla no vuelve a lo de siempre)');
   assert.match(entre, /if \(!ri\.ok && cortadoPorUsuario\(ri\)\) \{ terminar\(/, '«Detener» mientras interpreta no corta');
   // (20/10/2026: con archivos y nada escrito, la instrucción es la nuestra y no se interpreta: `&& escrito`.)
   assert.match(pedir, /if \(op\.interpretar !== false && escrito\) \{/);

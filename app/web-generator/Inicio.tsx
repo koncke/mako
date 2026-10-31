@@ -103,6 +103,9 @@ import PanelDiagnostico from './diagnostico/PanelDiagnostico';
 import { CrearConIA } from './crear/CrearConIA';
 import { ReplicarUnaPagina } from './crear/Replicar';
 import { claveDeLanding } from '@/lib/landing-url';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
+import { itemsRenglonLanding } from './menu-contextual-landings';
 import {
   CSS_GP, DialogoBorradores, DialogoGamma, Filtros, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, MuestraTema, SeparadorMenu,
   TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
@@ -145,6 +148,21 @@ export type PropsInicio = {
    * del editor), sin tocar la URL (es la de la landing abierta) y con la lista leída al montar.
    */
   embebido?: boolean;
+  /** «Ver todo en el Panel» adentro del editor: con la columna del Panel, menos lo que ya está en la tarjeta. */
+  conLista?: boolean;
+  /**
+   * La landing abierta en el editor. No se ofrece en la columna: renombrarla o eliminarla acá dejaría al editor guardando
+   * sobre lo que ya no es.
+   */
+  docAbierto?: number;
+  /** El Panel cambió la lista: la tarjeta del editor la vuelve a leer. */
+  onCambioLista?: () => void;
+  /** Lo analizado adentro del editor: esta pieza se desmonta al volver a la landing, y sin esto reaparecería lo eliminado. */
+  onCambioAnalizadas?: (l: Analizada[]) => void;
+  /** Se abrió el Diagnóstico de la landing abierta: lo que se aplique ahí sube su versión, y el editor la vuelve a leer al volver. */
+  onDiagnosticoDeLaAbierta?: () => void;
+  /** Volver a la landing abierta («Abrir en el editor» de su propio Diagnóstico: el link no haría nada, es la misma ruta). */
+  onVolverALaLanding?: () => void;
 };
 
 type PlantillaGaleria = Plantilla | PlantillaPresentacion;
@@ -169,6 +187,8 @@ export function Inicio(props: PropsInicio) {
   const { avisar, nodo: aviso } = useAviso();
 
   const [lista, setLista] = useState<LandingResumen[]>(props.docs);
+  // Adentro del editor la lista se lee al montar: hasta entonces, «vacía» sería mentira.
+  const [listaCargada, setListaCargada] = useState(!props.embebido);
   const [errorLista, setErrorLista] = useState(props.errorLista);
   const [analizadas, setAnalizadas] = useState<Analizada[]>(props.analizadas);
   const [derecha, setDerecha] = useState<Derecha>(props.derechaInicial);
@@ -195,15 +215,15 @@ export function Inicio(props: PropsInicio) {
     return () => window.clearInterval(t);
   }, []);
 
-  // Ctrl/⌘ K = «Ir a» (Gamma): enfoca la búsqueda. Adentro del editor no hay «Ir a».
+  // Ctrl/⌘ K = «Ir a» (Gamma): enfoca la búsqueda. Adentro del editor sólo hay «Ir a» con la columna del Panel.
   useEffect(() => {
-    if (props.embebido) return;
+    if (props.embebido && !props.conLista) return;
     const tecla = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); busqueda.current?.focus(); }
     };
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
-  }, [props.embebido]);
+  }, [props.embebido, props.conLista]);
 
   // La derecha viaja en la URL (sin recargar: history.replaceState conserva el ?ws=). Adentro del editor la URL es la de la
   // landing abierta y no se toca: «Nueva landing» no navega.
@@ -224,6 +244,10 @@ export function Inicio(props: PropsInicio) {
   }, [idRenombrando]);
 
   const cerrarMenu = useCallback(() => setMenu(null), []);
+  // El clic derecho (y mantener presionado) de un renglón: lo mismo que su «⋯» (menu-contextual-landings.ts), por `clave`.
+  const menuCtx = useMenuContextual<string>();
+  // Un menú por vez: el clic derecho (o mantener presionado) cierra el «⋯» que estaba abierto.
+  useEffect(() => { if (menuCtx.abierto) setMenu(null); }, [menuCtx.abierto]);
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarDiagnostico = useCallback(() => setDerecha({ tipo: 'crear' }), []);
   const cerrarBorradores = useCallback(() => setBorradores(null), []);
@@ -249,7 +273,29 @@ export function Inicio(props: PropsInicio) {
   }, []);
 
   const temaDe = useCallback((id: string) => temaPorId(id, props.propios), [props.propios]);
-  const filas = useMemo(() => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q), [lista, analizadas, props.bases, q]);
+  const filas = useMemo(
+    () => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q).filter((f) => f.tipo === 'analizada' || f.doc.id !== props.docAbierto),
+    [lista, analizadas, props.bases, q, props.docAbierto],
+  );
+  // Adentro del editor no se remonta al pasar del Panel a «Nueva landing» (lo escrito en el cuadro sigue): se vuelve al cuadro.
+  useEffect(() => {
+    if (props.embebido && !props.conLista) setDerecha((d) => (modoCajaDe(d) ? d : { tipo: 'crear' }));
+  }, [props.embebido, props.conLista]);
+  const { onCambioAnalizadas, onDiagnosticoDeLaAbierta } = props;
+  useEffect(() => { onCambioAnalizadas?.(analizadas); }, [analizadas, onCambioAnalizadas]);
+  useEffect(() => {
+    if (derecha.tipo === 'diagnostico' && derecha.docId != null && derecha.docId === props.docAbierto) onDiagnosticoDeLaAbierta?.();
+  }, [derecha, props.docAbierto, onDiagnosticoDeLaAbierta]);
+  // Adentro del editor, la primera vez es la lectura al montar: no cambió nada.
+  const listaVista = useRef(lista);
+  const listaLeida = useRef(false);
+  const { onCambioLista } = props;
+  useEffect(() => {
+    if (listaVista.current === lista) return;
+    listaVista.current = lista;
+    if (listaLeida.current) onCambioLista?.();
+    listaLeida.current = true;
+  }, [lista, onCambioLista]);
   const urlBuscada = useMemo(() => urlDeBusqueda(q), [q]);
 
   // ── Acciones ─────────────────────────────────────────────────────────────
@@ -415,7 +461,7 @@ export function Inicio(props: PropsInicio) {
   // Adentro del editor la lista no viene del server (la página es la de una landing): se lee al montar. La usan Analizar y
   // Replicar para reconocer una dirección que es nuestra (`derechaDeAccion`).
   useEffect(() => {
-    if (props.embebido) void recargarLista();
+    if (props.embebido) void recargarLista().finally(() => setListaCargada(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez, al montar
   }, []);
 
@@ -454,7 +500,7 @@ export function Inicio(props: PropsInicio) {
     const icono = <Ico n={ICONO_FILA[f.tipo]} t={16} />;
     const nombre = <span className="gp-doc-nombre">{f.nombre}</span>;
     return (
-      <li key={f.clave} className="gp-doc" data-activo={activo ? 'si' : undefined} data-menu={abierto ? 'si' : undefined}>
+      <li key={f.clave} className="gp-doc" data-activo={activo ? 'si' : undefined} data-menu={abierto ? 'si' : undefined} {...menuCtx.propsDe(f.clave)}>
         {f.tipo === 'analizada' ? (
           <button type="button" className="gp-doc-abrir" title={f.url} aria-label={`${TEXTO_TIPO[f.tipo]}: ${f.nombre}`} aria-current={activo ? 'true' : undefined} onClick={() => abrirDiagnostico(f)}>
             {icono}{nombre}
@@ -527,6 +573,9 @@ export function Inicio(props: PropsInicio) {
         copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
         onCerrar={cerrarDiagnostico}
         onAnalizada={sumarAnalizada}
+        // Adentro del editor no se navega: la copia se abre acá, y lo pendiente que dejó al pasarle los comentarios lo toma al montar.
+        onAbrirDiagnostico={props.embebido ? (id) => { void recargarLista(); setDerecha({ tipo: 'diagnostico', docId: id }); } : undefined}
+        onAbrirEnEditor={derecha.docId != null && derecha.docId === props.docAbierto ? props.onVolverALaLanding : undefined}
         onReplicarPorPartes={(u) => abrirDerechaEnElClic({ tipo: 'replicar', url: u, auto: true })}
       />
     );
@@ -563,7 +612,7 @@ export function Inicio(props: PropsInicio) {
     contenido = (
       <>
         <h1 className="gp-cabeza-titulo">Papelera</h1>
-        {errorLista ? errorBloque : archivadas.length ? <div className="gp-grilla">{archivadas.map(tarjetaPapelera)}</div> : <p className="gp-vacio">La papelera está vacía.</p>}
+        {errorLista ? errorBloque : !listaCargada ? <p className="gp-vacio">Cargando…</p> : archivadas.length ? <div className="gp-grilla">{archivadas.map(tarjetaPapelera)}</div> : <p className="gp-vacio">La papelera está vacía.</p>}
       </>
     );
   } else {
@@ -572,23 +621,40 @@ export function Inicio(props: PropsInicio) {
   }
 
   const mf = menu?.fila;
+  const filaCtx = menuCtx.abierto ? filas.find((x) => x.clave === menuCtx.abierto?.de) ?? null : null;
+  /** Lo que hace cada renglón del clic derecho: las MISMAS llamadas que el «⋯» de abajo. */
+  const elegirEnRenglon = (f: FilaPanel, id: string) => {
+    if (id === 'diagnostico') { abrirDiagnostico(f); return; }
+    if (f.tipo === 'analizada') {
+      if (id === 'abrir_pagina') window.open(f.url, '_blank', 'noopener,noreferrer');
+      else if (id === 'eliminar') setDialogo({ tipo: 'eliminarAnalizada', url: f.url, nombre: f.nombre });
+      return;
+    }
+    if (id === 'abrir') router.push(`/web-generator/${f.doc.id}`);
+    else if (id === 'renombrar') setRenombrando({ id: f.doc.id, texto: f.doc.titulo });
+    else if (id === 'duplicar') void duplicar(f.doc);
+    else if (id === 'copiar_enlace') void copiarEnlace(f.doc);
+    else if (id === 'archivar') void archivar(f.doc);
+    else if (id === 'eliminar') setDialogo({ tipo: 'eliminarDoc', doc: f.doc });
+  };
 
   return (
-    <div className={props.embebido ? 'gma gp gp-panel gp-embebido' : 'gma gp gp-panel'}>
+    <div className={props.embebido ? 'gma gp gp-panel gp-embebido' : 'gma gp gp-panel'} data-con-lista={props.conLista ? '' : undefined}>
       <style dangerouslySetInnerHTML={{ __html: CSS_GP + CSS_PANEL }} />
       <link rel="stylesheet" href={URL_FUENTE_CHROME} />
 
-      {/* Adentro del editor, la columna de la izquierda es la tarjeta del editor (la lista de landings): ésta no va. */}
-      {!props.embebido && <aside className="gp-lateral" aria-label="Web Generator">
+      {/* Adentro del editor, la columna de la izquierda es la tarjeta del editor (la lista de landings): ésta no va, salvo en
+          «Ver todo en el Panel», que trae lo que la tarjeta no tiene (lo analizado, sus menús, Plantillas, Temas y Papelera). */}
+      {(!props.embebido || props.conLista) && <aside className="gp-lateral" aria-label="Web Generator">
         <label className="gp-ir-a">
           <Ico n="buscar" t={14} />
           <input ref={busqueda} type="search" value={q} placeholder="Ir a" aria-label="Buscar por nombre" onChange={(e) => setQ(e.target.value)} />
           <kbd>Ctrl K</kbd>
         </label>
-        <button type="button" className="gp-doc-nuevo" aria-current={modoCaja ? 'page' : undefined} onClick={nuevaLanding}>
+        {!props.embebido && <button type="button" className="gp-doc-nuevo" aria-current={modoCaja ? 'page' : undefined} onClick={nuevaLanding}>
           <span className="gp-doc-nuevo-mas"><Ico n="mas" t={13} /></span>
           <span>Nueva landing</span>
-        </button>
+        </button>}
         <ul className="gp-docs" aria-label="Tus landings">
           {errorLista && (
             <li className="gp-docs-aviso" role="alert">
@@ -620,6 +686,13 @@ export function Inicio(props: PropsInicio) {
       <div ref={contenidoRef} className="gp-contenido" data-vista={modoCaja ? 'crear' : derecha.tipo}>
         {contenido}
       </div>
+
+      {/* ── El clic derecho de un renglón (lo mismo que el «⋯» de abajo) ── */}
+      {menuCtx.abierto && filaCtx && (
+        <MenuContextual key={menuCtx.abierto.n} punto={{ x: menuCtx.abierto.x, y: menuCtx.abierto.y }} porDedo={menuCtx.abierto.porDedo}
+          items={itemsRenglonLanding(filaCtx)} etiqueta={`Opciones de ${filaCtx.nombre}`} onCerrar={menuCtx.cerrar}
+          onElegir={(id) => elegirEnRenglon(filaCtx, id)} />
+      )}
 
       {/* ── El «⋯» de un renglón ── */}
       {menu && mf && (
@@ -910,6 +983,9 @@ const CSS_PANEL = `
    scrollea él (el editor tiene el alto de la ventana: hijos con flex 1 + min-height 0, AGENTS.md). */
 .gp.gp-panel.gp-embebido { grid-template-columns: minmax(0, 1fr); flex: 1; min-height: 0; overflow-y: auto; align-content: start;
   border-radius: var(--gma-radio-xl) var(--gma-radio-xl) 0 0; box-shadow: 0 0 0 0.8px var(--gma-borde-suave); }
+/* «Ver todo en el Panel» adentro del editor: su columna al lado de lo que muestra, con el alto de la caja que scrollea. */
+.gp.gp-panel.gp-embebido[data-con-lista] { grid-template-columns: 248px minmax(0, 1fr); }
+.gp.gp-panel.gp-embebido[data-con-lista] .gp-lateral { height: calc(100dvh - 24px - var(--barra-agencia, 0px)); }
 .gp .gp-lateral { position: sticky; top: 0; align-self: start; display: flex; flex-direction: column; gap: 2px; height: 100vh; padding: 14px 10px 10px; background: var(--gp-superficie); border-right: 1px solid var(--gp-borde-suave); }
 .gp .gp-ir-a { display: flex; align-items: center; gap: 8px; flex: none; height: 34px; margin-bottom: 8px; padding: 0 10px; border-radius: 8px; background: var(--gp-fondo); color: var(--gp-debil); }
 .gp .gp-ir-a input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--gp-texto); font: inherit; font-size: 13.5px; outline: none; }

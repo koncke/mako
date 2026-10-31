@@ -104,9 +104,9 @@ export type PedidoCompra = {
    */
   sinPrueba: boolean;
   /** La página le mostró el 50% del primer mes: si ya no vale, se le dice en vez de cobrarle lleno. El reloj lo mira la ruta, con su cookie. */
-  oferta?: boolean;
+  promo?: boolean;
   /** Quien ya supo que su descuento no vale y sigue a precio normal. Sin esto, nunca se le cobra lleno sin decírselo. */
-  sinOferta?: boolean;
+  sinPromo?: boolean;
   /**
    * El código de referido que la persona ESCRIBIÓ en el carrito (25/10/2026, Martín: «es importante que en la compra, en el
    * carrito, esté la opción de poner código de referido»). Escrito a mano, gana sobre la cookie y el `?ref=`: es quien paga
@@ -171,7 +171,7 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
-      oferta: b.oferta === true, sinOferta: b.sinOferta === true,
+      promo: b.promo === true, sinPromo: b.sinPromo === true,
       codigoEscrito: codigoRefLimpio(b.codigo),
       codigoEscritoMal: typeof b.codigo === 'string' && b.codigo.trim() !== '' && codigoRefLimpio(b.codigo) == null,
     },

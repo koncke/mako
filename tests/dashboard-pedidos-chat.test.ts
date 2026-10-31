@@ -128,7 +128,7 @@ test('el panel: entiende el pedido ANTES de editar, y a la edición va sólo lo 
   const p = leer('app', 'dashboard', 'PanelEditarMako.tsx');
   // El `tab` se decide en el lugar (5ed5728c6, 24/10/2026): `TAB_DEL_INFORME[informe]` daba `undefined` para el informe de
   // una automatización («Métricas» de Automations), que vive en el Dashboard: todo lo que no es General va a su tab.
-  const i = p.indexOf("await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });");
+  const i = p.indexOf("await pedirPedidos({ texto: lemos, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });");
   assert.ok(i > 0 && i < p.indexOf("fetch('/api/graficos/editar'"), 'la ruta de los pedidos va antes de la edición');
   assert.doesNotMatch(p, /TAB_DEL_INFORME\[informe\]/, 'con el informe de una automatización, `tab` sería undefined');
   assert.match(p, /const datos = \{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \};[\s\S]*?body: JSON\.stringify\(datos\)/);

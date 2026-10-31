@@ -42,8 +42,8 @@ import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
-import { creadoPorPrimerMes, TEXTO_OFERTA_CUENTA, TEXTO_OFERTA_USADA, TEXTO_OFERTA_VENCIDA } from './primer-mes-reglas';
-import { OFERTA_ENTRADA } from './oferta-entrada-reglas';
+import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
+import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -247,24 +247,24 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
 
 export type ResultadoCompra =
   | { ok: true; link: string }
-  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinOferta?: true };
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinPromo?: true };
 
 /**
- * ¿Este email puede usar el 50% del primer mes? El reloj es por navegador, y otro navegador arranca el suyo (lib/oferta-entrada-reglas.ts).
+ * ¿Este email puede usar el 50% del primer mes? El reloj es por navegador, y otro navegador arranca el suyo (lib/promo-entrada-reglas.ts).
  * Lo que eso deja abierto lo cierra el email, para que no reaparezca infinitas veces (el Cerebro, 30/10; Martín lo dejó abierto y puede
  * cambiarlo): UN descuento por email. No, si ya tiene una cuenta (es para negocios nuevos), si ya lo pagó, o si lo abrió hace más de 24 h y
  * lo abandonó. Dentro de esas 24 h, puede rearmar el pago: se le cerró la pestaña, no lo perdió. Sin poder leer, deja pasar: un comprador
  * no pierde el descuento por una base caída.
  */
-async function puedeUsarOferta(email: string, plataforma: number, ahoraMs: number): Promise<{ ok: true } | { ok: false; texto: string }> {
+async function puedeUsarPromo(email: string, plataforma: number, ahoraMs: number): Promise<{ ok: true } | { ok: false; texto: string }> {
   try {
-    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, texto: TEXTO_OFERTA_CUENTA };
+    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, texto: TEXTO_PROMO_CUENTA };
     const { data, error } = await getSupabaseServer().from('cobros').select('estado, created_at')
       .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:primer-mes-%').limit(20);
     if (error) throw new Error(error.message);
     const yaUsado = ((data ?? []) as Array<{ estado: string; created_at: string }>)
       .some((c) => c.estado === 'pagado' || c.estado === 'reembolsado' || ahoraMs - Date.parse(c.created_at) > 24 * 3600_000);
-    return yaUsado ? { ok: false, texto: TEXTO_OFERTA_USADA } : { ok: true };
+    return yaUsado ? { ok: false, texto: TEXTO_PROMO_USADA } : { ok: true };
   } catch (e) {
     console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su descuento; se lo dejo:`, msg(e));
     return { ok: true };
@@ -294,7 +294,7 @@ async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ 
  * El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). `pais`: de
  * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`).
  */
-export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; ofertaVigente?: boolean } = {}): Promise<ResultadoCompra> {
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; promoVigente?: boolean } = {}): Promise<ResultadoCompra> {
   const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
@@ -319,17 +319,17 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
         : { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
     }
   }
-  // EL 50% DEL PRIMER MES (30/10/2026): sólo con el reloj vivo (`ofertaVigente`, lo lee la ruta de su cookie) y en los planes del cartel.
+  // EL 50% DEL PRIMER MES (30/10/2026): sólo con el reloj vivo (`promoVigente`, lo lee la ruta de su cookie) y en los planes del cartel.
   // Si la página se lo mostró y ya no vale, SE DICE y la persona elige seguir: nunca se le cobra lleno a quien venía viendo la mitad.
   // Quien nunca lo vio (sin reloj, o llegó directo a /planes), el precio de lista, sin preguntar.
   let conDescuento = false;
-  if (!PRUEBA_GRATIS_PRENDIDA && !p.sinOferta && OFERTA_ENTRADA.planes.includes(plan.id)) {
-    if (opts.ofertaVigente) {
-      const puede = await puedeUsarOferta(p.email, ws, Date.now());
-      if (!puede.ok) return { ok: false, status: 409, error: puede.texto, sinOferta: true };
+  if (!PRUEBA_GRATIS_PRENDIDA && !p.sinPromo && PROMO_ENTRADA.planes.includes(plan.id)) {
+    if (opts.promoVigente) {
+      const puede = await puedeUsarPromo(p.email, ws, Date.now());
+      if (!puede.ok) return { ok: false, status: 409, error: puede.texto, sinPromo: true };
       conDescuento = true;
-    } else if (p.oferta) {
-      return { ok: false, status: 409, error: TEXTO_OFERTA_VENCIDA, sinOferta: true };
+    } else if (p.promo) {
+      return { ok: false, status: 409, error: TEXTO_PROMO_VENCIDA, sinPromo: true };
     }
   }
 

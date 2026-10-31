@@ -11,8 +11,8 @@
 
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
-import { entornoOferta, ofertaVigente } from '@/lib/oferta-entrada';
-import { COOKIE_OFERTA } from '@/lib/oferta-entrada-reglas';
+import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
+import { COOKIE_PROMO } from '@/lib/promo-entrada-reglas';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { VitrinaPlanes } from './Vitrina';
@@ -26,7 +26,7 @@ export const metadata: Metadata = { title: 'Planes de MaKo', robots: { index: tr
 const CLAVES_QUE_PASAN = ['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid', 'ref'];
 
 /** ¿El reloj del 50% sigue vivo en este navegador? Sólo lo lee: lo arranca la landing. */
-const relojVivo = (cookie: string | undefined) => ofertaVigente(cookie, Date.now(), entornoOferta());
+const relojVivo = (cookie: string | undefined) => promoVigente(cookie, Date.now(), entornoPromo());
 
 export default async function PlanesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;
@@ -41,5 +41,5 @@ export default async function PlanesPage({ searchParams }: { searchParams: Promi
   // Y según el PAÍS (27/10/2026): Mercado Pago sólo en el suyo; desde México, «Empezar» sólo si Stripe cobra.
   const ofertas = await ofertasDeLosPlanes(paisDelVisitante((await headers()).get('x-vercel-ip-country')));
   // El origen de la campaña y el código de partner viajan en el sufijo al plan elegido, y de ahí al pedido o al pago.
-  return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} ofertaVigente={relojVivo((await cookies()).get(COOKIE_OFERTA)?.value)} />;
+  return <VitrinaPlanes ofertas={ofertas} sufijo={sufijo} promoVigente={relojVivo((await cookies()).get(COOKIE_PROMO)?.value)} />;
 }

@@ -21,14 +21,16 @@
 import { useMemo, type KeyboardEvent, type ReactNode } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Check, IdCard, LoaderCircle, Search, Timer, UserRound, UserRoundPlus, UserRoundX, X } from 'lucide-react';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual, type PropsMenuFila } from '@/app/_ui/useMenuContextual';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { ChatResumen, EtapaChat, LineaChat } from '@/lib/chats-tipos';
 import { MAKO_SETTER } from '@/lib/pipeline';
 import { pideProducto, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
-import { sePuedeAgregar } from './agregar-al-crm';
-import { horaDeFila, previewDe } from './lista-reglas';
+import { horaDeFila, previewDe, sePuedeAgregar } from './lista-reglas';
 import { AvatarRio } from './ventana-piezas';
 import { portalRio } from './portal';
+import { accionDeMenuChat, itemsFilaChat } from './menu-contextual-chats';
 
 /**
  * Lo que se puede hacer desde el «⋯» de una fila. Desde el 27/10/2026 (Martín: «no debería decir nada de "Cerrar" o
@@ -102,6 +104,11 @@ export function ListaChats(props: {
   const fotoDe = useMemo(() => new Map(equipo.map((m) => [m.nombre, m.foto_url])), [equipo]);
   const ahora = new Date();
 
+  // El clic derecho (y mantener presionado) de una fila: lo mismo que su «⋯» (app/chats/menu-contextual-chats.ts).
+  // La fila del menú se busca de nuevo en la lista de ahora: el sondeo la puede haber cambiado con el menú abierto.
+  const menu = useMenuContextual<ChatResumen>();
+  const delMenu = menu.abierto ? chats.find((x) => x.clave === menu.abierto?.de.clave) ?? menu.abierto.de : null;
+
   const q = buscar.trim();
   const textoFallas = fallas.length ? `No pude leer: ${fallas.map((f) => nombreDeFalla(f, lineas)).join(', ')}.` : null;
 
@@ -132,7 +139,7 @@ export function ListaChats(props: {
           <Fila key={c.clave} ws={ws} c={c} sel={c.clave === seleccionada} ahora={ahora}
             colorEtapa={c.etapaKey ? colorEtapa.get(c.etapaKey) ?? null : null}
             fotoAsignado={c.asignado ? fotoDe.get(c.asignado) ?? null : null}
-            equipo={equipo} productos={productos} onElegir={onElegir} onAccion={onAccion} />
+            equipo={equipo} productos={productos} onElegir={onElegir} onAccion={onAccion} conMenu={menu.propsDe(c)} />
         ))}
         {modoBusca && buscandoRemoto && <div className="rio-lista-pie"><LoaderCircle size={16} className="rio-girando" aria-label="Buscando" /></div>}
       </div>
@@ -173,13 +180,24 @@ export function ListaChats(props: {
       {textoFallas && <div className="rio-aviso-falla" role="status">{textoFallas}</div>}
 
       {cuerpo}
+
+      {menu.abierto && delMenu && (
+        <MenuContextual key={menu.abierto.n} punto={{ x: menu.abierto.x, y: menu.abierto.y }} porDedo={menu.abierto.porDedo}
+          items={itemsFilaChat(delMenu, equipo, productos)} etiqueta={`Acciones de ${delMenu.nombre}`}
+          onCerrar={menu.cerrar}
+          onElegir={(id) => {
+            const a = accionDeMenuChat(id, delMenu);
+            if (a === 'abrir') onElegir(delMenu);
+            else if (a) onAccion(delMenu, a);
+          }} />
+      )}
     </section>
   );
 }
 
 // ── Una fila ─────────────────────────────────────────────────────────────────────────────────
 
-function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, onElegir, onAccion }: {
+function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, onElegir, onAccion, conMenu }: {
   ws: number | null;
   c: ChatResumen;
   sel: boolean;
@@ -190,6 +208,8 @@ function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, 
   productos: ProductoParaAlta[] | null;
   onElegir: (c: ChatResumen) => void;
   onAccion: (c: ChatResumen, a: AccionFila) => void;
+  /** El clic derecho y mantener presionado (`useMenuContextual`): van en la fila entera, con su «⋯» adentro. */
+  conMenu: PropsMenuFila;
 }) {
   const preview = previewDe(c);
   const hora = horaDeFila(c.ultimaFecha, ahora);
@@ -198,7 +218,7 @@ function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, 
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onElegir(c); }
   };
   return (
-    <div role="listitem" className="rio-fila" data-sel={sel ? 'true' : undefined}>
+    <div role="listitem" className="rio-fila" data-sel={sel ? 'true' : undefined} {...conMenu}>
       {/* La fila entera es el botón; el «⋯» va como hermano absoluto, para no anidar un botón en otro. */}
       <div role="button" tabIndex={0} className="rio-fila-boton" aria-current={sel ? 'true' : undefined} aria-label={c.nombre}
         onClick={() => onElegir(c)} onKeyDown={alTeclear}>

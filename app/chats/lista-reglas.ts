@@ -285,3 +285,9 @@ export function cambiarClaveEnLista(chats: readonly ChatResumen[], vieja: string
   const suma = fila.canales.filter((x) => !tiene.has(idCanal(x)));
   return chats.filter((c) => c.clave !== vieja).map((c) => (c.clave === nueva && suma.length ? { ...c, canales: [...c.canales, ...suma] } : c));
 }
+
+/** ¿Este chat se puede agregar al CRM? Tiene que tener una identidad que dé de alta (un grupo no tiene teléfono de persona). */
+export function sePuedeAgregar(chat: Pick<ChatResumen, 'leadId' | 'canales'>): boolean {
+  if (chat.leadId != null) return false;
+  return chat.canales.some((c) => (c.canal === 'whatsapp' && !!c.telefono) || c.canal === 'instagram' || c.canal === 'messenger');
+}

@@ -61,7 +61,7 @@ Medido en la base del ws11 y en el código. **Sin mirar la pantalla:** el Chrome
 | Punto | Qué era | Dónde quedó |
 |---|---|---|
 | 1.1, 1.2, 1.3 Carruseles | La validación doble tiraba todo el texto; el chat no recibía lo ya hablado | Arreglado. Causa y medición en hallazgos-editor-imagen.md |
-| 1.2, poner fotos | El chat no sabe hacerlo: `NO_SE_PUEDE_CHAT_IMAGEN` | **Sin hacer.** Función nueva |
+| 1.2, poner fotos | El chat no sabía hacerlo | **Hecho** el 30/10: de Subidos y adjuntas. Probado contra el cargador del motor; no visto en el editor completo |
 | 1.3, la marca entera | El chat no conoce colores ni logo | **Sin hacer.** Depende de 2.9 |
 | 1.4 Página 1, 2, 3 | El encabezado no entraba en una página angosta | Arreglado; medido en una réplica |
 | 1.4 Barra y chat abiertos | La barra ya arranca plegada; queda abierta para quien la fijó, por decisión del 24/10 | **Sin ver.** Pide sesión; sumar estas tabs a `RUTAS_QUE_PLIEGAN` lo decide Martín |

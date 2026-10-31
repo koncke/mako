@@ -66,7 +66,8 @@ test('«Compartir ▾» es UNA pastilla: cada mitad con su clase (el puntito de 
   assert.match(ed, /className="gma-boton gma-boton--primario gma-partido-flecha"/);
   const gamma = leer('app/web-generator/gamma.css');
   assert.match(gamma, /\.gma-partido > \.gma-partido-principal \{ border-radius: 24px 0 0 24px;/);
-  assert.match(gamma, /\.gma-partido > \.gma-partido-flecha \{\n\s*width: 32px;\n\s*padding: 0;\n\s*border-radius: 0 24px 24px 0;\n\s*border-left: 1px solid/);
+  // Sin la raya del medio desde el 30/10/2026: se ve como un solo botón (tests/editor-web-como-automations.test.ts).
+  assert.match(gamma, /\.gma-partido > \.gma-partido-flecha \{\n\s*width: 26px;\n\s*padding: 0 4px 0 0;\n\s*border-radius: 0 24px 24px 0;\n\}/);
   assert.doesNotMatch(gamma, /\.gma-partido > \.gma-boton:(first|last)-child/, 'con :last-child el puntito azul deja al ▾ suelto');
 });
 

@@ -3859,3 +3859,36 @@ redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`
   dominio en la copia. O la prueba busca mal, o la #88 no salió por este camino (`lib/editor-landing/copia-identica.ts`, la foto del
   navegador). **Hasta medirlo, este arreglo no está probado para el caso que lo originó.**
 - Reparar la #88 (el prefijo de sus imágenes, con respaldo antes). De las 28 copias que hay es la única con esta causa.
+
+## El feedback del 24/10: ya estaba hecho, y lo roto era otra cosa (30/10/2026, claude1)
+
+**Vive en:** `app/web-generator/gamma.css` (`container: gma-barra`) · `tests/editor-landing-iconos.test.ts` · `scripts/banco-editor-web/` (el banco).
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Se pidió de nuevo «Nueva landing sin navegar» y «un solo botón Compartir» como no cumplidos. Están en main desde `f24afff79` (24/10) y `docs/diseno-editor-web-como-automations.md` lo decía. Reescribirlos era perder el trabajo. Medido en el banco con clics: «Nueva landing» cambia la barra y el lienzo por «¿Qué vas a crear hoy?» y no navega (`window.__nav` vacío, misma URL). Lo que SÍ iba a `?panel=1` era otro link, «Ver todo en el Panel», al pie de la lista: por eso el arreglo del 24/10 parecía no cumplido.
+- ⚠️ **De dónde salió el error:** `f24afff79` es del 24/10 a las 21:04 y el feedback con sus capturas es de esa misma noche, así que las capturas son de la versión anterior. La nota «no cumple» de `docs/feedback-24-10.md` comparó esa captura contra un código que ya la había dejado atrás. **Un pedido viejo se mide contra el código de hoy, y un pedido posterior de Martín le gana.**
+- **«Ver todo en el Panel» tampoco navega desde el 30/10** (decisión del Cerebro: lo pedido era el comportamiento, no un botón). Mismo lugar que «Nueva landing», con la columna del Panel para lo que la tarjeta no tiene (lo analizado, los menús, Plantillas, Temas, Papelera). ⚠️ La columna **no ofrece la landing abierta**: renombrarla o eliminarla ahí dejaría al editor guardando sobre lo que ya no es. Y lo que cambie ahí hace releer la lista de la tarjeta (`revisionLista`).
+- **Compartir se ve como un solo botón desde el 30/10** (decisión del Cerebro: «lo que importa es lo que se ve»). ⚠️ Sacar la raya no alcanzaba: dos fondos pegados dejan una línea cuando el ancho cae entre dos píxeles. El fondo es del contenedor y los dos blancos de clic son transparentes.
+- **Lo que estaba roto de verdad, y ningún test ni lectura de código lo había visto:**
+  - **La barra cortaba Compartir y el ⋯.** A 1024, con la tarjeta del chat, pedía 712 px en 660; un panel de la derecha (Tema, Animar) la achica igual a cualquier ancho. El `@media` mira la ventana, y lo que importa es lo que mide la barra: `container: gma-barra`. ⚠️ El contenedor es la barra y no `.gma-centro`: `container-type` hace de esa caja el bloque de lo `position: fixed`, y adentro están el lienzo y sus flotantes.
+  - ⚠️ **`.gma-dispositivos { display: flex }` está más abajo en el CSS y le ganaba al pliegue:** la primera versión no escondía nada y parecía andar en la lectura. Por eso va con `.gma-herr-der` adelante. Lo agarró la medición, no el código.
+  - **La X de Compartir era un cuadrado con una diagonal.** `Ico` dibuja `neutro` si el nombre no existe, a propósito («nunca un hueco»): nada avisa. Ahora un test recorre los nombres fijos que van a `Ico`. **Los que vienen de una variable no los cubre.**
+  - ⚠️ **Hay DOS catálogos de íconos, y creer que había uno rompió cuatro.** Las pestañas de Publicar y del editor de tema usan `Icono` de `piezas-gma.tsx` (TRAZOS), donde `engrane`, `navegacion`, `fuente` y `marca` sí existen y un nombre desconocido cae a tres puntitos. Mi primer test los medía contra `lib/editor-landing/iconos.ts`, dio rojo y los «arreglé»: estaban bien y quedaron rotos, con el test en verde. Lo agarró la revisión independiente. Antes de renombrar un ícono, mirar qué componente lo dibuja.
+
+**Lo que encontró la revisión de «Ver todo en el Panel» adentro (ya arreglado):**
+- **Remontar la pieza tiraba lo escrito** al pasar de «Nueva landing» al Panel: sin `key`, y al volver al cuadro se resetea la vista.
+- **`Inicio` se desmonta al volver a la landing:** lo analizado que se eliminó reaparecía, y tocarlo volvía a gastar IA. Vive en el editor (`analizadasVivas`).
+- **El Diagnóstico navegaba igual** con `irDuro` (Aplicar, Ver copia): ahora `onAbrirDiagnostico`.
+- **La landing abierta seguía alcanzable pegando su dirección:** aplicar ahí le sube la versión por debajo del editor oculto y el guardado daba conflicto. Al volver se lee de nuevo, y «Abrir en el editor» vuelve a ella en vez de ser un link a la misma ruta.
+- **Los rótulos de la barra colgaban del `@media`:** por encima de 1440 de ventana con un panel abierto, el ⋯ salía de la barra. Se pliegan con el contenedor. (Calculado, no medido.)
+
+**El banco (`scripts/banco-editor-web`), para la próxima:** el `EditorLanding` real, con esbuild, `fetch` simulado y sin base. Compila en ~1 min y no pide más memoria que esbuild; no necesita sesión ni escribe en producción.
+- Lo que costó: las acciones de server (`'use server'` en cualquier archivo, no sólo los `actions.ts`) se reemplazan por funciones vacías; los módulos de node van como un Proxy en CJS, porque esbuild exige los nombres de un ESM; `CONFIG_DEFAULT`, porque `config.pagina` es obligatorio.
+- **Lo que NO mide:** sin la barra lateral de la app (la real tiene ~58 px menos: todo aprieta antes) y sin el CSS de Tailwind; un «Diseño editable» sale sin estilos si su hoja no se le pasa en la config, y eso es del banco, no un bug.
+- ⚠️ El banco anterior (`banco-create-qa`, 29/10) quedó en una carpeta de notas y hoy no se pudo encontrar: por eso éste vive en el repo.
+
+**Lo que quedó SIN hacer:**
+
+- **Nada de esto se vio en producción ni con la barra lateral real.** Si Martín sigue viendo los dos botones o la otra ruta, es otra cosa: un despliegue viejo, o lo que mira no es este editor. Hace falta su captura.
+- **`docs/feedback-24-10.md` y `docs/pendientes.md` siguen atrasados** en lo demás: los corrige el Cerebro con la lista de lo que sigue vivo.
+- **Punto 6 (placeholders detrás de otras secciones):** en el banco el «Encabezado 2» de una sección vacía se lee y no queda tapado. No se reprodujo el caso original: se necesita la landing donde lo vio.
+- **Por debajo de ~336 px de barra** (640 de ventana, sin lugar real) sigue sin entrar.

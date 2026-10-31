@@ -124,6 +124,10 @@ type Props = {
   docId?: number;
   url?: string;
   onCerrar: () => void;
+  /** Adentro del editor: abrir el Diagnóstico de otra landing sin navegar. Sin esto, se va a la ruta del Panel. */
+  onAbrirDiagnostico?: (id: number) => void;
+  /** Esta landing es la que está abierta en el editor: «Abrir en el editor» vuelve a ella (el link no haría nada, es la misma ruta). */
+  onAbrirEnEditor?: () => void;
   /** Una página de AFUERA se acaba de analizar (la URL que contestó el server): el Panel la suma a su barra sin recargar. */
   onAnalizada?: (url: string) => void;
   /**
@@ -191,7 +195,7 @@ export default function PanelDiagnostico(props: Props) {
   return <PanelInterno key={clave} {...props} />;
 }
 
-function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes }: Props) {
+function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes, onAbrirDiagnostico, onAbrirEnEditor }: Props) {
   const deNuestra = docId != null;
   const objetivo = useMemo(() => (deNuestra ? { docId } : { url: url ?? '' }), [deNuestra, docId, url]);
   // La URL normalizada como la del server (sin query, sin www): la LLAVE de los comentarios y de
@@ -561,8 +565,9 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onRepli
       const ids = que === 'todos' ? [] : que.map((x) => r.mapa[String(x)]).filter((n): n is number => !!n);
       dejarUnaVez({ docId: id, t: Date.now(), ...(que === 'todos' ? { todos: true as const } : { ids }) });
     }
-    irDuro(`/web-generator?diagnostico=${id}`, ws);
-  }, [urlPegada, ws]);
+    if (onAbrirDiagnostico) onAbrirDiagnostico(id);
+    else irDuro(`/web-generator?diagnostico=${id}`, ws);
+  }, [urlPegada, ws, onAbrirDiagnostico]);
 
   /**
    * «Aplicar» en una landing de AFUERA: replicarla como Landing (con la lectura del navegador si ya está).
@@ -658,7 +663,9 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onRepli
             <Ico n="refrescar" t={14} /> {sugerencias.length || resumen ? 'Volver a analizar' : 'Analizar'}
           </button>
           {deNuestra && docId != null && (
-            <Link href={`/web-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
+            onAbrirEnEditor
+              ? <button type="button" className="gp-btn gp-btn-contorno" onClick={onAbrirEnEditor}><Ico n="lapiz" t={14} /> Abrir en el editor</button>
+              : <Link href={`/web-generator/${docId}`} className="gp-btn gp-btn-contorno"><Ico n="lapiz" t={14} /> Abrir en el editor</Link>
           )}
           {/* #886 (17/10/2026): el tráfico de esta página (mapa de calor y pulso) vive en la hoja «Landing» del Dashboard,
               que a su vez trae acá con «Analizar la estructura →». El análisis ya lee lo más tocado. */}
@@ -801,7 +808,7 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada, onRepli
                     onAplicar={() => aplicar(s)}
                     onPreguntar={() => preguntar(s)}
                     onDeshacer={!enCurso && sePuedeDeshacer(pila, s.id) && arreglos[s.id]?.fase === 'aplicado' ? () => void deshacer() : undefined}
-                    onVerCopia={!deNuestra && copia != null && s.estado === 'resuelta' ? () => irDuro(`/web-generator?diagnostico=${copia}`, ws) : undefined}
+                    onVerCopia={!deNuestra && copia != null && s.estado === 'resuelta' ? () => { if (onAbrirDiagnostico) onAbrirDiagnostico(copia); else irDuro(`/web-generator?diagnostico=${copia}`, ws); } : undefined}
                   />
                 ))}
               </ul>

@@ -154,7 +154,7 @@ test('4. lo que encontró la revisión de Integración (23/10/2026): el contexto
   // La clave se tapa igual; con archivos y sin texto, el historial dice cuáles (28/10/2026, tests/ticketera-adjuntos.test.ts).
   assert.match(db, /const t = taparClaves\(texto\.trim\(\)\)\.texto \|\| lineaDeAdjuntos\(adjuntos\.map\(\(a\) => a\.nombre\)\);/);
   assert.ok(!taparClaves('mi clave es sk-ant-api03-AbCdEfGhIjKlMnOpQrStUvWxYz0123456789 y no anda').texto.includes('AbCdEfGh'));
-  assert.match(sinComentarios(leer('app/tickets/soporte/PiezasSoporte.tsx')), /arriba=\{hayClave\(s\.texto\) \? <AvisoClave \/> : undefined\}/);
+  assert.match(sinComentarios(leer('app/tickets/soporte/PiezasSoporte.tsx')), /arriba=\{hayClave\(s\.texto\) \? <AvisoClave \/> : s\.cita \? <CitaCaja cita=\{s\.cita\} onQuitar=\{s\.soltarCita\} \/> : undefined\}/);
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 6/0, de a una; cada una → 5/1):

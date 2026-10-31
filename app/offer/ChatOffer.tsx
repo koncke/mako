@@ -47,6 +47,7 @@ import { DocumentoPdf } from './DocumentoPdf';
 import { esOpcionArmar, esOpcionNinguna, notaDelAdjunto, pdfDeMensaje } from './ayudas';
 import { GenerandoEnChat, type PasoGeneracion } from './Generando';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import type { MensajeWA } from '@/lib/centro-mensajes';
 
 /** El ➤ y el ✓ de la barra de grabar van en el negro del Ops Center: la barra los pinta con `--good` (el verde), y el ícono,
  *  con `--sobre-good` (sin él, el ✓ blanco no se veía sobre la tinta clara del modo oscuro). */
@@ -81,9 +82,11 @@ type ItemMsg = Extract<ItemHilo, { k: 'msg' }>;
 
 export function ChatOffer({
   sesion, pendiente, respondiendo, fuente, opcionArmar, opcionActualizar, opcionesHabilitadas, onOpcion, onVarias, onReintentar,
-  caja, onArchivos, ocupado, error, onError, armando = null, onVerOferta = null, extra, soloTexto = false, errorExtra, enTarjeta = false,
+  caja, onCitar, onArchivos, ocupado, error, onError, armando = null, onVerOferta = null, extra, soloTexto = false, errorExtra, enTarjeta = false,
 }: {
   sesion: OfferSesionVista;
+  /** «Responder» del clic derecho de un mensaje. Sin él, el menú sólo trae Copiar. */
+  onCitar?: (m: MensajeWA) => void;
   /** El mensaje del dueño ya dibujado mientras MaKo contesta (optimista): sale con «Enviando…». */
   pendiente: OfferMensaje | null;
   respondiendo: boolean;
@@ -272,7 +275,7 @@ export function ChatOffer({
       <div className="co-hilo" ref={hilo} onScroll={(e) => { abajo.current = estaAbajo(e.currentTarget); }}>
         <div className="co-hilo__col">
           <HiloMako items={items} quien={quien} ahora={ahora} escribiendo={null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} onCitar={onCitar} />
           {/* La espera, en la fila de MaKo del Ops Center: SÓLO LOS TRES PUNTITOS de «está escribiendo», sin texto (18/10/2026,
               Martín: «En lugar de "Revisando tu respuesta", sólo debería aparecer la animación de los ... como que está
               escribiendo»; por eso no el «Trabajando…» del hilo). Y «Analizando…» mientras LEE un link o un documento (18/10,

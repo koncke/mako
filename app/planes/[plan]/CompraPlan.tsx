@@ -27,11 +27,11 @@ export function CompraPlan(p: {
   refCodigo: string | null;
   sinPrueba?: boolean;
   /** Esta página mostró el 50% del primer mes. Lo decide la ruta, con la cookie del reloj: si ya no vale, lo dice y se elige seguir. */
-  oferta?: boolean;
+  promo?: boolean;
 }) {
   const [sinPrueba, setSinPrueba] = useState(!!p.sinPrueba);
-  const [sinOferta, setSinOferta] = useState(false);
-  const [ofrecerSinOferta, setOfrecerSinOferta] = useState(false);
+  const [sinPromo, setSinPromo] = useState(false);
+  const [ofrecerSinPromo, setOfrecerSinPromo] = useState(false);
   const [ofrecerSinPrueba, setOfrecerSinPrueba] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -42,7 +42,7 @@ export function CompraPlan(p: {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function enviar(e: React.FormEvent, sin = sinPrueba, sinDescuento = sinOferta) {
+  async function enviar(e: React.FormEvent, sin = sinPrueba, sinDescuento = sinPromo) {
     e.preventDefault();
     if (enviando) return;
     if (p.pasarelas.length > 1 && !pasarela) { setError('Elige con qué quieres pagar.'); return; }
@@ -53,14 +53,14 @@ export function CompraPlan(p: {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, oferta: !!p.oferta, sinOferta: sinDescuento }),
+        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, promo: !!p.promo, sinPromo: sinDescuento }),
       });
-      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean; sinOferta?: boolean; campo?: string };
+      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean; sinPromo?: boolean; campo?: string };
       if (r.ok && j.link) { window.location.href = j.link; return; }
       if (j.campo === 'codigo') { setErrorCodigo(j.error ?? 'Revisa el código.'); setEnviando(false); return; }
       setError(j.error ?? 'No pudimos abrir el pago. Prueba otra vez.');
       setOfrecerSinPrueba(!!j.sinPrueba);
-      setOfrecerSinOferta(!!j.sinOferta);
+      setOfrecerSinPromo(!!j.sinPromo);
     } catch {
       setError('No pudimos conectarnos. Revisa tu internet y prueba otra vez.');
     }
@@ -98,9 +98,9 @@ export function CompraPlan(p: {
         <button className="planes-btn planes-btn-borde" type="button" disabled={enviando}
           onClick={(e) => { setSinPrueba(true); void enviar(e, true); }}>Empezar sin prueba</button>
       )}
-      {ofrecerSinOferta && !sinOferta && (
+      {ofrecerSinPromo && !sinPromo && (
         <button className="planes-btn planes-btn-borde" type="button" disabled={enviando}
-          onClick={(e) => { setSinOferta(true); setOfrecerSinOferta(false); void enviar(e, sinPrueba, true); }}>Seguir con el precio normal</button>
+          onClick={(e) => { setSinPromo(true); setOfrecerSinPromo(false); void enviar(e, sinPrueba, true); }}>Seguir con el precio normal</button>
       )}
       <p className="planes-nota">
         {sinPrueba
