@@ -197,8 +197,14 @@ test('asentarLinkPagadoDeCuota: primero repara el pagado sin su cuota (sin red),
   const f = c.slice(c.indexOf('export async function asentarLinkPagadoDeCuota('));
   const cuerpoF = f.slice(0, f.indexOf('\n}\n'));
   const iRepara = cuerpoF.indexOf("if (c.estado !== 'pagado' || !c.proveedor_pago_id");
-  const iPregunta = cuerpoF.indexOf('pagoDelLinkEnLaPasarela(c, stripe, mp)');
-  assert.ok(iRepara > 0 && iPregunta > iRepara, 'el orden: reparar lo que ya se sabe antes de ir a la red');
+  // ⚠️ Esto citaba `pagoDelLinkEnLaPasarela(c, stripe, mp)` y se puso rojo al entrar Creem (31/10/2026). Pero el defecto real
+  // era otro y más silencioso: `indexOf` devuelve -1 cuando NO encuentra, y una comparación de orden contra -1 puede PASAR por
+  // accidente (si se perdía la reparación, `iRepara` daba -1 y cualquier `iPregunta` quedaba «después»). Así que cada punta se
+  // afirma existente por separado, antes de comparar el orden, y ya no se cita la lista de argumentos.
+  const iPregunta = cuerpoF.indexOf('pagoDelLinkEnLaPasarela(');
+  assert.ok(iRepara > 0, 'desapareció la reparación del `pagado` sin su cuota: sin ella, marcarPago anula el link ya pagado y el pago entra como OTRA cuota cobrada');
+  assert.ok(iPregunta > 0, 'desapareció la pregunta a la pasarela: ningún link pagado se asienta solo');
+  assert.ok(iPregunta > iRepara, 'el orden: reparar lo que ya se sabe antes de ir a la red');
   assert.match(cuerpoF, /\.eq\('workspace_id', ws\)\.eq\('pago_id', pagoId\)/, 'los links de ESTA cuota de ESTE negocio');
   assert.match(cuerpoF, /catch \(e\) \{\s*sinLeer\+\+;/, 'una pasarela que no contesta no corta: sigue');
 });

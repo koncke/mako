@@ -364,6 +364,16 @@ test('10. el cableado del cobro: Creem tiene su rama en TODO camino que mueve pl
   assert.match(src, /return PASARELAS\.filter\(\(p\) => cs\.some\(\(x\) => x\.proveedor === p\)\)/);
   assert.doesNotMatch(src, /\(\['stripe', 'mercadopago'\] as const\)/, 'volvió la lista de dos pasarelas escrita a mano');
 
+  // EL CHECKOUT PÚBLICO TIENE QUE SABER NOMBRAR A CADA PASARELA (31/10/2026): al rótulo le faltaba Creem y el radio salía EN
+  // BLANCO. El comprador de /planes no sabe qué está eligiendo y se va — y el que no se leía era el de LatAm. TypeScript lo
+  // veía (el Record es total) pero `ignoreBuildErrors` lo dejó pasar, así que acá se mira el texto.
+  const compra = fuente('app/planes/[plan]/CompraPlan.tsx');
+  const rotulos = compra.slice(compra.indexOf('const NOMBRE'), compra.indexOf('};', compra.indexOf('const NOMBRE')));
+  assert.ok(rotulos.length > 0, 'desapareció el catálogo de rótulos `NOMBRE` del checkout público');
+  for (const pas of PASARELAS) {
+    assert.match(rotulos, new RegExp(`\\b${pas}:\\s*'[^']+'`), `el checkout público no sabe cómo llamar a ${pas}: su opción sale con el rótulo en blanco`);
+  }
+
   // Conectar Creem tiene que ser posible: el despachador era un ternario que mandaba su clave a la API de Mercado Pago.
   const conexion = fuente('lib/cobros-conexion.ts');
   assert.match(conexion, /case 'creem': return descubrirCreem\(ws, clave, autor, opts\)/);

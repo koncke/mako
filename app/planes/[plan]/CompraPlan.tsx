@@ -20,9 +20,17 @@ import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { DIAS_AVISO_FIN_DE_PRUEBA } from '@/lib/prueba-plan-reglas';
 import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 
-// Las dos se ven juntas sólo cuando no se sabe el país (lib/compra-plan-reglas.ts, `pasarelasDelPais`): Mercado Pago dice que
-// es para Argentina, así nadie de afuera la elige y se encuentra con «La cuenta del vendedor es de otro país».
-const NOMBRE: Record<Pasarela, string> = { stripe: 'Tarjeta de crédito o débito', mercadopago: 'Mercado Pago (desde Argentina, en pesos)' };
+// Se ven juntas sólo cuando no se sabe el país (local, o una IP que Vercel no ubica) o cuando la que le tocaba no está
+// conectada: lib/compra-plan-reglas.ts, `pasarelasDelPais`. Mercado Pago dice que es para Argentina, así nadie de afuera la
+// elige y se encuentra con «La cuenta del vendedor es de otro país».
+// ⚠️ A ESTE RÓTULO LE FALTABA CREEM (31/10/2026) y en el checkout salía un radio EN BLANCO: el comprador no sabía qué estaba
+// eligiendo, y el que no se leía era justo el de LatAm. El `Record<Pasarela, …>` es total, así que TypeScript lo veía
+// (TS2741) — pero `next.config.ts` tiene `typescript: { ignoreBuildErrors: true }`, así que el build lo dejó pasar.
+const NOMBRE: Readonly<Record<Pasarela, string>> = {
+  stripe: 'Tarjeta de crédito o débito',
+  mercadopago: 'Mercado Pago (desde Argentina, en pesos)',
+  creem: 'Tarjeta internacional (en dólares)',
+};
 // Los colores fijos de las páginas de planes (app/planes/estilo.ts): el selector de país es de la app y viene con los del tema.
 const CAMPO_TEL: React.CSSProperties = { width: '100%', boxSizing: 'border-box', font: 'inherit', padding: '11px 12px', border: '1px solid #D5D9E0', borderRadius: 10, background: '#fff', color: '#12151B' };
 const CARA_LADA: React.CSSProperties = { height: '100%', minHeight: 46, border: '1px solid #D5D9E0', borderRadius: 10, background: '#fff', color: '#12151B' };
