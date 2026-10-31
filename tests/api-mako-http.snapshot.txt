@@ -523,6 +523,7 @@ publicar_creacion
 publicar_landing
 publicar_post_comunidad
 que_recomienda_mako
+quienes_de_automatizacion
 quitar_cobro_landing
 quitar_componente_dashboard
 quitar_conector_dashboard

@@ -69,6 +69,16 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
   {
+    id: 'quienes_de_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Quiénes son los números de una automatización',
+    descripcion: 'Los leads detrás de un número de las Métricas de una automatización, en los últimos 30 días: quiénes respondieron, quiénes siguen en el flujo o quiénes entraron. Úsala para seguir a los que contestaron.',
+    parametros: [
+      { nombre: 'secuenciaId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'la automatización (de listar_secuencias_nutricion).' },
+      { nombre: 'cual', tipo: 'string', obligatorio: true, enum: ['respondieron', 'en_curso', 'entraron'], descripcion: 'cuál número.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
     id: 'metricas_chatbot', area: 'chatbot', tipo: 'lectura',
     titulo: 'Métricas del chatbot (30 días)',
     descripcion: 'Los KPIs del chatbot en los últimos 30 días: por secuencia, mensajes enviados por WhatsApp y por email, respuestas, aperturas y clics de email, inscriptos activos y completados; y la serie diaria de 30 días. Úsala para «cuántos mensajes salieron esta semana» o «cuántos contestaron». Las aperturas y clics existen solo para email; «respuestas» es la cantidad de inscripciones pausadas porque el lead contestó.',

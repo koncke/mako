@@ -456,6 +456,13 @@ export const RUNNERS: Runners = {
     },
   },
 
+  quienes_de_automatizacion: {
+    leer: async (input) => {
+      const { esQuienes, quienesDeAutomatizacion } = await import('@/lib/automatizacion-quienes');
+      if (!esQuienes(input.cual)) return errorLectura('Eso no se puede listar.');
+      return json(await quienesDeAutomatizacion(Number(input.secuenciaId), input.cual));
+    },
+  },
   metricas_chatbot: {
     leer: async (input) => {
       const filtro = input.secuenciaId != null ? num(input, 'secuenciaId') : null;

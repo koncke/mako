@@ -354,6 +354,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/chatbot/lead-magnets', 'crear_lead_magnet'],
   ['GET', '/chatbot/leads/{leadId}/inscripciones', 'inscripciones_lead'],
   ['GET', '/chatbot/metricas', 'metricas_chatbot'],
+  ['GET', '/chatbot/quienes', 'quienes_de_automatizacion'],
   ['GET', '/chatbot/objetivos', 'listar_objetivos_secuencia'],
   ['POST', '/chatbot/objetivos', 'agregar_objetivo_custom'],
   ['GET', '/chatbot/onboarding', 'estado_onboarding_chatbot'],

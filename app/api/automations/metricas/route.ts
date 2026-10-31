@@ -9,6 +9,7 @@
 // =============================================================================
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { esQuienes, quienesDeAutomatizacion } from '@/lib/automatizacion-quienes';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
@@ -31,6 +32,17 @@ export async function GET(req: NextRequest) {
   if (cerrada) return cerrada;
   const id = Number(req.nextUrl.searchParams.get('id'));
   if (!Number.isSafeInteger(id) || id <= 0) return no(400, 'id inválido');
+  // «Respondieron 8», ¿quiénes? (31/10/2026, lib/automatizacion-quienes.ts).
+  const quienes = req.nextUrl.searchParams.get('quienes');
+  if (quienes != null) {
+    if (!esQuienes(quienes)) return no(400, 'Eso no se puede listar.');
+    try {
+      return Response.json({ ok: true, ...(await quienesDeAutomatizacion(id, quienes)) });
+    } catch (e) {
+      console.error(`[metricas] quiénes ${id}: ${e instanceof Error ? e.message : String(e)}`);
+      return no(500, 'No pude leer quiénes son: prueba de nuevo.');
+    }
+  }
   try {
     const m = await metricasParaMostrar(id);
     if (!m) return no(404, 'No existe esa automatización.');
