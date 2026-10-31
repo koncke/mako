@@ -501,7 +501,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
           <VentanaChat
             key={seleccion.clave}
             ws={ws}
-            chat={seleccionVista}
+            chat={seleccionVista ?? seleccion}
             yo={yo}
             equipo={datos?.equipo ?? []}
             etapas={datos?.etapas ?? []}
