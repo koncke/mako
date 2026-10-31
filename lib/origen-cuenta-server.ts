@@ -9,7 +9,7 @@ import 'server-only';
 
 import { getSupabaseServer } from './supabase';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
-import { CLAVE_ORIGEN_CUENTA, leerOrigen, origenDe, origenDeCheckout, type OrigenCuenta } from './origen-cuenta';
+import { CLAVE_ORIGEN_CUENTA, CLAVE_WHATSAPP_DEL_PAGO, leerOrigen, origenDe, origenDeCheckout, whatsappDelPago, type OrigenCuenta } from './origen-cuenta';
 
 /** El origen de un lead de la plataforma: sus UTM, su visitante y su primera visita a una landing de MaKo. */
 export async function origenDeLeadMako(leadId: number): Promise<OrigenCuenta | null> {
@@ -55,6 +55,22 @@ export async function guardarOrigenDeAlta(wsNuevo: number, leadId: number | null
   const origen = origenDeCheckout(explicito, delLead ? { id: delLead.leadId, visitor_id: delLead.visitorId } : null, new Date().toISOString()) ?? delLead;
   if (origen) await guardarOrigenCuenta(wsNuevo, origen);
   return origen;
+}
+
+/**
+ * Para el alta: el WhatsApp del comprador en su cuenta nueva (`CLAVE_WHATSAPP_DEL_PAGO`). No pisa uno que ya esté: un reintento del alta
+ * no cambia lo que el onboarding ya le ofreció. Accesorio, como el origen.
+ */
+export async function guardarWhatsappDelPago(wsNuevo: number, leadId: number | null, cobroId: number): Promise<void> {
+  const db = getSupabaseServer();
+  const plataforma = await wsSuperAdmin();
+  // `cobros.origen` puede no existir todavía (mig 0330): sin la columna, el de la ficha.
+  const { data: cobro, error: eCobro } = await db.from('cobros').select('origen').eq('workspace_id', plataforma).eq('id', cobroId).maybeSingle();
+  const { data: lead } = leadId ? await db.from('leads').select('telefono_normalizado').eq('workspace_id', plataforma).eq('id', leadId).maybeSingle() : { data: null };
+  const numero = whatsappDelPago(eCobro ? null : (cobro as { origen?: unknown } | null)?.origen, (lead as { telefono_normalizado?: unknown } | null)?.telefono_normalizado);
+  if (!numero) return;
+  const { error } = await db.from('app_settings').upsert({ workspace_id: wsNuevo, key: CLAVE_WHATSAPP_DEL_PAGO, value: numero }, { onConflict: 'workspace_id,key', ignoreDuplicates: true });
+  if (error) throw new Error(`${CLAVE_WHATSAPP_DEL_PAGO} de ${wsNuevo}: ${error.message}`);
 }
 
 /** El origen de la cuenta abierta (o de `ws`): lo lee el onboarding. null = no se sabe. */

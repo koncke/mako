@@ -15,7 +15,7 @@ import 'server-only';
 // =============================================================================
 
 import { getSetting } from './settings';
-import { enriquecerLead, logLeadEvent } from './leads';
+import { enriquecerLead, getLead, logLeadEvent, normalizarTelefono } from './leads';
 import { agregarAProducto } from './lead-funnel';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 
@@ -27,9 +27,13 @@ export function crmDeLlamadasDe(crudo: string | null | undefined): number | null
 }
 
 /**
- * EL WHATSAPP DE QUIEN YA ENTRÓ, A SU LEAD (30/10/2026). El checkout no lo pide (cada campo baja la conversión): se pide al entrar, y el
+ * EL WHATSAPP DE QUIEN YA ENTRÓ, A SU LEAD (30/10/2026). El checkout lo pide desde el 31/10, sin obligar: quien no lo dejó ahí lo da al entrar, y el
  * número del dueño de la cuenta (`guardarNumeroDueno`, lib/mako-grupo.ts) es el mismo por el que se lo llama. Sólo llena un teléfono
  * vacío (`enriquecerLead`: lo cargado gana) y sólo si hay UN lead de esa cuenta. Es otro negocio: corre con el ws de la plataforma. Nunca tira.
+ *
+ * ⚠️ LO ÚNICO QUE SE REEMPLAZA ES LO QUE ESCRIBIÓ EN EL CHECKOUT (31/10/2026): un dígito mal en un formulario público llenaba la ficha, y el
+ * número que WhatsApp sí reconoce ya no entraba, sin rastro. Por esa ficha se lo llama. Si alguien lo cambió a mano, ya no es el del
+ * checkout y gana lo cargado.
  */
 export async function anotarTelefonoDelComprador(cuentaWs: number, numero: string): Promise<void> {
   try {
@@ -40,7 +44,18 @@ export async function anotarTelefonoDelComprador(cuentaWs: number, numero: strin
       const { data, error } = await db.from('leads').select('id').eq('cliente_ws', cuentaWs).limit(2);
       if (error) throw new Error(error.message);
       const filas = (data ?? []) as Array<{ id: number }>;
-      if (filas.length === 1) await enriquecerLead(filas[0].id, { telefono: `+${numero.replace(/\D/g, '')}` }, 'Cuenta de MaKo');
+      if (filas.length !== 1) return;
+      const id = filas[0].id;
+      const digitos = numero.replace(/\D/g, '');
+      if ((await enriquecerLead(id, { telefono: `+${digitos}` }, 'Cuenta de MaKo')).length) return;
+      const hoy = normalizarTelefono((await getLead(id))?.telefono_normalizado);
+      if (!hoy || hoy === digitos) return;
+      const { data: compras, error: e2 } = await db.from('cobros').select('origen').eq('alta_ws', cuentaWs).limit(20);
+      if (e2) throw new Error(e2.message);
+      if (!((compras ?? []) as Array<{ origen?: { whatsapp?: unknown } | null }>).some((c) => c.origen?.whatsapp === hoy)) return;
+      const { error: e3 } = await db.from('leads').update({ telefono: `+${digitos}`, telefono_normalizado: digitos }).eq('id', id);
+      if (e3) throw new Error(e3.message);
+      await logLeadEvent(id, 'WhatsApp', `Su WhatsApp es +${digitos}: reemplaza al que escribió en el checkout, +${hoy}.`, 'Cuenta de MaKo');
     });
   } catch (e) {
     console.error(`[compra-plan] no pude anotar el teléfono de la cuenta ${cuentaWs}: ${e instanceof Error ? e.message : String(e)}`);
