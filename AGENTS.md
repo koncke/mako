@@ -618,6 +618,19 @@ Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
   en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El tsc acotado puede INVENTAR un rojo».
 - **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
   sus consumidores.
+- ⚠️ **Y AL REVÉS, el rojo que SÍ hay que creer aunque Actions diga verde: dos archivos de la misma
+  carpeta cuyos nombres sólo se diferencian en MAYÚSCULAS.** `TS1149` («differs from already included
+  file name only in casing») junto a un `TS2305` sobre un import tuyo no es un artefacto: es un bug que
+  **sólo se ve en Windows**. Medido el 30/10/2026 rescatando `nube/video-generator-2710`: la carpeta traía
+  `composer.ts` (el módulo puro) y `Composer.tsx` (la pantalla), y el `import { Composer } from './Composer'`
+  resolvía al módulo PURO — TypeScript prueba `./Composer.ts` antes que `./Composer.tsx`, y en un filesystem
+  que no distingue mayúsculas eso ES `composer.ts`. En Linux —Actions y el build de Vercel— `./Composer.ts`
+  no existe, pasa de largo y da verde: **verde en el CI, roto en la máquina de Martín**, y con
+  `typescript.ignoreBuildErrors: true` nada lo frena. Los dos archivos coexisten en NTFS porque las
+  extensiones difieren (`.tsx` ≠ `.ts`), así que no hay choque al clonar: el choque es del resolvedor.
+  **La regla para código nuevo: en una carpeta no van dos nombres que sólo se distingan por la caja.** El
+  módulo puro de una pantalla lleva el sufijo `-reglas` (`chat-reglas.ts` para `ChatVideo.tsx`,
+  `composer-reglas.ts` para `Composer.tsx`), que es la convención que ya tenía la carpeta.
 - **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
   miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
 
@@ -1151,6 +1164,20 @@ lo que costó, en [docs/hallazgos-api-mako.md](docs/hallazgos-api-mako.md).
 
 **Si agregás una capacidad y no la declarás ahí, existe para la pantalla y no existe para
 nadie más.** Y si la escribís en una ruta aparte, es la segunda implementación de lo mismo.
+
+⚠️ **Y PORQUE TODA FEATURE PASA POR ACÁ, DOS RAMAS CHOCAN SIEMPRE EN LOS MISMOS CUATRO ARCHIVOS**
+(`registro.ts`, `runners.ts`, `flujo.ts` y `tests/api-mako-registro.test.ts`): cada una agregó SU área.
+**Esos choques se UNEN, no se elige un lado** — quedarse con uno borra el área del otro, y el test de
+paridad def ↔ run lo caza recién si el área perdida tenía runner. En `POR_AREA` y `RUNS_DE_AREA` entran
+las dos entradas; en `TODOS` (runners.ts), los dos módulos.
+⚠️ **Pero `NO_EN_FLUJOS` (lib/api-mako/flujo.ts) NO es un registro: es una lista de lo PROHIBIDO**, y ahí
+elegir un lado no pierde una feature, **abre un agujero** — lo que quedó afuera vuelve a ser ofrecible como
+paso de una automatización, que se confirma solo y sin sesión. El 30/10/2026 el choque tenía de un lado
+`'zona_media_buyer'`, `'hasta_media_buyer'` y `'proponer_crear_campana'` (gastan en Meta) y del otro
+`...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)` (gastan créditos de Flow): cualquiera de los dos lados «resolvía»
+el conflicto y dejaba plata al alcance de un flujo. **Ante un choque en una lista, preguntá primero si es
+un catálogo o una denylist**; con la denylist, unir es lo único seguro. Y el spread va ÚLTIMO: lo exige el
+regex de `tests/video-estudio-api.test.ts`.
 
 Lo que una definición tiene que declarar, y por qué no tiene default:
 

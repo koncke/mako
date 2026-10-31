@@ -28,7 +28,7 @@ const MS_VUELO = 700;
 const CURVA = 'cubic-bezier(.16,.84,.34,1)';
 const CHISPAS = [0, 60, 120, 180, 240, 300];
 
-/** Lleva un elemento fijo de su caja actual a la de destino (FLIP a mano; molde: app/video-generator/PreviaVolante.tsx). */
+/** Lleva un elemento fijo de su caja actual a la de destino (FLIP a mano; el molde fue el PreviaVolante de Video Generator, retirado el 27/10/2026: está en el historial de git). */
 function volar(el: HTMLElement, hasta: DOMRect, alTerminar: () => void) {
   const desde = el.getBoundingClientRect();
   const escala = desde.width === 0 ? 1 : hasta.width / desde.width;

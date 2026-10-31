@@ -99,6 +99,41 @@ código roto» con la evidencia del grupo compartido y eso cubría 0 de los 495,
 termina con cero tests corridos (hoy devuelve 1 y bloquea el push), y que el veredicto diga la RAM mínima
 en la misma línea del ROJO, para no tener que subir doce líneas en el log para saber si hay que creerle.
 
+## Qué se rompe cuando una rama queda tres días sin subir, y por qué «la punta del tren» no es una rama (30/10/2026)
+
+**El síntoma.** `nube/video-generator-2710` (40 archivos, 27/10 22:54) nunca entró a un tren. Tres días después el brief del
+rescate decía: partí de `origin/integracion`, donde está el tren de 91 commits; los choques están medidos contra la punta,
+`b2b8adf05`. **Las tres referencias querían decir otra cosa de la que decían.**
+
+**Lo que había de verdad, medido antes de tocar nada:**
+
+| lo que decía el brief | lo que era |
+|---|---|
+| `origin/integracion` = la punta del tren | **ancestro de `origin/main`**: el tren ya había aterrizado, y main le llevaba 455 commits |
+| `b2b8adf05` = la punta del tren | una rama **LOCAL y sin pushear** (`tren-ai`), `origin/main` + 91 commits |
+| «main se movió 91 commits» | 91 es el delta de `tren-ai` sobre main; desde la base de la rama, main movió **783** |
+
+**La causa real.** `integracion` no es un lugar donde el tren *está*: es un lugar por donde el tren *pasa*. Una vez mezclada en
+`main`, la rama queda atrás y seguir apuntándole devuelve un árbol viejo — con la trampa de que `git merge` contra ella
+**funciona igual** y da un merge limpio de algo que ya no es la realidad. Y «la punta» era un commit que no existe para nadie
+más: `git branch --contains` lo pone en tres ramas locales y en un tag de respaldo, y `git for-each-ref` no lo encuentra en
+ningún `refs/remotes`. Un brief puede nombrar con total precisión un commit que no se puede pushear.
+
+**La regla:**
+- **Antes de elegir la base, medí la topología; no la leas del brief.** Tres comandos:
+  `git merge-base --is-ancestor origin/integracion origin/main` (si da 0, integracion está atrás y la base es `main`),
+  `git rev-list --left-right --count A...B` para el delta de verdad, y `git for-each-ref --contains <sha>` para saber si una
+  punta existe fuera de esta máquina.
+- **Una rama que se va a pushear se basa en algo pusheado.** Basarla en `tren-ai` habría publicado 91 commits que el Cerebro
+  todavía no subió y que puede rebasear; y «en producción» es lo desplegado, que sale de `origin/main`.
+- Qué se rompe por esperar: no es el merge —fueron cinco choques de una línea cada uno— es que **los choques se multiplican por
+  cada feature que pasa por el registro de la API** (ver [hallazgos-api-mako.md](hallazgos-api-mako.md)), y que un bug de la
+  rama sobrevive tres días sin que nadie lo vea. El de esta rama (`composer.ts` / `Composer.tsx`, verde en Linux y roto en
+  Windows: [hallazgos-generativa.md](hallazgos-generativa.md)) no lo frenaba ningún tren, porque **Actions corre en Linux**.
+
+**Lo que quedó sin hacer.** Esta rama de rescate (`nube/video-generator-rescate`) está basada en `origin/main`, así que cuando
+`tren-ai` suba hay que **volver a mezclar `docs/hallazgos.md`**: es el único de los cinco archivos en choque que `tren-ai`
+toca (37 commits), y los otros cuatro —los del registro— no los toca ninguno de sus 91 commits.
 
 ## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
 
