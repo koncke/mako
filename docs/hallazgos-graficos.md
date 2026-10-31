@@ -26,7 +26,7 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **Sólo el Dashboard.** Las plantillas de General siguen con `conPortada` y su tema `general`.
 - **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
 
-**Sin hacer:** las medidas de teléfono de Corbel (todo se leyó a 1440), el medidor de arco de su tarjeta negra, la animación de claro y oscuro y la de aparición en todas las tabs, y el espaciado en CRM y Kanban.
+**Sin hacer:** las medidas de teléfono de Corbel (todo se leyó a 1440), el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
 
 ## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
 

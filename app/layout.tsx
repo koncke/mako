@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
+import { AparicionDeTab } from './_components/AparicionDeTab';
 import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
@@ -288,6 +289,7 @@ export default async function RootLayout({
               {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
                   25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
               {sesion && <CartelPagoCliente />}
+              <AparicionDeTab />
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

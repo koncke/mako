@@ -1402,3 +1402,7 @@ details[open] > summary .chev {
    `flex: none` para que no se achique cuando el rótulo cede el ancho, y sin el
    `vertical-align` del marcador genérico, que ahí adentro no aplica. */
 .mk-det--prio > summary::before { flex: none; align-self: center; vertical-align: baseline; }
+
+/* El barrido de claro a oscuro (app/_components/barrido-tema.ts): sin apagar el fundido que el navegador trae por defecto, el círculo queda tapado. */
+::view-transition-old(root),
+::view-transition-new(root) { mix-blend-mode: normal; animation: none; }
