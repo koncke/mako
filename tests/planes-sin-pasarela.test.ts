@@ -81,7 +81,7 @@ test('/planes arma el botón con la regla y decide por plan con la misma cuenta 
   // Los bloques de /planes y de la landing son UNA pieza (24/10, noche): el botón se arma ahí.
   const tarjetas = fuente('app/planes/Tarjetas.tsx');
   assert.match(tarjetas, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/);
-  assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/);
+  assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} promoVigente=\{promoVigente\} \/>/);
   // Con el país de quien mira (27/10/2026): Mercado Pago sólo en el suyo (tests/planes-stripe-afuera.test.ts).
   assert.match(pagina, /ofertasDeLosPlanes\(paisDelVisitante\(/);
   const lib = fuente('lib/compra-plan.ts');
@@ -133,7 +133,7 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   // El efecto que monta los precios va ANTES que el del diseño (que corre su script, el que cargaría Calendly).
   assert.ok(landing.indexOf('setDestinoPrecios(montarPrecios(root));') < landing.indexOf("sc.id = 'gm-diseno-js';"));
   const precios = fuente('app/vsl/PreciosLanding.tsx');
-  assert.match(precios, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
+  assert.match(precios, /<TarjetasPlanes promoVigente=\{promoVigente\} planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
   assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
   // El anual (25/10/2026) se muestra y SIEMPRE se pide: su botón es otro, nunca el del checkout mensual.
   assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{botonAnualDelPlan\(\{ id: p\.id, sufijo \}\)\.href\}/);

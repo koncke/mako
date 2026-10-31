@@ -85,6 +85,7 @@ import {
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
@@ -507,6 +508,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
    * ahí manda `enviarVista`). Si no sale, el texto VUELVE al composer: perder lo que alguien escribió
    * porque se cortó la conexión es peor que el corte.
    */
+  // «Responder» del clic derecho, por conversación. En el arranque no: ahí lo que se escribe contesta SU pregunta (el nombre, un código).
+  const cita = useCitaDelChat(sesion?.id ?? null);
   const enviarComposer = async () => {
     // En el arranque, fuera de la etapa de la oferta, el texto es la respuesta a SU pregunta (el nombre, un
     // código): lo contesta el arranque, no Offer. Si no salió, vuelve al composer.
@@ -522,9 +525,10 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     const t = texto.trim();
     const e = epoca.current;
     setTexto('');
-    // Con 'tirar' el texto también vuelve: un texto rechazado se puede corregir (un audio, no).
-    const res = await mandar({ texto: t, docs: [], fuente: linksDe(t).length ? 'tu link' : 'tu respuesta' });
-    if (res === 'salio') return;
+    // Con 'tirar' el texto también vuelve: un texto rechazado se puede corregir (un audio, no). La cita queda hasta que salga, y un
+    // link del mensaje citado no cuenta como uno que trae ahora.
+    const res = await mandar({ texto: cita.con(t), docs: [], fuente: linksDe(t).length ? 'tu link' : 'tu respuesta' });
+    if (res === 'salio') { cita.soltar(); return; }
     if (e === epoca.current) setTexto((ahora) => (ahora.trim() ? ahora : t));
   };
 
@@ -1000,7 +1004,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   // Con sólo texto (el arranque pregunta el nombre o un código), sin adjuntos ni voz.
   const sinAdjuntos = !!arranque?.manda;
   const caja: PropsCajaChat = {
-    texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true,
+    texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true, arriba: arranque?.manda ? undefined : cita.arriba,
     // «Escribe a MaKo» (29/10/2026): «Escríbele a MaKo» no entraba en un renglón en la tarjeta de 340 px de Create.
     placeholder: arranque?.placeholder ?? 'Escribe a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
     // `sinAdjuntos` también a la caja (la revisión del 27/10/2026): si no, la caja adjuntaba SOLA y lo leído iba a la respuesta.
@@ -1059,7 +1063,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
             onOpcion={alElegirOpcion}
             onVarias={elegirVarias}
             onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
-            caja={caja}
+            caja={caja} onCitar={arranque?.manda ? undefined : cita.citar}
             onArchivos={agregarArchivos}
             ocupado={ocupado}
             error={errorVista ?? errorChat}
@@ -1178,7 +1182,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               onOpcion={alElegirOpcion}
               onVarias={elegirVarias}
               onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
-              caja={caja}
+              caja={caja} onCitar={arranque?.manda ? undefined : cita.citar}
               onArchivos={agregarArchivos}
               ocupado={ocupado}
               // El error de lo juntado (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.

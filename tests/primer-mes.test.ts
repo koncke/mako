@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DESCUENTO_PRIMER_MES_PCT, PLANES_MAKO_DEFAULT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { creadoPorPrimerMes, lineaDelPrimerMes, montoDelPrimerPago, pctDelPrimerMes, usdDelPrimerPago, usdPrimerMesVigente } from '../lib/primer-mes-reglas';
-import { OFERTA_ENTRADA } from '../lib/oferta-entrada-reglas';
+import { PROMO_ENTRADA } from '../lib/promo-entrada-reglas';
 import { bajadaDePlanes } from '../lib/compra-plan-reglas';
 import { esPruebaDePlan } from '../lib/prueba-plan-reglas';
 
@@ -60,7 +60,7 @@ test('con el reloj vivo: el 50% de un solo cobro en Stripe, y el cobro sigue val
 
 test('un reloj vencido se dice a quien lo vio y no crea nada; la gracia, la cookie falsa y el interruptor apagado', () => {
   assert.equal(R.vencida.status, 409);
-  assert.equal(R.vencida.sinOferta, true);
+  assert.equal(R.vencida.sinPromo, true);
   assert.match(R.vencida.error, /venció/);
   assert.equal(R.vencidaNoCreo, true, 'nunca se cobra lleno sin decirlo');
   assert.equal(R.vencidaSigue.ok, true);
@@ -68,13 +68,13 @@ test('un reloj vencido se dice a quien lo vio y no crea nada; la gracia, la cook
   assert.equal(R.graciaCobro, 'planes:pro:primer-mes-50', 'quien tocó el botón a tiempo no lo pierde por llenar el formulario');
   assert.equal(R.noLoVioCobro, 'planes:pro', 'quien no lo vio en la página: precio normal, sin preguntar (el contrato de Landings)');
   assert.equal(R.falsoCobro, 'planes:pro', 'una cookie inventada no da nada');
-  assert.equal(R.apagadaCobro, 'planes:pro', 'con `OFERTA_ENTRADA_ACTIVA` apagado no hay descuento');
+  assert.equal(R.apagadaCobro, 'planes:pro', 'con `PROMO_ENTRADA_ACTIVA` apagado no hay descuento');
 });
 
 test('un descuento por email: ni una cuenta que ya existe, ni quien ya lo pagó, ni quien lo abandonó hace más de 24 h', () => {
   for (const r of [R.cuenta, R.yaPago, R.abandonoViejo]) {
     assert.equal(r.status, 409, JSON.stringify(r));
-    assert.equal(r.sinOferta, true);
+    assert.equal(r.sinPromo, true);
   }
   assert.match(R.cuenta.error, /negocios nuevos/);
   assert.match(R.yaPago.error, /ya usó/);
@@ -117,8 +117,8 @@ test('a quien ya está en prueba no se le toca nada: su cobro sigue siendo una p
 });
 
 test('las reglas del primer mes', () => {
-  assert.equal(DESCUENTO_PRIMER_MES_PCT, OFERTA_ENTRADA.pct, 'el cartel y el cobro, del mismo número');
-  assert.deepEqual([...OFERTA_ENTRADA.planes], ['esencial', 'pro']);
+  assert.equal(DESCUENTO_PRIMER_MES_PCT, PROMO_ENTRADA.pct, 'el cartel y el cobro, del mismo número');
+  assert.deepEqual([...PROMO_ENTRADA.planes], ['esencial', 'pro']);
   assert.equal(creadoPorPrimerMes('pro'), 'planes:pro:primer-mes-50');
   assert.equal(pctDelPrimerMes('planes:pro:primer-mes-50'), 50);
   for (const v of [null, '', 'planes:pro', 'planes:pro:prueba', 'planes:pro:primer-mes-0', 'x:primer-mes-50']) assert.equal(pctDelPrimerMes(v), null, String(v));
@@ -142,7 +142,7 @@ test('las tarjetas, dibujadas: con el reloj vivo dicen el primer mes de los dos 
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { VitrinaPlanes } = await import('../app/planes/Vitrina');
   const ofertas = PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((plan) => ({ plan, cobrable: true }));
-  const dibujar = (ofertaVigente: boolean) => renderToStaticMarkup(React.createElement(VitrinaPlanes, { ofertas, sufijo: '', ofertaVigente }))
+  const dibujar = (promoVigente: boolean) => renderToStaticMarkup(React.createElement(VitrinaPlanes, { ofertas, sufijo: '', promoVigente }))
     .replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const conReloj = dibujar(true);
   assert.ok(conReloj.includes('Tu primer mes: US$ 23,50'), 'Esencial');
@@ -153,13 +153,13 @@ test('las tarjetas, dibujadas: con el reloj vivo dicen el primer mes de los dos 
 });
 
 test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
-  assert.match(fuente('app/planes/page.tsx'), /ofertaVigente=\{relojVivo\(\(await cookies\(\)\)\.get\(COOKIE_OFERTA\)\?\.value\)\}/, 'las tarjetas de /planes');
-  assert.match(fuente('app/planes/[plan]/page.tsx'), /OFERTA_ENTRADA\.planes\.includes\(plan\.id\) && relojVivo/, 'la página del plan sabe del descuento');
-  assert.match(fuente('app/vsl/PreciosLanding.tsx'), /<TarjetasPlanes ofertaVigente=\{ofertaVigente\}/, 'las tarjetas de la landing');
+  assert.match(fuente('app/planes/page.tsx'), /promoVigente=\{relojVivo\(\(await cookies\(\)\)\.get\(COOKIE_PROMO\)\?\.value\)\}/, 'las tarjetas de /planes');
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /PROMO_ENTRADA\.planes\.includes\(plan\.id\) && relojVivo/, 'la página del plan sabe del descuento');
+  assert.match(fuente('app/vsl/PreciosLanding.tsx'), /<TarjetasPlanes promoVigente=\{promoVigente\}/, 'las tarjetas de la landing');
   assert.match(fuente('app/planes/Tarjetas.tsx'), /Tu primer mes: US\$ \{textoUsd\(precioPrimerMes\(p\.precioUsd\)\)\}/);
-  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /oferta: !!p\.oferta, sinOferta: sinDescuento/);
+  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /promo: !!p\.promo, sinPromo: sinDescuento/);
   assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /Seguir con el precio normal/);
-  assert.match(fuente('app/api/planes/comprar/route.ts'), /\.\.\.\(r\.sinOferta \? \{ sinOferta: true \} : \{\}\)/);
+  assert.match(fuente('app/api/planes/comprar/route.ts'), /\.\.\.\(r\.sinPromo \? \{ sinPromo: true \} : \{\}\)/);
   assert.match(fuente('app/vsl/Landing.tsx'), /PRUEBA_GRATIS_PRENDIDA \? PRUEBA_DIAS : 'apagada'/, 'una landing publicada no sigue prometiendo días gratis');
   assert.match(fuente('app/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
   assert.match(fuente('app/m/configuraciones/plan/page.tsx'), /primerMes: lineaDelPrimerMes\(sus, formatoMonto\)/);
@@ -168,24 +168,23 @@ test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await conciliarPrimerMes\(\)/);
 });
 
-// Roturas (30/10/2026; base 12 / 0, y re-corridas sobre la cookie de Landings), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):
-//   · el interruptor prendido                                  -> 0 / 1
-//   · Mercado Pago nace a precio lleno                         -> 10 / 2
-//   · el primer pago se asienta lleno (no lo veía: el test miraba sólo los dólares; ahora mira también su moneda) -> 11 / 1
-//   · el primer pago entra lleno al cash                       -> 11 / 1
-//   · el cupón de Stripe no vence; Stripe sin el cupón         -> 11 / 1 cada una
-//   · Mercado Pago no sube al primer pago                      -> 10 / 2
-//   · el cron pisa una retención; no avisa; no sube            -> 11 / 1 cada una
-//   · el reloj vencido regala; cobra lleno sin decirlo         -> 11 / 1 cada una
-//   · sin el límite por email; una cuenta que existe lo usa    -> 11 / 1 cada una
-//   · un abandono viejo o quien ya pagó vuelve a tenerlo       -> 11 / 1 cada una (el de «ya pagó» no lo veía: la fila tenía más de 24 h y caía por la otra regla)
-//   · el cobro guarda la mitad                                 -> 10 / 2
-//   · sigue habiendo prueba para las altas nuevas              -> 0 / 1
-//   · a quien está en prueba se le quitan los días             -> 11 / 1
-//   · sin gracia; la gracia también para quien no lo vio       -> 11 / 1 cada una
-//   · el descuento en un plan que no está en el cartel; con el interruptor apagado -> 11 / 1 cada una
-//   · el descuento dura para siempre en Tu plan                -> 11 / 1
-//   · la landing sigue prometiendo días gratis                 -> 11 / 1
-//   · las tarjetas de /planes o la página del plan no lo dicen -> 11 / 1 cada una
+// Roturas (31/10/2026; sobre la cookie de lib/promo-entrada.ts; base 13 / 0), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):
+//   · Mercado Pago nace a precio lleno                                -> 11 / 2
+//   · el primer pago se asienta lleno                                 -> 12 / 1 (al principio no lo veía: el test miraba sólo los dólares)
+//   · el cupón de Stripe no vence                                     -> 12 / 1
+//   · un reloj vencido regala (la ruta no mira la cookie)             -> 11 / 2
+//   · la ruta no lee la cookie; sin gracia                            -> 0 / 1 cada una
+//   · la gracia también para quien no lo vio                          -> 12 / 1
+//   · un reloj vencido cobra lleno sin decirlo                        -> 12 / 1
+//   · el descuento fuera de los planes del cartel                     -> 0 / 1
+//   · quien eligió seguir igual recibe el error                       -> 0 / 1
+//   · las tarjetas no lo dicen; lo dicen siempre                      -> 12 / 1 cada una
+//   · la página del plan no lo sabe                                   -> 12 / 1
+//   · el cartel y el cobro con dos números                            -> 10 / 3
+// Y sobre el token anterior, las reglas que no cambiaron (base 12 / 0): el interruptor prendido 0 / 1; el primer pago entra lleno al cash, Stripe sin el
+// cupón, el cron pisa una retención, no avisa o no sube, sin el límite por email, una cuenta que existe lo usa, un abandono viejo o quien ya pagó vuelve a
+// tenerlo (éste no lo veía: la fila tenía más de 24 h y caía por la otra regla), a quien está en prueba se le quitan los días, el descuento para siempre
+// en Tu plan, la landing promete días gratis: 11 / 1 cada una. Mercado Pago no sube al primer pago y el cobro guarda la mitad: 10 / 2 cada una.
+// Sigue habiendo prueba para las altas nuevas: 0 / 1.
 // Lo que NO corre acá: Stripe y Mercado Pago de verdad. `PUT /preapproval` nunca se midió con claves reales; falta un cobro real, y
 // para eso hace falta el sí de Martín. Mercado Pago además necesita los precios en pesos cargados (`preciosLocales`, hoy vacío).

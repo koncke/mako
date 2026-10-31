@@ -29,6 +29,7 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import Link from '@/app/_ui/Link';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
@@ -162,11 +163,15 @@ export function PanelMakoIA() {
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
-  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto });
+  // Acá un SVG o un AVIF también es una imagen para poner (se sube a «Subidos», que los pasa a PNG). La IA lee los demás: ./acciones.ts.
+  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
+  const cita = useCitaDelChat(disenoId);
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
     if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
+    // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
+    if (!dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0);
     void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos);
-    if (!dejarCaja) setTexto('');
+    if (!dejarCaja) { setTexto(''); cita.soltar(); }
   };
 
   const sugerir = (s: Sugerencia) => {
@@ -233,7 +238,7 @@ export function PanelMakoIA() {
             </div>
           )}
           <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}
@@ -261,7 +266,7 @@ export function PanelMakoIA() {
         <div className="co-caja">
           <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
             apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-            adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
+            arriba={cita.arriba} adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
         </div>
       </div>
     </div>

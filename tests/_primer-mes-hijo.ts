@@ -93,10 +93,10 @@ async function main() {
   process.env.APP_BASE_URL = 'https://mako.test';
   process.env.AUTH_SECRET = 'secreto-de-firma-de-prueba';
   process.env.RESEND_API_KEY = 're_prueba';
-  process.env.OFERTA_ENTRADA_ACTIVA = '1';
+  process.env.PROMO_ENTRADA_ACTIVA = '1';
 
   const { cifrar } = await imp('lib/cripto-credenciales.ts');
-  const { firmarVencimiento } = await imp('lib/oferta-entrada.ts');
+  const { firmarVencimiento } = await imp('lib/promo-entrada.ts');
   const { POST: comprarRuta } = await imp('app/api/planes/comprar/route.ts');
   const { NextRequest } = await import('next/server');
   const cobros = await imp('lib/cobros.ts');
@@ -121,7 +121,7 @@ async function main() {
     const cookie = cookieDe(reloj);
     const req = new NextRequest('https://mako.test/api/planes/comprar', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', origin: 'https://mako.test', 'x-forwarded-for': `10.0.0.${++nIp}`, 'x-vercel-ip-country': 'MX', ...(cookie ? { cookie: `mk_oferta=${cookie}` } : {}) },
+      headers: { 'content-type': 'application/json', origin: 'https://mako.test', 'x-forwarded-for': `10.0.0.${++nIp}`, 'x-vercel-ip-country': 'MX', ...(cookie ? { cookie: `mk_promo=${cookie}` } : {}) },
       body: JSON.stringify({ plan: 'pro', nombre: 'Ana Pérez', email, pasarela: 'stripe', ...extra }),
     });
     const r = await comprarRuta(req);
@@ -154,11 +154,11 @@ async function main() {
   // ── El reloj vencido, uno falso, la gracia, y quien sigue a precio normal ──
   const n = () => db.cobros.length;
   let n0 = n();
-  out.vencida = await comprar('vencida@ejemplo.com', -30, { oferta: true });
+  out.vencida = await comprar('vencida@ejemplo.com', -30, { promo: true });
   out.vencidaNoCreo = n() === n0;
-  out.vencidaSigue = await comprar('vencida@ejemplo.com', -30, { oferta: true, sinOferta: true });
+  out.vencidaSigue = await comprar('vencida@ejemplo.com', -30, { promo: true, sinPromo: true });
   out.vencidaSigueCobro = cobroDe('vencida@ejemplo.com')!.creado_por;
-  await comprar('gracia@ejemplo.com', -5, { oferta: true });
+  await comprar('gracia@ejemplo.com', -5, { promo: true });
   out.graciaCobro = cobroDe('gracia@ejemplo.com')!.creado_por;
   // Vencido y sin haberlo visto en la página: el contrato de Landings, precio normal, sin preguntar. La gracia no es para él.
   await comprar('nolovio@ejemplo.com', -5);
@@ -166,10 +166,10 @@ async function main() {
   await comprar('falso@ejemplo.com', '9999999999.firma-inventada');
   out.falsoCobro = cobroDe('falso@ejemplo.com')!.creado_por;
   // Con el interruptor de Landings apagado, una cookie buena no da nada: el cartel y el cobro no pueden decir cosas distintas.
-  process.env.OFERTA_ENTRADA_ACTIVA = '0';
+  process.env.PROMO_ENTRADA_ACTIVA = '0';
   await comprar('apagada@ejemplo.com', 5);
   out.apagadaCobro = cobroDe('apagada@ejemplo.com')!.creado_por;
-  process.env.OFERTA_ENTRADA_ACTIVA = '1';
+  process.env.PROMO_ENTRADA_ACTIVA = '1';
 
   // ── Un descuento por email ──
   n0 = n();

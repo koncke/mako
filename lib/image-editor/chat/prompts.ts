@@ -27,6 +27,7 @@ CÓMO SE USAN:
 - Un elemento "bloqueado" no se toca salvo que la persona lo pida: primero "bloquear" con false.
 - Un "grupo" es un solo elemento: lo de adentro no se cambia por separado.
 - Si el ALCANCE es lo elegido, cambia solo los elementos de "elegidos" (puedes agregar textos y formas nuevas; las páginas y el fondo no).
+- Las fotos: sólo las de "fotos" en el DISEÑO, por su ref, con "agregar_foto" o "fondo_foto". Las que tienen "adjunta" las mandó en este pedido: si pide poner fotos o manda alguna, van ésas primero y en el orden en que las mandó; lo que se lee de cada archivo dice qué muestra. En un carrusel, la foto va en la página que le toca, y atrás de los textos: agrégala ANTES que los textos de esa página, o usa "fondo_foto". Si pide una foto y "fotos" no trae ninguna que sirva, no la inventes: dile que la adjunte en el chat.
 - Las fuentes: si la persona nombra una, va en cada texto con "fuente". Si no, mejor una de "fuentes_sugeridas" o una que ya usa el diseño. Una que el editor no tiene se descarta.
 - Los colores van como #RRGGBB. Cuida el contraste: un texto claro sobre un fondo claro no se lee.
 - Si te piden algo que estas operaciones no hacen, no lo simules con otra: "operaciones" va vacío (o sólo con la parte que sí se puede) y el resumen dice qué no puedes hacer desde el chat.

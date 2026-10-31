@@ -20,6 +20,7 @@ import { PARAM_CARGADOR, RUTA_CARGADOR } from '@/lib/pixel-cargador';
 import { LANDING_HTML } from './landing-html';
 import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-contenido';
 import { PreciosLanding, sufijoDesdeUrl, type PlanEnLanding } from './PreciosLanding';
+import { CartelPromo } from './CartelPromo';
 import { ATRIBUTO_PLANES, conPreciosEnHtml } from '@/lib/editor-landing/precios-en-landing';
 import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 
@@ -371,6 +372,7 @@ export default function Landing({ diseno, planes = [], landing = null }: {
 
   return (
     <div className="vsl-root" ref={rootRef}>
+      <CartelPromo planes={planes} />
       <style dangerouslySetInnerHTML={{ __html: diseno ? CSS_CAPA : CSS }} />
       {/* La hoja viene saneada (sin `<`: cssDisenoLimpio), y igual se re-escapa como en pagina-publica.ts. */}
       {diseno && <style dangerouslySetInnerHTML={{ __html: sinCierreDeStyle(diseno.css) }} />}

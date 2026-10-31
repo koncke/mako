@@ -29,7 +29,7 @@ import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRE
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { noIncluyeDe } from '@/lib/planes-comparacion';
-import { OFERTA_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/oferta-entrada-reglas';
+import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-reglas';
 
 /** Un plan como lo dibujan las tarjetas, con si se cobra en línea. La capa dice lo que NO trae (la comparación). */
 export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
@@ -110,10 +110,10 @@ export const CSS_TARJETAS = `
 
 const precio = (n: number) => n.toLocaleString('es-AR');
 
-export function TarjetasPlanes({ planes, sufijo, ofertaVigente = false }: {
+export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
   planes: readonly PlanEnTarjeta[]; sufijo: string;
   /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */
-  ofertaVigente?: boolean;
+  promoVigente?: boolean;
 }) {
   const pr = PROGRAMA_ACELERADOR;
   // El selector, sólo si TODOS los planes tienen anual: uno sin anual quedaría sin precio al elegirlo.
@@ -146,7 +146,7 @@ export function TarjetasPlanes({ planes, sufijo, ofertaVigente = false }: {
             <div className="mkpl-mes">
               <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
               {pesos && <div className="mkpl-cuotas">o {formatoMonto(pesos, 'ARS')} por mes</div>}
-              {ofertaVigente && OFERTA_ENTRADA.planes.includes(p.id) && (
+              {promoVigente && PROMO_ENTRADA.planes.includes(p.id) && (
                 <div className="mkpl-primer-mes"><b>Tu primer mes: US$ {textoUsd(precioPrimerMes(p.precioUsd))}</b> Después, el precio de siempre.</div>
               )}
               <a className={borde} href={boton.href}>{boton.texto}</a>

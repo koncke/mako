@@ -62,6 +62,15 @@ export function armarConCita(cita: Pick<Cita, 'de' | 'texto'> | null, texto: str
   return `${MARCA_CITA}«${de}»: ${renglonDeCita(cita.texto)}\n\n${t}`;
 }
 
+/**
+ * Lo que se le pide a quien interpreta un pedido (lib/mako-pedidos.ts) es lo ESCRITO: el renglón citado no es un pedido. Con él
+ * adentro, citar «Archiva la hoja Ventas» y escribir «mejor no» proponía archivarla. Devuelve lo escrito y con qué volver a citarlo.
+ */
+export function separarCita(texto: string): { pedido: string; conCita: (t: string | null) => string | null } {
+  const l = leerCita(texto);
+  return l ? { pedido: l.resto, conCita: (t) => (t ? armarConCita(l.cita, t) : t) } : { pedido: texto, conCita: (t) => t };
+}
+
 /** La cita de un texto que salió con ella, y lo que se escribió debajo. null = no trae cita. */
 export function leerCita(texto: string): { cita: Pick<Cita, 'de' | 'texto'>; resto: string } | null {
   if (!texto.startsWith(MARCA_CITA)) return null;

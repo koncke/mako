@@ -18,14 +18,17 @@
 // La grilla de administración de siempre (alta, plan, equipo, borrar) vive en la pestaña Accounts.
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
 import { Banner } from '@/app/_ui';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
 import { Marca } from '@/app/_components/Marca';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
 import {
   ETIQUETA_PARA_MIRAR, comparacionCerrada, estadoEnUnaPalabra, haceTxt, nombreDePlan, ultimaVezTxt, type Segmento,
 } from '@/lib/clientes-plataforma-reglas';
+import { destinoCliente, itemsCliente } from './menu-contextual-customers';
 
 type Grupo = 'todos' | Segmento;
 
@@ -71,6 +74,10 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
   const conMrr = filas.some((f) => f.mrrUsd > 0 || f.sinDolares > 0);
   const ficha = filas.find((f) => f.ws === abierto) ?? null;
   const avisos = todosLosAvisos ? vista.paraMirar : vista.paraMirar.slice(0, 6);
+  // El clic derecho de un cliente (en «Para mirar» y en la lista): lo de su ficha sin abrirla (menu-contextual-customers.ts).
+  const menu = useMenuContextual<{ ws: number; nombre: string }>();
+  const router = useRouter();
+  const wsDelMenu = menu.abierto?.de.ws ?? null;
 
   useEffect(() => {
     if (abierto == null) return;
@@ -106,7 +113,7 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
                 const e = ETIQUETA_PARA_MIRAR[a.motivo];
                 return (
                   <li key={a.ws}>
-                    <button type="button" onClick={() => setAbierto(a.ws)}>
+                    <button type="button" onClick={() => setAbierto(a.ws)} {...menu.propsDe({ ws: a.ws, nombre: a.nombre })}>
                       <span className="cu-etq" data-tono={e.tono}>{e.rotulo}</span>
                       <span className="cu-mirar-txt"><b>{a.nombre}</b><span>{a.texto}</span></span>
                     </button>
@@ -142,7 +149,8 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
         {visibles.map((f) => {
           const e = estadoEnUnaPalabra(f);
           return (
-            <button key={f.ws} type="button" role="row" className="cu-fila" data-mrr={conMrr} data-abierta={abierto === f.ws} onClick={() => setAbierto(f.ws)}>
+            <button key={f.ws} type="button" role="row" className="cu-fila" data-mrr={conMrr} data-abierta={abierto === f.ws} onClick={() => setAbierto(f.ws)}
+              {...menu.propsDe({ ws: f.ws, nombre: f.nombre })}>
               <span className="cu-quien" role="cell">
                 <Marca icono={null} foto={null} nombre={f.nombre} tam={30} color={colorDe(f.nombre)} />
                 <span><b>{f.nombre}</b><small>{nombreDePlan(f.capa)}</small></span>
@@ -159,6 +167,18 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
       </div>
 
       {ficha && <Ficha f={ficha} actividadLeida={vista.actividadLeida} onCerrar={() => setAbierto(null)} />}
+
+      {menu.abierto && (
+        <MenuContextual key={menu.abierto.n} punto={{ x: menu.abierto.x, y: menu.abierto.y }} porDedo={menu.abierto.porDedo}
+          items={itemsCliente()} etiqueta={`Acciones de ${menu.abierto.de.nombre}`} onCerrar={menu.cerrar}
+          onElegir={(id) => {
+            const ws = wsDelMenu;
+            if (ws == null) return;
+            if (id === 'ficha') setAbierto(ws);
+            else if (id === 'entrar') window.location.href = destinoCliente('entrar', ws);
+            else if (id === 'administrar') router.push(destinoCliente('administrar', ws));
+          }} />
+      )}
     </div>
   );
 }

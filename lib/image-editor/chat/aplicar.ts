@@ -27,6 +27,9 @@ type Obj = Record<string, unknown>;
 type Pagina = Obj & { id: string; objects: Obj[] };
 type Doc = Obj & { width: number; height: number; pages: Pagina[] };
 
+/** Una foto de «Subidos» que la IA puede poner (la lista "fotos" de la vista): ref → esto. */
+export type FotoDelChat = { id: string; url: string; nombre: string; ancho: number; alto: number };
+
 /** Una fila de la revisión: lo de antes y lo de después. */
 export type CambioImagen = { tipo: 'agrega' | 'cambia' | 'quita'; titulo: string; antes: string; despues: string };
 
@@ -154,6 +157,31 @@ function conIdsNuevos(o: Obj, nuevoId: () => string): Obj {
 }
 
 /**
+ * La foto como la guarda el motor (`createImage`, _doory/editor/engine/objects/factories.ts): `src` y `assetId` de «Subidos» y
+ * la escala PAREJA, para que nunca se deforme. Sin medidas, en un cuadrado de la mitad del lado corto, como `photoBox` del motor.
+ * Con «cubrir» llena la caja y corta lo que sobra por igual de cada lado (`cropX`/`cropY`, en píxeles de la foto).
+ * ⚠️ `crossOrigin`: sin él, exportar el diseño falla con el lienzo «sucio». El motor lo pide igual al crearla.
+ */
+function objetoFoto(f: FotoDelChat, op: { x?: number; y?: number; ancho?: number; alto?: number; cubrir?: boolean }, w: number, h: number, id: string): Obj {
+  const nw = Math.max(1, f.ancho);
+  const nh = Math.max(1, f.alto);
+  const lado = Math.min(w, h) / 2;
+  const cajaW = op.ancho ?? (op.alto !== undefined ? (op.alto * nw) / nh : lado);
+  const cajaH = op.alto ?? (op.ancho !== undefined ? (op.ancho * nh) / nw : lado);
+  const escala = op.cubrir ? Math.max(cajaW / nw, cajaH / nh) : Math.min(cajaW / nw, cajaH / nh);
+  const anchoSrc = op.cubrir ? Math.min(nw, cajaW / escala) : nw;
+  const altoSrc = op.cubrir ? Math.min(nh, cajaH / escala) : nh;
+  const x = op.x ?? (w - cajaW) / 2;
+  const y = op.y ?? (h - cajaH) / 2;
+  return {
+    type: 'image', id, name: f.nombre.slice(0, 100), src: f.url, assetId: f.id, crossOrigin: 'anonymous',
+    originX: 'left', originY: 'top', left: r1(x + (cajaW - anchoSrc * escala) / 2), top: r1(y + (cajaH - altoSrc * escala) / 2),
+    width: anchoSrc, height: altoSrc, cropX: (nw - anchoSrc) / 2, cropY: (nh - altoSrc) / 2, scaleX: escala, scaleY: escala,
+    angle: 0, opacity: 1, visible: true, strokeUniform: true,
+  };
+}
+
+/**
  * APLICAR. Las operaciones en orden, sobre una copia. `nuevoId` arma los ids de lo nuevo (el navegador usa el del
  * motor; los tests, uno fijo). `activePageId`: la página abierta (la de un texto o una forma sin "pagina").
  * `soloRefs`: el alcance «lo elegido» (las refs elegidas; lo nuevo de este pedido vale). `fuente`: la familia tal como
@@ -162,6 +190,8 @@ function conIdsNuevos(o: Obj, nuevoId: () => string): Obj {
 export function aplicarOperaciones(p: {
   doc: unknown; operaciones: readonly OperacionImagen[]; vista: RefsDeVista; nuevoId: () => string; activePageId?: string | null;
   soloRefs?: ReadonlySet<string> | null; fuente?: (nombre: string) => string | null;
+  /** Las fotos que se le ofrecieron a la IA. Sin ellas, una operación con foto se descarta con su motivo. */
+  fotos?: ReadonlyMap<string, FotoDelChat> | null;
 }): ResultadoAplicar {
   const doc = clonar(p.doc) as Doc;
   const cambios: CambioImagen[] = [];
@@ -460,6 +490,30 @@ export function aplicarOperaciones(p: {
         pg.objects.push(o);
         if (op.ref) nuevas.set(op.ref, String(o.id));
         hecho({ tipo: 'agrega', titulo: circulo ? 'Círculo nuevo' : 'Rectángulo nuevo', antes: '', despues: `${Math.round(op.ancho)} × ${Math.round(op.alto)}` });
+        break;
+      }
+      case 'agregar_foto': {
+        if (op.ref) declaradas.add(op.ref);
+        const f = p.fotos?.get(op.foto);
+        if (!f) { descartes.push(`la foto «${op.foto}» no está en Subidos`); break; }
+        const pg = paginaDe(op.pagina);
+        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        const o = objetoFoto(f, op, anchoDe(pg), altoDe(pg), p.nuevoId());
+        pg.objects.push(o);
+        if (op.ref) nuevas.set(op.ref, String(o.id));
+        hecho({ tipo: 'agrega', titulo: 'Foto nueva', antes: '', despues: f.nombre });
+        break;
+      }
+      case 'fondo_foto': {
+        if (p.soloRefs) { descartes.push(deLaPagina('El fondo')); break; }
+        const f = p.fotos?.get(op.foto);
+        if (!f) { descartes.push(`la foto «${op.foto}» no está en Subidos`); break; }
+        const pg = paginaDe(op.pagina);
+        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        const bg = (pg.background ?? {}) as { type?: string; color?: string };
+        const antes = bg.type === 'solid' ? String(bg.color) : bg.type === 'image' ? 'imagen' : 'degradado';
+        pg.background = { type: 'image', src: f.url, fit: 'cover' };
+        hecho({ tipo: 'cambia', titulo: `Fondo de la página ${doc.pages.indexOf(pg) + 1}`, antes, despues: f.nombre });
         break;
       }
     }

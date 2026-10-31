@@ -22,8 +22,8 @@ import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { COOKIE_REF } from '@/lib/partners-reglas';
 
-import { entornoOferta, ofertaVigente } from '@/lib/oferta-entrada';
-import { COOKIE_OFERTA } from '@/lib/oferta-entrada-reglas';
+import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
+import { COOKIE_PROMO } from '@/lib/promo-entrada-reglas';
 import { MINUTOS_DE_GRACIA } from '@/lib/primer-mes-reglas';
 
 export const dynamic = 'force-dynamic';
@@ -65,11 +65,11 @@ export async function POST(req: NextRequest) {
   // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`. Mercado Pago,
   // sólo desde su país (27/10/2026: desde México rechazaba el pago); el país lo pone Vercel, no el formulario.
   const r = await iniciarCompraDePlan({ ...pedido, ref: refQueCuenta }, {
-    // El reloj del 50% (la cookie de lib/oferta-entrada.ts). Con el interruptor de Landings apagado, siempre false: precio normal.
-    ofertaVigente: ofertaVigente(req.cookies.get(COOKIE_OFERTA)?.value, Date.now() - (pedido.oferta ? MINUTOS_DE_GRACIA * 60_000 : 0), entornoOferta()),
+    // El reloj del 50% (la cookie de lib/promo-entrada.ts). Con el interruptor de Landings apagado, siempre false: precio normal.
+    promoVigente: promoVigente(req.cookies.get(COOKIE_PROMO)?.value, Date.now() - (pedido.promo ? MINUTOS_DE_GRACIA * 60_000 : 0), entornoPromo()),
     conPrueba: (await getSesionAdmin().catch(() => null)) != null,
     pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
   });
-  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}), ...(r.sinOferta ? { sinOferta: true } : {}) }, { status: r.status });
+  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}), ...(r.sinPromo ? { sinPromo: true } : {}) }, { status: r.status });
   return Response.json({ ok: true, link: r.link });
 }

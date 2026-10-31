@@ -27,6 +27,7 @@ const leer = (f: string) => readFileSync(f, 'utf8').replace(/\r\n/g, '\n');
 const EXENTAS: Array<[string, string]> = [
   ['app/api/webhooks/', 'se autentican por FIRMA del proveedor (lo que no firma muere en un 401) y un 429 lo hace reintentar y deshabilitar la suscripción en silencio'],
   ['app/api/cron/', 'exigen el secreto del cron (checkCronAuth) antes de hacer nada'],
+  ['app/api/promo-entrada/', 'no toca la base ni gasta nada: sólo firma una cookie para quien la pide, y mira el Origin'],
   ['app/api/email/unsubscribe/', 'el enlace firmado de un mail: darse de baja no puede fallar por un tope'],
   ['app/api/flow/puente/', 'la extensión del cliente, con su token de puente; sondea seguido a propósito'],
   ['app/api/montaje/worker/', 'el worker de montaje, con su secreto'],

@@ -122,7 +122,9 @@ test('el CHECKOUT: sólo con la pasarela que arma la prueba, una por email/cuent
   const comprar = cuerpo('lib/compra-plan.ts', 'iniciarCompraDePlan');
   const freno = comprar.indexOf('const puede = await puedeEmpezarPrueba(p.email, ws);');
   assert.ok(freno > 0 && freno < comprar.indexOf('crearCobro('), 'la segunda prueba se frena antes de abrir el pago');
-  assert.match(comprar, /creadoPor: conPrueba \? creadoPorPrueba\(plan\.id\) : `planes:\$\{plan\.id\}`,/);
+  // Con el interruptor (30/10/2026): el camino de la prueba sigue entero, y sólo se toma con `PRUEBA_GRATIS_PRENDIDA`.
+  assert.match(comprar, /const conPrueba = PRUEBA_GRATIS_PRENDIDA && !p\.sinPrueba;/);
+  assert.match(comprar, /creadoPor: conPrueba \? creadoPorPrueba\(plan\.id\) : conDescuento \? creadoPorPrimerMes\(plan\.id\) : `planes:\$\{plan\.id\}`,/);
   assert.match(comprar, /inicioAt: conPrueba \? finDeLaPrueba\(Date\.now\(\)\) : null,/, 'el primer cobro, el día 8 (el start_date de MP)');
   assert.match(comprar, /: \{ ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true \};/, 'quien ya la usó puede empezar sin ella');
   const puede = cuerpo('lib/compra-plan.ts', 'puedeEmpezarPrueba');
@@ -175,7 +177,7 @@ test('la PÁGINA DE VUELTA: «Tu prueba gratis empezó» con el día del cobro; 
   assert.match(p, /No se te cobró nada\./);
   assert.match(p, /<p>\{TEXTO_PRUEBA_USADA_TARJETA\}<\/p>/);
   assert.match(p, /href=\{`\/planes\/\$\{plan\}\?sinPrueba=1`\}>Empezar sin prueba<\/a>/);
-  assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{uno\('sinPrueba'\) === '1'\}/);
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{uno\('sinPrueba'\) === '1' \|\| !PRUEBA_GRATIS_PRENDIDA\}/);
 });
 
 test('el AVISO por email: un cron diario con su auth primero, sólo pruebas autorizadas, y la marca de la mig 0334', () => {

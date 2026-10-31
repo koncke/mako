@@ -3,7 +3,7 @@
 // =============================================================================
 // docs/estrategia-lanzamiento-low-to-high.md §3: «te ganaste un 50% de descuento», con reloj, sobre los dos planes, y sólo el
 // primer mes. Lo que hace que exista de verdad: un cobro `creado_por = planes:<plan>:primer-mes-<pct>`. El reloj y su cookie firmada son
-// de Landings (lib/oferta-entrada.ts, `ofertaVigente`); acá, lo que pasa en el cobro cuando el reloj dice que sí.
+// de Landings (lib/promo-entrada.ts, `promoVigente`); acá, lo que pasa en el cobro cuando el reloj dice que sí.
 //
 // ⚠️ EL MONTO DEL COBRO SIGUE SIENDO EL DE LISTA (97), y sólo el PRIMER PAGO sale a mitad. Es a propósito: `cobro.monto` es la
 // mensualidad para todo lo que viene después (la deuda de una mora, «Tu plan», la retención, «Pasar a Pro», el MRR). Guardar 48,50
@@ -19,7 +19,7 @@ const DIA_MS = 86_400_000;
 
 /**
  * Lo que tiene de más quien abrió la página del plan con el reloj vivo y tocó «Ir a pagar» cuando ya estaba en cero: no pierde el descuento
- * por llenar el formulario. Sólo si la página le mostró el descuento (`pedido.oferta`). Nunca se muestra: el reloj sigue diciendo cero.
+ * por llenar el formulario. Sólo si la página le mostró el descuento (`pedido.promo`). Nunca se muestra: el reloj sigue diciendo cero.
  */
 export const MINUTOS_DE_GRACIA = 15;
 
@@ -70,6 +70,6 @@ export function usdPrimerMesVigente(c: { monto_usd?: number | null; creado_por?:
 
 // ── Los textos del rechazo: siempre se dice, y siempre con la salida de seguir a precio normal ─────────────────────────
 
-export const TEXTO_OFERTA_VENCIDA = 'Tu descuento ya venció. Puedes seguir con el precio normal.';
-export const TEXTO_OFERTA_USADA = 'Ese email ya usó su descuento del primer mes. Puedes seguir con el precio normal.';
-export const TEXTO_OFERTA_CUENTA = 'Ese email ya tiene una cuenta de MaKo, y el descuento es para negocios nuevos. Puedes seguir con el precio normal.';
+export const TEXTO_PROMO_VENCIDA = 'Tu descuento ya venció. Puedes seguir con el precio normal.';
+export const TEXTO_PROMO_USADA = 'Ese email ya usó su descuento del primer mes. Puedes seguir con el precio normal.';
+export const TEXTO_PROMO_CUENTA = 'Ese email ya tiene una cuenta de MaKo, y el descuento es para negocios nuevos. Puedes seguir con el precio normal.';

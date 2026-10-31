@@ -4849,3 +4849,20 @@ SERVIDO (`curl` a hola-mako.com y contar), no en el documento; lo del código va
 Funnel» en /vsl/ads, a donde lleva la tarjeta del media buyer) y las landings de cada funnel (#33–#40) siguen con la
 frase vieja. El mosaico de 12 íconos de «¿Qué es MaKo?» (decorado, sin texto) muestra funcionalidades que salieron de
 la grilla. La tarjeta de Instagram lleva a la agenda (#beta): no hay página de esa funcionalidad.
+
+## El cartel del 50% con reloj: apagado hasta que el cobro haga el descuento (30/10/2026, claude1)
+
+⚠️ **Se llama «promo», no «oferta».** En MaKo «Oferta» ya es la oferta del negocio (su tab, su API, su campo `activa`). Dos ramas crearon este módulo en paralelo y chocaron línea por línea; al unirlas se renombró (31/10). El `oferta` que sigue en `lib/compra-plan.ts` y en `/planes/<plan>` es `ofertaDelPlan`, otra cosa. Y `sinOferta` o `conOferta` en `lib/variables-aviso.ts` hablan de la Oferta real: un renombre de esto no se hace global.
+
+**Vive en:** `lib/promo-entrada-reglas.ts` · `lib/promo-entrada.ts` · `app/api/promo-entrada/route.ts` · `app/vsl/CartelPromo.tsx`. El porqué del funnel: `docs/estrategia-lanzamiento-low-to-high.md` §3.
+
+- ⚠️ **Está APAGADO (`PROMO_ENTRADA_ACTIVA`).** El cobro ya hace el 50% (Planes, `docs/hallazgos-planes-y-cobro.md`). Se prende junto con la pasarela: prometerlo sin poder cobrarlo es cobrar de más a quien se le prometió menos.
+- **Cómo lo usa el cobro:** al arrancar el pago, `promoVigente(cookie mk_promo, …, entornoPromo())`, sólo `esencial` y `pro`, con 15 minutos de gracia si la página le mostró el descuento (`MINUTOS_DE_GRACIA`: el reloj nunca los muestra). El cartel dice «después, el precio de siempre»: el descuento es de UN cobro, no de la suscripción.
+- **Lo que elegí en lo que Martín dejó abierto (él puede cambiarlo):** 10 minutos desde la primera visita de ese navegador. Recargar sigue por donde iba y, en cero, se terminó ahí para siempre: no vuelve a empezar. Vale una vez por navegador. **Otro navegador u otro teléfono arranca su propio reloj:** no hay cómo saber que es la misma persona sin cuenta, y el cartel no dice lo contrario.
+- **Por qué el servidor y una cookie firmada:** la portada se sirve con caché de 5 minutos (no puede traer la hora) y `localStorage` se borra con un clic. El tiempo restante lo da el servidor y el navegador lo cuenta con `performance.now()`: cambiar la hora del teléfono no regala minutos.
+- **El cartel va en el flujo y `sticky`, no `fixed`:** `.vsl-root` es la caja que scrollea, y ahí `sticky` funciona. Una sola franja de 39 px en el teléfono, y `#precios` con `scroll-margin`. Medido en un banco a 375 px: no pisa el botón de arriba, no da scroll de costado, y «Ver planes» deja el título de los precios a la vista. En cero se va, y al volver no se dibuja.
+
+**Lo que quedó SIN hacer:**
+
+- **No visto sobre una landing publicada ni en producción:** el banco es la franja sobre una página de prueba. Si un diseño publicado trae su propio menú `fixed` arriba, hay que mirar quién tapa a quién (`z-index: 60`).
+- **En `/planes` no hay cartel:** sale sólo en `app/vsl/Landing.tsx`.
