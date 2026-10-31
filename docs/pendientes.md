@@ -39,9 +39,13 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 ## Rojos en `main` sin dueño
 
-- `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
-- `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
 - `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
+
+Los otros dos **ya estaban arreglados cuando se anotaron acá** y se cerraron el 30/10 sin tocar una línea de código:
+`tests/vuelo-mako.test.ts` por 85e4cd7db y `tests/dashboard-pedidos-chat.test.ts:129` por 583c29434, los dos el 24/10
+a las 20:58 y 20:59 — 95 minutos después de esta lista. Verificados en verde sobre `origin/main` (6/0 y 10/0) y probados
+rompiéndolos (5/1 y 9/1): los dos tests tienen dientes. **Antes de tomar un rojo de acá, correlo sobre `origin/main`**
+→ `docs/hallazgos-infra.md` → «Dos «rojos en `main` sin dueño» que ya estaban arreglados».
 
 ---
 

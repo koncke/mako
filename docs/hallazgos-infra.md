@@ -8366,6 +8366,10 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.
+  **Lo mismo con `node --test` pelado**, que es el error fácil: Node 24 saca los tipos solo, así que corre y falla igual.
+  Medido el 30/10: `node --test tests/vuelo-mako.test.ts` da `ERR_MODULE_NOT_FOUND` con
+  `url: file:///…/app/_ui/vuelo-mako` y **0/1**; el mismo archivo con `--import tsx` da **6/0**. Un rojo así no es del
+  código ni del test: es el runner, y se reportan seis cosas rotas que estaban bien.
 
 ## Una batería con piso pasa en la tanda compartida y falla SOLA: el rojo de OC1 llegó a main (22/10/2026, Cerebro › Integración)
 
@@ -9319,3 +9323,43 @@ código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esa
   - **Regla:** cuando el push falla por RAM, el reintento va enseguida y esperando los dos lugares. El Cerebro frena sus
     workflows mientras tanto.
   - **Sin hacer:** que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM.
+
+## Dos «rojos en `main` sin dueño» que ya estaban arreglados: la anotación le sobrevivió al bug (30/10/2026)
+
+**Vive en:** `docs/pendientes.md` → «Rojos en `main` sin dueño» · `tests/vuelo-mako.test.ts` ·
+`tests/dashboard-pedidos-chat.test.ts` · `app/automations/ChatMako.tsx` · `app/admin/operaciones/PanelChat.tsx` ·
+`app/dashboard/PanelEditarMako.tsx`. Hermano del de más arriba, «Un rojo del tren que ya estaba en main (26/10)»:
+ahí el rojo era viejo y real; acá la anotación es vieja y el rojo ya no existe.
+
+- **Síntoma:** `docs/pendientes.md` listaba tres rojos de `main` «sin dueño», y se los culpaba de que cada corrida de
+  Actions fallara por algo ya sabido (~15 min pagos por corrida). Sobre `origin/main` los tres dan **verde**: 6/0, 10/0 y 13/0.
+- **Causa real: la anotación le sobrevivió al bug por 95 minutos.** La lista la escribió el relevo `281e4db0e` el 24/10 a
+  las **19:23**. Los dos primeros los arregló claude5 el mismo día a las **20:58** (`85e4cd7db`) y **20:59** (`583c29434`),
+  cada uno con un commit que se llama «Rojo de main: …». `docs/pendientes.md` se editó seis veces más entre el 25 y el
+  29/10 (hasta `bf7e86c27`) y nadie borró la sección.
+- **Por qué un rojo se queda sin dueño: porque ya no existe.** Nadie adopta un rojo que no puede reproducir. El que lo
+  intenta lo corre, lo ve verde, no entiende y lo deja donde estaba. Una lista de rojos no caduca sola.
+- **El diagnóstico obvio era el equivocado, dos veces:**
+  - «`ChatMako.tsx` perdió la criatura al unificar los chats» se lee como que el código perdió algo que debía conservar.
+    No lo perdió: la criatura **se mudó a propósito** a la cabecera única (`PanelChat.tsx`, adentro de
+    `[data-chat-sidebar]`, con `role="img"`) en `d85c86611`, que es el pedido de Martín «Tienes que UNIFICAR los chats con
+    MaKo». Devolvérsela a `ChatMako.tsx` habría des-unificado el chat **y puesto el test en rojo**: hoy el test exige que
+    `ChatMako` NO le pase `onMuneco` (con él la cabecera dibuja el botón «Cambiar la criatura», sin `role="img"` ni
+    «MaKo», y el vuelo deja de llegar). El selector del vuelo (`DESTINOS_CASA`) nunca se rompió.
+  - Con el test y el código los dos en su lugar, el reflejo es aflojar el test para pintar el tablero. Los dos arreglos del
+    24/10 hicieron lo contrario: lo **apretaron**, sumando guardas negativas — `assert.doesNotMatch` sobre `onMuneco`, y
+    sobre `TAB_DEL_INFORME[informe]`, que para el informe de una automatización («Métricas» de Automations) daba
+    `undefined`. Comprobado rompiendo el código el 30/10: 6/0 → **5/1** y 10/0 → **9/1**, los mismos números que cada
+    commit había anotado en su cabecera de ROTURAS.
+- **Y el clon compartido fabricaba el rojo.** El clon de `Escritorio/dashboard-marketing-main/dashboard-marketing` estaba
+  en `main` del 23/10: 10 commits adelante y **4.431 atrás** de `origin/main`. Ahí `tests/vuelo-mako.test.ts` ni existe
+  («Could not find»), y los cinco archivos de este hallazgo difieren. Un rojo medido en un checkout atrasado es un rojo
+  inventado: el trabajo va en un worktree desde `origin/main` (`git worktree add -b <rama> /c/dev/<x> origin/main`, con
+  `node_modules` por `mklink /J`, que en Git Bash `ln -s` copia).
+- **Regla:** antes de tomar un rojo de una lista, correlo sobre `origin/main` recién traído y mirar si alguien ya lo cerró
+  después de la fecha de la nota (`git log --oneline --since=<fecha de la nota> -- <el test> <el fuente>`; acá los dos
+  commits se llaman «Rojo de main: …»). Y quien cierra un rojo borra su línea de `docs/pendientes.md` **en el mismo
+  commit**: esa regla ya está escrita en ese documento («Al cerrar uno, borralo de acá en el mismo commit») y es
+  justamente la que falló.
+- **Sin hacer:** el tercero, `tests/paso-ia.test.ts:135` (`lib/nutricion.ts`), **también da verde (13/0)** sobre
+  `origin/main`. Tiene dueño, así que su línea quedó donde estaba para que la cierre él.
