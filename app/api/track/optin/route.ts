@@ -41,7 +41,7 @@ import { agregarAProducto } from '@/lib/lead-funnel';
 import { casaParaEscribir, casaReal } from '@/lib/lead-funnel-reglas';
 import { AUTOR_SISTEMA } from '@/lib/etapa-historial';
 import { normalizarUrl } from '@/lib/landing-paginas';
-import { urlSinDatosPersonales } from '@/lib/url-datos-personales';
+import { urlDeEntradaGuardable, urlSinDatosPersonales } from '@/lib/url-datos-personales';
 import { funnelsDeLanding } from '@/lib/landing-funnel';
 import { funnelDeCampana } from '@/lib/campana-funnel';
 import { datosOptin } from '@/lib/optin-aviso';
@@ -207,8 +207,8 @@ export async function POST(req: NextRequest) {
           // opt-in sin pagina es el caso nuevo y se nombra: `sin_pagina`.
           detalle: txt(body.origen_captura) === 'agenda' ? 'agenda' : 'sin_pagina',
           prueba: txt(body.prueba),
-          // Sin los datos de una persona (24/10/2026, P6): lo que se guarda es que PASÓ, no quién.
-          landing_url: txt(typeof body.pagina === 'string' ? urlSinDatosPersonales(body.pagina) : body.pagina),
+          // Con SÓLO los parámetros que se guardan (lista blanca, 30/10/2026): lo que se guarda es que PASÓ, no quién.
+          landing_url: txt(typeof body.pagina === 'string' ? urlDeEntradaGuardable(body.pagina) : body.pagina),
         });
       });
     } catch (e) {
@@ -489,7 +489,11 @@ export async function POST(req: NextRequest) {
         // formulario de la landing» de «lo cargó alguien a mano».
         origen: 'landing',
         visitor_id: txt(body.visitor_id),
-        pagina: txt(body.pagina) ?? txt(body.url) ?? req.headers.get('referer'),
+        // De DÓNDE vino, para que quien revisa la propuesta lo lea. Sin los datos de una persona (P6): acá la
+        // pregunta es «¿de qué página vino?» —un `?plan=pro` informa y queda—, así que va la lista negra y no la
+        // blanca de `landing_url`. Medido el 30/10/2026: 0 de las 24 propuestas de lead los tenían; es la puerta,
+        // no una fuga abierta.
+        pagina: urlSinDatosPersonales(txt(body.pagina) ?? txt(body.url) ?? req.headers.get('referer') ?? '') || null,
         // La misma página que guarda el alta directa, normalizada y SIN el tope de 300 de
         // `pagina` (que corta una URL larga). La escribe quien confirma, como la atribución.
         pagina_registro: paginaOptin,

@@ -4561,8 +4561,10 @@ al 24/10) y P2P Consulting (ws 14, 3 personas). `replay_sesiones.landing_url` y 
 Que el Pixel le pase esos datos a Meta (CAPI) no es el problema: van hasheados y lo hace el navegador.
 
 **Vive en:** `lib/url-datos-personales.ts` (la regla, pura) · `app/api/track/vsl/route.ts` (`urlGuardable`: landing_url,
-la visita, el referrer y el detalle) · `optin/route.ts` · `replay/route.ts` · `normalizarUrl` (lib/landing-paginas.ts) ·
-`scripts/limpiar-datos-personales-urls.mts` (lo ya guardado: cuenta por defecto; `--aplicar` con el OK del Cerebro).
+la visita, el referrer y el detalle) · `optin/route.ts` · `replay/route.ts` · `normalizarUrl` (lib/landing-paginas.ts).
+⚠️ Lo ya guardado lo limpia `supabase/migrations/0357_urls_sin_datos_personales.sql` (30/10/2026). El
+`scripts/limpiar-datos-personales-urls.mts` que esperaba el OK **se borró**: era la segunda implementación de la misma
+limpieza y, con la lista negra adentro, la equivocada — ver la entrada del 30/10 acá abajo.
 
 - **La regla:** un parámetro se va si su NOMBRE es de un dato personal o si su NOMBRE o su VALOR traen un email; todo
   lo demás queda BYTE POR BYTE (una URL sin datos sale idéntica, así nada que compare URLs cambia). ⚠️ **NO por «parece un
@@ -4589,17 +4591,121 @@ la visita, el referrer y el detalle) · `optin/route.ts` · `replay/route.ts` ·
   llamador lo pasa). ⚠️ Si un día se une por el email de la URL, esa unión pierde el dato: que use el `visitor_id`.
 
 Lo que quedó SIN hacer:
-- **La limpieza de lo ya guardado**, escrita y sin correr: Martín la aprobó el 24/10 («sin borrar las visitas») y la
-  corre el Cerebro cuando el saneo al guardar esté en producción (antes, las visitas nuevas seguirían guardando los
-  datos). Saca sólo esos parámetros; no borra filas (la visita a /gracias es la prueba del agendado).
-- El opt-in guarda la página CRUDA en la propuesta del lead (`propuestas.datos.pagina`, app/api/track/optin/route.ts):
-  son los datos de la MISMA persona en su propia ficha, no en una tabla de eventos; se dejó así.
+- **La limpieza de lo ya guardado**: es la migración `0357` (30/10/2026), escrita, ensayada en seco contra producción y
+  SIN aplicar — la aplica el Cerebro. Martín la aprobó el 24/10 («sin borrar las visitas»).
+- El opt-in guardaba la página CRUDA en la propuesta del lead (`propuestas.datos.leads[].pagina`): **cerrado el
+  30/10** con la lista negra (ahí la pregunta es «¿de dónde vino?», que una persona lee). Medido ese día: 0 de 24
+  propuestas de lead la tenían con datos; era la puerta, no una fuga.
 - **La grabación lleva la URL adentro del lote** (`replay_lotes.cuerpo`: el evento Meta de rrweb con `href`, y los `<a>` de
   las fotos del DOM): llega comprimida y no se puede sanear en el server; va en el envoltorio de `public/replay/2/r.js`.
 - `leads.pagina_registro` viejos y los settings (`landing.paginas`…) se re-normalizan al leerse, pero lo guardado sigue
   crudo hasta la próxima escritura. Un email en el PATH (`/gracias/ana@x.com`) no se cubre.
 - Falsos positivos aceptados: `?name=marketing-avanzado` (Calendly usa `name` para la persona) y una UTM con un `@`
   (`utm_campaign=Promo@Black.Friday`).
+
+## El arreglo del 24/10 estaba desplegado y la fuga seguía entrando: una lista NEGRA no contesta «¿qué se guarda?» (30/10/2026)
+
+**Síntoma:** seis días después del corte de arriba, `vsl_events.landing_url` seguía guardando el nombre de quien
+agendó. Y el diagnóstico obvio —«el arreglo no se desplegó»— era el equivocado: estaba arriba y funcionando. Lo que
+pasaba es que Cal.com manda el nombre en **`attendeeName=`**, y ese nombre no estaba en la lista de nombres
+personales. Con él venían `user=`, `uid=`, `title=`, `description=`, `location=`, `eventTypeSlug=` y
+`metadata[lead_id]=`, los nueve en claro.
+
+**Causa real:** el módulo tenía UNA regla para DOS preguntas. «¿Esto es de una persona?» (lista negra) es la correcta
+para IDENTIFICAR una página o el destino de un clic, donde un `?plan=pro` informa y tiene que quedar. Para decidir
+**qué se guarda en una columna de analítica** no sirve: una lista de nombres prohibidos se queda corta en cuanto el
+proveedor de agendas, la plataforma de pago o el propio cliente agregan un parámetro, y se queda corta **en
+silencio** — no hay error, hay una fila plausible con el nombre de alguien adentro.
+
+**Vive en:** `lib/url-datos-personales.ts` (`PARAMS_QUE_SE_GUARDAN`, `paramSeGuarda`, `urlDeEntradaGuardable`) ·
+`app/api/track/vsl/route.ts` (`urlGuardable`) · `optin/route.ts` · `replay/route.ts` ·
+`supabase/migrations/0357_urls_sin_datos_personales.sql` · `tests/url-de-entrada-lista-blanca.test.ts`.
+
+**La regla que queda:** de la query de una URL DE ENTRADA se guarda **sólo lo que está nombrado en una lista
+blanca**, byte por byte, y todo lo demás se va aunque no parezca de nadie. Lo que entra en la lista es lo que sirve
+para MEDIR: los `utm_*`, los ids de clic de las plataformas, la variante de una prueba A/B y el video del VSL. Tres
+cosas que salen de ahí y una lista negra nunca habría sacado:
+
+- **El token de lead del link de WhatsApp (`?l=`)**: es opaco y apunta a UN lead. El beacon ya lo recibe en el
+  payload, así que no hace falta en la URL guardada.
+- **`mc_eid` de Mailchimp** (el id del SUSCRIPTOR) se va; `mc_cid` (el de la campaña) queda. Los dos empiezan igual.
+- **El `session_id` de un cobro**: apunta a una compra, o sea a alguien.
+
+Y una que sí es del lado del valor: **estar en la lista autoriza el NOMBRE, no el contenido.** Un
+`utm_content=ana@x.com` pasa de verdad en las campañas de mail, así que el chequeo de «hay un email adentro» se
+aplica igual sobre los parámetros de la lista.
+
+**Las dos listas de la migración, que es la parte que se lee mal.** QUÉ FILAS SE TOCAN lo decide una lista negra
+(más «la URL contiene un email»): ahí está bien, porque si se queda corta se limpian MENOS filas y el peor caso es
+correr otra migración. QUÉ SOBREVIVE adentro de esas filas lo decide la lista blanca. Invertirlas es el bug de
+arriba.
+
+**Medido el 30/10/2026 contra producción, sólo lectura** (el molde: `--env-file=C:/dev/mako-api/.env.local` con
+imports `file:///`, porque el script vive en el scratchpad y node resuelve los paquetes desde su carpeta):
+
+| Columna | Filas con datos personales | Workspaces | Desde → hasta (UTC) |
+|---|---|---|---|
+| `vsl_events.landing_url` | 487 | 13 (449) y 14 (38) | 21/08 12:34 → 24/10 15:21 |
+| `landing_visits.landing_url` | 112 | 13 (106) y 14 (6) | 21/08 12:31 → 24/10 15:21 |
+| `landing_visits.referrer` | 66 | 13 (65) y 14 (1) | 21/08 12:36 → 24/10 11:43 |
+| `replay_sesiones.landing_url` | 0 de 303 | — | — |
+| `vsl_events.detalle` | 0 de 6.709 con query | — | — |
+| `propuestas.datos`, `leads.pagina_registro`, `app_settings` (`landing.*`) | 0 | — | — |
+
+82 visitantes distintos (79 del 13, 3 del 14). **El último evento afectado es del 24/10 a las 15:21, que es el día
+del primer corte**: o sea que el corte del 24/10 sí frenó `name=` y `email=`, y lo que siguió entrando fue el
+paquete de Cal.com del ws 14 — que es exactamente lo que una lista negra no puede ver. El barrido fue amplio: las 56
+columnas de texto del esquema cuyo nombre sugiere una URL (`~* '(url|referrer|referer|pagina|page|landing|origen)'`)
+y, por separado, las 9 columnas de texto de `vsl_events`. **Fuera de esas tres, cero.**
+
+**El ensayo en seco de la 0357** (la misma expresión corrida como `select`): 665 filas cambian, **0 quedan con datos
+personales, 0 quedan vacías**, y las 109.219 filas de `vsl_events` sin datos personales vuelven BYTE POR BYTE
+iguales. Las 665 afectadas no traen **ni un** parámetro de la lista blanca, así que quedan como su dirección sin
+query: no se pierde un utm ni un fbclid.
+
+Tres trampas del entorno, de regalo:
+
+- **El `tsc` ACOTADO sobre una ruta del Pixel da 17 rojos que no son del código**, y la lista es la misma
+  siempre: `app/api/track/optin/route.ts` llega por `lib/avisos` hasta `lib/editor-video/chat-hilo.ts`, que
+  importa un tipo de `app/video-editor/_opencut/`, y de ahí al WASM del editor. Con `files` + `include: []` el
+  acotado no carga los `.d.ts` AMBIENTALES, así que salen 15 TS2305/TS7016 del editor y 2 TS2322 de
+  `<style jsx>` de un archivo que ni se tocó. Se arregla sumando los dos a la lista —
+  `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts` y
+  `node_modules/next/dist/styled-jsx/types/global.d.ts` (en el completo entra por `next-env.d.ts`, que está
+  en .gitignore y un worktree ni tiene)— y ahí da **0 sobre 5**. ⚠️ Y un **código 1 con CERO bytes de salida
+  no es un error de tipos**: es el vigía de RAM; el 134 con salida es sin heap, y se sube con `--heap=`.
+- **Un worktree puede DESAPARECER a mitad de la sesión** (otra sesión limpia worktrees) y el síntoma es
+  `Cannot find module …/scripts/tsc-acotado.mjs` seguido de `fatal: not a git repository`. No se perdió nada:
+  el commit y la rama viven en el `.git` COMPARTIDO, así que se rehace con
+  `git worktree add <otra ruta> <rama>` y el junction a `node_modules`. Lo que no sobrevive es lo que estaba
+  sin commitear — razón de más para commitear en cuanto algo está entero.
+
+- **La tabla del replay se llama `replay_sesiones`, no `replay_sessions`** (y no tiene `created_at`, tiene `inicio`).
+  Un script que pregunta por el nombre en inglés contesta «la columna no existe» y se lee como «esa tabla no guarda
+  URLs» — que es la respuesta tranquilizadora. Lo que lo evitó fue listar primero `information_schema`.
+- **La conexión directa a la base contestó bien** esta vez (el pooler quedó como respaldo en el script de medición):
+  «sólo IPv6» depende de la red del día, no del código.
+
+Lo que quedó SIN hacer:
+
+- **Aplicar la 0357 en producción.** Está ensayada en seco y sin aplicar: la aplica el Cerebro, y va DESPUÉS del
+  deploy de este commit (si va antes, la próxima visita vuelve a escribir lo que limpia).
+- **`normalizarUrl` (`lib/landing-paginas.ts`) sigue con la lista negra, a propósito**, y es lo más grande que queda
+  abierto. Es la llave de `landing.paginas`, `landing.config`, `landing.snapshot` y del cruce con `landing_visits`:
+  pasarla a lista blanca le borraría la query a toda página identificada por un parámetro propio (`?plan=pro`), o sea
+  **cambiaría llaves ya guardadas**, y `tests/landing-url-unica.test.ts` lo frena a propósito. Lo que sí se hizo es
+  sumarle a la lista negra los nombres de Cal.com (`attendeename`, `attendee_email`, `guest_name`, …), que además
+  arregla un bug de duplicados: el nombre varía por persona, así que cada agendado se contaba como una página nueva
+  —el mismo caso que `ai`/`ct`—. Medido: hoy ninguna llave guardada (14 settings de `landing.*`) los trae.
+- **`vsl_events.detalle` sigue con la lista negra**, también a propósito: es el DESTINO de un clic, no una URL de
+  entrada, y ahí un `?plan=pro` o un price id de Stripe informan. Medido: 0 filas con datos personales de 6.709 con
+  query. Si algún día aparece una, el arreglo es una lista blanca propia del destino, no reusar ésta.
+- **La grabación lleva la URL adentro del lote** (`replay_lotes.cuerpo`): sigue como estaba, llega comprimida y se
+  sanea en el envoltorio de `public/replay/2/r.js`.
+- **Un email en el PATH** (`/gracias/ana@x.com`) no lo saca ninguna de las dos reglas. Medido el 30/10: 0 filas en
+  las cuatro columnas — y por eso el guard final de la 0357 (que tira si queda algo) no se dispara solo.
+- **Avisarle a la agencia**: lo decide Martín. Los datos son de Código Inmobiliario (ws 13) y P2P Consulting (ws 14);
+  el detalle de qué dato de qué persona estuvo dónde está en el reporte de esta tanda.
 
 ## Otros alojadores de video: lo que mide el Pixel en cada uno, medido con un video real (25/10/2026, claude5)
 
