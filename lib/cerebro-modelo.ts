@@ -137,6 +137,8 @@ export const CAPA_NEGOCIO = 'negocio';
 export const CAPA_CONSTRUCCION = 'construccion';
 /** «Lo que hace MaKo» (28/10/2026, lib/cerebro-funciones.ts): las funciones del producto, para que las lea un chat. */
 export const CAPA_FUNCIONES = 'funciones';
+/** «Knowledge» (31/10/2026, lib/cerebro-knowledge.ts): el método de los cursos por módulo, para que lo lea un chat. */
+export const CAPA_CONOCIMIENTO = 'knowledge';
 export type Taxonomia = { carpetas: readonly CarpetaGrafo[]; areas: readonly AreaGrafo[]; capas?: readonly CapaGrafo[] };
 export const TAXONOMIA_NEGOCIO: Taxonomia = { carpetas: NIVEL1, areas: AREAS };
 

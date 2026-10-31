@@ -137,6 +137,12 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
   if (fase) base += `\n\nQUÉ TIENES QUE MIRAR Y HACER EN ESTA SECCIÓN:\n${fase}`;
   const know = formatKnowledge(knowledge);
   if (know) base += `\n\nTU METODOLOGÍA (lo más relevante a esta consulta):\n${know}`;
+  // KNOWLEDGE, EL ÍNDICE (31/10/2026, lib/knowledge-modulos.ts): una línea por módulo del método de los cursos, con qué
+  // enseña y en qué tabs se usa. Sin contenido y sin una consulta: es puro, por el mismo motivo que `catalogoCorto` de
+  // lib/cerebro-funciones.ts — que el modelo no niegue algo que existe, y que SEPA que puede pedir el método
+  // (`leer_modulo_knowledge` de la API, o el lector de la tab). El contenido nunca entra acá: son 91 cursos.
+  const { bloqueDeModulos } = await import('./knowledge-modulos');
+  if (negocio) base += `\n\n${bloqueDeModulos()}`;
 
   // Experimentos: las verdades validadas (que MaKo SÍ puede afirmar) y lo que
   // sigue en prueba. Para todo lo no probado, MaKo sugiere abrir un experimento.

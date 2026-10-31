@@ -38,6 +38,8 @@ import { AREAS as AREAS_MODELO_CEREBRO } from '@/lib/cerebro-modelo';
 import { PERSONALIDAD_PREGUNTAS } from '@/lib/personalidad';
 // Dónde se corrige cada sección hoy (el hub de /onboarding se retiró el 15/10/2026): datos puros.
 import { lugarSeccion } from '@/lib/secciones-negocio';
+// El catálogo de módulos de Knowledge: datos puros, sin server-only (el enum de keys sale de ahí y no de una copia).
+import { MODULOS_KNOWLEDGE } from '@/lib/knowledge-modulos';
 // Los pasos del arranque y de las tabs que se cierran desde afuera, y las urgencias de una oferta: datos puros
 // (sin server-only), para que la def pueda importar sus valores.
 import { CIERRES_PASO, PASOS_ARRANQUE_POR_API, TABS_POR_API, PASOS_DE_TAB_POR_API } from '@/lib/onboarding-pasos-api';
@@ -664,5 +666,32 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'offer', rolMinimo: 'admin' },
     escribe: 'borra la fila de ofertas: sus ligas a funnels y productos se borran y los leads que entraron por ella quedan sin oferta',
+  },
+
+  // ── Knowledge: el material de formación por módulo (31/10/2026, lib/knowledge-modulos.ts) ──
+  //
+  // Van AL FINAL del área, y sus palabras («knowledge», «módulo», «cursos», «fichas») no están en ninguna otra def de
+  // acá: es lo que las hace llegar sin sacarle el presupuesto de 12.000 a `buscar_conocimiento`, que es la que atiende
+  // «¿qué dice mi metodología?». A propósito dicen «cursos» y no «metodología»: `ordenarPorRelevancia` suma por RAÍZ.
+  //
+  // SIN gating.tab: el material es de MaKo y se le presta a todos los negocios (lib/rag-prestamo.ts), así que no
+  // depende de la capa de nadie. Y SIN rolMinimo: no tiene un número del negocio adentro, y es justo lo que un closer
+  // necesita para escribir un mensaje (la misma decisión que lo sumó a `VE_SIN_PLATA`, lib/cerebro-union.ts).
+  {
+    id: 'modulos_de_knowledge', area: 'negocio', tipo: 'lectura',
+    titulo: 'Módulos de Knowledge',
+    descripcion: 'Los módulos de Knowledge: qué enseña cada uno, de qué secciones del portal de cursos sale, en qué tabs se usa y cuántas fichas tiene cargadas hoy. Úsala para elegir qué módulo pedir con leer_modulo_knowledge. Un módulo en 0 fichas todavía no se destiló: dilo, no lo rellenes.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis',
+  },
+  {
+    id: 'leer_modulo_knowledge', area: 'negocio', tipo: 'lectura',
+    titulo: 'Leer un módulo de Knowledge',
+    descripcion: 'Lo que enseñan los cursos de UN módulo de Knowledge, lo más cercano a la pregunta. El módulo va por su key (de modulos_de_knowledge). Es material para aplicar, no para copiar textual. Sin fichas cargadas lo dice y no devuelve nada.',
+    parametros: [
+      { nombre: 'modulo', tipo: 'string', obligatorio: true, enum: MODULOS_KNOWLEDGE.map((m) => m.key), descripcion: 'La key del módulo.' },
+      { nombre: 'pregunta', tipo: 'string', obligatorio: true, max: 500, descripcion: 'Qué se está por escribir o contestar, en las palabras del dueño.' },
+    ],
+    salida: 'markdown', canales: TODOS, costo: 'ia',
   },
 ];
