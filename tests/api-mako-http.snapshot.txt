@@ -322,6 +322,7 @@ leer_conclusiones_dashboard
 leer_documento_copywriter
 leer_guion_anuncio
 leer_hoja_dashboard
+leer_modulo_knowledge
 leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
 limites_formato_instagram
@@ -445,6 +446,7 @@ metricas_negocio
 mis_creaciones
 modo_agente_media_buyer
 modo_media_buyer
+modulos_de_knowledge
 mover_a_nutricion_manual
 mover_clase_curso
 mover_componente_dashboard

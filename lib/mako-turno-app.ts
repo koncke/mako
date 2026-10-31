@@ -33,7 +33,7 @@ import 'server-only';
 import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { aToolDef, gatingOk, porId, visible } from '@/lib/api-mako/registro';
+import { aToolDef, gatingOk, parecidasQueNoViajaron, porId, visible } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
@@ -968,7 +968,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // Si lo que falló ya dejó su ticket (registrarError), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
       // Si lo último que corrió fue una GUARDA y nada falló (a la vista o tragado) ni hubo ruteo, el «no pude» es esa regla, la
       // diga o no el modelo (base 7: el formato de la marca pide el QUÉ, no el porqué).
-      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas }) && !noViajo.length }, dondeDelTurno, { operacion: noViajo[0] ?? null });
+      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas }) && !noViajo.length }, dondeDelTurno, { operacion: noViajo[0] ?? null, noViajaron: () => parecidasQueNoViajaron({ vista, pedido: dondeDelTurno.pedido ?? '', viajaron: tools.map((t) => t.name) }) });
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n') || null;
     }
     // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio).

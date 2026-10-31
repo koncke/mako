@@ -41,6 +41,7 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
 import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
+import { SPY_ANALISIS_SYSTEM_TEMPLATE, SPY_ANALISIS_USER_TEMPLATE } from './spy';
 import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
 import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
 import {
@@ -1478,6 +1479,37 @@ export const REGISTRY: Group[] = [
         variables: [v('tipos', 'los tipos de CRM que la plataforma sabe armar, con la clave y el nombre de fábrica de cada etapa (lib/onboarding-crm.ts)')], scope: 'static-only', sensitive: false,
         default: OFFER_CRM_SYSTEM_TEMPLATE,
         context: 'Al llegar a la pregunta del CRM del onboarding (20/10/2026, Martín: «el armado del CRM también debe ser personalizado»), MaKo elige el tipo de CRM y le pone a cada etapa el nombre de ese negocio. Lo que no se toca: sólo NOMBRES, nunca claves ni etapas nuevas (las nutriciones, los avisos y las automatizaciones mueven a cada cliente por la clave), y el JSON {"tipo", "etapas"}. El código descarta un tipo fuera de la lista, un nombre largo, con emojis o repetido. Conserva {{tipos}}.',
+      },
+    ],
+  },
+
+  {
+    group: 'Competitor Spy',
+    icon: '🕵️',
+    blurb: 'MaKo lee lo que publica un competidor y dice qué vende, a quién, y qué objeción ataca que tu oferta no menciona.',
+    entries: [
+      {
+        key: 'spy.analisis.system', source: 'override',
+        label: 'Instrucciones para leer a un competidor (system)', kind: 'system', dynamic: true,
+        variables: [
+          v('tiposGancho', 'los tipos de gancho con que se clasifica una pieza, separados por «|» (el mismo vocabulario del Ads Analyst)'),
+          v('etiquetas', 'las etiquetas con que se agrupa una pieza, separadas por coma'),
+        ],
+        scope: 'static-only', sensitive: true,
+        default: SPY_ANALISIS_SYSTEM_TEMPLATE,
+        context: 'El cerebro de Competitor Spy: con lo que se leyó del competidor y lo que vende el negocio, dice qué promete, a quién, con qué precio si lo publica, qué objeción ataca, y qué ataca él que el negocio no menciona. CUATRO REGLAS QUE NO SE TOCAN, porque cada una evita un dato inventado: trabajar sólo con lo que está en los datos (si un campo no está, va vacío); no estimar NINGÚN número (facturación, visitas, conversión y alcance no existen en los datos, y un estimado presentado como real es peor que un campo vacío); no hablar de la persona ni enmarcar nada como una pelea (la política III.L de YouTube lo prohíbe explícitamente); y no afirmar qué DICE un video, porque el guion no se leyó — no hay forma legal de transcribir el video de un tercero, así que sólo hay título, descripción y etiquetas. Conserva el esquema JSON y los slots {{tiposGancho}} y {{etiquetas}}, que son el vocabulario compartido con el Ads Analyst: si se cambian por otros, «lo que hace la competencia» y «lo que hacemos nosotros» dejan de ser comparables.',
+      },
+      {
+        key: 'spy.analisis.user', source: 'override',
+        label: 'Lo que se leyó del competidor (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('competidor', 'el nombre que el negocio le puso'),
+          v('negocio', 'qué vende ESTE negocio (su perfil y su oferta)'),
+          v('piezas', 'las piezas guardadas, con sus números y desde cuándo están a la vista'),
+        ],
+        scope: 'full', sensitive: false,
+        default: SPY_ANALISIS_USER_TEMPLATE,
+        context: 'Arma el pedido con lo guardado del competidor y lo que vende el negocio. {{negocio}} es la mitad que importa: sin eso la respuesta es «este competidor promete X», que es la Biblioteca de Anuncios con otro diseño. El cruce contra la oferta propia es lo que ninguna herramienta de afuera puede hacer, porque ninguna conoce el negocio. En {{piezas}}, un contador que el competidor no publica viaja como «no lo publica» y no como 0, y un gasto viaja como el TRAMO que dijo Meta («1K-5K»), nunca como un número: el modelo tiene que poder distinguirlos igual que la pantalla. Conserva los tres slots.',
       },
     ],
   },

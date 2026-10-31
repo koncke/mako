@@ -6,6 +6,42 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
+
+**Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
+integrarlas aparecieron 9 rojos suyos.
+
+**El diagnóstico obvio era el equivocado.** Parecía que «un verde de la rama no vale en el tren». Pero las causas ya
+estaban en las puntas entregadas, y `seleccionar` de `scripts/tests-afectados.mjs` elegía los ocho archivos de test
+sobre el árbol de su propia punta. El agujero no está en la selección.
+
+**Lo que no está medido:** qué corrió cada sesión. Sí se puede decir que, con esos tests rojos, la compuerta no podía
+dar VERDE: o no corrió, o no terminó, o no se leyó. Con 32 archivos cambiados elige 830 tests de unos 1.125, y ese
+costo es el motivo probable para saltearla, aunque eso no se midió.
+
+**Regla:** quien integra pide la línea final de `antes-de-subir` con su sha. Sin ella, la entrega es «sin chequear»,
+diga lo que diga el informe. Para saber si la compuerta habría elegido un test en una punta, sin checkout:
+`cambiosEntre(base, punta)`, `fuenteGit(punta)` y `seleccionar({ cambiados, archivos, leer })`, corrido desde
+adentro de un repo: `fuenteGit` llama a git sin carpeta y fuera de uno revienta.
+
+**⚠️ `seleccionar()` devuelve `tests` como un `Map` (test → razones), no como un array.** `new Set(sel.tests)` arma un
+Set de PARES: `has('tests/x.test.ts')` da siempre `false`, y `size` sigue dando el número correcto, así que no se nota.
+Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es `sel.tests.has(...)` y `sel.tests.get(...)`.
+
+**Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
+sin juzgar, con un mínimo de 0,3 GB libres: el vigía bajó sus tandas y el veredicto nombra a todos los de la tanda. Repetidos
+de a tres y esperando 2 GB libres, los primeros seis dieron 91 verdes y 0 rojos. No se separó qué lo resolvió, la tanda más
+chica o la PC con más memoria; sí queda medido que esos seis no estaban rotos ni se caían solos. **Regla:** esa lista no es un
+diagnóstico. Antes de darla por perdida, se repite de a poco con RAM libre. Los otros doce se cortaron sin repetir, y los
+juzga Actions.
+
+**Dos migraciones con el mismo número no dan conflicto (31/10/2026).** Creem y Competitors Spy nacieron como `0358` en ramas
+distintas. Los archivos tienen otro nombre, así que git las junta sin decir nada. No rompe la aplicación, que va por archivo (ya
+hay ocho números repetidos), pero «falta aplicar la 0358» pasa a nombrar dos cosas: una ya hacía falta para cobrar con Creem y
+la otra sólo para abrir una tab. Al integrar una rama con migración hay que mirar `ls supabase/migrations`. Se renumera sólo la
+que no está aplicada, junto con sus menciones y los tests que leen el archivo por nombre (Competitors Spy pasó a `0359`). No hay
+guardia que lo detecte.
+
 **Lo que más muerde acá:**
 
 - PostgREST corta en 1000 filas **con un 200**: el síntoma no es un error, es un número que BAJA («se ven 4 ganados de 13»), y el diagnóstico obvio —el filtro, la etapa— es el equivocado. La lectura más importante de la app vivió así porque el barrido anterior arregló lo que paginaba mal y **no buscó lo que no paginaba** → [Supabase](#️-el-techo-de-1000-filas-no-da-error-da-un-número-que-baja).

@@ -132,6 +132,17 @@ async function main() {
   g7.guarda = await conTicketsDeMaKo('No pude borrar el lead de Juan.\n\n[[no-pude: borrar el lead de Juan]]', { regla: true }, en17('b7b'));
   g7.guardaYNoExiste = await conTicketsDeMaKo('No pude borrarlo, y lo otro no existe.\n\n[[no-pude: borrar el lead de Juan]]\n[[no-existe: un tablero de comisiones]]', { regla: true }, en17('b7c'));
   out.base7 = g7;
+
+  // ── Lo que no viajó (31/10/2026): se calcula sólo si hay ticket, y queda en el contexto, nunca en lo que ve el cliente ─────
+  pg.db.workspaces.push({ id: 18, capa: 'cliente', nombre: 'Negocio 18' });
+  const en18 = (conv: string) => ({ ws: 18, actor: 'dueno18@negocio-de-prueba.com', nombre: 'Dueño', superficie: 'ops-center' as const, conv, pedido: 'que salga los martes' });
+  let vecesCalculado = 0;
+  const noViajaron = () => { vecesCalculado += 1; return ['cambiar_crons_secuencia', 'configurar_automatizacion']; };
+  const conTicket = await conTicketsDeMaKo('No puedo cambiar eso.\n\n[[no-pude: cambiar cuándo sale]]', {}, en18('nv1'), { noViajaron });
+  const filaNv = pg.db.tickets.find((t) => t.id === conTicket.ticket?.id);
+  const vecesConTicket = vecesCalculado;
+  await conTicketsDeMaKo('Listo, ya quedó.', {}, en18('nv2'), { noViajaron });
+  out.noViajaron = { enElContexto: (filaNv?.contexto as { noViajaron?: string } | null)?.noViajaron ?? null, enLaDescripcion: String(filaNv?.descripcion ?? '').includes('cambiar_crons_secuencia'), vecesConTicket, vecesSinTicket: vecesCalculado - vecesConTicket };
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

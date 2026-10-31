@@ -1572,6 +1572,15 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // Desde el 15/10/2026 el cartero se llama Runner en pantalla (lib/runner.ts): «¿está andando el runner?».
   // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
   operaciones: /\b(centro de operaciones|carteros?\b|runners?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
+  // Competitors Spy (31/10/2026). ⚠️ ES ANGOSTA A PROPÓSITO, y no por prolijidad: el registro entra
+  // al turno hasta un presupuesto de 12.000 caracteres y las lecturas del área ANCLADA se suman
+  // arriba de eso. Los turnos más pesados del repo son los de anuncios y campañas
+  // («agrega un anuncio al conjunto», medido a 164 caracteres del tope en
+  // tests/ops-center-clasificador-app.test.ts): una palabra como «anuncio» o «campaña» acá metería
+  // las seis operaciones del spy en esos turnos y rompería ese test. Por eso sólo entran las
+  // palabras que NO significan otra cosa en MaKo — «competidor», «competencia», «espiar», «vigilar
+  // a» — y ni una del vocabulario de pauta.
+  spy: /\b(competidor(es)?|competencia\b|competitor|espi(?:a|ar|ame|alo)\b|vigil(?:a|ar|ame|alo) a\b|qu[eé] (?:est[aá]n? haciendo|public[oó]) (?:mi |la |el |los )?(?:competencia|competidor))/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */

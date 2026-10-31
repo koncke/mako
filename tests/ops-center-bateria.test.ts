@@ -125,7 +125,9 @@ test('3. el piso de WhatsApp (herramientasDelTurno)', (t) => piso('whatsapp', t)
 // de AGENTS.md (declararla antes Y repetir las palabras del área). Cada mitad SOLA deja verde, así que el piso no guarda
 // ninguna de las dos: mañana alguien cumple «al final» y repite las palabras, y pasa. Esto mide el MARGEN, que es lo
 // único que no se puede cumplir a medias — y lo IMPRIME, para que el próximo vea el número en vez de descubrirlo cuando
-// el ruteo se cae. Hoy son 119 caracteres: el área no tiene aire, y una descripción más larga lo vuelve a tirar afuera.
+// el ruteo se cae. Llegó a 119 caracteres: sin aire, una descripción más larga lo tiraba afuera. Se recuperó acortando lo
+// que el área repetía (31/10/2026), y el piso `MARGEN_MINIMO` pone el rojo ANTES de que MaKo diga «no puedo», no después.
+const MARGEN_MINIMO = 300;
 test('4. `cambiar_crons_secuencia` entra en el presupuesto, y con cuánto margen', async (t) => {
   const { charsDeTools, toolsDelRegistro } = await import('../lib/api-mako/registro');
   const { PRESUPUESTO_REGISTRO_CHARS } = await import('../lib/doer-herramientas');
@@ -143,9 +145,9 @@ test('4. `cambiar_crons_secuencia` entra en el presupuesto, y con cuánto margen
   const margen = PRESUPUESTO_REGISTRO_CHARS - hastaElCron;
   t.diagnostic(`el CRON va ${i + 1}.º por relevancia · ${hastaElCron} de ${PRESUPUESTO_REGISTRO_CHARS} chars · margen ${margen}`);
   assert.ok(
-    margen >= 0,
-    `cambiar_crons_secuencia queda AFUERA del presupuesto por ${-margen} caracteres: va ${i + 1}.º y para entrar hacen falta `
-    + `${hastaElCron} de ${PRESUPUESTO_REGISTRO_CHARS}. MaKo va a contestar «no puedo» a «${FRASE}». Una operación nueva va `
+    margen >= MARGEN_MINIMO,
+    `cambiar_crons_secuencia tiene ${margen} caracteres de margen y el piso es ${MARGEN_MINIMO}: va ${i + 1}.º y para entrar hacen falta `
+    + `${hastaElCron} de ${PRESUPUESTO_REGISTRO_CHARS}. Debajo de 0, MaKo contesta «no puedo» a «${FRASE}». Una operación nueva va `
     + 'AL FINAL de su área, y su id, título y descripción NO repiten las palabras que toda el área comparte '
     + '(«automatización», «flujo», «WhatsApp»): a igual puntaje gana la declarada antes. Las palabras del área van en los '
     + 'PARÁMETROS, que no puntúan. El presupuesto es el techo de Groq y no se sube (AGENTS.md).',

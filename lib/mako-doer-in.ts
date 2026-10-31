@@ -31,7 +31,7 @@ import { esperaDelPedido, acuseSinReaccion, conTope, trabajoLargoDe, TOPE_REACCI
 import { cuantasClavesDeIA } from '@/lib/ia-keys-ws';
 import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
-import { porId, aToolDef } from '@/lib/api-mako/registro';
+import { porId, aToolDef, parecidasQueNoViajaron } from '@/lib/api-mako/registro';
 import { errorParaTicket, esPedidoDelegado, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
@@ -1853,9 +1853,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const contextoDelSi = intencion.sigueOfrecimiento
       ? [typeof ultimoPedido === 'string' ? ultimoPedido : '', typeof ultimoDeMako === 'string' ? ultimoDeMako : ''].filter(Boolean).join('\n')
       : null;
+    const vistaDelTurno = await vistaDe(ctxApi);
     const turno = herramientasDelTurno({
       veredicto: intencion, texto, contextoDelSi, hilo: conHilo.hilo, agendaAbierta: !!agendaAbierta, deSiempre: toolsDeSiempre,
-      vista: await vistaDe(ctxApi), hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
+      vista: vistaDelTurno, hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
     // ── UN REPORTE DE FALLA TRAE EL TICKET (27/10/2026, lib/doer-falla.ts) ─────────────────────────────────────────────
     // «no puede analizar la llamada de fathom tras 4 intentos» caía en charlar o en la duda, y `levantar_ticket` viaja sólo
@@ -3042,7 +3043,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Si la última herramienta devolvió una GUARDA y nada falló de verdad (ni un error ni una falla tragada), el «no pude» es esa
       // regla, la diga o no el modelo (base 7). (El ruteo todavía no se arma en el grupo: docs/hallazgos-comunicacion.md.)
       const regla = esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas: tragadasDelTurno });
-      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), {});
+      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), { noViajaron: () => parecidasQueNoViajaron({ vista: vistaDelTurno, pedido: texto, viajaron: tools.map((t) => t.name) }) });
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n');
     }
     // EL TICKET QUE VIENE CON UNA PREGUNTA (29/10/2026, lib/mako-intencion-ia.ts: «¿cuántos leads entraron? y el botón de pagar no

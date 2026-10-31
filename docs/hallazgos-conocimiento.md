@@ -71,6 +71,22 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 22. **⚠️ La portada no es la imagen más GRANDE de la tarjeta**: el avatar del autor gana
     por área. La proporción es la que separa una tapa de una foto de perfil.
     [→](#️-la-portada-del-curso-no-es-la-imagen-más-grande-de-la-tarjeta)
+23. **⚠️ El análisis de Knowledge NO estaba pausado: estaba FUERA del repo**, y el
+    pendiente decía que no existía. Tres decisiones de Martín del 21/07 vivían en un
+    transcript que un barrido de seguridad borró.
+    [→](#️-el-análisis-no-estaba-pausado-estaba-fuera-del-repo-y-el-pendiente-decía-que-no-existía)
+24. **⚠️ Lo que se carga de conocimiento desde la pantalla NO se presta a ningún negocio**,
+    y se ve «cargado»: la pantalla escribe `fuente: 'manual'` y sólo `'mako'` se presta.
+    [→](#️-lo-que-se-carga-desde-la-pantalla-no-se-presta-a-ningún-negocio-y-se-ve-cargado)
+25. **⚠️ «Cursos externos» no existe como sección, aunque 103 archivos la declaren**: el
+    mapa `CATEGORIA` del catálogo las pisa todas. Las secciones de verdad son 12.
+    [→](#️-cursos-externos-no-existe-como-sección-aunque-103-archivos-la-declaren)
+26. **⚠️ Un guard que busca el NOMBRE de la función da verde sobre el bug que cuida**: un
+    stub local con el mismo nombre dejó el prompt sin su índice y el test en verde.
+    [→](#️-un-guard-que-busca-el-nombre-de-la-función-da-verde-sobre-el-bug-exacto-que-cuida)
+27. **Tres rojos que la compuerta habría elegido en la punta de Knowledge**: operaciones sin
+    ruta REST y un test que pedía una línea literal de la página de Methodology.
+    [→](#tres-rojos-que-la-compuerta-habría-elegido-en-la-punta-de-knowledge)
 
 ---
 
@@ -7576,3 +7592,189 @@ que ya está en AGENTS.md («el fin de línea es POR ARCHIVO»), con el agravant
 script no validaba su propia salida. La versión que funcionó ancla **por número de línea**
 —sin escapes— y **valida antes de escribir**: que el ancla exista, que el cambio entre, y que
 el archivo no quede con saltos mezclados. Si algo de eso falla, no escribe nada.
+
+---
+
+## Knowledge: el conocimiento de los cursos para TODA la app (31/10/2026)
+
+El pedido de Martín: «el conocimiento de los cursos disponible para toda la app, modular
+como el Second Brain». Lo construido vive en `lib/knowledge-modulos.ts` (el catálogo de
+módulos, puro), `lib/cerebro-knowledge.ts` (la capa del Second Brain),
+`lib/knowledge.ts` (el lector con la base) y `app/classroom/methodology/` (la pantalla).
+Lo que sigue es lo que **no se deduce leyendo ese código**.
+
+### ⚠️ El análisis NO estaba pausado: estaba FUERA del repo, y el pendiente decía que no existía
+
+**Síntoma.** `docs/pendientes.md`, capa del 31/10, punto 1 de «SIN DUEÑO»: *«El análisis
+quedó pausado; no hay plan ni nada construido»*. Con eso, lo natural es volver a analizar
+desde cero.
+
+**Causa.** El análisis existía, **del 21/07/2026**, con tres decisiones de Martín ya
+tomadas. Vivía en una transcripción de chat (`docs/chats/chat-conocimientos-cursos-…md`)
+que el commit `0575d1f07` **borró del repo** —«las transcripciones de docs/chats salen del
+repo (tenían credenciales vivas)»—. La frase de `pendientes.md` la escribió el commit
+`6d6a1c7b3`, que tocó sólo ese archivo: es una **valoración**, no la cita de un documento.
+
+**Las tres decisiones que estaban tomadas** (y que hay que respetar, no re-decidir):
+
+1. El destilado va **donde ya vive el conocimiento**, renombrado para que no se confunda con
+   los cursos, **general de todo MaKo —no por workspace— y clasificado por tema**: «este
+   curso trata de generación de imágenes y vídeos con IA… luego meta otros cursos de oferta,
+   o nutrición, etc. Entonces podríamos clasificarlos».
+2. Sirve de **RAG consultable Y de playbook**: las dos, no una u otra.
+3. La **curación se hace afuera de la app** —«de hacerlo dentro de la app, me consumiría
+   muchísimos créditos de la API»— y **lo curado queda a la vista** para que él lo corrija.
+
+**Reglas que quedan.**
+
+- **Un análisis que vive en un transcript de chat se pierde al primer barrido de
+  seguridad.** Lo que se decide va al documento del área en el mismo turno. Es el mismo
+  hallazgo que «el pipeline de la corrida anterior se perdió por no estar versionado», con
+  otra causa: ahí fue `scratchpad/`, acá fue un borrado deliberado.
+- **Antes de rehacer un análisis que un pendiente declara inexistente, buscá en lo
+  borrado**: `git log --all --diff-filter=D -- docs/chats/` y `git show <ref anterior>:<ruta>`.
+  Las transcripciones tienen credenciales vivas: se leen, no se vuelven a commitear.
+
+### Y el «renombrar /conocimiento» del análisis ya lo había resuelto un pedido POSTERIOR
+
+El análisis del 21/07 decía que el destilado iba a `/conocimiento` renombrado. El
+**25/10/2026** Martín borró esa ruta: «Elimina "hola-mako.com/contexto", lo de
+"Conocimientos" lo puedes llevar a esa tab, donde está el curso, y que solo yo como super
+admin vea esas anotaciones». Manda el posterior, así que **Knowledge no es una tab nueva**:
+se ve en **Classroom › Methodology**, que es donde el conocimiento ya vive.
+
+Lo que faltaba no era una pantalla. Era (a) la clasificación por tema, (b) el camino desde
+esa clasificación hasta el prompt de cada tab, y (c) que la IA de MaKo sepa que el material
+existe. Eso es lo que se construyó.
+
+### El conocimiento llegaba a la IA con el ÁREA CABLEADA en cada writer
+
+**Síntoma.** «El conocimiento de los cursos ya le sirve a toda la app» era falso, y no se
+veía: cada consumidor funcionaba.
+
+**Causa, medida el 31/10.** Siete call sites, cada uno con su propio criterio:
+
+| Call site | Cómo pedía |
+|---|---|
+| `lib/whatsapp-advisor.ts` (×2), `lib/nutricion-generator.ts`, `lib/nutricion-plantillas.ts`, `lib/post-llamada.ts` | `metodologiaDeArea('mensajes', …)` — el área, escrita a mano |
+| `lib/ig-writer.ts`, `lib/landing-writer.ts`, `lib/campaign-structurer.ts` | `searchKnowledge(pedido, 4)` — **sin área**: el cajón general entero |
+| `lib/mako-context.ts` (`buildSystemPrompt`) | `searchKnowledge(query, 4)` — ídem, para todos los chats |
+
+Las dos consecuencias: **una tab nueva no recibía nada** hasta que alguien se acordara de
+cablearla, y las que piden sin área reciben lo que haya, sea de su tema o no.
+
+**La regla.** Una tab pide su método **por su key del nav**, y el catálogo
+(`lib/knowledge-modulos.ts`) resuelve qué módulos le corresponden y de qué área salen
+(`metodoDeTab`, `lib/knowledge.ts`). El área deja de estar escrita en el writer.
+
+**Y la capa del grafo es lo que lo hace barato.** Un módulo es una CAPA del Second Brain
+(`conCapa`, el molde de `lib/cerebro-funciones.ts`), así que el índice de lo que MaKo
+aprendió viaja en el prompt en **una línea por módulo y sin contenido**, y el contenido se
+pide sólo cuando hace falta (`leer_modulo_knowledge`, o el lector de la tab). El contenido
+no puede viajar: son 91 cursos.
+
+### ⚠️ Lo que se carga desde la pantalla NO se presta a ningún negocio, y se ve «cargado»
+
+**La trampa más cara de esta feature.** Martín decidió que Knowledge es «general de todo
+MaKo». Pero las dos puertas por las que entra una ficha desde la pantalla
+(`app/api/mako/knowledge/route.ts`, `create` y `seed_curso`) escriben **`fuente: 'manual'`**,
+y `sePresta` (`lib/rag-prestamo.ts`) presta **sólo `'mako'`**. Resultado: un módulo con 40
+fichas cargadas por la plataforma **le llega a cero negocios**, y desde la pantalla se ve
+exactamente igual que uno que sí funciona.
+
+No es un bug nuevo: es la consecuencia de haber cerrado la fuga del 17/10 (de las 13
+entradas `manual` del ws1, 6 eran del negocio de Mauricio). La regla «sólo `mako` se presta»
+está bien; lo que faltaba era que alguien lo VIERA.
+
+**Lo que queda.** `estadoDeLosModulos()` cuenta las dos cosas —fichas y prestables— y la
+pantalla muestra «40 fichas · no se prestan» en vez de sólo «40 fichas». Una curación de
+Knowledge escribe `fuente: 'mako'`.
+
+**SIN HACER:** `seed_curso` sigue escribiendo `'manual'`, así que importar un curso curado
+desde el botón «Bajar a tierra» no lo presta. No se cambió a propósito: toca lo que lee la
+IA de todos los clientes y hay que medirlo en producción antes (`scripts/metodo-a-mako.mjs`
+es el molde de la re-marcación, que ya se hizo una vez). Vive en
+`app/api/mako/knowledge/route.ts`.
+
+### ⚠️ «Cursos externos» no existe como sección, aunque 103 archivos la declaren
+
+**Síntoma.** Al clasificar los cursos por tema, contar las categorías con un grep sobre
+`app/conocimientos/curso-*.ts` da **«Cursos externos» con 103 cursos** y el resto en una
+cola de 1 a 7. Con eso, lo que se construye es un cajón enorme y seis módulos vacíos.
+
+**Causa.** El mapa `CATEGORIA` de `app/conocimientos/catalogo.ts` **pisa** la categoría que
+declara cada archivo (está escrito ahí mismo: «el override de este mapa GANA sobre lo que el
+archivo declara»). Medido el 31/10: los 132 cursos del catálogo armado se reparten en **12
+secciones** y **ninguna** es «Cursos externos». Tres más que los archivos declaran —«VSL y
+Landing Page», «Producto y construcción», «IA & Generación de Imágenes y Vídeo»— también
+desaparecen: el mapa las manda a `MaKo`.
+
+**La regla.** Las secciones del portal se miden con `CURSOS_TODOS.map((c) => c.categoria)`,
+que es el catálogo ARMADO. Grepear los archivos de curso devuelve una lista que no existe.
+`tests/knowledge-modulos.test.ts` lo fija: toda sección del catálogo armado tiene su módulo
+o está en `SECCIONES_SIN_MODULO`, y una sección declarada que el portal ya no tiene también
+frena. Sin eso, un curso nuevo entra al portal y su conocimiento no llega a ninguna parte.
+
+### ⚠️ Un guard que busca el NOMBRE de la función da verde sobre el bug exacto que cuida
+
+**Medido el 31/10 mientras se probaba el test rompiéndolo.** El guard que exige que
+`buildSystemPrompt` cargue el índice de Knowledge era `assert.match(ctx, /bloqueDeModulos/)`.
+Rotura: reemplazar el import del catálogo por un stub local —
+`const bloqueDeModulos = () => '';`— deja el prompt **sin índice** y el regex **sigue
+matcheando**: 10/0 en verde sobre el bug.
+
+Es la misma clase de falso verde que `tests/agency.test.ts` con la condición invertida, y
+está en AGENTS.md. La versión que sirve son **dos asserts**, uno por cada cosa que se puede
+perder: que el índice venga **del catálogo** (`await import('./knowledge-modulos')`) y que se
+**pegue al prompt** (`base += …`). Cada uno con su mensaje, y las dos roturas probadas.
+
+### `TODOS_LOS_ITEMS` del nav no ve las tabs que viven en `bloques`
+
+Al validar que las tabs declaradas por un módulo existan, el export obvio
+(`TODOS_LOS_ITEMS`, `app/_components/nav.ts`) **no trae `automatizaciones`** —una tab que se
+abre todos los días—, porque ese export baja a los `items` de cada familia y no a sus
+`bloques`. Un guard apoyado en él rechaza una tab real. Se valida contra las keys del FUENTE
+del nav, con un piso de cantidad para que un archivo que no se pudo leer no deje pasar todo.
+
+### Tres rojos que la compuerta habría elegido en la punta de Knowledge
+
+**31/10, al integrar `nube/knowledge-3110` (`0242d2a9c`).** Aparecieron en la mezcla con Competitors Spy y parecían
+efecto de la mezcla. No lo eran: medidos con `git show`, ya estaban en la punta entregada, y
+`scripts/tests-afectados.mjs` elegía esos dos archivos de test sobre esa misma punta (646 elegidos con 24 archivos
+cambiados). La regla está en [hallazgos-infra.md](hallazgos-infra.md).
+
+- **`tests/api-mako-rest` (2 tests).** `modulos_de_knowledge` y `leer_modulo_knowledge` nacieron con
+  `canales: TODOS` y sin ruta en `RUTAS_REST` (`lib/api-mako/rest.ts`). Toda operación con todos los canales
+  necesita su ruta: el compilador no lo ve.
+- **`tests/barra-sin-dev` (test 3).** Pedía la línea literal de `app/classroom/methodology/page.tsx`, que cambió.
+  Se aflojó para seguir pidiendo lo que importa: la puerta de la sesión de admin antes de `ConocimientoView`.
+
+### Lo que quedó SIN hacer de Knowledge
+
+- **Los siete módulos están vacíos**: la curación —destilar los cursos en fichas— es trabajo
+  de contenido y Martín decidió el 21/07 que se hace **afuera de la app**, por los créditos
+  de IA. Hasta que se cargue, `metodoDeTab` cae al RAG general, igual que antes de que
+  Knowledge existiera. Vive en `lib/knowledge-modulos.ts` (qué módulo) y en
+  `app/classroom/methodology/` (dónde se ve lo que falta).
+- **Las cuatro áreas nuevas (`organico`, `oferta`, `paginas`, `piezas`) no tienen una sola
+  fila.** No hicieron falta migración ni cambio de tipos (`area` es texto libre en
+  `mako_knowledge`), pero sí entrar al desplegable de la pantalla: un área que no se puede
+  elegir no recibe nunca una ficha. El test lo frena.
+- **Los siete writers siguen con su área cableada.** `metodoDeTab` existe y lo usan la API y
+  la pantalla, pero `lib/whatsapp-advisor.ts`, `lib/nutricion-generator.ts`,
+  `lib/nutricion-plantillas.ts`, `lib/post-llamada.ts`, `lib/ig-writer.ts`,
+  `lib/landing-writer.ts` y `lib/campaign-structurer.ts` no se tocaron: cambiarlos cambia lo
+  que ve el modelo en siete prompts con tests propios, y se hace de a uno midiendo.
+- **La mitad «plantillas de influencers» del pedido del 30/10 no está** («guiones al estilo
+  de Ramiro Curia, Sofía Contreras»). No existe análisis de eso en ninguna parte —buscado en
+  todas las ramas y tags—, los «links scrapeados» que Martín dice que mandó no están en el
+  repo ni en la carpeta de feedback, y **Ramiro Curia no figura en el catálogo de cursos**
+  (sí Sofía Contreras, como autora de `masteryhaus`). El molde editorial para hacerlo bien ya
+  existe: `docs/conocimiento/patrones-email.md` («todo está destilado: son estructuras y
+  reglas escritas con palabras propias. No hay remitentes, marcas ni texto copiado»).
+- **El mapa que se DIBUJA no muestra la capa de Knowledge.** Los chats sí la recuperan (`grafoParaChat`), pero el
+  mapa va por `unirCerebros` + física (`mapaDelSecondBrain`, `app/second-brain/pagina.tsx`), que es otro camino.
+  `armarKnowledge` ya acepta las cargas medidas para cuando se sume; el puente se escribe en `lib/cerebro-knowledge.ts`.
+- **El tope de 25 MB de la transcripción sigue rebotando toda clase de curso** (ya estaba
+  escrito arriba, en «La puerta de entrada a la ingesta YA existe»): la curación por video
+  necesita extraer el audio con ffmpeg antes.

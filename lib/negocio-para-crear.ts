@@ -19,6 +19,7 @@
 
 import 'server-only';
 import { grafoParaChat } from './cerebro-para-chat';
+import { sinKnowledge } from './cerebro-knowledge';
 import { recuperar } from './cerebro-recuperar';
 
 export { vozDelNegocio } from './nutricion-generator';
@@ -32,7 +33,12 @@ export const PRESUPUESTO_NEGOCIO = 1_800;
 /** El paquete del negocio para el pedido, o '' si no se pudo leer (y lo deja en el log). */
 export async function contextoDelNegocio(pedido: string): Promise<string> {
   try {
-    const grafo = await grafoParaChat();
+    // ⚠️ SIN la capa de Knowledge (31/10/2026). Esto es el paquete del NEGOCIO, y su pregunta nombra siempre «oferta»,
+    // «producto», «precio»: con la capa puesta, los módulos del método («Oferta y modelo de negocio», «Video, imagen y
+    // avatares») matchean esas mismas palabras y le comen presupuesto a la oferta y al avatar REALES del cliente. El
+    // método de los cursos le llega a estas tabs por el índice del prompt y por `metodoDeTab` (lib/knowledge.ts), que es
+    // donde se pide a propósito.
+    const grafo = sinKnowledge(await grafoParaChat());
     const p = recuperar(grafo, { pregunta: `${LO_QUE_PIDE_UNA_PIEZA} ${pedido}`.slice(0, 2_000), presupuesto: PRESUPUESTO_NEGOCIO, profundidad: 1 });
     return p.texto.trim();
   } catch (e) {

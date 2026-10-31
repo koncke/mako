@@ -14,6 +14,58 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Recuperar margen: sólo cuenta lo que va ANTES, y el recorte tiene que llegar al ticket (31/10/2026)
+
+**El síntoma:** `cambiar_crons_secuencia` entraba en los 12.000 caracteres con 119 de margen, y el recorte se avisaba con un
+`console.warn` que nadie lee.
+
+**El diagnóstico obvio era el equivocado: «acortar las descripciones más gordas del área».** `cambiar_botones_mensaje`
+(2.169) o `agregar_escenario_secuencia` (1.821) no devuelven ni un carácter, porque van después del CRON en el orden de esa
+frase. Sólo cuentan las seis que van antes, más el propio CRON. Y el CRON pesa 4.654, pero 3.706 son su esquema, que el
+modelo necesita. Lo barato era lo que esas siete repetían:
+
+| qué se sacó | caracteres |
+|---|---|
+| Los nombres de parámetros repetidos en la descripción de `crear_automatizacion_con_ia`, y «el número o el nombre de la opción» cuatro veces | ~170 |
+| En `duplicar` y `desde_plantilla`, lo que la cola del registro ya dice («hasta el sí») y la referencia a la pantalla | ~110 |
+| En `configurar`, «de esta automatización» y lo que el nombre del parámetro ya dice | ~95 |
+| En el CRON, «devuelve un link» (lo dice la cola) y «hasta 10» (lo dice su parámetro) | ~50 |
+
+La cola de las acciones con link también se acortó, y eso le da aire a todas las áreas. Margen: **119 → 551**. Medido con
+`tests/ops-center-bateria`, que lo imprime.
+
+**El piso nuevo: `MARGEN_MINIMO = 300`.** Antes el test daba rojo con el margen en 0, o sea cuando MaKo ya contestaba «no
+puedo». Ahora da rojo antes, con tiempo para arreglarlo. ⚠️ Es un número puesto a ojo: alcanza para una descripción larga de
+más. Si salta, se acorta lo que repiten esas siete; no se baja el piso.
+
+**El aviso no se arregla con otro aviso.** El recorte pasa en casi todo turno de un área grande (57 operaciones en una corrida)
+y es normal: un ticket o un aviso por cada recorte sería ruido. Lo que importa es el recorte **cuando MaKo dijo que no pudo**.
+Por eso el ticket del «no pude» trae `contexto.noViajaron`: las seis operaciones más parecidas al pedido que esa persona podía
+usar y no viajaron (`parecidasQueNoViajaron`, lib/api-mako/registro.ts). Se calcula sólo si hay ticket.
+
+⚠️ **Va en `contexto`, no en la descripción:** `paraElCliente` muestra la descripción al cliente como si la hubiera escrito él,
+y un id de operación no se le muestra. Lo ven la bandeja del Centro de Operaciones y `leer-ticket.mjs`.
+
+**Las dos ramas entregadas tenían rojos REALES que sus informes no nombraban** (y nombraban otros que no existen). Ya estaban
+en sus propias puntas, medido con `git show` sobre cada una:
+
+- Competitors Spy agregó su área entre `cobros` y `mako`, y `tests/api-mako-cobros` exige `cobros` justo antes de `mako`. Un área
+  nueva va antes de `cobros`.
+- Knowledge agregó dos operaciones con `canales: TODOS` sin su ruta en `RUTAS_REST`: sin ella, `tests/api-mako-rest` da rojo. Una
+  operación que sale por HTTP lleva ruta en `lib/api-mako/rest.ts` y `docs/api-mako.md` regenerado.
+- Knowledge le pasó una prop a `ConocimientoView`, y `tests/barra-sin-dev` pedía la línea literal sin props. El código estaba bien
+  y el guardia seguía el texto: ahora pide lo que cuida, que la puerta de la plataforma va antes de dibujar.
+
+**Sin hacer:**
+
+- En el grupo de WhatsApp el ticket trae `noViajaron`, pero sigue sin la causa `ruteo` (lib/mako-doer-in.ts, «El ruteo todavía
+  no se arma en el grupo»).
+- El margen se mide para UNA frase. Otra operación pesada de otra área puede estar igual de justa, y nada lo mide
+  (`scripts/presupuesto-turno-app.mts "frase"` lo mide a mano).
+- Sin ver con un ticket real: lo probado es el camino con la base simulada (`tests/no-pude-server`).
+
+---
+
 ## Dos ramas recuperaron el MISMO margen y el merge se lo comió: un presupuesto compartido no da conflicto (31/10/2026)
 
 **El síntoma:** el piso de la batería del Ops Center cayó en los dos modos —el chat de la app y

@@ -95,6 +95,8 @@ export type ContextoTicket = {
   chat?: { donde: string; hilo?: string };
   /** Lo último que le pidió a MaKo (textual). */
   pedido?: string;
+  /** Lo parecido a lo pedido que no viajó en ese turno (lib/api-mako/registro.ts, `parecidasQueNoViajaron`). */
+  noViajaron?: string;
   /** Lo que le contestó MaKo cuando falló. */
   respuestaMako?: string;
   /** El error que REGISTRÓ el código (no lo que dice la persona). Es la señal fuerte del triage. */
@@ -141,7 +143,7 @@ export function sanearContexto(x: unknown): ContextoTicket {
     const donde = txt(ch.donde, 40);
     if (donde && /^[a-z0-9-]+$/.test(donde)) c.chat = { donde, ...(txt(ch.hilo, 80) ? { hilo: txt(ch.hilo, 80) } : {}) };
   }
-  for (const [k, tope] of [['pedido', 1000], ['respuestaMako', 1000], ['error', 1000], ['herramienta', 80], ['zona', 60], ['navegador', 300], ['pantalla', 20], ['idioma', 20]] as const) {
+  for (const [k, tope] of [['pedido', 1000], ['respuestaMako', 1000], ['error', 1000], ['herramienta', 80], ['noViajaron', 300], ['zona', 60], ['navegador', 300], ['pantalla', 20], ['idioma', 20]] as const) {
     const v = txt(o[k], tope);
     if (v) c[k] = v;
   }
