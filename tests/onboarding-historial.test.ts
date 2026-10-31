@@ -35,7 +35,7 @@ const hist = (n: number): MensajeHistorial[] => Array.from({ length: n }, (_, i)
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: '', nombreWorkspace: '', faseGuardada: false, canalNegocio: null, loQueVende: false,
-  conCrm: true, conTelefono: true, terminado: false,
+  conCrm: true, conTelefono: false, terminado: false,
 };
 const FASE = { canal: 'llamadas' as never, faseResp: Array.from({ length: 20 }, () => 0) };
 
@@ -86,7 +86,7 @@ test('3. el historial guardado: lo que no se entiende no se pisa', () => {
  */
 function recorrer(telefono: 'cambiar' | 'ahora-no') {
   let e: EstadoArranque = {};
-  let hh: HechosArranque = { ...H };
+  let hh: HechosArranque = { ...H, conTelefono: true };
   let hist: MensajeHistorial[] = [];
   let t = 1_000;
   let primero: number | null = null;
@@ -167,10 +167,12 @@ test('4. EN VIVO, el onboarding entero como lo corre la ruta: cada pregunta con 
     if (variante === 'cambiar') {
       assert.deepEqual(hist.filter((x) => x.de === 'yo' && x.texto.startsWith('+54')).map((x) => x.texto), ['+549110000000', '+549110000001']);
       assert.equal(textos.filter((x) => x === CAMBIAR_NUMERO).length, 1);
-      assert.equal(textos[textos.length - 2], CODIGO_CARGADO, 'el código cargado, antes del cierre');
+      const iCodigo = textos.indexOf(CODIGO_CARGADO);
+      assert.match(textos[iCodigo - 1], /Te mandé un código/, 'el código cargado, debajo de su pregunta');
+      assert.match(textos[iCodigo + 1], /cómo te llamas/, 'y sigue con el nombre');
     } else {
-      assert.equal(textos[textos.length - 2], AHORA_NO);
-      assert.equal(textos.filter((x) => x.startsWith('¿A qué WhatsApp')).length, 1, 'en el cierre no se repite la última pregunta');
+      assert.equal(textos[1], AHORA_NO, 'lo primero que contesta');
+      assert.equal(textos.filter((x) => x.includes('¿A qué WhatsApp')).length, 1, 'en el cierre no se repite');
     }
     const unido = unirConOffer(hist, offer).map((x) => x.texto);
     assert.match(unido[0], /^¡Hola! Soy MaKo/, 'empieza por el saludo, no por la oferta');
@@ -262,6 +264,8 @@ test('8. el compare-and-set: compara contra lo recién leído, lo ilegible no se
 });
 
 test('9. Florencia (ws21): terminó el 18/10 sin historial; reconstruido, su conversación empieza por su nombre', () => {
+  // Sin el teléfono (H): con el WhatsApp primero (30/10) reconstruir hoy lo pondría arriba, y ella lo contestó al final. No lo
+  // alcanza: el 31/10 no queda ningún negocio terminado sin historial (medido en producción).
   const e: EstadoArranque = {
     introVista: true, nombre: 'Florencia', negocio: 'mi marca personal: Florencia Ayelen Carballo', sesionId: 14, pdfOk: 'si',
     faseResp: [1, 0, 0, 2, 0, 2], canal: 'llamadas', crmTipo: 'llamada', origen: 'Me lo recomendaron', interes: 'anuncios',

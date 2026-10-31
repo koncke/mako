@@ -20,13 +20,13 @@ import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia
 import { getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
-import { enviarCodigoVerificacion, verificarCodigoContacto } from '@/lib/mako-grupo';
+import { asegurarGrupoMaKo, enviarCodigoVerificacion, getGrupoJidMaKo, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
-import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
   FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
@@ -69,6 +69,28 @@ export async function POST(req: NextRequest) {
   // Quién escribe, SÓLO para la guardia (la ráfaga por usuario): nunca para los datos del negocio (el contacto de los
   // reportes es el del negocio, ver 'telefono').
   const usuarioGuardia = (await getUsuarioActual().catch(() => null))?.email ?? null;
+  // Manda el código al WhatsApp que dio: desde su tarjeta o escrito en la caja del chat.
+  const pedirCodigo = async (e: EstadoArranque, h: Awaited<ReturnType<typeof hechosDelArranque>>, confirmado: Awaited<ReturnType<typeof hechosConfirmados>>, digitos: string) => {
+    // El contacto de los reportes es el del NEGOCIO: lo que ya tenía guardado, o el email del admin
+    // del negocio (el perfil que se está mirando). Nunca el de quien está logueado: el super admin o
+    // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
+    const [previo, perfil] = await Promise.all([getContactoReportes().catch(() => null), getPerfil().catch(() => null)]);
+    await setContactoReportes({
+      // El nombre del PERFIL si es uno de verdad (sexta revisión, 21/10: lo leído sin toque, «Cómo Estás», llegaba a los
+      // reportes); con el perfil en un email, el perfil ya tiene el confirmado con el toque.
+      nombre: previo?.nombre || (!pisaElNombreDelPerfil(perfil?.nombre) ? perfil?.nombre : '') || e.nombre || undefined,
+      email: previo?.email || perfil?.email || undefined,
+      telefono: digitos,
+    });
+    // Sin el negocio todavía (el WhatsApp va primero): vacío, y el grupo nace con el nombre del workspace (`verificarCodigoContacto`).
+    const r = await enviarCodigoVerificacion(g.ws, digitos, e.negocio || '');
+    if (!r.ok) return no(422, r.error);
+    await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}` });
+    await anotarRespuesta(e, h, `+${digitos}`, confirmado);
+    // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
+    if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
+    return listo();
+  };
 
   try {
     switch (body.action) {
@@ -104,6 +126,10 @@ export async function POST(req: NextRequest) {
           return listo();
         }
 
+        // El WhatsApp escrito en la caja vale igual que el de la tarjeta.
+        const escrito = etapa === 'telefono' && opcion === undefined && texto ? telefonoEscrito(texto) : null;
+        if (escrito) return await pedirCodigo(e, h, confirmado, escrito);
+
         const lectura = leerRespuesta(e, h, { texto, opcion, opcionTexto, pregunta });
         // La pregunta cambió (una pestaña vieja): no se anota nada y vuelve la conversación de HOY.
         if (!lectura.ok && lectura.cambio) return NextResponse.json({ ok: false, error: lectura.error, vista: await vistaArranque() }, { status: 409 });
@@ -124,6 +150,12 @@ export async function POST(req: NextRequest) {
         if (lectura.fase) await setDiagnosticoFase(lectura.fase, lectura.faseCanal ?? patch.canal ?? e.canal);
         if (patch.nombre) await guardarNombre(patch.nombre);
         if (patch.negocio) await guardarNombreNegocio(patch.negocio);
+        // El WhatsApp va primero (30/10/2026): su contacto y su grupo nacieron antes de saber estos dos nombres.
+        if (patch.nombre) {
+          const c = await getContactoReportes().catch(() => null);
+          if (c?.telefono && !c.nombre) await setContactoReportes({ ...c, nombre: patch.nombre }).catch(() => {});
+        }
+        if (patch.negocio && (await getGrupoJidMaKo(g.ws).catch(() => null))) await asegurarGrupoMaKo(g.ws, { nombre: patch.negocio }).catch(() => {});
         const nuevo = await guardarEstadoArranque(patch);
         // Lo que contestó, TAL CUAL, en el historial del onboarding (lib/onboarding-historial.ts): con lo dibujado se perdía
         // el toque de cada confirmación («Sí, se llama así»), porque la pantalla muestra el dato confirmado.
@@ -162,24 +194,7 @@ export async function POST(req: NextRequest) {
         const crudo = typeof body.telefono === 'string' ? body.telefono : '';
         const digitos = crudo.replace(/\D/g, '');
         if (digitos.length < 8) return no(422, 'Escribe tu número completo, con el código de país.');
-        // El contacto de los reportes es el del NEGOCIO: lo que ya tenía guardado, o el email del admin
-        // del negocio (el perfil que se está mirando). Nunca el de quien está logueado: el super admin o
-        // una agencia que hacen el arranque mirando al cliente se quedaban con sus reportes.
-        const [previo, perfil] = await Promise.all([getContactoReportes().catch(() => null), getPerfil().catch(() => null)]);
-        await setContactoReportes({
-          // El nombre del PERFIL si es uno de verdad (sexta revisión, 21/10: lo leído sin toque, «Cómo Estás», llegaba a los
-          // reportes); con el perfil en un email, el perfil ya tiene el confirmado con el toque.
-          nombre: previo?.nombre || (!pisaElNombreDelPerfil(perfil?.nombre) ? perfil?.nombre : '') || e.nombre || undefined,
-          email: previo?.email || perfil?.email || undefined,
-          telefono: digitos,
-        });
-        const r = await enviarCodigoVerificacion(g.ws, digitos, e.negocio || 'tu negocio');
-        if (!r.ok) return no(422, r.error);
-        await guardarEstadoArranque({ telefono: r.yaVerificado ? 'verificado' : 'codigo', telefonoNumero: `+${digitos}` });
-        await anotarRespuesta(e, h, `+${digitos}`, confirmado);
-        // Ya verificado: la conversación dibuja el código como cargado sin pedirlo, y ésa es su respuesta (segunda revisión).
-        if (r.yaVerificado) await anotarRespuesta({ ...e, telefono: 'verificado', telefonoNumero: `+${digitos}` }, h, CODIGO_CARGADO, confirmado);
-        return listo();
+        return await pedirCodigo(e, h, confirmado, digitos);
       }
 
       // Que exista el funnel principal antes de abrir la conversación de la oferta (la pantalla lo pide

@@ -309,6 +309,10 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
 }
 
 /** Lo que la pantalla necesita para dibujar la conversación. */
+/** Lo escribe el alta por el pago (Planes, 31/10/2026). Es el mismo texto que `CLAVE_WHATSAPP_DEL_PAGO` de lib/origen-cuenta.ts: no se
+ *  importa para que las dos puntas suban en cualquier orden, y tests/onboarding-whatsapp-primero.test.ts los compara. */
+const CLAVE_WHATSAPP_DEL_PAGO = 'cuenta.whatsapp_del_pago';
+
 export type VistaArranque = {
   modo: ModoArranque;
   etapa: EtapaArranque;
@@ -326,6 +330,8 @@ export type VistaArranque = {
   nombre: string;
   /** El número que se está verificando (para la tarjeta del teléfono). */
   telefonoNumero: string;
+  /** El WhatsApp que dio al pagar, sólo dígitos: la tarjeta arranca con él y lo manda un toque. Vacío si no dio ninguno. */
+  telefonoDelPago: string;
   /** El tipo de CRM elegido, para la tarjeta. */
   crmTipo: TipoCrmId | null;
   /** El CRM a medida que armó MaKo (lib/onboarding-crm.ts): la tarjeta muestra sus etapas con esos nombres. */
@@ -367,9 +373,10 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     await anotarHistorial({ antes, despues }, { primeroDeOffer: primeroDeOffer(h) })
       .catch((err) => console.error('[arranque] historial:', err instanceof Error ? err.message : err));
   }
+  const etapa = etapaDeArranque(e, h);
   return {
     modo: h.modo,
-    etapa: etapaDeArranque(e, h),
+    etapa,
     antes,
     despues,
     sesion: h.sesion,
@@ -379,6 +386,7 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     introVista: !!e.introVista,
     nombre: e.nombre ?? '',
     telefonoNumero: e.telefonoNumero ?? '',
+    telefonoDelPago: etapa === 'telefono' ? (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '' : '',
     crmTipo: e.crmTipo ?? null,
     crmPropuesta: e.crmPropuesta ?? null,
     canal: h.canalNegocio,

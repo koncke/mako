@@ -75,5 +75,7 @@
    shell; los botones, el alto de un dedo. */
 [data-m] .m-cuenta-ajustes { padding: 4px 0 24px; }
 [data-m] .m-cuenta-ajustes .aj-titulo { font-size: 24px; }
+/* La lista de Seguridad decía «Seguridad» dos veces: en la barra y en el título (30/10/2026, medido en el banco). Un detalle (con «volver») dice otra cosa y se queda. */
+[data-m] .m-cuenta-ajustes .aj-cabecera:not(:has(.aj-volver)) { display: none; }
 [data-m] .m-cuenta-ajustes .aj-boton { min-height: 44px; }
 [data-m] .m-cuenta-ajustes .aj-fila { min-height: 60px; }
