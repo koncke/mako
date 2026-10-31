@@ -15,7 +15,7 @@
 // Puro y sin `server-only`: lo leen la ruta, el store del navegador y los tests. No importa el motor (`_doory`).
 // =============================================================================
 
-import type { CambioImagen } from './aplicar';
+import type { CambioImagen, FotoDelChat } from './aplicar';
 import { validarOperaciones, type OperacionImagen } from './catalogo';
 
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'aplicada' | 'descartada' | 'restaurada';
@@ -32,6 +32,8 @@ export type PropuestaGuardada = {
   elegidos: string[];
   alcance: AlcanceImagen;
   operaciones: OperacionImagen[];
+  /** ref → la foto, sólo las que usan las operaciones: para ponerlas al aceptar, aunque se haya recargado. */
+  fotos?: Array<[string, FotoDelChat]>;
 };
 
 /** `c`: cuándo se creó (ordena el hilo); `t`: su último cambio (gana al unir dos copias). En ms. */
@@ -81,11 +83,23 @@ const pares = (x: unknown): Array<[string, string]> =>
     .slice(0, TOPES_HILO.refs)
     .filter((p): p is [string, string] => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string' && typeof p[1] === 'string' && p[0].length <= 20 && p[1].length <= 100);
 
+/** Las fotos guardadas en una propuesta: lo que no sea una dirección http(s) no llega al lienzo. */
+function fotosGuardadas(x: unknown): Array<[string, FotoDelChat]> {
+  if (!Array.isArray(x)) return [];
+  return x.flatMap((par): Array<[string, FotoDelChat]> => {
+    if (!Array.isArray(par) || typeof par[0] !== 'string' || !esObjeto(par[1])) return [];
+    const { id, url, nombre, ancho, alto } = par[1];
+    if (typeof id !== 'string' || typeof url !== 'string' || !/^https?:\/\//i.test(url) || typeof ancho !== 'number' || typeof alto !== 'number') return [];
+    return [[par[0].slice(0, 20), { id: id.slice(0, 100), url: url.slice(0, 2000), nombre: String(nombre ?? '').slice(0, 100), ancho, alto }]];
+  }).slice(0, TOPES_HILO.cambios);
+}
+
 function propuesta(x: unknown): PropuestaGuardada | undefined {
   if (!esObjeto(x)) return undefined;
   const { operaciones } = validarOperaciones(x.operaciones);
   if (!operaciones.length) return undefined;
   const elegidos = (Array.isArray(x.elegidos) ? x.elegidos : []).filter((r): r is string => typeof r === 'string' && r.length <= 20).slice(0, TOPES_HILO.refs);
+  const fotos = fotosGuardadas(x.fotos);
   return {
     paginaId: typeof x.paginaId === 'string' && x.paginaId ? x.paginaId.slice(0, 100) : null,
     refs: pares(x.refs),
@@ -93,6 +107,7 @@ function propuesta(x: unknown): PropuestaGuardada | undefined {
     elegidos,
     alcance: x.alcance === 'seleccion' ? 'seleccion' : 'diseno',
     operaciones,
+    ...(fotos.length ? { fotos } : {}),
   };
 }
 

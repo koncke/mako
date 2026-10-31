@@ -19,11 +19,12 @@
 
 import type { EditorEngine } from '../../_doory/editor/extensions';
 import { TOPES_CHAT_IMAGEN, validarOperaciones } from '@/lib/image-editor/chat/catalogo';
-import { aplicarOperaciones, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
+import { aplicarOperaciones, type FotoDelChat, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
 import { memoriaDelHilo } from '@/lib/image-editor/chat/hilo';
 import { FUENTES } from '../fuentes';
 import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type MensajeNuevo, type Propuesta } from './hilo';
+import type { RespSubidos } from '@/lib/image-editor/tipos';
 import { cuerpoConArchivos } from '@/app/_chat/useAdjuntosDelChat';
 import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 
@@ -33,6 +34,8 @@ const PLAZO_MS = 125_000;
 const PLAZO_CON_ARCHIVOS_MS = 245_000;
 /** Las fuentes que se le sugieren a la IA: las primeras del catálogo (orden = popularidad). */
 const SUGERIDAS = 30;
+/** Las fotos de «Subidos» que se le ofrecen a la IA: las adjuntas y las últimas subidas. */
+const FOTOS_OFRECIDAS = 40;
 
 export type AlcanceChat = 'diseno' | 'seleccion';
 
@@ -89,6 +92,41 @@ async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, arch
   }
 }
 
+type FotoOfrecida = FotoDelChat & { adjunta?: boolean };
+
+/**
+ * Las fotos que la IA puede poner (30/10/2026, Leila: «no me pone las imágenes en el carrusel»). Las que vienen adjuntas en
+ * el pedido se suben a «Subidos» ANTES de pedir, para que tengan dirección y vayan primero; después, las últimas de «Subidos».
+ * Lo que no se pudo subir se dice, y el pedido sigue. Si la lista no se pudo leer, quedan las adjuntas.
+ */
+async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[]): Promise<{ fotos: FotoOfrecida[]; fallas: string[] }> {
+  const fotos: FotoOfrecida[] = [];
+  const fallas: string[] = [];
+  for (const f of archivos) {
+    if (!f.type.startsWith('image/')) continue;
+    try {
+      const r = await editor.assets.upload(f, f.name);
+      editor.store.setState((s) => ({ uploads: [r, ...s.uploads.filter((u) => u.id !== r.id)] }));
+      fotos.push({ id: r.id, url: r.url, nombre: r.name, ancho: r.width, alto: r.height, adjunta: true });
+    } catch {
+      fallas.push(`la foto «${f.name}» no se pudo subir`);
+    }
+  }
+  try {
+    const res = await fetch('/api/image-editor/subidos?clase=imagen');
+    const r = (await res.json()) as RespSubidos;
+    if (r.ok && Array.isArray(r.subidos)) {
+      for (const s of r.subidos) {
+        if (!s.tipo.startsWith('image/') || fotos.some((x) => x.id === s.id)) continue;
+        fotos.push({ id: s.id, url: s.url, nombre: s.nombre, ancho: s.ancho, alto: s.alto });
+      }
+    }
+  } catch { /* sin la lista quedan las adjuntas: el pedido no se cae por esto */ }
+  return { fotos: fotos.slice(0, FOTOS_OFRECIDAS), fallas };
+}
+
+const fotoRef = (i: number) => `o${i + 1}`;
+
 /** Las refs con que se pidió, para aplicar (al pedir es la vista; después de recargar, lo guardado). */
 const refsDe = (p: Propuesta): RefsDeVista => ({
   elementos: new Map(p.refs.map(([ref, id]) => [ref, { id }] as const)),
@@ -120,7 +158,12 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const doc = editor.getDocument();
   const docVersion = editor.state.docVersion;
   const activePageId = editor.state.activePageId;
-  const vista = vistaDeDiseno(doc, { activePageId, elegidos: elegidosIds, fuentes: FUENTES.slice(0, SUGERIDAS).map((f) => f.family) });
+  const { fotos, fallas } = await fotosParaPedir(editor, archivos);
+  const fotoDeRef = new Map<string, FotoDelChat>(fotos.map((f, i) => [fotoRef(i), { id: f.id, url: f.url, nombre: f.nombre, ancho: f.ancho, alto: f.alto }]));
+  const vista = vistaDeDiseno(doc, {
+    activePageId, elegidos: elegidosIds, fuentes: FUENTES.slice(0, SUGERIDAS).map((f) => f.family),
+    fotos: fotos.map((f, i) => ({ ref: fotoRef(i), nombre: f.nombre, ancho: f.ancho, alto: f.alto, ...(f.adjunta ? { adjunta: true } : {}) })),
+  });
   if (vista.json.length > TOPES_CHAT_IMAGEN.vistaMax) {
     terminar({ de: 'mako', texto: 'El diseño es muy grande para el chat. Elige unos elementos y pídelo sobre la selección.', error: true });
     return;
@@ -132,6 +175,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   }
   const { operaciones, descartes: deForma } = validarOperaciones(r.operaciones);
   const elegidos = [...new Set(elegidosIds.map((id) => [...vista.elementos.values()].find((e) => e.id === id)?.ref).filter((x): x is string => !!x))];
+  const usadas = [...fotoDeRef].filter(([r]) => operaciones.some((o) => (o.op === 'agregar_foto' || o.op === 'fondo_foto') && o.foto === r));
   const propuesta: Propuesta = {
     paginaId: activePageId,
     refs: [...vista.elementos.values()].map((e) => [e.ref, e.id]),
@@ -139,15 +183,16 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     elegidos,
     alcance: alcanceReal,
     operaciones,
+    ...(usadas.length ? { fotos: usadas } : {}),
     docVersion,
   };
   // La prueba: sobre una COPIA del documento con que se pidió. Nada se aplica todavía.
   const prueba = aplicarOperaciones({
     doc, operaciones, vista: refsDe(propuesta), nuevoId: nuevoIdObjeto, activePageId,
-    soloRefs: alcanceReal === 'seleccion' ? new Set(elegidos) : null, fuente: fuenteDelEditor(doc),
+    soloRefs: alcanceReal === 'seleccion' ? new Set(elegidos) : null, fuente: fuenteDelEditor(doc), fotos: fotoDeRef,
   });
   // `deForma` es casi siempre vacío: la ruta ya filtró, y lo que tiró viene en `r.descartes`.
-  const descartes = [...(r.descartes ?? []), ...deForma, ...prueba.descartes];
+  const descartes = [...fallas, ...(r.descartes ?? []), ...deForma, ...prueba.descartes];
   const perdidas = descartes.filter((d) => !NO_SE_PERDIO.test(d)).length;
   if (!prueba.aplicadas) {
     terminar({ de: 'mako', texto: `${perdidas ? 'No pude hacerlo. ' : ''}${r.resumen || 'Sin cambios.'}`, ...(descartes.length ? { descartes } : {}) });
@@ -176,7 +221,7 @@ export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Pr
       doc,
       r: aplicarOperaciones({
         doc, operaciones: p.operaciones, vista: refsDe(p), nuevoId: nuevoIdObjeto, activePageId: p.paginaId ?? editor.state.activePageId,
-        soloRefs: p.alcance === 'seleccion' ? new Set(p.elegidos) : null, fuente: fuenteDelEditor(doc),
+        soloRefs: p.alcance === 'seleccion' ? new Set(p.elegidos) : null, fuente: fuenteDelEditor(doc), fotos: new Map(p.fotos ?? []),
       }),
     };
   };

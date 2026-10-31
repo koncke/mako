@@ -55,7 +55,9 @@ export type OperacionImagen =
   | { op: 'fondo'; pagina?: string; color: string }
   | { op: 'agregar_pagina'; despues_de?: string; duplicar?: boolean; nueva?: string }
   | { op: 'borrar_pagina'; pagina: string }
-  | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string };
+  | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string }
+  | { op: 'agregar_foto'; foto: string; pagina?: string; x?: number; y?: number; ancho?: number; alto?: number; cubrir?: boolean; ref?: string }
+  | { op: 'fondo_foto'; foto: string; pagina?: string };
 
 export type IdOperacionImagen = OperacionImagen['op'];
 
@@ -83,6 +85,8 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'agregar_pagina', forma: '{"op":"agregar_pagina","despues_de":"pa3","duplicar":true,"nueva":"pn1"}', para: 'Agrega una página después de "despues_de" (la ref de una página; sin ella, al final). Con "duplicar": true es una copia de esa página; si no, una en blanco. "nueva": una ref nueva («pn1», «pn2»…) para poner cosas en esa página en este mismo pedido, con su "pagina": sin ella, lo que agregues NO va ahí.' },
   { op: 'borrar_pagina', forma: '{"op":"borrar_pagina","pagina":"pa3"}', para: 'Borra una página con todo lo que tiene. Un diseño siempre se queda con al menos una.' },
   { op: 'agregar_forma', forma: '{"op":"agregar_forma","forma":"rectangulo","x":0,"y":900,"ancho":1080,"alto":180,"color":"#141414","ref":"n2"}', para: `Agrega una forma: "forma" es rectangulo o circulo. ${MEDIDAS}. "color" de relleno (#RRGGBB). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.` },
+  { op: 'agregar_foto', forma: '{"op":"agregar_foto","foto":"o1","x":0,"y":0,"ancho":1080,"alto":720,"cubrir":true,"ref":"n3"}', para: `Pone una foto de la lista "fotos" del DISEÑO: "foto" es su ref. Sin "cubrir" entra entera en la caja (ancho y alto), sin deformarse; con "cubrir": true llena la caja y corta lo que sobra. ${MEDIDAS} (sin medidas va centrada). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido, por ejemplo mandarla atrás de los textos con "capa". Sólo las de "fotos": una dirección de internet no sirve.` },
+  { op: 'fondo_foto', forma: '{"op":"fondo_foto","foto":"o1","pagina":"pa3"}', para: `Pone una foto de la lista "fotos" como fondo de UNA página, llenándola. ${PAGINA}.` },
 ];
 
 /**
@@ -90,7 +94,7 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
  * en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT_IMAGEN =
-  'agregar fotos, íconos o gráficos de la biblioteca o de Subidos; generar imágenes con IA; quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
+  'agregar íconos o gráficos de la biblioteca; poner una foto que no esté en "fotos" (si la persona no subió ninguna, pídele que la adjunte en el chat); generar imágenes con IA; quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
 
 const IDS = new Set<string>(OPERACIONES_CHAT_IMAGEN.map((o) => o.op));
 
@@ -188,6 +192,8 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   agregar_pagina: ['despues_de', 'duplicar', 'nueva'],
   borrar_pagina: ['pagina'],
   agregar_forma: ['forma', 'pagina', 'x', 'y', 'ancho', 'alto', 'color', 'ref'],
+  agregar_foto: ['foto', 'pagina', 'x', 'y', 'ancho', 'alto', 'cubrir', 'ref'],
+  fondo_foto: ['foto', 'pagina'],
 };
 
 const textoValido = (x: unknown): string | null => {
@@ -347,20 +353,43 @@ export function validarOperacion(crudo: unknown): Validada {
         },
       };
     }
+    case 'agregar_foto': {
+      if (!esRef(raw.foto)) return { ok: false, motivo: 'una foto que no es de la lista' };
+      if ((raw.x !== undefined && !posicion(raw.x)) || (raw.y !== undefined && !posicion(raw.y))) return { ok: false, motivo: 'una foto fuera de la página' };
+      if ((raw.ancho !== undefined && !medida(raw.ancho)) || (raw.alto !== undefined && !medida(raw.alto))) return { ok: false, motivo: 'una foto sin medidas válidas' };
+      if (raw.cubrir !== undefined && typeof raw.cubrir !== 'boolean') return { ok: false, motivo: 'un «cubrir» que no es true o false' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una foto en una página que no es de la vista' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'una foto nueva con una ref que no es «n1», «n2»…' };
+      return {
+        ok: true,
+        op: {
+          op, foto: raw.foto,
+          ...(raw.x !== undefined ? { x: r1(raw.x as number) } : {}), ...(raw.y !== undefined ? { y: r1(raw.y as number) } : {}),
+          ...(raw.ancho !== undefined ? { ancho: r1(raw.ancho as number) } : {}), ...(raw.alto !== undefined ? { alto: r1(raw.alto as number) } : {}),
+          ...(raw.cubrir === true ? { cubrir: true } : {}),
+          ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}), ...(ref !== undefined ? { ref: ref as string } : {}),
+        },
+      };
+    }
+    case 'fondo_foto': {
+      if (!esRef(raw.foto)) return { ok: false, motivo: 'una foto que no es de la lista' };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'un fondo de una página que no es de la vista' };
+      return { ok: true, op: { op, foto: raw.foto, ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}) } };
+    }
   }
 }
 
 /** La ref que anuncia una operación que agrega algo («ref» de un texto o una forma, «nueva» de una copia o una página). */
 function refQueAgrega(raw: unknown): string | null {
   if (!esObjeto(raw)) return null;
-  const x = raw.op === 'agregar_texto' || raw.op === 'agregar_forma' ? raw.ref : raw.op === 'duplicar' || raw.op === 'agregar_pagina' ? raw.nueva : null;
+  const x = raw.op === 'agregar_texto' || raw.op === 'agregar_forma' || raw.op === 'agregar_foto' ? raw.ref : raw.op === 'duplicar' || raw.op === 'agregar_pagina' ? raw.nueva : null;
   return typeof x === 'string' ? x : null;
 }
 
 /** Las refs de las que depende una operación: el elemento, los elementos y la página. */
 function refsQueUsa(raw: unknown): string[] {
   if (!esObjeto(raw)) return [];
-  const agrega = raw.op === 'agregar_texto' || raw.op === 'agregar_forma';
+  const agrega = raw.op === 'agregar_texto' || raw.op === 'agregar_forma' || raw.op === 'agregar_foto';
   return [...(agrega ? [] : [raw.ref]), ...(Array.isArray(raw.refs) ? raw.refs : []), raw.pagina, raw.despues_de].filter((x): x is string => typeof x === 'string');
 }
 

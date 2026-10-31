@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cajaDe, refsDeIds, vistaDeDiseno } from '../lib/image-editor/chat/vista';
-import { TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
+import { NO_SE_PUEDE_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
 import { AVISO_CORTADA, TOPES_HILO, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
@@ -684,4 +684,122 @@ test('los topes cuadran: lo que entra por la caja entra en la memoria y en el hi
 test('la memoria no afirma que la persona descartó lo que se cortó solo', () => {
   const [l] = memoriaDelHilo([{ de: 'mako', texto: 'Armé el carrusel.', estado: 'descartada', aviso: AVISO_CORTADA }]);
   assert.equal(l.texto, 'Armé el carrusel.');
+});
+
+// ── Las fotos desde el chat (30/10/2026, Leila: «no me pone las imágenes en el carrusel») ─────────────────────────
+
+const FOTOS = new Map([['o1', { id: 'sub-1', url: 'https://x.supabase.co/storage/v1/object/public/a/foto.jpg', nombre: 'foto.jpg', ancho: 2000, alto: 1000 }]]);
+const objetosDe = (d: unknown) => (d as { pages: Array<{ id: string; objects: Obj[]; background: Obj }> }).pages;
+
+test('agregar_foto: valida la forma, y lo que se valida una vez vuelve a pasar', () => {
+  const v = validarOperacion({ op: 'agregar_foto', foto: 'o1', x: 0, y: 0, ancho: 500, alto: 500, cubrir: true, ref: 'n1' });
+  assert.equal(v.ok, true);
+  if (v.ok) assert.deepEqual(validarOperacion(v.op), v, 'idempotente: corre en la ruta y en el panel');
+  assert.equal(validarOperacion({ op: 'agregar_foto' }).ok, false, 'sin foto');
+  assert.equal(validarOperacion({ op: 'agregar_foto', foto: 'https://malo.example/x.jpg' }).ok, false, 'una dirección no es una foto de la lista');
+  assert.equal(validarOperacion({ op: 'agregar_foto', foto: 'o1', ancho: -5 }).ok, false);
+  assert.equal(validarOperacion({ op: 'fondo_foto', foto: 'o1' }).ok, true);
+});
+
+test('agregar_foto: entra entera en la caja, sin deformarse, con la dirección y el id de Subidos', () => {
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o1', x: 100, y: 100, ancho: 400, alto: 400 }], { fotos: FOTOS });
+  assert.deepEqual(r.descartes, []);
+  const f = objetosDe(r.doc)[0].objects.at(-1)!;
+  assert.equal(f.type, 'image');
+  assert.equal(f.src, FOTOS.get('o1')!.url);
+  assert.equal(f.assetId, 'sub-1');
+  assert.equal(f.crossOrigin, 'anonymous', 'sin esto, exportar el diseño ensucia el lienzo');
+  assert.equal(f.scaleX, f.scaleY, 'no se deforma');
+  assert.equal(f.scaleX, 0.2, '2000 px en 400');
+  assert.deepEqual([f.left, f.top], [100, 200], 'centrada en la caja: mide 400 × 200');
+  assert.equal(r.cambios[0].tipo, 'agrega');
+});
+
+test('agregar_foto con «cubrir»: llena la caja y corta lo que sobra, también sin deformarse', () => {
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o1', x: 0, y: 0, ancho: 400, alto: 400, cubrir: true }], { fotos: FOTOS });
+  const f = objetosDe(r.doc)[0].objects.at(-1)!;
+  assert.equal(f.scaleX, f.scaleY);
+  assert.equal(f.scaleX, 0.4, '1000 px de alto en 400');
+  assert.equal((f.width as number) * (f.scaleX as number), 400);
+  assert.equal((f.height as number) * (f.scaleY as number), 400);
+  assert.equal(f.cropX, 500, 'corta lo mismo de cada lado');
+  assert.equal(f.cropY, 0);
+});
+
+test('agregar_foto sin medidas: centrada, a la mitad del lado corto, como la del panel de Subidos', () => {
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o1' }], { fotos: FOTOS });
+  const f = objetosDe(r.doc)[0].objects.at(-1)!;
+  assert.equal(f.scaleX, f.scaleY);
+  assert.ok((f.width as number) * (f.scaleX as number) > 0);
+});
+
+test('una foto que no está en la lista se dice y no toca nada; lo que dependía de ella tampoco cae sobre lo de la persona', () => {
+  const t = ref('obj-titulo');
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o9', ref: t }, { op: 'borrar', refs: [t] }], { fotos: FOTOS });
+  assert.equal(r.aplicadas, 0);
+  assert.match(r.descartes[0], /foto/);
+  assert.equal(objDe(r.doc, 'obj-titulo').text, 'Hola mundo');
+  assert.equal(aplicar([{ op: 'agregar_foto', foto: 'o1' }]).aplicadas, 0, 'sin lista (una propuesta sin fotos): tampoco');
+});
+
+test('fondo_foto: el fondo de la página es la foto, con el mismo formato que el panel de Fondo', () => {
+  const r = aplicar([{ op: 'fondo_foto', foto: 'o1' }], { fotos: FOTOS });
+  assert.deepEqual(objetosDe(r.doc)[0].background, { type: 'image', src: FOTOS.get('o1')!.url, fit: 'cover' });
+  const elegido = aplicar([{ op: 'fondo_foto', foto: 'o1' }], { fotos: FOTOS, soloRefs: new Set([ref('obj-titulo')]) });
+  assert.equal(elegido.aplicadas, 0, 'el fondo es de la página, no de lo elegido');
+});
+
+test('la vista le cuenta a la IA qué fotos hay, sin la dirección; y el catálogo ya no dice que no se puede', () => {
+  const v = JSON.parse(vistaDeDiseno(diseno(), { activePageId: 'pag-1', fotos: [{ ref: 'o1', nombre: 'foto.jpg', ancho: 2000, alto: 1000, adjunta: true }] }).json);
+  assert.deepEqual(v.fotos, [{ ref: 'o1', nombre: 'foto.jpg', ancho: 2000, alto: 1000, adjunta: true }]);
+  assert.doesNotMatch(NO_SE_PUEDE_CHAT_IMAGEN, /agregar fotos/);
+  assert.match(catalogoParaPrompt(), /agregar_foto/);
+  assert.match(catalogoParaPrompt(), /fondo_foto/);
+});
+
+test('la propuesta guarda las fotos que usa: aceptar después de recargar las encuentra', () => {
+  const m = { id: 'm1', c: 1, t: 1, de: 'mako', texto: 'x', estado: 'pendiente', propuesta: {
+    paginaId: 'pag-1', refs: [], paginas: [], elegidos: [], alcance: 'diseno',
+    operaciones: [{ op: 'agregar_foto', foto: 'o1' }],
+    fotos: [['o1', FOTOS.get('o1')], ['o2', { id: 's', url: 'javascript:alert(1)', nombre: 'x', ancho: 1, alto: 1 }]],
+  } };
+  const h = hiloAlAbrir([m]);
+  const g = (h[0] as MensajeMako).propuesta!;
+  assert.deepEqual(g.fotos, [['o1', FOTOS.get('o1')]], 'una dirección que no es http no se guarda');
+});
+
+test('pedir con una foto adjunta: la sube a Subidos, se la ofrece a la IA y la propuesta la pone', async () => {
+  const { editor } = editorDeMentira([]);
+  const subidas: string[] = [];
+  (editor as unknown as { assets: unknown }).assets = {
+    upload: async (f: File, nombre: string) => { subidas.push(nombre); return { id: 'sub-9', url: 'https://x.supabase.co/a/mia.jpg', thumbUrl: '', width: 800, height: 600, name: nombre, kind: 'image' }; },
+  };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  const pedidos: Array<{ url: string; cuerpo: Obj | null }> = [];
+  globalThis.fetch = (async (url: string, init?: { body?: unknown }) => {
+    const cuerpo = init?.body instanceof FormData ? JSON.parse(String(init.body.get('cuerpo') ?? init.body.get('json') ?? '{}')) : init?.body ? JSON.parse(String(init.body)) : null;
+    pedidos.push({ url, cuerpo });
+    if (String(url).startsWith('/api/image-editor/subidos')) return { json: async () => ({ ok: true, subidos: [{ id: 'sub-1', nombre: 'vieja.jpg', tipo: 'image/jpeg', ancho: 100, alto: 100, bytes: 1, url: 'https://x.supabase.co/a/vieja.jpg', creado: '' }, { id: 'aud', nombre: 'a.mp3', tipo: 'audio/mpeg', ancho: 0, alto: 0, bytes: 1, url: 'https://x.supabase.co/a/a.mp3', creado: '' }] }) };
+    return { json: async () => ({ ok: true, resumen: 'Pongo tu foto.', operaciones: [{ op: 'agregar_foto', foto: 'o1' }], descartes: [] }) };
+  }) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'pone esta foto', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
+  assert.deepEqual(subidas, ['mia.jpg']);
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.equal(m.estado, 'pendiente');
+  assert.deepEqual(m.propuesta!.fotos!.map(([r, f]) => [r, f.id]), [['o1', 'sub-9']], 'guarda sólo la que usa, y la adjunta va primero');
+  await aceptarPropuesta(editor as never, m);
+  const f = objetosDe(editor.getDocument())[0].objects.at(-1)!;
+  assert.equal(f.src, 'https://x.supabase.co/a/mia.jpg');
+});
+
+test('si una foto adjunta no se pudo subir se dice, y el pedido sigue con lo demás', async () => {
+  const { editor } = editorDeMentira([]);
+  (editor as unknown as { assets: unknown }).assets = { upload: async () => { throw new Error('pesa de más'); } };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  globalThis.fetch = (async (url: string) => (String(url).startsWith('/api/image-editor/subidos')
+    ? { json: async () => ({ ok: false, error: 'x' }) }
+    : { json: async () => ({ ok: true, resumen: 'Cambio el fondo.', operaciones: [{ op: 'fondo', color: '#000000' }], descartes: [] }) })) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'el fondo y mi foto', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.ok(m.descartes!.some((d) => /mia\.jpg/.test(d)));
 });
