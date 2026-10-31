@@ -30,7 +30,7 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Simón Pérez', nombreWorkspace: '', faseGuardada: false,
-  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: false, terminado: false,
 };
 /** El perfil que trae el alta de customer-success: el email como nombre provisorio. */
 const CON_EMAIL: HechosArranque = { ...H, nombreCuenta: 'ana@gmail.com' };

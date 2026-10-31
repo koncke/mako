@@ -31,6 +31,7 @@ import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 import { Dropdown } from '../components/Dropdown';
 import { TelefonoConPais } from '../_components/TelefonoConPais';
 import { FilaAjustes, GrupoAjustes, SELECT_AJUSTES, TituloAjustes } from '../_ui/Ajustes';
+import { IconoMenu } from '../_ui/iconos-menu';
 import { Toast, useToast } from '../_ui/Toast';
 import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
@@ -252,7 +253,7 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
             onClick={(e) => setFotoAncla(fotoAncla ? null : e.currentTarget)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {perfil.avatarUrl ? <img src={perfil.avatarUrl} alt="" /> : letra}
-            <span className="aj-foto__lapiz" aria-hidden>✎</span>
+            <span className="aj-foto__lapiz" aria-hidden><IconoMenu nombre="editar" size={13} /></span>
           </button>
         )} />
         {fotoAncla && (

@@ -54,6 +54,8 @@ const nextConfig: NextConfig = {
   // docs/, entra solo: el patrón es un glob.
   outputFileTracingIncludes: {
     '/admin/docs': ['./docs/**/*.md', './AGENTS.md'],
+    // La investigación financiera, con su entrada desde Strategy (app/admin/estrategia/cobrar).
+    '/admin/estrategia/cobrar': ['./docs/estrategia-financiera-mako.md'],
     // Offer Playbook renderiza el marco de oferta partido en tabs (app/admin/offer-playbook).
     '/admin/offer-playbook': ['./docs/offer-marco.md'],
     // El cron de la cola de montaje (app/api/cron/montaje) corre ffmpeg y los
