@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -168,10 +168,12 @@ export type VariableAviso = {
    *               pasa el cron de las alertas críticas (`datosCuentaFrenada`, lib/alerta-critica-texto.ts).
    * · `reunionplan` — necesita LAS REUNIONES QUE MaKo LEYÓ y las tareas que dejó en el Plan (el evento de la plataforma
    *               `reunion_tareas_al_plan`): lo pasa el cron fathom-plan (`datosReunionesAlPlan`, lib/reunion-plan-aviso.ts).
+   * · `clienteagencia` — necesita EL CLIENTE de la agencia a la que le llega el aviso (`aLaAgencia`, lib/avisos-catalogo.ts): lo
+   *               pasa `avisoALasAgencias` (lib/aviso-evento.ts).
    * · `iacaida` — necesita LA CUENTA DE CLAUDE del negocio que no pudo analizar sus llamadas (el evento de la plataforma
    *               `closing_ia_caida`): lo pasa el Closing (`datosIaCaida`, lib/closing-ia-caida-reglas.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -536,6 +538,9 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   },
   { key: 'anuncios_hace', label: 'Hace cuánto está así', ejemplo: '3 h 25 min', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo' },
   { key: 'anuncios_motivo_meta', label: 'Motivo de Meta', ejemplo: 'Riesgo de pago', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo' },
+  // El cliente de la agencia que recibe el aviso (31/10/2026, ticket #37): sin su nombre, una alarma que no puede accionar.
+  { key: 'cliente_nombre', label: 'De qué cliente', ejemplo: 'Natalia', alcance: 'clienteagencia', grupo: 'anuncios', fuente: 'clienteagencia', soloPara: 'equipo' },
+  { key: 'cliente_link', label: 'Link a MaKo Partners', ejemplo: 'https://hola-mako.com/partners', alcance: 'clienteagencia', grupo: 'anuncios', fuente: 'clienteagencia', soloPara: 'equipo' },
   {
     key: 'anuncios_vez', label: 'Aviso número', ejemplo: '2', alcance: 'anuncios', grupo: 'anuncios', fuente: 'anuncios', soloPara: 'equipo',
     condicion: { rotulo: ['Aviso número', 'Aviso número'], tipo: 'numero', min: 1, max: 1000, def: 3 },
@@ -709,6 +714,8 @@ export type ContextoDatos = {
   conIaCaida?: boolean;
   /** El tope de Instagram o Zernio que frenó los mensajes de un negocio (el evento de la plataforma `social_tope`). */
   conTope?: boolean;
+  /** El cliente de la agencia a la que le llega el aviso (`aLaAgencia`, lib/avisos-catalogo.ts). */
+  conClienteAgencia?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -756,6 +763,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'reunionplan') return opts.conReunionPlan === true;
   if (a === 'iacaida') return opts.conIaCaida === true;
   if (a === 'tope') return opts.conTope === true;
+  if (a === 'clienteagencia') return opts.conClienteAgencia === true;
   return false;
 }
 
