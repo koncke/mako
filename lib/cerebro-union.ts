@@ -22,7 +22,7 @@
 // =============================================================================
 
 import {
-  AREAS, CAPA_CONSTRUCCION, CAPA_FUNCIONES, CAPA_NEGOCIO, TAXONOMIA_NEGOCIO,
+  AREAS, CAPA_CONOCIMIENTO, CAPA_CONSTRUCCION, CAPA_FUNCIONES, CAPA_NEGOCIO, TAXONOMIA_NEGOCIO,
   type AristaCerebro, type Cerebro, type Encuadre, type NodoCerebro, type Punto, type Taxonomia,
 } from './cerebro-modelo';
 import type { EstadoFiltro } from './cerebro-filtro';
@@ -97,7 +97,10 @@ export function conCapa(base: Cerebro<string>, capa: Cerebro<string>, c: { id: s
  */
 const VE_SIN_PLATA = new RegExp([
   '^(?:raiz|leads|voz|vozcom|persona|glosario)$',
-  `^(?:n1|area|fn|${CAPA_FUNCIONES}|oferta|prod|lm|ent|av|raz|fmt|sec|land|audio|etapa|funnel):`,
+  // `kn:` y la capa `knowledge` (31/10/2026, lib/cerebro-knowledge.ts): el método de los cursos no tiene un número del
+  // negocio adentro, y es justo lo que un closer o un setter necesitan leer para escribir un mensaje o cerrar una
+  // llamada. Se suma A PROPÓSITO, como pide la regla de esta lista en positivo.
+  `^(?:n1|area|fn|${CAPA_FUNCIONES}|kn|${CAPA_CONOCIMIENTO}|oferta|prod|lm|ent|av|raz|fmt|sec|land|audio|etapa|funnel):`,
   '^campo:(?:oferta|avatar|marca)_',
   '^pan:(?:IDENTIDAD Y POSICIONAMIENTO|OFERTA Y PRECIOS|AVATAR Y CLIENTE IDEAL|NICHO Y MERCADO|TONO Y VOZ DE MARCA)$',
 ].join('|'));

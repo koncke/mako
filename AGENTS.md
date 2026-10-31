@@ -6454,6 +6454,47 @@ decisión escrita y no un descuido. El test lleva su inverso: una entrada de la
 lista blanca que ya no comparte nadie también falla, porque si no queda permiso
 escrito para una colisión futura.
 
+## Y una tab que sólo ve el super admin NO va en `TAB_ONBOARDINGS`
+
+`resumenOnboardingTabs()` (`lib/tab-onboarding-state.ts`) recorre `Object.keys(TAB_ONBOARDINGS)`
+**sin filtro de capa, de rol ni de visibilidad**, y lo que devuelve lo pega `buildSystemPrompt`
+en el prompt de **todos los negocios, en todos los turnos**. Una entrada para una pantalla de
+plataforma queda pendiente para siempre y MaKo le dice al dueño que lo primero es ir a
+configurar algo que no puede abrir (31/10/2026, al construir Knowledge; docs/hallazgos-onboarding.md).
+
+La regla del producto sigue siendo que **toda tab tiene onboarding**. Lo que se agrega es la
+pregunta previa: **¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
+su estado igual le sirve a MaKo, va **el DATO y no el flag** —algo que sea verdad para cualquiera
+que lo lea—, como el conteo de fichas por módulo de Knowledge (`estadoDeLosModulos`, `lib/knowledge.ts`).
+
+# El método de los cursos lo pide una tab por su KEY, nunca con un área escrita a mano
+
+El conocimiento de los cursos (**Knowledge**) está clasificado por tema en
+`lib/knowledge-modulos.ts`: un módulo declara qué enseña, de qué **secciones del portal de
+cursos** sale, en qué `area` de `mako_knowledge` aterriza su destilado y **qué tabs lo
+consumen** (keys del nav). Un prompt que quiere ese método llama
+`metodoDeTab(<key del nav>, pregunta)` (`lib/knowledge.ts`) y el catálogo resuelve el área.
+
+**Por qué:** hasta el 31/10/2026 el área estaba cableada en cada writer —cuatro con
+`metodologiaDeArea('mensajes', …)` y tres con `searchKnowledge(pedido, 4)` sin área, o sea el
+cajón entero—, así que **una tab nueva no recibía nada** hasta que alguien se acordara de
+cablearla. El área en el writer es la copia que se desincroniza.
+
+Lo demás que gobierna código nuevo acá:
+
+- **Un módulo de Knowledge es una CAPA del Second Brain** (`lib/cerebro-knowledge.ts`, el molde
+  de `lib/cerebro-funciones.ts`): se cuelga con `conCapa` y entra al turno sólo si la pregunta
+  pide el método. Al prompt viaja el ÍNDICE —una línea por módulo, sin contenido
+  (`bloqueDeModulos`)—; el contenido se pide (`leer_modulo_knowledge`, o `metodoDeTab`).
+- **Un módulo no lista cursos ni declara su estado.** Los cursos salen del catálogo del portal
+  por sección (tenerlos escritos dos veces es el bug que dejaba cada curso nuevo con el link
+  compartido roto), y cuánto método tiene cada módulo se MIDE (`estadoDeLosModulos`).
+- **Una ficha de Knowledge se carga con `fuente: 'mako'`.** Con `'manual'` no se presta
+  (`lib/rag-prestamo.ts`) y le llega a cero negocios, con la pantalla mostrándola igual.
+- **Un área nueva entra al desplegable de `app/classroom/methodology/ConocimientoView.tsx`** o
+  no se puede cargar nunca una ficha ahí. `tests/knowledge-modulos.test.ts` lo frena, igual que
+  una sección del portal sin módulo y una tab declarada que el nav no tiene.
+
 # Una barra de gráfico se recorta al 100%, siempre
 
 `width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.

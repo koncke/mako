@@ -12,6 +12,7 @@
 
 import { notFound } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
+import { estadoDeLosModulos } from '@/lib/knowledge';
 import { ConocimientoView } from './ConocimientoView';
 
 export const dynamic = 'force-dynamic';
@@ -21,5 +22,8 @@ export const metadata = { title: 'Methodology · Classroom' };
 
 export default async function MetodologiaPage() {
   if (!(await getSesionAdmin())) notFound();
-  return <ConocimientoView />;
+  // Knowledge arriba de las fichas (31/10/2026): los módulos con cuánto método tiene cada uno. Se mide en el SERVIDOR
+  // y viaja como prop (datos planos): la vista es un client component y `lib/knowledge` es `server-only`. Si la cuenta
+  // no se puede medir, `estadoDeLosModulos` devuelve los módulos en cero y la pantalla se dibuja igual.
+  return <ConocimientoView modulos={await estadoDeLosModulos()} />;
 }
