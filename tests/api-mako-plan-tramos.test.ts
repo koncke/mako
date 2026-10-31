@@ -87,7 +87,13 @@ test('1. la forma: por chat, mueve plata sin costar, para cualquiera de la ficha
   // Un closer de la ficha también arma un plan (como editar_cuota); y va AL FINAL de su área (AGENTS.md: no le saca el lugar a otra).
   const miembro: Vista = { canal: 'app', alcance: 'proponer', ws: 9, rol: 'miembro', tabs: null };
   assert.equal(visible(d, miembro), true);
-  assert.equal(porArea('cobros').at(-1)?.id, 'armar_plan_por_tramos');
+  // No «es la última» (eso se rompe con la próxima operación de cobros, y pasó en el área chatbot el 31/10/2026): lo que se
+  // cuida es que no se haya adelantado a las que ya estaban. La de atrás es la que había al final cuando ésta se declaró.
+  const cobros = porArea('cobros').map((x) => x.id);
+  assert.ok(
+    cobros.indexOf('armar_plan_por_tramos') > cobros.indexOf('editar_cuota'),
+    'una operación nueva va AL FINAL de su área, detrás de las que ya estaban (AGENTS.md): a igual puntaje el chat trae la declarada antes y le saca el lugar',
+  );
   // El plan uniforme manda acá lo que no entra en él (una primera cuota con fecha, quincenas, otra moneda, varios montos).
   assert.match(porId('guardar_plan_pagos')?.descripcion ?? '', /usa armar_plan_por_tramos/);
 });

@@ -92,7 +92,15 @@ test('la operación: por HTTP, de pantalla, al FINAL del área, con su ruta; y e
   assert.equal((d as { confirmacion?: string }).confirmacion, 'pantalla');
   assert.deepEqual(d.parametros.filter((p) => p.obligatorio).map((p) => p.nombre), ['secuenciaId', 'tarjeta']);
   const chatbot = REGISTRO.filter((x) => x.area === 'chatbot').map((x) => x.id);
-  assert.equal(chatbot.at(-1), 'cambiar_texto_mensaje', 'una operación nueva va AL FINAL del área: a igual puntaje el chat trae la declarada antes');
+  // Esto pedía `chatbot.at(-1) === 'cambiar_texto_mensaje'`, o sea «es LA última», y se puso rojo el 31/10/2026 con la
+  // primera operación que se declaró después — como se iba a poner con cada una. Lo que la regla de AGENTS.md cuida no es
+  // ser la última para siempre: es no HABERLE SACADO EL LUGAR a las que ya estaban. La que importa es la de los CRON, que
+  // pesa ~4.100 caracteres y entra de una sola vez o no entra; el margen con el que entra lo mide e imprime el test 4 de
+  // tests/ops-center-bateria.
+  assert.ok(
+    chatbot.indexOf('cambiar_texto_mensaje') > chatbot.indexOf('cambiar_crons_secuencia'),
+    'una operación nueva va AL FINAL del área, detrás de las que ya estaban: a igual puntaje el chat trae la declarada antes, y adelantarse le saca el lugar a la que se pidió',
+  );
   assert.ok(leer('lib/api-mako/rest.ts').includes("['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}/texto', 'cambiar_texto_mensaje'],"));
   assert.ok(leer('tests/api-mako-http.snapshot.txt').split('\n').includes('cambiar_texto_mensaje'));
   assert.match(leer('docs/api-mako.md'), /cambiar_texto_mensaje/);
