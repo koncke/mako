@@ -17,6 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cerrarCheckoutDelCobro, type CheckoutCreado } from '../lib/cobros-reglas';
+import { PASARELAS, type Pasarela } from '../lib/cobros-tipos';
 
 const BIEN: CheckoutCreado = { ok: true, ref: 'cs_123', url: 'https://checkout.stripe.com/c/pay/cs_123', venceAt: '2026-10-24T10:00:00Z' };
 const MAL: CheckoutCreado = { ok: false, error: 'Stripe respondió 402' };
@@ -99,8 +100,25 @@ test('crearCobro usa esa función y no escribe el anulado a mano después de la 
   const i = src.indexOf('export async function crearCobro(');
   const crear = src.slice(i, src.indexOf('\n}\n', i) + 2);
   assert.match(crear, /await cerrarCheckoutDelCobro\(\{/);
-  assert.match(crear, /checkout: await crearCheckout\(cobro, \{ stripe, mp \}, 0, \{ inicioAt \}\)/);
-  assert.doesNotMatch(crear, /estado: 'anulado', motivo: checkout\.error/, 'el anulado a mano tira si la base falla');
+  // ── EL CHECKOUT SE CREA ADENTRO DEL CIERRE, CON TODAS LAS CREDENCIALES Y CON SU `inicioAt` ──
+  // Esto citaba la línea entera (`crearCheckout(cobro, { stripe, mp }, 0, { inicioAt })`) y se puso ROJA al entrar Creem
+  // (31/10/2026) con el código correcto, que además compila mejor. Lo que cuida no era la línea sino cuatro cosas, y cada una
+  // va por separado para que el mensaje diga qué se perdió. La RAMA de cada pasarela adentro de `crearCheckout` la cuida
+  // tests/creem-pasarela.test.ts: acá se cuida el CALL SITE.
+  const llamada = crear.match(/checkout: await crearCheckout\(cobro, \{([^}]*)\}, (\d+), \{ inicioAt \}\)/);
+  assert.ok(llamada, 'crearCobro ya no crea el checkout como campo `checkout:` del cierre, con su vuelta y su `inicioAt`: uno creado afuera puede quedar sin fila que lo conozca');
+  // `creem: null` escrito a mano COMPILA (el campo es `CredCreem | null`): esa pasarela queda sin poder cobrar, con la fila ya
+  // escrita, y nada lo dice. El Record es TOTAL a propósito: la pasarela #4 no compila este test hasta que la nombren acá.
+  const CRED_DE: Readonly<Record<Pasarela, string>> = { stripe: 'stripe', mercadopago: 'mp', creem: 'creem' };
+  assert.deepEqual(
+    llamada[1].split(',').map((s) => s.trim()).filter(Boolean).sort(),
+    PASARELAS.map((pas) => CRED_DE[pas]).sort(),
+    'crearCheckout recibe la credencial VIVA de cada pasarela: una puesta en null a mano deja esa pasarela sin cobrar, con la fila ya escrita',
+  );
+  assert.equal(llamada[2], '0', 'la primera vuelta es 0: con otra, la Idempotency-Key deja de ser la del cobro y un reintento crea un SEGUNDO checkout');
+  // El `\w+\.error` en vez de `checkout.error`: la regresión vale igual escrita con otro nombre de variable (`cerrado.error`).
+  // El anular legítimo de más abajo usa `motivo: a.motivo`, así que no se pisan.
+  assert.doesNotMatch(crear, /estado: 'anulado', motivo: \w+\.error/, 'el anulado a mano tira si la base falla');
   assert.ok(crear.indexOf(".from('cobros').insert(") < crear.indexOf('cerrarCheckoutDelCobro'), 'la fila se escribe ANTES de la pasarela');
 });
 

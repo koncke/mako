@@ -480,7 +480,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
             <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
               hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={feedback} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
-              delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} avisoCerrado={(p) => centro.avisoDePregunta(elegido, p)} />
+              delChat={bloque} onResponder={responderPregunta} avisoCerrado={(p) => centro.avisoDePregunta(elegido, p)} deLaApp={deLaApp} />
           </div>
         )}
       </SheetM>}

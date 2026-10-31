@@ -8,6 +8,7 @@
 // el segundo, que dice qué pasa, la pide. No se reintenta sola (AGENTS.md: en lo que gasta plata, el default es NO).
 // =============================================================================
 
+import { CAPACIDADES_PASARELA } from '@/lib/cobros-tipos';
 import { useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { useRouter } from '@/app/_ui/Link';
@@ -16,7 +17,7 @@ import { darmeDeBajaAction, empezarPlanYaAction } from '@/app/configuraciones/pl
 import type { SuscripcionVisible } from '@/app/configuraciones/plan/PlanPanel';
 import { FilaM, ListaM, PieM, PildoraM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 
-export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string }) {
+export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string; gratisHasta?: string | null }) {
   const router = useRouter();
   const [preguntar, setPreguntar] = useState(false);
   const [corriendo, setCorriendo] = useState(false);
@@ -36,7 +37,7 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
     haptico('error'); setAviso({ ok: false, texto: r.resumen }); setCorriendo(false);
   };
   const puedeDarseDeBaja = !!suscripcion && !suscripcion.cancelada && !suscripcion.baja && !aviso?.ok;
-  const esStripe = suscripcion?.proveedor === 'stripe';
+  const hastaElFinDelMes = !!suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].bajaAlFinDelPeriodo;
 
   const darmeDeBaja = async () => {
     if (corriendo) return;
@@ -51,7 +52,7 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
     <>
       <ListaM>
         <FilaM icono="tag" titulo={plan}
-          segunda={!suscripcion ? 'Acordado con MaKo' : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : `${suscripcion.monto} por mes`}
+          segunda={!suscripcion ? (gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : suscripcion.primerMes ?? `${suscripcion.monto} por mes`}
           pill={estado ? <PildoraM tono={estado.tono}>{estado.texto}</PildoraM> : undefined} />
         {enPrueba && puedeDarseDeBaja && (
           <FilaM icono="tag" titulo="Empezar mi plan ya" segunda={`Pagas ${suscripcion!.monto} desde hoy, sin los topes de la prueba.`}
@@ -67,7 +68,7 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
       {puedeDarseDeBaja && (
         <ListaM>
           <FilaM titulo={<span className="m-configuraciones-rojo">Darme de baja</span>}
-            segunda={enPrueba ? 'No se te cobra nada.' : esStripe ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
+            segunda={enPrueba ? 'No se te cobra nada.' : hastaElFinDelMes ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
             onClick={() => setPreguntar(true)} />
         </ListaM>
       )}
@@ -76,7 +77,7 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
         pie={(
           <PieM consecuencia={enPrueba
             ? `No se te cobra nada, y sigues usando MaKo hasta el ${suscripcion!.prueba!.hasta}. No se puede deshacer.`
-            : esStripe
+            : hastaElFinDelMes
               ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
               : 'Mercado Pago deja de cobrarlo desde ya. No se puede deshacer.'}>
             <Button variant="danger" size="lg" full loading={corriendo} onClick={() => { void darmeDeBaja(); }}>Darme de baja</Button>

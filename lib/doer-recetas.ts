@@ -101,6 +101,15 @@ export const OPERACIONES_GENERADOR_VIDEO: ReadonlySet<string> = new Set([
   'listar_anuncios_video', 'ver_anuncio_video', 'ver_montaje_anuncio', 'contar_escenarios_reusables', 'listar_guiones_para_video',
   'listar_formatos_video', 'listar_lugares_grabacion', 'ver_contexto_video', 'ver_voz_cliente', 'estado_onboarding_video',
   'ver_saldo_flow', 'calcular_alcance_anuncio', 'ver_puente_flow', 'listar_trabajos_flow',
+  // El estudio de anuncios (rescate de nube/video-generator-2710, 27/10): llegó con sus 21 operaciones y el test
+  // las encontró sin grupo. Son del Generator, no del Editor: el proyecto vive acá, no en el navegador de nadie.
+  // ⚠️ `filmar_toma_anuncio` gasta créditos de Flow del cliente: su receta tiene que viajar con ella.
+  'abrir_anuncio_en_estudio', 'crear_anuncio_con_guion', 'cargar_guion_propio', 'editar_texto_toma',
+  'reescribir_toma_con_ia', 'cambiar_tomas_anuncio', 'adaptar_voz_anuncio', 'elegir_lugar_anuncio',
+  'corregir_escenario_anuncio', 'otro_fondo_escenario', 'reusar_escenarios_anuncio', 'elegir_foto_anuncio',
+  'generar_imagen_escenario', 'elegir_opcion_escenario', 'aprobar_escenario_anuncio', 'escribir_escenarios_anuncio',
+  'filmar_toma_anuncio', 'descartar_toma_anuncio', 'restaurar_toma_anuncio', 'montar_anuncio_final',
+  'rehabilitar_puente_flow',
 ]);
 
 /** Las escrituras del Image Editor (lib/api-mako/areas/imagen.def.ts). */

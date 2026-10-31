@@ -4,7 +4,7 @@
 // Pedido de Martín (22/10/2026): «si alguien paga se ingresa automáticamente a la app con el email de bienvenida».
 // El alta automática ya existía (lib/cobros.ts, `altaSiCorresponde` → lib/alta-cliente.ts → `invitarPorEmail`), pero
 // su ÚNICO disparador era un link armado a mano en /admin/cobros. Esto es la puerta pública: el comprador elige un
-// plan, deja nombre y email, y sale al checkout de la pasarela con un cobro de SUSCRIPCIÓN que al pagarse da el alta.
+// plan, deja sus datos, y sale al checkout de la pasarela con un cobro de SUSCRIPCIÓN que al pagarse da el alta.
 //
 // QUÉ HACE, en orden:
 //   1. El plan sale de lib/planes-mako.ts (con el setting `planes.mako` de la plataforma): la capa y el precio NUNCA
@@ -12,7 +12,7 @@
 //   2. La pasarela: las conectadas en el workspace de la plataforma, y de esas las que tienen precio en su moneda (MP
 //      cobra en la del sitio de su cuenta: sin precio en ARS, una cuenta argentina no se ofrece). Y según el PAÍS de quien
 //      compra (27/10/2026): Mercado Pago sólo en el de su cuenta, Stripe en el resto (`pasarelasDelPais`).
-//   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña.
+//   3. El lead del comprador en el CRM de la plataforma: el de ese email (se reusa) o uno nuevo, con la campaña y su WhatsApp.
 //   4. Si ya tiene un link VIVO de ese plan por esa pasarela (de las últimas 23 h), se devuelve ése: dos clics o
 //      volver atrás no crean otro checkout.
 //   5. `crearCobro` con `altaCapa` (sólo la plataforma puede: lib/cobros.ts lo valida en positivo).
@@ -24,22 +24,27 @@
 // =============================================================================
 
 import 'server-only';
+import { registrarPedido } from './pedidos-ingreso';
+import { pedidoLimpio } from './pedidos-ingreso-reglas';
 import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
-import { createLead, logLeadEvent } from './leads';
-import { esLeadDuplicado } from './leads-duplicados';
+import { createLead, enriquecerLead, getLead, logLeadEvent } from './leads';
+import { esLeadDuplicado, porMotivo } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
-import { crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
+import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
-import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
-import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, type PlanMako } from './planes-mako';
+import { modoDeClaveCreem } from './creem-api';
+import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
+import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { diagnosticoEnTexto, leadDeLaCompra, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
+import { creadoPorPrimerMes, TEXTO_PROMO_CUENTA, TEXTO_PROMO_USADA, TEXTO_PROMO_VENCIDA } from './primer-mes-reglas';
+import { PROMO_ENTRADA } from './promo-entrada-reglas';
 import { listarUsuarios } from './usuarios';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -69,6 +74,18 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
     if (!PASARELAS_CON_PRUEBA.includes(p)) continue;
     if (p === 'stripe') {
       out.push({ pasarela: 'stripe', moneda: 'USD', prueba: modoDeClaveStripe(await credDelCliente('STRIPE_SECRET_KEY', ws)) === 'prueba' });
+      continue;
+    }
+    // ⚠️ RAMA PROPIA, NO EL `else` DE MERCADO PAGO (31/10/2026). Antes esto era `if (p === 'stripe') {…}` y después,
+    // sin else, leía el token de Mercado Pago: con Creem conectado, o no se ofrecía nada (sin token de MP) o se
+    // empujaba una opción con `pasarela: 'mercadopago'` escrito literal, o sea una opción DUPLICADA de Mercado Pago
+    // con la moneda de su cuenta, mientras Creem quedaba invisible.
+    if (p === 'creem') {
+      const key = await credDelCliente('CREEM_API_KEY', ws);
+      if (!key) continue;
+      // Creem fija el precio del producto en USD o EUR (enum cerrado): MaKo cobra en USD, y el plan tiene que tener
+      // precio en dólares o no se ofrece. No se inventa ninguna tasa (`precioEn` lo resuelve después).
+      out.push({ pasarela: 'creem', moneda: 'USD', prueba: modoDeClaveCreem(key) === 'prueba' });
       continue;
     }
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', ws);
@@ -172,6 +189,24 @@ export async function guardarPrecioLocal(planId: string, moneda: string, monto: 
   });
 }
 
+/**
+ * El WhatsApp de quien compra en una ficha que YA existe. Se completa sólo si está vacía: la ruta es pública, y cualquiera puede escribir el
+ * email de otro. Si la ficha tiene otro número, no se pisa y queda en su historial. Nunca frena la compra.
+ */
+async function whatsappEnFicha(leadId: number, whatsapp: string | null | undefined): Promise<void> {
+  if (!whatsapp) return;
+  const tel = `+${whatsapp}`;
+  try {
+    if ((await enriquecerLead(leadId, { telefono: tel }, 'Checkout de MaKo')).length) return;
+    const actual = await getLead(leadId);
+    // Todos los dígitos: corregir sólo el país deja iguales los últimos 10, y eso también es otro número.
+    if (String(actual?.telefono_normalizado ?? actual?.telefono ?? '').replace(/\D/g, '') === whatsapp) return;
+    await logLeadEvent(leadId, 'WhatsApp', `Dejó este WhatsApp al comprar: ${tel}. No se cambió el de la ficha.`, 'Checkout de MaKo');
+  } catch (e) {
+    console.warn(`[compra-plan] no pude anotar el WhatsApp en el lead ${leadId}:`, msg(e));
+  }
+}
+
 /** El lead de ese email en el CRM de la plataforma (exacto), o uno nuevo. Corre adentro de runWithWorkspace. */
 async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuevo: boolean }> {
   const db = await getTenantDb();
@@ -182,19 +217,39 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
     return leadPorEmail((data ?? []) as Array<{ id: number; email: string | null }>, p.email);
   };
   const ya = await buscar();
-  if (ya) return { leadId: ya.id, nuevo: false };
+  if (ya) {
+    await whatsappEnFicha(ya.id, p.whatsapp);
+    return { leadId: ya.id, nuevo: false };
+  }
   const o = p.origen ?? {};
+  const datos = {
+    nombre: p.nombre, email: p.email, telefono: p.whatsapp ? `+${p.whatsapp}` : null, origen_lead: 'landing',
+    utm_source: o.utm_source, utm_medium: o.utm_medium, utm_campaign: o.utm_campaign, utm_content: o.utm_content, fbclid: o.fbclid,
+  };
   try {
-    const lead = await createLead({
-      nombre: p.nombre, email: p.email, telefono: p.whatsapp ? `+${p.whatsapp}` : null, origen_lead: 'landing',
-      utm_source: o.utm_source, utm_medium: o.utm_medium, utm_campaign: o.utm_campaign, utm_content: o.utm_content, fbclid: o.fbclid,
-    });
+    const lead = await createLead(datos);
     return { leadId: Number(lead.id), nuevo: true };
   } catch (e) {
     if (!esLeadDuplicado(e)) throw e;
     const otro = await buscar();
-    if (otro) return { leadId: otro.id, nuevo: false };
-    throw e;
+    if (otro) {
+      await whatsappEnFicha(otro.id, p.whatsapp);
+      return { leadId: otro.id, nuevo: false };
+    }
+    // ⚠️ UN DUPLICADO NUNCA FRENA UNA COMPRA (30/10/2026): `createLead` también frena por NOMBRE, y acá eso era «No pudimos registrar tu
+    // compra» a quien se llama igual que otro lead (la plataforma tiene 219 traídos de grupos). El mismo contacto, o uno cargado a
+    // mano sin email, es el mismo lead (`leadDeLaCompra`) y se completa. Un homónimo con otro email es otra persona: se crea, y la
+    // ficha lo marca en «Posibles duplicados».
+    const mismo = leadDeLaCompra(e.coincidencias, p.email);
+    if (mismo != null) {
+      await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, 'Checkout de MaKo').catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
+      await whatsappEnFicha(mismo, p.whatsapp);
+      return { leadId: mismo, nuevo: false };
+    }
+    const lead = await createLead({ ...datos, permitirDuplicado: true });
+    const mismoNumero = porMotivo(e.coincidencias, 'telefono').map((c) => c.lead.id);
+    if (mismoNumero.length) await logLeadEvent(Number(lead.id), 'WhatsApp', `Ese WhatsApp también está en la ficha ${mismoNumero.join(', ')}.`, 'Checkout de MaKo').catch(() => {});
+    return { leadId: Number(lead.id), nuevo: true };
   }
 }
 
@@ -228,6 +283,8 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
     // El diagnóstico de la puerta del Acelerador (lib/compra-plan-reglas.ts): con eso arranca la llamada.
     const diag = p.diagnostico ? ` Diagnóstico: ${diagnosticoEnTexto(p.diagnostico)}.` : '';
     await logLeadEvent(lead.leadId, 'Pedido de plan', `Quiere ${nombrePlan}${de}${ref}.${wa}${diag}`, 'Planes de MaKo').catch(() => {});
+    // También en «Quieren entrar» (30/10/2026), para darle de alta sin ir a buscarlo al CRM. Con el rótulo de correo sin verificar.
+    await registrarPedido(pedidoLimpio({ email: p.email, nombre: p.nombre, origen: 'planes', verificado: false, detalle: `Quiere ${nombrePlan}`, whatsapp: p.whatsapp, leadId: lead.leadId }));
     // El aviso al equipo, en el momento: el domingo nadie tiene que estar mirando el CRM para enterarse. Best effort.
     await avisarDePlataforma({
       to: EMAIL_MAKO, tag: 'planes-pedido', asunto: `${p.nombre} quiere ${nombrePlan}`, preheader: 'Pedido desde la página de planes.',
@@ -241,7 +298,29 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
 
 export type ResultadoCompra =
   | { ok: true; link: string }
-  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true };
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinPromo?: true };
+
+/**
+ * ¿Este email puede usar el 50% del primer mes? El reloj es por navegador, y otro navegador arranca el suyo (lib/promo-entrada-reglas.ts).
+ * Lo que eso deja abierto lo cierra el email, para que no reaparezca infinitas veces (el Cerebro, 30/10; Martín lo dejó abierto y puede
+ * cambiarlo): UN descuento por email. No, si ya tiene una cuenta (es para negocios nuevos), si ya lo pagó, o si lo abrió hace más de 24 h y
+ * lo abandonó. Dentro de esas 24 h, puede rearmar el pago: se le cerró la pestaña, no lo perdió. Sin poder leer, deja pasar: un comprador
+ * no pierde el descuento por una base caída.
+ */
+async function puedeUsarPromo(email: string, plataforma: number, ahoraMs: number): Promise<{ ok: true } | { ok: false; texto: string }> {
+  try {
+    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, texto: TEXTO_PROMO_CUENTA };
+    const { data, error } = await getSupabaseServer().from('cobros').select('estado, created_at')
+      .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:primer-mes-%').limit(20);
+    if (error) throw new Error(error.message);
+    const yaUsado = ((data ?? []) as Array<{ estado: string; created_at: string }>)
+      .some((c) => c.estado === 'pagado' || c.estado === 'reembolsado' || ahoraMs - Date.parse(c.created_at) > 24 * 3600_000);
+    return yaUsado ? { ok: false, texto: TEXTO_PROMO_USADA } : { ok: true };
+  } catch (e) {
+    console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su descuento; se lo dejo:`, msg(e));
+    return { ok: true };
+  }
+}
 
 /**
  * ¿Este email puede empezar una PRUEBA GRATIS? (25/10/2026, el Cerebro: «una prueba por negocio Y por tarjeta y por email»).
@@ -266,7 +345,7 @@ async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ 
  * El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). `pais`: de
  * dónde compra (el encabezado de Vercel): Mercado Pago sólo en su país (`pasarelasDelPais`).
  */
-export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null } = {}): Promise<ResultadoCompra> {
+export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean; pais?: string | null; promoVigente?: boolean } = {}): Promise<ResultadoCompra> {
   const oferta = await ofertaDelPlan(p.plan, opts);
   if (!oferta) return { ok: false, status: 404, error: 'Ese plan no existe.' };
   const { plan, pasarelas } = oferta;
@@ -280,13 +359,28 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   const ws = await wsSuperAdmin();
   // LA PRUEBA GRATIS (25/10/2026): toda compra en línea empieza con 7 días gratis, salvo que pida empezar sin ella (quien ya la
   // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
-  const conPrueba = !p.sinPrueba;
+  // Con el interruptor apagado (30/10/2026, lib/planes-mako.ts), ninguna compra nueva empieza con prueba: se paga y recién ahí se
+  // entra (el alta sale de `aplicarPagoAprobado`). A quien ya está en prueba no lo mira nadie acá: no pasa por este camino.
+  const conPrueba = PRUEBA_GRATIS_PRENDIDA && !p.sinPrueba;
   if (conPrueba) {
     const puede = await puedeEmpezarPrueba(p.email, ws);
     if (!puede.ok) {
       return puede.motivo === 'cuenta'
         ? { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_CUENTA }
         : { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
+    }
+  }
+  // EL 50% DEL PRIMER MES (30/10/2026): sólo con el reloj vivo (`promoVigente`, lo lee la ruta de su cookie) y en los planes del cartel.
+  // Si la página se lo mostró y ya no vale, SE DICE y la persona elige seguir: nunca se le cobra lleno a quien venía viendo la mitad.
+  // Quien nunca lo vio (sin reloj, o llegó directo a /planes), el precio de lista, sin preguntar.
+  let conDescuento = false;
+  if (!PRUEBA_GRATIS_PRENDIDA && !p.sinPromo && PROMO_ENTRADA.planes.includes(plan.id)) {
+    if (opts.promoVigente) {
+      const puede = await puedeUsarPromo(p.email, ws, Date.now());
+      if (!puede.ok) return { ok: false, status: 409, error: puede.texto, sinPromo: true };
+      conDescuento = true;
+    } else if (p.promo) {
+      return { ok: false, status: 409, error: TEXTO_PROMO_VENCIDA, sinPromo: true };
     }
   }
 
@@ -305,7 +399,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     const r = await crearCobro(ws, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
       monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre: p.nombre,
-      altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : `planes:${plan.id}`,
+      altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : conDescuento ? creadoPorPrimerMes(plan.id) : `planes:${plan.id}`,
       // El primer cobro, 7 días después: el `start_date` de Mercado Pago. La persona carga la tarjeta ahora.
       inicioAt: conPrueba ? finDeLaPrueba(Date.now()) : null,
     });
@@ -316,13 +410,14 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     // Lo que el cobro tiene que recordar: el plan, de dónde vino y quién lo refirió. Antes de devolver el link: nadie
     // puede haber pagado todavía. Best effort (sin la mig 0330 el cobro vale igual).
     const { error } = await getSupabaseServer().from('cobros')
-      .update({ plan_mako: plan.id, origen: p.origen, ref_codigo: p.ref })
+      // El WhatsApp viaja con el origen: lo que la persona escribió en ESTA compra, que es lo que su onboarding le ofrece (`guardarWhatsappDelPago`).
+      .update({ plan_mako: plan.id, origen: p.whatsapp ? { ...p.origen, whatsapp: p.whatsapp } : p.origen, ref_codigo: p.ref })
       .eq('id', r.cobro.id).eq('workspace_id', ws);
     if (error) console.warn(`[compra-plan] no pude anotar plan/origen/ref en el cobro ${r.cobro.id}: ${error.message}`);
     if (lead.nuevo || !r.yaEstaba) {
       const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
       const ref = p.ref ? ` (referido por ${p.ref})` : '';
-      await logLeadEvent(lead.leadId, 'Compra de plan', `${conPrueba ? 'Abrió su prueba gratis' : 'Abrió el pago'} de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
+      await logLeadEvent(lead.leadId, 'Compra de plan', `${conPrueba ? 'Abrió su prueba gratis' : conDescuento ? 'Abrió el pago con el descuento del primer mes' : 'Abrió el pago'} de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
     }
     return { ok: true, link: r.link };
   });
@@ -334,7 +429,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
  * nueva atada a SU negocio (`alta_ws`, sin `alta_capa`: no crea otra cuenta). Con deuda, primero la deuda
  * (lib/plan-deuda.ts): quien llama lo decide con `pagarDeuda`.
  */
-export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null }): Promise<ResultadoCompra> {
+export async function reactivarPlan(ws: number, p: { email: string; nombre: string | null; pais?: string | null }): Promise<ResultadoCompra> {
   const plataforma = await wsSuperAdmin();
   if (ws === plataforma) return { ok: false, status: 400, error: 'La cuenta de MaKo no tiene plan.' };
   const db = getSupabaseServer();
@@ -344,7 +439,9 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
   const cobros = (data ?? []).map((x) => cobroDeFila(x as Record<string, unknown>));
   // La base es la ÚLTIMA SUSCRIPCIÓN (revisión del 23/10, alta 7): un cobro único de deuda tiene N meses de precio y otro concepto.
   const base = cobros.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado'));
-  if (!base || !base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
+  // Nunca tuvo un plan PROPIO (la pagaba su agencia, que la dio de baja: lib/agencia-baja.ts): se le abre, con su plan de hoy.
+  if (!base) return primerPlanPropio(ws, p, cobros);
+  if (!base.lead_id) return { ok: false, status: 404, error: 'Tu plan no se cobra en línea: escríbenos y lo reactivamos.' };
   // Una suscripción que la pasarela SIGUE cobrando no se duplica: sería cobrar dos veces el mismo mes.
   if (cobros.some((c) => c.tipo === 'suscripcion' && (c.estado === 'pagado' || c.estado === 'reembolsado') && c.suscripcion_estado !== 'cancelada')) {
     return { ok: false, status: 409, error: 'Tu suscripción sigue activa: no hace falta reactivarla.' };
@@ -391,4 +488,59 @@ export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | '
     id: plan.id, nombre: plan.nombre, capa: plan.capa, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado,
     precioAnualUsd: plan.precioAnualUsd ?? null, preciosLocales: plan.preciosLocales, cobrable,
   }));
+}
+
+/**
+ * EL PRIMER PLAN PROPIO de una cuenta que pagaba su agencia y la dio de baja (29/10/2026, lib/agencia-baja.ts: «la cuenta
+ * queda del cliente, sin la agencia y pausada; si quiere seguir, paga él»). El plan es el de su capa (Pro si tenía Pro, si
+ * no Esencial), con la pasarela con que la cobraba su agencia si sigue conectada y tiene precio en esa moneda (si no, la que
+ * sirva). El cobro es de SU ficha en el CRM de MaKo (por su email, nunca la de la agencia) y nace atado a su negocio.
+ */
+async function primerPlanPropio(ws: number, p: { email: string; nombre: string | null; pais?: string | null }, propios: readonly Cobro[]): Promise<ResultadoCompra> {
+  const plataforma = await wsSuperAdmin();
+  const db = getSupabaseServer();
+  // Sólo la cuenta que ya NO tiene agencia (revisión de plata, hallazgo 7): con la agencia pagándola, un plan propio la
+  // cobraba dos veces (la renovación de la agencia seguía). La agencia la suelta con «Dar de baja» (lib/agencia-baja.ts).
+  const { data: cart, error: eCart } = await db.from('agencia_clientes').select('estado').eq('cliente_ws', ws).neq('estado', 'revocado').limit(1);
+  if (eCart) return { ok: false, status: 503, error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' };
+  if (cart?.length) return { ok: false, status: 409, error: 'Tu cuenta la maneja tu agencia: tu plan lo cambia ella.' };
+  const desde = new Date(Date.now() - 23 * 3600_000).toISOString();
+  const vivo = propios.find((c) => c.tipo === 'suscripcion' && (c.estado === 'pendiente' || c.estado === 'fallido') && c.created_at >= desde && c.creado_por === `reactivar:${ws}`);
+  if (vivo) return { ok: true, link: linkDelCobro(vivo.token) };
+  const [{ data: w }, { data: deAgencia }] = await Promise.all([
+    db.from('workspaces').select('capa, nombre').eq('id', ws).maybeSingle(),
+    db.from('cobros').select('proveedor').eq('workspace_id', plataforma).eq('cliente_ws', ws).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+  ]);
+  const capa = (w as { capa?: string } | null)?.capa;
+  const plan = (await planesMako()).find((x) => x.id === (capa === 'agencia' ? 'pro' : 'esencial'));
+  if (!plan) return { ok: false, status: 404, error: 'No encontramos tu plan: escríbenos y lo activamos.' };
+  // Con la pasarela de SU país (hallazgo 7): la de la agencia era de otro país, y Mercado Pago rechaza a quien no es del suyo.
+  const opciones = pasarelasDelPais(p.pais ?? null, (await monedasDeLaPlataforma(plataforma)).filter((m) => !m.prueba).map((m) => ({ ...m, monto: precioEn(plan, m.moneda) }))
+    .filter((x): x is { pasarela: Pasarela; moneda: string; prueba: boolean; monto: number } => x.monto != null));
+  const antes = (deAgencia as { proveedor?: string } | null)?.proveedor;
+  const via = opciones.find((o) => o.pasarela === antes) ?? opciones.find((o) => o.pasarela === 'stripe') ?? opciones[0];
+  if (!via) return { ok: false, status: 503, error: TEXTO_SIN_PASARELA };
+  const nombre = (p.nombre ?? '').trim() || String((w as { nombre?: string } | null)?.nombre ?? '').trim() || p.email.split('@')[0];
+  return runWithWorkspace(plataforma, async () => {
+    let lead: { leadId: number };
+    try {
+      lead = await leadDelComprador({ plan: plan.id, nombre, email: p.email.trim().toLowerCase(), pasarela: via.pasarela, origen: null, ref: null } as PedidoCompra);
+    } catch (e) {
+      console.error(`[compra-plan] primer plan propio ws=${ws}: no pude crear su ficha:`, e instanceof Error ? e.message : String(e));
+      return { ok: false, status: 503, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    const r = await crearCobro(plataforma, {
+      leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
+      monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre, creadoPor: `reactivar:${ws}`,
+    });
+    if (!r.ok) { console.error(`[compra-plan] primer plan propio ws=${ws}: ${r.error}`); return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' }; }
+    // ⚠️ ATADO A SU NEGOCIO ANTES DE DEVOLVER EL LINK: sin `alta_ws` el pago no le devolvería el acceso.
+    const { error } = await db.from('cobros').update({ alta_ws: ws, plan_mako: plan.id }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
+    if (error) {
+      console.error(`[compra-plan] primer plan propio ws=${ws}: no pude atar el cobro ${r.cobro.id}: ${error.message}`);
+      await anularCobro(plataforma, r.cobro.id, 'MaKo (no se pudo atar el plan)').catch(() => {});
+      return { ok: false, status: 502, error: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
+    }
+    return { ok: true, link: r.link };
+  });
 }

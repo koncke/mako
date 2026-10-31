@@ -30,7 +30,6 @@ import { conWs } from '@/lib/ws-tab';
 import { VistaPdf } from '../offer/VistaPdf';
 import { Button } from '@/app/_ui';
 import { TelefonoConPais } from '@/app/_components/TelefonoConPais';
-import { DIAL_DEFAULT } from '@/lib/paises';
 import { tipoCrmPorId } from '@/lib/pipeline';
 import { etapasConNombres } from '@/lib/onboarding-crm';
 import { RUTA_AL_TERMINAR, rutaDelHilo, tipoRecomendado, type MensajeArranque } from '@/lib/onboarding-arranque';
@@ -40,7 +39,7 @@ import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-mar
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
 import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
-import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetasDe, terminoElArranque } from './arranque-ui';
+import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetaConNumero, tarjetasDe, terminoElArranque } from './arranque-ui';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string };
 /** Un aviso arriba del chat; con `accion`, lo que lo destraba sin recargar (un fallo pasajero se reintenta). */
@@ -62,7 +61,7 @@ async function llamar(cuerpo: Record<string, unknown>): Promise<Respuesta> {
 export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: VistaArranque; arbolVacio: ArbolOffer; opcionArmar: string }) {
   const [vista, setVista] = useState<VistaArranque>(inicial);
   // La animación va UNA vez, y sólo al principio de todo (con algo contestado, se entra directo al chat).
-  const [intro, setIntro] = useState(!inicial.introVista && inicial.etapa === 'nombre');
+  const [intro, setIntro] = useState(!inicial.introVista && (inicial.etapa === 'telefono' || inicial.etapa === 'nombre'));
   const [ocupado, setOcupado] = useState(false);
   const [pendiente, setPendiente] = useState<string | null>(null);
   const [aviso, setAvisoRaw] = useState<Aviso | null>(null);
@@ -216,7 +215,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     const t = tarjetas.get(m.id);
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
-    if (t === 'telefono') return <TarjetaTelefono ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
+    if (t === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
     if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
     return null;
   };
@@ -341,9 +340,9 @@ function TarjetaCrm({ vista }: { vista: VistaArranque }) {
 }
 
 /** El teléfono de los avisos, con su lada. El código llega por WhatsApp y se escribe en el chat. */
-function TarjetaTelefono({ ocupado, onEnviar }: { ocupado: boolean; onEnviar: (telefono: string) => Promise<void> }) {
-  const [lada, setLada] = useState(DIAL_DEFAULT);
-  const [numero, setNumero] = useState('');
+function TarjetaTelefono({ inicial, ocupado, onEnviar }: { inicial: string; ocupado: boolean; onEnviar: (telefono: string) => Promise<void> }) {
+  const [lada, setLada] = useState(() => tarjetaConNumero(inicial).lada);
+  const [numero, setNumero] = useState(() => tarjetaConNumero(inicial).numero);
   const listo = numero.replace(/\D/g, '').length >= 6;
   const enviar = () => { if (listo && !ocupado) void onEnviar(`${lada}${numero.replace(/\D/g, '')}`); };
   return (

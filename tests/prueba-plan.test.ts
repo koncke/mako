@@ -52,7 +52,10 @@ test('qué cobro es una PRUEBA: una suscripción de la plataforma con alta, crea
   assert.equal(finDeLaPrueba(T0), new Date(T0 + 7 * DIA).toISOString());
   // Desde el 27/10/2026 también Stripe (con `trial_period_days`): sin ella, /planes nunca ofrecía Stripe y a quien compraba
   // desde México le llegaba el link de la Mercado Pago argentina (tests/planes-stripe-afuera.test.ts).
-  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe'], 'las dos que la arman con tarjeta');
+  // Las TRES que la arman con tarjeta (31/10/2026, al entrar Creem). ⚠️ Esta lista NO se ensancha sola y es la que
+  // decide si una pasarela se OFRECE en /planes (`monedasDeLaPlataforma` saltea la que no esté): una pasarela nueva
+  // que sepa hacer la prueba y que nadie agregue acá queda conectada, cobrando e invisible en la vitrina.
+  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe', 'creem'], 'las que la arman con tarjeta');
 });
 
 test('la HUELLA de Mercado Pago: la cuenta que paga y la tarjeta guardada; una coincidencia en cualquiera es la misma persona', () => {
@@ -122,7 +125,9 @@ test('el CHECKOUT: sólo con la pasarela que arma la prueba, una por email/cuent
   const comprar = cuerpo('lib/compra-plan.ts', 'iniciarCompraDePlan');
   const freno = comprar.indexOf('const puede = await puedeEmpezarPrueba(p.email, ws);');
   assert.ok(freno > 0 && freno < comprar.indexOf('crearCobro('), 'la segunda prueba se frena antes de abrir el pago');
-  assert.match(comprar, /creadoPor: conPrueba \? creadoPorPrueba\(plan\.id\) : `planes:\$\{plan\.id\}`,/);
+  // Con el interruptor (30/10/2026): el camino de la prueba sigue entero, y sólo se toma con `PRUEBA_GRATIS_PRENDIDA`.
+  assert.match(comprar, /const conPrueba = PRUEBA_GRATIS_PRENDIDA && !p\.sinPrueba;/);
+  assert.match(comprar, /creadoPor: conPrueba \? creadoPorPrueba\(plan\.id\) : conDescuento \? creadoPorPrimerMes\(plan\.id\) : `planes:\$\{plan\.id\}`,/);
   assert.match(comprar, /inicioAt: conPrueba \? finDeLaPrueba\(Date\.now\(\)\) : null,/, 'el primer cobro, el día 8 (el start_date de MP)');
   assert.match(comprar, /: \{ ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true \};/, 'quien ya la usó puede empezar sin ella');
   const puede = cuerpo('lib/compra-plan.ts', 'puedeEmpezarPrueba');
@@ -155,7 +160,11 @@ test('la ACTIVACIÓN: sólo autorizada y de la cuenta de MaKo; una huella repeti
   // Mercado Pago: autorizada, cobrada por la cuenta de MaKo y de ESTE cobro (`pruebaAutorizadaMp`).
   assert.match(cuerpo('lib/cobros.ts', 'pruebaAutorizadaMp'), /if \(!s\.ok \|\| s\.estado !== 'authorized' \|\| s\.cobradorId !== mp\.userId \|\| s\.referencia !== c\.token\) return null;/);
   assert.match(cuerpo('lib/cobros.ts', 'pruebaAutorizadaMp'), /cancelar: \(\) => cancelarSuscripcionMp\(mp\.token, s\.id, idemBaja\(c\.id\)\)/);
-  assert.match(f, /const s = c\.proveedor === 'stripe' \? await pruebaAutorizadaStripe\(c, plataforma\) : await pruebaAutorizadaMp\(c, plataforma\);\n\s*if \(!s\) return null;/);
+  // Cada pasarela contesta por lo suyo (la prueba de Creem se le preguntaba a Mercado Pago), y sin autorización no sigue nada.
+  assert.match(f, /const s = await pruebaAutorizada\(c, plataforma\);\n\s*if \(!s\) return null;/, 'una prueba sin autorizar entregaría la cuenta');
+  const quien = cuerpo('lib/cobros.ts', 'pruebaAutorizada');
+  assert.match(quien, /case 'mercadopago': return pruebaAutorizadaMp\(c, plataforma\);/);
+  assert.match(quien, /const _x: never = c\.proveedor;/, 'sin el `never`, la pasarela siguiente vuelve a caer en la de otra');
   const corte = f.indexOf('const corte = await s.cancelar();');
   const anula = f.indexOf("estado: 'anulado', suscripcion_estado: 'cancelada'");
   assert.ok(corte > 0 && anula > corte, 'primero se corta el cobro en la pasarela; si no, el día 8 cobraría una prueba anulada');
@@ -173,9 +182,10 @@ test('la PÁGINA DE VUELTA: «Tu prueba gratis empezó» con el día del cobro; 
   const p = fuente('app/pagar/[token]/listo/page.tsx');
   assert.match(p, /titulo="Tu prueba gratis empezó"/);
   assert.match(p, /No se te cobró nada\./);
-  assert.match(p, /<p>\{TEXTO_PRUEBA_USADA_TARJETA\}<\/p>/);
+  // Se dice por qué, y «esa tarjeta» sólo si la pasarela de verdad la reconoce (Creem no: va por email).
+  assert.match(p, /huellaDeTarjeta \? TEXTO_PRUEBA_USADA_TARJETA : TEXTO_PRUEBA_USADA_EMAIL/);
   assert.match(p, /href=\{`\/planes\/\$\{plan\}\?sinPrueba=1`\}>Empezar sin prueba<\/a>/);
-  assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{uno\('sinPrueba'\) === '1'\}/);
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{uno\('sinPrueba'\) === '1' \|\| !PRUEBA_GRATIS_PRENDIDA\}/);
 });
 
 test('el AVISO por email: un cron diario con su auth primero, sólo pruebas autorizadas, y la marca de la mig 0334', () => {

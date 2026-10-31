@@ -20,7 +20,7 @@ import { EditorEmailGmail, type CambioEmail } from '@/app/automations/EditorEmai
 import { EditorMensajeSocial } from '@/app/automations/EditorMensajeSocial';
 import type { PasoSecuenciaDto } from '@/app/automations/ChatAgentApp';
 import {
-  alcanceDeMotivos, problemaDeDifusion, textoDeDuracion, CANALES_DIFUSION, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, GOTEO_DIFUSION_INICIAL,
+  alcanceDeMotivos, problemaDeDifusion, textoDeDuracionPorCanal, goteoConArranque, CANALES_DIFUSION, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, GOTEO_DIFUSION_INICIAL, ARRANQUE_DIFUSION_INICIAL,
   type CanalDifusion, type MensajesDifusion,
 } from '@/lib/difusion-reglas';
 import { RANGOS_GOTEO } from '@/lib/config-automatizacion';
@@ -54,7 +54,10 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
   const [wa, setWa] = useState<PasoSecuenciaDto>(() => pasoVacio('whatsapp'));
   const [ig, setIg] = useState<PasoSecuenciaDto>(() => pasoVacio('instagram'));
   const [email, setEmail] = useState<{ asunto: string; cuerpo: string; cuerpo_html: string | null }>({ asunto: '', cuerpo: '', cuerpo_html: null });
-  const [goteo, setGoteo] = useState<{ minutos: number; dia: number }>({ ...GOTEO_DIFUSION_INICIAL });
+  const [goteoElegido, setGoteo] = useState<{ minutos: number; dia: number }>({ ...GOTEO_DIFUSION_INICIAL });
+  // De a poco, de entrada: mandar en masa por QR es el riesgo de bloqueo (ARRANQUE_DIFUSION_INICIAL). Se saca con un tilde.
+  const [conArranque, setConArranque] = useState(true);
+  const [arranque, setArranque] = useState({ ...ARRANQUE_DIFUSION_INICIAL });
   const [confirmando, setConfirmando] = useState(false);
   const [mandando, setMandando] = useState(false);
   // Cuándo se leyó a quién le llega: desde ahí se cuentan los turnos del goteo de Instagram contra la ventana de cada uno.
@@ -85,12 +88,16 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
 
   const [mMin, mMax] = RANGOS_GOTEO.minutos;
   const [dMin, dMax] = RANGOS_GOTEO.dia;
-  const goteoOk = goteo.minutos >= mMin && goteo.minutos <= mMax && goteo.dia >= dMin && goteo.dia <= dMax;
+  // El arranque es sólo de WhatsApp (el motor no se lo aplica a los otros canales). Y si empieza en el tope, no hay nada que suba.
+  const arrancaDePoco = conArranque && canales.includes('whatsapp') && !!vista?.whatsappQr;
+  const goteo = useMemo(() => goteoConArranque(goteoElegido, arrancaDePoco ? arranque : null), [goteoElegido, arrancaDePoco, arranque]);
+  const enRango = (n: number) => n >= dMin && n <= dMax;
+  const goteoOk = goteo.minutos >= mMin && goteo.minutos <= mMax && goteo.dia >= dMin && goteo.dia <= dMax && (!arrancaDePoco || (enRango(arranque.dia) && enRango(arranque.sube)));
   // Con el goteo, Instagram promete sólo a los que alcanza antes de que se les cierre la ventana (`alcanceDeMotivos`).
   const ritmo = useMemo(() => (goteoOk && leidaAt ? { goteo, ahoraMs: leidaAt } : undefined), [goteoOk, goteo, leidaAt]);
   const alcance = useMemo(() => (vista ? alcanceDeMotivos(vista.porLead, canales, ritmo) : null), [vista, canales, ritmo]);
   const mensajes: MensajesDifusion = useMemo(() => ({
-    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: String(wa.cuerpo ?? ''), ...(Array.isArray((wa as { partes?: unknown[] }).partes) ? { partes: (wa as { partes?: unknown[] }).partes } : {}) } } : {}),
+    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: String(wa.cuerpo ?? ''), ...(Array.isArray((wa as { partes?: unknown[] }).partes) ? { partes: (wa as { partes?: unknown[] }).partes } : {}), ...(wa.variantes?.length ? { variantes: wa.variantes } : {}) } } : {}),
     ...(canales.includes('email') ? { email } : {}),
     ...(canales.includes('instagram') ? { instagram: { cuerpo: String(ig.cuerpo ?? ''), ...(Array.isArray((ig as { partes?: unknown[] }).partes) ? { partes: (ig as { partes?: unknown[] }).partes } : {}) } } : {}),
   }), [canales, wa, ig, email]);
@@ -161,7 +168,8 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
           {vista && canales.includes('whatsapp') && vista.whatsappQr && (
             <section aria-label="WhatsApp" style={{ display: 'grid', gap: 8 }}>
               <div style={TITULO}>WhatsApp</div>
-              <EditorMensajeWhatsApp paso={wa} onChange={(patch) => setWa((p) => ({ ...p, ...patch }))} audios={[]} permiteAudio={false} permiteAdjuntos={false} deshabilitado={mandando} />
+              <EditorMensajeWhatsApp paso={wa} onChange={(patch) => setWa((p) => ({ ...p, ...patch }))} audios={[]} permiteAudio={false} permiteAdjuntos={false} conVersiones deshabilitado={mandando} />
+              {!wa.variantes?.length && <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>El mismo texto a muchos sube el riesgo: con ↻ le agregas otras formas de decirlo, y a cada uno le toca una.</div>}
             </section>
           )}
           {vista && canales.includes('email') && (
@@ -193,11 +201,31 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
                 <span>por día.</span>
               </div>
               <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-                Cada canal cuenta lo suyo.{alcance && goteoOk ? ` ${textoDeDuracion(Math.max(0, ...alcance.porCanal.map((c) => c.llegan)), goteo)}.` : ''}
+                Cada canal cuenta lo suyo.{alcance && goteoOk ? ` ${textoDeDuracionPorCanal(alcance.porCanal, goteo)}.` : ''}
                 {!goteoOk ? ` Entre ${mMin} y ${mMax} minutos, y entre ${dMin} y ${dMax} por día.` : ''}
               </div>
               {canales.includes('whatsapp') && vista.whatsappQr && (
-                <div role="note" style={{ fontSize: 12.5, color: 'var(--warn)' }}>{AVISO_QR}</div>
+                <>
+                  <label style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13.5, color: 'var(--ink)' }}>
+                    <input type="checkbox" checked={conArranque} disabled={mandando} onChange={(e) => setConArranque(e.target.checked)} />
+                    <span>Arrancar de a poco por WhatsApp</span>
+                  </label>
+                  {conArranque && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13.5, color: 'var(--ink)' }}>
+                      <span>Empieza con</span>
+                      <input type="number" min={dMin} max={dMax} value={arranque.dia} disabled={mandando} aria-label="Mensajes del primer día"
+                        onChange={(e) => setArranque((a) => ({ ...a, dia: Math.round(Number(e.target.value)) }))} style={NUMERO} />
+                      <span>y sube</span>
+                      <input type="number" min={dMin} max={dMax} value={arranque.sube} disabled={mandando} aria-label="Cuánto sube por día"
+                        onChange={(e) => setArranque((a) => ({ ...a, sube: Math.round(Number(e.target.value)) }))} style={NUMERO} />
+                      <span>por día, hasta el tope.</span>
+                    </div>
+                  )}
+                  {vista.lineaWaDia != null && goteo.dia > vista.lineaWaDia && (
+                    <div role="note" style={{ fontSize: 12.5, color: 'var(--warn)' }}>Tu línea de WhatsApp manda hasta {vista.lineaWaDia} por día: más que eso no sale.</div>
+                  )}
+                  <div role="note" style={{ fontSize: 12.5, color: 'var(--warn)' }}>{AVISO_QR}</div>
+                </>
               )}
             </section>
           )}
@@ -213,7 +241,7 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
       </aside>
       {confirmando && alcance && (
         <Confirm tone="primary" title={`Mandar a ${alcance.llegan} ${alcance.llegan === 1 ? 'lead' : 'leads'}`}
-          message={`Por ${canales.map((c) => NOMBRE_CANAL_DIFUSION[c]).join(', ')}, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día. Queda como una automatización en Automations, con sus métricas.`}
+          message={`Por ${canales.map((c) => NOMBRE_CANAL_DIFUSION[c]).join(', ')}, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día${goteo.arranque ? `; por WhatsApp arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube} por día` : ''}. Queda como una automatización en Automations, con sus métricas.`}
           confirmLabel="Mandar" loading={mandando} onConfirm={() => void mandar()} onCancel={() => setConfirmando(false)} />
       )}
     </div>

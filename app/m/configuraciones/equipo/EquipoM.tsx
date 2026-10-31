@@ -94,7 +94,7 @@ export function EquipoM({ iniciales }: { iniciales: Miembro[] | null }) {
     <>
       {aviso && <p className="m-configuraciones-aviso" data-tono={aviso.tono === 'ok' ? undefined : 'warn'} role="status">{aviso.texto}</p>}
       {equipo.length === 0 ? (
-        <VacioM frase="Todavía eres el único. Suma a tu Closer o Setter." />
+        <VacioM frase="Todavía no hay nadie más. Suma a tu Closer o Setter." />
       ) : (
         <SeccionM titulo="Tu equipo">
           <ListaM>

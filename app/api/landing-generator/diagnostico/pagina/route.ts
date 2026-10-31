@@ -42,7 +42,7 @@ import type { NextRequest } from 'next/server';
 import { getCapaActual, getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { tabEnCapa } from '@/lib/capas';
-import { htmlDePagina, paginaParaVer } from '@/lib/landing-fetch';
+import { paginaConDireccion, paginaParaVer } from '@/lib/landing-fetch';
 import { dejaEmbeberse } from '@/lib/landing-marco';
 import { CABECERAS_PAGINA_DIAGNOSTICO, responderPaginaDiagnostico } from '@/lib/editor-landing/diagnostico';
 import { PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, responderPaginaLector } from '@/lib/editor-landing/lector-pagina';
@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
     const quien = await firmante();
     return responderPaginaLector(req, { url: q.get('url'), id: q.get(PARAM_LECTOR), camino: q.get(PARAM_CAMINO), firma: q.get(PARAM_FIRMA) }, {
       // TAL CUAL la pegó la persona (con su www y su query): hay hosts que sólo existen así.
-      bajar: (url) => htmlDePagina(url, { talCual: true }),
+      bajar: (url) => paginaConDireccion(url, { talCual: true }),
       bajarModulo,
       actual: SNIPPET_VERSION,
       origen: req.nextUrl.origin,
@@ -92,7 +92,7 @@ export async function GET(req: NextRequest) {
   return responderPaginaDiagnostico(req, q.get('url'), {
     bajar: async (url) => {
       const p = await paginaParaVer(url);
-      return { html: p.html, embebible: dejaEmbeberse(p.marco, origen) };
+      return { html: p.html, embebible: dejaEmbeberse(p.marco, origen), final: p.final };
     },
   });
 }

@@ -30,6 +30,7 @@
 // de MaKo y el motor, que la lee UNA vez por corrida para todas (`CLAVE_PREFIJO`).
 // =============================================================================
 
+import { arranqueLlega, ARRANQUE_MAX_DIAS } from './goteo';
 import { sanearHorario, dentroDelHorario, acabaDeAbrir, horaTexto, DIAS_PANTALLA, HORARIO_SUGERIDO, type HorarioEnvio } from './horario-envio';
 import { RANGOS_LIMITES } from './limites-envio';
 import { TRIGGER_ETAPA } from './nutricion-etapa';
@@ -59,7 +60,7 @@ export type ConfigAutomatizacion = {
    * El goteo de sus mensajes, en TODOS los canales (lib/goteo.ts; 24/10/2026, f21): minutos entre dos envíos y tope en 24 h,
    * cada canal con su cuenta. Ausente = sin goteo propio. (El `goteoEmail` de antes se lee como éste si no hay uno.)
    */
-  goteo?: { minutos?: number; dia?: number };
+  goteo?: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } };
 };
 
 /**
@@ -77,7 +78,10 @@ function goteoGuardado(raw: unknown): ConfigAutomatizacion['goteo'] {
   if (!g) return undefined;
   const min = enRango(g.minutos, RANGOS_GOTEO.minutos) ? g.minutos : undefined;
   const dia = enRango(g.dia, RANGOS_GOTEO.dia) ? g.dia : undefined;
-  return min !== undefined || dia !== undefined ? { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}) } : undefined;
+  // El arranque sube hasta el tope: sin tope no hay nada que suba.
+  const a = g.arranque && typeof g.arranque === 'object' ? g.arranque as Record<string, unknown> : null;
+  const arranque = dia !== undefined && a && enRango(a.dia, RANGOS_GOTEO.dia) && enRango(a.sube, RANGOS_GOTEO.dia) ? { dia: a.dia, sube: a.sube } : undefined;
+  return min !== undefined || dia !== undefined ? { ...(min !== undefined ? { minutos: min } : {}), ...(dia !== undefined ? { dia } : {}), ...(arranque ? { arranque } : {}) } : undefined;
 }
 
 /** Lo guardado, saneado: lo que no se entiende queda AUSENTE (= el del negocio). Nunca tira. */
@@ -168,6 +172,15 @@ export function configParaGuardar(previo: ConfigAutomatizacion, cambio: unknown)
         if (!enRango(g[campo], rango)) return { ok: false, error: `${texto} van de ${rango[0]} a ${rango[1]}.` };
         nuevo[campo] = g[campo] as number;
       }
+      if ('arranque' in g) {
+        const a = g.arranque && typeof g.arranque === 'object' ? g.arranque as Record<string, unknown> : null;
+        if (g.arranque === null) delete nuevo.arranque;
+        else if (!a || !enRango(a.dia, RANGOS_GOTEO.dia) || !enRango(a.sube, RANGOS_GOTEO.dia)) return { ok: false, error: `El arranque y lo que sube por día van de ${RANGOS_GOTEO.dia[0]} a ${RANGOS_GOTEO.dia[1]}.` };
+        else if (nuevo.dia === undefined) return { ok: false, error: 'El arranque gradual sube hasta el tope por día: pon primero el tope.' };
+        else nuevo.arranque = { dia: a.dia, sube: a.sube };
+      }
+      if (nuevo.dia === undefined) delete nuevo.arranque;
+      if (nuevo.arranque && nuevo.dia !== undefined && !arranqueLlega(nuevo.dia, nuevo.arranque)) return { ok: false, error: `Con ese arranque tarda más de ${ARRANQUE_MAX_DIAS} días en llegar al tope: que suba más por día.` };
       if (Object.keys(nuevo).length) out.goteo = nuevo; else delete out.goteo;
     }
   }

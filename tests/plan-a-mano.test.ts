@@ -21,7 +21,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { avisosPlanAManoVencido, CLAVE_PLAN_A_MANO, DIAS_PLAN_A_MANO, leerPlanAMano, planAManoNuevo, tocaAvisarPlanAMano } from '../lib/plan-a-mano-reglas';
+import { avisosPlanAManoVencido, CLAVE_PLAN_A_MANO, DIAS_PLAN_A_MANO, DIAS_REGALO, leerPlanAMano, llevaTopesDePrueba, planAManoNuevo, rotuloDeDias, tocaAvisarPlanAMano } from '../lib/plan-a-mano-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -29,9 +29,35 @@ const sinComentarios = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').rep
 const DIA = 86_400_000;
 const AHORA = Date.parse('2026-10-28T12:00:00.000Z');
 
+test('los 6 meses gratis NO son una prueba: su plan entero mientras duran, y al vencer avisan con su propio texto (30/10/2026)', () => {
+  assert.equal(rotuloDeDias(DIAS_REGALO), '6 meses gratis');
+  assert.equal(rotuloDeDias(7), '7 días');
+  const r = planAManoNuevo(DIAS_REGALO, AHORA);
+  assert.equal(r.regalo, true);
+  assert.ok(Date.parse(r.hasta) >= Date.parse('2027-04-28T12:00:00.000Z'), 'nunca cortos de los seis meses');
+  assert.deepEqual(leerPlanAMano(JSON.stringify(r)), r, 'el rótulo sobrevive a la ida y vuelta');
+  assert.equal(planAManoNuevo(30, AHORA).regalo, undefined, 'las pruebas no lo llevan');
+  assert.equal(llevaTopesDePrueba(r, AHORA), false, 'mientras dura, sin los topes de la prueba');
+  assert.equal(llevaTopesDePrueba(r, Date.parse(r.hasta) + DIA), true, 'vencido sin resolver, como una prueba vencida');
+  assert.equal(llevaTopesDePrueba(planAManoNuevo(30, AHORA), AHORA), true, 'una prueba lleva topes');
+  assert.equal(tocaAvisarPlanAMano(r, AHORA), false);
+  assert.equal(tocaAvisarPlanAMano(r, Date.parse(r.hasta)), true, 'avisa al vencer, como cualquiera');
+  const a = avisosPlanAManoVencido({ negocio: 'Gabi', plan: 'MaKo Pro', hasta: r.hasta, linkPlan: 'L', linkCustomers: 'C', regalo: true });
+  assert.match(a.persona.asunto, /6 meses gratis/);
+  assert.doesNotMatch(a.persona.cuerpo, /prueba/i);
+  assert.match(a.martin.cuerpo, /desde hoy sigue con los topes de la prueba/);
+  const uso = sinComentarios(readFileSync(join(RAIZ, 'lib/prueba-uso.ts'), 'utf8').replace(/\r\n/g, '\n'));
+  assert.ok(uso.indexOf('if (!llevaTopesDePrueba(p, Date.now())) return nada;') > 0, 'estadoDePrueba no lo da «en prueba» mientras dura');
+  const mano = sinComentarios(readFileSync(join(RAIZ, 'lib/plan-a-mano.ts'), 'utf8').replace(/\r\n/g, '\n'));
+  assert.match(mano, /avisosPlanAManoVencido\(\{ \.\.\.datos, regalo: p\.regalo \}\)/, 'el cron usa el texto de los 6 meses');
+  assert.match(mano, /linkCustomers: linkApp\(RUTA_QUIEREN_ENTRAR, plataforma\)/, 'lleva a Accounts, no a /admin (que redirige a otra pestaña)');
+  const ui = sinComentarios(readFileSync(join(RAIZ, 'app/admin/AdminView.tsx'), 'utf8').replace(/\r\n/g, '\n'));
+  assert.match(ui, /\{rotuloDeDias\(d\)\}<\/button>/);
+});
+
 test('el vencimiento se arma con los días elegidos y se lee tolerante', () => {
   assert.equal(CLAVE_PLAN_A_MANO, 'plan.a_mano');
-  assert.deepEqual([...DIAS_PLAN_A_MANO], [7, 14, 30]);
+  assert.deepEqual([...DIAS_PLAN_A_MANO], [7, 14, 30, 183]);
   const p = planAManoNuevo(7, AHORA);
   assert.deepEqual(p, { desde: new Date(AHORA).toISOString(), hasta: new Date(AHORA + 7 * DIA).toISOString(), avisadoAt: null });
   assert.deepEqual(leerPlanAMano(JSON.stringify(p)), p, 'ida y vuelta');
@@ -80,13 +106,13 @@ test('al vencer: avisa y marca, y NUNCA pausa (el corte general está apagado: d
   const s = sinComentarios(fuente('lib/plan-a-mano.ts'));
   const v = s.slice(s.indexOf('export async function avisarPlanesAManoVencidos('));
   assert.match(v, /\.from\('app_settings'\)\.select\('workspace_id, value'\)\.eq\('key', CLAVE_PLAN_A_MANO\)/);
-  assert.match(v, /if \(!p \|\| !tocaAvisarPlanAMano\(p, ahoraMs\)\) continue;/);
+  assert.match(v, /if \(!antes && !tocaAvisarPlanAMano\(p, ahoraMs\)\) continue;/);
   assert.ok(v.indexOf('to: duenio') > 0 && v.indexOf('to: EMAIL_MAKO') > 0, 'a la persona y a Martín');
-  assert.ok(v.indexOf('avisadoAt: new Date(ahoraMs).toISOString()') > v.indexOf('to: EMAIL_MAKO'), 'se marca después de avisar');
+  assert.ok(v.indexOf('{ ...p, avisadoAt: marca }') > v.indexOf('to: EMAIL_MAKO'), 'se marca después de avisar');
   // Si el de Martín no salió, NO se marca: se intenta en la próxima vuelta (marcar igual era perder el aviso para siempre).
   const sinMartin = v.indexOf('if (!aMartin.enviado) { errores++;');
   assert.ok(sinMartin > 0 && v.slice(sinMartin, v.indexOf('\n', sinMartin)).includes('continue; }'), 'sin el aviso a Martín, sigue de largo sin marcar');
-  assert.ok(sinMartin < v.indexOf('avisadoAt: new Date(ahoraMs).toISOString()'));
+  assert.ok(sinMartin < v.indexOf('{ ...p, avisadoAt: marca }'));
   assert.doesNotMatch(s, /estado: 'pausado'|actualizarWorkspace|pausar/, 'un plan a mano vencido no pausa a nadie');
   assert.match(fuente('app/api/cron/aviso-fin-de-prueba/route.ts'), /await avisarPlanesAManoVencidos\(/, 'el cron diario de las pruebas lo corre');
 });
@@ -105,7 +131,7 @@ test('ya pagó con su email (`ya_tenia_cuenta`, sin atar): sin topes y sin «Ter
   // Y el aviso al vencer se saltea a quien ya no está en prueba (pagó por la pasarela, o con su email).
   const s = sinComentarios(fuente('lib/plan-a-mano.ts'));
   const v = s.slice(s.indexOf('export async function avisarPlanesAManoVencidos('));
-  const salta = v.indexOf('if (!(await estadoDePrueba(ws)).enPrueba) continue;');
+  const salta = v.indexOf('if (antes ? await pagaSuPlan(ws) : !(await estadoDePrueba(ws)).enPrueba) continue;');
   assert.ok(salta > 0 && salta < v.indexOf('to: duenio'), 'antes de mandar nada');
 });
 
@@ -140,3 +166,13 @@ test('en Customers se da junto con el plan; la plataforma nunca; 0 lo quita', ()
 //   cambian los casos C (pagó con su email) y B al vencer (ya paga por la pasarela).
 // Lo que NO corre acá: el envío de los mails y la lectura de la base (se miran en el fuente). El primer vencimiento real en
 // producción hay que mirarlo en el log del cron (`[cron:aviso-fin-de-prueba] planes a mano: …`).
+//
+// Los 6 meses gratis (30/10/2026; base 8 / 0), cada una restaurada (pasan / fallan):
+//   · llevan los topes de la prueba (la regla)     -> 7 / 1
+//   · `estadoDePrueba` no los mira                 -> 7 / 1
+//   · el rótulo no se guarda                       -> 7 / 1
+//   · el rótulo no se lee                          -> 7 / 1
+//   · vencidos siguen sin topes                    -> 7 / 1
+//   · el cron usa el texto de la prueba            -> 7 / 1
+//   · la pantalla no los ofrece                    -> 7 / 1
+//   · menos de seis meses (90 días)                -> 6 / 2

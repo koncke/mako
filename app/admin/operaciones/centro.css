@@ -1138,6 +1138,9 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
    una raya entre cuenta y cuenta, sin una tarjeta gris por cuenta. Arriba de cada una, el logo, el nombre y el email a la izquierda,
    y a la derecha el Runner y, debajo, «Medido hace X» (antes un renglón suelto al final). El marcado no cambia de orden: lo acomoda
    la grilla (`display: contents` en la fila de arriba). */
+.co-uso__pc { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: var(--fs-sm); color: var(--ink); overflow-wrap: anywhere; }
+.co-uso__pc > .co-punto { flex: none; }
+.co-uso__pc-hacer { display: block; font-size: var(--fs-xs, 12px); color: var(--dim); }
 .co-uso__lista { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
 .co-uso__cuenta { padding: 12px 14px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
 .co-uso__cuenta + .co-uso__cuenta { border-top: 1px solid var(--border); }
@@ -1762,34 +1765,3 @@ a.co-link:hover { color: var(--primary-strong); }
   border: 2px dashed var(--primary); border-radius: 12px; background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   font-size: var(--fs-md); font-weight: 600; color: var(--primary-strong);
 }
-
-/* El cartel de los mensajes que esperan un chat cerrado (30/10/2026, CartelLimbo.tsx): arriba de la lista, en la computadora y el teléfono. */
-.co-limbo { display: block; width: 100%; margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--bad); border-radius: var(--r-md); background: var(--bad-bg); color: var(--bad);
-  font: inherit; font-size: var(--fs-sm); font-weight: 600; line-height: 1.35; text-align: left; cursor: pointer; }
-.co-limbo:hover { filter: brightness(.97); }
-.co-limbo__lista, .co-limbo__chats { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
-.co-limbo__fila { display: flex; flex-direction: column; gap: 6px; padding: 14px 0; }
-.co-limbo__fila + .co-limbo__fila { border-top: 1px solid var(--border); }
-.co-limbo__fila:first-child { padding-top: 0; }
-.co-limbo__para { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; margin: 0; font-size: var(--fs-sm); color: var(--dim); }
-.co-limbo__para b { color: var(--ink); font-weight: 600; }
-.co-limbo__vence { margin-left: auto; font-size: var(--fs-xs, 12px); font-weight: 400; color: var(--dim); }
-.co-limbo__vence--pronto { color: var(--bad); font-weight: 600; }
-.co-limbo__texto { margin: 0; font-size: var(--fs-sm); line-height: 1.45; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
-.co-limbo__ver { align-self: flex-start; padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-size: var(--fs-sm); cursor: pointer; }
-.co-limbo__nota { margin: 0; font-size: var(--fs-sm); color: var(--dim); }
-.co-limbo__error { margin: 0; font-size: var(--fs-sm); color: var(--bad); }
-.co-limbo__acciones { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 4px; }
-.co-limbo__boton { min-height: 36px; padding: 0 14px; border: 1px solid var(--border-strong); border-radius: var(--r-sm); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 500; cursor: pointer; }
-.co-limbo__boton--primario { border-color: var(--primary); background: var(--primary); color: var(--on-primary, #fff); }
-.co-limbo__boton--mal { border-color: var(--bad); background: var(--bad); color: #fff; }
-.co-limbo__boton:disabled { opacity: .6; cursor: default; }
-.co-limbo__elegir { display: flex; flex-direction: column; gap: 10px; }
-.co-limbo__chat { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 8px 10px; border: 0; border-radius: var(--r-sm); background: none; color: var(--ink); font: inherit; font-size: var(--fs-sm); text-align: left; cursor: pointer; }
-.co-limbo__chat:hover { background: var(--surface-2); }
-.co-limbo__chat:disabled { opacity: .6; cursor: default; }
-
-/* El cartel de la PC (30/10/2026, CartelPc.tsx): la misma caja roja que el de arriba, y encima de él. No es un botón: dice qué hacer. */
-.co-cartel-pc { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; padding: 10px 12px; border: 1px solid var(--bad); border-radius: var(--r-md); background: var(--bad-bg); color: var(--bad); font-size: var(--fs-sm); line-height: 1.35; }
-.co-cartel-pc__texto { flex: 1 1 100%; margin: 0; font-weight: 600; overflow-wrap: anywhere; }
-.co-cartel-pc__hacer { flex: 1 1 auto; min-width: 0; margin: 0; overflow-wrap: anywhere; }

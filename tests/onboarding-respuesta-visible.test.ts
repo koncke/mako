@@ -17,17 +17,18 @@ import { ladoDeLaPregunta } from '../app/onboarding/arranque-ui';
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Ayelen', nombreWorkspace: 'Cliente de Prueba', faseGuardada: true,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const FASE = { canal: 'llamadas' as never, faseResp: Array.from({ length: 20 }, () => 0) };
 
 const casos: Array<[string, EstadoArranque, HechosArranque]> = [
+  ['telefono', {}, { ...H, conTelefono: true }],
+  ['codigo', { telefono: 'codigo' }, { ...H, conTelefono: true }],
   ['nombre', {}, H],
   ['negocio', { nombre: 'Ayelen' }, H],
   ['crm', { nombre: 'Ayelen', negocio: 'N' }, H],
   ['origen', { nombre: 'Ayelen', negocio: 'N', crmTipo: 'llamada' }, H],
   ['interes', { nombre: 'Ayelen', negocio: 'N', crmTipo: 'llamada', origen: 'Instagram' }, H],
-  ['telefono', { nombre: 'Ayelen', negocio: 'N', crmTipo: 'llamada', origen: 'Instagram', interes: 'ventas' }, H],
 ];
 
 test('modo oferta: el lado de la respuesta termina en la pregunta abierta, en cada etapa', () => {

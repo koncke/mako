@@ -15,12 +15,18 @@ import { PRUEBA_DIAS } from './planes-mako';
 import type { Pasarela } from './cobros-tipos';
 
 /**
- * Las pasarelas que arman la prueba con tarjeta: Mercado Pago (la de MaKo para Argentina, con `start_date`) y, desde el
- * 27/10/2026, Stripe (con `trial_period_days`). Antes era sólo Mercado Pago, y por eso /planes nunca ofrecía Stripe aunque
+ * Las pasarelas que arman la prueba con tarjeta: Mercado Pago (la de MaKo para Argentina, con `start_date`), Stripe
+ * (con `trial_period_days`, desde el 27/10/2026) y Creem (con `trial_period_days` en el PRODUCTO, desde el 31/10/2026).
+ *
+ * ⚠️ ESTA LISTA NO SE ENSANCHA SOLA, y es la que decide si una pasarela se OFRECE en /planes
+ * (`monedasDeLaPlataforma` saltea la que no esté acá). Una pasarela nueva que sepa hacer la prueba y que nadie agregue
+ * acá queda conectada, cobrando y invisible en la vitrina, sin ningún error. Lo que dice si sabe hacerla es
+ * `CAPACIDADES_PASARELA[p].pruebaConTarjeta` (lib/cobros-tipos.ts): si las dos no coinciden, manda la capacidad y esta
+ * lista está vieja. Antes era sólo Mercado Pago, y por eso /planes nunca ofrecía Stripe aunque
  * estuviera conectada: una clienta de México recibió el link de la Mercado Pago argentina y MP la rechazó («La cuenta del
  * vendedor es de otro país»; docs/hallazgos-planes-y-cobro.md, «Fuera de Argentina se cobra con Stripe»).
  */
-export const PASARELAS_CON_PRUEBA: readonly Pasarela[] = ['mercadopago', 'stripe'];
+export const PASARELAS_CON_PRUEBA: readonly Pasarela[] = ['mercadopago', 'stripe', 'creem'];
 
 const DIA_MS = 86_400_000;
 /** Cuántos días antes del primer cobro se le avisa por email (el Cerebro, 25/10). */
@@ -75,9 +81,25 @@ export function huellaStripe(huella: string | null | undefined): string | null {
   return huella && /^[A-Za-z0-9]{1,64}$/.test(huella) ? `st:-|card:${huella}` : null;
 }
 
+/**
+ * La HUELLA en Creem (31/10/2026): su `customer.id`, porque es lo único que hay. ⚠️ NO reconoce la TARJETA: ningún objeto de
+ * Creem la trae, y el cliente va por email. Corta a quien repite con el mismo email en Creem, aunque en MaKo haya escrito otro;
+ * con otro email también en Creem, la misma tarjeta pasa.
+ */
+export function huellaCreem(clienteId: string | null | undefined): string | null {
+  return clienteId && /^[A-Za-z0-9_-]{1,64}$/.test(clienteId) ? `cr:${clienteId}|card:-` : null;
+}
+
+/**
+ * ¿Esta transacción de Creem es un cobro de ESTE cobro? En una prueba, una en cero no lo es: su doc no dice si el arranque
+ * deja una, y Stripe sí deja la factura en cero (`primerCobroDeLaPrueba`). Asentarla pasaría la prueba a «pagado» sin plata.
+ */
+export const transaccionQueCobra = (c: { tipo: string; alta_capa?: string | null; creado_por?: string | null }, x: { estado: string | null; monto: number | null }): boolean =>
+  x.estado === 'paid' && (!esPruebaDePlan(c) || (x.monto ?? 0) > 0);
+
 /** Las partes de una huella (lo que se compara). */
 export function partesDeHuella(h: string | null | undefined): { cuenta: string | null; tarjeta: string | null } {
-  const m = /^(?:mp|st):([^|]+)\|card:(.+)$/.exec(h ?? '');
+  const m = /^(?:mp|st|cr):([^|]+)\|card:(.+)$/.exec(h ?? '');
   if (!m) return { cuenta: null, tarjeta: null };
   return { cuenta: m[1] === '-' ? null : m[1], tarjeta: m[2] === '-' ? null : m[2] };
 }

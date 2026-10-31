@@ -88,7 +88,7 @@ test('la ruta: contar es del admin, e incluir va sólo al prender', () => {
 
 test('la pantalla: «Activar» cuenta antes y pregunta; «Incluirlas» viaja en el toggle', () => {
   const p = leer('app/automations/SecuenciaPerfil.tsx');
-  assert.match(p, /conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void toggle\(\)\), abiertoPublicado\)/);
+  assert.match(p, /conAvisoDuplicada\(true, 'Activar igual', \(\) => void conExistentes\(\(\) => void conRitmo\(\(\) => void toggle\(\)\)\), abiertoPublicado\)/);
   assert.match(p, /fetch\(`\/api\/whatsapp\/secuencias\?existentes=\$\{secuencia\.id\}`\)/);
   assert.match(p, /if \(!hayQuePreguntar\(e\)\) \{ seguir\(\); return; \}/);
   assert.match(p, /const incluir = !activa && incluirExistentes\.current;/);

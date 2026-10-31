@@ -20,6 +20,7 @@
 //     lugar, los botones de la barra de búsqueda, el filtro, los 3 puntitos». Cargando, con un error o sin hoja, la
 //     izquierda está igual: «Flujo» existe siempre.
 // =============================================================================
+import { QuienesDeMetricas } from './QuienesDeMetricas';
 import dynamic from 'next/dynamic';
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
@@ -148,7 +149,7 @@ export function MetricasAutomatizacion({ secuenciaId, izquierda, titulo }: {
         informe={informeDeAutomatizacion(secuenciaId)}
         unido={null}
         cabeceraPropia={{ izquierda, titulo, enMas }}
-        avisoFijo={avisoAB}
+        avisoFijo={<>{avisoAB}{avisoAB ? ' · ' : null}<QuienesDeMetricas secuenciaId={secuenciaId} /></>}
       />
       </IzquierdaDeCarga.Provider>
     </div>

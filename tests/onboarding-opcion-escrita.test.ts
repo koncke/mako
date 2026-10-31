@@ -25,7 +25,7 @@ import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 const opcionesDe = (id: string) => PREGUNTAS.find((q) => q.id === id)!.opciones;
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Florencia', nombreWorkspace: '', faseGuardada: false,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const QUIEN: EstadoArranque = { nombre: 'Florencia', negocio: 'Florencia Carballo', pdfOk: 'si' };
 const iCuello = PREGUNTAS.findIndex((q) => q.id === 'cuello');

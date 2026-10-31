@@ -120,6 +120,17 @@ test('una vez: otra vez no programa, y dos pedidos a la vez dejan un solo post',
   assert.equal(R.c.fila.publicacion, 'programada');
 });
 
+test('un 429 de Zernio es una pausa (ticket #34): lo dice, sigue siendo un fallo que se reintenta; las cuentas en pausa, también', () => {
+  const r = R.r4;
+  assert.equal(r.trasPausa.publicacion, 'fallo', 'no cambia: Zernio no la creó');
+  assert.match(r.trasPausa.motivo, /Zernio pidió una pausa/);
+  assert.doesNotMatch(r.trasPausa.motivo, /Rate limit|no contestó|conect[ae]r?\b/i);
+  assert.deepEqual(r.otraVez, { programadas: ['evP1'], fallidas: [] });
+  assert.equal(r.fila.publicacion, 'programada');
+  assert.deepEqual(r.leerCuentas, { ok: false, motivo: 'pausa' });
+  assert.match(r.sinLeerCuentas.fallidas[0].motivo, /Zernio pidió una pausa/);
+});
+
 test('un rechazo de Zernio queda dicho y se vuelve a programar', () => {
   assert.equal(R.d.falla.programadas.length, 0);
   assert.equal(R.d.trasFalla.publicacion, 'fallo');
@@ -407,3 +418,5 @@ test('la pantalla: «Ya lo resolví en Zernio» en la duda y en la programada co
   assert.match(actions, /otraClave: await programadaConOtraClave\(datos\)/);
   assert.match(actions, /await resolverEnZernio\(idDe\(id\)\)/);
 });
+
+//   la pausa de Zernio (30/10/2026; base 30 / 0): cuenta el Rate limit → 29 / 1 · cuentas en pausa dice «no pude» → 29 / 1

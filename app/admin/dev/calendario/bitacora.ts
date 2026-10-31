@@ -180,4 +180,31 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/calendario?vista=llamadas',
   },
+  {
+    fecha: '29 oct', hora: '23:55', chat: 'Calendario y Classroom', sesion: 'local_18ef0a3f-77e6-48c6-b5a5-29a5ce64ca4c', cuenta: 'claude3',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El Calendario a la medida del negocio: la barra de MaKo y menos botones',
+    pedido: 'personalices un poquito más la pestaña de publicaciones, la de calendar, para que se vea también la sidebar típica de MaKo, como siempre, y sobre todo… hay muchos botones que son innecesarios… hicimos la réplica de Google Calendar, pero hay cosas innecesarias para lo que los dueños de negocio lo van a usar. Esa pestaña es principalmente para gestionar publicaciones, para recordatorios de deadlines del propio Plan, para reuniones de llamadas de ventas, reuniones de entrega de servicio, etcétera',
+    puntos: ['Lo pasó el Cerebro.'],
+    revisar: '/calendario',
+  },
+  {
+    fecha: '29 oct', hora: '23:55', chat: 'Calendario y Classroom', sesion: 'local_18ef0a3f-77e6-48c6-b5a5-29a5ce64ca4c', cuenta: 'claude3',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Calendario: cuatro usos, cada uno con su color y su «+», y sin la barra de Google',
+    puntos: [
+      'Se fue la barra lateral copiada de Google (el menú, el logo, «Crear», el mes chico y la lista de calendarios): era la que tapaba la barra de MaKo.',
+      'Arriba quedan cuatro botones de colores: Publicaciones, Plan, Ventas y Entregas. Tocar uno lo muestra o lo esconde, y su «+» lo crea en un clic.',
+      'Las reuniones de entrega son un tipo nuevo. Hace falta aplicar la migración 0352 antes de subir.',
+      'Un deadline se crea en el Plan: su «+» te lleva ahí.',
+      'Las vistas son un solo selector: Día, Semana, Mes, Agenda y Llamadas. Se fueron Año y 4 días.',
+    ],
+    archivos: [
+      'app/calendario/CalendarioApp.tsx — la barra nueva y los cuatro usos',
+      'app/calendario/comun.ts — los usos, sus colores y qué crea cada uno',
+      'supabase/migrations/0352_calendario_entregas.sql — el tipo «entrega»',
+      'tests/calendario-cuatro-usos.test.ts — 6 roturas, cada una cae',
+    ],
+    revisar: '/calendario',
+  },
 ];

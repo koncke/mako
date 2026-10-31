@@ -5193,6 +5193,65 @@ conjuntos tampoco existe en MaKo (con token, en ningún lado; el Media Buyer dup
 
 *26/10/2026, chat «Zernio y CAPI» (`claude5`).*
 
+## Las fallas que quedaban de tren-m, la pantalla como Hoy, las rutas viejas y subir creativos por la API (27/10/2026)
+
+**Vive en:** `lib/media-buyer/topes.ts` (`presupuestoCambioDesdeLaPropuesta`) · `lib/media-buyer/ejecutar.ts` ·
+`lib/media-buyer/monto.ts` (`revisarMontoEditado`) · `lib/media-buyer/tacticas.ts` (`mezclarTacticas`) ·
+`lib/media-buyer/agentes.ts` (`cambioDeAgente`) · `lib/media-buyer/plan.ts` (`lugaresParaPropios`) · `lib/media-buyer/corrida.ts` ·
+`app/ads-manager/Ajustes.tsx` · `Automatizaciones.tsx` · `Autopilot.tsx` (`AlertasProtect`) · `aa.css` ·
+`app/api/ads-manager/creative-signurl/route.ts` · `lib/ads-staging-firma.ts` · `lib/media-buyer/subir.ts` (`revisarSubida`) ·
+`lib/media-buyer/creativos.ts` (`leerPedidoDeSubida`) · `lib/api-mako/validar.ts` (`distintoAlRevisar`). Lo hizo una sesión en la
+nube; tests: `tests/media-buyer-verificacion-m.test.ts`, `media-buyer-pantalla-m.test.ts` y `media-buyer-subir-api.test.ts`, cada
+pieza probada rompiéndola.
+
+- **Falla 1, el presupuesto que cambió por otro lado.** `presupuestoYaCambiado` mira sólo las decisiones del Media Buyer: un
+  cambio a mano, por chat (`proponer_presupuesto_*`) o desde el Administrador no se veía, y «el mismo % sobre el de hoy» componía.
+  Ahora, al lanzar, el presupuesto en vivo se compara con el de cuando se propuso (`antes.presupuesto`, tolerancia 1%): si cambió,
+  la decisión **vence** con el motivo y la corrida de mañana la vuelve a mirar. No se escala: un número que alguien movió a
+  propósito no se sabe si se movió por la misma razón.
+- **Falla 2, la mezcla de tácticas.** `mezclarTacticas` mezclaba por táctica: una pestaña vieja que cambiaba el estado de un
+  agente mandaba la táctica entera y pisaba los umbrales o las campañas que otra había cambiado. Ahora mezcla campo por campo
+  (los umbrales, por id; `campanas: null` es «toda la cuenta») y el panel de agentes y la API mandan sólo `{ estado }`.
+- **Falla 9, la IA que se gastaba de más.** Con el cupo del Esencial lleno por el motor, a cada agente propio se le preguntaba en
+  cada corrida y su respuesta se descartaba. `lugaresParaPropios` (cupo − lo de hoy − lo nuevo del motor) se calcula antes, y con
+  0 no se llama a la IA.
+- **La baja de 80% o más.** El freno de ×5 de la falla 4 también frenaba una baja deliberada, y el mensaje culpaba al separador
+  de miles. Ahora `revisarMontoEditado` separa: subir 5 veces o más no sale (eso SÍ suele ser un separador mal leído); bajar 5
+  veces o más pide una confirmación que lo dice («Bajarlo de $100 a $15 por día es 85% menos») con «Bajar a $15 por día» y «No
+  bajar». Por la API, `lanzar_decision_media_buyer` pone el aviso en el resumen que se confirma (`confirmarBaja` en el payload).
+- ⚠️ **Ajustes BORRABA un monto que no entendía.** La versión de Madgicx mandaba `Number.NaN` «para que lo rechace el servidor»,
+  y `JSON.stringify(NaN)` es `null`: el servidor recibía «sin tope» y lo guardaba. Ahora el monto ilegible no sale y lo dice un
+  aviso (`conMonto`). La regla: un valor que se quiere rechazar no se codifica como un valor que JSON no tiene.
+- **La pantalla.** Ajustes y Automatizaciones con el molde de Settings de la casa (`app/_ui/Ajustes.tsx`: nombre a la izquierda,
+  control a la derecha, guarda al instante); Automatizaciones, una fila por táctica con su estado y su detalle (el interruptor
+  vive en el detalle, y `?t=surf` lo abre: antes el link del lápiz no abría nada). Protect como la lista de Actividad (un punto,
+  el título y un botón). Campañas y Biblioteca con la caja del chat arriba, como Hoy, y los números del mes en una línea del pie
+  del árbol (`lineaDelMes`). `mb.css` y `mb-paleta.css` borrados: el modal de subir creativos usaba clases de `mb.css` que en
+  `/ads-manager` no se cargaban (sólo las subpáginas la importaban), así que se veía sin estilos. Pasó a `aa.css`.
+- **Las quince rutas viejas de `app/api/ads-manager`, borradas** (las usaba sólo el Ads Manager borrado el 25/10; queda
+  `creative-signurl`). ⚠️ **El diagnóstico obvio («nadie las llama, se borran») era la mitad:** `creative-upload` era la que
+  BARRÍA el staging en cada subida, y sin ella nada limpiaba el bucket. El barrido pasó a la firma (cada subida empieza
+  firmando). Quedaron sin call site `estadoVideo` y `generatePreviews` de `lib/meta-ads-create.ts` y `montadosDelWorkspace` /
+  `tomasDelWorkspace` de `lib/creativo-mako-fuentes.ts`: no se borraron (el último lo sigue leyendo el Video Editor para resolver
+  una referencia). Después de borrar rutas, en una PC: `npx next typegen`.
+- **Subir creativos por la API de MaKo.** Estaba en `FALTA` («por la API no hay cómo mandar un video»). Entró en los dos pasos de
+  la pantalla: `preparar_subida_media_buyer` (lectura, sólo HTTP: los conjuntos, los textos de partida del conjunto y una URL
+  firmada por archivo para un PUT) y `subir_creativos_media_buyer` (acción de plata, confirmada en `/mako/revisar`). La firma
+  (`lib/ads-staging-firma.ts`), el pedido (`leerPedidoDeSubida`) y la revisión (`revisarSubida`) son las MISMAS funciones que usa
+  la pantalla. Al proponer se mira que cada archivo esté en el staging (`faltanEnStaging`, de a uno por su nombre: la carpeta
+  es de todos los negocios y no se lista entera).
+- ⚠️ **`fijoAlRevisar` no protegía una lista de objetos.** `aplicarPropuestaGenerica` comparaba con `String()`, y
+  `String([{…}])` es «[object Object]» para cualquier lista del mismo largo: los archivos de una subida se podían cambiar al
+  revisar bajo el resumen de otros. `distintoAlRevisar` compara una lista de objetos (o un objeto) entera; lo demás, como siempre.
+- ⚠️ **La firma de una sesión en la nube NO va en `CUENTAS`** (`app/admin/dev/_registro/tipos.ts`). Para firmar el hito se sumó
+  una fila «nube» y el Uso del Ops Center pasó a listar SEIS cuentas: `lib/centro-uso.ts` toma cada fila de esa tabla como una
+  cuenta con su cuota. Lo cazaron dos tests de `tests/centro-uso.test.ts` en la corrida contra la base; la firma vive aparte
+  (`FIRMA_NUBE`, `cuentaDeHito`). Una tabla que se usa para dos cosas no se amplía por una sola.
+- **Lo que queda sin hacer:** un video tarda minutos en Zernio y la confirmación de `/mako/revisar` tiene 300 s, igual que la
+  pantalla (`/api/media-buyer`): con varios videos en una subida se puede cortar a mitad (lo creado queda registrado y se
+  deshace). El path del staging no lleva el negocio (es `nueva/<ms>-<azar>-<nombre>`): lo protege el azar, no un dueño. No se
+  midió contra una cuenta real (las escrituras las mide el Cerebro en la PC).
+
 ## DÓNDE, HASTA, «lánzame una campaña» y el Stop Loss del día: lo prometido a la agencia de Thiago (29/10/2026)
 
 **Vive en:** `lib/media-buyer/zona.ts` (la regla pura: zona y fecha de fin) · `lib/media-buyer/publico.ts` (el público en vivo y
@@ -5297,3 +5356,301 @@ y releer) y M1, M5 y M6 quedaron hechas en `b4ee3c411`: ver la entrada de arriba
     la zona no frena una campaña ya creada.
 - **Abierto (BAJA, entre otras del informe):** dentro de una automatización no hay ninguna guarda al ejecutar
   `proponer_crear_campana`; sólo el editor la saca de la lista.
+
+## «Hoy no hay cambios — Todo anda dentro de tu objetivo»: el cartel que le decía que estaba todo bien a quien no había empezado (30/10/2026)
+
+**Síntoma.** El Media Buyer sin cambios para hoy mostraba *«Hoy no hay cambios — Todo anda
+dentro de tu objetivo. Vuelvo a mirar mañana.»* Una cuenta recién conectada, **sin una sola
+campaña y sin haber gastado un peso**, leía que todo andaba dentro de su objetivo. No
+fallaba nada: entregaba, con la cara del éxito, el peor cartel posible.
+
+**Causa — no era la frase, era con qué se elegía.** La condición mira **dos** cosas: que
+`hoy.length === 0` y que `config.encendido` sea `true`. Nunca pregunta si el negocio tiene
+campañas. Y el diagnóstico obvio —«pasale las campañas a la pantalla»— era el equivocado:
+**esa pantalla no tiene las campañas y no las puede pedir.** `app/ads-manager/page.tsx`
+carga config, decisiones, metas del mes, token y cupo; el árbol de la cuenta **en vivo** lo
+trae `lienzoMediaBuyer`, y a propósito sólo cuando se abre la pestaña Campañas, porque lee
+Meta. Pedirlo en «Hoy» es una llamada a Meta en cada carga de la tab.
+
+El dato que **sí** llega es el resumen de la última corrida (`ultima_corrida_info`, el mismo
+canal por el que ya viajan las alertas de Protect para dibujarse sin releer Meta). Ahí no
+estaban las campañas: `ResumenCorrida` guardaba propuestas, lanzadas y alertas, pero no
+**qué había en la cuenta**. Contarlas del `datos.arbol` con que el agente YA decidió no
+cuesta ninguna lectura más.
+
+**Tres trampas del dato, que es donde se pierde el tiempo:**
+
+- **Un resumen de abstención no tiene números.** La corrida vuelve temprano con `parcial`,
+  `datos_viejos`, `moneda_sin_tasa`, `cuenta_compartida`, `apagado` o `sin_tabla`. Si los
+  contadores se ponen en cualquiera de esos returns, la pantalla afirma «no tienes campañas»
+  sobre una cuenta que **no se vio entera**. Van **sólo** en el return de `ok`.
+- **`marcarCorrida` hace upsert: el resumen de hoy borra el de ayer.** Apagar el agente deja
+  `{estado:'apagado'}` y con eso se pierden los contadores de la última corrida buena. Es
+  correcto que se pierdan —no sabemos qué hay ahora— y por eso apagado dice «estoy apagado»
+  y no inventa el estado de las campañas.
+- **Un resumen VIEJO dice `ok` y no trae los números.** Todo negocio que ya corrió antes de
+  este cambio cae ahí hasta su próxima corrida. No alcanza para afirmar nada: `estado === 'ok'`
+  **y** `activas > 0` es la única combinación que habilita «no hay nada que mover».
+
+**Orden de los estados: el del próximo paso, no el del dato.** Sin cuenta no hay nada más
+que decir. Con la cuenta **vacía** o con **todo en pausa**, prender el agente no mueve un
+peso: esos dos van **antes** del interruptor. Y la frase medida va última.
+
+**Regla.** *Un estado vacío es una afirmación: si no sale de algo que medimos, no se
+escribe.* Es la misma de [Tres cosas que Ads Manager afirmaba sin haberlas
+mirado](#tres-cosas-que-ads-manager-afirmaba-sin-haberlas-mirado-0809) («si el motivo no
+sale de la respuesta que acabás de recibir, es una adivinanza con cara de dato»), aplicada
+al cartel de una pantalla en vez de a un modal. Y la que la sostiene: **la decisión de qué
+dice un estado vacío va en un módulo puro, fuera de las pantallas.** Acá eran dos pantallas
+(computadora y teléfono) con la misma frase escrita a mano dos veces, y una rama que
+reescribía la pantalla sin tocar la falla.
+
+**Cómo se prueba que sigue arreglado.** `tests/media-buyer-cartel-hoy.test.ts` cubre los
+siete estados, y además **lee las dos pantallas** y falla si alguna vuelve a escribir
+`Todo anda dentro de tu objetivo` o a fijar el título sin mirar si hay campañas. Esa guarda
+atrapa el regreso por merge, que es como la falla volvería.
+
+**Lo que quedó SIN hacer:**
+
+- **El teléfono no sabe si la cuenta está conectada.** `app/m/ads/page.tsx` manda
+  `conectada: token ? true : null`: con token es `true`, y sin token queda en «no sé», porque
+  preguntarle a Zernio sería una llamada al abrir la pantalla. Un negocio **sin token y sin
+  Zernio** cae en el estado del interruptor o en «todavía no sé cómo vienes», no en «conecta
+  tu cuenta». Se arregla el día que haya un estado de conexión cacheado por negocio.
+- **El otro cartel de la misma pantalla no se tocó:** la rama `nueva` de `MediaBuyer.tsx`
+  (`¿En qué te ayudo hoy? — Muevo tu presupuesto de Meta hacia lo que vende`) es una promesa,
+  no una afirmación sobre la cuenta, así que no miente; pero tampoco dice en qué estado está
+  el negocio.
+- **Nada de esto se vio dibujado:** no hay sesión de navegador en la máquina donde se hizo.
+  El botón del próximo paso en `NuevoChat` usa `Button`/`ButtonLink` con `marginTop: 18`
+  inline, sin clase nueva en `aa.css` (que la rama `nube/media-buyer-2710` reescribe), y en
+  el teléfono el paso es un `<p className="aa-m-nota">`. **No verificado en pantalla.**
+
+**Vive en:** `lib/media-buyer/cartel-hoy.ts` (puro, el criterio y los siete textos),
+`lib/media-buyer/corrida.ts` (`ResumenCorrida.campanas` / `.activas`, contadas del árbol en
+el return de `ok`), `app/ads-manager/MediaBuyer.tsx` y `app/m/ads/MediaBuyerM.tsx` (las dos
+pantallas), `app/ads-manager/Hoy.tsx` (`NuevoChat` acepta `accion`), `app/m/ads/page.tsx`
+(`conectada`), `tests/media-buyer-cartel-hoy.test.ts`.
+- **Falla 1, el presupuesto que cambió por otro lado.** `presupuestoYaCambiado` mira sólo las decisiones del Media Buyer: un
+  cambio a mano, por chat (`proponer_presupuesto_*`) o desde el Administrador no se veía, y «el mismo % sobre el de hoy» componía.
+  Ahora, al lanzar, el presupuesto en vivo se compara con el de cuando se propuso (`antes.presupuesto`, tolerancia 1%): si cambió,
+  la decisión **vence** con el motivo y la corrida de mañana la vuelve a mirar. No se escala: un número que alguien movió a
+  propósito no se sabe si se movió por la misma razón.
+- **Falla 2, la mezcla de tácticas.** `mezclarTacticas` mezclaba por táctica: una pestaña vieja que cambiaba el estado de un
+  agente mandaba la táctica entera y pisaba los umbrales o las campañas que otra había cambiado. Ahora mezcla campo por campo
+  (los umbrales, por id; `campanas: null` es «toda la cuenta») y el panel de agentes y la API mandan sólo `{ estado }`.
+- **Falla 9, la IA que se gastaba de más.** Con el cupo del Esencial lleno por el motor, a cada agente propio se le preguntaba en
+  cada corrida y su respuesta se descartaba. `lugaresParaPropios` (cupo − lo de hoy − lo nuevo del motor) se calcula antes, y con
+  0 no se llama a la IA.
+- **La baja de 80% o más.** El freno de ×5 de la falla 4 también frenaba una baja deliberada, y el mensaje culpaba al separador
+  de miles. Ahora `revisarMontoEditado` separa: subir 5 veces o más no sale (eso SÍ suele ser un separador mal leído); bajar 5
+  veces o más pide una confirmación que lo dice («Bajarlo de $100 a $15 por día es 85% menos») con «Bajar a $15 por día» y «No
+  bajar». Por la API, `lanzar_decision_media_buyer` pone el aviso en el resumen que se confirma (`confirmarBaja` en el payload).
+- ⚠️ **Ajustes BORRABA un monto que no entendía.** La versión de Madgicx mandaba `Number.NaN` «para que lo rechace el servidor»,
+  y `JSON.stringify(NaN)` es `null`: el servidor recibía «sin tope» y lo guardaba. Ahora el monto ilegible no sale y lo dice un
+  aviso (`conMonto`). La regla: un valor que se quiere rechazar no se codifica como un valor que JSON no tiene.
+- **La pantalla.** Ajustes y Automatizaciones con el molde de Settings de la casa (`app/_ui/Ajustes.tsx`: nombre a la izquierda,
+  control a la derecha, guarda al instante); Automatizaciones, una fila por táctica con su estado y su detalle (el interruptor
+  vive en el detalle, y `?t=surf` lo abre: antes el link del lápiz no abría nada). Protect como la lista de Actividad (un punto,
+  el título y un botón). Campañas y Biblioteca con la caja del chat arriba, como Hoy, y los números del mes en una línea del pie
+  del árbol (`lineaDelMes`). `mb.css` y `mb-paleta.css` borrados: el modal de subir creativos usaba clases de `mb.css` que en
+  `/ads-manager` no se cargaban (sólo las subpáginas la importaban), así que se veía sin estilos. Pasó a `aa.css`.
+- **Las quince rutas viejas de `app/api/ads-manager`, borradas** (las usaba sólo el Ads Manager borrado el 25/10; queda
+  `creative-signurl`). ⚠️ **El diagnóstico obvio («nadie las llama, se borran») era la mitad:** `creative-upload` era la que
+  BARRÍA el staging en cada subida, y sin ella nada limpiaba el bucket. El barrido pasó a la firma (cada subida empieza
+  firmando). Quedaron sin call site `estadoVideo` y `generatePreviews` de `lib/meta-ads-create.ts` y `montadosDelWorkspace` /
+  `tomasDelWorkspace` de `lib/creativo-mako-fuentes.ts`: no se borraron (el último lo sigue leyendo el Video Editor para resolver
+  una referencia). Después de borrar rutas, en una PC: `npx next typegen`.
+- **Subir creativos por la API de MaKo.** Estaba en `FALTA` («por la API no hay cómo mandar un video»). Entró en los dos pasos de
+  la pantalla: `preparar_subida_media_buyer` (lectura, sólo HTTP: los conjuntos, los textos de partida del conjunto y una URL
+  firmada por archivo para un PUT) y `subir_creativos_media_buyer` (acción de plata, confirmada en `/mako/revisar`). La firma
+  (`lib/ads-staging-firma.ts`), el pedido (`leerPedidoDeSubida`) y la revisión (`revisarSubida`) son las MISMAS funciones que usa
+  la pantalla. Al proponer se mira que cada archivo esté en el staging (`faltanEnStaging`, de a uno por su nombre: la carpeta
+  es de todos los negocios y no se lista entera).
+- ⚠️ **`fijoAlRevisar` no protegía una lista de objetos.** `aplicarPropuestaGenerica` comparaba con `String()`, y
+  `String([{…}])` es «[object Object]» para cualquier lista del mismo largo: los archivos de una subida se podían cambiar al
+  revisar bajo el resumen de otros. `distintoAlRevisar` compara una lista de objetos (o un objeto) entera; lo demás, como siempre.
+- ⚠️ **La firma de una sesión en la nube NO va en `CUENTAS`** (`app/admin/dev/_registro/tipos.ts`). Para firmar el hito se sumó
+  una fila «nube» y el Uso del Ops Center pasó a listar SEIS cuentas: `lib/centro-uso.ts` toma cada fila de esa tabla como una
+  cuenta con su cuota. Lo cazaron dos tests de `tests/centro-uso.test.ts` en la corrida contra la base; la firma vive aparte
+  (`FIRMA_NUBE`, `cuentaDeHito`). Una tabla que se usa para dos cosas no se amplía por una sola.
+- **Lo que queda sin hacer:** un video tarda minutos en Zernio y la confirmación de `/mako/revisar` tiene 300 s, igual que la
+  pantalla (`/api/media-buyer`): con varios videos en una subida se puede cortar a mitad (lo creado queda registrado y se
+  deshace). El path del staging no lleva el negocio (es `nueva/<ms>-<azar>-<nombre>`): lo protege el azar, no un dueño. No se
+  midió contra una cuenta real (las escrituras las mide el Cerebro en la PC).
+
+## Qué se rompe cuando una rama queda TRES DÍAS sin subir: el rescate de `nube/media-buyer-2710` (30/10/2026)
+
+**Vive en:** `app/ads-manager/Ajustes.tsx`, `Lienzo.tsx`, `MediaBuyer.tsx`, `mb.css`, `mb-paleta.css` ·
+`lib/api-mako/flujo.ts`, `rest.ts`, `areas/ads.def.ts`, `areas/ads.run.ts` · `lib/media-buyer/corrida.ts`, `ejecutar.ts` ·
+`docs/api-mako.md` (GENERADO: `scripts/generar-api-doc.mjs`) · `docs/hallazgos.md`. La rama tenía 2 commits del 27/10 y 81
+archivos; nunca entró a un tren. Se rescató en `nube/media-buyer-rescate`.
+
+- ⚠️ **La lista de conflictos NO es la lista de riesgos: lo que se borra en silencio no conflictúa.** La rama borró
+  `mb.css` **y** `mb-paleta.css` a propósito (sus tres pantallas se mudaron a `aa.css` + el molde de Settings: borrado CON
+  reemplazo, dicho en sus propios comentarios). Pero `main` agregó el 29/10 un CUARTO consumidor que la rama nunca vio:
+  `app/ads-manager/nueva/page.tsx` (la campaña nueva de Thiago) importa los DOS archivos. `mb.css` apareció como
+  «modify/delete» sólo porque `main` lo había tocado; **`mb-paleta.css` no dio ningún conflicto** —la rama lo borró y `main`
+  no lo tocó— así que git lo borró sin preguntar y quedaba un import colgado (y los 28 tokens `--mbx-*` sin definir) en un
+  archivo que nadie iba a mirar. **Regla:** cuando una rama borra un archivo, buscar quién lo importa EN EL RESULTADO del
+  merge (`grep` del import sobre el árbol mergeado), no en la rama ni en el lado de `main`. Un borrado con reemplazo sigue
+  siendo correcto sólo para los consumidores que existían cuando se borró.
+- ⚠️ **El diagnóstico obvio equivocado, dos veces, y las dos por lo mismo: la dependencia estaba FUERA del conflicto.**
+  - `lib/media-buyer/corrida.ts`: parecía «main metió el filtro de zona, la rama reacomodó el cupo; es la misma región, va
+    el más nuevo». Son dos cosas independientes y las dos valen (no gastar IA preguntándole a un agente propio sin lugar en
+    el cupo · no proponer nada fuera de la zona). Y elegir el lado de la rama **no compila**: `fueraDeZona` se devuelve 100
+    líneas más abajo, en código que git auto-mergeó sin marcar.
+  - `lib/media-buyer/ejecutar.ts`: dos listas de imports enfrentadas. Los cuatro símbolos de los dos lados se usan en el
+    cuerpo ya mergeado (`borrarCampanaPorZernio` 2, `saltoPresupuesto` 1, `presupuestoCambioDesdeLaPropuesta` 2,
+    `revisarMontoEditado` 3). **Regla:** antes de elegir un lado, `grep` de cada símbolo que ese lado declara sobre el
+    cuerpo YA MERGEADO. Los marcadores muestran el solapamiento, no la dependencia.
+- ⚠️ **«Los dos lados le agregaron entradas a una lista» es la forma más peligrosa de conflicto, porque elegir un lado
+  compila.** `NO_EN_FLUJOS` (flujo.ts) y `MUEVEN_PLATA` (tests/media-buyer-api.test.ts) son la lista de lo que NO puede
+  correr como paso de una automatización: quedarse con un lado deja una operación que mueve plata corriendo sin que la
+  confirme una persona. Es un agujero, no un detalle de estilo. Lo mismo en `rest.ts` y `ads.def.ts`/`ads.run.ts`: las
+  cinco operaciones (`zona_media_buyer`, `hasta_media_buyer`, `proponer_crear_campana`, `preparar_subida_media_buyer`,
+  `subir_creativos_media_buyer`) van unidas. **Lo bueno:** acá hay red. `tests/api-mako-registro.test.ts` compara el
+  conjunto COMPLETO de operaciones HTTP contra `tests/api-mako-http.snapshot.txt`, y el snapshot auto-mergeado ya nombraba
+  las cinco: faltar una es rojo, no una sorpresa en producción.
+- ⚠️ **`docs/api-mako.md` NO se mergea a mano: se regenera.** Daba 7 conflictos, y uno era un CONTEO
+  («40 lecturas · 42 acciones» de un lado, «41 · 40» del otro). Ninguno de los dos es el número del merge: regenerado es
+  **41 · 43**. Hand-mergear un archivo generado es garantizar rojo en `tests/api-mako-registro.test.ts` («la referencia
+  generada está al día»). **Regla:** ante un conflicto en `docs/api-mako.md` o en `tests/api-mako-http.snapshot.txt`,
+  correr `node --import tsx scripts/generar-api-doc.mjs` y no leer los marcadores.
+- ⚠️ **Medir los conflictos contra una punta que no es `origin/main` da un número que miente.** El pedido traía 6 conflictos
+  medidos contra `b2b8adf05`, que vive sólo en ramas locales (`tren-ai`, `planes-y-regalo-3010`, `recorrido-web-3010`) y no
+  es ancestro ni de `main` ni de `integracion`. Contra `origin/main` eran **14**, y los 8 que faltaban eran justo los que
+  importaban (`lib/api-mako/*`, `lib/media-buyer/*`: la plata). También decía «main se movió 91 commits»: desde el
+  merge-base real son **782**. **Y `origin/integracion` estaba 455 commits DETRÁS de `main`, contenida entera en ella**
+  (0 commits propios): arrancar el rescate ahí era rescatar sobre una punta muerta. **Regla:** la punta se re-mide en el
+  momento, con `git rev-list --left-right --count origin/main...<rama>` y `git merge-base`, nunca se hereda del pedido.
+- **`docs/hallazgos.md` (el índice) se duplica solo:** `main` llegó con CUATRO filas `| Ads |` (el merge-base y la rama
+  tienen UNA), y dos de ellas eran supersets anidadas de la otra —la misma cola de 29.000 caracteres repetida. Es deriva de
+  merges anteriores, no de este. Las dos que caían dentro del conflicto se juntaron en una sin perder entradas (las colas
+  eran idénticas, así que la unión es exacta); quedan 3, dos fuera del conflicto. **Regla:** al tocar el índice, contar las
+  filas de tu área (`grep -c "^| <Área> |"`) antes y después: tiene que ser UNA.
+- **Abierto, para quien gobierne Ads:** `subir_creativos_media_buyer` (de la rama) pasa el BARRIDO de
+  `tests/revisar-fijo.test.ts` porque su `adsetId` es `fijoAlRevisar`, pero su `link` y su `formularioId` quedan editables al
+  revisar. Son el DESTINO del anuncio, y el 29/10 Integración fijó justo esos cuatro ids en `proponer_crear_campana` por la
+  misma razón (el título que se confirma es el de la propuesta). El barrido sólo exige UN id fijo por acción, así que no lo
+  caza. No se tocó acá —rescatar no es rediseñar— pero es la misma familia de agujero.
+- ⚠️ **Y el ancla valió más que el arreglo: dejar el lugar marcado con el NOMBRE de la otra rama.** El cartel vacío no se
+  tocó acá a propósito (lo estaba arreglando `nube/media-buyer-cartel-falso`), pero la condición se dejó en UN solo ternario
+  con un comentario que nombraba esa rama. Cuando el tren trajo el arreglo (`fccdc3c30`, el cartel ahora vive en
+  `lib/media-buyer/cartel-hoy.ts` con cinco estados y su test), el choque fue de CINCO archivos con los marcadores justo
+  donde tenía que estar, y se resolvió llamando al módulo nuevo desde la pantalla nueva. Sin el ancla, los dos lados habrían
+  editado la misma bajada por su cuenta y el ganador se la llevaba en silencio: un cartel que miente no da conflicto, da un
+  cliente que cree que está todo bien. **Regla:** cuando no te toca arreglar algo que toca TU archivo, no lo esquives —
+  dejalo en un solo lugar y nombrá en el comentario la rama que lo arregla.
+- ⚠️ **Una fixture VIEJA de un test cazó un bug de verdad, no un falso rojo.** Al portar «Dónde y hasta cuándo» a la pantalla
+  nueva, el código hacía `useState(inicial.zona)` — y `ElegirLugares` hace `elegidos.length`. El `CONFIG` de
+  `tests/media-buyer-pantalla-m.test.ts` es del 27/10 y no tiene `zona`, así que el render tiró
+  `TypeError: Cannot read properties of undefined (reading 'length')`. La tentación es «la fixture está vieja, le agrego el
+  campo». **Era un bug real:** la migración 0350 (zona y fechas) NO está aplicada en todos los entornos, y una config sin
+  ella llega exactamente así. Se arregló el código (`inicial.zona ?? []`) y la fixture se dejó SIN el campo a propósito,
+  para que siga cubriendo ese caso; probado rompiéndolo (sin el `?? []`: 4 pases y 1 fallo; con él, 5 y 0).
+  **Regla:** cuando un campo que agregó `main` viene de una migración que todavía no corrió en todas las bases, leerlo con
+  un default en la pantalla; y antes de «actualizar» una fixture que da rojo, preguntarse si esa forma vieja existe en
+  producción. Si existe, el rojo es del código.
+- **Lo que queda SIN hacer:** las dos filas `| Ads |` duplicadas de `main` que caen fuera del conflicto siguen ahí. El
+  `mb.css` restaurado va a sobrar el día que «Nueva campaña» adopte `aa.css`: ahí sí se borra, con sus dos archivos, el
+  import de `nueva/page.tsx` y la excepción de `tests/media-buyer-pantalla-m.test.ts`. Nada de esto se vio en pantalla, y
+  el `tsc` acotado NO se pudo correr en esta máquina (134/99, que no es verde): los tipos los corre Actions.
+---
+
+## La calculadora de presupuesto YA EXISTÍA, y la base local estaba 4.431 commits atrás (30/10/2026)
+
+**Síntoma:** un chat arrancó a construir «la calculadora de presupuesto de anuncios» con el
+encuadre de que **no existía**, la construyó entera —módulo puro, pantalla propia en
+`/ads-manager/presupuesto`, operación en la API de MaKo, 16 tests con ocho roturas— y al ir a
+pushear descubrió que `lib/calculadora-presupuesto-ads.ts` existe desde el 22/10, que la
+pantalla vive adentro del arranque del Media Buyer (`ArranqueMediaBuyer.tsx`) y que su propio
+docblock cita a Martín pidiéndola: «en el onboarding, me imagino a la calculadora que hicimos
+para saber cuanto invertir, todo con el chat de MaKo, como Offer».
+
+**La causa real no fue el encuadre: fue el ÁRBOL.** El `main` del clon compartido estaba
+**4.431 commits detrás de `origin/main`** (y 12 adelante con trabajo local de otras sesiones).
+En ese árbol:
+
+- `app/ads-manager/` todavía era la réplica de Meta Ads Manager (`AdsManagerView.tsx`,
+  `CampanasBrowser.tsx`, `OnboardingAdsManager.tsx`), borrada el 25/10 cuando la tab pasó a ser
+  el Media Buyer de IA.
+- `docs/estrategia-lanzamiento-low-to-high.md` **no estaba en el árbol de trabajo**: vive en
+  `origin/integracion`, y el chat lo leyó con `git show a4c4d35dd:…` sin preguntarse por qué no
+  estaba en disco. **Ésa era la señal, y se la pasó por alto.** Un documento que el brief nombra
+  y que no está en el árbol significa que el árbol no es la rama del brief.
+
+Y el trabajo nuevo no choca contra nada hasta el final: el módulo nuevo era puro, los tests
+pasaban, el typecheck acotado daba 0, las defs de la API auto-mergearon. Lo único que delató la
+divergencia fue el `cherry-pick`, con dos conflictos `DU` (**deleted by us, modified by them**)
+sobre `AdsManagerView.tsx` y `OnboardingAdsManager.tsx`.
+
+**La regla que queda, y es barata:** antes de construir una feature, **medir el árbol contra la
+rama del brief**, no contra lo que esté checkouteado:
+
+```sh
+git fetch origin integracion main
+git rev-list --count HEAD..origin/integracion     # cuánto te falta
+git log --oneline -5 origin/integracion -- <la carpeta que vas a tocar>
+grep -rln "<el nombre de la feature>" lib/ app/   # ¿ya existe?
+```
+
+⚠️ **Y «no existe» en un brief es una HIPÓTESIS, no un dato.** Un `grep` de «calculadora» sobre
+`lib/` en la rama correcta la encontraba en un segundo. Es «antes de construir una máquina
+nueva, buscá qué pantalla del producto ya hace algo parecido», aplicado a la rama en vez de a la
+pantalla: ahí el aviso era que el control de al lado ya hacía el trabajo; acá, que el documento
+del brief no estaba en el disco.
+
+### Lo que SÍ faltaba, y es lo que quedó
+
+De la llamada del 30/10 la calculadora del 22/10 no tiene **las LANDINGS**: reparte ángulos
+entre avatares y funcionalidades con la vara del Recon (`RESULTADOS_PARA_DECIDIR`), pero no
+contesta «¿cuántas landings pruebo?», que es el número que Martín dio. Se agregó al MISMO módulo
+(`PISO_LANDING`, `landingsDelPresupuesto`, el campo `landings` del plan y su renglón en la
+tarjeta del arranque y en el texto que lee MaKo), nunca como un segundo módulo: dos cuentas del
+mismo presupuesto se desincronizan y la pantalla y el chat dirían números distintos.
+
+El piso (US$500) es un **CRITERIO con su cita**, no una medición: con menos, la respuesta es
+«te alcanza para MENOS landings» —y en el borde, «no te alcanza ni para una», con lo que falta—,
+nunca «repártelo entre más». Lo fija el test con los dos números de Martín y con un presupuesto
+que no alcanza, probado con seis roturas.
+
+### Dos cosas más que se midieron de paso
+
+- **Una guarda del pre-push de la familia «lee el DISCO, no lo que se publica» sigue viva:**
+  `scripts/sync-puede-filmar.mjs --check` hace `readFileSync` del destino, así que un
+  `extension/puede-filmar.js` **ajeno y sin commitear** bloqueó un push que no lo tocaba. Las
+  cinco hermanas ya se arreglaron leyendo de HEAD (`git ls-tree` + `git show`); ésta no.
+  Mientras siga así, un push desde el clon compartido depende de que el vecino no tenga ese
+  archivo a medias — y la salida es el worktree limpio, que cuesta un `git worktree add` más un
+  junction a `node_modules`.
+- ⚠️ **`origin/integracion` tiene un rojo de tipos que NO es de esta tanda:** `lib/nutricion.ts`
+  importa `TRIGGER_AVISO_MAKO` **dos veces en el mismo `import`** (líneas 66 y 67 de
+  `0b9d35027`) → TS2300 «Duplicate identifier». Es una línea y la caza el `tsc` completo, o sea
+  el run de Actions que avanza `main`. Se midió de rebote con el acotado y queda avisado acá
+  porque no es de este chat; el otro rojo que apareció en la misma corrida
+  (`lib/api-mako/areas/crm.run.ts:1513`, TS2322: una lectura que devuelve un objeto donde el
+  tipo pide `SalidaLectura`) tampoco. **Vive en:** `lib/nutricion.ts`, `lib/api-mako/areas/crm.run.ts`.
+- **`presupuesto` dice «en la moneda de la cuenta» y todo el módulo lo escribe con `usd()`**
+  (`textoParaMako`, `titularDelPlan`, la tarjeta). Para una cuenta que no cobra en dólares las
+  dos cosas no pueden ser ciertas, y el piso de US$500 hereda la ambigüedad. No se tocó en esta
+  tanda: es una decisión (¿la calculadora habla en USD y convierte, o habla en la moneda de la
+  cuenta y el piso también?). **Vive en:** `lib/calculadora-presupuesto-ads.ts`.
+
+### Lo que quedó SIN hacer
+
+- **No verificado en pantalla.** La guardia de RAM no dejó levantar el `next dev` en esta
+  ventana: la tarjeta del arranque con el renglón de las landings no se abrió en un navegador.
+- **El resto de lo construido sobre el árbol viejo se descartó a propósito**: la pantalla
+  `/ads-manager/presupuesto`, el módulo `lib/presupuesto-anuncios.ts` y una operación
+  `ver_presupuesto_anuncios` de la API — que además ya existe como `calcular_presupuesto_anuncios`
+  (`lib/api-mako/areas/ads.run.ts`), y como es `SIN_HTTP` no aparece en `docs/api-mako.md`, así
+  que agregarle las landings a su descripción no mueve la referencia.
+- **Y una pantalla propia NO hace falta**, medido: la charla del arranque con la calculadora no
+  es sólo del primer ingreso — la vuelve a abrir el botón «Lanzar una campaña»
+  (`app/ads-manager/MediaBuyer.tsx`, `arrancando`), y vuelve sola si quedó a medias. Una ruta
+  hermana habría sido un segundo lugar para la misma pregunta. Si algún día hace falta, quedó
+  medido que `/ads-manager/nueva` y `/ads-manager/ajustes` son el molde y que
+  `app/ads-manager/layout.tsx` sólo desvía `/ads-manager/<dígitos>` a `/anuncio/<id>`.
+
+*30/10/2026, cuenta 1 (claude1), chat «Ads Manager · Presupuesto».*

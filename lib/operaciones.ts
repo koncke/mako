@@ -232,17 +232,6 @@ export async function servicioListoEnMako(): Promise<boolean> {
 }
 
 /**
- * Lo firmado de un mensaje del cartel. `listarPedidos` no lo manda a la pantalla; esto, sólo el del que se va a volver a firmar, y el que
- * lo verifica es el dispositivo (`originalParaReenviar`, lib/centro-limbo.ts). null = ya no está por salir.
- */
-export async function firmadoDelLimbo(id: string): Promise<{ firmado: string; firma: string; claveId: string | null } | null> {
-  if (!UUID_RE.test(id)) return null;
-  const { data, error } = await getSupabaseServer().from(T_PEDIDOS).select('firmado, firma, clave_id').eq('id', id).in('estado', ['escrito', 'no_entregado']).maybeSingle();
-  if (error) throw new Error(error.message);
-  return data ? { firmado: String(data.firmado ?? ''), firma: String(data.firma ?? ''), claveId: (data.clave_id as string | null) ?? null } : null;
-}
-
-/**
  * Dar de baja un mensaje del cartel de los que no salieron (30/10/2026, lib/centro-limbo.ts): lo que espera, y también lo que ya venció,
  * que `cancelarPedido` no mira. Con compare-and-set: si la PC lo tomó entretanto, salió y no se toca.
  */
@@ -535,7 +524,7 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   }
 
   // Lo vencido no se entrega: se dice, con el motivo.
-  // Y no en silencio (30/10/2026): sigue en el cartel de arriba del Ops Center hasta que Martín lo descarte (lib/centro-limbo.ts).
+  // Con su motivo, que lo distingue de los otros `no_entregado` (lib/centro-limbo.ts). El cartel que lo mostraba se sacó el 31/10/2026.
   const limite = new Date(Date.now() - VENCE_PEDIDO_MS).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
     .update({ estado: 'no_entregado', motivo: MOTIVO_VENCIO, updated_at: ahoraIso })

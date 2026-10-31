@@ -28,6 +28,7 @@
 // =============================================================================
 
 import 'server-only';
+import type { Pasarela } from './cobros-tipos';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import {
@@ -40,7 +41,7 @@ import { CLAVE_RETENCION, leerRetencion, mesesDePausa } from './retencion-reglas
 export const TOPE_POR_CORRIDA = 5;
 
 export type FilaCobroLugar = CobroDelLugar & {
-  alta_ws: number | null; cliente_ws?: number | null; proveedor: 'stripe' | 'mercadopago';
+  alta_ws: number | null; cliente_ws?: number | null; proveedor: Pasarela;
   proveedor_suscripcion_id: string | null; proveedor_ref: string | null; token: string; lead_id: number | null;
 };
 
@@ -120,7 +121,10 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
   const out: Revision = { revisados: 0, cortados: [], reabiertos: [], soltados: [], postergados: [], noCortados: [], errores: 0, enSeco, pasos: [] };
-  if (!CORTE_DE_ACCESO_PRENDIDO) return out; // apagado (lib/plan-acceso-reglas.ts): no lee ni escribe nada
+  // Apagado (lib/plan-acceso-reglas.ts): no corta a nadie. Sólo mira las cuentas que su agencia dio de baja (el corte
+  // `sin-agencia`, que vale igual: lib/workspace.ts → negocioPausado), para reabrirlas cuando pagan su propio plan.
+  const sinAgencia = CORTE_DE_ACCESO_PRENDIDO ? null : await cuentasSinAgencia(opts.soloWs);
+  if (sinAgencia && !sinAgencia.size) return out;
 
   const cobros = await cobrosDeLugares(plataforma, opts.soloWs);
   const porWs = new Map<number, FilaCobroLugar[]>();
@@ -128,6 +132,7 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
     const ws = Number(c.alta_ws ?? c.cliente_ws);
     if (!Number.isFinite(ws) || ws === plataforma) continue;
     if (opts.soloWs != null && ws !== opts.soloWs) continue;
+    if (sinAgencia && !sinAgencia.has(ws)) continue;
     porWs.set(ws, [...(porWs.get(ws) ?? []), c]);
   }
   if (!porWs.size) return out;
@@ -150,11 +155,26 @@ export async function revisarAccesosPorPago(opts: { enSeco?: boolean; ahoraMs?: 
     const estado = estados.get(ws);
     if (estado !== 'activo' && estado !== 'pausado') continue; // borrado, o un estado que no es de esto
     out.revisados++;
-    const v = vigenciaDelLugar(suyos, pagos, ahoraMs, pausas.get(ws) ?? []);
     const corte = cortes.get(ws) ?? null;
+    // Con SUS cobros (29/10/2026, revisión de plata, hallazgos 1 y 9): la cuenta que una agencia soltó, o el ex cliente que ya
+    // paga su plan, no queda cubierta por lo que pagó la agencia (`cliente_ws`), ni medida con las reglas de agencia.
+    const propios = suyos.filter((c) => Number(c.alta_ws) === ws && c.cliente_ws == null);
+    const deEl = corte?.motivo === 'sin-agencia' || propios.some((c) => c.tipo === 'suscripcion') ? propios : suyos;
+    const v = vigenciaDelLugar(deEl, pagos, ahoraMs, pausas.get(ws) ?? []);
+    // La pausa PROGRAMADA de la cuenta que se pagaba sola y se quedó sin agencia (lib/agencia-baja.ts, `cobroId: -1`): el día que
+    // termina lo que pagó, si no tiene un plan suyo al día. Pausada, el corte pasa a ser el de siempre (`cobroId: 0`), y una
+    // reactivación a mano posterior se respeta como cualquier otra. Vale con el corte general apagado.
+    if (corte?.motivo === 'sin-agencia' && corte.vigente && corte.cobroId === -1 && estado === 'activo' && v.estado !== 'al-dia' && Date.parse(corte.desde) <= ahoraMs) {
+      out.pasos.push({ ws, paso: 'cortar', vigencia: describir(v) });
+      if (enSeco) { out.cortados.push(ws); continue; }
+      try { if (await cortar(ws, { ...corte, cobroId: 0 })) out.cortados.push(ws); }
+      catch (e) { out.errores++; console.error(`[plan-acceso] ws=${ws} pausa sin agencia:`, e instanceof Error ? e.message : String(e)); }
+      continue;
+    }
     const paso = pasoDeAcceso(v, estado, corte);
     out.pasos.push({ ws, paso: paso.tipo, vigencia: describir(v) });
     if (paso.tipo === 'nada') continue;
+    if (sinAgencia && paso.tipo === 'cortar') continue; // apagado: el cobro no corta a nadie
     if (paso.tipo === 'cortar' && out.cortados.length >= TOPE_POR_CORRIDA) { out.postergados.push(ws); continue; }
     // ⚠️ ANTES DE PAUSAR POR IMPAGO, la pasarela (un aviso de renovación perdido no deja afuera a quien pagó).
     if (paso.tipo === 'cortar' && paso.corte.motivo === 'impago') {
@@ -220,6 +240,20 @@ async function reabrir(ws: number, c: CorteGuardado): Promise<boolean> {
   return !!data?.length;
 }
 
+/** Las cuentas con el corte `sin-agencia` vigente (lib/agencia-baja.ts): lo único que se revisa con el corte general apagado. */
+async function cuentasSinAgencia(soloWs?: number): Promise<Set<number>> {
+  let q = getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', CLAVE_CORTE);
+  if (soloWs != null) q = q.eq('workspace_id', soloWs);
+  const { data, error } = await q.limit(5000);
+  if (error) throw new Error(`No pude leer los cortes guardados: ${error.message}`);
+  const out = new Set<number>();
+  for (const r of (data ?? []) as Array<{ workspace_id: number; value: string }>) {
+    const c = leerCorte(r.value);
+    if (c?.motivo === 'sin-agencia' && c.vigente) out.add(Number(r.workspace_id));
+  }
+  return out;
+}
+
 /** El corte guardado de un negocio (para la pantalla de /cuenta-pausada). null si no hay, o si no se pudo leer. */
 export async function corteDe(ws: number): Promise<CorteGuardado | null> {
   const { data, error } = await getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_CORTE).maybeSingle();
@@ -236,7 +270,11 @@ export async function vigenciaDe(ws: number, ahoraMs: number = Date.now()): Prom
   try {
     const plataforma = await wsSuperAdmin();
     if (ws === plataforma) return null;
-    const cobros = (await cobrosDeLugares(plataforma, ws)).filter((c) => Number(c.alta_ws ?? c.cliente_ws) === ws);
+    const todos = (await cobrosDeLugares(plataforma, ws)).filter((c) => Number(c.alta_ws ?? c.cliente_ws) === ws);
+    // Con un plan PROPIO, sólo sus cobros (segunda pasada de la revisión de plata, hallazgo 9): como en `revisarAccesosPorPago`,
+    // los de la agencia que lo pagaba no lo cubren ni lo miden con las reglas de agencia.
+    const propios = todos.filter((c) => Number(c.alta_ws) === ws && c.cliente_ws == null);
+    const cobros = propios.some((c) => c.tipo === 'suscripcion') ? propios : todos;
     if (!cobros.length) return null;
     const [pagos, ret] = await Promise.all([
       cuotasDeLugares(plataforma, cobros.map((c) => c.id)),

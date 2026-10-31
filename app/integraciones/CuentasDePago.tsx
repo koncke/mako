@@ -26,11 +26,15 @@ const caja: CSSProperties = { background: 'var(--surface-2)', border: '1px solid
 const boton: CSSProperties = { padding: '6px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 12, fontWeight: 500, cursor: 'pointer' };
 const input: CSSProperties = { width: '100%', padding: '9px 11px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13 };
 
-const NOMBRE: Record<Proveedor, string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago', calendly: 'Calendly', calcom: 'Cal.com' };
+const NOMBRE: Record<Proveedor, string> = { stripe: 'Stripe', mercadopago: 'Mercado Pago', creem: 'Creem', calendly: 'Calendly', calcom: 'Cal.com' };
 const CLAVE: Record<Proveedor, string> = {
-  stripe: 'Clave secreta (sk_live_…)', mercadopago: 'Access token (APP_USR-…)', calendly: 'Personal access token', calcom: 'API key (cal_live_…)',
+  stripe: 'Clave secreta (sk_live_…)', mercadopago: 'Access token (APP_USR-…)', creem: 'Clave de API (creem_…)', calendly: 'Personal access token', calcom: 'API key (cal_live_…)',
 };
-/** El secreto del aviso de una cuenta de más, por proveedor (el de la principal se pega en la tarjeta de arriba). */
+/**
+ * El secreto del aviso de una cuenta de más, por proveedor (el de la principal se pega en la tarjeta de arriba).
+ * ⚠️ Creem NO va acá A PROPÓSITO (31/10/2026), igual que Stripe: su secreto lo registra y lo guarda MaKo por API
+ * (`asegurarWebhookCreem`), no se pega a mano. Pedirlo sería pedir un dato que la API ya entrega.
+ */
 const SECRETO: Partial<Record<Proveedor, string>> = {
   mercadopago: 'Clave secreta del aviso', calendly: 'Signing key del webhook', calcom: 'Contraseña del webhook',
 };

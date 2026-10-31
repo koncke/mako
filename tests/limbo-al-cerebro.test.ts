@@ -55,11 +55,11 @@ test('1. una vuelta del servicio dice que la PC está: no pisa la versión ni pa
   assert.equal(e.chats.length, 3, 'los chats se suben igual');
   for (const k of ['pedidos', 'avisos', 'limbo', 'tickets', 'ticketsNuevos']) assert.deepEqual(e.salida[k], [], `el servicio se llevó ${k}`);
   assert.deepEqual(e.estados, ['escrito', 'escrito'], 'un pedido tomado sin nadie que entregue se pierde');
-  // Lo que ve la pantalla: `vistoAt` es el Runner, `noticiasAt` la PC, y el cartel lo dice.
+  // Lo que ve la pantalla: `vistoAt` es el Runner, `noticiasAt` la PC, y el estado de la PC lo dice.
   assert.equal(e.vista.vistoAt, e.viejo);
   assert.equal(e.vista.noticiasAt, e.visto);
   assert.equal(e.vista.vivo, false, 'el Ops Center diría «Activo» sin ningún Runner');
-  assert.equal(e.vista.cartel, 'nadie_entrega');
+  assert.equal(e.vista.cartel, 'sin_runner');
   assert.equal(e.hay, 1, '`hay` sigue leyendo los chats que subió: un Runner vivo no se queda sin pedidos');
 });
 
@@ -70,13 +70,13 @@ test('2. una de Runner sí dice que hay quien entregue, y sin la migración nada
   assert.equal(r.version, '1.26.0');
   assert.ok(r.servicio, 'lo del servicio no se borra');
   assert.equal(r.vista.vivo, true);
-  assert.equal(r.vista.cartel, null);
+  assert.equal(r.vista.cartel, 'al_dia');
 
   const n = hijo().get('fila-nueva')!;
   assert.equal(n.runnerVisto, null, 'una fila que creó el servicio no tiene Runner');
   assert.equal(n.vista.vistoAt, null);
   assert.equal(n.vista.vivo, false);
-  assert.equal(n.vista.cartel, 'nadie_entrega');
+  assert.equal(n.vista.cartel, 'sin_runner');
 
   const s = hijo().get('sin-migracion')!;
   assert.equal(s.servicio.version, '1.24.0', 'sin la migración, el servicio tampoco pisa la versión');

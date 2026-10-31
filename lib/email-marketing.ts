@@ -14,6 +14,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 import type { PasoSecuencia } from '@/lib/nutricion';
 import { valoresVariablesLead, aplicarVariables } from '@/lib/template-vars';
+import { noSonDelNegocio } from '@/lib/nombres-negocio';
 import { sendEmail, renderEmailHtml, buildUnsubscribeUrl, remitenteEsSandbox } from '@/lib/resend';
 import { firmaDelPie, SIN_EMAIL_PROPIO, POR_QUE_SIN_EMAIL } from '@/lib/email-remitente';
 import { getWorkspace, getWorkspaceActual } from '@/lib/workspace';
@@ -781,6 +782,7 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
   const CHUNK = 100;
   let completo = true;
 
+  const noSon = await noSonDelNegocio();
   for (const lead of destinatarios) {
     if (Date.now() - tInicio > TIEMPO_MAX_MS) { completo = false; break; }
     if (recientes.has(lead.id)) {
@@ -789,7 +791,7 @@ export async function enviarBroadcast(id: number): Promise<ResultadoBroadcast> {
       if (filas.length >= CHUNK) await flush();
       continue;
     }
-    const vars = valoresVariablesLead(lead);
+    const vars = valoresVariablesLead(lead, { noSon });
     const asunto = aplicarVariables(b.asunto, vars) || '(sin asunto)';
     const cuerpo = aplicarVariables(b.cuerpo, vars);
     const unsubUrl = buildUnsubscribeUrl(lead.id);

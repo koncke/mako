@@ -34,7 +34,7 @@ Runner abierto, no corre nada: ni se mide, ni se sube, ni se entrega. **Ése es 
 
 **Lo que existía para la ausencia el 24/10, y no alcanzó:**
 - la lista del Ops Center mostraba «Sin noticias del Runner desde las HH:MM» (`sinNoticiasDesde`, PiezasCentro.tsx). Era un
-  renglón GRIS, sólo en la computadora, y no decía cuántos pedidos de Martín esperan (lo reemplaza `CartelPc.tsx`, sin desplegar);
+  renglón GRIS, sólo en la computadora, y no decía cuántos pedidos de Martín esperan (el estado de la PC va en el Uso desde el 31/10: `estadoDeLaPc`, sin desplegar);
 - cada mensaje que tarda dice por qué (`EstadoDelEnvio.porQue`, lib/centro-chats.ts). Eso se ve sólo en el chat abierto: el
   pedido del 17/10 estaba en un chat que Martín no volvió a abrir.
 
@@ -79,6 +79,8 @@ Runner abierto, no corre nada: ni se mide, ni se sube, ni se entrega. **Ése es 
   Lo de §2.3 (dejar pasar a cualquier chat si no hay Runner) sigue sin hacer.
 
 ### 2.2 La AUSENCIA se ve, y se mide desde el SERVIDOR
+
+**31/10/2026, Martín: «Si, ponlo pero en USO».** No hay carteles rojos arriba: lo que sigue se dice adentro del panel de Uso, con `estadoDeLaPc`, como hecho con su edad («Sin noticias de la PC desde las 23:47», «Sin Runner desde…»).
 
 Una PC trabada o apagada no puede avisar que se cayó: su silencio se tiene que notar desde otro lado. MaKo ya guarda cuándo
 llegó la última vuelta de cada cuenta (`visto_at`). Con eso, el Ops Center (computadora Y teléfono) dibuja **arriba, en

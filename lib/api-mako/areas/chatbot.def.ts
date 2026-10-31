@@ -343,6 +343,9 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
       { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos mensajes de esta automatización por un mismo canal (uno cada N minutos).' },
+      { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día (con tope).' },
+      { nombre: 'goteoArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y sube esto cada día que llega al suyo.' },
+      { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
       { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope por día, cuántos mensajes de esta automatización como mucho en 24 h por cada canal (adentro del tope de la línea).' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
     ],
@@ -446,6 +449,10 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'asunto', tipo: 'string', descripcion: 'el asunto del email (obligatorio si va por email).' },
       { nombre: 'minutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'minutos entre un mensaje y el siguiente, en cada canal. Sin esto, 3.' },
       { nombre: 'porDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'tope de mensajes por día en cada canal (hasta 500). Sin esto, 40 (el de una línea de WhatsApp).' },
+      { nombre: 'variantes', tipo: 'string[]', max: 8, descripcion: 'otras formas de decirlo por WhatsApp: a cada uno le toca una.' },
+      { nombre: 'arranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'WhatsApp arranca con estos por día. Sin esto, 20.' },
+      { nombre: 'arranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'y sube esto, hasta porDia. Sin esto, 20.' },
+      { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'true: con el tope desde el primer día.' },
     ],
     reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen',
     // ⚠️ SÓLO EN LA APP (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): por el grupo de WhatsApp el doer arma el rol
@@ -823,5 +830,24 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     reversible: true, escribe: 'reemplaza el texto (o el asunto) de esa tarjeta en nutricion_secuencias.pasos y le quita las variantes del texto anterior (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // «VER QUIÉNES» DE MÉTRICAS (31/10/2026): los leads detrás de un número de la tab.
+  // ⚠️ VA AL FINAL DEL ÁREA, Y SIN «automatización» NI «flujo» EN EL TÍTULO Y EN LA DESCRIPCIÓN (AGENTS.md: «Una operación
+  // nueva va AL FINAL de su área, y su id, título y descripción no repiten las palabras de todas las del área»). Nació
+  // declarada 3.ª y con esas palabras: EMPATABA en 3 puntos con `cambiar_crons_secuencia` en cualquier pedido de
+  // automatizaciones (la pista del clasificador es «crear automatizacion con ia flujo pedido», lib/mako-intencion.ts), y a
+  // igual puntaje gana la declarada antes — el CRON está declarado 48.º. El CRON pesa ~4.100 caracteres y entra de una sola
+  // vez o no entra, así que quedaba afuera por 431 caracteres y «Hacé que la automatización de reactivación salga todos los
+  // martes a las 15» dejaba de traerlo: MaKo contestaba «no puedo» de algo que sí puede.
+  // Las palabras del área van en los PARÁMETROS, que NO puntúan (lib/api-mako/registro.ts, `ordenarPorRelevancia`).
+  {
+    id: 'quienes_de_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Quiénes están detrás de un número',
+    descripcion: 'Los leads detrás de un número de las Métricas, en los últimos 30 días: quiénes respondieron, quiénes siguen adentro o quiénes entraron. Úsala para seguir a los que contestaron.',
+    parametros: [
+      { nombre: 'secuenciaId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'la automatización (de listar_secuencias_nutricion).' },
+      { nombre: 'cual', tipo: 'string', obligatorio: true, enum: ['respondieron', 'en_curso', 'entraron'], descripcion: 'cuál número.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

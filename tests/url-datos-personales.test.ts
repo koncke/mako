@@ -63,11 +63,13 @@ test('las tres rutas del Pixel guardan la URL saneada, ANTES de cortarla', () =>
   const vsl = sinComentarios(leer('app/api/track/vsl/route.ts'));
   assert.doesNotMatch(vsl, /texto\(payload\.landing_url, 500\)/, 'una escritura de landing_url volvió a ir cruda');
   assert.equal((vsl.match(/urlGuardable\(payload\.landing_url\)/g) ?? []).length, 3, 'vsl_events (2) y la visita (1)');
-  assert.match(vsl, /const urlGuardable = \(v: unknown\): string \| null => texto\(typeof v === 'string' \? urlSinDatosPersonales\(v\) : v, 500\);/);
+  // ⚠️ Desde el 30/10/2026 es la lista BLANCA (`urlDeEntradaGuardable`): la negra dejaba pasar el `attendeeName` de
+  // Cal.com. La regla y lo medido, en tests/url-de-entrada-lista-blanca.test.ts.
+  assert.match(vsl, /const urlGuardable = \(v: unknown\): string \| null => texto\(typeof v === 'string' \? urlDeEntradaGuardable\(v\) : v, 500\);/);
   const replay = sinComentarios(leer('app/api/track/replay/route.ts'));
-  assert.match(replay, /landingUrl: texto\(typeof payload\.landing_url === 'string' \? urlSinDatosPersonales\(payload\.landing_url\) : payload\.landing_url, 500\),/);
+  assert.match(replay, /landingUrl: texto\(typeof payload\.landing_url === 'string' \? urlDeEntradaGuardable\(payload\.landing_url\) : payload\.landing_url, 500\),/);
   const optin = sinComentarios(leer('app/api/track/optin/route.ts'));
-  assert.match(optin, /landing_url: txt\(typeof body\.pagina === 'string' \? urlSinDatosPersonales\(body\.pagina\) : body\.pagina\),/);
+  assert.match(optin, /landing_url: txt\(typeof body\.pagina === 'string' \? urlDeEntradaGuardable\(body\.pagina\) : body\.pagina\),/);
   assert.match(optin, /const paginaOptin = normalizarUrl\(/, 'el pagina_registro pasa por normalizarUrl, que ahora los saca');
 });
 

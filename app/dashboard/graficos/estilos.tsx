@@ -16,7 +16,7 @@ import { CSS_HTML } from './estilos-html';
 export const CSS_GRAFICOS = `
 ${CSS_HTML}
 .gr-punto { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
-.gr-chip { display: inline-flex; align-items: center; font-size: var(--fs-sm); font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--surface-2); color: var(--dim); white-space: nowrap; }
+.gr-chip { display: inline-flex; align-items: center; font-size: var(--fs-sm); font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--surface-2); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
 .gr-numero-sec { font-size: var(--fs-md); color: var(--dim); margin-top: 10px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .gr-solo-numero { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; }

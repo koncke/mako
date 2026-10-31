@@ -40,7 +40,7 @@ import { useState, type KeyboardEvent as TeclaReact, type ReactNode } from 'reac
 import { Icon } from '@/app/_components/icons';
 import { Modal } from '@/app/_ui/Modal';
 import { carteroVivo } from '@/lib/operaciones-reglas';
-import { nombreCuenta } from '@/lib/centro-chats';
+import { nombreCuenta, type EstadoPc } from '@/lib/centro-chats';
 import { hace } from '@/lib/progreso-reglas';
 import {
   estadoRunnerUso, textoReinicio, textoReinicioPasado, usoDeCuenta, usoPrincipal,
@@ -168,9 +168,27 @@ function textoRunner(estado: EstadoRunnerUso, vistoAt: string | null, ahora: num
 export const textoSinMedicion = (estado: EstadoRunnerUso): string =>
   estado === 'apagado' ? 'Su uso aparece cuando su Runner esté conectado' : 'Sin medir: su terminal no tiene Runner abierto';
 
-/** Cada cuenta con su plan, su Runner y sus dos ventanas (la computadora y el teléfono). */
-export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta }) {
+/**
+ * El estado de la PC, arriba de las cuentas (31/10/2026, Martín: «Si, ponlo pero en USO», no como cartel rojo). El hecho con su edad
+ * (`estadoDeLaPc`, lib/centro-chats.ts). Con el mismo punto que el Runner de cada cuenta: se consulta, no interrumpe.
+ */
+function EstadoDeLaPc({ pc }: { pc: EstadoPc }) {
   return (
+    <p className="co-uso__pc" role="status">
+      <span className={`co-punto co-punto--${pc.tipo === 'al_dia' ? 'trabajando' : 'viejo'}`} aria-hidden />
+      <span>
+        {pc.texto}
+        {pc.hacer && <span className="co-uso__pc-hacer">{pc.hacer}</span>}
+      </span>
+    </p>
+  );
+}
+
+/** Cada cuenta con su plan, su Runner y sus dos ventanas (la computadora y el teléfono). */
+export function ListaUso({ cuentas, ahora, pc, onRenombrar }: { cuentas: readonly CuentaUso[]; ahora: number; pc?: EstadoPc | null; onRenombrar?: RenombrarCuenta }) {
+  return (
+    <>
+    {pc && <EstadoDeLaPc pc={pc} />}
     <div className="co-uso__lista">
       {cuentas.map((k) => {
         const estado = estadoRunnerUso(carteroVivo(k, ahora), k.cuota, ahora);
@@ -214,6 +232,7 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
         );
       })}
     </div>
+    </>
   );
 }
 
@@ -228,8 +247,8 @@ export function ListaUso({ cuentas, ahora, onRenombrar }: { cuentas: readonly Cu
  * «estas cruzando workspace»): van en la ficha de cada cliente (app/admin/ComputadorasDelNegocio.tsx). Ya no hay un panel que salta
  * sobre la barra (`.co-uso__panel`, absoluto encima del botón): ése era el desplegable.
  */
-export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiarCredito, tusCuentas }: {
-  cuentas: readonly CuentaUso[]; ahora: number; onRenombrar?: RenombrarCuenta;
+export function BotonUso({ cuentas, ahora, pc, onRenombrar, onLeerCredito, onCambiarCredito, tusCuentas }: {
+  cuentas: readonly CuentaUso[]; ahora: number; pc?: EstadoPc | null; onRenombrar?: RenombrarCuenta;
   /** El crédito de API de los planes (UsoCredito.tsx): se pide recién al abrir. Sin esto, la sección no sale. */
   onLeerCredito?: LeerCredito;
   /** El interruptor del crédito asignado a un negocio (el ws1). Sin esto, se ve y no se toca. */
@@ -249,13 +268,13 @@ export function BotonUso({ cuentas, ahora, onRenombrar, onLeerCredito, onCambiar
           {tusCuentas}
           <div className="co-uso__mas">
             <p className="co-uso__cab">Cuentas de Claude Code</p>
-            <ListaUso cuentas={cuentas} ahora={ahora} onRenombrar={onRenombrar} />
+            <ListaUso cuentas={cuentas} ahora={ahora} pc={pc} onRenombrar={onRenombrar} />
             {onLeerCredito && <SeccionCredito leer={onLeerCredito} cambiar={onCambiarCredito} cuentas={cuentas} />}
           </div>
         </Modal>
       )}
       <button type="button" className="co-acceso" aria-haspopup="dialog" aria-expanded={abierto} onClick={() => setAbierto(true)}
-        title={`${activos} de ${cuentas.length} cuentas midiendo ahora`}>
+        title={`${activos} de ${cuentas.length} cuentas midiendo ahora${pc ? ` · ${pc.texto}` : ''}`}>
         <Icon name="config" size={17} />Uso
         <span className={`co-uso__principal${principal?.viejo ? ' co-uso__principal--viejo' : ''}`}>{principal ? `${principal.pct}%` : '—'}</span>
         {principal && <span className="co-uso__de">{principal.viejo && principal.medido != null ? `${nombreCuenta(principal.cuenta)} · ${hace(principal.medido, ahora)}` : nombreCuenta(principal.cuenta)}</span>}

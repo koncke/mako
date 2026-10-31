@@ -86,13 +86,13 @@ const SERVICIO = { servicio: { version: '1.26.0', desde: hace(30) }, entregables
 async function main() {
   const { hayParaElCartero, leerCarteros } = await import('../lib/operaciones');
   const { carteroVivo } = await import('../lib/operaciones-reglas');
-  const { cartelDeLaPc } = await import('../lib/centro-chats');
+  const { estadoDeLaPc } = await import('../lib/centro-chats');
   const escenas = (process.env.ESCENAS ?? '').split(',').filter(Boolean);
   const corre = (e: string) => !escenas.length || escenas.includes(e);
   const vista = async () => {
     const { carteros } = await leerCarteros();
     const k = carteros[0];
-    return { vistoAt: k.vistoAt, noticiasAt: k.noticiasAt, servicio: k.servicio, version: k.version, vivo: carteroVivo(k, Date.now()), cartel: cartelDeLaPc(carteros, pg.db.operaciones_pedidos as never, Date.now())?.tipo ?? null };
+    return { vistoAt: k.vistoAt, noticiasAt: k.noticiasAt, servicio: k.servicio, version: k.version, vivo: carteroVivo(k, Date.now()), cartel: estadoDeLaPc(carteros, pg.db.operaciones_pedidos as never, Date.now())?.tipo ?? null };
   };
 
   // (1) Una vuelta del servicio: dice que la PC está, y nada más. Aunque traiga una lista, no reclama.

@@ -10,6 +10,9 @@
 //     `error_if_incomplete`): entonces la capa tampoco sube, y se dice. Mensual sigue mensual y anual sigue anual.
 //   · MERCADO PAGO no prorratea: el preapproval pasa al monto de Pro desde el PRÓXIMO período, y el acceso a Pro es
 //     inmediato (lo decidió el Cerebro, 23/10/2026).
+//   · CREEM COBRA LA DIFERENCIA AHORA, como Stripe, pero pasando la suscripción a OTRO PRODUCTO: su precio es el del producto
+//     (`cambiarPrecioCreem`). ⚠️ Caía en el `else` de Mercado Pago y le pedía cambiar el monto de un id que no es suyo: nadie
+//     de LatAm pasaba a Pro, y el error culpaba a una pasarela que no usa (31/10/2026).
 //   · DOS CLICS NO COBRAN DOS VECES: la subida se reclama con compare-and-set (`plan.subida`) ANTES de tocar la pasarela, y
 //     Stripe dice `yaEstaba` si la suscripción ya cobra el precio de Pro (un reintento después de un corte no cobra otra vez).
 //   · LA CAPA SUBE SÓLO DESPUÉS DE QUE LA PASARELA ACEPTÓ. Si anotar el cobro o la capa falla después, se reintenta tocando
@@ -22,7 +25,9 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { cambiarSettingSi, getSetting, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
 import { logLeadEvent } from './leads';
-import { suscripcionDeMakoDe } from './cobros';
+import { credCreemDelCobro, suscripcionDeMakoDe } from './cobros';
+import { cambiarPrecioCreem, sinConfirmarCreem } from './creem-api';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from './cobros-tipos';
 import { esBajaPedida } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { montoSuscripcionMp, subirPlanStripe } from './pasarela-plan-api';
@@ -69,6 +74,8 @@ export async function subirAPro(ws: number, autor: string): Promise<ResultadoSub
 
   const idem = `mako-subir-${c.id}-${d.destino.id}-${ahora}`;
   let error: string | null = null;
+  // Creem no contestó y al releer tampoco se pudo ver: no se dice «tu plan sigue igual» a quien pudo haber pagado la diferencia.
+  let sinConfirmar = false;
   let monto = d.mensual;
   let periodo = 'por mes';
   if (c.proveedor === 'stripe') {
@@ -80,7 +87,15 @@ export async function subirAPro(ws: number, autor: string): Promise<ResultadoSub
       if (!r.ok) error = r.error;
       else { monto = r.monto; periodo = r.intervalo === 'year' ? 'por año' : 'por mes'; }
     }
-  } else {
+  } else if (c.proveedor === 'creem') {
+    const creem = await credCreemDelCobro(c);
+    const sub = c.proveedor_suscripcion_id;
+    if (!creem || !sub) error = 'Creem no está conectado';
+    else {
+      const r = await cambiarPrecioCreem(creem.key, sub, { monto: d.mensual, moneda: c.moneda, nombre: conceptoDelPlan(d.destino), idem, cobrarDiferencia: true });
+      if (!r.ok) { error = r.error; sinConfirmar = sinConfirmarCreem(r.status); }
+    }
+  } else if (c.proveedor === 'mercadopago') {
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', plataforma);
     const sub = c.proveedor_suscripcion_id ?? c.proveedor_ref;
     if (!token || !sub) error = 'Mercado Pago no está conectado';
@@ -88,12 +103,16 @@ export async function subirAPro(ws: number, autor: string): Promise<ResultadoSub
       const r = await montoSuscripcionMp(token, sub, d.mensual, idem);
       if (!r.ok) error = r.error;
     }
+  } else {
+    const _x: never = c.proveedor;
+    error = `Esa pasarela no sabe cambiar un plan: ${String(_x)}`;
   }
   if (error) {
     // No sube la capa, y se dice. La marca queda en «error»: se puede volver a intentar.
     await runWithWorkspace(ws, () => setSetting(CLAVE_SUBIDA, JSON.stringify({ ...marca, estado: 'error', error: error!.slice(0, 200) }))).catch(() => {});
     console.error(`[subir-plan] ws=${ws} cobro ${c.id}: ${error}`);
-    return { ok: false, resumen: `No pudimos pasarte a ${d.destino.nombre}: ${c.proveedor === 'stripe' ? 'el cobro de la diferencia no pasó' : 'Mercado Pago no lo aceptó'}. Tu plan sigue igual. Revisa tu tarjeta e intenta de nuevo.` };
+    if (sinConfirmar) return { ok: false, resumen: `No pudimos confirmar tu paso a ${d.destino.nombre}. Toca el botón de nuevo en unos minutos: no se cobra otra vez.` };
+    return { ok: false, resumen: `No pudimos pasarte a ${d.destino.nombre}: ${CAPACIDADES_PASARELA[c.proveedor].subidaCobraLaDiferencia ? 'el cobro de la diferencia no pasó' : `${NOMBRE_PASARELA[c.proveedor]} no lo aceptó`}. Tu plan sigue igual. Revisa tu tarjeta e intenta de nuevo.` };
   }
 
   // La pasarela aceptó: el cobro recuerda el plan nuevo y el negocio sube de capa, en el acto.
@@ -105,7 +124,7 @@ export async function subirAPro(ws: number, autor: string): Promise<ResultadoSub
   await runWithWorkspace(ws, () => setSetting(CLAVE_SUBIDA, JSON.stringify({ ...marca, estado: capaOk ? 'aplicada' : 'error', ...(capaOk ? {} : { error: 'la capa no subió' }) }))).catch(() => {});
   // Pagó y no se activó: se dice (y tocar de nuevo lo termina, sin cobrar otra vez: la pasarela contesta `yaEstaba`).
   if (!capaOk) return { ok: false, resumen: SIN_CAPA };
-  const resumen = c.proveedor === 'stripe'
+  const resumen = CAPACIDADES_PASARELA[c.proveedor].subidaCobraLaDiferencia
     ? `Listo: ya tienes ${d.destino.nombre}. Cobramos la diferencia de este período, y desde el próximo pagas ${formatoMonto(monto, c.moneda)} ${periodo}.`
     : `Listo: ya tienes ${d.destino.nombre}. Desde tu próximo cobro pagas ${formatoMonto(d.mensual, c.moneda)} por mes.`;
   if (c.lead_id) {

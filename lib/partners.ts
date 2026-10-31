@@ -25,8 +25,9 @@ import { carteraDeAgencia, altasDeAgencia, esAgencia, agenciasHabilitadas, type 
 import { clientesAprobados, ESTADOS_CARTERA, type EstadoCartera } from './agencia-cartera';
 import { emailNormalizado, emailUtilizable } from './agencia-altas';
 import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia } from './agencia-cobro';
-import type { PrecioClienteAgencia } from './agencia-cobro-reglas';
-import { capaDef } from './capas';
+import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, leerCambioDePlan, paisDeZona, planCuentaDe, planQueVeLaAgencia, type PlanCuenta, type PrecioClienteAgencia } from './agencia-cobro-reglas';
+import { CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO } from './plan-esencial-reglas';
+import { zonaDelNegocioDetalle } from './timezone';
 import { caraDeUsuario } from './gravatar';
 import { guardarQuienPaga, quienPagaDeClientes } from './agency';
 import { quienPagaDe, type QuienPaga } from './agency-reglas';
@@ -46,8 +47,11 @@ export type CuentaPartner = {
   estado: EstadoCartera;
   /** Cuándo se abrió (la fila de la cartera). */
   desde: string;
-  /** El plan, sólo de las aprobadas. */
+  /** El plan de MaKo de la cuenta: de las aprobadas, su capa; de las pendientes, lo que eligió la agencia; de las dadas de baja, nada (`planQueVeLaAgencia`). */
   plan: string | null;
+  planId: PlanCuenta;
+  /** ¿La agencia ya le eligió el plan? Las de antes del 29/10, no: siguen como Pro (H1, lib/plan-esencial-reglas.ts). */
+  planElegido: boolean;
   /** Su equipo, sólo de las aprobadas. `null` = no se pudo leer (no es «nadie»). */
   equipo: MiembroCuenta[] | null;
   /** Lo que la agencia pidió sumar a su equipo (mig 0178). */
@@ -93,6 +97,9 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
     precioClienteDeAgencia().catch(() => ({ usd: 47, mp: null }) as PrecioClienteAgencia),
     quienPagaDeClientes([...todos]),
   ]);
+  // Qué cuentas ya tienen el plan elegido, y cuál (la marca `agency.plan_cambiado`). Sin poder leerlo, todas «elegidas»: de las aprobadas se muestra su capa.
+  const elegidas = await getSupabaseServer().from('app_settings').select('workspace_id, value').eq('key', KEY_PLAN_CAMBIADO).in('workspace_id', [...todos])
+    .then(({ data, error }) => (error ? null : new Map(((data ?? []) as Array<{ workspace_id: number; value: unknown }>).map((x) => [Number(x.workspace_id), leerCambioDePlan(x.value)?.plan ?? null]))), () => null);
   const nombreWs = new Map(wss.filter((w) => todos.has(w.id)).map((w) => [w.id, w]));
   const equipoPorWs = new Map<number, MiembroCuenta[]>();
   // Cada aprobada arranca con su lista vacía SÓLO si la lectura anduvo: así se distingue «cero personas» (nadie puede
@@ -112,6 +119,7 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
     altasPorWs.set(a.cliente_ws, l);
   }
 
+  const sinElegir = (ws: number) => CUENTAS_DE_AGENCIA_SIN_ELEGIR_SON_PRO && elegidas != null && !elegidas.has(ws);
   const cuentas: CuentaPartner[] = cartera.map((f) => {
     const ws = Number(f.cliente_ws);
     const w = nombreWs.get(ws);
@@ -121,7 +129,8 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
       nombre: w?.nombre?.trim() || leads.get(ws)?.nombre || `Cliente ${ws}`,
       estado: estadoValido(f.estado),
       desde: f.created_at,
-      plan: aprobada && w ? capaDef(w.capa).nombre : null,
+      // El plan de MaKo de la cuenta (29/10/2026: «son los mismos planes, de 47 y 97»). La capa, SÓLO de las aprobadas.
+      ...planQueVeLaAgencia({ estado: estadoValido(f.estado), capa: aprobada ? w?.capa : null, hayCuenta: !!w, elegido: elegidas?.get(ws) ?? null, sinElegir: sinElegir(ws) }),
       equipo: aprobada ? (equipoPorWs.get(ws) ?? null) : null,
       altas: altasPorWs.get(ws) ?? [],
       cobro: (cobros as Record<number, CobroCuenta>)[ws] ?? null,
@@ -166,6 +175,10 @@ export type AbrirCuenta = {
   agenciaWs: number; nombre: string; email: string; leadId?: number | null; pagador: string | null;
   /** Quién paga su cuenta (25/10/2026). Sin esto, la agencia: lo que pasaba antes de que se pudiera elegir. */
   paga?: QuienPaga | null;
+  /** Su plan (29/10/2026): Esencial o Pro, a su precio. Sin esto, Esencial. */
+  plan?: PlanCuenta | null;
+  /** El país de quien la abre (`x-vercel-ip-country`): decide la pasarela, como /planes. */
+  pais?: string | null;
 };
 export type CuentaAbierta =
   | { ok: true; clienteWs: number; link: string | null; sinLink: string | null; paga: QuienPaga; acceso?: ResultadoInvitacion }
@@ -202,10 +215,20 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
     return { ok: false, error: 'Ese email ya tiene una cuenta de MaKo. Usa otro.' };
   }
 
-  const ws = await crearWorkspace(nombre);
+  const plan = planCuentaDe(p.plan);
+  // El país decide la pasarela: el de quien la abre, o el de la zona horaria de la agencia (la API no trae encabezado).
+  // Sin encabezado (la API), el de la zona del negocio, SÓLO si la guardó (revisión de plata, hallazgo 8): la de por defecto
+  // es America/Tijuana y le cobraba como a México a una agencia de cualquier país. Sin país, Stripe primero.
+  const zona = p.pais ? null : await zonaDelNegocioDetalle(p.agenciaWs).catch(() => null);
+  const pais = p.pais ?? (zona?.guardada ? paisDeZona(zona.tz) : null);
+  const ws = await crearWorkspace(nombre, CAPA_DE_PLAN[plan]);
   const { error: eCartera } = await getSupabaseServer()
     .from('agencia_clientes').insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' });
   if (eCartera) return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin pedir aprobación: ${eCartera.message}` };
+  // El plan, ELEGIDO (H1 de la verificación independiente, lib/plan-esencial-reglas.ts): con la marca rigen sus topes y candados.
+  // Sin ella la cuenta seguiría como Pro (las de antes del 29/10): si no se puede escribir, se dice y no se sigue.
+  const { error: eMarca } = await getSupabaseServer().from('app_settings').upsert({ workspace_id: ws.id, key: KEY_PLAN_CAMBIADO, value: JSON.stringify({ at: new Date().toISOString(), plan, pendiente: false }), updated_at: new Date().toISOString() }, { onConflict: 'workspace_id,key' });
+  if (eMarca) return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin su plan anotado: ${eMarca.message}` };
 
   if (lead) {
     const db = await getTenantDb();
@@ -240,6 +263,7 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
   const cobro = await linkPrimerMes({
     agenciaWs: p.agenciaWs, clienteWs: ws.id, nombreCliente: nombre,
     email: paga === 'cliente' ? correo : p.pagador, creadoPor: paga === 'cliente' ? `agencia para ${correo}` : (p.pagador ?? 'agencia'),
+    plan, pais,
   });
   if (!cobro.ok) console.warn(`[partners] cuenta ${ws.id} de la agencia ${p.agenciaWs} sin link del primer mes: ${cobro.motivo}`);
 

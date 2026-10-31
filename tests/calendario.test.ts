@@ -273,7 +273,9 @@ test('lo que se repite sale de UNA cuenta para la pantalla y la API, y la API el
 test('«¿Qué vas a crear hoy?» se fue del Calendario entero, con su IA', () => {
   assert.equal(existsSync(resolve(__dirname, '../lib/calendario-ia.ts')), false);
   assert.equal(existsSync(resolve(__dirname, '../app/api/calendario')), false);
-  for (const f of ['CalendarioApp.tsx', 'PlantillasSemana.tsx', 'AgendarLlamada.tsx', 'page.tsx', 'actions.ts']) {
+  // PlantillasSemana.tsx se fue el 29/10/2026 (los cuatro usos): su galería tampoco puede traer la caja de vuelta.
+  assert.equal(existsSync(resolve(__dirname, '../app/calendario/PlantillasSemana.tsx')), false);
+  for (const f of ['CalendarioApp.tsx', 'AgendarLlamada.tsx', 'page.tsx', 'actions.ts']) {
     const src = sinComentarios(leer(`../app/calendario/${f}`));
     assert.doesNotMatch(src, /CajaPedido|TITULO_CAJA|\/api\/calendario\/ia|calendario-ia|onConfirmarIA/, `${f} volvió a tener la caja`);
   }
@@ -457,7 +459,7 @@ test('«Llamadas» lee el CRM y el Plan, con las canceladas y la asistencia, y n
   assert.match(f, /cancelada: !!iso && !\(cual === 'R1' \? l\.fecha_junta_1 : l\.fecha_junta_2\)/, 'cancelada = con hora y sin fecha, como la grilla');
   assert.doesNotMatch(f.slice(0, f.indexOf('const out')), /not\('fecha_junta/, 'las canceladas se leen (la grilla las saltea; la lista las muestra)');
   // La entrada, arriba a la derecha de las dos pantallas, y la estrella de MaKo también en la lista.
-  assert.match(sinComentarios(leer('../app/calendario/CalendarioApp.tsx')), /<div className="gc-derecha">\s*<PestanasCalendario activa="calendario" \/>/);
+  assert.match(sinComentarios(leer('../app/calendario/CalendarioApp.tsx')), /<div className="gc-derecha">\s*<PestanasCalendario activa=\{vista\} fecha=\{fecha\} \/>/);
   const lista = sinComentarios(leer('../app/calendario/ListaLlamadas.tsx'));
   assert.match(lista, /<div className="gc-derecha"><PestanasCalendario activa="llamadas" \/><\/div>/);
   assert.match(lista, /<MakoEnLaTab tab="Calendario" \/>/);

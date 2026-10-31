@@ -290,8 +290,9 @@ function Candado() {
 
 export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge = 0, onClick, pro = false }: {
   item: NavItem; active: boolean; expanded: boolean; tema?: Tema; size?: number; badge?: number; onClick?: () => void;
-  /** Una tab de MaKo Pro y el negocio paga el Esencial: el candado, y «Pasar a Pro» al pasar el mouse. */
-  pro?: boolean;
+  /** Una tab de MaKo Pro y el negocio paga el Esencial: el candado, y «Pasar a Pro» al pasar el mouse. `agencia`: el cliente de
+   *  una agencia (29/10/2026): el candado y «De MaKo Pro», sin «Pasar a Pro» (su plan lo cambia su agencia). */
+  pro?: boolean | 'agencia';
 }) {
   const base = filaStyle(expanded);
   const cls = `mk-navrow${tema === 'claro' ? ' mk-navrow--claro' : ''}${active ? ' is-activo' : ''}`;
@@ -316,7 +317,7 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
     </>
   );
   const nombre = item.bajada ? `${item.label} · ${item.bajada}` : item.label;
-  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : nombre, ...(pro ? { 'data-pro': '' } : {}) };
+  const props = { className: cls, style: base, title: pro ? `${item.label} · ${pro === 'agencia' ? 'De MaKo Pro' : ROTULO_PASAR_A_PRO}` : expanded ? undefined : nombre, ...(pro ? { 'data-pro': '' } : {}) };
   if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
   if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
@@ -380,7 +381,7 @@ export function Familia({ f, primera, open, pathname, abiertaEsta, contadorFamil
    */
   onEntrarComoDueno?: (href: string) => void;
   /** ¿Esta tab lleva el candado de MaKo Pro? (el Esencial por la pasarela, lib/plan-esencial-reglas.ts) */
-  esPro?: (key: string) => boolean;
+  esPro?: (key: string) => boolean | 'agencia';
 }) {
   const activa = [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)].some((i) => i.match(pathname));
   // SIN RÓTULO (17/10/2026 noche): la zona de lo diario, y toda familia a la que le queda UNA fila visible (el prototipo:
@@ -484,9 +485,10 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [verPlataforma, setVerPlataforma] = useState(false);
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
+  const [clienteDeAgencia, setClienteDeAgencia] = useState(false);
   // MaKo Esencial por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
   const [planEsencial, setPlanEsencial] = useState(false);
-  const esPro = (key: string) => planEsencial && esNavSoloPro(key);
+  const esPro = (key: string): boolean | 'agencia' => (planEsencial && esNavSoloPro(key) ? (clienteDeAgencia ? 'agencia' : true) : false);
   const [impersonando, setImpersonando] = useState(inicial?.clienteNombre != null);
   const [clienteNombre, setClienteNombre] = useState(inicial?.clienteNombre ?? '');
   const [menuPos, setMenuPos] = useState<{ left: number; bottom: number } | null>(null);
@@ -587,6 +589,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
         setRol((j.rol as string) || '');
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
+        setClienteDeAgencia(j.clienteDeAgencia === true);
         setPlanEsencial(j.planEsencial === true);
         setImpersonando(Boolean(j.impersonando));
         setClienteNombre((j.clienteNombre as string) || '');
@@ -611,7 +614,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   //           mirando como cliente. Va acá y no en cada familia: `puedeVer` es por donde pasan la barra y el buscador.
   // La regla vive en lib/nav-visibilidad.ts: la usa también la barra de secciones de las tabs unificadas.
   const rolCliente = rolWs === 'closer' || rolWs === 'setter';
-  const vistaNav = { adminShell, rolWs, capa };
+  const vistaNav = { adminShell, rolWs, capa, clienteDeAgencia };
   const puedeVer = (it: NavItem) => puedeVerItem(it, vistaNav);
   /**
    * Lo de ARRIBA de todo (17/10/2026): Ops Center sólo en la barra del super admin (`adminOnly`) y Second Brain para los demás.
@@ -908,6 +911,9 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
+          {/* LA RANURA DE MaKo (30/10/2026): el botón de la estrella de cada tab se monta acá (app/_chat/MakoEnLaTab.tsx) en vez de
+              flotar encima del rincón de abajo a la izquierda de la tab, que tapaba. Vacía (una pantalla sin MaKo) no ocupa lugar. */}
+          <div data-ranura-mako="" style={{ display: 'flex', justifyContent: open ? 'flex-start' : 'center', padding: open ? '0 6px' : 0 }} />
           {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
           <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />

@@ -14,18 +14,18 @@
 //   · la foto vieja cuenta como fresca, o dice «cerrado» · lo que espera al Runner no sale · el chat vivo sin Runner da abierto · lo nuevo cuenta como cerrado
 //   · el cartel dice «chat cerrado» de todo · firma sin comparar con lo firmado · sin verificar la firma propia · `chatRecibe` sin mirar el estado o creyendo la foto vieja
 //   · el paso de elegir sin el texto entero · el cartel que no dibuja
+//
+// El cartel rojo se sacó el 31/10/2026, por pedido de Martín: «elimina el cartel rojo». Verificado volviendo a poner el componente en
+// cada pantalla: el último test da rojo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { createElement } from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { existsSync, readFileSync } from 'node:fs';
 import { MOTIVO_VENCIO, VENCE_PEDIDO_MS, chatsParaMandarle, mensajesEnLimbo, originalParaReenviar, queHacer, textoDeVence, textoDelCartel } from '../lib/centro-limbo';
 import { chatCerrado, chatRecibe, comoSale, type ChatCentro } from '../lib/centro-chats';
 import { avisosDeLimbo } from '../lib/limbo-al-cerebro';
 import { SIN_CHAT_VIVO_MS, comoEstaElDestino, pedidosSinChatVivo } from '../lib/operaciones-reglas';
 import { firmaEsDeEste, firmar, type ClaveDispositivo } from '../app/admin/operaciones/clave-dispositivo';
-import { CartelLimbo, ElegirChat } from '../app/admin/operaciones/CartelLimbo';
 
 const leer = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
@@ -172,7 +172,7 @@ test('mandárselo a otro chat firma lo que Martín firmó: una escritura en la b
 // Un chat como lo arma `completarChats`, con lo que dibuja la pantalla.
 const chatDe = (clave: string, estado: string, extra: Partial<ChatCentro> = {}) => ({ clave, titulo: `Chat ${clave}`, sesion: `cli_${clave}1111111-2222-4333-8444-555555555555`, cuenta: 'claude1', estado, viejo: false, ...extra }) as unknown as ChatCentro;
 
-test('sin Runner no se ofrecen chats cerrados rotulados «Abierto», y el texto que se firma se ve entero', () => {
+test('sin Runner no se ofrecen chats cerrados rotulados «Abierto»', () => {
   const sinRunner = [{ cuenta: 'claude1', vistoAt: hace(6 * DIA), noticiasAt: hace(MIN), chats: [], claves: ['k1'] }];
   const envioDe = (c: ChatCentro) => comoSale(c, sinRunner as never, 'k1', AHORA);
   const chats = [chatDe('a', 'cerrado'), chatDe('b', 'sin_dato'), chatDe('c', 'abierto', { viejo: true }), chatDe('d', 'abierto'), chatDe('e', 'trabajando')];
@@ -181,25 +181,6 @@ test('sin Runner no se ofrecen chats cerrados rotulados «Abierto», y el texto 
   assert.equal(chatCerrado(chats[0]), true);
   assert.equal(chatCerrado(chats[3]), false);
 
-  const largo = `${'x'.repeat(200)}\n\nAdemás, lo que está al final`;
-  const m = mensajesEnLimbo([{ ...pedido('p', DIA), texto: largo }], carteros, AHORA)[0];
-  const k = { chats, envioDe, mandarDelLimbo: async () => null };
-  const html = renderToStaticMarkup(createElement(ElegirChat, { centro: k as never, m: m as never, onVolver: () => {} }));
-  assert.ok(html.includes('Además, lo que está al final'), 'firmaría sin ver lo que está después del corte');
-  assert.ok(html.includes('Chat d') && html.includes('Chat e'));
-  for (const no of ['Chat a', 'Chat b', 'Chat c']) assert.ok(!html.includes(no), `ofrece ${no}`);
-  assert.ok(html.includes('Abierto · espera al Runner'), 'el rótulo dice que falta el Runner');
-  assert.ok(html.includes('Trabajando'));
-
-  const conLaPcCallada = renderToStaticMarkup(createElement(ElegirChat, { centro: { ...k, chats: [chatDe('c', 'abierto', { viejo: true })] } as never, m: m as never, onVolver: () => {} }));
-  assert.ok(conLaPcCallada.includes('No se sabe qué chats están abiertos'));
-});
-
-test('el cartel se dibuja, con el texto de lo que hay', () => {
-  const limbo = mensajesEnLimbo([pedido('a', DIA)], carteros, AHORA);
-  const html = renderToStaticMarkup(createElement(CartelLimbo, { centro: { limbo, ahora: AHORA } as never }));
-  assert.ok(html.includes('1 mensaje tuyo espera un chat cerrado (de hace 1 día)'), html);
-  assert.equal(renderToStaticMarkup(createElement(CartelLimbo, { centro: { limbo: [], ahora: AHORA } as never })), '');
 });
 
 test('el cartel dice cuántos y de hace cuánto el más viejo; sin nada, no hay cartel', () => {
@@ -229,20 +210,14 @@ test('la carga trae lo que no salió aunque quede fuera de los últimos 100, y v
   assert.match(op.slice(op.indexOf('export async function descartarDelLimbo(')), /\.eq\('id', id\)\.in\('estado', \['escrito', 'no_entregado'\]\)/);
 });
 
-test('el cartel está en la computadora y en el teléfono, y mandarlo lo firma de nuevo antes de dar de baja el viejo', () => {
-  assert.match(sinComentarios(leer('app/admin/operaciones/PiezasCentro.tsx')), /<CartelLimbo centro=\{k\} \/>/);
-  assert.match(sinComentarios(leer('app/m/operaciones/CentroAppMovil.tsx')), /<CartelLimbo centro=\{k\} Hoja=\{SheetM\} \/>/);
-  const uc = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
-  const fn = uc.slice(uc.indexOf('async function mandarDelLimbo('), uc.indexOf('const avisoDePregunta'));
-  assert.ok(fn.indexOf('firma.mandar(') > 0 && fn.indexOf('firma.mandar(') < fn.indexOf('descartarDelLimbo(p)'), 'da de baja el viejo sin haber firmado el nuevo');
-  assert.match(fn, /!chatRecibe\(c, envio\)/, 'lo manda a otro chat cerrado');
-  assert.ok(fn.indexOf('originalParaReenviar(') > 0 && fn.indexOf('originalParaReenviar(') < fn.indexOf('firma.mandar('), 'firma la columna `texto` sin mirar lo firmado');
-  assert.match(fn, /armarReenvio\(original\.titulo \?\? 'un chat cerrado', original\.texto\)/, 'firma lo que trajo la lista, no lo que Martín firmó');
+test('el texto de la pantalla, sin voseo', () => {
+  const s = sinComentarios(leer('lib/centro-limbo.ts'));
+  assert.doesNotMatch(s, /\b(tenés|podés|abrí|acá|mandá)\b/);
 });
 
-test('el texto de la pantalla, sin voseo', () => {
-  for (const p of ['app/admin/operaciones/CartelLimbo.tsx', 'lib/centro-limbo.ts']) {
-    const s = sinComentarios(leer(p));
-    assert.doesNotMatch(s, /\b(tenés|podés|abrí|acá|mandá)\b/, p);
+test('el cartel rojo no vuelve: ni en la computadora, ni en el teléfono', () => {
+  for (const p of ['app/admin/operaciones/PiezasCentro.tsx', 'app/m/operaciones/CentroAppMovil.tsx']) {
+    assert.doesNotMatch(sinComentarios(leer(p)), /CartelLimbo/, p);
   }
+  assert.equal(existsSync(new URL('../app/admin/operaciones/CartelLimbo.tsx', import.meta.url)), false);
 });

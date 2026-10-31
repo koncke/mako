@@ -46,6 +46,7 @@
 // =============================================================================
 
 import type { Gating, OperacionDef, Parametro } from '../tipos';
+import { CTAS as CTAS_SUBIDA } from '@/lib/media-buyer/creativos';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 const SIN_HTTP = ['whatsapp', 'app'] as const;
@@ -100,7 +101,7 @@ export const DEFS: readonly OperacionDef[] = [
     // Meta ni la base. Sin HTTP: es un consejo para una persona, no un dato para un sistema.
     id: 'calcular_presupuesto_anuncios', area: 'ads', tipo: 'lectura',
     titulo: 'Cuánto testear con un presupuesto',
-    descripcion: 'Con un presupuesto de anuncios, cuántos avatares y funcionalidades (ángulos) se pueden testear con datos suficientes y cómo: matriz en una semana, dos rondas (avatares y después funcionalidades) o una sola dimensión. Devuelve cuánto por anuncio por día y por cuántos días, lo que queda para escalar al ganador, si la escala sale de la fase de aprendizaje de Meta (50 resultados en 7 días) y las ventas esperadas. El mínimo para decidir es el del panel Recon (10 resultados por ángulo). Úsala cuando pregunten «¿cuánto invierto?», «¿cuántos anuncios pruebo con X dólares?» o «¿testeo avatares o funcionalidades?». No lee Meta: si no te dan el costo por resultado, pídelo o tómalo de ver_rendimiento_anuncios.',
+    descripcion: 'Con un presupuesto de anuncios, cuántos avatares y funcionalidades (ángulos) se pueden testear con datos suficientes y cómo: matriz en una semana, dos rondas (avatares y después funcionalidades) o una sola dimensión. Devuelve cuánto por anuncio por día y por cuántos días, lo que queda para escalar al ganador, si la escala sale de la fase de aprendizaje de Meta (50 resultados en 7 días) y las ventas esperadas. El mínimo para decidir es el del panel Recon (10 resultados por ángulo). Y cuántas LANDINGS paga el presupuesto, con el piso de US$500 por landing: con menos contesta que NO alcanza, con lo que falta, en vez de repartirlo más fino (criterio de Martín del 30/10/2026). Úsala cuando pregunten «¿cuánto invierto?», «¿cuántos anuncios pruebo con X dólares?» o «¿testeo avatares o funcionalidades?». No lee Meta: si no te dan el costo por resultado, pídelo o tómalo de ver_rendimiento_anuncios.',
     parametros: [
       { nombre: 'presupuesto', tipo: 'number', obligatorio: true, minimo: 1, descripcion: 'Lo que hay para pautar en toda la ventana, en dólares.' },
       { nombre: 'dias', tipo: 'number', entero: true, obligatorio: true, minimo: 1, maximo: 365, descripcion: 'Días de pauta.' },
@@ -723,7 +724,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'escribe en Meta (por la Zernio del negocio o su token) y marca la decisión como aplicada en media_buyer_decisiones',
     parametros: [
       P_DECISION,
-      { nombre: 'presupuesto', tipo: 'number', minimo: 0.01, descripcion: 'sólo en un cambio de presupuesto: el monto diario a poner en vez del que propuso (moneda de la cuenta). Los topes lo pueden recortar.' },
+      { nombre: 'presupuesto', tipo: 'number', minimo: 0.01, descripcion: 'sólo en un cambio de presupuesto: el monto diario a poner en vez del que propuso (moneda de la cuenta). Los topes lo pueden recortar. Cinco veces el de hoy o más no sale; bajarlo 80% o más sí, y la confirmación lo avisa.' },
       { nombre: 'variaciones', tipo: 'string[]', max: 20, descripcion: 'sólo en una decisión de variaciones: los ids de las que se publican (de ver_media_buyer). Sin esto, las que estaban elegidas.' },
     ],
     canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
@@ -982,5 +983,42 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'enPausa', tipo: 'boolean', descripcion: 'hoy toda campaña nueva nace en pausa (hasta medir la creación por Zernio): la persona la revisa y la prende.' },
     ],
     canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  // Subir creativos nuevos (27/10/2026): lo de «Subir creativos» de la pantalla, en los mismos dos pasos (el archivo va al
+  // staging por una URL firmada, lib/ads-staging-firma.ts, y después se publica por lib/media-buyer/subir.ts). Sólo por HTTP:
+  // un archivo no viaja por un chat. Publicar lo confirma una persona en /mako/revisar, como lanzar una decisión.
+  {
+    id: 'preparar_subida_media_buyer', area: 'ads', tipo: 'lectura',
+    titulo: 'Preparar la subida de creativos nuevos',
+    descripcion: 'El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. Después: subir_creativos_media_buyer con los path que devuelve.',
+    parametros: [
+      { nombre: 'nombres', tipo: 'string[]', max: 10, descripcion: 'los nombres de los archivos, con su extensión (video.mp4, foto.jpg) y sin comas: una URL firmada por cada uno, hasta 10.' },
+      { nombre: 'adsetId', tipo: 'string', max: 30, descripcion: 'id del conjunto (de esta misma lectura o de ver_campanas_media_buyer): trae sus textos de partida.' },
+    ],
+    salida: 'json', canales: ['http'], costo: 'externo', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'subir_creativos_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Subir creativos nuevos a un conjunto',
+    descripcion: 'PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Se confirma en una pantalla antes de 6 horas (después el archivo se borra). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.',
+    escribe: 'crea anuncios en la cuenta de Meta del negocio (por Zernio) y deja la decisión aplicada en media_buyer_decisiones',
+    parametros: [
+      { nombre: 'adsetId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id del conjunto (de preparar_subida_media_buyer o ver_campanas_media_buyer).' },
+      {
+        nombre: 'archivos', tipo: 'object[]', obligatorio: true, max: 10, fijoAlRevisar: true, descripcion: 'los archivos ya subidos, hasta 10.',
+        campos: [
+          { nombre: 'path', tipo: 'string', obligatorio: true, max: 300, descripcion: 'el path que devolvió preparar_subida_media_buyer (nueva/…).' },
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: ['image', 'video'], descripcion: 'image o video.' },
+          { nombre: 'nombre', tipo: 'string', max: 120, descripcion: 'cómo se llama: sale en el nombre del anuncio.' },
+        ],
+      },
+      { nombre: 'textoPrincipal', tipo: 'string', obligatorio: true, max: 2200, descripcion: 'el texto principal del anuncio.' },
+      { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 255, descripcion: 'el título.' },
+      { nombre: 'cta', tipo: 'string', enum: CTAS_SUBIDA, descripcion: 'el botón. Por defecto, LEARN_MORE.' },
+      { nombre: 'link', tipo: 'string', max: 1000, descripcion: 'el destino, con https. Va esto o formularioId.' },
+      { nombre: 'formularioId', tipo: 'string', max: 30, descripcion: 'el formulario instantáneo, si el conjunto lo usa (va en vez del link).' },
+      { nombre: 'activo', tipo: 'boolean', obligatorio: true, descripcion: 'true: salen activos y gastan del presupuesto del conjunto; false: en pausa.' },
+    ],
+    canales: ['http'], costo: 'dinero', gating: G_MEDIA_BUYER,
   },
 ];

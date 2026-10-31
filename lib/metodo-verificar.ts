@@ -10,10 +10,11 @@
 
 import 'server-only';
 import { CALCOM_API, calcomHeaders } from './calcom';
-import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe } from './cobros-conexion';
+import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe, factsDeCreem } from './cobros-conexion';
 import { credWs } from './credenciales';
 import { leerCuentaMp } from './mercadopago-api';
 import { leerCuentaStripe } from './stripe-api';
+import { probarClaveCreem } from './creem-api';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
@@ -598,6 +599,23 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     // Pago y no hay API que la devuelva): como el secret de Cal.com, se dice que está, no que anda.
     const facts = factsDeMercadoPago(r, !!v.MERCADOPAGO_WEBHOOK_SECRET);
     return { ok: true, detalle: `Conectada a tu cuenta de Mercado Pago${r.modo === 'prueba' ? ' (modo prueba)' : ''}.`, facts };
+  },
+
+  // Creem (31/10/2026). ⚠️ SU PING NO PUEDE PREGUNTAR «¿DE QUIÉN ES ESTA CLAVE?» como los dos de arriba: Creem no
+  // tiene ningún endpoint que devuelva la identidad de la cuenta (Stripe tiene `GET /v1/account`, Mercado Pago
+  // `GET /users/me`). Así que lo que se prueba es que la clave FUNCIONE, con una lectura inofensiva y vacía en una
+  // cuenta nueva (`GET /v1/products/search`, verificado en producción el 31/10/2026: 200 con `items: []`).
+  // Y lo que ata la clave a su cuenta no es un id que Creem nos dé: es el id del endpoint de aviso que MaKo registró
+  // en ella (`CREEM_WEBHOOK_ID`), que es lo que rutea sus avisos.
+  async creem(v) {
+    const r = await probarClaveCreem(v.CREEM_API_KEY);
+    if (!r.ok) return { ok: false, error: r.error };
+    const facts = factsDeCreem({ modo: r.modo }, v.CREEM_WEBHOOK_ID ?? null, !!v.CREEM_WEBHOOK_SECRET);
+    const modo = r.modo === 'prueba' ? ' (modo prueba)' : '';
+    // Sin el secreto del aviso NO entra ningún pago: el webhook de Creem es fail-closed a propósito. Se dice.
+    return v.CREEM_WEBHOOK_SECRET
+      ? { ok: true, detalle: `Conectada a tu cuenta de Creem${modo}. Creem se encarga de los impuestos de cada país.`, facts }
+      : { ok: false, error: 'La clave sirve, pero falta el aviso de pagos. Vuelve a guardar la clave para que MaKo lo registre: sin él, ningún pago entra a tu CRM.' };
   },
 
   // (Hotmart, Skool y Apify tenían su ping acá: salieron el 25/10/2026 con el Leads Scraper.)

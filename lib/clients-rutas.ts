@@ -18,6 +18,13 @@
 // sub-tab, «Clients» (/classroom/clients), hasta que la vista nueva de clientes del super admin lo tome. Lo
 // viejo (/clients, /clients/classroom, /clients/community…) redirige en next.config.ts, con su query.
 //
+// CLIENTS Y MEMBERS SON UNA SOLA SUB-TAB DESDE EL 29/10/2026 (Martín: «unificar la tab de clientes con la tab de miembros,
+// porque al fin y al cabo es el típico botón que tenemos en el CRM… del botón de Kanban o botón de lista. Son lo mismo, no
+// deberían ser dos tabs»). Queda /classroom/clients con el selector de vistas del CRM (Kanban · Lista · Miembros · Avance,
+// app/customer-success/ClientesApp.tsx); /classroom/members redirige a `?vista=miembros` (`rutaNuevaDeVieja` y
+// next.config.ts). La URL que se quedó es la de Clients porque la nombran treinta lugares (los `revalidatePath`, los avisos
+// de WhatsApp ya mandados con `?cliente=`, la API de MaKo, el teléfono); la de Members, sólo la fila de sub-tabs.
+//
 // ⚠️ Los nombres de las tabs van SIEMPRE en inglés (regla de la casa).
 // =============================================================================
 
@@ -31,10 +38,14 @@ export const SECCIONES_CLIENTS = [
   { id: 'community', label: 'Community', href: `${RUTA_CLASSROOM}/community` },
   { id: 'clients', label: 'Clients', href: RUTA_CLIENTES },
   { id: 'calendar', label: 'Calendar', href: `${RUTA_CLASSROOM}/calendar` },
-  { id: 'members', label: 'Members', href: `${RUTA_CLASSROOM}/members` },
   { id: 'leaderboards', label: 'Leaderboards', href: `${RUTA_CLASSROOM}/leaderboards` },
   { id: 'about', label: 'About', href: `${RUTA_CLASSROOM}/about` },
 ] as const;
+
+/** La vista de Clients que es el directorio de la comunidad (era la sub-tab Members, hasta el 29/10/2026). */
+export const VISTA_MIEMBROS = 'miembros';
+/** La ruta de la sub-tab Members, que ya no existe: redirige a Clients con `?vista=miembros`. */
+export const RUTA_MEMBERS_VIEJA = `${RUTA_CLASSROOM}/members`;
 
 /** Lo que sabe MaKo para responder (era «Conocimiento» de MaKo Context, 25/10/2026): sólo la plataforma la ve. */
 export const SECCION_METODOLOGIA = { id: 'methodology', label: 'Methodology', href: `${RUTA_CLASSROOM}/methodology` } as const;
@@ -45,21 +56,23 @@ export type SeccionClients = (typeof SECCIONES_CLIENTS)[number]['id'] | typeof S
 const TODAS_LAS_SECCIONES: ReadonlyArray<{ id: SeccionClients; label: string; href: string }> = [...SECCIONES_CLIENTS, SECCION_METODOLOGIA];
 
 /**
- * Las sub-tabs que ve quien mira. La plataforma (el super admin en su propio workspace) ve Methodology, y NO ve «Clients»:
- * sus clientes son NEGOCIOS y su grilla es Customers (/customers, con Billing y Agents; la fila de la barra va justo debajo
- * de Classroom). El kanban de leads ganados es de cada negocio. Una sola grilla de cada cosa y ningún link que salte de una
- * tab a otra (25/10/2026, el Cerebro al juntar Classroom con Customers): /classroom/clients le redirige a /customers sólo
- * por los links viejos (app/customer-success/pantalla.tsx).
+ * Las sub-tabs que ve quien mira. La plataforma (el super admin en su propio workspace) ve Methodology, y la sub-tab de
+ * Clients se le llama «Members»: sus clientes son NEGOCIOS y su grilla es Customers (/customers, con Billing y Agents; la
+ * fila de la barra va justo debajo de Classroom), así que de esta sub-tab ve sólo el directorio de la comunidad
+ * (app/classroom/clients/page.tsx). El kanban de leads ganados es de cada negocio. Una sola grilla de cada cosa y ningún
+ * link que salte de una tab a otra (25/10/2026, el Cerebro al juntar Classroom con Customers).
  */
 export function seccionesDe(plataforma: boolean): ReadonlyArray<{ id: SeccionClients; label: string; href: string }> {
-  return plataforma ? [...SECCIONES_CLIENTS.filter((s) => s.id !== 'clients'), SECCION_METODOLOGIA] : SECCIONES_CLIENTS;
+  if (!plataforma) return SECCIONES_CLIENTS;
+  return [...SECCIONES_CLIENTS.map((s) => (s.id === 'clients' ? { ...s, label: 'Members' } : s)), SECCION_METODOLOGIA];
 }
 
 /**
  * Las secciones que son de la COMUNIDAD: una sola página (`app/clients/[seccion]`) que ya tiene sus datos,
  * así que cambiar entre ellas no viaja al server (D5). Cada una es una pestaña de app/_comunidad/Comunidad.tsx.
+ * Members salió el 29/10/2026: es la vista «Miembros» de Clients (ver la cabecera).
  */
-export const SECCIONES_COMUNIDAD = ['community', 'calendar', 'members', 'leaderboards', 'about'] as const;
+export const SECCIONES_COMUNIDAD = ['community', 'calendar', 'leaderboards', 'about'] as const;
 export type SeccionComunidad = (typeof SECCIONES_COMUNIDAD)[number];
 
 /** La pestaña de la comunidad (sus nombres internos, en castellano) de cada sección. */
@@ -67,7 +80,6 @@ export type PestanaComunidad = 'comunidad' | 'calendario' | 'miembros' | 'rankin
 export const PESTANA_DE_SECCION: Readonly<Record<SeccionComunidad, PestanaComunidad>> = {
   community: 'comunidad',
   calendar: 'calendario',
-  members: 'miembros',
   leaderboards: 'ranking',
   about: 'about',
 };
@@ -76,7 +88,10 @@ export function esSeccionComunidad(s: unknown): s is SeccionComunidad {
   return typeof s === 'string' && (SECCIONES_COMUNIDAD as readonly string[]).includes(s);
 }
 
-/** La sección de la comunidad de una pestaña (la inversa de `PESTANA_DE_SECCION`). */
+/**
+ * La sección de la comunidad de una pestaña (la inversa de `PESTANA_DE_SECCION`). «Miembros» ya no es una sección
+ * (29/10/2026): no tiene una, y cae en Community, como cualquier pestaña sin sección.
+ */
 export function seccionDePestana(p: PestanaComunidad): SeccionComunidad {
   for (const s of SECCIONES_COMUNIDAD) if (PESTANA_DE_SECCION[s] === p) return s;
   return 'community';
@@ -148,6 +163,8 @@ export function hrefConPrograma(pathname: string, search: string | null | undefi
  *   /clients (hasta el 25/10/2026)    → /classroom/clients · /clients/classroom → /classroom · /clients/<sección>
  *                                        → /classroom/<sección>. En el servidor lo hace next.config.ts, antes de
  *                                        dibujar nada; esto es lo mismo para quien arma un link (y su test).
+ *   /classroom/members (hasta el 29/10/2026) → /classroom/clients?vista=miembros (y /clients/members, directo:
+ *                                        un alias va a la nueva, no por un doble salto).
  */
 export function rutaNuevaDeVieja(pathname: string, search?: string | null): string | null {
   const p = sinBarra(pathname.split(/[?#]/)[0]);
@@ -161,6 +178,11 @@ export function rutaNuevaDeVieja(pathname: string, search?: string | null): stri
   if (p === '/clients/classroom') return con(RUTA_CLASSROOM);
   if (p === '/customer-success/comunidad') return con(`${RUTA_CLASSROOM}/community`);
   if (p === '/customer-success' || p === '/clients') return con(RUTA_CLIENTES);
+  if (p === RUTA_MEMBERS_VIEJA || p === '/clients/members') {
+    const sp = new URLSearchParams(q);
+    sp.set('vista', VISTA_MIEMBROS);
+    return con(RUTA_CLIENTES, sp.toString());
+  }
   if (p.startsWith('/clients/')) return con(`${RUTA_CLASSROOM}/${p.slice('/clients/'.length)}`);
   return null;
 }

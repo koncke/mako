@@ -103,6 +103,15 @@ export type Coincidencia = {
 };
 
 /**
+ * Los parecidos de UN motivo. Vive acá, en el módulo que define los motivos, y no en cada consumidor: un
+ * `c.motivo === 'telefono'` escrito afuera nadie lo revisa cuando un motivo se renombra o se parte, y por eso
+ * tests/duplicados-instagram.test.ts lo prohíbe en los consumidores. Acá el motivo es un `MotivoDuplicado`, así que
+ * el compilador sí lo mira (31/10/2026).
+ */
+export const porMotivo = <T extends { motivo: MotivoDuplicado }>(cs: readonly T[], motivo: MotivoDuplicado): T[] =>
+  cs.filter((c) => c.motivo === motivo);
+
+/**
  * ¿El lead YA está en el producto que se está mirando? Por su CASA (`funnel_id`) o por una
  * fila de `lead_funnel` (mig 0207). Es la pregunta que decide si el alta ofrece «Agregarlo
  * aquí»: «No se debe "Mover" se debe agregar al otro producto» (Martín, 06/10/2026), así

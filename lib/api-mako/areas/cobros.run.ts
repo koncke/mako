@@ -21,6 +21,7 @@
 // ejecutar, y un error en ejecutar() consume la pendiente.
 // =============================================================================
 
+import { pedidosPendientes } from '@/lib/pedidos-ingreso';
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { getLead, logLeadEvent } from '@/lib/leads';
@@ -201,7 +202,7 @@ export const RUNNERS: Runners = {
 
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
       if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
-      if (!conectadas.length) return { error: 'Conecta Stripe o Mercado Pago en Integraciones para cobrar.', faltan: ['pasarela'] };
+      if (!conectadas.length) return { error: 'Conecta una pasarela de pagos en Integraciones para cobrar.', faltan: ['pasarela'] };
       const pedida = esPasarela(input.pasarela) ? input.pasarela : null;
       // Con las dos conectadas y sin elegir, Stripe: el precio del catálogo está en dólares y es la
       // única de las dos que lo cobra tal cual (ver abajo).
@@ -703,12 +704,28 @@ export const RUNNERS: Runners = {
           ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: nombreDePlan(f.capa), estado: f.estado,
           mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, por_que_en_riesgo: f.motivoRiesgo,
           dias_sin_entrar: f.sinEntrar, leads: f.leads, dias_sin_leads: f.sinLeads, onboarding_hecho: f.onboardingHecho,
-          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, desde: f.creado.slice(0, 10),
+          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, plan_a_mano: f.planAManoTxt, desde: f.creado.slice(0, 10),
         })),
         // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
         para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
         avisos: v.avisos,
         nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
+      });
+    },
+  },
+
+  ver_quieren_entrar: {
+    leer: async (_input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Quién quiere entrar a MaKo es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Quién quiere entrar a MaKo es sólo del super admin.');
+      const { pedidos, hayMas } = await pedidosPendientes();
+      return json({
+        pedidos: pedidos.map((p) => ({
+          email: p.email, nombre: p.nombre, correo_verificado: p.correo_verificado, detalle: p.detalle, whatsapp: p.whatsapp,
+          lead_id: p.lead_id, intentos: p.intentos, primer_intento: p.primer_at, ultimo_intento: p.ultimo_at,
+        })),
+        hay_mas: hayMas,
+        nota: 'Para darle de alta: Customers › Accounts › Quieren entrar › Dar de alta. Un correo sin verificar lo escribió la persona: nadie confirmó que sea suyo.',
       });
     },
   },
@@ -819,7 +836,7 @@ export const RUNNERS: Runners = {
       // preguntar»). Y el workspace del cobro es SIEMPRE el de la plataforma, nunca el que traiga el pedido.
       const plataforma = await wsSuperAdmin();
       if (ctx.ws !== plataforma) return { error: 'Vender un plan de MaKo es sólo de la plataforma.' };
-      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null });
+      const val = ventaValida({ capa: s(input.capa) ?? '', email: s(input.email) ?? '', nombre: s(input.nombre) ?? '', monto: n(input.monto) ?? NaN, moneda: s(input.moneda), montoUsd: n(input.montoUsd), tipo: input.tipo === 'suscripcion' ? 'suscripcion' : 'unico', pasarela: esPasarela(input.pasarela) ? input.pasarela : null, refCodigo: s(input.codigoPartner) });
       if (!val.ok) return { error: val.error };
       const v = val.venta;
       let comprador: Awaited<ReturnType<typeof compradorEnLaPlataforma>>;
@@ -852,7 +869,7 @@ export const RUNNERS: Runners = {
         : ' Al pagarlo se le crea la cuenta y le llega el acceso.';
       return {
         payload: { ...v },
-        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar} El link queda en Cobros.`,
+        resumen: `Crear el link de pago de ${NOMBRE_PASARELA[p.previa.pasarela]} del plan «${plan}» para ${v.nombre} (${v.email}): ${formatoMonto(p.previa.monto, p.previa.moneda)}${v.tipo === 'suscripcion' ? ' por mes' : ', pago único'}.${alPagar}${v.refCodigo ? ` Lo trajo el partner «${v.refCodigo}».` : ''} El link queda en Cobros.`,
       };
     },
     // Corre antes de marcar la propuesta aplicada (lib/api-mako/acciones.ts): un «no» acá no la quema.

@@ -13,6 +13,8 @@ import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace
 import { capaDef } from '@/lib/capas';
 import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
+import { gratisHastaDe } from '@/lib/plan-a-mano';
+import { lineaDelPrimerMes } from '@/lib/primer-mes-reglas';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
@@ -22,6 +24,7 @@ import { planesMako } from '@/lib/compra-plan';
 import { precioEn } from '@/lib/planes-mako';
 import { PLAN_PRO, proPorLlamada } from '@/lib/subir-plan-reglas';
 import { estadoDeRetencion, ofertaDeRetencion } from '@/lib/retencion-plan';
+import { esClienteDeAgencia } from '@/lib/agencia';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -31,12 +34,14 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   const ws = await getWorkspaceActual();
   // La plataforma no tiene un plan de MaKo (el índice ya no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect('/configuraciones');
-  const [capa, sus, oferta, retencion] = await Promise.all([
+  const [capa, sus, oferta, retencion, gratisHasta] = await Promise.all([
     getCapaActual(),
     ws != null ? suscripcionDeMakoDe(ws).catch(() => null) : Promise.resolve(null),
     ofertaDeRetencion(ws).catch(() => null),
     // Lo que «Tu plan» dice de una oferta aceptada (segunda revisión, R10): «En pausa…», «Con 50%…».
     estadoDeRetencion(ws).catch(() => null),
+    // Los 6 meses gratis (30/10/2026): la persona ve hasta cuándo los tiene, no «Acordado con MaKo».
+    gratisHastaDe(ws).catch(() => null),
   ]);
   // LA PRUEBA GRATIS (25/10/2026): su suscripción todavía no se cobró. Se ve hasta cuándo va, se ofrece «Empezar mi plan
   // ya», y ni «Pasar a Pro» ni la oferta de retención (no hay un mes pagado sobre el que hacerlas).
@@ -47,6 +52,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
     ? {
       proveedor: sus.proveedor, monto: formatoMonto(sus.monto, sus.moneda), cancelada: sus.suscripcion_estado === 'cancelada', baja: esBajaPedida(sus.motivo) ? sus.motivo : null,
       prueba: enPrueba ? { hasta: hasta ? diaDelCobro(hasta) : 'el fin de la prueba' } : null,
+      primerMes: lineaDelPrimerMes(sus, formatoMonto),
     }
     : null;
   const destacarEmpezar = enPrueba && (await searchParams)?.empezar === '1';
@@ -59,11 +65,18 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   const porLlamada = pro && proPorLlamada({ capa, subidaEnLinea: subir != null })
     ? { titulo: `Pasar a ${pro.nombre}`, detalle: `US$ ${pro.precioUsd} por mes. Pídelo y te lo activamos.`, href: `/planes/${pro.id}` }
     : null;
+  // ⚠️ `!== false`, no por verdad (P15, 30/10/2026): `esClienteDeAgencia` contesta sí/no/**no sé** (`null` = no se pudo leer
+  //    la cartera), y acá el «no sé» NO OFRECE. Si no sabemos si tiene dueño, no le pisamos el cliente a una agencia:
+  //    ofrecer de menos por una falla de la base cuesta una venta, ofrecer de más le rompe el trato a la agencia.
+  const deAgencia = (await esClienteDeAgencia(ws)) !== false;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}
       <TituloAjustes titulo="Tu plan" />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion} subir={subir} porLlamada={porLlamada}
+      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} gratisHasta={gratisHasta} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion}
+        // El cliente de una AGENCIA (29/10/2026, Thiago: «yo no me meto con ese cliente»): su plan lo maneja su agencia. No ve
+        // «Pasar a Pro» ni «Recomienda MaKo».
+        subir={deAgencia ? null : subir} porLlamada={deAgencia ? null : porLlamada} clienteDeAgencia={deAgencia}
         destacarEmpezar={destacarEmpezar} />
     </AjustesPagina>
   );

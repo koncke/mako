@@ -9,7 +9,7 @@
 // al azar del cobro se genera en lib/cobros.ts, que es server-only.
 
 import type { EstadoCobro, Pasarela, TipoCobro } from './cobros-tipos';
-import { NOMBRE_PASARELA } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA, PASARELAS } from './cobros-tipos';
 import { formatoMonto } from './pasarela-moneda';
 
 /**
@@ -141,9 +141,11 @@ const RAZON_DISPUTA: Readonly<Record<string, string>> = {
  * ¿Este `motivo` es uno de `textoContracargo`? La tab Pagos lo dibuja como AVISO y no en letra chica (16/10/2026). Se
  * reconoce por cómo empieza cada fase: si una frase de abajo cambia, tests/pagos-vistazo.test.ts las recorre todas.
  */
+const NOMBRES_DE_PASARELA = PASARELAS.map((p) => NOMBRE_PASARELA[p]).join('|');
+// Los nombres salen de la tabla, no escritos a mano: con `(?:Stripe|Mercado Pago)`, una disputa de Creem iba en letra chica.
+const TEXTO_DE_CONTRACARGO = new RegExp(`^(?:El cliente disputó este cargo|(?:${NOMBRES_DE_PASARELA}) (?:descontó|devolvió) la plata de la disputa|(?:${NOMBRES_DE_PASARELA}) descontó la plata por la disputa|La disputa se |La consulta del banco|Contracargo en Mercado Pago)`);
 export const esTextoDeContracargo = (motivo: string | null | undefined): boolean =>
-  typeof motivo === 'string' &&
-  /^(?:El cliente disputó este cargo|(?:Stripe|Mercado Pago) (?:descontó|devolvió) la plata de la disputa|(?:Stripe|Mercado Pago) descontó la plata por la disputa|La disputa se |La consulta del banco|Contracargo en Mercado Pago)/.test(motivo);
+  typeof motivo === 'string' && TEXTO_DE_CONTRACARGO.test(motivo);
 
 export function textoContracargo(p: { pasarela: Pasarela; fase: 'abierto' | 'plata_salio' | 'plata_volvio' | 'cerrado' | 'mp'; estado?: string | null; razon?: string | null }): string {
   const nombre = NOMBRE_PASARELA[p.pasarela];
@@ -199,6 +201,20 @@ export function finDelPlazo(inicioMs: number, meses: number): number {
   const m = d.getUTCMonth() + meses;
   const ultimo = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
   return Date.UTC(y, m, Math.min(d.getUTCDate(), ultimo), d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds());
+}
+
+/** Días de margen al comparar el fin de un período con el del plazo: los ciclos de una pasarela no caen exactos en el mes. */
+const MARGEN_PLAZO_MS = 3 * 86_400_000;
+
+/**
+ * ¿El período que está corriendo es el ÚLTIMO del plazo? Para la pasarela que sólo sabe «baja al fin del período en curso»
+ * (Creem). Por fechas y no contando pagos: un cobro de diferencia al subir de plan también es una transacción, y un aviso
+ * perdido no se contaría. Sólo sobre una activa: otra ya no va a cobrar, o todavía no empezó.
+ */
+export function tocaCerrarElPlazo(p: { inicioMs: number; meses: number; finDelPeriodo: string | null; estado: string | null }): boolean {
+  const fin = Date.parse(p.finDelPeriodo ?? '');
+  if (p.estado !== 'active' || !Number.isFinite(fin) || !Number.isFinite(p.inicioMs) || !(p.meses > 0)) return false;
+  return fin >= finDelPlazo(p.inicioMs, p.meses) - MARGEN_PLAZO_MS;
 }
 
 /**
@@ -291,12 +307,16 @@ export function decidirCobro(p: ParametrosCobro): DecisionCobro {
   let pasarela = p.pasarela ?? null;
   if (!pasarela) {
     if (p.conectadas.length === 1) pasarela = p.conectadas[0];
-    else if (p.conectadas.length === 0) return { ok: false, error: 'Conecta Stripe o Mercado Pago en Integraciones para cobrar.' };
+    else if (p.conectadas.length === 0) return { ok: false, error: 'Conecta una pasarela de pagos en Integraciones para cobrar.' };
     else return { ok: false, error: 'Elige con qué pasarela cobrar.', faltan: ['pasarela'] };
   }
   if (!p.conectadas.includes(pasarela)) return { ok: false, error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.` };
 
-  const porDefecto = pasarela === 'stripe' ? 'USD' : (p.monedaDeLaCuenta ?? null);
+  // ⚠️ LA PREGUNTA VA EN POSITIVO POR MERCADO PAGO, no por Stripe (31/10/2026, al entrar Creem). Escrito al revés
+  // (`=== 'stripe' ? 'USD' : monedaDeLaCuenta`) la tercera pasarela caía en la rama de Mercado Pago y se quedaba sin
+  // moneda, o peor: con la moneda de la cuenta de MP, o sea un cobro en pesos por una pasarela que sólo cobra en USD.
+  // Mercado Pago es el ÚNICO que cobra en la moneda de su cuenta; el resto tiene su moneda fija (`CAPACIDADES_PASARELA`).
+  const porDefecto = pasarela === 'mercadopago' ? (p.monedaDeLaCuenta ?? null) : (CAPACIDADES_PASARELA[pasarela].monedaFija ?? null);
   const moneda = (p.moneda ?? porDefecto ?? '').toUpperCase();
   if (!/^[A-Z]{3}$/.test(moneda)) return { ok: false, error: 'Falta la moneda del cobro.', faltan: ['moneda'] };
 

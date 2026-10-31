@@ -40,6 +40,7 @@ import type { FinIA } from './stream-ia';
 import Link from '@/app/_ui/Link';
 import { textoPorAprobar, dejaBorradores, POR_QUE_SE_APRUEBAN, POR_QUE_CORTO, RUTA_APROBAR } from '@/lib/mensajes-por-aprobar';
 import { duplicadaDe, duplicadaAlActivar, avisoDuplicada } from '@/lib/automatizacion-duplicada';
+import { avisoDisparadorQueNoDice, disparadorQueNoDice } from '@/lib/automatizacion-disparador-dice';
 import { BotonPila } from './BotonPila';
 import { TRIGGER_RECORDATORIO, frenoDelRecordatorio } from '@/lib/recordatorio-automatizacion';
 import { CANALES_PROBAR, type CanalProbar } from './PanelProbar';
@@ -48,8 +49,10 @@ import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { Icon } from '@/app/_components/icons';
 import type { ComponentType } from 'react';
 import { Confirm } from '@/app/_ui/Confirm';
+import { AvisoRitmoConfirm } from './AvisoRitmoConfirm';
 // Leila 2 (28/10/2026): al activar una por etapa, los que YA están en la etapa y no entran solos.
 import { hayQuePreguntar, preguntaExistentes, textoAlActivar, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
+import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { TRIGGER_ETAPA } from '@/lib/nutricion-etapa';
 // El modal de Configuraciones NO se importa: arrastra acciones del servidor y lo pasa la tab como `Configuraciones`.
 import { cronDeProspeccion, AVISO_PROSPECCION, type PropsConfiguraciones } from '@/lib/config-automatizacion';
@@ -115,6 +118,7 @@ export const Z_CAPA_MAKO = 58;
 /** La lista flotante con el chat de MaKo, mientras MaKo trabaja: encima de la capa y debajo de la barra de la app. */
 export const Z_CHAT_ENCIMA = 59;
 
+const botonDisparadorDice: CSSProperties = { appearance: 'none', border: 0, background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' };
 const tarjetaChrome: CSSProperties = {
   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 11,
   padding: '7px 12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
@@ -781,6 +785,8 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const [avisoProspeccion, setAvisoProspeccion] = useState<{ seguir: () => void } | null>(null);
   /** Una consulta de «¿tiene lo suyo?» en vuelo (`conAvisoProspeccion`): los clics de mientras no hacen nada. */
   const consultandoProspeccion = useRef(false);
+  /** Cuántos y a qué ritmo (`conRitmo`), con lo que se iba a hacer. */
+  const [avisoRitmo, setAvisoRitmo] = useState<(AvisoDeRitmo & { seguir: () => void }) | null>(null);
   /** El aviso de una automatización que ya le escribe lo mismo a la misma gente (`conAvisoDuplicada`), con lo que se iba a hacer. */
   const [avisoDup, setAvisoDup] = useState<{ texto: string; boton: string; seguir: () => void } | null>(null);
   /**
@@ -797,7 +803,10 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const incluirExistentes = useRef(false);
   const entranAlActivar = useRef(0);
   // Identidad FIJA (AGENTS.md: todo `<Modal>` recibe un `onCerrar` estable).
-  const cerrarConfig = useCallback(() => setConfigAbierta(false), []);
+  // Al cerrar se relee: si le pusieron goteo u horario, el aviso ya no es cierto. Sólo si lo decía, y con la identidad fija del `onCerrar`.
+  const alCerrarConfig = useRef<() => void>(() => {});
+  alCerrarConfig.current = () => { if (secuencia.aviso_ritmo) onCambio(); };
+  const cerrarConfig = useCallback(() => { setConfigAbierta(false); alCerrarConfig.current(); }, []);
   /**
    * EL CRON ABIERTO AL ENTRAR (`cronAlAbrir`, #882, 17/10/2026): una plantilla que arranca en una etapa se crea AL INSTANTE,
    * sin la pregunta del modal, y la etapa se elige acá. En el flanco y al dibujar: abre la tarjeta CRON (`foco`) y su
@@ -1013,6 +1022,21 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     if (!hayQuePreguntar(e)) { seguir(); return; }
     setAvisoExistentes({ texto: preguntaExistentes(e, e.etapas.map(etiquetaEtapa)), entran: e.entran, seguir });
   };
+  /**
+   * CUÁNTOS Y A QUÉ RITMO, antes de prenderla (Martín, 25/10/2026, lib/ritmo-al-activar.ts). El goteo vive escondido en
+   * Configuraciones: sin esto se prendía sobre 200 leads sin haberlo visto. «No pude preguntar» no frena, como `conExistentes`.
+   */
+  const conRitmo = async (seguir: () => void) => {
+    if (!rolAdmin) { seguir(); return; }
+    setBusy('toggle');
+    const a = await fetch(`/api/whatsapp/secuencias?ritmo=${secuencia.id}${incluirExistentes.current ? '&incluir=1' : ''}`)
+      .then((r) => r.json())
+      .then((r: { ok?: boolean; ritmo?: AvisoDeRitmo | null }) => (r.ok ? r.ritmo ?? null : null))
+      .catch(() => null);
+    setBusy(null);
+    if (!a) { seguir(); return; }
+    setAvisoRitmo({ ...a, seguir });
+  };
   const toggle = async () => {
     setBusy('toggle'); setErr(null);
     // «Activar igual» (`conAvisoDuplicada`): se usa UNA vez.
@@ -1080,6 +1104,25 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
    * que arma lo que ve «Crear con IA» (`armarContexto`, lib/flujo-ia-crear.ts): con dos copias, una se queda vieja.
    */
   const etapasCond: SeccionEtapas[] = etapasDeCondicion(productos);
+  /**
+   * LO QUE DICE CONTRA LO QUE LA DISPARA (30/10/2026, lib/automatizacion-disparador-dice.ts): la #264 del ws13 avisa «Nuevo agendado» y
+   * se dispara también en Lead. Es del cliente: se le dice en una línea y lo corrige él. «Está bien así» se recuerda en este navegador
+   * mientras no cambie lo que se dijo.
+   */
+  const disparadorDice = rolAdmin ? disparadorQueNoDice({ nombre, pasos, disparan: crons.lista.filter((d) => d.trigger_tipo === TRIGGER_ETAPA && !d.cron).flatMap((d) => d.etapas?.length ? d.etapas : d.etapa ? [d.etapa] : []), etapas: (etapasCond.find((s) => s.funnelId === secuencia.funnel_id) ?? etapasCond[0])?.options ?? [] }) : null;
+  const firmaDisparador = disparadorDice ? `${disparadorDice.dice}|${disparadorDice.otras.join(',')}` : null;
+  const claveDisparador = `mako.disparador-dice.${secuencia.id}`;
+  const [yaVistoDisparador, setYaVistoDisparador] = useState<string | null>(null);
+  useEffect(() => { try { setYaVistoDisparador(window.localStorage.getItem(claveDisparador)); } catch { /* sin recordarlo */ } }, [claveDisparador]);
+  // Afuera del pie: el pie tiene su tope de tamaño (tests/lienzo-sexta-tanda.test.ts).
+  const avisoDisparadorDice = disparadorDice && yaVistoDisparador !== firmaDisparador && (
+        <span data-disparador-dice="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 420, display: 'inline-flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 10px', fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
+          <span>{avisoDisparadorQueNoDice(disparadorDice)}</span>
+          <button type="button" onClick={() => { setCronAbierto(crons.primero?.id ?? 'nuevo'); setFoco((f) => ({ id: ID_INICIO, vez: (f?.vez ?? 0) + 1 })); }} style={botonDisparadorDice}>Cambiar disparador</button>
+          {disparadorDice.fuente === 'nombre' && <button type="button" onClick={() => setEditandoNombre(true)} style={botonDisparadorDice}>Cambiar nombre</button>}
+          <button type="button" onClick={() => { setYaVistoDisparador(firmaDisparador); try { if (firmaDisparador) window.localStorage.setItem(claveDisparador, firmaDisparador); } catch { /* sin recordarlo */ } }} style={{ ...botonDisparadorDice, color: 'var(--dim)' }}>Está bien así</button>
+        </span>
+  );
 
   /**
    * LOS MEDIOS QUE USA EL FLUJO Y SU ESTADO (la MISMA lectura que pinta el chip de la tarjeta). Se leen acá, antes de
@@ -1187,6 +1230,15 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   // tocarlo lleva a esa tarjeta (lo de Publicar).
   const frenoAhora = frenoDeEsta(pasos);
   const sinProbar = motivoParaNoProbar({ cronSinElegir: cronSinElegir(crons.lista), pasos, frena: !!frenoAhora });
+  // LA QUE YA ESTÁ PRENDIDA SIN GOTEO O SIN HORARIO (30/10/2026, lib/ritmo-al-activar.ts): se dice, no se la frena ni se la cambia. Lo ve
+  // quien ve la automatización, como en el teléfono (un setter no lo arregla, pero puede avisar). Ponerlo, sólo el admin. Va afuera
+  // del pie para no levantar otro tope de tamaño de los tests (docs/hallazgos-chatbot.md).
+  const avisoRitmoPrendida = activa && secuencia.aviso_ritmo && (
+      <button type="button" data-sin-goteo="" disabled={!rolAdmin || !Configuraciones} onClick={() => setConfigAbierta(true)} title={rolAdmin ? 'Abrir Configuraciones' : undefined}
+        style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, textAlign: 'left', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35, cursor: rolAdmin && Configuraciones ? 'pointer' : 'default' }}>
+        {secuencia.aviso_ritmo.texto}
+      </button>
+  );
   // MÁS GRANDES (10/10/2026: «Pon el botón de "Publicar" y "Activar" y "Probar" más grandes»): los tres
   // con el mismo alto, `ALTO_ACCION`, para que se lean como la misma familia.
   const estiloProbar: CSSProperties = { ...tarjetaChrome, height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 18px', display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 14.5, fontWeight: 700, color: 'var(--ink)', cursor: 'pointer', fontFamily: 'inherit' };
@@ -1276,6 +1328,14 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 cancelLabel={avisoExistentes.entran ? `Sólo las ${avisoExistentes.entran}` : 'Activar sin ellas'} tone="primary"
                 onConfirm={() => { const s = avisoExistentes.seguir; setAvisoExistentes(null); incluirExistentes.current = true; s(); }}
                 onCancel={() => { const s = avisoExistentes.seguir; setAvisoExistentes(null); s(); }} />
+            )}
+
+            {/* «Poner goteo», «Poner horario»: abre Configuraciones y NO la prende. Cerrar el aviso nunca manda nada. */}
+            {avisoRitmo && (
+              <AvisoRitmoConfirm aviso={avisoRitmo} secuenciaId={secuencia.id} incluir={incluirExistentes.current} puedePoner={!!Configuraciones}
+                onDescartado={(a) => { setAvisoRitmo((v) => (v ? { ...a, seguir: v.seguir } : v)); onCambio(); }}
+                onConfirm={() => { const s = avisoRitmo.seguir; setAvisoRitmo(null); s(); }}
+                onCancel={() => { const abrir = !!avisoRitmo.poner && !!Configuraciones; setAvisoRitmo(null); if (abrir) setConfigAbierta(true); }} />
             )}
 
             {/* ⚠️ «PROBAR» A LA DERECHA DEL TODO, separado de Activar (punto 10: «el botón de
@@ -1429,11 +1489,13 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 el CTRL Z»): lo mismo es «Descartar cambios» en el «⋯» de la lista (`descartarCambios`). */}
             {/* LOS MENSAJES QUE ESPERAN QUE LOS APRUEBES (20/10/2026: el Recurrente de Leila «no salió» y eran 31
                 borradores). Con el porqué corto y el link a donde se aprueban (Chats › Borradores). */}
+            {avisoDisparadorDice}
             {dupActiva && (
               <span data-duplicada="" role="status" style={{ ...tarjetaChrome, flex: 'none', maxWidth: 320, fontSize: 12.5, fontWeight: 600, color: 'var(--warn)', lineHeight: 1.35 }}>
                 {avisoDuplicada(dupActiva)}
               </span>
             )}
+            {avisoRitmoPrendida}
             {porAprobar && (
               <Link href={RUTA_APROBAR} title={`${POR_QUE_SE_APRUEBAN}. Se aprueban en Chats › Borradores.`}
                 style={{ ...tarjetaChrome, flex: 'none', minHeight: ALTO_ACCION, boxSizing: 'border-box', display: 'inline-flex', flexDirection: 'column', justifyContent: 'center', gap: 1, textDecoration: 'none' }}>
@@ -1445,7 +1507,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
                 "Publicar"»). Las dos deciden qué sale y se miran juntas; arriba quedó el ✦ de MaKo. */}
             <div style={{ ...tarjetaChrome, flex: 'none', height: ALTO_ACCION, boxSizing: 'border-box', padding: '0 14px', display: 'inline-flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 14.5, fontWeight: 700, color: activa ? 'var(--good)' : 'var(--dim)' }}>Activar</span>
-              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void toggle()), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
+              <button onClick={() => (activa ? void toggle() : conAvisoDuplicada(true, 'Activar igual', () => void conExistentes(() => void conRitmo(() => void toggle())), abiertoPublicado))} disabled={!rolAdmin || busy === 'toggle'} aria-pressed={activa} title={activa ? 'Pausar' : 'Activar'}
                 style={{ width: 46, height: 26, borderRadius: 999, border: 'none', padding: 3, background: activa ? 'var(--good)' : 'var(--border-strong)', cursor: rolAdmin ? 'pointer' : 'default', flex: 'none', transition: 'background .15s' }}>
                 <span style={{ display: 'block', width: 20, height: 20, borderRadius: '50%', background: '#fff', transform: activa ? 'translateX(20px)' : 'none', transition: 'transform .15s' }} />
               </button>

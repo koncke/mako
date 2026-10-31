@@ -69,7 +69,8 @@ const sesion = () => json(200, { id: 'cs_test_1', url: 'https://checkout.stripe.
 
 test('Stripe ARMA la prueba: 7 días con la tarjeta siempre; sin prueba, nada de eso', async () => {
   const { crearCheckoutStripe } = await api();
-  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe']);
+  // Las TRES que arman la prueba con tarjeta (31/10/2026): Creem la hace con `trial_period_days` en el PRODUCTO.
+  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe', 'creem']);
   llamadas = []; contestar = sesion;
   await crearCheckoutStripe(KEY, { ...base, tipo: 'suscripcion', diasDePrueba: 7 });
   const f = form(llamadas[0]);
@@ -128,16 +129,17 @@ test('la factura en cero del inicio de la prueba NO es un pago (no se asienta un
 
 test('la prueba sale del COBRO: también la sesión que se rehace al vencer la trae', () => {
   assert.match(cuerpo('lib/cobros.ts', 'crearCheckout'), /diasDePrueba: esPruebaDePlan\(c\) \? PRUEBA_DIAS : null,/);
+  // La prueba por días (Stripe, Creem) puede llevar su día de cobro aunque la pasarela no acepte una fecha: la decide la tabla.
   const crear = cuerpo('lib/cobros.ts', 'crearCobro');
-  assert.match(crear, /const pruebaStripe = p\.pasarela === 'stripe' && esPruebaDePlan\(\{ tipo: p\.tipo \?\? '', alta_capa: altaCapa, creado_por: p\.creadoPor \}\);/);
-  assert.match(crear, /\(p\.pasarela !== 'mercadopago' && !pruebaStripe\)/, 'la prueba de Stripe puede llevar su día de cobro');
+  assert.match(crear, /const pruebaPorDias = !!capacidades\?\.pruebaConTarjeta && esPruebaDePlan\(/, 'la prueba de Stripe no podría llevar su día de cobro');
+  assert.match(crear, /!capacidades\?\.difiereElPrimerCobro && !pruebaPorDias/, 'cualquier cobro podría pedir una fecha futura');
 });
 
 test('un link de una prueba de Stripe ya empezada NO abre una segunda suscripción', () => {
   const f = cuerpo('lib/cobros.ts', 'urlParaPagar');
   const guardia = f.indexOf("if (esPruebaDePlan(c) && c.suscripcion_estado) return { error: 'ya_pagado' };");
   const completa = f.indexOf("if (s.ok && s.estado === 'complete' && !(c.estado === 'fallido' && s.pagoEstado === 'unpaid')) return { error: 'ya_pagado' };");
-  const rehace = f.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
+  const rehace = f.indexOf('const r = await crearCheckout(c, { stripe, mp: null, creem: null }, vuelta);');
   assert.ok(guardia > 0 && completa > guardia && rehace > completa, 'las dos guardias, antes de rehacer la sesión');
 });
 
@@ -170,7 +172,7 @@ test('rehacer el link expira ANTES la sesión anterior que sigue abierta, en tod
   const resto = f.slice(guarda);
   const abierta = resto.indexOf("if (s.ok && s.estado === 'open') {");
   const expira = resto.indexOf('const x = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);');
-  const rehace = resto.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
+  const rehace = resto.indexOf('const r = await crearCheckout(c, { stripe, mp: null, creem: null }, vuelta);');
   assert.ok(abierta > 0 && expira > abierta && rehace > expira, 'abierta → se expira → recién ahí la nueva');
   assert.match(resto, /if \(!x\.ok\) \{\n\s*const otra = await leerCheckoutStripe\(stripe\.key, c\.proveedor_ref\);\n\s*if \(otra\.ok && otra\.estado === 'complete'\) return \{ error: 'ya_pagado' \};\n\s*return c\.url_proveedor \? \{ url: c\.url_proveedor \} : \{ error: 'pasarela', detalle: x\.error \};/,
     'si no se pudo cerrar (o se completó en el medio), no se arma otra');
@@ -214,7 +216,13 @@ test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel
   assert.match(cuerpo('lib/compra-plan.ts', 'ofertasDeLosPlanes'), /cobrable: pasarelasDelPais\(pais, monedas\.filter\(\(m\) => precioEn\(plan, m\.moneda\) != null\)\)\.length > 0,/);
   const enc = "paisDelVisitante(req.headers.get('x-vercel-ip-country'))";
   assert.ok(fuente('app/api/planes/comprar/route.ts').includes(`pais: ${enc}`), 'la compra');
-  assert.ok(fuente('app/planes/[plan]/page.tsx').includes("pais: paisDelVisitante((await headers()).get('x-vercel-ip-country'))"), 'la página del plan');
+  // La página del plan lo guarda en una variable porque lo usa DOS veces: la oferta y la lada con la que arranca el WhatsApp
+  // que se pide antes del checkout (31/10/2026). Lo que se cuida sigue siendo lo mismo: que el país llegue a la oferta.
+  const pagPlan = fuente('app/planes/[plan]/page.tsx');
+  assert.ok(pagPlan.includes("const pais = paisDelVisitante((await headers()).get('x-vercel-ip-country'))"), 'la página del plan lee el país');
+  const trozoOferta = pagPlan.slice(pagPlan.indexOf('ofertaDelPlan(id, {'), pagPlan.indexOf('if (!oferta) notFound()'));
+  assert.ok(trozoOferta.includes('pais,'), 'la página del plan le pasa ese país a la oferta');
+  assert.ok(pagPlan.includes('ladaInicial={ladaDelPais(pais)}'), 'y el WhatsApp arranca con la lada de ese país');
   assert.ok(fuente('app/planes/page.tsx').includes("ofertasDeLosPlanes(paisDelVisitante((await headers()).get('x-vercel-ip-country')))"), '/planes');
   // Pidió Mercado Pago desde México y Stripe sirve: se le ofrece Stripe, no «todavía no cobramos en línea».
   assert.match(cuerpo('lib/compra-plan.ts', 'iniciarCompraDePlan'), /if \(eleccion\.motivo === 'elegir' \|\| \(eleccion\.motivo === 'no-sirve' && pasarelas\.length\)\) return \{ ok: false, status: 409/);
@@ -230,5 +238,7 @@ test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel
 //   · sin expandir la tarjeta (sin huella)                                     → 9 / 1
 // Y lo de la verificación de 3ca2d8328 (28/10/2026, base 11 / 0): sin expirar la sesión anterior → 10 / 1; la guarda sólo para
 // las pruebas, como antes → 10 / 1; la prueba con cualquier medio de pago (sin `payment_method_types`) → 10 / 1.
+// Y el del páís en la página del plan (31/10/2026, base 12 / 0): sin `pais` en la oferta → 11 / 1; otro encabezado en vez de
+// `x-vercel-ip-country` → 11 / 1; sin la lada del WhatsApp → 11 / 1.
 // Y los de a196d5a93 (base 12 / 0): sin la excepción del diferido que falló → 10 / 2; armar otra sin poder leer la anterior →
 // 11 / 1. De punta a punta: r1-pagar-tras-fallo.ts, antes R1a/R1b/R1c daban 302 a /listo; ahora arman cs_live_B (R1d igual).

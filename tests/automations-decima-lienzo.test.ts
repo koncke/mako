@@ -233,7 +233,8 @@ test('General 1: el botón de MaKo del título es el LOGO (la chispa sola) y mid
   // (3 600 desde el 23/10/2026: entre el título y «Probar» entró «Métricas», al lado de la tuerca.)
   // (24/10/2026: «Probar» no va mirando las métricas: `{onProbar && !verMetricas && (`.)
   // 4_000 desde el 28/10/2026: el tramo suma la pregunta de los que ya están en la etapa al activar (Leila 2).
-  const chrome = tramo(PERFIL, '<div data-titulo-lienzo', '{onProbar && !verMetricas && (', 4_000);
+  // 4_500 desde el 30/10/2026: y el aviso de cuántos, a qué ritmo y entre qué horas (lib/ritmo-al-activar.ts).
+  const chrome = tramo(PERFIL, '<div data-titulo-lienzo', '{onProbar && !verMetricas && (', 4_500);
   assert.match(chrome, /height: ALTO_ACCION/, 'el título no tiene el alto del botón');
   // 20/10/2026: el logo ya no va en el título (el chat de MaKo está siempre, en la sidebar). En su lugar, la tuerca de
   // Configuraciones de ESTA automatización, con la misma cara y el mismo lado (tests/automations-chat-siempre.test.ts).

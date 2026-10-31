@@ -18,8 +18,9 @@ import type { ClaveDispositivo } from '@/app/admin/operaciones/clave-dispositivo
 import { ListaUso, type CuentaUso, type RenombrarCuenta } from '@/app/admin/operaciones/Uso';
 import { SeccionCredito, type CambiarCredito, type LeerCredito } from '@/app/admin/operaciones/UsoCredito';
 import { cuentasDeUso } from '@/lib/centro-uso';
+import type { EstadoPc } from '@/lib/centro-chats';
 
-export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, onRenombrar, onLeerCredito, onCambiarCredito }: {
+export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClave, cuentas, pc, onRenombrar, onLeerCredito, onCambiarCredito }: {
   carteros: CarteroP[] | null;
   /** El crédito de API de los planes (la sección «API» de la computadora, UsoCredito.tsx): se pide al abrir la hoja. */
   onLeerCredito?: LeerCredito;
@@ -27,6 +28,8 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
   onCambiarCredito?: CambiarCredito;
   /** Las cuentas del Uso con su nombre y su email (la G); sin esto, las de los Runners con «Cuenta N». */
   cuentas?: readonly CuentaUso[];
+  /** El estado de la PC (31/10/2026, `estadoDeLaPc`): adentro del Uso, como en la computadora. */
+  pc?: EstadoPc | null;
   onRenombrar?: RenombrarCuenta;
   clave: ClaveDispositivo | null | undefined;
   ahora: number;
@@ -40,7 +43,7 @@ export function RunnerMovil({ carteros, clave, ahora, onCrearClave, onCopiarClav
           otras 2 cuentas»): la misma pieza que la computadora; la cuenta sin Runner sale igual, diciendo «Sin Runner todavía». */}
       {carteros && (
         <SeccionM titulo="Cuentas de Claude Code">
-          <ListaUso cuentas={cuentas ?? cuentasDeUso(carteros)} ahora={ahora} onRenombrar={onRenombrar} />
+          <ListaUso cuentas={cuentas ?? cuentasDeUso(carteros)} ahora={ahora} pc={pc} onRenombrar={onRenombrar} />
         </SeccionM>
       )}
       {!carteros && <VacioM frase="No pude leer el Uso: reintenta en un momento." />}

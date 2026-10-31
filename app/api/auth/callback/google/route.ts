@@ -35,6 +35,9 @@ import { otorgoLaAgenda } from '@/lib/google-login-agenda';
 import { runWithWorkspace } from '@/lib/workspace';
 import { accesoInvitadoPorEmail, ponerCookieAlumno } from '@/lib/alumno-acceso';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
+import { clientIp, rateLimit } from '@/lib/rate-limit';
+import { registrarPedido } from '@/lib/pedidos-ingreso';
+import { intentoDeGoogle } from '@/lib/pedidos-ingreso-reglas';
 
 export const dynamic = 'force-dynamic';
 
@@ -181,7 +184,12 @@ export async function GET(req: NextRequest) {
       // interna (el `?next=` de un rebote del proxy) y el alumno no tiene ninguna.
       // El state ya se validó arriba, igual que para cualquier login.
       const alumno = await accesoInvitadoPorEmail(email);
-      if (!alumno) return fail('no-autorizado');
+      if (!alumno) {
+        // «Quieren entrar» (30/10/2026): hasta hoy, quien llegaba acá veía «no autorizada» y no quedaba nada. Sólo con el correo
+        // que Google confirmó, y con tope por IP. Si quedó registrado, la pantalla se lo dice; si no, lo de siempre.
+        if (rateLimit(`quieren-entrar:ip:${clientIp(req)}`, 20, 3600_000) && (await registrarPedido(intentoDeGoogle(ui)))) return fail('pedido-registrado');
+        return fail('no-autorizado');
+      }
       const res = NextResponse.redirect(new URL(RUTA_ALUMNO, url.origin));
       if (!ponerCookieAlumno(res, alumno)) return fail('config');
       res.cookies.set({ name: 'oauth_state', value: '', maxAge: 0, path: '/' });

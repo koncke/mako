@@ -24,13 +24,18 @@ import type { LinkDeAgenda, ProveedorAgenda } from '@/lib/agenda-link';
 
 const NOMBRE: Record<ProveedorAgenda, string> = { calendly: 'Calendly', calcom: 'Cal.com' };
 
-export function AgendarLlamada({ onCerrar, onAgendada, onConectar, onCopiado }: {
+export function AgendarLlamada({ onCerrar, onAgendada, onConectar, onCopiado, onAnotar }: {
   onCerrar: () => void;
   /** Se reservó por el popup de Calendly: la pantalla avisa y vuelve a leer. */
   onAgendada: () => void;
   /** Abrir el modal de esa integración (Calendly o Cal.com) en la tab. */
   onConectar: (servicio: ProveedorAgenda) => void;
   onCopiado: () => void;
+  /**
+   * Anotar la llamada en el Calendario, sin pasar por la agenda (29/10/2026: el «+» de Ventas abre esto, y sin Calendly ni
+   * Cal.com una llamada de venta tiene que poder crearse igual en un clic más).
+   */
+  onAnotar?: () => void;
 }) {
   const [cual, setCual] = useState<'R1' | 'R2'>('R1');
   const [link, setLink] = useState<LinkDeAgenda | null>(null);
@@ -60,11 +65,12 @@ export function AgendarLlamada({ onCerrar, onAgendada, onConectar, onCopiado }: 
   };
 
   return (
-    <Modal titulo="Agendar llamada" ancho={480} onCerrar={onCerrar}
-      pie={link?.ok ? (
+    <Modal titulo="Llamada de venta" ancho={480} onCerrar={onCerrar}
+      pie={link?.ok || onAnotar ? (
         <>
-          <Button variant="secondary" onClick={copiar}>Copiar link</Button>
-          <Button variant="primary" onClick={abrir}>Abrir la agenda</Button>
+          {onAnotar && <Button variant={link?.ok ? 'tertiary' : 'primary'} onClick={onAnotar} style={link?.ok ? { marginRight: 'auto' } : undefined}>Anotarla aquí</Button>}
+          {link?.ok && <Button variant="secondary" onClick={copiar}>Copiar link</Button>}
+          {link?.ok && <Button variant="primary" onClick={abrir}>Abrir la agenda</Button>}
         </>
       ) : undefined}>
       <div data-agendar-llamada="" style={S.todo}>

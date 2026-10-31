@@ -231,7 +231,7 @@ test('m. el anti-ban de esta automatización: lo tocado se ve ya y los cambios d
   assert.match(g, /pendiente\.current = \{ \.\.\.pendiente\.current, \.\.\.cambio \};/);
   assert.match(g, /setLocal\(\(p\) => \(\{ \.\.\.p, \.\.\.cambio \}\)\);/);
   assert.match(g, /const envio = pendiente\.current;\n\s+pendiente\.current = \{\};[\s\S]*saveConfigAutomatizacionAction\(secuenciaId, \{ goteo: envio \}\)/);
-  assert.match(p, /const leido = \(campo: 'minutos' \| 'dia'\): number \| undefined => \(campo in local \? local\[campo\] \?\? undefined : d\?\.config\.goteo\?\.\[campo\]\);/);
+  assert.match(p, /const leido = \(campo: 'minutos' \| 'dia'\): number \| undefined => \(campo in local \? \(local\[campo\] as number \| null\) \?\? undefined : d\?\.config\.goteo\?\.\[campo\]\);/);
 });
 
 test('m. la tuerca la ve también quien no es admin (el modal entra en sólo lectura)', () => {

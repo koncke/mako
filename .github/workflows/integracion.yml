@@ -39,7 +39,19 @@ permissions:
 jobs:
   chequear-y-avanzar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # ⚠️ 30/10/2026: el tren de 91 commits (265 archivos) fue CANCELADO a los 30m 25s con
+    # «The job has exceeded the maximum execution time of 30m0s». No falló el código: se
+    # terminó el tiempo. Los runs anteriores morían a los 4-5 s por falta de minutos, así
+    # que este fue el PRIMERO que corrió de verdad desde que hay presupuesto, y chocó con
+    # nuestro propio tope. Los 7 pasos corren EN SERIE en un solo job (tipos de las rutas,
+    # guardas, tests afectados, tipos, el resto de los tests, avanzar main), y el chequeo
+    # equivalente en la notebook tardó 52 min.
+    # Esto es un parche: lo que corresponde es MODULARIZAR (decisión de Martín del 21/10,
+    # memoria `chequeo-github-modular`) y correr los pasos en jobs PARALELOS, así cada uno
+    # entra en su propia ventana y un rojo de tipos no espera a los tests. Hasta entonces,
+    # el tope va a 90 min. Costo del tope: ~US$0,008 por minuto, o sea ~US$0,72 un run
+    # entero de 90 min; el presupuesto de la cuenta es de US$15.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
         with:

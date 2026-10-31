@@ -29,7 +29,7 @@ import { TOPE_DIRECCION, conDominio, esHostPropio } from './embeds';
 import { DOMINIOS_MAKO } from './email-remitente';
 
 import {
-  AREAS, TIEMPO, cat, dist, m, r,
+  AREAS, TIEMPO, cat, def, dist, m, r,
   type Area, type ClaseDim, type Dimension, type Formato, type Fuente, type Metrica,
 } from './graficos-constructores';
 import { FUENTES_EXTRA } from './graficos-fuentes-extra';
@@ -83,11 +83,17 @@ const FUENTES_BASE: readonly Fuente[] = [
     dimensiones: [...TIEMPO],
     metricas: [
       m('gasto', 'Gasto en anuncios', 'usd'), m('leads', 'Leads'), m('agendas', 'Agendas'), m('asistencias', 'Asistencias'),
-      m('cierres', 'Cierres'), m('vendido', 'Vendido', 'usd'), m('cobrado', 'Cobrado', 'usd'),
-      m('impresiones', 'Impresiones'), m('clics', 'Clics'), m('vistas_landing', 'Vistas de la landing'), m('vistas_vsl', 'Vistas del VSL'),
-      menos(r('cac', 'CAC', 'usd', 'gasto', 'cierres')), r('roas_cobrado', 'ROAS cobrado', 'veces', 'cobrado', 'gasto'),
-      r('roas_vendido', 'ROAS vendido', 'veces', 'vendido', 'gasto'), menos(r('cpl', 'Costo por lead', 'usd', 'gasto', 'leads')),
-      menos(r('cpa', 'Costo por agenda', 'usd', 'gasto', 'agendas')), r('tasa_cierre', 'Tasa de cierre', 'pct', 'cierres', 'asistencias', 100),
+      def(m('cierres', 'Cierres'), 'Un lead cerrado o en estado «ganado», sin las ventas de tipo «sin cobro».'),
+      def(m('vendido', 'Vendido', 'usd'), 'El monto firmado de los cierres del período, cobrado o no.'),
+      def(m('cobrado', 'Cobrado', 'usd'), 'La plata que efectivamente entró en el período, sin importar cuándo se firmó.'),
+      m('impresiones', 'Impresiones'), m('clics', 'Clics'), m('vistas_landing', 'Vistas de la landing'),
+      def(m('vistas_vsl', 'Vistas del VSL'), 'Las de YouTube más los plays de Panda.'),
+      def(menos(r('cac', 'CAC', 'usd', 'gasto', 'cierres')), 'Gasto en anuncios ÷ cierres del período.'),
+      def(r('roas_cobrado', 'ROAS cobrado', 'veces', 'cobrado', 'gasto'), 'Cobrado ÷ gasto en anuncios.'),
+      def(r('roas_vendido', 'ROAS vendido', 'veces', 'vendido', 'gasto'), 'Vendido ÷ gasto en anuncios.'),
+      menos(r('cpl', 'Costo por lead', 'usd', 'gasto', 'leads')),
+      menos(r('cpa', 'Costo por agenda', 'usd', 'gasto', 'agendas')),
+      def(r('tasa_cierre', 'Tasa de cierre', 'pct', 'cierres', 'asistencias', 100), 'Cierres ÷ asistencias del período.'),
       menos(r('cpm', 'CPM', 'usd', 'gasto', 'impresiones', 1000)), menos(r('cpc', 'CPC', 'usd', 'gasto', 'clics')),
       menos(r('costo_landing', 'Costo por vista de landing', 'usd', 'gasto', 'vistas_landing')), menos(r('costo_vsl', 'Costo por vista del VSL', 'usd', 'gasto', 'vistas_vsl')),
     ],
@@ -102,7 +108,10 @@ const FUENTES_BASE: readonly Fuente[] = [
       m('gasto', 'Gasto', 'usd'), m('impresiones', 'Impresiones'), m('clics', 'Clics'), m('leads', 'Leads'), m('agendas', 'Agendas'),
       m('vistas_landing', 'Vistas de la landing'), dist('anuncios', 'Anuncios'),
       menos(r('costo_landing', 'Costo por vista de landing', 'usd', 'gasto', 'vistas_landing')),
-      r('ctr', 'CTR', 'pct', 'clics', 'impresiones', 100), menos(r('cpc', 'Costo por clic', 'usd', 'gasto', 'clics')),
+      // Una razón se calcula sobre lo SUMADO del grupo, nunca promediando las razones diarias
+      // (`docs/hallazgos-graficos.md`): la frase lo dice para que nadie «arregle» la diferencia.
+      def(r('ctr', 'CTR', 'pct', 'clics', 'impresiones', 100), 'Clics ÷ impresiones del grupo, no el promedio de los CTR diarios.'),
+      menos(r('cpc', 'Costo por clic', 'usd', 'gasto', 'clics')),
       menos(r('cpm', 'CPM', 'usd', 'gasto', 'impresiones', 1000)), menos(r('cpl', 'Costo por lead', 'usd', 'gasto', 'leads')),
       menos(r('cpa', 'Costo por agenda', 'usd', 'gasto', 'agendas')),
     ],
@@ -179,19 +188,23 @@ const FUENTES_BASE: readonly Fuente[] = [
     ],
     metricas: [
       m('leads', 'Leads'), m('agendas', 'Agendaron'), m('asistencias', 'Asistieron'), m('calificados', 'Calificados'),
-      m('cierres', 'Cerraron'), m('vendido', 'Vendido', 'usd'), m('cobrado', 'Cobrado', 'usd'),
+      // La CUARTA definición de cierre (`gano`, lib/graficos-datos-puro.ts), y la que más veces no
+      // coincide con otra pantalla: por eso lleva su frase escrita.
+      def(m('cierres', 'Cerraron'), 'Un lead cerrado o en estado «ganado», sin las ventas de tipo «sin cobro».'),
+      def(m('vendido', 'Vendido', 'usd'), 'El monto firmado de los cierres del período, cobrado o no.'),
+      def(m('cobrado', 'Cobrado', 'usd'), 'La plata que efectivamente entró en el período, sin importar cuándo se firmó.'),
       menos(m('no_show', 'No asistieron')), m('dias_ciclo', 'Días de ciclo'), m('con_ciclo', 'Cierres con ciclo'),
       menos(r('tasa_no_show', 'No-show rate', 'pct', 'no_show', 'agendas', 100)),
       // El ciclo se promedia sobre los cierres que tienen las DOS fechas: dividir por todos los
       // cierres lo achicaría con los que nunca tuvieron reunión cargada. Con menos de 3, «—» (la tab vieja).
-      menos(conMinimo(r('ciclo', 'Ciclo de venta (días)', 'numero', 'dias_ciclo', 'con_ciclo'), 3)),
-      r('tasa_asistencia', 'Tasa de asistencia', 'pct', 'asistencias', 'agendas', 100),
-      r('tasa_cierre', 'Tasa de cierre', 'pct', 'cierres', 'asistencias', 100),
-      r('ticket', 'Ticket promedio', 'usd', 'vendido', 'cierres'),
+      def(menos(conMinimo(r('ciclo', 'Ciclo de venta (días)', 'numero', 'dias_ciclo', 'con_ciclo'), 3)), 'Días de la reunión al primer pago, sólo sobre los cierres que tienen las dos fechas.'),
+      def(r('tasa_asistencia', 'Tasa de asistencia', 'pct', 'asistencias', 'agendas', 100), 'Asistieron ÷ agendaron.'),
+      def(r('tasa_cierre', 'Tasa de cierre', 'pct', 'cierres', 'asistencias', 100), 'Cerraron ÷ asistieron del período.'),
+      def(r('ticket', 'Ticket promedio', 'usd', 'vendido', 'cierres'), 'Vendido ÷ cierres del período.'),
       // v5 (la «Salud del funnel» y las cohortes): las LIMPIAS asistieron Y están calificadas; la tasa de
       // cierre de la tab vieja es cierres ÷ limpias, y con menos de 3 limpias decía «X de Y».
-      m('limpias', 'Calificadas que asistieron'),
-      conMinimo(r('tasa_cierre_calificadas', 'Tasa de cierre (calificadas)', 'pct', 'cierres', 'limpias', 100), 3),
+      def(m('limpias', 'Calificadas que asistieron'), 'Las que asistieron a la reunión Y quedaron calificadas.'),
+      def(conMinimo(r('tasa_cierre_calificadas', 'Tasa de cierre (calificadas)', 'pct', 'cierres', 'limpias', 100), 3), 'Cerraron ÷ las calificadas que asistieron.'),
       // El ciclo de la cohorte: de la primera reunión al cierre, de las cerradas con las dos fechas.
       m('dias_ciclo_cierre', 'Días de reunión a cierre'), m('con_ciclo_cierre', 'Cierres con reunión'),
       menos(r('ciclo_cierre', 'Ciclo reunión → cierre (días)', 'numero', 'dias_ciclo_cierre', 'con_ciclo_cierre')),
@@ -1012,6 +1025,23 @@ export type Grafico = {
   secundaria?: string;
   /** No se dibuja si su número da cero (el MRR de quien no vende suscripciones). Sólo se guarda `true`. */
   ocultarSiCero?: boolean;
+  /**
+   * LA TARJETA INVERTIDA: esta KPI se dibuja como ISLA OSCURA (`app/dashboard/editor-css.ts`,
+   * `.lk-comp--invertida`), que es lo que le da un ancla visual a una fila de números.
+   *
+   * Por qué existe: `AGENTS.md` lista entre lo feo «cuatro bloques apilados del mismo peso sin
+   * jerarquía», y una fila de cuatro KPIs idénticas es justamente eso — cuatro cajas que piden la
+   * misma atención, así que no la pide ninguna.
+   *
+   * ⚠️ UNA POR FILA, Y NO LA ELIGE QUIEN DISEÑA: la elige la PLANTILLA, y es la que contesta la
+   * pregunta de la hoja (`AGENTS.md`: «Una plantilla contesta UNA pregunta»). Dos invertidas en la
+   * misma fila no son dos anclas: son otra fila sin jerarquía.
+   * `tests/graficos-kpi-invertida.test.ts` mide que ninguna fila de una plantilla lleve más de una.
+   *
+   * Es tema claro con una isla oscura, no un modo oscuro: los tokens se dan vuelta DENTRO del marco,
+   * con los del sidebar (que es la otra isla oscura de la app). Sólo se guarda `true`.
+   */
+  invertida?: boolean;
   /** Dispersión y burbujas: el dominio FIJO de cada eje (los dos o ninguno, y min < max). */
   ejes?: { xMin?: number; xMax?: number; yMin?: number; yMax?: number };
   /**
@@ -1269,6 +1299,19 @@ export const LIMITES = [3, 5, 10, 20, 50] as const;
 export const fuenteDe = (id: string): Fuente | undefined => FUENTES.find((f) => f.id === id);
 export const tipoDe = (id: string): InfoTipo | undefined => TIPOS.find((x) => x.id === id);
 export const metricaDe = (f: Fuente, id: string): Metrica | undefined => f.metricas.find((x) => x.id === id);
+/**
+ * LA DEFINICIÓN del bloque: la fórmula en castellano de su PRIMERA métrica, o null si esa
+ * métrica no tiene una escrita (una métrica obvia no necesita definición, y `null` es «no digas
+ * nada», nunca un texto inventado ni un «sin definición»).
+ *
+ * Es lo que la tarjeta muestra debajo del título cuando el bloque no trae un subtítulo propio:
+ * el subtítulo escrito a mano gana, porque alguien decidió qué decir ahí.
+ */
+export function definicionDeGrafico(g: Pick<Grafico, 'fuente' | 'metricas'>): string | null {
+  const f = fuenteDe(g.fuente);
+  const id = g.metricas[0];
+  return (f && id ? metricaDe(f, id)?.definicion : null) ?? null;
+}
 export const dimensionDe = (f: Fuente, id: string | null): Dimension | undefined => (id ? f.dimensiones.find((d) => d.id === id) : undefined);
 export const esGrafico = (c: Componente): c is Grafico => c.clase === 'grafico';
 /** @deprecated v5: ningún componente saneado es un bloque (se migran en `sanearHoja`). */
@@ -1501,7 +1544,7 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   }
 
   // ── Lo opcional de v5: sólo lo que no vale lo de siempre (un gráfico de antes guarda lo mismo que antes).
-  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa' | 'portada'> = {};
+  const extra: Pick<Grafico, 'mako' | 'makoIA' | 'alClic' | 'popup' | 'barra' | 'secundaria' | 'ocultarSiCero' | 'invertida' | 'ejes' | 'referencias' | 'colorPor' | 'tabla' | 'mapa' | 'portada'> = {};
   // 13/10/2026: se guardan los DOS valores (ausente = lo que dice `makoPorDefecto` según el tipo, ver `conMako`).
   if (typeof o.mako === 'boolean') extra.mako = o.mako;
   const makoIA = sanearMakoIA(o.makoIA);
@@ -1514,6 +1557,7 @@ export function sanearGrafico(raw: unknown, ctx: ContextoSaneo = {}): Grafico | 
   if (typeof o.barra === 'string' && metricas.includes(o.barra)) extra.barra = o.barra;
   if (typeof o.secundaria === 'string' && fuente.metricas.some((x) => x.id === o.secundaria)) extra.secundaria = o.secundaria;
   if (o.ocultarSiCero === true) extra.ocultarSiCero = true;
+  if (o.invertida === true) extra.invertida = true;
   const ejes = sanearEjes(o.ejes);
   if (ejes) extra.ejes = ejes;
   const referencias = sanearReferencias(o.referencias);

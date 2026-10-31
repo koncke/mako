@@ -52,11 +52,11 @@ test('si tarda, dice POR QUÉ con lo que Martín puede hacer', () => {
 
   // Ningún Runner da noticias: es la PC (dormida o apagada), no una cuenta.
   const dormida = [vivo('claude1', [chatPC(S1, 'claude1')], { vistoAt: '2026-10-17T12:40:00Z' }), vivo('claude2', [], { vistoAt: '2026-10-17T12:45:00Z' })];
-  assert.equal(motivo(trabajo('escrito', tarde), dormida), 'La PC no responde desde las 09:45: puede estar dormida.', 'la PC dormida');
+  assert.equal(motivo(trabajo('escrito', tarde), dormida), 'Sin noticias de la PC desde las 09:45: puede estar dormida.', 'la PC dormida');
 
   // Los demás sí: es el Runner de ESA cuenta.
   const unoCaido = [vivo('claude1'), vivo('claude2', [chatPC(S2, 'claude2')], { vistoAt: '2026-10-17T12:40:00Z' })];
-  assert.equal(motivo(trabajo('escrito', tarde, { destino: S2, destino_cuenta: 'claude2' }), unoCaido), 'El Runner de la cuenta 2 no responde desde las 09:40: ábrelo para que salga.');
+  assert.equal(motivo(trabajo('escrito', tarde, { destino: S2, destino_cuenta: 'claude2' }), unoCaido), 'Sin noticias del Runner de la cuenta 2 desde las 09:40: ábrelo para que salga.');
   assert.equal(motivo(trabajo('escrito', tarde, { destino: S2, destino_cuenta: 'claude3' }), [vivo('claude1')]), 'Abre el Runner de la cuenta 3 para que salga.', 'una cuenta sin Runner');
 
   // El Runner está, el chat no.

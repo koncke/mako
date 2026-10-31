@@ -430,6 +430,8 @@ export type WaConversacion = {
   empresa: string | null; etapaKey: string | null; etapaLabel: string | null;
   ultimoTexto: string | null; ultimoTipo: string | null; ultimaFecha: string | null;
   ultimoEntrante: boolean; total: number; bloqueado: boolean;
+  /** El nombre que el contacto se puso en WhatsApp (el `push_name` de un mensaje SUYO), aunque la agenda diga otro. */
+  nombrePropio?: string | null;
 };
 
 /**
@@ -535,10 +537,11 @@ export async function getConversacionesNoOficial(
         chatJid: r.chat_jid, telefono: r.telefono, nombre: nombreDe(r) || r.telefono || jidNombre(r.chat_jid),
         leadId: r.lead_id, empresa: null, etapaKey: null, etapaLabel: null,
         ultimoTexto: r.texto, ultimoTipo: r.tipo, ultimaFecha: r.wa_timestamp,
-        ultimoEntrante: !r.from_me, total: 1, bloqueado: false,
+        ultimoEntrante: !r.from_me, total: 1, bloqueado: false, nombrePropio: nombreDe(r),
       });
     } else {
       prev.total += 1;
+      if (!prev.nombrePropio) prev.nombrePropio = nombreDe(r);
       if (!prev.leadId && r.lead_id) prev.leadId = r.lead_id;
       if (!prev.telefono && r.telefono) prev.telefono = r.telefono;
       // Completar el nombre con un push_name de ENTRANTE si el que tenemos es solo el número/jid.

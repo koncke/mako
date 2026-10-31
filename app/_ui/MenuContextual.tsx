@@ -229,7 +229,7 @@ export function ListaMenuContextual({ items, padre = null, abierto = null, onEle
   );
 }
 
-export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'Acciones', titulo }: {
+export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'Acciones', titulo, porDedo = false }: {
   /** Dónde se hizo el clic (coordenadas de la ventana). */
   punto: Punto;
   items: ReadonlyArray<EntradaMenuContextual>;
@@ -239,6 +239,13 @@ export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'A
   etiqueta?: string;
   /** Una línea apagada arriba de todo («3 leads»): sobre QUÉ actúa el menú cuando no es obvio. */
   titulo?: string;
+  /**
+   * Lo abrió un DEDO manteniendo presionado (app/_ui/useMenuContextual.ts), y ese dedo sigue apoyado. Hasta que baje otro
+   * toque: el `contextmenu` que Android dispara al mantener (el eco) no lo cierra, y el clic de levantar el dedo no elige el
+   * renglón que quedó debajo. El molde es la hoja del Ops Center (`HojaMensajeWA`: «un toque cuenta sólo si su dedo bajó con
+   * la hoja ya abierta»).
+   */
+  porDedo?: boolean;
 }) {
   // ⚠️ EN LA PILA, Y ANIDADA: no esconde lo de abajo (es parte de la misma pantalla), pero cuenta como
   // «algo encima» para el Escape de la ficha. Ver la cabecera.
@@ -258,6 +265,20 @@ export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'A
   /** Lo que tenía el foco antes de abrir: vuelve ahí sólo si se cierra con Escape (al elegir, manda la acción). */
   const previo = useRef<HTMLElement | null>(null);
   useEffect(() => { previo.current = document.activeElement instanceof HTMLElement ? document.activeElement : null; }, []);
+  // Abierto por dedo: listo recién cuando baja OTRO toque (o un clic del mouse) con el menú ya abierto. Ver `porDedo`.
+  const dedoListo = useRef(!porDedo);
+  useEffect(() => {
+    if (!porDedo) return;
+    const listo = () => { dedoListo.current = true; };
+    document.addEventListener('pointerdown', listo, true);
+    return () => document.removeEventListener('pointerdown', listo, true);
+  }, [porDedo]);
+  /** El clic que llega con el dedo que abrió todavía sin levantar no elige nada (sí el del teclado, `detail === 0`). */
+  const frenarClicDelDedo = (e: { detail: number; preventDefault: () => void; stopPropagation: () => void }) => {
+    if (dedoListo.current || e.detail === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+  };
   const cierreDiferido = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelarCierre = () => { if (cierreDiferido.current) { clearTimeout(cierreDiferido.current); cierreDiferido.current = null; } };
   useEffect(() => cancelarCierre, []);
@@ -393,7 +414,8 @@ export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'A
       if (!esElDeArriba()) return;
       onCerrarRef.current();
     };
-    const otroClicDerecho = (e: MouseEvent) => { if (!adentro(e.target)) onCerrarRef.current(); };
+    // El eco de Android (ver `porDedo`): llega con el dedo que abrió todavía apoyado, y no es otro clic derecho.
+    const otroClicDerecho = (e: MouseEvent) => { if (dedoListo.current && !adentro(e.target)) onCerrarRef.current(); };
     const rueda = (e: WheelEvent) => { if (!adentro(e.target)) onCerrarRef.current(); };
     const cerrar = () => onCerrarRef.current();
     document.addEventListener('keydown', tecla, true);
@@ -423,6 +445,7 @@ export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'A
       <style>{ESTILOS}</style>
       <div ref={setNodo} role="menu" aria-label={etiqueta} tabIndex={-1} data-menu-contextual=""
         onContextMenu={(e) => e.preventDefault()}
+        onClickCapture={frenarClicDelDedo}
         onMouseEnter={cancelarCierre}
         style={{ ...PANEL, left: pos?.x ?? punto.x, top: pos?.y ?? punto.y, zIndex: z + 1, opacity: pos ? 1 : 0, display: visible ? undefined : 'none' }}>
         {titulo && (
@@ -435,6 +458,7 @@ export function MenuContextual({ punto, items, onElegir, onCerrar, etiqueta = 'A
       {padre && (
         <div ref={setNodoSub} role="menu" aria-label={padre.label} tabIndex={-1} data-menu-contextual=""
           onContextMenu={(e) => e.preventDefault()}
+          onClickCapture={frenarClicDelDedo}
           onMouseEnter={cancelarCierre}
           style={{ ...PANEL, maxHeight: 'min(380px, calc(100vh - 16px))', left: posSub?.x ?? 0, top: posSub?.y ?? 0, zIndex: z + 2, opacity: posSub ? 1 : 0, display: visible ? undefined : 'none' }}>
           {buscador && (

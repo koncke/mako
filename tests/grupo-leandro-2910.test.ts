@@ -40,10 +40,17 @@ type Escena = {
   modelo: Array<{ system: string; persona: string; tools: string[] }>; tickets: Array<{ titulo: string; descripcion: string; ref: string }>;
 };
 let corrida: Record<string, Escena> | null = null;
-/** El hijo corre UNA vez (seis turnos, ~8 s cada uno por la ventana de silencio) y cada test mira su escena. */
+/**
+ * El hijo corre UNA vez (doce escenas) y cada test mira la suya.
+ * ⚠️ EL TOPE DEL HIJO NO PUEDE PASAR EL DEL VIGÍA DE TANDAS (`TOPE_SIN_AVANCE_MS`, 5 min). Valía 400 s, y el 31/10/2026 eso
+ * trabó el run 41207922805: node imprime la salida de un archivo de test cuando el archivo TERMINA, así que mientras este
+ * archivo corre su tanda de 100 no imprime NADA, y el vigía la mata entera con 99 («no se pudo chequear»). Un hijo que se
+ * pasa de 240 s tiene que poner ROJO a ESTE archivo —que se nombra— antes de que mueran los otros 99.
+ * Lo medido (PC libre): 234 s cuando el turno esperaba la ventana de silencio de verdad, 104 s desde que el hijo la acorta.
+ */
 function escena(k: string): Escena {
   if (!corrida) {
-    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_grupo-leandro-2910-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 400_000 });
+    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_grupo-leandro-2910-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 240_000 });
     const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@LEANDRO@@'));
     assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
     const o = JSON.parse(linea.slice('@@LEANDRO@@'.length)) as Record<string, Escena> & { error?: string };

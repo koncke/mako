@@ -39,8 +39,6 @@ import { Conversacion } from './Conversacion';
 import { BotonUso } from './Uso';
 import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { cuentasDeUso } from '@/lib/centro-uso';
-import { CartelLimbo } from './CartelLimbo';
-import { CartelPc } from './CartelPc';
 import { Muneco, animoDe, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
 import type { Centro } from './useCentro';
@@ -171,10 +169,9 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   return (
     <>
-      {/* Sin la PC o sin Runner, lo de abajo es una foto: se dice arriba, en rojo (30/10/2026, CartelPc.tsx; antes, un renglón gris). */}
-      <CartelPc centro={k} conComando />
-      {/* Lo que no salió, arriba de todo: un mensaje a un chat cerrado se perdía en silencio (30/10/2026, CartelLimbo.tsx). */}
-      <CartelLimbo centro={k} />
+      {sinNoticias != null && (
+        <p className="co-lista__vacio" role="status">{`Sin noticias del Runner desde las ${horaAR(sinNoticias)}`}</p>
+      )}
       {secciones.map(({ clave, titulo, chats: lista }) => {
         const plegada = plegadas.has(clave) && !buscando;
         const todas = enteras.has(clave) || buscando;
@@ -384,7 +381,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
       {/* Las CUATRO cuentas siempre, tengan o no Runner (Martín: «no sale el uso de las otras 2 cuentas»). */}
       {/* El mismo «Tus cuentas de IA» del cliente, y debajo lo suyo (23/10/2026: «IGUAL que en los clientes»). */}
       <BotonUso cuentas={cuentasConTitular(k)} ahora={k.ahora} onRenombrar={k.renombrarCuenta} onLeerCredito={k.leerCreditoApi} onCambiarCredito={k.cambiarCreditoDelNegocio}
-        tusCuentas={<TusCuentasIA sinCabecera />} />
+        pc={k.estadoPc} tusCuentas={<TusCuentasIA sinCabecera />} />
     </div>
   );
 }

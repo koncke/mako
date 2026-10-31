@@ -23,7 +23,7 @@
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
 import { CARTERO_VIVO_MS, CUENTA_RE, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, comoEstaElDestino, esParaMartin, fotoAlDia, noticiaDe, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat, textoDelEncargo } from './operaciones-reglas';
-import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
+import { hace, instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
@@ -1099,14 +1099,18 @@ export function sinNoticiasDesde(carteros: readonly Pick<CarteroP, 'vistoAt' | '
   return vistos.length ? Math.max(...vistos) : null;
 }
 
-// ── Los dos carteles de la PC (30/10/2026; docs/diseno-cartero-servicio.md §2.2) ──────────────────────────────────────────────
-// El Runner estuvo parado del 24/10 al 30/10 y nadie se enteró: lo único que lo decía era un renglón gris, sólo en la computadora. La
-// ausencia la dice MaKo con sus propios datos, porque lo que depende de la PC calla justo cuando la PC no está.
+// ── El estado de la PC, en el Uso (30/10/2026; 31/10, adentro del panel) ────────────────────────────────────────
+// El Runner estuvo parado del 24/10 al 30/10 y nadie se enteró. La ausencia la dice MaKo con sus propios datos, porque lo que depende de la
+// PC calla justo cuando la PC no está. Iba como un cartel rojo arriba del Ops Center, y Martín lo pidió en otro lugar: «Si, ponlo pero en
+// USO». Se consulta cuando se quiere saber, no interrumpe.
+// ⚠️ DICE EL HECHO CON SU EDAD, NO LA CONCLUSIÓN: «Sin noticias de la PC desde las 17:20», nunca «no responde» (31/10/2026: con la PC prendida
+//    salió «no responde», porque la tolerancia era menor que el intervalo de las vueltas).
 
-/** Qué cartel va arriba del Ops Center. `cuenta`: la del pedido más viejo, la que hay que abrir primero. */
-export type CartelPc =
+/** `cuenta`: la del pedido más viejo, la que hay que abrir primero. */
+export type EstadoPc =
+  | { tipo: 'al_dia'; desde: number; texto: string; hacer: null }
   | { tipo: 'sin_noticias'; desde: number; cuenta: string | null; texto: string; hacer: string }
-  | { tipo: 'nadie_entrega'; pedidos: number; masViejo: number | null; cuenta: string | null; texto: string; hacer: string };
+  | { tipo: 'sin_runner'; desde: number | null; pedidos: number; masViejo: number | null; cuenta: string | null; texto: string; hacer: string };
 
 /** «las 23:47» hoy, «ayer a las 23:47» o «el 24 oct a las 23:47»: una hora sola, de hace días, miente. */
 function cuandoFue(t: number, ahora: number): string {
@@ -1116,15 +1120,15 @@ function cuandoFue(t: number, ahora: number): string {
 }
 
 /**
- * Uno solo, o ninguno. La PC sin ninguna vuelta reciente → «no da noticias». Con vueltas (el servicio sube) y ningún Runner → «nadie
- * entrega», con los pedidos en «escrito». ⚠️ Cuenta TODOS los «escrito», también los de un chat abierto y los de un chat nuevo: sin Runner
- * no sale ninguno. Lo de los chats cerrados con un Runner andando es del cartel del limbo (lib/centro-limbo.ts).
+ * Uno solo, o ninguno. La PC sin ninguna vuelta reciente → «sin noticias». Con vueltas (el servicio sube) y ningún Runner → «sin Runner», con
+ * los pedidos en «escrito». Con un Runner dando vueltas → al día, con su edad. null = una PC que nunca dio noticias.
+ * ⚠️ Cuenta TODOS los «escrito», también los de un chat abierto y los de un chat nuevo: sin Runner no sale ninguno.
  */
-export function cartelDeLaPc(
+export function estadoDeLaPc(
   carteros: readonly Pick<CarteroP, 'vistoAt' | 'noticiasAt'>[],
   pedidos: readonly { estado: string; created_at: string; destino_cuenta: string | null }[],
   ahora: number,
-): CartelPc | null {
+): EstadoPc | null {
   if (!carteros.length) return null;
   const esperan = pedidos.filter((p) => p.estado === 'escrito' && Number.isFinite(Date.parse(p.created_at)))
     .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at));
@@ -1132,15 +1136,20 @@ export function cartelDeLaPc(
   const runner = `el Runner${cuenta ? ` de la cuenta ${cuenta.replace(/^claude/, '')}` : ''}`;
   const desde = sinNoticiasDesde(carteros, ahora);
   if (desde != null) {
-    return { tipo: 'sin_noticias', desde, cuenta, texto: `La PC no da noticias desde ${cuandoFue(desde, ahora)}`, hacer: `Mira si está prendida y abre ${runner}.` };
+    return { tipo: 'sin_noticias', desde, cuenta, texto: `Sin noticias de la PC desde ${cuandoFue(desde, ahora)}`, hacer: `Mira si está prendida y abre ${runner}.` };
   }
   if (!carteros.some((k) => carteroVivo({ vistoAt: noticiaDe(k) }, ahora))) return null; // Nunca llegó nada: es una PC sin conectar.
-  if (carteros.some((k) => carteroVivo(k, ahora))) return null;
+  if (carteros.some((k) => carteroVivo(k, ahora))) {
+    const ultima = Math.max(...carteros.map((k) => fecha(noticiaDe(k)) ?? 0));
+    return { tipo: 'al_dia', desde: ultima, texto: `La PC dio noticias ${hace(ultima, ahora)}`, hacer: null };
+  }
   const n = esperan.length;
   const masViejo = n ? Date.parse(esperan[0].created_at) : null;
   const edad = masViejo != null ? haceCuanto(ahora - masViejo) : '';
   const cuantos = !n ? '' : n === 1 ? `: 1 pedido tuyo espera (de ${edad})` : `: ${n} pedidos tuyos esperan (el más viejo, de ${edad})`;
-  return { tipo: 'nadie_entrega', pedidos: n, masViejo, cuenta, texto: `Nadie entrega en la PC${cuantos}`, hacer: `Abre ${runner}.` };
+  const vistos = carteros.map((k) => fecha(k.vistoAt)).filter((t): t is number => t != null);
+  const ultimoRunner = vistos.length ? Math.max(...vistos) : null;
+  return { tipo: 'sin_runner', desde: ultimoRunner, pedidos: n, masViejo, cuenta, texto: `Sin Runner${ultimoRunner != null ? ` desde ${cuandoFue(ultimoRunner, ahora)}` : ''}${cuantos}`, hacer: `Abre ${runner}.` };
 }
 
 // ── En qué está lo que mandó Martín (17/10/2026) ──────────────────────────────────────────────────────────────
@@ -1181,9 +1190,10 @@ function porQueTarda(
   if (lleno) return `La cuenta ${n} llegó a su límite${lleno.reinicia ? `: sigue a las ${horaAR(lleno.reinicia)}` : ''}.`;
   if (!carteroVivo(suyo, ahora)) {
     const pc = sinNoticiasDesde(carteros, ahora);
-    if (pc != null) return `La PC no responde desde las ${horaAR(pc)}: puede estar dormida.`;
+    // ⚠️ Dice lo que se sabe, no lo que se supone (31/10/2026): con la PC prendida salió «no responde», y una mentira en esta pantalla cuesta más que el silencio.
+    if (pc != null) return `Sin noticias de la PC desde las ${horaAR(pc)}: puede estar dormida.`;
     const visto = fecha(suyo?.vistoAt);
-    return visto != null ? `El Runner de la cuenta ${n} no responde desde las ${horaAR(visto)}: ábrelo para que salga.` : `Abre el Runner de la cuenta ${n} para que salga.`;
+    return visto != null ? `Sin noticias del Runner de la cuenta ${n} desde las ${horaAR(visto)}: ábrelo para que salga.` : `Abre el Runner de la cuenta ${n} para que salga.`;
   }
   const estado = chat?.estado ?? (subido ? (subido.vivo ? 'abierto' : 'cerrado') : 'sin_dato');
   if (estado !== 'trabajando' && estado !== 'abierto') return `Abre este chat en la cuenta ${n} para que lo reciba.`;

@@ -209,7 +209,15 @@ test('la MISMA cuenta que se va y vuelve: el sufijo de sus cobros, y sus avisos 
   assert.equal(R.pruebaSobreReal.keyPrincipal, true, 'la clave real de la principal quedó pisada por la de prueba');
   assert.deepEqual(R.pruebaSobreReal.claves, ['STRIPE_ACCOUNT_ID', 'STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET']);
   // Y el cobro anota su cuenta en el proveedor al nacer.
-  assert.match(sinComentarios(leer('lib/cobros.ts')), /cuenta_ref: \(d\.pasarela === 'stripe' \? stripe\?\.acct : mp\?\.userId\) \?\? null,/);
+  // ⚠️ SE FIJA LA FORMA POR PASARELA, NO EL TERNARIO (31/10/2026). Antes esto clavaba
+  // `cuenta_ref: (d.pasarela === 'stripe' ? stripe?.acct : mp?.userId) ?? null`, y ese ternario era justo el bug: con
+  // una tercera pasarela, un cobro de Creem guardaba el `user_id` de Mercado Pago en `cuenta_ref`, que es lo que
+  // después ENCUENTRA la cuenta del cobro (no se podía releer, ni devolver, ni cancelar). El test ahora exige que el
+  // dato salga de una tabla indexada por la pasarela del cobro, que es lo que no se puede equivocar al sumar la cuarta.
+  const cobrosSrc = sinComentarios(leer('lib/cobros.ts'));
+  assert.match(cobrosSrc, /cuenta_ref: porPasarela\[d\.pasarela\]\.ref,/);
+  assert.match(cobrosSrc, /creem: \{ cred: creem, ref: creem\?\.webhookId \?\? null \},/);
+  assert.doesNotMatch(cobrosSrc, /cuenta_ref: \(d\.pasarela === 'stripe'/, 'volvió el ternario de dos ramas en cuenta_ref');
 });
 
 test('un id que no descifra igual suelta su ruteo; un link de una cuenta desconectada no abre; la tarjeta ve las de más', () => {
@@ -265,6 +273,9 @@ test('elegir la cuenta: «Vincular cobro» y el link de la ficha', () => {
   const acc = sinComentarios(leer('app/crm/[id]/cobros-actions.ts'));
   assert.match(acc, /cuenta: textoCorto\(d\.cuenta, 60\),/);
   const cobros = sinComentarios(leer('lib/cobros.ts'));
-  assert.match(cobros, /if \(pedida && !\(pedida\.proveedor === 'stripe' \? stripe : mp\)\) return \{ ok: false, error: 'Esa cuenta de cobro no está conectada\.' \};/);
+  // Igual que arriba: el guard pregunta por la pasarela PEDIDA en la tabla, no `stripe ? stripe : mp`. Con el ternario,
+  // una cuenta pedida de Creem se validaba contra las credenciales de Mercado Pago: con MP conectado, el guard PASABA
+  // sin haber leído una sola credencial de Creem.
+  assert.match(cobros, /if \(pedida && !porPasarela\[pedida\.proveedor\]\.cred\) return \{ ok: false, error: 'Esa cuenta de cobro no está conectada\.' \};/);
   assert.match(cobros, /return cuentaSinElegir\(pas, porDefecto, delVinculo, cobran\.map\(\(x\) => x\.cuenta\)\);/);
 });

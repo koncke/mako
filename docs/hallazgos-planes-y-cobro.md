@@ -10,6 +10,381 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El barrido del 31/10: la tercera pasarela dejó NUEVE lugares donde no se cobra, y ninguno da error
+
+**Lo que se midió:** el commit de Creem (`5faf71e0e`) dice en su propio mensaje que cazó 53 ternarios
+de dos ramas. Un barrido adversarial posterior (107 agentes, cada hallazgo contra tres refutadores con
+lentes distintas) encontró **nueve más**: ninguno rompía un test ni tiraba un error. Los nueve están
+cerrados, y al cerrarlos, entre las copias por valor y una revisión adversarial del arreglo, aparecieron
+**más peores que no estaban en la lista** (abajo). El peor: ningún aviso de Creem habría entrado nunca.
+
+**Por qué el diagnóstico obvio falla acá:** el commit de Creem escribió, en comentarios, que varios de
+estos lugares ya estaban arreglados. Dos tenían, **once y sesenta líneas más arriba**, un comentario del
+propio commit diciendo que ese bug se derivó de `Pasarela` — y debajo seguía la lista de dos escrita a
+mano. Un comentario que afirma que algo se arregló no es evidencia: se lee el código.
+
+**Ya es un patrón de este repo, no un descuido suelto:** tres veces el mismo día, y las tres del mismo commit: `cobroDeLaCuenta` y
+`cobro-etapa`, con su comentario en pasado encima del bug, y el `?w=`, con dos comentarios afirmando que la URL lo llevaba. El
+comentario se escribe con la intención, y cuando el cuerpo no acompaña queda declarado muerto un bug vivo: nadie lo vuelve a mirar.
+
+**Y lo mismo vale para un estado:** «Creem no está conectado» estaba escrito acá, en `pendientes.md` y en cada mensaje del día, mientras
+Martín lo conectaba a las 19:22 UTC; apareció sólo al ir a medir otra cosa. Y lo contrario: el bug de la prueba del día 8 se iba a
+reportar como que le pasaba a clientes de hoy, y la base decía que no (la prueba apagada, y 2 cobros en total). Lo que importa para
+decidir se mide en el momento.
+
+**Un arreglo a lo que se hace AL CONECTAR no repara lo ya conectado.** El `?w=` se corregía en `asegurarWebhookCreem`, y una cuenta
+conectada ni siquiera ofrece «Volver a conectar»: desplegarlo dejaba rota, sin un error, la única cuenta que existía. Por eso
+`repararAvisoCreem` corre en cada vuelta del cron, y por eso NO crea nada: un aviso nuevo tendría otro secreto, que nadie guardaría.
+
+**Y LO MÁS CARO DEL DÍA: no había que esperar el deploy. Lo roto era el DATO, no el código.** La ruta 
+`app/api/webhooks/creem/route.ts` ya estaba en producción exigiendo el `?w=` (`req.nextUrl.searchParams.get('w')` →
+`wsPorIdentificadorEstricto` → el secreto → la firma): lo único mal era la URL guardada EN CREEM. Se arregló a mano el 31/10
+a las 20:30 UTC con un PATCH a `/v1/webhooks/{id}` y el mismo destino que escribe el código
+(`${url.split('?')[0]}?w=${encodeURIComponent(id)}`), y los avisos entraron en el acto — con el tren todavía corriendo.
+Medido antes y después contra la API de Creem, y el último eslabón también: el `wh_…` resuelve al ws 9, cuenta `principal`.
+**La regla:** cuando un bug de producción es una CONFIGURACIÓN GUARDADA que el código ya desplegado espera, el arreglo es
+dato y no viaja en el tren. Preguntarse siempre, antes de esperar un deploy: ¿qué parte de esto es código y qué parte es un
+valor que puedo corregir ahora? El arreglo del cron sigue valiendo igual, pero para que NO VUELVA a pasar y para las cuentas
+que se conecten mañana, no para esta.
+
+**Dónde estaba el error de verdad, cuando no era el que decía la lista:**
+
+- **«La prueba gratis no entrega la cuenta» era el SEGUNDO escalón.** El primero: `crearCobro` rechazaba
+  el `inicioAt` que le manda /planes, porque preguntaba `p.pasarela === 'stripe'`. La prueba por Creem ni
+  se creaba. Mirando sólo `activarPruebaSiAutorizo` se arreglaba un camino al que nadie llegaba.
+- **«La misma tarjeta saca prueba tras prueba» NO SE PUEDE ARREGLAR del todo.** Ningún objeto de Creem
+  trae la tarjeta: ni la suscripción, ni el cliente, ni la transacción. Lo más que da es `customer.id`, que
+  va por email: `cr:<cliente>|card:-`. Corta al que repite con el mismo email en Creem aunque en MaKo escriba
+  otro; con otro email también en Creem, **pasa**. La pantalla ya no dice «esa tarjeta» cuando no lo sabe
+  (`huellaDeTarjeta`). Hay un test que lo afirma, para que el día que Creem la exponga alguien la use.
+- **«Nunca llama a `plazoDelCobro`» sugería agregar la llamada al checkout, y eso no arregla nada:** Creem
+  no sabe «terminá el día X». Lo único que tiene es la baja agendada al fin del período en curso, así que
+  el plazo se cierra cuando se paga el ÚLTIMO ciclo (`tocaCerrarElPlazo`, por fechas y no contando
+  transacciones: un cobro de diferencia al subir de plan también es una). Y una vez por día lo repasa el
+  cron (`asegurarPlazosCreem`), o un aviso perdido agrega un mes.
+- **«No hay endpoint para descontar» era verdad y no era el final.** No hay cupón sobre una suscripción
+  abierta, pero el precio ES el del producto: se crea uno rebajado y se la pasa a él con `/upgrade`
+  (`cambiarPrecioCreem`, `proration-none`). Es el mismo modelo que Mercado Pago: lo rebaja MaKo y lo devuelve
+  el cron. Así salen el descuento, bajar de plan y pasar a Pro (éste con `proration-charge-immediately`).
+
+**Lo que el barrido no vio, y era peor (buscando las copias por el VALOR viejo, y leyendo el OpenAPI):**
+
+| Dónde vive | Qué pasaba | Plata |
+|---|---|---|
+| `lib/creem-api.ts`, `asegurarWebhookCreem` | **La URL del aviso se registraba sin `?w=`, y la ruta rutea por ese `?w=`: 401 a TODOS los avisos.** Dos comentarios afirmaban que la URL guardada lo llevaba, y ningún código lo hacía. Creem abandona a las 24 h: ni un pago, ni un alta, ni una renovación. Ahora se escribe con `PATCH /v1/webhooks/{id}` | **Nada entra** |
+| `lib/creem-api.ts`, `transaccionDe` | `created_at` de una transacción es un NÚMERO (el de una suscripción es ISO). Leído como texto, `Date.parse` da NaN y un `sort` con NaN no ordena: «la más nueva» era la primera que viniera, y el listado no tiene orden. Y la cuota llevaba la fecha de hoy. El test pasaba porque el doble mandaba ISO | Renovaciones sin asentar, cash en otro mes |
+| `lib/cobros-webhook.ts`, reembolso | Siempre `total` y sobre el PRIMER pago: US$5 devueltos del mes 5 dejaban el cobro «reembolsado», desmarcaban el mes 1 entero, y un plan vivo desaparecía de «Tu plan» mientras Creem seguía cobrando. Sale de releer la transacción: `refunded` o `partialRefund`. ⚠️ `refunded_amount` incluye impuesto: compararlo con `amount` da mal | Cash y plan falsos |
+| `lib/cobros-eventos.ts`, `avisoCreem` | Un reembolso o disputa no trae `metadata` ni `request_id` arriba: están en su `checkout`, y sólo `transaction` es obligatorio. El de un pago ÚNICO no encontraba su cobro y se ignoraba con 200, después de prometerle a quien devolvía que MaKo lo registraba solo | Devolución sin asentar |
+| `lib/cobros.ts`, `aplicarPagoFallido` | **Todas las pasarelas:** el cobro del día 8 de una prueba que se rechaza la pasaba a `fallido`, y ahí dejaba de ser su plan: sin baja, «sin pasarela» (acceso sin deuda), con la tarjeta reintentándose. Sigue en prueba y da la mora que ya estaba escrita | Acceso gratis, sin baja |
+| `lib/cobros.ts`, anular un link | Cancelaba con el id del checkout, que no corta nada, y su checkout no vence. Pagado después, su suscripción cobraba todos los meses. Ahora se corta al entrar el pago (`cierraElCheckout`) | Cobra de más |
+| `lib/agente-redaccion.ts` | Una clave `creem_…` pegada en el chat no se tapaba: llegaba entera al modelo y quedaba guardada | Un secreto |
+| `lib/creem-api.ts`, los montos | **Todo monto de Creem viene en centavos** («1000 = $10.00») y se leía tal cual: una renovación de US$47 entraba al cash como US$4.700. El test decía `monto === 1000` y lo afirmaba | Cash y MRR inflados ×100 |
+| `lib/creem-api.ts`, `buscarTransaccionesCreem` | Mandaba `subscription_id`, **que no existe** en `/transactions/search`: un parámetro desconocido se ignora, vuelven las de TODA la tienda, y «la más nueva» podía ser de otro cliente | Se asienta la plata de otro |
+| `lib/plan-deuda.ts`, `confirmarImpago` | Antes de cortar por impago le preguntaba a Mercado Pago, que no conoce el cobro: «sin pagos». Un aviso perdido le cortaba el acceso a quien SÍ pagó | Cliente pagando, afuera |
+| `lib/plan-deuda.ts`, `pagarDeuda` | En mora con la suscripción viva abría un cobro aparte mientras Creem reintentaba | Dos cobros |
+| `lib/cobros.ts`, `darDeBajaMiPlan` | Por el `else`, la baja cortaba en el acto: la pantalla prometía el período pagado y la tabla decía `bajaAlFinDelPeriodo` | Pierde lo que pagó |
+| `app/api/integraciones/cuentas/route.ts` | `idEnElProveedor` mandaba **la clave de Creem del negocio a la API de Mercado Pago**. Y `esProveedor` contestaba «servicio inválido» a la tarjeta de Creem | Un secreto a un tercero |
+| `lib/agencia-plan.ts`, `lib/agencia-cobro.ts` | Cambiar el plan de un cliente de agencia pedía a Mercado Pago; la renovación se abría un mes antes, sin `inicio_at` | No cobra, o cobra antes |
+
+**Lo que NO está medido, y es lo primero a mirar el día que se conecte Creem:** todo lo de arriba corre contra
+un Creem en memoria armado de su OpenAPI (`tests/_creem-cobra-hijo.ts`), nunca contra una clave de verdad. Su doc
+no dice: qué pasa con `next_transaction_date` al reanudar una pausa (por eso se reanuda un día antes del fin del
+ciclo cubierto, lo que sirve con cualquiera de las dos respuestas), si `/upgrade` acepta bajar de precio, si el
+arranque de una prueba deja una transacción en cero (`transaccionQueCobra` la descarta por las dudas), en qué unidad
+viene el `created_at` de una transacción (`fechaDeCreem` acepta segundos o milisegundos), ni si `product` viene siempre
+como objeto (si viene como id, el precio es «no sé» y la oferta trabada no se libera).
+
+**La trampa del doble:** el Creem en memoria se escribe con lo que uno cree del contrato, así que un error de lectura
+da verde dos veces. Lo de los centavos y lo de la fecha estaban en el test AFIRMADOS. Un doble se arma leyendo el
+OpenAPI campo por campo (`docs.creem.io/api-reference/openapi.json`), no el ejemplo de una página.
+
+**El guardia que estaba ciego:** `tests/pasarela-sin-env.test.ts` no miraba las tres claves de Creem. Ya las mira.
+
+**También del 31/10:**
+
+- **Al rótulo del checkout público de /planes le faltaba Creem**, así que su opción salía con el radio
+  EN BLANCO: el comprador no sabe qué elige y se va, y el que no se leía era el de LatAm. El
+  `Record<Pasarela, string>` es total y TypeScript lo veía (TS2741), pero `next.config.ts` tiene
+  `ignoreBuildErrors: true` y el build lo dejó pasar. **Un error de tipos en una pantalla pública no lo
+  frena nada**: el guardia de texto quedó en `tests/creem-pasarela.test.ts`, que no depende de que corra
+  `tsc`. Se ve cuando se ofrecen dos pasarelas: país desconocido (local, o una IP que Vercel no ubica) o
+  la preferida sin conectar.
+- **A qué ficha se le ata un pago lo decidía un `else`.** `leadDeLaCompra` preguntaba
+  `motivo === 'email' || (motivo !== 'nombre' && sinOtroEmail(...))`: todo motivo nuevo entraba solo en
+  «le ata la compra», y lo que se ata es el pago de una persona a la ficha de otra (marca Ganado y pisa
+  la cuenta en `asentarAlta`). Pasó de verdad cuando se sumó `'instagram'`. Y el parámetro tipaba
+  `motivo: string`, así que el compilador tampoco veía un renombre. Ahora es un
+  `Record<MotivoDuplicado, …>` TOTAL en quien toma la decisión. ⚠️ **Esto importa más desde el 31/10:
+  con el WhatsApp pedido en el checkout, el número lo escribe cualquiera en un formulario público** — un
+  dígito mal, o el dueño comprando para su segundo negocio.
+  Y el `'instagram'` de esa tabla **no lo probaba nadie**: una tabla total sin un caso por renglón es
+  documentación, no una red. Cada motivo tiene ahora el suyo.
+
+**La regla que queda:** una diferencia entre pasarelas va en un `Record<Pasarela, …>` TOTAL o en un
+`switch` con `never`, nunca en un ternario de dos ramas ni en un `else`. Y antes de dar por arreglado un
+ternario, **buscar sus copias por el valor viejo** (`'stripe'`, `'mercadopago'`, `!== 'mercadopago'`),
+no por el nombre del tipo: un literal `['stripe','mercadopago']` es asignable a `Pasarela[]` y el
+compilador no dice nada.
+
+**Mientras estos nueve estén abiertos, conectar Creem en producción los prende todos juntos.** Hoy están
+inertes porque la clave no está en Vercel y el webhook es fail-closed sin secreto.
+
+---
+
+## Una pasarela nueva no agrega un valor: convierte 53 ternarios correctos en bugs silenciosos (31/10/2026)
+
+**Vive en:** `lib/cobros-tipos.ts` (`Pasarela`, `CAPACIDADES_PASARELA`, `COMISION_PASARELA`) · `lib/creem-api.ts` ·
+`lib/pasarela-firma.ts` (`verificarFirmaCreem`) · `app/api/webhooks/creem/route.ts` · `lib/cobros-webhook.ts`
+(`procesarEventoCreem`) · `lib/cobros-eventos.ts` (`eventoCreem`, `avisoCreem`) · `lib/cobros-conexion.ts`
+(`descubrirCreem`) · `supabase/migrations/0358_cobros_pasarela_creem.sql` · `tests/creem-pasarela.test.ts`
+(12 roturas cazadas).
+
+### El diagnóstico obvio era el equivocado, dos veces
+
+**1. «Agregar Creem es escribir el cliente de Creem.»** Falso, y por mucho. El cliente nuevo son 400 líneas que no
+tienen con qué equivocarse: o andan o dan un error visible. El trabajo real —y el riesgo— estaba en los **53 lugares
+que ya existían** y que comparaban contra DOS pasarelas. Con dos valores, `p === 'stripe' ? A : B` es *correcto*. Con
+tres, la rama `B` se traga al tercero **en silencio**: es código válido, que corre, contra el proveedor equivocado. No
+lo ve el compilador (las dos ramas tipan bien), no lo ve un test que no existe, y no lo ve una review que lea el
+renglón sin preguntarse cuántos valores tiene el tipo.
+
+Los tres que costaban plata de verdad:
+
+| Dónde | Qué hacía con un cobro de Creem |
+|---|---|
+| `crearCheckout` (`lib/cobros.ts`) | `if (proveedor === 'stripe') {…}` y después, **sin else**, caía a Mercado Pago: le creaba una suscripción **REAL en Mercado Pago**, en la moneda de esa cuenta, y guardaba su id en el cobro de Creem. Se le cobraba a una persona por el proveedor equivocado, sin un solo error. |
+| `cancelarSuscripcionCobro` | Cancelaba contra Mercado Pago. MP contestaba **404** por un id que no es suyo, y el `r.status !== 404` —puesto el 30/10 para que «ya cancelada» no frenara la baja— **se comía el error**: corría `aplicarSuscripcionCancelada`. La base decía «cancelada», el cliente veía su baja hecha, y **Creem le seguía cobrando todos los meses**. Sin error, sin log, sin ticket: aparece en el resumen de la tarjeta del cliente, meses después. |
+| `cerrarLinkEnLaPasarela` | `if (stripe) … else if (mercadopago) …`, **sin else**: el link anulado quedaba abierto y pagable. Lo llama `anularLinksDeCuota` (la cuota ya cobrada por otro lado), o sea que el agujero es un **doble cobro**. |
+
+Y el patrón inverso, igual de malo: `urlParaPagar` preguntaba por Mercado Pago y después **asumía Stripe**, así que un
+cobro de Creem llegaba a `leerCheckoutStripe` con una ref de otro proveedor.
+
+**2. «El compilador me va a avisar.»** Avisó de 13 de los 66. El motivo es que la unión estaba **copiada a mano en
+cinco lugares**, independientes de `Pasarela`:
+
+- `ProveedorConCuentas` (`lib/cuentas-integracion.ts`) — y con ella **todo** el subsistema de cuentas: nombres de
+  claves con sufijo, ruteo de avisos, «Vincular cobro»;
+- `ProveedorPago` (`lib/cobro-etapa.ts`), `OpcionDeCobro.pasarela` (`lib/agencia-cobro-reglas.ts`),
+  `SuscripcionVisible.proveedor` (`PlanPanel.tsx`), y los `proveedor: 'stripe' | 'mercadopago'` de `lib/pagos.ts`.
+
+Ensanchar sólo `Pasarela` dejaba a ese subsistema sin un error y **sin saber que Creem existe**. Las cinco ahora se
+derivan de `Pasarela`.
+
+### Lo que no se ve y descarta en silencio
+
+- **`pasarelasConectadas` tenía `['stripe', 'mercadopago']` escrito literal**, y ese literal **es asignable a
+  `Pasarela[]`**: cero error, y Creem conectado y cobrando se reportaba como «no hay pasarela» en todos sus llamadores
+  (el checkout de /planes, la ficha, la API de MaKo y el cron). Igual en `cuentasDePago` (`PROVEEDORES`) y en
+  `workspacesConPasarela` (`.in('servicio', […])`, que decide a qué negocios visita el cron).
+- **`PASARELAS_CON_PRUEBA` (`lib/prueba-plan-reglas.ts`) no se ensancha sola**, y es la que decide si una pasarela se
+  **ofrece** en /planes. Una pasarela que sepa hacer la prueba y que nadie agregue ahí queda conectada, cobrando e
+  **invisible en la vitrina**. Es el mismo bug que el 27/10 dejó a Stripe fuera y le mandó la Mercado Pago argentina a
+  una clienta de México: volvió a aparecer con otro nombre.
+- **`credenciales.ts`: `servicioDeRuteo === 'stripe' || === 'mercadopago'`** decidía si al borrar una clave se suelta
+  SU fila de ruteo o **todas las del servicio**. `servicioDeRuteo` es `string`, así que con Creem daba `false` y borrar
+  una clave se llevaba el ruteo de **todas** sus cuentas. Palabra por palabra el bug que el comentario de esa línea
+  dice haber arreglado el 22/10 para Mercado Pago.
+- **Los tres CHECK de `0255` limitan `proveedor` por SQL.** El crítico no es `cobros`: es **`pasarela_eventos`**, que es
+  la deduplicación de avisos. Sin ensancharlo, el webhook no puede ni dejar rastro, `reclamarEvento` tira antes de
+  aplicar, y el pago quedó cobrado en Creem y nunca entró a MaKo.
+
+### La regla que queda
+
+> **Una diferencia entre pasarelas no se escribe con un ternario de dos ramas.** Va como campo de
+> `CAPACIDADES_PASARELA` (un `Record<Pasarela, …>` **total**: la pasarela #4 no compila hasta que alguien decida qué
+> hace), o como `switch` con `default: { const _x: never = p; }`. Y una lista de pasarelas se escribe `PASARELAS`,
+> nunca a mano: el literal tipa igual y no avisa.
+>
+> Corolario: **antes de ensanchar una unión, buscar sus copias** (`grep` por el valor viejo, no por el nombre del
+> tipo). Una copia que se queda atrás no falla: descarta al valor nuevo en silencio.
+
+### Creem, lo que dice su documentación y no se deduce del parecido con Stripe
+
+Leída en pantalla el 31/10/2026. Atajo que ahorra horas: **cualquier URL de `docs.creem.io` acepta `.md` al final**, y
+las de `/api-reference/endpoint/*` devuelven el **OpenAPI completo** con sus enums.
+
+- **La clave va en `x-api-key`**, no en `Authorization: Bearer`.
+- **El checkout NO cobra sin un `product_id`.** No existe el precio en línea de Stripe (`price_data`) ni el
+  `unit_price` de una preferencia de MP: cada cobro **crea su producto** primero (de ahí el `Idempotency-Key` en los dos
+  POST, o un reintento llena la cuenta del negocio de productos duplicados).
+- **`price` en CENTAVOS**, y con piso: «must be 0 or at least 100». No hay precios de 50 centavos.
+- **Moneda: enum cerrado `USD` | `EUR`.** La página de precios promete «multi-currency» y el OpenAPI no lo permite.
+- **Leer una suscripción es por QUERY STRING:** `GET /v1/subscriptions?subscription_id=…`. `/v1/subscriptions/{id}` no
+  existe — y suponerlo por parecido con Stripe da 404 justo en el camino que decide si una baja se asienta.
+- **Cancelar no tiene `cancel_at_period_end`:** es `{ mode: 'immediate' | 'scheduled' }`. Y **`mode` se manda siempre**,
+  porque sin él el default «can be configured in the store billing settings»: qué hace «dar de baja» dependería de una
+  pantalla del panel y no del código. `onExecute` es **camelCase** en una API que por lo demás es snake_case.
+- **El descuento de un solo ciclo existe de verdad:** `duration: 'once'` — «applies only to the first payment», y el
+  caso de uso que da la doc es literal «50% off your first month». Se aplica en el **checkout** (`discount_code`) y el
+  segundo mes vuelve solo al precio lleno. **Creem no necesita el remiendo de `lib/primer-mes.ts`** (que a Mercado Pago
+  le sube el monto a mano al entrar el primer pago). Pero **no hay endpoint para descontarle a una suscripción ya
+  abierta**: se aplica al nacer o no se aplica.
+- **El tipo del evento está en `eventType`** (camelCase) y `created_at` llega en **milisegundos como número**. El id es
+  `evt_…`, igual que Stripe, y eso es justo lo que hace creíble suponer que el resto también es igual.
+- **La firma es HMAC-SHA256 hex del cuerpo CRUDO y nada más** (header `creem-signature`): sin timestamp, sin esquema
+  versionado. ⚠️ **El ejemplo oficial de la doc usa `JSON.stringify(req.body)`, y eso rompe la verificación** en cuanto
+  el cuerpo trae un nombre con acento (re-serializar cambia bytes). Va `req.text()`.
+- **Sin timestamp no hay protección contra la repetición:** una firma válida capturada vale para siempre. Lo que cubre
+  ese hueco es la dedup por `id` **más** la relectura del recurso. Y el detalle fino: los reintentos automáticos
+  **conservan** el `id`, pero un **reenvío a mano** desde el panel llega con un `id` NUEVO — así que la dedup no
+  protege de un reenvío manual, y de ahí que lo que se aplica salga de releer el estado y no de contar eventos.
+- **El acceso lo da `subscription.paid`, no `subscription.active`** (lo dice la propia doc: «use [active] only for
+  synchronization»). `paid` «fires for the first payment and every renewal»: el alta y la renovación entran por el
+  mismo evento.
+- ⚠️ **`subscription.expired` NO corta nada.** Su ejemplo oficial llega con `status: "active"`, la doc dice que «payment
+  retries can happen at this stage» y que el estado es terminal **sólo** en `canceled`. Tratarlo como baja le saca el
+  acceso a alguien que todavía puede pagar. `past_due` y `unpaid` son el **grace period del dunning** — la propia doc de
+  Creem advierte contra gatear por `status === 'active'`, que voltea a los que están en prueba o reintentando.
+- **El estado se lee de `object.status`, nunca del nombre del evento**, y el parser tolera un valor fuera del enum: la
+  doc lista siete estados en el OpenAPI y menciona un octavo (`incomplete`) sólo en prosa.
+- **Los montos vienen por triplicado:** `amount` SIN impuesto, `tax_amount`, `amount_paid` CON impuesto. **MaKo asienta
+  `amount`**: el impuesto lo cobra y lo remite Creem (es merchant of record), no es ingreso nuestro — asentar
+  `amount_paid` inflaría el MRR con plata que nunca fue de MaKo.
+- **La comisión pega sobre el total CON impuesto**, no sobre el precio. La página de precios dice «3.9% + 40¢» y deja
+  creer que es sobre la venta; la doc de payouts da el ejemplo: US$20 + US$4 de IVA → **US$1,33**, no US$1,18. Y sobre
+  el ticket de US$47 de MaKo el **cargo fijo manda**: 3,9% + 0,40 = US$2,23 = **4,74%** del precio. Decir «3,9%» sería
+  mentir en un ticket chico (`comisionDeLaPasarela`, con su test).
+- **Lo que la doc NO dice, y lo busqué en todo su corpus: la cadencia de reintentos de cobro.** Dice «according to the
+  retry schedule» y nunca define el schedule. ⚠️ **Trampa:** sí documenta en detalle un calendario de reintentos, pero
+  es el de **entrega de webhooks** (5 intentos: 30 s, 5 min, 30 min, 6 h; nada después de 24 h; timeout de 15 s). Es
+  fácil leer uno y creer que es el otro. Por eso MaKo **no predice** cuándo Creem se da por vencida: espera el
+  `subscription.canceled`.
+
+### Dos cosas propias de Creem que cambiaron el diseño
+
+- **Creem no tiene ningún endpoint que diga de quién es una clave.** Stripe tiene `GET /v1/account` → `acct_…`; Mercado
+  Pago `GET /users/me` → `user_id`. Creem, nada — y el ruteo de avisos **necesita** un identificador estable por cuenta.
+  La salida: el identificador es **el id del endpoint de aviso** (`wh_…`) que MaKo registra en esa cuenta
+  (`CREEM_WEBHOOK_ID`), que es estable, es de esa cuenta y sólo lo conoce quien tiene la clave. Viaja como `?w=`.
+  Consecuencia: **el orden de conexión es al revés que en las otras dos** — primero se prueba la clave, después se
+  registra el aviso, y recién ahí hay identificador para reclamar.
+- **El webhook es FAIL-CLOSED, al revés que Mercado Pago.** En MP el aviso es flaco (un id) y la seguridad real es la
+  relectura obligatoria: un aviso falso sólo provoca una lectura, así que sin secreto se acepta. El de Creem **trae el
+  objeto entero y el `eventType`**: aceptar sin verificar sería dejar que cualquiera POSTee un `subscription.paid` y se
+  dé de alta un plan gratis. Sin secreto, rechaza todo — y por eso `conectada` **exige** el secreto (regla de Stripe,
+  no de MP) y la conexión falla sin guardar nada si Creem no lo devuelve.
+
+### La pasarela por país, que es una decisión de producto
+
+`pasarelasDelPais` decide: Mercado Pago sólo en el país de **su** cuenta (medido: a un argentino, US$47 con tarjeta
+internacional le salen el equivalente a **US$71** por IVA y percepciones); **Creem en LatAm** (es merchant of record: se
+hace cargo del impuesto de cada país y da factura que cumple, donde Stripe deja ese lío del lado de MaKo); **Stripe en
+el resto del mundo** — cambiarle la pasarela a Estados Unidos y Europa no era parte del pedido. Si la que le toca no
+está conectada, se ofrece la internacional que haya: no se deja a nadie sin poder pagar por una preferencia nuestra.
+
+⚠️ La rama internacional **era** `filter((o) => o.pasarela !== 'mercadopago')`. Con dos pasarelas eso quería decir
+«Stripe»; con tres devuelve Stripe **y** Creem juntas, a todo el mundo. Y no falla nada: lo que pasa es que a quien
+compra se le **pregunta** con qué pagar (`pasarelaDeLaCompra` → `'elegir'`), o sea una pantalla de más y una decisión
+que no le toca. **Un `!==` que significa «el otro» es correcto sólo mientras haya dos.**
+
+### Lo que quedó SIN hacer
+
+- **Falta el secreto del webhook para cobrar de verdad** (`CREEM_WEBHOOK_SECRET`, hoy comentado en `.env.local`). Lo
+  devuelve Creem cuando MaKo registra el aviso, así que **sale solo al conectar Creem en `/integraciones?ws=9`** con la
+  clave de producción que ya está. Hasta entonces el webhook rechaza todo (a propósito) y ningún pago entra.
+- **No se probó ningún cobro real** (hace falta el sí de Martín en el chat). Todo lo verificado es con datos armados y
+  `fetch` interceptado. Lo único que se tocó de la API real fueron las tres lecturas vacías que ya estaban medidas.
+- **Reembolso de Creem: no hay endpoint verificado.** El evento `refund.created` existe (o sea que los reembolsos
+  existen y avisan), pero no se encontró el endpoint para pedirlo. `reembolsarCobro` devuelve un mensaje que dice
+  hacerlo desde el panel; el webhook lo asienta cuando llegue. Antes caía en la rama de MP y le pedía a Mercado Pago
+  devolver un pago que no es suyo.
+- **Creem no difiere el primer cobro.** No hay `start_date` documentado (la prueba gratis se hace con
+  `trial_period_days`, que es «N días desde hoy», no «empezá el día X»). Un cobro de agencia con primer cobro diferido
+  **se rechaza explícito** en vez de caer en la rama de MP y arrancar a cobrar un mes antes, encima del mes ya pagado.
+  Lo que queda abierto es `lib/agencia-cobro.ts` (`inicio_at`) y `lib/plan-deuda.ts` (`ciclosPerdidosMp`).
+- **Los textos de UI que todavía nombran a Mercado Pago** cuando el cobro es de Creem: `PlanPanel.tsx` («por Mercado
+  Pago», y las promesas de prorrateo y de baja), `app/m/configuraciones/plan/PlanM.tsx`, `VenderPlan.tsx` (`MONEDAS_STRIPE`
+  deja armar una suscripción de Creem en MXN o EUR), `CobrarConLink.tsx`, `CobroDeEtapaModal.tsx` y
+  `CobroBoton.tsx` del Web Generator (que con Creem en USD **sí** podría cobrar desde la landing: el motivo documentado
+  para excluir MP —cobra en la moneda de su cuenta— no le aplica). Ninguno mueve plata al proveedor equivocado; mienten
+  o no ofrecen.
+- **`lib/retencion-plan.ts` y `lib/subir-plan.ts`** siguen con sus ternarios de dos ramas: una retención o un cambio de
+  plan de un cobro de Creem cae en el camino de MP y queda en `error` (y en retención la oferta se consume igual, porque
+  el setting se limpia antes). **No cuestan plata mal cobrada**, pero no funcionan.
+- **Sin logo oficial de Creem:** `ICON` lleva un letter-mark en neutro (regla de la casa: una inicial honesta antes que
+  un logo inventado). En `creem.io` no hay `theme-color`, ni manifest, ni un hex de marca legible.
+
+### Dos fallas que ya estaban rojas en `origin/integracion` (no las trajo este trabajo)
+
+Verificadas stasheando el cambio: fallan igual sin él.
+
+- `tests/compra-plan.test.ts` — la lista de claves de `PedidoCompra` no tiene `promo` ni `sinPromo`, que el trabajo de
+  promo-entrada agregó al tipo.
+- `tests/cobro-lanzamiento.test.ts` — el `assert.match` sobre `app/api/planes/comprar/route.ts` espera `conPrueba:`
+  como primera clave del objeto, y promo-entrada metió `promoVigente:` antes. Es una aserción que fija el **orden** de
+  un objeto literal: se rompe con cualquier reordenamiento, aunque el código esté bien.
+
+---
+
+## Una suscripción ya cancelada en la pasarela frenaba la baja PARA SIEMPRE (30/10/2026)
+
+- **Síntoma:** `cancelarSuscripcionCobro` (`lib/cobros.ts:1603`) no podía terminar nunca una baja cuya suscripción ya
+  estaba cancelada del lado de la pasarela y seguía `activa` en la fila.
+- **Causa real:** «ya está cancelada» llega como un **error** (404, o un «already canceled»), y el código salía por
+  `ok: false` antes de `aplicarSuscripcionCancelada(c)`. El estado del mundo ya era el que se pedía; lo único que
+  faltaba era asentarlo, y el reintento fallaba igual: la fila quedaba `activa` eternamente. Pasa cuando se canceló a
+  mano en Stripe, o cuando una corrida anterior murió entre la pasarela y la base.
+- **A quién le dolía:** `darDeBajaMiPlan` llama a esta función para la prueba gratis (`:1670`) y devuelve su error tal
+  cual, así que el cliente no podía darse de baja; y `cerrarPruebaAlEmpezarYa` (`:1584`) sólo lo loguea y se va.
+- **La regla que queda:** en una pasarela, **una cancelación es idempotente**: «ya cancelada» es éxito, no error. El 404
+  pasa; cualquier otro error se chequea **releyendo** la suscripción y vale si está cancelada.
+- ⚠️ **No se inventó: el molde ya estaba en el mismo archivo**, en `reusarOCrearCheckout` (`lib/cobros.ts:602-606`), con
+  esa condición exacta (`!x.ok && x.status !== 404`, y si no, releer y aceptar `canceled`). Antes de escribir un
+  criterio nuevo para la pasarela, conviene buscar el que ya está escrito 1.000 líneas más arriba.
+- ⚠️ **Los nombres del estado NO coinciden entre pasarelas y no se escriben a mano:** Stripe dice `canceled` y Mercado
+  Pago dice `cancelled` al leer y `canceled` al cancelar. Para eso está `suscripcionMpCancelada`
+  (`lib/cobros-eventos.ts:450`), que cubre las dos grafías; un `=== 'cancelled'` a mano se rompe según por dónde entró.
+- **Lo que queda abierto:** `anularCobro` (`lib/cobros.ts:1318`) sigue cerrando el link viejo con mejor esfuerzo
+  (`cerrarLinkEnLaPasarela` nunca tira), así que un link anulado que la pasarela no cerró puede seguir cobrable.
+- Salió arreglando P14 de Agency; el resto de esa revisión está en
+  [hallazgos-agencias.md](hallazgos-agencias.md) → «P14 no vive en `main`».
+## El lead del comprador: el checkout ya lo dejaba, y frenaba al que se llamaba igual que otro (30/10/2026)
+
+**Vive en:** lib/compra-plan.ts (`leadDelComprador`) · lib/compra-plan-reglas.ts (`leadDeLaCompra`) · lib/compra-plan-llamada.ts ·
+lib/cobros.ts (`aplicarPagoAprobado`, 5e) · tests/compra-plan-lead.test.ts (10 roturas cazadas).
+
+- **El diagnóstico obvio («la compra no crea lead») era el equivocado.** `iniciarCompraDePlan` lo crea o reusa al ABRIR el pago, con `origen_lead: 'landing'`
+  y sus UTM, y `aplicarPagoAprobado` lo pasa a Ganado con su cuota y su suscripción. Los leads con monto de la plataforma dicen «Cargado a mano» porque
+  **nunca hubo un cobro: la tabla `cobros` tiene 0 filas** (medido el 30/10). No hay ninguna compra real que confirme este camino: el primero que pague lo estrena.
+- ⚠️ **Lo que sí estaba roto: un homónimo frenaba la compra.** `createLead` también frena por NOMBRE, y `leadDelComprador` sólo sabía resolver un duplicado por email: con
+  otro email tiraba, y el comprador leía «No pudimos registrar tu compra» sin poder pagar. La plataforma tiene 219 leads traídos de grupos, con nombre. **Regla:** en una puerta pública, un
+  duplicado nunca frena. El mismo contacto es el mismo lead. Por nombre sólo si es UNO y no tiene email (lo cargó alguien antes de que comprara). Un homónimo con otro email es otra persona:
+  se crea, y la ficha lo marca en «Posibles duplicados». ⚠️ Un lead cargado a mano con sólo teléfono y con OTRO nombre no se encontraba porque el checkout no pedía teléfono: desde el 31/10 lo pide (abajo, «El WhatsApp en el checkout»).
+- **Ganado es el final de esa venta, no una lista de llamadas.** Quien paga se AGREGA además al CRM de `planes.crm_llamadas` (agregar no dispara automatizaciones; sólo el primer pago, sólo
+  un plan de MaKo, sólo la plataforma). Sin el setting no pasa nada. Una prueba gratis no llega acá: no pasa por `aplicarPagoAprobado` al empezar.
+- **El high ticket era configuración, no código:** el catálogo de la plataforma no lo tenía y `crearCrm` arma el CRM, el producto y la oferta juntos. Se creó «MaKo Acelerador» con los datos
+  de `PROGRAMA_ACELERADOR`. Falta decidir si se cobra con link: «Vincular cobro» en el ⋯ de su Ganado.
+- **El origen sigue siendo «Landing», a propósito:** es de dónde vino. Que compró lo dicen `cobros` (con `plan_mako` y `origen`) y estar en ese CRM.
+- **El teléfono no se pedía en el checkout, se pedía al entrar** (el Cerebro, 30/10: cada campo baja la conversión; Martín lo cambió el 31/10: abajo, «El WhatsApp en el checkout»). El número del dueño de la cuenta, al guardarse, llena el teléfono vacío de su lead en la
+  plataforma (`anotarTelefonoDelComprador`). **Ya se pregunta, al final del arranque** («¿A qué WhatsApp te escribo…?», `lib/onboarding-arranque.ts`, con código por DM: se guarda recién al verificarlo). **Sin hacer:** adelantar esa pregunta al primer paso; la tomó Ops Center.
+- **El aviso «Entró un pago» es una automatización de la plataforma** (#714, de la galería, prendida el 30/10): sale por `avisar_al_equipo`, al grupo de MaKo del ws 9.
+
+### ⚠️ MaKo no tiene con qué cobrar, y lo que nunca corrió con un pago de verdad (medido el 30/10/2026)
+
+**La plataforma no tiene ninguna pasarela conectada:** `pasarelasConectadas(9)` da `[]`, sin `STRIPE_*` ni `MERCADOPAGO_*`, y /planes/esencial dice «Todavía no cobramos en línea». Stripe no abre cuentas en Argentina y Paddle y
+Creem no están en el código (`Pasarela` = stripe | mercadopago). **Rastro en toda la base:** 0 cobros; 78 filas en `pagos` y 0 con proveedor; 8 eventos de Stripe en `pasarela_eventos` (ws 1 y 10), 0 de Mercado Pago y 0 del ws 9.
+
+**Nunca se ejercitó con un pago aprobado, en NINGUNA de las dos pasarelas** (lo probado es con la base simulada o la pasarela de mentira; lo marcado *sin aviso real* depende de cómo llega de verdad):
+
+| Tramo | Stripe | Mercado Pago |
+|---|---|---|
+| Conectar en el ws 9: clave, y el aviso (Stripe lo registra solo; MP se pega a mano con el `?u=`) | nunca | nunca |
+| /planes ofrece la pasarela: país (`pasarelasDelPais`), precio en esa moneda | nunca con una real | nunca: sin precio en pesos no se ofrece |
+| `crearCobro`, el link /pagar y el checkout real | nunca | nunca |
+| El aviso firmado llega y se lee (`pasarela_eventos`) | recibió eventos ajenos, nunca uno de un cobro | nunca. *Sin aviso real:* si el de suscripción trae `user_id` |
+| `aplicarPagoAprobado`: el cobro pagado, la cuota, Ganado y la suscripción | nunca | nunca |
+| `altaSiCorresponde`: la cuenta, la persona y el mail de acceso, con un correo que nunca entró | nunca | nunca |
+| `anotarParaLlamar`: la tarjeta en «MaKo Acelerador» | nunca | nunca |
+| #714 «Entró un Pago» llega al grupo | nunca | nunca |
+| /pagar/<token>/listo después de pagar | nunca | nunca |
+| La segunda cuota: la renovación, ~30 días después (nadie la recupera si el aviso se pierde: `reconciliarCobros`) | nunca | nunca |
+| Rechazo, reembolso y corte de la suscripción | nunca | nunca |
+| Contracargo | nunca | nunca |
+| El Purchase de Meta (ningún camino lo manda, docs/hallazgos-pagos.md) | no existe | no existe |
+| El 50% del primer mes con su reloj (lo hace Planes): el cupón en la pasarela y que la renovación vuelva al precio lleno | nunca | nunca |
+
+**La primera compra real es una prueba, no una venta:** docs/prueba-humo-cobro-mako.md tiene el recorrido, con captura de cada tramo. Se hace con Martín, en el chat, antes de pautar.
+
 ## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
 
 El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).
@@ -1681,6 +2056,9 @@ tests/planes-stripe-afuera.test.ts · tests/prueba-stripe-cobro-perdido.test.ts.
 
 ## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
 
+⚠️ **29/10/2026: MaKo Partners salió de Pro** (las landings dicen «gratis» y «cualquier plan»): docs/hallazgos-partners.md →
+«Cualquier plan es partner…». Lo de abajo sobre Partners quedó como historia; el scraper sigue siendo de Pro.
+
 Leila (Fathom 876470842-16), sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»: «Una
 persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper de WhatsApp. Martín, ya decidido
 (876470842-15): el scraper y hacerse partner, sólo en Pro.
@@ -1741,6 +2119,14 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
   suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
 - Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+- **Un «extendé la duración» que arrastra los límites de otra cosa: los 6 meses gratis NO son una prueba larga (30/10, lo que Martín le ofreció a Gabriela; la regla general, en AGENTS.md).** El pedido obvio era sumar «180 días» a la lista, y le habría dado seis meses con los topes de la prueba (3 videos, 1 avatar, 1 landing, sin exportar). Mientras duran, `estadoDePrueba` no la da «en prueba» y tiene su plan entero; vencidos sin resolver, quedan como una prueba vencida y avisan con su propio texto. Son 183 días, para no quedar nunca cortos.
+- **Los 6 meses gratis no paran una tarjeta (30/10).** Darlos a quien ya tiene una suscripción, o una prueba con tarjeta en curso, no frena nada: `estadoDePrueba` sigue mirando el cobro primero (con la prueba en curso, conserva los topes) y la pasarela cobra el día 8 igual. El diálogo decía «gratis» sobre una tarjeta que se iba a cobrar. La ruta lo rechaza y lo dice (`pagaSuPlan`, lib/prueba-uso.ts), y el aviso previo pregunta lo mismo: `estadoDePrueba` no sirve para saber si paga, porque unos 6 meses vigentes tampoco están «en prueba».
+- **Un negocio sin cobro de la plataforma nunca se corta (30/10, medido en lib/plan-acceso-reglas.ts).** El comentario de lib/plan-a-mano-reglas.ts dice que el día que se prenda el corte general este plan «cae como cualquier otro», pero la regla de arriba es «sólo se corta a quien MaKo le vendió el acceso por la pasarela». Prender el corte no le saca los 6 meses a nadie.
+- **El aviso previo de los 6 meses: 14 días antes (`DIAS_AVISO_REGALO`), una vez, a la persona y a Martín.** Su marca es `avisoPrevioAt`, aparte de `avisadoAt`: si compartieran marca, el previo se comería el aviso del fin. Lo corre el mismo cron (`aviso-fin-de-prueba`). Y los dos avisos llevaban a `/admin`, que redirige a la pestaña Customers; el diálogo vive en Accounts (`RUTA_QUIEREN_ENTRAR`).
+- **Las tarjetas de /planes seguían con la jerga que la tabla ya no tenía (30/10).** Leila la sacó de la tabla el 27/10 y la guarda miraba sólo las filas, así que «embudo», «CRM», «media buyer», «setter» y «cohorte» siguieron en lo primero que se lee, y en la promesa del Acelerador. La guarda ahora mira la pantalla entera (`la pantalla entera se entiende`, tests/planes-tres-bloques.test.ts). La regla general, en AGENTS.md: una guarda que mira una parte de la pantalla da falsos verdes cuando el texto se muda. **«Ops Center», «workspace» y «barredora» ya no estaban:** el pedido viejo de barrerlos, medido en producción el 30/10, no encontró ninguno; lo que quedaba era otra jerga.
+- **La tabla prometía anuncios armados la primera semana (30/10).** La fila del Acelerador decía «Tus páginas, mensajes y anuncios armados»; la tarjeta y /reembolsos §2, que es lo que se garantiza, no incluyen anuncios. Corregida la fila, no la garantía.
+- **Partners, los tres puntos del 24/10 ya estaban (medido en producción el 30/10):** landing por defecto y panel sólo para quien terminó el alta (app/partners/page.tsx, `altaDePartner`), se gana dinero y no meses (Martín lo cerró el 25/10) y la calculadora en el hero. Un pedido viejo se mide antes de rehacerlo: no se tocó.
+  **Sin hacer:** la fecha de fin no se ve en Customers (no está «en prueba»): se dice al guardarla y llega el aviso al vencer. Tampoco hay aviso antes de que termine: enterarse el día que se corta es tarde para un cliente (docs/pendientes.md, P16).
 - ⚠️ **Quien ya pagó seguía con los topes (29/10, la verificación de ddfa645d4, ALTA):** si el negocio compra por /planes con el
   email de SU cuenta, el cobro queda `ya_tenia_cuenta` y SIN atar (`alta_ws` null) hasta que Martín lo ata en /admin/cobros, y
   `estadoDePrueba` sólo miraba los cobros atados: seguía «en prueba» y al vencer le llegaba «Terminó tu prueba». Ahora un cobro
@@ -1767,3 +2153,46 @@ núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo
 **Vive en:** lib/planes-comparacion.ts · lib/topes-plan.ts · app/crm/grupo-wa-actions.ts · app/crm/TraerDeGrupoWA.tsx ·
 lib/api-mako/areas/crm.run.ts · lib/partners-programa.ts · app/partners/page.tsx · app/m/partners/page.tsx ·
 tests/planes-tres-bloques.test.ts · tests/scraper-partners-solo-pro.test.ts.
+
+## El funnel de lanzamiento en el cobro: prueba apagada, 50% del primer mes y se paga antes de entrar (30/10/2026)
+
+La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-lanzamiento-low-to-high.md). Lo que vive acá es lo que no se ve leyendo el código.
+
+- **`cobro.monto` sigue siendo la mensualidad, y sólo el PRIMER PAGO sale a mitad.** Lo obvio era guardar 48,50 en el cobro y habría quedado mal para siempre: la deuda de una mora, «Tu plan», la retención, «Pasar a Pro» y el MRR salen de ese número. El descuento se reconoce por `creado_por = planes:<plan>:primer-mes-50` (lib/primer-mes-reglas.ts), sin migración.
+- **Los dos caminos no son simétricos.** Stripe vuelve solo (cupón `once`). Mercado Pago no tiene descuento de un cobro: nace rebajada y hay que subirla con `PUT /preapproval` al entrar el primer pago, con el cron de respaldo (`conciliarPrimerMes`) y un mail a Martín si no puede. Si esa llamada se pierde, el segundo mes se cobra a mitad y nadie lo ve. **Y no se puede subir a ciegas: quien aceptó «2 meses al 50%» antes de darse de baja está rebajado a propósito** (el cron saltea a quien tiene `plan.retencion`).
+- **El reloj de un cartel es sólo un adorno si el servidor no lo mira.** Es la cookie firmada de Landings (`promoVigente`, lib/promo-entrada.ts), y la ruta de compra la lee. Sin reloj vivo, precio de lista. **Armé primero un token mío en la URL con el mismo nombre de archivo, sin saber que Landings estaba haciendo la cookie: se tiró.** Dos relojes para una promesa era peor que cualquiera de los dos. **Y no se llama «oferta» (el Cerebro, 30/10):** en MaKo «Oferta» es la oferta del negocio, con su tab, su API y su propio campo `activa`. Lo de la landing es la promo de entrada (`lib/promo-entrada.ts`), y su estado dice `hay` y su entorno `prendida`, porque `activa` es además la palabra que vigila una guarda de Automations.
+- **Lo que se eligió para lo que Martín dejó abierto («si el reloj se reinicia»):** el reloj no vuelve en ese navegador (Landings). Otro navegador arranca el suyo, y eso lo cierra el cobro con **un descuento por email**: quien lo abandona a mitad del pago lo rearma por 24 h con el mismo email, y después precio normal. 15 min de gracia que no se muestran, sólo para quien vio el descuento en la página y tocó el botón con el reloj en cero. Se cambia en `puedeUsarPromo` (lib/compra-plan.ts) y `MINUTOS_DE_GRACIA` (lib/primer-mes-reglas.ts).
+- **Hay dos interruptores y se prenden juntos con la pasarela:** `PRUEBA_GRATIS_PRENDIDA` (apagada ya) y `PROMO_ENTRADA_ACTIVA` (de Landings, apagada: si no, el cartel promete 23,50 y no hay con qué cobrar). Con el del 50% apagado, el cobro da precio de lista: no hay forma de que el cobro y el cartel digan cosas distintas.
+- **Si el descuento no vale, se dice y se elige.** La ruta contesta 409 con `sinPromo` y nada creado. Nunca se cobra el precio lleno a quien venía viendo la mitad.
+- **«Apagar» no es poner `null`.** `conPreciosEnHtml(html, planes, null)` deja las marcas de la landing como vinieron, o sea «Empieza tus 7 días gratis» en una página publicada. Con la prueba apagada se pasa `'apagada'`, que las reemplaza.
+- **Apagar una promesa es buscarla en todo lo que se copia, no sólo en lo que se dibuja.** Tres de los cinco mensajes que los partners copian y pegan (lib/partners-recursos.ts) seguían diciendo «Lo pruebas 7 días gratis»: los salva `PRUEBA_DIAS` en una variable (`gratis`), así que buscar la frase no los encuentra. Lo destapó un test que pedía esa frase y que se dio vuelta: ahora pide que NO esté.
+- **Prendido y apagado no conviven:** con `PRUEBA_GRATIS_PRENDIDA` en true no hay descuento (el motivo 1 de Martín). A quien ya está en prueba no lo mira el interruptor: `esPruebaDePlan` mira el cobro.
+- **Sin hacer, por falta de datos o de un sí:**
+  - Ningún cobro real pasó por esto, y `PUT /preapproval` nunca se midió con claves de verdad. Hace falta el sí de Martín.
+  - `/planes` hoy muestra «Quiero…»: sin pasarela real conectada no se cobra en línea, así que el funnel no cobra nada hasta conectarla.
+  - Mercado Pago no se ofrece: `preciosLocales` está vacío en los dos planes (nunca se inventa una tasa).
+  - Las marcas `data-mako-prueba="dias"` y `="cobro"` de las landings publicadas y scripts/landings-mako-v2.mts siguen diciendo días gratis: es de Landings.
+  - MaKo Partners paga el primer mes a precio de lista (`gananciaDelReferido`), aunque ese mes haya entrado a mitad, y su landing dice «todo lo que paga el negocio»: decisión de Martín.
+  - Lo ya pagado no se reembolsa, y ahora sin prueba previa: en Argentina, la Ley 24.240 (art. 34) da 10 días para arrepentirse de una compra a distancia. No se tocó la política: lo tiene que mirar Martín.
+
+## El WhatsApp en el checkout: un campo nuevo es una llave nueva para encontrar fichas (31/10/2026)
+
+**El pedido.** Martín: «antes de ir al checkout de mako, donde te pide el nombre y el correo, que le pida también el whatsapp». Se pide con su código de país y no frena el pago: vacío, compra igual. Mal escrito se le dice en el campo, como a un código de referido, y dejarlo vacío sigue. Que sea obligatorio lo decide Martín.
+
+**El diagnóstico obvio era el equivocado.** Parecía un campo más y era un cambio de identidad: hasta hoy el comprador se reconocía sólo por el email, y `createLead` ahora también compara por el número. `leadDeLaCompra` decía «mismo teléfono: se reusa aunque tenga otro email», escrito cuando el checkout no pedía teléfono. Con un formulario público, un dígito mal o el dueño que compra para su segundo negocio ataban el pago a la ficha de OTRA persona: la marca Ganado y `asentarAlta` le pisa `cliente_ws`, sin rastro. Ahora: otro email y el mismo número es otra ficha, con una nota que nombra la otra; una ficha de más se funde, escribir sobre la equivocada no se deshace.
+
+**Un número sin probar le ganaba al probado (lo encontró la revisión).** Con la ficha ya llena desde el formulario, «sólo se completa lo vacío» dejaba afuera el número que WhatsApp sí reconoce, sin una línea en el historial, y por esa ficha se lo llama. Ahora ese número reemplaza SÓLO al escrito en el checkout (`anotarTelefonoDelComprador` lo compara con `cobros.origen.whatsapp`). Lo cargado a mano sigue ganando: también entra por ahí el número principal de los avisos, que puede ser el de un asistente.
+
+**Lo que se perdía sin error:**
+- Dos códigos de país sin el `+` («54 9 11…», «0054…», o el `+` tapado por las marcas invisibles de una app de contactos): 15 dígitos pasan `whatsappLimpio`. Con 11 o más y arrancando con la lada, se saca. Con menos no: 5512345678 es un celular de México.
+- +1809 y +1787 traen el código de área adentro: por IP arrancan en +1.
+- `whatsappLimpio` pide 8 dígitos contando la lada: +54 y «112233» pasaba por completo. En el checkout son 10; el pedido sin pasarela sigue como estaba.
+- Una ficha que ya existía por el email se devolvía sin mirar el número. Se completa si está vacía. Si tiene otro, no se pisa (cualquiera puede escribir el email de otro) y queda en su historial.
+- `TelefonoConPais` guarda número sin lada y una lada que siempre está elegida: mandar los dos juntos convertía un campo vacío en un «número» de dos dígitos. `telefonoDeFormulario` devuelve vacío y saca el 0 de larga distancia.
+- El estilo de `/planes` es `input[type=tel]`, y el campo de `TelefonoConPais` no declara `type`: sin `inputStyle` se ve como un input pelado. Ningún test lo vio; se vio en el banco.
+
+**La otra mitad, acordada con Ops Center.** La pregunta del onboarding se queda, porque el número del checkout no está probado y el código es lo que permite sumarlo al grupo. Al dar el alta se guarda `cuenta.whatsapp_del_pago` (`CLAVE_WHATSAPP_DEL_PAGO`, lib/origen-cuenta.ts): la tarjeta arranca con él y un toque manda el código. Nada le escribe antes. El que vale es el escrito en ESA compra (`cobros.origen.whatsapp`) y, si dejó el campo vacío, el de su ficha.
+
+**Medido: `/planes` ya cobra (31/10, GET anónimo).** La plataforma pasó de no tener pasarela (30/10) a ofrecer Mercado Pago real en pesos: «$ 73.555 ARS por mes». Lo que se escribió el 30/10 sobre «no tiene ninguna pasarela» ya no vale, y ningún POST de prueba se hace sin el sí de Martín.
+
+**Sin hacer:** el número del checkout no se muestra en el aviso de «Entró un pago», sólo el link a la ficha (lib/cobros.ts, `avisarPagoRecibido`). El 15 del celular argentino («11 15 2233 4455») queda adentro: sacarlo pide saber cuánto mide cada código de área, y no se midió contra WhatsApp si llega igual; la verificación del onboarding lo corrige. Una lada elegida mal por el país de la IP con un número local no se detecta. Un número de una ficha sin email ata la compra a esa ficha (`leadDeLaCompra`, decisión del 30/10), y `asentarAlta` le escribe `cliente_ws` sin mirar si ya tenía. La pantalla se vio sólo en el banco (app/planes/[plan]/CompraPlan.tsx); en producción, después del deploy.

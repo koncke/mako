@@ -7,9 +7,13 @@
 // lib/planes-mako.ts (`retencion`). Una oferta por negocio: quien ya usó una, la próxima vez va directo a la baja.
 //
 //   · DESCUENTO — Stripe: un cupón `repeating` (vuelve solo). Mercado Pago: el monto rebajado y el cron lo restaura
-//     cuando se cobraron esas cuotas, contadas desde el próximo cobro de MP (`restaurarDesde`).
+//     cuando se cobraron esas cuotas, contadas desde el próximo cobro de MP (`restaurarDesde`). Creem: igual que Mercado
+//     Pago, pero rebajar es pasarla a un producto rebajado (`cambiarPrecioCreem`): no tiene descuento sobre una abierta.
 //   · PAUSA — UN CICLO, no 30 días (segunda revisión del 23/10, R3): se pausa hasta pasado el próximo cobro de la pasarela
-//     (Stripe: el fin del período; MP: `next_payment_date`), así se saltea exactamente ese cobro. El mes cuenta como cubierto.
+//     (Stripe: el fin del período; MP: `next_payment_date`; Creem: `next_transaction_date`), así se saltea exactamente ese
+//     cobro. El mes cuenta como cubierto. Creem no vuelve solo: lo reanuda el cron, como a Mercado Pago.
+//   · ⚠️ CREEM (31/10/2026): caía en el `else` de Mercado Pago, «No pudimos aplicarlo», y como la marca quedaba en «error» y el
+//     cron no sabía releerla, perdía su oferta para siempre en el último paso antes de la baja. Sin medir con claves de verdad.
 //   · BAJAR DE PLAN — el precio nuevo desde el próximo período y la CAPA NUEVA AL TERMINAR el período pagado (R6): el que
 //     pagó Pro este mes lo usa entero.
 //
@@ -25,7 +29,8 @@ import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { borrarSettingSi, cambiarSettingSi, getSetting, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
 import { logLeadEvent } from './leads';
-import { suscripcionDeMakoDe } from './cobros';
+import { credCreemDelCobro, suscripcionDeMakoDe } from './cobros';
+import { cambiarPrecioCreem, leerSuscripcionCreem, pausarSuscripcionCreem, reanudarSuscripcionCreem } from './creem-api';
 import { esBajaPedida } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import {
@@ -35,7 +40,7 @@ import { planesMako } from './compra-plan';
 import { conceptoDelPlan, precioEn, type PlanMako } from './planes-mako';
 import { vigenciaDe } from './plan-acceso';
 import { mesesDespuesDe } from './plan-acceso-reglas';
-import type { Cobro } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, idDeSuscripcion, type Cobro, type Pasarela } from './cobros-tipos';
 import { CLAVE_RETENCION, leerRetencion, type Guardada, type OpcionRetencion } from './retencion-reglas';
 
 export { CLAVE_RETENCION, leerRetencion, mesesDePausa, type OpcionRetencion } from './retencion-reglas';
@@ -46,12 +51,13 @@ const mismo = (a: number | null | undefined, b: number | null | undefined) => a 
 
 /**
  * Cuándo vuelve a cobrar una pausa. Stripe: 2 días después del cobro salteado (`resumes_at` con `void` anula la factura de ese
- * día y la siguiente cae al fin del período). ⚠️ MERCADO PAGO: un día ANTES del fin del ciclo cubierto (revisión del Cerebro,
- * 23/10): si MP cobra la cuota atrasada al reactivar, o recalcula `next_payment_date` desde hoy, reanudar a los 2 días cobraba
- * justo el ciclo salteado; reanudando al final, el próximo cobro cae en el ciclo que sigue con cualquiera de los dos.
+ * día y la siguiente cae al fin del período). ⚠️ LA QUE REANUDA MaKo (Mercado Pago, Creem): un día ANTES del fin del ciclo cubierto
+ * (revisión del Cerebro, 23/10): si cobra la cuota atrasada al reactivar, o recalcula el próximo cobro desde hoy, reanudar a los
+ * 2 días cobraba justo el ciclo salteado; reanudando al final, el próximo cobro cae en el ciclo que sigue con cualquiera de los
+ * dos. Creem no documenta cuál de los dos hace: por eso va del lado seguro.
  */
-export function reanudaDeLaPausa(pasarela: 'stripe' | 'mercadopago', proximo: string, meses: number): string {
-  const base = pasarela === 'stripe'
+export function reanudaDeLaPausa(pasarela: Pasarela, proximo: string, meses: number): string {
+  const base = CAPACIDADES_PASARELA[pasarela].ofertaVuelveSola
     ? Date.parse(`${proximo}T00:00:00Z`) + 2 * DIA
     : Date.parse(`${mesesDespuesDe(proximo, meses)}T00:00:00Z`) - DIA;
   return new Date(base).toISOString();
@@ -70,7 +76,7 @@ type Marca = Guardada & { reanudaAt?: string };
 async function contexto(ws: number): Promise<Contexto | null> {
   const c = await suscripcionDeMakoDe(ws).catch(() => null);
   if (!c || c.suscripcion_estado === 'cancelada' || esBajaPedida(c.motivo)) return null;
-  if (c.proveedor === 'stripe' ? !c.proveedor_suscripcion_id : !(c.proveedor_suscripcion_id ?? c.proveedor_ref)) return null;
+  if (!idDeSuscripcion(c)) return null;
   // ⚠️ EN MORA NO HAY OFERTAS (R5): la pausa borraba el mes adeudado y «bajar» reescribía la deuda. Primero «Pagar y volver».
   const v = await vigenciaDe(ws);
   if (!v || v.vigencia.estado === 'mora' || v.vigencia.estado === 'vencido') return null;
@@ -112,6 +118,10 @@ async function proximoCobroDe(ws: number, c: Cobro, plataforma: number): Promise
     const id = c.proveedor_suscripcion_id ?? c.proveedor_ref;
     const s = token && id ? await suscripcionMpDetalle(token, id) : null;
     if (s?.ok && s.proximo) return s.proximo.slice(0, 10);
+  } else if (c.proveedor === 'creem' && c.proveedor_suscripcion_id) {
+    const creem = await credCreemDelCobro(c);
+    const s = creem ? await leerSuscripcionCreem(creem.key, c.proveedor_suscripcion_id) : null;
+    if (s?.ok && s.proximoCobro) return s.proximoCobro.slice(0, 10);
   }
   const v = await vigenciaDe(ws);
   return v?.vigencia.estado === 'al-dia' ? v.vigencia.hasta ?? null : null;
@@ -137,7 +147,8 @@ export async function aplicarRetencion(ws: number, autor: string, opcion: Opcion
     estado: 'aplicando', opcion, cobroId: c.id, pasarela: c.proveedor, aplicadaAt: new Date().toISOString(), montoOriginal: c.monto, moneda: c.moneda,
     ...(opcion === 'descuento' ? { pct: retencion.descuento!.pct, meses, objetivo: r2(c.monto * (100 - retencion.descuento!.pct) / 100), ...(proximo ? { restaurarDesde: proximo } : {}) } : {}),
     // La pausa cubre UN ciclo: el que empieza en el próximo cobro (R3).
-    ...(opcion === 'pausa' ? { meses, hasta: mesesDespuesDe(proximo!, meses ?? 1), reanudaAt: reanudaDeLaPausa(c.proveedor, proximo!, meses ?? 1) } : {}),
+    ...(opcion === 'pausa' ? { meses, hasta: mesesDespuesDe(proximo!, meses ?? 1),
+      reanudaAt: reanudaDeLaPausa(c.proveedor, proximo!, meses ?? 1) } : {}),
     ...(opcion === 'bajar' ? { objetivo: precioDestino!, planDestino: destino!.id, capaPendiente: { capa: destino!.capa, desde: proximo! } } : {}),
   };
   const gano = await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_RETENCION, null, JSON.stringify(marca)));
@@ -156,7 +167,17 @@ export async function aplicarRetencion(ws: number, autor: string, opcion: Opcion
           : await cambiarPrecioStripe(key, sub, { monto: precioDestino!, moneda: c.moneda, idem });
       if (!r.ok) error = r.error;
     }
-  } else {
+  } else if (c.proveedor === 'creem') {
+    const creem = await credCreemDelCobro(c);
+    const sub = c.proveedor_suscripcion_id;
+    if (!creem || !sub) error = 'Creem no está conectado';
+    else {
+      // Sin cobrar ni devolver nada ahora (`proration-none`): el precio nuevo es desde el próximo período, como en Mercado Pago.
+      const r = opcion === 'pausa' ? await pausarSuscripcionCreem(creem.key, sub, idem)
+        : await cambiarPrecioCreem(creem.key, sub, { monto: marca.objetivo!, moneda: c.moneda, nombre: c.concepto, idem, cobrarDiferencia: false });
+      if (!r.ok) error = r.error;
+    }
+  } else if (c.proveedor === 'mercadopago') {
     const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', plataforma);
     if (!token || !subMp) error = 'Mercado Pago no está conectado';
     else {
@@ -165,6 +186,9 @@ export async function aplicarRetencion(ws: number, autor: string, opcion: Opcion
           : await montoSuscripcionMp(token, subMp, precioDestino!, idem);
       if (!r.ok) error = r.error;
     }
+  } else {
+    const _x: never = c.proveedor;
+    error = `Esa pasarela no sabe de ofertas: ${String(_x)}`;
   }
   if (error) {
     // Queda en «error»: si la pasarela sí lo tomó (la respuesta se perdió), el cron lo concilia (R1).
@@ -196,8 +220,8 @@ async function marcarAplicada(ws: number, g: Marca, plataforma: number): Promise
       if (error) { console.error(`[retencion] ws=${ws}: no pude anotar el plan nuevo en el cobro ${g.cobroId}: ${error.message}`); return false; }
     }
   }
-  // Stripe vuelve solo (cupón repeating, resumes_at); MP necesita al cron. Bajar no se restaura nunca.
-  await runWithWorkspace(ws, () => setSetting(CLAVE_RETENCION, JSON.stringify({ ...g, estado: 'aplicada', restaurada: g.pasarela === 'stripe' || g.opcion === 'bajar' })));
+  // Stripe vuelve solo (cupón repeating, resumes_at); las demás necesitan al cron. Bajar no se restaura nunca.
+  await runWithWorkspace(ws, () => setSetting(CLAVE_RETENCION, JSON.stringify({ ...g, estado: 'aplicada', restaurada: CAPACIDADES_PASARELA[g.pasarela].ofertaVuelveSola || g.opcion === 'bajar' })));
   return true;
 }
 
@@ -206,8 +230,8 @@ async function marcarAplicada(ws: number, g: Marca, plataforma: number): Promise
  *   1. CONCILIAR (R1): una marca «aplicando» de hace más de 10 minutos o en «error» se relee en la pasarela: si lo tomó, queda
  *      «aplicada» con sus escrituras; si no, se libera (la oferta vuelve a estar).
  *   2. LA CAPA DE «BAJAR» (R6): al llegar el próximo cobro, el negocio pasa a la capa del plan nuevo.
- *   3. MERCADO PAGO NO VUELVE SOLO: el descuento, al cobrarse sus cuotas desde `restaurarDesde` (R2: contadas desde el
- *      próximo cobro de MP, no por la hora de aceptar); la pausa, al pasar su `reanudaAt`.
+ *   3. MERCADO PAGO Y CREEM NO VUELVEN SOLOS: el descuento, al cobrarse sus cuotas desde `restaurarDesde` (R2: contadas desde
+ *      el próximo cobro, no por la hora de aceptar); la pausa, al pasar su `reanudaAt`.
  */
 export async function conciliarRetenciones(): Promise<{ conciliadas: number; liberadas: number; capas: number; restauradas: number }> {
   const out = { conciliadas: 0, liberadas: 0, capas: 0, restauradas: 0 };
@@ -228,9 +252,10 @@ export async function conciliarRetenciones(): Promise<{ conciliadas: number; lib
       const ws = Number(fila.workspace_id);
       const g = leerRetencion(fila.value) as Marca | null;
       if (!g) continue;
-      const { data: c } = await db.from('cobros').select('proveedor_suscripcion_id, proveedor_ref, suscripcion_estado').eq('id', g.cobroId).maybeSingle();
-      const cc = c as { proveedor_suscripcion_id: string | null; proveedor_ref: string | null; suscripcion_estado: string | null } | null;
-      const id = g.pasarela === 'stripe' ? cc?.proveedor_suscripcion_id : (cc?.proveedor_suscripcion_id ?? cc?.proveedor_ref);
+      const { data: c } = await db.from('cobros').select('workspace_id, proveedor, cuenta, cuenta_ref, concepto, moneda, proveedor_suscripcion_id, proveedor_ref, suscripcion_estado').eq('id', g.cobroId).maybeSingle();
+      const cc = c as Pick<Cobro, 'workspace_id' | 'proveedor' | 'cuenta' | 'cuenta_ref' | 'concepto' | 'moneda' | 'proveedor_suscripcion_id' | 'proveedor_ref' | 'suscripcion_estado'> | null;
+      const id = cc ? idDeSuscripcion(cc) : null;
+      const creem = g.pasarela === 'creem' && cc ? await credCreemDelCobro(cc) : null;
       // 1. Conciliar.
       if (g.estado === 'error' || (g.estado === 'aplicando' && Date.now() - Date.parse(g.aplicadaAt) > 10 * 60_000)) {
         let tomo: boolean | null = null;
@@ -240,6 +265,10 @@ export async function conciliarRetenciones(): Promise<{ conciliadas: number; lib
         } else if (g.pasarela === 'mercadopago' && token && id) {
           const s = await suscripcionMpDetalle(token, id);
           if (s.ok) tomo = g.opcion === 'pausa' ? s.estado === 'paused' : mismo(s.monto, g.objetivo);
+        } else if (creem && id) {
+          const s = await leerSuscripcionCreem(creem.key, id);
+          // Un producto que vino como id suelto no dice su precio: eso es «no sé», no «no lo tomó», y no libera la oferta.
+          if (s.ok) tomo = g.opcion === 'pausa' ? s.estado === 'paused' : s.montoProducto == null ? null : mismo(s.montoProducto, g.objetivo);
         }
         // Una PAUSA que la pasarela ya no muestra porque YA PASÓ su reanudación no se libera (la oferta volvería): se consumió.
         if (tomo === false && g.opcion === 'pausa' && g.reanudaAt && Date.now() >= Date.parse(g.reanudaAt)) tomo = true;
@@ -255,8 +284,9 @@ export async function conciliarRetenciones(): Promise<{ conciliadas: number; lib
         else console.error(`[retencion] ws=${ws}: no pude pasar a la capa ${g.capaPendiente.capa}: ${error.message}`);
         continue;
       }
-      // 3. Mercado Pago: volver al precio o reanudar.
-      if (g.pasarela !== 'mercadopago' || g.restaurada || !token || !id) continue;
+      // 3. Las que no vuelven solas: volver al precio o reanudar.
+      if (CAPACIDADES_PASARELA[g.pasarela].ofertaVuelveSola || g.restaurada || !id) continue;
+      if (!(g.pasarela === 'mercadopago' && token) && !creem) continue;
       if (cc?.suscripcion_estado === 'cancelada') { await runWithWorkspace(ws, () => setSetting(CLAVE_RETENCION, JSON.stringify({ ...g, restaurada: true }))); continue; }
       if (g.opcion === 'pausa' && (!g.reanudaAt || Date.now() < Date.parse(g.reanudaAt))) continue;
       if (g.opcion === 'descuento') {
@@ -266,14 +296,19 @@ export async function conciliarRetenciones(): Promise<{ conciliadas: number; lib
           .eq('workspace_id', plataforma).eq('cobro_id', g.cobroId).eq('pagado', true).gte('fecha_pago', desde);
         if ((count ?? 0) < (g.meses ?? 1)) continue;
       }
-      const r = g.opcion === 'pausa'
-        ? await estadoSuscripcionMp(token, id, 'authorized', `mako-retencion-fin-${g.cobroId}-pausa`)
-        : await montoSuscripcionMp(token, id, g.montoOriginal, `mako-retencion-fin-${g.cobroId}`);
+      const idemFin = g.opcion === 'pausa' ? `mako-retencion-fin-${g.cobroId}-pausa` : `mako-retencion-fin-${g.cobroId}`;
+      const r = creem
+        ? (g.opcion === 'pausa' ? await reanudarSuscripcionCreem(creem.key, id, idemFin)
+          : await cambiarPrecioCreem(creem.key, id, { monto: g.montoOriginal, moneda: g.moneda, nombre: cc?.concepto ?? 'MaKo', idem: idemFin, cobrarDiferencia: false }))
+        : g.opcion === 'pausa'
+          ? await estadoSuscripcionMp(token!, id, 'authorized', idemFin)
+          : await montoSuscripcionMp(token!, id, g.montoOriginal, idemFin);
       if (!r.ok) { console.error(`[retencion] no pude restaurar el cobro ${g.cobroId} (${g.opcion}): ${r.error}`); continue; }
       if (g.opcion === 'pausa') {
-        // Que el próximo cobro de MP quede en el ciclo que sigue: si quedó en el pasado, MP puede cobrar el ciclo salteado.
-        const d = await suscripcionMpDetalle(token, id);
-        if (d.ok && d.proximo && Date.parse(d.proximo) < Date.now()) console.error(`[retencion] ⚠️ cobro ${g.cobroId}: MP reanudó con next_payment_date en el pasado (${d.proximo}): revisar que no cobre el ciclo salteado`);
+        // Que el próximo cobro quede en el ciclo que sigue: si quedó en el pasado, puede cobrar el ciclo salteado.
+        const d = creem ? await leerSuscripcionCreem(creem.key, id) : await suscripcionMpDetalle(token!, id);
+        const prox = d.ok ? ('proximoCobro' in d ? d.proximoCobro : d.proximo) : null;
+        if (prox && Date.parse(prox) < Date.now()) console.error(`[retencion] ⚠️ cobro ${g.cobroId}: ${g.pasarela} reanudó con el próximo cobro en el pasado (${prox}): revisar que no cobre el ciclo salteado`);
       }
       await runWithWorkspace(ws, () => setSetting(CLAVE_RETENCION, JSON.stringify({ ...g, restaurada: true })));
       out.restauradas++;

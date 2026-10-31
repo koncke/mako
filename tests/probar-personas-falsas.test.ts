@@ -80,7 +80,7 @@ test('los datos: las claves EXACTAS del catálogo del «{ }» y el mismo corte d
     for (const k of Object.keys(d)) assert.ok(claves.has(k), `«${k}» no existe en el catálogo del «{ }»`);
     for (const k of ['nombre', 'apellido', 'nombre_completo', 'empresa', 'lead_email', 'lead_telefono', 'lead_web']) assert.ok(d[k], `${p.id}: falta ${k}`);
     assert.deepEqual(
-      { nombre: d.nombre, apellido: d.apellido, nombre_completo: d.nombre_completo, empresa: d.empresa },
+      { nombre: d.nombre, apellido: d.apellido, nombre_completo: d.nombre_completo, empresa: d.empresa, segundo_nombre: d.segundo_nombre, tercer_nombre: d.tercer_nombre },
       valoresVariablesLead({ nombre: `${p.nombre} ${p.apellido}`, empresa: p.empresa }),
     );
     assert.equal(d.nombre, p.nombre);

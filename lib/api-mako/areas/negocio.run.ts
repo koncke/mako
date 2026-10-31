@@ -29,19 +29,20 @@ import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { resumenDePrueba } from '@/lib/prueba-uso';
+import { gratisHastaDe } from '@/lib/plan-a-mano';
+import { lineaDelPrimerMes } from '@/lib/primer-mes-reglas';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
 import { mensajesParaCopiar } from '@/lib/partners-recursos';
-import { NOMBRE_COSA_PRUEBA, textoSoloPro } from '@/lib/topes-plan';
-import { esEsencialDe } from '@/lib/plan-esencial';
+import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
-import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
@@ -205,15 +206,16 @@ export const RUNNERS: Runners = {
   // El plan de MaKo del negocio (15/10/2026, «Tu plan»): lo que la PLATAFORMA le cobra, leído por `alta_ws`.
   ver_mi_plan: {
     leer: async (_input, ctx) => {
-      const [ws, sus] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws)]);
+      const [ws, sus, gratisHasta] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws), gratisHastaDe(ctx.ws).catch(() => null)]);
       const plan = capaDef(ws?.capa).nombre;
       const donde = linkApp('/configuraciones/plan', ctx.ws);
-      if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
+      if (!sus) return json({ plan, cobro: 'acordado con MaKo', ...(gratisHasta ? { gratis_hasta: gratisHasta } : {}), para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({
         plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
         estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida'
           : esPruebaDePlan(sus) && sus.estado === 'pendiente' ? 'en prueba gratis (ver_mi_prueba)' : 'activo',
         ...(esBajaPedida(sus.motivo) ? { baja: sus.motivo } : {}),
+        ...(lineaDelPrimerMes(sus, formatoMonto) ? { primer_mes: lineaDelPrimerMes(sus, formatoMonto) } : {}),
         para_darse_de_baja: 'dar_de_baja_mi_plan, o el botón «Darme de baja» de Tu plan',
         link: donde,
       });
@@ -229,7 +231,7 @@ export const RUNNERS: Runners = {
       if (esBajaPedida(sus.motivo)) return { error: sus.motivo ?? 'La baja ya estaba pedida.', yaEstaba: true };
       const como = esPruebaDePlan(sus) && sus.estado === 'pendiente'
         ? 'Está en su prueba gratis: no se le cobra nada, y sigue usando MaKo hasta el día que iba a cobrarse.'
-        : sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
+        : CAPACIDADES_PASARELA[sus.proveedor].bajaAlFinDelPeriodo ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : `${NOMBRE_PASARELA[sus.proveedor]} deja de cobrarlo en el acto.`;
       return { payload: {}, resumen: `Dar de baja el plan de MaKo (${formatoMonto(sus.monto, sus.moneda)} por mes, por ${NOMBRE_PASARELA[sus.proveedor]}). ${como}` };
     }),
     ejecutar: sinLanzar(async (_payload, ctx) => {
@@ -290,8 +292,7 @@ export const RUNNERS: Runners = {
     preparar: seguro(async (input, ctx) => {
       const alta = altaLimpia(input);
       const ya = await altaDePartner(ctx.ws).catch(() => null);
-      // Sólo MaKo Pro (27/10/2026): no se propone lo que `hacermePartner` va a frenar.
-      if (!ya && (await esEsencialDe(ctx.ws))) return { error: textoSoloPro('partners') };
+      // Cualquier plan es partner desde el 29/10/2026 (antes, sólo MaKo Pro).
       const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
       const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
       const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);

@@ -2,6 +2,29 @@
 
 > Llamada «Thiago <> Martin» del 29/10/2026 (Fathom 197943284), contrastada con main ff908e645 y las ramas con VERDE por 6 verificadores y 6 refutadores. Al implementar una de estas, el hito lleva la promesa resuelta y la cosecha va al docs/hallazgos-<área>.md de su área.
 
+## Para el jueves 5/11 a las 17 h (estado del 30/10, contrastado con main `e8b3eb040` y la rama `agency-thiago-2910`)
+
+Lo de abajo es la foto del 29/10 y ya quedó atrás en varios puntos. **Esto se contrastó leyendo el código, no usándolo:** ninguna pantalla se recorrió en el navegador.
+
+**Lo que frena la demo de Agency, y no es código:**
+- **Thiago todavía no tiene cuenta.** Medido en producción el 30/10: ningún negocio con su nombre, y la única agencia es Código Inmobiliario. Sin MaKo Pro no se suma como Agency.
+- **Stripe en modo real y los precios en euros (de Martín).** Sin eso, a una cuenta de España no le sale el link del primer mes: queda pendiente hasta aprobarla a mano, 27 veces.
+
+**Las tres cosas para mostrar:**
+1. **Agency** (`agency-thiago-2910`, si el tren sube antes): abrir la cuenta de un cliente eligiendo Esencial o Pro, entrar con «Inspeccionar», que el cliente no vea MaKo Partners ni «Pasar a Pro», y darla de baja.
+2. **Media Buyer** (en main): dónde, hasta cuándo y «lánzame una campaña», que nace en pausa.
+3. **Automations y Calendario** (en main): las plantillas y el goteo de la sección 4, y las publicaciones que se repiten.
+
+**Se puede sumar si Martín hace el clic de la prueba de anuncios por Zernio:** «súbeme este anuncio» desde el grupo con un video o un Drive (en main). Sin ese clic, un creativo nuevo puede rebotar con el error 1885183.
+
+**Decirlo antes de que lo pregunte (no existe):**
+- «Guardar en MaKo» desde un perfil de Instagram o LinkedIn.
+- La guía «Migrar tu CRM con Claude» y el token de agencia: la migración de sus 27 clientes hoy es de a una cuenta.
+- «Usar en un anuncio» desde los editores y el AI Avatar.
+- Variar el CTA y pausar el original cuando una variación le gana.
+- En Calendario: el anuncio y el email enlazados, las reuniones del equipo por persona y las reservas de Google Calendar como etapa del CRM.
+- LinkedIn en Chats y Automations: lo decide Martín (no oficial, partner sólo para Páginas, o no hacerlo y aclararlo).
+
 Thiago tiene una agencia con 27 clientes en España. La próxima reunión es el jueves que viene a las 17:00. Revisé todo contra main (ff908e645) y contra las ramas con VERDE.
 
 En la llamada prometiste 61 cosas distintas: **27 ya están**, **23 están a medias o en camino**, **8 no existen** y **3 no dependen del código**.

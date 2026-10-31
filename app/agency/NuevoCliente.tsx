@@ -46,6 +46,8 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
   const [nombre, setNombre] = useState(nombreInicial);
   const [email, setEmail] = useState(emailInicial ?? '');
   const [paga, setPaga] = useState<QuienPaga>(pagaSugerida);
+  // Su plan (29/10/2026, Thiago: «son los mismos planes, de 47 y 97»): Esencial o Pro, con los topes de cada uno.
+  const [plan, setPlan] = useState<'esencial' | 'pro'>('esencial');
   const [ya, setYa] = useState<number | null>(null);
   const [mal, setMal] = useState('');
   const [ocupado, setOcupado] = useState(false);
@@ -71,7 +73,7 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
     if (!listo || ocupado) return;
     setOcupado(true);
     setMal('');
-    const r = await abrirCuentaClienteAction({ leadId, nombre, email, paga }).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    const r = await abrirCuentaClienteAction({ leadId, nombre, email, paga, plan }).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
     setOcupado(false);
     if (!r.ok) {
       if ('yaTiene' in r && r.yaTiene) setYa(r.yaTiene);
@@ -89,7 +91,7 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
 
   if (typeof document === 'undefined') return null;
   const quien = nombre.trim() || 'este cliente';
-  const mes = usd ? `US$ ${usd.toLocaleString('es-AR')} al mes` : 'su mes';
+  const mes = plan === 'pro' ? 'US$ 97 al mes' : usd ? `US$ ${usd.toLocaleString('es-AR')} al mes` : 'su mes';
 
   let titulo = leadId != null ? `Abrirle su cuenta a ${quien}` : 'Nuevo cliente';
   let cuerpo: ReactNode;
@@ -157,6 +159,17 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
           data-autofocus={leadId != null ? true : undefined}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') void abrir(); }} />
+        <fieldset className="nc-paga">
+          <legend className="nc-lab">Su plan</legend>
+          <label className="nc-op" data-on={plan === 'esencial'}>
+            <input type="radio" name="nc-plan" checked={plan === 'esencial'} onChange={() => setPlan('esencial')} />
+            <span><b>MaKo Esencial</b><small>US$ 47 al mes. 1 funnel, 1 WhatsApp, 3 automatizaciones y 3 landings.</small></span>
+          </label>
+          <label className="nc-op" data-on={plan === 'pro'}>
+            <input type="radio" name="nc-plan" checked={plan === 'pro'} onChange={() => setPlan('pro')} />
+            <span><b>MaKo Pro</b><small>US$ 97 al mes. Sin esos topes, con anuncios y equipo.</small></span>
+          </label>
+        </fieldset>
         <fieldset className="nc-paga">
           <legend className="nc-lab">¿Quién paga su cuenta?</legend>
           <label className="nc-op" data-on={paga === 'agencia'}>

@@ -27,7 +27,9 @@ import { listarLineas } from '@/lib/evolution';
 import { lineaPorDefault } from '@/lib/lineas-whatsapp';
 import { enviarBorrador } from '@/lib/evolution-envio';
 import { leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
-import { frenoAlAprobar, SIN_USO, type UsoGoteo } from '@/lib/goteo';
+import { frenoAlAprobar, goteoDeHoy, SIN_USO, type UsoGoteo } from '@/lib/goteo';
+import { subidasPorAutomatizacion } from '@/lib/goteo-db';
+import { tzActual } from '@/lib/timezone';
 
 export type ViaBorrador = 'empresa';
 
@@ -141,7 +143,9 @@ export async function frenoDelGoteoAlAprobar(secuenciaId: number | null): Promis
       if (!Number.isFinite(ms)) continue;
       uso = { enviados: uso.enviados + 1, ultimoMs: Math.max(uso.ultimoMs ?? ms, ms), primeroMs: Math.min(uso.primeroMs ?? ms, ms) };
     }
-    return frenoAlAprobar(g, uso, Date.now(), nombre);
+    // Con arranque gradual, el tope de HOY (lib/goteo.ts). Los borradores son de WhatsApp.
+    const yaMando = g.arranque && g.dia != null ? (await subidasPorAutomatizacion(db, new Map([[secuenciaId, g]]), await tzActual())).get(secuenciaId) ?? 0 : 0;
+    return frenoAlAprobar(goteoDeHoy(g, yaMando), uso, Date.now(), nombre);
   } catch (e) {
     return `No pude comprobar el goteo de esta automatización (${e instanceof Error ? e.message : String(e)}): prueba de nuevo en un momento.`;
   }

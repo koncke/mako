@@ -36,6 +36,8 @@ import { haptico } from '@/lib/haptico';
 import { avisoCorto, type AutomatizacionM, type BorradorM, type PasoM } from './reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { MetricasM } from './MetricasM';
+import { ConfiguracionesM } from './ConfiguracionesM';
+import { descartarViejosDelAviso } from '@/app/automations/aviso-ritmo-descartar';
 
 const RUTA_PASOS = '/api/whatsapp/secuencias';
 const RUTA_SECUENCIAS = '/api/chat-agent/secuencias';
@@ -105,7 +107,10 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
 
   const abrir = (id: number) => { setAbiertaId(id); setError(null); setDupPublicar(null); setAbierto(true); };
   /** El «Activar» que espera la respuesta al aviso de duplicada (el server la frenó), con su texto. */
-  const [aActivar, setAActivar] = useState<{ a: AutomatizacionM; texto: string } | null>(null);
+  const [aActivar, setAActivar] = useState<{ a: AutomatizacionM; texto: string; ritmo?: boolean; poner?: string | null; viejos?: { frase: string; boton: string; ids: number[] } | null } | null>(null);
+  const [descartando, setDescartando] = useState(false);
+  /** Configuraciones de una, abierta desde su aviso (`ConfiguracionesM`). */
+  const [configDe, setConfigDe] = useState<number | null>(null);
   /** Publicar una activa que el server frenó por duplicada: el aviso, y el botón pasa a «Publicar igual». */
   const [dupPublicar, setDupPublicar] = useState<string | null>(null);
   const cerrar = () => { if (!ocupado) setAbierto(false); };
@@ -120,9 +125,19 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
   };
 
   // ── Prender / pausar ─────────────────────────────────────────────────────────────────────────
-  const alternar = async (a: AutomatizacionM, activa: boolean, deshaciendo = false, aunqueDuplique = false) => {
+  const alternar = async (a: AutomatizacionM, activa: boolean, deshaciendo = false, aunqueDuplique = false, yaAvisado = false) => {
     if (!puedeEditar || enVuelo.has(a.id)) return;
     if (!enLinea) { toast('Sin conexión'); return; }
+    // CUÁNTOS Y A QUÉ RITMO, antes de prenderla (Martín, 25/10/2026, lib/ritmo-al-activar.ts). «No pude preguntar» no frena.
+    if (activa && !deshaciendo && !yaAvisado) {
+      marcarVuelo(a.id, true);
+      const ritmo = await fetch(`${RUTA_PASOS}?ritmo=${a.id}`)
+        .then((r) => r.json())
+        .then((r: { ok?: boolean; ritmo?: { texto: string; poner: string | null; viejos: { frase: string; boton: string; ids: number[] } | null } | null }) => (r.ok ? r.ritmo ?? null : null))
+        .catch(() => null);
+      marcarVuelo(a.id, false);
+      if (ritmo) { haptico('medium'); setAActivar({ a, texto: ritmo.texto, ritmo: true, poner: ritmo.poner, viejos: ritmo.viejos }); return; }
+    }
     const antes = !activa;
     poner(a.id, { activa });
     marcarVuelo(a.id, true);
@@ -239,7 +254,7 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
                 key={x.id}
                 titulo={x.nombre}
                 segunda={x.disparador || undefined}
-                pill={e.borrador ? <PildoraM tono="warn">Sin publicar</PildoraM> : undefined}
+                pill={e.borrador ? <PildoraM tono="warn">Sin publicar</PildoraM> : e.activa && x.avisoRitmo ? <PildoraM tono="warn">{x.avisoRitmo.rotulo}</PildoraM> : undefined}
                 onClick={() => abrir(x.id)}
                 control={(
                   <InterruptorM
@@ -256,19 +271,38 @@ export function AutomationsM({ filas, puedeEditar }: { filas: AutomatizacionM[];
       </div>
 
       {/* EL AVISO DE DUPLICADA AL ACTIVAR (21/10/2026): el server no la prendió; la misma pregunta que en la computadora. */}
-      <SheetM id="activar-igual" abierto={aActivar != null} onCerrar={() => setAActivar(null)} titulo={aActivar?.a.nombre ?? 'Activar'} snap="medio"
+      <SheetM id="activar-igual" abierto={aActivar != null} onCerrar={() => setAActivar(null)} titulo={aActivar?.a.nombre ?? 'Activar'} snap={aActivar?.viejos ? 'alto' : 'medio'} ocupado={descartando}
         rotuloCerrar="Cancelar" pie={aActivar ? (
-          <PieM consecuencia={aActivar.texto}>
-            <Button variant="primary" size="lg" full onClick={() => { const x = aActivar; setAActivar(null); void alternar(x.a, true, false, true); }}>Activar igual</Button>
-            <Button variant="tertiary" size="lg" full onClick={() => setAActivar(null)}>Cancelar</Button>
+          <PieM consecuencia={[aActivar.texto, aActivar.viejos?.frase].filter(Boolean).join(' ')}>
+            <Button variant="primary" size="lg" full disabled={descartando} onClick={() => { const x = aActivar; setAActivar(null); void alternar(x.a, true, false, !x.ritmo, true); }}>{aActivar.ritmo && !aActivar.poner && !aActivar.viejos ? 'Activar' : 'Activar igual'}</Button>
+            {aActivar.viejos && (
+              <Button variant="secondary" size="lg" full loading={descartando} onClick={() => {
+                const x = aActivar;
+                setDescartando(true);
+                void descartarViejosDelAviso(x.a.id, x.viejos!.ids).then((r) => {
+                  setDescartando(false);
+                  if (!r.ok) { haptico('error'); toast(r.error); return; }
+                  setAActivar((v) => (v?.a.id === x.a.id ? { ...v, texto: r.aviso.texto, poner: r.aviso.poner, viejos: r.aviso.viejos } : v));
+                  router.refresh();
+                });
+              }}>{aActivar.viejos.boton}</Button>
+            )}
+            {aActivar.poner && <Button variant="secondary" size="lg" full disabled={descartando} onClick={() => { const id = aActivar.a.id; setAActivar(null); setConfigDe(id); }}>{aActivar.poner}</Button>}
+            <Button variant="tertiary" size="lg" full disabled={descartando} onClick={() => setAActivar(null)}>Cancelar</Button>
           </PieM>
         ) : undefined}>
-        {aActivar && <p className="m-auto-error" role="alert">{aActivar.texto}<ReportarASoporte /></p>}
+        {aActivar && !aActivar.ritmo && <p className="m-auto-error" role="alert">{aActivar.texto}<ReportarASoporte /></p>}
       </SheetM>
+
+      {/* Al cerrar se relee: si le pusieron goteo u horario, el aviso se va. */}
+      <ConfiguracionesM secuenciaId={configDe} onCerrar={() => { setConfigDe(null); router.refresh(); }} />
 
       <SheetM id="automatizacion" abierto={abierto} onCerrar={cerrar} titulo={a?.nombre ?? 'Automatización'} snap="alto"
         ocupado={!!ocupado} pie={pie} rotuloCerrar="Cerrar la automatización">
         {error && <p className="m-auto-error" role="alert">{error}<ReportarASoporte /></p>}
+        {a?.avisoRitmo && v?.activa && <p className="m-auto-nada" role="status">{a.avisoRitmo.texto}</p>}
+        {/* EL CAMINO, DESDE EL AVISO MISMO (Martín, 30/10/2026: «no sabia donde se configuraba»). Antes el teléfono lo decía y no llevaba a ningún lado. */}
+        {a?.avisoRitmo?.poner && v?.activa && puedeEditar && <Button variant="secondary" size="lg" full disabled={!!ocupado} onClick={() => { setAbierto(false); setConfigDe(a.id); }}>{a.avisoRitmo.poner}</Button>}
         {a && v && (
           <>
             {/* LAS MÉTRICAS (23/10/2026): la misma hoja que «Métricas» en la computadora, destilada. Sin ella, los números de siempre. */}

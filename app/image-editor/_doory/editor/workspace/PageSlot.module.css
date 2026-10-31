@@ -15,6 +15,17 @@
   justify-content: space-between;
   gap: var(--cv-space-2);
   padding: 0 0 var(--cv-space-1);
+  container-type: inline-size;
+}
+/*
+ * Una página angosta (un carrusel vertical, con la barra y el chat abiertos): con varias páginas los íconos y el tamaño
+ * piden unos 250 px y el encabezado mide desde 372. «Página 1» se montaba sobre los íconos (Leila, 30/10/2026). El tamaño
+ * es lo primero que se va: también está en Redimensionar.
+ */
+@container (max-width: 440px) {
+  .meta {
+    display: none;
+  }
 }
 
 .lead {
@@ -23,6 +34,7 @@
   gap: 4px;
   flex: 1 1 auto;
   min-width: 0;
+  overflow: hidden;
   color: var(--cv-color-text-muted);
   font: 500 var(--cv-text-base) / 1 var(--cv-font-sans);
 }

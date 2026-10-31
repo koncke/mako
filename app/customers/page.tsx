@@ -30,6 +30,9 @@ import { ContenidoAgentes } from '@/app/admin/agente/Contenido';
 import { AdminView } from '@/app/admin/AdminView';
 import { ErrorState, Pagina, PageHeader } from '@/app/_ui';
 import '@/app/integraciones/tus-cuentas-ia.css';
+import Link from 'next/link';
+import { cuantoEspera } from '@/lib/pedidos-ingreso';
+import { RUTA_QUIEREN_ENTRAR, textoDelCartel } from '@/lib/pedidos-ingreso-reglas';
 import { CustomersApp } from './CustomersApp';
 import { PestanasCustomers, type PestanaCustomers } from './Pestanas';
 
@@ -52,12 +55,26 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   return (
     <Pagina ancho="completo">
       <PageHeader titulo="Customers" />
+      {/* Accounts no es la pestaña que se abre: sin esto, lo que espera a Martín no se ve (30/10/2026). */}
+      {tab !== 'accounts' && <CartelQueEspera />}
       <PestanasCustomers activa={tab} />
       {tab === 'billing' ? <ContenidoCobros />
         : tab === 'agents' ? <ContenidoAgentes />
         : tab === 'accounts' ? await PestanaCuentas(sesionAdmin, cuenta)
         : await PestanaClientes(cliente)}
     </Pagina>
+  );
+}
+
+/** Quién quiere entrar y qué pidieron las agencias, a un clic. Sin nada, no se dibuja. */
+async function CartelQueEspera() {
+  const e = await cuantoEspera();
+  const texto = textoDelCartel(e.quierenEntrar, e.deAgencias);
+  if (!texto) return null;
+  return (
+    <Link href={RUTA_QUIEREN_ENTRAR} style={{ display: 'block', margin: '0 0 12px', padding: '10px 14px', borderRadius: 11, border: '1px solid var(--primary)', background: 'var(--primary-bg)', color: 'var(--ink)', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+      {texto} →
+    </Link>
   );
 }
 

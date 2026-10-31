@@ -73,7 +73,7 @@ function proyecto(archivos: Record<string, string>, tsconfig: object = TSCONFIG)
   return dir;
 }
 const lineasDeError = (salida: string) => salida.split('\n').map((l) => l.trim()).filter((l) => /error TS\d+/.test(l)).sort();
-const correr = (dir: string, args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: 'utf8', timeout: 120_000 });
+const correr = (dir: string, args: string[]) => spawnSync(process.execPath, args, { cwd: dir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 });
 const tscReal = (dir: string) => { const r = correr(dir, [TSC, '-p', 'tsconfig.json', '--noEmit']); return { codigo: r.status, lineas: lineasDeError(`${r.stdout}${r.stderr}`) }; };
 const porTandas = (dir: string, K: number) => {
   const lineas: string[] = [];
@@ -285,7 +285,7 @@ test('DE PUNTA A PUNTA: medir-tipos corre las trece mediciones sobre un proyecto
   assert.ok(grande.length > 40_000);
   const dir = proyecto({ ...VARIAS_CARPETAS, 'lib/datos.ts': grande });
   try {
-    const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'medir-tipos.mjs')], { cwd: REPO, encoding: 'utf8', timeout: 600_000, env: { ...process.env, MEDIR_TIPOS_PROYECTO: dir, MEDIR_TIPOS_PERMITIR_STUBS: '1', GITHUB_STEP_SUMMARY: join(dir, 'resumen.md') } });
+    const r = spawnSync(process.execPath, [join(REPO, 'scripts', 'medir-tipos.mjs')], { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 600_000, env: { ...process.env, MEDIR_TIPOS_PROYECTO: dir, MEDIR_TIPOS_PERMITIR_STUBS: '1', GITHUB_STEP_SUMMARY: join(dir, 'resumen.md') } });
     assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
     const lineas = r.stdout.split('\n').filter((l) => l.startsWith('MEDIDA-TIPOS '));
     assert.equal(lineas.length, 1 + 1 + 2 + 3 + 4 + 1 + 1 + 1 + 1 + 4 + 4 + 4 + 3, 'uno por proceso: 1 + 1 + 2 + 3 + 4 + 1 + 1 + 1 + 1 + 4 + 4 + 4 + 3');

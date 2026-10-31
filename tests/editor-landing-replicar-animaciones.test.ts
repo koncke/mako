@@ -408,7 +408,7 @@ test('replicar.ts: Landing escribe estilo y efectos, Página web avisa, Presenta
   assert.match(bloques, /content: animadas\.tarjetas/, 'las secciones con su efecto son las que se guardan');
   assert.match(bloques, /anim\?\.avisoScroll \? AVISO_SCROLL : ''/);
   const fiel = rep.slice(rep.indexOf('async function replicarFiel'), rep.indexOf('async function replicarComoBloques'));
-  assert.match(fiel, /const scrollP = scrollDeLaPagina\(html, url\);[\s\S]*crearLanding\([\s\S]*const scroll = await scrollP;/, 'se mira MIENTRAS se crea');
+  assert.match(fiel, /const scrollP = scrollDeLaPagina\(html, final\);[\s\S]*crearLanding\([\s\S]*const scroll = await scrollP;/, 'se mira MIENTRAS se crea');
   assert.match(fiel, /scroll \? AVISO_SCROLL : ''/);
   assert.match(fiel, /\.\.\.\(scroll \? \{ avisoScroll: true as const \} : \{\}\)/);
   assert.match(rep, /bajarHoja\(h\)\.catch\(\(\) => ''\)/, 'las hojas con la baranda de siempre');

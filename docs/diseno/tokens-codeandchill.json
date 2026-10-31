@@ -1,0 +1,100 @@
+{
+  "_que_es": "Los tokens REALES leídos de las demos de codeandchill.store el 31/10/2026 con el navegador (getComputedStyle sobre :root). No son descripciones: son los valores. La primera vuelta del rediseño describió los patrones con palabras y NO tomó un solo valor — por eso el resultado no se parecía en nada a lo que Martín mandó copiar. Esto es lo que faltaba.",
+  "_como_se_leyo": "mcp Claude_Browser → javascript_tool sobre demo.codeandchill.store/<plantilla>, recorriendo document.styleSheets y resolviendo cada --var con getPropertyValue. Si un valor de acá no coincide dentro de un mes, la demo cambió: se vuelve a leer, no se adivina.",
+  "_el_hallazgo": "No son 114 diseños distintos: es UN esqueleto con la paleta intercambiable. Todo lo de `esqueleto` es idéntico entre plantillas; lo único que cambia es la familia de color. Eso es lo que hace tratable copiar la app entera.",
+
+  "esqueleto": {
+    "_comentario": "Idéntico en Merrin y en Tilvo, verificado valor por valor.",
+    "font": "\"Urbanist\", system-ui, -apple-system, \"Segoe UI\", sans-serif",
+    "_font_nota": "Urbanist está en Google Fonts (SIL OFL): se puede usar. NO es la nuestra (Geist).",
+    "escala": {
+      "--fs-2xs": "11px", "--fs-xs": "12px", "--fs-sm": "12.5px", "--fs-md": "13.5px",
+      "--fs-base": "14px", "--fs-lg": "15px", "--fs-xl": "17px", "--fs-2xl": "20px",
+      "--fs-3xl": "22px", "--fs-4xl": "26px", "--fs-display": "34px"
+    },
+    "_escala_nota": "La base es 14px, no 16. Los medios pasos (12.5, 13.5) son a propósito: es lo que deja meter una fila más sin que apriete.",
+    "--gap": "18px",
+    "radios": { "--r-sm": "10px", "--r-md": "14px", "--r-lg": "18px", "--r-xl": "24px" },
+    "--ease": "cubic-bezier(.22, 1, .36, 1)",
+    "_ease_nota": "UNA sola curva para todo el movimiento, en las dos plantillas. Sale rápido y frena largo.",
+    "sombras": {
+      "--shadow": "0 1px 2px <ink>0d, 0 10px 26px -16px <ink>33",
+      "--shadow-lg": "0 2px 6px <ink>12, 0 28px 60px -24px <ink>52"
+    },
+    "_sombras_nota": "Dos capas: un pelo de contacto y una difusa MUY corrida hacia arriba (offset negativo). El tinte sale de --ink, no es negro puro.",
+    "escalera_de_superficie": ["--bg (el fondo, NO es blanco)", "--card", "--card-2", "--card-3"],
+    "lineas": { "--line": "<ink>14", "--line-2": "<ink>26", "--rim": "<ink>26" },
+    "_lineas_nota": "Las líneas son la tinta con alfa, nunca un gris propio: por eso no se despegan del tema."
+  },
+
+  "merrin": {
+    "_que_es": "CRM de ventas. La referencia para el CRM, Clients y los kanban. Paleta oliva y cálida.",
+    "url": "https://demo.codeandchill.store/merrin/",
+    "body": { "bg": "rgb(230, 231, 234)", "size": "14px" },
+    "vars": {
+      "--accent": "#5f6e14", "--accent-hi": "#6b7b18", "--accent-ink": "#fff",
+      "--accent-soft": "#5f6e1421", "--accent-text": "#4b580c",
+      "--bg": "#e6e7ea", "--card": "#fbfbfc", "--card-2": "#f2f3f5", "--card-3": "#e4e5e9",
+      "--paper": "#fffefc", "--paper-ink": "#1d1e22",
+      "--ink": "#17181c", "--ink-2": "#363840", "--muted": "#5d606a",
+      "--line": "#17181c14", "--line-2": "#17181c26", "--rim": "#17181c26",
+      "--good": "#1b7746", "--good-soft": "#1b77461f",
+      "--bad": "#b5381a", "--bad-soft": "#b5381a1c",
+      "--warn": "#875700", "--warn-soft": "#c484122b",
+      "--info": "#23559f", "--info-soft": "#23559f1c",
+      "--c1": "#b0612d", "--c1-soft": "#b0612d21",
+      "--c2": "#a8791a", "--c2-soft": "#c48c1e29",
+      "--c3": "#1e7d77", "--c3-soft": "#1e7d771f",
+      "--c4": "#3f6299", "--c4-soft": "#3f62991f",
+      "--tile-1": "#e5e8cd", "--tile-2": "#d9e8e1", "--tile-3": "#f0e4cc", "--tile-4": "#dbe3ef",
+      "--tile-ink": "#17181c", "--tile-muted": "#17181ca8",
+      "--side": "#fbfbfc", "--side-card": "#f2f3f5", "--side-hover": "#17181c0b",
+      "--side-ink": "#17181c", "--side-line": "#17181c14", "--side-muted": "#5d606a",
+      "--side-tile": "#edf0dc", "--side-w": "256px", "--rail-w": "88px",
+      "--stamp": "#b5381a", "--mono-ink": "#17181c",
+      "--k-call": "#5f6e14", "--k-demo": "#3a5b92", "--k-shoot": "#b9821a",
+      "--k-task": "#6a6d76", "--k-visit": "#1e7d77",
+      "--ch-market": "#c0643c", "--ch-studio": "#c4952c", "--ch-web": "#64761a", "--ch-wholesale": "#4b6fa3"
+    },
+    "_k_nota": "--k-* es un color POR TIPO DE ACTIVIDAD (llamada, demo, filmación, tarea, visita). Es lo que hace legible una agenda sin leerla.",
+    "_ch_nota": "--ch-* es un color POR CANAL DE VENTA, y se repite igual en la barra segmentada, en la lista y en el gráfico: el mismo canal es el mismo color en los tres lugares."
+  },
+
+  "tilvo": {
+    "_que_es": "App de dinero. La referencia para el Dashboard, Pagos y cobros. Paleta azul y verde azulado — la más cercana a la nuestra.",
+    "url": "https://demo.codeandchill.store/tilvo/",
+    "body": { "bg": "rgb(238, 241, 245)", "size": "14px" },
+    "vars": {
+      "--accent": "#1f55d6", "--accent-hi": "#1946b8", "--accent-ink": "#fff",
+      "--accent-soft": "#1f55d61a", "--accent-soft-solid": "#dbe6fb", "--accent-text": "#1a49bf",
+      "--bg": "#eef1f5", "--card": "#fbfcfd", "--card-2": "#f3f5f8", "--card-3": "#e3e7ee",
+      "--paper": "#fffefc", "--paper-ink": "#1b1e26",
+      "--ink": "#121826", "--ink-2": "#2f3747", "--muted": "#5a6477",
+      "--line": "#12182614", "--line-2": "#12182626", "--rim": "#12182629",
+      "--good": "#176a3d", "--good-soft": "#1d7a481f",
+      "--bad": "#b42a26", "--bad-soft": "#b42a261a",
+      "--warn": "#8a5a00", "--warn-soft": "#c98a142b",
+      "--info": "#1a49bf", "--info-soft": "#1f55d61a",
+      "--c1": "#1f55d6", "--c2": "#0b8478", "--c3": "#c48a12",
+      "--c4": "#c4466d", "--c5": "#5d6b85", "--c6": "#3f8a3a",
+      "--c1-soft": "#1f55d61f", "--c2-soft": "#0b847821", "--c3-soft": "#c48a1226",
+      "--c4-soft": "#c4466d1f", "--c5-soft": "#5d6b8521", "--c6-soft": "#3f8a3a21",
+      "--tile-1": "#dbe6fb", "--tile-2": "#d5eee8", "--tile-3": "#f3e6c8", "--tile-4": "#f5dde3",
+      "--tile-ink": "#121826", "--tile-muted": "#121826a8",
+      "--h0": "#e3e7ee", "--h1": "#dbe6fb", "--h2": "#d5eee8", "--h3": "#f3e6c8", "--h4": "#f5dde3", "--h5": "#e3e7ee",
+      "--in": "#0b8478", "--in-soft": "#0b84781f", "--in-text": "#08695f", "--out": "#6c7a94",
+      "--data": "#1f55d6", "--sig": "#1f55d6", "--sig-soft": "#1f55d61f", "--sig-text": "#1a49bf",
+      "--now": "#1f55d6", "--stamp": "#1d7a48", "--mono-ink": "#141822",
+      "--face-1": "#1f55d6", "--face-2": "#161b26", "--face-3": "#e8dcc0", "--face-4": "#0b7a6f", "--face-5": "#7d8aa1",
+      "--max": "1440px"
+    },
+    "_in_out_nota": "--in / --out son ENTRA y SALE la plata, no dos categorías cualesquiera: la que entra es verde azulado y la que sale es gris azulado. En el gráfico la que entra va RAYADA y la que sale sólida, con una línea negra para el neto encima.",
+    "_h_nota": "--h0..h5 son los fondos de las filas de una tabla por categoría (el mismo color que su serie, muy claro)."
+  },
+
+  "_pendiente": [
+    "Faltan los tokens de las otras 11 plantillas (pacely, wynlo, coffra, corvane, covry, kerfa, kinlo, ledra, moorly, sleuth, fitlo).",
+    "Falta el modo oscuro: las dos leídas están en claro. Hay un --lightningcss-dark vacío que sugiere que existe.",
+    "Faltan las medidas de teléfono (se leyeron a 1440)."
+  ]
+}

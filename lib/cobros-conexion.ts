@@ -1,5 +1,5 @@
 // =============================================================================
-// cobros-conexion — conectar Stripe y Mercado Pago pegando UNA clave (BYOK)
+// cobros-conexion — conectar Stripe, Mercado Pago y Creem pegando UNA clave (BYOK)
 // =============================================================================
 // La persona pega su clave en /integraciones y MaKo deriva el resto: el id de la cuenta (que rutea
 // cada aviso de pago a ESTE workspace) y, en Stripe, registra el aviso en la cuenta y guarda su
@@ -30,6 +30,7 @@ import { auditarCredencial, credDelCliente, eliminarCredencial, guardarCredencia
 import { soltarIdentificador, upsertRouting, wsPorIdentificadorEstricto } from './webhook-routing';
 import { asegurarWebhookStripe, borrarWebhooksStripe, leerCuentaStripe, modoDeClaveStripe, type CuentaStripe } from './stripe-api';
 import { leerCuentaMp, type CuentaMp } from './mercadopago-api';
+import { asegurarWebhookCreem, modoDeClaveCreem, probarClaveCreem } from './creem-api';
 import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
 import { CLAVES_BASE, CUENTA_PRINCIPAL, claveDeCuenta, type ProveedorConCuentas } from './cuentas-integracion';
 import { cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
@@ -38,6 +39,7 @@ import { cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 export const CLAVE_PASARELA: Readonly<Record<Pasarela, string>> = {
   stripe: 'STRIPE_SECRET_KEY',
   mercadopago: 'MERCADOPAGO_ACCESS_TOKEN',
+  creem: 'CREEM_API_KEY',
 };
 
 /**
@@ -304,15 +306,125 @@ export async function descubrirMercadoPago(ws: number, token: string, autor: str
   };
 }
 
+// ── Creem ────────────────────────────────────────────────────────────────────────────────────────
+
+/**
+ * La URL del aviso de Creem de UNA cuenta. ⚠️ No lleva el identificador al registrarla, porque el identificador ES el
+ * id que Creem le da al endpoint: primero se registra con la URL pelada, Creem devuelve `wh_…`, y el ruteo se hace con
+ * ese id. El webhook lo lee del `?w=`, y `asegurarWebhookCreem` se lo escribe a la URL guardada en Creem con un PATCH.
+ */
+export const urlAvisoCreem = (): string => `${APP_BASE_URL}/api/webhooks/creem`;
+
+export function factsDeCreem(c: { modo: 'real' | 'prueba' }, webhookId: string | null, conAviso: boolean): Fact[] {
+  const out: Fact[] = [];
+  if (webhookId) out.push({ k: 'Aviso', v: webhookId });
+  out.push({ k: 'Moneda', v: 'USD' });
+  // Lo que distingue a Creem de las otras dos, y la razón por la que existe acá: se hace cargo del impuesto.
+  out.push({ k: 'Impuestos', v: 'Los cobra y los paga Creem (merchant of record)', c: 'var(--good)' });
+  // El costo REAL sobre el ticket de MaKo, no el porcentaje suelto: en US$47 el cargo fijo pesa más que el 3,9%.
+  out.push({ k: 'Comisión', v: '3,9% + US$0,40 (sobre el total con impuesto)' });
+  out.push(factModo(c.modo));
+  out.push(conAviso
+    ? { k: 'Aviso de pagos', v: 'Registrado por MaKo', c: 'var(--good)' }
+    : { k: 'Aviso de pagos', v: 'Falta registrarlo', c: 'var(--warn)' });
+  return out;
+}
+
+/**
+ * Conecta Creem: prueba la clave, registra el aviso de pagos en la cuenta, y guarda el id del aviso (que es el
+ * identificador de ruteo) y su secreto.
+ *
+ * ⚠️ EL ORDEN ES AL REVÉS QUE EN STRIPE Y EN MERCADO PAGO, y hay un motivo. Los otros dos primero leen QUIÉN es la
+ * cuenta (`GET /v1/account`, `GET /users/me`) y después registran el aviso. Creem NO TIENE ningún endpoint que diga de
+ * quién es una clave, así que no hay identificador para reclamar hasta DESPUÉS de registrar el aviso: el `wh_…` que
+ * devuelve Creem es lo único estable y propio de esa cuenta que MaKo puede conocer. Por eso:
+ *   1. se prueba la clave (una lectura inofensiva: `/products/search`),
+ *   2. se registra (o se reusa) el aviso y se pide su secreto,
+ *   3. recién ahí se reclama el `wh_…` como identificador de ruteo,
+ *   4. y al final se guardan la clave y el secreto.
+ *
+ * ⚠️ SIN SECRETO NO SE CONECTA. En Stripe, si el aviso no se puede registrar, la clave queda guardada y la tarjeta dice
+ * qué falta. Acá no: el webhook de Creem es FAIL-CLOSED (sin secreto rechaza todo), así que una cuenta con la clave
+ * guardada y sin secreto no sería «a medias», sería una cuenta que no puede cobrar nada y que encima se vería
+ * conectada. Se devuelve el error y no queda nada guardado.
+ */
+export async function descubrirCreem(ws: number, key: string, autor: string | null, opts: { guardarClave: boolean; cuenta?: string } = { guardarClave: true }): Promise<ResultadoConexionPago> {
+  const clave = key.trim();
+  const k = (base: string) => claveDeCuenta(base, opts.cuenta ?? CUENTA_PRINCIPAL);
+
+  // 1. ¿La clave sirve? El modo sale del PREFIJO (`creem_test_…`), que es lo único que lo dice.
+  const prueba = await probarClaveCreem(clave);
+  if (!prueba.ok) {
+    return { ok: false, status: prueba.status === 0 ? 504 : 422, nadaGuardado: true, error: prueba.error };
+  }
+  // Una clave de prueba no pisa a una real: hay UN secreto de aviso por cuenta, y el de prueba dejaría todos los
+  // avisos REALES rebotando con 401 (el mismo razonamiento, y el mismo incidente, que en Stripe el 23/10/2026).
+  if (opts.guardarClave && prueba.modo === 'prueba' && modoDeClaveCreem(await credDelCliente(k('CREEM_API_KEY'), ws)) === 'real') {
+    return {
+      ok: false, status: 409, nadaGuardado: true,
+      error: 'Ya cobras en vivo con Creem aquí: una clave de prueba encima rompería los avisos de los pagos reales. Para probar, desconecta Creem primero.',
+    };
+  }
+
+  // 2. El aviso y su secreto. Esto es lo que da el identificador.
+  const w = await asegurarWebhookCreem(clave, urlAvisoCreem());
+  if (!w.ok) {
+    return {
+      ok: false, status: w.status === 0 ? 504 : 422, nadaGuardado: true,
+      error: `La clave sirve, pero no pude registrar el aviso de pagos en Creem: ${w.error} Sin el aviso, ningún pago entraría a tu CRM, así que no guardé nada.`,
+    };
+  }
+  if (!w.secreto) {
+    return { ok: false, status: 422, nadaGuardado: true, error: 'Creem no me dio el secreto del aviso. Sin él no puedo verificar tus pagos, así que no guardé nada.' };
+  }
+
+  // 3. ¿Ese aviso ya está conectado acá como otra cuenta, o en otro espacio de MaKo?
+  const repetida = await yaConectadaComoOtra(ws, 'creem', w.id, opts.cuenta ?? CUENTA_PRINCIPAL);
+  if (repetida) return repetida;
+  const r = await reclamarCuenta(ws, k('CREEM_WEBHOOK_ID'), w.id, 'creem', autor);
+  if (!r.ok) return ocupada('creem');
+
+  // 4. La clave y el secreto.
+  const guardadas = [k('CREEM_WEBHOOK_ID')];
+  if (opts.guardarClave) {
+    await guardar(ws, k('CREEM_API_KEY'), clave, 'creem', autor);
+    guardadas.push(k('CREEM_API_KEY'));
+  }
+  await guardar(ws, k('CREEM_WEBHOOK_SECRET'), w.secreto, 'creem', autor);
+  guardadas.push(k('CREEM_WEBHOOK_SECRET'));
+
+  const avisos: string[] = [];
+  if (prueba.modo === 'prueba') avisos.push('Es una clave de prueba: los pagos no son reales.');
+  return {
+    ok: true,
+    completa: true,
+    guardadas,
+    facts: factsDeCreem({ modo: prueba.modo }, w.id, true),
+    mensaje: ['Conectada: MaKo registró el aviso de pagos en tu cuenta de Creem.', ...avisos].join(' '),
+  };
+}
+
 /** El descubrimiento de la pasarela que corresponda. */
 export function descubrirPasarela(p: Pasarela, ws: number, clave: string, autor: string | null, opts: { guardarClave: boolean; cuenta?: string }): Promise<ResultadoConexionPago> {
-  return p === 'stripe' ? descubrirStripe(ws, clave, autor, opts) : descubrirMercadoPago(ws, clave, autor, opts);
+  // ⚠️ `switch` con `never`, no un ternario (31/10/2026). Escrito como `p === 'stripe' ? stripe : mercadopago`, la
+  // tercera pasarela mandaba su clave a la API de MERCADO PAGO, que la rechazaba, y la pantalla decía «Mercado Pago:
+  // …» mientras la persona creía estar conectando Creem. O sea: conectar Creem era imposible, y el error mentía.
+  switch (p) {
+    case 'stripe': return descubrirStripe(ws, clave, autor, opts);
+    case 'mercadopago': return descubrirMercadoPago(ws, clave, autor, opts);
+    case 'creem': return descubrirCreem(ws, clave, autor, opts);
+    default: {
+      const _x: never = p;
+      return Promise.resolve({ ok: false, status: 400, nadaGuardado: true, error: `No sé conectar ${String(_x)}.` });
+    }
+  }
 }
 
 /** Los campos de cada pasarela, en el orden en que se borran (la clave pegada, al final). */
 export const CAMPOS_PASARELA: Readonly<Record<Pasarela, readonly string[]>> = {
   stripe: ['STRIPE_WEBHOOK_SECRET', 'STRIPE_ACCOUNT_ID', 'STRIPE_SECRET_KEY'],
   mercadopago: ['MERCADOPAGO_WEBHOOK_SECRET', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_ACCESS_TOKEN'],
+  creem: ['CREEM_WEBHOOK_SECRET', 'CREEM_WEBHOOK_ID', 'CREEM_API_KEY'],
 };
 
 /**
@@ -340,6 +452,11 @@ export async function desconectarPasarela(ws: number, p: Pasarela, autor: string
         aviso = 'Borra el aviso de MaKo en Stripe → Webhooks.';
       }
     }
+  } else if (p === 'creem') {
+    // El aviso queda registrado en la cuenta de Creem apuntando a un MaKo que ya no lo acepta (401 por falta de secreto), y
+    // ⚠️ NO SE PIDE BORRARLO: su `wh_…` es la identidad de la cuenta en sus cobros (`cuenta_ref`). Borrado, al volver a conectar
+    // nace otro id y sus suscripciones quedan huérfanas: sin claves y con los avisos ignorados, mientras Creem les sigue cobrando.
+    aviso = 'Deja el aviso de MaKo en Creem: si vuelves a conectar esta cuenta, tus cobros siguen atados a él.';
   } else {
     aviso = 'Quita la URL de MaKo en Mercado Pago → Webhooks.';
   }

@@ -39,6 +39,7 @@ import { getWorkspace } from '@/lib/workspace';
 import { leerPerfil } from '@/lib/perfil';
 import { Icon } from '@/app/_components/icons';
 import { FAMILIAS_MAS, RUTA_CENTRO_M, barraMovil, masCompleto, type FilaMas } from '@/lib/movil-rutas';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { esEsencialDeLaSesion } from '@/lib/plan-esencial';
 import { Criatura } from '@/app/_components/Criatura';
@@ -71,6 +72,9 @@ export default async function MasPagina() {
   const grupos = masCompleto(ctx.rol, ctx.capa, veOpsCenter);
   // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, con «Pasar a Pro» debajo (lib/plan-esencial-reglas.ts).
   const esencial = await esEsencialDeLaSesion();
+  // El cliente de una agencia (29/10/2026): el candado sin «Pasar a Pro»; su plan lo cambia su agencia.
+  // ⚠️ `!== false` y con sus paréntesis (P15, 30/10/2026): el «no sé» de `esClienteDeAgencia` no ofrece «Pasar a Pro».
+  const deAgencia = esencial && (await esClienteDeAgencia(ctx.ws)) !== false;
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
   // LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): el cartel de la barra lateral, en el menú del teléfono.
   const prueba = ctx.ws != null ? await estadoDePrueba(ctx.ws) : null;
@@ -105,7 +109,7 @@ export default async function MasPagina() {
       : f.tipo === 'grupo' ? <FilaGrupoM key={f.key} fila={f} />
         : (
           <FilaM key={f.key} navegacion {...(conCriatura ? { leading: criatura(f.label, !!MAKO_NAV.find((it) => it.key === f.key)?.estrella) } : { icono: f.icon })} titulo={f.label}
-            {...(esencial && esNavSoloPro(f.key) ? { segunda: `De MaKo Pro · ${ROTULO_PASAR_A_PRO}` } : {})}
+            {...(esencial && esNavSoloPro(f.key) ? { segunda: deAgencia ? 'De MaKo Pro' : `De MaKo Pro · ${ROTULO_PASAR_A_PRO}` } : {})}
             riel={numeroDe(f) ? <span className="m-num">{numeroDe(f)}</span> : undefined} href={f.href} />
         )
   );

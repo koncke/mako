@@ -27,6 +27,7 @@ import { pasarEnBloqueAColumna } from '@/lib/crm-bloque-server';
 import { previaDePasar, pasarLoteAOtroFunnel } from '@/lib/lead-funnel';
 import { aPasar, avisosDePasar, etapaSugerida, etapasElegibles } from '@/lib/pasar-funnel-reglas';
 import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads } from '@/lib/leads-papelera';
+import { leerBajasDeLeads } from '@/lib/leads-bajas';
 import { DIAS_PAPELERA_LEADS, diasQuedan, textoQuedan } from '@/lib/leads-papelera-reglas';
 import { pideMotivo } from '@/app/crm/motivos-salida';
 import { porQueNoSeElimina, pipelineReordenado } from '@/lib/etapas-crm-reglas';
@@ -1507,6 +1508,37 @@ export const RUNNERS: Runners = {
       const mal = r.fallaron ? ` ${r.fallaron} no se pudieron (${r.motivos.slice(0, 2).join(' · ')}).` : '';
       return { ok: r.hechos.length > 0, resumen: `Listo: ${r.hechos.length} a la papelera (se recuperan con recuperar_de_papelera_crm).${mal}${quedan(r.pendientes)}` };
     }),
+  },
+  ver_nombres_del_crm: {
+    leer: async () => {
+      const { nombresDelNegocio } = await import('@/lib/nombres-negocio');
+      return json(await nombresDelNegocio());
+    },
+  },
+  marcar_palabra_no_nombre: {
+    preparar: async (input) => {
+      const palabra = String(input.palabra ?? '').trim();
+      if (!palabra) return { error: 'Falta la palabra.' };
+      const noEs = input.noEs !== false;
+      return { payload: { palabra, noEs }, resumen: noEs ? `Saltar «${palabra}» al saludar: no es un nombre` : `Volver a tratar «${palabra}» como un nombre` };
+    },
+    ejecutar: (payload) => seguro('marcar la palabra', async () => {
+      const { guardarNoSon, noSonDelNegocio } = await import('@/lib/nombres-negocio');
+      const { normalizarNoSon } = await import('@/lib/nombre-partes');
+      const [k] = normalizarNoSon([String(payload.palabra)]);
+      if (!k) return { ok: false, resumen: 'Esa palabra no sirve.' };
+      const hoy = new Set(await noSonDelNegocio());
+      if (payload.noEs === false) hoy.delete(k); else hoy.add(k);
+      await guardarNoSon([...hoy]);
+      return { ok: true, resumen: payload.noEs === false ? `«${String(payload.palabra)}» vuelve a contar como un nombre.` : `Listo: «${String(payload.palabra)}» ya no se usa para saludar.` };
+    }),
+  },
+  ver_bajas_de_leads: {
+    leer: async (input) => {
+      const leadId = Number(input.leadId);
+      const r = await leerBajasDeLeads({ leadId: Number.isSafeInteger(leadId) && leadId > 0 ? leadId : null });
+      return json({ bajas: r.renglones.map((b) => ({ ...b, leadIds: b.leadIds.slice(0, 200) })), aviso: r.aviso });
+    },
   },
   ver_papelera_crm: {
     leer: async (input) => {

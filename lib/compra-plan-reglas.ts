@@ -5,9 +5,11 @@
 // ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Acelerador.
 // =============================================================================
 
-import type { Pasarela } from './cobros-tipos';
+import { esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
-import { PRUEBA_DIAS } from './planes-mako';
+import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
+// De TIPO: se borra al compilar, así que no suma nada al bundle del cliente (esto lo importan componentes 'use client').
+import type { MotivoDuplicado } from './leads-duplicados';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CODIGO_REF_RE = /^[a-z0-9-]{3,32}$/;
@@ -90,8 +92,13 @@ export function diagnosticoEnTexto(d: readonly RespuestaDePuerta[]): string {
 
 export type PedidoCompra = {
   plan: string; nombre: string; email: string; pasarela: Pasarela | null; origen: OrigenCompra | null; ref: string | null;
-  /** El WhatsApp (sólo dígitos), para el pedido sin pasarela: por ahí se le da de alta. */
+  /**
+   * El WhatsApp (sólo dígitos). En el pedido sin pasarela es obligatorio: por ahí se le da de alta. En la compra se pide y no frena el
+   * pago (31/10/2026, Martín: «que le pida también el whatsapp»): vacío, compra igual. `whatsappEscritoMal`: escribió algo que no
+   * puede ser un número; se le dice, como a un código de referido mal escrito, y dejarlo vacío sigue.
+   */
   whatsapp: string | null;
+  whatsappEscritoMal?: boolean;
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
   /** El diagnóstico de la puerta (sólo lo manda el pedido del Acelerador). Incompleto = null: el pedido entra igual. */
@@ -103,6 +110,10 @@ export type PedidoCompra = {
    * pedirlo, toda compra en línea empieza con los 7 días gratis.
    */
   sinPrueba: boolean;
+  /** La página le mostró el 50% del primer mes: si ya no vale, se le dice en vez de cobrarle lleno. El reloj lo mira la ruta, con su cookie. */
+  promo?: boolean;
+  /** Quien ya supo que su descuento no vale y sigue a precio normal. Sin esto, nunca se le cobra lleno sin decírselo. */
+  sinPromo?: boolean;
   /**
    * El código de referido que la persona ESCRIBIÓ en el carrito (25/10/2026, Martín: «es importante que en la compra, en el
    * carrito, esté la opción de poner código de referido»). Escrito a mano, gana sobre la cookie y el `?ref=`: es quien paga
@@ -114,6 +125,9 @@ export type PedidoCompra = {
 
 /** Lo que se le dice a quien escribe un código de referido que no es de ningún partner. */
 export const TEXTO_CODIGO_NO_EXISTE = 'Ese código de referido no existe. Revísalo, o deja el campo vacío para seguir.';
+
+/** Lo que se le dice a quien escribe un WhatsApp que no puede ser un número. Nunca frena la compra: vacío, sigue. */
+export const TEXTO_WHATSAPP_MAL = 'Ese WhatsApp no parece completo. Revísalo, o deja el campo vacío para seguir.';
 
 /**
  * Qué código de partner vale en una compra: el que ESCRIBIÓ en el carrito; si no escribió ninguno, el de la cookie de
@@ -156,7 +170,9 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   if (nombre.length < 2) return { ok: false, error: 'Escribe tu nombre.' };
   const email = (typeof b.email === 'string' ? b.email : '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 200) return { ok: false, error: 'Escribe un email válido: por ahí te llega el acceso.' };
-  const pasarela = b.pasarela === 'stripe' || b.pasarela === 'mercadopago' ? b.pasarela : null;
+  // Por el guard compartido, no por los dos nombres a mano (31/10/2026): con la lista escrita acá, quien elegía Creem
+  // en /planes/<id> mandaba `pasarela: 'creem'` y el server lo leía como «no eligió ninguna».
+  const pasarela = esPasarela(b.pasarela) ? b.pasarela : null;
   const quiero = b.quiero === true;
   const whatsapp = whatsappLimpio(b.whatsapp);
   if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
@@ -166,7 +182,10 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     ok: true,
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
+      // Con la lada ya elegida, 8 dígitos dejan pasar un número a medias (+54 y «112233»): ningún WhatsApp del mundo tiene menos de 10 con su país.
+      whatsappEscritoMal: !quiero && typeof b.whatsapp === 'string' && b.whatsapp.trim() !== '' && (whatsapp ?? '').length < 10,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
+      promo: b.promo === true, sinPromo: b.sinPromo === true,
       codigoEscrito: codigoRefLimpio(b.codigo),
       codigoEscritoMal: typeof b.codigo === 'string' && b.codigo.trim() !== '' && codigoRefLimpio(b.codigo) == null,
     },
@@ -205,12 +224,46 @@ export function paisDelVisitante(encabezado: string | null | undefined): string 
   return /^[A-Z]{2}$/.test(p) && p !== 'XX' && p !== 'T1' ? p : null;
 }
 
-/** Las pasarelas que se le ofrecen a quien está en `pais` (ver arriba). Mantiene el orden y los datos de cada opción. */
+/**
+ * LATINOAMÉRICA, para elegir entre Creem y Stripe afuera del país de Mercado Pago (31/10/2026).
+ *
+ * Creem es MERCHANT OF RECORD: cobra el impuesto del país de quien paga, lo remite él y le da una factura que cumple.
+ * Stripe no: el impuesto queda del lado de MaKo. En LatAm eso es la diferencia entre un cobro limpio y un lío fiscal
+ * por cada país, así que acá manda Creem. Afuera de LatAm sigue Stripe, que es lo que ya estaba andando: cambiarle la
+ * pasarela a Estados Unidos y Europa no es parte de este trabajo y no se hace de prepo.
+ */
+const PAISES_LATAM: ReadonlySet<string> = new Set([
+  'AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PR', 'PY', 'SV', 'UY', 'VE',
+]);
+
+/**
+ * Las pasarelas que se le ofrecen a quien está en `pais`. Mantiene el orden y los datos de cada opción.
+ *
+ * EL ORDEN DE LAS PREGUNTAS:
+ *   1. ¿Mercado Pago cobra en SU país? Entonces es la única: en pesos, sin el recargo de la tarjeta internacional
+ *      (a un argentino, US$47 con tarjeta de afuera le salen el equivalente a US$71 por IVA y percepciones).
+ *   2. Si no: Creem en LatAm (merchant of record, se hace cargo del impuesto), Stripe en el resto del mundo.
+ *   3. Y si la que le toca no está conectada, lo que quede. Nunca se deja a alguien sin forma de pagar por una
+ *      preferencia nuestra: eso sería perder la venta para ahorrarnos un impuesto.
+ *
+ * ⚠️ ASÍ ESTABA ESCRITO ANTES, Y ES LA TRAMPA QUE ESTE ARCHIVO EXISTE PARA CONTAR:
+ *       `return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');`
+ *    Ese `!== 'mercadopago'` quería decir «Stripe», y con dos pasarelas quería decir exactamente eso. Con tres dejó
+ *    de querer decirlo: devuelve Stripe Y Creem juntos, a todo el mundo. Y como las dos son opciones válidas, nadie
+ *    falla — lo que pasa es que a quien compra se le PREGUNTA con qué quiere pagar (`pasarelaDeLaCompra` devuelve
+ *    'elegir' con más de una), o sea una pantalla de más y una decisión que no le toca tomar a él. Un `!==` que
+ *    significa «el otro» es correcto sólo mientras haya dos.
+ */
 export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, opciones: readonly T[]): T[] {
+  // Sin saber el país (local, o una IP que Vercel no ubica), todas, y elige la persona.
   if (!pais) return [...opciones];
-  const deSuPais = (o: T) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais;
-  const locales = opciones.filter(deSuPais);
-  return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');
+  const locales = opciones.filter((o) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais);
+  if (locales.length) return locales;
+  const preferida: Pasarela = PAISES_LATAM.has(pais) ? 'creem' : 'stripe';
+  const suyas = opciones.filter((o) => o.pasarela === preferida);
+  if (suyas.length) return suyas;
+  // La que le tocaba no está conectada: las internacionales que queden (nunca Mercado Pago, que no cobra fuera de su país).
+  return opciones.filter((o) => o.pasarela !== 'mercadopago');
 }
 
 // =============================================================================
@@ -241,17 +294,56 @@ export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: st
 }
 
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */
-export function bajadaDePlanes(algunoCobrable: boolean): string {
+export function bajadaDePlanes(algunoCobrable: boolean, prueba: boolean = PRUEBA_GRATIS_PRENDIDA): string {
+  if (!prueba) {
+    return algunoCobrable
+      ? 'Pagas al empezar y entras en el acto. Te das de baja cuando quieras.'
+      : 'Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp. Te das de baja cuando quieras.';
+  }
   return algunoCobrable
     ? `Empiezas con ${PRUEBA_DIAS} días gratis y entras en el acto. Te das de baja cuando quieras.`
     : `Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp, con ${PRUEBA_DIAS} días gratis. Te das de baja cuando quieras.`;
 }
 
 /**
- * El WhatsApp del pedido sin pasarela: sólo dígitos (con el código de país), de 8 a 15 (E.164). null = no sirve. No se
+ * El WhatsApp del pedido: sólo dígitos (con el código de país), de 8 a 15 (E.164). null = no sirve. No se
  * inventa el país: lo que la persona no escribió no se agrega.
  */
 export function whatsappLimpio(v: unknown): string | null {
   const d = (typeof v === 'string' ? v : '').replace(/[^\d]/g, '');
   return d.length >= 8 && d.length <= 15 ? d : null;
+}
+
+/**
+ * ¿De estos parecidos, cuál ES el comprador? (30/10/2026) El mismo email, sí. El mismo teléfono o Instagram, si esa ficha no tiene otro email.
+ * Por nombre sólo si es UNO y no tiene email: lo cargó alguien a mano antes de que comprara. Con otro email es un homónimo, y la compra no
+ * se le ata a otra persona.
+ *
+ * ⚠️ OTRO EMAIL Y EL MISMO NÚMERO (31/10/2026): con el WhatsApp en el checkout, ese número lo escribe cualquiera en un formulario público. Atarle
+ * la compra a esa ficha la marca Ganado y le pisa la cuenta (`asentarAlta`): un dígito mal, o el dueño que compra para su segundo negocio.
+ * Se crea otra ficha, que se funde después si eran la misma persona.
+ */
+/**
+ * ¿Un parecido de ESTE motivo le ata la compra a esa ficha? Es una decisión de PLATA, así que es un `Record` TOTAL: un
+ * motivo nuevo de `buscarDuplicados` NO COMPILA hasta que alguien diga qué hace con el dinero de otra persona
+ * (31/10/2026). Antes la condición era `c.motivo !== 'nombre'`, o sea un `else` con todo adentro: cuando se sumó
+ * 'instagram' entró solo en «le ata la compra», sin que nadie lo decidiera.
+ */
+const ATA_LA_COMPRA: Readonly<Record<MotivoDuplicado, 'siempre' | 'si-no-tiene-otro-email' | 'nunca'>> = {
+  // Ese email ES la persona que está comprando.
+  email: 'siempre',
+  // El número y el usuario los escribe cualquiera en un formulario público: sólo si esa ficha no tiene OTRO email.
+  telefono: 'si-no-tiene-otro-email',
+  instagram: 'si-no-tiene-otro-email',
+  // Un homónimo es otra persona. (El caso de UNA sola coincidencia por nombre y sin email se resuelve más abajo.)
+  nombre: 'nunca',
+};
+export function leadDeLaCompra(coincidencias: ReadonlyArray<{ motivo: MotivoDuplicado; lead: { id: number; email?: string | null } }>, email: string): number | null {
+  const sinOtroEmail = (x: string | null | undefined) => !x?.trim() || x.trim().toLowerCase() === email.trim().toLowerCase();
+  const fuerte = coincidencias.find((c) => {
+    const ata = ATA_LA_COMPRA[c.motivo];
+    return ata === 'siempre' || (ata === 'si-no-tiene-otro-email' && sinOtroEmail(c.lead.email));
+  });
+  if (fuerte) return fuerte.lead.id;
+  return coincidencias.length === 1 && !coincidencias[0].lead.email?.trim() ? coincidencias[0].lead.id : null;
 }

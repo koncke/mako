@@ -78,6 +78,8 @@ import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { TraerDeGrupoWA } from './TraerDeGrupoWA';
+import { ExtraccionModal } from './ExtraccionModal';
+import { NombresModal } from './NombresModal';
 import { CampanasModal } from './CampanasModal';
 import { TipoEtapaModal } from './TipoEtapaModal';
 import { AVISO_SIN_LUGAR, NOMBRE_TIPO_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
@@ -2008,6 +2010,8 @@ export function CrmBoard({
    * Identidad fija, como `cerrarAlta`.
    */
   const volverAlAlta = useCallback(() => setNuevoLead((n) => (n ? { ...n, traer: false } : n)), []);
+  const cerrarAltaYTraer = useCallback(() => setNuevoLead(null), []);
+  const abrirScraper = useCallback(() => setNuevoLead((n) => (n?.traer === 'grupo' ? n : { etapa: n?.etapa ?? null, traer: 'grupo' })), []);
   /** «Importar» abierto desde «Nuevo lead»: al cerrarlo, el alta sigue ahí (la pila de la casa la vuelve a mostrar). */
   const cerrarImportar = useCallback(() => setImportar(false), []);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
@@ -2210,6 +2214,8 @@ export function CrmBoard({
   const [diseno, setDiseno] = useState<DisenoTarjeta>(disenoTarjeta);
   const [plantillas, setPlantillas] = useState<readonly PlantillaTarjetaLead[]>(plantillasTarjeta);
   const [personalizando, setPersonalizando] = useState(false);
+  const [viendoNombres, setViendoNombres] = useState(false);
+  const cerrarNombres = useCallback(() => setViendoNombres(false), []);
   const cerrarPersonalizar = useCallback(() => setPersonalizando(false), []);
   // La hoja con la que abre la ficha: «Ver detalle» de una reunión la abre en «Reuniones» (22/10/2026).
   const [focoFicha, setFocoFicha] = useState<string | undefined>(undefined);
@@ -3292,7 +3298,7 @@ export function CrmBoard({
         <AccionesHeader
           onImportar={() => setImportar(true)} onExportar={() => setExportar(true)} onNuevo={() => setNuevoLead({ etapa: null })}
           onEditarEtapas={() => setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) })}
-          onPersonalizarTarjetas={() => setPersonalizando(true)} funnelActivo={funnelActivo} />
+          onPersonalizarTarjetas={() => setPersonalizando(true)} onNombres={puedeCrearCrm ? () => setViendoNombres(true) : undefined} funnelActivo={funnelActivo} />
       </div>
 
       {/* ⛔ SIN HEADER DESDE EL 12/10/2026. Era el ícono del CRM y un «CRM» de 46 px a la
@@ -3767,6 +3773,8 @@ export function CrmBoard({
           )}
         </Modal>
       )}
+      {/* «Extrayendo…» y su confirmación (30/10/2026, ./ExtraccionModal.tsx): acá y no en el Scraper, para que sobreviva a él. */}
+      <ExtraccionModal funnel={funnelActivo} onVerCrm={cerrarAltaYTraer} onOtroGrupo={abrirScraper} />
       {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote (`preguntaDePapelera`), en singular y nombrando
           al lead. Desde el 28/10/2026 va a la PAPELERA (mig 0340): el aviso trae su «Deshacer», y 30 días
           después se borra para siempre. */}
@@ -4489,6 +4497,7 @@ export function CrmBoard({
       )}
       {/* «Personalizar tarjetas» (el «⋯» de la barra, el clic derecho en una tarjeta o en el fondo): la pieza de TODOS los
           tableros (app/_ui/PersonalizarTarjetas.tsx), con las plantillas del CRM y la tarjeta de verdad (`propsDeTarjeta`). */}
+      {viendoNombres && <NombresModal onCerrar={cerrarNombres} />}
       {personalizando && (
         <PersonalizarTarjetas<DisenoTarjeta, CampoTarjetaLead>
           fabrica={PLANTILLAS_TARJETA_LEAD} propias={plantillas} forma={diseno} campos={campos}

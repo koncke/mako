@@ -188,6 +188,18 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del negocio (o de la persona) del cliente.' },
       { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el email de quien va a usar la cuenta: por ahí le llega el acceso.' },
       { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
+      { nombre: 'plan', rotulo: 'Plan', tipo: 'string', enum: ['esencial', 'pro'], descripcion: 'su plan de MaKo: esencial (default, US$47 por mes) o pro (US$97 por mes).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    // DAR DE BAJA LA CUENTA DE UN CLIENTE (29/10/2026, llamada con Thiago: «darlo de baja cuando vos quieras»; lib/agencia-baja.ts).
+    id: 'dar_de_baja_cliente_agency', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Dar de baja la cuenta de un cliente',
+    descripcion: 'Sólo para una AGENCY: da de baja la cuenta de MaKo de un cliente de su cartera. Cancela su cobro (la renovación en Mercado Pago o Stripe, y los links sin pagar), la agencia deja de administrarla y de entrar a ella, y al cliente le llega un mail. Sus datos NO se borran: la cuenta queda de él, pausada, y si quiere seguir elige su plan y lo paga él. Pedir el número de cuenta con ver_clientes_partner.',
+    escribe: 'cancela el cobro del cliente en la pasarela, pasa su fila de la cartera a revocada, pausa su cuenta (app_settings plan.corte_por_pago) y le manda un mail',
+    parametros: [
+      { nombre: 'clienteWs', rotulo: 'Cliente', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'el número de cuenta del cliente de la cartera.' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },

@@ -95,7 +95,7 @@ import {
 } from './leads-exportar';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
-import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
+import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, etiquetasDeCelda, leadsPorEtiqueta, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import {
   VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline,
@@ -108,7 +108,7 @@ import { PEDIR_CONTACTO, tieneContacto } from '@/lib/contacto-minimo';
 // dos bloques de la ficha. Con una copia acá, el link caería en un bloque y su
 // análisis en el otro.
 import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
-import { marcarExistentes } from './importar-server';
+import { etiquetarImportados, marcarExistentes } from './importar-server';
 import { PRESUPUESTO_LOTE_MS } from './lote-tandas';
 import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads, contarPapeleraDeLeads, type FilaPapelera } from '@/lib/leads-papelera';
 import { agregadosDelCrm } from '@/lib/lead-funnel';
@@ -2050,7 +2050,7 @@ export type ImportLeadsResult = {
  * pantalla que confirma lo que propuso un canal (`/crm/revisar`) no sabe a qué tablero van,
  * y ahí `undefined` significa «el del negocio», que es donde caían todos hasta hoy.
  */
-export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null): Promise<ImportLeadsResult> {
+export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null, etiquetaGeneral?: string | null): Promise<ImportLeadsResult> {
   await exigirSesion();
   if (!Array.isArray(filas) || !filas.length) return { creados: 0, enriquecidos: 0, ganados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
   if (filas.length > MAX_FILAS_IMPORT) {
@@ -2061,6 +2061,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   // campo (o un `motivo` en null para colar una fila que en realidad se descarta).
   const limpias: FilaImport[] = filas.map((f, i) => ({
     id: String(f?.id ?? `r${i}`),
+    etiquetas: etiquetasDeCelda(Array.isArray(f?.etiquetas) ? f.etiquetas.filter((x) => typeof x === 'string').join(';') : ''),
     nombre: String(f?.nombre ?? '').trim().slice(0, 200),
     email: String(f?.email ?? '').trim().slice(0, 200),
     telefono: String(f?.telefono ?? '').trim().slice(0, 60),
@@ -2284,6 +2285,9 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   }
 
   bust(TAG.leads);
+  // Las etiquetas del archivo y la de toda la lista (31/10/2026): en lote, sin disparar nada. Lo que falle se dice; los leads ya entraron.
+  errores.push(...await etiquetarImportados(leadsPorEtiqueta(limpias, ids, etiquetaGeneral), 'Importación').catch((e) => [`Las etiquetas: ${e instanceof Error ? e.message : String(e)}`]));
+
   revalidatePath('/crm');
   revalidatePath('/general');
   return { creados, enriquecidos, ganados, omitidos, errores: errores.slice(0, 20), ids };

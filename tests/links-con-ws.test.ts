@@ -78,7 +78,7 @@ test('un dominio a una o dos letras del de MaKo se corrige; uno distinto de verd
 });
 
 test('el turno real: lo que sale al grupo y lo que queda en la memoria llevan el dominio de MaKo', () => {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_link-inventado-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 280_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_link-inventado-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 280_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@LINK@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   const o = JSON.parse(linea.slice('@@LINK@@'.length));

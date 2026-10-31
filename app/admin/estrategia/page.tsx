@@ -13,7 +13,7 @@
 
 import { redirect } from 'next/navigation';
 import { getSesionAdmin } from '@/lib/auth';
-import { Pagina, PageHeader } from '@/app/_ui';
+import { ButtonLink, Pagina, PageHeader } from '@/app/_ui';
 import Estrategia from './Estrategia';
 import { MEDIDO, hoyAR } from './datos';
 // La hoja va acá y no en Estrategia.tsx: así el componente se dibuja en un test sin
@@ -35,6 +35,8 @@ export default async function EstrategiaPage() {
     <Pagina>
       <PageHeader
         titulo="Strategy"
+        // La investigación financiera (24/10, Martín: «ponme en una ruta de MaKo para leerla»). Arriba: al pie de esta página, doce secciones más abajo, no se encuentra.
+        accion={<ButtonLink href="/admin/estrategia/cobrar" variant="secondary">Cómo cobrar MaKo →</ButtonLink>}
         estado={
           <span style={{
             fontFamily: "'Geist Mono', ui-monospace, monospace", fontSize: 11.5, color: 'var(--faint)',

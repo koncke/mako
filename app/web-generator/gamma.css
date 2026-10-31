@@ -302,18 +302,26 @@
 /* El botón partido de Compartir: [Compartir][▾], UNA pastilla (radios 24px 0 0 24px y 0 24px 24px 0) con el divisor.
    Con clases propias y no :first-child/:last-child (25/10/2026, Martín: «El desplegable al lado de "compartir" no debe ser
    redondo»): con cambios sin publicar, el último hijo es el puntito azul, y el ▾ quedaba suelto, como un círculo aparte. */
-.gma-partido { display: inline-flex; align-items: stretch; position: relative; }
+.gma-partido { display: inline-flex; align-items: stretch; position: relative; border-radius: 24px; background: var(--gma-primario); }
 .gma-partido > .gma-partido-principal { border-radius: 24px 0 0 24px; padding: 0 12px 0 12px; }
+/* SE VE COMO UN SOLO BOTÓN, con su ▾ adentro (30/10/2026, sobre el pedido de Martín del 24/10: «un solo botón, azul y que diga
+   "compartir"»): eran dos mitades con una raya en el medio. Siguen siendo dos blancos de clic, pero el fondo es del contenedor:
+   dos fondos pegados dejan una línea en la unión cuando el ancho cae entre dos píxeles. */
+.gma-partido:hover { background: var(--gma-primario-hover); }
+.gma-partido:active { background: var(--gma-b900); }
+.gma-partido > .gma-boton--primario,
+.gma-partido > .gma-boton--primario:hover,
+.gma-partido > .gma-boton--primario:active { background: transparent; }
+.gma-partido > .gma-partido-principal { padding-right: 2px; }
 .gma-partido > .gma-partido-flecha {
-  width: 32px;
-  padding: 0;
+  width: 26px;
+  padding: 0 4px 0 0;
   border-radius: 0 24px 24px 0;
-  border-left: 1px solid rgba(255, 255, 255, 0.28);
 }
 .gma-punto-cambios {
   position: absolute;
   top: -2px;
-  right: 30px;
+  right: 22px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -491,6 +499,33 @@
 /* Con la barra única (24/10/2026) entran el título, el guardado, Compartir y Publicar: los textos se pliegan antes. */
 @media (max-width: 1440px) {
   .gma-herr-texto { display: none; }
+}
+/* LA BARRA SE PLIEGA POR LO QUE ELLA MIDE, NO POR LA VENTANA (30/10/2026, medido en un banco con el editor real). A 1024, con la
+   tarjeta del chat, pedía 712 px en 660: Compartir y el ⋯ quedaban cortados afuera. Y un panel de la derecha (Tema, Animar)
+   la achica igual a cualquier ancho de ventana. Lo último que se va es Compartir y el ⋯: primero los dispositivos (el título
+   sigue leyéndose: Martín lo pidió el 24/10), después el rótulo de Compartir, después el aire del título, y por último lo que
+   también está en otro lado (⋯, atajos, el chat).
+   ⚠️ Los dispositivos con la barra adelante: `.gma-dispositivos { display: flex }` está más abajo en este archivo y le gana.
+   ⚠️ El contenedor es la barra y no `.gma-centro`: `container-type` hace de esa caja el bloque de lo `position: fixed`, y
+   adentro de `.gma-centro` están el lienzo y sus barras flotantes. La barra no tiene nada fijo adentro. */
+.gma-herramientas { container: gma-barra / inline-size; }
+@container gma-barra (max-width: 910px) {
+  /* Los rótulos, primero: por encima de 1440 de ventana, con un panel abierto, el @media de arriba no los pliega. */
+  .gma-herr-texto { display: none; }
+}
+@container gma-barra (max-width: 770px) {
+  .gma-herr-der .gma-dispositivos, .gma-herr-der .gma-dispositivos + .gma-sep { display: none; }
+}
+@container gma-barra (max-width: 640px) {
+  .gma-partido-texto { display: none; }
+  .gma-partido > .gma-partido-principal { padding: 0 2px 0 10px; }
+}
+@container gma-barra (max-width: 560px) {
+  .gma-herramientas .gma-titulo { min-width: 100px; }
+}
+@container gma-barra (max-width: 480px) {
+  .gma-herr-plegable { display: none; }
+  .gma-herramientas .gma-titulo { min-width: 60px; }
 }
 
 /* El interruptor Edición manual / Edición con IA, con el pulgar que rebota. */

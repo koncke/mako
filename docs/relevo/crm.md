@@ -6,6 +6,36 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω32. 30/10/2026, noche (chat «CRM», cuenta `claude1`): Código Inmobiliario y los puntos 12 a 21 del 24/10
+
+- **Código Inmobiliario, cerrado.** Los 21 fallos eran avisos al equipo y los 10 borradores, mensajes por aprobar; los 7 borradores vivos de la #241 se descartaron en producción. Causa y lo que quedó sin hacer: hallazgos-chatbot, «MaKo no les escribió a sus leads». No se reenvió nada a propósito.
+- **Los puntos 12 a 21 ya estaban en producción desde el 24 y 25/10.** Se hizo el resto en la rama `crm-instagram-3010` (encima de `0333327b7`): Fiscal, Servicio y Promesa eligen sus datos; Instagram le pregunta a la Meta de la plataforma y pide la foto.
+- **Sin ver en pantalla:** la ✕ y «Datos ▾» de esos tres bloques. El navegador integrado no tiene sesión de MaKo y no había un Chrome conectado.
+- **La foto de Instagram sigue sin llegar:** lo que falta es de Martín (se lo pasé a Ops Center para «Traba a Martín»).
+- **«Extraer» (pedido de Martín del 30/10):** modal mientras corre, confirmación con cuántos, estado fuera del modal (lib/extraccion-estado.ts) y la extensión 0.74.4 vuelve a MaKo aunque Chrome haya matado su worker. **Sin ver de punta a punta:** hace falta que Martín extraiga una vez en su Chrome. Si no vuelve a MaKo con la 0.74.4, la causa que escribí en hallazgos-extension es la equivocada.
+- **Funnel low to high:** el checkout ya dejaba el lead. Se arregló que un homónimo frenara la compra, y quien paga se agrega a «MaKo Acelerador» (setting `planes.crm_llamadas`, CRM 54, producto 62). **La plataforma no tiene pasarela conectada: hoy no se puede comprar.** La tabla de lo que nunca corrió está en hallazgos-planes-y-cobro.
+- **Configuración fuera de git, en el ws 9:** CRM y producto «MaKo Acelerador», el setting y la automatización #714 «Entró un Pago».
+- **Automations:** la línea «lo que dice no coincide con su disparador». Ops Center adelanta la pregunta del WhatsApp; el número llega al lead por `anotarTelefonoDelComprador`.
+- **Tests de la punta:** afectados 3.392 tests de 592 archivos con la RAM en 0,1 GB (un grupo de 261 archivos corrió 0 tests). Se repitieron 269 archivos de a tandas: 267 verdes y 2 rojos, arreglados y verificados con sus vecinos, **sin repetir el conjunto**. **Tipos: los corre Actions** (`tsc-acotado` no entra en la RAM de esta PC). Un código 1 en TraerDeGrupoWA.tsx salió justo cuando se borró el worktree, y no se pudo repetir.
+- **Leila, lunes (rama `crm-nombres-3110`):** `{{nombre}}` limpio, `{{segundo_nombre}}`/`{{tercer_nombre}}`, «Nombres de tus leads», importar con etiquetas, «Ver quiénes» en las Métricas y el nombre en Chats. Las variantes y el arranque gradual los lleva Automations. Sin ver en pantalla.
+- **Lo que sigue:** Newsletter (ver abajo), cuando Calendario esté en main.
+
+## 0-Ω31. 30/10/2026 (chat «CRM», cuenta `claude1`): Calendario, Newsletter y el registro de bajas
+
+**Tres puntas, ninguna en main todavía al escribir esto.** Medí el estado antes de creerme esta lista: `git merge-base --is-ancestor <sha> origin/main`.
+
+- **Calendario + recorrido: `6524c130b`** (rama `recorrido-k-3010`, tag `respaldo/calendario-recorrido-3010`). La tiene el Cerebro para el tren.
+  - Afectados `--rapido`: 3.533 tests, 1 rojo (`docs/api-mako.md`), regenerada y verificada SÓLA, sin repetir el conjunto.
+  - Sin mirar en pantalla: la posición del globo de la guía con el botón en la barra (`bordeVisible - 56`) es un cálculo, una hipótesis.
+- **Registro de bajas: `b8e6e842e`** (rama `crm-bajas-3010`, tag `respaldo/crm-bajas-3010`). La tiene el Cerebro para el tren. La mig 0356 YA ESTÁ APLICADA con ese nombre: no se renumera.
+  - ⚠️ **Tests: 5 arreglados y verificados uno por uno, sin repetir el conjunto. NO es una corrida completa en verde.** Los afectados dieron 2.467 tests de 407 archivos con 5 rojos, y además 179 archivos «flaky» con 0,2 GB de RAM libre como mínimo: la máquina se quedó sin memoria, y esos no están medidos acá. Van a Actions con el resto.
+  - Sin verificar: el botón «Eliminar» en pantalla (falta sesión en el navegador integrado). Las funciones se midieron por PostgREST, en el Cliente de Prueba.
+- **Newsletter: `4bf893671`** (rama `newsletter-2910`, worktree `C:/dev/wt-newsletter-2910`). **Sin tag y sin afectados.** Las 4 fallas de la revisión están arregladas (15 roturas, 15 rojos); la mig 0351 ya está aplicada (medido).
+  - **Falta, en este orden, cuando Calendario esté en main:** traer main con merge (choca en `AGENTS.md`, `app/calendario/comun.ts`, `lib/calendario-modelo.ts` y `docs/hallazgos.md`), correr sus afectados, etiquetar y pasarle la punta al Cerebro.
+  - Queda para antes de sacarlo de PRONTO: M5 y las bajas del informe (`docs/hallazgos-newsletters.md`). El interruptor de una landing se le pregunta a Martín.
+- **Cuotas de la ficha: `c7ff7d7fc`** (tag `respaldo/crm-diseno-t17-2410`): hechas, esperando una revisión adversarial que no sea de quien las escribió. No se reimplementan.
+- **Para mirar en producción cuando haya sesión:** el «Creando…» de los «+» de etapas (crear y borrar en el Cliente de Prueba), el selector de funnel del teléfono, las dos columnas de la ficha, el globo de arriba y «Eliminar».
+
 ## 0-Ω29. 27/10/2026 (chat «CRM», cuenta `claude5`): el feedback de Leila, Leandro, Aaron y el grupo Makito (del Cerebro)
 
 Misma rama. Lo aprendido, en hallazgos-crm («Feedback de Leila, Leandro y Aaron»), hallazgos-chatbot y hallazgos-extension.

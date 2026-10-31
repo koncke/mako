@@ -55,6 +55,7 @@ export type CobroMrr = {
   monto_usd?: number | null;
   alta_capa?: string | null;
   creado_por?: string | null;
+  pagado_at?: string | null;
 };
 
 /** ¿Este cobro factura cada mes hoy? Una suscripción activa, que no es una prueba gratis ni está anulada o devuelta. */
@@ -135,7 +136,7 @@ export function haceTxt(dias: number | null): string {
 // Copiado del feed «Customer Activity» de ProfitWell y de las señales de Baremetrics (docs/customers/referencias): un
 // renglón por cliente con una etiqueta de color y una frase corta. Un cliente sale UNA vez, con su motivo más grave.
 
-export const MOTIVOS_PARA_MIRAR = ['pausado', 'cobro', 'pago', 'sin-uso', 'sin-empezar', 'prueba', 'nuevo'] as const;
+export const MOTIVOS_PARA_MIRAR = ['pausado', 'cobro', 'pago', 'regalo', 'sin-uso', 'sin-empezar', 'prueba', 'nuevo'] as const;
 export type MotivoParaMirar = (typeof MOTIVOS_PARA_MIRAR)[number];
 
 /** El rótulo de la etiqueta y su tono. */
@@ -143,6 +144,7 @@ export const ETIQUETA_PARA_MIRAR: Record<MotivoParaMirar, { rotulo: string; tono
   pausado: { rotulo: 'Pausado', tono: 'bad' },
   cobro: { rotulo: 'Cobro fallido', tono: 'bad' },
   pago: { rotulo: 'Pago pendiente', tono: 'warn' },
+  regalo: { rotulo: 'Fin de lo gratis', tono: 'warn' },
   'sin-uso': { rotulo: 'Sin uso', tono: 'warn' },
   'sin-empezar': { rotulo: 'Sin empezar', tono: 'warn' },
   prueba: { rotulo: 'En prueba', tono: 'info' },
@@ -159,6 +161,8 @@ export type FilaParaMirar = {
   motivoRiesgo: 'pausado' | 'cobro' | 'sin-uso' | null; sinEntrar: number | null;
   /** `null` = no se pudo leer: ni «Sin empezar» ni «Activo» por eso. */
   onboardingHecho: boolean | null;
+  /** Unos 6 meses gratis que terminan pronto o terminaron sin resolver, ya dicho (lib/plan-a-mano-reglas.ts, `regaloParaMirar`). */
+  regaloPorTerminar?: string | null;
 };
 export type ItemParaMirar = { ws: number; nombre: string; motivo: MotivoParaMirar; texto: string };
 
@@ -171,6 +175,7 @@ export function paraMirar(filas: readonly FilaParaMirar[], ahoraMs: number): Ite
     if (f.estado === 'pausado') { motivo = 'pausado'; texto = 'Su cuenta está pausada'; }
     else if (f.motivoRiesgo === 'cobro') { motivo = 'cobro'; texto = 'Un cobro de su plan falló'; }
     else if (f.pagoPendiente) { motivo = 'pago'; texto = 'Tiene un pago esperando'; }
+    else if (f.regaloPorTerminar) { motivo = 'regalo'; texto = f.regaloPorTerminar; }
     else if (f.motivoRiesgo === 'sin-uso') {
       motivo = 'sin-uso';
       texto = f.sinEntrar == null ? 'Nadie de su equipo entró nunca' : `Nadie de su equipo entra hace ${f.sinEntrar} días`;

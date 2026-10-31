@@ -182,6 +182,27 @@ decía mal, y un hueco que venía de antes:
     con ella; lo leído vuelve al campo de la pantalla (`onTexto`), que vive afuera, y no se manda. Con `conversacion`, queda
     guardado para volver.
 
+## El botón de MaKo tapaba el rincón de cinco pantallas: vive en la barra, no encima de la tab (30/10/2026)
+
+**Síntoma** (el recorrido visual de producción, Chrome de Martín): el botón de la estrella (56×56, `position: fixed`, al lado de la
+barra) tapaba la casilla de un calendario de Google en /calendario (K2, ALTO: no se podía tocar), «Venció…» en Llamadas a 1024, una
+fecha del Plan (P1), la última tarjeta de un etapa del CRM (C3) y una etiqueta del eje de un gráfico del Dashboard (D4).
+
+- ⚠️ **El arreglo obvio («que cada tab le reserve el lugar») es el que no escala.** Son 22 pantallas que montan MakoEnLaTab, varias de
+  alto completo que scrollean por dentro (el Calendario, los kanbans): un `padding-bottom` por pantalla se olvida en la próxima. La
+  barra de la app es la única pieza que está en todas: le deja una **ranura** al pie (`data-ranura-mako`, app/_components/Sidebar.tsx,
+  vacía no ocupa lugar) y el botón se monta ahí con un portal (`useRanuraDeLaBarra`, app/_chat/MakoEnLaTab.tsx).
+- **Flota como antes en dos casos:** sin barra (no hay ranura) y cuando tiene que quedar ENCIMA de un modal de la tab (CR4: la barra
+  queda bajo el velo del modal, y un portal adentro de la barra quedaría tapado). El respaldo es el botón de siempre, así que
+  tests/estrella-al-lado-de-la-barra.test.ts, el CR4 y el vuelo de la criatura (`.ch-tab-mako`) siguen valiendo.
+- **La barra va en su propio Suspense** (app/layout.tsx): puede montarse DESPUÉS que la tab. Si la ranura no está al montar, se la
+  espera con un `MutationObserver` (sin eso, el botón quedaba flotando para siempre en la primera carga).
+- **Medido en un navegador** (la maqueta de esbuild con el MakoEnLaTab de verdad) a 1536, 1280 y 1024: el botón adentro de la barra,
+  `elementFromPoint` en el rincón de la tab no lo encuentra, y abrirlo sigue corriendo la tab (`--ancho-panel-mako`).
+
+**Vive en:** app/_chat/MakoEnLaTab.tsx · app/_components/Sidebar.tsx · app/_chat/chat.css (`.ch-tab-mako--en-barra`) ·
+tests/recorrido-k-3010.test.ts (cinco roturas, cinco rojos). *30/10/2026, claude3.*
+
 ## MaKo toma la iniciativa: la apertura, y las respuestas rápidas que sin la app no hacían nada (29/10/2026, claude3)
 
 La base de docs/mako-iniciativa/ (T1 de plan.md + G1 de guia.md): lo que MaKo dice primero en un chat es una APERTURA

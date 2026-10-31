@@ -4,10 +4,10 @@
 // Un mensaje de Martín a un chat cerrado se quedaba `escrito` sin que nadie se enterara y, a los 15 días, vencía sin avisar. Medido
 // el 30/10: 11 ahí, el más viejo del 24/10. Lo único que lo decía era una línea adentro de ESE chat, que él ya no abre.
 // Esto dice cuáles son, con lo que sube la PC (los chats vivos de cada cartero) y sin pedirle nada a la PC: si la PC está apagada, la
-// cuenta sigue en pie. La usa el cartel rojo de arriba del Ops Center (app/admin/operaciones/CartelLimbo.tsx).
+// cuenta sigue en pie. El cartel rojo que la usaba lo sacó Martín el 31/10/2026: «elimina el cartel rojo». Queda la regla y sus textos, sin pantalla.
 //
 // ⚠️ LA LISTA NO ES SÓLO DE CHATS CERRADOS: es todo lo que no sale y nadie más dice (30/10/2026). Cada uno lleva su causa, porque el remedio
-//    es otro: abrir el chat, abrir el Runner de esa cuenta, o prender la apertura. Con un Runner dando vueltas en OTRA cuenta, `cartelDeLaPc`
+//    es otro: abrir el chat, abrir el Runner de esa cuenta, o prender la apertura. Con un Runner dando vueltas en OTRA cuenta, `estadoDeLaPc`
 //    se calla: lo que espera al Runner de ésta se dice acá, o no lo dice nadie (`causa: 'sin_runner'`).
 // ⚠️ UNA FOTO VIEJA NO DICE «CERRADO»: `comoEstaElDestino` (lib/operaciones-reglas.ts). Con la cuenta callada, lo que falta es su Runner.
 // ⚠️ VENCER NO LO SACA DE LA LISTA: lo vencido se sigue mostrando hasta que Martín lo descarte o lo mande a otro chat. Su texto sigue

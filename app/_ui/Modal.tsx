@@ -53,6 +53,7 @@ export function Modal({
   anidada = false,
   sinFiletes = false,
   contenedor = false,
+  sinCerrar = false,
 }: {
   /** El título de la caja. Es el nombre de LA COSA, no una instrucción. */
   titulo: ReactNode;
@@ -108,6 +109,8 @@ export function Modal({
    *  queda en blanco. Lo usa la ficha de un cliente, que monta el tablero entero adentro.
    *  Ver el bloque `contenedores` en `app/_components/pila-modales.ts`. */
   contenedor?: boolean;
+  /** Algo corriendo que no se cierra, se PARA con el botón del pie: sin la ✕ (el clic afuera y Escape los decide `onCerrar`). */
+  sinCerrar?: boolean;
 }) {
   const capa = useCapaModal(true, { anidada, contenedor });
   const arriba = capa.esElDeArriba;
@@ -219,11 +222,11 @@ export function Modal({
             {encabezado}
             <h2 id={tituloId} className="mk-modal__h">{titulo}</h2>
           </div>
-          <button type="button" className="mk-modal__x" onClick={onCerrar} aria-label="Cerrar">
+          {!sinCerrar && <button type="button" className="mk-modal__x" onClick={onCerrar} aria-label="Cerrar">
             <svg width="15" height="15" viewBox="0 0 15 15" aria-hidden focusable="false">
               <path d="M3.5 3.5l8 8m0-8l-8 8" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
-          </button>
+          </button>}
         </div>
 
         {/* El ÚNICO que scrollea. `minHeight: 0` es lo que lo permite dentro de

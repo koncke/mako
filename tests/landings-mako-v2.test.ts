@@ -123,8 +123,19 @@ test('hola-mako.com: las columnas van donde la landing las pide, y el HTML pasa 
   const src = sinComentarios(leer('app/vsl/Landing.tsx'));
   assert.match(src, /const propio = root\.querySelector<HTMLElement>\(`\[\$\{ATRIBUTO_PLANES\}\]`\);/);
   assert.match(src, /if \(propio\) \{[\s\S]{0,260}propio\.replaceChildren\(\);[\s\S]{0,120}return propio;/, 'el lugar propio gana a la agenda, y lo de adentro (el respaldo) se reemplaza');
-  assert.match(src, /__html: diseno \? conPreciosEnHtml\(diseno\.html, planes, PRUEBA_DIAS\) : LANDING_HTML/, 'los precios y la prueba de hoy, de la fuente');
-  assert.match(src, /import \{ PRUEBA_DIAS \} from '@\/lib\/planes-mako';/);
+  // ── EL HTML PUBLICADO PASA POR LAS MARCAS, Y LA PRUEBA SALE DE LA FUENTE, PRENDIDA O APAGADA ──
+  // Esto citaba `conPreciosEnHtml(diseno.html, planes, PRUEBA_DIAS)` y se puso rojo al matar la prueba gratis
+  // (31/10/2026): ahora el tercer argumento es `PRUEBA_GRATIS_PRENDIDA ? PRUEBA_DIAS : 'apagada'`, porque con la prueba
+  // apagada la landing NO puede seguir prometiendo días («no se te cobra nada hasta el día 8» y «Empezar mis 7 días
+  // gratis» en el botón de cada plan). `conPreciosEnHtml` trata 'apagada' como un caso aparte, no como «sin dato».
+  // Se afirma por partes para que el mensaje diga qué se perdió:
+  const marcas = src.match(/__html: diseno \? conPreciosEnHtml\(([^)]*)\) : LANDING_HTML/);
+  assert.ok(marcas, 'el HTML del diseño publicado ya no pasa por `conPreciosEnHtml`: la landing dibujaría el respaldo que quedó guardado, con el precio del día que se publicó');
+  const args = marcas[1].split(',').map((s) => s.trim());
+  assert.deepEqual(args.slice(0, 2), ['diseno.html', 'planes'], 'las marcas se aplican al HTML del diseño, con los planes que llegaron');
+  assert.match(args[2] ?? '', /^PRUEBA_GRATIS_PRENDIDA \? PRUEBA_DIAS : 'apagada'$/,
+    'los días de prueba salen de la fuente Y el interruptor viaja: con la prueba apagada la landing tiene que decir «apagada», no quedarse prometiendo días que el checkout ya no da');
+  assert.match(src, /import \{ PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA \} from '@\/lib\/planes-mako';/, 'los dos salen de planes-mako, no de una copia');
 });
 
 test('las landings por funcionalidad y avatar: su origen, el precio por marca, nada de más, y las que no salen, en pausa', () => {

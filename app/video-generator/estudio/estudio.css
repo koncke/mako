@@ -1,0 +1,176 @@
+/* =============================================================================
+   El estudio de Video Generator (27/10/2026) — copiado de Arcads: proyectos | proyecto | MaKo
+   =============================================================================
+   Sólo TOKENS de la casa (app/globals.css): claro u oscuro según lo que elija la persona. La tab dejó de forzar el oscuro
+   (TemaOscuro): los colores de MaKo, no los de Flow.
+   Tres columnas en una ventana ancha; el chat pasa a ser un cajón por debajo de 1180 px y la barra, por debajo de 760 px.
+   Nada scrollea de costado: se reorganiza.
+   ============================================================================= */
+
+.vgs {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 252px minmax(0, 1fr) 400px;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ── La barra de proyectos ── */
+.vgs-barra {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+.vgs-barra__cab { padding: 16px 14px 10px; display: grid; gap: 12px; }
+.vgs-barra__tab { font-size: var(--fs-card); font-weight: 700; letter-spacing: -.01em; color: var(--ink); }
+.vgs-nuevo {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  height: 38px; border-radius: var(--r-md); border: 1px solid var(--mako-border);
+  background: var(--mako-bg); color: var(--mako-ink); font: inherit; font-size: var(--fs-md); font-weight: 650; cursor: pointer;
+}
+.vgs-nuevo:hover { background: color-mix(in srgb, var(--mako) 18%, var(--surface)); }
+.vgs-nuevo[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--mako); }
+.vgs-nuevo:focus-visible, .vgs-proyecto:focus-visible, .vgs-chip:focus-visible, .vgs-link:focus-visible,
+.vgs-cajon-boton:focus-visible, .vgs-formato__boton:focus-visible, .vgs-formato__ver:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.vgs-barra__lista { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 8px 16px; }
+.vgs-barra__grupo { padding: 12px 8px 6px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); }
+.vgs-barra__vacio { margin: 0; padding: 4px 8px; font-size: var(--fs-sm); color: var(--faint); }
+.vgs-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.vgs-proyecto {
+  display: grid; gap: 2px; width: 100%; text-align: left; padding: 8px 10px; border-radius: var(--r-sm);
+  border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.vgs-proyecto:hover { background: var(--velo-hover, var(--surface-2)); }
+.vgs-proyecto[aria-current="page"] { background: var(--primary-bg); }
+.vgs-proyecto__titulo { font-size: var(--fs-sm); font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.vgs-proyecto__detalle { font-size: var(--fs-meta); color: var(--dim); }
+.vgs-proyecto__detalle[data-tono="bad"] { color: var(--bad); }
+.vgs-proyecto__detalle[data-tono="good"] { color: var(--good); }
+.vgs-proyecto__detalle[data-tono="info"] { color: var(--primary); }
+.vgs-proyecto--hecho { grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 10px; }
+.vgs-proyecto__mini { width: 30px; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 4px; background: var(--surface-2); display: block; }
+.vgs-proyecto__texto { display: grid; gap: 2px; min-width: 0; }
+
+/* ── El centro ── */
+.vgs-centro { min-width: 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; }
+.vgs-centro__barra { display: none; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px 0; }
+.vgs-avisos { padding: 12px 24px 0; display: grid; gap: 10px; }
+.vgs-avisos:empty { display: none; }
+/* El wizard del anuncio abierto, adentro de la columna: sin el padding que lo centraba contra la ventana entera. */
+.vgs-centro .mk-estudio { padding: 22px 24px; min-height: 0; }
+
+/* ── El anuncio nuevo ── */
+.vgs-composer { flex: 1; display: flex; flex-direction: column; min-height: 100%; }
+.vgs-composer__cuerpo { flex: 1; width: 100%; max-width: 820px; margin-inline: auto; padding: 22px 24px 28px; display: grid; gap: 22px; align-content: start; }
+.vgs-titulo { margin: 0; font-size: var(--fs-page); font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
+.vgs-seccion { display: grid; gap: 10px; }
+.vgs-seccion__cab { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.vgs-seccion__titulo { margin: 0; font-size: var(--fs-card); font-weight: 650; color: var(--ink); }
+.vgs-link {
+  border: 0; background: transparent; padding: 0; font: inherit; font-size: var(--fs-sm); color: var(--primary);
+  cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
+.vgs-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: var(--fs-meta); color: var(--faint); }
+.vgs-vacio {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  padding: 14px 16px; border-radius: var(--r-md); border: 1.5px dashed var(--border-strong); color: var(--dim); font-size: var(--fs-sm);
+}
+.vgs-vacio__acciones { display: inline-flex; gap: 14px; }
+/* El campo del guion (el de Arcads): lo que se va a decir, a la vista, sin rótulos. */
+.vgs-guion {
+  margin: 0; padding: 14px 16px; border-radius: var(--r-md); background: var(--surface); border: 1px solid var(--border);
+  font-size: var(--fs-md); line-height: 1.65; color: var(--ink); white-space: pre-wrap;
+  max-height: 220px; overflow-y: auto;
+}
+
+/* La biblioteca de formatos: el video ES la tarjeta. */
+.vgs-formatos { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 12px; }
+.vgs-formato { display: grid; gap: 4px; min-width: 0; }
+.vgs-formato__boton {
+  position: relative; display: block; width: 100%; padding: 0; border: 0; background: transparent; cursor: pointer;
+  border-radius: var(--r-md); overflow: hidden; line-height: 0; outline: 1px solid var(--border);
+}
+.vgs-formato[data-elegida] .vgs-formato__boton { outline: 2px solid var(--primary); outline-offset: 2px; }
+.vgs-formato__video { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; background: var(--surface-2); }
+/* El rótulo quemado sobre el video: degradado (no un fondo sólido) para leerse sobre un cuadro que cambia. Es texto sobre un
+   VIDEO, no sobre la página: va en blanco en los dos temas. */
+.vgs-formato__rotulo {
+  position: absolute; inset: auto 0 0 0; padding: 26px 9px 8px; display: grid; gap: 1px; text-align: left;
+  background: linear-gradient(to top, rgba(0, 0, 0, .78), transparent); color: #fff;
+  font-size: var(--fs-sm); font-weight: 650; line-height: 1.25;
+}
+.vgs-formato__tecnico { font-size: var(--fs-meta); font-weight: 400; opacity: .85; }
+.vgs-formato__tilde {
+  position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 999px; display: grid; place-items: center;
+  background: var(--primary); color: var(--on-primary, var(--on-ink)); line-height: 1;
+}
+.vgs-formato__ver {
+  border: 0; background: transparent; padding: 3px 0; font: inherit; font-size: var(--fs-meta); color: var(--dim); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+}
+
+/* El lugar: una fila de opciones que envuelve. */
+.vgs-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.vgs-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 13px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); cursor: pointer;
+}
+.vgs-chip:hover { background: var(--surface-2); }
+.vgs-chip[aria-checked="true"] { border-color: var(--primary); background: var(--primary-bg); color: var(--primary-strong, var(--primary)); font-weight: 600; }
+
+/* El pie: el único botón, con su consecuencia pegada. */
+.vgs-pie {
+  position: sticky; bottom: 0; display: flex; align-items: center; justify-content: flex-end; gap: 14px; flex-wrap: wrap;
+  padding: 12px 24px; border-top: 1px solid var(--border); background: var(--surface);
+}
+.vgs-pie__consecuencia { font-size: var(--fs-sm); color: var(--ink); }
+.vgs-pie__consecuencia[data-aviso] { color: var(--warn); }
+
+/* ── El chat de MaKo ── */
+.vgs-chat { min-height: 0; display: flex; border-left: 1px solid var(--border); background: var(--surface); }
+.vgs-chat__cerrar {
+  display: none; width: 30px; height: 30px; border: 0; border-radius: var(--r-sm); background: transparent; color: var(--dim);
+  font-size: 20px; line-height: 1; cursor: pointer;
+}
+.vgs-chat__cerrar:hover { background: var(--surface-2); color: var(--ink); }
+
+/* Los botones de los cajones y el velo: sólo en ventanas angostas. */
+.vgs-cajon-boton {
+  display: none; align-items: center; gap: 7px; height: 34px; padding: 0 12px; border-radius: 999px;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); font: inherit; font-size: var(--fs-sm); font-weight: 600; cursor: pointer;
+}
+.vgs-velo { display: none; }
+
+@media (max-width: 1179px) {
+  .vgs { grid-template-columns: 232px minmax(0, 1fr); }
+  .vgs-centro__barra { display: flex; }
+  .vgs-cajon-boton--chat { display: inline-flex; margin-left: auto; }
+  .vgs-chat {
+    position: fixed; top: var(--barra-agencia, 0px); right: 0; bottom: 0; width: min(420px, 100vw); z-index: 50;
+    border-left: 1px solid var(--border-strong); box-shadow: -8px 0 24px rgba(0, 0, 0, .14);
+    transform: translateX(100%); transition: transform var(--dur-sheet, .26s) var(--ease-drawer, ease);
+  }
+  .vgs[data-chat="abierto"] .vgs-chat { transform: none; }
+  .vgs-chat__cerrar { display: grid; place-items: center; }
+  .vgs[data-chat="abierto"] .vgs-velo, .vgs[data-barra="abierta"] .vgs-velo {
+    display: block; position: fixed; inset: 0; z-index: 45; border: 0; padding: 0; background: var(--scrim, rgba(0, 0, 0, .32)); cursor: pointer;
+  }
+}
+@media (max-width: 759px) {
+  .vgs { grid-template-columns: minmax(0, 1fr); }
+  .vgs-cajon-boton--barra { display: inline-flex; }
+  .vgs-barra {
+    position: fixed; top: var(--barra-agencia, 0px); left: 0; bottom: 0; width: min(300px, 86vw); z-index: 50;
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .14); transform: translateX(-100%); transition: transform var(--dur-sheet, .26s) var(--ease-drawer, ease);
+  }
+  .vgs[data-barra="abierta"] .vgs-barra { transform: none; }
+  .vgs-composer__cuerpo { padding: 16px 16px 24px; }
+  .vgs-pie { padding: 12px 16px; }
+  .vgs-centro .mk-estudio { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vgs-chat, .vgs-barra { transition: none; }
+}

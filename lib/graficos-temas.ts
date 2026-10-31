@@ -361,6 +361,112 @@ export function letrasDe(tema: TemaHoja): string[] {
   return tipografiaDe(id).hoja ? [id] : [];
 }
 
+// ── EL VOCABULARIO DE MEDIDO CONTRA NO MEDIDO ───────────────────────────────────────────
+// Un número ESTIMADO no se dibuja igual que uno MEDIDO. Hasta el 31/10/2026 se dibujaban
+// igual: un pronóstico y una medición compartían el mismo relleno sólido, así que la
+// pantalla afirmaba con la misma voz lo que leyó y lo que supuso.
+//
+// Ya teníamos la mitad de la regla escrita (`AGENTS.md`: «lo que no se puede medir no se
+// estima: el campo queda en `null` y ni la pantalla ni la API dicen una palabra — nunca un
+// cero, nunca un "falta"»). Esto es la OTRA mitad: cómo se ve un número no medido cuando sí
+// decidimos mostrarlo.
+//
+// ⚠️ Por qué es un vocabulario CERRADO de cinco, y no cinco decisiones sueltas: tenemos 46
+// tipos de gráfico y el usuario los mezcla en la misma hoja. Mirando 114 tableros ajenos
+// (docs/diseno-dashboards-codeandchill.md, §E2) el mismo punteado significaba un umbral en
+// uno, otro período en otro y otra unidad en un tercero. Cada recurso significa UNA cosa.
+//
+// ⚠️ Esto NO autoriza a inventar un dato. Marcar algo como `no-medido` requiere que el dato
+// SEPA que no fue medido. Si no se sabe, no se muestra la afirmación.
+
+/**
+ * De dónde salió lo que se está dibujando. Cada valor tiene un recurso visual propio y
+ * ninguno pisa a otro.
+ */
+export type Procedencia =
+  /** Pasó y lo leímos. Relleno y trazo SÓLIDOS. Es el que no hace falta declarar. */
+  | 'medido'
+  /** Proyectado, comprometido o todavía no ocurrido. RAYADO en diagonal (o trazo punteado). */
+  | 'no-medido'
+  /** Un hueco que todavía no pasó (la hora de hoy que aún no corrió). CONTORNO sin relleno. */
+  | 'hueco'
+  /** Otro período (el mes anterior, el año pasado). El MISMO color, en tono más claro. */
+  | 'otro-periodo'
+  /** Un umbral o una meta (la cuota, el tope de gasto). Línea FINA de 1 px, y con rótulo. */
+  | 'umbral';
+
+/**
+ * Qué significa cada recurso, en palabras. Lo lee la leyenda cuando una hoja mezcla
+ * procedencias, y lo leen los tests para que nadie agregue un sexto recurso sin nombrarlo.
+ */
+export const VOCABULARIO: Record<Procedencia, { nombre: string; comoSeVe: string }> = {
+  medido: { nombre: 'Medido', comoSeVe: 'Relleno sólido' },
+  'no-medido': { nombre: 'Estimado', comoSeVe: 'Rayado en diagonal' },
+  hueco: { nombre: 'Todavía no pasó', comoSeVe: 'Contorno sin relleno' },
+  'otro-periodo': { nombre: 'Período anterior', comoSeVe: 'El mismo color, más claro' },
+  umbral: { nombre: 'Meta', comoSeVe: 'Línea fina con rótulo' },
+};
+
+/**
+ * Un color aclarado hacia el blanco: `t` = 1 es el color tal cual, 0 es blanco. Es el tono de
+ * «otro período», y lo usa también el degradado de las áreas.
+ *
+ * ⚠️ Aclara hacia el BLANCO, no hacia la superficie: en el tema oscuro un tono más claro
+ * sigue leyéndose como «el mismo color, más suave», que es lo que la regla pide.
+ */
+export function aclarar(hex: string, t: number): string {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const canal = (c: number) => Math.round(255 - (255 - c) * t).toString(16).padStart(2, '0');
+  return `#${canal((n >> 16) & 255)}${canal((n >> 8) & 255)}${canal(n & 255)}`;
+}
+
+/** Cuánto se aclara el tono de «otro período»: el mismo color, reconocible, claramente detrás. */
+export const ACLARADO_OTRO_PERIODO = 0.42;
+
+/**
+ * El id del `<pattern>` de rayado de un color. Se deriva del COLOR y no del gráfico, así dos
+ * bloques de la misma hoja comparten un solo patrón y el id es estable entre renders.
+ */
+export const idRayado = (color: string): string => `rayado-${color.replace(/[^0-9a-z]/gi, '')}`;
+
+/** Lo que se le pasa a una marca de SVG para que se dibuje con su procedencia. */
+export type Pintura = {
+  fill: string;
+  fillOpacity: number;
+  stroke: string;
+  strokeWidth: number;
+  /** Presente sólo donde el trazo va cortado. */
+  strokeDasharray?: string;
+};
+
+/**
+ * Cómo se pinta una marca según de dónde salió su número. `trazo` es el grosor de la hoja
+ * (`EstiloEfectivo.trazo`), que los pisos del sistema «gordo» ya garantizan.
+ *
+ * El rayado se devuelve como `url(#…)`: quien dibuja tiene que haber emitido el `<pattern>`
+ * (app/dashboard/graficos/Vocabulario.tsx), o el relleno sale vacío.
+ */
+export function pinturaDe(proc: Procedencia, color: string, trazo: number): Pintura {
+  switch (proc) {
+    case 'no-medido':
+      // Rayado: el color está en las rayas, y el contorno sólido mantiene la forma legible.
+      return { fill: `url(#${idRayado(color)})`, fillOpacity: 1, stroke: color, strokeWidth: 1, strokeDasharray: '5 4' };
+    case 'hueco':
+      // Sin relleno: el contorno dice «acá va a haber algo», no «acá hay cero».
+      return { fill: 'transparent', fillOpacity: 0, stroke: color, strokeWidth: 1.5, strokeDasharray: '3 3' };
+    case 'otro-periodo':
+      return { fill: aclarar(color, ACLARADO_OTRO_PERIODO), fillOpacity: 1, stroke: aclarar(color, ACLARADO_OTRO_PERIODO), strokeWidth: trazo };
+    case 'umbral':
+      // Fina de 1 px: es lo que la distingue de una serie (que va de 3,5 a 5). Y va con rótulo.
+      return { fill: 'transparent', fillOpacity: 0, stroke: color, strokeWidth: 1, strokeDasharray: '6 5' };
+    case 'medido':
+    default:
+      return { fill: color, fillOpacity: 1, stroke: color, strokeWidth: trazo };
+  }
+}
+
 /**
  * El color de una KPI según lo que SIGNIFICA su métrica (lo cobrado es bueno, lo pendiente es malo),
  * no según un color elegido a mano: con el estilo por página, el significado tiene que salir del

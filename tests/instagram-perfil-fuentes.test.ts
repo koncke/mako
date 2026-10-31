@@ -82,7 +82,7 @@ test('la caché es por negocio, un «no está» de Meta dura poco, y la platafor
 test('el alta de un lead y Offer usan LA misma función (sin copiarla)', () => {
   const alta = sinComentarios(leer('app/api/crm/instagram-buscar/route.ts'));
   assert.match(alta, /import \{ leerPerfilInstagram \} from '@\/lib\/instagram-perfil-server';/);
-  assert.match(alta, /if \(!meta\.perfiles\.length && !google\?\.perfiles\.length\) \{[\s\S]{0,200}leerPerfilInstagram\(u, \{ ws, fuentes: \['apify'\] \}\)/);
+  assert.match(alta, /if \(!meta\.perfiles\.length && !google\?\.perfiles\.length\) \{[\s\S]{0,200}leerPerfilInstagram\(u, \{ ws, fuentes: \['meta-plataforma', 'apify'\] \}\)/);
   const offer = sinComentarios(leer('app/api/offer/route.ts'));
   assert.match(offer, /const perfil = await leerPerfilInstagram\(ig, \{ ws: await getWorkspaceActual\(\) \}\);/);
   assert.doesNotMatch(leer('lib/instagram-perfil-server.ts'), /export async function leerPerfil(?!Instagram)/, 'una sola función exportada que lee');

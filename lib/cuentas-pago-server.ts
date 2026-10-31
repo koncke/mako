@@ -15,6 +15,7 @@ import {
   CLAVES_BASE, CUENTA_PRINCIPAL, aliasLimpio, claveDeCuenta, cuentaDeClave, idDeCuenta, nombreDeCuenta, partirIdDeCuenta, proximaCuenta,
   type ProveedorConCuentas,
 } from './cuentas-integracion';
+import { PASARELAS } from './cobros-tipos';
 
 export type CuentaDePago = {
   /** `stripe:principal`, `mercadopago:c2`. */
@@ -29,7 +30,31 @@ export type CuentaDePago = {
   conAviso: boolean;
 };
 
-const PROVEEDORES: readonly ProveedorConCuentas[] = ['stripe', 'mercadopago'];
+/**
+ * ⚠️ POR `PASARELAS`, NO POR UNA LISTA A MANO (31/10/2026). Este array estaba escrito literal y tipado con
+ * `ProveedorConCuentas`, así que al entrar la tercera pasarela no dio ningún error y `cuentasDePago(ws)` nunca
+ * devolvía una cuenta de Creem — que es la mitad del motivo por el que `pasarelasConectadas` la reportaba apagada.
+ */
+const PROVEEDORES: readonly ProveedorConCuentas[] = PASARELAS;
+
+/**
+ * QUÉ CLAVES NECESITA CADA PASARELA PARA COBRAR DE VERDAD. Tabla total: la pasarela #4 no compila hasta que alguien
+ * decida si su aviso lo registra MaKo o lo pega la persona.
+ *
+ * `secretoAviso: true` significa «sin el secreto del aviso NO está conectada»:
+ *   · Stripe — MaKo registra el aviso en la cuenta y Stripe le devuelve el `whsec_`. Sin él, su pago no vuelve al CRM.
+ *   · Creem  — igual que Stripe: `POST /v1/webhooks` devuelve el secreto una vez y `GET /v1/webhooks/{id}/secret` lo
+ *              vuelve a dar, así que MaKo lo tiene solo. Y su webhook es FAIL-CLOSED (rechaza sin secreto), con lo
+ *              cual una cuenta sin secreto no es una cuenta a medias: es una cuenta que no cobra nada.
+ *   · Mercado Pago — su secreto SÓLO existe después de que la persona guarde la URL en el panel de MP, y su webhook
+ *              se relee igual sin firma (la seguridad ahí es la relectura). Sin el secreto cobra, pero las
+ *              renovaciones de una suscripción no entran: por eso es opcional y se avisa con `sinEsto`.
+ */
+const EXIGE_SECRETO_DEL_AVISO: Readonly<Record<ProveedorConCuentas, boolean>> = {
+  stripe: true,
+  mercadopago: false,
+  creem: true,
+};
 
 /** Las cuentas (por su sufijo) que tienen ALGUNA clave guardada de ese proveedor. La principal primero. */
 function cuentasDeNombres(nombres: readonly string[]): string[] {
@@ -49,7 +74,7 @@ export async function cuentasDePago(ws: number, soloProveedor?: ProveedorConCuen
     const nombres = await clavesGuardadasConBase(ws, [b.clave, b.identificador, b.secretoAviso, b.alias]);
     for (const cuenta of cuentasDeNombres(nombres)) {
       const tiene = (base: string) => nombres.includes(claveDeCuenta(base, cuenta));
-      const conectada = p === 'stripe' ? tiene(b.clave) && tiene(b.identificador) && tiene(b.secretoAviso) : tiene(b.clave) && tiene(b.identificador);
+      const conectada = tiene(b.clave) && tiene(b.identificador) && (!EXIGE_SECRETO_DEL_AVISO[p] || tiene(b.secretoAviso));
       // Una cuenta con sólo el nombre guardado (quedó de una desconexión a medias) no es una cuenta.
       if (!tiene(b.clave) && !tiene(b.identificador)) continue;
       const alias = tiene(b.alias) ? await credDelCliente(claveDeCuenta(b.alias, cuenta), ws) : null;
@@ -108,6 +133,21 @@ export async function credMpDe(ws: number, cuenta: string = CUENTA_PRINCIPAL): P
     credDelCliente(claveDeCuenta(b.identificador, cuenta), ws),
   ]);
   return token && userId ? { pasarela: 'mercadopago', token, userId: userId.trim(), cuenta } : null;
+}
+
+/**
+ * Las claves de UNA cuenta de Creem, si cobra: la clave, el id de su aviso (que ES su identificador de ruteo) y el
+ * secreto con el que se verifica cada aviso. Las tres: sin el secreto, su webhook rechaza todo (es fail-closed a
+ * propósito), así que una cuenta sin secreto no cobra.
+ */
+export async function credCreemDe(ws: number, cuenta: string = CUENTA_PRINCIPAL): Promise<{ pasarela: 'creem'; key: string; webhookId: string; secretoAviso: string; cuenta: string } | null> {
+  const b = CLAVES_BASE.creem;
+  const [key, webhookId, secretoAviso] = await Promise.all([
+    credDelCliente(claveDeCuenta(b.clave, cuenta), ws),
+    credDelCliente(claveDeCuenta(b.identificador, cuenta), ws),
+    credDelCliente(claveDeCuenta(b.secretoAviso, cuenta), ws),
+  ]);
+  return key && webhookId && secretoAviso ? { pasarela: 'creem', key, webhookId: webhookId.trim(), secretoAviso, cuenta } : null;
 }
 
 /**

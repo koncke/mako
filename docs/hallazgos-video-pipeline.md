@@ -1289,8 +1289,26 @@ corrida del test usa ids propios.
   sistema, los subtítulos salen en Anton (el `fonts.conf` propio alcanza). Queda en el ws3 como
   prueba.
 
+### «Desplegar el worker» era una pregunta vieja (medido el 30/10)
+
+Martín contestó el 25/10 «sí, desplegarlo» a una pregunta que decía «sin él, montar un video no anda en ningún lado, ni en el chat
+ni en la tab». **Para la tab ya era falso desde el 21/10**: el cron atiende la cola. La pregunta se armó con docs de antes de §14
+(docs/pendientes.md seguía pidiendo «montar el servidor»). **Medido:** un trabajo de prueba en el negocio de prueba, #6, con las tomas
+del #5, se tomó a los 39 s y quedó listo 21 s después; el archivo bajado son 11,99 s, h264 720×1280, AAC con voz (−16 dB de media) y
+los subtítulos quemados. **No se desplegó el contenedor:** seguiría sin `sts-N.mp3`, y no agrega nada. **La regla: una decisión vieja se verifica contra el estado de hoy, no se
+ejecuta.** Desplegado, habríamos encendido un contenedor que no monta nada y anotado «arreglado» algo que ya andaba.
+
+⚠️ **Lo que esta prueba NO cubre:** el trabajo se encoló a mano, no desde la pantalla (`montarAnuncioAction`). Y nunca salió un
+montaje real de un cliente: `video-generator.historial` no se toca desde el 08/09, y el único otro «listo» es otra prueba (#5).
+
 ### Lo que quedó SIN hacer
 
+- **Lo que sí falta de lo que pidió Martín el 25/10 (no se construyó):** (1) montar desde el chat: la API sólo lee
+  (`ver_montaje_anuncio`), la operación `montar_anuncio_video` no existe; (2) editar un video pedido por chat y que salga renderizado:
+  el Video Editor exporta sólo en el navegador (`app/video-editor/_opencut/services/renderer/`), no hay render en servidor ni en MaKo
+  Desktop. Martín quiere las dos vías, «también con servidor de MaKo».
+- **Los dos montajes de septiembre** (#3 de Mauricio, #4 de Leila) quedaron `fallido` por vencidos, con «puedes montarlo de nuevo».
+  Nadie los volvió a pedir.
 - **El worker del contenedor quedó muerto**: `worker/montar-cola.mjs`, `worker/Dockerfile`
   y `app/api/montaje/worker/route.ts` (sin `MONTAJE_WORKER_TOKEN` contesta 404). Borrarlos o
   dejarlos como camino alternativo es una decisión; si alguien los despliega, conviven

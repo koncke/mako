@@ -160,6 +160,22 @@ export const CSS = `
 .lk-comp--general:has(> .gen-pieza[data-oscuro]) { background: var(--sidebar); border-color: var(--sidebar-line); }
 .lk-comp--kpi { justify-content: center; }
 
+/* LA TARJETA INVERTIDA (Grafico.invertida): de una fila de tres o cuatro KPIs iguales, UNA se da vuelta,
+   y es el ancla visual de la pantalla — sin eso, cuatro cajas del mismo peso no piden atención ninguna
+   (AGENTS.md: «cuatro bloques apilados del mismo peso sin jerarquía»). La elige la PLANTILLA, no quien
+   diseña, y es la que contesta la pregunta de la hoja.
+   Es la MISMA isla oscura que el sidebar y que «Fondo: Oscuro» de un bloque de General: los tokens se dan
+   vuelta DENTRO del marco, así todo lo que dibuja adentro (el número, el rótulo, el chip, el filete) sigue
+   leyendo var(--ink) y sale bien sin saber nada de esto. No es un modo oscuro global: no hay ninguno. */
+.lk-comp--invertida {
+  background: var(--sidebar); border-color: var(--sidebar-line); color: var(--on-sidebar);
+  --ink: var(--on-sidebar); --dim: var(--sidebar-text); --faint: var(--sidebar-text);
+  --border: var(--sidebar-line); --border-strong: color-mix(in srgb, var(--on-sidebar) 24%, transparent);
+  --surface: color-mix(in srgb, var(--on-sidebar) 7%, var(--sidebar));
+  --surface-2: color-mix(in srgb, var(--on-sidebar) 8%, transparent);
+  --dash-tarjeta-fondo: var(--sidebar); --dash-tarjeta-borde: var(--sidebar-line); --gb-fondo: var(--sidebar);
+}
+
 /* LA PORTADA de una hoja (15/10/2026, lib/graficos-identidad.ts): copiada de las portadas de informe de la galería de
    Canva. La tarjeta entera es del color de su plantilla, el título es un TITULAR gigante y atrás hay UNA forma grande
    (el círculo, la diagonal, el arco, el play del video, la burbuja del chat). Adentro se REDEFINEN los tokens (la tinta,

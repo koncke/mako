@@ -675,8 +675,9 @@ test('la tarjeta ofrece el curso SIN conCuentas: la fila y el menú existen sin 
 
 test('la vista Avance vive en Clientes: el toggle la ofrece y la pantalla la dibuja', () => {
   const barra = sinComentarios(leer('app/customer-success/BarraClientes.tsx'));
-  assert.match(barra, /export type VistaClientes = 'tarjetas' \| 'tabla' \| 'kanban' \| 'avance';/);
-  assert.match(barra, /const ORDEN_VISTAS: readonly VistaClientes\[\] = \['kanban', 'tarjetas', 'tabla', 'avance'\];/);
+  // Desde el 29/10/2026 también ofrece «Miembros» (la sub-tab Members, que se volvió una vista); el avance sigue al final.
+  assert.match(barra, /export type VistaClientes = 'tarjetas' \| 'tabla' \| 'kanban' \| 'avance' \| 'miembros';/);
+  assert.match(barra, /const ORDEN_VISTAS: readonly VistaClientes\[\] = \['kanban', 'tarjetas', 'tabla', 'miembros', 'avance'\];/);
   const app = sinComentarios(leer('app/customer-success/ClientesApp.tsx'));
   assert.match(app, /\.\.\.\(hayAvance \? \['avance' as const\] : \[\]\)/);
   assert.match(app, /enAvance && servicio \? \(\s*<AvanceDelServicio /);

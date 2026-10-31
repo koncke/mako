@@ -25,6 +25,7 @@
 //     se prende o se apaga (en vez de una casilla con el nombre al lado).
 // =============================================================================
 
+import { PASARELAS } from '@/lib/cobros-tipos';
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { Modal, Spinner, Toast, useToast, Button, SANS } from '@/app/_ui';
@@ -257,7 +258,7 @@ export function CobroDeEtapaModal({ funnelId, etapa, etapaNombre, crmNombre, onC
       <style>{CSS_VINCULAR}</style>
       <div className="vx-barra">
         {/* SIN CUENTAS, SE CONECTAN AHÍ MISMO: el modal de /integraciones arriba de éste (no se sale de la tab). */}
-        {foto && foto.cuentas.length === 0 && (['stripe', 'mercadopago'] as const).map((prov) => (
+        {foto && foto.cuentas.length === 0 && PASARELAS.map((prov) => (
           <BotonIntegracion key={prov} servicio={prov} onConectado={() => leer()} style={PASTILLA_CONECTAR}>
             <IconoMenu nombre="link" size={14} /> Conectar {NOMBRE_PROVEEDOR_PAGO[prov]}
           </BotonIntegracion>

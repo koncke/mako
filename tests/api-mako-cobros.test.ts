@@ -70,13 +70,13 @@ const accion = (id: string): AccionDef => {
 
 test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus operaciones (las seis de la pasarela y las diez de Pagos)', () => {
   assert.ok(AREAS.indexOf('cobros') >= 0 && AREAS.indexOf('cobros') === AREAS.indexOf('mako') - 1, 'el orden de AREAS es el del catálogo');
-  assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' });
+  assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe, Mercado Pago y Creem)', tab: 'CRM', ruta: '/crm' });
   // ⚠️ Cambiado A PROPÓSITO el 23/10/2026: suma vender_plan_mako (P0-8 de la auditoría), sólo de la plataforma.
   // ⚠️ Y el 25/10/2026 las dos lecturas de Customers (la vista del super admin), también sólo de la plataforma.
   // ⚠️ Y el 29/10/2026 guardar_documento_fiscal: la constancia que el usuario adjunta en el chat va a la ficha (Leila, lead
   // Fabi Pedraza; su forma en tests/documento-fiscal-desde-el-chat.test.ts), y el plan por tramos (ticket #26):
   // armar_plan_por_tramos (tests/api-mako-plan-tramos.test.ts).
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'guardar_documento_fiscal', 'armar_plan_por_tramos'].sort());
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'ver_quieren_entrar', 'guardar_documento_fiscal', 'armar_plan_por_tramos'].sort());
   for (const id of [...IDS, ...IDS_PAGOS_CAMPO, 'guardar_documento_fiscal', 'armar_plan_por_tramos']) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 
@@ -116,7 +116,9 @@ test('crear_link_pago: chat, `externo`, con el lead y un producto DEL CATÁLOGO 
   assert.deepEqual([...por.keys()].sort(), ['leadId', 'pasarela', 'productoId']);
   assert.equal(por.get('leadId')?.obligatorio, true);
   assert.equal(por.get('productoId')?.obligatorio, true, 'el precio sale del catálogo');
-  assert.deepEqual(por.get('pasarela')?.enum, ['stripe', 'mercadopago']);
+  // Las TRES pasarelas (31/10/2026, al entrar Creem). El enum sale de `PASARELAS`, así que se ensancha solo: lo que no
+  // se ensancha solo es la `descripcion` del parámetro, y es la que guía a MaKo al elegir — por eso se chequea también.
+  assert.deepEqual(por.get('pasarela')?.enum, ['stripe', 'mercadopago', 'creem']);
   // productoId NO es el embudo: el lienzo rotula «Producto» al embudoId del CRM.
   assert.notEqual(rotuloDeParametro(por.get('productoId')!), rotuloDeParametro({ nombre: 'embudoId' }));
   assert.equal(accion('anular_link_pago').confirmacion, 'chat');

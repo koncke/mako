@@ -34,8 +34,7 @@ test('la lista de la tarjeta: sin la papelera, la más tocada primero, y buscar 
   assert.deepEqual(landingsDeLaLista(docs, '').map((d) => d.id), [2, 1]);
   assert.deepEqual(landingsDeLaLista(docs, 'coach').map((d) => d.id), [1]);
   assert.deepEqual(landingsDeLaLista(docs, 'borr'), []);
-  // «Ver todo en el Panel» va al Panel de verdad (sin ?panel=1, /web-generator saltaría a una landing). «Nueva landing» ya
-  // no: se abre adentro del editor (el test de abajo).
+  // El Panel de verdad (sin ?panel=1, /web-generator saltaría a una landing). Desde el editor ya no se navega a él: el test de abajo.
   assert.equal(RUTA_NUEVA_LANDING, '/web-generator?panel=1');
 });
 
@@ -48,14 +47,14 @@ test('«Nueva landing» NO navega: «¿Qué vas a crear hoy?» ocupa la barra y 
   assert.doesNotMatch(lista, /<Link href=\{RUTA_NUEVA_LANDING\} className="gma-ls-item gma-ls-nueva"/, '«Nueva landing» volvió a navegar al Panel');
   const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   // El cuadro de crear (el del Panel, embebido) en lugar de la barra y el lienzo; la landing abierta queda montada y oculta.
-  assert.match(editor, /\{creando \? \(\s*<div className="gma-centro" role="region" aria-label="Nueva landing">[\s\S]{0,400}<InicioEmbebido\s+embebido/);
+  assert.match(editor, /\{creando \? \(\s*<div className="gma-centro" role="region" aria-label=\{panelEntero \? 'Panel' : 'Nueva landing'\}>[\s\S]{0,400}<InicioEmbebido\s+embebido/);
   assert.match(editor, /<main className="gma-centro" style=\{creando \? \{ display: 'none' \} : undefined\}>/);
   // La tarjeta de la izquierda sigue siendo la lista: «Nueva landing» la deja en 'landings', y salir de la lista lo cierra.
   assert.match(editor, /const setNueva = useCallback\(\(v: boolean\) => \{\s*if \(v\) \{\s*void guardarAhora\(\);\s*setPanelDer\(null\);\s*setPanelIzqEstado\('landings'\);/);
   assert.match(editor, /const creando = nueva && panelIzq === 'landings';/);
   // El Panel embebido no dibuja su barra de documentos ni reescribe la URL (la de la landing abierta).
   const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
-  assert.match(inicio, /\{!props\.embebido && <aside className="gp-lateral"/);
+  assert.match(inicio, /\{\(!props\.embebido \|\| props\.conLista\) && <aside className="gp-lateral"/);
   assert.match(inicio, /useEffect\(\(\) => \{\s*if \(props\.embebido\) return;\s*const s = queryDeDerecha\(window\.location\.search, derecha\)/);
 });
 
@@ -66,7 +65,7 @@ test('UN solo botón azul que dice «Compartir», con el ▾ de la vista previa 
   const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
   const primarios = barra.match(/className="gma-boton gma-boton--primario[^"]*"/g) ?? [];
   assert.equal(primarios.length, 2, 'el botón partido: Compartir y su ▾, nada más azul');
-  assert.match(barra, /<Ico n="compartir" t=\{15\} \/> Compartir\s*<\/button>/);
+  assert.match(barra, /<Ico n="compartir" t=\{15\} \/> <span className="gma-partido-texto">Compartir<\/span>\s*<\/button>/);
   assert.doesNotMatch(barra, /\/> Publicar\s*<\/button>/, 'volvió el botón Publicar al lado de Compartir');
   assert.doesNotMatch(barra, /gma-boton--secundario/, 'volvió el Compartir gris de al lado');
   // El ▾: Publicar, Vista previa, la publicada, Descargar y Presentar.
@@ -202,4 +201,52 @@ test('el editor de texto es UN botón que abre una segunda barra con todas las o
   assert.match(editor, /\{formatoAbierto \? \(\s*<div className="gma-herramientas gma-formato">\s*<BarraFormato modo="fija" \/>/);
   const css = leer('app/web-generator/gamma.css');
   assert.match(css, /\.gma-formato \.gmx-bf-fija \{ flex-wrap: wrap; overflow-x: visible;/, 'la segunda barra volvió a tener scroll');
+});
+
+// Medido en un banco con el editor real (30/10/2026): a 1024 la barra pedía 712 px en 660 y cortaba Compartir y el ⋯, y un panel
+// de la derecha la achica igual a cualquier ancho de ventana. Roturas: mudar el contenedor a `.gma-centro` → 1 fallo. Que el
+// ⋯ o el ▾ entren entre lo plegable → 1 fallo.
+test('la barra se pliega por lo que ella mide, y Compartir y el ⋯ son lo último que se va', () => {
+  const css = leer('app/web-generator/gamma.css');
+  assert.match(css, /\.gma-herramientas \{ container: gma-barra \/ inline-size; \}/);
+  // `.gma-dispositivos { display: flex }` viene más abajo: sin la barra adelante, le gana al pliegue (medido: no se iban).
+  assert.match(css, /\.gma-herr-der \.gma-dispositivos, \.gma-herr-der \.gma-dispositivos \+ \.gma-sep \{ display: none; \}/);
+  assert.doesNotMatch(css, /\.gma-centro \{[^}]*container/, 'adentro de .gma-centro hay cosas fijas: el contenedor las cambiaría de lugar');
+  for (const ancho of [770, 640, 560, 480]) assert.match(css, new RegExp(`@container gma-barra \\(max-width: ${ancho}px\\)`));
+  const editor = leer('app/web-generator/editor/EditorLanding.tsx');
+  assert.doesNotMatch(editor, /gma-herr-plegable[^>]*(?:Menú del documento|Más opciones para compartir)/);
+  assert.equal((editor.match(/gma-herr-plegable/g) ?? []).length, 4, 'Agregar bloque, Animar, Deshacer y Rehacer');
+});
+
+// El 30/10/2026, sobre lo que Martín pidió el 24/10: si queda un camino que navega al Panel, es el que va a tocar. Roturas:
+// volver al <Link> → 1 fallo. Ofrecer la landing abierta en la columna → 1 fallo (se podría eliminar la que se está editando).
+// Una raya en el medio de Compartir → 1 fallo.
+test('«Ver todo en el Panel» tampoco navega, y Compartir se ve como un solo botón', () => {
+  const lista = sinComentarios(leer('app/web-generator/editor/paneles/PanelLandings.tsx'));
+  assert.match(lista, /<button type="button" className="gma-ls-ver"[^>]*onClick=\{verPanel\}>Ver todo en el Panel<\/button>/);
+  assert.doesNotMatch(lista, /<Link href=\{RUTA_NUEVA_LANDING\}/);
+  const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
+  assert.match(inicio, /f\.tipo === 'analizada' \|\| f\.doc\.id !== props\.docAbierto/);
+  const css = leer('app/web-generator/gamma.css');
+  const flecha = css.replace(/\r\n/g, '\n').match(/\.gma-partido > \.gma-partido-flecha \{[^}]*\}/)![0];
+  assert.doesNotMatch(flecha, /border-left/);
+  // El fondo es del contenedor: dos fondos pegados dejan una línea cuando el ancho cae entre dos píxeles.
+  assert.match(css, /\.gma-partido \{[^}]*background: var\(--gma-primario\); \}/);
+  assert.match(css, /\.gma-partido:hover \{ background: var\(--gma-primario-hover\); \}/);
+  assert.match(css, /\.gma-partido > \.gma-boton--primario,\s*\.gma-partido > \.gma-boton--primario:hover,\s*\.gma-partido > \.gma-boton--primario:active \{ background: transparent; \}/);
+});
+
+// Lo que encontró la revisión (30/10/2026).
+test('el Panel adentro del editor: no navega al Diagnóstico, no pierde lo analizado y vuelve a leer la landing abierta', () => {
+  const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
+  assert.match(inicio, /onAbrirDiagnostico=\{props\.embebido \?/);
+  assert.match(inicio, /if \(props\.embebido && !props\.conLista\) return;/, 'Ctrl K anda con la columna');
+  const panel = sinComentarios(leer('app/web-generator/diagnostico/PanelDiagnostico.tsx'));
+  assert.match(panel, /if \(onAbrirDiagnostico\) onAbrirDiagnostico\(id\);\s*else irDuro/);
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.match(editor, /analizadas=\{analizadasVivas\}/);
+  assert.doesNotMatch(editor, /<InicioEmbebido[\s\S]{0,120}key=/, 'remontarlo tira lo escrito en el cuadro');
+  assert.match(editor, /seDiagnosticoLaAbierta\.current = false;\s*void recargar\(\);/);
+  const css = leer('app/web-generator/gamma.css');
+  assert.match(css, /@container gma-barra \(max-width: 910px\) \{[^}]*\.gma-herr-texto \{ display: none; \}/);
 });

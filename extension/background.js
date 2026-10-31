@@ -2698,11 +2698,17 @@ async function abrirDesplegable(windowId) {
 // es la pestaña que MANDÓ el pedido (el `sender.tab` del mensaje), nunca «la primera de hola-mako.com». Al terminar, y
 // también si se corta. Si esa pestaña ya no está, no se elige otra: queda dicho en el registro (`volver: 'sin_pestana'`) y el
 // desplegable lo muestra.
+// ⚠️ SIN `viva` TAMBIÉN (30/10/2026, «aun no veo... que cuando termina de scrapear debe regresar a la app de mako»). `extraccionesVivas`
+// vive en la memoria del service worker, y Chrome lo mata después de 30 s sin eventos: guardar los nombres sin una pestaña que lo
+// despierte alcanza. Al final llegaba `viva` undefined y `return`, sin rastro. El aviso final lo manda LA PESTAÑA de la extracción:
+// `sender.tab` ES la de origen. La de WhatsApp Web se busca si no se recuerda.
 function volverAMako(viva, id) {
-  if (!viva || viva.origen == null || viva.waTab == null) return;
+  if (!viva || viva.origen == null) return;
   setTimeout(async () => {
     try {
-      const wa = await chrome.tabs.get(viva.waTab).catch(() => null);
+      const waTab = viva.waTab ?? (await chrome.tabs.query({})).find(esPestanaDeWhatsapp)?.id;
+      if (waTab == null) return;
+      const wa = await chrome.tabs.get(waTab).catch(() => null);
       // Si la persona ya se fue de WhatsApp Web a otra cosa, no se la saca de ahí.
       if (wa && !wa.active) return;
       const mako = await chrome.tabs.get(viva.origen).catch(() => null);
@@ -3205,7 +3211,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         viva.cerrada = true;
         if (viva.waTab != null) chrome.tabs.sendMessage(viva.waTab, { tipo: 'WA_RECORRER_PARAR', id }).catch(() => {});
       }
-      volverAMako(viva, id);
+      volverAMako(viva ?? { origen: _s?.tab?.id, waTab: null }, id);
     }
     responder?.({ ok: true });
     return false;

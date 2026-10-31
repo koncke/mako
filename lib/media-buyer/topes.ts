@@ -29,6 +29,18 @@ export function seEstaCreando(d: Pick<Decision, 'creados' | 'aplicadaAt'>, ahora
   return !d.creados.length && !!d.aplicadaAt && ahora - Date.parse(d.aplicadaAt) < CREANDO_MAX_MS;
 }
 
+/**
+ * ¿El presupuesto de hoy ya no es el de cuando MaKo propuso? Entonces la decisión está vieja: se cierra y la próxima corrida
+ * la vuelve a mirar con el número de hoy. Antes se aplicaba «el mismo porcentaje sobre el de hoy», y un cambio que no es una
+ * decisión del Media Buyer (por el chat, la tabla o a mano en Meta) componía con ese porcentaje sin que nadie lo viera, el piloto
+ * incluido (verificación de tren-m, falla 1; el Cerebro decidió comparar contra el de la propuesta). Un 1% de tolerancia: el
+ * redondeo de Meta y de la conversión no es un cambio.
+ */
+export function presupuestoCambioDesdeLaPropuesta(propuesto: number | null | undefined, actual: number): boolean {
+  if (!(typeof propuesto === 'number' && propuesto > 0)) return false;
+  return Math.abs(actual - propuesto) / propuesto > 0.01;
+}
+
 export function presupuestoYaCambiado(
   d: Pick<Decision, 'id' | 'entidadId' | 'creada'>,
   otras: readonly Pick<Decision, 'id' | 'entidadId' | 'estado' | 'despues' | 'aplicadaAt'>[],

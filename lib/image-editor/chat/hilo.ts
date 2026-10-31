@@ -15,7 +15,7 @@
 // Puro y sin `server-only`: lo leen la ruta, el store del navegador y los tests. No importa el motor (`_doory`).
 // =============================================================================
 
-import type { CambioImagen } from './aplicar';
+import type { CambioImagen, FotoDelChat } from './aplicar';
 import { validarOperaciones, type OperacionImagen } from './catalogo';
 
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'aplicada' | 'descartada' | 'restaurada';
@@ -32,6 +32,8 @@ export type PropuestaGuardada = {
   elegidos: string[];
   alcance: AlcanceImagen;
   operaciones: OperacionImagen[];
+  /** ref → la foto, sólo las que usan las operaciones: para ponerlas al aceptar, aunque se haya recargado. */
+  fotos?: Array<[string, FotoDelChat]>;
 };
 
 /** `c`: cuándo se creó (ordena el hilo); `t`: su último cambio (gana al unir dos copias). En ms. */
@@ -46,7 +48,7 @@ export type MensajeGuardado =
       links?: Array<{ texto: string; href: string }>;
     };
 
-export const TOPES_HILO = { mensajes: 80, texto: 4000, cambios: 40, descartes: 20, refs: 4000, total: 400_000 } as const;
+export const TOPES_HILO = { mensajes: 80, texto: 4000, cambios: 80, descartes: 20, refs: 4000, total: 400_000 } as const;
 
 /** El aviso de una propuesta que se estaba aplicando cuando se cortó la pestaña. */
 export const AVISO_CORTADA = 'Se cortó mientras se aplicaba: mira el diseño antes de volver a pedirlo.';
@@ -81,11 +83,23 @@ const pares = (x: unknown): Array<[string, string]> =>
     .slice(0, TOPES_HILO.refs)
     .filter((p): p is [string, string] => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string' && typeof p[1] === 'string' && p[0].length <= 20 && p[1].length <= 100);
 
+/** Las fotos guardadas en una propuesta: lo que no sea una dirección http(s) no llega al lienzo. */
+function fotosGuardadas(x: unknown): Array<[string, FotoDelChat]> {
+  if (!Array.isArray(x)) return [];
+  return x.flatMap((par): Array<[string, FotoDelChat]> => {
+    if (!Array.isArray(par) || typeof par[0] !== 'string' || !esObjeto(par[1])) return [];
+    const { id, url, nombre, ancho, alto } = par[1];
+    if (typeof id !== 'string' || typeof url !== 'string' || !/^https?:\/\//i.test(url) || typeof ancho !== 'number' || typeof alto !== 'number') return [];
+    return [[par[0].slice(0, 20), { id: id.slice(0, 100), url: url.slice(0, 2000), nombre: String(nombre ?? '').slice(0, 100), ancho, alto }]];
+  }).slice(0, TOPES_HILO.cambios);
+}
+
 function propuesta(x: unknown): PropuestaGuardada | undefined {
   if (!esObjeto(x)) return undefined;
   const { operaciones } = validarOperaciones(x.operaciones);
   if (!operaciones.length) return undefined;
   const elegidos = (Array.isArray(x.elegidos) ? x.elegidos : []).filter((r): r is string => typeof r === 'string' && r.length <= 20).slice(0, TOPES_HILO.refs);
+  const fotos = fotosGuardadas(x.fotos);
   return {
     paginaId: typeof x.paginaId === 'string' && x.paginaId ? x.paginaId.slice(0, 100) : null,
     refs: pares(x.refs),
@@ -93,6 +107,7 @@ function propuesta(x: unknown): PropuestaGuardada | undefined {
     elegidos,
     alcance: x.alcance === 'seleccion' ? 'seleccion' : 'diseno',
     operaciones,
+    ...(fotos.length ? { fotos } : {}),
   };
 }
 
@@ -147,6 +162,53 @@ export function hiloParaGuardar(raw: unknown): MensajeGuardado[] {
   let lista = [...porId.values()].sort(enOrden).slice(-TOPES_HILO.mensajes);
   while (lista.length > 1 && JSON.stringify(lista).length > TOPES_HILO.total) lista = lista.slice(1);
   return lista;
+}
+
+// ── La memoria: lo que ya se habló, para la IA ───────────────────────────────
+// Cada pedido iba solo: a «Puedes aplicar los cambios que te pedí?» MaKo contestó que no había nada (Leila, 30/10/2026).
+// Va como DATO (ia.ts): sirve para entender a qué se refiere el pedido de ahora, no es una orden.
+
+export const TOPES_MEMORIA = { mensajes: 10, porMensaje: 4_000, total: 8_000 } as const;
+export type LineaMemoria = { de: 'yo' | 'mako'; texto: string };
+
+const QUE_PASO: Partial<Record<EstadoPropuesta, string>> = {
+  pendiente: 'sin aceptar todavía', aplicada: 'la persona lo aceptó', descartada: 'la persona lo descartó', restaurada: 'la persona lo deshizo',
+};
+
+/** Se queda con lo último que entra en los topes, en su orden. */
+function dentroDeLosTopes(lineas: readonly LineaMemoria[]): LineaMemoria[] {
+  const out: LineaMemoria[] = [];
+  let total = 0;
+  for (const l of lineas.slice(-TOPES_MEMORIA.mensajes).reverse()) {
+    const texto = l.texto.slice(0, TOPES_MEMORIA.porMensaje);
+    if (total + texto.length > TOPES_MEMORIA.total) break;
+    total += texto.length;
+    out.unshift({ de: l.de, texto });
+  }
+  return out;
+}
+
+/** Del hilo a lo que viaja: sin los errores (no son parte de la charla) y con qué pasó con cada propuesta. */
+export function memoriaDelHilo(mensajes: ReadonlyArray<{ de: string; texto?: unknown; error?: unknown; estado?: unknown; aviso?: unknown }>): LineaMemoria[] {
+  return dentroDeLosTopes(mensajes.flatMap((m): LineaMemoria[] => {
+    if ((m.de !== 'yo' && m.de !== 'mako') || m.error || typeof m.texto !== 'string' || !m.texto.trim()) return [];
+    // Con aviso no se sabe: una aplicación cortada queda «descartada» sin que nadie la haya descartado (`hiloAlAbrir`).
+    const paso = m.de === 'mako' && !m.aviso ? QUE_PASO[m.estado as EstadoPropuesta] : undefined;
+    return [{ de: m.de, texto: paso ? `${m.texto.trim()} (${paso})` : m.texto.trim() }];
+  }));
+}
+
+/** Lo que llega a la ruta: viene del navegador, no se le cree la forma ni el tamaño. */
+export function sanearMemoria(raw: unknown): LineaMemoria[] {
+  if (!Array.isArray(raw)) return [];
+  return dentroDeLosTopes(raw.slice(-TOPES_MEMORIA.mensajes).flatMap((x): LineaMemoria[] => {
+    const l = x as { de?: unknown; texto?: unknown } | null;
+    return l && (l.de === 'yo' || l.de === 'mako') && typeof l.texto === 'string' && l.texto.trim() ? [{ de: l.de, texto: l.texto }] : [];
+  }));
+}
+
+export function memoriaParaIA(lineas: readonly LineaMemoria[]): string {
+  return lineas.map((l) => `${l.de === 'yo' ? 'La persona' : 'MaKo'}: ${l.texto}`).join('\n');
 }
 
 /** Lo que se MUESTRA al abrir: «aplicando» se cortó a la mitad y queda descartada con su aviso. */

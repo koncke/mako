@@ -236,7 +236,7 @@ export function Conversacion({
         <BloqueCompletado key={`ya-${chat.clave}`} chat={chat} lineas={lineas} yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
           hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={wa ? feedback : undefined} />
         <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
-          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} avisoCerrado={avisoCerrado} />
+          delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} avisoCerrado={avisoCerrado} deLaApp={deLaApp} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}
         {envio.puede && hayClave(texto) && <AvisoClave />}
         {envio.puede ? (

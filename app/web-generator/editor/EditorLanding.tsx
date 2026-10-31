@@ -252,6 +252,14 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
   const [panelIzq, setPanelIzqEstado] = useState<PanelIzq>('agente');
   /** «Nueva landing» abierta (se ve sólo con la lista a la izquierda: salir de la lista la cierra, ver el efecto). */
   const [nueva, setNuevaEstado] = useState(false);
+  const [panelEntero, setPanelEntero] = useState(false);
+  const [revisionLista, setRevisionLista] = useState(0);
+  const listaCambio = useCallback(() => setRevisionLista((n) => n + 1), []);
+  // Inicio se desmonta al volver a la landing: lo analizado (eliminar, sumar) vive acá, o reaparecería lo eliminado.
+  const [analizadasVivas, setAnalizadasVivas] = useState<Analizada[]>(analizadas ?? []);
+  // El Diagnóstico de esta misma landing le sube la versión en el server: al volver, se lee de nuevo (o el guardado daría conflicto).
+  const seDiagnosticoLaAbierta = useRef(false);
+  const marcarDiagnostico = useCallback(() => { seDiagnosticoLaAbierta.current = true; }, []);
   const [panelDer, setPanelDer] = useState<PanelDer>(null);
   /** Lo último que pidieron al abrir «Animar» (la vista; ver `abrirAnimar`). */
   const [pedidoAnimar, setPedidoAnimar] = useState<PedidoAnimar | null>(null);
@@ -790,12 +798,20 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
       setPanelIzqEstado('landings');
     }
     setNuevaEstado(v);
+    setPanelEntero(false);
   }, [guardarAhora]);
+  const verPanel = useCallback(() => { setNueva(true); setPanelEntero(true); }, [setNueva]);
   // Ir al chat o a las páginas es volver a ESTA landing: «Nueva landing» se cierra (vale también para Mod+E).
   useEffect(() => {
     if (panelIzq !== 'landings') setNuevaEstado(false);
   }, [panelIzq]);
   const creando = nueva && panelIzq === 'landings';
+  const volverAgente = useCallback(() => setPanelIzqEstado('agente'), []);
+  useEffect(() => {
+    if (creando || !seDiagnosticoLaAbierta.current) return;
+    seDiagnosticoLaAbierta.current = false;
+    void recargar();
+  }, [creando, recargar]);
   // Las miniaturas de las plantillas se dibujan con la fuente de su tema (el Panel las carga todas en su página).
   const fuentesPlantillas = useMemo(
     () => (creando ? urlFuentes([...TEMAS, ...propios.map((p) => temaPorId('ws:' + p.id, propios))]) : ''),
@@ -825,8 +841,11 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     setModoIA,
     panelIzq,
     setPanelIzq,
-    nueva: creando,
+    nueva: creando && !panelEntero,
     setNueva,
+    panelEntero: creando && panelEntero,
+    verPanel,
+    revisionLista,
     panelDer,
     setPanelDer,
     abrirAnimar,
@@ -843,7 +862,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
-    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, creando, setNueva, panelDer, abrirAnimar,
+    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, panelEntero, verPanel, revisionLista, creando, setNueva, panelDer, abrirAnimar,
     dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 
@@ -1060,14 +1079,20 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
 
           {/* ── «Nueva landing»: «¿Qué vas a crear hoy?» y las plantillas EN LUGAR de la barra y el lienzo, sin navegar ── */}
           {creando ? (
-            <div className="gma-centro" role="region" aria-label="Nueva landing">
+            <div className="gma-centro" role="region" aria-label={panelEntero ? 'Panel' : 'Nueva landing'}>
               {fuentesPlantillas ? <link rel="stylesheet" href={fuentesPlantillas} precedence="default" /> : null}
               <Suspense fallback={<div className="gma-vacio"><p className="gma-vacio-texto">Cargando…</p></div>}>
                 <InicioEmbebido
                   embebido
+                  conLista={panelEntero}
+                  docAbierto={docId}
+                  onCambioLista={listaCambio}
+                  onCambioAnalizadas={setAnalizadasVivas}
+                  onDiagnosticoDeLaAbierta={marcarDiagnostico}
+                  onVolverALaLanding={volverAgente}
                   docs={[]}
                   errorLista={null}
-                  analizadas={analizadas ?? []}
+                  analizadas={analizadasVivas}
                   errorAnalizadas={errorAnalizadas ?? null}
                   propios={propios}
                   errorTemas={null}
@@ -1124,7 +1149,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
               </button>
               <DeshacerRehacer editor={editor} mod={mod} />
               <span className="gma-sep" />
-              <button type="button" className="gma-herr-boton gma-tip" data-tip="Agregar bloque" aria-label="Agregar bloque"
+              <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Agregar bloque" aria-label="Agregar bloque"
                 aria-expanded={!!agregarBloque} disabled={!editor || paginaRota}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => setAgregarBloque(agregarBloque ? null : e.currentTarget)}>
@@ -1132,7 +1157,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
               </button>
               {/* «Animar» (Canva: «On the toolbar above the editor, select Animate»; el AnimateTool del Image Editor):
                   abre o cierra el panel, en la vista de la sección activa si la hay. */}
-              <button type="button" className="gma-herr-boton gma-tip" data-tip="Animar" aria-label="Animar"
+              <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Animar" aria-label="Animar"
                 aria-pressed={panelDer === 'animacion'} disabled={!editor || paginaRota}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => (panelDer === 'animacion' ? setPanelDer(null) : abrirAnimar(tarjetaActivaRef.current ? 'seccion' : 'pagina'))}>
@@ -1165,7 +1190,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
                     data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Compartir'}
                     aria-expanded={dialogo === 'compartir'}
                     onClick={(e) => { setAnclaCompartir(e.currentTarget); setDialogo(dialogo === 'compartir' ? null : 'compartir'); }}>
-                    <Ico n="compartir" t={15} /> Compartir
+                    <Ico n="compartir" t={15} /> <span className="gma-partido-texto">Compartir</span>
                   </button>
                   <button type="button" className="gma-boton gma-boton--primario gma-partido-flecha" aria-label="Más opciones para compartir"
                     aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
@@ -1352,11 +1377,11 @@ function DeshacerRehacer({ editor, mod }: { editor: Editor | null; mod: string }
   }) ?? { deshacer: false, rehacer: false };
   return (
     <>
-      <button type="button" className="gma-herr-boton gma-tip" data-tip="Deshacer" data-atajo={`${mod}Z`} aria-label="Deshacer"
+      <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Deshacer" data-atajo={`${mod}Z`} aria-label="Deshacer"
         disabled={!puede.deshacer} onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.commands.undo()}>
         <Ico n="deshacer" t={16} />
       </button>
-      <button type="button" className="gma-herr-boton gma-tip" data-tip="Rehacer" data-atajo={`${mod}Shift+Z`} aria-label="Rehacer"
+      <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Rehacer" data-atajo={`${mod}Shift+Z`} aria-label="Rehacer"
         disabled={!puede.rehacer} onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.commands.redo()}>
         <Ico n="rehacer" t={16} />
       </button>

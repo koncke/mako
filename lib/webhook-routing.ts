@@ -53,6 +53,12 @@ export const ROUTING_CREDS: Record<string, string> = {
   // Connect, no trae `account`; el de Mercado Pago viene como `user_id` en el cuerpo.
   STRIPE_ACCOUNT_ID: 'stripe',
   MERCADOPAGO_USER_ID: 'mercadopago',
+  // ⚠️ EL DE CREEM NO ES UN ID DE CUENTA, ES EL ID DEL ENDPOINT DE AVISO (`wh_…`, 31/10/2026). Creem no tiene ningún
+  // endpoint que diga de qué cuenta es una clave (Stripe: `GET /v1/account`; Mercado Pago: `GET /users/me`), y el
+  // cuerpo de su evento no trae ningún id de comerciante. El endpoint de aviso que MaKo registra en esa cuenta sí es
+  // estable y propio de ella, así que es el identificador de ruteo, y viaja en la URL del aviso como `?w=`.
+  // No es un secreto (como el `acct_` de Stripe): el secreto es `CREEM_WEBHOOK_SECRET`, que va aparte y nunca acá.
+  CREEM_WEBHOOK_ID: 'creem',
   // 'zernio' NO va acá a propósito: su única credencial era la API key (secreta —
   // un secreto jamás se espeja en claro a webhook_routing) y el identificador de
   // ruteo era el profileId, que acuñaba el server. Desde el 06/10/2026 Instagram

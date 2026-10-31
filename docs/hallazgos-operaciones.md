@@ -294,9 +294,15 @@ app/_components/transcribir-nota.ts · lib/centro-chats.ts (`completadosDelChat`
   (`app-de-escritorio.ts`, una vez por página, relee cada 8 s mientras bloquea), el hook sin CSS, y el botón con CSS
   (`InstalarMaKo.tsx`) que entra con `next/dynamic`. El modal de «Ya lo instalé: conectar» va por PORTAL: la caja puede vivir en
   un panel con `transform`, que volvería su marco el `fixed` del fondo del modal.
-- **Sin hacer:** el «Editar con IA» de cada sección del Web Generator (`app/web-generator/editor/AskAgent.tsx`) no se bloquea:
-  Martín pidió sacarlo (punto 5 del 24/10, chat Landings). Si queda, va con el mismo hook. Y falta recorrerlo en pantalla con una
-  cuenta sin computadora (el navegador de la app no tiene sesión).
+- **«Editar con IA» (`app/web-generator/editor/AskAgent.tsx`) quedó afuera hasta el 30/10:** no es `CajaChat` ni `CajaPedido`, así
+  que el inventario no lo veía. Martín había pedido sacarlo (punto 5 del 24/10, chat Landings) y sigue montado: lleva el mismo hook,
+  con su propio test. **«Probar nuevo diseño» arranca solo:** espera la respuesta (`useApp`), porque un pedido que sale antes de
+  saberla no lo corta nadie.
+- **El inventario sólo ve esas dos cajas.** Una caja de MaKo con su propio `<input>` no da rojo: hay que nombrarla aparte.
+- **Sin hacer:** los pedidos puntuales a la IA que no son un chat siguen sin bloqueo, a propósito por ahora: el ✦ de redactar de
+  Automations (`app/automations/MakoRedacta.tsx`), «Conclusiones de MaKo» del Dashboard (`app/dashboard/ElementoIA.tsx`) y el guion
+  de AI Avatar (`app/ai-avatar/Estudio.tsx`). Martín dijo «en ningún chat». Y falta recorrerlo en pantalla con una cuenta sin
+  computadora (el navegador de la app no tiene sesión).
 
 **Vive en:** `app/_chat/app-de-escritorio.ts` · `app/_chat/useAppDeEscritorio.tsx` · `app/_chat/InstalarMaKo.tsx` ·
 `app/web-generator/CajaPedido.tsx` (`bloqueo`) · `app/api/mako/chat/route.ts` (`?app=1`, `laApp`) · `lib/chat-mako-reglas.ts`
@@ -3645,6 +3651,40 @@ firmar se mira `espera`, no sólo `puede`.
 (`SheetM`) no se montó ahí. El Chrome disponible estaba con la sesión de Leandro, y /admin/operaciones lo manda a /second-brain.
 
 Los carteles de ausencia del Runner («la PC no da noticias», «nadie entrega») van en el mismo lugar que éste (CartelPc.tsx, en «Las dos preguntas de `visto_at`»).
+
+**SIN hacer:** los carteles de ausencia del Runner («la PC no da noticias», «nadie entrega») iban en el mismo lugar que éste.
+
+**31/10/2026, el cartel se sacó.** Martín, al verlo en el teléfono: «elimina el cartel rojo de "9 mensajes tuyos..."». Se fue con su lista y sus botones. La cuenta, la lectura aparte de `listarPedidos` y el aviso antes de firmar siguen. **Sin botón:** `descartarDelLimboAction` y lo puro de `lib/centro-limbo.ts` quedan sin pantalla, porque la rama `runner-servicio-3010` los modifica; esa rama también trae cambios sobre `CartelLimbo.tsx`, y hay que resolverlos a favor del borrado.
+
+## El estado de la PC va en el Uso, no en un cartel: lo que se consulta no interrumpe (31/10/2026)
+
+**Vive en:** `lib/centro-chats.ts` (`estadoDeLaPc`) · `app/admin/operaciones/Uso.tsx` (`EstadoDeLaPc`) · `app/m/operaciones/RunnerMovil.tsx` · tests/centro-estado-pc.test.ts.
+
+**Lo que pasó.** Se construyeron dos carteles rojos arriba del Ops Center, por la regla «si el Runner se muere, se ve». Martín mandó sacar el de los mensajes, y a la pregunta por el de la PC contestó: «Si, ponlo pero en USO». Sí al dato, no al cartel. **Las entradas de más arriba que hablan de `cartelDeLaPc` y `CartelPc.tsx` son de esa versión, que no llegó a subir.**
+
+**La regla.** Antes de poner una franja roja arriba de una pantalla, preguntar si es algo que interrumpe o algo que se consulta. El estado de un sistema se consulta; va donde ya se mira ese sistema, con su edad y sin afirmar más de lo que se sabe.
+
+**La trampa que queda.** Sin cartel, una PC parada ya no se nota sin abrir el Uso, y fue justamente seis días de eso lo que motivó el cartel. Hoy lo avisan el vigía y el monitor del Cerebro, que corren adentro de un chat. Martín lo eligió sabiendo qué era.
+
+**SIN hacer:** `originalParaReenviar`, `queHacer`, `chatsParaMandarle` y `textoDelCartel` (`lib/centro-limbo.ts`) y `descartarDelLimboAction` quedaron sin pantalla. El renglón gris «Sin noticias del Runner…» de la lista sigue como en main: no se pidió sacarlo.
+
+## «La PC no responde» con la PC prendida: el umbral era de 4 minutos y las vueltas, cada 10 (31/10/2026)
+
+**Vive en:** `lib/operaciones-reglas.ts` (`CARTERO_VIVO_MS`) · `lib/centro-chats.ts` (`porQueTarda`) · y afuera del repo, en la PC: `~/.claude/operaciones/vigilar-continuo.sh` y `LEEME-cartero.md`.
+
+**El síntoma.** Un aviso falso en la pantalla de Martín. Le escribió al Cerebro a las 17:25 desde el teléfono, y debajo del mensaje salió «La PC no responde desde las 17:20: puede estar dormida». Se lo mandó al Runner: «Me dice que no responde...». Una mentira ahí cuesta más que el silencio: la próxima vez que el Centro diga que algo está roto, va a dudar.
+
+**El diagnóstico obvio era el equivocado.** La PC estaba prendida y el Runner, sano: la vuelta de las 17:19 había salido sin errores. El comentario de `CARTERO_VIVO_MS` decía que el cartero pasa «cada uno o dos minutos», y el cron se había estirado a 10 sin mirar quién dependía de ese número. Pasados 4 minutos de cada vuelta, MaKo daba a la PC por muerta. Además, `vigilar` cubría sus 100 s y lo que se escribía después esperaba hasta 8 minutos: el mensaje de las 17:25 recién se entregó a las 17:28.
+
+**El arreglo, en dos partes.** En la PC: `vigilar` corre en fila desde un Monitor del chat Runner, que sólo despierta al chat cuando hay algo. Da noticias cada menos de 2 minutos, entrega en segundos y no gasta cuota en silencio. En MaKo: el aviso dice lo que se sabe («Sin noticias de la PC desde las 17:20») en vez de afirmar que no responde. **Subir el 4 a 11 no era la cura:** con vueltas cada 20 minutos, la constante vuelve a mentir.
+
+**La regla.** Un umbral de vida se deriva del intervalo real de quien da las noticias; no es una constante al lado. Mientras no se pueda derivar, la pantalla dice el hecho («visto a las 17:20») y no la conclusión («no responde»). Es la misma familia que la entrada del botón del Uso de abajo: allá un dato cierto se leía como si fuera de otra cosa, acá una falta de noticias se leía como una falla.
+
+**Trampa.** Dos `vigilar` a la vez pisan `vuelta.json` y pueden devolver el mismo pedido mientras no tenga acuse. El continuo escribe en `vuelta-continua.json`, y la vuelta del cron no corre `vigilar` si `continuo.latido` tiene menos de 4 minutos.
+
+**SIN hacer:**
+- `CARTERO_VIVO_MS` sigue siendo un número suelto, en `lib/operaciones-reglas.ts`. Derivarlo pide que el cartero publique cada cuánto pasa, y que MaKo lo guarde en `operaciones_carteros`.
+- Con la app de Claude cerrada no hay Monitor ni cron, y el aviso vuelve a salir, esta vez con razón. Lo que lo resuelve es `runner-servicio-3010`, sin activar.
 
 ## El botón del Uso mostraba un número cierto de otra cuenta, y «Runner activo» con una medición de hace 6 días (30/10/2026)
 

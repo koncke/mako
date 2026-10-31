@@ -67,6 +67,43 @@ export const type = {
 export const weight = { normal: 500, medium: 600, bold: 700 } as const;
 
 /**
+ * CIFRAS TABULARES. Un número que el usuario puede ver CAMBIAR —un KPI que cuenta
+ * hasta su valor nuevo, una marca de eje que se re-etiqueta, una columna de una
+ * tabla que se reordena— con cifras proporcionales cambia de ANCHO en cada cuadro:
+ * el `1` es angosto y el `8` es ancho, así que el número baila mientras se mueve y
+ * eso se lee como barato al instante. `tabular-nums` le da a cada dígito el mismo
+ * ancho, y entonces el número cambia de valor sin cambiar de tamaño.
+ *
+ * Va en todo número que se actualice, se alinee en columna o se compare con el de
+ * al lado. NO va en prosa: en una frase, las cifras tabulares se ven separadas.
+ */
+export const TABULAR = 'tabular-nums';
+
+/**
+ * TRACKING (`letter-spacing`). Los nombres son el USO, no el valor.
+ *
+ * La regla óptica: cuanto más grande la letra, más se CIERRA; las mayúsculas chicas
+ * se ABREN. Un número de 34 px con el tracking por defecto se ve suelto, y un rótulo
+ * de 12 px en mayúsculas sin abrir se ve apretado.
+ *
+ * Había 526 `letterSpacing` escritos a mano en `app/` y ningún token
+ * (`docs/hallazgos-ui.md`), así que estos cinco valores son los que ya se usaban:
+ * esto nombra lo que había, no inventa una escala nueva.
+ */
+export const tracking = {
+  /** El número grande de un KPI y el título de página (lo de 26 px para arriba). */
+  kpi: '-0.02em',
+  /** Título de tarjeta y de sección (15 a 24 px). */
+  titulo: '-0.015em',
+  /** Texto corrido: sin tocar. Está para poder decirlo explícito. */
+  normal: '0em',
+  /** Un rótulo en MAYÚSCULAS, que es como va la etiqueta en mono de una KPI. */
+  rotulo: '.08em',
+  /** MAYÚSCULAS de 11 px o menos, donde hace falta abrir más. */
+  rotuloAncho: '.12em',
+} as const;
+
+/**
  * Área táctil mínima. 40 px en desktop, 44 en mobile (globals.css). Todo lo
  * clickeable debe alcanzarla, aunque el ícono adentro sea de 16 px: se logra
  * con padding, no agrandando el dibujo.
