@@ -651,6 +651,13 @@ Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
   **La regla para código nuevo: en una carpeta no van dos nombres que sólo se distingan por la caja.** El
   módulo puro de una pantalla lleva el sufijo `-reglas` (`chat-reglas.ts` para `ChatVideo.tsx`,
   `composer-reglas.ts` para `Composer.tsx`), que es la convención que ya tenía la carpeta.
+  ⚠️ **Y desde el 30/10/2026 tiene GUARD, porque la regla sola no frena nada en Linux:**
+  `tests/colision-de-nombres.test.ts` barre `git ls-files` y falla nombrando la carpeta. Compara el basename
+  **SIN EXTENSIÓN** en minúsculas, que es con lo que sale a probar el resolvedor: un chequeo de nombres
+  completos NO lo caza (`composer.ts` y `Composer.tsx` no chocan en el filesystem, así que el checkout no se
+  queja). Cubre también la carpeta con `index` que choca con un archivo vecino, y su lista de extensiones es
+  la pieza que lo sostiene — sumarle una se mide antes (con `.css` adentro da cinco falsos positivos, que son
+  la convención `Foo.tsx` + `foo.css` de la casa).
 - **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
   miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
 

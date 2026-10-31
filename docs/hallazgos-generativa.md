@@ -46,9 +46,26 @@ sufijo `-reglas`, que es la convención que la carpeta ya tenía (`chat-reglas.t
 quedó como **`composer-reglas.ts`** y no se renombra de vuelta. Está anotado en el encabezado de `Composer.tsx` y en AGENTS.md
 → «Para validar lo tuyo sin el tsc completo».
 
-**Lo que quedó sin hacer.** Nada lo frena de volver a pasar: no hay test que recorra el árbol buscando dos archivos de la misma
-carpeta que colisionen sin mayúsculas. Es un barrido de diez líneas sobre `git ls-files` y viviría bien en
-`tests/` junto a los otros barridos de forma.
+**Lo que lo frena, desde el 30/10/2026.** `tests/colision-de-nombres.test.ts` recorre `git ls-files` y falla si dos archivos de
+la misma carpeta comparten el basename **sin extensión** en minúsculas. Medido: `origin/main` y `origin/integracion`, 0; el árbol
+anterior al arreglo (`9012f6070`), 1 —justo éste—; el árbol con el arreglo (`9b5b2346e`), 0. Probado rompiéndolo, base 4 pases / 0
+fallos: devolver `composer-reglas.ts` a `composer.ts` da 3/1, y las dos formas ingenuas del detector (comparar el nombre COMPLETO,
+o no bajar las mayúsculas) dan 2/2 porque le pasan limpias al árbol del bug.
+
+Cuatro cosas de ese barrido que no se ven leyéndolo:
+
+- **La lista de extensiones es la pieza que sostiene al guard**, no un detalle de implementación. Son las que TypeScript prueba sin
+  que el import las nombre (`.ts .tsx .js .jsx .mts .cts .mjs .cjs`, con `allowJs` y `moduleResolution: bundler`). Con `.css`
+  adentro aparecen **cinco falsos positivos** que son la convención de la casa (`app/_ui/Ajustes.tsx` + `ajustes.css`, y cuatro más):
+  una hoja de estilos no la resuelve un import sin extensión, así que no divergen entre filesystems. Sumar una extensión a esa lista
+  es medir cuántos hallazgos agrega antes, no después.
+- **Exige que los nombres DIFIERAN en la caja.** `foo.ts` + `foo.js` caen en el mismo casillero y no son este bug: ahí el resolvedor
+  elige el `.ts` igual en Windows que en Linux. Lo que el guard persigue es la DIVERGENCIA entre filesystems, que la produce la
+  mayúscula y nada más.
+- **El caso hermano entra en el mismo test, y también está en 0:** una carpeta con `index` y un archivo vecino que se llaman igual en
+  minúsculas (`./Foo` prueba `./Foo.ts` antes que `./Foo/index.ts`, y en NTFS ese `./Foo.ts` es el `foo.ts` de al lado).
+- **`git ls-files` lista el ÍNDICE**: con el archivo renombrado y sin stagear, el barrido no lo ve. Es la misma letra chica que
+  AGENTS.md → «`npm test` antes del `git add` no ve los archivos nuevos», y es por qué la rotura de arriba se probó con `git mv`.
 
 ## El saldo de Flow guardado NO es el de ahora, y la tarjeta de filmar lo afirmaba (30/10/2026)
 
