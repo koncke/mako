@@ -1,0 +1,101 @@
+{
+  "_que_es": "Cuarta y última tanda de tokens reales de codeandchill.store (31/10/2026). Con esto el relevamiento está COMPLETO: 12 plantillas de app + la página de error. Sigue a tokens-codeandchill.json, tokens-codeandchill-2.json y familias-y-tokens-3.json.",
+
+  "_EL_HALLAZGO_DE_ESTA_TANDA": {
+    "oklch": "⚠️ MOORLY ESCRIBE TODOS SUS COLORES EN `oklch()`, no en hex. Es la única de las doce, y no es un capricho: oklch separa LUMINOSIDAD, croma y tono, así que «aclarar sin desaturar» o «invertir la luminosidad para el modo oscuro» es una resta, no un ojo. Las otras once mantienen DOS paletas escritas a mano (clara y oscura) y las tienen que sostener sincronizadas. Si MaKo va a tener los dos temas —y los va a tener— este es el camino: una paleta en oklch y el modo oscuro derivado, no copiado.",
+    "la_pagina_de_error": "`sleuth` no es una plantilla de app: es su 404, y tiene su propio sistema chiquito (un pájaro con lupa, una lente con magnificación declarada en `--mag: 1.3` y el radio del recorte CALCULADO a partir de ella: `--clip-r: calc(76px / 1.3)`). Vale copiarla aparte: MaKo no tiene página de error y es de las pocas pantallas que alguien ve cuando algo ya salió mal."
+  },
+
+  "covry": {
+    "_que_es": "FAMILIA 2 (claro con vidrio). Back office de una veterinaria. Azul franco. El vidrio mejor documentado de las tres: separa el borde del brillo y del contorno.",
+    "url": "https://demo.codeandchill.store/covry/",
+    "estructura": { "--wrap": "1520px" },
+    "vidrio": {
+      "--glass": "#ffffffb3", "--glass-strong": "#ffffffe6", "--glass-soft": "#ffffff80",
+      "--glass-rim": "inset 0 1px 0 #fffffff2, inset 0 0 0 1px #fff9",
+      "--glass-edge": "0 1px 2px #14282d0d, 0 18px 40px -22px #14282d47",
+      "--blur": "blur(22px) saturate(1.6)"
+    },
+    "_vidrio_nota": "TRES niveles de opacidad (soft 50% · normal 70% · strong 90%) para tres alturas distintas, y el `--glass-rim` separado del `--glass-edge`: el rim es el borde INTERIOR de luz (dos inset) y el edge es la sombra EXTERIOR. Son dos cosas y acá están nombradas como dos.",
+    "manchas": { "--silk-a": "#c7d8f6", "--silk-b": "#c6e6ea", "--silk-c": "#f4d6c2", "--silk-base": "#eceef3", "--silk-ribbon": "#ffffffbf" },
+    "vars": {
+      "--bg": "#eceef3", "--card": "#fbfbfc", "--card-2": "#f2f3f5", "--card-3": "#e6e8eb",
+      "--ink": "#14181b", "--ink-2": "#343a3f", "--muted": "#5c636a",
+      "--line": "#14181b14", "--line-2": "#14181b26",
+      "--shadow": "0 1px 2px #14181b0d, 0 10px 26px -18px #14181b38",
+      "--accent": "#2a55c9", "--accent-ink": "#fff", "--accent-hi": "#3563dc", "--accent-text": "#2147ad",
+      "--good": "#1e7443", "--warn": "#8d5d00", "--bad": "#b02f2c", "--info": "#2c5ca3",
+      "--tile-a": "#d6e2f7", "--tile-b": "#ece3cf", "--tile-c": "#d4ebe2", "--tile-d": "#efdcd5",
+      "--flow-desk": "#2a55c9", "--flow-online": "#9db4ea", "--flow-out": "#c3c8ce", "--flow-net": "#14181b",
+      "--card-ink": "#f4f6f7", "--mono-ink": "#14181b"
+    },
+    "_flow_nota": "--flow-* es un embudo: dos entradas (mostrador y online), una salida, y el NETO en tinta. El neto no es un color más: es el color del texto, porque es la conclusión."
+  },
+
+  "moorly": {
+    "_que_es": "⚠️ LA DE oklch. Portal de corredores náuticos. Dibuja una escena de mar con tokens.",
+    "url": "https://demo.codeandchill.store/moorly/",
+    "estructura": { "--max": "1560px", "--pad-x": "clamp(16px, 2.2vw, 32px)" },
+    "vars": {
+      "--bg": "oklch(95% .018 215)",
+      "--ink": "oklch(22% .025 230)", "--ink-2": "oklch(36% .025 230)", "--muted": "oklch(47% .02 230)",
+      "--line": "oklch(30% .03 230/.09)", "--line-2": "oklch(30% .03 230/.16)",
+      "--card": "#ffffffdb", "--card-2": "oklch(45% .04 220/.055)", "--card-3": "oklch(45% .04 220/.1)",
+      "--shadow": "0 1px 1px oklch(30% .05 230/.04), 0 12px 32px -18px oklch(35% .06 225/.32)",
+      "--accent": "oklch(50% .09 205)", "--accent-hi": "oklch(56% .095 205)", "--accent-text": "oklch(44% .085 205)",
+      "--warm": "oklch(74% .13 62)", "--warm-text": "oklch(52% .11 55)",
+      "--good": "oklch(50% .11 155)", "--warn": "oklch(52% .11 68)", "--bad": "oklch(52% .16 25)", "--info": "oklch(50% .12 250)",
+      "--c-hull": "oklch(56% .12 250)", "--c-cargo": "oklch(72% .13 78)", "--c-marina": "oklch(60% .11 165)",
+      "--c-build": "oklch(62% .13 40)", "--c-fish": "oklch(64% .11 125)", "--c-charter": "oklch(62% .13 8)",
+      "--glass": "#ffffff9e", "--glass-strong": "#fafcfdd6", "--glass-rim": "#ffffffb3", "--blur": "22px",
+      "--paper": "#fdfcf8", "--paper-ink": "#1d2226"
+    },
+    "escena": { "--sky1": "oklch(97.5% .012 230)", "--sky2": "oklch(94.5% .03 210)", "--sun": "oklch(93% .075 70)", "--w1": "oklch(90% .045 195)", "--w2": "oklch(86% .06 205)", "--w3": "oklch(82% .07 215)", "--w4": "oklch(78% .075 228)", "--crest": "#ffffffbf" },
+    "_escena_nota": "Cielo en dos pasos, sol, CUATRO planos de agua y la cresta. Lo que lo hace funcionar es que w1→w4 bajan la luminosidad y suben el croma a la vez, de forma regular: en oklch eso es una progresión, en hex serían cuatro aciertos.",
+    "_lo_que_vale": "Fijate que las seis series (--c-hull…--c-charter) comparten luminosidad (56-72%) y croma (.11-.13) y SÓLO cambian el tono. Por eso ninguna pesa más que otra en el gráfico. Con hex eso se logra probando; en oklch se escribe."
+  },
+
+  "fitlo": {
+    "_que_es": "FAMILIA 1 (claro sólido). Tienda de ropa con probador. Acento verde azulado, con un naranja SÓLO para el ahora.",
+    "url": "https://demo.codeandchill.store/fitlo/",
+    "estructura": { "--maxw": "1480px" },
+    "vars": {
+      "--bg": "#f7f6f2", "--card": "#fdfdfb", "--card-2": "#f0efea", "--card-3": "#e5e4de",
+      "--ink": "#161a19", "--ink-2": "#353b3a", "--muted": "#5f6665",
+      "--line": "#161a1914", "--line-2": "#161a1926", "--rim": "#161a1924",
+      "--accent": "#0b7a73", "--accent-ink": "#fff", "--accent-hi": "#08665f", "--accent-text": "#08665f",
+      "--sig": "#0b7a73", "--data": "#0b7a73", "--now": "#e2603a", "--gold": "#f08a5d", "--gold-soft": "#f08a5d33",
+      "--good": "#1e7548", "--warn": "#8a5600", "--bad": "#b42318", "--info": "#2c5d87",
+      "--tile-1": "#ffe2d1", "--tile-2": "#d8ecee", "--tile-3": "#fbeaa8", "--tile-4": "#e9e8e3",
+      "--t1": "#f6e6db", "--t2": "#e1ece8", "--t3": "#f6edd0", "--t4": "#f6e3e1", "--t5": "#ebeae5", "--t6": "#dfeaf0",
+      "--on-photo": "#fff", "--mono-ink": "#17181c"
+    },
+    "_now_nota": "--now (#e2603a, naranja) es el ÚNICO lugar donde aparece un color cálido fuerte, y marca «esto es ahora»: la hora actual, el paso en curso. Reservar un color para una sola cosa es lo que hace que esa cosa se vea sin buscarla.",
+    "_on_photo_nota": "--on-photo es el color del texto que va ENCIMA de una foto de producto, nombrado aparte de --ink: sobre una imagen no se usa la tinta del tema, se usa blanco."
+  },
+
+  "sleuth_la_404": {
+    "_que_es": "NO es una plantilla de app: es la página de error 404, con su propio sistemita. Se releva aparte porque MaKo no tiene página de error.",
+    "url": "https://demo.codeandchill.store/sleuth/",
+    "vars": {
+      "--page": "#f7ead3", "--floor": "#fdf3e1", "--ghost": "#f3e0b6",
+      "--ink": "#2a1a12", "--ink-2": "#3b271c", "--muted": "#6b5546",
+      "--red": "#e4674f", "--red-ink": "#b8412a", "--beak": "#f2a93b",
+      "--hair": "rgba(42, 26, 18, .14)", "--seam": "rgba(60, 38, 20, .1)",
+      "--wall-hi": "#f9f0dc", "--wall-lo": "#efdfc0", "--board-hi": "#e6d2ab", "--board-lo": "#dbc294",
+      "--mag": "1.3", "--lens-r": "76px", "--clip-r": "calc(76px / 1.3)", "--bird-h": "clamp(152px, 27vh, 220px)", "--ground": "78"
+    },
+    "_lo_que_vale": "La magnificación de la lupa (`--mag: 1.3`) es un token, y el radio del recorte se CALCULA de ella (`calc(76px / 1.3)`). O sea: el dibujo tiene una sola fuente de verdad y las demás medidas se derivan. Es la misma idea que un Record total, aplicada a una ilustración.",
+    "_para_mako": "Una página de error es de las pocas pantallas que alguien ve cuando algo YA salió mal, y la nuestra no existe. Copiarla es barato y se nota."
+  },
+
+  "_el_relevamiento_esta_COMPLETO": {
+    "plantillas_de_app": ["merrin", "tilvo", "pacely", "wynlo", "corvane", "coffra", "kinlo", "ledra", "kerfa", "covry", "moorly", "fitlo"],
+    "mas": ["sleuth (la 404)"],
+    "lo_que_falta_ahora": [
+      "El modo oscuro de las once que no se abrieron en oscuro (sólo se midió el de merrin, en oscuro-y-movimiento-medido.md).",
+      "Las medidas de TELÉFONO: todo se leyó a 1440.",
+      "Y lo principal: APLICARLO. Esto es el relevamiento, no el rediseño."
+    ]
+  }
+}

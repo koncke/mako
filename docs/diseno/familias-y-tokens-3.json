@@ -1,0 +1,118 @@
+{
+  "_que_es": "Tercera tanda de tokens REALES de codeandchill.store (31/10/2026) + LA SÍNTESIS. Con esto son 9 de 13 plantillas leídas. Sigue a tokens-codeandchill.json y tokens-codeandchill-2.json.",
+
+  "_LA_SINTESIS": {
+    "_lo_mas_importante": "NO es un solo diseño con la paleta cambiada, como parecía con las dos primeras. Son CUATRO FAMILIAS de estructura, y el VIDRIO es el idioma dominante — justo lo que la primera vuelta del rediseño descartó por criterio propio.",
+    "familias": {
+      "1. claro sólido": {
+        "quienes": ["merrin", "tilvo", "pacely", "wynlo", "corvane"],
+        "como es": "fondo gris cálido o frío (nunca blanco), tarjetas opacas un tono más claras que el fondo, barra lateral de 236-256 px (corvane: sólo riel de 88)."
+      },
+      "2. claro con vidrio": {
+        "quienes": ["coffra", "kinlo", "ledra"],
+        "como es": "las tarjetas son BLANCO CON ALFA sobre un fondo con color, con blur + saturate. El blur va de 16 a 26 px y el saturate SIEMPRE por encima de 1: es lo que evita que el color de atrás se vea lavado.",
+        "lo que hace falta y nadie copia": "el borde interior de luz (--glass-rim / --rim con dos inset) y, en ledra, un --sheen: un degradado de tres paradas que simula el brillo del vidrio. Sin eso el vidrio se ve sucio, no translúcido."
+      },
+      "3. oscuro con foto": {
+        "quienes": ["kerfa"],
+        "como es": "fondo fotográfico, un --veil (degradado de 5 paradas) encima para que el texto se lea, y paneles de vidrio OSCURO (#1c1916ad) con blur(26px) saturate(1.6). El acento es claro y cálido sobre todo eso."
+      },
+      "4. oscuro sólido": {
+        "quienes": ["el modo oscuro de todas (ver oscuro-y-movimiento-medido.md)"],
+        "como es": "no es la paleta clara oscurecida: se INVIERTE la luminosidad del acento y los semáforos se vuelven pastel."
+      }
+    },
+    "lo_que_comparten_las_nueve": {
+      "tipografia": "Urbanist, base 14px, escala 11 · 12 · 12,5 · 13,5 · 14 · 15 · 17 · 20 · 22 · 26 · 34 (los medios pasos son a propósito: dejan meter una fila más)",
+      "gap": "18px",
+      "radios": "10 / 14 / 18 / 24 (wynlo usa 20 para el lg)",
+      "ease": "cubic-bezier(.22, 1, .36, 1), la misma en las nueve",
+      "sombras": "dos capas: un pelo de contacto + una difusa MUY corrida hacia arriba (offset negativo grande). El tinte sale de --ink, nunca negro puro — salvo en oscuro, donde SÍ es negro real y más opaco",
+      "lineas": "la tinta con alfa (14 / 26 / 29), nunca un gris propio",
+      "semaforos": "good · warn · bad · info, cada uno con su -soft de alfa ~1f-26",
+      "tiles": "cuatro fondos pastel para celdas de dato + tile-ink y tile-muted"
+    },
+    "la_regla_de_la_paleta_categorica": "Cada plantilla nombra sus series por lo que SON, no por número, cuando el dominio lo permite: --ch-web/--ch-market/--ch-wholesale/--ch-studio (canal de venta), --k-call/--k-demo/--k-visit (tipo de actividad), --s-trade/--s-hosp/--s-retail (segmento), --c-teal/--c-coral (hue, cuando no hay dominio). El MISMO concepto es el MISMO color en la barra, en la lista y en el gráfico: eso es lo que hace que no haya que leer la leyenda."
+  },
+
+  "kerfa": {
+    "_que_es": "⚠️ FAMILIA 3: oscura con FOTO de fondo. Mesa de ventas. La más distinta de todas.",
+    "url": "https://demo.codeandchill.store/kerfa/",
+    "estructura": { "--wrap": "min(1440px, calc(100% - 28px))" },
+    "vidrio_sobre_foto": {
+      "--veil": "linear-gradient(180deg, #0e0c0abd 0, #0e0c0aa3 210px, #0e0c0a75 400px, #0e0c0a75 70%, #0e0c0a99)",
+      "--blur": "blur(26px) saturate(1.6)",
+      "--glass": "#1c1916ad", "--glass-hi": "#26221ebd", "--glass-pop": "#1e1c19db", "--glass-bar": "#1c1a179e",
+      "--rim": "#fff8ee21", "--edge": "#fff8ee14", "--pill": "#fff8ee1c"
+    },
+    "_veil_nota": "CINCO paradas, no dos. Oscuro arriba (donde va el título), se abre en el medio (donde se ve la foto) y vuelve a cerrar abajo. Es lo que deja leer texto sobre una imagen cualquiera sin saber cómo es la imagen.",
+    "vars": {
+      "--bg": "#12110f", "--well": "#fff5e80f", "--well-2": "#fff5e80f", "--well-3": "#fff5e81c",
+      "--ink": "#f4efe8", "--ink-2": "#ddd6cb", "--muted": "#c4bbaf",
+      "--line": "#fff5e81a", "--line-2": "#fff5e82e",
+      "--shadow": "0 1px 1px #00000040, 0 24px 48px -28px #000c",
+      "--shadow-lg": "0 2px 6px #00000059, 0 40px 80px -30px #000000e6",
+      "--accent": "#f0a07a", "--accent-ink": "#2b1208", "--accent-hi": "#f4b391", "--accent-text": "#f6b898",
+      "--good": "#84d9aa", "--warn": "#f0c477", "--bad": "#f6a2ab", "--info": "#86d3c8",
+      "--s-trade": "#8fb2f6", "--s-hosp": "#e3a64e", "--s-retail": "#6cc2b3", "--s-direct": "#e08a68",
+      "--mono-ink": "#1d1a16"
+    }
+  },
+
+  "kinlo": {
+    "_que_es": "FAMILIA 2: claro con vidrio sobre MANCHAS de color. Back office de un cine. Acento petróleo.",
+    "url": "https://demo.codeandchill.store/kinlo/",
+    "estructura": { "--side-w": "248px", "--rail-w": "84px" },
+    "manchas_y_vidrio": {
+      "--wash-a": "#f4bfa6", "--wash-b": "#bfe2e6", "--wash-c": "#e1eaf3",
+      "--wash-wave": "#f7d6c4d9", "--wash-band": "#f6cdba8c",
+      "--glass": "#ffffff8c", "--glass-hi": "#ffffff9e", "--glass-rim": "#ffffffe6", "--glass-edge": "#17252d12",
+      "--blur": "blur(26px) saturate(180%)", "--float": "#fbfcfce6"
+    },
+    "_wash_nota": "Las manchas son colores PLANOS puestos detrás del vidrio. El color de la pantalla no está en las tarjetas: está debajo, y el vidrio lo difumina. Por eso el saturate(180%) no es capricho.",
+    "vars": {
+      "--bg": "#eef1f3", "--card": "#fbfcfc", "--card-2": "#17252d0b", "--card-3": "#17252d17",
+      "--ink": "#15212a", "--ink-2": "#354550", "--muted": "#55616a",
+      "--line": "#17252d14", "--line-2": "#17252d26",
+      "--shadow": "0 1px 2px #17252d0a, 0 14px 34px -18px #17252d33",
+      "--accent": "#0e6c84", "--accent-ink": "#fff", "--accent-hi": "#127d98", "--accent-text": "#0b5f74",
+      "--side": "#ffffff6b", "--side-2": "#ffffff9e", "--side-pill": "#0e6c84", "--side-pill-ink": "#fff",
+      "--good": "#23733f", "--warn": "#9a5208", "--bad": "#b3263a", "--info": "#2c58a0",
+      "--s1": "#1b84a0", "--s2": "#ee8a6a", "--s3": "#e8c68e",
+      "--tile-aqua": "#c4e8ecb8", "--tile-slate": "#d6e2eeb8", "--tile-sage": "#d0e8d8b8", "--tile-peach": "#fad6c6b8",
+      "--night": "#102e37e6", "--night-2": "#ffffff14", "--night-ink": "#eef6f7", "--night-muted": "#a9c0c6"
+    },
+    "_night_nota": "⚠️ --night-* es un panel OSCURO dentro de una página CLARA (la cartelera del cine). No es el modo oscuro: es una superficie que siempre fue oscura. Vale la pena para MaKo: un bloque de video o de reproducción pide fondo oscuro aunque la app esté en claro."
+  },
+
+  "ledra": {
+    "_que_es": "FAMILIA 2: claro con vidrio, el más trabajado de los tres. Dinero, gente y papeles. Acento verde azulado + coral.",
+    "url": "https://demo.codeandchill.store/ledra/",
+    "estructura": { "--side-w": "236px", "--rail-w": "76px" },
+    "vidrio": {
+      "--glass": "#fcfefe99", "--glass-strong": "#fafdfddb", "--glass-rim": "#fffffff2", "--glass-edge": "#12201f12",
+      "--sheen": "linear-gradient(180deg, #ffffff57, #ffffff0f 38%, #fff0 60%)",
+      "--frost": "blur(16px) saturate(1.45)", "--frost-strong": "blur(24px) saturate(1.5)",
+      "--room-hi": "#f7fbfa", "--room-mid": "#d3e3e0", "--room-lo": "#b9d0cc"
+    },
+    "_sheen_nota": "El --sheen es lo que separa un vidrio creíble de un rectángulo semitransparente: un degradado que va de blanco al 34% arriba a NADA al 60%, simulando el brillo. Se pone encima de la tarjeta, no como fondo.",
+    "_frost_nota": "DOS niveles de blur declarados (16 y 24): lo que flota poco y lo que flota mucho. No es un solo valor para todo.",
+    "vars": {
+      "--bg": "#dbe5e3", "--solid": "#f8fbfb", "--card": "#ffffff9e", "--card-2": "#fff6", "--card-3": "#12201f12",
+      "--ink": "#12201f", "--ink-2": "#33423f", "--muted": "#5a6967",
+      "--line": "#12201f14", "--line-2": "#12201f26",
+      "--accent": "#0c6b6b", "--accent-ink": "#f2fbfa", "--accent-hi": "#0d7a79", "--accent-text": "#095c5c",
+      "--coral": "#d9643f", "--coral-soft": "#d9643f24", "--coral-text": "#a8441f",
+      "--side": "#fcfefe99", "--side-pill": "#0c6b6b21", "--side-pill-ink": "#0a5757",
+      "--good": "#1f744b", "--warn": "#774c00", "--bad": "#a1263a", "--info": "#285c9c",
+      "--tile-teal": "#d3e9e6", "--tile-sand": "#efe4cb", "--tile-sky": "#d8e4f1", "--tile-coral": "#f5ddd3",
+      "--c-teal": "#0c6b6b", "--c-green": "#3d8a4f", "--c-sand": "#b0874a", "--c-coral": "#d9643f",
+      "--c-slate": "#687c86", "--c-sky": "#3f78b8", "--c-amber": "#c4881c", "--c-rust": "#a65a3a",
+      "--c-rose": "#c2566f", "--c-ink": "#2f3f3d"
+    },
+    "_c_nota": "DIEZ colores de serie nombrados por su tono, no c1..c10. Un gráfico de diez categorías necesita diez, y nombrarlos por el tono deja elegir a ojo en vez de contar."
+  },
+
+  "_faltan": ["covry", "moorly", "sleuth", "fitlo (leído a medias: sólo su movimiento)"],
+  "_faltan_nota": "Cuatro. El método está probado: navegar a demo.codeandchill.store/<nombre>, leer :root con getComputedStyle, y para el movimiento APRETAR el botón de tema (sólo eso dispara la animación)."
+}

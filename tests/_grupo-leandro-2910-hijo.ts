@@ -11,6 +11,7 @@
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
+import { decirYSalir } from './_salir-cuando-salio';
 
 // El turno NO espera el reloj: la ventana de silencio de verdad (8-20 s por escena, y acá son varias) hacía que este
 // archivo tardara MINUTOS y el vigía de tandas de tests-afectados matara la tanda entera con 99 — ver
@@ -184,7 +185,7 @@ async function main() {
       created_at: new Date(Date.now() - 12_000).toISOString() });
     return manejarEntranteDoer(LINEA, texto('3EB0IMG00000000000000T1', 1793253712, 'mirá esta captura, no me deja conectar') as never);
   });
-  process.stdout.write(`@@LEANDRO@@${JSON.stringify(out)}\n`);
+  decirYSalir(`@@LEANDRO@@${JSON.stringify(out)}\n`);
 }
 
-main().then(() => process.exit(0), (e) => { process.stdout.write(`@@LEANDRO@@${JSON.stringify({ error: e instanceof Error ? e.stack : String(e) })}\n`); process.exit(0); });
+main().then(() => decirYSalir(''), (e) => decirYSalir(`@@LEANDRO@@${JSON.stringify({ error: e instanceof Error ? e.stack : String(e) })}\n`));
