@@ -126,7 +126,11 @@ export const TABLAS_DE_INQUILINO = [
   // Las grabaciones de sesión de las landings (mig 0191): en TENANT_TABLES y no acá hasta el 17/10/2026.
   'replay_lotes', 'replay_sesiones',
   'retros', 'review_queue', 'script_analyses',
-  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
+  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares',
+  // Competitors Spy (mig 0358): los competidores que vigila el negocio y sus piezas. Vaciar el
+  // negocio o borrarlo se los lleva; `spy_piezas` también se va con su competidor (on delete cascade).
+  'spy_competidores', 'spy_piezas',
+  'tarea_categorias',
   // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no
   // tiene `workspace_id`: se va con su ticket (on delete cascade). No va en TENANT_TABLES: la lee lib/tickets-db.ts.
   'tickets',

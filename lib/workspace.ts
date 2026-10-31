@@ -263,6 +263,11 @@ const TENANT_TABLES = new Set<string>([
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que
   // salgan scopeadas y no con las filas de todos.
   'contenido_posts', 'ig_conversaciones', 'ig_mensajes', 'zernio_workspace',
+  // Competitors Spy (mig 0358): el competidor que vigila un negocio y cada pieza que se le vio
+  // (anuncio / reel / publicación / video / versión de landing). Sin estas dos líneas
+  // `getTenantDb()` es PASSTHROUGH y la lista de competidores de un negocio muestra la de TODOS —
+  // y a quién mira un negocio es exactamente lo que no puede salir de su workspace.
+  'spy_competidores', 'spy_piezas',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
   // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta
   // .eq('workspace_id', ws) y corta el leak del agregado global. OJO: scripts de
