@@ -215,7 +215,13 @@ test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel
   assert.match(cuerpo('lib/compra-plan.ts', 'ofertasDeLosPlanes'), /cobrable: pasarelasDelPais\(pais, monedas\.filter\(\(m\) => precioEn\(plan, m\.moneda\) != null\)\)\.length > 0,/);
   const enc = "paisDelVisitante(req.headers.get('x-vercel-ip-country'))";
   assert.ok(fuente('app/api/planes/comprar/route.ts').includes(`pais: ${enc}`), 'la compra');
-  assert.ok(fuente('app/planes/[plan]/page.tsx').includes("pais: paisDelVisitante((await headers()).get('x-vercel-ip-country'))"), 'la página del plan');
+  // La página del plan lo guarda en una variable porque lo usa DOS veces: la oferta y la lada con la que arranca el WhatsApp
+  // que se pide antes del checkout (31/10/2026). Lo que se cuida sigue siendo lo mismo: que el país llegue a la oferta.
+  const pagPlan = fuente('app/planes/[plan]/page.tsx');
+  assert.ok(pagPlan.includes("const pais = paisDelVisitante((await headers()).get('x-vercel-ip-country'))"), 'la página del plan lee el país');
+  const trozoOferta = pagPlan.slice(pagPlan.indexOf('ofertaDelPlan(id, {'), pagPlan.indexOf('if (!oferta) notFound()'));
+  assert.ok(trozoOferta.includes('pais,'), 'la página del plan le pasa ese país a la oferta');
+  assert.ok(pagPlan.includes('ladaInicial={ladaDelPais(pais)}'), 'y el WhatsApp arranca con la lada de ese país');
   assert.ok(fuente('app/planes/page.tsx').includes("ofertasDeLosPlanes(paisDelVisitante((await headers()).get('x-vercel-ip-country')))"), '/planes');
   // Pidió Mercado Pago desde México y Stripe sirve: se le ofrece Stripe, no «todavía no cobramos en línea».
   assert.match(cuerpo('lib/compra-plan.ts', 'iniciarCompraDePlan'), /if \(eleccion\.motivo === 'elegir' \|\| \(eleccion\.motivo === 'no-sirve' && pasarelas\.length\)\) return \{ ok: false, status: 409/);
@@ -231,5 +237,7 @@ test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel
 //   · sin expandir la tarjeta (sin huella)                                     → 9 / 1
 // Y lo de la verificación de 3ca2d8328 (28/10/2026, base 11 / 0): sin expirar la sesión anterior → 10 / 1; la guarda sólo para
 // las pruebas, como antes → 10 / 1; la prueba con cualquier medio de pago (sin `payment_method_types`) → 10 / 1.
+// Y el del páís en la página del plan (31/10/2026, base 12 / 0): sin `pais` en la oferta → 11 / 1; otro encabezado en vez de
+// `x-vercel-ip-country` → 11 / 1; sin la lada del WhatsApp → 11 / 1.
 // Y los de a196d5a93 (base 12 / 0): sin la excepción del diferido que falló → 10 / 2; armar otra sin poder leer la anterior →
 // 11 / 1. De punta a punta: r1-pagar-tras-fallo.ts, antes R1a/R1b/R1c daban 302 a /listo; ahora arman cs_live_B (R1d igual).
