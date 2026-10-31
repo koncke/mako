@@ -123,3 +123,57 @@ corriendo, landings publicadas y un tablero— es nuestra, y es la mitad que val
   una ruta muerta.
 - La calculadora de presupuesto (ya integrada, `e41e70070`) **pasa a ser una funcionalidad de adentro del
   Funnel Coach**, no una pantalla suelta.
+
+---
+
+## 8. Cómo se construye — el brief, con lo medido el 31/10 a la noche
+
+**Esto lo decide y lo escribe el Cerebro para que quien lo construya no arranque adivinando.** Las tres
+cosas de abajo son las que, si se asumen mal, cuestan el día entero.
+
+### 8.1 La pregunta abierta, cerrada
+
+**¿El Funnel Coach aparece para todos, o sólo cuando el Offer Coach terminó? Aparece para TODOS.** Lo
+**sugiere** el Ops Center cuando el Offer Coach dejó una oferta guardada, y no antes; pero está siempre
+visible y se puede entrar a mano. Dos razones, las dos ya escritas acá arriba: la regla de Martín es
+*«que el Funnel Coach se SUGIERA, no se imponga»* (§4), y hay gente que entra sin presupuesto. Esconderlo
+hasta que el Offer Coach termine convierte tres coaches en un pasillo, que es justo lo que él prohibió.
+Lo que sí cambia según la oferta es con qué ARRANCA el chat: con oferta guardada abre por el presupuesto;
+sin ella, abre preguntando qué vende (y eso es un Offer Coach disfrazado, así que ahí conviene derivar).
+
+### 8.2 Lo que hay que MEDIR antes de escribir una línea
+
+1. **Dónde se registran los chats del Ops Center DE UN CLIENTE.** `lib/centro-chats.ts` (1.864 líneas)
+   **no es eso**: su encabezado lo dice —es el Centro del super admin y refleja las sesiones de Claude
+   Code de Martín, con cartero, cuenta y `sesion`. Sumar ahí un «Funnel Coach» sería sumarlo a la lista de
+   sesiones de Martín. La memoria dice que para el cliente el Ops Center es el MISMO que el del super
+   admin: eso puede querer decir *la misma pantalla* o *la misma tabla*, y la diferencia es toda la tarea.
+   **Medirlo, no deducirlo.**
+2. **La tab a renombrar es `app/ads-manager/`**, no una `app/media-buyer/`: no existe. El arranque vive en
+   `app/ads-manager/ArranqueMediaBuyer.tsx`. Renombrar una ruta es romper enlaces: están los `bitacora.ts`
+   de `app/admin/dev/ads-manager/`, y el botón «Analizar mi oferta» del onboarding apunta a `/offer` (§7).
+3. **El presupuesto de 12.000 caracteres del registro de la API** (`PRESUPUESTO_REGISTRO_CHARS` en
+   `lib/doer-herramientas.ts`). Hoy ya descarta operaciones en silencio y lo avisa por `console.warn` en
+   `lib/api-mako/registro.ts:226`. Cada herramienta que se le cuelgue al coach le compite el lugar a las
+   demás, y el orden lo decide `ordenarPorRelevancia` (título e id valen doble). **Hay un test que mide el
+   margen y lo imprime** (`tests/ops-center-bateria.test.ts`, prueba 4): sumarle una línea por cada chat
+   nuevo, o el recorte vuelve a ser invisible.
+
+### 8.3 Las skills copiadas: dos permisos, y la atribución es parte del código
+
+Los cuatro repos de §5 son MIT y Apache-2.0, verificado por API. **MIT y Apache-2.0 obligan a conservar el
+aviso de copyright y la licencia**: el texto copiado va con su `LICENSE` al lado, no pegado anónimo dentro
+de un prompt. Y la licencia habilita el TEXTO, no las APIs de las 12 plataformas que `claude-ads` nombra.
+
+### 8.4 El orden de construcción
+
+1. **El objeto guardado primero** (oferta y plan del funnel), porque es lo que obliga el botón de
+   previsualización (§3) y lo que el CRM y el Dashboard van a leer. Sin eso, todo lo demás es un chat lindo.
+2. **El Offer Coach, con el onboarding como su primera mitad** (§4), no como un chat «onboarding» aparte.
+3. **El Funnel Coach con las fases 1 y 2** (elegir el funnel, planear con el presupuesto), cargado con las
+   skills copiadas.
+4. **La fase 3 — ejecutar — al final y de a una funcionalidad**: Meta, la landing, Competitors Spy, el
+   dashboard. Es la mitad que no está en ningún repo (§6) y la única que no se puede copiar.
+
+**Y la regla que ya costó una tab hoy** (AGENTS.md, «NINGUNA pantalla se diseña de cero»): si Martín mandó
+una referencia, los VALORES son el pedido. No se interpreta la referencia: se mide y se copia.
