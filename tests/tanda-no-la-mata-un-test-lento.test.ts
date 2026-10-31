@@ -31,7 +31,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { elQueNoDejoAvanzar, porQueSeMato, sinComentarios, titulosDe, TOPE_SIN_AVANCE_MS } from '../scripts/tests-afectados.mjs';
+import { elQueNoDejoAvanzar, porQueSeMato, sinAvanceDe, sinComentarios, titulosDe, topeDeclarado, TOPE_SIN_AVANCE_MS } from '../scripts/tests-afectados.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const leer = (f: string) => readFileSync(join(REPO, f), 'utf8');
@@ -211,3 +211,31 @@ test('la ventana se puede ACORTAR por entorno, nunca alargar: producción sigue 
 //   · `elQueNoDejoAvanzar` buscando en el FUENTE y no entre los títulos           -> 7 / 1
 // Y en el vigía (tests/tope-grupo-compartido.test.ts, base 15/0), donde vive la otra mitad:
 //   · `porQueSeMato(r)` sin los archivos de la tanda (vuelve el mensaje que no nombra) -> 14 / 1
+
+// ── LA PACIENCIA DE LA TANDA SALE DE LO QUE DECLARAN SUS ARCHIVOS (31/10/2026) ──────────────────────────
+// Lo de arriba cuida que nadie declare MÁS de lo que el vigía aguanta. Esto cuida el otro lado: que el vigía
+// aguante lo que un archivo declara. Hizo falta porque el run 41207922805 de Actions mató la tanda de
+// `grupo-leandro-2910` DOS VECES — la segunda ya con el reloj acortado— por 5 minutos sin imprimir un caso.
+// La causa es que node imprime la salida de un archivo cuando el ARCHIVO termina: la tanda queda muda todo lo
+// que tarde el más lento. Un `timeout: N` es la declaración de «puedo tardar N», y la tanda tiene que esperarlo.
+test('la paciencia de una tanda sube SÓLO si alguno de sus archivos declara un tope mayor', () => {
+  const soloLento = sinAvanceDe(['tests/grupo-leandro-2910.test.ts']);
+  assert.ok(soloLento > TOPE_SIN_AVANCE_MS, `una tanda con un archivo que declara ${topeDeclarado(['tests/grupo-leandro-2910.test.ts']) / 1000} s tiene que esperar MÁS que los ${TOPE_SIN_AVANCE_MS / 1000} s de siempre: si no, el vigía la mata y acusa a los otros 99`);
+  assert.equal(sinAvanceDe(['tests/compra-plan-lead.test.ts']), TOPE_SIN_AVANCE_MS, 'una tanda sin declaraciones NO paga el minuto extra: regalarle paciencia a todas es regalarle minutos de Actions a un cuelgue de verdad');
+  assert.equal(sinAvanceDe([]), TOPE_SIN_AVANCE_MS, 'una tanda vacía');
+  assert.equal(sinAvanceDe(['tests/no-existe-este-archivo.test.ts']), TOPE_SIN_AVANCE_MS, 'un archivo que no se puede leer no rompe el cálculo');
+  // Y la gracia tiene que cubrir el ARCHIVO entero, no sólo su hijo: 240 declarados + el arranque de tsx + los
+  // otros tests. Con una gracia de 60 s esto daba exactamente TOPE_SIN_AVANCE_MS y el arreglo no arreglaba nada.
+  assert.ok(soloLento >= 240_000 + 90_000, `la gracia sobre lo declarado quedó corta: ${soloLento / 1000} s para un archivo que declara 240`);
+});
+
+test('el tope declarado se lee del fuente, y los comentarios no cuentan', () => {
+  assert.equal(topeDeclarado(['tests/grupo-leandro-2910.test.ts']), 240_000, 'el `timeout:` del spawnSync');
+  // ⚠️ Este mismo archivo cita en sus comentarios el tope viejo de 400 s que causó el 99, Y declara uno de verdad de
+  // 120 s para su propio hijo. Tiene que leer el de verdad y NO el citado.
+  // Y OJO con cómo se escribe acá: un comentario que contenga el literal «tope dos puntos número» se cuenta igual, porque
+  // el limpiador de comentarios no lo saca. Por eso arriba el número está escrito en palabras. Lo aprendí fallando: al
+  // citarlo textual, este archivo se declaró a sí mismo más lento que el vigía y rompió su propio primer test.
+  const propio = topeDeclarado(['tests/tanda-no-la-mata-un-test-lento.test.ts']);
+  assert.equal(propio, 120_000, 'tiene que leer el tope real de su hijo, no uno citado en un comentario');
+});

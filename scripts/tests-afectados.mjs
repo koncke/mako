@@ -559,6 +559,45 @@ export const CASO_REPORTADO = /^\s*[✔✖﹣]\s(.*?)\s*\(\d+(?:\.\d+)?ms\)/;
 export const ROJO_SEGUIDAS = 3;
 /** Sin un caso nuevo en este tiempo, el proceso no avanza: está colgado, y no importa cuántos archivos tenga. */
 export const TOPE_SIN_AVANCE_MS = (Number(process.env.MAKO_TESTS_SIN_AVANCE_MIN) || 5) * 60 * 1000;
+
+/**
+ * LA PACIENCIA SALE DE LO QUE LOS ARCHIVOS DECLARAN, no de un número fijo (31/10/2026).
+ *
+ * ⚠️ POR QUÉ, medido dos veces en Actions: node imprime la salida de un archivo cuando el ARCHIVO termina, así que una tanda
+ * queda MUDA todo lo que tarde su archivo más lento. El vigía, que mide «¿imprimió un caso nuevo?», no estaba midiendo un
+ * cuelgue: estaba midiendo al más lento. `tests/grupo-leandro-2910.test.ts` corre la entrada real de un grupo de WhatsApp —
+ * 119 s en la PC de Martín con el reloj ya acortado— y en el runner cruzó los 5 minutos DOS VECES, matando su tanda entera
+ * con código 99 y dejando 100 archivos sin saber si estaban rotos. Subir el número fijo para todos sería regalarle minutos de
+ * Actions a un cuelgue de verdad.
+ *
+ * Un `timeout: N` que un test le pasa a un hijo es su DECLARACIÓN de «puedo tardar N». La tanda que lo contiene tiene que
+ * esperar al menos eso, más la gracia para que el rojo lo dé el ARCHIVO (que se nombra) y no el vigía (que acusa a 100).
+ * `tests/tanda-no-la-mata-un-test-lento.test.ts` cuida que ninguna declaración crezca sin que alguien la mire.
+ */
+/**
+ * ⚠️ LA GRACIA CUBRE EL ARCHIVO ENTERO, NO SÓLO SU HIJO, y la primera versión de esto se equivocó justo ahí: con 60 s,
+ * 240 declarados + 60 daban exactamente los 300 de siempre y la paciencia NO subía — el arreglo no arreglaba nada.
+ * Un archivo que declara 240 puede tardar 240 (su hijo, si se agota) MÁS el arranque de tsx (22 s medidos el 31/10) MÁS
+ * los otros ocho tests del archivo. Dos minutos es lo que cubre eso con margen, y sólo lo paga la tanda que CONTIENE un
+ * archivo así: una tanda sin declaraciones sigue cortando a los 5 minutos.
+ */
+const GRACIA_SOBRE_LO_DECLARADO_MS = 120 * 1000;
+const DECLARA_TOPE = /timeout:\s*([\d_]+)/g;
+/** Lo que declara el archivo más lento de la tanda, leído de su fuente. 0 si ninguno declara nada. */
+export function topeDeclarado(archivos, leer = (f) => readFileSync(f, 'utf8')) {
+  let mayor = 0;
+  for (const f of archivos) {
+    let src;
+    try { src = leer(f); } catch { continue; }
+    // Sin los comentarios: este repo CITA topes viejos dentro de comentarios para explicar por qué se bajaron.
+    const limpio = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
+    for (const m of limpio.matchAll(DECLARA_TOPE)) mayor = Math.max(mayor, Number(m[1].replace(/_/g, '')));
+  }
+  return mayor;
+}
+/** La paciencia de ESTA tanda: la de siempre, o lo que declara su archivo más lento más la gracia. */
+export const sinAvanceDe = (archivos, base = TOPE_SIN_AVANCE_MS, declarado = topeDeclarado(archivos)) =>
+  Math.max(base, declarado ? declarado + GRACIA_SOBRE_LO_DECLARADO_MS : 0);
 /**
  * EL ARRANQUE: lo que tarda un proceso compartido ANTES del primer caso, y por qué es por archivo.
  * ⚠️ Medido el 31/10/2026 (scripts/medir-grupo-compartido.mjs, 100 compartibles en un proceso): la curva de casos juzgados por
@@ -716,7 +755,7 @@ function correrTanda(archivos, concurrencia, env) {
   const bandera = concurrencia > 0 ? [`--test-concurrency=${concurrencia}`] : [];    // 0 = el de node (Actions)
   // Sin NODE_TEST_CONTEXT: si esto se llama desde adentro de un test, node cree que el hijo es un test ANIDADO y deja de imprimir el reporte.
   const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
-  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...archivos], { archivos: archivos.length, env: limpio });
+  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...archivos], { archivos: archivos.length, env: limpio, sinAvanceMs: sinAvanceDe(archivos) });
 }
 
 // Las barredoras que sólo leen corren JUNTAS en un proceso que memoriza las lecturas (scripts/cache-lecturas.cjs): medido el 17/10/2026,
@@ -742,7 +781,7 @@ export const pisoCompartido = (grupos, total = 24 * grupos) => ZONA_ROJA_VIGIA_G
 function correrGrupoCompartido(archivos, env) {
   const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
   const NODE_OPTIONS = `${limpio.NODE_OPTIONS ?? ''} --require ${JSON.stringify(CACHE_LECTURAS)}`.trim();
-  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS } });
+  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS }, sinAvanceMs: sinAvanceDe(archivos) });
 }
 
 /** Lo que el runner de node imprime al final: «ℹ tests N … ℹ fail M», y «test at <archivo>» por cada rojo. */
