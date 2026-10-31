@@ -27,6 +27,7 @@ import type { CanalChat, ChatResumen, CuentaSocial, EtapaChat, FunnelChat, Linea
 import {
   claveCuenta, claveEtapaEnFunnel, rotuloWhatsapp, type Conteo, type ConteosBandeja, type FiltroChats, type MostrarChats, type OrdenChats, type VistaChats,
 } from '@/lib/chats-reglas';
+import type { VerNombreChats } from '@/lib/chats-reglas';
 import { IconoCanal } from './iconos-canal';
 import { portalRio } from './portal';
 
@@ -52,6 +53,7 @@ const ORDEN: Array<{ v: OrdenChats; label: string }> = [
   { v: 'antiguas', label: 'Más antiguas' },
 ];
 const OCULTOS = 'v:ocultos';
+const NOMBRES: ReadonlyArray<{ v: VerNombreChats; label: string }> = [{ v: 'agenda', label: 'Como lo agendé' }, { v: 'propio', label: 'Como se llama' }];
 const SIN_RESPONDER = 's:1';
 
 /** «2 sin leer» debajo del renglón: lo único que pide mirar (las abiertas ya se ven en la lista). */
@@ -70,12 +72,15 @@ const chip = (activo: boolean): CSSProperties => ({
 });
 
 export function FiltrosChats({
-  filtro, onFiltro, verOcultos, onVerOcultos, conteos, lineas, cuentasSociales, etapas, chats, funnels = [], funnelPrincipal = null, esAdmin, onConectar, onAdministrar,
+  filtro, onFiltro, verOcultos, onVerOcultos, verNombre, onVerNombre, conteos, lineas, cuentasSociales, etapas, chats, funnels = [], funnelPrincipal = null, esAdmin, onConectar, onAdministrar,
 }: {
   filtro: FiltroChats;
   onFiltro: (f: FiltroChats) => void;
   verOcultos: boolean;
   onVerOcultos: (v: boolean) => void;
+  /** Cómo se ven los nombres (31/10/2026): es de quien mira, no filtra nada. */
+  verNombre: VerNombreChats;
+  onVerNombre: (v: VerNombreChats) => void;
   conteos: ConteosBandeja;
   lineas: LineaChat[];
   cuentasSociales: CuentaSocial[];
@@ -102,8 +107,9 @@ export function FiltrosChats({
     },
     { title: 'Mostrar', options: [...MOSTRAR.map((m) => ({ value: `m:${m.v}`, label: m.label })), { value: SIN_RESPONDER, label: 'Sólo sin responder', lineaArriba: true }] },
     { title: 'Orden', options: ORDEN.map((o) => ({ value: `o:${o.v}`, label: o.label })) },
+    { title: 'Nombre', options: NOMBRES.map((n) => ({ value: `n:${n.v}`, label: n.label })) },
   ];
-  const marcados = [verOcultos ? OCULTOS : `v:${filtro.vista}`, `m:${filtro.mostrar}`, `o:${filtro.orden}`, ...(filtro.sinResponder ? [SIN_RESPONDER] : [])];
+  const marcados = [verOcultos ? OCULTOS : `v:${filtro.vista}`, `m:${filtro.mostrar}`, `o:${filtro.orden}`, ...(filtro.sinResponder ? [SIN_RESPONDER] : []), `n:${verNombre}`];
   const vistaLabel = verOcultos ? 'Ocultos' : VISTAS.find((x) => x.v === filtro.vista)?.label ?? 'Todos';
   const extras = [
     !verOcultos && filtro.mostrar !== 'abiertas' ? MOSTRAR.find((m) => m.v === filtro.mostrar)?.label : null,
@@ -113,6 +119,7 @@ export function FiltrosChats({
   const vistaActiva = verOcultos || filtro.vista !== 'todos' || filtro.mostrar !== 'abiertas' || filtro.sinResponder || filtro.orden !== 'recientes';
   const elegirVista = (v: string) => {
     if (v === OCULTOS) { onVerOcultos(true); return; }
+    if (v.startsWith('n:')) { onVerNombre(v.slice(2) as VerNombreChats); return; }
     if (v.startsWith('v:')) { onVerOcultos(false); onFiltro({ ...filtro, vista: v.slice(2) as VistaChats }); return; }
     if (v.startsWith('m:')) onFiltro({ ...filtro, mostrar: v.slice(2) as MostrarChats });
     else if (v.startsWith('o:')) onFiltro({ ...filtro, orden: v.slice(2) as OrdenChats });

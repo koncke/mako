@@ -299,6 +299,7 @@ function fuenteWhatsapp(c: WaConversacion, l: LineaLeida, variasLineas: boolean)
     leadId: c.leadId ?? null,
     claveSinLead: claveWhatsapp(l.linea, c.telefono, c.chatJid),
     nombre: c.nombre,
+    nombrePropio: c.nombrePropio ?? null,
     empresa: c.empresa,
     ultimoTexto: c.ultimoTexto,
     ultimoTipo: c.ultimoTipo == null && c.ultimoTexto == null ? null : formatoDe(c.ultimoTipo),

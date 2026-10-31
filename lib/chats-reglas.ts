@@ -224,6 +224,8 @@ export type FuenteChat = {
   claveSinLead: string;
   /** El nombre que trae la fuente (push_name, @usuario): el del lead gana. */
   nombre: string;
+  /** El que el contacto se puso en WhatsApp, aunque la agenda o el lead digan otro (`conNombreElegido`). */
+  nombrePropio?: string | null;
   empresa: string | null;
   ultimoTexto: string | null;
   ultimoTipo: FormatoMsg | null;
@@ -305,6 +307,16 @@ function identidadesDe(fuentes: readonly FuenteChat[], lineaDefault: string | nu
  * un mismo lead van juntas (`lead:<id>`); sin lead, cada una es su contacto. La lista sale ordenada
  * por la última actividad, la más reciente primero.
  */
+/**
+ * CÓMO VER LOS NOMBRES EN CHATS (31/10/2026, Leila: «eso es importante para mí»; la idea es de Martín): como lo agendó el negocio, lo de siempre, o como el
+ * contacto se llama a sí mismo en WhatsApp. Quien no se puso un nombre sigue como está: nunca queda vacío. No cambia ningún dato.
+ */
+export type VerNombreChats = 'agenda' | 'propio';
+export function conNombreElegido<T extends { nombre: string; nombrePropio?: string | null }>(c: T, ver: VerNombreChats): T {
+  const propio = c.nombrePropio?.trim();
+  return ver === 'propio' && propio && propio !== c.nombre ? { ...c, nombre: propio } : c;
+}
+
 export function agruparPorContacto(fuentes: readonly FuenteChat[], ctx: ContextoContactos): ChatResumen[] {
   const grupos = new Map<string, FuenteChat[]>();
   for (const f of fuentes) {
@@ -329,6 +341,7 @@ export function agruparPorContacto(fuentes: readonly FuenteChat[], ctx: Contexto
       clave,
       leadId,
       nombre: lead?.nombre?.trim() || suyas.map((f) => f.nombre.trim()).find(Boolean) || 'Sin nombre',
+      nombrePropio: suyas.map((f) => f.nombrePropio?.trim()).find(Boolean) ?? null,
       empresa: lead?.empresa ?? suyas.map((f) => f.empresa).find((e) => !!e) ?? null,
       avatarTel: telWa ?? telLead,
       canales: suyas.map((f) => f.identidad),
@@ -473,10 +486,12 @@ export function filtrarChats(chats: readonly ChatResumen[], f: FiltroChats, yo: 
 }
 
 /** El buscador local (sobre la lista que ya bajó): nombre, empresa, teléfono o @usuario. */
-export function coincideBusqueda(c: Pick<ChatResumen, 'nombre' | 'empresa' | 'canales'>, q: string): boolean {
+export function coincideBusqueda(c: Pick<ChatResumen, 'nombre' | 'nombrePropio' | 'empresa' | 'canales'>, q: string): boolean {
   const t = q.trim().toLowerCase();
   if (!t) return true;
   if (c.nombre.toLowerCase().includes(t) || (c.empresa ?? '').toLowerCase().includes(t)) return true;
+  // Se ve uno u otro según cómo se eligió mirar (`conNombreElegido`): se encuentra por los dos.
+  if ((c.nombrePropio ?? '').toLowerCase().includes(t)) return true;
   const dig = t.replace(/\D/g, '');
   return c.canales.some((i) =>
     (i.destino ?? '').toLowerCase().includes(t)
