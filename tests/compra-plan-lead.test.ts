@@ -54,7 +54,7 @@ test('5. el número del dueño llega a su lead: sólo lo vacío, con UN lead, en
 
 test('4. al pagar el PRIMER mes queda para llamarlo, después de la cuenta; sin setting no pasa nada', () => {
   const s = leer('lib/cobros.ts');
-  assert.match(s, /await altaSiCorresponde\(actual\);\n[^]{0,300}?if \(!renovacion\) await anotarParaLlamar\(actual\);/);
+  assert.match(s, /await altaSiCorresponde\(actual\);\n[^]{0,800}?if \(!renovacion\) await anotarParaLlamar\(actual\);/);
   const l = leer('lib/compra-plan-llamada.ts');
   assert.match(l, /if \(!c\.lead_id \|\| !c\.alta_capa\) return;/, 'una venta que no es un plan de MaKo no se llama');
   assert.match(l, /if \(c\.workspace_id !== await wsSuperAdmin\(\)\) return;/, 'un cliente con su Stripe no entra acá');

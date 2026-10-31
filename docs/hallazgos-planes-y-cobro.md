@@ -13,7 +13,7 @@ plan de los próximos días. El entregable con las fechas es
 ## El lead del comprador: el checkout ya lo dejaba, y frenaba al que se llamaba igual que otro (30/10/2026)
 
 **Vive en:** lib/compra-plan.ts (`leadDelComprador`) · lib/compra-plan-reglas.ts (`leadDeLaCompra`) · lib/compra-plan-llamada.ts ·
-lib/cobros.ts (`aplicarPagoAprobado`, 5a) · tests/compra-plan-lead.test.ts (10 roturas cazadas).
+lib/cobros.ts (`aplicarPagoAprobado`, 5e) · tests/compra-plan-lead.test.ts (10 roturas cazadas).
 
 - **El diagnóstico obvio («la compra no crea lead») era el equivocado.** `iniciarCompraDePlan` lo crea o reusa al ABRIR el pago, con `origen_lead: 'landing'`
   y sus UTM, y `aplicarPagoAprobado` lo pasa a Ganado con su cuota y su suscripción. Los leads con monto de la plataforma dicen «Cargado a mano» porque

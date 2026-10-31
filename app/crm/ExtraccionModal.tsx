@@ -16,6 +16,7 @@ import { useEffect, useRef, type CSSProperties } from 'react';
 import { Button, Modal } from '@/app/_ui';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import { Icon } from '@/app/_components/icons';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { avisarExtraccion } from '@/lib/wa-fichas-cliente';
 import { cerrarExtraccion, pararExtraccion, useExtraccion, type TonoExtraccion } from '@/lib/extraccion-estado';
 import { miles } from './traer-seleccion';
@@ -76,7 +77,7 @@ export function ExtraccionModal({ funnel, onVerCrm, onOtroGrupo }: {
         <span aria-hidden style={{ width: 48, height: 48, borderRadius: '50%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: COLOR[r.tono], border: `2px solid ${COLOR[r.tono]}` }}>
           {r.tono === 'vacio' ? <span style={{ fontSize: 22, lineHeight: 1 }}>–</span> : <Icon name={r.tono === 'ok' ? 'check' : 'x'} size={22} />}
         </span>
-        <p role={r.tono === 'mal' ? 'alert' : 'status'} style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>{r.titulo}</p>
+        <p role={r.tono === 'mal' ? 'alert' : 'status'} style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>{r.titulo}<ReportarASoporte /></p>
         {r.detalle && <p style={{ margin: 0, fontSize: 14, color: 'var(--dim)' }}>{r.detalle}</p>}
         {r.chips.length > 0 && (
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 6, marginTop: 4 }}>
