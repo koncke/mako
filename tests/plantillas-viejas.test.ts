@@ -149,6 +149,8 @@ test('1. el texto que arma el código (`textoDelCodigo`) es el que sale, cruzado
       assert.equal(textoLoArmaElCodigo(id), true, 'el reporte semanal lo arma el código y se ofrece para editar');
       continue;
     }
+    // El aviso a la agencia lo emite el del cliente (`aLaAgencia`, lib/aviso-evento.ts), y a ése lo cruza esta misma vuelta.
+    if (CATALOGO_AVISOS.some((c) => c.aLaAgencia === id)) continue;
     assert.ok(em.length > 0, `«${id}» se le muestra al cliente y nada lo emite: es una plantilla que nadie puede activar`);
     if (textoLoArmaElCodigo(id)) {
       const leen = em.filter((e) => !e.texto).map((e) => e.archivo);

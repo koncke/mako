@@ -12210,3 +12210,50 @@ entrada de Integración en docs/hallazgos-ticketera.md (rama `tren-ae-con-wa`).
   contador, no hay uno por negocio). B1: notas internas del mismo negocio en los puntos de un hito de un ticket. B2: `sanearContexto`
   acepta `delegado: true` venga de donde venga (hoy ningún camino del cliente lo deja pasar). B4: el banco versiona nombres reales.
   Si el perfil de Martín no tiene su teléfono, su DEBUG baja a una PREGUNTA hasta cargarlo.
+
+## «Período de gracia» no era el plan de MaKo: era la cuenta de Meta (31/10/2026, ticket #37)
+
+**El pedido de Martín:** «Las alertas siempre deberían llegarle a Código Inmobiliario y en general a todas las agencias de esta
+manera… pero no debería llegarlo al grupo de WhatsApp del cliente final». El aviso era el de Natalia, cliente de esa agencia.
+
+**El diagnóstico obvio era el equivocado, y lo tuvimos tres:** MaKo, el Cerebro y este chat arrancamos leyendo «período de gracia» como la
+gracia del plan (`GRACIA_DIAS`, `lib/plan-acceso-reglas.ts`). Lo que le llegó es `meta-cuenta-frenada`: el estado 9 de la cuenta
+PUBLICITARIA (`lib/meta-health.ts`), que Meta abrió y cerró en 30 minutos (incidente 112; y el 111 el 25/10, igual). El que lo aclara es
+`notificaciones`, no el código del plan: se mide qué le llegó ANTES de elegir dónde cortar. Y el texto ayudaba al error: decía «Tu
+cuenta está EN PERÍODO DE GRACIA», sin «publicitaria», igual que la de MaKo.
+
+**La causa del malentendido es el texto, antes que el destino.** Un aviso sobre la cuenta publicitaria que no la nombra se lee como la
+suscripción, y MaKo mismo le contestó a Martín hablando de «cobro». Corregirlo no depende de un deploy: es editar la fila viva.
+
+**La prueba de que un aviso SALIÓ al grupo es su turno en `mako_doer_conv`, con su `wa_message_id`:** `guardarTurno` corre sólo con `env.ok`
+(`lib/avisos.ts`). Las otras dos que parecen servir contestan mal, y las usamos para decirle a Martín que no había salido:
+- **`notificaciones.canal_wa` es una columna muerta que se lee como una medición:** «no» en 1.012 de 1.012 filas de 30 días, de todos los
+  negocios (medido el 31/10). Una columna que contesta siempre lo mismo es peor que una que falta: la que falta se nota.
+- **`wa_mensajes` no guarda los grupos de MaKo:** 0 filas del grupo de Natalia desde siempre, con cuatro avisos entregados (25/10 y 31/10).
+- Lo que sí dice la campanita es lo que NO llegó: `payload.salida` en `no_llego` o `sin_grupo`. Sin ese campo, no afirma que llegó.
+
+**Es por CLASE, y es otro aviso, no un desvío.** `aLaAgencia` en la entrada del catálogo (`lib/avisos-catalogo.ts`) nombra el aviso que sale
+en su lugar; lo aplica `emitirPorEvento`, por donde pasan los dos caminos. «Tu WhatsApp se desconectó» sigue siendo del cliente. Son dos
+filas nuevas de la plataforma porque el texto no puede ser el mismo: a la agencia hay que decirle de quién es. Si sólo se cambia el
+destino, salen dos trampas sin un error: `{{link_integraciones}}` queda con el `?ws=` de la AGENCIA, y «tu cuenta» pasa a ser la suya.
+
+**Tres cosas que quedan por regla:**
+- **«No sé» no cae al cliente.** `agenciasDeCliente` da `[]` cuando falla la lectura (es para dibujar) y con eso una base caída le contaba
+  una deuda ajena al cliente. Para decidir, `agenciasAprobadasDe`, que tira; el cron lo reintenta en la vuelta siguiente porque `ok: false`
+  no deja marca (`marcaTrasEmitir`).
+- **El deploy sin las filas no avisa a nadie, y al cliente tampoco.** Sin fila no sale (desde el 16/10), y acá no hay caída: las filas
+  van ANTES del deploy. `porDefecto: 'on'` no es decorativo: sin él, la mudanza crea la fila PAUSADA.
+- **Cambiar el texto de la plantilla no cambia lo que sale.** La plantilla sólo se copia al crear la fila: la #261 viva sigue diciendo
+  «Tu cuenta está EN PERÍODO DE GRACIA» y «Tu cuenta quedó PENDIENTE DE LIQUIDACIÓN» hasta que alguien la edite.
+
+**El lado del plan, medido:** un cobro de agencia nunca da `mora` (`vigenciaDeClienteDeAgencia`: una suscripción activa es «al día»
+aunque rechacen la tarjeta), así que el cartel de la mora nunca le salió a un cliente de agencia; yo había dicho lo contrario antes de leer
+esa función. Lo que faltaba es que la agencia se enterara: `avisarRechazoALaAgencia`, una vez por período, y la pausa
+(`avisarSuspension`) a la agencia siempre y al cliente sólo si paga él (`agency.quien_paga`).
+
+**Quedó sin hacer:**
+- El correo del rechazo dice «se va a pausar su cuenta», como pidió Martín y como dice el cartel de la mora, pero el corte está APAGADO
+  (`CORTE_DE_ACCESO_PRENDIDO`): hoy no se pausa. El día que se prenda ya es cierto; hasta entonces es un aviso más fuerte que los hechos.
+- `avisarSuspension` no corre mientras el corte esté apagado: esa rama sólo la vio el test.
+- El rechazo sale por correo, como todo lo del plan, y no por el grupo de la agencia: `lib/plan-deuda.ts`.
+- Si la agencia no tiene grupo de MaKo, la alerta de Meta queda en su campanita (`sinGrupo`), como la de cualquier negocio.
