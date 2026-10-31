@@ -2679,6 +2679,24 @@ la persona estaba mirando.
 | Confirmación de algo irreversible | una frase | la consecuencia, pegada al botón |
 | **Una fila de una lista de N** | **una frase, ~110 caracteres** | lo que distingue a ESA fila de las otras |
 
+⚠️ **UN ESTADO VACÍO ES UNA AFIRMACIÓN, y la más fácil de dejar sin medir** (30/10/2026).
+«No hay nada» puede ser *no empezaste*, *está apagado*, *no pude leer* o *de verdad no
+cambió nada*, y la frase de uno leída en otro es una mentira a la cara del cliente. El
+Media Buyer decía *«Hoy no hay cambios — Todo anda dentro de tu objetivo»* mirando dos
+cosas (cero decisiones y el agente prendido): una cuenta **sin una campaña y sin gastar un
+peso** leía que todo andaba dentro de su objetivo
+([hallazgos-ads.md](docs/hallazgos-ads.md)). Al escribir uno:
+
+1. **Separá los casos que el cliente vive distinto** y dale a cada uno su frase y su
+   **próximo paso** (conectar, crear, prender). Un vacío sin salida es un callejón.
+2. **Medí con el dato que LLEGA a esa pantalla.** Si el dato no está, no se pide una lectura
+   nueva en cada carga: se suma al canal que ya viaja (acá, el resumen de la corrida), y
+   nunca desde una rama que se abstuvo.
+3. **Si no se midió, no se afirma.** Sin el dato va «todavía no lo sé» y el paso para
+   saberlo — nunca «todo bien», ni la palabra «falta».
+4. **El criterio va en un módulo puro con su test**, no en el JSX: casi siempre hay dos
+   pantallas (computadora y teléfono) y la frase a mano se duplica y se desincroniza.
+
 ⚠️ **Y EL VOLCADO DE UNA CORRIDA DE AGENTES NO ES UN ENTREGABLE: es materia prima.** Lo
 que devuelven N lectores son N párrafos de 900 a 2.000 caracteres con su evidencia, y
 están bien así — el error es publicarlos. Medido el 30/09/2026: una auditoría de 25
