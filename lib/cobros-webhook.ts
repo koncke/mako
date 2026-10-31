@@ -39,6 +39,7 @@ import type { Cobro } from './cobros-tipos';
 import { avisarFacturaDeOtraSuscripcion, avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
+import { transaccionQueCobra } from './prueba-plan-reglas';
 import {
   avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarDevolucionFallida, confirmarFactura, esDelCobro, faseDeDisputa,
   mismoModo, nombreModo, planDePagoMp, sesionDelCobro, suscripcionMpCancelada, tokenReleido,
@@ -49,7 +50,7 @@ import {
   facturaDePagoStripe, leerCargoStripe, leerCheckoutExternoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
-import { buscarTransaccionesCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem } from './creem-api';
+import { buscarTransaccionesCreem, leerTransaccionCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem } from './creem-api';
 
 const ignorado = (motivo: string, cobroId: number | null = null): ResultadoEvento => ({ estado: 'ignorado', motivo, cobroId });
 const procesado = (cobroId: number, motivo: string | null = null): ResultadoEvento => ({ estado: 'procesado', motivo, cobroId });
@@ -497,7 +498,7 @@ export async function procesarEventoCreem(ws: number, ev: EventoCreem, cuenta: s
 
   // ── El cobro, SIEMPRE dentro del ws ruteado ──
   const cobro = await cobroDelAviso(ws, {
-    proveedor: 'creem', token: a.token, ref: a.checkoutId, suscripcionId: a.suscripcionId,
+    proveedor: 'creem', token: a.token, ref: a.checkoutId, suscripcionId: a.suscripcionId, pagoId: a.pagoId,
   });
   if (!cobro) return ignorado(`no es un cobro de MaKo (${ev.tipo})`);
   if (deOtraCuenta(cobro, { cuenta, ref: webhookId ?? null })) {
@@ -522,13 +523,15 @@ export async function procesarEventoCreem(ws: number, ev: EventoCreem, cuenta: s
         if (s.referencia && s.referencia !== cobro.token) {
           return ignorado('la suscripción del aviso no es la de este cobro', cobro.id);
         }
-        const tx = await buscarTransaccionesCreem(key, susId);
+        const tx = await buscarTransaccionesCreem(key, susId, s.clienteId);
         if (!tx.ok) throw errorDelProveedor('Creem', 'las transacciones de la suscripción', tx);
-        const pagadas = tx.transacciones.filter((x) => x.estado === 'paid');
+        const pagadas = tx.transacciones.filter((x) => transaccionQueCobra(cobro, x));
         if (!pagadas.length) return ignorado('la suscripción todavía no tiene un cobro pagado', cobro.id);
-        // La más NUEVA: es la que acaba de entrar. `aplicarPagoAprobado` es idempotente por el id del pago, así que
-        // una reentrega no asienta dos veces y una renovación entra como lo que es.
-        const ultima = pagadas.slice().sort((x, y) => Date.parse(y.fecha ?? '') - Date.parse(x.fecha ?? ''))[0];
+        // La que acaba de entrar: la que dice la suscripción («the last paid transaction»), y si no la más NUEVA, porque el listado
+        // no tiene orden. `aplicarPagoAprobado` es idempotente por el id del pago, así que una reentrega no asienta dos veces y
+        // una renovación entra como lo que es.
+        const ultima = pagadas.find((x) => x.id === s.ultimaTransaccionId)
+          ?? pagadas.slice().sort((x, y) => Date.parse(y.fecha ?? '') - Date.parse(x.fecha ?? ''))[0];
         // `monto` es SIN impuesto: lo que cobra el plan. El impuesto lo cobra y lo remite Creem (merchant of record),
         // no es ingreso de MaKo y no se asienta como tal.
         await aplicarPagoAprobado(cobro, {
@@ -576,10 +579,19 @@ export async function procesarEventoCreem(ws: number, ev: EventoCreem, cuenta: s
       return procesado(cobro.id, 'suscripción cancelada');
     }
     case 'reembolso': {
-      // El objeto del evento es el reembolso. `aplicarReembolso` es idempotente.
-      await aplicarReembolso(cobro, { proveedorPagoId: cobro.proveedor_pago_id, total: true });
+      // ⚠️ CUÁL Y CUÁNTO SALEN DE RELEER LA TRANSACCIÓN. Era siempre `total` sobre el primer pago: US$5 devueltos del mes 5 dejaban el
+      // cobro «reembolsado» y desmarcaban el mes 1 entero, y un plan vivo desaparecía de «Tu plan». `refunded_amount` incluye el
+      // impuesto y no se compara con `amount`: lo dice su estado. `aplicarReembolso` es idempotente.
+      if (!a.pagoId) return ignorado('el aviso no dice qué transacción se devolvió', cobro.id);
+      const tx = await leerTransaccionCreem(key, a.pagoId);
+      if (!tx.ok) throw errorDelProveedor('Creem', 'la transacción devuelta', tx);
+      const deEste = tx.suscripcionId ? tx.suscripcionId === cobro.proveedor_suscripcion_id : tx.id === cobro.proveedor_pago_id;
+      if (!deEste) return ignorado('la transacción devuelta no es de este cobro', cobro.id);
+      // Todavía sin asentar del lado de Creem: que lo reintente, y no se registra una devolución que no se ve.
+      if (tx.estado === 'paid') throw new Error(`Creem avisó una devolución y la transacción ${tx.id} sigue pagada`);
+      await aplicarReembolso(cobro, { proveedorPagoId: tx.id, total: tx.estado === 'refunded' });
       invalidarLecturas();
-      return procesado(cobro.id, 'reembolso registrado');
+      return procesado(cobro.id, tx.estado === 'refunded' ? 'reembolso registrado' : 'reembolso parcial registrado');
     }
     case 'disputa': {
       // `plataAfuera: null` = «no se sabe todavía». La doc de Creem tiene el evento `dispute.created` pero NO dice si
@@ -587,7 +599,7 @@ export async function procesarEventoCreem(ws: number, ev: EventoCreem, cuenta: s
       // `aplicarContracargo` anota la disputa y NO toca la cuota del CRM: no se desmarca un pago que puede seguir ahí.
       await aplicarContracargo(cobro, {
         fase: 'abierto', texto: textoContracargo({ pasarela: 'creem', fase: 'abierto' }),
-        plataAfuera: null, proveedorPagoId: null, fechaCargo: ev.creado,
+        plataAfuera: null, proveedorPagoId: a.pagoId, fechaCargo: ev.creado,
       });
       invalidarLecturas();
       return procesado(cobro.id, 'contracargo abierto');

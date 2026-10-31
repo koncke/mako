@@ -48,7 +48,8 @@ const codigo = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8')
   .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
   .replace(/^\s*\/\/.*$/gm, '');
 
-const PREFIJO = String.raw`(?:STRIPE_|MERCADOPAGO_|MP_)`;
+// `CREEM_` desde el 31/10/2026: el guardia estaba ciego a las tres claves de la tercera pasarela, y no rojo.
+const PREFIJO = String.raw`(?:STRIPE_|MERCADOPAGO_|MP_|CREEM_)`;
 // La clave de la segunda cuenta (`STRIPE_SECRET_KEY__C2`, 22/10/2026) se ARMA con `claveDeCuenta(`: sin mirar eso, un
 // `credWs(claveDeCuenta('STRIPE_SECRET_KEY', c), ws)` pasaba el barrido (no lleva comilla después del paréntesis).
 const ARMADA = String.raw`claveDeCuenta\(\s*(?:['"\x60]${PREFIJO}|CLAVE_PASARELA|CLAVES_BASE)`;

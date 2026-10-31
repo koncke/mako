@@ -22,7 +22,7 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace } from '@/lib/workspace';
-import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { asegurarPlazosCreem, mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
@@ -79,6 +79,7 @@ export async function GET(req: NextRequest) {
       const r = await runWithWorkspace(ws, () => reconciliarCobros(ws, { hasta: t0 + maxDuration * 1000 - 2 * RESERVA_MS }));
       resultados.push({ ws, ok: true, ...r });
       if (delDia) await runWithWorkspace(ws, () => mantenerAvisosStripe(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Stripe:`, msg(e)));
+      if (delDia) await runWithWorkspace(ws, () => asegurarPlazosCreem(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} plazos de Creem:`, msg(e)));
       if (r.cambiados || r.errores) {
         console.log(`[cron:cobros-reconciliar] ws=${ws} revisados=${r.revisados} cambiados=${r.cambiados} errores=${r.errores}`);
       }

@@ -61,6 +61,9 @@ export const REGLAS: Regla[] = [
   { nombre: 'mercadopago', re: /\b(?:APP_USR|TEST)-[A-Za-z0-9-]{30,}/g, con: '«token de Mercado Pago tapado»' },
   // Meta: tokens largos que arrancan con EAA. Es el que más aparece en este producto.
   { nombre: 'meta', re: /\bEAA[A-Za-z0-9]{40,}/g, con: '«token de Meta tapado»' },
+  // Creem (31/10/2026): `creem_` o `creem_test_`. Con un dígito o una mayúscula: sin ninguno es una etiqueta en snake_case
+  // (`creem_webhook_pendiente`), no una clave. La de hoy no se tapaba en ningún lado y llegaba entera al modelo.
+  { nombre: 'creem', re: /\bcreem_(?=[A-Za-z0-9_-]*[0-9A-Z])[A-Za-z0-9_-]{8,}/g, con: '«clave de Creem tapada»' },
   // JWT: tres bloques base64 separados por puntos.
   { nombre: 'jwt', re: /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, con: '«token tapado»' },
 

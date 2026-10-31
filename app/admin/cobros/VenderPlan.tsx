@@ -20,6 +20,10 @@ import { Button } from '@/app/_ui';
 import { useRouter } from '@/app/_ui/Link';
 import { CAPAS_VENDIBLES } from '@/lib/capas';
 import { NOMBRE_PASARELA, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
+
+const DETALLE_PASARELA: Readonly<Record<Pasarela, string>> = {
+  stripe: 'En dólares, o en la moneda que elijas.', mercadopago: 'En la moneda de tu cuenta.', creem: 'En dólares.',
+};
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { venderPlanAction } from './actions';
 
@@ -157,7 +161,7 @@ export default function VenderPlan({ pasarelas, sugeridos }: {
             <Opciones>
               {pasarelas.map((p) => (
                 <Opcion key={p} activa={pasarela === p} onClick={() => { setPasarela(p); setError(null); setPaso('monto'); }}
-                  titulo={NOMBRE_PASARELA[p]} detalle={p === 'stripe' ? 'En dólares, o en la moneda que elijas.' : 'En la moneda de tu cuenta.'} />
+                  titulo={NOMBRE_PASARELA[p]} detalle={DETALLE_PASARELA[p]} />
               ))}
             </Opciones>
           )}

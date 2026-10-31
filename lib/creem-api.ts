@@ -32,7 +32,13 @@
 //     Creem NO necesita el remiendo de lib/primer-mes.ts (que a Mercado Pago le sube el monto a mano
 //     al entrar el primer pago).
 //   · NO HAY ENDPOINT PARA DESCONTARLE A UNA SUSCRIPCIÓN YA ABIERTA: `UpdateSubscriptionRequest`
-//     sólo tiene `items` y `update_behavior`. Un descuento se aplica al nacer o no se aplica.
+//     sólo tiene `items` y `update_behavior`. Un cupón se aplica al nacer o no se aplica. Lo que sí
+//     se puede es CAMBIARLE EL PRODUCTO (`/upgrade`), y así se rebaja y se sube: `cambiarPrecioCreem`.
+//   · LA PAUSA NO TIENE FECHA DE VUELTA: `POST …/pause` no lleva cuerpo y no vuelve sola. Y qué pasa
+//     con `next_transaction_date` al reanudar NO ESTÁ DOCUMENTADO. Sin medir con claves de verdad.
+//   · NI LA SUSCRIPCIÓN NI EL CLIENTE TRAEN LA TARJETA: no hay huella ni id de medio de pago.
+//   · NO HAY «TERMINAR EL DÍA X»: la baja agendada es al fin del período en curso y nada más. Un
+//     plazo fijo se cierra agendando la baja cuando se paga el ÚLTIMO ciclo (`tocaCerrarElPlazo`).
 //   · EL SECRETO DEL AVISO SE PUEDE PEDIR POR API: `POST /v1/webhooks` lo devuelve UNA vez, y
 //     `GET /v1/webhooks/{id}/secret` lo vuelve a dar. Así que Creem se conecta como Stripe (MaKo
 //     registra el aviso y se queda con el secreto), no como Mercado Pago (que obliga a copiarlo del
@@ -40,6 +46,15 @@
 //   · LOS MONTOS DEL AVISO VIENEN POR TRIPLICADO: `amount` SIN impuesto, `tax_amount` el impuesto y
 //     `amount_paid` CON impuesto. Lo que MaKo asienta es lo que cobró el plan (`amount`): el impuesto
 //     no es ingreso nuestro, es de Creem, que lo remite.
+//   · ⚠️ TODOS VIENEN EN CENTAVOS («1000 = $10.00»), también el `price` que se lee. `montoDeCreem` los
+//     pasa a unidades al entrar: MaKo los leía tal cual, y una renovación de US$47 entraba al cash
+//     como US$4.700 (31/10/2026). Un monto de este archivo hacia afuera está SIEMPRE en unidades.
+//   · ⚠️ `created_at` DE UNA TRANSACCIÓN ES UN NÚMERO (`TransactionEntity`: «as timestamp»), y el de una
+//     suscripción una fecha ISO. Leído como texto, `Date.parse` daba NaN: ningún orden servía, y la
+//     cuota llevaba la fecha de hoy. Lo normaliza `fechaDeCreem`. Su unidad no está documentada.
+//   · ⚠️ `/transactions/search` NO FILTRA POR SUSCRIPCIÓN: su OpenAPI sólo tiene `customer_id`,
+//     `order_id`, `product_id` y la página, sin orden. Sin filtro devuelve las de TODA la tienda, y la
+//     más nueva podía ser de otro cliente. Se filtra por cliente y se vuelve a mirar acá adentro.
 //   · LA COMISIÓN PEGA SOBRE EL TOTAL CON IMPUESTO, no sobre el precio. La página de precios dice
 //     «3.9% + 40¢» y deja creer que es sobre la venta; la doc de payouts da el ejemplo: US$20 + US$4
 //     de IVA → comisión US$1,33 (3,9% de 24 + 0,40), no US$1,18.
@@ -59,6 +74,14 @@ const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(
 const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : typeof v === 'number' && Number.isFinite(v) ? String(v) : null);
 const num = (v: unknown): number | null => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 const fallo = <T>(x: { status: number; error: string }): R<T> => ({ ok: false, status: x.status, error: x.error });
+/** Un monto de Creem (centavos) en unidades de la moneda. */
+const montoDeCreem = (v: unknown): number | null => { const c = num(v); return c == null ? null : c / 100; };
+/** Una fecha de Creem en ISO: un timestamp en milisegundos o en segundos (por su tamaño), o la ISO que ya venía. null = no se lee. */
+const fechaDeCreem = (v: unknown): string | null => {
+  const n = typeof v === 'number' ? v : typeof v === 'string' && /^\d+$/.test(v) ? Number(v) : NaN;
+  const ms = Number.isFinite(n) ? (n < 1e12 ? n * 1000 : n) : typeof v === 'string' ? Date.parse(v) : NaN;
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+};
 
 /** Las dos monedas que acepta un producto de Creem (`ProductCurrency`, enum cerrado del OpenAPI). */
 export const MONEDAS_CREEM: readonly string[] = ['USD', 'EUR'];
@@ -85,7 +108,7 @@ const baseDe = (key: string): string => (modoDeClaveCreem(key) === 'prueba' ? CR
  */
 export async function llamar(
   key: string,
-  metodo: 'GET' | 'POST' | 'DELETE',
+  metodo: 'GET' | 'POST' | 'PATCH' | 'DELETE',
   ruta: string,
   body?: unknown,
   idem?: string | null,
@@ -283,7 +306,7 @@ export async function leerCheckoutCreem(key: string, id: string): Promise<R<Chec
     email: str(obj(b.customer).email),
     referencia: str(b.request_id) ?? str(obj(b.metadata).mako_cobro),
     // `amount` es SIN impuesto: es lo que cobra el plan, y es lo que MaKo asienta.
-    monto: num(pedido.amount) ?? num(pedido.sub_total),
+    monto: montoDeCreem(pedido.amount) ?? montoDeCreem(pedido.sub_total),
     moneda: str(pedido.currency)?.toUpperCase() ?? null,
   };
 }
@@ -304,6 +327,11 @@ export const ESTADOS_SUSCRIPCION_CREEM = ['active', 'canceled', 'unpaid', 'pause
 export type SuscripcionCreem = {
   id: string; estado: string | null; referencia: string | null; productoId: string | null;
   email: string | null; proximoCobro: string | null; finDelPeriodo: string | null; canceladaAt: string | null;
+  /** El precio de su producto, en unidades de la moneda. null = el producto vino como un id suelto: NO quiere decir «cero». */
+  montoProducto: number | null;
+  clienteId: string | null; creadaAt: string | null;
+  /** La transacción que se acaba de pagar: «The ID of the last paid transaction». */
+  ultimaTransaccionId: string | null;
 };
 
 const suscripcionDe = (b: Json, id: string): SuscripcionCreem => ({
@@ -315,6 +343,10 @@ const suscripcionDe = (b: Json, id: string): SuscripcionCreem => ({
   proximoCobro: str(b.next_transaction_date),
   finDelPeriodo: str(b.current_period_end_date),
   canceladaAt: str(b.canceled_at),
+  montoProducto: montoDeCreem(obj(b.product).price),
+  clienteId: str(obj(b.customer).id) ?? str(b.customer),
+  creadaAt: str(b.created_at),
+  ultimaTransaccionId: str(b.last_transaction_id) ?? str(obj(b.last_transaction).id),
 });
 
 /** ⚠️ `GET /v1/subscriptions?subscription_id=…`: por QUERY STRING. `/v1/subscriptions/{id}` no existe. */
@@ -334,7 +366,7 @@ export async function leerSuscripcionCreem(key: string, id: string): Promise<R<S
  * ⚠️ `mode` SE MANDA SIEMPRE: sin él, el default sale de la configuración de la tienda en el panel de Creem, y entonces
  * qué hace «dar de baja» dependería de una pantalla y no del código.
  */
-export async function cancelarSuscripcionCreem(key: string, id: string, idem: string, alFinDelPeriodo: boolean): Promise<R<{ estado: string | null }>> {
+export async function cancelarSuscripcionCreem(key: string, id: string, idem: string, alFinDelPeriodo: boolean): Promise<R<{ estado: string | null; finDelPeriodo: string | null }>> {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
   const r = await llamar(key, 'POST', `/subscriptions/${encodeURIComponent(id)}/cancel`, {
     mode: alFinDelPeriodo ? 'scheduled' : 'immediate',
@@ -342,19 +374,66 @@ export async function cancelarSuscripcionCreem(key: string, id: string, idem: st
     ...(alFinDelPeriodo ? { onExecute: 'cancel' } : {}),
   }, idem);
   if (!r.ok) return fallo(r);
-  return { ok: true, estado: str(r.body.status) };
+  return { ok: true, estado: str(r.body.status), finDelPeriodo: str(r.body.current_period_end_date) };
 }
 
-/** Cambia de plan (subir/bajar). `proration-charge-immediately` es el default de Creem para este endpoint. */
+/**
+ * Pausa o reanuda. Ninguno de los dos lleva cuerpo. Si Creem contesta que no, se RELEE: un reintento sobre una suscripción
+ * que ya quedó así (la respuesta anterior se perdió) no es una falla, y sin esto el cron reintentaría para siempre.
+ */
+async function estadoDePausaCreem(key: string, id: string, accion: 'pause' | 'resume', quedaEn: string, idem: string): Promise<R<{ estado: string | null }>> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
+  const r = await llamar(key, 'POST', `/subscriptions/${encodeURIComponent(id)}/${accion}`, undefined, idem);
+  if (r.ok) return { ok: true, estado: str(r.body.status) };
+  const s = await leerSuscripcionCreem(key, id);
+  return s.ok && s.estado === quedaEn ? { ok: true, estado: s.estado } : fallo(r);
+}
+export const pausarSuscripcionCreem = (key: string, id: string, idem: string) => estadoDePausaCreem(key, id, 'pause', 'paused', idem);
+export const reanudarSuscripcionCreem = (key: string, id: string, idem: string) => estadoDePausaCreem(key, id, 'resume', 'active', idem);
+
+/**
+ * Cambia de plan (subir/bajar). `cobrarDiferencia`: `proration-charge-immediately` cobra la diferencia ya, y si no pasa la
+ * suscripción no cambia; `proration-none` deja el precio nuevo para el próximo período, sin cobrar ni devolver nada.
+ */
 export async function cambiarPlanSuscripcionCreem(
-  key: string, id: string, productoId: string, idem: string,
+  key: string, id: string, productoId: string, idem: string, cobrarDiferencia = true,
 ): Promise<R<{ estado: string | null }>> {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de suscripción inválido' };
   const r = await llamar(key, 'POST', `/subscriptions/${encodeURIComponent(id)}/upgrade`, {
-    product_id: productoId, update_behavior: 'proration-charge-immediately',
+    product_id: productoId, update_behavior: cobrarDiferencia ? 'proration-charge-immediately' : 'proration-none',
   }, idem);
   if (!r.ok) return fallo(r);
   return { ok: true, estado: str(r.body.status) };
+}
+
+/** Un status con el que no se sabe si Creem aplicó el pedido: no contestó, o se cayó. */
+export const sinConfirmarCreem = (status: number): boolean => status === 0 || status >= 500;
+
+/**
+ * LO QUE COBRA UNA SUSCRIPCIÓN YA ABIERTA. Creem no tiene un precio en línea ni un descuento sobre una suscripción abierta:
+ * el precio ES el del producto, así que cambiarlo es crear un producto a ese precio y pasarla a él.
+ *
+ * `yaEstaba`: si ya cobra ese monto no se le pide nada, y un reintento después de un corte no cobra otra vez la diferencia.
+ * ⚠️ Sólo sobre una ACTIVA: en una pausada, vencida o con la baja agendada, el cambio movería lo que no corresponde.
+ */
+export async function cambiarPrecioCreem(
+  key: string, id: string, p: { monto: number; moneda: string; nombre: string; idem: string; cobrarDiferencia: boolean },
+): Promise<R<{ yaEstaba: boolean; monto: number }>> {
+  const s = await leerSuscripcionCreem(key, id);
+  if (!s.ok) return fallo(s);
+  if (s.montoProducto != null && Math.round(s.montoProducto * 100) === Math.round(p.monto * 100)) return { ok: true, yaEstaba: true, monto: p.monto };
+  if (s.estado !== 'active') return { ok: false, status: 409, error: `La suscripción está en ${s.estado ?? 'un estado desconocido'}: no se le cambia el precio.` };
+  const prod = await crearProductoCreem(key, { idem: `prod-${p.idem}`, nombre: p.nombre, monto: p.monto, moneda: p.moneda, recurrente: true });
+  if (!prod.ok) return fallo(prod);
+  const r = await cambiarPlanSuscripcionCreem(key, id, prod.id, p.idem, p.cobrarDiferencia);
+  if (!r.ok) {
+    // Un corte o un 5xx no dice que no pasó: se relee antes de decir «tu plan sigue igual» a quien ya pagó la diferencia.
+    if (!sinConfirmarCreem(r.status)) return fallo(r);
+    const otra = await leerSuscripcionCreem(key, id);
+    const tomo = otra.ok && otra.montoProducto != null && Math.round(otra.montoProducto * 100) === Math.round(p.monto * 100);
+    return tomo ? { ok: true, yaEstaba: false, monto: p.monto } : fallo(r);
+  }
+  return { ok: true, yaEstaba: false, monto: p.monto };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -362,6 +441,7 @@ export async function cambiarPlanSuscripcionCreem(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type TransaccionCreem = {
+  /** `TransactionStatus`: paid, refunded, partialRefund, chargedBack, declined… */
   id: string; estado: string | null; monto: number | null; montoPagado: number | null; impuesto: number | null;
   moneda: string | null; suscripcionId: string | null; pedidoId: string | null; fecha: string | null; reembolsado: number | null;
 };
@@ -371,23 +451,59 @@ const transaccionDe = (b: Json): TransaccionCreem => ({
   estado: str(b.status),
   // `amount` SIN impuesto (lo que cobra el plan), `amount_paid` CON impuesto (lo que pagó la persona). MaKo asienta
   // `amount`: el impuesto lo cobra y lo remite Creem, no es ingreso de MaKo.
-  monto: num(b.amount),
-  montoPagado: num(b.amount_paid),
-  impuesto: num(b.tax_amount),
+  monto: montoDeCreem(b.amount),
+  montoPagado: montoDeCreem(b.amount_paid),
+  impuesto: montoDeCreem(b.tax_amount),
   moneda: str(b.currency)?.toUpperCase() ?? null,
   suscripcionId: str(obj(b.subscription).id) ?? str(b.subscription),
   pedidoId: str(obj(b.order).id) ?? str(b.order),
-  fecha: str(b.created_at),
-  reembolsado: num(b.refunded_amount),
+  fecha: fechaDeCreem(b.created_at),
+  reembolsado: montoDeCreem(b.refunded_amount),
 });
 
-/** Las transacciones de una suscripción, para releer qué se cobró de verdad. */
-export async function buscarTransaccionesCreem(key: string, suscripcionId: string): Promise<R<{ transacciones: TransaccionCreem[] }>> {
-  const q = new URLSearchParams({ subscription_id: suscripcionId, page_size: '20' });
-  const r = await llamar(key, 'GET', `/transactions/search?${q.toString()}`);
+/**
+ * Las transacciones de UNA suscripción, para releer qué se cobró de verdad. Las pide por su cliente (lo único que filtra) y se
+ * queda con las de esa suscripción: una de otra no es plata de este cobro, y sin suscripción no se puede decir que lo sea.
+ * Sin orden garantizado: quien quiera la última, la ordena.
+ */
+export async function buscarTransaccionesCreem(key: string, suscripcionId: string, clienteId?: string | null): Promise<R<{ transacciones: TransaccionCreem[] }>> {
+  let cliente = clienteId ?? null;
+  if (!cliente) {
+    const s = await leerSuscripcionCreem(key, suscripcionId);
+    if (!s.ok) return fallo(s);
+    cliente = s.clienteId;
+  }
+  // Sin cliente, se mira igual y se filtra abajo: puede no estar, pero no se atribuye la de nadie más.
+  const transacciones: TransaccionCreem[] = [];
+  for (let pagina = 1; ; pagina++) {
+    const q = new URLSearchParams({ page_size: '100', page_number: String(pagina), ...(cliente ? { customer_id: cliente } : {}) });
+    const r = await llamar(key, 'GET', `/transactions/search?${q.toString()}`);
+    if (!r.ok) return fallo(r);
+    const items = Array.isArray(r.body.items) ? r.body.items : [];
+    transacciones.push(...items.map((x) => transaccionDe(obj(x))).filter((t) => t.suscripcionId === suscripcionId));
+    const total = num(obj(r.body.pagination).total_pages) ?? 1;
+    if (pagina >= total) return { ok: true, transacciones };
+    // Mirar sólo una parte daría «no pagó» por algo que no se leyó: mejor decir que no se pudo.
+    if (pagina >= PAGINAS_DE_TRANSACCIONES) return { ok: false, status: 0, error: `Más de ${PAGINAS_DE_TRANSACCIONES} páginas de transacciones de un cliente.` };
+  }
+}
+
+const PAGINAS_DE_TRANSACCIONES = 10;
+
+/** Una transacción por su id (`GET /v1/transactions?transaction_id=`). Lo que dice un aviso se relee acá. */
+export async function leerTransaccionCreem(key: string, id: string): Promise<R<TransaccionCreem>> {
+  if (!/^[A-Za-z0-9_-]{1,64}$/.test(id)) return { ok: false, status: 400, error: 'id de transacción inválido' };
+  const r = await llamar(key, 'GET', `/transactions?transaction_id=${encodeURIComponent(id)}`);
   if (!r.ok) return fallo(r);
-  const items = Array.isArray(r.body.items) ? r.body.items : [];
-  return { ok: true, transacciones: items.map((x) => transaccionDe(obj(x))) };
+  return { ok: true, ...transaccionDe(r.body) };
+}
+
+/** El link del portal de cliente de Creem, donde cambia su tarjeta: `POST /v1/customers/billing`. */
+export async function portalDeClienteCreem(key: string, clienteId: string): Promise<R<{ url: string }>> {
+  const r = await llamar(key, 'POST', '/customers/billing', { customer_id: clienteId });
+  if (!r.ok) return fallo(r);
+  const url = str(r.body.customer_portal_link);
+  return url ? { ok: true, url } : { ok: false, status: 502, error: 'Creem no devolvió el link del portal.' };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -426,6 +542,10 @@ export type WebhookCreem = { id: string; url: string | null; secreto: string | n
  *
  * El `id` (`wh_…`) es ADEMÁS el identificador de ruteo de la cuenta (ver `probarClaveCreem`): viaja en la URL del aviso
  * como `?w=<id>` y es lo que dice de qué negocio es cada evento.
+ *
+ * ⚠️ EL `?w=` SE ESCRIBE ACÁ, con un PATCH, porque el id no existe hasta crearlo (31/10/2026). Los comentarios decían que la URL
+ * guardada lo llevaba y ningún código lo hacía: la ruta rechazaba con 401 TODOS los avisos, y Creem abandona a las 24 h. Ningún
+ * pago habría entrado nunca. Si no se puede escribir se falla la conexión, como sin secreto. También repara una ya registrada.
  */
 export async function asegurarWebhookCreem(key: string, url: string): Promise<R<WebhookCreem>> {
   const lista = await llamar(key, 'GET', '/webhooks?page_size=100');
@@ -436,6 +556,13 @@ export async function asegurarWebhookCreem(key: string, url: string): Promise<R<
     const u = str(x.url) ?? '';
     return u === url || u.split('?')[0] === url.split('?')[0];
   });
+  // La URL de ESE endpoint, con su id para rutear. Sin esto el aviso llega sin `?w=` y se rechaza.
+  const conRuteo = async (id: string, actual: string | null): Promise<R<{ url: string }>> => {
+    const destino = `${url.split('?')[0]}?w=${encodeURIComponent(id)}`;
+    if (actual === destino) return { ok: true, url: destino };
+    const p = await llamar(key, 'PATCH', `/webhooks/${encodeURIComponent(id)}`, { url: destino });
+    return p.ok ? { ok: true, url: destino } : fallo(p);
+  };
   if (mio) {
     const id = str(mio.id);
     if (!id) return { ok: false, status: 502, error: 'Creem devolvió un aviso sin id.' };
@@ -443,7 +570,9 @@ export async function asegurarWebhookCreem(key: string, url: string): Promise<R<
     if (!s.ok) return fallo(s);
     const secreto = str(s.body.secret);
     if (!secreto) return { ok: false, status: 502, error: 'Creem no devolvió el secreto del aviso.' };
-    return { ok: true, id, url: str(mio.url), secreto };
+    const u = await conRuteo(id, str(mio.url));
+    if (!u.ok) return fallo(u);
+    return { ok: true, id, url: u.url, secreto };
   }
   const r = await llamar(key, 'POST', '/webhooks', { url, events: [...EVENTOS_CREEM] });
   if (!r.ok) return fallo(r);
@@ -453,5 +582,7 @@ export async function asegurarWebhookCreem(key: string, url: string): Promise<R<
   // Sin secreto no se puede verificar NADA: es mejor fallar la conexión que dejar una cuenta conectada cuyos avisos
   // van a rebotar todos (el webhook es fail-closed a propósito).
   if (!secreto) return { ok: false, status: 502, error: 'Creem no devolvió el secreto del aviso. Sin él, los pagos no pueden entrar.' };
-  return { ok: true, id, url: str(r.body.url) ?? url, secreto };
+  const u = await conRuteo(id, str(r.body.url));
+  if (!u.ok) return fallo(u);
+  return { ok: true, id, url: u.url, secreto };
 }

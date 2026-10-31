@@ -8,6 +8,7 @@
 // el segundo, que dice qué pasa, la pide. No se reintenta sola (AGENTS.md: en lo que gasta plata, el default es NO).
 // =============================================================================
 
+import { CAPACIDADES_PASARELA } from '@/lib/cobros-tipos';
 import { useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { useRouter } from '@/app/_ui/Link';
@@ -36,7 +37,7 @@ export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: str
     haptico('error'); setAviso({ ok: false, texto: r.resumen }); setCorriendo(false);
   };
   const puedeDarseDeBaja = !!suscripcion && !suscripcion.cancelada && !suscripcion.baja && !aviso?.ok;
-  const esStripe = suscripcion?.proveedor === 'stripe';
+  const hastaElFinDelMes = !!suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].bajaAlFinDelPeriodo;
 
   const darmeDeBaja = async () => {
     if (corriendo) return;
@@ -67,7 +68,7 @@ export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: str
       {puedeDarseDeBaja && (
         <ListaM>
           <FilaM titulo={<span className="m-configuraciones-rojo">Darme de baja</span>}
-            segunda={enPrueba ? 'No se te cobra nada.' : esStripe ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
+            segunda={enPrueba ? 'No se te cobra nada.' : hastaElFinDelMes ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
             onClick={() => setPreguntar(true)} />
         </ListaM>
       )}
@@ -76,7 +77,7 @@ export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: str
         pie={(
           <PieM consecuencia={enPrueba
             ? `No se te cobra nada, y sigues usando MaKo hasta el ${suscripcion!.prueba!.hasta}. No se puede deshacer.`
-            : esStripe
+            : hastaElFinDelMes
               ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
               : 'Mercado Pago deja de cobrarlo desde ya. No se puede deshacer.'}>
             <Button variant="danger" size="lg" full loading={corriendo} onClick={() => { void darmeDeBaja(); }}>Darme de baja</Button>
