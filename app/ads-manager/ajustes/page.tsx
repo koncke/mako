@@ -1,11 +1,11 @@
 // =============================================================================
-// /ads-manager/ajustes — los Ajustes del Media Buyer (la página «AI Marketer settings» de Madgicx)
+// /ads-manager/ajustes — los Ajustes del Media Buyer, con la densidad de «Hoy» y el molde de Settings de la casa
 // =============================================================================
-// La pantalla: app/ads-manager/Ajustes.tsx. Las mismas guardas que /ads-manager (la tab, el negocio elegido).
+// La pantalla: app/ads-manager/Ajustes.tsx. Las mismas guardas que /ads-manager (la tab, el negocio elegido). El estilo es el de
+// la tab (aa.css) y el molde de Settings (app/_ui/ajustes.css, global): mb.css se borró el 27/10/2026.
 // =============================================================================
 
-import '../mb-paleta.css';
-import '../mb.css';
+import '../aa.css';
 import { requireRolWs } from '@/lib/tab-access';
 import { adsSinNegocio, wsDeAdsManager } from '@/lib/ads-guard';
 import { Pagina } from '@/app/_ui/Pagina';

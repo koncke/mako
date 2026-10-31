@@ -4205,6 +4205,28 @@ Lo mismo vale para todo lo grande que vive en una cadena de este repo: los promp
 snippet del Pixel, el SQL embebido. Nombrá la clase sin comillas de ningún tipo. Y el `${`
 es el otro carácter con esa propiedad: `$100M` es inofensivo, `${algo}` no.
 
+## Y el reverso: `{/* … */}` tampoco vale en CUALQUIER punto de un JSX
+
+La razón de arriba corta para los dos lados: `{/* … */}` comenta **porque es una
+expresión**, y una expresión sólo entra donde JSX espera un HIJO. En los otros dos lugares
+donde uno quiere explicar algo es un error de sintaxis:
+
+- **entre los atributos de una etiqueta abierta** (`<Tarjeta a={1}` ⏎ `{/* … */}` ⏎ `b={2}`):
+  ahí no se esperan hijos, sino atributos;
+- **en el medio de un ternario** (`cond ? (…)` ⏎ `{/* … */}` ⏎ `: <Otro />`): ahí seguís en
+  JS, y la `{` abre un bloque.
+
+Y lo que lo hace caro es el mensaje: `tsc` tira `TS1005: '...' expected`, `TS1005: ':'
+expected` y `TS1381: Unexpected token. Did you mean {'}'}` apuntando a una COLUMNA que no
+tiene nada que ver con el comentario, así que se busca el error en el código de al lado.
+Medido el 30/10/2026 rescatando `nube/media-buyer-2710`: dos comentarios puestos al
+resolver conflictos en `MediaBuyer.tsx` dieron esos tres rojos.
+
+⚠️ La regla: **un comentario pegado a un JSX va `{/* … */}` sólo entre hijos.** Entre
+atributos, en un ternario o en una lista de argumentos va un `/* … */` de JS pelado, o se
+mueve arriba del elemento, que es donde se lee mejor. Es el mismo criterio de la sección de
+arriba —mirá dónde CAE, no qué dice—, nada más que al revés.
+
 ## Y el gemelo: una regex CITADA adentro de un comentario de bloque lo cierra
 
 El mismo accidente, del otro lado. La convención de la casa es explicar en el comentario qué
@@ -7022,7 +7044,8 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   contesta desde la fila si algo se creó y publica lo nuevo si no—, pero esa respuesta puede hablar
   del payload de ANTES: no se pinta como éxito de lo que está en pantalla ni se le recorta. Vive
   FUERA del componente: en un ref, cerrar y reabrir el modal la perdía. Molde: `claveAMandar` /
-  `trasRespuesta` + `claveAbierta` (app/ads-manager/creativeUpload.ts).
+  `trasRespuesta` (lib/meta-idempotencia.ts); la clave abierta guardada fuera del componente (`claveAbierta`) vivía en el
+  Ads Manager viejo, borrado el 27/10/2026.
 - **La fila es lo único que lee un reintento, así que los persist TERMINALES reescriben todo lo
   que hay en memoria**: los intermedios tragan su error. Y un rollback cuenta sólo si el proveedor
   CONFIRMÓ el borrado — «(revertido)» sin confirmar es lo que hace crear otra encima.

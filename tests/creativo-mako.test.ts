@@ -186,42 +186,10 @@ test('mismoOrigen: con new URL, y los cuatro parecidos que un prefijo deja pasar
   assert.equal(mismoOrigen(urlDe('a.mp4'), undefined), false, 'sin base configurada no se acepta nada');
 });
 
-test('subidoDeRespuesta: el processing es lo que dijo el server, y sólo un video con id espera', async () => {
-  const { subidoDeRespuesta } = await import('../app/ads-manager/creativeUpload');
-  const v = subidoDeRespuesta({ ok: true, media_type: 'video', video_id: '123', thumbnail_url: null, processing: true, video_status: 'processing', path: null }, null);
-  assert.equal(v.processing, true);
-  assert.equal(v.path, null, 'un video de MaKo no tiene staging');
-  assert.equal(v.thumbnail_url, null);
-  assert.equal(subidoDeRespuesta({ media_type: 'video', video_id: null, processing: true }, null).processing, false, 'sin video_id no hay a quién esperar');
-  assert.equal(subidoDeRespuesta({ media_type: 'image', image_hash: 'h', processing: true }, null).processing, false);
-  assert.equal(subidoDeRespuesta({ media_type: 'video', video_id: '1', processing: false }, 'nueva/x.mp4').path, 'nueva/x.mp4', 'el staging de la subida sigue llegando');
-});
-
-test('usarCreativoMako manda SÓLO la referencia; listarCreativosMako no convierte un fallo en lista vacía', async () => {
-  const { usarCreativoMako, listarCreativosMako } = await import('../app/ads-manager/creativeUpload');
-  const original = globalThis.fetch;
-  const enviados: Array<{ url: string; body: unknown }> = [];
-  try {
-    globalThis.fetch = (async (url: string, init?: RequestInit) => {
-      enviados.push({ url, body: init?.body ? JSON.parse(String(init.body)) : null });
-      return { json: async () => ({ ok: true, media_type: 'video', video_id: '77', thumbnail_url: null, processing: true, video_status: 'processing', path: null }) } as unknown as Response;
-    }) as typeof fetch;
-    const r = await usarCreativoMako(`toma:${PLAN_A}:2:${OP}`);
-    assert.equal(r.video_id, '77');
-    assert.equal(r.processing, true);
-    assert.equal(enviados[0].url, '/api/ads-manager/creative-upload');
-    assert.deepEqual(enviados[0].body, { mako: `toma:${PLAN_A}:2:${OP}` }, 'ni url, ni file_url, ni path');
-
-    globalThis.fetch = (async () => ({ json: async () => ({ ok: false, error: 'No pude leer tus videos de MaKo. Vuelve a intentar.' }) }) as unknown as Response) as typeof fetch;
-    await assert.rejects(listarCreativosMako(), /No pude leer tus videos de MaKo/);
-    globalThis.fetch = (async () => ({ json: async () => { throw new Error('html'); } }) as unknown as Response) as typeof fetch;
-    await assert.rejects(listarCreativosMako(), /No pude leer/);
-    globalThis.fetch = (async () => ({ json: async () => ({ ok: true, montados: [], tomas: [] }) }) as unknown as Response) as typeof fetch;
-    assert.deepEqual(await listarCreativosMako(), { montados: [], tomas: [] });
-  } finally {
-    globalThis.fetch = original;
-  }
-});
+// Los dos tests del cliente de la subida (`subidoDeRespuesta`, `usarCreativoMako` y `listarCreativosMako`, de
+// app/ads-manager/creativeUpload.ts) se fueron el 27/10/2026 con las rutas creative-upload y mis-creativos: eran del Ads
+// Manager borrado el 25/10 y no los llamaba ninguna pantalla. Lo de este archivo (lib/creativo-mako.ts) lo sigue usando el
+// Video Editor (app/video-editor/desde/).
 
 //   ROTO A PROPÓSITO (07/10/2026), de a una y restaurando de memoria; cada una da
 //   pass 7 / fail 1 en este archivo (que entonces tenía 8), y el que cae es el que la nombra:
@@ -229,7 +197,7 @@ test('usarCreativoMako manda SÓLO la referencia; listarCreativosMako no convier
 //   · creativosDeTomas con `url.includes('/storage/v1/object/public/video-clips/')` (un
 //     prefijo, la regla vieja de urlEsPropia) → «la url se arma con la operación…»;
 //   · mismoOrigen con `url.startsWith(base)` → «los cuatro parecidos»;
-//   · usarCreativoMako mandando también una url → «manda SÓLO la referencia»;
+//   · usarCreativoMako mandando también una url → «manda SÓLO la referencia» (test borrado el 27/10);
 //   · la ref de toma aceptando cualquier plan (`[^:]`) → «la referencia…».
 //   Y las de la revisión (07/10/2026, la ref de la toma con el clip), con 9 tests:
 //   · tomaPedida devolviendo la toma de hoy sin comparar la ref → pass 8 / fail 1,

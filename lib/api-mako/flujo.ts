@@ -91,7 +91,7 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
 export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako',
   'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer',
   'cuenta_media_buyer', 'modo_agente_media_buyer', 'zona_media_buyer', 'hasta_media_buyer', 'proponer_crear_campana',
-  ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
+  'subir_creativos_media_buyer', ...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)]);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,

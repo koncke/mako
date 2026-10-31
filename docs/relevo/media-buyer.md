@@ -3,6 +3,11 @@
 **Escrito el 25/10/2026 por el chat «Media Buyer» (cuenta 5, `claude5`).** Rama `mediabuyer-2510` (worktree
 `C:/dev/wt-mediabuyer-2510`). Lo sube el Cerebro en el tren; este chat no pushea.
 
+**Al día el 27/10/2026, por una sesión en la nube (`Claude-Cuenta: nube`)**, sobre la etiqueta `nube-base/mediabuyer-2710`:
+la pantalla como Hoy (Ajustes, Automatizaciones, Protect, Campañas y Biblioteca), las fallas 1, 2 y 9 de tren-m, la baja de 80%,
+las rutas viejas borradas y subir creativos por la API. Va en la etiqueta `nube/media-buyer-2710` (sin rama: cada rama en
+GitHub dispara un build). Lo de esta tanda: `docs/hallazgos-ads.md` → «Las fallas que quedaban de tren-m…».
+
 ## Qué es
 
 Desde el 25/10/2026 `/ads-manager` es el **Media Buyer de MaKo**: un agente que mira la cuenta de Meta del negocio una vez
@@ -14,7 +19,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
   ⚠️ **Copiar de la app por dentro (`referencias/madgicx/vivo-*.jpg`), NO de la imagen de la landing**: son pantallas
   distintas (la app es clara, con pestañas y «Ver detalles»).
   **Desde el 25/10:** la estructura, la limpieza, las medidas (tomadas de la captura) y TODAS las funciones de Madgicx;
-  los colores, los de MaKo (`app/ads-manager/mb-paleta.css`, todo token de la casa). Antes de tocar la pantalla, mirar la
+  los colores, los de MaKo (todo token de la casa; `mb-paleta.css` y `mb.css` se borraron el 27/10). Antes de tocar la pantalla, mirar la
   captura de Madgicx: lo que MaKo suma va dentro de un lugar que Madgicx ya tiene (la tuerca, «Pedirle más a MaKo», el
   saludo con globos), nunca como un botón o un cartel más.
 - **Lo que se mide y lo que costó:** `docs/hallazgos-ads.md` → «El Media Buyer reemplaza al Ads Manager».
@@ -32,14 +37,15 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | Variaciones con la IA del negocio | `lib/media-buyer/variaciones.ts` · `variaciones-prompt.ts` (puro) |
 | Config y registro (tablas de la 0332) | `lib/media-buyer/store.ts` · `supabase/migrations/0332_media_buyer.sql` |
 | Lo que escribe por Zernio | `lib/zernio-ads.ts` (la parte del 25/10) |
-| La pantalla (la captura 04 de AdAmigo desde el 25/10 noche) | `app/ads-manager/MediaBuyer.tsx` (Hoy · Campañas · Biblioteca, la hoja del detalle) · `Arbol.tsx` (el árbol y la tarjeta chica) · `Hoy.tsx` (la caja, «¿En qué te ayudo hoy?», Actividad, los números del mes) · `Autopilot.tsx` (la tarjeta entera del detalle, las alertas) · `Lienzo.tsx` · `Biblioteca.tsx` · `Agentes.tsx` (cuelga de la tuerca) · `ArranqueMediaBuyer.tsx` · `aa.css` · `mb-modelo.ts` |
+| La pantalla (la captura 04 de AdAmigo desde el 25/10 noche) | `app/ads-manager/MediaBuyer.tsx` (Hoy · Campañas · Biblioteca, la hoja del detalle) · `Arbol.tsx` (el árbol y la tarjeta chica) · `Hoy.tsx` (la caja, «¿En qué te ayudo hoy?», Actividad) · `Autopilot.tsx` (la tarjeta entera del detalle, las alertas de Protect) · `Lienzo.tsx` (el árbol de Campañas y, al pie, los números del mes) · `Biblioteca.tsx` · `Agentes.tsx` (cuelga de la tuerca) · `ArranqueMediaBuyer.tsx` · `aa.css` · `mb-modelo.ts` |
 | El teléfono | `app/m/ads/MediaBuyerM.tsx` (las mismas piezas en una columna) · `mb-m.css` |
 | Lo que la pantalla lee además de la config (productos, mejores anuncios, arranque, agentes propios) | `lib/media-buyer/vista.ts` · `productos.ts` y `arranque.ts` (puros, con test) |
 | Los agentes de MaKo y los propios, y Protect | `lib/media-buyer/agentes.ts` · `agentes-propios.ts` (puros) · `agentes-ia.ts` · `protect.ts` (puro) · en la corrida, `corrida.ts` |
 | La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes, agentes, Biblioteca) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` · lo fija `tests/media-buyer-api.test.ts` |
-| Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
+| Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` (`revisarSubida`, `subirCreativos`) · `creativos.ts` (puro: `leerPedidoDeSubida`) · el modal en `MediaBuyer.tsx` · la firma del staging en `lib/ads-staging-firma.ts` (la usa `creative-signurl` y la API) |
+| Subir creativos por la API de MaKo | `preparar_subida_media_buyer` (sólo HTTP: conjuntos, textos de partida y una URL firmada por archivo) · `subir_creativos_media_buyer` (confirmada en `/mako/revisar`) · lo fija `tests/media-buyer-subir-api.test.ts` |
 | Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
-| Los Ajustes (la página «AI Marketer settings») | `app/ads-manager/Ajustes.tsx` (`/ads-manager/ajustes`) |
+| Los Ajustes (desde el 27/10, el molde de Settings de la casa) | `app/ads-manager/Ajustes.tsx` (`/ads-manager/ajustes`) |
 | Las tácticas como automatizaciones (estado, umbrales, campañas) — puro, con test | `lib/media-buyer/tacticas.ts` · la pantalla `app/ads-manager/Automatizaciones.tsx` (`/ads-manager/automatizaciones`) |
 | Lo que trae cada plan (Esencial: 2 por día, sin piloto) | `lib/media-buyer/plan.ts` (puro) · `cupoDe` en `store.ts` · el número en `lib/topes-plan.ts` (de Planes) |
 
@@ -115,25 +121,35 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    sea MaKo, que esa punta esté en main. Detalle en hallazgos-ads → «La revisión adversarial de tren-l».
    **La verificación de tren-m (26/10)** cerró 9 de 10; lo que quedaba de 0 (el título de la IA, a la vista), 4 (el monto en
    el arranque y en Ajustes) y 8 (la guarda de «se está creando» con tiempo) está arreglado con sus roturas. Quedan
-   ANOTADOS, sin hacer (detalle en las notas del Cerebro, `verificacion-tren-m.md`, bloque [mb]):
+   ANOTADOS y **HECHOS el 27/10 en la nube** (cada uno con su test roto una vez, `tests/media-buyer-verificacion-m.test.ts`):
    - **1 · un cambio de presupuesto que no es decisión del Media Buyer no se ve** (por chat, `proponer_presupuesto_*` en
      `lib/api-mako/areas/ads.run.ts`, o la tabla): `presupuestoYaCambiado` (`lib/media-buyer/topes.ts`) mira sólo decisiones,
      así que «el mismo % sobre el de hoy» puede componer con un cambio a mano, y el piloto lo hace sin que nadie lo vea. Es el
-     diseño de antes («subir 20%, no llevarlo a 60»): decidir si comparar contra el presupuesto de cuando se propuso.
+     diseño de antes («subir 20%, no llevarlo a 60»). **Hecho:** si el presupuesto cambió desde que se propuso, la decisión
+     vence con el motivo y se vuelve a mirar mañana (`presupuestoCambioDesdeLaPropuesta`).
    - **2 · la mezcla de tácticas es por táctica, no por campo** (`mezclarTacticas`, `lib/media-buyer/tacticas.ts`): una pestaña
      vieja que cambia el estado de un agente pisa los umbrales o las campañas que otro cambió en ESA táctica. Arreglo: mezclar
-     campo por campo (estado, parametros, campanas) y que el panel mande sólo `{ estado }`.
+     campo por campo (estado, parametros, campanas) y que el panel mande sólo `{ estado }`. **Hecho** (`cambioDeAgente`).
    - **9 · los agentes propios gastan IA de más** (`lib/media-buyer/corrida.ts` → `propuestasDeAgentesPropios`, antes de
      calcular los lugares): con el cupo lleno por el motor, a un agente se le pregunta en cada corrida y su respuesta se
-     descarta. Arreglo: no preguntar si `lugares` ya es 0, o anotar que el agente miró hoy aunque no entre.
-   - Y un efecto del freno de ×5 de la falla 4: una baja deliberada de 80% o más ya no se puede hacer desde MaKo (el mensaje
-     culpa al separador de miles). Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
-   9). Sigue: Protect, Ajustes y Automatizaciones con esta densidad.
+     descarta. **Hecho:** con `lugares` en 0 no se pregunta (`lugaresParaPropios`).
+   - Y un efecto del freno de ×5 de la falla 4: una baja deliberada de 80% o más ya no se podía hacer desde MaKo (el mensaje
+     culpaba al separador de miles). **Hecho:** sale con una confirmación que la dice; subir ×5 sigue sin salir.
+   - **La pantalla (hecho el 27/10):** Campañas y Biblioteca con la caja del chat arriba como Hoy y los números del mes en una
+     línea del pie; Protect como la lista de Actividad; Ajustes y Automatizaciones con el molde de Settings de la casa, sin
+     `mb.css`. **No se comparó contra las capturas 8 y 9 de AdAmigo** (la nube no las tiene): mirarlo lado a lado en la PC
+     antes de mostrárselo a Martín. Lo que se vio: capturas de Ajustes, Automatizaciones y Protect renderizadas sin datos.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
-   y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
-   (los archivos los sube el navegador al staging: anotado en `FALTA` de `tests/media-buyer-api.test.ts`); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
-   vista borrada (`creative-signurl` SÍ se usa: la subida del Media Buyer).
+   y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía.
+   **Hecho el 27/10:** la API de MaKo para «subir creativos» (`FALTA` quedó vacío) y las quince rutas viejas de
+   `app/api/ads-manager/*` borradas (queda `creative-signurl`, que ahora también barre el staging). Pendiente de eso:
+   - **en la PC, `npx next typegen`** (se borraron rutas: `.next/types/validator.ts` las sigue nombrando);
+   - **medir la subida por la API en la cuenta de MaKo** (la nube no escribe en Meta): `preparar_subida_media_buyer` → PUT del
+     archivo → `subir_creativos_media_buyer` → confirmar en `/mako/revisar` → `deshacer_decision_media_buyer`;
+   - con varios videos, la confirmación tiene 300 s (como la pantalla): de a pocos;
+   - quedaron sin call site `estadoVideo` y `generatePreviews` (`lib/meta-ads-create.ts`) y `montadosDelWorkspace` /
+     `tomasDelWorkspace` (`lib/creativo-mako-fuentes.ts`): se pueden borrar.
 4. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
    Buyer», se lo pide el Cerebro a ese chat.
 

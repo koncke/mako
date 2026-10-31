@@ -27,7 +27,7 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
 
 test('la tab de una ruta de API, por segmento entero', () => {
-  assert.equal(tabDeRutaApi('/api/ads-manager/campaign-create'), 'ads-manager');
+  assert.equal(tabDeRutaApi('/api/ads-manager/creative-signurl'), 'ads-manager');
   assert.equal(tabDeRutaApi('/api/ads-manager'), 'ads-manager');
   assert.equal(tabDeRutaApi('/api/meta-write'), 'ads-manager');
   assert.equal(tabDeRutaApi('/api/chats/conversacion'), 'chats');

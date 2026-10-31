@@ -113,7 +113,7 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 @media (hover: hover) and (pointer: fine) { .aa-sug:hover { border-color: var(--border-strong); } }
 .aa-sug:active { transform: scale(.98); }
 .aa-nuevo .aa-orden { width: 100%; margin-top: 36px; }
-/* Campañas: tres números del mes, nada más. */
+/* Los números de una campaña, en su hoja (Lienzo.tsx). Los del mes ya no son tarjetas: son una línea del pie (lineaDelMes). */
 .aa-mes { margin: 0 0 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
 .aa-mes div { padding: 14px 16px; border: 1px solid var(--aa-borde); border-radius: var(--aa-radio); background: var(--surface); }
 .aa-mes dt { font-size: 12px; color: var(--faint); }
@@ -220,15 +220,50 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
 .aa-calc p { margin: 0; font-size: 13px; line-height: 1.5; color: var(--ink); }
 .aa-calc .aa-calc-nota { font-size: 12px; color: var(--faint); }
 
-/* ── Protect: lo roto en la cuenta, arriba de las acciones ── */
-.aa-protect { display: grid; gap: 8px; }
-.aa-alerta { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 14px 16px; border-radius: var(--aa-radio); border: 1px solid var(--aa-borde); border-left: 3px solid var(--warn); background: var(--surface); }
-.aa-alerta[data-g='alta'] { border-left-color: var(--bad); background: var(--bad-bg); }
-.aa-alerta-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; background: var(--surface); color: var(--warn); }
-.aa-alerta[data-g='alta'] .aa-alerta-ic { color: var(--bad); }
-.aa-alerta-ic svg { width: 16px; height: 16px; }
-.aa-alerta b { font-size: 14px; font-weight: 600; }
-.aa-alerta p { margin: 3px 0 0; font-size: 13px; line-height: 1.5; color: var(--dim); }
+/* ── Protect: la hoja que abre el aviso de Hoy, con la densidad de Actividad (27/10/2026): una fila, un punto, un botón ── */
+.aa-aviso[data-g='media'] { background: var(--warn-bg, var(--bg)); color: var(--warn); }
+.aa-punto { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; background: var(--warn); align-self: flex-start; }
+.aa-protect li[data-g='alta'] .aa-punto { background: var(--bad); }
+
+/* ── Ajustes y Automatizaciones: el marco de la tab con el molde de Settings (app/_ui/ajustes.css, las filas de Linear) ── */
+.aa-ajustes { max-width: 780px; margin: 0 auto; padding-top: 22px; }
+.aa-ajustes .aj-cabecera { margin-bottom: 26px; }
+.aa-ajustes .aj-grupo-caja { border-color: var(--aa-borde); border-radius: 16px; }
+.aa-campo { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dim); }
+.aa-campo .aj-en-linea { text-align: right; font-variant-numeric: tabular-nums; }
+.aa-campo .aa-link { white-space: nowrap; }
+.aa-estado-t { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 6px; background: var(--bg); color: var(--dim); }
+.aa-estado-t[data-e='propone'] { background: var(--good-bg); color: var(--good); }
+.aa-estado-t[data-e='automatica'] { background: var(--mako-bg); color: var(--mako-ink); }
+/* Cuatro números en UNA tarjeta, separados por una raya (lo que hizo, en Automatizaciones). */
+.aa-cuenta { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.aa-cuenta div { padding: 14px 18px; border-left: 1px solid var(--aa-borde); }
+.aa-cuenta div:first-child { border-left: 0; }
+.aa-cuenta dt { font-size: 12px; color: var(--faint); }
+.aa-cuenta dd { margin: 4px 0 0; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; }
+/* El detalle de una táctica: filas de nombre y control, como la hoja de una campaña. */
+.aa-tactica .aa-hoja-fila:first-child { border-top: 0; padding-top: 0; }
+.aa-tactica .aa-hoja-fila > span:first-child { color: var(--ink); }
+.aa-campanas { display: grid; gap: 6px; max-height: 260px; overflow-y: auto; padding: 4px 0 12px; }
+.aa-act-lista { list-style: none; margin: 0; padding: 0; display: grid; }
+.aa-act-lista li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--aa-borde); }
+.aa-act-lista li:first-child { border-top: 0; }
+.aa-act-lista > li > b { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 500; }
+.aa-act-lista > li > small { font-size: 12px; color: var(--faint); white-space: nowrap; }
+
+/* ── Subir creativos (el modal de Biblioteca): la zona para soltar y la fila de cada archivo con su barra ── */
+.aa-soltar { display: flex; align-items: center; justify-content: center; min-height: 84px; border: 1.5px dashed var(--border-strong); border-radius: 12px; background: var(--bg); color: var(--dim); font-size: 14px; cursor: pointer; }
+.aa-soltar:hover { border-color: var(--primary); color: var(--ink); }
+.aa-archivos { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.aa-archivos li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px; font-size: 14px; }
+.aa-archivo-tipo { flex: none; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--faint); }
+.aa-archivo-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.aa-archivos em { font-style: normal; color: var(--good); font-weight: 500; }
+.aa-archivos em[data-tono='mal'] { color: var(--bad); font-weight: 400; }
+.aa-barra { height: 6px; border-radius: 99px; background: var(--bg); overflow: hidden; }
+.aa-barra > i { display: block; height: 100%; border-radius: inherit; background: var(--primary); max-width: 100%; transition: width .4s ease-out; }
+.aa-quitar { appearance: none; border: 0; background: none; color: var(--dim); cursor: pointer; font-size: 14px; padding: 4px; }
+.aa-quitar:hover { color: var(--ink); }
 
 /* ── 9. El panel de agentes (el «4 Active» de adamigo-3) ── */
 .aa-top-der { position: relative; }
@@ -285,8 +320,6 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
   .aa-nuevo { padding-top: 6vh; }
   .aa-sugs { gap: 8px; }
   .aa-sug { min-height: 48px; padding: 10px 12px; font-size: 13.5px; }
-  .aa-mes { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .aa-mes div:last-child { grid-column: 1 / -1; }
 }
 @media (max-width: 640px) {
   .aa { padding: 10px 16px 40px; }
@@ -309,4 +342,15 @@ a.aa-chica-aplicar { display: inline-flex; align-items: center; text-decoration:
   .aa-tramos li span { width: 18px; height: 18px; font-size: 10px; }
   .aa-arranque-hilo { border-radius: 14px; }
   .aa-calc-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aa-ajustes { padding-top: 6px; }
+  .aa-cuenta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .aa-cuenta div:nth-child(3) { border-left: 0; }
+  .aa-cuenta div:nth-child(n + 3) { border-top: 1px solid var(--aa-borde); }
+  .aa-hoja-fila { flex-wrap: wrap; }
 }
+
+/* Campañas: los números del mes, la primera línea del pie (lineaDelMes); el costo en verde o rojo contra el objetivo. */
+.aa-pie-mako .aa-pie-mes { font-weight: 600; font-variant-numeric: tabular-nums; }
+.aa-pie-mes[data-tono='bien'] { color: var(--good); }
+.aa-pie-mes[data-tono='mal'] { color: var(--bad); }
+.aa-pagina > .aa-orden { margin-bottom: 4px; }

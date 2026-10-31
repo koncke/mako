@@ -31,7 +31,8 @@ const DE_LA_PANTALLA: Record<string, string[]> = {
   estado_zernio: ['ver_campanas_media_buyer'],
   hooks_a_video: ['hooks_al_video_media_buyer'],
   campanas: ['ver_campanas_media_buyer'],
-  subir_preparar: ['ver_campanas_media_buyer'],
+  subir_preparar: ['ver_campanas_media_buyer', 'preparar_subida_media_buyer'],
+  subir_creativos: ['subir_creativos_media_buyer'],
   // La charla del arranque guarda lo respondido para seguir donde quedó; lo que DEJA es config (el resultado, el modo, el
   // tope diario y las metas del mes), y eso sale por la API.
   arranque: ['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer'],
@@ -49,13 +50,13 @@ const DE_LA_PANTALLA: Record<string, string[]> = {
 const SIN_OP = ['ver_biblioteca_media_buyer', 'modo_agente_media_buyer'];
 
 /** Lo que todavía NO está en la API, con el porqué. Sumar acá es decidirlo: queda escrito. */
-const FALTA: Record<string, string> = {
-  subir_creativos: 'los archivos los sube el navegador al staging (creative-signurl): por la API no hay cómo mandar un video, y crear un anuncio no se puede medir en la cuenta de MaKo sin método de pago',
-};
+// Vacío desde el 27/10/2026: subir creativos entró a la API en dos pasos, como la pantalla (preparar_subida_media_buyer firma
+// la subida al staging y subir_creativos_media_buyer publica).
+const FALTA: Record<string, string> = {};
 
 /** Lo que mueve plata en la cuenta de Meta: se confirma en una pantalla y nunca corre como paso de una automatización. */
 const MUEVEN_PLATA = ['lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer', 'cuenta_media_buyer', 'modo_agente_media_buyer',
-  'zona_media_buyer', 'hasta_media_buyer', 'proponer_crear_campana'];
+  'zona_media_buyer', 'hasta_media_buyer', 'proponer_crear_campana', 'subir_creativos_media_buyer'];
 
 const opsDeLaPantalla = (): string[] => {
   const src = leer('app/api/media-buyer/route.ts');

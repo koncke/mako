@@ -1173,7 +1173,7 @@ async function leerEstadoVideo(apiVersion: string, accessToken: string, videoId:
 }
 
 /** Qué dice Meta HOY de un video: 'ready' | 'processing' | 'error', o null si no se pudo
- *  leer. Lo consulta el navegador mientras espera (GET /api/ads-manager/creative-upload). */
+ *  leer. Lo consultaba GET /api/ads-manager/creative-upload, borrada el 27/10/2026: hoy sin call site. */
 export async function estadoVideo(videoId: string): Promise<EstadoVideo | null> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   return leerEstadoVideo(apiVersion, accessToken, videoId);
@@ -1262,7 +1262,7 @@ async function getVideoThumbnailUrl(videoId: string): Promise<string | null> {
  * nada, usa la que generó Meta del propio video.
  *
  * ⚠️ NO tira si Meta todavía no la generó: devuelve el creativo como vino. La usa también
- * generatePreviews (la previa del paso de revisión, /api/ads-manager/campaign-preview), y
+ * generatePreviews (la previa de /api/ads-manager/campaign-preview, borrada el 27/10/2026), y
  * la previa se tiene que poder dibujar igual. El que exige es conMiniaturaParaPublicar. */
 async function withVideoThumb(c: Creative): Promise<Creative> {
   // Si ya hay miniatura custom (image_hash) o una URL http válida, no la pisamos.

@@ -9,7 +9,8 @@
 // Lo que no tiene producto va en su propia rama, y cada tarjeta lleva a lo sumo UN botón: «Asignar» (sin producto) o
 // «N cambios» (los del día sobre esa campaña). Al tocarla se abre su hoja: los números, la pieza del CRM para cambiarla de
 // producto (ProductoCelda.tsx: la MISMA de la tabla de campañas del CRM, ninguna segunda implementación) y sus cambios.
-// Lo pide al abrir la pestaña (`op: 'lienzo'`): lee la cuenta en vivo.
+// Lo pide al abrir la pestaña (`op: 'lienzo'`): lee la cuenta en vivo. Arriba va la caja del chat (como Hoy: la 04 de AdAmigo)
+// y los números del mes son la primera línea del pie (27/10/2026: eran tres tarjetas entre la pestaña y el árbol).
 // La hoja también lleva el HASTA de esa campaña (29/10/2026, lib/media-buyer/zona.ts): su fecha de fin, que gana a la de toda
 // la cuenta (Ajustes). Se guarda al SALIR del campo (`op: 'hasta_campana'`), nunca en cada tecla: un año a medio escribir es
 // «0002-11-05», y guardarlo pausaba la campaña (revisión adversarial del 29/10). Vacía, vuelve a la de la cuenta.
@@ -35,8 +36,10 @@ export type Lienzo = {
 };
 const RES: Record<KpiMediaBuyer, [string, string]> = { lead: ['leads', 'lead'], agenda: ['agendas', 'agenda'], venta: ['ventas', 'venta'] };
 
-export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null, fechas }: {
+export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null, mes = null, fechas }: {
   kpi: KpiMediaBuyer;
+  /** Los números del mes en una línea (mb-modelo.ts → lineaDelMes): la primera del pie. */
+  mes?: { texto: string; tono: 'bien' | 'mal' | null } | null;
   /** La fecha de fin de toda la cuenta y la de cada campaña (de la config). */
   fechas: { hasta: string | null; hastaCampanas: Record<string, string> };
   /** Los cambios abiertos de hoy: cada campaña dice cuántos tiene. */
@@ -133,6 +136,7 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
       <Ramas etiqueta="Tus campañas por producto" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)}
         columnas={columnas.length ? columnas : [{ clave: 'vacia', items: [<TarjetaVacia key="vacia">Sin campañas en esta cuenta</TarjetaVacia>] }]}
         pie={<div className="aa-pie-texto">
+          {mes && <p className="aa-pie-mes" data-tono={mes.tono ?? undefined}>{mes.texto}</p>}
           <p>{todas.length ? mensajeDeCampanas(l.productos.filter((p) => p.campanas.length), l.sinProducto.length, kpi, (n) => fmt(n)) : l.aviso ?? 'Meta no devolvió campañas de esta cuenta.'}</p>
           {todas.length > 0 && l.aviso && <p>{l.aviso}</p>}
           {cuenta && (

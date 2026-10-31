@@ -59,7 +59,7 @@ test('0 · la hoja muestra TODOS los textos, y el servidor no lanza textos de un
   assert.match(sinComentarios(leer('app/m/ads/MediaBuyerM.tsx')), /for \(const d of aplicablesEnLote\(hoy\)\)/, 'y del teléfono');
   // La API de MaKo: la confirmación lista los textos que salen y los manda explícitos.
   const api = sinComentarios(leer('lib/api-mako/areas/ads.run.ts'));
-  assert.match(api, /payload: \{ decisionId: id, presupuesto, variaciones: salen \}/);
+  assert.match(api, /payload: \{ decisionId: id, presupuesto, variaciones: salen[,} ]/);
 });
 
 // ── 4: un monto con separador de miles ────────────────────────────────────────────────────────────────────────────────────
@@ -74,9 +74,10 @@ test('4 · «1,500» y «1.500» son mil quinientos, «1,5» es uno y medio; lo 
   assert.equal(leerMonto('36'), 36);
   assert.equal(leerMonto('1,50,0'), null);
   assert.equal(leerMonto('0'), null);
-  // Y el servidor no escribe un salto de cinco veces o más (el único freno de una baja).
+  // Y el servidor no escribe una subida de cinco veces o más; una baja de 80% o más, sólo confirmada (verificación de tren-m:
+  // lo prueba tests/media-buyer-verificacion-m.test.ts).
   const ej = sinComentarios(leer('lib/media-buyer/ejecutar.ts'));
-  assert.match(ej, /if \(opts\.presupuesto != null\) \{[^}]*\}[^]*?const salto = saltoPresupuesto\(opts\.presupuesto, actual\.presupuesto\);\s*if \(salto\) return \{ ok: false/);
+  assert.match(ej, /if \(opts\.presupuesto != null\) \{\s*const rev = revisarMontoEditado\(opts\.presupuesto, actual\.presupuesto[^]*?if \(!rev\.ok\) return \{ ok: false/);
 });
 
 // ── 1: dos bajas abiertas sobre lo mismo no se componen ───────────────────────────────────────────────────────────────────
@@ -101,7 +102,7 @@ test('2 · las tácticas que llegan se mezclan con las guardadas, y cada pantall
   const guardadas = { surf: { estado: 'apagada' as const }, stop_loss: { estado: 'propone' as const } };
   assert.deepEqual(mezclarTacticas(guardadas, { stop_loss: { estado: 'apagada' } }), { surf: { estado: 'apagada' }, stop_loss: { estado: 'apagada' } });
   assert.match(sinComentarios(leer('lib/media-buyer/store.ts')), /v\.fila\.tacticas = mezclarTacticas\(\(await leerConfig\(ws\)\)\.tacticas/);
-  assert.match(sinComentarios(leer('app/ads-manager/Agentes.tsx')), /onTacticas\(Object\.fromEntries\(TACTICAS_DE\[a\]\.map/);
+  assert.match(sinComentarios(leer('app/ads-manager/Agentes.tsx')), /onTacticas\(cambioDeAgente\(a, estado\)\)/);
   assert.match(sinComentarios(leer('app/ads-manager/Automatizaciones.tsx')), /const tacticas: ConfigTacticas = \{ \[t\]: /);
 });
 
@@ -200,7 +201,10 @@ test('4 · el arranque y los Ajustes leen «$1,000» como mil (las pastillas sal
   assert.deepEqual(leerRespuesta('costo', '7,50', x), { costo: { valor: 7.5, supuesto: false } });
   assert.equal(montoDelTexto('entre 500 y 1000'), 500, 'el primer monto, no los dígitos pegados');
   const aj = sinComentarios(leer('app/ads-manager/Ajustes.tsx'));
-  assert.match(aj, /const num = \(s: string\): number \| null => \(s\.trim\(\) === '' \? null : leerMonto\(s\) \?\? Number\.NaN\);/);
+  // Desde el 27/10 (tests/media-buyer-pantalla-m.test.ts): un monto ilegible NO sale. El `Number.NaN` de antes viajaba como
+  // null (JSON.stringify(NaN)) y borraba el valor guardado.
+  assert.match(aj, /const n = leerMonto\(s\);/);
+  assert.doesNotMatch(aj, /Number\.NaN/);
 });
 
 test('8 · «se está creando» vence a los 10 minutos, y lanzar no relanza una subida de creativos', () => {

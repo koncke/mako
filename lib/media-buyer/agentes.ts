@@ -40,6 +40,14 @@ export function estadoDeAgente(a: AgenteMako, r: Record<TacticaAuto, { estado: E
   return es.some((e) => e === 'automatica') ? 'automatico' : 'propone';
 }
 
+/**
+ * Lo que se MANDA para cambiar el estado de un agente: sólo `{ estado }` de cada una de sus tácticas. El servidor lo mezcla campo
+ * por campo con lo guardado (tacticas.ts → mezclarTacticas), así una copia vieja de la pantalla o de una confirmación del chat no
+ * pisa los umbrales ni las campañas que otro cambió (verificación de tren-m, falla 2).
+ */
+export const cambioDeAgente = (a: AgenteMako, estado: EstadoTactica): ConfigTacticas =>
+  Object.fromEntries(TACTICAS_DE[a].map((t) => [t, { estado }])) as ConfigTacticas;
+
 /** Cambia el estado de TODAS las tácticas de un agente, sin tocar sus umbrales ni sus campañas. */
 export function cambiarAgente(cfg: ConfigTacticas, a: AgenteMako, estado: EstadoTactica): ConfigTacticas {
   const out: ConfigTacticas = { ...cfg };
