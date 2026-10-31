@@ -2738,6 +2738,44 @@ izquierda, el control a la derecha: interruptor, select con `SELECT_AJUSTES`, ca
 detalle), y guarda al instante, sin «Guardar». Nada de un párrafo por sección: Martín rechazó dos versiones seguidas por eso
 («textos previo a la configuración que están muy de sobra»). Qué se copió de dónde: docs/settings/referencia.md.
 
+# Copiar código y usar el dato son DOS permisos, y una licencia MIT no te da el segundo
+
+La regla de arriba dice que se copia. Ésta dice **qué** se puede copiar cuando lo que se trae mira datos
+de terceros, porque ahí hay dos candados y se confunden todo el tiempo:
+
+1. **La licencia** es *copyright*: habilita a copiar el **código**. MIT, Apache-2.0 y BSD sí.
+   **AGPL-3.0 no** —obliga a publicar el fuente de nuestro servicio a todo el que lo use por red, que es
+   lo contrario de lo que es MaKo—, GPL-3.0 es riesgo real si se enlaza, y **un repo SIN archivo
+   `LICENSE` es «todos los derechos reservados»: no se copia ni una línea.**
+2. **Los términos del proveedor** son *contrato*: habilitan a usar **el dato**. Son otra cosa y no los
+   afloja ninguna licencia.
+
+**Un scraper MIT sigue siendo un scraper.** El caso medido (31/10/2026): el único candidato para
+Competitors Spy que estaba en nuestro stack exacto (`athm793/meta-ads-scraper`, Apache-2.0, Next.js 16)
+maneja un Playwright contra facebook.com, y `facebook.com/robots.txt` es `Disallow: /` para todo agente
+no autorizado, mientras los Automated Data Collection Terms prohíben *«transferring, selling, licensing
+or sublicensing Collected Data… to any third party»* — que es literalmente mostrárselo a un cliente que
+paga. **Se le copió la pantalla y el clasificador; no el camino de datos.** Igual con Instagram: los
+cuatro candidatos open source tienen licencias impecables y los cuatro violan el §4.2 de sus Términos,
+que prohíbe la recolección automatizada *«regardless of whether… while logged-in»* **y** comprar el dato
+raspado a un tercero.
+
+El procedimiento, antes de traer una dependencia o un pedazo de repo que lea algo de afuera:
+
+1. **Abrir el `LICENSE` y leerlo.** El badge de GitHub miente: `NOASSERTION` no significa nada — dos
+   repos marcados así resultaron MIT y BSD-3, y el de `facebookresearch` marcado igual es una licencia
+   propietaria de Meta que ata el uso a sus propias APIs.
+2. **Buscar el ToS del proveedor del dato** —no el del repo— y la regla sobre recolección automatizada.
+   Si exige romperlo, **se dice y se descarta**: no se esconde en una nota al pie, y no se compra el
+   mismo dato a quien lo rompe por nosotros.
+3. **Si la idea sirve y la licencia no**, se escribe de cero y se dice que se escribió de cero. No se
+   mira el código de cerca mientras se escribe.
+4. **La fuente se nombra en el commit**, con su licencia y qué se copió exactamente (igual que el punto
+   4 de la regla de arriba).
+
+Y la consecuencia de producto: **si no hay fuente legal para un dato, el dato no existe en la pantalla.**
+No se estima y se presenta como medido. Ver docs/hallazgos-competitors-spy.md.
+
 # La pantalla dice QUÉ pasó; el PORQUÉ va al código
 
 Pedido tres veces el mismo día y la tercera con todas las letras: **«el mensaje del botón de
