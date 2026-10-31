@@ -29,8 +29,11 @@ Set de PARES: `has('tests/x.test.ts')` da siempre `false`, y `size` sigue dando 
 Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es `sel.tests.has(...)` y `sel.tests.get(...)`.
 
 **Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
-sin juzgar con 0,3 GB libres. Repetidos de a tres, los primeros seis dieron 91 verdes: no eran pesados, les tocó el peor
-momento de la PC. Los otros doce no se repitieron y quedaron para Actions.
+sin juzgar, con un mínimo de 0,3 GB libres: el vigía bajó sus tandas y el veredicto nombra a todos los de la tanda. Repetidos
+de a tres y esperando 2 GB libres, los primeros seis dieron 91 verdes y 0 rojos. No se separó qué lo resolvió, la tanda más
+chica o la PC con más memoria; sí queda medido que esos seis no estaban rotos ni se caían solos. **Regla:** esa lista no es un
+diagnóstico. Antes de darla por perdida, se repite de a poco con RAM libre. Los otros doce se cortaron sin repetir, y los
+juzga Actions.
 
 **Dos migraciones con el mismo número no dan conflicto (31/10/2026).** Creem y Competitors Spy nacieron como `0358` en ramas
 distintas. Los archivos tienen otro nombre, así que git las junta sin decir nada. No rompe la aplicación, que va por archivo (ya
