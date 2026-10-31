@@ -29,7 +29,9 @@ export type SuscripcionVisible = {
   prueba?: { hasta: string } | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar, clienteDeAgencia }: {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar, clienteDeAgencia, gratisHasta }: {
+  /** Los 6 meses gratis (30/10/2026): la fecha en que terminan, ya dicha. */
+  gratisHasta?: string | null;
   /** La cuenta de un cliente de una agencia (29/10/2026): su plan lo maneja la agencia; no ve «Recomienda MaKo». */
   clienteDeAgencia?: boolean;
   plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
@@ -101,7 +103,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
           <span className="aj-plan__icono"><IconoMenu nombre="repetir" size={22} /></span>
           <span className="aj-plan__texto">
             <span className="aj-plan__nombre">{plan}{tono && estado && <Pastilla tono={tono}>{estado}</Pastilla>}</span>
-            <span className="aj-plan__precio">{!suscripcion ? (clienteDeAgencia ? 'Lo maneja tu agencia' : 'Acordado con MaKo') : enPrueba
+            <span className="aj-plan__precio">{!suscripcion ? (clienteDeAgencia ? 'Lo maneja tu agencia' : gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba
               ? <>Prueba gratis hasta el {suscripcion.prueba!.hasta}: ese día se cobra <b>{suscripcion.monto}</b>, y después cada mes.</>
               : <><b>{suscripcion.monto}</b> por mes · {suscripcion.proveedor === 'stripe' ? 'con tarjeta' : 'por Mercado Pago'}</>}</span>
           </span>

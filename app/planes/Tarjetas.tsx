@@ -93,7 +93,7 @@ export const CSS_TARJETAS = `
 .mkpl-bloques:has(#mkpl-p-anual:checked) .mkpl-mes { display: none; }
 .mkpl-bloques:has(#mkpl-p-mes:checked) .mkpl-anual { display: none; }
 .mkpl-pagos { margin: 22px 0 0; text-align: center; color: #4A5260; font-size: 14.5px; }
-.mkpl-gratis { display: inline-block; margin: 0 0 10px; padding: 3px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D;
+.mkpl-gratis { display: inline-block; align-self: flex-start; margin: 0 0 10px; padding: 3px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D;
   font-size: 12.5px; font-weight: 800; letter-spacing: .02em; }
 .mkpl-pagos b { color: #12151B; }
 .mkpl-despues { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: #C4C8D0; }

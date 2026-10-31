@@ -13,6 +13,7 @@ import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace
 import { capaDef } from '@/lib/capas';
 import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
+import { gratisHastaDe } from '@/lib/plan-a-mano';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
@@ -32,12 +33,14 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
   const ws = await getWorkspaceActual();
   // La plataforma no tiene un plan de MaKo (el índice ya no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect('/configuraciones');
-  const [capa, sus, oferta, retencion] = await Promise.all([
+  const [capa, sus, oferta, retencion, gratisHasta] = await Promise.all([
     getCapaActual(),
     ws != null ? suscripcionDeMakoDe(ws).catch(() => null) : Promise.resolve(null),
     ofertaDeRetencion(ws).catch(() => null),
     // Lo que «Tu plan» dice de una oferta aceptada (segunda revisión, R10): «En pausa…», «Con 50%…».
     estadoDeRetencion(ws).catch(() => null),
+    // Los 6 meses gratis (30/10/2026): la persona ve hasta cuándo los tiene, no «Acordado con MaKo».
+    gratisHastaDe(ws).catch(() => null),
   ]);
   // LA PRUEBA GRATIS (25/10/2026): su suscripción todavía no se cobró. Se ve hasta cuándo va, se ofrece «Empezar mi plan
   // ya», y ni «Pasar a Pro» ni la oferta de retención (no hay un mes pagado sobre el que hacerlas).
@@ -65,7 +68,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
       {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}
       <TituloAjustes titulo="Tu plan" />
-      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion}
+      <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} gratisHasta={gratisHasta} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion}
         // El cliente de una AGENCIA (29/10/2026, Thiago: «yo no me meto con ese cliente»): su plan lo maneja su agencia. No ve
         // «Pasar a Pro» ni «Recomienda MaKo».
         subir={deAgencia ? null : subir} porLlamada={deAgencia ? null : porLlamada} clienteDeAgencia={deAgencia}

@@ -81,7 +81,7 @@ export default function Page() {
       </p>
       <ul>
         <li>
-          <strong>«Armado» quiere decir:</strong> tu página de venta publicada, tu CRM con tu embudo, tus mensajes de
+          <strong>«Armado» quiere decir:</strong> tu página de venta publicada, tu tablero de clientes, tus mensajes de
           apertura y de seguimiento cargados, y tu IA conectada. Para eso ponemos hasta {HORAS_SEMANA_1} horas de nuestro
           equipo en la primera semana.
         </li>
@@ -98,7 +98,7 @@ export default function Page() {
         </li>
       </ul>
       <p>
-        Pasada la primera semana con tu embudo armado, las cuotas ya pagadas no se reembolsan, salvo en los casos de la
+        Pasada la primera semana con tu sistema de ventas armado, las cuotas ya pagadas no se reembolsan, salvo en los casos de la
         sección 3.
       </p>
 

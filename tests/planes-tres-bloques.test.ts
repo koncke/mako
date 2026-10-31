@@ -174,11 +174,25 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
   for (const f of filasDeComparacion()) assert.doesNotMatch(`${f.grupo} ${f.que}`, INTERNO, f.que);
 });
 
+// Lo que quedaba (30/10/2026): Leila la sacó de la tabla el 27/10, y las TARJETAS, lo primero que se lee, seguían con «embudo»,
+// «CRM», «media buyer», «setter» y «cohorte». Ahora se mira la pantalla entera, no sólo las filas.
+test('la pantalla entera se entiende sin saber de marketing: tarjetas, promesa, garantía, comparación y preguntas', async () => {
+  const JERGA = /media buyer|\bsetter\b|piloto autom|\bembudos?\b|\bCRM\b|scraper|\bautomatizaci|cohorte|prospecci|workspace|barredora/i;
+  assert.doesNotMatch(await vitrina(), JERGA, '/planes');
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { default: Reembolsos } = await import('../app/reembolsos/page');
+  assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos))), /\bembudos?\b|\bCRM\b/, '/reembolsos dice «armado» con las mismas palabras');
+  // Y lo que se arma la primera semana es lo mismo en la tabla, en la tarjeta y en /reembolsos: sin «anuncios».
+  const semana = filasDeComparacion().find((f) => /primera semana/.test(f.que));
+  assert.ok(semana && !/anuncios/.test(semana.que), semana?.que);
+});
+
 test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos a mano', () => {
   const es = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!.incluye.join(' · ');
   const n = (v: number | null) => (v ?? 0).toLocaleString('es-AR');
-  assert.ok(es.includes(`${n(TOPES.completo['crm.funnels'])} embudo de ventas y hasta ${n(TOPES.completo['crm.leads'])} contactos`), es);
-  assert.ok(es.includes(`Hasta ${n(TOPES.completo['automations.activas'])} automatizaciones de mensajes y ${n(TOPES.completo['web.landings_publicadas'])} páginas de venta`), es);
+  assert.ok(es.includes(`Hasta ${n(TOPES.completo['crm.leads'])} contactos y ${n(TOPES.completo['crm.funnels'])} tablero`), es);
+  assert.ok(es.includes(`Hasta ${n(TOPES.completo['automations.activas'])} seguimientos automáticos y ${n(TOPES.completo['web.landings_publicadas'])} páginas de venta`), es);
   const pro = PLANES_MAKO_DEFAULT.find((x) => x.id === 'pro')!.incluye.join(' · ');
   assert.ok(pro.includes(`Hasta ${n(TOPES.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(TOPES.agencia['equipo.usuarios'])} personas de tu equipo`), pro);
   const lib = fuente('lib/planes-mako.ts');
@@ -215,7 +229,7 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo d
   const { garantia } = PROGRAMA_ACELERADOR;
   assert.ok(garantia);
   assert.match(garantia!, /primera semana/);
-  assert.match(garantia!, /embudo no está armado/);
+  assert.match(garantia!, /sistema de ventas no está armado/);
   assert.doesNotMatch(garantia!, /vend|factur|llamadas|clientes/i, 'no es una garantía de resultado (§6c: recién con datos)');
   assert.ok(PROGRAMA_ACELERADOR.incluye.some((x) => x.includes(`hasta ${HORAS_SEMANA_1} horas`)), 'el entregable, escrito con su tope de horas');
   const t = await vitrina();

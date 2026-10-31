@@ -15,6 +15,7 @@ import { RUTA_CONFIG_M } from '@/lib/movil-rutas';
 import { capaDef } from '@/lib/capas';
 import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
+import { gratisHastaDe } from '@/lib/plan-a-mano';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
@@ -29,7 +30,7 @@ export default async function PlanMovil() {
   const ws = await getWorkspaceActual();
   // La plataforma no tiene un plan de MaKo (el índice no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_CONFIG_M));
-  const [capa, sus] = await Promise.all([getCapaActual(), suscripcionDeMakoDe(ws).catch(() => null)]);
+  const [capa, sus, gratisHasta] = await Promise.all([getCapaActual(), suscripcionDeMakoDe(ws).catch(() => null), gratisHastaDe(ws).catch(() => null)]);
   // LA PRUEBA GRATIS (25/10/2026): hasta cuándo va y «Empezar mi plan ya», como en la computadora.
   const enPrueba = !!sus && esPruebaDePlan(sus) && sus.estado === 'pendiente';
   const hasta = enPrueba ? await inicioDeLaPrueba(sus!).catch(() => null) : null;
@@ -43,7 +44,7 @@ export default async function PlanMovil() {
   return (
     <PantallaM>
       <CabeceraM titulo="Tu plan" />
-      <PlanM plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} />
+      <PlanM plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} gratisHasta={gratisHasta} />
     </PantallaM>
   );
 }

@@ -228,7 +228,7 @@ function Ficha({ f, actividadLeida, onCerrar }: { f: FilaCliente; actividadLeida
     ['Plan', nombreDePlan(f.capa)],
     ['Grupo', grupoTxt(f)],
     ['Configuración', f.onboardingHecho == null ? '—' : f.onboardingHecho ? 'Terminada' : 'Sin terminar'],
-    ['Plata', f.mrrUsd > 0 ? `${usdTxt(f.mrrUsd)} por mes` : f.prueba ? 'En prueba gratis' : 'Plan a mano'],
+    ['Plata', f.mrrUsd > 0 ? `${usdTxt(f.mrrUsd)} por mes` : f.prueba ? 'En prueba gratis' : f.planAManoTxt ?? 'Plan a mano'],
   ];
   if (f.pagoPendiente) filas.push(['Pago', 'Tiene un pago esperando']);
   if (f.sinLeads != null) filas.push(['Último lead', haceTxt(f.sinLeads)]);

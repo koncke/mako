@@ -10,6 +10,8 @@
 // (./Tarjetas.tsx, copiados de ClickFunnels y Kajabi); arriba, en una frase, las dos maneras de trabajar; abajo, la
 // comparación por grupos y sin nombres de tabs, y las preguntas que contesta toda página de precios («¿qué plan me
 // conviene?», como Kajabi).
+// El título vende el EQUIPO, no el software (30/10/2026; docs/como-venden-otros.md §1, la investigación de productos con landing:
+// «Vendé un equipo, no un software»), y dice sólo lo que los tres planes traen. Antes: «Elige cómo quieres crecer con MaKo».
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -75,10 +77,10 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
       <div className="planes-wrap planes-ancho">
         <header className="planes-cabeza">
           <div className="planes-marca">MaKo</div>
-          <h1>Elige cómo quieres crecer con MaKo</h1>
+          <h1>Tu equipo de ventas con IA{Number.isFinite(desde) ? `, desde US$\u00A0${desde.toLocaleString('es-AR')} por mes` : ''}</h1>
           <p className="planes-sub">
-            {Number.isFinite(desde) ? `Úsalo por tu cuenta desde US$ ${desde.toLocaleString('es-AR')} por mes, o deja` : 'Úsalo por tu cuenta, o deja'} que
-            te acompañemos a armar tu embudo y a vender.
+            Tus anuncios, tus mensajes, tus páginas de venta y tus cobros en un solo lugar, con una IA que conoce tu negocio. Lo usas
+            por tu cuenta, o lo armamos contigo.
           </p>
           <p className="planes-alta">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
         </header>
@@ -118,7 +120,7 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
               En la prueba, lo que se crea con IA tiene tope: hasta {TOPES_PRUEBA['prueba.videos']} videos armados,{' '}
               {TOPES_PRUEBA['prueba.avatares']} video con avatar de IA, {TOPES_PRUEBA['prueba.imagenes']} imágenes y{' '}
               {TOPES_PRUEBA['web.landings_publicadas']} página publicada; exportar en masa se habilita con el primer cobro. El resto
-              de MaKo (tu CRM, tus mensajes, tus automatizaciones y tu Plan) anda entero. Si quieres todo antes, empiezas tu plan
+              de MaKo (tus contactos, tus mensajes, tus seguimientos y tus tareas) anda entero. Si quieres todo antes, empiezas tu plan
               cuando quieras.
             </p>
           </details>

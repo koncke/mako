@@ -16,7 +16,7 @@ import { darmeDeBajaAction, empezarPlanYaAction } from '@/app/configuraciones/pl
 import type { SuscripcionVisible } from '@/app/configuraciones/plan/PlanPanel';
 import { FilaM, ListaM, PieM, PildoraM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 
-export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string }) {
+export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: string; suscripcion: SuscripcionVisible; emailMako: string; gratisHasta?: string | null }) {
   const router = useRouter();
   const [preguntar, setPreguntar] = useState(false);
   const [corriendo, setCorriendo] = useState(false);
@@ -51,7 +51,7 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
     <>
       <ListaM>
         <FilaM icono="tag" titulo={plan}
-          segunda={!suscripcion ? 'Acordado con MaKo' : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : `${suscripcion.monto} por mes`}
+          segunda={!suscripcion ? (gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : `${suscripcion.monto} por mes`}
           pill={estado ? <PildoraM tono={estado.tono}>{estado.texto}</PildoraM> : undefined} />
         {enPrueba && puedeDarseDeBaja && (
           <FilaM icono="tag" titulo="Empezar mi plan ya" segunda={`Pagas ${suscripcion!.monto} desde hoy, sin los topes de la prueba.`}

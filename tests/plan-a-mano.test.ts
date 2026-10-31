@@ -49,7 +49,8 @@ test('los 6 meses gratis NO son una prueba: su plan entero mientras duran, y al 
   const uso = sinComentarios(readFileSync(join(RAIZ, 'lib/prueba-uso.ts'), 'utf8').replace(/\r\n/g, '\n'));
   assert.ok(uso.indexOf('if (!llevaTopesDePrueba(p, Date.now())) return nada;') > 0, 'estadoDePrueba no lo da «en prueba» mientras dura');
   const mano = sinComentarios(readFileSync(join(RAIZ, 'lib/plan-a-mano.ts'), 'utf8').replace(/\r\n/g, '\n'));
-  assert.match(mano, /linkCustomers: linkApp\('\/admin', plataforma\), regalo: p\.regalo,/, 'el cron usa el texto de los 6 meses');
+  assert.match(mano, /avisosPlanAManoVencido\(\{ \.\.\.datos, regalo: p\.regalo \}\)/, 'el cron usa el texto de los 6 meses');
+  assert.match(mano, /linkCustomers: linkApp\(RUTA_QUIEREN_ENTRAR, plataforma\)/, 'lleva a Accounts, no a /admin (que redirige a otra pestaña)');
   const ui = sinComentarios(readFileSync(join(RAIZ, 'app/admin/AdminView.tsx'), 'utf8').replace(/\r\n/g, '\n'));
   assert.match(ui, /\{rotuloDeDias\(d\)\}<\/button>/);
 });
@@ -105,13 +106,13 @@ test('al vencer: avisa y marca, y NUNCA pausa (el corte general está apagado: d
   const s = sinComentarios(fuente('lib/plan-a-mano.ts'));
   const v = s.slice(s.indexOf('export async function avisarPlanesAManoVencidos('));
   assert.match(v, /\.from\('app_settings'\)\.select\('workspace_id, value'\)\.eq\('key', CLAVE_PLAN_A_MANO\)/);
-  assert.match(v, /if \(!p \|\| !tocaAvisarPlanAMano\(p, ahoraMs\)\) continue;/);
+  assert.match(v, /if \(!antes && !tocaAvisarPlanAMano\(p, ahoraMs\)\) continue;/);
   assert.ok(v.indexOf('to: duenio') > 0 && v.indexOf('to: EMAIL_MAKO') > 0, 'a la persona y a Martín');
-  assert.ok(v.indexOf('avisadoAt: new Date(ahoraMs).toISOString()') > v.indexOf('to: EMAIL_MAKO'), 'se marca después de avisar');
+  assert.ok(v.indexOf('{ ...p, avisadoAt: marca }') > v.indexOf('to: EMAIL_MAKO'), 'se marca después de avisar');
   // Si el de Martín no salió, NO se marca: se intenta en la próxima vuelta (marcar igual era perder el aviso para siempre).
   const sinMartin = v.indexOf('if (!aMartin.enviado) { errores++;');
   assert.ok(sinMartin > 0 && v.slice(sinMartin, v.indexOf('\n', sinMartin)).includes('continue; }'), 'sin el aviso a Martín, sigue de largo sin marcar');
-  assert.ok(sinMartin < v.indexOf('avisadoAt: new Date(ahoraMs).toISOString()'));
+  assert.ok(sinMartin < v.indexOf('{ ...p, avisadoAt: marca }'));
   assert.doesNotMatch(s, /estado: 'pausado'|actualizarWorkspace|pausar/, 'un plan a mano vencido no pausa a nadie');
   assert.match(fuente('app/api/cron/aviso-fin-de-prueba/route.ts'), /await avisarPlanesAManoVencidos\(/, 'el cron diario de las pruebas lo corre');
 });
@@ -130,7 +131,7 @@ test('ya pagó con su email (`ya_tenia_cuenta`, sin atar): sin topes y sin «Ter
   // Y el aviso al vencer se saltea a quien ya no está en prueba (pagó por la pasarela, o con su email).
   const s = sinComentarios(fuente('lib/plan-a-mano.ts'));
   const v = s.slice(s.indexOf('export async function avisarPlanesAManoVencidos('));
-  const salta = v.indexOf('if (!(await estadoDePrueba(ws)).enPrueba) continue;');
+  const salta = v.indexOf('if (antes ? await pagaSuPlan(ws) : !(await estadoDePrueba(ws)).enPrueba) continue;');
   assert.ok(salta > 0 && salta < v.indexOf('to: duenio'), 'antes de mandar nada');
 });
 

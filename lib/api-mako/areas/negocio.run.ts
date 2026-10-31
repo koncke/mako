@@ -29,6 +29,7 @@ import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { resumenDePrueba } from '@/lib/prueba-uso';
+import { gratisHastaDe } from '@/lib/plan-a-mano';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
@@ -204,10 +205,10 @@ export const RUNNERS: Runners = {
   // El plan de MaKo del negocio (15/10/2026, «Tu plan»): lo que la PLATAFORMA le cobra, leído por `alta_ws`.
   ver_mi_plan: {
     leer: async (_input, ctx) => {
-      const [ws, sus] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws)]);
+      const [ws, sus, gratisHasta] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws), gratisHastaDe(ctx.ws).catch(() => null)]);
       const plan = capaDef(ws?.capa).nombre;
       const donde = linkApp('/configuraciones/plan', ctx.ws);
-      if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
+      if (!sus) return json({ plan, cobro: 'acordado con MaKo', ...(gratisHasta ? { gratis_hasta: gratisHasta } : {}), para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({
         plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
         estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida'

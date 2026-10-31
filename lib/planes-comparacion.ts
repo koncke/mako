@@ -100,7 +100,8 @@ export function filasDeComparacion(): FilaComparacion[] {
     soloPro(equipo, 'Si eres agencia: los negocios de tus clientes'),
     // MaKo Partners, en todos los planes desde el 29/10/2026 (como lo dicen las landings).
     enTodos(recomendar, 'Ganar el primer mes de cada negocio que traes a MaKo'),
-    soloPrograma(acompanamiento, 'Tus páginas, mensajes y anuncios armados en la primera semana'),
+    // Sin «anuncios» (30/10/2026): lo que se arma la primera semana es lo de `PROGRAMA_ACELERADOR.incluye` y /reembolsos §2.
+    soloPrograma(acompanamiento, 'Tu página, mensajes y seguimientos armados la primera semana'),
     soloPrograma(acompanamiento, 'La asesoría grupal en vivo con Martín, cada semana'),
     soloPrograma(acompanamiento, 'Plantillas probadas de páginas, mensajes y guiones'),
     soloPrograma(acompanamiento, 'Un grupo de WhatsApp con respuestas de Martín'),
