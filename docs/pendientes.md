@@ -1,3 +1,100 @@
+# Lo pendiente — capa del 31/10/2026 (LA MÁS NUEVA, y el registro vivo)
+
+<sub>Lo de abajo (24/10 y 17/10) **puede estar hecho**: esta noche se repartieron seis cosas que ya estaban
+terminadas porque nadie las había tachado. **Antes de implementar cualquier punto de este archivo, medílo contra el
+código.** Y si hay un pedido POSTERIOR de Martín que lo contradiga, **manda el posterior**.</sub>
+
+<sub>Martín, 31/10: «Intenta que no se te olvide nada de nada… tu eres el encargado de que no se te olvide nada».
+Este bloque es ese registro. **Cruza tres fuentes**: `pendientes-30-10.md` (el cierre de la cuenta claude3, con la
+llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</sub>
+
+## ⏰ CON FECHA — esto es lo único que no se puede correr
+
+| Cuándo | Qué | Estado |
+|---|---|---|
+| **Lunes 2/11, 12 h (hora de Leila)** | Reunión con Leila. Martín le prometió **los errores resueltos antes** (4.3) para que empiece los tutoriales | Carruseles y el horario de automatizaciones: en el tren. **El segundo nombre: recién arrancado** |
+| **Jueves 5/11, 17 h** | Reunión con Thiago | Las 3 fallas de Agency: **en el tren** |
+| **Black November** (arranca ya) | La campaña de Leila a toda su base | **Bloqueada por el segundo nombre** |
+
+## 🔴 Lo que bloquea una campaña de un cliente — EN MARCHA (CRM, 31/10)
+
+Del `pendientes-30-10.md`, sección 5. Todo esto es de **Leila para Black November**:
+
+- **El segundo nombre** (2.1 · 4.5 · 5.4, **ALTA**). Sus contactos son «[país] Nombre Apellido» («MX Nadia Calderón»),
+  así que hoy el saludo sale **«Hola MX»**. Hace falta elegir primer, segundo, tercer nombre o completo. ⚠️ **Si no se
+  puede determinar, no se inventa**: mejor sin nombre que «Hola Kun».
+- **Segmentar en tres ramas** (5.2): no hicieron la Academia / sí la hicieron / dueños de negocio.
+- **Importar su CRM exportado** de la academia (5.3) — no quiere rehacerlo adentro.
+- **Variantes de mensaje con arranque gradual** (5.8). La lección del número de Mauricio bloqueado 24 h: ~60 mensajes
+  idénticos. Con Automations.
+- **Métricas clicables** (5.11 / 2.3): que «respondieron 8» muestre quiénes.
+- **Ver el nombre como lo agendó ella o como se llama él** (2.2 / 5.5).
+- ⚠️ **La lógica del embudo (5.6) NO es código**: Leila necesita que Martín la ayude a definir condiciones y etiquetas.
+
+## 🟡 En marcha ahora, con dueño (31/10 madrugada)
+
+| Qué | Quién | Estado |
+|---|---|---|
+| El segundo nombre y Black November | CRM | recién arrancado |
+| El WhatsApp en el checkout, junto al nombre y el email | Planes (con Ops Center) | Martín lo pidió el 31/10 y **revierte** mi decisión de pedirlo después de pagar |
+| La pasarela **Creem** (tercera pasarela, LatAm y USD) | nube | la clave de producción ya está y **funciona**; falta el secreto del webhook |
+| **Competitors Spy**: plan y qué repo copiar | nube | arrancado |
+| **El diseño de los dashboards aplicado** (las 8 piezas del Dashboard) | nube | arrancado |
+| El tope del chequeo y por qué 1.028 archivos no ejecutaban | nube | **cerrado**, en el tren |
+
+## 🟢 En el tren, esperando producción (164 commits, `integracion`)
+
+Carruseles (el chat recuerda, pone fotos, arma todas las páginas) · el cartel del Media Buyer que mentía · los datos
+personales de 82 personas · el acceso de Agency con dos dueños y la baja que no se podía terminar · el scraper con
+aviso y confirmación · el homónimo que impedía comprar · los 6 meses avisando 14 días antes · el clic derecho · el
+Video Generator · el 50% del primer mes (apagado hasta que el cobro descuente) · la prueba gratis apagable · Settings ·
+la herramienta del push que decía «rojo» cuando no podía chequear.
+
+## ⚪ SIN DUEÑO todavía — lo que falta construir
+
+1. **Knowledge** (el conocimiento de los cursos para toda MaKo, modular como el Second Brain). *«El análisis quedó
+   pausado; no hay plan ni nada construido.»* **Sin empezar.**
+2. **Lead Magnet Generator** y **las tendencias del nicho**. Hay relevamiento, falta el plan.
+3. **MaKo toma la iniciativa, completo**: el primer ingreso (bienvenida, cargar la oferta, elegir funnel) y las
+   aperturas tab por tab — Offer, Create, CRM, Dashboard, Automations, Web Generator, Calendario, Video, Image,
+   Classroom, AI Avatar y Mobile.
+4. **Plantillas con estructura y «Ver ejemplo»** en todas las tabs (está sólo en Copywriter), **privadas o públicas, con
+   estrellas** (2.5 · 2.6 · 3.7 · 4.8).
+5. **Los patrones de email del Gmail** (70 remitentes, ~5.050 emails) usados de verdad en Copywriter, Newsletter,
+   recordatorios y WhatsApp.
+6. **Video Editor**: la cabecera, Motion, **subtítulos con resaltado y presets por marca** (1.14 · 2.7), **edición
+   automática con B-roll tipo Submagic** (2.15 · 4.9) y **clips mágicos tipo Opus Clip** (2.8).
+7. **El recorrido visual**: 8 de 22 pantallas miradas, 22 problemas sin repartir, 14 pantallas sin mirar.
+8. **Lo de la llamada con Thiago que no existe** (`docs/promesas/2910-llamada-thiago.md`).
+9. **Image Editor sin Gemini** (decidido el 22/10, sigue por defecto).
+10. **Brand board en el Second Brain** (2.9): que MaKo lo pida y lo use en los editores. **De esto depende que los
+    carruseles apliquen la marca completa (1.3).**
+11. **Elementos de marketing en las landings** (2.10, «súper importante»): cuenta regresiva, prueba social, escasez.
+12. **Botones Discutir / Editar siempre** en el chat de edición (2.12 · 4.12).
+13. **Carruseles también en Web Generator** (2.14 · 3.9 · 4.10).
+14. **Strategy / el Estratega** (3.3): hoy sólo Meta Ads.
+15. **Guía de IA por pestaña** (3.6 · 4.17) · **QA automático con Claude** (3.8 · 4.11).
+16. **Conectar GPT desde la computadora** (1.12 · 4.13).
+
+## 🔵 Volvió con fallas — lo retoma quien lo tenga
+
+- **Calendario y Classroom**: 4 fallas en Clientes, una de privacidad. Detrás espera el botón de MaKo que tapa
+  contenido en Calendario, Plan, CRM y Dashboard.
+- **Newsletter**: cualquier admin entra a la tab y a su API; doble envío en «Enviar ahora»; lo programado sale vencido.
+  Hoy sin riesgo porque nadie tiene el email prendido.
+
+## 🟣 Lo que es de Martín (nadie más puede)
+
+- **El secreto del webhook de Mercado Pago** y **el de Creem** (sin eso, un pago aprobado no se asienta).
+- **Cada cuánto se actualiza el precio en pesos** (hoy $73.555 y $151.805, al blue del 31/10).
+- **Si les avisa a Código Inmobiliario y P2P Consulting** por los datos de sus leads.
+- **En qué landing vio los placeholders tapados** (el único de sus 24 puntos que nadie pudo reproducir).
+- **Probar un pago real** antes de publicar anuncios.
+- **La lógica del embudo de Black November** con Leila.
+- **Extraer un grupo** con el scraper en su Chrome, para confirmar la vuelta a MaKo.
+- Generar un look real del AI Avatar · mandarle a Thiago la grabación · el clic de la prueba de Zernio · decidir
+  LinkedIn · **la política de reembolso** (al apagar la prueba gratis, la ley argentina da 10 días de arrepentimiento).
+
 # Lo que quedó pendiente — capa del 24/10/2026 (la más nueva)
 
 <sub>Abajo sigue la foto del 17/10, que no se tocó. **Esta capa es la que vale hoy**: lo de abajo puede estar hecho.
