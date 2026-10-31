@@ -78,6 +78,7 @@ import { ImportarLeadsModal } from './ImportarLeadsModal';
 import { EtapasModal } from './EtapasModal';
 import { TraerDeOtroProducto } from './TraerDeOtroProducto';
 import { TraerDeGrupoWA } from './TraerDeGrupoWA';
+import { ExtraccionModal } from './ExtraccionModal';
 import { CampanasModal } from './CampanasModal';
 import { TipoEtapaModal } from './TipoEtapaModal';
 import { AVISO_SIN_LUGAR, NOMBRE_TIPO_ETAPA, avisoCambioDeTipo, columnaConTipo, tipoDeColumna, type TipoEtapa } from '@/lib/etapa-reunion';
@@ -2008,6 +2009,8 @@ export function CrmBoard({
    * Identidad fija, como `cerrarAlta`.
    */
   const volverAlAlta = useCallback(() => setNuevoLead((n) => (n ? { ...n, traer: false } : n)), []);
+  const cerrarAltaYTraer = useCallback(() => setNuevoLead(null), []);
+  const abrirScraper = useCallback(() => setNuevoLead((n) => (n?.traer === 'grupo' ? n : { etapa: n?.etapa ?? null, traer: 'grupo' })), []);
   /** «Importar» abierto desde «Nuevo lead»: al cerrarlo, el alta sigue ahí (la pila de la casa la vuelve a mostrar). */
   const cerrarImportar = useCallback(() => setImportar(false), []);
   // El pop-up de etapas guarda A CUAL funnel abrió, no un booleano: el lápiz de cada
@@ -3767,6 +3770,8 @@ export function CrmBoard({
           )}
         </Modal>
       )}
+      {/* «Extrayendo…» y su confirmación (30/10/2026, ./ExtraccionModal.tsx): acá y no en el Scraper, para que sobreviva a él. */}
+      <ExtraccionModal funnel={funnelActivo} onVerCrm={cerrarAltaYTraer} onOtroGrupo={abrirScraper} />
       {/* EL TACHO DE UNA FILA. Misma pregunta que la del lote (`preguntaDePapelera`), en singular y nombrando
           al lead. Desde el 28/10/2026 va a la PAPELERA (mig 0340): el aviso trae su «Deshacer», y 30 días
           después se borra para siempre. */}

@@ -17,10 +17,10 @@
 //     con la etiqueta que se llama como el grupo (la que ya existe con ese nombre, o una nueva);
 //   · «Extraer» arranca la extensión EN EL ACTO (a la vista: la pestaña de WhatsApp al frente, el desplegable con el avance)
 //     mientras se crean los leads, y los nombres que encuentra se guardan solos: no hay «Completar nombres»;
-//   · el avance y el final viven en el desplegable de la extensión (lib/wa-fichas-cliente.ts, `avisarExtraccion`); acá, una
-//     línea en el pie.
-// Sirve para VARIOS grupos seguidos: al terminar no se cierra, el grupo se vuelve a leer (los traídos pasan a «Ya está») y se
-// elige el siguiente. Nunca duplica, y el que ya está en el CRM no se vuelve a cargar: va abajo, en gris (24/10/2026).
+//   · el avance y el final van a la extensión (`avisarExtraccion`) y a ./ExtraccionModal.tsx, encima de esto (30/10/2026: «sigue
+//     abierto el modal del scraper previo a darle "extraer" eso hace pensar que nunca se extrajo nada»).
+// Sirve para VARIOS grupos seguidos: al terminar bien, la lista queda para elegir el siguiente; si se cortó, el grupo se relee y
+// se puede volver a tocar «Extraer». Nunca duplica, y el que ya está en el CRM no se vuelve a cargar: va abajo, en gris (24/10/2026).
 // ⚠️ DE A TANDAS (`TANDA_GRUPO`): un grupo llega a 1.024 personas y cada lead son varias escrituras; una acción tiene 60 s.
 
 import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
@@ -28,6 +28,7 @@ import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, etiquetaDeGrupo, fichaLimpia, minutosDeLaPasada, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { guardarFichasEnTandas, type AvanceFichas } from './enriquecer-cliente';
 import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
+import { avanzarExtraccion, empezarExtraccion, resultadoDeExtraccion, terminarExtraccion } from '@/lib/extraccion-estado';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
 import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
@@ -194,7 +195,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
   };
 
   /** Los leads nuevos, de a tandas; lo que una no llegó a traer (cortó por tiempo) vuelve a la cola, adelante. */
-  const traerTandas = async (tels: readonly string[]) => {
+  const traerTandas = async (tels: readonly string[], id: string) => {
     let creados = 0, yaEstaban = 0, hechos = 0;
     const errores: string[] = [];
     let corte = '';
@@ -207,6 +208,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
         .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
       if (!r.ok) { corte = r.error; break; }
       creados += r.creados; yaEstaban += r.yaEstaban; errores.push(...r.errores);
+      avanzarExtraccion(id, { nuevos: creados });
       if (r.sinEtiqueta) sinEtiqueta = r.sinEtiqueta;
       hechos += tanda.length - r.pendientes.length;
       if (r.pendientes.length >= tanda.length) { corte = 'WhatsApp está tardando.'; break; }
@@ -234,6 +236,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
     const pedidos = (gente ?? []).filter((p) => p.enElCrm || vanAEstar.has(p.telefono)).map((p) => ({ telefono: p.telefono, lid: p.lid ?? null }));
     const conExt = extWa === 'si' && pedidos.length > 0;
     setExtrayendo(true);
+    empezarExtraccion({ id, grupo: grupo.nombre, funnel, total: tels.length, parar: () => { parar.current = true; setAvance('Parando…'); } });
     setAvance(conExt ? 'Extrayendo: míralo en la extensión de MaKo…' : `Extrayendo ${miles(tels.length)}…`);
     let t: Awaited<ReturnType<typeof traerTandas>> | null = null;
     let a: AvanceFichas | null = null;
@@ -241,18 +244,20 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
     // Si los perfiles se cortaron (WhatsApp Web ocupado, sin respuesta), se dice: antes quedaba en «0 nombres» sin más.
     let cortePerfiles = '';
     try {
-      const fichasP = conExt ? pedirFichasDeWhatsappWeb(pedidos, { grupos: [grupo.nombre], visible: true, titulo: grupo.nombre, id }) : null;
-      t = tels.length ? await traerTandas(tels) : null;
+      const fichasP = conExt ? pedirFichasDeWhatsappWeb(pedidos, { grupos: [grupo.nombre], visible: true, titulo: grupo.nombre, id, alAvanzar: (texto) => avanzarExtraccion(id, { texto }) }) : null;
+      t = tels.length ? await traerTandas(tels, id) : null;
       if (fichasP) {
         const f = await fichasP;
         if (f.ok) {
           console.info('[wa-fichas]', f.diagnostico);
+          avanzarExtraccion(id, { texto: 'Leyendo los perfiles…' });
           // Y el PERFIL de cada uno (0.73.2): de a tandas, antes de guardar, así se guarda todo junto.
           // «Datos de empresa» (`todosLosPerfiles`): TODOS, en una pasada; un «Extraer», los primeros `TOPE_PERFILES`.
           const pf = await perfilesEnTandas(pedidos, f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x),
             { grupo: grupo.nombre, id, parar: () => parar.current, ...(o?.todosLosPerfiles ? { tope: pedidos.length } : {}) });
           const fichas = pf.fichas;
           if (pf.corte && pf.corte !== 'parado') cortePerfiles = motivoDeFichas(pf.corte);
+          avanzarExtraccion(id, { texto: 'Guardando lo que encontré…' });
           avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
           a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeGrupoAction({ linea, jid, fichas: tanda }), {
             parar: () => parar.current,
@@ -298,10 +303,19 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
         });
       }
       setHecho(titular ? `${resumen}.${cola}` : `«${grupo.nombre}»: ${resumen}.${cola}`);
+      // LA CONFIRMACIÓN (30/10/2026), con los MISMOS números que el pie: cuántos, y cero como cero. Antes del `onTraidos`.
+      const paro = parar.current;
+      terminarExtraccion(id, resultadoDeExtraccion({
+        grupo: grupo.nombre, etapa: entrada.label, etiqueta: t?.sinEtiqueta ? null : etiquetaDeGrupo(grupo.nombre), nuevos: nuevosHechos, nombres,
+        empresas: a?.empresas ?? 0, perfiles: a?.perfiles ?? 0, fallidos: errores.length, parado: paro, soloDatos: soloNombres,
+        motivos: paro ? [] : [corte ? `${corte}${t && t.quedan > 0 ? ` Quedaron ${miles(t.quedan)}: vuelve a tocar «Extraer».` : ''}` : '', fallaWa ? `Los nombres: ${fallaWa}` : '', cortePerfiles ? `Los perfiles: ${cortePerfiles}` : ''],
+      }), nuevosHechos);
       setVerCrm(nuevosHechos > 0 || nombres > 0 || (a?.perfiles ?? 0) > 0);
       setExtrayendo(false); setAvance(null);
       if (nuevosHechos || nombres || (a?.perfiles ?? 0) > 0) onTraidos(resumen);
-      setVuelta((n) => n + 1);
+      // Terminó bien: la lista queda para el grupo siguiente, no igual a como estaba antes de «Extraer». Si se cortó, el mismo grupo.
+      if (!corte && !fallaWa && !cortePerfiles && !paro) { setJid(''); setGente(null); setSel(new Set()); setQ(''); }
+      else setVuelta((n) => n + 1);
     }
   };
   const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(null); void extraer(); });

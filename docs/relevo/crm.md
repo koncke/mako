@@ -11,7 +11,7 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 - **Código Inmobiliario, cerrado.** Los 21 fallos eran avisos al equipo y los 10 borradores, mensajes por aprobar; los 7 borradores vivos de la #241 se descartaron en producción. Causa y lo que quedó sin hacer: hallazgos-chatbot, «MaKo no les escribió a sus leads». No se reenvió nada a propósito.
 - **Los puntos 12 a 21 ya estaban en producción desde el 24 y 25/10.** Se hizo el resto en la rama `crm-instagram-3010` (encima de `0333327b7`): Fiscal, Servicio y Promesa eligen sus datos; Instagram le pregunta a la Meta de la plataforma y pide la foto.
 - **Sin ver en pantalla:** la ✕ y «Datos ▾» de esos tres bloques. El navegador integrado no tiene sesión de MaKo y no había un Chrome conectado.
-- **La foto de Instagram sigue sin llegar:** lo que falta es de Martín (docs/pendientes.md, «Traba a Martín»).
+- **La foto de Instagram sigue sin llegar:** lo que falta es de Martín (se lo pasé a Ops Center para «Traba a Martín»).
 - **Lo que sigue:** Newsletter (ver abajo), cuando Calendario esté en main.
 
 ## 0-Ω31. 30/10/2026 (chat «CRM», cuenta `claude1`): Calendario, Newsletter y el registro de bajas

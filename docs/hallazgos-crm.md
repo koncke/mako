@@ -284,6 +284,26 @@ FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
 - **Sin hacer:** las reuniones ya se parten en bloques (R2, Agendar, Lo que salió), pero la R1 no elige sus datos. Las cuotas
   tampoco, y no conviene tocarlas hasta que entre la rama `crm-cuotas-espera-revision`, que cambia ese bloque.
 
+## «Extraer»: el resultado era una línea en el pie, y el aviso no se perdía (30/10/2026)
+
+**Vive en:** lib/extraccion-estado.ts · app/crm/ExtraccionModal.tsx (lo monta CrmBoard) · app/crm/TraerDeGrupoWA.tsx · extension/background.js
+(`volverAMako`) · tests: extraccion-confirmacion, wa-extraer-072 (13 roturas cazadas).
+
+- **Síntoma.** Martín: «sigue abierto el modal del scraper previo a darle "extraer" eso hace pensar que nunca se extrajo nada».
+- **El diagnóstico obvio («la pantalla no se entera de que terminó») era el equivocado.** Se enteraba: `setHecho` escribía el resultado.
+  Pero en UNA línea del pie, y `setVuelta` releía el mismo grupo: a la vuelta se veía la misma tabla, con el mismo botón. **Regla:** lo que
+  terminó tiene que verse distinto de lo que estaba por empezar. Un modal encima dice cuántos, y al terminar bien la lista queda para elegir otro grupo.
+- **El estado no puede vivir en el modal.** Un clic afuera desmontaba el Scraper y la corrida seguía sin que nada lo dijera. Vive en un módulo,
+  y en `sessionStorage` para sobrevivir a una recarga.
+- ⚠️ **La corrida la maneja LA PÁGINA** (crea los leads, guarda los nombres): una recarga la mata. No se puede preguntar «¿cómo va?» de algo que ya no
+  corre: lo guardado como 'corriendo' se lee como cortado, con los leads que alcanzaron a entrar, y se le avisa a la extensión que deje de andar.
+- **Cero se dice como cero** y un corte nunca sale como éxito aunque algo haya entrado (`resultadoDeExtraccion`).
+- **Un modal que corre no se cierra, se para** (`Modal`: `sinCerrar`). Lo demás sigue la regla de la pila: es OTRO modal encima, y cerrarlo vuelve al Scraper.
+- **Sin ver de punta a punta.** El navegador de la app no tiene la extensión y la línea del Cliente de Prueba está desconectada. Se fotografió el modal real
+  con el estado de verdad (corriendo, con leads, cero y corte) en una maqueta, y el worker se ejecutó con un `chrome` de mentira.
+- ⚠️ **Sin hacer:** cerrar la pestaña de MaKo en plena corrida no deja nada que leer en otra pestaña (`sessionStorage` es de esa pestaña). El registro de la
+  extensión sí la tiene (`extracciones`), pero la pantalla no se lo pregunta.
+
 ## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
 
 **Vive en:** app/crm/CrmBoard.tsx (`volverAlAlta`, `cerrarImportar`) · app/_components/pila-modales.ts · app/crm/MoldeTraer.tsx
