@@ -21,6 +21,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { CAPACIDADES_PASARELA } from '../lib/cobros-tipos';
 import { readFileSync } from 'node:fs';
 import {
   PRECIO_CLIENTE_AGENCIA_DEFAULT, cobrosParaLaAgencia, desdeDelMes, inicioDeRenovacion, sanearPrecioClienteAgencia, unMesDespues,
@@ -96,7 +97,11 @@ test('⚠️ `crearCobro`: el lugar de un cliente lo cobra SÓLO la plataforma, 
   assert.match(c, /if \(p\.paraCliente\) \{\s*if \(ws !== \(await wsSuperAdmin\(\)\)\) return \{ ok: false/);
   // Desde el 27/10/2026 también la prueba de un plan de MaKo por Stripe (tests/planes-stripe-afuera.test.ts); un cliente de
   // agencia no es una prueba de plan, así que con Stripe sigue sin poder diferir.
-  assert.match(c, /if \(inicioAt && \(p\.tipo !== 'suscripcion' \|\| \(p\.pasarela !== 'mercadopago' && !pruebaStripe\)/);
+  assert.match(c, /if \(inicioAt && \(p\.tipo !== 'suscripcion' \|\| \(!capacidades\?\.difiereElPrimerCobro && !pruebaPorDias\)/, 'cualquier cobro podría pedir una fecha futura');
+  // La tabla es la que dice quién sabe diferir: la agencia le pide la fecha sólo a esa, y el resto se abre unos días antes.
+  assert.equal(CAPACIDADES_PASARELA.mercadopago.difiereElPrimerCobro, true);
+  assert.equal(CAPACIDADES_PASARELA.stripe.difiereElPrimerCobro, false);
+  assert.equal(CAPACIDADES_PASARELA.creem.difiereElPrimerCobro, false);
   // Las columnas de la 0308 se mandan sólo en ESE cobro: una base sin la migración no rompe ningún otro.
   assert.match(c, /\.\.\.\(paraCliente \? \{ agencia_ws: paraCliente\.agenciaWs, cliente_ws: paraCliente\.clienteWs \} : \{\}\)/);
   assert.doesNotMatch(fuente('lib/cobros-tipos.ts'), /agencia_ws|cliente_ws|inicio_at/, 'COLS_COBRO sin las columnas de la 0308');
@@ -132,6 +137,7 @@ test('la renovación nace del cron al terminar el onboarding, con su inicio, y e
   assert.match(s, /if \(estado\.status !== 'done'\) continue;/);
   // Desde el 29/10/2026: MP difiere el primer cobro (`start_date`); Stripe no, y se abre unos días antes (lib/agencia-cobro.ts).
   assert.match(s, /const inicio = inicioDeRenovacion\(desde, Date\.now\(\)\);/);
-  assert.match(s, /\.\.\.\(f\.proveedor === 'mercadopago' \? \{ inicioAt: inicio \} : \{\}\)/);
+  assert.match(s, /\.\.\.\(CAPACIDADES_PASARELA\[f\.proveedor\]\.difiereElPrimerCobro \? \{ inicioAt: inicio \} : \{\}\)/, 'la renovación tiene que llevar su inicio donde la pasarela lo acepta');
+  assert.match(s, /!CAPACIDADES_PASARELA\[f\.proveedor\]\.difiereElPrimerCobro && !abreRenovacionStripe\(/, 'la que cobra al pagar se abriría un mes antes');
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /agencia = await renovacionesDeAgencia\(\)\.catch\(\(e\) => \(\{ error: msg\(e\) \}\)\);/);
 });

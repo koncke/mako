@@ -22,7 +22,8 @@ import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { activarPruebaSiAutorizo, getCobroPorToken, inicioDeLaPrueba } from '@/lib/cobros';
-import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_TARJETA } from '@/lib/prueba-plan-reglas';
+import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_EMAIL, TEXTO_PRUEBA_USADA_TARJETA } from '@/lib/prueba-plan-reglas';
+import { CAPACIDADES_PASARELA } from '@/lib/cobros-tipos';
 import { emailEnmascarado, mailDeAccesoNoSalio } from '@/lib/cobros-reglas';
 import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
@@ -151,7 +152,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
     const plan = /^planes:([a-z0-9-]{1,32}):prueba$/.exec(c.creado_por ?? '')?.[1];
     return (
       <Tarjeta negocio={negocio} titulo="Ya usaste tu prueba gratis">
-        <p>{TEXTO_PRUEBA_USADA_TARJETA}</p>
+        <p>{CAPACIDADES_PASARELA[c.proveedor].huellaDeTarjeta ? TEXTO_PRUEBA_USADA_TARJETA : TEXTO_PRUEBA_USADA_EMAIL}</p>
         {plan && <a className="pagar-btn" href={`/planes/${plan}?sinPrueba=1`}>Empezar sin prueba</a>}
       </Tarjeta>
     );

@@ -160,7 +160,11 @@ test('la ACTIVACIÓN: sólo autorizada y de la cuenta de MaKo; una huella repeti
   // Mercado Pago: autorizada, cobrada por la cuenta de MaKo y de ESTE cobro (`pruebaAutorizadaMp`).
   assert.match(cuerpo('lib/cobros.ts', 'pruebaAutorizadaMp'), /if \(!s\.ok \|\| s\.estado !== 'authorized' \|\| s\.cobradorId !== mp\.userId \|\| s\.referencia !== c\.token\) return null;/);
   assert.match(cuerpo('lib/cobros.ts', 'pruebaAutorizadaMp'), /cancelar: \(\) => cancelarSuscripcionMp\(mp\.token, s\.id, idemBaja\(c\.id\)\)/);
-  assert.match(f, /const s = c\.proveedor === 'stripe' \? await pruebaAutorizadaStripe\(c, plataforma\) : await pruebaAutorizadaMp\(c, plataforma\);\n\s*if \(!s\) return null;/);
+  // Cada pasarela contesta por lo suyo (la prueba de Creem se le preguntaba a Mercado Pago), y sin autorización no sigue nada.
+  assert.match(f, /const s = await pruebaAutorizada\(c, plataforma\);\n\s*if \(!s\) return null;/, 'una prueba sin autorizar entregaría la cuenta');
+  const quien = cuerpo('lib/cobros.ts', 'pruebaAutorizada');
+  assert.match(quien, /case 'mercadopago': return pruebaAutorizadaMp\(c, plataforma\);/);
+  assert.match(quien, /const _x: never = c\.proveedor;/, 'sin el `never`, la pasarela siguiente vuelve a caer en la de otra');
   const corte = f.indexOf('const corte = await s.cancelar();');
   const anula = f.indexOf("estado: 'anulado', suscripcion_estado: 'cancelada'");
   assert.ok(corte > 0 && anula > corte, 'primero se corta el cobro en la pasarela; si no, el día 8 cobraría una prueba anulada');
@@ -178,7 +182,8 @@ test('la PÁGINA DE VUELTA: «Tu prueba gratis empezó» con el día del cobro; 
   const p = fuente('app/pagar/[token]/listo/page.tsx');
   assert.match(p, /titulo="Tu prueba gratis empezó"/);
   assert.match(p, /No se te cobró nada\./);
-  assert.match(p, /<p>\{TEXTO_PRUEBA_USADA_TARJETA\}<\/p>/);
+  // Se dice por qué, y «esa tarjeta» sólo si la pasarela de verdad la reconoce (Creem no: va por email).
+  assert.match(p, /huellaDeTarjeta \? TEXTO_PRUEBA_USADA_TARJETA : TEXTO_PRUEBA_USADA_EMAIL/);
   assert.match(p, /href=\{`\/planes\/\$\{plan\}\?sinPrueba=1`\}>Empezar sin prueba<\/a>/);
   assert.match(fuente('app/planes/[plan]/page.tsx'), /sinPrueba=\{uno\('sinPrueba'\) === '1' \|\| !PRUEBA_GRATIS_PRENDIDA\}/);
 });

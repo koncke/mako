@@ -55,12 +55,39 @@ export type CapacidadesPasarela = {
    * Stripe, con tres son dos, y con cuatro no se sabe (31/10/2026).
    */
   soloEnSuPais: boolean;
+  /**
+   * El `proveedor_ref` del cobro ES la suscripción. En Mercado Pago sí (el preapproval), y a veces el aviso ni llena
+   * `proveedor_suscripcion_id`. En Stripe y Creem el ref es el CHECKOUT: pedirle algo con ese id a la suscripción da 404.
+   * Se lee con `idDeSuscripcion`, nunca con un ternario por nombre.
+   */
+  suRefEsLaSuscripcion: boolean;
+  /**
+   * Una oferta de retención termina sola en la pasarela: el cupón `repeating` y el `resumes_at` de Stripe. false = MaKo la
+   * tiene que deshacer con el cron (`conciliarRetenciones`, lib/retencion-plan.ts): el monto vuelve y la pausa se reanuda.
+   */
+  ofertaVuelveSola: boolean;
+  /** Al subir de plan cobra la diferencia EN EL ACTO. false = el precio nuevo recién desde el próximo período. */
+  subidaCobraLaDiferencia: boolean;
+  /** Sabe cobrar un plan anual. MaKo arma los de Mercado Pago y Creem siempre por mes. */
+  cobraAnual: boolean;
+  /**
+   * Dice QUÉ TARJETA autorizó una prueba. ⚠️ Creem no: ni la suscripción, ni el cliente, ni la transacción traen una huella o
+   * un id de tarjeta (leído del OpenAPI, 31/10/2026). Lo más que da es el `customer.id`, que va por email: con otro email,
+   * la misma tarjeta pasa. Lo dice bien `TEXTO_PRUEBA_USADA`, y no se le promete al cliente lo que no se puede ver.
+   */
+  huellaDeTarjeta: boolean;
+  /**
+   * Un link anulado se puede cerrar en la pasarela. Creem no: su checkout no vence y no hay endpoint para expirarlo, así que
+   * uno anulado se puede pagar igual, y si es de una suscripción MaKo la corta al entrar el pago.
+   */
+  cierraElCheckout: boolean;
 };
 
 export const CAPACIDADES_PASARELA: Readonly<Record<Pasarela, CapacidadesPasarela>> = {
   stripe: {
     monedaFija: 'USD', emailParaSuscripcion: false, difiereElPrimerCobro: false, pruebaConTarjeta: true,
     descuentoDeUnCiclo: true, bajaAlFinDelPeriodo: true, merchantOfRecord: false, soloEnSuPais: false,
+    suRefEsLaSuscripcion: false, ofertaVuelveSola: true, subidaCobraLaDiferencia: true, cobraAnual: true, huellaDeTarjeta: true, cierraElCheckout: true,
   },
   mercadopago: {
     // Mercado Pago cobra en la moneda del sitio de SU cuenta (ARS, MXN…): hay que preguntarle cuál es.
@@ -68,6 +95,7 @@ export const CAPACIDADES_PASARELA: Readonly<Record<Pasarela, CapacidadesPasarela
     descuentoDeUnCiclo: false, bajaAlFinDelPeriodo: false, merchantOfRecord: false,
     // Le cobra SÓLO a quien está en el país de su cuenta: al de afuera le contesta «la cuenta del vendedor es de otro país».
     soloEnSuPais: true,
+    suRefEsLaSuscripcion: true, ofertaVuelveSola: false, subidaCobraLaDiferencia: false, cobraAnual: false, huellaDeTarjeta: true, cierraElCheckout: true,
   },
   creem: {
     // Creem fija el precio del producto en USD o EUR (enum cerrado del OpenAPI). MaKo cobra en USD.
@@ -86,8 +114,23 @@ export const CAPACIDADES_PASARELA: Readonly<Record<Pasarela, CapacidadesPasarela
     merchantOfRecord: true,
     // Cobra en todo el mundo (es justamente lo que lo hace la pasarela de LatAm): no está atada al país del vendedor.
     soloEnSuPais: false,
+    suRefEsLaSuscripcion: false,
+    // No hay `resumes_at` ni descuento sobre una suscripción abierta: el cron reanuda y devuelve el precio.
+    ofertaVuelveSola: false,
+    // `/upgrade` con `proration-charge-immediately`.
+    subidaCobraLaDiferencia: true,
+    cobraAnual: false,
+    huellaDeTarjeta: false,
+    cierraElCheckout: false,
   },
 };
+
+/** El id de la suscripción de un cobro en su pasarela. null = ese cobro todavía no tiene una. */
+export const idDeSuscripcion = (c: { proveedor: Pasarela; proveedor_suscripcion_id: string | null; proveedor_ref: string | null }): string | null =>
+  c.proveedor_suscripcion_id ?? (CAPACIDADES_PASARELA[c.proveedor].suRefEsLaSuscripcion ? c.proveedor_ref : null);
+
+/** Cómo se paga, en la línea de «Tu plan». */
+export const COMO_SE_PAGA: Readonly<Record<Pasarela, string>> = { stripe: 'con tarjeta', mercadopago: 'por Mercado Pago', creem: 'con tarjeta' };
 
 /** La comisión de cada pasarela, para mostrar el costo REAL de un ticket (nunca sólo el porcentaje). */
 export const COMISION_PASARELA: Readonly<Record<Pasarela, { pct: number; fijoUsd: number } | null>> = {

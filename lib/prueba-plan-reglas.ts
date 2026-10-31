@@ -81,9 +81,25 @@ export function huellaStripe(huella: string | null | undefined): string | null {
   return huella && /^[A-Za-z0-9]{1,64}$/.test(huella) ? `st:-|card:${huella}` : null;
 }
 
+/**
+ * La HUELLA en Creem (31/10/2026): su `customer.id`, porque es lo único que hay. ⚠️ NO reconoce la TARJETA: ningún objeto de
+ * Creem la trae, y el cliente va por email. Corta a quien repite con el mismo email en Creem, aunque en MaKo haya escrito otro;
+ * con otro email también en Creem, la misma tarjeta pasa.
+ */
+export function huellaCreem(clienteId: string | null | undefined): string | null {
+  return clienteId && /^[A-Za-z0-9_-]{1,64}$/.test(clienteId) ? `cr:${clienteId}|card:-` : null;
+}
+
+/**
+ * ¿Esta transacción de Creem es un cobro de ESTE cobro? En una prueba, una en cero no lo es: su doc no dice si el arranque
+ * deja una, y Stripe sí deja la factura en cero (`primerCobroDeLaPrueba`). Asentarla pasaría la prueba a «pagado» sin plata.
+ */
+export const transaccionQueCobra = (c: { tipo: string; alta_capa?: string | null; creado_por?: string | null }, x: { estado: string | null; monto: number | null }): boolean =>
+  x.estado === 'paid' && (!esPruebaDePlan(c) || (x.monto ?? 0) > 0);
+
 /** Las partes de una huella (lo que se compara). */
 export function partesDeHuella(h: string | null | undefined): { cuenta: string | null; tarjeta: string | null } {
-  const m = /^(?:mp|st):([^|]+)\|card:(.+)$/.exec(h ?? '');
+  const m = /^(?:mp|st|cr):([^|]+)\|card:(.+)$/.exec(h ?? '');
   if (!m) return { cuenta: null, tarjeta: null };
   return { cuenta: m[1] === '-' ? null : m[1], tarjeta: m[2] === '-' ? null : m[2] };
 }

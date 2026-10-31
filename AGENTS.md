@@ -4115,6 +4115,13 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   → ya pagado», escrita para la prueba de Stripe, dejó en un bucle a un OXXO o SEPA que FALLÓ (también `complete`, pero `unpaid`).
   Antes de generalizarla, listar qué estados llegan (`paid`, `no_payment_required`, `unpaid` × cobro pendiente o fallido) y
   decidir cada uno ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Una guarda nueva que vale para TODO cobro…»).
+- **Una diferencia entre pasarelas se contesta por CAPACIDAD (`CAPACIDADES_PASARELA`, lib/cobros-tipos.ts), no por nombre**
+  (31/10/2026): nunca un `else` después de preguntar por una, ni `!== 'mercadopago'` que quiere decir «la otra». Con dos, el `else`
+  era correcto; con tres, Creem le pedía sus cobros a Mercado Pago sin un error. ⚠️ Ensanchar el tipo a `Pasarela` calla al compilador
+  y deja el bug. Las copias se buscan por el VALOR (`'stripe'`, `['stripe', 'mercadopago']`): el compilador no ve un literal.
+  ⚠️ **Y el doble de un proveedor se arma leyendo su OpenAPI campo por campo**: los centavos, un `created_at` numérico y un parámetro
+  que no existe estaban AFIRMADOS en el test de Creem, y un error de lectura da verde dos veces
+  ([docs/hallazgos-planes-y-cobro.md](docs/hallazgos-planes-y-cobro.md), «El barrido del 31/10»).
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada

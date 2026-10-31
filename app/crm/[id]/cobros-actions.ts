@@ -37,7 +37,7 @@ import {
 import { leerCuentaStripe } from '@/lib/stripe-api';
 import { leerCuentaMp } from '@/lib/mercadopago-api';
 import { normalizarMoneda } from '@/lib/pasarela-moneda';
-import { esPasarela, type Cobro, type CobroVisible, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
+import { CAPACIDADES_PASARELA, esPasarela, PASARELAS, type Cobro, type CobroVisible, type Pasarela, type TipoCobro } from '@/lib/cobros-tipos';
 import { exigirSesion } from '@/lib/sesion-accion';
 
 // La mutación ya ocurrió: si la invalidación fallara, la caché vence sola por su TTL (molde de
@@ -122,7 +122,7 @@ export async function opcionesCobroAction(leadId: number): Promise<OpcionesCobro
     const cobran = cuentas.filter((c) => c.conectada).map((c) => ({ id: c.id, proveedor: c.proveedor, nombre: c.nombre }));
     return {
       ok: true,
-      pasarelas: (['stripe', 'mercadopago'] as const).filter((p) => cobran.some((c) => c.proveedor === p)),
+      pasarelas: PASARELAS.filter((p) => cobran.some((c) => c.proveedor === p)),
       cuentas: cobran,
       esAdmin,
       productos: productos.map((p) => ({
@@ -153,14 +153,24 @@ export async function monedasCobroAction(): Promise<MonedasCobro> {
   if (!ctx) return {};
   const cuentas = (await cuentasDePago(ctx.ws).catch(() => [])).filter((c) => c.conectada);
   const leidas = await Promise.all(cuentas.map(async (c): Promise<string | null> => {
-    if (c.proveedor === 'stripe') {
-      const s = await credStripeDe(ctx.ws, c.cuenta).catch(() => null);
-      const r = s ? await leerCuentaStripe(s.key).catch(() => null) : null;
-      return r && r.ok ? normalizarMoneda(r.moneda) : null;
+    switch (c.proveedor) {
+      case 'stripe': {
+        const s = await credStripeDe(ctx.ws, c.cuenta).catch(() => null);
+        const r = s ? await leerCuentaStripe(s.key).catch(() => null) : null;
+        return r && r.ok ? normalizarMoneda(r.moneda) : null;
+      }
+      case 'mercadopago': {
+        const m = await credMpDe(ctx.ws, c.cuenta).catch(() => null);
+        const r = m ? await leerCuentaMp(m.token).catch(() => null) : null;
+        return r && r.ok ? normalizarMoneda(r.moneda) : null;
+      }
+      // Creem no tiene un «leer la cuenta», y su moneda la pone MaKo. Por el `else` se le leía la de la Mercado Pago del negocio.
+      case 'creem': return CAPACIDADES_PASARELA.creem.monedaFija;
+      default: {
+        const _x: never = c.proveedor;
+        return _x;
+      }
     }
-    const m = await credMpDe(ctx.ws, c.cuenta).catch(() => null);
-    const r = m ? await leerCuentaMp(m.token).catch(() => null) : null;
-    return r && r.ok ? normalizarMoneda(r.moneda) : null;
   }));
   const out: MonedasCobro = { cuentas: {} };
   cuentas.forEach((c, i) => {
