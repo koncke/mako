@@ -6373,6 +6373,48 @@ reunión y ver lo que sacó se queda esperando para siempre»*.
   cerrás.** Un spinner mudo durante minutos es indistinguible de algo colgado, y la persona
   cierra sin saber si perdió lo que estaba haciendo.
 
+# Lo medido y lo supuesto no se dibujan igual, y el punteado significa UNA sola cosa
+
+Ya está decidido que **lo que no se puede medir no se estima** (el campo queda en `null`,
+nunca un cero, nunca un «falta»). Lo que faltaba es la otra mitad: **cómo se ve** un número
+supuesto cuando sí decidimos mostrarlo. Hoy un pronóstico y una medición se dibujan igual.
+
+Mirando 114 tableros ajenos (31/10/2026, `docs/diseno-dashboards-codeandchill.md`) apareció
+el riesgo concreto: tres de esas demos usan **la misma línea punteada** para tres cosas
+distintas — un umbral, otro período y otra unidad. Con 46 tipos de gráfico que el usuario
+mezcla en una misma hoja, eso sería ilegible.
+
+**El vocabulario, y es uno solo para toda la app:**
+
+| Recurso | Significa |
+|---|---|
+| Relleno o línea **sólida** | **Medido.** Pasó y lo leímos |
+| Relleno **rayado en diagonal** / trazo **punteado** | **No medido.** Proyectado, comprometido o estimado |
+| **Contorno sin relleno** | **Un hueco que todavía no pasó** (las horas de hoy que aún no corrieron) |
+| **Tono más claro del mismo color** | **Otro período** (el año pasado, el mes anterior) |
+| **Línea fina de 1 px con rótulo** | **Un umbral o una meta** (la cuota, el tope de gasto) |
+
+Cubre los cinco casos sin que ninguno pise a otro. Y es el mismo vocabulario que ya pide la
+regla de la barra recortada al 100 %: «que se vea que está cortada».
+
+# Un contador interpola entre dos valores REALES, o salta
+
+Nueve de los 26 tableros que se miraron a fondo el 31/10/2026 tienen el mismo defecto, y es
+de los que se heredan sin darse cuenta: un número que cuenta pasa por valores que nunca
+existieron. Uno pasa por `+£143.170` camino a `−£18.319` (**cambia de signo en vuelo**); otro
+muestra `£764.087` como total de 7 días; otro muestra `92` mientras el titular de la misma
+pantalla dice `109`. Y varios **cuentan desde cero al montar**: si ese día falla la lectura,
+el usuario ve un cero creíble y nadie se entera.
+
+**La regla: un número sólo cuenta entre dos valores reales y comparables, y sólo cuando el
+cambio lo causó la persona.** Nunca desde cero al montar — para eso está el esqueleto, y «no
+pude leer» es un estado propio que se dice. Si los dos valores no son comparables (otro orden
+de magnitud, otro signo, otra unidad), **el número salta**.
+
+Corolario que vale para cualquier control: **un número no se anima mientras la persona
+sostiene el control que lo cambia.** Se reemplaza. La animación es para una transición que el
+sistema decidió, no para un deslizador que alguien está arrastrando.
+
 # Un color de acento dice algo, y puede decir lo contrario
 
 `tono="bad"` pinta de rojo la barra DESTACADA. Si lo que se destaca es «el único canal
