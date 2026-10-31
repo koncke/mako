@@ -27,6 +27,7 @@ habilita a darle mejores prompts al otro Claude».
 - **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
 - **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 - **El paso «Tipos» de Actions murió por MEMORIA (exit 134, 21/10) y en GitHub se ve igual que un error de tipos** — y «subí el tope» ya se había hecho cuatro veces en una semana (2.048 → 5.120): el programa pasó de >4,1 a >5,1 GB en siete días. El paso ahora dice SIN MEMORIA / ERRORES DE TIPOS, y deja la memoria viva real en cada run → [El paso «Tipos» se quedó sin memoria](#el-paso-tipos-de-actions-se-quedó-sin-memoria-exit-134-en-github-se-ve-igual-que-un-error-de-tipos-y-subí-el-tope-ya-se-hizo-cuatro-veces-en-una-semana-21102026).
+- **El veredicto del push dijo «495 archivos rojos» y ese grupo había corrido CERO tests (30/10)**: el grupo compartido salió «495 archivos · **0 tests** · ROJO» en 25 min y la corrida entera marcó «RAM libre mínima **0,7 GB**». Un proceso que muere sin ejecutar un test no es un rojo del código, pero el veredicto lo escribe con la misma palabra y con una lista de 495 nombres de archivo, que es lo más parecido a una catástrofe que uno puede leer a la medianoche → [El veredicto dijo «rojo» y el grupo había corrido cero tests](#el-veredicto-dijo-rojo-y-el-grupo-había-corrido-cero-tests-30102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -37,6 +38,67 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
 
 ---
+
+
+## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
+
+**El síntoma.** El push del tren de 91 commits a `integracion` se bloqueó después de 52 minutos con:
+
+```
+ROJO: tests: accion-invitar-curso.test.ts, adjuntos-chats-de-texto.test.ts, admin-view-props.test.ts,
+ads-manager-credenciales.test.ts, agenda-cerca.test.ts, agenda-evento-etapa.test.ts…
+  ✖ PUSH BLOQUEADO: antes-de-subir dio ROJO.
+```
+
+Una lista alfabética que arranca en la «a» y sigue. Leído así, parece que el tren rompió media app.
+
+**Lo que decía el log doce líneas más arriba:**
+
+```
+grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s
+  ↻ 495 archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso
+  ✖ 6143 tests de 1143 archivos · 49 min 55 s · RAM libre mínima 0.7 GB
+```
+
+**`0 tests`.** El proceso compartido estuvo 25 minutos y no ejecutó un solo test: murió antes. Eso no es
+un rojo del código, es el contrato de salida **99** («no se pudo chequear») escrito con la palabra de 1
+(«rojo»). El script ya distingue los dos casos —su encabezado dice «0 verde · 1 rojo · 99 no corrió por
+falta de RAM (no es un rojo)»— y el hook también; lo que falta es que un grupo que termina con **cero
+tests corridos** se clasifique como 99 en vez de contar sus 495 archivos como rojos.
+
+**La causa real, y es de orquestación, no del script.** La RAM mínima fue 0,7 GB. El Cerebro despertó
+cinco chats a la vez **mientras el tren corría las barredoras**, y cada chat abierto pesa ~0,7 GB. La
+máquina pasó de 2,3 GB libres a 0,7 y el grupo compartido se quedó sin aire. Es la segunda vez que la
+misma estampida mata la misma fase.
+
+**Lo que NO se puede concluir, y acá me apuré.** Al repetirlos aislados **sí corrieron 6.143 tests de
+1.143 archivos**, así que no todos murieron: entre los 495 del veredicto final puede haber rojos reales.
+El log del detalle (`%TEMP%/antes-de-subir-xxxxx/compartido-aislado.log`) **se borra al terminar**, así que
+cuando el veredicto llega ya no se puede separar al caído por memoria del roto de verdad. Dije «no era
+código roto» con la evidencia del grupo compartido y eso cubría 0 de los 495, no los 495.
+
+**Reglas que quedan:**
+
+- **«0 tests · ROJO» no es un rojo del código.** Antes de salir a arreglar un lote de barredoras rojas,
+  leé cuántos tests corrieron y la RAM mínima de la corrida. Las dos están en el log, arriba del veredicto.
+- **El veredicto final no alcanza para decidir**, porque llega con el log del detalle ya borrado. Si vas
+  a necesitar ese detalle, corré con `TEMP`/`TMP` apuntando a una carpeta propia (ya está documentado más
+  abajo, por otro motivo: la carpeta de `os.tmpdir()` desaparecía a mitad de la corrida).
+- **No se despiertan chats mientras un tren corre su fase pesada.** El turno de la máquina se reparte con
+  `scripts/candado-pesado.mjs` (`tomarTurno`), que da de a uno y suelta el lugar si no hay memoria. El
+  Cerebro les había dicho a los cinco chats «esperá mi aviso de RAM» sin saber que esa fila ya existía.
+- **Cuando la PC no da, el chequeo pesado va a Actions**: `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin
+  <rama>:integracion`. Las guardas siguen corriendo y Actions corre el completo. No es `--no-verify`. Con
+  presupuesto de Actions disponible, gastar un run es más barato que una hora de máquina trabada.
+- **Y el exit code hay que leerlo del comando, no del envoltorio.** El push corrió en segundo plano dentro
+  de un script que terminó con 0; el `RC_DEL_PUSH=1` que se guardó aparte fue lo único que delató que el
+  push estaba bloqueado. Sin esa línea, el tren se habría dado por subido. El molde es
+  `cmd > archivo 2>&1; rc=$?`, nunca `cmd | tail && siguiente`.
+
+**Lo que quedó sin hacer:** que `scripts/antes-de-subir.mjs` devuelva **99** cuando un grupo compartido
+termina con cero tests corridos (hoy devuelve 1 y bloquea el push), y que el veredicto diga la RAM mínima
+en la misma línea del ROJO, para no tener que subir doce líneas en el log para saber si hay que creerle.
+
 
 ## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
 
