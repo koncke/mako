@@ -42,7 +42,7 @@ import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
-import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
 import { lugarSeccion } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
@@ -231,7 +231,7 @@ export const RUNNERS: Runners = {
       if (esBajaPedida(sus.motivo)) return { error: sus.motivo ?? 'La baja ya estaba pedida.', yaEstaba: true };
       const como = esPruebaDePlan(sus) && sus.estado === 'pendiente'
         ? 'Está en su prueba gratis: no se le cobra nada, y sigue usando MaKo hasta el día que iba a cobrarse.'
-        : sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
+        : CAPACIDADES_PASARELA[sus.proveedor].bajaAlFinDelPeriodo ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : `${NOMBRE_PASARELA[sus.proveedor]} deja de cobrarlo en el acto.`;
       return { payload: {}, resumen: `Dar de baja el plan de MaKo (${formatoMonto(sus.monto, sus.moneda)} por mes, por ${NOMBRE_PASARELA[sus.proveedor]}). ${como}` };
     }),
     ejecutar: sinLanzar(async (_payload, ctx) => {

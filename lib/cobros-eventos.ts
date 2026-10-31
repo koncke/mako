@@ -69,7 +69,7 @@ export type ResultadoEvento = { estado: 'procesado' | 'ignorado'; motivo: string
  */
 export function motivoSinDatos(s: string | null | undefined): string {
   return String(s ?? '')
-    .replace(/\b(?:sk|rk|pk|whsec)_[A-Za-z0-9_*]+/g, '[clave]')
+    .replace(/\b(?:sk|rk|pk|whsec|creem)_[A-Za-z0-9_*-]+/g, '[clave]')
     .replace(/\b(?:APP_USR|TEST)-[A-Za-z0-9-]+/g, '[token]')
     .replace(/[^\s@()<>"',;:]+@[^\s@()<>"',;:]+\.[A-Za-z]{2,}/g, '[email]')
     .replace(/\+?\d(?:[\s.-]?\d){8,}/g, '[número]')
@@ -509,7 +509,7 @@ export function eventoCreem(cuerpo: unknown): EventoCreem | null {
 /** Qué hacer con un evento de Creem. `leer` dice qué releer antes de aplicar: nunca se confía en el cuerpo. */
 export type AvisoCreem =
   | { accion: 'ignorar'; motivo: string }
-  | { accion: 'aprobado' | 'fallido' | 'cancelada' | 'reembolso' | 'disputa'; suscripcionId: string | null; checkoutId: string | null; token: string | null };
+  | { accion: 'aprobado' | 'fallido' | 'cancelada' | 'reembolso' | 'disputa'; suscripcionId: string | null; checkoutId: string | null; token: string | null; pagoId: string | null };
 
 /**
  * Qué significa cada evento de Creem. Decide SIN red (puro, con test).
@@ -534,10 +534,16 @@ export function avisoCreem(ev: EventoCreem): AvisoCreem {
   // En un evento de suscripción el objeto ES la suscripción; en uno de checkout, la trae adentro.
   const esSuscripcion = ev.tipo.startsWith('subscription.');
   const suscripcionId = esSuscripcion ? str(o.id) : (str(sus.id) ?? str(o.subscription));
-  const checkoutId = ev.tipo === 'checkout.completed' ? str(o.id) : null;
+  // ⚠️ UN REEMBOLSO O UNA DISPUTA NO TRAEN `metadata` NI `request_id` ARRIBA (`RefundEntity`, `DisputeEntity`): están en su `checkout`,
+  // y sólo `transaction` es obligatorio. Sin mirar ahí, el de un pago ÚNICO no encontraba su cobro y se ignoraba con 200, y a
+  // quien devolvía se le había prometido que MaKo lo registraba solo.
+  const esDePlata = ev.tipo === 'refund.created' || ev.tipo === 'dispute.created';
+  const ch = obj(o.checkout);
+  const checkoutId = ev.tipo === 'checkout.completed' ? str(o.id) : esDePlata ? (str(ch.id) ?? str(o.checkout)) : null;
   // El token del cobro de MaKo viaja por los dos caminos que le pusimos al abrir el checkout.
-  const token = str(obj(o.metadata).mako_cobro) ?? str(o.request_id);
-  const base = { suscripcionId, checkoutId, token };
+  const token = str(obj(o.metadata).mako_cobro) ?? str(o.request_id) ?? str(obj(ch.metadata).mako_cobro) ?? str(ch.request_id);
+  const pagoId = esDePlata ? (str(obj(o.transaction).id) ?? str(o.transaction)) : null;
+  const base = { suscripcionId, checkoutId, token, pagoId };
   switch (ev.tipo) {
     case 'subscription.paid':
       return { accion: 'aprobado', ...base };

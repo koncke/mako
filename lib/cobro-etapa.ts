@@ -12,7 +12,7 @@
 // (tests/cobro-etapa.test.ts).
 // =============================================================================
 
-import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
+import { esPasarela, NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
 
 /**
  * ⚠️ DERIVADO DE `Pasarela`, no copiado (31/10/2026). Era `'stripe' | 'mercadopago'` escrito a mano, una de las CINCO
@@ -77,7 +77,7 @@ export function proveedorDeCuenta(id: unknown): ProveedorPago | null {
   if (typeof id !== 'string') return null;
   const [p, resto] = id.split(':', 2);
   if (!resto || !/^[a-z0-9-]{1,40}$/.test(resto)) return null;
-  return p === 'stripe' || p === 'mercadopago' ? p : null;
+  return esPasarela(p) ? p : null;
 }
 
 /**

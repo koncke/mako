@@ -32,7 +32,7 @@ export const CLAVE_TAPADA = '[clave tapada]';
  * cosa) y acá se redefinen con la forma de la clave. El servicio `openai` del botón lo da la regla de PROPIAS_DESPUES.
  */
 const SERVICIO_DE_REGLA: Readonly<Record<string, string | null>> = {
-  anthropic: 'anthropic', google: 'gemini', groq: 'groq', stripe: 'stripe',
+  anthropic: 'anthropic', google: 'gemini', groq: 'groq', stripe: 'stripe', creem: 'creem',
   meta: 'meta', github: null, slack: null, 'webhook-secreto': null, jwt: null,
 };
 

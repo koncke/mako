@@ -26,7 +26,7 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, setSetting } from './settings';
 import { anotarAutorizacionMp, anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
-import { COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, COLS_COBRO, cobroDeFila, type Pasarela } from './cobros-tipos';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
 import { ofertaDelPlan, planesMako } from './compra-plan';
@@ -220,7 +220,7 @@ export async function renovacionesDeAgencia(): Promise<{ creadas: number; autori
       if (!conectadas.includes(f.proveedor)) { console.warn(`[agencia-cobro] el cliente ${clienteWs} terminó el onboarding y ${f.proveedor} ya no está conectado: sin renovación`); continue; }
       const inicio = inicioDeRenovacion(desde, Date.now());
       // Stripe cobra al pagarla: se abre recién unos días antes de que tenga que empezar a cobrar.
-      if (f.proveedor === 'stripe' && !abreRenovacionStripe(unMesDespues(desde), Date.now())) continue;
+      if (!CAPACIDADES_PASARELA[f.proveedor].difiereElPrimerCobro && !abreRenovacionStripe(unMesDespues(desde), Date.now())) continue;
       const precio = await precioDeRenovacion(f);
       if (!precio) { errores++; console.error(`[agencia-cobro] el cliente ${clienteWs}: su plan (${f.plan_mako}) no tiene precio en ${f.moneda}: sin renovación`); continue; }
       // Releída justo antes de crearla (hallazgo 11): una baja que corrió mientras tanto no recibe una renovación nueva.
@@ -232,17 +232,17 @@ export async function renovacionesDeAgencia(): Promise<{ creadas: number; autori
         monto: precio.monto, moneda: f.moneda, montoUsd: precio.montoUsd,
         concepto: f.concepto.replace(/ · primer mes$/, ' · mensual').slice(0, 200),
         email: f.email, paraCliente: { agenciaWs: Number(f.agencia_ws), clienteWs },
-        ...(f.proveedor === 'mercadopago' ? { inicioAt: inicio } : {}), creadoPor: 'MaKo · fin del onboarding',
+        ...(CAPACIDADES_PASARELA[f.proveedor].difiereElPrimerCobro ? { inicioAt: inicio } : {}), creadoPor: 'MaKo · fin del onboarding',
       });
       if (r.ok) {
         if (!r.yaEstaba) {
           creadas++;
           // El plan, y en Stripe cuándo tenía que empezar a cobrar: sin pagarla para ese día, la cuenta se corta como una de MP
           // sin autorizar (lib/plan-acceso-reglas.ts, `renovacion-sin-autorizar`).
-          const { error: eAnotar } = await db.from('cobros').update({ ...(f.plan_mako ? { plan_mako: f.plan_mako } : {}), ...(f.proveedor === 'stripe' ? { inicio_at: unMesDespues(desde) } : {}) })
+          const { error: eAnotar } = await db.from('cobros').update({ ...(f.plan_mako ? { plan_mako: f.plan_mako } : {}), ...(!CAPACIDADES_PASARELA[f.proveedor].difiereElPrimerCobro ? { inicio_at: unMesDespues(desde) } : {}) })
             .eq('id', r.cobro.id).eq('workspace_id', plataforma);
           // Sin `inicio_at` una renovación de Stripe nunca corta (revisión de plata, hallazgo 10): se anula y la próxima vuelta la rehace.
-          if (eAnotar && f.proveedor === 'stripe') {
+          if (eAnotar && !CAPACIDADES_PASARELA[f.proveedor].difiereElPrimerCobro) {
             errores++;
             console.error(`[agencia-cobro] el cliente ${clienteWs}: no pude anotar la renovación ${r.cobro.id} (${eAnotar.message}); la anulo`);
             await anularCobro(plataforma, r.cobro.id, 'MaKo (no se pudo anotar la renovación)').catch(() => {});

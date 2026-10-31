@@ -311,7 +311,7 @@ export async function descubrirMercadoPago(ws: number, token: string, autor: str
 /**
  * La URL del aviso de Creem de UNA cuenta. ⚠️ No lleva el identificador al registrarla, porque el identificador ES el
  * id que Creem le da al endpoint: primero se registra con la URL pelada, Creem devuelve `wh_…`, y el ruteo se hace con
- * ese id. El webhook lo lee del `?w=`, así que la URL que queda guardada en Creem lo lleva.
+ * ese id. El webhook lo lee del `?w=`, y `asegurarWebhookCreem` se lo escribe a la URL guardada en Creem con un PATCH.
  */
 export const urlAvisoCreem = (): string => `${APP_BASE_URL}/api/webhooks/creem`;
 
@@ -453,10 +453,10 @@ export async function desconectarPasarela(ws: number, p: Pasarela, autor: string
       }
     }
   } else if (p === 'creem') {
-    // El aviso queda registrado en la cuenta de Creem apuntando a un MaKo que ya no lo acepta (va a dar 401 por falta
-    // de secreto). Creem tiene `DELETE /v1/webhooks/{id}`, pero no se probó contra la cuenta: hasta medirlo se le dice
-    // a la persona, que es honesto, en vez de prometer un borrado que puede no haber pasado.
-    aviso = 'Quita el aviso de MaKo en Creem → Developers → Webhooks.';
+    // El aviso queda registrado en la cuenta de Creem apuntando a un MaKo que ya no lo acepta (401 por falta de secreto), y
+    // ⚠️ NO SE PIDE BORRARLO: su `wh_…` es la identidad de la cuenta en sus cobros (`cuenta_ref`). Borrado, al volver a conectar
+    // nace otro id y sus suscripciones quedan huérfanas: sin claves y con los avisos ignorados, mientras Creem les sigue cobrando.
+    aviso = 'Deja el aviso de MaKo en Creem: si vuelves a conectar esta cuenta, tus cobros siguen atados a él.';
   } else {
     aviso = 'Quita la URL de MaKo en Mercado Pago → Webhooks.';
   }

@@ -4,8 +4,8 @@
 // Puro: lo usan lib/subir-plan.ts y tests/subir-plan.test.ts. Lo que pasa en la pasarela está en lib/subir-plan.ts.
 // =============================================================================
 
-import type { Pasarela } from './cobros-tipos';
 import { precioEn, type PlanMako } from './planes-mako';
+import { CAPACIDADES_PASARELA, type Pasarela } from './cobros-tipos';
 
 /** El plan al que se sube desde «Tu plan» y los carteles de tope (lib/topes-plan.ts, RUTA_CAMBIAR_PLAN). */
 export const PLAN_PRO = 'pro';
@@ -34,9 +34,6 @@ export type Subida =
  * cobro dice Pro (la capa sola no alcanza: un acuerdo a mano puede tener capa `agencia` y pagar otra cosa). El precio,
  * en la moneda que cobra la pasarela: USD en Stripe; la del sitio en Mercado Pago (sin ella, no se inventa una tasa).
  */
-// DERIVADO de `Pasarela`, no copiado (31/10/2026): era `'stripe' | 'mercadopago'` a mano, una de las cinco copias de la
-// unión. Acá la pasarela sólo decide si se OFRECE el anual, y eso es de Stripe a propósito (ver abajo): Creem cae en «sin
-// anual», que es lo correcto. El bug de plata de subir a Pro con Creem NO está acá sino en lib/subir-plan.ts.
 export function decidirSubida(p: { planActual: string | null; planes: readonly PlanMako[]; moneda: string; proveedor: Pasarela; montoHoy: number; capa: string | null }): Subida {
   // Sólo desde Esencial (revisión adversarial: un acuerdo de 297 con capa `agencia` llamaba la acción y pasaba a pagar 97).
   if (p.capa !== 'completo') return { accion: 'no', motivo: 'Tu plan no se cambia desde aquí. Escríbenos.' };
@@ -50,8 +47,8 @@ export function decidirSubida(p: { planActual: string | null; planes: readonly P
   // Sin `plan_mako` (un cobro armado a mano), lo de hoy es lo que cobra: nunca se «sube» a algo más barato.
   const hoy = (actual ? precioEn(actual, p.moneda) : null) ?? p.montoHoy;
   if (hoy != null && hoy >= mensual) return { accion: 'no', motivo: `Tu plan ya cuesta lo mismo o más que ${destino.nombre}.` };
-  // El anual sólo en Stripe (Mercado Pago cobra por mes) y sólo en USD.
-  const anual = p.proveedor === 'stripe' && p.moneda.toUpperCase() === 'USD' ? destino.precioAnualUsd ?? null : null;
+  // El anual sólo donde se cobra por año (las demás cobran por mes) y sólo en USD.
+  const anual = CAPACIDADES_PASARELA[p.proveedor].cobraAnual && p.moneda.toUpperCase() === 'USD' ? destino.precioAnualUsd ?? null : null;
   return { accion: 'subir', destino, mensual, anual };
 }
 

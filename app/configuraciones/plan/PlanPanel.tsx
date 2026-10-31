@@ -14,15 +14,13 @@ import { CuerpoGrupo, FilaAjustes, GrupoAjustes, Pastilla } from '../../_ui/Ajus
 import { IconoMenu } from '../../_ui/iconos-menu';
 import { aceptarRetencionAction, darmeDeBajaAction, empezarPlanYaAction, pasarAProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
-import { CAPACIDADES_PASARELA, NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
+import { CAPACIDADES_PASARELA, COMO_SE_PAGA, NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 
 const SANS = "'Geist', sans-serif";
 const BTN_PRIMARIO = { padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 const BTN_SECUNDARIO = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--accent)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 
 export type SuscripcionVisible = {
-  /** DERIVADO de `Pasarela`, no copiado (31/10/2026): era `'stripe' | 'mercadopago'` a mano, una de las CINCO copias
-   *  que dejó la tercera pasarela. Un cliente puede pagar con Creem, y esta pantalla es donde decide si se da de baja. */
   proveedor: Pasarela;
   monto: string;
   cancelada: boolean;
@@ -113,7 +111,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
             <span className="aj-plan__nombre">{plan}{tono && estado && <Pastilla tono={tono}>{estado}</Pastilla>}</span>
             <span className="aj-plan__precio">{!suscripcion ? (clienteDeAgencia ? 'Lo maneja tu agencia' : gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba
               ? <>Prueba gratis hasta el {suscripcion.prueba!.hasta}: ese día se cobra <b>{suscripcion.monto}</b>, y después cada mes.</>
-              : <><b>{suscripcion.monto}</b> por mes · {suscripcion.proveedor === 'stripe' ? 'con tarjeta' : `por ${NOMBRE_PASARELA[suscripcion.proveedor]}`}</>}</span>
+              : <><b>{suscripcion.monto}</b> por mes · {COMO_SE_PAGA[suscripcion.proveedor]}</>}</span>
           </span>
         </div>
         {!destacarEmpezar && filaEmpezar}
@@ -163,7 +161,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
       )}
       {confirmarSubida && subir && (
         <ConfirmDialog titulo={`¿Pasar a ${subir.nombre}?`}
-          detalle={suscripcion?.proveedor === 'stripe'
+          detalle={suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].subidaCobraLaDiferencia
             ? `Te cobramos ahora la diferencia de este período, y desde el próximo pagas ${subir.monto} por mes.`
             : `Tienes ${subir.nombre} desde ya, y desde tu próximo cobro pagas ${subir.monto} por mes.`}
           confirmLabel={`Pasar a ${subir.nombre}`} onCancel={() => setConfirmarSubida(false)} onConfirm={pasarAPro} />

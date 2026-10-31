@@ -24,7 +24,8 @@ import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import { credDelCliente } from './credenciales';
 import { linkApp } from './app-url';
-import { anularCobro, aplicarPagoAprobado, crearCobro, getCobro, linkDelCobro } from './cobros';
+import { anularCobro, aplicarPagoAprobado, credCreemDelCobro, crearCobro, getCobro, linkDelCobro } from './cobros';
+import { buscarTransaccionesCreem, leerSuscripcionCreem, portalDeClienteCreem } from './creem-api';
 import { buscarPagosMp, leerCuentaMp } from './mercadopago-api';
 import { facturasStripe, suscripcionStripe } from './pasarela-plan-api';
 import { formatoMonto } from './pasarela-moneda';
@@ -81,6 +82,29 @@ export async function confirmarImpago(c: FilaCobroLugar, opts: { reparar: boolea
     // Activa y con el período en curso: cobró (o está en prueba). Lo demás (past_due, unpaid, canceled…) es impago.
     return s.estado === 'active' || s.estado === 'trialing' ? 'pagado' : 'impago';
   }
+  // ⚠️ POR EL `else` SE LE PREGUNTABA A MERCADO PAGO (31/10/2026): que nunca oyó hablar de este cobro y contestaba «sin pagos». Un
+  // aviso de renovación perdido dejaba afuera a un cliente de Creem que SÍ había pagado, que es justo lo que esto existe para evitar.
+  if (c.proveedor === 'creem') {
+    const subId = c.proveedor_suscripcion_id;
+    const creem = subId ? await credCreemDelCobro(cobro) : null;
+    if (!creem || !subId) return 'no-se-sabe';
+    const s = await leerSuscripcionCreem(creem.key, subId);
+    if (!s.ok) return 'no-se-sabe';
+    const tx = await buscarTransaccionesCreem(creem.key, subId, s.clienteId);
+    if (!tx.ok) return 'no-se-sabe';
+    const pagadas = tx.transacciones.filter((x) => x.estado === 'paid');
+    const ya = await yaAsentados(plataforma, 'creem', pagadas.map((x) => x.id));
+    const faltan = pagadas.filter((x) => !ya.has(x.id));
+    if (faltan.length && opts.reparar) {
+      // La más vieja primero, y una en cero no es plata que entró: como Stripe.
+      for (const x of faltan.filter((f) => (f.monto ?? 0) > 0).sort((a, b) => Date.parse(a.fecha ?? '') - Date.parse(b.fecha ?? ''))) {
+        await aplicarPagoAprobado(cobro, { proveedorPagoId: x.id, monto: x.monto ?? undefined, moneda: x.moneda ?? undefined, suscripcionId: subId, pagadoAt: x.fecha ?? undefined, autor: 'Creem (reparado)' });
+      }
+    }
+    if (faltan.length) return 'pagado';
+    return s.estado === 'active' || s.estado === 'trialing' ? 'pagado' : 'impago';
+  }
+  if (c.proveedor !== 'mercadopago') return 'no-se-sabe';
   const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', plataforma);
   const userId = await credDelCliente('MERCADOPAGO_USER_ID', plataforma);
   if (!token || !userId) return 'no-se-sabe';
@@ -153,6 +177,19 @@ export async function pagarDeuda(ws: number, opts: { crear: boolean; ahoraMs?: n
     // ⚠️ Con la suscripción VIVA y sin factura abierta, NO se abre un cobro aparte (revisión del 23/10, alta 2): la próxima
     // factura la cobra Stripe sola y serían dos. Si la pasarela ya la dio de baja, sí (abajo).
     if (cobrando.suscripcion_estado === 'activa') return { tipo: 'nada', texto: 'Tu pago está en proceso: lo reintentamos solos. Si cambiaste la tarjeta, entra en unos minutos.' };
+  }
+  // Creem, igual: reintenta solo hasta cancelarla (`past_due`/`unpaid`), y un cobro aparte mientras tanto serían dos. Lo que puede
+  // hacer quien debe es cambiar la tarjeta en su portal. Si Creem ya la canceló (el aviso se pudo perder), sigue por el cobro aparte.
+  if (cobrando.proveedor === 'creem' && cobrando.suscripcion_estado === 'activa') {
+    const enProceso: ComoPagar = { tipo: 'nada', texto: 'Tu pago está en proceso: lo reintentamos solos. Si cambiaste la tarjeta, entra en unos minutos.' };
+    const fila = await getCobro(plataforma, cobrando.id);
+    const creem = fila ? await credCreemDelCobro(fila) : null;
+    const s = creem && cobrando.proveedor_suscripcion_id ? await leerSuscripcionCreem(creem.key, cobrando.proveedor_suscripcion_id) : null;
+    if (!creem || !s?.ok) return enProceso;
+    if (s.estado !== 'canceled') {
+      const portal = s.clienteId ? await portalDeClienteCreem(creem.key, s.clienteId) : null;
+      return portal?.ok ? { tipo: 'tarjeta-mp', url: portal.url, texto: 'Creem reintenta el cobro solo. Para que entre, cambia la tarjeta de tu suscripción a MaKo en Creem.' } : enProceso;
+    }
   }
   // 2. Mercado Pago todavía reintentando la cuota: cambiar la tarjeta allá.
   const sigueCobrando = cobrando.tipo === 'suscripcion' && cobrando.suscripcion_estado === 'activa';

@@ -22,7 +22,7 @@ import { leerCuentaMp } from '@/lib/mercadopago-api';
 import { desconectarPasarela, descubrirPasarela, CLAVE_PASARELA } from '@/lib/cobros-conexion';
 import {
   CLAVES_AGENDA, CUENTA_PRINCIPAL, aliasLimpio, claveDeCuenta, cuentaValida, esProveedorAgendaConCuentas,
-  type ProveedorAgendaConCuentas, type ProveedorConCuentas,
+  esProveedorConCuentas, type ProveedorAgendaConCuentas, type ProveedorConCuentas,
 } from '@/lib/cuentas-integracion';
 import { cuentaParaConectar, cuentasDePago, guardarAliasCuenta } from '@/lib/cuentas-pago-server';
 import { cuentasDeAgenda, guardarAliasAgenda, proximaCuentaDeAgenda } from '@/lib/cuentas-agenda-server';
@@ -31,7 +31,8 @@ import { LINK_PLANES, topeDeCuentas } from '@/lib/tope-cuentas';
 
 export const dynamic = 'force-dynamic';
 
-const esProveedor = (v: unknown): v is ProveedorConCuentas => v === 'stripe' || v === 'mercadopago';
+// De la lista de pasarelas: con las dos a mano, la tarjeta de Creem contestaba «servicio inválido» al leer y al conectar.
+const esProveedor = esProveedorConCuentas;
 
 /** El negocio y quién: admin del negocio o super admin parado en él. Sin negocio resuelto, 403 (fail-closed). */
 async function contexto(): Promise<{ ws: number; autor: string | null } | { error: string; status: number }> {
@@ -145,8 +146,14 @@ async function postAgenda(ctx: { ws: number; autor: string | null }, p: Proveedo
 
 /** El id de la cuenta EN EL PROVEEDOR de una clave; null si no la acepta (la conexión lo dice después). */
 async function idEnElProveedor(p: ProveedorConCuentas, clave: string): Promise<string | null> {
-  const c = p === 'stripe' ? await leerCuentaStripe(clave) : await leerCuentaMp(clave);
-  return c.ok ? String(c.id) : null;
+  // ⚠️ Era `stripe ? … : Mercado Pago`, y la clave de Creem de un negocio salía hacia la API de Mercado Pago. Creem no tiene un
+  // «quién soy»: su identificador es el del aviso, y lo resuelve la conexión (`descubrirCreem`).
+  switch (p) {
+    case 'stripe': { const c = await leerCuentaStripe(clave); return c.ok ? String(c.id) : null; }
+    case 'mercadopago': { const c = await leerCuentaMp(clave); return c.ok ? String(c.id) : null; }
+    case 'creem': return null;
+    default: { const _x: never = p; return _x; }
+  }
 }
 
 export async function POST(req: NextRequest) {
