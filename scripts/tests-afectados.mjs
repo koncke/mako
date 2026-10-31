@@ -582,14 +582,43 @@ export function leerResultado(salida) {
 
 export const min = (ms) => (ms >= 60000 ? `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s` : `${(ms / 1000).toFixed(0)} s`);
 
+// -----------------------------------------------------------------------------
+// «CORRIÓ Y FALLÓ» contra «NO CORRIÓ»: lo que distingue un rojo de un 99
+// -----------------------------------------------------------------------------
+// ⚠️ EL 30/10/2026 UN GRUPO DE 495 BARREDORAS SE REPORTÓ COMO 495 TESTS ROTOS Y NO HABÍA CORRIDO NI UNO:
+//   `grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s`, con la RAM mínima de la corrida en 0,7 GB.
+// Veinticinco minutos (el tope del grupo compartido: lo mató el reloj) sin ejecutar un solo test, y el veredicto final escribió los 495 nombres
+// detrás de la palabra ROJO, que es lo único que lee quien pushea. Un archivo cuyo proceso murió sin ejecutar un test NO SE SABE si está roto.
+//
+// EL CRITERIO, medido con node 24.17 el 30/10/2026 (no supuesto — ver el final de tests/antes-de-subir-no-corrio.test.ts):
+//   · Un archivo de test VACÍO (sin un solo caso) NO da «0 tests»: el runner lo cuenta como UN test que pasa, y lo imprime
+//     («✔ vacio.test.ts (120ms)», `ℹ tests 1`), igual aislado que compartido, y sale con 0. Así que «0 tests» nunca es «el archivo no tenía nada».
+//   · Un archivo que falla en su PRIMER caso imprime su «✖ <caso> (2ms)» mientras corre, el pie («ℹ tests 2 … ℹ fail 1») y el
+//     «test at <archivo>» del pie de rojos: ejecutó tests, y hay con qué nombrarlo. Lo mismo uno que tira AL CARGAR en su propio proceso.
+//   · Un proceso que MUERE sin llegar al pie (lo mata el vigía de RAM, o el tope de la tanda) sale con != 0 y **la salida es vacía**:
+//     ni un caso, ni pie, ni nombres. Ése es el caso del 30/10.
+// Por eso el discriminante NO es «el pie dice 0» (el pie puede faltar aunque se hayan corrido casos: una muerte a mitad) sino
+// **¿el runner JUZGÓ algo?**: o llegó a su pie, o alcanzó a imprimir un caso FALLADO. Sin ninguna de las dos no hay veredicto que dar: «no corrió».
+// Un caso VERDE impreso y después la muerte tampoco alcanza: nada falló, así que no hay rojo, y no se terminó, así que no hay verde.
+
+/** El pie del runner de node: sólo se imprime si el proceso LLEGÓ al final. */
+export const PIE_DEL_RUNNER = /^ℹ tests \d+/m;
+/** Un caso que el runner alcanzó a JUZGAR y dio por fallado, impreso mientras corre (antes del pie). */
+export const CASO_FALLADO = /^\s*✖ .*\(\d+(?:\.\d+)?ms\)/m;
+/** ¿Este proceso de `node --test` juzgó algo, o murió sin juzgar nada? Sólo tiene sentido preguntárselo a uno que salió con != 0. */
+export const juzgoAlgo = (salida) => PIE_DEL_RUNNER.test(salida) || CASO_FALLADO.test(salida);
+
 /**
- * Corre `lista` por tandas. Devuelve { sinRam, total, rojos, cortada, ms, ramMin }. `env` lleva el índice
+ * Corre `lista` por tandas. Devuelve { sinRam, total, rojos, sinCorrer, cortada, ms, ramMin }. `env` lleva el índice
  * temporal de git; `carpetaTmp` guarda el log completo de cada tanda roja. `compartidos`: los que corren juntos en un proceso por grupo.
+ * `rojos` son los que CORRIERON y fallaron; `sinCorrer`, los que no se sabe (su proceso murió sin juzgar nada): un 99, no un rojo.
  * `esperar`: cómo se espera la RAM (default `esperarRam`). antes-de-subir pasa uno que SUELTA el candado de lo pesado mientras espera (el 21/10 un
  * `--solo tipos` lo retuvo 25 min esperando 4 GB que no había, con cuatro chats detrás): quien espera RAM no puede tener el candado.
- * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void, esperar?: typeof esperarRam }} p
+ * `correr` y `correrGrupo` se inyectan para probar la CLASIFICACIÓN (rojo, flaky, no corrió) con salidas de node de verdad, copiadas de
+ * una corrida, sin tener que vaciar los 16 GB de la PC ni esperar 25 minutos a que el vigía mate un grupo (tests/antes-de-subir-no-corrio.test.ts).
+ * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void, esperar?: typeof esperarRam, correr?: typeof correrTanda, correrGrupo?: typeof correrGrupoCompartido }} p
  */
-export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out, esperar = esperarRam }) {
+export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out, esperar = esperarRam, correr = correrTanda, correrGrupo = correrGrupoCompartido }) {
   const tandas = [];
   for (let i = 0; i < lista.length; i += tanda) tandas.push(lista.slice(i, i + tanda));
   const t0 = Date.now();
@@ -597,18 +626,30 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
   const vigilante = setInterval(() => { ramMin = Math.min(ramMin, ramLibreGb()); }, 1000);
   const total = { tests: 0, pasan: 0, fallan: 0 };
   const rojos = new Set();
+  const sinCorrer = new Set();
+  // Los que CORRIERON Y PASARON en esta corrida. Un proceso que salió con 0 y llegó a su pie pasó TODO lo que tenía, así que
+  // alcanza con el resultado del proceso: nadie vuelve a correr nada. Lo usa la guarda de pendientes vencidos (un pendiente que
+  // nombra un test verde está hecho y nadie lo borró, 30/10/2026): el resultado ya está en la mano, así que la guarda es gratis.
+  const verdes = new Set();
   const flaky = [];
   let sinRam = false;
   let cortada = false;
+  /** Un proceso que salió con != 0 sin juzgar nada: sus archivos no se sabe si están rotos. Dice POR QUÉ, para que el veredicto lo pueda repetir. */
+  const noCorrio = (archivos, r, quien) => {
+    if (archivos.length === 0) return;
+    for (const f of archivos) sinCorrer.add(f);
+    out(`    ⚠ NO CORRIÓ: ${quien} salió con ${r.codigo} sin juzgar un solo test (${r.colgada ? 'lo mató su tope de tiempo' : 'lo mató el vigía de RAM o se quedó sin memoria'}), con ${ramLibreGb().toFixed(1)} GB libres: de esos ${archivos.length} archivo(s) NO SE SABE si están rotos.`);
+  };
   out(`  [tests-afectados] ${lista.length} archivos en ${tandas.length} tandas de hasta ${tanda}, ${concurrencia || 'los de node'} procesos a la vez (${os.availableParallelism()} CPU)`);
   try {
     for (let n = 0; n < tandas.length; n++) {
       const c = await esperar(concurrencia || 2);
       if (c === 0) { sinRam = true; break; }
-      let r = await correrTanda(tandas[n], concurrencia === 0 ? 0 : c, env);
+      let r = await correr(tandas[n], concurrencia === 0 ? 0 : c, env);
       let res = leerResultado(r.salida);
       total.tests += res.tests; total.pasan += res.pasan; total.fallan += res.fallan + res.canceladas;
       let roja = r.codigo !== 0;
+      if (!roja && PIE_DEL_RUNNER.test(r.salida)) for (const f of tandas[n]) verdes.add(f);
       out(`  tanda ${n + 1}/${tandas.length} · ${tandas[n].length} archivos · ${res.tests} tests · ${roja ? `ROJA (${res.rojos.length || '?'} archivos)` : 'verde'} · ${min(r.ms)}`);
       // ⚠️ Subir la concurrencia puede sacar rojos que son de la CARGA: medido el 17/10/2026, `ads-video-procesando` (un tope de 40 ms) falló con 2
       // procesos en una PC saturada y pasó solo. Cada rojo falso en Actions cuesta 11-14 min, así que un archivo rojo se REPITE de a uno: si
@@ -617,19 +658,26 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
         const solos = res.rojos.filter((f) => /\.test\.ts$/.test(f));
         if (solos.length === res.rojos.length) {
           out(`    ↻ ${solos.length} archivo(s) rojo(s) con ${c} procesos a la vez: los repito de a UNO, por si es la carga`);
-          const r2 = await correrTanda(solos, 1, env);
+          const r2 = await correr(solos, 1, env);
           if (r2.codigo === 0) {
             flaky.push(...solos);
             out(`    ⚠ FLAKY: ${solos.join(', ')} pasaron solos (rojos sólo con ${c} procesos). No frena, pero conviene arreglar el test: depende de la carga.`);
+            roja = false;
+          } else if (!juzgoAlgo(r2.salida)) {
+            // El reintento murió sin juzgar: del rojo de la primera pasada no se sabe si era la carga, y los DEMÁS de la tanda pasaron. Sólo éstos quedan en «no se sabe».
+            noCorrio(solos, r2, `el reintento de a uno de la tanda ${n + 1}`);
+            try { writeFileSync(path.join(carpetaTmp, `tanda-${n + 1}-reintento.log`), r2.salida); } catch { /* el log es el detalle, no el veredicto */ }
             roja = false;
           } else { r = r2; res = leerResultado(r2.salida); }
         }
       }
       if (roja) {
+        const log = path.join(carpetaTmp, `tanda-${n + 1}.log`);
+        try { writeFileSync(log, r.salida); } catch { /* la carpeta de temporales se puede haber podado: el log es el detalle, no el veredicto */ }
+        // Una tanda que murió sin juzgar nada no acusa a nadie: va a `sinCorrer` (99) y NO corta, porque las que siguen sí pueden encontrar un rojo de verdad.
+        if (!juzgoAlgo(r.salida)) { noCorrio(tandas[n], r, `la tanda ${n + 1}`); out(`    (salida completa: ${log})`); continue; }
         for (const f of res.rojos) rojos.add(f);
         if (!res.rojos.length) for (const f of tandas[n]) rojos.add(`${f} (¿alguno de la tanda?)`);
-        const log = path.join(carpetaTmp, `tanda-${n + 1}.log`);
-        writeFileSync(log, r.salida);
         out(r.colgada ? `    ✖ la tanda pasó los ${min(TOPE_TANDA_MS)} y se mató: un test se colgó.` : (res.detalle.split('\n').slice(0, 60).join('\n') || r.salida.split('\n').slice(-30).join('\n')));
         out(`    (salida completa: ${log})`);
         if (cortar) { cortada = true; break; }
@@ -647,32 +695,53 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
         const partes = Array.from({ length: g }, () => []);
         compartidos.forEach((f, i) => partes[i % g].push(f));    // reparto alternado: las pesadas no quedan todas en el mismo
         out(`  [tests-afectados] ${compartidos.length} barredoras que sólo leen, en ${g} proceso(s) compartido(s) con las lecturas en memoria`);
-        const rs = await Promise.all(partes.map((p) => correrGrupoCompartido(p, env)));
+        const rs = await Promise.all(partes.map((p) => correrGrupo(p, env)));
         const rojosCompartidos = new Set();
+        const mudos = new Set();      // los de un grupo que murió sin juzgar nada: todavía no se sabe nada de ellos
         for (const [i, r] of rs.entries()) {
           const res = leerResultado(r.salida);
           total.tests += res.tests; total.pasan += res.pasan; total.fallan += res.fallan + res.canceladas;
           const roja = r.codigo !== 0;
-          out(`  grupo compartido ${i + 1}/${rs.length} · ${partes[i].length} archivos · ${res.tests} tests · ${roja ? `ROJO (${res.rojos.length || '?'} archivos)` : 'verde'} · ${min(r.ms)}`);
+          const juzgo = roja && juzgoAlgo(r.salida);
+          out(`  grupo compartido ${i + 1}/${rs.length} · ${partes[i].length} archivos · ${res.tests} tests · ${roja ? (juzgo ? `ROJO (${res.rojos.length || '?'} archivos)` : 'NO CORRIÓ (0 tests juzgados)') : 'verde'} · ${min(r.ms)}`);
+          if (!roja && PIE_DEL_RUNNER.test(r.salida)) for (const f of partes[i]) verdes.add(f);
           if (roja) {
-            if (!res.rojos.length || r.colgada) { for (const f of partes[i]) rojosCompartidos.add(f); } else for (const f of res.rojos) rojosCompartidos.add(f);
-            writeFileSync(path.join(carpetaTmp, `compartido-${i + 1}.log`), r.salida);
+            try { writeFileSync(path.join(carpetaTmp, `compartido-${i + 1}.log`), r.salida); } catch { /* el log es el detalle, no el veredicto */ }
+            if (!juzgo) { for (const f of partes[i]) mudos.add(f); }
+            else if (!res.rojos.length || r.colgada) { for (const f of partes[i]) rojosCompartidos.add(f); }
+            else for (const f of res.rojos) rojosCompartidos.add(f);
           }
         }
-        if (rojosCompartidos.size) {
-          const solos = [...rojosCompartidos].filter((f) => /\.test\.ts$/.test(f));
-          out(`    ↻ ${solos.length} archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia`);
+        // El reintento aislado se corre IGUAL para los mudos: es lo único que separa al caído por memoria del roto de verdad (30/10: dos de 615 estaban rojos de verdad).
+        const aRepetir = [...new Set([...rojosCompartidos, ...mudos])];
+        if (aRepetir.length) {
+          const solos = aRepetir.filter((f) => /\.test\.ts$/.test(f));
+          out(`    ↻ ${solos.length} archivo(s) ${rojosCompartidos.size && mudos.size ? 'rojos o sin juzgar' : rojosCompartidos.size ? 'rojo(s)' : 'sin juzgar'} en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia`);
           // Si cayó un grupo entero (se colgó, o murió) son cientos de archivos: de a uno tardaría una eternidad, así que con la concurrencia de siempre.
-          const r2 = await correrTanda(solos, solos.length > REINTENTO_MAX ? Math.max(1, concurrencia || 2) : 1, env);
+          const r2 = await correr(solos, solos.length > REINTENTO_MAX ? Math.max(1, concurrencia || 2) : 1, env);
           const res2 = leerResultado(r2.salida);
-          const siguenRojos = r2.codigo === 0 ? [] : (res2.rojos.length ? res2.rojos : solos);
+          // ⚠️ SIN EL PIE NADIE ES FLAKY. El pie («ℹ tests N») es lo que dice que el runner llegó al final y que, por lo tanto, los que no nombró
+          // están bien. Si el reintento TAMBIÉN murió (el caso del 30/10: no hubo RAM ni para el grupo ni para el reintento), declarar FLAKY a los
+          // que no nombró sería un VERDE FALSO. Y acusarlos a todos fue lo que pasó: 495 nombres detrás de la palabra ROJO.
+          // Con el reintento muerto, lo que se sabe de cada archivo es lo que traía de antes, y es distinto:
+          //   · el que FALLÓ en el proceso compartido (un rojo con nombre, o un grupo que juzgó y salió con != 0): corrió y falló. SIGUE ROJO —
+          //     el reintento sólo existía para descartar la interferencia, y no haber podido correrlo no borra la falla; la línea lo dice.
+          //   · el que estaba en un grupo que murió sin juzgar nada (`mudos`): no corrió NUNCA. No se sabe → 99.
+          const pie = PIE_DEL_RUNNER.test(r2.salida);
+          const juzgo = r2.codigo !== 0 && juzgoAlgo(r2.salida);
+          const siguenRojos = r2.codigo === 0 ? [] : (res2.rojos.length ? res2.rojos : (juzgo ? solos : [...rojosCompartidos]));
+          if (r2.codigo === 0 && pie) for (const f of solos) verdes.add(f);     // el reintento aislado pasó: corrieron y pasaron
           for (const f of solos) {
             if (siguenRojos.includes(f)) rojos.add(f);
-            else { flaky.push(f); out(`    ⚠ FLAKY: ${f} falló en el proceso compartido y pasa aislado (interferencia con otro test). No frena.`); }
+            else if (pie && rojosCompartidos.has(f)) { flaky.push(f); out(`    ⚠ FLAKY: ${f} falló en el proceso compartido y pasa aislado (interferencia con otro test). No frena.`); }
           }
-          if (siguenRojos.length) {
-            const log = path.join(carpetaTmp, 'compartido-aislado.log');
-            writeFileSync(log, r2.salida);
+          if (!juzgo && r2.codigo !== 0) {
+            if (rojosCompartidos.size) out(`    ✖ ${rojosCompartidos.size} archivo(s) fallaron en el proceso compartido y el reintento aislado no llegó a confirmarlo (murió sin juzgar nada): quedan ROJOS — corrélos a mano para descartar la interferencia.`);
+            noCorrio(solos.filter((f) => !rojosCompartidos.has(f)), r2, 'el reintento aislado');
+          }
+          const log = path.join(carpetaTmp, 'compartido-aislado.log');
+          try { writeFileSync(log, r2.salida); } catch { /* el log es el detalle, no el veredicto */ }
+          if (siguenRojos.length || r2.codigo !== 0) {
             out(res2.detalle.split('\n').slice(0, 60).join('\n') || r2.salida.split('\n').slice(-30).join('\n'));
             out(`    (salida completa: ${log})`);
           }
@@ -682,7 +751,10 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
   } finally {
     clearInterval(vigilante);
   }
-  return { sinRam, total, rojos, flaky, cortada, ms: Date.now() - t0, ramMin, tandas: tandas.length };
+  // Un archivo que terminó rojo de verdad no queda además en «no se sabe»: el rojo confirmado manda.
+  for (const f of rojos) sinCorrer.delete(f);
+  for (const f of [...rojos, ...sinCorrer]) verdes.delete(f);
+  return { sinRam, total, rojos, sinCorrer, verdes, flaky, cortada, ms: Date.now() - t0, ramMin, tandas: tandas.length };
 }
 
 // -----------------------------------------------------------------------------
@@ -804,16 +876,19 @@ async function main(argv) {
     process.stderr.write('    Cerrá unos chats de Claude y volvé a correrlo, o MAKO_TESTS_SIN_ESPERA=1 para correr igual (puede matarlo el vigía).\n\n');
     return SALIDA_SIN_CORRER;
   }
-  rmSync(carpetaTmp, { recursive: true, force: true });
-  out(`\n[tests-afectados] ${r.rojos.size === 0 ? '✔ VERDE' : '✖ ROJO'} · ${r.total.tests} tests de ${lista.length + compartidos.length} archivos${r.cortada ? ' (cortado en la primera tanda roja)' : ''} · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
+  // Los logs del detalle sólo se tiran si no hay nada que mirar: con un rojo o con archivos sin correr son la única forma de separarlos.
+  if (r.rojos.size === 0 && r.sinCorrer.size === 0) rmSync(carpetaTmp, { recursive: true, force: true });
+  out(`\n[tests-afectados] ${r.rojos.size ? '✖ ROJO' : r.sinCorrer.size ? '⚠ SIN CHEQUEAR' : '✔ VERDE'} · ${r.total.tests} tests de ${lista.length + compartidos.length} archivos${r.cortada ? ' (cortado en la primera tanda roja)' : ''} · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
   if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con varios procesos, verdes solos): ${r.flaky.join(', ')}`);
+  if (r.sinCorrer.size) out(`  ⚠ ${r.sinCorrer.size} archivo(s) NO CORRIERON (su proceso murió sin juzgar un test): NO se sabe si están rotos. El detalle, en ${carpetaTmp}`);
   if (r.rojos.size) {
     out('  Rojos: ' + [...r.rojos].join(', '));
     out('  Repetilos solos: node --import tsx --test ' + [...r.rojos].filter((f) => f.startsWith('tests/') && !f.includes(' ')).join(' '));
     out('  Antes de tocar nada: `git status --short` de los archivos que ese test lee (AGENTS.md → «Si el pre-push da rojo»).');
     return 1;
   }
-  return 0;
+  // Nada roto y algo sin correr no es un verde: es «no pude chequear» (99), igual que la falta de RAM.
+  return r.sinCorrer.size ? SALIDA_SIN_CORRER : 0;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

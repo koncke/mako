@@ -261,6 +261,18 @@ AHÍ, no en el hook. La primera es un `tsc` ACOTADO a las bitácoras de `/admin/
 el 14/10 y el 15/10 tiró un run entero de Actions. Si el `tsc` no termina (lo mató el vigía, o
 se quedó sin heap), no frena el push: eso no es un error de tipos, y Actions corre el completo.
 
+⚠️ **UNA de las guardas AVISA y no bloquea, y es la de los PENDIENTES VENCIDOS** (`scripts/pendientes-vencidos.mjs`, 30/10/2026).
+**Un pendiente que nombra un test, y el test está verde (o ya no existe), es un pendiente vencido.** `docs/pendientes.md` tuvo seis
+días una sección «Rojos en `main` sin dueño» con tres tests que se habían arreglado 95 minutos después de escribirla, y el Cerebro
+los repartió a dos chats que no tenían nada que arreglar. **La regla ya estaba escrita** en el encabezado del documento («Al cerrar
+uno, borralo de acá en el mismo commit»): no faltaba la regla, faltó cumplirla, y por eso la cura es una herramienta y no otro
+párrafo. En el push es GRATIS: la guarda sólo mira si el test nombrado existe (es mirar el disco) y `antes-de-subir` cruza el resto
+con los tests que ACABA de correr verdes, sin volver a correr nada; el aviso va en la línea del veredicto. No bloquea porque un
+test puede estar verde por el ENTORNO (un clon atrasado fabrica verdes falsos) y frenar un push por el estado de un documento sería
+peor que el problema. Para mirarlo a mano, corriendo los tests nombrados: `node scripts/pendientes-vencidos.mjs --correr`.
+⚠️ Y si escribís un pendiente que nombra un test como la RED que lo cubre («Lo fija `tests/x.test.ts`»), escribilo con esa frase: la
+guarda la reconoce y no avisa por él.
+
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
 nuevos y no los archivos que esos imports nombran —al commitear por ruta explícita se sube
@@ -445,8 +457,16 @@ el push a `integracion`, y un jefe con tiempo puede correrlo también.
 Hasta el 22/10 el jefe le pasaba a Integración **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta; desde el tren,
 la punta va sin ella (el chequeo es el del tren).
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
-mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
-o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
+mes: 140 de los 2.000 gratis en dos días).
+
+⚠️ **La palabra ROJO sale SÓLO con algo confirmado roto, y hay una tercera línea: `SIN CHEQUEAR <sha>: … — NO es un rojo del
+código` (exit 99)** (30/10/2026). Un archivo cuyo proceso murió sin ejecutar un test NO se sabe si está roto, y ponerlo detrás de
+«ROJO» manda a buscar fantasmas: ese día un grupo compartido de 495 barredoras murió a los 25 min sin correr un solo test y el
+veredicto escribió los 495 nombres como rojos, con dos rojos de verdad escondidos entre ellos. El exit **99** es «no pude
+chequear» —falta de RAM, el turno del candado que no tocó, o un proceso que murió sin juzgar nada—, no un rojo del código: cerrá
+chats o pusheá dejándole el chequeo a Actions. **Y toda línea que no sea un VERDE lleva pegada la RAM MÍNIMA de la corrida y la
+ruta del DETALLE** (`~/.claude/antes-de-subir/<fecha>-<sha>/`, que se conserva con rojo o 99 y se borra con verde): con 0,7 GB
+libres a un rojo no se le cree, y el log del reintento aislado es lo único que separa al caído por memoria del roto de verdad. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
 
 Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
 1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
@@ -503,7 +523,7 @@ como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a ma
   (un `tsc` suelto, un build) y corrés `antes-de-subir` con otro nombre, usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea; en Actions no se usa.
 - **Las guardas del push corren ANTES de hacer fila** (~10 s, livianas) y vuelven a correr al tomar el candado, ya con `origin/main` mergeado: el 21/10
   una guarda frenó un VERDE en 7 s pero después de 25 min de espera. Un `ROJO` de guarda dice «no hice fila por esto».
-- Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
+- Un `SIN CHEQUEAR: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
 
 ⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
 `scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos

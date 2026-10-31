@@ -49,7 +49,9 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 ## Rojos en `main` sin dueño
 
-- `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
+Ninguno. Los tres que había (`vuelo-mako`, `dashboard-pedidos-chat`, `paso-ia`) estaban VERDES: se arreglaron el 24/10 a las 20:58
+y 20:59, 95 minutos después de que se escribiera esta sección, y quedaron acá seis días hasta que se repartieron a dos chats que no
+tenían nada que arreglar. Lo que lo caza ahora es `scripts/pendientes-vencidos.mjs` (avisa en cada push, no bloquea).
 
 Los otros dos **ya estaban arreglados cuando se anotaron acá** y se cerraron el 30/10 sin tocar una línea de código:
 `tests/vuelo-mako.test.ts` por 85e4cd7db y `tests/dashboard-pedidos-chat.test.ts:129` por 583c29434, los dos el 24/10

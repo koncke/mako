@@ -494,8 +494,140 @@ apenas se levantó, sin mirarla.
 - que el que arranca reste lo que necesita el que está esperando (una cola de pedidos con su costo, no sólo «¿hay lugar para mí?»);
 - que `pisoCompartido` crezca con la cantidad de barredoras, o partir el grupo; primero hay que medir cuánto pide con 615.
 
-**La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió». Antes de pasar una punta con barredoras sin correr, se corren a mano las que nombran lo que se tocó (`grep -l` del archivo en tests/). Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
+**HECHO el 30/10 a la noche** (lo que esta sección dejaba pendiente del lado del veredicto): `0 tests` ya no se reporta como rojo
+→ [El veredicto dijo «rojo» y el grupo había corrido cero tests](#el-veredicto-dijo-rojo-y-el-grupo-había-corrido-cero-tests-30102026).
+
+**La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió» (desde el 30/10 a la noche lo hace el script, no la buena voluntad del que lee). Antes de pasar una punta con barredoras sin correr, se corren a mano las que nombran lo que se tocó (`grep -l` del archivo en tests/). Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
 que Martín puso la tarjeta, y no se repiten en esa PC. En la PC, sólo los tests del cambio, midiendo la RAM antes.
+
+## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (`juzgoAlgo`, la clasificación de `correrTests`) · `scripts/antes-de-subir.mjs`
+(`armarVeredicto`, `carpetaDeLaCorrida`) · `scripts/claude-hooks/pre-push`. Lo fija tests/antes-de-subir-no-corrio.test.ts.
+
+**El síntoma, textual del log del push:**
+
+```
+grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s
+  ↻ 495 archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia
+  ✖ 6143 tests de 1143 archivos · 49 min 55 s · RAM libre mínima 0.7 GB
+ROJO: tests: accion-invitar-curso.test.ts, adjuntos-chats-de-texto.test.ts, …
+```
+
+**El diagnóstico obvio era el equivocado, por tercera vez el mismo día:** no son 495 tests rotos. `0 tests` con `?` archivos es un
+proceso que murió sin ejecutar nada (los `25 min 2 s` son el tope del grupo compartido: lo mató el reloj, con 0,7 GB libres). Pero
+la última línea del push —lo ÚNICO que se lee— escribió los 495 nombres detrás de la palabra ROJO, y para saber que no había que
+creerle había que subir doce líneas del log a buscar la RAM.
+
+**El discriminante, medido (node 24.17, no supuesto).** «¿Cuántos tests dice el pie?» no alcanza, y «¿salió con != 0?» tampoco:
+
+| Caso | Salida del runner | Código | Qué se sabe |
+|---|---|---|---|
+| archivo de test VACÍO (sin un solo caso) | `✔ vacio.test.ts (120ms)` y el pie `ℹ tests 1` | 0 | **un archivo vacío NO da «0 tests»**: lo cuenta como un test que pasa, aislado y compartido |
+| falla en su PRIMER caso | `✖ el primero falla (2ms)`, el pie, y el `test at <archivo>` del pie de rojos | 1 | corrió y falló, y hay con qué nombrarlo |
+| tira AL CARGAR, en su propio proceso | `✖ <archivo>`, el pie, y el `test at <archivo>` | 1 | ídem (en un proceso COMPARTIDO, en cambio, da verde: está más arriba en este documento) |
+| el proceso MUERE (vigía de RAM, o el tope) | **vacía** | != 0 | nada: ni un caso, ni pie, ni nombres |
+
+Así que el discriminante es **«¿el runner JUZGÓ algo?»**: o llegó a su pie (`ℹ tests N`), o alcanzó a imprimir un caso FALLADO
+(`✖ … (1.2ms)`, que sale mientras corre, antes del pie: una muerte a mitad con un rojo ya juzgado ES un rojo). Sin ninguna de las
+dos no hay veredicto que dar. Un caso VERDE impreso y después la muerte tampoco alcanza: nada falló, así que no hay rojo, y no se
+terminó, así que no hay verde.
+
+**Lo que NO se puede hacer, y por eso la clasificación es por GRUPO y no por archivo:** el runner imprime el NOMBRE DEL CASO, no
+el del archivo (`✖ el primero falla`), y el archivo sólo aparece en el `test at …` del pie de rojos. Con el pie no impreso no hay
+forma de atribuir nada a un archivo: no se puede decir «estos 200 pasaron y de los otros 295 no sé».
+
+**Las tres cosas que cambiaron:**
+- **`0 tests` sale con 99, no con 1**, y la línea NO lleva la palabra ROJO: `SIN CHEQUEAR <sha>: … — NO es un rojo del código`.
+  Un rojo CONFIRMADO siempre le gana (exit 1), y entonces la línea avisa que la lista de rojos puede estar incompleta.
+- **La RAM mínima y la ruta del detalle van EN la línea del veredicto.** Es la última línea del push y tiene que alcanzar sola.
+- **El detalle se conserva.** El log del reintento aislado (`compartido-aislado.log`) es lo único que separa al caído por memoria
+  del roto de verdad, y se borraba al terminar. Ahora la carpeta de la corrida vive en `~/.claude/antes-de-subir/<fecha>-<sha>/`
+  —**no en `os.tmpdir()`, que otra sesión poda a mitad de la corrida** (está arriba: un VERDE murió con `ENOENT … compartido-1.log`
+  el 23/10)—, se conserva con rojo o con 99, se borra con verde y se guardan las últimas 5 corridas.
+
+**Dos trampas que salieron al armarlo:**
+- **El reintento aislado que tampoco corre no puede declarar FLAKY a nadie.** Sin el pie, «los que no nombró están bien» es un
+  VERDE FALSO. Ahora, sin pie: el que falló en el proceso compartido sigue ROJO (el reintento sólo existía para descartar la
+  interferencia, y no haber podido correrlo no borra la falla), y el que estaba en un grupo que nunca juzgó nada queda en «no se sabe».
+- **Un runner de tests lanzado DESDE un test no imprime su reporte** (`NODE_TEST_CONTEXT` heredado: node lo toma por un test
+  anidado y da `0 tests`). `correrTanda` borra esa variable del entorno desde siempre; cualquier medición a mano tiene que hacer lo mismo.
+
+**La regla.** Un veredicto que no distingue «falló» de «no corrió» es peor que no tener veredicto: manda a arreglar lo que no está
+roto y esconde lo que sí. Y lo que decide si creerle a un rojo (la RAM libre, y dónde está el log) va en la MISMA línea que el
+rojo, no doce líneas más arriba.
+
+## Un pendiente que nombra un test verde queda seis días y se reparte a dos chats (30/10/2026)
+
+**Vive en:** `scripts/pendientes-vencidos.mjs` · `scripts/guardas-push.sh` (la única guarda que avisa y no bloquea) ·
+`docs/pendientes.md`. Lo fija tests/pendientes-vencidos.test.ts.
+
+**El síntoma.** `docs/pendientes.md` tenía una sección «Rojos en `main` sin dueño» con tres tests. **Los tres estaban verdes.** La
+sección se escribió el 24/10 a las 19:23 y los arreglos entraron a las 20:58 y 20:59 del MISMO día: 95 minutos después. El
+documento se editó seis veces más hasta el 29/10 y nadie borró la sección. Seis días más tarde el Cerebro repartió esos tres rojos
+a dos chats para que los arreglaran.
+
+**Lo que NO faltaba era la regla.** El encabezado del propio documento dice «Al cerrar uno, borralo de acá en el mismo commit».
+Estaba escrita, a la vista, en el archivo que se estaba editando. **Agregar otra regla en prosa no sirve: hace falta una
+herramienta** — es el mismo patrón que cuando «corré los tests de tu área» no alcanzó y la cura fue que `antes-de-subir.mjs` los
+elija solo leyendo el código.
+
+**La guarda, y por qué AVISA en vez de bloquear.** Un pendiente que nombra un test y el test está verde (o ya no existe: se
+renombró o se borró) es un pendiente vencido. No bloquea porque **un test puede estar verde por el ENTORNO**: un clon atrasado
+fabrica verdes y rojos falsos (el clon compartido de esta máquina estuvo 4.431 commits atrás), y frenar un push por el estado de
+un documento sería peor que el problema. Es la única guarda de `guardas-push.sh` que no frena, y lo dice en su propio aviso.
+
+**Y es gratis, que es lo que la hace sostenible.** Correr tests adentro de una guarda del push los pagaría dos veces. En el push
+corre sólo la mitad textual (¿existe el test nombrado?, que es mirar el disco) y `antes-de-subir` cruza el resto con los tests que
+ACABA de correr verdes —el resultado ya está en la mano—; el aviso viaja en la línea del veredicto, porque es lo único que se lee.
+Correrlos es un modo aparte y explícito: `node scripts/pendientes-vencidos.mjs --correr`.
+
+**Tres trampas:**
+- **El runner equivocado dice «sigue rojo» para siempre:** el runner de node sin `--import tsx` da `ERR_MODULE_NOT_FOUND` falso en
+  los imports sin extensión (medido: 0/1 pelado contra 6/0 con tsx). La guarda usa `node --import tsx`.
+- **Un proceso que murió sin juzgar nada no deja a nadie verde** (el mismo discriminante que el veredicto, arriba): si no, la
+  guarda le dice «cerralo» a un pendiente cuyo test no corrió.
+- Los documentos nombran tests para decir qué CUBRE un arreglo («Lo fija `tests/x.test.ts`»), y ésos están verdes a propósito: la
+  guarda reconoce esa frase y no avisa por ellos. Una guarda ruidosa se apaga.
+
+**SIN hacer:** la guarda mira `docs/pendientes.md`; los demás documentos que anotan rojos (los relevos, `docs/hallazgos-*.md`) no
+se miran. Y entiende sólo el caso fácil, un pendiente que nombra un test: uno que dice «la pantalla X está rota» sigue dependiendo
+de que quien lo cierra lo borre.
+
+**Y una trampa del entorno, de la guardia de RAM de esta PC:** `~/.claude/guardia/memoria.mjs` clasifica un comando como PESADO
+por su TEXTO, así que un comando que sólo ESCRIBE documentación —si el texto nombra el runner de tests y tres archivos
+`*.test.ts`— se cuenta como una tanda de tests y se niega por falta de RAM. El contenido largo va a un archivo (con la herramienta
+de escritura) y el comando sólo lo aplica.
+
+## Una guarda nueva NO corre en el push de un worktree: el hook usa las guardas del CLON (30/10/2026)
+
+**Vive en:** `.git/hooks/pre-push` (no versionado) línea 23: `REPO="$(dirname "$(git rev-parse --git-common-dir)")"`, y su
+`sh "$REPO/scripts/guardas-push.sh"`. El versionado es `scripts/claude-hooks/pre-push`.
+
+**El síntoma.** Se agregó una guarda a `scripts/guardas-push.sh` en una rama, se verificó a mano (`sh scripts/guardas-push.sh
+origin` la imprime última) y al pushear la rama **la guarda no apareció en la salida del push**. Ninguna otra falló, así que no
+había nada que mirar: simplemente no estaba.
+
+**La causa.** `git rev-parse --git-common-dir` en un worktree devuelve el `.git` del CLON, no el del worktree, así que `REPO` es la
+carpeta del clon y el hook corre **`<clon>/scripts/guardas-push.sh`**, la versión de la rama que el clon tenga checkouteada (acá,
+`main`), con el `cwd` del worktree que se está pusheando. Medido: la lista de `main` termina en la guarda de la referencia de la
+API, que es exactamente la última línea que imprimió el push.
+
+**Las dos consecuencias, y las dos muerden:**
+- una guarda NUEVA no protege a nadie hasta que su rama llega al clon: la rama que la agrega se pushea sin ella;
+- **un clon atrasado corre guardas atrasadas sobre el código de todas las ramas.** El clon compartido de esta máquina estuvo 4.431
+  commits atrás, y los worktrees de ese clon son casi todo el trabajo.
+
+Lo que sí sale del worktree es `antes-de-subir.mjs` (el hook lo invoca sin `$REPO`), así que las etapas de tipos y tests miran el
+código que se sube; las guardas baratas, no.
+
+**Cómo verificarlo en 2 segundos**, antes de creerle a un push: `grep -c <la guarda nueva> "$(dirname "$(git rev-parse
+--git-common-dir)")/scripts/guardas-push.sh"`. Un 0 quiere decir que esa guarda no corrió.
+
+**SIN hacer (hay que decidirlo, no lo decide un chat suelto):** que el hook resuelva las guardas con `git rev-parse
+--show-toplevel` (las del código que se sube) en vez del clon. Es el hook COMPARTIDO de todas las sesiones de esta máquina y no se
+toca sin avisar; además hay un pliegue: el hook no está versionado, así que arreglar la copia de `scripts/claude-hooks/pre-push`
+no cambia nada hasta que alguien la instale.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 

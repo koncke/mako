@@ -41,12 +41,20 @@
 // interferencia: `editor-landing-origen` falló una vez porque otro test había dejado algo que hacía creer a lib/app-url.ts que corría «en el
 // navegador»). Riesgo que queda: un FALSO VERDE por contagio — por eso Actions sigue corriendo cada test en su proceso.
 //
-// LA SALIDA ES UNA LÍNEA, la última:   VERDE <sha>     o     ROJO: <qué>
-// y el VERDE sólo vale si (a) el árbol está LIMPIO (lo que probaste es lo que viaja: un archivo nuevo sin
+// LA SALIDA ES UNA LÍNEA, la última, y TIENE QUE ALCANZAR SOLA (es lo único que se lee de un push):
+//   VERDE <sha>
+//   ROJO: <qué> · RAM libre mínima <N> GB · detalle: <carpeta>
+//   SIN CHEQUEAR <sha>: <qué> — NO es un rojo del código · RAM libre mínima <N> GB · detalle: <carpeta>
+// La palabra ROJO sólo aparece si hay algo CONFIRMADO roto: un archivo cuyo proceso murió sin ejecutar un test no se sabe si está
+// roto, y va en la línea SIN CHEQUEAR (exit 99). El 30/10/2026 un grupo de 495 barredoras murió sin correr un solo test y el
+// veredicto escribió los 495 nombres detrás de «ROJO»: medio día de buscar fantasmas, con dos rojos de verdad escondidos entre ellos.
+// La RAM MÍNIMA va en la misma línea porque es lo que dice si creerle (con 0,7 GB libres, no), y la carpeta del detalle se conserva
+// cuando la corrida termina en rojo o en 99 (si da verde se borra).
+// El VERDE sólo vale si (a) el árbol está LIMPIO (lo que probaste es lo que viaja: un archivo nuevo sin
 // commitear se ve acá pero no llega a la integración) y (b) tu rama TIENE origin/main mergeado (si no, probaste
 // contra una versión vieja de lo que hicieron los demás). Por eso el chat le pasa al Cerebro SU PUNTA Y ESA LÍNEA,
-// y el Cerebro no integra una punta sin ella. Exit: 0 verde · 1 rojo · 99 no corrió por falta de RAM (no es un rojo
-// de código: cerrá chats o esperá).
+// y el Cerebro no integra una punta sin ella. Exit: 0 verde · 1 rojo CONFIRMADO · 99 no se pudo chequear (falta de
+// RAM, el turno que no tocó, o un proceso que murió sin juzgar un test: no es un rojo de código — cerrá chats o esperá).
 //
 // Uso:  node scripts/antes-de-subir.mjs [--base origin/main] [--todo] [--cortar] [--sin-fetch] [--listar]
 //   --listar: sólo el plan (qué tests y qué archivos de tipos), no corre nada · --sin-fetch: no baja origin/main antes
@@ -102,13 +110,14 @@
 // =============================================================================
 
 import { spawnSync, execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { armarTsconfig } from './tsc-acotado.mjs';
 import { veredicto } from './tsc-bitacoras.mjs';
 import { describirEstado, estado, tomarTurno } from './candado-pesado.mjs';
+import { lineasDelAviso, pendientesVencidos } from './pendientes-vencidos.mjs';
 import {
   agrupar, alcanceTsc, correrTests, dormir, esperarRam, git, imprimirPlan, indiceConNuevos, min, planear, ramLibreGb,
   SALIDA_SIN_CORRER, ZONA_ROJA_VIGIA_GB,
@@ -282,6 +291,72 @@ async function correrTsc(alcance, out, esperaMs = ESPERA_TIPOS_MS, esperar = esp
 // 3. Las condiciones del VERDE, y la corrida
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Dónde queda el DETALLE de la corrida (los logs que separan al caído por memoria del roto de verdad)
+// ---------------------------------------------------------------------------
+// ⚠️ NO EN `os.tmpdir()`. El 23/10/2026 un VERDE murió con `ENOENT … antes-de-subir-XXXX\compartido-1.log`: su carpeta de `%TEMP%`
+// desapareció a mitad de la corrida (otra sesión poda `%TEMP%`). Y el 30/10, con 495 barredoras reportadas como rojas sin haber
+// corrido, el log del reintento aislado —el ÚNICO que dice cuál murió por memoria y cuál está roto de verdad— ya no existía cuando
+// se fue a leer: antes-de-subir lo borraba al terminar. Ahora vive al lado de lo demás que sobrevive a la sesión (~/.claude),
+// se CONSERVA si la corrida da rojo o 99 (y su ruta va EN la línea del veredicto), y se borra si da verde: lo que nadie va a mirar
+// no ocupa disco. Se guardan las últimas CORRIDAS_QUE_SE_GUARDAN.
+export const CORRIDAS_QUE_SE_GUARDAN = 5;
+export const casaDelDetalle = (casa = process.env.MAKO_DETALLE_DIR) => casa || path.join(os.homedir(), '.claude', 'antes-de-subir');
+
+/**
+ * Crea la carpeta de ESTA corrida y poda las viejas. El nombre empieza con la fecha en ISO, así que ordenar por nombre es ordenar por fecha.
+ * @param {{ casa?: string, sha?: string, sello?: string, guardar?: number, fs?: { mkdirSync: typeof mkdirSync, readdirSync: typeof readdirSync, rmSync: typeof rmSync } }} [o]
+ */
+export function carpetaDeLaCorrida({ casa = casaDelDetalle(), sha = '?', sello = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19), guardar = CORRIDAS_QUE_SE_GUARDAN, fs = { mkdirSync, readdirSync, rmSync } } = {}) {
+  const nombre = `${sello}-${sha}`;
+  const dir = path.join(casa, nombre);
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    const viejas = fs.readdirSync(casa).filter((n) => n !== nombre).sort();
+    for (const n of viejas.slice(0, Math.max(0, viejas.length - (guardar - 1)))) fs.rmSync(path.join(casa, n), { recursive: true, force: true });
+  } catch { /* la poda es de cortesía: nunca frena una corrida */ }
+  return dir;
+}
+
+/** La de arriba, pero si `~/.claude` no se puede escribir cae al temporal de siempre (con el riesgo de poda que eso tiene). */
+function carpetaDelDetalle(sha) {
+  try { return carpetaDeLaCorrida({ sha }); } catch { return mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-')); }
+}
+
+// ---------------------------------------------------------------------------
+// La LÍNEA del veredicto: la última del push, y lo único que se lee
+// ---------------------------------------------------------------------------
+/**
+ * De los DOS montones —`rojos` (CONFIRMADOS: corrieron y fallaron) y `sinChequear` (no se pudo: sin RAM, sin turno, o un proceso que
+ * murió sin juzgar un test)— sale la línea y el código de salida. Las reglas, todas aprendidas de un push que mintió:
+ *   · un rojo CONFIRMADO siempre gana (exit 1): si hay algo roto, no se sube — pero la línea avisa que la lista puede estar incompleta;
+ *   · sin ningún rojo, lo que no se pudo chequear sale con 99 y la línea NO lleva la palabra ROJO (30/10/2026: 495 nombres detrás de
+ *     «ROJO» por un grupo que no había corrido un solo test, y medio día de buscar fantasmas);
+ *   · todo lo que no es un VERDE lleva pegados la RAM MÍNIMA (es lo que dice si creerle) y la RUTA del detalle: la línea tiene que
+ *     alcanzar sola, sin subir doce líneas del log.
+ * `aviso` es lo que hay que saber aunque todo esté verde (los pendientes vencidos): va pegado a la línea, porque la línea es lo único que se lee.
+ * @param {{ sha?: string, rojos?: string[], sinChequear?: string[], ramMin?: number, detalle?: string, parcial?: { que: string, porque: string } | null, sufijoVerde?: string, aviso?: string }} p
+ * @returns {{ linea: string, codigo: number, guardarDetalle: boolean }}
+ */
+export function armarVeredicto({ sha = '?', rojos = [], sinChequear = [], ramMin = Infinity, detalle = '', parcial = null, sufijoVerde = '', aviso = '' } = {}) {
+  const cola = [
+    Number.isFinite(ramMin) ? `RAM libre mínima ${ramMin.toFixed(1)} GB` : null,
+    detalle ? `detalle: ${detalle}` : null,
+  ].filter(Boolean).join(' · ');
+  const pegar = (l, c) => (c ? `${l} · ${c}` : l);
+  const con = (l) => pegar(pegar(l, cola), aviso);
+  if (rojos.length) {
+    const ademas = sinChequear.length ? ` · ⚠ y ADEMÁS ${sinChequear.join(' · ')}: la lista de rojos puede estar incompleta` : '';
+    return { linea: con(`ROJO: ${rojos.join(' · ')}${ademas}`), codigo: 1, guardarDetalle: true };
+  }
+  if (sinChequear.length) {
+    const cierre = parcial ? `, y tampoco un VERDE: ${parcial.porque}` : ': volvé a correrlo con menos chats abiertos, o pusheá dejándole el chequeo a Actions';
+    return { linea: con(`SIN CHEQUEAR ${sha}: ${sinChequear.join(' · ')} — NO es un rojo del código${cierre}`), codigo: SALIDA_SIN_CORRER, guardarDetalle: true };
+  }
+  if (parcial) return { linea: pegar(`PARCIAL ${parcial.que}: sin rojos — no vale como VERDE, ${parcial.porque}`, aviso), codigo: 0, guardarDetalle: false };
+  return { linea: pegar(`VERDE ${sha}${sufijoVerde}`, aviso), codigo: 0, guardarDetalle: false };
+}
+
 /** Lo que el árbol tiene sin commitear (modificado, borrado o NUEVO sin git): un VERDE sobre eso no vale para el sha. */
 export function sucio() {
   return execFileSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: RAIZ, encoding: 'utf8' }).split('\n').filter(Boolean);
@@ -398,7 +473,8 @@ async function main(argv) {
     const datos = { chat: `${path.basename(RAIZ)} · ${rama}`, cuenta: cuentaActiva(), sha: git(['rev-parse', '--short=9', 'HEAD']).trim(), comando: `antes-de-subir ${argv.join(' ')}`.trim() };
     out('[antes-de-subir] candado de lo pesado: anotándome en la fila…');
     const turno = await tomarTurno({ datos, aviso: (t) => out(`  ${t}`) });
-    if (turno.vencio) { lineaFinal(`ROJO: esperé el candado de lo pesado ${Math.round(turno.esperoMs / 60000)} min y no me tocó (no es un rojo del código): mirá quién lo tiene con --cola`); return SALIDA_SIN_CORRER; }
+    // Sale con 99, así que la línea NO puede empezar con ROJO: es lo único que se lee del push, y «ROJO» manda a buscar un bug que no existe.
+    if (turno.vencio) { lineaFinal(`SIN CHEQUEAR: esperé el candado de lo pesado ${Math.round(turno.esperoMs / 60000)} min y no me tocó — NO es un rojo del código: mirá quién lo tiene con --cola`); return SALIDA_SIN_CORRER; }
     ctx.candado = turno;
     ctx.tomar = () => tomarTurno({ datos, aviso: (t) => out(`  ${t}`) });
     const soltarYa = () => { try { ctx.candado?.soltar(); } catch { /* ya está suelto */ } };
@@ -455,9 +531,15 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: 
   }
 
   const rojos = [];
+  // Lo que NO SE PUDO CHEQUEAR (sale con 99, no con 1): la RAM que no apareció, el turno que no tocó, y los archivos cuyo proceso
+  // murió sin juzgar un test. Va aparte de `rojos` a propósito: un rojo CONFIRMADO siempre le gana (si hay algo roto, no se sube), y
+  // sin ningún rojo esto no puede llevar la palabra ROJO, que es lo único que lee quien pushea (30/10/2026).
+  const sinChequear = [];
   const parar = () => rojos.length > 0 && !o.todo;
-  let sinRam = false;
   let tiposSaltados = '';
+  let ramMin = Infinity;        // la de la corrida de tests: va EN la línea del veredicto (con 0,7 GB libres, a un rojo no se le cree)
+  let carpetaDetalle = '';      // dónde quedaron los logs completos; se borra si la corrida da verde
+  let vencidos = null;          // pendientes de docs/pendientes.md que nombran un test que ya está verde (avisa, no frena)
   const t0 = Date.now();
 
   const toca = (etapa) => !o.solo || o.solo === etapa;
@@ -472,7 +554,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: 
     // En --rapido los tipos se intentan SIN esperar (20 s): si la RAM no alcanza ya, no se frena al jefe. Medido: 3 de los 25 rojos de Actions
     // eran errores de tipos de archivos CAMBIADOS, y los 5 que tuvo mi propio test al armar esto los vio sólo el modo completo.
     const t = await correrTsc(alcance, out, o.rapido ? 20 * 1000 : ESPERA_TIPOS_MS, esperar, () => ctx.motivo);
-    if (!t.ok) { rojos.push(t.porque); if (t.sinRam) sinRam = true; }
+    if (!t.ok) (t.sinRam ? sinChequear : rojos).push(t.porque);
     if (t.saltado) tiposSaltados = t.saltado;
   }
 
@@ -485,32 +567,57 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: 
     if (lista.length === 0 && compartidos.length === 0) out('  Ningún test mira lo cambiado.');
     else {
       if (compartidos.length) out(`  ↳ ${compartidos.length} barredoras que sólo leen corren juntas en un proceso, con las lecturas en memoria`);
-      const carpetaTmp = mkdtempSync(path.join(os.tmpdir(), 'antes-de-subir-'));
-      const indice = indiceConNuevos(cambios.nuevos, carpetaTmp);
+      carpetaDetalle = carpetaDelDetalle(sha);
+      const indice = indiceConNuevos(cambios.nuevos, carpetaDetalle);
       const env = { ...process.env, ...(indice ? { GIT_INDEX_FILE: indice } : {}) };
-      const r = await correrTests({ lista, compartidos, tanda: 6, concurrencia: 2, cortar: o.cortar, env, carpetaTmp, out, esperar });
-      if (r.sinRam) { rojos.push(ctx.motivo === 'fila' ? 'tests: el turno del candado no me tocó al volver a hacer fila (no es la RAM) — no se corrieron, no es un rojo de código' : `tests: no hay RAM (quedan ${ramLibreGb().toFixed(1)} GB) — no se corrieron, no es un rojo de código`); sinRam = true; }
+      const r = await correrTests({ lista, compartidos, tanda: 6, concurrencia: 2, cortar: o.cortar, env, carpetaTmp: carpetaDetalle, out, esperar });
+      ramMin = r.ramMin;
+      if (r.sinRam) sinChequear.push(ctx.motivo === 'fila' ? 'tests: el turno del candado no me tocó al volver a hacer fila (no es la RAM) — no se corrieron, no es un rojo de código' : `tests: no hay RAM (quedan ${ramLibreGb().toFixed(1)} GB) — no se corrieron, no es un rojo de código`);
       else {
-        rmSync(carpetaTmp, { recursive: true, force: true });
-        out(`  ${r.rojos.size ? '✖' : '✔'} ${r.total.tests} tests de ${lista.length + compartidos.length} archivos · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
+        const nombres = (s) => `${[...s].map((f) => f.replace(/^tests\//, '').replace(/\.test\.ts$/, '')).slice(0, 6).join(', ')}${s.size > 6 ? `…y ${s.size - 6} más` : ''}`;
+        out(`  ${r.rojos.size ? '✖' : r.sinCorrer.size ? '⚠' : '✔'} ${r.total.tests} tests de ${lista.length + compartidos.length} archivos · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
         if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con varios procesos o con otro test en el mismo proceso, verdes aislados; no frenan): ${r.flaky.join(', ')}`);
-        if (r.rojos.size) rojos.push(`tests: ${[...r.rojos].map((f) => f.replace(/^tests\//, '')).slice(0, 6).join(', ')}${r.rojos.size > 6 ? '…' : ''}`);
+        if (r.rojos.size) rojos.push(`tests: ${nombres(r.rojos)}`);
+        // ⚠️ NO CORRER NO ES FALLAR (30/10/2026): un archivo cuyo proceso murió sin juzgar un solo test no se sabe si está roto, y
+        // ponerlo detrás de la palabra ROJO manda a buscar fantasmas (495 nombres) y esconde a los que sí fallan.
+        if (r.sinCorrer.size) sinChequear.push(`tests: ${r.sinCorrer.size} archivo(s) NO corrieron (su proceso murió sin juzgar un test): ${nombres(r.sinCorrer)}`);
+        // ⚠️ PENDIENTES VENCIDOS, GRATIS (30/10/2026): los tests que acabaron de correr VERDES ya están en la mano, así que cruzar
+        // docs/pendientes.md con ellos no cuesta nada. Un pendiente que nombra un test verde está hecho y nadie lo borró: el 24/10 la
+        // sección «Rojos en main sin dueño» quedó seis días con tres tests que se habían arreglado 95 minutos después de escribirla, y
+        // el Cerebro los repartió a dos chats. AVISA, NUNCA frena: un test puede estar verde por el entorno (un clon atrasado).
+        vencidos = pendientesVencidos({ raiz: RAIZ, verdes: r.verdes });
+        for (const l of lineasDelAviso(vencidos)) out(l);
       }
     }
   }
 
+  // El veredicto, con el detalle que se borra sólo si no hay nada que mirar (ver armarVeredicto).
+  const cerrar = (parcial = null) => {
+    // Sin RAM para el tsc acotado el VERDE sigue valiendo, pero lo dice: los tipos los decide Actions (que corre el tsc completo).
+    // `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md): sin los importadores lejanos —los decide Actions—, y con los tipos
+    // de lo cambiado sólo si entraron en RAM; la línea lo dice, para que el Cerebro sepa qué se miró.
+    const sufijoVerde = o.rapido
+      ? (o.conTipos && !tiposSaltados ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ' (rápido: sin tipos ni importadores lejanos; los chequea Actions)')
+      : (tiposSaltados ? ' (tipos: los chequea Actions)' : '');
+    // El aviso de los pendientes vencidos viaja EN la línea: si vive sólo doce líneas más arriba, nadie lo lee (es la lección del 30/10).
+    const cuantos = (vencidos?.porVerde.length ?? 0) + (vencidos?.porFalta.length ?? 0);
+    const aviso = cuantos ? `⚠ ${cuantos} pendiente(s) vencido(s) en docs/pendientes.md (línea${cuantos > 1 ? 's' : ''} ${[...(vencidos?.porVerde ?? []), ...(vencidos?.porFalta ?? [])].map((e) => e.linea).join(', ')}): el test ya está verde o no existe — cerralos` : '';
+    const v = armarVeredicto({ sha, rojos, sinChequear, ramMin, detalle: carpetaDetalle, parcial, sufijoVerde, aviso });
+    if (!v.guardarDetalle && carpetaDetalle) rmSync(carpetaDetalle, { recursive: true, force: true });
+    lineaFinal(v.linea);
+    return v.codigo;
+  };
+
   // Una sola etapa nunca es un VERDE: no vale para pasarle una punta al Cerebro.
   if (o.solo) {
     out(`\n[antes-de-subir] ${min(Date.now() - t0)} · etapa «${o.solo}»`);
-    lineaFinal(rojos.length ? `ROJO: ${rojos.join(' · ')}` : `PARCIAL (${o.solo}): sin rojos — no vale como VERDE, faltan las otras etapas`);
-    return rojos.length ? (sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1) : 0;
+    return cerrar({ que: `(${o.solo})`, porque: 'faltan las otras etapas' });
   }
 
   // Con la profundidad recortada (sin --rapido) no se miró todo lo que se debía: tampoco es un VERDE para pasar una punta.
   if (Number.isFinite(o.profundidad) && !o.rapido) {
     out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total · --profundidad ${o.profundidad}`);
-    lineaFinal(rojos.length ? `ROJO: ${rojos.join(' · ')}` : `PARCIAL (--profundidad ${o.profundidad}): sin rojos — no vale como VERDE, quedaron afuera los importadores más lejanos`);
-    return rojos.length ? (sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1) : 0;
+    return cerrar({ que: `(--profundidad ${o.profundidad})`, porque: 'quedaron afuera los importadores más lejanos' });
   }
 
   // Las condiciones que NO son un chequeo pero sin las cuales el VERDE no vale.
@@ -519,12 +626,7 @@ async function ejecutar(o, out, lineaFinal, { yaTraje = false, ctx = { candado: 
   if (o.condiciones && rojos.length === 0 && sinMain) rojos.push(sinMain);
 
   out(`\n[antes-de-subir] ${min(Date.now() - t0)} en total`);
-  // Sin RAM para el tsc acotado el VERDE sigue valiendo, pero lo dice: los tipos los decide Actions (que corre el tsc completo).
-  // `--rapido` es el MÍNIMO que un jefe corre antes de pasar una punta (AGENTS.md): sin los importadores lejanos —los decide Actions—, y con los tipos
-  // de lo cambiado sólo si entraron en RAM; la línea lo dice, para que el Cerebro sepa qué se miró.
-  if (rojos.length === 0) { lineaFinal(`VERDE ${sha}${o.rapido ? (o.conTipos && !tiposSaltados ? ' (rápido: tipos de lo cambiado sí; sin importadores lejanos: los chequea Actions)' : ' (rápido: sin tipos ni importadores lejanos; los chequea Actions)') : tiposSaltados ? ' (tipos: los chequea Actions)' : ''}`); return 0; }
-  lineaFinal(`ROJO: ${rojos.join(' · ')}`);
-  return sinRam && rojos.length === 1 ? SALIDA_SIN_CORRER : 1;
+  return cerrar();
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

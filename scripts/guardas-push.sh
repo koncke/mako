@@ -184,4 +184,16 @@ if ! node --import tsx scripts/generar-api-doc.mjs --check; then
   exit 1
 fi
 
+# ⚠️ LA ÚNICA GUARDA QUE AVISA Y NO BLOQUEA (30/10/2026). `docs/pendientes.md` tuvo seis días una sección «Rojos en `main` sin
+# dueño» con tres tests que ya estaban verdes —se arreglaron 95 minutos después de escribirla— y el Cerebro los repartió a dos
+# chats. La regla ya estaba escrita en el encabezado del documento («Al cerrar uno, borralo de acá en el mismo commit»): no
+# faltaba la regla, faltó cumplirla, así que hace falta una herramienta. Acá corre sólo la mitad GRATIS (un pendiente que nombra
+# un test que ya NO EXISTE: es mirar el disco). La otra mitad —el test que está VERDE— la hace `antes-de-subir.mjs` con los tests
+# que ACABA de correr, sin volver a correr nada. No bloquea porque un verde puede ser del entorno (un clon atrasado fabrica
+# verdes falsos) y frenar un push por el estado de un DOCUMENTO sería peor que el problema.
+if [ -f scripts/pendientes-vencidos.mjs ]; then
+  echo "[pre-push] Chequeando que ningun pendiente nombre un test que ya no existe..."
+  node scripts/pendientes-vencidos.mjs || true
+fi
+
 exit 0
