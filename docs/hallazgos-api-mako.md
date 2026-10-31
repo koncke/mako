@@ -14,6 +14,47 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## El choque del registro se UNE; el de `NO_EN_FLUJOS` se une o abre un agujero (30/10/2026, rescate de video-generator)
+
+**El síntoma.** `nube/video-generator-2710` (el estudio copiado de Arcads, 27/10) quedó tres días sin subir y al mergearla
+contra `origin/main` chocó en cinco archivos. Cuatro son los de siempre: `registro.ts`, `runners.ts`, `flujo.ts` y
+`tests/api-mako-registro.test.ts`.
+
+**La causa real.** No es mala suerte: es la regla de este repo. *Toda* feature nueva declara su área en el registro, así que
+**dos ramas que agregan áreas distintas escriben siempre en los mismos renglones**. La rama sumó `video-estudio`; `main`, en
+el medio, sumó `copywriter` (62a9b1b28) y el Media Buyer (a2b0088a3). Los cuatro choques eran de UNA línea cada uno:
+
+| archivo | HEAD (main) | la rama | resuelto |
+|---|---|---|---|
+| `registro.ts` → `POR_AREA` | `contenido: [...contenido, ...copywriter]` | `video: [...video, ...videoEstudio]` | las dos |
+| `runners.ts` → `TODOS` | `contenido, copywriter` | `video, videoEstudio` | las dos |
+| test → `RUNS_DE_AREA` | `contenido: ['contenido','copywriter']` | `video: ['video','video-estudio']` | las dos |
+| `flujo.ts` → `NO_EN_FLUJOS` | 3 ids del Media Buyer | `...DEL_ESTUDIO_DE_VIDEO` | las dos |
+
+Los `import` NO chocaron en ninguno: git los unió solo (están en líneas distintas). **Lo único que choca es la línea que los
+usa**, y por eso el conflicto se ve más chico de lo que es.
+
+**⚠️ El diagnóstico obvio era el equivocado en el cuarto.** «Son cuatro listas, se unen las cuatro» acierta por casualidad:
+las tres primeras son CATÁLOGOS (elegir un lado borra un área, y el test de paridad def ↔ run sólo lo caza si el área perdida
+tenía runner). La cuarta, `NO_EN_FLUJOS`, es una **denylist**: elegir un lado no pierde una feature, **abre un agujero**. De un
+lado estaban `'zona_media_buyer'`, `'hasta_media_buyer'` y `'proponer_crear_campana'` (mueven plata en Meta); del otro, los ids
+del estudio de video (gastan créditos de Google Flow del cliente). Las dos resoluciones «limpias» —quedarse con main o con la
+rama— dejaban una de esas dos familias otra vez ofrecible como paso de una automatización, que se confirma solo y sin la sesión
+de nadie. Un merge que compila y pasa los tests puede ser exactamente este bug.
+
+**La regla:**
+- Un choque en el registro se **une**, nunca se elige un lado. Y antes de unir, preguntate si la lista es un **catálogo** o una
+  **denylist**: con la denylist, unir es lo único seguro, y perder un renglón no da rojo en ninguna parte.
+- El spread de `DEL_ESTUDIO_DE_VIDEO` va **último** dentro del `new Set([...])`: lo exige el regex de
+  `tests/video-estudio-api.test.ts` (`new Set\(\[[^\]]*\.\.\.DEL_ESTUDIO_DE_VIDEO…\]\)`), que no tolera un `]` en el medio.
+- El test del registro **no cuenta entradas**: `RUNS_DE_AREA` mapea área → sus archivos `.run`. Resolverlo «sumando un número»
+  es el error que invita su nombre.
+
+**Lo que quedó sin hacer.** Las 21 operaciones de `lib/api-mako/areas/video-estudio.def.ts` salen sólo por `canales: ['app']`
+porque sus runners llaman a las server actions de la tab, que leen la sesión de la cookie. Por WhatsApp y por `/api/v1` el
+estudio **no existe**, y eso contradice «todo MaKo se debe poder utilizar por API» (Martín, 25/10). Está documentado en el
+encabezado de `video-estudio.run.ts`, no resuelto: para abrirlo hay que sacarle la dependencia de la sesión a esas acciones.
+
 ## Las cifras de Joan eran ciertas las DOS: el dato cambió entre las preguntas (29/10/2026, claude3)
 
 **El síntoma.** Código Inmobiliario (ws13), 26/10, del 19/09 al 26/10: a las 16:15 MaKo dijo 25 no-shows y 14 sin marcar; a

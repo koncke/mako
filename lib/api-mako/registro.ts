@@ -53,6 +53,7 @@ import { DEFS as contenido } from './areas/contenido.def';
 // El Copywriter (28/10/2026): del área `contenido`, en su propio archivo y al FINAL del área (docs/diseno-copywriter.md, D8).
 import { DEFS as copywriter } from './areas/copywriter.def';
 import { DEFS as video } from './areas/video.def';
+import { DEFS as videoEstudio } from './areas/video-estudio.def';
 import { DEFS as imagen } from './areas/imagen.def';
 import { DEFS as integraciones } from './areas/integraciones.def';
 import { DEFS as equipo } from './areas/equipo.def';
@@ -70,7 +71,7 @@ import { DEFS as tickets } from './areas/tickets.def';
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
   general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
-  landing, closing, negocio, contenido: [...contenido, ...copywriter], video, imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako: [...mako, ...tickets],
+  landing, closing, negocio, contenido: [...contenido, ...copywriter], video: [...video, ...videoEstudio], imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako: [...mako, ...tickets],
 };
 
 export const REGISTRO: readonly OperacionDef[] = AREAS.flatMap((a) => POR_AREA[a]);

@@ -218,6 +218,12 @@ export type PlanGuardado = {
    */
   escenarioId?: string;
   /**
+   * `true` = el lugar se decidió AL CREAR el anuncio, en el estudio (un lugar, o «Que lo elija MaKo»: entonces sin
+   * `escenarioId`). Con esto el wizard no vuelve a preguntar «¿Dónde se graba?» después del guion (27/10/2026,
+   * app/video-generator/estudio/composer-reglas.ts). Ausente en todo anuncio anterior: ésos siguen preguntándolo.
+   */
+  lugarEnElAlta?: true;
+  /**
    * El prompt que la persona escribió a mano para una toma, por número.
    *
    * ⚠️ VIVE EN EL PLAN Y NO EN LA MARCA DE LA TOMA, y la diferencia es la que
