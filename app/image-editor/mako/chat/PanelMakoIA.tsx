@@ -169,7 +169,8 @@ export function PanelMakoIA() {
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
     if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
     // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
-    void pedirEdicion(editorRef.current, dejarCaja ? instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion) : cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0), alc, archivos);
+    if (!dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0);
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos);
     if (!dejarCaja) { setTexto(''); cita.soltar(); }
   };
 
@@ -237,7 +238,7 @@ export function PanelMakoIA() {
             </div>
           )}
           <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}
@@ -263,9 +264,9 @@ export function PanelMakoIA() {
         {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
-          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} arriba={cita.arriba} ocupado={hilo.corriendo || nota.pendientes}
+          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
             apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-            adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
+            arriba={cita.arriba} adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
         </div>
       </div>
     </div>

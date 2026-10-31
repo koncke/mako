@@ -18,7 +18,7 @@ import { subirAdjuntosTicket } from './subir-adjuntos';
 import { ACCEPT_TICKET, lineaDeAdjuntos, mimeDeArchivoTicket, problemaDeAdjuntosTicket, type AdjuntoTicket } from '@/lib/tickets-adjuntos';
 import type { AdjuntoCaja } from '@/app/admin/operaciones/useCentro';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
-import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
+import { useCita } from '@/app/_chat/useCita';
 
 let secuencia = 0;
 const id = (pre: string) => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
@@ -57,8 +57,7 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   /** Lo de la persona que sale a un ticket, y el «Listo» de MaKo del recién mandado. */
   const [extra, setExtra] = useState<Record<number, Turno[]>>({});
   const [texto, setTexto] = useState('');
-  const cita = useCitaDelChat(abierto ?? null);
-  const { con: conCita, soltar: soltarCita } = cita;
+  const { cita, citar, con: conCita, soltar: soltarCita } = useCita(abierto ?? null);
   const [tipoElegido, setTipoElegido] = useState<TipoTicket | null>(null);
   const [mandando, setMandando] = useState(false);
   const [errorTarjeta, setErrorTarjeta] = useState<string | null>(null);
@@ -293,8 +292,9 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   const enviando = ticket ? (extra[ticket.id] ?? []).some((x) => x.estado === 'enviando') : false;
 
   return {
-    citar: cita.citar,
-    arribaCita: cita.arriba,
+    cita,
+    citar,
+    soltarCita,
     tickets, abierto, ticket, abrir, nuevo, items: nota.conNotas(items), texto, setTexto, mandar, reintentar: nota.reintentar(reintentar), enviando,
     onGrabada: nota.onGrabada, descartar: nota.descartar,
     /** Una nota de voz de esta conversación todavía no salió: lo escrito y el ticket la esperan. */

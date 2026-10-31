@@ -323,7 +323,7 @@ test('de afuera, «Aplicar» replica como Landing y lo que se aplica en la copia
   // Y con la copia que ya existe no se abre ninguna ventana (no hay nada que leer). PROBADO ROMPIÉNDOLO (15/10/2026,
   // tanda 7; base 43 / 0 con crear-panel): sin el `copia == null &&` → 42 / 1.
   assert.match(afuera, /const ventana = copia == null && pideVentana\('landing', \{ lectura \}\) && !leidaEnServer\.current \? abrirEnElClic\(\) : null;/);
-  assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes \}: Props\)/);
+  assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes, onAbrirDiagnostico, onAbrirEnEditor \}: Props\)/);
   assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id, \.\.\.\(que \? \{ resolver: que \} : \{\}\) \}\)/);
   assert.match(panel, /irDuro\(`\/web-generator\?diagnostico=\$\{id\}`, ws\)/);
   assert.match(panel, /sessionStorage\.setItem\(CLAVE_UNA_VEZ/);
@@ -483,7 +483,7 @@ test('el pase marca los originales DESPUÉS de copiarlos, con compare-and-set, y
 test('un resuelto de afuera con copia lleva «Ver en tu copia»; una nuestra, no', () => {
   const panel = sinComentarios(leer(PANEL));
   const fila = sinComentarios(leer(COMENTARIO));
-  assert.match(panel, /onVerCopia=\{!deNuestra && copia != null && s\.estado === 'resuelta' \? \(\) => irDuro\(`\/web-generator\?diagnostico=\$\{copia\}`, ws\) : undefined\}/);
+  assert.match(panel, /onVerCopia=\{!deNuestra && copia != null && s\.estado === 'resuelta' \? \(\) => \{ if \(onAbrirDiagnostico\) onAbrirDiagnostico\(copia\); else irDuro\(`\/web-generator\?diagnostico=\$\{copia\}`, ws\); \} : undefined\}/);
   assert.match(fila, /\{onVerCopia && \(\s*<button type="button" className="gp-btn gp-btn-contorno" onClick=\{onVerCopia\}><Ico n="flecha-externa" t=\{14\} \/> Ver en tu copia<\/button>/);
   // Lo que se resolvió en el pase se ve resuelto antes de irse a la copia.
   assert.match(panel, /if \(r && esPasada\(r\) && r\.resueltas\.length\) \{\s*setSugerencias\(/);

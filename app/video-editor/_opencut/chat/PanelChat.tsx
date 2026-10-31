@@ -462,7 +462,8 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean; archivos?: readonly File[] } = {}) => {
 		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
 		// Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
-		void pedirEdicion(editorRef.current, op.dejarCaja ? instruccion.slice(0, TOPES_CHAT.instruccion) : cita.con(instruccion.slice(0, TOPES_CHAT.instruccion - cita.reserva), !!op.archivos?.length), alc, op);
+		if (!op.dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT.instruccion - cita.reserva), !!op.archivos?.length);
+		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
 		if (!op.dejarCaja) { setTexto(""); cita.soltar(); }
 	};
 
@@ -602,7 +603,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 						</>
 					)}
 					<HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
+						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
 					{hilo.corriendo && (
 						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--faint) hover:text-(--ink)">
 							Detener generación
@@ -641,9 +642,9 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				</div>
 				{/* La caja única (app/_chat/CajaChat.tsx), con los tokens de MaKo tal cual. */}
 				<div className="co-caja">
-					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} arriba={cita.arriba} ocupado={hilo.corriendo || nota.pendientes}
+					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
 						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion - cita.reserva} />
+						arriba={cita.arriba} adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion - cita.reserva} />
 				</div>
 			</footer>
 		</section>

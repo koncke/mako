@@ -21,6 +21,7 @@ import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { TIPOS } from '@/lib/tickets-reglas';
 import { hayClave } from '@/lib/claves-en-el-chat';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
+import { CitaCaja } from '@/app/admin/operaciones/MensajeWA';
 import { rotuloTipo } from '@/lib/soporte-chat';
 import { hace } from '../navegador';
 import { TONO_ESTADO } from './hilo-soporte';
@@ -131,7 +132,7 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       ocupado={s.notasPendientes}
       placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil} campo={campo} seguir={seguir}
       // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
-      arriba={hayClave(s.texto) ? <AvisoClave /> : s.arribaCita}
+      arriba={hayClave(s.texto) ? <AvisoClave /> : s.cita ? <CitaCaja cita={s.cita} onQuitar={s.soltarCita} /> : undefined}
       // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
       adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
       // Lo que la caja LEE (un .pptx, un audio) también es de su conversación, como lo adjuntado (la verificación de 05d7c3187).

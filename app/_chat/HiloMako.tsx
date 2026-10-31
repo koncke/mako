@@ -169,7 +169,8 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       // La cita se lee ANTES de partir: `partirPegados` recorta el renglón en blanco que la cita necesita para reconocerse.
       const crudo = archivos.length ? textoConArchivos(x.texto) : x.texto;
       const conCita = leerCita(crudo);
-      const { texto, pegados } = partirPegados(conCita?.resto ?? crudo);
+      const { texto: conTodo, pegados } = partirPegados(conCita?.resto ?? crudo);
+      const texto = conTodo;
       // Si respondió a un mensaje, la cita va arriba, en su globo, y se toca para ir a él (lo de WhatsApp del Centro).
       const cita = conCita ? <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={[]} citado={citadoEn(items, conCita.cita.texto)} /> : null;
       const pie = <span className="co-burbuja__pie"><MarcasEnHora id={idWA(x)} marcas={marcas} />{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;

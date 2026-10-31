@@ -31,24 +31,24 @@ export function leerVencimiento(cookie: string | null | undefined, secreto: stri
  * Lo que ve esta visita. `cookieNueva` sólo la primera vez: ahí arranca el reloj.
  * Sin secreto o apagada, no hay oferta, y nada arranca.
  */
-export function abrirOferta(cookie: string | null | undefined, ahora: number, entorno: { activa: boolean; secreto: string | undefined }): { estado: EstadoOferta; cookieNueva: string | null } {
-  if (!entorno.activa || !entorno.secreto) return { estado: { activa: false }, cookieNueva: null };
+export function abrirOferta(cookie: string | null | undefined, ahora: number, entorno: { prendida: boolean; secreto: string | undefined }): { estado: EstadoOferta; cookieNueva: string | null } {
+  if (!entorno.prendida || !entorno.secreto) return { estado: { hay: false }, cookieNueva: null };
   const ya = leerVencimiento(cookie, entorno.secreto);
   const vence = ya ?? ahora + OFERTA_ENTRADA.minutos * 60_000;
   return {
-    estado: vence > ahora ? { activa: true, restanteMs: vence - ahora } : { activa: false },
+    estado: vence > ahora ? { hay: true, restanteMs: vence - ahora } : { hay: false },
     cookieNueva: ya === null ? firmarVencimiento(vence, entorno.secreto) : null,
   };
 }
 
 /** Lo lee el cobro al arrancar el pago: ¿a esta persona le corresponde el descuento ahora? */
-export function ofertaVigente(cookie: string | null | undefined, ahora: number, entorno: { activa: boolean; secreto: string | undefined }): boolean {
-  if (!entorno.activa || !entorno.secreto) return false;
+export function ofertaVigente(cookie: string | null | undefined, ahora: number, entorno: { prendida: boolean; secreto: string | undefined }): boolean {
+  if (!entorno.prendida || !entorno.secreto) return false;
   const vence = leerVencimiento(cookie, entorno.secreto);
   return vence !== null && vence > ahora;
 }
 
-export const entornoOferta = (): { activa: boolean; secreto: string | undefined } => ({
-  activa: process.env.OFERTA_ENTRADA_ACTIVA === '1',
+export const entornoOferta = (): { prendida: boolean; secreto: string | undefined } => ({
+  prendida: process.env.OFERTA_ENTRADA_ACTIVA === '1',
   secreto: process.env.AUTH_SECRET,
 });

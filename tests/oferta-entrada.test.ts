@@ -12,24 +12,24 @@ import { OFERTA_ENTRADA, precioPrimerMes, textoReloj, textoUsd } from '../lib/of
 import { esPublica, esPublicaDeEscritura } from '../lib/rutas-publicas';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-const PRENDIDA = { activa: true, secreto: 'secreto-de-prueba' };
+const PRENDIDA = { prendida: true, secreto: 'secreto-de-prueba' };
 const DIEZ = OFERTA_ENTRADA.minutos * 60_000;
 const T0 = 1_800_000_000_000;
 
 test('la primera visita arranca el reloj; recargar sigue por donde iba', () => {
   const a = abrirOferta(null, T0, PRENDIDA);
-  assert.deepEqual(a.estado, { activa: true, restanteMs: DIEZ });
+  assert.deepEqual(a.estado, { hay: true, restanteMs: DIEZ });
   assert.ok(a.cookieNueva);
   const b = abrirOferta(a.cookieNueva, T0 + 60_000, PRENDIDA);
-  assert.deepEqual(b.estado, { activa: true, restanteMs: DIEZ - 60_000 });
+  assert.deepEqual(b.estado, { hay: true, restanteMs: DIEZ - 60_000 });
   assert.equal(b.cookieNueva, null, 'recargar no le da un reloj nuevo');
 });
 
 test('en cero se terminó: no reaparece al recargar, ni después', () => {
   const { cookieNueva } = abrirOferta(null, T0, PRENDIDA);
-  assert.deepEqual(abrirOferta(cookieNueva, T0 + DIEZ, PRENDIDA).estado, { activa: false });
+  assert.deepEqual(abrirOferta(cookieNueva, T0 + DIEZ, PRENDIDA).estado, { hay: false });
   const unMes = abrirOferta(cookieNueva, T0 + 30 * 86_400_000, PRENDIDA);
-  assert.deepEqual(unMes.estado, { activa: false });
+  assert.deepEqual(unMes.estado, { hay: false });
   assert.equal(unMes.cookieNueva, null);
   assert.equal(ofertaVigente(cookieNueva, T0 + DIEZ, PRENDIDA), false, 'el cobro tampoco la acepta');
   assert.equal(ofertaVigente(cookieNueva, T0 + DIEZ - 1, PRENDIDA), true);
@@ -45,10 +45,10 @@ test('una cookie tocada no vale: ni estirar el reloj, ni otra firma', () => {
 });
 
 test('apagada no promete nada: sin cartel, sin reloj corriendo, y el cobro dice que no', () => {
-  const apagada = { activa: false, secreto: 'x' };
-  assert.deepEqual(abrirOferta(null, T0, apagada), { estado: { activa: false }, cookieNueva: null });
+  const apagada = { prendida: false, secreto: 'x' };
+  assert.deepEqual(abrirOferta(null, T0, apagada), { estado: { hay: false }, cookieNueva: null });
   assert.equal(ofertaVigente(firmarVencimiento(T0 + DIEZ, 'x'), T0, apagada), false);
-  assert.deepEqual(abrirOferta(null, T0, { activa: true, secreto: undefined }), { estado: { activa: false }, cookieNueva: null });
+  assert.deepEqual(abrirOferta(null, T0, { prendida: true, secreto: undefined }), { estado: { hay: false }, cookieNueva: null });
 });
 
 test('lo que dice el cartel', () => {

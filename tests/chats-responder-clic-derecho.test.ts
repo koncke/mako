@@ -37,7 +37,7 @@ test('lo que sale se lee como cita en el hilo', () => {
 });
 
 test('una cita no viaja a otra conversación', () => {
-  const s = leer('app/_chat/useCitaDelChat.tsx');
+  const s = leer('app/_chat/useCita.ts');
   assert.match(s, /guardada\.clave === clave \? guardada\.cita : null/);
 });
 
@@ -69,7 +69,7 @@ test('el renglón citado no se interpreta como un pedido: se lee lo escrito y se
 });
 
 test('una cita con archivos y sin texto sale igual, y el hilo la lee antes de partir lo pegado', () => {
-  const hook = leer('app/_chat/useCitaDelChat.tsx');
+  const hook = leer('app/_chat/useCita.ts');
   assert.match(hook, /texto\.trim\(\) \|\| \(cita && conAdjuntos \? 'Mira lo que te adjunto\.' : ''\)/);
   const hilo = leer('app/_chat/HiloMako.tsx');
   assert.ok(hilo.indexOf('leerCita(crudo)') > 0 && hilo.indexOf('leerCita(crudo)') < hilo.indexOf('partirPegados(conCita'));
@@ -83,9 +83,9 @@ test('Offer y Soporte: Responder, sin meter la cita donde no va', () => {
   assert.match(offer, /arriba: arranque\?\.manda \? undefined : cita\.arriba/, 'en el arranque se contesta SU pregunta');
   assert.match(leer('app/offer/ChatOffer.tsx'), /<HiloMako[\s\S]{0,300}onCitar=\{onCitar\}/);
   const soporte = leer('app/tickets/soporte/useSoporte.ts');
-  assert.match(soporte, /useCitaDelChat\(abierto \?\? null\)/);
+  assert.match(soporte, /useCita\(abierto \?\? null\)/);
   assert.match(soporte, /dicho \?\? conCita\(texto, archivos\.length > 0\)/);
   const piezas = leer('app/tickets/soporte/PiezasSoporte.tsx');
   assert.match(piezas, /onCitar=\{s\.citar\}/);
-  assert.match(piezas, /hayClave\(s\.texto\) \? <AvisoClave \/> : s\.arribaCita/);
+  assert.match(piezas, /hayClave\(s\.texto\) \? <AvisoClave \/> : s\.cita \?/);
 });

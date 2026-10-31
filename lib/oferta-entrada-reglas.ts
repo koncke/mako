@@ -29,5 +29,5 @@ export function textoReloj(restanteMs: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 }
 
-/** Lo que contesta /api/oferta-entrada. `activa` false: no hay cartel (apagada, o el reloj ya terminó). */
-export type EstadoOferta = { activa: true; restanteMs: number } | { activa: false };
+/** Lo que contesta /api/oferta-entrada. `hay` false: no hay cartel (apagada, o el reloj ya terminó). */
+export type EstadoOferta = { hay: true; restanteMs: number } | { hay: false };

@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
   const origen = req.headers.get('origin');
   let propio = false;
   try { propio = !!origen && new URL(origen).host === req.headers.get('host'); } catch { /* un Origin mal formado no es propio */ }
-  if (!propio) return Response.json({ activa: false }, { status: 403, headers: { 'cache-control': 'no-store' } });
+  if (!propio) return Response.json({ hay: false }, { status: 403, headers: { 'cache-control': 'no-store' } });
 
   const { estado, cookieNueva } = abrirOferta(req.cookies.get(COOKIE_OFERTA)?.value, Date.now(), entornoOferta());
   const r = Response.json(estado, { headers: { 'cache-control': 'no-store' } });

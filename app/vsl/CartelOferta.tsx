@@ -41,7 +41,7 @@ export function CartelOferta({ planes }: { planes: ReadonlyArray<{ id: string; n
     fetch('/api/oferta-entrada', { method: 'POST' })
       .then((r) => r.json() as Promise<EstadoOferta>)
       .then((e) => {
-        if (!vivo || !e.activa) return;
+        if (!vivo || !e.hay) return;
         const t = performance.now();
         setAhora(t);
         setFin(t + e.restanteMs);

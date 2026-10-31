@@ -292,7 +292,7 @@ export function WhatsAppAdvisor({
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
               )}
               <HiloMako items={nota.conNotas(items)} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
-                tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
+                tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
               {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}<ReportarASoporte /></p>}
             </div>
           </div>
@@ -302,9 +302,9 @@ export function WhatsAppAdvisor({
             </div>
             {/* La caja única (app/_chat/CajaChat.tsx): el «+» (fotos y PDF), los emojis y el micrófono que graba una nota (sale en el acto). */}
             <div className="co-caja">
-              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} arriba={cita.arriba} ocupado={pensando || nota.pendientes}
+              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando || nota.pendientes}
                 placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-                adjuntos={adj.caja} />
+                arriba={cita.arriba} adjuntos={adj.caja} />
             </div>
           </div>
         </div>
