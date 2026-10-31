@@ -39,6 +39,49 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
+
+Un tren de 213 commits tardó **cinco corridas de Actions** en aterrizar. Cada vez el síntoma era el mismo —«el chequeo
+no pasa»— y la causa era otra. Lo que vale de esto no es ninguna de las cinco: es **que arreglar una destapaba la
+siguiente**, y que cuatro de ellas eran VERDES en la PC y rojas en el runner.
+
+| # | Lo que se veía | La causa real |
+|---|---|---|
+| 1 | código **99**, 24 min, 200 archivos «sin saber si están rotos» | dos tests dormían sobre el reloj de VERDAD (8 s de silencio por escena × 12 y 23 escenas) y se pasaban de la paciencia del vigía |
+| 2 | el mismo 99, ya con el reloj acortado | la paciencia del vigía era un número fijo: medía **al archivo más lento**, no un cuelgue |
+| 3 | el mismo 99, ya con 6 min de paciencia | un end-to-end de 12 escenas estaba en la fase de «fallar rápido». No era lento de más: estaba en la fase equivocada |
+| 4 | código **1**, un archivo rojo con nombre | `spawnSync` sin `maxBuffer` cortaba la salida del hijo en 1 MB: el JSON llegaba partido |
+
+### Lo que hay que saber antes de diagnosticar uno de éstos
+
+- **`node` imprime la salida de un archivo cuando el ARCHIVO termina**, no caso por caso. Una tanda queda MUDA todo lo
+  que tarde su archivo más lento, aunque los otros 99 ya hayan pasado. Por eso «426 de 880» no eran tests faltantes:
+  eran 454 esperando en la cola del reporte. Y por eso un detector de «no avanza» mide al más lento si no se le dice otra cosa.
+- **El orden dentro de una tanda es ALFABÉTICO**, no el de los argumentos. «El que se colgó es el que sigue» habla del
+  archivo siguiente **por nombre**.
+- **Un `timeout: N` que un test le pasa a un hijo es una DECLARACIÓN**: «puedo tardar N». Es una invariante estática —se
+  chequea sin correr nada— y en todo el repo sólo tres archivos declaran más de lo que el vigía aguanta.
+- **⚠️ Medir en la PC no sirve para decidir un tope de CI.** `grupo-leandro` tarda 119 s acá y más de 360 en el runner.
+  Eso costó cuatro corridas: cada arreglo se dimensionó con el número local y se quedó corto allá.
+- **⚠️ `spawnSync` sin `maxBuffer` corta en 1 MB y el síntoma no se parece a la causa**: el error es
+  «Unterminated string in JSON at position …», que manda a buscar un problema de serialización inexistente. Y es de los
+  peores porque depende del TAMAÑO de la salida: verde en la PC, rojo en el runner. Eran 22 archivos, no uno.
+
+### El patrón que se repitió tres veces en el mismo día, y no es de infra
+
+De los diez tests rojos de este tren, **seis eran el guardia persiguiendo el TEXTO** y no lo que cuida. Y de las tres
+herramientas nuevas escritas para arreglar esto, **dos se rompieron a sí mismas**: un test que cuenta `timeout:` en el
+fuente se contó a sí mismo al CITAR el literal en un comentario, y un guard de otra sesión hizo lo mismo. La regla, que
+ya está en AGENTS.md: **si el archivo que el assert LEE está bien, el que está mal es el ASSERT**.
+
+### Lo que quedó SIN hacer
+
+- `tests/tipos-por-tandas.test.ts` SIGUE pudiendo dar 99 en su propia tanda: corre el `tsc` de verdad (754 s medidos el
+  22/10) y queda como excepción DECLARADA. Ese 99 se lee como «tardó», no como «se colgó».
+- La fase «Tests (los demás)» (`--tanda 1000`) tiene la misma forma y el mismo vigía, y **no se ejercitó**.
+- `grupo-leandro` sigue tardando 119 s: salió de la fase rápida, no se hizo rápido.
+
+---
 ## «Un test se colgó» y no se había colgado nada: node imprime por ARCHIVO, no por caso (31/10/2026)
 
 **Síntoma.** El paso «Tests afectados por lo que cambió» del run 41207922805 salió con **99** —«no se pudo chequear», no
