@@ -48,6 +48,26 @@ anuncios → landing → COMPRA MaKo (47 o 97, con 50% off el primer mes)
   cierres de high ticket.
 - **Quien pagó está cualificado.** Ese es el filtro, y es el único que importa para agendar.
 
+## 2.bis Con qué se cobra: **Mercado Pago, sólo Argentina**
+
+**Decidido por Martín el 31/10/2026 a las 00:07**, contestando «¿con qué vas a cobrar el primer anuncio y a qué
+países apunta?»: **sólo Argentina, con Mercado Pago.**
+
+Lo que eso cierra y lo que abre:
+
+- **El código ya lo cubre.** Mercado Pago es la única pasarela que no depende de abrir una cuenta en otro país, y
+  `pasarelasDelPais` ya la ofrece. **No hay que construir una pasarela nueva.** Paddle y Creem quedan para cuando
+  se abra a LatAm.
+- ⚠️ **Falta lo que sólo puede poner Martín: las claves.** Medido el 30/10: `pasarelasConectadas(9)` devuelve `[]` y
+  la página pública dice «Todavía no cobramos en línea». Sin `MERCADOPAGO_ACCESS_TOKEN` y
+  `MERCADOPAGO_WEBHOOK_SECRET` **no se puede cobrar un peso**, y todo el funnel termina en un formulario.
+- ⚠️ **Mercado Pago cobra en PESOS.** Los precios decididos están en dólares (47 / 97 / 1.500), así que hace falta
+  el precio en pesos. **Va configurable, nunca escrito en el código**, porque en Argentina se desactualiza en
+  semanas.
+- **El primer anuncio apunta sólo a Argentina.** Eso manda sobre las landings (le hablan a un argentino) y sobre la
+  segmentación del Media Buyer. Un coach de México no puede pagar todavía: no se le anuncia.
+- **La segunda tanda** es la que abre a LatAm, y para eso sí hay que construir otra pasarela.
+
 ## 3. La oferta de entrada: 50% el primer mes, con reloj
 
 En la landing aparece un cartel: **«te ganaste un 50% de descuento»**, con un **reloj de 5 a 10 minutos**,
