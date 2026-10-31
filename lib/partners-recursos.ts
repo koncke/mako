@@ -34,15 +34,15 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
   return [
     {
       id: 'conocido', titulo: 'Para un conocido, por WhatsApp',
-      texto: `Hola, ¿cómo estás? Estoy usando MaKo para vender con mi negocio: tus contactos, tu WhatsApp y tus anuncios en un solo lugar, con un asistente de IA que te ayuda a decidir qué hacer. Lo pruebas ${gratis}: ${p.link}`,
+      texto: `Hola, ¿cómo estás? Estoy usando MaKo para vender con mi negocio: tus contactos, tu WhatsApp y tus anuncios en un solo lugar, con un asistente de IA que te ayuda a decidir qué hacer. ${PRUEBA_GRATIS_PRENDIDA ? `Lo pruebas ${gratis}` : 'Míralo acá'}: ${p.link}`,
     },
     {
       id: 'estado', titulo: 'Para tu estado o un grupo',
-      texto: `Si vendes por WhatsApp o con anuncios, mira MaKo: ordena tus contactos, te arma páginas de venta y videos con IA, y te dice qué mejorar en tus anuncios. ${gratis}: ${p.link}`,
+      texto: `Si vendes por WhatsApp o con anuncios, mira MaKo: ordena tus contactos, te arma páginas de venta y videos con IA, y te dice qué mejorar en tus anuncios. ${PRUEBA_GRATIS_PRENDIDA ? gratis : 'Míralo acá'}: ${p.link}`,
     },
     {
       id: 'instagram', titulo: 'Mensaje directo de Instagram',
-      texto: `¡Hola! Vi lo que vendes y creo que te puede servir MaKo, lo uso para mi negocio: te ordena los contactos y los mensajes, y te ayuda con las páginas y los anuncios. Lo pruebas ${gratis}, te dejo el link: ${p.link}`,
+      texto: `¡Hola! Vi lo que vendes y creo que te puede servir MaKo, lo uso para mi negocio: te ordena los contactos y los mensajes, y te ayuda con las páginas y los anuncios. ${PRUEBA_GRATIS_PRENDIDA ? `Lo pruebas ${gratis}, te` : 'Te'} dejo el link: ${p.link}`,
     },
     {
       id: 'precio', titulo: 'Si te preguntan cuánto cuesta',

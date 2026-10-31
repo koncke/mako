@@ -57,7 +57,7 @@ test('«Tu plan» del cliente de una agencia: sin «Pasar a Pro» ni «Recomiend
   const recomienda = panel.indexOf('titulo="Recomienda MaKo"');
   assert.ok(recomienda > 0 && panel.lastIndexOf('{!clienteDeAgencia && (', recomienda) > panel.lastIndexOf('</GrupoAjustes>', recomienda),
     'el grupo «Recomienda MaKo» va adentro de !clienteDeAgencia');
-  assert.match(panel, /clienteDeAgencia \? 'Lo maneja tu agencia' : 'Acordado con MaKo'/);
+  assert.match(panel, /clienteDeAgencia \? 'Lo maneja tu agencia' : gratisHasta \? `Gratis hasta el \$\{gratisHasta\}` : 'Acordado con MaKo'/);
   assert.match(panel, /!suscripcion && clienteDeAgencia && \([\s\S]*?pídeselo a ella/);
 });
 
