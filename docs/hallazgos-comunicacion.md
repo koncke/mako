@@ -12251,9 +12251,22 @@ aunque rechacen la tarjeta), así que el cartel de la mora nunca le salió a un 
 esa función. Lo que faltaba es que la agencia se enterara: `avisarRechazoALaAgencia`, una vez por período, y la pausa
 (`avisarSuspension`) a la agencia siempre y al cliente sólo si paga él (`agency.quien_paga`).
 
+**Sumar un valor a un tipo o una plantilla rompe tests lejanos:** el commit corrió 13 archivos y salió con dos rojos que vio la revisión
+(`tests/datos-mensaje.test.ts`, que exige quién pone cada dato, y `tests/plantillas-automatizaciones.test.ts`, los topes del nombre). Se corre
+todo lo que importa esos módulos, no los que uno se acuerda.
+
 **Quedó sin hacer:**
+- **Mirá dónde se resuelve antes de escribir «lo resuelves en…».** El primer borrador del correo mandaba a MaKo Partners, y ahí una renovación
+  rechazada no tiene ningún botón (`cobrosParaLaAgencia` sólo lista pendientes y fallidos). Por eso dice qué hacer: cambiar la tarjeta en la pasarela.
 - El correo del rechazo dice «se va a pausar su cuenta», como pidió Martín y como dice el cartel de la mora, pero el corte está APAGADO
   (`CORTE_DE_ACCESO_PRENDIDO`): hoy no se pausa. El día que se prenda ya es cierto; hasta entonces es un aviso más fuerte que los hechos.
 - `avisarSuspension` no corre mientras el corte esté apagado: esa rama sólo la vio el test.
-- El rechazo sale por correo, como todo lo del plan, y no por el grupo de la agencia: `lib/plan-deuda.ts`.
-- Si la agencia no tiene grupo de MaKo, la alerta de Meta queda en su campanita (`sinGrupo`), como la de cualquier negocio.
+- El rechazo sale por correo, como todo lo del plan, y no por el grupo de la agencia: `lib/plan-deuda.ts`. Dos avisos simultáneos de la
+  pasarela pueden mandar dos correos: `esRenovacionFallida` mira la copia leída, y ese `actualizar` no es compare-and-set.
+- **Lo que quedó sin resolver en la alerta de Meta**, medido el 31/10 con una sola agencia y sin clientes de dos, y por eso no se tocó:
+  - El recordatorio diario se decide con la zona del CLIENTE (`lib/alerta-critica.ts`): a una agencia de otra zona le puede llegar de madrugada.
+  - La marca de insistencia es por incidente, no por destino: un incidente abierto al desplegar (o al aprobar una agencia) arrastra los avisos que
+    vio el cliente, y la agencia puede recibir un «volvió a la normalidad» sin la alerta. Con dos agencias, la que no recibió no se reintenta.
+  - La cuenta compartida la avisa el workspace de menor id (`cuentasYaAvisadas`), y ese decide también el destino: una cuenta compartida entre un
+    cliente directo y uno de agencia puede avisarle a uno solo.
+  - Una agencia que bajó de capa sigue recibiendo la alerta con un link a MaKo Partners que ya no la deja entrar.

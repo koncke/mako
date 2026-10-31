@@ -237,6 +237,11 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
 export type EventoMako = EventoCanal & {
   subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia'>; retirado?: true;
   /**
+   * Al cliente de una agencia no le llega: sale otro evento, a la agencia (`aLaAgencia`, lib/avisos-catalogo.ts). Lo lee el lienzo:
+   * nada por detrás. tests/avisos-a-la-agencia.test.ts lo cruza con el catálogo.
+   */
+  conAgencia?: true;
+  /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
    * WhatsApp» le llega al grupo de X. Sólo se ofrece en la plataforma. ⚠️ Sin NINGUNA fila con el evento, NO sale (desde
@@ -300,8 +305,8 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // Mauricio). Lo emite el cron de las alertas críticas (lib/alerta-critica.ts) cada hora mientras el incidente siga
   // abierto, con los HECHOS (`datosCuentaFrenada`); la fila de SuperAdmin dice qué contar de cada estado y hasta cuántas
   // veces. Y su contracara: el incidente que se venía avisando se resolvió.
-  { subtipo: 'meta_cuenta_frenada', aviso: 'meta-cuenta-frenada', label: 'Meta frena la cuenta publicitaria de un negocio', trae: ['anuncios'], plataforma: true },
-  { subtipo: 'meta_cuenta_recuperada', aviso: 'meta-cuenta-recuperada', label: 'La cuenta publicitaria de un negocio vuelve a entregar', trae: [], plataforma: true },
+  { subtipo: 'meta_cuenta_frenada', aviso: 'meta-cuenta-frenada', label: 'Meta frena la cuenta publicitaria de un negocio', trae: ['anuncios'], plataforma: true, conAgencia: true },
+  { subtipo: 'meta_cuenta_recuperada', aviso: 'meta-cuenta-recuperada', label: 'La cuenta publicitaria de un negocio vuelve a entregar', trae: [], plataforma: true, conAgencia: true },
   // UN LEAD CANCELA SU REUNIÓN EN CALENDLY (17/10/2026, docs/inventario-nada-por-detras.md, lote 2: salía del webhook con su
   // texto en el código y sin freno). Lo emite app/api/webhooks/calendly/route.ts con el lead y la reunión (`datosCancelada`).
   { subtipo: 'reunion_cancelada', aviso: 'reunion-cancelada', label: 'Un lead de un negocio cancela su reunión y no reagendó', trae: ['lead', 'cancelada'], plataforma: true },

@@ -13,7 +13,7 @@ const imp = (p: string) => import(pathToFileURL(new URL(p, RAIZ).pathname.replac
 type Fila = Record<string, unknown>;
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-const PLATAFORMA = 9, AGENCIA = 13, OTRA_AGENCIA = 14, NATALIA = 19, DIRECTO = 30, DE_DOS = 31, REVOCADO = 32, PENDIENTE = 33, SE_PAGA_SOLO = 34, SIN_NOMBRE = 35;
+const PLATAFORMA = 9, AGENCIA = 13, OTRA_AGENCIA = 14, NATALIA = 19, DIRECTO = 30, DE_DOS = 31, REVOCADO = 32, PENDIENTE = 33, SE_PAGA_SOLO = 34, SIN_NOMBRE = 35, AGENCIA_PAUSADA = 15, DE_LA_PAUSADA = 36, AGENCIA_SIN_GRUPO = 16, DE_LA_SIN_GRUPO = 37;
 const jid = (ws: number) => `${ws}@g.us`;
 
 async function main() {
@@ -66,13 +66,16 @@ async function main() {
   db.workspaces.push(
     negocio(PLATAFORMA, 'MaKo', 'superadmin'), negocio(AGENCIA, 'Codigo Inmobiliario', 'agencia'), negocio(OTRA_AGENCIA, 'Otra Agencia', 'agencia'),
     negocio(NATALIA, 'Natalia'), negocio(DIRECTO, 'Cliente Directo'), negocio(DE_DOS, 'De Dos'), negocio(REVOCADO, 'Se Fue'), negocio(PENDIENTE, 'Sin Firmar'), negocio(SE_PAGA_SOLO, 'Se Paga Solo'), negocio(SIN_NOMBRE, '  '),
+    { ...negocio(AGENCIA_PAUSADA, 'Pausada', 'agencia'), estado: 'pausado' }, negocio(DE_LA_PAUSADA, 'De La Pausada'),
+    negocio(AGENCIA_SIN_GRUPO, 'Agencia Sin Grupo', 'agencia'), negocio(DE_LA_SIN_GRUPO, 'De La Sin Grupo'),
   );
   const cart = (agencia_ws: number, cliente_ws: number, estado = 'aprobado') => ({ agencia_ws, cliente_ws, estado });
-  db.agencia_clientes.push(cart(AGENCIA, NATALIA), cart(AGENCIA, DE_DOS), cart(OTRA_AGENCIA, DE_DOS), cart(AGENCIA, REVOCADO, 'revocado'), cart(AGENCIA, PENDIENTE, 'pendiente'), cart(AGENCIA, SE_PAGA_SOLO), cart(AGENCIA, SIN_NOMBRE));
-  for (const ws of [AGENCIA, OTRA_AGENCIA, NATALIA, DIRECTO, DE_DOS, REVOCADO, PENDIENTE, SE_PAGA_SOLO, SIN_NOMBRE]) db.app_settings.push({ workspace_id: ws, key: 'mako.grupo_jid', value: jid(ws) });
+  db.agencia_clientes.push(cart(AGENCIA, NATALIA), cart(AGENCIA, DE_DOS), cart(OTRA_AGENCIA, DE_DOS), cart(AGENCIA, REVOCADO, 'revocado'), cart(AGENCIA, PENDIENTE, 'pendiente'), cart(AGENCIA, SE_PAGA_SOLO), cart(AGENCIA, SIN_NOMBRE), cart(AGENCIA_PAUSADA, DE_LA_PAUSADA), cart(AGENCIA_SIN_GRUPO, DE_LA_SIN_GRUPO));
+  for (const ws of [AGENCIA, OTRA_AGENCIA, NATALIA, DIRECTO, DE_DOS, REVOCADO, PENDIENTE, SE_PAGA_SOLO, SIN_NOMBRE, AGENCIA_PAUSADA, DE_LA_PAUSADA, DE_LA_SIN_GRUPO]) db.app_settings.push({ workspace_id: ws, key: 'mako.grupo_jid', value: jid(ws) });
   db.app_settings.push({ workspace_id: SE_PAGA_SOLO, key: 'agency.quien_paga', value: 'cliente' });
+  db.app_settings.push({ workspace_id: AGENCIA_SIN_GRUPO, key: 'notif_emails', value: JSON.stringify(['singrupo@x.test']) });
   const admin = (workspace_id: number, email: string) => ({ workspace_id, email, rol_ws: 'admin' });
-  db.usuarios.push(admin(AGENCIA, 'agencia@x.test'), admin(NATALIA, 'natalia@x.test'), admin(SE_PAGA_SOLO, 'solo@x.test'), admin(DIRECTO, 'directo@x.test'));
+  db.usuarios.push(admin(AGENCIA, 'agencia@x.test'), admin(NATALIA, 'natalia@x.test'), admin(SE_PAGA_SOLO, 'solo@x.test'), admin(DIRECTO, 'directo@x.test'), admin(AGENCIA_SIN_GRUPO, 'singrupo@x.test'));
 
   const { plantillaPorId, pasosDePlantilla } = await imp('lib/plantillas-automatizaciones.ts');
   const { normalizar } = await imp('lib/flujo-grafo.ts');
@@ -121,6 +124,10 @@ async function main() {
   out.nombreCaido = await emitir(NATALIA);
   nombreCaido = false;
   out.sinNombre = await emitir(SIN_NOMBRE);
+  out.dePausada = await emitir(DE_LA_PAUSADA);
+  correos.length = 0;
+  out.agenciaSinGrupo = await emitir(DE_LA_SIN_GRUPO);
+  out.agenciaSinGrupoCorreos = correos.map((c) => ({ ...c }));
   filasCaidas = true;
   out.filasCaidas = await emitir(NATALIA);
   filasCaidas = false;
@@ -143,13 +150,16 @@ async function main() {
   out.reintento = await mails(() => aplicarPagoFallido({ ...db.cobros[0] }, 'tarjeta rechazada'));
   const primera = cobro(2, { estado: 'pendiente', agencia_ws: AGENCIA, cliente_ws: NATALIA });
   out.primeraRenovacion = await mails(() => aplicarPagoFallido({ ...primera }, 'tarjeta rechazada'));
+  const sinAutorizar = cobro(8, { estado: 'pendiente', suscripcion_estado: null, agencia_ws: AGENCIA, cliente_ws: NATALIA });
+  out.renovacionSinAutorizar = await mails(() => aplicarPagoFallido({ ...sinAutorizar }, 'el pago diferido no se completó'));
   const unico = cobro(3, { tipo: 'unico', suscripcion_estado: null, estado: 'pendiente', agencia_ws: AGENCIA, cliente_ws: NATALIA });
   out.primerMes = await mails(() => aplicarPagoFallido({ ...unico }, 'tarjeta rechazada'));
   const propio = cobro(4, { alta_ws: DIRECTO });
   out.propio = await mails(() => aplicarPagoFallido({ ...propio }, 'tarjeta rechazada'));
   cobro(5, { agencia_ws: AGENCIA, cliente_ws: REVOCADO });
   out.quienRevocado = await agenciaDelCobro(5);
-  cobro(6, { agencia_ws: AGENCIA, cliente_ws: SE_PAGA_SOLO });
+  const deSoloCobro = cobro(6, { agencia_ws: AGENCIA, cliente_ws: SE_PAGA_SOLO, proveedor: 'creem' });
+  out.rechazoPagaElCliente = await mails(() => aplicarPagoFallido({ ...deSoloCobro }, 'tarjeta rechazada'));
 
   const corte = (cobroId: number, motivo = 'baja') => ({ cobroId, hasta: '2026-10-10', motivo, desde: '2026-10-15T00:00:00Z', vigente: true });
   out.pausaPagaLaAgencia = await mails(() => avisarSuspension(NATALIA, corte(1)));
