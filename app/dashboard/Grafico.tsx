@@ -30,7 +30,7 @@
 // no se dibuja clickeable. Y la LEYENDA prende y apaga series (estado local, no se guarda; la última no
 // se apaga): es lo que hacía el selector de métricas de la vieja Tendencias.
 
-import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
   AreaChart, Area, ComposedChart, Treemap, Sankey, FunnelChart, Funnel, LabelList,
@@ -122,6 +122,63 @@ function aclarar(hex: string, t: number): string {
   return `#${canal((n >> 16) & 255)}${canal((n >> 8) & 255)}${canal(n & 255)}`;
 }
 
+// ── EL MORFEO: cuando cambia el filtro, el gráfico RESPONDE en vez de recargarse ──────────
+// Hasta el 31/10/2026 todo iba con `isAnimationActive={false}`: cambiar un filtro volvía a dibujar de
+// golpe y se veía como una recarga, no como una respuesta.
+//
+// ⚠️ POR QUÉ ESTABA APAGADO, Y POR QUÉ NO SE PRENDE A LO BRUTO: la animación de recharts, al MONTAR,
+// hace crecer las marcas DESDE CERO. Eso dibuja un cero que parece medido, y es justo lo que nuestra
+// regla prohíbe («nunca un cero, nunca un "falta"»; el documento de diseño lo llama «el cero creíble al
+// montar» y lo pone entre lo que NO hay que copiar). Por eso `animar` es false en el primer dibujo y
+// sólo se prende cuando el dato CAMBIÓ — o sea, cuando lo movió el usuario, entre dos valores reales.
+//
+// Y hay DOS MODOS, que es la parte que se nota si se elige mal (§A2 del documento):
+//
+//   · MISMAS CATEGORÍAS, otros valores (un filtro de canal, de sede, de métrica comparable)
+//     → MORFEO PUNTO A PUNTO: las marcas no desaparecen, se deforman en el lugar.
+//
+//   · OTRO CONJUNTO DE CATEGORÍAS (12 meses → 7 días) u OTRO TIPO DE MARCA (área → barras)
+//     → BORRADO Y REDIBUJO: el área se vacía, el eje se re-escala PRIMERO y las marcas crecen desde la
+//       base. Se consigue REMONTANDO el gráfico (una `key` nueva): recharts recalcula el dominio y
+//       dibuja el eje ya nuevo, y las marcas entran desde su base. Morfear entre dos conjuntos de
+//       categorías distintos no es una animación, es un punto que viaja a un lugar que no significa lo
+//       mismo — y con distinta cantidad de puntos, recharts lo hace mal.
+
+/** Las dos velocidades. El orden es ESTADO (0 ms) → TEXTO (160) → GEOMETRÍA (400), nunca al revés. */
+export const MORFEO = { texto: 160, geometria: 400 } as const;
+/**
+ * ⚠️ recharts sólo acepta las curvas con nombre ('ease', 'ease-in', 'ease-out', 'ease-in-out',
+ * 'linear'): NO toma una `cubic-bezier`, así que nuestro `--ease-out` (`cubic-bezier(.23,1,.32,1)`) no
+ * se le puede pasar. 'ease-out' es la de la familia que más se le parece. Lo que sí usa el token es el
+ * texto y la píldora del segmentado, que se animan con CSS.
+ */
+const CURVA = 'ease-out';
+
+/**
+ * Qué cambió desde el dibujo anterior. `forma` es la identidad del gráfico (el grupo del tipo, la
+ * dimensión y el CONJUNTO de categorías); `valores`, los números.
+ *
+ * Devuelve `animar` (sólo si algo cambió: en el montaje, no) y `remonte`, que sube de a uno cada vez
+ * que cambia la forma y entra en la `key` del gráfico.
+ *
+ * ⚠️ No usa estado ni efectos a propósito: con `useState` + `useEffect` el primer cambio se pierde (el
+ * efecto corre después del dibujo) y en modo estricto el doble render haría animar el montaje. Acá
+ * `animar` sale de comparar contra lo ÚLTIMO ANOTADO, así un segundo render con los mismos datos no
+ * anima nada.
+ */
+function useMorfeo(forma: string, valores: string, conDatos: boolean): { animar: boolean; remonte: number } {
+  const visto = useRef<{ forma: string; valores: string; remonte: number; conDatos: boolean } | null>(null);
+  const antes = visto.current;
+  const cambioForma = !!antes && antes.forma !== forma;
+  const cambioValores = !!antes && antes.valores !== valores;
+  const remonte = (antes?.remonte ?? 0) + (cambioForma ? 1 : 0);
+  visto.current = { forma, valores, remonte, conDatos };
+  // ⚠️ Se anima SÓLO entre dos dibujos que YA tenían datos. La primera vez que los datos llegan la forma
+  // también «cambia» (de vacío a lleno), y animar eso sería hacer crecer las barras desde cero: un cero
+  // que parece medido, que es exactamente lo que la regla prohíbe. Ese caso entra sin animación.
+  return { animar: (cambioForma || cambioValores) && conDatos && !!antes?.conDatos, remonte };
+}
+
 /** Las series de un gráfico de ejes: las métricas, o las columnas del desglose si lo hay. */
 function series(r: Resultado): { claves: string[]; nombres: string[]; formatos: Formato[]; datos: Array<Record<string, string | number | null>> } {
   if (r.cruce) {
@@ -171,6 +228,19 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
   const [ocultas, setOcultas] = useState<ReadonlySet<string>>(() => new Set());
   // #860: el anuncio que se está reproduciendo (el ▶ de una tarjeta de anuncio), o null.
   const [video, setVideo] = useState<{ adId: string; nombre: string } | null>(null);
+
+  // EL MORFEO (ver el bloque de arriba), ACÁ ARRIBA Y NO ADENTRO DEL CUERPO: `cuerpo` es una función con
+  // varios `return` tempranos, y un hook detrás de un `return` es la pantalla en blanco de AGENTS.md.
+  // Las dos claves salen del resultado TAL CUAL llega (`estado.resultado`): la FORMA lleva el grupo del
+  // tipo, el tipo, la dimensión, el desglose y las CLAVES de las filas —si cambia cualquiera de esas, es
+  // otro conjunto de categorías u otra marca, y va borrado y redibujo—; los VALORES son los números, y si
+  // sólo cambian ellos, las marcas se deforman en el lugar.
+  const rMorfeo = estado.resultado;
+  const formaMorfeo = [tipoDe(g.tipo)?.grupo ?? '', g.tipo, g.dimension ?? '', g.desglose ?? '', (rMorfeo?.filas ?? []).map((f) => f.clave).join('\u0001')].join('|');
+  const valoresMorfeo = (rMorfeo?.filas ?? []).map((f) => f.valores.join(',')).join(';');
+  const { animar, remonte } = useMorfeo(formaMorfeo, valoresMorfeo, (rMorfeo?.filas?.length ?? 0) > 0);
+  /** Lo que se le pasa a cada marca de recharts para que morfee (y para que al montar no haga nada). */
+  const anim = { isAnimationActive: animar, animationDuration: MORFEO.geometria, animationEasing: CURVA } as const;
 
   // El hueco de la ola 2: un tipo con dibujo propio (el mapa de calor de página) recibe todo y dibuja él.
   const Propio = DIBUJOS_PROPIOS[g.tipo];
@@ -298,7 +368,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <stop offset="100%" stopColor={c(0)} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area type="monotone" dataKey="valor" stroke={c(0)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round" fill={`url(#${gid})`} dot={false} isAnimationActive={false} />
+            <Area type="monotone" dataKey="valor" stroke={c(0)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round" fill={`url(#${gid})`} dot={false} {...anim} />
             <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={(x) => [fmt(typeof x === 'number' ? x : null, col?.formato ?? 'numero'), col?.nombre ?? '']} labelFormatter={(l) => String(l)} />
           </AreaChart>
         );
@@ -347,7 +417,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <Tooltip contentStyle={TIP} formatter={(v, n) => [fmt(typeof v === 'number' ? v : null, 'numero'), String(n)]} />
                 {/* El número va ADENTRO del escalón sólo si el escalón es ancho (un 22 % del primero); si no, al lado del nombre:
                     en la punta del embudo, «33» en blanco salía cortado sobre un triángulo de 10 px. */}
-                <Funnel dataKey="valor" nameKey="nombre" isAnimationActive={false}
+                <Funnel dataKey="valor" nameKey="nombre" {...anim}
                   data={pasos.map((p, i) => {
                     const adentro = p.valor >= maxPaso * 0.22;
                     return { ...p, fill: c(i), adentro: adentro ? fmtValor(p.valor, p.formato, true) : '', rotulo: adentro ? p.nombre : `${p.nombre} · ${fmtValor(p.valor, p.formato, true)}` };
@@ -424,7 +494,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
       return (
         <AreaMedida>
           {(t) => (
-            <Treemap width={t.w} height={t.h} data={datos} dataKey="size" nameKey="name" isAnimationActive={false} stroke={fondoDeTarjeta(tema)}
+            <Treemap width={t.w} height={t.h} data={datos} dataKey="size" nameKey="name" {...anim} stroke={fondoDeTarjeta(tema)}
               onClick={grupoAbre ? (n) => abrirGrupo(n.name) : undefined} style={grupoAbre ? { cursor: 'pointer' } : undefined}
               content={<CeldaTreemap formato={col.formato} compacto={e.compacto} halo={halo} />} />
           )}
@@ -489,7 +559,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <XAxis dataKey="etiqueta" tick={EJE} interval={intervaloPorAncho(franjas.map((x) => x.etiqueta), t.w - 40, null)} tickMargin={8} axisLine={false} tickLine={false} hide={!ejes} />
                 <YAxis yAxisId="a" tick={EJE} allowDecimals={false} tickCount={EJES.marcasY} width={anchoEjeY([String(Math.max(0, ...franjas.map((f) => f.cuantos)))])} axisLine={false} tickLine={false} hide={!ejes} />
                 <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => [String(v), 'Cantidad']} />
-                <Bar yAxisId="a" dataKey="cuantos" name="Cantidad" fill={c(0)} radius={[e.radioBarra, e.radioBarra, 0, 0]} isAnimationActive={false} />
+                <Bar yAxisId="a" dataKey="cuantos" name="Cantidad" fill={c(0)} radius={[e.radioBarra, e.radioBarra, 0, 0]} {...anim} />
                 {e.etiquetas && ejes && <CapaEtiquetas datos={franjas} series={[{ key: 'cuantos', formato: 'numero', eje: 'a' }]} modo="columnas" fmt={(v) => String(v)} halo={halo} />}
               </BarChart>
             );
@@ -519,8 +589,8 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <XAxis dataKey="etiqueta" tick={EJE} interval={intervaloPorAncho(datos.map((d) => d.etiqueta), t.w - 80, null)} tickMargin={8} axisLine={false} tickLine={false} hide={!ejes} />
                 <YAxis tick={EJE} tickFormatter={tick(col.formato)} tickCount={EJES.marcasY} width={anchoEjeY(datos.map((d) => fmtValor(d.base + d.alto, col.formato, true)))} axisLine={false} tickLine={false} hide={!ejes} />
                 <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(_v, _n, it) => [fmt((it?.payload as { v?: number })?.v ?? null, col.formato), col.nombre]} />
-                <Bar dataKey="base" stackId="c" fill="transparent" isAnimationActive={false} />
-                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={BARRA.maxVertical} isAnimationActive={false}>
+                <Bar dataKey="base" stackId="c" fill="transparent" {...anim} />
+                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={BARRA.maxVertical} {...anim}>
                   {datos.map((d, i) => <Cell key={i} fill={i === datos.length - 1 ? c(0) : d.sube ? 'var(--good)' : 'var(--bad)'} />)}
                 </Bar>
               </BarChart>
@@ -546,7 +616,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
               <XAxis type="number" domain={['dataMin', 'dataMax']} tick={EJE} tickFormatter={fecha} tickCount={EJES.maxMarcasX} axisLine={false} tickLine={false} hide={!e.ejes} />
               <YAxis type="category" dataKey="etiqueta" tick={EJE_CATEGORIA} width={Math.min(180, Math.ceil(Math.max(...datos.map((d) => anchoTexto(corto(d.etiqueta), LETRA.categoria)))) + 10)} axisLine={false} tickLine={false} tickFormatter={corto} />
               <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(v) => { const [a, b] = v as [number, number]; return [`${fecha(a)} → ${fecha(b - 1)}`, 'Del … al …']; }} />
-              <Bar dataKey="rango" fill={c(0)} isAnimationActive={false} radius={e.radioBarra} />
+              <Bar dataKey="rango" fill={c(0)} {...anim} radius={e.radioBarra} />
             </BarChart>
           )}
         </AreaMedida>
@@ -645,14 +715,14 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
           if (info?.grupo === 'Serie temporal' || g.tipo === 'lineas' || g.tipo === 'lineas_suaves') {
             const curva = g.tipo === 'serie_suave' || g.tipo === 'lineas_suaves' ? 'monotone' : 'linear';
             return (
-              <LineChart {...comun}>
+              <LineChart key={`m${remonte}`} {...comun}>
                 {grilla}{ejeX}{ejeY}
                 {tip}
                 {ley}
                 {s.claves.map((k, i) => (
                   <Line key={k} yAxisId="a" type={curva} dataKey={k} name={s.nombres[i]} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
                     dot={puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)}
-                    hide={oculta(k, s.claves)} isAnimationActive={false} connectNulls />
+                    hide={oculta(k, s.claves)} {...anim} connectNulls />
                 ))}
                 {e.etiquetas && ejes && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves)} modo="series" fmt={fmtEtq} halo={halo} />}
               </LineChart>
@@ -661,7 +731,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
 
           if (info?.grupo === 'Áreas') {
             return (
-              <AreaChart {...comun} stackOffset={cien ? 'expand' : 'none'}>
+              <AreaChart key={`m${remonte}`} {...comun} stackOffset={cien ? 'expand' : 'none'}>
                 <defs>
                   {s.claves.map((k, i) => (
                     <linearGradient key={k} id={`ar-${g.id}-${i}`} x1="0" y1="0" x2="0" y2="1">
@@ -679,7 +749,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                     hide={oculta(k, s.claves)} stroke={c(i, s.nombres[i])} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
                     // Medido: el degradado de siempre. No medido: el rayado, que pesa más que un degradado y es el punto.
                     fill={proc === 'medido' ? `url(#ar-${g.id}-${i})` : relleno(i, s.nombres[i])}
-                    dot={apilada ? false : puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)} isAnimationActive={false} connectNulls />
+                    dot={apilada ? false : puntosDe(s.datos, k, c(i, s.nombres[i]), halo)} activeDot={puntoActivo(c(i, s.nombres[i]), halo)} {...anim} connectNulls />
                 ))}
                 {e.etiquetas && ejes && !apilada && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves)} modo="series" fmt={fmtEtq} halo={halo} />}
               </AreaChart>
@@ -691,16 +761,16 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
             const nBarras = g.tipo === 'combinado' ? 1 : Math.max(1, s.claves.length - 1);
             const ultimaBarra = s.claves.slice(0, nBarras).filter((k) => !oculta(k, s.claves)).pop();
             return (
-              <ComposedChart {...comun} barCategoryGap={BARRA.separacion}>
+              <ComposedChart key={`m${remonte}`} {...comun} barCategoryGap={BARRA.separacion}>
                 {grilla}{ejeX}{ejeY}{ejeB}
                 <Tooltip contentStyle={TIP} labelStyle={TIP_ETIQUETA} formatter={fmtTip} cursor={{ fill: 'var(--surface-2)' }} />
                 {ley}
                 {s.claves.map((k, i) => (i < nBarras ? (
                   <Bar key={k} yAxisId={eje(s.formatos[i])} dataKey={k} name={s.nombres[i]} fill={c(i)} stackId={g.tipo === 'combinado_apilado' ? 'a' : undefined}
-                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} isAnimationActive={false} maxBarSize={BARRA.maxVertical} />
+                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} {...anim} maxBarSize={BARRA.maxVertical} />
                 ) : (
                   <Line key={k} yAxisId={eje(s.formatos[i])} type="monotone" dataKey={k} name={s.nombres[i]} stroke={c(i)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
-                    dot={puntosDe(s.datos, k, c(i), halo)} activeDot={puntoActivo(c(i), halo)} hide={oculta(k, s.claves)} isAnimationActive={false} />
+                    dot={puntosDe(s.datos, k, c(i), halo)} activeDot={puntoActivo(c(i), halo)} hide={oculta(k, s.claves)} {...anim} />
                 )))}
                 {/* La línea lleva su etiqueta en el último punto SIEMPRE si va contra el eje escondido: si no, su escala no se lee. */}
                 {(e.etiquetas || !!ejeB) && ejes && <CapaEtiquetas datos={s.datos} series={seriesEtq(s.claves.slice(nBarras))} modo="series" fmt={fmtEtq} halo={halo} />}
@@ -721,7 +791,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
           // tercio de hoja eran agujas de 8 px (capturas del 15/10/2026, «Edad y género»). Entre grupos va menos aire.
           const separacion = !apilada && !horizontal && visibles.length > 1 ? BARRA.separacionGrupo : BARRA.separacion;
           return (
-            <BarChart {...comun} layout={horizontal ? 'vertical' : 'horizontal'} stackOffset={cien ? 'expand' : 'none'} barCategoryGap={separacion} barGap={2} onClick={undefined}>
+            <BarChart key={`m${remonte}`} {...comun} layout={horizontal ? 'vertical' : 'horizontal'} stackOffset={cien ? 'expand' : 'none'} barCategoryGap={separacion} barGap={2} onClick={undefined}>
               {e.cuadricula && ejes && <CartesianGrid {...GRILLA} horizontal={!horizontal} vertical={horizontal} />}
               {horizontal ? (
                 <>
@@ -737,7 +807,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
               {s.claves.map((k, i) => (
                 <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={relleno(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
                   hide={oculta(k, s.claves)} cursor={cursorGrupo} onClick={grupoAbre ? (_d: unknown, j: number) => abrirGrupo(s.datos[j]?.__clave, k) : undefined}
-                  radius={radio(k)} isAnimationActive={false} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
+                  radius={radio(k)} {...anim} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
                   {/* Una sola métrica: cada categoría con el color que declara su dimensión, «Otros» en gris, y si no, uno solo. */}
                   {unaSola && s.datos.map((d, j) => <Cell key={j} fill={rellenoDe(colorFijo(String(d.etiqueta)) ?? c(0))} />)}
                 </Bar>

@@ -9764,3 +9764,33 @@ ahí el rojo era viejo y real; acá la anotación es vieja y el rojo ya no exist
   justamente la que falló.
 - **Sin hacer:** el tercero, `tests/paso-ia.test.ts:135` (`lib/nutricion.ts`), **también da verde (13/0)** sobre
   `origin/main`. Tiene dueño, así que su línea quedó donde estaba para que la cierre él.
+
+## `tsc-acotado` muere por RAM en los `.tsx` grandes del Dashboard, y eso NO es verde (31/10/2026)
+
+**El síntoma.** `node scripts/tsc-acotado.mjs app/dashboard/Grafico.tsx` termina con
+`NO SE PUDO CHEQUEAR (código 134)` y **exit 99**, con 1,4–1,8 GB libres. Código 134 es `SIGABRT`: el
+proceso de `tsc` se queda sin memoria antes de terminar de armar el grafo de tipos.
+
+**Lo que sí anduvo, en la misma máquina y en el mismo minuto:** los archivos de `lib/` y los tests, de a
+uno o de a dos (`lib/graficos-catalogo.ts`, `lib/graficos-plantillas.ts`, `app/dashboard/editor-css.ts`,
+`app/_ui/tokens.ts`, los dos tests nuevos) dan `✓` en segundos. Los que no se pudieron chequear nunca
+fueron `app/dashboard/Grafico.tsx` (1.100 líneas, arrastra recharts entero y el catálogo),
+`app/dashboard/EditorInforme.tsx`, `app/dashboard/Cabecera.tsx` y `app/dashboard/PanelEstilo.tsx`.
+⚠️ **Achicar la lista a UN archivo no alcanza** si ese archivo es uno de ésos: el costo es del grafo que
+arrastra, no de la cantidad de archivos de la lista.
+
+**La regla:** 99 no es verde y no se reporta como «sin tipos» — se dice **«tipos: los corre Actions»**,
+que corre en Linux y con memoria. Y antes de darlo por perdido conviene PARTIR la lista: un 99 de seis
+archivos puede ser un ✓ de cinco más un 99 del pesado, que es información bastante distinta.
+
+**El reemplazo barato mientras tanto, que caza la clase de error que importa al editar a ciegas:** un
+parseo sintáctico con `ts.createSourceFile(...).parseDiagnostics`. No valida tipos, es casi gratis en
+memoria, y encuentra el paréntesis o el backtick que rompe el archivo entero (el caso real está en
+[hallazgos-graficos.md](hallazgos-graficos.md): un backtick adentro del CSS de `editor-css.ts`).
+
+**Y para VER una pantalla sin levantar la app:** `next dev` no entra con esa RAM. El panel del navegador
+de Claude **no abre `file://` ni un `localhost` nuestro** (ni un artifact privado, si esa sesión del
+panel no está logueada en claude.ai), pero **Chrome headless sí**:
+`chrome.exe --headless --disable-gpu --screenshot=<png> file:///<html>` rinde un arnés estático con los
+tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
+patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.
