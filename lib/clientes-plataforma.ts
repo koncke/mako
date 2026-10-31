@@ -20,6 +20,7 @@ import { esCarteraVigente } from './agencia-cartera';
 import { cobrosDeLugares } from './plan-acceso';
 import { planesAManoPorNegocio } from './plan-a-mano';
 import { regaloParaMirar, textoDePlanAMano, type PlanAMano } from './plan-a-mano-reglas';
+import { usdPrimerMesVigente } from './primer-mes-reglas';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
 import {
@@ -60,6 +61,8 @@ export type FilaCliente = {
   /** Hasta cuándo va su plan a mano, ya dicho («Gratis hasta el 1 de mayo de 2027»). null = no tiene. */
   planAManoTxt: string | null;
   regaloPorTerminar: string | null;
+  /** Lo que pagó su primer mes en dólares, mientras corre ese mes con el 50%. null = no aplica. */
+  primerMesUsd: number | null;
 };
 
 export type VistaClientes = {
@@ -212,6 +215,7 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
       sesionesAgente: sesiones.get(w.id) ?? 0,
       pagoPendiente: pagoPendiente(cs),
       planAManoTxt: mano ? textoDePlanAMano(mano, ahoraMs) : null,
+      primerMesUsd: cs.map((c) => usdPrimerMesVigente(c, ahoraMs)).find((n) => n != null) ?? null,
       // A quien ya factura o está en su prueba con tarjeta, un vencimiento viejo no le pide atención.
       regaloPorTerminar: mano && mrr.usd === 0 && mrr.sinDolares === 0 && !enPrueba(cs) ? regaloParaMirar(mano, ahoraMs) : null,
     };

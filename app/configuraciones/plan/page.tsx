@@ -14,6 +14,7 @@ import { capaDef } from '@/lib/capas';
 import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
 import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { gratisHastaDe } from '@/lib/plan-a-mano';
+import { lineaDelPrimerMes } from '@/lib/primer-mes-reglas';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
@@ -51,6 +52,7 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
     ? {
       proveedor: sus.proveedor, monto: formatoMonto(sus.monto, sus.moneda), cancelada: sus.suscripcion_estado === 'cancelada', baja: esBajaPedida(sus.motivo) ? sus.motivo : null,
       prueba: enPrueba ? { hasta: hasta ? diaDelCobro(hasta) : 'el fin de la prueba' } : null,
+      primerMes: lineaDelPrimerMes(sus, formatoMonto),
     }
     : null;
   const destacarEmpezar = enPrueba && (await searchParams)?.empezar === '1';

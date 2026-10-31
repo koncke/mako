@@ -20,7 +20,7 @@
 // así), y la razón social va en el HTML del servidor (tests/razon-social-sitio.test.ts).
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { PRUEBA_DIAS, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
+import { DESCUENTO_PRIMER_MES_PCT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
@@ -50,6 +50,20 @@ export default function Page() {
     >
       <H id="mensuales">1. Planes de MaKo (Esencial y Pro)</H>
       <ul>
+        {!PRUEBA_GRATIS_PRENDIDA && (
+          <>
+            <li>
+              <strong>Se paga al empezar.</strong> Cuando el pago se confirma, entras a MaKo. Si tienes el descuento de{' '}
+              {DESCUENTO_PRIMER_MES_PCT}% del primer mes, se aplica sólo a ese primer cobro: desde el segundo se cobra el precio
+              completo del plan. Lo ves antes de pagar.
+            </li>
+            <li>
+              Si empezaste con una prueba gratis, sigue con las condiciones con las que la empezaste: si te das de baja antes del
+              primer cobro, desde <strong>Configuración del negocio → Tu plan</strong>, no se te cobra nada.
+            </li>
+          </>
+        )}
+        {PRUEBA_GRATIS_PRENDIDA && <>
         <li>
           <strong>{PRUEBA_DIAS} días gratis.</strong> Al empezar pones tu tarjeta, como en cualquier suscripción, y no se te
           cobra nada durante {PRUEBA_DIAS} días. Si te das de baja antes del día {PRUEBA_DIAS + 1}, desde{' '}
@@ -60,6 +74,7 @@ export default function Page() {
           Hay <strong>una prueba por negocio</strong>, por tarjeta y por email. Durante la prueba, algunas cosas tienen tope
           (lo que se genera con IA y lo que se descarga en masa); el resto de MaKo anda entero.
         </li>
+        </>}
         <li>
           El plan mensual se paga <strong>por adelantado</strong> y se renueva solo cada mes, con el mismo medio de pago,
           hasta que lo canceles. El anual se paga una vez por los 12 meses.

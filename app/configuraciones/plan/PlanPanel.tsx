@@ -27,6 +27,8 @@ export type SuscripcionVisible = {
   baja: string | null;
   /** LA PRUEBA GRATIS (25/10/2026): hasta qué día va («el lunes 3 de noviembre»), o null si ya se cobra. */
   prueba?: { hasta: string } | null;
+  /** El 50% del primer mes, mientras corre ese mes, ya dicho (lib/primer-mes-reglas.ts). */
+  primerMes?: string | null;
 } | null;
 
 export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar, clienteDeAgencia, gratisHasta }: {
@@ -109,6 +111,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
           </span>
         </div>
         {!destacarEmpezar && filaEmpezar}
+        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada />}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {subir && puedeDarseDeBaja && (

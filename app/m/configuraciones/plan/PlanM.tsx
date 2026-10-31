@@ -51,7 +51,7 @@ export function PlanM({ plan, suscripcion, emailMako, gratisHasta }: { plan: str
     <>
       <ListaM>
         <FilaM icono="tag" titulo={plan}
-          segunda={!suscripcion ? (gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : `${suscripcion.monto} por mes`}
+          segunda={!suscripcion ? (gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : suscripcion.primerMes ?? `${suscripcion.monto} por mes`}
           pill={estado ? <PildoraM tono={estado.tono}>{estado.texto}</PildoraM> : undefined} />
         {enPrueba && puedeDarseDeBaja && (
           <FilaM icono="tag" titulo="Empezar mi plan ya" segunda={`Pagas ${suscripcion!.monto} desde hoy, sin los topes de la prueba.`}

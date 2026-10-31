@@ -17,7 +17,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, type PlanMako } from '@/lib/planes-mako';
+import { PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from '@/lib/planes-mako';
 import { celdaDeCapa, filasDeComparacion, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
 import { CSS_TARJETAS, TEXTO_PAGOS, TarjetasPlanes, type PlanEnTarjeta } from './Tarjetas';
@@ -109,7 +109,16 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
             <summary>¿Puedo cambiar de plan o darme de baja?</summary>
             <p>Sí. Pasas a otro plan o te das de baja cuando quieras, desde «Tu plan», adentro de MaKo.</p>
           </details>
-          <details>
+          {!PRUEBA_GRATIS_PRENDIDA && (
+            <details>
+              <summary>¿Cuándo pago y cuándo entro?</summary>
+              <p>
+                Pagas al empezar y entras en el acto. Tu plan se renueva cada mes y te das de baja cuando quieras, desde «Tu plan». Lo
+                ya pagado no se devuelve. <Link href="/reembolsos">Las condiciones</Link>.
+              </p>
+            </details>
+          )}
+          {PRUEBA_GRATIS_PRENDIDA && <details>
             <summary>¿Cómo es la prueba gratis?</summary>
             <p>
               Tienes {PRUEBA_DIAS} días gratis con el plan que elijas. Pones tu tarjeta al empezar y no se te cobra nada hasta el
@@ -123,7 +132,7 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
               de MaKo (tus contactos, tus mensajes, tus seguimientos y tus tareas) anda entero. Si quieres todo antes, empiezas tu plan
               cuando quieras.
             </p>
-          </details>
+          </details>}
           <details>
             <summary>¿Puedo pagar en pesos?</summary>
             <p>{TEXTO_PAGOS} Desde otro país, en dólares.</p>

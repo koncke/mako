@@ -55,6 +55,7 @@ export type CobroMrr = {
   monto_usd?: number | null;
   alta_capa?: string | null;
   creado_por?: string | null;
+  pagado_at?: string | null;
 };
 
 /** ¿Este cobro factura cada mes hoy? Una suscripción activa, que no es una prueba gratis ni está anulada o devuelta. */

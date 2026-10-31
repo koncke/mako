@@ -21,7 +21,7 @@ export const revalidate = 0;
 export const metadata: Metadata = { title: 'Planes de MaKo', robots: { index: true, follow: true } };
 
 /** Lo que se pasa de la URL al plan elegido (el origen y el código de partner). Sólo estas claves, sin tocarlas. */
-const CLAVES_QUE_PASAN = ['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid', 'ref'];
+const CLAVES_QUE_PASAN = ['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid', 'ref', 'oferta'];
 
 export default async function PlanesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const sp = await searchParams;

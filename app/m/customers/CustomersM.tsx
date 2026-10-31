@@ -119,7 +119,7 @@ export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: R
             <FilaDatoM k="Leads" v={c.leads == null ? '—' : c.leads.toLocaleString('es-AR')} />
             <FilaDatoM k="Plan" v={nombreDePlan(c.capa)} />
             <FilaDatoM k="Grupo" v={grupoTxt(c)} />
-            <FilaDatoM k="Plata" v={c.mrrUsd > 0 ? `${usdTxt(c.mrrUsd)} por mes` : c.prueba ? 'En prueba gratis' : c.planAManoTxt ?? 'Plan a mano'} />
+            <FilaDatoM k="Plata" v={c.mrrUsd > 0 ? `${usdTxt(c.mrrUsd)} por mes${c.primerMesUsd != null ? ` · primer mes a ${usdTxt(c.primerMesUsd)}` : ''}` : c.prueba ? 'En prueba gratis' : c.planAManoTxt ?? 'Plan a mano'} />
             {c.pagoPendiente && <FilaDatoM k="Pago" v="Tiene un pago esperando" />}
           </ListaM>
         )}

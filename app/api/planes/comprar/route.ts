@@ -64,6 +64,6 @@ export async function POST(req: NextRequest) {
     conPrueba: (await getSesionAdmin().catch(() => null)) != null,
     pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
   });
-  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}) }, { status: r.status });
+  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}), ...(r.sinOferta ? { sinOferta: true } : {}) }, { status: r.status });
   return Response.json({ ok: true, link: r.link });
 }

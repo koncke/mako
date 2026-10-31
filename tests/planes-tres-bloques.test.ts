@@ -276,23 +276,27 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
   assert.match(fuente('lib/compra-plan.ts'), /const nombrePlan = anual \? `\$\{nombre\} anual \(US\$ \$\{anual\.toLocaleString\('es-AR'\)\} por año\)` : nombre;/, 'el pedido dice que es el anual');
 });
 
-test('la PRUEBA GRATIS (Martín, 25/10): 7 días, y debajo de cada botón lo que se cobra después; la garantía de 14/30 se fue', async () => {
-  assert.equal(PRUEBA_DIAS, 7);
-  assert.equal(textoDespuesDeLaPrueba(97, 'mes'), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
+// La prueba gratis se apagó el 30/10/2026 (docs/estrategia-lanzamiento-low-to-high.md §4, `PRUEBA_GRATIS_PRENDIDA`): ninguna pantalla pública
+// la promete. Prendida vuelve a decir lo de antes (tests/primer-mes.test.ts); lo que se fija acá es lo que se ve hoy.
+test('la prueba gratis APAGADA (30/10): nadie la promete, y debajo de cada botón se dice que se paga al empezar', async () => {
+  assert.equal(PRUEBA_DIAS, 7, 'no se borró');
+  assert.equal(textoDespuesDeLaPrueba(97, 'mes', true), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
   const t = await vitrina();
   assert.ok(t.includes('MaKo Pro ¿Ya vendes?'), 'la tarjeta de Pro');
-  assert.ok(t.includes('7 días gratis US$ 97 / mes'), '«7 días gratis» junto al precio');
-  assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual, con SU monto');
+  assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
+  assert.ok(t.includes('Recomendado Lo haces tú, con MaKo MaKo Pro'));
+  assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual');
   assert.ok(t.includes(`Quiero MaKo Esencial ${textoDespuesDeLaPrueba(47, 'mes')}`));
-  assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual, con el del año');
-  assert.ok(t.includes('7 días gratis con tu tarjeta: si te das de baja antes del día 8, no se te cobra nada.'));
-  assert.ok(t.includes('¿Cómo es la prueba gratis?'));
+  assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual');
+  assert.ok(t.includes('¿Cuándo pago y cuándo entro?'));
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
   const r = sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos)));
-  assert.ok(r.includes('7 días gratis. Al empezar pones tu tarjeta'), '/reembolsos dice lo mismo');
-  assert.ok(r.includes('Si te das de baja antes del día 8'));
+  assert.ok(r.includes('Se paga al empezar.'), '/reembolsos dice lo mismo');
+  assert.ok(r.includes('se aplica sólo a ese primer cobro'), 'el 50% del primer mes, dicho');
+  assert.ok(r.includes('Si empezaste con una prueba gratis, sigue con las condiciones con las que la empezaste'), 'a quien ya está en prueba no se le toca nada');
+  assert.doesNotMatch(r, /7 días gratis/);
   assert.ok(r.includes('Después del primer cobro, lo ya pagado no se reembolsa'), 'después, no hay devolución');
   for (const [que, txt] of [['la vitrina', t], ['/reembolsos', r]] as const) {
     assert.doesNotMatch(txt, /días de garantía|Garantía de 14|te devolvemos tu pago/, `${que}: sin la garantía de los planes`);
@@ -301,7 +305,7 @@ test('la PRUEBA GRATIS (Martín, 25/10): 7 días, y debajo de cada botón lo que
   for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
     assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
   }
-  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'los días, de la constante');
+  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante');
 });
 
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {

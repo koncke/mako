@@ -37,11 +37,13 @@ import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './co
 import { leerCuentaMp } from './mercadopago-api';
 import { modoDeClaveStripe } from './stripe-api';
 import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tipos';
-import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, type PlanMako } from './planes-mako';
+import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
+import { creadoPorPrimerMes, TEXTO_OFERTA_CUENTA, TEXTO_OFERTA_USADA, TEXTO_OFERTA_VENCIDA } from './primer-mes-reglas';
+import { estadoDeOferta } from './oferta-entrada';
 import { listarUsuarios } from './usuarios';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
@@ -245,7 +247,27 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
 
 export type ResultadoCompra =
   | { ok: true; link: string }
-  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true };
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true; sinOferta?: true };
+
+/**
+ * ¿Este email puede usar el 50% del primer mes? UN descuento por email (lib/oferta-entrada.ts): no, si ya tiene una cuenta (es para
+ * negocios nuevos), si ya lo pagó, o si lo abrió hace más de 24 h y lo abandonó. Dentro de esas 24 h, puede rearmar el pago: se le
+ * cerró la pestaña, no lo perdió. Sin poder leer, deja pasar: un comprador no pierde el descuento por una base caída.
+ */
+async function puedeUsarOferta(email: string, plataforma: number, ahoraMs: number): Promise<{ ok: true } | { ok: false; texto: string }> {
+  try {
+    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, texto: TEXTO_OFERTA_CUENTA };
+    const { data, error } = await getSupabaseServer().from('cobros').select('estado, created_at')
+      .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:primer-mes-%').limit(20);
+    if (error) throw new Error(error.message);
+    const yaUsado = ((data ?? []) as Array<{ estado: string; created_at: string }>)
+      .some((c) => c.estado === 'pagado' || c.estado === 'reembolsado' || ahoraMs - Date.parse(c.created_at) > 24 * 3600_000);
+    return yaUsado ? { ok: false, texto: TEXTO_OFERTA_USADA } : { ok: true };
+  } catch (e) {
+    console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su descuento; se lo dejo:`, msg(e));
+    return { ok: true };
+  }
+}
 
 /**
  * ¿Este email puede empezar una PRUEBA GRATIS? (25/10/2026, el Cerebro: «una prueba por negocio Y por tarjeta y por email»).
@@ -284,13 +306,28 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   const ws = await wsSuperAdmin();
   // LA PRUEBA GRATIS (25/10/2026): toda compra en línea empieza con 7 días gratis, salvo que pida empezar sin ella (quien ya la
   // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
-  const conPrueba = !p.sinPrueba;
+  // Con el interruptor apagado (30/10/2026, lib/planes-mako.ts), ninguna compra nueva empieza con prueba: se paga y recién ahí se
+  // entra (el alta sale de `aplicarPagoAprobado`). A quien ya está en prueba no lo mira nadie acá: no pasa por este camino.
+  const conPrueba = PRUEBA_GRATIS_PRENDIDA && !p.sinPrueba;
   if (conPrueba) {
     const puede = await puedeEmpezarPrueba(p.email, ws);
     if (!puede.ok) {
       return puede.motivo === 'cuenta'
         ? { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_CUENTA }
         : { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
+    }
+  }
+  // EL 50% DEL PRIMER MES (30/10/2026): sólo con un reloj de verdad y vivo. Si no vale, SE DICE y la persona elige seguir: nunca se
+  // cobra el precio lleno a quien venía viendo el descuento. Sin token (llegó directo a /planes), el precio de lista, sin preguntar.
+  let conDescuento = false;
+  if (!PRUEBA_GRATIS_PRENDIDA && !p.sinOferta && p.oferta) {
+    const ahoraMs = Date.now();
+    const reloj = estadoDeOferta(p.oferta, ahoraMs);
+    if (reloj) {
+      if (!reloj.aceptable) return { ok: false, status: 409, error: TEXTO_OFERTA_VENCIDA, sinOferta: true };
+      const puede = await puedeUsarOferta(p.email, ws, ahoraMs);
+      if (!puede.ok) return { ok: false, status: 409, error: puede.texto, sinOferta: true };
+      conDescuento = true;
     }
   }
 
@@ -309,7 +346,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     const r = await crearCobro(ws, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
       monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre: p.nombre,
-      altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : `planes:${plan.id}`,
+      altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : conDescuento ? creadoPorPrimerMes(plan.id) : `planes:${plan.id}`,
       // El primer cobro, 7 días después: el `start_date` de Mercado Pago. La persona carga la tarjeta ahora.
       inicioAt: conPrueba ? finDeLaPrueba(Date.now()) : null,
     });
@@ -326,7 +363,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     if (lead.nuevo || !r.yaEstaba) {
       const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
       const ref = p.ref ? ` (referido por ${p.ref})` : '';
-      await logLeadEvent(lead.leadId, 'Compra de plan', `${conPrueba ? 'Abrió su prueba gratis' : 'Abrió el pago'} de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
+      await logLeadEvent(lead.leadId, 'Compra de plan', `${conPrueba ? 'Abrió su prueba gratis' : conDescuento ? 'Abrió el pago con el descuento del primer mes' : 'Abrió el pago'} de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
     }
     return { ok: true, link: r.link };
   });

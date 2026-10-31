@@ -73,9 +73,25 @@ export const MESES_GRATIS_ANUAL = 2;
  */
 export const PRUEBA_DIAS = 7;
 
+/**
+ * ⚠️ EL INTERRUPTOR DE LA PRUEBA GRATIS (30/10/2026, docs/estrategia-lanzamiento-low-to-high.md §4): APAGADA. No se borró: vuelve con
+ * esto en true, el día que se venda MaKo como SaaS suelto. Es de la PLATAFORMA, no de cada negocio (el Cerebro): es cómo vende MaKo.
+ * Los motivos de Martín, que deciden los bordes: 50% + prueba gratis se lee como sospechoso; la prueba es para vender un SaaS por
+ * escalabilidad, y este funnel vende un high ticket; y con prueba hay que esperar siete días para saber si compraron, y no se
+ * agenda una llamada con quien no pagó un peso.
+ * ⚠️ A QUIEN YA ESTÁ EN PRUEBA NO SE LE TOCA NADA: esto apaga las altas nuevas. El cobro de una prueba abierta sigue siendo una prueba
+ * (`esPruebaDePlan` mira el cobro, no este interruptor), con su aviso y su cobro del día 8.
+ */
+export const PRUEBA_GRATIS_PRENDIDA: boolean = false;
+
+/** El descuento del primer mes, sobre los dos planes (§3). Con la prueba prendida no se ofrece: son una cosa o la otra. */
+export const DESCUENTO_PRIMER_MES_PCT = 50;
+
 /** Lo que va debajo del botón de un plan: cuánto se cobra después de la prueba y hasta cuándo se cancela sin pagar. */
-export const textoDespuesDeLaPrueba = (montoUsd: number, periodo: 'mes' | 'año'): string =>
-  `Después US$ ${montoUsd.toLocaleString('es-AR')}/${periodo}. Cancela cuando quieras antes del día ${PRUEBA_DIAS + 1}.`;
+export const textoDespuesDeLaPrueba = (montoUsd: number, periodo: 'mes' | 'año', prueba: boolean = PRUEBA_GRATIS_PRENDIDA): string =>
+  prueba
+    ? `Después US$ ${montoUsd.toLocaleString('es-AR')}/${periodo}. Cancela cuando quieras antes del día ${PRUEBA_DIAS + 1}.`
+    : 'Pagas al empezar y cancelas cuando quieras.';
 
 /** El precio del plan en pesos argentinos, si el plan lo tiene: nunca se calcula con una tasa (`preciosLocales`). */
 export const precioEnPesos = (p: Pick<PlanMako, 'preciosLocales'>): number | null => {

@@ -28,6 +28,7 @@ import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
 import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
 import { conciliarRetenciones } from '@/lib/retencion-plan';
+import { conciliarPrimerMes } from '@/lib/primer-mes';
 import { acreditarReferidos } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
@@ -65,6 +66,9 @@ export async function GET(req: NextRequest) {
   // restaura solo. AL PRINCIPIO (segunda revisión, R9): al final se la comía la vuelta de los workspaces. Nunca tira.
   const retencion = await conciliarRetenciones();
   if (retencion.conciliadas || retencion.liberadas || retencion.capas || retencion.restauradas) console.log(`[cron:cobros-reconciliar] retención: ${JSON.stringify(retencion)}`);
+  // EL 50% DEL PRIMER MES en Mercado Pago (30/10/2026): si no volvió al precio de lista, el próximo cobro sale a mitad. Nunca tira.
+  const primerMes = await conciliarPrimerMes();
+  if (primerMes.restaurados || primerMes.errores) console.log(`[cron:cobros-reconciliar] primer mes: ${JSON.stringify(primerMes)}`);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {

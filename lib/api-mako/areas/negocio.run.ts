@@ -30,6 +30,7 @@ import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfi
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { resumenDePrueba } from '@/lib/prueba-uso';
 import { gratisHastaDe } from '@/lib/plan-a-mano';
+import { lineaDelPrimerMes } from '@/lib/primer-mes-reglas';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
@@ -214,6 +215,7 @@ export const RUNNERS: Runners = {
         estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida'
           : esPruebaDePlan(sus) && sus.estado === 'pendiente' ? 'en prueba gratis (ver_mi_prueba)' : 'activo',
         ...(esBajaPedida(sus.motivo) ? { baja: sus.motivo } : {}),
+        ...(lineaDelPrimerMes(sus, formatoMonto) ? { primer_mes: lineaDelPrimerMes(sus, formatoMonto) } : {}),
         para_darse_de_baja: 'dar_de_baja_mi_plan, o el botón «Darme de baja» de Tu plan',
         link: donde,
       });

@@ -7,7 +7,7 @@
 
 import type { Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
-import { PRUEBA_DIAS } from './planes-mako';
+import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CODIGO_REF_RE = /^[a-z0-9-]{3,32}$/;
@@ -103,6 +103,10 @@ export type PedidoCompra = {
    * pedirlo, toda compra en línea empieza con los 7 días gratis.
    */
   sinPrueba: boolean;
+  /** El token del reloj del 50% del primer mes (lib/oferta-entrada.ts), si vino de la landing. */
+  oferta?: string | null;
+  /** Quien ya supo que su descuento no vale y sigue a precio normal. Sin esto, nunca se le cobra lleno sin decírselo. */
+  sinOferta?: boolean;
   /**
    * El código de referido que la persona ESCRIBIÓ en el carrito (25/10/2026, Martín: «es importante que en la compra, en el
    * carrito, esté la opción de poner código de referido»). Escrito a mano, gana sobre la cookie y el `?ref=`: es quien paga
@@ -167,6 +171,7 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
+      oferta: typeof b.oferta === 'string' && b.oferta.length <= 120 ? b.oferta : null, sinOferta: b.sinOferta === true,
       codigoEscrito: codigoRefLimpio(b.codigo),
       codigoEscritoMal: typeof b.codigo === 'string' && b.codigo.trim() !== '' && codigoRefLimpio(b.codigo) == null,
     },
@@ -241,7 +246,12 @@ export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: st
 }
 
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */
-export function bajadaDePlanes(algunoCobrable: boolean): string {
+export function bajadaDePlanes(algunoCobrable: boolean, prueba: boolean = PRUEBA_GRATIS_PRENDIDA): string {
+  if (!prueba) {
+    return algunoCobrable
+      ? 'Pagas al empezar y entras en el acto. Te das de baja cuando quieras.'
+      : 'Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp. Te das de baja cuando quieras.';
+  }
   return algunoCobrable
     ? `Empiezas con ${PRUEBA_DIAS} días gratis y entras en el acto. Te das de baja cuando quieras.`
     : `Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp, con ${PRUEBA_DIAS} días gratis. Te das de baja cuando quieras.`;

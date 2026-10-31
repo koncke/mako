@@ -25,7 +25,7 @@
 // con Mercado Pago. Un precio en pesos sólo si el plan lo tiene (`precioEnPesos`): nunca con una tasa.
 // =============================================================================
 
-import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba, type PlanMako } from '@/lib/planes-mako';
+import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, precioEnPesos, textoDespuesDeLaPrueba, type PlanMako } from '@/lib/planes-mako';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { noIncluyeDe } from '@/lib/planes-comparacion';
@@ -35,7 +35,9 @@ export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd
 
 export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
 /** La línea de abajo de las tarjetas: cómo es la prueba (también la lee el test contra /reembolsos). */
-export const TEXTO_PRUEBA = `${PRUEBA_DIAS} días gratis con tu tarjeta: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada.`;
+export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
+  ? `${PRUEBA_DIAS} días gratis con tu tarjeta: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada.`
+  : 'Pagas al empezar y te das de baja cuando quieras.';
 
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
 export const CEJA_PROGRAMA = 'Lo armamos contigo';
@@ -133,7 +135,7 @@ export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarj
             <div className="mkpl-ceja">{CEJA_SOFTWARE}</div>
             <h3>{p.nombre}</h3>
             {p.resumen && <p className="mkpl-resumen">{p.resumen}</p>}
-            <span className="mkpl-gratis">{PRUEBA_DIAS} días gratis</span>
+            {PRUEBA_GRATIS_PRENDIDA && <span className="mkpl-gratis">{PRUEBA_DIAS} días gratis</span>}
             <div className="mkpl-mes">
               <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
               {pesos && <div className="mkpl-cuotas">o {formatoMonto(pesos, 'ARS')} por mes</div>}
