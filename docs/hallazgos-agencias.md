@@ -6,6 +6,76 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## Una función contestaba DOS preguntas, y su `null` abría la puerta (P15, 30/10/2026)
+
+- **Síntoma:** las dos pantallas de Agency preguntaban `if (!esSuper && (await agenciaDeCliente(ws))) redirect(...)`
+  (`app/agency/page.tsx:58`, `app/m/agency/page.tsx:50`). El cliente de DOS agencias entraba al Agency Dashboard.
+- **Causa real, y no es «falta una guarda»:** la guarda estaba. Lo que estaba mal es **con qué preguntaba**.
+  `agenciaDeCliente` contesta **QUIÉN** es el dueño, así que necesita que haya exactamente uno: con dos dueños devuelve
+  `null` a propósito y bien («elegir el primero sería inventar un padre»). Arriba, ese `null` se leía como «no es
+  cliente de ninguna agencia». Una función que contesta «quién» usada para preguntar «si» convierte toda ambigüedad en
+  un permiso.
+- **El `null` significaba TRES cosas y las tres se leían como «no»** — medido, no supuesto
+  (`tests/_agency-dos-duenos-hijo.ts`, las funciones reales contra un PostgREST de mentira):
+
+  | lo que pasaba | `agenciaDeCliente` | entraba |
+  |---|---|---|
+  | no tiene ningún dueño | `null` | sí (el único caso que se quería dejar pasar) |
+  | tiene DOS dueños aprobados | `null` | **sí** |
+  | tiene DOS dueños PENDIENTES | `null` | **sí** (`esCarteraVigente` cuenta pendiente como dueña) |
+  | **no se pudo leer la cartera** | `null` | **sí** |
+
+- ⚠️ **Y acá el diagnóstico obvio era el equivocado.** P15 estaba anotado como riesgo **latente** («hoy ningún cliente
+  tiene dos agencias»), y por eso nadie lo agarró. Pero la rama que se abre con la base caída **no espera a nada**:
+  `agenciasDeCliente` atrapa el error y devuelve `[]`, así que una lectura fallida ya daba `null` hoy, sin ningún
+  cliente de dos agencias. Lo latente era un cuarto del hallazgo; el resto estaba vivo.
+- ⚠️ **Lo que se abría NO era una fuga de datos entre clientes**, y conviene decirlo porque el 30/10 ya se dijo mal una
+  vez (se infló «una guarda que falta» a «fuga») y después hubo que desdecirlo. La pantalla dibuja la cartera **del que
+  mira**, que para un cliente está vacía: no hay datos de otro inquilino en juego. Lo que se rompía es la regla de
+  producto («MaKo no les va a enviar promociones»): el cliente de una agencia veía el programa y podía sumarse como
+  Agency. Es grave por lo que habilita, no por lo que muestra.
+- **La regla que queda:** `agenciaDeCliente` **DICE**, `esClienteDeAgencia` **DECIDE**.
+  - Para decidir una pantalla, un permiso o un candado se pregunta `esClienteDeAgencia` (`lib/agencia.ts`), que contesta
+    sí/no/**no sé** (`boolean | null`) y no depende de que el dueño sea uno.
+  - **El «no sé» no es «no»**, y por eso se compara contra `false` (`if (deAgencia !== false) redirect(...)`) y nunca por
+    verdad. Un `if (deAgencia)` vuelve a leer el «no sé» como «no»: es el molde exacto del bug.
+  - Un `[]` o un `null` que significan a la vez «no hay» y «no pude leer» obligan a quien decide a elegir uno, y siempre
+    se elige el cómodo. Si de una lectura cuelga un permiso, el error se propaga (`leerCarteraDeCliente` devuelve `null`
+    al fallar); el `[]` se queda para lo que sólo **dibuja**.
+  - La lista de quién llama a `agenciaDeCliente` está **cerrada en un test** (`tests/agency-dos-duenos.test.ts`): hoy son
+    tres y las tres arman un texto o una URL de salida (`lib/vista-de-otro.ts`, `lib/movil-guard.ts`, `lib/agency.ts`).
+    Un llamador nuevo rompe el test, y ahí se elige si DICE o DECIDE.
+- **El caso no existe en los datos, así que se arma en el test.** Esperar a que un cliente real tenga dos dueños es
+  esperar a que el bug cobre. Con DOS agencias (la real, ws 13, y una de mentira): con una sola, un guard que ignore
+  `agencia_ws` pasa todas las pruebas que se le hagan.
+- **Trampa del entorno, nueva:** `git checkout -- <archivo>` para deshacer una rotura **borra el arreglo** mientras
+  todavía no está commiteado — HEAD es la versión con el bug. En un «probá rompiéndolo» sobre trabajo sin commitear hay
+  que restaurar desde una copia (o commitear primero). Perdí los dos arreglos de las pantallas así, en silencio: los
+  tests volvieron a pasar porque también se había revertido lo que los hacía fallar.
+- **Trampa del entorno:** un worktree nuevo no tiene `node_modules` y `ln -s` **copia** en Git Bash (con el disco al
+  95% no es una opción). Va una junction de Windows: `cmd /c mklink /J <worktree>/node_modules <otro>/node_modules`,
+  después de comprobar que los dos `package.json` son idénticos.
+
+## ⚠️ P14 no vive en `main`: los archivos de plata de Agency están en otra rama (30/10/2026)
+
+- **El síntoma:** `docs/pendientes.md` manda P14 a `lib/agencia-plan.ts`, `lib/agencia-baja.ts` y
+  `lib/plan-acceso-reglas.ts`. En `origin/main` los **dos primeros no existen**, y quien los busque desde main no
+  encuentra nada y puede concluir que ya se arregló.
+- **Dónde está de verdad:** la rama **`agency-thiago-2910`** (punta `fb72e2e18`, worktree `C:/dev/wt-agency`). Medido:
+  `git merge-base --is-ancestor 28cc3e2cb origin/main` → **NO**; el merge-base es `4b8f8145d`. El informe de plata
+  (`C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md`) y sus números de línea son de esa rama.
+- **Qué hay y qué no hay en main**, para no volver a medirlo:
+  - `lib/agencia-plan.ts`, `lib/agencia-baja.ts` → **no están** (ni en `origin/integracion`). La MEDIA de P14 (pausar o
+    rebajar el negocio de Mauricio o un Pro directo cargado a mano en una cartera) **sólo se puede arreglar ahí**.
+  - `lib/plan-acceso.ts` y `lib/plan-acceso-reglas.ts` **están, pero sin H5**: en main no hay `al-dia` ni `soltar`, así
+    que las dos BAJAS de H5 (levanta el corte de más; la pausa programada no se enteró) **no existen en main**.
+  - `app/agency/AgencyApp.tsx` está, con **cero** menciones de «Esencial», «Elegir Pro» y «Pasar a Pro»: la BAJA del
+    diálogo de ida tampoco existe en main.
+  - `lib/cobros.ts` **es el mismo**: `anularCobro` en `:1318` y `cancelarSuscripcionCobro` en `:1603`, los dos números
+    exactos del informe. Lo de ahí sí se arregla desde main (abajo).
+- **La regla que queda:** un pendiente que nombra archivos tiene que nombrar **en qué rama** viven si no están en main.
+  Un `docs/pendientes.md` que viaja en una rama de feature describe el árbol de ESA rama, no el de quien lo lee.
+
 ## Ser agencia ERA tener el plan Pro, y nadie lo había pedido (25/10/2026)
 
 - **Síntoma que no se veía:** `esAgencia` miraba sólo la capa `agencia`, y esa capa es la del plan **MaKo Pro de US$97**
@@ -61,7 +131,28 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 
 - **«MaKo no les intentará hacer upsells» a los clientes de una agencia:** /agency ya no se les muestra, pero siguen
   viendo los avisos de tope con «Pasar a Pro» (`lib/topes-plan.ts`, `app/crm/PasarAPro.tsx` y los demás que usan
-  `textoTope`), la fila de MaKo Partners y el cartel de la prueba. Falta un `esClienteDeAgencia` que los apague.
+  `textoTope`), la fila de MaKo Partners y el cartel de la prueba.
+  ⚠️ **`esClienteDeAgencia` ya existe** (`lib/agencia.ts`, 30/10/2026): lo que falta es **usarla en esos lugares**, y
+  cada uno tiene que decidir qué hace con el «no sé» (`null`). Para apagar un upsell, el `null` **no** debe apagarlo
+  —no mostrar una oferta por una falla de la base es un daño chico, pero esconderla a quien sí la puede comprar también
+  cuesta—: ahí el criterio es el contrario al de una puerta, y por eso no se puede copiar el `!== false` sin pensarlo.
+  La misma función está esperando en la rama `agency-thiago-2910`, que ya la usa en `app/configuraciones/plan/page.tsx`,
+  `app/m/mas/page.tsx`, `app/m/partners/page.tsx` y `app/no-esta-en-tu-plan/page.tsx`: **al mergear hay que unificar una
+  sola implementación** (la de acá tiene el tri-estado; la de allá, sin medir en este chat).
+- **P14, la MEDIA y las BAJAS de H5: no se pueden tocar desde `main`** (ver la sección de arriba). Viven en
+  `agency-thiago-2910`:
+  - MEDIA — `darDeBajaClienteDeAgencia` (`lib/agencia-baja.ts:81`) y `cambiarPlanDeCliente` (`lib/agencia-plan.ts:70`)
+    no miran **qué** negocio es: una fila de cartera cargada a mano sobre el ws1 o sobre un Pro directo deja que la
+    agencia lo pause o lo rebaje. Falta la guarda de «es la plataforma» y de «tiene plan propio» en esas dos, y
+    `negocioPausado` (`lib/workspace.ts:340`) sin guarda del ws1.
+  - BAJA — H5 levanta el corte con cualquier tramo `cubierto` (`lib/plan-acceso-reglas.ts:353`): lo justo es aceptar
+    «pagado + `suscripcion_estado` null» y no un plan cancelado o devuelto que todavía cubre días.
+  - BAJA — la pausa programada sigue pidiendo `al-dia` (`lib/plan-acceso.ts:166`), así que no se enteró de H5.
+  - BAJA — «Elegir Esencial» sin cobros es de ida y el diálogo no lo avisa (`app/agency/AgencyApp.tsx`).
+  - BAJA — `aplicarSubidasPendientes` lee la marca con `.limit(2000)` (`lib/agencia-plan.ts:197`) y ahora toda cuenta
+    nueva tiene marca: pasadas las 2.000, una subida pendiente se queda afuera sin decirlo.
+- **`anularCobro` todavía cierra el link viejo con mejor esfuerzo** (`lib/cobros.ts:1318` → `cerrarLinkEnLaPasarela`,
+  que nunca tira): un link anulado que la pasarela no cerró puede seguir cobrable. Está en `main` y quedó sin tocar.
 - **Cambiar quién paga una cuenta ya abierta:** hoy se elige sólo al abrirla.
 - **Código muerto de Partners** (lo limpia Planes, que reescribió /partners y /m/partners): `PartnersApp` (la parte de
   la agencia), `LlevarAPartners.tsx` y `app/m/partners/PartnersM.tsx`. Ojo: `app/partners/EquipoDeCuenta.tsx` NO está

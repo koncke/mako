@@ -1459,6 +1459,34 @@ Lo que gobierna el código nuevo de esta familia:
   es la salida barata que aparece primero. Medido: no bloquea el acceso a nada —lo miran
   cuatro crons y la UI de /admin— y la columna ni siquiera tiene CHECK. El único corte
   real de acceso es `usuarios.estado='suspendido'`, y es por PERSONA.
+- ⚠️ **La función que contesta «QUIÉN» no decide «SI».** La relación cliente↔agencia es
+  N:N a propósito, así que `agenciaDeCliente` necesita que el dueño sea **uno** para poder
+  nombrarlo y devuelve `null` cuando hay dos (elegir el primero sería inventar un padre).
+  Usada como guard, ese `null` se lee como «no es cliente de ninguna agencia» y **deja
+  entrar justo al que más dueños tiene**: era el bug P15 de las dos pantallas de /agency
+  (30/10/2026). Para decidir una pantalla, un permiso o un candado va `esClienteDeAgencia`,
+  que es de sí/no y no depende de que haya uno. **`agenciaDeCliente` DICE** (la cadena de
+  la barra, el escalón de «Salir», el nombre en un cartel); **`esClienteDeAgencia`
+  DECIDE.** Quién llama a la primera está cerrado en `tests/agency-dos-duenos.test.ts`: un
+  llamador nuevo rompe el test y ahí se elige cuál de las dos es.
+- ⚠️ **Si de una lectura cuelga un permiso, el error se PROPAGA; el `[]` es sólo para
+  dibujar.** `agenciasDeCliente` atrapa la falla y devuelve `[]`, que es el default bueno
+  para una lista en pantalla («todavía no tiene») y el malo para un permiso: «no hay
+  dueño» y «no pude preguntar» salen idénticos, y quien decide elige el cómodo. La
+  lectura que alimenta un permiso devuelve un tercer valor —`null` = «no sé»
+  (`leerCarteraDeCliente`)— y el guard lo trata como el sí: se compara **contra `false`**
+  (`if (deAgencia !== false) redirect(...)`), nunca por verdad. Un `if (deAgencia)` vuelve
+  a leer el «no sé» como «no», que es el molde del bug. Es el mismo principio de más
+  arriba: un store que puede fallar sólo tiene permitido hacer las cosas MÁS restrictivas.
+  ⚠️ El criterio **se invierte para un upsell**: esconder una oferta porque la base falló
+  también cuesta, así que ahí el `null` no apaga. El `!== false` no se copia sin pensar
+  qué pasa si el «no sé» gana.
+- **Un caso que no existe en los datos se ARMA en el test.** Hoy ningún cliente tiene dos
+  agencias, y esperar a que lo tenga es esperar a que el bug cobre: las filas las pone el
+  test (`tests/_agency-dos-duenos-hijo.ts`, funciones reales contra un PostgREST de
+  mentira). Y «latente» se dice latente: lo que P15 abría **no** era una fuga de datos
+  entre clientes —la pantalla dibuja la cartera del que mira— sino la regla de producto de
+  no venderle al cliente de una agencia.
 
 ⚠️ **Y un `bigint` puede llegar como STRING.** Las columnas de estas tablas son `bigint`;
 el driver `postgres` de los scripts los devuelve como texto (`'13'`). Si el cliente que

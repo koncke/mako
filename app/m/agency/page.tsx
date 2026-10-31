@@ -14,7 +14,7 @@ import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
-import { agenciaDeCliente } from '@/lib/agencia';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
 import { precioClienteDeAgencia } from '@/lib/agencia-cobro';
@@ -47,7 +47,11 @@ export default async function AgencyPagina({ searchParams }: { searchParams: Pro
   if (ws == null) redirect('/m');
   const admin = (await adminDeWorkspaceActual()) != null;
   if (!admin && !esSuper) redirect(await rutaConWs('/m'));
-  if (!esSuper && (await agenciaDeCliente(ws))) redirect(await rutaConWs('/m'));
+  // ⚠️ La misma puerta que en escritorio, y con la misma función: `esClienteDeAgencia`, no `agenciaDeCliente` (P15,
+  //    30/10/2026 — ésa devuelve null con DOS dueños y dejaba entrar justo a ese cliente). El `!== false` es el que
+  //    trata el «no pude leer» como «no entra»; ver app/agency/page.tsx.
+  const deAgencia = await esClienteDeAgencia(ws);
+  if (!esSuper && deAgencia !== false) redirect(await rutaConWs('/m'));
 
   const estado = await estadoAgency(ws);
   if (!estado.esAgency || sp.landing === '1') {

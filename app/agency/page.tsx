@@ -20,7 +20,7 @@ import { redirect } from 'next/navigation';
 import { requireSesion, guardOnboarding } from '@/lib/tab-access';
 import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
-import { agenciaDeCliente } from '@/lib/agencia';
+import { esClienteDeAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { estadoAgency } from '@/lib/agency';
 import { precioClienteDeAgencia } from '@/lib/agencia-cobro';
@@ -55,7 +55,14 @@ export default async function AgencyPage({ searchParams }: { searchParams: Promi
   // Como toda tab: con el onboarding sin terminar, primero el onboarding (lib/tab-access.ts).
   await guardOnboarding();
   // El cliente de una agencia no ve el programa: sus cuentas las maneja su agencia, y MaKo no le ofrece nada.
-  if (!esSuper && (await agenciaDeCliente(ws))) redirect(await rutaConWs('/inicio'));
+  // ⚠️ `esClienteDeAgencia` Y NO `agenciaDeCliente` (P15, 30/10/2026). La segunda contesta QUIÉN es el dueño, así que
+  //    necesita que haya exactamente uno: con DOS dueños aprobados devuelve null a propósito, y acá ese null se leía
+  //    como «no es cliente de ninguna agencia» — o sea que el cliente con dos agencias era el único que entraba.
+  // ⚠️ Y SE COMPARA CONTRA `false`, no por verdad: `null` es «no pude leer la cartera», que no es «no». Fail-closed,
+  //    como todo este módulo (lib/agencia.ts): si no se puede preguntar, acá no se entra. Un `if (deAgencia)` vuelve a
+  //    leer el «no sé» como «no», que es el molde exacto del bug.
+  const deAgencia = await esClienteDeAgencia(ws);
+  if (!esSuper && deAgencia !== false) redirect(await rutaConWs('/inicio'));
 
   const estado = await estadoAgency(ws);
   if (!estado.esAgency || verLanding) {
