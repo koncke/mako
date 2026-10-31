@@ -70,7 +70,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'quienes_de_automatizacion', area: 'chatbot', tipo: 'lectura',
-    titulo: 'Quiénes son los números de una automatización',
+    titulo: 'Quiénes están en una automatización',
     descripcion: 'Los leads detrás de un número de las Métricas de una automatización, en los últimos 30 días: quiénes respondieron, quiénes siguen en el flujo o quiénes entraron. Úsala para seguir a los que contestaron.',
     parametros: [
       { nombre: 'secuenciaId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'la automatización (de listar_secuencias_nutricion).' },

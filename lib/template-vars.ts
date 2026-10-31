@@ -15,8 +15,6 @@ export type VarLead = { key: string; label: string; ejemplo: string; descripcion
 // el nombre completo cuando solo querés el nombre.)
 export const VARIABLES_LEAD: VarLead[] = [
   { key: 'nombre', label: 'Nombre', ejemplo: 'Luis', descripcion: 'El primer nombre del lead (salta «MX», «Dra.» y lo que no es un nombre)' },
-  { key: 'segundo_nombre', label: 'Segunda palabra del nombre', ejemplo: 'Pérez', descripcion: 'La segunda palabra, tal como está guardada' },
-  { key: 'tercer_nombre', label: 'Tercera palabra del nombre', ejemplo: 'Gómez', descripcion: 'La tercera palabra, tal como está guardada' },
   { key: 'nombre_completo', label: 'Nombre completo', ejemplo: 'Luis Pérez', descripcion: 'Nombre y apellido' },
   { key: 'apellido', label: 'Apellido', ejemplo: 'Pérez', descripcion: 'Apellido(s) del lead' },
   { key: 'empresa', label: 'Empresa', ejemplo: 'Acme', descripcion: 'Empresa del lead (si la tenemos)' },

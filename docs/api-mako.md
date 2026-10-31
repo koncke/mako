@@ -3976,7 +3976,7 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/papelera"
 ```
 
-### `GET /api/v1/crm/nombres` — Ver con qué nombre se saluda a los leads
+### `GET /api/v1/crm/nombres` — Ver cómo se saluda a los leads
 
 Cuántos leads quedan sin nombre para saludar (su mensaje sale sin nombre) y qué primeras palabras se repiten en la base («Kun Fabiola Pedraza»), con un ejemplo de cómo sale. Úsala antes de una campaña con {{nombre}}.
 
@@ -3998,7 +3998,7 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/nombres"
 ```
 
-### `POST /api/v1/crm/nombres/palabra` — Marcar una palabra que no es un nombre
+### `POST /api/v1/crm/nombres/palabra` — Marcar palabra que no es nombre
 
 PROPONE marcar (o desmarcar) una palabra que en este negocio no es un nombre, como un lugar con que se agenda a los contactos: {{nombre}} la salta (queda pendiente hasta el «sí»). No cambia ningún lead.
 
@@ -7627,7 +7627,7 @@ curl -L \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/escenarios"
 ```
 
-### `GET /api/v1/chatbot/quienes` — Quiénes son los números de una automatización
+### `GET /api/v1/chatbot/quienes` — Quiénes están en una automatización
 
 Los leads detrás de un número de las Métricas de una automatización, en los últimos 30 días: quiénes respondieron, quiénes siguen en el flujo o quiénes entraron. Úsala para seguir a los que contestaron.
 

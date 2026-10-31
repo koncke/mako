@@ -1426,14 +1426,14 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'ver_nombres_del_crm', area: 'crm', tipo: 'lectura',
-    titulo: 'Ver con qué nombre se saluda a los leads',
+    titulo: 'Ver cómo se saluda a los leads',
     descripcion: 'Cuántos leads quedan sin nombre para saludar (su mensaje sale sin nombre) y qué primeras palabras se repiten en la base («Kun Fabiola Pedraza»), con un ejemplo de cómo sale. Úsala antes de una campaña con {{nombre}}.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
   },
   {
     id: 'marcar_palabra_no_nombre', area: 'crm', tipo: 'accion', confirmacion: 'chat',
-    titulo: 'Marcar una palabra que no es un nombre',
+    titulo: 'Marcar palabra que no es nombre',
     descripcion: 'PROPONE marcar (o desmarcar) una palabra que en este negocio no es un nombre, como un lugar con que se agenda a los contactos: {{nombre}} la salta (queda pendiente hasta el «sí»). No cambia ningún lead.',
     parametros: [
       { nombre: 'palabra', tipo: 'string', obligatorio: true, max: 60, descripcion: 'la palabra, como está en el nombre.' },

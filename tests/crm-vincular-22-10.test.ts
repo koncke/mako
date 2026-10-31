@@ -167,7 +167,7 @@ test('la API de MaKo: ver, vincular, fijar las cuentas y quitar el cobro de Gana
   const desde = orden.indexOf(ids[0]);
   assert.deepEqual(orden.slice(desde, desde + ids.length), ids);
   assert.ok(desde + ids.length <= fin, 'quedaron después de armar_tab_ficha');
-  assert.ok(orden.slice(desde + ids.length, fin).every((id) => /_en_bloque_|_papelera_crm$|^ver_bajas_de_leads$/.test(id)), 'entre éstas y armar_tab_ficha se metió una que no es de las de en bloque');
+  assert.ok(orden.slice(desde + ids.length, fin).every((id) => /_en_bloque_|_papelera_crm$|^ver_bajas_de_leads$|^ver_nombres_del_crm$|^marcar_palabra_no_nombre$/.test(id)), 'entre éstas y armar_tab_ficha se metió una que no es de las de en bloque');
   for (const id of ids) {
     const d = porId(id)!;
     assert.doesNotMatch(`${d.titulo} ${d.descripcion}`, /\bcambi(a|ar)\b|\blead\b/i, `${id}: palabras que el clasificador suma a todo un tipo de pedido`);
