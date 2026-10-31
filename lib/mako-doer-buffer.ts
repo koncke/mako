@@ -32,14 +32,32 @@ import 'server-only';
 import { getTenantDb } from './workspace';
 import { getSupabaseServer } from './supabase';
 
+/**
+ * EL RELOJ DE LA VENTANA, Y POR QUÉ SE PUEDE ACORTAR POR ENTORNO (31/10/2026).
+ * `esperarSilencio` duerme sobre el reloj de VERDAD, que es justo lo que tiene que hacer en producción. Pero los tests que
+ * replican la entrada REAL del grupo (`manejarEntranteDoer`) lo pagan escena por escena: `tests/_grupo-leandro-2910-hijo.ts`
+ * tiene doce y tardaba **234 s** en una máquina libre, casi todo durmiendo. Y el runner de node imprime la salida de un
+ * archivo de test cuando el archivo TERMINA, así que mientras ese archivo corre la tanda entera no imprime NADA: el vigía de
+ * `scripts/tests-afectados.mjs` mata al proceso que no juzga un caso en 5 min (`TOPE_SIN_AVANCE_MS`) y se lleva los 100
+ * archivos de la tanda con código 99 — «no se pudo chequear», que es lo que trabó el run 41207922805 de Actions.
+ * Así que la ventana se puede ACORTAR con `MAKO_DOER_VENTANA_MS`, nunca alargar (`Math.min`): un entorno mal puesto puede
+ * hacer que MaKo conteste antes, jamás que se quede esperando más de lo medido. Lo que el test cuida —que un lote se junte y
+ * se conteste UNA vez— no depende del reloj: los mensajes del lote ya están en la cola cuando el turno llama a esperar.
+ * ⚠️ Y la variable VACÍA no vale: `Number('')` es **0**, así que una clave agregada sin valor en el panel de Vercel dejaría a
+ * MaKo contestando al instante, sin esperar el lote y sin que nada lo diga. Tiene que haber un número escrito.
+ */
+const PEDIDO = process.env.MAKO_DOER_VENTANA_MS?.trim();
+const VENTANA_DE_PRUEBA_MS = PEDIDO ? Number(PEDIDO) : NaN;
+const reloj = (produccion: number) => (Number.isFinite(VENTANA_DE_PRUEBA_MS) && VENTANA_DE_PRUEBA_MS >= 0 ? Math.min(produccion, VENTANA_DE_PRUEBA_MS) : produccion);
+
 /** Silencio que hay que ver para considerar que terminó de hablar. */
-export const VENTANA_MS = 8000;
+export const VENTANA_MS = reloj(8000);
 /** Con audio se espera más: grabar y mandar una nota de voz lleva su tiempo. */
-export const VENTANA_AUDIO_MS = 20000;
+export const VENTANA_AUDIO_MS = reloj(20000);
 /** Tope duro: aunque siga escribiendo, a esto se contesta. */
 export const TOPE_MS = 90000;
 /** Cada cuánto se mira si entró algo nuevo. */
-const LATIDO_MS = 3000;
+const LATIDO_MS = reloj(3000);
 
 export type MsgBuffer = {
   id: number;

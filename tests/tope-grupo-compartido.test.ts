@@ -69,9 +69,12 @@ test('un proceso que DEJA de imprimir se mata, y el mensaje nombra el último ca
   const r = await correr(colgandose(['✔ uno (1.0ms)', '✔ dos (2.0ms)', '✖ tres (3.0ms)']));
   assert.equal(r.colgada, true);
   assert.equal(r.porque, 'sin-avance');
-  assert.equal(r.ultimoCaso, 'tres', 'node imprime el caso cuando TERMINA: el colgado es el que sigue a éste');
+  assert.equal(r.ultimoCaso, 'tres', 'node imprime el caso cuando TERMINA: el último impreso es el último caso de SU archivo');
   assert.equal(r.codigo, 1, 'un proceso que hubo que matar sale con código != 0');
-  assert.match(porQueSeMato(r), /sin terminar un solo caso: un test se colgó\. El último caso que TERMINÓ fue «tres»: el que se colgó es el que sigue\./);
+  assert.match(porQueSeMato(r), /sin terminar un solo caso: un test se colgó\. El último caso que TERMINÓ fue «tres»/);
+  // Sin la lista de archivos no hay con qué nombrar al culpable, y el mensaje lo DICE en vez de acusar al caso siguiente (que
+  // el 31/10/2026 no existía: era el último de su archivo). Con la lista lo nombra: tests/tanda-no-la-mata-un-test-lento.test.ts.
+  assert.match(porQueSeMato(r), /no pude decir de qué archivo es: la salida va en orden ALF/, 'sin la lista de archivos el mensaje tiene que DECIR que no puede nombrar al culpable, no acusar al caso siguiente');
 });
 
 test('un proceso que se cuelga SIN imprimir nada se mata igual, con el arranque de gracia, y lo dice', async () => {
@@ -213,7 +216,11 @@ test('los DOS caminos (la tanda y el grupo compartido) pasan por el mismo vigila
   assert.doesNotMatch(sinComentarios, /TOPE_TANDA_MS|TOPE_COMPARTIDO_MS/, 'los dos topes fijos ya no existen');
   assert.doesNotMatch(sinComentarios, /setTimeout\(\(\) => \{ colgada = true/, 'ni el reloj de pared que los aplicaba');
   assert.match(sinComentarios, /pisoGb: \(n\) => pisoCompartido\(n, compartidos\.length\)/, 'el piso recibe cuántos archivos hay que repartir');
-  assert.match(sinComentarios, /porQueSeMato\(r\)/, 'y el motivo de la muerte se dice donde se lee');
+  // El motivo de la muerte se dice donde se lee, Y con los archivos de la tanda: es lo único con lo que el mensaje puede
+  // nombrar al que no dejó avanzar. Un `porQueSeMato(r)` pelado vuelve al mensaje que no nombra a nadie.
+  const llamadas = [...sinComentarios.matchAll(/porQueSeMato\(([^)]*)\)/g)].map((m) => m[1]);
+  assert.ok(llamadas.length >= 3, `esperaba la declaración y los dos caminos, y encontré ${llamadas.length} usos de porQueSeMato`);
+  for (const a of llamadas) assert.match(a, /^r, .+/, `«porQueSeMato(${a})» sin los archivos de la tanda: el mensaje no va a poder nombrar al culpable`);
   // El «0 tests» que engañó dos veces: sale del PIE, que un proceso muerto no imprime. Sin pie se reporta lo CONTADO del stream.
   assert.match(sinComentarios, /\$\{res\.tests \? `\$\{res\.tests\} tests` : `\$\{r\.casos \?\? 0\} casos juzgados \(sin el pie del runner\)`\}/, 'la tanda y el grupo dicen lo que contaron');
   assert.equal((sinComentarios.match(/casos juzgados \(sin el pie del runner\)/g) ?? []).length, 2, 'los dos caminos');

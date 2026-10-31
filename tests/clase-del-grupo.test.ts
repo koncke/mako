@@ -39,9 +39,14 @@ import { ACCIONES_SIMPLES } from '../lib/despacho-grupo';
 
 type Escena = { r: { engaged?: boolean; skip?: string; reply?: string }; salio: string[]; turno: Array<{ system: string; tools: string[]; deHerramientas: string[]; usuario: string }>; clasificador: Array<{ modelo: string; clave?: string; mensaje: string }>; reacciones: number; pendientes: Array<{ tipo: string; resumen: string }>; tickets: Array<{ id: number; tipo: string | null; titulo: string; descripcion: string; contexto: { clasificacion?: { clase: string; porque: string; fuente: string } }; estado: string; despacho: string | null; email: string | null; porque: string }> };
 let cache: Record<string, Escena> | null = null;
+/**
+ * ⚠️ EL TOPE DEL HIJO NO PUEDE PASAR EL DEL VIGÍA DE TANDAS (`TOPE_SIN_AVANCE_MS`, 5 min): ver
+ * tests/tanda-no-la-mata-un-test-lento.test.ts. Valía 400 s y las 23 escenas tardaban 236 s esperando la ventana de silencio
+ * de VERDAD; con el hijo acortándola, 25 s.
+ */
 function escena(k: string): Escena {
   if (!cache) {
-    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_clase-del-grupo-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 400_000 });
+    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_clase-del-grupo-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 240_000 });
     const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@CLASE@@'));
     assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
     cache = JSON.parse(linea.slice('@@CLASE@@'.length));

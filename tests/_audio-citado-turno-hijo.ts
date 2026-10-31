@@ -9,6 +9,10 @@
 
 import { crearPostgrest } from './_postgrest-de-mentira';
 
+// El turno NO espera el reloj: la ventana de silencio de verdad (8-20 s por escena, y acá son varias) hacía que este
+// archivo tardara MINUTOS y el vigía de tandas de tests-afectados matara la tanda entera con 99 — ver
+// lib/mako-doer-buffer.ts, «EL RELOJ DE LA VENTANA». El lote se junta igual: ya está en la cola cuando el turno espera.
+process.env.MAKO_DOER_VENTANA_MS = '0';
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-de-prueba';
 process.env.CREDENCIALES_SECRET = 'secreto-de-prueba-de-32-caracteres-o-mas-para-el-test';

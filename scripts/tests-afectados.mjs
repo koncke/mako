@@ -547,8 +547,11 @@ function matarArbol(hijo) {
 // se mata nunca por ser grande. Queda además un TECHO de pared proporcional a los archivos, como última red: un arrastre patológico
 // (paginar con la RAM en 0) avanza de a poquito y no puede comerse el job entero.
 //
-// Y DE REGALO, EL QUE SE COLGÓ TIENE NOMBRE: node imprime el caso cuando TERMINA, así que el que se colgó es el que sigue al último
-// impreso. Antes el mensaje era «un test se colgó» y había que adivinar cuál entre 514 archivos.
+// Y DE REGALO, EL QUE NO DEJÓ AVANZAR TIENE NOMBRE. Antes el mensaje era «un test se colgó» y había que adivinar cuál entre 514
+// archivos. ⚠️ Pero el nombre NO sale del caso que sigue, sino del ARCHIVO que sigue: node imprime la salida de un archivo cuando
+// el ARCHIVO termina, así que una tanda calla todo lo que tarde su archivo más lento y el último caso impreso es el ÚLTIMO de su
+// archivo. El 31/10/2026 este mensaje mandó a buscar «el caso que sigue» a dos casos que eran el último de su archivo, y los 100
+// archivos de cada tanda estaban bien: lo que pasaba es que uno tardaba más que la paciencia del vigía. Ver `elQueNoDejoAvanzar`.
 
 /** Una línea de caso del runner, que se imprime cuando el caso TERMINA: es la señal de que el proceso avanza. */
 export const CASO_REPORTADO = /^\s*[✔✖﹣]\s(.*?)\s*\(\d+(?:\.\d+)?ms\)/;
@@ -584,7 +587,7 @@ export const topeDePared = (archivos, sinAvanceMs = TOPE_SIN_AVANCE_MS, arranque
 /**
  * Lanza un proceso de tests y lo vigila: lo mata si NO AVANZA (ningún caso nuevo en TOPE_SIN_AVANCE_MS) o si pasa el techo de
  * pared. Devuelve, además de la salida: `colgada` (lo mataron), `porque` ('sin-avance' | 'techo') y `ultimoCaso`, el último caso
- * que TERMINÓ — el que se colgó es el siguiente.
+ * que TERMINÓ — que es el último caso de SU archivo: el que no dejó avanzar es el archivo siguiente (`elQueNoDejoAvanzar`).
  * Los topes se pueden pasar (`sinAvanceMs`, `techoMs`, `cada`) para probarlo con un proceso de mentira que se cuelga en 2 segundos
  * en vez de esperar cinco minutos: tests/tope-grupo-compartido.test.ts.
  * @param {string[]} args argumentos de node (después del ejecutable)
@@ -638,10 +641,68 @@ export function lanzarVigilado(args, { archivos, env, cada = 5000, ahora = Date.
   });
 }
 
-/** Lo que se dice de un proceso que hubo que matar: por qué, y cuál se colgó (el que sigue al último que terminó). */
-export function porQueSeMato(r) {
+/**
+ * EL QUE NO DEJÓ AVANZAR ES EL ARCHIVO QUE SIGUE, NO EL CASO QUE SIGUE (31/10/2026, run 41207922805).
+ * ⚠️ Node imprime la salida de un archivo de test cuando el archivo TERMINA: medido con tres archivos y
+ * `--test-concurrency=3`, los dos rápidos (1 ms) imprimen sus casos recién cuando el lento (6 s) terminó, las tres líneas
+ * juntas. O sea que una tanda deja de imprimir mientras corre su archivo más lento, aunque los otros 99 ya hayan pasado — y
+ * el último caso impreso es el ÚLTIMO de su archivo, no «el anterior al que se colgó». Decir «el que se colgó es el que
+ * sigue» mandó a buscar un caso que no existe: los dos casos que nombró ese run eran el último test de su archivo.
+ * Como la salida va en orden ALFABÉTICO (node ordena los archivos, no respeta el orden de los argumentos: medido), el
+ * culpable es el primero que todavía no imprimió: el que sigue, alfabéticamente, al archivo
+ * donde vive el último caso. Buscarlo cuesta leer la tanda, y sólo se hace cuando ya hubo que matar algo.
+ * @param {string} ultimoCaso el título del último caso que TERMINÓ
+ * @param {string[]} archivos los archivos de la tanda, en el orden en que se los pasó a node
+ */
+const TITULO_DE_TEST = /^\s*(?:await\s+)?(?:it|test)(?:\.\w+)?\(\s*'((?:\\.|[^'\\])*)'/gm;
+/** Los títulos de los casos de un archivo, en el orden del fuente. Los que se arman con una plantilla no salen: no se usan. */
+export const titulosDe = (src) => [...src.matchAll(TITULO_DE_TEST)].map((m) => m[1].replace(/\\(['\\])/g, '$1'));
+
+export function elQueNoDejoAvanzar(ultimoCaso, archivos = []) {
+  if (!ultimoCaso || archivos.length === 0) return null;
+  // ⚠️ EL ORDEN DE LA SALIDA ES EL ALFABÉTICO, NO EL DE LOS ARGUMENTOS (31/10/2026, medido sobre una tanda de 68 que mezcla los
+  // tres grupos de `agrupar`): node ORDENA los archivos, así que los 68 últimos casos impresos salieron en orden alfabético
+  // perfecto aunque la tanda iba cambio → nombra → importa. Con el orden de los argumentos se acusaba a un archivo que ya había
+  // terminado; con el alfabético, el que nombra es el que estaba vivo de verdad (se confirmó mirando los procesos).
+  const orden = [...archivos].sort();
+  // ⚠️ Y SE BUSCA ENTRE LOS TÍTULOS DEL ARCHIVO, NO EN SU FUENTE: buscando el texto en el fuente, el primer archivo que
+  // MENCIONA ese título se lleva la culpa — y el guard que documenta este cuelgue cita títulos de otros archivos como dato de
+  // prueba, así que se acusó a sí mismo en vez de al que de verdad no avanzaba.
+  const titulos = orden.map((f) => { try { return titulosDe(readFileSync(f, 'utf8')); } catch { return []; } });
+  const cuales = titulos.flatMap((ts, n) => (ts.includes(ultimoCaso) ? [n] : []));
+  const i = cuales[0] ?? -1;
+  if (i < 0) return null;
+  // ¿El último caso impreso es el ÚLTIMO de su archivo? Ahí está la diferencia entre los dos cuelgues posibles, y es lo único
+  // que hace falta para nombrar al culpable en vez de a los 100.
+  const termino = titulos[i][titulos[i].length - 1] === ultimoCaso;
+  const siguiente = orden[i + 1] ?? null;
+  return termino && siguiente
+    // Terminó sus casos y la salida siguió: el que no deja avanzar es el que viene detrás, que todavía no imprimió nada.
+    ? { culpable: siguiente, ultimo: orden[i], caso: 'el-que-sigue', siguiente, enVuelo: orden.slice(i + 1, i + 5) }
+    : termino
+      // Terminó sus casos, era el ÚLTIMO de la tanda y nunca llegó el pie: el proceso juzgó todo y NO SALIÓ (un handle abierto:
+      // un timer, un socket, un servidor sin cerrar, un hijo que no murió).
+      ? { culpable: orden[i], ultimo: orden[i], caso: 'no-salio', siguiente, enVuelo: [orden[i]] }
+      // No terminó sus casos: sigue adentro de ese archivo, en el caso que viene después del último impreso.
+      : { culpable: orden[i], ultimo: orden[i], caso: 'adentro', siguiente, enVuelo: [orden[i]] };
+}
+
+/** Lo que se le dice a quien lee el log, según cuál de los tres cuelgues fue. */
+const COMO_SE_COLGO = {
+  'el-que-sigue': (q) => `terminó TODOS sus casos, así que el que no dejó avanzar es el siguiente de la tanda: **${q.culpable}** (los que seguían: ${q.enVuelo.join(', ')})`,
+  'no-salio': (q) => `terminó TODOS sus casos y era el ÚLTIMO de la tanda, y el pie nunca llegó: **${q.culpable}** juzgó todo y NO SALIÓ — un handle abierto (un timer, un socket, un servidor sin cerrar, un hijo que no murió)`,
+  adentro: (q) => `NO terminó sus casos: el que no dejó avanzar es **${q.culpable}**, adentro, en el caso que viene después de ése`,
+};
+
+/** Lo que se dice de un proceso que hubo que matar: por qué, y qué archivo no dejó avanzar (ver `elQueNoDejoAvanzar`). */
+export function porQueSeMato(r, archivos = []) {
   if (!r?.colgada) return '';
-  const cual = r.ultimoCaso ? ` El último caso que TERMINÓ fue «${r.ultimoCaso}»: el que se colgó es el que sigue.` : ' Y no llegó a terminar NI UN caso: no alcanzó a arrancar.';
+  const quien = elQueNoDejoAvanzar(r.ultimoCaso, archivos);
+  const cual = !r.ultimoCaso
+    ? ' Y no llegó a terminar NI UN caso: no alcanzó a arrancar.'
+    : quien
+      ? ` El último caso que TERMINÓ fue «${r.ultimoCaso}», de ${quien.ultimo}, y ${COMO_SE_COLGO[quien.caso](quien)}. Corrélo solo y tomale el tiempo: \`node --import tsx --test ${quien.culpable}\`.`
+      : ` El último caso que TERMINÓ fue «${r.ultimoCaso}» y no pude decir de qué archivo es: la salida va en orden ALFABÉTICO, así que el que no dejó avanzar es el primero de la tanda, por nombre, que no imprimió nada.`;
   if (r.porque === 'sin-ram') {
     return `LO BAJÉ YO: la RAM libre cayó a ${Number.isFinite(r.libreMin) ? r.libreMin.toFixed(1) : '?'} GB (la zona roja del vigía es ${ZONA_ROJA_VIGIA_GB}) y se quedó ahí ${ROJO_SEGUIDAS * 5} s. `
       + `Con la RAM en cero se cuelga la app de Claude y se caen TODOS los chats con lo que tengan sin commitear. NO es un rojo del código: cerrá chats, o dejale el chequeo a Actions.${cual}`;
@@ -750,7 +811,7 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
   const noCorrio = (archivos, r, quien) => {
     if (archivos.length === 0) return;
     for (const f of archivos) sinCorrer.add(f);
-    out(`    ⚠ NO CORRIÓ: ${quien} salió con ${r.codigo} sin juzgar un solo test (${r.colgada ? porQueSeMato(r) : `lo mató el vigía de RAM o se quedó sin memoria, con ${ramLibreGb().toFixed(1)} GB libres`}): de esos ${archivos.length} archivo(s) NO SE SABE si están rotos.`);
+    out(`    ⚠ NO CORRIÓ: ${quien} salió con ${r.codigo} sin juzgar un solo test (${r.colgada ? porQueSeMato(r, archivos) : `lo mató el vigía de RAM o se quedó sin memoria, con ${ramLibreGb().toFixed(1)} GB libres`}): de esos ${archivos.length} archivo(s) NO SE SABE si están rotos.`);
   };
   out(`  [tests-afectados] ${lista.length} archivos en ${tandas.length} tandas de hasta ${tanda}, ${concurrencia || 'los de node'} procesos a la vez (${os.availableParallelism()} CPU)`);
   try {
@@ -791,7 +852,7 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
         if (!juzgoAlgo(r.salida)) { noCorrio(tandas[n], r, `la tanda ${n + 1}`); out(`    (salida completa: ${log})`); continue; }
         for (const f of res.rojos) rojos.add(f);
         if (!res.rojos.length) for (const f of tandas[n]) rojos.add(`${f} (¿alguno de la tanda?)`);
-        out(r.colgada ? `    ✖ la tanda se mató: ${porQueSeMato(r)}` : (res.detalle.split('\n').slice(0, 60).join('\n') || r.salida.split('\n').slice(-30).join('\n')));
+        out(r.colgada ? `    ✖ la tanda se mató: ${porQueSeMato(r, tandas[n])}` : (res.detalle.split('\n').slice(0, 60).join('\n') || r.salida.split('\n').slice(-30).join('\n')));
         out(`    (salida completa: ${log})`);
         if (cortar) { cortada = true; break; }
       }

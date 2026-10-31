@@ -39,6 +39,98 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## «Un test se colgó» y no se había colgado nada: node imprime por ARCHIVO, no por caso (31/10/2026)
+
+**Síntoma.** El paso «Tests afectados por lo que cambió» del run 41207922805 salió con **99** —«no se pudo chequear», no
+rojo— y trabó el tren con un despliegue con fecha. El log, de dos tandas de 100:
+
+```
+tanda 12/14 · 100 archivos · 179 casos juzgados (sin el pie del runner) · ROJA (? archivos) · 5 min 35 s
+  ⚠ NO CORRIÓ: … estuvo 5 min 0 s sin terminar un solo caso: un test se colgó. El último caso que TERMINÓ fue
+  «qué es una orden sobre el flujo»: el que se colgó es el que sigue.
+[tests-afectados] ⚠ SIN CHEQUEAR · 12585 tests de 1538 archivos · 23 min 56 s · RAM libre mínima 3,7 GB
+  ⚠ 200 archivo(s) NO CORRIERON (su proceso murió sin juzgar un test)
+```
+
+**Todos los diagnósticos obvios eran el equivocado.** No era RAM (3,7 GB libres como mínimo, en un runner dedicado). No
+era un rojo (99 ≠ 1). No era el sistema operativo: **reproduce igual en Windows**. No era el tamaño de la tanda. Y, sobre
+todo, **no se colgó ningún test**: los 100 archivos de cada tanda pasaban. Localmente, la tanda 13 entera da **880 tests,
+880 en verde**.
+
+**Causa real, y son dos cosas que sólo juntas producen el síntoma:**
+
+1. ⚠️ **Node imprime la salida de un archivo de test cuando el ARCHIVO termina, no cuando termina el caso.** Medido con
+   tres archivos y `--test-concurrency=3`: los dos rápidos (1 ms cada uno) imprimen sus casos recién cuando el lento
+   (6 s) terminó — las tres líneas salen juntas, a los 6 s, en el orden de los argumentos. O sea que **una tanda deja de
+   imprimir mientras corre su archivo más lento**, aunque los otros 99 ya hayan pasado. Por eso el log decía «426 casos»
+   de 880: los otros 454 estaban en la cola del reporte.
+2. El vigía de `scripts/tests-afectados.mjs` pregunta «¿imprimió un caso nuevo?» y mata al proceso que no imprime en
+   `TOPE_SIN_AVANCE_MS` (5 min). Con lo de arriba, eso **no mide «está colgado»: mide el archivo más LENTO de la tanda**.
+
+**Quién cruzó la línea.** `tests/grupo-leandro-2910.test.ts` (tanda 13) y `tests/clase-del-grupo.test.ts` (tanda 12)
+lanzan un hijo que corre la entrada REAL del grupo (`manejarEntranteDoer`), y ese camino llama a `esperarSilencio`
+(`lib/mako-doer-buffer.ts`), que duerme sobre el reloj de verdad —8 s, 20 con audio, mirando cada 3 s si entró otro
+mensaje— **una vez por escena**. Doce y veintitrés escenas: **234 s y 236 s en una PC libre, de los cuales ~130 son
+dormir**. En el runner pasaron los 300 s. Y los dos se **declaraban** más lentos que el vigía:
+`spawnSync(…, { timeout: 400_000 })`, 400 s de permiso contra 300 s de paciencia.
+
+⚠️ **La trampa que se come una hora: el mensaje acusa al caso siguiente, y el culpable es el ARCHIVO siguiente.** Los dos
+casos que el log nombró (`qué es una orden sobre el flujo`, `la IA del Dashboard no pregunta antes si el negocio tiene
+IA…`) son el **último test de su archivo** — con 2 y 10 tests. Así que «el que se colgó es el que sigue» mandaba a buscar
+un caso que no existe, y de ahí a buscar un handle abierto (un timer, un socket) en los módulos que esos archivos
+importan. No hay ningún handle: el hijo termina con `process.exit(0)`. Como la salida va en orden ALFABÉTICO (node ORDENA los archivos: con el orden de los argumentos se acusa a uno que ya terminó), el
+culpable es **el primero que todavía no imprimió**: el que sigue al archivo donde vive el último caso impreso.
+
+**La regla que queda** (`tests/tanda-no-la-mata-un-test-lento.test.ts`):
+
+- **Ningún test puede darle a un hijo más tiempo del que el vigía le da a la tanda ENTERA.** Es la relación entre dos
+  números que viven en archivos distintos, y es lo único que no se ve mirando un archivo solo. Un test que necesite más
+  se declara en `PERMITIDOS` con el motivo medido, y entonces se sabe que esa tanda se puede morir por él. Cuando el hijo
+  se pasa, lo que tiene que pasar es que se ponga rojo **ese** archivo —que se nombra— no que mueran los otros 99.
+- **Un test que replica el doer no espera el reloj.** Los hijos acortan la ventana con `MAKO_DOER_VENTANA_MS`, que por
+  `Math.min` sólo puede **acortar**: un entorno mal puesto puede hacer que MaKo conteste antes, jamás que se quede
+  esperando más de lo medido. ⚠️ Y la variable **vacía no vale**: `Number('')` es **0**, así que la clave agregada sin valor
+  en el panel de Vercel dejaría a MaKo contestando al instante, sin esperar el lote y sin que nada lo diga — tiene que haber
+  un número escrito (el default que inventa un dato, otra vez). Lo que el test cuida —que un lote se junte y se conteste UNA vez— no depende del reloj: sus
+  mensajes ya están en la cola cuando el turno llama a esperar (`encolar` corre antes de `esperarSilencio`).
+- El mensaje del vigía nombra el archivo y trae el comando para correrlo solo (`elQueNoDejoAvanzar`).
+
+⚠️ **Y UNA TRAMPA DEL GUARD, QUE NO SE VE HASTA QUE ALGUIEN LO COMMITEA.** Un guard que barre el fuente buscando el literal
+que persigue se pone rojo **por su propia explicación**: este cita el `timeout: 400_000` que causó el 99 para contar la
+historia, y leyendo el fuente crudo encuentra tres (todos en comentarios) y se acusa a sí mismo. Y no se nota al escribirlo,
+porque `git ls-files` **no lista lo que todavía no está commiteado**: el archivo nuevo no se barre a sí mismo hasta el commit,
+así que el rojo aparecería en el push de otro. Las dos mitades: barrer `sinComentarios(src)` (ya está exportado en
+`tests-afectados.mjs`) y listar con **`git ls-files -co --exclude-standard`**, para que un test nuevo con un tope de más duela
+antes del commit y no después.
+
+**Los números** (PC libre, 12 núcleos): el hijo de grupo-leandro **234 s → 104 s**; el de clase-del-grupo **236 s → 25 s**
+(arranque de tsx ~22 s en los dos, que no se puede bajar). Las tandas completas: la 13, **256 s → 137 s**, 880/880 en verde;
+la 12, **108 s**, 842/842. Las guardas, 8 de 8 y 15 de 15, probadas rompiéndolas de a una: siete roturas, cada una pone roja
+UNA y la nombra.
+
+⚠️ **Y DOS COSAS QUE SE APRENDIERON CORRIGIENDO ESTO, LAS DOS MIDIENDO:**
+
+- **El orden de la salida es el ALFABÉTICO, no el de los argumentos.** Medido sobre una tanda de 68 que mezclaba los tres
+  grupos de `agrupar` (cambio → nombra → importa): los 68 últimos casos salieron en orden alfabético **perfecto**. Leyendo el
+  orden de los argumentos se acusaba a un archivo que ya había terminado; con el alfabético, el nombrado fue el que estaba
+  VIVO de verdad — confirmado mirando `Win32_Process`, que además muestra los NIETOS (ahí se vio el `tsc` colgando de
+  `tests/tipos-por-tandas.test.ts`). **Para saber qué archivo no sale, mirar los procesos vivos es más barato que deducir.**
+- **No alcanza con «el que sigue»: hay TRES cuelgues, y se distinguen con una pregunta.** ¿El último caso impreso es el
+  ÚLTIMO test de su archivo? Si **no**, el proceso sigue adentro de ese archivo. Si **sí** y hay otro archivo después, el
+  culpable es ése. Si **sí** y era el último de la tanda, el proceso **juzgó todo y no salió**: recién ahí hay que buscar un
+  handle abierto. Sin esa pregunta se manda a cazar un handle que no existe, que es lo que pasó con los dos casos del run.
+
+**Vive en:** `lib/mako-doer-buffer.ts` (`reloj()`, `VENTANA_MS`) · `scripts/tests-afectados.mjs` (`elQueNoDejoAvanzar`,
+`porQueSeMato`, `TOPE_SIN_AVANCE_MS`) · los seis `tests/_*-hijo.ts` que pasan por `manejarEntranteDoer` ·
+`tests/tanda-no-la-mata-un-test-lento.test.ts`.
+
+**SIN HACER** — `tests/tipos-por-tandas.test.ts` corre el `tsc` de verdad y tarda **754 s** medidos: queda declarado como
+excepción, así que **todavía puede matar su tanda** y hay que leer ese 99 como «tardó», no como «se colgó». Acortarle el
+tope lo pondría rojo en una máquina lenta, que es peor. Lo que falta es que `tests-afectados` le dé a cada tanda el
+presupuesto que DECLARAN sus archivos (el mayor `timeout:` de la tanda + holgura, en vez de los 5 min fijos para todas):
+con eso una tanda con un archivo lento no se muere y una tanda normal sigue cortando a los 5 min, sin regalarle minutos
+de Actions a un cuelgue de verdad. `MAKO_TESTS_SIN_AVANCE_MIN` ya permite moverlo a mano para una corrida.
+
 ## Cinco falsas alarmas al medir sobre una copia o un barrido (30/10/2026)
 
 **«0 vivas» con el test ya rojo es un falso verde.** Una corrida de roturas dio 0 vivas de 74 con un test que ya caía antes de romper nada, por un renombre a medias: toda rotura «caía» sola. **La regla:** las roturas sólo valen con el test en verde justo antes, y el script tiene que comprobarlo primero. `«0 tests» no es rojo` tiene este gemelo: «cae» no es prueba si caía de antes.

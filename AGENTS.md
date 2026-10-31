@@ -543,6 +543,17 @@ reloj, y un proceso muerto informa los casos que alcanzó a juzgar en vez de un 
 ⚠️ **Y un archivo que tira AL CARGAR da verde compartido** (22/10/2026, docs/hallazgos-infra.md): se cuentan los `test(...)` de
 arriba de la línea que tira y los demás no corren, con salida 0. **En un test, lo que puede tirar (un `assert` sobre el fuente, un
 recorte con tope) va ADENTRO de un `test(...)` o en una función perezosa, nunca en una constante del módulo.**
+⚠️ **UN TEST LENTO MATA LA TANDA DE LOS OTROS 99, Y EL LOG LO LLAMA «se colgó»** (31/10/2026, run 41207922805,
+docs/hallazgos-infra.md). **Node imprime la salida de un archivo de test cuando el ARCHIVO termina**, no cuando termina el caso:
+una tanda deja de imprimir mientras corre su archivo más lento, aunque los otros 99 ya hayan pasado, y el vigía —que mata al que no
+imprime un caso en 5 min— termina midiendo eso en vez de medir un cuelgue. Sale **99**, «NO CORRIÓ» para los 100, y el mensaje acusa
+al *caso* siguiente cuando el culpable es el *archivo* siguiente. Dos reglas al escribir un test:
+**(1) el `timeout` que le das a un hijo no puede pasar `TOPE_SIN_AVANCE_MS`** (5 min; lo cuida
+`tests/tanda-no-la-mata-un-test-lento.test.ts`, y si de verdad necesita más se declara ahí con el motivo medido) —
+cuando el hijo se pase, tiene que ponerse rojo TU archivo, que se nombra, no morir los otros 99;
+**(2) un test NUNCA espera el reloj de producción.** Los que replican la entrada del grupo acortan la ventana de silencio con
+`MAKO_DOER_VENTANA_MS` (`lib/mako-doer-buffer.ts`, sólo puede acortar): esperarla de verdad costaba 8-20 s **por escena** y hacía
+que dos archivos tardaran 234 y 236 s.
 
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
@@ -2738,10 +2749,37 @@ El procedimiento, y no es opcional:
    frena**, en vez de inventar. Una pantalla inventada cuesta la tanda entera; preguntar
    cuesta una frase. Y si se usa la documentación oficial en lugar de la app, se dice cuál y
    se dice que es eso.
-3. **Se copia la ESTRUCTURA, no la marca**: la jerarquía, cómo agrupa, qué entra en una fila,
-   qué se esconde detrás del detalle, dónde viven las acciones destructivas, cuánto respira
-   cada bloque. Los colores, la tipografía y los íconos son los de la casa — un `var(--token)`
-   nuestro, nunca el hex de la otra app.
+3. **Qué se copia depende de QUÉ es la fuente, y confundir los dos casos ya costó dos tandas
+   enteras el 31/10/2026.** Son dos cosas distintas:
+
+   - **Una app COMPETIDORA** (Looker, GitHub, respond.io, CapCut): se copia la ESTRUCTURA, no
+     la marca — la jerarquía, cómo agrupa, qué entra en una fila, qué se esconde detrás del
+     detalle, dónde viven las acciones destructivas, cuánto respira cada bloque. Los colores,
+     la tipografía y los íconos son los de la casa: MaKo no tiene que parecerse a GitHub.
+   - **Una REFERENCIA DE ESTILO que mandó Martín** («copiá el diseño de esta página», una
+     galería de plantillas, un sitio que le gustó): acá **los valores SON el pedido**. La
+     tipografía, la escala, la paleta, los radios, las sombras, la densidad y las curvas de
+     movimiento se copian CON SUS NÚMEROS. Describirlos con palabras y aplicar los tokens de
+     la casa es exactamente lo que hace que el resultado «no se parezca en nada».
+     ⚠️ Medido: la primera vuelta del rediseño del Dashboard escribió en su propio documento
+     «acá no hay un solo valor suyo» — y Martín, al ver el resultado: *«no se parecen en
+     absolutamente nada a las cosas que te pedí que copies»*. Los valores se leen del
+     navegador (`getComputedStyle` sobre `:root`, los `@keyframes`, las transiciones) y se
+     guardan en `docs/diseno/`, con fecha. Leerlos es un minuto; adivinarlos cuesta la tanda.
+
+   **Y UN LÍMITE LEGAL O TÉCNICO SOBRE EL CÓDIGO O EL DATO NO ES PERMISO PARA DISEÑAR DE CERO.**
+   Son preguntas separadas y hay que contestarlas por separado:
+   «¿puedo usar SU código?» · «¿puedo usar ESE dato?» · «¿puedo hacer que se vea igual?».
+   Que la primera o la segunda den NO no vuelve la tercera un no. Una tienda que vende su
+   código sigue dejando mirar su demo y reproducir el diseño con código nuestro; que los
+   términos de un proveedor no dejen usar sus datos no autoriza a inventar la pantalla.
+   Los dos casos del 31/10/2026, para que no se repitan:
+   - el Dashboard: «es una tienda, lo que vende es el código» → no copió ni un valor;
+   - Competitors Spy: «la licencia deja copiar el código pero los términos de Meta no dejan
+     usar el dato» → construyó la tab de cero.
+   En los dos, lo correcto era copiar el diseño con código propio. **Si de verdad no se puede
+   copiar, se AVISA ANTES de construir** (punto 2), no se entrega algo inventado y se explica
+   después.
 4. **La fuente se NOMBRA en el commit y en el relevo** («copiado de la pantalla de seguridad
    de Google, 15/10»). Sin eso, el que venga en tres semanas vuelve a diseñar de memoria y
    estamos otra vez acá.
