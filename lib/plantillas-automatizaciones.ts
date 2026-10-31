@@ -227,6 +227,14 @@ function mako(id: string, texto: string, siguiente: string | null): PasoDePlanti
  * LA MISMA TARJETA, «LO MANDA IGUAL» FUERA DEL HORARIO DE OFICINA (16/10/2026): una alerta que no puede esperar a la mañana.
  * Esperando, las tres del techo se apilaban de noche y salían juntas a las 9 con los datos de la noche (revisión de B3).
  */
+/**
+ * LA MISMA TARJETA PARA UNA AGENCIA (31/10/2026, ticket #37). Sin su grupo sale por correo al equipo: el cliente ya no recibe esta
+ * alerta, y sin esto quedaba sólo en la campanita de la agencia, gastando el techo sin que nadie la viera.
+ */
+function makoUrgenteAgencia(id: string, texto: string): PasoDePlantilla {
+  return { ...RELLENO, id, siguiente: null, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, fueraDeHorario: 'igual', sinGrupo: 'email' }, [{ tipo: 'texto', cuerpo: texto }]) } };
+}
+
 function makoUrgente(id: string, texto: string, siguiente: string | null): PasoDePlantilla {
   return { ...RELLENO, id, siguiente, accion: { operacion: OP_AVISAR, params: paramsConPartes({ leadId: LEAD_DEL_EVENTO, fueraDeHorario: 'igual' }, [{ tipo: 'texto', cuerpo: texto }]) } };
 }
@@ -790,9 +798,9 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     // lib/avisos-catalogo.ts). El mismo techo y un texto por estado, que nombra al cliente: «tu cuenta» en el grupo de la agencia
     // no dice de quién es. El link es a MaKo Partners, porque `{{link_integraciones}}` sería el de la propia agencia.
     id: 'mako-meta-cuenta-frenada-agencia',
-    nombre: 'Meta Frenó la Cuenta de un Cliente de Agencia',
+    nombre: 'Meta Frenó Cuenta de Cliente de Agencia',
     emoji: '🚨',
-    linea: 'Le avisa al grupo de una agencia que Meta frenó la cuenta publicitaria de su cliente, por qué y qué hacer, hasta 3 veces.',
+    linea: 'Avisa a una agencia que Meta frenó la cuenta publicitaria de su cliente, por qué y qué hacer, hasta 3 veces.',
     origen: 'el cron de las alertas críticas (meta-cuenta-frenada), cuando la cuenta es de un cliente de una agencia aprobada',
     objetivo: 'clientes',
     soloPlataforma: true,
@@ -800,8 +808,8 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
     pasos: [
       condicion('mfa_tope', [[[{ campo: 'dato:anuncios_vez', op: 'menor_igual', valor: TOPE_AVISOS_CUENTA_FRENADA }], 'mfa_estado']], null),
       condicion('mfa_estado', CAUSA_DE_LA_CUENTA.map((c) => [[{ campo: 'dato:anuncios_estado', valor: c.estado }], `mfa_${c.id}`] as const), 'mfa_otro'),
-      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgente(`mfa_${c.id}`, textoCuentaFrenada(c.titularAgencia, c.queHacerAgencia ?? c.queHacer, '{{cliente_link}}'), null)),
-      makoUrgente('mfa_otro', textoCuentaFrenada('*La cuenta publicitaria de {{cliente_nombre}} tiene un problema*\n📋 Estado en Meta: {{anuncios_estado}}', null, '{{cliente_link}}'), null),
+      ...CAUSA_DE_LA_CUENTA.map((c) => makoUrgenteAgencia(`mfa_${c.id}`, textoCuentaFrenada(c.titularAgencia, c.queHacerAgencia ?? c.queHacer, '{{cliente_link}}'))),
+      makoUrgenteAgencia('mfa_otro', textoCuentaFrenada('*La cuenta publicitaria de {{cliente_nombre}} tiene un problema*\n📋 Estado en Meta: {{anuncios_estado}}', null, '{{cliente_link}}')),
     ],
   },
   {
@@ -820,15 +828,15 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
   },
   {
     id: 'mako-meta-cuenta-recuperada-agencia',
-    nombre: 'Volvió la Cuenta de un Cliente de Agencia',
+    nombre: 'Volvió Cuenta de Cliente de Agencia',
     emoji: '✅',
-    linea: 'Le avisa al grupo de una agencia que la cuenta publicitaria de su cliente volvió a entregar (sólo si se le había avisado).',
+    linea: 'Avisa a una agencia que la cuenta publicitaria de su cliente volvió a entregar (sólo si se le había avisado).',
     origen: 'el cron de las alertas críticas (meta-cuenta-recuperada), cuando la cuenta es de un cliente de una agencia aprobada',
     objetivo: 'clientes',
     soloPlataforma: true,
     cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'meta_cuenta_recuperada_agencia' },
     pasos: [
-      makoUrgente('mra_mk', '✅ La cuenta publicitaria de *{{cliente_nombre}}* volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo', null),
+      makoUrgenteAgencia('mra_mk', '✅ La cuenta publicitaria de *{{cliente_nombre}}* volvió a la normalidad.\n🔕 Dejo de avisarte.\n\n— MaKo'),
     ],
   },
   {

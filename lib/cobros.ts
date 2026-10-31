@@ -1329,8 +1329,9 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
         await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
         await alCron(c, 'rechazado');
       }
-      // La suscripción de un cliente de agencia nace autorizada, y la primera renovación que rechazan pasa por acá (ticket #37).
-      if (r && c.tipo === 'suscripcion') await rechazoALaAgencia(c.id);
+      // La suscripción autorizada de un cliente de agencia todavía no cobró, y la primera renovación que rechazan pasa por acá (ticket
+      // #37). Sin autorizar (`null`), la está pagando ella en pantalla y no hay ningún reintento que anunciarle.
+      if (r && c.tipo === 'suscripcion' && c.suscripcion_estado === 'activa') await rechazoALaAgencia(c.id);
       return;
     }
     if (c.estado === 'pagado' && c.tipo === 'suscripcion' && c.lead_id) {

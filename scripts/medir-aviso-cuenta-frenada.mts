@@ -35,7 +35,7 @@ const chk = <T,>(r: { data: T | null; error: { message: string } | null }, q: st
 const wsPlat = await wsSuperAdmin();
 const filas = chk(await db.from('nutricion_secuencias').select('id, nombre, activa, pasos, trigger_tipo, disparadores, archivada_at')
   .eq('workspace_id', wsPlat).eq('trigger_tipo', TRIGGER_AVISO_MAKO), 'filas de la plataforma') as Array<{ id: number; nombre: string | null; activa: boolean | null; pasos: unknown; trigger_tipo: string; disparadores?: unknown; archivada_at: string | null }>;
-const deEste = filas.filter((f) => ['meta_cuenta_frenada', 'meta_cuenta_recuperada'].includes(String(eventoDeFila(f))));
+const deEste = filas.filter((f) => ['meta_cuenta_frenada', 'meta_cuenta_recuperada', 'meta_cuenta_frenada_agencia', 'meta_cuenta_recuperada_agencia'].includes(String(eventoDeFila(f))));
 console.log(`Ahora ${ART(new Date().toISOString())} ART. Plataforma: ws${wsPlat}. Mirando ${DIAS} días.`);
 console.log(`Automatizaciones de la plataforma para la cuenta frenada / recuperada:`);
 for (const f of deEste) {
@@ -48,7 +48,7 @@ if (!deEste.length) console.log('  ✖ NINGUNA: el evento no sale (sin camino vi
 // 1 y 3. Por negocio: los incidentes de Meta, la insistencia, el grupo y lo que salió.
 const wss = chk(await db.from('workspaces').select('id, nombre').order('id'), 'workspaces') as Array<{ id: number; nombre: string | null }>;
 const notifs = chk(await db.from('notificaciones').select('id, workspace_id, tipo, titulo, created_at, payload')
-  .in('tipo', ['meta-cuenta-frenada', 'meta-cuenta-recuperada']).gte('created_at', DESDE).order('created_at').limit(2000), 'notificaciones') as Array<{ id: number; workspace_id: number; tipo: string; titulo: string | null; created_at: string; payload: Record<string, unknown> | null }>;
+  .in('tipo', ['meta-cuenta-frenada', 'meta-cuenta-recuperada', 'meta-cuenta-frenada-agencia', 'meta-cuenta-recuperada-agencia']).gte('created_at', DESDE).order('created_at').limit(2000), 'notificaciones') as Array<{ id: number; workspace_id: number; tipo: string; titulo: string | null; created_at: string; payload: Record<string, unknown> | null }>;
 for (const w of wss) {
   await runWithWorkspace(w.id, async () => {
     let incs: Array<{ id: number; service: string; severidad: string; status_label: string | null; disable_reason: string | null; entrega_frenada: boolean; confirmado: boolean; started_at: string; resolved_at: string | null }> = [];
