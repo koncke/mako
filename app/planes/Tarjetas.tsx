@@ -25,17 +25,20 @@
 // con Mercado Pago. Un precio en pesos sólo si el plan lo tiene (`precioEnPesos`): nunca con una tasa.
 // =============================================================================
 
-import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba, type PlanMako } from '@/lib/planes-mako';
+import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, precioEnPesos, textoDespuesDeLaPrueba, type PlanMako } from '@/lib/planes-mako';
 import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { noIncluyeDe } from '@/lib/planes-comparacion';
+import { PROMO_ENTRADA, precioPrimerMes, textoUsd } from '@/lib/promo-entrada-reglas';
 
 /** Un plan como lo dibujan las tarjetas, con si se cobra en línea. La capa dice lo que NO trae (la comparación). */
 export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'capa' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
 
 export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
 /** La línea de abajo de las tarjetas: cómo es la prueba (también la lee el test contra /reembolsos). */
-export const TEXTO_PRUEBA = `${PRUEBA_DIAS} días gratis con tu tarjeta: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada.`;
+export const TEXTO_PRUEBA = PRUEBA_GRATIS_PRENDIDA
+  ? `${PRUEBA_DIAS} días gratis con tu tarjeta: si te das de baja antes del día ${PRUEBA_DIAS + 1}, no se te cobra nada.`
+  : 'Pagas al empezar y te das de baja cuando quieras.';
 
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
 export const CEJA_PROGRAMA = 'Lo armamos contigo';
@@ -92,8 +95,10 @@ export const CSS_TARJETAS = `
 .mkpl-periodo input:focus-visible + label { outline: 2px solid #2F6FED; outline-offset: 2px; }
 .mkpl-bloques:has(#mkpl-p-anual:checked) .mkpl-mes { display: none; }
 .mkpl-bloques:has(#mkpl-p-mes:checked) .mkpl-anual { display: none; }
+.mkpl-primer-mes { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: #FFF8DB; color: #4A5260; font-size: 13.5px; line-height: 1.4; }
+.mkpl-primer-mes b { display: block; color: #12151B; font-size: 15px; }
 .mkpl-pagos { margin: 22px 0 0; text-align: center; color: #4A5260; font-size: 14.5px; }
-.mkpl-gratis { display: inline-block; margin: 0 0 10px; padding: 3px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D;
+.mkpl-gratis { display: inline-block; align-self: flex-start; margin: 0 0 10px; padding: 3px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D;
   font-size: 12.5px; font-weight: 800; letter-spacing: .02em; }
 .mkpl-pagos b { color: #12151B; }
 .mkpl-despues { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: #C4C8D0; }
@@ -105,7 +110,11 @@ export const CSS_TARJETAS = `
 
 const precio = (n: number) => n.toLocaleString('es-AR');
 
-export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarjeta[]; sufijo: string }) {
+export function TarjetasPlanes({ planes, sufijo, promoVigente = false }: {
+  planes: readonly PlanEnTarjeta[]; sufijo: string;
+  /** El reloj del 50% sigue vivo en este navegador: cada plan del cartel dice lo que sale su primer mes. Después, el precio de siempre. */
+  promoVigente?: boolean;
+}) {
   const pr = PROGRAMA_ACELERADOR;
   // El selector, sólo si TODOS los planes tienen anual: uno sin anual quedaría sin precio al elegirlo.
   const conAnual = planes.length > 0 && planes.every((p) => !!p.precioAnualUsd);
@@ -133,10 +142,13 @@ export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarj
             <div className="mkpl-ceja">{CEJA_SOFTWARE}</div>
             <h3>{p.nombre}</h3>
             {p.resumen && <p className="mkpl-resumen">{p.resumen}</p>}
-            <span className="mkpl-gratis">{PRUEBA_DIAS} días gratis</span>
+            {PRUEBA_GRATIS_PRENDIDA && <span className="mkpl-gratis">{PRUEBA_DIAS} días gratis</span>}
             <div className="mkpl-mes">
               <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
               {pesos && <div className="mkpl-cuotas">o {formatoMonto(pesos, 'ARS')} por mes</div>}
+              {promoVigente && PROMO_ENTRADA.planes.includes(p.id) && (
+                <div className="mkpl-primer-mes"><b>Tu primer mes: US$ {textoUsd(precioPrimerMes(p.precioUsd))}</b> Después, el precio de siempre.</div>
+              )}
               <a className={borde} href={boton.href}>{boton.texto}</a>
               <p className="mkpl-garantia">{textoDespuesDeLaPrueba(p.precioUsd, 'mes')}</p>
             </div>

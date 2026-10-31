@@ -704,7 +704,7 @@ export const RUNNERS: Runners = {
           ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: nombreDePlan(f.capa), estado: f.estado,
           mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, por_que_en_riesgo: f.motivoRiesgo,
           dias_sin_entrar: f.sinEntrar, leads: f.leads, dias_sin_leads: f.sinLeads, onboarding_hecho: f.onboardingHecho,
-          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, desde: f.creado.slice(0, 10),
+          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, plan_a_mano: f.planAManoTxt, desde: f.creado.slice(0, 10),
         })),
         // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
         para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),

@@ -20,9 +20,9 @@ import { PARAM_CARGADOR, RUTA_CARGADOR } from '@/lib/pixel-cargador';
 import { LANDING_HTML } from './landing-html';
 import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-contenido';
 import { PreciosLanding, sufijoDesdeUrl, type PlanEnLanding } from './PreciosLanding';
-import { CartelOferta } from './CartelOferta';
+import { CartelPromo } from './CartelPromo';
 import { ATRIBUTO_PLANES, conPreciosEnHtml } from '@/lib/editor-landing/precios-en-landing';
-import { PRUEBA_DIAS } from '@/lib/planes-mako';
+import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
 
 /**
  * La landing hecha en Web Generator (23/10/2026, lib/editor-landing/landing-mako.ts): el HTML de la página
@@ -366,13 +366,13 @@ export default function Landing({ diseno, planes = [], landing = null }: {
   const injectedHtml = useMemo(
     // Los precios de hoy y la prueba gratis en las marcas de la landing («desde US$…», el de un plan, «7 días gratis»): la foto
     // publicada trae los del día que se publicó (lib/editor-landing/precios-en-landing.ts). Mismos planes que las columnas.
-    () => <div dangerouslySetInnerHTML={{ __html: diseno ? conPreciosEnHtml(diseno.html, planes, PRUEBA_DIAS) : LANDING_HTML }} />,
+    () => <div dangerouslySetInnerHTML={{ __html: diseno ? conPreciosEnHtml(diseno.html, planes, PRUEBA_GRATIS_PRENDIDA ? PRUEBA_DIAS : 'apagada') : LANDING_HTML }} />,
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   return (
     <div className="vsl-root" ref={rootRef}>
-      <CartelOferta planes={planes} />
+      <CartelPromo planes={planes} />
       <style dangerouslySetInnerHTML={{ __html: diseno ? CSS_CAPA : CSS }} />
       {/* La hoja viene saneada (sin `<`: cssDisenoLimpio), y igual se re-escapa como en pagina-publica.ts. */}
       {diseno && <style dangerouslySetInnerHTML={{ __html: sinCierreDeStyle(diseno.css) }} />}

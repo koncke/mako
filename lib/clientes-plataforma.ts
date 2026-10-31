@@ -18,6 +18,9 @@ import { listarWorkspaces, wsSuperAdmin } from './workspace';
 import { agenciasHabilitadas, todasLasCarteras } from './agencia';
 import { esCarteraVigente } from './agencia-cartera';
 import { cobrosDeLugares } from './plan-acceso';
+import { planesAManoPorNegocio } from './plan-a-mano';
+import { regaloParaMirar, textoDePlanAMano, type PlanAMano } from './plan-a-mano-reglas';
+import { usdPrimerMesVigente } from './primer-mes-reglas';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
 import {
@@ -55,6 +58,11 @@ export type FilaCliente = {
   sesionesAgente: number;
   /** Un link de cobro de su lugar sin pagar (el primer mes, una renovación por autorizar o un cobro que falló). */
   pagoPendiente: boolean;
+  /** Hasta cuándo va su plan a mano, ya dicho («Gratis hasta el 1 de mayo de 2027»). null = no tiene. */
+  planAManoTxt: string | null;
+  regaloPorTerminar: string | null;
+  /** Lo que pagó su primer mes en dólares, mientras corre ese mes con el 50%. null = no aplica. */
+  primerMesUsd: number | null;
 };
 
 export type VistaClientes = {
@@ -154,7 +162,7 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
   };
   const wss = (await listarWorkspaces()).filter((w) => w.id !== plataforma);
   const ids = wss.map((w) => w.id);
-  const [agencias, carteras, partners, cobros, ingresos, hechos, leads, sesiones, cuotas] = await Promise.all([
+  const [agencias, carteras, partners, cobros, ingresos, hechos, leads, sesiones, cuotas, planesAMano] = await Promise.all([
     agenciasHabilitadas(),
     todasLasCarteras(),
     partnersConLink().catch(conAviso('los Partners', new Set<number>())),
@@ -164,6 +172,7 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
     leadsDe(ids).catch(conAviso('los leads de cada negocio', null)),
     sesionesDelAgente(ahoraMs).catch(conAviso('las sesiones del agente', new Map<number, number>())),
     cuotasDeLaPlataforma(plataforma, ahoraMs).catch(conAviso('las cuotas de la plataforma', null)),
+    planesAManoPorNegocio().catch(conAviso('los planes a mano', new Map<number, PlanAMano>())),
   ]);
   const nombre = new Map(wss.map((w) => [w.id, w.nombre]));
   // De qué agencia es cada cliente: las vigentes (un revocado ya no es suyo, AdminView 28/09/2026).
@@ -194,6 +203,7 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
     // ⚠️ NO DE LOS CLIENTES DE UNA AGENCIA (hallazgo 7): la agencia entra a su cuenta con su propia sesión (/api/agencia/entrar)
     // y la base no anota esa entrada, así que «nadie de su equipo entró» es lo normal aunque la agencia la opere todos los días.
     const porUso = actividadLeida && !deAgencia.has(w.id) && sinUso(actividad);
+    const mano = planesAMano.get(w.id) ?? null;
     const motivoRiesgo: MotivoRiesgo | null = w.estado === 'pausado' ? 'pausado' : porCobro ? 'cobro' : porUso ? 'sin-uso' : null;
     return {
       ws: w.id, nombre: w.nombre, capa: w.capa, estado: w.estado, creado: w.created_at,
@@ -204,6 +214,10 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
       sinEntrar: actividad.sinEntrar, sinLeads: actividad.sinLeads, leads: l?.n ?? null, onboardingHecho: actividad.onboardingHecho,
       sesionesAgente: sesiones.get(w.id) ?? 0,
       pagoPendiente: pagoPendiente(cs),
+      planAManoTxt: mano ? textoDePlanAMano(mano, ahoraMs) : null,
+      primerMesUsd: cs.map((c) => usdPrimerMesVigente(c, ahoraMs)).find((n) => n != null) ?? null,
+      // A quien ya factura o está en su prueba con tarjeta, un vencimiento viejo no le pide atención.
+      regaloPorTerminar: mano && mrr.usd === 0 && mrr.sinDolares === 0 && !enPrueba(cs) ? regaloParaMirar(mano, ahoraMs) : null,
     };
   });
   return {
