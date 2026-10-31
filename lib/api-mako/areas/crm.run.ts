@@ -1513,7 +1513,7 @@ export const RUNNERS: Runners = {
     leer: async (input) => {
       const leadId = Number(input.leadId);
       const r = await leerBajasDeLeads({ leadId: Number.isSafeInteger(leadId) && leadId > 0 ? leadId : null });
-      return { bajas: r.renglones.map((b) => ({ ...b, leadIds: b.leadIds.slice(0, 200) })), aviso: r.aviso };
+      return json({ bajas: r.renglones.map((b) => ({ ...b, leadIds: b.leadIds.slice(0, 200) })), aviso: r.aviso });
     },
   },
   ver_papelera_crm: {
