@@ -38,6 +38,54 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un worktree nuevo no puede pushear, y el pre-push culpa a un documento que está al día (31/10/2026)
+
+**El síntoma.** Primer push desde un `git worktree add` recién creado:
+
+```
+X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+Corre esto y volve a pushear:
+    node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+**El diagnóstico obvio era el equivocado.** El documento no estaba viejo. Los dos archivos
+eran **idénticos a `origin/main`** (`git diff origin/main -- docs/branding-mako.md
+lib/mako-gramatica.ts` sale vacío) y el commit no los tocaba. Correr el script que pide el
+mensaje tampoco funciona: tira `ERR_MODULE_NOT_FOUND`.
+
+**La causa.** Un worktree nuevo **no tiene `node_modules`** (está en `.gitignore`, así que
+`git worktree add` no lo trae). El chequeo del pre-push corre
+`node --import tsx scripts/…--check`, **`tsx` no resuelve, el proceso muere con exit ≠ 0, y
+el hook lee cualquier exit ≠ 0 como «el documento quedó viejo»**. El hook no distingue
+«comparé y difieren» de «no pude comparar» — es el mismo error que ya está documentado para
+`tsc-acotado | grep "error TS"`, que esconde el «NO SE PUDO CHEQUEAR».
+
+**Lo que lo confirma:** el mismo chequeo desde el clon principal (que sí tiene
+`node_modules`) **pasa** y el push avanza hasta un chequeo distinto.
+
+**El arreglo, y es de un comando.** Una **junction de Windows** al `node_modules` del clon
+principal. No es una copia (no gasta disco) y no es un symlink de Git Bash, que en este
+sistema **sí copia**:
+
+```bash
+cd /c/dev/wt-<rama>
+cmd //c "mklink /J node_modules C:\ruta\al\clon\principal\node_modules"
+```
+
+Después, `sync-gramatica-doc.mjs --check` da `✓ al día` y el push sale. `node_modules` está
+en `.gitignore`, así que la junction no se commitea.
+
+**Y la otra mitad de la trampa:** pushear la rama **desde el clon principal** (que sí tiene
+dependencias) parece la salida fácil y no lo es — ahí el pre-push chequea **el árbol de
+trabajo**, que tiene el trabajo a medio hacer de las otras sesiones en paralelo, y bloquea
+por un archivo que no es tuyo. En este caso fue `extension/puede-filmar.js`. **Cada rama se
+pushea desde su propio worktree.**
+
+Lo que queda sin hacer: que estos chequeos distingan «difieren» de «no pude correr». Hoy los
+dos dan el mismo cartel, y el cartel acusa al archivo equivocado.
+
+---
+
 ## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
 
 **Síntoma.** A las 18:34 la app se cerró y se reabrió a las 18:38: los nueve chats y los dos workflows del Cerebro quedaron
