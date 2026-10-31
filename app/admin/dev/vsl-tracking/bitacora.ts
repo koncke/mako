@@ -488,7 +488,7 @@ export const BITACORA: Hito[] = [
     archivos: [
       'lib/url-datos-personales.ts — qué se saca de una dirección y qué se deja',
       'app/api/track/vsl/route.ts — dónde se guarda lo que manda el Pixel',
-      'scripts/limpiar-datos-personales-urls.mts — la limpieza de lo ya guardado (espera el OK)',
+      'supabase/migrations/0357_urls_sin_datos_personales.sql — la limpieza de lo ya guardado (espera el OK)',
       'docs/hallazgos-landing.md — los números, lo que se coló y lo que falta',
     ],
   },
@@ -559,6 +559,25 @@ export const BITACORA: Hito[] = [
       'app/api/cron/videos-daily/route.ts — lo que corre cada mañana',
       'supabase/migrations/0336_alojadores_video_plataforma.sql — el cambio en la base (aplicado el 25/10, con tu aprobación)',
       'docs/hallazgos-landing.md — lo que no era obvio',
+    ],
+  },
+  {
+    fecha: '30 oct', hora: '05:10', chat: 'Landings', sesion: 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601', cuenta: 'claude1',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El arreglo de octubre estaba puesto y el nombre de quien agenda seguía entrando: ahora se guarda sólo lo que sirve para medir',
+    puntos: [
+      'El 24 de octubre MaKo dejó de guardar el nombre y el email de quien agenda en las direcciones de las páginas. El arreglo estaba funcionando y el dato seguía entrando igual: Cal.com manda el nombre con otra etiqueta, y la regla miraba una lista de etiquetas prohibidas.',
+      'Se dio vuelta la regla. Ahora de una dirección se guarda SÓLO lo que sirve para medir —de qué campaña viene, de qué anuncio, qué versión de la página vio, qué video— y todo lo demás se descarta, aunque no parezca de nadie. Así deja de importar qué etiqueta nueva invente mañana la herramienta de agendas.',
+      'Con eso se van tres cosas más que antes quedaban: el código que identifica a un lead en el enlace de WhatsApp, el que identifica a un suscriptor de Mailchimp y el de una compra.',
+      'Medido en la base: 665 direcciones guardadas con datos de personas, de Código Inmobiliario y de P2P Consulting, entre el 21 de agosto y el 24 de octubre, de 82 personas. En ninguna otra parte de la base hay algo así.',
+      'La limpieza de esas 665 está escrita y ENSAYADA sin tocar nada, y espera tu confirmación: no borra ninguna visita, sólo le saca los datos a la dirección.',
+      'Avisarle a la agencia de Código Inmobiliario lo decides tú: el detalle de qué dato de qué persona estuvo guardado y dónde está anotado.',
+    ],
+    archivos: [
+      'lib/url-datos-personales.ts — qué se guarda de una dirección y qué no',
+      'app/api/track/vsl/route.ts — dónde se guarda lo que manda el Pixel',
+      'supabase/migrations/0357_urls_sin_datos_personales.sql — la limpieza de lo ya guardado (espera tu OK)',
+      'docs/hallazgos-landing.md — los números y por qué una lista de prohibidos no alcanzaba',
     ],
   },
 ];
