@@ -558,4 +558,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager?vista=campanas',
   },
+  {
+    fecha: '30 oct', hora: '23:55', chat: 'Ads Manager', cuenta: 'claude1',
+    sesion: 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las LANDINGS de la calculadora, y la calculadora que se construyó dos veces',
+    puntos: [
+      'De la llamada del 30/10 (docs/estrategia-lanzamiento-low-to-high.md § 6) faltaba el número que Martín dio: **cuántas LANDINGS** se pueden probar. Con US$1.000 son 2 —tres NO: «333 dólares con cada una también estoy yendo corto»— y con US$2.000, 4, «porque son 500 en cada una».',
+      '**La pieza de criterio es decir que NO:** con menos del piso la respuesta es «te alcanza para MENOS landings» y, en el borde, «no te alcanza ni para una» con lo que falta — nunca «repártelo entre más». El piso (US$500) es un CRITERIO con su cita, no una medición de ninguna cuenta.',
+      'Va en el MISMO módulo que ya repartía los ángulos (`landingsDelPresupuesto`, el campo `landings` del plan, su renglón en la tarjeta del arranque y en el texto que lee MaKo). Un segundo módulo haría que la pantalla y el chat dijeran números distintos del mismo presupuesto.',
+      '⚠️ **Lo más caro de la tanda no fue el código: fue la BASE.** El pedido llegó con el encuadre de que la calculadora no existía, y se construyó entera de cero —módulo, pantalla propia, operación de la API, 16 tests— sobre el `main` del clon compartido, que estaba **4.431 commits detrás** y todavía tenía la réplica vieja de Meta Ads Manager. La calculadora existe desde el 22/10 y su docblock cita el pedido. Todo eso se DESCARTÓ; quedó la pieza que faltaba.',
+      '**La señal estaba y se pasó por alto:** el documento que el brief nombraba no estaba en el árbol de trabajo (vive en `origin/integracion`). La regla quedó en AGENTS.md: antes de construir, medir el árbol contra la rama del brief y grepear el nombre de la feature.',
+      'Falta verlo en pantalla: la guardia de RAM no dejó levantar el `next dev` en esta ventana.',
+    ],
+    archivos: [
+      'lib/calculadora-presupuesto-ads.ts — `PISO_LANDING`, `landingsDelPresupuesto`, el campo `landings` del plan y su línea en `textoParaMako`',
+      'app/ads-manager/ArranqueMediaBuyer.tsx — el renglón de las landings en la tarjeta del plan',
+      'tests/calculadora-presupuesto-ads.test.ts — 7 tests más (25 en total), seis roturas con sus números',
+      'docs/hallazgos-ads.md — «La calculadora de presupuesto YA EXISTÍA»: la base vieja, la guarda que lee el disco y la moneda del presupuesto',
+    ],
+    revisar: '/ads-manager',
+  },
 ];
