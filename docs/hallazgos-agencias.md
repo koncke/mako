@@ -153,6 +153,13 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
     nueva tiene marca: pasadas las 2.000, una subida pendiente se queda afuera sin decirlo.
 - **`anularCobro` todavía cierra el link viejo con mejor esfuerzo** (`lib/cobros.ts:1318` → `cerrarLinkEnLaPasarela`,
   que nunca tira): un link anulado que la pasarela no cerró puede seguir cobrable. Está en `main` y quedó sin tocar.
+- **El TERCER lugar que decide con el `null` de `agenciaDeCliente`: el cartel de pago del cliente**
+  (`cartelDelCliente`, `lib/agency.ts:128`). Anotado y sin arreglar, a propósito. Con dos dueños devuelve `null` y el
+  cliente que paga él mismo **no ve su cartel de pago** — acá el `null` esconde en vez de abrir, así que es el daño
+  opuesto al de las pantallas y es acotado (la agencia sí ve en su dashboard que falta el pago).
+  ⚠️ **No se arregla cambiando a `esClienteDeAgencia`**: lo que sigue necesita UN dueño de verdad, el nombre para el
+  texto y `cobrosDeClientesDeAgencia(agencia.ws)` para saber si ya pagó. Con dos hay que DECIDIR de cuál se leen los
+  cobros (o de las dos) y cómo nombrarlo sin inventar un padre («tu agencia»). Es producto, no un cambio mecánico.
 - **Cambiar quién paga una cuenta ya abierta:** hoy se elige sólo al abrirla.
 - **Código muerto de Partners** (lo limpia Planes, que reescribió /partners y /m/partners): `PartnersApp` (la parte de
   la agencia), `LlevarAPartners.tsx` y `app/m/partners/PartnersM.tsx`. Ojo: `app/partners/EquipoDeCuenta.tsx` NO está
