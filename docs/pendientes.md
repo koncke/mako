@@ -19,8 +19,9 @@ llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</s
 ## LO QUE FALTA EL DÍA QUE SE CONECTE CREEM (31/10)
 
 Los nueve del barrido y los peores que aparecieron después quedaron arreglados en el código: el mapa, en
-[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «El barrido del 31/10». **Hoy siguen inertes**: la clave no
-está en Vercel. Lo que queda abierto no se resuelve sin esa clave:
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «El barrido del 31/10». ⚠️ **Ya no está inerte: Martín conectó Creem en
+la cuenta de la plataforma el 31/10 a las 19:22 UTC** (medido en la base a las 19:53: 0 cobros y 0 avisos de Creem todavía; la clave
+real o de prueba no se miró). Vuelve a medirlo antes de creer esta línea. Lo que queda abierto se mide con esa clave:
 
 - **Nada de esto se probó contra Creem de verdad**, sólo contra un doble armado de su OpenAPI. Al conectar: una prueba gratis,
   un cobro, una renovación, pasar a Pro, una pausa con su reanudación. Lo más dudoso, cómo queda el próximo cobro al reanudar.

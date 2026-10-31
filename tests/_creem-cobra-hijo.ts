@@ -51,6 +51,7 @@ async function main() {
   let pedidosDeTransacciones: Array<string | null> = [];
   let sinPortal = false;
   let rechazaPatch = false;
+  let patches = 0;
   const webhooks: Array<{ id: string; url: string; secret: string; events?: unknown }> = [];
   let posts: Array<{ ruta: string; body: Fila | null }> = [];
   let nId = 0;
@@ -115,8 +116,10 @@ async function main() {
       const w = webhooks.find((x) => x.id === mw[1]);
       if (!w) return json(404, { message: 'no existe' });
       if (mw[2]) return json(200, { secret: w.secret });
+      if (metodo === 'GET') return json(200, w);
       if (metodo === 'PATCH') {
         if (rechazaPatch) return json(400, { message: 'no' });
+        patches++;
         w.url = String(body?.url);
         return json(200, w);
       }
@@ -640,6 +643,17 @@ async function main() {
     rechazaPatch = true;
     out.sinPatchNoConecta = (await asegurarWebhookCreem(clavePropia, 'https://mako.test/api/webhooks/creem')).ok;
     rechazaPatch = false;
+
+    // ── La cuenta que se conectó con el código viejo: la repara el cron, sola ──
+    webhooks.splice(0, webhooks.length, { id: 'wh_plataforma', url: 'https://mako.test/api/webhooks/creem', secret: 'whsec_creem' });
+    patches = 0;
+    await cobros.mantenerAvisosCreem(PLATAFORMA);
+    const reparada = { url: webhooks[0].url, patches };
+    await cobros.mantenerAvisosCreem(PLATAFORMA);
+    // Borrado a mano: no se crea otro, porque su secreto no lo guardaría nadie.
+    webhooks.splice(0, webhooks.length);
+    const sinTirar = await cobros.mantenerAvisosCreem(PLATAFORMA).then(() => true, () => false);
+    out.reparaElCron = { ...reparada, otraVuelta: patches, creados: webhooks.length, sinTirar };
   }
 
   // ── ANTES DE CORTAR POR IMPAGO ──
