@@ -17,6 +17,7 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 - **Configuración fuera de git, en el ws 9:** CRM y producto «MaKo Acelerador», el setting y la automatización #714 «Entró un Pago».
 - **Automations:** la línea «lo que dice no coincide con su disparador». Ops Center adelanta la pregunta del WhatsApp; el número llega al lead por `anotarTelefonoDelComprador`.
 - **Tests de la punta:** afectados 3.392 tests de 592 archivos con la RAM en 0,1 GB (un grupo de 261 archivos corrió 0 tests). Se repitieron 269 archivos de a tandas: 267 verdes y 2 rojos, arreglados y verificados con sus vecinos, **sin repetir el conjunto**. **Tipos: los corre Actions** (`tsc-acotado` no entra en la RAM de esta PC). Un código 1 en TraerDeGrupoWA.tsx salió justo cuando se borró el worktree, y no se pudo repetir.
+- **Leila, lunes (rama `crm-nombres-3110`):** `{{nombre}}` limpio, `{{segundo_nombre}}`/`{{tercer_nombre}}`, «Nombres de tus leads», importar con etiquetas, «Ver quiénes» en las Métricas y el nombre en Chats. Las variantes y el arranque gradual los lleva Automations. Sin ver en pantalla.
 - **Lo que sigue:** Newsletter (ver abajo), cuando Calendario esté en main.
 
 ## 0-Ω31. 30/10/2026 (chat «CRM», cuenta `claude1`): Calendario, Newsletter y el registro de bajas
