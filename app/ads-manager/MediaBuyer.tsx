@@ -240,10 +240,11 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     );
   }
 
-  // Dónde se hace cada próximo paso EN LA COMPUTADORA. Conectar es el primer paso de la charla del arranque; el interruptor
-  // del agente vive en Ajustes (la tuerca sólo trae las tácticas).
+  // Dónde se hace cada próximo paso EN LA COMPUTADORA. ⚠️ Acá ya se pasó el `if (nueva)`: la charla del arranque no se
+  // dibuja en esta rama, así que conectar NO puede ser `setArrancando(true)` (no mostraría nada). Conectar y el interruptor
+  // del agente viven los dos en Ajustes (la tuerca sólo trae las tácticas).
   const PASOS: Record<PasoHoy, { href?: string; onClick?: () => void }> = {
-    conectar: { onClick: () => setArrancando(true) },
+    conectar: { href: '/ads-manager/ajustes' },
     crear_campana: { href: '/ads-manager/nueva' },
     prender_campana: { onClick: () => setVista('campanas') },
     prender_agente: { href: '/ads-manager/ajustes' },
