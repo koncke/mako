@@ -25,7 +25,7 @@
 // tenían goteo, y un aviso que sale sólo al activar no las alcanza. El valor está en que el dueño lo sepa, no en el momento de prender:
 // se dice en su pantalla y en su tarjeta, y NO se les pone goteo: eso cambiaría cómo le llegan los mensajes a los leads de un cliente.
 // =============================================================================
-import { canalDelGoteo, type CanalDelGoteo, type Goteo } from './goteo';
+import { canalDelGoteo, diaDelTurno, type ArranqueGoteo, type CanalDelGoteo, type Goteo } from './goteo';
 import { esHiloDelCarril, indiceEntrada } from './nutricion-grafo-motor';
 import { TRIGGERS_DEL_EMISOR, TRIGGER_SOLO_GRUPO, TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO } from './disparadores';
 import { textoDeHorario } from './config-automatizacion';
@@ -290,9 +290,11 @@ function fraseDeAdentro(k: number, minutos: number | null): string {
  * la quinta arranca a los 4 días, no a los 5. El tope de la línea es por hora de RELOJ: no separa, corta la tanda. Con goteo manda
  * lo que dure más: sus minutos, o las horas enteras que hacen falta. null = salen todos en la misma tanda.
  */
-function tardaAlMenos(n: number, minutos: number | null, lineaHora: number, porDia: number): string | null {
-  const dias = Number.isFinite(porDia) ? Math.ceil(n / porDia) - 1 : 0;
-  const resto = n - dias * (Number.isFinite(porDia) ? porDia : 0);
+function tardaAlMenos(n: number, minutos: number | null, lineaHora: number, porDia: number, arranque?: ArranqueGoteo): string | null {
+  // Con arranque, los primeros días son más cortos: «200 a 40 por día» ya no son 4 días.
+  const turno = Number.isFinite(porDia) ? diaDelTurno(n - 1, { dia: porDia, arranque }) : null;
+  const dias = turno?.dia ?? 0;
+  const resto = turno ? turno.enElDia + 1 : n;
   const porTandas = Number.isFinite(lineaHora) ? Math.ceil(resto / lineaHora) - 1 : 0;
   const enElDia = Math.max(minutos ? ((resto - 1) * minutos) / 60 : 0, porTandas);
   const horas = dias * 24 + enElDia;
@@ -325,6 +327,7 @@ export function avisoDeRitmo(o: DatosDelRitmo): AvisoDeRitmo | null {
   // Los que suelta el botón de al lado: lo dice antes de apretarlo. Si ya se dijo de los otros, al descartar se vuelve a contar.
   const deSoltar = minutos == null && !deAdentro && salen + alDescartar >= 2 ? `Si descartas los borradores viejos, a ${salen + alDescartar} personas les sale su próximo mensaje al prenderla, sin goteo.` : '';
   const adentroSinGoteo = minutos == null && salen + alDescartar >= 2;
+  const deArranque = o.canal === 'whatsapp' && o.goteo?.arranque && o.goteo.dia != null && (base || deAdentro) ? `Arranca con ${o.goteo.arranque.dia} por día y sube ${o.goteo.arranque.sube} por día.` : '';
   // ⚠️ LO QUE QUEDA PARA APROBAR SE DICE SIEMPRE: una que dispara por evento, o sin nadie todavía, también deja al negocio creyendo que MaKo escribió.
   // Si el primero es uno de ellos, ya va adentro de `base` (cuando hay a quién contar).
   const deAprobar = o.porAprobar && !(aprobar && base) ? fraseDeAprobar(o.porAprobar, alcance(o)) : '';
@@ -336,7 +339,7 @@ export function avisoDeRitmo(o: DatosDelRitmo): AvisoDeRitmo | null {
   const delHorario = sinHorario ? `${sinGoteo ? 'Tampoco tiene horario' : 'No tiene horario'}: sale también de noche.`
     : o.horario && !todosParaAprobar && (base || deAdentro) ? `Sale ${textoDeHorario(o.horario).replace(' · ', ', ')}.` : '';
   return {
-    texto: [a.texto, deAdentro, deSoltar, delHorario, deAprobar, deFrenados].filter(Boolean).join(' '), sinGoteo, sinHorario,
+    texto: [a.texto, deArranque, deAdentro, deSoltar, delHorario, deAprobar, deFrenados].filter(Boolean).join(' '), sinGoteo, sinHorario,
     viejos: o.viejos ? { frase: fraseDeViejos(o.viejos), boton: o.viejos.ids.length === 1 ? 'Descartar el borrador' : `Descartar los ${o.viejos.ids.length}`, ids: o.viejos.ids } : null,
     poner: sinGoteo && sinHorario ? 'Poner goteo y horario' : sinGoteo ? 'Poner goteo' : sinHorario ? 'Poner horario' : null,
     rotulo: sinGoteo && sinHorario ? 'Sin goteo ni horario' : sinGoteo ? 'Sin goteo' : sinHorario ? 'Sin horario' : null,
@@ -394,7 +397,7 @@ function textoDelRitmo(o: DatosDelRitmo): { texto: string; sinGoteo: boolean } |
     const ritmo = sinGoteo ? 'No tiene goteo.' : `Queda uno cada ${minutos} min.`;
     return { texto: `Entran ${n} personas. ${fraseDeAprobar(o.porAprobar!, alcance(o))} ${ritmo}`, sinGoteo };
   }
-  const tarda = tardaAlMenos(n, minutos, lineaHora, porDia);
+  const tarda = tardaAlMenos(n, minutos, lineaHora, porDia, o.goteo?.dia != null && o.canal === 'whatsapp' ? o.goteo.arranque : undefined);
   const fin = tarda ? ` Tarda al menos ${tarda}.` : '';
 
   // Sólo los topes que frenan a ESTOS: un «hasta 40 por día» a 5 personas no dice nada.

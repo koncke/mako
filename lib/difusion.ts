@@ -18,7 +18,7 @@ import {
   alcanceDeMotivos, motivosDe, problemaDeDifusion, pasosDeDifusion, nombreDeDifusion, goteoValido, TOPE_DIFUSION, esCanalDifusion,
   claveDeDifusion, leerMarcaDifusion, decidirRepetida, GOTEO_DIFUSION_INICIAL, PREFIJO_CLAVE_DIFUSION, ESTADOS_DIFUSION_EN_CURSO,
   MIN_DIFUSION_ANTES_DE_PAUSAR,
-  type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion,
+  type LeadDifusion, type MotivosDelLead, type Alcance, type CanalDifusion, type MensajesDifusion, type GoteoDifusion,
 } from './difusion-reglas';
 import { getSettingEstricto, cambiarSettingSi, borrarSettingSi } from './settings';
 import { conversacionDeFila } from './canal-social';
@@ -36,6 +36,8 @@ export type VistaDifusion = {
   cortado: boolean;
   /** WhatsApp por QR conectado: sin él, el canal no se ofrece (el oficial hoy no manda). */
   whatsappQr: boolean;
+  /** Hasta cuántos WhatsApp por día deja la línea: un goteo más alto no llega. null = no se pudo leer. */
+  lineaWaDia: number | null;
   /** Por dónde le llega a cada uno (para recalcular en la hoja al cambiar de canal). SIN sus datos de contacto. */
   porLead: MotivosDelLead[];
 };
@@ -91,21 +93,22 @@ async function hayWhatsAppQr(ws: number): Promise<boolean> {
  */
 export async function prepararDifusion(
   ws: number, sel: SeleccionDifusion, canales: readonly CanalDifusion[] = ['whatsapp', 'email', 'instagram'],
-  goteo: { minutos: number; dia: number } = GOTEO_DIFUSION_INICIAL,
+  goteo: GoteoDifusion = GOTEO_DIFUSION_INICIAL,
 ): Promise<VistaDifusion> {
   const { ids, etapa, cortado } = await idsDe(sel);
-  const [leads, whatsappQr] = await Promise.all([leadsDe(ids), hayWhatsAppQr(ws)]);
+  const { limitesDeEnvio } = await import('./nutricion');
+  const [leads, whatsappQr, limites] = await Promise.all([leadsDe(ids), hayWhatsAppQr(ws), limitesDeEnvio().catch(() => 'ilegible' as const)]);
   const usables = canales.filter((c) => c !== 'whatsapp' || whatsappQr);
   const ahora = Date.now();
   const porLead = leads.map((l) => motivosDe(l, ahora));
-  return { etapa, cortado, whatsappQr, alcance: alcanceDeMotivos(porLead, usables, { goteo, ahoraMs: ahora }), porLead };
+  return { etapa, cortado, whatsappQr, lineaWaDia: limites === 'ilegible' ? null : limites.wa.dia, alcance: alcanceDeMotivos(porLead, usables, { goteo, ahoraMs: ahora }), porLead };
 }
 
 export type PedidoDifusion = {
   seleccion: SeleccionDifusion;
   canales: CanalDifusion[];
   mensajes: MensajesDifusion;
-  goteo: { minutos: number; dia: number };
+  goteo: GoteoDifusion;
   /** Quién la mandó (el historial de la automatización y del lead). */
   autor: string;
 };
@@ -237,7 +240,7 @@ export async function crearDifusion(ws: number, p: PedidoDifusion): Promise<Resu
     console.error(`[difusion] automatización ${fila.id}: inscribí ${inscriptos} y la tanda siguiente falló: ${error}`);
     return { ok: false, error: `Entraron ${inscriptos} de ${vista.alcance.llegan}: la siguiente tanda falló (${error}). La automatización «${nombre}» quedó prendida con ésos: si la vuelves a mandar igual, sumo sólo a los que faltan.` };
   }
-  console.log(`[difusion] ws=${ws} «${nombre}» (#${fila.id}) por ${canales.join(', ')}: ${inscriptos} leads, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día — ${p.autor}`);
+  console.log(`[difusion] ws=${ws} «${nombre}» (#${fila.id}) por ${canales.join(', ')}: ${inscriptos} leads, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día${goteo.arranque ? ` (arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube})` : ''} — ${p.autor}`);
   return { ok: true, secuenciaId: fila.id, nombre, leads: inscriptos, alcance: vista.alcance };
 }
 

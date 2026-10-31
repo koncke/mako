@@ -121,7 +121,7 @@ test('el server y la hoja (leyendo el fuente)', () => {
   const crear = s.slice(s.indexOf('export async function crearDifusion('));
   assert.ok(crear.indexOf('await inscribirEnDifusion(fila.id, vista.alcance.ids)') > crear.indexOf('setSecuenciaActiva(fila.id'), 'inscribe DESPUÉS de prenderla');
   assert.match(s, /const vista = await prepararDifusion\(ws, p\.seleccion, canales, goteo\);/, 'vuelve a leer a quién le llega (con SU goteo): no confía en la hoja');
-  assert.match(s, /return \{ etapa, cortado, whatsappQr, alcance: alcanceDeMotivos\(porLead, usables, \{ goteo, ahoraMs: ahora \}\), porLead \};/, 'a la hoja no le viajan teléfonos ni emails');
+  assert.match(s, /return \{ etapa, cortado, whatsappQr, lineaWaDia: limites === 'ilegible' \? null : limites\.wa\.dia, alcance: alcanceDeMotivos\(porLead, usables, \{ goteo, ahoraMs: ahora \}\), porLead \};/, 'a la hoja no le viajan teléfonos ni emails');
   const a = sinComentarios(leer('app/automations/difusion/actions.ts'));
   assert.equal((a.match(/if \(rol !== 'admin'\) return \{ ok: false/g) ?? []).length, 2, 'las dos puertas, sólo el admin');
   const h = sinComentarios(leer('app/automations/difusion/HojaDifusion.tsx'));

@@ -33,6 +33,7 @@ aprobar: es el caso real de ese texto):
    que armar un borrador viejo en el Cliente de Prueba.
 9. **El teclado en el cartel** (Cliente de Prueba, cambió `app/_ui/Confirm.tsx`, que usan todos los carteles): con Tab hasta «Poner goteo» y Enter, abre Configuraciones y NO prende.
    Enter recién abierto sigue confirmando. Mientras descarta, Escape no cierra. Después de descartar, Enter no hace nada hasta ir con Tab a un botón. Con Tab a un botón de atrás del velo, Enter confirma y no lo clickea. Mirar también un cartel de otra pantalla, por ejemplo borrar algo: Enter sigue andando.
+10. **Variantes y arranque gradual** (rama `aut-variantes-3110`, en el Cliente de Prueba): en el CRM, «⋯» de una columna › Mandar mensaje: ↻ al lado del mensaje escrito abre «＋ Otra forma de decirlo»; «Arrancar de a poco» viene tildado, con 20 y 20, y la duración y la confirmación lo dicen; con tope 60, avisa que la línea llega hasta 40. En Configuraciones de una automatización: «Arranque gradual» sólo con «Tope por día» prendido. Corregir el texto con variantes avisa, con «Deshacer». A 375 de ancho no se corta el popover. **No se ve en pantalla:** que le toque una de las tres a cada lead y que el segundo día suba: se mira en los envíos de la automatización con una difusión de prueba, con un número que se pueda arriesgar.
 
 ## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
 

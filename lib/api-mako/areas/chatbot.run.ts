@@ -109,7 +109,7 @@ const str = (input: Record<string, unknown>, k: string): string => (typeof input
  * (el email con su asunto) y el goteo (por defecto, el de la hoja). Un dato que no se entiende vuelve como error.
  */
 function pedidoDeDifusion(input: Record<string, unknown>):
-  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: { minutos: number; dia: number }; texto: string }
+  | { seleccion: import('@/lib/difusion').SeleccionDifusion; canales: import('@/lib/difusion-reglas').CanalDifusion[]; mensajes: import('@/lib/difusion-reglas').MensajesDifusion; goteo: import('@/lib/difusion-reglas').GoteoDifusion; texto: string }
   | { error: string } {
   const etapa = str(input, 'etapa');
   const ids = (Array.isArray(input.leadIds) ? input.leadIds : []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
@@ -119,12 +119,17 @@ function pedidoDeDifusion(input: Record<string, unknown>):
   const canales = [...new Set((Array.isArray(input.canales) ? input.canales : []).filter((c): c is 'whatsapp' | 'email' | 'instagram' => c === 'whatsapp' || c === 'email' || c === 'instagram'))];
   const texto = str(input, 'mensaje');
   const asunto = str(input, 'asunto');
+  const variantes = (Array.isArray(input.variantes) ? input.variantes : []).filter((v): v is string => typeof v === 'string' && !!v.trim());
   const mensajes = {
-    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: texto } } : {}),
+    ...(canales.includes('whatsapp') ? { whatsapp: { cuerpo: texto, ...(variantes.length ? { variantes } : {}) } } : {}),
     ...(canales.includes('email') ? { email: { asunto, cuerpo: texto } } : {}),
     ...(canales.includes('instagram') ? { instagram: { cuerpo: texto } } : {}),
   };
-  const goteo = { minutos: input.minutos == null ? 3 : num(input, 'minutos'), dia: input.porDia == null ? 40 : num(input, 'porDia') };
+  // Por WhatsApp arranca de a poco, como la hoja (ARRANQUE_DIFUSION_INICIAL). `goteoValido` revisa el rango y saca el arranque si ya empieza en el tope.
+  const goteo = {
+    minutos: input.minutos == null ? 3 : num(input, 'minutos'), dia: input.porDia == null ? 40 : num(input, 'porDia'),
+    ...(canales.includes('whatsapp') && input.sinArranque !== true ? { arranque: { dia: input.arranqueDia == null ? 20 : num(input, 'arranqueDia'), sube: input.arranqueSube == null ? 20 : num(input, 'arranqueSube') } } : {}),
+  };
   return { seleccion, canales, mensajes, goteo, texto };
 }
 
@@ -156,7 +161,7 @@ async function secuenciaVigente(id: number) {
  * palabras para el resumen que la persona confirma. Sin nada que cambiar, el error.
  */
 
-function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
+function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0]): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
   const partes: string[] = [];
   const h = str(input, 'horario');
@@ -174,13 +179,20 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
   // todos los canales desde el 24/10/2026 (Martín, f21): hasta ese día había otro del email (goteoEmail…), que ya no existe.
   if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
   else {
-    const g: Record<string, number> = {};
+    const g: { minutos?: number; dia?: number; arranque?: { dia: number; sube: number } | null } = {};
     if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
     if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} por día en cada canal`); }
+    if (input.sinArranque === true) { g.arranque = null; partes.push('sin arranque gradual'); }
+    else if (input.goteoArranqueDia != null || input.goteoArranqueSube != null) {
+      if (input.goteoArranqueDia == null || input.goteoArranqueSube == null) return { error: 'El arranque gradual lleva los dos: goteoArranqueDia y goteoArranqueSube.' };
+      g.arranque = { dia: num(input, 'goteoArranqueDia'), sube: num(input, 'goteoArranqueSube') };
+      partes.push(`arranca con ${g.arranque.dia} y sube ${g.arranque.sube} por día`);
+    }
     if (Object.keys(g).length) cambio.goteo = g;
   }
   if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o el goteo (goteoMinutos, goteoPorDia), que vale para todos los canales.' };
-  const prueba = configParaGuardar({}, cambio);
+  // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
+  const prueba = configParaGuardar(previo, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
 }
@@ -941,7 +953,7 @@ export const RUNNERS: Runners = {
       return json({
         secuencia: { id, nombre: s.nombre },
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
-        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
@@ -953,7 +965,7 @@ export const RUNNERS: Runners = {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
-      const r = cambioDeConfigDelInput(input);
+      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id));
       if ('error' in r) return { error: r.error };
       return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
     },
@@ -1098,7 +1110,7 @@ export const RUNNERS: Runners = {
       const pedido = pedidoDeDifusion(input);
       if ('error' in pedido) return { error: pedido.error };
       const { prepararDifusion } = await import('@/lib/difusion');
-      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracion, goteoValido } = await import('@/lib/difusion-reglas');
+      const { problemaDeDifusion, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, textoDeDuracionPorCanal, goteoValido } = await import('@/lib/difusion-reglas');
       // El goteo fuera de rango se dice ANTES del «sí» (la verificación de 69b49a31c: fallaba recién al confirmar).
       const goteo = goteoValido(pedido.goteo);
       if (!goteo) {
@@ -1113,7 +1125,7 @@ export const RUNNERS: Runners = {
       const de = v.etapa ? `de «${v.etapa}»` : 'elegidos';
       return {
         payload: { ...input },
-        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal (${textoDeDuracion(Math.max(0, ...v.alcance.porCanal.map((c) => c.llegan)), pedido.goteo)}).${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
+        resumen: `Mandar «${pedido.texto.slice(0, 120)}» a ${v.alcance.llegan} de ${v.alcance.total} leads ${de}${v.cortado ? ' (los primeros)' : ''}: ${porCanal.join(' · ')}. De a uno cada ${pedido.goteo.minutos} min y hasta ${pedido.goteo.dia} por día en cada canal${goteo.arranque ? `; por WhatsApp arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube} por día` : ''} (${textoDeDuracionPorCanal(v.alcance.porCanal, goteo)}).${pedido.mensajes.whatsapp?.variantes?.length ? ` Por WhatsApp, a cada uno le toca una de ${pedido.mensajes.whatsapp.variantes.length + 1} formas; las otras: ${pedido.mensajes.whatsapp.variantes.map((t) => `«${t.slice(0, 120)}»`).join(' · ')}.` : ''}${pedido.canales.includes('whatsapp') ? ' Por WhatsApp de QR: mandarle a muchos puede hacer que WhatsApp bloquee el número.' : ''} Queda como una automatización en Automations.`,
       };
     },
     ejecutar: async (payload, ctx) => {

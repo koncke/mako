@@ -47,6 +47,8 @@ import {
   frenoDeGoteo, turnoDeGoteo, conEnvio, cuentaParaElGoteo, noGastaTurno, sinLugarDelMensaje, canalDelGoteo, claveDeGoteo, CANALES_DEL_GOTEO,
   ESTADOS_DEL_GOTEO, SIN_USO, type Goteo, type UsoGoteo,
 } from '@/lib/goteo';
+import { goteoDeHoy } from '@/lib/goteo';
+import { subidasPorAutomatizacion } from '@/lib/goteo-db';
 import {
   secuenciasDeEntrega, secuenciasDeEtiqueta, secuenciasQueSeCierran, etapasDe, normalizarEtapas, deLaEtapaYLasDemas,
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
@@ -3208,7 +3210,7 @@ async function horarioDeEnvioDe(secuenciaId: number): Promise<HorarioEnvio | nul
  * ⚠️ «NO PUDE LEER» NO ES «LO DE FÁBRICA», como el horario: un negocio que bajó el tope a 10 por prospectar
  * en frío recibiría 40 con la base caída. Se lee ESTRICTO y, si falla, la corrida no manda nada.
  */
-async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
+export async function limitesDeEnvio(): Promise<LimitesEnvio | 'ilegible'> {
   try { return limitesVigentes(await getSettingEstricto(KEY_LIMITES_ENVIO), limitesDeFabrica(process.env)); } catch { return 'ilegible'; }
 }
 
@@ -4170,6 +4172,7 @@ function partesConDatos(partes: readonly ParteMensaje[], vars: Record<string, st
  * para todos los canales. TIRA si no puede leer: sin saber cuántos salieron, el goteo no puede decir que hay lugar, y la
  * corrida vuelve en un minuto (como el tope de la línea, `enviosUltimas24h`).
  */
+const zonaParaArranque = (): Promise<string> => tzActual().catch(() => TZ_DEFAULT);
 async function usoDelGoteo(db: Awaited<ReturnType<typeof getTenantDb>>, ids: readonly number[]): Promise<Map<string, UsoGoteo>> {
   const filas = await leerTodo<{ id: number; secuencia_id: number | string; canal: string | null; created_at: string }>(db, 'nutricion_envios', 'id, secuencia_id, canal, created_at', {
     orden: 'id',
@@ -4380,11 +4383,20 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   const goteos = new Map<number, Goteo>();
   for (const [id, c] of configsCorrida) if (c.goteo && (c.goteo.minutos != null || c.goteo.dia != null)) goteos.set(id, c.goteo);
   const usoGoteo = goteos.size ? await usoDelGoteo(supabase, [...goteos.keys()]) : new Map<string, UsoGoteo>();
+  // EL ARRANQUE GRADUAL (lib/goteo.ts): el tope de HOY, sólo por WhatsApp. Si no se puede leer lo que ya mandó, el del primer día: manda menos, no se cae la corrida.
+  const subidas = [...goteos.values()].some((g) => g.arranque && g.dia != null)
+    ? await subidasPorAutomatizacion(supabase, goteos, await zonaParaArranque()).catch((e: unknown) => {
+      console.error(`[nutricion] lo que ya subió el arranque gradual: ${e instanceof Error ? e.message : String(e)}`);
+      return new Map<number, number>();
+    })
+    : new Map<number, number>();
+  const goteoDelCanal = (secId: number, canal: string | null | undefined): Goteo | undefined =>
+    (canalDelGoteo(canal) === 'whatsapp' ? goteoDeHoy(goteos.get(secId), subidas.get(secId) ?? 0) : goteos.get(secId));
   /** Cuántas filas frenadas por el goteo ya se corrieron a su turno, por canal y automatización (`claveDeGoteo`), en esta corrida. */
   const frenadasGoteo = new Map<string, number>();
   /** El freno del goteo de una automatización para un mensaje por ESTE canal. */
   const frenoGoteo = (secId: number, canal: string | null | undefined) =>
-    frenoDeGoteo(goteos.get(secId), usoGoteo.get(claveDeGoteo(canalDelGoteo(canal), secId)) ?? SIN_USO, Date.now());
+    frenoDeGoteo(goteoDelCanal(secId, canal), usoGoteo.get(claveDeGoteo(canalDelGoteo(canal), secId)) ?? SIN_USO, Date.now());
   /** ¿Lo frena la LÍNEA? Lo que entra, con el cupo entero; lo demás, con el de campaña. */
   const sinLugarEnLaLinea = (leadId: number): boolean => cupoLleno() || (!frescos.has(leadId) && waEnCorrida >= cupoCampana);
   /** ¿Un MENSAJE de esta fila se queda sin lugar en esta corrida? El goteo de su canal y, salvo el email, la línea. */

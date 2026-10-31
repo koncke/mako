@@ -22,6 +22,7 @@ import { decidirSalida, salidaHastaMs, type ConversacionSocial } from './canal-s
 import { telefonoSinArreglo } from './lead-sin-arreglo';
 import { ID_INICIO, type PasoGrafo, type FilaCondicion } from './flujo-grafo';
 import { RANGOS_GOTEO } from './config-automatizacion';
+import { arranqueLlega, diaDelTurno, type ArranqueGoteo } from './goteo';
 
 export const CANALES_DIFUSION = ['whatsapp', 'email', 'instagram'] as const;
 export type CanalDifusion = (typeof CANALES_DIFUSION)[number];
@@ -34,6 +35,18 @@ export const TOPE_DIFUSION = 2000;
 
 /** El goteo con el que arranca la hoja: de a uno cada 3 minutos y hasta 40 por día en cada canal (el tope de una línea). */
 export const GOTEO_DIFUSION_INICIAL = { minutos: 3, dia: 40 } as const;
+
+/**
+ * El arranque con el que abre la hoja por WhatsApp: 20 el primer día y sube de a 20, hasta el tope (Leila, 30/10/2026: el bloqueo de 24 h del número de Mauricio fue al
+ * pasar de unos 20 a 60 por día). El goteo de una difusión: minutos, tope y, si lo tiene, su arranque, que vale sólo para WhatsApp (lib/goteo.ts).
+ */
+export const ARRANQUE_DIFUSION_INICIAL: ArranqueGoteo = { dia: 20, sube: 20 };
+export type GoteoDifusion = { minutos: number; dia: number; arranque?: ArranqueGoteo };
+
+/** Con arranque, si tiene de dónde subir: uno que ya empieza en el tope no arranca de a poco. */
+export function goteoConArranque(g: { minutos: number; dia: number }, a: ArranqueGoteo | null | undefined): GoteoDifusion {
+  return a && a.dia < g.dia ? { minutos: g.minutos, dia: g.dia, arranque: { dia: a.dia, sube: a.sube } } : { minutos: g.minutos, dia: g.dia };
+}
 
 /** Lo que se lee de cada lead para saber por dónde le llega. */
 export type LeadDifusion = {
@@ -108,13 +121,13 @@ export function motivosDe(l: LeadDifusion, ahoraMs: number): MotivosDelLead {
  * CUÁNDO SALE EL k-ÉSIMO (desde 0) de un canal con este goteo, desde que arranca: de a uno cada `minutos` y, cumplido el tope
  * del día, cuando el más viejo sale de las 24 h móviles (`frenoDeGoteo`, lib/goteo.ts).
  */
-export function demoraDelTurno(k: number, g: { minutos: number; dia: number }): number {
-  const dia = Math.max(1, Math.floor(g.dia));
-  return Math.floor(k / dia) * 86_400_000 + (k % dia) * g.minutos * 60_000;
+export function demoraDelTurno(k: number, g: GoteoDifusion): number {
+  const t = diaDelTurno(k, { dia: Math.max(1, Math.floor(g.dia)), arranque: g.arranque });
+  return t.dia * 86_400_000 + t.enElDia * g.minutos * 60_000;
 }
 
 /** El goteo con el que va a salir y desde cuándo: con él, Instagram promete sólo a los que alcanza antes de su ventana. */
-export type RitmoDifusion = { goteo: { minutos: number; dia: number }; ahoraMs: number };
+export type RitmoDifusion = { goteo: GoteoDifusion; ahoraMs: number };
 
 /** A QUIÉN LE LLEGA, POR CANAL, Y QUIÉN QUEDA AFUERA Y POR QUÉ. Con `canales` vacío, nadie. */
 export function alcanceDe(leads: readonly LeadDifusion[], canales: readonly CanalDifusion[], ahoraMs: number, goteo?: RitmoDifusion['goteo']): Alcance {
@@ -140,7 +153,8 @@ export function alcanceDeMotivos(leads: readonly MotivosDelLead[], canales: read
       let m = l.motivos[pc.canal];
       if (pc.canal === 'instagram' && m == null && ritmo) {
         const hasta = l.instagramHastaMs;
-        if (hasta != null && ritmo.ahoraMs + demoraDelTurno(turnoIg, ritmo.goteo) >= hasta) m = 'instagram_turno';
+        // Sin el arranque: es sólo de WhatsApp, y acá dejaba gente afuera de su ventana.
+        if (hasta != null && ritmo.ahoraMs + demoraDelTurno(turnoIg, { minutos: ritmo.goteo.minutos, dia: ritmo.goteo.dia }) >= hasta) m = 'instagram_turno';
         else turnoIg += 1;
       }
       if (m == null) { pc.llegan += 1; alguno = true; continue; }
@@ -155,13 +169,23 @@ export function alcanceDeMotivos(leads: readonly MotivosDelLead[], canales: read
 /** Lo que se escribe en cada tarjeta de la hoja. */
 export type MensajesDifusion = {
   /** `partes`: varios mensajes seguidos, como los arma la tarjeta (el `cuerpo` es el espejo de la primera). */
-  whatsapp?: { cuerpo: string; partes?: unknown[] };
+  whatsapp?: { cuerpo: string; partes?: unknown[]; variantes?: string[] };
   email?: { asunto: string; cuerpo: string; cuerpo_html?: string | null };
   instagram?: { cuerpo: string; partes?: unknown[] };
 };
 
 /** Las partes de una tarjeta, si las trae (el guardado las revisa: `setSecuenciaPasos`). */
 const conPartes = (x: { partes?: unknown[] } | undefined): { partes?: unknown[] } => (Array.isArray(x?.partes) && x.partes.length ? { partes: x.partes } : {});
+
+/**
+ * Las otras formas de decir el mensaje de WhatsApp: el motor sortea entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts). Son de UN texto: con varias
+ * partes no van (`variantesTrasCambio`, lib/mensaje-partes.ts). Las vacías no entran al sorteo.
+ */
+const conVariantes = (x: { partes?: unknown[]; variantes?: string[] } | undefined): { variantes?: string[] } => {
+  if (Array.isArray(x?.partes) && x.partes.length > 1) return {};
+  const vs = (x?.variantes ?? []).filter((v) => typeof v === 'string' && v.trim());
+  return vs.length ? { variantes: vs } : {};
+};
 
 /** Lo que le falta a la difusión para mandarse, en palabras cortas. null = está. */
 export function problemaDeDifusion(o: { canales: readonly CanalDifusion[]; mensajes: MensajesDifusion; alcance: Pick<Alcance, 'llegan'> }): string | null {
@@ -200,7 +224,7 @@ export function pasosDeDifusion(canales: readonly CanalDifusion[], m: MensajesDi
       ...RELLENO, id: cond, canal: 'whatsapp', cuerpo: '', nodo: 'condicion', si_no: null,
       ramas: [{ id: `${cond}_si`, modo: 'todas', filas: CONDICION_DEL_CANAL[c].map((f) => ({ ...f })), siguiente: msg }],
     } as unknown as PasoGrafo);
-    if (c === 'whatsapp') pasos.push({ ...RELLENO, id: msg, canal: 'whatsapp', proveedor: 'no_oficial', cuerpo: m.whatsapp?.cuerpo ?? '', ...conPartes(m.whatsapp), siguiente: null, revisar: false } as unknown as PasoGrafo);
+    if (c === 'whatsapp') pasos.push({ ...RELLENO, id: msg, canal: 'whatsapp', proveedor: 'no_oficial', cuerpo: m.whatsapp?.cuerpo ?? '', ...conPartes(m.whatsapp), ...conVariantes(m.whatsapp), siguiente: null, revisar: false } as unknown as PasoGrafo);
     else if (c === 'email') {
       pasos.push({
         ...RELLENO, id: msg, canal: 'email', asunto: m.email?.asunto ?? '', cuerpo: m.email?.cuerpo ?? '',
@@ -220,14 +244,22 @@ export function nombreDeDifusion(o: { etapa?: string | null; leads: number; fech
 }
 
 /** Cuánto tarda en salir todo con el goteo, en palabras: «sale todo hoy» / «unos 3 días». Por el canal más cargado. */
-export function textoDeDuracion(llegan: number, goteo: { minutos: number; dia: number }): string {
+export function textoDeDuracion(llegan: number, goteo: GoteoDifusion): string {
   if (llegan <= 0) return '';
-  const dias = Math.ceil(llegan / Math.max(1, goteo.dia));
+  const dias = diaDelTurno(llegan - 1, { dia: Math.max(1, Math.floor(goteo.dia)), arranque: goteo.arranque }).dia + 1;
   if (dias <= 1) {
     const min = (llegan - 1) * goteo.minutos;
     return min < 60 ? `sale todo en ${Math.max(1, min)} min` : `sale todo en unas ${Math.ceil(min / 60)} h`;
   }
-  return `tarda unos ${dias} días (hasta ${goteo.dia} por día)`;
+  return `tarda unos ${dias} días (${goteo.arranque ? `arranca con ${goteo.arranque.dia} por día, hasta ${goteo.dia}` : `hasta ${goteo.dia} por día`})`;
+}
+
+/** Cuánto tarda, por el canal que más tarda: el arranque cuenta sólo en WhatsApp, así que no siempre es el que tiene más gente. */
+export function textoDeDuracionPorCanal(porCanal: ReadonlyArray<{ canal: CanalDifusion; llegan: number }>, goteo: GoteoDifusion): string {
+  const sin = { minutos: goteo.minutos, dia: goteo.dia };
+  const con = porCanal.filter((c) => c.llegan > 0).map((c) => ({ llegan: c.llegan, g: c.canal === 'whatsapp' ? goteo : sin }));
+  const peor = con.sort((a, b) => demoraDelTurno(b.llegan - 1, b.g) - demoraDelTurno(a.llegan - 1, a.g))[0];
+  return peor ? textoDeDuracion(peor.llegan, peor.g) : '';
 }
 
 /**
@@ -245,13 +277,13 @@ export const ESPERA_DIFUSION_EN_CURSO_MIN = 5;
 /** El pedido en un texto estable: el mismo pedido da el mismo texto, en cualquier orden de ids o de canales. */
 export function claveDeDifusion(p: {
   seleccion: { leadIds: number[] } | { funnelId: number | null; etapa: string };
-  canales: readonly CanalDifusion[]; mensajes: MensajesDifusion; goteo: { minutos: number; dia: number };
+  canales: readonly CanalDifusion[]; mensajes: MensajesDifusion; goteo: GoteoDifusion;
 }): string {
   const sel = 'leadIds' in p.seleccion
     ? { ids: [...new Set(p.seleccion.leadIds)].sort((x, y) => x - y) }
     : { funnel: p.seleccion.funnelId ?? null, etapa: p.seleccion.etapa.trim() };
   const canales = CANALES_DIFUSION.filter((c) => p.canales.includes(c));
-  return JSON.stringify({ sel, canales, mensajes: canales.map((c) => p.mensajes[c] ?? null), goteo: [p.goteo.minutos, p.goteo.dia] });
+  return JSON.stringify({ sel, canales, mensajes: canales.map((c) => p.mensajes[c] ?? null), goteo: [p.goteo.minutos, p.goteo.dia, ...(p.goteo.arranque ? [p.goteo.arranque.dia, p.goteo.arranque.sube] : [])] });
 }
 
 /** La marca de un pedido: cuándo se pidió y la automatización que creó (null mientras se crea). */
@@ -292,13 +324,18 @@ export const ESTADOS_DIFUSION_EN_CURSO = ['activa', 'pausada', 'respondio'] as c
 export const MIN_DIFUSION_ANTES_DE_PAUSAR = 15;
 
 /** El goteo pedido, en rango (`RANGOS_GOTEO`): un número fuera de rango no se guarda callado, se dice. */
-export function goteoValido(g: unknown): { minutos: number; dia: number } | null {
-  const o = (g && typeof g === 'object' ? g : {}) as { minutos?: unknown; dia?: unknown };
+export function goteoValido(g: unknown): GoteoDifusion | null {
+  const o = (g && typeof g === 'object' ? g : {}) as { minutos?: unknown; dia?: unknown; arranque?: { dia?: unknown; sube?: unknown } | null };
   const [mMin, mMax] = RANGOS_GOTEO.minutos;
   const [dMin, dMax] = RANGOS_GOTEO.dia;
   const minutos = Number(o.minutos);
   const dia = Number(o.dia);
   if (!Number.isInteger(minutos) || minutos < mMin || minutos > mMax) return null;
   if (!Number.isInteger(dia) || dia < dMin || dia > dMax) return null;
-  return { minutos, dia };
+  if (o.arranque == null) return { minutos, dia };
+  const inicio = Number(o.arranque.dia);
+  const sube = Number(o.arranque.sube);
+  if (![inicio, sube].every((n) => Number.isInteger(n) && n >= dMin && n <= dMax)) return null;
+  if (inicio < dia && !arranqueLlega(dia, { dia: inicio, sube })) return null;
+  return goteoConArranque({ minutos, dia }, { dia: inicio, sube });
 }

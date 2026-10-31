@@ -1288,6 +1288,8 @@ function EditorMensaje({ paso, id, cambiar, pasos, audios, negocio, envioAutoSec
       onModoIA={modoIA}
       permiteAudio={noOficial && !recordatorio}
       permiteAdjuntos={noOficial && !recordatorio}
+      // Sólo donde el motor las sortea: el oficial manda su plantilla y el recordatorio, su cuerpo.
+      conVersiones={noOficial && !recordatorio}
       variables={recordatorio ? DATOS_RECORDATORIO.map((d) => ({ ...d })) : undefined}
       datos={datosTarjeta}
       contexto={tarjeta?.tipo === 'catalogo' ? tarjeta.datos : tarjeta?.tipo}

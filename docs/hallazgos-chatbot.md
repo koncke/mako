@@ -27,6 +27,22 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Tres formas de decirlo y arrancar de a poco, para Black November de Leila (31/10/2026, llamada, punto 5.8)
+
+**El pedido:** el número de Mauricio quedó bloqueado 24 h al pasar de unos 20 a 60 por día con mensajes idénticos, y Leila usaba tres variantes antes de MaKo. **Lo que se creía:** «en MaKo se puede configurar que a algunos les mande uno y a otros otro». **Lo medido:** el motor sí las sortea (`textoDelPaso`), pero nadie podía escribirlas: «↻» sólo aparecía si MaKo ya las había generado al armar el flujo, y en toda la base las tienen 4 tarjetas, todas de Mauricio. La hoja de difusión ni las mandaba. El tope por día era fijo.
+
+**La regla del arranque:** sube cuando un día LLEGÓ a su tope, contando lo que salió de verdad (`subidasDelArranque`, lib/goteo.ts). No por fecha: una pausada que vuelve a las dos semanas saltaba al tope de golpe. **⚠️ Y el diagnóstico obvio, «cuenta los días que mandó», también era el equivocado:** mi primera versión lo hacía, y lo encontró la revisión independiente: una difusión lanzada a las 20:40 mandaba 5 antes de cerrar y al otro día ya podía 40, de 5 a 34 sin pasar por 20. Hasta 2 días sin mandar no corta, para que un horario de lunes a viernes siga el lunes; más que eso, vuelve a empezar. Si no se puede leer, el tope del primer día: manda menos y no se cae la corrida.
+
+**Sólo WhatsApp, aunque el goteo sea «uno para todos los canales».** Lo que se bloquea es el número. Aplicado a todos, frenaba el email de la misma difusión y dejaba gente afuera de su ventana de Instagram: 20 en vez de 40, sin que nadie lo pidiera. Tres días de borradores sin aprobar tampoco calientan un número: cuenta `enviado`, no el `ESTADOS_DEL_GOTEO` del goteo. Un borrador aprobado cuenta en el día que nació (`anotarPasoEnviado` no cambia su `created_at`): aprobar con días de demora puede dejar el tope más bajo, nunca más alto.
+
+**El ↻ se pide, no viene de fábrica (`conVersiones`).** Mostrado en todas las tarjetas, se guardaba y no salía: en el oficial sale la plantilla, en el recordatorio sólo el cuerpo, y en el aviso al grupo el botón no hacía nada. Sólo el WhatsApp por QR lo sortea.
+
+**⚠️ La línea manda.** Leila usa el tope de fábrica, 40 por día y 6 por hora, y desde el 23/10 ese tope no se edita en ninguna pantalla: sólo Mauricio tiene otro guardado (65 y 15). Pedir 60 no llega a 60, y la hoja lo dice. Subírselo es decisión de Martín, y el riesgo es de su número.
+
+**⚠️ Corregir el texto suelta las variantes** (`variantesTrasCambio`, 25/10: el motor sorteaba lo que ya no decía). Con MaKo daba igual; escritas a mano duele, así que se avisa, y «Deshacer» las devuelve ABIERTAS: siguen diciendo lo de antes y se sortearían, así que quedan a la vista. Si se sale de la tarjeta sin el ➤ (`alSalir`), se van sin aviso: el cartel no llega a verse.
+
+**Sin hacer:** el arranque es de cada automatización y no de la línea: dos automatizaciones arrancando sobre un número se suman, y sólo las frena su tope. Instagram no tiene el «↻» (`EditorMensajeSocial`), y su riesgo no es éste. Un arranque que tardaría más de 60 días en llegar se rechaza: esa historia se lee en cada corrida. Sin ver en pantalla: el código no está desplegado (punto 10 de docs/relevo/automations.md).
+
 ## La automatización de Leila que «siguió hasta las 11 de la noche» (30/10/2026, llamada, punto 1.7)
 
 **Lo medido, no lo supuesto.** «Prospección: apertura», creada de nuestra plantilla el 26/10 a las 15:01 (hora de Cancún, la de ella):
