@@ -46,7 +46,7 @@ let cache: Record<string, Escena> | null = null;
  */
 function escena(k: string): Escena {
   if (!cache) {
-    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_clase-del-grupo-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 240_000 });
+    const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_clase-del-grupo-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 240_000 });
     const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@CLASE@@'));
     assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
     cache = JSON.parse(linea.slice('@@CLASE@@'.length));

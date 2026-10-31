@@ -35,7 +35,7 @@ const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'u
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 function hijo(archivo: string, marca: string): Record<string, any> {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL(archivo, import.meta.url))], { encoding: 'utf8', timeout: 180_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL(archivo, import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 180_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith(marca));
   assert.ok(linea, `${archivo} no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   const out = JSON.parse(linea.slice(marca.length));
@@ -50,7 +50,7 @@ function elBanco() {
     const { MAKO_TOOLS } = await import(${JSON.stringify(new URL('../lib/mako-tools.ts', import.meta.url).href)});
     const { MAKO_ACCION_TOOLS } = await import(${JSON.stringify(new URL('../lib/mako-doer-acciones.ts', import.meta.url).href)});
     process.stdout.write('@@BANCO@@' + JSON.stringify(correrBanco([...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...(await ticketTools())])) + '\\n');`;
-  const r = spawnSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', codigo], { encoding: 'utf8', timeout: 180_000 });
+  const r = spawnSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', codigo], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 180_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@BANCO@@'));
   assert.ok(linea, `el banco no corrió (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   banco = JSON.parse(linea.slice('@@BANCO@@'.length));

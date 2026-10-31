@@ -28,7 +28,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { elQueNoDejoAvanzar, LENTOS_FUERA_DE_LA_FASE_RAPIDA, planear, porQueSeMato, sinAvanceDe, sinComentarios, titulosDe, topeDeclarado, TOPE_SIN_AVANCE_MS } from '../scripts/tests-afectados.mjs';
@@ -258,4 +258,22 @@ test('un lento NO queda en los afectados', () => {
   for (const f of LENTOS_FUERA_DE_LA_FASE_RAPIDA.keys()) {
     assert.ok(!plan.sel.tests.has(f), `${f} volvió a los afectados: va a frenar el tren otra vez`);
   }
+});
+
+// ── UN HIJO QUE DEVUELVE JSON NECESITA TOPE DE BUFFER (31/10/2026) ──────────────────────────────────────
+// `spawnSync` sin `maxBuffer` corta la salida en 1 MB. Si el test parsea esa salida, el JSON llega PARTIDO y el
+// error que se ve es «Unterminated string in JSON at position …», que no se parece en nada a la causa. Pasó en
+// Actions con tests/clase-del-grupo: acá la salida entraba en 1 MB y en el runner no, así que el test era verde
+// en la PC y rojo en el CI — la peor combinación posible para encontrarlo.
+test('todo test que parsea la salida de un hijo le pone tope al buffer', () => {
+  const sinTope: string[] = [];
+  for (const f of readdirSync(join(REPO, 'tests'))) {
+    if (!f.endsWith('.ts')) continue;
+    const src = sinComentarios(readFileSync(join(REPO, 'tests', f), 'utf8'));
+    if (!src.includes('spawnSync(process.execPath') || !src.includes('JSON.parse')) continue;
+    if (!src.includes('maxBuffer')) sinTope.push(`tests/${f}`);
+  }
+  assert.deepEqual(sinTope, [], 'estos tests parsean la salida de un hijo SIN `maxBuffer`: node la corta en 1 MB y el JSON '
+    + 'llega partido. El síntoma es «Unterminated string in JSON», que no se parece a la causa, y aparece sólo cuando la '
+    + 'salida crece — o sólo en el runner, como pasó el 31/10/2026. Agregá `maxBuffer: 64 * 1024 * 1024` a su spawnSync.');
 });

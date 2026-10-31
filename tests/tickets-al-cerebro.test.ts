@@ -37,7 +37,7 @@ let cache: Map<string, Escena> | null = null;
 function hijo(): Map<string, Escena> {
   if (cache) return cache;
   const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', join(RAIZ, 'tests/_tickets-al-cerebro-hijo.ts')], {
-    cwd: RAIZ, encoding: 'utf8', timeout: 120_000, env: { ...process.env, ESCENAS: process.env.ESCENAS ?? '' },
+    cwd: RAIZ, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000, env: { ...process.env, ESCENAS: process.env.ESCENAS ?? '' },
   });
   const salida = `${r.stdout ?? ''}${r.stderr ?? ''}`;
   const lineas = salida.split('\n').filter((l) => l.startsWith('@@TICKETS@@')).map((l) => JSON.parse(l.slice('@@TICKETS@@'.length)) as Escena);

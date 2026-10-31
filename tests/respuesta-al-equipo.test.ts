@@ -31,7 +31,7 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 let cache: Record<string, any> | null = null;
 function correr(): Record<string, any> {
   if (cache) return cache;
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_respuesta-equipo-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 280_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_respuesta-equipo-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 280_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@EQUIPO@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   cache = JSON.parse(linea.slice('@@EQUIPO@@'.length));

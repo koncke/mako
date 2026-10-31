@@ -23,7 +23,7 @@ type Corrida = { salida: number; arrancado: number; iniciadas: number; pedidos: 
 let cache: Record<string, Corrida> | null = null;
 function correr(): Record<string, Corrida> {
   if (cache) return cache;
-  const r = spawnSync(process.execPath, [fileURLToPath(new URL('./_ia-pc-enlace-hijo.mjs', import.meta.url))], { encoding: 'utf8', timeout: 60_000 });
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL('./_ia-pc-enlace-hijo.mjs', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 60_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@ENLACE@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   cache = JSON.parse(linea.slice('@@ENLACE@@'.length));

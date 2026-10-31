@@ -30,7 +30,7 @@ type Pedido = { host: string; clave: string };
 let cache: Record<string, unknown> | null = null;
 function correr(): Record<string, any> {
   if (cache) return cache;
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_ia15-frontera-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 180_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_ia15-frontera-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 180_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@IA15@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   cache = JSON.parse(linea.slice('@@IA15@@'.length));

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 let cache: Record<string, any> | null = null;
 function correr(): Record<string, any> {
   if (cache) return cache;
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_credito-marca-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 120_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_credito-marca-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@CREDITO@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   cache = JSON.parse(linea.slice('@@CREDITO@@'.length));

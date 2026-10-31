@@ -24,7 +24,7 @@ type Listas = { cascadas: Record<string, string[]>; lienzo: Record<string, strin
 let cache: (Record<string, Record<string, { red: string[]; valor?: unknown }>> & { listas: Listas }) | null = null;
 function correr() {
   if (cache) return cache;
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_ia8-sacados-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 120_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_ia8-sacados-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 120_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@IA8@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   cache = JSON.parse(linea.slice('@@IA8@@'.length));

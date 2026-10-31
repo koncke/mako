@@ -29,7 +29,7 @@ const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'u
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('1. el caso de Leandro: el audio citado se baja por el id de la cita y se escucha con Groq; si no se puede, lo dice', () => {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_audio-citado-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 280_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_audio-citado-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 280_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@CITADO@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   const o = JSON.parse(linea.slice('@@CITADO@@'.length));
@@ -64,7 +64,7 @@ test('3. el cableado: el suelto y los dos lotes la escuchan; si no se pudo, el a
 });
 
 test('4. el turno real, sin la citada en WhatsApp: el aviso honesto una vez y el pedido llega al modelo (suelto y lote)', () => {
-  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_audio-citado-turno-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 280_000 });
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_audio-citado-turno-hijo.ts', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 280_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@TURNO@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   const o = JSON.parse(linea.slice('@@TURNO@@'.length));

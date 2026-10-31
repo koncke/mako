@@ -230,7 +230,7 @@ test('3. firmar, revisar, notarizar y engrapar, en ese orden; si algo falla, cor
 });
 
 test('4. la app firmada se copia al arranque (no hay guion) y el .zip lleva lo firmado con sus permisos', () => {
-  const r = spawnSync(process.execPath, [fileURLToPath(new URL('./_ia-pc-firma-mac-hijo.mjs', import.meta.url))], { encoding: 'utf8', timeout: 60_000 });
+  const r = spawnSync(process.execPath, [fileURLToPath(new URL('./_ia-pc-firma-mac-hijo.mjs', import.meta.url))], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 60_000 });
   const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@FIRMAMAC@@'));
   assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
   const h = JSON.parse(linea.slice('@@FIRMAMAC@@'.length));
