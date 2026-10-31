@@ -3033,3 +3033,30 @@ apenas exista `CLAVE_WHATSAPP_DEL_PAGO` en `lib/origen-cuenta.ts`. Después de s
 `lib/onboarding-arranque-server.ts`. Visto sólo en el banco, con `ChatArranque` y las reglas reales y la ruta simulada (la entrada, la pregunta, el código y
 «Ahora no»). Sin ver: el código llegando a un WhatsApp de verdad, el grupo con el nombre corregido y el número escrito en la caja pasando por la
 ruta de verdad (`telefonoEscrito` tiene test; que la ruta lo use, sólo un test que lee el código). Eso se prueba con un alta real.
+---
+
+## ⚠️ `resumenOnboardingTabs()` recorre TODO el catálogo: una tab de super admin en `TAB_ONBOARDINGS` le habla a cada cliente (31/10/2026)
+
+**El caso.** Construyendo Knowledge (el método de los cursos para toda la app) había que
+cumplir la regla del producto —toda tab tiene onboarding, y su estado alimenta a MaKo— para
+una pantalla que **sólo ve el super admin** (Classroom › Methodology, desde el pedido de
+Martín del 25/10). La entrada en `lib/tab-onboarding-catalogo.ts` parecía gratis.
+
+**Qué habría pasado.** `resumenOnboardingTabs()` (`lib/tab-onboarding-state.ts`) itera
+`Object.keys(TAB_ONBOARDINGS)` **sin ningún filtro de capa, de rol ni de visibilidad**, y
+devuelve «TABS SIN CONFIGURAR… - <key>: falta …» para toda la que no esté `done`. Eso entra
+en `buildSystemPrompt` (`lib/mako-context.ts`) con `negocio`, o sea en **el prompt de todos
+los negocios, en todos los turnos**. Una entrada para una pantalla que el dueño no puede
+abrir queda pendiente **para siempre**, y MaKo le dice que lo primero es ir a configurarla.
+
+**La regla.** Antes de sumar una tab al catálogo de onboarding, mirar **quién la ve**. Lo que
+el catálogo modela es «lo que este negocio tiene que terminar de configurar»; una pantalla de
+plataforma no es eso. Y si el estado igual le sirve a MaKo, va **el dato, no el flag**: en
+Knowledge, el prompt lleva cuántas fichas tiene cada módulo (`estadoDeLosModulos()`,
+`lib/knowledge.ts`), que es verdad para cualquiera que lo lea.
+
+**Lo que queda abierto.** El catálogo no tiene forma de declarar «esta tab es de la
+plataforma» (ni `soloSuperAdmin` ni `capas`, que sí existen en el nav). Si algún día una
+pantalla de super admin necesita onboarding de verdad, el campo hay que agregarlo **y**
+filtrarlo en `resumenOnboardingTabs`: hoy el único control es no estar en el catálogo. Vive
+en `lib/tab-onboarding-catalogo.ts` y `lib/tab-onboarding-state.ts`.

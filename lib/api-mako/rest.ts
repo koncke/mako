@@ -597,6 +597,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
   ['DELETE', '/negocio/personalidad-voz', 'reiniciar_personalidad'],
+  ['GET', '/negocio/knowledge/modulos', 'modulos_de_knowledge'],
+  ['GET', '/negocio/knowledge/modulos/{modulo}', 'leer_modulo_knowledge'],
   ['GET', '/negocio/personalidad-voz', 'ver_personalidad_voz'],
   ['PUT', '/negocio/personalidad-voz/muletillas', 'guardar_muletillas_marca'],
   ['PUT', '/negocio/personalidad-voz/respuestas/{key}', 'responder_pregunta_personalidad'],

@@ -62,6 +62,7 @@ export function DetalleDeLaTarjeta({ t, onVerTodo, id }: { t: FilaTicket; onVerT
     <div className="tickets-bandeja__tecnico" id={id} data-sin-gesto="">
       {texto && <p className="tickets-bandeja__tecnico-texto">{texto}</p>}
       {error && <pre className="tickets-bandeja__tecnico-error"><code>{error}</code></pre>}
+      {t.contexto.noViajaron && <p className="tickets-bandeja__tecnico-nota"><b>No viajó en ese turno:</b> {t.contexto.noViajaron}</p>}
       {t.nota && <p className="tickets-bandeja__tecnico-nota"><b>{quienDiceLaNota(t.nota)}</b> {t.nota.texto}</p>}
       {(link || onVerTodo) && (
         <div className="tickets-bandeja__tecnico-links">

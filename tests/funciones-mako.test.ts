@@ -126,7 +126,7 @@ test('6. listar_capacidades_mako por negocio y por rol: lo del super admin sólo
   assert.ok(!R.error, String(R.error));
   const SOLO_SA = funcionesMako().filter((f) => f.soloSuperAdmin).map((f) => f.nombre);
   // (Reels se fue el 29/10/2026: su guion es una plantilla del Copywriter.)
-  assert.deepEqual(SOLO_SA.sort(), ['Customers', 'Stories']);
+  assert.deepEqual(SOLO_SA.sort(), ['Competitor Spy', 'Customers', 'Stories']);
   // El dueño de un negocio cliente (plan completo, agencia o pm) nunca recibe lo que sólo ve el super admin.
   for (const k of ['11:admin', '12:admin', '13:admin', '11:miembro']) {
     for (const n of SOLO_SA) assert.ok(!R[k].funciones.includes(n), `${k} recibió «${n}», que sólo ve el super admin`);

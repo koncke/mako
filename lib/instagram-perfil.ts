@@ -45,12 +45,49 @@ export function instagramsDelTexto(texto: string): string[] {
   return out;
 }
 
+/**
+ * Una publicación con sus NÚMEROS, para Competitors Spy (31/10/2026). Es lo que la lectura normal no
+ * trae: `posts` sirve para que la IA entienda de qué va la cuenta, y esto para decir qué le funciona.
+ *
+ * ⚠️ TODOS LOS CONTADORES SON `null` DE VERDAD. El dueño de la cuenta puede ocultar likes,
+ * comentarios, vistas, reposts y compartidos UNO POR UNO, y entonces Meta **omite el campo**: no da
+ * error. Un `?? 0` acá muestra «0 me gusta» sobre una publicación con miles. Se dibujan con
+ * `dibujarContador` (lib/spy-reglas.ts), que distingue «no lo publica» de «cero».
+ *
+ * `vistas` es el `view_count` de los reels, que la referencia de Meta marca como «Available for
+ * Business Discovery API only»: es el dato que la página pública de Instagram NO muestra, y por eso
+ * el camino legal es también el más completo.
+ */
+export type PiezaInstagram = {
+  /** El shortcode del permalink: la identidad de la publicación en su fuente. */
+  ref: string;
+  fecha: string;
+  /** IMAGE · VIDEO · CAROUSEL_ALBUM. */
+  tipo: string;
+  /** AD · FEED · STORY · REELS: con esto se sabe si el competidor está pautando esa pieza. */
+  formato: string | null;
+  /** MUSIC (audio de catálogo) u ORIGINAL_SOUND: sirve para detectar audios en tendencia. */
+  audio: string | null;
+  texto: string;
+  permalink: string | null;
+  /** La miniatura: se dibuja, no se guarda (es una URL del CDN de Meta y vence). */
+  miniatura: string | null;
+  vistas: number | null;
+  megusta: number | null;
+  comentarios: number | null;
+};
+
 /** Lo que se lee de un perfil. */
 export type PerfilInstagram = {
   usuario: string; nombre: string | null; bio: string; web: string | null; seguidores: number | null; publicaciones: number | null;
   /** La foto de perfil: una URL del CDN de Meta que VENCE (para mostrarla en una lista, nunca para guardarla). */
   foto: string | null;
   posts: Array<{ fecha: string; tipo: string; texto: string }>;
+  /**
+   * Las publicaciones con sus números. Sólo viene cuando se pidió el juego ancho de campos
+   * (`CAMPOS_PERFIL_PIEZAS`): `undefined` es «no se preguntó», que no es «no tiene».
+   */
+  piezas?: PiezaInstagram[];
 };
 /** Por qué no se pudo leer. */
 export type MotivoInstagram = 'sin-conexion' | 'sin-cuenta' | 'sin-permiso' | 'no-esta' | 'limite' | 'error';
@@ -60,6 +97,39 @@ export type LecturaInstagram = { ok: true; perfil: PerfilInstagram } | { ok: fal
 export const POSTS_A_LEER = 6;
 /** Los campos de Business Discovery que se piden. */
 export const CAMPOS_PERFIL = `username,name,profile_picture_url,biography,website,followers_count,media_count,media.limit(${POSTS_A_LEER}){caption,timestamp,media_type}`;
+
+/** Cuántas publicaciones pide Competitors Spy: las últimas 25 alcanzan para ver qué le funciona. */
+export const PIEZAS_A_LEER = 25;
+
+/**
+ * El juego ANCHO de campos, para Competitors Spy: el de arriba más los contadores, el permalink, la
+ * miniatura, el formato y el tipo de audio (31/10/2026, docs/diseno-competitors-spy.md §4.2).
+ *
+ * ⚠️ ES UNA CONSTANTE APARTE Y NO UNA AMPLIACIÓN DE `CAMPOS_PERFIL`, a propósito. En la Graph API,
+ * **un solo campo que Meta no reconozca hace fallar la consulta ENTERA** con un 400 («Tried
+ * accessing nonexisting field»), así que ampliar el juego que ya está en producción significa
+ * apostar la lectura de @ de Offer y del alta de un lead a que los siete campos nuevos existen en la
+ * versión de Graph que tenga cada cliente. Y eso NO SE PUEDE MEDIR DESDE ACÁ: Business Discovery no
+ * tiene credencial desde el 22/10/2026 (el token de la plataforma no tiene ningún permiso de
+ * Instagram), pero 1 de las 11 conexiones de clientes —la de ws11— sí la tiene y hoy le funciona.
+ * Romperle eso a un cliente real para ahorrar una constante no es un intercambio que valga.
+ *
+ * Quien pide este juego ancho se banca el fallo: `leerPerfilInstagram({ conPiezas: true })` reintenta
+ * con `CAMPOS_PERFIL` si Meta rechaza un campo, así que la tab degrada a «sin números» en vez de
+ * quedarse sin perfil. El día que alguien confirme el juego ancho con una credencial de verdad, las
+ * dos constantes se pueden unir — y ese día se anota la fecha en docs/hallazgos-competitors-spy.md.
+ */
+export const CAMPOS_PERFIL_PIEZAS = `username,name,profile_picture_url,biography,website,followers_count,media_count,media.limit(${PIEZAS_A_LEER}){caption,timestamp,media_type,media_product_type,media_audio_type,permalink,thumbnail_url,like_count,comments_count,view_count}`;
+
+/**
+ * ¿Meta rechazó la consulta porque no conoce un campo? Es el 400 que hay que distinguir de todos los
+ * demás: con éste conviene reintentar con menos campos; con cualquier otro, no.
+ */
+export function campoDesconocido(cuerpo: unknown): boolean {
+  const e = esObj(cuerpo) && esObj(cuerpo.error) ? cuerpo.error : null;
+  if (!e) return false;
+  return /nonexisting field|Unknown field|unsupported get request/i.test(str(e.message));
+}
 
 const esObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
@@ -74,14 +144,54 @@ export function leerPerfilDeMeta(status: number, cuerpo: unknown): LecturaInstag
   if (!base.ok) return { ok: false, motivo: base.motivo, detalle: base.detalle };
   const bd = (cuerpo as { business_discovery: Record<string, unknown> }).business_discovery;
   const media = esObj(bd.media) && Array.isArray(bd.media.data) ? bd.media.data : [];
+  const items = media.filter(esObj);
+  // ¿Vino el juego ancho? Se decide por si ALGUNA publicación trae un campo que sólo pide
+  // `CAMPOS_PERFIL_PIEZAS`. No se puede decidir por si los contadores tienen valor: un dueño que
+  // oculta los likes de todas sus publicaciones devuelve lo mismo que una consulta angosta, y ahí
+  // «no se preguntó» y «las oculta» son dos datos distintos.
+  const anchoPedido = items.some((m) => 'permalink' in m || 'media_product_type' in m || 'thumbnail_url' in m);
   return {
     ok: true,
     perfil: {
       usuario: base.perfil.usuario, nombre: base.perfil.nombre, foto: base.perfil.foto, bio: str(bd.biography),
       web: str(bd.website) || null, seguidores: num(bd.followers_count), publicaciones: num(bd.media_count),
-      posts: media.filter(esObj).map((m) => ({ fecha: str(m.timestamp).slice(0, 10), tipo: str(m.media_type), texto: str(m.caption) }))
+      posts: items.map((m) => ({ fecha: str(m.timestamp).slice(0, 10), tipo: str(m.media_type), texto: str(m.caption) }))
         .filter((m) => m.texto).slice(0, POSTS_A_LEER),
+      ...(anchoPedido ? { piezas: items.map(piezaDeMedia).filter((p) => p.ref).slice(0, PIEZAS_A_LEER) } : {}),
     },
+  };
+}
+
+/** El shortcode de un permalink de Instagram (`/p/<code>/`, `/reel/<code>/`): la identidad de la pieza. */
+export function refDePermalink(permalink: string): string {
+  const m = (permalink ?? '').match(/\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]+)/);
+  return m ? m[1] : '';
+}
+
+/**
+ * Una publicación de Business Discovery con sus números. Cada contador pasa por `num`, que devuelve
+ * `null` cuando el campo no vino: un dueño puede ocultar likes, comentarios y vistas uno por uno y
+ * Meta omite el campo sin dar error.
+ */
+function piezaDeMedia(m: Record<string, unknown>): PiezaInstagram {
+  const permalink = str(m.permalink);
+  return {
+    ref: refDePermalink(permalink) || str(m.id),
+    fecha: str(m.timestamp).slice(0, 10),
+    tipo: str(m.media_type),
+    formato: str(m.media_product_type) || null,
+    audio: str(m.media_audio_type) || null,
+    texto: str(m.caption),
+    permalink: /^https:\/\//.test(permalink) ? permalink : null,
+    // ⚠️ `media_url` se OMITE en videos con audio con copyright o reels con descargas desactivadas:
+    // la doc de Meta dice textual que hay que tratarlo como opcional. Acá se usa `thumbnail_url` y,
+    // si tampoco vino, no hay miniatura — y la pantalla no deja el hueco en blanco.
+    miniatura: /^https:\/\//.test(str(m.thumbnail_url)) ? str(m.thumbnail_url) : null,
+    vistas: num(m.view_count),
+    megusta: num(m.like_count),
+    comentarios: num(m.comments_count),
+    // Sin `saved_count` ni `shares_count`: la doc de Meta dice textual «Not accessible through
+    // Business Discovery». No hay columna para ellos y no se estiman.
   };
 }
 

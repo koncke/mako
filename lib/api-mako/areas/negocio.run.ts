@@ -37,6 +37,7 @@ import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartne
 import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
 import { mensajesParaCopiar } from '@/lib/partners-recursos';
 import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
+import { MODULOS_KNOWLEDGE, moduloDeKey } from '@/lib/knowledge-modulos';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
@@ -1110,5 +1111,32 @@ export const RUNNERS: Runners = {
       await borrarOferta(id);
       return { ok: true, resumen: `Oferta «${o.nombre}» borrada.` };
     }),
+  },
+
+  // ── Knowledge ─────────────────────────────────────────────────────────────
+  modulos_de_knowledge: {
+    leer: async () => {
+      const { estadoDeLosModulos } = await import('@/lib/knowledge');
+      const ms = await estadoDeLosModulos();
+      return json({
+        modulos: ms.map((m) => ({
+          modulo: m.key, nombre: m.nombre, que: moduloDeKey(m.key)?.que ?? '',
+          de_que_cursos: m.secciones, se_usa_en: m.tabs, fichas: m.fichas,
+        })),
+      });
+    },
+  },
+
+  leer_modulo_knowledge: {
+    leer: async (input) => {
+      const key = String(input.modulo ?? '').trim();
+      const m = moduloDeKey(key);
+      // La key equivocada vuelve como REGLA con la lista, no como vacío: un '' acá se lee igual que «no hay material».
+      if (!m) return `No existe el módulo «${key}». Los que hay: ${MODULOS_KNOWLEDGE.map((x) => x.key).join(', ')}.`;
+      const { metodoDeModulo } = await import('@/lib/knowledge');
+      const texto = await metodoDeModulo(key, String(input.pregunta ?? ''));
+      if (!texto) return `El módulo «${m.nombre}» todavía no tiene fichas cargadas: no hay material para esta pregunta. No lo rellenes.`;
+      return `## Knowledge › ${m.nombre}\n${m.que}\n\n${texto}`;
+    },
   },
 };

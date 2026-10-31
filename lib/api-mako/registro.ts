@@ -64,6 +64,8 @@ import { DEFS as creaciones } from './areas/creaciones.def';
 import { DEFS as cobros } from './areas/cobros.def';
 import { DEFS as operaciones } from './areas/operaciones.def';
 import { DEFS as calendario } from './areas/calendario.def';
+// Competitors Spy (31/10/2026, docs/diseno-competitors-spy.md): los competidores que mira el negocio.
+import { DEFS as spy } from './areas/spy.def';
 import { DEFS as mako } from './areas/mako.def';
 // Los tickets al equipo de MaKo (17/10/2026): del área `mako`, en su propio archivo (docs/diseno-ticketera-usuarios.md).
 import { DEFS as tickets } from './areas/tickets.def';
@@ -71,7 +73,7 @@ import { DEFS as tickets } from './areas/tickets.def';
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
   general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
-  landing, closing, negocio, contenido: [...contenido, ...copywriter], video: [...video, ...videoEstudio], imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako: [...mako, ...tickets],
+  landing, closing, negocio, contenido: [...contenido, ...copywriter], video: [...video, ...videoEstudio], imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, spy, mako: [...mako, ...tickets],
 };
 
 export const REGISTRO: readonly OperacionDef[] = AREAS.flatMap((a) => POR_AREA[a]);
@@ -172,7 +174,7 @@ export function aToolDef(def: OperacionDef): ToolDef {
   const cola = esAccion(def)
     ? (def.confirmacion === 'chat'
         ? ' PROPONE la acción y devuelve un resumen: NO la ejecuta hasta que la persona confirma con un «sí» aparte.'
-        : ' Deja una PROPUESTA y devuelve un LINK a la pantalla donde la persona la revisa y confirma: pásalo tal cual y no pidas confirmación por el chat.')
+        : ' Deja una PROPUESTA y devuelve un LINK donde la persona la confirma: pásalo tal cual, sin pedir confirmación por el chat.')
     : '';
   return { name: def.id, description: `${def.descripcion}${cola}`, input_schema: esquemaJson(def.parametros) };
 }
@@ -288,15 +290,34 @@ export function raices(texto: string): string[] {
 export function ordenarPorRelevancia<T extends OperacionDef>(defs: readonly T[], mensaje: string): T[] {
   const rs = raices(mensaje);
   if (!rs.length) return [...defs];
-  const puntaje = (d: T): number => {
-    const fuerte = normalizar(`${d.id} ${d.titulo}`);
-    const debil = normalizar(d.descripcion);
-    return rs.reduce((n, r) => n + (fuerte.includes(r) ? 2 : debil.includes(r) ? 1 : 0), 0);
-  };
   return defs
-    .map((d, i) => ({ d, i, p: puntaje(d) }))
+    .map((d, i) => ({ d, i, p: puntajeDeRelevancia(d, rs) }))
     .sort((a, b) => b.p - a.p || a.i - b.i)
     .map((x) => x.d);
+}
+
+function puntajeDeRelevancia(d: OperacionDef, rs: readonly string[]): number {
+  const fuerte = normalizar(`${d.id} ${d.titulo}`);
+  const debil = normalizar(d.descripcion);
+  return rs.reduce((n, r) => n + (fuerte.includes(r) ? 2 : debil.includes(r) ? 1 : 0), 0);
+}
+
+/**
+ * Lo que MaKo podía usar, se parece a lo pedido y NO viajó en este turno (31/10/2026). Es lo que le falta al ticket de un «no
+ * puedo» falso: el recorte del presupuesto se avisaba con un `console.warn` que nadie lee, y `cambiar_crons_secuencia` quedó
+ * afuera sin que nada lo dijera (docs/hallazgos-api-mako.md). Se calcula sólo al abrir el ticket; sin parecido no nombra nada.
+ */
+export function parecidasQueNoViajaron(p: { vista: Vista; pedido: string; viajaron: readonly string[]; tope?: number }): string[] {
+  const rs = raices(p.pedido);
+  if (!rs.length) return [];
+  const viajaron = new Set(p.viajaron);
+  return REGISTRO
+    .filter((d) => visible(d, p.vista) && !viajaron.has(d.id))
+    .map((d, i) => ({ d, i, p: puntajeDeRelevancia(d, rs) }))
+    .filter((x) => x.p > 0)
+    .sort((a, b) => b.p - a.p || a.i - b.i)
+    .slice(0, p.tope ?? 6)
+    .map((x) => x.d.id);
 }
 
 // ── Qué tabs ve una capa, para el gating ──────────────────────────────────────

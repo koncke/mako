@@ -471,6 +471,13 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
   'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
+  // Competitor Spy (31/10/2026): dejó de ser ComingSoon con la Etapa 1 (lista, ficha por bloques y
+  // onboarding), y al salir de `comingSoon` perdió el `/m/pronto/market-an` que se derivaba de esa
+  // marca. La pantalla del teléfono es la Etapa 1.5 del plan: la ficha pasa a UN bloque por
+  // pantalla y los filtros a una hoja que sube desde abajo (docs/diseno-competitors-spy.md §8). Lo
+  // que NO va al teléfono, y se dice en vez de desaparecer: replicar el sitio del competidor (es el
+  // editor) y el recorrido con la extensión (es Chrome de escritorio).
+  'market-an': 'el chat de Competitors Spy',
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */

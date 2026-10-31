@@ -172,10 +172,10 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   const iSaneo = doer.indexOf('const saneo = sanearSalida(');
   // Con un error de herramienta ya registrado (la huella), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
   // (Y con una guarda de herramienta, la regla: test 12.)
-  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), {});');
+  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), { noViajaron: ');
   assert.ok(iSaneo > 0 && iMarcas > iSaneo, 'las marcas se sacan antes del saneo, o no se sacan');
   assert.match(doer.slice(iMarcas - 800, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
-  assert.match(doer.slice(iMarcas, iMarcas + 300), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
+  assert.match(doer.slice(iMarcas, iMarcas + 500), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
   // (El del audio vive en `avisarAudioSinEscuchar`, la misma para el mensaje suelto y los lotes: test 15.)
   assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, \{ \.\.\.d, pedido: '\(nota de voz\)' \}/);
@@ -274,7 +274,7 @@ test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pu
   assert.match(doer, /ultimaFueGuarda = laUltimaFueGuarda\(ultimaFueGuarda, \{\n\s*guarda: esGuardaDeHerramienta\(out\), tragada: esFallaTragadaDeHerramienta\(out\),\n\s*error: [^\n]*escribe: escribeDeVerdad\(name\),/);
   // Lo que revienta: la última se apaga y cuenta como tragada, y el error sigue al loop (el modelo lo ve).
   assert.match(doer, /const out = await correr\(\)\.catch\(\(e: unknown\) => \{ ultimaFueGuarda = false; tragadasDelTurno\+\+; throw e; \}\);\n\s*memo\.anotar\(name, out\);/);
-  assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{\}\);/);
+  assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{ noViajaron: /);
 });
 
 test('13. una GUARDA lleva su marca explícita (`guarda: true`): una falla con la misma forma no la lleva', () => {

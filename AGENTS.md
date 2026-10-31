@@ -1297,8 +1297,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   ⚠️ **Y las dos mitades son UNA sola regla: cumplir media deja todo verde y no prueba nada** (31/10/2026). El rojo
   aparece sólo cuando se juntan (declarada antes **y** con las palabras del área), así que el piso de
   `tests/ops-center-bateria` no guarda ninguna por separado. Lo que se mira es el MARGEN, que lo imprime el test 4 de esa
-  batería: hoy `cambiar_crons_secuencia` entra con **119 caracteres** sobre 12.000. El área no tiene aire, y una
-  descripción larga de más lo vuelve a tirar afuera. Si tocás descripciones de `chatbot.def.ts`, mirá ese número.
+  batería: `cambiar_crons_secuencia` entra con 551 caracteres sobre 12.000 y el test da rojo debajo de 300
+  (`MARGEN_MINIMO`). Sólo cuenta lo que va ANTES del CRON en el orden de esa frase: acortar otra operación gorda del área no
+  devuelve nada. Si el piso salta, se acorta lo que esas siete repiten, no se baja el piso.
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
@@ -6480,6 +6481,47 @@ EXPLÍCITA de las compartidas a propósito, para que compartir una key sea una
 decisión escrita y no un descuido. El test lleva su inverso: una entrada de la
 lista blanca que ya no comparte nadie también falla, porque si no queda permiso
 escrito para una colisión futura.
+
+## Y una tab que sólo ve el super admin NO va en `TAB_ONBOARDINGS`
+
+`resumenOnboardingTabs()` (`lib/tab-onboarding-state.ts`) recorre `Object.keys(TAB_ONBOARDINGS)`
+**sin filtro de capa, de rol ni de visibilidad**, y lo que devuelve lo pega `buildSystemPrompt`
+en el prompt de **todos los negocios, en todos los turnos**. Una entrada para una pantalla de
+plataforma queda pendiente para siempre y MaKo le dice al dueño que lo primero es ir a
+configurar algo que no puede abrir (31/10/2026, al construir Knowledge; docs/hallazgos-onboarding.md).
+
+La regla del producto sigue siendo que **toda tab tiene onboarding**. Lo que se agrega es la
+pregunta previa: **¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
+su estado igual le sirve a MaKo, va **el DATO y no el flag** —algo que sea verdad para cualquiera
+que lo lea—, como el conteo de fichas por módulo de Knowledge (`estadoDeLosModulos`, `lib/knowledge.ts`).
+
+# El método de los cursos lo pide una tab por su KEY, nunca con un área escrita a mano
+
+El conocimiento de los cursos (**Knowledge**) está clasificado por tema en
+`lib/knowledge-modulos.ts`: un módulo declara qué enseña, de qué **secciones del portal de
+cursos** sale, en qué `area` de `mako_knowledge` aterriza su destilado y **qué tabs lo
+consumen** (keys del nav). Un prompt que quiere ese método llama
+`metodoDeTab(<key del nav>, pregunta)` (`lib/knowledge.ts`) y el catálogo resuelve el área.
+
+**Por qué:** hasta el 31/10/2026 el área estaba cableada en cada writer —cuatro con
+`metodologiaDeArea('mensajes', …)` y tres con `searchKnowledge(pedido, 4)` sin área, o sea el
+cajón entero—, así que **una tab nueva no recibía nada** hasta que alguien se acordara de
+cablearla. El área en el writer es la copia que se desincroniza.
+
+Lo demás que gobierna código nuevo acá:
+
+- **Un módulo de Knowledge es una CAPA del Second Brain** (`lib/cerebro-knowledge.ts`, el molde
+  de `lib/cerebro-funciones.ts`): se cuelga con `conCapa` y entra al turno sólo si la pregunta
+  pide el método. Al prompt viaja el ÍNDICE —una línea por módulo, sin contenido
+  (`bloqueDeModulos`)—; el contenido se pide (`leer_modulo_knowledge`, o `metodoDeTab`).
+- **Un módulo no lista cursos ni declara su estado.** Los cursos salen del catálogo del portal
+  por sección (tenerlos escritos dos veces es el bug que dejaba cada curso nuevo con el link
+  compartido roto), y cuánto método tiene cada módulo se MIDE (`estadoDeLosModulos`).
+- **Una ficha de Knowledge se carga con `fuente: 'mako'`.** Con `'manual'` no se presta
+  (`lib/rag-prestamo.ts`) y le llega a cero negocios, con la pantalla mostrándola igual.
+- **Un área nueva entra al desplegable de `app/classroom/methodology/ConocimientoView.tsx`** o
+  no se puede cargar nunca una ficha ahí. `tests/knowledge-modulos.test.ts` lo frena, igual que
+  una sección del portal sin módulo y una tab declarada que el nav no tiene.
 
 # Una barra de gráfico se recorta al 100%, siempre
 

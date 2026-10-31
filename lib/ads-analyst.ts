@@ -37,24 +37,20 @@ import { renderPrompt } from './prompt-render';
 // Vocabularios controlados (deben coincidir con los del diseño / la vista)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Ángulos base que usa la IA para clasificar. El usuario puede corregir el ángulo
-// de un anuncio a mano (angle_override) a cualquier valor del vocabulario editable
-// (lib/script-angles.ts), por eso ScriptAngle es un string libre, no una unión.
-export const ANGLES = ['visionario', 'capataz', 'dolor', 'testimonio', 'oferta'] as const;
-export type ScriptAngle = string;
-
-export const HOOK_TYPES = ['promesa', 'testimonio', 'pregunta', 'dolor', 'resultado', 'recordatorio'] as const;
-export type HookType = (typeof HOOK_TYPES)[number];
-
-export const BEAT_KINDS = ['gancho', 'contexto', 'problema', 'mecanismo', 'prueba', 'objecion', 'recordatorio', 'oferta', 'cta'] as const;
-export type BeatKind = (typeof BEAT_KINDS)[number];
-
-// Tags del guion → alimentan los "Patrones ganadores" de la vista.
-export const TAG_VOCAB = [
-  'sistema', 'sin-frio', 'caso-exito', 'dashboard', 'testimonio',
-  'pregunta-hook', 'cifra-hook', 'dolor', 'cupos', 'recordatorio', 'implementacion',
-] as const;
-export type ScriptTag = (typeof TAG_VOCAB)[number];
+// ─────────────────────────────────────────────────────────────────────────────
+// Los cuatro vocabularios (ángulos semilla, tipos de gancho, bloques y etiquetas) se MUDARON a
+// lib/ads-analyst-vocabulario.ts el 31/10/2026 y se vuelven a exportar desde acá: ningún
+// importador de antes cambia. Se mudaron porque este archivo lleva `server-only`, y eso los
+// volvía imposibles de reusar desde una pantalla de cliente o desde la definición de un área de
+// la API de MaKo. Competitors Spy clasifica el gancho de un anuncio AJENO con el mismo
+// vocabulario; la alternativa era copiar la lista y tener dos que se separan solas.
+// Ángulos: el usuario puede corregir el de un anuncio a mano (`angle_override`) a cualquier valor
+// del vocabulario editable (lib/script-angles.ts), por eso `ScriptAngle` es un string libre.
+// ─────────────────────────────────────────────────────────────────────────────
+export { ANGLES, BEAT_KINDS, HOOK_TYPES, TAG_VOCAB } from './ads-analyst-vocabulario';
+export type { BeatKind, HookType, ScriptAngle, ScriptTag } from './ads-analyst-vocabulario';
+import { ANGLES, BEAT_KINDS, HOOK_TYPES, TAG_VOCAB } from './ads-analyst-vocabulario';
+import type { BeatKind, HookType, ScriptAngle, ScriptTag } from './ads-analyst-vocabulario';
 
 export type ScriptStatus = 'analizada' | 'descartada' | 'pendiente' | 'error';
 

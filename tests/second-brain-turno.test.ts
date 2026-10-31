@@ -112,8 +112,15 @@ test('3. el turno lo trae en paralelo, al final del system, con la plata según 
   assert.match(c, /export const ESPERA_GRAFO_TURNO_MS = 2_500;/, 'la espera al grafo no es de 2,5 s');
   assert.match(p, /const delRol = o\.sinPlata \? sinLaPlata\(grafo\) : grafo;/, 'la plata no se filtra por el rol');
   assert.match(p, /const q = preguntaDelTurno\(pregunta\);\s*if \(!q\) return '';/, 'el turno busca con el mensaje entero');
-  assert.match(p, /const g = esPreguntaDeProducto\(q\) \? delRol : sinFunciones\(delRol\);\s*return bloqueDelSecondBrain\(recuperar\(g, \{ pregunta: q, presupuesto: o\.presupuesto \?\? PRESUPUESTO_TURNO \}\)\);/,
-    'las funciones entran en cualquier pregunta, o el turno no busca con su pregunta y su tope');
+  // Desde el 31/10/2026 hay DOS capas que se filtran por lo que pregunta el turno, así que son tres asserts y no uno:
+  // las funciones (lib/cerebro-funciones.ts), Knowledge (lib/cerebro-knowledge.ts) y la búsqueda con su tope. Juntas en
+  // un solo regex, cualquier capa nueva lo rompía por existir y la tentación era aflojarlo.
+  assert.match(p, /const conProducto = esPreguntaDeProducto\(q\) \? delRol : sinFunciones\(delRol\);/,
+    'las funciones de MaKo entran en cualquier pregunta: «¿cuál es mi meta del trimestre?» traía el Ads Manager');
+  assert.match(p, /const g = esPreguntaDeConocimiento\(q\) \? conProducto : sinKnowledge\(conProducto\);/,
+    'el método de los cursos entra en cualquier pregunta (o la condición quedó al revés): le come el presupuesto a los datos del negocio');
+  assert.match(p, /return bloqueDelSecondBrain\(recuperar\(g, \{ pregunta: q, presupuesto: o\.presupuesto \?\? PRESUPUESTO_TURNO \}\)\);/,
+    'el turno no busca con su pregunta y su tope');
   assert.match(p, /\} catch \{\s*return '';\s*\}/, 'un grafo que falla tumba el turno');
 });
 
