@@ -26,6 +26,9 @@ import { aplicablesEnLote, deHoy } from '@/app/ads-manager/mb-modelo';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
+/** El próximo paso, más chico y más tenue que la bajada: en línea porque `.aa-nuevo > p` le gana a cualquier clase nueva. */
+const PASO_M = { marginTop: 14, fontSize: 13, color: 'var(--faint)' } as const;
+
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; ajuste?: string | null }> {
   try {
     const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -91,7 +94,7 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conec
             <Criatura nombre="MaKo" size={40} estrella />
             <h1>{cartel.titulo}</h1>
             <p>{cartel.bajada}</p>
-            {cartel.paso && <p className="aa-m-nota">{PASO_EN_EL_TELEFONO[cartel.paso]}</p>}
+            {cartel.paso && <p style={PASO_M}>{PASO_EN_EL_TELEFONO[cartel.paso]}</p>}
           </section>
         )}
       {!puedeOperar && <p className="aa-m-nota">Estás mirando otro negocio: para aplicar, entra con el tuyo.</p>}
