@@ -477,6 +477,8 @@ export async function setNumeroDuenoYSync(
   const c = await prepararContacto(ws, crudo);
   if (!c.ok) return { ok: false, error: c.error };
   await guardarNumeroDueno(ws, c.num);
+  // El WhatsApp de quien compró, a su lead del CRM de la plataforma (import dinámico: lib/compra-plan-llamada.ts arrastra el CRM). Nunca tira.
+  await import('./compra-plan-llamada').then((m) => m.anotarTelefonoDelComprador(ws, c.num)).catch(() => {});
 
   if (!jid) {
     const r = await asegurarGrupoMaKo(ws, { nombre: nombreCliente, participantes: [c.num] });

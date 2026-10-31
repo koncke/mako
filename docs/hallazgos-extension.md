@@ -5,6 +5,19 @@ lo que la página de MaKo le pide a la extensión (`lib/wa-fichas-cliente.ts`). 
 es de la extensión en sí (la API, los créditos, el motor) está en [hallazgos-generativa.md](hallazgos-generativa.md). El índice
 es [hallazgos.md](hallazgos.md).
 
+## «Extraer» no volvía a MaKo: la memoria de un service worker no es un dato (30/10/2026, 0.74.4)
+
+**Síntoma.** Martín: «aun no veo... que cuando termina de scrapear debe regresar a la app de mako». `volverAMako` estaba desde la 0.74.0.
+**Causa probable, leyendo el código (no se midió en su Chrome: no había ninguno conectado).** `volverAMako` salía sin rastro si no encontraba `viva` en
+`extraccionesVivas`, un `Map` en memoria. Chrome mata el service worker tras 30 s sin eventos, y guardar los nombres pasa del lado de la página. Si moría antes del
+aviso final, el worker revivía con el mapa vacío y no volvía.
+**Regla.** Lo que un worker MV3 necesita al final no se recuerda: viene en el mensaje o en `storage`. El aviso final lo manda la pestaña de la extracción, así que
+`sender.tab` ES la de origen, y la de WhatsApp Web se busca. Sigue valiendo no sacar a la persona de donde esté si dejó WhatsApp Web.
+**Se confirma** cuando Martín extraiga con la 0.74.4: si sigue sin volver, la causa es otra.
+**Vive en:** extension/background.js (`volverAMako`, `WA_EXTRACCION`) · tests/wa-extraer-072.test.ts (test de la pestaña de origen).
+
+---
+
 ## Leer el WhatsApp Web de la persona sin escribir nada en WhatsApp (24/10/2026, 0.70.0)
 
 **Vive en:** `extension/wa-fichas.js` (content script) · `extension/wa-fichas-reglas.js` (lo puro) · el handler

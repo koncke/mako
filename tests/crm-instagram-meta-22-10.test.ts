@@ -173,7 +173,7 @@ test('buscador: pregunta al enfocarse, una vez, y sin conexión ofrece «Conecta
   assert.match(COMP, /onFocus=\{\(\) => \{\s*setAbierto\(true\);\s*if \(!preguntada\.current\) \{ preguntada\.current = true; void preguntarConexion\(false\); \}/);
   // La línea va AFUERA de la caja del campo (la lista se ubica contra el campo) y antes del modal.
   const iCaja = COMP.indexOf('<div ref={cajaRef}');
-  const iLinea = COMP.indexOf("{(pideConectarMeta(conexion) || conexion === 'sin-instagram') && (");
+  const iLinea = COMP.indexOf("{(pideConectarMeta(conexion) || (conexion === 'sin-instagram' && !encontrados?.length)) && (");
   assert.ok(iCaja > 0 && iLinea > iCaja, 'falta la línea de debajo del campo');
   assert.ok(COMP.slice(iCaja, iLinea).includes('document.body,'), 'la línea quedó adentro de la caja del campo');
   // Con Meta conectada pero sin Instagram (24/10/2026), la línea dice eso y SIN el botón.

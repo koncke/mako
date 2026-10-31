@@ -28,6 +28,7 @@ import { credDelCliente } from './credenciales';
 import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
 import { createLead, enriquecerLead, findLeadByContacto, getLead, logLeadEvent, setPipelineStage } from './leads';
+import { anotarParaLlamar } from './compra-plan-llamada';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
@@ -800,6 +801,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     if (nuevo && !renovacion && actual.proveedor === 'mercadopago' && pctDelPrimerMes(actual.creado_por) != null) {
       await volverAlPrecioLleno(actual).catch((e) => console.error(`[cobros] no pude volver al precio lleno el cobro ${actual.id}:`, e instanceof Error ? e.message : String(e)));
     }
+    // 5e. La plataforma: quien pagó su plan queda en la lista de llamadas (30/10/2026, lib/compra-plan-llamada.ts). No tira.
+    if (!renovacion) await anotarParaLlamar(actual);
     // 5c. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
     //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
     if (actual.alta_ws != null) {

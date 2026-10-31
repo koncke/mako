@@ -30,7 +30,7 @@ import { getSupabaseServer } from './supabase';
 import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { credDelCliente } from './credenciales';
-import { createLead, logLeadEvent } from './leads';
+import { createLead, enriquecerLead, logLeadEvent } from './leads';
 import { esLeadDuplicado } from './leads-duplicados';
 import { leadPorEmail } from './editor-landing/pago-pedido';
 import { anularCobro, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
@@ -40,7 +40,7 @@ import { COLS_COBRO, cobroDeFila, type Cobro, type Pasarela } from './cobros-tip
 import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, precioEn, PROGRAMA_ACELERADOR, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
-import { diagnosticoEnTexto, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { diagnosticoEnTexto, leadDeLaCompra, pasarelaDeLaCompra, pasarelasDelPais, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
 import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
 import { creadoPorPrimerMes, TEXTO_OFERTA_CUENTA, TEXTO_OFERTA_USADA, TEXTO_OFERTA_VENCIDA } from './primer-mes-reglas';
 import { OFERTA_ENTRADA } from './oferta-entrada-reglas';
@@ -188,17 +188,28 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
   const ya = await buscar();
   if (ya) return { leadId: ya.id, nuevo: false };
   const o = p.origen ?? {};
+  const datos = {
+    nombre: p.nombre, email: p.email, telefono: p.whatsapp ? `+${p.whatsapp}` : null, origen_lead: 'landing',
+    utm_source: o.utm_source, utm_medium: o.utm_medium, utm_campaign: o.utm_campaign, utm_content: o.utm_content, fbclid: o.fbclid,
+  };
   try {
-    const lead = await createLead({
-      nombre: p.nombre, email: p.email, telefono: p.whatsapp ? `+${p.whatsapp}` : null, origen_lead: 'landing',
-      utm_source: o.utm_source, utm_medium: o.utm_medium, utm_campaign: o.utm_campaign, utm_content: o.utm_content, fbclid: o.fbclid,
-    });
+    const lead = await createLead(datos);
     return { leadId: Number(lead.id), nuevo: true };
   } catch (e) {
     if (!esLeadDuplicado(e)) throw e;
     const otro = await buscar();
     if (otro) return { leadId: otro.id, nuevo: false };
-    throw e;
+    // ⚠️ UN DUPLICADO NUNCA FRENA UNA COMPRA (30/10/2026): `createLead` también frena por NOMBRE, y acá eso era «No pudimos registrar tu
+    // compra» a quien se llama igual que otro lead (la plataforma tiene 219 traídos de grupos). El mismo contacto, o uno cargado a
+    // mano sin email, es el mismo lead (`leadDeLaCompra`) y se completa. Un homónimo con otro email es otra persona: se crea, y la
+    // ficha lo marca en «Posibles duplicados».
+    const mismo = leadDeLaCompra(e.coincidencias);
+    if (mismo != null) {
+      await enriquecerLead(mismo, { email: p.email, telefono: datos.telefono }, 'Checkout de MaKo').catch((x) => console.warn(`[compra-plan] no pude completar el lead ${mismo}: ${msg(x)}`));
+      return { leadId: mismo, nuevo: false };
+    }
+    const lead = await createLead({ ...datos, permitirDuplicado: true });
+    return { leadId: Number(lead.id), nuevo: true };
   }
 }
 

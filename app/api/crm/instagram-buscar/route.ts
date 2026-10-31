@@ -304,10 +304,12 @@ export async function GET(req: NextRequest) {
   if (usuarioDeTexto(texto) != null) {
     meta = await buscarEnMeta(candidatos, ws);
     google = meta.perfiles.length ? null : await buscarEnGoogle(texto);
-    // Ni Meta ni Google: el @ exacto por Apify (cuentas personales también). Con caché y tope por día.
+    // Ni la Meta del negocio ni Google: la Meta de la PLATAFORMA (30/10/2026: el día que su página tenga el Instagram de MaKo
+    // vinculado y su token `instagram_basic`, anda sin tocar nada, con foto, para el negocio sin Instagram propio) y, si no, el @
+    // exacto por Apify (cuentas personales también). Con caché y tope por día.
     if (!meta.perfiles.length && !google?.perfiles.length) {
       const u = usuarioDeTexto(texto) as string;
-      const l = await leerPerfilInstagram(u, { ws, fuentes: ['apify'] });
+      const l = await leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify'] });
       if (l.ok) meta = { ...meta, perfiles: [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] };
     }
   } else {

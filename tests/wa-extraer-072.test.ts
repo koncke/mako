@@ -202,7 +202,7 @@ function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: bool
   runInNewContext(`${esperar}\n${ayudas}\nlet fichasEnVuelo = 0;\nglobalThis.atender = (msg, _s, responder) => {\n${bloques}\n  return false;\n};`, ctx);
   const atender = ctx.atender as (m: unknown, s: unknown, r: (x: unknown) => void) => boolean;
   const pedir = (m: Record<string, unknown>, origen = 5) => new Promise<unknown>((resolve) => { atender(m, { tab: { id: origen } }, (x) => resolve(plano(x))); setTimeout(() => resolve('sin respuesta'), 2000); });
-  const mandar = (m: Record<string, unknown>) => atender(m, {}, () => {});
+  const mandar = (m: Record<string, unknown>, origen?: number) => atender(m, origen != null ? { tab: { id: origen } } : {}, () => {});
   const cambiarTabs = (t: Array<Record<string, unknown>>) => { c.tabs.splice(0, c.tabs.length, ...t); };
   return { reg, pedir, mandar, cambiarTabs };
 }
@@ -296,6 +296,16 @@ test('3d. vuelve a la pestaña EXACTA desde la que se tocó «Extraer» (con dos
   await dormir(30);
   assert.deepEqual(sin.reg.activadas, [7], 'eligió otra pestaña de MaKo al azar');
   assert.equal((sin.reg.storage.extracciones as Array<Record<string, unknown>>)[0].volver, 'sin_pestana');
+  // ⚠️ CHROME MATÓ EL WORKER a mitad de camino (30/10/2026): la memoria se perdió, y el aviso final igual trae la pestaña de origen.
+  const revivido = cargarWorker({ tabs: pestanas().map((x) => (x.id === 7 ? { ...x, active: true } : x)) });
+  revivido.mandar({ tipo: 'WA_EXTRACCION', id: 'v3', estado: 'listo' }, 6);
+  await dormir(30);
+  assert.deepEqual(revivido.reg.activadas, [6], 'sin la memoria del worker no volvió a la pestaña que mandó el aviso');
+  // Si la persona se fue de WhatsApp Web a otra cosa, tampoco ahí se la saca.
+  const seFue = cargarWorker({ tabs: pestanas() });
+  seFue.mandar({ tipo: 'WA_EXTRACCION', id: 'v4', estado: 'listo' }, 6);
+  await dormir(30);
+  assert.deepEqual(seFue.reg.activadas, [], 'la sacó de donde estaba');
   const popup = sinComentarios(leer('extension/popup.js'));
   assert.match(popup, /b\.addEventListener\('click', \(\) => void abrirMakoEn\('\/crm', e\.origenTab\)\);/, '«Ver en MaKo» va a cualquier pestaña de MaKo');
   assert.match(popup, /if \(e\.volver === 'sin_pestana'\)/);
@@ -431,8 +441,8 @@ test('5. «Extraer»: arranca la extensión en el acto, sin «Entran a», sin «
   assert.doesNotMatch(ui, /`Traer \$\{|'Traer'|Trayendo/, 'volvió «Traer»');
   // La extensión arranca ANTES de crear los leads (no después), a la vista, con el nombre del grupo.
   const cuerpo = ui.slice(ui.indexOf('const extraer = async'));
-  const pide = cuerpo.indexOf('const fichasP = conExt ? pedirFichasDeWhatsappWeb(pedidos, { grupos: [grupo.nombre], visible: true, titulo: grupo.nombre, id }) : null;');
-  const trae = cuerpo.indexOf('t = tels.length ? await traerTandas(tels) : null;');
+  const pide = cuerpo.indexOf('const fichasP = conExt ? pedirFichasDeWhatsappWeb(pedidos, { grupos: [grupo.nombre], visible: true, titulo: grupo.nombre, id, alAvanzar: (texto) => avanzarExtraccion(id, { texto }) }) : null;');
+  const trae = cuerpo.indexOf('t = tels.length ? await traerTandas(tels, id) : null;');
   assert.ok(pide > 0 && trae > pide, 'la extensión arranca después de crear los leads: «al darle a Extraer automáticamente que comience»');
   // Ni «Entran a» (funnel, etapa, etiqueta) ni chips.
   assert.doesNotMatch(ui, /destino=\{|ariaLabel="A qué etapa"|ariaLabel="A qué funnel"|Etiqueta de origen|Sin las etapas que mandan algo|No les manda nada|sin número`/);
