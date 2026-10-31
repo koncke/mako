@@ -139,10 +139,10 @@ async function main() {
   let vecesCalculado = 0;
   const noViajaron = () => { vecesCalculado += 1; return ['cambiar_crons_secuencia', 'configurar_automatizacion']; };
   const conTicket = await conTicketsDeMaKo('No puedo cambiar eso.\n\n[[no-pude: cambiar cuándo sale]]', {}, en18('nv1'), { noViajaron });
-  const filaNv = pg.db.tickets.find((t: { id: number }) => t.id === conTicket.ticket?.id) as { contexto?: { noViajaron?: string }; descripcion?: string } | undefined;
+  const filaNv = pg.db.tickets.find((t) => t.id === conTicket.ticket?.id);
   const vecesConTicket = vecesCalculado;
   await conTicketsDeMaKo('Listo, ya quedó.', {}, en18('nv2'), { noViajaron });
-  out.noViajaron = { enElContexto: filaNv?.contexto?.noViajaron ?? null, enLaDescripcion: (filaNv?.descripcion ?? '').includes('cambiar_crons_secuencia'), vecesConTicket, vecesSinTicket: vecesCalculado - vecesConTicket };
+  out.noViajaron = { enElContexto: (filaNv?.contexto as { noViajaron?: string } | null)?.noViajaron ?? null, enLaDescripcion: String(filaNv?.descripcion ?? '').includes('cambiar_crons_secuencia'), vecesConTicket, vecesSinTicket: vecesCalculado - vecesConTicket };
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

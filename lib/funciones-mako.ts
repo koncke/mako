@@ -191,6 +191,15 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     estado: 'parcial', slugDev: 'offer-analyst', fuentes: [AREAS],
   },
   {
+    keys: ['market-an'],
+    que: 'Lo que hacen tus competidores, en un solo lugar: sumas a cada uno con sus canales y MaKo lee su sitio, su Instagram y su YouTube, con los números que pudo medir. Una lectura que falló se dice, nunca es un cero.',
+    hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio'],
+    noHace: ['Todavía no: revisar solo todos los días (hoy se aprieta «Revisar ahora»)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta'],
+    alias: ['competitor spy', 'competitors spy', 'competencia', 'competidores', 'espiar a la competencia', 'market analyst'],
+    conecta: [{ a: 'ads-writer', motivo: 'Lo que le funciona a la competencia alimenta tus anuncios' }, { a: 'landing-writer', motivo: 'Replicar la landing de un competidor' }],
+    estado: 'parcial', slugDev: 'competitor-spy', fuentes: [AREAS, 'docs/diseno-competitors-spy.md'],
+  },
+  {
     keys: ['landing-writer'],
     que: 'El editor de landings y presentaciones, copiado de Gamma: las creas con IA desde tu funnel y tu negocio, las editas por secciones y bloques, y le pides cambios a MaKo.',
     hace: [

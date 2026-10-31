@@ -297,6 +297,26 @@ El commit del plan (`b4d7726d1`) y los dos documentos viven en `origin/integraci
 `main` no encuentra `docs/hallazgos-competitors-spy.md` ni `docs/diseno-competitors-spy.md` y
 concluye que la investigación no existe. Se trabaja desde `integracion`.
 
+### Cuatro rojos que el informe de la Etapa 1 no nombró, y dos frases que prometían de más (31/10, al integrar)
+
+Salir de `ComingSoon` no sólo toca la nav y las capas (la sección de arriba): la key entra en **tres listas
+más**. `lib/funciones-mako.ts` (toda key viva es de una función) y `tests/guia-catalogo.test.ts`
+(`SIN_GUIA_TODAVIA`) dan rojo recién en la batería completa; `app/admin/dev/areas.ts` no da rojo, pero seguía
+diciendo «Hoy es ComingSoon». Los otros dos rojos: `tests/integracion-sin-salir` (el onboarding mandaba a
+`/integraciones`: la regla de Martín es no salir nunca de la tab) y `tests/offer-instagram`, que fijaba el
+texto de la consulta de Business Discovery que Spy parametrizó.
+
+Y el onboarding prometía dos cosas que no son. **«YouTube pide una clave de su API»:** desde el 27/10 no se
+pide (`lib/metodo-catalogo.ts`; `claveDeYoutube` cae en la de la plataforma). **«Desde hoy guarda una foto por
+día»:** el cron es la Etapa 2 y no existe; la historia avanza sólo con «Revisar ahora». Cuando entre el cron,
+esa frase puede volver.
+
+**Regla:** al sacar una tab de `ComingSoon`, correr `tests/funciones-mako`, `tests/guia-catalogo` y
+`tests/integracion-sin-salir` antes de entregar. Y `'market-an'` queda en `SIN_GUIA_TODAVIA`: esa lista sólo
+se achica, pero esta tab nació sin guía y la escribe su tanda.
+
+---
+
 ## Lo que quedó SIN hacer
 
 Actualizado el **31/10/2026**, al entregar la **Etapa 1** (etiqueta `nube/competitors-spy-3110`): la

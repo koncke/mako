@@ -23,6 +23,7 @@
 // El copy va en español neutro, con «tú»: el producto se usa en México.
 
 import { useCallback, useEffect, useState } from 'react';
+import { BotonIntegracion } from '../_components/ConectarIntegracion';
 import { Icon } from '../_components/icons';
 import { WizardShell } from '../_components/WizardShell';
 import { NOMBRE_CANAL, type CanalSpy } from '@/lib/spy-reglas';
@@ -40,7 +41,7 @@ const PREGUNTA: Record<Paso, { pregunta: string; sub?: string }> = {
   spy_primero: { pregunta: 'Tu primer competidor', sub: '¿A quién quieres mirar? Alcanza con un dato suyo.' },
   spy_canales: { pregunta: 'Dónde mirarlo', sub: 'Cada canal que agregues es un bloque más de su ficha.' },
   spy_lectura: { pregunta: 'La primera lectura', sub: 'Vamos a leerlo ahora para que veas qué sale y qué no.' },
-  spy_conectar: { pregunta: 'Conectar Instagram y YouTube', sub: 'Opcional. Sin esto igual ves su sitio y los anuncios que guardes tú.' },
+  spy_conectar: { pregunta: 'Conectar Instagram', sub: 'Opcional. Sin esto igual ves su sitio, sus videos y los anuncios que guardes tú.' },
 };
 
 const CAJA: React.CSSProperties = {
@@ -302,7 +303,7 @@ export function OnboardingSpy({ alSalir }: { alSalir: () => void }) {
           )}
           <Contexto titulo="Lo que esta lectura empieza a construir">
             Lo que MaKo agrega sobre abrir sus perfiles a mano es una sola cosa, y es la más útil:
-            desde hoy guarda una foto por día, así que va a poder decirte{' '}
+            desde hoy se acuerda de lo que ve cada vez que revisas, así que va a poder decirte{' '}
             <strong style={{ color: 'var(--ink)' }}>desde cuándo</strong> está a la vista cada pieza.
             Una que lleva tres meses es de las que le funcionan; una de ayer es una prueba. Ese dato
             no está en ninguna pantalla de Instagram ni de Meta: hay que haberlo estado mirando.
@@ -316,17 +317,17 @@ export function OnboardingSpy({ alSalir }: { alSalir: () => void }) {
 
       {paso === 'spy_conectar' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <a href="/integraciones" style={{ ...BOTON, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            <Icon name="plug" size={15} /> Abrir Integraciones
-          </a>
-          <Contexto titulo="Qué cambia si las conectas">
-            Sin conectar nada, Competitor Spy ya lee el sitio de tus competidores y guarda los
-            anuncios que pegues. Con Instagram conectado suma sus publicaciones con vistas y «me
-            gusta»; con YouTube, sus videos con etiquetas.
+          <BotonIntegracion servicio="meta" style={{ ...BOTON, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="plug" size={15} /> Conectar Instagram
+          </BotonIntegracion>
+          <Contexto titulo="Qué cambia si lo conectas">
+            Sin conectar nada, Competitor Spy ya lee el sitio de tus competidores y sus videos de
+            YouTube, y guarda los anuncios que pegues. Con Instagram conectado suma sus publicaciones
+            con vistas y «me gusta».
             <div style={{ marginTop: 9, paddingTop: 9, borderTop: '1px solid var(--border)' }}>
               Instagram pide una cuenta profesional vinculada a tu página de Facebook; es el mismo
-              permiso que ya usa el buscador de perfiles del CRM. YouTube pide una clave de su API,
-              gratuita.
+              permiso que ya usa el buscador de perfiles del CRM. YouTube no pide nada: MaKo lo lee
+              con su clave.
             </div>
           </Contexto>
         </div>
