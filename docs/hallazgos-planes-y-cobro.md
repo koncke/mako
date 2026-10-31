@@ -10,6 +10,70 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## El barrido del 31/10: la tercera pasarela dejó NUEVE lugares donde no se cobra, y ninguno da error
+
+**Lo que se midió:** el commit de Creem (`5faf71e0e`) dice en su propio mensaje que cazó 53 ternarios
+de dos ramas. Un barrido adversarial posterior (107 agentes, cada hallazgo contra tres refutadores con
+lentes distintas: «probá que el código está mal», «probá que el arreglo no tiene dientes», «probá que
+pierde lo que el guardia cuidaba») encontró **nueve más que sobrevivieron a la refutación**. Ninguno
+rompe un test de hoy, ninguno tira un error, y **ninguno se nota hasta que alguien de LatAm intenta
+pagar**. Están abiertos: acá queda el mapa para arreglarlos, no el changelog.
+
+**Por qué el diagnóstico obvio falla acá:** el commit de Creem escribió, en comentarios, que varios de
+estos lugares ya estaban arreglados. Dos de los nueve tienen, **once y sesenta líneas más arriba**, un
+comentario del propio commit que dice que ese bug se derivó de `Pasarela` y ya no se copia — y debajo
+sigue la lista de dos escrita a mano. Un comentario que afirma que algo se arregló no es evidencia: se
+lee el código.
+
+| Dónde vive | Qué pasa con un cobro de Creem | Plata |
+|---|---|---|
+| `lib/agencia-cobro-reglas.ts`, `cobroDeLaCuenta` | Ninguna cuenta de cliente de agencia se abre en MX, CO, CL, PE, BR, UY, PY, BO ni EC: la agencia pide el link del primer mes y MaKo contesta «MaKo todavía no tiene una pasarela» | **NO COBRA** |
+| `lib/subir-plan.ts`, `subirAPro` | El `else` le pide a Mercado Pago cambiar el monto de una suscripción cuyo id no es suyo: ningún cliente de Creem pasa de Esencial a Pro, y el error culpa a una pasarela que no usa | **NO COBRA** (el upsell, apagado para LatAm) |
+| `app/crm/[id]/cobros-actions.ts:125` | `['stripe','mercadopago']` escrita a mano: un negocio con Creem no puede armar un link de pago desde la ficha ni desde la cuota. El mensaje dice «Conecta Stripe o Mercado Pago», así que cree que el problema es suyo | **NO COBRA** |
+| `lib/retencion-plan.ts`, `aplicarRetencion` | Un cliente de Creem que acepta «2 meses al 50%» o «pausar un mes» recibe «No pudimos aplicarlo» y pierde su única oferta para siempre. Es el último paso antes de la baja | Plata que se va |
+| `lib/retencion-plan.ts`, `reanudaDeLaPausa` | Una pausa aceptada que la pasarela no ejecuta: se le sigue cobrando el mes a alguien a quien MaKo le prometió no cobrárselo, y la marca queda «aplicada» así que no se le vuelve a ofrecer nada | Cobra lo que prometió no cobrar |
+| `lib/cobros.ts`, la prueba gratis | Una prueba por Creem autoriza la tarjeta y **no entrega la cuenta**, y no anota la huella: la misma tarjeta saca prueba tras prueba | Venta pagada sin entregar |
+| `lib/cobros.ts`, `crearCheckoutCreem` | Nunca llama a `plazoDelCobro`: una suscripción de plazo fijo vendida por Creem **sigue cobrando después del último mes pactado**, mientras MaKo muestra el plan como terminado | Cobra de más |
+| `lib/cobro-etapa.ts` | El vínculo de «Vincular cobro» se guarda SIN la cuenta: el cobro de Creem entra pero el lead no pasa a Ganado. De los caros porque no se nota | Indirecta |
+| `lib/cobros-reglas.ts`, `esTextoDeContracargo` | Exige `(?:Stripe\|Mercado Pago)`: un contracargo de Creem se dibuja en letra chica en vez de aviso rojo. Una disputa que el negocio no contesta se pierde por defecto | Latente, con el cargo |
+
+**Y una décima que es de seguridad, no de cobro:** `tests/pasarela-sin-env.test.ts` es el único guardia
+que impide que una clave de cobro se lea por `process.env`, `envCred` o `credWs` (caminos que caen al
+ws1, el de la plataforma). Su patrón es `(?:STRIPE_|MERCADOPAGO_|MP_)`, así que **está ciego a las tres
+claves de Creem**: una lectura de `CREEM_API_KEY` por ahí cobraría con la cuenta de Creem de la
+plataforma, con plata de un cliente. No está rojo — está ciego, que es peor.
+
+**Lo que SÍ se arregló el 31/10** (lo demás queda abierto):
+
+- **Al rótulo del checkout público de /planes le faltaba Creem**, así que su opción salía con el radio
+  EN BLANCO: el comprador no sabe qué elige y se va, y el que no se leía era el de LatAm. El
+  `Record<Pasarela, string>` es total y TypeScript lo veía (TS2741), pero `next.config.ts` tiene
+  `ignoreBuildErrors: true` y el build lo dejó pasar. **Un error de tipos en una pantalla pública no lo
+  frena nada**: el guardia de texto quedó en `tests/creem-pasarela.test.ts`, que no depende de que corra
+  `tsc`. Se ve cuando se ofrecen dos pasarelas: país desconocido (local, o una IP que Vercel no ubica) o
+  la preferida sin conectar.
+- **A qué ficha se le ata un pago lo decidía un `else`.** `leadDeLaCompra` preguntaba
+  `motivo === 'email' || (motivo !== 'nombre' && sinOtroEmail(...))`: todo motivo nuevo entraba solo en
+  «le ata la compra», y lo que se ata es el pago de una persona a la ficha de otra (marca Ganado y pisa
+  la cuenta en `asentarAlta`). Pasó de verdad cuando se sumó `'instagram'`. Y el parámetro tipaba
+  `motivo: string`, así que el compilador tampoco veía un renombre. Ahora es un
+  `Record<MotivoDuplicado, …>` TOTAL en quien toma la decisión. ⚠️ **Esto importa más desde el 31/10:
+  con el WhatsApp pedido en el checkout, el número lo escribe cualquiera en un formulario público** — un
+  dígito mal, o el dueño comprando para su segundo negocio.
+  Y el `'instagram'` de esa tabla **no lo probaba nadie**: una tabla total sin un caso por renglón es
+  documentación, no una red. Cada motivo tiene ahora el suyo.
+
+**La regla que queda:** una diferencia entre pasarelas va en un `Record<Pasarela, …>` TOTAL o en un
+`switch` con `never`, nunca en un ternario de dos ramas ni en un `else`. Y antes de dar por arreglado un
+ternario, **buscar sus copias por el valor viejo** (`'stripe'`, `'mercadopago'`, `!== 'mercadopago'`),
+no por el nombre del tipo: un literal `['stripe','mercadopago']` es asignable a `Pasarela[]` y el
+compilador no dice nada.
+
+**Mientras estos nueve estén abiertos, conectar Creem en producción los prende todos juntos.** Hoy están
+inertes porque la clave no está en Vercel y el webhook es fail-closed sin secreto.
+
+---
+
 ## Una pasarela nueva no agrega un valor: convierte 53 ternarios correctos en bugs silenciosos (31/10/2026)
 
 **Vive en:** `lib/cobros-tipos.ts` (`Pasarela`, `CAPACIDADES_PASARELA`, `COMISION_PASARELA`) · `lib/creem-api.ts` ·

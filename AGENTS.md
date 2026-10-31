@@ -1000,6 +1000,28 @@ De ahí tres cosas que valen siempre que haya más de una sesión:
    ```
 
    Si HEAD lo tiene y el disco no, no hay nada que arreglar: hay alguien tipeando.
+
+   ⚠️ **Y SI EL ARCHIVO QUE EL ASSERT LEE ESTÁ BIEN, EL QUE ESTÁ MAL ES EL ASSERT.** Un
+   guard que cita una LÍNEA LITERAL (`assert.match(src, /foo\(a, b\)/)`, un
+   `.includes("pais: …")`) se pone rojo con el código correcto en cuanto alguien sube un
+   valor a una variable o le agrega un argumento — la refactorización más normal que
+   existe. Medido el 31/10/2026: de los ocho archivos rojos de un tren, **seis eran esto**
+   (cuatro por la tercera pasarela, uno por el país subido a una variable, uno por el
+   interruptor de la prueba gratis). Y el arreglo peligroso es aflojar el assert o,
+   peor, devolverle al código la forma vieja: en uno de esos seis, bajar un conteo de 3
+   a 2 era borrar la rama de Creem y reinstalar el bug que dejaba a la base diciendo
+   «cancelada» mientras la pasarela seguía cobrando todos los meses.
+
+   **Se reescribe el guard para que afirme LO QUE CUIDA**, en asserts SEPARADOS, cada uno
+   con un mensaje que diga qué se perdió (un mensaje que es un sustantivo —`'la página del
+   plan'`— no dice nada cuando falla), y lo que se cuenta sale de la constante
+   (`PASARELAS.length`) o de un `Record<…>` TOTAL, para que la cosa #4 no compile el test
+   hasta que alguien la nombre. Dos trampas medidas el mismo día:
+   - **Un `indexOf` que compara ORDEN pasa por accidente**: si no encuentra devuelve `-1`,
+     y `-1 < cualquiera` es verdad. Cada punta se afirma existente ANTES de comparar.
+   - **Un `doesNotMatch` pinchado a una grafía muerta no puede ponerse rojo nunca**: el que
+     cuidaba `motivo: checkout.error` miraba un texto con 0 ocurrencias en todo el archivo.
+     Va `\w+\.error`, que caza la regresión escrita con otro nombre de variable.
 3. ⚠️ **UN `tmp-` SIN COMMITEAR ES UN CANDADO PARA TODOS, Y EL QUE LO ESCRIBE ES EL ÚNICO
    QUE NO LO SUFRE.** Un script de diagnóstico con un error de tipos bloqueó el push de
    las otras dos sesiones durante **~3 horas** y les costó dos pushes desde worktree
@@ -1260,6 +1282,12 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   área** («automatización», «flujo», «WhatsApp»). El chat las ordena por puntaje contra el pedido y, a igual puntaje, trae
   la declarada antes hasta el presupuesto de 12.000 (el techo de Groq, que no se sube): la nueva le saca el lugar a la que
   se pidió. Se mide con `tests/ops-center-clasificador-app` ANTES de entregar (25/10/2026, docs/hallazgos-api-mako.md).
+  Las palabras del área van en los **parámetros**, que no puntúan.
+  ⚠️ **Y las dos mitades son UNA sola regla: cumplir media deja todo verde y no prueba nada** (31/10/2026). El rojo
+  aparece sólo cuando se juntan (declarada antes **y** con las palabras del área), así que el piso de
+  `tests/ops-center-bateria` no guarda ninguna por separado. Lo que se mira es el MARGEN, que lo imprime el test 4 de esa
+  batería: hoy `cambiar_crons_secuencia` entra con **119 caracteres** sobre 12.000. El área no tiene aire, y una
+  descripción larga de más lo vuelve a tirar afuera. Si tocás descripciones de `chatbot.def.ts`, mirá ese número.
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).

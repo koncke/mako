@@ -16,6 +16,42 @@ llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</s
 | **Jueves 5/11, 17 h** | Reunión con Thiago | Las 3 fallas de Agency: **en el tren** |
 | **Black November** (arranca ya) | La campaña de Leila a toda su base | **Bloqueada por el segundo nombre** |
 
+## 🔴 LO QUE NO COBRA SI SE CONECTA CREEM — nueve, abiertos (31/10, sin dueño)
+
+Medidos por un barrido adversarial (107 agentes, tres refutadores por hallazgo) sobre lo que dejó la tercera pasarela.
+**Hoy están inertes**: la clave no está en Vercel y el webhook es fail-closed sin secreto. **El día que Martín conecte Creem
+se prenden todos juntos.** El mapa completo, con el por qué y la regla, en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «El barrido del 31/10».
+
+No cobra:
+
+- `lib/agencia-cobro-reglas.ts`, `cobroDeLaCuenta` — **ninguna cuenta de cliente de agencia se abre en MX, CO, CL, PE, BR,
+  UY, PY, BO ni EC**. La agencia pide el link del primer mes y MaKo contesta «MaKo todavía no tiene una pasarela». El más
+  grande del barrido, y el que toca a Thiago.
+- `lib/subir-plan.ts`, `subirAPro` — ningún cliente de Creem pasa de Esencial a Pro: el upsell, apagado para toda LatAm.
+- `app/crm/[id]/cobros-actions.ts:125` — `['stripe','mercadopago']` escrita a mano: un negocio con Creem no puede armar un
+  link de pago desde la ficha ni desde la cuota, y el mensaje («Conecta Stripe o Mercado Pago») lo culpa a él.
+
+Cobra mal:
+
+- `lib/retencion-plan.ts`, `aplicarRetencion` — un cliente de Creem que acepta «2 meses al 50%» o «pausar un mes» recibe
+  «No pudimos aplicarlo» y **pierde su única oferta para siempre**. Es el último paso antes de la baja.
+- `lib/retencion-plan.ts`, `reanudaDeLaPausa` — una pausa aceptada que la pasarela no ejecuta: se le sigue cobrando el mes a
+  alguien a quien MaKo le prometió no cobrárselo, y la marca queda «aplicada».
+- `lib/cobros.ts`, la prueba gratis por Creem — autoriza la tarjeta y **no entrega la cuenta**, y no anota la huella: la
+  misma tarjeta saca prueba tras prueba.
+- `lib/cobros.ts`, `crearCheckoutCreem` — nunca llama a `plazoDelCobro`: una suscripción de plazo fijo **sigue cobrando
+  después del último mes pactado**, mientras MaKo muestra el plan como terminado.
+- `lib/cobro-etapa.ts` — el vínculo se guarda SIN la cuenta: el cobro de Creem entra pero el lead no pasa a Ganado.
+- `lib/cobros-reglas.ts`, `esTextoDeContracargo` — exige `(?:Stripe|Mercado Pago)`: un contracargo de Creem se dibuja en
+  letra chica en vez de aviso rojo, y una disputa que nadie contesta se pierde por defecto.
+
+Y una de seguridad, que **no está roja: está ciega**:
+
+- `tests/pasarela-sin-env.test.ts` — es el único guardia que impide leer una clave de cobro por `process.env`, `envCred` o
+  `credWs` (caminos que caen al ws1, el de la plataforma). Su patrón es `(?:STRIPE_|MERCADOPAGO_|MP_)`: las tres claves de
+  Creem no las mira. Una lectura de `CREEM_API_KEY` por ahí cobraría con la cuenta de la plataforma, con plata de un cliente.
+
 ## 🔴 Lo que bloquea una campaña de un cliente — EN MARCHA (CRM, 31/10)
 
 Del `pendientes-30-10.md`, sección 5. Todo esto es de **Leila para Black November**:
@@ -153,7 +189,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 - **Una cuenta sin computadora conectada:** «Instalar MaKo» en vez de la caja en Automations, Offer, Web Generator, Dashboard y el «Editar con IA» de una sección; «Probar nuevo diseño» no pide nada
 - **Strategy › «Cómo cobrar MaKo»** (/admin/estrategia/cobrar) como super admin, en la app desplegada: si el .md no viajó al deploy, la pantalla dice «No se pudo leer la investigación»
 
-## Rojos en `main` sin dueño
+## Rojos en `main` sin dueño — se cerraron todos (30/10/2026)
 
 Ninguno. Los tres que había (`vuelo-mako`, `dashboard-pedidos-chat`, `paso-ia`) estaban VERDES: se arreglaron el 24/10 a las 20:58
 y 20:59, 95 minutos después de que se escribiera esta sección, y quedaron acá seis días hasta que se repartieron a dos chats que no

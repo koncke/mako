@@ -14,6 +14,79 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## Dos ramas recuperaron el MISMO margen y el merge se lo comió: un presupuesto compartido no da conflicto (31/10/2026)
+
+**El síntoma:** el piso de la batería del Ops Center cayó en los dos modos —el chat de la app y
+WhatsApp— por UNA frase: «Hacé que la automatización de reactivación salga todos los martes a las 15»
+dejó de traer `cambiar_crons_secuencia`. MaKo contestaba «no puedo» de algo que sí puede y que la
+pantalla tiene. `automations-clients 16/49 (piso 17)`.
+
+**Los dos diagnósticos obvios eran los equivocados.** El primero, mío: «las 21 operaciones de estudio
+de video que entraron empujaron el piso». Falso, y lo desmiente la misma salida del test: `video-imagen`
+llega a su piso (10/14 y 9/14) y los otros siete grupos también. Se cae UNA operación, y es de
+Automations. El segundo, «el presupuesto es chico»: el presupuesto es el mismo de siempre.
+
+**La causa real es un EMPATE de puntaje, no un tamaño.** El turno ordena las operaciones por cuántas
+raíces del pedido aparecen en su id, título y descripción (`ordenarPorRelevancia`, `lib/api-mako/registro.ts`:
+id y título valen 2, la descripción 1) y recorta por caracteres. Esa línea es
+`.sort((a, b) => b.p - a.p || a.i - b.i)`: **el puntaje manda y el orden de DECLARACIÓN desempata.**
+`quienes_de_automatizacion` —la operación de «Ver quiénes» de Métricas— nació declarada **3.ª** en su
+área con «automatización» en el título y «flujo» en la descripción, así que empataba en **3 puntos** con
+`cambiar_crons_secuencia`, declarada **47.ª**. Y el CRON es la operación más pesada del área (~4.100
+caracteres): entra de una sola vez o no entra.
+
+Medido con una sonda sobre el registro real, no contado a mano:
+
+| estado | puesto del CRON | chars hasta él | margen sobre 12.000 |
+|---|---|---|---|
+| `quienes` 3.ª, con «automatización» y «flujo» | 8.º | 12.431 | **−431 → afuera** |
+| al final del área, sin esas palabras | 7.º | 11.881 | +119 |
+
+**⚠️ Y POR QUÉ NADIE LO VIO, que es lo que ahorra el día siguiente:** dos ramas en paralelo pegaron el
+MISMO rojo. `respaldo/aut-variantes-3110` le agregó 7 parámetros a dos operaciones del área, vio caer el
+piso y lo arregló **acortando sus propias descripciones** — midiendo verde sobre un árbol que todavía no
+tenía `quienes_de_automatizacion` (su fork es anterior al commit que la trajo). El merge juntó las dos
+**sin un solo conflicto**, porque tocan lugares distintos del archivo, y sin volver a medir. El margen
+que una rama recuperó se lo comió la otra.
+
+**La regla que queda: un presupuesto compartido es un recurso que git no sabe mergear.** Dos ramas que
+cada una «hace lugar» en el mismo tope de 12.000 caracteres se mezclan limpias y el resultado no
+alcanza. Si una rama arregla un rojo de presupuesto acortando texto, al integrarla hay que **volver a
+medir el margen**, no confiar en que midió verde en su propio árbol.
+
+**Y la segunda regla, sobre cómo se cuida esto:** la de AGENTS.md tiene dos mitades —al final del área
+**y** sin las palabras que toda el área comparte— y **cada mitad sola deja todo verde**. Los cuatro
+estados, medidos:
+
+- al final + palabras nuevas → verde, margen 119
+- al final + palabras viejas → **verde**, margen 119
+- declarada 3.ª + palabras nuevas → **verde**, margen 119
+- declarada 3.ª + palabras viejas → ROJO, margen −431
+
+O sea que el piso de la batería **no guarda ninguna de las dos mitades**: mañana alguien cumple «al
+final» y repite las palabras, y pasa. Lo único que no se puede cumplir a medias es el MARGEN, y por eso
+el test 4 de `tests/ops-center-bateria` lo mide y lo **imprime**. Hoy son **119 caracteres**: el área no
+tiene aire, y la próxima descripción larga de más vuelve a tirar al CRON afuera. El número está en la
+salida del test para que el próximo lo vea antes de que el ruteo se caiga, no después.
+
+**Dos cosas más del camino:**
+
+- **El recorte avisa y nadie lo lee.** `lib/api-mako/registro.ts` escribe
+  `[api-mako] presupuesto de 12000 chars: quedaron afuera …` con la lista completa de lo que descartó —
+  en esta corrida, 57 operaciones. Es un `console.warn` en la salida de un test. El aviso existía todo
+  el tiempo.
+- **El verde que queda es verde por casualidad.** El tercer punto del CRON sale de que su descripción
+  dice «lo que la **hace** arrancar» y el pedido arranca con «**Hacé**»: la comparación es por
+  SUBSTRING, no por palabra. El día que alguien escriba «lo que la dispara», el CRON baja a 2 puntos.
+  Nada mide eso.
+- **Las palabras del área van en los PARÁMETROS**, que no puntúan. Es el lugar donde se puede decir
+  «la automatización (de listar_secuencias_nutricion)» sin pagar el empate.
+- Al mover una operación hay que **regenerar `docs/api-mako.md` en el mismo commit** (va en orden de
+  declaración; el snapshot HTTP es alfabético y de ids, no cambia). El id NO se toca: los ids son
+  contrato.
+
+---
+
 ## El choque del registro se UNE; el de `NO_EN_FLUJOS` se une o abre un agujero (30/10/2026, rescate de video-generator)
 
 **El síntoma.** `nube/video-generator-2710` (el estudio copiado de Arcads, 27/10) quedó tres días sin subir y al mergearla

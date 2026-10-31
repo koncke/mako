@@ -525,6 +525,48 @@ después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/ha
 
 *25/10/2026, el Cerebro (claude5).*
 
+## Un guardia que sigue el TEXTO da rojo con el código correcto: el refactor legítimo lo rompe (31/10/2026)
+
+**El síntoma:** el tren dio rojo en `tests/planes-stripe-afuera.test.ts:218` con un solo mensaje, «la página del plan».
+La página estaba bien. El test pedía el texto exacto `pais: paisDelVisitante((await headers()).get('x-vercel-ip-country'))`
+DENTRO de la llamada a `ofertaDelPlan`, y la página lo había subido a `const pais` una línea antes — porque ahora lo usa DOS
+veces: la oferta y `ladaDelPais(pais)`, la lada con la que arranca el WhatsApp que se pide antes del checkout.
+
+**El diagnóstico obvio era el equivocado.** En este repo un rojo del tren casi siempre es un merge que dejó algo a medias, y la
+tentación es buscar qué se perdió en el merge. Acá no se había perdido nada: el código mejoró y el guardia no lo acompañó.
+
+**La regla:** un guardia que lee fuente (`fuente(...)`.includes / `cuerpo(...)` + `assert.match`) tiene que afirmar **lo que
+cuida**, en afirmaciones separadas, no una línea literal. El literal ata el guardia a una forma de escribir, y la primera vez
+que alguien hoista un valor —la refactorización más normal que existe— el guardia miente. Acá quedó en tres: que la página lea
+el encabezado de Vercel, que ese país llegue a la oferta (buscado en el TROZO de la llamada, no en todo el archivo), y que la
+lada salga del mismo país. Las tres se verificaron rompiéndolas (base 12 / 0 → 11 / 1 cada una).
+
+**Y un mensaje de assert que es sólo un sustantivo (`'la página del plan'`) no dice qué esperaba.** Cuesta lo mismo escribir
+«la página del plan le pasa ese país a la oferta», y es la diferencia entre leer el log y abrir el archivo.
+
+**Y no era uno: eran SEIS de ocho, y el chequeo del push sólo muestra el primero** (31/10/2026). El pre-push y Actions cortan
+en la primera tanda roja, que es lo correcto para no gastar un run de 15 minutos — pero convierte ocho rojos en ocho rondas de
+push fallido, a ~17 minutos de chequeo local cada una. Lo que los muestra todos de una es **la suite completa sin `--cortar`**:
+`node scripts/tests-afectados.mjs --base origin/main --tanda 20 --concurrencia 2`, 59 minutos, 13.683 tests de 1.536 archivos.
+De esa corrida salieron NUEVE archivos rojos.
+
+**⚠️ Y uno de los nueve era la máquina.** La corrida terminó con `RAM libre mínima 0.4 GB`, y repetido SOLO con memoria libre
+`tests/chats-mako-envio.test.ts` da 8/0. O sea: **la lista de una corrida larga no es la lista de rojos, es la lista de
+candidatos**. El paso que falta es barato y obligatorio: repetir cada archivo de a uno (`node --import tsx --test <archivo>`)
+cuando la RAM volvió, y recién ahí contar. Lo mismo dice el hallazgo de las 615 barredoras «rojas» con 0,1 GB libres.
+
+De los ocho que quedaron, **seis eran el guardia persiguiendo el texto** (cuatro por la tercera pasarela, uno por el país
+subido a una variable, uno por el interruptor de la prueba gratis) y **dos eran código**. Y el que no era un guardia roto era
+el más caro: una operación nueva del chat le sacaba el lugar a otra por un empate de puntaje
+(→ [hallazgos-api-mako.md](hallazgos-api-mako.md), «Dos ramas recuperaron el MISMO margen»).
+
+**Trampa del camino, y ésta es invisible:** al escribir ese test con un heredoc, `\bpais,` quedó en el archivo como un
+BACKSPACE literal (0x08) seguido de `pais,` — el heredoc se comió una barra y Python tomó `\b` como el carácter de control.
+`git diff` lo mostró como `/pais,/`, que se lee perfecto, y el único que lo delata es `cat -A` (`/^Hpais,/`) o un `repr()`.
+Un test con un 0x08 adentro no falla al parsear: corre y nunca empareja. Si una expresión regular escrita por heredoc se ve
+bien en el diff pero no empareja nada, mirala con `cat -A` antes de dudar del código. Lo más barato es no usar `\b`: en un
+trozo acotado, `trozo.includes('pais,')` dice lo mismo y no tiene barras que perder.
+
 ## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
 
 **Vive en:** cualquier ronda de «probado rompiéndolo» sobre archivos que todavía no están commiteados.
