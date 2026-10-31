@@ -41,6 +41,8 @@ la revisión.*
 
 **⚠️ Corregir el texto suelta las variantes** (`variantesTrasCambio`, 25/10: el motor sorteaba lo que ya no decía). Con MaKo daba igual; escritas a mano duele, así que se avisa, y «Deshacer» las devuelve ABIERTAS: siguen diciendo lo de antes y se sortearían, así que quedan a la vista. Si se sale de la tarjeta sin el ➤ (`alSalir`), se van sin aviso: el cartel no llega a verse.
 
+**⚠️ Una descripción nueva en la API le saca el lugar a otra operación.** Las del arranque inflaron `configurar_automatizacion`, y «Hacé que la automatización de reactivación salga todos los martes a las 15» dejó de traer `cambiar_crons_secuencia`: el presupuesto de herramientas del chat es fijo. Se arregló achicando lo mío, no subiendo el presupuesto (docs/hallazgos-api-mako.md, «Una operación nueva le saca el lugar…»). **Para saber que era mío hubo que correrlo en una copia limpia de integración:** de 3 rojos del barrido, ése era el único que ahí daba verde.
+
 **Sin hacer:** el arranque es de cada automatización y no de la línea: dos automatizaciones arrancando sobre un número se suman, y sólo las frena su tope. Instagram no tiene el «↻» (`EditorMensajeSocial`), y su riesgo no es éste. Un arranque que tardaría más de 60 días en llegar se rechaza: esa historia se lee en cada corrida. Sin ver en pantalla: el código no está desplegado (punto 10 de docs/relevo/automations.md).
 
 ## La automatización de Leila que «siguió hasta las 11 de la noche» (30/10/2026, llamada, punto 1.7)
