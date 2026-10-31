@@ -59,8 +59,11 @@ Guard: `tests/clic-derecho-listas.test.ts` (12 tests, 30 roturas cazadas).
   importar IntegracionesBoard o SimuladorWhatsApp: con 6000 corre (1 min 38 s). Los 16 errores que da son de arrastre
   (`opencut-wasm` sin compilar por `npm ci --ignore-scripts`, el `<style jsx>` de Compartir.tsx), ninguno de lo tocado.
 
+**«Responder» del clic derecho (30/10/2026):** `app/_chat/useCitaDelChat.tsx`, con la cita por conversación (no viaja a otro diseño ni a otro lead). Sumado al Image Editor, Video Editor, Dashboard, WhatsApp Advisor y la ficha del lead. ⚠️ Una nota de voz sale por detrás: en los editores no se lleva la cita, que queda para lo que se está escribiendo.
+
 ### Lo que quedó sin hacer
 
+- **Responder en Offer, Soporte y Automations:** ahí sólo está Copiar. Offer manda con refs y el arranque tiene su propio flujo (`OfferApp.tsx`); en Soporte el texto va al equipo (`useSoporte.ts`); Automations quedó acordado aparte (`docs/pendientes.md`). Second Brain usa su propio menú completo.
 - Que el «⋯» de Chats y del Web Generator abran ESTE menú (sus chats).
 - ⚠️ **La rama estuvo tres días colgada (27 al 30/10) y al traerla el menú de Chats ya mentía:** Martín le había cambiado el «⋯» el 27/10 (sin Cerrar ni Posponer; Agregar al CRM, Abrir ficha, Asignar). Un cherry-pick sin conflicto en ese archivo habría vuelto a ofrecer Cerrar. El cruce por test lo agarra: al traer un menú viejo, se adapta al de ahora y no al revés. Y `docs/pendientes.md` seguía diciendo «sin implementar» de Copiar y del lienzo, que estaban desde el 24/10: antes de implementar algo de esa lista, mirar el código.
 - Integraciones: el clic derecho tiene que hacer lo mismo que el clic (`abrirTarjeta`: una red social abre Zernio), no abrir la tarjeta suelta.

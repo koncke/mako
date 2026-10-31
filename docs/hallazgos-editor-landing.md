@@ -3859,3 +3859,24 @@ redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`
   dominio en la copia. O la prueba busca mal, o la #88 no salió por este camino (`lib/editor-landing/copia-identica.ts`, la foto del
   navegador). **Hasta medirlo, este arreglo no está probado para el caso que lo originó.**
 - Reparar la #88 (el prefijo de sus imágenes, con respaldo antes). De las 28 copias que hay es la única con esta causa.
+
+## El feedback del 24/10: ya estaba hecho, y lo roto era otra cosa (30/10/2026, claude1)
+
+**Vive en:** `app/web-generator/gamma.css` (`container: gma-barra`) · `tests/editor-landing-iconos.test.ts` · `scripts/banco-editor-web/` (el banco).
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Se pidió de nuevo «Nueva landing sin navegar» y «un solo botón Compartir» como no cumplidos. Están en main desde `f24afff79` (24/10) y `docs/diseno-editor-web-como-automations.md` lo decía. Reescribirlos era perder el trabajo. Medido en el banco con clics: «Nueva landing» cambia la barra y el lienzo por «¿Qué vas a crear hoy?» y no navega (`window.__nav` vacío, misma URL). Lo que SÍ va a `?panel=1` es otro link, «Ver todo en el Panel», al pie de la lista.
+- **Lo que estaba roto de verdad, y ningún test ni lectura de código lo había visto:**
+  - **La barra cortaba Compartir y el ⋯.** A 1024, con la tarjeta del chat, pedía 712 px en 660; un panel de la derecha (Tema, Animar) la achica igual a cualquier ancho. El `@media` mira la ventana, y lo que importa es lo que mide la barra: `container: gma-barra`. ⚠️ El contenedor es la barra y no `.gma-centro`: `container-type` hace de esa caja el bloque de lo `position: fixed`, y adentro están el lienzo y sus flotantes.
+  - ⚠️ **`.gma-dispositivos { display: flex }` está más abajo en el CSS y le ganaba al pliegue:** la primera versión no escondía nada y parecía andar en la lectura. Por eso va con `.gma-herr-der` adelante. Lo agarró la medición, no el código.
+  - **La X de Compartir era un cuadrado con una diagonal,** y lo mismo dos pestañas de Ajustes del sitio y dos del editor de tema. `Ico` dibuja `neutro` si el nombre no existe, a propósito («nunca un hueco»): nada avisa. Ahora un test recorre los nombres fijos de la tab. **Los que vienen de una variable no los cubre.**
+
+**El banco (`scripts/banco-editor-web`), para la próxima:** el `EditorLanding` real, con esbuild, `fetch` simulado y sin base. Compila en ~1 min y no pide más memoria que esbuild; no necesita sesión ni escribe en producción.
+- Lo que costó: las acciones de server (`'use server'` en cualquier archivo, no sólo los `actions.ts`) se reemplazan por funciones vacías; los módulos de node van como un Proxy en CJS, porque esbuild exige los nombres de un ESM; `CONFIG_DEFAULT`, porque `config.pagina` es obligatorio.
+- **Lo que NO mide:** sin la barra lateral de la app (la real tiene ~58 px menos: todo aprieta antes) y sin el CSS de Tailwind; un «Diseño editable» sale sin estilos si su hoja no se le pasa en la config, y eso es del banco, no un bug.
+- ⚠️ El banco anterior (`banco-create-qa`, 29/10) quedó en una carpeta de notas y hoy no se pudo encontrar: por eso éste vive en el repo.
+
+**Lo que quedó SIN hacer:**
+
+- **Nada de esto se vio en producción ni con la barra lateral real.** Si Martín sigue viendo los dos botones o la otra ruta, es otra cosa: un despliegue viejo, o lo que mira no es este editor. Hace falta su captura.
+- **Punto 6 (placeholders detrás de otras secciones):** en el banco el «Encabezado 2» de una sección vacía se lee y no queda tapado. No se reprodujo el caso original: se necesita la landing donde lo vio.
+- **Por debajo de ~336 px de barra** (640 de ventana, sin lugar real) sigue sin entrar.

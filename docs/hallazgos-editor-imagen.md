@@ -663,7 +663,7 @@ Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjet
 - **Dos propuestas pendientes:** pedir de nuevo no cierra la anterior; aceptar las dos duplica las páginas. Pide dos clics y sale el aviso «Cambiaste el diseño».
 - `contenidoNoConfiable` (lib/prompt-render-pure.ts) no neutraliza `</etiqueta >` con un espacio. Lo usan todos los prompts, y en este chat el texto es de la misma persona.
 - En un enlace de sólo lectura, una página angosta también pierde el tamaño.
-- **Poner fotos desde el chat:** `NO_SE_PUEDE_CHAT_IMAGEN` (catalogo.ts). Es una función que falta, no parte de este bug.
+- **Poner fotos desde el chat:** hecho el mismo 30/10, en la entrada de abajo.
 - **La marca completa:** el chat no conoce colores ni logo del negocio. Depende del brand board (pendientes-30-10.md, 2.9).
 - **Los motivos de «No se aplica»** están escritos para el programador (««estilo» no es algo de…»).
 - **Cómo se ve:** falta mirarlo en el editor, con una sesión que no sea de un cliente.
@@ -679,3 +679,21 @@ Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjet
 **El diagnóstico obvio era el equivocado:** sumar las pantallas de Create a `RUTAS_QUE_PLIEGAN`, como pide 2.13. Choca con la decisión del 24/10 (la flecha fija la barra y se respeta; lo cuida `tests/sidebar-plegada-por-defecto.test.ts`). La barra ya arranca plegada: sólo queda abierta para quien la fijó.
 
 **Lo que quedó SIN hacer:** con la barra fijada y el chat abierto puede haber otras roturas: «se rompe» no está medido en la pantalla real.
+
+## Las fotos desde el chat: la IA elige por ref y nunca ve una dirección (30/10/2026, claude1)
+
+**Vive en:** `lib/image-editor/chat/catalogo.ts` (`agregar_foto`, `fondo_foto`) · `aplicar.ts` (`objetoFoto`) · `vista.ts` («fotos») · `hilo.ts` (`fotosGuardadas`) ·
+`app/image-editor/mako/chat/acciones.ts` (`fotosParaPedir`). Decisión de alcance: el Cerebro, sin esperar el minuto 01:37 de la llamada con Leila.
+
+- **La IA no recibe direcciones:** ve «o1, foto.jpg, 2000×1000» y contesta con la ref. Así no puede meter una URL de internet en el diseño, y lo que tira `validarOperacion` por no ser una ref es justamente eso.
+- **Las adjuntas se suben ANTES de pedir,** para que tengan dirección cuando vuelve la propuesta, y van primero en la lista con `adjunta`. Quedan en Subidos aunque se descarte la propuesta. Si una no sube, se dice en «No se aplica» y el pedido sigue.
+- **La propuesta guarda las fotos que usa,** no toda la lista: aceptar después de recargar tiene que encontrarlas. El saneo del hilo tira lo que no sea http(s): ese texto llega a un `src`.
+- ⚠️ **`cubrir` usa `cropX`/`cropY` en píxeles de la foto, y `width`/`height` son la parte de la foto que se ve:** escala pareja siempre. Con ancho y alto sueltos, Fabric la deformaría sin avisar.
+- **Probado contra el cargador real** (`deserializeObjects` y `buildBackground`, `scripts/banco-editor-web`, `/foto`): entera, cubriendo y de fondo se dibujan sin deformarse; al serializar vuelven el `src`, el `assetId` y el recorte. El motor saca `crossOrigin` al guardar y lo vuelve a poner al cargar (`prepareImage`).
+
+**Lo que quedó SIN hacer:**
+
+- **No visto en el editor completo ni con la IA de verdad eligiendo fotos** (`vivo-carrusel` queda por correr con «fotos» en la vista). El banco prueba el objeto y el cargador, no el flujo de la pantalla.
+- **La lista es de Subidos:** las 40 más nuevas, con las adjuntas primero. Otra biblioteca (las fotos de stock del panel) no entra.
+- **Una foto borrada de Subidos después de proponer:** `deserializeObjects` cae a `fallbackObject`, no rompe; no se dice nada en la propuesta.
+- **El Video Editor no tiene esto.**

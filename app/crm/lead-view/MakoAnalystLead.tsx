@@ -69,6 +69,7 @@ import '@/app/_chat/chat.css';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 const RUTA = '/api/crm/analyst';
 /** El maxDuration de la ruta es 300 s: el corte del navegador va 5 s después. */
@@ -112,6 +113,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
   const [items, setItems] = useState<ItemHilo[]>([]);
   const [texto, setTexto] = useState('');
+  const cita = useCitaDelChat(leadId);
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
   const [adjuntos, setAdjuntos] = useState<Adjunto[]>([]);
@@ -279,12 +281,13 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   };
 
   const enviarComposer = () => {
-    const t = texto.trim();
+    const t = cita.con(texto.trim());
     const juntados = adjuntosRef.current;
     if ((!t && !juntados.length) || procesando > 0) return;
     if (ocupadoRef.current || !listo || errorCarga) return;
     enviar({ texto: t, adjuntos: juntados });
     setTexto('');
+    cita.soltar();
     ponerAdjuntos([]);
   };
 
@@ -422,7 +425,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
           {error && <div role="alert" className="of-error">{error}<ReportarASoporte /></div>}
           {/* La caja va POR LEAD (`key`): una grabación a medias no viaja a la ficha de otro. */}
           <div key={leadId} className="co-caja" style={SIN_VERDE}>
-            <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={enviarComposer}
+            <CajaChat texto={texto} onTexto={(v) => { setError(null); setTexto(v); }} onMandar={enviarComposer} arriba={cita.arriba}
               ocupado={hayTrabajo || procesando > 0} apagado={!listo || !!errorCarga}
               placeholder={edicion ? `Qué cambiar de ${edicion.nombre || 'esta hoja'}` : `Pregúntale a MaKo por ${quien}`}
               tituloMandar="Mandar (Enter)" enterManda seguir={() => hiloRef.current} onErrorMic={setError}
@@ -437,7 +440,7 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
           // `key` por lead: el hilo de otro lead no hereda nada del anterior.
           <HiloMako key={leadId} items={items} quien={QUIEN} ahora={ahora} escribiendo={hayTrabajo ? { segs } : null}
             tarjeta={tarjeta} onTarjeta={(x, a) => void correrTarjeta(x, a)} onReintentar={reintentar} onRecargar={recargar}
-            onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }}
+            onResponder={(t) => { if (ocupadoRef.current) return false; enviar({ texto: t, adjuntos: [] }); return true; }} onCitar={cita.citar}
             onTrabajo={(de, ok) => { setItems((xs) => trasTrabajo(xs, de, ok)); refrescarFicha(); }} />
         )}
       </PanelDeChat>

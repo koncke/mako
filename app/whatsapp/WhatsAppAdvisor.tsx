@@ -25,6 +25,7 @@ import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -143,12 +144,13 @@ export function WhatsAppAdvisor({
 
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Lo de la caja sale con sus archivos (el servidor los lee: lib/adjuntos-del-chat.ts); una sugerencia o una nota, sin ellos.
+  const cita = useCitaDelChat();
   const enviarChat = async (texto?: string, { dejarCaja = false } = {}) => {
-    const txt = (texto ?? input).trim();
+    const txt = (texto ?? cita.con(input)).trim();
     const conArchivos = texto === undefined && adj.hay;
     if ((!txt && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
     const archivos = conArchivos ? adj.tomar() : [];
-    if (!dejarCaja) setInput('');
+    if (!dejarCaja) { setInput(''); cita.soltar(); }
     setChatError(null);
     setChat((c) => [...c, { role: 'user', content: memoriaConArchivos(txt, archivos.map((f) => f.name)) }]);
     setPensando(true);
@@ -289,7 +291,7 @@ export function WhatsAppAdvisor({
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
               )}
               <HiloMako items={nota.conNotas(items)} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
-                tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
+                tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
               {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}<ReportarASoporte /></p>}
             </div>
           </div>
@@ -299,7 +301,7 @@ export function WhatsAppAdvisor({
             </div>
             {/* La caja única (app/_chat/CajaChat.tsx): el «+» (fotos y PDF), los emojis y el micrófono que graba una nota (sale en el acto). */}
             <div className="co-caja">
-              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando || nota.pendientes}
+              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} arriba={cita.arriba} ocupado={pensando || nota.pendientes}
                 placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
                 adjuntos={adj.caja} />
             </div>

@@ -64,6 +64,7 @@ import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -455,10 +456,12 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	/** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
 	// Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): sólo los de la caja (`op.archivos`).
 	const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!proyectoId, onError: (m) => { if (m) toast.error(m); } });
+	const cita = useCitaDelChat(proyectoId);
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean; archivos?: readonly File[] } = {}) => {
 		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
-		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
-		if (!op.dejarCaja) setTexto("");
+		// Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
+		void pedirEdicion(editorRef.current, (op.dejarCaja ? instruccion : cita.con(instruccion)).slice(0, TOPES_CHAT.instruccion), alc, op);
+		if (!op.dejarCaja) { setTexto(""); cita.soltar(); }
 	};
 
 	// La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
@@ -597,7 +600,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 						</>
 					)}
 					<HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
+						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
 					{hilo.corriendo && (
 						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--faint) hover:text-(--ink)">
 							Detener generación
@@ -636,7 +639,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				</div>
 				{/* La caja única (app/_chat/CajaChat.tsx), con los tokens de MaKo tal cual. */}
 				<div className="co-caja">
-					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
+					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} arriba={cita.arriba} ocupado={hilo.corriendo || nota.pendientes}
 						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
 						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion} />
 				</div>
