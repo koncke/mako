@@ -20,7 +20,7 @@ import { Section, Avatar, EmptyState, MONO } from '@/app/_ui';
 // app/_ui porque nació ahí; se importa en vez de escribir un segundo.
 import { useVerMas } from '@/app/plan/board/VerMas';
 import { ClaudeMark } from '@/app/_components/icons';
-import { CUENTAS, TIPOS, type Hito, type Parte } from './tipos';
+import { TIPOS, cuentaDeHito, type Hito, type Parte } from './tipos';
 
 /** `**negrita**` y `` `código` `` — lo mínimo para que el historial se lea. */
 export function texto(s: string) {
@@ -139,7 +139,7 @@ export function Roadmap({ partes }: { partes: Parte[] }) {
 const COLOR = { claude: '#D97757', martin: '#2F6FED' } as const;
 
 function Meta({ h }: { h: Hito }) {
-  const c = CUENTAS[h.cuenta];
+  const c = cuentaDeHito(h.cuenta);
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', marginTop: 3, fontSize: 'var(--fs-meta)', color: 'var(--faint)', lineHeight: 1.5 }}>
       <span style={{ fontFamily: MONO, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{h.fecha} · {h.hora}</span>

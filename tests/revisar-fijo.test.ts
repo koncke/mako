@@ -52,7 +52,7 @@ test('el servidor: un valor distinto del guardado se rechaza, y uno vacío vuelv
   assert.ok(guarda > 0, 'sin la guarda, el formulario cambia sobre qué se ejecuta');
   assert.ok(guarda < f.indexOf('validarInput(def.parametros'), 'la guarda va antes de validar y preparar');
   assert.match(f, /if \(nuevo == null \|\| nuevo === ''\) \{ editado = \{ \.\.\.editado, \[p\.nombre\]: base\[p\.nombre\] \}; continue; \}/, 'un campo vaciado no lo deja sin valor');
-  assert.match(f, /if \(String\(nuevo\) !== String\(base\[p\.nombre\]\)\) \{\s*return \{ ok: false,/);
+  assert.match(f, /if \(distintoAlRevisar\(nuevo, base\[p\.nombre\]\)\) \{\s*return \{ ok: false,/);
   assert.match(f, /const v = validarInput\(def\.parametros, editado \? \{ \.\.\.base, \.\.\.editado \} : base, 'json'\);/);
 });
 

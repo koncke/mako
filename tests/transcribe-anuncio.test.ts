@@ -59,6 +59,6 @@ test('3. lib/transcribe.ts no lee keys de IA del entorno; lo de la plataforma qu
   assert.match(plataforma, /export async function transcribeMediaBuffer\(/);
   // Quién usa cada uno: el Conocimiento y los cursos, la plataforma; los creativos del negocio, el suyo.
   assert.match(readFileSync(join(RAIZ, 'app/api/mako/knowledge/transcribe/route.ts'), 'utf8'), /from '@\/lib\/transcribe-plataforma'/);
-  assert.match(readFileSync(join(RAIZ, 'app/api/ads-manager/creative-upload/route.ts'), 'utf8'), /from '@\/lib\/transcribe'/);
-  assert.doesNotMatch(sinComentarios(readFileSync(join(RAIZ, 'app/api/ads-manager/analyze-creatives/route.ts'), 'utf8')), /envCred|api\.openai\.com/, 'mirar los creativos, con la IA del negocio');
+  // (27/10/2026: creative-upload y analyze-creatives se borraron con el Ads Manager viejo; el cron de los anuncios queda.)
+  assert.match(readFileSync(join(RAIZ, 'app/api/cron/transcribe-ads/route.ts'), 'utf8'), /from '@\/lib\/transcribe'/);
 });

@@ -1,26 +1,29 @@
 // =============================================================================
 // ads-staging — el staging de los creativos: cómo se llama un archivo y cuándo sobra
 // =============================================================================
-// Puro y sin `server-only`, a propósito: lo usan las dos rutas que tocan el staging
-// (creative-signurl lo nombra, creative-upload lo borra) y el test. El formato del nombre
-// vive en UN lugar porque el barrido lee la hora del propio nombre: si una ruta lo armara
-// distinto, el barrido no lo reconocería y el archivo quedaría para siempre, sin error.
+// Puro y sin `server-only`, a propósito: lo usan la firma (lib/ads-staging-firma.ts, que llaman creative-signurl y la API de
+// MaKo), «Subir creativos» del Media Buyer (lib/media-buyer/subir.ts, que sólo toma paths de acá) y el test. El formato del nombre vive en UN lugar porque el
+// barrido lee la hora del propio nombre: si una ruta lo armara distinto, el barrido no lo reconocería y el archivo quedaría
+// para siempre, sin error.
 //
-// Por qué existe el barrido (revisión de la #59, 07/10/2026): al bajar la espera del POST
-// de creative-upload de 150 a 25 s, borrar el staging de un video pasó a depender de que
-// el NAVEGADOR siga preguntando (el GET borra con el veredicto de Meta). Cerrar Agregar
-// anuncio / Agregar conjunto, o quitar la tarjeta en Nueva campaña, corta ese sondeo, y el
-// archivo quedaba en el bucket para siempre: nada más limpia ese bucket.
+// Por qué existe el barrido (revisión de la #59, 07/10/2026): borrar el staging dependía de que el NAVEGADOR siguiera
+// preguntando, y cerrar el modal cortaba ese sondeo: el archivo quedaba en el bucket para siempre. Hasta el 27/10/2026 barría
+// `creative-upload` (la subida a Meta del Ads Manager viejo); con esa ruta borrada, barre `creative-signurl` en cada firma.
 // =============================================================================
 
 export const STAGING_CARPETA = 'nueva';
 
 /**
- * Cuánto vive un archivo del staging antes de que el barrido lo dé por sobrante. Meta lo
- * baja de una URL firmada por 1 h (creative-upload, `createSignedUrl(path, 3600)`), y la
- * transcripción lo baja dentro de los 300 s del POST: a las 6 h no le sirve a nadie.
+ * Cuánto vive un archivo del staging antes de que el barrido lo dé por sobrante. Zernio lo baja de una URL firmada
+ * (lib/media-buyer/subir.ts) dentro de la subida: a las 6 h no le sirve a nadie.
  */
 export const VIDA_STAGING_MS = 6 * 60 * 60_000;
+
+/** El nombre de un archivo como lo guarda el staging: sin espacios ni símbolos, y los últimos 80 caracteres (la extensión). */
+export function nombreSeguroDeStaging(nombre: string): string {
+  const base = nombre.replace(/[^\w.\-]+/g, '_').replace(/_+/g, '_').slice(-80);
+  return base || 'creativo';
+}
 
 /** El path de un archivo nuevo del staging: `nueva/<ms>-<azar>-<nombre>`. */
 export function pathNuevoDeStaging(nombreSeguro: string, ahoraMs: number = Date.now(), azar: () => number = Math.random): string {

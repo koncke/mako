@@ -19,11 +19,11 @@ import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import { productoDeAccion } from '@/lib/media-buyer/productos';
 import { ArbolDeHoy } from '@/app/ads-manager/Arbol';
 import { TarjetaAccion } from '@/app/ads-manager/Autopilot';
-import { aplicablesEnLote, deHoy } from '@/app/ads-manager/mb-modelo';
+import { aplicablesEnLote, deHoy, resultadoAplicar, type ResultadoAplicar } from '@/app/ads-manager/mb-modelo';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
-async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; ajuste?: string | null }> {
+async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; ajuste?: string | null; confirmar?: string }> {
   try {
     const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     return (await r.json().catch(() => ({ ok: false, error: `Error ${r.status}` }))) as { ok: boolean; error?: string };
@@ -48,10 +48,13 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const puede = config.encendido && puedeOperar;
 
-  const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string) => {
+  const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string): Promise<ResultadoAplicar> => {
     setOcupada(d.id);
     const r = await api({ ...body, id: d.id });
     setOcupada(null);
+    // Una baja de 80% o más vuelve como «confírmalo»: la pregunta la hace la tarjeta (sin aviso ni recarga).
+    const res = resultadoAplicar(r);
+    if (typeof res === 'object') return res;
     if (r.ok) toast(r.ajuste ? `${ok}. ${r.ajuste}` : ok);
     else toast(r.error ?? 'No se pudo.', { error: true });
     router.refresh();
@@ -91,7 +94,7 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
           <div className="aa aa-hoja">
             <TarjetaAccion d={detalle} kpi={config.kpi} producto={producto(detalle)} ocupada={ocupada === detalle.id} encendido={puede}
               ajustesHref="/ads-manager/ajustes"
-              onAplicar={async (extra) => { const ok = await aplicar(detalle, extra); if (ok) setAbierta(null); return ok; }}
+              onAplicar={async (extra) => { const r = await aplicar(detalle, extra); if (r === true) setAbierta(null); return r; }}
               onBorrar={() => { void accion(detalle, { op: 'descartar' }, 'Descartado'); setAbierta(null); }}
               onPreguntar={() => router.push('/m/mako')}
               onDeshacer={() => void accion(detalle, { op: 'deshacer' }, 'Deshecho')}

@@ -1,26 +1,25 @@
 'use client';
 
 // =============================================================================
-// Media Buyer — Automatizaciones (/ads-manager/automatizaciones): el «Automation Overview» de Madgicx, con los colores de MaKo
+// Media Buyer — Automatizaciones (/ads-manager/automatizaciones): con la densidad de «Hoy» (27/10/2026)
 // =============================================================================
-// Martín, 25/10/2026: «si quiero que tenga todas las funcionalidades». En Madgicx, al lado del AI Marketer viven las
-// «Automation Tactics»: cada táctica se prende sola, con sus condiciones, sobre lo que uno elige, y una pantalla dice qué
-// hicieron (docs/media-buyer/referencias/madgicx/automatizaciones-*.png). De arriba abajo, como ahí:
-//   1. «Qué hicieron tus automatizaciones»: Prendió · Pausó · Subió presupuesto · Bajó presupuesto · Total, en 7 o 30 días,
-//      y las acciones por día (automatizaciones-resumen.png);
-//   2. la lista de tácticas: interruptor, la táctica, el modo (propone o automática), qué cubre, la frecuencia de los
-//      últimos 14 días y la última vez (automatizaciones-lista.png), con «Editar» (umbrales con el recomendado al lado,
-//      y qué campañas cubre: automatizaciones-condiciones.png, automatizaciones-aplica-a.png) e «Historial»
-//      (automatizaciones-historial.png).
-// Lo que NO se copia (dicho acá): elegir el evento de cada táctica (en MaKo es UNO por negocio: leads, agendas o ventas, y
-// los dos últimos salen del CRM), el valor «dinámico» contra el promedio, y las reglas propias con Y/O (otra pieza).
-// Las tácticas viven en lib/media-buyer/tacticas.ts; lo que se guarda pasa por la misma puerta que la tuerca (el plan sin
-// piloto no deja ninguna automática).
+// Hasta el 27/10 era el «Automation Overview» de Madgicx con su hoja propia (mb.css): cinco contadores con emoji, barras por
+// día, y por táctica un interruptor, su emoji, dos etiquetas, la frase de qué hace, catorce barritas, la última vez, el modo y
+// un «⋯» con «Editar» e «Historial». Martín rechazó esa densidad en Hoy («Una cantidad de botones y texto impresionante»).
+// Ahora, con el molde de Settings de la casa (los ajustes de Linear, app/_ui/Ajustes.tsx) dentro del marco del Media Buyer:
+//   1. «Lo que hizo»: cuatro números (prendió, pausó, subió, bajó) en 7 o 30 días, como los números del mes de Campañas;
+//   2. una FILA por táctica: el nombre, una línea gris con lo que cubre y la última vez, y a la derecha su estado con la flecha.
+//      Toda la fila abre el detalle: el estado, los umbrales con el recomendado al lado, qué campañas cubre y lo último que hizo.
+// `?t=<táctica>` (el lápiz del panel de agentes, la tuerca de una recomendación) abre ese detalle de entrada: hasta el 27/10 el
+// link existía y la página no lo leía.
+// Lo que se guarda manda SÓLO lo que se cambió: el servidor lo mezcla campo por campo (tacticas.ts → mezclarTacticas; falla 2
+// de la verificación de tren-m). El plan sin piloto no deja ninguna automática (lib/media-buyer/store.ts → guardarConfig).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { Button, Modal, RadioGroup, Switch, Toast, useToast } from '@/app/_ui';
+import Link from '@/app/_ui/Link';
+import { Button, Modal, Toast, useToast } from '@/app/_ui';
+import { FilaAjustes, GrupoAjustes, TituloAjustes } from '@/app/_ui/Ajustes';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import type { CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { textoCupo } from '@/lib/media-buyer/plan';
@@ -37,233 +36,186 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
 }
 
 const DIA = 86_400_000;
-const diaDe = (iso: string) => iso.slice(0, 10);
 const ACCIONES = [
-  { tipo: 'activar', nombre: 'Prendió', icono: '▶️' },
-  { tipo: 'pausar', nombre: 'Pausó', icono: '⏸️' },
-  { tipo: 'subir_presupuesto', nombre: 'Subió presupuesto', icono: '📈' },
-  { tipo: 'bajar_presupuesto', nombre: 'Bajó presupuesto', icono: '📉' },
+  { tipo: 'activar', nombre: 'Prendió' },
+  { tipo: 'pausar', nombre: 'Pausó' },
+  { tipo: 'subir_presupuesto', nombre: 'Subió presupuesto' },
+  { tipo: 'bajar_presupuesto', nombre: 'Bajó presupuesto' },
 ] as const;
+const NOMBRE_ESTADO: Record<EstadoTactica, string> = { apagada: 'Apagada', propone: 'Propone', automatica: 'Automática' };
 
-export function Automatizaciones({ config: inicial, decisiones, cupo }: { config: Config; decisiones: Decision[]; cupo: CupoMediaBuyer }) {
+export function Automatizaciones({ config: inicial, decisiones, cupo, abrir = null }: {
+  config: Config; decisiones: Decision[]; cupo: CupoMediaBuyer;
+  /** `?t=<táctica>`: abre su detalle de entrada. */
+  abrir?: TacticaAuto | null;
+}) {
   const [config, setConfig] = useState(inicial);
   const [dias, setDias] = useState<7 | 30>(7);
-  const [editando, setEditando] = useState<TacticaAuto | null>(null);
-  const [historial, setHistorial] = useState<TacticaAuto | null>(null);
-  const [guardando, setGuardando] = useState<TacticaAuto | null>(null);
-  const [menu, setMenu] = useState<TacticaAuto | null>(null);
+  const [editando, setEditando] = useState<TacticaAuto | null>(abrir);
+  const [guardando, setGuardando] = useState(false);
   const { toast, show, clear } = useToast();
 
   const resueltas = useMemo(() => resolverTacticas(config.tacticas, { piloto: config.modo === 'piloto', pilotoPermitido: cupo.piloto }), [config.tacticas, config.modo, cupo.piloto]);
-  // Lo hecho por las tácticas de MaKo (lo lanzado por el piloto o por una persona; las subidas a mano no cuentan).
+  // Lo hecho por las tácticas de MaKo (lanzado por el piloto o por una persona; los cambios a mano no cuentan).
   const hechas = useMemo(() => decisiones.filter((d) => d.tactica !== 'manual' && (d.estado === 'aplicada' || d.estado === 'deshecha') && d.aplicadaAt), [decisiones]);
   const desde = Date.now() - dias * DIA;
   const enVentana = hechas.filter((d) => Date.parse(d.aplicadaAt!) >= desde);
-  const porDia = useMemo(() => {
-    const m = new Map<string, number>();
-    for (let i = dias - 1; i >= 0; i--) m.set(diaDe(new Date(Date.now() - i * DIA).toISOString()), 0);
-    for (const d of enVentana) { const k = diaDe(d.aplicadaAt!); if (m.has(k)) m.set(k, (m.get(k) ?? 0) + 1); }
-    return [...m];
-  }, [enVentana, dias]);
-  const maxDia = Math.max(1, ...porDia.map(([, n]) => n));
 
   const guardarTactica = useCallback(async (t: TacticaAuto, cambio: ConfigTactica): Promise<boolean> => {
-    setGuardando(t);
-    // Sólo la táctica tocada: el servidor la mezcla con lo guardado (revisión de tren-l, falla 2).
-    const tacticas: ConfigTacticas = { [t]: { ...(config.tacticas[t] ?? {}), ...cambio } };
+    setGuardando(true);
+    // Sólo lo que se tocó de la táctica: el servidor lo mezcla campo por campo con lo guardado (fallas 2 de tren-l y de tren-m).
+    const tacticas: ConfigTacticas = { [t]: cambio };
     const r = await api<{ config: Config }>({ op: 'config', cambio: { tacticas } });
-    setGuardando(null);
+    setGuardando(false);
     if (r.ok) { setConfig((c) => ({ ...c, tacticas: r.config.tacticas })); show('Guardado', undefined, 'good'); return true; }
     show(r.error ?? 'No se pudo guardar.', undefined, 'bad');
     return false;
-  }, [config.tacticas, show]);
+  }, [show]);
 
+  const prendidas = ORDEN_TACTICAS.filter((t) => resueltas[t].estado !== 'apagada').length;
   return (
-    <div className="mb">
-      <div className="mb-arriba">
-        <header className="mb-cab">
-          <div className="mb-saludo">
-            <Link href="/ads-manager" className="mba-volver">‹ Media Buyer</Link>
-            <h1>Automatizaciones</h1>
-            <p>Cada táctica de MaKo, prendida o apagada, con sus condiciones.</p>
-          </div>
-          <div className="mb-acciones">
-            <span className="mb-kpi" role="group" aria-label="Período">
-              {([7, 30] as const).map((n) => <button key={n} type="button" aria-pressed={dias === n} onClick={() => setDias(n)}>{n} días</button>)}
-            </span>
-          </div>
-        </header>
+    <div className="aa">
+      <div className="aa-ajustes">
+        <TituloAjustes titulo="Automatizaciones" volver={{ href: '/ads-manager', label: 'Media Buyer' }} />
 
-        {/* ── 1. Qué hicieron (automatizaciones-resumen.png) ── */}
-        <section className="mb-tarjeta mba-resumen">
-          <h2>Qué hizo el Media Buyer <small>últimos {dias} días</small></h2>
-          <div className="mba-contadores">
-            {ACCIONES.map((a) => (
-              <div key={a.tipo} className="mba-contador">
-                <span aria-hidden>{a.icono}</span>
-                <b>{enVentana.filter((d) => d.tipo === a.tipo).length}</b>
-                <em>{a.nombre}</em>
-              </div>
-            ))}
-            <div className="mba-contador" data-total="1"><span aria-hidden>Σ</span><b>{enVentana.length}</b><em>En total</em></div>
-          </div>
-          <div className="mba-barras" aria-label="Acciones por día">
-            {porDia.map(([dia, n]) => <i key={dia} title={`${dia}: ${n}`} style={{ height: `${(n / maxDia) * 100}%` }} data-cero={n === 0 ? '1' : '0'} />)}
-          </div>
-        </section>
-        <div className="mb-chips"><span className="mb-chip-tab" style={{ cursor: 'default' }}>Tácticas<span className="mb-chip-n">{ORDEN_TACTICAS.filter((t) => resueltas[t].estado !== 'apagada').length} de {ORDEN_TACTICAS.length}</span></span></div>
-      </div>
+        <GrupoAjustes titulo="Lo que hizo" accion={
+          <span className="aa-seg" role="group" aria-label="Período">
+            {([7, 30] as const).map((n) => <button key={n} type="button" aria-pressed={dias === n} onClick={() => setDias(n)}>{n} días</button>)}
+          </span>
+        }>
+          <dl className="aa-cuenta" aria-label={`Lo que hizo en ${dias} días`}>
+            {ACCIONES.map((a) => <div key={a.tipo}><dt>{a.nombre}</dt><dd>{enVentana.filter((d) => d.tipo === a.tipo).length}</dd></div>)}
+          </dl>
+        </GrupoAjustes>
 
-      {/* ── 2. Las tácticas (automatizaciones-lista.png) ── */}
-      <div className="mb-banda">
-        {!cupo.piloto && (
-          <p className="mb-cupo">{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'Las tácticas automáticas son de MaKo Pro.'}<Link href={RUTA_CAMBIAR_PLAN}>Pasar a Pro</Link></p>
-        )}
-        {ORDEN_TACTICAS.map((t) => {
-          const def = TACTICAS[t];
-          const r = resueltas[t];
-          const suyas = hechas.filter((d) => d.tactica === t);
-          const ultima = decisiones.filter((d) => d.tactica === t).map((d) => d.creada).sort().pop() ?? null;
-          const frec = Array.from({ length: 14 }, (_, i) => { const k = diaDe(new Date(Date.now() - (13 - i) * DIA).toISOString()); return decisiones.filter((d) => d.tactica === t && diaDe(d.creada) === k).length; });
-          const maxF = Math.max(1, ...frec);
-          const prendida = r.estado !== 'apagada';
-          return (
-            <article key={t} className="mb-dec mba-tactica" data-apagada={prendida ? '0' : '1'}>
-              <div className="mb-dec-fila" style={{ cursor: 'default' }}>
-                <Switch checked={prendida} disabled={guardando === t || !config.existeTabla}
-                  onChange={(v) => void guardarTactica(t, { estado: v ? (r.estado === 'apagada' ? 'propone' : r.estado) : 'apagada' })} />
-                <span className="mb-baldosa" aria-hidden>{def.icono}</span>
-                <div className="mb-dec-cuerpo">
-                  <h3 className="mb-dec-titulo mba-titulo">{def.nombre}</h3>
-                  <div className="mb-dec-meta">
-                    <span className="mb-etq">{def.nivel}</span>
-                    <span className="mb-etq">{r.campanas ? `${r.campanas.size} ${r.campanas.size === 1 ? 'campaña' : 'campañas'}` : 'Toda la cuenta'}</span>
-                    <span className="mba-que">{def.que}</span>
-                  </div>
-                </div>
-                <div className="mba-frec" aria-label="Recomendaciones de los últimos 14 días">
-                  {frec.map((n, i) => <i key={i} style={{ height: `${Math.max(8, (n / maxF) * 100)}%` }} data-cero={n === 0 ? '1' : '0'} />)}
-                </div>
-                <div className="mba-ultima"><b>{suyas.length}</b><span>{ultima ? `última ${hace(ultima)}` : 'nunca'}</span></div>
-                {/* Como en Madgicx: la fila dice el estado y lo demás va en el «⋯» (automatizaciones-lista.png). */}
-                <span className="mb-etq mba-modo" data-modo={r.estado}>{r.estado === 'automatica' ? 'Automática' : r.estado === 'propone' ? 'Propone' : 'Apagada'}</span>
-                <div className="mba-mas">
-                  <button type="button" className="mb-tuerca" aria-label={`Más de ${def.nombre}`} aria-haspopup="menu" aria-expanded={menu === t}
-                    onClick={() => setMenu((m) => (m === t ? null : t))}>⋯</button>
-                  {menu === t && (
-                    <div className="mb-menu mba-menu" role="menu">
-                      <button type="button" role="menuitem" onClick={() => { setMenu(null); setEditando(t); }}>Editar</button>
-                      <button type="button" role="menuitem" onClick={() => { setMenu(null); setHistorial(t); }}>Historial<i>{decisiones.filter((d) => d.tactica === t).length}</i></button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </article>
-          );
-        })}
+        <GrupoAjustes titulo="Tácticas" descripcion={cupo.piloto ? `${prendidas} de ${ORDEN_TACTICAS.length} prendidas`
+          : <>{cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'Las automáticas son de MaKo Pro.'} <Link href={RUTA_CAMBIAR_PLAN} className="aa-link">Pasar a Pro</Link></>}>
+          {ORDEN_TACTICAS.map((t) => {
+            const r = resueltas[t];
+            const ultima = decisiones.filter((d) => d.tactica === t).map((d) => d.creada).sort().pop() ?? null;
+            const cubre = r.campanas ? `${r.campanas.size} ${r.campanas.size === 1 ? 'campaña' : 'campañas'}` : 'Toda la cuenta';
+            return (
+              <FilaAjustes key={t} titulo={TACTICAS[t].nombre} detalle={`${cubre} · ${ultima ? `última ${hace(ultima)}` : 'todavía nada'}`}
+                valor={<span className="aa-estado-t" data-e={r.estado}>{NOMBRE_ESTADO[r.estado]}</span>} onClick={() => setEditando(t)} />
+            );
+          })}
+        </GrupoAjustes>
       </div>
 
       {editando && (
-        <EditarTactica t={editando} actual={config.tacticas[editando] ?? {}} estado={resueltas[editando].estado} pilotoPermitido={cupo.piloto} guardando={guardando === editando}
+        <EditarTactica key={editando} t={editando} actual={config.tacticas[editando] ?? {}} estado={resueltas[editando].estado} pilotoPermitido={cupo.piloto}
+          historial={decisiones.filter((d) => d.tactica === editando)} guardando={guardando} puedeGuardar={config.existeTabla}
           onCerrar={() => setEditando(null)}
           onGuardar={async (c) => { if (await guardarTactica(editando, c)) setEditando(null); }} />
-      )}
-      {historial && (
-        <Modal titulo={`Historial de ${TACTICAS[historial].nombre}`} ancho={680} onCerrar={() => setHistorial(null)}
-          pie={<Button variant="secondary" onClick={() => setHistorial(null)}>Cerrar</Button>}>
-          {(() => {
-            const ds = decisiones.filter((d) => d.tactica === historial);
-            if (!ds.length) return <p className="mb-cupo">Todavía no recomendó nada en 30 días.</p>;
-            return (
-              <div className="mb-tabla">
-                <table>
-                  <thead><tr><th>Cuándo</th><th>Qué</th><th>Estado</th></tr></thead>
-                  <tbody>{ds.map((d) => (
-                    <tr key={d.id}>
-                      <td>{hace(d.aplicadaAt ?? d.creada)}</td>
-                      <td>{d.estado === 'aplicada' || d.estado === 'deshecha' ? queSeHizo(d) : d.titulo}</td>
-                      <td>{ESTADO[d.estado]}{d.estado === 'aplicada' ? ` · ${d.origen === 'piloto' ? 'piloto automático' : d.aplicadaPor ?? 'tu equipo'}` : ''}</td>
-                    </tr>
-                  ))}</tbody>
-                </table>
-              </div>
-            );
-          })()}
-        </Modal>
       )}
       <Toast state={toast} onClose={clear} />
     </div>
   );
 }
 
-const ESTADO: Record<Decision['estado'], string> = {
-  abierta: 'Abierta', aplicada: 'Hecha', descartada: 'Descartada', deshecha: 'Deshecha', fallida: 'No se pudo', vencida: 'Vencida', bloqueada: 'Frenada por un tope',
-};
+// ── El detalle de una táctica: su estado, sus condiciones con el valor recomendado al lado, qué cubre y lo último que hizo.
+// Manda sólo lo que cambió (lo demás queda como lo guardó otro).
 
-// ── Editar una táctica: sus condiciones con el valor recomendado al lado (automatizaciones-condiciones.png) y qué cubre
-// (automatizaciones-aplica-a.png: toda la cuenta, o las campañas que se elijan).
-
-function EditarTactica({ t, actual, estado: estadoActual, pilotoPermitido, guardando, onCerrar, onGuardar }: {
-  t: TacticaAuto; actual: ConfigTactica; estado: EstadoTactica; pilotoPermitido: boolean; guardando: boolean;
+function EditarTactica({ t, actual, estado: estadoActual, pilotoPermitido, historial, guardando, puedeGuardar, onCerrar, onGuardar }: {
+  t: TacticaAuto; actual: ConfigTactica; estado: EstadoTactica; pilotoPermitido: boolean; historial: Decision[]; guardando: boolean; puedeGuardar: boolean;
   onCerrar: () => void; onGuardar: (c: ConfigTactica) => void;
 }) {
   const def = TACTICAS[t];
-  const [estado, setEstado] = useState<EstadoTactica>(estadoActual === 'apagada' ? 'propone' : estadoActual);
-  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(def.parametros.map((p) => [p.id, String(actual.parametros?.[p.id] ?? p.recomendado)])));
+  const valorDe = (id: string) => String(actual.parametros?.[id] ?? def.parametros.find((p) => p.id === id)!.recomendado);
+  const [estado, setEstado] = useState<EstadoTactica>(estadoActual);
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(def.parametros.map((p) => [p.id, valorDe(p.id)])));
   const [cubre, setCubre] = useState<'todas' | 'elegidas'>(actual.campanas?.length ? 'elegidas' : 'todas');
   const [elegidas, setElegidas] = useState<Set<string>>(new Set(actual.campanas ?? []));
   const [campanas, setCampanas] = useState<Campana[] | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const cargar = useCallback(async () => {
-    if (campanas) return;
-    const r = await api<{ campanas: Campana[] }>({ op: 'campanas' });
-    if (r.ok) setCampanas(r.campanas); else { setAviso(r.error ?? 'No pude leer la cuenta.'); setCampanas([]); }
-  }, [campanas]);
-  useEffect(() => { if (cubre === 'elegidas') void cargar(); }, [cubre, cargar]);
+  useEffect(() => {
+    if (cubre !== 'elegidas' || campanas) return;
+    void api<{ campanas: Campana[] }>({ op: 'campanas' }).then((r) => {
+      if (r.ok) setCampanas(r.campanas); else { setAviso(r.error ?? 'No pude leer la cuenta.'); setCampanas([]); }
+    });
+  }, [cubre, campanas]);
   const unidad = (u: string) => (u === 'veces' ? '×' : u === '%' ? '%' : u === 'días' ? 'días' : '');
-  const guardar = () => {
+
+  const cambio = (): ConfigTactica => {
+    const c: ConfigTactica = {};
+    if (estado !== estadoActual) c.estado = estado;
     const parametros: Record<string, number> = {};
-    for (const p of def.parametros) { const n = Number(String(vals[p.id]).replace(',', '.')); if (Number.isFinite(n)) parametros[p.id] = n; }
-    onGuardar({ estado, parametros, campanas: cubre === 'todas' ? null : [...elegidas] });
+    for (const p of def.parametros) {
+      const n = Number(String(vals[p.id]).replace(',', '.'));
+      if (Number.isFinite(n) && String(vals[p.id]) !== valorDe(p.id)) parametros[p.id] = n;
+    }
+    if (Object.keys(parametros).length) c.parametros = parametros;
+    const nuevas = cubre === 'todas' ? null : [...elegidas].sort();
+    const antes = actual.campanas?.length ? [...actual.campanas].sort() : null;
+    if (JSON.stringify(nuevas) !== JSON.stringify(antes)) c.campanas = nuevas;
+    return c;
   };
+  const c = cambio();
+  const nada = Object.keys(c).length === 0;
+
   return (
-    <Modal titulo={`${def.icono} ${def.nombre}`} ancho={620} onCerrar={onCerrar}
-      pie={<><Button variant="secondary" onClick={onCerrar}>Cancelar</Button><Button loading={guardando} disabled={cubre === 'elegidas' && elegidas.size === 0} onClick={guardar}>Guardar</Button></>}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <p style={{ margin: 0, color: 'var(--dim)' }}>{def.que}</p>
-        <RadioGroup label="Qué hace cuando se cumple" value={estado} onChange={(v) => setEstado(v === 'automatica' && pilotoPermitido ? 'automatica' : 'propone')} options={[
-          { value: 'propone', label: 'Propone', hint: 'Deja la recomendación y espera tu «Lanzar».' },
-          { value: 'automatica', label: 'Automática', hint: pilotoPermitido ? 'La lanza sola, una vez por día, dentro de tus topes. Queda en «Hechas» con su «Deshacer».' : 'Es de MaKo Pro.' },
-        ]} />
-        <div className="mb-tabla">
-          <table>
-            <thead><tr><th>Condición</th><th>Valor</th><th>Recomendado</th></tr></thead>
-            <tbody>{def.parametros.map((p) => (
-              <tr key={p.id}>
-                <td>{p.nombre}</td>
-                <td><span className="mb-editar" style={{ marginTop: 0 }}><input inputMode="decimal" value={vals[p.id]} aria-label={p.nombre} onChange={(e) => setVals((v) => ({ ...v, [p.id]: e.target.value }))} /><span>{unidad(p.unidad)}</span></span></td>
-                <td><button type="button" className="mba-reco" onClick={() => setVals((v) => ({ ...v, [p.id]: String(p.recomendado) }))}>{p.recomendado}{unidad(p.unidad) ? ` ${unidad(p.unidad)}` : ''}</button></td>
-              </tr>
-            ))}</tbody>
-          </table>
+    <Modal titulo={def.nombre} encabezado={def.que} ancho={600} onCerrar={onCerrar}
+      pie={<><Button variant="secondary" onClick={onCerrar}>Cerrar</Button>
+        <Button loading={guardando} disabled={nada || !puedeGuardar || (cubre === 'elegidas' && elegidas.size === 0)} onClick={() => onGuardar(c)}>Guardar</Button></>}>
+      <div className="aa aa-hoja aa-tactica">
+        <div className="aa-hoja-fila">
+          <span>Qué hace cuando se cumple</span>
+          <span className="aa-seg" role="group" aria-label="Estado">
+            {(['apagada', 'propone', 'automatica'] as const).map((e) => (
+              <button key={e} type="button" aria-pressed={estado === e} disabled={e === 'automatica' && !pilotoPermitido && estadoActual !== 'automatica'}
+                title={e === 'automatica' && !pilotoPermitido ? 'Es de MaKo Pro' : undefined} onClick={() => setEstado(e)}>{NOMBRE_ESTADO[e]}</button>
+            ))}
+          </span>
         </div>
-        <RadioGroup label="Qué cubre" value={cubre} onChange={(v) => setCubre(v === 'elegidas' ? 'elegidas' : 'todas')} options={[
-          { value: 'todas', label: 'Toda la cuenta', hint: 'Las campañas nuevas entran solas.' },
-          { value: 'elegidas', label: 'Sólo las campañas que elija' },
-        ]} />
+        {def.parametros.map((p) => (
+          <div key={p.id} className="aa-hoja-fila">
+            <span>{p.nombre}</span>
+            <span className="aa-campo">
+              <input className="aj-en-linea" style={{ width: 84 }} inputMode="decimal" value={vals[p.id]} aria-label={p.nombre}
+                onChange={(e) => setVals((v) => ({ ...v, [p.id]: e.target.value }))} />
+              {unidad(p.unidad) && <span>{unidad(p.unidad)}</span>}
+              {String(p.recomendado) !== vals[p.id] && (
+                <button type="button" className="aa-link" title="El que usa MaKo si no lo cambias" onClick={() => setVals((v) => ({ ...v, [p.id]: String(p.recomendado) }))}>
+                  Recomendado: {p.recomendado}
+                </button>
+              )}
+            </span>
+          </div>
+        ))}
+        <div className="aa-hoja-fila">
+          <span>Qué cubre</span>
+          <span className="aa-seg" role="group" aria-label="Qué cubre">
+            <button type="button" aria-pressed={cubre === 'todas'} onClick={() => setCubre('todas')}>Toda la cuenta</button>
+            <button type="button" aria-pressed={cubre === 'elegidas'} onClick={() => setCubre('elegidas')}>Algunas campañas</button>
+          </span>
+        </div>
         {cubre === 'elegidas' && (
-          <div className="mba-campanas">
-            {aviso && <p className="mb-cupo">{aviso}</p>}
-            {!campanas && <p className="mb-cupo">Leyendo la cuenta…</p>}
-            {campanas?.map((c) => (
-              <label key={c.id} className="mb-var" data-on={elegidas.has(c.id) ? '1' : '0'}>
-                <input type="checkbox" checked={elegidas.has(c.id)} onChange={() => setElegidas((s) => { const n = new Set(s); if (n.has(c.id)) n.delete(c.id); else n.add(c.id); return n; })} />
-                <span className="mb-var-txt"><b>{c.nombre}</b><em>{c.prendida ? 'Activa' : 'Pausada'}</em></span>
+          <div className="aa-campanas">
+            {aviso && <p className="aa-act-vacia">{aviso}</p>}
+            {!campanas && <p className="aa-act-vacia">Leyendo la cuenta…</p>}
+            {campanas?.map((x) => (
+              <label key={x.id} className="aa-var" data-on={elegidas.has(x.id) ? '1' : '0'}>
+                <input type="checkbox" checked={elegidas.has(x.id)} onChange={() => setElegidas((s) => { const n = new Set(s); if (n.has(x.id)) n.delete(x.id); else n.add(x.id); return n; })} />
+                <span><b>{x.nombre}</b><p>{x.prendida ? 'Activa' : 'Pausada'}</p></span>
               </label>
             ))}
           </div>
         )}
+        <h3 className="aa-act-sec">Lo último</h3>
+        {historial.length
+          ? (
+            <ul className="aa-act-lista">
+              {historial.slice(0, 6).map((d) => (
+                <li key={d.id}><b>{d.estado === 'aplicada' || d.estado === 'deshecha' ? queSeHizo(d) : d.titulo}</b><small>{ESTADO[d.estado]} · {hace(d.aplicadaAt ?? d.creada)}</small></li>
+              ))}
+            </ul>
+          )
+          : <p className="aa-act-vacia">Todavía no recomendó nada en 30 días.</p>}
       </div>
     </Modal>
   );
 }
+
+const ESTADO: Record<Decision['estado'], string> = {
+  abierta: 'Abierta', aplicada: 'Hecha', descartada: 'Descartada', deshecha: 'Deshecha', fallida: 'No se pudo', vencida: 'Vencida', bloqueada: 'Frenada por un tope',
+};
