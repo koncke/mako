@@ -2,7 +2,8 @@
 // primer-mes-reglas — el 50% del primer mes de un plan de MaKo, en el cobro (lo puro, con test) (30/10/2026)
 // =============================================================================
 // docs/estrategia-lanzamiento-low-to-high.md §3: «te ganaste un 50% de descuento», con reloj, sobre los dos planes, y sólo el
-// primer mes. Lo que hace que exista de verdad: un cobro `creado_por = planes:<plan>:primer-mes-<pct>`.
+// primer mes. Lo que hace que exista de verdad: un cobro `creado_por = planes:<plan>:primer-mes-<pct>`. El reloj y su cookie firmada son
+// de Landings (lib/oferta-entrada.ts, `ofertaVigente`); acá, lo que pasa en el cobro cuando el reloj dice que sí.
 //
 // ⚠️ EL MONTO DEL COBRO SIGUE SIENDO EL DE LISTA (97), y sólo el PRIMER PAGO sale a mitad. Es a propósito: `cobro.monto` es la
 // mensualidad para todo lo que viene después (la deuda de una mora, «Tu plan», la retención, «Pasar a Pro», el MRR). Guardar 48,50
@@ -15,6 +16,12 @@ import { DESCUENTO_PRIMER_MES_PCT } from './planes-mako';
 
 const CREADO_RE = /^planes:[a-z0-9-]{1,32}:primer-mes-(\d{1,2})$/;
 const DIA_MS = 86_400_000;
+
+/**
+ * Lo que tiene de más quien abrió la página del plan con el reloj vivo y tocó «Ir a pagar» cuando ya estaba en cero: no pierde el descuento
+ * por llenar el formulario. Sólo si la página le mostró el descuento (`pedido.oferta`). Nunca se muestra: el reloj sigue diciendo cero.
+ */
+export const MINUTOS_DE_GRACIA = 15;
 
 export const creadoPorPrimerMes = (planId: string): string => `planes:${planId}:primer-mes-${DESCUENTO_PRIMER_MES_PCT}`;
 

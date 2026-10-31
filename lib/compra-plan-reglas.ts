@@ -103,8 +103,8 @@ export type PedidoCompra = {
    * pedirlo, toda compra en línea empieza con los 7 días gratis.
    */
   sinPrueba: boolean;
-  /** El token del reloj del 50% del primer mes (lib/oferta-entrada.ts), si vino de la landing. */
-  oferta?: string | null;
+  /** La página le mostró el 50% del primer mes: si ya no vale, se le dice en vez de cobrarle lleno. El reloj lo mira la ruta, con su cookie. */
+  oferta?: boolean;
   /** Quien ya supo que su descuento no vale y sigue a precio normal. Sin esto, nunca se le cobra lleno sin decírselo. */
   sinOferta?: boolean;
   /**
@@ -171,7 +171,7 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
-      oferta: typeof b.oferta === 'string' && b.oferta.length <= 120 ? b.oferta : null, sinOferta: b.sinOferta === true,
+      oferta: b.oferta === true, sinOferta: b.sinOferta === true,
       codigoEscrito: codigoRefLimpio(b.codigo),
       codigoEscritoMal: typeof b.codigo === 'string' && b.codigo.trim() !== '' && codigoRefLimpio(b.codigo) == null,
     },

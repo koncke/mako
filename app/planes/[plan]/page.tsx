@@ -11,13 +11,14 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
 import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
-import { estadoDeOferta } from '@/lib/oferta-entrada';
+import { entornoOferta, ofertaVigente } from '@/lib/oferta-entrada';
+import { COOKIE_OFERTA, OFERTA_ENTRADA } from '@/lib/oferta-entrada-reglas';
 import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
@@ -28,6 +29,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = { title: 'Empezar con MaKo', robots: { index: false, follow: false } };
+
+/** ¿El reloj del 50% sigue vivo en este navegador? Sólo lo lee: lo arranca la landing. */
+const relojVivo = (cookie: string | undefined) => ofertaVigente(cookie, Date.now(), entornoOferta());
 
 export default async function PlanPage({ params, searchParams }: {
   params: Promise<{ plan: string }>;
@@ -70,9 +74,7 @@ export default async function PlanPage({ params, searchParams }: {
   }
   // EL 50% DEL PRIMER MES (30/10/2026): sólo con el reloj vivo; es lo que la persona venía viendo en la landing. Quien decide de
   // verdad es la ruta del POST: acá sólo se dice.
-  const token = !PRUEBA_GRATIS_PRENDIDA ? uno('oferta') ?? null : null;
-  const reloj = token ? estadoDeOferta(token) : null;
-  const conOferta = reloj?.aceptable ? token : null;
+  const conOferta = !PRUEBA_GRATIS_PRENDIDA && OFERTA_ENTRADA.planes.includes(plan.id) && relojVivo((await cookies()).get(COOKIE_OFERTA)?.value);
   const conPrimerMes = (monto: number) => montoDelPrimerPago({ monto, creado_por: creadoPorPrimerMes(plan.id) });
   const precio = pasarelas.map((x) => (conOferta
     ? `${formatoMonto(conPrimerMes(x.monto), x.moneda)} el primer mes, después ${formatoMonto(x.monto, x.moneda)} por mes`

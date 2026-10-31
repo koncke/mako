@@ -26,8 +26,8 @@ export function CompraPlan(p: {
   origen: OrigenCompra | null;
   refCodigo: string | null;
   sinPrueba?: boolean;
-  /** El reloj vivo del 50% del primer mes (lib/oferta-entrada.ts). Lo decide la ruta: si no vale, lo dice y se elige seguir. */
-  oferta?: string | null;
+  /** Esta página mostró el 50% del primer mes. Lo decide la ruta, con la cookie del reloj: si ya no vale, lo dice y se elige seguir. */
+  oferta?: boolean;
 }) {
   const [sinPrueba, setSinPrueba] = useState(!!p.sinPrueba);
   const [sinOferta, setSinOferta] = useState(false);
@@ -53,7 +53,7 @@ export function CompraPlan(p: {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, oferta: p.oferta ?? null, sinOferta: sinDescuento }),
+        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin, oferta: !!p.oferta, sinOferta: sinDescuento }),
       });
       const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean; sinOferta?: boolean; campo?: string };
       if (r.ok && j.link) { window.location.href = j.link; return; }

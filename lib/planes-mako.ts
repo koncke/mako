@@ -16,6 +16,7 @@
 
 import type { CapaId } from './capas';
 import { TOPES } from './topes-plan';
+import { OFERTA_ENTRADA } from './oferta-entrada-reglas';
 
 // LO QUE SE LEE EN LA VITRINA (24/10/2026, Martín: «Lo hiciste con lenguaje interno, las personas no saben que es "Ops Center"
 // y muchas otras cosas... Tienes que VENDER»). `resumen` dice para quién es según la etapa del negocio (como Kajabi: «¿ya
@@ -85,7 +86,7 @@ export const PRUEBA_DIAS = 7;
 export const PRUEBA_GRATIS_PRENDIDA: boolean = false;
 
 /** El descuento del primer mes, sobre los dos planes (§3). Con la prueba prendida no se ofrece: son una cosa o la otra. */
-export const DESCUENTO_PRIMER_MES_PCT = 50;
+export const DESCUENTO_PRIMER_MES_PCT = OFERTA_ENTRADA.pct;
 
 /** Lo que va debajo del botón de un plan: cuánto se cobra después de la prueba y hasta cuándo se cancela sin pagar. */
 export const textoDespuesDeLaPrueba = (montoUsd: number, periodo: 'mes' | 'año', prueba: boolean = PRUEBA_GRATIS_PRENDIDA): string =>

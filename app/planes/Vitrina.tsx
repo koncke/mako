@@ -54,7 +54,9 @@ export const CSS_VITRINA = `
 }
 `;
 
-export function VitrinaPlanes({ ofertas, sufijo }: {
+export function VitrinaPlanes({ ofertas, sufijo, ofertaVigente = false }: {
+  /** El reloj del 50% del primer mes sigue vivo en este navegador: las tarjetas lo dicen. */
+  ofertaVigente?: boolean;
   ofertas: ReadonlyArray<{ plan: PlanMako; cobrable: boolean }>;
   /** Lo que la URL trae y pasa tal cual al plan elegido (el origen y el código de partner). */
   sufijo: string;
@@ -84,7 +86,7 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
           </p>
           <p className="planes-alta">{bajadaDePlanes(ofertas.some((o) => o.cobrable))}</p>
         </header>
-        <TarjetasPlanes planes={planes} sufijo={sufijo} />
+        <TarjetasPlanes planes={planes} sufijo={sufijo} ofertaVigente={ofertaVigente} />
 
         <CompararPlanes planes={planes} />
 

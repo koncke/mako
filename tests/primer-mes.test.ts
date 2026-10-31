@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DESCUENTO_PRIMER_MES_PCT, PLANES_MAKO_DEFAULT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { creadoPorPrimerMes, lineaDelPrimerMes, montoDelPrimerPago, pctDelPrimerMes, usdDelPrimerPago, usdPrimerMesVigente } from '../lib/primer-mes-reglas';
-import { DIAS_SIN_REPETIR, MINUTOS_DE_GRACIA, MINUTOS_OFERTA, estadoDeOferta, firmarOferta, leerOferta, ofertaParaLaLanding } from '../lib/oferta-entrada';
+import { OFERTA_ENTRADA } from '../lib/oferta-entrada-reglas';
 import { bajadaDePlanes } from '../lib/compra-plan-reglas';
 import { esPruebaDePlan } from '../lib/prueba-plan-reglas';
 
@@ -29,10 +29,8 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
 
-const MIN = 60_000;
 const DIA = 86_400_000;
 const AHORA = Date.parse('2026-10-30T12:00:00.000Z');
-const S = 'secreto-de-prueba';
 
 test('el interruptor está APAGADO y es uno solo; se puede volver a prender', () => {
   assert.equal(PRUEBA_GRATIS_PRENDIDA, false);
@@ -60,7 +58,7 @@ test('con el reloj vivo: el 50% de un solo cobro en Stripe, y el cobro sigue val
   assert.equal(R.sesion.prueba, null, 'las dos juntas no: el motivo 1 de Martín');
 });
 
-test('un reloj vencido se dice y no crea nada; sólo sigue quien elige el precio normal; la gracia y el token falso', () => {
+test('un reloj vencido se dice a quien lo vio y no crea nada; la gracia, la cookie falsa y el interruptor apagado', () => {
   assert.equal(R.vencida.status, 409);
   assert.equal(R.vencida.sinOferta, true);
   assert.match(R.vencida.error, /venció/);
@@ -68,7 +66,9 @@ test('un reloj vencido se dice y no crea nada; sólo sigue quien elige el precio
   assert.equal(R.vencidaSigue.ok, true);
   assert.equal(R.vencidaSigueCobro, 'planes:pro');
   assert.equal(R.graciaCobro, 'planes:pro:primer-mes-50', 'quien tocó el botón a tiempo no lo pierde por llenar el formulario');
-  assert.equal(R.falsoCobro, 'planes:pro', 'un token inventado no da nada');
+  assert.equal(R.noLoVioCobro, 'planes:pro', 'quien no lo vio en la página: precio normal, sin preguntar (el contrato de Landings)');
+  assert.equal(R.falsoCobro, 'planes:pro', 'una cookie inventada no da nada');
+  assert.equal(R.apagadaCobro, 'planes:pro', 'con `OFERTA_ENTRADA_ACTIVA` apagado no hay descuento');
 });
 
 test('un descuento por email: ni una cuenta que ya existe, ni quien ya lo pagó, ni quien lo abandonó hace más de 24 h', () => {
@@ -86,6 +86,12 @@ test('lo que entra: el primer pago a mitad y la renovación entera, en el cash y
   assert.deepEqual(R.pagosStripe.map((p: { id: string; usd: number; original: number }) => [p.id, Number(p.usd), Number(p.original)]), [['in_1', 48.5, 48.5], ['in_2', 97, 97]]);
   assert.equal(Number(R.pagosMp[0].original), 48500, 'en su moneda');
   assert.equal(R.stripeMontoCobro, 97, 'la mensualidad no se toca: la deuda y Tu plan salen de acá');
+});
+
+test('se paga antes de entrar: abrir el pago no da de alta a nadie; el pago sí, con su onboarding pendiente', () => {
+  assert.equal(R.usuarioAntesDePagar, 0);
+  assert.equal(R.usuarioDespuesDePagar, 1);
+  assert.match(String(R.onboardingDelAlta), /pending/, 'la primera pantalla es el onboarding: ahí va la pregunta del WhatsApp');
 });
 
 test('Mercado Pago: nace a mitad y sube al entrar el primer pago', () => {
@@ -111,7 +117,8 @@ test('a quien ya está en prueba no se le toca nada: su cobro sigue siendo una p
 });
 
 test('las reglas del primer mes', () => {
-  assert.equal(DESCUENTO_PRIMER_MES_PCT, 50);
+  assert.equal(DESCUENTO_PRIMER_MES_PCT, OFERTA_ENTRADA.pct, 'el cartel y el cobro, del mismo número');
+  assert.deepEqual([...OFERTA_ENTRADA.planes], ['esencial', 'pro']);
   assert.equal(creadoPorPrimerMes('pro'), 'planes:pro:primer-mes-50');
   assert.equal(pctDelPrimerMes('planes:pro:primer-mes-50'), 50);
   for (const v of [null, '', 'planes:pro', 'planes:pro:prueba', 'planes:pro:primer-mes-0', 'x:primer-mes-50']) assert.equal(pctDelPrimerMes(v), null, String(v));
@@ -129,35 +136,28 @@ test('las reglas del primer mes', () => {
   assert.equal(usdPrimerMesVigente({ ...c, creado_por: 'planes:pro' }, AHORA), null);
 });
 
-test('el reloj: firmado, no se reinicia al volver, y arranca otra vez recién a los 30 días', () => {
-  const t = firmarOferta(AHORA, S)!;
-  assert.equal(leerOferta(t, S), AHORA);
-  assert.equal(leerOferta(t, 'otro-secreto'), null);
-  assert.equal(leerOferta(t.replace(String(AHORA), String(AHORA + 1)), S), null, 'no se le corre la hora');
-  assert.equal(firmarOferta(AHORA, ''), null, 'nunca con un secreto vacío');
-  assert.equal(estadoDeOferta(firmarOferta(AHORA + 5 * MIN, S), AHORA, S), null, 'no arranca en el futuro');
-  const vivo = estadoDeOferta(t, AHORA + (MINUTOS_OFERTA - 1) * MIN, S)!;
-  assert.deepEqual([vivo.vigente, vivo.aceptable], [true, true]);
-  const enGracia = estadoDeOferta(t, AHORA + (MINUTOS_OFERTA + 1) * MIN, S)!;
-  assert.deepEqual([enGracia.vigente, enGracia.aceptable], [false, true], 'el reloj dice cero, el formulario todavía vale');
-  const fuera = estadoDeOferta(t, AHORA + (MINUTOS_OFERTA + MINUTOS_DE_GRACIA + 1) * MIN, S)!;
-  assert.deepEqual([fuera.vigente, fuera.aceptable], [false, false]);
-  const vuelve = ofertaParaLaLanding(t, AHORA + 2 * 3600_000, S)!;
-  assert.equal(vuelve.token, t, 'el MISMO reloj');
-  assert.equal(vuelve.vigente, false, 'vencido: no se regala de nuevo');
-  const tarde = ofertaParaLaLanding(t, AHORA + (DIAS_SIN_REPETIR + 1) * DIA, S)!;
-  assert.notEqual(tarde.token, t);
-  assert.equal(tarde.vigente, true);
-  assert.equal(ofertaParaLaLanding('o1.123.inventada', AHORA, S)!.vigente, true, 'uno inventado no traba a nadie: arranca uno de verdad');
-  assert.equal(ofertaParaLaLanding(null, AHORA, '')?.token, undefined, 'sin secreto, sin cartel');
+test('las tarjetas, dibujadas: con el reloj vivo dicen el primer mes de los dos planes; sin él, no lo prometen', async () => {
+  const React = await import('react');
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { VitrinaPlanes } = await import('../app/planes/Vitrina');
+  const ofertas = PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((plan) => ({ plan, cobrable: true }));
+  const dibujar = (ofertaVigente: boolean) => renderToStaticMarkup(React.createElement(VitrinaPlanes, { ofertas, sufijo: '', ofertaVigente }))
+    .replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const conReloj = dibujar(true);
+  assert.ok(conReloj.includes('Tu primer mes: US$ 23,50'), 'Esencial');
+  assert.ok(conReloj.includes('Tu primer mes: US$ 48,50'), 'Pro');
+  assert.ok(conReloj.includes('Después, el precio de siempre.'));
+  assert.ok(conReloj.includes('US$ 47 / mes'), 'el precio de lista sigue a la vista');
+  assert.doesNotMatch(dibujar(false), /Tu primer mes/);
 });
 
-test('el cableado: la ruta pública, el token que viaja, y las pantallas', () => {
-  const pub = fuente('lib/rutas-publicas.ts');
-  assert.equal(pub.split("'/api/planes/oferta',").length - 1, 2, 'en las dos listas');
-  assert.match(fuente('app/api/planes/oferta/route.ts'), /if \(PRUEBA_GRATIS_PRENDIDA\) return Response\.json\(\{ oferta: null \}/);
-  assert.match(fuente('app/planes/page.tsx'), /'ref', 'oferta'\]/, 'el token pasa de /planes al plan elegido');
-  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /oferta: p\.oferta \?\? null, sinOferta: sinDescuento/);
+test('el cableado: la cookie del reloj, lo que viaja, y las pantallas', () => {
+  assert.match(fuente('app/planes/page.tsx'), /ofertaVigente=\{relojVivo\(\(await cookies\(\)\)\.get\(COOKIE_OFERTA\)\?\.value\)\}/, 'las tarjetas de /planes');
+  assert.match(fuente('app/planes/[plan]/page.tsx'), /OFERTA_ENTRADA\.planes\.includes\(plan\.id\) && relojVivo/, 'la página del plan sabe del descuento');
+  assert.match(fuente('app/vsl/PreciosLanding.tsx'), /<TarjetasPlanes ofertaVigente=\{ofertaVigente\}/, 'las tarjetas de la landing');
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /Tu primer mes: US\$ \{textoUsd\(precioPrimerMes\(p\.precioUsd\)\)\}/);
+  assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /oferta: !!p\.oferta, sinOferta: sinDescuento/);
   assert.match(fuente('app/planes/[plan]/CompraPlan.tsx'), /Seguir con el precio normal/);
   assert.match(fuente('app/api/planes/comprar/route.ts'), /\.\.\.\(r\.sinOferta \? \{ sinOferta: true \} : \{\}\)/);
   assert.match(fuente('app/vsl/Landing.tsx'), /PRUEBA_GRATIS_PRENDIDA \? PRUEBA_DIAS : 'apagada'/, 'una landing publicada no sigue prometiendo días gratis');
@@ -168,7 +168,7 @@ test('el cableado: la ruta pública, el token que viaja, y las pantallas', () =>
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await conciliarPrimerMes\(\)/);
 });
 
-// Roturas (30/10/2026; base 12 / 0), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):
+// Roturas (30/10/2026; base 12 / 0, y re-corridas sobre la cookie de Landings), cada una restaurada (pasan / fallan; 0 / 1 = el hijo no pudo seguir el recorrido):
 //   · el interruptor prendido                                  -> 0 / 1
 //   · Mercado Pago nace a precio lleno                         -> 10 / 2
 //   · el primer pago se asienta lleno (no lo veía: el test miraba sólo los dólares; ahora mira también su moneda) -> 11 / 1
@@ -182,10 +182,10 @@ test('el cableado: la ruta pública, el token que viaja, y las pantallas', () =>
 //   · el cobro guarda la mitad                                 -> 10 / 2
 //   · sigue habiendo prueba para las altas nuevas              -> 0 / 1
 //   · a quien está en prueba se le quitan los días             -> 11 / 1
-//   · una firma cualquiera sirve; sin gracia                   -> 0 / 1 cada una
-//   · el reloj se reinicia al volver                           -> 11 / 1
+//   · sin gracia; la gracia también para quien no lo vio       -> 11 / 1 cada una
+//   · el descuento en un plan que no está en el cartel; con el interruptor apagado -> 11 / 1 cada una
 //   · el descuento dura para siempre en Tu plan                -> 11 / 1
 //   · la landing sigue prometiendo días gratis                 -> 11 / 1
-//   · el token no pasa de /planes                              -> 11 / 1
+//   · las tarjetas de /planes o la página del plan no lo dicen -> 11 / 1 cada una
 // Lo que NO corre acá: Stripe y Mercado Pago de verdad. `PUT /preapproval` nunca se midió con claves reales; falta un cobro real, y
 // para eso hace falta el sí de Martín. Mercado Pago además necesita los precios en pesos cargados (`preciosLocales`, hoy vacío).

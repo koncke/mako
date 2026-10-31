@@ -22,6 +22,7 @@ async function main() {
     orCompleto: true,
     defaults: (tabla: string, f: Fila) => {
       const ahora = new Date().toISOString();
+      if (tabla === 'workspaces') return { id: ids++, created_at: ahora, ...f };
       if (tabla === 'cobros') return { id: ids++, created_at: ahora, updated_at: ahora, lead_id: null, cuenta: null, cuenta_ref: null, motivo: null, pago_id: null, alta_capa: null, alta_estado: null, suscripcion_estado: null, proveedor_pago_id: null, proveedor_suscripcion_id: null, pagado_at: null, reembolsado_at: null, ...f };
       if (tabla === 'leads') return { id: ids++, created_at: ahora, estado_lead: 'abierto', pipeline_stage: 'lead', ...f };
       if (tabla === 'pagos') return { id: ids++, pagado: false, nacio_cobrada: false, resto_de: null, es_mensualidad: false, ...f };
@@ -92,10 +93,12 @@ async function main() {
   process.env.APP_BASE_URL = 'https://mako.test';
   process.env.AUTH_SECRET = 'secreto-de-firma-de-prueba';
   process.env.RESEND_API_KEY = 're_prueba';
+  process.env.OFERTA_ENTRADA_ACTIVA = '1';
 
   const { cifrar } = await imp('lib/cripto-credenciales.ts');
-  const { firmarOferta } = await imp('lib/oferta-entrada.ts');
-  const { iniciarCompraDePlan } = await imp('lib/compra-plan.ts');
+  const { firmarVencimiento } = await imp('lib/oferta-entrada.ts');
+  const { POST: comprarRuta } = await imp('app/api/planes/comprar/route.ts');
+  const { NextRequest } = await import('next/server');
   const cobros = await imp('lib/cobros.ts');
   const { conciliarPrimerMes } = await imp('lib/primer-mes.ts');
   const { estadoDePrueba, frenoDePrueba } = await imp('lib/prueba-uso.ts');
@@ -111,14 +114,26 @@ async function main() {
   db.usuarios.push({ id: 1, email: 'ya-tiene@ejemplo.com', nombre: 'Ya tiene', rol: 'cliente', estado: 'activo', workspace_id: 50 });
   // Los dos planes, con su precio en pesos: lo que hace que Mercado Pago se ofrezca (nunca con una tasa).
   const ahora = Date.now();
-  const pedido = (email: string, extra: Fila = {}) => ({ plan: 'pro', nombre: 'Ana Pérez', email, pasarela: 'stripe', origen: null, ref: null, whatsapp: null, quiero: false, diagnostico: null, periodo: 'mensual', sinPrueba: false, codigoEscrito: null, codigoEscritoMal: false, ...extra });
-  const comprar = (email: string, extra: Fila = {}) => iniciarCompraDePlan(pedido(email, extra), { pais: 'MX' });
+  // La ruta de verdad, con su cookie: `reloj` son los minutos que le quedan (negativo = venció hace tanto). null = sin cookie.
+  let nIp = 0;
+  const cookieDe = (reloj: number | null | string) => (typeof reloj === 'string' ? reloj : reloj == null ? '' : firmarVencimiento(ahora + reloj * 60_000, process.env.AUTH_SECRET));
+  const comprar = async (email: string, reloj: number | null | string, extra: Fila = {}) => {
+    const cookie = cookieDe(reloj);
+    const req = new NextRequest('https://mako.test/api/planes/comprar', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://mako.test', 'x-forwarded-for': `10.0.0.${++nIp}`, 'x-vercel-ip-country': 'MX', ...(cookie ? { cookie: `mk_oferta=${cookie}` } : {}) },
+      body: JSON.stringify({ plan: 'pro', nombre: 'Ana Pérez', email, pasarela: 'stripe', ...extra }),
+    });
+    const r = await comprarRuta(req);
+    const j = await r.json() as Fila;
+    return { status: r.status, ok: r.status === 200 && !!j.link, ...j };
+  };
   const cobroDe = (email: string) => db.cobros.filter((c) => c.email === email).at(-1);
   const out: Record<string, unknown> = {};
 
   // ── Sin reloj (llegó directo a /planes): el precio de lista y NINGUNA prueba ──
   let antes = stripe.length;
-  out.sinToken = await comprar('directo@ejemplo.com');
+  out.sinToken = await comprar('directo@ejemplo.com', null);
   if (!(out.sinToken as { ok: boolean }).ok) throw new Error(`la compra no abrió: ${JSON.stringify(out.sinToken)}`);
   const c0 = cobroDe('directo@ejemplo.com')!;
   const ses0 = stripe.slice(antes).find((x) => x.ruta === '/v1/checkout/sessions')!.p;
@@ -128,7 +143,7 @@ async function main() {
 
   // ── Con el reloj vivo: el 50% en Stripe, y el cobro sigue valiendo 97 ──
   antes = stripe.length;
-  out.conToken = await comprar('reloj@ejemplo.com', { oferta: firmarOferta(ahora - 60_000) });
+  out.conToken = await comprar('reloj@ejemplo.com', 5);
   const c1 = cobroDe('reloj@ejemplo.com')!;
   const cupon = stripe.slice(antes).find((x) => x.ruta === '/v1/coupons')!.p;
   const ses1 = stripe.slice(antes).find((x) => x.ruta === '/v1/checkout/sessions')!.p;
@@ -139,25 +154,33 @@ async function main() {
   // ── El reloj vencido, uno falso, la gracia, y quien sigue a precio normal ──
   const n = () => db.cobros.length;
   let n0 = n();
-  out.vencida = await comprar('vencida@ejemplo.com', { oferta: firmarOferta(ahora - 26 * 60_000) });
+  out.vencida = await comprar('vencida@ejemplo.com', -30, { oferta: true });
   out.vencidaNoCreo = n() === n0;
-  out.vencidaSigue = await comprar('vencida@ejemplo.com', { oferta: firmarOferta(ahora - 26 * 60_000), sinOferta: true });
+  out.vencidaSigue = await comprar('vencida@ejemplo.com', -30, { oferta: true, sinOferta: true });
   out.vencidaSigueCobro = cobroDe('vencida@ejemplo.com')!.creado_por;
-  await comprar('gracia@ejemplo.com', { oferta: firmarOferta(ahora - 20 * 60_000) });
+  await comprar('gracia@ejemplo.com', -5, { oferta: true });
   out.graciaCobro = cobroDe('gracia@ejemplo.com')!.creado_por;
-  await comprar('falso@ejemplo.com', { oferta: 'o1.99999.firma-inventada' });
+  // Vencido y sin haberlo visto en la página: el contrato de Landings, precio normal, sin preguntar. La gracia no es para él.
+  await comprar('nolovio@ejemplo.com', -5);
+  out.noLoVioCobro = cobroDe('nolovio@ejemplo.com')!.creado_por;
+  await comprar('falso@ejemplo.com', '9999999999.firma-inventada');
   out.falsoCobro = cobroDe('falso@ejemplo.com')!.creado_por;
+  // Con el interruptor de Landings apagado, una cookie buena no da nada: el cartel y el cobro no pueden decir cosas distintas.
+  process.env.OFERTA_ENTRADA_ACTIVA = '0';
+  await comprar('apagada@ejemplo.com', 5);
+  out.apagadaCobro = cobroDe('apagada@ejemplo.com')!.creado_por;
+  process.env.OFERTA_ENTRADA_ACTIVA = '1';
 
   // ── Un descuento por email ──
   n0 = n();
-  out.cuenta = await comprar('ya-tiene@ejemplo.com', { oferta: firmarOferta(ahora - 60_000) });
+  out.cuenta = await comprar('ya-tiene@ejemplo.com', 5);
   out.cuentaNoCreo = n() === n0;
   db.cobros.push({ id: ids++, workspace_id: PLATAFORMA, email: 'pago@ejemplo.com', creado_por: 'planes:pro:primer-mes-50', estado: 'pagado', created_at: new Date(ahora - 3600_000).toISOString() });
-  out.yaPago = await comprar('pago@ejemplo.com', { oferta: firmarOferta(ahora - 60_000) });
+  out.yaPago = await comprar('pago@ejemplo.com', 5);
   db.cobros.push({ id: ids++, workspace_id: PLATAFORMA, email: 'viejo@ejemplo.com', creado_por: 'planes:pro:primer-mes-50', estado: 'pendiente', created_at: new Date(ahora - 25 * 3600_000).toISOString() });
-  out.abandonoViejo = await comprar('viejo@ejemplo.com', { oferta: firmarOferta(ahora - 60_000) });
+  out.abandonoViejo = await comprar('viejo@ejemplo.com', 5);
   db.cobros.push({ id: ids++, workspace_id: PLATAFORMA, email: 'reciente@ejemplo.com', creado_por: 'planes:pro:primer-mes-50', estado: 'pendiente', created_at: new Date(ahora - 3600_000).toISOString() });
-  out.abandonoReciente = await comprar('reciente@ejemplo.com', { oferta: firmarOferta(ahora - 60_000) });
+  out.abandonoReciente = await comprar('reciente@ejemplo.com', 5);
 
   // ── Lo que entra: el primer pago a mitad, la renovación entera ──
   const crear = (pasarela: string, email: string, extra: Fila = {}) => runWithWorkspace(PLATAFORMA, async () => {
@@ -169,7 +192,13 @@ async function main() {
 
   const rs = await crear('stripe', 'pagastripe@ejemplo.com');
   if (!rs.ok) throw new Error(`crearCobro stripe: ${rs.error}`);
+  // SE PAGA ANTES DE ENTRAR: abrir el pago no da de alta a nadie; el pago sí, y entra con su onboarding pendiente.
+  const conEmail = () => db.usuarios.filter((u) => u.email === 'pagastripe@ejemplo.com');
+  out.usuarioAntesDePagar = conEmail().length;
   await cobros.aplicarPagoAprobado(rs.cobro, { proveedorPagoId: 'in_1', monto: 48.5, moneda: 'USD', suscripcionId: 'sub_1' });
+  out.usuarioDespuesDePagar = conEmail().length;
+  const wsAlta = db.cobros.find((c) => c.id === rs.cobro.id)!.alta_ws;
+  out.onboardingDelAlta = wsAlta == null ? null : db.app_settings.find((f) => f.workspace_id === wsAlta && /onboarding/.test(String(f.key)))?.value ?? null;
   const rsTras = (await cobros.getCobroPorToken(rs.cobro.token))!;
   await cobros.aplicarPagoAprobado(rsTras, { proveedorPagoId: 'in_2', monto: 97, moneda: 'USD', suscripcionId: 'sub_1' });
   out.pagosStripe = pagosDe(rs.cobro.id);

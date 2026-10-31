@@ -112,7 +112,7 @@ test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un pl
 
 test('/planes: tres bloques, el programa se pide, la comparación, y el link a MaKo Partners', () => {
   const p = fuente('app/planes/Vitrina.tsx');
-  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} \/>;/, 'la página lee y la vitrina dibuja');
+  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} ofertaVigente=/, 'la página lee y la vitrina dibuja');
   assert.match(p, /^\s*const programa = PROGRAMA_ACELERADOR;/m);
   const t = fuente('app/planes/Tarjetas.tsx');
   assert.match(p, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los bloques son los de la landing');

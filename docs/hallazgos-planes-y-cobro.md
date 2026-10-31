@@ -1778,3 +1778,23 @@ núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo
 **Vive en:** lib/planes-comparacion.ts · lib/topes-plan.ts · app/crm/grupo-wa-actions.ts · app/crm/TraerDeGrupoWA.tsx ·
 lib/api-mako/areas/crm.run.ts · lib/partners-programa.ts · app/partners/page.tsx · app/m/partners/page.tsx ·
 tests/planes-tres-bloques.test.ts · tests/scraper-partners-solo-pro.test.ts.
+
+## El funnel de lanzamiento en el cobro: prueba apagada, 50% del primer mes y se paga antes de entrar (30/10/2026)
+
+La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-lanzamiento-low-to-high.md). Lo que vive acá es lo que no se ve leyendo el código.
+
+- **`cobro.monto` sigue siendo la mensualidad, y sólo el PRIMER PAGO sale a mitad.** Lo obvio era guardar 48,50 en el cobro y habría quedado mal para siempre: la deuda de una mora, «Tu plan», la retención, «Pasar a Pro» y el MRR salen de ese número. El descuento se reconoce por `creado_por = planes:<plan>:primer-mes-50` (lib/primer-mes-reglas.ts), sin migración.
+- **Los dos caminos no son simétricos.** Stripe vuelve solo (cupón `once`). Mercado Pago no tiene descuento de un cobro: nace rebajada y hay que subirla con `PUT /preapproval` al entrar el primer pago, con el cron de respaldo (`conciliarPrimerMes`) y un mail a Martín si no puede. Si esa llamada se pierde, el segundo mes se cobra a mitad y nadie lo ve. **Y no se puede subir a ciegas: quien aceptó «2 meses al 50%» antes de darse de baja está rebajado a propósito** (el cron saltea a quien tiene `plan.retencion`).
+- **El reloj de un cartel es sólo un adorno si el servidor no lo mira.** Es la cookie firmada de Landings (`ofertaVigente`, lib/oferta-entrada.ts), y la ruta de compra la lee. Sin reloj vivo, precio de lista. **Armé primero un token mío en la URL con el mismo nombre de archivo, sin saber que Landings estaba haciendo la cookie: se tiró.** Dos relojes para una promesa era peor que cualquiera de los dos.
+- **Lo que se eligió para lo que Martín dejó abierto («si el reloj se reinicia»):** el reloj no vuelve en ese navegador (Landings). Otro navegador arranca el suyo, y eso lo cierra el cobro con **un descuento por email**: quien lo abandona a mitad del pago lo rearma por 24 h con el mismo email, y después precio normal. 15 min de gracia que no se muestran, sólo para quien vio el descuento en la página y tocó el botón con el reloj en cero. Se cambia en `puedeUsarOferta` (lib/compra-plan.ts) y `MINUTOS_DE_GRACIA` (lib/primer-mes-reglas.ts).
+- **Hay dos interruptores y se prenden juntos con la pasarela:** `PRUEBA_GRATIS_PRENDIDA` (apagada ya) y `OFERTA_ENTRADA_ACTIVA` (de Landings, apagada: si no, el cartel promete 23,50 y no hay con qué cobrar). Con el del 50% apagado, el cobro da precio de lista: no hay forma de que el cobro y el cartel digan cosas distintas.
+- **Si el descuento no vale, se dice y se elige.** La ruta contesta 409 con `sinOferta` y nada creado. Nunca se cobra el precio lleno a quien venía viendo la mitad.
+- **«Apagar» no es poner `null`.** `conPreciosEnHtml(html, planes, null)` deja las marcas de la landing como vinieron, o sea «Empieza tus 7 días gratis» en una página publicada. Con la prueba apagada se pasa `'apagada'`, que las reemplaza.
+- **Prendido y apagado no conviven:** con `PRUEBA_GRATIS_PRENDIDA` en true no hay descuento (el motivo 1 de Martín). A quien ya está en prueba no lo mira el interruptor: `esPruebaDePlan` mira el cobro.
+- **Sin hacer, por falta de datos o de un sí:**
+  - Ningún cobro real pasó por esto, y `PUT /preapproval` nunca se midió con claves de verdad. Hace falta el sí de Martín.
+  - `/planes` hoy muestra «Quiero…»: sin pasarela real conectada no se cobra en línea, así que el funnel no cobra nada hasta conectarla.
+  - Mercado Pago no se ofrece: `preciosLocales` está vacío en los dos planes (nunca se inventa una tasa).
+  - Las marcas `data-mako-prueba="dias"` y `="cobro"` de las landings publicadas y scripts/landings-mako-v2.mts siguen diciendo días gratis: es de Landings.
+  - MaKo Partners paga el primer mes a precio de lista (`gananciaDelReferido`), aunque ese mes haya entrado a mitad, y su landing dice «todo lo que paga el negocio»: decisión de Martín.
+  - Lo ya pagado no se reembolsa, y ahora sin prueba previa: en Argentina, la Ley 24.240 (art. 34) da 10 días para arrepentirse de una compra a distancia. No se tocó la política: lo tiene que mirar Martín.
