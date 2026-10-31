@@ -48,7 +48,7 @@ const ask = JSON.stringify({
 
 test('1. el cartero sube las preguntas de un AskUserQuestion: una por pregunta, con su recomendada, y con el mismo id siempre', async () => {
   const { turnosDeLineas, VERSION } = await cartero();
-  assert.equal(VERSION, '1.24.0'); // 1.24.0: el pedido delegado desde el grupo (tests/tickets-al-cerebro.test.ts); 1.23.0: los tickets que esperan a Martín le llegan al Cerebro (tests/tickets-al-cerebro.test.ts); 1.22.1: el pedido dice cómo se escribe el cierre; 1.22.0: los adjuntos del chat nuevo (tests/centro-nuevo-con-adjuntos.test.ts); 1.21.0: el resumen del wrap_up (tests/chat-en-el-acto.test.ts); 1.20.0: el ticket aprobado por regla (tests/feedback-2710-tanda1.test.ts); 1.18.1: «la última de cada chat», sólo de wrap_up; 1.19.0: los turnos, enteros (tests/turnos-enteros.test.ts)
+  assert.equal(VERSION, '1.26.1'); // 1.26.1: la revisión del servicio (tests/cartero-servicio.test.ts); 1.26.0: lo que espera un chat cerrado le llega al Cerebro; 1.24.0: el pedido delegado desde el grupo (tests/tickets-al-cerebro.test.ts); 1.23.0: los tickets que esperan a Martín le llegan al Cerebro (tests/tickets-al-cerebro.test.ts); 1.22.1: el pedido dice cómo se escribe el cierre; 1.22.0: los adjuntos del chat nuevo (tests/centro-nuevo-con-adjuntos.test.ts); 1.21.0: el resumen del wrap_up (tests/chat-en-el-acto.test.ts); 1.20.0: el ticket aprobado por regla (tests/feedback-2710-tanda1.test.ts); 1.18.1: «la última de cada chat», sólo de wrap_up; 1.19.0: los turnos, enteros (tests/turnos-enteros.test.ts)
   const r = turnosDeLineas([ask]);
   assert.equal(r.preguntas.length, 2);
   const [a, b] = r.preguntas;
