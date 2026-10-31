@@ -712,6 +712,29 @@ código que se sube; las guardas baratas, no.
 toca sin avisar; además hay un pliegue: el hook no está versionado, así que arreglar la copia de `scripts/claude-hooks/pre-push`
 no cambia nada hasta que alguien la instale.
 
+### Y la otra mitad: una guarda sin `node_modules` ACUSA AL DOCUMENTO en vez de decir «no pude chequear» (31/10/2026)
+
+Las guardas corren con el `cwd` del worktree, o sea que juzgan **sus archivos** — y casi todas son
+`node --import tsx scripts/sync-*.mjs --check`. **Un worktree recién creado no tiene `node_modules`**, así que `tsx` no se
+resuelve, el script muere con `ERR_MODULE_NOT_FOUND`, y la guarda lee ese código de salida como «el documento quedó viejo».
+
+El mensaje es de su dominio y suena cierto: `X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de
+lib/mako-gramatica.ts` — sobre un documento que la rama no toca y que está perfecto. **Es el modo de falla de siempre: no da un
+error de entorno, da un veredicto plausible sobre otra cosa.** Y como el que pushea sabe que no tocó ese documento, el diagnóstico
+natural («alguien lo dejó viejo en la punta») también es el equivocado.
+
+⚠️ **Y el atajo obvio —pushear desde la carpeta del clon, que sí tiene `node_modules`— es peor:** el ref es compartido y el push
+funciona, pero entonces el `cwd` es el clon y las guardas juzgan **los archivos del clon**, 4.592 commits atrás. Acá bloqueó por
+`extension/puede-filmar.js quedo viejo`, que en la punta está al día. Se cambia un veredicto falso por otro.
+
+**La regla:** un worktree nuevo lleva su junction a `node_modules` ANTES del primer push, no cuando algo falle
+(`cmd //c "mklink /J <worktree>\node_modules <clon>\node_modules"` — y es junction porque en Git Bash `ln -s` **copia**: serían
+GB). Es la misma regla del disco lleno del 17/10, y acá se ve por qué también es una regla de correctitud y no sólo de espacio.
+
+**Cómo distinguirlo en 5 segundos**, antes de creerle a la acusación: correr el `--check` que nombra el mensaje a mano en el
+worktree. Si imprime un stack de `ERR_MODULE_NOT_FOUND`, el documento no tiene nada; falta el junction. Si imprime `✓ al día`, la
+guarda está juzgando otro árbol (ver arriba).
+
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
 **Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · `lib/vercel-salida.ts` · cualquier chequeo que use
