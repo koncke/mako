@@ -340,7 +340,11 @@ test('compartible: una barredora que sólo lee se comparte; la que toca el entor
   assert.equal(compartible("if (process.env.CI === '1') {} " + lee), true, 'LEER el entorno no lo cambia');
 });
 
-test('agrupar con compartir: los que sólo leen salen de la fila y van juntos; los que el cambio toca o importan código, no', () => {
+// ⚠️ CAMBIÓ EL 31/10/2026: `compartir` ya no es «todo lo que es SEGURO compartir» sino «las que BARREN», que es lo único que
+// ahorra algo (el proceso compartido existe para no releer los ~5.400 archivos del repo una vez por test). Medido ese día: de
+// 1.850 compartibles, 227 barren y 1.623 sólo son seguros, y meterlos al grupo lo hacía tardar 25 min sin juzgar un caso.
+// El de antes quedó como `'todo-lo-seguro'`. Ver tests/tope-grupo-compartido.test.ts y docs/hallazgos-infra.md.
+test('agrupar con compartir: las que BARREN salen de la fila y van juntas; las que el cambio toca, las que sólo nombran o importan, no', () => {
   const tests = new Map([
     ['tests/lee-todo.test.ts', [{ tipo: 'barre', detalle: 'git ls-files' }]],
     ['tests/toca-el-entorno.test.ts', [{ tipo: 'barre', detalle: 'recorre carpetas' }]],
@@ -351,9 +355,11 @@ test('agrupar con compartir: los que sólo leen salen de la fila y van juntos; l
   ]);
   const compartibles = new Set(['tests/lee-todo.test.ts', 'tests/nombra-y-barre.test.ts', 'tests/lee-texto.test.ts', 'tests/editada-y-barre.test.ts']);
   const con = agrupar(tests, compartibles, { compartir: true });
-  assert.deepEqual(con.compartidos, ['tests/lee-texto.test.ts', 'tests/lee-todo.test.ts', 'tests/nombra-y-barre.test.ts']);
-  assert.deepEqual([...con.orden].sort(), ['tests/editada-y-barre.test.ts', 'tests/solo-importa.test.ts', 'tests/toca-el-entorno.test.ts'],
-    'corren aparte: el que el cambio mismo toca, el que importa código (tiene estado) y el que cambia el entorno');
+  assert.deepEqual(con.compartidos, ['tests/lee-todo.test.ts', 'tests/nombra-y-barre.test.ts'], 'las dos que BARREN y son seguras');
+  assert.deepEqual([...con.orden].sort(), ['tests/editada-y-barre.test.ts', 'tests/lee-texto.test.ts', 'tests/solo-importa.test.ts', 'tests/toca-el-entorno.test.ts'],
+    'corren aparte: el que el cambio mismo toca, el que SOLO nombra (no barre: no ahorra nada), el que importa codigo y el que cambia el entorno');
+  assert.deepEqual(agrupar(tests, compartibles, { compartir: 'todo-lo-seguro' }).compartidos,
+    ['tests/lee-texto.test.ts', 'tests/lee-todo.test.ts', 'tests/nombra-y-barre.test.ts'], 'el de antes, con su nombre explicito');
   const sin = agrupar(tests, compartibles, { compartir: false });
   assert.deepEqual(sin.compartidos, []);
   assert.equal(sin.orden.length, 6, 'sin compartir, cada uno en su proceso como siempre');
@@ -367,7 +373,7 @@ test("agrupar con compartir='barredoras' (lo que usa Actions en la fase 1): sól
   ]);
   const compartibles = new Set(['tests/barre.test.ts', 'tests/nombra.test.ts', 'tests/importa.test.ts']);
   assert.deepEqual(agrupar(tests, compartibles, { compartir: 'barredoras' }).compartidos, ['tests/barre.test.ts']);
-  assert.deepEqual(agrupar(tests, compartibles, { compartir: 'todo' }).compartidos, ['tests/barre.test.ts', 'tests/importa.test.ts', 'tests/nombra.test.ts']);
+assert.deepEqual(agrupar(tests, compartibles, { compartir: 'todo-lo-seguro' }).compartidos, ['tests/barre.test.ts', 'tests/importa.test.ts', 'tests/nombra.test.ts']);
 });
 
 test('seleccionar marca como compartible a todo test que no toca estado global, importe o no código del repo', () => {

@@ -397,7 +397,10 @@ después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/ha
 
 - **Síntoma:** «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», seguido de «los repito AISLADOS, uno por
   proceso». Eso son horas.
-- **Causa:** con 1 a 3 GB libres, el proceso compartido pagina y llega al tope (`TOPE_COMPARTIDO_MS`). No es un rojo del código.
+- **Causa:** se escribio que con 1 a 3 GB libres el proceso paginaba y llegaba al tope. **Ese diagnostico era el equivocado**: el
+  31/10/2026 se midio que lo que tarda es la CARGA del proceso compartido (seis minutos sin juzgar un caso con 100 archivos) y que
+  el mismo sintoma sale en Actions con 4,3 GB libres. No es un rojo del codigo ni es la RAM: era un tope fijo de 25 min. Ver
+  «0 tests, ROJO, 25 min era la CARGA del proceso compartido», mas abajo.
 - **Qué hacer:** cortar la corrida y volver a correrla con más RAM libre. Los rojos de verdad se separan corriendo esos tests en
   un main limpio (`git worktree add --detach … origin/main` más una junction a `node_modules`) y comparando las dos listas de
   `✖`. El 25/10, de 12 rojos, 4 eran del tren y 8 ya estaban en main.
@@ -500,6 +503,86 @@ apenas se levantó, sin mirarla.
 **La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió» (desde el 30/10 a la noche lo hace el script, no la buena voluntad del que lee). Antes de pasar una punta con barredoras sin correr, se corren a mano las que nombran lo que se tocó (`grep -l` del archivo en tests/). Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
 que Martín puso la tarjeta, y no se repiten en esa PC. En la PC, sólo los tests del cambio, midiendo la RAM antes.
 
+## «0 tests · ROJO · 25 min» era la CARGA del proceso compartido, y el grupo tenía 1.623 pasajeros que no ganaban nada (31/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (`lanzarVigilado`, `arranqueDe`, `topeDePared`, `agrupar`, el `--resto`) · la medición, en
+`scripts/medir-grupo-compartido.mjs`. Lo fija tests/tope-grupo-compartido.test.ts.
+
+**El síntoma, tres veces, con tres causas distintas escritas y las dos primeras equivocadas:**
+
+| | Qué se vio | Qué se escribió entonces |
+|---|---|---|
+| 25/10 | `grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min` | «con 1 a 3 GB libres el proceso pagina y llega al tope»: la RAM |
+| 30/10 (notebook) | `1/2 · 495 archivos · 0 tests · ROJO · 25 min 2 s`, RAM mínima 0,7 GB | una estampida de RAM entre chats |
+| 30/10 (Actions) | `1/2 · 514 · 0 tests · ROJO · 25 min 0 s` y `2/2 · 514 · 0 tests · ROJO · 25 min 0 s`, **RAM mínima 4,3 GB** | ahí se cayó el diagnóstico de la RAM |
+
+Con 4,3 GB libres en un runner dedicado, la memoria no era. `25 min 0 s` es el reloj: `TOPE_COMPARTIDO_MS` valía 25 minutos FIJOS,
+`matarArbol` mataba el proceso y `colgada` lo volvía código 1, o sea ROJO.
+
+**La medición que faltaba (`scripts/medir-grupo-compartido.mjs`, esta PC, 31/10):**
+
+| archivos en UN proceso compartido | reloj | s/archivo | pico RAM | tests |
+|---|---|---|---|---|
+| 12 | 13-14 s | 1,1 s | 0,33-0,38 GB | 70 |
+| 100 | 8 min 24 s | **5,04 s** | 0,79 GB | 889 |
+| 495 / 514 / 1.028 | nunca terminó (>25 min) | — | — | 0 |
+
+**Y la curva, que es el hallazgo:** casos juzgados por minuto en el grupo de 100 →
+`0′:0 1′:0 2′:0 3′:0 4′:0 5′:0 6′:56 7′:56 8′:742`.
+**Seis minutos sin juzgar UN caso, y después los 889 en dos.** Con `--test-isolation=none` node importa TODOS los archivos antes de
+correr el primer test y tsx los transpila de a uno: lo que tarda es la CARGA, no los tests. Para 514 archivos la carga sola pasa de
+los 25 minutos, así que el proceso moría **cargando**, sin haber ejecutado nada. De ahí el `0 tests`, que era literal.
+
+**El costo por archivo es SUPER-lineal** (1,1 s con 12 archivos, 5,04 s con 100): el grupo grande es la peor forma posible. Partirlo
+en grupos chicos no es «más procesos para que entren en el tope»: es que 86 grupos de 12 son ~19 min y 10 de 100 son ~84.
+
+**La causa de fondo: lo SEGURO no es lo que CONVIENE.** El selector decide con `compartible()`, que contesta «¿es seguro compartir
+este test?» (no toca estado global). Pero lo que un proceso compartido AHORRA es la relectura de los ~5.400 archivos del repo, y eso
+sólo lo pagan las BARREDORAS. Medido el 31/10 sobre los 1.850 compartibles de hoy:
+
+| | |
+|---|---|
+| **227** | barren de verdad (125 recorren carpetas, 63 `git ls-files`, 10 `git grep`, 29 nombran 20+ archivos) |
+| **1.623** | sólo son SEGUROS de compartir: no releen nada, no ahorran nada, y pagan la carga del grupo |
+
+Las «148 que se pueden compartir» con las que se calibró el tope el 17/10 eran casi todas barredoras; de 148 a 1.850 en trece días no
+creció el repo: creció el criterio. Por eso `--compartir` ahora significa **las que BARREN** (227), y el de antes quedó con nombre
+propio, `--compartir=todo-lo-seguro`, para volver a medirlo.
+
+**Lo que cambió:**
+- **El tope dejó de ser un reloj de pared y pasó a preguntar «¿AVANZA?»**: el runner imprime una línea por caso TERMINADO, así que un
+  proceso que no imprime un caso nuevo en 5 min está colgado, tenga 12 archivos o 1.028; uno grande que avanza no se mata nunca por
+  ser grande. Queda un TECHO proporcional como última red, para que un arrastre patológico no se coma el job de 90 min.
+- **La gracia del primer caso es POR ARCHIVO** (60 s + 6 s × archivos). Es el error que la medición cazó en este mismo cambio: la
+  primera versión tenía un arranque fijo de 90 s y habría matado al grupo de 100 a los 6,5 min, justo cargando, con el mismo síntoma
+  que vino a arreglar. Invariante fijado en el test: el techo nunca llega antes que la gracia.
+- **El que se colgó ahora tiene nombre**: node imprime el caso cuando TERMINA, así que el colgado es el que sigue al último impreso.
+  Antes el mensaje era «un test se colgó» y había que adivinar entre 514 archivos.
+- **`0 tests` ya no se imprime cuando hubo tests**: ese número sale del PIE del runner (`ℹ tests N`), que un proceso muerto nunca
+  imprime. Ahora, sin pie, se informa lo que se CONTÓ del stream («N casos juzgados (sin el pie del runner)»), y el total de la
+  corrida tampoco se come lo que corrió un proceso que murió. **Dos de los tres diagnósticos de arriba se armaron sobre ese cero.**
+- **El piso de RAM crece con los archivos de cada proceso** (`COSTO_COMPARTIDO_GB = 0.8` se midió con 24 barredoras y se aplicaba
+  igual a 514). Consecuencia útil: como la BASE por proceso es lo que domina, MENOS grupos piden MENOS RAM en total aunque cada
+  proceso sea más grande, así que bajar la cantidad de grupos es la salida cuando no entra.
+
+**La regla.** Un tope en minutos y un piso en GB envejecen con la suite: lo que mide un número fijo hay que volver a medirlo cuando
+el conjunto crece, y un tope sirve para cazar lo que NO AVANZA, no para presupuestar lo que tarda. Y antes de meter algo a un
+proceso compartido, la pregunta no es «¿es seguro?» sino «¿ahorra algo?».
+
+**SIN hacer:**
+- **No está medido cuánto tarda un grupo de 227 barredoras** (el nuevo tamaño del grupo en el tren): la PC no lo sostuvo mientras se
+  armaba esto (el candado de lo pesado con tres chats detrás). Se mide con `node scripts/medir-grupo-compartido.mjs --n 227 --grupos 2`,
+  y en Actions es una corrida del tren.
+- **Por qué la carga es super-lineal** (1,1 → 5,04 s por archivo): sigue sin medirse si es tsx transpilando o el GC del proceso que
+  crece. **Lo que sí se midió es que NO es el cache de lecturas**: los mismos 100 archivos sin él (`--sin-cache`) tardaron
+  **6 min 40 s** contra 8 min 24 s con él, con la misma forma de curva (`0′:0 … 3′:0 4′:56 5′:56 6′:742`) y el mismo pico (0,78 GB).
+  O sea que la carga es de node + tsx, y **el cache le COSTÓ un 25 % a este conjunto en vez de ahorrarle**, que es otra cara del
+  mismo hallazgo: de esos 100 casi ninguno barre, así que pagan el hook de cada lectura y no cobran nada. (Las dos corridas no
+  tuvieron la misma carga de máquina —RAM libre mínima 0,0 contra 1,1 GB—, así que el 25 % es un orden de magnitud, no un número
+  fino; la forma de la curva sí es la misma.) Queda por mirar el hook de escritura del cache, que recorre TODAS las claves en cada
+  `writeFileSync`, incluso de archivos de fuera del repo: le falta el guard `dentro(p)` que sí tienen las lecturas.
+- **Un TOPE de archivos por grupo** (hoy el grupo es «todas las barredoras, repartidas entre los procesos»): con 227 alcanza, pero la
+  super-linealidad dice que el grupo tiene que tener un máximo y correrse por olas. Falta medir dónde está el codo.
 ## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
 
 **Vive en:** `scripts/tests-afectados.mjs` (`juzgoAlgo`, la clasificación de `correrTests`) · `scripts/antes-de-subir.mjs`

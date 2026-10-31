@@ -525,14 +525,21 @@ como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a ma
   una guarda frenó un VERDE en 7 s pero después de 25 min de espera. Un `ROJO` de guarda dice «no hice fila por esto».
 - Un `SIN CHEQUEAR: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
 
-⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
-`scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
-~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
-separadas, 40 s juntas; la suite ENTERA —1.050 tests compartibles— en 2 procesos: 260 s, 0 rojos). **Todo rojo de un proceso
-compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló una vez porque otro test
-dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
-(regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
-riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+⚠️ **Por qué es rápido: las BARREDORAS corren JUNTAS en un proceso** (`--test-isolation=none`, con `scripts/cache-lecturas.cjs`
+memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos ~5.400 archivos y, con
+`node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s separadas, 40 s juntas).
+**Todo rojo de un proceso compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló
+una vez porque otro test dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de
+trabajo NUNCA se comparte (regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su
+proceso solo, sin tocar nada.** El riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en
+su proceso.
+⚠️ **LO SEGURO NO ES LO QUE CONVIENE** (31/10/2026, medido): hasta ese día compartía proceso todo test que fuera SEGURO compartir, y
+eran 1.850 — de los cuales **227 barren de verdad y 1.623 no releen nada**, así que no ahorraban nada y pagaban la carga del grupo.
+Y la carga es lo que tarda: con `--test-isolation=none` node importa TODOS los archivos antes de correr el primer test (medido con
+100 barredoras: **seis minutos sin juzgar un caso**, y después los 889 en dos), con un costo por archivo SUPER-lineal (1,1 s con 12
+archivos, 5,04 s con 100). Un grupo de 514 moría **cargando**, a los 25 minutos, y el log decía `0 tests · ROJO`: eso fue el rojo
+de 1.028 archivos del tren del 30/10. Ahora comparten **sólo las que barren**, el tope pregunta «¿avanza?» en vez de mirar el
+reloj, y un proceso muerto informa los casos que alcanzó a juzgar en vez de un `0 tests` que no era cierto.
 ⚠️ **Y un archivo que tira AL CARGAR da verde compartido** (22/10/2026, docs/hallazgos-infra.md): se cuentan los `test(...)` de
 arriba de la línea que tira y los demás no corren, con salida 0. **En un test, lo que puede tirar (un `assert` sobre el fuente, un
 recorte con tope) va ADENTRO de un `test(...)` o en una función perezosa, nunca en una constante del módulo.**

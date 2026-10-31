@@ -51,9 +51,9 @@ const roto = (archivo: string) => ({
 });
 
 /** EL CASO DEL 30/10: el proceso murió antes de juzgar nada. Salida VACÍA, código != 0. (Medido con un archivo que llama a process.exit en un grupo compartido.) */
-const MUERTO = { codigo: 7, colgada: false, ms: 1_502_000, salida: '' };
+const MUERTO = { codigo: 7, colgada: false, ms: 1_502_000, salida: '', casos: 0 };
 /** Lo mismo, pero matado por su tope de tiempo (`colgada`): 25 min 2 s, que es lo que decía el log del 30/10. */
-const COLGADO_SIN_JUZGAR = { codigo: 1, colgada: true, ms: 1_502_000, salida: '' };
+const COLGADO_SIN_JUZGAR = { codigo: 1, colgada: true, ms: 1_502_000, salida: '', casos: 0 };
 
 // ---------------------------------------------------------------------------
 // 1. El discriminante
@@ -85,7 +85,7 @@ test('leerResultado sobre la salida del 30/10: 0 tests y 0 nombres — de ahí s
 
 const BARREDORAS = (prefijo: string, n: number) => Array.from({ length: n }, (_, i) => `tests/${prefijo}-${String(i).padStart(2, '0')}.test.ts`);
 
-type Proceso = { codigo: number; colgada: boolean; ms: number; salida: string };
+type Proceso = { codigo: number; colgada: boolean; ms: number; salida: string; casos?: number };
 
 /**
  * `correrTests` con los procesos de node INYECTADOS: `grupo(archivos, i)` contesta por cada proceso compartido y `aislado(archivos, i)` por
@@ -125,7 +125,7 @@ test('CASO 1 — un grupo con 0 tests: NO es un rojo. Sale 99, la línea no llev
     assert.equal(r.rojos.size, 0, 'ni un rojo: nadie ejecutó un test');
     assert.equal(r.sinCorrer.size, 24, 'los 24 quedan en «no se sabe»');
     assert.equal(r.flaky.length, 0, 'y NINGUNO es flaky: declararlos verdes sería mentir al revés');
-    assert.match(lineas.join('\n'), /NO CORRIÓ \(0 tests juzgados\)/, 'la línea del grupo lo dice en el momento');
+    assert.match(lineas.join('\n'), /NO CORRIÓ: no juzgó NI UN caso/, 'la línea del grupo lo dice en el momento');
     assert.match(lineas.join('\n'), /NO SE SABE si están rotos/);
 
     const v = armarVeredicto({ sha: 'ab12cd34e', sinChequear: [`tests: ${r.sinCorrer.size} archivo(s) NO corrieron (su proceso murió sin juzgar un test)`], ramMin: 0.7, detalle: '/casa/.claude/antes-de-subir/2026-10-30T18-14-22-ab12cd34e' });
