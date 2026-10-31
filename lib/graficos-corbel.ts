@@ -208,4 +208,12 @@ ${PALETAS_CSS}
 [data-paleta] .lk-comp--portada .gr-tarjeta-val{font-size:20px;font-weight:600}
 [data-paleta] .lk-comp--portada .gr-tabla td{font-size:13.5px;padding-top:9px;padding-bottom:9px}
 [data-paleta] .lk-comp--portada .gr-tabla th{font-size:12px}
+[data-paleta] .lk-comp--portada .gb-centro{justify-content:safe center;overflow-y:auto}
+@media (max-width:820px){
+[data-paleta] .lk-top-tit{font-size:28px;line-height:1.04}
+[data-paleta] .lk-pila{gap:10px}
+[data-paleta] .lk-pila>.lk-comp{padding:16px}
+[data-paleta] .lk-pila>.lk-comp--kpi{padding:14px;gap:8px}
+[data-paleta="mono"] .lk-pila>.lk-comp--kpi:not(.lk-comp--titular) .gr-numero-val{font-size:22px !important;line-height:1.1 !important}
+}
 `;

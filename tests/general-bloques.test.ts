@@ -290,7 +290,8 @@ test('las plantillas: simples, cada dato una vez, de a dos sin estirar, y con t�
     for (const c of hoja.componentes) porFila.set(c.y, (porFila.get(c.y) ?? 0) + 1);
     assert.ok([...porFila.values()].some((n) => n > 1), `${d.id}: todo nace a lo ancho`);
   }
-  assert.ok(conTitulos >= 5, `sólo ${conTitulos} plantillas con títulos de parte`);
+  // Cuatro desde el 31/10/2026: Foco cambió su título de parte por la fila de números, que es la que separa en la referencia.
+  assert.ok(conTitulos >= 4, `sólo ${conTitulos} plantillas con títulos de parte`);
   // La General arranca con la plata del mes en GRANDE: el bloque «El mes», no cuatro gráficos (la quinta vuelta: «que las
   // plantillas de GENERAL, no se parezcan tanto a un dashboard»).
   const general = DEFINICIONES_GENERAL.find((d) => d.id === 'general')!;

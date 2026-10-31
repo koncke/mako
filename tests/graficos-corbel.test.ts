@@ -171,6 +171,42 @@ test('el riel: 30 de ancho tope y el extremo redondo, sólo con Corbel', () => {
   assert.doesNotMatch(g, /maxBarSize: BARRA\.maxVertical|maxBarSize=\{BARRA\.maxVertical\}/);
 });
 
+test('el teléfono, con lo medido a 390', () => {
+  const tel = MEDIDO.telefono;
+  assert.match(tel.kpi.caja, /padding 14px, gap 8px/);
+  assert.match(CSS_CORBEL, /\.lk-pila>\.lk-comp--kpi\{padding:14px;gap:8px\}/);
+  assert.match(tel.kpi.grilla, /gap 10px/);
+  assert.match(CSS_CORBEL, /\.lk-pila\{gap:10px\}/);
+  assert.match(tel.kpi.valor, /^22px/);
+  assert.match(CSS_CORBEL, /\.gr-numero-val\{font-size:22px !important/);
+  assert.match(tel.tarjeta.padding, /^16px/);
+  assert.match(CSS_CORBEL, /\.lk-pila>\.lk-comp\{padding:16px\}/);
+  assert.match(leer('app/dashboard/Grafico.tsx'), /<span className="gr-numero-val"/);
+  const g = leer('app/globals.css');
+  assert.equal(g.split('--fs-page: 28px;').length - 1, 2, 'el móvil y /m');
+  assert.equal(g.split('--fs-kpi: 22px;').length - 1, 2);
+});
+
+test('Foco: la composición nueva, con coordenadas reales', () => {
+  const p = PLANTILLAS_GENERAL.find((x) => x.id === 'foco')!;
+  const h = sanearHoja({ ...p.armar((l: string) => l), plantilla: p.id }, 0)!;
+  const c = h.componentes as Array<Record<string, any>>;
+  const negra = c.find((x) => x.portada)!;
+  assert.deepEqual([negra.x, negra.y, negra.w, negra.h], [0, 0, 12, 11]);
+  assert.equal(negra.texto, 'Cómo vas con tus OKRs', 'la tarjeta más grande de la hoja no puede ir sin título');
+  assert.equal(negra.general.opciones.estilo, 'barras', 'con anillos, «Facturar $30,000 e…» se corta');
+  const numeros = c.filter((x) => x.tipo === 'numero').sort((a, b) => a.x - b.x);
+  assert.deepEqual(numeros.map((x) => [x.x, x.w]), [[0, 4], [4, 4], [8, 4]], 'tres iguales y sin hueco');
+  assert.equal(new Set(numeros.map((x) => x.y)).size, 1);
+  assert.equal(numeros[0].y, 11, 'pegados debajo de la portada');
+  const dl = c.find((x) => x.general?.pieza === 'deadlines')!;
+  assert.deepEqual(dl.general.opciones, { dias: '7', que: 'tareas' });
+  const tareas = c.find((x) => x.general?.pieza === 'tareas')!;
+  assert.deepEqual([tareas.y, tareas.h, tareas.w], [dl.y, dl.h, dl.w], 'el par parejo');
+  assert.ok(!c.some((x) => x.tipo === 'seccion'), 'sin la sección de 30 px que se comía su título');
+  for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) assert.ok(!pisa(c[i] as never, c[j] as never), `${c[i].id} pisa a ${c[j].id}`);
+});
+
 test('EL RAYADO NO SE COPIA: acá significa «Estimado», y un número medido no se dibuja rayado', () => {
   assert.doesNotMatch(CSS_CORBEL, /repeating-linear-gradient/);
   assert.doesNotMatch(leer('lib/graficos-corbel.ts').replace(/^\/\/.*$/gm, ''), /--hatch/);

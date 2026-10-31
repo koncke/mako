@@ -93,6 +93,17 @@
       "oscuro": { "--bg": "#0c120f", "--surface": "#172129", "--float": "#1a242b", "--text": "#e8eef1", "--muted": "#a7b3bb", "--faint": "#8d9aa3", "--primary": "#8fd1ad", "--primary-soft": "#8fd1ad26", "--c1": "#8fd1ad", "--c2": "#c9e8d3", "--c3": "#a6d36f", "--c4": "#f0a576", "--c5": "#e7c159", "--ocean": "#2a5845", "--sky": "#bfe0c4", "--mint": "#a9dcc6", "--lemon": "#ece2a8", "--coral": "#e9c9a7", "--hatch": "#96d7af42", "--hatch-bg": "#96d7af0f", "--heat-0": "#151d18", "--heat-4": "#8fd1ad", "--mesh-a": "#50a06e47", "--mesh-b": "#c8b45a24", "--mesh-c": "#3c968233" }
     }
   },
+  "telefono": {
+    "_como_se_leyo": "A 390 × 844, con el navegador emulando un teléfono (31/10/2026). La demo tarda en dibujar: se leyó después de ver las tarjetas.",
+    "pagina": { "padding": "16px 14px 104px", "titulo": "28px / 600", "separacion": "16px" },
+    "kpi": { "grilla": "2 columnas, gap 10px", "caja": "176 × 146, padding 14px, gap 8px, radio 22px", "valor": "22px / 600, line-height 24.2px", "rotulo": "12.5px / 600", "mini": "oculto (display: none)" },
+    "tarjeta": { "padding": "16px", "titulo": "15px / 600" },
+    "selector": { "alto": "46px", "boton": "40px" },
+    "boton": { "alto": "44px" },
+    "riel": { "ancho": "16px (min(30px, 66%) de una columna de 24px)", "rotulo": "11px" },
+    "dock": { "ancho": "322px", "alto": "56px", "padding": "6px", "radio": "999px" },
+    "letra": "14px de base, igual que en la computadora. Acá se dejó la escala móvil de MaKo (16px de base): está fijada a propósito y es la que no dispara el zoom del teléfono."
+  },
 
-  "_falta_medir": ["las medidas de teléfono", "el degradado exacto de la columna elegida (se ve negro con la base que se apaga hacia arriba: mirar `.db-col.is-on .db-col__fill`)"]
+  "_falta_medir": ["el degradado exacto de la columna elegida (se ve negro con la base que se apaga hacia arriba: mirar `.db-col.is-on .db-col__fill`)"]
 }

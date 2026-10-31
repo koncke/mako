@@ -422,10 +422,10 @@
     --fs-md: 16px;
     --fs-card: 16.5px;
     --fs-sect: 20px;
-    --fs-page: 26px;
-    --fs-kpi: 30px;
+    --fs-page: 28px;
+    --fs-kpi: 22px;
     --touch: 44px;
-    --card-pad: 18px;
+    --card-pad: 16px;
     --sect-gap: 16px;
   }
 }
@@ -441,10 +441,10 @@
   --fs-md: 16px;
   --fs-card: 16.5px;
   --fs-sect: 20px;
-  --fs-page: 26px;
-  --fs-kpi: 30px;
+  --fs-page: 28px;
+  --fs-kpi: 22px;
   --touch: 44px;
-  --card-pad: 18px;
+  --card-pad: 16px;
   --sect-gap: 16px;
   /* Sólo de /m (v2): el TÍTULO GRANDE nativo de cada pantalla. 26 px (--fs-page) se lee
      «página web»; iOS usa 34. 32 entra «Customer Success» en una línea a 390 px. No va en

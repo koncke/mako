@@ -32,7 +32,9 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **Un tema candidato del taller le gana a todo esto** (`[data-tema-candidato]`, guardado en el navegador). Si alguien dice «no cambió», mirar primero `mako.tema-candidato` en su localStorage.
 - **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
 
-**Sin hacer:** las medidas de teléfono de Corbel (todo se leyó a 1440), el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
+**Una hoja guardada conserva su composición.** La de Foco, y todas las de `comoCorbel`, llegan a las plantillas y a quien nunca guardó su informe. Las hojas guardadas toman colores, letra y tiles, pero sus piezas siguen donde están.
+
+**Sin hacer:** las otras doce composiciones de la revisión del 31/10, el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
 
 ## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
 

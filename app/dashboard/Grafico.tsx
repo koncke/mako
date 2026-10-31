@@ -872,7 +872,7 @@ function NumeroGrande({ texto, tam, color, chip, monoChip, secundaria, altoLibre
   return (
     <div ref={ref} style={{ containerType: 'inline-size', width: '100%', minWidth: 0 }}>
       <div style={{ display: 'flex', flexDirection: enLinea ? 'row' : 'column', alignItems: enLinea ? 'center' : 'flex-start', gap: enLinea ? ENTRE_NUMERO_Y_CHIP : 8 }}>
-        <span style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{texto}</span>
+        <span className="gr-numero-val" style={{ fontWeight: ESCALA_EPICA.peso, fontSize: tamano, lineHeight: 0.95, letterSpacing: ESCALA_EPICA.tracking, color, fontVariantNumeric: TABULAR, whiteSpace: 'nowrap' }}>{texto}</span>
         {chip && (
           // La comparación habla en la letra de la etiqueta del tema: en mono sólo si la etiqueta va en mono (en el tema
           // «General», que es para leer de una pasada, «↑ 1,3×» en mono se leía como un dato técnico).
