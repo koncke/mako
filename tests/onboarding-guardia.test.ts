@@ -104,8 +104,9 @@ test('el cableado: Offer y el arranque pasan por la guardia, y el análisis no c
   assert.ok(responder.indexOf('await frenoDeArranque(') > 0 && responder.indexOf('await frenoDeArranque(') < responder.indexOf('leerRespuesta('),
     'el arranque anota antes de mirar la guardia');
   const tel = arr.slice(arr.indexOf("case 'telefono':"), arr.indexOf("case 'preparar':"));
-  assert.ok(tel.indexOf('await frenoDeArranque(') > 0 && tel.indexOf('await frenoDeArranque(') < tel.indexOf('enviarCodigoVerificacion('),
+  assert.ok(tel.indexOf('await frenoDeArranque(') > 0 && tel.indexOf('await frenoDeArranque(') < tel.indexOf('pedirCodigo('),
     'el código por WhatsApp se puede pedir en ráfaga');
+  assert.ok(responder.indexOf('await frenoDeArranque(') < responder.indexOf('pedirCodigo('), 'escribiendo el número en la caja, también');
   const desb = arr.slice(arr.indexOf("case 'desbloquear':"), arr.indexOf("case 'cerrar':"));
   assert.ok(desb.indexOf('getSesionAdmin()') > 0 && desb.indexOf('getSesionAdmin()') < desb.indexOf('desbloquearOnboarding()'),
     'cualquiera puede desbloquearse');

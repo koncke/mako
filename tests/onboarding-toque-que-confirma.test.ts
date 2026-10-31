@@ -35,7 +35,7 @@ import { CANALES, PREGUNTAS } from '../lib/fase-diagnostico';
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Florencia Ayelen Carballo', nombreWorkspace: '', faseGuardada: false,
-  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: true, conCrm: true, conTelefono: false, terminado: false,
 };
 const responder = (e: EstadoArranque, r: Respuesta, h = H) => leerRespuesta(e, h, { ...preguntaQueContesta(mensajesDeArranque(e, h)), ...r });
 const CAMBIO = { ok: false, error: 'La pregunta cambió.', cambio: true };

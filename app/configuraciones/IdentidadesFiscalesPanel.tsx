@@ -156,7 +156,7 @@ export function IdentidadesFiscalesPanel({ moneda }: { moneda?: ReactNode } = {}
         {lista === null ? (
           <FilaAjustes titulo="Cargando…" />
         ) : lista.length === 0 ? (
-          <FilaAjustes titulo="Todavía no cargaste ninguna" fin={<button type="button" className="aj-boton" data-variante="borde" onClick={nueva}>Agregar</button>} />
+          <FilaAjustes titulo="Todavía no cargaste ninguna" />
         ) : lista.map((i) => (
           <FilaAjustes key={i.id} icono="dinero"
             titulo={<>{i.nombre}{i.es_default && <> <Pastilla tono="good">Por defecto</Pastilla></>}</>}

@@ -294,9 +294,15 @@ app/_components/transcribir-nota.ts · lib/centro-chats.ts (`completadosDelChat`
   (`app-de-escritorio.ts`, una vez por página, relee cada 8 s mientras bloquea), el hook sin CSS, y el botón con CSS
   (`InstalarMaKo.tsx`) que entra con `next/dynamic`. El modal de «Ya lo instalé: conectar» va por PORTAL: la caja puede vivir en
   un panel con `transform`, que volvería su marco el `fixed` del fondo del modal.
-- **Sin hacer:** el «Editar con IA» de cada sección del Web Generator (`app/web-generator/editor/AskAgent.tsx`) no se bloquea:
-  Martín pidió sacarlo (punto 5 del 24/10, chat Landings). Si queda, va con el mismo hook. Y falta recorrerlo en pantalla con una
-  cuenta sin computadora (el navegador de la app no tiene sesión).
+- **«Editar con IA» (`app/web-generator/editor/AskAgent.tsx`) quedó afuera hasta el 30/10:** no es `CajaChat` ni `CajaPedido`, así
+  que el inventario no lo veía. Martín había pedido sacarlo (punto 5 del 24/10, chat Landings) y sigue montado: lleva el mismo hook,
+  con su propio test. **«Probar nuevo diseño» arranca solo:** espera la respuesta (`useApp`), porque un pedido que sale antes de
+  saberla no lo corta nadie.
+- **El inventario sólo ve esas dos cajas.** Una caja de MaKo con su propio `<input>` no da rojo: hay que nombrarla aparte.
+- **Sin hacer:** los pedidos puntuales a la IA que no son un chat siguen sin bloqueo, a propósito por ahora: el ✦ de redactar de
+  Automations (`app/automations/MakoRedacta.tsx`), «Conclusiones de MaKo» del Dashboard (`app/dashboard/ElementoIA.tsx`) y el guion
+  de AI Avatar (`app/ai-avatar/Estudio.tsx`). Martín dijo «en ningún chat». Y falta recorrerlo en pantalla con una cuenta sin
+  computadora (el navegador de la app no tiene sesión).
 
 **Vive en:** `app/_chat/app-de-escritorio.ts` · `app/_chat/useAppDeEscritorio.tsx` · `app/_chat/InstalarMaKo.tsx` ·
 `app/web-generator/CajaPedido.tsx` (`bloqueo`) · `app/api/mako/chat/route.ts` (`?app=1`, `laApp`) · `lib/chat-mako-reglas.ts`

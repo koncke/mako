@@ -31,7 +31,7 @@ import { preguntaQueContesta } from '../app/onboarding/arranque-ui';
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'Florencia Ayelen Carballo', nombreWorkspace: 'Consultora Argentina', faseGuardada: false,
-  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: false, terminado: false,
 };
 const E: EstadoArranque = { nombre: 'Florencia' };
 // Como la pantalla: la respuesta viaja con la pregunta que contesta (cuarta revisión, 21/10).

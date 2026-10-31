@@ -47,7 +47,7 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 
 const H: HechosArranque = {
   modo: 'oferta', nombreCuenta: 'cliente@negocio.com', nombreWorkspace: 'cliente@negocio.com', faseGuardada: false,
-  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: true, terminado: false,
+  canalNegocio: null, loQueVende: false, conCrm: true, conTelefono: false, terminado: false,
 };
 const PLAN: HechosArranque = { ...H, modo: 'plan', conCrm: false, conTelefono: false };
 
@@ -106,7 +106,7 @@ test('el negocio se entiende sin la frase alrededor', () => {
   assert.deepEqual(r, { ok: true, patch: { negocioPorConfirmar: { escrito: 'se llama Acme', nombre: 'Acme' } } });
 });
 
-test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, y ya no hay objetivo a 90 días', () => {
+test('las dos preguntas nuevas van AL FINAL, de un toque, y ya no hay objetivo a 90 días', () => {
   // 18/10/2026, Martín: «"¿Cómo llegaste a MaKo?" y "¿Qué te gustaría que MaKo resuelva primero?" van al final» y
   // «eliminar "Y en los próximos 90 días, ¿qué quieres lograr?"».
   const quien: EstadoArranque = { nombre: 'Martín', negocio: 'Acme' };
@@ -122,7 +122,7 @@ test('las dos preguntas nuevas van AL FINAL (antes del teléfono), de un toque, 
   assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram' }, hecho), 'interes');
   const conOrigen = mensajesDeArranque({ ...conCrm, origen: 'Instagram' }, hecho).despues;
   assert.deepEqual(conOrigen[conOrigen.length - 1].opciones, INTERESES.map((i) => i.label));
-  assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram', interes: 'ventas' }, hecho), 'telefono');
+  assert.equal(etapaDeArranque({ ...conCrm, origen: 'Instagram', interes: 'ventas' }, hecho), 'cierre');
   // El Project Manager no tiene anuncios ni CRM: no se le pregunta qué resolver primero.
   assert.equal(etapaDeArranque({ ...quien, queHace: 'Consultoría', origen: 'Google' }, { ...PLAN, faseGuardada: true }), 'cierre');
   // Nunca se pregunta el objetivo, ni a quien lo había contestado antes del 18/10.
