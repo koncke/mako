@@ -236,11 +236,20 @@ export async function crearCheckoutStripe(
      * `start_date` de Mercado Pago). La factura en cero del inicio no es un pago (`confirmarFactura` la descarta).
      */
     diasDePrueba?: number | null;
+    /** EL DESCUENTO DEL PRIMER MES (30/10/2026): un cupón `once`. Stripe vuelve solo al precio de lista en el segundo cobro. */
+    descuentoPct?: number | null;
   },
 ): Promise<R<CheckoutStripe>> {
   const sus = p.tipo === 'suscripcion';
   const prueba = sus && p.diasDePrueba && p.diasDePrueba > 0 ? Math.round(p.diasDePrueba) : null;
   const metadata = { mako_cobro: p.token, mako_ws: String(p.ws), mako_cobro_id: String(p.cobroId) };
+  let cupon: string | null = null;
+  if (sus && p.descuentoPct && p.descuentoPct > 0) {
+    const c = await llamar(key, 'POST', '/v1/coupons', { percent_off: p.descuentoPct, duration: 'once', name: `MaKo: ${p.descuentoPct}% el primer mes`, metadata: { mako: '1', mako_primer_mes: '1' } }, `${p.idem}-cupon`);
+    if (!c.ok) return fallo(c);
+    cupon = str(c.body.id);
+    if (!cupon) return { ok: false, status: 502, error: 'Stripe no devolvió el cupón del primer mes.' };
+  }
   // Entre 30 min y 24 h (lo que acepta Stripe); 23 h por defecto para dejar margen de reloj.
   const vence = Math.min(Math.max(p.venceEnSeg ?? 23 * 3600, 31 * 60), 23 * 3600 + 59 * 60);
   const params: Record<string, unknown> = {
@@ -262,6 +271,7 @@ export async function crearCheckoutStripe(
     // Con prueba, la tarjeta se pide SIEMPRE (es lo que la hace una prueba con tarjeta y no un mes regalado), y SÓLO tarjeta
     // (28/10/2026): con Link o un débito bancario no hay `card.fingerprint`, la huella quedaba vacía y se repetía la prueba.
     ...(prueba ? { payment_method_collection: 'always', payment_method_types: ['card'] } : {}),
+    ...(cupon ? { discounts: [{ coupon: cupon }] } : {}),
     success_url: p.successUrl,
     cancel_url: p.cancelUrl,
     expires_at: Math.floor(Date.now() / 1000) + vence,

@@ -170,6 +170,31 @@ export const DATOS_CONTACTO: DatosDelBloque = {
   deEntrada: ['telefono', 'email', 'empresa'],
 };
 
+/**
+ * LOS DATOS DE LO QUE SE VENDIÓ (30/10/2026, el resto del punto 12 del 24/10: «en general revisá que todo sea editable»). Los
+ * tres bloques dibujaban todos sus datos y sólo se podía sacar el bloque entero. De entrada, todos: una ficha guardada se ve igual.
+ */
+export const DATOS_FISCALES: DatosDelBloque = {
+  todos: [
+    { id: 'facturado_por', nombre: 'Facturado por' }, { id: 'razon', nombre: 'Razón social', aviso: 'dealFiscal' },
+    { id: 'id_fiscal', nombre: 'Identificación fiscal' }, { id: 'domicilio', nombre: 'Domicilio fiscal' },
+    { id: 'correo', nombre: 'Correo de facturación' }, { id: 'documento', nombre: 'Documento fiscal', aviso: 'dealFiscalDoc' },
+  ],
+  deEntrada: ['facturado_por', 'razon', 'id_fiscal', 'domicilio', 'correo', 'documento'],
+};
+export const DATOS_SERVICIO: DatosDelBloque = {
+  todos: [
+    { id: 'que_es', nombre: 'Qué es', aviso: 'dealServicio' }, { id: 'fecha_inicio', nombre: 'Inicio' }, { id: 'fecha_termino', nombre: 'Término' },
+    { id: 'duracion', nombre: 'Duración' }, { id: 'frecuencia', nombre: 'Frecuencia' }, { id: 'modalidad', nombre: 'Modalidad' },
+    { id: 'sesiones', nombre: 'Sesiones' }, { id: 'arranco', nombre: 'Arrancó' },
+  ],
+  deEntrada: ['que_es', 'fecha_inicio', 'fecha_termino', 'duracion', 'frecuencia', 'modalidad', 'sesiones', 'arranco'],
+};
+export const DATOS_PROMESA: DatosDelBloque = {
+  todos: [{ id: 'resultado', nombre: 'Resultado prometido', aviso: 'dealPromesa' }, { id: 'garantia', nombre: 'Garantía' }],
+  deEntrada: ['resultado', 'garantia'],
+};
+
 /** El setter y el closer: dos datos, cada uno con su aviso. Se puede dejar uno solo (un negocio sin setter). */
 export const DATOS_SETTER_Y_CLOSER: DatosDelBloque = {
   todos: [{ id: 'setter', nombre: 'Setter', aviso: 'setter' }, { id: 'closer', nombre: 'Closer', aviso: 'closer' }],
@@ -304,11 +329,14 @@ export const BLOQUES: readonly BloqueDef[] = [
   { id: 'contrato', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Contrato', anchos: [4, 6], ancho: 6,
     disenos: [d('franja', 'Franja con botones'), d('vista', 'Vista previa')], avisa: [], quitable: true, sinDatos: 'raya', icono: 'archivo' },
   { id: 'datos-fiscales', tab: 'pagos', tambienEn: ['cs-pagos'], titulo: 'Datos fiscales', anchos: [6, 12], ancho: 12,
-    disenos: [d('grilla', 'Grilla'), d('compacta', 'Lista compacta')], avisa: ['dealFiscal', 'dealFiscalDoc'], quitable: true, sinDatos: 'raya', icono: 'llave' },
+    disenos: [d('grilla', 'Grilla'), d('compacta', 'Lista compacta')], avisa: ['dealFiscal', 'dealFiscalDoc'], quitable: true, sinDatos: 'raya', icono: 'llave',
+    opciones: ['datos'], datos: DATOS_FISCALES },
   { id: 'servicio-vendido', tab: 'pagos', tambienEn: ['cs-resumen'], titulo: 'Servicio vendido', anchos: [6, 12], ancho: 12,
-    disenos: [d('grilla', 'Grilla'), d('renglon', 'Renglón')], avisa: ['dealServicio'], quitable: true, sinDatos: 'raya', icono: 'producto' },
+    disenos: [d('grilla', 'Grilla'), d('renglon', 'Renglón')], avisa: ['dealServicio'], quitable: true, sinDatos: 'raya', icono: 'producto',
+    opciones: ['datos'], datos: DATOS_SERVICIO },
   { id: 'promesa-y-garantia', tab: 'pagos', tambienEn: ['cs-resumen'], titulo: 'Promesa y garantía', anchos: [4, 6], ancho: 6,
-    disenos: [d('cajas', 'Dos cajas'), d('cita', 'Cita destacada'), d('comparada', 'Comparada con la oferta')], avisa: ['dealPromesa'], quitable: true, sinDatos: 'raya', icono: 'candado' },
+    disenos: [d('cajas', 'Dos cajas'), d('cita', 'Cita destacada'), d('comparada', 'Comparada con la oferta')], avisa: ['dealPromesa'], quitable: true, sinDatos: 'raya', icono: 'candado',
+    opciones: ['datos'], datos: DATOS_PROMESA },
   { id: 'obligaciones', tab: 'pagos', tambienEn: ['cs-resumen'], titulo: 'Obligaciones', anchos: [6, 12], ancho: 12,
     disenos: [d('listas', 'Dos listas'), d('tabla', 'Tabla')], avisa: ['dealObligaciones'], quitable: true, sinDatos: 'raya', icono: 'check' },
   { id: 'excepciones', tab: 'pagos', tambienEn: [], titulo: 'Excepciones', anchos: [4, 6], ancho: 6,

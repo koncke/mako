@@ -10,6 +10,75 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Una suscripción ya cancelada en la pasarela frenaba la baja PARA SIEMPRE (30/10/2026)
+
+- **Síntoma:** `cancelarSuscripcionCobro` (`lib/cobros.ts:1603`) no podía terminar nunca una baja cuya suscripción ya
+  estaba cancelada del lado de la pasarela y seguía `activa` en la fila.
+- **Causa real:** «ya está cancelada» llega como un **error** (404, o un «already canceled»), y el código salía por
+  `ok: false` antes de `aplicarSuscripcionCancelada(c)`. El estado del mundo ya era el que se pedía; lo único que
+  faltaba era asentarlo, y el reintento fallaba igual: la fila quedaba `activa` eternamente. Pasa cuando se canceló a
+  mano en Stripe, o cuando una corrida anterior murió entre la pasarela y la base.
+- **A quién le dolía:** `darDeBajaMiPlan` llama a esta función para la prueba gratis (`:1670`) y devuelve su error tal
+  cual, así que el cliente no podía darse de baja; y `cerrarPruebaAlEmpezarYa` (`:1584`) sólo lo loguea y se va.
+- **La regla que queda:** en una pasarela, **una cancelación es idempotente**: «ya cancelada» es éxito, no error. El 404
+  pasa; cualquier otro error se chequea **releyendo** la suscripción y vale si está cancelada.
+- ⚠️ **No se inventó: el molde ya estaba en el mismo archivo**, en `reusarOCrearCheckout` (`lib/cobros.ts:602-606`), con
+  esa condición exacta (`!x.ok && x.status !== 404`, y si no, releer y aceptar `canceled`). Antes de escribir un
+  criterio nuevo para la pasarela, conviene buscar el que ya está escrito 1.000 líneas más arriba.
+- ⚠️ **Los nombres del estado NO coinciden entre pasarelas y no se escriben a mano:** Stripe dice `canceled` y Mercado
+  Pago dice `cancelled` al leer y `canceled` al cancelar. Para eso está `suscripcionMpCancelada`
+  (`lib/cobros-eventos.ts:450`), que cubre las dos grafías; un `=== 'cancelled'` a mano se rompe según por dónde entró.
+- **Lo que queda abierto:** `anularCobro` (`lib/cobros.ts:1318`) sigue cerrando el link viejo con mejor esfuerzo
+  (`cerrarLinkEnLaPasarela` nunca tira), así que un link anulado que la pasarela no cerró puede seguir cobrable.
+- Salió arreglando P14 de Agency; el resto de esa revisión está en
+  [hallazgos-agencias.md](hallazgos-agencias.md) → «P14 no vive en `main`».
+## El lead del comprador: el checkout ya lo dejaba, y frenaba al que se llamaba igual que otro (30/10/2026)
+
+**Vive en:** lib/compra-plan.ts (`leadDelComprador`) · lib/compra-plan-reglas.ts (`leadDeLaCompra`) · lib/compra-plan-llamada.ts ·
+lib/cobros.ts (`aplicarPagoAprobado`, 5e) · tests/compra-plan-lead.test.ts (10 roturas cazadas).
+
+- **El diagnóstico obvio («la compra no crea lead») era el equivocado.** `iniciarCompraDePlan` lo crea o reusa al ABRIR el pago, con `origen_lead: 'landing'`
+  y sus UTM, y `aplicarPagoAprobado` lo pasa a Ganado con su cuota y su suscripción. Los leads con monto de la plataforma dicen «Cargado a mano» porque
+  **nunca hubo un cobro: la tabla `cobros` tiene 0 filas** (medido el 30/10). No hay ninguna compra real que confirme este camino: el primero que pague lo estrena.
+- ⚠️ **Lo que sí estaba roto: un homónimo frenaba la compra.** `createLead` también frena por NOMBRE, y `leadDelComprador` sólo sabía resolver un duplicado por email: con
+  otro email tiraba, y el comprador leía «No pudimos registrar tu compra» sin poder pagar. La plataforma tiene 219 leads traídos de grupos, con nombre. **Regla:** en una puerta pública, un
+  duplicado nunca frena. El mismo contacto es el mismo lead. Por nombre sólo si es UNO y no tiene email (lo cargó alguien antes de que comprara). Un homónimo con otro email es otra persona:
+  se crea, y la ficha lo marca en «Posibles duplicados». ⚠️ Un lead cargado a mano con sólo teléfono y con OTRO nombre no se encuentra: el checkout pide email y no teléfono.
+- **Ganado es el final de esa venta, no una lista de llamadas.** Quien paga se AGREGA además al CRM de `planes.crm_llamadas` (agregar no dispara automatizaciones; sólo el primer pago, sólo
+  un plan de MaKo, sólo la plataforma). Sin el setting no pasa nada. Una prueba gratis no llega acá: no pasa por `aplicarPagoAprobado` al empezar.
+- **El high ticket era configuración, no código:** el catálogo de la plataforma no lo tenía y `crearCrm` arma el CRM, el producto y la oferta juntos. Se creó «MaKo Acelerador» con los datos
+  de `PROGRAMA_ACELERADOR`. Falta decidir si se cobra con link: «Vincular cobro» en el ⋯ de su Ganado.
+- **El origen sigue siendo «Landing», a propósito:** es de dónde vino. Que compró lo dicen `cobros` (con `plan_mako` y `origen`) y estar en ese CRM.
+- **El teléfono no se pide en el checkout, se pide al entrar** (el Cerebro, 30/10: cada campo baja la conversión). El número del dueño de la cuenta, al guardarse, llena el teléfono vacío de su lead en la
+  plataforma (`anotarTelefonoDelComprador`). **Ya se pregunta, al final del arranque** («¿A qué WhatsApp te escribo…?», `lib/onboarding-arranque.ts`, con código por DM: se guarda recién al verificarlo). **Sin hacer:** adelantar esa pregunta al primer paso; la tomó Ops Center.
+- **El aviso «Entró un pago» es una automatización de la plataforma** (#714, de la galería, prendida el 30/10): sale por `avisar_al_equipo`, al grupo de MaKo del ws 9.
+
+### ⚠️ MaKo no tiene con qué cobrar, y lo que nunca corrió con un pago de verdad (medido el 30/10/2026)
+
+**La plataforma no tiene ninguna pasarela conectada:** `pasarelasConectadas(9)` da `[]`, sin `STRIPE_*` ni `MERCADOPAGO_*`, y /planes/esencial dice «Todavía no cobramos en línea». Stripe no abre cuentas en Argentina y Paddle y
+Creem no están en el código (`Pasarela` = stripe | mercadopago). **Rastro en toda la base:** 0 cobros; 78 filas en `pagos` y 0 con proveedor; 8 eventos de Stripe en `pasarela_eventos` (ws 1 y 10), 0 de Mercado Pago y 0 del ws 9.
+
+**Nunca se ejercitó con un pago aprobado, en NINGUNA de las dos pasarelas** (lo probado es con la base simulada o la pasarela de mentira; lo marcado *sin aviso real* depende de cómo llega de verdad):
+
+| Tramo | Stripe | Mercado Pago |
+|---|---|---|
+| Conectar en el ws 9: clave, y el aviso (Stripe lo registra solo; MP se pega a mano con el `?u=`) | nunca | nunca |
+| /planes ofrece la pasarela: país (`pasarelasDelPais`), precio en esa moneda | nunca con una real | nunca: sin precio en pesos no se ofrece |
+| `crearCobro`, el link /pagar y el checkout real | nunca | nunca |
+| El aviso firmado llega y se lee (`pasarela_eventos`) | recibió eventos ajenos, nunca uno de un cobro | nunca. *Sin aviso real:* si el de suscripción trae `user_id` |
+| `aplicarPagoAprobado`: el cobro pagado, la cuota, Ganado y la suscripción | nunca | nunca |
+| `altaSiCorresponde`: la cuenta, la persona y el mail de acceso, con un correo que nunca entró | nunca | nunca |
+| `anotarParaLlamar`: la tarjeta en «MaKo Acelerador» | nunca | nunca |
+| #714 «Entró un Pago» llega al grupo | nunca | nunca |
+| /pagar/<token>/listo después de pagar | nunca | nunca |
+| La segunda cuota: la renovación, ~30 días después (nadie la recupera si el aviso se pierde: `reconciliarCobros`) | nunca | nunca |
+| Rechazo, reembolso y corte de la suscripción | nunca | nunca |
+| Contracargo | nunca | nunca |
+| El Purchase de Meta (ningún camino lo manda, docs/hallazgos-pagos.md) | no existe | no existe |
+| El 50% del primer mes con su reloj (lo hace Planes): el cupón en la pasarela y que la renovación vuelva al precio lleno | nunca | nunca |
+
+**La primera compra real es una prueba, no una venta:** docs/prueba-humo-cobro-mako.md tiene el recorrido, con captura de cada tramo. Se hace con Martín, en el chat, antes de pautar.
+
 ## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
 
 El primer tope que se hizo cumplir fue el de las líneas de WhatsApp (Esencial 1, Pro 3, en `lib/topes-plan.ts`).
@@ -1681,6 +1750,9 @@ tests/planes-stripe-afuera.test.ts · tests/prueba-stripe-cobro-perdido.test.ts.
 
 ## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
 
+⚠️ **29/10/2026: MaKo Partners salió de Pro** (las landings dicen «gratis» y «cualquier plan»): docs/hallazgos-partners.md →
+«Cualquier plan es partner…». Lo de abajo sobre Partners quedó como historia; el scraper sigue siendo de Pro.
+
 Leila (Fathom 876470842-16), sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»: «Una
 persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper de WhatsApp. Martín, ya decidido
 (876470842-15): el scraper y hacerse partner, sólo en Pro.
@@ -1741,6 +1813,14 @@ persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper
   pasarela le volvía a poner los topes de la prueba a quien YA PAGA y conservaba un vencimiento viejo. Sólo vale SIN ninguna
   suscripción de MaKo; con el primer cobro, los topes se van solos, como antes.
 - Si el aviso a Martín no sale, no se marca «avisado»: se intenta en la vuelta siguiente.
+- **Un «extendé la duración» que arrastra los límites de otra cosa: los 6 meses gratis NO son una prueba larga (30/10, lo que Martín le ofreció a Gabriela; la regla general, en AGENTS.md).** El pedido obvio era sumar «180 días» a la lista, y le habría dado seis meses con los topes de la prueba (3 videos, 1 avatar, 1 landing, sin exportar). Mientras duran, `estadoDePrueba` no la da «en prueba» y tiene su plan entero; vencidos sin resolver, quedan como una prueba vencida y avisan con su propio texto. Son 183 días, para no quedar nunca cortos.
+- **Los 6 meses gratis no paran una tarjeta (30/10).** Darlos a quien ya tiene una suscripción, o una prueba con tarjeta en curso, no frena nada: `estadoDePrueba` sigue mirando el cobro primero (con la prueba en curso, conserva los topes) y la pasarela cobra el día 8 igual. El diálogo decía «gratis» sobre una tarjeta que se iba a cobrar. La ruta lo rechaza y lo dice (`pagaSuPlan`, lib/prueba-uso.ts), y el aviso previo pregunta lo mismo: `estadoDePrueba` no sirve para saber si paga, porque unos 6 meses vigentes tampoco están «en prueba».
+- **Un negocio sin cobro de la plataforma nunca se corta (30/10, medido en lib/plan-acceso-reglas.ts).** El comentario de lib/plan-a-mano-reglas.ts dice que el día que se prenda el corte general este plan «cae como cualquier otro», pero la regla de arriba es «sólo se corta a quien MaKo le vendió el acceso por la pasarela». Prender el corte no le saca los 6 meses a nadie.
+- **El aviso previo de los 6 meses: 14 días antes (`DIAS_AVISO_REGALO`), una vez, a la persona y a Martín.** Su marca es `avisoPrevioAt`, aparte de `avisadoAt`: si compartieran marca, el previo se comería el aviso del fin. Lo corre el mismo cron (`aviso-fin-de-prueba`). Y los dos avisos llevaban a `/admin`, que redirige a la pestaña Customers; el diálogo vive en Accounts (`RUTA_QUIEREN_ENTRAR`).
+- **Las tarjetas de /planes seguían con la jerga que la tabla ya no tenía (30/10).** Leila la sacó de la tabla el 27/10 y la guarda miraba sólo las filas, así que «embudo», «CRM», «media buyer», «setter» y «cohorte» siguieron en lo primero que se lee, y en la promesa del Acelerador. La guarda ahora mira la pantalla entera (`la pantalla entera se entiende`, tests/planes-tres-bloques.test.ts). La regla general, en AGENTS.md: una guarda que mira una parte de la pantalla da falsos verdes cuando el texto se muda. **«Ops Center», «workspace» y «barredora» ya no estaban:** el pedido viejo de barrerlos, medido en producción el 30/10, no encontró ninguno; lo que quedaba era otra jerga.
+- **La tabla prometía anuncios armados la primera semana (30/10).** La fila del Acelerador decía «Tus páginas, mensajes y anuncios armados»; la tarjeta y /reembolsos §2, que es lo que se garantiza, no incluyen anuncios. Corregida la fila, no la garantía.
+- **Partners, los tres puntos del 24/10 ya estaban (medido en producción el 30/10):** landing por defecto y panel sólo para quien terminó el alta (app/partners/page.tsx, `altaDePartner`), se gana dinero y no meses (Martín lo cerró el 25/10) y la calculadora en el hero. Un pedido viejo se mide antes de rehacerlo: no se tocó.
+  **Sin hacer:** la fecha de fin no se ve en Customers (no está «en prueba»): se dice al guardarla y llega el aviso al vencer. Tampoco hay aviso antes de que termine: enterarse el día que se corta es tarde para un cliente (docs/pendientes.md, P16).
 - ⚠️ **Quien ya pagó seguía con los topes (29/10, la verificación de ddfa645d4, ALTA):** si el negocio compra por /planes con el
   email de SU cuenta, el cobro queda `ya_tenia_cuenta` y SIN atar (`alta_ws` null) hasta que Martín lo ata en /admin/cobros, y
   `estadoDePrueba` sólo miraba los cobros atados: seguía «en prueba» y al vencer le llegaba «Terminó tu prueba». Ahora un cobro
@@ -1767,3 +1847,24 @@ núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo
 **Vive en:** lib/planes-comparacion.ts · lib/topes-plan.ts · app/crm/grupo-wa-actions.ts · app/crm/TraerDeGrupoWA.tsx ·
 lib/api-mako/areas/crm.run.ts · lib/partners-programa.ts · app/partners/page.tsx · app/m/partners/page.tsx ·
 tests/planes-tres-bloques.test.ts · tests/scraper-partners-solo-pro.test.ts.
+
+## El funnel de lanzamiento en el cobro: prueba apagada, 50% del primer mes y se paga antes de entrar (30/10/2026)
+
+La decisión y sus motivos: [estrategia-lanzamiento-low-to-high.md](estrategia-lanzamiento-low-to-high.md). Lo que vive acá es lo que no se ve leyendo el código.
+
+- **`cobro.monto` sigue siendo la mensualidad, y sólo el PRIMER PAGO sale a mitad.** Lo obvio era guardar 48,50 en el cobro y habría quedado mal para siempre: la deuda de una mora, «Tu plan», la retención, «Pasar a Pro» y el MRR salen de ese número. El descuento se reconoce por `creado_por = planes:<plan>:primer-mes-50` (lib/primer-mes-reglas.ts), sin migración.
+- **Los dos caminos no son simétricos.** Stripe vuelve solo (cupón `once`). Mercado Pago no tiene descuento de un cobro: nace rebajada y hay que subirla con `PUT /preapproval` al entrar el primer pago, con el cron de respaldo (`conciliarPrimerMes`) y un mail a Martín si no puede. Si esa llamada se pierde, el segundo mes se cobra a mitad y nadie lo ve. **Y no se puede subir a ciegas: quien aceptó «2 meses al 50%» antes de darse de baja está rebajado a propósito** (el cron saltea a quien tiene `plan.retencion`).
+- **El reloj de un cartel es sólo un adorno si el servidor no lo mira.** Es la cookie firmada de Landings (`promoVigente`, lib/promo-entrada.ts), y la ruta de compra la lee. Sin reloj vivo, precio de lista. **Armé primero un token mío en la URL con el mismo nombre de archivo, sin saber que Landings estaba haciendo la cookie: se tiró.** Dos relojes para una promesa era peor que cualquiera de los dos. **Y no se llama «oferta» (el Cerebro, 30/10):** en MaKo «Oferta» es la oferta del negocio, con su tab, su API y su propio campo `activa`. Lo de la landing es la promo de entrada (`lib/promo-entrada.ts`), y su estado dice `hay` y su entorno `prendida`, porque `activa` es además la palabra que vigila una guarda de Automations.
+- **Lo que se eligió para lo que Martín dejó abierto («si el reloj se reinicia»):** el reloj no vuelve en ese navegador (Landings). Otro navegador arranca el suyo, y eso lo cierra el cobro con **un descuento por email**: quien lo abandona a mitad del pago lo rearma por 24 h con el mismo email, y después precio normal. 15 min de gracia que no se muestran, sólo para quien vio el descuento en la página y tocó el botón con el reloj en cero. Se cambia en `puedeUsarPromo` (lib/compra-plan.ts) y `MINUTOS_DE_GRACIA` (lib/primer-mes-reglas.ts).
+- **Hay dos interruptores y se prenden juntos con la pasarela:** `PRUEBA_GRATIS_PRENDIDA` (apagada ya) y `PROMO_ENTRADA_ACTIVA` (de Landings, apagada: si no, el cartel promete 23,50 y no hay con qué cobrar). Con el del 50% apagado, el cobro da precio de lista: no hay forma de que el cobro y el cartel digan cosas distintas.
+- **Si el descuento no vale, se dice y se elige.** La ruta contesta 409 con `sinPromo` y nada creado. Nunca se cobra el precio lleno a quien venía viendo la mitad.
+- **«Apagar» no es poner `null`.** `conPreciosEnHtml(html, planes, null)` deja las marcas de la landing como vinieron, o sea «Empieza tus 7 días gratis» en una página publicada. Con la prueba apagada se pasa `'apagada'`, que las reemplaza.
+- **Apagar una promesa es buscarla en todo lo que se copia, no sólo en lo que se dibuja.** Tres de los cinco mensajes que los partners copian y pegan (lib/partners-recursos.ts) seguían diciendo «Lo pruebas 7 días gratis»: los salva `PRUEBA_DIAS` en una variable (`gratis`), así que buscar la frase no los encuentra. Lo destapó un test que pedía esa frase y que se dio vuelta: ahora pide que NO esté.
+- **Prendido y apagado no conviven:** con `PRUEBA_GRATIS_PRENDIDA` en true no hay descuento (el motivo 1 de Martín). A quien ya está en prueba no lo mira el interruptor: `esPruebaDePlan` mira el cobro.
+- **Sin hacer, por falta de datos o de un sí:**
+  - Ningún cobro real pasó por esto, y `PUT /preapproval` nunca se midió con claves de verdad. Hace falta el sí de Martín.
+  - `/planes` hoy muestra «Quiero…»: sin pasarela real conectada no se cobra en línea, así que el funnel no cobra nada hasta conectarla.
+  - Mercado Pago no se ofrece: `preciosLocales` está vacío en los dos planes (nunca se inventa una tasa).
+  - Las marcas `data-mako-prueba="dias"` y `="cobro"` de las landings publicadas y scripts/landings-mako-v2.mts siguen diciendo días gratis: es de Landings.
+  - MaKo Partners paga el primer mes a precio de lista (`gananciaDelReferido`), aunque ese mes haya entrado a mitad, y su landing dice «todo lo que paga el negocio»: decisión de Martín.
+  - Lo ya pagado no se reembolsa, y ahora sin prueba previa: en Argentina, la Ley 24.240 (art. 34) da 10 días para arrepentirse de una compra a distancia. No se tocó la política: lo tiene que mirar Martín.

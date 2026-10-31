@@ -61,7 +61,7 @@
 // =============================================================================
 
 import 'server-only';
-import { htmlDePagina } from '../landing-fetch';
+import { paginaConDireccion } from '../landing-fetch';
 import { getWorkspaceActual } from '../workspace';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
@@ -174,9 +174,11 @@ async function crearLanding(titulo: string, contenido: LandingContenido, config:
 
 async function replicarFiel(url: string, receta: ConfigReplica): Promise<ResultadoReplicar> {
   let html: string;
+  // La dirección FINAL, para lo relativo (`baseDeDocumento`); `url` sigue siendo la que pegó la persona.
+  let final: string;
   try {
     // TAL CUAL: `claveDeLanding` le saca el www, y hay hosts que sólo existen con www.
-    html = await htmlDePagina(url, { talCual: true });
+    ({ html, final } = await paginaConDireccion(url, { talCual: true }));
   } catch (e) {
     // Una página que nos rechaza se lee en el navegador de la persona, pero la copia idéntica necesita
     // su HTML: la salida es el formato que copia el texto.
@@ -184,13 +186,13 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
     // landing-fetch ya escribe el motivo para una persona («La página respondió 404…»).
     return falla(e instanceof Error ? e.message : 'No pude abrir esa página.', 502);
   }
-  const copia = copiaFiel(html, url);
+  const copia = copiaFiel(html, final);
   // `probar`: el formato que sí puede (una app de Vite o Lovable, un login, una página que no entra); la
   // pantalla lo ofrece como botón.
   if (!copia.ok) return falla(copia.error, 422, copia.probar);
   // Tanda 8: el HTML original ya trae sus animaciones, pero lo atado al scroll NO corre en la copia (medido: el
   // iframe de alto ajustado no scrollea). Se mira en su HTML y sus hojas MIENTRAS se crea, y el resultado lo dice.
-  const scrollP = scrollDeLaPagina(html, url);
+  const scrollP = scrollDeLaPagina(html, final);
   const creada = await crearLanding(copia.titulo, contenidoDeCopiaFiel(copia.documentos, copia.partida), receta.config);
   if ('ok' in creada) return creada;
   const scroll = await scrollP;

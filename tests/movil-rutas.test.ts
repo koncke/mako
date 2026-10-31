@@ -305,6 +305,8 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/classroom?producto=3', '/m/curso?producto=3'], ['/classroom/preview?producto=3', '/m/curso?producto=3'],
     ['/classroom/community', '/m/comunidad'], ['/classroom/community?post=12&ws=3', '/m/comunidad?post=12'],
     ['/classroom/calendar', '/m/comunidad'], ['/classroom/members', '/m/comunidad'], ['/classroom/leaderboards', '/m/comunidad'],
+    // Members es la vista «Miembros» de Clients desde el 29/10/2026: en el teléfono sigue adentro de la comunidad.
+    ['/classroom/clients?vista=miembros&producto=3', '/m/comunidad?producto=3'], ['/classroom/clients?vista=tabla', '/m/cs'],
     ['/classroom/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
     // El prefijo va con barra.
     ['/calendariox', null], ['/offerx', null], ['/second-brainx', null],

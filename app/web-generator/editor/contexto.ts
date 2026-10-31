@@ -88,6 +88,14 @@ export type CtxEditorLanding = {
    */
   nueva: boolean;
   setNueva: (v: boolean) => void;
+  /**
+   * «Ver todo en el Panel», en el mismo lugar que «Nueva landing» y sin navegar (30/10/2026, el Cerebro, sobre lo que Martín
+   * pidió el 24/10: que ir al Panel no cambie de ruta ni de barra). Suma su columna: Plantillas, Temas, Papelera y lo analizado.
+   */
+  panelEntero: boolean;
+  verPanel: () => void;
+  /** Sube cuando el Panel cambió la lista (renombrar, duplicar, archivar, eliminar): la de la tarjeta se vuelve a leer. */
+  revisionLista: number;
   panelDer: PanelDer;
   setPanelDer: (p: PanelDer) => void;
   /**

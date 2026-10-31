@@ -1,12 +1,11 @@
 'use client';
 
 // =============================================================================
-// VistasLista — Mes, Año y Agenda de Google Calendar
+// VistasLista — Mes y Agenda
 // =============================================================================
 //   · MES: la grilla de semanas enteras; el número del día arriba al centro (hoy en el círculo azul, «1 oct» el
 //     primero del mes); lo de todo el día o de varios días como BARRAS que cruzan las celdas (`barrasDeLaFila`), y lo que
 //     tiene hora como «● 10 a.m. Título». Lo que no entra, «N más», que lleva al día.
-//   · AÑO: los doce meses chicos; un clic en un día lleva al día, en el nombre del mes, al mes.
 //   · AGENDA: los días con algo, uno debajo del otro, como la «Agenda» de Google.
 
 import { useMemo, type CSSProperties } from 'react';
@@ -15,7 +14,6 @@ import {
   type ItemCalendario,
 } from '@/lib/calendario-modelo';
 import { colorDe } from './comun';
-import { MiniMes } from './MiniMes';
 import { rangoGoogle, tituloDe } from './VistaTiempo';
 
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -102,22 +100,8 @@ export function VistaMes({ dias, mes, items, hoy, tz, onAbrir, onNuevo, onIrDia 
   );
 }
 
-export function VistaAnio({ anio, hoy, onIrDia, onIrMes }: {
-  anio: number;
-  hoy: string;
-  onIrDia: (dia: string) => void;
-  onIrMes: (fecha: string) => void;
-}) {
-  const vacio = useMemo(() => new Set<string>(), []);
-  return (
-    <div className="gc-anio">
-      {Array.from({ length: 12 }, (_, m) => {
-        const fecha = `${anio}-${String(m + 1).padStart(2, '0')}-01`;
-        return <MiniMes key={fecha} mes={fecha} hoy={hoy} elegidos={vacio} onDia={onIrDia} conFlechas={false} onTitulo={() => onIrMes(fecha)} />;
-      })}
-    </div>
-  );
-}
+// La vista Año (los doce meses chicos de Google) se fue el 29/10/2026: no dibujaba ni un evento, y ninguno de los cuatro usos
+// del Calendario se planea a un año. Un link viejo con `?vista=anio` abre el Mes (app/calendario/page.tsx).
 
 export function VistaAgenda({ dias, items, hoy, tz, onAbrir, onIrDia }: {
   dias: string[];

@@ -65,6 +65,9 @@
 .nt-miga:hover { background: var(--nt-hover); color: var(--nt-texto); }
 .nt-miga > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nt-miga-sep { color: var(--nt-suave); }
+/* «Ver ejemplo» estaba gris como una miga y Leila no lo encontró (30/10/2026). */
+.nt-ver-ejemplo { flex: none; color: var(--primary); font-weight: 500; }
+.nt-ver-ejemplo:hover { color: var(--primary); }
 .nt-guardado { flex: none; font-size: 13px; color: var(--nt-suave); white-space: nowrap; }
 .nt-guardado[data-error] { color: var(--nt-texto); }
 .nt-scroll { position: relative; flex: 1; min-height: 0; overflow-y: auto; }

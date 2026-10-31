@@ -478,6 +478,7 @@ poner_filtro_video
 poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
+preparar_subida_media_buyer
 probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
@@ -577,6 +578,7 @@ sembrar_kpis_sugeridos
 separar_audio_video
 silenciar_clip_video
 snapshot_funnel_experimentos
+subir_creativos_media_buyer
 sugerencias_crm
 sugerir_kpis
 sugerir_productos
@@ -598,6 +600,7 @@ ver_archivero
 ver_automatizaciones_media_buyer
 ver_avatares
 ver_avisos_comunidad
+ver_bajas_de_leads
 ver_base_formulario_meta
 ver_biblioteca_media_buyer
 ver_borrador_de_reunion

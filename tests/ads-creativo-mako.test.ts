@@ -1,22 +1,12 @@
 // =============================================================================
 // El video de MaKo en el Ads Manager: lo que NO puede pasar por el camino (tarea #797)
 // =============================================================================
-// Guards sobre el FUENTE (las rutas y los modales no se pueden importar en node:test).
-// Cada uno fija una trampa medida antes de escribir el código:
-//   · la url NUNCA viaja del navegador (el bucket es público y su ruta no lleva el
-//     workspace: un admin del ws A publicaría el video del ws B);
-//   · la rama nueva de creative-upload NO borra nada (el montado es la ÚNICA copia) ni
-//     escribe una transcripción (el cron transcribe-ads se saltearía ese anuncio para
-//     siempre);
-//   · la miniatura es una data: hecha en el navegador o nada, nunca la url del .mp4
-//     (viajaría como video_data.image_url y Meta rechaza el creativo);
-//   · la lectura y la escritura en Meta resuelven el MISMO workspace, y la lectura corre
-//     ADENTRO del contexto fijado, no sólo después de fijarlo;
+// Guards sobre el FUENTE. Desde el 27/10/2026 las rutas `creative-upload` y `mis-creativos` del Ads Manager
+// viejo están BORRADAS (el Media Buyer sube por `lib/media-buyer/subir.ts`): lo que queda de esta tarea es la
+// lectura de los videos de MaKo, que sigue viva y la usa el Media Buyer:
 //   · «no pude leer» no se contesta como lista vacía, ni con un catch que devuelva [];
-//   · una toma que se volvió a filmar contesta 409 y no sube el clip nuevo, y en Nueva
-//     campaña el panel vuelve a pedir la lista para que «vuelve a elegirla» tenga salida;
-//   · y la capacidad tiene call site en los TRES modales (AGENTS.md: «Escribir la salida
-//     no es ofrecerla»).
+//   · ninguna lectura trae el pedido entero ni el resultado entero (las urls de las tomas y el guion);
+//   · y un 'use client' sólo importa TIPOS de lib/creativo-mako.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -29,92 +19,7 @@ const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const codigo = (p: string) => sinComentarios(leer(p));
 
-/** Desde la firma hasta la primera línea que cierra en la columna 0. */
-function cuerpo(src: string, firma: string): string {
-  const i = src.indexOf(firma);
-  assert.ok(i >= 0, `no encontré «${firma}»`);
-  const fin = src.indexOf('\n}\n', i);
-  assert.ok(fin > i, `no encontré el cierre de «${firma}»`);
-  return src.slice(i, fin);
-}
-
-const ABRE_CONTEXTO = 'return runWithWorkspace(ws, async () => {';
-
-/**
- * El cuerpo del callback de `runWithWorkspace` (desde `desde`) hasta SU llave de cierre,
- * y todo el resto del archivo. Las llaves se cuentan sobre el código sin comentarios; las
- * de un `${…}` vienen de a pares.
- */
-function contexto(src: string, desde: string): { dentro: string; fuera: string } {
-  const i = src.indexOf(ABRE_CONTEXTO, src.indexOf(desde));
-  assert.ok(i >= 0, `no encontré «${ABRE_CONTEXTO}» después de «${desde}»`);
-  let prof = 0;
-  let fin = -1;
-  for (let k = i + ABRE_CONTEXTO.length - 1; k < src.length; k++) {
-    if (src[k] === '{') prof++;
-    else if (src[k] === '}' && --prof === 0) { fin = k; break; }
-  }
-  assert.ok(fin > i, 'no encontré el cierre del callback');
-  assert.equal(src.slice(fin, fin + 3), '});', 'el callback cierra con «});»');
-  return { dentro: src.slice(i + ABRE_CONTEXTO.length, fin), fuera: src.slice(0, i) + src.slice(fin) };
-}
-
-const RUTA = 'app/api/ads-manager/creative-upload/route.ts';
-
-test('creative-upload: la rama de MaKo recibe SÓLO `mako`, y va antes de exigir `path`', () => {
-  const src = codigo(RUTA);
-  const post = cuerpo(src, 'export async function POST(');
-  const iRama = post.indexOf('if (body.mako !== undefined) return subirCreativoMako(body.mako);');
-  const iPath = post.indexOf("const path = String(body.path ?? '');");
-  assert.ok(iRama > 0, 'la rama de MaKo despacha sólo body.mako');
-  assert.ok(iPath > iRama, 'la rama va ANTES del chequeo de path (la subida de archivos no se toca)');
-  const mako = cuerpo(src, 'async function subirCreativoMako(');
-  // La función no ve el body: no puede leer una url, un file_url ni un path del navegador.
-  assert.doesNotMatch(mako, /\bbody\b|\breq\b|file_url|searchParams/, 'subirCreativoMako no lee nada del request más que su referencia');
-  assert.match(mako, /const ref = leerRefCreativo\(crudo\);/);
-  assert.match(mako, /c = await resolverCreativoMako\(ref\);/, 'la url sale de resolver la referencia en el server');
-  assert.match(mako, /uploadAdVideoByUrl\(c\.url, /, 'a Meta va la url RESUELTA');
-  assert.match(mako, /if \(!mismoOrigen\(c\.url, process\.env\.NEXT_PUBLIC_SUPABASE_URL\)\)/, 'el origen se mira con new URL antes de dársela a Meta');
-  // Una toma que se volvió a filmar después de abrir la lista no sube el clip de hoy.
-  const iCambio = mako.indexOf("if (c === 'cambio') return Response.json({ ok: false, error: 'Esa toma cambió. Vuelve a elegirla.' }, { status: 409 });");
-  assert.ok(iCambio > 0, 'la toma que cambió es un 409');
-  assert.ok(iCambio < mako.indexOf('uploadAdVideoByUrl('), 'y se decide ANTES de llamar a Meta');
-});
-
-test('creative-upload: la rama de MaKo no borra nada ni escribe una transcripción', () => {
-  const mako = cuerpo(codigo(RUTA), 'async function subirCreativoMako(');
-  for (const prohibido of [/\.remove\(/, /borrarStaging\(/, /barrerStagingViejo\(/, /transcribirYGuardar\(/, /guardarTranscripcion\(/, /creative_transcripts/, /after\(/]) {
-    assert.doesNotMatch(mako, prohibido, `subirCreativoMako: ${prohibido} es del staging; acá el archivo es el original`);
-  }
-  // Y un 'error' de Meta es un fallo, no un ok (la rama de archivo lo devuelve 422 desde la #59).
-  assert.match(mako, /if \(estado === 'error'\) \{\n\s*return Response\.json\(\{ ok: false,[^\n]*\{ status: 422 \}\);/);
-  // La miniatura no es la url del video.
-  assert.match(mako, /thumbnail_url: null/);
-  assert.doesNotMatch(mako, /thumbnail_url: c\.url/);
-});
-
-test('el workspace que LEE es el que ESCRIBE: las dos rutas fijan wsDeAdsManager() y leen ADENTRO', () => {
-  const src = codigo(RUTA);
-  const mako = cuerpo(src, 'async function subirCreativoMako(');
-  assert.match(mako, /const ws = await wsDeAdsManager\(\);[\s\S]*?return runWithWorkspace\(ws, async \(\) => \{/);
-  // Fijar el contexto no alcanza: la lectura tiene que CORRER adentro. Una promesa armada
-  // antes del wrapper y esperada adentro lee con el id -1 y deja a cred() en OWNER_WS.
-  const sube = contexto(src, 'async function subirCreativoMako(');
-  assert.match(sube.dentro, /c = await resolverCreativoMako\(ref\);/, 'la referencia se resuelve adentro del contexto');
-  assert.match(sube.dentro, /uploadAdVideoByUrl\(c\.url, /, 'y se sube a Meta adentro del mismo');
-  assert.doesNotMatch(sube.fuera, /resolverCreativoMako\(/, 'ninguna lectura del video de MaKo afuera del contexto');
-
-  const lista = codigo('app/api/ads-manager/mis-creativos/route.ts');
-  assert.match(lista, /const no = await guardAdsWs\(\); if \(no\) return no;/);
-  assert.match(lista, /const ws = await wsDeAdsManager\(\);[\s\S]*?return runWithWorkspace\(ws, async \(\) => \{/);
-  const lee = contexto(lista, 'export async function GET(');
-  assert.match(lee.dentro, /await Promise\.all\(\[montadosDelWorkspace\(\), tomasDelWorkspace\(\)\]\)/, 'las dos lecturas, adentro del contexto');
-  assert.doesNotMatch(lee.fuera, /montadosDelWorkspace\(|tomasDelWorkspace\(/, 'ninguna lectura afuera del contexto');
-});
-
 test('«no pude leer» no es «no tienes videos»', () => {
-  const lista = codigo('app/api/ads-manager/mis-creativos/route.ts');
-  assert.match(lista, /\{ ok: false, error: [^}]*\}, \{ status: 500 \}/, 'un fallo de lectura es un 500 con su mensaje');
   const fuentes = codigo('lib/creativo-mako-fuentes.ts');
   // Las dos lecturas de montaje_trabajos leen el error, y el historial va en estricto.
   assert.equal((fuentes.match(/if \(error\) throw new Error\(/g) ?? []).length, 2, 'las dos lecturas de montaje_trabajos tiran con su error');
@@ -145,26 +50,7 @@ test("'use client' sólo importa TIPOS de lib/creativo-mako", () => {
   }
 });
 
-//   ROTO A PROPÓSITO (07/10/2026), de a una y restaurando de memoria; re-contadas en la
-//   revisión con los 9 tests de ahora, cada una da pass 8 / fail 1 y el que cae es el que
-//   la nombra:
-//   · el POST pasándole el body ENTERO a subirCreativoMako → «recibe SÓLO `mako`»;
-//   · un `after(() => borrarStaging(c.url))` en la rama de MaKo → «no borra nada»;
-//   · sin runWithWorkspace en la rama de MaKo → «el workspace que LEE es el que ESCRIBE»;
-//   · mis-creativos contestando `{ ok: true, montados: [], tomas: [] }` al fallar → «no
-//     pude leer»;
-//   · `thumbnail_url: f.mako.url` en AgregarConjuntoModal → «la miniatura es una data:»;
-//   · sin `onMako=` en el montaje de CreativosPicker → «las tres puertas tienen call site»;
-//   · `an[i]` de vuelta en promptDeRespuestas → «el análisis de cada creativo…».
-//   Y las de la revisión, también pass 8 / fail 1 salvo donde se dice:
-//   · ⚠️ la del revisor: mis-creativos armando `Promise.all([montados…(), tomas…()])` ANTES
-//     del wrapper y esperándola adentro → «el workspace que LEE…». El guard viejo (que sólo
-//     miraba el ORDEN de `wsDeAdsManager()` y el wrapper) la dejaba pasar: ese test, corrido
-//     desde HEAD sobre la rotura, 1 pass / 0 fail;
-//   · lo mismo en creative-upload (`const pedido = resolverCreativoMako(ref)` afuera) →
-//     pass 7 / fail 2: «el workspace que LEE…» y «recibe SÓLO `mako`», que fija la línea;
-//   · ⚠️ la del revisor: tomasDelWorkspace envuelto en `try { … } catch { return []; }` →
-//     «no pude leer». El guard viejo (el literal y la cuenta de throws) también: 1 pass / 0 fail;
-//   · creative-upload sin el 409 de la toma que cambió → «recibe SÓLO `mako`»;
-//   · Nueva campaña sin `setVueltaMako` en el catch, y el panel sin `key={vueltaMako}` →
-//     «un video de MaKo que falla vuelve a pedir la lista», las dos.
+//   ROTO A PROPÓSITO (07/10/2026; re-contadas el 27/10 con los dos tests que quedan, cada una 1 pass / 1 fail):
+//   · tomasDelWorkspace envuelto en `try { … } catch { return []; }` → «no pude leer»;
+//   · `.select('*')` en una de las dos lecturas de montaje_trabajos → «no pude leer»;
+//   · un `import { resolverCreativoMako } from '@/lib/creativo-mako'` en Hoy.tsx → «'use client' sólo importa TIPOS».

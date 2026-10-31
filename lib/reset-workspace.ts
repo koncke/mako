@@ -147,6 +147,11 @@ export async function vaciarTablas(ws: number): Promise<{ borrado: Record<string
     }
     pendientes = fallaron;
   }
+  // ⚠️ AL FINAL, OTRA VEZ: borrar `leads` escribe en `leads_bajas` (el trigger de la mig 0356), y de un inquilino vaciado no
+  // tiene que quedar nada. Si la tabla no está todavía, ya se avisó arriba.
+  await sb.from('leads_bajas').delete().eq('workspace_id', ws).then(({ error }) => {
+    if (error && !['42P01', 'PGRST205'].includes(String((error as { code?: string }).code))) avisos.push(`leads_bajas: ${error.message}`);
+  }, (e: unknown) => { avisos.push(`leads_bajas: ${msg(e)}`); });
   return { borrado, avisos };
 }
 

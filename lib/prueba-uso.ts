@@ -17,7 +17,7 @@ import 'server-only';
 import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
 import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
-import { CLAVE_PLAN_A_MANO, leerPlanAMano } from './plan-a-mano-reglas';
+import { CLAVE_PLAN_A_MANO, leerPlanAMano, llevaTopesDePrueba } from './plan-a-mano-reglas';
 import { nombreDePlan } from './clientes-plataforma-reglas';
 import { getSetting, setSetting } from './settings';
 import { diasQueQuedan, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
@@ -67,6 +67,8 @@ export const estadoDePrueba = cache(async (ws: number): Promise<EstadoPrueba> =>
 async function deUnPlanAMano(ws: number, nada: EstadoPrueba): Promise<EstadoPrueba> {
   const p = leerPlanAMano(await runWithWorkspace(ws, () => getSetting(CLAVE_PLAN_A_MANO)));
   if (!p) return nada;
+  // Los 6 meses gratis, mientras duran, no son una prueba: su plan entero (`llevaTopesDePrueba`, lib/plan-a-mano-reglas.ts).
+  if (!llevaTopesDePrueba(p, Date.now())) return nada;
   // ⚠️ YA PAGÓ CON SU EMAIL (29/10/2026, la verificación de ddfa645d4): quien compra por /planes con el email de una cuenta que ya
   //    existe deja el cobro `ya_tenia_cuenta`, SIN atar al negocio (`alta_ws` null) hasta que Martín lo ate en /admin/cobros, y el
   //    negocio que ya pagó seguía con los topes de la prueba (y al vencer le llegaba «Terminó tu prueba»). Acá el email SÓLO quita
@@ -76,6 +78,18 @@ async function deUnPlanAMano(ws: number, nada: EstadoPrueba): Promise<EstadoPrue
   const capa = w?.capa ?? null;
   if (!capa) return nada;
   return { enPrueba: true, capa, hasta: p.hasta, despues: null, plan: nombreDePlan(capa), dias: diasQueQuedan(p.hasta, Date.now()) };
+}
+
+/**
+ * ¿Este negocio paga su plan (o lo está probando con su tarjeta)? Lo que corta a los 6 meses gratis (30/10/2026): no se le dan
+ * ni se le avisa que terminan a quien tiene una suscripción, porque el regalo no frena lo que su tarjeta va a pagar. La misma
+ * lectura que `estadoDePrueba`, más lo pagado con su email. Tira si no se puede leer: quien llama no lo toma como «no paga».
+ */
+export async function pagaSuPlan(ws: number): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from('cobros').select('id')
+    .eq('workspace_id', await wsSuperAdmin()).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO).limit(1);
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as unknown[]).length > 0 || (await pagoConElEmailDeSusAdmins(ws));
 }
 
 /**

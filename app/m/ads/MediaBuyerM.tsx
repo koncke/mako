@@ -8,6 +8,8 @@
 // tocar una tarjeta, su detalle en la hoja de MaKo Mobile (la tarjeta entera, con el porqué y sus botones). Lo que en el
 // teléfono no entra (Campañas, la Biblioteca, los agentes) queda en la computadora.
 // Lo que escribe es lo de la computadora: POST /api/media-buyer (lib/media-buyer/ejecutar.ts).
+// Un día sin cambios dice lo MISMO que la computadora (lib/media-buyer/cartel-hoy.ts): nunca «todo anda bien» sin haberlo
+// medido. Lo único distinto es el próximo paso, que acá se dice en una línea en vez de ser un botón.
 // =============================================================================
 
 import { useCallback, useMemo, useState } from 'react';
@@ -17,13 +19,17 @@ import { Criatura } from '@/app/_components/Criatura';
 import { MiFoto } from '@/app/admin/operaciones/MiFoto';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import { productoDeAccion } from '@/lib/media-buyer/productos';
+import { PASO_EN_EL_TELEFONO, cartelDeHoy } from '@/lib/media-buyer/cartel-hoy';
 import { ArbolDeHoy } from '@/app/ads-manager/Arbol';
 import { TarjetaAccion } from '@/app/ads-manager/Autopilot';
-import { aplicablesEnLote, deHoy } from '@/app/ads-manager/mb-modelo';
+import { aplicablesEnLote, deHoy, resultadoAplicar, type ResultadoAplicar } from '@/app/ads-manager/mb-modelo';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
-async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; ajuste?: string | null }> {
+/** El próximo paso, más chico y más tenue que la bajada: en línea porque `.aa-nuevo > p` le gana a cualquier clase nueva. */
+const PASO_M = { marginTop: 14, fontSize: 13, color: 'var(--faint)' } as const;
+
+async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; ajuste?: string | null; confirmar?: string }> {
   try {
     const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     return (await r.json().catch(() => ({ ok: false, error: `Error ${r.status}` }))) as { ok: boolean; error?: string };
@@ -32,11 +38,13 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?
   }
 }
 
-export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
+export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe, conectada = null }: {
   config: Config;
   decisiones: Decision[];
   puedeOperar: boolean;
   productoDe: Record<string, string>;
+  /** La cuenta publicitaria conectada. `null` = el teléfono no lo sabe (no pregunta a Meta ni a Zernio al abrir). */
+  conectada?: boolean | null;
 }) {
   const router = useRouter();
   const toast = useToastM();
@@ -47,11 +55,17 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
   const detalle = abierta ? decisiones.find((d) => d.id === abierta) ?? null : null;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const puede = config.encendido && puedeOperar;
+  // El MISMO criterio que la computadora: sin cambios no es «todo bien» (lib/media-buyer/cartel-hoy.ts). Acá el próximo paso
+  // se DICE (dónde se hace), porque el Media Buyer no se configura desde el teléfono.
+  const cartel = useMemo(() => cartelDeHoy({ encendido: config.encendido, conectada, corrida: config.ultimaCorridaInfo ?? null }), [config.encendido, config.ultimaCorridaInfo, conectada]);
 
-  const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string) => {
+  const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string): Promise<ResultadoAplicar> => {
     setOcupada(d.id);
     const r = await api({ ...body, id: d.id });
     setOcupada(null);
+    // Una baja de 80% o más vuelve como «confírmalo»: la pregunta la hace la tarjeta (sin aviso ni recarga).
+    const res = resultadoAplicar(r);
+    if (typeof res === 'object') return res;
     if (r.ok) toast(r.ajuste ? `${ok}. ${r.ajuste}` : ok);
     else toast(r.error ?? 'No se pudo.', { error: true });
     router.refresh();
@@ -81,8 +95,9 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
         : (
           <section className="aa-nuevo">
             <Criatura nombre="MaKo" size={40} estrella />
-            <h1>Hoy no hay cambios</h1>
-            <p>{!config.encendido ? 'Estoy apagado: préndeme desde la computadora.' : 'Todo anda dentro de tu objetivo. Vuelvo a mirar mañana.'}</p>
+            <h1>{cartel.titulo}</h1>
+            <p>{cartel.bajada}</p>
+            {cartel.paso && <p style={PASO_M}>{PASO_EN_EL_TELEFONO[cartel.paso]}</p>}
           </section>
         )}
       {!puedeOperar && <p className="aa-m-nota">Estás mirando otro negocio: para aplicar, entra con el tuyo.</p>}
@@ -91,7 +106,7 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
           <div className="aa aa-hoja">
             <TarjetaAccion d={detalle} kpi={config.kpi} producto={producto(detalle)} ocupada={ocupada === detalle.id} encendido={puede}
               ajustesHref="/ads-manager/ajustes"
-              onAplicar={async (extra) => { const ok = await aplicar(detalle, extra); if (ok) setAbierta(null); return ok; }}
+              onAplicar={async (extra) => { const r = await aplicar(detalle, extra); if (r === true) setAbierta(null); return r; }}
               onBorrar={() => { void accion(detalle, { op: 'descartar' }, 'Descartado'); setAbierta(null); }}
               onPreguntar={() => router.push('/m/mako')}
               onDeshacer={() => void accion(detalle, { op: 'deshacer' }, 'Deshecho')}

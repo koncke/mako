@@ -97,6 +97,8 @@ export const PUBLICOS = [
   // trampa: cada pedido puede crear un checkout en la pasarela de MaKo (lib/compra-plan.ts).
   '/planes',
   '/api/planes/comprar',
+  // El reloj del 50% de la landing de venta: lo abre quien no tiene cuenta. No lee la sesión ni la base, y mira el Origin.
+  '/api/promo-entrada',
   // El link de MaKo Partners (`/r/<código>`, sólo GET): deja la cookie de quién lo mandó y lleva a
   // /planes. No lee la sesión.
   '/r',
@@ -275,6 +277,8 @@ export const PUBLICOS_ESCRITURA = [
   // El checkout público de un plan de MaKo (23/10/2026): sin credencial porque el que compra no tiene
   // cuenta; la ruta mira el Origin ella misma y no lee la cookie de sesión (ver su entrada en PUBLICOS).
   '/api/planes/comprar',
+  // El reloj del 50% (ver su entrada en PUBLICOS).
+  '/api/promo-entrada',
 ] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>

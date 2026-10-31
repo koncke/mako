@@ -27,7 +27,7 @@ import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
 import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
-  claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
+  claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, preguntaDeChatCerrado, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
   avisosDe, esperaCheck, esperaDe, incidenteSinVer, sinElRunner, turnosParaLaLista, ultimoYaEsta, vigiaCallado, type VistosDeChats, type YaVistos,
 } from '@/lib/centro-chats';
@@ -38,13 +38,14 @@ import { aspectoDe, elegidoPara, type Aspecto, type MunecosElegidos } from '@/li
 import { respuestasDelChat } from '@/lib/centro-preguntas';
 import type { AccionDeshacer, AccionResponder } from '@/app/admin/runway/decisiones';
 import { AUTOMATICO, aceptaModelo, cuentasDelChat, destinoDe, sesionAutomatica, type Esfuerzo, type Modelo } from '@/lib/centro-cuentas';
-import { desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
+import { descartarDelLimboAction, desconectarComputadoraAction, contestarPreguntaAction, creditoDelNegocioAction, guardarAliasCuentaAction, guardarBorradorAction, guardarMunecoAction, marcarMensajeAction, marcarYaVistoAction, type pedidosDelChatAction, type turnosCentroAction, type FotoCentro } from './acciones';
 // Las LECTURAS van por GET y no por acción (23/10/2026): ver ./lectura-centro.ts.
 import { leerCentro } from './lectura-centro';
 import type { CuentasConNombre } from '@/lib/centro-titulares';
 import type { LecturaCredito } from '@/lib/credito-api';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/centro-estable';
+import { mensajesEnLimbo } from '@/lib/centro-limbo';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, notaQueSale, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
@@ -734,13 +735,47 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     return ok;
   }
 
+  // ── Los mensajes que esperan un chat cerrado (30/10/2026, CartelLimbo.tsx) ──────────────────────────────────
+  const limbo = useMemo(() => mensajesEnLimbo(cola, carteros, ahora), [cola, carteros, ahora]);
+  /** Dar de baja uno. Devuelve el error, o null. */
+  async function descartarDelLimbo(p: Pedido): Promise<string | null> {
+    const r = await descartarDelLimboAction(p.id).catch(() => null);
+    if (!r?.ok) return r?.error ?? 'No pude descartarlo: vuelve a probar.';
+    setCola((x) => x.filter((w) => w.id !== p.id));
+    refrescar();
+    return null;
+  }
+  /**
+   * Mandárselo a otro chat: la firma fija el destino, así que sale uno NUEVO firmado en este dispositivo, y recién con ése en la cola
+   * se da de baja el viejo. Si la baja falla, el nuevo ya salió: se dice, y el viejo sigue en el cartel. Devuelve el error, o null.
+   */
+  async function mandarDelLimbo(p: Pedido, c: ChatCentro): Promise<string | null> {
+    const d = destinoDeChat(c);
+    const envio = envioDe(c);
+    if (!d.sesion || !envio.puede) return textoDeEnvio(envio) ?? 'Ese chat no recibe ahora.';
+    if (envio.espera === 'chat_cerrado') return 'Ese chat también está cerrado.';
+    const texto = armarReenvio(p.destino_titulo ?? 'un chat cerrado', p.texto);
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto');
+    if (!r.ok) return r.error;
+    anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    const e = await descartarDelLimbo(p);
+    if (e) return `Salió, pero el original sigue en la lista: ${e}`;
+    avisar(`Se lo mandé a ${c.titulo}`, 'good');
+    return null;
+  }
+
   // ── Contestar una pregunta del chat (17/10/2026, el formulario de su conversación) ──────────────────────────────
   // Primero sale FIRMADA por mandar.ts (el único camino a la PC: la PC recibe lo firmado), y recién con ese trabajo en la
   // cola el servidor la marca contestada (acciones.ts → contestarPreguntaAction). Devuelve el error, o null.
+  /** La línea de la tarjeta si el chat de esa pregunta está cerrado (se dice ANTES de firmar). null = la respuesta sale. */
+  const avisoDePregunta = (c: ChatCentro, p: PreguntaChat): string | null =>
+    preguntaDeChatCerrado(p.local, c.sesiones.find((s) => s.sesion === p.local)?.cuenta ?? c.cuenta, carteros, ahora);
   async function contestarPregunta(c: ChatCentro, p: PreguntaChat, elegidas: number[], otra: string): Promise<string | null> {
     const cuenta = c.sesiones.find((s) => s.sesion === p.local)?.cuenta ?? c.cuenta;
     const sale = comoSale({ sesion: p.local, cuenta, estado: c.estado }, carteros, claveFirma, ahora);
     if (!sale.puede) return textoDeEnvio(sale) ?? 'No puedo mandarla todavía.';
+    const cerrado = avisoDePregunta(c, p);
+    if (cerrado) return cerrado;
     const texto = textoDeRespuesta(p, elegidas, otra.trim() || null);
     const r = await firma.mandar({ sesion: p.local, cuenta, titulo: c.titulo }, texto, 'solo_esto');
     if (!r.ok) return r.error;
@@ -820,7 +855,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
 
   return {
     chats, carteros, trabajos, porId, esperas: esperasConVigia, decisiones, decisionesOk, ahora, pushes, estado, munecos, setMunecos, tabs, firma, pedidos,
-    turnosDe, preguntasDe, tareasDe, contestarPregunta, mirar,
+    turnosDe, preguntasDe, tareasDe, contestarPregunta, avisoDePregunta, limbo, descartarDelLimbo, mandarDelLimbo, mirar,
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, mandarNota, anotarEnviado, copiarConAviso, crearClave, copiarClave,

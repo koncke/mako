@@ -1,5 +1,46 @@
 # Relevo — Video Generator (el puente a Google Flow)
 
+## El estudio copiado de Arcads (27/10/2026, sesión en la nube) — LEER PRIMERO
+
+*Etiqueta `nube/video-generator-2710` (sin rama: la integra «Cerebro › Integración»). Pedido de Martín, por el Cerebro:
+«implementar Video Generator, que nos quedó a medias... Tiene una cantidad de pestañas absurdas, el diseño, que se parezca a
+una app que tomemos de referencia». El porqué y las trampas: docs/hallazgos-generativa.md → «El estudio de video copiado de
+Arcads».*
+
+**Hecho (con test, cada uno probado rompiéndolo: 19 tests, 17 roturas):**
+- `/video-generator` es UN estudio de tres columnas (`app/video-generator/estudio/`): los anuncios a la izquierda, el anuncio
+  en el centro, MaKo a la derecha. Abrir o crear un anuncio no cambia de ruta (`?plan=`, con el `?ws=`).
+- El anuncio nuevo es una pantalla: guion, formato, lugar y un botón. Si el lugar se eligió al crear, el wizard no lo vuelve a
+  preguntar (`lugarEnElAlta`).
+- El chat es el de la app (como el del Second Brain), una conversación por persona; en el Ops Center sale en «Video Generator».
+- 21 operaciones nuevas en la API (`lib/api-mako/areas/video-estudio.def.ts` y `.run.ts`): cada botón se puede pedir por el
+  chat, con la misma acción que el botón. El inventario botón ↔ operación: `app/video-generator/estudio/inventario.ts`.
+- Los colores son los tokens de MaKo (sin el negro forzado de Flow), en la computadora y en el teléfono.
+
+**Para probar en vivo (en la PC de Martín, en el ws3, nunca en el ws1).** Antes: la tab del ws3 con su onboarding hecho, la
+extensión 0.74 conectada y una pestaña de Google Flow abierta dentro de un proyecto.
+1. Abrir `/video-generator?ws=3`. Se ven las tres columnas. Achicar la ventana: debajo de 1180 px el chat pasa a un botón
+   «MaKo»; debajo de 760 px, los anuncios pasan a «Tus anuncios». Cambiar claro/oscuro con el interruptor de la barra.
+2. «Nuevo anuncio»: elegir un guion (o «Pegar un guion»), un formato y un lugar → «Generar anuncio». Esperado: el anuncio
+   aparece en «En curso», el centro abre en el escenario 1 (sin preguntar el lugar) y la URL suma `?plan=…`, sin recargar.
+3. Tocar otro anuncio de la barra y volver a «Nuevo anuncio»: la ruta no cambia y el `?ws=3` sigue.
+4. En el chat, con un anuncio abierto: «¿En qué anda este anuncio?» (contesta sin tarjeta) y «Reescribe la toma 1 más corta»
+   (tarjeta → «Sí» → el centro muestra la toma nueva sin recargar).
+5. «Genera la imagen del escenario 1» → tarjeta → la imagen llega de Flow (0 créditos). «Aprueba el escenario 1».
+6. «Filma la toma 1»: MaKo deja el link a la pantalla de confirmar, con lo que cuesta y lo que queda. Confirmar UNA vez:
+   la toma pasa a «Filmando…» (≈12 créditos). Pedirla otra vez tiene que contestar que ya se está filmando.
+7. Con el anuncio nuevo abierto: «Arma un anuncio con mi último guion en <un formato>» → tarjeta → «Sí» → el anuncio nuevo
+   se abre solo en el centro.
+8. En el Ops Center (`/second-brain?ws=3`), la conversación sale en el grupo «Video Generator».
+
+**Lo que falta, con su archivo:**
+- Los escenarios y las tomas siguen siendo una pantalla por escenario y por toma dentro del anuncio abierto
+  (`WizardAnuncio.tsx`, 3.200 líneas): juntarlos en una vista de línea de tiempo como la de Arcads es el siguiente corte.
+- Por el chat no se puede subir un archivo (un Word o PDF con el guion, una imagen propia de escenario): motivo escrito en
+  el inventario. El texto pegado y un link sí.
+- En el teléfono, `/m/video` sigue siendo de sólo mirar; las operaciones se le pueden pedir al chat de MaKo del teléfono.
+- Medir en vivo lo de arriba: la nube no tiene la base ni el puente.
+
 *17/10/2026, cuenta 4 (claude4). Rama `video-flow-ui`, worktree `C:/dev/wt-flow-ui`.*
 
 ## Dónde quedó

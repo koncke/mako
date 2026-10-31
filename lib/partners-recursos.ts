@@ -12,7 +12,7 @@
 // Puro: lo dibuja app/partners/RecursosPartner.tsx y lo fija tests/partners-recursos.test.ts.
 // =============================================================================
 
-import { PLANES_MAKO_DEFAULT, PRUEBA_DIAS, type PlanMako } from './planes-mako';
+import { PLANES_MAKO_DEFAULT, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA, type PlanMako } from './planes-mako';
 import { filasDeComparacion, type Celda, type FilaComparacion } from './planes-comparacion';
 
 export type MensajeParaCopiar = { id: string; titulo: string; texto: string };
@@ -29,27 +29,28 @@ export function mensajesParaCopiar(p: { link: string; codigo: string; planes?: r
   const esencial = planDe(planes, 'esencial');
   const pro = planDe(planes, 'pro');
   const gratis = `${PRUEBA_DIAS} días gratis`;
+  const entrada = PRUEBA_GRATIS_PRENDIDA ? `Empiezas con ${gratis} y te das de baja cuando quieras.` : 'Te das de baja cuando quieras.';
   const precio = [esencial && `MaKo Esencial cuesta ${usd(esencial.precioUsd)} por mes`, pro && `MaKo Pro, ${usd(pro.precioUsd)}`].filter(Boolean).join(' y ');
   return [
     {
       id: 'conocido', titulo: 'Para un conocido, por WhatsApp',
-      texto: `Hola, ¿cómo estás? Estoy usando MaKo para vender con mi negocio: tus contactos, tu WhatsApp y tus anuncios en un solo lugar, con un asistente de IA que te ayuda a decidir qué hacer. Lo pruebas ${gratis}: ${p.link}`,
+      texto: `Hola, ¿cómo estás? Estoy usando MaKo para vender con mi negocio: tus contactos, tu WhatsApp y tus anuncios en un solo lugar, con un asistente de IA que te ayuda a decidir qué hacer. ${PRUEBA_GRATIS_PRENDIDA ? `Lo pruebas ${gratis}` : 'Míralo acá'}: ${p.link}`,
     },
     {
       id: 'estado', titulo: 'Para tu estado o un grupo',
-      texto: `Si vendes por WhatsApp o con anuncios, mira MaKo: ordena tus contactos, te arma páginas de venta y videos con IA, y te dice qué mejorar en tus anuncios. ${gratis}: ${p.link}`,
+      texto: `Si vendes por WhatsApp o con anuncios, mira MaKo: ordena tus contactos, te arma páginas de venta y videos con IA, y te dice qué mejorar en tus anuncios. ${PRUEBA_GRATIS_PRENDIDA ? gratis : 'Míralo acá'}: ${p.link}`,
     },
     {
       id: 'instagram', titulo: 'Mensaje directo de Instagram',
-      texto: `¡Hola! Vi lo que vendes y creo que te puede servir MaKo, lo uso para mi negocio: te ordena los contactos y los mensajes, y te ayuda con las páginas y los anuncios. Lo pruebas ${gratis}, te dejo el link: ${p.link}`,
+      texto: `¡Hola! Vi lo que vendes y creo que te puede servir MaKo, lo uso para mi negocio: te ordena los contactos y los mensajes, y te ayuda con las páginas y los anuncios. ${PRUEBA_GRATIS_PRENDIDA ? `Lo pruebas ${gratis}, te` : 'Te'} dejo el link: ${p.link}`,
     },
     {
       id: 'precio', titulo: 'Si te preguntan cuánto cuesta',
-      texto: `${precio ? `${precio}. ` : ''}Empiezas con ${gratis} y te das de baja cuando quieras. Si te suscribes, pon mi código ${p.codigo} al pagar: ${p.link}`,
+      texto: `${precio ? `${precio}. ` : ''}${entrada} Si te suscribes, pon mi código ${p.codigo} al pagar: ${p.link}`,
     },
     {
       id: 'seguimiento', titulo: 'Seguimiento, a los dos días',
-      texto: `¿Pudiste mirar MaKo? Si quieres te muestro cómo lo uso yo. Lo pruebas ${gratis}: ${p.link}`,
+      texto: `¿Pudiste mirar MaKo? Si quieres te muestro cómo lo uso yo${PRUEBA_GRATIS_PRENDIDA ? `. Lo pruebas ${gratis}` : ''}: ${p.link}`,
     },
   ];
 }
@@ -101,7 +102,7 @@ export function pdfDeVenta(p: { link: string; codigo: string; deParte?: string |
       'Mira tus anuncios de Facebook e Instagram y te dice qué mejorar.',
     ],
     planes: out,
-    prueba: `Empiezas con ${PRUEBA_DIAS} días gratis y te das de baja cuando quieras.`,
+    prueba: PRUEBA_GRATIS_PRENDIDA ? `Empiezas con ${PRUEBA_DIAS} días gratis y te das de baja cuando quieras.` : 'Pagas al empezar y te das de baja cuando quieras.',
     deParte: p.deParte?.trim() ? p.deParte.trim().slice(0, 80) : null,
     link: p.link, codigo: p.codigo,
   };

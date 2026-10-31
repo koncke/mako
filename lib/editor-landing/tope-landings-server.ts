@@ -10,7 +10,7 @@ import 'server-only';
 
 import { getSupabaseServer } from '../supabase';
 import { getWorkspace, wsSuperAdmin } from '../workspace';
-import { suscripcionDeMakoDe } from '../cobros';
+import { aplicanTopes } from '../topes-plan-server';
 import { topeParaDominio, topeParaPublicar } from './tope-landings';
 import { frenoDePrueba } from '../prueba-uso';
 import { falla, type FallaHttp } from './server';
@@ -19,8 +19,9 @@ import { falla, type FallaHttp } from './server';
 export async function frenoDeTope(ws: number, cual: 'publicar' | 'dominio', yaCuenta: boolean): Promise<FallaHttp | null> {
   if (yaCuenta) return null;
   try {
-    const [w, plataforma, sus] = await Promise.all([getWorkspace(ws), wsSuperAdmin(), suscripcionDeMakoDe(ws)]);
-    if (!w || sus == null) return null;
+    // `aplicanTopes`: el plan cobrado por la pasarela, o la cuenta de un cliente de agencia (29/10/2026).
+    const [w, plataforma, aplica] = await Promise.all([getWorkspace(ws), wsSuperAdmin(), aplicanTopes(ws)]);
+    if (!w || !aplica) return null;
     // ⚠️ Nada de `cual === 'publicar' ? q.not(…) : q.not(…)`: lo que explota (TS2589, «excessively deep»)
     // es UNIFICAR los dos tipos de builder del ternario. Cada rama arma y espera el suyo, y no hay unión.
     const cuantas = () => getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true }).eq('workspace_id', ws).is('papelera_at', null);

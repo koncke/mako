@@ -151,11 +151,8 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
       <style>{CSS_GC + CSS_LISTA}</style>
       <MakoEnLaTab tab="Calendario" />
       {toast && <Toast state={toast} onClose={clear} />}
+      {/* Sin el logo de Google (29/10/2026): la barra es la del Calendario, con el mismo selector de cómo se mira. */}
       <header className="gc-barra">
-        <span className="gc-logo">
-          <span className="gc-logo-dia" aria-hidden>{Number(hoy.slice(8))}</span>
-          <span className="gc-logo-txt">Calendario</span>
-        </span>
         <h1 className="gc-titulo" id="gl-titulo">Llamadas de venta</h1>
         <div className="gc-derecha"><PestanasCalendario activa="llamadas" /></div>
       </header>
@@ -215,7 +212,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
         </main>
         <aside className="gl-tareas" aria-labelledby="gl-tareas-titulo">
           <h3 id="gl-tareas-titulo">Tareas con fecha</h3>
-          <p className="gl-sub">Del Plan, las que vencen pronto.</p>
+          <p className="gl-sub">Del Plan: las vencidas en las últimas dos semanas y las del próximo mes.</p>
           {fallos.tareas && <p className="gl-error" role="alert">No pudimos leer el Plan. <ReportarASoporte /></p>}
           {proximasTareas.length === 0
             ? <div className="gl-vacio"><b>Nada por vencer</b>Las tareas del Plan con fecha aparecen aquí.</div>

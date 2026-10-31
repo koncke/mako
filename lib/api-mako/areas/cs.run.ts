@@ -31,6 +31,8 @@
 import 'server-only';
 import type { Ctx, Ejecutado, Preparado, Runners } from '../tipos';
 import { cartera, type ClienteCartera, type EstadoCliente } from '@/lib/cs-cartera';
+import { darDeBajaClienteDeAgencia } from '@/lib/agencia-baja';
+import { planCuentaDe, type PlanCuenta } from '@/lib/agencia-cobro-reglas';
 import { claveNivel, conTrabajo, type ClaveNivel } from '@/lib/cs-senal';
 import { getWorkspace, getTenantDb } from '@/lib/workspace';
 import { tableroDeCapa } from '@/lib/tablero-de-capa';
@@ -130,9 +132,9 @@ const textoQuienPaga = (paga: 'agencia' | 'cliente'): string =>
  * Abrir la cuenta y contarlo. ⚠️ El link de pago lo escribe el CÓDIGO, nunca el modelo (AGENTS.md: un dato exacto que
  * pasa por un LLM deja de serlo); y sólo si paga la agencia: si paga el cliente, lo ve él en su cartel.
  */
-async function abrirYContar(ctx: Ctx, p: { nombre: string; email: string; leadId: number | null; paga: 'agencia' | 'cliente' }): Promise<Ejecutado> {
+async function abrirYContar(ctx: Ctx, p: { nombre: string; email: string; leadId: number | null; paga: 'agencia' | 'cliente'; plan?: PlanCuenta }): Promise<Ejecutado> {
   const pagador = ctx.actor && ctx.actor.includes('@') ? ctx.actor : null;
-  const r = await abrirCuentaDePartner({ agenciaWs: ctx.ws, nombre: p.nombre, email: p.email, leadId: p.leadId, pagador, paga: p.paga });
+  const r = await abrirCuentaDePartner({ agenciaWs: ctx.ws, nombre: p.nombre, email: p.email, leadId: p.leadId, pagador, paga: p.paga, plan: p.plan ?? 'esencial' });
   if (!r.ok) return { ok: false, resumen: r.error };
   if (r.link && r.paga === 'agencia') ctx.aPersona?.(`Link de su primer mes: ${r.link}`);
   // ⚠️ «PAGA TU CLIENTE» SIN LINK DEL PRIMER MES (25/10/2026): su acceso NO salió (lib/partners.ts) y la cuenta espera la
@@ -402,13 +404,32 @@ export const RUNNERS: Runners = {
       const correo = emailNormalizado(str(input, 'email'));
       if (!emailUtilizable(correo)) return { error: 'Hace falta un email que sirva: es por donde le llega el acceso.', faltan: ['email'] };
       const paga = quienPagaDe(str(input, 'paga'));
+      const plan = planCuentaDe(str(input, 'plan'));
       return {
-        payload: { nombre, email: correo, paga },
+        payload: { nombre, email: correo, paga, plan },
         resumen: `Abrirle a ${nombre} su cuenta de MaKo (${correo}) como cliente de tu agencia. ${textoQuienPaga(paga)}`,
       };
     }),
     ejecutar: sinLanzar('abrir la cuenta', async (payload, ctx) =>
-      abrirYContar(ctx, { nombre: String(payload.nombre ?? ''), email: String(payload.email ?? ''), leadId: null, paga: quienPagaDe(payload.paga) })),
+      abrirYContar(ctx, { nombre: String(payload.nombre ?? ''), email: String(payload.email ?? ''), leadId: null, paga: quienPagaDe(payload.paga), plan: planCuentaDe(payload.plan) })),
+  },
+
+  // Dar de baja la cuenta de un cliente (29/10/2026): ver cs.def.ts. La fila de la cartera se repregunta al ejecutar.
+  dar_de_baja_cliente_agency: {
+    preparar: revisando(async (input, ctx) => {
+      if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es Agency: se suma desde Agency Dashboard.' };
+      const clienteWs = num(input, 'clienteWs');
+      if (clienteWs == null) return { error: 'Falta el número de cuenta del cliente.', faltan: ['clienteWs'] };
+      return {
+        payload: { clienteWs },
+        resumen: `Dar de baja la cuenta del cliente ${clienteWs}: se cancela su cobro, dejas de administrarla y le avisamos. Sus datos quedan guardados; si quiere seguir, paga él.`,
+      };
+    }),
+    ejecutar: sinLanzar('dar de baja la cuenta', async (payload, ctx) => {
+      const clienteWs = typeof payload.clienteWs === 'number' ? payload.clienteWs : NaN;
+      const r = await darDeBajaClienteDeAgencia({ agenciaWs: ctx.ws, clienteWs, autor: 'MaKo (pedido de la agencia)' });
+      return r.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: r.error };
+    }),
   },
 
   // La plantilla de un modelo de negocio (MAU-01): ver cs.def.ts. Con `clienteWs`, la agencia sobre un cliente de su

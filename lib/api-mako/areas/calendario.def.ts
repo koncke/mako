@@ -36,14 +36,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_evento_calendario', area: 'calendario', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Agendar un evento en el Calendario',
-    descripcion: 'Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo o una llamada. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.',
+    descripcion: 'Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo, una llamada de venta o una reunión de entrega del servicio. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.',
     parametros: [
       { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 160, descripcion: 'Qué es, corto («Reel del caso de éxito», «Escribir guiones»).' },
-      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_EVENTO], descripcion: 'publicacion, bloque (de trabajo), llamada u otro.' },
+      { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: [...TIPOS_EVENTO], descripcion: 'publicacion, bloque (de trabajo), llamada (de venta), entrega (una reunión de entrega del servicio a un cliente) u otro.' },
       { nombre: 'formato', tipo: 'string', enum: [...FORMATOS_PUBLICACION], descripcion: 'Sólo si es una publicación: story, reel, post, ad, email, video u otro.' },
       { nombre: 'fecha', tipo: 'string', obligatorio: true, max: 10, descripcion: 'YYYY-MM-DD, en la zona del negocio.', ejemplo: '2026-10-15' },
       { nombre: 'hora', tipo: 'string', max: 5, descripcion: 'HH:MM en 24 horas, en la zona del negocio. Si se omite, es de todo el día.', ejemplo: '10:00' },
-      { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 1440, descripcion: 'Cuánto dura, en minutos (para bloques y llamadas).' },
+      { nombre: 'duracionMin', tipo: 'number', entero: true, minimo: 5, maximo: 1440, descripcion: 'Cuánto dura, en minutos (para bloques, llamadas y entregas).' },
       { nombre: 'notas', tipo: 'string', max: 4000, descripcion: 'Notas opcionales.' },
     ],
     canales: TODOS, costo: 'gratis', gating: GATING,

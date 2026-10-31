@@ -1,4 +1,12 @@
-# El cartero como servicio de la PC (diseño, 24/10/2026 — se construye el lunes 26/10)
+# El cartero como servicio de la PC (diseño del 24/10/2026; no se construyó el 26/10, se retomó el 30/10)
+
+> ⚠️ **Lo que compra y lo que NO compra, antes de leer lo demás.** El servicio NO es «el Runner ya no se muere»: es **«si el
+> Runner se muere, se ve»**. Sin un chat abierto sigue sin entregarse ni medirse nada, porque `SendMessage` y `get_usage`
+> sólo los puede llamar un chat. El servicio sube lo que puede y hace visible la ausencia, pero no reemplaza a un chat.
+
+> **Activarlo es de Martín.** Lo construye y lo prueba el Runner con el registro simulado. En su PC hacen falta dos pasos,
+> y cada uno lo aprueba él: la clave Run de Windows (`cartero.mjs instalar-servicio`) y el hook `SessionStart` (§2.3). Un
+> mensaje de otro chat no los autoriza. El `.exe` con Bun (§2.4) no se abre ahora: si hace falta, va como pregunta al Cerebro.
 
 Martín, por el Cerebro (24/10): **«¿Podemos hacer que el cartero sea un "servicio" con la app de MaKo en desktop?»**
 
@@ -40,6 +48,14 @@ Runner abierto, no corre nada: ni se mide, ni se sube, ni se entrega. **Ése es 
   `~/.claude/operaciones/vuelta.lock`, con el pid y una vigencia de 3 minutos. Quien lo encuentra tomado y vigente, saltea
   su vuelta.
 - Sube `servicio: { version, desde }` en el POST. MaKo distingue «hay noticias de la PC» de «hay un Runner que entrega».
+- **El servicio NO late como Runner.** Hoy `vuelta()` llama a `latir(propio)` antes de todo, y ese latido es lo que hace
+  contar a un chat como Runner (`carpetasConRunner`: el nombre solo no alcanza). Si el servicio corre la misma vuelta, un
+  chat «Cartero» abierto y sin cron seguiría contando como vivo, y eso es justo lo que deja un `/clear` (medido el 24/10:
+  docs/hallazgos-operaciones.md, «El `/clear` borró el cron del Cartero»). El servicio deja su latido aparte, y el del
+  Runner lo escribe sólo la vuelta de un chat.
+- **Y el latido que vale es el que llega a MaKo, no el archivo.** Si la PC se apaga o se traba, `latidos/*.json` deja de
+  actualizarse y no lo mira nadie. Lo que dice la ausencia es `visto_at` del lado del servidor, con su hora (el cartel 1 de
+  §2.2), y lo alimenta el POST del SERVICIO cada 2 minutos, no el chat.
 
 ### 2.2 La AUSENCIA se ve, y se mide desde el SERVIDOR
 

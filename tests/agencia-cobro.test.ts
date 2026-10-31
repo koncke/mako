@@ -130,6 +130,8 @@ test('⚠️ una agencia ve SÓLO sus cobros: la lectura filtra por `agencia_ws`
 test('la renovación nace del cron al terminar el onboarding, con su inicio, y el cron no corta la respuesta', () => {
   const s = fuente('lib/agencia-cobro.ts');
   assert.match(s, /if \(estado\.status !== 'done'\) continue;/);
-  assert.match(s, /inicioAt: inicioDeRenovacion\(desde, Date\.now\(\)\)/);
+  // Desde el 29/10/2026: MP difiere el primer cobro (`start_date`); Stripe no, y se abre unos días antes (lib/agencia-cobro.ts).
+  assert.match(s, /const inicio = inicioDeRenovacion\(desde, Date\.now\(\)\);/);
+  assert.match(s, /\.\.\.\(f\.proveedor === 'mercadopago' \? \{ inicioAt: inicio \} : \{\}\)/);
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /agencia = await renovacionesDeAgencia\(\)\.catch\(\(e\) => \(\{ error: msg\(e\) \}\)\);/);
 });

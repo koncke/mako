@@ -28,6 +28,7 @@ import { credDelCliente } from './credenciales';
 import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
 import { createLead, enriquecerLead, findLeadByContacto, getLead, logLeadEvent, setPipelineStage } from './leads';
+import { anotarParaLlamar } from './compra-plan-llamada';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
@@ -51,7 +52,7 @@ import {
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
-import { motivoSinDatos, primerCobroDeLaPrueba, sesionDelCobro, type FaseContracargo } from './cobros-eventos';
+import { motivoSinDatos, primerCobroDeLaPrueba, sesionDelCobro, suscripcionMpCancelada, type FaseContracargo } from './cobros-eventos';
 import { avisarSesionQueNoCuadra } from './cobro-sesion-ajena';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
@@ -66,6 +67,8 @@ import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
 import { PRUEBA_DIAS } from './planes-mako';
+import { montoDelPrimerPago, pctDelPrimerMes, usdDelPrimerPago } from './primer-mes-reglas';
+import { volverAlPrecioLleno } from './primer-mes';
 import { productoDeMako } from './stripe-catalogo-reglas';
 import { esCobroExterno, PREFIJO_EXTERNO, type FilaVentaExterna } from './cobros-externos-reglas';
 import { compraExternaQueFalto } from './cobros-externos-meta';
@@ -530,6 +533,8 @@ async function crearCheckout(
       // LA PRUEBA GRATIS (27/10/2026): sale del COBRO y no del pedido, así la sesión que se rehace al vencer (`urlParaPagar`)
       // también la trae. Sin esto, abrir el link al día siguiente cobraba el primer mes en el acto.
       diasDePrueba: esPruebaDePlan(c) ? PRUEBA_DIAS : null,
+      // EL 50% DEL PRIMER MES (30/10/2026): también sale del COBRO, así la sesión que se rehace al vencer lo conserva.
+      descuentoPct: pctDelPrimerMes(c.creado_por),
     });
     return r.ok ? { ok: true, ref: r.id, url: r.url, venceAt: r.venceAt } : { ok: false, error: r.error };
   }
@@ -542,7 +547,8 @@ async function crearCheckout(
     const meses = await plazoDelCobro(c).catch(() => undefined);
     if (meses === undefined) return { ok: false, error: 'No pude leer el plazo del producto.' };
     const r = await crearSuscripcionMp(cred.mp.token, {
-      idem: idemCobro(c.id, vuelta), concepto: c.concepto, monto: c.monto, moneda: c.moneda, email: c.email,
+      // Con el 50% del primer mes nace rebajada, y se sube al entrar el primer pago (lib/primer-mes.ts): MP no tiene descuento de un cobro.
+      idem: idemCobro(c.id, vuelta), concepto: c.concepto, monto: montoDelPrimerPago(c), moneda: c.moneda, email: c.email,
       token: c.token, volverUrl: linkDeRetorno(c.token), finAt: meses ? instanteMp(finDelPlazo(Date.now(), meses) - 86_400_000) : null,
       inicioAt: extra.inicioAt ? instanteMp(Date.parse(extra.inicioAt)) : null,
     });
@@ -664,6 +670,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       actual = (await actualizar(ws, c.id, { proveedor_suscripcion_id: p.suscripcionId, suscripcion_estado: 'activa' })) ?? actual;
     }
     const renovacion = esRenovacion(actual, p.proveedorPagoId);
+    // Lo que se pagó en ESTE cobro. El primero puede tener el 50% (`cobro.monto` es la mensualidad: lib/primer-mes-reglas.ts).
+    const montoDeEstePago = renovacion && p.monto != null ? p.monto : montoDelPrimerPago(actual);
     // ⚠️ LA FECHA DE LA CUOTA ES LA DEL PAGO, no la de hoy (15/10/2026): un aviso reintentado, o el cron que repara días
     // después, asentaba la cuota el día que la procesó, y un pago del 31 caía en el mes siguiente del cash.
     const cuando = p.pagadoAt ? Date.parse(p.pagadoAt) : NaN;
@@ -729,7 +737,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     // historial decía el USD de lista de una renovación con descuento, y el cash otro).
     const montoUsd = renovacion
       ? montoUsdDeLaCuota({ montoCuota: p.monto, monedaCuota: p.moneda ?? actual.moneda, cobroMontoUsd: actual.monto_usd, cobroMonto: actual.monto, cobroMoneda: actual.moneda })
-      : actual.monto_usd;
+      : usdDelPrimerPago(actual);
     // Una cuota de cero (saldo a favor, cupón del 100%) queda asentada, pero no es «entró un pago»: ni el aviso al
     // equipo ni las automatizaciones de «Pagos» al lead.
     const enCero = renovacion && p.monto != null && Number(p.monto) === 0;
@@ -743,7 +751,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
           const r = await registrarCobroDeProveedor({
             leadId: actual.lead_id, cobroId: actual.id, pagoId: renovacion ? null : (actual.pago_id ?? trato?.pagoId ?? null), crm: trato?.pagoEn ?? null,
             proveedor: actual.proveedor, proveedorPagoId: p.proveedorPagoId, montoUsd,
-            montoOriginal: renovacion && p.monto != null ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda, fechaPago: fecha,
+            montoOriginal: montoDeEstePago, moneda: (renovacion && p.moneda) || actual.moneda, fechaPago: fecha,
           });
           cuotaNueva = !r.yaEstaba;
           cuotaAsentada = true;
@@ -767,7 +775,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     // 4. El historial: una línea por cuota nueva, firmada por la pasarela.
     if (actual.lead_id && cuotaNueva) {
       await logLeadEvent(actual.lead_id, 'Pago registrado', textoPagoRegistrado({
-        concepto: actual.concepto, monto: renovacion && p.monto != null ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda,
+        concepto: actual.concepto, monto: montoDeEstePago, moneda: (renovacion && p.moneda) || actual.moneda,
         montoUsd, pasarela: actual.proveedor, prueba, renovacion,
       }), autor);
     }
@@ -789,6 +797,12 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     if (!renovacion) await habilitarClienteDeAgencia(actual);
     // 5d. «Empezar mi plan ya» (25/10/2026): el plan desde hoy ya se cobró, la prueba que reemplaza se cancela. No tira.
     if (!renovacion) await cerrarPruebaAlEmpezarYa(actual);
+    // Mercado Pago no vuelve solo al precio lleno. Si esto falla, lo reintenta el cron (`conciliarPrimerMes`): la plata ya entró.
+    if (nuevo && !renovacion && actual.proveedor === 'mercadopago' && pctDelPrimerMes(actual.creado_por) != null) {
+      await volverAlPrecioLleno(actual).catch((e) => console.error(`[cobros] no pude volver al precio lleno el cobro ${actual.id}:`, e instanceof Error ? e.message : String(e)));
+    }
+    // 5e. La plataforma: quien pagó su plan queda en la lista de llamadas (30/10/2026, lib/compra-plan-llamada.ts). No tira.
+    if (!renovacion) await anotarParaLlamar(actual);
     // 5c. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
     //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
     if (actual.alta_ws != null) {
@@ -803,7 +817,7 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     //    avisaba nunca. Repetir es seguro: el aviso deduplica por el pago del proveedor (3 días, lo que reintenta
     //    Stripe; un evento ya PROCESADO no vuelve a entrar por `pasarela_eventos`) y la inscripción es única.
     if (actual.lead_id && (nuevo || cuotaAsentada) && !enCero) {
-      await avisarPagoRecibido(actual, { proveedorPagoId: p.proveedorPagoId, renovacion, monto: renovacion && p.monto != null ? p.monto : actual.monto, moneda: (renovacion && p.moneda) || actual.moneda });
+      await avisarPagoRecibido(actual, { proveedorPagoId: p.proveedorPagoId, renovacion, monto: montoDeEstePago, moneda: (renovacion && p.moneda) || actual.moneda });
       await alCron(actual, 'aprobado');
     }
 
@@ -1608,16 +1622,32 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
   if (c.tipo !== 'suscripcion' || !susId) return { ok: false, resumen: 'Ese cobro no es una suscripción activa.' };
   if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Esa suscripción ya estaba cancelada.' };
   if (esCobroExterno(c)) return { ok: false, resumen: 'Esta suscripción entró por un link de pago de tu Stripe: se cancela desde Stripe.' };
+  // ⚠️ YA CANCELADA EN LA PASARELA **ES** CANCELADA, y sin esto la baja se frenaba entera (P14, 30/10/2026). El caso:
+  //    la suscripción se canceló por fuera (a mano en Stripe, o una corrida anterior que murió entre la pasarela y la
+  //    base) y acá la fila todavía dice `activa`. La pasarela contesta 404 —o un «already canceled»— que es un error,
+  //    así que se salía por `ok: false` y `aplicarSuscripcionCancelada` NO corría: la base quedaba `activa` para
+  //    siempre y la baja no se podía terminar NUNCA, ni reintentando. El estado del mundo ya era el que se pedía y lo
+  //    único que faltaba era asentarlo.
+  // ⚠️ Es el MISMO criterio que ya usa `reusarOCrearCheckout` en este archivo (el 404 pasa; cualquier otro error se
+  //    chequea releyendo la suscripción y vale si está cancelada): acá se copia, no se inventa. La diferencia de las
+  //    dos pasarelas es el nombre del estado — Stripe dice `canceled` y MP dice `cancelled` al leer y `canceled` al
+  //    cancelar, y por eso del lado de MP se pregunta con `suscripcionMpCancelada` y no con un string a mano.
   if (c.proveedor === 'stripe') {
     const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
     const r = await cancelarSuscripcionStripe(stripe.key, susId, idemBaja(c.id));
-    if (!r.ok) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
+    if (!r.ok && r.status !== 404) {
+      const sub = await leerSuscripcionStripe(stripe.key, susId);
+      if (!(sub.ok && sub.estado === 'canceled')) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
+    }
   } else {
     const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
     const r = await cancelarSuscripcionMp(mp.token, susId, idemBaja(c.id));
-    if (!r.ok) return { ok: false, resumen: `Mercado Pago no canceló la suscripción: ${r.error}` };
+    if (!r.ok && r.status !== 404) {
+      const sub = await leerSuscripcionMp(mp.token, susId);
+      if (!(sub.ok && suscripcionMpCancelada(sub.estado))) return { ok: false, resumen: `Mercado Pago no canceló la suscripción: ${r.error}` };
+    }
   }
   await aplicarSuscripcionCancelada(c);
   if (c.lead_id) await runWithWorkspace(ws, () => logLeadEvent(c.lead_id!, 'Suscripción cancelada', `Pedido por ${autor}`, autor));

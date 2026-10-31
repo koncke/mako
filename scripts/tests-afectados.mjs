@@ -310,7 +310,8 @@ export function seleccionar({ cambiados, archivos, leer, profundidad = Infinity 
   const mencionados = new Set();
   for (const set of nombradasPor.values()) for (const a of set) mencionados.add(a);
   const sinRed = cambiados.filter((f) => !ES_TEST.test(f) && !alcanzaTest.has(f) && !mencionados.has(f)).sort();
-  return { tests: elegidos, sinRed, totalTests: tests.length, importadoPor, aumentan, compartibles };
+  // `barredoras` sale afuera porque `compartibles` contesta otra pregunta: ver «lo seguro no es lo que conviene», más abajo.
+  return { tests: elegidos, sinRed, totalTests: tests.length, importadoPor, aumentan, compartibles, barredoras: motivoBarre };
 }
 
 /** Un solo motivo por test, el más específico: lo que lo toca de verdad gana sobre «corre siempre». */
@@ -437,7 +438,7 @@ export function planear(base, { profundidad = Infinity } = {}) {
  * Los tests en el orden en que conviene correrlos, agrupados por su motivo principal.
  * @param {Map<string, {tipo: string, detalle: string}[]>} tests
  * @param {Set<string>} [compartibles]
- * @param {{ compartir?: boolean | 'todo' | 'barredoras' }} [opciones] compartir: false/true/'todo' (todos los compartibles) o 'barredoras' (sólo las que barren)
+ * @param {{ compartir?: boolean | 'barredoras' | 'todo-lo-seguro' }} [opciones] compartir: false = cada test en su proceso; 'barredoras' (o true) = las que BARREN, que es lo unico que gana algo; 'todo-lo-seguro' = el de antes, todo lo que no toca estado global (quedo para volver a medirlo)
  */
 export function agrupar(tests, compartibles = new Set(), { compartir = false } = {}) {
   const grupos = { cambio: [], nombra: [], importa: [], barre: [] };
@@ -445,8 +446,8 @@ export function agrupar(tests, compartibles = new Set(), { compartir = false } =
   for (const [t, razones] of tests) {
     // Con `compartir`, los tests que no tocan estado global salen de la fila y van juntos a UN proceso por grupo (scripts/cache-lecturas.cjs).
     // Un test que el cambio mismo toca (nuevo o editado) va aparte, en su proceso: es el que más probablemente esté rojo, y se lee solo.
-    // `compartir`: true / 'todo' = todos los compartibles; 'barredoras' = sólo las que barren (lo que más pesa y menos riesgo tiene).
-    if (compartir && compartibles.has(t) && !razones.some((r) => r.tipo === 'cambio') && (compartir !== 'barredoras' || razones.some((r) => r.tipo === 'barre'))) { compartidos.push(t); continue; }
+    // `compartir`: 'barredoras' (o true) = las que barren; 'todo-lo-seguro' = todas las compartibles, lo de antes (ver «lo seguro no es lo que conviene»).
+    if (compartir && compartibles.has(t) && !razones.some((r) => r.tipo === 'cambio') && (compartir === 'todo-lo-seguro' || razones.some((r) => r.tipo === 'barre'))) { compartidos.push(t); continue; }
     grupos[motivoPrincipal(razones).tipo].push(t);
   }
   for (const g of Object.values(grupos)) g.sort();
@@ -470,7 +471,8 @@ const COSTO_PROCESO_GB = 0.35;
 const MARGEN_GB = 0.05;
 const ESPERA_RAM_MAX_MS = 15 * 60 * 1000;
 const REINTENTO_MAX = 8;    // más rojos que esto en una tanda no es la carga: es un cambio que rompe cosas
-const TOPE_TANDA_MS = 10 * 60 * 1000;
+// El tope de una tanda también dejó de ser un número fijo: `--tanda 1000` en Actions le daba 10 minutos a mil archivos.
+// Ver «EL TOPE DE UN PROCESO DE TESTS», más abajo.
 export const pisoRam = (concurrencia) => ZONA_ROJA_VIGIA_GB + COSTO_PROCESO_GB * concurrencia + MARGEN_GB;
 
 /**
@@ -527,49 +529,159 @@ function matarArbol(hijo) {
   } catch { /* ya murió */ }
 }
 
-function correrTanda(archivos, concurrencia, env) {
+// ---------------------------------------------------------------------------
+// EL TOPE DE UN PROCESO DE TESTS: un detector de que NO AVANZA, no un reloj de pared
+// ---------------------------------------------------------------------------
+// ⚠️ UN NÚMERO FIJO DE MINUTOS DEJA DE SERVIR EN CUANTO LA SUITE CRECE, y acá pasó dos veces con el mismo síntoma:
+//   · 25/10/2026: «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», y se escribió que la causa era la RAM (paginaba).
+//   · 30/10/2026: «grupo compartido 1/2 · 495 archivos · 0 tests · ROJO · 25 min 2 s» y «2/2 · 514 · 0 tests · ROJO · 25 min 0 s»,
+//     esta vez EN EL RUNNER DE ACTIONS, que tiene memoria dedicada y nadie más adentro. **Así que no era la RAM: era el tope.**
+// `25 min 0 s` y `25 min 2 s` no son caídas, son el reloj: el tope valía 25 min FIJOS y `matarArbol` mataba el proceso, y `colgada`
+// lo convertía en código 1, o sea ROJO. Se calibró con los números que están más abajo —12 archivos en 40 s, 148 en dos procesos en
+// 267 s— y hoy son 1.028 compartibles: siete veces más, con el mismo número.
+//
+// LA FORMA DEL PROBLEMA: un tope de pared no distingue «es GRANDE» de «está COLGADO», que es lo único que tiene que cazar. Subirlo
+// proporcional obliga a elegir entre matar grupos sanos y regalarle el job entero a uno colgado (el de Actions tiene 90 min).
+// Así que el tope pasa a preguntar lo que de verdad importa: **¿AVANZA?** El runner imprime una línea por caso TERMINADO, así que
+// un proceso que no imprime un caso nuevo en TOPE_SIN_AVANCE_MS está colgado, tenga 12 archivos o 1.028; y uno grande que avanza no
+// se mata nunca por ser grande. Queda además un TECHO de pared proporcional a los archivos, como última red: un arrastre patológico
+// (paginar con la RAM en 0) avanza de a poquito y no puede comerse el job entero.
+//
+// Y DE REGALO, EL QUE SE COLGÓ TIENE NOMBRE: node imprime el caso cuando TERMINA, así que el que se colgó es el que sigue al último
+// impreso. Antes el mensaje era «un test se colgó» y había que adivinar cuál entre 514 archivos.
+
+/** Una línea de caso del runner, que se imprime cuando el caso TERMINA: es la señal de que el proceso avanza. */
+export const CASO_REPORTADO = /^\s*[✔✖﹣]\s(.*?)\s*\(\d+(?:\.\d+)?ms\)/;
+/** Cuántas muestras seguidas (de a 5 s) con la RAM en la zona roja del vigía antes de bajarse SOLO: 15 s, para no reaccionar a un pico. */
+export const ROJO_SEGUIDAS = 3;
+/** Sin un caso nuevo en este tiempo, el proceso no avanza: está colgado, y no importa cuántos archivos tenga. */
+export const TOPE_SIN_AVANCE_MS = (Number(process.env.MAKO_TESTS_SIN_AVANCE_MIN) || 5) * 60 * 1000;
+/**
+ * EL ARRANQUE: lo que tarda un proceso compartido ANTES del primer caso, y por qué es por archivo.
+ * ⚠️ Medido el 31/10/2026 (scripts/medir-grupo-compartido.mjs, 100 compartibles en un proceso): la curva de casos juzgados por
+ * minuto fue `0′:0 1′:0 2′:0 3′:0 4′:0 5′:0 6′:56 7′:56 8′:742`. **Seis minutos sin juzgar UN caso**, y después los 889 en dos.
+ * Con `--test-isolation=none` node importa TODOS los archivos antes de correr el primer test, y tsx los transpila de a uno: el
+ * grupo no está colgado, está cargando. Un detector de «no avanza» con un arranque fijo mataría grupos sanos, que es el error que
+ * esta medición cazó antes de que llegara al tren.
+ */
+const ARRANQUE_BASE_MS = 60 * 1000;
+const ARRANQUE_POR_ARCHIVO_MS = 6000;      // 3,6 s/archivo medidos con 100, por 1,7 de holgura (y la carga es SUPER-lineal: ver el hallazgo)
+const ARRANQUE_MS = ARRANQUE_BASE_MS;      // el arranque de un proceso sin archivos (una tanda chica)
+export const arranqueDe = (archivos) => ARRANQUE_BASE_MS + ARRANQUE_POR_ARCHIVO_MS * Math.max(0, archivos);
+/**
+ * El TECHO de pared, proporcional. `POR_ARCHIVO_MS` sale de las dos mediciones del 17/10/2026 (12 archivos → 40 s y 74 por proceso
+ * → 267 s: 3,7 s por archivo, con la contención de dos procesos adentro) remedidas el 31/10 (ver scripts/medir-grupo-compartido.mjs
+ * y docs/hallazgos-infra.md). La HOLGURA es ×3 porque el techo no es un presupuesto de rendimiento: es la red de la red, y una PC
+ * cargada tarda el doble sin que nada esté roto. Con 514 archivos da ~95 min, que sólo se alcanzan avanzando de a un caso cada 5 min.
+ */
+const POR_ARCHIVO_MS = 3700;
+const HOLGURA = 3;
+// El techo NUNCA es menor que la gracia del arranque mas el tope de no-avanzar: si lo fuera, un proceso que se cuelga antes del
+// primer caso moriria por el techo (y el mensaje hablaria de avanzar de a poco) en vez de por lo que de verdad le paso.
+export const topeDePared = (archivos, sinAvanceMs = TOPE_SIN_AVANCE_MS, arranqueMs = arranqueDe(archivos)) =>
+  Math.max(arranqueMs + HOLGURA * POR_ARCHIVO_MS * Math.max(1, archivos), arranqueMs + sinAvanceMs + 30 * 1000);
+
+/**
+ * Lanza un proceso de tests y lo vigila: lo mata si NO AVANZA (ningún caso nuevo en TOPE_SIN_AVANCE_MS) o si pasa el techo de
+ * pared. Devuelve, además de la salida: `colgada` (lo mataron), `porque` ('sin-avance' | 'techo') y `ultimoCaso`, el último caso
+ * que TERMINÓ — el que se colgó es el siguiente.
+ * Los topes se pueden pasar (`sinAvanceMs`, `techoMs`, `cada`) para probarlo con un proceso de mentira que se cuelga en 2 segundos
+ * en vez de esperar cinco minutos: tests/tope-grupo-compartido.test.ts.
+ * @param {string[]} args argumentos de node (después del ejecutable)
+ * @param {{ archivos: number, env: NodeJS.ProcessEnv, cada?: number, ahora?: () => number, sinAvanceMs?: number, techoMs?: number }} o
+ */
+export function lanzarVigilado(args, { archivos, env, cada = 5000, ahora = Date.now, libre: leerLibre = ramLibreGb, sinAvanceMs = TOPE_SIN_AVANCE_MS, arranqueMs = arranqueDe(archivos), techoMs = topeDePared(archivos, sinAvanceMs, arranqueMs) }) {
   return new Promise((resolve) => {
-    const t0 = Date.now();
-    const bandera = concurrencia > 0 ? [`--test-concurrency=${concurrencia}`] : [];    // 0 = el de node (Actions)
-    // Sin NODE_TEST_CONTEXT: si esto se llama desde adentro de un test, node cree que el hijo es un test ANIDADO y deja de imprimir el reporte.
-    const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
-    const hijo = spawn(process.execPath, ['--import', 'tsx', '--test', ...bandera, ...archivos], { env: limpio, stdio: ['ignore', 'pipe', 'pipe'] });
+    const t0 = ahora();
+    const hijo = spawn(process.execPath, args, { env, stdio: ['ignore', 'pipe', 'pipe'] });
     const trozos = [];
-    hijo.stdout.on('data', (d) => trozos.push(d));
-    hijo.stderr.on('data', (d) => trozos.push(d));
+    let resto = '';
+    let ultimoCaso = '';
+    let casos = 0;        // los casos que el runner alcanzo a JUZGAR, contados del stream: el pie puede no llegar nunca
+    let visto = t0;         // cuándo se vio el último caso (o el arranque)
+    const leer = (d) => {
+      trozos.push(d);
+      const lineas = (resto + d.toString('utf8')).split('\n');
+      resto = lineas.pop() ?? '';
+      for (const l of lineas) {
+        const m = CASO_REPORTADO.exec(l);
+        if (m) { ultimoCaso = m[1]; casos++; visto = ahora(); }
+      }
+    };
+    hijo.stdout.on('data', leer);
+    hijo.stderr.on('data', leer);
     let colgada = false;
-    const reloj = setTimeout(() => { colgada = true; matarArbol(hijo); }, TOPE_TANDA_MS);
+    let porque = '';
+    let libreMin = Infinity;
+    let enRojo = 0;
+    const vigilante = setInterval(() => {
+      const quieto = ahora() - visto;
+      const total = ahora() - t0;
+      // ⚠️ UN TURNO DEL CANDADO ES UNA FOTO, NO UNA PROTECCIÓN (31/10/2026). El candado mira la RAM al dar el turno y no vuelve a
+      // mirar; durante los minutos que dura un grupo, otras sesiones arrancan lo suyo y la memoria se hunde. Ese día tres chats
+      // llegaron a menos de 0,3 GB y uno a CERO corriendo el barrido, con el turno en la mano. Con la RAM en cero se cuelga la app
+      // de Claude y se caen TODOS los chats con lo que tengan sin commitear (pasó el 11/10). Así que el proceso se vigila también
+      // desde adentro: si la RAM libre entra en la zona roja del vigía y se queda, se baja SOLO. No es un rojo del código, es un 99.
+      const libre = leerLibre();
+      libreMin = Math.min(libreMin, libre);
+      enRojo = libre < ZONA_ROJA_VIGIA_GB ? enRojo + 1 : 0;
+      if (enRojo >= ROJO_SEGUIDAS) { colgada = true; porque = 'sin-ram'; }
+      // Antes del primer caso se le da el arranque entero (node + tsx + el cache de lecturas); después, el tope de «no avanza».
+      else if (quieto > (ultimoCaso ? sinAvanceMs : sinAvanceMs + arranqueMs)) { colgada = true; porque = 'sin-avance'; }
+      else if (total > techoMs) { colgada = true; porque = 'techo'; }
+      if (colgada) { clearInterval(vigilante); matarArbol(hijo); }
+    }, cada);
     hijo.on('close', (codigo) => {
-      clearTimeout(reloj);
-      resolve({ salida: Buffer.concat(trozos).toString('utf8'), codigo: colgada ? 1 : codigo, colgada, ms: Date.now() - t0 });
+      clearInterval(vigilante);
+      resolve({ salida: Buffer.concat(trozos).toString('utf8'), codigo: colgada ? 1 : codigo, colgada, porque, ultimoCaso, casos, techo: techoMs, sinAvanceMs, libreMin, ms: ahora() - t0 });
     });
   });
+}
+
+/** Lo que se dice de un proceso que hubo que matar: por qué, y cuál se colgó (el que sigue al último que terminó). */
+export function porQueSeMato(r) {
+  if (!r?.colgada) return '';
+  const cual = r.ultimoCaso ? ` El último caso que TERMINÓ fue «${r.ultimoCaso}»: el que se colgó es el que sigue.` : ' Y no llegó a terminar NI UN caso: no alcanzó a arrancar.';
+  if (r.porque === 'sin-ram') {
+    return `LO BAJÉ YO: la RAM libre cayó a ${Number.isFinite(r.libreMin) ? r.libreMin.toFixed(1) : '?'} GB (la zona roja del vigía es ${ZONA_ROJA_VIGIA_GB}) y se quedó ahí ${ROJO_SEGUIDAS * 5} s. `
+      + `Con la RAM en cero se cuelga la app de Claude y se caen TODOS los chats con lo que tengan sin commitear. NO es un rojo del código: cerrá chats, o dejale el chequeo a Actions.${cual}`;
+  }
+  return r.porque === 'techo'
+    ? `pasó el techo de ${min(r.techo)} (proporcional a sus archivos) avanzando de a poco: o la PC está paginando, o hay algo mucho más lento de lo medido.${cual}`
+    : `estuvo ${min(r.sinAvanceMs ?? TOPE_SIN_AVANCE_MS)} sin terminar un solo caso: un test se colgó.${cual}`;
+}
+
+function correrTanda(archivos, concurrencia, env) {
+  const bandera = concurrencia > 0 ? [`--test-concurrency=${concurrencia}`] : [];    // 0 = el de node (Actions)
+  // Sin NODE_TEST_CONTEXT: si esto se llama desde adentro de un test, node cree que el hijo es un test ANIDADO y deja de imprimir el reporte.
+  const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
+  return lanzarVigilado(['--import', 'tsx', '--test', ...bandera, ...archivos], { archivos: archivos.length, env: limpio });
 }
 
 // Las barredoras que sólo leen corren JUNTAS en un proceso que memoriza las lecturas (scripts/cache-lecturas.cjs): medido el 17/10/2026,
 // 12 barredoras globales tardaron 193 s en procesos separados y 40 s en uno compartido; las 148 que se pueden compartir, 267 s en dos.
 const CACHE_LECTURAS = fileURLToPath(new URL('./cache-lecturas.cjs', import.meta.url)).replace(/\\/g, '/');
-const TOPE_COMPARTIDO_MS = 25 * 60 * 1000;
 const POR_GRUPO = 12;             // no vale armar un proceso compartido para menos de esto
-const COSTO_COMPARTIDO_GB = 0.8;  // medido: ~725 MB de pico con 24 barredoras (guarda en memoria lo que lee)
-const pisoCompartido = (grupos) => ZONA_ROJA_VIGIA_GB + COSTO_COMPARTIDO_GB * grupos + MARGEN_GB;
+
+/**
+ * LO QUE PIDE DE RAM un proceso compartido, y por qué es una FUNCIÓN de sus archivos. `COSTO_COMPARTIDO_GB = 0.8` se midió el
+ * 17/10/2026 con 24 barredoras (~725 MB de pico) y se aplicaba igual a un grupo de 514: un piso que no escala deja arrancar lo que
+ * no entra, y el vigía lo mata o la PC pagina (que es lo que hacía parecer que la causa era la RAM, 25/10 y 30/10).
+ * Remedido el 31/10/2026 con scripts/medir-grupo-compartido.mjs (los números y la curva, en docs/hallazgos-infra.md): el costo es
+ * una BASE (node + tsx + el cache de lecturas, que memoriza los ~5.400 archivos del repo una sola vez por proceso) más un poco por
+ * archivo (su módulo y sus closures). La base es lo que domina, y por eso MENOS grupos piden MENOS RAM en total aunque cada proceso
+ * sea más grande: `g × (BASE + k × T/g) = g × BASE + k × T`. Con el tope ya escalando, partir en más grupos dejó de ser necesario.
+ */
+export const COSTO_COMPARTIDO_BASE_GB = 0.7;
+export const COSTO_COMPARTIDO_POR_ARCHIVO_GB = 0.0022;
+export const costoCompartidoGb = (archivos) => COSTO_COMPARTIDO_BASE_GB + COSTO_COMPARTIDO_POR_ARCHIVO_GB * Math.max(1, archivos);
+/** El piso de RAM para `grupos` procesos compartidos que se reparten `total` archivos. */
+export const pisoCompartido = (grupos, total = 24 * grupos) => ZONA_ROJA_VIGIA_GB + grupos * costoCompartidoGb(Math.ceil(total / Math.max(1, grupos))) + MARGEN_GB;
 
 function correrGrupoCompartido(archivos, env) {
-  return new Promise((resolve) => {
-    const t0 = Date.now();
-    const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
-    const NODE_OPTIONS = `${limpio.NODE_OPTIONS ?? ''} --require ${JSON.stringify(CACHE_LECTURAS)}`.trim();
-    const hijo = spawn(process.execPath, ['--import', 'tsx', '--test', '--test-isolation=none', ...archivos], { env: { ...limpio, NODE_OPTIONS }, stdio: ['ignore', 'pipe', 'pipe'] });
-    const trozos = [];
-    hijo.stdout.on('data', (d) => trozos.push(d));
-    hijo.stderr.on('data', (d) => trozos.push(d));
-    let colgada = false;
-    const reloj = setTimeout(() => { colgada = true; matarArbol(hijo); }, TOPE_COMPARTIDO_MS);
-    hijo.on('close', (codigo) => {
-      clearTimeout(reloj);
-      resolve({ salida: Buffer.concat(trozos).toString('utf8'), codigo: colgada ? 1 : codigo, colgada, ms: Date.now() - t0 });
-    });
-  });
+  const { NODE_TEST_CONTEXT: _anidado, ...limpio } = env;
+  const NODE_OPTIONS = `${limpio.NODE_OPTIONS ?? ''} --require ${JSON.stringify(CACHE_LECTURAS)}`.trim();
+  return lanzarVigilado(['--import', 'tsx', '--test', '--test-isolation=none', ...archivos], { archivos: archivos.length, env: { ...limpio, NODE_OPTIONS } });
 }
 
 /** Lo que el runner de node imprime al final: «ℹ tests N … ℹ fail M», y «test at <archivo>» por cada rojo. */
@@ -582,14 +694,43 @@ export function leerResultado(salida) {
 
 export const min = (ms) => (ms >= 60000 ? `${Math.floor(ms / 60000)} min ${Math.round((ms % 60000) / 1000)} s` : `${(ms / 1000).toFixed(0)} s`);
 
+// -----------------------------------------------------------------------------
+// «CORRIÓ Y FALLÓ» contra «NO CORRIÓ»: lo que distingue un rojo de un 99
+// -----------------------------------------------------------------------------
+// ⚠️ EL 30/10/2026 UN GRUPO DE 495 BARREDORAS SE REPORTÓ COMO 495 TESTS ROTOS Y NO HABÍA CORRIDO NI UNO:
+//   `grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s`, con la RAM mínima de la corrida en 0,7 GB.
+// Veinticinco minutos (el tope del grupo compartido: lo mató el reloj) sin ejecutar un solo test, y el veredicto final escribió los 495 nombres
+// detrás de la palabra ROJO, que es lo único que lee quien pushea. Un archivo cuyo proceso murió sin ejecutar un test NO SE SABE si está roto.
+//
+// EL CRITERIO, medido con node 24.17 el 30/10/2026 (no supuesto — ver el final de tests/antes-de-subir-no-corrio.test.ts):
+//   · Un archivo de test VACÍO (sin un solo caso) NO da «0 tests»: el runner lo cuenta como UN test que pasa, y lo imprime
+//     («✔ vacio.test.ts (120ms)», `ℹ tests 1`), igual aislado que compartido, y sale con 0. Así que «0 tests» nunca es «el archivo no tenía nada».
+//   · Un archivo que falla en su PRIMER caso imprime su «✖ <caso> (2ms)» mientras corre, el pie («ℹ tests 2 … ℹ fail 1») y el
+//     «test at <archivo>» del pie de rojos: ejecutó tests, y hay con qué nombrarlo. Lo mismo uno que tira AL CARGAR en su propio proceso.
+//   · Un proceso que MUERE sin llegar al pie (lo mata el vigía de RAM, o el tope de la tanda) sale con != 0 y **la salida es vacía**:
+//     ni un caso, ni pie, ni nombres. Ése es el caso del 30/10.
+// Por eso el discriminante NO es «el pie dice 0» (el pie puede faltar aunque se hayan corrido casos: una muerte a mitad) sino
+// **¿el runner JUZGÓ algo?**: o llegó a su pie, o alcanzó a imprimir un caso FALLADO. Sin ninguna de las dos no hay veredicto que dar: «no corrió».
+// Un caso VERDE impreso y después la muerte tampoco alcanza: nada falló, así que no hay rojo, y no se terminó, así que no hay verde.
+
+/** El pie del runner de node: sólo se imprime si el proceso LLEGÓ al final. */
+export const PIE_DEL_RUNNER = /^ℹ tests \d+/m;
+/** Un caso que el runner alcanzó a JUZGAR y dio por fallado, impreso mientras corre (antes del pie). */
+export const CASO_FALLADO = /^\s*✖ .*\(\d+(?:\.\d+)?ms\)/m;
+/** ¿Este proceso de `node --test` juzgó algo, o murió sin juzgar nada? Sólo tiene sentido preguntárselo a uno que salió con != 0. */
+export const juzgoAlgo = (salida) => PIE_DEL_RUNNER.test(salida) || CASO_FALLADO.test(salida);
+
 /**
- * Corre `lista` por tandas. Devuelve { sinRam, total, rojos, cortada, ms, ramMin }. `env` lleva el índice
+ * Corre `lista` por tandas. Devuelve { sinRam, total, rojos, sinCorrer, cortada, ms, ramMin }. `env` lleva el índice
  * temporal de git; `carpetaTmp` guarda el log completo de cada tanda roja. `compartidos`: los que corren juntos en un proceso por grupo.
+ * `rojos` son los que CORRIERON y fallaron; `sinCorrer`, los que no se sabe (su proceso murió sin juzgar nada): un 99, no un rojo.
  * `esperar`: cómo se espera la RAM (default `esperarRam`). antes-de-subir pasa uno que SUELTA el candado de lo pesado mientras espera (el 21/10 un
  * `--solo tipos` lo retuvo 25 min esperando 4 GB que no había, con cuatro chats detrás): quien espera RAM no puede tener el candado.
- * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void, esperar?: typeof esperarRam }} p
+ * `correr` y `correrGrupo` se inyectan para probar la CLASIFICACIÓN (rojo, flaky, no corrió) con salidas de node de verdad, copiadas de
+ * una corrida, sin tener que vaciar los 16 GB de la PC ni esperar 25 minutos a que el vigía mate un grupo (tests/antes-de-subir-no-corrio.test.ts).
+ * @param {{ lista: string[], compartidos?: string[], tanda: number, concurrencia: number, cortar: boolean, env: NodeJS.ProcessEnv, carpetaTmp: string, out: (s: string) => void, esperar?: typeof esperarRam, correr?: typeof correrTanda, correrGrupo?: typeof correrGrupoCompartido }} p
  */
-export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out, esperar = esperarRam }) {
+export async function correrTests({ lista, compartidos = [], tanda, concurrencia, cortar, env, carpetaTmp, out, esperar = esperarRam, correr = correrTanda, correrGrupo = correrGrupoCompartido }) {
   const tandas = [];
   for (let i = 0; i < lista.length; i += tanda) tandas.push(lista.slice(i, i + tanda));
   const t0 = Date.now();
@@ -597,19 +738,32 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
   const vigilante = setInterval(() => { ramMin = Math.min(ramMin, ramLibreGb()); }, 1000);
   const total = { tests: 0, pasan: 0, fallan: 0 };
   const rojos = new Set();
+  const sinCorrer = new Set();
+  // Los que CORRIERON Y PASARON en esta corrida. Un proceso que salió con 0 y llegó a su pie pasó TODO lo que tenía, así que
+  // alcanza con el resultado del proceso: nadie vuelve a correr nada. Lo usa la guarda de pendientes vencidos (un pendiente que
+  // nombra un test verde está hecho y nadie lo borró, 30/10/2026): el resultado ya está en la mano, así que la guarda es gratis.
+  const verdes = new Set();
   const flaky = [];
   let sinRam = false;
   let cortada = false;
+  /** Un proceso que salió con != 0 sin juzgar nada: sus archivos no se sabe si están rotos. Dice POR QUÉ, para que el veredicto lo pueda repetir. */
+  const noCorrio = (archivos, r, quien) => {
+    if (archivos.length === 0) return;
+    for (const f of archivos) sinCorrer.add(f);
+    out(`    ⚠ NO CORRIÓ: ${quien} salió con ${r.codigo} sin juzgar un solo test (${r.colgada ? porQueSeMato(r) : `lo mató el vigía de RAM o se quedó sin memoria, con ${ramLibreGb().toFixed(1)} GB libres`}): de esos ${archivos.length} archivo(s) NO SE SABE si están rotos.`);
+  };
   out(`  [tests-afectados] ${lista.length} archivos en ${tandas.length} tandas de hasta ${tanda}, ${concurrencia || 'los de node'} procesos a la vez (${os.availableParallelism()} CPU)`);
   try {
     for (let n = 0; n < tandas.length; n++) {
       const c = await esperar(concurrencia || 2);
       if (c === 0) { sinRam = true; break; }
-      let r = await correrTanda(tandas[n], concurrencia === 0 ? 0 : c, env);
+      let r = await correr(tandas[n], concurrencia === 0 ? 0 : c, env);
       let res = leerResultado(r.salida);
       total.tests += res.tests; total.pasan += res.pasan; total.fallan += res.fallan + res.canceladas;
       let roja = r.codigo !== 0;
-      out(`  tanda ${n + 1}/${tandas.length} · ${tandas[n].length} archivos · ${res.tests} tests · ${roja ? `ROJA (${res.rojos.length || '?'} archivos)` : 'verde'} · ${min(r.ms)}`);
+      if (!roja && PIE_DEL_RUNNER.test(r.salida)) for (const f of tandas[n]) verdes.add(f);
+      total.tests += res.tests ? 0 : (r.casos ?? 0);      // sin el pie del runner (lo mataron), lo que se CONTÓ del stream
+      out(`  tanda ${n + 1}/${tandas.length} · ${tandas[n].length} archivos · ${res.tests ? `${res.tests} tests` : `${r.casos ?? 0} casos juzgados (sin el pie del runner)`} · ${roja ? `ROJA (${res.rojos.length || '?'} archivos)` : 'verde'} · ${min(r.ms)}`);
       // ⚠️ Subir la concurrencia puede sacar rojos que son de la CARGA: medido el 17/10/2026, `ads-video-procesando` (un tope de 40 ms) falló con 2
       // procesos en una PC saturada y pasó solo. Cada rojo falso en Actions cuesta 11-14 min, así que un archivo rojo se REPITE de a uno: si
       // pasa, se informa como FLAKY (no se esconde: queda en la salida y en el resultado) y no frena; si sigue rojo, es rojo de verdad.
@@ -617,20 +771,27 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
         const solos = res.rojos.filter((f) => /\.test\.ts$/.test(f));
         if (solos.length === res.rojos.length) {
           out(`    ↻ ${solos.length} archivo(s) rojo(s) con ${c} procesos a la vez: los repito de a UNO, por si es la carga`);
-          const r2 = await correrTanda(solos, 1, env);
+          const r2 = await correr(solos, 1, env);
           if (r2.codigo === 0) {
             flaky.push(...solos);
             out(`    ⚠ FLAKY: ${solos.join(', ')} pasaron solos (rojos sólo con ${c} procesos). No frena, pero conviene arreglar el test: depende de la carga.`);
+            roja = false;
+          } else if (!juzgoAlgo(r2.salida)) {
+            // El reintento murió sin juzgar: del rojo de la primera pasada no se sabe si era la carga, y los DEMÁS de la tanda pasaron. Sólo éstos quedan en «no se sabe».
+            noCorrio(solos, r2, `el reintento de a uno de la tanda ${n + 1}`);
+            try { writeFileSync(path.join(carpetaTmp, `tanda-${n + 1}-reintento.log`), r2.salida); } catch { /* el log es el detalle, no el veredicto */ }
             roja = false;
           } else { r = r2; res = leerResultado(r2.salida); }
         }
       }
       if (roja) {
+        const log = path.join(carpetaTmp, `tanda-${n + 1}.log`);
+        try { writeFileSync(log, r.salida); } catch { /* la carpeta de temporales se puede haber podado: el log es el detalle, no el veredicto */ }
+        // Una tanda que murió sin juzgar nada no acusa a nadie: va a `sinCorrer` (99) y NO corta, porque las que siguen sí pueden encontrar un rojo de verdad.
+        if (!juzgoAlgo(r.salida)) { noCorrio(tandas[n], r, `la tanda ${n + 1}`); out(`    (salida completa: ${log})`); continue; }
         for (const f of res.rojos) rojos.add(f);
         if (!res.rojos.length) for (const f of tandas[n]) rojos.add(`${f} (¿alguno de la tanda?)`);
-        const log = path.join(carpetaTmp, `tanda-${n + 1}.log`);
-        writeFileSync(log, r.salida);
-        out(r.colgada ? `    ✖ la tanda pasó los ${min(TOPE_TANDA_MS)} y se mató: un test se colgó.` : (res.detalle.split('\n').slice(0, 60).join('\n') || r.salida.split('\n').slice(-30).join('\n')));
+        out(r.colgada ? `    ✖ la tanda se mató: ${porQueSeMato(r)}` : (res.detalle.split('\n').slice(0, 60).join('\n') || r.salida.split('\n').slice(-30).join('\n')));
         out(`    (salida completa: ${log})`);
         if (cortar) { cortada = true; break; }
       }
@@ -641,38 +802,65 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
     // antes de contarlo: si pasa solo es FLAKY, si sigue rojo es rojo.
     if (compartidos.length && !cortada && !sinRam) {
       const grupos = Math.max(1, Math.min(concurrencia || 2, Math.floor(compartidos.length / POR_GRUPO)));
-      const g = await esperar(grupos, { pisoGb: pisoCompartido, quien: 'tests-afectados' });
+      // El piso DEPENDE de cuántos archivos le toca a cada proceso, no sólo de cuántos procesos son. `esperarRam` baja la cantidad
+      // de grupos hasta que entre, y bajarla pide MENOS en total (la base por proceso es lo que domina) aunque cada proceso sea más grande.
+      const g = await esperar(grupos, { pisoGb: (n) => pisoCompartido(n, compartidos.length), quien: 'tests-afectados' });
       if (g === 0) sinRam = true;
       else {
         const partes = Array.from({ length: g }, () => []);
         compartidos.forEach((f, i) => partes[i % g].push(f));    // reparto alternado: las pesadas no quedan todas en el mismo
         out(`  [tests-afectados] ${compartidos.length} barredoras que sólo leen, en ${g} proceso(s) compartido(s) con las lecturas en memoria`);
-        const rs = await Promise.all(partes.map((p) => correrGrupoCompartido(p, env)));
+        const rs = await Promise.all(partes.map((p) => correrGrupo(p, env)));
         const rojosCompartidos = new Set();
+        const mudos = new Set();      // los de un grupo que murió sin juzgar nada: todavía no se sabe nada de ellos
         for (const [i, r] of rs.entries()) {
           const res = leerResultado(r.salida);
           total.tests += res.tests; total.pasan += res.pasan; total.fallan += res.fallan + res.canceladas;
           const roja = r.codigo !== 0;
-          out(`  grupo compartido ${i + 1}/${rs.length} · ${partes[i].length} archivos · ${res.tests} tests · ${roja ? `ROJO (${res.rojos.length || '?'} archivos)` : 'verde'} · ${min(r.ms)}`);
+          const juzgo = roja && juzgoAlgo(r.salida);
+          // ⚠️ `res.tests` sale del PIE del runner, que un proceso muerto nunca imprime: por eso el log decía «0 tests» de un grupo
+          // que había juzgado miles, y dos diagnósticos (25/10 y 30/10) se armaron sobre ese cero. Si no hay pie se dice lo que se
+          // CONTÓ del stream, y se dice que falta el pie.
+          total.tests += res.tests ? 0 : (r.casos ?? 0);      // el pie ya se sumó arriba; sin pie, lo contado
+          out(`  grupo compartido ${i + 1}/${rs.length} · ${partes[i].length} archivos · ${res.tests ? `${res.tests} tests` : `${r.casos ?? 0} casos juzgados (sin el pie del runner)`} · ${roja ? (juzgo ? `ROJO (${res.rojos.length || '?'} archivos)` : 'NO CORRIÓ: no juzgó NI UN caso') : 'verde'} · ${min(r.ms)}`);
+          if (!roja && PIE_DEL_RUNNER.test(r.salida)) for (const f of partes[i]) verdes.add(f);
           if (roja) {
-            if (!res.rojos.length || r.colgada) { for (const f of partes[i]) rojosCompartidos.add(f); } else for (const f of res.rojos) rojosCompartidos.add(f);
-            writeFileSync(path.join(carpetaTmp, `compartido-${i + 1}.log`), r.salida);
+            try { writeFileSync(path.join(carpetaTmp, `compartido-${i + 1}.log`), r.salida); } catch { /* el log es el detalle, no el veredicto */ }
+            if (!juzgo) { for (const f of partes[i]) mudos.add(f); }
+            else if (!res.rojos.length || r.colgada) { for (const f of partes[i]) rojosCompartidos.add(f); }
+            else for (const f of res.rojos) rojosCompartidos.add(f);
           }
         }
-        if (rojosCompartidos.size) {
-          const solos = [...rojosCompartidos].filter((f) => /\.test\.ts$/.test(f));
-          out(`    ↻ ${solos.length} archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia`);
+        // El reintento aislado se corre IGUAL para los mudos: es lo único que separa al caído por memoria del roto de verdad (30/10: dos de 615 estaban rojos de verdad).
+        const aRepetir = [...new Set([...rojosCompartidos, ...mudos])];
+        if (aRepetir.length) {
+          const solos = aRepetir.filter((f) => /\.test\.ts$/.test(f));
+          out(`    ↻ ${solos.length} archivo(s) ${rojosCompartidos.size && mudos.size ? 'rojos o sin juzgar' : rojosCompartidos.size ? 'rojo(s)' : 'sin juzgar'} en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia`);
           // Si cayó un grupo entero (se colgó, o murió) son cientos de archivos: de a uno tardaría una eternidad, así que con la concurrencia de siempre.
-          const r2 = await correrTanda(solos, solos.length > REINTENTO_MAX ? Math.max(1, concurrencia || 2) : 1, env);
+          const r2 = await correr(solos, solos.length > REINTENTO_MAX ? Math.max(1, concurrencia || 2) : 1, env);
           const res2 = leerResultado(r2.salida);
-          const siguenRojos = r2.codigo === 0 ? [] : (res2.rojos.length ? res2.rojos : solos);
+          // ⚠️ SIN EL PIE NADIE ES FLAKY. El pie («ℹ tests N») es lo que dice que el runner llegó al final y que, por lo tanto, los que no nombró
+          // están bien. Si el reintento TAMBIÉN murió (el caso del 30/10: no hubo RAM ni para el grupo ni para el reintento), declarar FLAKY a los
+          // que no nombró sería un VERDE FALSO. Y acusarlos a todos fue lo que pasó: 495 nombres detrás de la palabra ROJO.
+          // Con el reintento muerto, lo que se sabe de cada archivo es lo que traía de antes, y es distinto:
+          //   · el que FALLÓ en el proceso compartido (un rojo con nombre, o un grupo que juzgó y salió con != 0): corrió y falló. SIGUE ROJO —
+          //     el reintento sólo existía para descartar la interferencia, y no haber podido correrlo no borra la falla; la línea lo dice.
+          //   · el que estaba en un grupo que murió sin juzgar nada (`mudos`): no corrió NUNCA. No se sabe → 99.
+          const pie = PIE_DEL_RUNNER.test(r2.salida);
+          const juzgo = r2.codigo !== 0 && juzgoAlgo(r2.salida);
+          const siguenRojos = r2.codigo === 0 ? [] : (res2.rojos.length ? res2.rojos : (juzgo ? solos : [...rojosCompartidos]));
+          if (r2.codigo === 0 && pie) for (const f of solos) verdes.add(f);     // el reintento aislado pasó: corrieron y pasaron
           for (const f of solos) {
             if (siguenRojos.includes(f)) rojos.add(f);
-            else { flaky.push(f); out(`    ⚠ FLAKY: ${f} falló en el proceso compartido y pasa aislado (interferencia con otro test). No frena.`); }
+            else if (pie && rojosCompartidos.has(f)) { flaky.push(f); out(`    ⚠ FLAKY: ${f} falló en el proceso compartido y pasa aislado (interferencia con otro test). No frena.`); }
           }
-          if (siguenRojos.length) {
-            const log = path.join(carpetaTmp, 'compartido-aislado.log');
-            writeFileSync(log, r2.salida);
+          if (!juzgo && r2.codigo !== 0) {
+            if (rojosCompartidos.size) out(`    ✖ ${rojosCompartidos.size} archivo(s) fallaron en el proceso compartido y el reintento aislado no llegó a confirmarlo (murió sin juzgar nada): quedan ROJOS — corrélos a mano para descartar la interferencia.`);
+            noCorrio(solos.filter((f) => !rojosCompartidos.has(f)), r2, 'el reintento aislado');
+          }
+          const log = path.join(carpetaTmp, 'compartido-aislado.log');
+          try { writeFileSync(log, r2.salida); } catch { /* el log es el detalle, no el veredicto */ }
+          if (siguenRojos.length || r2.codigo !== 0) {
             out(res2.detalle.split('\n').slice(0, 60).join('\n') || r2.salida.split('\n').slice(-30).join('\n'));
             out(`    (salida completa: ${log})`);
           }
@@ -682,7 +870,10 @@ export async function correrTests({ lista, compartidos = [], tanda, concurrencia
   } finally {
     clearInterval(vigilante);
   }
-  return { sinRam, total, rojos, flaky, cortada, ms: Date.now() - t0, ramMin, tandas: tandas.length };
+  // Un archivo que terminó rojo de verdad no queda además en «no se sabe»: el rojo confirmado manda.
+  for (const f of rojos) sinCorrer.delete(f);
+  for (const f of [...rojos, ...sinCorrer]) verdes.delete(f);
+  return { sinRam, total, rojos, sinCorrer, verdes, flaky, cortada, ms: Date.now() - t0, ramMin, tandas: tandas.length };
 }
 
 // -----------------------------------------------------------------------------
@@ -702,7 +893,9 @@ function leerArgs(argv) {
     else if (k === '--profundidad') o.profundidad = Math.max(1, Number.parseInt(valor(), 10) || 1);
     else if (k === '--listar') o.listar = true;
     else if (k === '--sin-compartir') o.compartir = false;
-    else if (k === '--compartir') o.compartir = v === 'barredoras' ? 'barredoras' : 'todo';   // `--compartir` o `--compartir=barredoras`: Actions lo pide; por default NO se comparte allá
+    // `--compartir` comparte LAS BARREDORAS, que es lo único que gana algo (31/10/2026: de 1.850 compartibles, 227 barren).
+    // `--compartir=todo-lo-seguro` es el de antes —todo lo que no toca estado global— y quedó sólo para volver a medirlo.
+    else if (k === '--compartir') o.compartir = v === 'todo-lo-seguro' ? 'todo-lo-seguro' : 'barredoras';
     else if (k === '--rapido') { o.rapido = true; o.profundidad = 1; }
     else if (k === '--explicar') o.explicar = true;
     else if (k === '--cortar') o.cortar = true;
@@ -766,6 +959,21 @@ async function main(argv) {
   const { cambios, sel } = plan;
   if (cambios.cambiados.length === 0 && !o.resto) { out(`[tests-afectados] Nada cambió respecto de ${o.base}: no hay tests que correr.`); return 0; }
 
+  // ⚠️ EL BARRIDO COMPLETO (`--resto`) NO SE CORRE EN ESTA MÁQUINA. Decisión de Martín por el Cerebro, 31/10/2026, y va acá —en la
+  // herramienta— y no en un documento, porque la regla escrita no alcanzó: el 31/10 TRES chats distintos llegaron a menos de 0,3 GB
+  // libres corriéndolo y uno a CERO, con el turno del candado en la mano (el candado mira la RAM al dar el turno y no vuelve a
+  // mirar: es una foto). Con la RAM en cero se cuelga la app de Claude y se caen todos los chats con lo que tengan sin commitear
+  // (pasó el 11/10). Una corrida no puede costar eso. Acá se corren los tests de LO TOCADO, que piden tres veces menos.
+  if (o.resto && !process.env.CI && process.env.MAKO_BARRIDO_AQUI !== '1') {
+    process.stderr.write('\n  ✖ NO CORRO EL BARRIDO COMPLETO EN ESTA MÁQUINA (--resto son los ~1.900 tests del repo).\n');
+    process.stderr.write('    El 31/10/2026 tres chats llegaron a menos de 0,3 GB libres corriéndolo y uno a CERO: con la RAM en cero se\n');
+    process.stderr.write('    cuelga la app de Claude y se caen TODOS los chats con lo que tengan sin commitear. **Esto lo corre Actions**,\n');
+    process.stderr.write('    que tiene memoria dedicada, en el paso «Tests (los demás)» de .github/workflows/integracion.yml.\n');
+    process.stderr.write('    Acá: `node scripts/tests-afectados.mjs` (los tests de lo tocado, que piden tres veces menos).\n');
+    process.stderr.write('    Si de verdad hace falta y sabés lo que cuesta: MAKO_BARRIDO_AQUI=1.\n\n');
+    return SALIDA_SIN_CORRER;
+  }
+
   let lista;
   let compartidos = [];
   if (o.resto) {
@@ -774,10 +982,16 @@ async function main(argv) {
     lista = todos.filter((t) => !sel.tests.has(t));
     out(`[tests-afectados] --resto: ${lista.length} tests (${todos.length} en total − ${sel.tests.size} afectados que ya corrieron)`);
     // Con `--compartir` (todo) los que no tocan estado global van juntos: el costo de la fase es el ARRANQUE de cada archivo (~0,4 s × cientos), no el cómputo.
-    if (o.compartir === 'todo' || o.compartir === true) {
-      compartidos = lista.filter((t) => sel.compartibles.has(t));
-      lista = lista.filter((t) => !sel.compartibles.has(t));
-      out(`  ↳ ${compartidos.length} corren juntos en procesos compartidos; ${lista.length} aislados (tocan el entorno o un global)`);
+    // ⚠️ LO SEGURO NO ES LO QUE CONVIENE (31/10/2026). Hasta hoy acá entraba TODO lo `compartible`, que contesta «¿es SEGURO
+    // compartir este test?» (no toca estado global). Pero lo que un proceso compartido AHORRA es la relectura de los ~5.400
+    // archivos del repo, y eso sólo lo pagan las BARREDORAS. Medido el 31/10 sobre 1.850 compartibles: **227 barren de verdad y
+    // 1.623 sólo son seguros**. Los 1.623 no ganan nada y pagan la carga del grupo, que es super-lineal (ver `arranqueDe`): por
+    // eso el grupo de 1.028 del 30/10 se quedó 25 min cargando sin juzgar un solo caso. Comparten las que barren; el resto, aislado.
+    if (o.compartir) {
+      const vale = (t) => sel.compartibles.has(t) && (o.compartir === 'todo-lo-seguro' || sel.barredoras.has(t));
+      compartidos = lista.filter(vale);
+      lista = lista.filter((t) => !vale(t));
+      out(`  ↳ ${compartidos.length} barredoras corren juntas en procesos compartidos; ${lista.length} aisladas (no barren, o tocan el entorno o un global)`);
     }
     if (o.listar) return 0;
   } else {
@@ -804,16 +1018,19 @@ async function main(argv) {
     process.stderr.write('    Cerrá unos chats de Claude y volvé a correrlo, o MAKO_TESTS_SIN_ESPERA=1 para correr igual (puede matarlo el vigía).\n\n');
     return SALIDA_SIN_CORRER;
   }
-  rmSync(carpetaTmp, { recursive: true, force: true });
-  out(`\n[tests-afectados] ${r.rojos.size === 0 ? '✔ VERDE' : '✖ ROJO'} · ${r.total.tests} tests de ${lista.length + compartidos.length} archivos${r.cortada ? ' (cortado en la primera tanda roja)' : ''} · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
+  // Los logs del detalle sólo se tiran si no hay nada que mirar: con un rojo o con archivos sin correr son la única forma de separarlos.
+  if (r.rojos.size === 0 && r.sinCorrer.size === 0) rmSync(carpetaTmp, { recursive: true, force: true });
+  out(`\n[tests-afectados] ${r.rojos.size ? '✖ ROJO' : r.sinCorrer.size ? '⚠ SIN CHEQUEAR' : '✔ VERDE'} · ${r.total.tests} tests de ${lista.length + compartidos.length} archivos${r.cortada ? ' (cortado en la primera tanda roja)' : ''} · ${min(r.ms)} · RAM libre mínima ${Number.isFinite(r.ramMin) ? r.ramMin.toFixed(1) : '?'} GB`);
   if (r.flaky.length) out(`  ⚠ ${r.flaky.length} FLAKY (rojos con varios procesos, verdes solos): ${r.flaky.join(', ')}`);
+  if (r.sinCorrer.size) out(`  ⚠ ${r.sinCorrer.size} archivo(s) NO CORRIERON (su proceso murió sin juzgar un test): NO se sabe si están rotos. El detalle, en ${carpetaTmp}`);
   if (r.rojos.size) {
     out('  Rojos: ' + [...r.rojos].join(', '));
     out('  Repetilos solos: node --import tsx --test ' + [...r.rojos].filter((f) => f.startsWith('tests/') && !f.includes(' ')).join(' '));
     out('  Antes de tocar nada: `git status --short` de los archivos que ese test lee (AGENTS.md → «Si el pre-push da rojo»).');
     return 1;
   }
-  return 0;
+  // Nada roto y algo sin correr no es un verde: es «no pude chequear» (99), igual que la falta de RAM.
+  return r.sinCorrer.size ? SALIDA_SIN_CORRER : 0;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {

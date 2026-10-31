@@ -9,6 +9,7 @@
 // computadora, con quién paga (`abrirCuentaClienteAction`). Era PartnersM (app/m/partners), que se mudó con la cartera.
 
 import { useState } from 'react';
+import { DarDeBaja } from '@/app/agency/DarDeBaja';
 import { useRouter } from '@/app/_ui/Link';
 import { Button, ButtonLink } from '@/app/_ui/Button';
 import {
@@ -181,6 +182,13 @@ export function AgencyM({ cuentas, usd, pagaSugerida, puedeAbrir, superAdmin, cu
               <FilaDatoM k="Plantilla" v="Aplicar" azul onClick={() => { setPlantilla(true); setPlantillaHecha(null); }} />
             )}
           </ListaM>
+        )}
+        {/* DAR DE BAJA (29/10/2026, lib/agencia-baja.ts), como en la computadora: la agencia, nunca el super admin desde acá. */}
+        {c && c.estado !== 'revocado' && puedeAbrir && !superAdmin && (
+          <div style={{ padding: '12px 16px' }}>
+            <DarDeBaja clienteWs={c.ws} nombre={c.nombre}
+              onListo={(t) => { toast(t); setAbierta(false); setTimeout(() => router.refresh(), 400); }} onError={(m) => toast(m)} />
+          </div>
         )}
       </SheetM>
 

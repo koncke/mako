@@ -23,14 +23,23 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 | P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
 | P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
 | P5 | **El clic derecho en los 11 chats embebidos y en el lienzo del editor.** Es UNA pieza (`HiloMako`), no once: relevo escrito, sin implementar | Landings | editor web, #2 |
+| P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario. **El código está cerrado (30/10, rama `nube/pii-vsl-events`)**: la entrada pasa por una lista BLANCA (`PARAMS_QUE_SE_GUARDAN`, lib/url-datos-personales.ts) —la lista negra del 24/10 dejaba pasar el `attendeeName` de Cal.com— y lo ya guardado lo limpia la migración `0357_urls_sin_datos_personales.sql`, ensayada en seco contra producción (665 filas cambian, 0 quedan con datos). **Faltan dos cosas, las dos de decisión:** (a) **aplicar la 0357** en producción (la aplica el Cerebro, DESPUÉS del deploy); (b) **avisarle o no a la agencia**: lo decide Martín, con los datos de la medición en docs/hallazgos-landing.md → «El arreglo del 24/10 estaba desplegado y la fuga seguía entrando» | Ventas (apagado) | 6 puntos, #2 |
+| P5 | **Responder con clic derecho en Automations** (acordado aparte). Copiar anda en todos (`HiloMako`), el lienzo tiene su menú y las listas su clic derecho; Responder ya está en el resto (`useCitaDelChat`) | Landings | editor web, #2 |
 | P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario | Ventas (apagado) | 6 puntos, #2 |
 | P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
 | P8 | **El recolector del Second Brain** | `docs/diseno-second-brain-recolector.md` | 20 puntos, #17 |
 | P11 | **Verificar que el aviso de «cuenta de anuncios frenada por falta de pago»** llegue al grupo | Avisos | 20 puntos, #4 |
+| P17 | **El funnel de lanzamiento no cobra hasta conectar una pasarela real**: `/planes` dice «Quiero…». Falta además un cobro real que mida el 50% en Stripe y `PUT /preapproval` en Mercado Pago, y cargar los precios en pesos | Planes · `lib/primer-mes.ts` · `lib/planes-mako.ts` | [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md), 30/10 |
+| P18 | **Dos decisiones de Martín por el 50%**: si Partners sigue pagando el primer mes a precio de lista aunque haya entrado a mitad, y si «lo pagado no se reembolsa» sigue igual sin prueba previa (Ley 24.240, art. 34, 10 días) | Planes · `lib/partners-reglas.ts` · `app/reembolsos/page.tsx` | [hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md), 30/10 |
 | P13 | **Los grabadores que faltan (26/10, chat «grabadores»).** Hecho: tl;dv, Fireflies, Zoom y Otter se leen como Fathom (capa `lib/grabadores`); Loom, Read AI y Google Meet tienen tarjeta que dice por qué no se conectan. Falta: **(a)** aplicar la migración `0338_reuniones_de_cualquier_grabador.sql` (con el sí de Martín; el orden con el deploy da igual: sin ella, «Leer igual» y «Volver a analizar» no abren una reunión que no es de Fathom, y Customer Success deja esperando sus sesiones sin gastarles intentos); **(b)** Read AI con su OAuth 2.1 (registro dinámico, token de 10 min que rota): probar si acepta la vuelta a MaKo antes de dibujar el botón; **(c)** Google Meet: pedir el permiso `meetings.space.readonly` (sensible) en la verificación de la app de Google; **(d)** Grain, MeetGeek, Avoma, Granola y Krisp tienen API con clave (medido): tarjeta + lector con el molde de tl;dv; **(e)** medir con una cuenta real de cada uno (la lista de Otter no se pudo medir sin Enterprise; el aviso TranscriptReady de tl;dv no coincide con su ejemplo) | `lib/grabadores/`, `docs/hallazgos-integraciones.md` → «Los grabadores de reuniones» | Martín, 26/10 ~01:50 |
 | P12 | **Fathom en MaKo + Closing Script en vivo.** Martín, 25/10: «Depreca Fathom... Replica esa app en MaKo. Si ya tenemos la extensión, la app desktop y todo, estoy seguro que existe un repo o algo que reemplace... Esto nos va a permitir implementar lo que teniamos pensado de "Closing Script" que MaKo te acompañe en tus llamadas de venta, transcriba en tiempo real y te de recomendaciones de closing... (Todo esto de farhom y closing, dejalo anotado para mas tarde, seguro lo haga con otra cuenta)». Grabar y transcribir las llamadas con la extensión o MaKo Desktop (buscar un repo abierto que haga lo de Fathom), y sobre eso el acompañamiento en vivo. Fathom queda hasta que esto ande | sin dueño: lo arranca Martín con otra cuenta | docs/feedback-25-10-tarde.md |
+| P14 | **Agency, lo que dejó abierto la re-verificación de plata (en `05d2ded3c`, sin tocar).** MEDIA: una fila de cartera cargada a mano sobre el negocio de Mauricio o sobre un Pro directo deja que la agencia lo pause o lo rebaje (el 29/10 no había ninguna). BAJAS: H5 levanta el corte de más (un plan propio cancelado o devuelto que todavía cubre días); la pausa programada no se actualizó con H5; «Elegir Esencial» sin cobros es de ida y no lo avisa. De antes: el link viejo sin cerrar en `lib/cobros.ts`, la baja con la suscripción ya cancelada en la pasarela, H7 | Agency · `lib/plan-acceso-reglas.ts` · `lib/agencia-plan.ts` · `lib/agencia-baja.ts` · `lib/cobros.ts` | `C:/dev/revisiones/2910-reverificacion-plata-agency-28cc3e2cb.md` |
+| P15 | **Las pantallas de Agency preguntan con `agenciaDeCliente` (en `05d2ded3c`):** con dos dueños contesta null, así que el cliente de dos agencias entra al Agency Dashboard. La pregunta correcta es `esClienteDeAgencia`. Hoy ningún cliente tiene dos | Agency · `app/agency/page.tsx` · `app/m/agency/page.tsx` | [hallazgos-agencias.md](hallazgos-agencias.md), 30/10 |
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
+
+- El primer aviso previo de unos 6 meses gratis va a salir recién 14 días antes de que terminen unos reales: mirarlo en el log del cron (`[cron:aviso-fin-de-prueba] planes a mano: …`).
+- «Quieren entrar» (rama `quieren-entrar-3010`), al desplegarse: la bandeja de Customers › Accounts, el cartel arriba de las pestañas, la lista en el teléfono, el mensaje del login a quien rebota, que es lo único que ve esa persona, y la opción «6 meses gratis» del diálogo del plan, lo primero que va a tocar Martín; con eso, la fecha en la ficha de Customers, en Accounts y en «Tu plan», y el título y las tarjetas nuevos de /planes
 
 - El **aviso al activar una automatización** (cuántos, a qué ritmo y entre qué horas), al desplegar: el interruptor, el «⋯» con «Poner goteo» / «Poner horario» y el teléfono; y **el de las ya prendidas sin goteo o sin horario**, en su pantalla, su tarjeta y el teléfono. Probado con tests y con el dato real, no en el navegador (`lib/ritmo-al-activar.ts`). El texto de «queda para aprobar» nunca se leyó con un caso real
 - La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
@@ -39,12 +48,20 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 - Las **dos columnas** del desplegable de etapas de la ficha
 - Que el **403 esté arreglado desde la app desplegada** (se midió que el bloqueo es por UA y no por IP, pero no se
   probó desde los rangos de Vercel)
+- El **cartel de los mensajes sin entregar** y el **botón del Uso** como super admin (101eaea96, cuando se despliegue), y su **hoja en el teléfono** (`SheetM`), que el arnés
+  no monta. Con los 8 mensajes reales: los tickets #5, #6 y #8 y 5 respuestas. Necesita la sesión de Martín: el Chrome disponible está con la de Leandro
 
 ## Rojos en `main` sin dueño
 
-- `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
-- `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
-- `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
+Ninguno. Los tres que había (`vuelo-mako`, `dashboard-pedidos-chat`, `paso-ia`) estaban VERDES: se arreglaron el 24/10 a las 20:58
+y 20:59, 95 minutos después de que se escribiera esta sección, y quedaron acá seis días hasta que se repartieron a dos chats que no
+tenían nada que arreglar. Lo que lo caza ahora es `scripts/pendientes-vencidos.mjs` (avisa en cada push, no bloquea).
+
+Los otros dos **ya estaban arreglados cuando se anotaron acá** y se cerraron el 30/10 sin tocar una línea de código:
+`tests/vuelo-mako.test.ts` por 85e4cd7db y `tests/dashboard-pedidos-chat.test.ts:129` por 583c29434, los dos el 24/10
+a las 20:58 y 20:59 — 95 minutos después de esta lista. Verificados en verde sobre `origin/main` (6/0 y 10/0) y probados
+rompiéndolos (5/1 y 9/1): los dos tests tienen dientes. **Antes de tomar un rojo de acá, correlo sobre `origin/main`**
+→ `docs/hallazgos-infra.md` → «Dos «rojos en `main` sin dueño» que ya estaban arreglados».
 
 ---
 
@@ -174,7 +191,7 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Falta construir (90)
 
-- **Chats de MaKo (los 11 embebidos)** — El clic derecho de un mensaje no hace nada fuera del Ops Center. Es UNA pieza: el menú vive en `MensajeWA` y sólo se prende con `ContextoWA`; los 11 chats dibujan con `HiloMako`, que no lo conecta. El arreglo es un menú mínimo (Copiar y Responder) en `HiloMako`, y llega a los 11 de una vez. Más el clic derecho en el lienzo del editor web con `MenuContextual`. Automations no lo toca (acordado). _Martín: «si le doy click derecho, no hace nada»_ · medio · se puede hacer ya · `docs/diseno-editor-web-como-automations.md §5; docs/hallazgos-operaciones.md (24/10); punta 4e1e6dbb2`
+- **Chats de MaKo: Responder con clic derecho** — Falta en Automations (acordado aparte). En el resto anda desde el 30/10 con `app/_chat/useCitaDelChat.tsx`. _Martín: «si le doy click derecho, no hace nada»_ · chico · se puede hacer ya · `docs/hallazgos-ui.md`
 - **Pagos** — Una venta con el Stripe propio del negocio entra como cobro externo ya pagado, con su Purchase a Meta. Diseñado y verificado contra el código; el Cerebro decidió hacerlo después del lanzamiento (toca el webhook que cobra la suscripción de MaKo). _la primera venta del Sprint de Mauricio se perdería entera_ · grande · se puede hacer ya · `docs/diseno-venta-externa-stripe.md`
 - **Ads** — El resto de «qué eventos manda MaKo a Meta»: la lectura de /stats (paso 5), el Lead del opt-in, el Schedule de Cal.com y que todo envío nuevo pase por la política. El Schedule doble ya está arreglado (5b77a50d4). · medio · se puede hacer ya · `docs/diseno-eventos-meta-por-funnel.md`
 - **Pixel (Mauricio)** — Elegir «Compra» en la página de venta del Sprint (`sprint.mauriciobustos.com`, ws1; sólo el campo `conversion`, sin aviso al grupo: decisión del Cerebro). La página ya está restaurada. · chico · se puede hacer ya · `docs/hallazgos-landing.md → «La página de venta del Sprint se pisó…» (24/10)`

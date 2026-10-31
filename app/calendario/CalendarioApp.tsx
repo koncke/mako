@@ -4,14 +4,20 @@
 // CalendarioApp — la tab Calendario: una copia fiel de Google Calendar, con lo de MaKo y lo de Google juntos
 // =============================================================================
 // Martín, 14/10/2026: «el calendario quiero que sea una copia fiel a Google Calendar, y que refleje todas las tareas y
-// eventos que se tienen en google calendar». De arriba abajo, como en Google:
-//   · LA BARRA: ☰ (la barra lateral), el logo con el día de hoy, «Hoy», ‹ ›, el título («octubre de 2026») y, a la
-//     derecha, la vista (Día, Semana, Mes, Año, Agenda, 4 días).
-//   · LA BARRA LATERAL: «Crear» (un evento, una publicación, un bloque, una llamada, una semana con una plantilla, o
-//     agendar una llamada por Calendly o Cal.com), el mes chico, «Mis calendarios» de MaKo y los calendarios de la cuenta
-//     de Google, cada uno con su casilla.
+// eventos que se tienen en google calendar». Y el 29/10/2026, A LA MEDIDA DEL NEGOCIO: «que se vea también la sidebar típica
+// de MaKo, como siempre… hay muchos botones que son innecesarios… Esa pestaña es principalmente para gestionar publicaciones,
+// para recordatorios de deadlines del propio Plan, para reuniones de llamadas de ventas, reuniones de entrega de servicio».
+// De Google queda la grilla (y lo que se lee y se escribe en Google); la cáscara es de MaKo. De arriba abajo:
+//   · LA BARRA: «Hoy», ‹ ›, el título («octubre de 2026») y, a la derecha, cómo se mira (Día · Semana · Mes · Agenda ·
+//     Llamadas, ./Pestanas.tsx).
+//   · LOS CUATRO USOS (`USOS_CALENDARIO`, ./comun.ts): Publicaciones, Plan, Ventas y Entregas, cada uno con su color. Tocar el
+//     nombre lo muestra o lo esconde (la leyenda ES el filtro) y su «+» lo crea en un clic; el del Plan lleva al Plan, que es
+//     donde vive un deadline. Después, Google (si está conectado) y «Otros» (bloques, cobros, objetivos) si hay en la vista.
 //   · LA HOJA: la vista. Un clic (o un arrastre) en un hueco crea; un clic en algo abre su tarjeta; lo que se puede
 //     mover se arrastra.
+// ⚠️ LA BARRA LATERAL DE GOOGLE SE FUE (29/10/2026): el ☰, el logo, «Crear» y su menú, el mes chico y «Mis calendarios» con una
+//    casilla por calendario. Era una SEGUNDA barra lateral pegada a la de MaKo (que siempre estuvo: la monta app/layout.tsx), y
+//    con la de MaKo plegada era la única que se veía. Qué se fue y por qué: docs/hallazgos-calendario.md.
 //
 // Lo que no se ve en la firma:
 //   · LA VISTA Y LA FECHA VIAJAN EN LA URL (`?vista=&fecha=`) y las LEE EL SERVER: el link que se copia es lo que se
@@ -39,14 +45,14 @@
 //     lista de citas de venta del CRM y las tareas del Plan con fecha (./ListaLlamadas.tsx, la de HighLevel).
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter, useWs } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { useConfirm } from '@/app/_ui/Confirm';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import {
-  CAPAS_CALENDARIO, VISTAS_CALENDARIO, diaDe, horaDe, lunesDe, moverFecha, rangoDeVista, rotuloDeRango,
-  type CapaCalendario, type EntradaEvento, type ItemCalendario, type PlantillaCalendario, type VistaCalendario,
+  ROTULO_TIPO, VISTAS_CALENDARIO, diaDe, horaDe, moverFecha, rangoDeVista, rotuloDeRango,
+  type EntradaEvento, type ItemCalendario, type TipoEvento, type VistaCalendario,
 } from '@/lib/calendario-modelo';
 import type { FallosCalendario, GoogleDelCalendario } from '@/lib/calendario';
 import type { EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
@@ -56,16 +62,15 @@ import {
   crearEventoGoogleAction, cambiarEventoGoogleAction, borrarEventoGoogleAction, restaurarEventoGoogleAction,
 } from './actions';
 import { EventoModal, type EventoEditable } from './EventoModal';
-import { PlantillasSemana } from './PlantillasSemana';
 import { AgendarLlamada } from './AgendarLlamada';
 import { useConectarIntegracion, useVueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { CSS_GC } from './gc-css';
-import { COLOR_CAPA, NOMBRE_CAPA, entidadDelItem, entradaGoogle, entradaPropia, llaveDe, sinLlamadasRepetidas, visiblesPorDefecto } from './comun';
+import { USOS_CALENDARIO, entidadDelItem, entradaGoogle, entradaPropia, llaveDe, sinLlamadasRepetidas, usoDeCapa, visiblesPorDefecto, type UsoCalendario } from './comun';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
-import { PestanasCalendario } from './Pestanas';
-import { MiniMes, Flecha } from './MiniMes';
+import { PestanasCalendario, VISTAS_DE_LA_BARRA } from './Pestanas';
+import { Flecha } from './Flecha';
 import { VistaTiempo, type NuevoRango } from './VistaTiempo';
-import { VistaAgenda, VistaAnio, VistaMes } from './VistasLista';
+import { VistaAgenda, VistaMes } from './VistasLista';
 import { EventoGoogleModal, RapidoNuevo, TarjetaEvento, type BorradorNuevo, type EdicionGoogle } from './Tarjetas';
 
 type Abierto =
@@ -73,7 +78,6 @@ type Abierto =
   | { t: 'rapido'; ancla: DOMRect; borrador: BorradorNuevo }
   | { t: 'propio'; inicial: EventoEditable }
   | { t: 'google'; inicial: EdicionGoogle }
-  | { t: 'plantillas' }
   | { t: 'agendar' }
   | { t: 'avisar'; item: ItemCalendario; entrada: EntradaEventoGoogle; mov: Movido }
   | null;
@@ -108,14 +112,10 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     for (const [k, v] of Object.entries(elegidas)) { if (v) s.add(k); else s.delete(k); }
     return s;
   }, [porDefecto, elegidas]);
-  const [lado, setLado] = useState(true);
   const [abierto, setAbierto] = useState<Abierto>(null);
-  const [menuVista, setMenuVista] = useState<DOMRect | null>(null);
-  const [menuCrear, setMenuCrear] = useState<DOMRect | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [movidos, setMovidos] = useState<Record<string, Movido>>({});
-  const [plegados, setPlegados] = useState<Record<string, boolean>>({});
   const { toast, show, clear } = useToast(6000);
   const { confirm, confirmNode } = useConfirm();
 
@@ -135,9 +135,17 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
       if (v && typeof v === 'object') setElegidas(Object.fromEntries(Object.entries(v).filter(([, x]) => typeof x === 'boolean')) as Record<string, boolean>);
     } catch { /* sin almacenamiento: lo de por defecto */ }
   }, [ws]);
-  const alternar = (llave: string) => {
+  /**
+   * Prender o apagar VARIAS llaves juntas: un uso son una o dos capas (el Plan: sus deadlines y lo que se repite) y Google son
+   * todos sus calendarios. Si alguna se ve, se apagan todas; si no, se prenden todas. Se guarda en la misma preferencia de
+   * siempre (una llave por capa o por calendario): lo que alguien eligió antes del 29/10 se sigue respetando.
+   */
+  const alternar = (llaves: readonly string[]) => {
+    if (!llaves.length) return;
+    const prender = !llaves.some((k) => visibles.has(k));
     setElegidas((e) => {
-      const n = { ...e, [llave]: !visibles.has(llave) };
+      const n = { ...e };
+      for (const k of llaves) n[k] = prender;
       try { window.localStorage.setItem(llavePreferencia(ws), JSON.stringify(n)); } catch { /* preferencia: no pasa nada */ }
       return n;
     });
@@ -162,19 +170,19 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
 
   const ir = useCallback((v: VistaCalendario, f: string) => { setAbierto(null); router.push(`/calendario?vista=${v}&fecha=${f}`); }, [router]);
 
-  // Los atajos de Google: t (hoy), j/n (siguiente), k/p (anterior), c (crear), y la tecla de cada vista.
+  // Los atajos de Google: t (hoy), j/n (siguiente), k/p (anterior) y la tecla de cada vista que se ofrece (Año y 4 días se
+  // fueron el 29/10/2026, y la «c» con el «Crear» de Google: ahora se crea desde cada uso).
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey || abierto || integracion.abierto) return;
       const el = e.target as HTMLElement | null;
       if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
       const k = e.key.toLowerCase();
-      const v = VISTAS_CALENDARIO.find((x) => x.tecla === k);
+      const v = VISTAS_CALENDARIO.find((x) => x.tecla === k && VISTAS_DE_LA_BARRA.some((b) => b.id === x.id));
       if (v) { ir(v.id, fecha); return; }
       if (k === 't') ir(vista, hoy);
       else if (k === 'j' || k === 'n') ir(vista, moverFecha(vista, fecha, 1));
       else if (k === 'k' || k === 'p') ir(vista, moverFecha(vista, fecha, -1));
-      else if (k === 'c') nuevoDesdeBoton();
     };
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
@@ -189,6 +197,24 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     return sinLlamadasRepetidas(prendidos);
   }, [items, visibles, movidos]);
   const enVista = useMemo(() => new Set(rangoDeVista(vista, fecha).dias), [vista, fecha]);
+  /** El día en que nace lo que se crea desde un uso: hoy si se está mirando, si no el primero de la vista. */
+  const diaParaCrear = enVista.has(hoy) ? hoy : fecha;
+
+  // ── Los cuatro usos (29/10/2026) ──
+  /** Las llaves de cada uso: las de sus capas de MaKo. «Otros» sólo se ofrece si en la vista hay algo suyo. */
+  const llavesDe = (u: UsoCalendario): string[] => USOS_CALENDARIO.find((x) => x.id === u)!.capas.map((c) => `mk:${c}`);
+  const hayOtros = useMemo(() => items.some((it) => !it.google && usoDeCapa(it.capa) === 'otros'), [items]);
+  const llavesGoogle = useMemo(() => calendarios.map((c) => `g:${c.id}`), [calendarios]);
+  /** Crear uno de un uso, en un clic: la Publicación y la Entrega abren su modal; una llamada de venta, la agenda del negocio. */
+  const crear = (t: TipoEvento) => {
+    setError(null);
+    if (t === 'llamada') { setAbierto({ t: 'agendar' }); return; }
+    setAbierto({ t: 'propio', inicial: t === 'publicacion'
+      ? { titulo: '', tipo: 'publicacion', formato: 'reel', fecha: diaParaCrear, hora: '10:00', duracionMin: null }
+      : { titulo: '', tipo: t, fecha: diaParaCrear, hora: '10:00', duracionMin: t === 'entrega' ? 60 : 30 } });
+  };
+  /** Hay publicaciones por salir en la vista: se ofrece programarlas de una vez (Zernio). */
+  const hayPublicaciones = aDibujar.some((it) => it.fuente === 'propio' && it.tipo === 'publicacion' && !it.hecho);
 
   // ── Programar en serie (28/10/2026): las publicaciones de la vista que ya tienen cuenta y archivo, de una vez ──
   const programarListas = async () => {
@@ -207,15 +233,11 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   };
 
   // ── Crear ──
+  // Un hueco de la grilla crea un evento de Google si hay dónde escribirlo; si no, una Publicación (el «Evento» no se ofrece).
   const borradorEn = (f: string, ini: number | null, fin: number | null): BorradorNuevo => ({
-    tipo: 'evento', titulo: '', fecha: f, hora: ini == null ? null : hhmm(ini), horaFin: fin == null ? null : hhmm(Math.min(fin, 24 * 60 - 1)),
+    tipo: editables.length ? 'evento' : 'publicacion', titulo: '', fecha: f, hora: ini == null ? null : hhmm(ini), horaFin: fin == null ? null : hhmm(Math.min(fin, 24 * 60 - 1)),
     formato: 'reel', calendarioId: editables.find((c) => c.primario)?.id ?? editables[0]?.id ?? null,
   });
-  const nuevoDesdeBoton = () => {
-    const f = enVista.has(hoy) ? hoy : fecha;
-    setError(null);
-    setAbierto({ t: 'rapido', ancla: new DOMRect(window.innerWidth / 2 - 230, 120, 0, 0), borrador: borradorEn(f, 10 * 60, 11 * 60) });
-  };
   const nuevoEnRango = (r: NuevoRango, ancla: DOMRect) => { setError(null); setAbierto({ t: 'rapido', ancla, borrador: borradorEn(r.fecha, r.ini, r.fin) }); };
 
   // `entradaPropia` y `entradaGoogle` (el borrador como evento de MaKo o de Google) viven en ./comun: el teléfono
@@ -350,7 +372,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
 
   const avisos = lineasDeAviso(fallos, google);
   const titulo = rotuloDeRango(vista, fecha);
-  const nombreVista = VISTAS_CALENDARIO.find((v) => v.id === vista)?.nombre ?? 'Semana';
+  const prendidoGoogle = llavesGoogle.some((k) => visibles.has(k));
+  const colorGoogle = calendarios.find((c) => c.primario)?.color ?? calendarios[0]?.color ?? 'var(--faint)';
 
   return (
     <div className="gc" data-calendario="" style={{ paddingLeft: 'var(--ancho-panel-mako, 0px)' }}>
@@ -361,78 +384,57 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
 
       {/* La barra de arriba */}
       <header className="gc-barra">
-        <button type="button" className="gc-ico" aria-label={lado ? 'Ocultar el menú principal' : 'Mostrar el menú principal'} aria-expanded={lado} onClick={() => setLado((x) => !x)}>
-          <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
-        </button>
-        <span className="gc-logo">
-          <span className="gc-logo-dia" aria-hidden>{Number(hoy.slice(8))}</span>
-          <span className="gc-logo-txt">Calendario</span>
-        </span>
         <button type="button" className="gc-hoy" onClick={() => ir(vista, hoy)}>Hoy</button>
         <button type="button" className="gc-ico" aria-label="Anterior" title="Anterior" onClick={() => ir(vista, moverFecha(vista, fecha, -1))}><Flecha dir="izq" /></button>
         <button type="button" className="gc-ico" aria-label="Siguiente" title="Siguiente" onClick={() => ir(vista, moverFecha(vista, fecha, 1))}><Flecha dir="der" /></button>
         <h1 className="gc-titulo" data-rango="">{titulo}</h1>
         <div className="gc-derecha">
-          <PestanasCalendario activa="calendario" />
-          <button type="button" className="gc-vista-boton" aria-haspopup="menu" aria-expanded={!!menuVista}
-            onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuVista(menuVista ? null : r); }}>
-            {nombreVista}<Flecha dir="abajo" tam={18} />
-          </button>
+          <PestanasCalendario activa={vista} fecha={fecha} />
         </div>
       </header>
-      {menuVista && (
-        <MenuFlotante ancla={menuVista} alinear="derecha" onCerrar={() => setMenuVista(null)}>
-          {VISTAS_CALENDARIO.map((v) => (
-            <button key={v.id} type="button" role="menuitemradio" aria-checked={vista === v.id} onClick={() => { setMenuVista(null); ir(v.id, fecha); }}>
-              <span>{v.nombre}</span><kbd>{v.tecla.toUpperCase()}</kbd>
+
+      {/* LOS CUATRO USOS: la leyenda es el filtro (el nombre) y el alta (el «+»). Google y «Otros», al final y sin «+». */}
+      <div className="gc-usos" role="group" aria-label="Qué ver">
+        {USOS_CALENDARIO.filter((u) => u.id !== 'otros' || hayOtros).map((u) => {
+          const llaves = llavesDe(u.id);
+          const prendido = llaves.some((k) => visibles.has(k));
+          return (
+            <span key={u.id} className="gc-uso" data-uso={u.id}>
+              <button type="button" className="gc-uso-ver" aria-pressed={prendido} onClick={() => alternar(llaves)} title={prendido ? `Esconder ${u.nombre}` : `Mostrar ${u.nombre}`}>
+                <span className="gc-uso-punto" aria-hidden style={{ borderColor: u.color, background: prendido ? u.color : 'transparent' }} />{u.nombre}
+              </button>
+              {u.crea && (
+                <button type="button" className="gc-uso-mas" aria-label={`Nueva ${ROTULO_TIPO[u.crea].toLowerCase()}`} title={`Nueva ${ROTULO_TIPO[u.crea].toLowerCase()}`} onClick={() => crear(u.crea!)}>+</button>
+              )}
+              {u.id === 'plan' && (
+                <Link href="/plan" className="gc-uso-mas" aria-label="Crear un deadline en el Plan" title="Un deadline es una tarea del Plan: se crea ahí">+</Link>
+              )}
+            </span>
+          );
+        })}
+        {calendarios.length > 0 && (
+          <span className="gc-uso" data-uso="google">
+            <button type="button" className="gc-uso-ver" aria-pressed={prendidoGoogle} onClick={() => alternar(llavesGoogle)} title={google?.cuenta ?? 'Google Calendar'}>
+              <span className="gc-uso-punto" aria-hidden style={{ borderColor: colorGoogle, background: prendidoGoogle ? colorGoogle : 'transparent' }} />Google
             </button>
-          ))}
-        </MenuFlotante>
-      )}
-
-      <div className="gc-cuerpo">
-        <aside className="gc-lado" hidden={!lado} aria-label="Calendarios">
-          <button type="button" className="gc-crear" aria-haspopup="menu" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuCrear(menuCrear ? null : r); }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden><path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" /></svg>
-            Crear
-            <Flecha dir="abajo" tam={18} />
-          </button>
-          <MiniMes key={fecha.slice(0, 7)} mes={fecha} hoy={hoy} elegidos={enVista} onDia={(d) => ir(vista === 'anio' || vista === 'agenda' ? 'dia' : vista, d)} />
-
-          <Grupo titulo="Mis calendarios" plegado={!!plegados.mako} onPlegar={() => setPlegados((p) => ({ ...p, mako: !p.mako }))}>
-            {CAPAS_CALENDARIO.map((c) => (
-              <CasillaCalendario key={c.id} nombre={NOMBRE_CAPA[c.id as CapaCalendario]} color={COLOR_CAPA[c.id as CapaCalendario]}
-                prendido={visibles.has(`mk:${c.id}`)} onCambiar={() => alternar(`mk:${c.id}`)} />
-            ))}
-          </Grupo>
-          {calendarios.length > 0 && (
-            <Grupo titulo={google?.cuenta ?? 'Google Calendar'} plegado={!!plegados.google} onPlegar={() => setPlegados((p) => ({ ...p, google: !p.google }))}>
-              {calendarios.map((c) => (
-                <CasillaCalendario key={c.id} nombre={c.nombre} color={c.color} prendido={visibles.has(`g:${c.id}`)} onCambiar={() => alternar(`g:${c.id}`)} />
-              ))}
-            </Grupo>
-          )}
+          </span>
+        )}
+        {hayPublicaciones && (
+          <button type="button" className="gc-boton-texto gc-usos-accion" disabled={guardando} onClick={() => { void programarListas(); }}>Programar publicaciones</button>
+        )}
+      </div>
+      {avisos.length > 0 && (
+        <div className="gc-avisos">
           {avisos.map((a) => (
             <p key={a.texto} className={`gc-aviso${a.mal ? ' gc-aviso--mal' : ''}`}>
               {a.texto}{a.servicio && <> <button type="button" className="gc-aviso-boton" onClick={() => abrirIntegracion(a.servicio!)}>{a.link}</button></>}
             </p>
           ))}
-        </aside>
-        {menuCrear && (
-          <MenuFlotante ancla={menuCrear} alinear="izquierda" onCerrar={() => setMenuCrear(null)}>
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); nuevoDesdeBoton(); }}><span>Evento</span></button>
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'publicacion', formato: 'reel', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: null } }); }}><span>Publicación</span></button>
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'bloque', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: 120 } }); }}><span>Bloque de trabajo</span></button>
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setError(null); setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'llamada', fecha: enVista.has(hoy) ? hoy : fecha, hora: '10:00', duracionMin: 30 } }); }}><span>Llamada</span></button>
-            <div className="gc-menu-sep" />
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'agendar' }); }}><span>Agendar llamada</span></button>
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'plantillas' }); }}><span>Plantilla de semana</span></button>
-            <div className="gc-menu-sep" />
-            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); void programarListas(); }}><span>Programar las publicaciones listas</span></button>
-          </MenuFlotante>
-        )}
+        </div>
+      )}
 
-        <main className="gc-hoja" data-lado={lado ? 'si' : 'no'} aria-label={titulo}>
+      <div className="gc-cuerpo">
+        <main className="gc-hoja" aria-label={titulo}>
           {(vista === 'semana' || vista === 'dia' || vista === '4dias') && (
             <VistaTiempo dias={dias} items={aDibujar} hoy={hoy} tz={tz} googleEscribe={googleEscribe}
               onAbrir={(item, ancla) => setAbierto({ t: 'tarjeta', item, ancla })}
@@ -443,7 +445,6 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
               onAbrir={(item, ancla) => setAbierto({ t: 'tarjeta', item, ancla })}
               onNuevo={(d, ancla) => nuevoEnRango({ fecha: d, ini: null, fin: null }, ancla)} onIrDia={(d) => ir('dia', d)} />
           )}
-          {vista === 'anio' && <VistaAnio anio={Number(fecha.slice(0, 4))} hoy={hoy} onIrDia={(d) => ir('dia', d)} onIrMes={(f) => ir('mes', f)} />}
           {vista === 'agenda' && (
             <VistaAgenda dias={dias} items={aDibujar} hoy={hoy} tz={tz} onAbrir={(item, ancla) => setAbierto({ t: 'tarjeta', item, ancla })} onIrDia={(d) => ir('dia', d)} />
           )}
@@ -494,13 +495,11 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
           <p style={{ margin: 0, fontSize: 14, color: 'var(--ink)' }}>Google les manda el cambio de «{abierto.item.titulo}» por correo.</p>
         </Modal>
       )}
-      {abierto?.t === 'plantillas' && (
-        <PlantillasSemana lunes={lunesDe(enVista.has(hoy) ? hoy : fecha)} guardando={guardando} onCerrar={() => setAbierto(null)}
-          onPlantilla={(p: PlantillaCalendario, entradas) => { void correr(() => crearEventosAction(entradas, 'plantilla'), `${p.nombre}: ${entradas.length} agendados`); }} />
-      )}
       {abierto?.t === 'agendar' && (
         <AgendarLlamada onCerrar={() => setAbierto(null)} onCopiado={() => show('Link copiado')}
           onConectar={(s) => { setAbierto(null); abrirIntegracion(s); }}
+          // Sin pasar por Calendly ni Cal.com: la llamada de venta, anotada en el Calendario.
+          onAnotar={() => setAbierto({ t: 'propio', inicial: { titulo: '', tipo: 'llamada', fecha: diaParaCrear, hora: '10:00', duracionMin: 30 } })}
           // La reserva entra al CRM por el webhook, que tarda unos segundos: se vuelve a leer después.
           onAgendada={() => { show('Llamada agendada'); window.setTimeout(() => router.refresh(), 5000); }} />
       )}
@@ -522,44 +521,9 @@ function aInstante(fecha: string, min: number, tz: string): string {
   return new Date(base - desvio(t1)).toISOString();
 }
 
-function Grupo({ titulo, plegado, onPlegar, children }: { titulo: string; plegado: boolean; onPlegar: () => void; children: React.ReactNode }) {
-  return (
-    <div className="gc-grupo">
-      <button type="button" className="gc-grupo-cab" aria-expanded={!plegado} onClick={onPlegar}>
-        <span>{titulo}</span><Flecha dir={plegado ? 'abajo' : 'arriba'} tam={18} />
-      </button>
-      {!plegado && <div>{children}</div>}
-    </div>
-  );
-}
-
-function CasillaCalendario({ nombre, color, prendido, onCambiar }: { nombre: string; color: string; prendido: boolean; onCambiar: () => void }) {
-  return (
-    <button type="button" className="gc-cal" role="checkbox" aria-checked={prendido} onClick={onCambiar} title={nombre}>
-      <span className="gc-casilla" style={{ borderColor: color, background: prendido ? color : 'transparent' }} aria-hidden>
-        {prendido && <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden><path d="M5 12l5 5L20 7" stroke="#fff" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-      </span>
-      <span className="gc-cal-nombre">{nombre}</span>
-    </button>
-  );
-}
-
-function MenuFlotante({ ancla, alinear, onCerrar, children }: { ancla: DOMRect; alinear: 'izquierda' | 'derecha'; onCerrar: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const cerrar = (e: Event) => { if (!(e.target as HTMLElement)?.closest?.('.gc-menu')) onCerrar(); };
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopImmediatePropagation(); onCerrar(); } };
-    const t = window.setTimeout(() => document.addEventListener('pointerdown', cerrar, true), 0);
-    document.addEventListener('keydown', tecla, true);
-    return () => { window.clearTimeout(t); document.removeEventListener('pointerdown', cerrar, true); document.removeEventListener('keydown', tecla, true); };
-  }, [onCerrar]);
-  const estilo = alinear === 'derecha'
-    ? { top: ancla.bottom + 4, right: Math.max(8, window.innerWidth - ancla.right) }
-    : { top: ancla.bottom + 4, left: ancla.left };
-  return <div className="gc-menu" role="menu" style={estilo}>{children}</div>;
-}
-
 /**
- * Lo que la barra lateral dice debajo de los calendarios: lo que no se pudo leer y la cuenta de Google sin conectar.
+ * Lo que se dice debajo de los usos (hasta el 29/10/2026, en la barra lateral de Google): lo que no se pudo leer y la cuenta de
+ * Google sin conectar.
  * ⚠️ «Conectar» y «Reconectar» abren el modal de Google AHÍ (`servicio`), nunca un link a /integraciones (AGENTS.md:
  * para una integración no se sale de la tab).
  */

@@ -153,7 +153,8 @@ test('crear: el borrador de escritorio (una hora, al Google principal si hay dó
   assert.ok(vaAGoogle(b, editables));
   assert.ok(!vaAGoogle({ tipo: 'publicacion' }, editables), 'una publicación es de MaKo');
   assert.ok(!vaAGoogle(b, []), 'sin dónde escribir en Google, a MaKo');
-  assert.deepEqual(entradaPropia({ ...b, tipo: 'llamada' }), { titulo: 'Llamada', tipo: 'llamada', formato: null, fecha: '2026-10-16', hora: '10:00', duracionMin: 60 });
+  // «Llamada de venta» desde el 29/10/2026: la reunión de entrega es otro tipo (`entrega`), y una llamada sin título dice cuál es.
+  assert.deepEqual(entradaPropia({ ...b, tipo: 'llamada' }), { titulo: 'Llamada de venta', tipo: 'llamada', formato: null, fecha: '2026-10-16', hora: '10:00', duracionMin: 60 });
   assert.deepEqual(entradaGoogle({ ...b, horaFin: null }), { titulo: '', fecha: '2026-10-16', hora: '10:00', duracionMin: 60, fechaFin: null });
   assert.equal(fechaParaCrear('dia', '2026-10-20', HOY, HOY), '2026-10-20');
   assert.equal(fechaParaCrear('agenda', '2026-10-20', '2026-10-01', HOY), HOY, 'hoy, si está en la Agenda');

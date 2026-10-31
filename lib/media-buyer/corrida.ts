@@ -14,7 +14,7 @@ import 'server-only';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { proponer, objetivoRecomendado, type DecisionPrevia } from './motor';
 import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla, cupoDe } from './store';
-import { modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
+import { lugaresParaPropios, modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
 import { resolverTacticas } from './tacticas';
 import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio, hoyDelNegocio } from './datos';
 import { lectorDeZona } from './publico';
@@ -46,6 +46,14 @@ export type ResumenCorrida = {
   alertas?: Alerta[];
   /** Las que el motor vio y no entraron en el cupo del plan de hoy (MaKo Esencial: lib/media-buyer/plan.ts). */
   fueraDelCupo?: number;
+  /**
+   * Lo que el agente VIO en la cuenta: campañas vivas y, de ellas, prendidas. Van SÓLO con la corrida terminada (estado
+   * `ok`): una cuenta vista a medias no dice cuántas hay. Quedan en `ultimaCorridaInfo` y es con lo que la pantalla de Hoy
+   * distingue «todavía no tienes campañas» de «no hubo cambios» sin volver a leer Meta
+   * (lib/media-buyer/cartel-hoy.ts; docs/hallazgos-ads.md, «Hoy no hay cambios»).
+   */
+  campanas?: number;
+  activas?: number;
   /** DÓNDE: lo que subía o prendía algo fuera de la zona del negocio (o que no se pudo confirmar adentro), con el motivo. */
   fueraDeZona?: string[];
   avisos?: string[];
@@ -127,7 +135,11 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   const yaGuardadas = new Set(decisiones.map((d) => d.clave));
   // Los agentes PROPIOS (una regla escrita en palabras, agentes-propios.ts): la IA del negocio la mira contra la cuenta y
   // deja acciones con la táctica `manual`, que el piloto no lanza nunca (abajo, `automaticas`). Entran al cupo al final.
-  const propios = await propuestasDeAgentesPropios(ws, { hoy, datos, kpi: config.kpi, objetivo, fmt: fmtUnidad(datos), yaHoy: yaGuardadas });
+  // Se les pregunta sólo si queda lugar en el cupo después de lo nuevo del motor, que entra antes (falla 9 de tren-m):
+  // preguntarle a un agente propio gasta IA, y gastarla por algo que no va a entrar hoy es gastarla al vacío.
+  const yaHoy = recomendadasHoy(decisiones, hoy);
+  const libres = lugaresParaPropios(props.filter((p) => !yaGuardadas.has(p.clave)).length, yaHoy, cupo.recomendacionesDia);
+  const propios = await propuestasDeAgentesPropios(ws, { hoy, datos, kpi: config.kpi, objetivo, fmt: fmtUnidad(datos), yaHoy: yaGuardadas, lugares: libres });
   // DÓNDE: lo que sube o prende algo que muestra anuncios fuera de la zona (o que no se pudo confirmar adentro) no se propone.
   // Se mira ANTES del cupo (no le saca el lugar a otra) y con el público leído en vivo, sólo de lo que se iba a proponer.
   // `lanzar` lo vuelve a mirar al escribir: entre proponer y lanzar alguien pudo cambiar el público.
@@ -141,7 +153,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
     }
     candidatas.push(p);
   }
-  const { orden, lugares } = ordenDelCupo(candidatas, recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
+  const { orden, lugares } = ordenDelCupo(candidatas, yaHoy, cupo.recomendacionesDia);
   let quedan = lugares;
   let fueraDelCupo = 0;
   const sinVariaciones: string[] = [];
@@ -227,8 +239,13 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
     }).catch(() => null);
   }
 
+  // Lo que había en la cuenta, del MISMO árbol con que se decidió (sin una lectura más): es lo único con que la pantalla de
+  // Hoy puede no mentirle a una cuenta sin campañas. `configurado` es el interruptor que puso la persona, como en Campañas.
+  const vivas = datos.arbol.filter((n) => n.nivel === 'campaign' && n.configurado !== 'DELETED');
+
   return {
     estado: 'ok', objetivo, objetivoEsRecomendado: config.objetivo == null,
+    campanas: vivas.length, activas: vivas.filter((n) => n.configurado === 'ACTIVE').length,
     propuestas: todasProps.length + propios.propuestas.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones, fueraDelCupo,
     ...(fueraDeZona.length ? { fueraDeZona } : {}),
     ...(propios.avisos.length ? { agentes: propios.avisos } : {}),

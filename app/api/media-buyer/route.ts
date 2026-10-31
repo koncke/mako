@@ -3,7 +3,7 @@
 // =============================================================================
 // GET  → el estado: la configuración, las decisiones de 30 días y si la cuenta está conectada.
 // POST → { op, … }:
-//   lanzar { id, presupuesto?, elegidas? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
+//   lanzar { id, presupuesto?, elegidas?, confirmarBaja? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
 //   calificar { id, estrellas } · config { cambio } · analizar · estado_zernio
 //   hooks_a_video { id, elegidas? } (los hooks de un video ganador, como guiones del Video Generator)
 //   subir_preparar { adSetId? } (los conjuntos y los textos de partida) · subir_creativos { adSetId, archivos, textos, activo }
@@ -36,7 +36,7 @@ import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
 import { conjuntosDe, plantillaDelConjunto, subirCreativos } from '@/lib/media-buyer/subir';
-import { CTAS } from '@/lib/media-buyer/creativos';
+import { leerPedidoDeSubida } from '@/lib/media-buyer/creativos';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { credWs } from '@/lib/credenciales';
 import { claveZernioAnuncios, conexionAnunciosZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
         if (!id) return J({ ok: false, error: 'Falta la decisión.' }, 400);
         const presupuesto = body.presupuesto == null ? undefined : Number(body.presupuesto);
         const elegidas = Array.isArray(body.elegidas) ? body.elegidas.filter((x): x is string => typeof x === 'string').slice(0, 20) : undefined;
-        const r = await lanzar(ws, id, { nombre: quien, origen: 'persona' }, { presupuesto, elegidas });
+        // `confirmarBaja`: la persona ya vio «Bajarlo de X a Y es N% menos» y dijo que sí (monto.ts → revisarMontoEditado).
+        const r = await lanzar(ws, id, { nombre: quien, origen: 'persona' }, { presupuesto, elegidas, bajaConfirmada: body.confirmarBaja === true });
         return J(r, r.ok ? 200 : 409);
       }
       case 'deshacer': {
@@ -219,20 +220,10 @@ export async function POST(req: NextRequest) {
         return J(r, r.ok ? 200 : 409);
       }
       case 'subir_creativos': {
-        const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
+        // El pedido se lee como lo lee la API de MaKo (lib/media-buyer/creativos.ts → leerPedidoDeSubida).
+        const { adSetId, archivos, textos, activo } = leerPedidoDeSubida(body);
         if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);
-        const archivos = (Array.isArray(body.archivos) ? body.archivos : []).map((a) => {
-          const o = (a ?? {}) as Record<string, unknown>;
-          return { path: String(o.path ?? ''), tipo: o.tipo === 'video' ? 'video' as const : 'image' as const, nombre: String(o.nombre ?? 'creativo').slice(0, 120) };
-        });
-        const t = (body.textos ?? {}) as Record<string, unknown>;
-        const textos = {
-          textoPrincipal: String(t.textoPrincipal ?? ''), titulo: String(t.titulo ?? ''),
-          cta: (CTAS as readonly string[]).includes(String(t.cta)) ? (t.cta as (typeof CTAS)[number]) : 'LEARN_MORE',
-          link: typeof t.link === 'string' && t.link.trim() ? t.link.trim() : null,
-          formularioId: typeof t.formularioId === 'string' && /^\d{1,30}$/.test(t.formularioId) ? t.formularioId : null,
-        };
-        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo: body.activo !== false }, quien);
+        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo }, quien);
         return J(r, r.ok ? 200 : 409);
       }
       default:

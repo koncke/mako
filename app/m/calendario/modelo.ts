@@ -242,6 +242,7 @@ export const TEXTO_GUARDAR: Record<TipoRapido, string> = {
   bloque: 'Guardar bloque',
   llamada: 'Guardar llamada',
   otro: 'Guardar evento',
+  entrega: 'Guardar entrega',
 };
 
 // ── Lo que no se pudo leer ──────────────────────────────────────────────────────────────────────────────────────────

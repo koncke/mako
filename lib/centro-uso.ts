@@ -117,23 +117,23 @@ export function usoDeCuenta(c: Cuota | null | undefined, ahora: number): UsoDeCu
 }
 
 /**
- * El número del botón, siempre a la vista: la semana MÁS usada entre las cuentas medidas hace poco (es la que se va a
- * terminar primero). Si ninguna se midió hace poco, la más usada de las viejas, con su edad (`viejo`): un número de hace
- * días no se muestra como de ahora (revisión adversarial, 16/10/2026). null = ninguna cuenta midió todavía.
+ * El número del botón, siempre a la vista: LA CUENTA EN USO, la medida más recientemente, con su nombre al lado.
+ * ⚠️ HASTA EL 30/10/2026 ERA LA MÁS USADA (16/10: «la que se va a terminar primero»). Con las cuentas de a una, eso mostraba «95% ·
+ * Cuenta 3» trabajando en la 1, con un número que no se movía con nada. Martín: «aun en ops center no se mide el uso». Lo que le
+ * queda a las otras está en el modal. `medido` es cuándo cambió la cuota, o sea cuándo se usó la cuenta.
+ * Una medición vencida no cuenta; una vieja lleva su edad (`viejo`). null = ninguna midió hace poco.
  */
 export type UsoPrincipal = { cuenta: string; pct: number; viejo: boolean; medido: number | null };
 export function usoPrincipal(cuotas: readonly { cuenta: string; cuota: Cuota | null }[], ahora: number): UsoPrincipal | null {
-  let fresco: UsoPrincipal | null = null;
-  let viejo: UsoPrincipal | null = null;
+  let enUso: UsoPrincipal | null = null;
   for (const { cuenta, cuota } of cuotas) {
     const u = usoDeCuenta(cuota, ahora);
     const pct = u.semana?.pct;
     // Una medición vencida no es un dato: el botón dice «—» antes que un número de hace un día.
-    if (pct == null || u.vencido) continue;
-    const este = { cuenta, pct, viejo: u.viejo, medido: u.medido };
-    if (!u.viejo) { if (!fresco || pct > fresco.pct) fresco = este; } else if (!viejo || pct > viejo.pct) viejo = este;
+    if (pct == null || u.vencido || u.medido == null) continue;
+    if (!enUso || u.medido > (enUso.medido ?? 0)) enUso = { cuenta, pct, viejo: u.viejo, medido: u.medido };
   }
-  return fresco ?? viejo;
+  return enUso;
 }
 
 /** Una cuenta en el desplegable del Uso: su Runner (visto_at) y su cuota; sin Runner, `vistoAt: null, cuota: null`. */
@@ -158,16 +158,15 @@ export function cuentasDeUso(
 }
 
 /**
- * El Runner de una cuenta, como lo ve el Uso: `mide` = su Runner de terminal está abierto y midiendo (una cuota de 5 h
- * medida hace poco: la de la app sólo trae la semanal); `sin_terminal` = la cuenta da vueltas (otro Runner la recorre,
- * como el de ~/.claude, que pasa por las tres) pero la terminal de ESTA cuenta no tiene el suyo; `apagado` = nadie la
- * recorre. ⚠️ Con sólo `visto_at`, la cuenta 2 salía «activa» aunque su terminal no tuviera Runner (revisión, 16/10/2026).
+ * El Runner de una cuenta, como lo ve el Uso: `mide` = se midió hace poco; `sin_terminal` = la cuenta da vueltas (otro Runner la
+ * recorre: `visto_at` lo refresca la vuelta para TODAS) pero no se mide ahora; `apagado` = nadie la recorre.
+ * ⚠️ Con sólo `visto_at`, una cuenta cerrada hace días salía «Runner activo» con punto verde al lado de «78% · medido hace 6 días»
+ * (la misma trampa del 16/10, y volvió el 30/10): un dato viejo con fecha nueva.
  */
 export type EstadoRunnerUso = 'mide' | 'sin_terminal' | 'apagado';
 export function estadoRunnerUso(vivo: boolean, cuota: Cuota | null | undefined, ahora: number): EstadoRunnerUso {
   if (!vivo) return 'apagado';
-  const u = usoDeCuenta(cuota, ahora);
-  return !u.viejo && cuota?.cinco ? 'mide' : 'sin_terminal';
+  return usoDeCuenta(cuota, ahora).viejo ? 'sin_terminal' : 'mide';
 }
 
 const AR = 'America/Argentina/Buenos_Aires';

@@ -3,6 +3,30 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
+## ⚠️ ANTES DE TODO: ¿DE QUÉ CUENTA SOS? El marcador MIENTE, y medirlo mal miente igual
+
+**`~/.claude/cuenta-activa.txt` y el hook de arranque son una FOTO de la cuenta ANTERIOR.** Al cambiar de cuenta siguen
+diciendo la vieja y no dan ningún error. Martin, 30/10/2026: «deja registrado siempre checkear eso».
+
+**La huella de una cuenta es el `resetsAt` SEMANAL de `get_usage`. Se compara contra TODAS las cuentas**
+(`~/.claude/operaciones/uso/claude*.json`), **nunca contra `uso-semanal.txt` solo**.
+
+- ⚠️ **`uso-semanal.txt` guarda la última medición de CUALQUIER cuenta**, no de la tuya.
+- ⚠️ **Un reset avanza 7 días EXACTOS.** Sin sumarlos, toda cuenta vieja parece nueva.
+- La lista de chats es por cuenta: si los que ves son de una fecha vieja, es esa cuenta vieja.
+- Si no cierra, **preguntale a Martin y gana él**. Después reescribí el marcador, el `.tsv`, `uso-semanal.txt`,
+  `uso-cinco.txt` y `operaciones/uso/<cuenta>.json`.
+
+**El 30/10 me equivoqué en las DOS direcciones en diez minutos**, y las dos cuestan caro:
+1. Le creí al marcador («claude3, 95 %») en una cuenta que estaba al **8 %**, y estuve por cerrar el día.
+2. Al medirlo, comparé sólo contra `uso-semanal.txt` —que tenía los números de claude3— y la declaré cuenta nueva
+   («claude6»). Era **claude1**: reseteaba el 28/10 09:59:59.973Z y medía 04/11 10:00:00.302Z, siete días justos.
+
+**Lo primero que falla al estrenar o retomar una cuenta** (Martin lo pidió el 30/10): el **Runner** tiene que arrancar
+para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no existe, nadie la midió y el Uso del
+SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
+y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
+
 ## ⏩ LEER PRIMERO — 30/10/2026 ~14:30, el Cerebro de claude3 (`local_428051c1`, CIERRE al 95 %)
 
 **ACTUALIZACIÓN 30/10 ~14:30, CIERRE de claude3 (semana al 95 %): esto pisa lo de abajo donde choque.**

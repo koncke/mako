@@ -339,24 +339,24 @@ export function tituloDeDocumento(html: string, respaldo: string): string {
 }
 
 /**
- * La dirección contra la que se resuelve todo lo relativo de la copia: el `<base href>` de la página,
- * si no su `canonical` o su `og:url` (la dirección FINAL si hubo redirecciones: el extractor no la
- * devuelve), y si no la que se pidió. Sólo http(s).
+ * La dirección contra la que se resuelve todo lo relativo de la copia: el `<base href>` de la página y, si no, su dirección
+ * FINAL (`paginaConDireccion`, lib/landing-fetch.ts). Sólo http(s). Es lo mismo que hace el navegador.
+ *
+ * ⚠️ HASTA EL 30/10/2026 MIRABA TAMBIÉN EL `canonical` Y EL `og:url`, como sustitutos de la dirección final, que el lector
+ * no devolvía. Eran las dos cosas mal: una página sin ninguno de los dos caía a la dirección pegada (`…/inmersion` sin la
+ * barra, y las 27 imágenes de la landing #88 perdieron la carpeta), y el navegador NO resuelve contra el canonical, que puede
+ * apuntar a otra ruta u otro dominio.
  */
-export function baseDeDocumento(html: string, urlPedida: string): string {
-  const candidatas = [
-    atributo(/<base\b[^>]*>/i.exec(html)?.[0] ?? '', 'href'),
-    atributo(/<link\b[^>]*rel\s*=\s*["']?canonical["']?[^>]*>/i.exec(html)?.[0] ?? '', 'href'),
-    atributo(/<meta\b[^>]*property\s*=\s*["']og:url["'][^>]*>/i.exec(html)?.[0] ?? '', 'content'),
-  ];
-  for (const c of candidatas) {
-    if (!c) continue;
+export function baseDeDocumento(html: string, urlFinal: string): string {
+  // El primero CON href y fuera de un comentario, como el navegador.
+  const declarada = atributo(/<base\b[^>]*\bhref\s*=[^>]*>/i.exec(html.replace(/<!--[\s\S]*?-->/g, ''))?.[0] ?? '', 'href');
+  if (declarada) {
     try {
-      const u = new URL(c, urlPedida);
+      const u = new URL(declarada, urlFinal);
       if (u.protocol === 'https:' || u.protocol === 'http:') return u.toString();
-    } catch { /* la siguiente */ }
+    } catch { /* la final */ }
   }
-  return urlPedida;
+  return urlFinal;
 }
 
 type Partes = { htmlAttrs: string; head: string; bodyAttrs: string; body: string };

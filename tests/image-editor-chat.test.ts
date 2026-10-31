@@ -20,12 +20,13 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { cajaDe, refsDeIds, vistaDeDiseno } from '../lib/image-editor/chat/vista';
-import { TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
+import { NO_SE_PUEDE_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, OPERACIONES_CHAT_IMAGEN, validarOperacion, validarOperaciones, type OperacionImagen } from '../lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-editor/chat/aplicar';
-import { AVISO_CORTADA, hiloAlAbrir, hiloParaGuardar, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
+import { AVISO_CORTADA, TOPES_HILO, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
 import { cambiarHilo, cargarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
-import { aceptarPropuesta, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
+import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
+import { originalDe } from '../app/_chat/useAdjuntosDelChat';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
 
 const RAIZ = join(__dirname, '..');
@@ -118,12 +119,12 @@ test('4: la validación rechaza lo que sobra o está fuera de rango (nunca lo re
   assert.equal(validarOperacion({ op: 'color', ref: 'f0z', color: 'rojo' }).ok, false);
   const c = validarOperacion({ op: 'color', ref: 'f0z', color: '#FD0' });
   assert.ok(c.ok && c.op.op === 'color' && c.op.color === '#ffdd00');
-  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', ref: 'x1' }).ok, false, 'una ref nueva es n1, n2…');
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', ref: 'X 1' }).ok, false, 'una ref sin forma de ref');
   assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k' }).ok, false, 'un estilo sin cambios');
   assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k', tamano: 900 }).ok, false);
   assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k', fuente: 'Inter"; x' }).ok, false);
   assert.equal(validarOperacion({ op: 'tamano', ref: 'f0z', escala: 50, ancho: 10 }).ok, false);
-  assert.equal(validarOperacion({ op: 'fondo', color: '#000', pagina: 'f0z' }).ok, false, 'una página es p…');
+  assert.equal(validarOperacion({ op: 'fondo', color: '#000', pagina: 'X 1' }).ok, false, 'una ref sin forma de ref');
   const { operaciones, descartes } = validarOperaciones(Array.from({ length: TOPES_CHAT_IMAGEN.operaciones + 5 }, () => ({ op: 'opacidad', ref: 'f0z', opacidad: 50 })));
   assert.equal(operaciones.length, TOPES_CHAT_IMAGEN.operaciones);
   assert.equal(descartes.length, 1);
@@ -493,4 +494,381 @@ test('41: abrir el chat NO vuelve a guardar lo que ya está en la base (22/10/20
   assert.equal(leerHilo('d-abrir-41').mensajes.length, 2, 'lo guardado se ve');
   await new Promise((r) => setTimeout(r, 800));
   assert.deepEqual(metodos, ['GET'], 'abrir no es un cambio');
+});
+
+// ── Lo que le pasó a Leila en vivo (30/10/2026): el carrusel quedó en blanco, con el fondo y nada más ───────────
+
+test('validar dos veces no pierde nada: la ruta valida y el panel vuelve a validar lo que contestó la ruta', () => {
+  for (const o of OPERACIONES_CHAT_IMAGEN) {
+    const una = validarOperaciones([JSON.parse(o.forma)]);
+    assert.equal(una.operaciones.length, 1, `${o.op}: ${una.descartes[0]}`);
+    const dos = validarOperaciones(una.operaciones);
+    assert.deepEqual(dos.descartes, [], o.op);
+    assert.deepEqual(dos.operaciones, una.operaciones, `${o.op} cambia al validarla otra vez`);
+  }
+});
+
+test('el estilo que viene adentro de "estilo" también vale, y lo inventado adentro se sigue rechazando', () => {
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', estilo: { tamano: 60, negrita: true } }).ok, true);
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', estilo: { volar: 1 } }).ok, false);
+  assert.equal(validarOperacion({ op: 'agregar_texto', texto: 'Hola', estilo: 'grande' }).ok, false);
+  assert.equal(validarOperacion({ op: 'estilo_texto', ref: 't3k', estilo: { tamano: 9000 } }).ok, false);
+});
+
+test('el pedido llega al diseño con la respuesta TAL CUAL la da la ruta (ya validada, con "estilo" adentro)', async () => {
+  const { editor } = editorDeMentira([]);
+  const crudas = [{ op: 'agregar_texto', texto: 'Las 7 preguntas', tamano: 80, color: '#ffffff', fuente: 'League Spartan' }, { op: 'fondo', color: '#000000' }];
+  fetchDeMentira({ ok: true, resumen: 'Armo la portada.', operaciones: validarOperaciones(crudas).operaciones }, []);
+  await pedirEdicion(editor as never, 'la portada', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.deepEqual(m.descartes ?? [], []);
+  assert.deepEqual(m.cambios!.map((c) => c.tipo), ['agrega', 'cambia']);
+  assert.equal(m.cambios![0].despues, 'Las 7 preguntas');
+});
+
+test('si se pierde casi todo, el mensaje no promete lo que no va a pasar', async () => {
+  const { editor } = editorDeMentira([]);
+  const malas = Array.from({ length: 3 }, () => ({ op: 'volar' }));
+  // La misma forma que contesta la ruta: lo que sobrevivió y, aparte, lo que tiró.
+  const ruta = validarOperaciones([{ op: 'fondo', color: '#000000' }, ...malas]);
+  fetchDeMentira({ ok: true, resumen: 'Voy a crear el carrusel.', operaciones: ruta.operaciones, descartes: ruta.descartes }, []);
+  await pedirEdicion(editor as never, 'el carrusel', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.match(m.texto, /^Pude hacer sólo una parte\./);
+  assert.equal(m.descartes!.length, 3, 'lo que tiró la ruta llega a «No se aplica»');
+});
+
+test('un carrusel de más páginas que el diseño: el texto llega a la página nueva por su ref', () => {
+  const r = aplicar([
+    { op: 'agregar_pagina', nueva: 'pn1' },
+    { op: 'fondo', pagina: 'pn1', color: '#000000' },
+    { op: 'agregar_texto', pagina: 'pn1', texto: 'Slide nueva', tamano: 60 },
+    { op: 'agregar_pagina', despues_de: 'pn1', nueva: 'pn2' },
+    { op: 'agregar_texto', pagina: 'pn2', texto: 'Otra', tamano: 60 },
+  ]);
+  assert.deepEqual(r.descartes, []);
+  const paginas = (r.doc as unknown as { pages: Array<{ objects: Obj[]; background: Obj }> }).pages;
+  const conTexto = paginas.slice(-2);
+  assert.equal(conTexto[0].objects.at(-1)!.text, 'Slide nueva');
+  assert.equal(conTexto[0].background.color, '#000000');
+  assert.equal(conTexto[1].objects.at(-1)!.text, 'Otra');
+  assert.equal(validarOperacion({ op: 'agregar_pagina', nueva: 'X 1' }).ok, false, 'una ref sin forma de ref');
+});
+
+test('la ref que inventa la IA no hace perder el contenido (medido con la IA de verdad)', () => {
+  const r = aplicar([
+    { op: 'agregar_pagina', nueva: 'n1' },
+    { op: 'agregar_texto', pagina: 'n1', texto: 'Con su ref', tamano: 60, ref: 't1' },
+    { op: 'estilo_texto', ref: 't1', color: '#00ffff' },
+    { op: 'agregar_texto', texto: 'Pisa una que existe', ref: ref('obj-titulo') },
+    { op: 'color', ref: ref('obj-titulo'), color: '#ff0000' },
+  ]);
+  assert.deepEqual(r.descartes, []);
+  const paginas = (r.doc as unknown as { pages: Array<{ objects: Obj[] }> }).pages;
+  assert.equal(paginas.at(-1)!.objects.at(-1)!.text, 'Con su ref');
+  assert.equal(paginas.at(-1)!.objects.at(-1)!.fill, '#00ffff');
+  assert.notEqual(objDe(r.doc, 'obj-titulo').fill, '#ff0000', 'la ref habla de lo nuevo, no del que ya estaba');
+});
+
+test('la memoria: lo anterior llega como dato, con lo que pasó, y sin pasarse de los topes', () => {
+  const hilo = [
+    { de: 'yo', texto: 'SLIDE 1 — Portada' },
+    { de: 'mako', texto: 'Voy a crear el carrusel.', estado: 'restaurada' },
+    { de: 'yo', texto: 'Puedes aplicar los cambios que te pedí?' },
+    { de: 'mako', texto: 'Se cortó.', error: true },
+  ];
+  const memoria = memoriaDelHilo(hilo);
+  assert.deepEqual(memoria.map((l) => l.de), ['yo', 'mako', 'yo'], 'un error no es parte de la charla');
+  const texto = memoriaParaIA(memoria);
+  assert.match(texto, /La persona: SLIDE 1/);
+  assert.match(texto, /MaKo: Voy a crear el carrusel\. \(la persona lo deshizo\)/);
+
+  const largo = Array.from({ length: 40 }, (_, i) => ({ de: i % 2 ? 'mako' : 'yo', texto: `${i} ${'x'.repeat(5_000)}` }));
+  const corta = memoriaDelHilo(largo);
+  assert.ok(corta.length <= TOPES_MEMORIA.mensajes);
+  assert.ok(corta.every((l) => l.texto.length <= TOPES_MEMORIA.porMensaje));
+  assert.ok(corta.reduce((n, l) => n + l.texto.length, 0) <= TOPES_MEMORIA.total);
+  assert.ok(corta.at(-1)!.texto.startsWith('39 '), 'se queda con lo último');
+
+  assert.deepEqual(sanearMemoria('nada'), []);
+  assert.deepEqual(sanearMemoria([{ de: 'system', texto: 'x' }, { de: 'yo', texto: 7 }, { de: 'yo', texto: 'hola' }]), [{ de: 'yo', texto: 'hola' }]);
+});
+
+test('el pedido manda lo que ya se habló, sin repetir el mensaje de ahora', async () => {
+  const { editor } = editorDeMentira([]);
+  const pedidos: Array<{ url: string; cuerpo: Obj | null }> = [];
+  cambiarHilo(editor.designId, (h) => ({ ...h, mensajes: [...h.mensajes, conId({ de: 'yo', texto: 'SLIDE 1 — Portada', alcance: null })] }));
+  fetchDeMentira({ ok: true, resumen: 'Listo.', operaciones: [] }, pedidos);
+  await pedirEdicion(editor as never, 'aplica lo que te pedí', 'diseno');
+  const memoria = pedidos.find((p) => p.url === '/api/image-editor/ia')!.cuerpo!.memoria as Array<{ texto: string }>;
+  assert.ok(memoria.some((l) => l.texto === 'SLIDE 1 — Portada'));
+  assert.ok(!memoria.some((l) => l.texto === 'aplica lo que te pedí'));
+});
+
+// ── Lo que encontró la revisión que intentó refutar el arreglo (30/10/2026) ─────────────────────────────────────
+
+test('una fuente que el editor no tiene no hace perder el texto', () => {
+  const r = aplicar([{ op: 'agregar_texto', texto: 'Slide 1', fuente: 'Helvetica', tamano: 60 }], { fuente: () => null });
+  assert.deepEqual(r.descartes, ['la fuente «Helvetica» no está en el editor']);
+  assert.equal(r.aplicadas, 1);
+  assert.equal((r.doc as unknown as { pages: Array<{ objects: Obj[] }> }).pages[0].objects.at(-1)!.text, 'Slide 1');
+  const e = aplicar([{ op: 'estilo_texto', ref: ref('obj-titulo'), fuente: 'Helvetica', color: '#00ff00' }], { fuente: () => null });
+  assert.equal(objDe(e.doc, 'obj-titulo').fill, '#00ff00', 'el resto del estilo sí');
+  assert.equal(aplicar([{ op: 'estilo_texto', ref: ref('obj-titulo'), fuente: 'Helvetica' }], { fuente: () => null }).aplicadas, 0, 'sólo la fuente: no hay nada que hacer');
+});
+
+test('una ref inventada que coincide con una existente no toca lo de la persona si lo nuevo no se pudo agregar', () => {
+  const r = ref('obj-titulo');
+  const a = aplicar([{ op: 'agregar_texto', pagina: 'pzz', texto: 'Nuevo', ref: r }, { op: 'cambiar_texto', ref: r, texto: 'Pisado' }, { op: 'borrar', refs: [r] }]);
+  assert.equal(objDe(a.doc, 'obj-titulo').text, 'Hola mundo');
+  assert.equal(a.aplicadas, 0);
+  // Antes de declararla, la ref sigue siendo la del elemento que ya estaba.
+  const b = aplicar([{ op: 'cambiar_texto', ref: r, texto: 'Sí' }, { op: 'agregar_texto', pagina: 'pzz', texto: 'Nuevo', ref: r }]);
+  assert.equal(objDe(b.doc, 'obj-titulo').text, 'Sí');
+  // Y una página: la que no se pudo crear no cae sobre la que ya existe.
+  const pagina = [...VISTA.paginas.keys()][0];
+  const c = aplicar([{ op: 'agregar_pagina', despues_de: 'pzz', nueva: pagina }, { op: 'fondo', pagina, color: '#123456' }]);
+  assert.equal(c.aplicadas, 0);
+});
+
+test('lo que depende de algo que tiró la validación también se va, en vez de caer sobre lo que ya estaba', () => {
+  const v = validarOperaciones([
+    { op: 'agregar_texto', texto: 'x'.repeat(TOPES_CHAT_IMAGEN.texto + 1), ref: 't11' },
+    { op: 'borrar', refs: ['t11', 'f0z'] },
+    { op: 'estilo_texto', ref: 't11', tamano: 40 },
+    { op: 'fondo', color: '#000000' },
+  ]);
+  assert.deepEqual(v.operaciones.map((o) => o.op), ['fondo']);
+  assert.equal(v.descartes.length, 3);
+});
+
+test('una ref repetida no hace perder el contenido: la última es la que vale', () => {
+  const r = aplicar([
+    { op: 'agregar_texto', texto: 'Titulo 1', ref: 't1' },
+    { op: 'agregar_texto', texto: 'Titulo 2', ref: 't1' },
+    { op: 'color', ref: 't1', color: '#00ffff' },
+  ]);
+  assert.deepEqual(r.descartes, []);
+  const textos = (r.doc as unknown as { pages: Array<{ objects: Obj[] }> }).pages[0].objects.filter((o) => String(o.text).startsWith('Titulo'));
+  assert.deepEqual(textos.map((o) => [o.text, o.fill === '#00ffff']), [['Titulo 1', false], ['Titulo 2', true]]);
+});
+
+test('«ya dice eso» no cuenta como perdido: el aviso de parcial es por lo que se perdió', async () => {
+  const { editor } = editorDeMentira([]);
+  const ops = validarOperaciones([
+    { op: 'cambiar_texto', ref: ref('obj-titulo'), texto: 'Hola mundo' },
+    { op: 'fondo', color: '#000000' },
+  ]);
+  fetchDeMentira({ ok: true, resumen: 'Cambio el fondo.', operaciones: ops.operaciones, descartes: ops.descartes }, []);
+  await pedirEdicion(editor as never, 'el fondo', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.equal(m.texto, 'Cambio el fondo.');
+});
+
+test('si se perdió todo, tampoco promete', async () => {
+  const { editor } = editorDeMentira([]);
+  const ruta = validarOperaciones([{ op: 'volar' }]);
+  fetchDeMentira({ ok: true, resumen: 'Voy a crear el carrusel.', operaciones: ruta.operaciones, descartes: ruta.descartes }, []);
+  await pedirEdicion(editor as never, 'el carrusel', 'diseno');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.match(m.texto, /^No pude hacerlo\./);
+});
+
+test('los topes cuadran: lo que entra por la caja entra en la memoria y en el hilo, y la revisión muestra todos los cambios', () => {
+  assert.ok(TOPES_MEMORIA.porMensaje >= TOPES_CHAT_IMAGEN.instruccion);
+  assert.ok(TOPES_HILO.texto >= TOPES_CHAT_IMAGEN.instruccion);
+  assert.ok(TOPES_HILO.cambios >= TOPES_CHAT_IMAGEN.operaciones);
+  // A la densidad del carrusel de Leila, más de esto no entra en los 4.000 tokens de la respuesta (lib/image-editor/chat/ia.ts).
+  assert.ok(TOPES_CHAT_IMAGEN.instruccion <= 4_000);
+});
+
+test('la memoria no afirma que la persona descartó lo que se cortó solo', () => {
+  const [l] = memoriaDelHilo([{ de: 'mako', texto: 'Armé el carrusel.', estado: 'descartada', aviso: AVISO_CORTADA }]);
+  assert.equal(l.texto, 'Armé el carrusel.');
+});
+
+// ── Las fotos desde el chat (30/10/2026, Leila: «no me pone las imágenes en el carrusel») ─────────────────────────
+
+const RAIZ_FOTOS = join(import.meta.dirname, '..');
+
+const FOTOS = new Map([['o1', { id: 'sub-1', url: 'https://x.supabase.co/storage/v1/object/public/a/foto.jpg', nombre: 'foto.jpg', ancho: 2000, alto: 1000 }]]);
+const objetosDe = (d: unknown) => (d as { pages: Array<{ id: string; objects: Obj[]; background: Obj }> }).pages;
+
+test('agregar_foto: valida la forma, y lo que se valida una vez vuelve a pasar', () => {
+  const v = validarOperacion({ op: 'agregar_foto', foto: 'o1', x: 0, y: 0, ancho: 500, alto: 500, cubrir: true, ref: 'n1' });
+  assert.equal(v.ok, true);
+  if (v.ok) assert.deepEqual(validarOperacion(v.op), v, 'idempotente: corre en la ruta y en el panel');
+  assert.equal(validarOperacion({ op: 'agregar_foto' }).ok, false, 'sin foto');
+  assert.equal(validarOperacion({ op: 'agregar_foto', foto: 'https://malo.example/x.jpg' }).ok, false, 'una dirección no es una foto de la lista');
+  assert.equal(validarOperacion({ op: 'agregar_foto', foto: 'o1', ancho: -5 }).ok, false);
+  assert.equal(validarOperacion({ op: 'fondo_foto', foto: 'o1' }).ok, true);
+});
+
+test('agregar_foto: entra entera en la caja, sin deformarse, con la dirección y el id de Subidos', () => {
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o1', x: 100, y: 100, ancho: 400, alto: 400 }], { fotos: FOTOS });
+  assert.deepEqual(r.descartes, []);
+  const f = objetosDe(r.doc)[0].objects.at(-1)!;
+  assert.equal(f.type, 'image');
+  assert.equal(f.src, FOTOS.get('o1')!.url);
+  assert.equal(f.assetId, 'sub-1');
+  assert.equal(f.crossOrigin, 'anonymous', 'sin esto, exportar el diseño ensucia el lienzo');
+  assert.equal(f.scaleX, f.scaleY, 'no se deforma');
+  assert.equal(f.scaleX, 0.2, '2000 px en 400');
+  assert.deepEqual([f.left, f.top], [100, 200], 'centrada en la caja: mide 400 × 200');
+  assert.equal(r.cambios[0].tipo, 'agrega');
+});
+
+test('agregar_foto con «cubrir»: llena la caja y corta lo que sobra, también sin deformarse', () => {
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o1', x: 0, y: 0, ancho: 400, alto: 400, cubrir: true }], { fotos: FOTOS });
+  const f = objetosDe(r.doc)[0].objects.at(-1)!;
+  assert.equal(f.scaleX, f.scaleY);
+  assert.equal(f.scaleX, 0.4, '1000 px de alto en 400');
+  assert.equal((f.width as number) * (f.scaleX as number), 400);
+  assert.equal((f.height as number) * (f.scaleY as number), 400);
+  assert.equal(f.cropX, 500, 'corta lo mismo de cada lado');
+  assert.equal(f.cropY, 0);
+});
+
+test('agregar_foto sin medidas: centrada, a la mitad del lado corto, como la del panel de Subidos', () => {
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o1' }], { fotos: FOTOS });
+  const f = objetosDe(r.doc)[0].objects.at(-1)!;
+  assert.equal(f.scaleX, f.scaleY);
+  assert.ok((f.width as number) * (f.scaleX as number) > 0);
+});
+
+test('una foto que no está en la lista se dice y no toca nada; lo que dependía de ella tampoco cae sobre lo de la persona', () => {
+  const t = ref('obj-titulo');
+  const r = aplicar([{ op: 'agregar_foto', foto: 'o9', ref: t }, { op: 'borrar', refs: [t] }], { fotos: FOTOS });
+  assert.equal(r.aplicadas, 0);
+  assert.match(r.descartes[0], /foto/);
+  assert.equal(objDe(r.doc, 'obj-titulo').text, 'Hola mundo');
+  assert.equal(aplicar([{ op: 'agregar_foto', foto: 'o1' }]).aplicadas, 0, 'sin lista (una propuesta sin fotos): tampoco');
+});
+
+test('fondo_foto: el fondo de la página es la foto, con el mismo formato que el panel de Fondo', () => {
+  const r = aplicar([{ op: 'fondo_foto', foto: 'o1' }], { fotos: FOTOS });
+  assert.deepEqual(objetosDe(r.doc)[0].background, { type: 'image', src: FOTOS.get('o1')!.url, fit: 'cover' });
+  const elegido = aplicar([{ op: 'fondo_foto', foto: 'o1' }], { fotos: FOTOS, soloRefs: new Set([ref('obj-titulo')]) });
+  assert.equal(elegido.aplicadas, 0, 'el fondo es de la página, no de lo elegido');
+});
+
+test('la vista le cuenta a la IA qué fotos hay, sin la dirección; y el catálogo ya no dice que no se puede', () => {
+  const v = JSON.parse(vistaDeDiseno(diseno(), { activePageId: 'pag-1', fotos: [{ ref: 'o1', nombre: 'foto.jpg', ancho: 2000, alto: 1000, adjunta: true }] }).json);
+  assert.deepEqual(v.fotos, [{ ref: 'o1', nombre: 'foto.jpg', ancho: 2000, alto: 1000, adjunta: true }]);
+  assert.doesNotMatch(NO_SE_PUEDE_CHAT_IMAGEN, /agregar fotos/);
+  assert.match(catalogoParaPrompt(), /agregar_foto/);
+  assert.match(catalogoParaPrompt(), /fondo_foto/);
+});
+
+test('la propuesta guarda las fotos que usa: aceptar después de recargar las encuentra', () => {
+  const m = { id: 'm1', c: 1, t: 1, de: 'mako', texto: 'x', estado: 'pendiente', propuesta: {
+    paginaId: 'pag-1', refs: [], paginas: [], elegidos: [], alcance: 'diseno',
+    operaciones: [{ op: 'agregar_foto', foto: 'o1' }],
+    fotos: [['o1', FOTOS.get('o1')], ['o2', { id: 's', url: 'javascript:alert(1)', nombre: 'x', ancho: 1, alto: 1 }]],
+  } };
+  const h = hiloAlAbrir([m]);
+  const g = (h[0] as MensajeMako).propuesta!;
+  assert.deepEqual(g.fotos, [['o1', FOTOS.get('o1')]], 'una dirección que no es http no se guarda');
+});
+
+test('pedir con una foto adjunta: la sube a Subidos, se la ofrece a la IA y la propuesta la pone', async () => {
+  const { editor } = editorDeMentira([]);
+  const subidas: string[] = [];
+  (editor as unknown as { assets: unknown }).assets = {
+    upload: async (f: File, nombre: string) => { subidas.push(nombre); return { id: 'sub-9', url: 'https://x.supabase.co/a/mia.jpg', thumbUrl: '', width: 800, height: 600, name: nombre, kind: 'image' }; },
+  };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  const pedidos: Array<{ url: string; cuerpo: Obj | null }> = [];
+  globalThis.fetch = (async (url: string, init?: { body?: unknown }) => {
+    const cuerpo = init?.body instanceof FormData ? JSON.parse(String(init.body.get('cuerpo') ?? init.body.get('json') ?? '{}')) : init?.body ? JSON.parse(String(init.body)) : null;
+    pedidos.push({ url, cuerpo });
+    if (String(url).startsWith('/api/image-editor/subidos')) return { json: async () => ({ ok: true, subidos: [{ id: 'sub-1', nombre: 'vieja.jpg', tipo: 'image/jpeg', ancho: 100, alto: 100, bytes: 1, url: 'https://x.supabase.co/a/vieja.jpg', creado: '' }, { id: 'aud', nombre: 'a.mp3', tipo: 'audio/mpeg', ancho: 0, alto: 0, bytes: 1, url: 'https://x.supabase.co/a/a.mp3', creado: '' }] }) };
+    return { json: async () => ({ ok: true, resumen: 'Pongo tu foto.', operaciones: [{ op: 'agregar_foto', foto: 'o1' }], descartes: [] }) };
+  }) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'pone esta foto', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
+  assert.deepEqual(subidas, ['mia.jpg']);
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.equal(m.estado, 'pendiente');
+  assert.deepEqual(m.propuesta!.fotos!.map(([r, f]) => [r, f.id]), [['o1', 'sub-9']], 'guarda sólo la que usa, y la adjunta va primero');
+  await aceptarPropuesta(editor as never, m);
+  const f = objetosDe(editor.getDocument())[0].objects.at(-1)!;
+  assert.equal(f.src, 'https://x.supabase.co/a/mia.jpg');
+});
+
+test('si una foto adjunta no se pudo subir se dice, y el pedido sigue con lo demás', async () => {
+  const { editor } = editorDeMentira([]);
+  (editor as unknown as { assets: unknown }).assets = { upload: async () => { throw new Error('pesa de más'); } };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  globalThis.fetch = (async (url: string) => (String(url).startsWith('/api/image-editor/subidos')
+    ? { json: async () => ({ ok: false, error: 'x' }) }
+    : { json: async () => ({ ok: true, resumen: 'Cambio el fondo.', operaciones: [{ op: 'fondo', color: '#000000' }], descartes: [] }) })) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'el fondo y mi foto', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.ok(m.descartes!.some((d) => /mia\.jpg/.test(d)));
+});
+
+// Lo que encontró la revisión de las fotos (30/10/2026).
+test('se sube el ORIGINAL, no la copia achicada que lee la IA', () => {
+  assert.equal(originalDe(new File(['x'], 'a.png', { type: 'image/png' })).name, 'a.png', 'sin copia, el mismo');
+  const f = readFileSync(join(RAIZ_FOTOS, 'app/image-editor/mako/chat/acciones.ts'), 'utf8');
+  assert.match(f, /const o = originalDe\(f\);/);
+  assert.match(f, /editor\.assets\.upload\(o, o\.name\)/);
+});
+
+test('«Detener» mientras suben las fotos: no se le pide nada a la IA', async () => {
+  const { editor } = editorDeMentira([]);
+  const pedidos: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    pedidos.push(String(url));
+    if (String(url).startsWith('/api/image-editor/subidos')) { detener(editor.designId); return { json: async () => ({ ok: true, subidos: [] }) }; }
+    return { json: async () => ({ ok: true, resumen: 'x', operaciones: [{ op: 'fondo', color: '#000000' }], descartes: [] }) };
+  }) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'el fondo', 'diseno');
+  assert.ok(!pedidos.some((u) => u.startsWith('/api/image-editor/ia')), 'el pedido salió igual');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.equal(m.texto, 'Detenido.');
+  assert.equal(leerHilo(editor.designId).corriendo, false);
+});
+
+test('una foto que ya está en Subidos no se vuelve a subir al reintentar', async () => {
+  const { editor } = editorDeMentira([]);
+  let subidas = 0;
+  (editor as unknown as { assets: unknown }).assets = { upload: async () => { subidas++; throw new Error('no debería'); } };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  globalThis.fetch = (async (url: string) => (String(url).startsWith('/api/image-editor/subidos')
+    ? { json: async () => ({ ok: true, subidos: [{ id: 'ya', nombre: 'mia.jpg', tipo: 'image/jpeg', ancho: 10, alto: 10, bytes: 1, url: 'https://x.supabase.co/a/mia.jpg', creado: '' }] }) }
+    : { json: async () => ({ ok: true, resumen: 'Pongo la foto.', operaciones: [{ op: 'agregar_foto', foto: 'o1' }], descartes: [] }) })) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'pone esta', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
+  assert.equal(subidas, 0);
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.deepEqual(m.propuesta!.fotos!.map(([, f]) => f.id), ['ya']);
+});
+
+test('un SVG adjunto se pone, pero a la ruta no le llega (lo rechazaría por su firma), y sin texto igual hay instrucción', async () => {
+  const { editor } = editorDeMentira([]);
+  (editor as unknown as { assets: unknown }).assets = { upload: async (_f: File, n: string) => ({ id: 's', url: 'https://x.supabase.co/a/l.png', thumbUrl: '', width: 100, height: 100, name: n, kind: 'image' }) };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  let cuerpo: { instruccion?: string } | null = null;
+  let esMultipart = false;
+  globalThis.fetch = (async (url: string, init?: { body?: unknown }) => {
+    if (String(url).startsWith('/api/image-editor/subidos')) return { json: async () => ({ ok: true, subidos: [] }) };
+    esMultipart = init?.body instanceof FormData;
+    cuerpo = esMultipart ? null : JSON.parse(String(init?.body));
+    return { json: async () => ({ ok: true, resumen: 'Pongo el logo.', operaciones: [{ op: 'agregar_foto', foto: 'o1' }], descartes: [] }) };
+  }) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, '', 'diseno', [new File(['<svg/>'], 'l.svg', { type: 'image/svg+xml' })]);
+  assert.equal(esMultipart, false);
+  assert.equal(cuerpo!.instruccion, 'Pon en el diseño lo que adjunté.');
+});
+
+test('la lista de fotos se achica para entrar: no tira un pedido que no tiene que ver con fotos', async () => {
+  const { editor } = editorDeMentira([]);
+  const muchas = Array.from({ length: 40 }, (_, i) => ({ id: `s${i}`, nombre: `${'x'.repeat(50)}${i}`, tipo: 'image/jpeg', ancho: 1, alto: 1, bytes: 1, url: 'https://x.supabase.co/a', creado: '' }));
+  const largo = JSON.stringify(vistaDeDiseno(diseno(), { activePageId: 'pag-1' }).json).length;
+  assert.ok(largo < TOPES_CHAT_IMAGEN.vistaMax);
+  const f = readFileSync(join(RAIZ_FOTOS, 'app/image-editor/mako/chat/acciones.ts'), 'utf8');
+  assert.match(f, /while \(vista\.json\.length > TOPES_CHAT_IMAGEN\.vistaMax && fotos\.length\)/);
+  assert.ok(f.indexOf('vistaCon([]).json.length') < f.indexOf('await fotosParaPedir'), 'se mide ANTES de subir');
+  assert.equal(muchas.length, 40);
+  void editor;
 });

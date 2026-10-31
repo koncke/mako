@@ -351,7 +351,7 @@ test('el Diagnóstico: el lector cuando el server contesta enNavegador, y la pá
   // La vista previa baja la pegada tal cual (con su www y su query).
   const ruta = fuente(PAGINA);
   // Desde el 23/10/2026 la vista baja con `paginaParaVer` (trae también las cabeceras del marco), que baja TAL CUAL.
-  assert.equal((ruta.match(/htmlDePagina\(url, \{ talCual: true \}\)/g) ?? []).length, 1, 'la ventana del lector, tal cual');
+  assert.equal((ruta.match(/paginaConDireccion\(url, \{ talCual: true \}\)/g) ?? []).length, 1, 'la ventana del lector, tal cual');
   assert.equal((ruta.match(/await paginaParaVer\(url\)/g) ?? []).length, 1, 'y la vista, con paginaParaVer');
   const fetchSrc = fuente('lib/landing-fetch.ts');
   const iPv = fetchSrc.indexOf('export async function paginaParaVer(');

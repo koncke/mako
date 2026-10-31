@@ -11,12 +11,15 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { headers } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
-import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
+import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from '@/lib/planes-mako';
+import { entornoPromo, promoVigente } from '@/lib/promo-entrada';
+import { COOKIE_PROMO, PROMO_ENTRADA } from '@/lib/promo-entrada-reglas';
+import { creadoPorPrimerMes, montoDelPrimerPago } from '@/lib/primer-mes-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
@@ -26,6 +29,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata: Metadata = { title: 'Empezar con MaKo', robots: { index: false, follow: false } };
+
+/** ¿El reloj del 50% sigue vivo en este navegador? Sólo lo lee: lo arranca la landing. */
+const relojVivo = (cookie: string | undefined) => promoVigente(cookie, Date.now(), entornoPromo());
 
 export default async function PlanPage({ params, searchParams }: {
   params: Promise<{ plan: string }>;
@@ -61,18 +67,24 @@ export default async function PlanPage({ params, searchParams }: {
   if (uno('periodo') === 'anual' && plan.precioAnualUsd) {
     return (
       <Ficha titulo={`${plan.nombre}, anual`} precio={`US$ ${plan.precioAnualUsd.toLocaleString('es-AR')} por año: ${MESES_GRATIS_ANUAL} meses gratis`}>
-        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta. Empiezas con {PRUEBA_DIAS} días gratis.</p>
+        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta.{PRUEBA_GRATIS_PRENDIDA ? ` Empiezas con ${PRUEBA_DIAS} días gratis.` : ''}</p>
         <QuieroPlan plan={plan.id} nombrePlan={`${plan.nombre} anual`} origen={origen} refCodigo={ref} periodo="anual" />
       </Ficha>
     );
   }
-  const precio = pasarelas.map((x) => `${formatoMonto(x.monto, x.moneda)} por mes`).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
+  // EL 50% DEL PRIMER MES (30/10/2026): sólo con el reloj vivo; es lo que la persona venía viendo en la landing. Quien decide de
+  // verdad es la ruta del POST: acá sólo se dice.
+  const conPromo = !PRUEBA_GRATIS_PRENDIDA && PROMO_ENTRADA.planes.includes(plan.id) && relojVivo((await cookies()).get(COOKIE_PROMO)?.value);
+  const conPrimerMes = (monto: number) => montoDelPrimerPago({ monto, creado_por: creadoPorPrimerMes(plan.id) });
+  const precio = pasarelas.map((x) => (conPromo
+    ? `${formatoMonto(conPrimerMes(x.monto), x.moneda)} el primer mes, después ${formatoMonto(x.monto, x.moneda)} por mes`
+    : `${formatoMonto(x.monto, x.moneda)} por mes`)).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
   return (
     <Ficha titulo={plan.nombre} precio={precio}>
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1'} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1' || !PRUEBA_GRATIS_PRENDIDA} promo={conPromo} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

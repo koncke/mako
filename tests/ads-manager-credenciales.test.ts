@@ -82,12 +82,14 @@ test('el guard pregunta por ESTE workspace, y sigue exigiendo rol admin', () => 
   assert.ok(!codigo.some((l) => l.includes('esWorkspaceDueno')), 'esWorkspaceDueno no mira el rol');
 });
 
-test('las 14 rutas de Ads Manager pasan por el MISMO guard', () => {
+test('las rutas de Ads Manager pasan por el MISMO guard', () => {
   // El bug de la auditoría #167 fue justamente tener el chequeo del rol en UN solo
-  // lugar y que las otras puertas se olvidaran de repetirlo.
+  // lugar y que las otras puertas se olvidaran de repetirlo. Desde el 27/10/2026 queda UNA
+  // (creative-signurl): las otras catorce eran del Ads Manager borrado el 25/10. Una ruta
+  // nueva acá entra en este barrido sola.
   const dir = join(raiz, 'app/api/ads-manager');
   const rutas = readdirSync(dir);
-  assert.ok(rutas.length >= 14, `esperaba al menos 14 rutas, encontré ${rutas.length}`);
+  assert.ok(rutas.includes('creative-signurl'), `esperaba creative-signurl, encontré ${rutas.join(', ')}`);
   const sinGuard: string[] = [];
   for (const r of rutas) {
     const p = join(dir, r, 'route.ts');

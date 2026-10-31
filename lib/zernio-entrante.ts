@@ -28,7 +28,8 @@
 // que ese mensaje acaba de arrancar.
 
 import 'server-only';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
+import { borrarLeadConCamino } from './leads-bajas';
 import { createLead, logLeadEvent } from './leads';
 import {
   plataformaDe, ventanaDesde, nombreDeParticipante, instagramDelEvento, entradaSocialDe, lineaDeEntradaSocial, metadataParaGuardar, NOMBRE_CANAL,
@@ -232,7 +233,11 @@ async function quitarHuerfano(huerfano: number, ganador: number | null, anuncioI
     }
   }
   if (ganador === huerfano) return;
-  const { error } = await db.from('leads').delete().eq('id', huerfano);
+  // ⚠️ NO VA A LA PAPELERA, A PROPÓSITO: nació segundos antes en esta misma corrida, nadie lo vio y lo que traía ya se le pasó al
+  // ganador. Una foto suya llenaría la papelera de duplicados que nadie eliminó. Queda anotado (mig 0356).
+  const ws = await getWorkspaceActual();
+  if (ws == null) { console.error(`[zernio-entrante] el lead ${huerfano} quedó huérfano: no sé de qué negocio es`); return; }
+  const { error } = await borrarLeadConCamino(db, ws, huerfano, 'zernio_duplicado', 'MaKo');
   if (error) console.error(`[zernio-entrante] el lead ${huerfano} quedó huérfano (no pude quitarlo): ${error.message}`);
 }
 

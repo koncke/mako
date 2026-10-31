@@ -88,3 +88,30 @@ export function nombreDeAnuncio(nombreArchivo: string, i: number): string {
   const base = nombreArchivo.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 80) || `Creativo ${i + 1}`;
   return `${base} · MaKo`;
 }
+
+/** Una subida tal como llega: de la pantalla (/api/media-buyer → subir_creativos) o de la API de MaKo (subir_creativos_media_buyer). */
+export type PedidoDeSubida = { adSetId: string | null; archivos: ArchivoSubido[]; textos: TextosCreativo; activo: boolean };
+
+const ID_META = /^\d{1,30}$/;
+
+/**
+ * El pedido de una subida, leído en UN lugar para las dos puertas: el conjunto (un id numérico), los archivos (path, tipo y
+ * nombre; lo que no es video es imagen), los textos (el botón cae a «Más información» si no es uno de CTAS; el link vacío es
+ * null) y si sale activo (`activo: false` lo deja en pausa; sin decirlo, activo, como la pantalla). Valida la FORMA; lo que
+ * se puede publicar lo dicen `errorDeTextos` y lib/media-buyer/subir.ts.
+ */
+export function leerPedidoDeSubida(o: Record<string, unknown>): PedidoDeSubida {
+  const adSetId = typeof o.adSetId === 'string' && ID_META.test(o.adSetId) ? o.adSetId : null;
+  const archivos = (Array.isArray(o.archivos) ? o.archivos : []).map((a): ArchivoSubido => {
+    const x = (a && typeof a === 'object' ? a : {}) as Record<string, unknown>;
+    return { path: String(x.path ?? ''), tipo: x.tipo === 'video' ? 'video' : 'image', nombre: String(x.nombre ?? 'creativo').slice(0, 120) };
+  });
+  const t = (o.textos && typeof o.textos === 'object' ? o.textos : {}) as Record<string, unknown>;
+  const textos: TextosCreativo = {
+    textoPrincipal: String(t.textoPrincipal ?? ''), titulo: String(t.titulo ?? ''),
+    cta: (CTAS as readonly string[]).includes(String(t.cta)) ? (t.cta as Cta) : 'LEARN_MORE',
+    link: typeof t.link === 'string' && t.link.trim() ? t.link.trim() : null,
+    formularioId: typeof t.formularioId === 'string' && ID_META.test(t.formularioId) ? t.formularioId : null,
+  };
+  return { adSetId, archivos, textos, activo: o.activo !== false };
+}

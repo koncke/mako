@@ -27,9 +27,15 @@ export type SuscripcionVisible = {
   baja: string | null;
   /** LA PRUEBA GRATIS (25/10/2026): hasta qué día va («el lunes 3 de noviembre»), o null si ya se cobra. */
   prueba?: { hasta: string } | null;
+  /** El 50% del primer mes, mientras corre ese mes, ya dicho (lib/primer-mes-reglas.ts). */
+  primerMes?: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar }: {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar, clienteDeAgencia, gratisHasta }: {
+  /** Los 6 meses gratis (30/10/2026): la fecha en que terminan, ya dicha. */
+  gratisHasta?: string | null;
+  /** La cuenta de un cliente de una agencia (29/10/2026): su plan lo maneja la agencia; no ve «Recomienda MaKo». */
+  clienteDeAgencia?: boolean;
   plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
   /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
   subir?: { nombre: string; monto: string } | null;
@@ -99,12 +105,13 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
           <span className="aj-plan__icono"><IconoMenu nombre="repetir" size={22} /></span>
           <span className="aj-plan__texto">
             <span className="aj-plan__nombre">{plan}{tono && estado && <Pastilla tono={tono}>{estado}</Pastilla>}</span>
-            <span className="aj-plan__precio">{!suscripcion ? 'Acordado con MaKo' : enPrueba
+            <span className="aj-plan__precio">{!suscripcion ? (clienteDeAgencia ? 'Lo maneja tu agencia' : gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba
               ? <>Prueba gratis hasta el {suscripcion.prueba!.hasta}: ese día se cobra <b>{suscripcion.monto}</b>, y después cada mes.</>
               : <><b>{suscripcion.monto}</b> por mes · {suscripcion.proveedor === 'stripe' ? 'con tarjeta' : 'por Mercado Pago'}</>}</span>
           </span>
         </div>
         {!destacarEmpezar && filaEmpezar}
+        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada />}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {subir && puedeDarseDeBaja && (
@@ -112,15 +119,21 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
             onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
         )}
         {porLlamada && <FilaAjustes icono="subir" titulo={porLlamada.titulo} detalle={porLlamada.detalle} href={porLlamada.href} apilada />}
-        {!suscripcion && (
+        {/* El cliente de una AGENCIA (29/10/2026): su plan lo paga y lo cambia su agencia, no MaKo. Los carteles de tope traen acá. */}
+        {!suscripcion && clienteDeAgencia && (
+          <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Tu plan lo maneja tu agencia: para cambiarlo, pídeselo a ella.</p></CuerpoGrupo>
+        )}
+        {!suscripcion && !clienteDeAgencia && (
           <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Tu plan se acordó con MaKo: para darte de baja, escríbenos a <a href={`mailto:${emailMako}`}>{emailMako}</a>.</p></CuerpoGrupo>
         )}
       </GrupoAjustes>
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
       {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo. Desde el 25/10 gana DINERO: el 100% del primer mes. */}
-      <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
-        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
-      </GrupoAjustes>
+      {!clienteDeAgencia && (
+        <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
+          <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
+        </GrupoAjustes>
+      )}
       {puedeDarseDeBaja && (
         <GrupoAjustes titulo="Darte de baja" descripcion={enPrueba ? 'No se te cobra nada, y tus datos quedan guardados.' : 'Lo sigues usando hasta el fin del mes pagado, y tus datos quedan guardados.'}>
           <FilaAjustes icono="pausar" titulo="Darme de baja"

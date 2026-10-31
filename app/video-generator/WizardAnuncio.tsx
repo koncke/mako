@@ -72,6 +72,7 @@ import {
 import { editarLineaPlanAction, reescribirTomaAction } from './actions';
 import { EditarTexto } from '../components/SeccionCard';
 import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
+import { faseDe } from './estudio/proyectos';
 
 /**
  * El alto de lo enorme.
@@ -286,13 +287,11 @@ type Paso =
  */
 export function pasoDe(item: PlanGuardado, forzado: Paso | null): Paso {
   if (forzado) return forzado;
-  const escenas = item.escenas ?? [];
-  if (!escenas.length) {
-    return { id: 'guion-leer' };
-  }
-
-  const sinConfirmar = escenas.find((e) => !item.imagenes?.[String(e.n)]?.confirmada);
-  if (sinConfirmar) return { id: 'escenario', n: sinConfirmar.n };
+  // ⚠️ LA REGLA VIVE EN `faseDe` (estudio/proyectos.ts, puro): la barra de proyectos del estudio escribe su renglón con la
+  // MISMA respuesta. Dos copias dirían «Escenarios» en la barra de un anuncio que el centro abre en «Tomas».
+  const f = faseDe(item);
+  if (f.id === 'guion') return { id: 'guion-leer' };
+  if (f.id === 'escenario') return { id: 'escenario', n: f.n };
 
   // ⚠️ UN SOLO PASO PARA LAS N TOMAS, y con él se fue el paso `cara`.
   //
@@ -301,8 +300,7 @@ export function pasoDe(item: PlanGuardado, forzado: Paso | null): Paso {
   // lo único que la pantalla ofrece es filmar la primera. La protección deja de
   // ser una pared y pasa a ser el camino por defecto, que es más barato de
   // obedecer que de esquivar.
-  const falta = item.plan.clips.some((c) => !item.video?.[String(c.n)]?.url);
-  if (falta) return { id: 'tomas' };
+  if (f.id === 'tomas') return { id: 'tomas' };
   return { id: 'listo' };
 }
 
@@ -338,7 +336,8 @@ function mapaDe(item: PlanGuardado): string[] {
   // RECORRIDO, y filmar dejó de ser N pasos para ser uno.
   return [
     'guion-leer',
-    'lugar',
+    // El lugar elegido al CREAR (en el estudio) ya no es un paso: no se cuenta ni se vuelve a él con «Volver».
+    ...(item.lugarEnElAlta ? [] : ['lugar']),
     ...(escenas.length ? escenas.map((e) => `escenario-${e.n}`) : ['escenario-1']),
     'tomas',
     'listo',
@@ -1114,7 +1113,7 @@ function HuecoDelEjemplo({ puesta, abierta, slot }: {
 
 // ── El wizard ───────────────────────────────────────────────────────────────
 
-export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCambio, onSalir, slotRiel, plegado }: {
+export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCambio, onSalir, slotRiel, plegado, sinSalida }: {
   item: PlanGuardado;
   contexto: EstadoContextoVideo | null;
   puesta: Puesta | undefined;
@@ -1140,6 +1139,11 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
   /** Dónde aterriza el ejemplo. El video lo dibuja `PreviaVolante`, arriba. */
   slotRiel?: React.RefObject<HTMLDivElement | null>;
   plegado?: boolean;
+  /**
+   * Sin «Salir» (27/10/2026): en el estudio, el anuncio es un PROYECTO de la barra del costado, y se cambia de proyecto ahí
+   * (copiado de Arcads). Un «Salir» adentro del proyecto sería una segunda salida a la misma pantalla.
+   */
+  sinSalida?: boolean;
 }) {
   const [forzado, setForzado] = useState<Paso | null>(null);
   const [ocupado, setOcupado] = useState('');
@@ -1651,7 +1655,9 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
         // pegada al botón que SÍ gasta, y ahí sigue. Y «Volver al catálogo» es
         // exactamente lo que hace el «Salir» de arriba: el mismo botón dibujado
         // dos veces es el que no se encuentra en ninguno.
-        onSiguiente: () => setForzado({ id: 'lugar' }),
+        // Con el lugar ya decidido al crear (estudio/composer-reglas.ts), «¿Dónde se graba?» no se vuelve a preguntar: el
+        // escenario lo escribe MaKo con ese lugar (`escribirEscenasAction` lee `escenarioId`).
+        onSiguiente: () => setForzado(item.lugarEnElAlta ? { id: 'escenario', n: 1 } : { id: 'lugar' }),
       };
     }
 
@@ -3061,6 +3067,7 @@ export function WizardAnuncio({ item, contexto, puesta, costoTexto, saldo, onCam
       atras={p.atras ?? (anterior ? 'Volver' : undefined)}
       onAtras={p.onAtras ?? (anterior ? () => setForzado(anterior) : undefined)}
       onSalir={onSalir}
+      sinSalida={sinSalida}
       error={error}
       puesta={puesta}
       slotRiel={slotRiel}

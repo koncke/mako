@@ -185,3 +185,14 @@ function enumOk(p: Parametro, valor: string, ruta: string): Coercion {
 function parseJson(s: string): unknown {
   try { return JSON.parse(s); } catch { return undefined; }
 }
+
+/**
+ * ¿El valor editado de un campo `fijoAlRevisar` es otro que el guardado? Un texto, un número o una lista de textos se compara
+ * como texto (lo de siempre); un objeto o una lista de objetos, entero: `String([{…}])` es «[object Object]» para cualquier
+ * lista del mismo largo, y dejaba cambiar los archivos de una subida (subir_creativos_media_buyer, 27/10/2026) bajo el resumen
+ * de los otros.
+ */
+export function distintoAlRevisar(nuevo: unknown, guardado: unknown): boolean {
+  const conObjetos = (x: unknown) => x !== null && typeof x === 'object' && (!Array.isArray(x) || x.some((y) => y !== null && typeof y === 'object'));
+  return conObjetos(nuevo) || conObjetos(guardado) ? JSON.stringify(nuevo) !== JSON.stringify(guardado) : String(nuevo) !== String(guardado);
+}

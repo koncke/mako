@@ -302,6 +302,7 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (/^mako-movil:[^:]+:crm:\d+$/.test(k)) return 'CRM';
   if (/^mako-movil:[^:]+:lead:\d+$/.test(k)) return 'Ficha';
   if (k.endsWith(`:${TAB_SECOND_BRAIN}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_SECOND_BRAIN;
+  if (k.endsWith(`:${TAB_VIDEO_GENERATOR}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_VIDEO_GENERATOR;
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
   if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
   if (/^whatsapp-/.test(k)) return 'Automations';
@@ -341,8 +342,15 @@ export function appDeEscritorio(p: { conComputadora: boolean; telefono: boolean 
 export const TAB_SECOND_BRAIN = 'second-brain';
 /** Su origen en la lista del Ops Center: el grupo «Second Brain». */
 export const ORIGEN_SECOND_BRAIN = 'Second Brain';
+/**
+ * El chat al costado del estudio de Video Generator (27/10/2026, Martín: «implementar Video Generator… que se parezca a una
+ * app que tomemos de referencia»): UNA conversación por persona y por negocio, como la del Second Brain, con el anuncio
+ * abierto como entidad (lib/chat-desde.ts → `anuncio`). El Ops Center la lista en el grupo «Video Generator».
+ */
+export const TAB_VIDEO_GENERATOR = 'video-generator';
+export const ORIGEN_VIDEO_GENERATOR = 'Video Generator';
 /** Las tabs con una conversación propia por persona: lo único que acepta la ruta para crearla. */
-export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN];
+export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR];
 
 /** El saludo del Second Brain con la conversación vacía, con el nombre de pila de quien mira (sin nombre, sin el «NOMBRE»). */
 export function saludoDelSecondBrain(nombre: string | null | undefined): string {

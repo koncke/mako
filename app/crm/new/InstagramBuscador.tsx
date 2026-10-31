@@ -451,7 +451,7 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
       </div>
       {/* Sin Meta conectado, ANTES de escribir: el porqué y el botón (22/10/2026). Afuera de `cajaRef`: la lista se
           ubica contra el campo, no contra esta línea. */}
-      {(pideConectarMeta(conexion) || conexion === 'sin-instagram') && (
+      {(pideConectarMeta(conexion) || (conexion === 'sin-instagram' && !encontrados?.length)) && (
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '2px 8px', marginTop: 6, fontFamily: SANS, fontSize: 12.5, fontWeight: 400, color: 'var(--dim)' }}>
           {/* Con Meta conectada pero sin Instagram (24/10/2026), el porqué SIN botón: conectar no lo arregla. */}
           <span>{conexion === 'sin-instagram' ? AVISO_SIN_INSTAGRAM : AVISO_SIN_META}</span>

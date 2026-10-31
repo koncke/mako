@@ -8,7 +8,7 @@
 // mirar» y la lista. El toque abre la hoja con sus datos y UNA acción, «Entrar a su cuenta». Billing y Agents siguen en
 // sus pantallas (/m/cobros, /m/agente); administrar (plan, equipo) queda en la computadora.
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { CabeceraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
@@ -26,7 +26,7 @@ const tono = (t: string): TonoPildora => (t === 'neutral' ? 'neutro' : (t as Ton
 const grupoTxt = (f: FilaCliente) =>
   f.segmentos.includes('de-agencia') ? `De ${f.agencia ?? 'una agencia'}` : f.segmentos.map((s) => ({ agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': '' }[s])).join(' · ');
 
-export function CustomersM({ vista }: { vista: VistaClientes }) {
+export function CustomersM({ vista, arriba }: { vista: VistaClientes; arriba?: ReactNode }) {
   const { filas, kpis, cobrado } = vista;
   const [grupo, setGrupo] = useState<Grupo>('todos');
   const [ws, setWs] = useState<number | null>(null);
@@ -42,6 +42,7 @@ export function CustomersM({ vista }: { vista: VistaClientes }) {
   return (
     <>
       <CabeceraM titulo="Customers" padre={{ href: RUTA_MAS, label: 'More' }} />
+      {arriba}
       <div className="m-customers-tres">
         <div><b>{deMaKo.length}</b><span>{deMaKo.length === 1 ? 'Cliente' : 'Clientes'}</span></div>
         {vista.actividadLeida && <div><b>{deMaKo.filter((f) => f.sinEntrar != null && f.sinEntrar <= 7).length}</b><span>Esta semana</span></div>}
@@ -118,7 +119,7 @@ export function CustomersM({ vista }: { vista: VistaClientes }) {
             <FilaDatoM k="Leads" v={c.leads == null ? '—' : c.leads.toLocaleString('es-AR')} />
             <FilaDatoM k="Plan" v={nombreDePlan(c.capa)} />
             <FilaDatoM k="Grupo" v={grupoTxt(c)} />
-            <FilaDatoM k="Plata" v={c.mrrUsd > 0 ? `${usdTxt(c.mrrUsd)} por mes` : c.prueba ? 'En prueba gratis' : 'Plan a mano'} />
+            <FilaDatoM k="Plata" v={c.mrrUsd > 0 ? `${usdTxt(c.mrrUsd)} por mes${c.primerMesUsd != null ? ` · primer mes a ${usdTxt(c.primerMesUsd)}` : ''}` : c.prueba ? 'En prueba gratis' : c.planAManoTxt ?? 'Plan a mano'} />
             {c.pagoPendiente && <FilaDatoM k="Pago" v="Tiene un pago esperando" />}
           </ListaM>
         )}

@@ -8,7 +8,9 @@
 // se paga, o, sin pasarela, se pide y queda en el CRM (lib/compra-plan.ts). El anual no se muestra: el checkout cobra por mes.
 // =============================================================================
 
+import { useEffect, useState } from 'react';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
+import type { EstadoPromo } from '@/lib/promo-entrada-reglas';
 import { CSS_TARJETAS, TarjetasPlanes, type PlanEnTarjeta } from '@/app/planes/Tarjetas';
 import { CSS_PLANES } from '@/app/planes/estilo';
 import { CSS_VITRINA, CompararPlanes } from '@/app/planes/Vitrina';
@@ -42,7 +44,27 @@ const CSS = `
 .mk-precios-pie a { color: #2F6FED; font-weight: 600; text-decoration: none; }
 `;
 
+/**
+ * ¿El reloj del 50% sigue vivo? La landing se sirve con caché, así que se pregunta acá, a la misma ruta que el cartel (`CartelPromo`), y se apaga
+ * solo al llegar a cero. Sin respuesta, el precio de siempre: nunca se dice un descuento que no se sabe si vale.
+ */
+function usePromoVigente(): boolean {
+  const [viva, setViva] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    let fin: ReturnType<typeof setTimeout> | undefined;
+    fetch('/api/promo-entrada', { method: 'POST' }).then((r) => r.json()).then((e: EstadoPromo) => {
+      if (!vivo || !e.hay) return;
+      setViva(true);
+      fin = setTimeout(() => setViva(false), e.restanteMs);
+    }).catch(() => {});
+    return () => { vivo = false; if (fin) clearTimeout(fin); };
+  }, []);
+  return viva;
+}
+
 export function PreciosLanding({ planes, sufijo }: { planes: readonly PlanEnLanding[]; sufijo: string }) {
+  const promoVigente = usePromoVigente();
   return (
     <div className="mk-precios" id="precios">
       {/* La comparación de /planes, tal cual (29/10/2026, Martín: «en la landing no está la comparativa, la tabla»): sus
@@ -50,7 +72,7 @@ export function PreciosLanding({ planes, sufijo }: { planes: readonly PlanEnLand
       <style dangerouslySetInnerHTML={{ __html: CSS + CSS_TARJETAS + CSS_PLANES + CSS_VITRINA }} />
       <h2 className="mk-precios-titulo">Elige cómo quieres crecer con MaKo</h2>
       <p className="mk-precios-sub">Por tu cuenta, con MaKo, o con nosotros a tu lado. {bajadaDePlanes(planes.some((p) => p.cobrable))}</p>
-      <TarjetasPlanes planes={planes} sufijo={sufijo} />
+      <TarjetasPlanes promoVigente={promoVigente} planes={planes} sufijo={sufijo} />
       <CompararPlanes planes={planes} />
       <p className="mk-precios-pie"><a href={`/planes${sufijo}`}>Ver los planes y las preguntas frecuentes</a></p>
     </div>

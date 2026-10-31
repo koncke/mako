@@ -27,6 +27,9 @@ type Obj = Record<string, unknown>;
 type Pagina = Obj & { id: string; objects: Obj[] };
 type Doc = Obj & { width: number; height: number; pages: Pagina[] };
 
+/** Una foto de «Subidos» que la IA puede poner (la lista "fotos" de la vista): ref → esto. */
+export type FotoDelChat = { id: string; url: string; nombre: string; ancho: number; alto: number };
+
 /** Una fila de la revisión: lo de antes y lo de después. */
 export type CambioImagen = { tipo: 'agrega' | 'cambia' | 'quita'; titulo: string; antes: string; despues: string };
 
@@ -154,6 +157,31 @@ function conIdsNuevos(o: Obj, nuevoId: () => string): Obj {
 }
 
 /**
+ * La foto como la guarda el motor (`createImage`, _doory/editor/engine/objects/factories.ts): `src` y `assetId` de «Subidos» y
+ * la escala PAREJA, para que nunca se deforme. Sin medidas, en un cuadrado de la mitad del lado corto, como `photoBox` del motor.
+ * Con «cubrir» llena la caja y corta lo que sobra por igual de cada lado (`cropX`/`cropY`, en píxeles de la foto).
+ * ⚠️ `crossOrigin`: sin él, exportar el diseño falla con el lienzo «sucio». El motor lo pide igual al crearla.
+ */
+function objetoFoto(f: FotoDelChat, op: { x?: number; y?: number; ancho?: number; alto?: number; cubrir?: boolean }, w: number, h: number, id: string): Obj {
+  const nw = Math.max(1, f.ancho);
+  const nh = Math.max(1, f.alto);
+  const lado = Math.min(w, h) / 2;
+  const cajaW = op.ancho ?? (op.alto !== undefined ? (op.alto * nw) / nh : lado);
+  const cajaH = op.alto ?? (op.ancho !== undefined ? (op.ancho * nh) / nw : lado);
+  const escala = op.cubrir ? Math.max(cajaW / nw, cajaH / nh) : Math.min(cajaW / nw, cajaH / nh);
+  const anchoSrc = op.cubrir ? Math.min(nw, cajaW / escala) : nw;
+  const altoSrc = op.cubrir ? Math.min(nh, cajaH / escala) : nh;
+  const x = op.x ?? (w - cajaW) / 2;
+  const y = op.y ?? (h - cajaH) / 2;
+  return {
+    type: 'image', id, name: f.nombre.slice(0, 100), src: f.url, assetId: f.id, crossOrigin: 'anonymous',
+    originX: 'left', originY: 'top', left: r1(x + (cajaW - anchoSrc * escala) / 2), top: r1(y + (cajaH - altoSrc * escala) / 2),
+    width: anchoSrc, height: altoSrc, cropX: (nw - anchoSrc) / 2, cropY: (nh - altoSrc) / 2, scaleX: escala, scaleY: escala,
+    angle: 0, opacity: 1, visible: true, strokeUniform: true,
+  };
+}
+
+/**
  * APLICAR. Las operaciones en orden, sobre una copia. `nuevoId` arma los ids de lo nuevo (el navegador usa el del
  * motor; los tests, uno fijo). `activePageId`: la página abierta (la de un texto o una forma sin "pagina").
  * `soloRefs`: el alcance «lo elegido» (las refs elegidas; lo nuevo de este pedido vale). `fuente`: la familia tal como
@@ -162,12 +190,19 @@ function conIdsNuevos(o: Obj, nuevoId: () => string): Obj {
 export function aplicarOperaciones(p: {
   doc: unknown; operaciones: readonly OperacionImagen[]; vista: RefsDeVista; nuevoId: () => string; activePageId?: string | null;
   soloRefs?: ReadonlySet<string> | null; fuente?: (nombre: string) => string | null;
+  /** Las fotos que se le ofrecieron a la IA. Sin ellas, una operación con foto se descarta con su motivo. */
+  fotos?: ReadonlyMap<string, FotoDelChat> | null;
 }): ResultadoAplicar {
   const doc = clonar(p.doc) as Doc;
   const cambios: CambioImagen[] = [];
   const descartes: string[] = [];
   const fuentes = new Set<string>();
   const nuevas = new Map<string, string>();
+  const paginasNuevas = new Map<string, string>();
+  // Lo que una operación anunció que iba a agregar. La IA puede llamar a lo nuevo como a algo que ya está: si lo nuevo no se
+  // pudo agregar, lo que sigue no tiene que caer sobre lo de la persona (lo encontró la revisión del 30/10/2026).
+  const declaradas = new Set<string>();
+  const paginasDeclaradas = new Set<string>();
   let aplicadas = 0;
   let pagina: string | null = null;
   const anchoDe = (pg: Pagina) => num(pg.width, num(doc.width));
@@ -183,7 +218,9 @@ export function aplicarOperaciones(p: {
   const tituloDe = (ref: string, o: Obj) => p.vista.elementos.get(ref)?.titulo ?? (tipoDe(o) === 'texto' ? `«${String(o.text ?? '').replace(/\s+/g, ' ').slice(0, 40)}»` : String(o.name ?? PALABRA_TIPO[tipoDe(o)]));
   /** El elemento de una ref, listo para cambiar; o el motivo por el que no. */
   const elemento = (ref: string, op: { bloqueadoVale?: boolean } = {}): { pg: Pagina; i: number; o: Obj; titulo: string } | string => {
-    const id = p.vista.elementos.get(ref)?.id ?? nuevas.get(ref);
+    if (declaradas.has(ref) && !nuevas.has(ref)) return `«${ref}» no se pudo agregar`;
+    // Primero lo agregado en este pedido: si la IA le puso una ref que ya existe, de ahí en más habla de lo nuevo.
+    const id = nuevas.get(ref) ?? p.vista.elementos.get(ref)?.id;
     if (!id) return `«${ref}» no está en el diseño`;
     const b = buscar(id);
     if (!b) return `${p.vista.elementos.get(ref)?.titulo ?? ref} ya no está`;
@@ -193,7 +230,8 @@ export function aplicarOperaciones(p: {
     return { ...b, titulo };
   };
   const paginaDe = (ref?: string): Pagina | null => {
-    const id = ref ? p.vista.paginas.get(ref) : (p.activePageId ?? doc.pages[0]?.id);
+    if (ref && paginasDeclaradas.has(ref) && !paginasNuevas.has(ref)) return null;
+    const id = ref ? (paginasNuevas.get(ref) ?? p.vista.paginas.get(ref)) : (p.activePageId ?? doc.pages[0]?.id);
     return doc.pages.find((pg) => pg.id === id) ?? (ref ? null : doc.pages[0] ?? null);
   };
   const hecho = (c: CambioImagen) => { cambios.push(c); aplicadas++; };
@@ -204,6 +242,14 @@ export function aplicarOperaciones(p: {
     return f ? { ...e, fuente: f } : `la fuente «${e.fuente}» no está en el editor`;
   };
   const deLaPagina = (que: string) => `${que} es de la página, no de lo elegido`;
+  /** La fuente que falta se dice y se saca: el texto y el resto del estilo siguen. */
+  const sinFuenteQueFalta = (e: EstiloTexto): EstiloTexto => {
+    const r = conFuente(e);
+    if (typeof r !== 'string') return r;
+    descartes.push(r);
+    const { fuente: _fuente, ...resto } = e;
+    return resto;
+  };
 
   for (const op of p.operaciones) {
     switch (op.op) {
@@ -221,19 +267,18 @@ export function aplicarOperaciones(p: {
         const e = elemento(op.ref);
         if (typeof e === 'string') { descartes.push(e); break; }
         if (tipoDe(e.o) !== 'texto') { descartes.push(`${e.titulo} no es un texto`); break; }
-        const estilo = conFuente(op.estilo);
-        if (typeof estilo === 'string') { descartes.push(estilo); break; }
+        const estilo = sinFuenteQueFalta(op.estilo);
+        if (!Object.keys(estilo).length) break;
         const r = ponerEstilo(e.o, estilo);
         if (r.fuente) fuentes.add(r.fuente);
         hecho({ tipo: 'cambia', titulo: `Estilo de ${e.titulo}`, antes: r.antes.join(' · '), despues: r.despues.join(' · ') });
         break;
       }
       case 'agregar_texto': {
-        const estilo = conFuente(op.estilo);
-        if (typeof estilo === 'string') { descartes.push(estilo); break; }
+        if (op.ref) declaradas.add(op.ref);
+        const estilo = sinFuenteQueFalta(op.estilo);
         const pg = paginaDe(op.pagina);
         if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
-        if (op.ref && nuevas.has(op.ref)) { descartes.push(`«${op.ref}» ya se usó en este pedido`); break; }
         const w = anchoDe(pg);
         const h = altoDe(pg);
         const tamano = estilo.tamano ?? Math.max(12, Math.round(Math.min(w, h) * 0.05));
@@ -341,8 +386,8 @@ export function aplicarOperaciones(p: {
       }
       case 'duplicar': {
         const e = elemento(op.ref, { bloqueadoVale: true });
+        if (op.nueva) declaradas.add(op.nueva);
         if (typeof e === 'string') { descartes.push(e); break; }
-        if (op.nueva && nuevas.has(op.nueva)) { descartes.push(`«${op.nueva}» ya se usó en este pedido`); break; }
         const copia = conIdsNuevos(e.o, p.nuevoId);
         copia.locked = false;
         if (typeof copia.name === 'string') copia.name = `${copia.name} (copia)`.slice(0, 100);
@@ -399,6 +444,7 @@ export function aplicarOperaciones(p: {
         break;
       }
       case 'agregar_pagina': {
+        if (op.nueva) paginasDeclaradas.add(op.nueva);
         if (p.soloRefs) { descartes.push(deLaPagina('Una página nueva')); break; }
         if (doc.pages.length >= POR_DEFECTO.maxPaginas) { descartes.push(`el diseño ya tiene ${POR_DEFECTO.maxPaginas} páginas`); break; }
         const base = op.despues_de ? paginaDe(op.despues_de) : null;
@@ -414,6 +460,7 @@ export function aplicarOperaciones(p: {
           };
         doc.pages.splice(i, 0, nueva);
         pagina = nueva.id;
+        if (op.nueva) paginasNuevas.set(op.nueva, String(nueva.id));
         hecho({ tipo: 'agrega', titulo: `Página ${i + 1}`, antes: '', despues: op.duplicar && base ? `copia de la página ${doc.pages.indexOf(base) + 1}` : 'en blanco' });
         break;
       }
@@ -429,9 +476,9 @@ export function aplicarOperaciones(p: {
         break;
       }
       case 'agregar_forma': {
+        if (op.ref) declaradas.add(op.ref);
         const pg = paginaDe(op.pagina);
         if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
-        if (op.ref && nuevas.has(op.ref)) { descartes.push(`«${op.ref}» ya se usó en este pedido`); break; }
         const circulo = op.forma === 'circulo';
         const o: Obj = {
           type: circulo ? 'ellipse' : 'rect', shapeKind: circulo ? 'ellipse' : 'rect', id: p.nuevoId(), name: circulo ? 'Círculo' : 'Rectángulo',
@@ -443,6 +490,30 @@ export function aplicarOperaciones(p: {
         pg.objects.push(o);
         if (op.ref) nuevas.set(op.ref, String(o.id));
         hecho({ tipo: 'agrega', titulo: circulo ? 'Círculo nuevo' : 'Rectángulo nuevo', antes: '', despues: `${Math.round(op.ancho)} × ${Math.round(op.alto)}` });
+        break;
+      }
+      case 'agregar_foto': {
+        if (op.ref) declaradas.add(op.ref);
+        const f = p.fotos?.get(op.foto);
+        if (!f) { descartes.push(`la foto «${op.foto}» no está en Subidos`); break; }
+        const pg = paginaDe(op.pagina);
+        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        const o = objetoFoto(f, op, anchoDe(pg), altoDe(pg), p.nuevoId());
+        pg.objects.push(o);
+        if (op.ref) nuevas.set(op.ref, String(o.id));
+        hecho({ tipo: 'agrega', titulo: 'Foto nueva', antes: '', despues: f.nombre });
+        break;
+      }
+      case 'fondo_foto': {
+        if (p.soloRefs) { descartes.push(deLaPagina('El fondo')); break; }
+        const f = p.fotos?.get(op.foto);
+        if (!f) { descartes.push(`la foto «${op.foto}» no está en Subidos`); break; }
+        const pg = paginaDe(op.pagina);
+        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        const bg = (pg.background ?? {}) as { type?: string; color?: string };
+        const antes = bg.type === 'solid' ? String(bg.color) : bg.type === 'image' ? 'imagen' : 'degradado';
+        pg.background = { type: 'image', src: f.url, fit: 'cover' };
+        hecho({ tipo: 'cambia', titulo: `Fondo de la página ${doc.pages.indexOf(pg) + 1}`, antes, despues: f.nombre });
         break;
       }
     }

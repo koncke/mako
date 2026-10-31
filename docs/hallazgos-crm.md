@@ -20,6 +20,45 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## ¿Qué pasó con estos leads? La papelera andaba; lo que no existía era el renglón (30/10/2026)
+
+**Vive en:** supabase/migrations/0356_leads_bajas.sql (aplicada el 30/10) · lib/leads-bajas.ts · lib/leads-bajas-reglas.ts · la API
+`ver_bajas_de_leads` · tests/crm-leads-bajas.test.ts (24 roturas, 24 rojos).
+
+- **El síntoma:** 4.457 filas de historial son de 1.371 leads que ya no existen, sin decir quién los borró, y la papelera tenía 0 filas
+  en todos los negocios. Se leía como «la papelera no anda y lleva días sin registrar nada». **Ese diagnóstico era el equivocado.**
+  Medido en producción, en el Cliente de Prueba y con un lead propio: la foto, la salida de `leads`, la vuelta con el mismo id,
+  todo funciona. Tampoco hay ninguna línea «Papelera» en el historial, y el código está en main desde el 29/10 a las 11:53. Lo más
+  probable es que nadie haya eliminado desde entonces. Pero eso no se podía probar, porque nada registraba los borrados: ése era
+  el agujero de verdad.
+- **Por qué un trigger de la base y no una línea en el código:** un camino nuevo, un script o el SQL a mano no pasan por el código.
+  Es a nivel de sentencia (un lote es un renglón por negocio), y anotar **nunca frena un borrado**: se probó rompiendo la tabla
+  adentro de una transacción que se deshizo, y el lead se borró igual, con un warning.
+- ⚠️ **Sólo guarda ids, a propósito: no le agreguen el nombre.** Parece una mejora obvia, y no lo es. Este registro no se purga: con
+  nombres sería un lugar que guarda datos personales para siempre, justo de la gente que pidió irse. Los datos siguen en la foto de
+  la papelera, con sus 30 días.
+- **Quién y por qué camino sólo se pueden decir desde una función de la base.** Desde PostgREST cada pedido es su propia transacción:
+  un `set_config` antes del `.delete()` no llega. Por eso `borrar_lead_anotado`. Sin ella el renglón dice `sin_camino`, y `rol` dice de
+  dónde vino (`service_role` es la app; `postgres` es un script o SQL a mano).
+- **Los dos caminos que no pasan por la papelera, y no deben:**
+  - unificar: todo lo que colgaba ya se mudó, así que recuperarla devolvería una ficha duplicada y vacía;
+  - el huérfano de Zernio: nació segundos antes en la misma corrida y nadie lo vio.
+  Quedan anotados con su camino. `deleteLead` se fue (no tenía quién la llamara), y un test barre `lib/` y `app/` para que no aparezca
+  un tercer `from('leads').delete()`.
+- ⚠️ **`leads_bajas` es de inquilino, y borrar `leads` escribe ahí.** Vaciarla en su lugar de la lista dejaba un residuo: por eso
+  `vaciarTablas` la barre otra vez al final.
+- ⚠️ **Último autor no es quién borró.** Para los 1.371 de antes, lo único que queda es la última línea del historial. Es una pista, no un
+  hecho. Medido el 30/10 (los de octubre): Leila 112 (28/10), Martín 25 (27/10) y 606 (26/10) en su negocio, y otra cuenta de Martín 440 (26/10) y 173 (25/10) en el
+  de Leandro. Quien pregunte por esos lee esto: el registro arranca el 30/10, y la API lo avisa siempre.
+
+**Quedó SIN hacer:**
+- El botón «Eliminar» no se probó en pantalla (faltaba la sesión). Se leyó el código, y las funciones se midieron por PostgREST.
+- Lo que se borró no se ve en ninguna pantalla: se contesta por la API de MaKo. Si hace falta, va al lado de la papelera
+  (app/crm/PapeleraLeads.tsx).
+- El borrado de cuentas viejas y el reset quedan como `sin_camino`, con rol `service_role`, si algún día hay que mirarlos.
+
+*30/10/2026, chat «CRM» (claude1).*
+
 ## «Solucionar» un dato que la ficha no dibuja: el asistente no sabía CUÁL (29/10/2026, claude3)
 
 **El síntoma.** Leila (ws11, lead Fabi Pedraza, 26/10): «me dice que no tengo los datos fiscales pero cuando los quiero
@@ -251,8 +290,31 @@ FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
 - **El panel de MaKo de la ficha («Editar con MaKo» y el AI Analyst) es el bloque flotante del Dashboard** (`.an`: 12 px de
   aire, bordes de 14, sombra, sin la raya de color). Sin hacer: el panel de la estrella de MaKo en cada tab
   (`.ch-tab-panel`, app/_chat/chat.css) sigue siendo el cuadrado de borde a borde; es de la pieza compartida del chat.
-- **Sin hacer:** las reuniones, las cuotas y los datos fiscales muestran varios datos y no eligen cuáles (no tienen `datos`
-  en el catálogo): ahí sólo se puede pedir u ocultar el bloque entero.
+- **El 30/10 se sumaron Datos fiscales, Servicio vendido y Promesa** (`DATOS_FISCALES`, `DATOS_SERVICIO`, `DATOS_PROMESA`,
+  tests/ficha-datos-del-deal.test.ts). De entrada traen todos sus datos: una ficha guardada se ve igual. El aviso va atado a
+  un dato (`razon`, `documento`, `que_es`, `resultado`): sin ese dato adentro, el bloque deja de pedirlo.
+- **Sin hacer:** las reuniones ya se parten en bloques (R2, Agendar, Lo que salió), pero la R1 no elige sus datos. Las cuotas
+  tampoco, y no conviene tocarlas hasta que entre la rama `crm-cuotas-espera-revision`, que cambia ese bloque.
+
+## «Extraer»: el resultado era una línea en el pie, y el aviso no se perdía (30/10/2026)
+
+**Vive en:** lib/extraccion-estado.ts · app/crm/ExtraccionModal.tsx (lo monta CrmBoard) · app/crm/TraerDeGrupoWA.tsx · extension/background.js
+(`volverAMako`) · tests: extraccion-confirmacion, wa-extraer-072 (13 roturas cazadas).
+
+- **Síntoma.** Martín: «sigue abierto el modal del scraper previo a darle "extraer" eso hace pensar que nunca se extrajo nada».
+- **El diagnóstico obvio («la pantalla no se entera de que terminó») era el equivocado.** Se enteraba: `setHecho` escribía el resultado.
+  Pero en UNA línea del pie, y `setVuelta` releía el mismo grupo: a la vuelta se veía la misma tabla, con el mismo botón. **Regla:** lo que
+  terminó tiene que verse distinto de lo que estaba por empezar. Un modal encima dice cuántos, y al terminar bien la lista queda para elegir otro grupo.
+- **El estado no puede vivir en el modal.** Un clic afuera desmontaba el Scraper y la corrida seguía sin que nada lo dijera. Vive en un módulo,
+  y en `sessionStorage` para sobrevivir a una recarga.
+- ⚠️ **La corrida la maneja LA PÁGINA** (crea los leads, guarda los nombres): una recarga la mata. No se puede preguntar «¿cómo va?» de algo que ya no
+  corre: lo guardado como 'corriendo' se lee como cortado, con los leads que alcanzaron a entrar, y se le avisa a la extensión que deje de andar.
+- **Cero se dice como cero** y un corte nunca sale como éxito aunque algo haya entrado (`resultadoDeExtraccion`).
+- **Un modal que corre no se cierra, se para** (`Modal`: `sinCerrar`). Lo demás sigue la regla de la pila: es OTRO modal encima, y cerrarlo vuelve al Scraper.
+- **Sin ver de punta a punta.** El navegador de la app no tiene la extensión y la línea del Cliente de Prueba está desconectada. Se fotografió el modal real
+  con el estado de verdad (corriendo, con leads, cero y corte) en una maqueta, y el worker se ejecutó con un `chrome` de mentira.
+- ⚠️ **Sin hacer:** cerrar la pestaña de MaKo en plena corrida no deja nada que leer en otra pestaña (`sessionStorage` es de esa pestaña). El registro de la
+  extensión sí la tiene (`extracciones`), pero la pantalla no se lo pregunta.
 
 ## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
 
@@ -272,6 +334,10 @@ FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
 - **Sin hacer:** «en todos lados» va más allá del CRM. Fuera de app/crm no se barrió qué modales reemplazan su contenido o
   cierran para abrir otro; el patrón a buscar es `setX(null); setY(true)` en un `onClick` y un `Modal` con el título que
   depende de una vista.
+- **Barrido del 30/10 (por patrón, leyendo código, sin verlo en pantalla).** Cierran un modal para abrir otro, y el clic afuera
+  ya no vuelve: app/plan/board/EliminarModal.tsx (Completar y Debate), app/plan/board/PrioridadAMano.tsx (Debate y abrir otra
+  tarea), app/_comunidad/Busqueda.tsx (abrir perfil o post). Quedan sin hacer, para el chat de cada tab. Los modales con título
+  según una vista que aparecieron son crear o editar, no navegación. El patrón no ve los que se cierran desde otro archivo.
 
 ## El buscador de Instagram en la cuenta de Mauricio: Meta conectada SIN Instagram, y ninguna fuente trae la foto (25/10/2026)
 
@@ -294,8 +360,28 @@ app/crm/new/InstagramBuscador.tsx · tests: instagram-meta-sin-instagram (3 rotu
   es de Martín (fue al Ops Center como pregunta): el Instagram de MaKo vinculado a su página + `instagram_basic` en el token
   de la plataforma (gratis, sólo cuentas de empresa o creador), o una clave de Apify de la plataforma (cualquier perfil
   público, se paga por lectura, con tope por día ya armado en lib/instagram-perfil-server.ts).
-- **Sin hacer:** sumar `instagram_basic` a los permisos que el catálogo pide para el token de Meta (es de Integraciones:
-  lib/metodo-catalogo.ts, la línea de «Generar nuevo token»).
+- **El 30/10 ya no hay línea de «Generar nuevo token» en lib/metodo-catalogo.ts:** el token se pide de otra forma, así que no
+  se sumó `instagram_basic` ahí.
+- **Medido el 30/10 (sólo lectura, sin imprimir tokens). Sigue sin haber fuente para Mauricio ni para la plataforma:**
+  - El ws 1 y el ws 9: sin ningún permiso de Instagram y sin Instagram vinculado.
+  - El ws 13, 15, 18 y 20: **la página devuelve `instagram_business_account` sin ningún permiso de Instagram.** «Tiene id» no
+    quiere decir «puede buscar»: Business Discovery pide `instagram_basic` (no se probó una búsqueda con ellos).
+  - Sólo el ws 11 tiene los permisos, y su token es de un cliente: no se le presta a otro negocio.
+- **Dos trampas que dejaban sin foto aunque se destrabara, arregladas el 30/10:**
+  - El buscador sólo le preguntaba a Apify después de la Meta del negocio; **a la Meta de la plataforma, nunca**. Ahora va
+    `['meta-plataforma', 'apify']`.
+  - `CAMPOS_PERFIL`, los campos de LA función de Instagram, **no pedía `profile_picture_url`**: habría encontrado la cuenta y
+    devuelto `foto: null`, sin error. El buscador tiene su propia lista de campos; ésta no.
+- **Lo que falta es de Martín: el Instagram de MaKo vinculado a su página y `instagram_basic` en el token de la plataforma.** Con
+  eso anda sin tocar código, gratis, sólo para cuentas de empresa o creador.
+- **El otro camino, no construido: la extensión, con la sesión de Instagram de la persona** (`web_profile_info` contesta 401 sin
+  sesión). Traería también cuentas personales, y Apify ya está descartado por costo. Tres cosas a saber antes:
+  - Es un endpoint no oficial y MaKo está en la App Review de Meta (lib/instagram-perfil.ts ya lo descartó por eso): es aceptar
+    un riesgo, y por eso va a Martín.
+  - El permiso tiene que ser `optional_host_permissions`: uno obligatorio deshabilita la extensión a todos hasta que acepten, y
+    con ella se corta Flow. Y hay que sumarlo a la política de privacidad (tests/wa-fichas-extension.test.ts, test 10).
+  - **Sin medir:** ni la respuesta con sesión ni si el CDN deja mostrar la foto en otra página (si no, la extensión tiene que
+    bajarla). El 30/10 no había ningún Chrome conectado para probarlo.
 
 ## «A revisar» corta por el CRM que se mira: la casa del lead, como el tablero (25/10/2026)
 

@@ -19,6 +19,7 @@ import { CAMPOS_DEAL, type ParteObligacion, type SeccionDeal } from '@/lib/pagos
 import type { DocumentoLeido } from '@/lib/pagos-vistazo';
 import { guardarCampoDealAction, guardarObligacionAction } from '@/app/crm/[id]/pagos-campo-actions';
 import { getIdentidadesFiscalesAction, type IdentidadFiscal } from '@/app/crm/[id]/deal-actions';
+import { datosDelPuesto } from '@/lib/ficha/config';
 import type { PropsBloque, CtxFicha } from '../tipos';
 import { completarConDocumentoAction } from './documento-actions';
 import { EnLinea } from './EnLinea';
@@ -60,7 +61,7 @@ function Campos({ ctx, seccion, campos, editando, guardar, respaldo, compacta = 
         const esFecha = c === 'fecha_inicio' || c === 'fecha_termino';
         const v = valores[c] ?? '';
         return (
-          <div key={c} style={compacta
+          <div key={c} data-dato={c} data-dato-nombre={rotulos[c]} style={compacta
             ? { display: 'grid', gridTemplateColumns: 'minmax(120px, 34%) minmax(0, 1fr)', gap: 10, alignItems: 'baseline', padding: '7px 0', borderBottom: '1px solid var(--border)' }
             : { ...caja, gridColumn: c === 'que_es' || seccion === 'promesa' ? '1 / -1' : undefined }}>
             <span style={etiqueta}>{rotulos[c]}</span>
@@ -148,7 +149,7 @@ export function Contrato({ ctx, titulo, diseno, editando }: PropsBloque) {
   );
 }
 
-export function DatosFiscales({ ctx, titulo, diseno, editando }: PropsBloque) {
+export function DatosFiscales({ ctx, titulo, diseno, editando, def, puesto }: PropsBloque) {
   const { lead } = ctx;
   const { guardar, toast, show } = useCampoDeal(ctx);
   const archivo = useRef<HTMLInputElement | null>(null);
@@ -167,18 +168,19 @@ export function DatosFiscales({ ctx, titulo, diseno, editando }: PropsBloque) {
     ctx.parchear({ facturado_por_id: v ? Number(v) : null });
   });
   const tieneDoc = !!lead.deal_fiscal?.doc_path;
-  const campos = Object.keys(CAMPOS_DEAL.fiscal);
+  const va = new Set(datosDelPuesto(def, puesto.opciones));
+  const campos = Object.keys(CAMPOS_DEAL.fiscal).filter((c) => va.has(c));
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('dealFiscal')}>
       <input ref={archivo} type="file" accept=".pdf,image/*" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) void leer(f); e.target.value = ''; }} />
-      <div style={{ ...caja, maxWidth: 440 }}>
+      {va.has('facturado_por') && <div data-dato="facturado_por" data-dato-nombre="Facturado por" style={{ ...caja, maxWidth: 440 }}>
         <span style={etiqueta}>Facturado por</span>
         <Dropdown value={lead.facturado_por_id != null ? String(lead.facturado_por_id) : ''} onChange={facturar} width="100%" ariaLabel="Facturado por"
           disabled={editando || identidades === null} placeholder={identidades === null ? 'Cargando…' : 'Elige una identidad'}
           options={[{ value: '', label: 'Sin definir' }, ...(identidades ?? []).map((i) => ({ value: String(i.id), label: i.nombre, sub: i.id_fiscal ?? undefined }))]} />
-      </div>
+      </div>}
       <Campos ctx={ctx} seccion="fiscal" campos={campos} editando={editando} guardar={guardar} respaldo={{ correo: lead.email }} compacta={diseno === 'compacta'} />
-      <div style={franja} data-recorrido={marcaDato('dealFiscalDoc')}>
+      {va.has('documento') && <div style={franja} data-dato="documento" data-dato-nombre="Documento fiscal" data-recorrido={marcaDato('dealFiscalDoc')}>
         <div style={{ flex: 1, minWidth: 180 }}>
           <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{lead.deal_fiscal?.doc_nombre ?? (tieneDoc ? 'Documento fiscal' : 'Sin documento fiscal')}</div>
           <div style={{ fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>La constancia, el RFC o el CUIT del cliente: se lee y completa lo vacío.</div>
@@ -190,7 +192,7 @@ export function DatosFiscales({ ctx, titulo, diseno, editando }: PropsBloque) {
             <Button variant={tieneDoc ? 'tertiary' : 'secondary'} size="sm" loading={leyendo} onClick={() => archivo.current?.click()}>{tieneDoc ? 'Reemplazar' : 'Subir documento'}</Button>
           </div>
         )}
-      </div>
+      </div>}
       {resultado && <Aviso tono={resultado.tono}>{resultado.texto}</Aviso>}
       {ver && tieneDoc && <VerDoc src={`/api/doc?leadId=${lead.id}&kind=fiscal`} nombre={lead.deal_fiscal?.doc_nombre ?? 'Documento fiscal'} onCerrar={() => setVer(false)} />}
       {toast}
@@ -198,8 +200,9 @@ export function DatosFiscales({ ctx, titulo, diseno, editando }: PropsBloque) {
   );
 }
 
-export function ServicioVendido({ ctx, titulo, diseno, editando }: PropsBloque) {
+export function ServicioVendido({ ctx, titulo, diseno, editando, def, puesto }: PropsBloque) {
   const { lead } = ctx;
+  const va = new Set(datosDelPuesto(def, puesto.opciones));
   const { guardar, toast, show } = useCampoDeal(ctx);
   const s = lead.deal_servicio ?? {};
   const inicioAMano = (v: string) => guardarCampoDealAction(lead.id, { seccion: 'lead', campo: 'fecha_inicio_servicio', valor: v || null }).then((r) => {
@@ -209,10 +212,10 @@ export function ServicioVendido({ ctx, titulo, diseno, editando }: PropsBloque) 
     return null;
   });
   if (diseno === 'renglon') {
-    const partes = [s.duracion, s.frecuencia, s.modalidad, s.sesiones].map((x) => x?.trim()).filter(Boolean);
+    const partes = (['duracion', 'frecuencia', 'modalidad', 'sesiones'] as const).filter((c) => va.has(c)).map((c) => s[c]?.trim()).filter(Boolean);
     return (
       <Tarjeta titulo={titulo} marca={marcaDato('dealServicio')}>
-        <EnLinea valor={s.que_es ?? ''} tipo="largo" titulo="Edita qué es el servicio" bloqueado={editando} estilo={{ fontSize: 14.5, fontWeight: 600 }} onGuardar={(v) => guardar('servicio', 'que_es', v)} />
+        {va.has('que_es') && <span data-dato="que_es" data-dato-nombre="Qué es"><EnLinea valor={s.que_es ?? ''} tipo="largo" titulo="Edita qué es el servicio" bloqueado={editando} estilo={{ fontSize: 14.5, fontWeight: 600 }} onGuardar={(v) => guardar('servicio', 'que_es', v)} /></span>}
         <span style={{ fontSize: 13.5, color: partes.length ? 'var(--dim)' : 'var(--faint)' }}>{partes.length ? partes.join(' · ') : 'Sin duración, frecuencia ni modalidad.'}</span>
         {toast}
       </Tarjeta>
@@ -220,33 +223,34 @@ export function ServicioVendido({ ctx, titulo, diseno, editando }: PropsBloque) 
   }
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('dealServicio')}>
-      <Campos ctx={ctx} seccion="servicio" campos={Object.keys(CAMPOS_DEAL.servicio)} editando={editando} guardar={guardar} />
-      <div style={{ ...caja, maxWidth: 260 }}>
+      <Campos ctx={ctx} seccion="servicio" campos={Object.keys(CAMPOS_DEAL.servicio).filter((c) => va.has(c))} editando={editando} guardar={guardar} />
+      {va.has('arranco') && <div data-dato="arranco" data-dato-nombre="Arrancó" style={{ ...caja, maxWidth: 260 }}>
         <span style={etiqueta}>Arrancó (cargado a mano)</span>
         <EnLinea valor={lead.fecha_inicio_servicio ?? ''} tipo="fecha" vacio="sin fecha" titulo="Edita cuándo arrancó el servicio" bloqueado={editando} estilo={{ fontSize: 14.5 }} onGuardar={inicioAMano} />
-      </div>
+      </div>}
       {toast}
     </Tarjeta>
   );
 }
 
-export function PromesaYGarantia({ ctx, titulo, diseno, editando }: PropsBloque) {
+export function PromesaYGarantia({ ctx, titulo, diseno, editando, def, puesto }: PropsBloque) {
   const { guardar, toast } = useCampoDeal(ctx);
+  const va = new Set(datosDelPuesto(def, puesto.opciones));
   const p = ctx.lead.deal_promesa ?? {};
   if (diseno === 'cita') {
     return (
       <Tarjeta titulo={titulo} marca={marcaDato('dealPromesa')}>
-        <blockquote style={{ margin: 0, paddingLeft: 14, borderLeft: '3px solid var(--primary)', fontSize: 16, lineHeight: 1.5, color: 'var(--ink)' }}>
+        {va.has('resultado') && <blockquote data-dato="resultado" data-dato-nombre="Resultado prometido" style={{ margin: 0, paddingLeft: 14, borderLeft: '3px solid var(--primary)', fontSize: 16, lineHeight: 1.5, color: 'var(--ink)' }}>
           <EnLinea valor={p.resultado ?? ''} tipo="largo" vacio="Sin promesa cargada" titulo="Edita el resultado prometido" bloqueado={editando} estilo={{ fontSize: 16 }} onGuardar={(v) => guardar('promesa', 'resultado', v)} />
-        </blockquote>
-        <span style={{ fontSize: 13, color: 'var(--dim)' }}>Garantía: <EnLinea valor={p.garantia ?? ''} tipo="largo" vacio="sin garantía" titulo="Edita la garantía" bloqueado={editando} estilo={{ fontSize: 13, display: 'inline' }} onGuardar={(v) => guardar('promesa', 'garantia', v)} /></span>
+        </blockquote>}
+        {va.has('garantia') && <span data-dato="garantia" data-dato-nombre="Garantía" style={{ fontSize: 13, color: 'var(--dim)' }}>Garantía: <EnLinea valor={p.garantia ?? ''} tipo="largo" vacio="sin garantía" titulo="Edita la garantía" bloqueado={editando} estilo={{ fontSize: 13, display: 'inline' }} onGuardar={(v) => guardar('promesa', 'garantia', v)} /></span>}
         {toast}
       </Tarjeta>
     );
   }
   return (
     <Tarjeta titulo={titulo} marca={marcaDato('dealPromesa')}>
-      <Campos ctx={ctx} seccion="promesa" campos={Object.keys(CAMPOS_DEAL.promesa)} editando={editando} guardar={guardar} />
+      <Campos ctx={ctx} seccion="promesa" campos={Object.keys(CAMPOS_DEAL.promesa).filter((c) => va.has(c))} editando={editando} guardar={guardar} />
       {toast}
     </Tarjeta>
   );
