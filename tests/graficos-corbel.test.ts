@@ -11,7 +11,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CSS_CORBEL, PALETAS_CORBEL, seriesDeEscena, tilesDeHoja, type EscenaCorbel } from '../lib/graficos-corbel';
-import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDeEscena, plantillaDe, sanearTema, varsDeTema } from '../lib/graficos-temas';
+import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDe, paletaDeEscena, plantillaDe, sanearTema, varsDeTema } from '../lib/graficos-temas';
+import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
+import { sanearHoja } from '../lib/graficos-catalogo';
 import { componentesDe, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
 import { comoCorbel, ALTO_NUMEROS, ALTO_PROTAGONISTAS } from '../lib/graficos-portadas';
 
@@ -25,9 +27,9 @@ const EQUIVALE: Readonly<Record<string, string>> = {
   '--good': '--up', '--bad': '--down', '--warn': '--warn',
   '--cb-glass': '--glass', '--cb-rim': '--rim', '--cb-shadow': '--shadow', '--cb-ocean': '--ocean', '--cb-on-ocean': '--on-ocean',
   '--cb-sky': '--sky', '--cb-mint': '--mint', '--cb-lemon': '--lemon', '--cb-coral': '--coral',
-  '--cb-c1': '--c1', '--cb-c3': '--c3', '--cb-c4': '--c4',
+  '--cb-c1': '--c1',
 };
-/** El 2 y el 5 de la demo: algunos no llegan a 2:1 y se cambiaron (`seriesDeEscena`). Lo que se ve tiene que ser un valor medido. */
+/** Las otras series, reordenadas o cambiadas (`seriesDeEscena`): algunos no llegan a 2:1 y se cambiaron (`seriesDeEscena`). Lo que se ve tiene que ser un valor medido. */
 const todosLosMedidos = (o: unknown): string => JSON.stringify(o).toLowerCase();
 
 test('cada color de la tabla es el que se leyó de la demo, en las cuatro paletas y en los dos temas', () => {
@@ -122,6 +124,53 @@ test('los tiles salen de la POSICIÓN: negro, blanco, gris y gris más oscuro, d
   assert.equal(o.get('k'), 'sky');
 });
 
+// El contraste WCAG, para medir tonos entre sí.
+const lum = (h: string) => {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const cr = (a: string, b: string) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+
+test('los seis neutros de Mono se distinguen CON CUALQUIER CANTIDAD de series: un anillo con cuatro canales usa los primeros cuatro', () => {
+  for (const modo of ['claro', 'oscuro'] as const) {
+    const t = PALETAS_CORBEL.mono[modo];
+    const seis = [1, 2, 3, 4, 5, 6].map((n) => t[`--cb-c${n}`]);
+    for (const c of seis) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16));
+      assert.ok(Math.max(r, g, b) - Math.min(r, g, b) <= 8, `${modo} ${c}: un neutro no lleva tono (ni el verde ni el rojo del semáforo)`);
+    }
+    for (let n = 2; n <= 6; n++) {
+      const usados = seis.slice(0, n);
+      usados.forEach((c, i) => {
+        const vecino = usados[(i + 1) % n];
+        assert.ok(cr(c, vecino) >= 1.5, `${modo}, con ${n} series: ${c} y ${vecino} quedan vecinos con ${cr(c, vecino).toFixed(2)}`);
+      });
+    }
+    // Aunque no se toquen, dos iguales no se pueden leer en la leyenda.
+    for (let i = 0; i < 6; i++) for (let j = i + 1; j < 6; j++) assert.ok(cr(seis[i], seis[j]) >= 1.25, `${modo}: ${seis[i]} y ${seis[j]}`);
+  }
+});
+
+test('las hojas de General salen en blanco y negro: guardan el tema «general», no «mako», y un id que no existe no se queja', () => {
+  assert.ok(PLANTILLAS_GENERAL.length >= 10);
+  for (const p of PLANTILLAS_GENERAL) {
+    const h = sanearHoja({ ...p.armar((l: string) => l), plantilla: p.id }, 0)!;
+    assert.equal(h.tema.plantilla, 'general', `${p.id} guarda otro tema: si es uno que no existe, cae a otro sin avisar`);
+    assert.equal(paletaDeEscena(h.tema), 'mono', `${p.id} no se pinta con Corbel`);
+    assert.equal(acentoDePortada(h.tema), '#121212', `${p.id}: su portada no sale negra`);
+    assert.match(paletaDe(h.tema)[0], /--cb-c1/, `${p.id}: sus series siguen con otra paleta`);
+  }
+});
+
+test('el riel: 30 de ancho tope y el extremo redondo, sólo con Corbel', () => {
+  const e = estiloEfectivo(sanearTema(null));
+  assert.equal(e.anchoBarra, 30);
+  assert.equal(e.radioBarra, 15);
+  assert.equal(estiloEfectivo(sanearTema({ plantilla: 'clasica' })).anchoBarra, undefined);
+  const g = leer('app/dashboard/Grafico.tsx');
+  assert.doesNotMatch(g, /maxBarSize: BARRA\.maxVertical|maxBarSize=\{BARRA\.maxVertical\}/);
+});
+
 test('EL RAYADO NO SE COPIA: acá significa «Estimado», y un número medido no se dibuja rayado', () => {
   assert.doesNotMatch(CSS_CORBEL, /repeating-linear-gradient/);
   assert.doesNotMatch(leer('lib/graficos-corbel.ts').replace(/^\/\/.*$/gm, ''), /--hatch/);
@@ -180,7 +229,7 @@ test('lo que no entra en un tercio va a lo ancho', () => {
 
 test('las pantallas lo usan: el editor y la miniatura llevan la paleta y los tiles', () => {
   const e = leer('app/dashboard/EditorInforme.tsx');
-  assert.match(e, /<div className=\{`lk lk-app[^`]*`\} data-paleta=\{paleta\}/);
+  assert.match(e, /<div className=\{`lk lk-app[^`]*`\} onContextMenu=\{alClicDerecho\} data-paleta=\{paleta\}/);
   assert.match(e, /data-tile=\{tiles\?\.get\(c\.id\)\}/);
   assert.match(e, /<style>\{CSS_CORBEL\}<\/style>/);
   assert.match(e, /marcoDePortada\(c, acentoDePortada\(hoja\.tema\)\)/);

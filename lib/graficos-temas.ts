@@ -102,6 +102,8 @@ export type PlantillaTema = {
     trazo: number;
     radioBarra: number;
     compacto: boolean;
+    /** El ancho tope de una columna. Sin esto, el de lib/graficos-gordo.ts. */
+    anchoBarra?: number;
   };
   /** La tipografía de la plantilla (id de TIPOGRAFIAS). */
   fuente: string;
@@ -143,7 +145,8 @@ function conEscena(id: string, nombre: string, linea: string, escena: EscenaCorb
     tarjeta: { fondo: 'surface', borde: 'no', radio: 22, sombra: true, filete: false },
     titulo: { tam: 15, peso: 600, mayus: false },
     kpi: { etiqueta: 'letra', tamValor: 26, maximo: 26, maximoPortada: 34 },
-    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 3.5, radioBarra: 10, compacto: false },
+    // El riel de Corbel: 30 de ancho tope y el extremo redondo. Sólido: su rayado acá significa «Estimado».
+    graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 3.5, radioBarra: 15, compacto: false, anchoBarra: 30 },
     fuente: 'urbanist',
   };
 }
@@ -316,6 +319,8 @@ export type EstiloEfectivo = {
   compacto: boolean;
   trazo: number;
   radioBarra: number;
+  /** El ancho tope de una columna (o el de lib/graficos-gordo.ts). */
+  anchoBarra?: number;
   /** Cómo va el rótulo de una KPI. */
   kpiEtiqueta: 'mono' | 'letra';
   kpiTamValor: number;
@@ -345,6 +350,7 @@ export function estiloEfectivo(tema: TemaHoja): EstiloEfectivo {
     // Los pisos del sistema «gordo» (punto 13): ninguna plantilla los baja.
     trazo: trazoDe(p.graficos.trazo),
     radioBarra: radioDe(p.graficos.radioBarra),
+    anchoBarra: p.graficos.anchoBarra,
     kpiEtiqueta: p.kpi.etiqueta,
     kpiTamValor: p.kpi.tamValor,
     kpiMaximo: p.kpi.maximo,

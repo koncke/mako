@@ -167,7 +167,7 @@
      legible de la pantalla en las once pantallas del recorrido. Es la misma familia
      que --on-sidebar y --on-ink: un color que EXISTE PARA un fondo se declara al lado
      de ese fondo, o se queda viejo cuando el fondo cambia. */
-  --on-primary: #fff;
+  --on-primary: #ffffff;
 
   /* ── MaKo · el dorado maestro ─────────────────────────────────────────
      UN solo hex: #F2B01E, el del logo entregado y el de la landing /vsl.

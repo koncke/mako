@@ -58,7 +58,7 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
       '--cb-shadow': '0 1px 0 #fffc inset, 0 22px 44px -30px #00000038',
       '--cb-ocean': '#121212', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#121212', '--cb-sky-ink': '#f3f7f8', '--cb-mint': '#fff', '--cb-lemon': '#e2e2de', '--cb-coral': '#d2d2cd', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#121212', '--cb-c2': '#b4b4af', '--cb-c3': '#6a6a66', '--cb-c4': '#8e8e89', '--cb-c5': '#a6a6a1', '--cb-c6': '#3f3f3c', '--cb-c7': '#a3a39e', '--cb-c8': '#4f4f4c',
+      '--cb-c1': '#121212', '--cb-c2': '#b4b4af', '--cb-c3': '#4f4f4c', '--cb-c4': '#8e8e89', '--cb-c5': '#3f3f3c', '--cb-c6': '#6a6a66', '--cb-c7': '#a6a6a1', '--cb-c8': '#696965',
     },
     oscuro: {
       ...ESTADO_OSCURO, ...SOBRE_CLARO,
@@ -69,7 +69,7 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
       '--cb-shadow': '0 1px 0 #ffffff0d inset, 0 24px 48px -30px #000c',
       '--cb-ocean': '#222', '--cb-on-ocean': '#f3f7f8',
       '--cb-sky': '#f0f0ee', '--cb-sky-ink': ON_TILE, '--cb-mint': '#d6d6d2', '--cb-lemon': '#c2c2bd', '--cb-coral': '#ababa6', '--cb-on-tile': ON_TILE,
-      '--cb-c1': '#ededeb', '--cb-c2': '#6c6c68', '--cb-c3': '#a9a9a5', '--cb-c4': '#8e8e8a', '--cb-c5': '#c4c4bf', '--cb-c6': '#8a8a86', '--cb-c7': '#4c4c4a', '--cb-c8': '#d6d6d2',
+      '--cb-c1': '#ededeb', '--cb-c2': '#6c6c68', '--cb-c3': '#a9a9a5', '--cb-c4': '#4c4c4a', '--cb-c5': '#8e8e8a', '--cb-c6': '#c2c2bd', '--cb-c7': '#c4c4bf', '--cb-c8': '#8a8a86',
     },
   },
   pastel: {
@@ -127,6 +127,9 @@ export const PALETAS_CORBEL: Readonly<Record<EscenaCorbel, { claro: Tokens; oscu
  * ⚠️ No son los cinco de la demo tal cual: los que no llegan a 2:1 sobre su superficie (el #c8c8c3 de Mono, el segundo de
  * cada paleta con color) se cambiaron por otro valor medido de la misma paleta, porque una serie que no se ve miente
  * (tests/graficos-modelo.test.ts). Y Salvia abre con su tercero: su verde de acento es casi el verde de «bueno».
+ * ⚠️ EL ORDEN DE MONO NO ES EL DE LA DEMO, Y ES A PROPÓSITO: un anillo recorre la paleta por índice y con cuatro canales usa los
+ * primeros cuatro, así que dos tonos vecinos dependen de cuántas series haya. Se buscó el orden que aguanta cada N de 2 a 6
+ * (tests/graficos-corbel.test.ts). Con más de seis, los tonos se parecen: seis neutros es lo que se distingue.
  */
 export const seriesDeEscena = (escena: EscenaCorbel): readonly string[] =>
   (escena === 'sage' ? [3, 1, 2, 4, 5, 6, 7, 8] : [1, 2, 3, 4, 5, 6, 7, 8]).map((n) => `var(--cb-c${n}, ${PALETAS_CORBEL[escena].claro[`--cb-c${n}`]})`);

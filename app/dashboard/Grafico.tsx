@@ -599,7 +599,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 <YAxis tick={EJE} tickFormatter={tick(col.formato)} tickCount={EJES.marcasY} width={anchoEjeY(datos.map((d) => fmtValor(d.base + d.alto, col.formato, true)))} axisLine={false} tickLine={false} hide={!ejes} />
                 <Tooltip contentStyle={TIP} cursor={{ fill: 'var(--surface-2)' }} formatter={(_v, _n, it) => [fmt((it?.payload as { v?: number })?.v ?? null, col.formato), col.nombre]} />
                 <Bar dataKey="base" stackId="c" fill="transparent" {...anim} />
-                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={BARRA.maxVertical} {...anim}>
+                <Bar dataKey="alto" stackId="c" radius={[e.radioBarra, e.radioBarra, 0, 0]} maxBarSize={e.anchoBarra ?? BARRA.maxVertical} {...anim}>
                   {datos.map((d, i) => <Cell key={i} fill={i === datos.length - 1 ? c(0) : d.sube ? 'var(--good)' : 'var(--bad)'} />)}
                 </Bar>
               </BarChart>
@@ -776,7 +776,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
                 {ley}
                 {s.claves.map((k, i) => (i < nBarras ? (
                   <Bar key={k} yAxisId={eje(s.formatos[i])} dataKey={k} name={s.nombres[i]} fill={c(i)} stackId={g.tipo === 'combinado_apilado' ? 'a' : undefined}
-                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} {...anim} maxBarSize={BARRA.maxVertical} />
+                    hide={oculta(k, s.claves)} radius={g.tipo === 'combinado_apilado' && k !== ultimaBarra ? 0 : [e.radioBarra, e.radioBarra, 0, 0]} {...anim} maxBarSize={e.anchoBarra ?? BARRA.maxVertical} />
                 ) : (
                   <Line key={k} yAxisId={eje(s.formatos[i])} type="monotone" dataKey={k} name={s.nombres[i]} stroke={c(i)} strokeWidth={e.trazo} strokeLinecap="round" strokeLinejoin="round"
                     dot={puntosDe(s.datos, k, c(i), halo)} activeDot={puntoActivo(c(i), halo)} hide={oculta(k, s.claves)} {...anim} />
@@ -816,7 +816,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
               {s.claves.map((k, i) => (
                 <Bar key={k} yAxisId="a" dataKey={k} name={s.nombres[i]} fill={relleno(i, s.nombres[i])} stackId={apilada ? 'a' : undefined}
                   hide={oculta(k, s.claves)} cursor={cursorGrupo} onClick={grupoAbre ? (_d: unknown, j: number) => abrirGrupo(s.datos[j]?.__clave, k) : undefined}
-                  radius={radio(k)} {...anim} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: BARRA.maxVertical })}>
+                  radius={radio(k)} {...anim} {...(horizontal ? { barSize: BARRA.horizontal } : { maxBarSize: e.anchoBarra ?? BARRA.maxVertical })}>
                   {/* Una sola métrica: cada categoría con el color que declara su dimensión, «Otros» en gris, y si no, uno solo. */}
                   {unaSola && s.datos.map((d, j) => <Cell key={j} fill={rellenoDe(colorFijo(String(d.etiqueta)) ?? c(0))} />)}
                 </Bar>
