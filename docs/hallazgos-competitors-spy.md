@@ -297,7 +297,19 @@ El commit del plan (`b4d7726d1`) y los dos documentos viven en `origin/integraci
 `main` no encuentra `docs/hallazgos-competitors-spy.md` ni `docs/diseno-competitors-spy.md` y
 concluye que la investigación no existe. Se trabaja desde `integracion`.
 
-### Cinco rojos que el informe de la Etapa 1 no nombró, y dos frases que prometían de más (31/10, al integrar)
+### Seis rojos que la compuerta habría elegido, y dos frases que prometían de más (31/10, al integrar)
+
+**El diagnóstico obvio era el equivocado: no los trajo la mezcla.** Aparecieron al integrar y la primera lectura
+fue «un verde de la rama no vale en el tren». Pero las causas ya estaban en `bb93f81f2`, la punta entregada, y los
+seis tests los elegía `scripts/tests-afectados.mjs` sobre esa misma punta (medido: 830 elegidos con 32 archivos
+cambiados). La regla y la trampa de esa medición están en [hallazgos-infra.md](hallazgos-infra.md). De los 11 rojos
+de la mezcla con Knowledge, 6 eran de Spy, 3 de Knowledge ([hallazgos-conocimiento.md](hallazgos-conocimiento.md))
+y 2 del propio arreglo de la integración: `tests/doer-falla` fija como texto la llamada que se había cambiado.
+
+El sexto es `tests/api-mako-cobros`: `spy` tenía que ir antes de `cobros` en las áreas de la API
+([hallazgos-api-mako.md](hallazgos-api-mako.md)). Y hubo uno más que **sólo aparece después de arreglar otro**:
+al darle a `market-an` su entrada en el catálogo, `tests/funciones-mako` (test 6) pide sumar Competitor Spy a la
+lista de lo que sólo ve el super admin. Tapado por el primero, no estaba entre los 11.
 
 Salir de `ComingSoon` no sólo toca la nav y las capas (la sección de arriba): la key entra en **tres listas
 más**. `lib/funciones-mako.ts` (toda key viva es de una función) y `tests/guia-catalogo.test.ts`

@@ -6,6 +6,32 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
+
+**Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
+integrarlas aparecieron 9 rojos suyos.
+
+**El diagnóstico obvio era el equivocado.** Parecía que «un verde de la rama no vale en el tren». Pero las causas ya
+estaban en las puntas entregadas, y `seleccionar` de `scripts/tests-afectados.mjs` elegía los ocho archivos de test
+sobre el árbol de su propia punta. El agujero no está en la selección.
+
+**Lo que no está medido:** qué corrió cada sesión. Sí se puede decir que, con esos tests rojos, la compuerta no podía
+dar VERDE: o no corrió, o no terminó, o no se leyó. Con 32 archivos cambiados elige 830 tests de unos 1.125, y ese
+costo es el motivo probable para saltearla, aunque eso no se midió.
+
+**Regla:** quien integra pide la línea final de `antes-de-subir` con su sha. Sin ella, la entrega es «sin chequear»,
+diga lo que diga el informe. Para saber si la compuerta habría elegido un test en una punta, sin checkout:
+`cambiosEntre(base, punta)`, `fuenteGit(punta)` y `seleccionar({ cambiados, archivos, leer })`, corrido desde
+adentro de un repo: `fuenteGit` llama a git sin carpeta y fuera de uno revienta.
+
+**⚠️ `seleccionar()` devuelve `tests` como un `Map` (test → razones), no como un array.** `new Set(sel.tests)` arma un
+Set de PARES: `has('tests/x.test.ts')` da siempre `false`, y `size` sigue dando el número correcto, así que no se nota.
+Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es `sel.tests.has(...)` y `sel.tests.get(...)`.
+
+**Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
+sin juzgar con 0,3 GB libres. Repetidos de a tres, los primeros seis dieron 91 verdes: no eran pesados, les tocó el peor
+momento de la PC. Los otros doce no se repitieron y quedaron para Actions.
+
 **Dos migraciones con el mismo número no dan conflicto (31/10/2026).** Creem y Competitors Spy nacieron como `0358` en ramas
 distintas. Los archivos tienen otro nombre, así que git las junta sin decir nada. No rompe la aplicación, que va por archivo (ya
 hay ocho números repetidos), pero «falta aplicar la 0358» pasa a nombrar dos cosas: una ya hacía falta para cobrar con Creem y

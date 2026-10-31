@@ -84,6 +84,9 @@ pantallas distintas y solo la segunda escribe en `mako_knowledge`.
 26. **⚠️ Un guard que busca el NOMBRE de la función da verde sobre el bug que cuida**: un
     stub local con el mismo nombre dejó el prompt sin su índice y el test en verde.
     [→](#️-un-guard-que-busca-el-nombre-de-la-función-da-verde-sobre-el-bug-exacto-que-cuida)
+27. **Tres rojos que la compuerta habría elegido en la punta de Knowledge**: operaciones sin
+    ruta REST y un test que pedía una línea literal de la página de Methodology.
+    [→](#tres-rojos-que-la-compuerta-habría-elegido-en-la-punta-de-knowledge)
 
 ---
 
@@ -7732,6 +7735,19 @@ Al validar que las tabs declaradas por un módulo existan, el export obvio
 abre todos los días—, porque ese export baja a los `items` de cada familia y no a sus
 `bloques`. Un guard apoyado en él rechaza una tab real. Se valida contra las keys del FUENTE
 del nav, con un piso de cantidad para que un archivo que no se pudo leer no deje pasar todo.
+
+### Tres rojos que la compuerta habría elegido en la punta de Knowledge
+
+**31/10, al integrar `nube/knowledge-3110` (`0242d2a9c`).** Aparecieron en la mezcla con Competitors Spy y parecían
+efecto de la mezcla. No lo eran: medidos con `git show`, ya estaban en la punta entregada, y
+`scripts/tests-afectados.mjs` elegía esos dos archivos de test sobre esa misma punta (646 elegidos con 24 archivos
+cambiados). La regla está en [hallazgos-infra.md](hallazgos-infra.md).
+
+- **`tests/api-mako-rest` (2 tests).** `modulos_de_knowledge` y `leer_modulo_knowledge` nacieron con
+  `canales: TODOS` y sin ruta en `RUTAS_REST` (`lib/api-mako/rest.ts`). Toda operación con todos los canales
+  necesita su ruta: el compilador no lo ve.
+- **`tests/barra-sin-dev` (test 3).** Pedía la línea literal de `app/classroom/methodology/page.tsx`, que cambió.
+  Se aflojó para seguir pidiendo lo que importa: la puerta de la sesión de admin antes de `ConocimientoView`.
 
 ### Lo que quedó SIN hacer de Knowledge
 
