@@ -490,12 +490,16 @@ async function agenciasDelClienteParaAvisar(ws: number): Promise<Array<{ ws: num
   const [{ agenciasAprobadasDe }, { getSupabaseServer }, { linkApp }] = await Promise.all([import('./agencia'), import('./supabase'), import('./app-url')]);
   const agencias = await agenciasAprobadasDe(ws);
   if (!agencias.length) return [];
-  const { data, error } = await getSupabaseServer().from('workspaces').select('nombre').eq('id', ws).maybeSingle();
+  const { data, error } = await getSupabaseServer().from('workspaces').select('id, nombre, estado').in('id', [ws, ...agencias]);
   if (error) throw new Error(error.message);
-  const nombre = String((data as { nombre?: string | null } | null)?.nombre ?? '').trim();
+  const filas = (data ?? []) as Array<{ id: number; nombre?: string | null; estado?: string | null }>;
+  // Una agencia pausada no lo va a leer: la alerta sigue siendo del cliente, que es quien puede hacer algo.
+  const vivas = agencias.filter((a) => filas.find((f) => Number(f.id) === a)?.estado === 'activo');
+  if (!vivas.length) return [];
+  const nombre = String(filas.find((f) => Number(f.id) === ws)?.nombre ?? '').trim();
   // Sin el nombre no se puede accionar: «la cuenta de tu cliente» no le dice cuál. Es un «no sé», no un aviso a medias.
   if (!nombre) throw new Error(`el negocio ${ws} no tiene nombre`);
-  return agencias.map((a) => ({ ws: a, datos: { cliente_nombre: nombre, cliente_link: linkApp('/partners', a) } }));
+  return vivas.map((a) => ({ ws: a, datos: { cliente_nombre: nombre, cliente_link: linkApp('/partners', a) } }));
 }
 
 async function depsDelEvento(): Promise<DepsEvento> {

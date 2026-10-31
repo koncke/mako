@@ -8,7 +8,7 @@
 import { redirect } from 'next/navigation';
 import { getRolWsEfectivo, negocioPausadoDeLaSesion } from '@/lib/workspace';
 import { corteDe } from '@/lib/plan-acceso';
-import { textoDelCorte } from '@/lib/plan-acceso-reglas';
+import { leOfrecePagar, textoDelCorte } from '@/lib/plan-acceso-reglas';
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { ButtonLink } from '@/app/_ui/Button';
 import { contextoDeAgencia } from '@/lib/agencia';
@@ -28,11 +28,11 @@ export default async function CuentaPausadaPage() {
   // La AGENCIA que miraba a un cliente pausado no está «pausada»: el pausado es el cliente, y ella vuelve a lo suyo.
   const esAgencia = cliente != null;
   // La cuenta que paga su agencia (31/10/2026, ticket #37): el cliente no debe nada, así que tampoco se le ofrece pagar.
-  const pagaSuAgencia = !esAgencia && !!corte?.vigente && (await agenciaDelCobro(corte.cobroId).catch(() => null))?.paga === 'agencia';
-  const t = textoDelCorte(corte?.vigente ? corte : null, { paraAgencia: esAgencia, pagaSuAgencia });
+  const quienPaga = !esAgencia && corte?.vigente ? await agenciaDelCobro(corte.cobroId).then((a) => a?.paga ?? null, () => 'no-se' as const) : null;
+  const t = textoDelCorte(corte?.vigente && quienPaga !== 'no-se' ? corte : null, { paraAgencia: esAgencia, pagaSuAgencia: quienPaga === 'agencia' });
   // PAGAR Y VOLVER (23/10/2026): con un corte por la pasarela, lo que se debe y el botón (lib/plan-deuda.ts). La agencia que
   // mira a un cliente no paga desde acá: lo resuelve en MaKo Partners. Una pausa a mano (sin corte) sigue siendo «escríbenos».
-  const porPago = !esAgencia && !pagaSuAgencia && !!corte?.vigente && corte.motivo !== 'renovacion-sin-autorizar' && corte.motivo !== 'devuelto';
+  const porPago = leOfrecePagar({ esAgencia, corte, quienPaga });
   const d = porPago ? await deudaDe(ws).catch(() => null) : null;
   const debe = d?.deuda?.monto != null && d.deuda.moneda ? formatoMonto(d.deuda.monto, d.deuda.moneda) : null;
   return (

@@ -376,6 +376,9 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
 
+/** ¿Es el aviso que le llega a una agencia en lugar del de su cliente (`aLaAgencia`)? Un negocio común no lo recibe nunca. */
+export const esAvisoParaAgencia = (id: string): boolean => CATALOGO_AVISOS.some((c) => c.aLaAgencia === id);
+
 /** ¿El texto de este aviso lo arma el código? (`textoDelCodigo`). Un aviso propio del negocio, nunca. */
 export const textoLoArmaElCodigo = (id: string): boolean =>
   CATALOGO_AVISOS.find((c) => c.id === id)?.textoDelCodigo === true;
