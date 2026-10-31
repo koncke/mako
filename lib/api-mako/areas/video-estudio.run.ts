@@ -525,7 +525,7 @@ export const RUNNERS: Runners = soloDesdeLaApp({
   rehabilitar_puente_flow: {
     preparar: async () => {
       const p = await leerPuenteEstricto().catch(() => null);
-      if (!p) return { error: 'No pude leer tu navegador conectado. Vuelve a intentarlo.' };
+      if (!p) return { error: 'No pude leer tu navegador conectado. Vuelve a intentarlo.', falla: true };
       if (!puenteAnda(p, Date.now()).pausadaPorGoogle) return { error: 'Google Flow no está pausado: no hay nada que volver a habilitar.', yaEstaba: true };
       return { payload: {}, resumen: 'Volver a habilitar Google Flow en tu navegador. Sólo si ya hiciste lo que pedía el aviso.' };
     },
