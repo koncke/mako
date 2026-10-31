@@ -41,6 +41,17 @@ test('3. el checkout reusa o crea: un duplicado por nombre nunca frena la compra
   assert.doesNotMatch(f, /throw e;\n {2}\}\n\}/, 'volvió a tirar el duplicado');
 });
 
+test('5. el número del dueño llega a su lead: sólo lo vacío, con UN lead, en la plataforma', () => {
+  const g = leer('lib/mako-grupo.ts');
+  assert.match(g, /await guardarNumeroDueno\(ws, c\.num\);\n[^\n]*\n\s+await import\('\.\/compra-plan-llamada'\)\.then\(\(m\) => m\.anotarTelefonoDelComprador\(ws, c\.num\)\)\.catch\(\(\) => \{\}\);/);
+  const l = leer('lib/compra-plan-llamada.ts');
+  const f = l.slice(l.indexOf('export async function anotarTelefonoDelComprador'), l.indexOf('Corre adentro de'));
+  assert.match(f, /if \(cuentaWs === plataforma\) return;/);
+  assert.match(f, /runWithWorkspace\(plataforma,/, 'el lead es de la plataforma, no de la cuenta');
+  assert.match(f, /\.eq\('cliente_ws', cuentaWs\)/);
+  assert.match(f, /if \(filas\.length === 1\) await enriquecerLead\(/, 'con dos leads de la misma cuenta no se adivina');
+});
+
 test('4. al pagar el PRIMER mes queda para llamarlo, después de la cuenta; sin setting no pasa nada', () => {
   const s = leer('lib/cobros.ts');
   assert.match(s, /await altaSiCorresponde\(actual\);\n[^]{0,300}?if \(!renovacion\) await anotarParaLlamar\(actual\);/);

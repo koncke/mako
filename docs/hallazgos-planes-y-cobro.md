@@ -27,8 +27,35 @@ lib/cobros.ts (`aplicarPagoAprobado`, 5a) · tests/compra-plan-lead.test.ts (10 
 - **El high ticket era configuración, no código:** el catálogo de la plataforma no lo tenía y `crearCrm` arma el CRM, el producto y la oferta juntos. Se creó «MaKo Acelerador» con los datos
   de `PROGRAMA_ACELERADOR`. Falta decidir si se cobra con link: «Vincular cobro» en el ⋯ de su Ganado.
 - **El origen sigue siendo «Landing», a propósito:** es de dónde vino. Que compró lo dicen `cobros` (con `plan_mako` y `origen`) y estar en ese CRM.
-- **Sin hacer:** el checkout no pide teléfono. Stripe puede pedirlo en su propia pantalla, y el webhook ya lo lee (`customer_details.phone`, `phone_number_collection` en el checkout); es un campo
-  más y baja la conversión: lo decide Martín. Y el aviso al equipo («Entró un pago») sale sólo si la plataforma agregó esa automatización de la galería.
+- **El teléfono no se pide en el checkout, se pide al entrar** (el Cerebro, 30/10: cada campo baja la conversión). El número del dueño de la cuenta, al guardarse, llena el teléfono vacío de su lead en la
+  plataforma (`anotarTelefonoDelComprador`). **Ya se pregunta, al final del arranque** («¿A qué WhatsApp te escribo…?», `lib/onboarding-arranque.ts`, con código por DM: se guarda recién al verificarlo). **Sin hacer:** adelantar esa pregunta al primer paso; la tomó Ops Center.
+- **El aviso «Entró un pago» es una automatización de la plataforma** (#714, de la galería, prendida el 30/10): sale por `avisar_al_equipo`, al grupo de MaKo del ws 9.
+
+### ⚠️ MaKo no tiene con qué cobrar, y lo que nunca corrió con un pago de verdad (medido el 30/10/2026)
+
+**La plataforma no tiene ninguna pasarela conectada:** `pasarelasConectadas(9)` da `[]`, sin `STRIPE_*` ni `MERCADOPAGO_*`, y /planes/esencial dice «Todavía no cobramos en línea». Stripe no abre cuentas en Argentina y Paddle y
+Creem no están en el código (`Pasarela` = stripe | mercadopago). **Rastro en toda la base:** 0 cobros; 78 filas en `pagos` y 0 con proveedor; 8 eventos de Stripe en `pasarela_eventos` (ws 1 y 10), 0 de Mercado Pago y 0 del ws 9.
+
+**Nunca se ejercitó con un pago aprobado, en NINGUNA de las dos pasarelas** (lo probado es con la base simulada o la pasarela de mentira; lo marcado *sin aviso real* depende de cómo llega de verdad):
+
+| Tramo | Stripe | Mercado Pago |
+|---|---|---|
+| Conectar en el ws 9: clave, y el aviso (Stripe lo registra solo; MP se pega a mano con el `?u=`) | nunca | nunca |
+| /planes ofrece la pasarela: país (`pasarelasDelPais`), precio en esa moneda | nunca con una real | nunca: sin precio en pesos no se ofrece |
+| `crearCobro`, el link /pagar y el checkout real | nunca | nunca |
+| El aviso firmado llega y se lee (`pasarela_eventos`) | recibió eventos ajenos, nunca uno de un cobro | nunca. *Sin aviso real:* si el de suscripción trae `user_id` |
+| `aplicarPagoAprobado`: el cobro pagado, la cuota, Ganado y la suscripción | nunca | nunca |
+| `altaSiCorresponde`: la cuenta, la persona y el mail de acceso, con un correo que nunca entró | nunca | nunca |
+| `anotarParaLlamar`: la tarjeta en «MaKo Acelerador» | nunca | nunca |
+| #714 «Entró un Pago» llega al grupo | nunca | nunca |
+| /pagar/<token>/listo después de pagar | nunca | nunca |
+| La segunda cuota: la renovación, ~30 días después (nadie la recupera si el aviso se pierde: `reconciliarCobros`) | nunca | nunca |
+| Rechazo, reembolso y corte de la suscripción | nunca | nunca |
+| Contracargo | nunca | nunca |
+| El Purchase de Meta (ningún camino lo manda, docs/hallazgos-pagos.md) | no existe | no existe |
+| El 50% del primer mes con su reloj (lo hace Planes): el cupón en la pasarela y que la renovación vuelva al precio lleno | nunca | nunca |
+
+**La primera compra real es una prueba, no una venta:** docs/prueba-humo-cobro-mako.md tiene el recorrido, con captura de cada tramo. Se hace con Martín, en el chat, antes de pautar.
 
 ## Hacer cumplir un tope del plan: la tabla sola le pone tope a quien no paga por la pasarela (23/10/2026)
 

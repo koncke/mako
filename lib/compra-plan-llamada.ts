@@ -15,15 +15,36 @@ import 'server-only';
 // =============================================================================
 
 import { getSetting } from './settings';
-import { logLeadEvent } from './leads';
+import { enriquecerLead, logLeadEvent } from './leads';
 import { agregarAProducto } from './lead-funnel';
-import { wsSuperAdmin } from './workspace';
+import { getTenantDb, runWithWorkspace, wsSuperAdmin } from './workspace';
 
 export const CLAVE_CRM_LLAMADAS = 'planes.crm_llamadas';
 
 export function crmDeLlamadasDe(crudo: string | null | undefined): number | null {
   const n = Number(crudo);
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+/**
+ * EL WHATSAPP DE QUIEN YA ENTRÓ, A SU LEAD (30/10/2026). El checkout no lo pide (cada campo baja la conversión): se pide al entrar, y el
+ * número del dueño de la cuenta (`guardarNumeroDueno`, lib/mako-grupo.ts) es el mismo por el que se lo llama. Sólo llena un teléfono
+ * vacío (`enriquecerLead`: lo cargado gana) y sólo si hay UN lead de esa cuenta. Es otro negocio: corre con el ws de la plataforma. Nunca tira.
+ */
+export async function anotarTelefonoDelComprador(cuentaWs: number, numero: string): Promise<void> {
+  try {
+    const plataforma = await wsSuperAdmin();
+    if (cuentaWs === plataforma) return;
+    await runWithWorkspace(plataforma, async () => {
+      const db = await getTenantDb();
+      const { data, error } = await db.from('leads').select('id').eq('cliente_ws', cuentaWs).limit(2);
+      if (error) throw new Error(error.message);
+      const filas = (data ?? []) as Array<{ id: number }>;
+      if (filas.length === 1) await enriquecerLead(filas[0].id, { telefono: `+${numero.replace(/\D/g, '')}` }, 'Cuenta de MaKo');
+    });
+  } catch (e) {
+    console.error(`[compra-plan] no pude anotar el teléfono de la cuenta ${cuentaWs}: ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 /** Corre adentro de `runWithWorkspace` de la plataforma, como `aplicarPagoAprobado`. */
