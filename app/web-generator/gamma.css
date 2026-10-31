@@ -492,6 +492,29 @@
 @media (max-width: 1440px) {
   .gma-herr-texto { display: none; }
 }
+/* LA BARRA SE PLIEGA POR LO QUE ELLA MIDE, NO POR LA VENTANA (30/10/2026, medido en un banco con el editor real). A 1024, con la
+   tarjeta del chat, pedía 712 px en 660: Compartir y el ⋯ quedaban cortados afuera. Y un panel de la derecha (Tema, Animar)
+   la achica igual a cualquier ancho de ventana. Lo último que se va es Compartir y el ⋯: primero los dispositivos (el título
+   sigue leyéndose: Martín lo pidió el 24/10), después el rótulo de Compartir, después el aire del título, y por último lo que
+   también está en otro lado (⋯, atajos, el chat).
+   ⚠️ Los dispositivos con la barra adelante: `.gma-dispositivos { display: flex }` está más abajo en este archivo y le gana.
+   ⚠️ El contenedor es la barra y no `.gma-centro`: `container-type` hace de esa caja el bloque de lo `position: fixed`, y
+   adentro de `.gma-centro` están el lienzo y sus barras flotantes. La barra no tiene nada fijo adentro. */
+.gma-herramientas { container: gma-barra / inline-size; }
+@container gma-barra (max-width: 770px) {
+  .gma-herr-der .gma-dispositivos, .gma-herr-der .gma-dispositivos + .gma-sep { display: none; }
+}
+@container gma-barra (max-width: 640px) {
+  .gma-partido-texto { display: none; }
+  .gma-partido > .gma-partido-principal { padding: 0 10px; }
+}
+@container gma-barra (max-width: 560px) {
+  .gma-herramientas .gma-titulo { min-width: 100px; }
+}
+@container gma-barra (max-width: 480px) {
+  .gma-herr-plegable { display: none; }
+  .gma-herramientas .gma-titulo { min-width: 60px; }
+}
 
 /* El interruptor Edición manual / Edición con IA, con el pulgar que rebota. */
 .gma-modo {

@@ -1124,7 +1124,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
               </button>
               <DeshacerRehacer editor={editor} mod={mod} />
               <span className="gma-sep" />
-              <button type="button" className="gma-herr-boton gma-tip" data-tip="Agregar bloque" aria-label="Agregar bloque"
+              <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Agregar bloque" aria-label="Agregar bloque"
                 aria-expanded={!!agregarBloque} disabled={!editor || paginaRota}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={(e) => setAgregarBloque(agregarBloque ? null : e.currentTarget)}>
@@ -1132,7 +1132,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
               </button>
               {/* «Animar» (Canva: «On the toolbar above the editor, select Animate»; el AnimateTool del Image Editor):
                   abre o cierra el panel, en la vista de la sección activa si la hay. */}
-              <button type="button" className="gma-herr-boton gma-tip" data-tip="Animar" aria-label="Animar"
+              <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Animar" aria-label="Animar"
                 aria-pressed={panelDer === 'animacion'} disabled={!editor || paginaRota}
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => (panelDer === 'animacion' ? setPanelDer(null) : abrirAnimar(tarjetaActivaRef.current ? 'seccion' : 'pagina'))}>
@@ -1165,7 +1165,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
                     data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Compartir'}
                     aria-expanded={dialogo === 'compartir'}
                     onClick={(e) => { setAnclaCompartir(e.currentTarget); setDialogo(dialogo === 'compartir' ? null : 'compartir'); }}>
-                    <Ico n="compartir" t={15} /> Compartir
+                    <Ico n="compartir" t={15} /> <span className="gma-partido-texto">Compartir</span>
                   </button>
                   <button type="button" className="gma-boton gma-boton--primario gma-partido-flecha" aria-label="Más opciones para compartir"
                     aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
@@ -1352,11 +1352,11 @@ function DeshacerRehacer({ editor, mod }: { editor: Editor | null; mod: string }
   }) ?? { deshacer: false, rehacer: false };
   return (
     <>
-      <button type="button" className="gma-herr-boton gma-tip" data-tip="Deshacer" data-atajo={`${mod}Z`} aria-label="Deshacer"
+      <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Deshacer" data-atajo={`${mod}Z`} aria-label="Deshacer"
         disabled={!puede.deshacer} onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.commands.undo()}>
         <Ico n="deshacer" t={16} />
       </button>
-      <button type="button" className="gma-herr-boton gma-tip" data-tip="Rehacer" data-atajo={`${mod}Shift+Z`} aria-label="Rehacer"
+      <button type="button" className="gma-herr-boton gma-herr-plegable gma-tip" data-tip="Rehacer" data-atajo={`${mod}Shift+Z`} aria-label="Rehacer"
         disabled={!puede.rehacer} onMouseDown={(e) => e.preventDefault()} onClick={() => editor?.commands.redo()}>
         <Ico n="rehacer" t={16} />
       </button>

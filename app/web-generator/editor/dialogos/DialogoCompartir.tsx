@@ -100,7 +100,7 @@ function PanelCompartir({ onCerrar, ancla, onVistaPrevia }: { onCerrar?: () => v
         </button>
       )}
       <h2 className="gmp-cp-tit">{titulo}</h2>
-      <button type="button" className="gmp-x" aria-label="Cerrar" onClick={cerrar}><Ico n="x" t={18} /></button>
+      <button type="button" className="gmp-x" aria-label="Cerrar" onClick={cerrar}><Ico n="cerrar" t={18} /></button>
     </div>
   );
 

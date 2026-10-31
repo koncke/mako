@@ -66,7 +66,7 @@ test('UN solo botón azul que dice «Compartir», con el ▾ de la vista previa 
   const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
   const primarios = barra.match(/className="gma-boton gma-boton--primario[^"]*"/g) ?? [];
   assert.equal(primarios.length, 2, 'el botón partido: Compartir y su ▾, nada más azul');
-  assert.match(barra, /<Ico n="compartir" t=\{15\} \/> Compartir\s*<\/button>/);
+  assert.match(barra, /<Ico n="compartir" t=\{15\} \/> <span className="gma-partido-texto">Compartir<\/span>\s*<\/button>/);
   assert.doesNotMatch(barra, /\/> Publicar\s*<\/button>/, 'volvió el botón Publicar al lado de Compartir');
   assert.doesNotMatch(barra, /gma-boton--secundario/, 'volvió el Compartir gris de al lado');
   // El ▾: Publicar, Vista previa, la publicada, Descargar y Presentar.
@@ -202,4 +202,19 @@ test('el editor de texto es UN botón que abre una segunda barra con todas las o
   assert.match(editor, /\{formatoAbierto \? \(\s*<div className="gma-herramientas gma-formato">\s*<BarraFormato modo="fija" \/>/);
   const css = leer('app/web-generator/gamma.css');
   assert.match(css, /\.gma-formato \.gmx-bf-fija \{ flex-wrap: wrap; overflow-x: visible;/, 'la segunda barra volvió a tener scroll');
+});
+
+// Medido en un banco con el editor real (30/10/2026): a 1024 la barra pedía 712 px en 660 y cortaba Compartir y el ⋯, y un panel
+// de la derecha la achica igual a cualquier ancho de ventana. Roturas: mudar el contenedor a `.gma-centro` → 1 fallo. Que el
+// ⋯ o el ▾ entren entre lo plegable → 1 fallo.
+test('la barra se pliega por lo que ella mide, y Compartir y el ⋯ son lo último que se va', () => {
+  const css = leer('app/web-generator/gamma.css');
+  assert.match(css, /\.gma-herramientas \{ container: gma-barra \/ inline-size; \}/);
+  // `.gma-dispositivos { display: flex }` viene más abajo: sin la barra adelante, le gana al pliegue (medido: no se iban).
+  assert.match(css, /\.gma-herr-der \.gma-dispositivos, \.gma-herr-der \.gma-dispositivos \+ \.gma-sep \{ display: none; \}/);
+  assert.doesNotMatch(css, /\.gma-centro \{[^}]*container/, 'adentro de .gma-centro hay cosas fijas: el contenedor las cambiaría de lugar');
+  for (const ancho of [770, 640, 560, 480]) assert.match(css, new RegExp(`@container gma-barra \\(max-width: ${ancho}px\\)`));
+  const editor = leer('app/web-generator/editor/EditorLanding.tsx');
+  assert.doesNotMatch(editor, /gma-herr-plegable[^>]*(?:Menú del documento|Más opciones para compartir)/);
+  assert.equal((editor.match(/gma-herr-plegable/g) ?? []).length, 4, 'Agregar bloque, Animar, Deshacer y Rehacer');
 });
