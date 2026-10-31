@@ -47,7 +47,7 @@ test('«Nueva landing» NO navega: «¿Qué vas a crear hoy?» ocupa la barra y 
   assert.doesNotMatch(lista, /<Link href=\{RUTA_NUEVA_LANDING\} className="gma-ls-item gma-ls-nueva"/, '«Nueva landing» volvió a navegar al Panel');
   const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   // El cuadro de crear (el del Panel, embebido) en lugar de la barra y el lienzo; la landing abierta queda montada y oculta.
-  assert.match(editor, /\{creando \? \(\s*<div className="gma-centro" role="region" aria-label="Nueva landing">[\s\S]{0,400}<InicioEmbebido\s+embebido/);
+  assert.match(editor, /\{creando \? \(\s*<div className="gma-centro" role="region" aria-label=\{panelEntero \? 'Panel' : 'Nueva landing'\}>[\s\S]{0,400}<InicioEmbebido\s+embebido/);
   assert.match(editor, /<main className="gma-centro" style=\{creando \? \{ display: 'none' \} : undefined\}>/);
   // La tarjeta de la izquierda sigue siendo la lista: «Nueva landing» la deja en 'landings', y salir de la lista lo cierra.
   assert.match(editor, /const setNueva = useCallback\(\(v: boolean\) => \{\s*if \(v\) \{\s*void guardarAhora\(\);\s*setPanelDer\(null\);\s*setPanelIzqEstado\('landings'\);/);
@@ -234,4 +234,19 @@ test('«Ver todo en el Panel» tampoco navega, y Compartir se ve como un solo bo
   assert.match(css, /\.gma-partido \{[^}]*background: var\(--gma-primario\); \}/);
   assert.match(css, /\.gma-partido:hover \{ background: var\(--gma-primario-hover\); \}/);
   assert.match(css, /\.gma-partido > \.gma-boton--primario,\s*\.gma-partido > \.gma-boton--primario:hover,\s*\.gma-partido > \.gma-boton--primario:active \{ background: transparent; \}/);
+});
+
+// Lo que encontró la revisión (30/10/2026).
+test('el Panel adentro del editor: no navega al Diagnóstico, no pierde lo analizado y vuelve a leer la landing abierta', () => {
+  const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
+  assert.match(inicio, /onAbrirDiagnostico=\{props\.embebido \?/);
+  assert.match(inicio, /if \(props\.embebido && !props\.conLista\) return;/, 'Ctrl K anda con la columna');
+  const panel = sinComentarios(leer('app/web-generator/diagnostico/PanelDiagnostico.tsx'));
+  assert.match(panel, /if \(onAbrirDiagnostico\) onAbrirDiagnostico\(id\);\s*else irDuro/);
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.match(editor, /analizadas=\{analizadasVivas\}/);
+  assert.doesNotMatch(editor, /<InicioEmbebido[\s\S]{0,120}key=/, 'remontarlo tira lo escrito en el cuadro');
+  assert.match(editor, /seDiagnosticoLaAbierta\.current = false;\s*void recargar\(\);/);
+  const css = leer('app/web-generator/gamma.css');
+  assert.match(css, /@container gma-barra \(max-width: 910px\) \{[^}]*\.gma-herr-texto \{ display: none; \}/);
 });

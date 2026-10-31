@@ -19,8 +19,13 @@ export function useCitaDelChat(clave: string | number | null = null): {
   citar: (m: MensajeWA) => void;
   /** Para `arriba` de `CajaChat`. */
   arriba: ReactNode;
-  /** Lo escrito con la cita adelante. No la saca: si el pedido no sale, sigue ahí. */
-  con: (texto: string) => string;
+  /**
+   * Lo escrito con la cita adelante. No la saca: si el pedido no sale, sigue ahí. `conAdjuntos`: sale con archivos y sin texto, y la
+   * cita igual tiene que viajar (`armarConCita` con texto vacío la perdía, y `soltar` la borraba sin haber salido).
+   */
+  con: (texto: string, conAdjuntos?: boolean) => string;
+  /** Lo que ocupa la cita: se le descuenta al tope de lo escrito, o cortaría el final del mensaje (y el cierre de un documento pegado). */
+  reserva: number;
   /** Al vaciar la caja. */
   soltar: () => void;
 } {
@@ -33,7 +38,8 @@ export function useCitaDelChat(clave: string | number | null = null): {
   return {
     citar,
     arriba: cita ? <CitaCaja cita={cita} onQuitar={soltar} /> : null,
-    con: (texto) => armarConCita(cita, texto),
+    con: (texto, conAdjuntos = false) => armarConCita(cita, texto.trim() || (cita && conAdjuntos ? 'Mira lo que te adjunto.' : '')),
+    reserva: cita ? armarConCita(cita, 'x').length - 1 : 0,
     soltar,
   };
 }

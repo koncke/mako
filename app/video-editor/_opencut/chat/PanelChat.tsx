@@ -65,6 +65,7 @@ import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosD
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
 import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
+import { separarCita } from '@/lib/centro-mensajes';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -166,14 +167,15 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 
 	let paraEditar: string | null = texto;
 	if (op.interpretar !== false && texto) {
-		const ri = await pedirPedidos(texto, { id: proyectoId, nombre: proyecto.metadata.name }, corte.signal);
+		const { pedido: lemos, conCita } = separarCita(texto);
+		const ri = await pedirPedidos(lemos, { id: proyectoId, nombre: proyecto.metadata.name }, corte.signal);
 		if (corte.signal.aborted) {
 			terminar({ de: "mako", texto: "Detenido." });
 			return;
 		}
 		// Falló o tardó: `interpretacionDe` devuelve lo de siempre (el mensaje entero a la IA del chat).
-		const interp = interpretacionDe(ri, texto);
-		paraEditar = textoActual(interp);
+		const interp = interpretacionDe(ri, lemos);
+		paraEditar = conCita(textoActual(interp));
 		burbujas = burbujasDe(interp, proyectoId).map((b) => ({ de: "mako" as const, texto: b.texto, ...(b.links.length ? { links: b.links } : {}) }));
 	}
 	if (!paraEditar && !archivos.length) {
@@ -460,7 +462,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean; archivos?: readonly File[] } = {}) => {
 		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
 		// Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
-		void pedirEdicion(editorRef.current, (op.dejarCaja ? instruccion : cita.con(instruccion)).slice(0, TOPES_CHAT.instruccion), alc, op);
+		void pedirEdicion(editorRef.current, op.dejarCaja ? instruccion.slice(0, TOPES_CHAT.instruccion) : cita.con(instruccion.slice(0, TOPES_CHAT.instruccion - cita.reserva), !!op.archivos?.length), alc, op);
 		if (!op.dejarCaja) { setTexto(""); cita.soltar(); }
 	};
 
@@ -641,7 +643,7 @@ export function PanelChat({ volver = null }: { /** La «←» de la pantalla de 
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} arriba={cita.arriba} ocupado={hilo.corriendo || nota.pendientes}
 						apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion} />
+						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion - cita.reserva} />
 				</div>
 			</footer>
 		</section>

@@ -163,12 +163,13 @@ export function PanelMakoIA() {
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
-  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto });
+  // Acá un SVG o un AVIF también es una imagen para poner (se sube a «Subidos», que los pasa a PNG). La IA lee los demás: ./acciones.ts.
+  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
   const cita = useCitaDelChat(disenoId);
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
     if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
     // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
-    void pedirEdicion(editorRef.current, (dejarCaja ? instruccion : cita.con(instruccion)).slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos);
+    void pedirEdicion(editorRef.current, dejarCaja ? instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion) : cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0), alc, archivos);
     if (!dejarCaja) { setTexto(''); cita.soltar(); }
   };
 
@@ -264,7 +265,7 @@ export function PanelMakoIA() {
         <div className="co-caja">
           <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} arriba={cita.arriba} ocupado={hilo.corriendo || nota.pendientes}
             apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-            adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
+            adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
         </div>
       </div>
     </div>

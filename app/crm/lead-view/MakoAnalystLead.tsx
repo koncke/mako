@@ -281,8 +281,8 @@ export function MakoAnalystLead({ leadId, nombre, edicion = null }: {
   };
 
   const enviarComposer = () => {
-    const t = cita.con(texto.trim());
     const juntados = adjuntosRef.current;
+    const t = cita.con(texto.trim(), juntados.length > 0);
     if ((!t && !juntados.length) || procesando > 0) return;
     if (ocupadoRef.current || !listo || errorCarga) return;
     enviar({ texto: t, adjuntos: juntados });

@@ -47,8 +47,8 @@ type Seccion = 'colores' | 'fuentes' | 'logotipo' | 'diseno' | 'avanzadas';
 
 const SECCIONES: { valor: Seccion; texto: string; icono: string }[] = [
   { valor: 'colores', texto: 'Colores', icono: 'paleta' },
-  { valor: 'fuentes', texto: 'Fuentes', icono: 'texto-aa' },
-  { valor: 'logotipo', texto: 'Logotipo', icono: 'sello' },
+  { valor: 'fuentes', texto: 'Fuentes', icono: 'fuente' },
+  { valor: 'logotipo', texto: 'Logotipo', icono: 'marca' },
   { valor: 'diseno', texto: 'Diseño', icono: 'diseno' },
   { valor: 'avanzadas', texto: 'Opciones avanzadas', icono: 'ajustes' },
 ];

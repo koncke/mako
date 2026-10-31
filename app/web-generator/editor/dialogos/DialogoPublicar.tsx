@@ -576,7 +576,7 @@ function DialogoPublicarAbierto({ onCerrar }: { onCerrar?: () => void }) {
       <div style={{ margin: '6px 0 14px' }}>
         <Pestanas etiqueta="Ajustes del sitio" valor={pestana} onCambiar={setPestana}
           opciones={[
-            { valor: 'ajustes', texto: 'Ajustes', icono: 'engranaje' }, { valor: 'navegacion', texto: 'Navegación', icono: 'brujula' },
+            { valor: 'ajustes', texto: 'Ajustes', icono: 'engrane' }, { valor: 'navegacion', texto: 'Navegación', icono: 'navegacion' },
             { valor: 'seo', texto: 'SEO', icono: 'buscar' }, { valor: 'dominio', texto: 'Dominios', icono: 'globo' },
           ]} />
       </div>

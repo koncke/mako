@@ -59,7 +59,13 @@ Guard: `tests/clic-derecho-listas.test.ts` (12 tests, 30 roturas cazadas).
   importar IntegracionesBoard o SimuladorWhatsApp: con 6000 corre (1 min 38 s). Los 16 errores que da son de arrastre
   (`opencut-wasm` sin compilar por `npm ci --ignore-scripts`, el `<style jsx>` de Compartir.tsx), ninguno de lo tocado.
 
-**«Responder» del clic derecho (30/10/2026):** `app/_chat/useCitaDelChat.tsx`, con la cita por conversación (no viaja a otro diseño ni a otro lead). Sumado al Image Editor, Video Editor, Dashboard, WhatsApp Advisor y la ficha del lead. ⚠️ Una nota de voz sale por detrás: en los editores no se lleva la cita, que queda para lo que se está escribiendo.
+**«Responder» del clic derecho (30/10/2026):** `app/_chat/useCitaDelChat.tsx`, con la cita por conversación (no viaja a otro diseño ni a otro lead). Sumado al Image Editor, Video Editor, Dashboard, WhatsApp Advisor y la ficha del lead. ⚠️ Una nota de voz sale por detrás: no se lleva la cita, que queda para lo que se está escribiendo.
+
+Lo que parecía simple y encontró la revisión (ya arreglado):
+- **La clave no era opcional:** el Advisor y el Dashboard cambian de contacto y de hoja sin remontarse, y la cita de un lead salía en el historial de otro.
+- **La cita ocupa lugar:** adelante del texto y antes del `.slice`, cortaba el final del mensaje y el cierre de un documento pegado, que se veía crudo. Se descuenta del tope (`reserva`).
+- ⚠️ **El renglón citado se interpretaba como un pedido** (lib/mako-pedidos.ts corta en `\n`): citar «Archiva la hoja Ventas» y escribir «mejor no» proponía archivarla. Se interpreta lo escrito y se vuelve a citar (`separarCita`). Web Generator tenía el mismo defecto desde antes.
+- **Con adjuntos y sin texto, la cita se perdía** (`armarConCita` con texto vacío), y con un documento `partirPegados` le comía el renglón en blanco que `leerCita` necesita.
 
 ### Lo que quedó sin hacer
 

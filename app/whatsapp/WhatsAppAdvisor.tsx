@@ -144,9 +144,10 @@ export function WhatsAppAdvisor({
 
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Lo de la caja sale con sus archivos (el servidor los lee: lib/adjuntos-del-chat.ts); una sugerencia o una nota, sin ellos.
-  const cita = useCitaDelChat();
+  const cita = useCitaDelChat(grupo.id);
   const enviarChat = async (texto?: string, { dejarCaja = false } = {}) => {
-    const txt = (texto ?? cita.con(input)).trim();
+    // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo. Una sugerencia, como lo escrito.
+    const txt = (dejarCaja ? (texto ?? '') : cita.con(texto ?? input, texto === undefined && adj.hay)).trim();
     const conArchivos = texto === undefined && adj.hay;
     if ((!txt && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
     const archivos = conArchivos ? adj.tomar() : [];

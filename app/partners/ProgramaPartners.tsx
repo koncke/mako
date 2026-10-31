@@ -121,7 +121,7 @@ export function ProgramaPartners({ programa, cobraEnLinea = true }: {
             </table>
           )}
       </section>
-      {menu.abierto && delMenu && (
+      {menu.abierto && delMenu && itemsPartnerPrograma(delMenu, pagando === delMenu.ws).length > 0 && (
         <MenuContextual key={menu.abierto.n} punto={{ x: menu.abierto.x, y: menu.abierto.y }} porDedo={menu.abierto.porDedo}
           items={itemsPartnerPrograma(delMenu, pagando === delMenu.ws)} etiqueta={`Acciones de ${delMenu.nombre}`} onCerrar={menu.cerrar}
           onElegir={(id) => { if (id === 'marcar_pagado') void pagar(delMenu); }} />

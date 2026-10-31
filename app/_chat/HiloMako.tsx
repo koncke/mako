@@ -166,10 +166,11 @@ function CuerpoHilo({ items, quien, ahora, escribiendo, tarjeta, onTarjeta, onRe
       const archivos = x.archivos ?? [];
       // Lo pegado de más de 1.000 caracteres viaja marcado y se dibuja como documento; lo escrito largo se pliega
       // (#848 y #864, lib/chat-pegado.ts): una transcripción ya no hace una burbuja de 24.000 px.
-      const { texto: conTodo, pegados } = partirPegados(archivos.length ? textoConArchivos(x.texto) : x.texto);
+      // La cita se lee ANTES de partir: `partirPegados` recorta el renglón en blanco que la cita necesita para reconocerse.
+      const crudo = archivos.length ? textoConArchivos(x.texto) : x.texto;
+      const conCita = leerCita(crudo);
+      const { texto, pegados } = partirPegados(conCita?.resto ?? crudo);
       // Si respondió a un mensaje, la cita va arriba, en su globo, y se toca para ir a él (lo de WhatsApp del Centro).
-      const conCita = leerCita(conTodo);
-      const texto = conCita?.resto ?? conTodo;
       const cita = conCita ? <CitaEnBurbuja de={conCita.cita.de} texto={conCita.cita.texto} lineas={[]} citado={citadoEn(items, conCita.cita.texto)} /> : null;
       const pie = <span className="co-burbuja__pie"><MarcasEnHora id={idWA(x)} marcas={marcas} />{x.estado === 'enviando' ? 'Enviando…' : hora(x.at)}</span>;
       filas.push(

@@ -691,8 +691,17 @@ Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjet
 - ⚠️ **`cubrir` usa `cropX`/`cropY` en píxeles de la foto, y `width`/`height` son la parte de la foto que se ve:** escala pareja siempre. Con ancho y alto sueltos, Fabric la deformaría sin avisar.
 - **Probado contra el cargador real** (`deserializeObjects` y `buildBackground`, `scripts/banco-editor-web`, `/foto`): entera, cubriendo y de fondo se dibujan sin deformarse; al serializar vuelven el `src`, el `assetId` y el recorte. El motor saca `crossOrigin` al guardar y lo vuelve a poner al cargar (`prepareImage`).
 
+**Lo que encontró la revisión independiente (ya arreglado):**
+
+- ⚠️ **La copia que se manda a leer no es la que va al diseño.** `useAdjuntosDelChat` achica toda imagen de más de 1,5 MB a JPEG de 1600 px para la lectura y el POST. Subir ESA copia dejaba un PNG sin fondo sobre un rectángulo negro y un GIF quieto. Se sube el original (`originalDe`).
+- **Un `abort` que ya pasó no dispara el evento:** con la subida en el medio, «Detener» no hacía nada y el pedido salía igual, gastando la IA del cliente.
+- **Un SVG o un AVIF adjunto se leía como texto** y nunca entraba en «fotos», y el prompt le decía «adjúntala», que es lo que acababa de hacer. Se aceptan, se suben, y no van a la ruta, que los rechazaría por su firma.
+- **La lista de fotos podía tirar un pedido que no tenía nada que ver:** contaba contra el tope de la vista. Se mide antes de subir, y la lista se achica.
+- **Reintentar duplicaba en Subidos:** si ya hay una con el mismo nombre y peso, se usa ésa.
+
 **Lo que quedó SIN hacer:**
 
+- **La subida no tiene plazo** (XHR sin `timeout`, `app/customer-success/curso/`): con la red trabada, «corriendo» espera a que el navegador se rinda.
 - **No visto en el editor completo ni con la IA de verdad eligiendo fotos** (`vivo-carrusel` queda por correr con «fotos» en la vista). El banco prueba el objeto y el cargador, no el flujo de la pantalla.
 - **La lista es de Subidos:** las 40 más nuevas, con las adjuntas primero. Otra biblioteca (las fotos de stock del panel) no entra.
 - **Una foto borrada de Subidos después de proponer:** `deserializeObjects` cae a `fallbackObject`, no rompe; no se dice nada en la propuesta.

@@ -24,9 +24,9 @@ import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista'
 import { memoriaDelHilo } from '@/lib/image-editor/chat/hilo';
 import { FUENTES } from '../fuentes';
 import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type MensajeNuevo, type Propuesta } from './hilo';
-import type { RespSubidos } from '@/lib/image-editor/tipos';
-import { cuerpoConArchivos } from '@/app/_chat/useAdjuntosDelChat';
-import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
+import type { RespSubidos, Subido } from '@/lib/image-editor/tipos';
+import { cuerpoConArchivos, originalDe } from '@/app/_chat/useAdjuntosDelChat';
+import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -36,6 +36,10 @@ const PLAZO_CON_ARCHIVOS_MS = 245_000;
 const SUGERIDAS = 30;
 /** Las fotos de «Subidos» que se le ofrecen a la IA: las adjuntas y las últimas subidas. */
 const FOTOS_OFRECIDAS = 40;
+/** Leer «Subidos» no puede trabar un pedido: si tarda, se sigue con las adjuntas. */
+const PLAZO_LISTA_MS = 15_000;
+/** Lo que la ruta lee (lib/adjuntos-del-chat.ts). Un SVG o un AVIF se ponen, pero no se le mandan: los rechazaría por su firma. */
+const LEIBLES = new Set(ACCEPT_ADJUNTOS_CHAT.split(','));
 
 export type AlcanceChat = 'diseno' | 'seleccion';
 
@@ -71,6 +75,8 @@ type Respuesta = { ok: true; resumen: string; operaciones: unknown[]; descartes?
 const NO_SE_PERDIO = /\bya (dice|está)\b|^la fuente /;
 
 async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
+  // Un `abort` que ya pasó no vuelve a disparar el evento: sin esto, el pedido salía igual después de «Detener».
+  if (senal.aborted) return { ok: false, error: 'Detenido.', cortado: true };
   const plazo = new AbortController();
   const t = setTimeout(() => plazo.abort(), archivos.length ? PLAZO_CON_ARCHIVOS_MS : PLAZO_MS);
   const alCortar = () => plazo.abort();
@@ -98,30 +104,41 @@ type FotoOfrecida = FotoDelChat & { adjunta?: boolean };
  * Las fotos que la IA puede poner (30/10/2026, Leila: «no me pone las imágenes en el carrusel»). Las que vienen adjuntas en
  * el pedido se suben a «Subidos» ANTES de pedir, para que tengan dirección y vayan primero; después, las últimas de «Subidos».
  * Lo que no se pudo subir se dice, y el pedido sigue. Si la lista no se pudo leer, quedan las adjuntas.
+ * ⚠️ SE SUBE EL ORIGINAL (`originalDe`), no la copia achicada que lee la IA. Y si esa misma foto ya está en «Subidos» (mismo nombre y
+ * peso), se usa ésa: un reintento vuelve a adjuntarla, y cada vez sería una copia más entre las 40 que se ofrecen.
  */
-async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[]): Promise<{ fotos: FotoOfrecida[]; fallas: string[] }> {
+async function fotosParaPedir(editor: EditorEngine, archivos: readonly File[], senal: AbortSignal): Promise<{ fotos: FotoOfrecida[]; fallas: string[] }> {
+  const delNegocio: Subido[] = [];
+  const plazo = new AbortController();
+  const t = setTimeout(() => plazo.abort(), PLAZO_LISTA_MS);
+  const alCortar = () => plazo.abort();
+  senal.addEventListener('abort', alCortar);
+  try {
+    const res = await fetch('/api/image-editor/subidos?clase=imagen', { signal: plazo.signal });
+    const r = (await res.json()) as RespSubidos;
+    if (r.ok && Array.isArray(r.subidos)) delNegocio.push(...r.subidos.filter((s) => s.tipo.startsWith('image/')));
+  } catch { /* sin la lista quedan las adjuntas: el pedido no se cae por esto */ } finally {
+    clearTimeout(t);
+    senal.removeEventListener('abort', alCortar);
+  }
   const fotos: FotoOfrecida[] = [];
   const fallas: string[] = [];
   for (const f of archivos) {
-    if (!f.type.startsWith('image/')) continue;
+    if (!f.type.startsWith('image/') || senal.aborted) continue;
+    const o = originalDe(f);
+    const ya = delNegocio.find((s) => s.nombre === o.name && s.bytes === o.size);
+    if (ya) { fotos.push({ id: ya.id, url: ya.url, nombre: ya.nombre, ancho: ya.ancho, alto: ya.alto, adjunta: true }); continue; }
     try {
-      const r = await editor.assets.upload(f, f.name);
+      const r = await editor.assets.upload(o, o.name);
       editor.store.setState((s) => ({ uploads: [r, ...s.uploads.filter((u) => u.id !== r.id)] }));
       fotos.push({ id: r.id, url: r.url, nombre: r.name, ancho: r.width, alto: r.height, adjunta: true });
     } catch {
       fallas.push(`la foto «${f.name}» no se pudo subir`);
     }
   }
-  try {
-    const res = await fetch('/api/image-editor/subidos?clase=imagen');
-    const r = (await res.json()) as RespSubidos;
-    if (r.ok && Array.isArray(r.subidos)) {
-      for (const s of r.subidos) {
-        if (!s.tipo.startsWith('image/') || fotos.some((x) => x.id === s.id)) continue;
-        fotos.push({ id: s.id, url: s.url, nombre: s.nombre, ancho: s.ancho, alto: s.alto });
-      }
-    }
-  } catch { /* sin la lista quedan las adjuntas: el pedido no se cae por esto */ }
+  for (const s of delNegocio) {
+    if (!fotos.some((x) => x.id === s.id)) fotos.push({ id: s.id, url: s.url, nombre: s.nombre, ancho: s.ancho, alto: s.alto });
+  }
   return { fotos: fotos.slice(0, FOTOS_OFRECIDAS), fallas };
 }
 
@@ -158,17 +175,32 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   const doc = editor.getDocument();
   const docVersion = editor.state.docVersion;
   const activePageId = editor.state.activePageId;
-  const { fotos, fallas } = await fotosParaPedir(editor, archivos);
-  const fotoDeRef = new Map<string, FotoDelChat>(fotos.map((f, i) => [fotoRef(i), { id: f.id, url: f.url, nombre: f.nombre, ancho: f.ancho, alto: f.alto }]));
-  const vista = vistaDeDiseno(doc, {
+  const vistaCon = (ofrecidas: readonly FotoOfrecida[]) => vistaDeDiseno(doc, {
     activePageId, elegidos: elegidosIds, fuentes: FUENTES.slice(0, SUGERIDAS).map((f) => f.family),
-    fotos: fotos.map((f, i) => ({ ref: fotoRef(i), nombre: f.nombre, ancho: f.ancho, alto: f.alto, ...(f.adjunta ? { adjunta: true } : {}) })),
+    fotos: ofrecidas.map((f, i) => ({ ref: fotoRef(i), nombre: f.nombre, ancho: f.ancho, alto: f.alto, ...(f.adjunta ? { adjunta: true } : {}) })),
   });
-  if (vista.json.length > TOPES_CHAT_IMAGEN.vistaMax) {
+  // Antes de subir nada: si el diseño solo no entra, no hay pedido.
+  if (vistaCon([]).json.length > TOPES_CHAT_IMAGEN.vistaMax) {
     terminar({ de: 'mako', texto: 'El diseño es muy grande para el chat. Elige unos elementos y pídelo sobre la selección.', error: true });
     return;
   }
-  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal, memoria }, corte.signal, archivos);
+  const { fotos: todas, fallas } = await fotosParaPedir(editor, archivos, corte.signal);
+  if (corte.signal.aborted) {
+    terminar({ de: 'mako', texto: 'Detenido.' });
+    return;
+  }
+  // La lista no puede tirar un pedido que no tiene nada que ver con fotos: se va achicando desde las más viejas (las adjuntas van primero).
+  let fotos = todas;
+  let vista = vistaCon(fotos);
+  while (vista.json.length > TOPES_CHAT_IMAGEN.vistaMax && fotos.length) {
+    fotos = fotos.slice(0, -1);
+    vista = vistaCon(fotos);
+  }
+  const fotoDeRef = new Map<string, FotoDelChat>(fotos.map((f, i) => [fotoRef(i), { id: f.id, url: f.url, nombre: f.nombre, ancho: f.ancho, alto: f.alto }]));
+  const paraLeer = archivos.filter((f) => LEIBLES.has(f.type));
+  // Sólo un SVG o un AVIF y nada escrito: a la ruta no le llega ningún archivo, y sin texto contestaría que falta.
+  const instruccionIA = texto || (archivos.length && !paraLeer.length ? 'Pon en el diseño lo que adjunté.' : '');
+  const r = await pedirIA({ instruccion: instruccionIA, diseno: vista.json, alcance: alcanceReal, memoria }, corte.signal, paraLeer);
   if (!r.ok) {
     terminar({ de: 'mako', texto: r.error, error: !('cortado' in r) });
     return;

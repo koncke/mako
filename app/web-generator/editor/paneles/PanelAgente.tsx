@@ -78,7 +78,7 @@ import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
 import { MUCHO_PARA_EDITAR, esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
-import { armarConCita, type Cita, type MensajeWA } from '@/lib/centro-mensajes';
+import { armarConCita, separarCita, type Cita, type MensajeWA } from '@/lib/centro-mensajes';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import {
   PLAZO_PEDIDOS_MS, bajarDelArchivero, cortadoPorUsuario, leerArchivo, pedirDocs, pedirIA, pedirLoQueVendes, pedirPedidos, type DocDelArchivero,
@@ -553,12 +553,13 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   let paraEditar: string | null = texto;
   let burbujas: Mensaje[] = [];
   if (op.interpretar !== false && escrito) {
-    const ri = await pedirPedidos(cuerpoPedidos(texto, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal });
+    const { pedido: lemos, conCita } = separarCita(texto);
+    const ri = await pedirPedidos(cuerpoPedidos(lemos, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal });
     // «Detener» mientras se interpretaba: no se sigue con nada.
     if (!ri.ok && cortadoPorUsuario(ri)) { terminar({ id: ++ultimoId, de: 'mako', texto: ri.error }); return; }
     // Falló o tardó: `interpretacionDe` devuelve lo de siempre (el mensaje entero a «editar»).
-    const interp = interpretacionDe(ri, texto);
-    paraEditar = textoActual(interp);
+    const interp = interpretacionDe(ri, lemos);
+    paraEditar = conCita(textoActual(interp));
     burbujas = comoMensajes(burbujasDe(interp, docId));
   }
   if (!paraEditar) { terminar(...burbujas); return; }

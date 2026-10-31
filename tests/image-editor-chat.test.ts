@@ -25,7 +25,8 @@ import { aplicarOperaciones, conCaso, resumenDeCambios } from '../lib/image-edit
 import { AVISO_CORTADA, TOPES_HILO, TOPES_MEMORIA, hiloAlAbrir, hiloParaGuardar, memoriaDelHilo, memoriaParaIA, sanearMemoria, type MensajeGuardado } from '../lib/image-editor/chat/hilo';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from '../lib/image-editor/chat/prompts';
 import { cambiarHilo, cargarHilo, conId, leerHilo, type MensajeMako } from '../app/image-editor/mako/chat/hilo';
-import { aceptarPropuesta, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
+import { aceptarPropuesta, detener, pedirEdicion, restaurarPropuesta } from '../app/image-editor/mako/chat/acciones';
+import { originalDe } from '../app/_chat/useAdjuntosDelChat';
 import { TABLAS_DE_INQUILINO } from '../lib/tablas-de-inquilino';
 
 const RAIZ = join(__dirname, '..');
@@ -688,6 +689,8 @@ test('la memoria no afirma que la persona descartó lo que se cortó solo', () =
 
 // ── Las fotos desde el chat (30/10/2026, Leila: «no me pone las imágenes en el carrusel») ─────────────────────────
 
+const RAIZ_FOTOS = join(import.meta.dirname, '..');
+
 const FOTOS = new Map([['o1', { id: 'sub-1', url: 'https://x.supabase.co/storage/v1/object/public/a/foto.jpg', nombre: 'foto.jpg', ancho: 2000, alto: 1000 }]]);
 const objetosDe = (d: unknown) => (d as { pages: Array<{ id: string; objects: Obj[]; background: Obj }> }).pages;
 
@@ -802,4 +805,70 @@ test('si una foto adjunta no se pudo subir se dice, y el pedido sigue con lo dem
   await pedirEdicion(editor as never, 'el fondo y mi foto', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
   const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
   assert.ok(m.descartes!.some((d) => /mia\.jpg/.test(d)));
+});
+
+// Lo que encontró la revisión de las fotos (30/10/2026).
+test('se sube el ORIGINAL, no la copia achicada que lee la IA', () => {
+  assert.equal(originalDe(new File(['x'], 'a.png', { type: 'image/png' })).name, 'a.png', 'sin copia, el mismo');
+  const f = readFileSync(join(RAIZ_FOTOS, 'app/image-editor/mako/chat/acciones.ts'), 'utf8');
+  assert.match(f, /const o = originalDe\(f\);/);
+  assert.match(f, /editor\.assets\.upload\(o, o\.name\)/);
+});
+
+test('«Detener» mientras suben las fotos: no se le pide nada a la IA', async () => {
+  const { editor } = editorDeMentira([]);
+  const pedidos: string[] = [];
+  globalThis.fetch = (async (url: string) => {
+    pedidos.push(String(url));
+    if (String(url).startsWith('/api/image-editor/subidos')) { detener(editor.designId); return { json: async () => ({ ok: true, subidos: [] }) }; }
+    return { json: async () => ({ ok: true, resumen: 'x', operaciones: [{ op: 'fondo', color: '#000000' }], descartes: [] }) };
+  }) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'el fondo', 'diseno');
+  assert.ok(!pedidos.some((u) => u.startsWith('/api/image-editor/ia')), 'el pedido salió igual');
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.equal(m.texto, 'Detenido.');
+  assert.equal(leerHilo(editor.designId).corriendo, false);
+});
+
+test('una foto que ya está en Subidos no se vuelve a subir al reintentar', async () => {
+  const { editor } = editorDeMentira([]);
+  let subidas = 0;
+  (editor as unknown as { assets: unknown }).assets = { upload: async () => { subidas++; throw new Error('no debería'); } };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  globalThis.fetch = (async (url: string) => (String(url).startsWith('/api/image-editor/subidos')
+    ? { json: async () => ({ ok: true, subidos: [{ id: 'ya', nombre: 'mia.jpg', tipo: 'image/jpeg', ancho: 10, alto: 10, bytes: 1, url: 'https://x.supabase.co/a/mia.jpg', creado: '' }] }) }
+    : { json: async () => ({ ok: true, resumen: 'Pongo la foto.', operaciones: [{ op: 'agregar_foto', foto: 'o1' }], descartes: [] }) })) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, 'pone esta', 'diseno', [new File(['x'], 'mia.jpg', { type: 'image/jpeg' })]);
+  assert.equal(subidas, 0);
+  const m = leerHilo(editor.designId).mensajes.at(-1) as MensajeMako;
+  assert.deepEqual(m.propuesta!.fotos!.map(([, f]) => f.id), ['ya']);
+});
+
+test('un SVG adjunto se pone, pero a la ruta no le llega (lo rechazaría por su firma), y sin texto igual hay instrucción', async () => {
+  const { editor } = editorDeMentira([]);
+  (editor as unknown as { assets: unknown }).assets = { upload: async (_f: File, n: string) => ({ id: 's', url: 'https://x.supabase.co/a/l.png', thumbUrl: '', width: 100, height: 100, name: n, kind: 'image' }) };
+  (editor as unknown as { store: unknown }).store = { setState: () => {} };
+  let cuerpo: { instruccion?: string } | null = null;
+  let esMultipart = false;
+  globalThis.fetch = (async (url: string, init?: { body?: unknown }) => {
+    if (String(url).startsWith('/api/image-editor/subidos')) return { json: async () => ({ ok: true, subidos: [] }) };
+    esMultipart = init?.body instanceof FormData;
+    cuerpo = esMultipart ? null : JSON.parse(String(init?.body));
+    return { json: async () => ({ ok: true, resumen: 'Pongo el logo.', operaciones: [{ op: 'agregar_foto', foto: 'o1' }], descartes: [] }) };
+  }) as unknown as typeof fetch;
+  await pedirEdicion(editor as never, '', 'diseno', [new File(['<svg/>'], 'l.svg', { type: 'image/svg+xml' })]);
+  assert.equal(esMultipart, false);
+  assert.equal(cuerpo!.instruccion, 'Pon en el diseño lo que adjunté.');
+});
+
+test('la lista de fotos se achica para entrar: no tira un pedido que no tiene que ver con fotos', async () => {
+  const { editor } = editorDeMentira([]);
+  const muchas = Array.from({ length: 40 }, (_, i) => ({ id: `s${i}`, nombre: `${'x'.repeat(50)}${i}`, tipo: 'image/jpeg', ancho: 1, alto: 1, bytes: 1, url: 'https://x.supabase.co/a', creado: '' }));
+  const largo = JSON.stringify(vistaDeDiseno(diseno(), { activePageId: 'pag-1' }).json).length;
+  assert.ok(largo < TOPES_CHAT_IMAGEN.vistaMax);
+  const f = readFileSync(join(RAIZ_FOTOS, 'app/image-editor/mako/chat/acciones.ts'), 'utf8');
+  assert.match(f, /while \(vista\.json\.length > TOPES_CHAT_IMAGEN\.vistaMax && fotos\.length\)/);
+  assert.ok(f.indexOf('vistaCon([]).json.length') < f.indexOf('await fotosParaPedir'), 'se mide ANTES de subir');
+  assert.equal(muchas.length, 40);
+  void editor;
 });

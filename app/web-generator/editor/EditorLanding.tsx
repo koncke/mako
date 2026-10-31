@@ -255,6 +255,11 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
   const [panelEntero, setPanelEntero] = useState(false);
   const [revisionLista, setRevisionLista] = useState(0);
   const listaCambio = useCallback(() => setRevisionLista((n) => n + 1), []);
+  // Inicio se desmonta al volver a la landing: lo analizado (eliminar, sumar) vive acá, o reaparecería lo eliminado.
+  const [analizadasVivas, setAnalizadasVivas] = useState<Analizada[]>(analizadas ?? []);
+  // El Diagnóstico de esta misma landing le sube la versión en el server: al volver, se lee de nuevo (o el guardado daría conflicto).
+  const seDiagnosticoLaAbierta = useRef(false);
+  const marcarDiagnostico = useCallback(() => { seDiagnosticoLaAbierta.current = true; }, []);
   const [panelDer, setPanelDer] = useState<PanelDer>(null);
   /** Lo último que pidieron al abrir «Animar» (la vista; ver `abrirAnimar`). */
   const [pedidoAnimar, setPedidoAnimar] = useState<PedidoAnimar | null>(null);
@@ -801,6 +806,12 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     if (panelIzq !== 'landings') setNuevaEstado(false);
   }, [panelIzq]);
   const creando = nueva && panelIzq === 'landings';
+  const volverAgente = useCallback(() => setPanelIzqEstado('agente'), []);
+  useEffect(() => {
+    if (creando || !seDiagnosticoLaAbierta.current) return;
+    seDiagnosticoLaAbierta.current = false;
+    void recargar();
+  }, [creando, recargar]);
   // Las miniaturas de las plantillas se dibujan con la fuente de su tema (el Panel las carga todas en su página).
   const fuentesPlantillas = useMemo(
     () => (creando ? urlFuentes([...TEMAS, ...propios.map((p) => temaPorId('ws:' + p.id, propios))]) : ''),
@@ -1073,13 +1084,15 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
               <Suspense fallback={<div className="gma-vacio"><p className="gma-vacio-texto">Cargando…</p></div>}>
                 <InicioEmbebido
                   embebido
-                  key={panelEntero ? 'panel' : 'nueva'}
                   conLista={panelEntero}
                   docAbierto={docId}
                   onCambioLista={listaCambio}
+                  onCambioAnalizadas={setAnalizadasVivas}
+                  onDiagnosticoDeLaAbierta={marcarDiagnostico}
+                  onVolverALaLanding={volverAgente}
                   docs={[]}
                   errorLista={null}
-                  analizadas={analizadas ?? []}
+                  analizadas={analizadasVivas}
                   errorAnalizadas={errorAnalizadas ?? null}
                   propios={propios}
                   errorTemas={null}

@@ -22,15 +22,23 @@ import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 /** Una captura de hasta esto va tal cual; una foto más grande se achica (el criterio del Ops Center, useCentro.ts). */
 const TAL_CUAL_BYTES = 1_500_000;
 let secuencia = 0;
+/**
+ * El archivo de verdad detrás de una copia achicada. La copia (JPEG, 1600 px) es para que la lea la IA y entre en el POST; para
+ * PONER la imagen en un diseño hace falta el original: un PNG sin fondo achicado quedaría sobre negro (lo agarró la revisión, 30/10/2026).
+ */
+const ORIGINAL = new WeakMap<File, File>();
+export const originalDe = (f: File): File => ORIGINAL.get(f) ?? f;
 const SIN_ITEMS: AdjuntoCaja[] = [];
 
-export function useAdjuntosDelChat({ puede, onError, conversacion = '' }: {
+export function useAdjuntosDelChat({ puede, onError, conversacion = '', aceptaDeMas = '' }: {
   /** ¿Se puede sumar ahora? (no mientras MaKo contesta: lo juntado sale con el PRÓXIMO mensaje). */
   puede: boolean;
   /** Por qué no entró (la línea de error de la pantalla); null la limpia. */
   onError: (m: string | null) => void;
   /** De qué conversación es lo juntado, en una pantalla que cambia de conversación sin remontarse. Sin esto, una sola. */
   conversacion?: string;
+  /** Tipos que esta caja junta además de los que lee la IA (el Image Editor: un SVG se pone en el diseño, ./acciones.ts). */
+  aceptaDeMas?: string;
 }) {
   // Lo juntado de cada conversación, también en un ref para decidir afuera de un updater (un updater no avisa errores).
   const [porConversacion, setPorConversacion] = useState<Record<string, AdjuntoCaja[]>>({});
@@ -54,6 +62,7 @@ export function useAdjuntosDelChat({ puede, onError, conversacion = '' }: {
         if (!tipo) { onError(ERROR_ADJUNTO.formato); continue; }
         try {
           const archivo = tipo === 'image' && f.size > TAL_CUAL_BYTES ? await achicarImagen(f) : f;
+          if (archivo !== f) ORIGINAL.set(archivo, f);
           nuevos.push({ id: `adj-${++secuencia}`, file: archivo, tipo, url: URL.createObjectURL(archivo) });
         } catch { onError('No pude leer esa imagen.'); }
       }
@@ -72,7 +81,7 @@ export function useAdjuntosDelChat({ puede, onError, conversacion = '' }: {
   };
 
   const caja: AdjuntosDeCaja = {
-    items, puede, onSumar: (fs) => { void sumar(fs); }, onQuitar: quitar, accept: ACCEPT_ADJUNTOS_CHAT,
+    items, puede, onSumar: (fs) => { void sumar(fs); }, onQuitar: quitar, accept: aceptaDeMas ? `${ACCEPT_ADJUNTOS_CHAT},${aceptaDeMas}` : ACCEPT_ADJUNTOS_CHAT,
     onNoPuede: () => onError('Espera a que MaKo conteste para sumar archivos.'),
     onSinImagen: (puedeLeer) => onError(puedeLeer ? 'No hay una imagen copiada.' : 'Este navegador no deja pegar.'),
   };

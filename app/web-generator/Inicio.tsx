@@ -157,6 +157,12 @@ export type PropsInicio = {
   docAbierto?: number;
   /** El Panel cambió la lista: la tarjeta del editor la vuelve a leer. */
   onCambioLista?: () => void;
+  /** Lo analizado adentro del editor: esta pieza se desmonta al volver a la landing, y sin esto reaparecería lo eliminado. */
+  onCambioAnalizadas?: (l: Analizada[]) => void;
+  /** Se abrió el Diagnóstico de la landing abierta: lo que se aplique ahí sube su versión, y el editor la vuelve a leer al volver. */
+  onDiagnosticoDeLaAbierta?: () => void;
+  /** Volver a la landing abierta («Abrir en el editor» de su propio Diagnóstico: el link no haría nada, es la misma ruta). */
+  onVolverALaLanding?: () => void;
 };
 
 type PlantillaGaleria = Plantilla | PlantillaPresentacion;
@@ -181,6 +187,8 @@ export function Inicio(props: PropsInicio) {
   const { avisar, nodo: aviso } = useAviso();
 
   const [lista, setLista] = useState<LandingResumen[]>(props.docs);
+  // Adentro del editor la lista se lee al montar: hasta entonces, «vacía» sería mentira.
+  const [listaCargada, setListaCargada] = useState(!props.embebido);
   const [errorLista, setErrorLista] = useState(props.errorLista);
   const [analizadas, setAnalizadas] = useState<Analizada[]>(props.analizadas);
   const [derecha, setDerecha] = useState<Derecha>(props.derechaInicial);
@@ -207,15 +215,15 @@ export function Inicio(props: PropsInicio) {
     return () => window.clearInterval(t);
   }, []);
 
-  // Ctrl/⌘ K = «Ir a» (Gamma): enfoca la búsqueda. Adentro del editor no hay «Ir a».
+  // Ctrl/⌘ K = «Ir a» (Gamma): enfoca la búsqueda. Adentro del editor sólo hay «Ir a» con la columna del Panel.
   useEffect(() => {
-    if (props.embebido) return;
+    if (props.embebido && !props.conLista) return;
     const tecla = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); busqueda.current?.focus(); }
     };
     document.addEventListener('keydown', tecla);
     return () => document.removeEventListener('keydown', tecla);
-  }, [props.embebido]);
+  }, [props.embebido, props.conLista]);
 
   // La derecha viaja en la URL (sin recargar: history.replaceState conserva el ?ws=). Adentro del editor la URL es la de la
   // landing abierta y no se toca: «Nueva landing» no navega.
@@ -238,6 +246,8 @@ export function Inicio(props: PropsInicio) {
   const cerrarMenu = useCallback(() => setMenu(null), []);
   // El clic derecho (y mantener presionado) de un renglón: lo mismo que su «⋯» (menu-contextual-landings.ts), por `clave`.
   const menuCtx = useMenuContextual<string>();
+  // Un menú por vez: el clic derecho (o mantener presionado) cierra el «⋯» que estaba abierto.
+  useEffect(() => { if (menuCtx.abierto) setMenu(null); }, [menuCtx.abierto]);
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarDiagnostico = useCallback(() => setDerecha({ tipo: 'crear' }), []);
   const cerrarBorradores = useCallback(() => setBorradores(null), []);
@@ -267,6 +277,15 @@ export function Inicio(props: PropsInicio) {
     () => filtrarFilas(filasDelPanel(lista, analizadas, props.bases), q).filter((f) => f.tipo === 'analizada' || f.doc.id !== props.docAbierto),
     [lista, analizadas, props.bases, q, props.docAbierto],
   );
+  // Adentro del editor no se remonta al pasar del Panel a «Nueva landing» (lo escrito en el cuadro sigue): se vuelve al cuadro.
+  useEffect(() => {
+    if (props.embebido && !props.conLista) setDerecha((d) => (modoCajaDe(d) ? d : { tipo: 'crear' }));
+  }, [props.embebido, props.conLista]);
+  const { onCambioAnalizadas, onDiagnosticoDeLaAbierta } = props;
+  useEffect(() => { onCambioAnalizadas?.(analizadas); }, [analizadas, onCambioAnalizadas]);
+  useEffect(() => {
+    if (derecha.tipo === 'diagnostico' && derecha.docId != null && derecha.docId === props.docAbierto) onDiagnosticoDeLaAbierta?.();
+  }, [derecha, props.docAbierto, onDiagnosticoDeLaAbierta]);
   // Adentro del editor, la primera vez es la lectura al montar: no cambió nada.
   const listaVista = useRef(lista);
   const listaLeida = useRef(false);
@@ -442,7 +461,7 @@ export function Inicio(props: PropsInicio) {
   // Adentro del editor la lista no viene del server (la página es la de una landing): se lee al montar. La usan Analizar y
   // Replicar para reconocer una dirección que es nuestra (`derechaDeAccion`).
   useEffect(() => {
-    if (props.embebido) void recargarLista();
+    if (props.embebido) void recargarLista().finally(() => setListaCargada(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- una vez, al montar
   }, []);
 
@@ -554,6 +573,9 @@ export function Inicio(props: PropsInicio) {
         copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
         onCerrar={cerrarDiagnostico}
         onAnalizada={sumarAnalizada}
+        // Adentro del editor no se navega: la copia se abre acá, y lo pendiente que dejó al pasarle los comentarios lo toma al montar.
+        onAbrirDiagnostico={props.embebido ? (id) => { void recargarLista(); setDerecha({ tipo: 'diagnostico', docId: id }); } : undefined}
+        onAbrirEnEditor={derecha.docId != null && derecha.docId === props.docAbierto ? props.onVolverALaLanding : undefined}
         onReplicarPorPartes={(u) => abrirDerechaEnElClic({ tipo: 'replicar', url: u, auto: true })}
       />
     );
@@ -590,7 +612,7 @@ export function Inicio(props: PropsInicio) {
     contenido = (
       <>
         <h1 className="gp-cabeza-titulo">Papelera</h1>
-        {errorLista ? errorBloque : archivadas.length ? <div className="gp-grilla">{archivadas.map(tarjetaPapelera)}</div> : <p className="gp-vacio">La papelera está vacía.</p>}
+        {errorLista ? errorBloque : !listaCargada ? <p className="gp-vacio">Cargando…</p> : archivadas.length ? <div className="gp-grilla">{archivadas.map(tarjetaPapelera)}</div> : <p className="gp-vacio">La papelera está vacía.</p>}
       </>
     );
   } else {

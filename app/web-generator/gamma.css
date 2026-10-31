@@ -509,6 +509,10 @@
    ⚠️ El contenedor es la barra y no `.gma-centro`: `container-type` hace de esa caja el bloque de lo `position: fixed`, y
    adentro de `.gma-centro` están el lienzo y sus barras flotantes. La barra no tiene nada fijo adentro. */
 .gma-herramientas { container: gma-barra / inline-size; }
+@container gma-barra (max-width: 910px) {
+  /* Los rótulos, primero: por encima de 1440 de ventana, con un panel abierto, el @media de arriba no los pliega. */
+  .gma-herr-texto { display: none; }
+}
 @container gma-barra (max-width: 770px) {
   .gma-herr-der .gma-dispositivos, .gma-herr-der .gma-dispositivos + .gma-sep { display: none; }
 }
