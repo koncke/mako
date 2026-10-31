@@ -29,8 +29,11 @@ export const TOPE_FALLOS_RUTEO = 30;
 // ('hotmart' y 'skool' salieron el 25/10/2026 con el Leads Scraper: una huella vieja con esos servicios se descarta igual.)
 // `tldv`, `fireflies`, `zoom`: los otros grabadores de reuniones (26/10/2026, lib/grabadores). Fireflies reintenta 5 veces en ~2 h
 // y Zoom 3 en ~1 h, sólo ante un 5xx; tl;dv no documenta sus reintentos. El mismo criterio: 503 sólo para lo transitorio.
-export type ServicioRuteo = 'calcom' | 'fathom' | 'meta' | 'landing' | 'zernio' | 'email' | 'stripe' | 'mercadopago' | 'tldv' | 'fireflies' | 'zoom';
-const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'fathom', 'meta', 'landing', 'zernio', 'email', 'stripe', 'mercadopago', 'tldv', 'fireflies', 'zoom']);
+// `creem`: la tercera pasarela de cobro (31/10/2026). Creem reintenta 5 veces (30 s, 5 min, 30 min, 6 h) y ABANDONA a
+// las 24 h, así que acá importa más que en las otras dos que el 503 sea sólo para lo transitorio: un aviso que falla
+// siempre gasta los cinco intentos y se pierde, y lo que queda es el cron de reconciliación.
+export type ServicioRuteo = 'calcom' | 'fathom' | 'meta' | 'landing' | 'zernio' | 'email' | 'stripe' | 'mercadopago' | 'creem' | 'tldv' | 'fireflies' | 'zoom';
+const SERVICIOS: ReadonlySet<string> = new Set(['calcom', 'fathom', 'meta', 'landing', 'zernio', 'email', 'stripe', 'mercadopago', 'creem', 'tldv', 'fireflies', 'zoom']);
 
 export type FalloRuteo = {
   cuando: string;

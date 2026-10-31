@@ -1,5 +1,5 @@
 // =============================================================================
-// cobros — la pasarela de pagos (Stripe y Mercado Pago): el ÚNICO escritor de `cobros`
+// cobros — la pasarela de pagos (Stripe, Mercado Pago y Creem): el ÚNICO escritor de `cobros`
 // =============================================================================
 // Pedido de Martín (11/10/2026): «implementes end-to-end la integración con Mercado Pago y con
 // Stripe, tipo pasarela de pagos... Lo voy a utilizar yo como superadmin para vender MaKo, pero
@@ -43,7 +43,7 @@ import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { habilitarClienteDeAgencia } from './agencia-habilitar';
 import { revisarAccesosPorPago } from './plan-acceso';
-import { COLS_COBRO, NOMBRE_PASARELA, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, COLS_COBRO, NOMBRE_PASARELA, PASARELAS, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
   avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCancelarFallida, idemCobro, idemReembolso, mesesTranscurridos,
@@ -62,9 +62,13 @@ import {
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
-import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
+import { credCreemDe, credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
+import {
+  buscarTransaccionesCreem, cancelarSuscripcionCreem, crearCheckoutCreem as crearCheckoutCreemAPI, crearDescuentoDeEntradaCreem,
+  crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem,
+} from './creem-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
 import { PRUEBA_DIAS } from './planes-mako';
 import { montoDelPrimerPago, pctDelPrimerMes, usdDelPrimerPago } from './primer-mes-reglas';
@@ -92,6 +96,7 @@ export const nuevoTokenCobro = (): string => crypto.randomBytes(24).toString('ba
 
 type CredStripe = { pasarela: 'stripe'; key: string; acct: string; cuenta: string };
 type CredMp = { pasarela: 'mercadopago'; token: string; userId: string; cuenta: string };
+type CredCreem = { pasarela: 'creem'; key: string; webhookId: string; secretoAviso: string; cuenta: string };
 
 /**
  * Las claves de UNA cuenta de la pasarela (varias por proveedor, 22/10/2026, lib/cuentas-pago-server.ts). Sin la cuenta,
@@ -100,6 +105,7 @@ type CredMp = { pasarela: 'mercadopago'; token: string; userId: string; cuenta: 
  */
 const credStripe = (ws: number, cuenta: string | null = CUENTA_PRINCIPAL): Promise<CredStripe | null> => (cuenta == null ? Promise.resolve(null) : credStripeDe(ws, cuenta));
 const credMp = (ws: number, cuenta: string | null = CUENTA_PRINCIPAL): Promise<CredMp | null> => (cuenta == null ? Promise.resolve(null) : credMpDe(ws, cuenta));
+const credCreem = (ws: number, cuenta: string | null = CUENTA_PRINCIPAL): Promise<CredCreem | null> => (cuenta == null ? Promise.resolve(null) : credCreemDe(ws, cuenta));
 
 /**
  * La cuenta del negocio que tiene HOY el cobro (mig 0328). Manda su id en el proveedor (`cuenta_ref`): si esa cuenta se
@@ -139,7 +145,14 @@ export async function refParaCobrar(ws: number, pasarela: Pasarela, productoId: 
     const delVinculo = productoId ? await cuentasDelVinculoDelProducto(productoId) : [];
     const cuenta = await cuentaParaCobrar(ws, pasarela, null, delVinculo);
     if (!cuenta) return null;
-    return pasarela === 'stripe' ? (await credStripe(ws, cuenta))?.acct ?? null : (await credMp(ws, cuenta))?.userId ?? null;
+    // Por pasarela, no `stripe ? … : mp` (31/10/2026): Creem caía en Mercado Pago y devolvía su `user_id`, con lo
+    // cual la landing creía que el pendiente de otra cuenta era de ésta.
+    switch (pasarela) {
+      case 'stripe': return (await credStripe(ws, cuenta))?.acct ?? null;
+      case 'mercadopago': return (await credMp(ws, cuenta))?.userId ?? null;
+      case 'creem': return (await credCreem(ws, cuenta))?.webhookId ?? null;
+      default: { const _x: never = pasarela; return null; }
+    }
   });
 }
 
@@ -166,10 +179,17 @@ export async function modoDeLaPasarela(ws: number, pasarela: Pasarela, productoI
   return c.ok ? c.modo : null;
 }
 
-/** Las pasarelas con las que ESTE workspace puede cobrar hoy (las dos, una o ninguna): con ALGUNA cuenta que cobre. */
+/**
+ * Las pasarelas con las que ESTE workspace puede cobrar hoy (todas, algunas o ninguna): con ALGUNA cuenta que cobre.
+ *
+ * ⚠️ VA POR `PASARELAS`, NUNCA POR UNA LISTA A MANO. Hasta el 31/10/2026 acá había `['stripe', 'mercadopago']` escrito
+ * literal, y ese literal es asignable a `Pasarela[]`: al agregar la tercera pasarela el compilador no decía nada y una
+ * Creem conectada y cobrando se reportaba como «no hay pasarela» en TODOS sus llamadores (el checkout de /planes, la
+ * ficha del lead, la API de MaKo y el cron). Una pasarela nueva se ofrece sola al sumarse a la constante.
+ */
 export async function pasarelasConectadas(ws: number): Promise<Pasarela[]> {
   const cs = (await cuentasDePago(ws)).filter((x) => x.conectada);
-  return (['stripe', 'mercadopago'] as const).filter((p) => cs.some((x) => x.proveedor === p));
+  return PASARELAS.filter((p) => cs.some((x) => x.proveedor === p));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -390,13 +410,31 @@ export async function crearCobro(ws: number, p: {
     // Sin cuenta pedida, un producto vinculado a un CRM («Vincular cobro») cobra por una cuenta de SU vínculo: la de siempre
     // si está en él, si no la primera del vínculo que cobre. Así su pago encuentra el vínculo (`vinculoDelPago`).
     const delVinculo = !pedida && p.productoId ? await cuentasDelVinculoDelProducto(p.productoId) : [];
-    const [conStripe, conMp] = await Promise.all([cuentaParaCobrar(ws, 'stripe', pedida, delVinculo), cuentaParaCobrar(ws, 'mercadopago', pedida, delVinculo)]);
-    const [stripe, mp] = await Promise.all([
+    const [conStripe, conMp, conCreem] = await Promise.all([
+      cuentaParaCobrar(ws, 'stripe', pedida, delVinculo),
+      cuentaParaCobrar(ws, 'mercadopago', pedida, delVinculo),
+      cuentaParaCobrar(ws, 'creem', pedida, delVinculo),
+    ]);
+    const [stripe, mp, creem] = await Promise.all([
       conStripe ? credStripe(ws, conStripe) : Promise.resolve(null),
       conMp ? credMp(ws, conMp) : Promise.resolve(null),
+      conCreem ? credCreem(ws, conCreem) : Promise.resolve(null),
     ]);
-    if (pedida && !(pedida.proveedor === 'stripe' ? stripe : mp)) return { ok: false, error: 'Esa cuenta de cobro no está conectada.' };
-    const conectadas: Pasarela[] = [...(stripe ? (['stripe'] as const) : []), ...(mp ? (['mercadopago'] as const) : [])];
+    /**
+     * Lo que cada pasarela aporta a la FILA del cobro, en una sola forma. ⚠️ Antes esto eran tres ternarios
+     * `d.pasarela === 'stripe' ? stripe?.x : mp?.y` (el modo, el sufijo de cuenta y `cuenta_ref`), y con una tercera
+     * pasarela los tres leían Mercado Pago: un cobro de Creem quedaba guardado con el sufijo de la cuenta de MP y con
+     * el `user_id` de MP en `cuenta_ref`. Y `cuenta_ref` es justo lo que después ENCUENTRA la cuenta de un cobro
+     * (`cuentaVivaDelCobro`, mig 0328), así que el cobro quedaba apuntando para siempre a la cuenta equivocada: no se
+     * podía releer, ni devolver, ni cancelar.
+     */
+    const porPasarela: Readonly<Record<Pasarela, { cred: { cuenta: string } | null; ref: string | null }>> = {
+      stripe: { cred: stripe, ref: stripe?.acct ?? null },
+      mercadopago: { cred: mp, ref: mp?.userId ?? null },
+      creem: { cred: creem, ref: creem?.webhookId ?? null },
+    };
+    if (pedida && !porPasarela[pedida.proveedor].cred) return { ok: false, error: 'Esa cuenta de cobro no está conectada.' };
+    const conectadas: Pasarela[] = PASARELAS.filter((p) => porPasarela[p].cred);
 
     let producto: { id: number; nombre: string; tipo: TipoCobro; monto_usd: number | null } | null = null;
     let congelado: PlanCongelado | null = null;
@@ -447,9 +485,16 @@ export async function crearCobro(ws: number, p: {
     // saldría sin `fecha_primer_pago`: se pide antes de crear el link, no después de cobrar.
     if (montoUsd == null) return { ok: false, error: `¿Cuánto es en dólares? Hace falta para tus reportes (se cobra en ${d.moneda}).`, faltan: ['montoUsd'] };
     const concepto = (p.concepto ?? '').trim() || (cuota ? (cuota.numero === 0 ? 'Cobro inicial' : `Cuota ${cuota.numero}`) : '') || producto?.nombre || (altaCapa ? `MaKo · plan ${capaDef(altaCapa).nombre}` : 'Pago');
-    const modo = d.pasarela === 'stripe' ? (modoDeClaveStripe(stripe?.key) ?? 'real') : (cuentaMp?.modo ?? 'real');
+    // El MODO (real o prueba) va aparte de la tabla de arriba porque el de Mercado Pago sale de `cuentaMp`, que se lee
+    // más abajo con una consulta a su API. Igual por pasarela, nunca `stripe ? … : mp`.
+    const modoPorPasarela: Readonly<Record<Pasarela, 'real' | 'prueba' | null>> = {
+      stripe: stripe ? modoDeClaveStripe(stripe.key) : null,
+      mercadopago: cuentaMp?.modo ?? null,
+      creem: creem ? modoDeClaveCreem(creem.key) : null,
+    };
+    const modo = modoPorPasarela[d.pasarela] ?? 'real';
     const token = nuevoTokenCobro();
-    const cuentaUsada = (d.pasarela === 'stripe' ? stripe?.cuenta : mp?.cuenta) ?? CUENTA_PRINCIPAL;
+    const cuentaUsada = porPasarela[d.pasarela].cred?.cuenta ?? CUENTA_PRINCIPAL;
 
     const db = await getTenantDb();
     const { data: fila, error } = await db.from('cobros').insert({
@@ -466,7 +511,7 @@ export async function crearCobro(ws: number, p: {
       // Mig 0328: el sufijo sólo si no es la principal (NULL es la principal: todo cobro de antes), y SIEMPRE el id de la
       // cuenta en el proveedor: es lo que la encuentra después aunque vuelva a conectarse con otro sufijo.
       ...(cuentaUsada !== CUENTA_PRINCIPAL ? { cuenta: cuentaUsada } : {}),
-      cuenta_ref: (d.pasarela === 'stripe' ? stripe?.acct : mp?.userId) ?? null,
+      cuenta_ref: porPasarela[d.pasarela].ref,
     }).select(COLS_COBRO).single();
     // ⚠️ DOS PEDIDOS A LA VEZ PARA LA MISMA CUOTA (mig 0295): el segundo choca con `cobros_un_link_vivo_por_cuota` y
     // se devuelve el link que ganó, como cuando ya existía (`yaEstaba`). Dos links vivos eran dos cobros de la misma plata.
@@ -486,7 +531,7 @@ export async function crearCobro(ws: number, p: {
 
     // Lo que sigue NO tira (`cerrarCheckoutDelCobro`, lib/cobros-reglas.ts): una base que falla al guardar el link no pierde su ref.
     const cerrado = await cerrarCheckoutDelCobro({
-      checkout: await crearCheckout(cobro, { stripe, mp }, 0, { inicioAt }),
+      checkout: await crearCheckout(cobro, { stripe, mp, creem }, 0, { inicioAt }),
       guardar: (r) => actualizar(ws, cobro.id, { proveedor_ref: r.ref, url_proveedor: r.url, url_vence_at: r.venceAt }),
       // `soloSi`: un pago que se asentó en el medio no se pisa con «anulado». Con un ref, el link que no se pudo guardar también se
       // cierra en la pasarela (aunque la base no deje anular la fila), para que nadie lo pueda pagar.
@@ -518,12 +563,86 @@ async function plazoDelCobro(c: Cobro): Promise<number | null> {
   return Number.isInteger(n) && n > 0 ? n : null;
 }
 
+/**
+ * EL CHECKOUT DE CREEM, que no se parece al de los otros dos y por eso vive aparte.
+ *
+ * ⚠️ CREEM NO COBRA SIN UN PRODUCTO. No existe el precio en línea de Stripe (`price_data`) ni el `unit_price` de una
+ * preferencia de Mercado Pago: `POST /v1/checkouts` sólo acepta un `product_id`. Así que cada cobro CREA su producto
+ * primero. Los dos POST llevan `Idempotency-Key` derivada del cobro y de la vuelta, que es lo que evita que un
+ * reintento deje la cuenta del negocio llena de productos duplicados (la doc: «makes retries return the originally
+ * created product instead of creating a duplicate»).
+ *
+ * EL 50% DEL PRIMER MES sale distinto que en las otras dos. Creem tiene descuento de UN SOLO ciclo de verdad
+ * (`duration: 'once'`), así que la suscripción nace al precio LLENO con un código aplicado al primer pago, y el
+ * segundo mes vuelve solo. Mercado Pago no tiene eso: allá la suscripción nace rebajada y lib/primer-mes.ts le sube el
+ * monto a mano al entrar el primer pago. Un cobro de Creem NO necesita ese remiendo, y pasarlo por él lo rompería.
+ */
+async function crearCheckoutCreem(
+  c: Cobro,
+  cred: CredCreem,
+  vuelta: number,
+  extra: { inicioAt?: string | null },
+): Promise<{ ok: true; ref: string; url: string; venceAt: string | null } | { ok: false; error: string }> {
+  // ⚠️ EXPLÍCITO, NO EN SILENCIO: Creem no documenta ningún `start_date` al crear la suscripción (la prueba gratis se
+  // hace con `trial_period_days`, que es otra cosa: son días desde HOY, no «empezá a cobrar el día X»). Un cobro de
+  // agencia con primer cobro diferido caía antes en la rama de Mercado Pago y arrancaba a cobrar en el acto, un mes
+  // antes, encima del mes ya pagado. Mejor no abrirlo y que se vea.
+  if (extra.inicioAt && !CAPACIDADES_PASARELA.creem.difiereElPrimerCobro) {
+    return { ok: false, error: 'Creem no puede empezar a cobrar en una fecha futura. Usa Stripe o Mercado Pago para este cobro.' };
+  }
+  const recurrente = c.tipo === 'suscripcion';
+  const idem = idemCobro(c.id, vuelta);
+  const prod = await crearProductoCreem(cred.key, {
+    idem: `prod-${idem}`, nombre: c.concepto, monto: c.monto, moneda: c.moneda, recurrente,
+    diasDePrueba: recurrente && esPruebaDePlan(c) ? PRUEBA_DIAS : null,
+  });
+  if (!prod.ok) return { ok: false, error: prod.error };
+
+  // El descuento de entrada, si este cobro lo lleva. Si Creem lo rechaza NO se sigue sin él: se le prometió la mitad.
+  let codigoDescuento: string | null = null;
+  const pct = pctDelPrimerMes(c.creado_por);
+  if (pct) {
+    const d = await crearDescuentoDeEntradaCreem(cred.key, {
+      idem: `desc-${idem}`, codigo: `MAKO${c.id}${vuelta ? `V${vuelta}` : ''}`.toUpperCase(),
+      nombre: `MaKo · ${pct}% del primer mes`, pct, productoId: prod.id,
+    });
+    if (!d.ok) return { ok: false, error: `No pude aplicar el descuento del primer mes: ${d.error}` };
+    codigoDescuento = d.codigo;
+  }
+
+  const r = await crearCheckoutCreemAPI(cred.key, {
+    idem, productoId: prod.id, token: c.token, email: c.email, nombre: c.nombre,
+    successUrl: linkDeRetorno(c.token), codigoDescuento,
+  });
+  // El link de Creem no vence (no hay campo de vencimiento en el checkout): `venceAt` null, y `urlParaPagar` devuelve
+  // el guardado sin rehacer nada.
+  return r.ok ? { ok: true, ref: r.id, url: r.url, venceAt: null } : { ok: false, error: r.error };
+}
+
 async function crearCheckout(
   c: Cobro,
-  cred: { stripe: CredStripe | null; mp: CredMp | null },
+  cred: { stripe: CredStripe | null; mp: CredMp | null; creem: CredCreem | null },
   vuelta: number,
   extra: { inicioAt?: string | null } = {},
 ): Promise<{ ok: true; ref: string; url: string; venceAt: string | null } | { ok: false; error: string }> {
+  // ⚠️ ESTE `if` ERA EL BUG MÁS CARO DE TODA LA PASARELA (31/10/2026). Era `if (c.proveedor === 'stripe') { … }` y
+  // después, SIN else, caía a Mercado Pago. Con dos pasarelas eso es correcto; con tres, un cobro de Creem en un
+  // negocio con Mercado Pago conectado le creaba una suscripción REAL en Mercado Pago, en la moneda de ESA cuenta, y
+  // guardaba su id en el cobro de Creem. Se le cobraba plata a una persona por el proveedor equivocado sin un solo
+  // error. Ahora es un `switch` y el `default` con `never` hace que la pasarela #4 no compile hasta tener su rama.
+  switch (c.proveedor) {
+    case 'creem': {
+      if (!cred.creem) return { ok: false, error: 'Creem no está conectado.' };
+      return crearCheckoutCreem(c, cred.creem, vuelta, extra);
+    }
+    case 'stripe':
+    case 'mercadopago':
+      break;
+    default: {
+      const _x: never = c.proveedor;
+      return { ok: false, error: `Esa pasarela no sabe cobrar: ${String(_x)}` };
+    }
+  }
   if (c.proveedor === 'stripe') {
     if (!cred.stripe) return { ok: false, error: 'Stripe no está conectado.' };
     const r = await crearCheckoutStripe(cred.stripe.key, {
@@ -580,6 +699,15 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
     if (!(await credMp(c.workspace_id, cuenta))) return { error: 'desconectada' };
     return c.url_proveedor ? { url: c.url_proveedor } : { error: 'no_disponible' };
   }
+  if (c.proveedor === 'creem') {
+    // ⚠️ SIN ESTA RAMA, UN COBRO DE CREEM CAÍA A STRIPE (31/10/2026): se le pedían las credenciales de Stripe y, con
+    // Stripe conectado, se llegaba a `leerCheckoutStripe` con una ref de Creem (`ch_…` de otro proveedor) y se podía
+    // terminar ARMANDO UNA SESIÓN DE STRIPE para un cobro de Creem.
+    // El link de Creem no vence (su checkout no tiene vencimiento), así que no hay nada que rehacer: se devuelve el
+    // guardado, como en Mercado Pago.
+    if (!(await credCreem(c.workspace_id, cuenta))) return { error: 'desconectada' };
+    return c.url_proveedor ? { url: c.url_proveedor } : { error: 'no_disponible' };
+  }
   const stripe = await credStripe(c.workspace_id, cuenta);
   if (!stripe) return { error: 'desconectada' };
   // ⚠️ UNA PRUEBA DE STRIPE YA EMPEZADA (27/10/2026) sigue `pendiente` hasta el primer cobro: rehacer su sesión vencida abría
@@ -621,7 +749,7 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
     }
   }
   const vuelta = Math.max(1, Math.floor((Date.parse(c.url_vence_at ?? '') || 0) / 60_000));
-  const r = await crearCheckout(c, { stripe, mp: null }, vuelta);
+  const r = await crearCheckout(c, { stripe, mp: null, creem: null }, vuelta);
   if (!r.ok) return { error: 'pasarela', detalle: r.error };
   // ⚠️ La sesión nueva VUELVE el cobro a pendiente (la verificación de e6fd6d88d): si seguía `fallido` por el voucher anterior,
   // un SEGUNDO voucher en curso en ésta se leía como «falló» y se armaba otra más; pagadas las dos, dos cuotas.
@@ -1356,6 +1484,23 @@ async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<void> {
         const e = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
         if (!e.ok) console.warn(`[cobros] no pude expirar la sesión ${c.proveedor_ref}: ${e.error}`);
       }
+    } else if (c.proveedor === 'creem' && c.proveedor_ref) {
+      // ⚠️ EL `if/else if` NO TENÍA else Y CREEM SE CAÍA POR EL HUECO (31/10/2026): un link de Creem anulado en MaKo
+      // quedaba ABIERTO y pagable en Creem, sin un solo aviso. Lo llaman `anularCobro` y `anularLinksDeCuota` (la cuota
+      // que ya se cobró por otro lado), así que el agujero es exactamente un DOBLE COBRO.
+      // Un checkout de Creem no se puede cerrar (no hay endpoint, y el link no vence); lo que sí se corta es la
+      // SUSCRIPCIÓN, que es lo que seguiría cobrando todos los meses. Un pago único de Creem queda pagable: eso NO se
+      // puede arreglar desde acá, y la red es el aviso de `aplicarPagoAprobado` sobre un cobro anulado.
+      const creem = await credCreem(ws, await cuentaVivaDelCobro(ws, c));
+      if (creem) {
+        if (c.tipo === 'suscripcion') {
+          const susId = c.proveedor_suscripcion_id ?? c.proveedor_ref;
+          const e = await cancelarSuscripcionCreem(creem.key, susId, idemAnular(c.id), false);
+          if (!e.ok) console.warn(`[cobros] no pude cancelar la suscripción ${susId} en Creem: ${e.error}`);
+        } else {
+          console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar: Creem no tiene endpoint para expirarlo. Si lo pagan, el aviso lo marca como pago de un link anulado.`);
+        }
+      }
     } else if (c.proveedor === 'mercadopago' && c.proveedor_ref) {
       const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
       if (mp) {
@@ -1437,6 +1582,14 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
     // Creada pero ya fallida: no se devolvió nada (antes se daba por hecha igual).
     if (r.estado === 'failed' || r.estado === 'canceled') return { ok: false, resumen: 'Stripe no pudo hacer la devolución: la plata sigue cobrada.' };
     enCurso = r.estado !== 'succeeded';
+  } else if (c.proveedor === 'creem') {
+    // ⚠️ NO HAY ENDPOINT DE REEMBOLSO VERIFICADO en la API de Creem (31/10/2026): la doc tiene el EVENTO
+    // `refund.created` (o sea que los reembolsos existen y avisan), pero no se encontró el endpoint para PEDIRLO. Un
+    // reembolso se hace desde el panel de Creem. Antes esto caía en la rama de Mercado Pago y le pedía a MP devolver un
+    // pago que no es suyo: fallaba con un mensaje que culpaba a MP, y lo que es peor, `aplicarReembolso` NO corría, así
+    // que un reembolso hecho a mano en Creem nunca se asentaba. Se dice lo que hay que hacer, y el evento del webhook
+    // lo asienta cuando llegue.
+    return { ok: false, resumen: 'La devolución de un cobro de Creem se hace desde el panel de Creem. Cuando la hagas, MaKo la registra sola con el aviso de Creem.' };
   } else {
     const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
     if (!mp) return { ok: false, resumen: 'Mercado Pago no está conectado.' };
@@ -1639,6 +1792,22 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
     if (!r.ok && r.status !== 404) {
       const sub = await leerSuscripcionStripe(stripe.key, susId);
       if (!(sub.ok && sub.estado === 'canceled')) return { ok: false, resumen: `Stripe no canceló la suscripción: ${r.error}` };
+    }
+  } else if (c.proveedor === 'creem') {
+    // ⚠️ ESTA RAMA NO EXISTÍA Y ERA EL BUG MÁS GRAVE DE LA PASARELA (31/10/2026). Un cobro de Creem caía en el `else`
+    // de Mercado Pago: MP contestaba 404 por un id que no es suyo, el `r.status !== 404` de abajo se comía el error
+    // como si fuera «ya estaba cancelada», y corría `aplicarSuscripcionCancelada`. Resultado: la base decía
+    // «cancelada», el cliente veía su baja hecha, y CREEM LE SEGUÍA COBRANDO TODOS LOS MESES. Sin error, sin log, sin
+    // ticket — la clase de fuga que sólo aparece en el resumen de la tarjeta del cliente.
+    const creem = await credCreem(ws, await cuentaVivaDelCobro(ws, c));
+    if (!creem) return { ok: false, resumen: 'Creem no está conectado.' };
+    // `alFinDelPeriodo: false` = `{ mode: 'immediate' }`. Es lo que hace esta función («deja de cobrarle cada mes,
+    // desde ahora. No devuelve nada»); la baja del propio plan, que sí respeta el mes pagado, va por `darDeBajaMiPlan`.
+    const r = await cancelarSuscripcionCreem(creem.key, susId, idemBaja(c.id), false);
+    if (!r.ok && r.status !== 404) {
+      // El mismo criterio que las otras dos: si no se pudo cancelar, se RELEE, y sólo vale si ya está cancelada.
+      const sub = await leerSuscripcionCreem(creem.key, susId);
+      if (!(sub.ok && sub.estado === 'canceled')) return { ok: false, resumen: `Creem no canceló la suscripción: ${r.error}` };
     }
   } else {
     const mp = await credMp(ws, await cuentaVivaDelCobro(ws, c));
@@ -1849,8 +2018,8 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number; hasta
       continue;
     }
     try {
-      const { stripe, mp } = await credsDe(c);
-      const pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);
+      const { stripe, mp, creem } = await credsDe(c);
+      const pago = await pagoDelLinkEnLaPasarela(c, stripe, mp, creem);
       if (pago) {
         const r = await aplicarPagoAprobado(c, pago);
         if (r.nuevo) cambiados++;
@@ -1875,13 +2044,17 @@ type PagoDeLaPasarela = Parameters<typeof aplicarPagoAprobado>[1];
  * Las claves de la cuenta de CADA cobro, leídas una vez por cuenta (varias por proveedor, 22/10/2026): un barrido que
  * leía las de la principal miraba en Stripe el link de la segunda cuenta con la clave equivocada (404, «no está»).
  */
-function credsPorCuenta(ws: number): (c: Cobro) => Promise<{ stripe: CredStripe | null; mp: CredMp | null }> {
-  const memo = new Map<string, Promise<{ stripe: CredStripe | null; mp: CredMp | null }>>();
+type CredsDelCobro = { stripe: CredStripe | null; mp: CredMp | null; creem: CredCreem | null };
+
+function credsPorCuenta(ws: number): (c: Cobro) => Promise<CredsDelCobro> {
+  const memo = new Map<string, Promise<CredsDelCobro>>();
   return (c) => {
     // Por su cuenta en el proveedor (`cuenta_ref`) si la tiene; si no, por su sufijo.
     const llave = c.cuenta_ref ? `${c.proveedor}|${c.cuenta_ref}` : `sufijo|${c.cuenta ?? CUENTA_PRINCIPAL}`;
     if (!memo.has(llave)) {
-      memo.set(llave, cuentaVivaDelCobro(ws, c).then((cuenta) => Promise.all([credStripe(ws, cuenta), credMp(ws, cuenta)])).then(([stripe, mp]) => ({ stripe, mp })));
+      memo.set(llave, cuentaVivaDelCobro(ws, c)
+        .then((cuenta) => Promise.all([credStripe(ws, cuenta), credMp(ws, cuenta), credCreem(ws, cuenta)]))
+        .then(([stripe, mp, creem]) => ({ stripe, mp, creem })));
     }
     return memo.get(llave)!;
   };
@@ -1892,7 +2065,7 @@ function credsPorCuenta(ws: number): (c: Cobro) => Promise<{ stripe: CredStripe 
  * asentar). Lo usan el cron (`reconciliarCobros`) y el «marcar a mano» (`asentarLinkPagadoDeCuota`). Tira si la
  * pasarela no contesta: quien llama decide qué hace con eso.
  */
-async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: CredMp | null): Promise<PagoDeLaPasarela | null> {
+async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: CredMp | null, creem: CredCreem | null = null): Promise<PagoDeLaPasarela | null> {
   if (c.proveedor === 'stripe' && stripe && c.proveedor_ref) {
     const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
     if (!s.ok) throw new Error(`Stripe no contestó por el link ${c.id}: ${s.error}`);
@@ -1928,6 +2101,29 @@ async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: 
     if (!b.ok) throw new Error(`Mercado Pago no contestó por el link ${c.id}: ${b.error}`);
     const aprobado = b.pagos.find((x) => x.estado === 'approved' && x.cobradorId === mp.userId && x.referencia === c.token);
     return aprobado ? { proveedorPagoId: aprobado.id, monto: aprobado.monto, moneda: aprobado.moneda, suscripcionId: aprobado.preapprovalId, pagadoAt: aprobado.fecha } : null;
+  }
+  if (c.proveedor === 'creem' && creem && c.proveedor_ref) {
+    // ⚠️ SIN ESTO EL CRON ERA CIEGO A CREEM (31/10/2026): los dos `if` de arriba son positivos y la función caía al
+    // `return null` del final, o sea «la pasarela no cobró este link». Y este cron es la RED: lo que el aviso perdió
+    // (Creem reintenta 5 veces y a las 24 h abandona) lo recoge él. Sin esta rama, un aviso perdido es plata cobrada en
+    // Creem que MaKo no acredita NUNCA — ni el alta, ni la cuota en el CRM, ni el lead a Ganado.
+    const ch = await leerCheckoutCreem(creem.key, c.proveedor_ref);
+    if (!ch.ok) throw new Error(`Creem no contestó por el link ${c.id}: ${ch.error}`);
+    // La referencia tiene que ser la de ESTE cobro: `request_id` (o el `metadata.mako_cobro`) lleva su token.
+    if (ch.estado !== 'completed' || ch.referencia !== c.token) return null;
+    // En una suscripción, el id del pago es el de la TRANSACCIÓN (hay una por mes y el webhook usa la misma),
+    // no el del checkout: con el del checkout, la renovación del mes siguiente se leería como el primer pago.
+    if (c.tipo === 'suscripcion') {
+      if (!ch.suscripcionId) return null;
+      const tx = await buscarTransaccionesCreem(creem.key, ch.suscripcionId);
+      if (!tx.ok) throw new Error(`Creem no contestó por las transacciones del link ${c.id}: ${tx.error}`);
+      const pagada = tx.transacciones.filter((x) => x.estado === 'paid').sort((a, b) => Date.parse(a.fecha ?? '') - Date.parse(b.fecha ?? ''))[0];
+      // `monto` es SIN impuesto: es lo que cobra el plan. El impuesto lo cobra y lo remite Creem (merchant of record).
+      return pagada ? { proveedorPagoId: pagada.id, monto: pagada.monto ?? undefined, moneda: pagada.moneda ?? undefined, suscripcionId: ch.suscripcionId, pagadoAt: pagada.fecha ?? undefined } : null;
+    }
+    return ch.transaccionId
+      ? { proveedorPagoId: ch.transaccionId, monto: ch.monto ?? undefined, moneda: ch.moneda ?? undefined, suscripcionId: null }
+      : null;
   }
   return null;
 }
@@ -1973,8 +2169,8 @@ export async function asentarLinkPagadoDeCuota(ws: number, pagoId: number): Prom
   for (const c of vivos) {
     let pago: PagoDeLaPasarela | null;
     try {
-      const { stripe, mp } = await credsDe(c);
-      pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);
+      const { stripe, mp, creem } = await credsDe(c);
+      pago = await pagoDelLinkEnLaPasarela(c, stripe, mp, creem);
     } catch (e) {
       sinLeer++;
       console.warn(`[cobros] no pude mirar el link ${c.id} antes de marcar a mano la cuota ${pagoId}:`, e instanceof Error ? e.message : String(e));
@@ -1989,7 +2185,7 @@ export async function asentarLinkPagadoDeCuota(ws: number, pagoId: number): Prom
 
 /** Los workspaces con alguna pasarela conectada (para el cron). Lee la tabla de ruteo, que es en claro. */
 export async function workspacesConPasarela(): Promise<number[]> {
-  const { data, error } = await getSupabaseServer().from('webhook_routing').select('workspace_id').in('servicio', ['stripe', 'mercadopago']);
+  const { data, error } = await getSupabaseServer().from('webhook_routing').select('workspace_id').in('servicio', [...PASARELAS]);
   if (error) throw new Error(`No pude leer los workspaces con pasarela: ${error.message}`);
   return [...new Set((data ?? []).map((r) => Number((r as { workspace_id: number }).workspace_id)).filter((n) => Number.isFinite(n)))];
 }

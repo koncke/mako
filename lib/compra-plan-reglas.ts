@@ -5,7 +5,7 @@
 // ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Acelerador.
 // =============================================================================
 
-import type { Pasarela } from './cobros-tipos';
+import { esPasarela, type Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
 import { PRUEBA_DIAS, PRUEBA_GRATIS_PRENDIDA } from './planes-mako';
 
@@ -160,7 +160,9 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   if (nombre.length < 2) return { ok: false, error: 'Escribe tu nombre.' };
   const email = (typeof b.email === 'string' ? b.email : '').trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 200) return { ok: false, error: 'Escribe un email válido: por ahí te llega el acceso.' };
-  const pasarela = b.pasarela === 'stripe' || b.pasarela === 'mercadopago' ? b.pasarela : null;
+  // Por el guard compartido, no por los dos nombres a mano (31/10/2026): con la lista escrita acá, quien elegía Creem
+  // en /planes/<id> mandaba `pasarela: 'creem'` y el server lo leía como «no eligió ninguna».
+  const pasarela = esPasarela(b.pasarela) ? b.pasarela : null;
   const quiero = b.quiero === true;
   const whatsapp = whatsappLimpio(b.whatsapp);
   if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
@@ -210,12 +212,46 @@ export function paisDelVisitante(encabezado: string | null | undefined): string 
   return /^[A-Z]{2}$/.test(p) && p !== 'XX' && p !== 'T1' ? p : null;
 }
 
-/** Las pasarelas que se le ofrecen a quien está en `pais` (ver arriba). Mantiene el orden y los datos de cada opción. */
+/**
+ * LATINOAMÉRICA, para elegir entre Creem y Stripe afuera del país de Mercado Pago (31/10/2026).
+ *
+ * Creem es MERCHANT OF RECORD: cobra el impuesto del país de quien paga, lo remite él y le da una factura que cumple.
+ * Stripe no: el impuesto queda del lado de MaKo. En LatAm eso es la diferencia entre un cobro limpio y un lío fiscal
+ * por cada país, así que acá manda Creem. Afuera de LatAm sigue Stripe, que es lo que ya estaba andando: cambiarle la
+ * pasarela a Estados Unidos y Europa no es parte de este trabajo y no se hace de prepo.
+ */
+const PAISES_LATAM: ReadonlySet<string> = new Set([
+  'AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'CU', 'DO', 'EC', 'GT', 'HN', 'MX', 'NI', 'PA', 'PE', 'PR', 'PY', 'SV', 'UY', 'VE',
+]);
+
+/**
+ * Las pasarelas que se le ofrecen a quien está en `pais`. Mantiene el orden y los datos de cada opción.
+ *
+ * EL ORDEN DE LAS PREGUNTAS:
+ *   1. ¿Mercado Pago cobra en SU país? Entonces es la única: en pesos, sin el recargo de la tarjeta internacional
+ *      (a un argentino, US$47 con tarjeta de afuera le salen el equivalente a US$71 por IVA y percepciones).
+ *   2. Si no: Creem en LatAm (merchant of record, se hace cargo del impuesto), Stripe en el resto del mundo.
+ *   3. Y si la que le toca no está conectada, lo que quede. Nunca se deja a alguien sin forma de pagar por una
+ *      preferencia nuestra: eso sería perder la venta para ahorrarnos un impuesto.
+ *
+ * ⚠️ ASÍ ESTABA ESCRITO ANTES, Y ES LA TRAMPA QUE ESTE ARCHIVO EXISTE PARA CONTAR:
+ *       `return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');`
+ *    Ese `!== 'mercadopago'` quería decir «Stripe», y con dos pasarelas quería decir exactamente eso. Con tres dejó
+ *    de querer decirlo: devuelve Stripe Y Creem juntos, a todo el mundo. Y como las dos son opciones válidas, nadie
+ *    falla — lo que pasa es que a quien compra se le PREGUNTA con qué quiere pagar (`pasarelaDeLaCompra` devuelve
+ *    'elegir' con más de una), o sea una pantalla de más y una decisión que no le toca tomar a él. Un `!==` que
+ *    significa «el otro» es correcto sólo mientras haya dos.
+ */
 export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, opciones: readonly T[]): T[] {
+  // Sin saber el país (local, o una IP que Vercel no ubica), todas, y elige la persona.
   if (!pais) return [...opciones];
-  const deSuPais = (o: T) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais;
-  const locales = opciones.filter(deSuPais);
-  return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');
+  const locales = opciones.filter((o) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais);
+  if (locales.length) return locales;
+  const preferida: Pasarela = PAISES_LATAM.has(pais) ? 'creem' : 'stripe';
+  const suyas = opciones.filter((o) => o.pasarela === preferida);
+  if (suyas.length) return suyas;
+  // La que le tocaba no está conectada: las internacionales que queden (nunca Mercado Pago, que no cobra fuera de su país).
+  return opciones.filter((o) => o.pasarela !== 'mercadopago');
 }
 
 // =============================================================================

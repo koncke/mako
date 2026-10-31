@@ -121,6 +121,10 @@ export const DEFS: Def[] = [
   // (app/integraciones/IntegracionesBoard.tsx).
   { key: 'stripe', nombre: 'Stripe', categoria: 'Pagos', descripcion: 'Cobra con un link de pago y cada pago entra solo a tu CRM.', envs: ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET'] },
   { key: 'mercadopago', nombre: 'Mercado Pago', categoria: 'Pagos', descripcion: 'Cobra en tu moneda con un link de Mercado Pago y cada pago entra solo a tu CRM.', envs: ['MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID'] },
+  // Creem (31/10/2026). ⚠️ Sus `envs` son TRES y el secreto del aviso va incluido, al revés que Mercado Pago: el
+  // webhook de Creem es fail-closed (sin secreto rechaza todo), así que una cuenta sin él no cobra nada y no tiene
+  // sentido pintarla como conectada. Los dos derivados los escribe el descubrimiento (lib/cobros-conexion.ts).
+  { key: 'creem', nombre: 'Creem', categoria: 'Pagos', descripcion: 'Cobra en dólares en todo el mundo y Creem se encarga de los impuestos de cada país por ti.', envs: ['CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET'] },
   // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper del 14/10/2026): se fueron el 25/10/2026, Martín: «Depreca
   // Hotmart, Skool... Elimina Apify». Medido antes, en producción: 0 claves, 0 ruteos, 0 leads y 0 búsquedas.
   // Ver tests/leads-scraper-retirado.test.ts.

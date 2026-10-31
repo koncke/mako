@@ -68,7 +68,7 @@ const CAMPOS_DE_DEAL: readonly string[] = [
 export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_cobros', area: 'cobros', tipo: 'lectura',
-    titulo: 'Cobros de Stripe y Mercado Pago',
+    titulo: 'Cobros de Stripe, Mercado Pago y Creem',
     descripcion: 'Los cobros que el negocio pidió por Stripe o Mercado Pago (links de pago y suscripciones), más recientes primero: id, lead, concepto, monto y moneda, estado (pendiente, pagado, rechazado, reembolsado, anulado), pasarela, si es de prueba, fechas y qué acciones admite cada uno. Con leadId, sólo los de ese lead. NO trae el link de pago ni datos de tarjeta. No son las cuotas del CRM (eso es cobranza_lead).',
     parametros: [
       leadId('filtra por lead (de buscar_leads).', false),
@@ -92,7 +92,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       leadId('id del lead que va a pagar (de buscar_leads).'),
       { nombre: 'productoId', rotulo: 'Producto del catálogo', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del producto del catálogo de ofertas (de listar_productos), con su precio. NO es el embudoId del CRM.' },
-      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o mercadopago. Sin valor: la única conectada, o Stripe si están las dos (el precio del catálogo está en dólares).' },
+      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe, mercadopago o creem. Sin valor: la única conectada, o Stripe si hay varias (el precio del catálogo está en dólares).' },
     ],
     canales: TODOS, costo: 'externo', gating: G_TAB,
   },
@@ -230,7 +230,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       leadId('id del lead dueño de la cuota.'),
       cuotaId(),
-      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe (la cuota está en dólares). Sin valor, Stripe.' },
+      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o creem (la cuota está en dólares; Mercado Pago cobra en la moneda de su cuenta). Sin valor, Stripe.' },
     ],
     canales: TODOS, costo: 'externo', gating: G_TAB,
   },
@@ -284,7 +284,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', obligatorio: true, enum: ['suscripcion', 'unico'], descripcion: 'suscripcion (cobra cada mes) o unico.' },
       { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'código de 3 letras (USD, MXN, ARS…). Sin ella, la de la cuenta de la pasarela.' },
       { nombre: 'montoUsd', rotulo: 'Valor en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'cuánto es en dólares, si la moneda no es USD: sin él el cobro no entra a la plata del CRM.' },
-      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o mercadopago. Hace falta sólo si la plataforma tiene las dos conectadas.' },
+      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe, mercadopago o creem. Hace falta sólo si la plataforma tiene más de una conectada.' },
       // 29/10/2026: el partner que lo trajo, como el campo de la pantalla; tiene que ser el código de un partner.
       { nombre: 'codigoPartner', rotulo: 'Código de partner', tipo: 'string', max: 40, descripcion: 'el código de MaKo Partners de quien lo trajo, si lo trajo alguien: ese partner gana su primer mes.' },
     ],

@@ -49,7 +49,7 @@ import {
 } from './medios-automatizacion';
 
 const MOTIVO_EMAIL = SIN_EMAIL_PROPIO;
-const MOTIVO_PAGOS = 'Conecta Stripe o Mercado Pago';
+const MOTIVO_PAGOS = 'Conecta una pasarela de pagos';
 const MOTIVO_NO_SE = 'No pude comprobarlo';
 
 export async function estadoCanalesDisparo(): Promise<EstadoCanales> {

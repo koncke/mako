@@ -10,6 +10,191 @@ plan de los próximos días. El entregable con las fechas es
 
 ---
 
+## Una pasarela nueva no agrega un valor: convierte 53 ternarios correctos en bugs silenciosos (31/10/2026)
+
+**Vive en:** `lib/cobros-tipos.ts` (`Pasarela`, `CAPACIDADES_PASARELA`, `COMISION_PASARELA`) · `lib/creem-api.ts` ·
+`lib/pasarela-firma.ts` (`verificarFirmaCreem`) · `app/api/webhooks/creem/route.ts` · `lib/cobros-webhook.ts`
+(`procesarEventoCreem`) · `lib/cobros-eventos.ts` (`eventoCreem`, `avisoCreem`) · `lib/cobros-conexion.ts`
+(`descubrirCreem`) · `supabase/migrations/0358_cobros_pasarela_creem.sql` · `tests/creem-pasarela.test.ts`
+(12 roturas cazadas).
+
+### El diagnóstico obvio era el equivocado, dos veces
+
+**1. «Agregar Creem es escribir el cliente de Creem.»** Falso, y por mucho. El cliente nuevo son 400 líneas que no
+tienen con qué equivocarse: o andan o dan un error visible. El trabajo real —y el riesgo— estaba en los **53 lugares
+que ya existían** y que comparaban contra DOS pasarelas. Con dos valores, `p === 'stripe' ? A : B` es *correcto*. Con
+tres, la rama `B` se traga al tercero **en silencio**: es código válido, que corre, contra el proveedor equivocado. No
+lo ve el compilador (las dos ramas tipan bien), no lo ve un test que no existe, y no lo ve una review que lea el
+renglón sin preguntarse cuántos valores tiene el tipo.
+
+Los tres que costaban plata de verdad:
+
+| Dónde | Qué hacía con un cobro de Creem |
+|---|---|
+| `crearCheckout` (`lib/cobros.ts`) | `if (proveedor === 'stripe') {…}` y después, **sin else**, caía a Mercado Pago: le creaba una suscripción **REAL en Mercado Pago**, en la moneda de esa cuenta, y guardaba su id en el cobro de Creem. Se le cobraba a una persona por el proveedor equivocado, sin un solo error. |
+| `cancelarSuscripcionCobro` | Cancelaba contra Mercado Pago. MP contestaba **404** por un id que no es suyo, y el `r.status !== 404` —puesto el 30/10 para que «ya cancelada» no frenara la baja— **se comía el error**: corría `aplicarSuscripcionCancelada`. La base decía «cancelada», el cliente veía su baja hecha, y **Creem le seguía cobrando todos los meses**. Sin error, sin log, sin ticket: aparece en el resumen de la tarjeta del cliente, meses después. |
+| `cerrarLinkEnLaPasarela` | `if (stripe) … else if (mercadopago) …`, **sin else**: el link anulado quedaba abierto y pagable. Lo llama `anularLinksDeCuota` (la cuota ya cobrada por otro lado), o sea que el agujero es un **doble cobro**. |
+
+Y el patrón inverso, igual de malo: `urlParaPagar` preguntaba por Mercado Pago y después **asumía Stripe**, así que un
+cobro de Creem llegaba a `leerCheckoutStripe` con una ref de otro proveedor.
+
+**2. «El compilador me va a avisar.»** Avisó de 13 de los 66. El motivo es que la unión estaba **copiada a mano en
+cinco lugares**, independientes de `Pasarela`:
+
+- `ProveedorConCuentas` (`lib/cuentas-integracion.ts`) — y con ella **todo** el subsistema de cuentas: nombres de
+  claves con sufijo, ruteo de avisos, «Vincular cobro»;
+- `ProveedorPago` (`lib/cobro-etapa.ts`), `OpcionDeCobro.pasarela` (`lib/agencia-cobro-reglas.ts`),
+  `SuscripcionVisible.proveedor` (`PlanPanel.tsx`), y los `proveedor: 'stripe' | 'mercadopago'` de `lib/pagos.ts`.
+
+Ensanchar sólo `Pasarela` dejaba a ese subsistema sin un error y **sin saber que Creem existe**. Las cinco ahora se
+derivan de `Pasarela`.
+
+### Lo que no se ve y descarta en silencio
+
+- **`pasarelasConectadas` tenía `['stripe', 'mercadopago']` escrito literal**, y ese literal **es asignable a
+  `Pasarela[]`**: cero error, y Creem conectado y cobrando se reportaba como «no hay pasarela» en todos sus llamadores
+  (el checkout de /planes, la ficha, la API de MaKo y el cron). Igual en `cuentasDePago` (`PROVEEDORES`) y en
+  `workspacesConPasarela` (`.in('servicio', […])`, que decide a qué negocios visita el cron).
+- **`PASARELAS_CON_PRUEBA` (`lib/prueba-plan-reglas.ts`) no se ensancha sola**, y es la que decide si una pasarela se
+  **ofrece** en /planes. Una pasarela que sepa hacer la prueba y que nadie agregue ahí queda conectada, cobrando e
+  **invisible en la vitrina**. Es el mismo bug que el 27/10 dejó a Stripe fuera y le mandó la Mercado Pago argentina a
+  una clienta de México: volvió a aparecer con otro nombre.
+- **`credenciales.ts`: `servicioDeRuteo === 'stripe' || === 'mercadopago'`** decidía si al borrar una clave se suelta
+  SU fila de ruteo o **todas las del servicio**. `servicioDeRuteo` es `string`, así que con Creem daba `false` y borrar
+  una clave se llevaba el ruteo de **todas** sus cuentas. Palabra por palabra el bug que el comentario de esa línea
+  dice haber arreglado el 22/10 para Mercado Pago.
+- **Los tres CHECK de `0255` limitan `proveedor` por SQL.** El crítico no es `cobros`: es **`pasarela_eventos`**, que es
+  la deduplicación de avisos. Sin ensancharlo, el webhook no puede ni dejar rastro, `reclamarEvento` tira antes de
+  aplicar, y el pago quedó cobrado en Creem y nunca entró a MaKo.
+
+### La regla que queda
+
+> **Una diferencia entre pasarelas no se escribe con un ternario de dos ramas.** Va como campo de
+> `CAPACIDADES_PASARELA` (un `Record<Pasarela, …>` **total**: la pasarela #4 no compila hasta que alguien decida qué
+> hace), o como `switch` con `default: { const _x: never = p; }`. Y una lista de pasarelas se escribe `PASARELAS`,
+> nunca a mano: el literal tipa igual y no avisa.
+>
+> Corolario: **antes de ensanchar una unión, buscar sus copias** (`grep` por el valor viejo, no por el nombre del
+> tipo). Una copia que se queda atrás no falla: descarta al valor nuevo en silencio.
+
+### Creem, lo que dice su documentación y no se deduce del parecido con Stripe
+
+Leída en pantalla el 31/10/2026. Atajo que ahorra horas: **cualquier URL de `docs.creem.io` acepta `.md` al final**, y
+las de `/api-reference/endpoint/*` devuelven el **OpenAPI completo** con sus enums.
+
+- **La clave va en `x-api-key`**, no en `Authorization: Bearer`.
+- **El checkout NO cobra sin un `product_id`.** No existe el precio en línea de Stripe (`price_data`) ni el
+  `unit_price` de una preferencia de MP: cada cobro **crea su producto** primero (de ahí el `Idempotency-Key` en los dos
+  POST, o un reintento llena la cuenta del negocio de productos duplicados).
+- **`price` en CENTAVOS**, y con piso: «must be 0 or at least 100». No hay precios de 50 centavos.
+- **Moneda: enum cerrado `USD` | `EUR`.** La página de precios promete «multi-currency» y el OpenAPI no lo permite.
+- **Leer una suscripción es por QUERY STRING:** `GET /v1/subscriptions?subscription_id=…`. `/v1/subscriptions/{id}` no
+  existe — y suponerlo por parecido con Stripe da 404 justo en el camino que decide si una baja se asienta.
+- **Cancelar no tiene `cancel_at_period_end`:** es `{ mode: 'immediate' | 'scheduled' }`. Y **`mode` se manda siempre**,
+  porque sin él el default «can be configured in the store billing settings»: qué hace «dar de baja» dependería de una
+  pantalla del panel y no del código. `onExecute` es **camelCase** en una API que por lo demás es snake_case.
+- **El descuento de un solo ciclo existe de verdad:** `duration: 'once'` — «applies only to the first payment», y el
+  caso de uso que da la doc es literal «50% off your first month». Se aplica en el **checkout** (`discount_code`) y el
+  segundo mes vuelve solo al precio lleno. **Creem no necesita el remiendo de `lib/primer-mes.ts`** (que a Mercado Pago
+  le sube el monto a mano al entrar el primer pago). Pero **no hay endpoint para descontarle a una suscripción ya
+  abierta**: se aplica al nacer o no se aplica.
+- **El tipo del evento está en `eventType`** (camelCase) y `created_at` llega en **milisegundos como número**. El id es
+  `evt_…`, igual que Stripe, y eso es justo lo que hace creíble suponer que el resto también es igual.
+- **La firma es HMAC-SHA256 hex del cuerpo CRUDO y nada más** (header `creem-signature`): sin timestamp, sin esquema
+  versionado. ⚠️ **El ejemplo oficial de la doc usa `JSON.stringify(req.body)`, y eso rompe la verificación** en cuanto
+  el cuerpo trae un nombre con acento (re-serializar cambia bytes). Va `req.text()`.
+- **Sin timestamp no hay protección contra la repetición:** una firma válida capturada vale para siempre. Lo que cubre
+  ese hueco es la dedup por `id` **más** la relectura del recurso. Y el detalle fino: los reintentos automáticos
+  **conservan** el `id`, pero un **reenvío a mano** desde el panel llega con un `id` NUEVO — así que la dedup no
+  protege de un reenvío manual, y de ahí que lo que se aplica salga de releer el estado y no de contar eventos.
+- **El acceso lo da `subscription.paid`, no `subscription.active`** (lo dice la propia doc: «use [active] only for
+  synchronization»). `paid` «fires for the first payment and every renewal»: el alta y la renovación entran por el
+  mismo evento.
+- ⚠️ **`subscription.expired` NO corta nada.** Su ejemplo oficial llega con `status: "active"`, la doc dice que «payment
+  retries can happen at this stage» y que el estado es terminal **sólo** en `canceled`. Tratarlo como baja le saca el
+  acceso a alguien que todavía puede pagar. `past_due` y `unpaid` son el **grace period del dunning** — la propia doc de
+  Creem advierte contra gatear por `status === 'active'`, que voltea a los que están en prueba o reintentando.
+- **El estado se lee de `object.status`, nunca del nombre del evento**, y el parser tolera un valor fuera del enum: la
+  doc lista siete estados en el OpenAPI y menciona un octavo (`incomplete`) sólo en prosa.
+- **Los montos vienen por triplicado:** `amount` SIN impuesto, `tax_amount`, `amount_paid` CON impuesto. **MaKo asienta
+  `amount`**: el impuesto lo cobra y lo remite Creem (es merchant of record), no es ingreso nuestro — asentar
+  `amount_paid` inflaría el MRR con plata que nunca fue de MaKo.
+- **La comisión pega sobre el total CON impuesto**, no sobre el precio. La página de precios dice «3.9% + 40¢» y deja
+  creer que es sobre la venta; la doc de payouts da el ejemplo: US$20 + US$4 de IVA → **US$1,33**, no US$1,18. Y sobre
+  el ticket de US$47 de MaKo el **cargo fijo manda**: 3,9% + 0,40 = US$2,23 = **4,74%** del precio. Decir «3,9%» sería
+  mentir en un ticket chico (`comisionDeLaPasarela`, con su test).
+- **Lo que la doc NO dice, y lo busqué en todo su corpus: la cadencia de reintentos de cobro.** Dice «according to the
+  retry schedule» y nunca define el schedule. ⚠️ **Trampa:** sí documenta en detalle un calendario de reintentos, pero
+  es el de **entrega de webhooks** (5 intentos: 30 s, 5 min, 30 min, 6 h; nada después de 24 h; timeout de 15 s). Es
+  fácil leer uno y creer que es el otro. Por eso MaKo **no predice** cuándo Creem se da por vencida: espera el
+  `subscription.canceled`.
+
+### Dos cosas propias de Creem que cambiaron el diseño
+
+- **Creem no tiene ningún endpoint que diga de quién es una clave.** Stripe tiene `GET /v1/account` → `acct_…`; Mercado
+  Pago `GET /users/me` → `user_id`. Creem, nada — y el ruteo de avisos **necesita** un identificador estable por cuenta.
+  La salida: el identificador es **el id del endpoint de aviso** (`wh_…`) que MaKo registra en esa cuenta
+  (`CREEM_WEBHOOK_ID`), que es estable, es de esa cuenta y sólo lo conoce quien tiene la clave. Viaja como `?w=`.
+  Consecuencia: **el orden de conexión es al revés que en las otras dos** — primero se prueba la clave, después se
+  registra el aviso, y recién ahí hay identificador para reclamar.
+- **El webhook es FAIL-CLOSED, al revés que Mercado Pago.** En MP el aviso es flaco (un id) y la seguridad real es la
+  relectura obligatoria: un aviso falso sólo provoca una lectura, así que sin secreto se acepta. El de Creem **trae el
+  objeto entero y el `eventType`**: aceptar sin verificar sería dejar que cualquiera POSTee un `subscription.paid` y se
+  dé de alta un plan gratis. Sin secreto, rechaza todo — y por eso `conectada` **exige** el secreto (regla de Stripe,
+  no de MP) y la conexión falla sin guardar nada si Creem no lo devuelve.
+
+### La pasarela por país, que es una decisión de producto
+
+`pasarelasDelPais` decide: Mercado Pago sólo en el país de **su** cuenta (medido: a un argentino, US$47 con tarjeta
+internacional le salen el equivalente a **US$71** por IVA y percepciones); **Creem en LatAm** (es merchant of record: se
+hace cargo del impuesto de cada país y da factura que cumple, donde Stripe deja ese lío del lado de MaKo); **Stripe en
+el resto del mundo** — cambiarle la pasarela a Estados Unidos y Europa no era parte del pedido. Si la que le toca no
+está conectada, se ofrece la internacional que haya: no se deja a nadie sin poder pagar por una preferencia nuestra.
+
+⚠️ La rama internacional **era** `filter((o) => o.pasarela !== 'mercadopago')`. Con dos pasarelas eso quería decir
+«Stripe»; con tres devuelve Stripe **y** Creem juntas, a todo el mundo. Y no falla nada: lo que pasa es que a quien
+compra se le **pregunta** con qué pagar (`pasarelaDeLaCompra` → `'elegir'`), o sea una pantalla de más y una decisión
+que no le toca. **Un `!==` que significa «el otro» es correcto sólo mientras haya dos.**
+
+### Lo que quedó SIN hacer
+
+- **Falta el secreto del webhook para cobrar de verdad** (`CREEM_WEBHOOK_SECRET`, hoy comentado en `.env.local`). Lo
+  devuelve Creem cuando MaKo registra el aviso, así que **sale solo al conectar Creem en `/integraciones?ws=9`** con la
+  clave de producción que ya está. Hasta entonces el webhook rechaza todo (a propósito) y ningún pago entra.
+- **No se probó ningún cobro real** (hace falta el sí de Martín en el chat). Todo lo verificado es con datos armados y
+  `fetch` interceptado. Lo único que se tocó de la API real fueron las tres lecturas vacías que ya estaban medidas.
+- **Reembolso de Creem: no hay endpoint verificado.** El evento `refund.created` existe (o sea que los reembolsos
+  existen y avisan), pero no se encontró el endpoint para pedirlo. `reembolsarCobro` devuelve un mensaje que dice
+  hacerlo desde el panel; el webhook lo asienta cuando llegue. Antes caía en la rama de MP y le pedía a Mercado Pago
+  devolver un pago que no es suyo.
+- **Creem no difiere el primer cobro.** No hay `start_date` documentado (la prueba gratis se hace con
+  `trial_period_days`, que es «N días desde hoy», no «empezá el día X»). Un cobro de agencia con primer cobro diferido
+  **se rechaza explícito** en vez de caer en la rama de MP y arrancar a cobrar un mes antes, encima del mes ya pagado.
+  Lo que queda abierto es `lib/agencia-cobro.ts` (`inicio_at`) y `lib/plan-deuda.ts` (`ciclosPerdidosMp`).
+- **Los textos de UI que todavía nombran a Mercado Pago** cuando el cobro es de Creem: `PlanPanel.tsx` («por Mercado
+  Pago», y las promesas de prorrateo y de baja), `app/m/configuraciones/plan/PlanM.tsx`, `VenderPlan.tsx` (`MONEDAS_STRIPE`
+  deja armar una suscripción de Creem en MXN o EUR), `CobrarConLink.tsx`, `CobroDeEtapaModal.tsx` y
+  `CobroBoton.tsx` del Web Generator (que con Creem en USD **sí** podría cobrar desde la landing: el motivo documentado
+  para excluir MP —cobra en la moneda de su cuenta— no le aplica). Ninguno mueve plata al proveedor equivocado; mienten
+  o no ofrecen.
+- **`lib/retencion-plan.ts` y `lib/subir-plan.ts`** siguen con sus ternarios de dos ramas: una retención o un cambio de
+  plan de un cobro de Creem cae en el camino de MP y queda en `error` (y en retención la oferta se consume igual, porque
+  el setting se limpia antes). **No cuestan plata mal cobrada**, pero no funcionan.
+- **Sin logo oficial de Creem:** `ICON` lleva un letter-mark en neutro (regla de la casa: una inicial honesta antes que
+  un logo inventado). En `creem.io` no hay `theme-color`, ni manifest, ni un hex de marca legible.
+
+### Dos fallas que ya estaban rojas en `origin/integracion` (no las trajo este trabajo)
+
+Verificadas stasheando el cambio: fallan igual sin él.
+
+- `tests/compra-plan.test.ts` — la lista de claves de `PedidoCompra` no tiene `promo` ni `sinPromo`, que el trabajo de
+  promo-entrada agregó al tipo.
+- `tests/cobro-lanzamiento.test.ts` — el `assert.match` sobre `app/api/planes/comprar/route.ts` espera `conPrueba:`
+  como primera clave del objeto, y promo-entrada metió `promoVigente:` antes. Es una aserción que fija el **orden** de
+  un objeto literal: se rompe con cualquier reordenamiento, aunque el código esté bien.
+
+---
+
 ## Una suscripción ya cancelada en la pasarela frenaba la baja PARA SIEMPRE (30/10/2026)
 
 - **Síntoma:** `cancelarSuscripcionCobro` (`lib/cobros.ts:1603`) no podía terminar nunca una baja cuya suscripción ya

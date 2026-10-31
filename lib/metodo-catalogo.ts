@@ -917,6 +917,32 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  {
+    key: 'creem',
+    nombre: 'Creem',
+    categoria: 'Pagos',
+    paraQue: 'Cobrar en dólares en todo el mundo con los impuestos resueltos: Creem cobra y paga el impuesto de cada país por ti, y te da la factura que cumple.',
+    campos: [
+      { env: 'CREEM_API_KEY', label: 'Clave de Creem', secreto: true, placeholder: 'creem_…', nota: 'Lo único que pegas: la clave de API de producción (creem_…). Con ella MaKo registra el aviso de pagos en tu cuenta.' },
+      { env: 'CREEM_WEBHOOK_ID', label: 'ID del aviso', auto: true, derivado: true, placeholder: 'wh_…', nota: 'Lo completa MaKo al registrar el aviso; no se escribe a mano. Sin esto, tus pagos no entran a tu CRM.' },
+      { env: 'CREEM_WEBHOOK_SECRET', label: 'Firma del aviso de pagos', secreto: true, auto: true, derivado: true, placeholder: 'whsec_…', nota: 'La da Creem cuando MaKo registra el aviso; no se escribe a mano. Sin esto, MaKo rechaza todos los avisos de pago.' },
+    ],
+    // Sin pasoExterno A PROPÓSITO, como Stripe y al revés que Mercado Pago: el aviso lo registra MaKo con la clave
+    // (`asegurarWebhookCreem`), y Creem devuelve su secreto por API — `POST /v1/webhooks` lo da una vez y
+    // `GET /v1/webhooks/{id}/secret` lo vuelve a dar. Pedirle a la persona que copie un secreto que la API ya entrega
+    // era pedirle un paso de más y una forma de pegarlo mal.
+    tutorial: {
+      url: 'https://creem.io/dashboard/developers',
+      urlLabel: 'Creem → Developers',
+      pasos: [
+        'Para qué sirve: con esta clave MaKo crea tus links de pago en Creem y anota cada cobro en la ficha del lead.',
+        'Entra a creem.io/dashboard/developers con la cuenta donde quieres recibir el dinero.',
+        'En "API Keys" copia la clave de producción (empieza con creem_) y pégala en "Clave de Creem".',
+        'Eso es todo: MaKo registra solo el aviso de pagos y guarda su firma.',
+        'Para probar sin dinero real, usa una clave de test (creem_test_…): Creem las separa por completo de las reales.',
+      ],
+    },
+  },
   // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper): se fueron el 25/10/2026 sin una sola clave guardada en
   // producción. Ver tests/leads-scraper-retirado.test.ts.
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
@@ -1390,6 +1416,16 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://dashboard.stripe.com/apikeys',
     urlLabel: 'Stripe → API keys',
+  },
+  CREEM_API_KEY: {
+    pasos: [
+        'Para qué sirve: con esta clave MaKo crea tus links de pago en Creem y anota cada cobro en la ficha del lead.',
+        'En creem.io/dashboard/developers abre "API Keys".',
+        'Copia la clave de producción (empieza con creem_) y pégala en este campo.',
+        'MaKo registra solo el aviso de pagos y guarda su firma: no hay ningún paso más.',
+      ],
+    url: 'https://creem.io/dashboard/developers',
+    urlLabel: 'Creem → Developers',
   },
   MERCADOPAGO_ACCESS_TOKEN: {
     pasos: [

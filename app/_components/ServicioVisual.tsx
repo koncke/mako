@@ -74,6 +74,11 @@ export const ICON: Record<string, IconDef> = {
   // declara la misma fuente (simple-icons 13.21.0: Stripe #635BFF, Mercado Pago #00B1EA).
   stripe: { sym: 'ic-stripe', bg: '#635BFF' },
   mercadopago: { sym: 'ic-mercadopago', bg: '#00B1EA' },
+  // Creem (31/10/2026): LETTER-MARK, siguiendo la regla de arriba. No está en simple-icons, y en creem.io no hay
+  // `theme-color`, ni manifest, ni un hex de marca que se pueda leer (su CSS es todo variables de Tailwind). Sin el
+  // vector ni el color oficiales, una inicial honesta en el neutro (como Otter y Read AI) es mejor que inventarle un
+  // logo o un color. Cuando se consiga el SVG oficial, se cambia por `sym`.
+  creem: { letter: 'C', bg: '#334155' },
   // Zernio: su marca OFICIAL (25/10/2026, Martín: «la de Zernio no es el correcto»). Hasta ese día iba un letter-mark sobre un
   // violeta (#6D4AFF) que no es el suyo: su ícono es la marca blanca sobre rojo anaranjado #EB3514 (zernio.com/icon.svg).
   zernio: { sym: 'ic-zernio', bg: '#EB3514' },

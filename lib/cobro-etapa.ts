@@ -12,7 +12,16 @@
 // (tests/cobro-etapa.test.ts).
 // =============================================================================
 
-export type ProveedorPago = 'stripe' | 'mercadopago';
+import { NOMBRE_PASARELA, type Pasarela } from './cobros-tipos';
+
+/**
+ * ⚠️ DERIVADO DE `Pasarela`, no copiado (31/10/2026). Era `'stripe' | 'mercadopago'` escrito a mano, una de las CINCO
+ * copias de la misma unión que había en el repo, y por eso «Vincular cobro» y la ficha no daban un solo error al
+ * agregar la tercera pasarela: descartaban sus cuentas en silencio (`proveedorDeCuenta` devolvía null, y el pago nunca
+ * encontraba su vínculo). Las copias de una unión tienen que moverse juntas, o la que se queda atrás descarta al
+ * proveedor nuevo sin que nada falle.
+ */
+export type ProveedorPago = Pasarela;
 
 /**
  * Una cuenta conectada de una pasarela. Puede haber VARIAS por proveedor. `id` es estable: 'stripe:principal' y
@@ -50,7 +59,7 @@ export type ResCobro<T> = ({ ok: true } & T) | { ok: false; error: string };
 /** Lo que la pantalla dice en una línea de qué pasa al pagar. */
 export const TEXTO_AL_PAGAR = 'Cuando alguien paga este producto, pasa a Ganado aquí, con su plan de pagos.';
 
-export const NOMBRE_PROVEEDOR: Readonly<Record<ProveedorPago, string>> = { stripe: 'Stripe', mercadopago: 'Mercado Pago' };
+export const NOMBRE_PROVEEDOR: Readonly<Record<ProveedorPago, string>> = NOMBRE_PASARELA;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las cuentas

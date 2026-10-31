@@ -202,7 +202,7 @@ export const RUNNERS: Runners = {
 
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
       if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.', falla: true };
-      if (!conectadas.length) return { error: 'Conecta Stripe o Mercado Pago en Integraciones para cobrar.', faltan: ['pasarela'] };
+      if (!conectadas.length) return { error: 'Conecta una pasarela de pagos en Integraciones para cobrar.', faltan: ['pasarela'] };
       const pedida = esPasarela(input.pasarela) ? input.pasarela : null;
       // Con las dos conectadas y sin elegir, Stripe: el precio del catálogo está en dólares y es la
       // única de las dos que lo cobra tal cual (ver abajo).
