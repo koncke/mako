@@ -37,11 +37,11 @@ import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
 import { ArranqueMediaBuyer } from './ArranqueMediaBuyer';
 import { LienzoCampanas, type Lienzo } from './Lienzo';
+import { ROTULO_PASO, cartelDeHoy, type PasoHoy } from '@/lib/media-buyer/cartel-hoy';
 import { Biblioteca } from './Biblioteca';
 import { PanelAgentes } from './Agentes';
 import { ArbolDeHoy } from './Arbol';
 import { CajaDeOrden, ListaActividad, NuevoChat, NumerosDelMes, type Sugerencia } from './Hoy';
-import { ROTULO_PASO, cartelDeHoy, type PasoHoy } from '@/lib/media-buyer/cartel-hoy';
 import type { AgentePropio } from '@/lib/media-buyer/agentes-propios';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
