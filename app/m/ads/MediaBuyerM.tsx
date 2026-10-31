@@ -19,10 +19,10 @@ import { Criatura } from '@/app/_components/Criatura';
 import { MiFoto } from '@/app/admin/operaciones/MiFoto';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import { productoDeAccion } from '@/lib/media-buyer/productos';
+import { PASO_EN_EL_TELEFONO, cartelDeHoy } from '@/lib/media-buyer/cartel-hoy';
 import { ArbolDeHoy } from '@/app/ads-manager/Arbol';
 import { TarjetaAccion } from '@/app/ads-manager/Autopilot';
 import { aplicablesEnLote, deHoy } from '@/app/ads-manager/mb-modelo';
-import { PASO_EN_EL_TELEFONO, cartelDeHoy } from '@/lib/media-buyer/cartel-hoy';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
