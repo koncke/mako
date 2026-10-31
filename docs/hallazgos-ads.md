@@ -5297,3 +5297,78 @@ y releer) y M1, M5 y M6 quedaron hechas en `b4ee3c411`: ver la entrada de arriba
     la zona no frena una campaña ya creada.
 - **Abierto (BAJA, entre otras del informe):** dentro de una automatización no hay ninguna guarda al ejecutar
   `proponer_crear_campana`; sólo el editor la saca de la lista.
+
+## «Hoy no hay cambios — Todo anda dentro de tu objetivo»: el cartel que le decía que estaba todo bien a quien no había empezado (30/10/2026)
+
+**Síntoma.** El Media Buyer sin cambios para hoy mostraba *«Hoy no hay cambios — Todo anda
+dentro de tu objetivo. Vuelvo a mirar mañana.»* Una cuenta recién conectada, **sin una sola
+campaña y sin haber gastado un peso**, leía que todo andaba dentro de su objetivo. No
+fallaba nada: entregaba, con la cara del éxito, el peor cartel posible.
+
+**Causa — no era la frase, era con qué se elegía.** La condición mira **dos** cosas: que
+`hoy.length === 0` y que `config.encendido` sea `true`. Nunca pregunta si el negocio tiene
+campañas. Y el diagnóstico obvio —«pasale las campañas a la pantalla»— era el equivocado:
+**esa pantalla no tiene las campañas y no las puede pedir.** `app/ads-manager/page.tsx`
+carga config, decisiones, metas del mes, token y cupo; el árbol de la cuenta **en vivo** lo
+trae `lienzoMediaBuyer`, y a propósito sólo cuando se abre la pestaña Campañas, porque lee
+Meta. Pedirlo en «Hoy» es una llamada a Meta en cada carga de la tab.
+
+El dato que **sí** llega es el resumen de la última corrida (`ultima_corrida_info`, el mismo
+canal por el que ya viajan las alertas de Protect para dibujarse sin releer Meta). Ahí no
+estaban las campañas: `ResumenCorrida` guardaba propuestas, lanzadas y alertas, pero no
+**qué había en la cuenta**. Contarlas del `datos.arbol` con que el agente YA decidió no
+cuesta ninguna lectura más.
+
+**Tres trampas del dato, que es donde se pierde el tiempo:**
+
+- **Un resumen de abstención no tiene números.** La corrida vuelve temprano con `parcial`,
+  `datos_viejos`, `moneda_sin_tasa`, `cuenta_compartida`, `apagado` o `sin_tabla`. Si los
+  contadores se ponen en cualquiera de esos returns, la pantalla afirma «no tienes campañas»
+  sobre una cuenta que **no se vio entera**. Van **sólo** en el return de `ok`.
+- **`marcarCorrida` hace upsert: el resumen de hoy borra el de ayer.** Apagar el agente deja
+  `{estado:'apagado'}` y con eso se pierden los contadores de la última corrida buena. Es
+  correcto que se pierdan —no sabemos qué hay ahora— y por eso apagado dice «estoy apagado»
+  y no inventa el estado de las campañas.
+- **Un resumen VIEJO dice `ok` y no trae los números.** Todo negocio que ya corrió antes de
+  este cambio cae ahí hasta su próxima corrida. No alcanza para afirmar nada: `estado === 'ok'`
+  **y** `activas > 0` es la única combinación que habilita «no hay nada que mover».
+
+**Orden de los estados: el del próximo paso, no el del dato.** Sin cuenta no hay nada más
+que decir. Con la cuenta **vacía** o con **todo en pausa**, prender el agente no mueve un
+peso: esos dos van **antes** del interruptor. Y la frase medida va última.
+
+**Regla.** *Un estado vacío es una afirmación: si no sale de algo que medimos, no se
+escribe.* Es la misma de [Tres cosas que Ads Manager afirmaba sin haberlas
+mirado](#tres-cosas-que-ads-manager-afirmaba-sin-haberlas-mirado-0809) («si el motivo no
+sale de la respuesta que acabás de recibir, es una adivinanza con cara de dato»), aplicada
+al cartel de una pantalla en vez de a un modal. Y la que la sostiene: **la decisión de qué
+dice un estado vacío va en un módulo puro, fuera de las pantallas.** Acá eran dos pantallas
+(computadora y teléfono) con la misma frase escrita a mano dos veces, y una rama que
+reescribía la pantalla sin tocar la falla.
+
+**Cómo se prueba que sigue arreglado.** `tests/media-buyer-cartel-hoy.test.ts` cubre los
+siete estados, y además **lee las dos pantallas** y falla si alguna vuelve a escribir
+`Todo anda dentro de tu objetivo` o a fijar el título sin mirar si hay campañas. Esa guarda
+atrapa el regreso por merge, que es como la falla volvería.
+
+**Lo que quedó SIN hacer:**
+
+- **El teléfono no sabe si la cuenta está conectada.** `app/m/ads/page.tsx` manda
+  `conectada: token ? true : null`: con token es `true`, y sin token queda en «no sé», porque
+  preguntarle a Zernio sería una llamada al abrir la pantalla. Un negocio **sin token y sin
+  Zernio** cae en el estado del interruptor o en «todavía no sé cómo vienes», no en «conecta
+  tu cuenta». Se arregla el día que haya un estado de conexión cacheado por negocio.
+- **El otro cartel de la misma pantalla no se tocó:** la rama `nueva` de `MediaBuyer.tsx`
+  (`¿En qué te ayudo hoy? — Muevo tu presupuesto de Meta hacia lo que vende`) es una promesa,
+  no una afirmación sobre la cuenta, así que no miente; pero tampoco dice en qué estado está
+  el negocio.
+- **Nada de esto se vio dibujado:** no hay sesión de navegador en la máquina donde se hizo.
+  El botón del próximo paso en `NuevoChat` usa `Button`/`ButtonLink` con `marginTop: 18`
+  inline, sin clase nueva en `aa.css` (que la rama `nube/media-buyer-2710` reescribe), y en
+  el teléfono el paso es un `<p className="aa-m-nota">`. **No verificado en pantalla.**
+
+**Vive en:** `lib/media-buyer/cartel-hoy.ts` (puro, el criterio y los siete textos),
+`lib/media-buyer/corrida.ts` (`ResumenCorrida.campanas` / `.activas`, contadas del árbol en
+el return de `ok`), `app/ads-manager/MediaBuyer.tsx` y `app/m/ads/MediaBuyerM.tsx` (las dos
+pantallas), `app/ads-manager/Hoy.tsx` (`NuevoChat` acepta `accion`), `app/m/ads/page.tsx`
+(`conectada`), `tests/media-buyer-cartel-hoy.test.ts`.

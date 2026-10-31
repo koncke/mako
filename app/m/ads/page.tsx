@@ -11,6 +11,7 @@
 
 import { requireMovil } from '@/lib/movil-guard';
 import { wsDeAdsManager } from '@/lib/ads-guard';
+import { credWs } from '@/lib/credenciales';
 import { PantallaM, VacioM } from '@/app/m/_ui';
 import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
 import { vistaMediaBuyer } from '@/lib/media-buyer/vista';
@@ -24,13 +25,20 @@ export const dynamic = 'force-dynamic';
 export default async function MediaBuyerMovil() {
   const ctx = await requireMovil({ navKey: 'ads-manager' });
   if (ctx.ws == null) return <PantallaM><VacioM frase="Elige un negocio para ver su Media Buyer." /></PantallaM>;
-  const [op, guardada, dec, cupo] = await Promise.all([wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30), cupoDe(ctx.ws)]);
+  const [op, guardada, dec, cupo, token] = await Promise.all([
+    wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30), cupoDe(ctx.ws),
+    credWs('META_ACCESS_TOKEN', ctx.ws).catch(() => null),
+  ]);
   const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   const vista = await vistaMediaBuyer(ctx.ws, config.kpi, config.objetivo).catch(() => null);
   const puedeOperar = typeof op === 'number' && op === ctx.ws;
+  // Con token, la cuenta está conectada. SIN token no se concluye nada: puede estar conectada por Zernio, y preguntárselo
+  // sería una llamada a Zernio al abrir la pantalla del teléfono. Con `null`, el cartel de Hoy no afirma que falte la cuenta
+  // (lo dice la última corrida, si dejó `estado: 'sin_cuenta'`).
   return (
     <PantallaM>
-      <MediaBuyerM config={config} decisiones={dec.decisiones} puedeOperar={puedeOperar} productoDe={vista?.productoDe ?? {}} />
+      <MediaBuyerM config={config} decisiones={dec.decisiones} puedeOperar={puedeOperar} productoDe={vista?.productoDe ?? {}}
+        conectada={token ? true : null} />
     </PantallaM>
   );
 }
