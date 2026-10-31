@@ -3482,7 +3482,25 @@ firmar se mira `espera`, no sólo `puede`.
 **Sin mirar en pantalla como super admin:** se probó en un arnés con las piezas reales y clics de verdad, a 1280 y 390; la hoja del teléfono
 (`SheetM`) no se montó ahí. El Chrome disponible estaba con la sesión de Leandro, y /admin/operaciones lo manda a /second-brain.
 
-**SIN hacer:** los carteles de ausencia del Runner («la PC no da noticias», «nadie entrega») van en el mismo lugar que éste.
+**SIN hacer:** los carteles de ausencia del Runner («la PC no da noticias», «nadie entrega») iban en el mismo lugar que éste.
+
+**31/10/2026, el cartel se sacó.** Martín, al verlo en el teléfono: «elimina el cartel rojo de "9 mensajes tuyos..."». Se fue con su lista y sus botones. La cuenta, la lectura aparte de `listarPedidos` y el aviso antes de firmar siguen. **Sin botón:** `descartarDelLimboAction` y lo puro de `lib/centro-limbo.ts` quedan sin pantalla, porque la rama `runner-servicio-3010` los modifica; esa rama también trae cambios sobre `CartelLimbo.tsx`, y hay que resolverlos a favor del borrado.
+
+## «La PC no responde» con la PC prendida: el umbral era de 4 minutos y las vueltas, cada 10 (31/10/2026)
+
+**Vive en:** `lib/operaciones-reglas.ts` (`CARTERO_VIVO_MS`) · `lib/centro-chats.ts` (`porQueTarda`) · y afuera del repo, en la PC: `~/.claude/operaciones/vigilar-continuo.sh` y `LEEME-cartero.md`.
+
+**El síntoma.** Martín le escribió al Cerebro a las 17:25 desde el teléfono, y debajo del mensaje salió «La PC no responde desde las 17:20: puede estar dormida». Se lo mandó al Runner: «Me dice que no responde...».
+
+**El diagnóstico obvio era el equivocado.** La PC estaba prendida y el Runner, sano: la vuelta de las 17:19 había salido sin errores. El comentario de `CARTERO_VIVO_MS` decía que el cartero pasa «cada uno o dos minutos», y el cron se había estirado a 10 sin mirar quién dependía de ese número. Pasados 4 minutos de cada vuelta, MaKo daba a la PC por muerta. Además, `vigilar` cubría sus 100 s y lo que se escribía después esperaba hasta 8 minutos: el mensaje de las 17:25 recién se entregó a las 17:28.
+
+**El arreglo.** Sin tocar MaKo: `vigilar` corre en fila desde un Monitor del chat Runner, que sólo despierta al chat cuando hay algo. Da noticias cada menos de 2 minutos, entrega en segundos y no gasta cuota en silencio.
+
+**La regla.** Un umbral de «está vivo» es un contrato con quien da las noticias. El que cambia la frecuencia del que avisa mira primero quién lee ese número.
+
+**Trampa.** Dos `vigilar` a la vez pisan `vuelta.json` y pueden devolver el mismo pedido mientras no tenga acuse. El continuo escribe en `vuelta-continua.json`, y la vuelta del cron no corre `vigilar` si `continuo.latido` tiene menos de 4 minutos.
+
+**SIN hacer:** con la app de Claude cerrada no hay Monitor ni cron, y el aviso vuelve a salir, esta vez con razón. Lo que lo resuelve es `runner-servicio-3010`, sin activar.
 
 ## El botón del Uso mostraba un número cierto de otra cuenta, y «Runner activo» con una medición de hace 6 días (30/10/2026)
 

@@ -4,7 +4,7 @@
 // Un mensaje de Martín a un chat cerrado se quedaba `escrito` sin que nadie se enterara y, a los 15 días, vencía sin avisar. Medido
 // el 30/10: 11 ahí, el más viejo del 24/10. Lo único que lo decía era una línea adentro de ESE chat, que él ya no abre.
 // Esto dice cuáles son, con lo que sube la PC (los chats vivos de cada cartero) y sin pedirle nada a la PC: si la PC está apagada, la
-// cuenta sigue en pie. La usa el cartel rojo de arriba del Ops Center (app/admin/operaciones/CartelLimbo.tsx).
+// cuenta sigue en pie. El cartel rojo que la usaba lo sacó Martín el 31/10/2026: «elimina el cartel rojo». Queda la regla y sus textos, sin pantalla.
 //
 // ⚠️ UN CHAT SIN NOTICIAS NO ESTÁ VIVO: `destino` puede no figurar en ningún cartero (un chat viejo, una cuenta sin Runner). Sólo
 //    cuenta como vivo el que la PC dice que está abierto.

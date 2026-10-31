@@ -472,7 +472,7 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   }
 
   // Lo vencido no se entrega: se dice, con el motivo.
-  // Y no en silencio (30/10/2026): sigue en el cartel de arriba del Ops Center hasta que Martín lo descarte (lib/centro-limbo.ts).
+  // Con su motivo, que lo distingue de los otros `no_entregado` (lib/centro-limbo.ts). El cartel que lo mostraba se sacó el 31/10/2026.
   const limite = new Date(Date.now() - VENCE_PEDIDO_MS).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
     .update({ estado: 'no_entregado', motivo: MOTIVO_VENCIO, updated_at: ahoraIso })

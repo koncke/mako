@@ -30,8 +30,9 @@ export const VERSION_TEXTO_LARGO = '1.15.8';
 export const aceptaTextoLargo = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_TEXTO_LARGO);
 /** Un pedido firmado vale dos semanas: alcanza para que vuelva una cuenta inactiva. */
 export const VENCE_DIAS = 14;
-/** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo». El cartero pasa
- *  cada uno o dos minutos (el cron del chat Cartero). */
+/** Más que esto sin noticias del cartero y la pantalla deja de decir «vivo» y le dice a Martín que la PC no responde.
+ *  ⚠️ Tiene que ser más que lo que tarda el cartero entre dos noticias: con vueltas cada 10 minutos, la PC prendida salía
+ *  «dormida» (31/10/2026). Hoy lo cubre `vigilar` en fila; ver docs/hallazgos-operaciones.md. */
 export const CARTERO_VIVO_MS = 4 * 60 * 1000;
 /** Un trabajo `tomado` sin acuse por más que esto se da por «no sé si llegó» (y sus adjuntos se borran). Es mucho más que
  *  los 30 minutos con que la PC vence su buzón: el acuse de la PC llega antes, salvo que se haya perdido (un Runner que
@@ -864,7 +865,7 @@ export function destinoVivo(destino: string, carteros: ReadonlyArray<{ chats?: R
 
 /**
  * Los mensajes `escrito` hace más de `SIN_CHAT_VIVO_MS` sin un chat vivo que los reciba (30/10/2026): la cuenta es de MaKo, con lo que
- * subió la PC, así que sigue en pie con la PC apagada. La usan el cartel del Ops Center (lib/centro-limbo.ts) y el vigía del Runner.
+ * subió la PC, así que sigue en pie con la PC apagada. La usa el vigía del Runner; el cartel del Ops Center se sacó el 31/10/2026.
  */
 export function pedidosSinChatVivo<P extends { created_at: string; destino: string; estado: string }>(
   pedidos: readonly P[], carteros: ReadonlyArray<{ chats?: ReadonlyArray<{ local: string; vivo?: boolean }> }>, ahora: number,
