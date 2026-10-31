@@ -28,6 +28,7 @@
 // =============================================================================
 
 import 'server-only';
+import type { Pasarela } from './cobros-tipos';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import {
@@ -40,7 +41,7 @@ import { CLAVE_RETENCION, leerRetencion, mesesDePausa } from './retencion-reglas
 export const TOPE_POR_CORRIDA = 5;
 
 export type FilaCobroLugar = CobroDelLugar & {
-  alta_ws: number | null; cliente_ws?: number | null; proveedor: 'stripe' | 'mercadopago';
+  alta_ws: number | null; cliente_ws?: number | null; proveedor: Pasarela;
   proveedor_suscripcion_id: string | null; proveedor_ref: string | null; token: string; lead_id: number | null;
 };
 

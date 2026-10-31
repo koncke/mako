@@ -56,13 +56,10 @@ test('segunda revisión del 23/10: sin oferta en mora ni sin retención en el pl
 // MP con la regla de Stripe -> 1 fallo (éste).
 test('la pausa vuelve a cobrar: Stripe a los 2 días del cobro salteado, Mercado Pago un día antes del fin del ciclo cubierto', async () => {
   const r = fuente('lib/retencion-plan.ts');
-  // Esto citaba la línea entera y se puso rojo (31/10/2026) cuando `reanudaDeLaPausa` pasó a poder devolver null: Creem
-  // todavía no sabe pausar, y la unión `'stripe' | 'mercadopago'` escrita a mano era una de las cinco copias que dejó la
-  // tercera pasarela. Lo que se cuida no es la forma de la llamada sino DOS cosas: que la fecha salga de esa función
-  // (y no de una cuenta a mano acá) y que, sin fecha, el campo NO se escriba — una marca con `reanudaAt` vacío diría que
-  // la pausa está aplicada y nadie la reanudaría nunca.
-  assert.match(r, /reanudaDeLaPausa\(c\.proveedor, proximo!, meses \?\? 1\)/, 'la fecha de reanudación sale de `reanudaDeLaPausa`');
-  assert.match(r, /\(\(r\) => \(r \? \{ reanudaAt: r \} : \{\}\)\)/, 'sin fecha de reanudación el campo no se escribe, en vez de escribirlo vacío');
+  // Lo que se cuida: la fecha sale de esa función, no de una cuenta a mano acá, y toda pausa la lleva: una marca sin `reanudaAt`
+  // diría que la pausa está aplicada y nadie la reanudaría nunca. Que la de Creem la lleve y se reanude, lo corre
+  // tests/creem-cobra.test.ts.
+  assert.match(r, /reanudaAt: reanudaDeLaPausa\(c\.proveedor, proximo!, meses \?\? 1\)/, 'una pausa sin fecha no se reanuda nunca');
   assert.match(r, /: Date\.parse\(`\$\{mesesDespuesDe\(proximo, meses\)\}T00:00:00Z`\) - DIA;/, 'MP: fin del ciclo cubierto menos un día');
   assert.match(r, /\? Date\.parse\(`\$\{proximo\}T00:00:00Z`\) \+ 2 \* DIA/, 'Stripe: 2 días después del cobro salteado');
   assert.match(r, /if \(tomo === false && g\.opcion === 'pausa' && g\.reanudaAt && Date\.now\(\) >= Date\.parse\(g\.reanudaAt\)\) tomo = true;/, 'una pausa vencida no libera la oferta');

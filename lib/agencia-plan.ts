@@ -36,7 +36,9 @@ import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { wsSuperAdmin } from './workspace';
 import { credDelCliente } from './credenciales';
-import { anularCobro } from './cobros';
+import { anularCobro, credCreemDelCobro } from './cobros';
+import { cambiarPrecioCreem } from './creem-api';
+import { CAPACIDADES_PASARELA, type Pasarela } from './cobros-tipos';
 import { cambiarPrecioStripe, montoSuscripcionMp, subirPlanStripe } from './pasarela-plan-api';
 import { planesMako } from './compra-plan';
 import { conceptoDelPlan } from './planes-mako';
@@ -50,8 +52,8 @@ import { CAPA_DE_PLAN, KEY_PLAN_CAMBIADO, esSuscripcionViva, leerCambioDePlan, p
 import { rigeElPlanDeAgencia } from './plan-esencial-reglas';
 
 type Fila = {
-  id: number; tipo: 'unico' | 'suscripcion'; estado: string; suscripcion_estado: string | null; proveedor: 'stripe' | 'mercadopago';
-  moneda: string; monto: number; proveedor_suscripcion_id: string | null; proveedor_ref: string | null; concepto: string;
+  id: number; workspace_id: number; tipo: 'unico' | 'suscripcion'; estado: string; suscripcion_estado: string | null; proveedor: Pasarela;
+  cuenta: string | null; cuenta_ref: string | null; moneda: string; monto: number; proveedor_suscripcion_id: string | null; proveedor_ref: string | null; concepto: string;
 };
 
 async function leerSetting(ws: number, key: string): Promise<unknown> {
@@ -95,7 +97,7 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
   if (!plan) return { ok: false, error: 'Ese plan no está en los planes de MaKo.' };
 
   const plataforma = await wsSuperAdmin();
-  const { data: cobros, error } = await db.from('cobros').select('id, tipo, estado, suscripcion_estado, proveedor, moneda, monto, proveedor_suscripcion_id, proveedor_ref, concepto')
+  const { data: cobros, error } = await db.from('cobros').select('id, workspace_id, tipo, estado, suscripcion_estado, proveedor, cuenta, cuenta_ref, moneda, monto, proveedor_suscripcion_id, proveedor_ref, concepto')
     .eq('workspace_id', plataforma).eq('agencia_ws', p.agenciaWs).eq('cliente_ws', p.clienteWs)
     .in('estado', ['pendiente', 'fallido', 'pagado', 'reembolsado']).limit(50);
   if (error) return { ok: false, error: `No pude leer sus cobros: ${error.message}` };
@@ -135,12 +137,23 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
         const r = await cambiarPrecioStripe(key, c.proveedor_suscripcion_id, { monto, moneda: c.moneda, idem });
         if (!r.ok) fallo = r.error;
       }
-    } else {
+    } else if (c.proveedor === 'creem') {
+      const creem = await credCreemDelCobro(c);
+      if (!creem || !c.proveedor_suscripcion_id) fallo = 'Creem no está conectado';
+      else {
+        // Pro cobra la diferencia en el acto, como Stripe; bajar queda para el próximo período.
+        const r = await cambiarPrecioCreem(creem.key, c.proveedor_suscripcion_id, { monto, moneda: c.moneda, nombre: c.concepto, idem, cobrarDiferencia: p.plan === 'pro' });
+        if (!r.ok) fallo = r.error; else if (p.plan === 'pro') diferenciaCobrada = true;
+      }
+    } else if (c.proveedor === 'mercadopago') {
       const token = await credDelCliente('MERCADOPAGO_ACCESS_TOKEN', plataforma);
       const id = c.proveedor_suscripcion_id ?? c.proveedor_ref;
       const r = token && id ? await montoSuscripcionMp(token, id, monto, idem) : null;
       if (!r?.ok) fallo = r && !r.ok ? r.error : 'Mercado Pago no está conectado';
       else if (Math.abs(r.monto - monto) > 0.01) fallo = `Mercado Pago quedó cobrando ${r.monto} en vez de ${monto}`;
+    } else {
+      const _x: never = c.proveedor;
+      fallo = `Esa pasarela no sabe cambiar un plan: ${String(_x)}`;
     }
     if (fallo) return { ok: false, error: `No pude cambiar lo que se le cobra: ${fallo}. Prueba otra vez en un minuto.` };
     await db.from('cobros').update({ monto, monto_usd: plan.precioUsd, plan_mako: plan.id, concepto: c.concepto.replace(/^MaKo [A-Za-zé ]+ · /, `${conceptoDelPlan(plan).replace(/ · mensual$/, '')} · `).slice(0, 200) })
@@ -157,7 +170,7 @@ export async function cambiarPlanDeCliente(p: { agenciaWs: number; clienteWs: nu
   // 2. El plan en el primer mes pagado (de ahí lo lee la renovación que el cron crea).
   if (primerMesPagado) await db.from('cobros').update({ plan_mako: plan.id }).eq('id', primerMesPagado.id).eq('workspace_id', plataforma);
   // 3. La capa: en el acto, salvo una subida que todavía no se cobró (queda pendiente y la sube el cron con ese pago).
-  const enElActo = p.plan === 'esencial' || yaTeniaPro || subeEnElActo({ diferenciaCobrada: diferenciaCobrada && vivas.every((c) => c.proveedor === 'stripe'), algoPagado, hayQueCobrar });
+  const enElActo = p.plan === 'esencial' || yaTeniaPro || subeEnElActo({ diferenciaCobrada: diferenciaCobrada && vivas.every((c) => CAPACIDADES_PASARELA[c.proveedor].subidaCobraLaDiferencia), algoPagado, hayQueCobrar });
   if (enElActo) {
     const { error: eCapa } = await db.from('workspaces').update({ capa: CAPA_DE_PLAN[p.plan] }).eq('id', p.clienteWs);
     if (eCapa) return { ok: false, error: `Se cambió lo que se cobra, pero no su plan en MaKo: ${eCapa.message}` };

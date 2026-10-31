@@ -14,36 +14,69 @@ plan de los próximos días. El entregable con las fechas es
 
 **Lo que se midió:** el commit de Creem (`5faf71e0e`) dice en su propio mensaje que cazó 53 ternarios
 de dos ramas. Un barrido adversarial posterior (107 agentes, cada hallazgo contra tres refutadores con
-lentes distintas: «probá que el código está mal», «probá que el arreglo no tiene dientes», «probá que
-pierde lo que el guardia cuidaba») encontró **nueve más que sobrevivieron a la refutación**. Ninguno
-rompe un test de hoy, ninguno tira un error, y **ninguno se nota hasta que alguien de LatAm intenta
-pagar**. Están abiertos: acá queda el mapa para arreglarlos, no el changelog.
+lentes distintas) encontró **nueve más**: ninguno rompía un test ni tiraba un error. Los nueve están
+cerrados, y al cerrarlos, entre las copias por valor y una revisión adversarial del arreglo, aparecieron
+**más peores que no estaban en la lista** (abajo). El peor: ningún aviso de Creem habría entrado nunca.
 
 **Por qué el diagnóstico obvio falla acá:** el commit de Creem escribió, en comentarios, que varios de
-estos lugares ya estaban arreglados. Dos de los nueve tienen, **once y sesenta líneas más arriba**, un
-comentario del propio commit que dice que ese bug se derivó de `Pasarela` y ya no se copia — y debajo
-sigue la lista de dos escrita a mano. Un comentario que afirma que algo se arregló no es evidencia: se
-lee el código.
+estos lugares ya estaban arreglados. Dos tenían, **once y sesenta líneas más arriba**, un comentario del
+propio commit diciendo que ese bug se derivó de `Pasarela` — y debajo seguía la lista de dos escrita a
+mano. Un comentario que afirma que algo se arregló no es evidencia: se lee el código.
 
-| Dónde vive | Qué pasa con un cobro de Creem | Plata |
+**Dónde estaba el error de verdad, cuando no era el que decía la lista:**
+
+- **«La prueba gratis no entrega la cuenta» era el SEGUNDO escalón.** El primero: `crearCobro` rechazaba
+  el `inicioAt` que le manda /planes, porque preguntaba `p.pasarela === 'stripe'`. La prueba por Creem ni
+  se creaba. Mirando sólo `activarPruebaSiAutorizo` se arreglaba un camino al que nadie llegaba.
+- **«La misma tarjeta saca prueba tras prueba» NO SE PUEDE ARREGLAR del todo.** Ningún objeto de Creem
+  trae la tarjeta: ni la suscripción, ni el cliente, ni la transacción. Lo más que da es `customer.id`, que
+  va por email: `cr:<cliente>|card:-`. Corta al que repite con el mismo email en Creem aunque en MaKo escriba
+  otro; con otro email también en Creem, **pasa**. La pantalla ya no dice «esa tarjeta» cuando no lo sabe
+  (`huellaDeTarjeta`). Hay un test que lo afirma, para que el día que Creem la exponga alguien la use.
+- **«Nunca llama a `plazoDelCobro`» sugería agregar la llamada al checkout, y eso no arregla nada:** Creem
+  no sabe «terminá el día X». Lo único que tiene es la baja agendada al fin del período en curso, así que
+  el plazo se cierra cuando se paga el ÚLTIMO ciclo (`tocaCerrarElPlazo`, por fechas y no contando
+  transacciones: un cobro de diferencia al subir de plan también es una). Y una vez por día lo repasa el
+  cron (`asegurarPlazosCreem`), o un aviso perdido agrega un mes.
+- **«No hay endpoint para descontar» era verdad y no era el final.** No hay cupón sobre una suscripción
+  abierta, pero el precio ES el del producto: se crea uno rebajado y se la pasa a él con `/upgrade`
+  (`cambiarPrecioCreem`, `proration-none`). Es el mismo modelo que Mercado Pago: lo rebaja MaKo y lo devuelve
+  el cron. Así salen el descuento, bajar de plan y pasar a Pro (éste con `proration-charge-immediately`).
+
+**Lo que el barrido no vio, y era peor (buscando las copias por el VALOR viejo, y leyendo el OpenAPI):**
+
+| Dónde vive | Qué pasaba | Plata |
 |---|---|---|
-| `lib/agencia-cobro-reglas.ts`, `cobroDeLaCuenta` | Ninguna cuenta de cliente de agencia se abre en MX, CO, CL, PE, BR, UY, PY, BO ni EC: la agencia pide el link del primer mes y MaKo contesta «MaKo todavía no tiene una pasarela» | **NO COBRA** |
-| `lib/subir-plan.ts`, `subirAPro` | El `else` le pide a Mercado Pago cambiar el monto de una suscripción cuyo id no es suyo: ningún cliente de Creem pasa de Esencial a Pro, y el error culpa a una pasarela que no usa | **NO COBRA** (el upsell, apagado para LatAm) |
-| `app/crm/[id]/cobros-actions.ts:125` | `['stripe','mercadopago']` escrita a mano: un negocio con Creem no puede armar un link de pago desde la ficha ni desde la cuota. El mensaje dice «Conecta Stripe o Mercado Pago», así que cree que el problema es suyo | **NO COBRA** |
-| `lib/retencion-plan.ts`, `aplicarRetencion` | Un cliente de Creem que acepta «2 meses al 50%» o «pausar un mes» recibe «No pudimos aplicarlo» y pierde su única oferta para siempre. Es el último paso antes de la baja | Plata que se va |
-| `lib/retencion-plan.ts`, `reanudaDeLaPausa` | Una pausa aceptada que la pasarela no ejecuta: se le sigue cobrando el mes a alguien a quien MaKo le prometió no cobrárselo, y la marca queda «aplicada» así que no se le vuelve a ofrecer nada | Cobra lo que prometió no cobrar |
-| `lib/cobros.ts`, la prueba gratis | Una prueba por Creem autoriza la tarjeta y **no entrega la cuenta**, y no anota la huella: la misma tarjeta saca prueba tras prueba | Venta pagada sin entregar |
-| `lib/cobros.ts`, `crearCheckoutCreem` | Nunca llama a `plazoDelCobro`: una suscripción de plazo fijo vendida por Creem **sigue cobrando después del último mes pactado**, mientras MaKo muestra el plan como terminado | Cobra de más |
-| `lib/cobro-etapa.ts` | El vínculo de «Vincular cobro» se guarda SIN la cuenta: el cobro de Creem entra pero el lead no pasa a Ganado. De los caros porque no se nota | Indirecta |
-| `lib/cobros-reglas.ts`, `esTextoDeContracargo` | Exige `(?:Stripe\|Mercado Pago)`: un contracargo de Creem se dibuja en letra chica en vez de aviso rojo. Una disputa que el negocio no contesta se pierde por defecto | Latente, con el cargo |
+| `lib/creem-api.ts`, `asegurarWebhookCreem` | **La URL del aviso se registraba sin `?w=`, y la ruta rutea por ese `?w=`: 401 a TODOS los avisos.** Dos comentarios afirmaban que la URL guardada lo llevaba, y ningún código lo hacía. Creem abandona a las 24 h: ni un pago, ni un alta, ni una renovación. Ahora se escribe con `PATCH /v1/webhooks/{id}` | **Nada entra** |
+| `lib/creem-api.ts`, `transaccionDe` | `created_at` de una transacción es un NÚMERO (el de una suscripción es ISO). Leído como texto, `Date.parse` da NaN y un `sort` con NaN no ordena: «la más nueva» era la primera que viniera, y el listado no tiene orden. Y la cuota llevaba la fecha de hoy. El test pasaba porque el doble mandaba ISO | Renovaciones sin asentar, cash en otro mes |
+| `lib/cobros-webhook.ts`, reembolso | Siempre `total` y sobre el PRIMER pago: US$5 devueltos del mes 5 dejaban el cobro «reembolsado», desmarcaban el mes 1 entero, y un plan vivo desaparecía de «Tu plan» mientras Creem seguía cobrando. Sale de releer la transacción: `refunded` o `partialRefund`. ⚠️ `refunded_amount` incluye impuesto: compararlo con `amount` da mal | Cash y plan falsos |
+| `lib/cobros-eventos.ts`, `avisoCreem` | Un reembolso o disputa no trae `metadata` ni `request_id` arriba: están en su `checkout`, y sólo `transaction` es obligatorio. El de un pago ÚNICO no encontraba su cobro y se ignoraba con 200, después de prometerle a quien devolvía que MaKo lo registraba solo | Devolución sin asentar |
+| `lib/cobros.ts`, `aplicarPagoFallido` | **Todas las pasarelas:** el cobro del día 8 de una prueba que se rechaza la pasaba a `fallido`, y ahí dejaba de ser su plan: sin baja, «sin pasarela» (acceso sin deuda), con la tarjeta reintentándose. Sigue en prueba y da la mora que ya estaba escrita | Acceso gratis, sin baja |
+| `lib/cobros.ts`, anular un link | Cancelaba con el id del checkout, que no corta nada, y su checkout no vence. Pagado después, su suscripción cobraba todos los meses. Ahora se corta al entrar el pago (`cierraElCheckout`) | Cobra de más |
+| `lib/agente-redaccion.ts` | Una clave `creem_…` pegada en el chat no se tapaba: llegaba entera al modelo y quedaba guardada | Un secreto |
+| `lib/creem-api.ts`, los montos | **Todo monto de Creem viene en centavos** («1000 = $10.00») y se leía tal cual: una renovación de US$47 entraba al cash como US$4.700. El test decía `monto === 1000` y lo afirmaba | Cash y MRR inflados ×100 |
+| `lib/creem-api.ts`, `buscarTransaccionesCreem` | Mandaba `subscription_id`, **que no existe** en `/transactions/search`: un parámetro desconocido se ignora, vuelven las de TODA la tienda, y «la más nueva» podía ser de otro cliente | Se asienta la plata de otro |
+| `lib/plan-deuda.ts`, `confirmarImpago` | Antes de cortar por impago le preguntaba a Mercado Pago, que no conoce el cobro: «sin pagos». Un aviso perdido le cortaba el acceso a quien SÍ pagó | Cliente pagando, afuera |
+| `lib/plan-deuda.ts`, `pagarDeuda` | En mora con la suscripción viva abría un cobro aparte mientras Creem reintentaba | Dos cobros |
+| `lib/cobros.ts`, `darDeBajaMiPlan` | Por el `else`, la baja cortaba en el acto: la pantalla prometía el período pagado y la tabla decía `bajaAlFinDelPeriodo` | Pierde lo que pagó |
+| `app/api/integraciones/cuentas/route.ts` | `idEnElProveedor` mandaba **la clave de Creem del negocio a la API de Mercado Pago**. Y `esProveedor` contestaba «servicio inválido» a la tarjeta de Creem | Un secreto a un tercero |
+| `lib/agencia-plan.ts`, `lib/agencia-cobro.ts` | Cambiar el plan de un cliente de agencia pedía a Mercado Pago; la renovación se abría un mes antes, sin `inicio_at` | No cobra, o cobra antes |
 
-**Y una décima que es de seguridad, no de cobro:** `tests/pasarela-sin-env.test.ts` es el único guardia
-que impide que una clave de cobro se lea por `process.env`, `envCred` o `credWs` (caminos que caen al
-ws1, el de la plataforma). Su patrón es `(?:STRIPE_|MERCADOPAGO_|MP_)`, así que **está ciego a las tres
-claves de Creem**: una lectura de `CREEM_API_KEY` por ahí cobraría con la cuenta de Creem de la
-plataforma, con plata de un cliente. No está rojo — está ciego, que es peor.
+**Lo que NO está medido, y es lo primero a mirar el día que se conecte Creem:** todo lo de arriba corre contra
+un Creem en memoria armado de su OpenAPI (`tests/_creem-cobra-hijo.ts`), nunca contra una clave de verdad. Su doc
+no dice: qué pasa con `next_transaction_date` al reanudar una pausa (por eso se reanuda un día antes del fin del
+ciclo cubierto, lo que sirve con cualquiera de las dos respuestas), si `/upgrade` acepta bajar de precio, si el
+arranque de una prueba deja una transacción en cero (`transaccionQueCobra` la descarta por las dudas), en qué unidad
+viene el `created_at` de una transacción (`fechaDeCreem` acepta segundos o milisegundos), ni si `product` viene siempre
+como objeto (si viene como id, el precio es «no sé» y la oferta trabada no se libera).
 
-**Lo que SÍ se arregló el 31/10** (lo demás queda abierto):
+**La trampa del doble:** el Creem en memoria se escribe con lo que uno cree del contrato, así que un error de lectura
+da verde dos veces. Lo de los centavos y lo de la fecha estaban en el test AFIRMADOS. Un doble se arma leyendo el
+OpenAPI campo por campo (`docs.creem.io/api-reference/openapi.json`), no el ejemplo de una página.
+
+**El guardia que estaba ciego:** `tests/pasarela-sin-env.test.ts` no miraba las tres claves de Creem. Ya las mira.
+
+**También del 31/10:**
 
 - **Al rótulo del checkout público de /planes le faltaba Creem**, así que su opción salía con el radio
   EN BLANCO: el comprador no sabe qué elige y se va, y el que no se leía era el de LatAm. El

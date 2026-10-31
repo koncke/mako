@@ -43,10 +43,10 @@ import { capaDef, type CapaId } from './capas';
 import { darDeAltaCliente, esCapaVendible } from './alta-cliente';
 import { habilitarClienteDeAgencia } from './agencia-habilitar';
 import { revisarAccesosPorPago } from './plan-acceso';
-import { CAPACIDADES_PASARELA, COLS_COBRO, NOMBRE_PASARELA, PASARELAS, cobroDeFila, esTokenCobro, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
+import { CAPACIDADES_PASARELA, COLS_COBRO, NOMBRE_PASARELA, PASARELAS, cobroDeFila, esTokenCobro, idDeSuscripcion, type Cobro, type EstadoAlta, type EstadoCobro, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { valoresDelPago } from './variables-del-lead';
 import {
-  avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCancelarFallida, idemCobro, idemReembolso, mesesTranscurridos,
+  avisoPagoPorLinkAnulado, codigoDeBaja, decidirCobro, esBajaPedida, textoBajaPedida, esRenovacion, finDelPlazo, idemAnular, idemBaja, idemCancelarFallida, idemCobro, idemReembolso, mesesTranscurridos, tocaCerrarElPlazo,
   esDevolucionFallida, montoUsdDeLaCuota, montoUsdDelCobro, pasaAPagado, textoDevolucionFallida, textoPagoRegistrado, urlPorVencer, ESTADOS_QUE_PASAN_A_PAGADO,
   mailDeAccesoNoSalio, PREFIJO_MAIL_NO_SALIO, cerrarCheckoutDelCobro,
 } from './cobros-reglas';
@@ -69,7 +69,7 @@ import {
   buscarTransaccionesCreem, cancelarSuscripcionCreem, crearCheckoutCreem as crearCheckoutCreemAPI, crearDescuentoDeEntradaCreem,
   crearProductoCreem, leerCheckoutCreem, leerSuscripcionCreem, modoDeClaveCreem,
 } from './creem-api';
-import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
+import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaCreem, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa, transaccionQueCobra } from './prueba-plan-reglas';
 import { PRUEBA_DIAS } from './planes-mako';
 import { montoDelPrimerPago, pctDelPrimerMes, usdDelPrimerPago } from './primer-mes-reglas';
 import { volverAlPrecioLleno } from './primer-mes';
@@ -379,11 +379,14 @@ export async function crearCobro(ws: number, p: {
     if (!Number.isInteger(agenciaWs) || !Number.isInteger(clienteWs) || agenciaWs <= 0 || clienteWs <= 0 || agenciaWs === clienteWs) return { ok: false, error: 'Agencia o cliente inválidos.' };
     paraCliente = { agenciaWs, clienteWs };
   }
-  // Un primer cobro diferido: en una suscripción de Mercado Pago (`start_date`, el parámetro que MP documenta al crearla), o la
-  // PRUEBA GRATIS de un plan de MaKo por Stripe (27/10/2026: `trial_period_days`, que arma `crearCheckout` al ver la prueba).
+  // Un primer cobro diferido: donde la pasarela acepta una fecha (`start_date` de Mercado Pago), o la PRUEBA GRATIS de un plan de
+  // MaKo donde los días de prueba los pone el proveedor (`trial_period_days` de Stripe y de Creem, que arma el checkout al ver la
+  // prueba). ⚠️ Decía `p.pasarela === 'stripe'`, así que la prueba de Creem NI SE CREABA: /planes le mandaba su `inicioAt` y esto la
+  // rechazaba, y le decía «no pudimos» a quien venía a darse de alta (31/10/2026).
   const inicioAt = p.inicioAt ?? null;
-  const pruebaStripe = p.pasarela === 'stripe' && esPruebaDePlan({ tipo: p.tipo ?? '', alta_capa: altaCapa, creado_por: p.creadoPor });
-  if (inicioAt && (p.tipo !== 'suscripcion' || (p.pasarela !== 'mercadopago' && !pruebaStripe) || !Number.isFinite(Date.parse(inicioAt)))) {
+  const capacidades = p.pasarela ? CAPACIDADES_PASARELA[p.pasarela] : null;
+  const pruebaPorDias = !!capacidades?.pruebaConTarjeta && esPruebaDePlan({ tipo: p.tipo ?? '', alta_capa: altaCapa, creado_por: p.creadoPor });
+  if (inicioAt && (p.tipo !== 'suscripcion' || (!capacidades?.difiereElPrimerCobro && !pruebaPorDias) || !Number.isFinite(Date.parse(inicioAt)))) {
     return { ok: false, error: 'Sólo una suscripción de Mercado Pago (o la prueba de un plan de MaKo) empieza a cobrar más adelante.' };
   }
 
@@ -587,7 +590,8 @@ async function crearCheckoutCreem(
   // hace con `trial_period_days`, que es otra cosa: son días desde HOY, no «empezá a cobrar el día X»). Un cobro de
   // agencia con primer cobro diferido caía antes en la rama de Mercado Pago y arrancaba a cobrar en el acto, un mes
   // antes, encima del mes ya pagado. Mejor no abrirlo y que se vea.
-  if (extra.inicioAt && !CAPACIDADES_PASARELA.creem.difiereElPrimerCobro) {
+  // La prueba SÍ lleva `inicioAt`: es el día que MaKo anuncia, y lo difiere el `trial_period_days` del producto, de acá abajo.
+  if (extra.inicioAt && !CAPACIDADES_PASARELA.creem.difiereElPrimerCobro && !esPruebaDePlan(c)) {
     return { ok: false, error: 'Creem no puede empezar a cobrar en una fecha futura. Usa Stripe o Mercado Pago para este cobro.' };
   }
   const recurrente = c.tipo === 'suscripcion';
@@ -826,6 +830,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
       ? await plazoDelCobro(actual).catch((e) => { console.error(`[cobros] no pude leer el plazo del cobro ${c.id}:`, e instanceof Error ? e.message : String(e)); return null; })
       : null;
     if (plazo && nuevo && actual.proveedor === 'stripe' && actual.proveedor_suscripcion_id) actual = await programarPlazoStripe(actual, plazo);
+    // Creem no sabe «terminá el día X»: se mira en CADA pago, primero o renovación, si éste fue el último ciclo del plazo.
+    if (actual.proveedor === 'creem' && actual.tipo === 'suscripcion') actual = await programarPlazoCreem(actual);
 
     // 2b. Una suscripción NUEVA de la pasarela sobre un lead que ya era suscripción: la cancelada o con plazo vuelve a
     //     activa y sin fin (`reabrirSuscripcionDelLead`). Va antes de ganar, que no la toca si el lead ya ganó.
@@ -912,6 +918,11 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     //     en el historial. Si la cuota del link ya estaba cobrada por otro lado, el pago entró como otra cuota: la plata
     //     entró dos veces. Antes entraba como una cuota cobrada más y nadie se enteraba. Sólo la corrida que ganó la
     //     transición (`nuevo`): un reintento no repite el aviso.
+    // La pasarela que no puede cerrar el link (Creem): pagó uno anulado, y su suscripción cobraría TODOS los meses. Se corta acá.
+    if (porLinkAnulado && nuevo && actual.tipo === 'suscripcion' && !CAPACIDADES_PASARELA[actual.proveedor].cierraElCheckout) {
+      const corte = await cancelarSuscripcionCobro(ws, c.id, autor).catch((e) => ({ ok: false, resumen: e instanceof Error ? e.message : String(e) }));
+      if (!corte.ok) console.error(`[cobros] el cobro ${c.id} se pagó por un link anulado y no pude cortar su suscripción: ${corte.resumen}`);
+    }
     if (porLinkAnulado && nuevo) {
       const dosVeces = !!actual.pago_id && await cuotaCobradaPorOtroLado(actual.pago_id, p.proveedorPagoId);
       const aviso = avisoPagoPorLinkAnulado(dosVeces);
@@ -1034,6 +1045,54 @@ async function alCron(c: Cobro, subtipo: SubtipoPago): Promise<void> {
 }
 
 /** Programa el fin del plazo en Stripe (`programarFinSuscripcionStripe`). Nunca tira: la plata ya entró. Si falla, lo dice el cobro. */
+/** Las claves de Creem con las que se cobró ESTE cobro. Lo que cambia un plan o una oferta va por acá, no por la cuenta principal. */
+export async function credCreemDelCobro(c: Pick<Cobro, 'workspace_id' | 'proveedor' | 'cuenta' | 'cuenta_ref'>): Promise<CredCreem | null> {
+  return credCreem(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
+}
+
+const PREFIJO_PLAZO_CREEM = 'No pude programar en Creem el fin';
+
+/**
+ * EL PLAZO EN CREEM (31/10/2026). Mercado Pago nace con su fin y Stripe lo programa con una fecha; Creem no tiene ninguna de
+ * las dos, y por eso una suscripción de 6 meses seguía cobrando el séptimo mientras MaKo la mostraba terminada. Lo único que sabe
+ * es «baja al fin del período en curso», así que se agenda cuando el período que acaba de pagarse es el ÚLTIMO
+ * (`tocaCerrarElPlazo`). Lo llaman cada pago y, una vez por día, `asegurarPlazosCreem` (un aviso perdido no agrega un mes).
+ * Idempotente: una ya agendada no está `active`. Best effort, como la de Stripe: la plata ya entró.
+ */
+async function programarPlazoCreem(c: Cobro): Promise<Cobro> {
+  try {
+    const meses = await plazoDelCobro(c);
+    if (!meses || !c.proveedor_suscripcion_id) return c;
+    const decir = async (por: string) =>
+      (await actualizar(c.workspace_id, c.id, { motivo: `${PREFIJO_PLAZO_CREEM} de los ${meses} meses: cancélala a mano al cumplirse (${por}).`.slice(0, 300) })) ?? c;
+    const creem = await credCreemDelCobro(c);
+    if (!creem) return decir('Creem no está conectado');
+    const s = await leerSuscripcionCreem(creem.key, c.proveedor_suscripcion_id);
+    if (!s.ok) throw new Error(s.error);
+    // Desde que nació la suscripción: `pagado_at` es cuándo lo PROCESÓ MaKo, y un aviso atrasado correría el plazo un ciclo.
+    const inicioMs = Date.parse(s.creadaAt ?? c.pagado_at ?? '');
+    if (!tocaCerrarElPlazo({ inicioMs, meses, finDelPeriodo: s.finDelPeriodo, estado: s.estado })) return c;
+    const r = await cancelarSuscripcionCreem(creem.key, c.proveedor_suscripcion_id, `${idemBaja(c.id)}-plazo`, true);
+    if (!r.ok) return decir(r.error);
+    return c.motivo?.startsWith(PREFIJO_PLAZO_CREEM) ? (await actualizar(c.workspace_id, c.id, { motivo: null })) ?? c : c;
+  } catch (e) {
+    console.error(`[cobros] no pude programar el fin del plazo del cobro ${c.id} en Creem:`, e instanceof Error ? e.message : String(e));
+    return c;
+  }
+}
+
+/** La red de `programarPlazoCreem`: las suscripciones de Creem vivas con producto. Una vez por día, desde el cron. Nunca tira. */
+export async function asegurarPlazosCreem(ws: number): Promise<void> {
+  const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
+    .eq('workspace_id', ws).eq('proveedor', 'creem').eq('tipo', 'suscripcion').eq('suscripcion_estado', 'activa').eq('estado', 'pagado')
+    .not('producto_id', 'is', null).limit(500);
+  if (error) { console.warn(`[cobros] no pude leer los plazos de Creem del ws ${ws}: ${error.message}`); return; }
+  // Con el negocio fijado: el plazo se lee del catálogo de ESE negocio, y sin esto `getTenantDb` no sabe de cuál.
+  await runWithWorkspace(ws, async () => {
+    for (const f of data ?? []) await programarPlazoCreem(cobroDeFila(f as Record<string, unknown>));
+  });
+}
+
 async function programarPlazoStripe(c: Cobro, meses: number): Promise<Cobro> {
   try {
     const stripe = await credStripe(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
@@ -1250,6 +1309,18 @@ export async function atarCobroASuCuenta(ws: number, id: number, autor: string):
  */
 export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void> {
   await runWithWorkspace(c.workspace_id, async () => {
+    // ⚠️ EL COBRO DEL DÍA 8 DE UNA PRUEBA AUTORIZADA QUE SE RECHAZA NO LA SACA DE «PENDIENTE» (31/10/2026). En `fallido` dejaba de ser
+    // su plan: `suscripcionDeMakoDe` daba null («tu plan no se cobra por la pasarela», sin baja) y la vigencia, «sin pasarela», o
+    // sea acceso sin deuda y sin corte, mientras la pasarela reintentaba con la tarjeta guardada. Sigue en prueba, y
+    // `vigenciaDeLaPrueba` da la mora desde ese día, que es lo que ya dice para una prueba que no se cobró.
+    if (c.estado === 'pendiente' && esPruebaDePlan(c) && c.suscripcion_estado) {
+      await actualizar(c.workspace_id, c.id, { motivo: motivo.slice(0, 300) }, { estado: ['pendiente'] });
+      if (c.lead_id) {
+        await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
+        await alCron(c, 'rechazado');
+      }
+      return;
+    }
     if (c.estado === 'pendiente') {
       const r = await actualizar(c.workspace_id, c.id, { estado: 'fallido', motivo: motivo.slice(0, 300) }, { estado: ['pendiente'], ref: c.proveedor_ref });
       if (r && c.lead_id) {
@@ -1495,9 +1566,18 @@ async function cerrarLinkEnLaPasarela(ws: number, c: Cobro): Promise<void> {
       const creem = await credCreem(ws, await cuentaVivaDelCobro(ws, c));
       if (creem) {
         if (c.tipo === 'suscripcion') {
-          const susId = c.proveedor_suscripcion_id ?? c.proveedor_ref;
-          const e = await cancelarSuscripcionCreem(creem.key, susId, idemAnular(c.id), false);
-          if (!e.ok) console.warn(`[cobros] no pude cancelar la suscripción ${susId} en Creem: ${e.error}`);
+          // El `proveedor_ref` de Creem es el CHECKOUT: cancelar con ese id no cortaba nada. La suscripción sale de él, si ya se pagó.
+          let susId = idDeSuscripcion(c);
+          if (!susId && c.proveedor_ref) {
+            const ch = await leerCheckoutCreem(creem.key, c.proveedor_ref);
+            susId = ch.ok ? ch.suscripcionId : null;
+          }
+          if (susId) {
+            const e = await cancelarSuscripcionCreem(creem.key, susId, idemAnular(c.id), false);
+            if (!e.ok) console.warn(`[cobros] no pude cancelar la suscripción ${susId} en Creem: ${e.error}`);
+          } else {
+            console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar. Si lo pagan, su suscripción se corta al entrar el pago.`);
+          }
         } else {
           console.warn(`[cobros] el cobro ${c.id} quedó anulado, pero su checkout de Creem (${c.proveedor_ref}) no se puede cerrar: Creem no tiene endpoint para expirarlo. Si lo pagan, el aviso lo marca como pago de un link anulado.`);
         }
@@ -1630,10 +1710,11 @@ export async function inicioDeLaPrueba(c: Pick<Cobro, 'id' | 'workspace_id'>): P
   return (data as { inicio_at?: string | null } | null)?.inicio_at ?? null;
 }
 
-/** ¿Otra prueba ya usó esta huella (la misma cuenta de MP o la misma tarjeta)? Sin la mig 0334, no se sabe: false, y al log. */
+/** ¿Otra prueba ya usó esta huella (la misma cuenta que paga o la misma tarjeta)? Sin la mig 0334, no se sabe: false, y al log. */
 async function huellaYaUsada(plataforma: number, cobroId: number, huella: string): Promise<boolean> {
   const { cuenta, tarjeta } = partesDeHuella(huella);
-  const ors = [cuenta ? `prueba_huella.like.mp:${cuenta}|*` : null, tarjeta ? `prueba_huella.like.*|card:${tarjeta}` : null].filter(Boolean).join(',');
+  // `*:` y no `mp:`: la cuenta que paga también la da Creem (`cr:`), y con el prefijo a mano esa huella no se encontraba nunca.
+  const ors = [cuenta ? `prueba_huella.like.*:${cuenta}|*` : null, tarjeta ? `prueba_huella.like.*|card:${tarjeta}` : null].filter(Boolean).join(',');
   if (!ors) return false;
   const { data, error } = await getSupabaseServer().from('cobros').select('id, prueba_huella')
     .eq('workspace_id', plataforma).neq('id', cobroId).not('prueba_huella', 'is', null).or(ors).limit(5);
@@ -1655,7 +1736,7 @@ export async function activarPruebaSiAutorizo(c: Cobro): Promise<'activada' | 'r
   try {
     const plataforma = await wsSuperAdmin();
     if (c.workspace_id !== plataforma) return null;
-    const s = c.proveedor === 'stripe' ? await pruebaAutorizadaStripe(c, plataforma) : await pruebaAutorizadaMp(c, plataforma);
+    const s = await pruebaAutorizada(c, plataforma);
     if (!s) return null;
     const pasarela = NOMBRE_PASARELA[c.proveedor];
     const huella = s.huella;
@@ -1691,6 +1772,22 @@ export async function activarPruebaSiAutorizo(c: Cobro): Promise<'activada' | 'r
   } catch (e) {
     console.error(`[cobros] no pude activar la prueba del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
     return null;
+  }
+}
+
+/**
+ * ¿La pasarela de ESTE cobro dice que la prueba quedó autorizada? ⚠️ Era `stripe ? … : Mercado Pago`: la prueba de Creem se le
+ * preguntaba a Mercado Pago, que no la conoce. La tarjeta quedaba cargada y el día 8 Creem cobraba, sin cuenta entregada.
+ */
+async function pruebaAutorizada(c: Cobro, plataforma: number): Promise<PruebaAutorizada | null> {
+  switch (c.proveedor) {
+    case 'stripe': return pruebaAutorizadaStripe(c, plataforma);
+    case 'mercadopago': return pruebaAutorizadaMp(c, plataforma);
+    case 'creem': return pruebaAutorizadaCreem(c, plataforma);
+    default: {
+      const _x: never = c.proveedor;
+      throw new Error(`Esa pasarela no sabe de pruebas: ${String(_x)}`);
+    }
   }
 }
 
@@ -1730,6 +1827,24 @@ async function pruebaAutorizadaStripe(c: Cobro, plataforma: number): Promise<Pru
   return {
     id: sub.id, huella: huellaStripe(sub.huella), finPrueba: sub.finPrueba,
     quien: 'esa tarjeta', cancelar: () => cancelarSuscripcionStripe(stripe.key, sub.id, idemBaja(c.id)),
+  };
+}
+
+/**
+ * Creem (31/10/2026): el checkout de ESTE cobro, COMPLETO, y su suscripción en `trialing` («the customer's card is verified
+ * and saved for the first payment»). El primer cobro entra por `subscription.paid`. La huella es sólo su cliente: ver
+ * `huellaCreem`. Sin medir con una clave de verdad: el orden de los avisos y de los estados sale de su doc.
+ */
+async function pruebaAutorizadaCreem(c: Cobro, plataforma: number): Promise<PruebaAutorizada | null> {
+  const creem = await credCreem(plataforma, await cuentaVivaDelCobro(plataforma, c));
+  if (!creem || !c.proveedor_ref) return null;
+  const ch = await leerCheckoutCreem(creem.key, c.proveedor_ref);
+  if (!ch.ok || ch.estado !== 'completed' || ch.referencia !== c.token || !ch.suscripcionId) return null;
+  const sub = await leerSuscripcionCreem(creem.key, ch.suscripcionId);
+  if (!sub.ok || sub.estado !== 'trialing' || (sub.referencia != null && sub.referencia !== c.token)) return null;
+  return {
+    id: sub.id, huella: huellaCreem(sub.clienteId), finPrueba: sub.proximoCobro,
+    quien: 'ese cliente de Creem', cancelar: () => cancelarSuscripcionCreem(creem.key, sub.id, idemBaja(c.id), false),
   };
 }
 
@@ -1884,6 +1999,14 @@ export async function darDeBajaMiPlan(ws: number, autor: string): Promise<Result
     const r = await programarBajaStripe(stripe.key, c.proveedor_suscripcion_id, `${idemBaja(c.id)}-al-fin`);
     if (!r.ok) return { ok: false, resumen: `Stripe no tomó la baja: ${motivoSinDatos(r.error)}` };
     finAt = r.finAt;
+  } else if (c.proveedor === 'creem') {
+    // Como Stripe, y no como Mercado Pago: sigue activa hasta el fin de lo que ya pagó (`bajaAlFinDelPeriodo`). Por el `else` se
+    // cancelaba en el acto, y la pantalla le prometía el período pagado a alguien cuya suscripción ya no existía.
+    const creem = await credCreem(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
+    if (!creem || !c.proveedor_suscripcion_id) return { ok: false, resumen: `No pudimos darte de baja. Escríbenos a ${EMAIL_MAKO}.` };
+    const r = await cancelarSuscripcionCreem(creem.key, c.proveedor_suscripcion_id, `${idemBaja(c.id)}-al-fin`, true);
+    if (!r.ok) return { ok: false, resumen: `Creem no tomó la baja: ${motivoSinDatos(r.error)}` };
+    finAt = r.finDelPeriodo;
   } else {
     const r = await cancelarSuscripcionCobro(c.workspace_id, c.id, autor);
     if (!r.ok) return { ok: false, resumen: r.resumen };
@@ -2118,7 +2241,7 @@ async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: 
       if (!ch.suscripcionId) return null;
       const tx = await buscarTransaccionesCreem(creem.key, ch.suscripcionId);
       if (!tx.ok) throw new Error(`Creem no contestó por las transacciones del link ${c.id}: ${tx.error}`);
-      const pagada = tx.transacciones.filter((x) => x.estado === 'paid').sort((a, b) => Date.parse(a.fecha ?? '') - Date.parse(b.fecha ?? ''))[0];
+      const pagada = tx.transacciones.filter((x) => transaccionQueCobra(c, x)).sort((a, b) => Date.parse(a.fecha ?? '') - Date.parse(b.fecha ?? ''))[0];
       // `monto` es SIN impuesto: es lo que cobra el plan. El impuesto lo cobra y lo remite Creem (merchant of record).
       return pagada ? { proveedorPagoId: pagada.id, monto: pagada.monto ?? undefined, moneda: pagada.moneda ?? undefined, suscripcionId: ch.suscripcionId, pagadoAt: pagada.fecha ?? undefined } : null;
     }

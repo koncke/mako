@@ -129,9 +129,10 @@ test('la factura en cero del inicio de la prueba NO es un pago (no se asienta un
 
 test('la prueba sale del COBRO: también la sesión que se rehace al vencer la trae', () => {
   assert.match(cuerpo('lib/cobros.ts', 'crearCheckout'), /diasDePrueba: esPruebaDePlan\(c\) \? PRUEBA_DIAS : null,/);
+  // La prueba por días (Stripe, Creem) puede llevar su día de cobro aunque la pasarela no acepte una fecha: la decide la tabla.
   const crear = cuerpo('lib/cobros.ts', 'crearCobro');
-  assert.match(crear, /const pruebaStripe = p\.pasarela === 'stripe' && esPruebaDePlan\(\{ tipo: p\.tipo \?\? '', alta_capa: altaCapa, creado_por: p\.creadoPor \}\);/);
-  assert.match(crear, /\(p\.pasarela !== 'mercadopago' && !pruebaStripe\)/, 'la prueba de Stripe puede llevar su día de cobro');
+  assert.match(crear, /const pruebaPorDias = !!capacidades\?\.pruebaConTarjeta && esPruebaDePlan\(/, 'la prueba de Stripe no podría llevar su día de cobro');
+  assert.match(crear, /!capacidades\?\.difiereElPrimerCobro && !pruebaPorDias/, 'cualquier cobro podría pedir una fecha futura');
 });
 
 test('un link de una prueba de Stripe ya empezada NO abre una segunda suscripción', () => {

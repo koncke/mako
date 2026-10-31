@@ -326,15 +326,16 @@ test('8. el descuento del primer mes es `duration: once`, y la baja manda `mode`
 test('9. la transacción separa el monto SIN impuesto del monto pagado: MaKo asienta el del plan', async () => {
   const { buscarTransaccionesCreem } = await creemApi();
   // El ejemplo real de la doc: amount 1000 (sin impuesto), tax_amount 210, amount_paid 1210 (lo que pagó la persona).
-  contestar = () => json({ items: [{ id: 'tran_1', status: 'paid', amount: 1000, tax_amount: 210, amount_paid: 1210, currency: 'USD', created_at: '2024-10-12T11:58:38.000Z' }] });
-  const r = await buscarTransaccionesCreem(CLAVE, 'sub_1');
+  contestar = () => json({ items: [{ id: 'tran_1', status: 'paid', amount: 1000, tax_amount: 210, amount_paid: 1210, currency: 'USD', subscription: 'sub_1', created_at: '2024-10-12T11:58:38.000Z' }] });
+  const r = await buscarTransaccionesCreem(CLAVE, 'sub_1', 'cu_1');
   assert.equal(r.ok, true);
   const t = r.ok ? r.transacciones[0] : null;
   // ⚠️ MaKo asienta `amount`, no `amount_paid`: el impuesto lo cobra y lo REMITE Creem (es merchant of record), así
   // que no es ingreso de MaKo. Asentar `amount_paid` inflaría el MRR con plata que nunca fue nuestra.
-  assert.equal(t!.monto, 1000);
-  assert.equal(t!.montoPagado, 1210);
-  assert.equal(t!.impuesto, 210);
+  // Y en UNIDADES: Creem manda centavos («1000 = $10.00»). Con el 1000 tal cual, una renovación de US$10 entra al cash como US$1.000.
+  assert.equal(t!.monto, 10);
+  assert.equal(t!.montoPagado, 12.1);
+  assert.equal(t!.impuesto, 2.1);
 });
 
 test('10. el cableado del cobro: Creem tiene su rama en TODO camino que mueve plata, y el `never` cierra el resto', () => {
@@ -406,7 +407,7 @@ test('11. el webhook: 401 sin firma válida, dedup por el `id` del evento ANTES 
   // Y el procesador NO le cree al cuerpo: relee a Creem antes de aplicar.
   const proc = fuente('lib/cobros-webhook.ts');
   assert.match(proc, /export async function procesarEventoCreem\(/);
-  assert.match(proc, /buscarTransaccionesCreem\(key, susId\)/, 'la plata tiene que salir de la relectura, no del aviso');
+  assert.match(proc, /buscarTransaccionesCreem\(key, susId\b/, 'la plata tiene que salir de la relectura, no del aviso');
 });
 
 test('12. la migración ensancha los TRES CHECK, y el de `pasarela_eventos` es el que no se puede olvidar', () => {

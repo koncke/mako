@@ -16,41 +16,28 @@ llamada de Leila), lo de abajo, y lo que entró o se repartió el 30 y 31/10.</s
 | **Jueves 5/11, 17 h** | Reunión con Thiago | Las 3 fallas de Agency: **en el tren** |
 | **Black November** (arranca ya) | La campaña de Leila a toda su base | **Bloqueada por el segundo nombre** |
 
-## 🔴 LO QUE NO COBRA SI SE CONECTA CREEM — nueve, abiertos (31/10, sin dueño)
+## LO QUE FALTA EL DÍA QUE SE CONECTE CREEM (31/10)
 
-Medidos por un barrido adversarial (107 agentes, tres refutadores por hallazgo) sobre lo que dejó la tercera pasarela.
-**Hoy están inertes**: la clave no está en Vercel y el webhook es fail-closed sin secreto. **El día que Martín conecte Creem
-se prenden todos juntos.** El mapa completo, con el por qué y la regla, en
-[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «El barrido del 31/10».
+Los nueve del barrido y los peores que aparecieron después quedaron arreglados en el código: el mapa, en
+[hallazgos-planes-y-cobro.md](hallazgos-planes-y-cobro.md) → «El barrido del 31/10». **Hoy siguen inertes**: la clave no
+está en Vercel. Lo que queda abierto no se resuelve sin esa clave:
 
-No cobra:
-
-- `lib/agencia-cobro-reglas.ts`, `cobroDeLaCuenta` — **ninguna cuenta de cliente de agencia se abre en MX, CO, CL, PE, BR,
-  UY, PY, BO ni EC**. La agencia pide el link del primer mes y MaKo contesta «MaKo todavía no tiene una pasarela». El más
-  grande del barrido, y el que toca a Thiago.
-- `lib/subir-plan.ts`, `subirAPro` — ningún cliente de Creem pasa de Esencial a Pro: el upsell, apagado para toda LatAm.
-- `app/crm/[id]/cobros-actions.ts:125` — `['stripe','mercadopago']` escrita a mano: un negocio con Creem no puede armar un
-  link de pago desde la ficha ni desde la cuota, y el mensaje («Conecta Stripe o Mercado Pago») lo culpa a él.
-
-Cobra mal:
-
-- `lib/retencion-plan.ts`, `aplicarRetencion` — un cliente de Creem que acepta «2 meses al 50%» o «pausar un mes» recibe
-  «No pudimos aplicarlo» y **pierde su única oferta para siempre**. Es el último paso antes de la baja.
-- `lib/retencion-plan.ts`, `reanudaDeLaPausa` — una pausa aceptada que la pasarela no ejecuta: se le sigue cobrando el mes a
-  alguien a quien MaKo le prometió no cobrárselo, y la marca queda «aplicada».
-- `lib/cobros.ts`, la prueba gratis por Creem — autoriza la tarjeta y **no entrega la cuenta**, y no anota la huella: la
-  misma tarjeta saca prueba tras prueba.
-- `lib/cobros.ts`, `crearCheckoutCreem` — nunca llama a `plazoDelCobro`: una suscripción de plazo fijo **sigue cobrando
-  después del último mes pactado**, mientras MaKo muestra el plan como terminado.
-- `lib/cobro-etapa.ts` — el vínculo se guarda SIN la cuenta: el cobro de Creem entra pero el lead no pasa a Ganado.
-- `lib/cobros-reglas.ts`, `esTextoDeContracargo` — exige `(?:Stripe|Mercado Pago)`: un contracargo de Creem se dibuja en
-  letra chica en vez de aviso rojo, y una disputa que nadie contesta se pierde por defecto.
-
-Y una de seguridad, que **no está roja: está ciega**:
-
-- `tests/pasarela-sin-env.test.ts` — es el único guardia que impide leer una clave de cobro por `process.env`, `envCred` o
-  `credWs` (caminos que caen al ws1, el de la plataforma). Su patrón es `(?:STRIPE_|MERCADOPAGO_|MP_)`: las tres claves de
-  Creem no las mira. Una lectura de `CREEM_API_KEY` por ahí cobraría con la cuenta de la plataforma, con plata de un cliente.
+- **Nada de esto se probó contra Creem de verdad**, sólo contra un doble armado de su OpenAPI. Al conectar: una prueba gratis,
+  un cobro, una renovación, pasar a Pro, una pausa con su reanudación. Lo más dudoso, cómo queda el próximo cobro al reanudar.
+- **El cobro de la diferencia de «Pasar a Pro» se puede asentar como una renovación**, y borrar una mora (`confirmarImpago`, y
+  una reentrega de `subscription.paid`). Hoy no muerde: el corte está apagado. Hay que medir qué deja `/upgrade` (`type`,
+  `description`, `period_start`) y filtrar por eso, como `FACTURAS_DE_PAGO` en Stripe.
+- **`/upgrade` «can reject subscriptions that have a discount applied»**, dice su doc. Si cuenta un `once` ya consumido, quien
+  entró con el 50% no puede subir ni aceptar una oferta. Se dice el error y la oferta se libera; falta medirlo.
+- **La identidad de una cuenta de Creem en sus cobros es el `wh_…` de su aviso.** Ya no se pide borrarlo al desconectar, pero
+  si alguien lo borra a mano, al reconectar nace otro id y sus cobros quedan huérfanos. Lo sano es `store_id` (viene en
+  `WebhookEntity`): conviene antes de que haya cobros, porque después hay que migrarlos.
+- **«Pasar a Pro» sin confirmar no tiene cron**: si Creem se cae justo ahí, se le pide tocar de nuevo. Quien no toca paga Pro con
+  capa Esencial hasta que lo haga.
+- **La misma tarjeta con otro email saca otra prueba**: Creem no expone la tarjeta (`huellaDeTarjeta: false`). Es decisión de
+  producto si con ese riesgo la prueba se ofrece por Creem; hoy se ofrece.
+- **Un cliente de Creem en mora no tiene dónde cambiar la tarjeta**: `pagarDeuda` le dice que se reintenta solo. Creem tiene un
+  portal de cliente (docs.creem.io/features/customer-portal) que no se usa todavía.
 
 ## 🔴 Lo que bloquea una campaña de un cliente — EN MARCHA (CRM, 31/10)
 
