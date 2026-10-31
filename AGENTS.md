@@ -1297,8 +1297,9 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   ⚠️ **Y las dos mitades son UNA sola regla: cumplir media deja todo verde y no prueba nada** (31/10/2026). El rojo
   aparece sólo cuando se juntan (declarada antes **y** con las palabras del área), así que el piso de
   `tests/ops-center-bateria` no guarda ninguna por separado. Lo que se mira es el MARGEN, que lo imprime el test 4 de esa
-  batería: hoy `cambiar_crons_secuencia` entra con **119 caracteres** sobre 12.000. El área no tiene aire, y una
-  descripción larga de más lo vuelve a tirar afuera. Si tocás descripciones de `chatbot.def.ts`, mirá ese número.
+  batería: `cambiar_crons_secuencia` entra con 551 caracteres sobre 12.000 y el test da rojo debajo de 300
+  (`MARGEN_MINIMO`). Sólo cuenta lo que va ANTES del CRON en el orden de esa frase: acortar otra operación gorda del área no
+  devuelve nada. Si el piso salta, se acorta lo que esas siete repiten, no se baja el piso.
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).

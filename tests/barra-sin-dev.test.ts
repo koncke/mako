@@ -65,7 +65,7 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   assert.ok(seccionesDe(false).some((s) => s.id === 'clients'), 'un negocio perdió su kanban');
   assert.match(sinComentarios(leer('app/admin/page.tsx')), /redirect\('\/customers'\);/, 'el super admin entra por su grilla');
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
-  assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView \/>;/);
+  assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView\b/, 'Methodology dibuja algo antes de la puerta de la plataforma');
   // Los prompts: salieron del índice de Settings el 26/10/2026 (Martín: «sobra la de prompts en super admin»), pero su
   // pantalla sigue, con la misma puerta (sólo la agencia).
   assert.ok(!seccionesNegocio({ integraciones: true, plan: true }).some((s) => s.key === 'prompts'), 'volvió Settings › Prompts');

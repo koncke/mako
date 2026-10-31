@@ -34,6 +34,7 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
   };
   verificacion: { token: Sale; pantalla: Sale; tarjeta: Sale; ambas: Sale; yaRegNoExiste: Sale; sinTicket: Sale; reglaAntes: Sale };
   base7: { sinSenal: Sale; guarda: Sale; guardaYNoExiste: Sale };
+  noViajaron: { enElContexto: string | null; enLaDescripcion: boolean; vecesConTicket: number; vecesSinTicket: number };
 };
 
 test('g. tres «no pude» en la misma conversación son UN ticket; la línea la escribe el código y sale una vez', () => {
@@ -119,6 +120,14 @@ test('base 7, la otra mitad: con la guarda de una herramienta del turno, el «no
   assert.equal(g.guarda.linea, null, 'con la guarda igual dijo «Quedó el ticket»');
   assert.equal(g.guarda.texto, 'No pude borrar el lead de Juan.');
   assert.equal(g.guardaYNoExiste.causa, 'no-existe', 'la guarda se comió el «no existe» de la misma respuesta');
+});
+
+test('lo que no viajó queda en el contexto del ticket, nunca en la descripción que lee el cliente, y sin ticket no se calcula', () => {
+  assert.equal(R.error, undefined, R.error);
+  assert.equal(R.noViajaron.enElContexto, 'cambiar_crons_secuencia, configurar_automatizacion');
+  assert.equal(R.noViajaron.enLaDescripcion, false, 'paraElCliente muestra la descripción: un id de operación no va ahí');
+  assert.equal(R.noViajaron.vecesConTicket, 1);
+  assert.equal(R.noViajaron.vecesSinTicket, 0, 'una respuesta sin «no pude» recorrió el registro entero para nada');
 });
 
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────

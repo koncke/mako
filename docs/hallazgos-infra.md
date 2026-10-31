@@ -6,6 +6,13 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Dos migraciones con el mismo número no dan conflicto (31/10/2026).** Creem y Competitors Spy nacieron como `0358` en ramas
+distintas. Los archivos tienen otro nombre, así que git las junta sin decir nada. No rompe la aplicación, que va por archivo (ya
+hay ocho números repetidos), pero «falta aplicar la 0358» pasa a nombrar dos cosas: una ya hacía falta para cobrar con Creem y
+la otra sólo para abrir una tab. Al integrar una rama con migración hay que mirar `ls supabase/migrations`. Se renumera sólo la
+que no está aplicada, junto con sus menciones y los tests que leen el archivo por nombre (Competitors Spy pasó a `0359`). No hay
+guardia que lo detecte.
+
 **Lo que más muerde acá:**
 
 - PostgREST corta en 1000 filas **con un 200**: el síntoma no es un error, es un número que BAJA («se ven 4 ganados de 13»), y el diagnóstico obvio —el filtro, la etapa— es el equivocado. La lectura más importante de la app vivió así porque el barrido anterior arregló lo que paginaba mal y **no buscó lo que no paginaba** → [Supabase](#️-el-techo-de-1000-filas-no-da-error-da-un-número-que-baja).

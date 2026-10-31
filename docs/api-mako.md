@@ -7927,7 +7927,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias` — Crear una automatización con IA
 
-PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan (canal, producto, evento, horario o quien), con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
+PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre; lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan, con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/crear_automatizacion_con_ia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -7943,11 +7943,11 @@ PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `pedido` | string | sí | qué tiene que hacer, con las palabras de la persona. |
-| `canal` | string | no | opcional: la respuesta a «¿Por dónde le escribo?» (el número o el nombre de la opción, o «Elige tú»). |
-| `producto` | string | no | opcional: la respuesta a «¿De qué producto?» (el número o el nombre de la opción, o «Elige tú»). |
-| `evento` | string | no | opcional: la respuesta a «¿Qué hace la persona?» (el número o el nombre de la opción, o «Elige tú»). |
+| `canal` | string | no | opcional: la respuesta a «¿Por dónde le escribo?» (su número o nombre, o «Elige tú»). |
+| `producto` | string | no | opcional: la respuesta a «¿De qué producto?» (su número o nombre, o «Elige tú»). |
+| `evento` | string | no | opcional: la respuesta a «¿Qué hace la persona?» (su número o nombre, o «Elige tú»). |
 | `horario` | string | no | opcional: la respuesta a «¿Cuándo sale?» (el número de la opción, o la hora o el día en palabras, o «Elige tú»). |
-| `quien` | string | no | opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»). |
+| `quien` | string | no | opcional: la respuesta a «¿A quién le llega?» (su número o nombre, o «Elige tú»). |
 
 ```bash
 curl -L \
@@ -14106,10 +14106,11 @@ curl -L \
   "https://hola-mako.com/api/v1/negocio/onboarding/tabs/TAB/pasos/PASO"
 ```
 
-### `GET /api/v1/negocio/modulos_de_knowledge` — Módulos de Knowledge
+### `GET /api/v1/negocio/knowledge/modulos` — Módulos de Knowledge
 
 Los módulos de Knowledge: qué enseña cada uno, de qué secciones del portal de cursos sale, en qué tabs se usa y cuántas fichas tiene cargadas hoy. Úsala para elegir qué módulo pedir con leer_modulo_knowledge. Un módulo en 0 fichas todavía no se destiló: dilo, no lo rellenes.
 
+- **Ruta por operación:** `GET /api/v1/negocio/modulos_de_knowledge`
 - **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
@@ -14118,13 +14119,18 @@ Los módulos de Knowledge: qué enseña cada uno, de qué secciones del portal d
 _Sin parámetros._
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/knowledge/modulos"
 ```
 
-### `GET /api/v1/negocio/leer_modulo_knowledge` — Leer un módulo de Knowledge
+### `GET /api/v1/negocio/knowledge/modulos/{modulo}` — Leer un módulo de Knowledge
 
 Lo que enseñan los cursos de UN módulo de Knowledge, lo más cercano a la pregunta. El módulo va por su key (de modulos_de_knowledge). Es material para aplicar, no para copiar textual. Sin fichas cargadas lo dice y no devuelve nada.
 
+- **Ruta por operación:** `GET /api/v1/negocio/leer_modulo_knowledge`
 - **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** markdown
@@ -14136,7 +14142,11 @@ Lo que enseñan los cursos de UN módulo de Knowledge, lo más cercano a la preg
 | `pregunta` | string | sí | Qué se está por escribir o contestar, en las palabras del dueño. |
 
 ```bash
-
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/knowledge/modulos/MODULO?pregunta=PREGUNTA"
 ```
 
 ## Content Machine — `contenido`

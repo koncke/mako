@@ -34,7 +34,7 @@ import type { Bloque } from '../chat-bloques';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'cobros', 'spy', 'mako',
+  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'spy', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
