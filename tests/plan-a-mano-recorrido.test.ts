@@ -62,7 +62,7 @@ test('el aviso ANTES: a la persona y a Martín, una vez, sólo a quien le toca',
   const asuntos = R.mails.map((m: { asunto: string }) => m.asunto);
   const previos = R.mails.filter((m: { tag: string }) => m.tag === 'plan-a-mano-antes');
   assert.deepEqual(previos.filter((m: { to: string }) => m.to === 'dueno30@ejemplo.com').length, 1);
-  assert.equal(previos.filter((m: { to: string }) => m.to === R.EMAIL_MAKO && /Termina pronto/.test(m.asunto)).length, 1);
+  assert.equal(previos.filter((m: { to: string; asunto: string }) => m.to === R.EMAIL_MAKO && /Termina pronto/.test(m.asunto)).length, 1);
   assert.ok(R.marcas[30].previo && !R.marcas[30].vencido, 'la marca del aviso previo no es la del fin');
   assert.equal(R.marcas[31].previo, false, 'falta mucho');
   assert.equal(R.marcas[32].previo, false, 'ya paga: no se le avisa');

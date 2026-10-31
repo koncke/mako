@@ -14,13 +14,16 @@ import { CuerpoGrupo, FilaAjustes, GrupoAjustes, Pastilla } from '../../_ui/Ajus
 import { IconoMenu } from '../../_ui/iconos-menu';
 import { aceptarRetencionAction, darmeDeBajaAction, empezarPlanYaAction, pasarAProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 
 const SANS = "'Geist', sans-serif";
 const BTN_PRIMARIO = { padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 const BTN_SECUNDARIO = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--accent)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 
 export type SuscripcionVisible = {
-  proveedor: 'stripe' | 'mercadopago';
+  /** DERIVADO de `Pasarela`, no copiado (31/10/2026): era `'stripe' | 'mercadopago'` a mano, una de las CINCO copias
+   *  que dejó la tercera pasarela. Un cliente puede pagar con Creem, y esta pantalla es donde decide si se da de baja. */
+  proveedor: Pasarela;
   monto: string;
   cancelada: boolean;
   /** El texto de la baja ya pedida («Baja pedida el … (código …). Deja de cobrarse el …»), o null. */
@@ -110,7 +113,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
             <span className="aj-plan__nombre">{plan}{tono && estado && <Pastilla tono={tono}>{estado}</Pastilla>}</span>
             <span className="aj-plan__precio">{!suscripcion ? (clienteDeAgencia ? 'Lo maneja tu agencia' : gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba
               ? <>Prueba gratis hasta el {suscripcion.prueba!.hasta}: ese día se cobra <b>{suscripcion.monto}</b>, y después cada mes.</>
-              : <><b>{suscripcion.monto}</b> por mes · {suscripcion.proveedor === 'stripe' ? 'con tarjeta' : 'por Mercado Pago'}</>}</span>
+              : <><b>{suscripcion.monto}</b> por mes · {suscripcion.proveedor === 'stripe' ? 'con tarjeta' : `por ${NOMBRE_PASARELA[suscripcion.proveedor]}`}</>}</span>
           </span>
         </div>
         {!destacarEmpezar && filaEmpezar}
@@ -169,9 +172,9 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         <ConfirmDialog titulo="¿Darte de baja?"
           detalle={enPrueba
             ? `No se te cobra nada, y sigues usando MaKo hasta el ${suscripcion!.prueba!.hasta}. No se puede deshacer.`
-            : suscripcion?.proveedor === 'stripe'
+            : suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].bajaAlFinDelPeriodo
               ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
-              : 'Mercado Pago deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.'}
+              : `${suscripcion ? NOMBRE_PASARELA[suscripcion.proveedor] : 'La pasarela'} deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.`}
           confirmLabel="Darme de baja" danger onCancel={() => setPreguntar(false)} onConfirm={darmeDeBaja} />
       )}
     </>

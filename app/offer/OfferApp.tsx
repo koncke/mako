@@ -1063,7 +1063,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
             onOpcion={alElegirOpcion}
             onVarias={elegirVarias}
             onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
-            caja={caja} onCitar={arranque?.manda ? undefined : cita.citar}
+            caja={caja} onCitar={cita.citar}
             onArchivos={agregarArchivos}
             ocupado={ocupado}
             error={errorVista ?? errorChat}

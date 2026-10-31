@@ -35,7 +35,7 @@ import { planesMako } from './compra-plan';
 import { conceptoDelPlan, precioEn, type PlanMako } from './planes-mako';
 import { vigenciaDe } from './plan-acceso';
 import { mesesDespuesDe } from './plan-acceso-reglas';
-import type { Cobro } from './cobros-tipos';
+import type { Cobro, Pasarela } from './cobros-tipos';
 import { CLAVE_RETENCION, leerRetencion, type Guardada, type OpcionRetencion } from './retencion-reglas';
 
 export { CLAVE_RETENCION, leerRetencion, mesesDePausa, type OpcionRetencion } from './retencion-reglas';
@@ -50,7 +50,16 @@ const mismo = (a: number | null | undefined, b: number | null | undefined) => a 
  * 23/10): si MP cobra la cuota atrasada al reactivar, o recalcula `next_payment_date` desde hoy, reanudar a los 2 días cobraba
  * justo el ciclo salteado; reanudando al final, el próximo cobro cae en el ciclo que sigue con cualquiera de los dos.
  */
-export function reanudaDeLaPausa(pasarela: 'stripe' | 'mercadopago', proximo: string, meses: number): string {
+/**
+ * ⚠️ CREEM TODAVÍA NO SABE PAUSAR (31/10/2026). La unión estaba escrita a mano (`'stripe' | 'mercadopago'`), una de las
+ * CINCO copias que dejó la tercera pasarela, y el compilador sólo la cazó en Actions —el chequeo local no corre tipos—.
+ * Ensancharla a `Pasarela` a secas habría callado al compilador dejando a Creem en el `else`, o sea pidiéndole la pausa a
+ * MERCADO PAGO con un id que no es suyo: eso es el bug de plata, no el de tipos. Así que la pausa de Creem queda
+ * EXPLÍCITAMENTE sin implementar y quien la pida se entera, en vez de recibir una fecha inventada.
+ * Lo que falta de verdad está en docs/pendientes.md → «LO QUE NO COBRA SI SE CONECTA CREEM».
+ */
+export function reanudaDeLaPausa(pasarela: Pasarela, proximo: string, meses: number): string | null {
+  if (pasarela === 'creem') return null;
   const base = pasarela === 'stripe'
     ? Date.parse(`${proximo}T00:00:00Z`) + 2 * DIA
     : Date.parse(`${mesesDespuesDe(proximo, meses)}T00:00:00Z`) - DIA;
@@ -137,7 +146,10 @@ export async function aplicarRetencion(ws: number, autor: string, opcion: Opcion
     estado: 'aplicando', opcion, cobroId: c.id, pasarela: c.proveedor, aplicadaAt: new Date().toISOString(), montoOriginal: c.monto, moneda: c.moneda,
     ...(opcion === 'descuento' ? { pct: retencion.descuento!.pct, meses, objetivo: r2(c.monto * (100 - retencion.descuento!.pct) / 100), ...(proximo ? { restaurarDesde: proximo } : {}) } : {}),
     // La pausa cubre UN ciclo: el que empieza en el próximo cobro (R3).
-    ...(opcion === 'pausa' ? { meses, hasta: mesesDespuesDe(proximo!, meses ?? 1), reanudaAt: reanudaDeLaPausa(c.proveedor, proximo!, meses ?? 1) } : {}),
+    ...(opcion === 'pausa' ? { meses, hasta: mesesDespuesDe(proximo!, meses ?? 1),
+      // Sin fecha de reanudación (Creem) el campo NO se escribe: una marca con `reanudaAt` vacío diría que la pausa
+      // está aplicada y nadie la reanudaría nunca.
+      ...((r) => (r ? { reanudaAt: r } : {}))(reanudaDeLaPausa(c.proveedor, proximo!, meses ?? 1)) } : {}),
     ...(opcion === 'bajar' ? { objetivo: precioDestino!, planDestino: destino!.id, capaPendiente: { capa: destino!.capa, desde: proximo! } } : {}),
   };
   const gano = await runWithWorkspace(ws, () => cambiarSettingSi(CLAVE_RETENCION, null, JSON.stringify(marca)));

@@ -6,12 +6,17 @@
 
 export const CLAVE_RETENCION = 'plan.retencion';
 
+import type { Pasarela } from './cobros-tipos';
+
 export type OpcionRetencion = 'descuento' | 'pausa' | 'bajar';
 
 export type Guardada = {
   estado: 'aplicando' | 'aplicada' | 'error';
   opcion: OpcionRetencion;
-  cobroId: number; pasarela: 'stripe' | 'mercadopago';
+  cobroId: number;
+  /** DERIVADA de `Pasarela`, no copiada (31/10/2026): era `'stripe' | 'mercadopago'` a mano, una de las cinco copias que
+   *  dejó la tercera pasarela. Una marca puede ser de Creem; lo que Creem todavía no sabe hacer se dice en su función. */
+  pasarela: Pasarela;
   aplicadaAt: string; montoOriginal: number; moneda: string;
   pct?: number; meses?: number;
   /** La pausa: hasta cuándo cubre (fecha). */
