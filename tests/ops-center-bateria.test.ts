@@ -110,3 +110,44 @@ test('1. la batería: las 8 áreas, sin pares repetidos, y cada operación exist
 test('2. el piso del chat de la app (herramientasDelChat)', (t) => piso('app', t));
 
 test('3. el piso de WhatsApp (herramientasDelTurno)', (t) => piso('whatsapp', t));
+
+// =============================================================================
+// 4. EL MARGEN DEL CRON, QUE ES LO QUE DE VERDAD SE CUIDA (31/10/2026)
+// =============================================================================
+// El piso de arriba cazó este rojo, pero por una frase y sin decir por qué: «automations-clients 16/49 (piso 17)».
+// La causa medida: `quienes_de_automatizacion` nació declarada 3.ª en su área con «automatización» y «flujo» en el título
+// y la descripción. El turno ordena por puntaje y a IGUAL puntaje gana la declarada antes (lib/api-mako/registro.ts,
+// `ordenarPorRelevancia`: `.sort((a, b) => b.p - a.p || a.i - b.i)`), así que empataba en 3 con `cambiar_crons_secuencia`
+// —declarada 47.ª— y le sacaba el lugar. El CRON es la operación más pesada del área (~4.100 caracteres) y entra de una
+// sola vez o no entra: quedaba afuera por 431 caracteres, y MaKo contestaba «no puedo» a algo que sí puede.
+//
+// ⚠️ POR QUÉ ESTE TEST NO SOBRA, aunque el piso ya falle: el estado rojo era la CONJUNCIÓN de las dos mitades de la regla
+// de AGENTS.md (declararla antes Y repetir las palabras del área). Cada mitad SOLA deja verde, así que el piso no guarda
+// ninguna de las dos: mañana alguien cumple «al final» y repite las palabras, y pasa. Esto mide el MARGEN, que es lo
+// único que no se puede cumplir a medias — y lo IMPRIME, para que el próximo vea el número en vez de descubrirlo cuando
+// el ruteo se cae. Hoy son 119 caracteres: el área no tiene aire, y una descripción más larga lo vuelve a tirar afuera.
+test('4. `cambiar_crons_secuencia` entra en el presupuesto, y con cuánto margen', async (t) => {
+  const { charsDeTools, toolsDelRegistro } = await import('../lib/api-mako/registro');
+  const { PRESUPUESTO_REGISTRO_CHARS } = await import('../lib/doer-herramientas');
+  const { RELEVANCIA_AUTOMATIZACION } = await import('../lib/mako-intencion');
+  const FRASE = 'Hacé que la automatización de reactivación salga todos los martes a las 15';
+  // El mismo `relevanteA` que arma el turno: el texto CRUDO más la pista del clasificador (lib/doer-herramientas.ts,
+  // `herramientasDelTurno`). Esta frase no pasa por las pasadas de la app: es UNA pasada de 12.000 sobre el área chatbot.
+  const relevanteA = [FRASE, RELEVANCIA_AUTOMATIZACION].join('\n');
+  const vista = { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null } as const;
+  const comun = { vista, areas: ['chatbot'], incluirAcciones: true, relevanteA } as const;
+  const sinTope = toolsDelRegistro({ ...comun });
+  const i = sinTope.findIndex((x) => x.name === 'cambiar_crons_secuencia');
+  assert.ok(i >= 0, 'cambiar_crons_secuencia dejó de ser visible en el área chatbot para esta vista');
+  const hastaElCron = charsDeTools(sinTope.slice(0, i + 1));
+  const margen = PRESUPUESTO_REGISTRO_CHARS - hastaElCron;
+  t.diagnostic(`el CRON va ${i + 1}.º por relevancia · ${hastaElCron} de ${PRESUPUESTO_REGISTRO_CHARS} chars · margen ${margen}`);
+  assert.ok(
+    margen >= 0,
+    `cambiar_crons_secuencia queda AFUERA del presupuesto por ${-margen} caracteres: va ${i + 1}.º y para entrar hacen falta `
+    + `${hastaElCron} de ${PRESUPUESTO_REGISTRO_CHARS}. MaKo va a contestar «no puedo» a «${FRASE}». Una operación nueva va `
+    + 'AL FINAL de su área, y su id, título y descripción NO repiten las palabras que toda el área comparte '
+    + '(«automatización», «flujo», «WhatsApp»): a igual puntaje gana la declarada antes. Las palabras del área van en los '
+    + 'PARÁMETROS, que no puntúan. El presupuesto es el techo de Groq y no se sube (AGENTS.md).',
+  );
+});
