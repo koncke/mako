@@ -207,8 +207,8 @@ test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las pie
   assert.equal(titular?.titulo, 'Cada cliente te cuesta');
   assert.deepEqual([titular?.x, titular?.y, titular?.w], [0, 4, 4]);
   const resto = graf(mk).filter((c) => c.y === 0).sort((a, b) => a.x - b.x);
-  assert.deepEqual(resto.map((c) => c.w), [3, 3, 3, 3]);
-  assert.deepEqual(resto.map((c) => c.titulo), ['ROAS cash', 'Ad Spend', 'ROAS sold', 'CPM']);
+  assert.deepEqual(resto.map((c) => c.w), [4, 4, 4]);
+  assert.deepEqual(resto.map((c) => c.titulo), ['ROAS cash', 'Ad Spend', 'ROAS sold']);
   assert.ok(resto[1].comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
   assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');

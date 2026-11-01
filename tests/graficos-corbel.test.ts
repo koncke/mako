@@ -13,7 +13,7 @@ import { readFileSync } from 'node:fs';
 import { CSS_CORBEL, PALETAS_CORBEL, seriesDeEscena, tilesDeHoja, type EscenaCorbel } from '../lib/graficos-corbel';
 import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDe, paletaDeEscena, plantillaDe, sanearTema, varsDeTema } from '../lib/graficos-temas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
-import { sanearHoja } from '../lib/graficos-catalogo';
+import { fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
 import { componentesDe, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
 import { comoCorbel, ALTO_NUMEROS, ALTO_PROTAGONISTAS } from '../lib/graficos-portadas';
 
@@ -211,6 +211,35 @@ test('la línea de un número se ve sobre su tile: la primera serie toma la tint
   for (const [tile, tinta] of [['sky', '--cb-sky-ink'], ['mint', '--cb-on-tile'], ['lemon', '--cb-on-tile'], ['coral', '--cb-on-tile']]) {
     const regla = new RegExp(`\\[data-tile="${tile}"\\]\\{[^}]*--cb-c1:var\\(${tinta}\\)`);
     assert.match(CSS_CORBEL, regla, tile);
+  }
+});
+
+test('ningún número con línea sale de una fecha sin rango: la línea sería plana en cero', () => {
+  for (const p of [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL]) {
+    for (const c of componentesDe(p) as unknown as Array<Record<string, any>>) {
+      if (c.tipo !== 'numero_tendencia') continue;
+      const fuente = fuenteDe(c.fuente)!;
+      const fecha = c.fecha ?? fuente.fechas?.[0]?.id;
+      const info = fuente.fechas?.find((x: { id: string }) => x.id === fecha);
+      assert.ok(!info?.sinRango, `${p.id}/${c.id}: ${c.fuente}.${fecha} no tiene rango`);
+      assert.ok(fuente.fechas?.length, `${p.id}/${c.id}: ${c.fuente} no tiene fechas`);
+    }
+  }
+});
+
+test('las composiciones: cada plantilla abre con UNA fila de números iguales, y los títulos entran', () => {
+  const MAX = 22; // a 15 px en una tarjeta de 3 columnas, sin cortarse
+  for (const p of PLANTILLAS_HOJA) {
+    const c = componentesDe(p) as unknown as Array<Record<string, any>>;
+    const fila = c.filter((x) => x.y === 0 && !x.portada);
+    assert.ok(new Set(fila.map((x) => x.w)).size <= 2, `${p.id}: ${fila.map((x) => x.w)}`);
+    assert.equal(fila.reduce((s, x) => s + x.w, 0), 12, p.id);
+    for (const x of fila) {
+      assert.ok(!x.subtitulo, `${p.id}/${x.id}: el subtítulo le come el alto al número`);
+      assert.ok((x.titulo ?? '').length <= MAX, `${p.id}/${x.id}: «${x.titulo}» se corta`);
+    }
+    assert.ok(fila.filter((x) => x.invertida).length <= 1, p.id);
+    assert.ok(c.length <= 16, `${p.id}: ${c.length} piezas`);
   }
 });
 

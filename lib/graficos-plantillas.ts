@@ -70,38 +70,32 @@ const MARKETING: PlantillaHoja = {
     id: id('marketing'), nombre: 'Marketing', emoji: '📣', subtitulo: 'La pauta, el funnel y la audiencia.',
     controles: [{ id: id('mk-periodo'), tipo: 'periodo', preset: 'ult30' }],
     componentes: [
-      // 1 · Los KPIs estrella
-      kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', 'contra el período anterior', 0, 0, { comparar: true }),
-      kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', 'Spend ÷ cierres del período', 3, 0),
-      // LA INVERTIDA de esta fila: Marketing pregunta «¿el gasto en anuncios vuelve?», y el ROAS cash
-      // es la respuesta. Una sola por fila (ver `Grafico.invertida`), y la elige la plantilla.
-      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', 'Cash ÷ Spend · lo que entró', 6, 0, { invertida: true }),
-      kpi(id('mk-roas-sold'), 'negocio', 'roas_vendido', 'ROAS sold', 'Sold ÷ Spend · comprometido', 9, 0),
-      // 2 · Salud del Funnel — Marketing: el embudo y las cuatro de eficiencia
-      { id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'], titulo: 'Salud del Funnel — Marketing', x: 0, y: 4, w: 6, h: 12 },
-      kpi(id('mk-cpm'), 'negocio', 'cpm', 'CPM', 'por 1,000 impresiones', 6, 4, { h: 6 }),
-      kpi(id('mk-cpc'), 'negocio', 'cpc', 'CPC', 'por click', 9, 4, { h: 6 }),
-      kpi(id('mk-costo-landing'), 'negocio', 'costo_landing', 'Costo / Landing View', 'por vista de landing', 6, 10, { h: 6 }),
-      kpi(id('mk-costo-vsl'), 'negocio', 'costo_vsl', 'Costo / VSL View', 'por play del VSL', 9, 10, { h: 6 }),
-      // 3 · Tendencias: agrupa sola por día, semana o mes según el período (como la vieja). Con 4 métricas de
-      //     dos formatos se dibuja en PANELES (lib/graficos-gordo.ts): h 12 para que cada panel respire
-      //     (relevo C: h 10 son ~130 px de área por panel; h 12, ~170).
+      // COMPOSICIÓN DEL 31/10/2026: la plata en una fila, los costos en otra más baja (lo que se lee respira, lo que se escanea no),
+      // y cada tema de a pares. El CAC sube a la tarjeta negra (lib/graficos-portadas.ts).
+      // LA INVERTIDA: Marketing pregunta «¿el gasto en anuncios vuelve?», y el ROAS cash es la respuesta.
+      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', '', 3, 0, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('mk-roas-sold'), 'negocio', 'roas_vendido', 'ROAS sold', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', '', 9, 0),
+      kpi(id('mk-cpm'), 'negocio', 'cpm', 'CPM', '', 0, 4, { tipo: 'numero_compacto', h: 3 }),
+      kpi(id('mk-cpc'), 'negocio', 'cpc', 'CPC', '', 3, 4, { tipo: 'numero_compacto', h: 3 }),
+      kpi(id('mk-costo-landing'), 'negocio', 'costo_landing', 'Costo / Landing', '', 6, 4, { tipo: 'numero_compacto', h: 3 }),
+      kpi(id('mk-costo-vsl'), 'negocio', 'costo_vsl', 'Costo / VSL', '', 9, 4, { tipo: 'numero_compacto', h: 3 }),
+      // Tendencias: agrupa sola por día, semana o mes según el período. Va al lado de la tarjeta negra.
       {
         id: id('mk-tendencias'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['gasto', 'leads', 'agendas', 'cierres'],
-        titulo: 'Tendencias', x: 0, y: 16, w: 12, h: 12,
+        titulo: 'Tendencias', x: 0, y: 7, w: 12, h: 12,
         controles: [{ id: id('mk-tendencias-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      // 4 · Audiencia y alcance (en vivo de Meta)
-      { id: id('mk-audiencia-titulo'), clase: 'elemento', tipo: 'texto', texto: 'Audiencia y alcance', tamano: 'xl', x: 0, y: 28, w: 12, h: 2 },
-      { id: id('mk-edad'), clase: 'grafico', tipo: 'columnas', fuente: 'audiencia', dimension: 'edad', desglose: 'genero', metricas: ['impresiones'], titulo: 'Edad y género', x: 0, y: 30, w: 4, h: 10 },
-      { id: id('mk-plataforma'), clase: 'grafico', tipo: 'barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['impresiones'], titulo: 'Plataforma', x: 4, y: 30, w: 3, h: 10 },
-      { id: id('mk-mapa'), clase: 'grafico', tipo: 'mapa', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde están', x: 7, y: 30, w: 5, h: 10 },
-      // 5 · Los anuncios del período, como TARJETAS (con su miniatura): eran 7 columnas con una barra en cada
-      //     una; ahora la que ordena + 3, y el clic abre el anuncio (relevo C y A2, puntos 20 y 21).
+      { id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'], titulo: 'Salud del Funnel — Marketing', x: 0, y: 19, w: 12, h: 12 },
+      // Audiencia y alcance (en vivo de Meta)
+      { id: id('mk-edad'), clase: 'grafico', tipo: 'columnas', fuente: 'audiencia', dimension: 'edad', desglose: 'genero', metricas: ['impresiones'], titulo: 'Edad y género', x: 0, y: 31, w: 6, h: 10 },
+      { id: id('mk-mapa'), clase: 'grafico', tipo: 'mapa', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde están', x: 6, y: 31, w: 6, h: 10 },
+      // Los anuncios del período, como TARJETAS (con su miniatura), y el clic abre el anuncio.
       {
         id: id('mk-anuncios'), clase: 'grafico', tipo: 'tarjetas', fuente: 'meta', dimension: 'anuncio', metricas: ['gasto', 'leads', 'agendas', 'cpa'],
         ordenMetrica: 'gasto', barra: 'gasto', limite: 10, tabla: { columnas: ['campana'] },
-        titulo: 'Anuncios del período', x: 0, y: 40, w: 12, h: 12,
+        titulo: 'Anuncios del período', x: 0, y: 41, w: 12, h: 12,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'mk-anuncios'),
       },
     ],

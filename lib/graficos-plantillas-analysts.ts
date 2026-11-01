@@ -152,46 +152,38 @@ const ADS: PlantillaHoja = {
       lista(id('ad-tipo'), 'guiones.tipo'),
     ],
     componentes: [
-      // 1 · Los cuatro números de la tab
-      kpi(id('ad-guiones'), 'guiones', 'guiones', 'Guiones analizados', 'con pauta en el período', 0, 0),
-      kpi(id('ad-hook'), 'guiones', 'hook_rate', 'Hook rate', 'reproducciones de 3 s ÷ impresiones', 3, 0),
-      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', 'gasto ÷ agendas de Meta', 6, 0),
-      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', 'en guiones sin agendas', 9, 0, {
-        controles: [fijo(id('ad-sin-retorno-c'), 'guiones.resultado', ['Sin agendas'])],
+      // COMPOSICIÓN DEL 31/10/2026: el hook rate primero porque la hoja pregunta «¿mi creativo retiene?». La caja de MaKo va después de
+      // lo que resume: nace sin correr, y arriba tapaba la pregunta.
+      kpi(id('ad-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('ad-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 3, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 9, 0, {
+        tipo: 'numero_tendencia', controles: [fijo(id('ad-sin-retorno-c'), 'guiones.resultado', ['Sin agendas'])],
       }),
-      // 2 · Los patrones de la tab (Sigue / Corta / Proceso) son ahora una caja de MaKo (contrato v5,
-      //     «patrones_guiones»): la instrucción es la que respondían las reglas fijas de antes.
-      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 4, 12, 8),
-      // 3 · El cuadrante de retención: un punto por guion, el ángulo pinta, y el clic abre el anuncio.
+      // Qué retiene: el cuadrante dice CUÁLES, los cuartiles dicen DÓNDE se cae todo el mundo.
       {
         id: id('ad-cuadrante-dispersion'), clase: 'grafico', tipo: 'dispersion', fuente: 'guiones', dimension: 'guion', metricas: ['hook_rate', 'ret_cta'],
-        titulo: 'Cuadrante de retención', colorPor: 'angulo', limite: 50, x: 0, y: 12, w: 12, h: 13,
+        titulo: 'Cuadrante de retención', colorPor: 'angulo', limite: 50, x: 0, y: 4, w: 6, h: 12,
         ejes: { xMin: 0, xMax: 55, yMin: 0, yMax: 30 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = hook rate, y = retención al CTA (los de la tab).
         referencias: { x: 28, y: 10, rotulos: ['Mejorar gancho', 'Escalar', 'Repensar', 'Reescribir cuerpo'] },
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-cuadrante-dispersion'),
       },
-      // 4 · Todos los guiones, como TARJETAS (la GuionCard de la tab): 4 números, la barra en el hook y el
-      //     ángulo y el veredicto como chips. Eran 6 columnas: la que ordena + 3 (relevo C, punto 20).
+      { id: id('ad-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'Cuánto ven el video', x: 6, y: 4, w: 6, h: 12 },
+      // Qué patrón gana
+      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000', x: 0, y: 16, w: 6, h: 9 },
+      { id: id('ad-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], titulo: 'Hook rate por gancho', x: 6, y: 16, w: 6, h: 9 },
+      // Los patrones de la tab (Sigue / Corta / Proceso) son una caja de MaKo (contrato v5, «patrones_guiones»).
+      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 25, 12, 8),
+      // Todos los guiones, como TARJETAS (la GuionCard de la tab): 4 números, la barra en el hook y los chips. La confianza va en
+      // un chip: era la tabla «Muestra chica», que repetía guiones con un filtro.
       {
         id: id('ad-tabla'), clase: 'grafico', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion',
         metricas: ['agendas', 'hook_rate', 'retencion_final', 'cpa'], ordenMetrica: 'agendas', barra: 'hook_rate', limite: 50,
-        tabla: { columnas: ['angulo', 'veredicto'] },
-        titulo: 'Guiones', x: 0, y: 25, w: 12, h: 16,
+        tabla: { columnas: ['angulo', 'veredicto', 'confianza'] },
+        titulo: 'Guiones', x: 0, y: 33, w: 12, h: 16,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-tabla'),
       },
-      // 5 · Los patrones que sí son un gráfico
-      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000, por ángulo', x: 0, y: 41, w: 6, h: 9 },
-      { id: id('ad-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], titulo: 'Hook rate por tipo de gancho', x: 6, y: 41, w: 6, h: 9 },
-      { id: id('ad-veredicto'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'veredicto', metricas: ['gasto'], titulo: 'Gasto por veredicto', x: 0, y: 50, w: 6, h: 9 },
-      {
-        id: id('ad-muestra'), clase: 'grafico', tipo: 'tabla', fuente: 'guiones', dimension: 'guion', metricas: ['gasto', 'hook_rate', 'agendas'],
-        titulo: 'Muestra chica', subtitulo: 'menos de 8 mil impresiones', x: 6, y: 50, w: 6, h: 9,
-        controles: [fijo(id('ad-muestra-c'), 'guiones.confianza', ['Baja'])],
-      },
-      // 6 · El embudo del video (todos los cuartiles de Meta) y el reparto por ángulo
-      { id: id('ad-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'Cuánto ven el video', x: 0, y: 59, w: 6, h: 12 },
-      { id: id('ad-angulos'), clase: 'grafico', tipo: 'circular', fuente: 'guiones', dimension: 'angulo', metricas: ['guiones'], titulo: 'Guiones por ángulo', x: 6, y: 59, w: 6, h: 12 },
     ],
   }),
 };
@@ -208,31 +200,24 @@ const LANDING: PlantillaHoja = {
       lista(id('la-pagina'), 'pagina'),
     ],
     componentes: [
-      // 1 · Cuánta gente y hasta dónde llega. (Lo del VIDEO —«Ven la mitad del video», su curva y su embudo—
-      //     se mudó a la hoja VSL Analyst en v5: dos hojas con el mismo número terminan contando distinto.)
-      kpi(id('la-visitas'), 'visitas', 'visitas', 'Visitas', 'contra el período anterior', 0, 0, { comparar: true }),
-      kpi(id('la-personas'), 'visitas', 'visitantes', 'Personas distintas', 'que entraron a tus páginas', 3, 0),
-      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', 'de las personas con scroll medido', 6, 0),
-      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', 'personas que hicieron clic', 9, 0),
-      // 2 · Las visitas y de dónde vienen
+      // COMPOSICIÓN DEL 31/10/2026: entran, bajan, tocan. El mapa de calor sube a portada (lib/graficos-portadas.ts). Lo de fondo va en
+      // una sección plegada: 400 px de grabaciones no compiten con la pregunta de la hoja, y «lo plegado sale de la grilla».
+      kpi(id('la-visitas'), 'visitas', 'visitas', 'Visitas', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
+      kpi(id('la-personas'), 'visitas', 'visitantes', 'Personas distintas', '', 3, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('la-mitad-pagina'), 'scroll', 'pct_50', 'Llegan a la mitad', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('la-tocan'), 'clics', 'personas', 'Tocan un botón', '', 9, 0, { tipo: 'numero_tendencia' }),
+      { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 4, w: 12, h: 24 },
       {
         id: id('la-visitas-dia'), clase: 'grafico', tipo: 'serie', fuente: 'visitas', dimension: 'dia', metricas: ['visitas', 'visitantes'],
-        titulo: 'Visitas por día', x: 0, y: 4, w: 8, h: 9, controles: [{ id: id('la-visitas-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        titulo: 'Visitas por día', x: 0, y: 28, w: 8, h: 9, controles: [{ id: id('la-visitas-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 4, w: 4, h: 9 },
-      // 3 · Hasta dónde bajan y qué tocan («Qué botón tocan» pasa a barras: una métrica, el valor al final)
-      { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', subtitulo: 'personas con scroll medido', x: 0, y: 13, w: 6, h: 12 },
-      { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 6, y: 13, w: 6, h: 12 },
-      // 4 · El mapa de calor: la página EN VIVO con el calor encima (decisión 1 de Martín), o la foto.
-      { id: id('la-mapa-mapa'), clase: 'grafico', tipo: 'mapa_calor', fuente: 'toques', metricas: ['toques'], titulo: 'Mapa de calor', x: 0, y: 25, w: 12, h: 24 },
-      // 5 · Las grabaciones
-      kpi(id('la-grabaciones'), 'replays', 'grabaciones', 'Grabaciones', 'sesiones grabadas en tus páginas', 0, 49),
-      kpi(id('la-duracion'), 'replays', 'duracion', 'Duración promedio', 'de cada grabación', 3, 49),
-      { id: id('la-corte'), clase: 'grafico', tipo: 'circular', fuente: 'replays', dimension: 'corte', metricas: ['grabaciones'], titulo: 'Cómo terminaron', x: 6, y: 49, w: 6, h: 10 },
-      { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], titulo: 'Grabaciones por página', x: 0, y: 53, w: 6, h: 6 },
-      // 6 · El diagnóstico que MaKo guardó de cada página (analizar es una tarea: vive en Landing Generator).
-      //     Barras sobre el puntaje: era una tabla con barra en cada columna (relevo C, punto 20).
-      { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', x: 0, y: 59, w: 12, h: 8 },
+      { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 28, w: 4, h: 9 },
+      { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', x: 0, y: 37, w: 5, h: 10 },
+      { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 5, y: 37, w: 7, h: 10 },
+      { id: id('la-fondo-seccion'), clase: 'elemento', tipo: 'seccion', texto: 'Grabaciones y diagnóstico', seccion: { fondo: null, plegable: true, abierto: false }, x: 0, y: 47, w: 12, h: 1 },
+      { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 48, w: 12, h: 8 },
+      // El diagnóstico que MaKo guardó de cada página (analizar es una tarea: vive en Landing Generator).
+      { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', x: 0, y: 56, w: 12, h: 8 },
     ],
   }),
 };
@@ -347,28 +332,23 @@ const VSL: PlantillaHoja = {
       lista(id('vs-video'), 'video'),
     ],
     componentes: [
-      kpi(id('vs-play'), 'retencion_vsl', 'arrancaron', 'Le dieron play', 'personas con el video en marcha', 0, 0),
-      kpi(id('vs-play-rate'), 'vsl', 'play_rate', 'Le dan play', 'de los que entran a la página', 3, 0),
-      kpi(id('vs-mitad'), 'retencion_vsl', 'tasa_50', 'Ven la mitad', 'de los que tienen avance medido', 6, 0),
-      kpi(id('vs-final'), 'retencion_vsl', 'tasa_final', 'Llegan al final', 'de los que tienen avance medido', 9, 0),
-      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 4, 12, 7),
+      // COMPOSICIÓN DEL 31/10/2026: play, llegan al final, agendan. La curva es LA forma del dato (sube a portada); el embudo de los
+      // mismos cortes se fue, y las tasas por video viven como columnas. La caja de MaKo va al pie: arriba tapaba la pregunta.
+      kpi(id('vs-final'), 'retencion_vsl', 'tasa_final', 'Llegan al final', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('vs-play'), 'retencion_vsl', 'arrancaron', 'Le dieron play', '', 3, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('vs-play-rate'), 'vsl', 'play_rate', 'Le dan play', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('vs-agendaron'), 'vsl', 'agendaron', 'Agendaron', '', 9, 0, { tipo: 'numero_tendencia' }),
       // La curva de la tab vieja (el bloque curva_vsl): cuántos siguen en cada corte del video.
-      { id: id('vs-curva'), clase: 'grafico', tipo: 'area', fuente: 'retencion_vsl', dimension: 'corte', metricas: ['siguen'], titulo: 'Dónde se van', x: 0, y: 11, w: 12, h: 10 },
-      { id: id('vs-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'retencion_vsl', metricas: ['arrancaron', 'pasaron_25', 'pasaron_50', 'pasaron_75', 'llegaron_final'], titulo: 'Cuánto ven el video', x: 0, y: 21, w: 6, h: 12 },
+      { id: id('vs-curva'), clase: 'grafico', tipo: 'area', fuente: 'retencion_vsl', dimension: 'corte', metricas: ['siguen'], titulo: 'Dónde se van', x: 0, y: 4, w: 12, h: 10 },
       {
-        id: id('vs-plays'), clase: 'grafico', tipo: 'serie', fuente: 'vsl', dimension: 'dia', metricas: ['reproducciones'], titulo: 'Reproducciones por día',
-        x: 6, y: 21, w: 6, h: 12, controles: [{ id: id('vs-plays-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        id: id('vs-tramos'), clase: 'grafico', tipo: 'columnas', fuente: 'vsl_leads', fecha: 'alta', dimension: 'tramo_visto', metricas: ['leads', 'agendas', 'cierres'],
+        titulo: '¿Los que más ven, más compran?', x: 0, y: 14, w: 7, h: 10,
       },
       {
         id: id('vs-videos'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'retencion_vsl', dimension: 'video', metricas: ['arrancaron', 'tasa_25', 'tasa_50', 'tasa_final'],
-        ordenMetrica: 'arrancaron', titulo: 'Por video', x: 0, y: 33, w: 6, h: 10,
+        ordenMetrica: 'arrancaron', barra: 'arrancaron', titulo: 'Por video', x: 7, y: 14, w: 5, h: 10,
       },
-      { id: id('vs-paginas'), clase: 'grafico', tipo: 'barras', fuente: 'retencion_vsl', dimension: 'pagina', metricas: ['tasa_50'], limite: 10, titulo: 'Ven la mitad, por página', x: 6, y: 33, w: 6, h: 10 },
-      {
-        id: id('vs-tramos'), clase: 'grafico', tipo: 'columnas', fuente: 'vsl_leads', fecha: 'alta', dimension: 'tramo_visto', metricas: ['leads', 'agendas', 'cierres'],
-        titulo: '¿Los que más ven, más compran?', x: 0, y: 43, w: 8, h: 10,
-      },
-      kpi(id('vs-agendaron'), 'vsl', 'agendaron', 'Agendaron desde la página', 'agendas que registró tu Pixel', 8, 43, { w: 4 }),
+      caja(id('vs-ia'), 'Qué dice tu video', 'En qué parte del video se va la gente, y si los que lo ven más agendan más', 0, 24, 12, 6),
     ],
   }),
 };

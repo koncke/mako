@@ -153,8 +153,11 @@ export function comoCorbel(hoja: Crudo, def: DefinicionPortada | undefined, colo
     const actual = resto.find((x) => x.id === c.id && x.tipo === c.tipo);
     if (actual) resto = cerrarHueco(resto.filter((x) => x !== actual), actual);
   };
-  // Los números: los de más arriba, hasta cuatro. La invertida abre la fila, que es donde Corbel pone el negro.
-  const numeros = resto.filter(esNumero).sort(porLugar).slice(0, 4).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida));
+  // Los números: la fila de arriba si tiene tres o más (la plantilla ya eligió), y si no, los primeros cuatro. La invertida abre
+  // la fila, que es donde Corbel pone el negro. Los de más abajo se quedan donde la plantilla los puso.
+  const todos = resto.filter(esNumero).sort(porLugar);
+  const deArriba = todos.filter((c) => num(c.y) === num(todos[0]?.y));
+  const numeros = (deArriba.length >= 3 ? deArriba : todos).slice(0, 4).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida));
   const n = numeros.length;
   const fila = numeros.map((c, i) => {
     sacar(c);

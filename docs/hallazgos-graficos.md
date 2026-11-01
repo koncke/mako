@@ -35,7 +35,19 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 
 **Una hoja guardada conserva su composición.** La de Foco, y todas las de `comoCorbel`, llegan a las plantillas y a quien nunca guardó su informe. Las hojas guardadas toman colores, letra y tiles, pero sus piezas siguen donde están.
 
-**Sin hacer:** las otras doce composiciones de la revisión del 31/10, el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
+**Las composiciones de las 13 (de 7 a 13 piezas cada una).** Se partió de una revisión del 31/10 que corrió `p.armar()` en todas; **lo que recortó sale de esa revisión**, y se aplicó con estos cambios:
+
+- **Se mantuvo `comoCorbel`** (números arriba y la tarjeta negra con su gráfico), no la portada a lo ancho arriba de todo: la revisión midió sobre `conPortada` sin ver ese cambio, y lo otro es lo medido de Corbel. Las piezas que no entran en un tercio van a lo ancho.
+- **Títulos de sección: no se agregaron.** `seccion` a una fila se come su propio título (26 px en una celda de 30). Sólo Landing tiene una, plegada.
+- **CRM conserva «Leads y agendas»** porque es lo que acompaña a la tarjeta negra.
+- **Marketing abre con tres números** y una fila de costos más baja: el CAC es la tarjeta negra.
+- **`cartera`, `proyectos` y lo de `actual` van como `numero`:** no tienen rango y la línea saldría plana en cero. Lo mide `tests/graficos-corbel.test.ts`.
+
+**Lo que dejó de dibujarse en una plantilla nueva** (las guardadas lo conservan, y se puede volver a agregar): el ciclo de venta y MRR (Comercial), el cycle time y el atraso (Productividad), el cruce closer × dimensión y la tendencia del score (Closing), alumnos y avance en cursos (CS), tipo de mensaje y por automatización (Chat), el reparto por proveedor de IA (Contenido), `corte` de las grabaciones (Landing), el embudo y las páginas (VSL), veredicto, ángulos y muestra chica (Ads), plataforma (Marketing), estados y por cliente (Cobranza), canal (Automatizaciones).
+
+**`gb-cabe` no dibuja la fila que no entra, y eso no se ve en ningún test de datos.** En «Tareas prioritarias» de cinco entran tres. Ahora la lista lo dice («y N más en el Plan»), sólo en tareas y deadlines; Agenda y Norte siguen sin decirlo.
+
+**Sin hacer:** el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
 
 ## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
 
