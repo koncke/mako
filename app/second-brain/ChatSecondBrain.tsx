@@ -307,18 +307,18 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     // Con el Mapa abierto, volver a una conversación es volver a la página sin `panel` (lo arma el servidor).
     if (paso.ir) {
       setYendo('fuera');
-      router.push('coach' in e ? `${base}?coach=${e.coach}` : 'id' in e ? `${base}?chat=${e.id}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
+      router.push('id' in e ? `${base}?chat=${e.id}` : 'coach' in e ? `${base}?coach=${e.coach}` : 'offer' in e ? `${base}?offer=${e.offer}` : 'antes' in e ? `${base}?antes=${e.antes}`
         : 'centro' in e ? `${base}?centro=${encodeURIComponent(e.centro)}` : base);
     }
   };
 
   // ── Lo que se dibuja ──
-  const [cerebroFila, ...todasLasFilas] = k.lista;
-  // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
+  const [cerebroFila, ...filasDeLaLista] = k.lista;
   // Las de Offer van debajo del Offer Coach, no en el resto.
-  const filasOffer = todasLasFilas.filter((f) => f.origen === 'offer');
-  const sinOffer = todasLasFilas.filter((f) => f.origen !== 'offer');
-  const restoFilas = filtros.length ? sinOffer.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : sinOffer;
+  const filasOffer = filasDeLaLista.filter((f) => f.origen === 'offer');
+  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer');
+  // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
+  const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
   const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const conCoach = !!elegido && 'coach' in elegido;
@@ -415,7 +415,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
               <Icon name="search" size={16} />
               <input type="search" value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Buscar" aria-label="Buscar un chat" />
             </label>
-            <FiltroChats filas={centro ? (chatsCentro ?? []).map(filtrableCentro) : sinOffer.map((f) => ({ titulo: f.titulo }))}
+            <FiltroChats filas={centro ? (chatsCentro ?? []).map(filtrableCentro) : todasLasFilas.map((f) => ({ titulo: f.titulo }))}
               valores={filtros} onCambio={setFiltros} conEstado={!!centro} />
           </div>
         </div>

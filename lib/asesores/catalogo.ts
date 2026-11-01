@@ -32,7 +32,7 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'juan-ads', nombre: 'Juan ADS', completo: 'Juan Osorio', especialidad: 'Anuncios', curso: 'Metodología JADS', enElFunnel: true },
   { id: 'julian-otalora', nombre: 'Julián Otálora', completo: 'Julián Otálora', especialidad: 'Contenido orgánico', curso: 'Método Contenido Irresistible', enElFunnel: true },
   { id: 'sofia-contreras', nombre: 'Sofía Contreras', completo: 'Sofía Contreras', especialidad: 'Marketing perpetuo', curso: 'MasteryHaus' },
-  { id: 'marcos-razzetti', nombre: 'Marcos Razzetti', completo: 'Marcos Razzetti', especialidad: 'Agencias', curso: 'Agencia 6 Cifras' },
+  { id: 'marcos-razzetti', nombre: 'Marcos Razzetti', completo: 'Marcos Razzetti', especialidad: 'Agencias: captar clientes', curso: 'Agencia 6 Cifras' },
   { id: 'victor-heras', nombre: 'Víctor Heras', completo: 'Víctor Heras', especialidad: 'Marca personal', curso: 'Master Marca Personal 5.0' },
   { id: 'agustin-nievas', nombre: 'Agustín Nievas', completo: 'Agustín Nievas', especialidad: 'Ventas y cierre', curso: 'Growing Closer' },
   { id: 'derek-chamizo', nombre: 'Derek Chamizo', completo: 'Derek Chamizo', especialidad: 'YouTube', curso: 'Universidad de YouTube' },
@@ -41,7 +41,7 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'guille-collado', nombre: 'Guille Collado', completo: 'Guille Collado', especialidad: 'Contenido viral', curso: 'Hackeando el Algoritmo' },
   { id: 'marc-verdu', nombre: 'Marc Verdú', completo: 'Marc Verdú', especialidad: 'Ecommerce orgánico', curso: 'Organic Ecom 3.0' },
   { id: 'ramiro-cubria', nombre: 'Ramiro Cubria', completo: 'Ramiro Cubria', especialidad: 'Servicios high ticket', curso: 'Sell Your Knowledge' },
-  { id: 'iman-gadzhi', nombre: 'Iman Gadzhi', completo: 'Iman Gadzhi', especialidad: 'Agencias', curso: 'Agency Navigator' },
+  { id: 'iman-gadzhi', nombre: 'Iman Gadzhi', completo: 'Iman Gadzhi', especialidad: 'Agencias: cerrar y vender', curso: 'Agency Navigator' },
 ];
 
 export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => a.id === id) ?? null;

@@ -530,7 +530,7 @@ export async function turnoOffer(p: {
   // no: su system no trae el catálogo de MaKo, y una integración que existe salía «no existe», con ticket (la revisión del 27/10).
   const system = `${p.arranque
     ? await renderPrompt('offer.arranque.system', OFFER_ARRANQUE_SYSTEM_TEMPLATE, { guia: guiaDelArranque(), claves: clavesParaPrompt() })
-    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) })}${p.arranque ? '' : `\n\n${reglaNoExisteEn('respuesta')}`}${!p.arranque && p.referente ? `\n\n${p.referente}` : ''}`;
+    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) })}${!p.arranque && p.referente ? `\n\n${p.referente}` : ''}${p.arranque ? '' : `\n\n${reglaNoExisteEn('respuesta')}`}`;
   const user = await renderPrompt('offer.turno.user', OFFER_TURNO_USER_TEMPLATE, {
     contexto: b.contexto, piezas: b.piezas, faltan: p.arranque ? faltanDelArranqueParaPrompt(p.piezas) : b.faltan, documentos: b.documentos,
     // SIN `contenidoNoConfiable`, a propósito: el bloque lo escribe el CÓDIGO (las preguntas son las de
