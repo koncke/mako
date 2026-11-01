@@ -81,6 +81,10 @@ const ROTULO_TIPO: Record<TipoPieza, { uno: string; varios: string }> = {
 
 export const rotuloDeTipo = (t: TipoPieza): string => ROTULO_TIPO[t].uno;
 
+/** La miniatura de una pieza, armada con su id. De YouTube es estable; la de Instagram vence (es del CDN de Meta) y no se guarda: null. */
+export const miniaturaDePieza = (p: { canal: string; ref: string }): string | null =>
+  (p.canal === 'youtube' ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg` : null);
+
 export type FilaConteo = { rotulo: string; n: number; pct: number };
 
 const pct = (n: number, total: number): number => (total ? Math.round((n / total) * 100) : 0);

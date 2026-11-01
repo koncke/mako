@@ -425,3 +425,35 @@ catálogo), así que el punto de abajo que dice lo contrario es viejo. Lo que si
   (no figura entre las partes restringidas al dueño; si lo es, detecta qué videos del competidor
   declaran promoción paga); y **si los siete campos de `CAMPOS_PERFIL_PIEZAS` existen de verdad en
   Business Discovery** — están documentados, pero sin credencial no se probó ni uno.
+
+## La animación de «Sort my footage» era un video, no un componente (1/11/2026)
+
+**Pedido** (Martín): copiar de yanny.space/studio la animación de «Sort my footage» a Competitors Spy.
+
+- ⚠️ **En esa página no hay ninguna animación que leer: es un MP4 de 13 s** (`assets/sort/sort.mp4`). No hay código ni valores: se miró cuadro por cuadro,
+  cada 2 segundos, y se reconstruyó. Las miniaturas entran desde afuera y forman una bola, aparecen las carpetas, cada una vuela a la suya y sube la
+  cuenta, y el cierre es todo desenfocado con la frase escrita encima.
+- **Lo que no se copió: los números de mentira.** Ahí son 1.065 archivos de un demo. Acá son las piezas que se acaban de leer, y sin piezas no se monta.
+  Las carpetas salen de lo que Spy sabe de una pieza: canal, formato y etapa.
+- **Se dispara en una lectura pedida o en la primera de una ficha vacía.** La relectura sola de una ficha que ya tiene piezas va callada: si no, entrar a mirar
+  costaba seis segundos de animación. «Saltar» la corta, y con «reducir movimiento» no corre.
+- **140 miniaturas como tope de dibujo:** con más, una computadora normal se traba. El número que se lee sigue siendo el real (`repartirMiniaturas`).
+
+**Sin hacer:** las de Instagram no tienen imagen: la del CDN de Meta vence y no se guarda (0359), así que su miniatura es su texto. Para tener la foto en
+la animación habría que pasar la URL viva desde la lectura sin guardarla. Y no se probó con una lectura real: el arnés usa datos falsos.
+
+**Vive en:** lib/spy-orden.ts · app/competitor-spy/OrdenSpy.tsx · tests/spy-orden.test.ts.
+
+## Apify para leer Instagram: una clave nueva, no la vuelta del scraper (1/11/2026)
+
+**Pedido** (Martín): conectar Apify para que Spy lea Instagram.
+
+- ⚠️ **Lo que se retiró el 25/10 fue el Leads Scraper, no «Apify».** Por eso es otra clave (`APIFY_INSTAGRAM_TOKEN`) y otra fuente (`apify-spy`), que sólo pide lib/spy.ts. Reusar `APIFY_TOKEN` habría despertado también el buscador del alta del CRM y Offer, que preguntan mientras se escribe y lo pagaría quien pegó la clave. `tests/leads-scraper-retirado.test.ts` sigue prohibiendo el scraper y ahora fija este límite.
+- ⚠️ **Spy leía Instagram sin decir de qué negocio era** (`leerPerfilInstagram` sin `ws`): nunca usó la Meta del cliente, siempre la de la plataforma. Por eso el error decía «la página no tiene un Instagram vinculado» aunque el cliente tuviera el suyo.
+- ⚠️ **Un fallo se cachea 10 minutos.** Sin meter en la clave si hay clave de Spy, pegarla y tocar «Revisar ahora» seguía diciendo «no pude».
+- **El actor manda `likesCount: -1` con los «me gusta» ocultos.** Es «no se sabe», nunca un número.
+- ⚠️ **Dos permisos (docs/funnel-coach.md §5):** Apify lee perfiles públicos sin pasar por la API de Meta, lo que va contra los términos de Instagram. Lo decidió Martín, corre con la clave de cada negocio y con tope de 40 por día; la vía oficial sigue primero. La memoria del 29/10 («fuentes sólo legales, nada de scraping masivo») no cambió para el resto.
+
+**Sin probar contra Apify de verdad:** no hay clave todavía. La forma de `latestPosts` está tomada del código del 22/10 y de la documentación del actor.
+
+**Vive en:** lib/instagram-perfil-server.ts · lib/instagram-perfil.ts · lib/spy.ts · lib/metodo-catalogo.ts (`apify-instagram`).

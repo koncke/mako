@@ -31,6 +31,7 @@ export const ICON: Record<string, IconDef> = {
   gemini: { sym: 'ic-gemini', bg: '#1B72E8' },     // Google Gemini: spark blanco sobre azul
   // ElevenLabs: logo negro sobre claro → tile blanco con borde (como panda/google).
   elevenlabs: { sym: 'ic-elevenlabs', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
+  'apify-instagram': { sym: 'ic-apify-instagram', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   fathom: { sym: 'ic-fathom', bg: '#000000' },     // fathom.video: mark celeste sobre negro
   // Los otros grabadores de reuniones (26/10/2026, lib/grabadores). Loom, Zoom y Google Meet: los marks oficiales de
   // simple-icons 13.21.0 en blanco sobre el color de marca que declara la misma fuente (Loom #625DF5, Zoom #0B5CFF, Google
@@ -202,6 +203,7 @@ export function BrandDefs() {
       {/* Gemini — spark de 4 puntas (mark oficial de Google Gemini). */}
       <symbol id="ic-gemini" viewBox="0 0 24 24"><path fill="#fff" d="M12 2c.35 5.28 4.72 9.65 10 10-5.28.35-9.65 4.72-10 10-.35-5.28-4.72-9.65-10-10C7.28 11.65 11.65 7.28 12 2z" /></symbol>
       {/* ElevenLabs — mark oficial: dos barras verticales "| |" negras sobre blanco. */}
+      <symbol id="ic-apify-instagram" viewBox="0 0 24 24"><path d="M5 18 9.5 5.5l3.2 1.2L9 19.5Z" fill="#97D700" /><path d="M11 17.5 15 6l3.4 1.3-4 11.5Z" fill="#246DFF" /><path d="M16 18.5l1.2-3.6 3.4 1.2-1.2 3.6Z" fill="#F86606" /></symbol>
       <symbol id="ic-elevenlabs" viewBox="0 0 24 24"><rect x="8" y="6" width="3" height="12" rx="1.3" fill="#000" /><rect x="13" y="6" width="3" height="12" rx="1.3" fill="#000" /></symbol>
       {/* Fathom (fathom.video, el grabador de reuniones) — mark oficial, extraído de su
           propio wordmark: cdn.prod.website-files.com/…/68e7961f4ff1cd5e326512f7_logo-wordmark-new.svg

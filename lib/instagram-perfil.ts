@@ -208,13 +208,19 @@ export const APIFY_TOPE_USD = 0.02;
 export const APIFY_TOPE_POR_DIA = 40;
 /** Desde cuántas letras un @ se le pregunta a Apify: «@flo» trae a cualquiera y se paga igual. */
 export const APIFY_MIN_LETRAS = 5;
+/**
+ * LA CLAVE DE COMPETITORS SPY (1/11/2026, Martín: «conectar Apify para que Spy pueda leer Instagram»). Es otra que `APIFY_TOKEN` a propósito:
+ * ésa quedó dormida con el retiro del Leads Scraper (tests/leads-scraper-retirado.test.ts), y si esta fuera la misma, pegarla despertaría también
+ * el buscador del alta del CRM y Offer, que preguntan mientras se escribe. Ésta la paga el negocio que la pegó y sólo la lee Spy.
+ */
+export const APIFY_CLAVE_DE_SPY = 'APIFY_INSTAGRAM_TOKEN';
 
 /**
  * Lo que devuelve el actor (`run-sync-get-dataset-items`: una lista, un ítem por perfil). Una lista vacía o un ítem sin
  * `username` es que la cuenta no existe; uno con `error` (el actor lo pone así) también. Una cuenta PRIVADA trae la bio pero
  * no las publicaciones.
  */
-export function leerPerfilDeApify(usuario: string, items: unknown): LecturaInstagram {
+export function leerPerfilDeApify(usuario: string, items: unknown, conPiezas = false): LecturaInstagram {
   if (!Array.isArray(items)) return { ok: false, motivo: 'error', detalle: 'Apify no devolvió una lista' };
   const p = items.find((x): x is Record<string, unknown> => esObj(x) && str(x.username).toLowerCase() === usuario.toLowerCase());
   if (!p || p.error) return { ok: false, motivo: 'no-esta', detalle: p ? str(p.error) || 'sin el perfil' : 'sin resultados' };
@@ -226,7 +232,30 @@ export function leerPerfilDeApify(usuario: string, items: unknown): LecturaInsta
       bio: str(p.biography), web: str(p.externalUrl) || null,
       seguidores: num(p.followersCount), publicaciones: num(p.postsCount),
       posts: posts.map((m) => ({ fecha: str(m.timestamp).slice(0, 10), tipo: str(m.type), texto: str(m.caption) })).filter((m) => m.texto).slice(0, POSTS_A_LEER),
+      ...(conPiezas ? { piezas: posts.map(piezaDeApify).filter((m) => m.ref).slice(0, PIEZAS_A_LEER) } : {}),
     },
+  };
+}
+
+/** Un número del actor. ⚠️ Con los «me gusta» ocultos el actor manda -1: eso es «no se sabe», nunca un número. */
+const contadorDeApify = (v: unknown): number | null => { const n = num(v); return n != null && n >= 0 ? n : null; };
+
+/** Una publicación del actor, con la misma forma que las de Business Discovery: Competitors Spy no distingue de dónde vino. */
+function piezaDeApify(m: Record<string, unknown>): PiezaInstagram {
+  const permalink = str(m.url);
+  const esReel = str(m.productType) === 'clips' || str(m.type) === 'Video';
+  return {
+    ref: str(m.shortCode) || refDePermalink(permalink),
+    fecha: str(m.timestamp).slice(0, 10),
+    tipo: str(m.type),
+    formato: esReel ? 'REELS' : 'FEED',
+    audio: null,
+    texto: str(m.caption),
+    permalink: /^https:\/\//.test(permalink) ? permalink : null,
+    miniatura: /^https:\/\//.test(str(m.displayUrl)) ? str(m.displayUrl) : null,
+    vistas: contadorDeApify(m.videoViewCount ?? m.videoPlayCount),
+    megusta: contadorDeApify(m.likesCount),
+    comentarios: contadorDeApify(m.commentsCount),
   };
 }
 

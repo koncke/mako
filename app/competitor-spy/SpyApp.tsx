@@ -54,6 +54,7 @@ import {
   revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
 } from './actions';
 import { TarjetaPieza } from './TarjetaPieza';
+import { OrdenSpy } from './OrdenSpy';
 
 const CSS = `
 .spy{min-height:100vh;background:var(--bg);color:var(--ink);font-size:13px}
@@ -414,6 +415,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
   const [piezas, setPiezas] = useState<PiezaVista[]>([]);
   const [trayendo, setTrayendo] = useState(false);
   const [leyendo, setLeyendo] = useState<number | null>(null);
+  const [ordenando, setOrdenando] = useState<{ id: number; piezas: PiezaVista[] | null } | null>(null);
   const [analizando, setAnalizando] = useState(false);
   const [lecturas, setLecturas] = useState<Record<number, LecturaCanalSpy[]>>({});
   const [error, setError] = useState<string | null>(errorInicial);
@@ -449,9 +451,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
     return p.ok ? p.piezas : null;
   }, []);
 
-  const leer = useCallback(async (id: number) => {
+  // `animada`: la lectura se ve como sus piezas juntándose y repartiéndose en carpetas (./OrdenSpy.tsx). Una relectura sola de una ficha
+  // que ya tiene piezas va callada: no le corre la pantalla a quien entró a mirar.
+  const leer = useCallback(async (id: number, animada = true) => {
     yaLeidos.current.add(id);
     setLeyendo(id);
+    if (animada) setOrdenando({ id, piezas: null });
     try {
       const r = await revisarAction(id);
       if (r.error) setError(r.error);
@@ -459,7 +464,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
       // del esqueleto, y una lista vacía se dibuja como «no pude», nunca como «no hay».
       setLecturas((prev) => ({ ...prev, [id]: r.canales }));
       await recargarLista();
-      await traerPiezas(id);
+      const p = await traerPiezas(id);
+      // Sin piezas no hay nada que ordenar: se ve el estado de siempre («no encontré», «no pude»).
+      if (animada) setOrdenando((v) => (v?.id !== id || actual.current !== id ? null : p?.length ? { id, piezas: p } : null));
+    } catch (e) {
+      setOrdenando(null);
+      throw e;
     } finally {
       setLeyendo((v) => (v === id ? null : v));
     }
@@ -469,12 +479,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
   useEffect(() => {
     if (elegido == null) return;
     let vivo = true;
-    setPiezas([]); setError(null); setBuscar(''); setFiltros([]); setPestana('publica'); setTrayendo(true);
+    setPiezas([]); setError(null); setBuscar(''); setFiltros([]); setPestana('publica'); setTrayendo(true); setOrdenando(null);
     void traerPiezas(elegido).then((p) => {
       if (!vivo) return;
       setTrayendo(false);
       const quien = competidores.find((x) => x.id === elegido);
-      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(elegido))) void leer(elegido);
+      if (quien && debeLeerAlAbrir(quien, p?.length ?? 0, yaLeidos.current.has(elegido))) void leer(elegido, !p?.length);
     });
     return () => { vivo = false; };
     // `competidores` afuera a propósito: cada lectura la reescribe, y esto volvería a abrir la ficha.
@@ -624,7 +634,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
   const cuantas = (f: FiltroSpy) => flujo.filter((p) => cumpleFiltro(p, f)).length;
 
   const revisarDeNuevo = (
-    <button type="button" className="spy-boton" disabled={estaLeyendo || elegido == null} onClick={() => { if (elegido != null) void leer(elegido); }}>
+    <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || elegido == null} onClick={() => { if (elegido != null) void leer(elegido); }}>
       Revisar de nuevo
     </button>
   );
@@ -687,7 +697,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                 Competidores ({competidores.length})
               </button>
               <div className="spy-acciones">
-                <button type="button" className="spy-boton" disabled={estaLeyendo || !canalesDe(c)} onClick={() => void leer(c.id)}>
+                <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
                   {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
                 </button>
                 <button type="button" className="spy-boton" disabled={analizando || !piezas.length} title={piezas.length ? undefined : 'Sale de lo que publica'} onClick={() => void analizar()}>
@@ -749,7 +759,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
             {/* Sin nada abajo, la franja explicaría una pantalla que no está. */}
             {(activa !== 'publica' || flujo.length > 0) && <Franja pestana={activa} />}
 
-            {activa === 'publica' && (
+            {ordenando?.id === c.id && activa === 'publica' && <OrdenSpy nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
+
+            {activa === 'publica' && ordenando?.id !== c.id && (
               <>
                 {flujo.length > 0 && <Banda piezas={flujo} c={c} analizando={analizando} onAnalizar={() => void analizar()} />}
 
@@ -827,6 +839,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                         {pideConectarMeta(lecturasDe) && (
                           <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
                             <Icon name="plug" size={14} /> Conectar Meta
+                          </BotonIntegracion>
+                        )}
+                        {pideConectarMeta(lecturasDe) && (
+                          <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
+                            Conectar Apify
                           </BotonIntegracion>
                         )}
                         {revisarDeNuevo}

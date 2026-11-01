@@ -22,7 +22,7 @@
 
 import { Icon } from '../_components/icons';
 import { NOMBRE_ETAPA } from '@/lib/spy-reglas';
-import { contadorDeTarjeta, destinoDePieza, fechaCorta, rotuloDeTipo, tiempoDePieza } from '@/lib/spy-vista';
+import { contadorDeTarjeta, destinoDePieza, fechaCorta, miniaturaDePieza, rotuloDeTipo, tiempoDePieza } from '@/lib/spy-vista';
 import type { PiezaVista } from './actions';
 
 const ICONO = { instagram: 'instagram', youtube: 'youtube', anuncios: 'meta', landing: 'web' } as const;
@@ -45,7 +45,7 @@ export function TarjetaPieza({ p }: { p: PiezaVista }) {
   // El texto ya se ve en el lugar del creativo cuando no hay miniatura: no se repite abajo.
   const titulo = p.analisis?.gancho || p.titulo || null;
   const destino = destinoDePieza(p);
-  const miniatura = p.canal === 'youtube' ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg` : null;
+  const miniatura = miniaturaDePieza(p);
 
   const cuerpo = (
     <>

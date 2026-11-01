@@ -18,7 +18,9 @@
 //   · La lectura de un @ de Instagram por Apify que paga la PLATAFORMA (lib/instagram-perfil-server.ts, 22/10/2026) es del
 //     CRM, no la integración del negocio: queda DORMIDA (no hay clave en ningún lado y la tarjeta para cargarla se fue). Si se
 //     saca o se reemplaza lo decide el CRM: docs/hallazgos-integraciones.md, «El Leads Scraper se retiró».
-//   · Una clave de Apify pegada en el chat se sigue TAPANDO (lib/claves-en-el-chat.ts), sin servicio: no hay «Conectar».
+//   · Una clave de Apify pegada en el chat se sigue TAPANDO (lib/claves-en-el-chat.ts). Desde el 1/11/2026 ofrece conectar `apify-instagram`.
+//   · ⚠️ `apify-instagram` (1/11/2026) NO ES EL SCRAPER QUE VUELVE: es otra clave (`APIFY_INSTAGRAM_TOKEN`) para leer el perfil público de un competidor en
+//     Competitors Spy. No genera leads, no entra al CRM y no despierta `APIFY_TOKEN`. Abajo hay un test que fija ese límite: si crece, este guard falla.
 //   · Hotmart como plataforma de CURSOS (scripts/hotmart-*.mjs, app/conocimientos/) es otra cosa: bajar cursos al archivo.
 //
 // ⚠️ SE BUSCA UN NOMBRE PROPIO DEL SCRAPER, NO LA PALABRA: «prospecto» es vocabulario del CRM y «Skool» es el modelo de la
@@ -157,9 +159,23 @@ test('la API de MaKo y el menú del CRM: sin prospectos', () => {
   assert.doesNotMatch(sinComentarios(leer('app/crm/layout-reglas.ts')), /prospectos/, 'la puerta de la pantalla sigue en el layout');
 });
 
-test('una clave de Apify pegada se tapa igual, pero ya no ofrece conectar nada', () => {
+test('una clave de Apify pegada se tapa igual, y sólo ofrece conectar la de Competitors Spy', () => {
   const src = sinComentarios(leer('lib/claves-en-el-chat.ts'));
-  assert.match(src, /\{ nombre: 'apify', re: \/\\bapify_api_\[A-Za-z0-9\]\{20,\}\/g, con: CLAVE_TAPADA, servicio: null \}/);
+  assert.match(src, /\{ nombre: 'apify', re: \/\\bapify_api_\[A-Za-z0-9\]\{20,\}\/g, con: CLAVE_TAPADA, servicio: 'apify-instagram' \}/);
+});
+
+test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scraper de leads', () => {
+  const quienes = (patron: string) => execFileSync('git', ['grep', '-l', '--untracked', '-E', patron, '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 })
+    .split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f) && !HISTORIA.some((h) => h.test(f)));
+  // La clave la nombran su catálogo, su ping y la función que lee. Nada del CRM, de los leads ni de la API de MaKo.
+  assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY').sort(), [
+    'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
+  ]);
+  // Y la fuente la pide sólo Spy: el alta del CRM y Offer siguen sin poder gastarla.
+  assert.deepEqual(quienes("'apify-spy'").sort(), ['lib/instagram-perfil-server.ts', 'lib/spy.ts']);
+  // La tarjeta es otra: la del scraper se llamaba `apify` y no volvió.
+  assert.equal(DEFS.some((d) => d.key === 'apify'), false);
+  assert.equal(DEFS.filter((d) => d.key === 'apify-instagram').length, 1);
 });
 
 test('el guard sabe leer: cada patrón reconoce lo que busca y no acusa por prosa', () => {

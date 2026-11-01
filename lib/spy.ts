@@ -52,7 +52,7 @@ import {
   type CanalSpy, type FuentePieza, type TipoPieza,
 } from './spy-reglas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
-import { getTenantDb } from './workspace';
+import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,6 +144,13 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   const { data, error } = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR).order('mirado_en', { ascending: false, nullsFirst: false }).limit(TOPES.competidores);
   if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${error.message}` };
   return { ok: true, competidores: (data ?? []) as Competidor[] };
+}
+
+/** Lo que se le dice a la persona: sin una fuente que lea Instagram, el motivo técnico de Meta no le sirve; sí cuáles son las salidas. */
+export function detalleDeInstagram(motivo: string, detalle: string): string {
+  if (motivo === 'sin-cuenta' || motivo === 'sin-conexion') return 'hace falta Meta con un Instagram vinculado, o tu clave de Apify.';
+  if (motivo === 'limite') return `${detalle}. Vuelve a intentarlo más tarde.`;
+  return detalle;
 }
 
 /** Un competidor por su id. `null` si no es de este negocio: el proxy ya scopea por workspace. */
@@ -399,9 +406,10 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
   if (c.instagram) {
-    const l = await leerPerfilInstagram(c.instagram, { conPiezas: true });
+    // ⚠️ CON EL NEGOCIO (1/11/2026): sin `ws`, la función no podía usar la Meta del cliente ni su clave, y leía siempre con la de la plataforma.
+    const l = await leerPerfilInstagram(c.instagram, { ws: await getWorkspaceActual(), conPiezas: true, fuentes: ['meta-negocio', 'meta-plataforma', 'apify-spy'] });
     if (!l.ok) {
-      canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${l.detalle}` });
+      canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${detalleDeInstagram(l.motivo, l.detalle)}` });
     } else {
       seguidores = l.perfil.seguidores;
       // `piezas` es `undefined` cuando Meta rechazó el juego ancho y se cayó al de siempre: ahí hay
