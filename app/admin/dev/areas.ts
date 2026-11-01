@@ -383,7 +383,7 @@ export const AREAS: AreaDev[] = [
   {
     slug: 'competitor-spy', titulo: 'Competitor Spy', familia: 'Analyze',
     estado: 'parcial', verEnApp: '/competitor-spy',
-    alcance: 'Vigilar lo que hacen los demás (anuncios y ofertas de la competencia); es la única de Analyze que no analiza un activo propio. Está la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding. /market-analyst es la ruta vieja que redirige y la nav key sigue siendo \'market-an\'.',
+    alcance: 'Vigilar lo que hacen los demás (anuncios y ofertas de la competencia); es la única de Analyze que no analiza un activo propio. Está la Etapa 1 de docs/diseno-competitors-spy.md: buscador fijo, ficha con pestañas y una rejilla, sin onboarding. /market-analyst es la ruta vieja que redirige y la nav key sigue siendo \'market-an\'.',
     vive: ['app/competitor-spy/page.tsx', 'app/competitor-spy/SpyApp.tsx', 'lib/spy.ts', 'lib/spy-reglas.ts', 'app/market-analyst/page.tsx'],
     proyectos: ['Feature: Competitor Spy'],
   },

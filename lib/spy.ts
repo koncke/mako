@@ -204,6 +204,40 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string): 
   return { ok: true, competidor: data as Competidor };
 }
 
+/**
+ * Deja de mirar a alguien. Sus piezas se van con él (`on delete cascade`, 0359): lo leído de un
+ * competidor no tiene sentido sin el competidor. El mensaje del tope manda a hacer esto, y hasta el
+ * 31/10/2026 no había cómo.
+ */
+export async function quitarCompetidor(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
+  const db = await getTenantDb();
+  const { error } = await db.from('spy_competidores').delete().eq('id', id);
+  if (error) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude quitarlo: ${error.message}` };
+  return { ok: true };
+}
+
+/** Lo que dice la fila de un competidor en la tabla. */
+export type ResumenPiezas = { vivas: number; idas: number; desde: string | null };
+
+/**
+ * Cuántas piezas se ven y cuántas ya no, por competidor, y desde cuándo hay historia. Sin agregados
+ * en SQL: son a lo sumo 25 competidores (`TOPES.competidores`).
+ *
+ * ⚠️ ANTE UN ERROR DEVUELVE VACÍO, y la tabla entonces no dibuja esa columna. No hay cero que afirmar.
+ */
+export async function resumenDePiezas(): Promise<Record<number, ResumenPiezas>> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('spy_piezas').select('competidor_id, dejo_de_verse_en, visto_primera_vez').neq('canal', 'landing').limit(5000);
+  if (error) return {};
+  const out: Record<number, ResumenPiezas> = {};
+  for (const fila of (data ?? []) as Array<{ competidor_id: number; dejo_de_verse_en: string | null; visto_primera_vez: string }>) {
+    const r = (out[fila.competidor_id] ??= { vivas: 0, idas: 0, desde: null });
+    if (fila.dejo_de_verse_en) r.idas += 1; else r.vivas += 1;
+    if (!r.desde || fila.visto_primera_vez < r.desde) r.desde = fila.visto_primera_vez;
+  }
+  return out;
+}
+
 /** Las piezas de un competidor, la última vista primero. */
 export async function listarPiezas(competidorId: number, canal?: CanalSpy): Promise<Pieza[]> {
   const db = await getTenantDb();

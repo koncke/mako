@@ -331,11 +331,37 @@ se achica, pero esta tab nació sin guía y la escribe su tanda.
 
 ---
 
+### La pantalla era la ausencia de datos, y el diagnóstico obvio («falta el cron») era el equivocado (31/10, Martín la abrió)
+
+**Síntoma.** Martín abrió la tab en producción: «Que carajos es este diseño, ve y hazlo todo de nuevo... Copia de una app». Una tarjeta «Sin revisar» y cuatro acordeones diciendo que no había nada, detrás de un wizard que él ya había pedido no poner.
+
+**La causa no era falta de datos.** Yo mismo había escrito en esta tab que «no revisa sola» como lo que le faltaba. Falso: `mirarCompetidor` ya leía todo en una pasada, y las fechas con las que se arma el tiempo las declara LA FUENTE (`timestamp` de Instagram, `publishedAt` de YouTube), así que llegan en la primera lectura. Lo que faltaba era llamarla al agregar. Se había copiado **nuestra** ficha del CRM en vez de una app de la categoría, y se dio el límite legal sobre el DATO por permiso para diseñar la pantalla de cero: son dos preguntas distintas.
+
+**Y el cron tampoco da lo que parece.** «Desde cuándo corre este anuncio» no lo trae una foto diaria en América Latina: la Ad Library devuelve vacío con HTTP 200 y los anuncios entran pegados a mano, sin nada que volver a leer. El cron sólo sumaría deltas y «dejó de verse» entre visitas de Instagram, YouTube y la landing. Por eso no se dibuja nada que pida dos mediciones.
+
+**De dónde salió lo nuevo**, midiendo once productos con el navegador: ninguno tiene lista a la izquierda con detalle a la derecha, ninguno secciona por canal con acordeones, ninguno tapa la pantalla con un wizard. Foreplay Spyder da la estructura (de sus capturas: no se entró a la app viva), Meta y Google el buscador fijo y el vacío único, Atria y TikTok la tarjeta, Semrush la sección que se borra. El detalle de cada pieza está en los comentarios de `app/competitor-spy/SpyApp.tsx` y `TarjetaPieza.tsx`.
+
+**Reglas que quedan para cualquier ranura sin dato** (valen para toda la app):
+- **Cargando y vacío son dos estados.** TikTok afirma «No search results found» un segundo antes de mostrar sus tarjetas; nuestra pantalla hacía eso para siempre. `estadoDeResultados` (`lib/spy-vista.ts`) lo decide y se puede probar.
+- **El motivo de una lectura no se guarda en ningún lado**, y por eso sin la lectura en la mano no se afirma nada: se vuelve a leer al abrir (`debeLeerAlAbrir`, una vez por sesión, para no gastar cuota en bucle con un perfil ilegible).
+- **Instagram contesta `ok` con cero piezas cuando la conexión no entrega números.** Eso no es «no publica nada»: `esLecturaRecortada` lo manda a «no pude», con «Conectar Meta» ahí mismo. Es el estado más frecuente: de 11 conexiones, sólo una tiene permisos.
+- **El control apagado de Meta**: su filtro de idioma se ve deshabilitado y dice adentro por qué. Un canal sin cargar es un chip que dice «Agregar», no una caja vacía.
+- **El cero se imprime cuando es un hecho contado y se saca cuando no se midió** (Meta, Google, SimilarWeb). Y un `null` tampoco es siempre «no lo publica»: si lo tachó la poda de los 30 días, decirlo le atribuye algo al dueño de la cuenta (`contadorDeTarjeta` dice «Sin leer»).
+- **Un dominio derivado de un texto de YouTube se calcula al dibujar y no se guarda**: el texto vive 30 días, y una columna sobreviviría a su fuente.
+
+**El mensaje del tope mandaba a hacer algo imposible.** «Quita uno antes de agregar otro» no tenía cómo hacerse hasta esta vuelta: no existía quitar, ni en la pantalla ni en la API. Ahora están «Dejar de mirarlo» y `dejar_de_mirar`.
+
 ## Lo que quedó SIN hacer
 
-Actualizado el **31/10/2026**, al entregar la **Etapa 1** (etiqueta `nube/competitors-spy-3110`): la
-lista, la ficha por bloques, el onboarding, el área `spy` de la API de MaKo, y la lectura de verdad
-de Instagram, YouTube y la landing del competidor. Lo que sigue abierto:
+Actualizado el **31/10/2026**, al rehacer la pantalla: la lista, la ficha por bloques y el onboarding de
+la Etapa 1 ya no existen. La 0359 **está aplicada** (la aplicó el Cerebro y la verificó contra el
+catálogo), así que el punto de abajo que dice lo contrario es viejo. Lo que sigue abierto:
+
+- **Lo que el relevamiento mostró y esta vuelta no hizo.** Vive en `app/competitor-spy/SpyApp.tsx`:
+  la pantalla del teléfono (`app/m/competitor-spy/page.tsx`, y `market-an` sigue en `EN_CAMINO` de
+  `lib/movil-rutas.ts`; el mismo componente ya se adapta a 375 px); el chip de país de la barra (nadie
+  escribe `pais` todavía); «Seguir a este» desde una pieza; la captura de su sitio; la ilustración
+  propia del vacío; el avatar real y la miniatura de Instagram, que vencen y no tienen columna a propósito.
 
 - **Los dos trámites de la Etapa 0, que bloquean y tardan días. Son de Martín o del Cerebro.**
   1. **Aceptar la enmienda III.L de YouTube** («Section 5: Use Cases → Analytics & Reporting», en el

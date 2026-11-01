@@ -3,31 +3,28 @@
 // anuncio, una landing), sino que VIGILA lo que hacen los demás. La `nav` key
 // sigue siendo 'market-an' porque está escrita en la base.
 //
-// Dejó de ser `ComingSoon` el 31/10/2026 con la Etapa 1 del plan
-// (docs/diseno-competitors-spy.md §6): la lista, la ficha por bloques y el onboarding, con
-// Instagram, YouTube y la landing del competidor leídos de verdad. Los anuncios entran por la vía
-// que no tiene problema de términos —los pega la persona—, porque la API de Meta no entrega
-// anuncios comerciales fuera de la Unión Europea y el Reino Unido.
-//
-// ⚠️ EL GATE DEL ONBOARDING VA CON `.catch(() => false)`: un hipo de la base no puede esconder la
-// tab. Y el «salir» del wizard lo decide `PuertaSpy` del lado del cliente, nunca un
-// `router.refresh()`, que vuelve a correr este mismo guard y devuelve el wizard otra vez.
+// ⚠️ ENTRA DIRECTO. Sin puerta y sin wizard (Martín, 31/10/2026: «nada debe tener
+// onboarding»; ninguno de los once productos medidos tapa la pantalla con uno).
+// Lo que el wizard pedía ahora es la pantalla: un campo arriba, y pegar te lleva a
+// la ficha. Los pasos del catálogo los marca el acto (lib/spy-actos.ts).
 
-import { PuertaSpy } from './PuertaSpy';
 import { SpyApp } from './SpyApp';
-import { listarCompetidores } from '@/lib/spy';
+import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { requireRolWs } from '@/lib/tab-access';
-import { onboardingTabPendiente } from '@/lib/tab-onboarding-state';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CompetitorSpyPage() {
+export default async function CompetitorSpyPage({ searchParams }: { searchParams: Promise<{ competidor?: string }> }) {
   await requireRolWs([], { nav: 'market-an' });
-  // La migración 0359 la aplica una sesión local: mientras no esté, `listarCompetidores` devuelve
-  // su motivo y la pantalla abre vacía con el onboarding, sin romperse.
-  const r = await listarCompetidores().catch(() => ({ ok: false as const, error: '' }));
-  const competidores = r.ok ? r.competidores : [];
-  const falta = await onboardingTabPendiente('market-an').catch(() => false);
-  const app = <SpyApp iniciales={competidores} />;
-  return falta ? <PuertaSpy>{app}</PuertaSpy> : app;
+  const r = await listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
+  const resumen = await resumenDePiezas().catch(() => ({}));
+  const pedido = Number((await searchParams).competidor);
+  return (
+    <SpyApp
+      iniciales={r.ok ? r.competidores : []}
+      resumenInicial={resumen}
+      abierto={Number.isInteger(pedido) && pedido > 0 ? pedido : null}
+      errorInicial={r.ok ? null : r.error}
+    />
+  );
 }

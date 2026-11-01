@@ -1,5 +1,9 @@
 # Competitors Spy: el plan (31/10/2026)
 
+> **La pantalla de este plan (lista + ficha por bloques + onboarding) se rechazó el mismo 31/10 y se
+> rehízo.** Las fuentes, las reglas y las etapas de datos siguen valiendo; la forma de la pantalla, no.
+> Ver `docs/hallazgos-competitors-spy.md`.
+
 > **Pedido de Martín, textual (31/10/2026):** «para competitors spy, quiero algo que mire biblioteca
 > de anuncios, instagram, youtube como vidIQ, etc… Y analice todo de la competencia, incluso con la
 > funcionalidad de replicar landing, el scraper y todo lo que tenemos en mako, podriamos construir un
