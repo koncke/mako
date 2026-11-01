@@ -77,6 +77,13 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Los 16 errores ajenos del tsc acotado no eran del repo (1/11/2026)
+
+- **Síntoma:** `tsc-acotado` sobre una rama del Dashboard daba 16 errores en `app/conocimientos/Compartir.tsx` (`jsx`) y en `app/video-editor/_opencut` (`FrameRate`, `opencut_wasm_bg.js`). Actions, con el chequeo entero, no los marca.
+- **Causa:** el acotado arma su lista con `files` y `include: []`, así que un `.d.ts` ambiente que nadie importa no entra: el de `styled-jsx` y `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`. Medido en `main`: esos dos archivos solos dan los errores; con los dos `.d.ts` en la lista, cero.
+- **Regla:** un error del acotado en un archivo que tu rama no toca se mira primero así, antes de arreglarlo. Si hay otro `declare module` así, va a `GLOBALES_DE_NEXT`, en `scripts/tsc-acotado.mjs`.
+
+
 ## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
 
 Un tren de 213 commits tardó **cinco corridas de Actions** en aterrizar. Cada vez el síntoma era el mismo —«el chequeo
@@ -10141,3 +10148,52 @@ pasa»), con el agravante de que acá el instrumento no devuelve un número equi
 - **El arnés de esbuild no reemplaza este chequeo:** borra los tipos sin mirarlos. Un componente con el mismo nombre que un tipo importado (`OrdenSpy`) dio la animación andando perfecta y un rojo de tipos.
 
 **Y lo de correr «los tests de lo que toqué»:** no alcanza cuando se tocan archivos que otros tests fijan por su forma. `tests/chat-ia.test.ts` exige que la elección de IA vaya pegada al turno, y una línea en el medio lo rompió; ninguno de los 210 elegidos a mano lo miraba. Antes de pasar una punta va la compuerta, no una lista hecha a ojo.
+---
+
+## Matar la tarea de Bash NO mata el push, y el candado se queda tomado (1/11/2026)
+
+**El síntoma.** `git push origin HEAD:integracion` se pasó de los 120 s del tool y se fue a background. Diez
+minutos después `integracion` no se había movido y el archivo de salida tenía **0 bytes**. Lo di por colgado,
+lo maté y lo relancé. Dos veces. A la tercera el log dijo la verdad:
+
+```
+candado: 2 delante tuyo · lo tiene «wt-push-q · tren-dash (claude1) antes-de-subir --sin-condiciones --cortar
+         — 01/11 12:07» hace 15 min · llevo 0 min
+```
+
+**Hacía fila detrás de mí mismo.**
+
+**Las tres trampas, encadenadas.**
+
+1. **El push a `integracion` no es un push: es la compuerta local.** `.git/hooks/pre-push` corre
+   `scripts/antes-de-subir.mjs` (16 guardas + tsc acotado + tests afectados) ANTES de mandar un byte. Con 2,5 GB
+   libres eso pagina y tarda bastante más que los 120 s del tool. **No está colgado: está trabajando.**
+2. **La salida no aparece hasta el final si hay un pipe.** `git push ... | tail -6` guarda todo en el buffer de
+   `tail` hasta que el comando termina, asi que el archivo de la tarea mide 0 bytes mientras la compuerta corre.
+   Un 0 bytes se lee igual que un cuelgue. Se redirige con `>` a un archivo y se mira ahi.
+3. **Matar la tarea de Bash deja al hijo vivo, y el hijo es el que tiene el candado.** `antes-de-subir.mjs`
+   sigue corriendo huerfano y no suelta `candado-pesado.mjs`. Cada relanzamiento suma un proceso mas a la fila
+   detras del huerfano. Es la misma familia que «Monitor no mata el proceso».
+
+**La regla que queda.** Antes de dar por muerto un push a `integracion`: mirar si el proceso sigue vivo, y de
+quien es hijo.
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+  Where-Object { $_.CommandLine -like '*antes-de-subir*' } |
+  ForEach-Object { $p = $_.ParentProcessId
+    $n = (Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName
+    "{0} padre={1} ({2}) {3}" -f $_.ProcessId, $p, $(if ($n) { $n } else { 'MUERTO' }), $_.CreationDate }
+```
+
+Si el padre existe, **el push esta vivo y hay que esperarlo**. Si dice `MUERTO`, es un huerfano que retiene el
+candado y se mata **por PID** (nunca por nombre: hay otros `node` legitimos, incluidos los hijos del push que SI
+sirve). Y nunca se relanza un push del mismo commit: el segundo quema la compuerta entera para despues no
+empujar nada, con el candado en la mano y los demas chats detras.
+
+**Y el vigia que mira ese push tiene su propia trampa, de la misma familia.** `head_sha=` de la API de
+Actions quiere los **40 caracteres**: con un sha abreviado devuelve `workflow_runs: []`, que no es un error
+sino una lista vacia, y el vigia la lee como «SIN RUN para esta cabeza». Un run que SI esta corriendo parece
+no existir, y el tren queda mudo sin que nadie se entere. `scripts`/`vigia-run.sh` ahora expande cualquier sha
+corto con `git rev-parse` y, si no puede, **corta gritando** (`SHA INSERVIBLE`, salida 4) en vez de callarse.
+Probado rompiendolo: con `deadbeef` grita, con 40 ceros dice SIN RUN, y con el sha corto de verdad espera.
