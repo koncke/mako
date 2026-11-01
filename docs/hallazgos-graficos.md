@@ -46,6 +46,15 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 
 **Una hoja guardada conserva su acomodo.** Rearmarla es escribir en sus datos, y necesita el sí de Martín.
 
+**⚠️ UNA CAPTURA CON EL PANEL OCULTO INVENTA ROTURAS.** El recorrido de producción acusó tres cosas en la hoja General; dos no existían, y la tercera tenía otra causa que la sospechada.
+
+- **La grilla cortada a la derecha era la transición congelada.** `useContainerWidth` arranca en 1280 y la grilla anima `left, top, width, height`. Con el panel del navegador oculto la página corre de fondo y la animación no avanza: a 900 de ancho, `style.width` decía 403 y el rectángulo 632. Para medir: leer `style.width` o apagar las transiciones. También `ResizeObserver` se atrasa: un cambio de tamaño sin recargar dejó la medida vieja.
+- **La estrella encima de «El mes» era la copia que vuela** del loader a la barra (`.cm-vuelo`, `app/_ui/VueloDeCarga.tsx`, 420 ms). La de la barra estaba en su lugar. Deducido por el recorrido: la copia se vio en vuelo y 4 s después ya no estaba, pero no congelada sobre ese título.
+- **⚠️ LA ACCIÓN DEL DÍA SÍ SE SALÍA, Y EL DIAGNÓSTICO OBVIO ERA FALSO.** Se sospechó de Urbanist «más ancha», y es al revés: un 8 % más angosta que Geist en esa frase. Con 6 × 7 y 90 letras, a 1440: Geist 5 líneas y 48 px afuera; Urbanist 4 líneas y 18. Ya estaba rota. La causa: `.gb-frase` toma el tamaño del ancho (`cqi`) y lo que no entra se decide en el alto.
+- **Cambiar la composición no la arregla:** la hoja guardada conserva su acomodo. Por eso se mide lo que hay (`app/general/bloques/frase-que-entra.ts`). Con `cqh` no se puede: `container-type: size` deja sin alto a la pila del teléfono.
+
+**Sin hacer:** el salto de la grilla al abrir. Sin `measureBeforeMount`, `useContainerWidth` dibuja a 1280 y después anima al ancho real (`app/dashboard/EditorInforme.tsx`, `useContainerWidth()`). Con esa opción la grilla ya no sale en el HTML del servidor, así que hay que mirarlo con el panel a la vista. A 673 × 180 la frase llega al piso de 23 px y el botón se corta 29 px: esa medida no está en ninguna hoja guardada de hoy.
+
 **`gb-cabe` no dibuja la fila que no entra, y eso no se ve en ningún test de datos.** En «Tareas prioritarias» de cinco entran tres. Ahora la lista lo dice («y N más en el Plan»), sólo en tareas y deadlines; Agenda y Norte siguen sin decirlo.
 
 **Sin hacer:** el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.

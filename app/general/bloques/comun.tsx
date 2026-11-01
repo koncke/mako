@@ -96,7 +96,7 @@ a.gb-losa:hover,button.gb-losa:hover,.gb-losa[role=button]:hover{background:var(
 .gb-fila:first-child{border-top:none;padding-top:2px}
 .gb-cabe{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start;overflow:hidden}
 .gb-cabe>*{flex:none;width:100%;box-sizing:border-box}
-.gb-centro{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:center}
+.gb-centro{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;justify-content:safe center}
 .gb-ph{position:relative;flex:1;min-height:110px;display:flex;flex-direction:column}
 .gb-ph-fondo{flex:1;opacity:.5;filter:saturate(.6);pointer-events:none;user-select:none;overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,#000 50%,transparent 96%);mask-image:linear-gradient(180deg,#000 50%,transparent 96%)}
