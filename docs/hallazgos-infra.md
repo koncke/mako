@@ -77,6 +77,13 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Los 16 errores ajenos del tsc acotado no eran del repo (1/11/2026)
+
+- **Síntoma:** `tsc-acotado` sobre una rama del Dashboard daba 16 errores en `app/conocimientos/Compartir.tsx` (`jsx`) y en `app/video-editor/_opencut` (`FrameRate`, `opencut_wasm_bg.js`). Actions, con el chequeo entero, no los marca.
+- **Causa:** el acotado arma su lista con `files` y `include: []`, así que un `.d.ts` ambiente que nadie importa no entra: el de `styled-jsx` y `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`. Medido en `main`: esos dos archivos solos dan los errores; con los dos `.d.ts` en la lista, cero.
+- **Regla:** un error del acotado en un archivo que tu rama no toca se mira primero así, antes de arreglarlo. Si hay otro `declare module` así, va a `GLOBALES_DE_NEXT`, en `scripts/tsc-acotado.mjs`.
+
+
 ## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
 
 Un tren de 213 commits tardó **cinco corridas de Actions** en aterrizar. Cada vez el síntoma era el mismo —«el chequeo
