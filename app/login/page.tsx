@@ -115,7 +115,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           <>
             <a
               href={RUTA_ALUMNO}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '14px', padding: '12px', borderRadius: '11px', background: '#2F6FED', color: '#fff', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginTop: '14px', padding: '12px', borderRadius: '11px', background: 'var(--primary)', color: 'var(--on-primary)', fontSize: '15px', fontWeight: 600, textDecoration: 'none', boxSizing: 'border-box' }}
             >
               Ir a tu programa
             </a>
