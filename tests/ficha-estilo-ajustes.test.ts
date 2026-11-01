@@ -36,19 +36,19 @@ const cambio = (raw: unknown): CambioFicha => {
 };
 
 test('el cambio `tema` de la ficha guarda los ajustes, y «plantilla» vuelve al de la plantilla', () => {
-  const r1 = aplicarCambio({}, cambio({ op: 'tema', tema: { esquinas: 'redondas', sombra: 'si' } }), TIPO, R);
+  const r1 = aplicarCambio({}, cambio({ op: 'tema', tema: { esquinas: 'rectas', sombra: 'no' } }), TIPO, R);
   assert.ok(r1.ok && r1.cambio, 'un ajuste no cambió nada: se perdió en el saneo');
   const t1 = fichaEfectiva(TIPO, r1.ok ? r1.ficha : {}, R).estilo.tema;
-  assert.equal(t1.esquinas, 'redondas');
-  assert.equal(t1.sombra, 'si');
+  assert.equal(t1.esquinas, 'rectas');
+  assert.equal(t1.sombra, 'no');
   const r2 = aplicarCambio(r1.ok ? r1.ficha : {}, cambio({ op: 'tema', tema: { esquinas: 'plantilla' } }), TIPO, R);
   const t2 = fichaEfectiva(TIPO, r2.ok ? r2.ficha : {}, R).estilo.tema;
   assert.equal(t2.esquinas, undefined, '«plantilla» vuelve al de la plantilla');
-  assert.equal(t2.sombra, 'si', 'y no toca los otros');
+  assert.equal(t2.sombra, 'no', 'y no toca los otros');
 });
 
 test('un tema con SÓLO ajustes pinta la tarjeta de la ficha', () => {
-  const solo = estiloDeFicha({ tema: { ...TEMA_BASE, esquinas: 'redondas' }, densidad: DENSIDAD_BASE });
+  const solo = estiloDeFicha({ tema: { ...TEMA_BASE, esquinas: 'rectas' }, densidad: DENSIDAD_BASE });
   assert.ok(solo.clases.includes('fb--tema'), 'sin `temaPropio`, un tema con sólo ajustes no pinta');
   assert.ok(Object.keys(solo.vars).length > 0);
   assert.ok(!estiloDeFicha({ tema: TEMA_BASE, densidad: DENSIDAD_BASE }).clases.includes('fb--tema'), 'el tema de siempre no pinta nada');

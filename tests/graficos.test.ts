@@ -200,23 +200,21 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
   const [mk, co] = tableroInicial().hojas;
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);
-  // Marketing, la cabecera: las cuatro KPI estrella. Desde el 15/10/2026 el CAC es la PORTADA de la hoja (a lo ancho,
-  // pintada, con su frase: lib/graficos-portadas.ts) y las otras tres van debajo, en el orden de antes, repartiéndose el
-  // ancho. (Era el TITULAR a media hoja desde el 14/10.)
-  const cabecera = graf(mk).filter((c) => c.y < 15 && c.tipo === 'numero');
-  const titular = cabecera.find((c) => c.portada);
+  // Marketing, la cabecera: desde el 31/10/2026 abre como Corbel (`comoCorbel`, lib/graficos-portadas.ts): cuatro números en
+  // fila, con la invertida primero, y debajo el CAC en la tarjeta negra, con su línea.
+  const titular = graf(mk).find((c) => c.portada);
   assert.equal(titular?.metricas[0], 'cac');
   assert.equal(titular?.titulo, 'Cada cliente te cuesta');
-  assert.deepEqual([titular?.x, titular?.y, titular?.w], [0, 0, 12]);
-  const resto = cabecera.filter((c) => c !== titular).sort((a, b) => a.y - b.y || a.x - b.x);
-  assert.deepEqual(resto.map((c) => c.w), [4, 4, 4]);
-  assert.deepEqual(resto.map((c) => c.titulo), ['Ad Spend', 'ROAS cash', 'ROAS sold']);
-  assert.deepEqual(cabecera.map((c) => c.metricas[0]).sort(), ['cac', 'gasto', 'roas_cobrado', 'roas_vendido']);
-  assert.ok(resto[0].comparar, 'el Ad Spend trae el chip contra el período anterior');
+  assert.deepEqual([titular?.x, titular?.y, titular?.w], [0, 4, 4]);
+  const resto = graf(mk).filter((c) => c.y === 0).sort((a, b) => a.x - b.x);
+  assert.deepEqual(resto.map((c) => c.w), [3, 3, 3, 3]);
+  assert.deepEqual(resto.map((c) => c.titulo), ['ROAS cash', 'Ad Spend', 'ROAS sold', 'CPM']);
+  assert.ok(resto[1].comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
   assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
-  // Tendencias: h 12 (los paneles respiran) y los anuncios como TARJETAS de 4 números, con el pop-up del anuncio.
-  assert.equal(graf(mk).find((c) => c.id === 'mk-tendencias')?.h, 12);
+  // Tendencias: al lado de la tarjeta negra, en dos columnas de paneles (ALTO_PROTAGONISTAS), y los anuncios como TARJETAS de
+  // 4 números, con el pop-up del anuncio.
+  assert.deepEqual([graf(mk).find((c) => c.id === 'mk-tendencias')?.w, graf(mk).find((c) => c.id === 'mk-tendencias')?.h], [8, 8]);
   const anuncios = graf(mk).find((c) => c.id === 'mk-anuncios');
   assert.equal(anuncios?.tipo, 'tarjetas');
   assert.deepEqual(anuncios?.metricas, ['gasto', 'leads', 'agendas', 'cpa']);
@@ -226,7 +224,9 @@ test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las pie
   // Comercial: ningún bloque, y las piezas que los reemplazan en el orden de la tab vieja.
   for (const h of [mk, co]) assert.ok(!h.componentes.some(esBloque), `${h.nombre}: trae un bloque`);
   const de = (id: string) => co.componentes.find((c) => c.id === id);
-  const orden = ['co-revenue-barra', 'co-cobranza-seccion', 'co-tendencia', 'co-funnel-embudo', 'co-scl-tramos', 'co-cohortes-mes-tabla', 'co-cohortes-semana-tabla'];
+  // La tendencia sube al lado de la barra (`comoCorbel`): las dos abren la hoja, y lo demás sigue en el orden de la tab vieja.
+  assert.deepEqual([de('co-revenue-barra')?.y, de('co-revenue-barra')?.x, de('co-tendencia')?.y, de('co-tendencia')?.x], [4, 0, 4, 4]);
+  const orden = ['co-revenue-barra', 'co-cobranza-seccion', 'co-funnel-embudo', 'co-scl-tramos', 'co-cohortes-mes-tabla', 'co-cohortes-semana-tabla'];
   const ys = orden.map((id) => de(id)?.y ?? -1);
   assert.ok(ys.every((y, i) => y >= 0 && (i === 0 || y > ys[i - 1])), `Comercial fuera de orden: ${ys.join(', ')}`);
   // Revenue: la barra cobrado/pendiente y Sold, Cash, Outstanding y MRR, de UNA lectura (`revenue`).

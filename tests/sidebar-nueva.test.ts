@@ -193,7 +193,7 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   const ui = leer('app/_ui/ui.css');
   assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\] \{\s*--sidebar: #FFFFFF;/);
   assert.match(ui, /\.mk-navrow:hover \{ background: var\(--sidebar-hover, /);
-  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #14161B;/);
+  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #121212;/);
   assert.match(sb, /<MakoWord base="var\(--on-sidebar\)">MaKo<\/MakoWord>/);
   // Las criaturas no cambian de color: la cara va con tokens que ningún tema redefine.
   const muneco = sinComentarios(leer('app/admin/operaciones/Muneco.tsx'));

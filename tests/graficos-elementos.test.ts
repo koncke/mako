@@ -107,7 +107,7 @@ const GROSORES = [1, 2, 3, 4] as const;
 // Desde v5 (punto 11) sólo la línea y la flecha: el rectángulo y el círculo se fueron.
 const TIPOS_FORMA = ['linea', 'flecha'] as const;
 const CAJAS: Array<[number, number]> = [[260, 76], [80, 260], [550, 30], [30, 30], [12, 12], [400, 400]];
-const TEMA = { plantilla: 'mako', acento: '#aa3366', fuente: null };
+const TEMA = { plantilla: 'vieja', acento: '#aa3366', fuente: null };
 const PALETA = paletaDe(TEMA);
 
 /** Cuánto ocupa una forma contando el trazo `s`: [minX, minY, maxX, maxY]. */

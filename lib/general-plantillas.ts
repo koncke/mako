@@ -102,9 +102,15 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
     linea: 'Tus OKRs y lo que hay que hacer para cumplirlos: las tareas, los deadlines y los proyectos.',
     subtitulo: '', tema: TEMA, periodo: 'este_mes',
     piezas: [
-      bloque('objetivos'),
-      parte('hacer', 'Lo que hay que hacer'),
-      bloque('tareas'), bloque('deadlines'),
+      // Martín, 31/10/2026, mirando esta hoja: «se ve horrible». NÚMERO → FORMA → PAR → LISTA. Los OKR en barras: con anillos, a
+      // tres en 12 columnas, al título le quedaban ~190 px («Facturar $30,000 e…») y sobraba alto. Los tres números son lo
+      // que le faltaba: era la única hoja sin uno. Los deadlines de la semana y sólo tareas: los proyectos ya van abajo, y
+      // el mismo dato dos veces empujaba filas reales fuera de la caja (`gb-cabe` no dibuja la que no entra).
+      bloque('objetivos', { titulo: 'Cómo vas con tus OKRs', opciones: { estilo: 'barras', cuales: 'trimestre' } }),
+      numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline' }),
+      numero('abiertas', 'tareas', 'abiertas', 'Te quedan abiertas', { fecha: 'actual', comparar: false }),
+      numero('avance', 'proyectos', 'avance_proyectos', 'Avance de proyectos', { fecha: 'actual', comparar: false }),
+      bloque('tareas'), bloque('deadlines', { opciones: { dias: '7', que: 'tareas' } }),
       bloque('proyectos'),
     ],
   },

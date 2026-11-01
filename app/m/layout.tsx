@@ -40,7 +40,7 @@ import { estadoDePrueba } from '@/lib/prueba-uso';
  * NUNCA maximum-scale ni user-scalable=no: el zoom es accesibilidad, y lo que lo
  * disparaba (inputs de menos de 16 px) se arregla en app/m/m.css.
  *
- * `themeColor` es el hex de --bg del tema claro (#F4F6F9, app/globals.css): el
+ * `themeColor` es el hex de --bg del tema claro (#efefed, app/globals.css): el
  * encabezado de la v2 es --bg, y la barra del sistema tiene que ser del mismo color.
  * Una meta no puede leer un `var()`, por eso es el único hex de /m. Con el oscuro
  * (que la persona elige), ShellM le escribe el --bg resuelto.
@@ -50,7 +50,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
-  themeColor: '#F4F6F9',
+  themeColor: '#efefed',
 };
 
 export default async function LayoutMovil({ children }: { children: ReactNode }) {

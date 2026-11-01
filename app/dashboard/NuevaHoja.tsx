@@ -77,6 +77,7 @@ import { TOPE_PEDIDO_IA } from '@/lib/graficos-ia';
 import { dashPegado, hojaConIdsNuevos, rotuloDashPegado } from '@/lib/graficos-copia';
 import { leerDashPegado } from './copia-dash-cliente';
 import { CSS_MINIATURA, MiniaturaHoja, hojaDeMuestra } from './MiniaturaHoja';
+import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
@@ -391,6 +392,7 @@ export function CrearHoja({ onCrear, onRellenar, onListo, enBlanco = 'Página nu
     <>
       <style>{CSS_MINIATURA}</style>
       <style>{CSS}</style>
+      <style>{CSS_CORBEL}</style>
       <div data-nueva-hoja="" style={S.todo}>
         {/* 1 · ¿Qué vas a crear hoy? (la caja de Automations y del Landing Generator, la MISMA) */}
         <div className="gp cp-casa" data-pedido-mako="">
