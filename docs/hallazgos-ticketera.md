@@ -4,6 +4,15 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## «La pantalla se rompió» era una pantalla que se volvió a dibujar sola (ticket #39, 1/11/2026)
+
+- **Síntoma:** un ticket automático de prioridad alta, «La pantalla CRM se rompió», con React #418. La persona movió un lead de etapa menos de dos minutos después (`lead_audit`).
+- **Causa de la alarma:** el reportador de la ventana (`app/_components/ReportarErrores.tsx`) escucha `error`, y React avisa por ahí de lo que ya recuperó. Se le ponía el título de una pantalla caída, y ese texto lo lee el cliente.
+- **⚠️ `args[]=HTML` NO ES ANIDADO INVÁLIDO.** Es el texto del mensaje: «the server rendered HTML», contra «text». Dice que difiere un elemento, no por qué.
+- **Lo que hay que mirar antes de sospechar de lo último que se tocó:** cuántas veces pasó (`errores_app.veces`) y si la persona siguió trabajando. Una sola vez en toda la historia no es un dato roto: se repetiría en cada visita.
+- **La causa de este caso NO se sabe.** No se reprodujo en otra sesión, y no se abrió el negocio del cliente. Por eso el reporte ahora trae `pistas`: `<font>` es el traductor del navegador, una etiqueta con guion es una extensión. Si el próximo caso trae `font=0` y ninguna ajena, entonces sí es nuestro.
+
+
 ## El PEDIDO DELEGADO desde el grupo: la regla del negocio no alcanza, y lo que escribe el Cerebro tiene tres puertas (30/10/2026, claude3)
 
 **Vive en:** `delegadoQueDecideMartin` y `DELEGADO_SEGURO`, `clasificar` (opción `decideMartin`), `textoDelAviso`, `paraElCliente`,
