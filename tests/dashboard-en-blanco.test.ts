@@ -62,7 +62,7 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} onRellenar=\{rellenarHoja\} enBlanco="Página 1" informe=\{informeGeneralODashboard\} senales=\{senales\} conTodas=\{!!unido\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
   // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
-  assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
+  assert.match(src, /const conHojas = enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
   // En blanco no hay «Editar» ni ⋮, y en el Dashboard tampoco el filtro ni la búsqueda (14/10/2026: «Si no tengo tabs no
   // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). Desde el 17/10 (#858) la barra de filtros
   // va también en General (tests/general-filtros-por-defecto.test.ts); en blanco, en ninguna.

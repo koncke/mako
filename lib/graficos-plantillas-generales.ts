@@ -104,6 +104,9 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     id: 'cobranza', nombre: 'Cobranza', emoji: '💳',
     linea: 'Lo que vence en el período, lo cobrado, lo pendiente y a quién cobrarle primero.',
     subtitulo: 'Las cuotas de tus clientes.', periodo: 'este_mes_completo',
+    // EL SELECTOR DE CRM (22/10/2026, llamada con un cliente: «que tú le puedas seleccionar de qué CRM quieres ver ese dashboard»): el
+    // «Funnel» de la hoja, en «Todos» de entrada. Era de la plantilla «Cobros» de General, que salió el 1/11/2026 por repetir a ésta.
+    controles: [{ tipo: 'lista', campo: 'producto', valores: null }],
     piezas: [
       // COMPOSICIÓN DEL 31/10/2026: lo cobrado primero. «Por cliente» era la portada con menos columnas y sin acción.
       { local: 'cobrado', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true, invertida: true },
