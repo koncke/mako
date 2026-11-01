@@ -42,7 +42,8 @@ import { esWsPlataforma } from './integraciones.helpers';
 import { zonaCanonica, textoOrigen } from '@/lib/zona-negocio-reglas';
 import { getPerfil, getNotifPrefs, setNotifPrefs, avisoWaActivo, getNotifInApp, DEFAULT_PERFIL, type NotifPrefs, setPerfil, usuarioPropio, zonaPropia, getNotifPush, setNotifPush, setNotifInApp, type Perfil } from '@/lib/perfil';
 import { AVISOS_WA_EN_VIVO, NOTIF_IN_APP, soloDigitos, telefonoValido, emailValido, inAppActivo, normalizarSilencio, PUSH_TIPOS, PUSH_SOLO_ADMINS, type RolPush } from '@/lib/notif-catalogo';
-import { CATALOGO_AVISOS, esAvisoSoloSuperAdmin } from '@/lib/avisos-catalogo';
+import { CATALOGO_AVISOS, esAvisoParaAgencia, esAvisoSoloSuperAdmin } from '@/lib/avisos-catalogo';
+import { agenciasAprobadasDe } from '@/lib/agencia';
 import { AVISOS_POR_EVENTO } from '@/lib/aviso-evento';
 import { getDestinatarios, setDestinatarios, type ResultadoGuardar } from '@/lib/notif-destinatarios';
 import { getGrupoJidMaKo, getEstadoVerificacionContacto } from '@/lib/mako-grupo';
@@ -288,7 +289,8 @@ export const RUNNERS: Runners = {
         ...(completo ? { cuando_llega: a.sub, categoria: CATALOGO_AVISOS.find((c) => c.id === a.id)?.categoria ?? null } : {}),
       }));
       const ids = new Set(curados.map((a) => a.id));
-      const resto = CATALOGO_AVISOS.filter((a) => !ids.has(a.id) && a.categoria !== 'reporte').map((a) => ({
+      // Los avisos a una agencia no son de este negocio: sale el suyo, y a quién le llega lo dice `esta_aviso_activo`.
+      const resto = CATALOGO_AVISOS.filter((a) => !ids.has(a.id) && a.categoria !== 'reporte' && !esAvisoParaAgencia(a.id)).map((a) => ({
         id: a.id, titulo: a.titulo, en_configuraciones: false,
         ...(completo ? { cuando_llega: null, categoria: a.categoria } : {}),
       }));
@@ -304,13 +306,15 @@ export const RUNNERS: Runners = {
   esta_aviso_activo: {
     leer: async (input, ctx) => {
       const aviso = str(input, 'aviso')!;
-      const conocido = AVISOS_WA_EN_VIVO.some((a) => a.id === aviso) || CATALOGO_AVISOS.some((a) => a.id === aviso);
+      const conocido = AVISOS_WA_EN_VIVO.some((a) => a.id === aviso) || CATALOGO_AVISOS.some((a) => a.id === aviso && !esAvisoParaAgencia(aviso));
       if (!conocido) return errorLectura(`No existe el aviso «${aviso}». Pide listar_avisos_disponibles.`);
       if (esReporteDelCatalogo(aviso)) return errorLectura(`«${aviso}» es un reporte, no un aviso: su estado está en ver_preferencias_notificaciones.`);
       return json({
         aviso, titulo: tituloAviso(aviso),
         prendido_para_el_negocio: await avisoWaActivo(ctx.ws, aviso),
         en_configuraciones: AVISOS_WA_EN_VIVO.some((a) => a.id === aviso),
+        // «Prendido» no quiere decir que le llegue a él: el de un cliente de agencia le llega a ella (ticket #37). Sin poder leerlo, no se afirma.
+        ...(CATALOGO_AVISOS.find((a) => a.id === aviso)?.aLaAgencia ? { le_llega_a_su_agencia: await agenciasAprobadasDe(ctx.ws).then((a) => a.length > 0, () => null) } : {}),
         nota: 'Solo mira el interruptor del negocio, que el envío de cualquier aviso consulta. en_configuraciones: false no quiere decir que no llegue: solo que no figura en esa pantalla. La agencia puede tener apagada la plantilla general de ese aviso, y eso esta lectura no lo ve.',
       });
     },
