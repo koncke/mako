@@ -10106,3 +10106,26 @@ desconocida con producción esperando.
 **La regla:** cuando el coche que está corriendo lleva algo que producción necesita YA, no se pushea encima. Se mira cuánto
 le falta (`run_started_at` + 35 min es el techo conocido), se avisa a quien armó el coche grande, y se sube después. Al
 revés también vale: si lo urgente todavía no salió, conviene que viaje en el coche MÁS CHICO posible, no sumarlo al tren.
+
+## Comprobar que un deploy SALIÓ: la huella sirve, pero sólo de la página que el cambio TOCA (01/11/2026)
+
+**Vive en:** el vigía del Cerebro (`vigia-deploy.sh` en el scratchpad de la sesión) y en cualquiera que quiera
+saber si Vercel publicó.
+
+**Por qué hace falta una huella.** `main` avanzando no es un deploy, y la app no expone su commit: el sha vive
+en `VERCEL_GIT_COMMIT_SHA`, que sólo se lee del lado del servidor (`lib/tickets-cierre.ts:205`), y el
+`x-vercel-id` del encabezado es por PEDIDO, no por despliegue. Lo que sí cambia con cada build son los nombres
+con hash de los chunks de `/_next/static/chunks/`. La huella es el md5 de esa lista.
+
+**La trampa, y me la comí dos veces la misma noche.** La lista de chunks es **la de ESA página**. El 31/10 el
+vigía estaba apuntado a `/planes/pro` y el cambio que esperaba era el espaciado de los kanban, que toca
+`app/crm/`, `app/plan/board/` y `app/customer-success/`. Ninguno de esos archivos entra en `/planes/pro`: la
+huella quedó idéntica (`8297d6f02861` antes y después), el vigía esperó sus 30 minutos y **se quedó mudo**.
+Mudo, no equivocado — que es la peor forma, porque «no avisó» se lee como «todavía no pasó».
+
+**La regla:** la huella se toma de una página que el cambio TOQUE. Los tokens de `globals.css` tocan todas y por
+eso ahí funcionó; un cambio de una tab sólo toca la suya, y si esa tab pide sesión, no hay página pública que
+sirva de testigo y hay que comprobarlo de otra forma. El vigía ahora toma la ruta como segundo argumento.
+
+**Es la misma familia que la regla de `AGENTS.md`** («una medición que mide OTRA COSA se ve idéntica a una que
+pasa»), con el agravante de que acá el instrumento no devuelve un número equivocado: no devuelve nada.
