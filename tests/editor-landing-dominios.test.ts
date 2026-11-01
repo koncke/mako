@@ -255,7 +255,7 @@ test('next.config.ts: HSTS sólo en el bloque con `has` del host de MaKo, nunca 
   assert.equal((cfg.match(/Strict-Transport-Security/g) ?? []).length, 1, 'un solo lugar');
   const global = cfg.slice(cfg.indexOf("source: '/:path*'"), cfg.indexOf('],', cfg.indexOf("source: '/:path*'")));
   assert.doesNotMatch(global, /Strict-Transport-Security/);
-  assert.match(cfg, /\{\s*source: '\/:path\*',\s*has: \[\{ type: 'host', value: PATRON_HOSTS_DE_MAKO \}\],\s*headers: \[\{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' \}\],\s*\}/);
+  assert.match(cfg, /\{\s*source: '\/:path\*',\s*has: \[\{ type: 'host', value: PATRON_HOSTS_DE_MAKO \}\],\s*headers: \[\s*(?:\/\/[^\n]*\s*)*\{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains(?:; preload)?' \}/);
   assert.match(cfg, /import \{ PATRON_HOSTS_DE_LA_APP, PATRON_HOSTS_DE_MAKO \} from "\.\/lib\/editor-landing\/dominios-reglas";/);
 });
 

@@ -874,7 +874,26 @@ export const RUNNERS: Runners = {
         const url = linkDeDescarga(str(input, 'link'));
         if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
         try {
-          const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
+          // ⛔ Los redirects se siguen A MANO y se valida CADA salto (01/11/2026, auditoría de seguridad): con
+          // `redirect: 'follow'` un link público que redirige a 169.254.169.254 o a 127.0.0.1 se bajaba desde
+          // nuestro servidor (SSRF). `validarDestino` es la misma vara de fetchSeguro; no se usa fetchSeguro porque
+          // topea en 3 MB y un video de anuncio llega a 100.
+          const { validarDestino } = await import('@/lib/landing-fetch');
+          let actual = url;
+          let r: Response | null = null;
+          for (let salto = 0; salto <= 5 && !r; salto++) {
+            const v = await validarDestino(actual);
+            if (!v.ok) return { error: `Ese link no se puede bajar: ${v.error}` };
+            const res = await fetch(actual, { redirect: 'manual', signal: AbortSignal.timeout(60_000) });
+            if (res.status >= 300 && res.status < 400) {
+              const loc = res.headers.get('location');
+              if (!loc) return { error: `Ese link redirige (${res.status}) sin decir a dónde.` };
+              actual = new URL(loc, actual).toString();
+              continue;
+            }
+            r = res;
+          }
+          if (!r) return { error: 'Ese link redirige demasiadas veces.' };
           // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
           if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
           const mime = (r.headers.get('content-type') || '').split(';')[0];

@@ -531,6 +531,9 @@ function denegarRol(req: NextRequest, pathname: string) {
 // proxy todo lo que empezara con `favicon` + cualquier carácter + `ico`. En hola-mako.site el primer
 // segmento es el slug, y `favicon-ico-promo` es uno válido: caía en el 404 de la APP en vez de su
 // landing (revisión de la tanda 4; el test compila el matcher como Next y lo cruza con slugs).
+// ⛔ `(?!api/)` (01/11/2026, auditoría de seguridad): una ruta de API que termina en `.png` o `.js` (un
+// `/api/x/<id>.png`) quedaba FUERA del proxy, o sea sin el gate de sesión ni el chequeo de Origin. Hoy todas
+// las rutas dinámicas repiten su corte, así que no era explotable; lo era la primera que se olvidara.
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|.*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon\\.ico|cono-tx/|cono-doc/|ve/|\\.well-known/|(?!api/).*\\.(?:png|jpe?g|svg|webp|gif|ico|css|js|woff2?|webmanifest)$).*)'],
 };

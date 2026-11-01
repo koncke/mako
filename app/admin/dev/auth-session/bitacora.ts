@@ -104,4 +104,37 @@ export const BITACORA: Hito[] = [
       '**«Descargar»** en el alta y en /perfil/seguridad: un .txt con la cuenta, la fecha y los diez códigos. El texto vive en lib/mfa-texto.ts, aparte de lib/mfa-reglas.ts, porque aquél importa node:crypto y no puede llegar al navegador.',
     ],
   },
+  {
+    fecha: '1 nov', hora: '22:53', chat: CIBER, sesion: 'cli_9b7bccde-0049-5493-a2f1-0d684f2c4409', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Blindar MaKo entera: claves, sesiones, dominios, integraciones y el VPS',
+    pedido: 'analiza lo que es la aplicación de Mac básicamente, para poder promover lo que sería todas las medidas de seguridad que hay que ingresar a esta aplicación, literalmente todas, para que esta aplicación sea lo más segura posible en todos los sentidos, literalmente en todos los sentidos, tanto en lo que tiene que ver con seguridad para los usuarios y seguridad propia mía a nivel de credenciales, contraseñas, hackeos, literalmente todo. Tiene que estar hiper mega ultra blindada. También revísalo con los dominios, las sesiones del VPS. Hay cosas muy delicadas, como API keys, claves, centralizar todo. A nivel de diseño también quiero blindar todo lo que tiene que ver con la configuración de integraciones, configuración de credenciales, seguridad de usuarios. Blindar todo lo que tiene que ver con posibles hackeos de información. Entrar por otros lugares, revisar si no hay claves filtradas.',
+    puntos: [
+      '«La aplicación de Mac» es MaKo (lo confirmó Martín al elegir «MaKo entera»). Pidió primero el informe y después: «todo lo que se pueda ejecutar sin que dependa de mí, tienes permiso para ejecutarlo».',
+      'Relevo con tres lectores (claves en la historia de git de los tres repos, sesiones y headers, escritorio + extensión + VPS); los hallazgos centrales verificados a mano.',
+    ],
+  },
+  {
+    fecha: '2 nov', hora: '01:53', chat: CIBER, sesion: 'cli_9b7bccde-0049-5493-a2f1-0d684f2c4409', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sesiones que se cierran, claves que no viajan y la extensión que sólo atiende a MaKo',
+    puntos: [
+      '**En Vercel, un token sin fila no vale** (`verificarToken`): el dev-login firmaba `sub:\'dev\'` + `mfa:\'dev\'`, y con un AUTH_SECRET de producción en una `.env.local` eso era super admin por 30 días sin revocación.',
+      '**Cambiar o restablecer la contraseña cierra las otras sesiones** (`usuarios.sesiones_desde`, mig 0360 —número a confirmar con Integración—, `revocarSesiones`), y Seguridad suma la acción `sesiones-cerrar`. Sin la 0360 aplicada no rige: las dos puntas se abstienen.',
+      '**`leerSesion` falla cerrada**: con la base caída un suspendido ya no vuelve a entrar.',
+      '**El descifrado exige el tag GCM de 16 bytes**: con el de antes, un criptograma con 4 bytes de tag abría (medido).',
+      '**La hidratación del entorno es una lista de lo PERMITIDO** (el catálogo de integraciones, las keys de IA y sus rótulos): una fila zombie ya no pisa un secreto de la plataforma.',
+      '**SSRF cerrado** en «crear anuncio desde un link» (cada redirect se valida), el verify token de Meta en tiempo constante, y `/api/…/x.png` vuelve a pasar por el proxy.',
+      '**Headers**: `Permissions-Policy` y HSTS con `preload` en los hosts de MaKo; `mako_email` HttpOnly; Google exige `email_verified === true`.',
+      '**Extensión 0.74.5**: el puente no corre en `/api/` ni `/l/` de hola-mako.com, y los pedidos de WhatsApp sólo se atienden desde la app (localhost sólo con la extensión de desarrollo).',
+      '**Guarda nueva en el push** (`scripts/claves-en-el-diff.mjs`): frena una línea con forma de clave real en lo que se publica.',
+      'Lo que queda (Calendly sin clave propia, rol vacío = admin, firma y hash de los binarios, CSP con nonce, COOP, límites durables) y lo que depende de Martín (rotar claves, 2FA en proveedores, DNS): docs/hallazgos-seguridad.md, «Auditoría del 01/11/2026».',
+    ],
+    archivos: [
+      'lib/auth-session.ts, lib/auth.ts — el token sin fila y la sesión que falla cerrada',
+      'lib/sesiones-revocadas.ts, lib/sesiones-revocadas-reglas.ts, supabase/migrations/0360_sesiones_desde.sql — cerrar sesiones',
+      'lib/cripto-credenciales.ts, lib/credenciales.ts — el tag y la hidratación',
+      'proxy.ts, next.config.ts — el matcher y los headers',
+      'extension/background.js, extension/manifest.json — el corte por origen',
+      'scripts/claves-en-el-diff.mjs, scripts/guardas-push.sh — la guarda de claves',
+    ],
+  },
 ];

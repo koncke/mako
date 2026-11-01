@@ -17,6 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
+- **(01/11/2026) La auditoría completa: el `.env` de producción del Estudio estaba en GitHub** (`.en-7`, commit `d1e2820`, en `main` de `leandro-tejado/estudio-video`), un token sin fila valía como super admin en producción, las sesiones no se podían cerrar y la extensión atendía a cualquier página de localhost → [Auditoría del 01/11/2026](#auditoría-del-01112026-lo-hecho-y-lo-que-queda).
 - **(28/10/2026) Un link ya puede ESCRIBIR en un negocio** (un guion del Copywriter, sin cuenta): `puedeEditar` no lo usaba nadie (el de Classroom es otra función con el mismo nombre), lo que la función del server le contesta al dueño no se reenvía a un link, y el editor del link nunca guarda por la ruta de la tab → [Un guion del Copywriter se EDITA por link](#un-guion-del-copywriter-se-edita-por-link-la-primera-ruta-pública-que-escribe-en-un-negocio-28102026).
 - **(21/10/2026) Los CSV que exporta la app se abrían como FÓRMULA en Excel y en Sheets**: cinco exportadores tenían cada uno su escape, cuatro sin defensa, y la más expuesta era la de leads del CRM (nombres que vienen de formularios públicos: un lead llamado «=HYPERLINK(…)»). Ahora hay UN helper (`lib/csv-celda.ts`) y un test que rompe Actions si una exportación arma el suyo → [Inyección de fórmulas en los CSV](#inyección-de-fórmulas-en-los-csv-que-exporta-la-app-cinco-exportadores-cinco-escapes-y-cuatro-sin-defensa-21102026).
 - **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
@@ -33,6 +34,67 @@ arregladas, y donde el rescate lo sabía, lo dice.
 - Un `notFound()` corta el cuerpo y **deja el `<title>` puesto**: el guard funciona y la pantalla igual cuenta que existe → [Superficie expuesta](#notfound-no-tapa-los-metadatos-el-title-se-sirve-igual).
 
 ---
+
+## Auditoría del 01/11/2026: lo hecho y lo que queda
+
+**Vive en:** `lib/auth-session.ts` · `lib/auth.ts` · `lib/sesiones-revocadas.ts` · `lib/cripto-credenciales.ts` ·
+`lib/credenciales.ts` · `proxy.ts` · `next.config.ts` · `extension/background.js` · `scripts/claves-en-el-diff.mjs` ·
+en el Estudio `src/lib/sesiones/analisis-auto.ts`, `src/lib/terminal.ts`, `src/lib/auth/puente.ts` · en el workspace
+`.claude/hooks/sync-repos.sh`.
+
+Pedido de Martín (la bitácora de auth-session lo tiene textual): blindar MaKo «en todos los sentidos». Relevo con tres
+lectores y los centrales verificados a mano. Sesión en la nube, sin acceso a producción: nada de lo de abajo se midió
+contra la base ni contra Vercel.
+
+**El hallazgo más caro no era de MaKo.** El sync automático del VPS (`sync-repos.sh`) hace `add -A` y su guarda miraba
+NOMBRES: `.en-7`, una copia del `.env` de producción del Estudio, pasó el filtro y el `.gitignore` y llegó a `main`
+con ocho claves (Anthropic, OpenAI, OpenRouter, Resend, `DATABASE_URL` con contraseña, el token de servidor-code,
+AudD, Syncthing). **Un nombre se llama de cualquier forma; el valor de una clave no**: el sync ahora escanea el
+CONTENIDO de lo stageado, y MaKo tiene la misma guarda en el push. ⚠️ Sacarlo del árbol no lo des-publica: **hay
+que rotar las ocho**, y eso es de Leandro.
+
+**Lo que se cerró en código** (cada uno con su test, probado rompiéndolo):
+- **Token sin fila en Vercel.** `leerSesion` devolvía tal cual una sesión con `sub` no numérico, y `mfa: 'dev'` era un
+  segundo factor válido: con el `AUTH_SECRET` de producción en una `.env.local`, el dev-login fabricaba super admin
+  por 30 días. `verificarToken` los rechaza con `VERCEL` puesto (no con NODE_ENV: `next start` local sigue).
+- **Sesiones que no se cerraban.** `usuarios.sesiones_desde` (mig 0360, ⚠️ número a confirmar con Integración);
+  restablecer y cambiar la contraseña cierran todo lo firmado antes, y la pestaña que cambió se vuelve a firmar.
+  Sin la 0360 aplicada NO rige (las dos puntas leen 42703 como «sin corte»).
+- **Fallo abierto.** Con la base caída, `leerSesion` devolvía la sesión firmada: un suspendido volvía a entrar.
+- **Tag GCM corto.** `setAuthTag` acepta 4 bytes; medido: un criptograma con los 4 primeros bytes del tag ABRÍA.
+- **Hidratación por exclusión.** Cualquier fila del ws1 fuera de `INFRA_ENV` pisaba `process.env` en cada boot,
+  `CRON_SECRET` incluido. Ahora sólo el catálogo de integraciones, las keys de IA y sus rótulos.
+- **SSRF** en «crear anuncio desde un link» (`ads.run.ts`, `redirect: 'follow'` sin validar). No se usó
+  `fetchSeguro` porque topea en 3 MB y un video de anuncio llega a 100.
+- **Matcher**: `/api/…/x.png` quedaba fuera del proxy. Hoy no era explotable; lo era la primera ruta que se olvidara.
+- **Extensión**: el puente corría en la ventana de lectura del Landing Generator (HTML ajeno en hola-mako.com) y en
+  cualquier localhost, y los pedidos de fichas de WhatsApp no miraban quién los hacía.
+- **Estudio**: el análisis automático abría Claude con `--dangerously-skip-permissions` sin la llave de lanzar
+  (cualquier invitado le daba órdenes con el texto de un reel); la sesión heredaba `DATABASE_URL` y compañía; y el
+  puente de Tailscale creía su cabecera aunque el pedido viniera por Cloudflare.
+
+**Trampas que costaron una vuelta:**
+- ⚠️ El chequeo de tipos acotado (`tsc-acotado.mjs`) salía «NO SE PUDO CHEQUEAR (código undefined)» en la nube con
+  14 GB libres; el `tsc` completo corrió bien (3 errores, todos de `tests/graficos-*` y previos).
+- ⚠️ El arnés de los tests del worker carga pedazos de `background.js` en un contexto sin `URL` y les quita los
+  comentarios con una regex: una regex con «//» o un texto con «barra-asterisco» rompe tests ajenos. El corte por origen se escribió
+  sin `new URL` y sin esas secuencias.
+- ⚠️ Un escáner de claves sobre el árbol entero da 82 líneas, todas datos de prueba (`'sk-ant-api03-cuenta1-' +
+  'a'.repeat(40)`). `pareceInventada` las separa por forma (repeticiones, palabras, pocos caracteres distintos);
+  frenar cada test nuevo enseñaría a saltear la guarda.
+
+**Lo que NO se tocó, a propósito (necesita medir producción o decide Martín):**
+- **Calendly sin clave propia cae a la de plataforma** (`webhooks/calendly/route.ts`): pasar a 401 deshabilitaría la
+  suscripción de quien hoy depende de eso. Primero contar cuántos workspaces loguean «usando la de plataforma».
+- **`rol_ws` vacío = admin** (`lib/workspace.ts`): puede haber dueños viejos con la columna vacía. Medir antes.
+- **Comunidad sin corte de rol** (`actor.ts`): dentro de un mismo negocio; decisión de producto.
+- **App de escritorio**: verificar el sha256 de los binarios antes de ejecutarlos, firmar Windows y notarizar la Mac,
+  y revisar los entitlements de `firmar-mac.mjs` (Bun puede necesitarlos: probar en una Mac).
+- **CSP con nonce** (`script-src`), COOP y límites de pedidos durables (hoy en memoria por instancia).
+- **Tokens de API sin vencimiento** y el camino de texto plano del token clásico.
+- **Lo de cuentas** (de Martín): 2FA con llave en GitHub, Vercel, Supabase, Google, Meta, pasarelas y el registrador;
+  Secret Scanning con Push Protection en GitHub; DNSSEC, CAA y DMARC `p=reject`; anotar hola-mako.com en
+  hstspreload.org; rotar los secretos de webhook que se repartieron a clientes.
 
 ## «Se puso todo difuminado y MaKo me pide un código» (Leandro, 24/10): NO es el 2FA de MaKo (27/10/2026, sin reproducir)
 

@@ -24,6 +24,8 @@ import { requiereSegundoFactor } from './mfa-reglas';
 import { obligatorioDesdeDe } from './mfa-obligatorio';
 // La sesión se lee UNA vez por pedido, también en una ruta /api (23/10/2026): ver lib/sesion-por-pedido.ts.
 import { enElPedido } from './sesion-por-pedido';
+import { sesionesDesde } from './sesiones-revocadas';
+import { sesionRevocada } from './sesiones-revocadas-reglas';
 
 export type { Rol, Sesion };
 
@@ -46,12 +48,21 @@ async function leerSesion(token: string | undefined): Promise<Sesion | null> {
   const firmada = verificarToken(token);
   if (firmada) {
     // Sesión con fila real: re-chequear estado/rol/workspace vigente. Suspender
-    // o eliminar al usuario invalida su sesión de inmediato (fail-open ante DB
-    // caída para no desloguear a todos por un error transitorio).
+    // o eliminar al usuario invalida su sesión de inmediato.
+    // ⛔ FALLA CERRADA desde el 01/11/2026 (auditoría de seguridad). Antes, con la base caída se
+    // devolvía la sesión firmada: un usuario SUSPENDIDO volvía a entrar en cualquier bache de
+    // Supabase, y una sesión cerrada por `sesiones_desde` también. Con la base caída la app no
+    // puede dibujar nada de todos modos; la cookie no se borra, así que al volver la base vuelve
+    // la sesión sola.
     if (tieneFila(firmada)) {
       try {
-        const u = await buscarUsuarioPorEmail(firmada.email);
+        const [u, desde] = await Promise.all([
+          buscarUsuarioPorEmail(firmada.email),
+          sesionesDesde(Number(firmada.sub)),
+        ]);
         if (!u || u.estado === 'suspendido') return null;
+        // La sesión se firmó antes del último «cerrar las sesiones» (cambio de contraseña, etc.).
+        if (sesionRevocada(firmada.iat, desde)) return null;
         // ⛔ Segunda capa del segundo factor, con lo que dice la BASE. `verificarToken` ya
         // cortó a todo token de admin sin segundo factor; esto cubre lo que el token no
         // sabe: a quien la base dice admin aunque el token diga usuario (lo ascendieron
@@ -63,8 +74,9 @@ async function leerSesion(token: string | undefined): Promise<Sesion | null> {
         if (!firmada.mfa && requiereSegundoFactor(u.rol, !!u.mfa_activo, await obligatorioDesdeDe(u.workspace_id))) return null;
         // El rol, el workspace y el rol-de-workspace de la base ganan sobre lo firmado.
         return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null, rolWs: u.rol_ws ?? null };
-      } catch {
-        return firmada;
+      } catch (e) {
+        console.error('[auth] no pude verificar la sesión contra la base; no vale:', e instanceof Error ? e.message : e);
+        return null;
       }
     }
     return firmada;

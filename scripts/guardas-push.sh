@@ -24,6 +24,18 @@ if [ -f scripts/tsc-bitacoras.mjs ]; then
   fi
 fi
 
+# Ninguna clave real llega a GitHub (01/11/2026, auditoría de seguridad): el 28/10 el sync del VPS publicó en el repo del
+# Estudio un `.en-7` —una copia del .env de producción con otro nombre— y nada lo vio. Esto mira las líneas AGREGADAS de
+# lo que se publica (commits, no el disco) y frena si alguna tiene la forma de una clave. ~1 s, sin tsx.
+if [ -f scripts/claves-en-el-diff.mjs ]; then
+  echo "[pre-push] Chequeando que no viaje ninguna clave..."
+  if ! node scripts/claves-en-el-diff.mjs; then
+    echo "  X PUSH BLOQUEADO: una linea con forma de clave (arriba, donde). Si es real, sacala y ROTALA."
+    echo ""
+    exit 1
+  fi
+fi
+
 # Un test que fija una ruta de Windows (C:\…) da verde en la notebook y rojo en Linux,
 # donde es RELATIVA (16/10/2026: tiró el run 38845971505). ~1 s, sin tsx.
 if [ -f scripts/rutas-windows-en-tests.mjs ]; then

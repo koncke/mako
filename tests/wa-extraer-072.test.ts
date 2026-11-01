@@ -201,8 +201,8 @@ function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: bool
     : { chrome: fakeChrome, setTimeout: (f: () => void) => setTimeout(f, 0), clearTimeout, setInterval, clearInterval, console };
   runInNewContext(`${esperar}\n${ayudas}\nlet fichasEnVuelo = 0;\nglobalThis.atender = (msg, _s, responder) => {\n${bloques}\n  return false;\n};`, ctx);
   const atender = ctx.atender as (m: unknown, s: unknown, r: (x: unknown) => void) => boolean;
-  const pedir = (m: Record<string, unknown>, origen = 5) => new Promise<unknown>((resolve) => { atender(m, { tab: { id: origen } }, (x) => resolve(plano(x))); setTimeout(() => resolve('sin respuesta'), 2000); });
-  const mandar = (m: Record<string, unknown>, origen?: number) => atender(m, origen != null ? { tab: { id: origen } } : {}, () => {});
+  const pedir = (m: Record<string, unknown>, origen = 5) => new Promise<unknown>((resolve) => { atender(m, { tab: { id: origen, url: 'https://hola-mako.com/crm' } }, (x) => resolve(plano(x))); setTimeout(() => resolve('sin respuesta'), 2000); });
+  const mandar = (m: Record<string, unknown>, origen?: number) => atender(m, origen != null ? { tab: { id: origen, url: 'https://hola-mako.com/crm' } } : {}, () => {});
   const cambiarTabs = (t: Array<Record<string, unknown>>) => { c.tabs.splice(0, c.tabs.length, ...t); };
   return { reg, pedir, mandar, cambiarTabs };
 }
