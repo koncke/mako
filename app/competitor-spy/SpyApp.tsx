@@ -54,7 +54,7 @@ import {
   revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
 } from './actions';
 import { TarjetaPieza } from './TarjetaPieza';
-import { OrdenSpy } from './OrdenSpy';
+import { PeliculaDeOrden } from './OrdenSpy';
 
 const CSS = `
 .spy{min-height:100vh;background:var(--bg);color:var(--ink);font-size:13px}
@@ -759,7 +759,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
             {/* Sin nada abajo, la franja explicaría una pantalla que no está. */}
             {(activa !== 'publica' || flujo.length > 0) && <Franja pestana={activa} />}
 
-            {ordenando?.id === c.id && activa === 'publica' && <OrdenSpy nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
+            {ordenando?.id === c.id && activa === 'publica' && <PeliculaDeOrden nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
 
             {activa === 'publica' && ordenando?.id !== c.id && (
               <>

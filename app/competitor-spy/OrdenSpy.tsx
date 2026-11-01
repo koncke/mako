@@ -80,7 +80,7 @@ function formatos(carpetas: readonly CarpetaOrden[]) {
   return [...new Set(carpetas.map((c) => c.tipo))].map((tipo) => ({ tipo, rotulo: nombre[tipo] ?? tipo, cs: carpetas.filter((c) => c.tipo === tipo) }));
 }
 
-export function OrdenSpy({ nombre, piezas, onTerminar }: {
+export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
   nombre: string;
   /** null = todavía se está leyendo. */
   piezas: readonly PiezaVista[] | null;
