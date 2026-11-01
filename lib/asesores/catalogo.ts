@@ -5,8 +5,8 @@
 // cosa. Por ejemplo, en el tema de Offer Coach, quisiera justamente ponerlo ahí a Hormozi... que se pueda elegir de la misma
 // manera que se eligen caricaturas de MaKo». Se elige igual: tocando la criatura del chat (app/second-brain/ElegirReferente.tsx).
 //
-// ⚠️ DOS REGLAS DE OFICIO, NO UN RECORTE: la caricatura es un DIBUJO nuestro (app/admin/operaciones/Retratos.tsx), nunca una foto
-//    procesada; y la pantalla dice «Inspirado en», porque la persona no participa ni respalda nada.
+// ⚠️ SU CARA ES public/asesores/<id>.png (app/admin/operaciones/Retratos.tsx), la que aprobó Martín. Y la pantalla dice «Inspirado en»: la persona no participa ni respalda
+//    nada. Un referente nuevo necesita las dos cosas: su imagen y su ficha.
 // ⚠️ CADA UNO LLEVA SU MATERIAL. Un referente sin ficha destilada de un curso no entra acá: sería un prompt con un nombre famoso.
 //    La ficha vive en ./fichas.ts, que no entra al navegador.
 // Sin `server-only`: lo usan la pantalla y el servidor.

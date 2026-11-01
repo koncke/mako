@@ -783,7 +783,10 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 @keyframes mun-parpadeo { 0%, 90%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
 @keyframes mun-flota { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
 @keyframes mun-respira { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.025); } }
-@media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo { animation: none !important; } }
+/* El retrato de un referente no tiene ojos que parpadeen: mientras trabaja, late su anillo (Retratos.tsx). */
+.mun-anillo { animation: mun-anillo 1.5s ease-in-out infinite; }
+@keyframes mun-anillo { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo, .mun-anillo { animation: none !important; } }
 
 /* Lo que el empleado espera de Martín (la Ticketera): una línea arriba de la caja y su palabra en la fila. */
 .co-fila__l2--espera { color: var(--warn); }

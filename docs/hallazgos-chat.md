@@ -189,15 +189,15 @@ cursos y sus canales de YouTube. Le plantearon el reparo de la cara y el nombre 
 
 - **«Elegible como las de MaKo» se resolvió con el mismo gesto:** tocar la criatura del chat abre la galería (`app/second-brain/ElegirReferente.tsx`).
   Lo que se elige es la cara Y la ficha con la que aconseja; por eso no se guarda en `operaciones.munecos`, que es sólo del dibujo.
-- **Reglas que no son un recorte:** dibujo nuestro, nunca foto (`Retratos.tsx`, con su test), «Inspirado en» a la vista, y el contexto le
-  prohíbe decir que es esa persona o inventarle una cita (`lib/asesores/contexto.ts`).
+- **Reglas que no son un recorte:** «Inspirado en» a la vista, y el contexto le prohíbe decir que es esa persona o inventarle una cita (`lib/asesores/contexto.ts`).
+- ⚠️ **Las caras cambiaron dos veces.** Martín rechazó dos tandas de SVG dibujados a mano, y aprobó las de `public/asesores/<id>.png`, generadas con IA a partir de fotos públicas, después de ocho vueltas: «esos sí me gustan». Eso deja atrás el «dibujo, nunca foto procesada» del principio: se parecen más, y por eso el riesgo por la imagen de personas reales es mayor. Es su decisión.
+- ⚠️ **Un PNG no parpadea, y los ojos decían el estado del chat.** Decidido: una sola cara en todos lados, y el estado por afuera: un anillo que late mientras trabaja y la foto apagada si está cansada o dormida. Se pierde el parpadeo, a sabiendas; conservar el SVG para el chat activo era mostrar una cara que él rechazó.
+- **Para regenerarlas (medido por el Cerebro):** dos fotos parecidas dan dos muñecos idénticos (Razzetti y Heras): lo que los separa va en pelo, barba, ropa y **fondo**, que a 92 px es lo primero que se lee. **Nunca en la forma de la cabeza** («su cara se ensanchó muchísimo»). Hormozi, Derek, Guille y Marc usan gorra o remera con marca: en el prompt, lisas y sin logo. La de Ximena Fukuda es la más floja, porque su foto era de escenario: con una mejor, vale regenerarla.
 - **La ficha es paráfrasis destilada a mano, una vez, y vive en el repo** (`lib/asesores/ficha-*.ts`). No se construyó un pipeline ni se
   buscó por embeddings: el material de un referente entra entero en 5.000 caracteres, y un RAG no sabe de quién es lo que recupera.
-- **La primera tanda no le gustó («que se vean más realistas»), y dos errores venían de dibujar sin mirar:** Hormozi tenía pelo corto y lo lleva largo. Ahora
-  salen de mirar sus fotos públicas, con proporciones de una cara real, luz y sombra. Siguen siendo vectores: sin ids ni gradientes (reglas de `Muneco.tsx`).
 - ⚠️ **Dos caminos de `/api/mako/chat` llaman al turno, JSON y con archivos.** Poner el contexto del coach sólo en el primero dejaba a un PDF adjunto hablando como
   el Ops Center. Lo cazó un test que miraba otra cosa. Ahora es una pieza: `contextoDelChat`.
-- **Son catorce, y el criterio fue de cuántos hay material real** (Martín: «Haz de muchos, no solo de hormozi»): 130 cursos con transcripción en `public/cono-tx/`. Andrew Tate y Jordan Belfort están en Knowledge y no entran. Un referente nuevo es: su ficha, una línea en `catalogo.ts` y sus rasgos en `Retratos.tsx`.
+- **Son catorce, y el criterio fue de cuántos hay material real** (Martín: «Haz de muchos, no solo de hormozi»): 130 cursos con transcripción en `public/cono-tx/`. Andrew Tate y Jordan Belfort están en Knowledge y no entran. Un referente nuevo es: su ficha, una línea en `catalogo.ts` y su imagen en `public/asesores/`.
 - ⚠️ **El contexto del coach REEMPLAZA a `CONTEXTO_SECOND_BRAIN`, y ahí vivía la frase que anula la voz del teléfono.** Sin copiarla, el turno armaba un plan «en 2-5 líneas».
 - ⚠️ **La pista va pegada adelante del mensaje, y las reglas de «sí» y «no» están ancladas al principio** (lib/mako-intencion.ts). Una respuesta corta va sin pista (`pistaDelFunnelCoach`).
 - ⚠️ **Un chat con motor propio adentro de otra pantalla no puede desmontarse a mitad de un turno:** el guard de navegación mira el motor de la pantalla, no el suyo. Queda montado y escondido.

@@ -39,7 +39,7 @@ export const CARAS = ['sonrisa', 'risa', 'dientes', 'tranquila', 'asombro', 'len
 /** Las piezas con las que se sortea el que no se eligió: las de antes del 17/10/2026 (ver arriba). */
 const DE_SIEMPRE = { formas: FORMAS.slice(0, 7), caras: CARAS.slice(0, 6) } as const;
 export type CaraMuneco = (typeof CARAS)[number];
-/** `retrato`: un referente (lib/asesores/catalogo.ts): se dibuja su caricatura (app/admin/operaciones/Retratos.tsx) en vez del cuerpo y
+/** `retrato`: un referente (lib/asesores/catalogo.ts): se dibuja su retrato (app/admin/operaciones/Retratos.tsx) en vez del cuerpo y
  *  la cara. No se elige con las piezas ni se guarda acá: `sanearAspecto` no lo deja pasar. */
 export type Aspecto = { forma: Forma; color: Color; cara: CaraMuneco; retrato?: IdAsesor };
 export type MunecosElegidos = Record<string, Aspecto>;

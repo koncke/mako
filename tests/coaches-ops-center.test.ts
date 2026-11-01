@@ -12,7 +12,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   JEFE_SECOND_BRAIN, NOMBRE_JEFE, ORIGEN_FUNNEL_COACH, TABS_CON_CHAT_PROPIO, TAB_FUNNEL_COACH, listaDelCliente, origenDeClave,
@@ -113,15 +113,23 @@ test('8. el plan: sin funnel válido no hay plan, y lo que no se dijo no ocupa u
   assert.deepEqual(lineasDelPlan(p).map((l) => l.rotulo), ['Funnel', 'Inversión por mes']);
 });
 
-test('9. la caricatura no se elige con las piezas ni se guarda como una criatura', () => {
+test('9. cada referente tiene su imagen aprobada, y el estado del chat sale de afuera de la foto', () => {
   const a = aspectoDeReferente('hormozi');
   assert.equal(aspectoDe('Offer Coach', a).retrato, 'hormozi');
   assert.equal(sanearAspecto(a)?.retrato, undefined, 'lo guardado no puede pedir un retrato');
   assert.equal(aspectoDe(JEFE_SECOND_BRAIN, a).retrato, undefined, 'el jefe es siempre la estrella');
+  for (const r of ASESORES) {
+    const f = resolve(RAIZ, 'public/asesores', `${r.id}.png`);
+    assert.ok(existsSync(f), `${r.id} no tiene imagen: su fila saldría como un disco vacío`);
+    assert.ok(statSync(f).size < 150_000, `${r.id}: una imagen pesada se baja en cada lista de chats`);
+  }
   const retratos = leer('app/admin/operaciones/Retratos.tsx');
-  assert.doesNotMatch(retratos, /<image|\.png|\.jpg|\.webp/, 'es un dibujo, nunca una foto');
-  // Cada referente tiene su dibujo: uno sin rasgos sale en blanco.
-  for (const a of ASESORES) assert.ok(retratos.includes(`'${a.id}'`), `${a.id} no tiene retrato`);
+  // Un PNG no parpadea: si se saca esto, se pierde la señal de que el chat trabaja.
+  assert.match(retratos, /animo === 'trabajando' && <circle className="mun-anillo"/);
+  assert.match(retratos, /if \(animo === 'dormido'\) return \{ filter:/);
+  assert.match(readFileSync(resolve(RAIZ, 'app/admin/operaciones/centro.css'), 'utf8'), /\.mun-anillo \{ animation:/);
+  // Las caras que rechazó no quedan en ningún lado.
+  assert.doesNotMatch(retratos, /function Ojos|<path/);
 });
 
 // docs/funnel-coach.md §8.2: cada herramienta de un coach le compite los 12.000 caracteres a las demás. Si una queda afuera, el recorte es
