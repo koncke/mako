@@ -732,6 +732,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
               {c.youtube_suscriptores != null && <span className="spy-pildora-gris">{dibujarContador(c.youtube_suscriptores)} suscriptores</span>}
             </div>
 
+            {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
+            {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
+
             {/* ── Zona 2: pestañas, activas por peso y subrayado. Nunca acordeones. ── */}
             {pestanas.length > 1 && (
               <div className="spy-pestanas" role="tablist">
