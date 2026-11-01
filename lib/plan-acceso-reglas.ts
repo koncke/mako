@@ -359,7 +359,7 @@ export function pasoDeAcceso(v: Vigencia, estadoWs: 'activo' | 'pausado', corte:
 const fechaCorta = (d: string): string => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
 
 /** El texto de la pantalla del negocio cortado. Corto, y dice qué hacer. */
-export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boolean } = {}): { titulo: string; detalle: string } {
+export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boolean; pagaSuAgencia?: boolean } = {}): { titulo: string; detalle: string } {
   if (!c) return { titulo: opts.paraAgencia ? 'Este cliente está pausado' : 'Tu cuenta está pausada', detalle: 'Si crees que es un error, escríbenos y lo vemos.' };
   const fecha = fechaCorta(c.hasta);
   if (c.motivo === 'renovacion-sin-autorizar') {
@@ -368,12 +368,24 @@ export function textoDelCorte(c: CorteGuardado | null, opts: { paraAgencia?: boo
       ? { titulo: 'Falta activar su renovación', detalle: `El mes pagado de este cliente terminó el ${fecha}. Actívala desde MaKo Partners para que vuelva a entrar.` }
       : { titulo: 'Falta activar la renovación', detalle: `El mes pagado terminó el ${fecha}. Tu agencia tiene que activar la renovación para volver a entrar.` };
   }
+  // La cuenta que paga la agencia (31/10/2026, ticket #37): el cliente no debe nada, y a la agencia hay que decirle dónde resolverlo.
+  if (opts.pagaSuAgencia && c.motivo !== 'sin-agencia') return { titulo: 'Tu cuenta está pausada', detalle: 'Tu agencia tiene que regularizar el pago para que vuelvas a entrar. Tus datos están guardados.' };
+  if (opts.paraAgencia && (c.motivo === 'impago' || c.motivo === 'baja')) return { titulo: 'Este cliente está pausado', detalle: `Lo pagado cubría hasta el ${fecha}. Sus datos están guardados.` };
   if (c.motivo === 'impago') {
     return { titulo: 'Tu pago no entró', detalle: `Tu plan está pagado hasta el ${fecha} y la renovación no se pudo cobrar. Tus datos están guardados: paga y vuelves a entrar en el acto.` };
   }
   if (c.motivo === 'sin-agencia') return { titulo: 'Tu agencia dejó de administrar tu cuenta', detalle: 'Tus datos están guardados. Si quieres seguir usando MaKo, elige tu plan y vuelves a entrar en el acto.' };
   if (c.motivo === 'devuelto') return { titulo: 'Tu plan se devolvió', detalle: 'El pago de tu plan se devolvió. Para volver a entrar, escríbenos.' };
   return { titulo: 'Tu plan terminó', detalle: `Lo pagado cubría hasta el ${fecha}. Tus datos están guardados: renueva tu plan y vuelves a entrar.` };
+}
+
+/**
+ * ¿/cuenta-pausada le ofrece pagar? Sólo a quien debe lo suyo. ⚠️ `no-se` (no se pudo leer quién paga) tampoco: esa deuda puede ser
+ * de su agencia, y le queda «escríbenos» (31/10/2026, ticket #37). Una pausa a mano, sin corte, igual.
+ */
+export function leOfrecePagar(p: { esAgencia: boolean; corte: Pick<CorteGuardado, 'vigente' | 'motivo'> | null; quienPaga: 'agencia' | 'cliente' | 'no-se' | null }): boolean {
+  if (p.esAgencia || !p.corte?.vigente || p.quienPaga === 'agencia' || p.quienPaga === 'no-se') return false;
+  return p.corte.motivo !== 'renovacion-sin-autorizar' && p.corte.motivo !== 'devuelto';
 }
 
 /** El aviso de la mora (dentro de la app, mientras todavía se entra). */

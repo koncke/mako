@@ -205,7 +205,7 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
   | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
-  | 'reunion_tareas_al_plan' | 'closing_ia_caida' | 'social_tope';
+  | 'reunion_tareas_al_plan' | 'closing_ia_caida' | 'social_tope' | 'meta_cuenta_frenada_agencia' | 'meta_cuenta_recuperada_agencia';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -235,7 +235,12 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia'>; retirado?: true;
+  /**
+   * Al cliente de una agencia no le llega: sale otro evento, a la agencia (`aLaAgencia`, lib/avisos-catalogo.ts). Lo lee el lienzo:
+   * nada por detrás. tests/avisos-a-la-agencia.test.ts lo cruza con el catálogo.
+   */
+  conAgencia?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -300,8 +305,8 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // Mauricio). Lo emite el cron de las alertas críticas (lib/alerta-critica.ts) cada hora mientras el incidente siga
   // abierto, con los HECHOS (`datosCuentaFrenada`); la fila de SuperAdmin dice qué contar de cada estado y hasta cuántas
   // veces. Y su contracara: el incidente que se venía avisando se resolvió.
-  { subtipo: 'meta_cuenta_frenada', aviso: 'meta-cuenta-frenada', label: 'Meta frena la cuenta publicitaria de un negocio', trae: ['anuncios'], plataforma: true },
-  { subtipo: 'meta_cuenta_recuperada', aviso: 'meta-cuenta-recuperada', label: 'La cuenta publicitaria de un negocio vuelve a entregar', trae: [], plataforma: true },
+  { subtipo: 'meta_cuenta_frenada', aviso: 'meta-cuenta-frenada', label: 'Meta frena la cuenta publicitaria de un negocio', trae: ['anuncios'], plataforma: true, conAgencia: true },
+  { subtipo: 'meta_cuenta_recuperada', aviso: 'meta-cuenta-recuperada', label: 'La cuenta publicitaria de un negocio vuelve a entregar', trae: [], plataforma: true, conAgencia: true },
   // UN LEAD CANCELA SU REUNIÓN EN CALENDLY (17/10/2026, docs/inventario-nada-por-detras.md, lote 2: salía del webhook con su
   // texto en el código y sin freno). Lo emite app/api/webhooks/calendly/route.ts con el lead y la reunión (`datosCancelada`).
   { subtipo: 'reunion_cancelada', aviso: 'reunion-cancelada', label: 'Un lead de un negocio cancela su reunión y no reagendó', trae: ['lead', 'cancelada'], plataforma: true },
@@ -341,6 +346,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // (`avisarTopesSociales`, lib/nutricion.ts), con los datos (`datosTopeSocial`, lib/tope-social.ts). Lo que no salió no
   // se pierde: vuelve a salir solo. El texto de «frenado» y de «cerca» lo elige la CONDITION de su fila (`tope_estado`).
   { subtipo: 'social_tope', aviso: 'social-tope', label: 'Instagram o Zernio frenan los mensajes de un negocio', trae: ['tope'], plataforma: true },
+  // LA CUENTA PUBLICITARIA DEL CLIENTE DE UNA AGENCIA (31/10/2026, ticket #37): los mismos hechos de `meta_cuenta_frenada` y su
+  // «ya está», con el nombre del cliente, para el grupo de la AGENCIA (`aLaAgencia`, lib/avisos-catalogo.ts). ⚠️ SIN SU FILA PRENDIDA
+  // NO SALE, y al cliente tampoco: la fila va ANTES del deploy (`scripts/mudanza-avisos-plataforma.mts`).
+  { subtipo: 'meta_cuenta_frenada_agencia', aviso: 'meta-cuenta-frenada-agencia', label: 'Meta frena la cuenta publicitaria del cliente de una agencia', trae: ['anuncios', 'clienteagencia'], plataforma: true },
+  { subtipo: 'meta_cuenta_recuperada_agencia', aviso: 'meta-cuenta-recuperada-agencia', label: 'La cuenta publicitaria del cliente de una agencia vuelve a entregar', trae: ['clienteagencia'], plataforma: true },
 ];
 
 /**
