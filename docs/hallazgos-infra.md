@@ -10138,3 +10138,46 @@ sirva de testigo y hay que comprobarlo de otra forma. El vigía ahora toma la ru
 
 **Es la misma familia que la regla de `AGENTS.md`** («una medición que mide OTRA COSA se ve idéntica a una que
 pasa»), con el agravante de que acá el instrumento no devuelve un número equivocado: no devuelve nada.
+
+---
+
+## Matar la tarea de Bash NO mata el push, y el candado se queda tomado (1/11/2026)
+
+**El síntoma.** `git push origin HEAD:integracion` se pasó de los 120 s del tool y se fue a background. Diez
+minutos después `integracion` no se había movido y el archivo de salida tenía **0 bytes**. Lo di por colgado,
+lo maté y lo relancé. Dos veces. A la tercera el log dijo la verdad:
+
+```
+candado: 2 delante tuyo · lo tiene «wt-push-q · tren-dash (claude1) antes-de-subir --sin-condiciones --cortar
+         — 01/11 12:07» hace 15 min · llevo 0 min
+```
+
+**Hacía fila detrás de mí mismo.**
+
+**Las tres trampas, encadenadas.**
+
+1. **El push a `integracion` no es un push: es la compuerta local.** `.git/hooks/pre-push` corre
+   `scripts/antes-de-subir.mjs` (16 guardas + tsc acotado + tests afectados) ANTES de mandar un byte. Con 2,5 GB
+   libres eso pagina y tarda bastante más que los 120 s del tool. **No está colgado: está trabajando.**
+2. **La salida no aparece hasta el final si hay un pipe.** `git push ... | tail -6` guarda todo en el buffer de
+   `tail` hasta que el comando termina, asi que el archivo de la tarea mide 0 bytes mientras la compuerta corre.
+   Un 0 bytes se lee igual que un cuelgue. Se redirige con `>` a un archivo y se mira ahi.
+3. **Matar la tarea de Bash deja al hijo vivo, y el hijo es el que tiene el candado.** `antes-de-subir.mjs`
+   sigue corriendo huerfano y no suelta `candado-pesado.mjs`. Cada relanzamiento suma un proceso mas a la fila
+   detras del huerfano. Es la misma familia que «Monitor no mata el proceso».
+
+**La regla que queda.** Antes de dar por muerto un push a `integracion`: mirar si el proceso sigue vivo, y de
+quien es hijo.
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+  Where-Object { $_.CommandLine -like '*antes-de-subir*' } |
+  ForEach-Object { $p = $_.ParentProcessId
+    $n = (Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName
+    "{0} padre={1} ({2}) {3}" -f $_.ProcessId, $p, $(if ($n) { $n } else { 'MUERTO' }), $_.CreationDate }
+```
+
+Si el padre existe, **el push esta vivo y hay que esperarlo**. Si dice `MUERTO`, es un huerfano que retiene el
+candado y se mata **por PID** (nunca por nombre: hay otros `node` legitimos, incluidos los hijos del push que SI
+sirve). Y nunca se relanza un push del mismo commit: el segundo quema la compuerta entera para despues no
+empujar nada, con el candado en la mano y los demas chats detras.
