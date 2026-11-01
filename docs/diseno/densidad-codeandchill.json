@@ -1,0 +1,61 @@
+{
+  "_que_es": "Cuántos paneles tiene la vista principal de los dashboards que Martín señaló (Wharf, Ledge, Fathom, Prism), y de qué tamaño. Medido el 1/11/2026.",
+  "_como_se_leyo": "demo.codeandchill.store/<demo>/ a 1440 × 1000, con el navegador, sin transiciones ni animaciones. Paneles: los elementos con fondo o borde y radio ≥ 8 que no están adentro de otro. Con el panel del navegador oculto, una captura o una transición mienten.",
+  "_el_pedido": "Martín, 1/11/2026: «Los templates se siguen viendo como antes, con el bloque gigante primero... Olvida eso de una vez... Quiero reconstruirlo todo... Si tenemos que combinar templates, eliminar algunos, crear nuevos... Lo que sea, pero quiero que se vean mas como los que hemos copiado.»",
+  "demos": {
+    "wharf": {
+      "url": "https://demo.codeandchill.store/wharf/",
+      "paneles": 9, "alto_pagina": 1397, "ancho_contenido": 1104,
+      "filas": [
+        { "y": 123, "paneles": ["636x377 Revenue (área)", "220x182 Orders", "220x182 Items sold", "220x182 Running low", "220x182 Average order"], "nota": "Los cuatro números van de a 2 × 2 al lado del gráfico, con su línea." },
+        { "y": 520, "paneles": ["359x306 Order pipeline", "359x306 Revenue by channel", "359x306 Top sellers"] },
+        { "y": 846, "paneles": ["1104x540 Recent activity (tabla)"] }
+      ]
+    },
+    "ledge": {
+      "url": "https://demo.codeandchill.store/ledge/",
+      "paneles": 10, "alto_pagina": 1159, "ancho_contenido": 1249,
+      "filas": [
+        { "y": 182, "paneles": ["625x341 Sales today", "304x163 Orders today", "304x163 Average order", "304x163 Units sold today", "304x163 Stock value"], "nota": "6 + 3 + 3 exactos, dos filas de números." },
+        { "y": 539, "paneles": ["838x457 Net sales", "411x457 Sales by category"] },
+        { "y": 1012, "paneles": ["411 Best sellers", "411 Running low", "411 Latest orders"], "nota": "Dieron 83 de alto al medir: no se juzgó su alto." }
+      ]
+    },
+    "prism": {
+      "url": "https://demo.codeandchill.store/prism/",
+      "paneles": 11, "alto_pagina": 1000, "ancho_contenido": 1440,
+      "nota": "Entra entera en la pantalla, sin scroll.",
+      "filas": [
+        { "y": 90, "paneles": ["696x280 Revenue", "342x280 Traffic sources", "342x280 Revenue by region"] },
+        { "y": 383, "paneles": ["460x233 Campaign ROAS", "460x233 Key metrics", "460x233 Platform health"] },
+        { "y": 628, "paneles": ["460x203 Quarterly revenue", "460x203 Signups & activations", "460x203 Active customers"] },
+        { "y": 843, "paneles": ["814x155 Checkout latency", "578x155 Feed"] }
+      ]
+    },
+    "fathom": {
+      "url": "https://demo.codeandchill.store/fathom/",
+      "paneles": 7, "alto_pagina": 1000,
+      "nota": "Una terminal de trading en tres columnas (240, 816, 272), de alto fijo. No sirve de molde para un informe.",
+      "filas": [
+        { "y": 68, "paneles": ["240x250 Available", "816x532 Price chart", "272x296 Watchlist"] },
+        { "y": 330, "paneles": ["240x470 Pairs", "272x612 Order book", "816x376 Market"] }
+      ]
+    }
+  },
+  "contra_corbel": "Corbel, medido el 31/10 (composicion_de_pagina en tokens-corbel.json): 5 paneles y 806 px. La referencia es un rango, y Martín señala la punta densa.",
+  "molde": {
+    "regla": "Ninguna abre con una losa ni con una barra a lo ancho: abre con un gráfico de media página y los números AL LADO.",
+    "en_la_grilla_de_makos": "12 columnas, filas de 30 px y 16 px de separación: alto(h) = 30h + 16(h - 1).",
+    "filas": [
+      { "que": "un gráfico + cuatro números de a 2 × 2", "columnas": "6 + 3 + 3", "alto": "8 el gráfico (352 px), 4 cada número (168 px)", "medido": "Wharf 377 y 182, Ledge 341 y 163" },
+      { "que": "tres paneles iguales", "columnas": "4 + 4 + 4", "alto": "7 (306 px)", "medido": "Wharf 306" },
+      { "que": "una tabla a lo ancho, u 8 + 4", "columnas": "12, u 8 + 4", "alto": "8 a 12", "medido": "Wharf 540, Ledge 457" }
+    ],
+    "paneles": "9 a 11"
+  },
+  "lo_que_la_referencia_no_tiene": {
+    "_la_regla": "Cerebro, 1/11/2026: para cada cosa que está por defecto, la pregunta no es «¿la sacamos?» sino «¿la referencia la tiene?». Martín: «Revisa todo lo que tenemos "por defecto" y se libre de cambiarlo todo... Como por ejemplo el propio titulo de la hoja».",
+    "titulo_de_pagina_adentro_de_la_vista": "Corbel no lo tiene: una barra y después las tarjetas, cada una con su título.",
+    "titulos_de_seccion_sueltos_sobre_el_fondo": "Tampoco: el título vive en la tarjeta."
+  }
+}
