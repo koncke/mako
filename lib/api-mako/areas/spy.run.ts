@@ -20,7 +20,7 @@ import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import {
   agregarCompetidor, analizarCompetidor, AUN_SIN_TABLAS, etapaDePieza, guardarAnuncioPegado,
-  leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs,
+  leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs, quitarCompetidor,
 } from '@/lib/spy';
 import { perfilNegocioTexto } from '@/lib/onboarding';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
@@ -190,6 +190,20 @@ export const RUNNERS: Runners = {
     }),
   },
 
+  dejar_de_mirar: {
+    preparar: async (input) => {
+      const c = await elCompetidor(input.id);
+      if (!c.ok) return { error: c.error };
+      return { payload: { id: c.c.id, nombre: c.c.nombre }, resumen: `Dejar de mirar a «${c.c.nombre}» y borrar lo que se leyó de él` };
+    },
+    ejecutar: async (p) => seguro('dejar de mirarlo', async () => {
+      const id = idDe(p.id);
+      if (id == null) return { ok: false, resumen: 'No sé a quién dejar de mirar.' };
+      const r = await quitarCompetidor(id);
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: `Listo: ya no miro a «${String(p.nombre ?? '')}».` };
+    }),
+  },
   guardar_anuncio_visto: {
     preparar: async (input) => {
       const c = await elCompetidor(input.id);
