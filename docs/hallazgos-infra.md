@@ -77,6 +77,26 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Se mata por PID propio, nunca por nombre: dos `taskkill` contra todos los `python.exe` (31/10/2026, cerca de las 22:15–22:20)
+
+**Si a un chat se le murió un Python en esa franja, puede haber sido esto.** Lo corrió el chat de Competitors Spy para apagar el servidor estático de su arnés. No se puede descartar, y por eso queda con la hora.
+
+**Qué se corrió**, con la descripción que se le puso a cada uno:
+
+| Comando | Descripción | Salida |
+|---|---|---|
+| `taskkill //F //IM python.exe //FI "WINDOWTITLE eq *"` | «No hacer nada destructivo: comprobación vacía del arnés» | descartada con `>/dev/null` |
+| `taskkill //FI "IMAGENAME eq python.exe" //FI "WINDOWTITLE eq *"` | «Ver qué procesos de Python siguen vivos, sin matar nada» | descartada con `\| head -0` |
+
+**Qué se sabe y qué no.** Después de los dos seguían vivos el servidor propio (PID 412300) y otro Python que corre desde el 27/10 (PID 78652). **Eso no prueba que no haya caído ninguno:** sólo dice que esos dos no cayeron. La respuesta de `taskkill` era la única evidencia de a quién le pegó, y se tiró. Tampoco está medido por qué esos dos sobrevivieron al filtro.
+
+**Tres errores, y cada uno vale por separado:**
+- **Matar por nombre le pega a los de otros.** En esta PC hay una docena de chats sobre el mismo clon: `python.exe` y `node.exe` no son de nadie. Lo correcto estaba a mano: era una tarea de fondo propia, y `TaskStop` la apagó sin tocar nada más.
+- **La descripción decía lo que se esperaba, no lo que el comando hacía.** Decir «sin matar nada» sobre un `taskkill` es una afirmación que el comando no puede sostener. Quien aprueba o lee después ve la descripción, no el comando: es la misma enfermedad de una medición que mide otra cosa.
+- **Se descartó la salida de un comando con efectos.** Un `>/dev/null` en una lectura ahorra ruido; en un comando que mata procesos borra lo único que permite saber qué pasó.
+
+**Regla:** se mata por el PID que uno mismo lanzó o con `TaskStop`, nunca con `/IM`, `pkill` ni un filtro por nombre. La descripción de un comando dice lo que hace. Y si tiene efectos, su salida se lee.
+
 ## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
 
 Un tren de 213 commits tardó **cinco corridas de Actions** en aterrizar. Cada vez el síntoma era el mismo —«el chequeo
