@@ -50,16 +50,12 @@ test('la tinta se lee sobre su color: 4,5 la letra, y 3 los grises de la portada
 // Desde el 31/10/2026 General no tiene portada (el negro va en un tercio, y sus bloques no entran): lib/graficos-portadas.ts, `comoCorbel`.
 for (const [nombre, galeria] of [['Dashboard', PLANTILLAS_HOJA]] as const) {
   // El Dashboard abre como Corbel desde el 31/10/2026: la tarjeta negra va debajo de los números (tests/graficos-corbel.test.ts).
-  test(`${nombre}: cada plantilla tiene UNA portada${nombre === 'General' ? ', arriba de todo y a lo ancho' : ''}`, () => {
+  test(`${nombre}: cada plantilla tiene UNA portada`, () => {
     for (const p of galeria) {
       const h = hojaDe(p);
       const portada = portadaDe(h);
       assert.ok(portada, `${p.id} no tiene portada`);
       assert.ok(portada.h >= 8, `${p.id}: una portada de ${portada.h} filas no es la portada`);
-      if (nombre === 'General') {
-        assert.deepEqual([portada.x, portada.y, portada.w], [0, 0, 12], `${p.id}: la portada no está arriba a lo ancho`);
-        assert.ok(h.componentes.every((c) => c === portada || c.y >= portada.y + portada.h), `${p.id}: algo se mete en la portada`);
-      }
       assert.equal(h.componentes.filter((c) => (c as { portada?: string }).portada).length, 1, `${p.id}: UNA portada`);
     }
   });
