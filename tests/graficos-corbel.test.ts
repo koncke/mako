@@ -207,6 +207,13 @@ test('Foco: la composición nueva, con coordenadas reales', () => {
   for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) assert.ok(!pisa(c[i] as never, c[j] as never), `${c[i].id} pisa a ${c[j].id}`);
 });
 
+test('la línea de un número se ve sobre su tile: la primera serie toma la tinta del tile', () => {
+  for (const [tile, tinta] of [['sky', '--cb-sky-ink'], ['mint', '--cb-on-tile'], ['lemon', '--cb-on-tile'], ['coral', '--cb-on-tile']]) {
+    const regla = new RegExp(`\\[data-tile="${tile}"\\]\\{[^}]*--cb-c1:var\\(${tinta}\\)`);
+    assert.match(CSS_CORBEL, regla, tile);
+  }
+});
+
 test('EL RAYADO NO SE COPIA: acá significa «Estimado», y un número medido no se dibuja rayado', () => {
   assert.doesNotMatch(CSS_CORBEL, /repeating-linear-gradient/);
   assert.doesNotMatch(leer('lib/graficos-corbel.ts').replace(/^\/\/.*$/gm, ''), /--hatch/);

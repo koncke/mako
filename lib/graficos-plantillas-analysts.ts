@@ -295,61 +295,46 @@ const CLOSING: PlantillaHoja = {
 
 // ── Productividad ────────────────────────────────────────────────────────────────────────────
 
-/** Una lista de «Lo que huele mal»: una fila por tarea, ordenada por su métrica (la de la receta de la migración). */
-const tareas = (id: string, metrica: string, titulo: string, limite: number, x: number, controles: Crudo[]): Crudo => ({
-  id, clase: 'grafico', tipo: 'tabla', fuente: 'ejecucion', dimension: 'tarea', metricas: [metrica],
-  ordenMetrica: metrica, ordenAsc: false, limite, titulo, total: false, x, y: 36, w: 4, h: 12, controles,
-});
-
 const PRODUCTIVIDAD: PlantillaHoja = {
   id: 'productividad', nombre: 'Productividad', emoji: '✅', buscar: 'Productivity Analyst',
   linea: 'Tus proyectos: avance, impacto × esfuerzo, pirámide de prioridad y lo que se estancó.',
   armar: (id: Id) => ({
     id: id('productividad'), nombre: 'Productividad', emoji: '✅', subtitulo: 'Lo que produjo tu tablero: qué hacer primero y qué huele mal.',
-    // Sin período: todo es la foto de hoy del tablero.
+    // Sin período: todo es la foto de hoy del tablero. Por eso los números van como `numero`: `numero_tendencia` arma su línea
+    // con el rango del período, y acá saldría plana en cero.
     controles: [],
+    // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 8): siete números en cuatro anchos pasan a una fila de cuatro, el avance por
+    // proyecto es lo primero, y las tres tablas de 4 columnas (donde se cortaba el nombre de la tarea) son una sola a lo ancho.
     componentes: [
-      // 1 · Cuatro números, en UNA fila (15/10/2026, copiado de las plantillas de Looker Studio: debajo de la portada va
-      //     una sola fila de números, y ninguno repite lo que la portada ya dice). Salieron «Proyectos» y «Completados»: la
-      //     portada es el avance de cada proyecto.
-      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', 'promedio por proyecto', 0, 0),
-      kpi(id('pr-activas'), 'ejecucion', 'activas', 'Tareas activas', 'sin las que se repiten', 3, 0),
-      kpi(id('pr-wip'), 'ejecucion', 'en_curso', 'En curso (WIP)', 'activas con avance', 6, 0),
-      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', 'riesgo de no cerrarse', 9, 0),
-      // 2 · ¿Qué hago primero? La matriz (burbujas con los cuadrantes de la tab) y la pirámide.
+      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 0, { invertida: true }),
+      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 0),
+      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 0),
+      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 0),
+      // Una barra de avance por proyecto (la barra de progreso de la tab), los activos. Sube a portada: lib/graficos-portadas.ts.
+      {
+        id: id('pr-avance-proyecto'), clase: 'grafico', tipo: 'barras', fuente: 'proyectos', dimension: 'proyecto',
+        metricas: ['avance_proyectos'], ordenMetrica: 'avance_proyectos', limite: 50,
+        titulo: 'Avance por proyecto', x: 0, y: 4, w: 12, h: 10,
+        controles: [fijo(id('pr-avance-estado'), 'proyectos.estado', ['Activo'])],
+      },
+      // ¿Qué hago primero? La matriz (burbujas con los cuadrantes de la tab) y la pirámide, del mismo alto.
       {
         id: id('pr-matriz-burbujas'), clase: 'grafico', tipo: 'burbujas', fuente: 'proyectos', dimension: 'proyecto', metricas: ['esfuerzo', 'impacto', 'tareas'],
-        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 4, w: 7, h: 14,
+        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 14, w: 6, h: 10,
         ejes: { xMin: 0, xMax: 100, yMin: 0, yMax: 100 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = esfuerzo, y = impacto (los de la tab vieja).
         referencias: { x: 50, y: 50, rotulos: ['Quick wins', 'Apuestas', 'Relleno', 'Trampas'] },
       },
       {
         id: id('pr-piramide-barras'), clase: 'grafico', tipo: 'barras', fuente: 'ejecucion', dimension: 'prioridad', metricas: ['activas'],
-        titulo: 'Pirámide de prioridad', subtitulo: 'Tareas activas, sin las que se repiten', x: 7, y: 4, w: 5, h: 10,
+        titulo: 'Pirámide de prioridad', x: 6, y: 14, w: 6, h: 10,
       },
-      kpi(id('pr-piramide-alta'), 'ejecucion', 'pct_alta', 'En Alta', 'de las tareas activas', 7, 14, { w: 5, objetivo: 18 }),
-      // 3 · ¿Cómo venimos? Una barra de avance por proyecto (la barra de progreso de la tab), los activos.
+      // ¿Qué huele mal? La misma lista con las tres columnas juntas: lo quieto arriba.
       {
-        id: id('pr-avance-proyecto'), clase: 'grafico', tipo: 'barras', fuente: 'proyectos', dimension: 'proyecto',
-        metricas: ['avance_proyectos'], ordenMetrica: 'avance_proyectos', limite: 50,
-        titulo: 'Avance por proyecto', x: 0, y: 18, w: 12, h: 10,
-        controles: [fijo(id('pr-avance-estado'), 'proyectos.estado', ['Activo'])],
+        id: id('pr-huele-mal'), clase: 'grafico', tipo: 'tabla', fuente: 'ejecucion', dimension: 'tarea', metricas: ['dias_quieta', 'movidas_deadline', 'activas'],
+        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 24, w: 12, h: 10,
+        controles: [fijo(id('pr-huele-mal-f1'), 'ejecucion.estado', ['Activa'])],
       },
-      // 4 · ¿Eres disciplinado con los tiempos?
-      // «Terminadas con deadline» salió: es el denominador de «A tiempo», que ya lo dice en su línea.
-      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', 'de lo terminado con deadline', 0, 28),
-      kpi(id('pr-atraso'), 'ejecucion', 'atraso_prom', 'Atraso promedio', 'días, de las que llegaron tarde', 3, 28),
-      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '7 días o más sin movimiento', 0, 32, { w: 6 }),
-      { id: id('pr-ciclo'), clase: 'grafico', tipo: 'barras', fuente: 'ejecucion', dimension: 'prioridad', metricas: ['ciclo'], titulo: 'Cycle time por prioridad', subtitulo: 'días de crear a completar', x: 6, y: 28, w: 6, h: 8 },
-      // 5 · ¿Qué huele mal? Las tres listas de la tab, cada una con lo que la define como filtro fijo.
-      tareas(id('pr-atencion-estancadas'), 'dias_quieta', 'Estancadas', 12, 0, [fijo(id('pr-atencion-estancadas-f1'), 'ejecucion.estancada', ['Sí'])]),
-      tareas(id('pr-atencion-alta'), 'activas', 'Alta sin deadline', 12, 4, [
-        fijo(id('pr-atencion-alta-f1'), 'ejecucion.prioridad', ['Alta']),
-        fijo(id('pr-atencion-alta-f2'), 'ejecucion.con_deadline', ['No']),
-        fijo(id('pr-atencion-alta-f3'), 'ejecucion.estado', ['Activa']),
-      ]),
-      tareas(id('pr-atencion-corridos'), 'movidas_deadline', 'Deadlines corridos', 6, 8, [fijo(id('pr-atencion-corridos-f1'), 'ejecucion.deadline_corrido', ['Sí'])]),
     ],
   }),
 };

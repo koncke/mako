@@ -159,7 +159,8 @@ test('lo que DEFINE una tarjeta va FIJO, y el período propio también salvo el 
   for (const [h, c] of [['closing', 'cl-r1'], ['closing', 'cl-r2'], ['ads-analyst', 'ad-sin-retorno'], ['ads-analyst', 'ad-muestra'], ['productividad', 'pr-avance-proyecto'], ['cs-analyst', 'cs-sesiones'], ['comercial', 'co-funnel-embudo']]) {
     assert.ok(de(h, c).some((k) => k.tipo === 'lista' && k.fijo === true), `${h}/${c}: sin su filtro de definición`);
   }
-  assert.ok(fijos >= 25, `encontré ${fijos} controles fijos: el recorrido no está mirando`);
+  // Bajó con las composiciones del 31/10/2026 (menos piezas). Es la guarda de que el recorrido mira algo, no una cuota.
+  assert.ok(fijos >= 10, `encontré ${fijos} controles fijos: el recorrido no está mirando`);
 });
 
 test('ningún nombre de un cliente real, en ninguna plantilla (tampoco en los pop-ups)', () => {
