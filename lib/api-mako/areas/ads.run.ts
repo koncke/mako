@@ -874,32 +874,27 @@ export const RUNNERS: Runners = {
         const url = linkDeDescarga(str(input, 'link'));
         if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
         try {
-          // ⛔ Los redirects se siguen A MANO y se valida CADA salto (01/11/2026, auditoría de seguridad): con
+          // ⛔ Se baja por `bajarWebSegura` (01/11/2026, auditoría de seguridad): con `fetch` y
           // `redirect: 'follow'` un link público que redirige a 169.254.169.254 o a 127.0.0.1 se bajaba desde
-          // nuestro servidor (SSRF). `validarDestino` es la misma vara de fetchSeguro; no se usa fetchSeguro porque
-          // topea en 3 MB y un video de anuncio llega a 100.
-          const { validarDestino } = await import('@/lib/landing-fetch');
-          let actual = url;
-          let r: Response | null = null;
-          for (let salto = 0; salto <= 5 && !r; salto++) {
-            const v = await validarDestino(actual);
-            if (!v.ok) return { error: `Ese link no se puede bajar: ${v.error}` };
-            const res = await fetch(actual, { redirect: 'manual', signal: AbortSignal.timeout(60_000) });
-            if (res.status >= 300 && res.status < 400) {
-              const loc = res.headers.get('location');
-              if (!loc) return { error: `Ese link redirige (${res.status}) sin decir a dónde.` };
-              actual = new URL(loc, actual).toString();
-              continue;
-            }
-            r = res;
+          // nuestro servidor (SSRF). Cada salto pasa por `validarDestino` y el pedido va a la IP ya validada
+          // (sin rebinding). El techo es el de un video de anuncio, no el de una web: se lee hasta un byte
+          // de más para saber si se pasó.
+          const [{ bajarWebSegura, pedirClavado }, { validarDestino: validar }] = await Promise.all([
+            import('@/lib/archivero-bajada'), import('@/lib/landing-fetch'),
+          ]);
+          const limites = { maxBytes: MAX_VIDEO_BYTES + 1, timeoutMs: 60_000 };
+          let r: Awaited<ReturnType<typeof bajarWebSegura>>;
+          try {
+            r = await bajarWebSegura(url, { validar, pedir: (u, ips) => pedirClavado(u, ips, undefined, limites) });
+          } catch (err) {
+            // Un salto a una dirección privada, o demasiados redirects: es el link, no una falla nuestra.
+            return { error: `Ese link no se puede bajar: ${err instanceof Error ? err.message : String(err)}` };
           }
-          if (!r) return { error: 'Ese link redirige demasiadas veces.' };
           // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
-          if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
-          const mime = (r.headers.get('content-type') || '').split(';')[0];
-          const largo = Number(r.headers.get('content-length') || 0);
-          if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
-          archivo = { bytes: new Uint8Array(await r.arrayBuffer()), mime, nombre: url.split('/').pop() || 'archivo' };
+          if (r.status < 200 || r.status >= 300) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
+          const mime = (r.tipo || '').split(';')[0];
+          if (r.cuerpo.byteLength > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
+          archivo = { bytes: new Uint8Array(r.cuerpo), mime, nombre: url.split('/').pop() || 'archivo' };
         } catch (err) { return { error: `No pude bajar el archivo (${err instanceof Error ? err.message : String(err)}).`, falla: true }; }
       } else return { error: 'origen es «mensaje» o «link».', faltan: ['origen'] };
       const tipo = tipoDelArchivo(archivo.mime, archivo.nombre);
