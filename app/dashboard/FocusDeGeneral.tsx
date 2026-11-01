@@ -31,7 +31,7 @@ import { EditorInforme } from './EditorInforme';
 import { pedidosDeHoja } from './exportar';
 import { PLANTILLAS_GENERAL, informeGeneralInicial } from '@/lib/general-plantillas';
 import { instanciarPlantilla } from '@/lib/graficos-plantillas';
-import { MAX_HOJAS } from '@/lib/graficos-catalogo';
+import { MAX_HOJAS, type Tablero } from '@/lib/graficos-catalogo';
 
 export async function FocusDeGeneral({ lectura, hojaPedida, plantillaPedida, hoy, hojasDashboard, senales: senalesYa }: {
   /** El informe de General (`leerInformeGeneral()`). */
@@ -56,7 +56,7 @@ export async function FocusDeGeneral({ lectura, hojaPedida, plantillaPedida, hoy
   const nacida = plantilla && !enBlanco ? base.hojas.find((h) => h.plantilla === plantilla.id) : undefined;
   const agregar = plantilla && !nacida && (enBlanco || base.hojas.length < MAX_HOJAS) ? instanciarPlantilla(plantilla) : null;
   // En blanco, la pedida es la primera y ÚNICA, como en el Dashboard (app/dashboard/page.tsx).
-  const tablero = agregar && enBlanco ? { ...base, hojas: [], enBlanco: false } : base;
+  const tablero: Tablero = agregar && enBlanco ? { v: base.v, nombre: base.nombre, hojas: [], archivadas: base.archivadas } : base;
   const sinPaginas = enBlanco && !agregar;
   const hoja = agregar ?? nacida ?? tablero.hojas.find((h) => h.id === hojaPedida) ?? tablero.hojas[0];
 

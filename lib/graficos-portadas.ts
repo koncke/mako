@@ -194,7 +194,7 @@ export function comoDenso(hoja: Crudo, def: DefinicionPortada | undefined, id: I
   const puestas: Crudo[] = [];
   const poner = (c: Crudo, x: number, y: number, w: number, h: number) => puestas.push({ ...c, x, y, w, h, subtitulo: '' });
   let y = 0;
-  let conPrincipal = principal;
+  let conPrincipal: Crudo | undefined = principal;
   const tomarPrincipal = () => { const c = conPrincipal; conPrincipal = undefined; return c; };
   /** Una fila de paneles: toma hasta `anchos` y reparte las 12 columnas entre los que haya. */
   const filaDe = (columnas: readonly number[], h: number) => {
