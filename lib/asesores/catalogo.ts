@@ -12,7 +12,10 @@
 // Sin `server-only`: lo usan la pantalla y el servidor.
 
 export type IdAsesor = 'hormozi' | 'juan-ads' | 'julian-otalora' | 'sofia-contreras' | 'marcos-razzetti' | 'victor-heras'
-  | 'agustin-nievas' | 'derek-chamizo' | 'david-turu' | 'ximena-fukuda' | 'guille-collado' | 'marc-verdu' | 'ramiro-cubria' | 'iman-gadzhi';
+  | 'agustin-nievas' | 'derek-chamizo' | 'david-turu' | 'ximena-fukuda' | 'guille-collado' | 'marc-verdu' | 'ramiro-cubria' | 'iman-gadzhi'
+  // Segunda tanda (1/11/2026, Martín: «hay un montón de cursos que podríamos aprovechar de los que tenemos en Knowledge... Implementa la
+  // mayor cantidad posible que tenga sentido»). Por qué estos seis y no los otros 110: docs/hallazgos-ops-center.md.
+  | 'felipe-vergara' | 'jaime-higuera' | 'adria-sola' | 'augusto-bianchi' | 'tino-mossu' | 'jordi-segues';
 
 export type Asesor = {
   id: IdAsesor;
@@ -42,6 +45,18 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'marc-verdu', nombre: 'Marc Verdú', completo: 'Marc Verdú', especialidad: 'Ecommerce orgánico', curso: 'Organic Ecom 3.0' },
   { id: 'ramiro-cubria', nombre: 'Ramiro Cubria', completo: 'Ramiro Cubria', especialidad: 'Servicios high ticket', curso: 'Sell Your Knowledge' },
   { id: 'iman-gadzhi', nombre: 'Iman Gadzhi', completo: 'Iman Gadzhi', especialidad: 'Agencias: cerrar y vender', curso: 'Agency Navigator' },
+  // ── Segunda tanda (1/11/2026) ──────────────────────────────────────────────────────────────────────────────────────
+  // El criterio de Martín: «de algunos, por ejemplo, de trading o de e-commerce o de cosas que no tienen sentido para
+  // MaKo, pero el resto sí tiene sentido». MaKo es TICKET ALTO (coaches, agencias, consultorías), así que cada curso se
+  // midió por lo que ENSEÑA, no por cómo se llama — y ahí se cayeron varios que por el título parecían encajar
+  // («Belikethealgo» es trading, «Master Escala 100k» es dropshipping). La lista de los descartados, con el motivo
+  // de cada uno, está en docs/hallazgos-ops-center.md: es lo que evita volver a leer 130 cursos.
+  { id: 'felipe-vergara', nombre: 'Felipe Vergara', completo: 'Felipe Vergara', especialidad: 'Anuncios: medir y escalar', curso: 'Vender por FB e IG Ads' },
+  { id: 'jaime-higuera', nombre: 'Jaime Higuera', completo: 'Jaime Higuera', especialidad: 'Socio de crecimiento', curso: 'Growth Partner' },
+  { id: 'adria-sola', nombre: 'Adrià Sola', completo: 'Adrià Sola Pastor', especialidad: 'Comunicación y oratoria', curso: 'Instituto de Comunicación' },
+  { id: 'augusto-bianchi', nombre: 'Augusto Bianchi', completo: 'Augusto Bianchi', especialidad: 'Llamadas de ticket alto', curso: 'Academia Five Stars' },
+  { id: 'tino-mossu', nombre: 'Tino Mossu', completo: 'Tino Mossu', especialidad: 'Objeciones y seguimiento', curso: 'La universidad del Closer' },
+  { id: 'jordi-segues', nombre: 'Jordi Seguís', completo: 'Jordi Seguís', especialidad: 'TikTok', curso: 'TikTok 100k' },
 ];
 
 export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => a.id === id) ?? null;

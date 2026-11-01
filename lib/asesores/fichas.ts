@@ -15,6 +15,13 @@ import { FICHA_IMAN_GADZHI } from './ficha-iman-gadzhi';
 import { FICHA_MARC_VERDU } from './ficha-marc-verdu';
 import { FICHA_RAMIRO_CUBRIA } from './ficha-ramiro-cubria';
 import { FICHA_XIMENA_FUKUDA } from './ficha-ximena-fukuda';
+// Segunda tanda (1/11/2026): otros seis cursos de Knowledge que sirven a un negocio de ticket alto.
+import { FICHA_FELIPE_VERGARA } from './ficha-felipe-vergara';
+import { FICHA_JAIME_HIGUERA } from './ficha-jaime-higuera';
+import { FICHA_ADRIA_SOLA } from './ficha-adria-sola';
+import { FICHA_AUGUSTO_BIANCHI } from './ficha-augusto-bianchi';
+import { FICHA_TINO_MOSSU } from './ficha-tino-mossu';
+import { FICHA_JORDI_SEGUES } from './ficha-jordi-segues';
 import type { IdAsesor } from './catalogo';
 
 export const FICHAS: Readonly<Record<IdAsesor, string>> = {
@@ -32,4 +39,10 @@ export const FICHAS: Readonly<Record<IdAsesor, string>> = {
   'marc-verdu': FICHA_MARC_VERDU,
   'ramiro-cubria': FICHA_RAMIRO_CUBRIA,
   'iman-gadzhi': FICHA_IMAN_GADZHI,
+  'felipe-vergara': FICHA_FELIPE_VERGARA,
+  'jaime-higuera': FICHA_JAIME_HIGUERA,
+  'adria-sola': FICHA_ADRIA_SOLA,
+  'augusto-bianchi': FICHA_AUGUSTO_BIANCHI,
+  'tino-mossu': FICHA_TINO_MOSSU,
+  'jordi-segues': FICHA_JORDI_SEGUES,
 };
