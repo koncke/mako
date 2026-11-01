@@ -55,6 +55,18 @@ export function hojaGeneralPedida(pedida: string | null | undefined, idsGeneral:
 const hrefDeHoja = (id: string) => `/dashboard?hoja=${encodeURIComponent(id)}`;
 
 /** La tira: Focus primero (fija), las otras hojas de General, y las del Dashboard. */
+/**
+ * Cómo se LLAMA una hoja en la interfaz. La PRIMERA del informe General es «Focus» —así la nombran los chips,
+ * acá abajo— y el desplegable tiene que decir lo MISMO: si dibuja el nombre guardado, dos hojas llamadas
+ * «General» quedan indistinguibles y no se sabe cuál es Focus (visto en producción el 1/11/2026).
+ * Cambia lo que se MUESTRA y lo que se BUSCA; el nombre guardado no se toca.
+ */
+export const nombreQueSeVe = (nombre: string, informe: InformeDashboard | undefined, i: number): string =>
+  informe === 'general' && i === 0 ? NOMBRE_FOCUS : nombre;
+
+/** La hoja cuyo nombre guardado NO manda: la primera del General se llama «Focus» venga como venga. */
+export const esLaDeFocus = (informe: InformeDashboard | undefined, i: number): boolean => informe === 'general' && i === 0;
+
 export function pestanasDelDashboard(general: readonly HojaCorta[], dashboard: readonly HojaCorta[]): Pestana[] {
   const [primera, ...resto] = general;
   const focus: Pestana = { id: primera?.id ?? HOJA_FOCUS, nombre: NOMBRE_FOCUS, informe: 'general', href: '/dashboard', fija: true };

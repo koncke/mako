@@ -1698,7 +1698,7 @@ export function EditorInforme({
       {menu?.tipo === 'hojas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
-            hojas={enBlanco ? [] : tablero.hojas} otras={pestanas?.filter((p) => p.informe !== informeGeneralODashboard) ?? []} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco}
+            hojas={enBlanco ? [] : tablero.hojas} otras={pestanas?.filter((p) => p.informe !== informeGeneralODashboard) ?? []} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco} informe={informeGeneralODashboard}
             acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
             archivadas={guardable ? tablero.archivadas ?? [] : []}
             onRestaurar={(id) => { setMenu(null); restaurarHoja(id); }}
