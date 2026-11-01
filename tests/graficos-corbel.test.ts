@@ -66,14 +66,14 @@ test('el de por defecto es el blanco y negro, y lo trae toda hoja que nunca elig
   assert.equal(plantillaDe('mako').escena, 'mono');
   assert.equal(paletaDeEscena(sanearTema(null)), 'mono');
   assert.equal(paletaDeEscena(sanearTema({ plantilla: 'inventada' })), 'mono');
-  assert.equal(plantillaDe('mako').fuente, 'urbanist');
+  assert.equal(plantillaDe('mako').fuente, 'urb');
   assert.equal(plantillaDe('general').escena, 'mono', 'las hojas de General también: «incluso los dashboard ya creados»');
   assert.deepEqual(plantillaDe('mako').paleta.slice(0, 2), seriesDeEscena('mono').slice(0, 2));
 });
 
 test('los demás se ELIGEN y no desaparecen: las otras tres paletas y los estilos de antes', () => {
-  for (const id of ['pastel', 'oceano', 'salvia']) assert.ok(plantillaDe(id).escena, id);
-  for (const id of ['clasica', 'minimal', 'suave', 'contraste', 'elevada', 'editorial']) {
+  for (const id of ['pastel', 'azul', 'verde']) assert.ok(plantillaDe(id).escena, id);
+  for (const id of ['vieja', 'minimal', 'suave', 'contraste', 'elevada', 'editorial']) {
     assert.equal(plantillaDe(id).id, id);
     assert.equal(plantillaDe(id).escena, undefined, `${id} no se pinta con Corbel`);
     assert.equal(paletaDeEscena(sanearTema({ plantilla: id })), undefined);
@@ -94,12 +94,12 @@ test('la tarjeta y el número salen con los valores de Corbel', () => {
   assert.match(CSS_CORBEL, /padding:18px 20px 16px/);
   assert.match(CSS_CORBEL, /\.lk-comp-tit\{font-size:12\.5px;font-weight:600/);
   // Los de antes no cambian: su número sigue llenando la tarjeta.
-  assert.equal(estiloEfectivo(sanearTema({ plantilla: 'clasica' })).kpiMaximo, undefined);
+  assert.equal(estiloEfectivo(sanearTema({ plantilla: 'vieja' })).kpiMaximo, undefined);
 });
 
 test('la portada es negra con este estilo, y el color de cada plantilla vuelve con «Clásica»', () => {
   assert.equal(acentoDePortada(sanearTema(null)), '#121212');
-  assert.equal(acentoDePortada(sanearTema({ plantilla: 'clasica' })), null);
+  assert.equal(acentoDePortada(sanearTema({ plantilla: 'vieja' })), null);
   assert.equal(acentoDePortada(sanearTema({ plantilla: 'mako', acento: '#ff0000' })), '#ff0000', 'el color que eligió gana');
   assert.equal(acentoDePortada(sanearTema({ plantilla: 'pastel' })), '#1f4d6a');
   assert.match(CSS_CORBEL, /--portada-fondo:var\(--cb-ocean\) !important/);
@@ -166,7 +166,7 @@ test('el riel: 30 de ancho tope y el extremo redondo, sólo con Corbel', () => {
   const e = estiloEfectivo(sanearTema(null));
   assert.equal(e.anchoBarra, 30);
   assert.equal(e.radioBarra, 15);
-  assert.equal(estiloEfectivo(sanearTema({ plantilla: 'clasica' })).anchoBarra, undefined);
+  assert.equal(estiloEfectivo(sanearTema({ plantilla: 'vieja' })).anchoBarra, undefined);
   const g = leer('app/dashboard/Grafico.tsx');
   assert.doesNotMatch(g, /maxBarSize: BARRA\.maxVertical|maxBarSize=\{BARRA\.maxVertical\}/);
 });
@@ -285,7 +285,7 @@ test('las pantallas lo usan: el editor y la miniatura llevan la paleta y los til
 });
 
 test('lo que no tiene hoja sigue con lo de antes: el chat, y la ficha del lead si nadie le eligió un estilo', () => {
-  assert.match(leer('app/_chat/bloques/GraficoHilo.tsx'), /sanearTema\(\{ plantilla: 'clasica' \}\)/);
+  assert.match(leer('app/_chat/bloques/GraficoHilo.tsx'), /sanearTema\(\{ plantilla: 'vieja' \}\)/);
   assert.match(leer('app/crm/lead-view/ficha/armar.ts'), /const conTema = temaPropio\(t\);/);
   // Sin `data-paleta` (la ficha no la lleva), la tarjeta cae a los tokens de la casa y no queda transparente.
   const v = varsDeTema(sanearTema({ esquinas: 'rectas' }));
