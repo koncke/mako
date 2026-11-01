@@ -46,6 +46,8 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
 import { calcularPresupuestoAds } from '@/lib/calculadora-presupuesto-ads';
+import { ROTULO_FUNNEL, sanearPlan } from '@/lib/funnel-plan';
+import { guardarPlanFunnel, leerPlanFunnel } from '@/lib/funnel-plan-db';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
 // El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
@@ -402,6 +404,25 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_plan_funnel: {
+    leer: async () => {
+      const plan = await leerPlanFunnel();
+      return J(plan ?? { plan: null, nota: 'Este negocio todavía no guardó un plan del funnel.' });
+    },
+  },
+  guardar_plan_funnel: {
+    preparar: async (input) => {
+      const plan = sanearPlan(input);
+      if (!plan) return { error: 'Falta qué funnel se eligió.' };
+      return { payload: { ...plan }, resumen: `Guardar el plan del funnel: ${ROTULO_FUNNEL[plan.funnel]}` };
+    },
+    ejecutar: async (p) => {
+      const plan = sanearPlan(p, new Date().toISOString());
+      if (!plan) return { ok: false, resumen: 'No sé qué funnel guardar.' };
+      await guardarPlanFunnel(plan);
+      return { ok: true, resumen: `Guardé el plan: ${ROTULO_FUNNEL[plan.funnel]}. Lo ves con «Ver el plan».` };
+    },
+  },
   calcular_presupuesto_anuncios: {
     leer: async (input) => {
       const evento = str(input, 'evento') === 'venta' ? 'venta' : 'lead';

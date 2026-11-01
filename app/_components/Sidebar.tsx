@@ -37,6 +37,7 @@ import { MakoLogo, MakoWord, MakoStar } from './MakoBrand';
 import { useNotifications } from './NotificationsProvider';
 import { Icon } from './icons';
 import { Criatura } from './Criatura';
+import { EstrellaDeLaApp } from '@/app/_chat/EstrellaDeLaApp';
 import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
@@ -837,6 +838,9 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   };
 
   return (
+    <>
+    {/* La estrella flotante, en toda tab que no tenga la suya (1/11/2026). Afuera del <aside>: su z-index la encerraría. */}
+    {!!rol && arriba.length > 0 && <EstrellaDeLaApp />}
     <aside data-sidebar data-fija={fija ? 'si' : 'no'} style={{ width: fija ? FULL : RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
@@ -911,9 +915,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
-          {/* LA RANURA DE MaKo (30/10/2026): el botón de la estrella de cada tab se monta acá (app/_chat/MakoEnLaTab.tsx) en vez de
-              flotar encima del rincón de abajo a la izquierda de la tab, que tapaba. Vacía (una pantalla sin MaKo) no ocupa lugar. */}
-          <div data-ranura-mako="" style={{ display: 'flex', justifyContent: open ? 'flex-start' : 'center', padding: open ? '0 6px' : 0 }} />
           {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
           <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
@@ -1018,5 +1019,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
         document.body,
       )}
     </aside>
+    </>
   );
 }

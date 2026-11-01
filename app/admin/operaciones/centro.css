@@ -1762,3 +1762,20 @@ a.co-link:hover { color: var(--primary-strong); }
   border: 2px dashed var(--primary); border-radius: 12px; background: color-mix(in srgb, var(--primary) 8%, var(--surface));
   font-size: var(--fs-md); font-weight: 600; color: var(--primary-strong);
 }
+
+/* Los referentes (1/11/2026, app/second-brain/ElegirReferente.tsx): sin la columna de piezas de ElegirMuneco, cada mosaico con su nombre. */
+.co-elegir--referentes { grid-template-columns: minmax(0, 1fr) 200px; }
+.co-elegir__mosaico--referente { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 6px; font-size: var(--fs-sm); font-weight: 600; text-align: center; }
+.co-elegir__mosaico--referente small { display: block; font-weight: 400; color: var(--dim); }
+.co-elegir__inspirado { font-size: var(--fs-sm); color: var(--dim); text-align: center; line-height: 1.4; }
+@media (max-width: 640px) { .co-elegir--referentes { grid-template-columns: minmax(0, 1fr); } }
+.co-cab__inspirado { font-size: var(--fs-sm); color: var(--dim); white-space: nowrap; }
+.co-fila__coach { display: block; overflow: hidden; font-size: var(--fs-sm); color: var(--dim); text-overflow: ellipsis; white-space: nowrap; }
+/* El plan del funnel: lo guardado, en vez del chat (app/second-brain/ChatDelCoach.tsx). */
+.fc-plan { display: flex; flex-direction: column; gap: 16px; max-width: 640px; margin: 0 auto; padding: 8px 0 24px; }
+.fc-plan__datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin: 0; }
+.fc-plan__datos div { padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; }
+.fc-plan__datos dt { font-size: var(--fs-sm); color: var(--dim); }
+.fc-plan__datos dd { margin: 2px 0 0; font-weight: 600; }
+.fc-plan__porque { margin: 0; line-height: 1.5; }
+.fc-plan__pasos { margin: 0; padding-left: 20px; line-height: 1.6; }

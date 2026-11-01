@@ -1,8 +1,8 @@
 # El Funnel Coach, el Offer Coach y qué hay para copiar (31/10/2026)
 
 **Esto es una decisión de producto de Martín, tomada en el chat del Cerebro el 31/10 a la noche, más el
-relevamiento de qué existe para copiar.** No está construido. Se escribe acá porque una conversación de
-chat se pierde y esto define una tab entera.
+relevamiento de qué existe para copiar.** Se escribe acá porque una conversación de chat se pierde y esto
+define una tab entera. **Lo construido y lo que falta, en §10.**
 
 ---
 
@@ -177,3 +177,29 @@ de un prompt. Y la licencia habilita el TEXTO, no las APIs de las 12 plataformas
 
 **Y la regla que ya costó una tab hoy** (AGENTS.md, «NINGUNA pantalla se diseña de cero»): si Martín mandó
 una referencia, los VALORES son el pedido. No se interpreta la referencia: se mide y se copia.
+
+---
+
+## 10. Lo construido el 1/11/2026, y lo que falta
+
+**Medido, contra §8.2:** el Ops Center del cliente y el del super admin son LA MISMA PANTALLA con listas distintas
+(`app/second-brain/ChatSecondBrain.tsx`); la del cliente sale de `listaDelCliente`, no de `lib/centro-chats.ts`. Un chat con hilo
+propio ya existía como patrón (`TABS_CON_CHAT_PROPIO`, el del Video Generator): el Funnel Coach es uno más.
+
+**Está:**
+- Arriba de la lista, fijos y en ese orden: **Ops Center** (`NOMBRE_JEFE`), **Funnel Coach** y **Offer Coach** con Hormozi al frente.
+  Las conversaciones de Offer van debajo del Offer Coach, y la del onboarding entre ellas (§4).
+- **Funnel Coach** (`app/second-brain/ChatDelCoach.tsx`): su contexto es `lib/asesores/contexto.ts`, la calculadora es la herramienta
+  `calcular_presupuesto_anuncios`, y arranca distinto con o sin oferta (§8.1).
+- **El plan guardado** (§3): `guardar_plan_funnel` y `ver_plan_funnel` (`lib/funnel-plan.ts`, en app_settings) y el botón «Ver el plan».
+- **Los referentes:** `lib/asesores/`, catorce, los que tienen curso con transcripción. Tocar la criatura del coach abre la galería (`ElegirReferente.tsx`).
+
+**Sin hacer:**
+- **El chat del super admin sigue diciendo «Cerebro»** en su lista de Claude Code: es el nombre de una sesión real, de la que cuelgan el
+  cartero y `esCerebro` (`lib/centro-chats.ts`). Renombrar sólo el dibujo es un cambio aparte.
+- **`/ads-manager` no se renombró ni perdió nada.** La calculadora sigue también como modal ahí, y `ArranqueMediaBuyer.tsx` sigue siendo
+  su arranque. El Funnel Coach llega a la fase 3 sólo por lo que las herramientas del turno ya hacen (§6): falta ejecutar de verdad.
+- **Las skills copiadas de §5 no se cargaron.** Su material es otro permiso y otro trabajo (§8.3); el coach arranca con las fichas.
+- **El Offer Coach en el teléfono y en la lista del súper admin** abre lo mismo, pero `app/m/second-brain/ChatClienteM.tsx` todavía no tiene
+  las filas fijas.
+- **El contenido de YouTube de los referentes**, ver docs/hallazgos-chat.md.

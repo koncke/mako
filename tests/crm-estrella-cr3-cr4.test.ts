@@ -83,7 +83,7 @@ test('la estrella y el panel encima de un modal: más arriba que su contenido, y
   assert.match(pieza, /const esDeArriba = useCallback\(\(\) => !sobre \|\| capa\.esElDeArriba\(\), \[sobre, capa\]\);/);
   assert.match(pieza, /if \(e\.key === 'Escape' && !menuWA && !infoWA && !conectando && \(esDeArriba\?\.\(\) \?\? true\)\) onCerrar\(\);/);
   // Sin el prop (el CRM, cuya ficha ya tiene a MaKo a la izquierda), lo de siempre.
-  assert.match(pieza, /onModo, pantalla = null, encimaDeModales = false \}/);
+  assert.match(pieza, /onModo, pantalla = null, encimaDeModales = false, deLaApp = false \}/);
 });
 
 test('CR3: el MaKo Analyst de la ficha es el chat del Ops Center (el hilo y la caja únicos)', () => {

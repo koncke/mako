@@ -106,6 +106,8 @@ import { linksDe } from '@/app/offer/ayudas';
 import { avisarOfertaLista } from '@/lib/oferta-lista-server';
 import { crearNotificacion } from '@/lib/notificaciones';
 import { FEATURE_OFFER, diagnosticoOffer, lecturaDeParte, propuestaOffer, turnoOffer } from '@/lib/offer-ia';
+import { contextoDeReferente } from '@/lib/asesores/contexto';
+import { leerReferentes } from '@/lib/funnel-plan-db';
 import {
   ConflictoCAS, ErrorOffer, TITULO_DEFAULT, actualizarSesion, arbolOffer, audiosDe, borrarSesion, crearSesion, guardarComoOferta,
   leerFila, nombreNegocioOffer, sesionVaciaDe, vistaSesion, type FilaOffer,
@@ -938,6 +940,8 @@ async function responder(p: { sesionId: number; fila: FilaOffer; ctx: ContextoOf
     contexto: [ctx.texto, estadoDeLaOferta(fila)].filter((x) => x.trim()).join('\n\n'),
     inicio: p.inicio, diagnostico: diagnosticoParaPrompt(plan, e), diagnosticoObligatorio: plan.modo === 'forzar',
     voz: ctx.voz, arranque: p.arranque,
+    // El Offer Coach (1/11/2026): con quién aconseja. El onboarding no: ahí sólo se cuenta qué se vende.
+    referente: p.arranque ? '' : contextoDeReferente((await leerReferentes()).offer),
   });
   // Sin IA sólo se sigue si la pregunta que toca es la obligatoria del diagnóstico (sale la original).
   if (!ia.ok && plan.modo !== 'forzar') return no(502, ia.error, { sesion: await vistaSesion(fila) });

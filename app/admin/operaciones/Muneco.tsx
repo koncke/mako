@@ -23,6 +23,7 @@
 
 import type { CSSProperties } from 'react';
 import { aspectoDe, type Aspecto, type CaraMuneco, type Forma } from '@/lib/centro-munecos';
+import { Retrato } from './Retratos';
 
 export { aspectoDe, COLORES, FORMAS } from '@/lib/centro-munecos';
 export type Animo = 'trabajando' | 'despierto' | 'cansado' | 'dormido';
@@ -159,8 +160,8 @@ function Cara({ forma, cara, animo }: { forma: Forma; cara: CaraMuneco; animo: A
  * mismo desfase todas parpadeaban a la vez, como un tablero. Sale de su aspecto (no del nombre: la estrella es la misma criatura
  * se llame «Cerebro» u «Ops Center»), igual en el server y en el navegador.
  */
-function desfaseDe({ forma, color, cara }: Aspecto): string {
-  const clave = `${forma}${color}${cara}`;
+function desfaseDe({ forma, color, cara, retrato }: Aspecto): string {
+  const clave = `${forma}${color}${cara}${retrato ?? ''}`;
   let h = 0;
   for (let i = 0; i < clave.length; i++) h = (h * 31 + clave.charCodeAt(i)) >>> 0;
   return `-${(h % 37) / 10}s`;
@@ -171,18 +172,22 @@ function desfaseDe({ forma, color, cara }: Aspecto): string {
 export function Muneco({ titulo, animo, size = 40, espera = 0, style, aspecto }: {
   titulo: string; animo: Animo; size?: number; espera?: number; style?: CSSProperties; aspecto?: Aspecto | null;
 }) {
-  const { forma, color, cara } = aspectoDe(titulo, aspecto);
+  const { forma, color, cara, retrato } = aspectoDe(titulo, aspecto);
   const [bx, by] = GEO[forma].brillo;
   return (
     <svg
       className={`mun mun--${animo}`} width={size} height={size} viewBox="0 0 40 40" aria-hidden
-      style={{ flex: 'none', display: 'block', overflow: 'visible', ['--mun-desfase' as string]: desfaseDe({ forma, color, cara }), ...style }}
+      style={{ flex: 'none', display: 'block', overflow: 'visible', ['--mun-desfase' as string]: desfaseDe({ forma, color, cara, retrato }), ...style }}
     >
       <g className="mun-cuerpo">
-        <Cuerpo forma={forma} color={color} />
-        {/* El brillo arriba a la izquierda: le da volumen sin un gradiente (que pediría un id). */}
-        <ellipse cx={bx} cy={by} rx="4.2" ry="2.6" fill="#fff" opacity="0.38" transform={`rotate(-28 ${bx} ${by})`} />
-        <Cara forma={forma} cara={cara} animo={animo} />
+        {retrato ? <Retrato id={retrato} animo={animo} /> : (
+          <>
+            <Cuerpo forma={forma} color={color} />
+            {/* El brillo arriba a la izquierda: le da volumen sin un gradiente (que pediría un id). */}
+            <ellipse cx={bx} cy={by} rx="4.2" ry="2.6" fill="#fff" opacity="0.38" transform={`rotate(-28 ${bx} ${by})`} />
+            <Cara forma={forma} cara={cara} animo={animo} />
+          </>
+        )}
       </g>
       {espera > 0 && (
         <g className="mun-espera">

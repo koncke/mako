@@ -33,7 +33,7 @@ test('2. una conversación por persona y negocio, que el Ops Center lista como �
   assert.equal(TAB_SECOND_BRAIN, 'second-brain');
   // La lista es en POSITIVO: una tab nueva entra a propósito. El 27/10/2026 entró el estudio de Video Generator (su chat al
   // costado, tests/video-estudio-chat.test.ts).
-  assert.deepEqual([...TABS_CON_CHAT_PROPIO], ['second-brain', 'video-generator'], 'la ruta no crea conversaciones de una tab cualquiera');
+  assert.deepEqual([...TABS_CON_CHAT_PROPIO], ['second-brain', 'video-generator', 'funnel-coach'], 'la ruta no crea conversaciones de una tab cualquiera');
   assert.equal(origenDeClave('mako-movil:u8:second-brain'), ORIGEN_SECOND_BRAIN, 'el grupo del Ops Center (y `claveDeTab` la deja seguir)');
   assert.equal(origenDeClave('mako-movil:u8'), null, 'las de la persona no son de una tab');
   assert.equal(origenDeClave('mako-movil:u8:otra-cosa'), null);
