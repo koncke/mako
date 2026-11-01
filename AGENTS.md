@@ -6470,8 +6470,27 @@ en el prompt de **todos los negocios, en todos los turnos**. Una entrada para un
 plataforma queda pendiente para siempre y MaKo le dice al dueño que lo primero es ir a
 configurar algo que no puede abrir (31/10/2026, al construir Knowledge; docs/hallazgos-onboarding.md).
 
-La regla del producto sigue siendo que **toda tab tiene onboarding**. Lo que se agrega es la
-pregunta previa: **¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
+⚠️ **ESA REGLA CAMBIÓ EL 01/11/2026 Y ESTA PARTE MANDA. Martín, textual, mirando Competitors Spy:**
+*«Le pusiste un onboarding a competitors, cuando ya habiamos dicho que nada debe tener onboarding…
+Limitas la experiencia del usuario»*. Lo que rechaza no es la ayuda: es la **PUERTA**.
+
+**NINGÚN wizard tapa una tab.** `PuertaSpy` mostraba el onboarding EN LUGAR de la tab hasta que
+alguien apretaba salir; quedan tres iguales —`PuertaCopyGen` (ads-writer), `PuertaVideoGen`
+(video-generator) y `OnboardingCarousels`— y **22 áreas con algún onboarding**. Una tab abre
+mostrando la tab, siempre, aunque esté vacía.
+
+**Qué ocupa su lugar, y son dos cosas distintas:**
+1. **Una franja de UNA línea adentro del contenido, con una «×» que la cierra y no vuelve.** Dice qué
+   hace esa pantalla, no cómo configurarla.
+2. **MaKo pide lo que le falta CUANDO le hace falta** (la regla de que MaKo abre preguntando), en su chat, no en un
+   pasillo previo. Si para leer a un competidor hace falta Meta, el botón «Conectar Meta» va en el estado
+   de error de esa lectura, con el motivo real al lado — no tres pasos antes, por las dudas.
+
+**Y lo que el onboarding hacía bien NO se tira: el estado.** Que una tab sepa si está conectada le sirve a
+MaKo. Pero va como **DATO**, igual que abajo, no como un paso pendiente que reclama: «tiene 0 competidores»
+es un hecho; «no completó el onboarding de Spy» es un reproche a alguien que entró a trabajar.
+
+**La pregunta previa que sí sigue valiendo: ¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
 su estado igual le sirve a MaKo, va **el DATO y no el flag** —algo que sea verdad para cualquiera
 que lo lea—, como el conteo de fichas por módulo de Knowledge (`estadoDeLosModulos`, `lib/knowledge.ts`).
 
