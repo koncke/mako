@@ -45,11 +45,37 @@
 //    leen `Cabeza` y `TituloBloque`: un bloque que dibuje su propio <h2> no se entera.
 // =============================================================================
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { useFunnelsGeneral, useTituloPropio } from '../../dashboard/ElementoGeneral';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
 import { iniciales as inicialesDe } from '@/lib/unicode-seguro';
+
+/**
+ * LO QUE NO ENTRA SE DICE (31/10/2026). `gb-cabe` sólo dibuja filas enteras: la que no entra se va a una columna que no se
+ * ve. Martín perdía deadlines sin saberlo, y en «Tareas prioritarias» de cinco entraban tres. Esto cuenta las que quedaron
+ * afuera, para que la lista lo diga (`MasEnElPlan`). Se vuelve a contar si cambia el alto de la tarjeta.
+ */
+export function useFilasFuera(cuantas: unknown) {
+  const lista = useRef<HTMLDivElement>(null);
+  const [fuera, setFuera] = useState(0);
+  useLayoutEffect(() => {
+    const nodo = lista.current;
+    if (!nodo) return;
+    const medir = () => { const hijos = [...nodo.children] as HTMLElement[]; setFuera(hijos.filter((h) => h.offsetLeft > (hijos[0]?.offsetLeft ?? 0)).length); };
+    medir();
+    const ro = new ResizeObserver(medir);
+    ro.observe(nodo);
+    return () => ro.disconnect();
+  }, [cuantas]);
+  return { lista, fuera };
+}
+
+/** La línea que dice cuántas filas no entraron. */
+export function MasEnElPlan({ fuera }: { fuera: number }) {
+  if (fuera <= 0) return null;
+  return <Link href="/plan" className="gb-cab-link" style={{ flex: 'none', marginLeft: 0, paddingTop: 8 }}>y {fuera} más en el Plan</Link>;
+}
 
 export const CSS_BLOQUES = `
 .gb{--gb-losa:color-mix(in srgb,var(--ink) 4.5%,transparent);--gb-losa-2:color-mix(in srgb,var(--ink) 8%,transparent);
