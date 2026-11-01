@@ -2,7 +2,7 @@
 // El retrato de un referente, adentro de su criatura (1/11/2026)
 // =============================================================================
 // Martín rechazó dos tandas de caricaturas, y las de public/asesores/<id>.png las aprobó después de ocho vueltas: «esos sí me gustan». Las
-// generó el Cerebro con IA a partir de fotos públicas: cómo y qué no perder al regenerarlas, en docs/hallazgos-chat.md. Antes eran SVG dibujados
+// generó el Cerebro con IA a partir de fotos públicas: cómo y qué no perder al regenerarlas, en docs/hallazgos-ops-center.md. Antes eran SVG dibujados
 // acá; se borraron para que no quede en ningún lado una cara que él ya rechazó.
 //
 // ⚠️ UN PNG NO PARPADEA, Y LOS OJOS DE UNA CRIATURA DICEN EL ESTADO DEL CHAT (Muneco.tsx). Decidido: la cara es la misma en todos lados, y el estado sale
