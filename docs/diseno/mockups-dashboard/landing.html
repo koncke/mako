@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="es" data-estilo="corbel" data-tema-inicial="claro"><head><meta charset="utf-8">
+<title>Landing — Dashboard de MaKo</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="movimiento.css">
+<style>
+/* LANDING — referencias: Corbel (el mapa de calor con su globo que sigue al cursor,
+   y el link al pie de cada bloque) y Kestrel (los KPI con su delta y la CALIDAD al
+   lado del volumen). La pregunta: ¿hasta dónde bajan y dónde hacen clic? */
+.heat{display:grid;grid-template-columns:72px repeat(7,1fr);gap:4px;margin-top:6px;position:relative}
+.heat .hr{font-size:var(--fs-2xs);color:var(--faint);display:flex;align-items:center;font-weight:600}
+.heat .hc{font-size:var(--fs-2xs);color:var(--faint);text-align:center;font-weight:600}
+.celda{aspect-ratio:1.9;border-radius:7px;background:var(--heat-0);cursor:pointer}
+.celda>i{display:block;width:100%;height:100%;border-radius:7px;transform-origin:50% 50%}
+.c-0{background:var(--heat-0)}.c-1{background:var(--heat-1)}.c-2{background:var(--heat-2)}
+.c-3{background:var(--heat-3)}.c-4{background:var(--heat-4)}
+.celda:hover>i{transform:scale(1.12)}
+.esc{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:var(--fs-2xs);color:var(--faint)}
+.esc i{width:20px;height:9px;border-radius:3px;display:block}
+/* la profundidad de scroll: una barra por sección, y la que pierde más gente marcada */
+.scr{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+.scr>div{display:flex;align-items:center;gap:11px}
+.scr .sec{width:138px;flex:0 0 auto;font-size:var(--fs-sm);color:var(--muted);font-weight:600}
+.scr .riel{flex:1;height:26px;border-radius:8px;background:var(--well);overflow:hidden}
+.scr .riel i{display:block;height:100%;background:var(--c1);border-radius:8px;transform-origin:0 50%}
+.scr .riel i.fuga{background:var(--down)}
+.scr b{width:48px;text-align:right;font-size:var(--fs-sm);font-weight:600}
+.cae{font-size:var(--fs-2xs);color:var(--down);font-weight:700;width:62px;text-align:right}
+</style></head>
+<body>
+
+<div class="cab">
+  <div>
+    <div class="h1">Landing</div>
+    <div class="estado" data-mk="texto">Entraron <b>3.418</b> y agendaron <b>48</b>: convierte al
+      <b>1,4%</b> · <b>la mitad se va antes del video</b> y los que lo terminan agendan 9 veces más.</div>
+  </div>
+  <div class="btns" data-mk="texto">
+    <div class="btn">30 días ▾</div>
+    <div class="btn btn--ink">Abrir la landing</div>
+  </div>
+</div>
+
+<div class="rejilla">
+
+  <div class="c12 kpis" data-grupo="kpis">
+    <div class="tile tile--1" data-mk="kpi">
+      <div class="rot">Visitas</div>
+      <div class="num" data-cuenta="1.3">3.418</div>
+      <div class="meta"><span class="delta delta--up">▲ 22%</span> vs 30 días antes</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">71% de Meta · 18% directo</div></div>
+      <div class="pie">Ver Marketing →</div>
+    </div>
+    <div class="tile tile--2" data-mk="kpi">
+      <div class="rot">Agendaron</div>
+      <div class="num" data-cuenta="0.6">48</div>
+      <div class="meta"><span class="delta delta--up">▲ 9</span> vs 30 días antes</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">1,4% de los que entran</div></div>
+      <div class="pie">Ver el CRM →</div>
+    </div>
+    <div class="tile tile--3" data-mk="kpi">
+      <div class="rot">Llegan al formulario</div>
+      <div class="num" data-cuenta="0.9">11,6%</div>
+      <div class="meta"><span class="delta delta--down">▼ 2,4 pt</span> vs 30 días antes</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">397 de 3.418 · agenda 1 de cada 8</div></div>
+      <div class="pie">Ver el formulario →</div>
+    </div>
+    <div class="tile tile--4" data-mk="kpi">
+      <div class="rot">Se quedan</div>
+      <div class="num" data-cuenta="0.9">1:47</div>
+      <div class="meta"><span class="delta delta--up">▲ 0:19</span> vs 30 días antes</div>
+      <div class="fila-abajo"><div style="font-size:var(--fs-sm);opacity:.74">mediana · el 38% se va en 10 s</div></div>
+      <div class="pie">Ver la grabación →</div>
+    </div>
+  </div>
+
+  <!-- HASTA DÓNDE BAJAN. La fórmula va en el subtítulo, no en un tooltip (Ledge). -->
+  <div class="c7 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Hasta dónde bajan</div>
+        <div class="sub">De los que entran, cuántos VEN cada sección · en rojo la que más pierde</div></div>
+      <div class="seg"><b class="on">Escritorio</b><b>Celular</b></div>
+    </div>
+    <div class="scr" data-grupo="scr">
+      <div><span class="sec" data-mk="gllab">Encabezado</span>
+        <div class="riel"><i data-mk="glbar" style="width:100%"></i></div>
+        <b data-mk="gllab">100%</b><span class="cae"></span></div>
+      <div><span class="sec" data-mk="gllab">El video</span>
+        <div class="riel"><i class="fuga" data-mk="glbar" style="width:52%"></i></div>
+        <b data-mk="gllab">52%</b><span class="cae" data-mk="gllab">−48%</span></div>
+      <div><span class="sec" data-mk="gllab">Para quién es</span>
+        <div class="riel"><i data-mk="glbar" style="width:41%"></i></div>
+        <b data-mk="gllab">41%</b><span class="cae" data-mk="gllab">−11%</span></div>
+      <div><span class="sec" data-mk="gllab">Testimonios</span>
+        <div class="riel"><i data-mk="glbar" style="width:33%"></i></div>
+        <b data-mk="gllab">33%</b><span class="cae" data-mk="gllab">−8%</span></div>
+      <div><span class="sec" data-mk="gllab">Qué incluye</span>
+        <div class="riel"><i data-mk="glbar" style="width:24%"></i></div>
+        <b data-mk="gllab">24%</b><span class="cae" data-mk="gllab">−9%</span></div>
+      <div><span class="sec" data-mk="gllab">Preguntas</span>
+        <div class="riel"><i data-mk="glbar" style="width:16%"></i></div>
+        <b data-mk="gllab">16%</b><span class="cae" data-mk="gllab">−8%</span></div>
+      <div><span class="sec" data-mk="gllab">El formulario</span>
+        <div class="riel"><i data-mk="glbar" style="width:12%"></i></div>
+        <b data-mk="gllab">11,6%</b><span class="cae" data-mk="gllab">−4%</span></div>
+    </div>
+    <div class="veredicto" data-mk="texto"><b>El salto del encabezado al video se lleva al 48%</b>.
+      Es el único de la página que pierde más de 11 puntos: ahí está la plata, no en el formulario.</div>
+    <div class="pie">Abrir el Web Generator →</div>
+  </div>
+
+  <!-- CORBEL: el mapa de calor. La celda se agranda al pasar el cursor
+       ({scale:1.12} → 1, .5s back.out(3)) y el globo la sigue con quickTo. -->
+  <div class="c5 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">Dónde hacen clic</div>
+        <div class="sub">Clics por día y franja horaria · 30 días</div></div>
+      <span class="nofiltra">Hora local</span>
+    </div>
+    <div class="heat" data-grupo="heat">
+      <div class="hr"></div>
+      <div class="hc">L</div><div class="hc">M</div><div class="hc">M</div><div class="hc">J</div>
+      <div class="hc">V</div><div class="hc">S</div><div class="hc">D</div>
+      <div class="hr">8–12</div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-0" data-mk="icono"></i></div>
+      <div class="hr">12–16</div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-4" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+      <div class="hr">16–20</div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-4" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-4" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-4" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+      <div class="hr">20–24</div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-3" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-2" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+      <div class="celda"><i class="c-1" data-mk="icono"></i></div>
+    </div>
+    <div class="esc"><span>menos</span>
+      <i class="c-0"></i><i class="c-1"></i><i class="c-2"></i><i class="c-3"></i><i class="c-4"></i>
+      <span>más</span>
+      <span style="margin-left:auto">pico: jueves 16–20</span></div>
+    <div class="veredicto" data-mk="texto">El <b>62% de los clics</b> cae entre las 16 y las 20 de
+      martes a viernes. La pauta hoy reparte parejo las 24 h.</div>
+    <div class="pie">Abrir Marketing →</div>
+  </div>
+
+  <!-- KESTREL: volumen Y CALIDAD juntos. El volumen solo engaña. -->
+  <div class="c12 card" data-mk="card">
+    <div class="cabc">
+      <div><div class="tit">De qué anuncio vinieron</div>
+        <div class="sub">Volumen y calidad juntos: el que más trae no es el que más cierra</div></div>
+      <div class="seg"><b class="on">Agendas</b><b>Cierres</b></div>
+    </div>
+    <div data-grupo="origen">
+      <div class="fila" data-mk="fila"><div class="t"><b>Método 90 días — hook «3 clientes»</b>
+        <span>1.284 visitas · $612 de pauta</span></div>
+        <div class="riel" style="width:150px"><i data-mk="glbar" style="width:88%"></i></div>
+        <b style="width:44px;text-align:right">21</b>
+        <span class="chip chip--u" data-mk="chip">4 cierres</span>
+        <b style="width:62px;text-align:right">$29</b></div>
+      <div class="fila" data-mk="fila"><div class="t"><b>Mentoría Q4 — testimonio de Leila</b>
+        <span>902 visitas · $488 de pauta</span></div>
+        <div class="riel" style="width:150px"><i data-mk="glbar" style="width:58%"></i></div>
+        <b style="width:44px;text-align:right">14</b>
+        <span class="chip chip--u" data-mk="chip">3 cierres</span>
+        <b style="width:62px;text-align:right">$35</b></div>
+      <div class="fila" data-mk="fila"><div class="t"><b>Carrusel «errores que te frenan»</b>
+        <span>814 visitas · $441 de pauta</span></div>
+        <div class="riel" style="width:150px"><i data-mk="glbar" style="width:42%"></i></div>
+        <b style="width:44px;text-align:right">10</b>
+        <span class="chip chip--d" data-mk="chip">0 cierres</span>
+        <b style="width:62px;text-align:right">$44</b></div>
+      <div class="fila" data-mk="fila"><div class="t"><b>Directo · nadie lo trajo</b>
+        <span>418 visitas · sin pauta</span></div>
+        <div class="riel" style="width:150px"><i data-mk="glbar" style="width:12%"></i></div>
+        <b style="width:44px;text-align:right">3</b>
+        <span class="chip chip--n" data-mk="chip">0 cierres</span>
+        <b style="width:62px;text-align:right">—</b></div>
+    </div>
+    <div class="veredicto" data-mk="texto">El carrusel trae <b>10 agendas y ningún cierre</b> en 30 días
+      con $441 de pauta: trae gente que mira, no que compra.</div>
+    <div class="pie">Abrir Marketing →</div>
+  </div>
+</div>
+
+<script src="base.js"></script>
+</body></html>
