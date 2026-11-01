@@ -127,7 +127,7 @@ export type Tipografia = { id: string; nombre: string; tipo: string; pila: strin
  */
 export const TIPOGRAFIAS: readonly Tipografia[] = [
   { id: 'geist', nombre: 'Geist', tipo: 'La de MaKo', pila: "'Geist', system-ui, sans-serif", hoja: null },
-  { id: 'urbanist', nombre: 'Urbanist', tipo: 'Geométrica', pila: "'Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", hoja: 'https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap' },
+  { id: 'urb', nombre: 'Urbanist', tipo: 'Geométrica', pila: "'Urbanist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif", hoja: 'https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700&display=swap' },
   ...LETRAS_CURSO.filter((f) => f.id !== 'archivo').map((f) => ({ id: f.id, nombre: f.nombre, tipo: f.tipo, pila: f.pila, hoja: f.hoja })),
 ];
 export const tipografiaDe = (id: string | null | undefined): Tipografia => TIPOGRAFIAS.find((f) => f.id === id) ?? TIPOGRAFIAS[0];
@@ -147,7 +147,7 @@ function conEscena(id: string, nombre: string, linea: string, escena: EscenaCorb
     kpi: { etiqueta: 'letra', tamValor: 26, maximo: 26, maximoPortada: 34 },
     // El riel de Corbel: 30 de ancho tope y el extremo redondo. Sólido: su rayado acá significa «Estimado».
     graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 3.5, radioBarra: 15, compacto: false, anchoBarra: 30 },
-    fuente: 'urbanist',
+    fuente: 'urb',
   };
 }
 
@@ -156,15 +156,17 @@ function conEscena(id: string, nombre: string, linea: string, escena: EscenaCorb
  * saneo, sin error). El orden es el del menú.
  */
 export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
+  // ⚠️ LOS IDS SON CORTOS A PROPÓSITO: viajan como `enum` en cambiar_ficha_funnel, que va en CADA turno de WhatsApp, y su tope
+  // lo mide tests/ficha-api.test.ts. Y son lo que se guarda: renombrar uno ya usado deja a sus hojas en la de por defecto, sin error.
   // EL DE POR DEFECTO (Martín, 31/10/2026: «tipo blanco y negro… el más sólido»): Corbel, con sus valores
   // (lib/graficos-corbel.ts). El id sigue siendo «mako» porque el id es lo que se guarda: toda hoja que nunca eligió otro
   // pasa a este sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como «Clásica».
   conEscena('mako', 'Blanco y negro', 'Negro sobre gris: el más sólido.', 'mono'),
   conEscena('pastel', 'Pastel', 'Tiles de color claro y azul de acento.', 'pastel'),
-  conEscena('oceano', 'Océano', 'Azules de punta a punta.', 'ocean'),
-  conEscena('salvia', 'Salvia', 'Verdes tranquilos.', 'sage'),
+  conEscena('azul', 'Océano', 'Azules de punta a punta.', 'ocean'),
+  conEscena('verde', 'Salvia', 'Verdes tranquilos.', 'sage'),
   {
-    id: 'clasica', nombre: 'Clásica', linea: 'Las tarjetas de antes, con el número grande.',
+    id: 'vieja', nombre: 'Clásica', linea: 'Las tarjetas de antes, con el número grande.',
     paleta: PALETA_MAKO,
     tarjeta: { fondo: 'surface', borde: 'suave', radio: 16, sombra: false, filete: true },
     titulo: { tam: 21, peso: 600, mayus: false },

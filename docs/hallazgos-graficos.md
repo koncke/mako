@@ -17,8 +17,8 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 
 **Lo que hay que saber antes de tocarlo:**
 
-- **El id `mako` ES el blanco y negro.** El id es lo que se guarda: redefinirlo pasa al estilo nuevo a toda hoja que nunca eligió otro, sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como `clasica`.
-- **El oscuro y las paletas salen de redefinir los tokens** adentro de `data-paleta`, como hace la portada. Las series son `var(--cb-c1, #hex)`: `aclarar` y los que hacen cuentas con hex tienen que aceptar una variable. El respaldo hace falta: el chat y la ficha del lead no tienen `data-paleta`, y por eso siguen con `clasica`.
+- **El id `mako` ES el blanco y negro.** El id es lo que se guarda: redefinirlo pasa al estilo nuevo a toda hoja que nunca eligió otro, sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como `vieja`.
+- **El oscuro y las paletas salen de redefinir los tokens** adentro de `data-paleta`, como hace la portada. Las series son `var(--cb-c1, #hex)`: `aclarar` y los que hacen cuentas con hex tienen que aceptar una variable. El respaldo hace falta: el chat y la ficha del lead no tienen `data-paleta`, y por eso siguen con `vieja`.
 - **Los tiles no se guardan: salen de la posición** (`tilesDeHoja`). Las hojas guardadas los traen solas; también la tarjeta negra, porque `acentoDePortada` pisa el color de su identidad. El color de cada plantilla (`COLOR_DASHBOARD`) sólo se ve con «Clásica».
 - **Una hoja guardada conserva su acomodo.** `comoCorbel` arma las plantillas de la galería; una hoja que ya existe cambia de estilo, pero su tapa sigue a lo ancho, en negro. No se le mueve nada por detrás.
 - **El rayado NO se copió, a propósito.** En Corbel las columnas van rayadas de adorno; acá rayado es «Estimado» (`VOCABULARIO`), y una medición rayada diría lo contrario.
@@ -29,6 +29,7 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **Los radios son los de Corbel (8, 14, 22, 28), no los 10, 14, 18, 24 de las otras doce**, y la curva es `.2, .8, .2, 1`, no `.22, 1, .36, 1`: el estilo elegido es Corbel. El kanban usa los de Merrin, que es su referencia.
 - **`--surface-2` es sólido a propósito** (`#f0f0ef`, `--well` sobre `--surface`): Corbel lo tiene con alfa, y acá hay encabezados de tabla pegados que dejarían ver lo que scrollea debajo.
 - **Las series no son las cinco de la demo tal cual.** El `#c8c8c3` de Mono y el segundo de cada paleta con color no llegan a 2:1 sobre su superficie: se cambiaron por otro valor medido de la misma paleta. `tests/graficos-modelo.test.ts` mide cada color en su tema, y lee `--surface` del CSS. **El orden de Mono tampoco es el de la demo:** un anillo recorre la paleta por índice, y con cuatro canales usa los primeros cuatro. Medir sólo el orden completo daba 1,95 de peor vecino; el caso real con cinco series daba otro número. El test mide cada N de 2 a 6.
+- **Los ids de los estilos y las letras pagan presupuesto de WhatsApp.** `PLANTILLAS_TEMA` y `TIPOGRAFIAS` van como `enum` en `cambiar_ficha_funnel`, que viaja en cada turno, y `tests/ficha-api.test.ts` le pone tope. Sumar un estilo al Dashboard puso rojo ese guardia. `--rapido` no lo corre: sólo sigue un salto de import.
 - **Un tema candidato del taller le gana a todo esto** (`[data-tema-candidato]`, guardado en el navegador). Si alguien dice «no cambió», mirar primero `mako.tema-candidato` en su localStorage.
 - **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
 

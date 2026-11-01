@@ -93,11 +93,11 @@ test('el color de un KPI sale de su SIGNIFICADO, no de la paleta de la hoja', ()
 });
 
 test('un acento elegido a mano cambia la serie 0 y NADA más', () => {
-  const tema = sanearTema({ plantilla: 'clasica', acento: '#d0504a' });
+  const tema = sanearTema({ plantilla: 'vieja', acento: '#d0504a' });
   const paleta = paletaDe(tema);
   assert.equal(paleta[0], '#d0504a', 'el acento es el primer color de la serie');
   // Los otros siete siguen siendo los de la plantilla: elegir un acento no repinta la paleta entera.
-  assert.deepEqual(paleta.slice(1), PLANTILLAS_TEMA.find((p) => p.id === 'clasica')!.paleta.slice(1));
+  assert.deepEqual(paleta.slice(1), PLANTILLAS_TEMA.find((p) => p.id === 'vieja')!.paleta.slice(1));
 });
 
 test('la regla está DICHA en la pantalla, no escondida en una guía', () => {
