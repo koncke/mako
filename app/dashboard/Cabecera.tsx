@@ -34,6 +34,7 @@
 //    closer, un link compartido) el título se queda: sería lo único que dice en qué hoja estás.
 
 import { useCallback, useState, type ReactNode } from 'react';
+import { esLaDeFocus, nombreQueSeVe, type InformeDashboard } from '@/lib/dashboard-focus';
 import { EditableInline } from '@/app/_components/EditableInline';
 import Link from '@/app/_ui/Link';
 import { NuevoPlaceholder } from '@/app/automations/NuevoPlaceholder';
@@ -167,8 +168,10 @@ export type AccionesHoja = {
  *     a otro lado señalaría la hoja equivocada.
  * `acciones` en null = no se puede guardar (el closer, un link compartido): sólo se elige.
  */
-export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onIr, onNueva, archivadas = [], onRestaurar, onBorrarArchivada }: {
+export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onIr, onNueva, archivadas = [], onRestaurar, onBorrarArchivada, informe }: {
   hojas: readonly Hoja[];
+  /** Qué informe se está mirando: decide si la primera hoja se llama «Focus» en vez de su nombre guardado. */
+  informe?: InformeDashboard;
   /** Las hojas del otro informe del Dashboard unido: se abren, y lo que se les hace se hace estando en ellas. */
   otras?: readonly { id: string; nombre: string; emoji?: string; href: string }[];
   activa: string;
@@ -189,9 +192,11 @@ export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onI
   const cerrarOpciones = useCallback(() => setOpciones(null), []);
   const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
   const busca = norm(q.trim());
-  const visibles = hojas.filter((h) => !busca || norm(h.nombre).includes(busca));
+  // El nombre que se ve (y por el que se busca) sale de la MISMA regla que los chips, no del campo guardado.
+  const conNombre = hojas.map((h, i) => ({ ...h, visto: nombreQueSeVe(h.nombre, informe, i), deFocus: esLaDeFocus(informe, i) }));
+  const visibles = conNombre.filter((h) => !busca || norm(h.visto).includes(busca));
   const otrasVisibles = otras.filter((h) => !busca || norm(h.nombre).includes(busca));
-  const deOpciones = opciones ? hojas.find((h) => h.id === opciones.id) : undefined;
+  const deOpciones = opciones ? conNombre.find((h) => h.id === opciones.id) : undefined;
   /** Abre (o cierra, si ya estaba abierto) el submenú de una hoja, anclado a SU fila. */
   const alternarOpciones = (id: string, fila: HTMLElement | null) => {
     if (!fila) return;
@@ -209,8 +214,10 @@ export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onI
     );
     return (
       <Flotante ancla={opciones.ancla} onCerrar={cerrarOpciones} ancho={210} lado="derecha" anidado>
-        <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.nombre}`}>
-          {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id))}
+        <div className="lk-lista" role="menu" aria-label={`Opciones de ${deOpciones.visto}`}>
+          {/* La de Focus no se renombra: su nombre guardado no lo mira nadie —el chip dice «Focus» igual—, así que
+              ofrecerlo promete un cambio que no se ve. */}
+          {op('Renombrar', 'renombrar', () => setRenombrando(deOpciones.id), deOpciones.deFocus)}
           {op('Duplicar', 'duplicar', () => acciones.onDuplicar(deOpciones.id), hojas.length >= MAX_HOJAS)}
           {op('Copiar dashboard', 'copiar', () => acciones.onCopiar(deOpciones.id))}
           {op('Subir', 'arriba', () => acciones.onMover(deOpciones.id, -1), i <= 0)}
@@ -250,13 +257,13 @@ export function MenuHojas({ hojas, otras = [], activa, puedeNueva, acciones, onI
         return (
           <div key={h.id} className="lk-hoja-fila" data-activa={esActiva || undefined} data-opciones={abiertas || undefined}
             onContextMenu={(e) => { if (!acciones) return; e.preventDefault(); alternarOpciones(h.id, e.currentTarget); }}>
-            <button type="button" role="menuitemradio" aria-checked={esActiva} className="lk-opcion lk-hoja-op" onClick={() => onIr(h.id)} title={h.nombre}>
+            <button type="button" role="menuitemradio" aria-checked={esActiva} className="lk-opcion lk-hoja-op" onClick={() => onIr(h.id)} title={h.visto}>
               <span className="lk-hoja-marca">{esActiva && <IconoMenu nombre="check" size={15} />}</span>
               {h.emoji && <span aria-hidden>{h.emoji}</span>}
-              <span className="lk-hoja-nombre">{h.nombre}</span>
+              <span className="lk-hoja-nombre">{h.visto}</span>
             </button>
             {acciones && (
-              <button type="button" className="lk-hoja-mas" aria-label={`Opciones de ${h.nombre}`} aria-haspopup="menu" aria-expanded={abiertas}
+              <button type="button" className="lk-hoja-mas" aria-label={`Opciones de ${h.visto}`} aria-haspopup="menu" aria-expanded={abiertas}
                 onClick={(e) => alternarOpciones(h.id, e.currentTarget.parentElement)}>⋮</button>
             )}
           </div>
