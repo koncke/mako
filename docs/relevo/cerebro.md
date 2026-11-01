@@ -27,97 +27,94 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ⏩ LEER PRIMERO — 30/10/2026 ~14:30, el Cerebro de claude3 (`local_428051c1`, CIERRE al 95 %)
+## ⏩ LEER PRIMERO — 1/11/2026 ~20:50 ART, el Cerebro de claude1 (`e680c815`, semana al 86 %)
 
-**ACTUALIZACIÓN 30/10 ~14:30, CIERRE de claude3 (semana al 95 %): esto pisa lo de abajo donde choque.**
-- **tren-ai EN PRODUCCIÓN** (mako-gr9maew7i, main 9e24e7935): #33, #34, #35, el despachante de WhatsApp (#30), Video pasos 1
-  y 2, y los emails.
-- **Calendario/Classroom quedó AFUERA** por 4 rojos de Clients; uno es una guarda: el super admin sin impersonar no ve fichas.
-  - Devolución: `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-cal-classroom-devuelto.md`.
-  - `recorrido-k-3010` @ 246bae899 (K2 ALTO, el botón de MaKo que tapa en 4 pantallas) sale de esa rama y espera detrás.
-- **Los tickets con hito se cierran y AVISAN SOLOS** (miralo en `avisado_at`). No se manda aviso manual de esos.
-  - Leila (#31/#32) quedó avisada a las 06:45Z, y su aviso manual se canceló.
-  - Falta confirmar `avisado_at` de #33, #34 y #35.
-- **Hecho:**
-  - el cartero 1.24.0, instalado;
-  - las migraciones 0349, 0351, 0352 y 0331, y el índice de la 0048, aplicadas.
-- **Leandro:** Automations (local_7f005343) está soltando sus 8 inscripciones con 8 compare-and-set, aprobados: 703-707 vuelven
-  a «activa», y 660, 708 y 709 a «completada». Hay que verificar su tabla y archivarlo.
-- **La fila, en orden:**
-  1. Calendario, con su devolución, y después recorrido-k;
-  2. Agency;
-  3. Newsletter;
-  4. T2 Onboarding y las tandas por tab;
-  5. los workflows pausados;
-  6. la cabecera del Video;
-  7. el resto del recorrido.
-  El detalle está en por-repartir.md.
+**Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
+`origin/main` estaba en `e63050081` al empezar y no se movió.
 
-El registro fino está en `C:/dev/cerebro-herramientas/tickets/por-repartir.md`: lo último, abajo, despacho por despacho.
-**SP** = `C:/Users/marti/AppData/Local/Temp/claude/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/scratchpad/`.
+### Lo que quedó COMMITEADO y esperando el chequeo (NO está en main todavía)
 
-**Reglas nuevas de Martín (30/10, en memoria):**
-- «No me hagas preguntas que podés resolver vos mismo». Las migraciones que sólo agregan y los datos que rompió un bug nuestro
-  se hacen sin preguntar (`aprobacion-prod-en-el-chat`).
-- N3: cualquiera del grupo de WhatsApp de un negocio puede pausar o prender sus campañas (`campanas-desde-el-grupo-cualquiera`).
+| commit | qué | estado |
+|---|---|---|
+| `6ff74c641` | **Integraciones: los trece logos que no eran los de la empresa** | commiteado, chequeo sin terminar |
+| `6a91c1c97` | **Ops Center: seis referentes nuevos, destilados de Knowledge** | commiteado, chequeo sin terminar |
 
-**Hecho hoy:**
-- **Trenes ag y ah en producción.** main = 88700b981, mako-ou9xtjw1c.
-  - ag: Leila #31/#32. Su aviso queda programado a las 14:33 por el tope de avisos (un cron de esta sesión; si se cerró, se manda a
-    mano con el comando de por-repartir.md).
-  - ah: la iniciativa de MaKo, la barra del Reproductor y Zernio N1/N8.
-- **Migraciones aplicadas y medidas:**
-  - 0352, 0351 y 0349 (con el sí de Martín);
-  - 0331 completa y el índice idx_notif_tipo_created de la 0048, que nunca habían corrido.
-- **Gmail, 2.ª pasada:** 70 remitentes y unos 5.050 emails.
-  - Mandada en PDF al grupo «MaKo <> Mauricio Bustos».
-  - Rama `conocimiento-email-3010` @ 2b9b9d7b7, en el tren-ai.
-- **El aviso del #30 a Leandro salió:** la guía de Instagram en la API.
+⚠️ **El push NO pasó: se quedó esperando RAM, no es rojo.** `antes-de-subir` corrió 45 tandas y a partir de
+la 7 empezó a bajar tandas por RAM (0,7-1,1 GB libres contra 1,3 que pide). Cada vez suelta el candado y
+vuelve a hacer fila. Las dos salidas están en `~/.claude/antes-de-subir/2026-11-01T23-42-50-6a91c1c97/`.
+**Lo que hay que hacer:** o cerrar chats y reintentar `git push origin HEAD:integracion` desde
+`C:/dev/wt-push-q`, o dejarle el chequeo a Actions. Los dos commits ya están verificados a mano:
+`tests/zernio-todas-las-redes.test.ts` (10/10, y el guard nuevo probado rompiéndolo),
+`tests/integracion-tres-registros.test.ts` (5/5), `tests/coaches-ops-center.test.ts` (11/11) y
+`tests/offer-playbook.test.ts` (15/15, por el renombre de Higuera).
 
-**Corriendo — tren-ai** (Integración, barrido completo).
-- Lleva los tickets de clientes:
-  - #34: el 429 de Zernio es una pausa y no «reconectar» (43897f1df);
-  - #35: la hora de las reuniones en la ficha que lee MaKo (7d51f24c2, que contiene el despachante cc2aaa6ce);
-  - #33: un toque de botón nunca es «respondió» (da015ebd5).
-- Lleva además Calendario (7162c94aa), Video pasos 1 y 2 (0e27cb66f) y los emails.
+### 1. Los logos de /integraciones (pedido de Martín del 1/11)
 
-**Al Ready del tren-ai:**
-1. **Avisos:**
-   - Código Inmobiliario: #34 en el ws17 y #35 en el ws13;
-   - Leandro (ws10): #33 y la promesa falsa del #30. El tope de 3 por día del ws10 libera un lugar a las 17:12 ART.
-2. **Soltar las 8 inscripciones de @leantejado** (lead 5437, ws10) que el bug del #33 dejó en «respondió». Lo hace Automations
-   (local_7f005343, archivado) con «Volver a probar» por inscripción.
+«Muchos logos, como por ejemplo el de Appify, no son los logos reales de esas empresas.» **Eran 13 de 45.**
+Seis dibujados a ojo (Apify, Groq, Gemini, ElevenLabs, YouTube, la «G» de Google) y siete con letter-mark
+«porque no hay vector» (Creem, tl;dv, Fireflies, Otter, Read AI, bunny.net, Google Business — que mostraba
+la «G» de Google, o sea el logo de otro producto).
 
-**En curso:** Calendario (local_18ef0a3f), con el recorrido visual.
-- K2 ALTO: el botón flotante de MaKo tapa la casilla de los calendarios de Google. Se arregla en el layout compartido y cierra
-  también P1, C3 y D4.
-- Además K1, K3, K4 y K5.
-- Tiene el commit listo y espera su tsc. Su sha va al tren siguiente.
+- `IconDef` gana `img` (archivo oficial en `public/logos/`) y `lleno` (el archivo ES el tile).
+- El guard de las redes acepta `img` y **afirma que el archivo existe**.
+- Todo el porqué y el orden de búsqueda: `docs/hallazgos-integraciones.md`.
+- **Sin hacer:** `LogoMeet` en `ServicioVisual.tsx` sigue siendo un dibujo propio (su comentario lo dice).
+  Es la cámara al lado de «Asignar evento», no un tile; el mark oficial ya está como `ic-googlemeet`.
 
-**En fila (abrir de a uno, con ≥4,5 GB libres; nunca dos tests-afectados juntos: hoy el vigía mató 4 barredoras):**
-1. **Agency (Thiago):** 3 rojos.
-   - Una guarda de suplantación en /api/auth/me.
-   - Se perdió el `aprobada &&` en lib/partners.ts.
-   - Las zonas de México, como dato.
-   - Devolución en `C:/Users/marti/AppData/Roaming/Claude/side-session-notes/local_428051c1-0369-4df2-ae6b-bcb42f63b64b/integracion-agency-thiago-devuelto.md`.
-   - Chat local_e5c96952.
-2. **Newsletter:** M1 (la tab y la API pasan para cualquier admin), el doble envío, lo programado con el email apagado y archivar
-   el CRM. La devolución está al lado de la de Agency. Chat local_3058f25f. Hoy no hay riesgo: nadie tiene el email prendido.
-3. **El recorrido visual:** repartir los otros 22 hallazgos (`SP/recorrido/hallazgos.md`) y relanzar Create y «resto» (14 chats sin
-   mirar).
-4. **T2 Onboarding** (recomendarFunnel, la bienvenida y la pregunta de entrada) y las tandas T3–T17 de la iniciativa por tab:
-   `git show origin/main:docs/mako-iniciativa/plan.md`.
-5. **Workflows pausados:**
-   - conocimiento modular: `SP/iniciativa/conocimiento-workflow.js`, `resumeFromRunId: "wf_0b80b79c-462"`;
-   - lead magnet / spy: `SP/iniciativa/leadmagnet-spy-workflow.js`, `resumeFromRunId: "wf_d804ebee-14e"`.
-6. **Video, paso 3 (la cabecera):** el banco no arma por código de servidor. Relevo del Video en motion-imagen-2610 @ c45142425.
-7. **Lo que quedó sin hacer:**
-   - Zernio: gastar menos al conectar; alerta-critica no lee a quien conecta (docs/hallazgos-integraciones.md).
-   - #33: la API nombra el paso por posición; guardar el payload del postback (docs/hallazgos-chatbot.md).
+### 2. Los seis referentes nuevos del Ops Center (pedido de Martín del 1/11)
 
-**Para Martín:** nada que decidir. La extensión de Chrome está publicada (0.74.3). Meta sigue en revisión (~10/11; la verificación
-de acceso vence el 20/12) y Google está aprobado. El panel de la tienda de Chrome pide re-iniciar sesión, pero sólo hace falta para
-la próxima versión.
+De los **130 cursos** de `app/conocimientos/curso-*.ts` entran seis: Felipe Vergara (anuncios), Jaime
+Higuera (socio de crecimiento), Adrià Solà Pastor (comunicación), Augusto Bianchi (llamadas de ticket
+alto), Tino Mossu (objeciones y seguimiento) y Jordi Seguís (TikTok). Fichas destiladas de las
+transcripciones de verdad, caricaturas en el estilo aprobado.
+
+- **El criterio y los descartados, con el motivo de cada uno:** `docs/hallazgos-ops-center.md`. Ahí quedó
+  también **el prompt aprobado de las caricaturas**, que vivía sólo adentro de las llamadas a la
+  herramienta y hubo que sacarlo de un transcript de 173 MB.
+- ⚠️ **«Jaime Jiguera» no existe: es HIGUERA.** Corregido en los cinco archivos que lo traían mal.
+- **Candidatos medidos que NO entraron por falta de tiempo, no por criterio** (si Martín quiere más, estos
+  son los siguientes y ya están triados): **Javi Rodríguez**, «HIT» (122 clases) — eventos presenciales,
+  llenar escenarios, vender un negocio de formación; es el hueco más claro que queda. Y **Andy Landa**,
+  «ManyChat Master Instagram» (25) — DMs de Instagram, que pega con Automations.
+- Las fotos de referencia y los scripts quedaron en el scratchpad de esta sesión
+  (`.../e680c815-.../scratchpad/refs2/` y `bajar_caras.py`, `guardar_caras.py`): se resuelven por
+  `youtube.com/@handle`, nunca por búsqueda.
+
+### 3. ⛔ COMPETITORS SPY: EL REDISEÑO NO SE HIZO. Es lo primero que sigue.
+
+Martín lo pidió el 1/11 y **sigue pendiente**: «no solamente quiero que funcione y que traiga datos, sino
+que también el diseño esté bueno. O sea, fíjate que la cantidad de botones arriba, texto, eso no me gusta»,
+y «mucho mejor si puedes copiar de alguno de estos dashboards el diseño para que se vea muy competitiva a
+nivel de diseño esta tab». Después dijo **«Hazlo tu, confio»** y yo me fui a los logos y a los referentes.
+
+- **Lo último que se tocó de la tab es de ayer y es OTRA cosa**: `d5f8b5179` (el componente de la animación
+  de orden) y `e41c629e1` (las piezas en carpetas + Instagram con la clave de Apify del negocio).
+- **Lo que hay que cambiar** está en `app/competitor-spy/SpyApp.tsx` (905 líneas): entre la barra fija
+  (Zona 0, línea 653), las migas e identidad (Zona 1, 693) y las pestañas (Zona 2, 748) **hay siete filas de
+  controles antes de que se vea una pieza**. El plan medido era copiar **Vitrea** (la grilla de «Your apps»
+  y su banda de tres números) para la ficha del competidor y **Murmura** (alcance, interacción, guardados,
+  mejor publicación) para cómo se muestra una pieza, y bajar esas siete filas a unas tres.
+- ⚠️ **No tocar sin leer la cabecera del archivo**: la tab se REHIZO el 31/10 copiando once productos de la
+  categoría y Martín rechazó la versión anterior. El relevamiento está en
+  `docs/hallazgos-competitors-spy.md`. Las reglas de producto (un contador ausente no es cero; la etapa es
+  nuestro criterio; nada de «vs») las vigila `tests/spy-reglas.test.ts`.
+- **Apify SÍ está conectado** y la clave del ws9 existe (46 caracteres, `apify_api…`). Lo que **no** se
+  probó nunca de punta a punta es leer el Instagram de un competidor con esa clave puesta: el botón está en
+  la ficha del competidor, «Instagram · Agregar».
+- ⚠️ Dos cosas que reporté MAL de Apify y que no hay que volver a medir: la tarjeta **no** está oculta (leí
+  `/integraciones` a mitad de renderizar: contaba 13 conectadas y son 14), y **sí** hay clave (usé
+  `credWs` cuando el código usa **`credDelCliente(APIFY_CLAVE_DE_SPY, ws)`**).
+
+### 4. Los 20 dashboards del editor de informes: los tiene OTRO chat
+
+`task_a3b08be8`, con el brief completo (los valores medidos de las animaciones y mis cinco errores de
+método). **No duplicar ese trabajo.** La propuesta vive en `docs/templates-dashboard-propuesta.md`.
+
+### Decisiones abiertas de Martín (sin tocar)
+
+- Si Competitors Spy se abre a los clientes (`adminOnly: true`, `app/_components/nav.ts:378`).
+- Si las páginas de venta pasan al tema nuevo.
+- Rehacer las 24 hojas guardadas del Dashboard.
 
 ## El ritual de una cuenta nueva — 29/10/2026 ~00:55, de la cuenta 4 (claude4); sigue valiendo
 
