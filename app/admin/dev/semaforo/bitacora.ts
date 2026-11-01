@@ -79,6 +79,7 @@ export const BITACORA: Hito[] = [
   },
   {
     fecha: "31 oct", hora: "23:30", chat: "Planes de MaKo, suscripción y Partners", cuenta: "claude1",
+    sesion: "local_2218b568-c2aa-417e-891f-0c67e8feb5d2",
     actor: "claude", tipo: "implementacion",
     titulo: "La alerta de la cuenta publicitaria del cliente de una agencia le llega a la agencia, y no a su grupo",
     puntos: [
