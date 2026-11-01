@@ -59,12 +59,12 @@ export const CSS_TARJETAS = `
 .tk-c-grey { background: var(--tk-c-grey-bg); color: var(--tk-c-grey); }
 
 /* La tarjeta: grande, redonda, sombra suave sin borde marcado (22 px de radio, como el prototipo). */
-.tk { position: relative; background: var(--tk-card); border-radius: 22px; padding: 12px; box-shadow: var(--tk-sombra); border: 1px solid var(--tk-line); display: grid; gap: 10px; min-width: 0; transition: box-shadow .15s, transform .15s, opacity .15s; }
+.tk { position: relative; background: var(--tk-card); border-radius: 14px; padding: 12px 12px 10px; box-shadow: var(--tk-sombra); border: 1px solid var(--tk-line); display: grid; gap: 8px; min-width: 0; transition: box-shadow .15s, transform .15s, opacity .15s; }
 .tk[draggable="true"] { cursor: grab; }
 .tk.tk--clic { cursor: pointer; }
 .tk.tk--clic:hover { box-shadow: 0 2px 4px rgba(46, 52, 64, .08), 0 10px 26px rgba(46, 52, 64, .10); }
 .tk.tk--marcada { box-shadow: 0 0 0 2px var(--primary), var(--tk-sombra); }
-.tk.tk--compacta { padding: 8px 10px; gap: 6px; border-radius: 16px; }
+.tk.tk--compacta { padding: 8px 10px; gap: 6px; border-radius: 14px; }
 .tk--compacta .tk-fila { --tk-gap: 9px; }
 .tk--compacta .tk-nom { font-size: 14px; }
 .tk--compacta .tk-pill { height: 26px; padding: 0 10px; font-size: 12px; }

@@ -20,6 +20,16 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El espaciado de los kanban es el de Merrin (31/10/2026)
+
+**Vive en:** `app/crm/CrmBoard.tsx`, `app/crm/loading.tsx`, `app/_ui/TarjetaKanban.tsx`, `app/plan/board/BoardShell.tsx`, `app/customer-success/KanbanEntrega.tsx`. Los valores: `docs/diseno/espaciado-kanban.json`.
+
+- **Sale de Merrin, no de Corbel:** Corbel no tiene kanban, y Merrin es el CRM de la referencia. Por eso la columna va en 18 y la tarjeta en 14, aunque las tarjetas del Dashboard vayan en 22.
+- **El ancho de 304 no se copió.** Sus columnas miden 208 porque reparten cinco en 1113; las nuestras son las de la tanda del CRM.
+- **El relleno de la columna del CRM vive en sus hijos**, no en la columna: la cabecera lleva 14, 14 y 10 (el 10 de Merrin más los 4 de su cabecera) y el carril 0, 10 y 10. Así el carril puede scrollear de borde a borde.
+- **`app/crm/loading.tsx` tiene que medir lo mismo que el tablero:** si no, salta al terminar de cargar. Lo mide `tests/kanban-espaciado.test.ts`.
+- **El teléfono no cambió** (`app/m/m.css`): el kanban de Merrin no se midió a 390.
+
 ## ¿Qué pasó con estos leads? La papelera andaba; lo que no existía era el renglón (30/10/2026)
 
 **Vive en:** supabase/migrations/0356_leads_bajas.sql (aplicada el 30/10) · lib/leads-bajas.ts · lib/leads-bajas-reglas.ts · la API

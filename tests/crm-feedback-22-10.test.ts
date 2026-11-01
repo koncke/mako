@@ -56,10 +56,10 @@ test('1 y 2: el Kanban llena la pantalla, las columnas del mismo alto hasta abaj
   assert.ok(abajo >= 0 && abajo <= 6, `el Kanban deja ${abajo} px abajo`);
   assert.match(leer('app/_components/EsquinaAvisos.tsx'), /bottom: 'var\(--esquina-abajo, 20px\)'/, '«A revisar» cambió de lugar: revisar ABAJO_KANBAN');
   // La fila estira a cada columna al alto del tablero; ninguna topea ni mide lo de sus tarjetas.
-  assert.match(BOARD, /style=\{\{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8 \}\}>\s*<div style=\{\{ display: 'flex', gap: 14, alignItems: 'stretch', width: 'max-content', height: '100%' \}\}>/);
+  assert.match(BOARD, /style=\{\{ flex: 1, minHeight: 0, overflowX: 'auto', overflowY: 'hidden', paddingBottom: 8 \}\}>\s*<div style=\{\{ display: 'flex', gap: 12, alignItems: 'stretch', width: 'max-content', height: '100%' \}\}>/);
   assert.doesNotMatch(columna(), /maxHeight|68vh/, 'la columna volvió a topear');
   // El que scrollea es el carril de tarjetas, que se queda con el resto de la columna.
-  assert.match(BOARD, /<div data-carril style=\{\{ flex: 1, minHeight: 0, padding: 12, display: 'flex', flexDirection: 'column', gap: 10, overflowY: 'auto' \}\}>/);
+  assert.match(BOARD, /<div data-carril style=\{\{ flex: 1, minHeight: 0, padding: '0 10px 10px', display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto' \}\}>/);
   // El esqueleto de la carga, con las mismas medidas: si no, salta al llegar el tablero.
   const carga = leer('app/crm/loading.tsx');
   assert.match(carga, /padding: '16px 44px 4px', display: 'flex', flexDirection: 'column', height: 'calc\(100dvh - var\(--barra-agencia, 0px\)\)'/);
