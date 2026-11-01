@@ -2186,9 +2186,9 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada; en estilo: esquinas=redondas. |
 | `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
-| `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
+| `tema` | string (mako \\| pastel \\| azul \\| verde \\| vieja \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla, la misma del Dashboard. |
 | `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
-| `tipografia` | string (geist \\| inter \\| poppins \\| nunito \\| atkinson \\| hanken \\| dmsans \\| worksans \\| figtree \\| rubik \\| karla \\| publicsans \\| lora \\| merriweather \\| sourceserif \\| crimson \\| bitter \\| eb \\| maquina \\| jetbrains \\| spline \\| bricolage \\| instrument \\| fraunces) | no | en estilo: la tipografía de toda la ficha. |
+| `tipografia` | string (geist \\| urb \\| inter \\| poppins \\| nunito \\| atkinson \\| hanken \\| dmsans \\| worksans \\| figtree \\| rubik \\| karla \\| publicsans \\| lora \\| merriweather \\| sourceserif \\| crimson \\| bitter \\| eb \\| maquina \\| jetbrains \\| spline \\| bricolage \\| instrument \\| fraunces) | no | en estilo: la tipografía de toda la ficha. |
 | `densidad` | string (compacta \\| normal \\| amplia) | no | en densidad: el tamaño de las tarjetas. |
 | `plantilla` | string | no | en plantilla: el id (de ver_ficha_funnel) o auto. Sin tab, la de toda la ficha (arranca de cero bloques y avisos); con tab, la de esa tab. |
 | `nombre` | string | no | en nombre: cómo se llama la tab. Vacío, el de siempre. |

@@ -104,7 +104,8 @@ import {
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
-import { colorDeTono, estiloEfectivo, letrasDe, paletaDe, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
+import { acentoDePortada, colorDeTono, estiloEfectivo, letrasDe, paletaDe, paletaDeEscena, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
+import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
 import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type PiezaGeneral } from '@/lib/general-piezas';
@@ -117,7 +118,7 @@ import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-co
 import type { Resultado } from '@/lib/graficos-agregar';
 import type { DatosGrafico } from '@/lib/graficos-datos';
 import { accionInicial, entidadDeGrafico, piezaInicial, type SelDetalle } from '@/lib/graficos-acciones';
-import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, type EstadoDatos } from './Grafico';
+import { CuerpoGrafico, esTarjetaNumero, ocultaSiCero, tilesDeComponentes, type EstadoDatos } from './Grafico';
 import { CuerpoElemento, IconoElemento, PropsElemento, type ContextoElemento } from './Elemento';
 import { CrearHoja, NuevaHoja } from './NuevaHoja';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
@@ -506,6 +507,8 @@ export function EditorInforme({
   const estilo = useMemo(() => estiloEfectivo(hoja.tema), [hoja.tema]);
   const colores = useMemo(() => paletaDe(hoja.tema), [hoja.tema]);
   const varsTema = useMemo(() => varsDeTema(hoja.tema) as CSSProperties, [hoja.tema]);
+  const paleta = paletaDeEscena(hoja.tema);
+  const tiles = useMemo(() => (paleta ? tilesDeComponentes(hoja.componentes) : null), [paleta, hoja.componentes]);
 
   // ── Deshacer / rehacer (y Ctrl+Z / Ctrl+Y, sólo editando y nunca debajo de un recorrido) ─────────
   const pila = usePilaDeshacer<Tablero>((estado) => {
@@ -1227,7 +1230,7 @@ export function EditorInforme({
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
     // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color —el de la hoja, si eligió uno (#859)—; en la
     // pila mide menos que en el escritorio.
-    const portada = marcoDePortada(c, hoja.tema.acento);
+    const portada = marcoDePortada(c, acentoDePortada(hoja.tema));
     const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
     // #859: lo que un bloque de General pinta RELLENO (barras, botones, los números del Plan) toma el color de la hoja
     // (`--gb-acento`, app/general/bloques/comun.tsx). Los links de texto siguen en `--primary`: un acento claro sobre la
@@ -1282,7 +1285,7 @@ export function EditorInforme({
     // número, no (son listas de personas: /api/graficos le contesta 403).
     const popupDelCloser = soloLectura && !compartido && !editando && c.alClic === 'popup' && c.popup ? (s: SelDetalle) => abrirPopup(c, s) : undefined;
     return (
-      <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic} data-forma={portada?.forma}
+      <div key={c.id} data-comp={c.id} className={clases} style={{ ...base, ...(tono ? { '--lk-filete': tono } : {}) } as CSSProperties} onClick={alClic} data-forma={portada?.forma} data-tile={tiles?.get(c.id)}
         data-recorrido={c.id === primerGrafico ? (editando ? 'dash-componente' : 'dash-grafico') : undefined}>
         <div className="lk-comp-cab">
           <div className="lk-comp-tit">
@@ -1353,7 +1356,7 @@ export function EditorInforme({
   const pestanas = unido ? (esGeneral ? pestanasDelDashboard(propias, unido.otras) : pestanasDelDashboard(unido.otras, propias)) : null;
 
   return (
-    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho}>
+    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho} data-paleta={paleta}>
       <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
       {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
       {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
@@ -1744,6 +1747,7 @@ export function EditorInforme({
       <Toast state={toast} onClose={clear} />
       <style>{CSS}</style>
       <style>{CSS_EDICION}</style>
+      <style>{CSS_CORBEL}</style>
     </div>
   );
 }

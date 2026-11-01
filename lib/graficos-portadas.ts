@@ -119,6 +119,58 @@ export function conPortada(hoja: Crudo, def: DefinicionPortada | undefined, colo
   };
 }
 
+/** El alto de la fila de números y el de la fila de abajo (filas de la grilla): 168 y 352 px, los 162 y 354 de Corbel. */
+export const ALTO_NUMEROS = 4;
+export const ALTO_PROTAGONISTAS = 8;
+/** Lo que entra en un tercio de hoja, como el indicador oscuro de Corbel. El resto (una tabla, pósters, un mapa) va a lo ancho. */
+const CABE_EN_UN_TERCIO: ReadonlySet<unknown> = new Set(['numero', 'numero_compacto', 'numero_tendencia', 'indicador', 'anillo', 'embudo_vertical', 'embudo_barras', 'embudo_columnas', 'barra_proporcion']);
+/** El gráfico que acompaña a la portada: el de una serie en el tiempo, como las columnas de Corbel. */
+const ES_TENDENCIA: ReadonlySet<unknown> = new Set(['serie', 'columnas', 'area', 'lineas', 'combinado', 'combinado_apilado']);
+const esGraficoGrande = (c: Crudo) => c.clase === 'grafico' && !esNumero(c) && c.tipo !== 'tabla';
+
+/**
+ * LA COMPOSICIÓN DE CORBEL (Martín, 31/10/2026; docs/diseno/tokens-corbel.json): arriba CUATRO números en fila, abajo la
+ * pieza que contesta la pregunta de la hoja —la tarjeta negra, en un tercio— con su gráfico al lado, y después el resto en
+ * su orden. Reemplaza a la tapa a lo ancho de `conPortada`, que sigue siendo la de General. La pieza es la misma
+ * (`portadasDashboard`) y los ids no cambian. El color de `portada` se guarda igual: es el que pinta «Clásica».
+ */
+export function comoCorbel(hoja: Crudo, def: DefinicionPortada | undefined, color: string | undefined, id: Id): Crudo {
+  const comps = Array.isArray(hoja.componentes) ? (hoja.componentes as Crudo[]) : [];
+  if (!def || !color) return hoja;
+  let resto = comps;
+  let pieza: Crudo;
+  if ('sube' in def) {
+    const vieja = comps.find((c) => esLocal(c.id, def.sube));
+    if (!vieja) return hoja;
+    resto = cerrarHueco(comps.filter((c) => c !== vieja), vieja);
+    pieza = { ...vieja, subtitulo: '', ...(def.cambios ?? {}) };
+  } else {
+    pieza = def.nueva(id);
+  }
+  const porLugar = (a: Crudo, b: Crudo) => num(a.y) - num(b.y) || num(a.x) - num(b.x);
+  // `cerrarHueco` devuelve copias: lo que se saca se busca en el `resto` de ese momento.
+  const sacar = (c: Crudo) => {
+    const actual = resto.find((x) => x.id === c.id && x.tipo === c.tipo);
+    if (actual) resto = cerrarHueco(resto.filter((x) => x !== actual), actual);
+  };
+  // Los números: los de más arriba, hasta cuatro. La invertida abre la fila, que es donde Corbel pone el negro.
+  const numeros = resto.filter(esNumero).sort(porLugar).slice(0, 4).sort((a, b) => Number(!!b.invertida) - Number(!!a.invertida));
+  const n = numeros.length;
+  const fila = numeros.map((c, i) => {
+    sacar(c);
+    return { ...c, x: Math.round((i * COLS) / n), y: 0, w: Math.round(((i + 1) * COLS) / n) - Math.round((i * COLS) / n), h: ALTO_NUMEROS };
+  });
+  const yPieza = fila.length ? ALTO_NUMEROS : 0;
+  const candidatos = resto.filter(esGraficoGrande).sort(porLugar);
+  const vecino = CABE_EN_UN_TERCIO.has(pieza.tipo) ? candidatos.find((c) => ES_TENDENCIA.has(c.tipo)) ?? candidatos[0] : undefined;
+  if (vecino) sacar(vecino);
+  const primera: Crudo[] = vecino
+    ? [{ ...pieza, x: 0, y: yPieza, w: 4, h: ALTO_PROTAGONISTAS, portada: color }, { ...vecino, x: 4, y: yPieza, w: 8, h: ALTO_PROTAGONISTAS }]
+    : [{ ...pieza, x: 0, y: yPieza, w: COLS, h: ALTO_PORTADA, portada: color }];
+  const debajo = yPieza + (vecino ? ALTO_PROTAGONISTAS : ALTO_PORTADA);
+  return { ...hoja, componentes: [...fila, ...primera, ...compactar(resto).map((c) => ({ ...c, y: num(c.y) + debajo }))] };
+}
+
 /** El pop-up del anuncio, para las tarjetas de anuncios de una portada (lo arma lib/graficos-plantillas-analysts.ts). */
 type PopupDe = (id: Id, base: string) => Crudo;
 
@@ -140,7 +192,8 @@ type PopupDe = (id: Id, base: string) => Crudo;
  */
 export function portadasDashboard(popupAnuncio: PopupDe): Readonly<Record<string, DefinicionPortada>> {
   return {
-    marketing: { sube: 'mk-cac', cambios: { titulo: 'Cada cliente te cuesta', comparar: true } },
+    // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
+    marketing: { sube: 'mk-cac', cambios: { titulo: 'Cada cliente te cuesta', comparar: true, tipo: 'numero_tendencia' } },
     comercial: { sube: 'co-revenue-barra', cambios: { titulo: 'Lo que entró y lo que falta cobrar' } },
     'ads-analyst': {
       nueva: (id) => ({

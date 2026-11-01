@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Suspense, type CSSProperties } from 'react';
 import './globals.css';
 import { Sidebar } from './_components/Sidebar';
+import { AparicionDeTab } from './_components/AparicionDeTab';
 import { NotificationsProvider } from './_components/NotificationsProvider';
 import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
@@ -148,12 +149,11 @@ export default async function RootLayout({
   return (
     <html lang="es" className="h-full antialiased" {...(vista ? { 'data-barra-agencia': '1' } : {})}>
       <body>
-        {/* Geist vía CDN: deja que los estilos en línea del diseño usen
-            font-family:'Geist' / 'Geist Mono' tal cual. */}
+        {/* «Geist» es Urbanist desde el 31/10/2026 (el @font-face de app/globals.css), por eso de acá sólo sale la mono. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap"
           rel="stylesheet"
         />
         {/* Notificaciones de WhatsApp a nivel app: badge del sidebar + sonido +
@@ -288,6 +288,7 @@ export default async function RootLayout({
               {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
                   25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
               {sesion && <CartelPagoCliente />}
+              <AparicionDeTab />
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

@@ -457,7 +457,7 @@ export const DEFS: readonly OperacionDef[] = [
       // están en los avisos de ver_ficha_funnel, y la traducción (lib/ficha/api.ts) valida y devuelve los que hay.
       { nombre: 'aviso', tipo: 'string', max: 30, descripcion: 'en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel).' },
       { nombre: 'avisa', tipo: 'boolean', descripcion: 'en aviso: true para que avise, false para que no.' },
-      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla de estilo, la misma del Dashboard.' },
+      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla, la misma del Dashboard.' },
       { nombre: 'acento', tipo: 'string', max: 7, descripcion: 'en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo.' },
       { nombre: 'tipografia', tipo: 'string', enum: TIPOGRAFIAS.map((t) => t.id), descripcion: 'en estilo: la tipografía de toda la ficha.' },
       { nombre: 'densidad', tipo: 'string', enum: DENSIDADES.map((x) => x.id), descripcion: 'en densidad: el tamaño de las tarjetas.' },

@@ -188,7 +188,7 @@ function Muestra({ p, acento, letra }: { p: PlantillaTema; acento: string | null
     ...(p.tarjeta.filete ? { borderTop: `3px solid ${colores[0]}` } : {}),
   };
   return (
-    <span className="lk-muestra" style={estilo} aria-hidden>
+    <span className="lk-muestra" style={estilo} aria-hidden data-paleta={p.escena}>
       <span className="lk-muestra-tit" style={{ textTransform: p.titulo.mayus ? 'uppercase' : 'none' }}>Ventas</span>
       <span className="lk-muestra-barras">
         {[60, 95, 45, 75].map((h, i) => <span key={i} style={{ height: `${h}%`, background: colores[i], borderRadius: Math.min(3, p.graficos.radioBarra) }} />)}
