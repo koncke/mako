@@ -214,7 +214,6 @@ const LANDING: PlantillaHoja = {
       { id: id('la-origen'), clase: 'grafico', tipo: 'barras', fuente: 'visitas', dimension: 'origen', metricas: ['visitas'], limite: 10, titulo: 'De dónde llegan', x: 8, y: 28, w: 4, h: 9 },
       { id: id('la-scroll'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'scroll', metricas: ['medidos', 'llegaron_25', 'llegaron_50', 'llegaron_75', 'llegaron_100'], titulo: 'Hasta dónde bajan', x: 0, y: 37, w: 5, h: 10 },
       { id: id('la-clics'), clase: 'grafico', tipo: 'barras', fuente: 'clics', dimension: 'destino', metricas: ['clics'], ordenMetrica: 'clics', limite: 10, titulo: 'Qué botón tocan', x: 5, y: 37, w: 7, h: 10 },
-      { id: id('la-fondo-seccion'), clase: 'elemento', tipo: 'seccion', texto: 'Grabaciones y diagnóstico', seccion: { fondo: null, plegable: true, abierto: false }, x: 0, y: 47, w: 12, h: 1 },
       { id: id('la-grab-pagina'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'replays', dimension: 'pagina', metricas: ['grabaciones', 'duracion', 'visitantes'], barra: 'grabaciones', titulo: 'Grabaciones por página', x: 0, y: 48, w: 12, h: 8 },
       // El diagnóstico que MaKo guardó de cada página (analizar es una tarea: vive en Landing Generator).
       { id: id('la-diagnostico'), clase: 'grafico', tipo: 'barras', fuente: 'landing_analisis', fecha: 'actual', dimension: 'pagina', metricas: ['puntaje'], ordenMetrica: 'puntaje', titulo: 'Diagnóstico de cada página', x: 0, y: 56, w: 12, h: 8 },

@@ -104,6 +104,28 @@
     "dock": { "ancho": "322px", "alto": "56px", "padding": "6px", "radio": "999px" },
     "letra": "14px de base, igual que en la computadora. Acá se dejó la escala móvil de MaKo (16px de base): está fijada a propósito y es la que no dispara el zoom del teléfono."
   },
+  "composicion_de_pagina": {
+    "_como_se_leyo": "#/dashboard, en claro, con getComputedStyle sobre el DOM (31/10/2026). ⚠️ DEPENDE DEL ANCHO: a menos de 1100 colapsa a una columna, y ese colapso no es su diseño. Quien mida en un panel angosto mide la otra rama.",
+    "escritorio_1440": {
+      "alto_del_tablero": "806px, sin el encabezado",
+      "grilla": "12 columnas, gap 16px",
+      "filas": [
+        { "bloque": "db-kpis", "columnas": 12, "alto": "162px", "fondo": "transparente", "adentro": "4 tiles de 313 px" },
+        { "bloque": "db-perf", "columnas": 4, "alto": "354px", "fondo": "negro rgb(18, 18, 18)" },
+        { "bloque": "db-an", "columnas": 8, "alto": "354px", "fondo": "vidrio rgba(255, 255, 255, .64)" },
+        { "bloque": "db-heatc", "columnas": 7, "alto": "258px", "fondo": "vidrio" },
+        { "bloque": "db-vis", "columnas": 5, "alto": "258px", "fondo": "vidrio" }
+      ]
+    },
+    "cortes": {
+      "ancho <= 1320": "negro 5 + gráfico 7; db-heatc y db-vis a 12",
+      "ancho <= 1100": "todo a 12: 339 + 284 + 354 + 258 + 254 px; números de a 2",
+      "ancho <= 700": "el mapa de calor se ajusta",
+      "ancho <= 560": "sin el texto del chip; el anillo arriba"
+    },
+    "lo_que_hay_que_saber": "No hay portada, y el negro es el segundo bloque: nunca encabezado y nunca a lo ancho en escritorio. Cinco bloques."
+  },
+
 
   "_falta_medir": ["el degradado exacto de la columna elegida (se ve negro con la base que se apaga hacia arriba: mirar `.db-col.is-on .db-col__fill`)"]
 }

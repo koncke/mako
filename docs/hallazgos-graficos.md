@@ -20,7 +20,6 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **El id `mako` ES el blanco y negro.** El id es lo que se guarda: redefinirlo pasa al estilo nuevo a toda hoja que nunca eligió otro, sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como `vieja`.
 - **El oscuro y las paletas salen de redefinir los tokens** adentro de `data-paleta`, como hace la portada. Las series son `var(--cb-c1, #hex)`: `aclarar` y los que hacen cuentas con hex tienen que aceptar una variable. El respaldo hace falta: el chat y la ficha del lead no tienen `data-paleta`, y por eso siguen con `vieja`.
 - **Los tiles no se guardan: salen de la posición** (`tilesDeHoja`). Las hojas guardadas los traen solas; también la tarjeta negra, porque `acentoDePortada` pisa el color de su identidad. El color de cada plantilla (`COLOR_DASHBOARD`) sólo se ve con «Clásica».
-- **Una hoja guardada conserva su acomodo.** `comoCorbel` arma las plantillas de la galería; una hoja que ya existe cambia de estilo, pero su tapa sigue a lo ancho, en negro. No se le mueve nada por detrás.
 - **El rayado NO se copió, a propósito.** En Corbel las columnas van rayadas de adorno; acá rayado es «Estimado» (`VOCABULARIO`), y una medición rayada diría lo contrario.
 - **El número ya no llena la tarjeta:** 26 px, y 34 en la negra (`kpiMaximo`). Tampoco se pinta de verde o rojo: el significado lo dice el chip. Con los estilos de antes sigue como estaba.
 - **El esqueleto de toda la app también es Corbel Mono** (`:root` y `[data-tema="oscuro"]` de `app/globals.css`). `varsDeTema` sólo escribe `--dash-*`: redefinir el estilo de la hoja, sin esto, no cambiaba las pastillas, el fondo ni los bloques de General, que dibujan con `--primary`, `--bg` y `--surface`. Martín, mirando una hoja: «no veo que haya cambiado absolutamente nada».
@@ -33,17 +32,19 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **Un tema candidato del taller le gana a todo esto** (`[data-tema-candidato]`, guardado en el navegador). Si alguien dice «no cambió», mirar primero `mako.tema-candidato` en su localStorage.
 - **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
 
-**Una hoja guardada conserva su composición.** La de Foco, y todas las de `comoCorbel`, llegan a las plantillas y a quien nunca guardó su informe. Las hojas guardadas toman colores, letra y tiles, pero sus piezas siguen donde están.
+**La composición es la de Corbel a 1440, y ahí no había portada.** Martín: «No es necesario tener esa barra negra gigante como encabezado… Y lo mismo con las cajas de abajo». Medido (`composicion_de_pagina` en `docs/diseno/tokens-corbel.json`): números en fila, negro 4 + gráfico 8, 7 + 5. Todo vive en `comoCorbel` (`lib/graficos-portadas.ts`).
 
-**Las composiciones de las 13 (de 7 a 13 piezas cada una).** Se partió de una revisión del 31/10 que corrió `p.armar()` en todas; **lo que recortó sale de esa revisión**, y se aplicó con estos cambios:
+- **⚠️ MEDIR EN UN PANEL ANGOSTO MIDE OTRA PÁGINA.** A menos de 1100 px Corbel colapsa a una columna, y esa medición («todo a 12 columnas, sin pares») se tomó por su diseño. Se reconoció reproduciéndola a 900. El viewport va en la medición.
+- **La portada a lo ancho era invención nuestra**, y la revisión de las composiciones la conservó porque «hay que terminar el patrón que empezó el código». El patrón a terminar es el de la referencia.
+- **El negro va sólo en un tercio** (`pintaPortada`). Lo que no entra va en vidrio, también la tapa de 12 × 11 de una hoja guardada: cambia cómo se dibuja, no se le mueve nada. Con «Clásica» sigue.
+- **⚠️ UNA HOJA CREADA DESDE LA GALERÍA SALÍA DISTINTA DE SU MINIATURA.** `instanciarPlantilla` pone ids nuevos, que no terminan en el local, y `esLocal` no encontraba la pieza: la portada no se aplicaba, sin error. Lo mide `tests/graficos-corbel.test.ts` comparando las dos.
+- **Nada se borra:** lo que no entra va en «Más detalle», plegado. Lo plegado sale de la grilla (`lib/graficos-secciones.ts`).
+- **General usa lo mismo.** `conPortada` quedó sin uso en las plantillas. Dos bloques van de a par sólo si piden el mismo alto: estirar uno es espacio en blanco.
+- **`cartera`, `proyectos` y lo de `actual` van como `numero`:** sin rango, la línea saldría plana en cero.
 
-- **Se mantuvo `comoCorbel`** (números arriba y la tarjeta negra con su gráfico), no la portada a lo ancho arriba de todo: la revisión midió sobre `conPortada` sin ver ese cambio, y lo otro es lo medido de Corbel. Las piezas que no entran en un tercio van a lo ancho.
-- **Títulos de sección: no se agregaron.** `seccion` a una fila se come su propio título (26 px en una celda de 30). Sólo Landing tiene una, plegada.
-- **CRM conserva «Leads y agendas»** porque es lo que acompaña a la tarjeta negra.
-- **Marketing abre con tres números** y una fila de costos más baja: el CAC es la tarjeta negra.
-- **`cartera`, `proyectos` y lo de `actual` van como `numero`:** no tienen rango y la línea saldría plana en cero. Lo mide `tests/graficos-corbel.test.ts`.
+**Límite: los cortes de Corbel no están.** Tiene 5 + 7 a 1320 y todo a 12 a 1100; el editor es un solo `ReactGridLayout` de 12 columnas, con la pila debajo de 640. Entre 640 y 1320 se ve el acomodo de escritorio, más angosto. Tenerlos pide dibujar con otro acomodo por ancho sin tocar lo guardado.
 
-**Lo que dejó de dibujarse en una plantilla nueva** (las guardadas lo conservan, y se puede volver a agregar): el ciclo de venta y MRR (Comercial), el cycle time y el atraso (Productividad), el cruce closer × dimensión y la tendencia del score (Closing), alumnos y avance en cursos (CS), tipo de mensaje y por automatización (Chat), el reparto por proveedor de IA (Contenido), `corte` de las grabaciones (Landing), el embudo y las páginas (VSL), veredicto, ángulos y muestra chica (Ads), plataforma (Marketing), estados y por cliente (Cobranza), canal (Automatizaciones).
+**Una hoja guardada conserva su acomodo.** Rearmarla es escribir en sus datos, y necesita el sí de Martín.
 
 **`gb-cabe` no dibuja la fila que no entra, y eso no se ve en ningún test de datos.** En «Tareas prioritarias» de cinco entran tres. Ahora la lista lo dice («y N más en el Plan»), sólo en tareas y deadlines; Agenda y Norte siguen sin decirlo.
 

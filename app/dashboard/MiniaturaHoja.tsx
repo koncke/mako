@@ -33,7 +33,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { esElemento, esGrafico, sanearHoja, tituloDe, type Componente, type Elemento, type Hoja } from '@/lib/graficos-catalogo';
 import type { PlantillaHoja } from '@/lib/graficos-plantillas';
-import { acentoDePortada, paletaDe, paletaDeEscena, varsDeTema } from '@/lib/graficos-temas';
+import { acentoDePortada, paletaDe, paletaDeEscena, pintaPortada, varsDeTema } from '@/lib/graficos-temas';
 import { PAGINA_MINIATURA, lugarEnMiniatura, resultadoDeMuestra } from '@/lib/graficos-muestra';
 import { VARIABLES_TEXTO, conVariables, esPiezaGeneral, piezaGeneral } from '@/lib/general-piezas';
 import { CuerpoGrafico, esTarjetaNumero } from './Grafico';
@@ -62,7 +62,7 @@ const hoyLocal = (): string => {
 function Pieza({ c, hoja, vivo, hoy, tile }: { c: Componente; hoja: Hoja; vivo: boolean; hoy: string; tile?: string }): ReactNode {
   const variables = useVariablesInforme();
   // La portada (lib/graficos-identidad.ts): la misma tarjeta pintada que en la hoja (con el color de la hoja, si tiene).
-  const portada = marcoDePortada(c, acentoDePortada(hoja.tema));
+  const portada = pintaPortada(c, hoja.tema) ? marcoDePortada(c, acentoDePortada(hoja.tema)) : null;
   const conPortada = (clase: string): string => (portada ? `${clase} ${portada.clase}` : clase);
   const estilo = { flex: 1, ...(portada?.estilo ?? {}) } as CSSProperties;
   if (esGrafico(c)) {

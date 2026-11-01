@@ -39,7 +39,7 @@ import { Spinner, TABULAR } from '@/app/_ui';
 import { destinoDetalle, dimensionDe, fuenteDe, metricaDe, tipoDe, tonoDe, type Efectivo, type Formato, type Grafico as G } from '@/lib/graficos-catalogo';
 import { esGrafico as esPiezaGrafico, type Componente } from '@/lib/graficos-catalogo';
 import { alternarSerie, serieOculta, type SelDetalle } from '@/lib/graficos-acciones';
-import { acentoDePortada, colorDeTono, estiloEfectivo, fondoDeTarjeta, pinturaDe, type Procedencia, type TemaHoja } from '@/lib/graficos-temas';
+import { acentoDePortada, colorDeTono, estiloEfectivo, fondoDeTarjeta, pintaPortada, pinturaDe, type Procedencia, type TemaHoja } from '@/lib/graficos-temas';
 import { tilesDeHoja } from '@/lib/graficos-corbel';
 import { DefsRayado } from './graficos/Vocabulario';
 import { identidadEfectiva, paletaDePortada, PAPEL, DIMENSIONES_PERSONA, MAXIMO_PORTADA } from '@/lib/graficos-identidad';
@@ -96,7 +96,7 @@ export const esTarjetaNumero = (tipo: string) => tipoDe(tipo)?.grupo === 'Cuadro
 
 /** El tile de cada número de la hoja, con el estilo de Corbel: lo usan los dos que dibujan una tarjeta (el editor y la miniatura). */
 export const tilesDeComponentes = (comps: readonly Componente[]) => tilesDeHoja(comps.map((c) => ({
-  id: c.id, x: c.x, y: c.y, esNumero: esPiezaGrafico(c) && esTarjetaNumero(c.tipo), invertida: esPiezaGrafico(c) && !!c.invertida, portada: (c as { portada?: unknown }).portada,
+  id: c.id, x: c.x, y: c.y, esNumero: esPiezaGrafico(c) && esTarjetaNumero(c.tipo), invertida: esPiezaGrafico(c) && !!c.invertida, portada: c.w <= 6 ? (c as { portada?: unknown }).portada : undefined,
 })));
 
 /**
@@ -260,7 +260,7 @@ export function CuerpoGrafico({ g, estado, tema, onDetalle, efectivo, conReprodu
     // La PORTADA (lib/graficos-identidad.ts): las series en tonos de su tinta, sin cuadrícula, y el halo de las etiquetas
     // y los puntos es su color (no el de la tarjeta del tema). El color es el de la hoja si eligió uno (#859).
     const acentoPortada = acentoDePortada(tema);
-    const portada = identidadEfectiva(g.portada, acentoPortada);
+    const portada = pintaPortada(g, tema) ? identidadEfectiva(g.portada, acentoPortada) : null;
     const e0 = estiloEfectivo(tema);
     const e = portada ? { ...e0, colores: paletaDePortada(portada.id, acentoPortada) ?? e0.colores, cuadricula: false } : e0;
     const halo = portada ? portada.fondo : fondoDeTarjeta(tema);

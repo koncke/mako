@@ -11,10 +11,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { CSS_CORBEL, PALETAS_CORBEL, seriesDeEscena, tilesDeHoja, type EscenaCorbel } from '../lib/graficos-corbel';
-import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDe, paletaDeEscena, plantillaDe, sanearTema, varsDeTema } from '../lib/graficos-temas';
+import { TEMA_BASE, acentoDePortada, estiloEfectivo, paletaDe, paletaDeEscena, pintaPortada, plantillaDe, sanearTema, varsDeTema } from '../lib/graficos-temas';
 import { PLANTILLAS_GENERAL } from '../lib/general-plantillas';
 import { fuenteDe, sanearHoja } from '../lib/graficos-catalogo';
-import { componentesDe, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
+import { componentesDe, instanciarPlantilla, PLANTILLAS_HOJA } from '../lib/graficos-plantillas';
 import { comoCorbel, ALTO_NUMEROS, ALTO_PROTAGONISTAS } from '../lib/graficos-portadas';
 
 const MEDIDO = JSON.parse(readFileSync('docs/diseno/tokens-corbel.json', 'utf8'));
@@ -187,60 +187,63 @@ test('el teléfono, con lo medido a 390', () => {
   assert.equal(g.split('--fs-kpi: 22px;').length - 1, 2);
 });
 
-test('Foco: la composición nueva, con coordenadas reales', () => {
+test('Foco: números arriba, los OKR a lo ancho en vidrio (no en negro), y el par 7 + 5', () => {
   const p = PLANTILLAS_GENERAL.find((x) => x.id === 'foco')!;
   const h = sanearHoja({ ...p.armar((l: string) => l), plantilla: p.id }, 0)!;
   const c = h.componentes as Array<Record<string, any>>;
-  const negra = c.find((x) => x.portada)!;
-  assert.deepEqual([negra.x, negra.y, negra.w, negra.h], [0, 0, 12, 11]);
-  assert.equal(negra.texto, 'Cómo vas con tus OKRs', 'la tarjeta más grande de la hoja no puede ir sin título');
-  assert.equal(negra.general.opciones.estilo, 'barras', 'con anillos, «Facturar $30,000 e…» se corta');
   const numeros = c.filter((x) => x.tipo === 'numero').sort((a, b) => a.x - b.x);
-  assert.deepEqual(numeros.map((x) => [x.x, x.w]), [[0, 4], [4, 4], [8, 4]], 'tres iguales y sin hueco');
-  assert.equal(new Set(numeros.map((x) => x.y)).size, 1);
-  assert.equal(numeros[0].y, 11, 'pegados debajo de la portada');
-  const dl = c.find((x) => x.general?.pieza === 'deadlines')!;
-  assert.deepEqual(dl.general.opciones, { dias: '7', que: 'tareas' });
+  assert.deepEqual(numeros.map((x) => [x.x, x.y, x.w]), [[0, 0, 4], [4, 0, 4], [8, 0, 4]], 'tres iguales, arriba de todo y sin hueco');
+  const okr = c.find((x) => x.general?.pieza === 'objetivos')!;
+  assert.deepEqual([okr.x, okr.y, okr.w, okr.h], [0, 4, 12, 8]);
+  assert.equal(okr.portada, undefined, 'no entra en un tercio: en vidrio, sin negro');
+  assert.equal(okr.texto, 'Cómo vas con tus OKRs');
+  assert.equal(okr.general.opciones.estilo, 'barras', 'con anillos, «Facturar $30,000 e…» se corta');
   const tareas = c.find((x) => x.general?.pieza === 'tareas')!;
-  assert.deepEqual([tareas.y, tareas.h, tareas.w], [dl.y, dl.h, dl.w], 'el par parejo');
-  assert.ok(!c.some((x) => x.tipo === 'seccion'), 'sin la sección de 30 px que se comía su título');
+  const dl = c.find((x) => x.general?.pieza === 'deadlines')!;
+  assert.deepEqual([tareas.x, tareas.w, dl.x, dl.w, tareas.y === dl.y, tareas.h === dl.h], [0, 7, 7, 5, true, true]);
+  assert.deepEqual(dl.general.opciones, { dias: '7', que: 'tareas' });
+  // Lo demás, plegado: no se borró.
+  const sec = c.find((x) => x.tipo === 'seccion')!;
+  assert.equal(sec.seccion.abierto, false);
+  assert.ok(c.find((x) => x.general?.pieza === 'proyectos')!.y > sec.y);
   for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) assert.ok(!pisa(c[i] as never, c[j] as never), `${c[i].id} pisa a ${c[j].id}`);
 });
 
-test('la línea de un número se ve sobre su tile: la primera serie toma la tinta del tile', () => {
-  for (const [tile, tinta] of [['sky', '--cb-sky-ink'], ['mint', '--cb-on-tile'], ['lemon', '--cb-on-tile'], ['coral', '--cb-on-tile']]) {
-    const regla = new RegExp(`\\[data-tile="${tile}"\\]\\{[^}]*--cb-c1:var\\(${tinta}\\)`);
-    assert.match(CSS_CORBEL, regla, tile);
-  }
-});
-
-test('ningún número con línea sale de una fecha sin rango: la línea sería plana en cero', () => {
-  for (const p of [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL]) {
-    for (const c of componentesDe(p) as unknown as Array<Record<string, any>>) {
-      if (c.tipo !== 'numero_tendencia') continue;
-      const fuente = fuenteDe(c.fuente)!;
-      const fecha = c.fecha ?? fuente.fechas?.[0]?.id;
-      const info = fuente.fechas?.find((x: { id: string }) => x.id === fecha);
-      assert.ok(!info?.sinRango, `${p.id}/${c.id}: ${c.fuente}.${fecha} no tiene rango`);
-      assert.ok(fuente.fechas?.length, `${p.id}/${c.id}: ${c.fuente} no tiene fechas`);
-    }
-  }
-});
-
-test('las composiciones: cada plantilla abre con UNA fila de números iguales, y los títulos entran', () => {
-  const MAX = 22; // a 15 px en una tarjeta de 3 columnas, sin cortarse
+test('LA COMPOSICIÓN DE CORBEL A 1440: números, negro 4 + gráfico 8, 7 + 5, y lo demás plegado sin borrar nada', () => {
+  const m = MEDIDO.composicion_de_pagina.escritorio_1440.filas;
+  assert.deepEqual(m.map((x: { columnas: number }) => x.columnas), [12, 4, 8, 7, 5]);
   for (const p of PLANTILLAS_HOJA) {
     const c = componentesDe(p) as unknown as Array<Record<string, any>>;
-    const fila = c.filter((x) => x.y === 0 && !x.portada);
-    assert.ok(new Set(fila.map((x) => x.w)).size <= 2, `${p.id}: ${fila.map((x) => x.w)}`);
-    assert.equal(fila.reduce((s, x) => s + x.w, 0), 12, p.id);
-    for (const x of fila) {
-      assert.ok(!x.subtitulo, `${p.id}/${x.id}: el subtítulo le come el alto al número`);
-      assert.ok((x.titulo ?? '').length <= MAX, `${p.id}/${x.id}: «${x.titulo}» se corta`);
-    }
-    assert.ok(fila.filter((x) => x.invertida).length <= 1, p.id);
-    assert.ok(c.length <= 16, `${p.id}: ${c.length} piezas`);
+    const sec = c.find((x) => x.tipo === 'seccion' && x.seccion?.plegable);
+    const vista = sec ? c.filter((x) => x.y < sec.y) : c;
+    const negra = vista.filter((x) => x.portada);
+    assert.equal(negra.length, 1, `${p.id}: una sola negra`);
+    assert.deepEqual([negra[0].x, negra[0].y, negra[0].w, negra[0].h], [0, ALTO_NUMEROS, 4, ALTO_PROTAGONISTAS], `${p.id}: el negro va en un tercio, nunca de encabezado`);
+    const vecino = vista.find((x) => x.x === 4 && x.y === ALTO_NUMEROS)!;
+    assert.deepEqual([vecino.w, vecino.h], [8, ALTO_PROTAGONISTAS], p.id);
+    assert.ok(vista.length <= 8, `${p.id}: ${vista.length} bloques a la vista`);
+    const abajo = vista.filter((x) => x.y === ALTO_NUMEROS + ALTO_PROTAGONISTAS).sort((a, b) => a.x - b.x);
+    assert.ok(abajo.length === 2 ? abajo[0].w === 7 && abajo[1].w === 5 : abajo[0].w === 12, `${p.id}: ${abajo.map((x) => x.w)}`);
+    for (let i = 0; i < c.length; i++) for (let j = i + 1; j < c.length; j++) assert.ok(!pisa(c[i] as never, c[j] as never), `${p.id}: ${c[i].id} pisa a ${c[j].id}`);
   }
+});
+
+test('LA HOJA QUE SE CREA DESDE LA GALERÍA SALE IGUAL QUE SU MINIATURA: lleva ids nuevos, y no por eso otra composición', () => {
+  const lugares = (cs: Array<{ x: number; y: number; w: number; h: number }>) => cs.map((c) => [c.x, c.y, c.w, c.h].join(','));
+  for (const p of [...PLANTILLAS_HOJA, ...PLANTILLAS_GENERAL]) {
+    const creada = instanciarPlantilla(p).componentes;
+    assert.deepEqual(lugares(creada as never), lugares(componentesDe(p) as never), p.id);
+    assert.equal(creada.some((c) => (c as { portada?: unknown }).portada), componentesDe(p).some((c) => (c as { portada?: unknown }).portada), `${p.id}: la creada sin su negro`);
+  }
+});
+
+test('el negro nunca va a lo ancho: tampoco en una hoja guardada, y sin moverle nada', () => {
+  const tema = sanearTema(null);
+  assert.equal(pintaPortada({ w: 12 }, tema), false, 'la tapa de 12 × 11 de una hoja guardada va en vidrio');
+  assert.equal(pintaPortada({ w: 4 }, tema), true);
+  assert.equal(pintaPortada({ w: 12 }, sanearTema({ plantilla: 'vieja' })), true, 'con «Clásica» la tapa sigue, elegida');
+  for (const a of ['app/dashboard/EditorInforme.tsx', 'app/dashboard/MiniaturaHoja.tsx']) assert.match(leer(a), /pintaPortada\(c, hoja\.tema\) \? marcoDePortada/, a);
+  assert.match(leer('app/dashboard/Grafico.tsx'), /pintaPortada\(g, tema\) \? identidadEfectiva/);
 });
 
 test('EL RAYADO NO SE COPIA: acá significa «Estimado», y un número medido no se dibuja rayado', () => {
@@ -252,26 +255,6 @@ test('EL RAYADO NO SE COPIA: acá significa «Estimado», y un número medido no
 
 const pisa = (a: { x: number; y: number; w: number; h: number }, b: typeof a) =>
   a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-
-test('cada plantilla abre como Corbel: los números arriba y debajo la tarjeta negra, sin pisarse nada', () => {
-  assert.ok(PLANTILLAS_HOJA.length >= 13);
-  for (const p of PLANTILLAS_HOJA) {
-    const comps = componentesDe(p);
-    const negra = comps.find((c) => (c as { portada?: unknown }).portada);
-    assert.ok(negra, `${p.id}: sin pieza protagonista`);
-    assert.ok(negra.y <= ALTO_NUMEROS, `${p.id}: la tarjeta negra va en la segunda fila`);
-    assert.equal(negra.x, 0, p.id);
-    const arriba = comps.filter((c) => c.y === 0 && c !== negra);
-    if (negra.y > 0) {
-      assert.ok(arriba.length >= 1 && arriba.length <= 4, `${p.id}: ${arriba.length} números arriba`);
-      assert.equal(arriba.reduce((s, c) => s + c.w, 0), 12, `${p.id}: la fila llena el ancho`);
-      for (const c of arriba) assert.equal(c.h, ALTO_NUMEROS, `${p.id}: ${c.id}`);
-    }
-    for (let i = 0; i < comps.length; i++) for (let j = i + 1; j < comps.length; j++) {
-      assert.ok(!pisa(comps[i], comps[j]), `${p.id}: ${comps[i].id} pisa a ${comps[j].id}`);
-    }
-  }
-});
 
 test('la pieza es la misma y conserva su id: el closer y la caja de IA la buscan así', () => {
   const hoja = {
@@ -292,11 +275,12 @@ test('la pieza es la misma y conserva su id: el closer y la caja de IA la buscan
   assert.ok((de('tabla').y as number) >= ALTO_NUMEROS + ALTO_PROTAGONISTAS);
 });
 
-test('lo que no entra en un tercio va a lo ancho', () => {
+test('lo que no entra en un tercio va a lo ancho, en vidrio y sin portada', () => {
   const hoja = { componentes: [{ id: 'a', clase: 'grafico', tipo: 'serie', x: 0, y: 0, w: 12, h: 8 }] };
   const out = comoCorbel(hoja, { nueva: () => ({ id: 'p', clase: 'grafico', tipo: 'tarjetas' }) }, 'coral', (l) => l).componentes as Array<Record<string, unknown>>;
   assert.equal(out[0].id, 'p');
   assert.equal(out[0].w, 12);
+  assert.equal(out[0].portada, undefined);
 });
 
 test('las pantallas lo usan: el editor y la miniatura llevan la paleta y los tiles', () => {

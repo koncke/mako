@@ -207,8 +207,8 @@ test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las pie
   assert.equal(titular?.titulo, 'Cada cliente te cuesta');
   assert.deepEqual([titular?.x, titular?.y, titular?.w], [0, 4, 4]);
   const resto = graf(mk).filter((c) => c.y === 0).sort((a, b) => a.x - b.x);
-  assert.deepEqual(resto.map((c) => c.w), [4, 4, 4]);
-  assert.deepEqual(resto.map((c) => c.titulo), ['ROAS cash', 'Ad Spend', 'ROAS sold']);
+  assert.deepEqual(resto.map((c) => c.w), [3, 3, 3, 3]);
+  assert.deepEqual(resto.map((c) => c.titulo), ['ROAS cash', 'Ad Spend', 'ROAS sold', 'CPM']);
   assert.ok(resto[1].comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
   assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
@@ -226,11 +226,12 @@ test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las pie
   const de = (id: string) => co.componentes.find((c) => c.id === id);
   // La tendencia sube al lado de la barra (`comoCorbel`): las dos abren la hoja, y lo demás sigue en el orden de la tab vieja.
   assert.deepEqual([de('co-revenue-barra')?.y, de('co-revenue-barra')?.x, de('co-tendencia')?.y, de('co-tendencia')?.x], [4, 0, 4, 4]);
-  const orden = ['co-revenue-barra', 'co-funnel-embudo', 'co-cobranza-tabla', 'co-cohortes-mes-tabla'];
+  assert.deepEqual([de('co-cobranza-tabla')?.y === de('co-funnel-embudo')?.y, de('co-cobranza-tabla')?.w, de('co-funnel-embudo')?.w], [true, 7, 5]);
+  const orden = ['co-revenue-barra', 'co-cobranza-tabla', 'co-cohortes-mes-tabla'];
   const ys = orden.map((id) => de(id)?.y ?? -1);
   assert.ok(ys.every((y, i) => y >= 0 && (i === 0 || y > ys[i - 1])), `Comercial fuera de orden: ${ys.join(', ')}`);
-  // La composición del 31/10/2026: 9 piezas, y no hay un número fuera de la fila de arriba.
-  assert.equal(co.componentes.length, 9);
+  // La composición del 31/10/2026: 9 piezas y «Más detalle», y no hay un número fuera de la fila de arriba.
+  assert.equal(co.componentes.length, 10);
   const kpis = co.componentes.filter(esGrafico).filter((c) => c.y === 0).sort((x, y) => x.x - y.x);
   assert.deepEqual(kpis.map((c) => c.id), ['co-revenue-cobrado', 'co-revenue-vendido', 'co-revenue-pendiente', 'co-revenue-cierres']);
   assert.deepEqual(kpis.map((c) => [c.tipo, c.w, c.h]), Array(4).fill(['numero_tendencia', 3, 4]));

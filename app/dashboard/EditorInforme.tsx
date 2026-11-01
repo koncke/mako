@@ -104,7 +104,7 @@ import {
   sanearComponente, sanearControlVista, sanearControles, sanearElemento, tituloDe, tonoDe,
   type Componente, type Conector, type ControlVista, type Efectivo, type Elemento, type Grafico, type Hoja, type Tablero, type TipoElemento, type ValorControl, type VistaValores,
 } from '@/lib/graficos-catalogo';
-import { acentoDePortada, colorDeTono, estiloEfectivo, letrasDe, paletaDe, paletaDeEscena, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
+import { acentoDePortada, colorDeTono, estiloEfectivo, letrasDe, paletaDe, paletaDeEscena, pintaPortada, sanearTema, varsDeTema, type TemaHoja } from '@/lib/graficos-temas';
 import { CSS_CORBEL } from '@/lib/graficos-corbel';
 import { FILAS_PORTADA_EN_PILA, acentoDeBloque, marcoDePortada } from '@/lib/graficos-identidad';
 import { conHojaAgregada } from '@/lib/graficos-plantillas';
@@ -1230,7 +1230,7 @@ export function EditorInforme({
     // 3 × 6 (alto para acompañar al embudo en el escritorio) eran 276 px de celular para un número.
     // La PORTADA (lib/graficos-identidad.ts): la tarjeta se pinta con su color —el de la hoja, si eligió uno (#859)—; en la
     // pila mide menos que en el escritorio.
-    const portada = marcoDePortada(c, acentoDePortada(hoja.tema));
+    const portada = pintaPortada(c, hoja.tema) ? marcoDePortada(c, acentoDePortada(hoja.tema)) : null;
     const alto: CSSProperties = enPila ? (altoLibre ? { height: 'auto', minHeight: altoDe(Math.min(c.h, 3)) } : { height: altoDe(portada ? Math.min(c.h, FILAS_PORTADA_EN_PILA) : c.h) }) : {};
     // #859: lo que un bloque de General pinta RELLENO (barras, botones, los números del Plan) toma el color de la hoja
     // (`--gb-acento`, app/general/bloques/comun.tsx). Los links de texto siguen en `--primary`: un acento claro sobre la

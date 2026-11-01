@@ -76,8 +76,8 @@ const MARKETING: PlantillaHoja = {
       kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
       kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', '', 3, 0, { tipo: 'numero_tendencia', comparar: true }),
       kpi(id('mk-roas-sold'), 'negocio', 'roas_vendido', 'ROAS sold', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', '', 9, 0),
-      kpi(id('mk-cpm'), 'negocio', 'cpm', 'CPM', '', 0, 4, { tipo: 'numero_compacto', h: 3 }),
+      kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', '', 0, 4),
+      kpi(id('mk-cpm'), 'negocio', 'cpm', 'CPM', '', 9, 0, { tipo: 'numero_tendencia' }),
       kpi(id('mk-cpc'), 'negocio', 'cpc', 'CPC', '', 3, 4, { tipo: 'numero_compacto', h: 3 }),
       kpi(id('mk-costo-landing'), 'negocio', 'costo_landing', 'Costo / Landing', '', 6, 4, { tipo: 'numero_compacto', h: 3 }),
       kpi(id('mk-costo-vsl'), 'negocio', 'costo_vsl', 'Costo / VSL', '', 9, 4, { tipo: 'numero_compacto', h: 3 }),
@@ -158,7 +158,7 @@ const COMERCIAL: PlantillaHoja = {
 // Martín rechazó las galerías («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): cada plantilla
 // abre con UNA pieza a lo ancho, con la forma de su objetivo y su color (lib/graficos-portadas.ts y
 // lib/graficos-identidad.ts). Reemplaza al titular 6 × 6 del 14/10, que dejaba cuatro piezas compitiendo arriba.
-const PORTADAS = portadasDashboard((id, base) => popupDe(POPUP_ANUNCIO, id, base));
+const PORTADAS = portadasDashboard();
 const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => comoCorbel(p.armar(id), PORTADAS[p.id], colorDashboard(p.id), id) });
 
 /**
