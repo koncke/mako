@@ -249,43 +249,34 @@ const CLOSING: PlantillaHoja = {
       lista(id('cl-closer'), 'closer'),
     ],
     componentes: [
-      // 1 · Los KPI de la tab. «Analizadas» cuenta las ventas con análisis completo del período.
-      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', 'de 10, llamadas con puntaje', 0, 0),
-      kpi(id('cl-r1'), 'llamadas_venta', 'puntaje', 'R1', 'diagnóstico', 3, 0, { w: 2, controles: [fijo(id('cl-r1-c'), 'llamadas_venta.reunion', ['R1'])] }),
-      kpi(id('cl-r2'), 'llamadas_venta', 'puntaje', 'R2', 'cierre', 5, 0, { w: 2, controles: [fijo(id('cl-r2-c'), 'llamadas_venta.reunion', ['R2'])] }),
-      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', 'R2 ganadas ÷ R2', 7, 0, { w: 2 }),
-      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', 'llamadas de venta con análisis', 9, 0),
-      // 2 · El embudo y la tendencia mensual del score (doce meses: una línea de años no se lee)
+      // COMPOSICIÓN DEL 31/10/2026 (13 piezas → 10): cuatro números iguales, con la tasa de cierre primero porque es lo que la
+      // hoja pregunta. R1 y R2 eran el mismo puntaje con un filtro, y el cruce closer × dimensión vuelve con un clic en la tabla.
+      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 0, { tipo: 'numero_tendencia' }),
+      // El embudo (sube a portada: lib/graficos-portadas.ts) y lo que separa las ganadas de las perdidas.
       {
         id: id('cl-embudo-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'llamadas_venta', metricas: ['r1', 'r2', 'ganadas_r2'],
         titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 4, w: 6, h: 10,
       },
       {
-        id: id('cl-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas_venta', dimension: 'mes', metricas: ['puntaje'],
-        titulo: 'Tendencia del score', x: 6, y: 4, w: 6, h: 10, controles: [periodoFijo(id('cl-tendencia-fecha'), 'ult12m')],
-      },
-      // 3 · Qué separa las ganadas de las perdidas: las barras y la caja de MaKo que las lee
-      {
         id: id('cl-factores-barras'), clase: 'grafico', tipo: 'barras', fuente: 'llamadas_dimensiones', dimension: 'dimension', desglose: 'tono',
-        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 0, y: 14, w: 8, h: 14,
+        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 4, w: 6, h: 10,
       },
-      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 8, 14, 4, 14,
+      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 14, 12, 7,
         { fuentes: [id('cl-factores-barras')], largo: 'corto', formato: 'vinetas' }),
-      // 4 · El equipo
+      // El equipo
       {
         id: id('cl-closers-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'puntaje', 'ganadas', 'tasa_cierre'],
-        titulo: 'El equipo de closers', x: 0, y: 28, w: 12, h: 10,
-      },
-      {
-        id: id('cl-punto-debil'), clase: 'grafico', tipo: 'dinamica_calor', fuente: 'llamadas_dimensiones', dimension: 'closer', desglose: 'dimension',
-        metricas: ['puntaje'], titulo: 'Puntaje por closer y dimensión', x: 0, y: 38, w: 12, h: 10,
+        titulo: 'El equipo de closers', x: 0, y: 21, w: 12, h: 10,
       },
       // 5 · Las llamadas: traer las nuevas (el cron de siempre y este botón) y la lista, con su búsqueda y el
       //     pop-up «Llamada» (la ficha de cada una, con sus tareas).
-      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 48, 3, 2),
+      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 31, 3, 2),
       {
         id: id('cl-llamadas-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['puntaje', 'duracion'],
-        titulo: 'Las llamadas', limite: 50, x: 0, y: 50, w: 12, h: 16,
+        titulo: 'Las llamadas', limite: 50, x: 0, y: 33, w: 12, h: 16,
         tabla: { buscar: true, columnas: ['closer', 'reunion', 'dia'] },
         alClic: 'popup', popup: popupDe(POPUP_LLAMADA, id, 'cl-llamadas-tabla'),
       },
@@ -401,32 +392,25 @@ const CS: PlantillaHoja = {
       lista(id('cs-estado'), 'cartera.estado'),
     ],
     componentes: [
-      kpi(id('cs-clientes'), 'cartera', 'clientes', 'Clientes', 'en tu cartera hoy', 0, 0),
-      kpi(id('cs-atencion'), 'cartera', 'atencion', 'Necesitan atención', 'según sus señales de hoy', 3, 0),
-      kpi(id('cs-deuda'), 'cartera', 'deuda_vencida_usd', 'Deuda vencida', 'cuotas vencidas sin pagar', 6, 0),
-      kpi(id('cs-sesiones'), 'llamadas', 'llamadas', 'Sesiones con clientes', 'llamadas de entrega', 9, 0, {
-        comparar: true, controles: [fijo(id('cs-sesiones-c'), 'llamadas.categoria', [ENTREGA])],
+      // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 9): la cartera ES la hoja. Los de `cartera` van como `numero`: su fecha es
+      // `actual`, sin rango, y una línea saldría plana en cero. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
+      kpi(id('cs-atencion'), 'cartera', 'atencion', 'Necesitan atención', '', 0, 0, { invertida: true }),
+      kpi(id('cs-clientes'), 'cartera', 'clientes', 'Clientes', '', 3, 0),
+      kpi(id('cs-deuda'), 'cartera', 'deuda_vencida_usd', 'Deuda vencida', '', 6, 0),
+      kpi(id('cs-sesiones'), 'llamadas', 'llamadas', 'Sesiones', '', 9, 0, {
+        tipo: 'numero_tendencia', comparar: true, controles: [fijo(id('cs-sesiones-c'), 'llamadas.categoria', [ENTREGA])],
       }),
-      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 4, 12, 7),
-      { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 11, w: 6, h: 9 },
-      { id: id('cs-senal'), clase: 'grafico', tipo: 'circular', fuente: 'cartera', dimension: 'senal', metricas: ['clientes'], titulo: 'Cómo están', x: 6, y: 11, w: 6, h: 9 },
-      { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 0, y: 20, w: 6, h: 9 },
-      { id: id('cs-productos'), clase: 'grafico', tipo: 'barras_apiladas', fuente: 'entrega', fecha: 'actual', dimension: 'producto', desglose: 'etapa', metricas: ['clientes'], titulo: 'Por producto y etapa', x: 6, y: 20, w: 6, h: 9 },
       {
         id: id('cs-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
-        ordenMetrica: 'atencion', limite: 50, titulo: 'Cada cliente', x: 0, y: 29, w: 12, h: 10,
+        ordenMetrica: 'atencion', limite: 50, titulo: 'Cada cliente', x: 0, y: 4, w: 12, h: 10,
       },
+      { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 14, w: 6, h: 8 },
+      { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 6, y: 14, w: 6, h: 8 },
       {
         id: id('cs-semanas'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas', dimension: 'semana', metricas: ['llamadas'], titulo: 'Sesiones por semana',
-        x: 0, y: 39, w: 8, h: 9, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
+        x: 0, y: 22, w: 12, h: 8, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
       },
-      {
-        id: id('cs-quien'), clase: 'grafico', tipo: 'barras', fuente: 'llamadas', dimension: 'closer', metricas: ['llamadas'], titulo: 'Quién atiende',
-        x: 8, y: 39, w: 4, h: 9, controles: [fijo(id('cs-quien-c'), 'llamadas.categoria', [ENTREGA])],
-      },
-      // Los cursos del servicio (vacíos hasta que los alumnos avanzan: el estado vacío de la tarjeta lo dice).
-      kpi(id('cs-alumnos'), 'avance_cursos', 'alumnos', 'Alumnos activos', 'en los cursos de tu servicio', 0, 48),
-      kpi(id('cs-avance'), 'avance_cursos', 'avance', 'Avance en los cursos', 'promedio de los alumnos', 3, 48),
+      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 30, 12, 7),
     ],
   }),
 };
@@ -447,23 +431,20 @@ const CHAT: PlantillaHoja = {
       lista(id('ch-setter'), 'setter'),
     ],
     componentes: [
-      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Mensajes recibidos', 'contra el período anterior', 0, 0, { comparar: true }),
-      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', 'con mensajes en el período', 3, 0),
-      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', 'de los mensajes de tus leads', 6, 0),
-      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando respuesta', 'chats con más de 24 h sin respuesta', 9, 0, { fecha: 'actual' }),
-      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 4, 12, 7),
+      // COMPOSICIÓN DEL 31/10/2026 (14 piezas → 8): cuánto entra, qué tan rápido, cuánto espera. «Esperando» queda `numero`: su
+      // fecha es `actual`, sin rango. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
+      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
+      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 3, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 6, 4),
+      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 0, { fecha: 'actual' }),
       {
         id: id('ch-por-dia'), clase: 'grafico', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día',
-        x: 0, y: 11, w: 8, h: 9, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        x: 0, y: 8, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('ch-tipos'), clase: 'grafico', tipo: 'circular', fuente: 'whatsapp', dimension: 'tipo', metricas: ['mensajes'], titulo: 'Por tipo', x: 8, y: 11, w: 4, h: 9 },
-      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 20, w: 6, h: 9 },
-      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 20, w: 6, h: 9 },
-      { id: id('ch-automatizaciones'), clase: 'grafico', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'abiertos'], titulo: 'Por automatización', x: 0, y: 29, w: 8, h: 9 },
-      kpi(id('ch-respondieron'), 'inscripciones', 'respondieron', 'Respondieron', 'personas en una automatización', 8, 29, { w: 4 }),
-      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', 'la mediana, en minutos', 8, 33, { w: 4 }),
-      { id: id('ch-envios'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'envios', dimension: 'dia', desglose: 'estado', metricas: ['envios'], titulo: 'Enviados y fallidos', x: 0, y: 38, w: 6, h: 9 },
-      { id: id('ch-desenlace'), clase: 'grafico', tipo: 'barras', fuente: 'inscripciones', fecha: 'desenlace', dimension: 'desenlace', metricas: ['personas'], titulo: 'Cómo terminaron', x: 6, y: 38, w: 6, h: 9 },
+      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 16, w: 6, h: 8 },
+      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 16, w: 6, h: 8 },
+      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 24, 12, 7),
     ],
   }),
 };

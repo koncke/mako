@@ -36,8 +36,8 @@ const COLS = 12;
 
 /** La portada de una plantilla: una pieza que ya tenía (`sube`, por su id local) o una nueva. */
 export type DefinicionPortada =
-  | { sube: string; cambios?: Crudo }
-  | { nueva: (id: Id) => Crudo };
+  | { sube: string; cambios?: Crudo; alto?: number }
+  | { nueva: (id: Id) => Crudo; alto?: number };
 
 /** ¿Este id (con el prefijo que le pone `armar`) es el local `local`? */
 const esLocal = (id: unknown, local: string) => typeof id === 'string' && (id === local || id.endsWith(`-${local}`) || id.endsWith(local));
@@ -166,8 +166,8 @@ export function comoCorbel(hoja: Crudo, def: DefinicionPortada | undefined, colo
   if (vecino) sacar(vecino);
   const primera: Crudo[] = vecino
     ? [{ ...pieza, x: 0, y: yPieza, w: 4, h: ALTO_PROTAGONISTAS, portada: color }, { ...vecino, x: 4, y: yPieza, w: 8, h: ALTO_PROTAGONISTAS }]
-    : [{ ...pieza, x: 0, y: yPieza, w: COLS, h: ALTO_PORTADA, portada: color }];
-  const debajo = yPieza + (vecino ? ALTO_PROTAGONISTAS : ALTO_PORTADA);
+    : [{ ...pieza, x: 0, y: yPieza, w: COLS, h: def.alto ?? ALTO_PORTADA, portada: color }];
+  const debajo = yPieza + (vecino ? ALTO_PROTAGONISTAS : def.alto ?? ALTO_PORTADA);
   return { ...hoja, componentes: [...fila, ...primera, ...compactar(resto).map((c) => ({ ...c, y: num(c.y) + debajo }))] };
 }
 
@@ -208,6 +208,8 @@ export function portadasDashboard(popupAnuncio: PopupDe): Readonly<Record<string
     'chat-analyst': { sube: 'ch-rapidos', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Respondes en 15 minutos' } },
     closing: { sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' } },
     'cs-analyst': {
+      // Cuatro tarjetas de persona: con las 11 filas de un póster sobraba un tercio de tarjeta negra vacía.
+      alto: ALTO_PROTAGONISTAS,
       nueva: (id) => ({
         id: id('cs-portada'), clase: 'grafico', tipo: 'tarjetas', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
         ordenMetrica: 'atencion', barra: 'deuda_vencida_usd', limite: 4, tabla: { columnas: ['senal', 'tramo_contacto'] }, titulo: 'Quién te necesita hoy',

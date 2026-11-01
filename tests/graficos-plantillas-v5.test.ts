@@ -154,9 +154,9 @@ test('lo que DEFINE una tarjeta va FIJO, y el período propio también salvo el 
     }
   }
   assert.deepEqual(malos, []);
-  // Los que el pedido nombra: R1/R2, «Sin agendas», «Muestra chica», «Activo»; y los de las hojas nuevas.
+  // Los que el pedido nombra: «Sin agendas», «Muestra chica», «Activo»; y los de las hojas nuevas.
   const de = (hoja: string, comp: string) => CRUDAS.find((x) => x.id === hoja)!.hoja.componentes.find((c) => c.id === comp)?.controles ?? [];
-  for (const [h, c] of [['closing', 'cl-r1'], ['closing', 'cl-r2'], ['ads-analyst', 'ad-sin-retorno'], ['ads-analyst', 'ad-muestra'], ['productividad', 'pr-avance-proyecto'], ['cs-analyst', 'cs-sesiones'], ['comercial', 'co-funnel-embudo']]) {
+  for (const [h, c] of [['ads-analyst', 'ad-sin-retorno'], ['ads-analyst', 'ad-muestra'], ['productividad', 'pr-avance-proyecto'], ['cs-analyst', 'cs-sesiones'], ['comercial', 'co-funnel-embudo']]) {
     assert.ok(de(h, c).some((k) => k.tipo === 'lista' && k.fijo === true), `${h}/${c}: sin su filtro de definición`);
   }
   // Bajó con las composiciones del 31/10/2026 (menos piezas). Es la guarda de que el recorrido mira algo, no una cuota.
