@@ -786,7 +786,8 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 /* El retrato de un referente no tiene ojos que parpadeen: mientras trabaja, late su anillo (Retratos.tsx). */
 .mun-anillo { animation: mun-anillo 1.5s ease-in-out infinite; }
 @keyframes mun-anillo { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-@media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo, .mun-anillo { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { .mun-anillo { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .mun-cuerpo, .mun-ojos--parpadeo { animation: none !important; } }
 
 /* Lo que el empleado espera de Martín (la Ticketera): una línea arriba de la caja y su palabra en la fila. */
 .co-fila__l2--espera { color: var(--warn); }
