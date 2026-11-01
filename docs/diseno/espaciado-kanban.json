@@ -1,0 +1,12 @@
+{
+  "_que_es": "Las medidas del tablero de Merrin, leídas de la demo el 31/10/2026 con el navegador (getComputedStyle a 1440 × 900, en #/deals). Es la referencia para el CRM, Clients y el Plan (docs/diseno/tokens-codeandchill.json). Son las reglas de espaciado que Martín pidió llevar del Dashboard a los kanban.",
+  "url": "https://demo.codeandchill.store/merrin/#/deals",
+  "tablero": { "gap": "12px", "padding": "0 0 8px" },
+  "columna": { "border-radius": "18px", "padding": "10px" },
+  "cabecera": { "padding": "4px 4px 10px", "gap": "8px", "punto": "9px", "nombre": "13.5px / 600", "total": "12.5px / 700" },
+  "cuerpo": { "gap": "8px" },
+  "boton_agregar": { "height": "38px", "border-radius": "12px", "font-size": "12.5px", "font-weight": "600", "gap": "6px" },
+  "tarjeta": { "border-radius": "14px", "padding": "12px 12px 10px", "cuenta": "12px / 700", "titulo": "13.5px / 600, margin-top 3px", "valor": "17px / 600, margin-top 8px" },
+  "_no_se_copia": "El ancho: sus columnas miden 208 px porque reparten cinco en 1113. Las nuestras siguen en 304, que es lo que decidió la tanda del CRM.",
+  "_falta_medir": "El teléfono: todo se leyó a 1440. Por eso app/m/m.css no cambió."
+}
