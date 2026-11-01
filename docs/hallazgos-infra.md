@@ -10181,3 +10181,10 @@ Si el padre existe, **el push esta vivo y hay que esperarlo**. Si dice `MUERTO`,
 candado y se mata **por PID** (nunca por nombre: hay otros `node` legitimos, incluidos los hijos del push que SI
 sirve). Y nunca se relanza un push del mismo commit: el segundo quema la compuerta entera para despues no
 empujar nada, con el candado en la mano y los demas chats detras.
+
+**Y el vigia que mira ese push tiene su propia trampa, de la misma familia.** `head_sha=` de la API de
+Actions quiere los **40 caracteres**: con un sha abreviado devuelve `workflow_runs: []`, que no es un error
+sino una lista vacia, y el vigia la lee como «SIN RUN para esta cabeza». Un run que SI esta corriendo parece
+no existir, y el tren queda mudo sin que nadie se entere. `scripts`/`vigia-run.sh` ahora expande cualquier sha
+corto con `git rev-parse` y, si no puede, **corta gritando** (`SHA INSERVIBLE`, salida 4) en vez de callarse.
+Probado rompiendolo: con `deadbeef` grita, con 40 ceros dice SIN RUN, y con el sha corto de verdad espera.
