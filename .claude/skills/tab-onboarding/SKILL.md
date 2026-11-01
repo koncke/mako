@@ -1,6 +1,6 @@
 ---
 name: tab-onboarding
-description: Construir el ONBOARDING de una tab de MaKo. Usar SIEMPRE que se cree una tab nueva o se le agregue configuración a una existente. REGLA DEL PRODUCTO — toda tab tiene onboarding y su estado (hecho / no hecho) alimenta a MaKo. Define las 3 etapas (Conectar → Contexto → Ensayo), los principios de baja fricción y qué componentes reusar.
+description: Construir el ONBOARDING de una tab de MaKo. Usar SIEMPRE que se cree una tab nueva o se le agregue configuración a una existente. ⚠️ REGLA NUEVA DEL 01/11/2026: NINGÚN wizard tapa una tab — Martín: «nada debe tener onboarding… limitas la experiencia del usuario». La tab abre mostrando la tab; en lugar del wizard va una franja de UNA línea con una «×», y lo que falte lo pide MaKo cuando hace falta. El estado sigue sirviéndole a MaKo, pero como DATO («tiene 0 competidores»), no como un paso pendiente. Define las 3 etapas (Conectar → Contexto → Ensayo), los principios de baja fricción y qué componentes reusar.
 ---
 
 # El onboarding de una tab

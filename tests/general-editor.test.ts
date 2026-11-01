@@ -49,9 +49,12 @@ test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se e
     // Una portada NUEVA (15/10/2026, `PORTADAS_GENERAL`) es una pieza más que las escritas.
     const portada = PORTADAS_GENERAL[d.id];
     const nuevas = portada && 'nueva' in portada ? 1 : 0;
-    assert.equal(hoja.componentes.length, d.piezas.length + nuevas, `${d.id}: el saneo se comió una pieza`);
+    // Y «Más detalle» (31/10/2026, `comoCorbel`): la sección plegada de lo que no entra.
+    const pliegue = hoja.componentes.filter((c) => String(c.id).endsWith('-mas-detalle')).length;
+    assert.equal(hoja.componentes.length, d.piezas.length + nuevas + pliegue, `${d.id}: el saneo se comió una pieza`);
     for (const p of d.piezas) {
-      const c = hoja.componentes.find((x) => x.id === p.local);
+      // «Funnel de llamadas» tiene la sección «cierre» y el número «cierre»: antes del saneo, dos piezas con el mismo id.
+      const c = hoja.componentes.find((x) => x.id === p.local && (x.clase === 'elemento') === !!p.elemento);
       assert.ok(c, `${d.id}/${p.local}: no está en la hoja (¿un id que no pasa el saneo?)`);
       const el = p.elemento as { tipo: string; general?: { pieza: string } } | undefined;
       if (el) {

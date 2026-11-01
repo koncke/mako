@@ -180,6 +180,63 @@ una referencia, los VALORES son el pedido. No se interpreta la referencia: se mi
 
 ---
 
+## 9. Fastlane (usefastlane.ai): el producto que ya hace lo que el Funnel Coach quiere hacer (01/11/2026)
+
+**De dónde sale:** ticket #38. Martín mandó el link al grupo a las 05:05 UTC —«Podemos copiar esto
+para el Media Buyer… Tal vez encuentra otras cosas que podrian estar interesantes»— y **el ticket
+no se llevó el link**: lo pescamos en `mako_doer_conv`, un minuto antes del ticket. Leído con el
+navegador el 01/11; si no coincide dentro de un mes, se vuelve a leer, no se adivina.
+
+### El bucle, que es LO que hay que copiar (no la estética)
+
+1. **Aprende la marca de UN link.** Le das la URL y saca producto, paleta y tono de voz, y **escanea
+   todos los anuncios que esa marca ya corrió** para decirte qué está funcionando. (Ejemplo de su
+   propia página: 1.032 anuncios escaneados, 528 días el anuncio más viejo, 48 % con descuento.)
+2. **Estudia a los competidores Y a los clientes.** Lee los anuncios y las publicaciones orgánicas
+   de la competencia **y miles de reseñas en Reddit y Amazon**, y de ahí saca **las audiencias que
+   nadie está atendiendo**. No devuelve «datos del competidor»: devuelve un hueco de mercado.
+3. **Crea los anuncios** — decenas de conceptos nuevos por campaña, de un **catálogo de ~28 formatos
+   con nombre**: CHALKBOARD, CLAYMATION, BABY PODCAST, NETFLIX DOC, COMPETITOR REMIX, MEME, NOTES
+   APP, MISSING POSTER, MS PAINT… Vos aprobás, él los hace.
+4. **Lanza pago Y orgánico** desde un solo calendario: los anuncios al Ads Manager, y creadores de IA
+   publicando a diario en Instagram, TikTok y Shorts.
+5. **Lee el resultado y redobla.** Thumbstop, hold rate, CPA y ROAS **por creativo y contra el
+   promedio de la cuenta** («41 % thumbstop vs 25 % de promedio · 5,4× ROAS vs 2,1× de la cuenta»).
+6. **Los ganadores van a MEMORIA** y se convierten en variaciones; los perdedores se cortan. Cada
+   vuelta alimenta a la siguiente.
+
+### Las cinco cosas que nos faltan, y son las que valen
+
+- **«Aprende tu marca de un link» es nuestra regla de «nada debe tener onboarding», resuelta.** Pegás
+  una URL y el producto se configura solo. Es la misma idea que Martín pidió el 01/11, con la forma
+  ya encontrada.
+- **Una MEMORIA de lo que funcionó.** Hoy MaKo no la tiene: cada campaña arranca de cero. El ganador
+  guardado que genera las variaciones de la próxima tanda es el mecanismo que hace que el producto
+  mejore con el uso en vez de sólo producir.
+- **Un CATÁLOGO DE FORMATOS con nombre**, en vez de «escribime un anuncio». Veintiocho opciones
+  concretas convierten una hoja en blanco en una elección.
+- **Métricas por creativo CONTRA el promedio de la cuenta.** «5,4× ROAS» no dice nada; «5,4× contra
+  2,1× de tu cuenta» decide. Es una especificación de tablero, no una idea.
+- **«Radar»: el contenido pago y orgánico de cada marca en UNA biblioteca**, «para ver qué funciona
+  antes de hacer nada». Ésa es la forma madura de Competitors Spy: una biblioteca, no una ficha.
+
+### Lo que NO hay que copiar, y por qué
+
+- **Las cuentas de TikTok e Instagram «calentadas» y administradas por su equipo** (US$100/mes por
+  cuenta + US$1,50 por publicación). Es un SERVICIO con gente, no software, y además camina por el
+  borde de los términos de las dos plataformas.
+- **Los influencers de IA propios y las bibliotecas de 1.000 creadores de IA y 2.000 de humanos
+  licenciados.** Es un activo que se compra o se produce, no una funcionalidad.
+
+### Su precio, para calibrar el nuestro
+
+Desde **US$29/mes**, con **créditos como único medidor** (un estático 5, un video de 5 segundos 80),
+prueba de 7 días con 50 créditos. Su tabla se compara contra generadores de anuncios de IA (US$100-300),
+agencias (US$5.000-20.000) y «ChatGPT/Claude» (US$20 por puesto), y su columna fuerte es
+**«tiempo hasta la primera campaña lanzada: minutos»** contra 3-4 semanas de una agencia.
+
+---
+
 ## 10. Lo construido el 1/11/2026, y lo que falta
 
 **Medido, contra §8.2:** el Ops Center del cliente y el del super admin son LA MISMA PANTALLA con listas distintas

@@ -165,6 +165,8 @@ const mezcla = (c: string, pct: number) => `color-mix(in srgb, ${c} ${pct}%, tra
 
 /** Lo que adentro de un tile deja de ser de la hoja y pasa a ser de su color. */
 const adentroDeTile = (tinta: string, rotulo: number): string => [
+  // La línea de un número con tendencia es la primera serie: sin esto, negra sobre el tile negro (y clara sobre el claro, en oscuro).
+  `--cb-c1:${tinta}`,
   `--ink:${tinta}`, `--dim:${mezcla(tinta, rotulo)}`, `--faint:${mezcla(tinta, rotulo)}`,
   `--border:${mezcla(tinta, 14)}`, `--border-strong:${mezcla(tinta, 26)}`, `--surface-2:${mezcla(tinta, 8)}`,
   `color:${tinta}`,

@@ -338,8 +338,8 @@ test('una lista muestra sólo filas enteras, lo repetido llena el ancho, y las p
   const plan = leer('app/general/bloques/Plan.tsx');
   const vence = plan.slice(plan.indexOf('function ListaVence('), plan.indexOf('const opcionesDeadlines'));
   assert.ok(vence.length > 300 && vence.length < 3000, `el recorte mide ${vence.length}`);
-  assert.match(vence, /<div className="gb-cabe">/, 'los deadlines sin `gb-cabe`');
-  assert.match(plan, /<div className="gb-cabe">\s*\{tareas\.map\(\(t, i\) => \(\s*<FilaTarea/, 'las tareas sin `gb-cabe`');
+  assert.match(vence, /<div ref=\{lista\} className="gb-cabe">/, 'los deadlines sin `gb-cabe`');
+  assert.match(plan, /<div ref=\{lista\} className="gb-cabe">\s*\{tareas\.map\(\(t, i\) => \(\s*<FilaTarea/, 'las tareas sin `gb-cabe`');
   const agenda = leer('app/general/bloques/Agenda.tsx');
   assert.equal((agenda.match(/className="gb-cabe"/g) ?? []).length, 3, 'Mi día (línea y lista) y las llamadas');
   assert.match(leer('app/general/bloques/Norte.tsx'), /<div className="gb-cabe">\s*\{vistas\.map\(/, 'el semáforo sin `gb-cabe`');
@@ -357,4 +357,14 @@ test('una lista muestra sólo filas enteras, lo repetido llena el ancho, y las p
     const hoja = PLANTILLAS_GENERAL.find((p) => p.id === d.id)!.armar((l) => l) as { tema?: { plantilla: string } };
     assert.equal(hoja.tema?.plantilla, 'general', `${d.id}: la hoja nace sin su tema`);
   }
+});
+
+test('ninguna fila desaparece sin avisar: la que no entra se cuenta y se dice, en los deadlines y en las tareas', () => {
+  const plan = leer('app/general/bloques/Plan.tsx');
+  assert.equal((plan.match(/useFilasFuera\(/g) ?? []).length, 2);
+  assert.equal((plan.match(/<MasEnElPlan fuera=\{fuera\} \/>/g) ?? []).length, 2);
+  const comun = leer('app/general/bloques/comun.tsx');
+  assert.match(comun, /h\.offsetLeft > \(hijos\[0\]\?\.offsetLeft \?\? 0\)/, 'la que no entra se va a otra columna: así se reconoce');
+  assert.match(comun, /new ResizeObserver\(medir\)/, 'al cambiar el alto de la tarjeta, se vuelve a contar');
+  assert.match(comun, /y \{fuera\} más en el Plan/);
 });

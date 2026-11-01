@@ -70,112 +70,85 @@ const MARKETING: PlantillaHoja = {
     id: id('marketing'), nombre: 'Marketing', emoji: '📣', subtitulo: 'La pauta, el funnel y la audiencia.',
     controles: [{ id: id('mk-periodo'), tipo: 'periodo', preset: 'ult30' }],
     componentes: [
-      // 1 · Los KPIs estrella
-      kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', 'contra el período anterior', 0, 0, { comparar: true }),
-      kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', 'Spend ÷ cierres del período', 3, 0),
-      // LA INVERTIDA de esta fila: Marketing pregunta «¿el gasto en anuncios vuelve?», y el ROAS cash
-      // es la respuesta. Una sola por fila (ver `Grafico.invertida`), y la elige la plantilla.
-      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', 'Cash ÷ Spend · lo que entró', 6, 0, { invertida: true }),
-      kpi(id('mk-roas-sold'), 'negocio', 'roas_vendido', 'ROAS sold', 'Sold ÷ Spend · comprometido', 9, 0),
-      // 2 · Salud del Funnel — Marketing: el embudo y las cuatro de eficiencia
-      { id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'], titulo: 'Salud del Funnel — Marketing', x: 0, y: 4, w: 6, h: 12 },
-      kpi(id('mk-cpm'), 'negocio', 'cpm', 'CPM', 'por 1,000 impresiones', 6, 4, { h: 6 }),
-      kpi(id('mk-cpc'), 'negocio', 'cpc', 'CPC', 'por click', 9, 4, { h: 6 }),
-      kpi(id('mk-costo-landing'), 'negocio', 'costo_landing', 'Costo / Landing View', 'por vista de landing', 6, 10, { h: 6 }),
-      kpi(id('mk-costo-vsl'), 'negocio', 'costo_vsl', 'Costo / VSL View', 'por play del VSL', 9, 10, { h: 6 }),
-      // 3 · Tendencias: agrupa sola por día, semana o mes según el período (como la vieja). Con 4 métricas de
-      //     dos formatos se dibuja en PANELES (lib/graficos-gordo.ts): h 12 para que cada panel respire
-      //     (relevo C: h 10 son ~130 px de área por panel; h 12, ~170).
+      // COMPOSICIÓN DEL 31/10/2026: la plata en una fila, los costos en otra más baja (lo que se lee respira, lo que se escanea no),
+      // y cada tema de a pares. El CAC sube a la tarjeta negra (lib/graficos-portadas.ts).
+      // LA INVERTIDA: Marketing pregunta «¿el gasto en anuncios vuelve?», y el ROAS cash es la respuesta.
+      kpi(id('mk-roas-cash'), 'negocio', 'roas_cobrado', 'ROAS cash', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('mk-spend'), 'negocio', 'gasto', 'Ad Spend', '', 3, 0, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('mk-roas-sold'), 'negocio', 'roas_vendido', 'ROAS sold', '', 6, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('mk-cac'), 'negocio', 'cac', 'CAC real', '', 0, 4),
+      kpi(id('mk-cpm'), 'negocio', 'cpm', 'CPM', '', 9, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('mk-cpc'), 'negocio', 'cpc', 'CPC', '', 3, 4, { tipo: 'numero_compacto', h: 3 }),
+      kpi(id('mk-costo-landing'), 'negocio', 'costo_landing', 'Costo / Landing', '', 6, 4, { tipo: 'numero_compacto', h: 3 }),
+      kpi(id('mk-costo-vsl'), 'negocio', 'costo_vsl', 'Costo / VSL', '', 9, 4, { tipo: 'numero_compacto', h: 3 }),
+      // Tendencias: agrupa sola por día, semana o mes según el período. Va al lado de la tarjeta negra.
       {
         id: id('mk-tendencias'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'dia', metricas: ['gasto', 'leads', 'agendas', 'cierres'],
-        titulo: 'Tendencias', x: 0, y: 16, w: 12, h: 12,
+        titulo: 'Tendencias', x: 0, y: 7, w: 12, h: 12,
         controles: [{ id: id('mk-tendencias-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      // 4 · Audiencia y alcance (en vivo de Meta)
-      { id: id('mk-audiencia-titulo'), clase: 'elemento', tipo: 'texto', texto: 'Audiencia y alcance', tamano: 'xl', x: 0, y: 28, w: 12, h: 2 },
-      { id: id('mk-edad'), clase: 'grafico', tipo: 'columnas', fuente: 'audiencia', dimension: 'edad', desglose: 'genero', metricas: ['impresiones'], titulo: 'Edad y género', x: 0, y: 30, w: 4, h: 10 },
-      { id: id('mk-plataforma'), clase: 'grafico', tipo: 'barras', fuente: 'audiencia', dimension: 'plataforma', metricas: ['impresiones'], titulo: 'Plataforma', x: 4, y: 30, w: 3, h: 10 },
-      { id: id('mk-mapa'), clase: 'grafico', tipo: 'mapa', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde están', x: 7, y: 30, w: 5, h: 10 },
-      // 5 · Los anuncios del período, como TARJETAS (con su miniatura): eran 7 columnas con una barra en cada
-      //     una; ahora la que ordena + 3, y el clic abre el anuncio (relevo C y A2, puntos 20 y 21).
+      { id: id('mk-funnel'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl'], titulo: 'Salud del Funnel — Marketing', x: 0, y: 19, w: 12, h: 12 },
+      // Audiencia y alcance (en vivo de Meta)
+      { id: id('mk-edad'), clase: 'grafico', tipo: 'columnas', fuente: 'audiencia', dimension: 'edad', desglose: 'genero', metricas: ['impresiones'], titulo: 'Edad y género', x: 0, y: 31, w: 6, h: 10 },
+      { id: id('mk-mapa'), clase: 'grafico', tipo: 'mapa', fuente: 'audiencia', dimension: 'region', metricas: ['impresiones'], titulo: 'Dónde están', x: 6, y: 31, w: 6, h: 10 },
+      // Los anuncios del período, como TARJETAS (con su miniatura), y el clic abre el anuncio.
       {
         id: id('mk-anuncios'), clase: 'grafico', tipo: 'tarjetas', fuente: 'meta', dimension: 'anuncio', metricas: ['gasto', 'leads', 'agendas', 'cpa'],
         ordenMetrica: 'gasto', barra: 'gasto', limite: 10, tabla: { columnas: ['campana'] },
-        titulo: 'Anuncios del período', x: 0, y: 40, w: 12, h: 12,
+        titulo: 'Anuncios del período', x: 0, y: 41, w: 12, h: 12,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'mk-anuncios'),
       },
     ],
   }),
 };
 
-/** Las cohortes: la tabla de la tab vieja, del más nuevo al más viejo y sin los períodos vacíos. */
-const cohortes = (id: (l: string) => string, local: string, dimension: 'mes' | 'semana', madurez: string, limite: number, titulo: string, y: number) => ({
-  id: id(local), clase: 'grafico', tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension, titulo, limite,
-  metricas: ['agendas', 'asistencias', 'tasa_no_show', 'limpias', 'cierres', 'tasa_cierre_calificadas', 'ciclo_cierre', 'vendido'],
-  tabla: { columnas: [madurez], sinVacios: true, descendente: true },
-  controles: [periodoFijo(id(`${local}-fecha`), 'todo')],
-  x: 0, y, w: 12, h: 10,
-});
-
 const COMERCIAL: PlantillaHoja = {
   id: 'comercial', nombre: 'Comercial', emoji: '💼',
   linea: 'Lo vendido y lo cobrado, a quién cobrarle, el funnel de las reuniones y las cohortes.',
   armar: (id) => {
-    // Lo que DEFINE las cuatro tarjetas del funnel: las cohortes maduras, en todo el histórico (Martín, 11/10/2026:
-    // «Que muestre todas y para eso tenemos filtros dentro de un elemento»). Con los 30 días de la hoja quedaban
-    // 1-2 cohortes maduras.
+    // COMPOSICIÓN DEL 31/10/2026 (18 piezas → 9): cuatro números iguales, la barra con su tendencia, el embudo y dos listas.
+    // Lo que se sacó era el mismo dato dos veces (el no-show, el ratio y los cierres maduros son escalones del embudo; las
+    // cohortes por semana son las mensuales con otro corte) o un diagnóstico de trimestre (el ciclo de venta). MRR se fue:
+    // su única fecha es `actual`, y en una fila que se lee por período no tiene período.
+    // Lo que DEFINE el funnel: las cohortes maduras, en todo el histórico (Martín, 11/10/2026: «Que muestre todas y para eso
+    // tenemos filtros dentro de un elemento»). Con los 30 días de la hoja quedaban 1-2 cohortes maduras.
     const maduras = (local: string) => [periodoFijo(id(`${local}-fecha`), 'todo'), fijo(id(`${local}-f1`), 'leads.madurez_semana', ['Madura'])];
-    const todo = (local: string) => [periodoFijo(id(`${local}-fecha`), 'todo')];
+    const numero = { tipo: 'numero_tendencia', h: 4 };
     return {
       id: id('comercial'), nombre: 'Comercial', emoji: '💼', subtitulo: 'Revenue, cobranza, funnel y cohortes.',
       controles: [{ id: id('co-periodo'), tipo: 'periodo', preset: 'ult30' }],
       componentes: [
-        // 1 · Revenue: la barra cobrado/pendiente (la PORTADA de la hoja, lib/graficos-portadas.ts), Sold, Cash y
-        //     Outstanding, y el MRR (una lectura: `revenue`). El Outstanding mira hacia ADELANTE con su período a la vista
-        //     (este mes completo, como el bloque de antes, que llegaba al fin de mes).
-        { id: id('co-revenue-barra'), clase: 'grafico', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], titulo: 'Revenue', x: 0, y: 3, w: 12, h: 3 },
-        kpi(id('co-revenue-vendido'), 'revenue', 'vendido', 'Sold Revenue', '', 0, 0, { h: 3, secundaria: 'cierres' }),
-        // LA INVERTIDA de esta fila: Comercial pregunta «¿cuánta plata entró?», y es el Cash Collected
-        // (no el vendido, que está comprometido pero no cobrado).
-        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 3, 0, { h: 3, comparar: true, invertida: true }),
-        kpi(id('co-revenue-pendiente'), 'revenue', 'pendiente', 'Outstanding', '', 6, 0, {
-          h: 3, controles: [periodoVisible(id('co-revenue-pendiente-fecha'), 'este_mes_completo')],
-        }),
-        kpi(id('co-revenue-mrr'), 'suscripciones', 'mrr', 'MRR', '', 9, 0, { h: 3, ocultarSiCero: true }),
-        // 2 · A quién cobrarle: el desplegable (una sección plegada) con «Marcar cobrada» en cada fila. La
-        //     sección sin título de abajo CIERRA el grupo: sin ella, plegarla escondería el resto de la hoja.
-        { id: id('co-cobranza-seccion'), clase: 'elemento', tipo: 'seccion', texto: 'A quién cobrarle', seccion: { fondo: null, plegable: true, abierto: false }, x: 0, y: 9, w: 12, h: 1 },
+        { id: id('co-revenue-barra'), clase: 'grafico', tipo: 'barra_proporcion', fuente: 'revenue', metricas: ['cobrado', 'pendiente'], titulo: 'Revenue', x: 0, y: 4, w: 12, h: 3 },
+        // LA INVERTIDA de esta fila: Comercial pregunta «¿cuánta plata entró?», y es el Cash Collected (no el vendido, que está
+        // comprometido pero no cobrado). El Outstanding mira hacia ADELANTE con su período a la vista: este mes completo.
+        kpi(id('co-revenue-cobrado'), 'revenue', 'cobrado', 'Cash Collected', '', 0, 0, { ...numero, comparar: true, invertida: true }),
+        kpi(id('co-revenue-vendido'), 'revenue', 'vendido', 'Sold Revenue', '', 3, 0, numero),
+        kpi(id('co-revenue-pendiente'), 'revenue', 'pendiente', 'Outstanding', '', 6, 0, { ...numero, controles: [periodoVisible(id('co-revenue-pendiente-fecha'), 'este_mes_completo')] }),
+        kpi(id('co-revenue-cierres'), 'revenue', 'cierres', 'Cierres', '', 9, 0, numero),
+        // Dos métricas del mismo formato: un gráfico, no cuatro paneles.
         {
-          id: id('co-cobranza-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', titulo: 'Clientes por cobrar', limite: 50,
-          metricas: ['vendido', 'cobrado_total', 'pendiente', 'proxima_monto', 'dias'], ordenMetrica: 'dias', ordenAsc: true,
-          tabla: { acciones: true, columnas: ['urgencia'] },
-          controles: [periodoVisible(id('co-cobranza-tabla-fecha'), 'este_mes_completo')],
-          x: 0, y: 10, w: 12, h: 6,
+          id: id('co-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado'],
+          titulo: 'Tendencia', x: 0, y: 7, w: 12, h: 8, controles: [periodoFijo(id('co-tendencia-fecha'), 'ult12m')],
         },
-        { id: id('co-cobranza-cierre'), clase: 'elemento', tipo: 'seccion', texto: '', seccion: { fondo: null, plegable: false, abierto: true }, x: 0, y: 16, w: 12, h: 1 },
-        // 3 · La tendencia de los últimos 12 meses (en paneles: dos formatos)
-        {
-          id: id('co-tendencia'), clase: 'grafico', tipo: 'serie', fuente: 'negocio', dimension: 'mes', metricas: ['vendido', 'cobrado', 'gasto', 'cierres'],
-          titulo: 'Tendencia', x: 0, y: 17, w: 12, h: 12, controles: [periodoFijo(id('co-tendencia-fecha'), 'ult12m')],
-        },
-        // 4 · Salud del funnel comercial: las cohortes maduras
         {
           id: id('co-funnel-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'leads', fecha: 'agenda', metricas: ['agendas', 'asistencias', 'limpias', 'cierres'],
-          titulo: 'Salud del funnel comercial', subtitulo: 'Cohortes maduras', x: 0, y: 29, w: 7, h: 12, controles: maduras('co-funnel-embudo'),
+          titulo: 'Salud del funnel comercial', subtitulo: 'Cohortes maduras', x: 0, y: 15, w: 12, h: 10, controles: maduras('co-funnel-embudo'),
         },
-        kpi(id('co-funnel-tasa'), 'leads', 'tasa_cierre_calificadas', 'Ratio de cierre', 'cierres ÷ calificadas', 7, 29, { w: 5, fecha: 'agenda', controles: maduras('co-funnel-tasa') }),
-        kpi(id('co-funnel-noshow'), 'leads', 'tasa_no_show', 'No-show rate', '', 7, 33, { w: 5, fecha: 'agenda', controles: maduras('co-funnel-noshow') }),
-        kpi(id('co-funnel-cierres'), 'leads', 'cierres', 'Cierres maduros', '', 7, 37, { w: 5, fecha: 'agenda', controles: maduras('co-funnel-cierres') }),
-        // 5 · SCL — el ciclo de venta, en todo el histórico (lo que el bloque leía sin pedirlo)
-        kpi(id('co-scl-ciclo'), 'leads', 'ciclo', 'SCL promedio', 'días de la agenda al pago', 0, 41, { fecha: 'agenda', controles: todo('co-scl-ciclo') }),
-        kpi(id('co-scl-p90'), 'leads', 'p90_ciclo', 'SCL P90', '', 0, 45, { fecha: 'agenda', controles: todo('co-scl-p90') }),
+        // A quién cobrarle: desplegada, porque es lo que hay que hacer. «Marcar cobrada» en cada fila.
         {
-          id: id('co-scl-tramos'), clase: 'grafico', tipo: 'tramos', fuente: 'leads', fecha: 'agenda', metricas: ['tramo_1', 'tramo_2', 'tramo_3', 'tramo_4', 'tramo_5'],
-          titulo: 'Ciclo de venta (SCL)', x: 3, y: 41, w: 9, h: 8, controles: todo('co-scl-tramos'),
+          id: id('co-cobranza-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', titulo: 'A quién cobrarle', limite: 50,
+          metricas: ['pendiente', 'proxima_monto', 'dias'], ordenMetrica: 'dias', ordenAsc: true,
+          tabla: { acciones: true, columnas: ['urgencia'] },
+          controles: [periodoVisible(id('co-cobranza-tabla-fecha'), 'este_mes_completo')],
+          x: 0, y: 25, w: 12, h: 10,
         },
-        // 6 · Las cohortes
-        cohortes(id, 'co-cohortes-mes-tabla', 'mes', 'madurez_mes', 6, 'Cohortes mensuales', 49),
-        cohortes(id, 'co-cohortes-semana-tabla', 'semana', 'madurez_semana', 8, 'Cohortes semanales', 59),
+        {
+          id: id('co-cohortes-mes-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'leads', fecha: 'agenda', dimension: 'mes', titulo: 'Cohortes mensuales', limite: 6,
+          metricas: ['agendas', 'asistencias', 'cierres', 'tasa_cierre_calificadas', 'vendido'],
+          tabla: { columnas: ['madurez_mes'], sinVacios: true, descendente: true },
+          controles: [periodoFijo(id('co-cohortes-mes-tabla-fecha'), 'todo')],
+          x: 0, y: 35, w: 12, h: 12,
+        },
       ],
     };
   },
@@ -185,7 +158,7 @@ const COMERCIAL: PlantillaHoja = {
 // Martín rechazó las galerías («todos parecen muy iguales», «muchos gráficos juntos parece dashboard»): cada plantilla
 // abre con UNA pieza a lo ancho, con la forma de su objetivo y su color (lib/graficos-portadas.ts y
 // lib/graficos-identidad.ts). Reemplaza al titular 6 × 6 del 14/10, que dejaba cuatro piezas compitiendo arriba.
-const PORTADAS = portadasDashboard((id, base) => popupDe(POPUP_ANUNCIO, id, base));
+const PORTADAS = portadasDashboard();
 const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => comoCorbel(p.armar(id), PORTADAS[p.id], colorDashboard(p.id), id) });
 
 /**

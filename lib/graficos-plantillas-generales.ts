@@ -86,16 +86,16 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     linea: 'Cuántos leads entran, cuántos agendan y cierran, de dónde vienen y en qué etapa están.',
     subtitulo: 'Los leads del período, del alta al cierre.', periodo: 'ult30',
     piezas: [
-      { local: 'leads', tipo: 'numero', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Leads nuevos', comparar: true },
-      { local: 'agendas', tipo: 'numero', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendaron' },
-      { local: 'asistencia', tipo: 'numero', fuente: 'leads', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Tasa de asistencia' },
-      { local: 'cierre', tipo: 'numero', fuente: 'leads', metricas: ['tasa_cierre'], dimension: null, titulo: 'Tasa de cierre' },
+      // COMPOSICIÓN DEL 31/10/2026: cuatro números iguales y cada tema de a pares. «Cierres por closer» se fue: la tabla de cierre ya lo abre.
+      { local: 'leads', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['leads'], dimension: null, titulo: 'Leads nuevos', comparar: true, invertida: true },
+      { local: 'agendas', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['agendas'], dimension: null, titulo: 'Agendaron' },
+      { local: 'asistencia', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['tasa_asistencia'], dimension: null, titulo: 'Tasa de asistencia' },
+      { local: 'cierre', tipo: 'numero_tendencia', fuente: 'leads', metricas: ['tasa_cierre'], dimension: null, titulo: 'Tasa de cierre' },
       { local: 'embudo', tipo: 'embudo_vertical', fuente: 'leads', metricas: ['leads', 'agendas', 'asistencias', 'cierres'], dimension: null, titulo: 'Del lead al cierre' },
-      { local: 'etapas', tipo: 'barras', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Leads por etapa' },
       { local: 'por-dia', tipo: 'serie', fuente: 'leads', dimension: 'dia', metricas: ['leads', 'agendas'], titulo: 'Leads y agendas', controles: AGRUPAR_AUTO },
-      { local: 'origen', tipo: 'tabla_barras', fuente: 'leads', dimension: 'origen', metricas: ['leads', 'agendas', 'cierres', 'tasa_cierre'], titulo: 'De dónde vienen' },
+      { local: 'etapas', tipo: 'barras', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Leads por etapa' },
       { local: 'perdidas', tipo: 'barras', fuente: 'leads', dimension: 'motivo', metricas: ['leads'], titulo: 'Por qué se pierden' },
-      { local: 'closers', tipo: 'barras', fuente: 'leads', dimension: 'closer', metricas: ['cierres'], titulo: 'Cierres por closer' },
+      { local: 'origen', tipo: 'tabla_barras', fuente: 'leads', dimension: 'origen', metricas: ['leads', 'agendas', 'cierres', 'tasa_cierre'], titulo: 'De dónde vienen' },
     ],
   },
   {
@@ -105,18 +105,18 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     linea: 'Lo que vence en el período, lo cobrado, lo pendiente y a quién cobrarle primero.',
     subtitulo: 'Las cuotas de tus clientes.', periodo: 'este_mes_completo',
     piezas: [
-      { local: 'vence', tipo: 'numero', fuente: 'pagos', metricas: ['monto'], dimension: null, titulo: 'Vence en el período' },
-      { local: 'cobrado', tipo: 'numero', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true },
-      { local: 'pendiente', tipo: 'numero', fuente: 'pagos', metricas: ['pendiente'], dimension: null, titulo: 'Pendiente' },
-      { local: 'clientes', tipo: 'numero', fuente: 'pagos', metricas: ['clientes'], dimension: null, titulo: 'Clientes con cuota' },
+      // COMPOSICIÓN DEL 31/10/2026: lo cobrado primero. «Por cliente» era la portada con menos columnas y sin acción.
+      { local: 'cobrado', tipo: 'numero_tendencia', fuente: 'pagos', fecha: 'pago', metricas: ['cobrado'], dimension: null, titulo: 'Cobrado', comparar: true, invertida: true },
+      { local: 'pendiente', tipo: 'numero_tendencia', fuente: 'pagos', metricas: ['pendiente'], dimension: null, titulo: 'Pendiente' },
+      { local: 'vence', tipo: 'numero_tendencia', fuente: 'pagos', metricas: ['monto'], dimension: null, titulo: 'Vence' },
+      { local: 'cuotas', tipo: 'numero_tendencia', fuente: 'pagos', metricas: ['pagos'], dimension: null, titulo: 'Cuotas' },
       // La que era el bloque «A quién cobrarle»: una fila por cliente, el más urgente arriba, «Marcar cobrada».
       {
         local: 'a-quien', tipo: 'tabla', fuente: 'cobranza', dimension: 'cliente', metricas: ['pendiente', 'proxima_monto', 'dias'], titulo: 'A quién cobrarle',
         ordenMetrica: 'dias', ordenAsc: true, limite: 50, tabla: { acciones: true, columnas: ['urgencia'] },
       },
       { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y pendiente por semana' },
-      { local: 'estados', tipo: 'circular', fuente: 'pagos', dimension: 'estado', metricas: ['monto'], titulo: 'Por estado' },
-      { local: 'por-cliente', tipo: 'tabla', fuente: 'pagos', dimension: 'cliente', metricas: ['monto', 'cobrado', 'pendiente'], titulo: 'Por cliente' },
+      { local: 'por-funnel', tipo: 'barras', fuente: 'pagos', dimension: 'producto', metricas: ['pendiente'], titulo: 'Pendiente por funnel' },
     ],
   },
   {
@@ -124,14 +124,14 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     linea: 'Quién entra a cada automatización, cuántos mensajes salen, cuántos se abren y cuántos responden.',
     subtitulo: 'Tus automatizaciones del período.', periodo: 'ult30',
     piezas: [
-      { local: 'entraron', tipo: 'numero', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true },
-      { local: 'envios', tipo: 'numero', fuente: 'envios', metricas: ['envios'], dimension: null, titulo: 'Mensajes enviados' },
-      { local: 'apertura', tipo: 'numero', fuente: 'envios', metricas: ['tasa_apertura'], dimension: null, titulo: 'Tasa de apertura' },
-      { local: 'respuesta', tipo: 'numero', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta' },
-      { local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'abiertos', 'respuestas', 'tasa_respuesta'], titulo: 'Por automatización' },
+      // COMPOSICIÓN DEL 31/10/2026: la tabla por automatización es el tema de la hoja. «Por canal» era una torta estirada.
+      { local: 'entraron', tipo: 'numero_tendencia', fuente: 'inscripciones', metricas: ['personas'], dimension: null, titulo: 'Personas que entraron', comparar: true, invertida: true },
+      { local: 'envios', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['envios'], dimension: null, titulo: 'Mensajes enviados' },
+      { local: 'apertura', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_apertura'], dimension: null, titulo: 'Tasa de apertura' },
+      { local: 'respuesta', tipo: 'numero_tendencia', fuente: 'envios', metricas: ['tasa_respuesta'], dimension: null, titulo: 'Tasa de respuesta' },
       { local: 'por-dia', tipo: 'serie', fuente: 'envios', dimension: 'dia', metricas: ['envios', 'respuestas'], titulo: 'Envíos y respuestas', controles: AGRUPAR_AUTO },
+      { local: 'por-automatizacion', tipo: 'tabla_barras', fuente: 'envios', dimension: 'automatizacion', metricas: ['envios', 'abiertos', 'respuestas', 'tasa_respuesta'], titulo: 'Por automatización' },
       { local: 'desenlace', tipo: 'barras', fuente: 'inscripciones', dimension: 'desenlace', metricas: ['personas'], titulo: 'Cómo terminaron' },
-      { local: 'canal', tipo: 'circular', fuente: 'envios', dimension: 'canal', metricas: ['envios'], titulo: 'Por canal' },
     ],
   },
   {
@@ -139,16 +139,17 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
     linea: 'Cuánto usas la IA y para qué, y los videos e imágenes que MaKo le pidió a Flow.',
     subtitulo: 'La IA y la producción de contenido.', periodo: 'ult30',
     piezas: [
-      { local: 'llamadas', tipo: 'numero', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Llamadas a la IA', comparar: true },
-      { local: 'costo', tipo: 'numero', fuente: 'ia', metricas: ['costo'], dimension: null, titulo: 'Costo de la IA' },
-      { local: 'pedidos', tipo: 'numero', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow' },
-      { local: 'exito', tipo: 'numero', fuente: 'flow', metricas: ['tasa_exito'], dimension: null, titulo: 'Tasa de éxito' },
+      // COMPOSICIÓN DEL 31/10/2026: cuánto se usa, cuánto cuesta, cuánto cuesta cada una y cuánto salió. Se fue «Por proveedor»: ninguna
+      // hoja lo dibuja desde acá, y los videos e imágenes van como tabla, con su tasa de éxito adentro.
+      { local: 'costo', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo'], dimension: null, titulo: 'Costo de la IA', comparar: true, invertida: true },
+      { local: 'llamadas', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['llamadas'], dimension: null, titulo: 'Llamadas a la IA', comparar: true },
+      { local: 'costo-prom', tipo: 'numero_tendencia', fuente: 'ia', metricas: ['costo_prom'], dimension: null, titulo: 'Costo por llamada' },
+      { local: 'pedidos', tipo: 'numero_tendencia', fuente: 'flow', metricas: ['trabajos'], dimension: null, titulo: 'Pedidos a Flow' },
       { local: 'por-dia', tipo: 'serie', fuente: 'ia', dimension: 'dia', metricas: ['llamadas'], titulo: 'Llamadas por día', controles: AGRUPAR_AUTO },
       { local: 'funciones', tipo: 'barras', fuente: 'ia', dimension: 'funcion', metricas: ['llamadas'], ordenMetrica: 'llamadas', titulo: 'Para qué se usa' },
-      { local: 'proveedores', tipo: 'circular', fuente: 'ia', dimension: 'proveedor', metricas: ['llamadas'], titulo: 'Por proveedor' },
-      { local: 'flow', tipo: 'columnas', fuente: 'flow', dimension: 'tipo', desglose: 'estado', metricas: ['trabajos'], titulo: 'Videos e imágenes' },
       // Vivía en «WhatsApp y MaKo», que se fue en v5: lo que tu equipo le pide a MaKo es uso de la IA.
       { local: 'quien', tipo: 'barras', fuente: 'mako_chat', dimension: 'quien', metricas: ['mensajes'], titulo: 'Quién le escribe a MaKo' },
+      { local: 'flow', tipo: 'tabla_barras', fuente: 'flow', dimension: 'tipo', metricas: ['trabajos', 'listos', 'fallidos', 'tasa_exito'], barra: 'trabajos', titulo: 'Videos e imágenes' },
     ],
   },
 ];

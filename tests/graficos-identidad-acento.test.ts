@@ -44,10 +44,10 @@ test('la tinta se lee sobre CUALQUIER color que se elija (no sólo los de la tab
 });
 
 test('los tres que dibujan una tarjeta le pasan el color de la hoja', () => {
-  assert.match(leer('app/dashboard/EditorInforme.tsx'), /const portada = marcoDePortada\(c, acentoDePortada\(hoja\.tema\)\);/);
-  assert.match(leer('app/dashboard/MiniaturaHoja.tsx'), /const portada = marcoDePortada\(c, acentoDePortada\(hoja\.tema\)\);/);
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /const portada = pintaPortada\(c, hoja\.tema\) \? marcoDePortada\(c, acentoDePortada\(hoja\.tema\)\) : null;/);
+  assert.match(leer('app/dashboard/MiniaturaHoja.tsx'), /const portada = pintaPortada\(c, hoja\.tema\) \? marcoDePortada\(c, acentoDePortada\(hoja\.tema\)\) : null;/);
   const graf = leer('app/dashboard/Grafico.tsx');
-  assert.match(graf, /const acentoPortada = acentoDePortada\(tema\);\n\s*const portada = identidadEfectiva\(g\.portada, acentoPortada\);/);
+  assert.match(graf, /const acentoPortada = acentoDePortada\(tema\);\n\s*const portada = pintaPortada\(g, tema\) \? identidadEfectiva\(g\.portada, acentoPortada\) : null;/);
   assert.match(graf, /paletaDePortada\(portada\.id, acentoPortada\)/);
   assert.doesNotMatch(graf, /identidadDe\(g\.portada\)/, 'el gráfico de adentro volvió al color de la plantilla');
 });

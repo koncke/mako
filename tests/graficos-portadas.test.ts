@@ -47,18 +47,15 @@ test('la tinta se lee sobre su color: 4,5 la letra, y 3 los grises de la portada
   }
 });
 
-for (const [nombre, galeria] of [['Dashboard', PLANTILLAS_HOJA], ['General', PLANTILLAS_GENERAL]] as const) {
+// Desde el 31/10/2026 General no tiene portada (el negro va en un tercio, y sus bloques no entran): lib/graficos-portadas.ts, `comoCorbel`.
+for (const [nombre, galeria] of [['Dashboard', PLANTILLAS_HOJA]] as const) {
   // El Dashboard abre como Corbel desde el 31/10/2026: la tarjeta negra va debajo de los números (tests/graficos-corbel.test.ts).
-  test(`${nombre}: cada plantilla tiene UNA portada${nombre === 'General' ? ', arriba de todo y a lo ancho' : ''}`, () => {
+  test(`${nombre}: cada plantilla tiene UNA portada`, () => {
     for (const p of galeria) {
       const h = hojaDe(p);
       const portada = portadaDe(h);
       assert.ok(portada, `${p.id} no tiene portada`);
       assert.ok(portada.h >= 8, `${p.id}: una portada de ${portada.h} filas no es la portada`);
-      if (nombre === 'General') {
-        assert.deepEqual([portada.x, portada.y, portada.w], [0, 0, 12], `${p.id}: la portada no está arriba a lo ancho`);
-        assert.ok(h.componentes.every((c) => c === portada || c.y >= portada.y + portada.h), `${p.id}: algo se mete en la portada`);
-      }
       assert.equal(h.componentes.filter((c) => (c as { portada?: string }).portada).length, 1, `${p.id}: UNA portada`);
     }
   });
@@ -69,7 +66,8 @@ for (const [nombre, galeria] of [['Dashboard', PLANTILLAS_HOJA], ['General', PLA
     // el titular y el color). Lo que no puede pasar es que más de dos compartan forma: eso era la galería de antes.
     const cuenta = new Map<string, number>();
     for (const f of formas) cuenta.set(f, (cuenta.get(f) ?? 0) + 1);
-    const repetidas = [...cuenta].filter(([, n]) => n > 2);
+    // Con el negro para todas, la FORMA es lo que las separa. Tres iguales es el tope.
+    const repetidas = [...cuenta].filter(([, n]) => n > 3);
     assert.deepEqual(repetidas, [], `${nombre}: ${formas.join(', ')}`);
   });
 

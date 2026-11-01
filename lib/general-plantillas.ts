@@ -19,7 +19,7 @@ import { sanearHoja, type Hoja, type Tablero } from './graficos-catalogo';
 import { plantilla, type DefinicionGeneral, type PiezaPlantilla } from './graficos-plantillas-generales';
 import type { PlantillaHoja } from './graficos-plantillas';
 import { piezaGeneral, type PiezaGeneral } from './general-piezas';
-import { conPortada, type DefinicionPortada } from './graficos-portadas';
+import { comoCorbel, type DefinicionPortada } from './graficos-portadas';
 import { COLOR_GENERAL } from './graficos-identidad';
 
 /** Un bloque de General como pieza de plantilla, con su tamaño de siempre (o el que se le pida) y sus opciones. */
@@ -106,7 +106,7 @@ export const DEFINICIONES_GENERAL: readonly DefinicionGeneral[] = [
       // tres en 12 columnas, al título le quedaban ~190 px («Facturar $30,000 e…») y sobraba alto. Los tres números son lo
       // que le faltaba: era la única hoja sin uno. Los deadlines de la semana y sólo tareas: los proyectos ya van abajo, y
       // el mismo dato dos veces empujaba filas reales fuera de la caja (`gb-cabe` no dibuja la que no entra).
-      bloque('objetivos', { titulo: 'Cómo vas con tus OKRs', opciones: { estilo: 'barras', cuales: 'trimestre' } }),
+      bloque('objetivos', { titulo: 'Cómo vas con tus OKRs', h: 8, opciones: { estilo: 'barras', cuales: 'trimestre' } }),
       numero('cerradas', 'tareas', 'hechas', 'Tareas cerradas', { fecha: 'deadline' }),
       numero('abiertas', 'tareas', 'abiertas', 'Te quedan abiertas', { fecha: 'actual', comparar: false }),
       numero('avance', 'proyectos', 'avance_proyectos', 'Avance de proyectos', { fecha: 'actual', comparar: false }),
@@ -313,7 +313,7 @@ export const PORTADAS_GENERAL: Readonly<Record<string, DefinicionPortada>> = {
 
 /** La galería de General, en orden. «Hoja en blanco» va primera siempre (la pone el modal). */
 export const PLANTILLAS_GENERAL: readonly PlantillaHoja[] = DEFINICIONES_GENERAL.map(plantilla)
-  .map((p) => ({ ...p, armar: (id: (local: string) => string) => conPortada(conNumerosAltos(p.armar(id)), PORTADAS_GENERAL[p.id], COLOR_GENERAL[p.id], id) }));
+  .map((p) => ({ ...p, armar: (id: (local: string) => string) => comoCorbel(conNumerosAltos(p.armar(id)), PORTADAS_GENERAL[p.id], COLOR_GENERAL[p.id], id) }));
 
 /** Lo que /general tiene de propio en la galería (la de su «Nueva hoja»): éstas, nunca las del Dashboard. */
 export const esPlantillaGeneral = (id: string): boolean => PLANTILLAS_GENERAL.some((p) => p.id === id);

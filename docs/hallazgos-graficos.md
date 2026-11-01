@@ -20,7 +20,6 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **El id `mako` ES el blanco y negro.** El id es lo que se guarda: redefinirlo pasa al estilo nuevo a toda hoja que nunca eligió otro, sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como `vieja`.
 - **El oscuro y las paletas salen de redefinir los tokens** adentro de `data-paleta`, como hace la portada. Las series son `var(--cb-c1, #hex)`: `aclarar` y los que hacen cuentas con hex tienen que aceptar una variable. El respaldo hace falta: el chat y la ficha del lead no tienen `data-paleta`, y por eso siguen con `vieja`.
 - **Los tiles no se guardan: salen de la posición** (`tilesDeHoja`). Las hojas guardadas los traen solas; también la tarjeta negra, porque `acentoDePortada` pisa el color de su identidad. El color de cada plantilla (`COLOR_DASHBOARD`) sólo se ve con «Clásica».
-- **Una hoja guardada conserva su acomodo.** `comoCorbel` arma las plantillas de la galería; una hoja que ya existe cambia de estilo, pero su tapa sigue a lo ancho, en negro. No se le mueve nada por detrás.
 - **El rayado NO se copió, a propósito.** En Corbel las columnas van rayadas de adorno; acá rayado es «Estimado» (`VOCABULARIO`), y una medición rayada diría lo contrario.
 - **El número ya no llena la tarjeta:** 26 px, y 34 en la negra (`kpiMaximo`). Tampoco se pinta de verde o rojo: el significado lo dice el chip. Con los estilos de antes sigue como estaba.
 - **El esqueleto de toda la app también es Corbel Mono** (`:root` y `[data-tema="oscuro"]` de `app/globals.css`). `varsDeTema` sólo escribe `--dash-*`: redefinir el estilo de la hoja, sin esto, no cambiaba las pastillas, el fondo ni los bloques de General, que dibujan con `--primary`, `--bg` y `--surface`. Martín, mirando una hoja: «no veo que haya cambiado absolutamente nada».
@@ -33,9 +32,32 @@ el commit; acá va lo que hay que saber **antes** de tocarlo.
 - **Un tema candidato del taller le gana a todo esto** (`[data-tema-candidato]`, guardado en el navegador). Si alguien dice «no cambió», mirar primero `mako.tema-candidato` en su localStorage.
 - **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
 
-**Una hoja guardada conserva su composición.** La de Foco, y todas las de `comoCorbel`, llegan a las plantillas y a quien nunca guardó su informe. Las hojas guardadas toman colores, letra y tiles, pero sus piezas siguen donde están.
+**La composición es la de Corbel a 1440, y ahí no había portada.** Martín: «No es necesario tener esa barra negra gigante como encabezado… Y lo mismo con las cajas de abajo». Medido (`composicion_de_pagina` en `docs/diseno/tokens-corbel.json`): números en fila, negro 4 + gráfico 8, 7 + 5. Todo vive en `comoCorbel` (`lib/graficos-portadas.ts`).
 
-**Sin hacer:** las otras doce composiciones de la revisión del 31/10, el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
+- **⚠️ MEDIR EN UN PANEL ANGOSTO MIDE OTRA PÁGINA.** A menos de 1100 px Corbel colapsa a una columna, y esa medición («todo a 12 columnas, sin pares») se tomó por su diseño. Se reconoció reproduciéndola a 900. El viewport va en la medición.
+- **La portada a lo ancho era invención nuestra**, y la revisión de las composiciones la conservó porque «hay que terminar el patrón que empezó el código». El patrón a terminar es el de la referencia.
+- **El negro va sólo en un tercio** (`pintaPortada`). Lo que no entra va en vidrio, también la tapa de 12 × 11 de una hoja guardada: cambia cómo se dibuja, no se le mueve nada. Con «Clásica» sigue.
+- **⚠️ UNA HOJA CREADA DESDE LA GALERÍA SALÍA DISTINTA DE SU MINIATURA.** `instanciarPlantilla` pone ids nuevos, que no terminan en el local, y `esLocal` no encontraba la pieza: la portada no se aplicaba, sin error. Lo mide `tests/graficos-corbel.test.ts` comparando las dos.
+- **Nada se borra:** lo que no entra va en «Más detalle», plegado. Lo plegado sale de la grilla (`lib/graficos-secciones.ts`).
+- **General usa lo mismo.** `conPortada` quedó sin uso en las plantillas. Dos bloques van de a par sólo si piden el mismo alto: estirar uno es espacio en blanco.
+- **`cartera`, `proyectos` y lo de `actual` van como `numero`:** sin rango, la línea saldría plana en cero.
+
+**Límite: los cortes de Corbel no están.** Tiene 5 + 7 a 1320 y todo a 12 a 1100; el editor es un solo `ReactGridLayout` de 12 columnas, con la pila debajo de 640. Entre 640 y 1320 se ve el acomodo de escritorio, más angosto. Tenerlos pide dibujar con otro acomodo por ancho sin tocar lo guardado.
+
+**Una hoja guardada conserva su acomodo.** Rearmarla es escribir en sus datos, y necesita el sí de Martín.
+
+**⚠️ UNA CAPTURA CON EL PANEL OCULTO INVENTA ROTURAS.** El recorrido de producción acusó tres cosas en la hoja General; dos no existían, y la tercera tenía otra causa que la sospechada.
+
+- **La grilla cortada a la derecha era la transición congelada.** `useContainerWidth` arranca en 1280 y la grilla anima `left, top, width, height`. Con el panel del navegador oculto la página corre de fondo y la animación no avanza: a 900 de ancho, `style.width` decía 403 y el rectángulo 632. Para medir: leer `style.width` o apagar las transiciones. También `ResizeObserver` se atrasa: un cambio de tamaño sin recargar dejó la medida vieja.
+- **La estrella encima de «El mes» era la copia que vuela** del loader a la barra (`.cm-vuelo`, `app/_ui/VueloDeCarga.tsx`, 420 ms). La de la barra estaba en su lugar. Deducido por el recorrido: la copia se vio en vuelo y 4 s después ya no estaba, pero no congelada sobre ese título.
+- **⚠️ LA ACCIÓN DEL DÍA SÍ SE SALÍA, Y EL DIAGNÓSTICO OBVIO ERA FALSO.** Se sospechó de Urbanist «más ancha», y es al revés: un 8 % más angosta que Geist en esa frase. Con 6 × 7 y 90 letras, a 1440: Geist 5 líneas y 48 px afuera; Urbanist 4 líneas y 18. Ya estaba rota. La causa: `.gb-frase` toma el tamaño del ancho (`cqi`) y lo que no entra se decide en el alto.
+- **Cambiar la composición no la arregla:** la hoja guardada conserva su acomodo. Por eso se mide lo que hay (`app/general/bloques/frase-que-entra.ts`). Con `cqh` no se puede: `container-type: size` deja sin alto a la pila del teléfono.
+
+**Sin hacer:** el salto de la grilla al abrir. Sin `measureBeforeMount`, `useContainerWidth` dibuja a 1280 y después anima al ancho real (`app/dashboard/EditorInforme.tsx`, `useContainerWidth()`). Con esa opción la grilla ya no sale en el HTML del servidor, así que hay que mirarlo con el panel a la vista. A 673 × 180 la frase llega al piso de 23 px y el botón se corta 29 px: esa medida no está en ninguna hoja guardada de hoy.
+
+**`gb-cabe` no dibuja la fila que no entra, y eso no se ve en ningún test de datos.** En «Tareas prioritarias» de cinco entran tres. Ahora la lista lo dice («y N más en el Plan»), sólo en tareas y deadlines; Agenda y Norte siguen sin decirlo.
+
+**Sin hacer:** el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
 
 ## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
 

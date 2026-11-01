@@ -210,23 +210,9 @@ export const PLANTILLAS_TEMA: readonly PlantillaTema[] = [
     graficos: { etiquetas: false, leyenda: 'arriba', cuadricula: true, ejes: true, trazo: 4, radioBarra: 8, compacto: false },
     fuente: 'inter',
   },
-  {
-    // El de las plantillas de General (14/10/2026, Martín: «que las plantillas de GENERAL, no se parezcan tanto a un
-    // dashboard... textos enormes, cosas grandes, porque justamente es para ver de una pasada»): sin bordes ni filete,
-    // la tarjeta flota, el título y el número más grandes y la etiqueta en la letra de la hoja (no en mono).
-    id: 'general', nombre: 'General', linea: 'Números enormes y tarjetas que flotan, para leer de una pasada.',
-    // 31/10/2026: el blanco y negro también acá. Las hojas de General guardan este id: Martín, mirando una, «no veo que
-    // haya cambiado absolutamente nada... Tiene que cambiar todo, incluso los dashboard ya creados».
-    escena: 'mono',
-    paleta: seriesDeEscena('mono'),
-    // ÉPICO (14/10/2026, la séptima vuelta): el título de cada tarjeta es un RÓTULO —13 px, mayúsculas— y lo grande es lo
-    // de adentro, como el teléfono que Martín aprobó (app/general/bloques/comun.tsx tiene la escala).
-    tarjeta: { fondo: 'surface', borde: 'no', radio: 22, sombra: true, filete: false },
-    titulo: { tam: 13, peso: 700, mayus: true },
-    kpi: { etiqueta: 'letra', tamValor: 52 },
-    graficos: { etiquetas: true, leyenda: 'arriba', cuadricula: false, ejes: true, trazo: 4, radioBarra: 10, compacto: false },
-    fuente: 'geist',
-  },
+  // El de las plantillas de General: lo mismo que el de por defecto desde el 31/10/2026 (Martín, mirando una: «Quiero todo nuevo...
+  // Guiate en lo que copiamos»). El id sigue porque es lo que guardan esas hojas: sin él, quedaban afuera sin avisar.
+  conEscena('general', 'General', 'El blanco y negro, para leer de una pasada.', 'mono'),
   {
     id: 'editorial', nombre: 'Editorial', linea: 'Títulos con serif, como un informe impreso.',
     paleta: ['#3E6E9E', '#B5762A', '#2F7D6D', '#6B4FA0', '#B04848', '#3E8A4F', '#9A4D7C', '#3A86A8'],
@@ -401,6 +387,13 @@ export function acentoDePortada(tema: TemaHoja): string | null {
   const escena = paletaDeEscena(tema);
   return escena ? PALETAS_CORBEL[escena].claro['--cb-ocean'] : null;
 }
+
+/**
+ * ¿Esta pieza se pinta como portada? Con Corbel, sólo si entra en media hoja: el negro va en un tercio y nunca como encabezado
+ * (Martín: «No es necesario tener esa barra negra gigante»). Una tapa a lo ancho de una hoja guardada se dibuja en vidrio, sin
+ * moverle nada: lo que cambia es cómo se dibuja, no el dato.
+ */
+export const pintaPortada = (c: { w: number }, tema: TemaHoja): boolean => !paletaDeEscena(tema) || c.w <= 6;
 
 /**
  * El color del FONDO sobre el que se dibuja un gráfico (el de la tarjeta; sin tarjeta, el de la página): es el
