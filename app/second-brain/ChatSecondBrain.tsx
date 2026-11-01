@@ -322,7 +322,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
   // El grafo se abre sin soltar el chat que estaba abierto: vuelve a él (17/10/2026: «nunca cambia de chat»).
   const conCoach = !!elegido && 'coach' in elegido;
-  const hrefMapa = `${base}?panel=mapa${conCoach ? '&coach=funnel' : idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : ''}`;
+  const hrefMapa = `${base}?panel=mapa${idElegido ? `&chat=${idElegido}` : urlCentro ? `&centro=${encodeURIComponent(urlCentro)}` : conCoach ? '&coach=funnel' : ''}`;
   /** Volver del Mapa a lo que estaba elegido (lo vuelve a armar el servidor). */
   const hrefVolver = conCoach ? `${base}?coach=funnel` : idElegido ? `${base}?chat=${idElegido}` : idOffer ? `${base}?offer=${idOffer}` : idAntes ? `${base}?antes=${idAntes}`
     : urlCentro ? `${base}?centro=${encodeURIComponent(urlCentro)}` : base;

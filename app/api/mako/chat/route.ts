@@ -292,8 +292,8 @@ export async function POST(req: NextRequest) {
       // Desde dónde escribe (OC6): la estrella de una tab lo manda como JSON en el form.
       const desde = sanearDesde((() => { try { return JSON.parse(String(form.get('desde') ?? 'null')); } catch { return null; } })());
       // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
-      const ia = await eleccionDelPedido(quien, form.get('ia'));
       const delChat = await contextoDelChat(quien, desde, mensaje);
+      const ia = await eleccionDelPedido(quien, form.get('ia'));
       const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: delChat.contexto, pista: delChat.pista, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde, ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
@@ -343,8 +343,8 @@ export async function POST(req: NextRequest) {
       // pasaba (/api/m/mako); el MaKo Analyst de un lead, que no la pasa, es otra ruta.
       // Desde dónde escribe (OC6, lib/chat-desde.ts): la tab, la entidad y el modo de la estrella; saneado, nunca tal cual.
       // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
-      const ia = await eleccionDelPedido(quien, body.ia);
       const delChat = await contextoDelChat(quien, sanearDesde(body.desde), mensaje);
+      const ia = await eleccionDelPedido(quien, body.ia);
       const r = await turnoApp(quien, sessionId, { mensaje, contexto: delChat.contexto, pista: delChat.pista, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde), ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.

@@ -10131,3 +10131,13 @@ sirva de testigo y hay que comprobarlo de otra forma. El vigía ahora toma la ru
 
 **Es la misma familia que la regla de `AGENTS.md`** («una medición que mide OTRA COSA se ve idéntica a una que
 pasa»), con el agravante de que acá el instrumento no devuelve un número equivocado: no devuelve nada.
+
+## `tsc-acotado` muere con 134 aunque haya RAM libre: era el tope del proceso (1/11/2026)
+
+**Síntoma:** «NO SE PUDO CHEQUEAR (código 134)», salida 99, repetido. Se leyó siempre como falta de memoria de la máquina, y se esperó a que se liberara.
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Murió también con 5 y 6 GB libres, porque el default del proceso es 2,5 GB (`--heap`, scripts/tsc-acotado.mjs). Con 67 archivos no alcanza. **`--heap=4096` pasó limpio.** Explica una pila de «99» anotados como RAM de la PC.
+- **Con 134, antes de esperar: subir `--heap`.** Con la máquina en menos de 5 GB libres sí es RAM, y ahí no sirve.
+- **El arnés de esbuild no reemplaza este chequeo:** borra los tipos sin mirarlos. Un componente con el mismo nombre que un tipo importado (`OrdenSpy`) dio la animación andando perfecta y un rojo de tipos.
+
+**Y lo de correr «los tests de lo que toqué»:** no alcanza cuando se tocan archivos que otros tests fijan por su forma. `tests/chat-ia.test.ts` exige que la elección de IA vaya pegada al turno, y una línea en el medio lo rompió; ninguno de los 210 elegidos a mano lo miraba. Antes de pasar una punta va la compuerta, no una lista hecha a ojo.
