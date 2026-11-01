@@ -127,15 +127,9 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
  */
 export const COLOR_GENERAL: Readonly<Record<string, string>> = {
   general: 'noche',
-  bienvenida: 'durazno',
   foco: 'lima',
   operacion: 'indigo',
   ventas: 'dorado',
-  cobros: 'ambar',
-  anuncios: 'azul-meta',
-  'funnel-llamadas': 'violeta',
-  'funnel-whatsapp': 'verde-wa',
-  lanzamiento: 'rojo-play',
   servicio: 'teal',
   curso: 'celeste',
   instagram: 'magenta',

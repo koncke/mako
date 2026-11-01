@@ -112,6 +112,7 @@ import { FUENTES_GENERAL, PIEZAS_GENERAL, TIPOS_GENERAL, piezaGeneral, type Piez
 import { useGeneral } from './ElementoGeneral';
 import { RedDeBloque } from './RedDeBloque';
 import { PestanasDashboard } from './PestanasDashboard';
+import { acomodoPorAncho } from '@/lib/graficos-acomodo';
 import { PARAM_PLANTILLAS, pestanasDelDashboard, type HojaCorta, type InformeDashboard } from '@/lib/dashboard-focus';
 import { aGuardado, aVista, fondosDe, gruposDe, ocultosPorPlegado, plegadasDe, type GrupoSeccion } from '@/lib/graficos-secciones';
 import { conectorNuevo, puedeConectar, sinConectoresDe } from '@/lib/graficos-conectores';
@@ -1061,10 +1062,12 @@ export function EditorInforme({
     if (!editando) for (const c of lienzo.componentes) if (esGrafico(c) && c.ocultarSiCero && ocultaSiCero(c, datos[c.id] ?? { cargando: true })) out.add(c.id);
     return out;
   }, [noSePiden, editando, lienzo.componentes, datos]);
-  const layout: Layout = useMemo(
-    () => aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas),
-    [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas],
-  );
+  // El acomodo según el ancho (lib/graficos-acomodo.ts): se calcula al dibujar y nunca se guarda. Editando, el de verdad, que es el que se edita.
+  const numerosDeLaHoja = useMemo(() => new Set(lienzo.componentes.filter((c) => esGrafico(c) && esTarjetaNumero(c.tipo)).map((c) => c.id)), [lienzo.componentes]);
+  const layout: Layout = useMemo(() => {
+    const visto = aVista(layoutGuardado.filter((it) => !noSeDibujan.has(it.i) || noSePiden.has(it.i)), grupos, plegadas);
+    return editando || imprimiendo ? visto : acomodoPorAncho(visto, width, (id) => numerosDeLaHoja.has(id));
+  }, [layoutGuardado, noSeDibujan, noSePiden, grupos, plegadas, editando, imprimiendo, width, numerosDeLaHoja]);
   const visibles = useMemo(() => lienzo.componentes.filter((c) => !noSeDibujan.has(c.id)), [lienzo.componentes, noSeDibujan]);
   const fondos = useMemo(() => fondosDe(grupos, plegadas), [grupos, plegadas]);
   const cajasDibujadas = useMemo(() => new Map(layout.map((it) => [it.i, { x: it.x, y: it.y, w: it.w, h: it.h }] as const)), [layout]);
@@ -1355,25 +1358,9 @@ export function EditorInforme({
     .map((h) => ({ id: h.id, nombre: h.nombre, emoji: h.emoji }));
   const pestanas = unido ? (esGeneral ? pestanasDelDashboard(propias, unido.otras) : pestanasDelDashboard(unido.otras, propias)) : null;
 
-  return (
-    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho} data-paleta={paleta}>
-      <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
-      {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
-      {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
-
-      {/* ── Arriba de todo, el Dashboard unido: «Focus», las hojas y «Templates» (./PestanasDashboard.tsx) ── */}
-      {pestanas && (
-        <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informeGeneralODashboard} onIr={irAHoja}
-          onTemplates={esGeneral || !guardable ? null : () => { setMenu(null); setNuevaHoja(true); }} />
-      )}
-
-      {/* ── La topbar, como la de Looker: el título de la hoja (con su desplegable) y a la derecha los
-             filtros, Compartir, Editar y el ⋮ ── */}
-      <BarraSuperior
-        hoja={hojaTop} propia={cabeceraPropia ? { izquierda: cabeceraPropia.izquierda, titulo: cabeceraPropia.titulo } : null} editable={guardable && !enBlanco} conHojas={enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length)}
-        hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
-        onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
-        derecha={(
+  const conHojas = enBlanco ? guardable && !!tablero.archivadas?.length : puedeNuevaHoja || tablero.hojas.length > 1 || (guardable && !!tablero.archivadas?.length);
+  /** Lo de la derecha de la barra: la búsqueda, los filtros, Editar y el ⋮. */
+  const herramientas = (
           <>
             {/* La búsqueda y los filtros de la hoja, SIEMPRE a la vista (punto 7); agregarlos y quitarlos, sólo editando.
                 EN GENERAL TAMBIÉN desde el 17/10/2026 (#858, Martín en la revisión del 16/10, 1:10:12: «al momento de crear
@@ -1419,8 +1406,38 @@ export function EditorInforme({
               </button>
             )}
           </>
-        )}
-      />
+  );
+
+  return (
+    <div className={`lk lk-app${editando ? ' lk--editando' : ''}${imprimiendo ? ' lk--imprimir' : ''}${conectando ? ' lk--conectando' : ''}`} onContextMenu={alClicDerecho} data-paleta={paleta}>
+      <span ref={anclaContextual} aria-hidden style={{ position: 'fixed', left: 0, top: 0, width: 0, height: 0, pointerEvents: 'none' }} />
+      {lecturaFallo && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local">No pude leer tu informe. Los cambios no se guardan.</Banner></div>}
+      {conflicto && <div className="lk-sin-imprimir" style={{ padding: '8px 16px 0' }}><Banner tono="warn" alcance="local" accion={{ label: 'Recargar', onClick: recargar }}>Cambió en otra pestaña. Lo de aquí no se guarda.</Banner></div>}
+
+      {/* ── La barra: con el Dashboard unido, UNA fila con los chips y las herramientas, sin el título de la hoja (./Cabecera.tsx).
+             Editando vuelve la fila del título, que es donde se cambia. Sin chips (el closer, un link), la topbar de siempre. ── */}
+      {pestanas && !cabeceraPropia ? (
+        <>
+          <BarraSuperior
+            hoja={hojaTop} editable={false} conHojas={false} hojasAbierto={false} emojiAbierto={false} periodo={periodoDeHoja(hojaTop, vista, hoy)}
+            propia={{
+              titulo: hojaTop.nombre, detalle: hojaTop.subtitulo,
+              izquierda: <PestanasDashboard pestanas={pestanas} actual={hoja.id} informe={informeGeneralODashboard} onIr={irAHoja} conMenu={conHojas}
+                puedeNueva={puedeNuevaHoja && !enBlanco} menuAbierto={menu?.tipo === 'hojas'} onMenu={(ancla) => alternarMenu('hojas', ancla)} detalleActual={hojaTop.subtitulo} />,
+            }}
+            onHojas={() => {}} onEmoji={() => {}} onCambiar={cambiarCabecera} derecha={herramientas} />
+          {editando && !enBlanco && (
+            <BarraSuperior hoja={hojaTop} editable={guardable} conHojas={false} hojasAbierto={false} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
+              onHojas={() => {}} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera} derecha={null} />
+          )}
+        </>
+      ) : (
+        <BarraSuperior
+          hoja={hojaTop} propia={cabeceraPropia ? { izquierda: cabeceraPropia.izquierda, titulo: cabeceraPropia.titulo } : null} editable={guardable && !enBlanco} conHojas={conHojas}
+          hojasAbierto={menu?.tipo === 'hojas'} emojiAbierto={menu?.tipo === 'emoji'} periodo={periodoDeHoja(hojaTop, vista, hoy)}
+          onHojas={(ancla) => alternarMenu('hojas', ancla)} onEmoji={(ancla) => alternarMenu('emoji', ancla)} onCambiar={cambiarCabecera}
+          derecha={herramientas} />
+      )}
 
       {/* ── La barra de edición: DEBAJO de la topbar (la topbar no se mueve al apretar Editar), en el orden
              de la de Looker. Agregar un filtro está en la topbar, al lado de los filtros (sólo editando). ── */}
@@ -1509,7 +1526,7 @@ export function EditorInforme({
               // pongas ahí el "¿Qué vas a crear hoy?"». La caja y, abajo, las plantillas como páginas: la portada del Landing
               // Generator. Es la MISMA pieza que el modal «Nueva hoja» (`CrearHoja`, ./NuevaHoja.tsx), sin foco al abrir.
               <div className="lk-en-blanco lk-en-blanco-crear" onClick={(e) => e.stopPropagation()}>
-                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} />}
+                {guardable && <CrearHoja onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco="Página 1" informe={informeGeneralODashboard} senales={senales} conTodas={!!unido} />}
               </div>
             ) : !lienzo.componentes.length ? (
               <div className="lk-vacio">
@@ -1677,11 +1694,11 @@ export function EditorInforme({
           </div>
         </Flotante>
       )}
-      {/* El desplegable del título: «Nueva hoja» primera, y las hojas (punto 1). */}
+      {/* El desplegable de las hojas: «Nueva hoja» primera, y las hojas (punto 1). */}
       {menu?.tipo === 'hojas' && (
         <Flotante ancla={menu.ancla} onCerrar={() => setMenu(null)} ancho={300}>
           <MenuHojas
-            hojas={enBlanco ? [] : tablero.hojas} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco}
+            hojas={enBlanco ? [] : tablero.hojas} otras={pestanas?.filter((p) => p.informe !== informeGeneralODashboard) ?? []} activa={hoja.id} puedeNueva={puedeNuevaHoja && !enBlanco}
             acciones={guardable ? { onRenombrar: renombrarHoja, onDuplicar: duplicarHoja, onCopiar: copiarHoja, onMover: moverHoja, onEliminar: eliminarHoja } : null}
             archivadas={guardable ? tablero.archivadas ?? [] : []}
             onRestaurar={(id) => { setMenu(null); restaurarHoja(id); }}
@@ -1729,7 +1746,7 @@ export function EditorInforme({
       {/* ── Los modales ── */}
       {guardable && <BotonCompartir hojaId={hoja.id} titulo={hoja.nombre} abierto={compartir} onCerrar={cerrarCompartir} />}
       {modalDatos && <ModalDatos onElegir={anadirFuente} onCerrar={cerrarModalDatos} soloFuentes={esGeneral ? FUENTES_GENERAL : undefined} />}
-      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} />}
+      {nuevaHoja && <NuevaHoja onCerrar={cerrarNuevaHoja} onCrear={crearHoja} onRellenar={rellenarHoja} enBlanco={enBlanco ? 'Página 1' : `Página ${tablero.hojas.length + 1}`} informe={informe} senales={senales} conTodas={!!unido} />}
       {gDetalle && esGrafico(gDetalle) && detalle && (
         <DetalleModal g={gDetalle} hoja={hoja} efectivo={efectivosHoja[gDetalle.id] ?? efectivoDe(gDetalle, hoja, vista, hoy)} sel={detalle.sel} tema={hoja.tema}
           onCerrar={cerrarDetalle} onCambio={refrescar} onFiltrar={filtrarPor} />
