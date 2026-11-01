@@ -255,51 +255,23 @@ test('Tareas prioritarias se elige de 1, 3, 5 o 10 (y el server manda las 10); l
   assert.match(plan, /vencimientos\(d\.d\.deadlines\.tareas, d\.d\.deadlines\.proyectos, d\.d\.etiquetas, d\.d\.hoy,/);
 });
 
-test('las plantillas: simples, cada dato una vez, de a dos sin estirar, y con títulos de parte', () => {
-  let conTitulos = 0;
+test('las plantillas: cada dato una vez, y ningún título de sección suelto', () => {
   for (const d of DEFINICIONES_GENERAL) {
-    assert.ok(d.piezas.length <= 10, `${d.id}: ${d.piezas.length} piezas no es simple`);
-    const hoja = PLANTILLAS_GENERAL.find((p) => p.id === d.id)!.armar((l) => l) as { componentes: Array<{ id: string; y: number; w: number; h: number }> };
     const piezas: string[] = [];
     const firmas: string[] = [];
-    let titulo = false;
     for (const p of d.piezas) {
-      const el = p.elemento as { tipo: string; h?: number; general?: { pieza: string } } | undefined;
-      if (el?.tipo === 'seccion') titulo = true;
-      if (el?.tipo === 'general') {
-        piezas.push(el.general!.pieza);
-        // Un bloque que la fila estira más que lo que pide es el espacio en blanco del reporte.
-        const c = hoja.componentes.find((x) => x.id === p.local)! as { h: number; portada?: string };
-        // La PORTADA (15/10/2026) mide lo que mide a propósito: es la pieza a lo ancho de arriba, no una fila estirada.
-        if (!c.portada) assert.equal(c.h, el.h, `${d.id}/${p.local}: la fila lo estira de ${el.h} a ${c.h}`);
-      }
+      const el = p.elemento as { tipo: string; general?: { pieza: string } } | undefined;
+      assert.notEqual(el?.tipo, 'seccion', `${d.id}: en la referencia el título vive en la tarjeta`);
+      if (el?.tipo === 'general') piezas.push(el.general!.pieza);
       // El mismo dato es la misma métrica VISTA IGUAL (el mismo conjunto, las mismas métricas y la misma dimensión): un
       // número y su serie por día son dos lecturas; «Leads por etapa» al lado del funnel, la misma.
       const g = p as { fuente?: string; metricas?: string[]; dimension?: string | null };
       if (g.fuente && g.metricas) firmas.push(`${g.fuente}:${g.metricas.join(',')}:${g.dimension ?? ''}`);
     }
-    if (titulo) conTitulos++;
     assert.equal(new Set(piezas).size, piezas.length, `${d.id}: un bloque repetido`);
     assert.equal(new Set(firmas).size, firmas.length, `${d.id}: el mismo dato en dos gráficos`);
-    // Con «El mes», sus números no van aparte.
-    if (piezas.includes('mes')) assert.ok(!firmas.some((f) => /:(gasto|agendas|cierres|cobrado):/.test(f)), `${d.id}: repite lo que dice «El mes»`);
     // Con «Tu funnel hoy», los leads por etapa no van aparte (era el gráfico que se rompía, y el mismo dato dos veces).
     if (piezas.includes('funnel')) assert.ok(!firmas.some((f) => /^leads:.*:etapa$/.test(f)), `${d.id}: repite lo que dice «Tu funnel hoy»`);
-    // No todo a lo ancho: al menos una fila con dos cosas lado a lado.
-    const porFila = new Map<number, number>();
-    for (const c of hoja.componentes) porFila.set(c.y, (porFila.get(c.y) ?? 0) + 1);
-    assert.ok([...porFila.values()].some((n) => n > 1), `${d.id}: todo nace a lo ancho`);
-  }
-  // Cuatro desde el 31/10/2026: Foco cambió su título de parte por la fila de números, que es la que separa en la referencia.
-  assert.ok(conTitulos >= 4, `sólo ${conTitulos} plantillas con títulos de parte`);
-  // La General arranca con la plata del mes en GRANDE: el bloque «El mes», no cuatro gráficos (la quinta vuelta: «que las
-  // plantillas de GENERAL, no se parezcan tanto a un dashboard»).
-  const general = DEFINICIONES_GENERAL.find((d) => d.id === 'general')!;
-  assert.ok(general.piezas.some((p) => (p.elemento as { general?: { pieza: string } } | undefined)?.general?.pieza === 'mes'), 'la General sin «El mes»');
-  // Y ninguna plantilla de General trae tablas ni series: «Ya si quiere profundizar entra a dashboard».
-  for (const d of DEFINICIONES_GENERAL) {
-    for (const p of d.piezas) assert.ok(!['tabla', 'tabla_barras', 'serie'].includes(String((p as { tipo?: string }).tipo)), `${d.id}/${p.local}: un gráfico de Dashboard`);
-    assert.ok(d.piezas.filter((p) => (p as { tipo?: string }).tipo).length <= 4, `${d.id}: más de 4 gráficos`);
   }
 });
 

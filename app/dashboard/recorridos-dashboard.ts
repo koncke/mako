@@ -18,7 +18,7 @@
 // siempre. Por eso el de las hojas señala el ▾ y el último señala el ⋮.
 //
 // Quién pone cada objetivo (si uno falta, su paso se saltea y nada se rompe — salvo el test):
-//   · la topbar (./Cabecera.tsx): dash-titulo (emoji, título y subtítulo), dash-hojas (el ▾)
+//   · la topbar (./Cabecera.tsx) y la tira (./PestanasDashboard.tsx): dash-hojas (el ▾)
 //   · la topbar (./EditorInforme.tsx): dash-controles (los filtros), dash-editar, dash-ver, dash-ayuda (el ⋮)
 //   · los filtros (./BarraControles.tsx): dash-filtro («＋ Filtro», sólo editando)
 //   · el lienzo (./EditorInforme.tsx): dash-grafico, dash-mako, dash-componente. Desde la tanda v5 el botón de
@@ -42,7 +42,6 @@ const PASO_AYUDA: PasoRecorrido = { objetivo: 'dash-ayuda', titulo: 'Más opcion
 
 /** EL DE MIRAR: la topbar de izquierda a derecha, un gráfico y lo que se hace con él. */
 export const PASOS_DASHBOARD: PasoRecorrido[] = [
-  { objetivo: 'dash-titulo', titulo: 'El título', texto: 'Haz clic en el emoji, el título o el subtítulo para cambiarlos.' },
   { objetivo: 'dash-hojas', titulo: 'Tus hojas', texto: 'Cambia de hoja o crea una nueva desde aquí.' },
   { objetivo: 'dash-controles', titulo: 'Filtros', texto: 'Filtran toda la hoja. Lo que eliges mirando no se guarda.' },
   { objetivo: 'dash-grafico', titulo: 'Tus gráficos', texto: 'Haz clic en una barra o en un número para ver el detalle.' },

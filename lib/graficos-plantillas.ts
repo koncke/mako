@@ -38,7 +38,7 @@ import {
 } from './graficos-catalogo';
 import { ARMADO, PLANTILLAS_ANALYSTS, PLANTILLAS_POPUP, POPUP_ANUNCIO } from './graficos-plantillas-analysts';
 import { PLANTILLAS_GENERALES } from './graficos-plantillas-generales';
-import { colorDashboard, comoCorbel, portadasDashboard } from './graficos-portadas';
+import { comoDenso, portadasDashboard } from './graficos-portadas';
 import { PLANTILLAS_GENERAL } from './general-plantillas';
 import type { RolWorkspace } from './auth-session';
 import { CAPA_DE_HOJA_DE_ROL } from './graficos-roles';
@@ -159,7 +159,7 @@ const COMERCIAL: PlantillaHoja = {
 // abre con UNA pieza a lo ancho, con la forma de su objetivo y su color (lib/graficos-portadas.ts y
 // lib/graficos-identidad.ts). Reemplaza al titular 6 × 6 del 14/10, que dejaba cuatro piezas compitiendo arriba.
 const PORTADAS = portadasDashboard();
-const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => comoCorbel(p.armar(id), PORTADAS[p.id], colorDashboard(p.id), id) });
+const conPortadaDe = (p: PlantillaHoja): PlantillaHoja => ({ ...p, armar: (id) => comoDenso(p.armar(id), PORTADAS[p.id], id) });
 
 /**
  * La galería de «Nueva hoja», en orden. Marketing y Comercial son las del informe inicial; el resto

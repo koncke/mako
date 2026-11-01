@@ -96,13 +96,13 @@ test('dos recorridos con su clave fija, válida y propia', () => {
 // ADENTRO de un menú cerrado (se saltearía siempre), así que esos pasos se fueron y el ⋮ es el último.
 test('el de mirar explica la topbar y el de editar la barra de edición, cada uno en su orden', () => {
   const ver = PASOS_DASHBOARD.map((p) => p.objetivo);
-  for (const x of ['dash-titulo', 'dash-hojas', 'dash-controles', 'dash-grafico', 'dash-mako', 'dash-editar', 'dash-ayuda']) {
+  for (const x of ['dash-hojas', 'dash-controles', 'dash-grafico', 'dash-mako', 'dash-editar', 'dash-ayuda']) {
     assert.ok(ver.includes(x), `al recorrido de mirar le falta «${x}»`);
   }
   // Lo que vive adentro de un menú cerrado no se puede señalar.
   for (const x of ['dash-menu-hoja', 'dash-nueva-hoja', 'dash-analista', 'dash-exportar']) assert.ok(!ver.includes(x), `«${x}» está adentro de un menú cerrado: se saltearía siempre`);
   // De izquierda a derecha y de arriba abajo: el título, sus hojas, los filtros, un gráfico.
-  assert.ok(ver.indexOf('dash-titulo') < ver.indexOf('dash-hojas') && ver.indexOf('dash-hojas') < ver.indexOf('dash-controles') && ver.indexOf('dash-controles') < ver.indexOf('dash-grafico'));
+  assert.ok(ver.indexOf('dash-hojas') < ver.indexOf('dash-controles') && ver.indexOf('dash-controles') < ver.indexOf('dash-grafico'));
   const edi = PASOS_DASHBOARD_EDICION.map((p) => p.objetivo);
   for (const x of ['dash-deshacer', 'dash-datos', 'dash-anadir-grafico', 'dash-insertar', 'dash-estilo', 'dash-filtro', 'dash-componente', 'dash-ver', 'dash-ayuda']) {
     assert.ok(edi.includes(x), `al recorrido de editar le falta «${x}»`);

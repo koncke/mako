@@ -117,6 +117,8 @@ export const DEFINICIONES_GENERALES: readonly DefinicionGeneral[] = [
       },
       { local: 'semanas', tipo: 'columnas', fuente: 'pagos', dimension: 'semana', metricas: ['cobrado', 'pendiente'], titulo: 'Cobrado y pendiente por semana' },
       { local: 'por-funnel', tipo: 'barras', fuente: 'pagos', dimension: 'producto', metricas: ['pendiente'], titulo: 'Pendiente por funnel' },
+      { local: 'por-estado', tipo: 'anillo', fuente: 'pagos', dimension: 'estado', metricas: ['monto'], titulo: 'Cuotas por estado' },
+      { local: 'por-cliente', tipo: 'barras', fuente: 'pagos', dimension: 'cliente', metricas: ['pendiente'], titulo: 'Quién debe más', limite: 5 },
     ],
   },
   {
