@@ -14,34 +14,21 @@ tres seguidos: se junta y se manda una vez por ítem.
 
 ---
 
-## ⚠️ LO PRIMERO: NADA DE ESTO ESTÁ DESPLEGADO TODAVÍA
+## ✅ DESPLEGADO — 2/11/2026 ~05:40
 
-A las 03:30 del 2/11, `origin/main` seguía en `8a60cd310` con **12 commits esperando** en
-`integracion`. Dos motivos, y los dos son míos:
+`origin/main` = **`bee7d83fd`**. Los 16 commits de la noche entraron juntos y Vercel los desplegó.
 
-1. **Pushear por ítem CANCELA el run anterior** (`concurrency: integracion`). Lo escribí en el
-   tablero y lo hice igual nueve veces seguidas: cada push mataba el chequeo del anterior, así que
-   ninguno llegaba a terminar. **La regla de verdad: se junta y se pushea UNA vez, y después se
-   espera.** No sirve pushear por ítem si el efecto es que no se despliega ninguno.
-2. **El run #335 falló de verdad**, no por cancelación: `tests/guia-catalogo.test.ts` exige que
-   todo lo que está en `SIN_GUIA_TODAVIA` siga siendo una tab, y yo saqué `offer` y `ads-manager`
-   de la barra sin sacarlos de esa lista.
+**Lo que costó llegar, y es la lección de la noche:** cinco runs de Actions en rojo o cancelados.
+Dos causas:
 
-**Antes de pushear otra vez:** correr a mano los tests de lo tocado. Lo que se rompió esta vez no
-lo veía ningún test de Spy — lo veía un guard del catálogo de guías.
-
-### ⛔ Por qué Offer y Ads Manager volvieron a la barra (2/11 ~04:30)
-
-Sacarlos de `app/_components/nav.ts` es UNA línea, y rompe **seis** tests:
-`estrategia-tab`, `funciones-mako`, `knowledge-modulos`, `movil-mas-secciones`, `movil-rutas` y
-`offer-en-create`. El más claro es `funciones-mako`: «cada key viva del nav es de exactamente una
-función, y ninguna función nombra una key que no existe». Esas dos keys **no viven sólo en la
-barra** — las nombran el catálogo de funciones de la API de MaKo, las rutas del móvil, los módulos
-de Knowledge, Create y Estrategia.
-
-**Se revirtió porque tenerlas afuera a medias dejaba 12 commits buenos sin poder desplegarse.**
-El pedido sigue en pie; lo que cambia es que es un trabajo propio: hay que mudar cada consumidor a
-donde vivan ahora (el Funnel Coach y Hormozi, adentro del Ops Center), no borrar una línea.
+1. **Pushear por ítem CANCELA el run anterior** (`concurrency: integracion`). Lo escribí en este
+   mismo tablero y lo hice igual nueve veces seguidas, así que durante horas hubo commits buenos
+   sin desplegar. **Se junta, se pushea UNA vez y se espera.**
+2. ⚠️ **EL RESUMEN DEL RUN NO NOMBRA LOS TESTS ROJOS; EL LOG DEL JOB SÍ.** El resumen sólo dice
+   `afectados: 889 s (código 1)`. En el log hay una línea **«Rojos:»** con los archivos y el
+   comando para repetirlos solos. Mirar el resumen y adivinar me costó tres runs. Y correr
+   `tests-afectados.mjs` en esta máquina da una lista DISTINTA —corta en otra tanda— que me mandó
+   a perseguir dos tests lentos sin relación.
 
 ## Estado
 
