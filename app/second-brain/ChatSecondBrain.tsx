@@ -388,7 +388,17 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         <div className="co-jefe">
           <FilaDeChat titulo={delOffer?.nombre ?? ORIGEN_OFFER_COACH} criatura={ORIGEN_OFFER_COACH} aspecto={delOffer ? aspectoDeReferente(delOffer.id) : ASPECTO_MAKO} animo="despierto" actual={false} hace=""
             previa={<span className="co-fila__coach">{delOffer ? `${ORIGEN_OFFER_COACH} · ${inspiradoEn(delOffer)}` : ORIGEN_OFFER_COACH}</span>}
-            onElegir={() => { if (filasOffer[0]) elegir(filasOffer[0].elegido); else router.push('/offer'); }} />
+            // ⚠️ NO SACA A NADIE DEL OPS CENTER. Martín, 2/11/2026: «la tab de offer dentro del
+            // OpsCenter me sigue llevando a la ruta de offer… si yo le doy clic, no me tiene que
+            // redirigir a ningún lado». Antes, sin conversación de Offer, hacía `router.push('/offer')`
+            // y te echaba a la tab vieja — justo la que él sacó de la barra.
+            // ⚠️ SIN CONVERSACIÓN TODAVÍA, EL CLIC NO HACE NADA, y eso es lo que FALTA: abrir el
+            // Offer Coach ahí mismo necesita un `{ coach: 'offer' }` en `ElegidoChat`
+            // (lib/chat-mako-reglas.ts:265), y hoy `coach` está cableado a «funnel» a mano en cinco
+            // lugares de este archivo —`hrefMapa`, `hrefVolver`, `verFunnel`, el efecto que abre el
+            // panel, y el `ChatDelCoach` que recibe `referentes.funnel`—. Separar eso es un trabajo
+            // propio; dejarlo redirigiendo mientras tanto era peor.
+            onElegir={() => { if (filasOffer[0]) elegir(filasOffer[0].elegido); }} />
           {filasOffer.length > 0 && <div className="co-jefe__subs">{filasOffer.map((f) => fila(f, true))}</div>}
         </div>
       )}
