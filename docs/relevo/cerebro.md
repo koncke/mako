@@ -29,8 +29,8 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
 ## 🔴 ESTADO AL 2/11 ~04:00 — HAY 13 COMMITS SIN DESPLEGAR Y ACTIONS ESTÁ EN ROJO
 
-**`origin/main` = `8a60cd310`. `origin/integracion` = `dd1ef0d08`.** Todo lo de la noche del 2/11
-está commiteado y pusheado a `integracion`, y **nada llegó a producción**.
+**`origin/main` = `8a60cd310`. `origin/integracion` = `0f80b08a3` (15 commits).** Todo lo de la
+noche del 2/11 está commiteado y pusheado a `integracion`, y **nada llegó a producción**.
 
 **El tablero vivo es `docs/pendientes-martin.md`** — ahí está la lista de los 21 pedidos con su
 estado, y arriba de todo el aviso de por qué nada se desplegó. Esto de acá es el resumen.
@@ -38,14 +38,22 @@ estado, y arriba de todo el aviso de por qué nada se desplegó. Esto de acá es
 ### Lo que hay que hacer PRIMERO al retomar
 
 1. **Mirar el último run**: `github.com/koncke/mako/actions/workflows/integracion.yml`.
-   Los runs #335 y #336 fallaron en el paso `afectados` (un test, no los tipos). El #335 fue
-   `tests/guia-catalogo.test.ts` y ya está arreglado; **el del #336 todavía NO se identificó**.
-2. **Para identificarlo sin esperar 25 minutos**, correr acá lo mismo que corre CI:
-   `node scripts/tests-afectados.mjs --base origin/main --concurrencia 2 --tanda 40`
-   (tarda más de 10 minutos con la RAM de esta máquina; va en segundo plano).
+   El #337 (`0f80b08a3`) quedó CORRIENDO a las 04:40 con los 15 commits. Si dio verde, `main`
+   avanzó solo y no hay nada que hacer; si no, seguir con el punto 2.
+2. ⚠️ **EL RESUMEN DEL RUN NO NOMBRA LOS TESTS ROJOS; EL LOG DEL JOB SÍ.** Esto me costó tres
+   runs: el resumen sólo dice `afectados: 298 s (código 1)`. Hay que abrir el job y buscar
+   **«Rojos:»** — ahí está la lista completa de archivos y la línea para repetirlos solos. Correr
+   `tests-afectados.mjs` acá tarda más de 10 minutos y encima corta en otra tanda, así que da una
+   lista DISTINTA: a mí me señaló dos tests lentos (`chat-trabajos`, `chatbot-lista-nueva`) que no
+   tenían nada que ver y que pasan solos.
 3. **NO pushear por ítem.** `concurrency: integracion` cancela el run anterior con cada push: yo
-   pusheé nueve veces seguidas y maté nueve chequeos, por eso hay 13 commits parados. Se junta,
-   se pushea UNA vez y se espera.
+   pusheé nueve veces seguidas y maté nueve chequeos, por eso se acumularon 15 commits sin
+   desplegar. Se junta, se pushea UNA vez y se espera.
+4. ⚠️ **SACAR UNA TAB DE LA BARRA NO ES BORRAR UNA LÍNEA DE `nav.ts`.** Sacar `offer` y
+   `ads-manager` rompió SEIS tests, porque esas keys las nombran el catálogo de funciones de la
+   API de MaKo, las rutas del móvil, los módulos de Knowledge, Create y Estrategia
+   (`tests/funciones-mako.test.ts`: «ninguna función nombra una key que no existe»). Se
+   revirtieron para desatascar el resto; el pedido sigue pendiente como trabajo propio.
 
 ### Lo HECHO esta noche, todo en `integracion` (10 ítems)
 

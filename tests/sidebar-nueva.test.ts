@@ -367,10 +367,13 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
 test('todos los workspaces: la misma barra para el super admin, un cliente y un setter, filtrada por la misma regla', () => {
   const visibles = (v: VistaNav) => FAMILIAS.map((f) => [f.label, f.bloques.flat().map((t) => resolverTab(t, v)).filter(Boolean).map((t) => t!.label)]);
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
+  // ⚠️ Competitor Spy ENTRÓ acá el 2/11/2026: dejó de ser `adminOnly`. Martín: «todos los usuarios
+  //    no pueden ver la nueva tab y eso ya debería estar disponible... no tiene sentido que uno
+  //    analice a Alex Hormozi y luego otro vuelva a analizar al mismo».
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
     ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
-    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
+    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager', 'Competitor Spy']],
     ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.
