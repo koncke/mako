@@ -854,3 +854,23 @@ aviso de cierre.
 2. Mandarlo con Resend desde `EMAIL_MAKO` (`lib/app-url.ts`), que es el remitente de la casa.
 3. Escribir `avance_email` y `avance_email_at` **después** de que salga, nunca antes: si se marca
    primero y el envío falla, ese hito no se avisa nunca más.
+
+### 🔗 EL ESLABÓN QUE FALTABA: qué curso es de cada gurú (2/11/2026 ~21:40)
+
+`lib/asesores/cursos.ts` + `tests/asesores-cursos.test.ts` (4/0, probado rompiéndolo).
+
+La capa de un gurú necesita SU curso, y hasta acá no había forma de saber cuál: `Asesor.curso`
+guarda el título en prosa («Social Funnel»), no el slug con el que se busca. **Ahora están los
+DOCE**, no sólo los dos que tienen ficha: a los otros diez les falta la ficha, no el curso.
+
+⚠️ **Cada slug está verificado abriendo el archivo del curso, y el test los vuelve a abrir.** Un
+slug con una letra cambiada no rompe nada a la vista: el gurú se queda sin Second Brain y nadie se
+entera. Deducirlos del nombre ya puso dos mal en producción.
+
+⚠️ **Albaa y Nievas comparten curso a propósito** («Growing Closer»). Hay un test que lo fija, para
+que nadie lo «arregle» creyendo que es un duplicado.
+
+**Con esto, para que el Second Brain de un gurú funcione falta UNA sola cosa**, y es una línea:
+colgar la capa en `lib/cerebro-para-chat.ts` → `paqueteParaElTurno`, que tiene que recibir el
+`IdAsesor` del turno. Hoy el asesor se resuelve en la ruta (`app/api/mako/chat/route.ts`,
+`app/api/offer/route.ts`) y no baja hasta ahí: ese parámetro opcional es todo el trabajo que queda.
