@@ -770,3 +770,21 @@ Ops Center); la capa es copiar archivos.
 
 ⚠️ **Y no depende de que estén las 12 fichas.** La capa se arma desde el catálogo: sirve hoy para
 Puigrredón y Alborna, y los otros diez entran solos cuando se carguen.
+
+**Avance del 2/11 ~20:10 — el lector del servidor ya está** (`lib/cerebro-referente-server.ts`), o
+sea el paso 1 de los cuatro de arriba. Lee `public/cono-tx/<videoId>.json`, que es una LISTA de
+strings, y arma las clases en el orden del curso. Una clase sin transcribir NO rompe la capa: queda
+afuera y el resto se arma igual.
+
+**Medido contra los cursos de verdad, no supuesto:**
+
+| referente | clases | con transcripción | caracteres |
+|---|---|---|---|
+| Emilio Puigrredón — «Social Funnel» | 11 | **11** | 78.695 |
+| Julián Alborna — «Inteligencia Viral» | 41 | **41** | 742.094 |
+
+Ninguna clase sin transcribir. Y esos **742.094 caracteres de un solo gurú** son la prueba de por
+qué esto no podía ir en la ficha: ahí viajaría en CADA mensaje de cada chat.
+
+Quedan los pasos 2, 3 y 4: colgarla con `conCapa`, decidir cuándo entra en el turno (copiando el
+criterio de Knowledge, que es la parte fina) y el botón del grafo.
