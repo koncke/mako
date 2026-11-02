@@ -10295,3 +10295,41 @@ salió rojo») y lo puse a los 18 minutos. Con los tiempos medidos de este repo 
    `gh run watch` o un poll de `gh run list --json conclusion`, que sí ve el rojo.
 
 **Vive en:** la forma de armar un Monitor sobre Actions · .github/workflows/integracion.yml
+
+## El rojo ahora se anuncia EN GIT, igual que el verde (2/11/2026)
+
+**El síntoma, tres veces en una noche:** Martín se enteró de que Actions había fallado antes que
+yo. La tercera me lo dijo así: «volvió a fallar y no te diste cuenta… haz que no vuelva a pasar,
+crea un proceso para ver cuándo falla».
+
+**La causa real era una ASIMETRÍA, no un descuido:** cuando el run sale VERDE escribe en git —avanza
+`main`—; cuando sale ROJO no escribía nada. Cualquier vigía hecho con git veía **exactamente lo
+mismo** en «rojo» que en «todavía corriendo». Y git es lo único que hay acá: **`gh` no está
+instalado en esta máquina** (verificado: ni en el PATH de bash ni en el de PowerShell, y no hay
+`~/.config/gh`).
+
+⚠️ **Intenté taparlo con una heurística de tiempos y me salió mal, que es el hallazgo que más
+vale.** Medí cuatro rojos, vi que morían entre los 5 y los 12 minutos, y escribí la regla «si a los
+12 minutos sigue callado, probablemente esté verde». Con esa regla **ensanché el vigía a 48 minutos
+justo antes de que ese mismo run muriera a los ~15**. Cuatro datos no son una distribución, y una
+heurística sobre el síntoma no arregla una asimetría.
+
+**El arreglo, en el workflow:** un paso con `if: failure()` que pushea la cabeza que falló a la rama
+`ci-ultimo-rojo`. El rojo deja su propia marca en el remoto y **un `git fetch` la ve**.
+
+```
+git fetch origin --quiet
+git rev-parse --verify origin/ci-ultimo-rojo   # ¿cuál fue el último commit que puso rojo a Actions?
+```
+
+· Es una RAMA y no un tag: se pisa sola en cada rojo y siempre dice el último, mientras que los tags
+  hay que borrarlos a mano y se acumulan.
+· Apunta al COMMIT que falló, así que `git log origin/ci-ultimo-rojo -1` dice qué se estaba subiendo.
+· `if: failure()` y no `always()`: con `always()` se movería también en los verdes y volveríamos a
+  no poder distinguirlos.
+
+**Cómo queda el vigía, ahora que sí hay señal:** compara las dos cosas en la misma vuelta —si `main`
+alcanzó la cabeza, es VERDE; si `ci-ultimo-rojo` apunta a la cabeza, es ROJO— y no hace falta
+adivinar nada con el reloj.
+
+**Vive en:** .github/workflows/integracion.yml (paso «Dejar la marca del rojo en el remoto»)

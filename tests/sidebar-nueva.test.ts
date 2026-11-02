@@ -373,7 +373,10 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
     ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
-    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager', 'Competitor Spy']],
+    // ⚠️ 2/11/2026 — OFFER YA NO SE DIBUJA. Martín: «la de offer no la quiero». El ítem SIGUE
+    // EXISTIENDO con su key —es contrato con la base— y se oculta con `fueraDeLaBarra`
+    // (lib/nav-visibilidad.ts). Ads Manager NO se tocó, por pedido suyo.
+    ['Marketing', ['Web Generator', 'Ads Manager', 'Competitor Spy']],
     ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.

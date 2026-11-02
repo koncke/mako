@@ -161,3 +161,27 @@ jobs:
             echo "::error::main avanzó por otro lado y no es fast-forward. Rebaseá integracion sobre origin/main y volvé a pushear."
             exit 1
           fi
+
+      # ── EL ROJO SE ANUNCIA EN GIT, IGUAL QUE EL VERDE ────────────────────────────────────────
+      # Martín, 2/11/2026, después de enterarse de DOS rojos antes que el Cerebro: «haz que no
+      # vuelva a pasar, crea un proceso para ver cuándo falla».
+      #
+      # ⚠️ LA CAUSA ERA UNA ASIMETRÍA: cuando el run sale VERDE escribe en git (avanza `main`, acá
+      # arriba); cuando sale ROJO no escribía nada. Entonces cualquier vigía hecho con git —que es
+      # lo único que hay en esta máquina, porque `gh` no está instalado— veía EXACTAMENTE LO MISMO
+      # en «rojo» que en «todavía corriendo», y el silencio no se podía distinguir del fallo.
+      # Intenté taparlo adivinando tiempos («un rojo muere en 5–12 min») y falló: este mismo run
+      # murió a los ~15. Las heurísticas sobre el síntoma no arreglan una asimetría.
+      #
+      # Esto la cierra: el rojo deja su propia marca en el remoto. Un `git fetch` la ve.
+      #
+      # ⚠️ Es una RAMA y no un tag: una rama se pisa sola en cada rojo (`--force`) y siempre dice el
+      # ÚLTIMO, mientras que un tag hay que borrarlo a mano y se acumulan. Y apunta al commit que
+      # falló, así que `git log origin/ci-ultimo-rojo` dice qué se estaba subiendo.
+      # ⚠️ `if: failure()` y NO `always()`: con `always()` la rama se movería también en los verdes
+      # y volveríamos a no poder distinguirlos.
+      - name: Dejar la marca del rojo en el remoto
+        if: failure()
+        run: |
+          git push origin --force "HEAD:refs/heads/ci-ultimo-rojo"
+          echo "::notice::Marca dejada en origin/ci-ultimo-rojo → $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
