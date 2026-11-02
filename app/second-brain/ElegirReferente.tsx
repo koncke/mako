@@ -24,7 +24,11 @@ export function ElegirReferente({ titulo, elegido, onElegir, onCerrar }: {
   const [probando, setProbando] = useState<IdAsesor | null>(elegido);
   const a = asesorPorId(probando);
   return (
-    <Modal titulo={titulo} onCerrar={onCerrar} ancho={640}
+    // ⚠️ ANCHO Y ALTO FIJOS, Y NO ES DECORACIÓN. Con 640 de ancho las fichas quedaban de 120 px y la
+    //    especialidad no entraba, y sin `alto` el cuerpo del modal se volvía un SEGUNDO scroll encima
+    //    del de las fichas (Martín, 1/11/2026: «tiene 3 scrolls diferentes dentro del modal»). Con el
+    //    alto fijo, lo único que scrollea es la lista de fichas.
+    <Modal titulo={titulo} onCerrar={onCerrar} ancho={1040} alto={620}
       pie={<Button onClick={() => onElegir(probando)}>Elegir</Button>}>
       <div className="co-elegir co-elegir--referentes">
         <div className="co-elegir__grilla">
