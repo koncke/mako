@@ -27,7 +27,47 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ESTADO AL 2/11 ~19:45 — CUOTA AL 93 %, EL TREN CORRIENDO, Y EL PRÓXIMO PUSH RETENIDO
+## ESTADO AL 2/11 ~21:40 — CORRE EL #361, Y HAY 3 COMMITS ESPERANDO
+
+⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El **#361** (`512d730de`) está corriendo. Un
+push lo cancela, que es lo que pasó diez veces hoy y dejó doce commits sin desplegar. Esperando
+arriba: `42d40868c` (la revisión completa de Spy), `53f6f2f26` (las 22 caricaturas a 600 px y el link
+de progreso en el ticket del grupo) y `3189113a7` (el tablero).
+
+**Lo desplegado y verde quedó en el #359 (`22b8d9d6f`).** El #360 salió ROJO por dos tests que fijaban
+en un regex la lista exacta de fuentes de Apify; ya están arreglados y van en el #361.
+
+### Lo que Martín pidió esta noche y en qué quedó
+
+| pedido | estado |
+|---|---|
+| las 22 caricaturas en la tarjeta de Spy | hecho, empareja por nombre comparable, sin tabla de @ |
+| que no haya dos Alex Hormozi | hecho, el referente es la tercera llave de deduplicación |
+| sin «Inspirado en», imagen a sangre, «Su web» | hecho |
+| que las tarjetas tengan movimiento | hecho: flotan, cada una con su propio arranque |
+| las caras se ven borrosas al agrandar | hecho: eran **200×200**, ahora 600. ⚠️ NO se regeneran: Martín las aprobó tras ocho vueltas |
+| el @ en el CRM | hecho |
+| el link de la bio como landing | hecho |
+| que el ticket diga cómo va | hecho el link; **falta el email de avance** |
+| compartir el análisis entre negocios (#13) | **PENDIENTE, y es lo que más pidió** |
+| el rediseño del modal de nuevo competidor | **PENDIENTE** (lo marqué HECHO por error) |
+
+⚠️ **Martín, textual:** «no quiero que me vuelvas a decir no arranco sobre nada de Competitor Spy,
+arranca todo. Si ves que estás llegando al límite semanal cerca del 100 %, guarda contexto y yo
+continúo con la próxima cuenta.» O sea: **no frenar por prudencia de cuota; frenar al 97 % guardando
+todo.**
+
+⚠️ **NUNCA EDITAR UN ARCHIVO DEL REPO CON `Get-Content -Raw` + `Set-Content`.** Lo hice con este
+mismo relevo a las 21:30 y lo dejé ilegible: `Get-Content` lee el UTF-8 con la codepage ANSI del
+sistema, así que «Relevo — Cerebro» quedó «Relevo â€” Cerebro» en todo el archivo, más un BOM, y el
+commit salió con 766 inserciones y 785 borrados sobre un cambio de treinta líneas. Se revirtió con
+`git reset --hard HEAD~1` (el commit era local) y se rehízo con la herramienta Edit, que escribe
+UTF-8. **Para texto del repo: Edit/Write; PowerShell sólo para git y mediciones.**
+
+⚠️ **La RAM corta Bash por debajo de 3 GB** y estuvo entre 1,6 y 2,7 toda la noche. Read/Edit/Write
+no pasan por el guardia; PowerShell tampoco.
+
+## (anterior) ESTADO AL 2/11 ~19:45 — CUOTA AL 93 %, EL TREN CORRIENDO, Y EL PRÓXIMO PUSH RETENIDO
 
 ⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El run **#359** corre con 13 commits y lleva
 más de una hora. **No está colgado necesariamente**: el #358 corrió 30m19s antes de que lo cancelaran,
