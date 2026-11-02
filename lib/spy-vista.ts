@@ -82,8 +82,22 @@ const ROTULO_TIPO: Record<TipoPieza, { uno: string; varios: string }> = {
 export const rotuloDeTipo = (t: TipoPieza): string => ROTULO_TIPO[t].uno;
 
 /** La miniatura de una pieza, armada con su id. De YouTube es estable; la de Instagram vence (es del CDN de Meta) y no se guarda: null. */
-export const miniaturaDePieza = (p: { canal: string; ref: string }): string | null =>
-  (p.canal === 'youtube' ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg` : null);
+/**
+ * La imagen de una pieza.
+ *
+ * ⚠️ DOS ORÍGENES Y UN ORDEN, y el orden importa: la que GUARDÓ la fuente gana sobre la derivada.
+ * Instagram entrega su miniatura y hay que usarla — acá sólo se sabía armar la de YouTube, así que
+ * un reel se dibujaba sin imagen aunque Meta la hubiera dado, y la grilla quedaba en texto con
+ * números. YouTube no guarda ninguna porque la suya se deriva del id: no ocupa columna y no vence.
+ *
+ * La de Instagram SÍ vence (CDN de Meta): se reescribe en cada lectura y `TarjetaPieza` esconde la
+ * rota con su `onError`. Ver supabase/migrations/0360_spy_miniatura.sql.
+ */
+export const miniaturaDePieza = (p: { canal: string; ref: string; miniatura?: string | null }): string | null => (
+  p.miniatura && p.miniatura.startsWith('https://') ? p.miniatura
+    : p.canal === 'youtube' ? `https://i.ytimg.com/vi/${encodeURIComponent(p.ref)}/mqdefault.jpg`
+    : null
+);
 
 export type FilaConteo = { rotulo: string; n: number; pct: number };
 

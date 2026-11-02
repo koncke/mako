@@ -96,6 +96,8 @@ export type Pieza = {
   plataformas: string[] | null;
   dominio_destino: string | null;
   publicada_en: string | null;
+  /** La imagen de la pieza, como la dio su fuente. VENCE: ver supabase/migrations/0360_spy_miniatura.sql. */
+  miniatura: string | null;
   visto_primera_vez: string;
   visto_ultima_vez: string;
   dejo_de_verse_en: string | null;
@@ -300,6 +302,8 @@ export type PiezaVista = {
   plataformas?: string[] | null;
   dominioDestino?: string | null;
   publicadaEn?: string | null;
+  /** La imagen que dio la fuente. Instagram la trae (`thumbnail_url`); YouTube no la necesita: la suya se deriva del ref. */
+  miniatura?: string | null;
 };
 
 /**
@@ -339,6 +343,8 @@ export async function guardarVistas(
     // `contadorPublicado` y no `?? 0`: ausente es «no lo publica», y son dos datos distintos.
     vistas: contadorPublicado(v.vistas), megusta: contadorPublicado(v.megusta), comentarios: contadorPublicado(v.comentarios),
     duracion: v.duracion ?? null,
+    // Se reescribe en cada lectura A PROPÓSITO: la URL de Meta vence (ver la migración 0360).
+    miniatura: v.miniatura ?? null,
     metricas_leidas_en: ahora,
     // Los tramos de la Ad Library viajan como TEXTO. `leerTramo` valida la forma y devuelve el
     // texto tal cual: nunca un número, que sería un dato que nos inventamos.
@@ -424,6 +430,10 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
           ref: p.ref, fuente: 'api' as const, url: p.permalink, texto: p.texto,
           vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios,
           publicadaEn: p.fecha || null,
+          // ⚠️ ACÁ SE PERDÍAN LOS VIDEOS DE IG. `leerPerfilInstagram` ya devolvía la miniatura
+          // (`thumbnail_url`, lib/instagram-perfil.ts) y este mapeo no la copiaba, así que un reel
+          // llegaba a la grilla como texto con números en vez de como un video que se ve.
+          miniatura: p.miniatura,
         }));
         const g = await guardarVistas(competidorId, vistas);
         if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas.map((v) => v.ref));
