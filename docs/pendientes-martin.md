@@ -20,8 +20,8 @@ tres seguidos: se junta y se manda una vez por ítem.
 |---|---|---|---|
 | 1 | Spy visible para todos (tenía `adminOnly`) | **HECHO** | `91bcafb09` |
 | 2 | Offer y Ads Manager fuera de la barra | **HECHO** | `91bcafb09` |
-| 3 | Miniaturas de IG: `referrerPolicy` + respaldo | **PARCHE** | `91bcafb09` — Martín quiere la descarga, ver #4 |
-| 4 | **Descargar y GUARDAR la miniatura** | pendiente | revierte a propósito lo de 0359 |
+| 3 | Miniaturas de IG: `referrerPolicy` + respaldo | **HECHO** | `91bcafb09`, y reemplazado por #4 |
+| 4 | **Descargar y GUARDAR la miniatura** | **HECHO** | bucket `spy-miniaturas` (0361) + `lib/spy-miniaturas.ts`. Migración YA APLICADA en prod |
 | 5 | **YouTube: que traiga los videos LARGOS** | **HECHO** | pagina la playlist y le reserva cupo a los largos |
 | 6 | **Lista de competidores en tarjetas con caricatura** | pendiente | |
 | 7 | **Borrar competidor desde la lista** + deduplicar el alta | pendiente | Martín tiene 3 «Sofia Contreras» |

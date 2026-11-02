@@ -51,6 +51,7 @@ import {
   contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, metricasVencidas, textoVencido, TOPES,
   type CanalSpy, type FuentePieza, type TipoPieza,
 } from './spy-reglas';
+import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
@@ -333,6 +334,13 @@ export async function guardarVistas(
 
   // Las dos clases de dato llevan RELOJES DISTINTOS, y por eso se escriben en columnas distintas:
   // el texto se borra a los 30 días y las métricas duran hasta 36 meses con la enmienda III.L.
+  // ⚠️ LA MINIATURA SE BAJA ANTES DE GUARDAR. La URL del CDN de la fuente vence Y, en el caso de
+  // Meta, devuelve 403 a todo pedido que venga de otro dominio: guardar la URL era guardar algo
+  // que después no se iba a poder ver. `guardarMiniaturas` NUNCA tira — si una imagen no se puede
+  // bajar deja la URL original y la pieza se guarda igual, porque perder el competidor entero por
+  // una imagen sería cambiar un problema chico por uno grande. Ver lib/spy-miniaturas.ts y la 0361.
+  const conFoto = await guardarMiniaturas(vistas);
+
   const comun = (v: PiezaVista) => ({
     competidor_id: competidorId, canal: v.canal, tipo: v.tipo, ref: v.ref.slice(0, TOPES.ref), fuente: v.fuente,
     url: v.url ?? null,
@@ -343,8 +351,10 @@ export async function guardarVistas(
     // `contadorPublicado` y no `?? 0`: ausente es «no lo publica», y son dos datos distintos.
     vistas: contadorPublicado(v.vistas), megusta: contadorPublicado(v.megusta), comentarios: contadorPublicado(v.comentarios),
     duracion: v.duracion ?? null,
-    // Se reescribe en cada lectura A PROPÓSITO: la URL de Meta vence (ver la migración 0360).
+    // Ya bajada a nuestro bucket cuando se pudo (0361). Si no se pudo queda la del CDN ajeno, y
+    // `miniatura_guardada_en` en null lo dice: ésa es la que vence y la que puede dar 403.
     miniatura: v.miniatura ?? null,
+    miniatura_guardada_en: esNuestra(v.miniatura) ? ahora : null,
     metricas_leidas_en: ahora,
     // Los tramos de la Ad Library viajan como TEXTO. `leerTramo` valida la forma y devuelve el
     // texto tal cual: nunca un número, que sería un dato que nos inventamos.
@@ -358,8 +368,8 @@ export async function guardarVistas(
     updated_at: ahora,
   });
 
-  const nuevas = vistas.filter((v) => !conocidas.has(`${v.canal}|${v.ref}`));
-  const viejas = vistas.filter((v) => conocidas.has(`${v.canal}|${v.ref}`));
+  const nuevas = conFoto.filter((v) => !conocidas.has(`${v.canal}|${v.ref}`));
+  const viejas = conFoto.filter((v) => conocidas.has(`${v.canal}|${v.ref}`));
   let err: string | undefined;
   if (nuevas.length) {
     // Las nuevas SÍ escriben `visto_primera_vez`: es la primera vez que las vemos.

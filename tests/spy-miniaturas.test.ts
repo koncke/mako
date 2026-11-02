@@ -1,0 +1,69 @@
+// =============================================================================
+// La miniatura se baja y se guarda: lo que tiene que ser cierto para que se vea
+// =============================================================================
+// Martín, 2/11/2026, mirando la tab ya desplegada: «las miniaturas de IG no se ven, sólo cajas
+// vacías... si tenemos que descargar la imagen y guardarla, lo hacemos».
+//
+// ⚠️ ERAN DOS COSAS A LA VEZ, y por eso guardar sólo la URL no alcanzaba:
+//   1. la URL del CDN de Meta VENCE (eso ya se sabía, y era el motivo de 0359 para no guardarla);
+//   2. el CDN de Meta devuelve 403 a todo pedido de otro dominio, venza o no (eso NO se sabía).
+// Bajar los bytes arregla las dos.
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { BUCKET_MINIATURAS, esNuestra, rutaDeMiniatura, tipoDeImagen } from '../lib/spy-miniaturas';
+
+const RAIZ = fileURLToPath(new URL('..', import.meta.url));
+const bytes = (...n: number[]) => new Uint8Array([...n, ...Array(16).fill(0)]);
+
+test('el tipo sale de los BYTES, nunca de lo que declara un servidor ajeno', () => {
+  assert.deepEqual(tipoDeImagen(bytes(0xff, 0xd8, 0xff, 0xe0)), { mime: 'image/jpeg', ext: 'jpg' });
+  assert.deepEqual(tipoDeImagen(bytes(0x89, 0x50, 0x4e, 0x47)), { mime: 'image/png', ext: 'png' });
+  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x57, 0x45, 0x42, 0x50, 0, 0]);
+  assert.deepEqual(tipoDeImagen(webp), { mime: 'image/webp', ext: 'webp' });
+});
+
+test('lo que NO es una imagen no entra al bucket', () => {
+  // Un CDN puede contestar 200 con una página de error, y eso no se guarda como si fuera la foto.
+  assert.equal(tipoDeImagen(new TextEncoder().encode('<!doctype html><html>403</html>')), null);
+  assert.equal(tipoDeImagen(new Uint8Array(0)), null, 'una respuesta vacía no es una imagen');
+  assert.equal(tipoDeImagen(bytes(0x00, 0x01, 0x02, 0x03)), null);
+  // ⚠️ Un SVG es un documento ACTIVO y el bucket se sirve bajo el dominio de Supabase: no entra.
+  assert.equal(tipoDeImagen(new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg">')), null);
+});
+
+test('la ruta no lleva el negocio: la misma pieza cae siempre en el mismo lugar', () => {
+  // La miniatura de @leilahormozi es la misma para todos los que la miren: se baja UNA vez.
+  const a = rutaDeMiniatura('instagram', 'ABC123', 'jpg');
+  assert.equal(a, 'spy/instagram/ABC123.jpg');
+  assert.equal(rutaDeMiniatura('instagram', 'ABC123', 'jpg'), a, 'la ruta tiene que ser determinista');
+  assert.doesNotMatch(a, /\d{1,6}\//, 'la ruta no puede llevar un workspace_id');
+});
+
+test('un `ref` raro no se escapa de su carpeta', () => {
+  const r = rutaDeMiniatura('youtube', '../../otra/cosa?x=1', 'png');
+  assert.doesNotMatch(r, /\.\./, 'un ref con `..` saldría de la carpeta del bucket');
+  assert.match(r, /^spy\/youtube\/[A-Za-z0-9_-]+\.png$/);
+});
+
+test('lo que ya es nuestro no se vuelve a bajar', () => {
+  assert.equal(esNuestra(`https://x.supabase.co/storage/v1/object/public/${BUCKET_MINIATURAS}/spy/instagram/a.jpg`), true);
+  assert.equal(esNuestra('https://scontent.cdninstagram.com/v/t51/123.jpg'), false);
+  assert.equal(esNuestra(null), false);
+  assert.equal(esNuestra(undefined), false);
+});
+
+test('bajar una miniatura NUNCA puede romper la lectura del competidor', () => {
+  // Se mira el código: lo que no puede pasar es que un fallo de red se propague. Perder el
+  // competidor entero por una imagen sería cambiar un problema chico por uno grande.
+  const src = readFileSync(join(RAIZ, 'lib/spy-miniaturas.ts'), 'utf8');
+  assert.match(src, /catch\s*\{/, 'el bajador perdió su catch: un CDN caído rompería la lectura');
+  assert.match(src, /AbortSignal\.timeout/, 'sin timeout, un CDN que no contesta cuelga la lectura entera');
+  assert.match(src, /referrerPolicy: 'no-referrer'/, 'sin esto el CDN de Meta devuelve 403');
+  // Y que el guardado quede enganchado: sin esto se guarda la URL ajena y volvemos al problema.
+  const spy = readFileSync(join(RAIZ, 'lib/spy.ts'), 'utf8');
+  assert.match(spy, /guardarMiniaturas\(/, 'spy.ts dejó de bajar las miniaturas antes de guardar');
+});
