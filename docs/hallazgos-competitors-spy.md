@@ -555,3 +555,53 @@ para los últimos. Las dos pasan todos los tests que no midan el tiempo ni cuent
 
 **Vive en:** lib/spy-miniaturas.ts (`PRESUPUESTO_MS`) · lib/spy.ts (`yaBajada`) ·
 tests/spy-miniaturas.test.ts
+
+## El dato más barato es el que ya pagaste y estás tirando (2/11/2026)
+
+**El pedido:** Martín, ítem 10 — «con un dato, traer todas sus redes», más la landing o el funnel que
+tenga en la bio. Yo lo tenía anotado como trabado: hace falta un actor de BÚSQUEDA de Apify, que es
+otro costo y otra decisión suya.
+
+**Era trabado a medias.** La vista previa del alta ya lee el perfil con Apify y devuelve `web`, el
+link de la bio. La pantalla incluso lo MUESTRA («Su sitio: acme.com»). Y al confirmar,
+`agregarCompetidor` guardaba sólo el canal que se pegó: **`lib/spy.ts` no mencionaba `perfil.web` en
+ninguna línea.** O sea que el dato llegaba, se dibujaba y se tiraba.
+
+**La regla que queda, y es la que vale más que el arreglo:** antes de declarar trabado un pedido de
+«traer más datos», mirá qué datos YA te devuelve la llamada que estás haciendo. Una lectura de perfil
+trae nombre, foto, seguidores, bio y el link de la bio; si la pantalla muestra un campo que la base
+no guarda, ahí hay una mitad gratis. **Lo que se ve y lo que se guarda son dos cosas distintas** —es
+el mismo hallazgo que las miniaturas de YouTube, que se dibujaban desde una URL ajena y no estaban
+archivadas en ningún lado.
+
+⚠️ **El link viaja desde la PANTALLA, no se vuelve a leer en el servidor.** Releer el perfil dentro
+de `agregarCompetidor` habría sido pagar dos veces el mismo dato y gastar del tope diario
+(`APIFY_TOPE_POR_DIA`), que es exactamente lo que deja al negocio sin poder agregar a nadie el resto
+del día.
+
+⚠️ **Y SE CLASIFICA CON `queEs`, no con una expresión nueva.** Tres casos que una regex propia habría
+dejado pasar: una bio que enlaza a otra cuenta de Instagram (guardaría instagram.com como su «página
+de venta»), una bio con texto en vez de link, y una bio que repite el canal que ya se pegó. `queEs`
+los distingue solo, y además ya tiene el tope de 500 caracteres y el `https://` para un dominio
+pelado.
+
+⚠️ **La decisión vive en `lib/spy-reglas.ts` y no en `lib/spy.ts` por una razón concreta:** `spy.ts`
+importa `server-only` y ningún test puede importarlo. Una regla metida ahí sólo se puede cuidar
+emparejando el archivo como texto, que es cómo dos guards de esta semana pasaron en verde sobre
+código roto.
+
+### Y una trampa del test, que es el hallazgo de método
+
+El primer test rechazaba la bio de Instagram con `canalDeLaBio(otraIg, 'instagram')`. **Sacarle la
+lista blanca de campos al código dejaba el test en 7 / 0**: el descarte del «mismo campo» devolvía
+`null` igual y tapaba el agujero. El caso que vale es con OTRO canal pegado —
+`canalDeLaBio(otraIg, 'youtube_id')`— porque ahí la lista blanca es lo ÚNICO que impide guardar
+instagram.com como landing.
+
+**La regla:** un test que prueba un rechazo tiene que elegir el caso donde **esa** regla es la única
+que puede rechazar. Si otra guarda del mismo camino devuelve lo mismo, el test pasa con el código
+roto y no te enterás. Probarlo rompiéndolo es lo que lo mostró.
+
+**Vive en:** lib/spy-reglas.ts (`canalDeLaBio`) · lib/spy.ts (`agregarCompetidor`, `queEs`) ·
+app/competitor-spy/SpyApp.tsx (`ModalAlta` → `onPegar`) · app/competitor-spy/actions.ts ·
+tests/spy-canal-de-la-bio.test.ts

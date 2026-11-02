@@ -147,11 +147,11 @@ export async function vistaPreviaAction(pegado: string): Promise<{ ok: true; vis
   } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
-export async function sumarCompetidorAction(pegado: string, nombre?: string): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
+export async function sumarCompetidorAction(pegado: string, nombre?: string, deLaBio?: string | null): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
-    const r = await agregarCompetidor(pegado, nombre);
+    const r = await agregarCompetidor(pegado, nombre, deLaBio);
     if (!r.ok) return r;
     const c = r.competidor;
     await marcarActosSpy(c.instagram || c.youtube_id || c.landing_url ? ['spy_primero', 'spy_canales'] : ['spy_primero']);

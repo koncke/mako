@@ -495,7 +495,8 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
 /** El «+»: dos pestañas que se alternan, no dos pasos. La de Foreplay. */
 function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   ocupado: boolean; error: string | null; onClose: () => void;
-  onPegar: (valor: string) => void;
+  /** `deLaBio` = el link de la bio que leyó la vista previa, para que la landing no se pierda al guardar. */
+  onPegar: (valor: string, deLaBio?: string | null) => void;
   onAMano: (d: { nombre: string; instagram: string; youtube: string; sitio: string }) => void;
 }) {
   const [pestana, setPestana] = useState<'pegar' | 'mano'>('pegar');
@@ -561,7 +562,9 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
    */
   const enviar = () => {
     if (pestana === 'mano') { onAMano(d); return; }
-    if (vista) { onPegar(pegado.trim()); return; }
+    // El link de su bio viaja con la confirmación: ya lo pagó esta vista previa, y si no va acá se
+    // pierde (ítem 10). Sólo existe cuando la vista previa pudo leer el perfil.
+    if (vista) { onPegar(pegado.trim(), vista.web ?? null); return; }
     void buscar(pegado);
   };
 
@@ -903,10 +906,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     else irA(id);
   };
 
-  const sumar = async (valor: string, nombre?: string): Promise<number | null> => {
+  const sumar = async (valor: string, nombre?: string, deLaBio?: string | null): Promise<number | null> => {
     setOcupado(true); setError(null); setErrorModal(null);
     try {
-      const r = await sumarCompetidorAction(valor, nombre);
+      const r = await sumarCompetidorAction(valor, nombre, deLaBio);
       if (!r.ok) { setError(r.error); setErrorModal(r.error); return null; }
       return r.id;
     } finally {
@@ -921,8 +924,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     await abrirRecienAgregado(id);
   };
 
-  const alta = async (valor: string) => {
-    const id = await sumar(valor);
+  const alta = async (valor: string, deLaBio?: string | null) => {
+    const id = await sumar(valor, undefined, deLaBio);
     if (id == null) return;
     setModal(null);
     await abrirRecienAgregado(id);
@@ -1362,7 +1365,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         )}
       </div>
 
-      {modal === 'alta' && <ModalAlta ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onPegar={(v) => void alta(v)} onAMano={(d) => void altaAMano(d)} />}
+      {modal === 'alta' && <ModalAlta ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onPegar={(v, bio) => void alta(v, bio)} onAMano={(d) => void altaAMano(d)} />}
       {modal === 'canal' && c && <ModalCampo titulo={`Agregar un canal a ${c.nombre}`} placeholder="Su @, su canal de YouTube o su sitio" boton="Agregar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void sumarCanal(v)} />}
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
       {aBorrar && (

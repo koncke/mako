@@ -50,7 +50,7 @@ import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-rend
 import {
   contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, metricasVencidas, textoVencido, TOPES,
   type CanalSpy, type FuentePieza, type TipoPieza,
-  nombreComparable, dominioComparable,
+  nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
@@ -199,10 +199,27 @@ export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'lan
 /**
  * Agrega un competidor con lo poco que se pegó. El `nombre` es del negocio y no se sobrescribe: si
  * sólo pegó un @, el nombre arranca siendo ese @ y después lo puede cambiar.
+ *
+ * `deLaBio` = el link que la persona tiene puesto en su bio de Instagram, tal como lo devolvió la
+ * vista previa (`web`). Es la mitad GRATIS del pedido «con un dato, traer todas sus redes» (ítem 10,
+ * 2/11/2026): **ya lo leímos y lo estábamos tirando a la basura al guardar.**
+ *
+ * ⚠️ POR QUÉ LLEGA DESDE LA PANTALLA Y NO SE LEE ACÁ: la vista previa YA pagó esa lectura de Apify
+ * para mostrar quién es. Leer el perfil otra vez acá sería pagar dos veces por el mismo dato y
+ * gastar del tope diario (`APIFY_TOPE_POR_DIA`), que es lo que deja al negocio sin poder agregar a
+ * nadie el resto del día.
+ *
+ * ⚠️ Y SE CLASIFICA CON `queEs`, no con una expresión nueva: así un link de instagram.com en la bio
+ * NO se guarda como landing (vuelve como `instagram`, que es a quien ya estamos agregando), un link
+ * a su canal entra como `youtube_id` —que es justo «traer otra de sus redes»— y el tope de 500
+ * caracteres ya está puesto. Un normalizador propio acá habría dejado pasar los dos primeros casos.
  */
-export async function agregarCompetidor(pegado: string, nombrePedido?: string): Promise<{ ok: true; competidor: Competidor } | { ok: false; error: string }> {
+export async function agregarCompetidor(pegado: string, nombrePedido?: string, deLaBio?: string | null): Promise<{ ok: true; competidor: Competidor } | { ok: false; error: string }> {
   const leido = queEs(pegado);
   if (!leido) return { ok: false, error: 'No reconocí eso. Pega el @ de Instagram, el enlace de su canal de YouTube o el de su sitio.' };
+  // Del link de la bio sólo sirven los dos canales que no son el que ya estamos agregando. Un
+  // `nombre` (texto que no es un link) se descarta: el nombre lo pone el negocio, no su bio.
+  const extra = canalDeLaBio(deLaBio ? queEs(deLaBio) : null, leido.campo);
   const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre) || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
   const db = await getTenantDb();
   // ── ¿YA ESTÁ? ───────────────────────────────────────────────────────────────────────────────
@@ -233,6 +250,10 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string): 
     if (leido.campo === 'instagram' && !yaEsta.instagram) suma.instagram = leido.valor;
     if (leido.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = leido.valor;
     if (leido.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = leido.valor;
+    // El link de la bio entra con la MISMA regla: sólo si ese canal falta. Volver a pegar un @ sobre
+    // una ficha vieja le completa la landing que antes no se guardaba, y no pisa nada.
+    if (extra?.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = extra.valor;
+    if (extra?.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = extra.valor;
     if (!Object.keys(suma).length) return { ok: true, competidor: yaEsta };
     const r = await db.from('spy_competidores').update({ ...suma, updated_at: new Date().toISOString() })
       .eq('id', yaEsta.id).select(COLUMNAS_COMPETIDOR).maybeSingle();
@@ -253,6 +274,7 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string): 
 
   const fila: Record<string, unknown> = { nombre, updated_at: new Date().toISOString() };
   if (leido.campo !== 'nombre') fila[leido.campo] = leido.valor;
+  if (extra) fila[extra.campo] = extra.valor;
   const { data, error } = await db.from('spy_competidores').upsert(fila, { onConflict: 'workspace_id,nombre' }).select(COLUMNAS_COMPETIDOR).maybeSingle();
   if (error || !data) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude guardar el competidor: ${error?.message ?? 'sin fila'}` };
   return { ok: true, competidor: data as Competidor };

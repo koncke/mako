@@ -422,7 +422,7 @@ mío.
 | 7b | **Deduplicar el alta** (por eso hay 3 «Sofia Contreras») | **HECHO** | deduplica por canal y por nombre comparable |
 | 8 | **Rediseñar el modal de «Mirar a alguien más»** | **HECHO** | una entrada, vista previa y confirmación |
 | 9 | **Con el @ traer el perfil** | **HECHO, Spy y CRM** | `c85e10ec2` — en el CRM no faltaba pantalla —estaba desde el 12/10—: la ruta pedía `APIFY_TOKEN`, que no existe en ningún negocio, teniendo al lado la `APIFY_CLAVE_DE_SPY` que Martín pegó el 1/11. Una fuente sin credencial hace `continue`, no error: fallaba en silencio once días. `docs/hallazgos-crm.md` |
-| 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | pendiente | |
+| 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | **HECHA la mitad GRATIS** | el link de la bio ya se leía, se MOSTRABA y se tiraba a la basura al guardar (`lib/spy.ts` no nombraba `perfil.web` en ninguna línea). Ahora viaja con la confirmación y entra como landing —o como YouTube, si su bio enlaza su canal—, sin pagar una segunda lectura. `canalDeLaBio` en `lib/spy-reglas.ts`, con `tests/spy-canal-de-la-bio.test.ts`. **Falta** la búsqueda por nombre (otro actor de Apify, decisión de Martín) |
 | 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
 | 12 | **Pasar de 50 publicaciones** | **HECHO a medias** | por Apify, de 25 a 100 (gratis: ya las recibíamos). Por Meta NO se toca, ver abajo |
 | 13 | **Spy compartido entre usuarios** | pendiente | la decisión ya está tomada, ver abajo |
