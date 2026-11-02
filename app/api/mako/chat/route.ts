@@ -124,10 +124,15 @@ async function personaDelChat(persona: PersonaChat, sessionId: number, antes: un
  * persona escriba sólo un número. ⚠️ UNA PIEZA PARA LOS DOS CAMINOS DE ESTA RUTA (JSON y con archivos): escrito en cada uno, un PDF
  * adjunto al Funnel Coach lo dejaba hablando como el Ops Center.
  */
-async function contextoDelChat(quien: PersonaChat, desde: Desde | null, mensaje: string): Promise<{ contexto: string; pista?: string }> {
+async function contextoDelChat(quien: PersonaChat, desde: Desde | null, mensaje: string): Promise<{ contexto: string; pista?: string; referente?: string | null }> {
   if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   const { funnel } = await runWithWorkspace(quien.ws, () => leerReferentes());
-  return { contexto: contextoDelFunnelCoach(funnel), pista: pistaDelFunnelCoach(mensaje) };
+  // ⚠️ `referente` ES OTRA COSA QUE `contexto`, y por eso viaja aparte (2/11/2026). El contexto
+  // lleva la FICHA —cómo piensa, 5.200 caracteres, en CADA mensaje—; `referente` sólo dice QUIÉN
+  // es, para que el Second Brain pueda colgar su curso entero como capa y traer la clase que la
+  // pregunta pida (lib/cerebro-para-chat.ts). Martín: «que el segundo cerebro de estos gurús tenga
+  // todo el contexto».
+  return { contexto: contextoDelFunnelCoach(funnel), pista: pistaDelFunnelCoach(mensaje), referente: funnel };
 }
 
 export async function GET(req: NextRequest) {
@@ -294,7 +299,7 @@ export async function POST(req: NextRequest) {
       // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
       const delChat = await contextoDelChat(quien, desde, mensaje);
       const ia = await eleccionDelPedido(quien, form.get('ia'));
-      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: delChat.contexto, pista: delChat.pista, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde, ia });
+      const r = await turnoApp(quien, sessionId, { mensaje, adjuntos: v.adjuntos, voz, contexto: delChat.contexto, pista: delChat.pista, referente: delChat.referente, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde, ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {
@@ -345,7 +350,7 @@ export async function POST(req: NextRequest) {
       // Con qué IA corre (8b): lo que eligió en el «+», validado contra lo que se le ofrecería ahora; si no, Automático.
       const delChat = await contextoDelChat(quien, sanearDesde(body.desde), mensaje);
       const ia = await eleccionDelPedido(quien, body.ia);
-      const r = await turnoApp(quien, sessionId, { mensaje, contexto: delChat.contexto, pista: delChat.pista, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde), ia });
+      const r = await turnoApp(quien, sessionId, { mensaje, contexto: delChat.contexto, pista: delChat.pista, referente: delChat.referente, guardarAdjuntos: true, plazoMs: maxDuration * 1000, desde: sanearDesde(body.desde), ia });
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       // Un fallo del modelo NO es un error HTTP: el mensaje quedó guardado y el aviso viaja adentro.
       return json({ ...r });

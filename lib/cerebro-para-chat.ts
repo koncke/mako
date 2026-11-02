@@ -64,7 +64,10 @@ export const ESPERA_GRAFO_TURNO_MS = 2_500;
  * persona. Espera al grafo hasta `ESPERA_GRAFO_TURNO_MS` y nunca tira: sin grafo, el turno sigue como antes. Busca con las
  * primeras letras del mensaje (`preguntaDelTurno`): `recuperar` corre DESPUÉS de la espera, sincrónico y sin tope propio.
  */
-export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolean; presupuesto?: number }): Promise<string> {
+export async function paqueteParaElTurno(
+  pregunta: string,
+  o: { sinPlata: boolean; presupuesto?: number; referente?: string | null },
+): Promise<string> {
   const q = preguntaDelTurno(pregunta);
   if (!q) return '';
   try {
@@ -75,7 +78,17 @@ export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolea
     if (!grafo) return '';
     // La capa de las funciones (sólo existe en la plataforma) entra sólo si la pregunta es de producto: «¿cuál es mi meta?» no
     // habla del Ads Manager de Meta.
-    const delRol = o.sinPlata ? sinLaPlata(grafo) : grafo;
+    // ── La capa del REFERENTE: su curso entero, clase por clase (2/11/2026) ──────────────────────
+    // Martín: «me gustaría que se lea entero los cursos… que el segundo cerebro de estos gurús tenga
+    // todo el contexto».
+    // ⚠️ NO LLEVA EL HEURÍSTICO DE KNOWLEDGE, y eso es a propósito. Knowledge necesita
+    // `esPreguntaDeConocimiento` porque va en TODOS los negocios y los nombres de sus módulos son
+    // palabras del negocio. Acá no hay esa ambigüedad: la capa se cuelga SÓLO cuando el chat tiene a
+    // ese referente al frente, así que su curso es pertinente por definición.
+    // ⚠️ Y el curso NO viaja entero en el turno: `recuperar` manda el índice —una línea por clase— y
+    // el cuerpo de una clase sólo si la pregunta la nombra. Por eso puede no tener tope.
+    const conReferente = o.referente ? await capaDelReferente(grafo, o.referente) : grafo;
+    const delRol = o.sinPlata ? sinLaPlata(conReferente) : conReferente;
     const conProducto = esPreguntaDeProducto(q) ? delRol : sinFunciones(delRol);
     // Y la capa de Knowledge (el método de los cursos, en TODO negocio) sólo si la pregunta pide el MÉTODO: los nombres
     // de los módulos son palabras del negocio y «¿cuál es mi oferta?» no pregunta por el método de armar una.
@@ -83,6 +96,39 @@ export async function paqueteParaElTurno(pregunta: string, o: { sinPlata: boolea
     return bloqueDelSecondBrain(recuperar(g, { pregunta: q, presupuesto: o.presupuesto ?? PRESUPUESTO_TURNO }));
   } catch {
     return '';
+  }
+}
+
+/**
+ * Le cuelga al grafo la capa del referente que tiene este chat al frente: su curso entero, un nodo
+ * por clase (lib/cerebro-referente.ts).
+ *
+ * ⚠️ TODO ACÁ ES CON IMPORT DINÁMICO y envuelto en try: el catálogo de cursos son miles de líneas
+ * que no tienen por qué entrar en el camino de un chat sin referente, y un curso que no se puede
+ * leer NO puede tirar el turno — sin la capa el chat sigue como antes, que es la misma regla que el
+ * grafo (`nunca tira`).
+ */
+async function capaDelReferente(grafo: Cerebro<string>, id: string): Promise<Cerebro<string>> {
+  try {
+    const [{ ASESORES }, { cursoDeReferente }, { cerebroDeReferenteMemo }, { idRaizDeReferente }] = await Promise.all([
+      import('./asesores/catalogo'), import('./asesores/cursos'),
+      import('./cerebro-referente-server'), import('./cerebro-referente'),
+    ]);
+    const a = ASESORES.find((x) => x.id === id);
+    const slug = cursoDeReferente(id);
+    if (!a || !slug) return grafo;
+    const { CURSOS_TODOS } = await import('@/app/conocimientos/catalogo');
+    const curso = CURSOS_TODOS.find((c) => c.slug === slug);
+    if (!curso) return grafo;
+    const capa = await cerebroDeReferenteMemo(a, curso);
+    if (!capa.nodos.length) return grafo;
+    return conCapa(grafo, capa, {
+      id: CAPA_CONOCIMIENTO, nombre: a.completo, raiz: idRaizDeReferente(id),
+      motivo: `Lo que ${a.nombre} enseña en «${a.curso}», clase por clase`,
+    });
+  } catch (e) {
+    console.error(`[cerebro-para-chat] la capa de ${id}: ${e instanceof Error ? e.message : String(e)}`);
+    return grafo;
   }
 }
 
