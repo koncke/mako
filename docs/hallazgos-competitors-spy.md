@@ -522,3 +522,36 @@ romper el código a propósito se vio que no servían. Un guard que no se pone r
 está rota es peor que no tener guard: da permiso para seguir.
 
 **Vive en:** tests/spy-youtube-largos.test.ts · tests/spy-alta-duplicados.test.ts
+
+---
+
+## Una caché no la rompe la caché: la rompe lo que le pasa quien la llama (2/11/2026)
+
+Dos bugs seguidos la misma noche, los dos en código que acababa de escribir y los dos invisibles
+desde adentro de la función.
+
+**El primero.** `guardarMiniaturas` baja imágenes y las sube a nuestro bucket. Corre ADENTRO de
+`guardarVistas`, que corre adentro de la acción que dispara el usuario con «Revisar ahora». Con 50
+piezas, de a 6 y hasta 8 s cada una, el peor caso eran **72 segundos sólo de imágenes**, y Spy no
+declara `maxDuration`: la lectura entera —la que trae los datos— se habría caído por culpa de las
+fotos. **Lo que hace lento a algo no es su propio código, es dónde está enchufado.**
+
+**El segundo, y es el que enseña más.** Con el presupuesto puesto, la función era correcta y aun
+así no servía: `esNuestra(v.miniatura)` daba `false` para TODAS, siempre. Porque lo que le llega de
+la API es **la URL fresca del CDN**, nunca la nuestra — la nuestra está en la base, y la función
+nunca la veía. Resultado: el presupuesto se gastaba cada vez en las PRIMERAS imágenes y nunca
+llegaba a las que faltaban. Se podía tocar «Revisar ahora» diez veces y las últimas treinta
+miniaturas no se bajaban jamás. La función estaba bien; **el dato que le pasaban estaba mal**.
+
+**La regla que queda:** cuando agregues una caché o un «si ya lo tengo, no lo hago», **mirá qué le
+pasa quien la llama, no sólo cómo está escrita por dentro**. Si la clave con la que decide viene de
+afuera y se regenera en cada vuelta, la caché nunca acierta y no se nota: no falla, sólo no sirve.
+Y la segunda: **medí el peor caso en TIEMPO de lo que agregaste, y comparalo con el tope de donde
+corre.** 50 × 8 s no es «un poco más lento», es otra cosa.
+
+**Cómo se ven, porque ninguna de las dos da error:** la primera, un «Revisar ahora» que se cae con
+muchas piezas y anda con pocas. La segunda, algo que converge para los primeros elementos y nunca
+para los últimos. Las dos pasan todos los tests que no midan el tiempo ni cuenten las llamadas.
+
+**Vive en:** lib/spy-miniaturas.ts (`PRESUPUESTO_MS`) · lib/spy.ts (`yaBajada`) ·
+tests/spy-miniaturas.test.ts
