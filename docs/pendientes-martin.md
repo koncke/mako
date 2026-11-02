@@ -75,6 +75,7 @@ arregla, y forzar el flag a mano mandaría a cada cliente nuevo a instalar una v
 | 4 | **Descargar y GUARDAR la miniatura** | **HECHO** | bucket `spy-miniaturas` (0361) + `lib/spy-miniaturas.ts`. Migración YA APLICADA en prod |
 | 4b | **Que bajar las imágenes no rompa «Revisar ahora»** | **HECHO** | presupuesto de 9 s; lo que no entra lo toma la próxima lectura |
 | 4c | **Que no vuelva a bajar lo que ya bajó** | **HECHO** | sin esto el presupuesto se gastaba siempre en las mismas y nunca convergía |
+| 4d | **`maxDuration` en la tab** | **HECHO** | Spy no lo declaraba y «Revisar ahora» es lo más caro de la app |
 | 5 | **YouTube: que traiga los videos LARGOS** | **HECHO** | pagina la playlist y le reserva cupo a los largos |
 | 6 | **Lista de competidores en tarjetas con caricatura** | **HECHO** | la cara es su foto de perfil, bajada (0362) |
 | 7 | **Borrar competidor desde la lista** | **HECHO** | el botón vive en la tarjeta |

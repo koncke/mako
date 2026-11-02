@@ -15,6 +15,15 @@ import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
+// «Revisar ahora» es lo más caro de esta tab y se le fue sumando trabajo: lee Instagram por
+// Apify (que puede tardar varios segundos), lee el canal de YouTube paginando hasta cuatro
+// veces, y desde el 2/11/2026 además BAJA las imágenes —la foto de perfil, hasta 4 s, y las
+// miniaturas de las piezas, con un presupuesto propio de 9 s (lib/spy-miniaturas.ts)—.
+// Sumado puede pasar el default corto, y el corte llega DESPUÉS de haber leído: el usuario
+// vería un error sobre una lectura que en realidad salió bien, y volvería a apretar, gastando
+// otra vez la cuota de Apify. Mismo criterio que /crm y /copywriter.
+export const maxDuration = 60;
+
 export default async function CompetitorSpyPage({ searchParams }: { searchParams: Promise<{ competidor?: string }> }) {
   await requireRolWs([], { nav: 'market-an' });
   const r = await listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
