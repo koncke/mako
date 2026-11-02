@@ -155,6 +155,25 @@ const CSS = `
 .spy-cols{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:var(--gap);align-items:start}
 .spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
 
+/* --- La miga: TODA la cabecera de la ficha. 18 px. Copiada de .crumbs--page de fitlo. --- */
+.spy-migas{display:flex;align-items:center;gap:8px;min-width:0;margin:8px 0 16px;
+  font-size:var(--fs-sm);font-weight:600;color:var(--faint);white-space:nowrap}
+.spy-migas button{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:0;
+  font:inherit;color:inherit;cursor:pointer}
+.spy-migas button:hover{color:var(--ink)}
+.spy-migas b{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600}
+.spy-migas i{display:inline-block;width:5px;height:5px;border-right:1.5px solid var(--faint);
+  border-top:1.5px solid var(--faint);transform:rotate(45deg);flex:0 0 auto}
+
+/* --- La identidad abre el riel, como la .pd-info abre la columna de al lado. --- */
+.spy-ficha{display:flex;flex-direction:column;gap:12px;padding:18px 20px 20px;border-radius:var(--r-lg);
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
+.spy-ficha small{display:block;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
+.spy-ficha h1{margin:4px 0 0;font-size:var(--fs-kpi);font-weight:600;line-height:1.1;letter-spacing:-.02em}
+.spy-ficha__datos{display:flex;flex-wrap:wrap;gap:6px}
+.spy-ficha__acciones{display:flex;gap:8px}
+.spy-ficha__acciones .spy-boton:first-child{flex:1}
+
 /* ── Celdas pastel de datos: .kpi. Sin deltas, porque Spy lee UNA vez. ── */
 .spy-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
 .spy-kpi{display:flex;flex-direction:column;min-height:98px;padding:16px 18px 14px;border-radius:var(--r-lg);
@@ -204,7 +223,7 @@ const CSS = `
 .spy-chip .spy-badge{min-width:18px;height:18px;background:rgba(0,0,0,.06);color:inherit}
 .spy-chip[data-activo=true] .spy-badge{background:rgba(255,255,255,.22)}
 .spy-chip i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
-.spy-orden{margin-left:auto}
+.spy-orden{margin-left:0}
 .spy-conteo{margin:0 0 12px;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 
 /* ── LA GRILLA Y LA TARJETA, que es lo que más se ve: .pgrid + .pcard de fitlo.
@@ -235,13 +254,15 @@ const CSS = `
 .spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
 .spy-pcard__texto{flex:1;min-width:0}
 .spy-pcard__texto small{display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.spy-pcard__texto b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  font-size:var(--fs-card);font-weight:600;line-height:1.25;letter-spacing:-.005em}
-.spy-pcard__num{display:inline-flex;flex-direction:column;align-items:flex-end;flex:0 0 auto;gap:1px;
-  padding:5px 11px;border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)}
-.spy-pcard__num b{font-size:var(--fs-md);font-weight:700;line-height:1.1}
-.spy-pcard__num small{color:var(--faint);font-size:10.5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
-.spy-pcard__num--ausente b{color:var(--faint);font-size:var(--fs-sm);font-weight:600}
+.spy-pcard__texto b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:var(--fs-card);font-weight:600;line-height:1.3;letter-spacing:-.005em}
+.spy-pcard__num{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto;height:34px;padding:0 13px;
+  border-radius:99px;background:var(--ink);color:var(--on-ink);box-shadow:0 8px 18px -10px #11111173}
+.spy-pcard__num svg{opacity:.75;flex:0 0 auto}
+.spy-pcard__num b{font-size:var(--fs-md);font-weight:700;line-height:1;letter-spacing:-.01em}
+.spy-pcard__num--ausente{height:30px;padding:0 11px;background:var(--surface-2);color:var(--faint);
+  box-shadow:inset 0 0 0 1px var(--border)}
+.spy-pcard__num--ausente b{font-size:var(--fs-sm);font-weight:600}
 
 /* ── La lista de competidores: la tabla de merrin dentro de una caja plana. ── */
 .spy-envoltura-tabla{overflow-x:auto}
@@ -338,7 +359,6 @@ const CSS = `
   .spy-pcard__num small{display:none}
   .spy-riel{flex-direction:column}
   .spy-solo-ancho{display:none}
-  .spy-orden{margin-left:0}
 }
 `;
 
@@ -845,6 +865,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
     ].filter(Boolean).join(' · ')
     : '';
 
+  // El ante-título del riel, el `small` de `.pd-title` en la referencia: de dónde lo leemos.
+  const anteTitulo = c ? [
+    c.instagram ? `@${String(c.instagram).replace(/^@/, '')}` : null,
+    c.youtube_id ? 'YouTube' : null,
+    c.landing_url ? 'Su sitio' : null,
+  ].filter(Boolean).join(' · ') : '';
+
   // Las celdas pastel del riel. Un contador ausente NO es cero: sin dato no hay celda.
   const rc = c ? resumen[c.id] : undefined;
   const celdas = c ? [
@@ -874,7 +901,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
     <main className="spy" data-spy>
       <style>{CSS}</style>
 
-      {/* ── Zona 0: la barra fija. El campo no se va nunca: ni con la ficha abierta ni con cero. ── */}
+      {/* ── Zona 0: la barra de pegar. ⚠️ SOLO EN LA LISTA. Antes estaba siempre, y en la ficha de
+           un competidor era una banda entera para una acción que ahí no se usa: nadie pega un @
+           mientras mira lo que publica otro. En la referencia (fitlo) la ficha no tiene ninguna
+           banda de cabecera — tiene una miga de 18 px. ── */}
+      {!c && (
       <div className="spy-barra">
         <button type="button" className="spy-marca" onClick={() => irA(null)}>
           <Icon name="spy" size={18} /><span>Competitor Spy</span>
@@ -895,6 +926,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
           <Icon name="plus" size={17} />
         </button>
       </div>
+      )}
 
       <div className="spy-cuerpo">
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
@@ -914,56 +946,31 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
 
         {c && (
           <>
-            {/* ── El encabezado de página de la referencia (`.phead` de fitlo): UN título grande y
-                 UNA línea gris. Antes eran dos filas —migas y después identidad— con seis píldoras
-                 grises en fila, y entre las dos se llevaban la mitad de la pantalla. Los números
-                 que vivían en esas píldoras ahora son celdas de datos en el riel. ── */}
-            <header className="spy-phead">
-              <div className="spy-phead__texto">
-                <h1>{c.nombre}</h1>
-                {identidad && <p>{identidad}</p>}
-              </div>
-              <div className="spy-phead__acciones">
-                <button type="button" className="spy-boton" aria-label={`Volver a los ${competidores.length} competidores`} onClick={() => irA(null)}>
-                  <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={13} /></span>
-                  Competidores{competidores.length > 1 && <span className="spy-badge">{competidores.length}</span>}
-                </button>
-                {competidores.length > 1 && (
+            {/* ── LA CABECERA ENTERA ES UNA MIGA DE 18 px. Copiada de `.crumbs--page` de la ficha
+                 de producto de fitlo, que es la pantalla análoga a ésta: un ítem de un catálogo.
+                 Ahí NO hay banda de título ni fila de botones; el nombre, los datos y las acciones
+                 viven en la columna de al lado (`.pd-info`), que acá es el riel.
+
+                 Martín, 2/11: «arriba tiene una cantidad impresionante de texto, botones, y es
+                 demasiado confuso». Lo que había eran CINCO bandas: barra de marca (68 px) +
+                 título con tres botones (85) + pestañas (43) + herramientas (42) + conteo (18).
+                 Quedan TRES, y las dos primeras son chicas: miga (18) + pestañas (42) +
+                 herramientas (42). El conteo se fue porque la pestaña ya lo dice en su badge. ── */}
+            <nav className="spy-migas" aria-label="Dónde estás">
+              <button type="button" onClick={() => irA(null)}>Competidores</button>
+              <i aria-hidden />
+              {competidores.length > 1
+                ? (
                   <Dropdown
                     ariaLabel="Cambiar de competidor"
                     value={String(c.id)}
                     options={competidores.map((x) => ({ value: String(x.id), label: x.nombre }))}
                     onChange={(v) => irA(Number(v))}
-                    buttonStyle={{ height: 40, borderRadius: 12, fontSize: 'var(--fs-md)', fontWeight: 600 }}
+                    buttonStyle={{ border: 0, background: 'none', padding: 0, height: 18, fontSize: 'var(--fs-sm)', fontWeight: 600, color: 'var(--ink)' }}
                   />
-                )}
-                <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
-                  {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
-                </button>
-                <Dropdown
-                  ariaLabel="Más acciones"
-                  value=""
-                  width={210}
-                  align="right"
-                  resetAfterSelect
-                  sinFlecha
-                  botonLabel={<span aria-hidden>⋯</span>}
-                  options={[
-                    { value: 'analizar', label: analizando ? 'Leyendo su oferta…' : 'Qué vende y qué ataca' },
-                    { value: 'canal', label: 'Agregar un canal' },
-                    { value: 'anuncio', label: 'Guardar un anuncio' },
-                    { value: 'quitar', label: 'Dejar de mirarlo' },
-                  ]}
-                  onChange={(v) => {
-                    // «Qué vende y qué ataca» no abre un modal: corre. Por eso sale antes del setModal.
-                    if (v === 'analizar') { if (!analizando && piezas.length) void analizar(); return; }
-                    setErrorModal(null);
-                    setModal(v as 'canal' | 'anuncio' | 'quitar');
-                  }}
-                  buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
-                />
-              </div>
-            </header>
+                )
+                : <b>{c.nombre}</b>}
+            </nav>
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
@@ -990,7 +997,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
             {activa === 'publica' && ordenando?.id !== c.id && (
               // ── Las dos columnas de merrin: el catálogo manda y el análisis vive a la derecha.
               //    Sin piezas no hay riel, y entonces la grilla ocupa el ancho entero.
-              <div className={flujo.length > 0 ? 'spy-cols' : 'spy-cols spy-cols--solo'}>
+              <div className="spy-cols">
                 <div>
                   {flujo.length > 0 && (
                     <>
@@ -1025,18 +1032,13 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                             align="right"
                             buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
                             options={[
-                              { value: 'mas-tiempo', label: 'Lleva más tiempo a la vista' },
+                              { value: 'mas-tiempo', label: 'Más tiempo a la vista' },
                               { value: 'mas-nuevo', label: 'Lo más nuevo' },
                             ]}
                             onChange={(v) => setOrden(v as OrdenSpy)}
                           />
                         </div>
                       </div>
-                      <p className="spy-conteo">
-                        {visibles.length === flujo.length
-                          ? `${flujo.length} ${flujo.length === 1 ? 'pieza suya' : 'piezas suyas'}`
-                          : `${visibles.length} de ${flujo.length} piezas suyas`}
-                      </p>
                     </>
                   )}
 
@@ -1091,19 +1093,57 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                   )}
                 </div>
 
-                {flujo.length > 0 && (
-                  <aside className="spy-riel">
-                    {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
-                    {celdas.length > 0 && (
-                      <div className="spy-kpis">
-                        {celdas.map((k) => (
-                          <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
-                        ))}
-                      </div>
-                    )}
-                    <RielAnalisis piezas={flujo} c={c} analizando={analizando} onAnalizar={() => void analizar()} />
-                  </aside>
-                )}
+                <aside className="spy-riel">
+                  {/* La identidad abre el riel, como la `.pd-info` abre la columna de al lado en la
+                      referencia: ante-título chico, nombre grande, la frescura, y la acción. ⚠️ EL
+                      RIEL YA NO DEPENDE DE QUE HAYA PIEZAS: si dependiera, un competidor sin nada
+                      leído se quedaría sin nombre y sin el botón de revisarlo. */}
+                  <section className="spy-ficha">
+                    <div>
+                      {anteTitulo && <small>{anteTitulo}</small>}
+                      <h1>{c.nombre}</h1>
+                    </div>
+                    {identidad && <small className="spy-rango">{identidad}</small>}
+                    <div className="spy-ficha__acciones">
+                      <button type="button" className="spy-boton spy-boton-primario" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
+                        {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
+                      </button>
+                      <Dropdown
+                        ariaLabel="Más acciones"
+                        value=""
+                        width={210}
+                        align="right"
+                        resetAfterSelect
+                        sinFlecha
+                        botonLabel={<span aria-hidden>⋯</span>}
+                        options={[
+                          { value: 'analizar', label: analizando ? 'Leyendo su oferta…' : 'Qué vende y qué ataca' },
+                          { value: 'canal', label: 'Agregar un canal' },
+                          { value: 'anuncio', label: 'Guardar un anuncio' },
+                          { value: 'quitar', label: 'Dejar de mirarlo' },
+                        ]}
+                        onChange={(v) => {
+                          // «Qué vende y qué ataca» no abre un modal: corre. Por eso sale antes del setModal.
+                          if (v === 'analizar') { if (!analizando && piezas.length) void analizar(); return; }
+                          setErrorModal(null);
+                          setModal(v as 'canal' | 'anuncio' | 'quitar');
+                        }}
+                        buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
+                      />
+                    </div>
+                  </section>
+
+                  {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
+                  {celdas.length > 0 && (
+                    <div className="spy-kpis">
+                      {celdas.map((k) => (
+                        <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
+                      ))}
+                    </div>
+                  )}
+
+                  {flujo.length > 0 && <RielAnalisis piezas={flujo} c={c} analizando={analizando} onAnalizar={() => void analizar()} />}
+                </aside>
               </div>
             )}
 

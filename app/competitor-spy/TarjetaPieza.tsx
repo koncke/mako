@@ -78,10 +78,21 @@ export function TarjetaPieza({ p }: { p: PiezaVista }) {
           <small title={p.etapa ? NOMBRE_ETAPA[p.etapa].porque : undefined}>{linea}</small>
           {titulo && <b>{titulo}</b>}
         </div>
+        {/* ⚠️ EL NÚMERO LLEVA EL PESO QUE LA REFERENCIA LE DA A ESE LUGAR. En `.pcard__buy` de fitlo
+            ahí va una píldora LLENA con sombra propia, y era lo único de la tarjeta que se leía de
+            lejos. Lo nuestro era un chip apagado con un rótulo en versalitas: dos tamaños de letra
+            para decir un número. Ahora es la píldora llena, en tinta y no en el acento, porque es
+            un dato y no una acción; y el ojo dice «vistas» sin gastar un renglón. */}
         {!esAnuncio && (
-          <span className={hayVistas ? 'spy-pcard__num' : 'spy-pcard__num spy-pcard__num--ausente'} title={hayVistas ? undefined : vistas}>
+          <span className={hayVistas ? 'spy-pcard__num' : 'spy-pcard__num spy-pcard__num--ausente'}
+            title={hayVistas ? `${vistas} vistas` : vistas}>
+            {hayVistas && (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z" />
+                <circle cx="12" cy="12" r="2.8" />
+              </svg>
+            )}
             <b>{vistas}</b>
-            {hayVistas && <small>vistas</small>}
           </span>
         )}
       </div>

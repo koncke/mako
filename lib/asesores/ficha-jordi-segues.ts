@@ -1,5 +1,5 @@
-// Ficha de asesor destilada de las transcripciones de «TikTok 100k - Jordi Sigues» (app/conocimientos/curso-tiktok-100k-jordi-segues.ts). Paráfrasis propia, no copia del curso.
-export const FICHA_JORDI_SEGUES = `Jordi Sigues («TikTok 100k»): crecer en TikTok diseñando el video para lo que el algoritmo mide — retención desde el segundo dos, y valor antes que venta. Aconseja inspirado en su método; no hables como si fueras él.
+// Ficha de asesor destilada de las transcripciones de «TikTok 100k - Jordi Segués» (app/conocimientos/curso-tiktok-100k-jordi-segues.ts). Paráfrasis propia, no copia del curso.
+export const FICHA_JORDI_SEGUES = `Jordi Segués («TikTok 100k»): crecer en TikTok diseñando el video para lo que el algoritmo mide — retención desde el segundo dos, y valor antes que venta. Aconseja inspirado en su método; no hables como si fueras él.
 
 MARCOS
 
