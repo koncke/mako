@@ -70,11 +70,18 @@ const CSS = `
 .spy-boton{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:9px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);font-size:13px;cursor:pointer;white-space:nowrap;text-decoration:none}
 .spy-boton:disabled{opacity:.55;cursor:default}
 .spy-boton-primario{background:var(--primary);border-color:var(--primary);color:var(--bg)}
-.spy-migas{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.spy-identidad{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px}
+/* UNA cabecera donde antes había dos filas (migas e identidad). El nombre y el volver a la
+   izquierda, lo que sabemos de él en el medio —que se encoge antes que nada— y las acciones a la
+   derecha, que nunca se parten. El min-width 0 del medio es lo que permite que el texto se recorte
+   en vez de empujar los botones a otro renglón. */
+.spy-cabecera{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
+.spy-volver{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--dim);cursor:pointer}
+.spy-volver:hover{color:var(--ink)}
+.spy-meta{display:flex;align-items:center;gap:6px;min-width:0;flex:1;overflow:hidden}
+.spy-meta>*{flex:none}
 .spy-miga{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;color:var(--dim);cursor:pointer;font-size:13px;white-space:nowrap}
-.spy-avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);font-size:16px;font-weight:700;color:var(--dim)}
-.spy-nombre{font-size:20px;font-weight:700;line-height:1.2}
+.spy-avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--dim)}
+.spy-nombre{font-size:19px;font-weight:700;line-height:1.2;white-space:nowrap}
 .spy-pildora-gris{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);font-size:12px;color:var(--dim);white-space:nowrap}
 .spy-acciones{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .spy-pestanas{display:flex;gap:22px;margin-top:16px;border-bottom:1px solid var(--border);overflow:auto hidden;scrollbar-width:none}
@@ -97,6 +104,19 @@ const CSS = `
 .spy-fila b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .spy-fila span{flex:none;color:var(--faint);font-variant-numeric:tabular-nums}
 .spy-herramientas{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
+/* Las pestañas dejaron de tener fila propia. Siguen siendo pestañas —peso y subrayado en la activa—
+   pero entran en la fila de los chips, que ya existía. El separador vertical dice dónde terminan. */
+.spy-pestanas--en-linea{margin-top:0;border-bottom:0;gap:14px;padding-right:12px;border-right:1px solid var(--border)}
+/* A partir de acá la fila de la cabecera se parte: primero se va lo que menos se mira. */
+@media (max-width: 900px){
+  .spy-solo-ancho{display:none}
+}
+@media (max-width: 720px){
+  .spy-cabecera{flex-wrap:wrap}
+  .spy-meta{flex-basis:100%;order:3;overflow:visible;flex-wrap:wrap}
+  .spy-acciones{margin-left:auto}
+  .spy-pestanas--en-linea{border-right:0;padding-right:0;flex-basis:100%}
+}
 .spy-buscar{display:flex;align-items:center;gap:6px;width:213px;height:34px;padding:0 9px;border:1px solid var(--border);border-radius:9px;background:var(--surface-2);color:var(--faint)}
 .spy-buscar input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--ink);font-size:12.5px}
 .spy-chip{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--dim);font-size:12.5px;cursor:pointer;white-space:nowrap}
@@ -356,7 +376,10 @@ function TablaCompetidores({ competidores, resumen, onAbrir }: {
 }
 
 function Banda({ piezas, c, analizando, onAnalizar }: { piezas: PiezaVista[]; c: Competidor; analizando: boolean; onAnalizar: () => void }) {
-  const [abierta, setAbierta] = useState(true);
+  // ⚠️ ARRANCA PLEGADA, y antes arrancaba abierta. Es ANÁLISIS, no la pieza: tres columnas de listas
+  // que empujaban la primera pieza fuera de la pantalla justo cuando había algo que ver. Su frase de
+  // una línea se queda arriba —que es el resumen— y el detalle se abre cuando alguien lo pide.
+  const [abierta, setAbierta] = useState(false);
   const mezcla = useMemo(() => mezclaDeTipos(piezas), [piezas]);
   const destinos = useMemo(() => destinosDe(piezas), [piezas]);
   const ganchos = useMemo(() => ganchosDe(piezas), [piezas]);
@@ -690,39 +713,17 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
 
         {c && (
           <>
-            {/* ── Zona 1: migas, identidad y frescura. Nada de «Sin revisar»: ese lugar es del competidor. ── */}
-            <div className="spy-migas">
-              <button type="button" className="spy-miga" onClick={() => irA(null)}>
-                <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={12} /></span>
-                Competidores ({competidores.length})
+            {/* ── Zona 1: UNA cabecera. Antes eran dos filas —migas y después identidad—, y entre las dos
+                 se llevaban dos renglones enteros para decir en qué competidor estás y volver atrás.
+                 Martín, 1/11/2026: «fíjate que la cantidad de botones arriba, texto, eso no me gusta».
+                 Ahora: volver y quién es, a la izquierda; lo que sabemos de él, en el medio; lo que se
+                 hace con él, a la derecha. ⚠️ Arriba quedan sólo las DOS acciones que se usan en cada
+                 visita; «Qué vende y qué ataca» se mudó al ⋯, donde ya vivían las otras tres. No se
+                 sacó ninguna. ── */}
+            <div className="spy-cabecera">
+              <button type="button" className="spy-volver" aria-label={`Volver a los ${competidores.length} competidores`} title="Volver" onClick={() => irA(null)}>
+                <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={13} /></span>
               </button>
-              <div className="spy-acciones">
-                <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
-                  {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
-                </button>
-                <button type="button" className="spy-boton" disabled={analizando || !piezas.length} title={piezas.length ? undefined : 'Sale de lo que publica'} onClick={() => void analizar()}>
-                  {analizando ? 'Leyendo su oferta…' : 'Qué vende y qué ataca'}
-                </button>
-                <Dropdown
-                  ariaLabel="Más acciones"
-                  value=""
-                  width={190}
-                  align="right"
-                  resetAfterSelect
-                  sinFlecha
-                  botonLabel={<span aria-hidden>⋯</span>}
-                  options={[
-                    { value: 'canal', label: 'Agregar un canal' },
-                    { value: 'anuncio', label: 'Guardar un anuncio' },
-                    { value: 'quitar', label: 'Dejar de mirarlo' },
-                  ]}
-                  onChange={(v) => { setErrorModal(null); setModal(v as 'canal' | 'anuncio' | 'quitar'); }}
-                  buttonStyle={{ height: 34, width: 34, justifyContent: 'center', padding: 0 }}
-                />
-              </div>
-            </div>
-
-            <div className="spy-identidad">
               <span className="spy-avatar">{inicial(c.nombre)}</span>
               {competidores.length > 1
                 ? (
@@ -731,23 +732,57 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                     value={String(c.id)}
                     options={competidores.map((x) => ({ value: String(x.id), label: x.nombre }))}
                     onChange={(v) => irA(Number(v))}
-                    buttonStyle={{ border: 0, background: 'none', padding: 0, fontSize: 20, fontWeight: 700, color: 'var(--ink)' }}
+                    buttonStyle={{ border: 0, background: 'none', padding: 0, fontSize: 19, fontWeight: 700, color: 'var(--ink)' }}
                   />
                 )
                 : <span className="spy-nombre">{c.nombre}</span>}
-              {estaLeyendo && c.mirado_en && <span className="spy-pildora-gris">Actualizando…</span>}
-              {!estaLeyendo && c.mirado_en && <span className="spy-pildora-gris">Revisado {haceCuanto(c.mirado_en)}</span>}
-              {desde && <span className="spy-pildora-gris">Lo seguimos desde el {fechaCorta(desde)}</span>}
-              {c.instagram_seguidores != null && <span className="spy-pildora-gris">{dibujarContador(c.instagram_seguidores)} seguidores</span>}
-              {c.youtube_suscriptores != null && <span className="spy-pildora-gris">{dibujarContador(c.youtube_suscriptores)} suscriptores</span>}
+
+              {/* Lo que se sabe de él. Un dato que no tenemos no deja hueco ni se anuncia. */}
+              <span className="spy-meta">
+                {estaLeyendo && c.mirado_en && <span className="spy-pildora-gris">Actualizando…</span>}
+                {!estaLeyendo && c.mirado_en && <span className="spy-pildora-gris">Revisado {haceCuanto(c.mirado_en)}</span>}
+                {c.instagram_seguidores != null && <span className="spy-pildora-gris">{dibujarContador(c.instagram_seguidores)} seguidores</span>}
+                {c.youtube_suscriptores != null && <span className="spy-pildora-gris">{dibujarContador(c.youtube_suscriptores)} suscriptores</span>}
+                {desde && <span className="spy-pildora-gris spy-solo-ancho">Lo seguimos desde el {fechaCorta(desde)}</span>}
+              </span>
+
+              <div className="spy-acciones">
+                <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
+                  {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
+                </button>
+                <Dropdown
+                  ariaLabel="Más acciones"
+                  value=""
+                  width={210}
+                  align="right"
+                  resetAfterSelect
+                  sinFlecha
+                  botonLabel={<span aria-hidden>⋯</span>}
+                  options={[
+                    { value: 'analizar', label: analizando ? 'Leyendo su oferta…' : 'Qué vende y qué ataca' },
+                    { value: 'canal', label: 'Agregar un canal' },
+                    { value: 'anuncio', label: 'Guardar un anuncio' },
+                    { value: 'quitar', label: 'Dejar de mirarlo' },
+                  ]}
+                  onChange={(v) => {
+                    // «Qué vende y qué ataca» no abre un modal: corre. Por eso sale antes del setModal.
+                    if (v === 'analizar') { if (!analizando && piezas.length) void analizar(); return; }
+                    setErrorModal(null);
+                    setModal(v as 'canal' | 'anuncio' | 'quitar');
+                  }}
+                  buttonStyle={{ height: 34, width: 34, justifyContent: 'center', padding: 0 }}
+                />
+              </div>
             </div>
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
 
-            {/* ── Zona 2: pestañas, activas por peso y subrayado. Nunca acordeones. ── */}
+            {/* ── Zona 2: pestañas. Dejaron de tener fila propia: viven en la de herramientas, que ya es
+                 una fila de chips, y así la primera pieza sube un renglón más. Siguen siendo pestañas
+                 (peso y subrayado), nunca acordeones. ── */}
             {pestanas.length > 1 && (
-              <div className="spy-pestanas" role="tablist">
+              <div className="spy-pestanas spy-pestanas--en-linea" role="tablist">
                 {pestanas.map((p) => (
                   <button key={p.key} type="button" role="tab" aria-selected={activa === p.key} className="spy-pestana" data-activa={activa === p.key} onClick={() => setPestana(p.key)}>
                     {p.rotulo}{p.n != null && <span>{p.n}</span>}
