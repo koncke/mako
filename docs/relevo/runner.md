@@ -8,7 +8,7 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 - **Monitor con `vigilar-continuo.sh`:** entrega en segundos y termina solo a los 28 minutos. Hay que volver a armarlo en cada aviso.
 - **Recordatorios:** `8a9b80fb` (05/11, rearmar el cron) y `a3d9a0af` (06/11, revisar el limbo).
 - Si este chat se cierra, no se entrega ni se mide. Al retomar: `CronList`, armar el Monitor y contar las copias (`continuo.pid`; memoria `monitor-no-mata-el-proceso`).
-- **Si la cuenta corta al 97%, se para todo esto:** nada más entrega los pedidos del Centro hasta que este chat siga en otra cuenta. Al retomar, `medir` frena una medición de otra cuenta si el marcador está mal, y `--renovada` sólo se usa si lo dice Martín.
+- **Si la cuenta corta (desde el 02/11, al 99%; el cierre con relevo es al 98%), se para todo esto:** nada más entrega los pedidos del Centro hasta que este chat siga en otra cuenta. Al retomar, `medir` frena una medición de otra cuenta si el marcador está mal, y `--renovada` sólo se usa si lo dice Martín.
 - La app no informa la ventana de 5 horas: `medir` va con `"" ""` en su lugar.
 - **Última vuelta antes de este relevo:** 20:25 UTC. Latido al día, sin alertas y 9 en el limbo.
 - **Del 02/11 02:00 a las 20:25 UTC** se entregaron al Cerebro, con acuse: tickets #43 y #44, y los pedidos de Martín `4dbf4767`, `3a1657a3` y `1088908c`. Entregar no dice que los leyó ni que están hechos: eso se mira en el Centro.
