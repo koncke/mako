@@ -142,7 +142,7 @@ export function ticketQueAcabaDeNombrar(ultimoDeMaKo: string | null): number | n
  */
 export function respuestaDelTicket(t: TicketAbierto, resumen: string, base?: string): string {
   const que = resumen.trim().replace(/[.\s]+$/u, '');
-  const donde = base ? ` Mirá cómo va acá: ${base.replace(/\/+$/u, '')}/tickets?t=${t.id}` : '';
+  const donde = base ? ` Mira el progreso de tu ticket aquí: ${base.replace(/\/+$/u, '')}/tickets?t=${t.id}` : '';
   return t.sumado
     ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.${donde}`
     : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.${donde}`;

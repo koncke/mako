@@ -61,7 +61,7 @@ const ESCRIBEN = /^(crear|mover|cambiar|editar|borrar|eliminar|agendar|pausar|ac
 // saberlo: la frase terminaba en «te aviso por aquí cuando esté». El link es parte del contrato
 // ahora, así que se exige, no se tolera. Y sale con `&ws=`: la app le pega el negocio al link para
 // que abra en el workspace correcto (`conWs`, lib/ws-tab.ts), así que el final no se ancla.
-const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por aquí cuando esté\. Mirá cómo va acá: \S*\/tickets\?t=\1\b/;
+const FIJA = /^Abrí el ticket #(\d+): Arreglar los dos problemas de la automatización 680\. Lo toma el equipo y te aviso por aquí cuando esté\. Mira el progreso de tu ticket aquí: \S*\/tickets\?t=\1\b/;
 
 test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que sigue se suma', () => {
   const e = escena('ticket');
@@ -78,7 +78,7 @@ test('1. TICKET: lo abre el código, con la respuesta fija, sin turno; lo que si
   const s = escena('sumado');
   assert.equal(s.turno.length, 0);
   // Lo que se SUMA a un ticket que ya existe también dice dónde mirarlo, y apunta al MISMO número.
-  assert.match(s.salio[0], new RegExp(`^Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale\\. Lo toma el equipo y te aviso por aquí cuando esté\\. Mirá cómo va acá: \\S*/tickets\\?t=${t.id}\\b`));
+  assert.match(s.salio[0], new RegExp(`^Lo sumé al ticket #${t.id}: El DM de rechazo tampoco sale\\. Lo toma el equipo y te aviso por aquí cuando esté\\. Mira el progreso de tu ticket aquí: \\S*/tickets\\?t=${t.id}\\b`));
   assert.equal(s.tickets.length, 1, 'abrió otro en vez de sumarlo');
 });
 
@@ -103,7 +103,7 @@ test('3. PREGUNTA: sólo lecturas, con su bloque y sin la muletilla; con un repo
   const t = escena('preguntaYTicket');
   assert.equal(t.turno.length, 1);
   assert.match(t.turno[0].system, /el ticket lo abre el código después de tu respuesta/);
-  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #(\d+): El botón de pagar no anda\. Lo toma el equipo y te aviso por aquí cuando esté\. Mirá cómo va acá: \S*\/tickets\?t=\1\b/);
+  assert.match(t.salio[0], /^Hoy no entró ningún lead nuevo\.\n\nAbrí el ticket #(\d+): El botón de pagar no anda\. Lo toma el equipo y te aviso por aquí cuando esté\. Mira el progreso de tu ticket aquí: \S*\/tickets\?t=\1\b/);
   assert.equal(t.tickets.length, 1);
   const r = escena('relleno');
   assert.deepEqual([r.salio, r.r.skip], [[], 'era todo relleno: la reacción alcanza']);

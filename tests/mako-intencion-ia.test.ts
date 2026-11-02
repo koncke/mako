@@ -90,7 +90,7 @@ test('4. el ticket del grupo: la respuesta la escribe el código, y lo que sigue
   // palabra por palabra — las tres de arriba lo prueban.
   assert.equal(
     respuestaDelTicket({ id: 7, sumado: false }, '', 'https://hola-mako.com'),
-    'Abrí el ticket #7. Lo toma el equipo y te aviso por aquí cuando esté. Mirá cómo va acá: https://hola-mako.com/tickets?t=7',
+    'Abrí el ticket #7. Lo toma el equipo y te aviso por aquí cuando esté. Mira el progreso de tu ticket aquí: https://hola-mako.com/tickets?t=7',
   );
   // La barra de más de la base no duplica la del link.
   assert.match(respuestaDelTicket({ id: 9, sumado: true }, 'x', 'https://hola-mako.com/'), /hola-mako\.com\/tickets\?t=9$/);
