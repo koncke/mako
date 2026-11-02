@@ -425,7 +425,7 @@ mío.
 | 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | **HECHA la mitad GRATIS** | el link de la bio ya se leía, se MOSTRABA y se tiraba a la basura al guardar (`lib/spy.ts` no nombraba `perfil.web` en ninguna línea). Ahora viaja con la confirmación y entra como landing —o como YouTube, si su bio enlaza su canal—, sin pagar una segunda lectura. `canalDeLaBio` en `lib/spy-reglas.ts`, con `tests/spy-canal-de-la-bio.test.ts`. **Falta** la búsqueda por nombre (otro actor de Apify, decisión de Martín) |
 | 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
 | 12 | **Pasar de 50 publicaciones** | **HECHO a medias** | por Apify, de 25 a 100 (gratis: ya las recibíamos). Por Meta NO se toca, ver abajo |
-| 13 | **Spy compartido entre usuarios** | pendiente | la decisión ya está tomada, ver abajo |
+| 13 | **Spy compartido entre usuarios** | **EMPEZADO: la base está** | migración `0363` **ya aplicada en producción** (tabla global `spy_lecturas_canal`, sin `workspace_id` a propósito, RLS prendida sin políticas como las otras de Spy) + `lib/spy-compartido.ts` con la regla, probada rompiéndola. ⚠️ **FALTA EL CABLEADO**: que `mirarCompetidor` la consulte antes de llamar a Apify/YouTube y la refresque después. Ver abajo |
 | 14 | **Los 12 referentes** (fichas + caricaturas) | **2 de 12** | Puigrredón y Alborna hechos. La receta, abajo |
 | 15 | **El diseño de la tab principal de gurús** (no el detalle) | pendiente | |
 | 16 | **Elegir un gurú desde «nuevo chat»** | pendiente | hoy sólo `funnel` y `offer` |
@@ -703,3 +703,39 @@ menos de **150 KB** por cara porque la lista de chats del Ops Center las baja TO
 quedaban en ~159 KB. **Un archivo no puede servir a los dos.** Ahora son dos:
 `public/asesores/<id>.png` (200 px, la lista) y `public/asesores/grandes/<id>.png` (600 px, la
 tarjeta de Spy), con un test que exige que cada referente tenga las dos.
+
+### 🔗 ÍTEM 13 — CÓMO SE TERMINA EL CABLEADO (la base ya está, 2/11/2026)
+
+**Hecho y aplicado en producción:**
+· `supabase/migrations/0363_spy_lecturas_compartidas.sql` — tabla `spy_lecturas_canal`, con clave
+  `(canal, ref)`. **Sin `workspace_id` a propósito**: si guardara quién la pidió, diría a quién
+  vigila cada negocio, que es justo el dato que NO se comparte. RLS prendida y sin políticas, igual
+  que `spy_competidores` y `spy_piezas` (0359): sólo el service role.
+· ⚠️ **NO AGREGAR `spy_lecturas_canal` A `TENANT_TABLES`** (`lib/workspace.ts:87`). El proxy le
+  estamparía un `workspace_id` que la columna no tiene y rompería toda escritura. Es global a
+  propósito, y ese concepto ya existe: lo que no está en esa lista pasa sin scoping.
+· `lib/spy-compartido.ts` — la regla, pura y con test probado rompiéndolo
+  (`tests/spy-lectura-compartida.test.ts`).
+
+**La regla, que es lo que separa ahorrar de mentir:**
+
+| cuándo se lee | sirve la lectura de otro |
+|---|---|
+| **alta** de un competidor nuevo | hasta **24 h** — no hay nada en pantalla, y una lectura de ayer vale más que un cuadro vacío mientras se gasta un crédito. **Acá es donde se ahorra de verdad** |
+| **rutina** (revisión de fondo) | hasta **6 h** |
+| **«Revisar ahora»** | **NUNCA.** Quien toca ese botón está mirando y pide datos de HOY. Ahí se lee de verdad y se refresca la copia compartida para todos |
+
+**Lo que falta, en orden, y es todo en `lib/spy.ts` → `mirarCompetidor` (línea ~514):**
+1. Antes de `leerPerfilInstagram` y del lector de YouTube: armar la clave con `claveDeCanal` y, si
+   `sirveLaCompartida(motivo, fila.leido_en, Date.now())`, usar `fila.piezas` en vez de llamar.
+2. `mirarCompetidor` necesita recibir el **motivo** (`'alta' | 'rutina' | 'a-pedido'`). Hoy no lo
+   tiene: el alta y el botón entran por el mismo camino. **Sin ese parámetro no se puede cumplir la
+   regla de arriba**, así que es el primer paso, no un detalle.
+3. Después de una lectura de verdad: `upsert` de la fila con las piezas y el perfil.
+4. Sumar 1 a `ahorros` cada vez que se sirve sin pagar. Es la medida de si esto sirve: si queda en
+   cero, nadie mira a los mismos y la tabla no se ganó el lugar.
+5. Podar lo que pase de `DIAS_QUE_SE_GUARDA` (30).
+
+⚠️ **Lo que NO cambia, y conviene no tocarlo:** `spy_piezas` y `spy_competidores` siguen por
+negocio, con su borrado de siempre. El usuario saca al competidor de SU lista y la lectura
+compartida no se toca. **Nadie ve la lista de nadie.**
