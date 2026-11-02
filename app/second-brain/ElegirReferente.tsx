@@ -28,7 +28,7 @@ export function ElegirReferente({ titulo, elegido, onElegir, onCerrar }: {
     //    especialidad no entraba, y sin `alto` el cuerpo del modal se volvía un SEGUNDO scroll encima
     //    del de las fichas (Martín, 1/11/2026: «tiene 3 scrolls diferentes dentro del modal»). Con el
     //    alto fijo, lo único que scrollea es la lista de fichas.
-    <Modal titulo={titulo} onCerrar={onCerrar} ancho={1040} alto={620}
+    <Modal titulo={titulo} onCerrar={onCerrar} ancho={1040} alto="min(78vh, 620px)"
       pie={<Button onClick={() => onElegir(probando)}>Elegir</Button>}>
       <div className="co-elegir co-elegir--referentes">
         <div className="co-elegir__grilla">

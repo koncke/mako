@@ -561,7 +561,8 @@ const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
 /** Una caja del riel: cabecera, barra apilada y filas. Es el bloque «Where it sells» de merrin. */
 function CajaMix({ titulo, pie, filas, total }: {
-  titulo: string; pie?: string; total: number;
+  // `pie` admite null porque `fraseDeLectura` devuelve null cuando al competidor no se le leyo nada.
+  titulo: string; pie?: string | null; total: number;
   filas: Array<{ rotulo: string; n: number; pct: number }>;
 }) {
   if (!filas.length) return null;
