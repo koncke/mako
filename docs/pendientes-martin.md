@@ -641,3 +641,37 @@ Augusto Bianchi · Tino Mossu · Jordi Segués · Emilio Puigrredón · Julián 
 Los que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs «acquisition.com»)
 hay que borrarlos a mano desde la tarjeta. ⚠️ **`acquisition.com` no se va a juntar con Hormozi
 nunca**: un dominio no se empareja con una persona, y hacerlo necesitaría una tabla de dominios.
+
+## 🎫 EL PROGRESO DE UN TICKET, PARA QUIEN LO LEVANTÓ — 2/11/2026
+
+Joan, por WhatsApp: «¿cómo van esos tickets?». Martín: «que cuando él levante un ticket… le diga,
+mira el progreso de tu ticket aquí, y que él pueda ir viendo: tu ticket fue levantado, el equipo lo
+revisó, ya lo están desarrollando. Y también… que se le envíe por email los avances. Y solamente
+cuando ya esté 100 % finalizado, ahí sí el mensaje de WhatsApp que ya tenemos».
+
+**Lo que YA existía y nadie le había dicho:**
+· Los estados de cara al cliente: `EstadoCliente` = recibido · en curso · tu respuesta · resuelto ·
+  cerrado (`lib/tickets-reglas.ts:76`).
+· La LÍNEA DE TIEMPO con fechas: `pasosDelTicket` (recibido → en curso → arreglado → resuelto →
+  cerrado), que dibuja la pantalla `/tickets?t=<id>`.
+· Que WhatsApp **ya avisa sólo al final**: `avisarPendientes` (`lib/tickets-cierre.ts:124`) manda
+  «cerrados, resueltos o con una pregunta del equipo». O sea que esa parte del pedido ya estaba bien.
+
+**Lo que faltaba de verdad, y es por lo que Joan preguntó:** la respuesta del grupo terminaba en
+«te aviso por aquí cuando esté» y **no nombraba la pantalla**. La única forma de saber algo era
+esperar o preguntar.
+
+**HECHO** (`53f6f2f26`): la respuesta del grupo lleva «Mirá cómo va acá: …/tickets?t=<id>».
+La base viaja por PARÁMETRO y no por import: `lib/despacho-grupo.ts` es puro y sus tests lo ejecutan
+directo; importar `APP_BASE_URL` arrastraría `ws-tab` y las landings. Sin base, la frase es la de
+antes palabra por palabra, y hay tests de las dos formas.
+
+**FALTA — el email de avance.** Es lo único del pedido que no está:
+· Hoy `avisarPendientes` dispara en resuelto / cerrado / pregunta del equipo. El avance intermedio
+  («el equipo lo revisó», «ya lo están desarrollando») **no dispara nada**.
+· El camino: colgar el aviso del cambio de `EstadoCliente` —no del estado interno, que tiene ocho
+  valores y varios no le dicen nada a nadie— y mandarlo por Resend desde `equipo@hola-mako.com`,
+  que es el remitente de la casa (`lib/app-url.ts`, `EMAIL_MAKO`).
+· ⚠️ **Con tope por ticket.** Un ticket que rebota entre «en curso» y «esperando cliente» mandaría
+  un correo por rebote. El patrón ya existe en el repo: `avisado_at` por hito, no por cambio.
+· ⚠️ **Y el WhatsApp NO se toca:** sigue sólo al final, que es lo que Martín pidió y lo que ya hace.
