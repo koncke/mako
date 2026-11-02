@@ -52,6 +52,7 @@ import {
   type CanalSpy, type FuentePieza, type TipoPieza,
   nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
+import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-caricatura';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { getTenantDb, getWorkspaceActual } from './workspace';
@@ -220,7 +221,15 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
   // Del link de la bio sólo sirven los dos canales que no son el que ya estamos agregando. Un
   // `nombre` (texto que no es un link) se descarta: el nombre lo pone el negocio, no su bio.
   const extra = canalDeLaBio(deLaBio ? queEs(deLaBio) : null, leido.campo);
-  const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre) || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
+  // ⚠️ SI LO PEGADO ES ALGUIEN QUE YA TENEMOS DIBUJADO, SE GUARDA SU NOMBRE DE VERDAD. Martín,
+  // 2/11/2026: «no pueden haber dos Alex Hormozi, no pueden haber dos Sofía Contreras». Pegar su
+  // YouTube guardaba `UCxxxxxx` (el id del canal) y pegar su @ guardaba `alexhormozi`: dos nombres
+  // distintos para la base, dos tarjetas para la persona. Con el nombre completo, la deduplicación
+  // por nombre comparable de abajo los junta sola la próxima vez.
+  const referente = referenteDeCompetidor(comoAQuienMira(leido));
+  const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre)
+    || (referente ? nombreDeReferente(referente) : '')
+    || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
   const db = await getTenantDb();
   // ── ¿YA ESTÁ? ───────────────────────────────────────────────────────────────────────────────
   // ⚠️ EL `onConflict: workspace_id,nombre` DE ABAJO NO ALCANZA, y es la razón de que Martín
@@ -242,6 +251,11 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
     || (leido.campo === 'youtube_id' && x.youtube_id === leido.valor)
     || (leido.campo === 'landing_url' && !!x.landing_url && dominioComparable(x.landing_url) === dominioComparable(leido.valor))
     || (!!buscado && nombreComparable(x.nombre) === buscado)
+    // 3. el REFERENTE. Si lo pegado y el que ya está son la misma persona dibujada, son la misma
+    //    persona, aunque sus nombres guardados no se parezcan en nada: así «UCxxxx» de su canal cae
+    //    sobre la tarjeta que se creó con su @. Es lo que pidió Martín: «que esa data se cargue en
+    //    ese que ya existía, no que se creen dos tarjetas diferentes».
+    || (!!referente && referenteDeCompetidor(x) === referente)
   ));
   if (yaEsta) {
     // Sólo se escribe si el canal pegado FALTA. Nunca se pisa uno que ya estaba: el que está es

@@ -62,6 +62,7 @@ import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { AVISO_CORTE_VIEWCOUNT, ETAPA_ES_NUESTRO_CRITERIO, NOMBRE_CANAL, cruzaElCorte, dibujarContador } from '@/lib/spy-reglas';
+import { caricaturaDeCompetidor } from '@/lib/spy-caricatura';
 import {
   canalesDe, cumpleFiltro, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, ganchosDe, haceCuanto, mezclaDeTipos, ordenarPiezas, pideConectarMeta,
@@ -290,6 +291,14 @@ const CSS = `
 .spy-ccard__cara{position:relative;display:grid;place-items:center;aspect-ratio:1/1;width:100%;
   overflow:hidden;background:var(--t1);color:var(--t-ink);font-size:56px;font-weight:700}
 .spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover}
+/* La caricatura NO es una foto: va sobre el color de la tarjeta y con aire, para que se lea como
+   dibujo y no como el retrato real de la persona. */
+.spy-ccard__cara--dibujo{background:var(--t2);padding:10%}
+.spy-ccard__cara--dibujo img{object-fit:contain}
+/* «Inspirado en»: la persona no participa ni respalda nada. Misma regla que la galería de referentes. */
+.spy-ccard__dibujo{position:absolute;top:12px;left:12px;padding:3px 8px;border-radius:999px;
+  background:var(--surface);color:var(--faint);font-size:11px;font-weight:600;
+  box-shadow:var(--sombra-tarjeta)}
 .spy-ccard__cuerpo{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px}
 .spy-ccard__nombre{display:block;font-size:var(--fs-card);font-weight:600;letter-spacing:-.005em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -495,8 +504,12 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
 /** El «+»: dos pestañas que se alternan, no dos pasos. La de Foreplay. */
 function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   ocupado: boolean; error: string | null; onClose: () => void;
-  /** `deLaBio` = el link de la bio que leyó la vista previa, para que la landing no se pierda al guardar. */
-  onPegar: (valor: string, deLaBio?: string | null) => void;
+  /**
+   * Lo que la vista previa YA leyó y no se puede perder al guardar:
+   * `nombre` = su nombre de verdad («Alex Hormozi», no «alexhormozi»), que es lo que evita la
+   * tarjeta duplicada; `deLaBio` = el link de su bio, que es su landing sin buscarla.
+   */
+  onPegar: (valor: string, nombre?: string, deLaBio?: string | null) => void;
   onAMano: (d: { nombre: string; instagram: string; youtube: string; sitio: string }) => void;
 }) {
   const [pestana, setPestana] = useState<'pegar' | 'mano'>('pegar');
@@ -562,9 +575,10 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
    */
   const enviar = () => {
     if (pestana === 'mano') { onAMano(d); return; }
-    // El link de su bio viaja con la confirmación: ya lo pagó esta vista previa, y si no va acá se
-    // pierde (ítem 10). Sólo existe cuando la vista previa pudo leer el perfil.
-    if (vista) { onPegar(pegado.trim(), vista.web ?? null); return; }
+    // El nombre y el link de su bio viajan con la confirmación: los pagó esta vista previa, y si no
+    // van acá se pierden (ítems 10 y «no pueden haber dos Alex Hormozi»). Sólo existen cuando la
+    // vista previa pudo leer el perfil; con un aviso de «no pude leerlo» van vacíos y se agrega igual.
+    if (vista) { onPegar(pegado.trim(), vista.nombre?.trim() || undefined, vista.web ?? null); return; }
     void buscar(pegado);
   };
 
@@ -670,22 +684,28 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
       </header>
 
       {/* ── Tarjetas, no filas. Martín, 2/11: «quiero que cada competidor tenga su caricatura,
-           como acostumbramos, como tarjetas». La cara NO se genera: es su foto de perfil pública,
-           ya bajada a nuestro bucket (migraciones 0361 y 0362) para que no venza. ── */}
+           como acostumbramos, como tarjetas».
+           La cara, por orden: (1) su foto de perfil ya bajada a nuestro bucket (0361 y 0362), que es
+           la cara de verdad; (2) si no hay foto, LA CARICATURA QUE YA TENEMOS DIBUJADA de ese
+           referente (`caricaturaDeCompetidor`) — 22 están hechas y aprobadas para el Ops Center, y
+           Martín pidió reusarlas acá: «ya directamente salen con la caricatura correspondiente»;
+           (3) si no es ninguno de los dos, su inicial. ── */}
       <div className="spy-crejilla">
         {competidores.map((c) => {
           const r = resumen[c.id];
+          const dibujo = caricaturaDeCompetidor(c);
           const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.landing_url ? 'Su sitio' : null].filter(Boolean).join(' · ');
           return (
             <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
               onClick={() => onAbrir(c.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
-              <span className="spy-ccard__cara" aria-hidden>
-                {c.avatar
-                  // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket, no pasa por el optimizador
-                  ? <img src={c.avatar} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+              <span className={`spy-ccard__cara${!c.avatar && dibujo ? ' spy-ccard__cara--dibujo' : ''}`} aria-hidden>
+                {c.avatar || dibujo
+                  // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
+                  ? <img src={(c.avatar || dibujo) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
                   : inicial(c.nombre)}
               </span>
+              {!c.avatar && dibujo && <span className="spy-ccard__dibujo">Inspirado en</span>}
               <div className="spy-ccard__cuerpo">
                 <span>
                   <b className="spy-ccard__nombre" title={c.nombre}>{c.nombre}</b>
@@ -924,8 +944,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     await abrirRecienAgregado(id);
   };
 
-  const alta = async (valor: string, deLaBio?: string | null) => {
-    const id = await sumar(valor, undefined, deLaBio);
+  const alta = async (valor: string, nombre?: string, deLaBio?: string | null) => {
+    const id = await sumar(valor, nombre, deLaBio);
     if (id == null) return;
     setModal(null);
     await abrirRecienAgregado(id);
@@ -1365,7 +1385,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         )}
       </div>
 
-      {modal === 'alta' && <ModalAlta ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onPegar={(v, bio) => void alta(v, bio)} onAMano={(d) => void altaAMano(d)} />}
+      {modal === 'alta' && <ModalAlta ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onPegar={(v, n, bio) => void alta(v, n, bio)} onAMano={(d) => void altaAMano(d)} />}
       {modal === 'canal' && c && <ModalCampo titulo={`Agregar un canal a ${c.nombre}`} placeholder="Su @, su canal de YouTube o su sitio" boton="Agregar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void sumarCanal(v)} />}
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
       {aBorrar && (
