@@ -397,7 +397,10 @@ export const FAMILIAS: NavFamilia[] = [
         // el catálogo de la API, y todos la resuelven con `itemNav('offer')`. Borrarla devuelve
         // `undefined` en todos esos lugares —seis tests lo cazaron el 2/11— y el daño no es la barra:
         // es un negocio que pierde el permiso de una tab porque su key dejó de existir.
-        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', fueraDeLaBarra: true, match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) },
+        // ⚠️ EL `match` NO SE RECORTA aunque el ítem no se dibuje: lo usan el título de la pestaña y
+        // las rutas viejas. Al reescribir esta línea perdí `/admin/offer-playbook` y el run salió
+        // rojo con razón — `tests/offer-en-create.test.ts` lo exige.
+        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', fueraDeLaBarra: true, match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
         { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
         // Competitor Spy: vino de Analyze el 17/10/2026 y estuvo en PRONTO hasta el 31/10/2026, cuando dejó de ser

@@ -10258,3 +10258,40 @@ que `git push -u origin <rama>` no gasta minutos ni cancela el run en curso. O s
 el trabajo de otro chat es gratis: no hay motivo para dejarlo sólo en un disco.
 
 **Vive en:** la regla de barrido de worktrees · .github/workflows/integracion.yml:28
+
+## Un vigía sobre git NO puede ver un rojo de Actions: sólo la ausencia de verde (2/11/2026)
+
+**El síntoma, dos veces en la misma noche:** armé un Monitor para avisar cuando un run cerrara, y
+las dos veces **Martín se enteró del rojo antes que yo**. La segunda me lo dijo así: «falló en
+GitHub, siempre deberías saber cuándo falla».
+
+**La causa real, y es estructural:** el watch miraba `origin/main`. Actions avanza `main` SÓLO
+cuando el run sale verde; cuando sale rojo **no escribe nada en git**. O sea que el vigía no
+distingue «rojo» de «todavía corriendo»: ve lo mismo en los dos casos. Un watch construido sobre git
+puede confirmar el éxito y **nunca** puede detectar el fallo.
+
+⚠️ **Y el latido que le puse encima no alcanzaba**, porque lo redacté como una duda («o tarda, o
+salió rojo») y lo puse a los 18 minutos. Con los tiempos medidos de este repo eso es tarde:
+
+| | cuánto tarda, medido el 2/11 |
+|---|---|
+| un run que **falla** | **5–12 min** (#360: 7m40s · #362: 5m07s · #363: ~11m · #364 rojo: 5m) |
+| un run que sale **verde** | **25–50 min**, y uno pasó la hora |
+
+**Entonces el silencio a los 12 minutos ya es sospechoso, y a los 15 es casi seguro un rojo.**
+
+### La regla que queda
+
+1. **Después de cada push a `integracion`, ir a mirar el run a los ~8 minutos.** No delegar la
+   PRIMERA mirada a un watch que no puede ver fallos.
+2. El latido del Monitor va **cada 6 minutos**, no cada 18, y su texto dice **«ir a mirar AHORA»**,
+   no «o tarda, o salió rojo». Un evento que suena a duda no mueve a nadie.
+3. **Dónde mirar:** `github.com/koncke/mako/actions/workflows/integracion.yml` → el run → el **LOG
+   DEL JOB**, línea **«Rojos:»**. El resumen del run sólo dice `afectados: NNN s (código 1)` y no
+   nombra ningún test.
+4. **Lo que lo arreglaría de verdad** es leer la conclusión del run, no el estado de git. Hoy no se
+   puede desde bash: **`gh` no está instalado en esta máquina** (verificado: no está en el PATH de
+   bash ni de PowerShell, y no hay `~/.config/gh`). Con `gh` instalado, el watch correcto es
+   `gh run watch` o un poll de `gh run list --json conclusion`, que sí ve el rojo.
+
+**Vive en:** la forma de armar un Monitor sobre Actions · .github/workflows/integracion.yml

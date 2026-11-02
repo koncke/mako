@@ -899,3 +899,33 @@ que al sacar Offer la barra marca ése. Si no lo hubiera tenido, sacar Offer la 
 
 ⚠️ Y la convención dice que `nav.ts` lo toca sólo el chat Sidebar. Ese chat no está vivo y Martín lo
 pidió directo, así que queda anotado acá para su dueño.
+
+## ✅ DOS DECISIONES DE MARTÍN — 2/11/2026 ~21:50, destraban dos ítems
+
+**1. El gasto: aprobado, y yo elijo.** Textual: «con respecto a cuánto estoy dispuesto a gastar, la
+verdad es que no tengo problema, o sea, tú determínalo y me vas diciendo cuánto va a ser el gasto…
+pero impleméntalo ya».
+
+· Destraba el **ítem 10** (el desplegable con varios perfiles al escribir el @): hay que elegir un
+  actor de BÚSQUEDA de Apify, no de lectura por handle.
+· ⚠️ **Lo que sigue siendo obligación nuestra: DECIRLE el número.** No es un cheque en blanco, es
+  «elegí vos y contame». Antes de prenderlo hay que medir el costo por búsqueda y escribirlo acá.
+· ⚠️ Y poner un **tope por día**, como ya lo tiene la lectura por handle (`APIFY_TOPE_POR_DIA`).
+  Una búsqueda por tecla vacía el presupuesto de un negocio en una tarde: la pantalla ya espera a
+  que la persona deje de escribir, y eso NO se toca.
+
+**2. El puente de Google Flow corre sobre la cuenta de Martín, y aprueba generar con ella.** Textual:
+«sí, es sobre la mía, la que vamos a generar las caricaturas de Google Flow. Eso también quiero que
+lo implementes ya».
+
+· Destraba **la caricatura de un competidor que no es referente**. Era la única pregunta abierta:
+  si el puente corría sobre su cuenta, generar para los competidores de CADA cliente le gasta a él.
+  **Lo sabe y lo aprueba.**
+· El camino ya está medido: `lib/flow-imagen.ts` acepta `referenceEntities`/`referenceLikenesses`,
+  el token del puente es un BEARER que sirve fuera del navegador, la foto de origen es
+  `spy_competidores.avatar` (migración 0362) y el prompt aprobado está textual en
+  `docs/hallazgos-ops-center.md`.
+· ⚠️ **Sigue valiendo lo que NO cambió con esta decisión:** va como trabajo APARTE de la lectura
+  («Revisar ahora» ya casi se pasa del tiempo de la función), con **tope** —«para cada competidor
+  nuevo» sin límite suma rápido y ahora la factura es de Martín—, y la tarjeta muestra la foto
+  mientras tanto.
