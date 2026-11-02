@@ -739,3 +739,34 @@ tarjeta de Spy), con un test que exige que cada referente tenga las dos.
 ⚠️ **Lo que NO cambia, y conviene no tocarlo:** `spy_piezas` y `spy_competidores` siguen por
 negocio, con su borrado de siempre. El usuario saca al competidor de SU lista y la lectura
 compartida no se toca. **Nadie ve la lista de nadie.**
+
+### 🧠 ÍTEM 17 — EL SECOND BRAIN DE UN GURÚ: EL MECANISMO YA ESTÁ (2/11/2026)
+
+Martín: «me interesa que se avance con los gurús, y el second brain de cada uno».
+
+**Hecho:** `lib/cerebro-referente.ts` + `tests/cerebro-referente.test.ts` (7/0, probado
+rompiéndolo). Es la capa de UN gurú: su raíz, **un nodo por CLASE con la transcripción entera y sin
+tope**, y las clases encadenadas en orden.
+
+**Las dos mitades de la regla, y las dos tienen test:**
+· el `cuerpo` de una clase **no se recorta** — el tope de 5.200 es de la FICHA, que viaja en cada
+  mensaje; esta capa viaja sólo cuando la pregunta la pide;
+· el `detalle` **no puede llevar el texto** — el índice sí viaja siempre, así que una clase de 40
+  mil caracteres ahí metería el curso entero en cada turno, que es justo lo que se está evitando.
+
+**Por qué esto cuesta horas y no millones de tokens:** el texto va CRUDO a la capa. No pasa por el
+modelo. Lo caro de un gurú es la FICHA (175–285 mil tokens de subagente, medido por la sesión del
+Ops Center); la capa es copiar archivos.
+
+⚠️ **LO QUE FALTA, en orden:**
+1. **El lector del servidor.** `armarReferente` recibe las clases ya leídas, a propósito: es puro y
+   los tests lo ejecutan. Falta quien saque los `videoId` del curso (`app/conocimientos/curso-*.ts`)
+   y lea `public/cono-tx/<videoId>.json` — que es una **LISTA de strings**, no un string.
+2. **Colgarla con `conCapa`** (`lib/cerebro-union.ts:60`), como hace `lib/cerebro-knowledge.ts`.
+3. **Cuándo entra la capa en el turno.** Knowledge tiene esa decisión escrita y es la parte fina:
+   nombrar al gurú NO alcanza, igual que nombrar un módulo no alcanza para Knowledge. Copiar ese
+   criterio, no inventar otro.
+4. **El botón del grafo (ítem 18)**, que es la parte chica: las piezas ya existen.
+
+⚠️ **Y no depende de que estén las 12 fichas.** La capa se arma desde el catálogo: sirve hoy para
+Puigrredón y Alborna, y los otros diez entran solos cuando se carguen.
