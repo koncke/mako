@@ -98,8 +98,28 @@ export const POSTS_A_LEER = 6;
 /** Los campos de Business Discovery que se piden. */
 export const CAMPOS_PERFIL = `username,name,profile_picture_url,biography,website,followers_count,media_count,media.limit(${POSTS_A_LEER}){caption,timestamp,media_type}`;
 
-/** Cuántas publicaciones pide Competitors Spy: las últimas 25 alcanzan para ver qué le funciona. */
+/**
+ * Cuántas publicaciones le pide Competitors Spy A META, en el `media.limit()` de Business Discovery.
+ *
+ * ⚠️ NO SE SUBE SIN PODER MEDIRLO. En la Graph API un campo o un límite que Meta no acepte hace
+ * fallar la consulta ENTERA, y Business Discovery no tiene credencial desde el 22/10/2026: sólo
+ * una conexión de cliente (ws11) la tiene y hoy le funciona. Subir este número a ciegas es apostar
+ * la lectura de ese cliente a una corazonada.
+ */
 export const PIEZAS_A_LEER = 25;
+
+/**
+ * Cuántas publicaciones se quedan del camino de APIFY, que es otra cosa y por eso es otro número.
+ *
+ * ⚠️ ACÁ NO SE PIDE NADA MÁS: el actor YA DEVUELVE todas las que trajo, y lo único que hacíamos
+ * era tirar a la basura lo que pasaba de 25 — que es por lo que Martín veía doce o veinticinco
+ * piezas y nunca más (2/11/2026: «veo que no trae más de 50 publicaciones»). Subirlo no gasta una
+ * llamada más ni un crédito más de Apify: aprovecha lo que ya se pagó.
+ *
+ * El tope sigue existiendo porque cada pieza se guarda, se le baja la miniatura y se dibuja: sin
+ * ninguno, un perfil con miles de publicaciones haría trabajar a la lectura sin que nadie lo mire.
+ */
+export const PIEZAS_DE_APIFY = 100;
 
 /**
  * El juego ANCHO de campos, para Competitors Spy: el de arriba más los contadores, el permalink, la
@@ -232,7 +252,7 @@ export function leerPerfilDeApify(usuario: string, items: unknown, conPiezas = f
       bio: str(p.biography), web: str(p.externalUrl) || null,
       seguidores: num(p.followersCount), publicaciones: num(p.postsCount),
       posts: posts.map((m) => ({ fecha: str(m.timestamp).slice(0, 10), tipo: str(m.type), texto: str(m.caption) })).filter((m) => m.texto).slice(0, POSTS_A_LEER),
-      ...(conPiezas ? { piezas: posts.map(piezaDeApify).filter((m) => m.ref).slice(0, PIEZAS_A_LEER) } : {}),
+      ...(conPiezas ? { piezas: posts.map(piezaDeApify).filter((m) => m.ref).slice(0, PIEZAS_DE_APIFY) } : {}),
     },
   };
 }

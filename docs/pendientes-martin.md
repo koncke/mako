@@ -96,6 +96,22 @@ en el cerebro de su cliente, y con qué límite.
 ⚠️ Los dos quedaron en `esperando_decision` con el diagnóstico anotado. No les forcé el estado:
 `reclasificar` sólo corre desde «en curso», y están esperando a Martín.
 
+### ⛔ #12 · Por qué el límite de Instagram se subió sólo de un lado
+
+Eran **dos números distintos**, no uno:
+
+- **Por Apify: era 25 y ahora es 100.** El actor YA devolvía todas las publicaciones que traía, y
+  nosotros tirábamos a la basura lo que pasaba de 25. Subirlo **no gasta una llamada ni un crédito
+  más**: aprovecha lo que ya se pagó. Éste es el camino que funciona hoy.
+- **Por Meta (Business Discovery): sigue en 25 y NO se toca sin poder medirlo.** En la Graph API un
+  límite que Meta no acepte hace fallar la consulta ENTERA, y **Business Discovery no tiene
+  credencial desde el 22/10/2026**: sólo una conexión de cliente (ws11) la tiene y hoy le funciona.
+  Subirlo a ciegas es apostar la lectura de ese cliente a una corazonada. El día que haya una
+  credencial para probarlo, se mide y se sube.
+
+**Lo que sigue pendiente del pedido:** elegir publicaciones a dedo desde el perfil con la extensión
+de MaKo. Eso es trabajo de la extensión, no de la tab.
+
 ## Estado
 
 | | Ítem | Estado | Commit |
@@ -116,7 +132,7 @@ en el cerebro de su cliente, y con qué límite.
 | 9 | **Con el @ traer el perfil** | **HECHO en Spy** | falta el CRM |
 | 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | pendiente | |
 | 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
-| 12 | **Pasar de 50 publicaciones** (vista con todas / elegir con la extensión) | pendiente | tope en `lib/spy-reglas.ts:479` |
+| 12 | **Pasar de 50 publicaciones** | **HECHO a medias** | por Apify, de 25 a 100 (gratis: ya las recibíamos). Por Meta NO se toca, ver abajo |
 | 13 | **Spy compartido entre usuarios** | pendiente | la decisión ya está tomada, ver abajo |
 | 14 | **Los 12 referentes** (fichas + caricaturas) | pendiente | los 12 cursos ya localizados |
 | 15 | **El diseño de la tab principal de gurús** (no el detalle) | pendiente | |
