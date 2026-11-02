@@ -238,7 +238,7 @@ roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
 1. **La transcripción NO está en el archivo del curso.** `curso-*.ts` tiene `transcripcion: []` y
    `resumen: ''` a propósito. El texto vive en **`public/cono-tx/<videoId>.json`**, y el JSON es una
    LISTA de strings. Se sacan los `videoId` del curso y se leen esos archivos.
-2. **Se leen las clases del MÉTODO, no todas.** En Social Funnel eran «La fórmula», «La
+2. **Para la FICHA se leen las clases del MÉTODO, no todas** (para la capa del segundo cerebro se leen todas: ver la sección de arriba).** En Social Funnel eran «La fórmula», «La
    estructura» y «Principios de tráfico»: ahí están los marcos. La intro y el bonus no aportan.
    Un curso entero son 80 KB; las del método, la mitad.
 3. **La ficha** va en `lib/asesores/ficha-<id>.ts`, **≤ 5.200 caracteres**, con la forma de las que
@@ -268,6 +268,40 @@ roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
 · **La ficha se va de largo sola.** La primera versión de Alborna salió en 5.692 y el tope es
   5.200. Lo que sobra casi siempre son los «Cuándo:» de cada marco y los ejemplos repetidos:
   se recorta eso antes que un marco entero.
+
+### 🧠 LA FICHA Y EL SEGUNDO CEREBRO SON DOS COSAS DISTINTAS (2/11 ~17:00)
+
+Martín: «me gustaría que se lea entero los cursos, que no haya limitación de caracteres,
+justamente la idea es que el segundo cerebro de estos gurús tenga todo el contexto».
+
+**Tiene razón en el objetivo, y por eso el camino NO es sacarle el tope a la ficha.** Son dos
+piezas con dos trabajos:
+
+| | La ficha (`lib/asesores/ficha-<id>.ts`) | El segundo cerebro del gurú |
+|---|---|---|
+| Qué es | cómo piensa, qué pregunta, cómo habla | el curso ENTERO, clase por clase |
+| Cuándo viaja | **en cada mensaje**, siempre | **sólo cuando la pregunta lo pide** |
+| Por eso | tope de 5.200 | sin tope |
+
+Sacarle el tope a la ficha metería las 740 KB de un curso en **cada turno** de cada chat: caro,
+lento, y peor de leer para el modelo —el método se ahoga entre el relleno—. Lo que Martín quiere
+«todo el contexto disponible» se resuelve del otro lado, y **el repo ya tiene exactamente ese
+mecanismo**: `lib/cerebro-knowledge.ts` (31/10) cuelga Knowledge como una CAPA del Second Brain,
+y `lib/cerebro-recuperar.ts` la recupera **sin IA y con presupuesto**. Su propio comentario lo
+dice en mayúsculas: «POR QUÉ UNA CAPA Y NO MÁS TEXTO EN EL PROMPT».
+
+Cómo funciona hoy, que es lo que hay que copiar: **el índice viaja siempre, una línea por módulo
+y SIN contenido**; el cuerpo largo de un nodo viaja **sólo cuando un chat lo pide por id**. Una
+pregunta que nombra «anuncios» trae ese módulo y sus vecinos, no el índice entero.
+
+**Entonces lo que falta (ítems 17 y 18) es una capa POR GURÚ, con un nodo por CLASE**, para que
+preguntarle algo a Alborna traiga la clase donde él lo explica — con sus palabras y completa— y
+no un resumen. Ahí sí se lee el curso entero: va a la capa, no a la ficha.
+
+⚠️ **Y esto corrige una instrucción que yo mismo escribí más arriba en la receta.** «Leer sólo
+las clases del método» vale para ESCRIBIR LA FICHA, que es corta por diseño. Para la capa hay que
+procesar **todas** las clases. Son dos pasos distintos sobre el mismo curso, y confundirlos fue
+mío.
 
 ## Estado
 
