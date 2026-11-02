@@ -148,6 +148,48 @@ textual en `docs/hallazgos-ops-center.md`.
     Haría falta un `npm install` propio adentro del worktree (~1 GB). La vista previa estática
     (`scratchpad/spy_ref.py`, puerto 4899) usa el CSS y los tokens REALES del repo.
 
+### 3-quater. LOS 12 REFERENTES: el curso de cada uno, ya buscado (2/11 ~00:40)
+
+Esto es lo que más tarda de la tarea y ya está hecho. **Cada nombre verificado contra el campo
+`titulo:` del archivo del curso**, que es la fuente, NO contra el nombre de la carpeta (el nombre
+de la carpeta ya me costó dos errores: «Jaime Jiguera» por Higuera y «Jordi Sigues» por Segués).
+
+| Lo que pidió Martín | Curso en Knowledge | Archivo |
+|---|---|---|
+| Juan Carrizo | Aumenta tu valor y ATV ADVANTAGE | `curso-aumenta-tu-valor-y-atv-advantage.ts` |
+| Vilma Núñez | Certificación en Marketing Digital potenciada por IA (Convierte Más) | slug `certificacion-marketing-digital-ia` ⚠️ **el nombre lo pone el mapa `TITULO` de `catalogo.ts`, no el archivo** |
+| Julián Alborna | Inteligencia Viral 2026 | `curso-inteligencia-viral-2026.ts` |
+| Andy Landa | ManyChat Master - Instagram | `curso-manychat-master-instagram.ts` |
+| Romuald Fons | Bigseo Academy | `curso-bigseo-academy.ts` |
+| Sergio Begueria | Instituto De Marca Personal | `curso-instituto-de-marca-personal.ts` |
+| Álvaro Luque | The perfect launch | `curso-the-perfect-launch.ts` |
+| Francisco Doglio | ARCADIA | `curso-arcadia.ts` |
+| Gonzalo Seré | Growing Content Specialist | `curso-growing-content-specialist.ts` |
+| Samuel Albaa | Growing Closer (con Agustín Nievas) | `curso-growing-closer-agustin-nievas-samuel-albaa.ts` |
+| **Emilio Puigrredon** | **NO está en Knowledge** | — |
+| **Mateo Mafia** | **NO está en Knowledge** | — |
+
+**Dos avisos para el que lo escriba:**
+
+- **Samuel Albaa comparte curso con Agustín Nievas, que YA es referente.** Para que no salga un
+  duplicado, su ficha tiene que destilar SU parte: el *appointment setter* —manejar la conversación
+  y conseguir la llamada—, que es distinto del cierre, que es lo que ya tiene Nievas. Lo dice la
+  descripción del curso en `catalogo.ts` («convertirte en un appointment setter desde cero»).
+- **Los dos que faltan hay que preguntárselos a Martín o buscarles otra fuente.** No inventar una
+  ficha de alguien cuyo curso no tenemos: la ficha sale de la transcripción, no de lo que se sepa
+  de la persona.
+
+**Falsos positivos que ya descarté, para no volver a abrirlos:** `curso-creator-club` menciona a
+Alborna pero es de NXTGEN Academia; `curso-bootcamp-de-cierre-de-ventas-ia` y `curso-master-en-ia`
+mencionan a Romuald Fons sin ser suyos. Y buscar «Seré» con grep trae `.tsx` por el futuro del verbo
+ser — hay que mirar el `titulo:`, no el grep.
+
+**Lo que falta por cada uno (lo dice la cabecera de `lib/asesores/catalogo.ts`):** su entrada en
+`ASESORES`, su `IdAsesor`, su `lib/asesores/ficha-<id>.ts` destilada de la transcripción (≤ 5.200
+caracteres, en español neutro con «tú» — el voseo pone ROJO a `tests/puente-panel-copy.test.ts`), y
+su caricatura en `public/asesores/<id>.png` con el prompt aprobado que está textual en
+`docs/hallazgos-ops-center.md`.
+
 ### 3-ter. «Que anden todos los botones» — `55a677a0e`, hecho y con guard
 
 Martín, 2/11, después de mostrárselo a Emilio en la staff. El barrido dio **74 botones sin `onClick`
