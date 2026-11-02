@@ -231,6 +231,37 @@ ningún lado**. Si alguien la va a usar DESPUÉS para otra cosa, hay que mirar l
 que se desplegara el bajador. Por eso hoy hay 0 miniaturas bajadas y 0 caras guardadas. **No está
 roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
 
+### 🧑‍🏫 La RECETA de un referente, probada con Emilio Puigrredón (2/11 ~16:00)
+
+**Hecho: 1 de 12.** Los otros once son esta misma secuencia, sin nada que averiguar.
+
+1. **La transcripción NO está en el archivo del curso.** `curso-*.ts` tiene `transcripcion: []` y
+   `resumen: ''` a propósito. El texto vive en **`public/cono-tx/<videoId>.json`**, y el JSON es una
+   LISTA de strings. Se sacan los `videoId` del curso y se leen esos archivos.
+2. **Se leen las clases del MÉTODO, no todas.** En Social Funnel eran «La fórmula», «La
+   estructura» y «Principios de tráfico»: ahí están los marcos. La intro y el bonus no aportan.
+   Un curso entero son 80 KB; las del método, la mitad.
+3. **La ficha** va en `lib/asesores/ficha-<id>.ts`, **≤ 5.200 caracteres**, con la forma de las que
+   ya están: MARCOS numerados (Qué es / Cuándo / Regla / «(clase: …)»), CÓMO PIENSA, QUÉ PREGUNTA
+   ANTES DE ACONSEJAR, CÓMO HABLA, y un «⚠️ NO SE TRASLADA» con lo que no hay que repetir —los
+   resultados de alumnos son ejemplos, nunca promesas—.
+   ⚠️ **Español neutro con «tú».** Las transcripciones están en voseo y copiarlas pone ROJO a
+   `tests/puente-panel-copy.test.ts`. La ficha es la voz de MaKo, no la del instructor.
+4. **Registrarlo en tres lugares**: el `IdAsesor` y la fila de `ASESORES` en
+   `lib/asesores/catalogo.ts`, y el import + la entrada del mapa en `lib/asesores/fichas.ts`.
+5. **La caricatura**, que `tests/coaches-ops-center.test.ts` EXIGE («sin imagen su fila saldría
+   como un disco vacío»):
+   · **la foto de referencia sale de la portada del curso**, `public/cono-portadas/<slug>.webp`,
+     que casi siempre tiene la cara del instructor;
+   · se sube a Canva con `upload-asset-from-url` apuntando a
+     `https://hola-mako.com/cono-portadas/<slug>.webp` (tiene que ser una URL pública);
+   · se genera con `generate-image`, `SQUARE_1_1`, pasando ese media id en `imageReferences` y el
+     **prompt aprobado textual de `docs/hallazgos-ops-center.md`**, rellenando los huecos con lo
+     que se ve en la foto (pelo, barba, anteojos o gorra, piel, gesto, prenda lisa, color de fondo);
+   · se guarda como `public/asesores/<id>.png`.
+
+**Los once que faltan, con su curso, están en la tabla de más arriba.**
+
 ## Estado
 
 | | Ítem | Estado | Commit |
@@ -253,7 +284,7 @@ roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
 | 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
 | 12 | **Pasar de 50 publicaciones** | **HECHO a medias** | por Apify, de 25 a 100 (gratis: ya las recibíamos). Por Meta NO se toca, ver abajo |
 | 13 | **Spy compartido entre usuarios** | pendiente | la decisión ya está tomada, ver abajo |
-| 14 | **Los 12 referentes** (fichas + caricaturas) | pendiente | los 12 cursos ya localizados |
+| 14 | **Los 12 referentes** (fichas + caricaturas) | **1 de 12** | Emilio Puigrredón hecho. La receta, abajo |
 | 15 | **El diseño de la tab principal de gurús** (no el detalle) | pendiente | |
 | 16 | **Elegir un gurú desde «nuevo chat»** | pendiente | hoy sólo `funnel` y `offer` |
 | 17 | **Base de conocimiento por gurú** | pendiente | |

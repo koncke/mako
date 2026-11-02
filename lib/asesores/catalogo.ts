@@ -15,7 +15,11 @@ export type IdAsesor = 'hormozi' | 'juan-ads' | 'julian-otalora' | 'sofia-contre
   | 'agustin-nievas' | 'derek-chamizo' | 'david-turu' | 'ximena-fukuda' | 'guille-collado' | 'marc-verdu' | 'ramiro-cubria' | 'iman-gadzhi'
   // Segunda tanda (1/11/2026, Martín: «hay un montón de cursos que podríamos aprovechar de los que tenemos en Knowledge... Implementa la
   // mayor cantidad posible que tenga sentido»). Por qué estos seis y no los otros 110: docs/hallazgos-ops-center.md.
-  | 'felipe-vergara' | 'jaime-higuera' | 'adria-sola' | 'augusto-bianchi' | 'tino-mossu' | 'jordi-segues';
+  | 'felipe-vergara' | 'jaime-higuera' | 'adria-sola' | 'augusto-bianchi' | 'tino-mossu' | 'jordi-segues'
+  // ── Tercera tanda (2/11/2026): los doce que pidió Martín. El curso de cada uno está localizado
+  //    en docs/pendientes-martin.md, verificado contra el `titulo:` del archivo y NO contra el
+  //    nombre de la carpeta — eso ya puso dos nombres mal en producción.
+  | 'emilio-puigrredon';
 
 export type Asesor = {
   id: IdAsesor;
@@ -57,6 +61,7 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'augusto-bianchi', nombre: 'Augusto Bianchi', completo: 'Augusto Bianchi', especialidad: 'Llamadas de ticket alto', curso: 'Academia Five Stars' },
   { id: 'tino-mossu', nombre: 'Tino Mossu', completo: 'Tino Mossu', especialidad: 'Objeciones y seguimiento', curso: 'La universidad del Closer' },
   { id: 'jordi-segues', nombre: 'Jordi Segués', completo: 'Jordi Segués', especialidad: 'TikTok', curso: 'TikTok 100k' },
+  { id: 'emilio-puigrredon', nombre: 'Emilio Puigrredón', completo: 'Emilio Puigrredón', especialidad: 'Embudo en redes', curso: 'Social Funnel' },
 ];
 
 export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => a.id === id) ?? null;

@@ -21,6 +21,7 @@ import { FICHA_JAIME_HIGUERA } from './ficha-jaime-higuera';
 import { FICHA_ADRIA_SOLA } from './ficha-adria-sola';
 import { FICHA_AUGUSTO_BIANCHI } from './ficha-augusto-bianchi';
 import { FICHA_TINO_MOSSU } from './ficha-tino-mossu';
+import { FICHA_EMILIO_PUIGRREDON } from './ficha-emilio-puigrredon';
 import { FICHA_JORDI_SEGUES } from './ficha-jordi-segues';
 import type { IdAsesor } from './catalogo';
 
@@ -44,5 +45,6 @@ export const FICHAS: Readonly<Record<IdAsesor, string>> = {
   'adria-sola': FICHA_ADRIA_SOLA,
   'augusto-bianchi': FICHA_AUGUSTO_BIANCHI,
   'tino-mossu': FICHA_TINO_MOSSU,
+  'emilio-puigrredon': FICHA_EMILIO_PUIGRREDON,
   'jordi-segues': FICHA_JORDI_SEGUES,
 };
