@@ -874,3 +874,28 @@ que nadie lo «arregle» creyendo que es un duplicado.
 colgar la capa en `lib/cerebro-para-chat.ts` → `paqueteParaElTurno`, que tiene que recibir el
 `IdAsesor` del turno. Hoy el asesor se resuelve en la ruta (`app/api/mako/chat/route.ts`,
 `app/api/offer/route.ts`) y no baja hasta ahí: ese parámetro opcional es todo el trabajo que queda.
+
+### 🚫 OFFER FUERA DE LA BARRA — 2/11/2026 ~21:45
+
+Martín: «elimina las tabs de offer… si rompe cosas la de ads manager, dejala, pero la de offer no la
+quiero». **Ads Manager NO se tocó**, tal como pidió.
+
+**Se sacó de la barra SIN borrar la entrada**, y la diferencia importa: un test lo gritaba —«la key
+es contrato con la base»—. La key `offer` la resuelven con `itemNav('offer')` los permisos por capa
+(`navKeys`, lib/capas.ts), el onboarding por tab, el móvil y el catálogo de la API. Borrarla les
+devuelve `undefined` a todos, y **el daño no sería que falte un renglón: sería un negocio perdiendo
+el permiso de una tab porque su key dejó de existir.** Eso fue lo que rompió los seis tests el
+intento anterior.
+
+**Cómo quedó:** un flag nuevo, `fueraDeLaBarra`, chequeado en `puedeVerItem`
+(`lib/nav-visibilidad.ts`), que es la puerta compartida por la barra y el móvil. El ítem existe, la
+key vive, **pero no se dibuja en ningún lado**. No bloquea la página: el enforcement real es
+server-side (`lib/tab-access`), así que **/offer sigue respondiendo** y se llega desde el Ops
+Center, donde está el Offer Coach — que es lo que él pidió el 1/11.
+
+⚠️ **Se verificó ANTES de sacarlo que Strategy no quedaba huérfana.** El renglón de Offer marcaba
+también `/admin/estrategia`; Strategy tiene el suyo propio (`admin-estrategia` en `ADMIN_NAV`), así
+que al sacar Offer la barra marca ése. Si no lo hubiera tenido, sacar Offer la dejaba sin nada.
+
+⚠️ Y la convención dice que `nav.ts` lo toca sólo el chat Sidebar. Ese chat no está vivo y Martín lo
+pidió directo, así que queda anotado acá para su dueño.
