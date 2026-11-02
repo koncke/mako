@@ -33,11 +33,36 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 verificado en producción**, mirando hola-mako.com/competitor-spy: las tarjetas tiran de
 `/asesores/grandes/`, sin carteles, con la animación `spy-flota` activa.
 
-⛔ **AL CERRAR HAY UN RUN SIN CONFIRMAR: `b82fb0935`.** Lleva lo último de la noche, pusheado
-después del relevo:
+⛔ **AL CERRAR HAY UN RUN SIN CONFIRMAR: `6d6b53fb3`** (run `41533037191`, corriendo a las 21:58).
+Lleva lo último de la noche:
 · **el mapa de qué curso es de cada gurú** (`lib/asesores/cursos.ts`, los DOCE, verificados abriendo
   los archivos) — era el eslabón que faltaba entre un asesor y su Second Brain;
-· **Offer fuera de la barra** (Martín: «la de offer no la quiero»; Ads Manager NO se tocó).
+· **Offer fuera de la barra** (Martín: «la de offer no la quiero»; Ads Manager NO se tocó);
+· **las dos decisiones de Martín** que destraban dos ítems (abajo).
+
+⚠️ **EL RUN ANTERIOR (`b82fb0935`) SALIÓ ROJO Y EL ERROR ERA MÍO:** al reescribir la línea de Offer
+perdí `starts('/admin/offer-playbook')` del `match`, y `tests/offer-en-create.test.ts` lo exigía con
+razón. **El `match` no se recorta aunque el ítem no se dibuje**: lo usan el título de la pestaña y
+las rutas viejas. Ya está restituido y en verde (26/0) dentro de este run.
+
+## ✅ DOS DECISIONES DE MARTÍN QUE LA PRÓXIMA CUENTA PUEDE EJECUTAR DIRECTO
+
+1. **El gasto está aprobado y lo elige quien trabaje:** «no tengo problema… tú determínalo y me vas
+   diciendo cuánto va a ser el gasto… pero impleméntalo ya». Destraba el **ítem 10** (el desplegable
+   de varios perfiles: hace falta un actor de BÚSQUEDA de Apify). ⚠️ **No es un cheque en blanco:
+   hay que MEDIR el costo por búsqueda y decírselo antes de prenderlo**, y ponerle tope por día.
+2. **El puente de Google Flow corre sobre SU cuenta y aprueba generar con ella.** Destraba la
+   **caricatura de un competidor que no es referente** — era la única pregunta abierta. Va como
+   trabajo aparte de la lectura, con tope, y la tarjeta muestra la foto mientras tanto.
+
+## ⚠️ CÓMO SABER SI ACTIONS SALIÓ ROJO (me pasó dos veces y Martín se enteró antes)
+
+**Un vigía sobre git NO puede ver un rojo**: Actions avanza `main` sólo cuando sale verde; cuando
+falla no escribe nada en git, así que «rojo» y «corriendo» se ven igual. Medido esta noche: **un run
+que falla muere en 5–12 min; uno verde tarda 25–50.** La regla, entera, en `docs/hallazgos-infra.md`:
+mirar el run **a los ~8 min después de cada push**, sin delegar la primera mirada, y el latido del
+Monitor cada 6 min diciendo «ir a mirar AHORA». Lo arreglaría de verdad `gh`, que **no está
+instalado en esta máquina**.
 
 ⚠️ **Offer se sacó SIN borrar su entrada, y eso no es un detalle.** Hay un flag nuevo,
 `fueraDeLaBarra`, chequeado en `puedeVerItem` (`lib/nav-visibilidad.ts`), que es la puerta
