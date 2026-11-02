@@ -279,19 +279,22 @@ const CSS = `
 
 /* --- La lista: una tarjeta por competidor, con su cara. Misma anatomia que la pieza. --- */
 .spy-crejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:var(--gap)}
-.spy-ccard{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px;min-width:0;
+/* ⚠️ LA CARA MANDA EN LA TARJETA, no es un avatarcito arriba. Martín, 2/11/2026: «que no esté
+   chiquito arriba, que tenga protagonismo en la tarjeta la imagen». Misma anatomía que la tarjeta
+   de pieza y que la de los referentes: la imagen a sangre arriba y el texto abajo. */
+.spy-ccard{position:relative;display:flex;flex-direction:column;min-width:0;overflow:hidden;
   border-radius:var(--r-lg);background:var(--surface);color:inherit;text-align:left;text-decoration:none;
   border:0;cursor:pointer;box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta);
   transition:transform .18s var(--ease-out),box-shadow .18s var(--ease-out)}
 .spy-ccard:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
-.spy-ccard__cara{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-md);
-  overflow:hidden;flex:0 0 auto;background:var(--t1);color:var(--t-ink);
-  font-size:var(--fs-sect);font-weight:700;box-shadow:inset 0 0 0 1px var(--border)}
+.spy-ccard__cara{position:relative;display:grid;place-items:center;aspect-ratio:1/1;width:100%;
+  overflow:hidden;background:var(--t1);color:var(--t-ink);font-size:56px;font-weight:700}
 .spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover}
+.spy-ccard__cuerpo{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px}
 .spy-ccard__nombre{display:block;font-size:var(--fs-card);font-weight:600;letter-spacing:-.005em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .spy-ccard__sub{display:block;margin-top:2px;color:var(--faint);font-size:var(--fs-sm)}
-.spy-ccard__pie{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:auto}
+.spy-ccard__pie{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 /* El borrar vive EN la tarjeta: para sacar un duplicado ya no hay que entrar al competidor. */
 .spy-ccard__borrar{position:absolute;top:12px;right:12px;display:grid;place-items:center;
   width:32px;height:32px;border:0;border-radius:10px;background:var(--surface);color:var(--faint);
@@ -680,15 +683,17 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
                   ? <img src={c.avatar} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
                   : inicial(c.nombre)}
               </span>
-              <span>
-                <b className="spy-ccard__nombre" title={c.nombre}>{c.nombre}</b>
-                <small className="spy-ccard__sub">{canales || 'Sin canales todavía'}</small>
-              </span>
-              <div className="spy-ccard__pie">
-                {r && r.vivas + r.idas > 0 && (
-                  <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
-                )}
-                {c.mirado_en && <span className="spy-rango">Revisado {haceCuanto(c.mirado_en)}</span>}
+              <div className="spy-ccard__cuerpo">
+                <span>
+                  <b className="spy-ccard__nombre" title={c.nombre}>{c.nombre}</b>
+                  <small className="spy-ccard__sub">{canales || 'Sin canales todavía'}</small>
+                </span>
+                <div className="spy-ccard__pie">
+                  {r && r.vivas + r.idas > 0 && (
+                    <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
+                  )}
+                  {c.mirado_en && <span className="spy-rango">Revisado {haceCuanto(c.mirado_en)}</span>}
+                </div>
               </div>
               {/* ⚠️ El botón va DENTRO de la tarjeta y frena el clic: si no, borrar abriría la ficha.
                   Y no se dibuja para quien no puede borrar: un botón que siempre falla es peor que no estar. */}

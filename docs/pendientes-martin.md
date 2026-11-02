@@ -131,6 +131,46 @@ perfiles que se parecen a `leilaho`»), y lo que tenemos es una lectura por hand
 no da búsqueda por su API; haría falta un actor de búsqueda de Apify, que es otro costo y otra
 decisión de Martín. **Antes de construirlo hay que decidir eso**, no es trabajo de pantalla.
 
+### 🎨 La CARICATURA del competidor — lo entendí mal y está a medias (2/11 ~14:40)
+
+**Martín pidió la MISMA caricatura que la de los gurús** («como la que estamos haciendo con los
+gurús de los cursos»), generada **para cada competidor nuevo**, y **con protagonismo en la
+tarjeta**. Yo entendí «su foto de perfil» y puse un avatar de 56 px arriba. Las dos cosas estaban
+mal.
+
+**Lo que YA está hecho:** la imagen manda en la tarjeta — cuadrada, a sangre, con el texto abajo.
+Misma anatomía que la tarjeta de pieza y que la de los referentes. Hoy el hueco lo llena la foto de
+perfil bajada; cuando exista la caricatura, entra en el mismo lugar sin tocar la pantalla.
+
+**Lo que FALTA, y es trabajo nuevo:** generar la caricatura.
+
+⚠️ **Las caricaturas de los gurús NO las hace la app: las hice yo a mano**, con Canva, desde este
+chat. No hay ningún pipeline de generación en el repo. O sea que «que se ejecute el proceso con
+cada nuevo competidor» es construir ese pipeline, no llamar a algo que ya existe.
+
+**Lo que hace falta, en orden:**
+
+1. **El prompt aprobado ya está**, textual, en `docs/hallazgos-ops-center.md`. Va cargado como
+   prompt EDITABLE (`.claude/skills/add-editable-prompt`), no hardcodeado: Martín lo va a querer
+   ajustar y hoy no podría.
+2. **Una foto de origen.** Ya la tenemos bajada: `spy_competidores.avatar` (migración 0362). Sin
+   foto de perfil no hay caricatura posible, y eso hay que decirlo en la pantalla, no dejar el
+   hueco en blanco.
+3. **Un generador de imágenes llamable desde el servidor.** Esto es lo que NO existe y hay que
+   resolver primero: con qué proveedor y con qué clave. (Memoria: «Imagen = Canva; Doory sin
+   crédito».)
+4. **Guardarla**: el bucket `spy-miniaturas` ya sirve, con una ruta propia.
+5. ⚠️ **NO adentro de la lectura.** Generar una imagen tarda bastante más que bajarla, y «Revisar
+   ahora» ya casi se pasa del tiempo de la función (ver #4b). Va como trabajo aparte, después de
+   crear el competidor, y la tarjeta muestra la foto mientras tanto.
+
+⚠️ **Dos decisiones de Martín antes de construirlo:** (a) **cada caricatura cuesta plata**, y
+«para cada competidor nuevo» sin tope puede sumar rápido; (b) es la cara de una persona REAL que no
+dio su consentimiento. Para los gurús la regla ya existe y distingue: la galería PÚBLICA va sin
+caras ni nombres reales, pero **dentro del análisis PRIVADO de un negocio el competidor que ese
+negocio eligió sí se ve** (docs/hallazgos-competitors-spy.md). La tarjeta de Spy es análisis
+privado, así que encaja — pero conviene que Martín lo confirme por escrito.
+
 ## Estado
 
 | | Ítem | Estado | Commit |
