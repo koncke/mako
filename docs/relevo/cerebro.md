@@ -27,12 +27,44 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ESTADO AL 2/11 ~21:40 — CORRE EL #361, Y HAY 3 COMMITS ESPERANDO
+## ESTADO AL 2/11 ~20:30 — CORRE EL #364, Y HAY 3 COMMITS ESPERANDO
 
-⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El **#361** (`512d730de`) está corriendo. Un
-push lo cancela, que es lo que pasó diez veces hoy y dejó doce commits sin desplegar. Esperando
-arriba: `42d40868c` (la revisión completa de Spy), `53f6f2f26` (las 22 caricaturas a 600 px y el link
-de progreso en el ticket del grupo) y `3189113a7` (el tablero).
+⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El **#364** (`90cd7f126`, run
+`41505921194`) lleva corriendo ~35 min y **no está en rojo**. Un push lo cancela, que es lo que pasó
+diez veces hoy. `origin/main` sigue en `22b8d9d6f`; ahí adentro va TODO Competitors Spy.
+
+Esperando arriba, sin pushear, los tres del Second Brain de los gurús: la capa pura
+(`lib/cerebro-referente.ts` + su test 7/0), el lector del servidor
+(`lib/cerebro-referente-server.ts`) y la corrección del criterio.
+
+### ⚠️ Los CINCO rojos de la noche fueron todos del mismo tipo, y conviene saberlo antes de tocar
+
+Ninguno fue un bug del producto: **todos eran tests que fijaban un texto o una lista EXACTOS** y que
+se pusieron rojos por cambios que sí queríamos.
+
+| run | test | qué fijaba |
+|---|---|---|
+| #360 | `instagram-perfil-fuentes`, `ficha-datos-del-deal` | la lista exacta `['meta-plataforma','apify']` |
+| #362 | `leads-scraper-retirado` | que el alta del CRM **no** pudiera gastar la clave de Apify de Spy |
+| #362 | `clase-del-grupo` | la frase del ticket anclada con `$` al final |
+| #363 | `puente-panel-copy` | el **voseo**: escribí «Mirá cómo va acá» y MaKo habla de tú |
+
+**La lección de método, que me costó cuatro ciclos de media hora:** antes de pushear, buscar con
+`grep` en `tests/` **todos** los literales que uno cambió (una frase, una lista, una ruta de
+archivo), en vez de descubrirlos de a uno por run. Y `node scripts/tests-afectados.mjs --listar`
+dice qué tests toca el cambio: en este tren eran ~640, de los cuales 210 **barren el repo** y son
+los que muerden un archivo NUEVO.
+
+### ⚠️ Dos cosas que rompí yo y están arregladas, para no repetirlas
+
+1. **Backtick dentro del template literal del CSS** de `SpyApp.tsx` — el hook de pre-push lo caza
+   como «Parsing error: ',' expected». Los comentarios del bloque CSS van con comillas angulares.
+2. **`Get-Content -Raw` + `Set-Content` para editar un archivo del repo**: PowerShell lee el UTF-8
+   con la codepage ANSI y deja el archivo doble-codificado («Relevo â€” Cerebro»). **Texto del repo
+   se edita con Edit/Write; PowerShell sólo para git y mediciones.**
+3. **Un Monitor que sólo mira el caso bueno se queda mudo en el malo.** El primero vigilaba si
+   `main` avanzaba: con un rojo no decía nada y Martín se enteró antes que yo. El que está armado
+   ahora **también late cada 12 min sin novedad**, que es lo que obliga a ir a mirar.
 
 **Lo desplegado y verde quedó en el #359 (`22b8d9d6f`).** El #360 salió ROJO por dos tests que fijaban
 en un regex la lista exacta de fuentes de Apify; ya están arreglados y van en el #361.
