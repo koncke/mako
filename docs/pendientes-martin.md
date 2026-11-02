@@ -23,7 +23,7 @@ no una promesa de que esté hecho.
 | Ítems | A quién | Estado del envío |
 |---|---|---|
 | **14** — los 10 referentes que faltan (fichas + caricaturas) | `Ops Center` (local) | entregado |
-| **19** — modal de «mensaje de difusión» del CRM | `Automations` (local) | entregado, y **arrancó** |
+| **19** — modal de «mensaje de difusión» del CRM | `Automations` (local) | ✅ **TERMINADO** en `difusion-modal-0211` |
 | los 20 dashboards | `Replicar los 20 dashboards…` (local) | entregado |
 | **13** — compartir las lecturas de Spy entre negocios | `Supabase API proxy access` (nube) | entregado |
 | **ticket #44** — cargar un documento al Second Brain desde el chat | `Contexto breve [1c37c8]` (nube) | entregado |
@@ -99,6 +99,13 @@ Dos causas:
 1. **Pushear por ítem CANCELA el run anterior** (`concurrency: integracion`). Lo escribí en este
    mismo tablero y lo hice igual nueve veces seguidas, así que durante horas hubo commits buenos
    sin desplegar. **Se junta, se pushea UNA vez y se espera.**
+
+   ⚠️ **MEDIDO EN ACTIONS EL 2/11 ~19:10, y es la prueba, no la sospecha:** los runs **#349 al
+   #358 salieron TODOS «cancelled»**. Ninguno rojo — **ninguno TERMINADO**. El último verde fue el
+   **#348** (`63d66d8`), que es exactamente donde quedó clavado `main` mientras doce commits buenos
+   esperaban arriba. Y la trampa de lectura: un run cancelado a los 2 minutos **no deja ningún
+   error**, así que buscando el fallo no se encuentra nada y parece que el problema es otro. El
+   **#359** lleva los 13 juntos.
 2. ⚠️ **EL RESUMEN DEL RUN NO NOMBRA LOS TESTS ROJOS; EL LOG DEL JOB SÍ.** El resumen sólo dice
    `afectados: 889 s (código 1)`. En el log hay una línea **«Rojos:»** con los archivos y el
    comando para repetirlos solos. Mirar el resumen y adivinar me costó tres runs. Y correr
@@ -413,7 +420,7 @@ mío.
 | 16 | **Elegir un gurú desde «nuevo chat»** | pendiente | hoy sólo `funnel` y `offer` |
 | 17 | **Base de conocimiento por gurú** | pendiente | |
 | 18 | **Botón de Second Brain por gurú** | pendiente | las piezas ya existen |
-| 19 | **Modal de «mensaje de difusión» del CRM** con formato por red | pendiente | |
+| 19 | **Modal de «mensaje de difusión» del CRM** con formato por red | **HECHO, esperando el tren** | rama `difusion-modal-0211`, punta `6bf0a40a8`, ya en el remoto. ⚠️ **Vive en `app/automations/difusion/HojaDifusion.tsx`**, NO en `app/crm/AccionesLoteLeads.tsx` ni `app/crm/seleccion-difusion.ts` — esos dos sólo ponen la selección, y el ítem los nombraba mal. No trae selector de número/cuenta: la difusión no lo guarda y mentiría |
 | 20 | **Instalar extensión: sacar la descarga** | **TRABADO, no es código** | el zip YA está detrás de un flag; falta PUBLICAR en la tienda. Ver abajo |
 | 21 | **Probar punta a punta la clave de Apify de ws 9** | pendiente | |
 | — | Los 20 dashboards | **OTRO CHAT** | `docs/templates-dashboard-propuesta.md` |
