@@ -58,6 +58,16 @@ import { contadorPublicado, TOPES } from './spy-reglas';
 
 const API = 'https://www.googleapis.com/youtube/v3';
 
+/**
+ * Cuántas páginas de la playlist de subidas se recorren como mucho. Cada una cuesta 2 unidades
+ * (`playlistItems` + `videos`), así que cuatro páginas son 8 de las 10.000 diarias: barato.
+ * El tope existe para que un canal con diez mil videos no se lea entero.
+ */
+const PAGINAS_MAX = 4;
+
+/** Cuántos videos LARGOS se intentan traer antes de dejar de paginar. */
+const LARGOS_QUE_QUEREMOS = 20;
+
 /** Cuántos ids entran en una llamada de `channels.list`, `playlistItems.list` y `videos.list`. */
 export const LOTE = 50;
 
@@ -183,6 +193,37 @@ export function leerCanal(status: number, cuerpo: unknown): { ok: true; canal: C
   };
 }
 
+/** El token de la página siguiente de `playlistItems.list`, o null si era la última. */
+export function pasaALaSiguiente(cuerpo: unknown): string | null {
+  return esObj(cuerpo) ? str(cuerpo.nextPageToken) || null : null;
+}
+
+/**
+ * Los segundos de una duración ISO 8601 de YouTube (`PT1H2M3S`), o null si no se entiende.
+ *
+ * ⚠️ Un día entero viene como `P1DT…` y un directo sin terminar viene como `P0D`: por eso se leen
+ * también los días, y por eso un `P0D` da 0 y no null — es un dato, no un error.
+ */
+export function segundosDeDuracion(iso: string | null): number | null {
+  if (!iso) return null;
+  const m = /^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(iso.trim());
+  if (!m) return null;
+  const [d, h, mi, se] = [m[1], m[2], m[3], m[4]].map((x) => (x ? Number(x) : 0));
+  return d * 86_400 + h * 3_600 + mi * 60 + se;
+}
+
+/**
+ * Hasta cuántos segundos YouTube considera que un video es un Short: 3 minutos desde octubre de
+ * 2024 (antes era 1). Se usa para CLASIFICAR, no para descartar: los dos formatos se traen.
+ */
+export const SHORT_HASTA_SEGUNDOS = 180;
+
+/** Si un video es corto. `null` (duración que no se entiende) NO es corto: se trata como largo. */
+export const esShort = (v: { duracion: string | null }): boolean => {
+  const s = segundosDeDuracion(v.duracion);
+  return s != null && s > 0 && s <= SHORT_HASTA_SEGUNDOS;
+};
+
 /** Los ids de video de una respuesta de `playlistItems.list`, en el orden en que vinieron. */
 export function leerIdsDeSubidas(cuerpo: unknown): string[] {
   const items = esObj(cuerpo) && Array.isArray(cuerpo.items) ? cuerpo.items.filter(esObj) : [];
@@ -266,27 +307,57 @@ export async function traerVideosDelCanal(
     return { ok: false, motivo: 'sin-subidas', detalle: 'Ese canal no publica una lista de subidas' };
   }
 
-  // 2. Los ids de las subidas más nuevas: 1 unidad por 50.
-  const dos = await traer(buscar, 'playlistItems', { part: 'contentDetails', playlistId: canal.canal.subidas, maxResults: String(Math.min(quiere, LOTE)) }, clave);
-  if (dos.status !== 200) {
-    const l = leerCanal(dos.status, dos.cuerpo);
-    return l.ok ? { ok: false, motivo: 'error', detalle: `playlistItems contestó ${dos.status}` } : l;
-  }
-  const ids = leerIdsDeSubidas(dos.cuerpo).slice(0, quiere);
-  if (!ids.length) return { ok: true, canal: canal.canal, videos: [] };
-
-  // 3. Los videos, en lotes de 50: 1 unidad por lote. Acá —y sólo acá— vienen las etiquetas.
+  // 2 y 3, en un bucle: una página de ids (1 unidad) y sus videos (1 unidad), hasta llenar el cupo.
+  //
+  // ⚠️ POR QUÉ SE PAGINA, que es lo que Martín vio: una sola página trae los ÚLTIMOS 50 subidos, y
+  // en un canal que publica Shorts a diario esos 50 son todos Shorts — el video largo queda afuera
+  // por VIEJO, no por formato. Y lo valioso de YouTube está en los largos. La duración recién se
+  // conoce en `videos.list`, así que no se puede pedir «los largos»: hay que traer, clasificar y
+  // decidir si hace falta otra página.
   const videos: VideoYoutube[] = [];
-  for (const lote of lotesDe(ids, LOTE)) {
-    const tres = await traer(buscar, 'videos', { part: 'snippet,statistics,contentDetails', id: lote.join(',') }, clave);
+  let largos = 0;
+  let pagina: string | null = null;
+  for (let vuelta = 0; vuelta < PAGINAS_MAX; vuelta += 1) {
+    const dos: { status: number; cuerpo: unknown } = await traer(buscar, 'playlistItems', {
+      part: 'contentDetails', playlistId: canal.canal.subidas, maxResults: String(LOTE),
+      ...(pagina ? { pageToken: pagina } : {}),
+    }, clave);
+    if (dos.status !== 200) {
+      const l = leerCanal(dos.status, dos.cuerpo);
+      // La primera página que falla es un fallo; si ya trajimos algo, se devuelve lo que hay.
+      if (videos.length) break;
+      return l.ok ? { ok: false, motivo: 'error', detalle: `playlistItems contestó ${dos.status}` } : l;
+    }
+    const ids = leerIdsDeSubidas(dos.cuerpo);
+    if (!ids.length) break;
+
+    const tres = await traer(buscar, 'videos', { part: 'snippet,statistics,contentDetails', id: ids.join(',') }, clave);
     if (tres.status !== 200) {
       const l = leerCanal(tres.status, tres.cuerpo);
-      // Si un lote falla, se devuelve el fallo: media lista se lee como «subió 25 videos».
+      if (videos.length) break;
+      // Si el primer lote falla, se devuelve el fallo: media lista se lee como «subió 25 videos».
       return l.ok ? { ok: false, motivo: 'error', detalle: `videos.list contestó ${tres.status}` } : l;
     }
-    videos.push(...leerVideos(tres.cuerpo));
+    for (const v of leerVideos(tres.cuerpo)) {
+      videos.push(v);
+      if (!esShort(v)) largos += 1;
+    }
+
+    pagina = pasaALaSiguiente(dos.cuerpo);
+    // Se sigue sólo mientras falten LARGOS. Si ya hay bastantes, una página más no agrega nada.
+    if (!pagina || largos >= LARGOS_QUE_QUEREMOS) break;
   }
-  return { ok: true, canal: canal.canal, videos };
+  if (!videos.length) return { ok: true, canal: canal.canal, videos: [] };
+
+  // El recorte: primero los largos más nuevos y después los cortos más nuevos, hasta `quiere`.
+  // ⚠️ NO se recorta por fecha a secas: eso es justamente lo que dejaba afuera a los largos.
+  const porFecha = (a: VideoYoutube, b: VideoYoutube) => String(b.publicadoEn ?? '').localeCompare(String(a.publicadoEn ?? ''));
+  const deLargos = videos.filter((v) => !esShort(v)).sort(porFecha);
+  const deCortos = videos.filter((v) => esShort(v)).sort(porFecha);
+  const elegidos = [...deLargos.slice(0, LARGOS_QUE_QUEREMOS), ...deCortos].slice(0, quiere);
+  // Y se devuelven en el orden en que YouTube los dio, que es el que espera quien los dibuja.
+  const quedan = new Set(elegidos.map((v) => v.id));
+  return { ok: true, canal: canal.canal, videos: videos.filter((v) => quedan.has(v.id)) };
 }
 
 /** Lo que se le dice a la persona cuando no se pudo leer un canal. Dice de quién fue y qué hacer. */
