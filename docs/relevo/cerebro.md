@@ -27,19 +27,25 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## 🔴 ESTADO AL 2/11 ~04:00 — HAY 13 COMMITS SIN DESPLEGAR Y ACTIONS ESTÁ EN ROJO
+## ✅ ESTADO AL 2/11 ~13:30 — TODO DESPLEGADO, ACTIONS EN VERDE
 
-**`origin/main` = `8a60cd310`. `origin/integracion` = `0f80b08a3` (15 commits).** Todo lo de la
-noche del 2/11 está commiteado y pusheado a `integracion`, y **nada llegó a producción**.
+**`origin/main` = `aa079544b`.** Los 16 commits de la noche entraron a producción y están
+verificados mirando la app en vivo. Lo que queda en `integracion` sin llegar a main son commits de
+documentación, que salen con el próximo run.
+
+⚠️ **Esta cabecera decía, hasta hace un rato, «13 COMMITS SIN DESPLEGAR Y ACTIONS EN ROJO».** Era
+verdad a las 04:00 y dejó de serlo a las 05:40. Si la leés desalineada con `git log`, **ganá el
+`git log`**: un relevo es una foto, y una foto vieja manda a cazar un problema que ya no existe.
 
 **El tablero vivo es `docs/pendientes-martin.md`** — ahí está la lista de los 21 pedidos con su
 estado, y arriba de todo el aviso de por qué nada se desplegó. Esto de acá es el resumen.
 
 ### Lo que hay que hacer PRIMERO al retomar
 
-1. **Mirar el último run**: `github.com/koncke/mako/actions/workflows/integracion.yml`.
-   El #337 (`0f80b08a3`) quedó CORRIENDO a las 04:40 con los 15 commits. Si dio verde, `main`
-   avanzó solo y no hay nada que hacer; si no, seguir con el punto 2.
+1. **Mirar si hay algo sin desplegar**: `git fetch && git rev-list --count origin/main..origin/integracion`.
+   Si da 0, no hay nada que destrabar y se puede ir directo al tablero
+   (`docs/pendientes-martin.md`). Si da más, mirar el último run en
+   `github.com/koncke/mako/actions/workflows/integracion.yml`.
 2. ⚠️ **EL RESUMEN DEL RUN NO NOMBRA LOS TESTS ROJOS; EL LOG DEL JOB SÍ.** Esto me costó tres
    runs: el resumen sólo dice `afectados: 298 s (código 1)`. Hay que abrir el job y buscar
    **«Rojos:»** — ahí está la lista completa de archivos y la línea para repetirlos solos. Correr
