@@ -240,7 +240,9 @@ export function PeliculaDeOrden({ nombre, piezas, onTerminar }: {
               <div key={m.pieza.id} className="spyo-mini" data-mini="" data-clave={m.clave} data-hueco={m.hueco} data-canal={m.pieza.canal} style={{ width: dispo.ladoBola, height: dispo.ladoBola }}>
                 {mini
                   // eslint-disable-next-line @next/next/no-img-element -- la miniatura la sirve YouTube, y no pasa por nuestro optimizador
-                  ? <img src={mini} alt="" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                  /* `referrerPolicy="no-referrer"`: el CDN de Meta devuelve 403 a la imagen pedida
+                     desde otro dominio, y sin esto la película volaba cajas vacías (Martín, 2/11). */
+                  ? <img src={mini} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                   : m.pieza.texto ? <p>{m.pieza.texto.slice(0, 60)}</p> : <Icon name={m.pieza.canal === 'anuncios' ? 'meta' : 'instagram'} size={Math.round(dispo.ladoBola * 0.42)} />}
               </div>
             );

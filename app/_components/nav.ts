@@ -368,14 +368,12 @@ export const FAMILIAS: NavFamilia[] = [
         // tabs, incluso en SuperAdmin»): la pantalla de Create (app/_crear/PantallaCrear.tsx). Lleva la key de la que era su
         // sección, 'offer' (la miran las capas, la API y el teléfono). Strategy y Offer Playbook, del super admin, van al pie de
         // la lista de ofertas (app/offer/OfferApp.tsx) y siguen en ADMIN_NAV por su key; la barra las marca en Offer.
-        { key: 'offer', label: 'Offer', href: '/offer', icon: 'tag', match: (p) => starts('/offer')(p) || starts('/offer-analyst')(p) || starts('/admin/estrategia')(p) || starts('/admin/offer-playbook')(p) },
         { key: 'landing-writer', label: 'Web Generator', href: RUTA_WEB_GENERATOR, icon: 'web', match: (p) => starts(RUTA_WEB_GENERATOR)(p) || RUTAS_VIEJAS_WEB_GENERATOR.some((r) => starts(r)(p)) },
-        { key: 'ads-manager', label: 'Ads Manager', href: '/ads-manager', icon: 'grid', match: starts('/ads-manager') },
         // Competitor Spy: vino de Analyze el 17/10/2026 y estuvo en PRONTO hasta el 31/10/2026, cuando dejó de ser
         // ComingSoon (la Etapa 1 de docs/diseno-competitors-spy.md: lista, ficha por bloques y onboarding). Marketing es
         // la casa que el comentario de PRONTO ya le había asignado. Sigue `adminOnly` desde el 12/10/2026 (Martín:
         // «Elimina "Competitors Spy" y que solo se vea en super admin»): vigila lo que hacen los demás.
-        { key: 'market-an', adminOnly: true, label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
+        { key: 'market-an', label: 'Competitor Spy', href: '/competitor-spy', icon: 'spy', match: (p) => starts('/competitor-spy')(p) || starts('/market-analyst')(p) },
       ],
     ],
   },

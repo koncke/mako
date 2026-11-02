@@ -56,10 +56,19 @@ export function TarjetaPieza({ p }: { p: PiezaVista }) {
   const cuerpo = (
     <>
       <div className="spy-pcard__media">
-        {miniatura
+        {/* ⚠️ EL TEXTO VA SIEMPRE Y LA FOTO ENCIMA. Antes el texto era el `else` de la foto, así que
+            una foto que no cargaba dejaba una caja de color VACÍA — que es exactamente lo que vio
+            Martín el 2/11: «las miniaturas de IG no se ven, sólo cajas vacías». Ahora la foto que
+            falla se borra y abajo ya estaba el texto. */}
+        {p.texto && <span className="spy-pcard__texto-creativo">{p.texto.slice(0, 220)}</span>}
+        {miniatura && (
+          /* ⚠️ `referrerPolicy="no-referrer"` NO ES DECORACIÓN: sin eso el CDN de Meta
+             (scontent.cdninstagram.com) devuelve 403 a toda imagen pedida desde otro dominio, y
+             ésa es la causa más probable de que no se vieran. Sin referrer, la sirve. */
           // eslint-disable-next-line @next/next/no-img-element -- la sirve el CDN del canal, y no pasa por nuestro optimizador
-          ? <img src={miniatura} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-          : p.texto && <span className="spy-pcard__texto-creativo">{p.texto.slice(0, 220)}</span>}
+          <img className="spy-pcard__foto" src={miniatura} alt="" loading="lazy" referrerPolicy="no-referrer"
+            onError={(e) => { e.currentTarget.remove(); }} />
+        )}
 
         <span className="spy-pcard__puntos" aria-hidden><i style={{ background: PUNTO[p.canal] ?? 'var(--faint)' }} /></span>
 

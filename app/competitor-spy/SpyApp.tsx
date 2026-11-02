@@ -239,8 +239,9 @@ const CSS = `
 .spy-pcard[data-canal=anuncios]{background:var(--t2)}
 .spy-pcard:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
 .spy-pcard__media{position:relative;display:block;aspect-ratio:4/5;overflow:hidden}
-.spy-pcard__media img{display:block;width:100%;height:100%;object-fit:cover}
-.spy-pcard__texto-creativo{display:block;padding:18px 18px 22px;color:var(--t-ink);
+/* La foto va ENCIMA del texto, no en vez del texto: si no carga, se borra y abajo queda el texto. */
+.spy-pcard__foto{position:absolute;inset:0;z-index:1;display:block;width:100%;height:100%;object-fit:cover}
+.spy-pcard__texto-creativo{position:absolute;inset:0;display:block;padding:18px 18px 22px;color:var(--t-ink);
   font-size:var(--fs-sm);line-height:1.45;overflow:hidden}
 .spy-pcard__puntos{position:absolute;z-index:2;top:16px;left:14px;display:flex}
 .spy-pcard__puntos i{width:18px;height:18px;border-radius:50%;
