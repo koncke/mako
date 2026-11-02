@@ -27,7 +27,13 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ESTADO AL 2/11 ~19:00 — CUOTA AL 93 %, EL TREN SUBIENDO, Y NADA QUE EMPEZAR
+## ESTADO AL 2/11 ~19:45 — CUOTA AL 93 %, EL TREN CORRIENDO, Y EL PRÓXIMO PUSH RETENIDO
+
+⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El run **#359** corre con 13 commits. Arriba
+hay **dos commits más listos y RETENIDOS a propósito** (`c85e10ec2`, el ítem 9 — el @ del CRM; y
+`ffd616b47`, el tablero): pushear mientras el #359 corre lo cancela, que es exactamente lo que pasó
+diez veces hoy. Cuando el #359 cierre, se juntan **con las dos ramas que también esperan** —
+`difusion-modal-0211` (`6bf0a40a8`) y `dashboard-denso-0111` (`a4fb06dba`)— y se manda **UN** push.
 
 **`origin/main` = `63d66d8f3`.** Encima hay **12 commits** que vivían sólo en `tren-chico` y que
 estoy subiendo a `integracion` ahora: Puigrredón, Alborna, las miniaturas de YouTube que ahora se
