@@ -55,7 +55,7 @@
 //
 // El copy va en español neutro, con «tú»: el producto se usa en México.
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Icon } from '../_components/icons';
 import { BotonIntegracion } from '../_components/ConectarIntegracion';
 import { ConfirmModal } from '../_components/ConfirmModal';
@@ -294,7 +294,28 @@ const CSS = `
    en un cuadrado cuando deberían ocupar todo el ancho de la tarjeta, no estar chiquititas». La
    primera versión le ponía a la caricatura un 10 % de aire y `contain` para que se leyera como
    dibujo: se veía chica y con un marco que nadie pidió. Caricatura y foto se dibujan IGUAL. */
-.spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover}
+.spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover;
+  animation:spy-flota 7s ease-in-out infinite;animation-delay:var(--flote,0s);will-change:transform}
+/* ⚠️ LA TARJETA SE MUEVE SOLA. Martín, 2/11/2026: «que las tarjetas tengan algún tipo de animación,
+   que la figura se mueva o que parpadee, o que digamos flote». Flota: es lo único que se puede
+   mirar diez minutos sin molestar — un parpadeo en una rejilla de veinticinco tarjetas es un
+   semáforo roto.
+   El recorrido es de 6 px sobre una imagen de 248 px (~2,4 %) y el `scale` tapa el borde que
+   dejaría el desplazamiento, para que no asome el fondo de la tarjeta arriba o abajo.
+   ⚠️ CADA TARJETA ARRANCA EN OTRO MOMENTO (`--flote`, puesto por índice): sin eso las veinticinco
+   suben y bajan a la vez y parece que se mueve la pantalla, no las caras. */
+@keyframes spy-flota{
+  0%,100%{transform:scale(1.035) translateY(3px)}
+  50%    {transform:scale(1.035) translateY(-3px)}
+}
+.spy-ccard:hover .spy-ccard__cara img{animation-play-state:paused;transform:scale(1.06)}
+/* El que no quiere movimiento no lo tiene: no es un adorno opcional, es una preferencia del sistema. */
+@media (prefers-reduced-motion:reduce){
+  .spy-ccard__cara img{animation:none}
+  .spy-ccard:hover .spy-ccard__cara img{transform:none}
+  .spy-ccard{transition:none}
+  .spy-ccard:hover{transform:none}
+}
 .spy-ccard__cuerpo{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px}
 .spy-ccard__nombre{display:block;font-size:var(--fs-card);font-weight:600;letter-spacing:-.005em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -691,15 +712,20 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
            cosas: «que se elimine lo de inspirado en, eso no tiene sentido» y «deberían ocupar todo
            el ancho, no estar chiquititas en un cuadrado». ── */}
       <div className="spy-crejilla">
-        {competidores.map((c) => {
+        {competidores.map((c, i) => {
           const r = resumen[c.id];
           const dibujo = caricaturaDeCompetidor(c);
+          // Cada cara arranca su flote en otro momento. Es por ÍNDICE y no al azar: `Math.random()`
+          // en el render daría un número distinto en el servidor y en el navegador, y React avisaría
+          // de hidratación desajustada. Un paso de 0,55 s reparte siete segundos entre las primeras
+          // trece tarjetas sin que dos vecinas coincidan.
+          const flote = `${((i * 0.55) % 7).toFixed(2)}s`;
           const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
           return (
             <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
               onClick={() => onAbrir(c.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
-              <span className="spy-ccard__cara" aria-hidden>
+              <span className="spy-ccard__cara" style={{ '--flote': flote } as CSSProperties} aria-hidden>
                 {c.avatar || dibujo
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
                   ? <img src={(c.avatar || dibujo) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />

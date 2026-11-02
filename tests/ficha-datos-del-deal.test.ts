@@ -59,6 +59,17 @@ test('4. la pantalla obedece: filtra por lo elegido y marca las filas para su �
 
 test('5. Instagram: LA función pide la foto, y el buscador le pregunta a la Meta de la plataforma antes que a Apify', () => {
   assert.match(CAMPOS_PERFIL, /\bprofile_picture_url\b/);
-  assert.match(leer('app/api/crm/instagram-buscar/route.ts'), /leerPerfilInstagram\(u, \{ ws, fuentes: \['meta-plataforma', 'apify'\] \}\)/);
+  // ⚠️ 2/11/2026 — LA LISTA EXACTA YA NO SE FIJA ACÁ. Lo que este test cuida es el ORDEN: la Meta de
+  // la plataforma antes que Apify, porque una lectura de Meta no gasta un crédito. Al sumar la
+  // fuente `apify-spy` (la única que prueba la clave que hoy existe) este `match` se puso rojo sin
+  // que el orden hubiera cambiado. Ahora se mide el orden, que es lo que dice el título del test.
+  const fuentes = /leerPerfilInstagram\(u, \{ ws, fuentes: \[([^\]]*)\] \}\)/.exec(leer('app/api/crm/instagram-buscar/route.ts'));
+  assert.ok(fuentes, 'el buscador tiene que leer el perfil por @ exacto con la función compartida');
+  const orden = [...fuentes[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  assert.ok(orden.includes('meta-plataforma'), `${JSON.stringify(orden)} no pregunta a la Meta de la plataforma`);
+  assert.ok(
+    orden.indexOf('meta-plataforma') < orden.findIndex((f) => f.startsWith('apify')),
+    `la Meta de la plataforma va ANTES que cualquier Apify (no gasta un crédito), y acá está ${JSON.stringify(orden)}`,
+  );
   assert.match(leer('app/crm/new/InstagramBuscador.tsx'), /conexion === 'sin-instagram' && !encontrados\?\.length/, 'no dice «sin Instagram» arriba de la cuenta encontrada');
 });
