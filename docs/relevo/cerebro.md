@@ -33,8 +33,13 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 verificado en producción**, mirando hola-mako.com/competitor-spy: las tarjetas tiran de
 `/asesores/grandes/`, sin carteles, con la animación `spy-flota` activa.
 
-**Lo último que pusheé va en un run que puede estar corriendo:** el nombre real en la tarjeta y las
-reglas del email de avance. **Mirá Actions antes de pushear nada.**
+⛔ **HAY UN RUN CORRIENDO AL CERRAR ESTA CUENTA: `1bb35642c`, run `41517934343`.** Lleva el nombre
+real en la tarjeta (lo de «@AlexHormozi») y las reglas del email de avance del ticket.
+**LO PRIMERO AL RETOMAR: mirar ese run.**
+· Si está verde, `origin/main` ya lo incluye y no hay nada que hacer.
+· Si está en rojo, los nombres de los tests están en el **LOG DEL JOB**, en la línea «Rojos:» — el
+  resumen sólo dice `afectados: NNN s (código 1)` y no sirve.
+· **No pushear mientras corra**: un push lo cancela, y eso pasó diez veces esta noche.
 
 ### Lo que quedó DESPLEGADO esta noche
 
