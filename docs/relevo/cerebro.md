@@ -33,9 +33,23 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 verificado en producción**, mirando hola-mako.com/competitor-spy: las tarjetas tiran de
 `/asesores/grandes/`, sin carteles, con la animación `spy-flota` activa.
 
-✅ **NO QUEDA NADA CORRIENDO NI NADA SIN SUBIR.** El último run (`1bb35642c`, run `41517934343`)
-cerró **verde** y `origin/main` lo incluye: entró el nombre real en la tarjeta (lo de
-«@AlexHormozi») y las reglas del email de avance del ticket.
+⛔ **AL CERRAR HAY UN RUN SIN CONFIRMAR: `b82fb0935`.** Lleva lo último de la noche, pusheado
+después del relevo:
+· **el mapa de qué curso es de cada gurú** (`lib/asesores/cursos.ts`, los DOCE, verificados abriendo
+  los archivos) — era el eslabón que faltaba entre un asesor y su Second Brain;
+· **Offer fuera de la barra** (Martín: «la de offer no la quiero»; Ads Manager NO se tocó).
+
+⚠️ **Offer se sacó SIN borrar su entrada, y eso no es un detalle.** Hay un flag nuevo,
+`fueraDeLaBarra`, chequeado en `puedeVerItem` (`lib/nav-visibilidad.ts`), que es la puerta
+compartida por la barra y el móvil. **La key `offer` es contrato con la base**: la resuelven con
+`itemNav('offer')` los permisos por capa (`navKeys`, lib/capas.ts), el onboarding por tab, el móvil
+y el catálogo de la API. Borrar la entrada les devuelve `undefined` a todos — y el daño no es un
+renglón que falta, es **un negocio que pierde el permiso de una tab porque su key dejó de existir**.
+Eso fue lo que rompió los seis tests del intento anterior. **Si alguien vuelve a intentar «sacar una
+tab», que use el flag.**
+
+✅ Antes de eso, los runs `1bb35642c`, `abe7dfe0e` y los anteriores cerraron **verdes**: el nombre
+real en la tarjeta, las reglas del email de avance y el mapa de cursos ya están en `main`.
 
 ⚠️ **Para el próximo rojo, porque es lo que más tiempo me costó:** los nombres de los tests están en
 el **LOG DEL JOB**, en la línea «Rojos:». El resumen del run sólo dice `afectados: NNN s (código 1)`
