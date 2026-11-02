@@ -828,3 +828,29 @@ una de las formas del referente. Con test de las dos mitades.
 **La regla que queda:** un arreglo que sólo corre al CREAR no toca lo que ya existe. Si el dato viejo
 se ve en pantalla, o se repara la base o se decide al dibujar — pero hay que elegir, porque «lo
 arreglé» sobre el camino de alta no arregla lo que el usuario está mirando.
+
+### 📧 EL EMAIL DE AVANCE DEL TICKET — la regla y la migración, 2/11/2026
+
+**Hecho y aplicado en producción:** `0364_ticket_avance_por_email.sql` (columnas `avance_email` y
+`avance_email_at` en `tickets`) + `lib/tickets-avance.ts`, con `tests/tickets-avance.test.ts` 7/0
+probado rompiéndolo.
+
+**Las dos reglas, que son las que se rompen en silencio:**
+1. **Sólo hacia ADELANTE.** Un ticket que rebota entre «en curso» y «esperando cliente» no manda un
+   correo por rebote: el tercero va a spam y el cuarto no lo lee nadie. Por eso la columna guarda
+   QUÉ hito se avisó y no un booleano.
+2. **«cerrado» NO manda correo.** El cierre ya avisa por push, por el chat y por WhatsApp
+   (`avisarPendientes`). Un correo más sería el cuarto aviso de lo mismo, y Martín pidió que el
+   final siga siendo el WhatsApp que ya existe.
+
+⚠️ **`avisado_at` no se toca**: es del aviso FINAL. Mezclarlos haría que un correo de avance tape el
+aviso de cierre.
+
+**FALTA el envío**, y son tres cosas, ninguna difícil:
+1. Un camino que mire los tickets cuyo `EstadoCliente` de hoy (`estadoClienteDe`,
+   `lib/tickets-reglas.ts:76`) sea posterior a su `avance_email`. ⚠️ **No sirve la consulta de
+   `avisarPendientes`**: ésa filtra `estado in ('resuelto','rechazado','duplicado','esperando_cliente')`,
+   o sea sólo los finales — justo los que NO son avance.
+2. Mandarlo con Resend desde `EMAIL_MAKO` (`lib/app-url.ts`), que es el remitente de la casa.
+3. Escribir `avance_email` y `avance_email_at` **después** de que salga, nunca antes: si se marca
+   primero y el envío falla, ese hito no se avisa nunca más.
