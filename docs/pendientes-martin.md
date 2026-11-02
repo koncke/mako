@@ -158,3 +158,85 @@ Cada referente necesita: su entrada en `ASESORES`, su `IdAsesor`, su `lib/asesor
 (≤ 5.200 caracteres, **español neutro con «tú»** — el voseo pone ROJO a
 `tests/puente-panel-copy.test.ts`) y su caricatura en `public/asesores/<id>.png` con el prompt
 aprobado, que está textual en `docs/hallazgos-ops-center.md`.
+
+---
+
+# Orden de trabajo de lo que falta (escrita el 2/11 ~06:20, al 91 % de la cuenta)
+
+Para cada pendiente: **dónde vive**, **qué pieza ya existe para reusar**, **la trampa** y **qué es
+estar hecho**. Lo averiguado acá ya está pago: no hace falta volver a buscarlo.
+
+## #8 · Rediseñar el modal de «Mirar a alguien más»
+- **Vive en:** `app/competitor-spy/SpyApp.tsx` → `ModalAlta` (dos pestañas: pegar / a mano).
+- **Reusar:** la referencia ya está medida en `docs/diseno/referencia-spy.md` — la ficha de
+  producto de fitlo, que es la pantalla análoga.
+- **Hecho =** una sola entrada, y lo que se pega se PREVISUALIZA antes de guardar (ver #9 y #11:
+  son el mismo modal).
+
+## #9 · Con el @, traer el perfil (Spy y CRM)
+- **Ya existe todo el lado servidor:** `leerPerfilInstagram(usuario, { ws, conPiezas })` en
+  `lib/instagram-perfil-server.ts` devuelve `{ usuario, nombre, foto, bio, web, seguidores,
+  publicaciones }`. Falta sólo una acción que lo exponga.
+- **Cómo:** una acción nueva en `app/competitor-spy/actions.ts` copiando el patrón de las otras
+  (guard `soloMiembro()`, `try/catch` con `msg(e)`).
+- ⚠️ **La trampa:** NO dispararlo en cada tecla. Apify tiene tope diario (`APIFY_TOPE_POR_DIA`,
+  `lib/instagram-perfil-server.ts`) y una vista previa por pulsación se lo come en una tarde.
+  Va con Enter o al salir del campo.
+- **La foto del perfil se baja con lo que ya está hecho:** `guardarMiniaturas([{ canal: 'avatar',
+  ref, miniatura: foto }])` de `lib/spy-miniaturas.ts`.
+
+## #10 y #11 · Traer sus otras redes, y VALIDARLAS
+- **La landing ya viene gratis:** el campo `web` del perfil de Instagram es el link de su bio.
+  Eso solo ya cubre buena parte del pedido.
+- **Lo que falta de verdad** es buscar las otras redes por un motor de búsqueda.
+- ⚠️ **La trampa, y ya la pagamos con los gurús:** resolver una persona por búsqueda trae a OTRA.
+  Por eso Martín pidió explícitamente validar («¿este es el YouTube de esta persona?»).
+  **Nada que venga de una búsqueda se guarda sin que el usuario lo confirme.**
+
+## #12 · Pasar de 50 publicaciones
+- **El tope es `piezasPorVuelta: 50`** en `lib/spy-reglas.ts` (dentro de `TOPES`).
+- **Para YouTube ya está resuelto a medias:** `lib/spy-youtube.ts` ahora pagina con
+  `PAGINAS_MAX` y `LARGOS_QUE_QUEREMOS`; el mismo patrón sirve para subir el tope.
+- **La otra mitad del pedido** —elegir publicaciones a dedo desde el perfil con la extensión— es
+  trabajo de la extensión, no de la tab.
+
+## #13 · Spy compartido entre negocios
+- **La decisión ya está tomada** (más arriba en este archivo): se comparte LA LECTURA (caché
+  global por `ref` de canal), nunca la lista de a quién mira cada negocio.
+- **Media pieza ya está hecha:** las miniaturas se guardan en `spy/<canal>/<ref>` SIN
+  `workspace_id` (migración 0361), justamente para que se compartan.
+- ⚠️ **Lo que falta toca el aislamiento multi-inquilino**, que es lo más vigilado del repo: leer
+  antes `.claude/skills/tenant-safe-query` y `audit-route-cross-tenant`.
+
+## #14 · Los 12 referentes
+- **Los 12 cursos ya están localizados** (tabla más arriba), verificados contra el `titulo:` de
+  cada archivo. Falta: entrada en `ASESORES`, `IdAsesor`, `lib/asesores/ficha-<id>.ts` y la
+  caricatura en `public/asesores/<id>.png` con el prompt de `docs/hallazgos-ops-center.md`.
+- ⚠️ **Español neutro con «tú»**: el voseo pone ROJO a `tests/puente-panel-copy.test.ts`. Las
+  transcripciones están en voseo, así que la ficha hay que ESCRIBIRLA, no copiarla.
+
+## #16 · Elegir un gurú desde «Nuevo chat»
+- **Vive en:** `app/admin/operaciones/ChatNuevo.tsx` (214 líneas, **hoy no nombra referentes en
+  ninguna**).
+- **Reusar:** el selector ya existe y ya está arreglado — `app/second-brain/ElegirReferente.tsx`
+  (el del modal de 1040 px). Lo usan `ChatDelCoach.tsx` y `ChatSecondBrain.tsx`.
+- ⚠️ **Lo que lo hace coach es el CONTEXTO, no la pantalla**: lo elige el servidor por
+  `desde.tab` en `lib/asesores/contexto.ts`. Poner el selector sin tocar eso deja un chat que se
+  ve distinto y contesta igual.
+
+## #18 · Botón de Second Brain por gurú
+- **Las piezas están todas:** `app/second-brain/Grafo.tsx` recibe
+  `cerebro = { nodos, aristas, cuenta, posiciones, encuadre }`, y `lib/cerebro-knowledge.ts`
+  (31/10) ya cuelga Knowledge como una capa del grafo (`conCapa`, `lib/cerebro-union.ts`).
+- **Hecho =** un botón en el chat del gurú que abre el grafo filtrado a SU curso.
+
+## #19 · Modal de «mensaje de difusión» del CRM
+- **Vive en:** `app/crm/AccionesLoteLeads.tsx` y `app/crm/seleccion-difusion.ts`.
+- **Reusar:** el formato por red ya existe en Automations — de ahí sale el «como lo tenemos en
+  Automations» que pidió Martín.
+
+## #2 · Sacar Offer y Ads Manager de la barra (revertido)
+- **No es borrar una línea de `nav.ts`.** Esas keys las nombran: el catálogo de funciones de la
+  API de MaKo, las rutas del móvil, los módulos de Knowledge, Create y Estrategia. Seis tests.
+- **Hecho =** cada consumidor mudado a donde viven ahora (Funnel Coach y Hormozi, adentro del
+  Ops Center), y recién entonces la línea de menos en `nav.ts`.
