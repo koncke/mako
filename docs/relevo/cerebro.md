@@ -166,8 +166,8 @@ de la carpeta ya me costó dos errores: «Jaime Jiguera» por Higuera y «Jordi 
 | Francisco Doglio | ARCADIA | `curso-arcadia.ts` |
 | Gonzalo Seré | Growing Content Specialist | `curso-growing-content-specialist.ts` |
 | Samuel Albaa | Growing Closer (con Agustín Nievas) | `curso-growing-closer-agustin-nievas-samuel-albaa.ts` |
-| **Emilio Puigrredon** | **NO está en Knowledge** | — |
-| **Mateo Mafia** | **NO está en Knowledge** | — |
+| Emilio Puigrredón | Social Funnel | `curso-social-funnel.ts` |
+| Mateo Maffia | BYF | `curso-mateo-maffia-byf.ts` ⚠️ el mapa `TITULO` lo renombra a **«BYF»** a secas |
 
 **Dos avisos para el que lo escriba:**
 
@@ -175,9 +175,11 @@ de la carpeta ya me costó dos errores: «Jaime Jiguera» por Higuera y «Jordi 
   duplicado, su ficha tiene que destilar SU parte: el *appointment setter* —manejar la conversación
   y conseguir la llamada—, que es distinto del cierre, que es lo que ya tiene Nievas. Lo dice la
   descripción del curso en `catalogo.ts` («convertirte en un appointment setter desde cero»).
-- **Los dos que faltan hay que preguntárselos a Martín o buscarles otra fuente.** No inventar una
-  ficha de alguien cuyo curso no tenemos: la ficha sale de la transcripción, no de lo que se sepa
-  de la persona.
+- ⚠️ **ESTÁN LOS 12. La primera búsqueda dijo que dos no estaban y era MENTIRA**, por la ortografía:
+  es **Puigrredón** con tilde (grep sin tilde no lo encuentra) y **Maffia** con dos efes (Martín lo
+  escribió «Mafia»). **La regla: buscar por el pedazo más corto e inequívoco del apellido —`Puig`,
+  `Maffi`— y recién después confirmar contra el `titulo:` del archivo.** Un grep por el nombre tal
+  como lo escribió quien pidió la tarea devuelve «no está» con total seguridad.
 
 **Falsos positivos que ya descarté, para no volver a abrirlos:** `curso-creator-club` menciona a
 Alborna pero es de NXTGEN Academia; `curso-bootcamp-de-cierre-de-ventas-ia` y `curso-master-en-ia`
