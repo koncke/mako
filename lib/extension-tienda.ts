@@ -51,7 +51,10 @@ export const EXTENSION_ID = 'gapbemdaaghomjbnggechglkpmbgplle';
  * 28 de agosto de 2026», y el manifest que trae embebido dice lo mismo.
  * Medido otra vez el 27/10/2026 (`node scripts/version-en-tienda.mjs`): publica la 0.39.1.
  */
-export const VERSION_EN_TIENDA = '0.39.1';
+// Medido el 2/11/2026 con `node scripts/version-en-tienda.mjs`: decía 0.39.1, o sea TREINTA Y
+// CINCO versiones atrás de lo que Google publica. Un dato viejo acá no es inocente: es el que
+// decide qué ve el cliente.
+export const VERSION_EN_TIENDA = '0.74.3';
 
 /**
  * ¿Se le puede ofrecer la tienda a alguien que instala hoy?

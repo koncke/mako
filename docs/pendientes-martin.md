@@ -41,6 +41,29 @@ Dos causas:
   los seis que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs
   «acquisition.com») hay que borrarlos a mano, que ahora se puede desde la tarjeta.
 
+### ⛔ #20 · Por qué sigue apareciendo «Descargar la extensión» (medido el 2/11 ~06:00)
+
+**No es un botón que haya que borrar.** El zip ya está detrás de un flag desde el 27/10
+(`lib/extension-tienda.ts`): si la tienda está al día se ofrece «Añadir a Chrome», y si va atrás
+se ofrece el zip. Lo vigila `tests/extension-sin-zip-con-tienda.test.ts`, probado rompiéndolo.
+
+Lo que pasa es que **la tienda va atrás**. Medido con `node scripts/version-en-tienda.mjs`:
+
+| | versión |
+|---|---|
+| Lo que decía `VERSION_EN_TIENDA` | `0.39.1` ← **35 versiones atrás, un dato viejo** |
+| Lo que la Chrome Web Store publica HOY | `0.74.3` |
+| Lo que sirve el repo | `0.74.4` |
+
+**Ya corregí la medición** a `0.74.3`, que es el valor real. Pero la tienda sigue **una versión
+atrás** del repo, así que el flag hace lo correcto al seguir ofreciendo el zip: mandar a Google
+serviría un paquete viejo.
+
+**Para que la descarga desaparezca sola hay que PUBLICAR la 0.74.4 y esperar la aprobación de
+Google.** No se puede desde este worktree: el `.env.local` de acá no tiene `CWS_CLIENT_ID`,
+`CWS_CLIENT_SECRET` ni `CWS_REFRESH_TOKEN`. **Es lo único que falta: ningún cambio de código lo
+arregla, y forzar el flag a mano mandaría a cada cliente nuevo a instalar una versión vieja.**
+
 ## Estado
 
 | | Ítem | Estado | Commit |
@@ -66,7 +89,7 @@ Dos causas:
 | 17 | **Base de conocimiento por gurú** | pendiente | |
 | 18 | **Botón de Second Brain por gurú** | pendiente | las piezas ya existen |
 | 19 | **Modal de «mensaje de difusión» del CRM** con formato por red | pendiente | |
-| 20 | **Instalar extensión: sacar la descarga** | pendiente | `Pasos.tsx:76-83` |
+| 20 | **Instalar extensión: sacar la descarga** | **TRABADO, no es código** | el zip YA está detrás de un flag; falta PUBLICAR en la tienda. Ver abajo |
 | 21 | **Probar punta a punta la clave de Apify de ws 9** | pendiente | |
 | — | Los 20 dashboards | **OTRO CHAT** | `docs/templates-dashboard-propuesta.md` |
 | — | ¿Spy trae sólo Reels? | **NO ES UN BUG** | `lib/spy.ts:429` deja pasar todo |
