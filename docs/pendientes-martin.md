@@ -675,3 +675,31 @@ antes palabra por palabra, y hay tests de las dos formas.
 · ⚠️ **Con tope por ticket.** Un ticket que rebota entre «en curso» y «esperando cliente» mandaría
   un correo por rebote. El patrón ya existe en el repo: `avisado_at` por hito, no por cambio.
 · ⚠️ **Y el WhatsApp NO se toca:** sigue sólo al final, que es lo que Martín pidió y lo que ya hace.
+
+### 💸 DECISIÓN DE PLATA QUE MARTÍN PUEDE REVERTIR — 2/11/2026
+
+**El alta del CRM ahora puede gastar la clave de Apify del negocio.** Hasta el 1/11 la regla era
+«Apify: sólo Spy», y `tests/leads-scraper-retirado.test.ts` la hacía cumplir con estas palabras: *«el
+alta del CRM y Offer siguen sin poder gastarla»*. Por eso el run #361 salió rojo, y **el rojo era
+correcto**: mi cambio del ítem 9 la rompía.
+
+Gana el pedido posterior —Martín, 2/11: «ya con Apify debería funcionar el traer el perfil
+escribiendo el @, eso también en el CRM»—, pero **es plata del negocio**, así que queda acá y en el
+guard, con fecha y con cómo se revierte, en vez de aflojarse en silencio.
+
+**Qué gasta, exactamente:** cuando ni Meta ni Google traen nada, el buscador lee UN perfil por @
+EXACTO con `APIFY_CLAVE_DE_SPY`. Mismo tope diario que Spy (`APIFY_TOPE_POR_DIA`) y la pantalla
+espera a que la persona deje de escribir, así que no se gasta por tecla. **El scraper de leads NO
+vuelve**: eso es búsqueda masiva, se llamaba `apify` a secas, y el guard lo sigue prohibiendo. Offer
+tampoco puede gastarla.
+
+**Para revertirlo:** sacar `'apify-spy'` de las fuentes en `app/api/crm/instagram-buscar/route.ts` y
+dejar el guard como estaba.
+
+### 🖼️ Y un rojo que se cazó ANTES de subir
+
+Agrandar las caricaturas a 600 px iba a poner en rojo `tests/coaches-ops-center.test.ts`: exige
+menos de **150 KB** por cara porque la lista de chats del Ops Center las baja TODAS, y a 600 px
+quedaban en ~159 KB. **Un archivo no puede servir a los dos.** Ahora son dos:
+`public/asesores/<id>.png` (200 px, la lista) y `public/asesores/grandes/<id>.png` (600 px, la
+tarjeta de Spy), con un test que exige que cada referente tenga las dos.
