@@ -70,7 +70,7 @@ import {
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
   analizarAction, competidoresAction, guardarAnuncioAction, piezasAction, quitarCompetidorAction,
-  revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
+  revisarAction, sumarCanalAction, sumarCompetidorAction, vistaPreviaAction, type PiezaVista, type VistaPrevia,
 } from './actions';
 import { TarjetaPieza } from './TarjetaPieza';
 import { PeliculaDeOrden } from './OrdenSpy';
@@ -173,6 +173,18 @@ const CSS = `
 .spy-ficha__datos{display:flex;flex-wrap:wrap;gap:6px}
 .spy-ficha__acciones{display:flex;gap:8px}
 .spy-ficha__acciones .spy-boton:first-child{flex:1}
+
+/* --- La vista previa del modal: quien es, antes de guardarlo. --- */
+.spy-previa{display:flex;gap:14px;padding:14px;border-radius:var(--r-lg);background:var(--surface-2);
+  box-shadow:inset 0 0 0 1px var(--border)}
+.spy-previa__cara{display:grid;place-items:center;flex:0 0 auto;width:56px;height:56px;overflow:hidden;
+  border-radius:var(--r-md);background:var(--t1);color:var(--t-ink);font-size:var(--fs-sect);font-weight:700}
+.spy-previa__cara img{display:block;width:100%;height:100%;object-fit:cover}
+.spy-previa__texto{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.spy-previa__texto b{font-size:var(--fs-card);font-weight:600}
+.spy-previa__texto small{color:var(--faint);font-size:var(--fs-sm)}
+.spy-previa__bio{color:var(--dim);font-size:var(--fs-sm);line-height:1.45;
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 
 /* ── Celdas pastel de datos: .kpi. Sin deltas, porque Spy lee UNA vez. ── */
 .spy-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
@@ -486,8 +498,43 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   const [pestana, setPestana] = useState<'pegar' | 'mano'>('pegar');
   const [pegado, setPegado] = useState('');
   const [d, setD] = useState({ nombre: '', instagram: '', youtube: '', sitio: '' });
+  // ⚠️ LA VISTA PREVIA NO SE PIDE EN CADA TECLA: leer un perfil gasta del tope diario de Apify.
+  //    Se pide al tocar «Buscar» o con Enter, que es cuando la persona terminó de escribir.
+  const [vista, setVista] = useState<VistaPrevia | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [errorVista, setErrorVista] = useState<string | null>(null);
+
   const listo = pestana === 'pegar' ? !!pegado.trim() : !!(d.instagram.trim() || d.youtube.trim() || d.sitio.trim());
-  const enviar = () => { if (pestana === 'pegar') onPegar(pegado.trim()); else onAMano(d); };
+
+  const buscar = async () => {
+    if (!pegado.trim() || buscando) return;
+    setBuscando(true); setErrorVista(null); setVista(null);
+    const r = await vistaPreviaAction(pegado.trim());
+    setBuscando(false);
+    if (r.ok) setVista(r.vista); else setErrorVista(r.error);
+  };
+
+  /**
+   * El botón de abajo hace una cosa distinta según dónde estás, y en ese orden: cargar a mano
+   * guarda, un dato ya confirmado guarda, y un dato sin confirmar BUSCA primero.
+   *
+   * ⚠️ Nunca se guarda sin haber mostrado quién es. Martín, 2/11/2026: «súper importante que lo
+   * valides, que le preguntes al usuario, ¿este es el YouTube de esta persona?, para que no se
+   * traiga algo incorrecto».
+   */
+  const enviar = () => {
+    if (pestana === 'mano') { onAMano(d); return; }
+    if (vista) { onPegar(pegado.trim()); return; }
+    void buscar();
+  };
+
+  // Escribir después de haber buscado invalida lo buscado: nunca se confirma a una persona
+  // mientras la pantalla todavía muestra a otra.
+  const escribir = (v: string) => { setPegado(v); if (vista) setVista(null); if (errorVista) setErrorVista(null); };
+
+  const QUE_ES: Record<string, string> = {
+    instagram: 'Instagram', youtube_id: 'canal de YouTube', landing_url: 'sitio', nombre: 'nombre',
+  };
   return (
     <ModalShell w={480} label="Mirar a alguien más" onClose={onClose}>
       <div className="spy-modal">
@@ -501,11 +548,47 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
         </div>
         {pestana === 'pegar'
           ? (
-            <input
-              autoFocus className="spy-entrada" placeholder="Un @, un canal de YouTube o un sitio" value={pegado}
-              onChange={(e) => setPegado(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && listo && !ocupado) enviar(); }}
-            />
+            <>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  autoFocus className="spy-entrada" placeholder="Un @, un canal de YouTube o un sitio" value={pegado}
+                  onChange={(e) => escribir(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && listo && !ocupado) enviar(); }}
+                />
+                <button type="button" className="spy-boton" style={{ flex: '0 0 auto' }} disabled={!pegado.trim() || buscando} onClick={() => void buscar()}>
+                  {buscando ? 'Buscando…' : 'Buscar'}
+                </button>
+              </div>
+
+              {/* ── QUIÉN ES, ANTES DE GUARDARLO. De la bio sale además el link a su sitio, así que
+                   pegar un @ trae también su landing sin buscarla en ningún lado. ── */}
+              {vista && (
+                <>
+                  <div className="spy-previa">
+                    <span className="spy-previa__cara" aria-hidden>
+                      {vista.foto
+                        // eslint-disable-next-line @next/next/no-img-element -- la sirve el CDN de Meta y vence; acá sólo se mira
+                        ? <img src={vista.foto} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />
+                        : inicial(vista.nombre || vista.valor)}
+                    </span>
+                    <span className="spy-previa__texto">
+                      <b>{vista.nombre || vista.valor}</b>
+                      <small>
+                        {QUE_ES[vista.campo]}
+                        {vista.campo === 'instagram' ? ` · @${vista.valor}` : ` · ${vista.valor}`}
+                        {vista.seguidores != null ? ` · ${dibujarContador(vista.seguidores)} seguidores` : ''}
+                      </small>
+                      {vista.bio && <span className="spy-previa__bio">{vista.bio}</span>}
+                      {vista.web && <small>Su sitio: {vista.web.replace(/^https?:\/\/(www\.)?/, '')}</small>}
+                    </span>
+                  </div>
+                  {/* Un perfil que no se pudo leer NO frena el alta: se dice y se deja agregar igual. */}
+                  {vista.aviso && <p className="spy-aviso">{vista.aviso}</p>}
+                  <p className="spy-rango">¿Es esta la persona que querías mirar?</p>
+                </>
+              )}
+              {errorVista && <p className="spy-aviso spy-error">{errorVista}</p>}
+            </>
           )
           : (
             <>
@@ -517,8 +600,11 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
           )}
         {error && <p className="spy-aviso spy-error">{error}</p>}
         <div className="spy-modal-pie">
-          <button type="button" className="spy-boton spy-boton-primario" disabled={!listo || ocupado} onClick={enviar}>
-            {ocupado ? 'Un momento…' : 'Mirar'}
+          {pestana === 'pegar' && vista && (
+            <button type="button" className="spy-boton" disabled={ocupado} onClick={() => { setVista(null); setPegado(''); }}>No es él</button>
+          )}
+          <button type="button" className="spy-boton spy-boton-primario" disabled={!listo || ocupado || buscando} onClick={enviar}>
+            {ocupado ? 'Un momento…' : pestana === 'mano' ? 'Mirar' : vista ? 'Sí, míralo' : 'Buscar'}
           </button>
         </div>
       </div>

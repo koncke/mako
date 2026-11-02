@@ -112,10 +112,10 @@ en el cerebro de su cliente, y con qué límite.
 | 6 | **Lista de competidores en tarjetas con caricatura** | **HECHO** | la cara es su foto de perfil, bajada (0362) |
 | 7 | **Borrar competidor desde la lista** | **HECHO** | el botón vive en la tarjeta |
 | 7b | **Deduplicar el alta** (por eso hay 3 «Sofia Contreras») | **HECHO** | deduplica por canal y por nombre comparable |
-| 8 | **Rediseñar el modal de «Mirar a alguien más»** | pendiente | |
-| 9 | **Con el @ traer el perfil** (Apify), en Spy y en el CRM | pendiente | |
+| 8 | **Rediseñar el modal de «Mirar a alguien más»** | **HECHO** | una entrada, vista previa y confirmación |
+| 9 | **Con el @ traer el perfil** | **HECHO en Spy** | falta el CRM |
 | 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | pendiente | |
-| 11 | **Validar con el usuario** cada red encontrada antes de guardar | pendiente | |
+| 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
 | 12 | **Pasar de 50 publicaciones** (vista con todas / elegir con la extensión) | pendiente | tope en `lib/spy-reglas.ts:479` |
 | 13 | **Spy compartido entre usuarios** | pendiente | la decisión ya está tomada, ver abajo |
 | 14 | **Los 12 referentes** (fichas + caricaturas) | pendiente | los 12 cursos ya localizados |
