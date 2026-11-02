@@ -788,3 +788,19 @@ qué esto no podía ir en la ficha: ahí viajaría en CADA mensaje de cada chat.
 
 Quedan los pasos 2, 3 y 4: colgarla con `conCapa`, decidir cuándo entra en el turno (copiando el
 criterio de Knowledge, que es la parte fina) y el botón del grafo.
+
+⚠️ **CORRECCIÓN AL PASO 3 DE ARRIBA (2/11 ~20:25): la capa de un referente NO lleva el heurístico de
+Knowledge, y copiarlo habría sido resolver un problema que acá no existe.**
+
+Knowledge necesita `esPreguntaDeConocimiento` porque va en TODOS los negocios y los nombres de sus
+módulos son palabras del negocio: «¿cuál es mi oferta?» no pregunta por el método de armar una. La
+capa de un gurú **se cuelga sólo cuando el chat TIENE a ese gurú al frente**, cosa que el servidor
+ya sabe (`lib/asesores/contexto.ts`). Si el chat es con Alborna, su curso es pertinente por
+definición; si no, la capa ni se arma.
+
+El criterio es **«¿qué referente tiene este chat?»**, no «¿de qué habla la pregunta?»: más barato y
+más exacto.
+
+**El punto de enganche exacto:** `lib/cerebro-para-chat.ts` → `armar()`, con `conCapa`, donde hoy se
+cuelgan «Lo que hace MaKo» y Knowledge. Y la capa se pide con `cerebroDeReferenteMemo`, que la lee
+UNA vez por proceso: sin eso, cada turno abriría los 41 archivos del curso de Alborna.

@@ -74,3 +74,37 @@ export async function clasesDelCurso(curso: CursoParaLeer): Promise<ClaseDeCurso
 export async function cerebroDeReferente(r: ReferenteDelCerebro, curso: CursoParaLeer): Promise<Cerebro<string>> {
   return armarReferente(r, await clasesDelCurso(curso));
 }
+
+// ── Memoria por proceso ───────────────────────────────────────────────────────────────────────────
+// ⚠️ SIN ESTO, CADA TURNO DE CHAT ABRE 41 ARCHIVOS. El curso de Alborna son 41 clases y 742 KB, y el
+// contenido NO cambia entre deploys: es código y archivos del repo, igual que el catálogo de
+// Knowledge, que por eso se memoiza en `knowledgeDeMako()`. Una capa por referente, una vez por
+// proceso.
+const memoria = new Map<string, Promise<Cerebro<string>>>();
+
+/** La capa de un referente, leída una sola vez por proceso. */
+export function cerebroDeReferenteMemo(r: ReferenteDelCerebro, curso: CursoParaLeer): Promise<Cerebro<string>> {
+  const ya = memoria.get(r.id);
+  if (ya) return ya;
+  // Se guarda la PROMESA, no el resultado: dos turnos a la vez no pueden disparar dos lecturas.
+  // Y si la lectura falla, se saca para que el próximo turno lo vuelva a intentar en vez de
+  // quedarse con un error cacheado para siempre.
+  const p = cerebroDeReferente(r, curso).catch((e) => { memoria.delete(r.id); throw e; });
+  memoria.set(r.id, p);
+  return p;
+}
+
+// ── DÓNDE SE CUELGA, Y POR QUÉ NO LLEVA EL HEURÍSTICO DE KNOWLEDGE ───────────────────────────────
+//
+// El punto de enganche es `lib/cerebro-para-chat.ts` (`armar`), con `conCapa` — el mismo que usan
+// Knowledge y «Lo que hace MaKo».
+//
+// ⚠️ ESTO CORRIGE LO QUE YO MISMO HABÍA ESCRITO EN EL TABLERO («copiar el criterio de Knowledge»).
+// Knowledge necesita un heurístico —`esPreguntaDeConocimiento`— porque va en TODOS los negocios y
+// los nombres de sus módulos son palabras del negocio: «¿cuál es mi oferta?» no pregunta por el
+// método de armar una. La capa de un referente no tiene ese problema: **se cuelga sólo cuando el
+// chat TIENE a ese referente al frente**, cosa que el servidor ya sabe (`lib/asesores/contexto.ts`).
+// Si el chat es con Alborna, su curso es pertinente por definición; si no lo es, la capa ni se arma.
+//
+// O sea que el criterio es «¿qué referente tiene este chat?», no «¿de qué habla la pregunta?», y es
+// más barato y más exacto. Copiar el heurístico habría sido resolver un problema que acá no existe.
