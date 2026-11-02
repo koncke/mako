@@ -29,11 +29,28 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
 ## ESTADO AL 2/11 ~19:45 — CUOTA AL 93 %, EL TREN CORRIENDO, Y EL PRÓXIMO PUSH RETENIDO
 
-⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El run **#359** corre con 13 commits. Arriba
-hay **dos commits más listos y RETENIDOS a propósito** (`c85e10ec2`, el ítem 9 — el @ del CRM; y
-`ffd616b47`, el tablero): pushear mientras el #359 corre lo cancela, que es exactamente lo que pasó
-diez veces hoy. Cuando el #359 cierre, se juntan **con las dos ramas que también esperan** —
-`difusion-modal-0211` (`6bf0a40a8`) y `dashboard-denso-0111` (`a4fb06dba`)— y se manda **UN** push.
+⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El run **#359** corre con 13 commits y lleva
+más de una hora. **No está colgado necesariamente**: el #358 corrió 30m19s antes de que lo cancelaran,
+y éste tiene el doble de tests afectados. Arriba hay **cuatro commits listos y RETENIDOS a propósito**,
+la punta en `4ad25d54d`:
+
+| commit | qué es |
+|---|---|
+| `c85e10ec2` | ítem 9 — el @ del CRM pedía la clave de Apify que no existe |
+| `ffd616b47` | el tablero: por qué el push queda retenido |
+| `8238f1af8` | este relevo |
+| `4ad25d54d` | ítem 10 a medias — el link de la bio ya no se tira a la basura |
+
+Pushear mientras el #359 corre lo cancela, que es exactamente lo que pasó diez veces hoy. Cuando el
+#359 cierre, se juntan **con las dos ramas que también esperan** — `difusion-modal-0211`
+(`6bf0a40a8`, el modal de difusión) y `dashboard-denso-0111` (`a4fb06dba`, 5 de 20 dashboards)— y se
+manda **UN** push.
+
+⚠️ **Lo que NO se pudo correr, y hay que decirlo así:** la tanda de tests vecinos de Spy
+(`spy-alta-duplicados`, `spy-miniaturas`, `spy-youtube-largos`) **no corrió**: el guardia de RAM la
+cortó con 2,5 GB libres. Los dos tests nuevos sí corrieron y están en verde, probados rompiéndolos
+(`crm-instagram-clave-de-spy` 4/0, `spy-canal-de-la-bio` 7/0). O sea que de los vecinos **responde
+Actions, no yo**.
 
 **`origin/main` = `63d66d8f3`.** Encima hay **12 commits** que vivían sólo en `tren-chico` y que
 estoy subiendo a `integracion` ahora: Puigrredón, Alborna, las miniaturas de YouTube que ahora se
