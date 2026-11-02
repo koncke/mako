@@ -290,15 +290,11 @@ const CSS = `
 .spy-ccard:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
 .spy-ccard__cara{position:relative;display:grid;place-items:center;aspect-ratio:1/1;width:100%;
   overflow:hidden;background:var(--t1);color:var(--t-ink);font-size:56px;font-weight:700}
+/* ⚠️ LA IMAGEN OCUPA LA TARJETA ENTERA, sea foto o caricatura. Martín, 2/11/2026: «las fotos están
+   en un cuadrado cuando deberían ocupar todo el ancho de la tarjeta, no estar chiquititas». La
+   primera versión le ponía a la caricatura un 10 % de aire y `contain` para que se leyera como
+   dibujo: se veía chica y con un marco que nadie pidió. Caricatura y foto se dibujan IGUAL. */
 .spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover}
-/* La caricatura NO es una foto: va sobre el color de la tarjeta y con aire, para que se lea como
-   dibujo y no como el retrato real de la persona. */
-.spy-ccard__cara--dibujo{background:var(--t2);padding:10%}
-.spy-ccard__cara--dibujo img{object-fit:contain}
-/* «Inspirado en»: la persona no participa ni respalda nada. Misma regla que la galería de referentes. */
-.spy-ccard__dibujo{position:absolute;top:12px;left:12px;padding:3px 8px;border-radius:999px;
-  background:var(--surface);color:var(--faint);font-size:11px;font-weight:600;
-  box-shadow:var(--sombra-tarjeta)}
 .spy-ccard__cuerpo{display:flex;flex-direction:column;gap:10px;padding:14px 16px 16px}
 .spy-ccard__nombre{display:block;font-size:var(--fs-card);font-weight:600;letter-spacing:-.005em;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -420,7 +416,7 @@ type Pestana = 'publica' | 'oferta' | 'sitio' | 'anuncios';
 const FRANJA: Record<Pestana, { titulo: string; frase: string }> = {
   publica: { titulo: 'Lo que publica', frase: 'Los días los declara el canal; la etapa la calcula MaKo.' },
   oferta: { titulo: 'Su oferta', frase: 'La lee la IA de lo que publica. No es una afirmación suya.' },
-  sitio: { titulo: 'Su sitio', frase: 'Qué piezas tiene su página.' },
+  sitio: { titulo: 'Su web', frase: 'Qué piezas tiene su página.' },
   anuncios: { titulo: 'Anuncios', frase: 'Meta no entrega los de América Latina por su API: estos los guardaste tú.' },
 };
 
@@ -633,7 +629,7 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
                         {vista.seguidores != null ? ` · ${dibujarContador(vista.seguidores)} seguidores` : ''}
                       </small>
                       {vista.bio && <span className="spy-previa__bio">{vista.bio}</span>}
-                      {vista.web && <small>Su sitio: {vista.web.replace(/^https?:\/\/(www\.)?/, '')}</small>}
+                      {vista.web && <small>Su web: {vista.web.replace(/^https?:\/\/(www\.)?/, '')}</small>}
                     </span>
                   </div>
                   {/* Un perfil que no se pudo leer NO frena el alta: se dice y se deja agregar igual. */}
@@ -649,7 +645,7 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
               <input className="spy-entrada" placeholder="Nombre" value={d.nombre} onChange={(e) => setD({ ...d, nombre: e.target.value })} />
               <input className="spy-entrada" placeholder="@ de Instagram" value={d.instagram} onChange={(e) => setD({ ...d, instagram: e.target.value })} />
               <input className="spy-entrada" placeholder="Enlace de su canal de YouTube" value={d.youtube} onChange={(e) => setD({ ...d, youtube: e.target.value })} />
-              <input className="spy-entrada" placeholder="Su sitio" value={d.sitio} onChange={(e) => setD({ ...d, sitio: e.target.value })} />
+              <input className="spy-entrada" placeholder="Su web" value={d.sitio} onChange={(e) => setD({ ...d, sitio: e.target.value })} />
             </>
           )}
         {error && <p className="spy-aviso spy-error">{error}</p>}
@@ -689,23 +685,26 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
            la cara de verdad; (2) si no hay foto, LA CARICATURA QUE YA TENEMOS DIBUJADA de ese
            referente (`caricaturaDeCompetidor`) — 22 están hechas y aprobadas para el Ops Center, y
            Martín pidió reusarlas acá: «ya directamente salen con la caricatura correspondiente»;
-           (3) si no es ninguno de los dos, su inicial. ── */}
+           (3) si no es ninguno de los dos, su inicial.
+           ⚠️ LAS DOS SE DIBUJAN IGUAL, a sangre y ocupando la tarjeta entera, y SIN ningún cartel
+           encima. Probé con un «Inspirado en» y con aire alrededor del dibujo; Martín sacó las dos
+           cosas: «que se elimine lo de inspirado en, eso no tiene sentido» y «deberían ocupar todo
+           el ancho, no estar chiquititas en un cuadrado». ── */}
       <div className="spy-crejilla">
         {competidores.map((c) => {
           const r = resumen[c.id];
           const dibujo = caricaturaDeCompetidor(c);
-          const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.landing_url ? 'Su sitio' : null].filter(Boolean).join(' · ');
+          const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
           return (
             <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
               onClick={() => onAbrir(c.id)}
               onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
-              <span className={`spy-ccard__cara${!c.avatar && dibujo ? ' spy-ccard__cara--dibujo' : ''}`} aria-hidden>
+              <span className="spy-ccard__cara" aria-hidden>
                 {c.avatar || dibujo
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
                   ? <img src={(c.avatar || dibujo) as string} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
                   : inicial(c.nombre)}
               </span>
-              {!c.avatar && dibujo && <span className="spy-ccard__dibujo">Inspirado en</span>}
               <div className="spy-ccard__cuerpo">
                 <span>
                   <b className="spy-ccard__nombre" title={c.nombre}>{c.nombre}</b>
@@ -1038,7 +1037,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const pestanas: Array<{ key: Pestana; rotulo: string; n?: number }> = c ? [
     ...(c.instagram || c.youtube_id || flujo.length || !c.landing_url ? [{ key: 'publica' as const, rotulo: 'Lo que publica', n: flujo.length || undefined }] : []),
     ...(c.oferta?.promete ? [{ key: 'oferta' as const, rotulo: 'Su oferta' }] : []),
-    ...(c.landing_url ? [{ key: 'sitio' as const, rotulo: 'Su sitio' }] : []),
+    ...(c.landing_url ? [{ key: 'sitio' as const, rotulo: 'Su web' }] : []),
     ...(anuncios.length ? [{ key: 'anuncios' as const, rotulo: 'Anuncios', n: anuncios.length }] : []),
   ] : [];
   const activa: Pestana = pestanas.some((p) => p.key === pestana) ? pestana : (pestanas[0]?.key ?? 'publica');
@@ -1065,7 +1064,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const anteTitulo = c ? [
     c.instagram ? `@${String(c.instagram).replace(/^@/, '')}` : null,
     c.youtube_id ? 'YouTube' : null,
-    c.landing_url ? 'Su sitio' : null,
+    c.landing_url ? 'Su web' : null,
   ].filter(Boolean).join(' · ') : '';
 
   // Las celdas pastel del riel. Un contador ausente NO es cero: sin dato no hay celda.

@@ -608,7 +608,7 @@ nuestro, es una mejora, no un rediseño.
 
 | | qué |
 |---|---|
-| **Las 22 caricaturas ya dibujadas entran en la tarjeta** | `ff17d32ba`. Se empareja por nombre comparable, sin tabla de @: `alexhormozi`, `hormozi` y «Alex Hormozi» colapsan al mismo texto. Va con el cartel «Inspirado en» |
+| **Las 22 caricaturas ya dibujadas entran en la tarjeta** | `ff17d32ba`. Se empareja por nombre comparable, sin tabla de @: `alexhormozi`, `hormozi` y «Alex Hormozi» colapsan al mismo texto. ⚠️ **Sin cartel «Inspirado en» y a sangre**: le había puesto el cartel y un 10 % de aire alrededor del dibujo, y Martín sacó las dos cosas — «eso no tiene sentido» y «deberían ocupar todo el ancho, no estar chiquititas en un cuadrado». Foto y caricatura se dibujan IGUAL |
 | **No hay dos Hormozi** | el alta guarda el nombre DE VERDAD que ya leía la vista previa (antes: `alexhormozi`, o `UCxxxx` si pegabas su canal — por eso salían dos tarjetas), y el referente entró como tercera llave de deduplicación |
 | **El link de su bio** | `4ad25d54d`. Entra como landing, o como YouTube si su bio enlaza su canal |
 | **El @ en el CRM** | `c85e10ec2`. Pedía una clave de Apify que no existe |
