@@ -292,7 +292,7 @@ const CSS = `
   overflow:hidden;background:var(--t1);color:var(--t-ink);font-size:56px;font-weight:700}
 /* ⚠️ LA IMAGEN OCUPA LA TARJETA ENTERA, sea foto o caricatura. Martín, 2/11/2026: «las fotos están
    en un cuadrado cuando deberían ocupar todo el ancho de la tarjeta, no estar chiquititas». La
-   primera versión le ponía a la caricatura un 10 % de aire y `contain` para que se leyera como
+   primera versión le ponía a la caricatura un 10 % de aire y «contain» para que se leyera como
    dibujo: se veía chica y con un marco que nadie pidió. Caricatura y foto se dibujan IGUAL. */
 .spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover;
   animation:spy-flota 7s ease-in-out infinite;animation-delay:var(--flote,0s);will-change:transform}
@@ -300,9 +300,9 @@ const CSS = `
    que la figura se mueva o que parpadee, o que digamos flote». Flota: es lo único que se puede
    mirar diez minutos sin molestar — un parpadeo en una rejilla de veinticinco tarjetas es un
    semáforo roto.
-   El recorrido es de 6 px sobre una imagen de 248 px (~2,4 %) y el `scale` tapa el borde que
+   El recorrido es de 6 px sobre una imagen de 248 px (~2,4 %) y el «scale» tapa el borde que
    dejaría el desplazamiento, para que no asome el fondo de la tarjeta arriba o abajo.
-   ⚠️ CADA TARJETA ARRANCA EN OTRO MOMENTO (`--flote`, puesto por índice): sin eso las veinticinco
+   ⚠️ CADA TARJETA ARRANCA EN OTRO MOMENTO («--flote», puesto por índice): sin eso las veinticinco
    suben y bajan a la vez y parece que se mueve la pantalla, no las caras. */
 @keyframes spy-flota{
   0%,100%{transform:scale(1.035) translateY(3px)}
