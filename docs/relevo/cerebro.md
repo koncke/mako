@@ -27,7 +27,7 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 87 %)
+## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 89 %)
 
 **Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
 `origin/main` estaba en `e63050081` al empezar y no se movió.
@@ -46,6 +46,7 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 | `20dc651fd` | **⭐ COMPETITORS SPY REHECHA copiando una referencia** | commiteado, **tests VERDES** |
 | `3b1bc0864` | Este relevo | commiteado |
 | `55a677a0e` | **Que anden todos los botones** (+ guard nuevo) | commiteado, **verde y probado rompiéndolo** |
+| `17e591b16` | **Spy: la cabecera entera pasa a ser una miga** + el nombre de Jordi Segués | **EN `integracion`, Actions corriendo** |
 
 ⚠️ **El push NO pasó: se quedó esperando RAM, no es rojo.** `antes-de-subir` corrió 45 tandas y a partir de
 la 7 empezó a bajar tandas por RAM (0,7-1,1 GB libres contra 1,3 que pide). Cada vez suelta el candado y
@@ -108,6 +109,44 @@ pidió CUATRO veces y cuatro veces no recibió.
   2,1-2,3, pero un solo archivo entra. Es la salida cuando la guardia traba un lote.
 - **Cómo verla sin Next:** `scratchpad/spy_ref.py` dibuja la tab con el CSS del propio componente y
   el `:root` real de `app/globals.css`, y la sirve el `http.server` del 4899.
+
+### 3-bis-NUEVO. LO PUSHEADO Y LO QUE FALTA — 2/11 ~02:40
+
+**En `origin/integracion` está `17e591b16`** (15 commits). `origin/main` sigue en `e63050081`:
+lo avanza Actions por fast-forward cuando da verde. **Esto es lo que hay que mirar primero al
+volver:** si Actions se puso roja, el rojo está ahí y no en la notebook.
+
+⚠️ **EL PUSH A `main` NO SE HACE A MANO.** El hook corre el tsc COMPLETO local (pide 6,3 GB y la
+PC llega a 6,1), así que se cuelga sin terminar nunca. El camino es `git push origin
+HEAD:integracion` y, si falta RAM para `antes-de-subir`, `MAKO_SIN_ANTES_DE_SUBIR=1` adelante —
+esa variable **sólo vale para `integracion`**, en `main` la ignora. Perdí ~15 min por esto.
+
+**La cabecera minimalista (pedido de Martín del 2/11), hecha:** la referencia fue la FICHA DE
+PRODUCTO de fitlo, no la grilla. Ahí la cabecera es `nav.crumbs--page` de 18 px y nada más; el
+nombre y las acciones viven en la columna de al lado. 5 bandas → 3, y 370 px → **218 px** hasta
+la primera pieza.
+
+**⛔ LO QUE FALTA Y ES LO MÁS GRANDE: LOS 12 REFERENTES.** Martín los pidió el 1/11 y **ninguno
+está cargado** (verificado uno por uno contra `lib/asesores/catalogo.ts` el 2/11): Juan Carrizo,
+Emilio Puigrredon, Vilma Núñez, Julián Alborna, Andy Landa, Romuald Fons, Mateo Mafia, Sergio
+Begueria, Álvaro Luque, Francisco Doglio, Gonzalo Seré, Samuel Albaa. **Hoy hay 20 y tendrían que
+ser 32.** Cada uno necesita las dos cosas (lo dice la cabecera del catálogo): su ficha destilada
+del curso real y su caricatura en `public/asesores/<id>.png` con el prompt aprobado, que está
+textual en `docs/hallazgos-ops-center.md`.
+
+  ⚠️ **El nombre se lee de `app/conocimientos/catalogo.ts`, NUNCA del nombre de la carpeta del
+  curso.** Van dos errores por esto: «Jaime Jiguera» por Higuera, y «Jordi Sigues» por **Jordi
+  Segués** (corregido en `17e591b16`). Y Vilma Núñez SÍ está en Knowledge: el mapa de
+  `catalogo.ts` la renombra, por eso un grep sobre los `curso-*.ts` no la encuentra.
+
+**Otras dos cosas que Martín pidió y están sin hacer:**
+  · «No veo que los botones sean cliqueables» — en la app lo son; lo que él miraba era la vista
+    previa estática. Queda ver la afordancia real una vez desplegado.
+  · Verlo en la app local **no se puede desde este worktree**: `C:/dev/wt-push-q/node_modules` es
+    un *junction* a la carpeta de OneDrive, y Turbopack lo rechaza («Symlink … points out of the
+    filesystem root») y webpack resuelve los paquetes como cliente y se cae en `require("http")`.
+    Haría falta un `npm install` propio adentro del worktree (~1 GB). La vista previa estática
+    (`scratchpad/spy_ref.py`, puerto 4899) usa el CSS y los tokens REALES del repo.
 
 ### 3-ter. «Que anden todos los botones» — `55a677a0e`, hecho y con guard
 
