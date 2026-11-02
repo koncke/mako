@@ -56,7 +56,7 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'adria-sola', nombre: 'Adrià Sola', completo: 'Adrià Sola Pastor', especialidad: 'Comunicación y oratoria', curso: 'Instituto de Comunicación' },
   { id: 'augusto-bianchi', nombre: 'Augusto Bianchi', completo: 'Augusto Bianchi', especialidad: 'Llamadas de ticket alto', curso: 'Academia Five Stars' },
   { id: 'tino-mossu', nombre: 'Tino Mossu', completo: 'Tino Mossu', especialidad: 'Objeciones y seguimiento', curso: 'La universidad del Closer' },
-  { id: 'jordi-segues', nombre: 'Jordi Seguís', completo: 'Jordi Seguís', especialidad: 'TikTok', curso: 'TikTok 100k' },
+  { id: 'jordi-segues', nombre: 'Jordi Sigues', completo: 'Jordi Sigues', especialidad: 'TikTok', curso: 'TikTok 100k' },
 ];
 
 export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => a.id === id) ?? null;

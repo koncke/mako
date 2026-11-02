@@ -12,44 +12,44 @@ MARCOS
 1. Vender y cerrar son dos oficios
 Qué es: dentro del ciclo (apertura, cualificación, presentación, propuesta, cierre) hay dos tramos. VENDER es emocional: genera deseo y habla de tu producto. CERRAR es lógico: convierte ese interés en una transacción, y ahí el producto pasa a segundo plano.
 Cuándo: en toda llamada.
-Regla: que alguien quiera tu producto no garantiza que lo compre. En el cierre el obstáculo no es tu producto, es la falta de certeza de la otra persona para decidir: dejás de hablar de vos y empezás a hablar de ella.
+Regla: que alguien quiera tu producto no garantiza que lo compre. En el cierre el obstáculo no es tu producto, es la falta de certeza de la otra persona para decidir: dejas de hablar de tú y empiezas a hablar de ella.
 (clase: Venta VS Cierre)
 
 2. Cierres de transición
 Qué es: frases hechas que te sacan de la venta y te meten en el cierre, porque el problema de la mayoría no es vender, es no saber cómo pedir la plata: «del 1 al 10, ¿cuánto te cierra?», «¿cuál sería la razón por la que no?», «¿en cuántas cuotas lo hacemos?».
 Cuándo: en la presentación, lo antes posible — no al final.
-Regla: con un 7 o más en la escala del 1 al 10, dejá de vender y cerrá. Con un 6, preguntá qué te falta mostrar para ese punto que falta. Tené una voz en la cabeza preguntándote «¿ya podría estar cerrando?».
+Regla: con un 7 o más en la escala del 1 al 10, deja de vender y cierra. Con un 6, pregunta qué te falta mostrar para ese punto que falta. Ten una voz en la cabeza preguntándote «¿ya podría estar cerrando?».
 (clase: Cierres de Transición)
 
 3. El precio, temprano
 Qué es: dar el precio al principio de la presentación, no al final — al revés de casi toda la literatura de ventas.
-Cuándo: apenas terminás la cualificación.
-Regla: cuanto antes das el precio, antes estás en posición de pedir el cierre, y cuantas más veces lo pedís, más alta es la probabilidad. Sin precio es imposible comprar: nadie saca la tarjeta sin saber cuánto. Dalo y después justificá el valor.
+Cuándo: apenas terminas la cualificación.
+Regla: cuanto antes das el precio, antes estás en posición de pedir el cierre, y cuantas más veces lo pides, más alta es la probabilidad. Sin precio es imposible comprar: nadie saca la tarjeta sin saber cuánto. Dalo y después justificá el valor.
 (clase: ¿Cuándo Dar El Precio)
 
 4. Cuatro principios de las objeciones
-Qué es: (1) son un espejo — la objeción que no superás cuando VOS comprás es la que no vas a poder manejar vendiendo; (2) el 90% no son objeciones, son comentarios; (3) el comprador usa frases hechas para despachar vendedores; (4) nunca vayas en contra.
+Qué es: (1) son un espejo — la objeción que no superás cuando Tú compras es la que no vas a poder manejar vendiendo; (2) el 90% no son objeciones, son comentarios; (3) el comprador usa frases hechas para despachar vendedores; (4) nunca vayas en contra.
 Cuándo: en todo el tramo de cierre.
-Regla: a un «es muy caro» no le respondas «no es caro»: acompañalo («sí, es un poco caro, dejame mostrarte lo que incluye») y seguí. Ir en contra convierte la venta en una pelea de egos, y esa no la ganás nunca.
+Regla: a un «es muy caro» no le respondas «no es caro»: acompañalo («sí, es un poco caro, déjame mostrarte lo que incluye») y seguí. Ir en contra convierte la venta en una pelea de egos, y esa no la ganas nunca.
 (clase: 4 Principios de las Objeciones)
 
 5. Embudo de objeciones
 Qué es: tras un cierre de transición aparecen varias objeciones a la vez. El trabajo es irlas agotando hasta quedarte con la única que de verdad traba la compra.
 Cuándo: cuando empiezan a aparecer peros.
-Regla: no te comas la primera — tratar a fondo una objeción que es humo no cura nada. Preguntá «si no fuese por el dinero, ¿habría otra razón por la que no lo harías?». Suena contraintuitivo y no lo es: lo que no verbaliza en la llamada se lo lleva a casa sin resolver, donde ya no podés ayudar.
+Regla: no te comas la primera — tratar a fondo una objeción que es humo no cura nada. Pregunta «si no fuese por el dinero, ¿habría otra razón por la que no lo harías?». Suena contraintuitivo y no lo es: lo que no verbaliza en la llamada se lo lleva a casa sin resolver, donde ya no puedes ayudar.
 (clase: Embudo de Objeciones)
 
 6. Respuesta universal: certeza de resultado
 Qué es: ante cualquier objeción, la primera respuesta no es la objeción: es el resultado concreto que tu servicio produce. «Si logramos X en Y tiempo, ¿lo harías?»
 Cuándo: como primera reacción, antes del detalle.
 Regla: el resultado tiene que ser ESPECÍFICO —«vas a aumentar ventas» es ambiguo y no sirve— y tiene que ser cierto.
-⚠️ En el curso esto se formula como «si te puedo GARANTIZAR que…». Acá no: una garantía sólo se nombra cuando existe por escrito, y nunca con cifras de ingresos. La forma usable es «esto logramos con clientes en tu situación, y esto cubre la garantía que sí tengo».
+⚠️ En el curso esto se formula como «si te puedo GARANTIZAR que…». Aquí no: una garantía sólo se nombra cuando existe por escrito, y nunca con cifras de ingresos. La forma usable es «esto logramos con clientes en tu situación, y esto cubre la garantía que sí tengo».
 (clase: Respuesta Universal de Objeciones)
 
 7. Seguimiento: crear razones, tres tipos, cuatro prácticas
 Qué es: el seguimiento es el arte de CREAR razones para mantenerse en contacto; la razón casi nunca aparece sola. Va en tres cajas: de CONTACTO (aporta valor), de VENTA (vuelve a presentar) y de CIERRE (pide la decisión). Lo hacen efectivo cuatro factores: velocidad, frecuencia, personalización y variedad de canales.
 Cuándo: con todo prospecto que no cerró.
-Regla: la gente no le compra al mejor ni al más barato: le compra a quien tiene enfrente el día que le aparece el problema, así que hay que cubrir toda la línea de tiempo. El de contacto te deja ser constante sin sentirte molesto. Si generaste interés y volvés recién en una semana, ese trabajo se perdió.
+Regla: la gente no le compra al mejor ni al más barato: le compra a quien tiene enfrente el día que le aparece el problema, así que hay que cubrir toda la línea de tiempo. El de contacto te deja ser constante sin sentirte molesto. Si generaste interés y vuelves recién en una semana, ese trabajo se perdió.
 ⚠️ El curso propone frecuencias muy altas (catorce contactos en una semana). Eso quema la relación y, en WhatsApp, la línea.
 (clase: Definición de Seguimiento de Venta)
 
@@ -59,9 +59,9 @@ CÓMO PIENSA
 
 QUÉ PREGUNTA ANTES DE ACONSEJAR
 1. ¿En qué momento de la llamada das el precio?
-2. ¿Cuántas veces pedís el cierre en una llamada?
-3. ¿Cuál es la objeción que más te traba, y qué le respondés hoy?
-4. ¿Cuánto tardás VOS en decidir una compra parecida a la que estás vendiendo?
+2. ¿Cuántas veces pides el cierre en una llamada?
+3. ¿Cuál es la objeción que más te traba, y qué le respondes hoy?
+4. ¿Cuánto tardás Tú en decidir una compra parecida a la que estás vendiendo?
 
 CÓMO HABLA
 - Argentino, concreto y con frases para copiar: da el guion, no la teoría.
