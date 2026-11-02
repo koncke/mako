@@ -70,8 +70,15 @@ git rev-parse --verify --quiet origin/ci-ultimo-rojo   # el último commit que p
 git log origin/ci-ultimo-rojo -1                        # qué se estaba subiendo
 ```
 
-⚠️ **EL PASO RECIÉN CORRE EN EL RUN SIGUIENTE AL QUE LO INCORPORA.** Entró en `ae30f14f5`; si ESE
-run falla, la marca todavía no aparece. Del siguiente en adelante, sí.
+✅ **PROBADO, Y FUNCIONÓ EN EL MISMO RUN QUE LO INCORPORÓ.** Yo había anotado que recién correría en
+el siguiente y **me equivoqué**: Actions usa el workflow del commit que se está corriendo, así que
+el paso corrió en `ae30f14f5`, dejó la marca, y el vigía detectó el rojo solo — sin reloj y sin que
+Martín tuviera que avisar, que es lo que fallaba tres veces.
+
+⚠️ **Y lo primero que cazó fue a sí mismo:** `tests/integracion-ci.test.ts` prohibía `--force` en
+TODO el workflow y la marca lo usa. **El guard se afinó, no se aflojó** — ahora exige que ninguna
+línea que empuje a `main` lleve un forzado (en sus tres formas) y que el ÚNICO forzado del archivo
+sea el de `ci-ultimo-rojo`. Probado rompiéndolo tres veces.
 
 ⚠️ **Y NO REPITAS MI ERROR:** antes de esto intenté adivinar por tiempos —«un rojo muere en 5–12
 min»— y con esa regla ensanché el vigía a 48 minutos justo antes de que un run muriera a los ~15.
