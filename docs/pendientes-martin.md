@@ -106,6 +106,17 @@ Dos causas:
    esperaban arriba. Y la trampa de lectura: un run cancelado a los 2 minutos **no deja ningún
    error**, así que buscando el fallo no se encuentra nada y parece que el problema es otro. El
    **#359** lleva los 13 juntos.
+
+   ⛔ **POR ESO EL PUSH DEL ÍTEM 9 ESTÁ RETENIDO A PROPÓSITO (2/11 ~19:45).** El ítem está hecho y
+   commiteado en `c85e10ec2`, y la orden de trabajo dice pushear al terminar cada ítem — **pero el
+   #359 todavía corre con 13 commits de Martín adentro, y pushear ahora lo cancela.** Esperar 15
+   minutos cuesta menos que repetir una hora. **El que siga: mirá Actions primero** (si el #359 está
+   verde, `main` ya avanzó solo) y recién entonces
+   `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:integracion`.
+
+   ⚠️ Y hay DOS ramas más esperando el mismo tren, las dos ya a salvo en el remoto:
+   `difusion-modal-0211` (`6bf0a40a8`, el ítem 19) y `dashboard-denso-0111` (`a4fb06dba`, 5 de 20
+   dashboards). Cuando el #359 cierre, **se juntan y se mandan de una sola vez**, no de a una.
 2. ⚠️ **EL RESUMEN DEL RUN NO NOMBRA LOS TESTS ROJOS; EL LOG DEL JOB SÍ.** El resumen sólo dice
    `afectados: 889 s (código 1)`. En el log hay una línea **«Rojos:»** con los archivos y el
    comando para repetirlos solos. Mirar el resumen y adivinar me costó tres runs. Y correr
@@ -410,7 +421,7 @@ mío.
 | 7 | **Borrar competidor desde la lista** | **HECHO** | el botón vive en la tarjeta |
 | 7b | **Deduplicar el alta** (por eso hay 3 «Sofia Contreras») | **HECHO** | deduplica por canal y por nombre comparable |
 | 8 | **Rediseñar el modal de «Mirar a alguien más»** | **HECHO** | una entrada, vista previa y confirmación |
-| 9 | **Con el @ traer el perfil** | **HECHO, Spy y CRM** | en el CRM no faltaba pantalla —estaba desde el 12/10—: la ruta pedía `APIFY_TOKEN`, que no existe en ningún negocio, teniendo al lado la `APIFY_CLAVE_DE_SPY` que Martín pegó el 1/11. Una fuente sin credencial hace `continue`, no error: fallaba en silencio once días. `docs/hallazgos-crm.md` |
+| 9 | **Con el @ traer el perfil** | **HECHO, Spy y CRM** | `c85e10ec2` — en el CRM no faltaba pantalla —estaba desde el 12/10—: la ruta pedía `APIFY_TOKEN`, que no existe en ningún negocio, teniendo al lado la `APIFY_CLAVE_DE_SPY` que Martín pegó el 1/11. Una fuente sin credencial hace `continue`, no error: fallaba en silencio once días. `docs/hallazgos-crm.md` |
 | 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | pendiente | |
 | 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
 | 12 | **Pasar de 50 publicaciones** | **HECHO a medias** | por Apify, de 25 a 100 (gratis: ya las recibíamos). Por Meta NO se toca, ver abajo |
