@@ -50,6 +50,7 @@ import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-rend
 import {
   contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, metricasVencidas, textoVencido, TOPES,
   type CanalSpy, type FuentePieza, type TipoPieza,
+  nombreComparable, dominioComparable,
 } from './spy-reglas';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
@@ -209,6 +210,40 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string): 
   if ((cuantos.count ?? 0) >= TOPES.competidores) {
     return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro: la tab sirve para mirar pocos a fondo.` };
   }
+  // ── ¿YA ESTÁ? ───────────────────────────────────────────────────────────────────────────────
+  // ⚠️ EL `onConflict: workspace_id,nombre` DE ABAJO NO ALCANZA, y es la razón de que Martín
+  // terminara con tres «Sofia Contreras» (2/11/2026): pegar su @ guarda el nombre
+  // «sofiacontreras», pegar su nombre guarda «Sofia Contreras» y pegar su link de YouTube guarda
+  // otro más. Para la base son tres nombres distintos; para cualquier persona es la misma.
+  //
+  // Se deduplica por lo que identifica DE VERDAD, en este orden:
+  //   1. el canal — un @ de Instagram o un id de canal pertenecen a una cuenta y a una sola;
+  //   2. el nombre reducido a lo comparable, que es lo que colapsa las tres de arriba.
+  // Y si el que ya estaba no tenía ese canal, se lo suma: pegar su YouTube sobre la ficha que ya
+  // existía tiene que AGREGARLE el canal, no crear a la persona de nuevo.
+  const todos = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR);
+  if (todos.error) return { ok: false, error: sinTabla(todos.error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${todos.error.message}` };
+  const existentes = (todos.data ?? []) as Competidor[];
+  const buscado = nombreComparable(nombre);
+  const yaEsta = existentes.find((x) => (
+    (leido.campo === 'instagram' && x.instagram === leido.valor)
+    || (leido.campo === 'youtube_id' && x.youtube_id === leido.valor)
+    || (leido.campo === 'landing_url' && !!x.landing_url && dominioComparable(x.landing_url) === dominioComparable(leido.valor))
+    || (!!buscado && nombreComparable(x.nombre) === buscado)
+  ));
+  if (yaEsta) {
+    // Sólo se escribe si el canal pegado FALTA. Nunca se pisa uno que ya estaba: el que está es
+    // el que el negocio eligió, y pisarlo sería cambiarle el competidor sin avisar.
+    const suma: Record<string, unknown> = {};
+    if (leido.campo === 'instagram' && !yaEsta.instagram) suma.instagram = leido.valor;
+    if (leido.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = leido.valor;
+    if (leido.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = leido.valor;
+    if (!Object.keys(suma).length) return { ok: true, competidor: yaEsta };
+    const r = await db.from('spy_competidores').update({ ...suma, updated_at: new Date().toISOString() })
+      .eq('id', yaEsta.id).select(COLUMNAS_COMPETIDOR).maybeSingle();
+    return r.data ? { ok: true, competidor: r.data as Competidor } : { ok: true, competidor: yaEsta };
+  }
+
   const fila: Record<string, unknown> = { nombre, updated_at: new Date().toISOString() };
   if (leido.campo !== 'nombre') fila[leido.campo] = leido.valor;
   const { data, error } = await db.from('spy_competidores').upsert(fila, { onConflict: 'workspace_id,nombre' }).select(COLUMNAS_COMPETIDOR).maybeSingle();

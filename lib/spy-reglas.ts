@@ -476,6 +476,20 @@ export const TIPOS_POR_CANAL: Record<CanalSpy, readonly TipoPieza[]> = {
 };
 
 /** Topes de lo que se guarda de una pieza, para que un texto largo no reviente una fila. */
+/**
+ * El nombre reducido a lo que lo hace comparable: sin tildes, sin espacios, sin puntos ni @, todo
+ * en minúsculas. «Sofia Contreras», «sofiacontreras» y «@Sofia.Contreras» dan lo mismo.
+ *
+ * ⚠️ ES SÓLO PARA COMPARAR. Lo que se guarda y se muestra es el nombre tal como lo escribió la
+ * persona: nadie quiere ver «sofiacontreras» en su lista.
+ */
+export const nombreComparable = (s: string): string =>
+  (s ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/** El dominio de una landing, para comparar: sin protocolo, sin www, sin barra final ni query. */
+export const dominioComparable = (s: string): string =>
+  (s ?? '').toLowerCase().replace(/^https?:\/\//, '').replace(/^www\./, '').split(/[/?#]/)[0];
+
 export const TOPES = {
   /** El @ de Instagram, el id de un canal de YouTube o el id de la Biblioteca de Anuncios. */
   ref: 200,

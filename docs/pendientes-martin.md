@@ -25,7 +25,7 @@ tres seguidos: se junta y se manda una vez por ítem.
 | 5 | **YouTube: que traiga los videos LARGOS** | **HECHO** | pagina la playlist y le reserva cupo a los largos |
 | 6 | **Lista de competidores en tarjetas con caricatura** | **HECHO** | la cara es su foto de perfil, bajada (0362) |
 | 7 | **Borrar competidor desde la lista** | **HECHO** | el botón vive en la tarjeta |
-| 7b | **Deduplicar el alta** (por eso hay 3 «Sofia Contreras») | pendiente | el alta no normaliza el @ contra el nombre |
+| 7b | **Deduplicar el alta** (por eso hay 3 «Sofia Contreras») | **HECHO** | deduplica por canal y por nombre comparable |
 | 8 | **Rediseñar el modal de «Mirar a alguien más»** | pendiente | |
 | 9 | **Con el @ traer el perfil** (Apify), en Spy y en el CRM | pendiente | |
 | 10 | **Con un dato, traer todas sus redes** + landing/funnel de la bio | pendiente | |

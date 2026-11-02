@@ -498,3 +498,27 @@ por pieza, en vez de forzar una sola.
 
 **Vive en:** app/competitor-spy/SpyApp.tsx · app/competitor-spy/TarjetaPieza.tsx ·
 docs/diseno/referencia-spy.md
+
+---
+
+## Un guard que busca un identificador encuentra la declaración, no el uso (2/11/2026)
+
+**Pasó dos veces en una hora**, con dos guards distintos, y las dos veces el test pasó en VERDE
+sobre código que yo acababa de romper a propósito:
+
+1. `tests/spy-youtube-largos.test.ts` comprobaba que existiera `PAGINAS_MAX`. Con
+   `PAGINAS_MAX = 1` —que es exactamente el bug que el guard existe para frenar— pasó en verde.
+2. `tests/spy-alta-duplicados.test.ts` comprobaba que apareciera `nombreComparable(`. Con la
+   comparación cambiada a `x.nombre === nombre` pasó en verde, porque la función seguía
+   existiendo una línea más arriba, en `const buscado = nombreComparable(nombre)`.
+
+**La regla:** un guard que mira el código **no busca un identificador, busca la FORMA DEL USO**.
+`/PAGINAS_MAX/` no sirve; `/const PAGINAS_MAX = (\d+);/` y después `Number(...) > 1` sí.
+`/nombreComparable\(/` no sirve; `/nombreComparable\(x\.nombre\)\s*===/` sí.
+
+**Y el corolario, que es el que hace que se note:** un guard nuevo **se prueba rompiendo lo que
+vigila**, antes de confiar en él. Los dos de arriba se escribieron, dieron verde, y recién al
+romper el código a propósito se vio que no servían. Un guard que no se pone rojo cuando la cosa
+está rota es peor que no tener guard: da permiso para seguir.
+
+**Vive en:** tests/spy-youtube-largos.test.ts · tests/spy-alta-duplicados.test.ts
