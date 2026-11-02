@@ -14,6 +14,22 @@ tres seguidos: se junta y se manda una vez por ítem.
 
 ---
 
+## ⚠️ LO PRIMERO: NADA DE ESTO ESTÁ DESPLEGADO TODAVÍA
+
+A las 03:30 del 2/11, `origin/main` seguía en `8a60cd310` con **12 commits esperando** en
+`integracion`. Dos motivos, y los dos son míos:
+
+1. **Pushear por ítem CANCELA el run anterior** (`concurrency: integracion`). Lo escribí en el
+   tablero y lo hice igual nueve veces seguidas: cada push mataba el chequeo del anterior, así que
+   ninguno llegaba a terminar. **La regla de verdad: se junta y se pushea UNA vez, y después se
+   espera.** No sirve pushear por ítem si el efecto es que no se despliega ninguno.
+2. **El run #335 falló de verdad**, no por cancelación: `tests/guia-catalogo.test.ts` exige que
+   todo lo que está en `SIN_GUIA_TODAVIA` siga siendo una tab, y yo saqué `offer` y `ads-manager`
+   de la barra sin sacarlos de esa lista.
+
+**Antes de pushear otra vez:** correr a mano los tests de lo tocado. Lo que se rompió esta vez no
+lo veía ningún test de Spy — lo veía un guard del catálogo de guías.
+
 ## Estado
 
 | | Ítem | Estado | Commit |
