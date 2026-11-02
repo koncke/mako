@@ -37,14 +37,32 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   MINIMO_PARA_EMPAREJAR, caricaturaDeCompetidor, comoAQuienMira, nombreDeReferente, referenteDeCompetidor,
 } from '../lib/spy-caricatura';
+import { ASESORES } from '../lib/asesores/catalogo';
 
 test('el @ de Instagram encuentra la caricatura, sin tabla de arrobas', () => {
   // 'alexhormozi' y 'Alex Hormozi' colapsan al mismo texto comparable.
   assert.equal(referenteDeCompetidor({ instagram: 'alexhormozi' }), 'hormozi');
-  assert.equal(caricaturaDeCompetidor({ instagram: 'alexhormozi' }), '/asesores/hormozi.png');
+  assert.equal(caricaturaDeCompetidor({ instagram: 'alexhormozi' }), '/asesores/grandes/hormozi.png');
+});
+
+test('TODO referente tiene su cara grande, y la chica sigue siendo liviana', () => {
+  // ⚠️ SON DOS ARCHIVOS A PROPÓSITO y los dos tienen que existir, o la tarjeta de Spy muestra un
+  // hueco. El chico (200 px) lo baja la lista de chats del Ops Center y tiene tope de peso
+  // (tests/coaches-ops-center.test.ts); el grande (600 px) lo pide la tarjeta, que es cuadrada y a
+  // sangre. Agrandar el chico en vez de agregar el grande ponía en rojo aquel test: 159 KB contra
+  // un tope de 150. Esto se cayó de verdad el 2/11/2026 antes de subirlo.
+  const raiz = join(__dirname, '..');
+  for (const a of ASESORES) {
+    const grande = join(raiz, 'public/asesores/grandes', `${a.id}.png`);
+    assert.ok(existsSync(grande), `${a.id} no tiene cara grande: la tarjeta de Spy quedaría vacía`);
+    const chica = join(raiz, 'public/asesores', `${a.id}.png`);
+    assert.ok(statSync(chica).size < 150_000, `${a.id}: la cara chica se baja en cada lista de chats y no puede pesar`);
+  }
 });
 
 test('el nombre completo y el nombre corto también lo encuentran', () => {

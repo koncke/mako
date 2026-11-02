@@ -74,12 +74,25 @@ export function referenteDeCompetidor(c: AQuienMira): IdAsesor | null {
 }
 
 /**
- * La ruta pública de la caricatura de este competidor, o `null`. Es la MISMA imagen que usa el Ops
- * Center (`app/admin/operaciones/Retratos.tsx`), así que un referente nuevo aparece acá solo.
+ * La ruta pública de la caricatura de este competidor, o `null`.
+ *
+ * ⚠️ VIENE DE `/asesores/grandes/`, NO DE `/asesores/`, Y LOS DOS TIENEN QUE EXISTIR. Son el mismo
+ * dibujo en dos tamaños porque los usa gente distinta:
+ *   · `/asesores/<id>.png` — 200 px. Lo pide el Ops Center para el disco de una fila de chat, y
+ *     `tests/coaches-ops-center.test.ts` EXIGE que pese menos de 150 KB: esa lista las baja TODAS.
+ *   · `/asesores/grandes/<id>.png` — 600 px. Lo pide la tarjeta de Spy, que es cuadrada y ocupa el
+ *     ancho entero; a 248 px de CSS en una pantalla retina son ~500 px reales.
+ *
+ * Martín, 2/11/2026: «al agrandar la imagen se perdió un poco la calidad de resolución, se ve un
+ * poco borroso». La causa era que la tarjeta usaba el archivo de 200 px. Agrandar ESE archivo
+ * habría puesto en rojo el test del Ops Center (159 KB contra el tope de 150), así que son dos.
+ *
+ * ⚠️ Y NO SE REGENERAN: `app/admin/operaciones/Retratos.tsx` dice que Martín aprobó estas caras
+ * después de ocho vueltas. El grande sale de agrandar el aprobado, no de dibujar otro.
  */
 export function caricaturaDeCompetidor(c: AQuienMira): string | null {
   const id = referenteDeCompetidor(c);
-  return id ? `/asesores/${id}.png` : null;
+  return id ? `/asesores/grandes/${id}.png` : null;
 }
 
 /**
