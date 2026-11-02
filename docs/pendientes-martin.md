@@ -60,9 +60,31 @@ atrás** del repo, así que el flag hace lo correcto al seguir ofreciendo el zip
 serviría un paquete viejo.
 
 **Para que la descarga desaparezca sola hay que PUBLICAR la 0.74.4 y esperar la aprobación de
-Google.** No se puede desde este worktree: el `.env.local` de acá no tiene `CWS_CLIENT_ID`,
-`CWS_CLIENT_SECRET` ni `CWS_REFRESH_TOKEN`. **Es lo único que falta: ningún cambio de código lo
-arregla, y forzar el flag a mano mandaría a cada cliente nuevo a instalar una versión vieja.**
+Google.** Ningún cambio de código lo arregla, y forzar el flag a mano mandaría a cada cliente
+nuevo a instalar una versión vieja.
+
+⚠️ **MEDIDO EL 2/11 ~15:30, Y NO ES LO QUE DECÍA ACÁ ANTES.** Las credenciales SÍ existen —están en
+`C:/dev/mako-api/.env.local`, no en el `.env.local` del worktree, que es lo que me había hecho
+concluir que faltaban—. El problema es otro y lo contesta Google:
+
+```
+node --env-file=C:/dev/mako-api/.env.local scripts/publicar-extension.mjs --estado
+→ no se pudo renovar el token: {"error":"deleted_client",
+  "error_description":"The OAuth client was deleted."}
+```
+
+**El cliente OAuth de Google Cloud fue BORRADO.** Por eso el refresh token no sirve, y por eso
+nadie pudo publicar aunque las tres variables estén puestas.
+
+**Lo que hace falta, y es trámite de Martín en SU cuenta de Google, no código:**
+1. Google Cloud Console → Credenciales → crear un cliente OAuth 2.0 nuevo (tipo «App de escritorio»).
+2. Poner el `CWS_CLIENT_ID` y el `CWS_CLIENT_SECRET` nuevos en `C:/dev/mako-api/.env.local`.
+3. Autorizar una vez para sacar el `CWS_REFRESH_TOKEN` (`scripts/publicar-extension.mjs --ayuda`
+   explica los dos pasos).
+
+Hecho eso, publicar es **un comando**, y la descarga desaparece sola en cuanto Google apruebe.
+**Un asistente no puede hacer el paso 1 ni el 3: son el consentimiento OAuth de la cuenta de
+Martín.**
 
 ### 🎫 Tickets #43 y #44 — SON EL MISMO PEDIDO, y hay un orden (2/11 ~13:15)
 
