@@ -945,3 +945,26 @@ negocio ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente
 **Falta de este ítem:** el mismo tratamiento para YouTube (hoy sólo Instagram, que es la que gasta
 créditos del negocio) y la poda de lo que pase de 30 días. Y mirar `spy_lecturas_canal.ahorros`: si
 queda en cero, nadie mira a los mismos y la tabla no se ganó el lugar.
+
+## 🔍 EL BUSCADOR MIENTRAS SE ESCRIBE — SON TRES COSAS, NO UNA (2/11/2026 ~00:00)
+
+Martín: «te había pedido que cuando yo vaya buscando una arroba, de un competidor, o incluso en el
+CRM, ya vaya saliendo ciertos resultados mientras voy escribiendo… y eso no lo veo que lo tengas en
+los pendientes… no quiero que te pregunte cuáles son nuestros pendientes y me des información a
+medias». **Tenía razón: yo lo tenía como un solo ítem y son tres.**
+
+| Dónde | Qué pasa HOY | Qué falta |
+|---|---|---|
+| **Spy, con @** | a los 900 ms de parar de escribir trae **UN** perfil, por handle EXACTO | **no hay desplegable**: no ofrece opciones para elegir |
+| **Spy, SIN @** | **no existe**: un nombre no busca nada | buscar por NOMBRE. Es otra operación —una BÚSQUEDA, no una lectura— y por eso no sale solo |
+| **CRM** | el desplegable **SÍ existe** desde el 12/10 (`app/crm/new/InstagramBuscador.tsx`), con fotos y por nombre | **a Martín no le funciona**: depende de Meta conectado, de Google CSE o de la clave de Apify. La de Apify se habilitó el 2/11 y **nunca se probó punta a punta** (ítem 21) |
+
+⚠️ **LO QUE DESTRABA LOS TRES ES LO MISMO: un actor de BÚSQUEDA de Apify.** Lo que tenemos
+(`leerPerfilInstagram`) lee por handle exacto; buscar «leila» y recibir candidatos es otro actor.
+**Martín ya aprobó el gasto** y pidió que lo elijamos nosotros y le digamos el número — así que lo
+que falta es medir el costo por búsqueda, ponerle tope por día y prenderlo.
+
+⚠️ **Y NO se llama en cada tecla.** Cada búsqueda gasta del tope diario: la pantalla espera a que la
+persona deje de escribir (900 ms) y eso no se toca. «Mientras escribo» significa *sin apretar un
+botón*, no *una llamada por tecla*: con una por tecla, «leilahormozi» son trece lecturas y dos altas
+agotan el día del negocio.
