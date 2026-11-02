@@ -260,7 +260,14 @@ roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
      que se ve en la foto (pelo, barba, anteojos o gorra, piel, gesto, prenda lisa, color de fondo);
    · se guarda como `public/asesores/<id>.png`.
 
-**Los once que faltan, con su curso, están en la tabla de más arriba.**
+**Los diez que faltan, con su curso, están en la tabla de más arriba.**
+
+⚠️ **Dos cosas que aprendí en el segundo y ahorran tiempo en los que vienen:**
+· **Un curso puede tener 740 KB de transcripción.** «Inteligencia Viral» son 41 clases. NO se
+  lee entero: se eligen cuatro o cinco clases del método por el título y alcanza de sobra.
+· **La ficha se va de largo sola.** La primera versión de Alborna salió en 5.692 y el tope es
+  5.200. Lo que sobra casi siempre son los «Cuándo:» de cada marco y los ejemplos repetidos:
+  se recorta eso antes que un marco entero.
 
 ## Estado
 
@@ -284,7 +291,7 @@ roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
 | 11 | **Validar con el usuario** antes de guardar | **HECHO** | nada se guarda sin mostrar quién es |
 | 12 | **Pasar de 50 publicaciones** | **HECHO a medias** | por Apify, de 25 a 100 (gratis: ya las recibíamos). Por Meta NO se toca, ver abajo |
 | 13 | **Spy compartido entre usuarios** | pendiente | la decisión ya está tomada, ver abajo |
-| 14 | **Los 12 referentes** (fichas + caricaturas) | **1 de 12** | Emilio Puigrredón hecho. La receta, abajo |
+| 14 | **Los 12 referentes** (fichas + caricaturas) | **2 de 12** | Puigrredón y Alborna hechos. La receta, abajo |
 | 15 | **El diseño de la tab principal de gurús** (no el detalle) | pendiente | |
 | 16 | **Elegir un gurú desde «nuevo chat»** | pendiente | hoy sólo `funnel` y `offer` |
 | 17 | **Base de conocimiento por gurú** | pendiente | |

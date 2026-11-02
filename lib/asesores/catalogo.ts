@@ -19,7 +19,7 @@ export type IdAsesor = 'hormozi' | 'juan-ads' | 'julian-otalora' | 'sofia-contre
   // ── Tercera tanda (2/11/2026): los doce que pidió Martín. El curso de cada uno está localizado
   //    en docs/pendientes-martin.md, verificado contra el `titulo:` del archivo y NO contra el
   //    nombre de la carpeta — eso ya puso dos nombres mal en producción.
-  | 'emilio-puigrredon';
+  | 'emilio-puigrredon' | 'julian-alborna';
 
 export type Asesor = {
   id: IdAsesor;
@@ -62,6 +62,7 @@ export const ASESORES: readonly Asesor[] = [
   { id: 'tino-mossu', nombre: 'Tino Mossu', completo: 'Tino Mossu', especialidad: 'Objeciones y seguimiento', curso: 'La universidad del Closer' },
   { id: 'jordi-segues', nombre: 'Jordi Segués', completo: 'Jordi Segués', especialidad: 'TikTok', curso: 'TikTok 100k' },
   { id: 'emilio-puigrredon', nombre: 'Emilio Puigrredón', completo: 'Emilio Puigrredón', especialidad: 'Embudo en redes', curso: 'Social Funnel' },
+  { id: 'julian-alborna', nombre: 'Julián Alborna', completo: 'Julián Alborna', especialidad: 'Contenido que se comparte', curso: 'Inteligencia Viral 2026' },
 ];
 
 export const asesorPorId = (id: unknown): Asesor | null => ASESORES.find((a) => a.id === id) ?? null;
