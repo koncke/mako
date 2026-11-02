@@ -27,15 +27,32 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ✅ ESTADO AL 2/11 ~13:30 — TODO DESPLEGADO, ACTIONS EN VERDE
+## ESTADO AL 2/11 ~19:00 — CUOTA AL 93 %, EL TREN SUBIENDO, Y NADA QUE EMPEZAR
 
-**`origin/main` = `aa079544b`.** Los 16 commits de la noche entraron a producción y están
-verificados mirando la app en vivo. Lo que queda en `integracion` sin llegar a main son commits de
-documentación, que salen con el próximo run.
+**`origin/main` = `63d66d8f3`.** Encima hay **12 commits** que vivían sólo en `tren-chico` y que
+estoy subiendo a `integracion` ahora: Puigrredón, Alborna, las miniaturas de YouTube que ahora se
+GUARDAN (antes se dibujaban desde la URL de YouTube y no estaban en ningún lado), Instagram de 25 a
+100 por Apify, la vista previa del modal de alta, la cara en la tarjeta del competidor y la
+corrección de la extensión (Google dice `deleted_client`, no faltaban credenciales).
 
-⚠️ **Esta cabecera decía, hasta hace un rato, «13 COMMITS SIN DESPLEGAR Y ACTIONS EN ROJO».** Era
-verdad a las 04:00 y dejó de serlo a las 05:40. Si la leés desalineada con `git log`, **ganá el
-`git log`**: un relevo es una foto, y una foto vieja manda a cazar un problema que ya no existe.
+⚠️ **LOS SUBO SIN CHEQUEO DE TIPOS LOCAL, Y HAY QUE SABERLO.** `node scripts/tsc-acotado.mjs
+--heap=2048` sobre los 9 `.ts/.tsx` cambiados salió **99 = no se pudo chequear**: lo mató el guardia
+de RAM, con **2,73 GB libres de 15,71**. Un 99 no es un verde. O sea que **el único chequeo de tipos
+de este tren es el de Actions**, y si sale rojo los nombres están en el LOG del job, en la línea
+«Rojos:», no en el resumen.
+
+⚠️ **REPARTIR NO AGREGA CUOTA, y ésa es la corrección de la tarde.** Las 17 sesiones —locales y de
+la nube— corren sobre la MISMA cuenta `claude1`. Al 93 % pasar un ítem a otro chat **acelera el
+corte en vez de evitarlo**. `Ops Center` y `Replicar los 20 dashboards` lo vieron antes que yo y se
+frenaron solas; `Ops Center` midió que una ficha de referente cuesta 175–285 mil tokens, o sea
+~2,3 millones por los diez. **Para seguir hace falta que Martín pase a otra cuenta.** Los briefs
+sirven tal cual cuando la haya: están en el tablero.
+
+⚠️ **Puse a salvo trabajo de otro chat que podía borrarse:** `dashboard-denso-0111` (3.430 líneas,
+5 de 20 hojas) vivía sólo en el worktree `C:/dev/wt-dashboard-3110`, sin remoto y con el working
+tree limpio — o sea que el barrido de worktreees la habría leído como «limpia» y borrada. Ya está en
+`origin/dashboard-denso-0111`. **Subir una rama que no es `integracion` no dispara Actions**, así
+que salvar el trabajo de otro chat es gratis (`docs/hallazgos-infra.md`).
 
 **El tablero vivo es `docs/pendientes-martin.md`** — ahí está la lista de los 21 pedidos con su
 estado, y arriba de todo el aviso de por qué nada se desplegó. Esto de acá es el resumen.

@@ -10236,3 +10236,25 @@ del job dice «Tipos: ERRORES DE TIPOS» con el conteo, y las anotaciones traen 
 **Vive en:** .github/workflows/integracion.yml · scripts/tipos-por-tandas.mjs ·
 .git/hooks/pre-push (el push a `main` corre el tsc ENTERO local: pide 6,3 GB y se cuelga; el camino
 es `integracion`, y `MAKO_SIN_ANTES_DE_SUBIR=1` sólo vale para esa rama)
+
+## «Limpio» no es «a salvo»: un worktree sin subir se lee como limpio (2/11/2026)
+
+**El síntoma:** la sesión de los 20 dashboards avisó que su rama `dashboard-denso-0111` —3.430
+líneas, 5 de 20 hojas hechas— vivía SÓLO en el worktree `C:/dev/wt-dashboard-3110`, sin upstream y
+sin estar en ningún remoto. El worktree estaba **limpio**, porque el commit ya se había hecho.
+
+**La causa real:** la regla de barrido de worktrees es «sólo los limpios, subidos y sin uso 24 h»,
+pero «limpio» se verifica con `git status` y «subido» NO se verifica con nada parecido. Un worktree
+que commiteó y no pusheó da `git status` vacío: **pasa el chequeo de limpio y pierde el trabajo.**
+Los dos adjetivos suenan al mismo chequeo y son dos chequeos distintos.
+
+**La regla que queda:** antes de borrar un worktree hay que mirar si su rama existe en un REMOTO
+(`git -C <wt> rev-parse --verify origin/<rama>`, o que la rama tenga upstream y no esté adelante),
+no si el working tree está limpio. Un commit local no es un respaldo.
+
+**Y el dato que lo hace barato de arreglar:** subir una rama que NO es `integracion` **no dispara
+Actions**. `.github/workflows/integracion.yml:28` escucha `branches: [integracion]` y nada más, así
+que `git push -u origin <rama>` no gasta minutos ni cancela el run en curso. O sea que poner a salvo
+el trabajo de otro chat es gratis: no hay motivo para dejarlo sólo en un disco.
+
+**Vive en:** la regla de barrido de worktrees · .github/workflows/integracion.yml:28

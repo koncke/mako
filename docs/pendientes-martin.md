@@ -36,6 +36,40 @@ Y de las sesiones en la NUBE no vuelve nada: el canal es de ida, así que el sil
 Lo que cada una hizo se ve en su propio transcript (claude.ai/code) y, cuando commitee, en
 `origin/main`.
 
+### ⛔ Y REPARTIR NO AGREGA CUOTA — lo corrigieron las dos sesiones que contestaron
+
+**Las 17 sesiones, locales y de la nube, corren sobre la MISMA cuenta `claude1`.** Pasarle un ítem
+a otro chat no suma cuota: gasta la misma. Al 93 % eso significa que el reparto **acelera el corte
+en vez de evitarlo**, y que el trabajo grande se corta a mitad de camino en otra sesión en lugar de
+en ésta.
+
+Las dos sesiones que contestaron lo vieron antes que yo y las dos se frenaron solas, con razón:
+
+· **`Ops Center`** midió lo que cuesta una ficha: **175–285 mil tokens de subagente** cada una, o
+  sea **~2,3 millones por los diez**, sin contar las imágenes. No arranca sin cuenta nueva. Su rama
+  `ops-coaches-0111` quedó limpia en `652e94c22` y **atrás de main: no usarla de base.**
+· **`Replicar los 20 dashboards`** va **5 de 20** —General, Comercial, Cobranza, Landing y Focus,
+  en dos variantes (Pane y Lumora)—, con los mockups en `docs/diseno/mockups-dashboard/` y su
+  galería `index.html`. El mapa de qué hoja sale de qué referencia está en
+  `docs/templates-dashboard-propuesta.md` §7.3; el relevo en `docs/relevo/templates-dashboard.md`;
+  los hallazgos en `docs/hallazgos-templates-dashboard.md`. **No arranca las 15 restantes y tiene
+  razón en el motivo: Martín todavía no vio las primeras, y corregir el criterio en 4 hojas es
+  barato y en 19 no.** Lo que ya no hay que rehacer: los 24 demos están medidos y el medidor quedó
+  en `docs/diseno/mockups-dashboard/medidor/`.
+
+⚠️ **Y avisó de algo que podía borrar 3.430 líneas:** su rama `dashboard-denso-0111` vivía SÓLO en
+el worktree `C:/dev/wt-dashboard-3110`, sin upstream y sin estar en ningún remoto, con el worktree
+**limpio**. La regla de barrido de worktrees («sólo limpios, subidos, sin uso 24 h») lo habría
+leído como limpio y lo habría borrado: *no estaba subido, pero parecía limpio.* **Ya la subí** —
+`origin/dashboard-denso-0111`, punta `a4fb06dba`— y subir una rama que no es `integracion` **no
+dispara Actions** (`.github/workflows/integracion.yml:28` sólo escucha `branches: [integracion]`),
+así que no gastó minutos ni canceló ningún run. **La regla que queda: «limpio» no es «a salvo».
+Antes de barrer un worktree hay que mirar si su rama está en un remoto, no si el working tree está
+limpio.**
+
+**Lo que hace falta para seguir, y es decisión de Martín: pasar a otra cuenta.** Con cuenta nueva
+los briefs sirven tal cual.
+
 ⚠️ **Por qué cinco fueron a la nube y no acá: no hay RAM.** Medido el 2/11 ~18:20 — **2,73 GB
 libres de 15,71**, y el guardia corta Bash por debajo de 3 GB. Los procesos `claude` solos ocupan
 **5,09 GB**; Chrome no estaba ni abierto, así que no hay nada que cerrar para hacer lugar. Despertar
@@ -288,6 +322,14 @@ roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
    resultados de alumnos son ejemplos, nunca promesas—.
    ⚠️ **Español neutro con «tú».** Las transcripciones están en voseo y copiarlas pone ROJO a
    `tests/puente-panel-copy.test.ts`. La ficha es la voz de MaKo, no la del instructor.
+   ⚠️ **Las tácticas engañosas del curso NO pasan a la ficha.** Varios cursos enseñan maniobras
+   para forzar una respuesta o aparentar algo que no es. La ficha es un asesor que MaKo le pone
+   enfrente a un negocio: se destila el MÉTODO, no el truco. Esto salió de las ocho fichas que
+   quedaron escritas en el brief del 2/11 y conviene que esté acá, porque es la clase de cosa que
+   se copia sin pensar.
+   ⚠️ **Toda cifra se busca en la clase que se cita, antes de darla por buena.** Las
+   transcripciones son habla: un número dicho al pasar, redondeado o exagerado se lee igual que un
+   dato. Si no aparece en la clase citada, no va.
 4. **Registrarlo en tres lugares**: el `IdAsesor` y la fila de `ASESORES` en
    `lib/asesores/catalogo.ts`, y el import + la entrada del mapa en `lib/asesores/fichas.ts`.
 5. **La caricatura**, que `tests/coaches-ops-center.test.ts` EXIGE («sin imagen su fila saldría
