@@ -167,12 +167,29 @@ test('una clave de Apify pegada se tapa igual, y sólo ofrece conectar la de Com
 test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scraper de leads', () => {
   const quienes = (patron: string) => execFileSync('git', ['grep', '-l', '--untracked', '-E', patron, '--', 'app', 'lib'], { cwd: RAIZ, encoding: 'utf8', maxBuffer: 50_000_000 })
     .split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f) && !HISTORIA.some((h) => h.test(f)));
-  // La clave la nombran su catálogo, su ping y la función que lee. Nada del CRM, de los leads ni de la API de MaKo.
+  // ⚠️ 2/11/2026 — EL ALTA DEL CRM AHORA SÍ PUEDE GASTARLA, Y ES UN CAMBIO DE DECISIÓN, NO UN
+  // DESCUIDO. Hasta el 1/11 la regla era «Apify: sólo Spy» y este guard decía, textual, «el alta
+  // del CRM y Offer siguen sin poder gastarla». Martín el 2/11: «ya con Apify debería funcionar el
+  // traer el perfil escribiendo el @, eso también en el CRM».
+  //
+  // Qué significa en plata, que es lo que esta lista cuida: el buscador de @ del CRM, cuando ni
+  // Meta ni Google traen nada, lee UN perfil por @ EXACTO con `APIFY_CLAVE_DE_SPY`, que es la clave
+  // DEL NEGOCIO. Tiene el mismo tope diario que Spy (`APIFY_TOPE_POR_DIA`) y la pantalla espera a
+  // que la persona deje de escribir, así que no se gasta por tecla. Lo que NO vuelve es el scraper
+  // de leads: eso es una búsqueda masiva, se llamaba `apify` a secas, y los asserts de abajo siguen
+  // exigiendo que no exista.
+  //
+  // Si esto no era lo que Martín quiso decir, lo que se saca es `'apify-spy'` de las fuentes en
+  // app/api/crm/instagram-buscar/route.ts y se vuelve a poner este guard como estaba.
   assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY').sort(), [
+    'app/api/crm/instagram-buscar/route.ts',
     'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
   ]);
-  // Y la fuente la pide sólo Spy: el alta del CRM y Offer siguen sin poder gastarla.
-  assert.deepEqual(quienes("'apify-spy'").sort(), ['lib/instagram-perfil-server.ts', 'lib/spy.ts']);
+  // La fuente la piden Spy y el alta del CRM. Offer sigue sin poder gastarla.
+  assert.deepEqual(quienes("'apify-spy'").sort(), [
+    'app/api/crm/instagram-buscar/route.ts', 'lib/instagram-perfil-server.ts', 'lib/spy.ts',
+  ]);
+  assert.doesNotMatch(leer('app/api/offer/route.ts'), /apify-spy/, 'Offer no gasta la clave de Spy');
   // La tarjeta es otra: la del scraper se llamaba `apify` y no volvió.
   assert.equal(DEFS.some((d) => d.key === 'apify'), false);
   assert.equal(DEFS.filter((d) => d.key === 'apify-instagram').length, 1);
