@@ -58,6 +58,36 @@ nuevas van a mostrar el duplicado más lindo.
 | B6 | **La página de instalar la extensión no debe ofrecer NINGUNA descarga**, sólo la tienda | **SIGUE OFRECIÉNDOLA**: `app/extension/instalar/Pasos.tsx:76-83` tiene el botón de descarga |
 | B7 | **Probar punta a punta que la clave de Apify de ws 9 lee un Instagram** | nunca se probó |
 
+### A-bis. Pedidos del 2/11 ~01:10, de mirar la tab YA DESPLEGADA (sin empezar)
+
+| # | Qué | Verificado / cómo |
+|---|---|---|
+| A6 | **La miniatura se DESCARGA Y SE GUARDA.** Martín: «no quiero que se vea texto. Si tenemos que descargar la imagen y guardarla, lo hacemos». | ⚠️ **Esto REVIERTE el diseño de 0359**, que a propósito no guardaba la imagen porque la URL de Meta vence. Guardar los bytes es la respuesta correcta y Martín la acaba de autorizar: bucket de storage + guardar al leer. El respaldo de texto que puse el 2/11 es un parche, NO la solución. |
+| A7 | **Con UN dato, traer todas sus redes.** Del @ de IG o del canal de YouTube, buscar por un motor de búsqueda las demás redes; y de la bio de IG / la descripción del canal, sacar el link a su landing o su funnel. | sin empezar |
+| A8 | **Y VALIDARLO CON EL USUARIO**: «¿este es el YouTube de esta persona?» antes de guardarlo, para no traer a otro. | sin empezar. Es la misma trampa que ya pagamos resolviendo gurús por búsqueda en vez de por `@handle`. |
+| A9 | **Pasar de 50 publicaciones.** Una vista con TODAS, y/o usar la extensión de MaKo para ir al perfil de Instagram, elegir publicaciones a dedo y sumarlas a MaKo. | el tope es `piezasPorVuelta: 50` en `lib/spy-reglas.ts:479` |
+| A10 | ~~¿Trae sólo Reels?~~ **NO: ya trae todo.** | VERIFICADO: `lib/spy.ts:429` mapea todo lo que no es `REELS` a `publicacion`, y la captura de Martín muestra «Reels 7 · Publicaciones 5». **No hay nada que arreglar acá.** |
+
+### A-ter. SPY COMPARTIDO ENTRE USUARIOS — la decisión, porque toca el aislamiento
+
+Martín, 2/11: «que esta tab sea compartida por todos los usuarios. No tiene sentido que uno analice
+a Alex Hormozi y luego otro vuelva a analizar al mismo».
+
+**Hoy es por negocio:** `spy_competidores` tiene `workspace_id not null` y `unique (workspace_id,
+nombre)` (`supabase/migrations/0359_competitors_spy.sql:67,94`).
+
+**Compartir TODO entre workspaces le mostraría a cada cliente la lista de competidores de los
+demás**, que es exactamente lo que todos los guards de este repo impiden. Así que la decisión —y es
+la que cumple lo que Martín pide sin filtrar nada:
+
+> **Se comparte lo CARO, no lo privado.** Lo que se lee de un canal público (las piezas de
+> `@leilahormozi`) va a una caché GLOBAL por `ref` de canal, que cualquier negocio puede aprovechar:
+> nadie paga dos veces por leer a Hormozi. **A quién mira cada negocio sigue siendo suyo.**
+
+De ahí sale sola la regla de borrado que Martín pedía: **un usuario saca al competidor de SU lista;
+la lectura compartida no se toca.** Y si más adelante hay competidores sembrados por nosotros, van
+marcados y el cliente no los puede borrar — sólo dejar de verlos.
+
 ### C. Lo que tiene OTRO chat (no duplicar)
 
 - **Los 20 dashboards del editor de informes.** La propuesta está en
