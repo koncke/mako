@@ -63,6 +63,19 @@ test('bajar una miniatura NUNCA puede romper la lectura del competidor', () => {
   assert.match(src, /catch\s*\{/, 'el bajador perdió su catch: un CDN caído rompería la lectura');
   assert.match(src, /AbortSignal\.timeout/, 'sin timeout, un CDN que no contesta cuelga la lectura entera');
   assert.match(src, /referrerPolicy: 'no-referrer'/, 'sin esto el CDN de Meta devuelve 403');
+
+  // ⚠️ EL PRESUPUESTO TOTAL, que es lo que evita romper «Revisar ahora». Esto corre ADENTRO de la
+  // acción que dispara el usuario, y Spy no declara `maxDuration`, así que vale el tope por
+  // defecto de Vercel: sin tope total, 50 piezas de a 6 con 4 s cada una son ~36 s sólo de
+  // imágenes, y se cae la lectura entera — la que trae los datos.
+  const pres = /const PRESUPUESTO_MS = ([\d_]+);/.exec(src);
+  assert.ok(pres, 'se perdió el presupuesto total: una lectura con muchas piezas se pasa del tope de la función');
+  const ms = Number(pres[1].replace(/_/g, ''));
+  assert.ok(ms > 0 && ms <= 15_000, `el presupuesto quedó en ${ms} ms: tiene que entrar en el tope de la función`);
+  // Y que se MIRE antes de cada tanda, no que esté declarado nomás: un guard que busca el nombre
+  // de una constante encuentra la declaración, no el uso (ya pasó dos veces esta noche).
+  assert.match(src, /Date\.now\(\)\s*>=\s*hasta/, 'el presupuesto está declarado pero no se respeta en el bucle');
+
   // Y que el guardado quede enganchado: sin esto se guarda la URL ajena y volvemos al problema.
   const spy = readFileSync(join(RAIZ, 'lib/spy.ts'), 'utf8');
   assert.match(spy, /guardarMiniaturas\(/, 'spy.ts dejó de bajar las miniaturas antes de guardar');

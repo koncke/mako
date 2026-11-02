@@ -36,7 +36,22 @@ const EN_PARALELO = 6;
 const PESO_MAXIMO = 2 * 1024 * 1024;
 
 /** Cuánto se espera a un CDN ajeno antes de rendirse con esa imagen. */
-const ESPERA_MS = 8_000;
+const ESPERA_MS = 4_000;
+
+/**
+ * Cuánto tiempo TOTAL puede gastar una lectura bajando imágenes.
+ *
+ * ⚠️ ESTO NO ES UNA OPTIMIZACIÓN, ES LO QUE EVITA ROMPER «REVISAR AHORA». Esta función corre
+ * ADENTRO de `guardarVistas`, que a su vez corre adentro de la acción que el usuario dispara. Spy
+ * no declara `maxDuration`, así que vale el tope por defecto de Vercel. Con 50 piezas, de a 6 y
+ * hasta 4 s cada una, el peor caso son ~36 s sólo de imágenes: más que el tope, y la lectura
+ * entera se cae — justo la que trae los datos.
+ *
+ * Con presupuesto, lo peor que pasa es que algunas miniaturas queden apuntando al CDN de origen
+ * en esta vuelta. No se pierden: `miniatura_guardada_en` queda en null y `esNuestra` hace que la
+ * próxima lectura siga por las que faltan. Converge en dos o tres vueltas sin romper ninguna.
+ */
+const PRESUPUESTO_MS = 9_000;
 
 /**
  * El tipo REAL del archivo, por sus primeros bytes — nunca por el `content-type` que declara un
@@ -110,7 +125,11 @@ export async function guardarMiniaturas<T extends Pieza>(piezas: readonly T[]): 
     .map((p, i) => ({ p, i }))
     .filter(({ p }) => !!p.miniatura && !esNuestra(p.miniatura));
 
+  const hasta = Date.now() + PRESUPUESTO_MS;
   for (let desde = 0; desde < pendientes.length; desde += EN_PARALELO) {
+    // Se corta ANTES de empezar una tanda nueva, nunca en el medio de una: cortar a mitad dejaría
+    // subidas a medio hacer. Las que no entraron quedan con su URL original y las toma la próxima.
+    if (Date.now() >= hasta) break;
     const tanda = pendientes.slice(desde, desde + EN_PARALELO);
     const urls = await Promise.all(tanda.map(({ p }) => guardarUna(p)));
     tanda.forEach(({ i }, k) => { out[i] = { ...out[i], miniatura: urls[k] }; });
