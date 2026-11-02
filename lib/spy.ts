@@ -72,6 +72,8 @@ export type Competidor = {
   mirado_en: string | null;
   texto_leido_en: string | null;
   metricas_leidas_en: string | null;
+  /** Su foto de perfil, YA BAJADA a nuestro bucket (0362). No vence. En null, la lista dibuja la inicial. */
+  avatar: string | null;
   instagram_seguidores: number | null;
   youtube_suscriptores: number | null;
 };
@@ -125,7 +127,7 @@ export type AnalisisPieza = {
 };
 
 const COLUMNAS_COMPETIDOR =
-  'id, nombre, instagram, youtube_id, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores';
+  'id, nombre, instagram, youtube_id, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores, avatar';
 
 /**
  * ¿El error es «la tabla no existe» (42P01)? La nube escribe la migración y no la puede aplicar, así
@@ -418,6 +420,7 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
   const canales: LecturaCanalSpy[] = [];
   const ahora = new Date().toISOString();
   let seguidores: number | null = c.instagram_seguidores;
+  let cara: string | null = c.avatar;
   let suscriptores: number | null = c.youtube_suscriptores;
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
@@ -428,6 +431,14 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
       canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${detalleDeInstagram(l.motivo, l.detalle)}` });
     } else {
       seguidores = l.perfil.seguidores;
+      // ⚠️ LA CARA SE BAJA, NO SE APUNTA. `l.perfil.foto` es una URL del CDN de Meta que vence y
+      // que además da 403 desde otro dominio (ver lib/spy-miniaturas.ts). Por eso el comentario
+      // de instagram-perfil.ts decía «nunca para guardarla»: con el bucket de 0361 ya se puede.
+      if (l.perfil.foto) {
+        const [bajada] = await guardarMiniaturas([{ canal: 'avatar', ref: c.instagram, miniatura: l.perfil.foto }]);
+        // Sólo se guarda si quedó en NUESTRO bucket: guardar la de Meta sería guardar una que vence.
+        if (esNuestra(bajada.miniatura)) cara = bajada.miniatura ?? cara;
+      }
       // `piezas` es `undefined` cuando Meta rechazó el juego ancho y se cayó al de siempre: ahí hay
       // perfil pero no números, y eso se dice. No es una lista vacía.
       const piezas = l.perfil.piezas;
@@ -515,7 +526,7 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
   const db = await getTenantDb();
   await db.from('spy_competidores').update({
     mirado_en: ahora, texto_leido_en: ahora, metricas_leidas_en: ahora,
-    instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, updated_at: ahora,
+    instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, avatar: cara, updated_at: ahora,
   }).eq('id', competidorId);
   return { ok: canales.some((x) => x.ok), canales };
 }

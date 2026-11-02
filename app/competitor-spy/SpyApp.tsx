@@ -265,6 +265,30 @@ const CSS = `
   box-shadow:inset 0 0 0 1px var(--border)}
 .spy-pcard__num--ausente b{font-size:var(--fs-sm);font-weight:600}
 
+/* --- La lista: una tarjeta por competidor, con su cara. Misma anatomia que la pieza. --- */
+.spy-crejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:var(--gap)}
+.spy-ccard{position:relative;display:flex;flex-direction:column;gap:12px;padding:18px;min-width:0;
+  border-radius:var(--r-lg);background:var(--surface);color:inherit;text-align:left;text-decoration:none;
+  border:0;cursor:pointer;box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta);
+  transition:transform .18s var(--ease-out),box-shadow .18s var(--ease-out)}
+.spy-ccard:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
+.spy-ccard__cara{display:grid;place-items:center;width:56px;height:56px;border-radius:var(--r-md);
+  overflow:hidden;flex:0 0 auto;background:var(--t1);color:var(--t-ink);
+  font-size:var(--fs-sect);font-weight:700;box-shadow:inset 0 0 0 1px var(--border)}
+.spy-ccard__cara img{display:block;width:100%;height:100%;object-fit:cover}
+.spy-ccard__nombre{display:block;font-size:var(--fs-card);font-weight:600;letter-spacing:-.005em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-ccard__sub{display:block;margin-top:2px;color:var(--faint);font-size:var(--fs-sm)}
+.spy-ccard__pie{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:auto}
+/* El borrar vive EN la tarjeta: para sacar un duplicado ya no hay que entrar al competidor. */
+.spy-ccard__borrar{position:absolute;top:12px;right:12px;display:grid;place-items:center;
+  width:32px;height:32px;border:0;border-radius:10px;background:var(--surface);color:var(--faint);
+  box-shadow:var(--sombra-tarjeta);cursor:pointer;opacity:0;transition:opacity .15s var(--ease-out)}
+.spy-ccard:hover .spy-ccard__borrar,.spy-ccard__borrar:focus-visible{opacity:1}
+.spy-ccard__borrar:hover{color:var(--bad);background:var(--bad-bg)}
+/* En pantalla tactil no hay hover: ahi el borrar se ve siempre o no existe. */
+@media (hover:none){.spy-ccard__borrar{opacity:1}}
+
 /* ── La lista de competidores: la tabla de merrin dentro de una caja plana. ── */
 .spy-envoltura-tabla{overflow-x:auto}
 .spy-tabla{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
@@ -502,8 +526,9 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   );
 }
 
-function TablaCompetidores({ competidores, resumen, onAbrir }: {
-  competidores: Competidor[]; resumen: Record<number, ResumenPiezas>; onAbrir: (id: number) => void;
+function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar }: {
+  competidores: Competidor[]; resumen: Record<number, ResumenPiezas>;
+  onAbrir: (id: number) => void; onBorrar: (c: Competidor) => void;
 }) {
   const desdes = Object.values(resumen).map((r) => r.desde).filter((d): d is string => !!d).sort();
   return (
@@ -517,46 +542,48 @@ function TablaCompetidores({ competidores, resumen, onAbrir }: {
           </p>
         </div>
       </header>
-      {/* La caja plana de la referencia: la cabecera lleva el padding y la tabla va a sangre. */}
-      <section className="spy-caja spy-caja--plana">
-        <div className="spy-caja-cabecera">
-          <div><h2>A quién estás mirando</h2><p>Abre uno para ver lo que publica.</p></div>
-        </div>
-        <div className="spy-envoltura-tabla">
-          <table className="spy-tabla">
-            <thead>
-              <tr><th>Nombre</th><th>Revisado</th><th>Desde</th><th>Piezas</th><th>Canales</th></tr>
-            </thead>
-            <tbody>
-              {competidores.map((c) => {
-                const r = resumen[c.id];
-                return (
-                  <tr key={c.id} onClick={() => onAbrir(c.id)}>
-                    <td><span className="spy-tabla-nombre"><span className="spy-avatar">{inicial(c.nombre)}</span>{c.nombre}</span></td>
-                    <td className="spy-rango">{c.mirado_en ? haceCuanto(c.mirado_en) : ''}</td>
-                    <td className="spy-rango">{r?.desde ? fechaCorta(r.desde) : ''}</td>
-                    <td>
-                      {r && r.vivas + r.idas > 0 && (
-                        <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="spy-tabla-canales">
-                        {c.instagram && <span title={NOMBRE_CANAL.instagram}><Icon name="instagram" size={15} /></span>}
-                        {c.youtube_id && <span title={NOMBRE_CANAL.youtube}><Icon name="youtube" size={15} /></span>}
-                        {c.landing_url && <span title="Su sitio"><Icon name="web" size={15} /></span>}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </section>
+
+      {/* ── Tarjetas, no filas. Martín, 2/11: «quiero que cada competidor tenga su caricatura,
+           como acostumbramos, como tarjetas». La cara NO se genera: es su foto de perfil pública,
+           ya bajada a nuestro bucket (migraciones 0361 y 0362) para que no venza. ── */}
+      <div className="spy-crejilla">
+        {competidores.map((c) => {
+          const r = resumen[c.id];
+          const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.landing_url ? 'Su sitio' : null].filter(Boolean).join(' · ');
+          return (
+            <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
+              onClick={() => onAbrir(c.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAbrir(c.id); } }}>
+              <span className="spy-ccard__cara" aria-hidden>
+                {c.avatar
+                  // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket, no pasa por el optimizador
+                  ? <img src={c.avatar} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  : inicial(c.nombre)}
+              </span>
+              <span>
+                <b className="spy-ccard__nombre" title={c.nombre}>{c.nombre}</b>
+                <small className="spy-ccard__sub">{canales || 'Sin canales todavía'}</small>
+              </span>
+              <div className="spy-ccard__pie">
+                {r && r.vivas + r.idas > 0 && (
+                  <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
+                )}
+                {c.mirado_en && <span className="spy-rango">Revisado {haceCuanto(c.mirado_en)}</span>}
+              </div>
+              {/* ⚠️ El botón va DENTRO de la tarjeta y frena el clic: si no, borrar abriría la ficha. */}
+              <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${c.nombre}`}
+                title={`Dejar de mirar a ${c.nombre}`}
+                onClick={(e) => { e.stopPropagation(); onBorrar(c); }}>
+                <Icon name="trash" size={15} />
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </>
   );
 }
+
 /** La serie categórica: el mismo color para el mismo concepto en la barra y en la fila. */
 const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
@@ -655,6 +682,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
   const [filtros, setFiltros] = useState<FiltroSpy[]>([]);
   const [orden, setOrden] = useState<OrdenSpy>('mas-tiempo');
   const [modal, setModal] = useState<'alta' | 'canal' | 'anuncio' | 'quitar' | null>(null);
+  /** A quién se está por dejar de mirar DESDE LA LISTA. En la ficha eso lo maneja `modal`. */
+  const [aBorrar, setABorrar] = useState<Competidor | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
 
@@ -835,6 +864,20 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
     await recargarLista();
   };
 
+  /**
+   * Dejar de mirar a alguien DESDE LA LISTA, sin entrar a su ficha.
+   *
+   * ⚠️ Antes esto sólo existía adentro de la ficha, en el menú de los tres puntos: para sacar un
+   * duplicado había que abrirlo primero. Martín, 2/11: «no veo la opción de eliminar, porque ya
+   * tengo varias "sofia contreras"». No se vuelve a ninguna ficha: ya estamos en la lista.
+   */
+  const quitarDeLaLista = async (id: number) => {
+    const r = await quitarCompetidorAction(id);
+    setABorrar(null);
+    if (!r.ok) { setError(r.error); return; }
+    await recargarLista();
+  };
+
   const flujo = useMemo(() => piezas.filter((p) => p.canal === 'instagram' || p.canal === 'youtube'), [piezas]);
   const anuncios = useMemo(() => piezas.filter((p) => p.canal === 'anuncios'), [piezas]);
   const sitio = useMemo(() => piezas.find((p) => p.canal === 'landing') ?? null, [piezas]);
@@ -944,7 +987,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
           </Vacio>
         )}
 
-        {!c && competidores.length > 0 && <TablaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} />}
+        {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} />}
 
         {c && (
           <>
@@ -1192,6 +1235,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
       {modal === 'alta' && <ModalAlta ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onPegar={(v) => void alta(v)} onAMano={(d) => void altaAMano(d)} />}
       {modal === 'canal' && c && <ModalCampo titulo={`Agregar un canal a ${c.nombre}`} placeholder="Su @, su canal de YouTube o su sitio" boton="Agregar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void sumarCanal(v)} />}
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
+      {aBorrar && (
+        <ConfirmModal
+          msg={`¿Dejar de mirar a ${aBorrar.nombre}? Se borra lo que se leyó de él.`}
+          confirmLabel="Dejar de mirarlo"
+          onOk={() => void quitarDeLaLista(aBorrar.id)}
+          onCancel={() => setABorrar(null)}
+        />
+      )}
       {modal === 'quitar' && c && <ConfirmModal msg={`¿Dejar de mirar a ${c.nombre}? Se borra lo que se leyó de él.`} confirmLabel="Dejar de mirarlo" onOk={() => void quitar()} onCancel={() => setModal(null)} />}
     </main>
   );
