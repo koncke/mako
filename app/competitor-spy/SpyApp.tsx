@@ -62,7 +62,7 @@ import { ConfirmModal } from '../_components/ConfirmModal';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { AVISO_CORTE_VIEWCOUNT, ETAPA_ES_NUESTRO_CRITERIO, NOMBRE_CANAL, cruzaElCorte, dibujarContador } from '@/lib/spy-reglas';
-import { caricaturaDeCompetidor } from '@/lib/spy-caricatura';
+import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import {
   canalesDe, cumpleFiltro, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, ganchosDe, haceCuanto, mezclaDeTipos, ordenarPiezas, pideConectarMeta,
@@ -715,6 +715,10 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
         {competidores.map((c, i) => {
           const r = resumen[c.id];
           const dibujo = caricaturaDeCompetidor(c);
+          // Los competidores que YA estaban se guardaron con lo que se pegó —un @, el id de un
+          // canal—, y esas filas no se arreglan solas: se eligió mostrar su nombre de verdad en vez
+          // de reescribirle un dato al negocio.
+          const titulo = nombreDeTarjeta(c);
           // Cada cara arranca su flote en otro momento. Es por ÍNDICE y no al azar: `Math.random()`
           // en el render daría un número distinto en el servidor y en el navegador, y React avisaría
           // de hidratación desajustada. Un paso de 0,55 s reparte siete segundos entre las primeras
@@ -733,7 +737,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
               </span>
               <div className="spy-ccard__cuerpo">
                 <span>
-                  <b className="spy-ccard__nombre" title={c.nombre}>{c.nombre}</b>
+                  <b className="spy-ccard__nombre" title={titulo}>{titulo}</b>
                   <small className="spy-ccard__sub">{canales || 'Sin canales todavía'}</small>
                 </span>
                 <div className="spy-ccard__pie">

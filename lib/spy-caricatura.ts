@@ -110,6 +110,33 @@ export function nombreDeReferente(id: IdAsesor): string {
   return ASESORES.find((a) => a.id === id)?.completo ?? id;
 }
 
+/**
+ * Cómo se titula la tarjeta: el nombre de VERDAD cuando sabemos quién es.
+ *
+ * ⚠️ POR QUÉ EXISTE, visto en producción el 2/11/2026: una tarjeta decía «@AlexHormozi». El alta
+ * guarda el nombre completo desde hoy, pero **los competidores que ya estaban se guardaron con lo
+ * que se pegó** —el @, o el id del canal—, y esas filas no se arreglan solas.
+ *
+ * ⚠️ SE ARREGLA AL DIBUJAR Y NO TOCANDO LA BASE, a propósito: el nombre guardado es del negocio y
+ * reescribirlo sería cambiarle un dato suyo sin que lo pida. Acá sólo se elige qué mostrar.
+ *
+ * ⚠️ Y NO PISA UN NOMBRE QUE EL NEGOCIO HAYA PUESTO. Sólo entra cuando el nombre guardado ES una de
+ * las formas del referente (su @, su nombre corto, su id): «Hormozi (competencia directa)» no
+ * colapsa a ninguna de ésas, así que se respeta tal cual.
+ */
+export function nombreDeTarjeta(c: AQuienMira & { nombre?: string | null }): string {
+  const guardado = (c.nombre ?? '').trim();
+  const id = referenteDeCompetidor(c);
+  if (!id) return guardado;
+  const real = nombreDeReferente(id);
+  // Si lo guardado ya es su nombre real, no hay nada que cambiar; si es otra cosa que el negocio
+  // escribió, tampoco se toca — y eso sólo puede pasar si NO emparejó por nombre.
+  if (!guardado) return real;
+  return nombreComparable(guardado) === nombreComparable(real) || porNombre.get(nombreComparable(guardado)) === id
+    ? real
+    : guardado;
+}
+
 /** Lo que `queEs` devolvió, visto como «a quién mira», para poder emparejarlo con un referente. */
 export function comoAQuienMira(leido: { campo: 'instagram' | 'youtube_id' | 'landing_url' | 'nombre'; valor: string }): AQuienMira {
   if (leido.campo === 'instagram') return { instagram: leido.valor };

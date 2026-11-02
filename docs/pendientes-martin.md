@@ -804,3 +804,27 @@ más exacto.
 **El punto de enganche exacto:** `lib/cerebro-para-chat.ts` → `armar()`, con `conCapa`, donde hoy se
 cuelgan «Lo que hace MaKo» y Knowledge. Y la capa se pide con `cerebroDeReferenteMemo`, que la lee
 UNA vez por proceso: sin eso, cada turno abriría los 41 archivos del curso de Alborna.
+
+### ✅ DESPLEGADO Y VERIFICADO EN PRODUCCIÓN — 2/11/2026 ~20:45
+
+`origin/main` = **`90cd7f126`** (run #364 verde). Mirado en hola-mako.com/competitor-spy, no en una
+maqueta: **2 tarjetas, las dos tirando de `/asesores/grandes/`, cero carteles «Inspirado en», y la
+animación `spy-flota` activa**.
+
+Entró todo lo visible de Spy: caricaturas, movimiento, 600 px, imagen a sangre, «Su web», el @ en el
+CRM, el link de la bio, la deduplicación por referente y el link de progreso del ticket. Más el
+modal de difusión del CRM, que vino de la sesión de Automations.
+
+⚠️ **Y mirándolo en producción saltó una cosa que la maqueta no mostraba:** una tarjeta decía
+**«@AlexHormozi»**. El alta guarda el nombre completo desde hoy, pero **los competidores que YA
+estaban se guardaron con lo que se pegó** —un @, o el id de un canal— y esas filas no se arreglan
+solas.
+
+**Se arregló al DIBUJAR, no tocando la base** (`nombreDeTarjeta`): el nombre guardado es del negocio
+y reescribirlo sería cambiarle un dato sin que lo pida. Y no pisa un nombre que el negocio haya
+puesto: «Hormozi (competencia directa)» se respeta tal cual, porque sólo entra cuando lo guardado ES
+una de las formas del referente. Con test de las dos mitades.
+
+**La regla que queda:** un arreglo que sólo corre al CREAR no toca lo que ya existe. Si el dato viejo
+se ve en pantalla, o se repara la base o se decide al dibujar — pero hay que elegir, porque «lo
+arreglé» sobre el camino de alta no arregla lo que el usuario está mirando.

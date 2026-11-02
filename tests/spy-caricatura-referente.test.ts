@@ -40,7 +40,7 @@ import assert from 'node:assert/strict';
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  MINIMO_PARA_EMPAREJAR, caricaturaDeCompetidor, comoAQuienMira, nombreDeReferente, referenteDeCompetidor,
+  MINIMO_PARA_EMPAREJAR, caricaturaDeCompetidor, comoAQuienMira, nombreDeReferente, nombreDeTarjeta, referenteDeCompetidor,
 } from '../lib/spy-caricatura';
 import { ASESORES } from '../lib/asesores/catalogo';
 
@@ -97,6 +97,20 @@ test('EL CASO QUE PIDIÓ MARTÍN: su @ y su canal resuelven al MISMO referente',
   const porYoutube = referenteDeCompetidor({ youtube_id: '@ImanGadzhi' });
   assert.equal(porInstagram, 'iman-gadzhi');
   assert.equal(porYoutube, porInstagram);
+});
+
+test('la tarjeta se titula con su nombre real aunque esté guardado el @', () => {
+  // ⚠️ VISTO EN PRODUCCIÓN el 2/11/2026: una tarjeta decía «@AlexHormozi». El alta guarda el nombre
+  // completo desde hoy, pero los competidores que YA estaban se guardaron con lo que se pegó.
+  assert.equal(nombreDeTarjeta({ nombre: '@AlexHormozi', instagram: 'alexhormozi' }), 'Alex Hormozi');
+  assert.equal(nombreDeTarjeta({ nombre: 'hormozi' }), 'Alex Hormozi');
+  assert.equal(nombreDeTarjeta({ nombre: 'sofiacontreras' }), 'Sofía Contreras');
+});
+
+test('pero NO pisa el nombre que el negocio le puso', () => {
+  // Reescribir esto sería cambiarle un dato suyo sin que lo pida.
+  assert.equal(nombreDeTarjeta({ nombre: 'Hormozi (competencia directa)', instagram: 'alexhormozi' }), 'Hormozi (competencia directa)');
+  assert.equal(nombreDeTarjeta({ nombre: 'Panadería La Esquina' }), 'Panadería La Esquina');
 });
 
 test('se guarda su nombre de verdad, que es lo que junta las dos tarjetas', () => {
