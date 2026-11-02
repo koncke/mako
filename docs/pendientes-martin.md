@@ -583,3 +583,61 @@ estar hecho**. Lo averiguado acá ya está pago: no hace falta volver a buscarlo
   API de MaKo, las rutas del móvil, los módulos de Knowledge, Create y Estrategia. Seis tests.
 - **Hecho =** cada consumidor mudado a donde viven ahora (Funnel Coach y Hormozi, adentro del
   Ops Center), y recién entonces la línea de menos en `nav.ts`.
+
+## 🔎 REVISIÓN COMPLETA DE COMPETITORS SPY — 2/11/2026 ~20:30
+
+Martín la pidió dos veces: «revisá bien todas las cosas que van a faltar de Competitor Spy». Esto es
+la lista entera, con lo que YO había marcado mal.
+
+### ⛔ Lo que marqué HECHO y NO lo está
+
+**Ítem 8 — el rediseño del modal de «nuevo competidor».** Martín: «si faltan más cosas de Competitor
+Spy, también por ejemplo como el rediseño del modal de nuevo competidor, entonces eso también hace
+falta».
+
+**Tiene razón y el error es mío.** Lo marqué HECHO porque le puse **una entrada, vista previa y
+confirmación** — o sea arreglé cómo FUNCIONA. El pedido del 2/11 era «rediseña el modal de nuevo
+competidor», que es cómo se VE. Es exactamente la confusión que él me corrigió cuatro veces esta
+semana con la tab: *«no quiero que corrijas o intentes mejorar lo que ya hiciste»*.
+
+Lo que haría falta, y el método está medido: empezar por `docs/diseno/referencia-spy.md` (la
+anatomía de modal sacada del navegador) y NO por `SpyApp.tsx`. Si el primer archivo que se abre es el
+nuestro, es una mejora, no un rediseño.
+
+### ✅ Lo que quedó andando hoy
+
+| | qué |
+|---|---|
+| **Las 22 caricaturas ya dibujadas entran en la tarjeta** | `ff17d32ba`. Se empareja por nombre comparable, sin tabla de @: `alexhormozi`, `hormozi` y «Alex Hormozi» colapsan al mismo texto. Va con el cartel «Inspirado en» |
+| **No hay dos Hormozi** | el alta guarda el nombre DE VERDAD que ya leía la vista previa (antes: `alexhormozi`, o `UCxxxx` si pegabas su canal — por eso salían dos tarjetas), y el referente entró como tercera llave de deduplicación |
+| **El link de su bio** | `4ad25d54d`. Entra como landing, o como YouTube si su bio enlaza su canal |
+| **El @ en el CRM** | `c85e10ec2`. Pedía una clave de Apify que no existe |
+
+### ⏳ Lo que falta de Spy, en orden de lo que Martín pidió
+
+| | qué falta | por qué no está |
+|---|---|---|
+| **13** | **compartir el análisis entre todos los usuarios** | la decisión está tomada (caché global por `ref` de canal; la LISTA de cada negocio sigue siendo suya). Falta una migración con RLS y la pantalla. **Es lo más grande que queda y Martín lo volvió a pedir con prioridad.** Delegado a una sesión en la nube; no volvió nada todavía |
+| **8** | **el rediseño del modal** (lo de arriba) | se confundió «funciona» con «se ve bien» |
+| **10** | **el desplegable con varios perfiles** | es una BÚSQUEDA, y lo que tenemos es lectura por @ exacto. Necesita un actor de búsqueda de Apify: Martín ya dijo que paga, falta elegirlo y medir qué cuesta por búsqueda |
+| — | **generar caricaturas NUEVAS** (para quien no es referente) | el camino es Google Flow (`lib/flow-imagen.ts`, acepta foto de referencia). **Falta UN dato antes de construir: sobre qué cuenta de Google corre el puente.** Si corre sobre la de Martín, generar para los competidores de cada cliente le gasta a él |
+| **21** | probar punta a punta la clave de Apify de ws 9 | gasta del tope diario de un cliente real; se prueba junto a una lectura que de todos modos había que hacer |
+| **12** | pasar de 25 publicaciones POR META | Business Discovery no tiene credencial desde el 22/10. Un límite que Meta no acepte hace fallar la consulta ENTERA: no se toca a ciegas |
+| — | elegir publicaciones a dedo desde el perfil | es trabajo de la extensión, no de la tab |
+
+### 🎯 Los 22 que ya tienen cara: Martín pega el @ y sale dibujado
+
+Él pidió los @. **No hace falta que yo los adivine, y es mejor así:** el emparejamiento es por nombre,
+y la vista previa ya lee el nombre real del perfil. O sea que pegando el @ que él conoce, el sistema
+reconoce a la persona por el nombre que devuelve Instagram y le pone la caricatura. **Un @ puesto de
+memoria por mí traería a OTRA persona**, que es el error que ya pagamos con los gurús.
+
+Alex Hormozi · Juan Osorio (Juan ADS) · Julián Otálora · Sofía Contreras · Marcos Razzetti ·
+Víctor Heras · Agustín Nievas · Derek Chamizo · David Turu · Ximena Fukuda · Guille Collado ·
+Marc Verdú · Ramiro Cubria · Iman Gadzhi · Felipe Vergara · Jaime Higuera · Adrià Sola Pastor ·
+Augusto Bianchi · Tino Mossu · Jordi Segués · Emilio Puigrredón · Julián Alborna
+
+⚠️ **Y los duplicados que YA están en la base no se arreglan solos.** El arreglo impide los nuevos.
+Los que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs «acquisition.com»)
+hay que borrarlos a mano desde la tarjeta. ⚠️ **`acquisition.com` no se va a juntar con Hormozi
+nunca**: un dominio no se empareja con una persona, y hacerlo necesitaría una tabla de dominios.
