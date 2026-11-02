@@ -25,8 +25,30 @@ import { getRolWsEfectivo } from '@/lib/workspace';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
 
 /** null = entra. `getRolWsEfectivo` da 'admin' al admin del workspace y a la agencia. */
+/**
+ * Quién puede MIRAR: cualquiera que pertenezca al negocio.
+ *
+ * ⚠️ ANTES TODA LA TAB PEDÍA ADMIN, y eso es lo que había que cambiar. Martín, 2/11/2026:
+ * «todavía todos los usuarios no pueden ver la nueva tab de Competitor Spy y eso ya debería
+ * estar disponible... no tiene sentido que uno analice a Alex Hormozi y luego otro vuelva a
+ * analizar al mismo». Sacar el `adminOnly` de la barra sin tocar esto habría sido peor que
+ * dejarlo escondido: la tab se vería y no andaría ni para listar.
+ */
+async function soloMiembro(): Promise<string | null> {
+  return (await getRolWsEfectivo()) ? null : 'Entra a tu negocio para ver los competidores.';
+}
+
+/**
+ * Quién puede BORRAR: sólo el administrador.
+ *
+ * ⚠️ ES LO ÚNICO QUE QUEDA RESTRINGIDO, y lo pidió Martín en la misma frase: «ahí tienes que
+ * fijarte cómo hacer la lógica de eliminado de ciertos análisis, para que si son ciertos
+ * competidores no los puedan eliminar los usuarios». Borrar se lleva puestas TODAS las piezas
+ * leídas (`on delete cascade`, 0359), o sea el trabajo de todo el equipo, y no se puede
+ * deshacer. Agregar y revisar no: lo peor que hacen es sumar trabajo.
+ */
 async function soloAdmin(): Promise<string | null> {
-  return (await getRolWsEfectivo()) === 'admin' ? null : 'Solo el administrador del workspace puede usar esta tab.';
+  return (await getRolWsEfectivo()) === 'admin' ? null : 'Solo el administrador del negocio puede dejar de mirar a un competidor.';
 }
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
@@ -35,7 +57,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 export type PiezaVista = Pieza & { etapa: EtapaTendencia | null; piezasDePagina?: string[] };
 
 export async function competidoresAction(): Promise<{ ok: true; competidores: Competidor[]; resumen: Record<number, ResumenPiezas> } | { ok: false; error: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
     const r = await listarCompetidores();
@@ -47,7 +69,7 @@ export async function competidoresAction(): Promise<{ ok: true; competidores: Co
 }
 
 export async function piezasAction(id: number, canal?: CanalSpy): Promise<{ ok: true; piezas: PiezaVista[] } | { ok: false; error: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
     const piezas = await listarPiezas(id, canal);
@@ -68,7 +90,7 @@ export async function piezasAction(id: number, canal?: CanalSpy): Promise<{ ok: 
  * pantalla abre la ficha. Si ya existía, el upsert por nombre devuelve la misma fila.
  */
 export async function sumarCompetidorAction(pegado: string, nombre?: string): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
     const r = await agregarCompetidor(pegado, nombre);
@@ -83,7 +105,7 @@ export async function sumarCompetidorAction(pegado: string, nombre?: string): Pr
 
 /** Le suma un canal al competidor que ya está: el upsert por nombre escribe sobre la MISMA fila. */
 export async function sumarCanalAction(id: number, pegado: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
     const c = await leerCompetidor(id);
@@ -98,7 +120,7 @@ export async function sumarCanalAction(id: number, pegado: string): Promise<{ ok
 }
 
 export async function revisarAction(id: number): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, canales: [], error: no };
   try {
     const r = await mirarCompetidor(id);
@@ -110,7 +132,7 @@ export async function revisarAction(id: number): Promise<{ ok: boolean; canales:
 }
 
 export async function analizarAction(id: number): Promise<{ ok: true } | { ok: false; error: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try {
     // Lo que vende ESTE negocio es la mitad del análisis: sin eso sale «este competidor promete X»,
@@ -125,7 +147,7 @@ export async function analizarAction(id: number): Promise<{ ok: true } | { ok: f
 }
 
 export async function guardarAnuncioAction(id: number, enlace: string, copy?: string): Promise<{ ok: true; nuevo: boolean } | { ok: false; error: string }> {
-  const no = await soloAdmin();
+  const no = await soloMiembro();
   if (no) return { ok: false, error: no };
   try { return await guardarAnuncioPegado(id, enlace, copy); } catch (e) { return { ok: false, error: msg(e) }; }
 }

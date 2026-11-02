@@ -526,9 +526,9 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   );
 }
 
-function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar }: {
+function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBorrar }: {
   competidores: Competidor[]; resumen: Record<number, ResumenPiezas>;
-  onAbrir: (id: number) => void; onBorrar: (c: Competidor) => void;
+  onAbrir: (id: number) => void; onBorrar: (c: Competidor) => void; puedeBorrar: boolean;
 }) {
   const desdes = Object.values(resumen).map((r) => r.desde).filter((d): d is string => !!d).sort();
   return (
@@ -570,12 +570,13 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar }: {
                 )}
                 {c.mirado_en && <span className="spy-rango">Revisado {haceCuanto(c.mirado_en)}</span>}
               </div>
-              {/* ⚠️ El botón va DENTRO de la tarjeta y frena el clic: si no, borrar abriría la ficha. */}
-              <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${c.nombre}`}
+              {/* ⚠️ El botón va DENTRO de la tarjeta y frena el clic: si no, borrar abriría la ficha.
+                  Y no se dibuja para quien no puede borrar: un botón que siempre falla es peor que no estar. */}
+              {puedeBorrar && <button type="button" className="spy-ccard__borrar" aria-label={`Dejar de mirar a ${c.nombre}`}
                 title={`Dejar de mirar a ${c.nombre}`}
                 onClick={(e) => { e.stopPropagation(); onBorrar(c); }}>
                 <Icon name="trash" size={15} />
-              </button>
+              </button>}
             </div>
           );
         })}
@@ -658,12 +659,14 @@ function RielAnalisis({ piezas, c, analizando, onAnalizar }: { piezas: PiezaVist
   );
 }
 
-export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
+export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puedeBorrar = false }: {
   iniciales: Competidor[];
   resumenInicial: Record<number, ResumenPiezas>;
   /** El `?competidor=` de la URL. La ficha es una URL: se comparte, se marca y se vuelve. */
   abierto: number | null;
   errorInicial: string | null;
+  /** Sólo el admin del negocio borra: se lleva lo leído por todo el equipo y no se deshace. */
+  puedeBorrar?: boolean;
 }) {
   const [competidores, setCompetidores] = useState<Competidor[]>(iniciales);
   const [resumen, setResumen] = useState(resumenInicial);
@@ -987,7 +990,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
           </Vacio>
         )}
 
-        {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} />}
+        {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
 
         {c && (
           <>
@@ -1165,7 +1168,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                           { value: 'analizar', label: analizando ? 'Leyendo su oferta…' : 'Qué vende y qué ataca' },
                           { value: 'canal', label: 'Agregar un canal' },
                           { value: 'anuncio', label: 'Guardar un anuncio' },
-                          { value: 'quitar', label: 'Dejar de mirarlo' },
+                          // Mismo criterio que el botón de la lista: borrar es del admin, y lo
+                          // que no se puede hacer no se ofrece.
+                          ...(puedeBorrar ? [{ value: 'quitar', label: 'Dejar de mirarlo' }] : []),
                         ]}
                         onChange={(v) => {
                           // «Qué vende y qué ataca» no abre un modal: corre. Por eso sale antes del setModal.

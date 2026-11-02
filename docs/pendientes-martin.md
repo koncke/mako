@@ -19,6 +19,7 @@ tres seguidos: se junta y se manda una vez por ítem.
 | | Ítem | Estado | Commit |
 |---|---|---|---|
 | 1 | Spy visible para todos (tenía `adminOnly`) | **HECHO** | `91bcafb09` |
+| 1b | **Que además FUNCIONE para todos** (las acciones pedían admin) | **HECHO** | mirar y agregar: cualquiera. Borrar: sólo el admin |
 | 2 | Offer y Ads Manager fuera de la barra | **HECHO** | `91bcafb09` |
 | 3 | Miniaturas de IG: `referrerPolicy` + respaldo | **HECHO** | `91bcafb09`, y reemplazado por #4 |
 | 4 | **Descargar y GUARDAR la miniatura** | **HECHO** | bucket `spy-miniaturas` (0361) + `lib/spy-miniaturas.ts`. Migración YA APLICADA en prod |

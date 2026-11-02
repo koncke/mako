@@ -11,6 +11,7 @@
 import { SpyApp } from './SpyApp';
 import { listarCompetidores, resumenDePiezas } from '@/lib/spy';
 import { requireRolWs } from '@/lib/tab-access';
+import { getRolWsEfectivo } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,12 +20,16 @@ export default async function CompetitorSpyPage({ searchParams }: { searchParams
   const r = await listarCompetidores().catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }));
   const resumen = await resumenDePiezas().catch(() => ({}));
   const pedido = Number((await searchParams).competidor);
+  // Quién puede BORRAR. Cualquiera mira y agrega; borrar se lleva puestas todas las piezas
+  // leídas por el equipo (`on delete cascade`, 0359) y no se deshace, así que es del admin.
+  const esAdmin = (await getRolWsEfectivo()) === 'admin';
   return (
     <SpyApp
       iniciales={r.ok ? r.competidores : []}
       resumenInicial={resumen}
       abierto={Number.isInteger(pedido) && pedido > 0 ? pedido : null}
       errorInicial={r.ok ? null : r.error}
+      puedeBorrar={esAdmin}
     />
   );
 }
