@@ -27,6 +27,53 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
+## 🔴 ESTADO AL 2/11 ~04:00 — HAY 13 COMMITS SIN DESPLEGAR Y ACTIONS ESTÁ EN ROJO
+
+**`origin/main` = `8a60cd310`. `origin/integracion` = `dd1ef0d08`.** Todo lo de la noche del 2/11
+está commiteado y pusheado a `integracion`, y **nada llegó a producción**.
+
+**El tablero vivo es `docs/pendientes-martin.md`** — ahí está la lista de los 21 pedidos con su
+estado, y arriba de todo el aviso de por qué nada se desplegó. Esto de acá es el resumen.
+
+### Lo que hay que hacer PRIMERO al retomar
+
+1. **Mirar el último run**: `github.com/koncke/mako/actions/workflows/integracion.yml`.
+   Los runs #335 y #336 fallaron en el paso `afectados` (un test, no los tipos). El #335 fue
+   `tests/guia-catalogo.test.ts` y ya está arreglado; **el del #336 todavía NO se identificó**.
+2. **Para identificarlo sin esperar 25 minutos**, correr acá lo mismo que corre CI:
+   `node scripts/tests-afectados.mjs --base origin/main --concurrencia 2 --tanda 40`
+   (tarda más de 10 minutos con la RAM de esta máquina; va en segundo plano).
+3. **NO pushear por ítem.** `concurrency: integracion` cancela el run anterior con cada push: yo
+   pusheé nueve veces seguidas y maté nueve chequeos, por eso hay 13 commits parados. Se junta,
+   se pushea UNA vez y se espera.
+
+### Lo HECHO esta noche, todo en `integracion` (10 ítems)
+
+| Ítem | Commit |
+|---|---|
+| Spy visible para todos (sacar `adminOnly` de la barra) | `91bcafb09` |
+| Offer y Ads Manager fuera de la barra | `91bcafb09` + `dd1ef0d08` |
+| Miniaturas de IG: `referrerPolicy` (el CDN de Meta da 403 desde otro dominio) | `91bcafb09` |
+| YouTube trae los videos LARGOS (paginar + cupo) | `e2d9d265e` |
+| La miniatura se BAJA y se guarda (bucket, migración 0361) | `c88359abb` |
+| La lista en tarjetas con la cara + borrar ahí (migración 0362) | `eb5720c61` |
+| El alta deja de duplicar a la misma persona | `bcce42131` |
+| Spy funciona para todo el equipo; borrar sólo el admin | `ee9cdf490` |
+
+⚠️ **Las migraciones 0360, 0361 y 0362 YA ESTÁN APLICADAS en producción** (verificadas contra
+`leads=3071`). Las migraciones NO corren solas en el deploy: se aplican a mano con
+`node --env-file=C:/dev/mako-api/.env.local scripts/apply-migration.mjs <archivo>`.
+
+### Las tres trampas de la noche, que son lo que más tiempo ahorra
+
+1. **Un guard que busca un IDENTIFICADOR encuentra la declaración, no el uso.** Me pasó dos veces
+   en una hora: `/PAGINAS_MAX/` pasó en verde con `PAGINAS_MAX = 1`, que es el bug. Un guard de
+   código busca la FORMA DEL USO, y **se prueba rompiendo lo que vigila** antes de confiar en él.
+2. **Un grep vacío no es un hecho.** Tres veces dije «no está en Knowledge» y las tres estaba:
+   `Puigrredón` con tilde, `Maffia` con dos efes, y Vilma Núñez renombrada por el mapa `TITULO`.
+3. **Sacar una tab de la barra toca más de un lugar**: `nav.ts`, las acciones del servidor (que
+   pedían admin y dejaban la tab muerta) y `SIN_GUIA_TODAVIA` en `tests/guia-catalogo.test.ts`.
+
 ## 📋 TODO LO PENDIENTE DE MARTÍN — inventario verificado contra el código (2/11/2026 ~01:00)
 
 Martín: «Revisá TODOS los pedidos que te hice y que siguen pendientes». Cada línea se comprobó
@@ -100,7 +147,7 @@ marcados y el cliente no los puede borrar — sólo dejar de verlos.
   desplegado**, así que lo que Martín vio es la versión vieja. Hay que mirarlo DESPUÉS de recargar;
   si sigue roto es otro problema y hace falta la captura.
 
-## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 89 %)
+## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 90 %)
 
 **Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
 `origin/main` estaba en `e63050081` al empezar y no se movió.
