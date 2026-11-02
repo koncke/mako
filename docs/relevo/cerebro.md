@@ -27,7 +27,7 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ⏩ LEER PRIMERO — 1/11/2026 ~20:50 ART, el Cerebro de claude1 (`e680c815`, semana al 86 %)
+## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 87 %)
 
 **Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
 `origin/main` estaba en `e63050081` al empezar y no se movió.
@@ -38,6 +38,12 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 |---|---|---|
 | `6ff74c641` | **Integraciones: los trece logos que no eran los de la empresa** | commiteado, chequeo sin terminar |
 | `6a91c1c97` | **Ops Center: seis referentes nuevos, destilados de Knowledge** | commiteado, chequeo sin terminar |
+| `f378981ea` | **Modal de referentes: de 3 scrolls a 1, y de 640 a 1040 de ancho** | commiteado |
+| `0688bce47` | **Los videos de Instagram llegan a la tarjeta** (+ migración 0360) | commiteado |
+| `82d1d96e0` | **Sin voseo en las fichas nuevas** (lo había puesto ROJO el guard de copy) | commiteado |
+| `b02f5b0e9` | Spy: 7 filas → 5 | **superado por `20dc651fd`** |
+| `0aa925c28` | Spy: los tokens medidos | **superado por `20dc651fd`** |
+| `20dc651fd` | **⭐ COMPETITORS SPY REHECHA copiando una referencia** | commiteado, SIN tests corridos |
 
 ⚠️ **El push NO pasó: se quedó esperando RAM, no es rojo.** `antes-de-subir` corrió 45 tandas y a partir de
 la 7 empezó a bajar tandas por RAM (0,7-1,1 GB libres contra 1,3 que pide). Cada vez suelta el candado y
@@ -80,7 +86,29 @@ transcripciones de verdad, caricaturas en el estilo aprobado.
   (`.../e680c815-.../scratchpad/refs2/` y `bajar_caras.py`, `guardar_caras.py`): se resuelven por
   `youtube.com/@handle`, nunca por búsqueda.
 
-### 3. ⛔ COMPETITORS SPY: EL REDISEÑO NO SE HIZO. Es lo primero que sigue.
+### 3. ✅ COMPETITORS SPY REHECHA — `20dc651fd`. Falta correr los tests y que Martín la mire.
+
+**Esto reemplaza lo que decía abajo.** La tab se rehizo copiando una referencia, que es lo que Martín
+pidió CUATRO veces y cuatro veces no recibió.
+
+- **La trampa, y es la que más tiempo ahorra:** las tres vueltas anteriores sí tocaron la tab y las
+  tres se rechazaron. Las tres abrieron primero `SpyApp.tsx`. Partiendo de la pantalla propia sólo se
+  le puede cambiar la superficie —filas de lugar, tokens— y el esqueleto, que es lo que se ve, queda
+  intacto. **Si el primer archivo que abriste es el tuyo, no estás copiando.** Medir no lo salva: las
+  dos vueltas malas daban mejores números que el original.
+- **La referencia se elige por la FORMA, no por el rubro.** Spy es «un catálogo que se filtra», así que
+  la que sirvió fue una TIENDA DE ROPA (`demo.codeandchill.store/fitlo/#/shop/all`). El análisis no
+  entra en un catálogo, así que el riel salió de otra (`merrin`). Dos referencias, una por pieza.
+- Medidas, reglas CSS y el mapeo a los tokens de la casa: **`docs/diseno/referencia-spy.md`**.
+  El hallazgo de método: `docs/hallazgos-competitors-spy.md`, última sección.
+- **Qué falta:** correr `tests/spy-reglas · spy-vista · spy-orden · spy-apify · puente-panel-copy`.
+  **No se pudieron correr: la guardia de RAM lleva horas en 2,1-2,3 GB y pide 3.** Verificado a mano
+  sin node: esbuild parsea los dos componentes, no hay ninguna palabra de duelo (`rival` está en la
+  lista y «Marcas Rivales» sólo vive en el mock, no en el componente) y no quedó voseo.
+- **Cómo verla sin Next:** `scratchpad/spy_ref.py` dibuja la tab con el CSS del propio componente y
+  el `:root` real de `app/globals.css`, y la sirve el `http.server` del 4899.
+
+### 3-bis. Lo que decía antes (histórico)
 
 Martín lo pidió el 1/11 y **sigue pendiente**: «no solamente quiero que funcione y que traiga datos, sino
 que también el diseño esté bueno. O sea, fíjate que la cantidad de botones arriba, texto, eso no me gusta»,
