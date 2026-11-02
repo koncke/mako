@@ -55,14 +55,29 @@ las rutas viejas. Ya está restituido y en verde (26/0) dentro de este run.
    **caricatura de un competidor que no es referente** — era la única pregunta abierta. Va como
    trabajo aparte de la lectura, con tope, y la tarjeta muestra la foto mientras tanto.
 
-## ⚠️ CÓMO SABER SI ACTIONS SALIÓ ROJO (me pasó dos veces y Martín se enteró antes)
+## ✅ CÓMO SABER SI ACTIONS SALIÓ ROJO — RESUELTO, pero leé esto antes de confiar
 
-**Un vigía sobre git NO puede ver un rojo**: Actions avanza `main` sólo cuando sale verde; cuando
-falla no escribe nada en git, así que «rojo» y «corriendo» se ven igual. Medido esta noche: **un run
-que falla muere en 5–12 min; uno verde tarda 25–50.** La regla, entera, en `docs/hallazgos-infra.md`:
-mirar el run **a los ~8 min después de cada push**, sin delegar la primera mirada, y el latido del
-Monitor cada 6 min diciendo «ir a mirar AHORA». Lo arreglaría de verdad `gh`, que **no está
-instalado en esta máquina**.
+Martín se enteró de **tres** rojos antes que yo. La causa era una **asimetría**: el verde escribe en
+git (avanza `main`) y el rojo **no escribía nada**, así que un vigía hecho con git veía lo MISMO en
+«rojo» que en «corriendo». Y git es lo único que hay: **`gh` no está instalado en esta máquina.**
+
+**El arreglo está en `.github/workflows/integracion.yml`:** un paso con `if: failure()` que pushea
+la cabeza que falló a la rama **`ci-ultimo-rojo`**. Ahora un `git fetch` ve el rojo:
+
+```
+git fetch origin --quiet
+git rev-parse --verify --quiet origin/ci-ultimo-rojo   # el último commit que puso rojo a Actions
+git log origin/ci-ultimo-rojo -1                        # qué se estaba subiendo
+```
+
+⚠️ **EL PASO RECIÉN CORRE EN EL RUN SIGUIENTE AL QUE LO INCORPORA.** Entró en `ae30f14f5`; si ESE
+run falla, la marca todavía no aparece. Del siguiente en adelante, sí.
+
+⚠️ **Y NO REPITAS MI ERROR:** antes de esto intenté adivinar por tiempos —«un rojo muere en 5–12
+min»— y con esa regla ensanché el vigía a 48 minutos justo antes de que un run muriera a los ~15.
+**Cuatro datos no son una distribución, y una heurística sobre el síntoma no arregla una
+asimetría.** Si la marca no estuviera disponible, lo correcto es mirar el run a los ~8 minutos y no
+delegarle la primera mirada a nada.
 
 ⚠️ **Offer se sacó SIN borrar su entrada, y eso no es un detalle.** Hay un flag nuevo,
 `fueraDeLaBarra`, chequeado en `puedeVerItem` (`lib/nav-visibilidad.ts`), que es la puerta
