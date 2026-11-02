@@ -1,4 +1,4 @@
-# Relevo del chat Runner (01/11/2026, 22:55 UTC; 85% semanal, cuenta claude1)
+# Relevo del chat Runner (02/11/2026, 20:25 UTC; 95% semanal, cuenta claude1; reinicia el 04/11 a las 10:00 UTC)
 
 Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron. Eso manda sobre este archivo.
 
@@ -8,6 +8,10 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 - **Monitor con `vigilar-continuo.sh`:** entrega en segundos y termina solo a los 28 minutos. Hay que volver a armarlo en cada aviso.
 - **Recordatorios:** `8a9b80fb` (05/11, rearmar el cron) y `a3d9a0af` (06/11, revisar el limbo).
 - Si este chat se cierra, no se entrega ni se mide. Al retomar: `CronList`, armar el Monitor y contar las copias (`continuo.pid`; memoria `monitor-no-mata-el-proceso`).
+- **Si la cuenta corta al 97%, se para todo esto:** nada más entrega los pedidos del Centro hasta que este chat siga en otra cuenta. Al retomar, `medir` frena una medición de otra cuenta si el marcador está mal, y `--renovada` sólo se usa si lo dice Martín.
+- La app no informa la ventana de 5 horas: `medir` va con `"" ""` en su lugar.
+- **Última vuelta antes de este relevo:** 20:25 UTC. Latido al día, sin alertas y 9 en el limbo.
+- **Del 02/11 02:00 a las 20:25 UTC** se entregaron al Cerebro, con acuse: tickets #43 y #44, y los pedidos de Martín `4dbf4767`, `3a1657a3` y `1088908c`. Entregar no dice que los leyó ni que están hechos: eso se mira en el Centro.
 
 ## Lo pedido y lo hecho
 
@@ -17,7 +21,7 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 
 ## A medias: `runner-servicio-3010`, sin subir
 
-Carpeta `C:/dev/wt-runner-servicio`. Quedó atrás de main (medido contra `e63050081`): antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
+Carpeta `C:/dev/wt-runner-servicio`. Medido el 02/11 a las 20:25 UTC contra `7eea250f5`: 11 commits propios y 143 atrás de main. Antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
 
 - Tipos de `useCentro.ts` y de los `.tsx` grandes (el acotado dio 99; los juzga Actions).
 - Verla en la pantalla real como super admin. El arnés sólo probó la pieza y su CSS.
@@ -35,3 +39,4 @@ Carpeta `C:/dev/wt-runner-servicio`. Quedó atrás de main (medido contra `e6305
 - **El limbo:** 9 mensajes, los primeros vencen el 08/11. Los cierra el Cerebro, de a uno; no se cancelan por script.
 - **`lib/centro-limbo.ts`** quedó con funciones sin pantalla (`originalParaReenviar`, `queHacer`, `chatsParaMandarle`, `textoDelCartel`), igual que `descartarDelLimboAction`.
 - **El Monitor del vigía de tickets del Cerebro** puede tener la misma fuga. Se lo avisé el 01/11; no lo medí.
+- **El corte de vueltas del 01/11, de 02:25 a 08:54 hora Argentina:** sin causa medida; quizá la PC dormida.
