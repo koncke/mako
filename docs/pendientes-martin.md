@@ -30,6 +30,17 @@ Dos causas:
    `tests-afectados.mjs` en esta máquina da una lista DISTINTA —corta en otra tanda— que me mandó
    a perseguir dos tests lentos sin relación.
 
+### Verificado EN PRODUCCIÓN (2/11 ~05:50, mirando hola-mako.com/competitor-spy)
+
+- La rejilla de tarjetas se dibuja, y **el botón de borrar aparece al pasar por encima**. ✅
+- ⚠️ **Las caras todavía no se ven: todas muestran la inicial.** No es un bug — `avatar` se llena
+  recién cuando se vuelve a LEER al competidor («Revisar ahora»), y nadie leyó nada desde el
+  deploy. Lo mismo vale para las miniaturas guardadas: las piezas que ya estaban en la base siguen
+  apuntando al CDN de Meta, con `miniatura_guardada_en` en null. **La primera lectura las arregla.**
+- ⚠️ **Los duplicados que ya existen no se van solos.** El arreglo del alta impide los NUEVOS;
+  los seis que hay («sofiacontreras» vs «Sofia Contreras», «hormozi» vs «@AlexHormozi» vs
+  «acquisition.com») hay que borrarlos a mano, que ahora se puede desde la tarjeta.
+
 ## Estado
 
 | | Ítem | Estado | Commit |
