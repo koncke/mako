@@ -53,6 +53,8 @@ import {
   nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
 import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-caricatura';
+import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
+import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { getTenantDb, getWorkspaceActual } from './workspace';
@@ -511,7 +513,17 @@ export type LecturaCanalSpy = { canal: CanalSpy; ok: boolean; piezas: number; nu
  * Devuelve una línea por canal, también por el que no se pudo leer: «no pude» es un tercer estado y
  * confundirlo con «no tiene» le miente al negocio.
  */
-export async function mirarCompetidor(competidorId: number): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
+/**
+ * `motivo` decide si sirve la lectura que YA pagó otro negocio (`lib/spy-compartido.ts`).
+ *
+ * ⚠️ EL DEFAULT ES `'a-pedido'`, QUE NUNCA USA LA CACHÉ, y es a propósito: quien no dice para qué
+ * está leyendo se lleva datos frescos. Equivocarse hacia «leer de más» cuesta un crédito;
+ * equivocarse hacia «servir lo de otro» le muestra a alguien datos viejos creyendo que son de hoy.
+ */
+export async function mirarCompetidor(
+  competidorId: number,
+  motivo: MotivoDeLectura = 'a-pedido',
+): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
   const c = await leerCompetidor(competidorId);
   if (!c) return { ok: false, canales: [], error: 'No encontré ese competidor.' };
   const canales: LecturaCanalSpy[] = [];
@@ -522,6 +534,22 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
   if (c.instagram) {
+    // ⚠️ ANTES DE PAGAR, ¿YA LO LEYÓ OTRO? (ítem 13, 2/11/2026). Una lectura de Instagram gasta del
+    // tope diario de Apify del negocio, y el resultado es el MISMO para cualquiera porque el canal
+    // es público. Con `'alta'` sirve hasta 24 h; con «Revisar ahora» (`'a-pedido'`) NUNCA, por
+    // fresca que esté: quien toca ese botón pide datos de hoy.
+    const yaLeida = motivo === 'a-pedido' ? null : await lecturaCompartida('instagram', c.instagram);
+    if (yaLeida && sirveLaCompartida(motivo, yaLeida.leidoEn, Date.now())) {
+      const vistas = yaLeida.piezas as PiezaVista[];
+      const g = await guardarVistas(competidorId, vistas);
+      void anotarAhorro('instagram', c.instagram);
+      const p = yaLeida.perfil ?? {};
+      if (typeof p.seguidores === 'number') seguidores = p.seguidores;
+      canales.push({
+        canal: 'instagram', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas,
+        detalle: g.error ?? `${vistas.length} publicaciones (de una lectura de hace poco, sin gastar una nueva)`,
+      });
+    } else {
     // ⚠️ CON EL NEGOCIO (1/11/2026): sin `ws`, la función no podía usar la Meta del cliente ni su clave, y leía siempre con la de la plataforma.
     const l = await leerPerfilInstagram(c.instagram, { ws: await getWorkspaceActual(), conPiezas: true, fuentes: ['meta-negocio', 'meta-plataforma', 'apify-spy'] });
     if (!l.ok) {
@@ -555,7 +583,11 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
         }));
         const g = await guardarVistas(competidorId, vistas);
         if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas.map((v) => v.ref));
+        // Se guarda para que el PRÓXIMO negocio no la pague. No se espera: si falla, este negocio
+        // ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente.
+        void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null });
         canales.push({ canal: 'instagram', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} publicaciones` });
+      }
       }
     }
   }

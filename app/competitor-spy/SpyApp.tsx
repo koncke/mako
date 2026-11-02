@@ -891,12 +891,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   // `animada`: la lectura se ve como sus piezas juntándose y repartiéndose en carpetas (./OrdenSpy.tsx). Una relectura sola de una ficha
   // que ya tiene piezas va callada: no le corre la pantalla a quien entró a mirar.
-  const leer = useCallback(async (id: number, animada = true) => {
+  // `motivo` llega sólo desde el alta: ahí sirve la lectura que ya pagó otro negocio (hasta 24 h),
+  // porque no hay NADA en pantalla. El botón «Revisar ahora» nunca lo pasa: pide datos de hoy.
+  const leer = useCallback(async (id: number, animada = true, motivo?: 'alta') => {
     yaLeidos.current.add(id);
     setLeyendo(id);
     if (animada) setOrdenando({ id, piezas: null });
     try {
-      const r = await revisarAction(id);
+      const r = await revisarAction(id, motivo);
       if (r.error) setError(r.error);
       // Siempre queda algo en `lecturas`, también si la acción falló: es lo que saca a la pantalla
       // del esqueleto, y una lista vacía se dibuja como «no pude», nunca como «no hay».
@@ -951,7 +953,9 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     await recargarLista();
     // Se lee aunque la ficha ya estuviera abierta: puede haber sumado un canal.
     yaLeidos.current.delete(id);
-    if (actual.current === id) void leer(id);
+    // Recién agregado: va con motivo `'alta'`, que es donde el ítem 13 ahorra de verdad — si otro
+    // negocio ya leyó este canal hace poco, no se gasta un crédito en volver a leerlo.
+    if (actual.current === id) void leer(id, true, 'alta');
     else irA(id);
   };
 

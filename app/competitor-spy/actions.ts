@@ -177,11 +177,19 @@ export async function sumarCanalAction(id: number, pegado: string): Promise<{ ok
   }
 }
 
-export async function revisarAction(id: number): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
+/**
+ * `motivo` decide si sirve la lectura que ya pagó otro negocio (ítem 13, 2/11/2026).
+ *
+ * ⚠️ `'alta'` SÓLO cuando el competidor se acaba de agregar: ahí no hay nada en pantalla y la
+ * lectura de hace unas horas vale más que un cuadro vacío mientras se quema un crédito del tope
+ * diario. El botón «Revisar ahora» va SIEMPRE sin motivo —o sea `'a-pedido'`— porque quien lo toca
+ * está mirando y pide datos de hoy.
+ */
+export async function revisarAction(id: number, motivo?: 'alta' | 'rutina'): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
   const no = await soloMiembro();
   if (no) return { ok: false, canales: [], error: no };
   try {
-    const r = await mirarCompetidor(id);
+    const r = await mirarCompetidor(id, motivo ?? 'a-pedido');
     if (r.ok) await marcarActosSpy(['spy_primero', 'spy_canales', 'spy_lectura']);
     return r;
   } catch (e) {

@@ -929,3 +929,19 @@ lo implementes ya».
   («Revisar ahora» ya casi se pasa del tiempo de la función), con **tope** —«para cada competidor
   nuevo» sin límite suma rápido y ahora la factura es de Martín—, y la tarjeta muestra la foto
   mientras tanto.
+
+**2/11 ~23:40 — ÍTEM 13 CABLEADO.** `mirarCompetidor` ahora recibe el MOTIVO y consulta la caché
+compartida antes de pagar una lectura de Instagram, y la refresca después. El alta pasa `'alta'`
+(sirve hasta 24 h, y es donde se ahorra de verdad); **«Revisar ahora» va siempre sin motivo, o sea
+`'a-pedido'`, que NUNCA usa la caché.**
+
+⚠️ **El default de `mirarCompetidor` es `'a-pedido'` a propósito:** quien no dice para qué está
+leyendo se lleva datos frescos. Equivocarse hacia «leer de más» cuesta un crédito; equivocarse hacia
+«servir lo de otro» le muestra a alguien datos viejos creyendo que son de hoy.
+
+⚠️ **Guardar la caché NUNCA bloquea ni tira** (`void guardarLecturaCompartida`): si falla, el
+negocio ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente.
+
+**Falta de este ítem:** el mismo tratamiento para YouTube (hoy sólo Instagram, que es la que gasta
+créditos del negocio) y la poda de lo que pase de 30 días. Y mirar `spy_lecturas_canal.ahorros`: si
+queda en cero, nadie mira a los mismos y la tabla no se ganó el lugar.
