@@ -43,7 +43,9 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 | `82d1d96e0` | **Sin voseo en las fichas nuevas** (lo había puesto ROJO el guard de copy) | commiteado |
 | `b02f5b0e9` | Spy: 7 filas → 5 | **superado por `20dc651fd`** |
 | `0aa925c28` | Spy: los tokens medidos | **superado por `20dc651fd`** |
-| `20dc651fd` | **⭐ COMPETITORS SPY REHECHA copiando una referencia** | commiteado, SIN tests corridos |
+| `20dc651fd` | **⭐ COMPETITORS SPY REHECHA copiando una referencia** | commiteado, **tests VERDES** |
+| `3b1bc0864` | Este relevo | commiteado |
+| `55a677a0e` | **Que anden todos los botones** (+ guard nuevo) | commiteado, **verde y probado rompiéndolo** |
 
 ⚠️ **El push NO pasó: se quedó esperando RAM, no es rojo.** `antes-de-subir` corrió 45 tandas y a partir de
 la 7 empezó a bajar tandas por RAM (0,7-1,1 GB libres contra 1,3 que pide). Cada vez suelta el candado y
@@ -101,12 +103,26 @@ pidió CUATRO veces y cuatro veces no recibió.
   entra en un catálogo, así que el riel salió de otra (`merrin`). Dos referencias, una por pieza.
 - Medidas, reglas CSS y el mapeo a los tokens de la casa: **`docs/diseno/referencia-spy.md`**.
   El hallazgo de método: `docs/hallazgos-competitors-spy.md`, última sección.
-- **Qué falta:** correr `tests/spy-reglas · spy-vista · spy-orden · spy-apify · puente-panel-copy`.
-  **No se pudieron correr: la guardia de RAM lleva horas en 2,1-2,3 GB y pide 3.** Verificado a mano
-  sin node: esbuild parsea los dos componentes, no hay ninguna palabra de duelo (`rival` está en la
-  lista y «Marcas Rivales» sólo vive en el mock, no en el componente) y no quedó voseo.
+- **Tests: VERDES.** spy-reglas 18/18 · spy-vista 13/13 · spy-orden 8/8 · spy-apify 5/5 ·
+  puente-panel-copy 9/9. Hubo que correrlos **de a un archivo**: la guardia de RAM pide 3 GB y había
+  2,1-2,3, pero un solo archivo entra. Es la salida cuando la guardia traba un lote.
 - **Cómo verla sin Next:** `scratchpad/spy_ref.py` dibuja la tab con el CSS del propio componente y
   el `:root` real de `app/globals.css`, y la sirve el `http.server` del 4899.
+
+### 3-ter. «Que anden todos los botones» — `55a677a0e`, hecho y con guard
+
+Martín, 2/11, después de mostrárselo a Emilio en la staff. El barrido dio **74 botones sin `onClick`
+y 73 eran mentira**; el detalle de las cuatro clases de ruido está en `docs/hallazgos-ui.md`, y lo
+que más tiempo ahorra es la primera: **el `<button>` dibujado en un comentario de documentación**,
+que casi todo componente base tiene y era la mitad de la lista.
+
+- **El único muerto de verdad:** la muestra del color propio en
+  `app/web-generator/editor/paneles/EstiloSeccion.tsx`. Arreglado.
+- **El guard:** `tests/ningun-boton-muerto.test.ts`, verde y probado rompiéndolo.
+- **El barrido a mano, por si hace falta repetirlo fuera del test:**
+  `scratchpad/botones_muertos.py` (misma lógica, imprime el detalle).
+- **Sin hacer:** el barrido mira `<button>` y `<a href="#">`. **No mira los `<div onClick>` ni los
+  `role="button"`**, que son clicables y no salen en la lista.
 
 ### 3-bis. Lo que decía antes (histórico)
 
