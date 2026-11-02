@@ -64,6 +64,38 @@ Google.** No se puede desde este worktree: el `.env.local` de acá no tiene `CWS
 `CWS_CLIENT_SECRET` ni `CWS_REFRESH_TOKEN`. **Es lo único que falta: ningún cambio de código lo
 arregla, y forzar el flag a mano mandaría a cada cliente nuevo a instalar una versión vieja.**
 
+### 🎫 Tickets #43 y #44 — SON EL MISMO PEDIDO, y hay un orden (2/11 ~13:15)
+
+Los dos los levantó el mismo cliente (Código Inmobiliario) y piden lo mismo: **cargar un documento
+al Second Brain y que MaKo lo incorpore**.
+
+| | #43 | #44 |
+|---|---|---|
+| Por dónde | WhatsApp | el chat de la app |
+| Alcance | el cerebro de OTRO workspace (plan Agencia) | UN solo workspace (ws 23) |
+| El contenido | un archivo adjunto | **ya viene como TEXTO en el chat** |
+
+**#44 es el que se puede construir: no tiene ninguno de los dos frenos del #43** (ni adjuntos de
+WhatsApp, ni escritura cross-tenant).
+
+**Y la pieza pesada ya está hecha:** `app/api/onboarding/archivero/route.ts` ya ingiere `.txt`,
+`.md` y `.docx` (con mammoth) y transcribe documentos e imágenes con IA. **Lo único que falta es
+exponerla.**
+
+El área `negocio` de la API de MaKo tiene **cero** funciones de escritura, y
+`lib/api-mako/areas/negocio.def.ts` lo explica en su línea 22 **desde el 16/09/2026**:
+`agregar_web_archivero` quedó afuera porque su lógica vive INLINE en la ruta y primero hay que
+extraerla a `lib/`. O sea que esto no es un bug nuevo: es una deuda anotada hace mes y medio que
+recién ahora pidió un cliente.
+
+**El trabajo, en orden:** (1) extraer la ingesta del route a `lib/`; (2) sumar la función de
+escritura al área `negocio` con el patrón de las otras; (3) que MaKo la use cuando le peguen un
+documento. Hecho eso, **#43 queda a una sola decisión de Martín**: si una agencia puede escribir
+en el cerebro de su cliente, y con qué límite.
+
+⚠️ Los dos quedaron en `esperando_decision` con el diagnóstico anotado. No les forcé el estado:
+`reclasificar` sólo corre desde «en curso», y están esperando a Martín.
+
 ## Estado
 
 | | Ítem | Estado | Commit |
