@@ -14,6 +14,47 @@ tres seguidos: se junta y se manda una vez por ítem.
 
 ---
 
+## 👥 QUIÉN TIENE QUÉ — repartido el 2/11/2026 ~18:30
+
+Martín: «y ya se está trabajando sobre todo el resto que te pedí también». **No era así: miré las
+17 sesiones y estaban TODAS quietas.** Así que el Cerebro repartió. Esto es el estado del reparto,
+no una promesa de que esté hecho.
+
+| Ítems | A quién | Estado del envío |
+|---|---|---|
+| **14** — los 10 referentes que faltan (fichas + caricaturas) | `Ops Center` (local) | entregado |
+| **19** — modal de «mensaje de difusión» del CRM | `Automations` (local) | entregado, y **arrancó** |
+| los 20 dashboards | `Replicar los 20 dashboards…` (local) | entregado |
+| **13** — compartir las lecturas de Spy entre negocios | `Supabase API proxy access` (nube) | entregado |
+| **ticket #44** — cargar un documento al Second Brain desde el chat | `Contexto breve [1c37c8]` (nube) | entregado |
+| **2** + **16** — Offer y Ads Manager adentro del Ops Center; elegir gurú en «nuevo chat» | `Metodología Ops Center…` (nube) | entregado |
+| **17** + **18** — capa de Second Brain por gurú, con el curso entero | `Contexto breve [21251a]` (nube) | entregado |
+| **15** — diseño de la tab de gurús + **el modal roto en prod** | `Design: Continuación del proyecto` (nube) | entregado |
+
+⚠️ **«Entregado» significa que el mensaje llegó al buzón de esa sesión, NO que su Claude lo leyó.**
+Y de las sesiones en la NUBE no vuelve nada: el canal es de ida, así que el silencio no es acuerdo.
+Lo que cada una hizo se ve en su propio transcript (claude.ai/code) y, cuando commitee, en
+`origin/main`.
+
+⚠️ **Por qué cinco fueron a la nube y no acá: no hay RAM.** Medido el 2/11 ~18:20 — **2,73 GB
+libres de 15,71**, y el guardia corta Bash por debajo de 3 GB. Los procesos `claude` solos ocupan
+**5,09 GB**; Chrome no estaba ni abierto, así que no hay nada que cerrar para hacer lugar. Despertar
+más sesiones locales habría ahogado la máquina. Martín lo había autorizado: «si tienes problema de
+RAM comiénzalos en una sesión en la nube».
+
+**Lo que NO se repartió, y por qué:**
+
+| Ítem | Por qué sigue quieto |
+|---|---|
+| **9** (mitad CRM) — vista previa del perfil con el @ en el CRM | es de `Automations`, que ya está con el 19. Va después, en la misma área |
+| **10** — con un dato traer TODAS sus redes + el desplegable | hace falta un **actor de búsqueda de Apify**. Martín ya dijo que paga; falta elegirlo y medir qué cuesta por búsqueda |
+| **21** — probar punta a punta la clave de Apify de ws 9 | gasta del tope diario de un cliente real. Se prueba cuando haya una lectura que de todos modos había que hacer |
+| la **caricatura** del competidor | falta UN dato antes de construir: **sobre qué cuenta de Google corre el puente de Flow**. Si corre sobre la de Martín, generar caricaturas para los competidores de cada cliente le gasta a él. Eso se mira en el puente, no se adivina |
+| **20** — que desaparezca «Descargar la extensión» | trabado en el consentimiento OAuth de la cuenta de Google de Martín (cliente OAuth borrado). No es código y un asistente no puede hacerlo |
+| **ticket #43** | Martín ya lo desbloqueó («una agencia sí puede, inspeccionando»), pero necesita el camino cross-tenant y los adjuntos de WhatsApp. Va DESPUÉS del #44, que es la misma pieza sin esos dos frenos |
+
+---
+
 ## ✅ DESPLEGADO — 2/11/2026 ~05:40
 
 `origin/main` = **`bee7d83fd`**. Los 16 commits de la noche entraron juntos y Vercel los desplegó.
