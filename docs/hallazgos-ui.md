@@ -5177,3 +5177,53 @@ primer catálogo, app/second-brain/guia-ops-center.ts. Reemplaza al recorrido `s
   cuando nadie los use (G8: hasta entonces `useVisto` y `useRecorrido` leen lo mismo por dos caminos); mudar `DONDE` de
   app/automations/recorrido-automations.ts a lib/guia/donde.ts (con la guía de Automations: cinco tests lo leen ahí). **Nada se vio
   en el navegador**: falta el recorrido a 1440 y a 700 px con una persona nueva del ws3 (guia.md §6).
+
+---
+
+## Barrer botones muertos: 74 hallazgos, 73 eran mentira (2/11/2026)
+
+**El pedido.** Martín, después de mostrárselo a Emilio en la staff: «siempre quiero poder apretar
+en todos los botones, que anden todos los botones». Un botón que se ve apretable y no hace nada
+es peor que no tenerlo: en una demo se aprieta, y el que mira concluye que la app está rota.
+
+**El diagnóstico obvio era el equivocado.** La primera pasada —`<button>` sin `onClick`— devolvió
+**74 botones en 52 archivos**, y pareció un problema enorme. Después de triar: **uno solo estaba
+muerto de verdad.** Las cuatro fuentes de ruido, que son el hallazgo:
+
+1. **El `<button>` dibujado en un comentario de documentación.** Casi todo componente base tiene
+   uno. Solo este caso eran ~50 de los 74. Los comentarios se **blanquean** (se reemplazan por
+   espacios, no se borran: así las líneas no se corren y el error señala la línea de verdad).
+2. **El disparador que recibe el handler del envoltorio.** `<DropdownMenuTrigger asChild>` y
+   `<PopoverTrigger asChild>` de Radix clonan al hijo y le meten el `onClick`; nuestro `<Tooltip>`
+   (`app/_ui/Tooltip.tsx`) pone `onMouseEnter` y `onFocus` en su propio span. El botón de adentro
+   no tiene nada y anda igual. Todo el video-editor caía acá.
+3. **El `disabled` de adentro de una expresión.** `disabled={disabled || loading}` y
+   `cursor: disabled ? …` tienen la palabra sin ser un botón apagado a mano.
+4. **El primitivo que esparce las props del padre** (`{...rest}`).
+
+**La trampa dentro de la trampa, y es de regex:** al pelar las expresiones JSX, lo que se pone en
+lugar de `{…}` **no puede tener llaves**. Reemplazar por `{}` vuelve a matchear contra sí mismo, el
+bucle corta en la segunda vuelta creyendo que ya no cambia nada, y un `style={{ … }}` con un
+`` `…${x}` `` adentro queda sin colapsar. Así `app/agencia/FlujoAviso.tsx` aparecía como «apagado a
+mano» teniendo `disabled={disabled}`. Se reemplaza por un espacio.
+
+**El único muerto de verdad:** `app/web-generator/editor/paneles/EstiloSeccion.tsx` — la muestra
+del **color propio** (el que no está en la paleta) era la única de su fila sin `onClick`. Después de
+tocar otro color ya no se podía volver al propio: se veía elegible y no lo era.
+
+**Y uno que parece muerto y no lo está:** el «Cancelar» de `app/_components/Lienzo.tsx`, en el modo
+«conectar a una tarjeta». Lo atiende un `pointerdown` en **captura sobre `window`**, que se lo traga
+antes de que llegue al botón. Un `onClick` ahí sería código muerto. Está en la lista de perdonados
+del guard, con el motivo.
+
+**La regla que queda:** no alcanza con buscar `onClick`. Un botón está vivo si tiene un handler
+**suyo o de su envoltorio**, o es `type="submit"`, o está apagado a propósito **y dice por qué** con
+un `title`/`aria-label`. Lo vigila `tests/ningun-boton-muerto.test.ts` (probado rompiéndolo), que
+además afirma que miró más de 400 botones: un guard que deja de encontrar no se nota.
+
+**Y una de celular:** `onFocus` solo alcanza. En el teléfono el tap da foco, así que un control que
+abre con `onMouseEnter`+`onFocus` —el ⓘ de `app/automations/FilasOpciones.tsx`, las barras de
+`app/partners/BarrasPorMes.tsx`— **sí responde al tacto**. Con `onMouseEnter` solo, no.
+
+**Vive en:** tests/ningun-boton-muerto.test.ts · app/_ui/Tooltip.tsx ·
+app/web-generator/editor/paneles/EstiloSeccion.tsx
