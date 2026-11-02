@@ -30,13 +30,26 @@ A las 03:30 del 2/11, `origin/main` seguía en `8a60cd310` con **12 commits espe
 **Antes de pushear otra vez:** correr a mano los tests de lo tocado. Lo que se rompió esta vez no
 lo veía ningún test de Spy — lo veía un guard del catálogo de guías.
 
+### ⛔ Por qué Offer y Ads Manager volvieron a la barra (2/11 ~04:30)
+
+Sacarlos de `app/_components/nav.ts` es UNA línea, y rompe **seis** tests:
+`estrategia-tab`, `funciones-mako`, `knowledge-modulos`, `movil-mas-secciones`, `movil-rutas` y
+`offer-en-create`. El más claro es `funciones-mako`: «cada key viva del nav es de exactamente una
+función, y ninguna función nombra una key que no existe». Esas dos keys **no viven sólo en la
+barra** — las nombran el catálogo de funciones de la API de MaKo, las rutas del móvil, los módulos
+de Knowledge, Create y Estrategia.
+
+**Se revirtió porque tenerlas afuera a medias dejaba 12 commits buenos sin poder desplegarse.**
+El pedido sigue en pie; lo que cambia es que es un trabajo propio: hay que mudar cada consumidor a
+donde vivan ahora (el Funnel Coach y Hormozi, adentro del Ops Center), no borrar una línea.
+
 ## Estado
 
 | | Ítem | Estado | Commit |
 |---|---|---|---|
 | 1 | Spy visible para todos (tenía `adminOnly`) | **HECHO** | `91bcafb09` |
 | 1b | **Que además FUNCIONE para todos** (las acciones pedían admin) | **HECHO** | mirar y agregar: cualquiera. Borrar: sólo el admin |
-| 2 | Offer y Ads Manager fuera de la barra | **HECHO** | `91bcafb09` |
+| 2 | Offer y Ads Manager fuera de la barra | **REVERTIDO** | rompe 6 tests: esas keys las nombran el catálogo de la API, el móvil, Knowledge, Create y Estrategia. Es un trabajo propio, ver abajo |
 | 3 | Miniaturas de IG: `referrerPolicy` + respaldo | **HECHO** | `91bcafb09`, y reemplazado por #4 |
 | 4 | **Descargar y GUARDAR la miniatura** | **HECHO** | bucket `spy-miniaturas` (0361) + `lib/spy-miniaturas.ts`. Migración YA APLICADA en prod |
 | 5 | **YouTube: que traiga los videos LARGOS** | **HECHO** | pagina la playlist y le reserva cupo a los largos |

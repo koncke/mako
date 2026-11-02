@@ -35,14 +35,10 @@ const PREFIJO: Record<string, string> = { mako: 'sb-' };
  * Las tabs que un cliente ve y todavía no tienen su guía, con la tanda que la trae (guia.md §6). Sólo se achica: una tab nueva sin
  * catálogo falla, y una que ya lo tiene tiene que salir de acá.
  */
-// ⚠️ 2/11/2026: `offer` y `ads-manager` salieron de esta lista porque DEJARON DE SER TABS —
-// Ads Manager es ahora el Funnel Coach y Offer lo toma Hormozi, los dos adentro del Ops Center
-// (pedido de Martín). Las rutas siguen existiendo; lo que se sacó es el link de la barra, y
-// este guard mira la barra. La lista sólo se achica, nunca crece.
 const SIN_GUIA_TODAVIA: Readonly<Record<string, string>> = {
   todo: 'G6, Plan', chats: 'G6, Chats (monta la estrella)', graphics: 'G3, Dashboard', crm: 'G6, CRM', calendario: 'G6, Calendario',
-  setting: 'G6, Automations', 'customer-success': 'G6, Classroom', 'admin-customers': 'G6, Classroom (Clientes)',
-  'landing-writer': 'G6, Web Generator', 'video-editor': 'G6, Video Editor (después de G5)',
+  setting: 'G6, Automations', 'customer-success': 'G6, Classroom', 'admin-customers': 'G6, Classroom (Clientes)', offer: 'G6, Offer',
+  'landing-writer': 'G6, Web Generator', 'ads-manager': 'G6, Media Buyer', 'video-editor': 'G6, Video Editor (después de G5)',
   'image-editor': 'G6, Image Editor (después de G5)', copywriter: 'G6, Copywriter (después de G5)', 'ai-avatar': 'G6, AI Avatar',
   perfil: 'G6, Settings (monta la estrella)', 'api-mako': 'G6, API de MaKo', partners: 'G6, Planes y Partners', agency: 'G6, Planes y Partners',
   tickets: 'G6, Ticketera de usuarios (Report a problem)', 'market-an': 'G6, Competitor Spy',
