@@ -7996,3 +7996,23 @@ pantalla no cambia), y el envío más su línea en el historial salen con `after
 lo que sigue después de responder (el mismo molde que `seguirDespuesDeResponder`). Fuera de un pedido (un script) se manda
 en el acto, como siempre. Si la función muere antes de mandar, la fila ya está vencida y la toma el tick.
 **Regla:** lo que mueve una persona no espera un envío; el envío no cambia el «entró / no entró».
+
+## El modal de difusión: el «formato de cada red» ya estaba, faltaba el marco (2/11/2026)
+
+**Síntoma.** Martín: «que se vea lindo, con el formato de cada red social, como lo tenemos en Automations». El pedido apuntaba a `app/crm/AccionesLoteLeads.tsx` y `app/crm/seleccion-difusion.ts`.
+
+**El diagnóstico obvio era el equivocado, dos veces.** Esos dos archivos sólo ponen la selección: el modal es `app/automations/difusion/HojaDifusion.tsx`. Y la hoja ya usaba los MISMOS editores de cada canal: reusarlos no cambiaba nada. Lo que no tenía era lo que los rodea en el lienzo: logo y nombre arriba, un panel con alto, y el chat llenándolo. Apilados en 560 px, con rótulos en mayúscula, cada editor quedaba con el chat en 110 px.
+
+**Dónde vive y la regla.**
+- **Los editores crecen solos si su padre es una columna flex con alto** (`flex: 1 1 auto`). Adentro de un `display: grid` quedan en su mínimo: el chat mide 110 px y sobra medio panel.
+- **`SvcIcon` no sirve fuera de una pantalla que monte `BrandDefs`:** pinta con `<use>` de un símbolo. El CRM no lo monta, y sin él queda un cuadrado de color, sin error. Por eso la hoja usa `IconoCanal` y `LogoSocial`, que traen su dibujo.
+- **La cabecera del lienzo no se copia entera:** `CabeceraWhatsApp` y `CabeceraSocialPanel` traen el desplegable de número o cuenta, y la difusión no los guarda (`MensajesDifusion`). Se vería bien y mentiría: elegir otro número no cambiaría por dónde sale.
+- **Un `<style>` suelto adentro de `Modal` cuenta como un bloque:** `.mk-modal__cuerpo > * + *` le pone un filete a lo que sigue. Va adentro del único hijo.
+- **Un canal a la vista, y los otros ocultos sin desmontar:** lo que quedó sin enviar en la barra de un editor se perdería al mirar otro canal.
+
+**Cómo se miró sin levantar la app.** Una maqueta con el componente real y las actions falsas (esbuild + Chrome headless mudo), en escritorio, en oscuro y en un iframe de 390 px. Con eso aparecieron el logo liso, el chat de 110 px y el doble filete, que ningún test veía.
+
+**Sin hacer.**
+- Elegir por qué número o cuenta sale una difusión: hoy el motor usa la línea que le toca. Vive en `lib/difusion.ts` y `MensajesDifusion`.
+- Sin mirar en el CRM de verdad, con datos reales: punto 11 de `docs/relevo/automations.md`.
+

@@ -3204,6 +3204,22 @@ FEEDBACK PROBAR:
     tickets: [33, 34],
   },
   {
+    fecha: "2 nov", hora: "13:30", chat: "Automations", cuenta: "claude1",
+    sesion: "local_899c848a-b696-45fa-8ebf-ed530b9bdfac",
+    actor: "claude", tipo: "implementacion",
+    titulo: "CRM: el modal de «Mandar mensaje», con el formato de cada canal",
+    puntos: [
+      "A la izquierda, por dónde sale y el ritmo. A la derecha, el mensaje del canal elegido, con su logo y su formato, como en Automations.",
+      "Tocar un canal cambia el mensaje que se ve, y lo escrito en los otros no se pierde. Un ✓ marca los que ya están escritos.",
+      "No trae el selector de número: la difusión no lo guarda, así que elegir uno no cambiaría por dónde sale.",
+    ],
+    archivos: [
+      "app/automations/difusion/HojaDifusion.tsx",
+      "tests/difusion.test.ts",
+    ],
+    revisar: "/crm",
+  },
+  {
     fecha: "31 oct", hora: "12:00", chat: "Automations", cuenta: "claude1",
     sesion: "local_899c848a-b696-45fa-8ebf-ed530b9bdfac",
     actor: "claude", tipo: "implementacion",
