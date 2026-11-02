@@ -10197,3 +10197,42 @@ sino una lista vacia, y el vigia la lee como «SIN RUN para esta cabeza». Un ru
 no existir, y el tren queda mudo sin que nadie se entere. `scripts`/`vigia-run.sh` ahora expande cualquier sha
 corto con `git rev-parse` y, si no puede, **corta gritando** (`SHA INSERVIBLE`, salida 4) en vez de callarse.
 Probado rompiendolo: con `deadbeef` grita, con 40 ceros dice SIN RUN, y con el sha corto de verdad espera.
+
+---
+
+## Un error de tipos no se ve hasta 25 minutos después, y pushear tres veces no adelanta: reinicia el reloj (2/11/2026)
+
+**El síntoma.** Rediseño terminado, cinco suites de tests en verde a mano, tres pushes seguidos
+«para que Martín lo viera cuanto antes». A los 23 minutos Actions se puso **roja** y `main` nunca
+avanzó. Nada de lo que corrí acá lo podía haber visto.
+
+**Las tres causas, que se suman:**
+
+1. **El tsc NO corre en la notebook.** Desde el 15/10/2026 vive en Actions: pide 3-4 GB (en CI el
+   pico fue 4.049 MB sobre 9.694 archivos) y la máquina ronda los 3 GB libres. O sea: **un error de
+   tipos es invisible localmente**, y `next.config.ts` tiene `ignoreBuildErrors: true`, así que
+   tampoco lo caza un build. Los dos que salieron eran de una línea cada uno —un `number` donde iba
+   una medida CSS en texto, y un `string | null` contra un `string | undefined`— y ninguno rompía
+   una pantalla.
+2. **`concurrency: group: integracion` cancela el run viejo con cada push.** Es correcto (se chequea
+   sólo el último commit), pero significa que **pushear de a tres seguidos no adelanta nada: pone el
+   reloj en cero**. Acá: #324 murió a los 13 min, #325 a los 2, y recién #326 llegó a terminar. Se
+   perdieron ~15 minutos de cola por no esperar.
+3. **Un run verde tarda 26-36 minutos.** No es una espera de dos minutos: es el ciclo entero.
+
+**La regla que queda:** cuando el push es para que alguien VEA algo, **se junta todo en un commit y
+se pushea UNA vez**. Y entre el push y el deploy hay media hora, así que lo que se muestra mientras
+tanto no puede ser «está en producción»: es la vista previa local, dicho como tal.
+
+**Y la segunda regla, que es la que ahorra el ciclo entero:** antes de pushear, releer los tipos de
+lo nuevo a mano, sobre todo **las props que se pasan a componentes de `app/_ui`** —ahí es donde una
+medida se declara `string` y uno pasa un número— y **todo lo que viene de `lib/` devolviendo `null`**
+contra una prop opcional, que en TS es `undefined` y NO acepta `null`. Son los dos moldes exactos de
+los dos errores.
+
+**Dónde mirar cuando pasa:** `github.com/koncke/mako/actions/workflows/integracion.yml`. El resumen
+del job dice «Tipos: ERRORES DE TIPOS» con el conteo, y las anotaciones traen archivo y línea.
+
+**Vive en:** .github/workflows/integracion.yml · scripts/tipos-por-tandas.mjs ·
+.git/hooks/pre-push (el push a `main` corre el tsc ENTERO local: pide 6,3 GB y se cuelga; el camino
+es `integracion`, y `MAKO_SIN_ANTES_DE_SUBIR=1` sólo vale para esa rama)
