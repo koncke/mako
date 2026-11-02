@@ -110,6 +110,48 @@ nivel de diseño esta tab». Después dijo **«Hazlo tu, confio»** y yo me fui 
 `task_a3b08be8`, con el brief completo (los valores medidos de las animaciones y mis cinco errores de
 método). **No duplicar ese trabajo.** La propuesta vive en `docs/templates-dashboard-propuesta.md`.
 
+### 5-bis. ACTUALIZADO 1/11 ~21:30 — lo que se hizo después, y el ROJO que frenó el push
+
+**El push de los dos primeros commits SALIÓ ROJO, y el rojo era mío:** `tests/puente-panel-copy.test.ts`
+(«ninguna pantalla del repo le habla al cliente de vos»). Las seis fichas nuevas estaban escritas en
+VOSEO porque los cursos están dictados así. **La ficha no es la voz del instructor: es la voz de MaKo,
+y MaKo habla español neutro con «tú».** Arreglado en `82d1d96e0` con los 112 reemplazos que da el
+propio guard. ⚠️ Las formas con «tú» son más largas: una ficha se pasó del tope de 5.200 por 3
+caracteres y hubo que recortarla. Si se agregan referentes, escribir en «tú» desde el principio.
+⚠️ Y además de ese rojo, 30 archivos NO CORRIERON por RAM (0,6 GB libres): esa lista puede estar
+incompleta, así que el próximo push puede traer otro rojo distinto.
+
+**Competitors Spy, que es lo que Martín dijo que más le importa — HECHO:**
+- `0688bce47` **los videos de Instagram entran con su imagen.** La cadena estaba cortada en TRES
+  lugares y ninguno era Meta: `lib/instagram-perfil.ts` ya leía `thumbnail_url`, pero el mapeo a
+  `PiezaVista` la tiraba, el tipo no tenía el campo y `miniaturaDePieza` sólo sabía armar la de
+  YouTube. Migración **0360**. ⚠️ Guarda una URL que VENCE, lo que choca con una decisión ya escrita
+  (la foto de perfil rota que Martín marcó dos veces): no se esquivó, se EXTENDIÓ ese guard a todas
+  las migraciones del spy y se afirmó en un test que la miniatura se reescribe en cada lectura.
+  Probado rompiéndolo.
+- `b02f5b0e9` **el rediseño: de siete filas a cinco.** Migas + identidad → una cabecera; «Qué vende y
+  qué ataca» al ⋯; la Banda arranca PLEGADA (arrancaba abierta y empujaba la primera pieza fuera de
+  la pantalla); las pestañas sin fila propia. **Para llegar a TRES falta**: meter las pestañas adentro
+  de `spy-herramientas` —hoy no se puede sin esconderlas cuando no hay piezas, porque esa fila sólo se
+  dibuja con piezas— y subir la frase de una línea de la Banda a la cabecera.
+- **SIN HACER de Spy:** la ficha del competidor y la de una pieza con el lenguaje de Vitrea/Murmura
+  (la grilla tipo «Your apps» y la banda de tres números), y probar de punta a punta que la clave de
+  Apify del ws 9 lee el Instagram de un competidor.
+- ⚠️ **Un comentario con acentos invertidos adentro del template literal del CSS de SpyApp.tsx cierra
+  el string** y el error sale 600 líneas más abajo. Verificar con esbuild (`transformSync`, loader
+  `tsx`) es mucho más liviano que `tsc` y la guardia de RAM lo deja pasar.
+
+**El modal de elegir gurú:** `f378981ea` (tres barras de scroll → una, 640 → 1040 de ancho).
+
+**Ticket #42 (ws 13, Código Inmobiliario) — ANOTADO, NO ARREGLADO: es del área de la IA, no de Spy.**
+El cliente tiene razón: es un «no puedo» FALSO. `crear_evento_google` existe
+(`lib/api-mako/areas/calendario.def.ts:56`) y crea el evento de verdad; y la respuesta se contradice
+sola («no tengo acceso» y dos líneas después «yo lo creo en tu Google Calendar»). El diagnóstico
+completo está en la nota del ticket. ⚠️ Para medir si un negocio tiene Google conectado NO se usa
+`credDelCliente` (el catálogo le pone `envs: []`): es `app_settings` con la clave
+`google.calendar.refresh_token` (`lib/google-calendar.ts:55`). Yo pregunté por la puerta equivocada
+primero — el mismo error que ya pagué hoy con Apify.
+
 ### 5. Lo que Martín pidió el 1/11 a la noche y QUEDÓ SIN HACER
 
 Llegaron cinco pedidos encadenados. Hecho: sólo el primero.
