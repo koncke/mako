@@ -205,11 +205,6 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string): 
   if (!leido) return { ok: false, error: 'No reconocí eso. Pega el @ de Instagram, el enlace de su canal de YouTube o el de su sitio.' };
   const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre) || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
   const db = await getTenantDb();
-  const cuantos = await db.from('spy_competidores').select('id', { count: 'exact', head: true });
-  if (cuantos.error) return { ok: false, error: sinTabla(cuantos.error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${cuantos.error.message}` };
-  if ((cuantos.count ?? 0) >= TOPES.competidores) {
-    return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro: la tab sirve para mirar pocos a fondo.` };
-  }
   // ── ¿YA ESTÁ? ───────────────────────────────────────────────────────────────────────────────
   // ⚠️ EL `onConflict: workspace_id,nombre` DE ABAJO NO ALCANZA, y es la razón de que Martín
   // terminara con tres «Sofia Contreras» (2/11/2026): pegar su @ guarda el nombre
@@ -242,6 +237,18 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string): 
     const r = await db.from('spy_competidores').update({ ...suma, updated_at: new Date().toISOString() })
       .eq('id', yaEsta.id).select(COLUMNAS_COMPETIDOR).maybeSingle();
     return r.data ? { ok: true, competidor: r.data as Competidor } : { ok: true, competidor: yaEsta };
+  }
+
+  // ⚠️ EL TOPE SE MIRA ACÁ, DESPUÉS DE BUSCAR EL DUPLICADO, y antes estaba arriba de todo. Con la
+  // lista llena, pegar a alguien que YA ESTABA contestaba «ya tienes 25 competidores» en vez de
+  // abrirlo — y volver a pegar al mismo es justamente lo que uno hace cuando la lista se llenó de
+  // duplicados. El tope existe para que no entren veinticinco personas DISTINTAS, no para frenar
+  // al que ya está adentro.
+  //
+  // Y de paso se fue una consulta: `existentes` ya es la lista entera, así que contar era pedir
+  // lo mismo dos veces.
+  if (existentes.length >= TOPES.competidores) {
+    return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro: la tab sirve para mirar pocos a fondo.` };
   }
 
   const fila: Record<string, unknown> = { nombre, updated_at: new Date().toISOString() };

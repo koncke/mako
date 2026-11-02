@@ -61,6 +61,12 @@ test('el alta mira si ya está ANTES de insertar, y suma el canal que falte', ()
   assert.match(alta, /nombreComparable\(x\.nombre\)\s*===/, 'el alta volvió a comparar el nombre literal: vuelven los duplicados');
   assert.match(alta, /dominioComparable\(x\.landing_url\)\s*===/, 'el alta dejó de comparar landings por dominio');
   assert.ok(alta.indexOf('yaEsta') < alta.indexOf('.upsert('), 'la búsqueda del duplicado tiene que ir ANTES del insert');
+  // ⚠️ Y el TOPE de competidores va DESPUÉS de esa búsqueda. Con la lista llena, pegar a alguien
+  // que ya estaba contestaba «ya tienes 25 competidores» en vez de abrirlo — y volver a pegar al
+  // mismo es exactamente lo que uno hace cuando la lista está llena de duplicados. El tope existe
+  // para que no entren 25 personas DISTINTAS, no para frenar al que ya está adentro.
+  assert.ok(alta.indexOf('yaEsta') < alta.indexOf('TOPES.competidores'),
+    'el tope se mira antes de buscar el duplicado: con la lista llena no se puede ni abrir a uno que ya está');
   // Y que sume el canal que falta en vez de pisar el que ya estaba.
   assert.match(alta, /!yaEsta\.instagram/, 'el alta pisa el canal existente en vez de sumar el que falta');
 });
