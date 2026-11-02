@@ -150,3 +150,31 @@ recorta por script, hay que contar los acentos invertidos después.
 - **La foto de Ximena Fukuda es una toma de escenario** donde la cara es chica: su parecido es el más
   flojo de los catorce. Si aparece una foto de frente, vale regenerarla.
 - **No se probaron en la app de verdad:** el anillo y las cuatro caras apagadas se miraron con el `Muneco` real en una página suelta, no en un chat con sesión.
+
+---
+
+## Un grep que no encuentra no significa que no esté: tres errores seguidos por lo mismo (2/11/2026)
+
+**El síntoma.** Tres veces en dos días afirmé que un curso «no está en Knowledge» y las tres veces
+estaba. Vilma Núñez, Emilio Puigrredón y Mateo Maffia.
+
+**La causa es siempre la misma, y no es Knowledge: es tratar un grep vacío como un hecho.**
+Un grep que no devuelve nada significa «mi patrón no coincidió», nunca «no existe». Las tres formas
+que tomó:
+
+1. **Vilma Núñez** — busqué en los `curso-*.ts` y ahí su curso se llama otra cosa. **El mapa
+   `TITULO` de `app/conocimientos/catalogo.ts` RENOMBRA**, y es el autoritativo: ahí es
+   «Certificación en Marketing Digital potenciada por IA - Vilma Núñez (Convierte Más)».
+2. **Emilio Puigrredón** — busqué «Puigrredon» sin tilde. El archivo dice **Puigrredón**.
+3. **Mateo Maffia** — busqué «Mafia», que es como lo escribió Martín. El archivo dice **Maffia**,
+   con dos efes. Y encima `TITULO` lo renombra a **«BYF»** a secas, sin el nombre.
+
+**La regla que queda:** se busca por **el pedazo más corto e inequívoco del apellido** (`Puig`,
+`Maffi`, `Vilma`) y recién después se confirma contra el campo `titulo:` del archivo del curso.
+Nunca por el nombre tal como lo escribió quien pidió la tarea, y nunca por el nombre de la carpeta.
+
+**El error espejo, que ya costó dos nombres mal escritos en producción:** sacar el nombre de la
+persona del nombre de la carpeta. Así salieron «Jaime Jiguera» (es **Higuera**) y «Jordi Sigues»
+(es **Segués**). **El nombre de un ser humano se lee del `titulo:`, nunca de un slug.**
+
+**Vive en:** app/conocimientos/catalogo.ts (el mapa `TITULO`, ~línea 805) · lib/asesores/catalogo.ts
