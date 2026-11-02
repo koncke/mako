@@ -156,9 +156,25 @@ cada nuevo competidor» es construir ese pipeline, no llamar a algo que ya exist
 2. **Una foto de origen.** Ya la tenemos bajada: `spy_competidores.avatar` (migración 0362). Sin
    foto de perfil no hay caricatura posible, y eso hay que decirlo en la pantalla, no dejar el
    hueco en blanco.
-3. **Un generador de imágenes llamable desde el servidor.** Esto es lo que NO existe y hay que
-   resolver primero: con qué proveedor y con qué clave. (Memoria: «Imagen = Canva; Doory sin
-   crédito».)
+3. ⚠️ **CORRECCIÓN (2/11 ~15:00): SÍ HAY generador de imágenes en el repo, y además acepta una
+   FOTO DE REFERENCIA, que es justo lo que la caricatura necesita.** Es **Google Flow**
+   (`lib/flow-imagen.ts`, `lib/flow-protocolo.ts`), el que usa el Video Estudio para las imágenes
+   de escenario. Lo verificado abriendo los archivos:
+   · soporta `referenceEntities` / `referenceLikenesses`, y ya tiene escrito un prompt de
+     identidad («The reference image is provided ONLY as an identity reference: match the
+     subject's…»);
+   · **el token del puente es un BEARER y sirve fuera del navegador** — está escrito así en
+     `flow-protocolo.ts`, porque «el puente tiene que trabajar mientras la persona no está». O sea
+     que no hace falta que Martín tenga Chrome abierto.
+
+   **Yo le había dicho a Martín que NO existía**, de memoria y sin abrir el archivo — el mismo
+   error que ya me costó tres «no está en Knowledge». Esto achica mucho el trabajo: no hay que
+   conseguir un proveedor, hay que REUSAR el camino de Flow con el prompt de la caricatura y la
+   foto del competidor como referencia.
+
+   **Lo que SÍ queda por averiguar antes de construirlo:** sobre qué cuenta de Google corre el
+   puente. Si corre sobre la de Martín, generar caricaturas para los competidores de CADA cliente
+   le gasta a él. Eso se mira en el puente, no se adivina.
 4. **Guardarla**: el bucket `spy-miniaturas` ya sirve, con una ruta propia.
 5. ⚠️ **NO adentro de la lectura.** Generar una imagen tarda bastante más que bajarla, y «Revisar
    ahora» ya casi se pasa del tiempo de la función (ver #4b). Va como trabajo aparte, después de
