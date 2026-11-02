@@ -112,6 +112,25 @@ Eran **dos números distintos**, no uno:
 **Lo que sigue pendiente del pedido:** elegir publicaciones a dedo desde el perfil con la extensión
 de MaKo. Eso es trabajo de la extensión, no de la tab.
 
+### 🔎 Buscar mientras escribís — hecho a medias, y el porqué (2/11 ~14:20)
+
+Martín pidió «cuando vaya escribiendo el arroba... ya me vayan apareciendo opciones, un
+desplegable para seleccionar».
+
+**Lo que está hecho:** el modal busca **solo, al dejar de escribir** (900 ms), sin tocar ningún
+botón, y no repite lo ya buscado en esa sesión del modal. Se siente como «aparece mientras
+escribo» y cuesta UNA lectura por @ entero.
+
+⚠️ **Por qué NO se llama en cada tecla, que es lo que se pidió literalmente:** cada lectura de un
+perfil gasta del tope **diario** de Apify (`APIFY_TOPE_POR_DIA`). «leilahormozi» son trece teclas:
+con una llamada por tecla, dos o tres altas agotan el día y después **nadie del negocio puede
+agregar a nadie**.
+
+⚠️ **Lo que falta y NO es lo mismo: un DESPLEGABLE con varias opciones.** Eso es una BÚSQUEDA («los
+perfiles que se parecen a `leilaho`»), y lo que tenemos es una lectura por handle EXACTO. Instagram
+no da búsqueda por su API; haría falta un actor de búsqueda de Apify, que es otro costo y otra
+decisión de Martín. **Antes de construirlo hay que decidir eso**, no es trabajo de pantalla.
+
 ## Estado
 
 | | Ítem | Estado | Commit |

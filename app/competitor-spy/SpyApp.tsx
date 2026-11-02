@@ -506,13 +506,47 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
 
   const listo = pestana === 'pegar' ? !!pegado.trim() : !!(d.instagram.trim() || d.youtube.trim() || d.sitio.trim());
 
-  const buscar = async () => {
-    if (!pegado.trim() || buscando) return;
+  /**
+   * Lo ya buscado en este modal, por lo que se escribió.
+   *
+   * ⚠️ NO ES UNA OPTIMIZACIÓN: es lo que hace que se pueda buscar solo. Sin esto, borrar una letra
+   * y volver a escribirla gasta otra lectura del tope diario de Apify.
+   */
+  const yaBuscado = useRef(new Map<string, VistaPrevia>());
+
+  const buscar = useCallback(async (crudo: string) => {
+    const q = crudo.trim();
+    if (!q) return;
+    const guardado = yaBuscado.current.get(q);
+    if (guardado) { setVista(guardado); setErrorVista(null); return; }
     setBuscando(true); setErrorVista(null); setVista(null);
-    const r = await vistaPreviaAction(pegado.trim());
+    const r = await vistaPreviaAction(q);
     setBuscando(false);
-    if (r.ok) setVista(r.vista); else setErrorVista(r.error);
-  };
+    if (!r.ok) { setErrorVista(r.error); return; }
+    yaBuscado.current.set(q, r.vista);
+    setVista(r.vista);
+  }, []);
+
+  /**
+   * Busca SOLO cuando dejás de escribir.
+   *
+   * ⚠️ POR QUÉ NO EN CADA TECLA, que es lo que se pidió literalmente (Martín, 2/11/2026: «cuando
+   * vaya escribiendo el arroba... ya me vayan apareciendo opciones»): cada lectura de un perfil
+   * gasta del tope DIARIO de Apify (`APIFY_TOPE_POR_DIA`). Escribir «leilahormozi» son trece
+   * teclas; con una llamada por tecla, dos o tres altas agotan el día y después NADIE del negocio
+   * puede agregar a nadie. Con la espera, escribir un @ entero cuesta UNA lectura y se siente
+   * igual: soltás el teclado y aparece quién es.
+   *
+   * Y no se dispara con cualquier cosa: sólo cuando lo escrito ya parece un @ o un enlace.
+   */
+  useEffect(() => {
+    const q = pegado.trim();
+    if (pestana !== 'pegar' || q.length < 3 || vista || buscando) return;
+    const esBuscable = /^@?[A-Za-z0-9._]{3,30}$/.test(q) || /^https?:\/\//i.test(q) || /\./.test(q);
+    if (!esBuscable) return;
+    const t = setTimeout(() => { void buscar(q); }, 900);
+    return () => clearTimeout(t);
+  }, [pegado, pestana, vista, buscando, buscar]);
 
   /**
    * El botón de abajo hace una cosa distinta según dónde estás, y en ese orden: cargar a mano
@@ -525,7 +559,7 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   const enviar = () => {
     if (pestana === 'mano') { onAMano(d); return; }
     if (vista) { onPegar(pegado.trim()); return; }
-    void buscar();
+    void buscar(pegado);
   };
 
   // Escribir después de haber buscado invalida lo buscado: nunca se confirma a una persona
@@ -555,7 +589,7 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
                   onChange={(e) => escribir(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && listo && !ocupado) enviar(); }}
                 />
-                <button type="button" className="spy-boton" style={{ flex: '0 0 auto' }} disabled={!pegado.trim() || buscando} onClick={() => void buscar()}>
+                <button type="button" className="spy-boton" style={{ flex: '0 0 auto' }} disabled={!pegado.trim() || buscando} onClick={() => void buscar(pegado)}>
                   {buscando ? 'Buscando…' : 'Buscar'}
                 </button>
               </div>
