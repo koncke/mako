@@ -365,9 +365,25 @@ export async function guardarVistas(
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
   const canales = [...new Set(vistas.map((v) => v.canal))];
-  const { data: yaEstaban, error: errLeer } = await db.from('spy_piezas').select('ref, canal').eq('competidor_id', competidorId).in('canal', canales);
+  // Se trae también la `miniatura` guardada: sin eso se volvería a bajar la MISMA imagen en cada
+  // lectura (ver abajo, donde se arma `yaBajada`).
+  const { data: yaEstaban, error: errLeer } = await db.from('spy_piezas').select('ref, canal, miniatura').eq('competidor_id', competidorId).in('canal', canales);
   if (errLeer) return { nuevas: 0, actualizadas: 0, error: sinTabla(errLeer) ? AUN_SIN_TABLAS : errLeer.message };
   const conocidas = new Set((yaEstaban ?? []).map((r) => `${(r as { canal: string }).canal}|${(r as { ref: string }).ref}`));
+
+  /**
+   * La miniatura que YA bajamos de una pieza, si la bajamos.
+   *
+   * ⚠️ SIN ESTO SE VUELVE A BAJAR TODO EN CADA LECTURA. Lo que llega de la API es siempre la URL
+   * FRESCA del CDN, nunca la nuestra, así que `esNuestra` da false y el bajador empezaría de cero
+   * cada vez: el presupuesto de 9 s se gastaría siempre en las mismas imágenes y nunca llegaría a
+   * las que faltan. Con esto, una lectura sólo paga por lo que todavía no tiene, y las que quedan
+   * afuera por presupuesto entran en la siguiente — que es lo que hace que converja.
+   */
+  const yaBajada = new Map<string, string>();
+  for (const r of (yaEstaban ?? []) as Array<{ canal: string; ref: string; miniatura: string | null }>) {
+    if (esNuestra(r.miniatura)) yaBajada.set(`${r.canal}|${r.ref}`, r.miniatura as string);
+  }
 
   // Las dos clases de dato llevan RELOJES DISTINTOS, y por eso se escriben en columnas distintas:
   // el texto se borra a los 30 días y las métricas duran hasta 36 meses con la enmienda III.L.
@@ -376,7 +392,10 @@ export async function guardarVistas(
   // que después no se iba a poder ver. `guardarMiniaturas` NUNCA tira — si una imagen no se puede
   // bajar deja la URL original y la pieza se guarda igual, porque perder el competidor entero por
   // una imagen sería cambiar un problema chico por uno grande. Ver lib/spy-miniaturas.ts y la 0361.
-  const conFoto = await guardarMiniaturas(vistas);
+  const conFoto = await guardarMiniaturas(vistas.map((v) => {
+    const nuestra = yaBajada.get(`${v.canal}|${v.ref}`);
+    return nuestra ? { ...v, miniatura: nuestra } : v;
+  }));
 
   const comun = (v: PiezaVista) => ({
     competidor_id: competidorId, canal: v.canal, tipo: v.tipo, ref: v.ref.slice(0, TOPES.ref), fuente: v.fuente,

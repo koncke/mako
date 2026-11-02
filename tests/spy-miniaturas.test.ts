@@ -79,4 +79,11 @@ test('bajar una miniatura NUNCA puede romper la lectura del competidor', () => {
   // Y que el guardado quede enganchado: sin esto se guarda la URL ajena y volvemos al problema.
   const spy = readFileSync(join(RAIZ, 'lib/spy.ts'), 'utf8');
   assert.match(spy, /guardarMiniaturas\(/, 'spy.ts dejó de bajar las miniaturas antes de guardar');
+
+  // ⚠️ Y que REUSE la que ya bajó. Lo que llega de la API es siempre la URL fresca del CDN, así
+  // que sin esto `esNuestra` da false y se volvería a bajar TODO en cada lectura: el presupuesto
+  // de 9 s se gastaría siempre en las mismas imágenes y nunca llegaría a las que faltan, o sea
+  // que no convergería nunca.
+  assert.match(spy, /yaBajada/, 'spy.ts dejó de reusar la miniatura ya bajada: la vuelve a bajar en cada lectura');
+  assert.match(spy, /select\('ref, canal, miniatura'\)/, 'sin traer `miniatura` no se puede saber cuál ya está bajada');
 });
