@@ -544,6 +544,14 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
           titulo: v.titulo, texto: v.descripcion, etiquetas: v.etiquetas,
           vistas: v.vistas, megusta: v.megusta, comentarios: v.comentarios,
           duracion: v.duracion, publicadaEn: v.publicadoEn || null,
+          // ⚠️ LA MINIATURA DE YOUTUBE TAMBIÉN SE GUARDA, y hasta el 2/11/2026 no se guardaba: se
+          // derivaba del id al dibujar (`miniaturaDePieza`) y nunca se bajaba. Para VERLA alcanzaba
+          // —la URL de YouTube no vence ni bloquea—, pero Martín la quiere archivada por otro
+          // motivo: «que eso también pueda servir de referencia para crear miniaturas luego para
+          // los propios usuarios de MaKo». Una URL ajena no es material de referencia; un archivo
+          // sí. `guardarMiniaturas` la baja una sola vez y después `yaBajada` no la vuelve a pedir.
+          // Se usa la que YouTube dio —la de mayor resolución que haya— y no una armada a mano.
+          miniatura: v.miniatura || `https://i.ytimg.com/vi/${encodeURIComponent(v.id)}/hqdefault.jpg`,
         }));
         const g = await guardarVistas(competidorId, vistas);
         if (vistas.length) await marcarDejadas(competidorId, 'youtube', vistas.map((v) => v.ref));

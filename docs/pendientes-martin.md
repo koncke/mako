@@ -187,6 +187,28 @@ caras ni nombres reales, pero **dentro del análisis PRIVADO de un negocio el co
 negocio eligió sí se ve** (docs/hallazgos-competitors-spy.md). La tarjeta de Spy es análisis
 privado, así que encaja — pero conviene que Martín lo confirme por escrito.
 
+### 📸 Las miniaturas de YouTube NO se estaban guardando — corregido (2/11 ~15:20)
+
+**Le dije a Martín que la miniatura del video largo «ya queda archivada» y era falso.** Lo vi
+mirando la base, no suponiendo: de **163 piezas, sólo 12 tenían imagen guardada**, y las 12 eran de
+Instagram. Las de YouTube se **derivaban del id al dibujar** y no se bajaban nunca.
+
+Para VERLAS alcanzaba —la URL de YouTube no vence ni bloquea, al revés que la de Meta—, y por eso
+nadie lo había notado. Pero Martín las quiere por otro motivo: «que eso también pueda servir de
+referencia para crear miniaturas luego para los propios usuarios de MaKo». **Una URL ajena no es
+material de referencia; un archivo sí.**
+
+Ahora el mapeo de YouTube pasa la miniatura que YouTube dio —la de mayor resolución— y la baja el
+mismo camino que las de Instagram.
+
+⚠️ **La regla, porque es la que lo hizo invisible:** «se ve bien» y «lo tenemos» son dos cosas
+distintas. Una imagen que se dibuja desde una URL ajena se ve perfecta y **no está guardada en
+ningún lado**. Si alguien la va a usar DESPUÉS para otra cosa, hay que mirar la base, no la pantalla.
+
+**Y algo para saber al revisar:** la última lectura de un competidor fue a las 04:01, **antes** de
+que se desplegara el bajador. Por eso hoy hay 0 miniaturas bajadas y 0 caras guardadas. **No está
+roto: nadie leyó nada todavía.** Se arregla solo al tocar «Revisar ahora».
+
 ## Estado
 
 | | Ítem | Estado | Commit |

@@ -105,7 +105,15 @@ export type VideoYoutube = {
   publicadoEn: string;
   /** Las etiquetas: vienen por `videos.list` y por ningún otro endpoint. */
   etiquetas: string[];
-  /** La miniatura de mayor resolución que haya. Se dibuja, no se guarda. */
+  /**
+   * La miniatura de mayor resolución que haya.
+   *
+   * ⚠️ DESDE EL 2/11/2026 SÍ SE GUARDA. Decía «se dibuja, no se guarda» porque la URL de
+   * YouTube no vence ni bloquea, así que para verla alcanzaba. Se guarda por otro motivo, que
+   * lo dio Martín: la miniatura de un video largo «puede llegar a servir de referencia para
+   * crear miniaturas luego para los propios usuarios de MaKo». Una URL ajena no es material de
+   * referencia; un archivo sí.
+   */
   miniatura: string | null;
   /** ISO 8601 (`PT4M13S`), tal como lo devuelve la API. */
   duracion: string | null;
