@@ -110,6 +110,90 @@ nivel de diseño esta tab». Después dijo **«Hazlo tu, confio»** y yo me fui 
 `task_a3b08be8`, con el brief completo (los valores medidos de las animaciones y mis cinco errores de
 método). **No duplicar ese trabajo.** La propuesta vive en `docs/templates-dashboard-propuesta.md`.
 
+### 5. Lo que Martín pidió el 1/11 a la noche y QUEDÓ SIN HACER
+
+Llegaron cinco pedidos encadenados. Hecho: sólo el primero.
+
+**a) ✅ El modal de elegir gurú (HECHO, `f378981ea`).** Tenía tres barras de scroll y era chico.
+Las tres salían de heredar el armado de `ElegirMuneco`, hecho para cuatro caritas SIN texto.
+Medido con el CSS real: ahora scrollea una sola caja. 1040 de ancho, cinco fichas por fila.
+
+**b) ⛔ Doce gurús más, con su curso como base de conocimiento, y un botón de Second Brain con el
+grafo adentro de cada chat.** Es el pedido más grande y el que más cambia de tamaño al medirlo:
+
+- **Los doce TIENEN curso en Knowledge** (medido). Juan Carrizo → «Aumenta tu valor y ATV ADVANTAGE»
+  (247 clases) · Álvaro Luque → «The perfect launch» (237) · **Vilma Núñez → «Certificación en
+  Marketing Digital potenciada por IA» (153)** · Romuald Fons → «Bigseo Academy» (137) · Sergio
+  Begueria → «Instituto De Marca Personal» (92) · Gonzalo Seré → «Growing Content Specialist» (92) ·
+  Samuel Albaa → «Growing Closer» (66, lo da junto con Nievas, que ya es referente) · Julián Alborna
+  → «Inteligencia Viral 2026» (41) · Mateo Maffia → «BYF» (33) · Andy Landa → «ManyChat Master
+  Instagram» (25) · Francisco Doglio → «ARCADIA» (24) · Emilio Puigrredón → «Social Funnel» (11).
+- ⚠️ **EL TÍTULO DE UN CURSO VIVE EN DOS LUGARES Y EL DEL ARCHIVO PUEDE NO TENER AL AUTOR.**
+  `app/conocimientos/curso-<slug>.ts` dice `titulo: '… - Convierte Más'` y
+  **`app/conocimientos/catalogo.ts:836` lo RENOMBRA** a «… - Vilma Núñez (Convierte Más)». El segundo
+  es el que se ve en la app. Yo grepeé sólo el primero, dije «no está en Knowledge» y Martín me lo
+  corrigió con una captura. **El mapa de `catalogo.ts` es el que manda.** Y el mismo error me hizo
+  descartar ese curso en la primera tanda por «no tiene autor con nombre».
+- ⚠️ **«Base de conocimiento con la transcripción» NO es la ficha de hoy.** La ficha son 5.200
+  caracteres que entran enteros al system. Las transcripciones son 60-130 KB **por clase**, y el curso
+  de Carrizo tiene 247. Eso no entra en un prompt.
+- ✅ **PERO EL MOTOR YA ESTÁ, y esto es lo que más ahorra:** `lib/cerebro-knowledge.ts` (31/10) ya
+  cuelga Knowledge como CAPA del Second Brain (`conCapa`, lib/cerebro-union.ts), con un nodo por
+  módulo, y `lib/cerebro-recuperar.ts` recupera del grafo **sin IA y con presupuesto**. El componente
+  del grafo también existe: `app/second-brain/Grafo.tsx`, que recibe
+  `cerebro = { nodos, aristas, cuenta, posiciones, encuadre }`.
+- **Lo que falta, entonces, es cableado:** (1) una capa por REFERENTE —curso → módulos (`grupo`) →
+  clases, que ya es un grafo natural y no necesita embeddings—; (2) el botón en el chat del gurú que
+  abre `Grafo` con esa capa; (3) las doce fichas y caricaturas.
+- **El molde de una ficha y de una caricatura está probado**: ver el punto 2 de este relevo y
+  `docs/hallazgos-ops-center.md` (el prompt aprobado, y que el nombre se verifica contra el mundo).
+
+**c) ⛔ La extensión no debe ofrecer NINGUNA descarga** (Martín, con captura de
+hola-mako.com/extension/instalar: «dijimos que ya no se descarga nada, solo por el instalador de
+extensiones de chrome»). Medido y sin tocar:
+- La Chrome Web Store publica HOY la **0.74.3**; el repo sirve la **0.74.4**.
+- `lib/extension-tienda.ts` tiene `VERSION_EN_TIENDA = '0.39.1'`: **quedó vieja desde el 27/10**, y por
+  eso la página cae al zip. Actualizarla a 0.74.3 NO alcanza: el flag se deriva de
+  `!esMasVieja(tienda, repo)` y 0.74.3 < 0.74.4 sigue dando false.
+- **No se puede publicar la 0.74.4 desde este worktree**: faltan `CWS_CLIENT_ID`, `CWS_CLIENT_SECRET`
+  y `CWS_REFRESH_TOKEN` en `.env.local`.
+- Los cinco consumidores del flag: `next.config.ts:181`, `app/extension/instalar/page.tsx:49`,
+  `app/perfil/instalar/page.tsx:35`, `app/video-generator/puente-avisos.tsx:150`,
+  `app/mako-puente.zip/route.ts:36`.
+- ⚠️ `tests/extension-sin-zip-con-tienda.test.ts` afirma la FORMA del código (pide que exista la línea
+  `const desdeLaTienda = EXTENSION_EN_TIENDA;` y la forma exacta del redirect): hay que reescribirlo
+  junto con la política, no después.
+- ⚠️ Y leer el comentario largo de `lib/extension-tienda.ts` antes de tocar: el flag existe para que
+  sea IMPOSIBLE mandar a un cliente a una versión vieja de la tienda. La decisión de Martín no se
+  implementa tirando esa protección: se implementa cambiando lo que ve el cliente cuando la tienda va
+  atrás (hoy: un instructivo de descomprimir un zip; debería ser: decirlo).
+
+**d) ⛔ Sacar «Ads Manager» y «Offer» de la sidebar.** Martín: «Ads Manager pasaría a llamarse Funnel
+Coach y Offer sería tomado por Alex Hormozi y todo estaría dentro de OpsCenter. No hace falta que
+tengan su propia ruta, su tab aparte». Sin medir todavía. Lo que hay que medir ANTES de borrar: qué
+hace hoy `app/ads-manager/` y `app/offer/` que el chat del Ops Center NO haga, y todos los links
+internos que apunten ahí (href, router.push, redirects, la API de MaKo, los avisos, el onboarding) —
+un link a una ruta muerta es un 404 para un cliente. Distinguir «sacar de la sidebar» (barato) de
+«borrar la ruta» (caro). La nav está en `app/_components/nav.ts`.
+
+**e) ⛔ Elegir gurú desde «nuevo chat».** Martín: «no tengo en claro cómo poder chatear con algún gurú
+cuando le doy a nuevo chat, no me aparece la opción de poder seleccionar alguno de ellos». Hoy el
+referente sólo se elige para DOS coaches (`IdCoach = 'funnel' | 'offer'`, lib/asesores/catalogo.ts) y
+se guarda en app_settings con la clave `coaches.referentes`. La pantalla es
+`app/second-brain/ElegirReferente.tsx` y se abre desde el chat del coach, no desde «nuevo chat».
+
+**f) ⛔ El rediseño de Competitors Spy** sigue igual que en el punto 3 de este relevo.
+
+### Orden propuesto para el que siga
+
+1. **(c) la extensión** — es lo único que un cliente ve HOY mal y es chico.
+2. **(b) la capa por referente + el botón del grafo** — el motor ya está; es el mejor rendimiento por
+   hora de todo lo que queda.
+3. **(b) las doce fichas y caricaturas** — caro por gurú (hay que leer transcripciones de verdad), se
+   puede hacer de a tandas.
+4. **(e) elegir gurú en un chat nuevo**, que se apoya en lo de (b).
+5. **(d) la sidebar** y **(f) Spy**.
+
 ### Decisiones abiertas de Martín (sin tocar)
 
 - Si Competitors Spy se abre a los clientes (`adminOnly: true`, `app/_components/nav.ts:378`).
