@@ -27,6 +27,49 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
+## 📋 TODO LO PENDIENTE DE MARTÍN — inventario verificado contra el código (2/11/2026 ~01:00)
+
+Martín: «Revisá TODOS los pedidos que te hice y que siguen pendientes». Cada línea se comprobó
+abriendo el archivo, no de memoria. **Nada de esto está empezado salvo donde se diga.**
+
+### A. Pedidos NUEVOS del 2/11 (sin empezar)
+
+| # | Qué | Dónde vive | Verificado |
+|---|---|---|---|
+| A1 | **La lista de competidores en TARJETAS con caricatura**, no en tabla | `app/competitor-spy/SpyApp.tsx` → `TablaCompetidores` | hoy es una `<table>` |
+| A2 | **Poder borrar un competidor DESDE LA LISTA.** Martín tiene tres «Sofia Contreras» repetidas | ídem | «Dejar de mirarlo» existe pero SÓLO adentro de la ficha, en el `⋯` (`SpyApp.tsx:1124`) |
+| A3 | **Rediseñar el modal de «Mirar a alguien más»** | `SpyApp.tsx` → `ModalAlta` | — |
+| A4 | **Con el @ y Apify, traer el perfil** (foto, nombre, seguidores) al escribirlo. **Y lo mismo en el CRM** | `lib/instagram-perfil-server.ts` ya lee perfiles con Apify | la clave de Apify existe pero NUNCA se probó punta a punta |
+| A5 | **Rediseñar el modal de «mensaje de difusión» del CRM**, con el formato de cada red, como en Automations | `app/crm/AccionesLoteLeads.tsx` · `app/crm/seleccion-difusion.ts` | — |
+
+⚠️ **A1 y A2 son el MISMO trabajo**: la tarjeta tiene que traer su propia acción de borrar. Y las
+tres «Sofia Contreras» salen de que el alta no deduplica: hay que mirar eso también, o las tarjetas
+nuevas van a mostrar el duplicado más lindo.
+
+### B. Pedidos ANTERIORES que siguen sin hacer
+
+| # | Qué | Verificado |
+|---|---|---|
+| B1 | **Sacar Offer y Ads Manager de la sidebar** (Ads Manager pasa a ser Funnel Coach y Offer lo toma Hormozi, los dos adentro del Ops Center) | **SIGUEN**: `app/_components/nav.ts:371` (`offer`) y `:373` (`ads-manager`) |
+| B2 | **Los 12 referentes nuevos** | los 12 cursos YA están localizados (ver más abajo); faltan las 12 fichas y las 12 caricaturas |
+| B3 | **Elegir un gurú desde «nuevo chat»** | no existe: `IdCoach` sólo tiene `funnel` y `offer` |
+| B4 | **Base de conocimiento por gurú** (la transcripción de su curso) | sin empezar |
+| B5 | **Botón de Second Brain por gurú**, para ver su grafo | sin empezar. La pieza ya existe: `app/second-brain/Grafo.tsx` y `lib/cerebro-knowledge.ts` |
+| B6 | **La página de instalar la extensión no debe ofrecer NINGUNA descarga**, sólo la tienda | **SIGUE OFRECIÉNDOLA**: `app/extension/instalar/Pasos.tsx:76-83` tiene el botón de descarga |
+| B7 | **Probar punta a punta que la clave de Apify de ws 9 lee un Instagram** | nunca se probó |
+
+### C. Lo que tiene OTRO chat (no duplicar)
+
+- **Los 20 dashboards del editor de informes.** La propuesta está en
+  `docs/templates-dashboard-propuesta.md`. Martín preguntó «dónde quedó eso»: quedó en ese chat.
+
+### D. A verificar antes de tocar
+
+- **«El modal de los gurús sigue roto en producción».** El arreglo (`f378981ea`) recién llegó a
+  `main` el 2/11 ~00:45 dentro de la tanda `e63050081..8a60cd310`. **Antes de eso NO estaba
+  desplegado**, así que lo que Martín vio es la versión vieja. Hay que mirarlo DESPUÉS de recargar;
+  si sigue roto es otro problema y hace falta la captura.
+
 ## ⏩ LEER PRIMERO — 2/11/2026 ~01:30 ART, el Cerebro de claude1 (`e680c815`, semana al 89 %)
 
 **Esto pisa lo de abajo donde choque.** Rama de trabajo: `tren-chico` en `C:/dev/wt-push-q`.
