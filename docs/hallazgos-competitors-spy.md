@@ -457,3 +457,44 @@ la animación habría que pasar la URL viva desde la lectura sin guardarla. Y no
 **Sin probar contra Apify de verdad:** no hay clave todavía. La forma de `latestPosts` está tomada del código del 22/10 y de la documentación del actor.
 
 **Vive en:** lib/instagram-perfil-server.ts · lib/instagram-perfil.ts · lib/spy.ts · lib/metodo-catalogo.ts (`apify-instagram`).
+
+---
+
+## El diagnóstico obvio era el equivocado: «copiar una referencia» no es «mejorar lo que hay» (1/11/2026)
+
+**El síntoma.** Martín pidió cuatro veces lo mismo —«rediseñá toda la tab siguiendo una
+referencia»— y cuatro veces recibió otra cosa. Las tres primeras vueltas **sí tocaron la tab**: una
+reordenó las filas (7 → 5), otra cambió los radios, los tamaños y la sombra por los tokens medidos.
+Las dos se midieron, las dos dieron números mejores (462 px → 229 px hasta la primera pieza) y las
+dos se rechazaron en el acto: «se ve horrible otra vez», «es la cuarta vez que te lo pido».
+
+**La causa, y es de método.** Las tres vueltas empezaron abriendo `SpyApp.tsx`. Partiendo de la
+pantalla propia, lo único que se puede hacer es cambiarle la superficie: mover cajas y reemplazar
+valores. El esqueleto —qué hay, en qué orden, en qué columnas— sobrevive intacto, porque nunca se
+puso en duda. Y el esqueleto es justamente lo que se ve.
+
+**La regla que queda:** *copiar una referencia es empezar por la referencia.* Abrirla en el
+navegador, medirle el árbol y las reglas, escribir el esqueleto, y recién entonces preguntarse qué
+de lo nuestro entra ahí. **Si el primer archivo que abriste es el tuyo, no estás copiando: estás
+mejorando, que es lo que te pidieron no hacer.** Medir el resultado no lo arregla — las dos vueltas
+malas tenían mejores números que la pantalla original.
+
+**El corolario que ahorra tiempo:** la referencia no se elige por el rubro, se elige por la FORMA.
+Spy es «un catálogo que se filtra», así que la referencia útil no fue ningún producto de espionaje
+de anuncios: fue **una tienda de ropa** (`fitlo /shop`), que tiene exactamente esa forma. Y como el
+análisis no entra en un catálogo, el riel salió de otra plantilla (`merrin`). Dos referencias, una
+por pieza, en vez de forzar una sola.
+
+**Qué cambió de esqueleto** (medidas y reglas en `docs/diseno/referencia-spy.md`):
+
+- El análisis dejó de ser una banda plegada **arriba** de las piezas y pasó a un **riel de 336 px a
+  la derecha**. Por eso ahora puede estar siempre abierto: dejó de competir con el catálogo. La
+  banda arrancaba plegada justamente porque competía — el síntoma estaba visible y se trató como un
+  problema de altura.
+- Las seis píldoras grises de la identidad se fueron: los números son **celdas pastel de datos** en
+  el riel y la frescura es una línea gris debajo del título.
+- La tarjeta **no tiene borde, tiene un tinte**, y el tinte dice de qué canal es la pieza. Con eso
+  desaparece la fila «ícono + nombre del canal» que llevaba arriba de cada tarjeta.
+
+**Vive en:** app/competitor-spy/SpyApp.tsx · app/competitor-spy/TarjetaPieza.tsx ·
+docs/diseno/referencia-spy.md

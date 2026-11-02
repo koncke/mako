@@ -1,8 +1,27 @@
 'use client';
 
 // =============================================================================
-// Competitor Spy — buscador fijo, identidad, pestañas y una sola rejilla
+// Competitor Spy — un catálogo de piezas con el análisis en un riel al costado
 // =============================================================================
+// ⚠️ LA PANTALLA SE COPIA DE UNA REFERENCIA. No se mejora la que estaba: se copia el esqueleto de
+// otra que funciona. Martín lo pidió cuatro veces (1/11/2026): «rediseñes toda la tab siguiendo una
+// referencia, no que corrijas o intentes mejorar lo que ya hiciste». Las tres vueltas anteriores
+// reordenaron las mismas cajas y después les cambiaron los tokens, que es inventar con otro nombre.
+//
+// LA REFERENCIA, medida con el navegador el 1/11/2026 (docs/diseno/referencia-spy.md):
+//   · demo.codeandchill.store/fitlo/#/shop/all → la pantalla entera. Es una tienda: un título
+//     grande, pestañas con el conteo en una badge, UNA barra de herramientas y una grilla de
+//     tarjetas con el creativo a sangre. Es la misma forma que Spy (un catálogo que se filtra).
+//   · demo.codeandchill.store/merrin/ → el riel de 336 px: la barra apilada, las filas con ícono,
+//     nombre y valor, y las celdas pastel de datos.
+//
+// LO QUE CAMBIÓ DE ESQUELETO, y por qué:
+//   · El análisis dejó de ser una banda arriba de las piezas y pasó al riel de la derecha. Por eso
+//     puede estar SIEMPRE ABIERTO: ya no compite con el catálogo ni lo empuja fuera de la pantalla.
+//   · Las seis píldoras grises de la identidad se fueron: los números son celdas de datos en el
+//     riel y la frescura es la línea gris debajo del título.
+//   · La tarjeta no tiene borde, tiene un TINTE, y el tinte dice de qué canal es.
+//
 // REHECHA el 31/10/2026 después de que Martín abriera la anterior («lista a la izquierda + cuatro
 // acordeones por canal», sacada de la ficha del CRM) y la rechazara. Se midieron once productos de la
 // categoría con el navegador; el relevamiento está en docs/hallazgos-competitors-spy.md. De dónde sale
@@ -57,135 +76,269 @@ import { TarjetaPieza } from './TarjetaPieza';
 import { PeliculaDeOrden } from './OrdenSpy';
 
 const CSS = `
-.spy{min-height:100vh;background:var(--bg);color:var(--ink);font-size:var(--fs-md)}
-.spy button{font:inherit}
-.spy-barra{position:sticky;top:var(--pegado-arriba,0px);z-index:20;display:flex;align-items:center;gap:14px;height:56px;padding:0 20px;background:var(--surface-2);border-bottom:1px solid var(--border)}
-.spy-marca{display:inline-flex;align-items:center;gap:8px;font-size:var(--fs-card);font-weight:600;background:none;border:0;padding:0;color:var(--ink);cursor:pointer;white-space:nowrap}
-.spy-campo{display:flex;align-items:center;gap:8px;flex:0 1 420px;min-width:0;height:36px;padding:0 10px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface);color:var(--faint)}
-.spy-campo:focus-within{border-color:var(--primary)}
-.spy-campo input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--ink);font-size:var(--fs-sm)}
-.spy-x{display:inline-flex;background:none;border:0;padding:2px;color:var(--faint);cursor:pointer}
-.spy-mas{margin-left:auto;display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;flex:none;border:0;border-radius:var(--r-sm);background:var(--primary);color:var(--bg);cursor:pointer}
-.spy-cuerpo{max-width:1240px;margin:0 auto;padding:16px 20px 40px}
-.spy-boton{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface-2);color:var(--ink);font-size:var(--fs-sm);cursor:pointer;white-space:nowrap;text-decoration:none}
-.spy-boton:disabled{opacity:.55;cursor:default}
-.spy-boton-primario{background:var(--primary);border-color:var(--primary);color:var(--bg)}
-/* UNA cabecera donde antes había dos filas (migas e identidad). El nombre y el volver a la
-   izquierda, lo que sabemos de él en el medio —que se encoge antes que nada— y las acciones a la
-   derecha, que nunca se parten. El min-width 0 del medio es lo que permite que el texto se recorte
-   en vez de empujar los botones a otro renglón. */
-.spy-cabecera{display:flex;align-items:center;gap:10px;flex-wrap:nowrap}
-.spy-volver{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;height:30px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);color:var(--dim);cursor:pointer}
-.spy-volver:hover{color:var(--ink)}
-.spy-meta{display:flex;align-items:center;gap:6px;min-width:0;flex:1;overflow:hidden}
-.spy-meta>*{flex:none}
-.spy-miga{display:inline-flex;align-items:center;gap:6px;background:none;border:0;padding:0;color:var(--dim);cursor:pointer;font-size:var(--fs-sm);white-space:nowrap}
-.spy-avatar{display:inline-flex;align-items:center;justify-content:center;flex:none;width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);font-size:14px;font-weight:700;color:var(--dim)}
-.spy-nombre{font-size:var(--fs-sect);font-weight:700;line-height:1.2;white-space:nowrap}
-.spy-pildora-gris{display:inline-flex;align-items:center;height:24px;padding:0 10px;border-radius:999px;background:var(--surface-2);border:1px solid var(--border);font-size:var(--fs-meta);color:var(--dim);white-space:nowrap}
-.spy-acciones{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.spy-pestanas{display:flex;gap:22px;margin-top:16px;border-bottom:1px solid var(--border);overflow:auto hidden;scrollbar-width:none}
-.spy-pestana{background:none;border:0;border-bottom:2px solid transparent;margin-bottom:-1px;padding:8px 0;color:var(--dim);font-size:14px;cursor:pointer;white-space:nowrap}
-.spy-pestana[data-activa=true]{font-weight:700;color:var(--ink);border-bottom-color:var(--primary)}
-.spy-pestana span{margin-left:6px;font-weight:400;color:var(--faint)}
-.spy-franja{display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 12px;border-radius:var(--r-sm);background:var(--surface-2);border:1px solid var(--border);font-size:var(--fs-sm);color:var(--dim)}
-.spy-franja strong{color:var(--ink);white-space:nowrap}
-.spy-franja .spy-x{margin-left:auto}
-.spy-aviso{margin:10px 0 0;font-size:var(--fs-sm);line-height:1.6;color:var(--dim)}
-.spy-error{color:var(--bad)}
-.spy-banda{margin-top:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md)}
-.spy-banda-cabecera{display:flex;align-items:center;gap:8px;width:100%;padding:12px 14px;background:none;border:0;color:var(--ink);cursor:pointer;text-align:left}
-.spy-banda-frase{flex:1;font-size:var(--fs-sm);color:var(--dim);line-height:1.5}
-.spy-banda-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));border-top:1px solid var(--border)}
-.spy-col{padding:12px 14px;border-left:1px solid var(--border);min-width:0}
-.spy-col:first-child{border-left:0}
-.spy-col h3{margin:0 0 8px;font-size:var(--fs-sm);font-weight:600;color:var(--ink)}
-.spy-fila{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:var(--fs-sm);color:var(--dim)}
-.spy-fila b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.spy-fila span{flex:none;color:var(--faint);font-variant-numeric:tabular-nums}
-.spy-herramientas{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:14px}
-/* Las pestañas dejaron de tener fila propia. Siguen siendo pestañas —peso y subrayado en la activa—
-   pero entran en la fila de los chips, que ya existía. El separador vertical dice dónde terminan. */
-.spy-pestanas--en-linea{margin-top:0;border-bottom:0;gap:14px;padding-right:12px;border-right:1px solid var(--border)}
-/* A partir de acá la fila de la cabecera se parte: primero se va lo que menos se mira. */
-@media (max-width: 900px){
-  .spy-solo-ancho{display:none}
+/* ─────────────────────────────────────────────────────────────────────────────
+   COPIADO DE LA REFERENCIA, no inventado. Dos plantillas de demo.codeandchill.store,
+   leídas con el navegador el 1/11/2026 (reglas y medidas en docs/diseno/referencia-spy.md):
+
+     · fitlo /shop  → la pantalla entera: título, pestañas con conteo, barra de
+       herramientas y la grilla de tarjetas visuales. Es la misma forma que Spy
+       (un catálogo de piezas que se filtra), así que se copia su esqueleto.
+     · merrin       → el riel de análisis de 336 px: la barra apilada, las filas con
+       ícono + nombre + valor, y las celdas pastel de datos.
+
+   Cada clase de acá abajo es la de la referencia con el prefijo spy-, porque este
+   bloque se inyecta sin alcance y un .card suelto pisaría media app. El mapeo:
+     .card→.spy-caja  .chead→.spy-caja-cabecera  .pgrid→.spy-pgrid  .pcard→.spy-pcard
+     .tabs→.spy-pestanas  .toolbar→.spy-herramientas  .kpi→.spy-kpi  .mix__*→.spy-mix-*
+     .phead→.spy-phead  .btn→.spy-boton  .chip→.spy-chip  .input→.spy-entrada
+
+   Los valores salen de los tokens de la casa, que ya son este esqueleto con otros
+   nombres (--surface=--card, --border=--line, --border-strong=--line-2, --faint=--muted).
+   Lo que la casa todavía no nombra se declara acá adentro, en .spy.
+   ───────────────────────────────────────────────────────────────────────────── */
+.spy{
+  /* Las cuatro celdas pastel son las de merrin tal cual (los --tile-1..4 medidos). */
+  --t1:#e5e8cd; --t2:#d9e8e1; --t3:#f0e4cc; --t4:#dbe3ef;
+  --t-ink:#17181c; --t-dim:#17181ca8;
+  /* La serie por categoría lleva el nombre de LO QUE ES, no un número: el mismo color
+     en el punto, el tinte de la tarjeta, el segmento de la barra y la fila del riel,
+     para no tener que leer ninguna leyenda. Los dos valores son los de la marca que
+     ya vive en ServicioVisual.tsx. */
+  --ig:#D62976; --yt:#FF0000;
+  /* La serie de cuatro para lo que NO es un canal (formatos, destinos): los cuatro
+     categoricos medidos de merrin, tal cual. */
+  --s1:#64761a; --s2:#c0643c; --s3:#4b6fa3; --s4:#c4952c;
+  --gap:18px;
+  min-height:100vh;background:var(--bg);color:var(--ink);font-size:var(--fs-md)
 }
-@media (max-width: 720px){
-  .spy-cabecera{flex-wrap:wrap}
-  .spy-meta{flex-basis:100%;order:3;overflow:visible;flex-wrap:wrap}
-  .spy-acciones{margin-left:auto}
-  .spy-pestanas--en-linea{border-right:0;padding-right:0;flex-basis:100%}
-}
-.spy-buscar{display:flex;align-items:center;gap:6px;width:213px;height:34px;padding:0 9px;border:1px solid var(--border);border-radius:var(--r-sm);background:var(--surface-2);color:var(--faint)}
-.spy-buscar input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--ink);font-size:var(--fs-sm)}
-.spy-chip{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface-2);color:var(--dim);font-size:var(--fs-sm);cursor:pointer;white-space:nowrap}
-.spy-chip[data-activo=true]{border-color:var(--primary);color:var(--ink);font-weight:600}
-.spy-chip:disabled{cursor:default;opacity:.6}
-.spy-chip span{color:var(--faint);font-weight:400}
+
+/* ── La barra de arriba: el campo no se va nunca (Meta Ad Library, Google Ads
+      Transparency). Es el .top de la referencia: píldora de búsqueda + botones
+      cuadrados de 42. ── */
+.spy-barra{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:10px;
+  padding:13px 22px;background:var(--bg);border-bottom:1px solid var(--border)}
+.spy-marca{display:inline-flex;align-items:center;gap:9px;height:42px;padding:0 14px;border:0;
+  background:none;color:var(--ink);font-size:var(--fs-md);font-weight:700;letter-spacing:-.01em;cursor:pointer}
+.spy-campo{display:flex;align-items:center;gap:10px;flex:1;min-width:0;max-width:420px;height:42px;
+  padding:0 8px 0 14px;border-radius:13px;background:var(--surface);color:var(--faint);
+  box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
+.spy-campo:focus-within{box-shadow:inset 0 0 0 1.5px var(--accent),0 0 0 4px var(--mako-bg)}
+.spy-campo input{flex:1;min-width:0;border:0;outline:0;background:none;font:inherit;
+  font-size:var(--fs-md);font-weight:500;color:var(--ink)}
+.spy-mas{display:grid;place-items:center;flex:0 0 auto;width:42px;height:42px;border:0;border-radius:13px;
+  background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta);cursor:pointer}
+.spy-mas:hover{background:var(--surface-2)}
+
+.spy-cuerpo{max-width:var(--pagina-max);margin:0 auto;padding:10px 22px 40px}
+
+/* ── El encabezado de página: .phead. Un título grande y una línea gris. Lo que
+      antes eran seis píldoras grises en fila ahora es esa línea. ── */
+.spy-phead{display:flex;flex-wrap:wrap;align-items:flex-end;gap:16px;margin:10px 0 20px}
+.spy-phead__texto{flex:1 1 260px;min-width:0}
+.spy-phead h1{margin:0;font-size:clamp(28px,2.6vw,38px);font-weight:600;line-height:1.04;letter-spacing:-.025em}
+.spy-phead p{margin:8px 0 0;max-width:70ch;color:var(--faint);font-size:var(--fs-md)}
+.spy-phead__acciones{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+
+/* ── Pestañas: 42 px, subrayado del acento, conteo en una .badge. ── */
+.spy-pestanas{position:relative;display:flex;gap:4px;margin-bottom:20px;overflow-x:auto;
+  border-bottom:1px solid var(--border);scrollbar-width:none}
+.spy-pestanas::-webkit-scrollbar{display:none}
+.spy-pestana{position:relative;display:inline-flex;align-items:center;gap:8px;height:42px;padding:0 12px;
+  border:0;background:none;color:var(--faint);font-size:var(--fs-md);font-weight:600;white-space:nowrap;cursor:pointer}
+.spy-pestana:hover,.spy-pestana[data-activa=true]{color:var(--ink)}
+.spy-pestana[data-activa=true]::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+.spy-badge{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;border-radius:99px;
+  background:var(--primary-bg);color:var(--dim);font-size:11px;font-weight:700}
+.spy-pestana[data-activa=true] .spy-badge{background:var(--mako-bg);color:var(--mako-ink)}
+
+/* ── Las dos columnas de merrin: el catálogo manda y el análisis va a un riel de 336. ── */
+.spy-cols{display:grid;grid-template-columns:minmax(0,1fr) 336px;gap:var(--gap);align-items:start}
+.spy-riel{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+
+/* ── Celdas pastel de datos: .kpi. Sin deltas, porque Spy lee UNA vez. ── */
+.spy-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.spy-kpi{display:flex;flex-direction:column;min-height:98px;padding:16px 18px 14px;border-radius:var(--r-lg);
+  background:var(--t1);color:var(--t-ink);overflow:hidden}
+.spy-kpi:nth-child(2){background:var(--t2)}
+.spy-kpi:nth-child(3){background:var(--t3)}
+.spy-kpi:nth-child(4){background:var(--t4)}
+.spy-kpi b{display:flex;align-items:center;gap:8px;color:var(--t-dim);font-size:var(--fs-sm);font-weight:600}
+.spy-kpi strong{margin-top:10px;font-size:var(--fs-kpi);font-weight:600;line-height:1.1;letter-spacing:-.01em}
+.spy-kpi small{margin-top:auto;padding-top:8px;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600}
+
+/* ── La caja: .card. Un tono MÁS CLARA que el fondo, sin borde duro. ── */
+.spy-caja{position:relative;min-width:0;padding:18px 20px 20px;border-radius:var(--r-lg);background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
+.spy-caja--plana{padding:0}
+.spy-caja-cabecera{display:flex;align-items:center;gap:10px;min-height:32px;margin-bottom:14px}
+.spy-caja--plana .spy-caja-cabecera{padding:16px 20px 0}
+.spy-caja-cabecera div{flex:1;min-width:0}
+.spy-caja-cabecera h2{margin:0;font-size:var(--fs-card);font-weight:600;line-height:1.25;letter-spacing:-.005em}
+.spy-caja-cabecera p{margin:2px 0 0;color:var(--faint);font-size:var(--fs-sm)}
+
+/* ── El riel de análisis de merrin: barra apilada + filas con ícono, nombre y valor. ── */
+.spy-mix-barra{display:flex;gap:3px;height:12px;margin-bottom:14px}
+.spy-mix-seg{border-radius:4px;min-width:6px}
+.spy-mix-filas{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+.spy-mix-filas li{display:flex;align-items:center;gap:10px;padding:7px 0}
+.spy-mix-ico{display:grid;place-items:center;flex:0 0 auto;width:30px;height:30px;border-radius:9px;
+  background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
+.spy-mix-nombre{flex:1;min-width:0}
+.spy-mix-nombre b{display:block;font-size:var(--fs-md);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-mix-nombre small{color:var(--faint);font-size:var(--fs-meta)}
+.spy-mix-val{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:0 0 auto;font-weight:600}
+
+/* ── La barra de herramientas de fitlo: campo ancho a la izquierda, chips, orden a la derecha. ── */
+.spy-herramientas{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.spy-buscar{position:relative;display:flex;align-items:center;flex:1 1 170px;max-width:260px}
+.spy-buscar svg{position:absolute;left:12px;color:var(--faint);pointer-events:none}
+.spy-buscar input{width:100%;height:42px;padding:0 13px 0 38px;border:0;border-radius:12px;background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border-strong);font:inherit;font-size:var(--fs-md);font-weight:500;color:var(--ink)}
+.spy-buscar input:focus{outline:0;box-shadow:inset 0 0 0 1.5px var(--accent),0 0 0 4px var(--mako-bg)}
+.spy-chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:0;border-radius:99px;
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--faint);
+  font-size:var(--fs-sm);font-weight:600;white-space:nowrap;cursor:pointer}
+.spy-chip:hover:not(:disabled){color:var(--ink)}
+.spy-chip[data-activo=true]{background:var(--accent);color:var(--on-primary);box-shadow:none}
+.spy-chip:disabled{opacity:.45;cursor:not-allowed}
+.spy-chip .spy-badge{min-width:18px;height:18px;background:rgba(0,0,0,.06);color:inherit}
+.spy-chip[data-activo=true] .spy-badge{background:rgba(255,255,255,.22)}
+.spy-chip i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
 .spy-orden{margin-left:auto}
-.spy-rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px;margin-top:18px}
-.spy-tarjeta{display:flex;flex-direction:column;background:var(--surface);border:1px solid var(--border);border-radius:var(--r-md);overflow:hidden;color:inherit;text-decoration:none;min-width:0;box-shadow:var(--sombra-tarjeta);transition:transform .18s var(--ease-out),box-shadow .18s var(--ease-out)}
-.spy-tarjeta:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
-a.spy-tarjeta:hover{border-color:var(--border-strong)}
-.spy-tarjeta-cabecera{display:flex;align-items:center;gap:7px;height:40px;padding:0 12px;font-size:var(--fs-sm);font-weight:600}
-.spy-tarjeta-estado{display:flex;align-items:center;gap:8px;min-height:30px;padding:0 12px 8px;font-size:var(--fs-meta);color:var(--faint)}
-.spy-pildora{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--dim)}
-.spy-punto{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--faint)}
-.spy-punto-vivo{background:var(--good)}
-.spy-rango{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.spy-creativo{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--surface)}
-.spy-creativo-texto{padding:12px;min-height:110px;background:var(--surface);font-size:var(--fs-sm);line-height:1.5;color:var(--dim);overflow:hidden}
-.spy-contadores{display:grid;grid-template-columns:repeat(3,1fr);padding:10px 12px 0}
-.spy-contador{min-width:0}
-.spy-contador-valor{font-size:17px;font-weight:700;line-height:1.25}
-.spy-contador-ausente{font-size:var(--fs-meta);line-height:21px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.spy-contador-etiqueta{font-size:var(--fs-meta);color:var(--faint)}
-.spy-tarjeta-pie{padding:10px 12px 12px;display:flex;flex-direction:column;gap:3px}
-.spy-destino{font-size:var(--fs-meta);font-weight:500;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.spy-titulo-pieza{font-size:var(--fs-sm);font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.spy-etapa{font-size:var(--fs-meta);color:var(--faint);margin-top:2px}
-.spy-esqueleto{min-height:300px;border-radius:var(--r-md);background:linear-gradient(100deg,var(--surface-2) 30%,var(--surface) 50%,var(--surface-2) 70%);background-size:300% 100%;border:1px solid var(--border);animation:spy-brillo 1.4s linear infinite}
-@keyframes spy-brillo{from{background-position:100% 0}to{background-position:0 0}}
-@media (prefers-reduced-motion:reduce){.spy-esqueleto{animation:none}}
-.spy-vacio{display:flex;flex-direction:column;align-items:center;gap:8px;max-width:380px;margin:44px auto;text-align:center}
-.spy-vacio h2{margin:0;font-size:18px;font-weight:700;line-height:1.3}
-.spy-vacio p{margin:0;font-size:14px;line-height:1.55;color:var(--dim)}
-.spy-vacio-botones{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:10px}
-.spy-vacio-icono{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;margin-bottom:16px;border-radius:var(--r-lg);background:var(--surface-2);border:1px solid var(--border);color:var(--primary)}
-.spy-pie{margin-top:22px;font-size:var(--fs-meta);line-height:1.7;color:var(--faint)}
-.spy-pie p{margin:0}
-.spy-oferta{margin-top:14px;max-width:760px;display:flex;flex-direction:column;gap:12px}
-.spy-dato b{display:block;font-size:var(--fs-meta);font-weight:600;color:var(--faint);margin-bottom:2px}
-.spy-dato{font-size:14px;line-height:1.55}
-.spy-sitio{margin-top:14px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;max-width:760px}
-.spy-etiquetas{display:flex;gap:6px;flex-wrap:wrap}
-.spy-envoltura-tabla{overflow-x:auto;margin-top:14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-md)}
-.spy-tabla{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
-.spy-tabla th{padding:10px 14px;text-align:left;font-size:var(--fs-meta);font-weight:500;color:var(--faint);border-bottom:1px solid var(--border);white-space:nowrap}
-.spy-tabla td{padding:10px 14px;border-bottom:1px solid var(--border);white-space:nowrap;color:var(--dim)}
-.spy-tabla tr:last-child td{border-bottom:0}
+.spy-conteo{margin:0 0 12px;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
+
+/* ── LA GRILLA Y LA TARJETA, que es lo que más se ve: .pgrid + .pcard de fitlo.
+      La tarjeta no tiene borde: tiene un tinte, el creativo a sangre arriba en 4/5, un
+      punto del canal arriba a la izquierda, una píldora sobre la foto y un pie con el
+      texto a la izquierda y el número a la derecha. ── */
+.spy-pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:var(--gap)}
+.spy-pcard{position:relative;display:flex;flex-direction:column;min-width:0;isolation:isolate;overflow:hidden;
+  border-radius:var(--r-xl);background:var(--surface-2);color:inherit;text-decoration:none;
+  transition:transform .2s var(--ease-out),box-shadow .2s var(--ease-out)}
+.spy-pcard[data-canal=instagram]{background:var(--t3)}
+.spy-pcard[data-canal=youtube]{background:var(--t4)}
+.spy-pcard[data-canal=anuncios]{background:var(--t2)}
+.spy-pcard:hover{transform:translateY(-2px);box-shadow:var(--sombra-pop)}
+.spy-pcard__media{position:relative;display:block;aspect-ratio:4/5;overflow:hidden}
+.spy-pcard__media img{display:block;width:100%;height:100%;object-fit:cover}
+.spy-pcard__texto-creativo{display:block;padding:18px 18px 22px;color:var(--t-ink);
+  font-size:var(--fs-sm);line-height:1.45;overflow:hidden}
+.spy-pcard__puntos{position:absolute;z-index:2;top:16px;left:14px;display:flex}
+.spy-pcard__puntos i{width:18px;height:18px;border-radius:50%;
+  box-shadow:0 0 0 2px var(--surface),inset 0 0 0 1px #0000001f}
+.spy-pcard__tag{position:absolute;z-index:1;bottom:12px;left:14px;display:inline-flex;align-items:center;gap:5px;
+  height:26px;padding:0 10px;border-radius:99px;background:var(--surface);color:var(--ink);
+  font-size:var(--fs-meta);font-weight:700;box-shadow:var(--sombra-tarjeta)}
+.spy-pcard__tag--viva{padding-left:8px;background:rgba(22,26,25,.82);color:#fff}
+/* Dos píldoras apiladas, como .pcard__tag + .pcard__fit de la referencia: la segunda sube. */
+.spy-pcard__tag + .spy-pcard__tag{bottom:44px;max-width:calc(100% - 28px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;line-height:26px}
+.spy-pcard__pie{display:flex;align-items:flex-end;gap:10px;padding:12px 14px 14px 16px}
+.spy-pcard__texto{flex:1;min-width:0}
+.spy-pcard__texto small{display:block;color:var(--t-dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.spy-pcard__texto b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  font-size:var(--fs-card);font-weight:600;line-height:1.25;letter-spacing:-.005em}
+.spy-pcard__num{display:inline-flex;flex-direction:column;align-items:flex-end;flex:0 0 auto;gap:1px;
+  padding:5px 11px;border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border)}
+.spy-pcard__num b{font-size:var(--fs-md);font-weight:700;line-height:1.1}
+.spy-pcard__num small{color:var(--faint);font-size:10.5px;font-weight:600;letter-spacing:.02em;text-transform:uppercase}
+.spy-pcard__num--ausente b{color:var(--faint);font-size:var(--fs-sm);font-weight:600}
+
+/* ── La lista de competidores: la tabla de merrin dentro de una caja plana. ── */
+.spy-envoltura-tabla{overflow-x:auto}
+.spy-tabla{width:100%;border-collapse:collapse;font-size:var(--fs-md)}
+.spy-tabla th{padding:10px 14px;text-align:left;color:var(--faint);font-size:var(--fs-meta);font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+.spy-tabla td{padding:13px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
 .spy-tabla tbody tr{cursor:pointer}
-.spy-tabla tbody tr:hover{background:var(--surface)}
-.spy-tabla-nombre{display:flex;align-items:center;gap:10px;font-weight:600;color:var(--ink)}
-.spy-tabla-nombre .spy-avatar{width:28px;height:28px;font-size:var(--fs-meta)}
-.spy-tabla-canales{display:flex;gap:8px}
-.spy-lista-cabecera{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.spy-lista-cabecera h1{margin:0;font-size:var(--fs-sect);font-weight:700}
-.spy-modal{padding:18px;display:flex;flex-direction:column;gap:12px}
-.spy-modal h2{margin:0;font-size:16px;font-weight:700}
-.spy-modal-cabecera{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.spy-modal-pestanas{display:flex;gap:18px;border-bottom:1px solid var(--border)}
-.spy-entrada{width:100%;height:36px;padding:0 11px;border-radius:var(--r-sm);border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:var(--fs-sm);box-sizing:border-box}
-.spy-modal-pie{display:flex;justify-content:flex-end}
-@media (max-width:640px){
-  .spy-barra{padding:0 12px;gap:10px}
+.spy-tabla tbody tr:hover td{background:var(--surface-2)}
+.spy-tabla tbody tr:last-child td{border-bottom:0}
+.spy-tabla th:first-child,.spy-tabla td:first-child{padding-left:20px}
+.spy-tabla th:last-child,.spy-tabla td:last-child{padding-right:20px}
+.spy-tabla-nombre{display:inline-flex;align-items:center;gap:10px;font-weight:600}
+.spy-tabla-canales{display:inline-flex;align-items:center;gap:8px;color:var(--faint)}
+.spy-avatar{display:grid;place-items:center;flex:0 0 auto;width:30px;height:30px;border-radius:9px;
+  background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border);font-size:var(--fs-sm);font-weight:700}
+
+/* ── Botones, píldoras y avisos, con los valores de la referencia. ── */
+.spy-boton{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:40px;padding:0 16px;
+  border:0;border-radius:12px;background:var(--surface);color:var(--ink);box-shadow:inset 0 0 0 1px var(--border-strong);
+  font-size:var(--fs-md);font-weight:600;white-space:nowrap;cursor:pointer;text-decoration:none}
+.spy-boton:hover:not(:disabled){background:var(--surface-2)}
+.spy-boton:disabled{opacity:.45;cursor:not-allowed}
+.spy-boton-primario{background:var(--accent);color:var(--on-primary);box-shadow:0 6px 16px -8px var(--accent)}
+.spy-boton-primario:hover:not(:disabled){background:var(--mako-ink);filter:brightness(1.1)}
+.spy-x{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:9px;background:none;
+  color:var(--faint);cursor:pointer}
+.spy-x:hover{background:var(--velo-hover);color:var(--ink)}
+.spy-pildora{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px;border-radius:99px;
+  background:var(--primary-bg);color:var(--dim);font-size:var(--fs-meta);font-weight:600;white-space:nowrap}
+.spy-pildora-gris{display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 12px;border-radius:99px;
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);color:var(--dim);
+  font-size:var(--fs-sm);font-weight:600;white-space:nowrap}
+.spy-punto{width:6px;height:6px;border-radius:50%;background:currentColor;flex:0 0 auto}
+.spy-punto-vivo{background:var(--good)}
+.spy-rango{color:var(--faint);font-size:var(--fs-sm)}
+.spy-aviso{margin:0 0 14px;padding:11px 14px;border-radius:var(--r-md);background:var(--surface-2);
+  color:var(--dim);font-size:var(--fs-sm);line-height:1.5}
+.spy-error{background:var(--bad-bg);color:var(--bad)}
+.spy-franja{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px 10px 16px;
+  border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
+.spy-franja strong{font-weight:700}
+.spy-franja span{flex:1;min-width:0;color:var(--faint)}
+.spy-etiquetas{display:flex;flex-wrap:wrap;gap:6px}
+
+/* ── Vacíos y esqueleto. ── */
+.spy-vacio{display:flex;flex-direction:column;align-items:center;gap:10px;padding:56px 24px;text-align:center;
+  border-radius:var(--r-lg);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
+.spy-vacio-icono{display:grid;place-items:center;width:56px;height:56px;margin-bottom:4px;border-radius:var(--r-md);
+  background:var(--t1);color:var(--t-ink)}
+.spy-vacio h2{margin:0;font-size:var(--fs-sect);font-weight:600;letter-spacing:-.01em}
+.spy-vacio p{margin:0;max-width:52ch;color:var(--faint);font-size:var(--fs-md);line-height:1.55}
+.spy-vacio-botones{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:8px}
+.spy-esqueleto{aspect-ratio:4/5;border-radius:var(--r-xl);background:var(--surface-2);
+  animation:spy-latido 1.4s var(--ease-out) infinite}
+@keyframes spy-latido{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* ── Ficha de oferta y de sitio. ── */
+.spy-oferta{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:var(--gap)}
+.spy-dato{padding:16px 18px;border-radius:var(--r-lg);background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta);font-size:var(--fs-md);line-height:1.5}
+.spy-dato b{display:block;margin-bottom:6px;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
+.spy-sitio{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:20px;
+  border-radius:var(--r-lg);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
+.spy-nombre{font-size:var(--fs-card);font-weight:600}
+
+/* ── Modales. ── */
+.spy-modal{display:flex;flex-direction:column;gap:14px}
+.spy-modal-cabecera{display:flex;align-items:center;gap:10px}
+.spy-modal-cabecera h2{flex:1;margin:0;font-size:var(--fs-card);font-weight:600}
+.spy-modal-pestanas{display:flex;gap:4px;border-bottom:1px solid var(--border)}
+.spy-modal-pie{display:flex;justify-content:flex-end;gap:8px}
+.spy-entrada{width:100%;height:42px;padding:0 13px;border:0;border-radius:12px;background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--border-strong);font:inherit;font-size:var(--fs-md);font-weight:500;color:var(--ink)}
+.spy-entrada:focus{outline:0;box-shadow:inset 0 0 0 1.5px var(--accent),0 0 0 4px var(--mako-bg)}
+
+.spy-pie{margin-top:22px;display:flex;flex-direction:column;gap:4px;color:var(--faint);font-size:var(--fs-meta);line-height:1.5}
+.spy-pie p{margin:0}
+
+/* ── Celular: el riel baja, la grilla pasa a dos y la barra se aprieta. ── */
+@media (max-width:1080px){
+  .spy-cols{grid-template-columns:minmax(0,1fr)}
+  .spy-riel{flex-direction:row;flex-wrap:wrap}
+  .spy-riel > *{flex:1 1 280px}
+}
+@media (max-width:760px){
+  .spy-barra{padding:10px 14px}
   .spy-marca span{display:none}
-  .spy-cuerpo{padding:12px 16px 32px}
-  .spy-buscar{width:100%}
+  .spy-cuerpo{padding:8px 14px 32px}
+  .spy-pgrid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .spy-pcard__pie{padding:10px 11px 12px 12px}
+  .spy-pcard__texto b{font-size:var(--fs-sm)}
+  .spy-pcard__num{padding:4px 9px}
+  .spy-pcard__num small{display:none}
+  .spy-riel{flex-direction:column}
+  .spy-solo-ancho{display:none}
   .spy-orden{margin-left:0}
-  .spy-col{border-left:0;border-top:1px solid var(--border)}
-  .spy-col:first-child{border-top:0}
 }
 `;
 
@@ -243,7 +396,7 @@ function Esqueleto({ leyendo }: { leyendo: boolean }) {
   return (
     <>
       {leyendo && <p className="spy-aviso">Leyendo sus canales. Tarda unos segundos.</p>}
-      <div className="spy-rejilla" aria-busy="true">
+      <div className="spy-pgrid" aria-busy="true">
         {Array.from({ length: 8 }, (_, i) => <div key={i} className="spy-esqueleto" />)}
       </div>
     </>
@@ -334,95 +487,125 @@ function TablaCompetidores({ competidores, resumen, onAbrir }: {
   const desdes = Object.values(resumen).map((r) => r.desde).filter((d): d is string => !!d).sort();
   return (
     <>
-      <div className="spy-lista-cabecera">
-        <h1>Competidores</h1>
-        <span className="spy-rango">
-          {competidores.length} {competidores.length === 1 ? 'competidor' : 'competidores'}
-          {desdes[0] ? ` · el más viejo desde el ${fechaCorta(desdes[0])}` : ''}
-        </span>
-      </div>
-      <div className="spy-envoltura-tabla">
-        <table className="spy-tabla">
-          <thead>
-            <tr><th>Nombre</th><th>Revisado</th><th>Desde</th><th>Piezas</th><th>Canales</th></tr>
-          </thead>
-          <tbody>
-            {competidores.map((c) => {
-              const r = resumen[c.id];
-              return (
-                <tr key={c.id} onClick={() => onAbrir(c.id)}>
-                  <td><span className="spy-tabla-nombre"><span className="spy-avatar">{inicial(c.nombre)}</span>{c.nombre}</span></td>
-                  <td>{c.mirado_en ? haceCuanto(c.mirado_en) : ''}</td>
-                  <td>{r?.desde ? fechaCorta(r.desde) : ''}</td>
-                  <td>
-                    {r && r.vivas + r.idas > 0 && (
-                      <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
-                    )}
-                  </td>
-                  <td>
-                    <span className="spy-tabla-canales">
-                      {c.instagram && <span title={NOMBRE_CANAL.instagram}><Icon name="instagram" size={15} /></span>}
-                      {c.youtube_id && <span title={NOMBRE_CANAL.youtube}><Icon name="youtube" size={15} /></span>}
-                      {c.landing_url && <span title="Su sitio"><Icon name="web" size={15} /></span>}
-                    </span>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <header className="spy-phead">
+        <div className="spy-phead__texto">
+          <h1>Competidores</h1>
+          <p>
+            {competidores.length} {competidores.length === 1 ? 'competidor' : 'competidores'}
+            {desdes[0] ? ` · el más viejo desde el ${fechaCorta(desdes[0])}` : ''}
+          </p>
+        </div>
+      </header>
+      {/* La caja plana de la referencia: la cabecera lleva el padding y la tabla va a sangre. */}
+      <section className="spy-caja spy-caja--plana">
+        <div className="spy-caja-cabecera">
+          <div><h2>A quién estás mirando</h2><p>Abre uno para ver lo que publica.</p></div>
+        </div>
+        <div className="spy-envoltura-tabla">
+          <table className="spy-tabla">
+            <thead>
+              <tr><th>Nombre</th><th>Revisado</th><th>Desde</th><th>Piezas</th><th>Canales</th></tr>
+            </thead>
+            <tbody>
+              {competidores.map((c) => {
+                const r = resumen[c.id];
+                return (
+                  <tr key={c.id} onClick={() => onAbrir(c.id)}>
+                    <td><span className="spy-tabla-nombre"><span className="spy-avatar">{inicial(c.nombre)}</span>{c.nombre}</span></td>
+                    <td className="spy-rango">{c.mirado_en ? haceCuanto(c.mirado_en) : ''}</td>
+                    <td className="spy-rango">{r?.desde ? fechaCorta(r.desde) : ''}</td>
+                    <td>
+                      {r && r.vivas + r.idas > 0 && (
+                        <span className="spy-pildora"><i className="spy-punto spy-punto-vivo" />{r.vivas} a la vista{r.idas ? ` · ${r.idas} ya no` : ''}</span>
+                      )}
+                    </td>
+                    <td>
+                      <span className="spy-tabla-canales">
+                        {c.instagram && <span title={NOMBRE_CANAL.instagram}><Icon name="instagram" size={15} /></span>}
+                        {c.youtube_id && <span title={NOMBRE_CANAL.youtube}><Icon name="youtube" size={15} /></span>}
+                        {c.landing_url && <span title="Su sitio"><Icon name="web" size={15} /></span>}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </>
   );
 }
+/** La serie categórica: el mismo color para el mismo concepto en la barra y en la fila. */
+const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
-function Banda({ piezas, c, analizando, onAnalizar }: { piezas: PiezaVista[]; c: Competidor; analizando: boolean; onAnalizar: () => void }) {
-  // ⚠️ ARRANCA PLEGADA, y antes arrancaba abierta. Es ANÁLISIS, no la pieza: tres columnas de listas
-  // que empujaban la primera pieza fuera de la pantalla justo cuando había algo que ver. Su frase de
-  // una línea se queda arriba —que es el resumen— y el detalle se abre cuando alguien lo pide.
-  const [abierta, setAbierta] = useState(false);
+/** Una caja del riel: cabecera, barra apilada y filas. Es el bloque «Where it sells» de merrin. */
+function CajaMix({ titulo, pie, filas, total }: {
+  titulo: string; pie?: string; total: number;
+  filas: Array<{ rotulo: string; n: number; pct: number }>;
+}) {
+  if (!filas.length) return null;
+  return (
+    <section className="spy-caja">
+      <div className="spy-caja-cabecera"><div><h2>{titulo}</h2>{pie && <p>{pie}</p>}</div></div>
+      <div className="spy-mix-barra" aria-hidden>
+        {filas.map((f, i) => <span key={f.rotulo} className="spy-mix-seg" style={{ flex: Math.max(f.n, 1), background: SERIE[i % 4] }} />)}
+      </div>
+      <ul className="spy-mix-filas">
+        {filas.map((f, i) => (
+          <li key={f.rotulo}>
+            <span className="spy-mix-ico" aria-hidden><i style={{ width: 10, height: 10, borderRadius: '50%', background: SERIE[i % 4] }} /></span>
+            <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
+            <span className="spy-mix-val"><b>{f.n}</b></span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/**
+ * El riel de análisis: hasta tres cajas de 336 px al costado de la rejilla.
+ *
+ * ⚠️ ANTES ERA UNA BANDA PLEGADA ARRIBA DE LAS PIEZAS, y por eso arrancaba cerrada: tres columnas
+ * de listas empujaban la primera pieza fuera de la pantalla. En la referencia (merrin) el análisis
+ * nunca compite con el catálogo: vive en una columna propia a la derecha y por eso puede estar
+ * siempre abierto. Esto es lo mismo.
+ *
+ * La sección sin nada que decir NO EXISTE: no se anuncia su ausencia (Semrush).
+ */
+function RielAnalisis({ piezas, c, analizando, onAnalizar }: { piezas: PiezaVista[]; c: Competidor; analizando: boolean; onAnalizar: () => void }) {
   const mezcla = useMemo(() => mezclaDeTipos(piezas), [piezas]);
   const destinos = useMemo(() => destinosDe(piezas), [piezas]);
   const ganchos = useMemo(() => ganchosDe(piezas), [piezas]);
   const frase = fraseDeLectura(piezas, c.mirado_en);
   return (
-    <section className="spy-banda">
-      <button type="button" className="spy-banda-cabecera" aria-expanded={abierta} onClick={() => setAbierta((v) => !v)}>
-        <span className="spy-banda-frase">{frase}</span>
-        <span style={{ display: 'inline-flex', transform: abierta ? 'rotate(180deg)' : 'none' }}><Icon name="chevron" size={13} /></span>
-      </button>
-      {abierta && (
-        <div className="spy-banda-cols">
-          <div className="spy-col">
-            <h3>Qué publica</h3>
-            {mezcla.map((m) => <div key={m.rotulo} className="spy-fila"><b>{m.rotulo}</b><span>{m.n} · {m.pct}%</span></div>)}
-          </div>
-          {/* Sin destinos la columna no existe: no se anuncia su ausencia (Semrush). */}
-          {destinos.length > 0 && (
-            <div className="spy-col">
-              <h3>A dónde manda ({destinos.length})</h3>
-              {destinos.slice(0, 8).map((d) => <div key={d.rotulo} className="spy-fila"><b title={d.rotulo}>{d.rotulo}</b><span>{d.n} · {d.pct}%</span></div>)}
-            </div>
+    <>
+      <CajaMix titulo="Qué publica" pie={frase} filas={mezcla} total={piezas.length} />
+      <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />
+      <section className="spy-caja">
+        <div className="spy-caja-cabecera"><div><h2>Con qué abre</h2></div></div>
+        {ganchos.length
+          ? (
+            <ul className="spy-mix-filas">
+              {ganchos.slice(0, 8).map((g) => (
+                <li key={g.gancho}>
+                  <span className="spy-mix-nombre"><b title={g.gancho}>{g.gancho}</b></span>
+                  {g.dias != null && (
+                    <span className="spy-pildora"><i className={g.sigue ? 'spy-punto spy-punto-vivo' : 'spy-punto'} />{g.dias} d</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )
+          : (
+            // El control apagado de Meta: se ve, dice por qué y trae su salida.
+            <button type="button" className="spy-boton" disabled={analizando} onClick={onAnalizar}>
+              {analizando ? 'Leyendo con IA…' : 'Leer con IA'}
+            </button>
           )}
-          <div className="spy-col">
-            <h3>Con qué abre</h3>
-            {ganchos.length
-              ? ganchos.map((g) => (
-                <div key={g.gancho} className="spy-fila">
-                  <b title={g.gancho}>{g.gancho}</b>
-                  {g.dias != null && <span className="spy-pildora"><i className={g.sigue ? 'spy-punto spy-punto-vivo' : 'spy-punto'} />{g.dias} d</span>}
-                </div>
-              ))
-              : (
-                // El control apagado de Meta: se ve, dice por qué y trae su salida.
-                <button type="button" className="spy-boton" disabled={analizando} onClick={onAnalizar}>
-                  {analizando ? 'Leyendo con IA…' : 'Leer con IA'}
-                </button>
-              )}
-          </div>
-        </div>
-      )}
-    </section>
+      </section>
+    </>
   );
 }
 
@@ -654,6 +837,23 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
   const fechasYoutube = flujo.filter((p) => p.canal === 'youtube' && p.publicada_en).map((p) => p.publicada_en as string).sort();
   const hayCorte = fechasYoutube.length > 1 && cruzaElCorte(fechasYoutube[0], fechasYoutube[fechasYoutube.length - 1]);
 
+  // La línea gris de la cabecera: SÓLO frescura. Nunca promete que lo vigilamos.
+  const identidad = c
+    ? [
+      estaLeyendo && c.mirado_en ? 'Actualizando…' : c.mirado_en ? `Revisado ${haceCuanto(c.mirado_en)}` : null,
+      desde ? `lo seguimos desde el ${fechaCorta(desde)}` : null,
+    ].filter(Boolean).join(' · ')
+    : '';
+
+  // Las celdas pastel del riel. Un contador ausente NO es cero: sin dato no hay celda.
+  const rc = c ? resumen[c.id] : undefined;
+  const celdas = c ? [
+    ...(rc && rc.vivas > 0 ? [{ k: 'vivas', rot: 'A la vista', val: String(rc.vivas), pie: 'siguen arriba' }] : []),
+    ...(rc && rc.idas > 0 ? [{ k: 'idas', rot: 'Ya no están', val: String(rc.idas), pie: 'las bajó' }] : []),
+    ...(c.instagram_seguidores != null ? [{ k: 'ig', rot: 'Seguidores', val: dibujarContador(c.instagram_seguidores), pie: 'en Instagram' }] : []),
+    ...(c.youtube_suscriptores != null ? [{ k: 'yt', rot: 'Suscriptores', val: dibujarContador(c.youtube_suscriptores), pie: 'en YouTube' }] : []),
+  ] : [];
+
   const alternar = (f: FiltroSpy) => setFiltros((v) => (v.includes(f) ? v.filter((x) => x !== f) : [...v, f]));
   const cuantas = (f: FiltroSpy) => flujo.filter((p) => cumpleFiltro(p, f)).length;
 
@@ -714,40 +914,29 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
 
         {c && (
           <>
-            {/* ── Zona 1: UNA cabecera. Antes eran dos filas —migas y después identidad—, y entre las dos
-                 se llevaban dos renglones enteros para decir en qué competidor estás y volver atrás.
-                 Martín, 1/11/2026: «fíjate que la cantidad de botones arriba, texto, eso no me gusta».
-                 Ahora: volver y quién es, a la izquierda; lo que sabemos de él, en el medio; lo que se
-                 hace con él, a la derecha. ⚠️ Arriba quedan sólo las DOS acciones que se usan en cada
-                 visita; «Qué vende y qué ataca» se mudó al ⋯, donde ya vivían las otras tres. No se
-                 sacó ninguna. ── */}
-            <div className="spy-cabecera">
-              <button type="button" className="spy-volver" aria-label={`Volver a los ${competidores.length} competidores`} title="Volver" onClick={() => irA(null)}>
-                <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={13} /></span>
-              </button>
-              <span className="spy-avatar">{inicial(c.nombre)}</span>
-              {competidores.length > 1
-                ? (
+            {/* ── El encabezado de página de la referencia (`.phead` de fitlo): UN título grande y
+                 UNA línea gris. Antes eran dos filas —migas y después identidad— con seis píldoras
+                 grises en fila, y entre las dos se llevaban la mitad de la pantalla. Los números
+                 que vivían en esas píldoras ahora son celdas de datos en el riel. ── */}
+            <header className="spy-phead">
+              <div className="spy-phead__texto">
+                <h1>{c.nombre}</h1>
+                {identidad && <p>{identidad}</p>}
+              </div>
+              <div className="spy-phead__acciones">
+                <button type="button" className="spy-boton" aria-label={`Volver a los ${competidores.length} competidores`} onClick={() => irA(null)}>
+                  <span style={{ display: 'inline-flex', transform: 'rotate(90deg)' }}><Icon name="chevron" size={13} /></span>
+                  Competidores{competidores.length > 1 && <span className="spy-badge">{competidores.length}</span>}
+                </button>
+                {competidores.length > 1 && (
                   <Dropdown
                     ariaLabel="Cambiar de competidor"
                     value={String(c.id)}
                     options={competidores.map((x) => ({ value: String(x.id), label: x.nombre }))}
                     onChange={(v) => irA(Number(v))}
-                    buttonStyle={{ border: 0, background: 'none', padding: 0, fontSize: 19, fontWeight: 700, color: 'var(--ink)' }}
+                    buttonStyle={{ height: 40, borderRadius: 12, fontSize: 'var(--fs-md)', fontWeight: 600 }}
                   />
-                )
-                : <span className="spy-nombre">{c.nombre}</span>}
-
-              {/* Lo que se sabe de él. Un dato que no tenemos no deja hueco ni se anuncia. */}
-              <span className="spy-meta">
-                {estaLeyendo && c.mirado_en && <span className="spy-pildora-gris">Actualizando…</span>}
-                {!estaLeyendo && c.mirado_en && <span className="spy-pildora-gris">Revisado {haceCuanto(c.mirado_en)}</span>}
-                {c.instagram_seguidores != null && <span className="spy-pildora-gris">{dibujarContador(c.instagram_seguidores)} seguidores</span>}
-                {c.youtube_suscriptores != null && <span className="spy-pildora-gris">{dibujarContador(c.youtube_suscriptores)} suscriptores</span>}
-                {desde && <span className="spy-pildora-gris spy-solo-ancho">Lo seguimos desde el {fechaCorta(desde)}</span>}
-              </span>
-
-              <div className="spy-acciones">
+                )}
                 <button type="button" className="spy-boton" disabled={estaLeyendo || ordenando != null || !canalesDe(c)} onClick={() => void leer(c.id)}>
                   {estaLeyendo ? 'Revisando…' : 'Revisar ahora'}
                 </button>
@@ -771,25 +960,26 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
                     setErrorModal(null);
                     setModal(v as 'canal' | 'anuncio' | 'quitar');
                   }}
-                  buttonStyle={{ height: 34, width: 34, justifyContent: 'center', padding: 0 }}
+                  buttonStyle={{ height: 40, width: 40, justifyContent: 'center', padding: 0, borderRadius: 12 }}
                 />
               </div>
-            </div>
+            </header>
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
 
-            {/* ── Zona 2: pestañas. Dejaron de tener fila propia: viven en la de herramientas, que ya es
-                 una fila de chips, y así la primera pieza sube un renglón más. Siguen siendo pestañas
-                 (peso y subrayado), nunca acordeones. ── */}
+            {/* ── Pestañas de la referencia: 42 px, subrayado del acento y el conteo en una badge.
+                 Vuelven a tener fila propia —la vuelta anterior las había metido entre los chips de
+                 filtro para ganar un renglón, y ahí dejaban de leerse como pestañas. El renglón se
+                 recupera por otro lado: el análisis ya no está arriba de las piezas. ── */}
             {pestanas.length > 1 && (
-              <div className="spy-pestanas spy-pestanas--en-linea" role="tablist">
+              <nav className="spy-pestanas" role="tablist">
                 {pestanas.map((p) => (
                   <button key={p.key} type="button" role="tab" aria-selected={activa === p.key} className="spy-pestana" data-activa={activa === p.key} onClick={() => setPestana(p.key)}>
-                    {p.rotulo}{p.n != null && <span>{p.n}</span>}
+                    {p.rotulo}{p.n != null && <span className="spy-badge">{p.n}</span>}
                   </button>
                 ))}
-              </div>
+              </nav>
             )}
 
             {/* Sin nada abajo, la franja explicaría una pantalla que no está. */}
@@ -798,98 +988,123 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
             {ordenando?.id === c.id && activa === 'publica' && <PeliculaDeOrden nombre={c.nombre} piezas={ordenando.piezas} onTerminar={() => setOrdenando(null)} />}
 
             {activa === 'publica' && ordenando?.id !== c.id && (
-              <>
-                {flujo.length > 0 && <Banda piezas={flujo} c={c} analizando={analizando} onAnalizar={() => void analizar()} />}
+              // ── Las dos columnas de merrin: el catálogo manda y el análisis vive a la derecha.
+              //    Sin piezas no hay riel, y entonces la grilla ocupa el ancho entero.
+              <div className={flujo.length > 0 ? 'spy-cols' : 'spy-cols spy-cols--solo'}>
+                <div>
+                  {flujo.length > 0 && (
+                    <>
+                      {/* La barra de herramientas de fitlo: campo ancho, chips y el orden a la derecha. */}
+                      <div className="spy-herramientas">
+                        <label className="spy-buscar">
+                          <Icon name="search" size={16} />
+                          <input aria-label="Buscar en sus piezas" placeholder="Buscar en sus piezas" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
+                        </label>
+                        {(['instagram', 'youtube'] as const).map((f) => {
+                          const cargado = f === 'instagram' ? c.instagram : c.youtube_id;
+                          // El control apagado de Meta: un canal sin cargar no se esconde ni miente; dice qué pasa y trae la salida.
+                          if (!cargado) {
+                            return <button key={f} type="button" className="spy-chip" onClick={() => { setErrorModal(null); setModal('canal'); }}>{NOMBRE_CANAL[f]} · Agregar</button>;
+                          }
+                          const n = cuantas(f);
+                          const motivo = lecturasDe?.find((l) => l.canal === f)?.detalle;
+                          return (
+                            <button key={f} type="button" className="spy-chip" data-activo={filtros.includes(f)} disabled={!n} title={!n ? motivo : undefined} onClick={() => alternar(f)}>
+                              <i style={{ background: f === 'instagram' ? 'var(--ig)' : 'var(--yt)' }} />
+                              {NOMBRE_CANAL[f]}{n > 0 && <span className="spy-badge">{n}</span>}
+                            </button>
+                          );
+                        })}
+                        <button type="button" className="spy-chip" data-activo={filtros.includes('sigue')} disabled={!cuantas('sigue')} onClick={() => alternar('sigue')}>Sigue a la vista <span className="spy-badge">{cuantas('sigue')}</span></button>
+                        <button type="button" className="spy-chip" data-activo={filtros.includes('probado')} disabled={!cuantas('probado')} onClick={() => alternar('probado')}>Probado <span className="spy-badge">{cuantas('probado')}</span></button>
+                        <div className="spy-orden">
+                          <Dropdown
+                            ariaLabel="Ordenar"
+                            value={orden}
+                            width={240}
+                            align="right"
+                            buttonStyle={{ height: 38, borderRadius: 99, fontSize: 'var(--fs-sm)', fontWeight: 600 }}
+                            options={[
+                              { value: 'mas-tiempo', label: 'Lleva más tiempo a la vista' },
+                              { value: 'mas-nuevo', label: 'Lo más nuevo' },
+                            ]}
+                            onChange={(v) => setOrden(v as OrdenSpy)}
+                          />
+                        </div>
+                      </div>
+                      <p className="spy-conteo">
+                        {visibles.length === flujo.length
+                          ? `${flujo.length} ${flujo.length === 1 ? 'pieza suya' : 'piezas suyas'}`
+                          : `${visibles.length} de ${flujo.length} piezas suyas`}
+                      </p>
+                    </>
+                  )}
+
+                  {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
+                  {estado === 'hay' && (
+                    <>
+                      <div className="spy-pgrid">{visibles.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
+                      <footer className="spy-pie">
+                        {c.mirado_en && <p>Lo que se pudo leer de sus canales públicos el {fechaCorta(c.mirado_en)}.</p>}
+                        <p>{ETAPA_ES_NUESTRO_CRITERIO}</p>
+                        {hayCorte && <p>{AVISO_CORTE_VIEWCOUNT}</p>}
+                      </footer>
+                    </>
+                  )}
+                  {estado === 'cargando' && <Esqueleto leyendo={estaLeyendo} />}
+                  {estado === 'sin-coincidencias' && (
+                    <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setFiltros([]); }}>Quitar filtros</button>}>
+                      <p>Ninguna de sus {flujo.length} piezas pasa esta búsqueda.</p>
+                    </Vacio>
+                  )}
+                  {estado === 'sin-canales' && (
+                    <Vacio titulo={`Dime dónde mirar a ${c.nombre}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => { setErrorModal(null); setModal('canal'); }}>Agregar un canal</button>}>
+                      <p>Su @, su canal de YouTube o su sitio.</p>
+                    </Vacio>
+                  )}
+                  {estado === 'leido-sin-nada' && (
+                    <Vacio titulo={`No encontré publicaciones de ${c.nombre}`} botones={revisarDeNuevo}>
+                      <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
+                    </Vacio>
+                  )}
+                  {estado === 'no-pudo' && (
+                    <Vacio
+                      titulo={`No pude leer a ${c.nombre}`}
+                      botones={(
+                        <>
+                          {pideConectarMeta(lecturasDe) && (
+                            <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
+                              <Icon name="plug" size={14} /> Conectar Meta
+                            </BotonIntegracion>
+                          )}
+                          {pideConectarMeta(lecturasDe) && (
+                            <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
+                              Conectar Apify
+                            </BotonIntegracion>
+                          )}
+                          {revisarDeNuevo}
+                        </>
+                      )}
+                    >
+                      {motivos}
+                    </Vacio>
+                  )}
+                </div>
 
                 {flujo.length > 0 && (
-                  <div className="spy-herramientas">
-                    <label className="spy-buscar">
-                      <Icon name="search" size={13} />
-                      <input aria-label="Buscar en sus piezas" placeholder="Buscar en sus piezas" value={buscar} onChange={(e) => setBuscar(e.target.value)} />
-                    </label>
-                    {(['instagram', 'youtube'] as const).map((f) => {
-                      const cargado = f === 'instagram' ? c.instagram : c.youtube_id;
-                      // El control apagado de Meta: un canal sin cargar no se esconde ni miente; dice qué pasa y trae la salida.
-                      if (!cargado) {
-                        return <button key={f} type="button" className="spy-chip" onClick={() => { setErrorModal(null); setModal('canal'); }}>{NOMBRE_CANAL[f]} · Agregar</button>;
-                      }
-                      const n = cuantas(f);
-                      const motivo = lecturasDe?.find((l) => l.canal === f)?.detalle;
-                      return (
-                        <button key={f} type="button" className="spy-chip" data-activo={filtros.includes(f)} disabled={!n} title={!n ? motivo : undefined} onClick={() => alternar(f)}>
-                          {NOMBRE_CANAL[f]}{n > 0 && <span>{n}</span>}
-                        </button>
-                      );
-                    })}
-                    <button type="button" className="spy-chip" data-activo={filtros.includes('sigue')} disabled={!cuantas('sigue')} onClick={() => alternar('sigue')}>Sigue a la vista <span>{cuantas('sigue')}</span></button>
-                    <button type="button" className="spy-chip" data-activo={filtros.includes('probado')} disabled={!cuantas('probado')} onClick={() => alternar('probado')}>Probado <span>{cuantas('probado')}</span></button>
-                    <div className="spy-orden">
-                      <Dropdown
-                        ariaLabel="Ordenar"
-                        value={orden}
-                        width={240}
-                        align="right"
-                        buttonStyle={{ height: 34, fontSize: 13, fontWeight: 500 }}
-                        options={[
-                          { value: 'mas-tiempo', label: 'Lleva más tiempo a la vista' },
-                          { value: 'mas-nuevo', label: 'Lo más nuevo' },
-                        ]}
-                        onChange={(v) => setOrden(v as OrdenSpy)}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* ── Un solo estado para toda la zona de resultados, jamás uno por canal. ── */}
-                {estado === 'hay' && (
-                  <>
-                    <div className="spy-rejilla">{visibles.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
-                    <footer className="spy-pie">
-                      {c.mirado_en && <p>Lo que se pudo leer de sus canales públicos el {fechaCorta(c.mirado_en)}.</p>}
-                      <p>{ETAPA_ES_NUESTRO_CRITERIO}</p>
-                      {hayCorte && <p>{AVISO_CORTE_VIEWCOUNT}</p>}
-                    </footer>
-                  </>
-                )}
-                {estado === 'cargando' && <Esqueleto leyendo={estaLeyendo} />}
-                {estado === 'sin-coincidencias' && (
-                  <Vacio titulo="Nada coincide" botones={<button type="button" className="spy-boton" onClick={() => { setBuscar(''); setFiltros([]); }}>Quitar filtros</button>}>
-                    <p>Ninguna de sus {flujo.length} piezas pasa esta búsqueda.</p>
-                  </Vacio>
-                )}
-                {estado === 'sin-canales' && (
-                  <Vacio titulo={`Dime dónde mirar a ${c.nombre}`} botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => { setErrorModal(null); setModal('canal'); }}>Agregar un canal</button>}>
-                    <p>Su @, su canal de YouTube o su sitio.</p>
-                  </Vacio>
-                )}
-                {estado === 'leido-sin-nada' && (
-                  <Vacio titulo={`No encontré publicaciones de ${c.nombre}`} botones={revisarDeNuevo}>
-                    <p>Leímos sus canales {c.mirado_en ? `el ${fechaCorta(c.mirado_en)} ` : ''}y no había nada público.</p>
-                  </Vacio>
-                )}
-                {estado === 'no-pudo' && (
-                  <Vacio
-                    titulo={`No pude leer a ${c.nombre}`}
-                    botones={(
-                      <>
-                        {pideConectarMeta(lecturasDe) && (
-                          <BotonIntegracion servicio="meta" className="spy-boton spy-boton-primario" onConectado={() => void leer(c.id)}>
-                            <Icon name="plug" size={14} /> Conectar Meta
-                          </BotonIntegracion>
-                        )}
-                        {pideConectarMeta(lecturasDe) && (
-                          <BotonIntegracion servicio="apify-instagram" className="spy-boton" onConectado={() => void leer(c.id)}>
-                            Conectar Apify
-                          </BotonIntegracion>
-                        )}
-                        {revisarDeNuevo}
-                      </>
+                  <aside className="spy-riel">
+                    {/* Las celdas pastel de datos. Un dato que no tenemos no deja celda vacía. */}
+                    {celdas.length > 0 && (
+                      <div className="spy-kpis">
+                        {celdas.map((k) => (
+                          <div key={k.k} className="spy-kpi"><b>{k.rot}</b><strong>{k.val}</strong><small>{k.pie}</small></div>
+                        ))}
+                      </div>
                     )}
-                  >
-                    {motivos}
-                  </Vacio>
+                    <RielAnalisis piezas={flujo} c={c} analizando={analizando} onAnalizar={() => void analizar()} />
+                  </aside>
                 )}
-              </>
+              </div>
             )}
 
             {activa === 'oferta' && c.oferta && (
@@ -926,7 +1141,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial }: {
             )}
 
             {activa === 'anuncios' && (
-              <div className="spy-rejilla">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
+              <div className="spy-pgrid">{anuncios.map((p) => <TarjetaPieza key={p.id} p={p} />)}</div>
             )}
           </>
         )}
