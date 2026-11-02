@@ -27,15 +27,63 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## ESTADO AL 2/11 ~20:30 — CORRE EL #364, Y HAY 3 COMMITS ESPERANDO
+## 🔚 RELEVO FINAL DE claude1 — 2/11/2026 ~21:15, al 95 % de cuota
 
-⛔ **LO PRIMERO AL RETOMAR: MIRAR ACTIONS, NO PUSHEAR.** El **#364** (`90cd7f126`, run
-`41505921194`) lleva corriendo ~35 min y **no está en rojo**. Un push lo cancela, que es lo que pasó
-diez veces hoy. `origin/main` sigue en `22b8d9d6f`; ahí adentro va TODO Competitors Spy.
+**`origin/main` = `7eea250f5`** (runs #364 y #365 verdes). **Todo Competitors Spy está desplegado y
+verificado en producción**, mirando hola-mako.com/competitor-spy: las tarjetas tiran de
+`/asesores/grandes/`, sin carteles, con la animación `spy-flota` activa.
 
-Esperando arriba, sin pushear, los tres del Second Brain de los gurús: la capa pura
-(`lib/cerebro-referente.ts` + su test 7/0), el lector del servidor
-(`lib/cerebro-referente-server.ts`) y la corrección del criterio.
+**Lo último que pusheé va en un run que puede estar corriendo:** el nombre real en la tarjeta y las
+reglas del email de avance. **Mirá Actions antes de pushear nada.**
+
+### Lo que quedó DESPLEGADO esta noche
+
+Competitors Spy entero: las 22 caricaturas en las tarjetas (emparejadas por nombre comparable, sin
+tabla de @), imagen a sangre sin cartel, 600 px, flote con arranque propio por tarjeta, «Su web»,
+deduplicación por referente (no más dos Hormozi), el link de la bio como landing, el @ andando en el
+CRM, YouTube con videos largos, las miniaturas guardadas de verdad, y el link de progreso en el
+ticket. Más el modal de difusión del CRM, que vino de la sesión «Automations».
+
+### ⏳ Lo que queda a medias, CON SU ARCHIVO
+
+Las tres tienen la base hecha, con test probado rompiéndolo, y **las dos migraciones YA están
+aplicadas en producción**. Lo que falta de cada una es el cableado, y está escrito paso por paso en
+`docs/pendientes-martin.md`.
+
+| ítem | qué está | qué falta, y dónde |
+|---|---|---|
+| **13** — compartir el análisis entre negocios | migración `0363` (tabla global `spy_lecturas_canal`) + `lib/spy-compartido.ts` | que `mirarCompetidor` (`lib/spy.ts:514`) reciba el MOTIVO y consulte/refresque. Sin el motivo no se puede cumplir la regla de que «Revisar ahora» nunca sirve la lectura de otro |
+| **17/18** — Second Brain por gurú | `lib/cerebro-referente.ts` (capa, un nodo por clase, SIN tope) + `lib/cerebro-referente-server.ts` (lector, memoizado) | colgarla con `conCapa` en `lib/cerebro-para-chat.ts` → `armar()`. ⚠️ **NO lleva el heurístico de Knowledge**: se cuelga cuando el chat TIENE ese referente, y el servidor ya lo sabe |
+| **email de avance del ticket** | migración `0364` + `lib/tickets-avance.ts` | el envío con Resend. ⚠️ **La consulta de `avisarPendientes` NO sirve**: filtra sólo los estados finales, que son justo los que no son avance |
+
+### ⛔ Lo que NO se puede hacer desde acá, y por qué
+
+| | por qué |
+|---|---|
+| **Los 10 gurús que faltan** (ítem 14) | **~2,3 millones de tokens**, medido por la sesión «Ops Center»: cada ficha costó 175–285 mil. Necesita cuenta nueva. El brief está escrito |
+| **#8, el rediseño del modal** de nuevo competidor | **lo marqué HECHO por error**: arreglé cómo FUNCIONA, no cómo se VE. Empezar por `docs/diseno/referencia-spy.md`, NUNCA por `SpyApp.tsx` |
+| **#10, el desplegable** de varios perfiles | hace falta elegir un actor de BÚSQUEDA de Apify. Martín ya dijo que paga |
+| **Caricatura de quien no es gurú** | falta medir **sobre qué cuenta de Google corre el puente de Flow**: si es la de Martín, le gasta a él |
+| **#20, la extensión** | consentimiento OAuth de la cuenta de Google de Martín. No es código |
+
+### 💸 Una decisión de plata que Martín puede querer revertir
+
+**El alta del CRM ahora puede gastar la clave de Apify del negocio** (`APIFY_CLAVE_DE_SPY`). Hasta
+el 1/11 la regla era «Apify: sólo Spy» y un guard la hacía cumplir. Gana el pedido posterior del
+2/11, pero está escrito en `tests/leads-scraper-retirado.test.ts` con la fecha, la cita y cómo se
+revierte en una línea.
+
+### 🤝 Qué se repartió y qué volvió
+
+| sesión | ítem | volvió |
+|---|---|---|
+| `Automations` (local) | modal de difusión del CRM | ✅ hecho y ya desplegado |
+| `Replicar los 20 dashboards` (local) | los 20 dashboards | 5 de 20; su rama **ya está a salvo** en `origin/dashboard-denso-0111` |
+| `Ops Center` (local) | los 10 gurús | se frenó con razón: misma cuenta, 2,3 M de tokens |
+| 4 sesiones en la nube | #13, ticket #44, #2+#16, #15 | **nada volvió**: el canal es de ida |
+
+⚠️ **Repartir NO agrega cuota.** Las 17 sesiones corren sobre `claude1`. Al 95 %, pasar un ítem a
+otro chat acelera el corte en vez de evitarlo. **Para seguir hace falta otra cuenta.**
 
 ### ⚠️ Los CINCO rojos de la noche fueron todos del mismo tipo, y conviene saberlo antes de tocar
 
