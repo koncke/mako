@@ -711,4 +711,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '3 nov', hora: '04:30', chat: 'Second Brain: documentos desde el chat (#44)', cuenta: 'claude2',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: le pegas o adjuntas un documento en el chat y MaKo lo suma al Second Brain',
+    pedido: 'Código Inmobiliario (ticket #44): «te cargo un documento con toda la información que necesitas saber de mi negocio, analízalo e incorpóralo al second brain». MaKo le contestó que no tenía una herramienta que escribiera ahí.',
+    puntos: [
+      'Nueva tarjeta «Sumar un documento al Second Brain»: MaKo guarda el documento en El Archivero, saca lo que va en tu perfil y te lo muestra antes de que digas que sí. Lo que editaste a mano no se toca.',
+      'Con tu propio Claude en la computadora, lo lee tu Claude: la tarjeta muestra cada dato que va a tu perfil.',
+      'Si el chat cortó el documento por largo, la tarjeta lo dice y te pide el resto como otro documento. El mismo documento dos veces no se guarda dos veces.',
+      'MaKo entiende el pedido aunque venga con el documento pegado: antes lo leía como una lista de ideas y no traía ninguna herramienta.',
+      '**Cómo se prueba:** en /second-brain, pegar un documento largo con «súmalo al second brain» y confirmar la tarjeta; el documento aparece en El Archivero.',
+    ],
+    commits: [
+      { sha: '27a0e7565', msg: 'La ingesta de El Archivero sale de su ruta a lib/archivero-ingesta.ts', lineas: 341, archivos: 6 },
+      { sha: 'b97ff33c6', msg: 'Ticket #44: MaKo suma al Second Brain un documento pegado en el chat', lineas: 347, archivos: 13 },
+    ],
+    archivos: [
+      'lib/archivero-ingesta.ts — la ingesta de El Archivero, la misma para su pantalla y para la API',
+      'lib/api-mako/areas/negocio.def.ts · negocio.run.ts — sumar_documento_second_brain',
+      'lib/chat-pegado.ts — documentoDelChat y pedidoDelMensaje',
+      'lib/mako-intencion-app.ts — la familia documento-al-cerebro',
+      'tests/sumar-documento-second-brain.test.ts — 8 roturas, cada una cae',
+    ],
+    revisar: '/second-brain',
+    tickets: [44],
+  },
 ];
