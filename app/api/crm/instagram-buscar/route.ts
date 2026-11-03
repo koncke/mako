@@ -56,8 +56,11 @@ import {
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 
 export const dynamic = 'force-dynamic';
-/** Meta (6 s) y después Google (6 s) en el peor caso; el componente corta a los 17 s. */
-export const maxDuration = 15;
+/**
+ * Meta (6 s), Google (6 s) y después Apify, que busca por nombre y tarda ~20 s (tope 45 s). Con 15 s Vercel cortaba
+ * antes de que Apify contestara y el desplegable no salía nunca (3/11/2026). tests/instagram-buscar-tiempos.test.ts.
+ */
+export const maxDuration = 60;
 
 const GRAPH = 'https://graph.facebook.com';
 const ver = () => process.env.META_API_VERSION || 'v24.0';
@@ -99,6 +102,23 @@ function guardarCache(clave: string, valor: unknown, ttl = TTL_MS): void {
   // Map conserva el orden de inserción: el primero es el más viejo.
   if (cache.size >= TOPE_CACHE) cache.delete(cache.keys().next().value as string);
   cache.set(clave, { hasta: Date.now() + ttl, valor });
+}
+
+/**
+ * La búsqueda por nombre de Apify (~20 s, US$0,012), con la clave de Spy del negocio. Lo encontrado se guarda: seguir
+ * tipeando y volver a la misma palabra no se paga dos veces. Sin clave o sin resultados, lista vacía.
+ */
+async function buscarConApify(texto: string, ws: number): Promise<PerfilIg[]> {
+  const clave = `ax:${ws}:${texto.toLowerCase()}`;
+  const ya = leerCache<PerfilIg[]>(clave);
+  if (ya) return ya;
+  const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
+  const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
+  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+  if (!token) return [];
+  const hallados = await buscarPerfilesApify(texto, token);
+  if (hallados.length) guardarCache(clave, hallados);
+  return hallados;
 }
 
 // ── 1. Meta: Business Discovery ───────────────────────────────────────────────
@@ -319,8 +339,18 @@ export async function GET(req: NextRequest) {
     // plataforma (gratis para el negocio) y recién después la suya, como manda el resto del lector.
     if (!meta.perfiles.length && !google?.perfiles.length) {
       const u = usuarioDeTexto(texto) as string;
-      const l = await leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] });
-      if (l.ok) meta = { ...meta, perfiles: [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] };
+      // ⚠️ UNA PALABRA TAMBIÉN ES UNA BÚSQUEDA (3/11/2026). Martín: «no me trae el desplegable al buscar». «leila» y
+      // «@leila» parecen un usuario y venían por acá: se pedía sólo el @ EXACTO, y la búsqueda de Apify corría únicamente
+      // con dos o más palabras. Las dos a la vez: el exacto, si existe, va primero.
+      // CON «@» ES SÓLO EL EXACTO (Martín: «si busco el @ exacto, no me puede traer sin tardar esos 20 segundos directamente la
+      // foto?»): quien escribe el @ ya sabe a quién busca, y esperar la búsqueda por nombre era el tiempo de sobra.
+      const [l, hallados] = await Promise.all([
+        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] }),
+        texto.startsWith('@') ? Promise.resolve<PerfilIg[]>([]) : buscarConApify(u, ws),
+      ]);
+      const exacto: PerfilIg[] = l.ok ? [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] : [];
+      const perfiles = combinarPerfiles(exacto, hallados);
+      if (perfiles.length) meta = { ...meta, perfiles, ...(hallados.length ? { estado: 'encontro' as const } : {}) };
     }
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
@@ -337,13 +367,8 @@ export async function GET(req: NextRequest) {
     // **US$0,012 la búsqueda** (lib/instagram-buscar-apify.ts). Va al final, sólo si las otras dos
     // no trajeron nada, y con el mismo tope por corrida.
     if (!meta.perfiles.length && !google.perfiles.length) {
-      const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
-      const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
-      const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-      if (token) {
-        const hallados = await buscarPerfilesApify(texto, token);
-        if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
-      }
+      const hallados = await buscarConApify(texto, ws);
+      if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
     }
   }
 

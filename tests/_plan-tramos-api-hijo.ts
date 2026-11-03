@@ -11,7 +11,7 @@
 
 import { crearPostgrest, type Fila } from './_postgrest-de-mentira';
 
-const TABLAS = ['workspaces', 'leads', 'pagos', 'lead_audit', 'app_settings', 'cobros', 'flujo_corridas', 'usuarios', 'lead_funnel', 'funnels'] as const;
+const TABLAS = ['workspaces', 'leads', 'pagos', 'lead_audit', 'app_settings', 'cobros', 'flujo_corridas', 'usuarios', 'lead_funnel', 'funnels', 'mako_acciones_pendientes'] as const;
 const ahoraIso = () => new Date().toISOString();
 let siguienteId = 9000;
 const pg = crearPostgrest({
@@ -19,6 +19,8 @@ const pg = crearPostgrest({
   defaults: (tabla, f) => {
     if (tabla === 'pagos') return { id: siguienteId++, pagado: false, nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null, created_at: ahoraIso(), ...f };
     if (tabla === 'lead_audit') return { id: siguienteId++, created_at: ahoraIso(), ...f };
+    // Creada hace un minuto: el «sí» llega en otro mensaje (el candado anti auto-confirm de `confirmarPendiente`).
+    if (tabla === 'mako_acciones_pendientes') return { id: siguienteId++, estado: 'pendiente', created_at: new Date(Date.now() - 60_000).toISOString(), ...f };
     return { ...f };
   },
   unicos: [{ tabla: 'pagos', columnas: ['lead_id', 'numero'], donde: () => true, nombre: 'pagos_lead_numero' }],
@@ -76,8 +78,10 @@ async function main() {
   type R = {
     preparar: (i: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<Record<string, unknown>>;
     ejecutar: (p: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<Record<string, unknown>>;
-    faltaParaConfirmar?: (p: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<string | null>;
+    faltaParaConfirmar?: (p: Record<string, unknown>, c: ReturnType<typeof ctx>) => Promise<string | { yaNoVale: string } | null>;
   };
+  // Lo que contesta `faltaParaConfirmar`, en texto: «yaNoVale: …» es la que se cierra (revisión de 7f79a4e6c, B12).
+  const dicho = (f: string | { yaNoVale: string } | null | undefined): string | null => (f && typeof f === 'object' ? `yaNoVale: ${f.yaNoVale}` : f ?? null);
   const armar = cobros.armar_plan_por_tramos as unknown as R;
   const marcar = crm.marcar_pago_cobrado as unknown as R;
   const enA = <T,>(fn: () => Promise<T>) => runWithWorkspace(WS_A, fn);
@@ -140,14 +144,14 @@ async function main() {
     reset();
     const prep = await enA(() => armar.preparar(FERNANDO, ctx(WS_A)));
     const payload = prep.payload as Record<string, unknown>;
-    const sinCambios = await enA(() => armar.faltaParaConfirmar?.(payload, ctx(WS_A)) ?? Promise.resolve('sin faltaParaConfirmar'));
+    const sinCambios = dicho(await enA(() => armar.faltaParaConfirmar?.(payload, ctx(WS_A)) ?? Promise.resolve('sin faltaParaConfirmar')));
     for (let i = 0; i < 6; i++) db.pagos.push({ id: 501 + i, workspace_id: WS_A, lead_id: 301, numero: i + 1, monto_usd: 1000, fecha_esperada: `2026-1${1 + Math.min(i, 1)}-0${1 + i}`, pagado: false, nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null });
-    const falta = await enA(() => armar.faltaParaConfirmar?.(payload, ctx(WS_A)) ?? Promise.resolve(null));
+    const falta = dicho(await enA(() => armar.faltaParaConfirmar?.(payload, ctx(WS_A)) ?? Promise.resolve(null)));
     const ejec = await enA(() => armar.ejecutar(payload, ctx(WS_A)));
     const leo = await enA(() => armar.preparar({ leadId: 303, primeraCuota: '2026-11-10', tramos: [{ monto: 600, cuotas: 3, dia: 10 }] }, ctx(WS_A)));
     const c32 = db.pagos.find((p) => p.id === 32) as Fila;
     Object.assign(c32, { pagado: true, fecha_pago: '2026-10-29' });
-    const faltaLeo = await enA(() => armar.faltaParaConfirmar?.(leo.payload as Record<string, unknown>, ctx(WS_A)) ?? Promise.resolve(null));
+    const faltaLeo = dicho(await enA(() => armar.faltaParaConfirmar?.(leo.payload as Record<string, unknown>, ctx(WS_A)) ?? Promise.resolve(null)));
     out.siViejo = { vistas: payload.vistas ?? null, sinCambios, falta, ejec, pagos: pagosDe(301), faltaLeo };
   }
   // 8) N2: Gus tiene la #1 cobrada (US$500) y la #3 con un link sin pagar; se pide 3 × US$700. La propuesta dice lo que QUEDA.
@@ -164,6 +168,54 @@ async function main() {
     const dos = await Promise.all([1, 2].map(() => enA(() => armar.ejecutar(prep.payload as Record<string, unknown>, ctx(WS_A)))));
     out.anticipoCobrado = ana;
     out.dosSi = { dos, pagos: pagosDe(301) };
+  }
+  // 10) La re-verificación de 7f79a4e6c. B8: entre la propuesta y el «sí», la #2 de Leo pasa en la ficha a MXN 18.000 / US$900,
+  //     con el mismo id. B9: una propuesta sin las vistas con su firma (la de 805afb460 no las tenía; la de 7f79a4e6c, sin firma).
+  {
+    reset();
+    const LEO = { leadId: 303, primeraCuota: '2026-11-10', tramos: [{ monto: 600, cuotas: 3, dia: 10 }] };
+    const payload = (await enA(() => armar.preparar(LEO, ctx(WS_A)))).payload as Record<string, unknown>;
+    Object.assign(db.pagos.find((p) => p.id === 32) as Fila, { monto_usd: 900, moneda: 'MXN', monto_original: 18000 });
+    const falta = dicho(await enA(() => armar.faltaParaConfirmar!(payload, ctx(WS_A))));
+    const ejec = await enA(() => armar.ejecutar(payload, ctx(WS_A)));
+    out.firma = { vistas: payload.vistas, falta, ejec, pagos: pagosDe(303) };
+    reset();
+    const viejo = (await enA(() => armar.preparar(LEO, ctx(WS_A)))).payload as Record<string, unknown>;
+    const deAntes = [];
+    for (const vistas of [undefined, [31, 32, 33]]) {
+      const p = { ...viejo, vistas };
+      deAntes.push({ falta: dicho(await enA(() => armar.faltaParaConfirmar!(p, ctx(WS_A)))), ejec: await enA(() => armar.ejecutar(p, ctx(WS_A))) });
+    }
+    out.deAntes = { casos: deAntes, pagos: pagosDe(303) };
+  }
+  // 11) B10: Carla tiene el #0 COBRADO con la columna `cobro_inicial_usd` vacía, y pide un anticipo. B11: Leo tiene la #1 cobrada a
+  //     medias (US$250) y su diferencia, la #4, aparte; pide 3 × US$500.
+  {
+    reset();
+    db.leads.push({ id: 307, workspace_id: WS_A, nombre: 'Carla', estado_lead: 'ganado', venta_tipo: 'unico', monto_cierre_usd: 2000, cobro_inicial_usd: null, funnel_id: null, created_at: ahoraIso() });
+    for (const [id, numero, monto, fecha, pagado] of [[70, 0, 1000, '2026-10-01', true], [71, 1, 500, '2026-11-10', false], [72, 2, 500, '2026-12-10', false]] as const) {
+      db.pagos.push({ id, workspace_id: WS_A, lead_id: 307, numero, monto_usd: monto, fecha_esperada: fecha, pagado, fecha_pago: pagado ? fecha : null, nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null });
+    }
+    out.carla = await enA(() => armar.preparar({ leadId: 307, primeraCuota: '2026-11-10', tramos: [{ monto: 500, cuotas: 2, dia: 10 }], anticipo: 800 }, ctx(WS_A)));
+    reset();
+    db.cobros.splice(0);
+    Object.assign(db.pagos.find((p) => p.id === 31) as Fila, { pagado: true, fecha_pago: '2026-10-20', monto_usd: 250 });
+    db.pagos.push({ id: 34, workspace_id: WS_A, lead_id: 303, numero: 4, monto_usd: 250, fecha_esperada: '2026-11-10', pagado: false, nacio_cobrada: false, resto_de: 31, moneda: null, monto_original: null });
+    out.aparte = await enA(() => armar.preparar({ leadId: 303, primeraCuota: '2026-11-10', tramos: [{ monto: 500, cuotas: 3, dia: 10 }] }, ctx(WS_A)));
+  }
+  // 12) B12, por WhatsApp de punta a punta (`ejecutarOperacion` y `confirmarPendiente`): el «sí» a la propuesta de Fernando llega
+  //     después de que se cargó una cuota en la ficha; se pide de nuevo, y el «sí» pelado siguiente no choca con la vieja.
+  {
+    reset();
+    const { ejecutarOperacion } = await import('../lib/api-mako/ejecutar');
+    const { confirmarPendiente } = await import('../lib/api-mako/acciones');
+    const ctxWa = { ws: WS_A, canal: 'whatsapp' as const, canalKey: 'wa:5215500000000', alcance: 'ejecutar' as const, rol: 'admin' as const, actor: 'Mauricio', mensajeUsuario: 'sí' };
+    await enA(() => ejecutarOperacion('armar_plan_por_tramos', FERNANDO, ctxWa as never, 'json'));
+    db.pagos.push({ id: 601, workspace_id: WS_A, lead_id: 301, numero: 1, monto_usd: 1000, fecha_esperada: '2026-11-05', pagado: false, nacio_cobrada: false, resto_de: null, moneda: null, monto_original: null });
+    const viejo = await enA(() => confirmarPendiente(ctxWa as never, null));
+    await enA(() => ejecutarOperacion('armar_plan_por_tramos', FERNANDO, ctxWa as never, 'json'));
+    const nuevo = await enA(() => confirmarPendiente(ctxWa as never, null));
+    out.cerrada = { viejo, nuevo, estados: db.mako_acciones_pendientes.map((p) => p.estado), pagos: pagosDe(301) };
   }
   out.red = red;
   process.stdout.write(JSON.stringify(out));

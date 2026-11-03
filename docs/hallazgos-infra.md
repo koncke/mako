@@ -77,6 +77,28 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un push directo a main puede dejar la referencia de la API vieja, y entonces la guarda frena TODOS los push (3/11/2026)
+
+- **Síntoma:** «tengo varios push que estaban fallando». `scripts/guardas-push.sh` contestaba «docs/api-mako.md quedó viejo»
+  en cualquier rama, también al subir una etiqueta, aunque esa rama no tocara la API.
+- **Causa:** los arreglos de emergencia del 2-3/11 subieron a main con `--no-verify`, que saltea también las guardas. Tocaron
+  `lib/api-mako/areas/*.def.ts` sin regenerar la referencia. Desde ahí, main estaba «rojo» para el próximo que pusheara.
+- **Regla:** quien sube con `--no-verify` corre antes `sh scripts/guardas-push.sh origin`. Y si un push choca con esa guarda
+  en algo que no tocó, se regenera con `node --import tsx scripts/generar-api-doc.mjs` y se commitea: no es un error suyo.
+
+## Sin RAM para el tipado, el camino es `integracion`, sin `--no-verify` (3/11/2026)
+
+- `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:integracion` corre las guardas, no pide RAM, y Actions corre tipos y tests y
+  avanza main si da verde (~40 min). Cada chat local abierto son ~0,7 GB: con dos chats, 5,4 GB libres ya no aparecen.
+- **Medir ramas no ve lo que importa:** `git cherry` con `+` no prueba que falte algo (`37b1f13e9` daba `+` con el contenido en
+  main); `git diff --stat` con tres puntos infla las ramas viejas (sirve `git log main..rama --no-merges` y `git merge-tree`);
+  y lo sin commitear o una rama remota sin relevo no aparece: así pasaron 5 días los arreglos de cobros y 2 los de seguridad.
+- **Dos migraciones con el mismo número no dan conflicto** (pasó otra vez con la 0360).
+- **Filtrar un transcript por `type=user` pierde mensajes:** los que Martín escribe con el chat ocupado llegan como
+  `attachment.queued_command` (en `e680c815`, 266 en cola contra 183 de tipo user).
+- **El marcador de la cuenta miente al volver a una cuenta vieja:** el hook decía claude2 al 99 % y era claude5 al 27 %. La
+  huella es el `resetsAt` semanal de `get_usage`.
+
 ## Subir el tope de la función cambió el error por uno peor, y la clave «global» de Next deja la home afuera (3/11/2026)
 
 - **Síntoma:** cinco deploys seguidos murieron con `The Vercel Function "admin/docs" is 274.32mb uncompressed which exceeds the maximum uncompressed size limit of 250mb`. Se prendió `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` en el proyecto, y entonces el deploy empezó a fallar **más tarde y peor**: `Build Completed in /vercel/output [4m]` y después `ENOSPC` en «Deploying outputs...». Producción seguía sirviendo el commit de la noche anterior sin estar caída, así que nada avisaba.
@@ -5839,7 +5861,8 @@ personal que sirve `/api/agente/skill`.
 
 **PUBLICADO** en https://github.com/mbustos-digital/mako-plugin. El paso 2 del tutorial
 es ahora `/plugin marketplace add mbustos-digital/mako-plugin` + `/plugin install
-mako@mako`.
+mako@mako`. Martín (ticket #41, 03/11/2026) lo quiere en SU cuenta y con MaKo de autor: ver
+«Pasar el plugin a `koncke/mako-plugin`», abajo.
 
 ⚠️ **Sin `gh` igual se puede.** No está instalado en este entorno y no hay `GH_TOKEN`,
 pero Git Credential Manager sí tiene guardada una credencial de GitHub —la misma con la
@@ -5893,6 +5916,20 @@ publicado sin que nadie lo vuelva a decidir.**
 
 La contrapartida es la que se buscaba: una mejora de la skill llega a todos los clientes
 con un `git push` al repo público, en vez de que cada uno la reinstale.
+
+### Pasar el plugin a `koncke/mako-plugin`: lo que no se ve desde `plugin/` (03/11/2026)
+
+**Vive en:** `scripts/generar-plugin.mjs` · `plugin/` · `app/_components/TutorialAgente.tsx`.
+
+- **⚠️ `plugin/` al día no quiere decir publicado.** El pre-push cuida la copia de ESTE repo. Al público lo sube una persona a mano, y nadie lo
+  hizo desde el 11/08/2026: 16 commits tocaron la skill de `plugin/` después. Quien instaló `mbustos-digital/mako-plugin` corre la skill de agosto.
+  «Sale publicado sin que nadie lo vuelva a decidir», escrito arriba, no pasa. SIN HACER: que algo publique solo; si no, `koncke/mako-plugin` va a quedar igual de viejo.
+- **El repo viejo no se borra:** hay gente que ya lo instaló.
+- **PUBLICADO el 3/11/2026** en https://github.com/koncke/mako-plugin (público, autor `MaKo`, con el sí de Martín en el chat del Cerebro). `marketplace add koncke/mako-plugin` e `install mako@mako` andan contra GitHub, medido. `TutorialAgente.tsx` cambia recién ahora: lo hace el chat de Tickets (#41).
+- **Lo probado sin publicar:** en una carpeta `CLAUDE_CONFIG_DIR` aparte, `claude plugin validate`, `marketplace add` e `install mako@mako` andan contra una copia local.
+  Falta el `marketplace add koncke/mako-plugin` de verdad.
+- **Autor:** el commit del repo público va con `MaKo <equipo@hola-mako.com>` y sin los trailers de Claude. Es lo que ven los usuarios, y lo pidió Martín.
+- ⚠️ La copia a publicar va con finales de línea LF: `plugin/` sale en CRLF de un checkout de Windows.
 
 ## El bug estaba dormido desde julio y lo despertó un DATO, no un commit
 
@@ -10355,10 +10392,10 @@ adivinar nada con el reloj.
 
 **La causa, medida con `VERCEL_ANALYZE_BUILD_OUTPUT=1`:** hasta `/api/promo-entrada` y el middleware pesaban **217 MB**. `lib/cerebro-referente-server.ts` (2/11) lee `public/cono-tx/<id>.json` con `readFile(path.join(process.cwd(), "public", "cono-tx", …))`, y el trazado metió la carpeta ENTERA —**164 MB en 9.719 archivos**— en cada función. El reporte no la lista como «large dependency», porque cada archivo pesa menos de 1 MB.
 
-**El arreglo (`a5782a860`):** `./public/cono-tx/**` va en `outputFileTracingExcludes` para `/**`, y `textoDeClase` lee del CDN (`APP_BASE_URL/cono-tx/<id>.json`) cuando el archivo no está en el disco.
+**El arreglo:** el primer intento (`a5782a860`) fue `./public/cono-tx/**` en `outputFileTracingExcludes`, y **NO ANDUVO**: Turbopack ignora esa exclusión para lo que traza él, y las funciones siguieron con la carpeta. Lo que sí resuelve (`730e1b44e`) es que `textoDeClase` no toque fs: pide `APP_BASE_URL/cono-tx/<id>.json` al CDN. Sin `readFile`, no hay nada que trazar.
 
 **Las reglas que quedan:**
-- **Desde el servidor no se lee `public/` con fs**: lo que vive en `public/` se pide al CDN. Un `readFile` con ruta armada en tiempo de ejecución mete la carpeta entera en el bundle.
+- **Desde el servidor no se lee `public/` con fs**: lo que vive en `public/` se pide al CDN. Un `readFile` con ruta armada en tiempo de ejecución mete la carpeta entera en el bundle, y **con Turbopack `outputFileTracingExcludes` no lo saca**.
 - **El primer paso ante un deploy roto es `VERCEL_ANALYZE_BUILD_OUTPUT=1`** (ya quedó puesta): dice el peso por función y por dependencia, y evita perseguir hipótesis.
 - **Si una función mínima pesa más de 100 MB, el problema es compartido**, no de la ruta que nombra el error.
 - `VERCEL_SUPPORT_LARGE_FUNCTIONS` quedó **apagada**: tapaba el tope, pero llenaba el disco del contenedor.

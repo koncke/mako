@@ -7927,7 +7927,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias` — Crear una automatización con IA
 
-PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre; lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan, con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
+PROPONE crear una automatización nueva (una secuencia de nutrición del lienzo de Automations) a partir de un pedido en palabras, con su disparador: una etapa, una etiqueta que se agrega al lead o un evento. MaKo arma el CRON, las tarjetas y el nombre; lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan, con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/crear_automatizacion_con_ia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -13670,7 +13670,7 @@ curl -L \
 
 ### `PATCH /api/v1/negocio/perfil/campos/{key}` — Completar un campo del perfil
 
-PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en Ops Center → Documentos. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.
+PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y la persona lo corrige tocándolo en Ops Center → Second Brain → La oferta → El brief (precio, qué incluye, horario de la oferta) o en Ops Center → Second Brain → Cliente ideal (lo del cliente). Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.
 
 - **Ruta por operación:** `POST /api/v1/negocio/guardar_campo_perfil`
 - **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
@@ -20318,9 +20318,9 @@ curl -L \
   "https://hola-mako.com/api/v1/mako/bandejas"
 ```
 
-### `GET /api/v1/mako/capacidades` — Qué se hace dentro de MaKo
+### `GET /api/v1/mako/capacidades` — Qué se hace dentro de MaKo y dónde se editan tus datos
 
-El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de este negocio (qué hace cada una, qué no hace y qué app reemplaza) y, por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).
+El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de este negocio (qué hace cada una, qué no hace y qué app reemplaza) y, por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos; con datos-negocio, la pantalla donde se corrige cada dato del negocio (precio, qué incluye, horario, ofertas, productos). Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?», «¿dónde actualizo mis datos?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).
 
 - **Ruta por operación:** `GET /api/v1/mako/listar_capacidades_mako`
 - **Token detallado:** permiso `mako=read` (Solo lectura en «MaKo (pendientes, propuestas, chats)»)
@@ -20330,7 +20330,7 @@ El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de est
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| oferta-revisar \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| guion-valorar \\| experimento \\| contexto \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
+| `id` | string (ads-publicar \\| creativos \\| copy-ads \\| oferta-revisar \\| landing-diagnosticar \\| landing-escribir \\| crm-lead \\| wa-conversar \\| nutricion \\| email \\| metricas \\| llamadas \\| guiones-ads \\| guion-valorar \\| experimento \\| contexto \\| datos-negocio \\| conectar \\| funnel \\| objetivo \\| equipo) | no | id de UNA capacidad para traer solo esa. Sin id, trae todas. |
 
 ```bash
 curl -L \

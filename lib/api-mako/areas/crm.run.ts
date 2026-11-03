@@ -79,7 +79,8 @@ import {
   vinculoPorId as vinculoCobroPorId, vinculosDelNegocio,
 } from '@/lib/cobro-etapa-server';
 import { NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
-import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, type RestoDeCobro } from '@/lib/pagos-diferencia';
+import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMonedaDeLaCuota, type RestoDeCobro } from '@/lib/pagos-diferencia';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { esEsencialDe } from '@/lib/plan-esencial';
@@ -126,6 +127,7 @@ import {
 } from '@/lib/etiquetas';
 import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuenciaDeArchivar, autorPublico } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { lugarDato, rutaDato } from '@/lib/secciones-negocio';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
 import { usuarioInstagram, esLinkDeGrabacion, ERROR_LINK_GRABACION } from '@/app/crm/campo-inline';
@@ -1064,9 +1066,11 @@ export const RUNNERS: Runners = {
     },
   },
   listar_productos: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
       const ps = await listProductos(input.soloActivos === true);
       return json({
+        // Ticket #48 (3/11/2026): dónde se edita el catálogo, con el nombre de pantalla (lib/secciones-negocio.ts).
+        se_editan_en: { lugar: lugarDato('productos'), link: linkApp(rutaDato('productos'), ctx.ws) },
         moneda: 'USD', productos: ps.map((p) => ({ id: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd, suscripcion_meses: p.suscripcion_meses, promesa: p.promesa, incluye: p.incluye, garantia: p.garantia, activo: p.activo })),
         ...(ps.length ? {} : { nota: 'El catálogo está vacío.' }),
       });
@@ -2483,9 +2487,13 @@ export const RUNNERS: Runners = {
       const resto: RestoDeCobro = input.resto === 'descuento' ? 'descuento' : 'pendiente';
       const falta = diferenciaPendiente(Number(pago.monto_usd), montoUsd, { yaPagada: false, resto });
       const distinto = montoUsd != null && montoUsd !== Number(pago.monto_usd);
+      // Cobrada a medias en la moneda de la cuota, la diferencia queda en ESA moneda (mig 0347): se dice así (revisión de 7f79a4e6c,
+      // B13: decía «los 300 USD que faltan» y quedaban MXN 6.000).
+      const enSuMoneda = restoEnLaMonedaDeLaCuota(pago, cobro);
+      const faltan = (usd: number) => (enSuMoneda ? `${formatoMonto(enSuMoneda.monto, enSuMoneda.moneda)} (${usd} USD)` : `${usd} USD`);
       const extra = !distinto ? '' : falta > 0
-        ? ` por ${montoUsd} USD: los ${falta} USD que faltan quedan como una cuota nueva pendiente`
-        : montoUsd! < Number(pago.monto_usd) ? ` por ${montoUsd} USD: los ${centavos(Number(pago.monto_usd) - montoUsd!)} USD que faltan son un descuento` : ` por ${montoUsd} USD`;
+        ? ` por ${montoUsd} USD: los ${faltan(falta)} que faltan quedan como una cuota nueva pendiente`
+        : montoUsd! < Number(pago.monto_usd) ? ` por ${montoUsd} USD: los ${faltan(centavos(Number(pago.monto_usd) - montoUsd!))} que faltan son un descuento` : ` por ${montoUsd} USD`;
       // Cobrada en otra moneda, o con método o concepto: el resumen lo dice (es lo único que la persona mira antes del «sí»).
       const conDatos = cobro.moneda != null || cobro.concepto != null || cobro.metodo != null;
       const como = pagado && conDatos ? ` — ${textoDelCobro(montoUsd ?? Number(pago.monto_usd), cobro)}` : '';
@@ -2518,10 +2526,11 @@ export const RUNNERS: Runners = {
         // Alguien la cobró entre la propuesta y el «sí»: no se tocó nada (ni el historial).
         if (r.yaEstaba) return { ok: true, resumen: YA_ESTABA_COBRADA };
         const plata = textoDelCobro(r.monto ?? r.original, { ...cobro, moneda: r.moneda, montoOriginal: r.montoOriginal });
-        const nota = `Cuota cobrada (${fechaPago}) · ${plata}${r.monto != null && r.monto !== r.original ? ` (era de USD ${r.original})` : ''}${r.pendiente != null ? ` · quedan USD ${r.pendiente} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
+        const enSuMoneda = r.pendienteEnSuMoneda ? `${formatoMonto(r.pendienteEnSuMoneda.monto, r.pendienteEnSuMoneda.moneda)} ` : '';
+        const nota = `Cuota cobrada (${fechaPago}) · ${plata}${r.monto != null && r.monto !== r.original ? ` (era de USD ${r.original})` : ''}${r.pendiente != null ? ` · quedan ${enSuMoneda ? `${enSuMoneda}(USD ${r.pendiente})` : `USD ${r.pendiente}`} pendientes` : r.descuento > 0 ? ` · USD ${r.descuento} de descuento` : ''}`;
         await logLeadEvent(Number(payload.leadId), 'Pago registrado', nota, autorDe(ctx));
         invalidar('pagos', 'leads');
-        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${plata}${r.pendiente != null ? `; quedan ${r.pendiente} USD pendientes en una cuota nueva` : ''}.` };
+        return { ok: true, resumen: `Listo: cuota cobrada el ${fechaPago} por ${plata}${r.pendiente != null ? `; quedan ${enSuMoneda ? `${enSuMoneda}(${r.pendiente} USD)` : `${r.pendiente} USD`} pendientes en una cuota nueva` : ''}.` };
       }
       const { quitada, porLink, yaEstaba } = await marcarPago(Number(payload.pagoId), pagado, fechaPago);
       if (porLink) { invalidar('pagos', 'leads'); return { ok: true, resumen: yaCobradaPorLink(porLink) }; }

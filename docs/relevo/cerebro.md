@@ -27,6 +27,22 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
+## ⏩ 3/11, ~12:00, cuenta 5 (Ananda): lo último
+
+- **Producción:** sirve `12dc54318`; los deploys de la noche ya no fallan. El tren `tren-0311` (`C:/dev/wt-push-q`) está en
+  `integracion` (`9e693a5bd`, por Actions, ~40 min): referencia de la API regenerada, el desplegable de Instagram que no
+  salía nunca (la ruta cortaba a los 15 s y Apify tarda 20), el aviso del CRM de Brigitte, el estudio de video.
+- **Lo pendiente entero:** `docs/relevo/pendientes-0311.md`.
+- **El Runner NO armó su cron:** a un pedido de otro chat contesta «sólo si vos me lo pedís directamente». Lo tiene que pedir
+  Martín en el chat Runner. Sin eso, lo del Centro no llega.
+- **Chats en la nube, sin avisar al terminar (se miran con `git ls-remote origin 'refs/tags/nube/*'`):** gurus-0311,
+  brain-docs-0311, dashboard-0311, tickets-0311, spy-modal-0311, extension-tienda-0311, thiago-0311, ops-center-0311. Las
+  bases están en las etiquetas `nube-base/*`. Local: «Cobros: cuotas» y «Seguridad y plugin».
+- **Sin subir de ramas locales:** `runner-servicio-3010` (medir antes la 0355), `diseno-web-3110`, `spy-rehecho-3110`,
+  `aut-2510`, `crm-bajas-3010`, `pricing-bloqueantes-3010`, `landing-high-ticket-2910`.
+- **Publicar la extensión 0.74.4 en la tienda:** la API está muerta (`deleted_client`); va por el panel con el Chrome aparte
+  (`docs/hallazgos-extension.md`). Mientras, el chat de la extensión hace que nadie vea más «Descargar».
+
 ## 🔚 RELEVO FINAL DE claude1 — 3/11/2026 ~00:50, al 98 %
 
 ## ✅ El ticket #45 ya está commiteado y en `main` (`1efb12f08`)

@@ -11,11 +11,11 @@ import { getDestinatarios, type Destinatarios } from './notif-destinatarios';
 import { getWorkspaceActual } from './workspace';
 import { getGrupoJidMaKo } from './mako-grupo';
 
-export async function destinatariosDelNegocio(): Promise<{ destinatarios: Destinatarios; tieneGrupo: boolean }> {
+export async function destinatariosDelNegocio(): Promise<{ destinatarios: Destinatarios; tieneGrupo: boolean; ws: number | null }> {
   const ws = await getWorkspaceActual();
   const [destinatarios, grupoJid] = await Promise.all([
     getDestinatarios(),
     ws != null ? getGrupoJidMaKo(ws) : Promise.resolve(null),
   ]);
-  return { destinatarios, tieneGrupo: Boolean(grupoJid) };
+  return { destinatarios, tieneGrupo: Boolean(grupoJid), ws };
 }

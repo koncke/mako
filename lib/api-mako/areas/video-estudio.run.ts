@@ -71,14 +71,14 @@ const linkDelEstudio = (planId: string | null, ws: number): string =>
 const NO_LEI = 'No pude leer tus anuncios (falló la base). No es que no haya: vuelve a intentarlo en un rato.';
 
 /** El anuncio por id, contra el historial ESTRICTO (una base caída no es «no existe»). */
-async function anuncio(input: Record<string, unknown>): Promise<{ item: PlanGuardado; historial: PlanGuardado[] } | { error: string }> {
+async function anuncio(input: Record<string, unknown>): Promise<{ item: PlanGuardado; historial: PlanGuardado[] } | { error: string; falla?: true }> {
   const planId = str(input, 'planId');
   if (!planId) return { error: 'Falta el anuncio: pídelo con listar_anuncios_video.' };
   let historial: PlanGuardado[];
   try {
     historial = await leerHistorialEstricto();
   } catch (e) {
-    if (e instanceof HistorialIlegible) return { error: NO_LEI };
+    if (e instanceof HistorialIlegible) return { error: NO_LEI, falla: true };
     throw e;
   }
   const item = historial.find((p) => p.id === planId);
@@ -189,7 +189,7 @@ export const RUNNERS: Runners = soloDesdeLaApp({
         if (!l.ok) return { error: l.error };
       }
       let historial: PlanGuardado[];
-      try { historial = await leerHistorialEstricto(); } catch (e) { if (e instanceof HistorialIlegible) return { error: NO_LEI }; throw e; }
+      try { historial = await leerHistorialEstricto(); } catch (e) { if (e instanceof HistorialIlegible) return { error: NO_LEI, falla: true }; throw e; }
       const existente = planExistente(historial, g.id, puesta.id);
       if (existente) {
         return { error: `Ese guion ya tiene un anuncio con ${puesta.nombre}: ábrelo en ${linkDelEstudio(existente, ctx.ws)}`, yaEstaba: true };

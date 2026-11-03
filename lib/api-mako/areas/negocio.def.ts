@@ -37,7 +37,7 @@ import { CANALES } from '@/lib/fase-diagnostico';
 import { AREAS as AREAS_MODELO_CEREBRO } from '@/lib/cerebro-modelo';
 import { PERSONALIDAD_PREGUNTAS } from '@/lib/personalidad';
 // Dónde se corrige cada sección hoy (el hub de /onboarding se retiró el 15/10/2026): datos puros.
-import { lugarSeccion } from '@/lib/secciones-negocio';
+import { lugarSeccion, lugarDato } from '@/lib/secciones-negocio';
 // El catálogo de módulos de Knowledge: datos puros, sin server-only (el enum de keys sale de ahí y no de una copia).
 import { MODULOS_KNOWLEDGE } from '@/lib/knowledge-modulos';
 // Los pasos del arranque y de las tabs que se cierran desde afuera, y las urgencias de una oferta: datos puros
@@ -444,7 +444,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'guardar_campo_perfil', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
     titulo: 'Completar un campo del perfil',
-    descripcion: 'PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y corregirlo se hace en ' + lugarSeccion('archivero') + '. Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.',
+    descripcion: 'PROPONE completar UN campo VACÍO del perfil del negocio (clave de ver_perfil_negocio) con lo que dijo la persona. Solo huecos: si el campo ya tiene valor se rechaza, y la persona lo corrige tocándolo en ' + lugarDato('brief') + ' (precio, qué incluye, horario de la oferta) o en ' + lugarDato('cliente') + ' (lo del cliente). Lo guardado a mano gana sobre lo que MaKo saque después de los documentos. Deja un link para revisar el texto exacto y confirmar.',
     parametros: [
       { nombre: 'key', tipo: 'string', obligatorio: true, max: 80, descripcion: 'Clave del campo (de ver_perfil_negocio), por ejemplo «oferta_garantia».' },
       { nombre: 'valor', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El valor, en palabras de la persona.' },

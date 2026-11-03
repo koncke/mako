@@ -10,6 +10,7 @@
 // node:crypto está disponible) — NO importar acá nada con 'server-only' ni
 // Supabase: la verificación es crypto pura, sin base de datos.
 
+import { subDeFila } from './sesiones-revocadas-reglas';
 import crypto from 'node:crypto';
 import { AMRS, type Amr } from './mfa-reglas';
 
@@ -176,6 +177,11 @@ export function gateConfigurado(): boolean {
 //      abre solo.
 
 /** ¿Está corriendo en un deploy (Vercel, o un build de producción)? Ahí nada de esto existe. */
+/** ¿Corre en Vercel (producción o preview)? */
+function enVercel(): boolean {
+  return !!process.env.VERCEL || !!process.env.VERCEL_ENV;
+}
+
 export function esEntornoDesplegado(): boolean {
   return !!process.env.VERCEL || process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
 }
@@ -257,6 +263,13 @@ export function verificarToken(token: string | undefined | null): Sesion | null 
     // con Google, y ahí se pide el segundo paso. Un valor desconocido tampoco vale.
     if (s.mfa !== undefined && !AMRS.includes(s.mfa)) return null;
     if (s.rol === 'admin' && !s.mfa) return null;
+    // ⛔ En Vercel, sólo sesiones de una fila REAL (01/11/2026, auditoría de seguridad). Lo único que
+    // firma un `sub` que no es un id —y el segundo factor `dev`— es /api/auth/dev-login, que en Vercel
+    // es 404. Un token así en producción es uno firmado afuera con el AUTH_SECRET (una `.env.local`
+    // que lo comparte con producción): `leerSesion` no lo cruzaba con la base y daba super admin por
+    // 30 días, sin forma de revocarlo. `VERCEL` y no `esEntornoDesplegado()`: `next start` local
+    // también es NODE_ENV=production y ahí el dev-login sigue sirviendo.
+    if (enVercel() && (!subDeFila(s.sub) || s.mfa === 'dev')) return null;
     return s;
   } catch {
     return null;

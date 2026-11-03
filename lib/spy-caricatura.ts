@@ -138,10 +138,11 @@ export function nombreDeTarjeta(c: AQuienMira & { nombre?: string | null }): str
 }
 
 /** Lo que `queEs` devolvió, visto como «a quién mira», para poder emparejarlo con un referente. */
-export function comoAQuienMira(leido: { campo: 'instagram' | 'youtube_id' | 'landing_url' | 'nombre'; valor: string }): AQuienMira {
+export function comoAQuienMira(leido: { campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre'; valor: string }): AQuienMira {
   if (leido.campo === 'instagram') return { instagram: leido.valor };
   if (leido.campo === 'youtube_id') return { youtube_id: leido.valor };
   if (leido.campo === 'nombre') return { nombre: leido.valor };
+  // Un TikTok tampoco: los referentes no tienen su @ de TikTok cargado.
   // Una landing NO se empareja: `acquisition.com` colapsa a 'acquisitioncom' y no se parece al
   // nombre de nadie. Juntar un dominio con una persona necesitaría una tabla de dominios, que es
   // otra cosa y hay que mantenerla.

@@ -591,6 +591,19 @@ estar hecho**. Lo averiguado acá ya está pago: no hace falta volver a buscarlo
   Por eso Martín pidió explícitamente validar («¿este es el YouTube de esta persona?»).
   **Nada que venga de una búsqueda se guarda sin que el usuario lo confirme.**
 
+### ✅ HECHO (3/11/2026, rama `spy-0311`) — y lo que cuesta
+- **Con un dato salen sus otras redes:** al dar de alta a alguien se busca solo su YouTube, su
+  TikTok y su Instagram, y la ficha PREGUNTA: «¿Son de esta persona?» con «Sí, es esta persona» /
+  «No es». El enlace abre el perfil para comprobarlo. **Nada entra sin el sí.** En las fichas que
+  ya existían, «Buscar sus otras redes» en la miga.
+- **El actor:** `apify~google-search-scraper`, UNA página de Google por búsqueda (trae las tres
+  redes juntas). **Medido en dos corridas reales: US$0,00455 por búsqueda** (US$0,0045 la página +
+  US$0,00005 el arranque). Lo paga la clave de Spy del negocio.
+- **Tope:** `TOPE_BUSQUEDAS_REDES_POR_DIA = 20` por negocio → **el peor día cuesta US$0,09**. No se
+  busca al abrir una ficha, sólo al dar de alta o a pedido.
+- **TikTok ahora se guarda** (migración `0365`, **APLICADA en producción**): Spy no lo LEE, muestra
+  dónde está. De paso se arregló que un TikTok en la bio se guardaba como su landing.
+
 ## #12 · Pasar de 50 publicaciones
 - **El tope es `piezasPorVuelta: 50`** en `lib/spy-reglas.ts` (dentro de `TOPES`).
 - **Para YouTube ya está resuelto a medias:** `lib/spy-youtube.ts` ahora pagina con
