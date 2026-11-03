@@ -132,9 +132,25 @@ test('la migración 0348 acepta EXACTAMENTE las redes que publica el Calendario,
 test('cada tarjeta de red tiene su logo (el oficial, o una inicial), nunca el de otro', () => {
   const v = leer('app/_components/ServicioVisual.tsx');
   for (const red of REDES_CON_TARJETA) {
-    const m = new RegExp(`'${tarjetaDeRed(red)}': \\{ (sym: '([a-z-]+)'|letter: '[A-Z]')`).exec(v);
+    // Tres formas válidas: el trazo pegado (`sym`), un archivo oficial de /public/logos (`img`, que es
+    // lo que llevan los logos que sólo se publican en PNG o con degradés) o la inicial.
+    const m = new RegExp(`'${tarjetaDeRed(red)}': \\{ (?:img: '([a-z0-9.-]+)'|sym: '([a-z-]+)'|letter: '[A-Z]')`).exec(v);
     assert.ok(m, `sin logo: ${red}`);
+    // El archivo tiene que EXISTIR. Sin esto, una ruta mal escrita no falla: deja la tarjeta con una
+    // imagen rota, que se lee como que la integración está mal, no como que falta un archivo.
+    if (m![1]) assert.ok(existsSync(join(RAIZ, 'public/logos', m![1])), `${red}: falta public/logos/${m![1]}`);
     if (m![2]) assert.ok(v.includes(`<symbol id="${m![2]}"`), `${red}: el símbolo ${m![2]} no está dibujado`);
+  }
+});
+
+// Lo mismo para TODO el mapa, no sólo las redes: cualquier `img` de ICON tiene que tener su archivo.
+test('cada logo servido como archivo existe en public/logos', () => {
+  const v = leer('app/_components/ServicioVisual.tsx');
+  const mapa = v.slice(v.indexOf('export const ICON'), v.indexOf('export const iconFor'));
+  const archivos = [...mapa.matchAll(/img: '([^']+)'/g)].map((m) => m[1]);
+  assert.ok(archivos.length >= 6, `esperaba varios logos por archivo, encontré ${archivos.length}`);
+  for (const a of archivos) {
+    assert.ok(existsSync(join(RAIZ, 'public/logos', a)), `falta public/logos/${a}`);
   }
 });
 

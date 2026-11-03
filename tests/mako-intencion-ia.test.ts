@@ -84,6 +84,16 @@ test('4. el ticket del grupo: la respuesta la escribe el código, y lo que sigue
   assert.equal(respuestaDelTicket({ id: 31, sumado: false }, 'No deja editar el monto del lead.'), 'Abrí el ticket #31: No deja editar el monto del lead. Lo toma el equipo y te aviso por aquí cuando esté.');
   assert.equal(respuestaDelTicket({ id: 31, sumado: true }, 'el DM de rechazo'), 'Lo sumé al ticket #31: el DM de rechazo. Lo toma el equipo y te aviso por aquí cuando esté.');
   assert.equal(respuestaDelTicket({ id: 7, sumado: false }, ''), 'Abrí el ticket #7. Lo toma el equipo y te aviso por aquí cuando esté.');
+  // ⚠️ CON LA BASE, LA RESPUESTA LLEVA DÓNDE MIRAR CÓMO VA (2/11/2026). Joan preguntó por WhatsApp
+  // «¿cómo van esos tickets?» y no tenía forma de saberlo: la pantalla y los estados ya existían
+  // (`/tickets?t=<id>`), pero la respuesta no los nombraba. Sin base, la frase es la de antes
+  // palabra por palabra — las tres de arriba lo prueban.
+  assert.equal(
+    respuestaDelTicket({ id: 7, sumado: false }, '', 'https://hola-mako.com'),
+    'Abrí el ticket #7. Lo toma el equipo y te aviso por aquí cuando esté. Mira el progreso de tu ticket aquí: https://hola-mako.com/tickets?t=7',
+  );
+  // La barra de más de la base no duplica la del link.
+  assert.match(respuestaDelTicket({ id: 9, sumado: true }, 'x', 'https://hola-mako.com/'), /hola-mako\.com\/tickets\?t=9$/);
   assert.equal(ticketQueAcabaDeNombrar('Abrí el ticket #31: no deja editar. Lo toma el equipo…'), 31);
   assert.equal(ticketQueAcabaDeNombrar('Quedó el ticket #28 para el equipo de MaKo.'), 28);
   assert.equal(ticketQueAcabaDeNombrar('Tienes 3 leads hoy.'), null);

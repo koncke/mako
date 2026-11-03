@@ -50,9 +50,15 @@ import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-rend
 import {
   contadorPublicado, diasCorriendo, etapaDeTendencia, leerTramo, metricasVencidas, textoVencido, TOPES,
   type CanalSpy, type FuentePieza, type TipoPieza,
+  nombreComparable, dominioComparable, canalDeLaBio,
 } from './spy-reglas';
+import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-caricatura';
+import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
+import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
+import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
-import { getTenantDb } from './workspace';
+import { redDeUrl } from './spy-otras-redes-reglas';
+import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -64,6 +70,8 @@ export type Competidor = {
   nombre: string;
   instagram: string | null;
   youtube_id: string | null;
+  /** Su @ de TikTok (0365). Spy no lo lee: dice dónde está. */
+  tiktok: string | null;
   landing_url: string | null;
   pagina_anuncios: string | null;
   pais: string | null;
@@ -71,6 +79,8 @@ export type Competidor = {
   mirado_en: string | null;
   texto_leido_en: string | null;
   metricas_leidas_en: string | null;
+  /** Su foto de perfil, YA BAJADA a nuestro bucket (0362). No vence. En null, la lista dibuja la inicial. */
+  avatar: string | null;
   instagram_seguidores: number | null;
   youtube_suscriptores: number | null;
 };
@@ -96,6 +106,8 @@ export type Pieza = {
   plataformas: string[] | null;
   dominio_destino: string | null;
   publicada_en: string | null;
+  /** La imagen de la pieza, como la dio su fuente. VENCE: ver supabase/migrations/0360_spy_miniatura.sql. */
+  miniatura: string | null;
   visto_primera_vez: string;
   visto_ultima_vez: string;
   dejo_de_verse_en: string | null;
@@ -122,7 +134,7 @@ export type AnalisisPieza = {
 };
 
 const COLUMNAS_COMPETIDOR =
-  'id, nombre, instagram, youtube_id, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores';
+  'id, nombre, instagram, youtube_id, tiktok, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores, avatar';
 
 /**
  * ¿El error es «la tabla no existe» (42P01)? La nube escribe la migración y no la puede aplicar, así
@@ -146,6 +158,13 @@ export async function listarCompetidores(): Promise<{ ok: true; competidores: Co
   return { ok: true, competidores: (data ?? []) as Competidor[] };
 }
 
+/** Lo que se le dice a la persona: sin una fuente que lea Instagram, el motivo técnico de Meta no le sirve; sí cuáles son las salidas. */
+export function detalleDeInstagram(motivo: string, detalle: string): string {
+  if (motivo === 'sin-cuenta' || motivo === 'sin-conexion') return 'hace falta Meta con un Instagram vinculado, o tu clave de Apify.';
+  if (motivo === 'limite') return `${detalle}. Vuelve a intentarlo más tarde.`;
+  return detalle;
+}
+
 /** Un competidor por su id. `null` si no es de este negocio: el proxy ya scopea por workspace. */
 export async function leerCompetidor(id: number): Promise<Competidor | null> {
   const db = await getTenantDb();
@@ -159,7 +178,7 @@ export async function leerCompetidor(id: number): Promise<Competidor | null> {
  * de YouTube, el link de su landing o su nombre. Es el mismo patrón del link pegado del Web
  * Generator: la persona pega lo que tiene y el código resuelve qué es.
  */
-export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'landing_url' | 'nombre'; valor: string } | null {
+export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre'; valor: string } | null {
   const s = (crudo ?? '').trim();
   if (!s) return null;
   // Un @ suelto, o un link de Instagram.
@@ -177,6 +196,11 @@ export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'lan
     if (c && 'usuario' in c) return { campo: 'youtube_id', valor: `user:${c.usuario}` };
     return null;
   }
+  // Su TikTok (0365). ⚠️ Va ANTES de la regla de «cualquier link es su sitio»: sin esto, un link a
+  // su TikTok en la bio se guardaba como su LANDING. Lo lee `redDeUrl`, la misma función que lee los
+  // resultados de la búsqueda: así un candidato confirmado entra con el mismo @ que se ofreció.
+  const tt = redDeUrl(s);
+  if (tt?.red === 'tiktok') return { campo: 'tiktok', valor: tt.ref };
   if (/^https?:\/\//i.test(s)) return { campo: 'landing_url', valor: s.slice(0, 500) };
   // Un dominio pelado también es una landing («acme.com»).
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(s)) return { campo: 'landing_url', valor: `https://${s}`.slice(0, 500) };
@@ -186,19 +210,98 @@ export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'lan
 /**
  * Agrega un competidor con lo poco que se pegó. El `nombre` es del negocio y no se sobrescribe: si
  * sólo pegó un @, el nombre arranca siendo ese @ y después lo puede cambiar.
+ *
+ * `deLaBio` = el link que la persona tiene puesto en su bio de Instagram, tal como lo devolvió la
+ * vista previa (`web`). Es la mitad GRATIS del pedido «con un dato, traer todas sus redes» (ítem 10,
+ * 2/11/2026): **ya lo leímos y lo estábamos tirando a la basura al guardar.**
+ *
+ * ⚠️ POR QUÉ LLEGA DESDE LA PANTALLA Y NO SE LEE ACÁ: la vista previa YA pagó esa lectura de Apify
+ * para mostrar quién es. Leer el perfil otra vez acá sería pagar dos veces por el mismo dato y
+ * gastar del tope diario (`APIFY_TOPE_POR_DIA`), que es lo que deja al negocio sin poder agregar a
+ * nadie el resto del día.
+ *
+ * ⚠️ Y SE CLASIFICA CON `queEs`, no con una expresión nueva: así un link de instagram.com en la bio
+ * NO se guarda como landing (vuelve como `instagram`, que es a quien ya estamos agregando), un link
+ * a su canal entra como `youtube_id` —que es justo «traer otra de sus redes»— y el tope de 500
+ * caracteres ya está puesto. Un normalizador propio acá habría dejado pasar los dos primeros casos.
  */
-export async function agregarCompetidor(pegado: string, nombrePedido?: string): Promise<{ ok: true; competidor: Competidor } | { ok: false; error: string }> {
+export async function agregarCompetidor(pegado: string, nombrePedido?: string, deLaBio?: string | null): Promise<{ ok: true; competidor: Competidor } | { ok: false; error: string }> {
   const leido = queEs(pegado);
   if (!leido) return { ok: false, error: 'No reconocí eso. Pega el @ de Instagram, el enlace de su canal de YouTube o el de su sitio.' };
-  const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre) || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
+  // Del link de la bio sólo sirven los dos canales que no son el que ya estamos agregando. Un
+  // `nombre` (texto que no es un link) se descarta: el nombre lo pone el negocio, no su bio.
+  const extra = canalDeLaBio(deLaBio ? queEs(deLaBio) : null, leido.campo);
+  // ⚠️ SI LO PEGADO ES ALGUIEN QUE YA TENEMOS DIBUJADO, SE GUARDA SU NOMBRE DE VERDAD. Martín,
+  // 2/11/2026: «no pueden haber dos Alex Hormozi, no pueden haber dos Sofía Contreras». Pegar su
+  // YouTube guardaba `UCxxxxxx` (el id del canal) y pegar su @ guardaba `alexhormozi`: dos nombres
+  // distintos para la base, dos tarjetas para la persona. Con el nombre completo, la deduplicación
+  // por nombre comparable de abajo los junta sola la próxima vez.
+  const referente = referenteDeCompetidor(comoAQuienMira(leido));
+  const nombre = (nombrePedido ?? '').trim().slice(0, TOPES.nombre)
+    || (referente ? nombreDeReferente(referente) : '')
+    || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
   const db = await getTenantDb();
-  const cuantos = await db.from('spy_competidores').select('id', { count: 'exact', head: true });
-  if (cuantos.error) return { ok: false, error: sinTabla(cuantos.error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${cuantos.error.message}` };
-  if ((cuantos.count ?? 0) >= TOPES.competidores) {
+  // ── ¿YA ESTÁ? ───────────────────────────────────────────────────────────────────────────────
+  // ⚠️ EL `onConflict: workspace_id,nombre` DE ABAJO NO ALCANZA, y es la razón de que Martín
+  // terminara con tres «Sofia Contreras» (2/11/2026): pegar su @ guarda el nombre
+  // «sofiacontreras», pegar su nombre guarda «Sofia Contreras» y pegar su link de YouTube guarda
+  // otro más. Para la base son tres nombres distintos; para cualquier persona es la misma.
+  //
+  // Se deduplica por lo que identifica DE VERDAD, en este orden:
+  //   1. el canal — un @ de Instagram o un id de canal pertenecen a una cuenta y a una sola;
+  //   2. el nombre reducido a lo comparable, que es lo que colapsa las tres de arriba.
+  // Y si el que ya estaba no tenía ese canal, se lo suma: pegar su YouTube sobre la ficha que ya
+  // existía tiene que AGREGARLE el canal, no crear a la persona de nuevo.
+  const todos = await db.from('spy_competidores').select(COLUMNAS_COMPETIDOR);
+  if (todos.error) return { ok: false, error: sinTabla(todos.error) ? AUN_SIN_TABLAS : `No pude leer los competidores: ${todos.error.message}` };
+  const existentes = (todos.data ?? []) as Competidor[];
+  const buscado = nombreComparable(nombre);
+  const yaEsta = existentes.find((x) => (
+    (leido.campo === 'instagram' && x.instagram === leido.valor)
+    || (leido.campo === 'youtube_id' && x.youtube_id === leido.valor)
+    || (leido.campo === 'tiktok' && x.tiktok === leido.valor)
+    || (leido.campo === 'landing_url' && !!x.landing_url && dominioComparable(x.landing_url) === dominioComparable(leido.valor))
+    || (!!buscado && nombreComparable(x.nombre) === buscado)
+    // 3. el REFERENTE. Si lo pegado y el que ya está son la misma persona dibujada, son la misma
+    //    persona, aunque sus nombres guardados no se parezcan en nada: así «UCxxxx» de su canal cae
+    //    sobre la tarjeta que se creó con su @. Es lo que pidió Martín: «que esa data se cargue en
+    //    ese que ya existía, no que se creen dos tarjetas diferentes».
+    || (!!referente && referenteDeCompetidor(x) === referente)
+  ));
+  if (yaEsta) {
+    // Sólo se escribe si el canal pegado FALTA. Nunca se pisa uno que ya estaba: el que está es
+    // el que el negocio eligió, y pisarlo sería cambiarle el competidor sin avisar.
+    const suma: Record<string, unknown> = {};
+    if (leido.campo === 'instagram' && !yaEsta.instagram) suma.instagram = leido.valor;
+    if (leido.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = leido.valor;
+    if (leido.campo === 'tiktok' && !yaEsta.tiktok) suma.tiktok = leido.valor;
+    if (leido.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = leido.valor;
+    // El link de la bio entra con la MISMA regla: sólo si ese canal falta. Volver a pegar un @ sobre
+    // una ficha vieja le completa la landing que antes no se guardaba, y no pisa nada.
+    if (extra?.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = extra.valor;
+    if (extra?.campo === 'tiktok' && !yaEsta.tiktok) suma.tiktok = extra.valor;
+    if (extra?.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = extra.valor;
+    if (!Object.keys(suma).length) return { ok: true, competidor: yaEsta };
+    const r = await db.from('spy_competidores').update({ ...suma, updated_at: new Date().toISOString() })
+      .eq('id', yaEsta.id).select(COLUMNAS_COMPETIDOR).maybeSingle();
+    return r.data ? { ok: true, competidor: r.data as Competidor } : { ok: true, competidor: yaEsta };
+  }
+
+  // ⚠️ EL TOPE SE MIRA ACÁ, DESPUÉS DE BUSCAR EL DUPLICADO, y antes estaba arriba de todo. Con la
+  // lista llena, pegar a alguien que YA ESTABA contestaba «ya tienes 25 competidores» en vez de
+  // abrirlo — y volver a pegar al mismo es justamente lo que uno hace cuando la lista se llenó de
+  // duplicados. El tope existe para que no entren veinticinco personas DISTINTAS, no para frenar
+  // al que ya está adentro.
+  //
+  // Y de paso se fue una consulta: `existentes` ya es la lista entera, así que contar era pedir
+  // lo mismo dos veces.
+  if (existentes.length >= TOPES.competidores) {
     return { ok: false, error: `Ya tienes ${TOPES.competidores} competidores. Quita uno antes de agregar otro: la tab sirve para mirar pocos a fondo.` };
   }
+
   const fila: Record<string, unknown> = { nombre, updated_at: new Date().toISOString() };
   if (leido.campo !== 'nombre') fila[leido.campo] = leido.valor;
+  if (extra) fila[extra.campo] = extra.valor;
   const { data, error } = await db.from('spy_competidores').upsert(fila, { onConflict: 'workspace_id,nombre' }).select(COLUMNAS_COMPETIDOR).maybeSingle();
   if (error || !data) return { ok: false, error: sinTabla(error) ? AUN_SIN_TABLAS : `No pude guardar el competidor: ${error?.message ?? 'sin fila'}` };
   return { ok: true, competidor: data as Competidor };
@@ -293,6 +396,8 @@ export type PiezaVista = {
   plataformas?: string[] | null;
   dominioDestino?: string | null;
   publicadaEn?: string | null;
+  /** La imagen que dio la fuente. Instagram la trae (`thumbnail_url`); YouTube no la necesita: la suya se deriva del ref. */
+  miniatura?: string | null;
 };
 
 /**
@@ -316,12 +421,38 @@ export async function guardarVistas(
   const db = await getTenantDb();
   const ahora = new Date().toISOString();
   const canales = [...new Set(vistas.map((v) => v.canal))];
-  const { data: yaEstaban, error: errLeer } = await db.from('spy_piezas').select('ref, canal').eq('competidor_id', competidorId).in('canal', canales);
+  // Se trae también la `miniatura` guardada: sin eso se volvería a bajar la MISMA imagen en cada
+  // lectura (ver abajo, donde se arma `yaBajada`).
+  const { data: yaEstaban, error: errLeer } = await db.from('spy_piezas').select('ref, canal, miniatura').eq('competidor_id', competidorId).in('canal', canales);
   if (errLeer) return { nuevas: 0, actualizadas: 0, error: sinTabla(errLeer) ? AUN_SIN_TABLAS : errLeer.message };
   const conocidas = new Set((yaEstaban ?? []).map((r) => `${(r as { canal: string }).canal}|${(r as { ref: string }).ref}`));
 
+  /**
+   * La miniatura que YA bajamos de una pieza, si la bajamos.
+   *
+   * ⚠️ SIN ESTO SE VUELVE A BAJAR TODO EN CADA LECTURA. Lo que llega de la API es siempre la URL
+   * FRESCA del CDN, nunca la nuestra, así que `esNuestra` da false y el bajador empezaría de cero
+   * cada vez: el presupuesto de 9 s se gastaría siempre en las mismas imágenes y nunca llegaría a
+   * las que faltan. Con esto, una lectura sólo paga por lo que todavía no tiene, y las que quedan
+   * afuera por presupuesto entran en la siguiente — que es lo que hace que converja.
+   */
+  const yaBajada = new Map<string, string>();
+  for (const r of (yaEstaban ?? []) as Array<{ canal: string; ref: string; miniatura: string | null }>) {
+    if (esNuestra(r.miniatura)) yaBajada.set(`${r.canal}|${r.ref}`, r.miniatura as string);
+  }
+
   // Las dos clases de dato llevan RELOJES DISTINTOS, y por eso se escriben en columnas distintas:
   // el texto se borra a los 30 días y las métricas duran hasta 36 meses con la enmienda III.L.
+  // ⚠️ LA MINIATURA SE BAJA ANTES DE GUARDAR. La URL del CDN de la fuente vence Y, en el caso de
+  // Meta, devuelve 403 a todo pedido que venga de otro dominio: guardar la URL era guardar algo
+  // que después no se iba a poder ver. `guardarMiniaturas` NUNCA tira — si una imagen no se puede
+  // bajar deja la URL original y la pieza se guarda igual, porque perder el competidor entero por
+  // una imagen sería cambiar un problema chico por uno grande. Ver lib/spy-miniaturas.ts y la 0361.
+  const conFoto = await guardarMiniaturas(vistas.map((v) => {
+    const nuestra = yaBajada.get(`${v.canal}|${v.ref}`);
+    return nuestra ? { ...v, miniatura: nuestra } : v;
+  }));
+
   const comun = (v: PiezaVista) => ({
     competidor_id: competidorId, canal: v.canal, tipo: v.tipo, ref: v.ref.slice(0, TOPES.ref), fuente: v.fuente,
     url: v.url ?? null,
@@ -332,6 +463,10 @@ export async function guardarVistas(
     // `contadorPublicado` y no `?? 0`: ausente es «no lo publica», y son dos datos distintos.
     vistas: contadorPublicado(v.vistas), megusta: contadorPublicado(v.megusta), comentarios: contadorPublicado(v.comentarios),
     duracion: v.duracion ?? null,
+    // Ya bajada a nuestro bucket cuando se pudo (0361). Si no se pudo queda la del CDN ajeno, y
+    // `miniatura_guardada_en` en null lo dice: ésa es la que vence y la que puede dar 403.
+    miniatura: v.miniatura ?? null,
+    miniatura_guardada_en: esNuestra(v.miniatura) ? ahora : null,
     metricas_leidas_en: ahora,
     // Los tramos de la Ad Library viajan como TEXTO. `leerTramo` valida la forma y devuelve el
     // texto tal cual: nunca un número, que sería un dato que nos inventamos.
@@ -345,8 +480,8 @@ export async function guardarVistas(
     updated_at: ahora,
   });
 
-  const nuevas = vistas.filter((v) => !conocidas.has(`${v.canal}|${v.ref}`));
-  const viejas = vistas.filter((v) => conocidas.has(`${v.canal}|${v.ref}`));
+  const nuevas = conFoto.filter((v) => !conocidas.has(`${v.canal}|${v.ref}`));
+  const viejas = conFoto.filter((v) => conocidas.has(`${v.canal}|${v.ref}`));
   let err: string | undefined;
   if (nuevas.length) {
     // Las nuevas SÍ escriben `visto_primera_vez`: es la primera vez que las vemos.
@@ -389,21 +524,57 @@ export type LecturaCanalSpy = { canal: CanalSpy; ok: boolean; piezas: number; nu
  * Devuelve una línea por canal, también por el que no se pudo leer: «no pude» es un tercer estado y
  * confundirlo con «no tiene» le miente al negocio.
  */
-export async function mirarCompetidor(competidorId: number): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
+/**
+ * `motivo` decide si sirve la lectura que YA pagó otro negocio (`lib/spy-compartido.ts`).
+ *
+ * ⚠️ EL DEFAULT ES `'a-pedido'`, QUE NUNCA USA LA CACHÉ, y es a propósito: quien no dice para qué
+ * está leyendo se lleva datos frescos. Equivocarse hacia «leer de más» cuesta un crédito;
+ * equivocarse hacia «servir lo de otro» le muestra a alguien datos viejos creyendo que son de hoy.
+ */
+export async function mirarCompetidor(
+  competidorId: number,
+  motivo: MotivoDeLectura = 'a-pedido',
+): Promise<{ ok: boolean; canales: LecturaCanalSpy[]; error?: string }> {
   const c = await leerCompetidor(competidorId);
   if (!c) return { ok: false, canales: [], error: 'No encontré ese competidor.' };
   const canales: LecturaCanalSpy[] = [];
   const ahora = new Date().toISOString();
   let seguidores: number | null = c.instagram_seguidores;
+  let cara: string | null = c.avatar;
   let suscriptores: number | null = c.youtube_suscriptores;
 
   // ── Instagram: Business Discovery con el juego ancho de campos ──────────────
   if (c.instagram) {
-    const l = await leerPerfilInstagram(c.instagram, { conPiezas: true });
+    // ⚠️ ANTES DE PAGAR, ¿YA LO LEYÓ OTRO? (ítem 13, 2/11/2026). Una lectura de Instagram gasta del
+    // tope diario de Apify del negocio, y el resultado es el MISMO para cualquiera porque el canal
+    // es público. Con `'alta'` sirve hasta 24 h; con «Revisar ahora» (`'a-pedido'`) NUNCA, por
+    // fresca que esté: quien toca ese botón pide datos de hoy.
+    const yaLeida = motivo === 'a-pedido' ? null : await lecturaCompartida('instagram', c.instagram);
+    if (yaLeida && sirveLaCompartida(motivo, yaLeida.leidoEn, Date.now())) {
+      const vistas = yaLeida.piezas as PiezaVista[];
+      const g = await guardarVistas(competidorId, vistas);
+      void anotarAhorro('instagram', c.instagram);
+      const p = yaLeida.perfil ?? {};
+      if (typeof p.seguidores === 'number') seguidores = p.seguidores;
+      canales.push({
+        canal: 'instagram', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas,
+        detalle: g.error ?? `${vistas.length} publicaciones (de una lectura de hace poco, sin gastar una nueva)`,
+      });
+    } else {
+    // ⚠️ CON EL NEGOCIO (1/11/2026): sin `ws`, la función no podía usar la Meta del cliente ni su clave, y leía siempre con la de la plataforma.
+    const l = await leerPerfilInstagram(c.instagram, { ws: await getWorkspaceActual(), conPiezas: true, fuentes: ['meta-negocio', 'meta-plataforma', 'apify-spy'] });
     if (!l.ok) {
-      canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${l.detalle}` });
+      canales.push({ canal: 'instagram', ok: false, piezas: 0, nuevas: 0, detalle: `No pude leer @${c.instagram}: ${detalleDeInstagram(l.motivo, l.detalle)}` });
     } else {
       seguidores = l.perfil.seguidores;
+      // ⚠️ LA CARA SE BAJA, NO SE APUNTA. `l.perfil.foto` es una URL del CDN de Meta que vence y
+      // que además da 403 desde otro dominio (ver lib/spy-miniaturas.ts). Por eso el comentario
+      // de instagram-perfil.ts decía «nunca para guardarla»: con el bucket de 0361 ya se puede.
+      if (l.perfil.foto) {
+        const [bajada] = await guardarMiniaturas([{ canal: 'avatar', ref: c.instagram, miniatura: l.perfil.foto }]);
+        // Sólo se guarda si quedó en NUESTRO bucket: guardar la de Meta sería guardar una que vence.
+        if (esNuestra(bajada.miniatura)) cara = bajada.miniatura ?? cara;
+      }
       // `piezas` es `undefined` cuando Meta rechazó el juego ancho y se cayó al de siempre: ahí hay
       // perfil pero no números, y eso se dice. No es una lista vacía.
       const piezas = l.perfil.piezas;
@@ -416,18 +587,40 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
           ref: p.ref, fuente: 'api' as const, url: p.permalink, texto: p.texto,
           vistas: p.vistas, megusta: p.megusta, comentarios: p.comentarios,
           publicadaEn: p.fecha || null,
+          // ⚠️ ACÁ SE PERDÍAN LOS VIDEOS DE IG. `leerPerfilInstagram` ya devolvía la miniatura
+          // (`thumbnail_url`, lib/instagram-perfil.ts) y este mapeo no la copiaba, así que un reel
+          // llegaba a la grilla como texto con números en vez de como un video que se ve.
+          miniatura: p.miniatura,
         }));
         const g = await guardarVistas(competidorId, vistas);
         if (vistas.length) await marcarDejadas(competidorId, 'instagram', vistas.map((v) => v.ref));
+        // Se guarda para que el PRÓXIMO negocio no la pague. No se espera: si falla, este negocio
+        // ya tiene sus piezas y lo único que se pierde es el ahorro del siguiente.
+        void guardarLecturaCompartida('instagram', c.instagram, vistas, { seguidores: l.perfil.seguidores ?? null });
         canales.push({ canal: 'instagram', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} publicaciones` });
+      }
       }
     }
   }
 
   // ── YouTube: channels.list → playlist de subidas → playlistItems → videos.list ───
   if (c.youtube_id) {
+    // La misma caché compartida que Instagram (ítem 13). Acá no se ahorra PLATA del negocio sino
+    // CUOTA de la API de YouTube, que es de la plataforma y es igual de finita: leer el canal de
+    // Hormozi una vez por negocio la agota igual.
+    const yaYt = motivo === 'a-pedido' ? null : await lecturaCompartida('youtube', c.youtube_id);
     const clave = await claveDeYoutube();
-    if (!clave) {
+    if (yaYt && sirveLaCompartida(motivo, yaYt.leidoEn, Date.now())) {
+      const vistas = yaYt.piezas as PiezaVista[];
+      const g = await guardarVistas(competidorId, vistas);
+      void anotarAhorro('youtube', c.youtube_id);
+      const p = yaYt.perfil ?? {};
+      if (typeof p.suscriptores === 'number') suscriptores = p.suscriptores;
+      canales.push({
+        canal: 'youtube', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas,
+        detalle: g.error ?? `${vistas.length} videos (de una lectura de hace poco, sin gastar cuota)`,
+      });
+    } else if (!clave) {
       canales.push({ canal: 'youtube', ok: false, piezas: 0, nuevas: 0, detalle: noPudeLeerCanal('sin-clave') });
     } else {
       const apunta = c.youtube_id.startsWith('@') ? { handle: c.youtube_id.slice(1) }
@@ -444,9 +637,19 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
           titulo: v.titulo, texto: v.descripcion, etiquetas: v.etiquetas,
           vistas: v.vistas, megusta: v.megusta, comentarios: v.comentarios,
           duracion: v.duracion, publicadaEn: v.publicadoEn || null,
+          // ⚠️ LA MINIATURA DE YOUTUBE TAMBIÉN SE GUARDA, y hasta el 2/11/2026 no se guardaba: se
+          // derivaba del id al dibujar (`miniaturaDePieza`) y nunca se bajaba. Para VERLA alcanzaba
+          // —la URL de YouTube no vence ni bloquea—, pero Martín la quiere archivada por otro
+          // motivo: «que eso también pueda servir de referencia para crear miniaturas luego para
+          // los propios usuarios de MaKo». Una URL ajena no es material de referencia; un archivo
+          // sí. `guardarMiniaturas` la baja una sola vez y después `yaBajada` no la vuelve a pedir.
+          // Se usa la que YouTube dio —la de mayor resolución que haya— y no una armada a mano.
+          miniatura: v.miniatura || `https://i.ytimg.com/vi/${encodeURIComponent(v.id)}/hqdefault.jpg`,
         }));
         const g = await guardarVistas(competidorId, vistas);
         if (vistas.length) await marcarDejadas(competidorId, 'youtube', vistas.map((v) => v.ref));
+        // Para que el próximo negocio que mire este canal no gaste cuota. No se espera.
+        void guardarLecturaCompartida('youtube', c.youtube_id, vistas, { suscriptores: l.canal.suscriptores ?? null });
         canales.push({ canal: 'youtube', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} videos` });
       }
     }
@@ -487,7 +690,7 @@ export async function mirarCompetidor(competidorId: number): Promise<{ ok: boole
   const db = await getTenantDb();
   await db.from('spy_competidores').update({
     mirado_en: ahora, texto_leido_en: ahora, metricas_leidas_en: ahora,
-    instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, updated_at: ahora,
+    instagram_seguidores: seguidores, youtube_suscriptores: suscriptores, avatar: cara, updated_at: ahora,
   }).eq('id', competidorId);
   return { ok: canales.some((x) => x.ok), canales };
 }

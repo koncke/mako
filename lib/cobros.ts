@@ -1307,6 +1307,8 @@ export async function atarCobroASuCuenta(ws: number, id: number, autor: string):
  * ⚠️ SÓLO SOBRE LA SESIÓN QUE SE LEYÓ (29/10/2026, la verificación de ddfa645d4): si entre la lectura y esta escritura «Volver a
  *    intentar» armó otra (`urlParaPagar` cambia `proveedor_ref` y vuelve el cobro a `pendiente`), el fallo de la anterior no la toca.
  */
+const rechazoALaAgencia = (cobroId: number): Promise<void> => import('./plan-deuda').then((m) => m.avisarRechazoALaAgencia(cobroId));
+
 export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void> {
   await runWithWorkspace(c.workspace_id, async () => {
     // ⚠️ EL COBRO DEL DÍA 8 DE UNA PRUEBA AUTORIZADA QUE SE RECHAZA NO LA SACA DE «PENDIENTE» (31/10/2026). En `fallido` dejaba de ser
@@ -1327,6 +1329,9 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
         await logLeadEvent(c.lead_id, 'Pago rechazado', `${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
         await alCron(c, 'rechazado');
       }
+      // La suscripción autorizada de un cliente de agencia todavía no cobró, y la primera renovación que rechazan pasa por acá (ticket
+      // #37). Sin autorizar (`null`), la está pagando ella en pantalla y no hay ningún reintento que anunciarle.
+      if (r && c.tipo === 'suscripcion' && c.suscripcion_estado === 'activa') await rechazoALaAgencia(c.id);
       return;
     }
     if (c.estado === 'pagado' && c.tipo === 'suscripcion' && c.lead_id) {
@@ -1335,6 +1340,8 @@ export async function aplicarPagoFallido(c: Cobro, motivo: string): Promise<void
       await actualizar(c.workspace_id, c.id, { motivo: `${PREFIJO_RENOVACION_FALLIDA}: ${motivo}`.slice(0, 300) });
       await logLeadEvent(c.lead_id, 'Pago rechazado', `Renovación de ${c.concepto}: ${motivo}`.slice(0, 300), NOMBRE_PASARELA[c.proveedor]);
       await alCron(c, 'rechazado');
+      // Una vez por período: la pasarela reintenta varias veces, y la próxima renovación que entre borra este motivo.
+      if (!esRenovacionFallida(c.motivo)) await rechazoALaAgencia(c.id);
     }
   });
 }

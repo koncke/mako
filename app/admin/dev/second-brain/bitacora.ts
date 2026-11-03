@@ -711,4 +711,56 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  // ── 3 nov: los tickets #46, #47 y #48 de Leila — MaKo negaba lo que SÍ tiene, o no sabía dónde vive en la pantalla ──
+  // La causa de los tres es la del #45: la palabra de la persona no era la del nombre de la herramienta, y no viajaba al
+  // turno (las familias de lib/mako-intencion-app.ts). Los puntos los lee la clienta en el aviso: en su idioma, sin lo interno.
+  {
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya te propone cambiar el precio de tu oferta o de un producto, en vez de decirte que no puede',
+    puntos: [
+      'Le pedías a MaKo pasar el precio de pesos a dólares y te contestaba que desde el chat no podía. Sí puede: te propone el cambio de la oferta o del producto y te deja un link para confirmarlo.',
+      'Y te dice dónde corregirlo tú: en el Second Brain, «La oferta» → «El brief».',
+      '**Cómo se prueba:** en el Ops Center, «quiero pasar el precio de mi oferta a dólares».',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — la familia `precio-oferta`',
+      'tests/mako-no-puedo-falsos.test.ts — el 14',
+    ],
+    revisar: '/second-brain',
+    tickets: [46],
+  },
+  {
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te arma una secuencia nueva con su disparador por etiqueta',
+    puntos: [
+      'Le pediste que el WhatsApp del diagnóstico disparara una secuencia y te dijo que sólo podía activar o pausar las que ya existen. Sí puede crearla: la arma con su disparador (por ejemplo, cuando se le agrega una etiqueta al lead) y nace en pausa, sin escribirle a nadie hasta que la actives.',
+      '**Cómo se prueba:** en el Ops Center, «créame una secuencia que arranque cuando se agrega la etiqueta diagnóstico».',
+    ],
+    archivos: [
+      'lib/mako-intencion-app.ts — la familia `crear-secuencia`',
+      'lib/api-mako/areas/chatbot.def.ts — crear_automatizacion_con_ia dice «secuencia», «disparador» y «etiqueta»',
+      'tests/mako-no-puedo-falsos.test.ts — el 15',
+    ],
+    revisar: '/automations',
+    tickets: [47],
+  },
+  {
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', cuenta: 'claude2',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo sabe en qué pantalla se corrige cada dato de tu negocio',
+    puntos: [
+      'Preguntaste dónde actualizar tus datos y MaKo no lo sabía. Ahora te lo dice con el nombre que ves: en el Second Brain, «La oferta» → «El brief» para el precio, qué incluye y el horario; «La oferta» → «La oferta» para tus ofertas; y «Productos» para el catálogo con su precio. Con el link que te abre esa pantalla.',
+      '**Cómo se prueba:** en el Ops Center, «¿dónde actualizo mis datos?».',
+    ],
+    archivos: [
+      'lib/secciones-negocio.ts — `DATOS_DEL_NEGOCIO`, `lugarDato`, `rutaDato`',
+      'lib/mako-capacidades.ts — la capacidad datos-negocio',
+      'lib/api-mako/areas/negocio.run.ts · crm.run.ts — ver_perfil_negocio, listar_ofertas y listar_productos dicen dónde se edita',
+      'tests/mako-no-puedo-falsos.test.ts — el 16 y el 17',
+    ],
+    revisar: '/second-brain',
+    tickets: [48],
+  },
 ];

@@ -7778,3 +7778,25 @@ cambiados). La regla está en [hallazgos-infra.md](hallazgos-infra.md).
 - **El tope de 25 MB de la transcripción sigue rebotando toda clase de curso** (ya estaba
   escrito arriba, en «La puerta de entrada a la ingesta YA existe»): la curación por video
   necesita extraer el audio con ffmpeg antes.
+
+## Lo que se ve en el material al destilar un curso (1/11/2026)
+
+Al armar las catorce fichas de `lib/asesores/` se leyeron entre 12 y 18 clases de cada curso.
+
+- ⚠️ **Varios cursos enseñan tácticas que MaKo no puede aconsejar.** Salen en un curso de cada dos: cupos y escasez inventados (Fukuda, Turu, Cubria), comentarios y reseñas falsas y seguidores comprados (Verdú), likes baratos para «parecer viral» (Razzetti), mentirle a la recepcionista y anécdotas inventadas (Gadzhi), usar música o fragmentos con derechos para que la plataforma no los detecte (Chamizo, Fukuda), fingir que no hay cuotas (Nievas), y promesas de ingresos en casi todos. Quedaron fuera de las fichas, y `contextoDeReferente` prohíbe aconsejarlas por si el modelo las trae de su memoria. **Por eso el chat no busca en el curso entero: un RAG recuperaría esas clases igual que las buenas.**
+- **La especialidad se decide leyendo, no por el título.** Fukuda no enseña Instagram orgánico: enseña ventas orgánicas de afiliados por TikTok, Telegram y WhatsApp. «Sell Your Knowledge» no es de infoproductos: es de servicios high ticket. Verdú sólo sirve con tráfico orgánico.
+- **El nombre del curso no siempre es quien lo dicta.** «Sell Your Knowledge» lo dan casi entero Mati Molina, Santiago y Fede, con Ramiro Cubria en el título (la ficha dice «y su equipo»). En «Growing Closer» se nombra 31 veces a Agustín y una vez se presenta un «Austin Marchisio». Tres clases de MasteryHaus son de la estratega de contenido de Sofía.
+- **Las clases largas no se leyeron enteras** (el tope fue 20.000 caracteres por clase): «Compendio fundacional» de Cubria tiene 201.000. La ficha de Cubria casi no cubre precio por eso.
+
+- **Las transcripciones automáticas deforman los nombres propios.** En Hormozi, «Gym Launch» sale como «Jim Walsh», «Jim Ochs» y «Jim
+  O'Neill», y «Skool» como «School Dot Com». En JADS, el método sale como «jazz», «JATS», «YATS» y «jadex». ⚠️ Una cita o un caso sacado
+  de ahí sin leerlo entero puede quedar atribuido a alguien que no existe: por eso las fichas no llevan citas.
+- **A «100M Money Models» le falta una clase:** en Attraction Offers no hay clase 2, y la de Decoy nombra «win your money back» como vista.
+  **Y sobra una:** «2. Marketing with Alex Hormozi» tiene 238.689 caracteres, casi cuatro horas, y no es del tema.
+- **En JADS, «Juan ADS» y «Juan Osorio» son la misma persona** (él se nombra en la clase 32; Juan Ads es la marca de sus páginas). En la clase
+  105 se presenta otro, «Juan Marietto»: es un video de ejemplo, no el docente. Ocho títulos son sólo un número, y la clase 107 abre con
+  texto inventado por el transcriptor.
+- **En «Método Contenido Irresistible» el módulo «Marca personal» repite casi idénticas siete clases** (títulos con «- copia» o «[2]»), nueve títulos son sólo «CLASE N» (el tema está en `grupo`) y el número del título no coincide con el `n` del archivo.
+- **Se comprobaron contra la transcripción ocho cifras de las fichas, y salieron todas:** el 25 a 1 y el 80% de Hormozi, el 70%, el 25% diario, el tope del 20% y la frecuencia 5 de JADS, y el 80-20 y los niveles de Otálora. Sin eso, la palabra del agente que las destiló era lo único que las sostenía.
+- **Las reglas de un docente son suyas, no de la plataforma:** el 25% diario de JADS se lo atribuye él a una charla con alguien de Meta. La
+  ficha lo dice «según Juan»; presentarlo como política de Meta sería inventar.

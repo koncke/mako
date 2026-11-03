@@ -41,7 +41,7 @@ const SIN_GUIA_TODAVIA: Readonly<Record<string, string>> = {
   'landing-writer': 'G6, Web Generator', 'ads-manager': 'G6, Media Buyer', 'video-editor': 'G6, Video Editor (después de G5)',
   'image-editor': 'G6, Image Editor (después de G5)', copywriter: 'G6, Copywriter (después de G5)', 'ai-avatar': 'G6, AI Avatar',
   perfil: 'G6, Settings (monta la estrella)', 'api-mako': 'G6, API de MaKo', partners: 'G6, Planes y Partners', agency: 'G6, Planes y Partners',
-  tickets: 'G6, Ticketera de usuarios (Report a problem)', 'market-an': 'G6, Competitor Spy (hoy sólo el super admin)',
+  tickets: 'G6, Ticketera de usuarios (Report a problem)', 'market-an': 'G6, Competitor Spy',
 };
 
 function fuentes(dir: string): string[] {

@@ -15,7 +15,7 @@ import type { ItemCalendario } from '@/lib/calendario-modelo';
 import type { ConteoFunnel } from '@/lib/general-alcance';
 import type { CobroM } from '@/app/m/dashboard/modelo';
 import type { ResumenComparativo } from '@/lib/queries';
-import type { OkrVista, AlertaVista } from '../datos-tipos';
+import type { DatosGeneral, OkrVista, AlertaVista } from '../datos-tipos';
 import type { ObjectiveConAvance } from '@/lib/objectives';
 import type { Foco } from '@/lib/focus';
 
@@ -130,4 +130,14 @@ export const FOCO_MUESTRA: Foco = {
   accion: 'Llama a los 4 leads que agendaron y no asistieron', razon: 'Son las agendas más baratas que vas a conseguir esta semana.',
   resultadoEsperado: 'Agendas de la semana', responsable: 'Tú', progreso: null, siguienteRevision: 'Mañana', origen: 'kpi',
   alertaIdx: null, href: '/crm', hrefLabel: 'Abrir el CRM', nivel: 'ambar', pideConfigurar: null,
+};
+
+/** La cabecera entera, con su tipo: para la miniatura en una pantalla sin los datos de General (la galería en el Dashboard). */
+export const CABECERA_MUESTRA: DatosGeneral['cabecera'] = {
+  ok: true,
+  d: {
+    ...META_MUESTRA, foco: FOCO_MUESTRA, anio: 2026, quarter: 4,
+    capacidad: { cupo: 10, activos: 6, libres: 4, ocupacionPct: 60, mesesEntrega: 3 },
+    progreso: { qt: { anio: 2026, q: 4 }, desde: '2026-10-01', hasta: '2026-12-31', diasTotales: 92, diasTranscurridos: 46, diasRestantes: 46, fraccion: 0.5 },
+  },
 };

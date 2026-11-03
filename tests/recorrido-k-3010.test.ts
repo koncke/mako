@@ -8,7 +8,6 @@
 //   3. K5: el subtítulo de «Tareas con fecha» dice la ventana que se lee de verdad.
 //
 // PROBADO ROMPIÉNDOLO (30/10/2026), cada rotura sola contra este archivo:
-//   · la barra sin la ranura                                   → 1 fallo (1)
 //   · MakoEnLaTab sin el portal (vuelve a flotar siempre)        → 1 fallo (1)
 //   · el portal también encima de un modal (CR4)                 → 1 fallo (1)
 //   · `.gc-ev--uno b{display:inline}` sin el corte de la línea   → 1 fallo (2)
@@ -23,20 +22,13 @@ const RAIZ = resolve(import.meta.dirname, '..');
 const crudo = (rel: string) => readFileSync(resolve(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const leer = (rel: string) => crudo(rel).replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. el botón de MaKo vive en la ranura de la barra, no encima del rincón de la tab', () => {
-  const barra = leer('app/_components/Sidebar.tsx');
-  assert.match(barra, /<div data-ranura-mako="" style=\{/, 'la barra no le deja la ranura');
+test('1. el botón de MaKo flota otra vez: la ranura de la barra se fue (Martín, 1/11/2026)', () => {
+  assert.doesNotMatch(leer('app/_components/Sidebar.tsx'), /data-ranura-mako/);
   const mako = leer('app/_chat/MakoEnLaTab.tsx');
-  assert.match(mako, /document\.querySelector<HTMLElement>\('\[data-ranura-mako\]'\)/);
-  assert.match(mako, /const enBarra = ranura != null && !\(encimaDeModales && prof > 0\);/, 'encima de un modal de la tab tiene que seguir flotando (CR4)');
-  assert.match(mako, /if \(!abierto && enBarra\) \{\s*return \(\s*<>\s*\{createPortal\(\s*<button type="button" className="ch-tab-mako ch-tab-mako--en-barra"[^>]*data-mako-chat="">/, 'en la barra, sin data-mako-chat el velo de la guía lo tapa');
-  // Los globos de la guía (el merge del 30/10/2026): salen también con el botón en la barra, pegados a su borde.
-  assert.match(mako, /\{createPortal\([\s\S]*?ranura,\s*\)\}\s*\{globos\}\s*<\/>/, 'con el botón en la barra, la guía se queda sin globo');
-  assert.match(mako, /const leftGlobo = enBarra \? bordeVisible - 56 : bordeVisible \+ 16;/, 'el globo queda suelto en el medio de la tab');
-  // El de respaldo (sin barra) sigue siendo el de siempre: lo fijan tests/estrella-al-lado-de-la-barra.test.ts y el CR4.
+  assert.doesNotMatch(mako, /createPortal|enBarra/);
   assert.match(mako, /className="ch-tab-mako" style=\{\{ left: bordeVisible \+ 16,/);
-  // En la ranura no flota: sin `position: fixed`.
-  assert.match(crudo('app/_chat/chat.css'), /\.ch-tab-mako\.ch-tab-mako--en-barra \{ position: static;/);
+  assert.match(mako, /const leftGlobo = bordeVisible \+ 16;/, 'el globo queda suelto en el medio de la tab');
+  assert.doesNotMatch(crudo('app/_chat/chat.css'), /ch-tab-mako--en-barra/);
 });
 
 test('2. un evento de la grilla corta su título y su hora con «…»', () => {

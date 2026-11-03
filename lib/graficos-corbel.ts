@@ -151,10 +151,10 @@ export function tilesDeHoja(piezas: readonly PiezaConLugar[]): ReadonlyMap<strin
   const out = new Map<string, TileCorbel>();
   const numeros = piezas.filter((p) => p.esNumero && !p.portada);
   const ys = [...new Set(numeros.map((p) => p.y))].sort((a, b) => a - b);
+  let i = 0;
   ys.forEach((y, fila) => {
     const deLaFila = numeros.filter((p) => p.y === y).sort((a, b) => a.x - b.x);
     const negro = fila === 0 ? deLaFila.find((p) => p.invertida) ?? deLaFila[0] : null;
-    let i = 0;
     for (const p of deLaFila) out.set(p.id, p === negro ? 'sky' : ORDEN_TILES[i++ % ORDEN_TILES.length]);
   });
   return out;

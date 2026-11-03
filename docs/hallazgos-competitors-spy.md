@@ -425,3 +425,209 @@ catálogo), así que el punto de abajo que dice lo contrario es viejo. Lo que si
   (no figura entre las partes restringidas al dueño; si lo es, detecta qué videos del competidor
   declaran promoción paga); y **si los siete campos de `CAMPOS_PERFIL_PIEZAS` existen de verdad en
   Business Discovery** — están documentados, pero sin credencial no se probó ni uno.
+
+## La animación de «Sort my footage» era un video, no un componente (1/11/2026)
+
+**Pedido** (Martín): copiar de yanny.space/studio la animación de «Sort my footage» a Competitors Spy.
+
+- ⚠️ **En esa página no hay ninguna animación que leer: es un MP4 de 13 s** (`assets/sort/sort.mp4`). No hay código ni valores: se miró cuadro por cuadro,
+  cada 2 segundos, y se reconstruyó. Las miniaturas entran desde afuera y forman una bola, aparecen las carpetas, cada una vuela a la suya y sube la
+  cuenta, y el cierre es todo desenfocado con la frase escrita encima.
+- **Lo que no se copió: los números de mentira.** Ahí son 1.065 archivos de un demo. Acá son las piezas que se acaban de leer, y sin piezas no se monta.
+  Las carpetas salen de lo que Spy sabe de una pieza: canal, formato y etapa.
+- **Se dispara en una lectura pedida o en la primera de una ficha vacía.** La relectura sola de una ficha que ya tiene piezas va callada: si no, entrar a mirar
+  costaba seis segundos de animación. «Saltar» la corta, y con «reducir movimiento» no corre.
+- **140 miniaturas como tope de dibujo:** con más, una computadora normal se traba. El número que se lee sigue siendo el real (`repartirMiniaturas`).
+
+**Sin hacer:** las de Instagram no tienen imagen: la del CDN de Meta vence y no se guarda (0359), así que su miniatura es su texto. Para tener la foto en
+la animación habría que pasar la URL viva desde la lectura sin guardarla. Y no se probó con una lectura real: el arnés usa datos falsos.
+
+**Vive en:** lib/spy-orden.ts · app/competitor-spy/OrdenSpy.tsx · tests/spy-orden.test.ts.
+
+## Apify para leer Instagram: una clave nueva, no la vuelta del scraper (1/11/2026)
+
+**Pedido** (Martín): conectar Apify para que Spy lea Instagram.
+
+- ⚠️ **Lo que se retiró el 25/10 fue el Leads Scraper, no «Apify».** Por eso es otra clave (`APIFY_INSTAGRAM_TOKEN`) y otra fuente (`apify-spy`), que sólo pide lib/spy.ts. Reusar `APIFY_TOKEN` habría despertado también el buscador del alta del CRM y Offer, que preguntan mientras se escribe y lo pagaría quien pegó la clave. `tests/leads-scraper-retirado.test.ts` sigue prohibiendo el scraper y ahora fija este límite.
+- ⚠️ **Spy leía Instagram sin decir de qué negocio era** (`leerPerfilInstagram` sin `ws`): nunca usó la Meta del cliente, siempre la de la plataforma. Por eso el error decía «la página no tiene un Instagram vinculado» aunque el cliente tuviera el suyo.
+- ⚠️ **Un fallo se cachea 10 minutos.** Sin meter en la clave si hay clave de Spy, pegarla y tocar «Revisar ahora» seguía diciendo «no pude».
+- **El actor manda `likesCount: -1` con los «me gusta» ocultos.** Es «no se sabe», nunca un número.
+- ⚠️ **Dos permisos (docs/funnel-coach.md §5):** Apify lee perfiles públicos sin pasar por la API de Meta, lo que va contra los términos de Instagram. Lo decidió Martín, corre con la clave de cada negocio y con tope de 40 por día; la vía oficial sigue primero. La memoria del 29/10 («fuentes sólo legales, nada de scraping masivo») no cambió para el resto.
+
+**Sin probar contra Apify de verdad:** no hay clave todavía. La forma de `latestPosts` está tomada del código del 22/10 y de la documentación del actor.
+
+**Vive en:** lib/instagram-perfil-server.ts · lib/instagram-perfil.ts · lib/spy.ts · lib/metodo-catalogo.ts (`apify-instagram`).
+
+---
+
+## El diagnóstico obvio era el equivocado: «copiar una referencia» no es «mejorar lo que hay» (1/11/2026)
+
+**El síntoma.** Martín pidió cuatro veces lo mismo —«rediseñá toda la tab siguiendo una
+referencia»— y cuatro veces recibió otra cosa. Las tres primeras vueltas **sí tocaron la tab**: una
+reordenó las filas (7 → 5), otra cambió los radios, los tamaños y la sombra por los tokens medidos.
+Las dos se midieron, las dos dieron números mejores (462 px → 229 px hasta la primera pieza) y las
+dos se rechazaron en el acto: «se ve horrible otra vez», «es la cuarta vez que te lo pido».
+
+**La causa, y es de método.** Las tres vueltas empezaron abriendo `SpyApp.tsx`. Partiendo de la
+pantalla propia, lo único que se puede hacer es cambiarle la superficie: mover cajas y reemplazar
+valores. El esqueleto —qué hay, en qué orden, en qué columnas— sobrevive intacto, porque nunca se
+puso en duda. Y el esqueleto es justamente lo que se ve.
+
+**La regla que queda:** *copiar una referencia es empezar por la referencia.* Abrirla en el
+navegador, medirle el árbol y las reglas, escribir el esqueleto, y recién entonces preguntarse qué
+de lo nuestro entra ahí. **Si el primer archivo que abriste es el tuyo, no estás copiando: estás
+mejorando, que es lo que te pidieron no hacer.** Medir el resultado no lo arregla — las dos vueltas
+malas tenían mejores números que la pantalla original.
+
+**El corolario que ahorra tiempo:** la referencia no se elige por el rubro, se elige por la FORMA.
+Spy es «un catálogo que se filtra», así que la referencia útil no fue ningún producto de espionaje
+de anuncios: fue **una tienda de ropa** (`fitlo /shop`), que tiene exactamente esa forma. Y como el
+análisis no entra en un catálogo, el riel salió de otra plantilla (`merrin`). Dos referencias, una
+por pieza, en vez de forzar una sola.
+
+**Qué cambió de esqueleto** (medidas y reglas en `docs/diseno/referencia-spy.md`):
+
+- El análisis dejó de ser una banda plegada **arriba** de las piezas y pasó a un **riel de 336 px a
+  la derecha**. Por eso ahora puede estar siempre abierto: dejó de competir con el catálogo. La
+  banda arrancaba plegada justamente porque competía — el síntoma estaba visible y se trató como un
+  problema de altura.
+- Las seis píldoras grises de la identidad se fueron: los números son **celdas pastel de datos** en
+  el riel y la frescura es una línea gris debajo del título.
+- La tarjeta **no tiene borde, tiene un tinte**, y el tinte dice de qué canal es la pieza. Con eso
+  desaparece la fila «ícono + nombre del canal» que llevaba arriba de cada tarjeta.
+
+**Vive en:** app/competitor-spy/SpyApp.tsx · app/competitor-spy/TarjetaPieza.tsx ·
+docs/diseno/referencia-spy.md
+
+---
+
+## Un guard que busca un identificador encuentra la declaración, no el uso (2/11/2026)
+
+**Pasó dos veces en una hora**, con dos guards distintos, y las dos veces el test pasó en VERDE
+sobre código que yo acababa de romper a propósito:
+
+1. `tests/spy-youtube-largos.test.ts` comprobaba que existiera `PAGINAS_MAX`. Con
+   `PAGINAS_MAX = 1` —que es exactamente el bug que el guard existe para frenar— pasó en verde.
+2. `tests/spy-alta-duplicados.test.ts` comprobaba que apareciera `nombreComparable(`. Con la
+   comparación cambiada a `x.nombre === nombre` pasó en verde, porque la función seguía
+   existiendo una línea más arriba, en `const buscado = nombreComparable(nombre)`.
+
+**La regla:** un guard que mira el código **no busca un identificador, busca la FORMA DEL USO**.
+`/PAGINAS_MAX/` no sirve; `/const PAGINAS_MAX = (\d+);/` y después `Number(...) > 1` sí.
+`/nombreComparable\(/` no sirve; `/nombreComparable\(x\.nombre\)\s*===/` sí.
+
+**Y el corolario, que es el que hace que se note:** un guard nuevo **se prueba rompiendo lo que
+vigila**, antes de confiar en él. Los dos de arriba se escribieron, dieron verde, y recién al
+romper el código a propósito se vio que no servían. Un guard que no se pone rojo cuando la cosa
+está rota es peor que no tener guard: da permiso para seguir.
+
+**Vive en:** tests/spy-youtube-largos.test.ts · tests/spy-alta-duplicados.test.ts
+
+---
+
+## Una caché no la rompe la caché: la rompe lo que le pasa quien la llama (2/11/2026)
+
+Dos bugs seguidos la misma noche, los dos en código que acababa de escribir y los dos invisibles
+desde adentro de la función.
+
+**El primero.** `guardarMiniaturas` baja imágenes y las sube a nuestro bucket. Corre ADENTRO de
+`guardarVistas`, que corre adentro de la acción que dispara el usuario con «Revisar ahora». Con 50
+piezas, de a 6 y hasta 8 s cada una, el peor caso eran **72 segundos sólo de imágenes**, y Spy no
+declara `maxDuration`: la lectura entera —la que trae los datos— se habría caído por culpa de las
+fotos. **Lo que hace lento a algo no es su propio código, es dónde está enchufado.**
+
+**El segundo, y es el que enseña más.** Con el presupuesto puesto, la función era correcta y aun
+así no servía: `esNuestra(v.miniatura)` daba `false` para TODAS, siempre. Porque lo que le llega de
+la API es **la URL fresca del CDN**, nunca la nuestra — la nuestra está en la base, y la función
+nunca la veía. Resultado: el presupuesto se gastaba cada vez en las PRIMERAS imágenes y nunca
+llegaba a las que faltaban. Se podía tocar «Revisar ahora» diez veces y las últimas treinta
+miniaturas no se bajaban jamás. La función estaba bien; **el dato que le pasaban estaba mal**.
+
+**La regla que queda:** cuando agregues una caché o un «si ya lo tengo, no lo hago», **mirá qué le
+pasa quien la llama, no sólo cómo está escrita por dentro**. Si la clave con la que decide viene de
+afuera y se regenera en cada vuelta, la caché nunca acierta y no se nota: no falla, sólo no sirve.
+Y la segunda: **medí el peor caso en TIEMPO de lo que agregaste, y comparalo con el tope de donde
+corre.** 50 × 8 s no es «un poco más lento», es otra cosa.
+
+**Cómo se ven, porque ninguna de las dos da error:** la primera, un «Revisar ahora» que se cae con
+muchas piezas y anda con pocas. La segunda, algo que converge para los primeros elementos y nunca
+para los últimos. Las dos pasan todos los tests que no midan el tiempo ni cuenten las llamadas.
+
+**Vive en:** lib/spy-miniaturas.ts (`PRESUPUESTO_MS`) · lib/spy.ts (`yaBajada`) ·
+tests/spy-miniaturas.test.ts
+
+## El dato más barato es el que ya pagaste y estás tirando (2/11/2026)
+
+**El pedido:** Martín, ítem 10 — «con un dato, traer todas sus redes», más la landing o el funnel que
+tenga en la bio. Yo lo tenía anotado como trabado: hace falta un actor de BÚSQUEDA de Apify, que es
+otro costo y otra decisión suya.
+
+**Era trabado a medias.** La vista previa del alta ya lee el perfil con Apify y devuelve `web`, el
+link de la bio. La pantalla incluso lo MUESTRA («Su sitio: acme.com»). Y al confirmar,
+`agregarCompetidor` guardaba sólo el canal que se pegó: **`lib/spy.ts` no mencionaba `perfil.web` en
+ninguna línea.** O sea que el dato llegaba, se dibujaba y se tiraba.
+
+**La regla que queda, y es la que vale más que el arreglo:** antes de declarar trabado un pedido de
+«traer más datos», mirá qué datos YA te devuelve la llamada que estás haciendo. Una lectura de perfil
+trae nombre, foto, seguidores, bio y el link de la bio; si la pantalla muestra un campo que la base
+no guarda, ahí hay una mitad gratis. **Lo que se ve y lo que se guarda son dos cosas distintas** —es
+el mismo hallazgo que las miniaturas de YouTube, que se dibujaban desde una URL ajena y no estaban
+archivadas en ningún lado.
+
+⚠️ **El link viaja desde la PANTALLA, no se vuelve a leer en el servidor.** Releer el perfil dentro
+de `agregarCompetidor` habría sido pagar dos veces el mismo dato y gastar del tope diario
+(`APIFY_TOPE_POR_DIA`), que es exactamente lo que deja al negocio sin poder agregar a nadie el resto
+del día.
+
+⚠️ **Y SE CLASIFICA CON `queEs`, no con una expresión nueva.** Tres casos que una regex propia habría
+dejado pasar: una bio que enlaza a otra cuenta de Instagram (guardaría instagram.com como su «página
+de venta»), una bio con texto en vez de link, y una bio que repite el canal que ya se pegó. `queEs`
+los distingue solo, y además ya tiene el tope de 500 caracteres y el `https://` para un dominio
+pelado.
+
+⚠️ **La decisión vive en `lib/spy-reglas.ts` y no en `lib/spy.ts` por una razón concreta:** `spy.ts`
+importa `server-only` y ningún test puede importarlo. Una regla metida ahí sólo se puede cuidar
+emparejando el archivo como texto, que es cómo dos guards de esta semana pasaron en verde sobre
+código roto.
+
+### Y una trampa del test, que es el hallazgo de método
+
+El primer test rechazaba la bio de Instagram con `canalDeLaBio(otraIg, 'instagram')`. **Sacarle la
+lista blanca de campos al código dejaba el test en 7 / 0**: el descarte del «mismo campo» devolvía
+`null` igual y tapaba el agujero. El caso que vale es con OTRO canal pegado —
+`canalDeLaBio(otraIg, 'youtube_id')`— porque ahí la lista blanca es lo ÚNICO que impide guardar
+instagram.com como landing.
+
+**La regla:** un test que prueba un rechazo tiene que elegir el caso donde **esa** regla es la única
+que puede rechazar. Si otra guarda del mismo camino devuelve lo mismo, el test pasa con el código
+roto y no te enterás. Probarlo rompiéndolo es lo que lo mostró.
+
+**Vive en:** lib/spy-reglas.ts (`canalDeLaBio`) · lib/spy.ts (`agregarCompetidor`, `queEs`) ·
+app/competitor-spy/SpyApp.tsx (`ModalAlta` → `onPegar`) · app/competitor-spy/actions.ts ·
+tests/spy-canal-de-la-bio.test.ts
+
+## Sus otras redes por búsqueda: el costo medido apurado sale 100 veces más bajo (3/11/2026)
+
+**Síntoma:** al medir el actor de búsqueda (`apify~google-search-scraper`) la corrida decía
+**US$0,00005**. Parecía gratis.
+**Causa real:** es un actor PAY_PER_EVENT y el evento de la página («search-page-scraped»,
+US$0,0045) se asienta DESPUÉS de que la corrida termina. Leído a los 4 s sólo figuraba el
+arranque. Asentado: **US$0,00455 por búsqueda**. `scripts/probar-otras-redes-apify.mjs` espera 15 s
+y suma evento por precio; **`usageTotalUsd` solo no es lo que se paga** en un actor por eventos.
+
+**Otras trampas del mismo actor, medidas:**
+- **Exige `maxTotalChargeUsd` ≥ US$0,50** (con 0,02, como los de Instagram, contesta 400
+  `max-total-charge-usd-below-minimum`). Es un techo, no un cobro: `TECHO_USD_POR_CORRIDA_REDES`.
+- **Buscar por nombre trae a otras personas, y se vio en la primera prueba:** «Sofia Contreras»
+  devolvió CINCO Instagram distintos. Por eso la búsqueda devuelve candidatos y **no escribe**
+  (`lib/spy-otras-redes.ts` no importa la base; un test lo vigila) y sólo el «Sí, es esta persona»
+  guarda, por el mismo camino que pegarlo a mano.
+- **El `/c/<alias>` de YouTube es su canal pero no se ofrece:** ningún endpoint lo resuelve, y
+  convertirlo en `@alias` es adivinar — un `@` adivinado puede ser el canal de otro.
+
+**Lo que estaba roto sin que nadie lo viera:** un link a su **TikTok en la bio se guardaba como su
+LANDING** — `queEs` clasificaba tiktok.com como un sitio cualquiera. Ahora TikTok es un campo
+(migración 0365) y `queEs` lo reconoce con la misma `redDeUrl` que lee los resultados.
+
+**Regla:** de una red que el competidor YA tiene no se ofrece nada. El que está lo eligió el
+negocio; los demás con su nombre son otra gente.

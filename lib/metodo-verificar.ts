@@ -260,6 +260,13 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
    * **422 «Field required»**. O sea que se comprueba la operación que se va a
    * usar —la regla de la casa— sin crear una voz ni consumir cuota.
    */
+  // Quién es esa cuenta: no corre ningún actor, así que comprobar la clave no gasta nada.
+  async 'apify-instagram'(v) {
+    const r = await fetchJson('https://api.apify.com/v2/users/me', { headers: { Authorization: `Bearer ${v.APIFY_INSTAGRAM_TOKEN}` } });
+    if (r.status === 401 || r.status === 403) return { ok: false, error: 'Ese token no entra a Apify.' };
+    if (r.status !== 200) return { ok: false, error: `Apify respondió ${r.status}.` };
+    return { ok: true };
+  },
   async elevenlabs(v) {
     const h = { 'xi-api-key': v.ELEVENLABS_API_KEY };
     const json = { ...h, accept: 'application/json' };

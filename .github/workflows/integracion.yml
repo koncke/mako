@@ -66,7 +66,36 @@ jobs:
 
       # En la notebook, tsc ve los tipos de las rutas que deja `.next/` (y el
       # next-env.d.ts): los dos están en .gitignore. Acá se generan.
+      # ── ¿ESTE PUSH TOCA SÓLO DOCUMENTACIÓN? ──────────────────────────────────────────────────
+      # Martín, 2/11/2026: «para este tipo de cambios chicos, ¿no hace falta correr tantos tests y
+      # que tarde tanto el push?».
+      #
+      # MEDIDO antes de decidirlo: de los últimos 14 commits, **6 eran sólo `docs/`** —relevos y
+      # tablero— y cada uno se comió un run entero de 25 a 50 minutos. Ése es el desperdicio.
+      #
+      # ⚠️ LA REGLA ES «SÓLO DOCS», NO «CAMBIO CHICO», y la diferencia es todo. Esta noche CINCO
+      # rojos los cazaron guardas que barren el repo, sobre cambios que parecían diminutos: una
+      # palabra con voseo, una key de tab, un `match` al que le faltaba una ruta. Saltear tests por
+      # «esto es chico» habría mandado los cinco a producción. Un archivo de `docs/` no entra en
+      # ningún bundle y no puede romper la app: ésa es la única razón por la que se puede saltear.
+      #
+      # ⚠️ Y NO SE USA `paths-ignore`: el job es el que avanza `main`. Con `paths-ignore` el run no
+      # correría y la documentación nunca llegaría a main.
+      - name: ¿Sólo documentación?
+        id: alcance
+        run: |
+          git fetch origin main --depth=1 --quiet 2>/dev/null || true
+          cambiados=$(git diff --name-only origin/main...HEAD || echo '')
+          fuera=$(printf '%s\n' "$cambiados" | grep -v '^$' | grep -v '^docs/' || true)
+          if [ -z "$fuera" ] && [ -n "$cambiados" ]; then
+            echo "solo_docs=true" >> "$GITHUB_OUTPUT"
+            echo "Sólo documentación: se saltean tipos y tests, y main avanza igual." | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "solo_docs=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Tipos de las rutas
+        if: steps.alcance.outputs.solo_docs != 'true'
         run: npx next typegen
 
       # ⚠️ FALLAR RÁPIDO (17/10/2026). De los 90 runs, 16 fallaron, y 12 de esos 16 fueron un TEST de otra área que
@@ -99,9 +128,11 @@ jobs:
       # compartible (en la fase 1 siguen aislados, por su propio proceso, los tests que el cambio mismo toca y los que tocan el entorno), y la fase 1 va con
       # tandas de 100 (había 6 GB libres: las de 40 eran de la notebook). Estimación SIN medir en Linux: ~7-9 min facturables.
       - name: Guardas del push
+        if: steps.alcance.outputs.solo_docs != 'true'
         run: sh scripts/guardas-push.sh origin
 
       - name: Tests afectados por lo que cambió (fallar rápido)
+        if: steps.alcance.outputs.solo_docs != 'true'
         run: |
           set +e
           echo "runner: $(nproc) CPU, $(free -m | awk '/Mem:/ {print $2}') MB de RAM"
@@ -135,6 +166,7 @@ jobs:
       # al primer archivo que los dispara; si ese es de OTRA tanda se perdían y el paso decía «OK» donde el tsc da exit 2 (Vercel tiene ignoreBuildErrors: nada más lo frena). Se reparte en el orden del programa
       # para evitarlo y las dos repros dan error, pero con un ciclo de imports que cruce tandas puede volver a pasar: es «igual salvo ciclos raros». Sólo un tsc entero lo garantiza: docs/hallazgos-infra.md.
       - name: Tipos
+        if: steps.alcance.outputs.solo_docs != 'true'
         env:
           TIPOS_TANDAS: '4'
         run: |
@@ -146,6 +178,7 @@ jobs:
           exit $c
 
       - name: Tests (los demás)
+        if: steps.alcance.outputs.solo_docs != 'true'
         run: |
           set +e
           SECONDS=0
@@ -161,3 +194,27 @@ jobs:
             echo "::error::main avanzó por otro lado y no es fast-forward. Rebaseá integracion sobre origin/main y volvé a pushear."
             exit 1
           fi
+
+      # ── EL ROJO SE ANUNCIA EN GIT, IGUAL QUE EL VERDE ────────────────────────────────────────
+      # Martín, 2/11/2026, después de enterarse de DOS rojos antes que el Cerebro: «haz que no
+      # vuelva a pasar, crea un proceso para ver cuándo falla».
+      #
+      # ⚠️ LA CAUSA ERA UNA ASIMETRÍA: cuando el run sale VERDE escribe en git (avanza `main`, acá
+      # arriba); cuando sale ROJO no escribía nada. Entonces cualquier vigía hecho con git —que es
+      # lo único que hay en esta máquina, porque `gh` no está instalado— veía EXACTAMENTE LO MISMO
+      # en «rojo» que en «todavía corriendo», y el silencio no se podía distinguir del fallo.
+      # Intenté taparlo adivinando tiempos («un rojo muere en 5–12 min») y falló: este mismo run
+      # murió a los ~15. Las heurísticas sobre el síntoma no arreglan una asimetría.
+      #
+      # Esto la cierra: el rojo deja su propia marca en el remoto. Un `git fetch` la ve.
+      #
+      # ⚠️ Es una RAMA y no un tag: una rama se pisa sola en cada rojo (`--force`) y siempre dice el
+      # ÚLTIMO, mientras que un tag hay que borrarlo a mano y se acumulan. Y apunta al commit que
+      # falló, así que `git log origin/ci-ultimo-rojo` dice qué se estaba subiendo.
+      # ⚠️ `if: failure()` y NO `always()`: con `always()` la rama se movería también en los verdes
+      # y volveríamos a no poder distinguirlos.
+      - name: Dejar la marca del rojo en el remoto
+        if: failure()
+        run: |
+          git push origin --force "HEAD:refs/heads/ci-ultimo-rojo"
+          echo "::notice::Marca dejada en origin/ci-ultimo-rojo → $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"

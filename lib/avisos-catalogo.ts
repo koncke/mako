@@ -60,6 +60,14 @@ export type AvisoCatalogo = {
    */
   textoDelCodigo?: true;
   /**
+   * AL CLIENTE DE UNA AGENCIA, ESTE AVISO NO LE LLEGA: EN SU LUGAR SALE ÉSTE OTRO, A LA AGENCIA (31/10/2026, ticket #37). Martín:
+   * «Las alertas siempre deberían llegarle a Código Inmobiliario y en general a todas las agencias de esta manera… pero no debería
+   * llegarlo al grupo de WhatsApp del cliente final». Es por CLASE de aviso: «tu WhatsApp se desconectó» sigue siendo del cliente,
+   * porque es su WhatsApp. Es OTRO aviso con su propia fila, y no un desvío del mismo, porque el texto no puede ser el mismo: a la
+   * agencia hay que decirle DE QUIÉN es la cuenta. Lo aplica `emitirPorEvento` (lib/aviso-evento.ts), que nunca cae al cliente.
+   */
+  aLaAgencia?: string;
+  /**
    * QUÉ ENTIDADES TRAE EL DISPARADOR DE ESTE AVISO. Ausente = ninguna.
    *
    * ⚠️ ES LO QUE DECIDE QUÉ DATOS OFRECE EL EDITOR, y no se puede deducir del
@@ -221,6 +229,7 @@ const AREA_POR_AVISO: Record<string, AreaAviso> = {
   'flow-puente-ausente': 'sistema',
 
   'meta-cuenta-frenada': 'anuncios', 'meta-cuenta-riesgo': 'anuncios',
+  'meta-cuenta-frenada-agencia': 'anuncios', 'meta-cuenta-recuperada-agencia': 'anuncios',
   'meta-cuenta-recuperada': 'anuncios', 'meta-saldo-agotarse': 'anuncios',
   'meta-token-vencido': 'anuncios', 'meta-anuncio-rechazado': 'anuncios',
   'meta-anuncio-espera-aprobacion': 'anuncios', 'ad-fatiga': 'anuncios',
@@ -334,6 +343,9 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
   // automatización de SuperAdmin (docs/inventario-nada-por-detras.md, lote 1).
   'meta-cuenta-frenada',
   'meta-cuenta-recuperada',
+  // Los mismos dos cuando la cuenta es del cliente de una agencia (31/10/2026, ticket #37): le llegan a la agencia.
+  'meta-cuenta-frenada-agencia',
+  'meta-cuenta-recuperada-agencia',
   // La reunión que el lead canceló (17/10/2026, lote 2): evento de la plataforma, con su texto y su freno en la fila.
   'reunion-cancelada',
   // El contacto que entró y se sumó a un lead que ya estaba (17/10/2026, lote 2), con el freno por lead.
@@ -363,6 +375,9 @@ export const AVISOS_SOLO_SUPERADMIN: readonly string[] = [
 ];
 
 export const esAvisoSoloSuperAdmin = (id: string): boolean => AVISOS_SOLO_SUPERADMIN.includes(id);
+
+/** ¿Es el aviso que le llega a una agencia en lugar del de su cliente (`aLaAgencia`)? Un negocio común no lo recibe nunca. */
+export const esAvisoParaAgencia = (id: string): boolean => CATALOGO_AVISOS.some((c) => c.aLaAgencia === id);
 
 /** ¿El texto de este aviso lo arma el código? (`textoDelCodigo`). Un aviso propio del negocio, nunca. */
 export const textoLoArmaElCodigo = (id: string): boolean =>
@@ -466,7 +481,7 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
 
   // ── CUENTA / SALUD DE META (semáforo) ──────────────────────────────────────
   {
-    id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso', porDefecto: 'on',
+    id: 'meta-cuenta-frenada', titulo: 'Cuenta Meta deshabilitada / entrega frenada', categoria: 'aviso', porDefecto: 'on', aLaAgencia: 'meta-cuenta-frenada-agencia',
     prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
     // ⚠️ DESDE EL 16/10/2026 ES UN EVENTO DE LA PLATAFORMA (`meta_cuenta_frenada`): lo emite `lib/alerta-critica.ts` cada
     // hora MIENTRAS el incidente siga abierto, con sus HECHOS, y lo que se dice —un texto literal por estado— y hasta
@@ -488,7 +503,7 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
     ejemplo: `🟡 Ojo: tu cuenta de Meta entró en *revisión de riesgo*. Todavía entrega, pero no toques nada raro estos días (no subas presupuestos de golpe ni cambies muchos anuncios). Te aviso si escala a rojo. — MaKo`,
   },
   {
-    id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso',
+    id: 'meta-cuenta-recuperada', titulo: 'Cuenta Meta recuperada (volvió a verde)', categoria: 'aviso', aLaAgencia: 'meta-cuenta-recuperada-agencia',
     prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
     // Es la contracara de la insistencia: si MaKo avisó y después se calla, el dueño no sabe si dejó de avisar porque se
     // resolvió o porque el aviso se rompió. Desde el 16/10/2026, el evento de la plataforma `meta_cuenta_recuperada`.
@@ -497,6 +512,28 @@ Abre la extensión de MaKo y toca *Conectar*. Las tomas no se cobraron: cuando v
 
 🟢 Tu cuenta publicitaria volvió a la normalidad.
 🔕 Dejo de insistir.
+
+— MaKo`,
+  },
+  {
+    // ⚠️ `porDefecto: 'on'` en los dos: una fila cuyo aviso «nacía apagado» la mudanza la crea PAUSADA, y estos nacen para salir.
+    id: 'meta-cuenta-frenada-agencia', titulo: 'Cuenta Meta del cliente de una agencia, frenada', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'alta', semaforo: 'rojo', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Lo mismo que «meta-cuenta-frenada», cuando esa cuenta es de un cliente de una agencia aprobada: le llega a la agencia y no al cliente.',
+    ejemplo: `🚨 La cuenta publicitaria de *Natalia* está *EN PERÍODO DE GRACIA*: Meta la frena en cualquier momento
+📉 Anuncios: sin entregar
+🕐 Hace 35 min que está así.
+✅ Hay que regularizar el pago en Meta AHORA, antes de que corte.
+👉 https://hola-mako.com/partners
+
+— MaKo`,
+  },
+  {
+    id: 'meta-cuenta-recuperada-agencia', titulo: 'Cuenta Meta del cliente de una agencia, recuperada', categoria: 'aviso', porDefecto: 'on',
+    prioridad: 'baja', semaforo: 'verde', requiereRespuesta: false, yaImplementado: 'si',
+    disparador: 'Lo mismo que «meta-cuenta-recuperada», cuando esa cuenta es de un cliente de una agencia aprobada.',
+    ejemplo: `✅ La cuenta publicitaria de *Natalia* volvió a la normalidad.
+🔕 Dejo de avisarte.
 
 — MaKo`,
   },

@@ -11710,3 +11710,43 @@ mover-etapa-rapido, pagina-vieja, crm-lotes-sin-tope, funnel-ganado-intermedio, 
 - **La etapa de Ganado usada como paso del medio (MK-19):** la renombraron «Calificado» y cada lead que caía ahí quedaba
   como CLIENTE (su clave es `ganado`). Los avisos del funnel lo tocaban de costado (el tipo, el orden) sin decir la
   consecuencia. Ahora se marca si hay etapas abiertas después de ella o si su nombre es de un paso y no de una venta.
+
+## Una credencial que no existe no da error: la fuente se SALTA (2/11/2026)
+
+**El síntoma, y el pedido:** Martín, 2/11 — «ya con Apify debería funcionar el traer el perfil escribiendo
+el @, eso también en el CRM». Yo iba a construir el buscador.
+
+**El diagnóstico obvio era el equivocado, y por eso vale anotarlo.** El buscador del @ del CRM **ya
+estaba, entero, desde el 12/10**: `app/crm/new/InstagramBuscador.tsx` (464 líneas), con desplegable,
+fotos de perfil, portal, Escape y Enter atajados, y también en la ficha del lead
+(`InstagramEditable`). Y el respaldo por @ EXACTO con Apify **también estaba, desde el 22/10**, en
+`app/api/crm/instagram-buscar/route.ts`. No faltaba una línea de interfaz.
+
+**La causa real: pedía una credencial que no existe en ningún lado.** Hay DOS claves de Apify:
+
+| fuente | credencial | dónde vive | estado |
+|---|---|---|---|
+| `apify` | `APIFY_TOKEN` | plataforma (estricta), si no el negocio | **medido el 22/10: en ninguno** |
+| `apify-spy` | `APIFY_CLAVE_DE_SPY` | el negocio | **la que Martín pegó el 1/11** |
+
+La ruta pedía `fuentes: ['meta-plataforma', 'apify']`. O sea que llamaba por la llave que nadie
+tenía teniendo la otra al lado.
+
+⚠️ **Y FALLABA EN SILENCIO, que es lo que lo hizo invisible durante once días.** En
+`lib/instagram-perfil-server.ts` una fuente sin credencial no tira error: hace `continue`. El
+buscador no decía «no hay clave de Apify» — decía «sin resultados, escribí el @ a mano», que es
+exactamente lo que diría si la cuenta no existiera. **Un `continue` por credencial faltante y un
+«no lo encontré» se ven iguales desde la pantalla.**
+
+**La regla que queda:** cuando una función elige entre varias fuentes por credencial, lo que hay que
+mirar no es si el código de la fuente está — es **cuál credencial pide, con qué nombre exacto, y si
+ese nombre está puesto en algún lado**. Dos fuentes del mismo proveedor con dos nombres de
+credencial distintos es la forma en que esto se esconde. Buscar el `continue`, no el `throw`.
+
+**El arreglo:** `fuentes: ['meta-plataforma', 'apify', 'apify-spy']`. `apify-spy` va ÚLTIMA a
+propósito: `apify` la paga la plataforma y `apify-spy` el negocio, así que invertirlas le cobra al
+cliente algo que estaba cubierto. Lo cuida `tests/crm-instagram-clave-de-spy.test.ts`, probado
+rompiéndolo cuatro veces.
+
+**Vive en:** app/api/crm/instagram-buscar/route.ts · lib/instagram-perfil-server.ts
+(`leerPerfilInstagram`, `APIFY_CLAVE_DE_SPY`) · app/crm/new/InstagramBuscador.tsx

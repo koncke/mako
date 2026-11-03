@@ -155,7 +155,9 @@ export const DEFS: Def[] = [
   { key: 'cloudflare', nombre: 'Cloudflare Stream', categoria: 'Datos', descripcion: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.', envs: ['CLOUDFLARE_STREAM_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'] },
   // Sin clave desde el 27/10/2026: el video del VSL alcanza (las vistas son públicas y MaKo las lee con su clave); el canal se
   // conecta con el login de Zernio (lib/zernio-redes.ts).
-  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_VSL_VIDEO_ID'] },
+  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Las vistas de TU VSL en YouTube. Para leer competidores no hace falta.', envs: ['YOUTUBE_VSL_VIDEO_ID'] },
+  // Sólo la lectura de Instagram de Competitors Spy (1/11/2026). NO es el Leads Scraper que se retiró el 25/10: tests/leads-scraper-retirado.test.ts.
+  { key: 'apify-instagram', nombre: 'Apify', categoria: 'Datos', descripcion: 'Lee el Instagram público de tus competidores en Competitors Spy.', envs: ['APIFY_INSTAGRAM_TOKEN'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el
   // cliente conecte (y su credencial no puede vivir dentro de la propia base).
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver

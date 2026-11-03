@@ -349,6 +349,15 @@ export type EntradaTurnoApp = {
   mensaje: string;
   adjuntos?: AdjuntoListo[];
   /**
+   * Quién es el REFERENTE de este chat (su `IdAsesor`), si tiene uno al frente.
+   *
+   * ⚠️ NO ES LO MISMO QUE `contexto`, y por eso viaja aparte (2/11/2026). `contexto` lleva su FICHA
+   * —cómo piensa, 5.200 caracteres, en CADA mensaje—; esto sólo dice QUIÉN es, para que el Second
+   * Brain cuelgue su curso ENTERO como capa y traiga la clase que la pregunta pida, sin que el
+   * curso viaje en cada turno (lib/cerebro-para-chat.ts, lib/cerebro-referente.ts).
+   */
+  referente?: string | null;
+  /**
    * Lo que la PANTALLA ata a esta conversación: hoy, la ficha de un lead en «MaKo Analyst»
    * (lib/mako-analyst-lead.ts, 12/10/2026: «un chat con la IA que por defecto tenga atado los
    * datos de ese lead»). Lo arma el código leyendo la API de MaKo EN ESTE turno y va al FINAL
@@ -671,7 +680,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // El system se arma DESPUÉS de las tools: depende de ellas. Lo que el Second Brain sabe de la pregunta lo trae el servidor ANTES
     // del modelo y sin IA (lib/cerebro-para-chat.ts, 28/10/2026), en paralelo y con la plata según el rol: no depende de que el
     // modelo pida una herramienta. `paqueteParaElTurno` nunca tira.
-    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin' });
+    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin', referente: entrada.referente });
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const segundoCerebro = await segundoCerebroP;
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;

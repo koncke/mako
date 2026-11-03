@@ -40,7 +40,8 @@ test('page.tsx: sin informe guardado y sin pedir una hoja, la pantalla va en bla
 test('General: quien nunca armó la suya arranca en blanco como el Dashboard, y la API ve lo mismo que la pantalla', () => {
   const src = leer('app/dashboard/FocusDeGeneral.tsx');
   // Y desde el 14/10/2026 también con TODAS las hojas eliminadas (`enBlanco` en el informe: quedaron en Archivados).
-  assert.match(src, /const sinPaginas = lectura\.estado === 'inicial' \|\| !lectura\.tablero\.hojas\.length \|\| !!lectura\.tablero\.enBlanco;/);
+  assert.match(src, /const enBlanco = lectura\.estado === 'inicial' \|\| !lectura\.tablero\.hojas\.length \|\| !!lectura\.tablero\.enBlanco;/);
+  assert.match(src, /const sinPaginas = enBlanco && !agregar;/);
   assert.match(src, /const graficos = sinPaginas \? \[\] : pedidos0\.graficos;/);
   assert.match(src, /sinPaginas=\{sinPaginas\}/);
   // La API de MaKo lee el informe de General como lo ve la pantalla: sin hojas para quien nunca armó el suyo (si no,
@@ -58,10 +59,10 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   // La caja recibe el informe como lo conoce la galería: General o Dashboard. Las Métricas de una automatización
   // (`automatizacion:<id>`, 2ff8e65b6) son el editor del Dashboard (32f430356): sus plantillas son las del Dashboard.
   assert.match(src, /const informeGeneralODashboard: InformeDashboard = esGeneral \? 'general' : 'dashboard';/);
-  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} onRellenar=\{rellenarHoja\} enBlanco="Página 1" informe=\{informeGeneralODashboard\} senales=\{senales\} \/>\}/);
+  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} onRellenar=\{rellenarHoja\} enBlanco="Página 1" informe=\{informeGeneralODashboard\} senales=\{senales\} conTodas=\{!!unido\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
   // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
-  assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
+  assert.match(src, /const conHojas = enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);
   // En blanco no hay «Editar» ni ⋮, y en el Dashboard tampoco el filtro ni la búsqueda (14/10/2026: «Si no tengo tabs no
   // debería salir el botón de editar ni los 3 puntos. Lo mismo para dashboard»). Desde el 17/10 (#858) la barra de filtros
   // va también en General (tests/general-filtros-por-defecto.test.ts); en blanco, en ninguna.
@@ -74,7 +75,7 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
 test('NuevaHoja: el modal monta la MISMA pieza que la pantalla en blanco, y las plantillas van como páginas', () => {
   const src = leer('app/dashboard/NuevaHoja.tsx');
   assert.match(src, /export function CrearHoja\(/);
-  assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>\s*<CrearHoja onCrear=\{onCrear\} onRellenar=\{onRellenar\} onListo=\{cerrar\} enBlanco=\{enBlanco\} informe=\{informe\} senales=\{senales\} \/>\s*<\/Modal>/);
+  assert.match(src, /<Modal titulo="Nueva hoja" ancho=\{980\} sinFiletes onCerrar=\{cerrar\}>\s*<CrearHoja onCrear=\{onCrear\} onRellenar=\{onRellenar\} onListo=\{cerrar\} enBlanco=\{enBlanco\} informe=\{informe\} senales=\{senales\} conTodas=\{conTodas\} \/>\s*<\/Modal>/);
   assert.equal((src.match(/<CajaPedido /g) ?? []).length, 1, 'una sola caja: la de CrearHoja');
   assert.match(src, /<MiniaturaHoja hoja=\{muestras\.get\(p\.id\) \?\? null\} \/>/);
   assert.match(src, /<span className="nh-usar">Usar plantilla<\/span>/);

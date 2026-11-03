@@ -732,12 +732,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',
-    paraQue: 'Views del VSL alojado en YouTube (si tu VSL vive ahí).',
+    paraQue: 'Sólo para contar las vistas de TU VSL, si vive en YouTube. Para leer a tus competidores no hace falta nada, y tu canal se conecta en Zernio.',
     campos: [
       // La clave ya NO se pide (27/10/2026, pedido del Cerebro, feedback 876470842-22): las vistas de un video son públicas y
       // MaKo las lee con la suya (`claveDeYoutube`, lib/youtube.ts), y el canal se conecta con el login de Zernio
       // (lib/zernio-redes.ts). «Conectado» pasa a ser tener el video del VSL; quien ya tenía su clave la sigue usando.
-      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'Ya no hace falta: MaKo lee las vistas con su clave. Déjala sólo si quieres usar tu propia cuota.' },
+      { env: 'YOUTUBE_API_KEY', label: 'Tu API key (no hace falta)', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'MaKo lee YouTube con su clave. Déjala sólo si quieres usar tu propia cuota.' },
       { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'OAuth Client ID', opcional: true, placeholder: '…apps.googleusercontent.com', nota: 'Opcional: déjalo vacío. Solo hace falta para la retención y las vistas diarias de TU canal.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'OAuth Client secret', secreto: true, opcional: true, placeholder: 'GOCSPX-…', nota: 'Opcional. Va de a pares con el "OAuth Client ID". Empieza con GOCSPX- y se ve UNA sola vez.' },
@@ -751,6 +751,24 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Pégalo en "ID del video del VSL" y guarda: MaKo lee sus vistas cada día, sin claves.',
         'Para conectar tu canal: en la tarjeta de Zernio, en "YouTube", toca "Conectar" y entra con Google.',
         'Los tres campos "OAuth" son opcionales: solo dan la retención de tu canal. Déjalos vacíos.',
+      ],
+    },
+  },
+  {
+    key: 'apify-instagram',
+    nombre: 'Apify',
+    categoria: 'Datos',
+    paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
+    campos: [
+      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
+    ],
+    tutorial: {
+      url: 'https://console.apify.com/settings/integrations',
+      urlLabel: 'Apify → Settings → API & Integrations',
+      pasos: [
+        'Entra a console.apify.com con tu cuenta. El plan gratis alcanza para empezar.',
+        'Ve a «Settings» → «API & Integrations» y copia tu «Personal API token» (empieza con apify_api_).',
+        'Pégalo en "API token" y guarda. MaKo comprueba que funcione sin gastar nada.',
       ],
     },
   },

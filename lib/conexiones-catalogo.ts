@@ -87,7 +87,7 @@ const SINONIMOS: Record<string, readonly string[]> = {
   stripe: ['stripe'],
   mercadopago: ['mercado pago', 'mercadopago'],
   creem: ['creem', 'creem.io'],
-  // Hotmart, Skool y Apify salieron el 25/10/2026 (el Leads Scraper, tests/leads-scraper-retirado.test.ts); entran los
+  // Hotmart, Skool y el Apify de los leads salieron el 25/10/2026 (el Leads Scraper, tests/leads-scraper-retirado.test.ts); entran los
   // alojadores de video que se sumaron ese día.
   panda: ['panda', 'panda video'],
   vimeo: ['vimeo'],
@@ -95,6 +95,7 @@ const SINONIMOS: Record<string, readonly string[]> = {
   bunny: ['bunny stream', 'bunny'],
   cloudflare: ['cloudflare stream', 'cloudflare'],
   youtube: ['youtube'],
+  'apify-instagram': ['apify'],
   // «pixel» solo, no: el de Meta no es de MaKo (lib/hechos-mako.ts).
   landing: ['pixel de mako', 'codigo de la landing', 'codigo de mako'],
   agente: ['skill de mako', 'claude con mi negocio'],

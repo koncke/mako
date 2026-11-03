@@ -37,12 +37,12 @@ import { esOpcionArmar } from '@/app/offer/ayudas';
 import { conPegados, esPegadoLargo } from '@/lib/chat-pegado';
 import { ACCEPT_ADJUNTOS_CHAT, ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import {
-  EDITORES, JEFE_SECOND_BRAIN, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
+  EDITORES, JEFE_SECOND_BRAIN, NOMBRE_JEFE, SECCION_OFFER, SIN_TITULO, TITULO_GRUPO, colgarIrA, criaturaDeOffer, esFilaDe, linksDePedidos, listaDelCliente, partesDeClaveDeEditor, rutaDelLienzo,
   type AppDeEscritorio, type ElegidoChat, type IrA,
 } from '@/lib/chat-mako-reglas';
 import type { ChatDeAntes, ChatDeAutomatizacion, ChatDeEditor, ChatDeOffer, GrupoDeMaKo } from '@/lib/chat-mako-indice';
 import { etiquetaDesde, type Desde } from '@/lib/chat-desde';
-import { aspectoDeChat } from '@/lib/centro-munecos';
+import { aspectoDeChat, type Aspecto } from '@/lib/centro-munecos';
 import type { MensajeChat, PropuestaPantalla, ResultadoTarjeta, RespuestaTurno, SesionChat, TarjetaPendiente } from '@/lib/mako-turno-app-reglas';
 import type { OfferSesionVista } from '@/lib/offer-marco';
 import { eleccionVigente, resumenDeIA, type CuentaDeIA, type EleccionIA } from '@/lib/chat-ia-reglas';
@@ -122,7 +122,7 @@ async function linksDelPedido(texto: string): Promise<IrA[]> {
 
 export type ChatCliente = ReturnType<typeof useChatCliente>;
 
-export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null }: {
+export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, chatInicial, opcionArmar, busca, caja, sesionesIniciales = null, desde: desdeTab = null, tab: tabPropia = null, aspectoOffer = null }: {
   elegido: ElegidoChat | null;
   setElegido: Dispatch<SetStateAction<ElegidoChat | null>>;
   /** Lee Offer, los chats de antes y si tiene su IA. En el Ops Center del super admin la lista es la de Claude Code: no. */
@@ -143,6 +143,8 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   /** La tab con chat propio de la persona (el Second Brain, 23/10/2026: lib/chat-mako-reglas.ts → TAB_SECOND_BRAIN): el primer
    *  mensaje crea ESA conversación (una por persona y negocio) y se sigue como las de las tabs (`antes`). */
   tab?: string | null;
+  /** La criatura de los chats de Offer: la del referente que tiene al frente el Offer Coach (1/11/2026). Sin esto, la de cada chat. */
+  aspectoOffer?: Aspecto | null;
 }) {
   const ws = useWs();
   const [sesiones, setSesiones] = useState<SesionChat[] | null>(sesionesIniciales);
@@ -268,7 +270,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   const deEditor = elegido && 'editor' in elegido ? elegido : null;
   const esEditor = deEditor != null;
   /** ¿Lo elegido es un chat del cliente (con MaKo, de Offer o de antes)? Un chat de Claude Code, no. */
-  const esDelCliente = elegido != null && !('centro' in elegido);
+  const esDelCliente = elegido != null && !('centro' in elegido) && !('coach' in elegido);
   /** La sesión de chart_sessions a la que va el turno: la conversación con MaKo, o el chat de antes que se sigue. */
   const idTurno = idElegido ?? idAntes;
   /** El chat de las marcas (lib/chat-mako-marcas-db.ts): el de la lista. Uno nuevo, todavía ninguno. */
@@ -690,7 +692,7 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // ── Lo que se dibuja ──
   // Cada fila con SU criatura (lib/centro-munecos.ts → aspectoDeChat): el Cerebro, la estrella (sale de su nombre).
   const lista = useMemo(() => listaDelCliente({ sesiones: sesiones ?? [], offer: offer ?? [], antes: antes ?? [], grupo, busca, automations: automations ?? [], editores: editores ?? [] })
-    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca, automations, editores]);
+    .map((f) => ({ ...f, aspecto: f.clave === 'jefe' ? null : f.origen === 'offer' && aspectoOffer ? aspectoOffer : aspectoDeChat(f.clave) })), [sesiones, offer, antes, grupo, busca, automations, editores, aspectoOffer]);
   /** La fila de lo abierto (un chat nuevo no tiene). */
   const filaAbierta = elegido ? lista.find((f) => esFilaDe(f, elegido)) ?? null : null;
   const esJefe = filaAbierta?.clave === 'jefe';
@@ -700,9 +702,9 @@ export function useChatCliente({ elegido, setElegido, activo, entrarAlCerebro, c
   // estrella: «Mira lo mal que se ve esto»). Sin la fila, la cabecera decía «Chat nuevo» con una criatura redonda y después
   // saltaba a «Cerebro» con la estrella. Con `entrarAlCerebro` y nada pedido ni elegido, es el Cerebro desde el primer cuadro.
   const vaAlCerebro = !filaAbierta && elegido == null && entrarAlCerebro && chatInicial == null;
-  const nombre = filaAbierta?.titulo ?? (vaAlCerebro ? JEFE_SECOND_BRAIN
+  const nombre = filaAbierta?.titulo ?? (vaAlCerebro ? NOMBRE_JEFE
     : idOffer != null ? deOfferAbierta?.titulo || deOffer?.titulo || SECCION_OFFER : idAntes != null ? deAntes?.titulo?.trim() || deAntes?.tema?.trim() || SIN_TITULO : esGrupo ? TITULO_GRUPO : SIN_TITULO);
-  const nombreMuneco = filaAbierta?.criatura ?? (idOffer != null ? criaturaDeOffer(nombre) : nombre);
+  const nombreMuneco = filaAbierta?.criatura ?? (vaAlCerebro ? JEFE_SECOND_BRAIN : idOffer != null ? criaturaDeOffer(nombre) : nombre);
   /** La criatura del chat abierto: la de su fila (la cabecera, la portada y el hilo, la misma que en la lista). */
   const aspectoMuneco = filaAbierta?.aspecto ?? null;
   /** Dónde se sigue la charla del lienzo abierta: el lienzo de su automatización, en este negocio. */

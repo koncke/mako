@@ -77,7 +77,9 @@ const barra = (p) => p.replace(/\\/g, '/');
 // OBLIGATORIO `NODE_ENV` en `NodeJS.ProcessEnv`. Medido el 17/10/2026 (run 100 de Actions y el que le siguió): un test pasaba `{}` donde se pide un
 // `ProcessEnv` — el tsc ACOTADO dio verde y el completo dio rojo dos veces seguidas (TS2345; y después, al castear, TS2352). Se agregan sólo si existen
 // (`next-env.d.ts` está en .gitignore y un worktree no lo tiene; los paquetes de next sí).
-const GLOBALES_DE_NEXT = ['node_modules/next/types/global.d.ts', 'node_modules/next/image-types/global.d.ts'];
+// Y los otros dos que el completo ve por su `include` y uno suelto no (1/11/2026): sin ellos, el `<style jsx>` de Compartir y el wasm del editor
+// de video daban 16 errores que no existen, en la rama de cualquiera que los arrastrara.
+const GLOBALES_DE_NEXT = ['node_modules/next/types/global.d.ts', 'node_modules/next/image-types/global.d.ts', 'node_modules/styled-jsx/global.d.ts', 'app/video-editor/_opencut/types/opencut-wasm-bg.d.ts'];
 
 /** El tsconfig temporal. Lo prueba un test (con el repo de mentira no existen los .d.ts de next, y no entran). */
 export function armarTsconfig(repo, archivos) {

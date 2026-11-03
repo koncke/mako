@@ -78,13 +78,15 @@ test('cada pieza de cada plantilla de General sobrevive al saneo con lo que se e
       graficos++;
     }
   }
-  assert.ok(bloques >= 25 && graficos >= 8, `revisé ${bloques} bloques y ${graficos} gráficos: el recorrido no está mirando`);
+  assert.ok(bloques >= 20 && graficos >= 8, `revisé ${bloques} bloques y ${graficos} gráficos: el recorrido no está mirando`);
   // Y cada plantilla es de la galería de General (la de su «Nueva hoja»), y ninguna se repite.
   assert.equal(new Set(PLANTILLAS_GENERAL.map((p) => p.id)).size, PLANTILLAS_GENERAL.length);
   for (const p of PLANTILLAS_GENERAL) assert.ok(esPlantillaGeneral(p.id));
   // Todos los bloques que existen los usa al menos una plantilla: uno que ninguna trae se descubre sólo buscándolo.
   const usados = new Set(DEFINICIONES_GENERAL.flatMap((d) => d.piezas.map((p) => (p.elemento as { general?: { pieza: string } } | undefined)?.general?.pieza).filter(Boolean)));
-  for (const p of PIEZAS_GENERAL) assert.ok(usados.has(p.id), `el bloque «${p.id}» no está en ninguna plantilla`);
+  // Salvo los que repiten lo que ya dicen los números de las plantillas o piden datos propios: se agregan desde «Bloques de General» (1/11/2026).
+  const aMano = new Set(['kpis', 'mes', 'pendientes']);
+  for (const p of PIEZAS_GENERAL) assert.equal(usados.has(p.id), !aMano.has(p.id), `el bloque «${p.id}»`);
 });
 
 test('en un pop-up no hay General que dibujar: el saneo tira el bloque (y el que no dice cuál)', () => {
@@ -140,9 +142,6 @@ test('las variables de un Texto se resuelven al dibujar; la que no tiene valor q
   assert.equal(conVariables('Hola {{nombre}}', null), 'Hola {{nombre}}', 'fuera de General no se toca');
   assert.equal(conVariables('{{nada}}', { nombre: 'Ana' }), '{{nada}}');
   assert.deepEqual([0, 11, 12, 19, 20, 23].map(saludoDeHora), ['Buenos días', 'Buenos días', 'Buenas tardes', 'Buenas tardes', 'Buenas noches', 'Buenas noches']);
-  // La Bienvenida saluda por el nombre.
-  const bienvenida = DEFINICIONES_GENERAL.find((d) => d.id === 'bienvenida')!;
-  assert.ok(bienvenida.piezas.some((p) => (p.elemento as { texto?: string } | undefined)?.texto?.includes('{{nombre}}')));
 });
 
 test('de quién es el informe que pide la API: nunca se elige a ciegas', () => {

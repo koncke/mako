@@ -610,6 +610,34 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
 
+# Lo que corre SÓLO en el navegador no viaja en las funciones del servidor
+
+Una dependencia pesada que usa únicamente código del cliente (un Web Worker, un `wasm`, un editor)
+igual entra al bundle de **todas** las funciones: el trazado sigue el árbol de `node_modules`, no el
+uso. El 3/11/2026 eso costó cinco deploys: `@huggingface/transformers` arrastra `onnxruntime-node`,
+que en Linux trae un proveedor de **CUDA de 327 MB** —en Vercel no hay GPU— y lo usa un solo Web
+Worker que transcribe en la máquina del usuario. Primero reventó el tope de 250 MB de una función y,
+al habilitar `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el build empezó a terminar bien y a morir en
+«Deploying outputs...» con `ENOSPC`.
+
+- **Al sumar una dependencia así, excluirla en el mismo commit**: `outputFileTracingExcludes` en
+  `next.config.ts`, con un test que lo sostenga (`tests/build-excluye-ia-del-navegador.test.ts`).
+- ⚠️ **La clave es `'/**'`, no `'/*'`**, aunque la doc de Next presente `'/*'` como «global».
+  Medido con su propio picomatch: `'/*'` **no empareja la ruta `'/'`**, así que la home se queda con
+  todo el peso y el patrón parece correcto. Es la forma en que esto se rompe sin avisar.
+- ⚠️ **Excluir del trazado no lo saca del disco** del contenedor, y el disco es lo que se llenó:
+  para eso está `scripts/sacar-cuda-de-onnx.mjs`, enganchado como `prebuild`.
+- ⚠️ **En Windows la exclusión no hace nada, en silencio**: Next normaliza las barras de los
+  `Includes` y no las de los `Excludes` (`next/dist/build/collect-build-traces.js`). Un build local
+  no sirve para comprobarla; el test mide en `path.posix`.
+- **La máquina de build ya pasó Enhanced**: medido el 3/11/2026 por API, el proyecto `mako` construye
+  en `buildMachineType: "turbo"` con `elasticConcurrencyEnabled: true` (era `enhanced` el 17/10). Así
+  que «activar Enhanced Builds», lo que sugiere el propio mensaje de Vercel, **ya está hecho y
+  superado**: bajar el peso es el único camino desde el repo.
+- El `buildCommand` del proyecto es `null`, o sea el default de Next: **`npm run build`**, que es lo
+  que hace correr el `prebuild`. Si alguien lo cambia a `next build` a secas, el `prebuild` deja de
+  correr **sin avisar** y vuelve el `ENOSPC`.
+
 # Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
 
 El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO corre en el
@@ -1997,6 +2025,12 @@ código nuevo:
       una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts. ES LA FUENTE: una capacidad de
       lib/mako-capacidades.ts (el «cómo se hace» del Perro) toma su tab de ahí, y `listar_capacidades_mako` devuelve esas
       funciones; un catálogo nuevo AL LADO no va.
+    - **El catálogo, las rutas y las herramientas usan el nombre que la persona LEE en la pantalla** (tickets #45 a #48 de
+      Leila, 3/11/2026): con «Aprender solo» por «Aprende solo», «automatización» por «secuencia» o «Documentos» por «El
+      brief», MaKo NIEGA lo que sí tiene, que es peor que no tenerlo. Dónde se corrige un dato del negocio sale de
+      `DATOS_DEL_NEGOCIO` / `lugarDato` (lib/secciones-negocio.ts), nunca escrito a mano. Si un pedido real no trae su
+      herramienta, se mide con el turno de verdad (`herramientasDelChat`, no la lista `noViajaron` del ticket, que trae sólo
+      las 6 de más puntaje) y la familia nueva de lib/mako-intencion-app.ts lleva su frase literal en un test.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada

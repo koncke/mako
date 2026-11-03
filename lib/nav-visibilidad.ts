@@ -38,6 +38,14 @@ export function puedeVerItem(it: NavItem, v: VistaNav): boolean {
     && !(it.noEnPlataforma && v.adminShell)
     // `noParaClienteDeAgencia` (29/10/2026, Thiago: «yo no me meto con ese cliente»): MaKo no le ofrece nada al cliente de una agencia.
     && !(it.noParaClienteDeAgencia && v.clienteDeAgencia)
+    // `fueraDeLaBarra` (2/11/2026, Martín: «la de offer no la quiero»): el ítem EXISTE —su key es
+    // contrato con la base: los permisos por capa, el onboarding por tab y el móvil la resuelven con
+    // `itemNav`— pero no se dibuja. Borrar la entrada habría devuelto `undefined` en todos esos
+    // lugares, y el daño no es que falte un renglón: es un negocio que pierde el permiso de una tab
+    // porque su key dejó de existir.
+    // ⚠️ NO BLOQUEA LA PÁGINA: el enforcement real es server-side (lib/tab-access). /offer sigue
+    // respondiendo, y se llega desde el Ops Center.
+    && !it.fueraDeLaBarra
     && tabEnCapa(it.key, v.capa || undefined);
 }
 

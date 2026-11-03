@@ -125,11 +125,27 @@ export function ticketQueAcabaDeNombrar(ultimoDeMaKo: string | null): number | n
 }
 
 /** Lo que dice MaKo: el número, el resumen y qué va a pasar. Lo arma el código. */
-export function respuestaDelTicket(t: TicketAbierto, resumen: string): string {
+/**
+ * ⚠️ LLEVA EL LINK PARA MIRAR CÓMO VA, y es un pedido de Martín del 2/11/2026 después de que Joan
+ * preguntara por WhatsApp «¿cómo van esos tickets?»: «que le diga, mira el progreso de tu ticket
+ * aquí, y que él pueda ir viendo: tu ticket fue levantado, el equipo lo revisó, ya lo están
+ * desarrollando».
+ *
+ * La pantalla y los estados YA existían —`/tickets?t=<id>` dibuja la línea de tiempo del ticket
+ * (`pasosDelTicket`, lib/tickets-reglas.ts: recibido → en curso → arreglado → resuelto)—. Lo que
+ * faltaba era decirle que existe: la respuesta terminaba en «te aviso por aquí cuando esté», así
+ * que la única forma de saber algo era esperar o preguntar, que es exactamente lo que hizo Joan.
+ *
+ * ⚠️ `base` ES UN PARÁMETRO Y NO UN IMPORT a propósito: este módulo es PURO (sin base de datos, sin
+ * `server-only`) y sus tests lo ejecutan directo. Importar `APP_BASE_URL` arrastraría `ws-tab` y las
+ * landings acá adentro. Sin `base` la frase es la de antes, palabra por palabra.
+ */
+export function respuestaDelTicket(t: TicketAbierto, resumen: string, base?: string): string {
   const que = resumen.trim().replace(/[.\s]+$/u, '');
+  const donde = base ? ` Mira el progreso de tu ticket aquí: ${base.replace(/\/+$/u, '')}/tickets?t=${t.id}` : '';
   return t.sumado
-    ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.`
-    : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.`;
+    ? `Lo sumé al ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.${donde}`
+    : `Abrí el ticket #${t.id}${que ? `: ${que}` : ''}. Lo toma el equipo y te aviso por aquí cuando esté.${donde}`;
 }
 
 /** Lo que dice MaKo al delegar. El número lo escribe el código. */

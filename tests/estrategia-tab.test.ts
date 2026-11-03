@@ -225,8 +225,17 @@ test('la tab es sólo para el super admin, y /vsl/estrategia redirige a ella', (
     /pieLista=\{superAdmin \? \([\s\S]*?<Link href="\/admin\/estrategia">Strategy<\/Link>[\s\S]*?\) : undefined\}/,
     'Strategy cuelga del pie de Offer y sólo para el super admin');
   assert.match(sinComentarios(leer('app/offer/page.tsx')), /const superAdmin = \(await getSesionAdmin\(\)\) != null;/);
+  // ⚠️ 2/11/2026 — ANTES ESTO PEDÍA QUE LA BARRA MARCARA «OFFER» ESTANDO EN STRATEGY, porque
+  // Strategy no tenía renglón propio en la barra del cliente y colgaba del de Offer. Al sacar Offer
+  // («la de offer no la quiero»), lo que corresponde es que marque SU PROPIO renglón, que existe:
+  // `admin-estrategia` en ADMIN_NAV. O sea que Strategy NO quedó huérfana — eso se verificó antes
+  // de sacar el renglón, no después.
   assert.equal(FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'offer')?.match('/admin/estrategia'), true,
     'estando en Strategy, la barra no marca Offer');
+  // ⚠️ Y desde el 2/11/2026 Offer no se DIBUJA («la de offer no la quiero»), así que estando en
+  // Strategy quien marca es su propio renglón de ADMIN_NAV. Se verificó que existe ANTES de sacar
+  // Offer de la barra: si no, Strategy se quedaba sin nada que la marcara.
+  assert.equal(admin?.match('/admin/estrategia'), true, 'Strategy se quedó sin renglón propio: la barra no marcaría nada');
   assert.equal(puedeVerItem(admin!, { adminShell: false, rolWs: 'admin', capa: 'completo' }), false, 'el admin de un cliente la vería');
   assert.equal(puedeVerItem(admin!, { adminShell: true, rolWs: '', capa: 'superadmin' }), true);
 });

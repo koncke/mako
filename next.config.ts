@@ -44,6 +44,46 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // El motor de IA que corre SOLO en el navegador, fuera de todas las funciones (3/11/2026).
+  //
+  // Esa noche el deploy falló cinco veces por el tope de 250MB de una función y, al habilitar
+  // `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el error cambió a otro peor: el build TERMINA bien
+  // («Build Completed in /vercel/output [4m]») y muere en «Deploying outputs...» con ENOSPC —
+  // el contenedor se queda sin disco. Medido en ese log: salida 2001 MB, node_modules 1847 MB,
+  // y el archivo más grande del contenedor es
+  //     327 MB  node_modules/onnxruntime-node/bin/napi-v3/linux/x64/libonnxruntime_providers_cuda.so
+  // El paquete trae los binarios de TODAS las plataformas (208 MB en Windows, sin el de CUDA)
+  // y en Linux le suma el proveedor de CUDA, que en Vercel no se puede usar: no hay GPU.
+  //
+  // Y no hace falta NADA de eso en el servidor: `@huggingface/transformers` lo importa un solo
+  // archivo, app/video-editor/_opencut/services/transcription/worker.ts, que es un Web Worker
+  // (Whisper transcribe en la máquina del usuario), más un `.d.ts` del editor de imágenes que
+  // sólo declara tipos. `onnxruntime-node` entra al bundle como dependencia de transformers,
+  // nunca porque alguien lo use.
+  //
+  // ⚠️ LAS CLAVES SON GLOBS DE RUTA y las compara picomatch con `{ contains: true }`
+  // (next/dist/build/collect-build-traces.js), así que `'/**'` alcanza a `/admin/docs`: no es que
+  // `*` cruce la barra, es que basta con estar contenido.
+  //
+  // ⚠️ Y VA `'/**'`, NO `'/*'`, que es la clave que la doc de Next presenta como «global». Medido
+  // con su propio picomatch: `'/*'` NO empareja la ruta `'/'` —la raíz— porque exige algo después
+  // de la barra. Con esa clave la home seguía empaquetando los 500 MB y el resto de la app no, que
+  // es la peor versión: el deploy falla igual y el patrón parece correcto. Lo encontró el test.
+  //
+  // ⚠️ EN WINDOWS ESTA EXCLUSIÓN NO HACE NADA, en silencio. Next normaliza las barras de los
+  // INCLUDES (`include.replace(/\\/g, '/')`) y NO las de los EXCLUDES: el patrón queda
+  // `C:\...\node_modules\onnxruntime-node\**` y picomatch nunca lo empareja. Corre donde
+  // importa —el contenedor de Vercel es Linux—, pero un build local no sirve para comprobarla.
+  outputFileTracingExcludes: {
+    '/**': [
+      './node_modules/onnxruntime-node/**',
+      './node_modules/onnxruntime-web/**',
+      // 164 MB de transcripciones (9.719 archivos): lib/cerebro-referente-server.ts las lee con
+      // readFile y el trazado las metía en TODAS las funciones. En producción se leen del CDN.
+      './public/cono-tx/**',
+      './node_modules/@huggingface/transformers/**',
+    ],
+  },
   // /admin/docs renderiza los .md del repo (AGENTS.md + docs/*.md) en vez de
   // tener una copia propia. Para que la función serverless los encuentre, los
   // archivos tienen que viajar en SU bundle: el tracing automático solo sigue

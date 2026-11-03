@@ -1627,7 +1627,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         clasificacion: { clase: 'TICKET', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' },
       }).catch(() => null);
       const dicho = abierto
-        ? respuestaDelTicket(abierto, intencion.ticket?.resumen ?? '')
+        ? respuestaDelTicket(abierto, intencion.ticket?.resumen ?? '', APP_URL)
         : 'No pude abrir el ticket ahora: escríbeselo al equipo de MaKo por acá y lo ven.';
       const env = await enviarAGrupoJid(jid, dicho);
       if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
@@ -3054,7 +3054,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         resumen: intencion.ticket.resumen, pedido: sinPrefijoDeLote(texto), ultimoDeMaKo: typeof ultimoDeMako === 'string' ? ultimoDeMako : null,
         clasificacion: { clase: 'TICKET', porque: intencion.porque, fuente: intencion.fuente ?? 'reglas' },
       }).catch(() => null);
-      if (abierto) respuesta = `${respuesta}\n\n${respuestaDelTicket(abierto, intencion.ticket.resumen)}`;
+      if (abierto) respuesta = `${respuesta}\n\n${respuestaDelTicket(abierto, intencion.ticket.resumen, APP_URL)}`;
     }
     // EL PEDIDO COMPUESTO (29/10/2026, la llamada con Thiago: «moveme la reunión y mandale un WhatsApp»; lib/despacho-grupo.ts): si
     // la IA listó varias partes y el turno hizo o propuso menos, lo demás va al equipo como pedido delegado, con lo que ya se hizo.

@@ -270,7 +270,7 @@ test('cada plantilla general: válida, con su período arriba, sin superposicion
     const a = instanciarPlantilla(p);
     const b = instanciarPlantilla(p);
     // La sección plegada de «Más detalle» es una pieza más que las escritas (31/10/2026, `comoCorbel`), y una portada nueva, otra.
-    const extras = a.componentes.filter((c) => c.tipo === 'seccion').length;
+    const extras = a.componentes.filter((c) => (c as { tipo?: unknown }).tipo === 'seccion').length;
     const nueva = componentesDe(p).filter((c) => /-portada$/.test(c.id)).length;
     assert.equal(a.componentes.length, d.piezas.length + extras + nueva, `${p.id}: el saneo se comió una pieza`);
     assert.equal(a.controles[0]?.tipo, 'periodo', `${p.id}: sin el período arriba`);

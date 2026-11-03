@@ -8,16 +8,25 @@
 // canal que en Automations, el goteo y el tope del día de ESTA difusión, y el aviso del WhatsApp por QR. Al mandar crea UNA
 // automatización de una sola vez (lib/difusion.ts) que después se ve en Automations con sus métricas.
 //
+// 2/11/2026, Martín: «que se vea lindo, con el formato de cada red social, como lo tenemos en Automations». Es un modal de
+// la casa (`Modal`) con dos columnas, el riel de 336 px de docs/diseno/referencia-spy.md y el panel del lienzo (Lienzo.tsx:
+// logo y nombre arriba, padding 14, radio 14): un canal a la vista, y los otros siguen montados para no perder lo escrito.
+// ⚠️ La cabecera NO trae el desplegable de número o cuenta de `CabeceraWhatsApp`: la difusión no los guarda (lib/difusion-reglas.ts,
+// `MensajesDifusion`), así que elegir uno mentiría.
+//
 //   <HojaDifusion abierta seleccion={{ leadIds }} | {{ funnelId, etapa }} onCerrar={…} onCreada={(r) => …} />
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { Confirm } from '@/app/_ui/Confirm';
+import { Modal } from '@/app/_ui/Modal';
 import { SANS } from '@/app/_ui/tokens';
+import { IconoCanal } from '@/app/chats/iconos-canal';
 import { EditorMensajeWhatsApp } from '@/app/automations/EditorMensajeWhatsApp';
 import { EditorEmailGmail, type CambioEmail } from '@/app/automations/EditorEmailGmail';
 import { EditorMensajeSocial } from '@/app/automations/EditorMensajeSocial';
+import { LogoSocial } from '@/app/automations/social-ui';
 import type { PasoSecuenciaDto } from '@/app/automations/ChatAgentApp';
 import {
   alcanceDeMotivos, problemaDeDifusion, textoDeDuracionPorCanal, goteoConArranque, CANALES_DIFUSION, NOMBRE_CANAL_DIFUSION, TEXTO_AFUERA, GOTEO_DIFUSION_INICIAL, ARRANQUE_DIFUSION_INICIAL,
@@ -47,10 +56,44 @@ const pasoVacio = (canal: 'whatsapp' | 'instagram'): PasoSecuenciaDto => ({
   ...(canal === 'whatsapp' ? { proveedor: 'no_oficial' } : {}),
 } as unknown as PasoSecuenciaDto);
 
+const conMayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
+
+/** El color de cada canal: el mismo en la fila y en el panel, para no tener que leer el nombre. */
+const MARCA: Record<CanalDifusion, string> = { whatsapp: '#25D366', email: '#EA4335', instagram: '#D62976' };
+
+/**
+ * El logo del canal. WhatsApp es `IconoCanal` y no el `SvcIcon` del lienzo: ése pinta con un `<use>` de un símbolo que el CRM no
+ * monta, y queda un cuadrado verde liso. El sobre de Gmail es el de `IconoNodo` (app/_components/Lienzo.tsx): importarlo traería el lienzo entero.
+ */
+function LogoCanal({ canal, tam }: { canal: CanalDifusion; tam: number }) {
+  if (canal === 'whatsapp') return <IconoCanal canal="whatsapp" size={tam} />;
+  if (canal === 'instagram') return <LogoSocial canal="instagram" size={tam} />;
+  return (
+    <svg width={tam} height={tam} viewBox="0 0 24 24" aria-hidden style={{ display: 'block', flex: 'none' }}>
+      <rect x="2" y="5" width="20" height="14" rx="2.5" fill="#fff" stroke="#EA4335" strokeWidth="1.6" />
+      <path d="M3.2 6.4 12 13l8.8-6.6" fill="none" stroke="#EA4335" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** El panel de un canal. Oculto sigue montado: lo que quedó en la barra de un editor no se pierde al mirar otro canal. */
+function PanelCanal({ canal, visible, children }: { canal: CanalDifusion; visible: boolean; children: ReactNode }) {
+  return (
+    <section aria-label={NOMBRE_CANAL_DIFUSION[canal]} data-panel-canal={canal} style={{ ...PANEL, display: visible ? 'flex' : 'none', background: `color-mix(in srgb, ${MARCA[canal]} 4%, var(--surface))` }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flex: 'none' }}>
+        <LogoCanal canal={canal} tam={24} />
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{NOMBRE_CANAL_DIFUSION[canal]}</div>
+      </div>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8 }}>{children}</div>
+    </section>
+  );
+}
+
 export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHojaDifusion) {
   const [vista, setVista] = useState<VistaDifusion | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [canales, setCanales] = useState<CanalDifusion[]>([]);
+  const [viendo, setViendo] = useState<CanalDifusion | null>(null);
   const [wa, setWa] = useState<PasoSecuenciaDto>(() => pasoVacio('whatsapp'));
   const [ig, setIg] = useState<PasoSecuenciaDto>(() => pasoVacio('instagram'));
   const [email, setEmail] = useState<{ asunto: string; cuerpo: string; cuerpo_html: string | null }>({ asunto: '', cuerpo: '', cuerpo_html: null });
@@ -78,14 +121,6 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
     return () => { vivo = false; };
   }, [abierta, clave]);
 
-  // Escape cierra (si no hay una confirmación encima).
-  useEffect(() => {
-    if (!abierta) return;
-    const tecla = (e: KeyboardEvent) => { if (e.key === 'Escape' && !confirmando && !e.isComposing) onCerrar(); };
-    window.addEventListener('keydown', tecla);
-    return () => window.removeEventListener('keydown', tecla);
-  }, [abierta, confirmando, onCerrar]);
-
   const [mMin, mMax] = RANGOS_GOTEO.minutos;
   const [dMin, dMax] = RANGOS_GOTEO.dia;
   // El arranque es sólo de WhatsApp (el motor no se lo aplica a los otros canales). Y si empieza en el tope, no hay nada que suba.
@@ -103,7 +138,12 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
   }), [canales, wa, ig, email]);
   const falta = alcance ? problemaDeDifusion({ canales, mensajes, alcance }) : null;
 
-  const alternar = (c: CanalDifusion) => setCanales((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
+  // El panel que se ve: el que se tocó, o el primero que quede prendido.
+  const activo = viendo && canales.includes(viendo) ? viendo : CANALES_DIFUSION.find((c) => canales.includes(c)) ?? null;
+  const alternar = (c: CanalDifusion) => {
+    if (!canales.includes(c)) setViendo(c);
+    setCanales((cs) => (cs.includes(c) ? cs.filter((x) => x !== c) : [...cs, c]));
+  };
 
   const mandar = useCallback(async () => {
     setMandando(true); setError(null);
@@ -119,42 +159,50 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
   const titulo = vista?.etapa ? `A los de «${vista.etapa}»` : 'A los leads elegidos';
 
   return (
-    <div data-hoja-difusion onClick={onCerrar} style={{ position: 'fixed', inset: 0, zIndex: 90, background: 'rgba(18,21,27,.42)', display: 'flex', justifyContent: 'flex-end' }}>
-      <aside role="dialog" aria-modal="true" aria-label="Mandar mensaje" onClick={(e) => e.stopPropagation()}
-        style={{ width: 'min(560px, 100vw)', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderLeft: '1px solid var(--border)', boxShadow: '-20px 0 50px rgba(18,21,27,.25)', fontFamily: SANS }}>
-        <header style={{ display: 'flex', alignItems: 'flex-start', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid var(--border)' }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--ink)' }}>Mandar mensaje</div>
-            <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 2 }}>
-              {titulo}{vista ? ` · ${vista.alcance.total} ${vista.alcance.total === 1 ? 'lead' : 'leads'}` : ''}{vista?.cortado ? ' (los primeros)' : ''}
-            </div>
-          </div>
-          <button type="button" aria-label="Cerrar" onClick={onCerrar}
-            style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 20, lineHeight: 1, color: 'var(--dim)', padding: 4 }}>×</button>
-        </header>
-
-        <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', display: 'grid', gap: 18, alignContent: 'start' }}>
-          {!vista && !error && <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>Mirando a quién le llega…</p>}
-          {vista && (
-            <section aria-label="Canales" style={{ display: 'grid', gap: 8 }}>
+    <>
+      <Modal ancho={1040} alto="min(88vh, 780px)" etiqueta="Mandar mensaje" onCerrar={onCerrar}
+        titulo={<>Mandar mensaje<span style={{ display: 'inline-block', marginLeft: 10, fontSize: 13.5, fontWeight: 500, color: 'var(--dim)' }}>{titulo}{vista ? ` · ${vista.alcance.total} ${vista.alcance.total === 1 ? 'lead' : 'leads'}` : ''}{vista?.cortado ? ' (los primeros)' : ''}</span></>}
+        pie={<>
+          <span role="status" className="hoja-dif__estado" style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: error ? 'var(--warn)' : 'var(--dim)' }}>{error ?? (vista ? falta ?? '' : '')}</span>
+          <Button variant="secondary" onClick={onCerrar} disabled={mandando}>Cancelar</Button>
+          <Button variant="primary" disabled={!vista || !!falta || !goteoOk || mandando} loading={mandando} onClick={() => setConfirmando(true)}>
+            {alcance && alcance.llegan > 0 ? `Mandar a ${alcance.llegan}` : 'Mandar'}
+          </Button>
+        </>}>
+        <div data-hoja-difusion className="hoja-dif" style={{ fontFamily: SANS }}>
+          <style>{CSS}</style>
+          <div className="hoja-dif__riel">
+            <section aria-label="Canales" className="hoja-dif__canales" style={{ display: 'grid', gap: 8 }}>
               <div style={TITULO}>Por dónde</div>
-              {CANALES_DIFUSION.map((c) => {
+              {!vista && !error && <p style={{ margin: 0, fontSize: 13.5, color: 'var(--dim)' }}>Mirando a quién le llega…</p>}
+              {vista && CANALES_DIFUSION.map((c) => {
                 const fila = alcanceDeMotivos(vista.porLead, [c], ritmo).porCanal[0];
                 const sinQr = c === 'whatsapp' && !vista.whatsappQr;
                 const on = canales.includes(c) && !sinQr;
+                const listo = on && !problemaDeDifusion({ canales: [c], mensajes, alcance: { llegan: 1 } });
                 return (
-                  <label key={c} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', borderRadius: 12, border: `1.5px solid ${on ? 'var(--primary)' : 'var(--border)'}`, background: on ? 'var(--primary-bg)' : 'var(--surface)', cursor: sinQr ? 'default' : 'pointer', opacity: sinQr ? 0.6 : 1 }}>
-                    <input type="checkbox" checked={on} disabled={sinQr || mandando} onChange={() => alternar(c)} style={{ marginTop: 3 }} />
-                    <span style={{ flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>{NOMBRE_CANAL_DIFUSION[c]}</span>
-                      <span style={{ fontSize: 13, color: 'var(--dim)' }}> · {sinQr ? 'no hay un WhatsApp por QR conectado' : `le llega a ${fila.llegan}`}</span>
-                      {!sinQr && fila.afuera.length > 0 && (
-                        <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)', marginTop: 2 }}>
-                          Afuera: {fila.afuera.map((a) => `${a.cuantos} ${TEXTO_AFUERA[a.motivo]}`).join(' · ')}
+                  <div key={c} data-canal={c} data-viendo={activo === c ? '' : undefined}
+                    style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '10px 12px', borderRadius: 14, opacity: sinQr ? 0.6 : 1,
+                      background: on ? `color-mix(in srgb, ${MARCA[c]} 8%, var(--surface))` : 'var(--surface-2)',
+                      boxShadow: `inset 0 0 0 ${activo === c ? '1.5px' : '1px'} ${activo === c ? MARCA[c] : 'var(--border)'}` }}>
+                    <button type="button" disabled={sinQr || mandando} onClick={() => { if (on) setViendo(c); else alternar(c); }}
+                      style={{ flex: 1, minWidth: 0, display: 'flex', gap: 10, alignItems: 'center', padding: 0, border: 'none', background: 'none', textAlign: 'left', fontFamily: SANS, color: 'inherit', cursor: sinQr ? 'default' : 'pointer' }}>
+                      <LogoCanal canal={c} tam={30} />
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>
+                          {NOMBRE_CANAL_DIFUSION[c]}{listo && <span aria-label="Mensaje listo" style={{ marginLeft: 6, color: 'var(--good)' }}>✓</span>}
                         </span>
-                      )}
-                    </span>
-                  </label>
+                        <span style={{ display: 'block', fontSize: 12.5, color: 'var(--dim)' }}>{sinQr ? 'No hay un WhatsApp por QR conectado' : `Le llega a ${fila.llegan}`}</span>
+                        {!sinQr && fila.afuera.length > 0 && (
+                          <span style={{ display: 'block', fontSize: 12, color: 'var(--faint)', marginTop: 2 }}>
+                            Afuera: {fila.afuera.map((a) => `${a.cuantos} ${TEXTO_AFUERA[a.motivo]}`).join(' · ')}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                    <input type="checkbox" checked={on} disabled={sinQr || mandando} aria-label={`Mandar por ${NOMBRE_CANAL_DIFUSION[c]}`} onChange={() => alternar(c)}
+                      style={{ flex: 'none', width: 18, height: 18, accentColor: MARCA[c], cursor: sinQr ? 'default' : 'pointer' }} />
+                  </div>
                 );
               })}
               {alcance && canales.length > 0 && (
@@ -163,90 +211,105 @@ export function HojaDifusion({ abierta, seleccion, onCerrar, onCreada }: PropsHo
                 </div>
               )}
             </section>
-          )}
 
-          {vista && canales.includes('whatsapp') && vista.whatsappQr && (
-            <section aria-label="WhatsApp" style={{ display: 'grid', gap: 8 }}>
-              <div style={TITULO}>WhatsApp</div>
-              <EditorMensajeWhatsApp paso={wa} onChange={(patch) => setWa((p) => ({ ...p, ...patch }))} audios={[]} permiteAudio={false} permiteAdjuntos={false} conVersiones deshabilitado={mandando} />
-              {!wa.variantes?.length && <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>El mismo texto a muchos sube el riesgo: con ↻ le agregas otras formas de decirlo, y a cada uno le toca una.</div>}
-            </section>
-          )}
-          {vista && canales.includes('email') && (
-            <section aria-label="Email" style={{ display: 'grid', gap: 8 }}>
-              <div style={TITULO}>Email</div>
-              <EditorEmailGmail asunto={email.asunto} cuerpo={email.cuerpo} cuerpoHtml={email.cuerpo_html} deshabilitado={mandando}
-                onChange={(c: CambioEmail) => setEmail((e) => ({
-                  asunto: c.asunto ?? e.asunto, cuerpo: c.cuerpo ?? e.cuerpo, cuerpo_html: c.cuerpo_html ?? e.cuerpo_html,
-                }))} />
-            </section>
-          )}
-          {vista && canales.includes('instagram') && (
-            <section aria-label="Instagram" style={{ display: 'grid', gap: 8 }}>
-              <div style={TITULO}>Instagram</div>
-              <EditorMensajeSocial paso={ig} canal="instagram" onChange={(patch) => setIg((p) => ({ ...p, ...patch }))} deshabilitado={mandando} />
-            </section>
-          )}
-
-          {vista && canales.length > 0 && (
-            <section aria-label="Ritmo" style={{ display: 'grid', gap: 8 }}>
-              <div style={TITULO}>Ritmo · todos los canales</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13.5, color: 'var(--ink)' }}>
-                <span>De a uno cada</span>
-                <input type="number" min={mMin} max={mMax} value={goteo.minutos} disabled={mandando} aria-label="Minutos entre mensajes"
-                  onChange={(e) => setGoteo((g) => ({ ...g, minutos: Math.round(Number(e.target.value)) }))} style={NUMERO} />
-                <span>min, hasta</span>
-                <input type="number" min={dMin} max={dMax} value={goteo.dia} disabled={mandando} aria-label="Tope por día"
-                  onChange={(e) => setGoteo((g) => ({ ...g, dia: Math.round(Number(e.target.value)) }))} style={NUMERO} />
-                <span>por día.</span>
-              </div>
-              <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
-                Cada canal cuenta lo suyo.{alcance && goteoOk ? ` ${textoDeDuracionPorCanal(alcance.porCanal, goteo)}.` : ''}
-                {!goteoOk ? ` Entre ${mMin} y ${mMax} minutos, y entre ${dMin} y ${dMax} por día.` : ''}
-              </div>
-              {canales.includes('whatsapp') && vista.whatsappQr && (
-                <>
-                  <label style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13.5, color: 'var(--ink)' }}>
-                    <input type="checkbox" checked={conArranque} disabled={mandando} onChange={(e) => setConArranque(e.target.checked)} />
-                    <span>Arrancar de a poco por WhatsApp</span>
+            {vista && canales.length > 0 && (
+              <section aria-label="Ritmo" className="hoja-dif__ritmo" style={{ display: 'grid', gap: 8, padding: '12px 14px', borderRadius: 14, background: 'var(--surface-2)', boxShadow: 'inset 0 0 0 1px var(--border)' }}>
+                <div style={TITULO}>Ritmo · todos los canales</div>
+                <div style={CELDAS}>
+                  <label style={CELDA}>Uno cada (min)
+                    <input type="number" min={mMin} max={mMax} value={goteo.minutos} disabled={mandando} aria-label="Minutos entre mensajes"
+                      onChange={(e) => setGoteo((g) => ({ ...g, minutos: Math.round(Number(e.target.value)) }))} style={NUMERO} />
                   </label>
-                  {conArranque && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13.5, color: 'var(--ink)' }}>
-                      <span>Empieza con</span>
-                      <input type="number" min={dMin} max={dMax} value={arranque.dia} disabled={mandando} aria-label="Mensajes del primer día"
-                        onChange={(e) => setArranque((a) => ({ ...a, dia: Math.round(Number(e.target.value)) }))} style={NUMERO} />
-                      <span>y sube</span>
-                      <input type="number" min={dMin} max={dMax} value={arranque.sube} disabled={mandando} aria-label="Cuánto sube por día"
-                        onChange={(e) => setArranque((a) => ({ ...a, sube: Math.round(Number(e.target.value)) }))} style={NUMERO} />
-                      <span>por día, hasta el tope.</span>
-                    </div>
-                  )}
-                  {vista.lineaWaDia != null && goteo.dia > vista.lineaWaDia && (
-                    <div role="note" style={{ fontSize: 12.5, color: 'var(--warn)' }}>Tu línea de WhatsApp manda hasta {vista.lineaWaDia} por día: más que eso no sale.</div>
-                  )}
-                  <div role="note" style={{ fontSize: 12.5, color: 'var(--warn)' }}>{AVISO_QR}</div>
-                </>
-              )}
-            </section>
-          )}
-        </div>
+                  <label style={CELDA}>Tope por día
+                    <input type="number" min={dMin} max={dMax} value={goteo.dia} disabled={mandando} aria-label="Tope por día"
+                      onChange={(e) => setGoteo((g) => ({ ...g, dia: Math.round(Number(e.target.value)) }))} style={NUMERO} />
+                  </label>
+                </div>
+                <div style={{ fontSize: 12.5, color: 'var(--dim)' }}>
+                  Cada canal cuenta lo suyo.{alcance && goteoOk ? ` ${conMayuscula(textoDeDuracionPorCanal(alcance.porCanal, goteo))}.` : ''}
+                  {!goteoOk ? ` Entre ${mMin} y ${mMax} minutos, y entre ${dMin} y ${dMax} por día.` : ''}
+                </div>
+                {canales.includes('whatsapp') && vista.whatsappQr && (
+                  <>
+                    <label style={{ display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', fontSize: 13.5, color: 'var(--ink)' }}>
+                      <input type="checkbox" checked={conArranque} disabled={mandando} onChange={(e) => setConArranque(e.target.checked)} />
+                      <span>Arrancar de a poco por WhatsApp</span>
+                    </label>
+                    {conArranque && (
+                      <div style={CELDAS}>
+                        <label style={CELDA}>Empieza con
+                          <input type="number" min={dMin} max={dMax} value={arranque.dia} disabled={mandando} aria-label="Mensajes del primer día"
+                            onChange={(e) => setArranque((a) => ({ ...a, dia: Math.round(Number(e.target.value)) }))} style={NUMERO} />
+                        </label>
+                        <label style={CELDA}>Sube por día
+                          <input type="number" min={dMin} max={dMax} value={arranque.sube} disabled={mandando} aria-label="Cuánto sube por día"
+                            onChange={(e) => setArranque((a) => ({ ...a, sube: Math.round(Number(e.target.value)) }))} style={NUMERO} />
+                        </label>
+                      </div>
+                    )}
+                    {vista.lineaWaDia != null && goteo.dia > vista.lineaWaDia && (
+                      <div role="note" style={{ fontSize: 12.5, color: 'var(--warn)' }}>Tu línea de WhatsApp manda hasta {vista.lineaWaDia} por día: más que eso no sale.</div>
+                    )}
+                  </>
+                )}
+              </section>
+            )}
+          </div>
 
-        <footer style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', borderTop: '1px solid var(--border)' }}>
-          <span role="status" style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: error ? 'var(--warn)' : 'var(--dim)' }}>{error ?? (vista ? falta ?? '' : '')}</span>
-          <Button variant="secondary" onClick={onCerrar} disabled={mandando}>Cancelar</Button>
-          <Button variant="primary" disabled={!vista || !!falta || !goteoOk || mandando} loading={mandando} onClick={() => setConfirmando(true)}>
-            {alcance && alcance.llegan > 0 ? `Mandar a ${alcance.llegan}` : 'Mandar'}
-          </Button>
-        </footer>
-      </aside>
+          <div className="hoja-dif__panel">
+            {vista && !activo && (
+              <div style={{ ...PANEL, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13.5, color: 'var(--dim)' }}>Elige por dónde sale</div>
+            )}
+            {vista && canales.includes('whatsapp') && vista.whatsappQr && (
+              <PanelCanal canal="whatsapp" visible={activo === 'whatsapp'}>
+                <EditorMensajeWhatsApp paso={wa} onChange={(patch) => setWa((p) => ({ ...p, ...patch }))} audios={[]} permiteAudio={false} permiteAdjuntos={false} conVersiones deshabilitado={mandando} />
+                {!wa.variantes?.length && <div style={{ flex: 'none', fontSize: 12.5, color: 'var(--dim)' }}>El mismo texto a muchos sube el riesgo: con ↻ le agregas otras formas de decirlo, y a cada uno le toca una.</div>}
+                <div role="note" style={{ flex: 'none', fontSize: 12.5, color: 'var(--warn)' }}>{AVISO_QR}</div>
+              </PanelCanal>
+            )}
+            {vista && canales.includes('email') && (
+              <PanelCanal canal="email" visible={activo === 'email'}>
+                <EditorEmailGmail asunto={email.asunto} cuerpo={email.cuerpo} cuerpoHtml={email.cuerpo_html} deshabilitado={mandando}
+                  onChange={(c: CambioEmail) => setEmail((e) => ({
+                    asunto: c.asunto ?? e.asunto, cuerpo: c.cuerpo ?? e.cuerpo, cuerpo_html: c.cuerpo_html ?? e.cuerpo_html,
+                  }))} />
+              </PanelCanal>
+            )}
+            {vista && canales.includes('instagram') && (
+              <PanelCanal canal="instagram" visible={activo === 'instagram'}>
+                <EditorMensajeSocial paso={ig} canal="instagram" onChange={(patch) => setIg((p) => ({ ...p, ...patch }))} deshabilitado={mandando} />
+              </PanelCanal>
+            )}
+          </div>
+        </div>
+      </Modal>
       {confirmando && alcance && (
         <Confirm tone="primary" title={`Mandar a ${alcance.llegan} ${alcance.llegan === 1 ? 'lead' : 'leads'}`}
           message={`Por ${canales.map((c) => NOMBRE_CANAL_DIFUSION[c]).join(', ')}, de a uno cada ${goteo.minutos} min y hasta ${goteo.dia} por día${goteo.arranque ? `; por WhatsApp arranca con ${goteo.arranque.dia} y sube ${goteo.arranque.sube} por día` : ''}. Queda como una automatización en Automations, con sus métricas.`}
           confirmLabel="Mandar" loading={mandando} onConfirm={() => void mandar()} onCancel={() => setConfirmando(false)} />
       )}
-    </div>
+    </>
   );
 }
 
-const TITULO: CSSProperties = { fontFamily: "'Geist Mono', monospace", fontSize: 10.5, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)' };
-const NUMERO: CSSProperties = { width: 72, height: 32, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', padding: '0 8px', fontFamily: SANS, fontSize: 13.5 };
+const TITULO: CSSProperties = { fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' };
+/** El panel del lienzo (app/_components/Lienzo.tsx): padding 14, radio 14, borde fuerte. */
+const PANEL: CSSProperties = { flex: 1, minHeight: 0, flexDirection: 'column', padding: 14, borderRadius: 14, background: 'var(--surface)', border: '1px solid var(--border-strong)' };
+/** En angosto, una sola columna y el modal entero scrollea: canales, el mensaje, el ritmo. */
+const CSS = `
+.hoja-dif { display: grid; grid-template-columns: 336px minmax(0, 1fr); gap: 18px; height: 100%; min-height: 0; }
+.hoja-dif__riel { display: flex; flex-direction: column; gap: 18px; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.hoja-dif__panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+@media (max-width: 860px) {
+  .hoja-dif { display: flex; flex-direction: column; height: auto; }
+  .hoja-dif__riel { display: contents; }
+  .hoja-dif__canales { order: 1; }
+  .hoja-dif__panel { order: 2; min-height: 460px; }
+  .hoja-dif__ritmo { order: 3; }
+  .mk-modal__pie:has(.hoja-dif__estado) { flex-wrap: wrap; }
+  .hoja-dif__estado { flex-basis: 100% !important; }
+}
+`;
+const CELDAS: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 };
+const CELDA: CSSProperties = { display: 'grid', gap: 4, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)' };
+const NUMERO: CSSProperties = { width: '100%', height: 32, borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', padding: '0 8px', fontFamily: SANS, fontSize: 13.5 };

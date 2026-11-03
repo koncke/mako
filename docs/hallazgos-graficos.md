@@ -7,6 +7,19 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## El catálogo copia estructuras, no una sola (1/11/2026)
+
+Martín: «Todos los templates son iguales, no uses siempre el mismo... no me gusta que no haya variedad, si copiamos muchos templates». Las medidas, los moldes y la asignación con su porqué: `docs/diseno/densidad-codeandchill.json`. El motor: `MOLDES` y `comoDenso`, en `lib/graficos-portadas.ts`.
+
+- **⚠️ LA COHERENCIA NO ES LA FORMA.** La regla «lo que cambia entre hojas es qué mide, nunca el orden» se puso para evitar un muestrario de quince idiomas, y dio trece miniaturas idénticas. Lo que hace que sea una app son los tokens, la letra, el radio, la curva y lo que significan los colores. La forma sale de lo que la hoja mide.
+- **Medir una sola referencia hace creer que es «la» referencia.** Corbel son 5 paneles; las demás, de 7 a 12. Y lo más común de lo medido es abrir con un gráfico a lo ancho (6 de 15): no se usa porque Martín rechazó «el bloque gigante primero», no porque la referencia no lo tenga. Está escrito para que nadie crea lo contrario.
+- **La tienda no dibuja sus miniaturas: son videos** (`<video muted loop preload="none">` con póster, 16:9). Doce no cuestan nada. Acá la miniatura es la hoja de verdad en chico, así que se animan las piezas de Recharts ya dibujadas, sólo mientras se ve (`CSS_MINIATURA`). Son unas 190 animaciones de SVG con trece a la vista. **No se midió cuántos cuadros da**: si se arrastra, el camino es grabar los videos.
+- **El acomodo según el ancho se calcula al dibujar y nunca se guarda** (`lib/graficos-acomodo.ts`). Es barato porque mirando la grilla no escribe (`alMoverGrilla`). Los cortes son del ancho de la grilla, no de la ventana: Corbel tiene 240 de barra y nosotros 68.
+- **El título de la hoja se fue de la barra.** Con los chips del Dashboard unido no va: editando vuelve la fila, que es donde se cambia. Sin chips (el closer, un link compartido) se queda: sería lo único que dice en qué hoja estás. El subtítulo escrito sale al pasar por el chip y en el PDF.
+- **⚠️ EL HOOK DE PUSH MIRA EL ÁRBOL DE TRABAJO, NO EL COMMIT.** Con plantillas borradas sin commitear, un push de un commit de sólo documentos da «`docs/api-mako.md` quedó viejo». Las plantillas salen en la referencia de la API. Se regenera con `node --import tsx scripts/generar-api-doc.mjs`, o se empuja desde un árbol limpio.
+
+**Sin hacer:** una hoja GUARDADA conserva su acomodo y su título de datos: rearmarla pide el sí de Martín. Elegir en la galería una plantilla del otro informe abre su editor y la suma, pero no la ajusta a los datos del negocio como las del mismo informe. «KPIs», «Pendientes» y «El mes» no están en ninguna plantilla: se agregan desde «Bloques de General». «Buscar» y «Filtro» siguen a la vista: Martín los pidió el 17/10 y nadie lo revirtió.
+
 ## El estilo por defecto es Corbel, y sus valores no estaban en los JSON (31/10/2026)
 
 **Vive en:** `lib/graficos-corbel.ts`, `lib/graficos-temas.ts`, `lib/graficos-portadas.ts` (`comoCorbel`), `docs/diseno/tokens-corbel.json`, `tests/graficos-corbel.test.ts`.

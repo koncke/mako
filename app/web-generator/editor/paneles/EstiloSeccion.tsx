@@ -243,8 +243,12 @@ function ColoresDeSeccion({ paleta, color, degradado, colorLibre, onColor, onDeg
           <button key={c} type="button" className="gmp-color" title={c} aria-label={`Color ${c}`} style={{ background: c }}
             aria-pressed={color?.toLowerCase() === c} onClick={() => onColor(c)} />
         ))}
+        {/* El color propio, el que no está en la paleta. ⚠️ ESTE BOTÓN ESTABA MUERTO: era el único
+            de la fila sin `onClick`, así que después de tocar otro color ya no se podía volver al
+            propio — se veía elegible y no lo era. Hace lo mismo que sus hermanos. */}
         {propio && (
-          <button type="button" className="gmp-color" title={propio} aria-label={`Color ${propio}`} style={{ background: propio }} aria-pressed />
+          <button type="button" className="gmp-color" title={propio} aria-label={`Color ${propio}`} style={{ background: propio }}
+            aria-pressed={color === propio} onClick={() => onColor(propio)} />
         )}
       </div>
       <div className="gmp-colores" style={{ marginTop: 8 }}>

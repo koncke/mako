@@ -20,7 +20,7 @@
 // nombres que la barra ya no tiene). Acá van sólo los «cómo se hace»; qué hace cada función, el catálogo.
 
 // El hub de /onboarding se retiró el 15/10/2026: sus secciones se editan donde diga lib/secciones-negocio.ts.
-import { rutaSeccion } from './secciones-negocio';
+import { rutaSeccion, rutaDato, lugarDato, DATOS_DEL_NEGOCIO } from './secciones-negocio';
 import { funcionDeRuta } from './funciones-mako';
 
 export type Capacidad = {
@@ -160,6 +160,13 @@ const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
     id: 'contexto', ruta: '/second-brain',
     que: 'Cargar lo que MaKo tiene que saber del negocio: documentos, glosario, oferta, precios.',
     como: ['En Ops Center, abre Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
+  },
+  {
+    // Ticket #48 (Leila, 3/11/2026): «¿dónde actualizo mis datos?» y MaKo no sabía en qué pantalla se editan el precio, qué
+    // incluye o el horario. Los nombres y los links salen de DATOS_DEL_NEGOCIO (lib/secciones-negocio.ts), no de acá.
+    id: 'datos-negocio', ruta: rutaDato('brief'),
+    que: `Corregir los datos de tu negocio. En ${lugarDato('brief')}: ${DATOS_DEL_NEGOCIO.brief.que}. En ${lugarDato('ofertas')}: ${DATOS_DEL_NEGOCIO.ofertas.que}. En ${lugarDato('productos')}: ${DATOS_DEL_NEGOCIO.productos.que}. MaKo también te propone el cambio de una oferta o de un producto y te deja un link para confirmarlo.`,
+    como: ['En Ops Center, abre Second Brain', 'En el mapa, elige «La oferta» (o «Productos») y toca «Editar»', 'En «El brief», toca el dato (precio, qué incluye, horario) y corrígelo', 'Si el mismo dato está en una oferta o en un producto, corrígelo también ahí'],
   },
   {
     // 25/10/2026: decía que WhatsApp se conecta en Integraciones (el QR vive en Chats) y no nombraba la IA ni la computadora.

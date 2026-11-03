@@ -22,7 +22,6 @@
 import type { LecturaTablero } from '@/lib/graficos-tablero';
 import { datosDeGraficos } from '@/lib/graficos-datos';
 import { ocultosPorPlegado, plegadasDeEntrada } from '@/lib/graficos-secciones';
-import { informeGeneralInicial } from '@/lib/general-plantillas';
 import { senalesDelNegocio } from '@/lib/plantillas-sugeridas-server';
 import type { SenalesNegocio } from '@/lib/plantillas-sugeridas';
 import type { HojaCorta } from '@/lib/dashboard-focus';
@@ -30,12 +29,17 @@ import { armarDatosGeneral, variablesDeQuienMira } from '../general/datos';
 import { ProveedorGeneral } from '../general/ProveedorGeneral';
 import { EditorInforme } from './EditorInforme';
 import { pedidosDeHoja } from './exportar';
+import { PLANTILLAS_GENERAL, informeGeneralInicial } from '@/lib/general-plantillas';
+import { instanciarPlantilla } from '@/lib/graficos-plantillas';
+import { MAX_HOJAS, type Tablero } from '@/lib/graficos-catalogo';
 
-export async function FocusDeGeneral({ lectura, hojaPedida, hoy, hojasDashboard, senales: senalesYa }: {
+export async function FocusDeGeneral({ lectura, hojaPedida, plantillaPedida, hoy, hojasDashboard, senales: senalesYa }: {
   /** El informe de General (`leerInformeGeneral()`). */
   lectura: LecturaTablero;
   /** La hoja de General que se abre (null = la primera, Focus). */
   hojaPedida: string | null;
+  /** Una plantilla de General pedida desde la galería del Dashboard: abre la hoja que nació de ella, o la suma. */
+  plantillaPedida?: string;
   hoy: string;
   /** Las hojas del Dashboard, para la tira de arriba. */
   hojasDashboard: HojaCorta[];
@@ -46,9 +50,15 @@ export async function FocusDeGeneral({ lectura, hojaPedida, hoy, hojasDashboard,
   // para un usuario nuevo, deberías proponerle un template»): la caja «¿Qué vas a crear hoy?» con las plantillas de
   // General abajo. La General de siempre viaja por dentro (la pantalla lee `hojas[0]`), no se muestra ni se guarda, y
   // la primera hoja que se crea es la ÚNICA. Un informe guardado sin hojas, igual.
-  const sinPaginas = lectura.estado === 'inicial' || !lectura.tablero.hojas.length || !!lectura.tablero.enBlanco;
-  const tablero = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
-  const hoja = tablero.hojas.find((h) => h.id === hojaPedida) ?? tablero.hojas[0];
+  const enBlanco = lectura.estado === 'inicial' || !lectura.tablero.hojas.length || !!lectura.tablero.enBlanco;
+  const base = lectura.tablero.hojas.length ? lectura.tablero : informeGeneralInicial();
+  const plantilla = PLANTILLAS_GENERAL.find((p) => p.id === plantillaPedida);
+  const nacida = plantilla && !enBlanco ? base.hojas.find((h) => h.plantilla === plantilla.id) : undefined;
+  const agregar = plantilla && !nacida && (enBlanco || base.hojas.length < MAX_HOJAS) ? instanciarPlantilla(plantilla) : null;
+  // En blanco, la pedida es la primera y ÚNICA, como en el Dashboard (app/dashboard/page.tsx).
+  const tablero: Tablero = agregar && enBlanco ? { v: base.v, nombre: base.nombre, hojas: [], archivadas: base.archivadas } : base;
+  const sinPaginas = enBlanco && !agregar;
+  const hoja = agregar ?? nacida ?? tablero.hojas.find((h) => h.id === hojaPedida) ?? tablero.hojas[0];
 
   const pedidos0 = pedidosDeHoja(hoja, {}, hoy, 0, ocultosPorPlegado(hoja.componentes, plegadasDeEntrada(hoja.componentes)));
   // En blanco no se dibuja ningún gráfico: no se lee nada. Los bloques se arman igual: la plantilla que se elija los usa.
@@ -70,6 +80,7 @@ export async function FocusDeGeneral({ lectura, hojaPedida, hoy, hojasDashboard,
         lecturaFallo={lectura.estado === 'error'}
         hoy={hoy}
         hojaInicial={hoja.id}
+        hojaAgregada={agregar}
         versionInicial={lectura.version}
         sinPaginas={sinPaginas}
         informe="general"
