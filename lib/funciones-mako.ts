@@ -55,7 +55,13 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Chatear con MaKo: preguntar, pedir cosas y aprobar lo que propone sin salir del hilo',
       'Juntar las conversaciones con MaKo de cada tab',
       'El Second Brain: tu oferta, tus clientes, tu funnel y tu mensaje conectados en un mapa, con lo que cargaste y lo que MaKo dedujo',
-      'Aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes',
+      // ⚠️ EL NOMBRE DE PANTALLA VA TEXTUAL, y es el ticket #45 (3/11/2026). Leila Fittipaldi pidió
+      // «activa la función "Aprende solo" en el Second Brain» y MaKo le contestó **que no existe**
+      // —existe desde el 25/10, es el botón de la cabecera del Mapa (app/second-brain/AprendeSolo.tsx)—.
+      // La entrada decía «Aprender solo», en infinitivo, y la búsqueda es por palabras: nunca
+      // emparejó con lo que la clienta escribió. La regla: **el catálogo usa el nombre que la
+      // persona LEE en la pantalla**, no una forma parecida; si no, MaKo niega lo que sí tiene.
+      '«Aprende solo» (el botón de la cabecera del Mapa): aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes, y ver de qué fuentes aprende, cuándo fue la última vez y cuánto entró',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
     ],

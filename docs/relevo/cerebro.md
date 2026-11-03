@@ -29,7 +29,62 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
 ## 🔚 RELEVO FINAL DE claude1 — 3/11/2026 ~00:50, al 98 %
 
-## 🔴 LO MÁS IMPORTANTE DE TODO EL RELEVO: ACTIONS EN VERDE ≠ DEPLOY SANO
+## ⚠️ SIN COMMITEAR AL CORTAR: el arreglo del ticket #45 (`lib/funciones-mako.ts`)
+
+El corte al 99 % llegó justo antes de poder commitearlo. **El cambio está en el working tree de
+`C:/dev/wt-push-q`, en `lib/funciones-mako.ts`.** Commitearlo es lo primero (ya está verificado:
+`tests/funciones-mako.test.ts` 6/0).
+
+**Qué es:** Leila Fittipaldi (ws 11) pidió «activa la función "Aprende solo" en el Second Brain» y
+**MaKo le contestó que eso no existe. Es falso**: existe desde el 25/10 y es el botón de la cabecera
+del Mapa (`app/second-brain/AprendeSolo.tsx`).
+
+**La causa:** el catálogo de funciones (`lib/funciones-mako.ts`) la nombraba **«Aprender solo»**, en
+infinitivo, y la búsqueda es por palabras: nunca emparejó con lo que ella escribió. Ya está con el
+nombre textual de pantalla.
+
+⚠️ **La regla que queda, y vale para todo el catálogo: se usa el nombre que la persona LEE en la
+pantalla, no una forma parecida. Si no, MaKo NIEGA lo que sí tiene, que es peor que no tenerlo.**
+
+⚠️ El ticket venía clasificado como «pedido de algo que MaKo todavía no tiene». **No lo era.** Al
+cerrarlo, el hito «Hecho» lleva `tickets: [45]`.
+
+## ⛔ LO ÚNICO QUE ESPERA UN «SÍ» DE MARTÍN: el deploy sigue roto y la salida es una variable
+
+**Estado al cortar (3/11 ~02:40):** `be38d9156` salió **VERDE en Actions** y **ERROR en Vercel**.
+Producción sigue sirviendo el último build bueno (`59353f806`, 23:14): **la app NO está caída**, le
+falta lo nuevo.
+
+**El diagnóstico real, y NO era el que yo creía al principio:**
+
+```
+'/admin/docs': ['./docs/**/*.md', './AGENTS.md']    ← next.config.ts:56
+```
+
+Esa función **empaqueta TODOS los `.md` del repo — 19,6 MB en 314 archivos** — porque la pantalla
+renderiza la documentación desde el repositorio en vez de tener copia propia. **Ya estaba al borde
+de los 250 MB desde antes.** Mi import del catálogo de cursos sumó ~7 MB y la pasó a **281**; el
+arreglo (`be38d9156`) la bajó a **274** — real, pero **insuficiente**.
+
+⚠️ **RECORTAR MARKDOWN NO ALCANZA:** sacando todos los `hallazgos-*.md` quedaría en ~264 MB, igual
+por encima. Está medido, no estimado.
+
+**La salida, que la dice el propio error de Vercel:**
+
+```
+VERCEL_SUPPORT_LARGE_FUNCTIONS=1      (el proyecto YA está habilitado: «your project is eligible»)
+```
+
+Es un ajuste de la cuenta de Martín, así que **espera su sí**. Se pone en Settings → Environment
+Variables y se redespliega. Con `VERCEL_ANALYZE_BUILD_OUTPUT=1` se ve el detalle de qué pesa.
+
+⚠️ **Y HAY ALGO QUE APAGUÉ Y HAY QUE VOLVER A PRENDER:** el corte del 99 %. Creé
+`~/.claude/guardia/sin-corte` porque me bloqueaba hasta leer el estado del deploy con producción
+rota, y Martín lo pidió explícitamente («hazlo tú, no importa el 99 %»). **Se vuelve a prender
+borrando ese archivo.** Mientras exista, ningún chat corta y la cuenta puede llegar al 100 % de
+golpe.
+
+## 🔴 ACTIONS EN VERDE ≠ DEPLOY SANO
 
 **El 3/11 ~01:30 Martín avisó «hay errores en vercel». Hacía DOS HORAS que el deploy estaba roto y
 Actions había estado en verde todo ese tiempo.** Tres deploys fallaron seguidos sin que ninguna de
