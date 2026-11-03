@@ -20,7 +20,7 @@ import 'server-only';
 import { extraerDeArchivo, generarPanorama } from './onboarding';
 import { leerDocumentoIA, docsIADisponible } from './ai-cheap';
 import { flatFields, insertFile, subirBinario, borrarBinario, listFiles, buildEstado, getPanorama, setPanorama } from './archivero';
-import { idDeContenido, documentoYaArchivado } from './archivero-registro';
+import { idDeContenido, documentoYaArchivado, camposDelModelo } from './archivero-registro';
 import { permisoDeLaClaveDelNegocio } from './anthropic';
 import { PROVS_SU_IA } from './solo-su-ia';
 import { conSuIADelNegocio } from './ia-del-negocio';
@@ -167,10 +167,7 @@ export async function sumarTextoAlArchivero(ws: number, d: {
     let campos: Record<string, string>;
     let razonamiento: string;
     if (d.extraido) {
-      const validas = new Set((await flatFields()).map((f) => f.key));
-      campos = Object.fromEntries(Object.entries(d.extraido.campos)
-        .map(([k, v]) => [k, String(v ?? '').trim().slice(0, 2000)] as const)
-        .filter(([k, v]) => validas.has(k) && v));
+      campos = camposDelModelo(d.extraido.campos, new Set((await flatFields()).map((f) => f.key)));
       razonamiento = d.extraido.razonamiento.trim().slice(0, 2000);
     } else {
       const ex = await extraerParaArchivero(texto, nombre);

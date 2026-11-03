@@ -70,7 +70,7 @@ import { adjuntosVisibles, audioDeBloques, leerRef, rutaDeVozDelChat, sanearBloq
 import { urlAudio } from '@/lib/offer-reglas';
 import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, esPorQueGuardado, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, subirNotaDeVozDelChat, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
-import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
+import { pedidoDelMensaje, recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
 import { puedeArchivarConSuIA } from '@/lib/archivero-ingesta';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
@@ -597,7 +597,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const claveAgenda = `mako.doer.agenda.${canalKey}`;
     const agendaAbierta = agendaVigente(await getSetting(claveAgenda).catch(() => null), Date.now());
     const ultimoDeMako = previos.slice(-2).reverse().find((r) => r.role === 'assistant')?.content ?? null;
-    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${pistaDesde(desde)}${adjuntos.length ? textoMemoria : textoPersona}`;
+    // Con un texto pegado se clasifica lo que la persona ESCRIBIÓ: el documento es dato, no el pedido (#44, `pedidoDelMensaje`).
+    const textoClasificar = `${(entrada.pista ?? '').slice(0, 120)}${pistaDesde(desde)}${adjuntos.length ? textoMemoria : pedidoDelMensaje(textoPersona)}`;
     const intencion = clasificarIntencion(textoClasificar, {
       // Por la app MaKo sólo PROPONE y la persona confirma: ante la duda se actúa, no se anota (D1 = A, lib/mako-intencion.ts).
       canal: 'app',
