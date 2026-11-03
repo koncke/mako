@@ -7,7 +7,8 @@
 // (no del workspace), y manda con la voz de MaKo. Best-effort: nunca lanza.
 
 import 'server-only';
-import { instanciaVoz, enviarAGrupoJid, enviarPartesAJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
+import { altasEnGrupos, instanciaVoz, enviarAGrupoJid, enviarPartesAJid, KEY_GRUPO_SUPERADMIN, KEY_GRUPO_JID } from './mako-grupo';
+import { ALTAS_APAGADAS } from './altas-en-grupos';
 import { getSupabaseServer } from './supabase';
 import { leerResultados, esAdminEn, jidCanonico, type ParticipanteCrudo } from './participantes-grupo';
 
@@ -194,6 +195,7 @@ async function accionParticipantes(
   jid: string, numeros: string[], action: 'add' | 'remove' | 'promote', inst?: string,
   opts: { canonicos?: boolean } = {},
 ): Promise<ResultadoAccion> {
+  if (action === 'add' && !(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS };
   const instancia = inst ?? (await instanciaVoz());
   const nums = numeros.map(soloDigitos).filter(Boolean);
   if (!nums.length) return { ok: false, error: 'Falta el número.' };

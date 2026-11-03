@@ -52,7 +52,9 @@ const ajustes = (ws: number, t: string[], grupo = true) => [
   { workspace_id: ws, key: 'mako.numero_dueno', value: t[0] ?? '' },
   ...(grupo ? [{ workspace_id: ws, key: 'mako.grupo_jid', value: jid(ws) }] : []),
 ];
-db.app_settings = [...ajustes(CLIENTE, [CLIENTA]), ...ajustes(CLIENTE_DE_OTRA, ['5491130000210']), ...ajustes(REVOCADO, ['5491130000030'])];
+db.app_settings = [...ajustes(CLIENTE, [CLIENTA]), ...ajustes(CLIENTE_DE_OTRA, ['5491130000210']), ...ajustes(REVOCADO, ['5491130000030']),
+  // Este hijo prueba la puerta de la agencia, no el freno (tests/altas-en-grupos.test.ts).
+  { workspace_id: PLATAFORMA, key: 'mako.grupos.altas', value: 'si' }];
 
 type Llamada = { ruta: string; body: Record<string, unknown> | null };
 let evolution: Llamada[] = [];

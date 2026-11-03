@@ -47,6 +47,8 @@ db.usuarios = [
   usuario(CLIENTE, 'admin', CLIENTA),
 ];
 db.app_settings = [
+  // Este hijo prueba a quién se agrega, no el freno (tests/altas-en-grupos.test.ts).
+  { workspace_id: PLATAFORMA, key: 'mako.grupos.altas', value: 'si' },
   { workspace_id: AGENCIA, key: 'mako.numero_dueno', value: DUENO_AGENCIA },
   { workspace_id: OTRA, key: 'mako.numero_dueno', value: DUENO_OTRA },
   { workspace_id: EXISTENTE, key: 'mako.grupo_jid', value: `grupo-${EXISTENTE}@g.us` },
