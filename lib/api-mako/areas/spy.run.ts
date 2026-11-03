@@ -85,7 +85,7 @@ export const RUNNERS: Runners = {
       const comoQueda = nombre || (leido.campo === 'nombre' ? leido.valor : leido.valor.replace(/^https?:\/\/(www\.)?/, '').split('/')[0]);
       return {
         payload: { pegado, nombre: nombre || null },
-        resumen: `Empezar a mirar a «${comoQueda}» (${leido.campo === 'instagram' ? `@${leido.valor} en Instagram` : leido.campo === 'youtube_id' ? 'su canal de YouTube' : leido.campo === 'landing_url' ? 'su sitio' : 'por nombre, sin canales todavía'})`,
+        resumen: `Empezar a mirar a «${comoQueda}» (${leido.campo === 'instagram' ? `@${leido.valor} en Instagram` : leido.campo === 'youtube_id' ? 'su canal de YouTube' : leido.campo === 'tiktok' ? `@${leido.valor} en TikTok` : leido.campo === 'landing_url' ? 'su sitio' : 'por nombre, sin canales todavía'})`,
       };
     },
     ejecutar: async (p) => seguro('sumarlo al radar', async () => {
