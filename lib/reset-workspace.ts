@@ -160,15 +160,15 @@ export async function vaciarTablas(ws: number): Promise<{ borrado: Record<string
  * roles: el cliente sigue existiendo y se puede entrar, solo que sin nada
  * adentro.
  */
-export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
-  // La condición vive en auth-session.ts (sin `server-only`) para que se pueda
-  // testear: ver tests/reset-workspace.test.ts.
-  exigirClienteDePrueba(ws);
-
-  const sb = getSupabaseServer();
-  const borrado: Record<string, number> = {};
+/**
+ * Lo que un negocio tiene AFUERA de la base: su WhatsApp en Evolution y su voz en ElevenLabs. Va ANTES de vaciar las tablas:
+ * los ids para encontrarlos viven ahí.
+ *
+ * ⚠️ SIN GUARD A PROPÓSITO, como `vaciarTablas`: lo deciden sus dos llamadores. Hasta el 3/11/2026 sólo lo hacía el reset:
+ * `eliminarWorkspace` borraba al cliente y su línea de WhatsApp seguía viva en Evolution, y su voz clonada, en ElevenLabs.
+ */
+export async function cerrarLoDeAfuera(ws: number): Promise<string[]> {
   const avisos: string[] = [];
-
   // ── 1. Cortar la sesión de WhatsApp en el servidor de Evolution ──
   // Borrar la fila de evolution_instancias no desconecta nada: la sesión sigue
   // viva allá con el número pegado, y el próximo "conectar" encuentra la
@@ -211,6 +211,43 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   } catch (e) {
     avisos.push(`Voz clonada: no se pudo comprobar si había una (${msg(e)}). Revisa las voces de la cuenta de ElevenLabs por si quedó una huérfana.`);
   }
+  return avisos;
+}
+
+/**
+ * Los binarios del negocio, en todos sus buckets. Sin guard, como `vaciarTablas`.
+ *
+ * ⚠️ `eliminarWorkspace` no lo hacía hasta el 3/11/2026, aunque su cabecera prometía llevarse «sus archivos»: las filas se
+ * iban y los archivos quedaban en Storage, sin nadie que supiera de quién eran. Con «Eliminar mi cuenta» eso era prometerle
+ * a Apple y a Play un borrado que no pasaba.
+ */
+export async function borrarArchivos(ws: number): Promise<{ archivos: number; avisos: string[] }> {
+  const sb = getSupabaseServer();
+  const avisos: string[] = [];
+  let archivos = 0;
+  for (const bucket of BUCKETS) {
+    try {
+      const rutas = await listarRecursivo(bucket, String(ws));
+      for (let i = 0; i < rutas.length; i += 100) {
+        const { error } = await sb.storage.from(bucket).remove(rutas.slice(i, i + 100));
+        if (error) { avisos.push(`${bucket}: ${error.message}`); break; }
+        archivos += Math.min(100, rutas.length - i);
+      }
+    } catch (e) {
+      avisos.push(`${bucket}: ${msg(e)}`);
+    }
+  }
+  return { archivos, avisos };
+}
+
+export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
+  // La condición vive en auth-session.ts (sin `server-only`) para que se pueda
+  // testear: ver tests/reset-workspace.test.ts.
+  exigirClienteDePrueba(ws);
+
+  const sb = getSupabaseServer();
+  const borrado: Record<string, number> = {};
+  const avisos: string[] = await cerrarLoDeAfuera(ws);
 
   // ── 2. Tablas ──
   const vaciado = await vaciarTablas(ws);
@@ -234,19 +271,9 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   }
 
   // ── 3. Binarios ──
-  let archivos = 0;
-  for (const bucket of BUCKETS) {
-    try {
-      const rutas = await listarRecursivo(bucket, String(ws));
-      for (let i = 0; i < rutas.length; i += 100) {
-        const { error } = await sb.storage.from(bucket).remove(rutas.slice(i, i + 100));
-        if (error) { avisos.push(`${bucket}: ${error.message}`); break; }
-        archivos += Math.min(100, rutas.length - i);
-      }
-    } catch (e) {
-      avisos.push(`${bucket}: ${msg(e)}`);
-    }
-  }
+  const binarios = await borrarArchivos(ws);
+  const archivos = binarios.archivos;
+  avisos.push(...binarios.avisos);
 
   // EL NOMBRE DEL WORKSPACE TAMBIÉN VUELVE (18/10/2026, Martín: después de RESET seguía diciendo «Consultesis»). La fila
   // del workspace no se borra, pero el onboarding le escribe el nombre del negocio (`guardarNombreNegocio`): sin esto, el

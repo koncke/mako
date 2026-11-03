@@ -4,6 +4,7 @@
 // MaKo = analista. Siempre el modelo más capaz y con el máximo "esfuerzo"
 // (extended thinking con budget alto). La key va en ANTHROPIC_API_KEY.
 
+import { exigirPermisoIa } from '@/lib/ia-permiso';
 import 'server-only';
 import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
@@ -420,6 +421,8 @@ export async function chatClaude(
   // un modelo flojo llegaba crudo a la pantalla como «Unexpected end of JSON input».
   opts: { model?: string; thinking?: boolean; effort?: Effort; maxTokens?: number; feature?: string; motivo?: string; onUsage?: (u: UsageInfo) => void; hastaMs?: number; sinRespaldoDeModelo?: boolean; redDePlataforma?: boolean; erroresOut?: string[]; erroresPlataformaOut?: string[]; validar?: (t: string) => boolean } = {},
 ): Promise<string> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaude(system, messages, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un
@@ -667,6 +670,8 @@ export async function chatClaudeTools(
     onStep?: (info: { step: number; toolCalls: Array<{ name: string; input: Record<string, unknown> }> }) => void;
   } = {},
 ): Promise<ToolsResult> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatClaudeTools(system, messages, tools, runTool, opts));
   // Override configurable por feature (tab /modelos-ia). Si el caller NO forzó un

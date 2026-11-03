@@ -40,6 +40,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { TEXTO_SIN_PERMISO_IA, esSinPermisoIa } from '@/lib/ia-permiso-reglas';
 import {
   personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, sesionDeTab, turnoApp, confirmarDesdeTarjeta, cancelarDesdeTarjeta, urlDeAdjunto,
   urlDeVozDelChat, escucharNotaDelChat,
@@ -303,6 +304,7 @@ export async function POST(req: NextRequest) {
       if (!r) return json({ ok: false, error: 'No encuentro ese chat.' }, 404);
       return json({ ...r });
     } catch (e) {
+      if (esSinPermisoIa(e)) return json({ ok: false, error: TEXTO_SIN_PERMISO_IA, necesitaPermisoIa: true }, 403);
       console.error('[api/mako/chat] POST multipart', e instanceof Error ? e.message : String(e));
       return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
     }
@@ -367,6 +369,7 @@ export async function POST(req: NextRequest) {
 
     return json({ ok: false, error: 'Pedido inválido.' }, 400);
   } catch (e) {
+    if (esSinPermisoIa(e)) return json({ ok: false, error: TEXTO_SIN_PERMISO_IA, necesitaPermisoIa: true }, 403);
     console.error('[api/mako/chat] POST', e instanceof Error ? e.message : String(e));
     return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
   }

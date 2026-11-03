@@ -22,6 +22,7 @@
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
+import { TEXTO_SIN_PERMISO_IA, esSinPermisoIa } from '@/lib/ia-permiso-reglas';
 import { personaDelRequest, listarSesiones, abrirSesion, nuevaSesion, turnoApp, type PersonaChat } from '@/lib/mako-turno-app';
 import { validarAdjuntos, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES, type AdjuntoListo } from '@/lib/mako-adjuntos';
 
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
     if (body.action === 'send') return await mandar(persona, sessionIdDe(body.sessionId), typeof body.mensaje === 'string' ? body.mensaje : '', []);
     return json({ ok: false, error: 'Pedido inválido.' }, 400);
   } catch (e) {
+    if (esSinPermisoIa(e)) return json({ ok: false, error: TEXTO_SIN_PERMISO_IA, necesitaPermisoIa: true }, 403);
     console.error('[api/m/mako] POST', e instanceof Error ? e.message : String(e));
     return json({ ok: false, error: 'Algo falló de nuestro lado. Intenta de nuevo.' }, 500);
   }

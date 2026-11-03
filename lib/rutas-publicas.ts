@@ -73,6 +73,10 @@ export const PUBLICOS = [
   // piden para aprobar la cuenta ANTES del primer cobro, y la lee quien está por pagar: las dos
   // la abren sin cuenta de MaKo. Es una página: sólo GET (`esPublicaSoloLeer`).
   '/reembolsos',
+  // Las que piden las tiendas (3/11/2026, docs/tiendas-play-appstore.md): Play exige un link web para eliminar la cuenta, y Apple
+  // una URL de soporte. Sus revisores las abren sin cuenta. Son páginas: sólo GET (`esPublicaSoloLeer`), y no leen la sesión.
+  '/eliminar-cuenta',
+  '/soporte',
   // ── El comprador de un link de pago (11/10/2026) ──────────────────────────────
   // `/pagar/<token>` (route handler: redirige al checkout de Stripe o Mercado Pago) y
   // `/pagar/<token>/listo` (adonde vuelve desde la pasarela). Las abre un COMPRADOR, que no tiene

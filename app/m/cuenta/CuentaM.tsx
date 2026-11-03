@@ -53,6 +53,9 @@ import {
   AvatarM, CabeceraM, CerrarSesion, FilaM, InterruptorM, ListaM, SalirDeLaVista, SeccionM, SheetM, useConexion, useToastM,
 } from '../_ui';
 import { FilaEnComputadoraM } from '../_ui/EnComputadoraM';
+import { EliminarCuentaM } from './EliminarCuentaM';
+import { FilaPermisoIaM } from '../_ui/PermisoIaM';
+import { useShellM } from '../_ui/contexto';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { GRUPO_CUENTA, GRUPO_NEGOCIO, SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
 import { InformacionPersonal, type NegocioDelPerfil } from '@/app/perfil/InformacionPersonal';
@@ -106,6 +109,7 @@ function IconoNegocio({ n }: { n: NombreIconoMenu }) {
 
 export function CuentaM({ datos }: { datos: DatosCuenta }) {
   const router = useRouter();
+  const { appIos } = useShellM();
   const [hoja, setHoja] = useState<'info' | 'notificaciones' | null>(null);
   const avisos = useAvisosTelefono(datos.push);
   const tipos = tiposParaRol(PUSH_TIPOS, PUSH_SOLO_ADMINS, datos.esAdmin);
@@ -155,7 +159,9 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
             riel={rielNotificaciones(avisos.vista, datos.guardable ? resumenAvisos(avisos.prefs, tipos) : null) ?? undefined}
             onClick={() => setHoja('notificaciones')} />
         )}
-        {ve('instalar') && (
+        {/* En la app de iPhone ya está instalada, y lo que se comparte con una IA se cambia acá (Apple 5.1.2(i)). */}
+        <FilaPermisoIaM />
+        {ve('instalar') && !appIos && (
           fila === 'pasos-ios' || fila === 'pasos'
             ? <FilaM navegacion leading={<IconoSeccion k="instalar" />} titulo={ROTULO.instalar} href="/m/cuenta/instalar" />
             : fila === 'boton'
@@ -185,6 +191,8 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
       <ListaM>
         <CerrarSesion variante="fila" />
       </ListaM>
+      {/* Apple y Play la piden adentro de la app (T4). No mirando a un cliente: lo que se borra es de quien está frente al teclado. */}
+      {!datos.vista && <ListaM><EliminarCuentaM /></ListaM>}
 
       {datos.perfil && ve('info') && (
         <SheetM abierto={hoja === 'info'} titulo={ROTULO.info} id="info" snap="alto"

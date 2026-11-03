@@ -77,6 +77,11 @@ test('4. una pantalla de escritorio abierta en un teléfono tampoco ofrece el pl
   const p = sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx'));
   assert.match(p, /const telefono = esTelefono\(/);
   assert.match(p, /pro && !deAgencia && !telefono \? ROTULO_PASAR_A_PRO/);
+  // La cuenta pausada: el botón, lo que se debe y el texto que manda a elegir un plan.
+  const pausada = sinComentarios(leer('app/cuenta-pausada/page.tsx'));
+  assert.match(pausada, /const telefono = esTelefono\(/);
+  assert.match(pausada, /const porPago = !telefono && leOfrecePagar\(/);
+  assert.match(pausada, /\{telefono \? 'Tus datos están guardados\.' : t\.detalle\}/);
 });
 
 test('5. la marca es la que Capacitor le suma al user agent, y sólo ella prende el modo', () => {
@@ -130,6 +135,14 @@ test('9. las tabs que existen para vender MaKo a otros no van en iPhone, y las d
   for (const rel of ['app/m/agency/page.tsx', 'app/m/partners/page.tsx']) {
     assert.match(sinComentarios(leer(rel)), /if \(await esAppIosDelPedido\(\)\) redirect\(await rutaConWs\(RUTA_MAS\)\);/, `${rel}: un link directo tampoco`);
   }
+});
+
+test('10. Community no va en la app de iPhone (Apple 1.2 pide bloquear desde la app), y en Android se denuncia desde la hoja', () => {
+  const pag = sinComentarios(leer('app/m/comunidad/page.tsx'));
+  assert.match(pag, /if \(await esAppIosDelPedido\(\)\) redirect\(await rutaConWs\('\/m\/curso'\)\);/);
+  assert.match(sinComentarios(leer('app/m/cs/SeccionesClientsM.tsx')), /\(await esAppIosDelPedido\(\)\) \? OPCIONES\.filter\(\(o\) => o\.id !== 'community'\)/);
+  const post = sinComentarios(leer('app/m/comunidad/PostM.tsx'));
+  assert.equal((post.match(/<ReportarRespuesta /g) ?? []).length, 2, 'la publicación y cada comentario');
 });
 
 test('8. el login de la app de iPhone no tiene Google y abre el correo; sin la marca, igual que siempre', () => {
