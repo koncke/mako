@@ -106,11 +106,29 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 - **El onboarding depende de la voz:** el código de verificación sale por DM con `instanciaVoz()`. Del ban a las 17:16 ART un cliente nuevo no podía terminarlo; con la voz en el otro número, sí.
 - **`avisos_cola` y `flujo_corridas` no tenían nada pendiente:** no hay ráfaga guardada para cuando vuelva una línea. Lo que se intenta ahora rebota en Evolution sin llegar a WhatsApp.
 
+**Lo que la dejó muda no fue el ban, fue el admin único.** El número personal (…3479) es admin en los 6 grupos que existían al mudarse el 07/10. Los 8 creados después sólo tienen al …2605: `group/participants` contesta 404 `forbidden`, y nadie más puede sumarlo. MaKo queda muda ahí aunque tenga otra línea viva. Martín eligió esperar la apelación y no rehacerlos.
+
+**Mover la voz sin QR** (`usarNumeroPersonalComoVoz`, con botón en /agencia):
+- ⚠️ El canal NO se mueve: `desconectarCanalMaKo` borra la línea del canal, y con el canal ahí borraría su WhatsApp personal.
+- ⚠️ En la voz, todo `fromMe` era MaKo: el dueño hablándole desde su teléfono se tiraba por eco. En una línea `mako_ws<n>` decide el anillo (`vozPropiaDeMaKo`).
+- ⚠️ `lineaDeMaKoPara` daba el canal caído como línea por defecto de la plataforma: con la voz en el negocio devuelve null.
+- El doer sólo contesta los grupos que reconoce `wsDeGrupoJid`, así que abrirle los grupos a su línea ignora sus grupos personales.
+
+**Trampas de Evolution, medidas ese día:**
+- `fetchAllGroups` contestó 500 `rate-overlimit`. Leído como lista vacía daba «no está en ningún grupo», y era falso: se pregunta grupo por grupo, con pausa.
+- `group/create` exige al menos un participante. Para probar sin terceros, el propio número sirve.
+
 **Las opciones, con lo leído el 3/11** (grupos medidos: 5 de 13, con 2 a 4 personas; ~750 textos por mes):
 - **Cloud API de a uno, con plantillas de utilidad:** no pide cuenta oficial. US$6-20 por mes si llega sólo al dueño.
 - **Cloud API con grupos:** exige cuenta oficial (OBA), máximo 8, se entra sólo por link (no hay endpoint para agregar) y hay que rehacer los grupos. Se cobra por persona que recibe: US$19-59 por mes a 3 por grupo.
 - Tarifas de una tabla de terceros de julio de 2026 (Argentina ~US$0,026, México ~US$0,0085), no del tarifario de Meta. De Meta sí: desde el 1/10/2026 la plantilla de utilidad se cobra también dentro de la ventana, y lo que no es plantilla es gratis hasta 1.000 por mes y por número, contando cada persona de un grupo.
 - ⚠️ Desde el 15/1/2026 Meta prohíbe en esta API a los proveedores cuyo producto principal es un asistente de IA. Hay que leer esos términos contra lo que hace MaKo en un grupo: acá sólo hay fuentes secundarias.
+- **Las líneas de los clientes por la API oficial** (30 días a 03/11; tarifa de Argentina vigente desde el 01/10/2026, de Zernio y SleekFlow, que citan a Meta): salieron 21.917 mensajes, 2.956 fuera de la ventana. Marketing US$0,0618; lo demás US$0,026. Da **US$470/mes** si todo pasa por la API (de US$0,62 a US$137 por línea). Con coexistencia lo escrito desde el teléfono es gratis y `wa_mensajes` no lo separa: el piso medible son las secuencias, 803 envíos, ~US$50.
+- ⚠️ **No medir la línea de MaKo con `mako_doer_conv`:** dio ~US$11 porque deja afuera casi la mitad de lo que sale y cuenta cada grupo como una persona. La medida buena es la base de Evolution: hasta ~US$60/mes.
+- ⚠️ **El dato que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026.
+- **Si MaKo sólo contesta** (la idea de Martín del 03/11: la app como canal principal, WhatsApp 1 a 1, sin grupos y sin escribir primero), no hace falta plantilla ni cuenta oficial. Con ~270 consultas por mes y 2 a 3 mensajes por consulta: US$0 hoy, ~US$80-135 con 100 negocios, ~US$300-460 con 300.
+- ⚠️ **Hoy `push_suscripciones` tiene 0 filas:** nadie tiene avisos de la app. Sin grupos no llegaría ningún aviso hasta resolver eso.
+- **Se pierde del todo por la vía oficial:** leer los grupos del cliente, sumar gente directo, escribirle a quien no dio permiso y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
 
 **Sin hacer, o sin medir:**
 - **No se probó con una caída real.** Con la voz en la línea de Martín hoy no hay «la otra», así que el aviso va por mail. Si vuelve a haber dos líneas: **no sé si un mensaje a uno mismo hace sonar el teléfono**. Por eso el mail de la voz sigue saliendo cada hora (`vigilarVozMaKo`).
@@ -119,6 +137,7 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 - **Una zombi (`open` que no responde) sólo se arregla con QR o reiniciando Evolution** (medido el 11/09): la vigilancia avisa, no la cura.
 - **No se tocó `syncFullHistory` ni el heap:** no tienen que ver con este ban. El heap sigue en docs/hallazgos-infra.md, «Evolution: TODOS los números en UN proceso de Node».
 - **La cantidad de gente en 8 de los 13 grupos:** la línea de Martín no está en 7 y el otro dio 404. Con esa línea no se puede preguntar por grupos ajenos, y tampoco se usaron las de los clientes.
+- **Sumar una segunda línea como admin al crear cada grupo** (`lib/mako-grupo.ts`): es lo que habría evitado los 8 grupos mudos.
 - **La apelación del número** la hace Martín desde el teléfono.
 
 ---
@@ -12340,33 +12359,3 @@ todo lo que importa esos módulos, no los que uno se acuerda.
   - La cuenta compartida la avisa el workspace de menor id (`cuentasYaAvisadas`), y ese decide también el destino: una cuenta compartida entre un
     cliente directo y uno de agencia puede avisarle a uno solo.
   - Una agencia que bajó de capa sigue recibiendo la alerta con un link a MaKo Partners que ya no la deja entrar.
-
-## WhatsApp baneó la línea de MaKo: qué la dejó muda, cómo se siguió y qué costaría lo oficial (03/11/2026, Cerebro)
-
-**Síntoma.** A las 16:39 ART WhatsApp rechazó la sesión del …2605 con un 403 y al teléfono le llegó «ya no puede usar WhatsApp Business… spam». Las otras líneas siguieron abiertas. No se probó la causa, y WhatsApp no la dice. Lo medido en la base de Evolution (chat de la línea, hora ART):
-- 16:36: Joan guarda Notificaciones de un cliente: grupo nuevo, bienvenida, alta de un segundo número y, como WhatsApp no lo deja, invitación por DM a alguien que nunca le había escrito a la línea.
-- 16:39:27: guarda las de otro cliente: otra alta. 16:39:36: el 403.
-- ⚠️ **El diagnóstico obvio era el equivocado:** no salió del alta automática de la agencia (`sumarEquipoDeAgenciaAlGrupo` corrió y no sumó a nadie). Salió de `setDestinatarios` (`lib/notif-destinatarios.ts`), que lo pide una persona y lo ejecuta la API. Apagar sólo lo automático no habría cambiado nada.
-- **El volumen no creció:** 15, 18, 13 y 13 textos los últimos 4 días, contra un pico de 54 el 29/10; 7 mensajes a personas sueltas en 15 días.
-- **Lo que sí pesa:** 826 de 837 salientes por la API y 11 desde el teléfono, una cuenta de 27 días, y 3 números tocados en 3 minutos desde 2 negocios. El tope de contactos es por negocio y la línea es una sola: una agencia que trabaja sobre varios clientes no lo acumula.
-
-**Lo que más dolió no fue el ban, fue el admin único.** El número personal (…3479) es admin en los 6 grupos que existían al mudarse el 07/10. Los 8 creados después sólo tienen al …2605: `group/participants` contesta 404 `forbidden`, y nadie más puede sumarlo. MaKo queda muda ahí aunque tenga otra línea viva.
-
-**Mover la voz sin QR.** Martín pidió seguir por su número, con un botón para apagarlo (`usarNumeroPersonalComoVoz`, en /agencia). `mako.voz.instancia` apunta a `mako_ws9` y a esa línea se le abren los grupos. El doer sólo contesta los que reconoce `wsDeGrupoJid`, así que sus grupos personales se ignoran.
-- ⚠️ El canal NO se mueve: `desconectarCanalMaKo` borra la línea del canal, y con el canal ahí borraría su WhatsApp personal.
-- ⚠️ En la voz, todo `fromMe` era MaKo: el dueño hablándole desde su teléfono se tiraba por eco. En una línea `mako_ws<n>` decide el anillo (`vozPropiaDeMaKo`).
-- ⚠️ `lineaDeMaKoPara` daba el canal caído como línea por defecto de la plataforma: con la voz en el negocio devuelve null.
-
-**Trampas de Evolution medidas ese día.**
-- `fetchAllGroups` contestó 500 `rate-overlimit`. Leído como lista vacía daba «no está en ningún grupo», y era falso: se pregunta grupo por grupo, con pausa.
-- `group/create` exige al menos un participante (`participants does not meet minimum length of 1`). Para probar sin terceros, el propio número sirve.
-
-**Lo oficial, con el volumen real (30 días a 03/11; US$ a tarifa de Argentina vigente desde el 01/10/2026, sin contar otros países).** Marketing 0,0618; utility, autenticación y servicio 0,026. La tarifa viene de Zernio y SleekFlow, que citan la tabla de Meta: la tabla oficial no se pudo abrir.
-- ⚠️ **El diagnóstico que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026. Desde el 01/10 sólo son gratis las primeras 1.000 por número y por mes, y las utility dentro de la ventana también se cobran.
-- Líneas de clientes: salieron 21.917 mensajes, 2.956 fuera de la ventana. Da **US$470/mes** si todo pasa por la API (de US$0,62 a US$137 por línea). Con coexistencia lo escrito desde el teléfono es gratis y `wa_mensajes` no lo separa: el piso medible son las secuencias, 803 envíos, ~US$50.
-- La línea de MaKo: medida en la base de Evolution, 376 textos y 133 reacciones en 15 días (~750 textos por mes). Por persona que recibe, con 2 o 3 personas por grupo, **hasta ~US$60/mes**. ⚠️ Salió primero ~US$11 contando `mako_doer_conv`, que deja afuera casi la mitad de lo que sale y contaba cada grupo como una persona: no se mide esta línea con esa tabla.
-- Grupos oficiales: sólo con Official Business Account (la otorga Meta, sin pago posible), hasta 8 personas, se entra por link, sin botones. Se cobra por destinatario entregado.
-- ⚠️ `AI Providers`: la IA no puede ser la funcionalidad principal de lo que se ofrece por la plataforma, a criterio de Meta. Un bot de atención del negocio entra; «MaKo en WhatsApp» como producto hay que revisarlo antes de construir.
-- Se pierde del todo: leer los grupos del cliente, sumar gente directo, escribirle a quien no dio su permiso, y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
-
-**Sin hacer.** Los 8 grupos sin el …3479 (`app_settings`, `mako.grupo_jid` de los ws 15, 17, 18, 19, 20, 21, 22 y 23). Sumar una segunda línea como admin al crear cada grupo (`lib/mako-grupo.ts`), que es lo que habría evitado esto. El alta automática y las invitaciones a números sueltos apagadas por defecto (chat de la línea). La decisión sobre la vía oficial.
