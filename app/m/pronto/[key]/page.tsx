@@ -19,6 +19,7 @@ import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL, RUTA_MAS, itemPronto } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
+import { esAppIosDelPedido } from '@/lib/tienda-pedido';
 import { Icon } from '@/app/_components/icons';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
@@ -29,7 +30,8 @@ export default async function ProntoM({ params }: { params: Promise<{ key: strin
   const { key } = await params;
   const item = itemPronto(key);
   // Una key que no es (o dejó de ser) «pronto»: su pantalla de verdad la da `rutaMovil` desde la URL de escritorio.
-  if (!item) redirect(await rutaConWs(HOME_MOVIL));
+  // Y en la app de iPhone tampoco se ve: Apple lee «Coming soon» como relleno (guía 2.1, lib/tienda.ts).
+  if (!item || await esAppIosDelPedido()) redirect(await rutaConWs(HOME_MOVIL));
   await requireMovil({ navKey: item.key });
   return (
     <PantallaM>

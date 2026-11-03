@@ -62,7 +62,8 @@ test('lo que hacía no se perdió: «Reenviar el acceso» y «Nadie puede entrar
   assert.match(app, /if \(c\.estado === 'aprobado' && c\.equipo\?\.length === 0\) return \{ texto: 'Nadie puede entrar', tono: 'warn' \};/);
   assert.match(app, /fetch\('\/api\/agencia\/reinvitar'/);
   assert.match(app, /Reenviar el acceso a \$\{quienManeja\.nombre\}/);
-  const movil = sinComentarios(leer('app/m/partners/PartnersM.tsx'));
+  // En el teléfono, la cartera es AgencyM (PartnersM no lo montaba nadie y se borró el 3/11/2026).
+  const movil = sinComentarios(leer('app/m/agency/AgencyM.tsx'));
   assert.match(movil, /if \(c\.estado === 'aprobado' && c\.equipo\?\.length === 0\) return \{ texto: 'Nadie puede entrar', tono: 'warn' \};/);
   assert.match(movil, /fetch\('\/api\/agencia\/reinvitar'/);
   assert.match(movil, /Reenviar a \$\{quien\.nombre\}/);

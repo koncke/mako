@@ -1,9 +1,9 @@
 // =============================================================================
 // /m/configuraciones/plan — «Configuración del negocio» › Tu plan en el teléfono (17/10/2026)
 // =============================================================================
-// En la URL, /configuraciones/plan. Referencia: Ajustes › Suscripciones de iOS. El plan con su precio y su estado, y
-// abajo, en rojo, «Darme de baja», que pide una confirmación que dice qué pasa antes de cortar. Es la pantalla de la
-// computadora (app/configuraciones/plan/PlanPanel.tsx) con los mismos datos, leídos igual, y la misma acción
+// En la URL, /configuraciones/plan. Referencia: Ajustes › Suscripciones de iOS. El plan y su estado, sin precio (el teléfono
+// no vende, T5), y abajo, en rojo, «Darme de baja», que pide una confirmación que dice qué pasa antes de cortar. Es la
+// pantalla de la computadora (app/configuraciones/plan/PlanPanel.tsx) con los mismos datos, leídos igual, y la misma acción
 // (`darmeDeBajaAction`, que sólo deja al admin de ESTE negocio y manda el código por email).
 // =============================================================================
 
@@ -32,7 +32,7 @@ export default async function PlanMovil() {
   // La plataforma no tiene un plan de MaKo (el índice no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_CONFIG_M));
   const [capa, sus, gratisHasta] = await Promise.all([getCapaActual(), suscripcionDeMakoDe(ws).catch(() => null), gratisHastaDe(ws).catch(() => null)]);
-  // LA PRUEBA GRATIS (25/10/2026): hasta cuándo va y «Empezar mi plan ya», como en la computadora.
+  // LA PRUEBA GRATIS (25/10/2026): hasta cuándo va.
   const enPrueba = !!sus && esPruebaDePlan(sus) && sus.estado === 'pendiente';
   const hasta = enPrueba ? await inicioDeLaPrueba(sus!).catch(() => null) : null;
   // La pantalla no ve el cobro entero (ni el token, ni los ids del proveedor): sólo lo que dibuja. Igual que escritorio.

@@ -53,6 +53,8 @@ export type OpcionesToast = {
 type ValorShell = {
   /** false fuera de /m: las primitivas pueden decidir no hacer nada. */
   dentro: boolean;
+  /** Es la app de iPhone de las tiendas (lib/tienda.ts): sin «En la computadora» ni «Coming soon». */
+  appIos: boolean;
   setCabecera: (c: CabeceraPisada | null) => void;
   conexion: ConexionM;
   /** Avisa que la pantalla acaba de cargar datos frescos (lo llama el pull-to-refresh). */
@@ -62,6 +64,7 @@ type ValorShell = {
 
 const SIN_SHELL: ValorShell = {
   dentro: false,
+  appIos: false,
   setCabecera: () => {},
   conexion: { enLinea: true, datosDe: null },
   marcarCarga: () => {},
