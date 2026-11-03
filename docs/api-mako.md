@@ -14149,10 +14149,11 @@ curl -L \
   "https://hola-mako.com/api/v1/negocio/knowledge/modulos/MODULO?pregunta=PREGUNTA"
 ```
 
-### `POST /api/v1/negocio/sumar_documento_second_brain` — Sumar un documento al Second Brain
+### `POST /api/v1/negocio/archivero/documentos` — Sumar un documento al Second Brain
 
 PROPONE guardar en El Archivero un documento que la persona pegó o adjuntó (un .docx, un texto) para que MaKo lo incorpore: queda en el Second Brain y saca de ahí lo que va en el perfil del negocio, sin tocar lo editado a mano. Úsala cuando pidan cargar, guardar, analizar o incorporar un documento. El texto va ENTERO y tal cual. Si contesta con `disponibles`, saca tú los campos con esas claves y vuelve a llamarla con `campos` y `resumen`. Se deshace con borrar_documento_archivero.
 
+- **Ruta por operación:** `POST /api/v1/negocio/sumar_documento_second_brain`
 - **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
@@ -14172,7 +14173,14 @@ PROPONE guardar en El Archivero un documento que la persona pegó o adjuntó (un
 | `resumen` | string | no | Sólo con `campos`: qué es el documento y qué aporta, en dos o tres frases. |
 
 ```bash
-
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/negocio/archivero/documentos" \
+  -d '{"texto":"TEXTO"}'
 ```
 
 ## Content Machine — `contenido`
