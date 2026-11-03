@@ -27,7 +27,7 @@ import './cuenta.css';
 import { requireMovil, salidaDeVista } from '@/lib/movil-guard';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { getNotifPush, leerPerfil, usuarioPropio } from '@/lib/perfil';
-import { seccionesCuenta, seccionesNegocio } from '@/lib/ajustes-secciones';
+import { seccionesCuenta, seccionesNegocio, SECCIONES_CUENTA } from '@/lib/ajustes-secciones';
 import { disponiblesNegocio } from '@/lib/ajustes-negocio';
 import { RUTA_CONFIG_M, SECCIONES_NEGOCIO_M } from '@/lib/movil-rutas';
 import { PantallaM } from '../_ui/PantallaM';
@@ -48,8 +48,11 @@ export default async function CuentaPagina() {
   // «Tu negocio» (26/10/2026): sus secciones DIRECTO en la lista, las mismas de la computadora (`seccionesNegocio`), cada una
   // con su pantalla del teléfono (/m/configuraciones/<clave>) o, si no tiene, «en la computadora».
   const verNegocio = puedeVerKey('configuraciones', ctx.rol, ctx.capa);
+  // Mirando a un cliente (3/11/2026, ticket #49): «Notificaciones» de «Tu cuenta» es, en el teléfono, la hoja de los avisos de ESTE
+  // teléfono y no se ofrece (`seccionesCuenta`). A quién le avisa MaKo en ese negocio se abre acá, en «Tu negocio».
+  const notifDelNegocio = salida != null ? SECCIONES_CUENTA.filter((s) => s.key === 'notificaciones') : [];
   const negocio = verNegocio
-    ? seccionesNegocio(await disponiblesNegocio()).map((s) => {
+    ? [...notifDelNegocio, ...seccionesNegocio(await disponiblesNegocio())].map((s) => {
         const enTelefono = s.key in SECCIONES_NEGOCIO_M;
         return { key: s.key, label: s.label, icono: s.icono, href: enTelefono ? `${RUTA_CONFIG_M}/${s.key}` : s.href, enComputadora: !enTelefono };
       })

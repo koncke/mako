@@ -335,8 +335,8 @@ test('5. Configuraciones › Notificaciones ya no monta la lista de mensajes (ni
   const panel = fuente('app/perfil/NotificacionesPanel.tsx');
   assert.doesNotMatch(panel, /PlantillasView|enlaceAMensajeMako|editarEnChatbot|\/api\/perfil\/plantillas/);
   // Sin la prop de los mensajes: desde el 25/10/2026 (Settings copiada de Linear) son el canal abierto, si administra el
-  // negocio y la zona de su «No molestar» — ninguna de mensajes.
-  assert.match(panel, /export function NotificacionesPanel\(\{ canal, admin, zona \}: \{/);
+  // negocio, la zona de su «No molestar» y si mira a otro — ninguna de mensajes.
+  assert.match(panel, /export function NotificacionesPanel\(\{ canal, admin, zona, deOtro = false \}: \{/);
   assert.doesNotMatch(fuente('app/configuraciones/notificaciones/page.tsx'), /mensajesEnChatbot/);
   assert.doesNotMatch(fuente('app/configuraciones/page.tsx'), /mensajesEnChatbot/);
 });

@@ -24,7 +24,8 @@ export function ponerSesion(
   if (!token) return false;
   const dias = 60 * 60 * 24 * SESSION_DIAS;
   res.cookies.set({ name: SESSION_COOKIE, value: token, httpOnly: true, maxAge: dias, ...base() });
-  res.cookies.set({ name: EMAIL_COOKIE, value: s.email, httpOnly: false, maxAge: dias, ...base() });
+  // HttpOnly desde el 01/11/2026: es un dato personal y ningún script de la app lo lee (se buscó).
+  res.cookies.set({ name: EMAIL_COOKIE, value: s.email, httpOnly: true, maxAge: dias, ...base() });
   // El paso intermedio se cierra en el mismo movimiento: vivo después de entrar no sirve
   // para nada y es una credencial más dando vueltas.
   sacarPreauth(res);

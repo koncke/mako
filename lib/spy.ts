@@ -57,6 +57,7 @@ import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
+import { redDeUrl } from './spy-otras-redes-reglas';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
 
@@ -69,6 +70,8 @@ export type Competidor = {
   nombre: string;
   instagram: string | null;
   youtube_id: string | null;
+  /** Su @ de TikTok (0365). Spy no lo lee: dice dónde está. */
+  tiktok: string | null;
   landing_url: string | null;
   pagina_anuncios: string | null;
   pais: string | null;
@@ -131,7 +134,7 @@ export type AnalisisPieza = {
 };
 
 const COLUMNAS_COMPETIDOR =
-  'id, nombre, instagram, youtube_id, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores, avatar';
+  'id, nombre, instagram, youtube_id, tiktok, landing_url, pagina_anuncios, pais, oferta, mirado_en, texto_leido_en, metricas_leidas_en, instagram_seguidores, youtube_suscriptores, avatar';
 
 /**
  * ¿El error es «la tabla no existe» (42P01)? La nube escribe la migración y no la puede aplicar, así
@@ -175,7 +178,7 @@ export async function leerCompetidor(id: number): Promise<Competidor | null> {
  * de YouTube, el link de su landing o su nombre. Es el mismo patrón del link pegado del Web
  * Generator: la persona pega lo que tiene y el código resuelve qué es.
  */
-export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'landing_url' | 'nombre'; valor: string } | null {
+export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre'; valor: string } | null {
   const s = (crudo ?? '').trim();
   if (!s) return null;
   // Un @ suelto, o un link de Instagram.
@@ -193,6 +196,11 @@ export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'lan
     if (c && 'usuario' in c) return { campo: 'youtube_id', valor: `user:${c.usuario}` };
     return null;
   }
+  // Su TikTok (0365). ⚠️ Va ANTES de la regla de «cualquier link es su sitio»: sin esto, un link a
+  // su TikTok en la bio se guardaba como su LANDING. Lo lee `redDeUrl`, la misma función que lee los
+  // resultados de la búsqueda: así un candidato confirmado entra con el mismo @ que se ofreció.
+  const tt = redDeUrl(s);
+  if (tt?.red === 'tiktok') return { campo: 'tiktok', valor: tt.ref };
   if (/^https?:\/\//i.test(s)) return { campo: 'landing_url', valor: s.slice(0, 500) };
   // Un dominio pelado también es una landing («acme.com»).
   if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(s)) return { campo: 'landing_url', valor: `https://${s}`.slice(0, 500) };
@@ -251,6 +259,7 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
   const yaEsta = existentes.find((x) => (
     (leido.campo === 'instagram' && x.instagram === leido.valor)
     || (leido.campo === 'youtube_id' && x.youtube_id === leido.valor)
+    || (leido.campo === 'tiktok' && x.tiktok === leido.valor)
     || (leido.campo === 'landing_url' && !!x.landing_url && dominioComparable(x.landing_url) === dominioComparable(leido.valor))
     || (!!buscado && nombreComparable(x.nombre) === buscado)
     // 3. el REFERENTE. Si lo pegado y el que ya está son la misma persona dibujada, son la misma
@@ -265,10 +274,12 @@ export async function agregarCompetidor(pegado: string, nombrePedido?: string, d
     const suma: Record<string, unknown> = {};
     if (leido.campo === 'instagram' && !yaEsta.instagram) suma.instagram = leido.valor;
     if (leido.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = leido.valor;
+    if (leido.campo === 'tiktok' && !yaEsta.tiktok) suma.tiktok = leido.valor;
     if (leido.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = leido.valor;
     // El link de la bio entra con la MISMA regla: sólo si ese canal falta. Volver a pegar un @ sobre
     // una ficha vieja le completa la landing que antes no se guardaba, y no pisa nada.
     if (extra?.campo === 'youtube_id' && !yaEsta.youtube_id) suma.youtube_id = extra.valor;
+    if (extra?.campo === 'tiktok' && !yaEsta.tiktok) suma.tiktok = extra.valor;
     if (extra?.campo === 'landing_url' && !yaEsta.landing_url) suma.landing_url = extra.valor;
     if (!Object.keys(suma).length) return { ok: true, competidor: yaEsta };
     const r = await db.from('spy_competidores').update({ ...suma, updated_at: new Date().toISOString() })

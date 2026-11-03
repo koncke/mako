@@ -1373,9 +1373,13 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
    sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
    sí la podía confirmar (comunidad, 17/10/2026).
-   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (las cuotas, los ids) VIAJA en el payload, y
-   `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata dice lo que va a QUEDAR, no lo pedido:
-   las cuotas cobradas y las que no se pueden tocar (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
+   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (cada cuota COMO ESTABA, con su firma: no
+   alcanza con los ids) VIAJA en el payload, y `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata
+   dice lo que va a QUEDAR, no lo pedido: las cuotas cobradas, las que no se pueden tocar y lo que queda aparte
+   (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
+   **Lo que no se va a poder cumplir NUNCA se cierra:** `faltaParaConfirmar` devuelve `{ yaNoVale }` (el plan cambió, la
+   propuesta es de una versión anterior) y `confirmarPendiente` la deja en `error`; un texto suelto la deja viva para
+   quien sí puede. Y cambiar la forma de un payload es RECHAZAR los de antes, nunca «si no viene, la regla vieja».
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin
@@ -2025,6 +2029,12 @@ código nuevo:
       una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts. ES LA FUENTE: una capacidad de
       lib/mako-capacidades.ts (el «cómo se hace» del Perro) toma su tab de ahí, y `listar_capacidades_mako` devuelve esas
       funciones; un catálogo nuevo AL LADO no va.
+    - **El catálogo, las rutas y las herramientas usan el nombre que la persona LEE en la pantalla** (tickets #45 a #48 de
+      Leila, 3/11/2026): con «Aprender solo» por «Aprende solo», «automatización» por «secuencia» o «Documentos» por «El
+      brief», MaKo NIEGA lo que sí tiene, que es peor que no tenerlo. Dónde se corrige un dato del negocio sale de
+      `DATOS_DEL_NEGOCIO` / `lugarDato` (lib/secciones-negocio.ts), nunca escrito a mano. Si un pedido real no trae su
+      herramienta, se mide con el turno de verdad (`herramientasDelChat`, no la lista `noViajaron` del ticket, que trae sólo
+      las 6 de más puntaje) y la familia nueva de lib/mako-intencion-app.ts lleva su frase literal en un test.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
@@ -3959,6 +3969,10 @@ excepción del código— apaga así la integración de todos: pasó el 11/09 y 
 (tres cancelaciones del anfitrión en un minuto, y 4 reservas perdidas). Lo transitorio (la base
 caída) va 5xx; lo que va a fallar igual en el próximo intento va **2xx y se registra** donde se
 pueda leer. Es la otra mitad de «un 200 es un ACK» (`docs/hallazgos-infra.md` → «Webhooks»).
+
+⚠️ **Y UNA CLAVE FUERA DEL CATÁLOGO NO LLEGA A `process.env`** (03/11/2026): la hidratación copia sólo lo que declara
+`SERVICIOS_METODO`, las keys de IA y sus rótulos (`puedeHidratarse`). Una clave nueva con fila en el ws1 y sin entrada en el catálogo
+se queda en un `console.warn` por arranque, y quien la lea de `process.env` ve vacío. Se declara en el catálogo, o se lee con `credWs`.
 
 ⚠️ **Y LA LECTURA QUE DECIDE DE QUIÉN ES EL EVENTO VA ESTRICTA** (`wsPorIdentificadorEstricto`,
 `credWsEstricta`). `wsPorIdentificador` y `credWs` no leen el `error` de supabase-js: con la base

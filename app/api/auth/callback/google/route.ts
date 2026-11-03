@@ -170,7 +170,8 @@ export async function GET(req: NextRequest) {
     });
     const ui = (await uiRes.json()) as { email?: string; email_verified?: boolean; name?: string; picture?: string };
     const email = typeof ui.email === 'string' ? ui.email.toLowerCase() : '';
-    if (!email || ui.email_verified === false) return fail('no-autorizado');
+    // `!== true` y no `=== false` (01/11/2026): un userinfo que no dice nada no es un correo verificado.
+    if (!email || ui.email_verified !== true) return fail('no-autorizado');
 
     const usuario = await resolverConFallback(email);
     if (!usuario) {

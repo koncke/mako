@@ -82,7 +82,7 @@ contarle tu negocio en cada chat.
 ## Instalar
 
 \`\`\`
-/plugin marketplace add mbustos-digital/mako-plugin
+/plugin marketplace add koncke/mako-plugin
 /plugin install mako@mako
 \`\`\`
 

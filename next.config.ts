@@ -78,6 +78,9 @@ const nextConfig: NextConfig = {
     '/**': [
       './node_modules/onnxruntime-node/**',
       './node_modules/onnxruntime-web/**',
+      // 164 MB de transcripciones (9.719 archivos): lib/cerebro-referente-server.ts las lee con
+      // readFile y el trazado las metía en TODAS las funciones. En producción se leen del CDN.
+      './public/cono-tx/**',
       './node_modules/@huggingface/transformers/**',
     ],
   },
@@ -250,7 +253,19 @@ const nextConfig: NextConfig = {
       {
         source: '/:path*',
         has: [{ type: 'host', value: PATRON_HOSTS_DE_MAKO }],
-        headers: [{ key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' }],
+        headers: [
+          // `preload` (01/11/2026, auditoría de seguridad): deja anotar hola-mako.com en la lista de HSTS de los
+          // navegadores (hstspreload.org, lo anota Martín). Con eso ni la PRIMERA visita viaja por http.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+          // Lo que la APP no usa nunca, apagado también para lo que se cuele en ella (una extensión, un iframe ajeno,
+          // un XSS). Sólo en los hosts de MaKo, como el HSTS: una landing de un cliente enmarca reproductores y
+          // pasarelas que piden permisos propios. Cámara, micrófono, ubicación y compartir pantalla quedan para la app
+          // misma (las notas de voz, el Video Editor); pantalla completa y reproducción automática no se tocan.
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(self), microphone=(self), geolocation=(self), display-capture=(self), usb=(), serial=(), hid=(), bluetooth=(), midi=(), magnetometer=(), gyroscope=(), browsing-topics=(), interest-cohort=()',
+          },
+        ],
       },
       // Lo que se sirve ADENTRO de un iframe de una página nuestra (editor de landings, tanda 2):
       // el «HTML personalizado» de una landing (/l/html/<docId>/<bloque>, T6) y la página de afuera

@@ -330,7 +330,9 @@ function pedir(url: string, metodo = 'GET', headers: Record<string, string> = {}
 const pasa = (r: Response) => r.headers.get('x-middleware-next') === '1';
 const sobrescritas = (r: Response) => (r.headers.get('x-middleware-override-headers') ?? '').split(',').map((s) => s.trim());
 // `mfa`: desde el 2FA (14/10/2026) un token de admin sin segundo factor no es una sesión.
-const sesionAdmin = () => `${SESSION_COOKIE}=${crearToken({ sub: 'u1', email: 'admin@mako.test', nombre: 'Admin', rol: 'admin', mfa: 'totp' })}`;
+// `sub` numérico: desde el 01/11/2026 en Vercel un token cuyo `sub` no es el id de una fila no vale (lo firma sólo
+// el dev-login local), y este test corre con `VERCEL_ENV` puesto.
+const sesionAdmin = () => `${SESSION_COOKIE}=${crearToken({ sub: '1', email: 'admin@mako.test', nombre: 'Admin', rol: 'admin', mfa: 'totp' })}`;
 
 test('proxy en hola-mako.site: reescribe a app/l sin el workspace ni el dominio, y NO lee la sesión (en cualquier entorno)', () => {
   for (const env of ['production', undefined]) {
@@ -428,7 +430,9 @@ test('un prefijo que el matcher del proxy saltea no puede ser un slug (en hola-m
   const m = String(configProxy.matcher[0]);
   const ini = m.indexOf('(?!');
   assert.ok(ini > 0, 'no encontré el lookahead del matcher');
-  const alternativas = m.slice(ini + 3, m.indexOf('|.*\\.', ini)).split('|');
+  // El último tramo es el de las extensiones (`.*\.(?:png|…)$`), desde el 01/11/2026 con `(?!api/)` adelante: no es un prefijo.
+  const finPrefijos = m.slice(ini).search(/\|(?:\(\?!api\/\))?\.\*\\\./);
+  const alternativas = m.slice(ini + 3, ini + finPrefijos).split('|');
   const conBarra = alternativas.filter((a) => a.endsWith('/')).map((a) => a.slice(0, -1));
   assert.ok(conBarra.includes('cono-tx') && conBarra.includes('cono-doc'), `leí ${JSON.stringify(alternativas)}: esto no leyó el matcher`);
   for (const a of alternativas) {

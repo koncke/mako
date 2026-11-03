@@ -605,3 +605,29 @@ roto y no te enterás. Probarlo rompiéndolo es lo que lo mostró.
 **Vive en:** lib/spy-reglas.ts (`canalDeLaBio`) · lib/spy.ts (`agregarCompetidor`, `queEs`) ·
 app/competitor-spy/SpyApp.tsx (`ModalAlta` → `onPegar`) · app/competitor-spy/actions.ts ·
 tests/spy-canal-de-la-bio.test.ts
+
+## Sus otras redes por búsqueda: el costo medido apurado sale 100 veces más bajo (3/11/2026)
+
+**Síntoma:** al medir el actor de búsqueda (`apify~google-search-scraper`) la corrida decía
+**US$0,00005**. Parecía gratis.
+**Causa real:** es un actor PAY_PER_EVENT y el evento de la página («search-page-scraped»,
+US$0,0045) se asienta DESPUÉS de que la corrida termina. Leído a los 4 s sólo figuraba el
+arranque. Asentado: **US$0,00455 por búsqueda**. `scripts/probar-otras-redes-apify.mjs` espera 15 s
+y suma evento por precio; **`usageTotalUsd` solo no es lo que se paga** en un actor por eventos.
+
+**Otras trampas del mismo actor, medidas:**
+- **Exige `maxTotalChargeUsd` ≥ US$0,50** (con 0,02, como los de Instagram, contesta 400
+  `max-total-charge-usd-below-minimum`). Es un techo, no un cobro: `TECHO_USD_POR_CORRIDA_REDES`.
+- **Buscar por nombre trae a otras personas, y se vio en la primera prueba:** «Sofia Contreras»
+  devolvió CINCO Instagram distintos. Por eso la búsqueda devuelve candidatos y **no escribe**
+  (`lib/spy-otras-redes.ts` no importa la base; un test lo vigila) y sólo el «Sí, es esta persona»
+  guarda, por el mismo camino que pegarlo a mano.
+- **El `/c/<alias>` de YouTube es su canal pero no se ofrece:** ningún endpoint lo resuelve, y
+  convertirlo en `@alias` es adivinar — un `@` adivinado puede ser el canal de otro.
+
+**Lo que estaba roto sin que nadie lo viera:** un link a su **TikTok en la bio se guardaba como su
+LANDING** — `queEs` clasificaba tiktok.com como un sitio cualquiera. Ahora TikTok es un campo
+(migración 0365) y `queEs` lo reconoce con la misma `redDeUrl` que lee los resultados.
+
+**Regla:** de una red que el competidor YA tiene no se ofrece nada. El que está lo eligió el
+negocio; los demás con su nombre son otra gente.

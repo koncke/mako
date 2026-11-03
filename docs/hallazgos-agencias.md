@@ -6,6 +6,64 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## Joan no podía agregarse al grupo de un cliente: la puerta estaba abierta, faltaba el renglón (ticket #49, 3/11/2026)
+
+- **Síntoma:** «no puedo ver las notificaciones dentro de la cuenta de un cliente para agregar un número de WhatsApp al
+  grupo de MaKo».
+- ⚠️ **El diagnóstico obvio era el equivocado:** todo apuntaba a un permiso (la tab solo-superadmin, la puerta del
+  servidor, `agregarParticipanteGrupo`). Medido con la sesión de una agencia sobre el código real
+  (`tests/_agencia-grupos-hijo.ts`): `getRolWsEfectivo` da `admin`, `getWorkspaceActual` da el cliente, el GET y el POST
+  de `/api/perfil/destinatarios` andan, la cartera aísla y la invitación sale. **Por URL directa funcionaba.**
+- **Causa real:** `seccionesCuenta` (`lib/ajustes-secciones.ts`) esconde «Notificaciones» mirando a otro, porque «los
+  avisos son de quien mira». Era cierto hasta el 25/10, cuando «Notificaciones» del negocio salió del índice por estar
+  dos veces y se mudó adentro de la de «Tu cuenta». El filtro siguió con su regla y dejó sin entrada a la agencia y al
+  super admin. **Mudar una sección de grupo cambia para quién vale el filtro del grupo de destino.**
+- **En el teléfono no hay entrada para NADIE** a `/m/configuraciones/notificaciones`: el índice sale de
+  `seccionesNegocio`, que ya no la tiene. Se abrió mirando a un cliente; el resto, abajo en «sin hacer».
+- **Trampa: la cookie de la agencia dura 8 horas (`AGENCIA_HORAS`) y al vencer el pedido cae, sin error, en la cuenta
+  PROPIA de la agencia.** La pantalla seguía mostrando al cliente, y guardar pisaba `notif_telefonos` de la agencia y
+  sumaba al cliente al grupo de la agencia. Ahora la pantalla manda de qué `ws` leyó y el server contesta 409. **Vale para
+  todo guardado de agencia con la pestaña vieja:** esta ruta es la única cerrada (abajo).
+- **Lo que hay que saber antes de agregarse:** el renglón agrega a `notif_telefonos`, no sólo al grupo, así que ese número
+  también recibe lo que se reparte por esa lista. Y en un cliente **con la lista vacía**, el número pasa a ser el
+  principal: `mako.numero_dueno`, `user_telefono` y el teléfono del comprador en el CRM de la plataforma.
+- **Medido el 3/11 en producción (sólo lectura):** Joan ya está en la lista de 5 de sus 7 clientes (15, 18, 19, 20, 22). Le
+  faltan Marcela (23, con grupo) y Giselle (17, sin grupo ni número). ⚠️ Florencia (21) aparece como cliente suyo en notas
+  viejas y **no está en `agencia_clientes`**.
+
+### El equipo de la agencia entra solo al grupo que nace
+
+- ⚠️ **«Las personas del equipo que tengan teléfono» daba NADIE en producción.** El único usuario de la única agencia tiene
+  `perfil.telefono` vacío; su número vive en `mako.numero_dueno` de la agencia. Con la lectura literal, el automático no
+  invitaba a nadie, sin error. Por eso entran los dos: el número principal de la agencia y el perfil de cada admin. Es el
+  caso de `telefonosDelEquipo` (`lib/agencia-equipo-grupo.ts`).
+- **Closer y setter de la agencia NO entran, y es a propósito:** a ese grupo llegan los reportes de ventas, gasto y montos del
+  cliente, y la auditoría del 14/10 cerró que un closer se sumara a él. Tampoco `notif_telefonos` de la agencia, que puede
+  traer a un contador: sumarlo lo metería en todos los clientes.
+- **El equipo no entra a `notif_telefonos` del cliente.** Va sólo al grupo: no le aparece en Notificaciones ni recibe sus
+  reportes por DM. **Quien se agrega a mano desde la pantalla sí queda en esa lista**: son dos caminos con efectos distintos.
+- **`lineaDeLaAgencia` dice lo que pasó:** «Sumé» si alguien entró, «Invité» si WhatsApp no dejó, nada si no hubo nadie. Va
+  adentro de la bienvenida, un solo mensaje. Sin nombre de agencia no se afirma nada.
+- **El `id` de un participante es un `@lid` que parece un teléfono:** leerlo como número daba a alguien como ausente y
+  se lo volvía a agregar. El número sale de `phoneNumber`; quien no lo trae contesta 409 al agregarlo y no se anuncia.
+- **El tope de la línea (5 contactos nuevos por cliente y por hora) lo comparte con el dueño.** Una agencia con 7 admins
+  deja 2 afuera; el resto toma el comando, que sólo mira a quienes faltan.
+- **Medido el 3/11 con el comando, sólo lectura, contra los grupos reales:** Joan ya está en 15, 18, 19, 20 y 22. Falta entrar a
+  uno, **Marcela (23)**; Giselle (17) no tiene grupo y entra sola cuando nazca. Para la agencia 13:
+  `node --conditions=react-server --env-file=C:/dev/mako-api/.env.local --import tsx scripts/agencia-equipo-a-grupos.mts --agencia=13 --aplicar`.
+  ⚠️ Escribe en un grupo de un cliente: necesita el sí de Martín, y correrlo con el código ya desplegado.
+
+### Sin hacer
+
+- **Un cliente que paga él mismo puede tener el grupo antes de la aprobación:** la cartera queda `pendiente` hasta el pago
+  y `agenciasAprobadasDe` no la cuenta, así que el equipo no entra y nada lo vuelve a intentar al aprobarse. La salida hoy es
+  el comando; lo definitivo es llamar a `aplicarEquipoDeAgencia` desde `lib/agencia-habilitar.ts`. No medí cuántos caen ahí.
+- **El admin de un negocio, en su propia cuenta y por teléfono, sigue sin entrada** a a quién le avisa MaKo:
+  `app/m/cuenta/page.tsx` sólo la agrega mirando a otro, porque «Tu cuenta» ya tiene una fila «Notificaciones» y Martín ya
+  marcó el duplicado una vez. Hay que elegirle un nombre.
+- **La pestaña vieja en el resto de los guardados de agencia:** el corte es general (`resolverDesdeCookies`). Sólo
+  `/api/perfil/destinatarios` compara el `ws`. Lo general sería renovar la cookie o avisar al vencer.
+
 ## Una función contestaba DOS preguntas, y su `null` abría la puerta (P15, 30/10/2026)
 
 - **Síntoma:** las dos pantallas de Agency preguntaban `if (!esSuper && (await agenciaDeCliente(ws))) redirect(...)`

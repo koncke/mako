@@ -17,6 +17,7 @@
 //   - META_PAGE_ACCESS_TOKEN   (token de página — para leer el lead via Graph)
 // =============================================================================
 
+import { igualesSeguro } from '@/lib/grabadores/firmas';
 import crypto from 'node:crypto';
 import type { NextRequest } from 'next/server';
 import { upsertLeadFromMeta, logLeadEvent } from '@/lib/leads';
@@ -50,7 +51,8 @@ export async function GET(request: NextRequest) {
       console.error('[webhook:meta-leads] META_LEADS_VERIFY_TOKEN no configurado');
       return new Response('server not configured', { status: 500 });
     }
-    if (verifyToken === expected) {
+    // En tiempo constante (01/11/2026): un `===` contesta antes cuanto antes difiere, y el verify token se adivina por partes.
+    if (igualesSeguro(verifyToken, expected)) {
       console.log('[webhook:meta-leads] verificación OK — challenge devuelto');
       return new Response(challenge, {
         status: 200,

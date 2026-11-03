@@ -22,10 +22,11 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 type Canal = 'whatsapp' | 'email';
 type Guardado = { ok: boolean; error?: string; destinatarios?: Destinatarios; noAgregados?: { telefono: string; motivo: string }[]; linkGrupo?: string | null };
 
-export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatarios: Destinatarios; tieneGrupo: boolean } | null }) {
+export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatarios: Destinatarios; tieneGrupo: boolean; ws: number | null } | null }) {
   const toast = useToastM();
   const [dest, setDest] = useState<Destinatarios | null>(iniciales?.destinatarios ?? null);
   const [tieneGrupo, setTieneGrupo] = useState(iniciales?.tieneGrupo ?? false);
+  const [wsLeido, setWsLeido] = useState<number | null>(iniciales?.ws ?? null);
   const [errCarga, setErrCarga] = useState<string | null>(null);
   const [agregar, setAgregar] = useState<Canal | null>(null);
   const [quitar, setQuitar] = useState<{ canal: Canal; valor: string } | null>(null);
@@ -36,9 +37,9 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
     setErrCarga(null);
     try {
       const r = await fetch('/api/perfil/destinatarios', { signal: AbortSignal.timeout(30_000) });
-      const j = (await r.json()) as { ok: boolean; error?: string; destinatarios?: Destinatarios; tieneGrupo?: boolean };
+      const j = (await r.json()) as { ok: boolean; error?: string; destinatarios?: Destinatarios; tieneGrupo?: boolean; ws?: number | null };
       if (!r.ok || !j.ok || !j.destinatarios) { setErrCarga(j.error ?? 'No se pudieron cargar los destinatarios.'); return; }
-      setDest(j.destinatarios); setTieneGrupo(Boolean(j.tieneGrupo));
+      setDest(j.destinatarios); setTieneGrupo(Boolean(j.tieneGrupo)); setWsLeido(j.ws ?? null);
     } catch {
       setErrCarga('No se pudieron cargar los destinatarios. Revisa tu conexión.');
     }
@@ -56,7 +57,7 @@ export function NotificacionesNegocioM({ iniciales }: { iniciales: { destinatari
     setDest({ telefonos, emails }); // optimista: la fila responde al toque
     try {
       const j = (await (await fetch('/api/perfil/destinatarios', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefonos, emails }), signal: AbortSignal.timeout(45_000),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ telefonos, emails, ...(wsLeido != null ? { ws: wsLeido } : {}) }), signal: AbortSignal.timeout(45_000),
       })).json()) as Guardado;
       if (!j.ok || !j.destinatarios) { setDest(antes); haptico('error'); toast(j.error ?? 'No se pudo guardar'); return false; }
       setDest(j.destinatarios);

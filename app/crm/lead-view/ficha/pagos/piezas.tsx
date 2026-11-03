@@ -24,7 +24,8 @@ import type { Tono as TonoUi } from '@/app/_ui/tokens';
 import type { Tono } from '@/lib/cobrado-lead';
 import type { Pago } from '@/lib/pagos';
 import { METODOS_PAGO, ROTULO_METODO, nombreCuota, type MetodoPago } from '@/lib/pagos-campo';
-import { dolaresALaTasaDeLaCuota } from '@/lib/pagos-diferencia';
+import { dolaresALaTasaDeLaCuota, restoEnLaMonedaDeLaCuota } from '@/lib/pagos-diferencia';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 import { fechaEnPalabras, horaEnTz } from '@/lib/date-utils';
 import { useTzWorkspace } from '../../useTzWorkspace';
 import { usd } from '@/lib/pagos-vistazo';
@@ -216,6 +217,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
   const aLaTasa = dolaresALaTasaDeLaCuota(cuota, { moneda: plata.moneda, montoOriginal: numero(plata.monto) });
   const p = plataParaServer(plata, aLaTasa ?? valorUsd);
   const falta = p.ok && p.monto != null && p.monto < valorUsd ? Math.round((valorUsd - p.monto) * 100) / 100 : 0;
+  // En la moneda de la cuota, lo que falta es en ESA moneda: así queda la diferencia (mig 0347; revisión de 7f79a4e6c, B13).
+  const faltaEnSuMoneda = falta > 0 && p.ok ? restoEnLaMonedaDeLaCuota(cuota, p) : null;
   const guardar = () => {
     if (!p.ok) { setError(p.error); return; }
     setError(null);
@@ -228,7 +231,8 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
         if (r.porLink) { onHecho('Ya pagada por link', false); return; }
         // Alguien la cobró mientras el modal estaba abierto: no se tocó nada, y no hay nada que deshacer.
         if (r.yaEstaba) { onHecho(`${nombre} ya estaba cobrada`, false); return; }
-        onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${usd(r.pendiente)} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null && p.monto === valorUsd);
+        const quedan = r.pendienteEnSuMoneda ? formatoMonto(r.pendienteEnSuMoneda.monto, r.pendienteEnSuMoneda.moneda) : usd(r.pendiente ?? 0);
+        onHecho(r.pendiente != null ? `${nombre} cobrada · quedan ${quedan} pendientes` : `${nombre} marcada como pagada`, r.pendiente == null && p.monto === valorUsd);
       } catch (e) { setError(msg(e)); }
     });
   };
@@ -256,7 +260,7 @@ export function MarcarPagada({ cuota, leadId, monedaNegocio, hoy, comprobante = 
           <CamposDeCuando fecha={fecha} hora={hora} metodo={metodo} setFecha={setFecha} setHora={setHora} setMetodo={setMetodo} />
           {falta > 0 && (
             <div role="radiogroup" aria-label="Qué pasa con la diferencia" style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px', borderRadius: 11, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Faltan {usd(falta)} de la cuota</span>
+              <span style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>Faltan {faltaEnSuMoneda ? `${formatoMonto(faltaEnSuMoneda.monto, faltaEnSuMoneda.moneda)} (${formatoMonto(falta, 'USD')})` : usd(falta)} de la cuota</span>
               {([['pendiente', 'Quedan pendientes'], ['descuento', 'Es un descuento']] as const).map(([v, l]) => (
                 <label key={v} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: 'var(--ink)', cursor: 'pointer' }}>
                   <input type="radio" name={`resto-${cuota.id}`} checked={resto === v} onChange={() => setResto(v)} />{l}

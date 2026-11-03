@@ -7355,6 +7355,28 @@ gana al plan (sólo un pedido de MOVERLA: `MUEVE_AGENDA`); y el estilo de la vis
 «Editar» (`nombraLaVistaDeLaFicha`), no en todo esPedidoDeCobro, donde «me mostró» o «la orden de compra» son datos. «Anotado, …»,
 «Anotado 👍» y «Anotado y guardado» siguen siendo un «Anotado»; con una pendiente, la queja suelta («No anda») tampoco es un «no».
 
+**Los tickets #46, #47 y #48 de Leila (3/11/2026, claude2): la palabra de la persona no era la del NOMBRE de la herramienta.**
+- **El síntoma:** «quiero pasar el precio a dólares» → «el precio no lo puedo cambiar desde este chat»; «el WhatsApp del
+  diagnóstico tiene que disparar una secuencia» → «sólo puedo activar o pausar»; «¿dónde actualizo mis datos?» → «la ruta no la
+  tengo confirmada». Las tres cosas existían: `guardar_oferta`/`guardar_producto` (proponen el precio con link),
+  `crear_automatizacion_con_ia` (crea la secuencia con disparador por etiqueta) y el Second Brain («La oferta» → «El brief»).
+- ⚠️ **El diagnóstico obvio era el equivocado: la lista `noViajaron` del ticket NO nombraba las herramientas que faltaron.** Se
+  lee como «lo demás viajó y el modelo eligió negar». No: `parecidasQueNoViajaron` trae sólo las 6 de más puntaje, y
+  `guardar_oferta` (1 punto, por «precio» en la descripción) quedaba fuera del top. **Se mide con el turno real**
+  (`clasificarIntencion` + `herramientasDelChat`, canal app, como `herramientas()` en tests/mako-no-puedo-falsos.test.ts): en los
+  tres pedidos no viajaba NINGUNA de las que resolvían.
+- **La causa:** el presupuesto de 12.000 ordena por palabras en común con el id y el título. «precio», «secuencia», «disparar»,
+  «datos» y «dónde» no estaban en esos nombres («oferta», «automatización», «Qué se hace dentro de MaKo»), y ninguna familia de
+  `lib/mako-intencion-app.ts` las sumaba. Además «oferta» abría sólo el área `crm`, y `guardar_oferta` es de `negocio`.
+- **Y un cuarto, del mismo tipo:** `guardar_campo_perfil` y `guardar_oferta` mandaban a corregir el precio a «Documentos», cuando el
+  campo se LEE y se corrige tocándolo en «La oferta» → «El brief» (CamposNegocio escribe en el mismo `archivero/manual`).
+- **La regla (la del #45, ahora con dónde vive):** lo que un chat dice de una pantalla sale de UNA tabla con el nombre que la persona
+  lee: `DATOS_DEL_NEGOCIO` + `lugarDato`/`rutaDato` (lib/secciones-negocio.ts), y el test 17 busca cada nombre en `AREAS` y en las
+  pestañas de AreasHub. Cuando un pedido real no trae su herramienta, la familia nueva lleva su frase literal en un test.
+- **Lo que quedó SIN hacer:** `guardar_campo_perfil` sigue completando sólo huecos: MaKo no puede corregir un precio ya cargado en
+  «El brief», sólo decir dónde se toca (lib/api-mako/areas/negocio.run.ts, `guardar_campo_perfil`; abrirlo es una decisión de
+  producto). Un «pásalo a dólares» suelto, sin la palabra «precio», todavía no trae `guardar_oferta`.
+
 ## El grupo de WhatsApp usaba el prompt del DASHBOARD (28/10/2026, claude4, el diagnóstico del Cerebro, F1)
 
 **El síntoma:** «Mira… no es arrancar por los flujos locos, sino por definir el disparador… armamos el experimento para

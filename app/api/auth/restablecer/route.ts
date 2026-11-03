@@ -19,6 +19,7 @@ import { avisarContrasenaCambiada } from '@/lib/contrasena-cambio-aviso';
 import { limitePorIp } from '@/lib/limite-publico';
 import { getSupabaseServer } from '@/lib/supabase';
 import { buscarUsuarioPorEmail } from '@/lib/usuarios';
+import { revocarSesiones } from '@/lib/sesiones-revocadas';
 import { correoNormalizado, problemaDeContrasena } from '@/lib/contrasena-reglas';
 import { guardarContrasena } from '@/lib/contrasena';
 import { crearLinkDeRestablecer, leerLinkDeRestablecer, sumarIntentoAlLink, gastarLink } from '@/lib/contrasena-restablecer';
@@ -127,6 +128,9 @@ export async function POST(req: NextRequest) {
     const g = await guardarContrasena(l.usuarioId, body.contrasena, cuenta);
     if (!g.ok) return no(g.nuestro ? 'No se pudo guardar. Pide otro link.' : g.error);
     await registrarEvento(l.usuarioId, 'contrasena-restablecer', true);
+    // Restablecer anota el corte de TODAS las sesiones abiertas (01/11/2026): quien restablece suele hacerlo
+    // porque perdió el control de la cuenta. ⚠️ Hasta que `leerSesion` lo lea no cierra ninguna (lib/sesiones-revocadas.ts).
+    await revocarSesiones(l.usuarioId);
     const uid = l.usuarioId;
     after(() => avisarContrasenaCambiada(uid).then(() => undefined));
     return NextResponse.json({ ok: true });

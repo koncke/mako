@@ -48,3 +48,20 @@ export function dolaresALaTasaDeLaCuota(
   // Un cobro de algo es al menos un centavo: con 0, la cuota se tomaba entera.
   return Math.max(centavos((usd * cobrado) / pactado), 0.01);
 }
+
+/**
+ * Lo que falta de un cobro a medias, EN LA MONEDA DE LA CUOTA: la MISMA regla que `cobrar_cuota_con_resto` (mig 0347), para que
+ * los textos digan la diferencia que queda. Con la 0347 una cuota de MXN 12.000 cobrada por 6.000 deja MXN 6.000 pendientes, y el
+ * resumen, el «sí» y el modal seguían diciendo «faltan 300 USD» (revisión de 7f79a4e6c, B13). null: la diferencia es en dólares.
+ */
+export function restoEnLaMonedaDeLaCuota(
+  cuota: { moneda?: string | null; monto_original?: number | string | null },
+  cobro: { moneda?: string | null; montoOriginal?: number | null },
+): { moneda: string; monto: number } | null {
+  const iso = (m: unknown) => (m == null ? '' : String(m).trim().toUpperCase());
+  const moneda = iso(cuota.moneda);
+  if (!moneda || moneda === 'USD' || iso(cobro.moneda) !== moneda || cobro.montoOriginal == null) return null;
+  const pactado = Number(cuota.monto_original);
+  const falta = centavos(pactado - Number(cobro.montoOriginal));
+  return pactado > 0 && falta > 0 ? { moneda, monto: falta } : null;
+}

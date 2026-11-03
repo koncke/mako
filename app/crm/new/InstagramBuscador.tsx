@@ -19,7 +19,7 @@
 // Lo que vive acá:
 //   · ESPERA 500 ms después de la última tecla y pide 3 letras: la búsqueda por nombre gasta una de las
 //     100 gratis del día de la plataforma. El pedido anterior se CANCELA al tipear (AbortController) y
-//     lleva su tope (17 s: la ruta corta a los 15): un `fetch` sin `signal` es un giro eterno.
+//     lleva su tope (62 s: la ruta corta a los 60, porque Apify tarda ~20 s): un `fetch` sin `signal` es un giro eterno.
 //   · Una respuesta sólo se dibuja si es la del texto que está escrito AHORA (`resp.texto`): una vieja
 //     que llega tarde no pisa la lista.
 //   · NADA SE INVENTA: sin resultados, la lista dice POR QUÉ (#844, `avisoSinResultados`): por nombre no hay
@@ -72,8 +72,8 @@ import {
 export type { PerfilIg };
 
 const SANS = "'Geist', sans-serif";
-/** El tope de la ruta (15 s) + un margen. */
-const TOPE_MS = 17_000;
+/** El tope de la ruta (60 s) + un margen. */
+const TOPE_MS = 62_000;
 /** El alto de diseño de la lista: con él se decide el lado, y es su máximo. */
 const ALTO_LISTA = 360;
 
@@ -397,7 +397,7 @@ export function InstagramBuscador({ valor, onElegir, onTexto, textoInicial, enLa
             }}
           >
             {buscando && (
-              <div style={nota}><Spinner size={14} /> Buscando…</div>
+              <div style={nota}><Spinner size={14} /> Buscando en Instagram…</div>
             )}
             {!buscando && fallo && (
               <div style={nota}>No pude buscar{manual ? '' : '. Escribe el @ exacto'}</div>

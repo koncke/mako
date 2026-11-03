@@ -73,8 +73,9 @@ import {
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
   analizarAction, competidoresAction, guardarAnuncioAction, piezasAction, quitarCompetidorAction,
-  revisarAction, sumarCanalAction, sumarCompetidorAction, vistaPreviaAction, type PiezaVista, type VistaPrevia,
+  buscarRedesAction, revisarAction, sumarCanalAction, sumarCompetidorAction, vistaPreviaAction, type PiezaVista, type VistaPrevia,
 } from './actions';
+import type { CandidatoRed, RedOtra } from '@/lib/spy-otras-redes-reglas';
 import { TarjetaPieza } from './TarjetaPieza';
 import { PeliculaDeOrden } from './OrdenSpy';
 
@@ -376,6 +377,13 @@ const CSS = `
 .spy-aviso{margin:0 0 14px;padding:11px 14px;border-radius:var(--r-md);background:var(--surface-2);
   color:var(--dim);font-size:var(--fs-sm);line-height:1.5}
 .spy-error{background:var(--bad-bg);color:var(--bad)}
+/* --- Sus otras redes: una PREGUNTA, no un dato. Se ve sólo si hay algo que confirmar. --- */
+.spy-migas .spy-migas-accion{margin-left:auto;color:var(--accent)}
+.spy-redes{margin:0 0 14px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
+.spy-redes p{margin:0 0 8px;color:var(--dim)}
+.spy-redes-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0}
+.spy-redes-fila > i{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+.spy-redes-fila a{flex:1 1 220px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:600}
 .spy-franja{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px 10px 16px;
   border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
 .spy-franja strong{font-weight:700}
@@ -719,6 +727,34 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
   );
 }
 
+const NOMBRE_RED: Record<RedOtra, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
+const COLOR_RED: Record<RedOtra, string> = { youtube: 'var(--yt)', tiktok: 'var(--ink)', instagram: 'var(--ig)' };
+type BusquedaDeRedes = { buscando: boolean; candidatos: CandidatoRed[]; aviso?: string };
+
+/**
+ * «¿Es su YouTube?» (ítems 10/11, 3/11/2026). Lo que trajo la búsqueda son CANDIDATOS: nada entra
+ * sin el «sí» de la persona, porque buscar por nombre trae a otras —con «Sofia Contreras» Google
+ * dio cinco Instagram distintos—. El enlace abre el perfil para que lo mire antes de contestar.
+ */
+function OtrasRedes({ b, ocupado, onSi, onNo }: { b: BusquedaDeRedes | undefined; ocupado: boolean; onSi: (k: CandidatoRed) => void; onNo: (k: CandidatoRed) => void }) {
+  if (!b) return null;
+  if (b.buscando) return <p className="spy-aviso">Buscando sus otras redes…</p>;
+  if (!b.candidatos.length) return b.aviso ? <p className="spy-aviso">{b.aviso}</p> : null;
+  return (
+    <section className="spy-redes" aria-label="Sus otras redes">
+      <p>Encontré estas redes con su nombre. ¿Son de esta persona? Ábrelas para comprobarlo.</p>
+      {b.candidatos.map((k) => (
+        <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
+          <i style={{ background: COLOR_RED[k.red] }} aria-hidden />
+          <a href={k.url} target="_blank" rel="noreferrer noopener">{NOMBRE_RED[k.red]} · {k.titulo || k.ref}</a>
+          <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSi(k)}>Sí, es esta persona</button>
+          <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onNo(k)}>No es</button>
+        </div>
+      ))}
+    </section>
+  );
+}
+
 function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBorrar }: {
   competidores: Competidor[]; resumen: Record<number, ResumenPiezas>;
   onAbrir: (id: number) => void; onBorrar: (c: Competidor) => void; puedeBorrar: boolean;
@@ -760,7 +796,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
           // de hidratación desajustada. Un paso de 0,55 s reparte siete segundos entre las primeras
           // trece tarjetas sin que dos vecinas coincidan.
           const flote = `${((i * 0.55) % 7).toFixed(2)}s`;
-          const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
+          const canales = [c.instagram ? 'Instagram' : null, c.youtube_id ? 'YouTube' : null, c.tiktok ? 'TikTok' : null, c.landing_url ? 'Su web' : null].filter(Boolean).join(' · ');
           return (
             <div key={c.id} className="spy-ccard" role="button" tabIndex={0}
               onClick={() => onAbrir(c.id)}
@@ -902,6 +938,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [aBorrar, setABorrar] = useState<Competidor | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [errorModal, setErrorModal] = useState<string | null>(null);
+  /** Lo que trajo la búsqueda de sus otras redes, por competidor. Vive en la sesión: nunca se guarda sin el «sí». */
+  const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
 
   const campo = useRef<HTMLInputElement>(null);
   // Qué ficha está abierta AHORA: una lectura que tarda no puede pisar la de otro competidor.
@@ -995,6 +1033,40 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     else irA(id);
   };
 
+  // Sus otras redes (ítems 10/11): se busca SOLA al dar de alta —«con un dato, traer todas sus
+  // redes»— y a pedido desde la miga. Cuesta US$0,00455 y gasta del tope diario: nunca al abrir.
+  const buscarRedes = useCallback(async (id: number) => {
+    setRedes((v) => ({ ...v, [id]: { buscando: true, candidatos: [] } }));
+    const r = await buscarRedesAction(id).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora. Prueba en un rato.' }));
+    setRedes((v) => ({
+      ...v,
+      [id]: r.ok
+        ? { buscando: false, candidatos: r.candidatos, aviso: r.candidatos.length ? undefined : 'No encontré otras redes con su nombre. Si las conoces, pégalas a mano.' }
+        : { buscando: false, candidatos: [], aviso: r.error },
+    }));
+  }, []);
+
+  const quitarCandidatos = (id: number, sale: (k: CandidatoRed) => boolean) =>
+    setRedes((v) => (v[id] ? { ...v, [id]: { ...v[id], candidatos: v[id].candidatos.filter((k) => !sale(k)) } } : v));
+
+  const confirmarRed = async (k: CandidatoRed) => {
+    if (elegido == null) return;
+    const id = elegido;
+    setOcupado(true); setError(null);
+    try {
+      // El MISMO camino que pegarlo a mano: nunca pisa una red que ya estaba.
+      const r = await sumarCanalAction(id, k.url);
+      if (!r.ok) { setError(r.error); return; }
+      // De esa red no se ofrece nada más: el resto con su nombre son otras personas.
+      quitarCandidatos(id, (x) => x.red === k.red);
+      // TikTok no se lee: no hay nada que traer, sólo mostrarlo.
+      if (k.red === 'tiktok') await recargarLista();
+      else await abrirRecienAgregado(id);
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const sumar = async (valor: string, nombre?: string, deLaBio?: string | null): Promise<number | null> => {
     setOcupado(true); setError(null); setErrorModal(null);
     try {
@@ -1010,6 +1082,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     const id = await sumar(pegado.trim());
     if (id == null) return;
     setPegado('');
+    void buscarRedes(id);
     await abrirRecienAgregado(id);
   };
 
@@ -1017,6 +1090,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     const id = await sumar(valor, nombre, deLaBio);
     if (id == null) return;
     setModal(null);
+    void buscarRedes(id);
     await abrirRecienAgregado(id);
   };
 
@@ -1030,6 +1104,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
       if (!r.ok) { setErrorModal(r.error); return; }
     }
     setModal(null);
+    void buscarRedes(id);
     await abrirRecienAgregado(id);
   };
 
@@ -1134,6 +1209,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const anteTitulo = c ? [
     c.instagram ? `@${String(c.instagram).replace(/^@/, '')}` : null,
     c.youtube_id ? 'YouTube' : null,
+    c.tiktok ? `TikTok @${c.tiktok}` : null,
     c.landing_url ? 'Su web' : null,
   ].filter(Boolean).join(' · ') : '';
 
@@ -1235,7 +1311,12 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                   />
                 )
                 : <b>{c.nombre}</b>}
+              {(!c.instagram || !c.youtube_id || !c.tiktok) && !redes[c.id] && (
+                <button type="button" className="spy-migas-accion" onClick={() => void buscarRedes(c.id)}>Buscar sus otras redes</button>
+              )}
             </nav>
+
+            <OtrasRedes b={redes[c.id]} ocupado={ocupado} onSi={(k) => void confirmarRed(k)} onNo={(k) => quitarCandidatos(c.id, (x) => x.red === k.red && x.ref === k.ref)} />
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'publica' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}

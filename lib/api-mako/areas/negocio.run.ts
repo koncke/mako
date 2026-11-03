@@ -44,7 +44,7 @@ import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
-import { lugarSeccion } from '@/lib/secciones-negocio';
+import { lugarSeccion, lugarDato, rutaDato, datoDeCampo, type DatoDelNegocio } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getSetting } from '@/lib/settings';
@@ -202,7 +202,10 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const campos = await camposPerfil(ctx.ws);
       const huecos = campos.filter((c) => c.valor == null).length;
-      return json({ campos, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó.' });
+      // Ticket #48 (3/11/2026): MaKo leía el precio y el horario y no sabía en qué pantalla se corrigen. Cada campo lo dice,
+      // con el nombre que la persona lee y el link (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO).
+      const conDonde = campos.map((c) => { const d = datoDeCampo(c.key); return d ? { ...c, se_corrige_en: dondeSeEdita(d, ctx.ws) } : c; });
+      return json({ campos: conDonde, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó. `se_corrige_en` es la pantalla donde la persona lo corrige tocándolo.' });
     },
   },
 
@@ -730,7 +733,8 @@ export const RUNNERS: Runners = {
       const campo = campos.find((c) => c.key === key);
       if (!campo) return { error: `«${key}» no es un campo del perfil de este negocio.`, disponibles: campos.map((c) => c.key) };
       if (!valor) return { error: 'Falta el valor.', faltan: ['valor'] };
-      if (await campoOcupado(key)) return { error: `«${campo.pregunta}» ya tiene valor. Corregir un dato cargado se hace en ${lugarSeccion('archivero')}, no por aquí.` };
+      // Ticket #46/#48 (3/11/2026): mandaba a «Documentos»; el precio y lo que incluye se leen y se corrigen en «El brief».
+      if (await campoOcupado(key)) { const d = datoDeCampo(key); return { error: `«${campo.pregunta}» ya tiene valor. Lo corriges tocándolo en ${d ? lugarDato(d) : lugarSeccion('archivero')}${d ? ` (${linkApp(rutaDato(d), ctx.ws)})` : ''}, no por aquí.` }; }
       return { payload: { key, valor }, resumen: `Completar en el perfil «${campo.pregunta}»: ${valor.slice(0, 200)}` };
     }),
     ejecutar: sinLanzar(async (payload) => {
@@ -1023,7 +1027,7 @@ export const RUNNERS: Runners = {
   // ⚠️ listar_ofertas NO siembra la oferta principal desde el perfil, como sí hace el GET de la pantalla
   // (`seedOfertaDesdeBrief`): una lectura no escribe. Sin ofertas, dice cuál es la del perfil.
   listar_ofertas: {
-    leer: async () => {
+    leer: async (_input, ctx) => {
       const [ofertas, ligasFunnel, ligasProducto, funnels, productos, answers] = await Promise.all([
         listarOfertas(), ofertasDeFunnels(), productosDeOfertas(), leerFunnels().catch(() => null), listProductos(), respuestasDelPerfil(),
       ]);
@@ -1034,6 +1038,7 @@ export const RUNNERS: Runners = {
         const delPerfil = resolverOfertaPrincipal(null, answers).campos;
         return json({
           ofertas: [],
+          se_editan_en: { ofertas: dondeSeEdita('ofertas', ctx.ws), lo_que_usa_mako: dondeSeEdita('brief', ctx.ws) },
           oferta_del_perfil: delPerfil.nombre ? delPerfil : null,
           nota: delPerfil.nombre
             ? 'Todavía no hay ofertas guardadas: MaKo usa la oferta del perfil del negocio (oferta_del_perfil). Se guarda como oferta con guardar_oferta.'
@@ -1041,6 +1046,7 @@ export const RUNNERS: Runners = {
         });
       }
       return json({
+        se_editan_en: { ofertas: dondeSeEdita('ofertas', ctx.ws), lo_que_usa_mako: dondeSeEdita('brief', ctx.ws) },
         ofertas: ofertas.map((o) => {
           // En la que sale del perfil, los cinco campos del perfil se leen de ahí (la misma regla que usan los prompts).
           const c = o.desde_brief ? resolverOfertaPrincipal(o, answers).campos : null;
@@ -1076,7 +1082,7 @@ export const RUNNERS: Runners = {
       // ⚠️ La oferta que sale del perfil: escribir esos campos en la fila NO cambia lo que MaKo usa para escribir
       // (`resolverOfertaPrincipal` los lee del perfil). Decirlo antes del «sí» es lo único honesto.
       if (actual?.desde_brief && Object.keys(cambios).some((k) => CAMPOS_DEL_PERFIL.includes(k))) {
-        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarSeccion('archivero')}.`;
+        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarDato('brief')}.`;
       }
       return { payload: { id: actual?.id ?? null, nombre: actual ? undefined : resultado.nombre, ...cambios }, resumen };
     }),
@@ -1197,3 +1203,8 @@ export const RUNNERS: Runners = {
     }),
   },
 };
+
+/** Dónde se edita un dato del negocio, para la salida de una lectura: el camino con los nombres de pantalla y el link. */
+function dondeSeEdita(d: DatoDelNegocio, ws: number): { lugar: string; link: string } {
+  return { lugar: lugarDato(d), link: linkApp(rutaDato(d), ws) };
+}

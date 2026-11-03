@@ -25,6 +25,8 @@ import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 import { queEs } from '@/lib/spy';
 import type { CanalSpy, EtapaTendencia } from '@/lib/spy-reglas';
+import { buscarOtrasRedes } from '@/lib/spy-otras-redes';
+import type { CandidatoRed } from '@/lib/spy-otras-redes-reglas';
 
 /** null = entra. `getRolWsEfectivo` da 'admin' al admin del workspace y a la agencia. */
 /**
@@ -93,7 +95,7 @@ export async function piezasAction(id: number, canal?: CanalSpy): Promise<{ ok: 
  */
 /** Lo que se le muestra a la persona ANTES de guardar, para que confirme que es quien cree. */
 export type VistaPrevia = {
-  campo: 'instagram' | 'youtube_id' | 'landing_url' | 'nombre';
+  campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre';
   valor: string;
   /** Lo que se pudo leer del perfil. Vacío cuando no era un @ o no se pudo leer: se pregunta igual. */
   nombre?: string | null;
@@ -156,6 +158,25 @@ export async function sumarCompetidorAction(pegado: string, nombre?: string, deL
     const c = r.competidor;
     await marcarActosSpy(c.instagram || c.youtube_id || c.landing_url ? ['spy_primero', 'spy_canales'] : ['spy_primero']);
     return { ok: true, id: c.id };
+  } catch (e) {
+    return { ok: false, error: msg(e) };
+  }
+}
+
+/**
+ * Sus OTRAS redes, como CANDIDATOS (ítems 10/11, 3/11/2026). No guarda nada: la pantalla pregunta
+ * «¿es su YouTube?» y sólo el «sí» escribe, con `sumarCanalAction` — lo mismo que pegarlo a mano.
+ * Martín: «súper importante que lo valides… para que no se traiga algo incorrecto».
+ */
+export async function buscarRedesAction(id: number): Promise<{ ok: true; candidatos: CandidatoRed[] } | { ok: false; error: string }> {
+  const no = await soloMiembro();
+  if (no) return { ok: false, error: no };
+  try {
+    const c = await leerCompetidor(id);
+    if (!c) return { ok: false, error: 'No encontré a ese competidor.' };
+    const ws = await getWorkspaceActual();
+    if (ws == null) return { ok: false, error: 'Entra a tu negocio para buscar sus redes.' };
+    return await buscarOtrasRedes(ws, c);
   } catch (e) {
     return { ok: false, error: msg(e) };
   }

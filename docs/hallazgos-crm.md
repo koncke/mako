@@ -20,6 +20,21 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El desplegable de Instagram no salía nunca: Apify tarda 20 s y la ruta se cortaba a los 15 (3/11/2026)
+
+- **Síntoma:** Martín, en el alta de Competitors Spy: «cuando busco competidores no me sale el desplegable con opciones como
+  en Instagram». Estaba dado por hecho desde el 2/11 («PROBADO contra el actor de verdad»).
+- **Causa:** se probó el actor de Apify SUELTO (`scripts/probar-busqueda-apify.mjs`), nunca la ruta. Medido el 3/11: la
+  búsqueda tarda ~20 s; `app/api/crm/instagram-buscar/route.ts` tenía `maxDuration = 15` y el componente cortaba a los 17 s.
+  Vercel mataba la función antes de que Apify contestara. Va al último, después de Meta y de Google, así que sólo le pasa a
+  la búsqueda por nombre, que es la que se había pedido.
+- **Regla:** cuando se suma una fuente lenta a una ruta, se revisa el `maxDuration` de la ruta y el tope del cliente. Lo ata
+  `tests/instagram-buscar-tiempos.test.ts`. Y «probado» es por el camino que usa la persona, no la pieza suelta.
+- **Y había una segunda causa, la que Martín vio al probar el arreglo:** «leila» o «@leila» son una sola palabra, así que
+  `usuarioDeTexto` los toma por un usuario y la ruta pedía sólo ese @ EXACTO. La búsqueda de Apify corría únicamente con dos
+  palabras o más: se probó con «leila hormozi» y nadie probó lo que escribe una persona. Ahora corren las dos a la vez.
+- **Sin hacer:** Apify trae el @ en la `url` pero no el nombre ni la foto, y tarda: no es «mientras escribo» como Instagram.
+
 ## El espaciado de los kanban es el de Merrin (31/10/2026)
 
 **Vive en:** `app/crm/CrmBoard.tsx`, `app/crm/loading.tsx`, `app/_ui/TarjetaKanban.tsx`, `app/plan/board/BoardShell.tsx`, `app/customer-success/KanbanEntrega.tsx`. Los valores: `docs/diseno/espaciado-kanban.json`.
