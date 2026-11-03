@@ -23,8 +23,6 @@ import 'server-only';
 // en la ficha: ahí viajaría en CADA mensaje de cada chat.
 // =============================================================================
 
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
 import { APP_BASE_URL } from './app-url';
 import { armarReferente, type ClaseDeCurso, type ReferenteDelCerebro } from './cerebro-referente';
 import type { Cerebro } from './cerebro-modelo';
@@ -63,8 +61,6 @@ export type CursoParaLeer = {
   clases: ReadonlyArray<{ titulo?: string | null; videoId?: string | null }>;
 };
 
-const CARPETA_TX = path.join(process.cwd(), 'public', 'cono-tx');
-
 /**
  * El texto de UNA clase, o `null` si no hay transcripción.
  *
@@ -75,16 +71,14 @@ const CARPETA_TX = path.join(process.cwd(), 'public', 'cono-tx');
 export async function textoDeClase(videoId: string): Promise<string | null> {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(videoId)) return null;
   try {
-    // ⚠️ EN PRODUCCIÓN EL ARCHIVO NO ESTÁ EN EL DISCO DE LA FUNCIÓN (3/11/2026). `public/cono-tx`
-    // son 164 MB en 9.719 archivos: leídos con `readFile` desde acá, el trazado los metía en TODAS
-    // las funciones (217 MB hasta `/api/promo-entrada`) y el deploy se cortó por el tope de 250 MB.
-    // next.config.ts los excluye del trazado; en producción se leen del CDN, que los sirve igual.
-    const crudo = await readFile(path.join(CARPETA_TX, `${videoId}.json`), 'utf8').catch(async () => {
-      const r = await fetch(`${APP_BASE_URL}/cono-tx/${videoId}.json`, { cache: 'force-cache' });
-      if (!r.ok) throw new Error(`cono-tx ${r.status}`);
-      return r.text();
-    });
-    const leido: unknown = JSON.parse(crudo);
+    // ⚠️ SE LEE DEL CDN, NUNCA DEL DISCO (3/11/2026). `public/cono-tx` son 164 MB en 9.719
+    // archivos: con un `readFile(path.join(process.cwd(), 'public', 'cono-tx', …))` acá, el
+    // empaquetado los metía en TODAS las funciones (217 MB hasta `/api/promo-entrada`) y el deploy
+    // se cortó seis horas por el tope de 250 MB. Excluirlos en next.config.ts NO alcanzó: Turbopack
+    // ignora `outputFileTracingExcludes` para lo que traza él. La única salida segura es no tocar fs.
+    const r = await fetch(`${APP_BASE_URL}/cono-tx/${videoId}.json`, { cache: 'force-cache' });
+    if (!r.ok) return null;
+    const leido: unknown = await r.json();
     // El archivo es una LISTA de strings (los tramos del video). También se acepta un string suelto
     // por si alguna vez se guardó así: lo que no se acepta es adivinar sobre otra forma.
     if (typeof leido === 'string') return leido.trim() || null;
