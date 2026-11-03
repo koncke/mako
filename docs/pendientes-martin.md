@@ -19,6 +19,12 @@ tres seguidos: se junta y se manda una vez por ítem.
 **El deploy de Vercel NO está verde, y producción sirve código viejo sin estar caída.** Eso es lo que
 tapó el problema cinco veces: nada avisa, porque la app anda.
 
+⚠️ **Y ES LA ÚNICA RAZÓN POR LA QUE MARTÍN NO VE NADA.** Medido el 3/11 ~04:20: **todo el trabajo de
+Competitors Spy ya está en `main`** —el desplegable que busca por nombre (`0aafde481`), la vista
+previa del modal (`f74e6930e`), el caché compartido entre negocios (`cde75a8b6`)—, y `main` está en
+`31dd88629`. Lo que falta no es código: es **un deploy que termine**. Cuando pregunte «por qué no lo
+veo», la respuesta es ésta, y no hay que volver a tocar el código de Spy para arreglarlo.
+
 1. **Mirar cómo cerró el último deploy:**
    `node --env-file=C:/dev/mako-api/.env.local scripts/ver-deploy-vercel.mjs`
    Al cortar, `1efb12f08` (03:19 UTC, ticket #45) estaba en `BUILDING` desde 16 min; los tres
@@ -37,8 +43,11 @@ tapó el problema cinco veces: nada avisa, porque la app anda.
 4. **«Activar Enhanced Builds», que sugiere el propio mensaje de Vercel, ya está hecho y superado**:
    medido el 3/11, la máquina es **`turbo`** con concurrencia elástica (era `enhanced` el 17/10).
    No es una palanca disponible: hay que bajar el peso.
-5. **Hay que volver a prender el corte del 99 %**: borrar `~/.claude/guardia/sin-corte`. Lo apagó
-   Martín a propósito («hazlo tu, no importa el 99%») con producción rota; ya no corresponde.
+5. **El corte del 99 % sigue apagado, y NO se prende todavía.** Se prende borrando
+   `~/.claude/guardia/sin-corte`. Lo apagó Martín a propósito («hazlo tu, no importa el 99%»)
+   **porque el deploy estaba roto, y sigue roto**: prenderlo ahora bloquearía la terminal justo
+   mientras se arregla, que es el error que ya se cometió una vez esta noche. **Se prende en cuanto
+   el deploy cierre en verde**, y eso hay que hacerlo a mano: nada lo prende solo.
 
 **Tickets nuevos, leídos y SIN empezar:**
 - **#46 — Leila Fittipaldi (ws 11, plan Completo).** Quiere pasar el precio de su oferta de MXN a USD
@@ -126,9 +135,9 @@ RAM comiénzalos en una sesión en la nube».
 
 | Ítem | Por qué sigue quieto |
 |---|---|
-| **9** (mitad CRM) — vista previa del perfil con el @ en el CRM | es de `Automations`, que ya está con el 19. Va después, en la misma área |
-| **10** — con un dato traer TODAS sus redes + el desplegable | hace falta un **actor de búsqueda de Apify**. Martín ya dijo que paga; falta elegirlo y medir qué cuesta por búsqueda |
-| **21** — probar punta a punta la clave de Apify de ws 9 | gasta del tope diario de un cliente real. Se prueba cuando haya una lectura que de todos modos había que hacer |
+| **9** (mitad CRM) — vista previa del perfil con el @ en el CRM | ✅ **HECHO** `0aafde481`: el desplegable del CRM ya tenía la vista previa; lo que le faltaba era un motor que ande, y ahora cae a Apify |
+| **10** — con un dato traer TODAS sus redes + el desplegable | ✅ **el desplegable y el actor, HECHOS** `0aafde481` (`apify~instagram-scraper`, US$ 0,012 la búsqueda). **Sigue pendiente la otra mitad**: con un dato traer sus OTRAS redes (YouTube, TikTok) y que el usuario las VALIDE. La landing ya viene gratis del link de la bio |
+| **21** — probar punta a punta la clave de Apify de ws 9 | ✅ **PROBADO** contra el actor real el 3/11 (`scripts/probar-busqueda-apify.mjs`), y encontró un error que los tipos no veían: 6 de 7 candidatos vienen SIN `username` y el @ sale de la `url` |
 | la **caricatura** del competidor | falta UN dato antes de construir: **sobre qué cuenta de Google corre el puente de Flow**. Si corre sobre la de Martín, generar caricaturas para los competidores de cada cliente le gasta a él. Eso se mira en el puente, no se adivina |
 | **20** — que desaparezca «Descargar la extensión» | trabado en el consentimiento OAuth de la cuenta de Google de Martín (cliente OAuth borrado). No es código y un asistente no puede hacerlo |
 | **ticket #43** | Martín ya lo desbloqueó («una agencia sí puede, inspeccionando»), pero necesita el camino cross-tenant y los adjuntos de WhatsApp. Va DESPUÉS del #44, que es la misma pieza sin esos dos frenos |
@@ -589,13 +598,18 @@ estar hecho**. Lo averiguado acá ya está pago: no hace falta volver a buscarlo
 - **La otra mitad del pedido** —elegir publicaciones a dedo desde el perfil con la extensión— es
   trabajo de la extensión, no de la tab.
 
-## #13 · Spy compartido entre negocios
-- **La decisión ya está tomada** (más arriba en este archivo): se comparte LA LECTURA (caché
-  global por `ref` de canal), nunca la lista de a quién mira cada negocio.
-- **Media pieza ya está hecha:** las miniaturas se guardan en `spy/<canal>/<ref>` SIN
-  `workspace_id` (migración 0361), justamente para que se compartan.
-- ⚠️ **Lo que falta toca el aislamiento multi-inquilino**, que es lo más vigilado del repo: leer
-  antes `.claude/skills/tenant-safe-query` y `audit-route-cross-tenant`.
+## #13 · Spy compartido entre negocios — ✅ HECHO `cde75a8b6`, en `main`
+- Se comparte LA LECTURA (caché global por `ref` de canal), nunca la lista de a quién mira cada
+  negocio. La regla pura vive en `lib/spy-compartido.ts` (`sirveLaCompartida`: 24 h si la lectura fue
+  de alta, 6 h si fue de rutina, y **0 h si alguien la pidió a mano** — pedirla a mano es justamente
+  pedir que se relea) y lo que toca la base en `lib/spy-compartido-db.ts`.
+- **Migración `0363_spy_lecturas_compartidas.sql`, APLICADA en producción.** La tabla
+  `spy_lecturas_canal` **no tiene `workspace_id` a propósito** —es global, como las miniaturas de la
+  0361— con RLS prendida y sin políticas: no la lee nadie salvo el servidor.
+- ⚠️ **Cómo se logró sin romper el aislamiento**, que es lo más vigilado del repo: `TENANT_TABLES`
+  (`lib/workspace.ts`) le pone el filtro de negocio a las tablas de la lista y deja pasar a las que
+  no están. Dejarla AFUERA de esa lista es lo que la hace global. Si alguien la agrega, el caché
+  deja de compartirse **y no falla ningún test**: por eso está dicho acá.
 
 ## #14 · Los 12 referentes
 - **Los 12 cursos ya están localizados** (tabla más arriba), verificados contra el `titulo:` de
@@ -999,16 +1013,22 @@ CRM, ya vaya saliendo ciertos resultados mientras voy escribiendo… y eso no lo
 los pendientes… no quiero que te pregunte cuáles son nuestros pendientes y me des información a
 medias». **Tenía razón: yo lo tenía como un solo ítem y son tres.**
 
-| Dónde | Qué pasa HOY | Qué falta |
-|---|---|---|
-| **Spy, con @** | a los 900 ms de parar de escribir trae **UN** perfil, por handle EXACTO | **no hay desplegable**: no ofrece opciones para elegir |
-| **Spy, SIN @** | **no existe**: un nombre no busca nada | buscar por NOMBRE. Es otra operación —una BÚSQUEDA, no una lectura— y por eso no sale solo |
-| **CRM** | el desplegable **SÍ existe** desde el 12/10 (`app/crm/new/InstagramBuscador.tsx`), con fotos y por nombre | **a Martín no le funciona**: depende de Meta conectado, de Google CSE o de la clave de Apify. La de Apify se habilitó el 2/11 y **nunca se probó punta a punta** (ítem 21) |
+### ✅ LOS TRES, HECHOS Y EN `main` — 3/11/2026 (sin desplegar todavía: ver el bloque de arriba)
 
-⚠️ **LO QUE DESTRABA LOS TRES ES LO MISMO: un actor de BÚSQUEDA de Apify.** Lo que tenemos
-(`leerPerfilInstagram`) lee por handle exacto; buscar «leila» y recibir candidatos es otro actor.
-**Martín ya aprobó el gasto** y pidió que lo elijamos nosotros y le digamos el número — así que lo
-que falta es medir el costo por búsqueda, ponerle tope por día y prenderlo.
+| Dónde | Qué pasa AHORA | Commit |
+|---|---|---|
+| **Spy, con @** | el desplegable existe: ofrece candidatos con foto mientras se escribe | `0aafde481` |
+| **Spy, SIN @** | busca por NOMBRE, sin que haga falta el @ — **no se construyó un buscador nuevo**: se reusó el del alta de un lead (`app/crm/new/InstagramBuscador.tsx`), que ya busca por nombre, muestra fotos, abre la lista en un portal y tiene resueltos Escape y Enter | `0aafde481` |
+| **CRM** | el desplegable ya existía; lo que le faltaba era un motor que ande sin Meta ni Google CSE, y ahora lo tiene: `app/api/crm/instagram-buscar/route.ts:337` cae a Apify como tercera fuente | `0aafde481` |
+
+**El actor de búsqueda, elegido y medido** (`lib/instagram-buscar-apify.ts` y su mitad pura
+`lib/instagram-buscar-apify-reglas.ts`): `apify~instagram-scraper`, 8 resultados por búsqueda,
+**US$ 1,50 el millar → US$ 0,012 por búsqueda**. Martín había aprobado el gasto y pedido el número.
+
+⚠️ **Y se probó contra el actor de verdad, no sólo con tipos — que es lo que encontró el error.**
+De 7 candidatos, **sólo 1 traía `username`**; los otros 6 venían con `error: 'no_items'` y el @ había
+que leerlo de la `url`. Un test de tipos jamás lo habría visto: el campo existe en el tipo. Por eso
+`usuarioDeUrl` saca el @ de la URL y rechaza `/p/`, `/reel/`, `/explore/` y `/stories/`.
 
 ⚠️ **Y NO se llama en cada tecla.** Cada búsqueda gasta del tope diario: la pantalla espera a que la
 persona deje de escribir (900 ms) y eso no se toca. «Mientras escribo» significa *sin apretar un

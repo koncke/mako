@@ -29,11 +29,9 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
 ## 🔚 RELEVO FINAL DE claude1 — 3/11/2026 ~00:50, al 98 %
 
-## ⚠️ SIN COMMITEAR AL CORTAR: el arreglo del ticket #45 (`lib/funciones-mako.ts`)
+## ✅ El ticket #45 ya está commiteado y en `main` (`1efb12f08`)
 
-El corte al 99 % llegó justo antes de poder commitearlo. **El cambio está en el working tree de
-`C:/dev/wt-push-q`, en `lib/funciones-mako.ts`.** Commitearlo es lo primero (ya está verificado:
-`tests/funciones-mako.test.ts` 6/0).
+Quedó resuelto después de escribirse este relevo. **No hay nada sin commitear en `C:/dev/wt-push-q`.**
 
 **Qué es:** Leila Fittipaldi (ws 11) pidió «activa la función "Aprende solo" en el Second Brain» y
 **MaKo le contestó que eso no existe. Es falso**: existe desde el 25/10 y es el botón de la cabecera
@@ -69,9 +67,40 @@ pesado:
 historial de git entero** a la máquina de build, y hay un **ONNX con proveedor CUDA** que en Vercel
 no sirve para nada porque no hay GPU. Entre las dos, **más de 500 MB de disco** por build.
 
-**Al cortar había DOS builds corriendo:** `be38d9156` (redeploy manual, lanzado con la variable ya
-puesta) y `1efb12f08` (el que disparó `main` al avanzar). **Queda sin saber cómo cerraron.**
-Se mira con `node --env-file=C:/dev/mako-api/.env.local scripts/ver-deploy-vercel.mjs`.
+**3/11 ~04:25 — CÓMO SIGUIÓ, y la causa está encontrada.** Los builds de `be38d9156` cerraron en
+`ERROR` por `ENOSPC`, y el log dice exactamente dónde: **`Build Completed in /vercel/output [4m]` y
+después muere en «Deploying outputs...»**. O sea que **el build anda; lo que no entra es la salida**
+(2001 MB, con `node_modules` en 1847 MB).
+
+**El peso lo mete una dependencia que usa SÓLO el navegador.** `@huggingface/transformers` arrastra
+`onnxruntime-node`, y nadie lo usa del lado del servidor: lo importa un único archivo,
+`app/video-editor/_opencut/services/transcription/worker.ts`, que es un **Web Worker** (Whisper
+transcribe en la máquina del usuario). Entraba al bundle por ser dependencia, no por uso.
+
+**Subido a `integracion`, `31dd88629..5fdfd90ba`** (y `93668a39d` commiteado, esperando que ese run
+cierre para no cancelarlo):
+- `next.config.ts` → `outputFileTracingExcludes` lo saca del bundle de **todas** las funciones.
+- `scripts/sacar-cuda-de-onnx.mjs`, enganchado como **`prebuild`**, lo borra del **disco** del
+  contenedor. Son dos cosas distintas: excluirlo del trazado no lo saca de `node_modules`.
+- `tests/build-excluye-ia-del-navegador.test.ts` lo sostiene, y encontró la trampa **antes** de
+  pushear: la clave que la doc de Next presenta como «global», `'/*'`, **no empareja la ruta `'/'`**.
+  La home se quedaba con los 500 MB y el patrón parecía correcto. Va `'/**'`.
+
+⚠️ **Y la salida que sugiere el propio error de Vercel no existe:** remata con «consider enabling
+Enhanced Builds», y medido por API el proyecto ya construye en **`buildMachineType: "turbo"`** con
+concurrencia elástica. La máquina ya pasó la que recomienda. **Cuando un error sugiere pagar más, se
+mide en qué máquina corre hoy antes de pasarle la decisión a Martín.**
+
+**Lo que falta saber:** si con eso alcanza. Se mira con
+`node --env-file=C:/dev/mako-api/.env.local scripts/ver-deploy-vercel.mjs`. Si vuelve a dar `ENOSPC`,
+ahora el reporte del contenedor **sí** va a traer los tamaños: quedó puesta
+`VERCEL_BUILD_SYSTEM_REPORT=1` (antes devolvía `unknown` justo en «Input source code» y «Build
+cache»). El `buildCommand` del proyecto es `null`, o sea `npm run build`, que es lo que hace correr
+el `prebuild`: si alguien lo cambia a `next build` a secas, el borrado deja de correr sin avisar.
+
+⚠️ **Y lo que NO hay que volver a tocar:** todo Competitors Spy ya está en `main` —el desplegable que
+busca por nombre (`0aafde481`), la vista previa del modal (`f74e6930e`), el caché compartido entre
+negocios (`cde75a8b6`)—. Que Martín no lo vea es el deploy, no el código.
 
 **Si vuelven a fallar por disco, los dos caminos son de la cuenta de Martín:** *Enhanced Builds*
 (más disco y memoria, lo sugiere el propio error) o sacar esas dos dependencias del build.
