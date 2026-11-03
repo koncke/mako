@@ -50,6 +50,14 @@ test('2. una conversación por persona y negocio, que el Ops Center lista como �
   assert.equal(origenDeClave('mako-movil:u8:referente-julian-alborna'), 'Julián Alborna', 'sin origen, `claveDeTab` no la deja escribir');
   assert.equal(referenteDeTab('mako-movil:u8:referente-emilio-puigrredon'), 'emilio-puigrredon', 'el servidor saca al gurú de la CLAVE');
   assert.equal(referenteDeTab('mako-movil:u8'), null);
+  // Y el servidor lo usa: lo que hace gurú a un chat es la clave de su conversación, no la pantalla (retomada desde la lista,
+  // sigue siendo con él). Con su ficha en el contexto y su id para que el turno traiga su curso.
+  const rutaGuru = sinComentarios(leer('app/api/mako/chat/route.ts'));
+  assert.match(rutaGuru, /const guru = referenteDeTab\(quien\.chartKey\);\s*if \(guru\) return \{ contexto: `\$\{CONTEXTO_SECOND_BRAIN\}\\n\\n\$\{contextoDeReferente\(guru\)\}`, referente: guru \};/,
+    'el chat de un gurú no lleva su ficha o no le pasa su id al turno');
+  // Y la herramienta que pide una clase por id la encuentra: sin `conLosCursosDe`, el id `ref:` que el turno muestra devuelve el índice.
+  assert.match(sinComentarios(leer('lib/api-mako/areas/negocio.run.ts')), /recuperar\(await conLosCursosDe\(await grafoParaChat\(\), ids\), \{/,
+    'recuperar_del_segundo_cerebro no cuelga el curso del gurú que se le pide por id');
   assert.match(f, /const clave = `\$\{persona\.chartKey\}:\$\{tab\}`;/, 'la clave sale de la persona de la sesión, no del pedido');
   assert.match(f, /return runWithWorkspace\(persona\.ws,/, 'en el negocio de la sesión');
   assert.match(f, /return crear \? aSesion\(await createSession\(clave, null, ''\)\) : null;/);

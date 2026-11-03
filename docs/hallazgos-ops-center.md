@@ -178,3 +178,34 @@ persona del nombre de la carpeta. Así salieron «Jaime Jiguera» (es **Higuera*
 (es **Segués**). **El nombre de un ser humano se lee del `titulo:`, nunca de un slug.**
 
 **Vive en:** app/conocimientos/catalogo.ts (el mapa `TITULO`, ~línea 805) · lib/asesores/catalogo.ts
+
+---
+
+## El curso de un gurú: el disco de la función no tiene `public/`, y la pantalla no decide quién contesta (3/11/2026)
+
+**El síntoma que no se veía.** La capa del curso estaba «cableada» y con tests en verde, pero el lector
+hacía `readFile(process.cwd()/public/cono-tx/<videoId>.json)` dentro de un `try/catch` que devuelve
+`null`. En Vercel la función sólo lleva lo que se IMPORTA (`next.config.ts`, `outputFileTracingIncludes`:
+«un readFileSync no es un import»); `public/` lo sirve el CDN. Resultado posible: **cada clase `null`, el
+gurú sin curso y ningún error**. Y la otra punta es peor: si el trazado SÍ siguiera la ruta, arrastraría
+`public/cono-tx` entero — **187 MB medidos**, contra un tope de 250 MB por función: el deploy roto del 2/11
+por otra puerta.
+
+**La regla que queda:** un archivo de `public/` se lee **por HTTP** (`APP_BASE_URL` + la ruta pública,
+`lib/cerebro-referente-server.ts`), nunca con `fs` desde una función. Y lo que se lee por red se memoiza
+**sólo si llegó**: un curso a medias no se guarda, para que un corte no deje a un gurú vacío hasta el
+próximo deploy.
+
+**Quién contesta lo decide la CLAVE de la conversación, no la pantalla.** El chat con un gurú es una
+tab con chat propio (`mako-movil:<persona>:referente-<id>`, `lib/chat-mako-reglas.ts`) y el servidor saca
+al gurú de esa clave (`app/api/mako/chat/route.ts` → `contextoDelChat`). Si lo dijera la pantalla (como
+el Funnel Coach, por `desde.tab`), la misma conversación abierta desde la lista del Ops Center contestaría
+como MaKo a secas. ⚠️ Y `origenDeClave` tiene que reconocer la clave nueva: sin origen, `claveDeTab` la
+rechaza y la conversación **no se puede escribir**.
+
+**No va en `armar()`**, aunque el tablero lo decía: `armar` es el grafo del NEGOCIO, en caché por
+workspace; el referente es de cada CHAT. Colgado ahí, el curso de uno viajaba en el chat de todos.
+
+**Lo que quedó sin hacer:** el teléfono (`app/m/operaciones/ChatsMovil.tsx` → `HojaChatNuevo`) no ofrece
+«Hablar con un gurú»; las filas de la lista no llevan la cara del gurú (dicen su nombre como origen); y el
+#15 (la tab de gurús y el modal que se vio roto) no se tocó.
