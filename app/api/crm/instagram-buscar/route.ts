@@ -324,6 +324,27 @@ export async function GET(req: NextRequest) {
     }
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
+    // ── BUSCAR POR NOMBRE, SIN @ (3/11/2026) ──────────────────────────────────────────────────
+    // Martín: «si yo busco sin arroba, también debería empezar a salir resultados».
+    //
+    // ⚠️ ESTA ES LA RAMA DEL NOMBRE y antes se quedaba sin salida: Meta sólo adivina handles a
+    // partir del texto, y Google **no tiene claves en ningún negocio** (medido el 3/11 contra
+    // producción: `GOOGLE_CSE_KEY` y `GOOGLE_CSE_CX` no están cargadas en ninguno). Así que
+    // escribir «leila» no traía nada y la lista salía vacía.
+    //
+    // ⚠️ Es OTRO actor que el de la lectura por @ —`apify~instagram-scraper`, no
+    // `instagram-profile-scraper`— porque aquél no busca. Cuesta US$1,50 por 1.000 resultados:
+    // **US$0,012 la búsqueda** (lib/instagram-buscar-apify.ts). Va al final, sólo si las otras dos
+    // no trajeron nada, y con el mismo tope por corrida.
+    if (!meta.perfiles.length && !google.perfiles.length) {
+      const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
+      const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
+      const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+      if (token) {
+        const hallados = await buscarPerfilesApify(texto, token);
+        if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
+      }
+    }
   }
 
   return Response.json({

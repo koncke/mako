@@ -190,6 +190,16 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
     'app/api/crm/instagram-buscar/route.ts', 'lib/instagram-perfil-server.ts', 'lib/spy.ts',
   ]);
   assert.doesNotMatch(leer('app/api/offer/route.ts'), /apify-spy/, 'Offer no gasta la clave de Spy');
+  // ⚠️ 3/11/2026 — SE SUMÓ UN SEGUNDO ACTOR DE APIFY Y NO ES LA VUELTA DEL SCRAPER.
+  // `apify~instagram-scraper` (lib/instagram-buscar-apify.ts) busca perfiles por NOMBRE para que la
+  // lista ofrezca candidatos sin que haya que escribir el @ —pedido de Martín del 2/11—. Lo que
+  // sigue retirado es otra cosa: traer LISTAS de leads a la base. La diferencia que importa:
+  //   · acá se piden 8 candidatos, una persona elige UNO y lo demás se descarta;
+  //   · no entra ningún lead a `leads` por este camino;
+  //   · va topeado por corrida y por el tope diario que ya existía.
+  // Si alguna vez esto empieza a volcar resultados a la base sin que alguien elija, ES el scraper
+  // de vuelta y hay que frenarlo.
+  assert.doesNotMatch(leer('lib/instagram-buscar-apify.ts'), /from\('leads'\)|insert\(/, 'el buscador por nombre NO escribe leads: eso sería el scraper de vuelta');
   // La tarjeta es otra: la del scraper se llamaba `apify` y no volvió.
   assert.equal(DEFS.some((d) => d.key === 'apify'), false);
   assert.equal(DEFS.filter((d) => d.key === 'apify-instagram').length, 1);
