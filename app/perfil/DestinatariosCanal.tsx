@@ -31,9 +31,11 @@ import { ReportarASoporte } from '../_ui/ReportarASoporte';
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
-export function DestinatariosCanal({ canal, inicial, onGuardado }: {
+export function DestinatariosCanal({ canal, inicial, ws, onGuardado }: {
   canal: 'whatsapp' | 'email';
   inicial: Destinatarios;
+  /** El negocio del que se leyó la lista: el server no guarda si ya no es ése (app/api/perfil/destinatarios/route.ts). */
+  ws?: number | null;
   onGuardado: (d: Destinatarios) => void;
 }) {
   const [tel, setTel] = useState<string[]>(inicial.telefonos);
@@ -57,7 +59,7 @@ export function DestinatariosCanal({ canal, inicial, onGuardado }: {
     try {
       const j = await (await fetch('/api/perfil/destinatarios', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefonos, emails }),
+        body: JSON.stringify({ telefonos, emails, ...(ws != null ? { ws } : {}) }),
       })).json();
       if (!j.ok) {
         // Se vuelve atrás: dejar la fila puesta afirma un guardado que no pasó.

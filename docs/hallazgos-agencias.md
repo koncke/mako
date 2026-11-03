@@ -6,6 +6,39 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
 [hallazgos-customer-success.md](hallazgos-customer-success.md); la seguridad del «Entrar como», en
 [hallazgos-seguridad.md](hallazgos-seguridad.md) → «Vista de agencia».
 
+## Joan no podía agregarse al grupo de un cliente: la puerta estaba abierta, faltaba el renglón (ticket #49, 3/11/2026)
+
+- **Síntoma:** «no puedo ver las notificaciones dentro de la cuenta de un cliente para agregar un número de WhatsApp al
+  grupo de MaKo».
+- ⚠️ **El diagnóstico obvio era el equivocado:** todo apuntaba a un permiso (la tab solo-superadmin, la puerta del
+  servidor, `agregarParticipanteGrupo`). Medido con la sesión de una agencia sobre el código real
+  (`tests/_agencia-grupos-hijo.ts`): `getRolWsEfectivo` da `admin`, `getWorkspaceActual` da el cliente, el GET y el POST
+  de `/api/perfil/destinatarios` andan, la cartera aísla y la invitación sale. **Por URL directa funcionaba.**
+- **Causa real:** `seccionesCuenta` (`lib/ajustes-secciones.ts`) esconde «Notificaciones» mirando a otro, porque «los
+  avisos son de quien mira». Era cierto hasta el 25/10, cuando «Notificaciones» del negocio salió del índice por estar
+  dos veces y se mudó adentro de la de «Tu cuenta». El filtro siguió con su regla y dejó sin entrada a la agencia y al
+  super admin. **Mudar una sección de grupo cambia para quién vale el filtro del grupo de destino.**
+- **En el teléfono no hay entrada para NADIE** a `/m/configuraciones/notificaciones`: el índice sale de
+  `seccionesNegocio`, que ya no la tiene. Se abrió mirando a un cliente; el resto, abajo en «sin hacer».
+- **Trampa: la cookie de la agencia dura 8 horas (`AGENCIA_HORAS`) y al vencer el pedido cae, sin error, en la cuenta
+  PROPIA de la agencia.** La pantalla seguía mostrando al cliente, y guardar pisaba `notif_telefonos` de la agencia y
+  sumaba al cliente al grupo de la agencia. Ahora la pantalla manda de qué `ws` leyó y el server contesta 409. **Vale para
+  todo guardado de agencia con la pestaña vieja:** esta ruta es la única cerrada (abajo).
+- **Lo que hay que saber antes de agregarse:** el renglón agrega a `notif_telefonos`, no sólo al grupo, así que ese número
+  también recibe lo que se reparte por esa lista. Y en un cliente **con la lista vacía**, el número pasa a ser el
+  principal: `mako.numero_dueno`, `user_telefono` y el teléfono del comprador en el CRM de la plataforma.
+- **Medido el 3/11 en producción (sólo lectura):** Joan ya está en la lista de 5 de sus 7 clientes (15, 18, 19, 20, 22). Le
+  faltan Marcela (23, con grupo) y Giselle (17, sin grupo ni número). ⚠️ Florencia (21) aparece como cliente suyo en notas
+  viejas y **no está en `agencia_clientes`**.
+
+### Sin hacer
+
+- **El admin de un negocio, en su propia cuenta y por teléfono, sigue sin entrada** a a quién le avisa MaKo:
+  `app/m/cuenta/page.tsx` sólo la agrega mirando a otro, porque «Tu cuenta» ya tiene una fila «Notificaciones» y Martín ya
+  marcó el duplicado una vez. Hay que elegirle un nombre.
+- **La pestaña vieja en el resto de los guardados de agencia:** el corte es general (`resolverDesdeCookies`). Sólo
+  `/api/perfil/destinatarios` compara el `ws`. Lo general sería renovar la cookie o avisar al vencer.
+
 ## Una función contestaba DOS preguntas, y su `null` abría la puerta (P15, 30/10/2026)
 
 - **Síntoma:** las dos pantallas de Agency preguntaban `if (!esSuper && (await agenciaDeCliente(ws))) redirect(...)`

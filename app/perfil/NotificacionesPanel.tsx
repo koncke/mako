@@ -60,18 +60,22 @@ async function guardarJson(url: string, body: unknown): Promise<{ ok: boolean; g
   return (await r.json().catch(() => ({ ok: false, error: `respondió ${r.status}` }))) as { ok: boolean; error?: string };
 }
 
-export function NotificacionesPanel({ canal, admin, zona }: {
+export function NotificacionesPanel({ canal, admin, zona, deOtro = false }: {
   /** El canal abierto (`?canal=`), o null: la lista de canales. */
   canal: CanalNotif | null;
   /** Administra el negocio: ve WhatsApp y Email (a quién le avisa MaKo lo del negocio) y los avisos sólo de admin. */
   admin: boolean;
   /** La zona horaria de SU perfil: en ella se mide «No molestar». */
   zona: string;
+  /** La agencia o el super admin parados en un cliente: de la lista sólo WhatsApp y Email, que son de ESE negocio. La app, el celular y
+   *  «No molestar» son de quien mira (`seccionesCuenta`). */
+  deOtro?: boolean;
 }) {
   const [inApp, setInApp] = useState<Leido<NotifInApp>>(VACIO);
   const [push, setPush] = useState<Leido<NotifPush>>(VACIO);
   const [telefonos, setTelefonos] = useState<number | null>(null);
   const [dest, setDest] = useState<Leido<Destinatarios>>(VACIO);
+  const [wsLeido, setWsLeido] = useState<number | null>(null);
   const [tieneGrupo, setTieneGrupo] = useState(false);
   const [probando, setProbando] = useState(false);
   const { toast, show, clear } = useToast();
@@ -85,7 +89,7 @@ export function NotificacionesPanel({ canal, admin, zona }: {
     if (admin) {
       fetch('/api/perfil/destinatarios').then((r) => r.json()).then((j) => {
         if (!j?.ok) throw new Error(j?.error || 'No se pudieron leer');
-        setDest({ dato: j.destinatarios as Destinatarios, error: null }); setTieneGrupo(Boolean(j.tieneGrupo));
+        setDest({ dato: j.destinatarios as Destinatarios, error: null }); setTieneGrupo(Boolean(j.tieneGrupo)); setWsLeido(typeof j.ws === 'number' ? j.ws : null);
       }).catch((e: Error) => setDest({ dato: null, error: e.message }));
     }
   }, [admin]);
@@ -152,16 +156,16 @@ export function NotificacionesPanel({ canal, admin, zona }: {
     const cambiarSilencio = (s: Silencio | null) => { if (push.dato) void guardarPush({ ...push.dato, silencio: s }); };
     return (
       <>
-        <TituloAjustes titulo="Notificaciones" />
-        {errorDe(inApp.error ?? push.error ?? dest.error)}
+        <TituloAjustes titulo="Notificaciones" bajada={deOtro ? 'A quién le avisa MaKo en esta cuenta.' : undefined} />
+        {errorDe(deOtro ? dest.error : inApp.error ?? push.error ?? dest.error)}
         <GrupoAjustes titulo="Canales">
-          <FilaAjustes icono="avisar" titulo={NOMBRE_CANAL.app} href={`${BASE}?canal=app`} valor={<Estado r={inApp.dato && resumenApp(inApp.dato)} />} />
-          <FilaAjustes icono="celular" titulo={NOMBRE_CANAL.celular} href={`${BASE}?canal=celular`} valor={<Estado r={push.dato && resumenCelular(push.dato, telefonos, ids)} />} />
+          {!deOtro && <FilaAjustes icono="avisar" titulo={NOMBRE_CANAL.app} href={`${BASE}?canal=app`} valor={<Estado r={inApp.dato && resumenApp(inApp.dato)} />} />}
+          {!deOtro && <FilaAjustes icono="celular" titulo={NOMBRE_CANAL.celular} href={`${BASE}?canal=celular`} valor={<Estado r={push.dato && resumenCelular(push.dato, telefonos, ids)} />} />}
           {admin && <FilaAjustes icono="whatsapp" titulo={NOMBRE_CANAL.whatsapp} href={`${BASE}?canal=whatsapp`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.telefonos.length, 'whatsapp')} />} />}
           {admin && <FilaAjustes icono="email" titulo={NOMBRE_CANAL.email} href={`${BASE}?canal=email`} valor={<Estado r={dest.dato && resumenDestinatarios(dest.dato.emails.length, 'email')} />} />}
         </GrupoAjustes>
 
-        <GrupoAjustes titulo="No molestar">
+        {!deOtro && <GrupoAjustes titulo="No molestar">
           <FilaAjustes titulo="Pausar los avisos al celular" detalle={silencio ? `Hora de ${ciudadDeZona(zona)}` : undefined}
             fin={<Switch checked={!!silencio} disabled={!push.dato} label={undefined} onChange={(v) => cambiarSilencio(v ? SILENCIO_SUGERIDO : null)} />} />
           {silencio && (
@@ -175,7 +179,7 @@ export function NotificacionesPanel({ canal, admin, zona }: {
               </span>
             )} />
           )}
-        </GrupoAjustes>
+        </GrupoAjustes>}
         <Toast state={toast} onClose={clear} />
       </>
     );
@@ -272,7 +276,7 @@ export function NotificacionesPanel({ canal, admin, zona }: {
           {dest.dato && (
             <GrupoAjustes titulo={canal === 'whatsapp' ? 'Números' : 'Direcciones'}
               descripcion={canal === 'whatsapp' && tieneGrupo && dest.dato.telefonos.length > 0 ? 'Llegan al grupo de MaKo' : undefined}>
-              <DestinatariosCanal key={canal} canal={canal === 'whatsapp' ? 'whatsapp' : 'email'} inicial={dest.dato} onGuardado={guardarDest} />
+              <DestinatariosCanal key={canal} canal={canal === 'whatsapp' ? 'whatsapp' : 'email'} inicial={dest.dato} ws={wsLeido} onGuardado={guardarDest} />
             </GrupoAjustes>
           )}
         </>

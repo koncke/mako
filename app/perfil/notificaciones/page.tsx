@@ -34,7 +34,7 @@ export default async function NotificacionesCuentaPage({ searchParams }: { searc
   const admin = rol === 'admin';
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'notificaciones')} activa="notificaciones">
-      <NotificacionesPanel canal={canalDeUrl(sp.canal)} admin={admin} zona={zona} />
+      <NotificacionesPanel canal={canalDeUrl(sp.canal)} admin={admin} zona={zona} deOtro={deOtro} />
     </AjustesPagina>
   );
 }
