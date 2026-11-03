@@ -153,8 +153,6 @@ export type Salida<T> =
 const SIN_KEY = 'Falta conectar tu cuenta de ElevenLabs: la voz clonada corre con tu propia key.';
 
 export async function elevenKey(): Promise<string | null> {
-  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
-  await exigirPermisoIa();
   return credDelCliente('ELEVENLABS_API_KEY');
 }
 async function pedir(ruta: string, init: RequestInit, key: string): Promise<Response> {
@@ -239,6 +237,8 @@ export async function clonarVoz(
   muestras: MuestraVoz[],
   descripcion = '',
 ): Promise<Salida<{ voiceId: string }>> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   const key = await elevenKey();
   if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!muestras.length) return { ok: false, motivo: 'nuestra', error: 'No hay ningún audio con el que clonar.' };
@@ -337,6 +337,8 @@ export async function decirConVoz(
   texto: string,
   op: { tope?: number } = {},
 ): Promise<Salida<{ mp3: Buffer }>> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   const key = await elevenKey();
   if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Todavía no clonaste tu voz.' };
@@ -378,6 +380,8 @@ export async function ttsConKey(
   modelo: string,
   formato: string,
 ): Promise<Salida<{ mp3: Buffer }>> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   if (!key) return { ok: false, motivo: 'sin_key', error: 'Falta la key de ElevenLabs.' };
   if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Falta la voz.' };
   const linea = (texto || '').trim();
@@ -436,6 +440,8 @@ export async function convertirVoz(
   nombreArchivo = 'toma.wav',
   mime = 'audio/wav',
 ): Promise<Salida<{ mp3: Buffer }>> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   const key = await elevenKey();
   if (!key) return { ok: false, motivo: 'sin_key', error: SIN_KEY };
   if (!voiceId) return { ok: false, motivo: 'voz_muerta', error: 'Este workspace no tiene ninguna voz clonada.' };

@@ -65,7 +65,7 @@ async function main() {
   const { chatCheap, chatCheapCascade, transcribirAudio, leerDocumentoIA, chatCheapTools } = await imp('lib/ai-cheap.ts');
   const { chatClaude, chatClaudeTools } = await imp('lib/anthropic.ts');
   const { embed } = await imp('lib/embeddings.ts');
-  const { elevenKey } = await imp('lib/elevenlabs.ts');
+  const { clonarVoz, elevenKey } = await imp('lib/elevenlabs.ts');
 
   const PUERTAS: Array<[string, () => Promise<unknown>]> = [
     ['chatCheap', () => chatCheap({ system: 's', user: 'u' })],
@@ -76,7 +76,7 @@ async function main() {
     ['chatClaude', () => chatClaude('s', [{ role: 'user', content: 'u' }], { feature: 'prueba' })],
     ['chatClaudeTools', () => chatClaudeTools('s', [{ role: 'user', content: 'u' }], [], async () => '', { feature: 'prueba' })],
     ['embed', () => embed('hola', 'consulta', { embebedor: { modelo: 'text-embedding-3-small', claves: ['k'], proveedor: 'openai' } })],
-    ['elevenKey', () => elevenKey()],
+    ['clonarVoz', () => clonarVoz('prueba', [])],
   ];
 
   const R: Record<string, unknown> = {};
@@ -90,10 +90,12 @@ async function main() {
   const frenadas: Record<string, string> = {};
   for (const [nombre, llamar] of PUERTAS) {
     const antes = alProveedor;
-    const salida = await enPedido(`${IPHONE} MaKoApp-iOS`, () => llamar().then(() => 'sin error', (e: Error) => e.name));
+    const salida = await enPedido(`${IPHONE} MaKoApp-iOS`, () => llamar().then(() => 'sin error', (e: Error) => (e.name === 'Error' ? e.constructor.name : e.name)));
     frenadas[nombre] = `${salida}/${alProveedor - antes}`;
   }
   R.frenadas = frenadas;
+  // Retirar el permiso no puede impedir borrar: la clave se lee igual.
+  R.claveSinPermiso = await enPedido(`${IPHONE} MaKoApp-iOS`, () => elevenKey().then(() => 'se lee', (e: Error) => e.name));
 
   // Las MISMAS llamadas sin la marca no se frenan por esto: un iPhone en Safari, Android y la computadora quedan como siempre.
   const libres: Record<string, string> = {};

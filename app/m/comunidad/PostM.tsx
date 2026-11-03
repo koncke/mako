@@ -208,6 +208,8 @@ export function HojaPostM({ abierta, postId, base, onCerrar }: {
           </div>
           {/* Lo que publica otra persona se denuncia desde acá, sin salir de la app (Play, contenido de usuarios). */}
           <ReportarRespuesta que="una publicación de Community" texto={`#${post.id} ${post.titulo}`} />
+
+          <div className="m-comunidad-coms">
             {post.hilo.map((c) => (
               <div key={c.id}>
                 <ComentarioM c={c} cerrado={post.cerrado} onResponder={() => responder(c)}

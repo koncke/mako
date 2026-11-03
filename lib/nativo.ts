@@ -112,8 +112,12 @@ export function instalarDescargas(): () => void {
     const enMemoria = blobs.get(a.href);
     const nombre = a.download || decodeURIComponent(a.pathname.split('/').pop() ?? '') || 'archivo-de-mako';
     if (enMemoria) { void guardarEnElAparato(enMemoria, nombre); return true; }
+    // Un `<a download href="#">` no baja nada: bajaría la página.
+    const crudo = a.getAttribute('href') ?? '';
+    if (!crudo || crudo.startsWith('#')) return false;
     if (/^(blob|data):/.test(a.href) || new URL(a.href, location.href).origin === location.origin) {
-      void fetch(a.href).then((r) => r.blob()).then((b) => guardarEnElAparato(b, nombre)).catch(() => {});
+      // Un 401 o un 500 no es un archivo: compartir su JSON con el nombre del PDF es peor que no hacer nada.
+      void fetch(a.href).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? guardarEnElAparato(b, nombre) : false)).catch(() => {});
       return true;
     }
     return false;

@@ -21,6 +21,13 @@ export function EliminarCuenta() {
   const [ocupado, setOcupado] = useState(false);
   const [hasta, setHasta] = useState<string | null>(null);
 
+  const abrirDeNuevo = async () => {
+    try {
+      const j = await (await fetch('/api/cuenta/eliminar', { cache: 'no-store' })).json();
+      if (j?.ok) setEstado(j as Estado);
+    } catch { /* se queda lo que decía */ }
+  };
+
   const abrir = async () => {
     setAbierta(true); setError(null);
     try {
@@ -36,8 +43,10 @@ export function EliminarCuenta() {
     setOcupado(true); setError(null);
     try {
       const j = await (await fetch('/api/cuenta/eliminar', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ confirmar: CONFIRMACION_BAJA }),
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ confirmar: CONFIRMACION_BAJA, alcance: estado?.puede ? estado.alcance : null }),
       })).json();
+      // Cambió lo que se borra (se fue otro admin): se vuelve a leer antes de confirmar.
+      if (j?.error && !j.ok) void abrirDeNuevo();
       if (!j?.ok) { setError(j?.error ?? 'No pudimos anotar tu pedido.'); return; }
       setHasta(j.hasta);
     } catch { setError('No pudimos anotar tu pedido.'); } finally { setOcupado(false); }

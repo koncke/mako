@@ -133,6 +133,50 @@ test('11. borrar un negocio se lleva sus archivos, y cierra su pedido con el mai
   assert.equal(R.filaBorrado.email, null);
 });
 
+test('11b. lo que se confirma es lo que se ejecuta: si cambió, no apaga nada', () => {
+  assert.equal(R.alcanceViejo.ok, false);
+  assert.equal(R.alcanceViejo.status, 409);
+  assert.deepEqual(R.tras409, { pendientes: 0, estado: 'activo', negocio: 'activo' });
+  assert.match(sinComentarios(leer('app/api/cuenta/eliminar/route.ts')), /pedirBajaDeMiCuenta\(body\.alcance === 'persona'/);
+  for (const f of ['app/m/cuenta/EliminarCuentaM.tsx', 'app/perfil/EliminarCuenta.tsx']) assert.match(leer(f), /alcance: estado\?\.puede \? estado\.alcance : null/, f);
+});
+
+test('11c. cancelar devuelve sólo lo que el pedido apagó', () => {
+  assert.equal(R.yaPausado.fila.pauso_negocio, false, 'ya estaba pausado');
+  assert.equal(R.yaPausado.fila.suspendio_usuario, true);
+  assert.equal(R.cancelarYaPausado.ok, true);
+  assert.equal(R.sigueePausado, 'pausado', 'un negocio pausado por impago sigue pausado');
+  assert.equal(R.vuelveLaPersona, 'activo');
+});
+
+test('11d. el último admin no se borra suelto', () => {
+  assert.equal(R.ultimoAdmin.ok, false);
+  assert.match(R.ultimoAdmin.error, /último admin/);
+});
+
+test('11e. si el mail final no sale, el correo se queda y se dice', () => {
+  assert.equal(R.conMailCaido.ok, true, 'la persona ya se borró');
+  assert.equal(R.filaMailCaido.estado, 'hecha');
+  assert.equal(R.filaMailCaido.email, 'p14@test.com');
+  assert.match(R.filaMailCaido.notas, /No salió el mail final/);
+});
+
+test('11f. con algo que quedó no se le dice «con todos sus datos», y se termina a mano cuando el negocio ya no está', () => {
+  assert.equal(R.conAviso.mails, 0);
+  assert.equal(R.conAviso.fila.estado, 'pendiente');
+  assert.match(R.conAviso.fila.notas, /Se borró, y quedó: wa-media/);
+  assert.equal(R.terminarExiste.ok, false, 'el negocio todavía existe');
+  assert.equal(R.terminar.ok, true);
+  assert.equal(R.terminada.estado, 'hecha');
+  assert.equal(R.terminada.email, null);
+  const r = sinComentarios(leer('app/api/admin/workspaces/route.ts'));
+  assert.match(r, /await cerrarBajasDelNegocio\(body\.id, admin\.email, r\.avisos\)/);
+  assert.match(r, /export const maxDuration = 300;/);
+  const reset = sinComentarios(leer('lib/reset-workspace.ts'));
+  for (const b of ["'chats-email'", "'lead-notas'", "'portadas'", "'avatars'"]) assert.ok(reset.includes(b), `${b}: sus archivos quedarían`);
+  assert.match(reset, /await runWithWorkspace\(ws, \(\) => borrarVoz\(/, 'la voz, con la clave de ESE negocio');
+});
+
 test('12. cada pedido le llega a equipo@: el plazo no depende de abrir una pantalla', () => {
   const alEquipo = R.correos.filter((c: { asunto: string }) => /^Eliminar cuenta:/.test(c.asunto));
   assert.ok(alEquipo.length >= 3, `sólo ${alEquipo.length}`);
@@ -150,7 +194,7 @@ test('13. la ruta pide la confirmación y es con sesión; las dos páginas de la
     assert.equal(decidirDesvio(p).tipo, 'nada', `${p}: el desvío del teléfono no la tapa`);
   }
   const pag = leer('app/eliminar-cuenta/page.tsx');
-  assert.match(pag, /la app <strong>MaKo<\/strong> \(de Martín Koncke\)/, 'Play pide que nombre la app o al desarrollador');
+  assert.match(pag, /la app <strong>MaKo<\/strong>/, 'Play pide que nombre la app o al desarrollador');
   assert.match(pag, /Eliminar mi cuenta/);
 });
 
@@ -159,7 +203,7 @@ test('14. dónde se pide: en el teléfono y en la computadora, y nunca mirando a
   assert.match(sinComentarios(leer('app/perfil/page.tsx')), /\{!vista\.deOtro && <EliminarCuenta \/>\}/);
   assert.match(sinComentarios(leer('app/admin/AdminView.tsx')), /<BajasDeCuenta vuelta=/);
   const r = sinComentarios(leer('app/api/admin/workspaces/route.ts'));
-  assert.ok(r.indexOf('await cerrarBajasDelNegocio(body.id, admin.email)') > r.indexOf('await eliminarWorkspace(body.id'), 'se cierra después de borrar');
+  assert.ok(r.indexOf('await cerrarBajasDelNegocio(body.id, admin.email') > r.indexOf('await eliminarWorkspace(body.id'), 'se cierra después de borrar');
 });
 
 test('15. la política de privacidad dice lo que hay', () => {

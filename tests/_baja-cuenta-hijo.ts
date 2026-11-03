@@ -12,7 +12,7 @@ const imp = (p: string) => import(pathToFileURL(new URL(p, RAIZ).pathname.replac
 type Fila = Record<string, unknown>;
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 
-const PLATAFORMA = 9, NEGOCIO = 30, DE_DOS = 31, PRUEBA = 3, A_BORRAR = 40;
+const PLATAFORMA = 9, NEGOCIO = 30, DE_DOS = 31, PRUEBA = 3, A_BORRAR = 40, OTRO = 50, PAUSADO = 51, ULTIMO = 52, MAIL = 53, CON_AVISO = 54;
 
 async function main() {
   const { crearPostgrest } = await imp('tests/_postgrest-de-mentira.ts');
@@ -25,6 +25,7 @@ async function main() {
   const db = pg.db as Record<string, Fila[]>;
   const correos: Array<{ to: string; asunto: string; cuerpo: string }> = [];
   const borradosStorage: string[] = [];
+  let resendCaido = false;
 
   globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
     const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : (entrada as Request).url);
@@ -41,6 +42,7 @@ async function main() {
     }
     if (u.host === 'supa.test') return pg.responder(u, init);
     if (u.host === 'api.resend.com') {
+      if (resendCaido) return json(500, { message: 'caído' });
       const para = body?.to;
       correos.push({ to: Array.isArray(para) ? String(para[0]) : String(para), asunto: String(body?.subject ?? ''), cuerpo: String(body?.text ?? body?.html ?? '') });
       return json(200, { id: 'mail' });
@@ -57,14 +59,14 @@ async function main() {
   process.env.RESEND_API_KEY = 're_prueba';
 
   const negocio = (id: number, nombre: string, capa = 'completo') => ({ id, nombre, capa, estado: 'activo' });
-  db.workspaces.push(negocio(PLATAFORMA, 'MaKo', 'superadmin'), negocio(NEGOCIO, 'Estudio Luna'), negocio(DE_DOS, 'De Dos'), negocio(PRUEBA, 'Cliente de Prueba'), negocio(A_BORRAR, 'Se Va'));
+  db.workspaces.push(negocio(PLATAFORMA, 'MaKo', 'superadmin'), negocio(NEGOCIO, 'Estudio Luna'), negocio(DE_DOS, 'De Dos'), negocio(PRUEBA, 'Cliente de Prueba'), negocio(A_BORRAR, 'Se Va'), negocio(OTRO, 'Otro'), negocio(PAUSADO, 'Pausado'), negocio(ULTIMO, 'Ultimo'), negocio(MAIL, 'Mail'), negocio(CON_AVISO, 'Con Aviso'));
   const persona = (id: number, ws: number | null, rol_ws: string | null, rol = 'usuario') => ({ id, email: `p${id}@test.com`, nombre: `P${id}`, rol, rol_ws, workspace_id: ws, estado: 'activo' });
   db.usuarios.push(
     persona(1, PLATAFORMA, null, 'admin'), persona(2, NEGOCIO, 'admin'), persona(3, NEGOCIO, 'closer'),
-    persona(4, DE_DOS, 'admin'), persona(5, DE_DOS, 'admin'), persona(6, PRUEBA, 'admin'), persona(7, A_BORRAR, 'admin'), persona(8, PRUEBA, 'closer'), persona(9, PLATAFORMA, 'admin'),
+    persona(4, DE_DOS, 'admin'), persona(5, DE_DOS, 'admin'), persona(6, PRUEBA, 'admin'), persona(7, A_BORRAR, 'admin'), persona(8, PRUEBA, 'closer'), persona(9, PLATAFORMA, 'admin'), persona(11, OTRO, 'admin'), persona(12, PAUSADO, 'admin'), persona(13, ULTIMO, 'admin'), persona(14, MAIL, 'closer'), persona(15, CON_AVISO, 'admin'),
   );
 
-  const { pedirBajaDe, ejecutarBajaDePersona, cancelarBaja, cerrarBajasDelNegocio, bajasPendientes } = await imp('lib/baja-cuenta.ts');
+  const { pedirBajaDe, ejecutarBajaDePersona, cancelarBaja, cerrarBajasDelNegocio, bajasPendientes, terminarBaja } = await imp('lib/baja-cuenta.ts');
   const { eliminarWorkspace } = await imp('lib/eliminar-workspace.ts');
   const usuario = (id: number) => db.usuarios.find((u) => u.id === id);
   const ws = (id: number) => db.workspaces.find((w) => w.id === id);
@@ -126,6 +128,36 @@ async function main() {
   R.cancelar = await cancelarBaja(Number(baja(2)?.id), 'super@test.com');
   R.dueñoTrasCancelar = usuario(2)?.estado;
   R.negocioTrasCancelar = ws(NEGOCIO)?.estado;
+
+  // Lo que la persona leyó no es lo que quedó: si no coincide, no se ejecuta.
+  R.alcanceViejo = await pedirBajaDe(11, false, 'persona');
+  R.tras409 = { pendientes: db.bajas_cuenta.filter((b) => b.usuario_id === 11).length, estado: usuario(11)?.estado, negocio: ws(OTRO)?.estado };
+  // Cancelar no despausa lo que estaba pausado por otro motivo, ni activa a quien estaba suspendido antes.
+  ws(PAUSADO)!.estado = 'pausado';
+  await pedirBajaDe(12, false);
+  R.yaPausado = { fila: { ...baja(12) } };
+  R.cancelarYaPausado = await cancelarBaja(Number(baja(12)?.id), 'super@test.com');
+  R.sigueePausado = ws(PAUSADO)?.estado;
+  R.vuelveLaPersona = usuario(12)?.estado;
+  // El último admin no se borra suelto: se borra el negocio.
+  R.ultimoAdminFila = await pedirBajaDe(13, false, null);
+  db.bajas_cuenta.find((b) => b.usuario_id === 13)!.alcance = 'persona';
+  R.ultimoAdmin = await ejecutarBajaDePersona(Number(baja(13)?.id), 'super@test.com');
+  // Si un mail no sale, el correo se queda y se dice.
+  await pedirBajaDe(14, false);
+  resendCaido = true;
+  R.conMailCaido = await ejecutarBajaDePersona(Number(baja(14)?.id), 'super@test.com');
+  resendCaido = false;
+  R.filaMailCaido = { ...baja(14) };
+  // Con algo que quedó, no se le dice «con todos sus datos»: sigue abierto, y se termina a mano.
+  await pedirBajaDe(15, false);
+  const mailsConAviso = correos.length;
+  await cerrarBajasDelNegocio(CON_AVISO, 'super@test.com', ['wa-media: no pude listar']);
+  R.conAviso = { fila: { ...baja(15) }, mails: correos.length - mailsConAviso };
+  R.terminarExiste = await terminarBaja(Number(baja(15)?.id), 'super@test.com');
+  db.workspaces.splice(db.workspaces.findIndex((w) => w.id === CON_AVISO), 1);
+  R.terminar = await terminarBaja(Number(baja(15)?.id), 'super@test.com');
+  R.terminada = { ...baja(15) };
 
   // Borrar un negocio de verdad se lleva sus archivos y cierra su pedido con el mail.
   await pedirBajaDe(7, false);

@@ -83,7 +83,8 @@ export async function POST(req: NextRequest) {
   const { error } = await getSupabaseServer().from('push_suscripciones').upsert({
     usuario_id: u.id,
     endpoint, p256dh, auth,
-    plataforma: plataformaDeUA(ua),
+    // Un token de APNs es de un iPhone, diga lo que diga el user agent: el paso del onboarding y el corte de grupos cuentan teléfonos por esta columna.
+    plataforma: body.apns ? 'ios' : plataformaDeUA(ua),
     user_agent: ua.slice(0, 400) || null,
     // Una suscripción (re)registrada arranca limpia: su historial de fallos era de la anterior.
     fallos: 0, ultimo_error: null,

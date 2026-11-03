@@ -28,7 +28,7 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
 
-const PUERTAS = ['chatCheap', 'chatCheapCascade', 'chatCheapTools', 'leerDocumentoIA', 'transcribirAudio', 'chatClaude', 'chatClaudeTools', 'embed', 'elevenKey'];
+const PUERTAS = ['chatCheap', 'chatCheapCascade', 'chatCheapTools', 'leerDocumentoIA', 'transcribirAudio', 'chatClaude', 'chatClaudeTools', 'clonarVoz'];
 
 test('1. el pedido de mentira es un pedido: si no, «sin marca» y «sin pedido» medirían lo mismo', () => {
   assert.equal(R.controlDelPedido, 'Agente-de-control');
@@ -36,10 +36,13 @@ test('1. el pedido de mentira es un pedido: si no, «sin marca» y «sin pedido�
 
 test('2. con la marca de la app y sin permiso, NINGUNA puerta deja salir nada', () => {
   for (const p of PUERTAS) assert.equal(R.frenadas[p], 'SinPermisoIa/0', `${p}: ${R.frenadas[p]}`);
+  // `embed` también frena, y lo dice como «sin con qué»: se busca por palabras, y la fila no queda en error.
+  assert.equal(R.frenadas.embed, 'SinEmbebedor/0');
+  assert.equal(R.claveSinPermiso, 'se lee', 'quien retiró el permiso tiene que poder borrar su voz clonada');
 });
 
 test('3. sin la marca nada cambia: Safari en iPhone, Android y lo automático siguen', () => {
-  for (const p of PUERTAS) for (const c of ['safari', 'android']) {
+  for (const p of [...PUERTAS, 'embed']) for (const c of ['safari', 'android']) {
     assert.notEqual(R.libres[`${p}:${c}`], 'SinPermisoIa', `${p} en ${c} se frenó por el permiso`);
   }
   assert.equal(R.sinPedido, 'sigue', 'un cron no tiene a quién preguntarle');

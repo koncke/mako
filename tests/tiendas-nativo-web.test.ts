@@ -31,6 +31,7 @@ class AnclaFalsa {
   href = ''; download = ''; pathname = '/';
   attrs = new Set<string>();
   hasAttribute(n: string) { return this.attrs.has(n); }
+  getAttribute(n: string) { return n === 'href' ? this.href : null; }
   click() { clickOriginal.call(this); }
 }
 
@@ -108,12 +109,29 @@ test('2. `a.click()` con `download`: el archivo va a la hoja de compartir, aunqu
   soltar();
 });
 
-test('3. un link sin `download` sigue siendo un link', () => {
+test('3. un link sin `download` sigue siendo un link, y un `download` a la nada no baja la página', () => {
   const soltar = instalarDescargas();
   const ancla = new AnclaFalsa();
   ancla.href = 'https://hola-mako.com/crm';
   ancla.click();
   assert.equal(clicksOriginales, 1);
+  const vacio = new AnclaFalsa();
+  vacio.href = '#'; vacio.download = 'x'; vacio.attrs.add('download');
+  vacio.click();
+  assert.equal(clicksOriginales, 2);
+  assert.equal(a.pedidos.length, 0);
+  soltar();
+});
+
+test('3b. un 401 o un 500 no se comparte como si fuera el archivo', async () => {
+  const soltar = instalarDescargas();
+  g.fetch = (async () => new Response('{"ok":false}', { status: 401 })) as unknown;
+  const ancla = new AnclaFalsa();
+  ancla.href = 'https://hola-mako.com/api/doc?id=1'; ancla.download = 'x.pdf'; ancla.attrs.add('download');
+  ancla.pathname = '/api/doc';
+  ancla.click();
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(a.compartido.length, 0);
   soltar();
 });
 

@@ -37,7 +37,7 @@ export function BajasDeCuenta({ vuelta }: {
 
   useEffect(() => { void cargar(); }, [cargar, vuelta]);
 
-  const accion = async (b: FilaBaja, que: 'cancelar' | 'eliminar-persona') => {
+  const accion = async (b: FilaBaja, que: 'cancelar' | 'eliminar-persona' | 'terminar') => {
     setOcupado(b.id);
     try {
       const j = await (await fetch('/api/admin/bajas-cuenta', {
@@ -68,8 +68,12 @@ export function BajasDeCuenta({ vuelta }: {
                 {b.alcance === 'negocio' && b.email ? `${b.email} · ` : ''}
                 {dias < 0 ? `Se pasó del plazo: era el ${fechaDeLaBaja(b.vence_at)}` : `Hasta el ${fechaDeLaBaja(b.vence_at)} (${dias} ${dias === 1 ? 'día' : 'días'})`}
               </div>
+              {b.notas && <div style={texto({ color: 'var(--bad)' })}>{b.notas}</div>}
             </div>
             <div style={{ display: 'flex', gap: 8 }}>
+              {b.alcance === 'negocio' && b.notas?.startsWith('Se borró') && (
+                <button type="button" className="mk-btn mk-btn--primary mk-btn--sm" disabled={ocupado === b.id} onClick={() => void accion(b, 'terminar')}>Ya está: avisarle</button>
+              )}
               {b.alcance === 'persona' && !b.prueba && (
                 <button type="button" className="mk-btn mk-btn--danger mk-btn--sm" disabled={ocupado === b.id} onClick={() => void accion(b, 'eliminar-persona')}>Eliminar</button>
               )}

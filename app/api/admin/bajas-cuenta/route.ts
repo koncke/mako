@@ -1,12 +1,13 @@
 // =============================================================================
 // /api/admin/bajas-cuenta — los pedidos de «Eliminar mi cuenta», para el super admin (3/11/2026)
 // =============================================================================
-// GET → los pendientes. POST { id, accion: 'cancelar' | 'eliminar-persona' }. El negocio entero no se borra por acá: va por
-// «Eliminar…» de su fila (`eliminarWorkspace`), con el nombre escrito a mano, y al terminar cierra su pedido.
+// GET → los pendientes. POST { id, accion: 'cancelar' | 'eliminar-persona' | 'terminar' }. El negocio entero no se borra por acá: va por
+// «Eliminar…» de su fila (`eliminarWorkspace`), con el nombre escrito a mano, y al terminar cierra su pedido. `terminar`: ya no existe, y lo que había
+// quedado se resolvió.
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { getSesionAdmin } from '@/lib/auth';
-import { bajasPendientes, cancelarBaja, ejecutarBajaDePersona } from '@/lib/baja-cuenta';
+import { bajasPendientes, cancelarBaja, ejecutarBajaDePersona, terminarBaja } from '@/lib/baja-cuenta';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ ok: false, error: 'id inválido' }, { status: 400 });
   const r = body?.accion === 'cancelar' ? await cancelarBaja(id, sesion.email)
     : body?.accion === 'eliminar-persona' ? await ejecutarBajaDePersona(id, sesion.email)
+      : body?.accion === 'terminar' ? await terminarBaja(id, sesion.email)
       : { ok: false as const, error: 'acción inválida' };
   return NextResponse.json(r, { status: r.ok ? 200 : 400 });
 }
