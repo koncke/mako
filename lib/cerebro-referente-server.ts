@@ -28,6 +28,32 @@ import path from 'node:path';
 import { armarReferente, type ClaseDeCurso, type ReferenteDelCerebro } from './cerebro-referente';
 import type { Cerebro } from './cerebro-modelo';
 
+/**
+ * El índice chico: por slug de curso, sus clases con título y `videoId`.
+ *
+ * ⚠️ ESTO EXISTE POR UN DEPLOY ROTO, y es el hallazgo que más caro salió. Antes se importaba
+ * `@/app/conocimientos/catalogo` para encontrar el curso del gurú, y ese catálogo arrastra los 100+
+ * archivos de cursos. Vercel lo rechazó:
+ *
+ *     The Vercel Function "admin/docs" is 281.43mb uncompressed, exceeds the maximum of 250mb
+ *
+ * ⚠️ **Y ACTIONS ESTABA EN VERDE.** El límite es del EMPAQUETADO, no de los tipos ni de los tests:
+ * CI corre `tsc` y la suite, no `next build` ni el empaquetado de funciones. Un verde en Actions no
+ * dice nada sobre el tamaño de un bundle.
+ *
+ * El JSON son **99 KB** con las 1.158 clases de los 12 referentes. Se regenera con
+ * `node scripts/generar-clases-de-referentes.mjs` cuando se suma un referente o cambia su curso.
+ */
+import CLASES_POR_CURSO from './asesores/clases-de-referentes.json';
+
+type ClaseDelIndice = { t: string; v: string };
+
+/** Las clases de un curso por su slug, listas para leerles la transcripción. */
+export function clasesDelIndice(slug: string): CursoParaLeer {
+  const lista = (CLASES_POR_CURSO as Record<string, ClaseDelIndice[]>)[slug] ?? [];
+  return { clases: lista.map((c) => ({ titulo: c.t, videoId: c.v })) };
+}
+
 /** Lo que hace falta de un curso para leerlo. Se le pasa ya cargado: este módulo no importa cursos. */
 export type CursoParaLeer = {
   // ⚠️ `| null` Y NO SÓLO `| undefined`: el `Clase` del repo declara estos campos como

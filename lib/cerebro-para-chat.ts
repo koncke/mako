@@ -110,17 +110,21 @@ export async function paqueteParaElTurno(
  */
 async function capaDelReferente(grafo: Cerebro<string>, id: string): Promise<Cerebro<string>> {
   try {
-    const [{ ASESORES }, { cursoDeReferente }, { cerebroDeReferenteMemo }, { idRaizDeReferente }] = await Promise.all([
+    const [{ ASESORES }, { cursoDeReferente }, srv, { idRaizDeReferente }] = await Promise.all([
       import('./asesores/catalogo'), import('./asesores/cursos'),
       import('./cerebro-referente-server'), import('./cerebro-referente'),
     ]);
     const a = ASESORES.find((x) => x.id === id);
     const slug = cursoDeReferente(id);
     if (!a || !slug) return grafo;
-    const { CURSOS_TODOS } = await import('@/app/conocimientos/catalogo');
-    const curso = CURSOS_TODOS.find((c) => c.slug === slug);
-    if (!curso) return grafo;
-    const capa = await cerebroDeReferenteMemo(a, curso);
+    // ⚠️ ACÁ ESTABA EL DEPLOY ROTO. Antes esto importaba `@/app/conocimientos/catalogo` para
+    // encontrar el curso, y ese catálogo arrastra los 100+ archivos de cursos: Vercel rechazó la
+    // función por tamaño (281 MB contra un tope de 250) **con Actions en verde**, porque CI corre
+    // tipos y tests pero no el empaquetado. Ahora sale de un índice de 99 KB
+    // (`lib/asesores/clases-de-referentes.json`).
+    const curso = srv.clasesDelIndice(slug);
+    if (!curso.clases.length) return grafo;
+    const capa = await srv.cerebroDeReferenteMemo(a, curso);
     if (!capa.nodos.length) return grafo;
     return conCapa(grafo, capa, {
       id: CAPA_CONOCIMIENTO, nombre: a.completo, raiz: idRaizDeReferente(id),
