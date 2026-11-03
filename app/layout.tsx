@@ -14,6 +14,7 @@ import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
+import { PuenteNativo } from './_components/PuenteNativo';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
@@ -193,6 +194,9 @@ export default async function RootLayout({
             interruptor de la barra. Va ANTES del taller de paletas: el script tiene que correr antes del primer pintado.
             Sólo con sesión: una página pública no se pinta con la preferencia de nadie. */}
         {sesion && <ModoArranque />}
+        {/* La app de iPhone: guardar y compartir, los links universales y el toque en un aviso. Sin sesión también: los códigos
+            de recuperación se bajan en /login/2fa. Afuera de la app no hace nada (lib/nativo.ts). */}
+        <PuenteNativo />
         {/* Si la app muere arriba de app/global-error.tsx (la pantalla «This page couldn't load» de Next), avisa el error
             real y recarga UNA vez (21/10/2026, Martín en su Android: «siempre que entro me sale el reload»). Sin React. */}
         {sesion && <CentinelaArranque />}
