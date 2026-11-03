@@ -56,7 +56,7 @@ import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
 import { sanearDesde, type Desde } from '@/lib/chat-desde';
 import { estadoDeTrabajo } from '@/lib/chat-trabajos';
 import { runWithWorkspace, wsSuperAdmin } from '@/lib/workspace';
-import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
+import { chatsDeAntes, chatsDeAutomations, chatsDeLasTabs, chatsDeLosEditores, chatsDeOffer, claveDeAntes, conTemas, gurusConCharla, hiloDeAutomatizacion, hiloDeEditor, claveDeTab, grupoDeMaKo, hiloDeAntes, hiloDeOffer, hiloDelGrupoMaKo, quienChateaDelRequest } from '@/lib/chat-mako-indice';
 import type { PersonaChat } from '@/lib/mako-turno-app';
 import { esChatDeMarcas, leerMarcasDelChat, marcarEnElChat } from '@/lib/chat-mako-marcas-db';
 import { sanearCambio } from '@/lib/centro-mensajes';
@@ -161,6 +161,7 @@ export async function GET(req: NextRequest) {
       const { posiciones, encuadre } = layoutCerebro(nodos, c.capa.aristas);
       return json({ ok: true, cerebro: { ...c.capa, nodos, posiciones, encuadre } });
     }
+    if (sp.has('gurusConCharla')) return json({ ok: true, gurus: await gurusConCharla(persona) });
     if (sp.has('coaches')) {
       const [referentes, ofertas] = await runWithWorkspace(persona.ws, () => Promise.all([leerReferentes(), listarOfertas(true).catch(() => null)]));
       // Si la base no contestó no se sabe, y no se le dice a nadie que le falta una oferta que puede tener.

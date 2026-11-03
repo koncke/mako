@@ -192,10 +192,10 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
 }
 
 /** El chat nuevo de la computadora: un panel como el de cualquier chat, con su cabecera, su conversación y su caja. */
-export function ChatNuevoCentro({ centro: k, onAbrir, onVolver, acciones }: {
+export function ChatNuevoCentro({ centro: k, onAbrir, onVolver, gurus }: {
   centro: Centro; onAbrir: (clave: string) => void; onVolver: () => void;
-  /** Lo de la derecha de la cabecera: «Hablar con un gurú» (3/11/2026, #16), que abre un chat con MaKo y no uno de Claude Code. */
-  acciones?: ReactNode;
+  /** Los gurús (3/11/2026), debajo de la portada: abren un chat con MaKo y no uno de Claude Code. */
+  gurus?: ReactNode;
 }) {
   const n = useChatNuevo(k, onAbrir);
   return (
@@ -206,11 +206,10 @@ export function ChatNuevoCentro({ centro: k, onAbrir, onVolver, acciones }: {
         </button>
         <span className="co-cab__muneco"><CriaturaChatNuevo n={n} /></span>
         <div className="co-cab__texto"><h1 className="co-cab__titulo"><TituloChatNuevo n={n} /></h1></div>
-        {acciones}
       </header>
       <div className="co-cuerpo">
         <div className="co-conv">
-          <div className="co-hilo"><div className="co-hilo__col"><CuerpoChatNuevo n={n} /></div></div>
+          <div className="co-hilo"><div className="co-hilo__col"><CuerpoChatNuevo n={n} alPie={gurus} /></div></div>
           <CajaChatNuevo n={n} />
         </div>
       </div>

@@ -1,28 +1,19 @@
-# Relevo — Gurús (#16, #17, #18) · 3/11/2026 ~02:00 ART, claude2 al 97 %
+# Relevo — Gurús · 3/11/2026, claude5
 
-Rama `gurus-0311` en `C:/dev/wt-gurus`, **sin pushear**. Mergeada con origin/main (conflicto en
-`lib/cerebro-referente-server.ts` resuelto: los dos lados leían del CDN; quedó el comentario de main y el
-`fetch` con tiempo máximo de la rama).
+Rama `gurus-0311` en `C:/dev/wt-gurus`, **sin pushear** (sube el Cerebro). Con origin/main adentro.
 
-## Hecho
-- **#17**: el turno de un chat con gurú trae los TRAMOS de su curso que hablan de la pregunta
-  (`cursoParaElTurno`, `lib/cerebro-referente.ts`), en un bloque aparte de `paqueteParaElTurno`.
-  `recuperar_del_segundo_cerebro` cuelga el curso cuando le piden un id `ref:`. Probado con el curso
-  real de Alborna leído del CDN: 41/41 clases en 578 ms; «¿cómo hago un gancho… primeros segundos?»
-  trae la clase 13, «Los primeros segundos de tu video».
-- **#16**: «Hablar con un gurú» en la cabecera de Nuevo chat (cliente y super admin) →
-  `app/second-brain/ChatDelReferente.tsx`. El servidor saca al gurú de la CLAVE de la conversación
-  (`…:referente-<id>`).
-- **#18**: «Su Second Brain» en el chat del gurú → `GET /api/mako/chat?cerebroDe=<id>` + `Grafo`.
+## Hecho (los cinco puntos de Martín)
+1. **«Nuevo chat» muestra los gurús**: `GaleriaDeGurus.tsx`, en las cuatro puertas, sin modal.
+2. **Hormozi abre su chat ahí mismo**: `queAbreElOfferCoach`, `abrirGuru`. Sin conversación previa ni cambio de ruta.
+3. **Contesta con su curso**: `CURSO_DE_REFERENTE` tenía 3 de 22, ahora los 22 (`docs/hallazgos-ops-center.md`). También una
+   conversación de Offer, con menos presupuesto.
+4. **Su cara y su nombre**: `quien` en `useChatCliente` (burbuja, y de paso el Funnel Coach), fila con `guru`, `HojaDelGuru.tsx`
+   en el teléfono, historial debajo de los coaches (`?gurusConCharla=1`).
+5. **Su Second Brain**: `SuSecondBrain.tsx`, en el chat del gurú, el Funnel Coach y una conversación de Offer; en el teléfono,
+   adentro de la hoja.
 
-## Verificado / NO verificado
-- Tests de todo lo tocado: 30/0 en los cuatro archivos de cambio, 220/2 → 0 en la tanda ancha; los
-  nuevos, probados rompiéndolos.
-- ⚠️ **`node scripts/tsc-acotado.mjs --rama` NO corrió**: la guardia de RAM lo bloqueó y el único
-  intento murió por memoria (134). Es lo PRIMERO antes de pasar el sha a Integración.
-- ⚠️ No se miró en la app (sin RAM para el dev server).
+## Verificado
+Ver el último commit de la rama y el mensaje al Cerebro: ahí está qué corrió y qué no.
 
 ## Falta
-- El teléfono (`app/m/operaciones/ChatsMovil.tsx` → `HojaChatNuevo`) no ofrece el gurú.
-- Las filas de la lista con la cara del gurú (hoy dicen su nombre como origen).
 - **#15** sin tocar: confirmar `f378981ea` en producción antes de nada.

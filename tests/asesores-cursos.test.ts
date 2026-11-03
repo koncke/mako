@@ -13,6 +13,7 @@
 //   · un slug con una letra cambiada ('social-funel')                       → 3 / 1
 //   · un referente del catálogo con ficha pero sin curso en el mapa          → 2 / 2
 //   · Albaa y Nievas apuntando a cursos distintos                            → 2 / 2
+// Los del 3/11 (el mapa tenía 3 de los 22: Hormozi sin curso) están al final, con sus roturas.
 // Correr: node --import tsx --test tests/asesores-cursos.test.ts
 // =============================================================================
 
@@ -22,6 +23,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CURSO_DE_REFERENTE, cursoDeReferente } from '../lib/asesores/cursos';
 import { ASESORES } from '../lib/asesores/catalogo';
+import CLASES from '../lib/asesores/clases-de-referentes.json';
 
 const CURSOS_DIR = join(__dirname, '..', 'app', 'conocimientos');
 
@@ -68,4 +70,40 @@ test('Albaa y Nievas comparten curso, a propósito', () => {
   // el cierre. Si alguien «arregla» esto creyendo que es un duplicado, rompe uno de los dos.
   assert.equal(cursoDeReferente('samuel-albaa'), cursoDeReferente('agustin-nievas'));
   assert.match(cursoDeReferente('samuel-albaa') ?? '', /growing-closer/);
+});
+
+// ── Los 22 de la galería, con SU curso (3/11/2026) ───────────────────────────────────────────────────
+// Martín: «Cuando le escribo a algun guru, aun no me respondo con su base de conocimientos». El mapa tenía 3 de los 22: los otros 19
+// contestaban con la ficha y su Second Brain decía «todavía no tiene su curso», sin un error en ningún lado.
+//
+// PROBADO ROMPIÉNDOLO (3/11/2026), con estos tres en verde, una rotura por vez y restaurada:
+//   · borrar 'hormozi' del mapa                                                → cae «todos los de la galería»
+//   · 'hormozi' apuntando a otro curso que existe ('masteryhaus')              → cae «el de su ficha»
+//   · sacar una clase de `clases-de-referentes.json`                           → cae «el índice trae todas sus clases»
+
+test('todos los de la galería tienen curso: uno que falta se queda sin base de conocimientos', () => {
+  const sinCurso = ASESORES.filter((a) => !cursoDeReferente(a.id)).map((a) => a.id);
+  assert.deepEqual(sinCurso, []);
+});
+
+test('cada uno apunta al curso del que sale SU ficha, no a otro que también existe', () => {
+  const slugDeArchivo = (archivo: string) => /^ {2}slug: '([^']+)'/m.exec(readFileSync(join(CURSOS_DIR, archivo), 'utf8'))?.[1];
+  for (const a of ASESORES) {
+    const ficha = readFileSync(join(__dirname, '..', 'lib', 'asesores', `ficha-${a.id}.ts`), 'utf8');
+    const archivo = /app\/conocimientos\/(curso-[a-z0-9-]+\.ts)/.exec(ficha)?.[1];
+    assert.ok(archivo, `la ficha de ${a.id} no dice de qué curso sale`);
+    assert.equal(cursoDeReferente(a.id), slugDeArchivo(archivo), `${a.id}: su ficha sale de ${archivo}`);
+  }
+});
+
+test('el índice trae todas sus clases: una que el generador no agarra se pierde en silencio', () => {
+  const indice = CLASES as Record<string, Array<{ t: string; v: string }>>;
+  const archivos = readdirSync(CURSOS_DIR).filter((f) => f.startsWith('curso-') && f.endsWith('.ts'));
+  for (const a of ASESORES) {
+    const slug = cursoDeReferente(a.id) ?? '';
+    const src = archivos.map((f) => readFileSync(join(CURSOS_DIR, f), 'utf8')).find((s) => new RegExp(`^ {2}slug: '${slug}'`, 'm').test(s)) ?? '';
+    const enElArchivo = [...src.matchAll(/videoId:\s*'([A-Za-z0-9_-]+)'/g)].length;
+    assert.ok(enElArchivo > 0, `${a.id}: su curso no tiene clases`);
+    assert.equal(indice[slug]?.length, enElArchivo, `${a.id}: el índice no trae todas las clases de ${slug} (node scripts/generar-clases-de-referentes.mjs)`);
+  }
 });

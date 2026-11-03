@@ -71,7 +71,9 @@ import { EntradaOps } from './EntradaOps';
 import { ChatDelCoach } from './ChatDelCoach';
 import { ChatDelReferente } from './ChatDelReferente';
 import { ElegirReferente } from './ElegirReferente';
-import { useCoaches } from './useCoaches';
+import { GaleriaDeGurus } from './GaleriaDeGurus';
+import { BotonSuSecondBrain } from './SuSecondBrain';
+import { useCoaches, useGurusConCharla } from './useCoaches';
 import { ChatDelCentro, FilaDeChat, GruposPorJefe, ListaCentro, MenusCentro, NuevoChatCentro, PieCentro, RenglonDeFila, buscarChats } from '@/app/admin/operaciones/PiezasCentro';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ChatNuevoCentro } from '@/app/admin/operaciones/ChatNuevo';
@@ -87,7 +89,7 @@ import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
-import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
+import { ORIGEN_FUNNEL_COACH, ORIGEN_OFFER_COACH, SUBS_VISIBLES, edadCorta, esFilaDe, gurusDeLaBarra, jefeDelGrupo, queAbreElOfferCoach, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { ASPECTO_MAKO, aspectoDeChat, aspectoDeReferente } from '@/lib/centro-munecos';
 import { asesorPorId, inspiradoEn, type IdAsesor } from '@/lib/asesores/catalogo';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
@@ -104,9 +106,9 @@ const FILAS_VISIBLES = SUBS_VISIBLES;
 
 type Elegido = ElegidoChat;
 
-/** Lo elegido, en la URL: `?chat=` una conversación con MaKo, `?offer=` una de Offer, `?antes=` una de antes y `?centro=`
- *  un chat de Claude Code. */
-const anotarEnUrl = (e: Elegido | null, centro: string | null) => {
+/** Lo elegido, en la URL: `?chat=` una conversación con MaKo, `?offer=` una de Offer, `?antes=` una de antes, `?centro=`
+ *  un chat de Claude Code y `?guru=` el chat con un gurú (con él abierto, lo demás no se anota: es lo que se ve). */
+const anotarEnUrl = (e: Elegido | null, centro: string | null, guru: IdAsesor | null = null) => {
   try {
     const u = new URL(window.location.href);
     const poner = (k: string, v: number | string | null) => { if (v != null) u.searchParams.set(k, String(v)); else u.searchParams.delete(k); };
@@ -115,6 +117,7 @@ const anotarEnUrl = (e: Elegido | null, centro: string | null) => {
     poner('antes', e && 'antes' in e ? e.antes : null);
     poner('coach', e && 'coach' in e ? e.coach : null);
     poner('centro', centro);
+    poner('guru', guru);
     window.history.replaceState(null, '', u);
   } catch { /* es una comodidad */ }
 };
@@ -200,7 +203,17 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   });
   // «Nuevo chat» de Claude Code (Ops Center): un chat vacío con su caja, sin modal; MaKo decide dónde va con el primer mensaje.
   const [nuevoCentro, setNuevoCentro] = useState(false);
-  const [conChat, setConChat] = useState(funnelInicial || chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
+  // El chat con un GURÚ (3/11/2026, #16): se abre desde «Nuevo chat» (GaleriaDeGurus.tsx), su fila o la del Offer Coach, ahí mismo y
+  // sin conversación previa (ChatDelReferente.tsx). Lo que lo hace gurú es la clave de su conversación, no este estado: esto sólo dice
+  // qué panel se ve. ⚠️ NO VA EN `ElegidoChat`: ese es el motor de ESTA pantalla, y el gurú tiene el suyo. `?guru=` lo trae de vuelta.
+  const guruInicial = asesorPorId(useSearchParams().get('guru'))?.id ?? null;
+  const [guru, setGuru] = useState<IdAsesor | null>(guruInicial);
+  // ⚠️ UNA VEZ ABIERTO QUEDA MONTADO, ESCONDIDO, como el Funnel Coach (más abajo): tiene su propio motor, y desmontado a mitad de un turno
+  // la respuesta llegaba a nadie. Irse a otro chat mientras contesta no la pierde.
+  const [gurusMontados, setGurusMontados] = useState<readonly IdAsesor[]>(guruInicial ? [guruInicial] : []);
+  const delGuru = asesorPorId(guru);
+  const enChatNuevo = elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo';
+  const [conChat, setConChat] = useState(funnelInicial || guruInicial != null || chatInicial != null || offerInicial != null || antesInicial != null || mapa != null || centroInicial != null || ticketeraInicial != null);
   const [ticketera, setTicketera] = useState<VistaDeTicketera | null>(ticketeraInicial);
   const [busca, setBusca] = useState('');
   /** El filtro de la barra (feedback 4, 22/10/2026): el de Automations, con las áreas y, para el super admin, el estado. */
@@ -212,11 +225,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // chat con MaKo se abre sólo si la URL lo pide.
   const { referentes, hayOferta, puedeElegir, elegirReferente } = useCoaches();
   const [eligiendoOffer, setEligiendoOffer] = useState(false);
-  // El chat con un GURÚ (3/11/2026, #16): se elige desde «Nuevo chat» (ElegirReferente.tsx) y se abre ahí mismo
-  // (ChatDelReferente.tsx). Lo que lo hace gurú es la clave de su conversación, no este estado: esto sólo dice qué panel se ve.
-  const [guru, setGuru] = useState<IdAsesor | null>(null);
-  const [eligiendoGuru, setEligiendoGuru] = useState(false);
-  const delGuru = asesorPorId(guru);
+  const gurusConCharla = useGurusConCharla(guru);
   const delOffer = asesorPorId(referentes.offer);
   const delFunnel = asesorPorId(referentes.funnel);
   const k = useChatCliente({ elegido, setElegido, activo: !ops, entrarAlCerebro: !ops, chatInicial, opcionArmar, busca, caja, aspectoOffer: delOffer ? aspectoDeReferente(delOffer.id) : null });
@@ -240,7 +249,12 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // no se va nunca (Martín, 17/10/2026: «una vez que entro a Second Brain, no puedo salir más dándole click a un chat»). Mientras
   // hay grafo no se anota nada; al irse, el efecto vuelve a correr y anota el chat.
   const hayMapa = mapa != null;
-  useEffect(() => { if (elegido && !hayMapa) anotarEnUrl(elegido, urlCentro); }, [elegido, urlCentro, hayMapa]);
+  useEffect(() => {
+    if (hayMapa) return;
+    if (guru) anotarEnUrl(null, null, guru);
+    else if (elegido) anotarEnUrl(elegido, urlCentro);
+    else anotarParam('guru', null);
+  }, [elegido, urlCentro, hayMapa, guru]);
   // ⚠️ EL CLIC CAMBIA LA VISTA EN EL ACTO (23/10/2026, Martín: «Cuando apreto "Second Brain" primero se va al chat de "Cerebro" y
   // luego de unos segundos ahí recién entra al second brain, eso está muy mal»). El grafo lo arma el SERVIDOR (`mapa`) y tarda
   // ~3 s; mientras tanto se dibujaba lo de antes. `yendo` es adónde se fue con el clic: hacia el grafo se ve su loader
@@ -254,11 +268,14 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const qs = useSearchParams().toString();
   const elegidoRef = useRef(elegido);
   elegidoRef.current = elegido;
+  const guruRef = useRef(guru);
+  guruRef.current = guru;
   const qsAntes = useRef(qs);
   useEffect(() => {
     const antes = qsAntes.current;
     qsAntes.current = qs;
-    if (qs || !antes || !urlPelada(elegidoRef.current)) return;
+    if (qs || !antes || (!urlPelada(elegidoRef.current) && !guruRef.current)) return;
+    setGuru(null);
     setNuevoCentro(false);
     if (centro) { const entrada = centroDeEntrada(centro); if (entrada) setElegido({ centro: entrada }); return; }
     setElegido(k.lista[0]?.elegido ?? null);
@@ -293,7 +310,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   // Lo que MaKo dice primero en el Cerebro (la guía, o la escalera del primer ingreso: lib/aperturas/ops.ts).
   const apertura = useAperturaDelCerebro(k, { libre: conGuia });
   // Como un chat: abre mostrando lo último, y baja cuando llega algo nuevo.
-  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer]);
+  // El chat nuevo abre arriba: abajo de la portada están los gurús, y bajando se perdía lo que dice.
+  useLayoutEffect(() => { const el = hilo.current; if (el) el.scrollTop = enChatNuevo && !k.items.length ? 0 : el.scrollHeight; }, [k.items.length, k.trabajo, k.idTurno, idOffer, enChatNuevo]);
   // El campo que crece y el scroll que lo acompaña son de la caja única (app/_chat/CajaChat.tsx): le pasa la conversación.
   const seguirHilo = useCallback(() => hilo.current, []);
 
@@ -323,7 +341,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
   const [cerebroFila, ...filasDeLaLista] = k.lista;
   // Las de Offer van debajo del Offer Coach, no en el resto.
   const filasOffer = filasDeLaLista.filter((f) => f.origen === 'offer');
-  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer');
+  // Los gurús van debajo de los coaches (`coaches`), con el mismo lugar para el cliente y el super admin.
+  const todasLasFilas = filasDeLaLista.filter((f) => f.origen !== 'offer' && !f.guru);
   // El filtro va sobre lo que ya dejó la búsqueda; el Cerebro queda siempre arriba.
   const restoFilas = filtros.length ? todasLasFilas.filter((f) => pasaFiltroChats({ titulo: f.titulo }, filtros)) : todasLasFilas;
   const corte = todas || busca.trim() || filtros.length ? restoFilas : restoFilas.filter((f, i) => i < FILAS_VISIBLES || esFilaDe(f, elegido));
@@ -371,7 +390,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
    *  «Trabajando…». En su grupo (`sub`), corrida a la derecha y sólo con lo de después de «›», como un sub-chat del super admin. */
   const fila = (f: (typeof k.lista)[number], sub = false) => {
     // El jefe de un grupo sin chat propio abre el más reciente de los suyos, pero el abierto es ése, no el jefe.
-    const actual = !verMapa && !f.jefeDeGrupo && esFilaDe(f, elegido);
+    const actual = !verMapa && !delGuru && !f.jefeDeGrupo && esFilaDe(f, elegido);
     const vivo = actual && k.enCurso;
     return (
       <FilaDeChat key={f.clave} titulo={f.titulo} criatura={f.criatura} aspecto={f.aspecto} animo={vivo ? 'trabajando' : 'despierto'} actual={actual}
@@ -380,18 +399,29 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
     );
   };
 
-  /** Abre el chat con un gurú, desde «Nuevo chat»: deja la Ticketera y el chat nuevo, como tocar un chat de la lista. */
+  /** Abre el chat con un gurú ahí mismo: deja la Ticketera, el grafo y el chat nuevo, como tocar un chat de la lista. Sin el grafo no se
+   *  navega: Martín, 2/11/2026, «no me tiene que redirigir a ningún lado». */
   const abrirGuru = (id: IdAsesor) => {
-    if (ticketera) cerrarTicketera();
+    const paso = tocarEnLaBarra('chat', estadoPanel());
+    if (ticketera) cerrarTicketera(paso.ir == null);
     setNuevoCentro(false);
     setGuru(id);
+    setGurusMontados((xs) => (xs.includes(id) ? xs : [...xs, id]));
     setConChat(true);
+    if (paso.ir) { setYendo('fuera'); router.push(`${base}?guru=${encodeURIComponent(id)}`); }
   };
-  /** «Hablar con un gurú», en la cabecera de «Nuevo chat» (la del cliente y la de Claude Code del super admin). */
-  const botonGuru = <button type="button" className="co-chip" onClick={() => setEligiendoGuru(true)}>Hablar con un gurú</button>;
-  const enChatNuevo = elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo';
+  /** La fila del Offer Coach (lib/chat-mako-reglas.ts → queAbreElOfferCoach): nunca es un clic muerto. */
+  const abrirOfferCoach = () => {
+    const a = queAbreElOfferCoach({ referente: delOffer?.id ?? null, offer: filasOffer[0]?.elegido ?? null });
+    if ('guru' in a) abrirGuru(a.guru);
+    else if ('elegido' in a) elegir(a.elegido);
+    else setEligiendoOffer(true);
+  };
+  /** Cuándo fue lo último con un gurú. */
+  const edadDeGuru = (id: IdAsesor | undefined) => { const at = gurusConCharla.find((g) => g.id === id)?.at; return edadCorta(at ? Date.parse(at) : null, k.ahora); };
+  const filasDeGurus = gurusDeLaBarra({ conCharla: gurusConCharla, abierto: guru, delOffer: delOffer?.id ?? null, busca });
 
-  /** Los dos coaches, fijos debajo del Ops Center. Offer abre su conversación más reciente; sin ninguna, la tab la arranca. */
+  /** Los dos coaches, fijos debajo del Ops Center, y debajo los gurús con los que ya habló. */
   const verFunnel = conCoach && !verMapa && !ticketera && !nuevoCentro && !delGuru;
   // ⚠️ UNA VEZ ABIERTO QUEDA MONTADO, ESCONDIDO (la revisión del 1/11/2026): tiene su propio motor, y el de esta pantalla no sabe si está ocupado. Desmontado a mitad de un
   // turno, la respuesta llegaba a nadie y al volver el hilo terminaba en la pregunta. Un trabajo largo corre en segundo plano y no bloquea la navegación.
@@ -405,22 +435,25 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
         onElegir={() => elegir({ coach: 'funnel' })} />}
       {(ops || veMapa) && (
         <div className="co-jefe">
-          <FilaDeChat titulo={delOffer?.nombre ?? ORIGEN_OFFER_COACH} criatura={ORIGEN_OFFER_COACH} aspecto={delOffer ? aspectoDeReferente(delOffer.id) : ASPECTO_MAKO} animo="despierto" actual={false} hace=""
+          <FilaDeChat titulo={delOffer?.nombre ?? ORIGEN_OFFER_COACH} criatura={delOffer?.nombre ?? ORIGEN_OFFER_COACH} aspecto={delOffer ? aspectoDeReferente(delOffer.id) : ASPECTO_MAKO} animo="despierto"
+            actual={!verMapa && delOffer != null && delGuru?.id === delOffer.id} hace={edadDeGuru(delOffer?.id)}
             previa={<span className="co-fila__coach">{delOffer ? `${ORIGEN_OFFER_COACH} · ${inspiradoEn(delOffer)}` : ORIGEN_OFFER_COACH}</span>}
             // ⚠️ NO SACA A NADIE DEL OPS CENTER. Martín, 2/11/2026: «la tab de offer dentro del
             // OpsCenter me sigue llevando a la ruta de offer… si yo le doy clic, no me tiene que
-            // redirigir a ningún lado». Antes, sin conversación de Offer, hacía `router.push('/offer')`
-            // y te echaba a la tab vieja — justo la que él sacó de la barra.
-            // ⚠️ SIN CONVERSACIÓN TODAVÍA, EL CLIC NO HACE NADA, y eso es lo que FALTA: abrir el
-            // Offer Coach ahí mismo necesita un `{ coach: 'offer' }` en `ElegidoChat`
-            // (lib/chat-mako-reglas.ts:265), y hoy `coach` está cableado a «funnel» a mano en cinco
-            // lugares de este archivo —`hrefMapa`, `hrefVolver`, `verFunnel`, el efecto que abre el
-            // panel, y el `ChatDelCoach` que recibe `referentes.funnel`—. Separar eso es un trabajo
-            // propio; dejarlo redirigiendo mientras tanto era peor.
-            onElegir={() => { if (filasOffer[0]) elegir(filasOffer[0].elegido); }} />
+            // redirigir a ningún lado». Y 3/11/2026: «Cuando le doy a "Hormozi" no se abre nada»: sin
+            // conversación de Offer el clic no hacía nada. Ahora abre su chat, aunque nunca le haya escrito.
+            onElegir={abrirOfferCoach} />
           {filasOffer.length > 0 && <div className="co-jefe__subs">{filasOffer.map((f) => fila(f, true))}</div>}
         </div>
       )}
+      {/* El historial de los gurús: su cara, su nombre y cuándo fue lo último. */}
+      {filasDeGurus.map(({ id }) => {
+        const g = asesorPorId(id);
+        return g && (
+          <FilaDeChat key={id} titulo={g.nombre} aspecto={aspectoDeReferente(id)} animo="despierto" actual={!verMapa && guru === id} hace={edadDeGuru(id)}
+            previa={<span className="co-fila__coach">{inspiradoEn(g)}</span>} onElegir={() => abrirGuru(id)} />
+        );
+      })}
     </div>
   );
 
@@ -457,7 +490,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
               {coaches}
               {centro.chats.length > 0 && !delCentro.length && <p className="co-lista__vacio">Ningún chat con ese nombre.</p>}
               {centro.chats.length
-                ? <ListaCentro centro={centro} visibles={delCentro} actual={ticketera || nuevoCentro ? null : claveCentro} buscando={!!busca.trim()} onElegir={(clave) => elegir({ centro: clave })} />
+                ? <ListaCentro centro={centro} visibles={delCentro} actual={ticketera || nuevoCentro || delGuru ? null : claveCentro} buscando={!!busca.trim()} onElegir={(clave) => elegir({ centro: clave })} />
                 : <p className="co-lista__vacio">Conecta un Runner para ver tus chats aquí.</p>}
             </>
           )}
@@ -539,12 +572,9 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             ? <VolverDelGrafo.Provider value={() => { setConChat(false); setYendo('fuera'); router.push(hrefVolver); }}>{mapa}</VolverDelGrafo.Provider>
             : <CargandoMako que="tu Second Brain" alto="100%" />}
         </section>
-      ) : delGuru ? (
-        // Un chat con un gurú (ChatDelReferente.tsx): su conversación, su cara y su Second Brain.
-        <ChatDelReferente key={delGuru.id} referente={delGuru} onVolver={() => { setGuru(null); setConChat(false); }} />
-      ) : centro && nuevoCentro ? (
+      ) : delGuru ? null : centro && nuevoCentro ? (
         // Un chat NUEVO de Claude Code: vacío, con su caja; con el primer mensaje, MaKo decide dónde va (ChatNuevo.tsx).
-        <ChatNuevoCentro centro={centro} onAbrir={(clave) => elegir({ centro: clave })} onVolver={() => { setNuevoCentro(false); setConChat(false); }} acciones={botonGuru} />
+        <ChatNuevoCentro centro={centro} onAbrir={(clave) => elegir({ centro: clave })} onVolver={() => { setNuevoCentro(false); setConChat(false); }} gurus={<GaleriaDeGurus onElegir={abrirGuru} />} />
       ) : centro && chatCentro ? (
         // Un chat de Claude Code: la conversación del Centro, con su caja firmada (el único camino, mandar.ts).
         <ChatDelCentro centro={centro} chat={chatCentro} onVolver={() => setConChat(false)} />
@@ -559,8 +589,8 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             // En una conversación de Offer se ve quién aconseja y se puede cambiar, como la criatura de cualquier chat.
             ...(idOffer != null ? {
               onMuneco: puedeElegir ? () => setEligiendoOffer(true) : undefined,
-              acciones: delOffer ? <span className="co-cab__inspirado">{inspiradoEn(delOffer)}</span> : undefined,
-            } : enChatNuevo ? { acciones: botonGuru } : {}) }}
+              acciones: delOffer ? <><span className="co-cab__inspirado">{inspiradoEn(delOffer)}</span><BotonSuSecondBrain referente={delOffer} /></> : undefined,
+            } : {}) }}
           // Los fijados, arriba de la conversación (WhatsApp): tocar va al mensaje.
           arriba={<BarraFijados marcas={k.marcas} lineas={[]} mensajes={k.mensajesWA} titulo={k.nombre} onSoltar={(id) => void k.ponerMarca({ tipo: 'fijar', id, si: false })} />}
           despues={<>
@@ -574,15 +604,25 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} apertura={apertura} />
+          {enChatNuevo && !k.items.length && !k.trabajo && <GaleriaDeGurus onElegir={abrirGuru} />}
         </PanelDeChat>
       )}
+      {/* Un chat con un gurú (ChatDelReferente.tsx): su conversación, su cara y su Second Brain. */}
+      {gurusMontados.map((id) => {
+        const g = asesorPorId(id);
+        const seVe = id === guru && !verMapa && !ticketera;
+        return g && (
+          <div key={id} style={{ display: seVe ? 'contents' : 'none' }}>
+            <ChatDelReferente referente={g} visible={seVe} onVolver={() => { setGuru(null); setConChat(false); }} />
+          </div>
+        );
+      })}
       {funnelAbierto && (
         <div style={{ display: verFunnel ? 'contents' : 'none' }}>
           <ChatDelCoach referente={referentes.funnel} hayOferta={hayOferta} puedeElegir={puedeElegir} onReferente={(id) => elegirReferente('funnel', id)} onVolver={() => setConChat(false)} />
         </div>
       )}
       {centro && <MenusCentro centro={centro} />}
-      {eligiendoGuru && <ElegirReferente titulo="¿Con quién quieres hablar?" elegido={null} onCerrar={() => setEligiendoGuru(false)} onElegir={(id) => { setEligiendoGuru(false); if (id) abrirGuru(id); }} />}
       {eligiendoOffer && <ElegirReferente titulo={ORIGEN_OFFER_COACH} elegido={referentes.offer} onCerrar={() => setEligiendoOffer(false)} onElegir={(id) => { setEligiendoOffer(false); elegirReferente('offer', id); }} />}
       {/* «Tus cuentas de IA» ahí mismo (/perfil/ia): conectar su computadora con su Claude o, si es admin, la clave. */}
       {k.conectando && (

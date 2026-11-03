@@ -27,7 +27,7 @@ import {
 } from '@/lib/chart-chats';
 import { claveVisible, pasaLaPuertaDeSuTab, personaDeSesion, prefijoDePersona, puedeUsarSesion, type QuienChatea } from '@/lib/chart-chats-reglas';
 import { veCopywriter } from '@/lib/copywriter/puerta';
-import { TITULO_GRUPO, baseDeLaPersona, claveDeEditor, mensajesDeAutomatizacion, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor, temaDe, type TipoEditor } from '@/lib/chat-mako-reglas';
+import { PREFIJO_TAB_REFERENTE, TITULO_GRUPO, baseDeLaPersona, claveDeEditor, mensajesDeAutomatizacion, mensajesDeEditor, origenDeClave, partesDeClaveDeEditor, referenteDeTab, temaDe, type GuruConCharla, type TipoEditor } from '@/lib/chat-mako-reglas';
 import { hiloAlAbrir as hiloImagenAlAbrir } from '@/lib/image-editor/chat/hilo';
 import { hiloAlAbrir as hiloVideoAlAbrir } from '@/lib/editor-video/chat-hilo';
 import { leerChat as leerChatDeAutomatizacion, listarChats as listarChatsDeAutomations, secuenciaDelWorkspace } from '@/lib/automatizacion-chat-db';
@@ -123,6 +123,14 @@ export async function chatsDeLasTabs(p: { ws: number; chartKey: string }): Promi
       const origen = Number.isInteger(lead) && lead > 0 ? `Ficha · ${nombres.get(lead) ?? `lead ${lead}`}` : origenDeClave(s.chart_key);
       return { id: s.id, titulo: s.titulo, clave: s.chart_key.slice(p.chartKey.length + 1), updatedAt: s.updated_at, origen };
     });
+  });
+}
+
+/** Los gurús con los que la persona ya habló (`…:referente-<id>`), para su historial en la barra. Sólo los suyos: la clave lleva su persona. */
+export async function gurusConCharla(p: { ws: number; chartKey: string }): Promise<GuruConCharla[]> {
+  return runWithWorkspace(p.ws, async () => {
+    const ss = await listSessionsDePersona(`${p.chartKey}:${PREFIJO_TAB_REFERENTE}`);
+    return ss.flatMap((s) => { const id = referenteDeTab(s.chart_key); return id ? [{ id, at: s.updated_at }] : []; });
   });
 }
 

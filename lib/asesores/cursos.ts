@@ -16,6 +16,14 @@
 // ⚠️ ESTÁN LOS DOCE, no sólo los dos que ya tienen ficha. Los otros diez entran solos el día que se
 // cargue su ficha y su `IdAsesor`: el mapa no es lo que falta de ellos.
 //
+// ⚠️ UN GURÚ DE LA GALERÍA QUE NO ESTÁ ACÁ NO TIENE BASE DE CONOCIMIENTOS, Y NO LO DICE NADIE (3/11/2026).
+// Martín: «Cuando le escribo a algun guru, aun no me respondo con su base de conocimientos». El mapa
+// tenía 3 de los 22 de la galería: `cursoDe` devolvía null, el chat seguía con la ficha y el Second
+// Brain decía «todavía no tiene su curso», Hormozi incluido. Los que faltaban salen del encabezado de SU
+// ficha (`lib/asesores/ficha-*.ts`, «de las transcripciones de … (app/conocimientos/curso-….ts)»), que
+// es de donde se destiló: lo cuida `tests/asesores-cursos.test.ts`. Sumar uno acá pide regenerar el
+// índice: `node scripts/generar-clases-de-referentes.mjs`.
+//
 // ⚠️ Samuel Albaa COMPARTE CURSO con Agustín Nievas, y es a propósito: «Growing Closer» es de los
 // dos. Su ficha destila SU parte —el *appointment setter*: manejar la conversación y conseguir la
 // llamada—, que es distinta del cierre, que es lo de Nievas.
@@ -39,6 +47,26 @@ export const CURSO_DE_REFERENTE: Readonly<Record<string, string>> = {
   'samuel-albaa': 'growing-closer-agustin-nievas-samuel-albaa',
   // Nievas ya era referente de antes y sale del MISMO curso que Albaa.
   'agustin-nievas': 'growing-closer-agustin-nievas-samuel-albaa',
+  // ── El resto de la galería, cada uno con el curso del que sale su ficha ──
+  'hormozi': '100m-money-models',
+  'juan-ads': 'metolodogia-jads',
+  'julian-otalora': 'metodo-contenido-irresistible',
+  'sofia-contreras': 'masteryhaus',
+  'marcos-razzetti': 'agencia-6-cifras-v2',
+  'victor-heras': 'master-marca-personal-5-0',
+  'derek-chamizo': 'universidad-de-youtube',
+  'david-turu': 'academia-de-lanzamiento',
+  'ximena-fukuda': 'metodo-fukuda-poder-organico',
+  'guille-collado': 'hackeando-el-algoritmo',
+  'marc-verdu': 'nuevo-organic-ecom-3-0-junio-2026',
+  'ramiro-cubria': 'sell-your-knowledge',
+  'iman-gadzhi': 'iman-gadzhi-agency-navigator',
+  'felipe-vergara': 'vender-por-fb-e-ig-ads',
+  'jaime-higuera': 'growth-partner',
+  'adria-sola': 'instituto-de-comunicacion',
+  'augusto-bianchi': 'academia-five-stars',
+  'tino-mossu': 'la-universidad-del-closer',
+  'jordi-segues': 'tiktok-100k-jordi-segues',
 };
 
 /** El slug del curso de un referente, o `null` si todavía no se le asignó uno. */

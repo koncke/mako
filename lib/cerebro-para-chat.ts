@@ -84,12 +84,27 @@ export async function paqueteParaElTurno(
   return [negocio, curso].filter(Boolean).join('\n\n');
 }
 
+/**
+ * Lo que el turno espera a que se lea un curso la primera vez. Son hasta 10 MB en 452 pedidos: una persona no se queda mirando
+ * eso. Pasado el plazo el turno sigue con la ficha, la lectura termina por detrás y el mensaje que sigue ya lo tiene.
+ */
+export const ESPERA_CURSO_TURNO_MS = 12_000;
+
 /** El bloque del curso del referente para la pregunta del turno. Nunca tira: sin curso, el chat sigue con su ficha. */
-async function cursoParaElTurnoDe(id: string, q: string): Promise<string> {
-  const c = await cursoDe(id);
+export async function cursoParaElTurnoDe(id: string, q: string, esperaMs = ESPERA_CURSO_TURNO_MS, presupuesto?: number): Promise<string> {
+  const c = await Promise.race([cursoDe(id), new Promise<null>((r) => setTimeout(() => r(null), esperaMs))]);
   if (!c) return '';
   const { cursoParaElTurno } = await import('./cerebro-referente');
-  return cursoParaElTurno(c.capa, c.a, q);
+  return cursoParaElTurno(c.capa, c.a, q, presupuesto);
+}
+
+/** El turno de Offer pide menos que un chat con el gurú: lo que tiene que hacer es armar la oferta, y ya trae su marco y el negocio. */
+export const PRESUPUESTO_CURSO_OFFER = 12_000;
+
+/** El curso de un referente para quien no pasa por `paqueteParaElTurno`: una conversación de Offer. */
+export async function cursoDelReferente(id: string, pregunta: string, presupuesto?: number): Promise<string> {
+  const q = preguntaDelTurno(pregunta);
+  return q ? cursoParaElTurnoDe(id, q, ESPERA_CURSO_TURNO_MS, presupuesto) : '';
 }
 
 /** Lo del negocio que nombra la pregunta (lo de siempre). */

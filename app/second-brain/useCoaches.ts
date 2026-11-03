@@ -5,6 +5,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { REFERENTES_DE_FABRICA, sanearReferentes, type IdAsesor, type IdCoach, type ReferentesElegidos } from '@/lib/asesores/catalogo';
+import type { GuruConCharla } from '@/lib/chat-mako-reglas';
 
 export function useCoaches() {
   const [referentes, setReferentes] = useState<ReferentesElegidos>(REFERENTES_DE_FABRICA);
@@ -33,4 +34,21 @@ export function useCoaches() {
       });
   }, []);
   return { referentes, hayOferta, puedeElegir, elegirReferente };
+}
+
+/**
+ * Los gurús con los que la persona ya habló, para su historial en la barra (lib/chat-mako-indice.ts → `gurusConCharla`). Se relee al
+ * cambiar de chat: el primer mensaje al gurú recién abierto crea su conversación. El super admin no tiene otra forma de volver a la
+ * suya: su lista es la de Claude Code, y estos chats no salen en ella.
+ */
+export function useGurusConCharla(abierto: IdAsesor | null, activo = true): readonly GuruConCharla[] {
+  const [gurus, setGurus] = useState<readonly GuruConCharla[]>([]);
+  useEffect(() => {
+    if (!activo) return;
+    let vivo = true;
+    void fetch('/api/mako/chat?gurusConCharla=1', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null)
+      .then((j: { gurus?: GuruConCharla[] } | null) => { if (vivo && j?.gurus) setGurus(j.gurus); });
+    return () => { vivo = false; };
+  }, [abierto, activo]);
+  return gurus;
 }

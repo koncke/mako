@@ -81,6 +81,14 @@ const ESPERA_CLASE_MS = 8_000;
  * una clase suelta.
  */
 export async function textoDeClase(videoId: string): Promise<string | null> {
+  return (await pedirClase(videoId)) ?? null;
+}
+
+/** Las clases que el CDN contestó que no tienen transcripción (un 404): su falta no deja el curso «a medias». */
+const sinTranscripcion = new Set<string>();
+
+/** El texto de una clase; `null` si no tiene transcripción (definitivo) y `undefined` si no llegó (un corte: se vuelve a pedir). */
+async function pedirClase(videoId: string): Promise<string | null | undefined> {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(videoId)) return null;
   try {
     // ⚠️ SE LEE DEL CDN, NUNCA DEL DISCO (3/11/2026). `public/cono-tx` son 164 MB en 9.719
@@ -89,7 +97,8 @@ export async function textoDeClase(videoId: string): Promise<string | null> {
     // se cortó seis horas por el tope de 250 MB. Excluirlos en next.config.ts NO alcanzó: Turbopack
     // ignora `outputFileTracingExcludes` para lo que traza él. La única salida segura es no tocar fs.
     const r = await fetch(urlDeClase(videoId), { signal: AbortSignal.timeout(ESPERA_CLASE_MS), cache: 'force-cache' });
-    if (!r.ok) return null;
+    if (r.status === 404) { sinTranscripcion.add(videoId); return null; }
+    if (!r.ok) return undefined;
     const leido: unknown = await r.json();
     // El archivo es una LISTA de strings (los tramos del video). También se acepta un string suelto
     // por si alguna vez se guardó así: lo que no se acepta es adivinar sobre otra forma.
@@ -98,20 +107,28 @@ export async function textoDeClase(videoId: string): Promise<string | null> {
     const texto = leido.filter((t): t is string => typeof t === 'string').join(' ').replace(/\s+/g, ' ').trim();
     return texto || null;
   } catch {
-    return null;
+    return undefined;
   }
 }
 
+/** Cuántas clases se piden a la vez: el curso de Marc Verdú tiene 452, y de un saque son 452 conexiones abiertas desde una función. */
+const CLASES_A_LA_VEZ = 16;
+
 /** Las clases de un curso, con su texto completo y en el orden del curso. Las que no tienen transcripción quedan afuera. */
 export async function clasesDelCurso(curso: CursoParaLeer): Promise<ClaseDeCurso[]> {
-  const pedidos = curso.clases.map(async (c, i) => {
-    const videoId = (c.videoId ?? '').trim();
-    if (!videoId) return null;
-    const texto = await textoDeClaseMemo(videoId);
-    if (!texto) return null;
-    return { videoId, titulo: (c.titulo ?? '').trim() || `Clase ${i + 1}`, orden: i + 1, texto };
-  });
-  return (await Promise.all(pedidos)).filter((c): c is ClaseDeCurso => c != null);
+  const leidas: Array<ClaseDeCurso | null> = curso.clases.map(() => null);
+  let siguiente = 0;
+  const leerLasQueSiguen = async () => {
+    while (siguiente < curso.clases.length) {
+      const i = siguiente++;
+      const c = curso.clases[i];
+      const videoId = (c.videoId ?? '').trim();
+      const texto = videoId ? await textoDeClaseMemo(videoId) : null;
+      if (texto) leidas[i] = { videoId, titulo: (c.titulo ?? '').trim() || `Clase ${i + 1}`, orden: i + 1, texto };
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(CLASES_A_LA_VEZ, curso.clases.length) }, leerLasQueSiguen));
+  return leidas.filter((c): c is ClaseDeCurso => c != null);
 }
 
 /** La capa lista de un referente: se lee su curso del disco y se arma el grafo. */
@@ -134,7 +151,7 @@ const textos = new Map<string, Promise<string | null>>();
 function textoDeClaseMemo(videoId: string): Promise<string | null> {
   const ya = textos.get(videoId);
   if (ya) return ya;
-  const p = textoDeClase(videoId).then((t) => { if (t == null) textos.delete(videoId); return t; });
+  const p = pedirClase(videoId).then((t) => { if (t === undefined) textos.delete(videoId); return t ?? null; });
   textos.set(videoId, p);
   return p;
 }
@@ -147,9 +164,12 @@ export function cerebroDeReferenteMemo(r: ReferenteDelCerebro, curso: CursoParaL
   // Y si la lectura falla, se saca para que el próximo turno lo vuelva a intentar en vez de
   // quedarse con un error cacheado para siempre.
   // ⚠️ Y UN CURSO A MEDIAS TAMPOCO SE GUARDA: con una clase que no llegó, el próximo turno la vuelve a
-  // pedir. Las que sí llegaron están en `textos`, así que reintentar cuesta sólo lo que faltó.
+  // pedir. Las que sí llegaron están en `textos`, así que reintentar cuesta sólo lo que faltó. Una clase SIN
+  // transcripción (un 404: dos de Five Stars y dos de Marca Personal 5.0) no es «a medias»: contarla como
+  // tal rearmaba esos cursos en cada turno, para siempre.
   const p = cerebroDeReferente(r, curso).then((c) => {
-    if (c.nodos.length - 1 < curso.clases.length) memoria.delete(r.id);
+    const esperadas = curso.clases.filter((x) => !sinTranscripcion.has((x.videoId ?? '').trim())).length;
+    if (c.nodos.length - 1 < esperadas) memoria.delete(r.id);
     return c;
   }, (e) => { memoria.delete(r.id); throw e; });
   memoria.set(r.id, p);

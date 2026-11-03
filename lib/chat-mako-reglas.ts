@@ -281,6 +281,8 @@ export type FilaDelCliente = {
   origen: OrigenDeFila;
   /** La fila JEFE de un grupo que no tiene chat propio (`jefeDelGrupo`): abre el más reciente de los suyos, y no es «el abierto». */
   jefeDeGrupo?: true;
+  /** La conversación con un gurú (`…:referente-<id>`): lleva su cara y se abre en su chat (ChatDelReferente.tsx). */
+  guru?: IdAsesor;
 };
 
 /** `tema`: de qué se trata, para nombrar lo que no tiene título y distinguir dos que se llaman igual (lo pone el servidor:
@@ -377,6 +379,33 @@ export function referenteDeTab(tab: string | null | undefined): IdAsesor | null 
 }
 /** ¿Esta tab tiene una conversación propia por persona? Las de la lista fija y la de cada gurú (lo único que acepta la ruta). */
 export const esTabConChatPropio = (tab: string): boolean => TABS_CON_CHAT_PROPIO.includes(tab) || (!tab.includes(':') && referenteDeTab(tab) != null);
+
+/**
+ * Qué abre tocar la fila del Offer Coach (3/11/2026, Martín: «Cuando le doy a "Hormozi" no se abre nada»). Con un gurú al frente, SU
+ * chat, ahí mismo y aunque nunca le haya escrito: es lo que dice la fila. Sus conversaciones de Offer siguen debajo, cada una en su
+ * fila. Sin gurú (eligió «MaKo»), la conversación de Offer más reciente; sin ninguna, elegir uno: la fila nunca es un clic muerto.
+ */
+export function queAbreElOfferCoach(o: { referente: IdAsesor | null; offer: ElegidoChat | null }): { guru: IdAsesor } | { elegido: ElegidoChat } | { elegir: true } {
+  if (o.referente) return { guru: o.referente };
+  return o.offer ? { elegido: o.offer } : { elegir: true };
+}
+
+/** Un gurú con el que la persona ya habló: su conversación y cuándo fue lo último. */
+export type GuruConCharla = { id: IdAsesor; at: string | null };
+
+/**
+ * Los gurús que van en la barra, debajo de los coaches, lo más reciente arriba: con los que ya habló y el que tiene abierto, aunque
+ * todavía no le haya escrito (si no, abrirlo no se vería en la lista). El del Offer Coach no se repite: ya tiene su fila.
+ */
+export function gurusDeLaBarra(o: { conCharla: readonly GuruConCharla[]; abierto: IdAsesor | null; delOffer: IdAsesor | null; busca: string }): GuruConCharla[] {
+  const b = normal(o.busca);
+  const yaEsta = o.conCharla.some((g) => g.id === o.abierto);
+  return [...o.conCharla, ...(o.abierto && !yaEsta ? [{ id: o.abierto, at: null }] : [])]
+    .filter((g) => g.id !== o.delOffer && (!b || normal(asesorPorId(g.id)?.nombre ?? '').includes(b)))
+    .map((g, i) => ({ g, i, t: ms(g.at) ?? Number.MAX_SAFE_INTEGER }))
+    .sort((x, y) => y.t - x.t || x.i - y.i)
+    .map((x) => x.g);
+}
 
 /** El saludo del Second Brain con la conversación vacía, con el nombre de pila de quien mira (sin nombre, sin el «NOMBRE»). */
 export function saludoDelSecondBrain(nombre: string | null | undefined): string {
@@ -533,6 +562,9 @@ export function listaDelCliente(p: {
       return { clave: `o${o.id}`, elegido: { offer: o.id }, titulo, criatura: criaturaDeOffer(base), actividad: ms(o.updatedAt), origen: 'offer' };
     }),
     ...p.antes.filter((a) => (a.origen ?? origenDeClave(a.clave)) !== ORIGEN_FUNNEL_COACH).map((a): FilaDelCliente => {
+      // La de un gurú es UNA por persona: se llama como él, sin «› tema», y no arma un grupo con una sola fila.
+      const delGuru = asesorPorId(referenteDeTab(a.clave));
+      if (delGuru) return { clave: `a${a.id}`, elegido: { antes: a.id }, titulo: delGuru.nombre, criatura: delGuru.nombre, actividad: ms(a.updatedAt), origen: 'antes', guru: delGuru.id };
       // Con su origen adelante (OC4): «CRM › …», «Dashboard › …», «Ficha · Ana › …». La criatura es la de su área.
       const origen = a.origen ?? origenDeClave(a.clave);
       // Sin título (medido el 22/10: la mitad de los del CRM, y los análisis de los gráficos), su tema: lo primero que se dijo. Sin

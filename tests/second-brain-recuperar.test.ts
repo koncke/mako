@@ -127,7 +127,7 @@ test('13c · la API de MaKo: dos operaciones gratis, con la puerta del Second Br
   const run = leer('lib/api-mako/areas/negocio.run.ts');
   // Desde el 28/10/2026, sobre el grafo de los chats (lib/cerebro-para-chat.ts: sin física, en caché, con las funciones).
   assert.match(run, /indice_segundo_cerebro: \{\s*leer: async \(\) => indiceDelCerebro\(await grafoParaChat\(\)\),/);
-  assert.match(run, /const p = recuperar\(await grafoParaChat\(\), \{/);
+  assert.match(run, /const p = recuperar\(await conLosCursosDe\(await grafoParaChat\(\), ids\), \{/);
   const rest = leer('lib/api-mako/rest.ts');
   assert.match(rest, /\['GET', '\/negocio\/segundo-cerebro\/recuperar', 'recuperar_del_segundo_cerebro'\]/);
   const snap = leer('tests/api-mako-http.snapshot.txt');
