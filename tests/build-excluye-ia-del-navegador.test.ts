@@ -22,7 +22,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
-import config from '../next.config.ts';
+import config from '../next.config';
 
 // El picomatch que usa Next, no el que haya suelto en node_modules: lo que se mide es su resultado.
 const picomatch = createRequire(import.meta.url)('next/dist/compiled/picomatch') as (
