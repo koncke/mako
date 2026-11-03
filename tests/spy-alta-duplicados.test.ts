@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dominioComparable, nombreComparable } from '../lib/spy-reglas';
+import { queEs } from '../lib/spy-que-es';
 
 const RAIZ = fileURLToPath(new URL('..', import.meta.url));
 
@@ -41,12 +42,10 @@ test('la landing se compara por dominio, no por la URL entera', () => {
 });
 
 test('el @ y el link de Instagram se guardan en minúsculas, que es lo que permite deduplicar', () => {
-  // `queEs` vive en lib/spy.ts, que importa `server-only` y no se puede importar desde un test:
-  // se mira el código. Si dejara de bajar a minúsculas, «@Sofia» y «@sofia» serían dos personas.
-  const src = readFileSync(join(RAIZ, 'lib/spy.ts'), 'utf8');
-  const queEs = src.slice(src.indexOf('export function queEs'), src.indexOf('export async function agregarCompetidor'));
-  const enMinusculas = (queEs.match(/toLowerCase\(\)/g) ?? []).length;
-  assert.ok(enMinusculas >= 2, `queEs baja a minúsculas ${enMinusculas} veces: el @ suelto y el link tienen que dar lo mismo`);
+  // `queEs` se mudó a lib/spy-que-es.ts el 3/11/2026 y ahora se EJECUTA. Si dejara de bajar a
+  // minúsculas, «@Sofia» y «@sofia» serían dos personas.
+  assert.deepEqual(queEs('@Sofia'), { campo: 'instagram', valor: 'sofia' });
+  assert.deepEqual(queEs('https://www.instagram.com/Sofia/'), { campo: 'instagram', valor: 'sofia' });
 });
 
 test('el alta mira si ya está ANTES de insertar, y suma el canal que falte', () => {

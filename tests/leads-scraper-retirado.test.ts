@@ -184,6 +184,8 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
   assert.deepEqual(quienes('APIFY_INSTAGRAM_TOKEN|APIFY_CLAVE_DE_SPY').sort(), [
     'app/api/crm/instagram-buscar/route.ts',
     'lib/instagram-perfil-server.ts', 'lib/instagram-perfil.ts', 'lib/integraciones-catalogo.ts', 'lib/metodo-catalogo.ts', 'lib/metodo-verificar.ts',
+    // 3/11/2026: buscar sus otras redes (ítems 10/11 de Spy). Es Spy, con la misma clave y sin escribir nada: candidatos que la persona confirma.
+    'lib/spy-otras-redes.ts',
   ]);
   // La fuente la piden Spy y el alta del CRM. Offer sigue sin poder gastarla.
   assert.deepEqual(quienes("'apify-spy'").sort(), [

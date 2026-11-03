@@ -56,10 +56,12 @@ import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-
 import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
-import { canalDeUrl, noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
-import { redDeUrl } from './spy-otras-redes-reglas';
+import { noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
+import { queEs } from './spy-que-es';
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { claveDeYoutube } from './youtube';
+
+export { queEs };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las filas
@@ -174,37 +176,21 @@ export async function leerCompetidor(id: number): Promise<Competidor | null> {
 }
 
 /**
- * Lo que se pega para agregar un competidor: UN campo, no un formulario. Un @ de Instagram, un link
- * de YouTube, el link de su landing o su nombre. Es el mismo patrón del link pegado del Web
- * Generator: la persona pega lo que tiene y el código resuelve qué es.
+ * El perfil de alguien que TODAVÍA no se mira: lo que la pantalla del alta muestra para confirmar
+ * quién es. La vista previa y el completar solo de las filas pasan por acá, con las MISMAS fuentes.
+ *
+ * ⚠️ `apify-spy` ES LO QUE FALTABA. La vista previa llamaba con las fuentes por defecto, que no la
+ * incluyen: la clave que Martín pegó el 1/11 es la de Spy, y con sólo ésa la vista previa contestaba
+ * «no pude leer» aunque hubiera con qué (el mismo bug que el buscador del CRM arregló el 2/11).
+ *
+ * `reserva` = cuántas lecturas del tope diario NO puede tocar quien llama. La pone el completar solo:
+ * son lecturas que nadie pidió con un clic, y no pueden dejar al negocio sin poder agregar a nadie.
  */
-export function queEs(crudo: string): { campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre'; valor: string } | null {
-  const s = (crudo ?? '').trim();
-  if (!s) return null;
-  // Un @ suelto, o un link de Instagram.
-  const arroba = s.match(/^@([A-Za-z0-9._]{2,30})$/);
-  if (arroba) return { campo: 'instagram', valor: arroba[1].toLowerCase() };
-  const ig = s.match(/^https?:\/\/(?:www\.)?instagram\.com\/([A-Za-z0-9._]{2,30})\/?/i);
-  if (ig) return { campo: 'instagram', valor: ig[1].toLowerCase() };
-  // Un canal de YouTube. `canalDeUrl` ya sabe qué formas puede resolver y cuáles no (un `/c/<alias>`
-  // no tiene endpoint y devuelve null, en vez de adivinar).
-  if (/youtube\.com|youtu\.be/i.test(s)) {
-    const c = canalDeUrl(s);
-    if (c && 'id' in c) return { campo: 'youtube_id', valor: c.id };
-    // Un @handle o un /user/ se resuelven con una llamada: se guardan como vinieron y `mirarCompetidor` los resuelve.
-    if (c && 'handle' in c) return { campo: 'youtube_id', valor: `@${c.handle}` };
-    if (c && 'usuario' in c) return { campo: 'youtube_id', valor: `user:${c.usuario}` };
-    return null;
-  }
-  // Su TikTok (0365). ⚠️ Va ANTES de la regla de «cualquier link es su sitio»: sin esto, un link a
-  // su TikTok en la bio se guardaba como su LANDING. Lo lee `redDeUrl`, la misma función que lee los
-  // resultados de la búsqueda: así un candidato confirmado entra con el mismo @ que se ofreció.
-  const tt = redDeUrl(s);
-  if (tt?.red === 'tiktok') return { campo: 'tiktok', valor: tt.ref };
-  if (/^https?:\/\//i.test(s)) return { campo: 'landing_url', valor: s.slice(0, 500) };
-  // Un dominio pelado también es una landing («acme.com»).
-  if (/^[a-z0-9-]+(\.[a-z0-9-]+)+(\/\S*)?$/i.test(s)) return { campo: 'landing_url', valor: `https://${s}`.slice(0, 500) };
-  return { campo: 'nombre', valor: s.slice(0, TOPES.nombre) };
+export async function leerPerfilParaElAlta(usuario: string, opts: { reserva?: number } = {}) {
+  return leerPerfilInstagram(usuario, {
+    ws: await getWorkspaceActual(), conPiezas: false,
+    fuentes: ['meta-negocio', 'meta-plataforma', 'apify', 'apify-spy'], reservaApify: opts.reserva,
+  });
 }
 
 /**

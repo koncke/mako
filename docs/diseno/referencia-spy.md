@@ -120,6 +120,51 @@ destinos— usa la serie de cuatro de merrin.
 
 Cuerpo en **14 px**, tipografía **Urbanist** (la casa usa Geist; no se cambió).
 
+## El modal de «Mirar a alguien más»: el `.finder` de `merrin`
+
+Medido el **3/11/2026** en `merrin` a 1440×900, en claro y en oscuro. Martín: «No se mejoró ni el modal,
+sigue horrible el diseño». El que había medía 480×254 con **`padding: 0`** en la caja: el texto pegado a
+los bordes, un campo gris, otro campo blanco y dos botones «Buscar».
+
+Se eligió por la FORMA otra vez. `merrin` es un CRM y tiene dos candidatos: su modal «New customer»
+(`.modal`, un formulario) y su buscador de ⌘K (`.finder`, escribir → filas → elegir). Spy busca: el
+formulario era el que había, y era el problema.
+
+```
+div.scrim                    fixed inset 0, z 60, rgba(18,20,16,.38) — oscuro rgba(0,0,0,.55)
+div.finder     [620x…]       fixed top 12vh, left 50%, width min(620px, 100vw - 24px),
+                             margin-left max(-310px, 12px - 50vw), r 22, bg --card, overflow hidden
+                             shadow --shadow-lg + inset 0 0 0 1px --line-2
+  div.finder__in   [h 60]    flex align center, gap 10, pad 0 16, border-bottom 1px --line
+    svg            [20]
+    input                    flex 1, h 100%, SIN fondo y SIN borde, --fs-xl (17)/500, sin outline
+    span.kbd       [26x24]   r 7, bg --card-2, inset 1px --line, 11/700, --muted  «esc»
+  div.finder__list           max-height min(56vh, 460px), pad 8, overflow-y auto
+    div.finder__group        11/700, ls .06em, MAYÚSCULAS, --muted, pad 10 10 4
+    div.finder__item [h 53]  flex align center, gap 12, pad 8 10, r 12;  selected → bg --card-2
+      span.finder__ico [36]  r 10, bg --card-2 (una persona: círculo con iniciales)
+      span.cell__text        b 14/600, 20 de alto · small 12/500 --muted, 17 de alto
+      svg            [18]    la flecha, --muted
+  div.finder__foot           flex gap 14, pad 10 16, border-top 1px --line, 12, --muted
+```
+
+**Vacío, sin escribir:** muestra lo que ya existe (pedidos, clientes, páginas), no una explicación.
+**En el teléfono** (`width <= 760px`): `top: calc(10px + env(safe-area-inset-top))`, lista
+`min(64dvh, 520px)`, y con `hover: none` el pie de las teclas se va.
+
+| merrin | Spy (`app/competitor-spy/BuscadorAlta.tsx`) |
+|---|---|
+| Sus grupos: pedidos, clientes, páginas | «Ya los miras», «Instagram», «YouTube» / «Sitio» / «TikTok», «Sin redes» |
+| `--card` · `--card-2` · `--line` · `--line-2` · `--muted` | `--surface` · `--surface-2` · `--border` · `--border-strong` · `--faint` |
+| `--shadow-lg` | `--sombra-modal` |
+| El acento oliva | `--accent`, el dorado de MaKo (claro y oscuro) |
+| `z-index` 60 / 75 | 300, porque la casa apila el banner de alertas y `ModalShell` ahí |
+
+**Lo que se agregó, porque Spy lo necesita y `merrin` no:** las filas esqueleto (`merrin` busca en memoria;
+acá Apify tarda ~20 s) y la confirmación con su cara, porque Martín pidió que nada entre sin validar.
+
+Capturas de la referencia y del antes: `side-session-notes/.../spy-modal-0311/`.
+
 ## Lo que NO se copió, y por qué
 
 * **El `.pcard__save`** (el corazón de guardar). Spy no tiene «guardar pieza» y una estrella que no
