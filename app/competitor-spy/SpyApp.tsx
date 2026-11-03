@@ -178,12 +178,18 @@ const CSS = `
 .spy-ficha__acciones .spy-boton:first-child{flex:1}
 
 /* --- La vista previa del modal: quien es, antes de guardarlo. --- */
-.spy-previa{display:flex;gap:14px;padding:14px;border-radius:var(--r-lg);background:var(--surface-2);
-  box-shadow:inset 0 0 0 1px var(--border)}
-.spy-previa__cara{display:grid;place-items:center;flex:0 0 auto;width:56px;height:56px;overflow:hidden;
-  border-radius:var(--r-md);background:var(--t1);color:var(--t-ink);font-size:var(--fs-sect);font-weight:700}
+/* ⚠️ LA MISMA ANATOMÍA QUE LA TARJETA, y es la corrección de Martín aplicada donde faltaba. Él la
+   dio para la lista —«que no esté chiquito arriba, que tenga protagonismo en la tarjeta la imagen»—
+   y yo la apliqué ahí y no acá: esta vista previa seguía con una cara de 56 px al costado, que es
+   exactamente lo que me hizo sacar. Ahora la imagen manda, a sangre y cuadrada, con el texto
+   abajo, igual que la tarjeta. Es el momento en que la persona confirma QUIÉN es: si hay un lugar
+   donde la cara tiene que verse, es éste. */
+.spy-previa{display:flex;flex-direction:column;overflow:hidden;border-radius:var(--r-lg);
+  background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
+.spy-previa__cara{position:relative;display:grid;place-items:center;aspect-ratio:1/1;width:100%;
+  overflow:hidden;background:var(--t1);color:var(--t-ink);font-size:56px;font-weight:700}
 .spy-previa__cara img{display:block;width:100%;height:100%;object-fit:cover}
-.spy-previa__texto{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.spy-previa__texto{min-width:0;display:flex;flex-direction:column;gap:3px;padding:14px 16px 16px}
 .spy-previa__texto b{font-size:var(--fs-card);font-weight:600}
 .spy-previa__texto small{color:var(--faint);font-size:var(--fs-sm)}
 .spy-previa__bio{color:var(--dim);font-size:var(--fs-sm);line-height:1.45;

@@ -998,3 +998,17 @@ casi se pasa del tiempo de la ruta. Va como trabajo aparte, después de crear el
 (`lib/flow-interfaz.ts`) es el molde que ya usa el AI Avatar.
 ⚠️ **Hoy no urge para sus dos competidores**: Sofía Contreras y Alex Hormozi YA muestran caricatura,
 porque son referentes y se reusó la dibujada. Esto hace falta para el competidor que NO es gurú.
+
+**3/11 ~00:40 — el modal: la vista previa pasa a la anatomía de la tarjeta.** Tenía una cara de
+**56 px al costado**, que es exactamente lo que Martín me hizo sacar de la lista («que no esté
+chiquito arriba, que tenga protagonismo»). Yo apliqué esa corrección en la tarjeta y no acá. Ahora
+la imagen manda: cuadrada, a sangre, con el texto abajo. **Es el momento en que la persona confirma
+QUIÉN es: si hay un lugar donde la cara tiene que verse, es ése.**
+
+⚠️ **Lo que NO cambié, y es una decisión:** las dos pestañas («Pegar un dato» / «Cargar a mano»)
+siguen. Sacarlas iría con la doctrina de «una entrada, no un formulario», pero «Cargar a mano» es el
+único camino para dar de alta a alguien con nombre propio y tres canales a la vez. Convertirlo en un
+enlace discreto abajo es el paso siguiente, y es cambio de estructura: va con Martín mirando.
+
+⚠️ Y verifiqué algo antes de «arreglarlo»: el `<h2>` del modal NO duplica el título, porque el
+`label` de `ModalShell` es sólo `aria-label` y no se dibuja.
