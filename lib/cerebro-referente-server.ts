@@ -83,6 +83,11 @@ const ESPERA_CLASE_MS = 8_000;
 export async function textoDeClase(videoId: string): Promise<string | null> {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(videoId)) return null;
   try {
+    // ⚠️ SE LEE DEL CDN, NUNCA DEL DISCO (3/11/2026). `public/cono-tx` son 164 MB en 9.719
+    // archivos: con un `readFile(path.join(process.cwd(), 'public', 'cono-tx', …))` acá, el
+    // empaquetado los metía en TODAS las funciones (217 MB hasta `/api/promo-entrada`) y el deploy
+    // se cortó seis horas por el tope de 250 MB. Excluirlos en next.config.ts NO alcanzó: Turbopack
+    // ignora `outputFileTracingExcludes` para lo que traza él. La única salida segura es no tocar fs.
     const r = await fetch(urlDeClase(videoId), { signal: AbortSignal.timeout(ESPERA_CLASE_MS), cache: 'force-cache' });
     if (!r.ok) return null;
     const leido: unknown = await r.json();
