@@ -426,6 +426,31 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (docs/hallazgos-ia.md). ⚠️ Sin su método, una fila ya
   // guardada no se puede borrar ni revelar desde la pantalla (ENVS_METODO): queda inerte; borrarla es SQL.
   {
+    key: 'apple-push',
+    nombre: 'Apple Push',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    // De la PLATAFORMA, como GitHub: la app de iPhone es una sola, con el id `com.holamako.app`. lib/push-apns.ts lee estas tres del ws de plataforma.
+    paraQue: 'Los avisos de la app de iPhone. Sin esto, los iPhones no reciben notificaciones (Android y la computadora siguen igual).',
+    campos: [
+      { env: 'APNS_KEY_ID', label: 'Key ID', secreto: false, placeholder: 'ABC123DEFG', nota: 'Los 10 caracteres que Apple muestra al lado de la clave.' },
+      { env: 'APNS_TEAM_ID', label: 'Team ID', secreto: false, placeholder: 'XYZ987WVUT', nota: 'Los 10 caracteres de Membership, en developer.apple.com/account.' },
+      { env: 'APNS_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' },
+    ],
+    tutorial: {
+      url: 'https://developer.apple.com/account/resources/authkeys/list',
+      urlLabel: 'Apple Developer → Keys',
+      pasos: [
+        'Entra a developer.apple.com/account/resources/authkeys/list con tu cuenta de Apple.',
+        'Toca «+», ponle de nombre «MaKo push» y marca «Apple Push Notifications service (APNs)».',
+        'Toca «Continue» y «Register», y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
+        'Copia el «Key ID» de esa pantalla y pégalo arriba.',
+        'En «Membership» copia el «Team ID» y pégalo arriba.',
+        'Abre el .p8 con el Bloc de notas, copia todo y pégalo en «La clave».',
+      ],
+    },
+  },
+  {
     key: 'github',
     nombre: 'GitHub',
     categoria: 'Desarrollo',

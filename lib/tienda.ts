@@ -32,6 +32,20 @@ export function esRutaDeVenta(pathname: string): boolean {
   return pathname === '/' || RUTAS_DE_VENTA.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 }
 
+/**
+ * La ruta de un link universal o de un aviso tocado, si es de MaKo. Lo que no es de hola-mako.com no se abre adentro de la app: la app
+ * corre con la sesión de la persona, y un link que llega de afuera no elige a dónde lleva esa sesión.
+ */
+export function rutaDeLinkDeLaApp(url: string | null | undefined, host = 'hola-mako.com'): string | null {
+  try {
+    const u = new URL(String(url ?? ''));
+    if (u.protocol !== 'https:' || u.hostname !== host || u.username || u.password) return null;
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return null;
+  }
+}
+
 /** Las tabs que existen para vender MaKo a otros (la cartera de una agencia, el programa de partners): en iPhone no van. */
 export const TABS_QUE_VENDEN: readonly string[] = ['agency', 'partners'];
 
