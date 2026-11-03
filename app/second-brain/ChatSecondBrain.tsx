@@ -463,7 +463,7 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
           )}
           {listaSB && (<>
           {/* «Nuevo chat» arriba de todos, como el de ChatGPT y Claude (y el del Ops Center del super admin). */}
-          <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && elegido != null && 'virtual' in elegido && elegido.virtual === 'nuevo'} />
+          <NuevoChatCentro onNuevo={() => elegir({ virtual: 'nuevo' })} actual={!verMapa && !delGuru && enChatNuevo} />
           {k.errorLista && <p className="co-lista__vacio">{k.errorLista}</p>}
           {/* UNA lista (21/10/2026): el Cerebro arriba y todos los demás por actividad, sin plegables; desde el 22/10, agrupados por
               su origen («Offer › …», «Dashboard › …») con el MISMO agrupado del super admin (`GruposPorJefe`). */}
