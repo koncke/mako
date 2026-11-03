@@ -154,7 +154,8 @@ test('5. las listas de texto no nombran a Groq; las de audio sí; y la marca del
   const suIA = readFileSync(new URL('../lib/solo-su-ia.ts', import.meta.url), 'utf8');
   assert.match(suIA, /export const PROVS_SU_IA: readonly string\[\] = \['openai', 'gemini'\];/, 'su Gemini dejó de ser su IA, o pasó adelante de su GPT');
   // El Archivero del Ops Center y el dictado del Plan, con cualquiera de su IA (la revisión: con sólo su Gemini, «no»).
-  const turno = readFileSync(new URL('../lib/mako-turno-app.ts', import.meta.url), 'utf8');
+  // La ingesta de El Archivero salió del turno el 03/11/2026 (27a0e7565): la pregunta vive donde vive la ingesta.
+  const turno = readFileSync(new URL('../lib/archivero-ingesta.ts', import.meta.url), 'utf8');
   assert.match(turno, /for \(const p of PROVS_SU_IA\) if \(\(await provsDe\(p as never\)\)\.length > 0\) return 'si';/);
   const dictado = readFileSync(new URL('../app/api/plan-dictado/route.ts', import.meta.url), 'utf8');
   assert.match(dictado, /PROVS_SU_IA\.map\(\(p\) => provsDe\(p as never\)\)/);
