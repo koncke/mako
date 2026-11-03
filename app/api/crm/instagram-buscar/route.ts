@@ -56,8 +56,11 @@ import {
 import { leerPerfilInstagram } from '@/lib/instagram-perfil-server';
 
 export const dynamic = 'force-dynamic';
-/** Meta (6 s) y después Google (6 s) en el peor caso; el componente corta a los 17 s. */
-export const maxDuration = 15;
+/**
+ * Meta (6 s), Google (6 s) y después Apify, que busca por nombre y tarda ~20 s (tope 45 s). Con 15 s Vercel cortaba
+ * antes de que Apify contestara y el desplegable no salía nunca (3/11/2026). tests/instagram-buscar-tiempos.test.ts.
+ */
+export const maxDuration = 60;
 
 const GRAPH = 'https://graph.facebook.com';
 const ver = () => process.env.META_API_VERSION || 'v24.0';
