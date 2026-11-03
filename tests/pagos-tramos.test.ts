@@ -45,7 +45,7 @@ import {
   type CuotaExistente, type PlanDeCuotas, type Proteccion, type TramoPlan,
 } from '../lib/pagos-campo';
 import { disparosDeCobranza } from '../lib/cobranza';
-import { diferenciaPendiente, dolaresALaTasaDeLaCuota } from '../lib/pagos-diferencia';
+import { diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMonedaDeLaCuota } from '../lib/pagos-diferencia';
 import { noEsDeuda } from '../lib/cobrado-lead';
 
 const raiz = join(__dirname, '..');
@@ -477,4 +477,21 @@ test('B7 · con la única cuota del plan cobrada, el aviso está bien escrito', 
   assert.ok(a.ok);
   const r = cuotasDelPlanPorTramos({ pagos, protegidas: new Set(), anticipo: null, lista: a.cuotas, planConInicial: false });
   assert.ok(!r.ok && r.error === 'La cuota del plan ya está cobrada: agrega cuotas para cobrar más.', r.ok ? 'armó' : r.error);
+});
+
+test('B13 · la diferencia de un cobro a medias en pesos se dice en pesos: la misma regla que la 0347, en la ficha y en la API', () => {
+  const cuota = { monto_usd: 600, moneda: 'MXN', monto_original: 12000 };
+  assert.deepEqual(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'MXN', montoOriginal: 6000 }), { moneda: 'MXN', monto: 6000 });
+  assert.deepEqual(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'mxn', montoOriginal: 4000.5 }), { moneda: 'MXN', monto: 7999.5 });
+  // Lo que la 0347 deja en dólares: cobrada en otra moneda, la cuota sin pesos, o los pesos enteros (aunque a otra tasa).
+  assert.equal(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'USD', montoOriginal: 300 }), null);
+  assert.equal(restoEnLaMonedaDeLaCuota({ moneda: 'MXN', monto_original: null }, { moneda: 'MXN', montoOriginal: 6000 }), null);
+  assert.equal(restoEnLaMonedaDeLaCuota(cuota, { moneda: 'MXN', montoOriginal: 12000 }), null);
+  assert.equal(restoEnLaMonedaDeLaCuota({ moneda: null, monto_original: null }, { moneda: null, montoOriginal: null }), null);
+  // El modal «Marcar pagada» y lo que contesta la ficha al guardar la dicen así (decían «Faltan $300»).
+  const modal = fuente('app/crm/lead-view/ficha/pagos/piezas.tsx');
+  assert.match(modal, /const faltaEnSuMoneda = falta > 0 && p\.ok \? restoEnLaMonedaDeLaCuota\(cuota, p\) : null;/);
+  assert.match(modal, /Faltan \{faltaEnSuMoneda \? `\$\{formatoMonto\(faltaEnSuMoneda\.monto, faltaEnSuMoneda\.moneda\)\}/);
+  assert.match(fuente('lib/pagos.ts'), /pendienteEnSuMoneda: pend > 0 \? restoEnLaMonedaDeLaCuota\(fila, \{ moneda: enMoneda\?\.moneda, montoOriginal: enMoneda\?\.montoOriginal \}\) : null,/);
+  assert.match(fuente('app/crm/[id]/deal-actions.ts'), /return \{ pendiente: r\.pendiente, pendienteEnSuMoneda: r\.pendienteEnSuMoneda, porLink: null, yaEstaba: false \};/);
 });

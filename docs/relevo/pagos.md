@@ -45,6 +45,12 @@ docs/hallazgos-pagos.md → «El plan por TRAMOS». Sin migración. Copiado de l
   y la **migración 0347, APLICADA en producción el 29/10** (el Cerebro, con el sí de Martín: «Sí, cambialo»): la diferencia de un
   cobro a medias queda en la moneda de la cuota. VERDE de la punta 1e491702e mandado; va al tren siguiente, después de que
   Integración la re-verifique con sus guiones de C:/dev/revisiones/scratch-805a/.
+- **29/10, 15 h:** el plan por tramos y `armar_plan_por_tramos` están EN PRODUCCIÓN (main 1cf06eba9); los hitos [13, 26]
+  cierran los tickets. 7f79a4e6c entró en el tren-ac. La tercera vuelta de Integración
+  (C:/dev/revisiones/2910-reverificacion-pagos-tramos-7f79a4e6c.md) dejó seis bajas, B8 a B13, arregladas encima en esta rama
+  (lo aprendido, en docs/hallazgos-pagos.md, «La tercera vuelta»). **Queda para decidir:** una cuota en pesos cobrada ENTERA a
+  otra tasa deja US$100 de diferencia que se le reclaman al cliente. **Para retomar:** si el VERDE de esta punta no salió, faltan el
+  tsc por con-turno y mandarlo a Integración.
 
 ## 23/10/2026 · el primer cobro real, antes del lanzamiento (chat «Cobros», cuenta `claude1`)
 

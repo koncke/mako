@@ -1233,9 +1233,13 @@ Ocho cosas que no se ven en el código y ya mordieron:
    `confirmarPendiente` pregunta ANTES de reclamar (y la pantalla genérica, antes de marcarla aplicada);
    sin eso, un «sí» por un token clásico o por WhatsApp dejaba la pendiente en `error` para el admin que
    sí la podía confirmar (comunidad, 17/10/2026).
-   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (las cuotas, los ids) VIAJA en el payload, y
-   `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata dice lo que va a QUEDAR, no lo pedido:
-   las cuotas cobradas y las que no se pueden tocar (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
+   **El «sí» puede llegar 2 h después:** lo que el `resumen` dio por visto (cada cuota COMO ESTABA, con su firma: no
+   alcanza con los ids) VIAJA en el payload, y `faltaParaConfirmar` rechaza si cambió. Y el `resumen` de lo que mueve plata
+   dice lo que va a QUEDAR, no lo pedido: las cuotas cobradas, las que no se pueden tocar y lo que queda aparte
+   (`armar_plan_por_tramos`, 29/10/2026, docs/hallazgos-pagos.md).
+   **Lo que no se va a poder cumplir NUNCA se cierra:** `faltaParaConfirmar` devuelve `{ yaNoVale }` (el plan cambió, la
+   propuesta es de una versión anterior) y `confirmarPendiente` la deja en `error`; un texto suelto la deja viva para
+   quien sí puede. Y cambiar la forma de un payload es RECHAZAR los de antes, nunca «si no viene, la regla vieja».
 4. **Una acción de pantalla no tiene gemela de chat.** Si queda una tool vieja en
    `MAKO_ACCION_TOOLS` con el mismo nombre, el doer de WhatsApp la prefiere y pide un «sí».
    Al pasar una operación a `pantalla`, se saca la vieja; `confirmarPendiente` cierra sin

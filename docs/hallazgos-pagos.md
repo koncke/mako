@@ -1569,6 +1569,36 @@ tests/api-mako-plan-tramos.test.ts, con su entrada.
 - `faltaParaConfirmar` lee y después `ejecutar` escribe: un cambio en ese instante lo frena recién `guardarPlanPorTramos`, que ya
   consumió la pendiente.
 
+### La tercera vuelta (7f79a4e6c, 29/10/2026): lo «visto» es cada cuota, no su id; y lo que ya no vale se cierra
+
+Integración re-verificó otra vez (C:/dev/revisiones/2910-reverificacion-pagos-tramos-7f79a4e6c.md, fuera del repo): entraba, con
+seis bajas. Cada una quedó como test con su entrada: tests/api-mako-plan-tramos.test.ts (13 a 16) y tests/pagos-tramos.test.ts (B13).
+
+- ⚠️ **Lo visto es cada cuota COMO ESTABA, no qué ids había (B8).** `vistas` por id cubría altas, bajas y cobros, no una edición:
+  la #2 pasada a MXN 18.000 en la ficha, con el mismo id, se pisaba con los US$600 propuestos. Ahora cada vista lleva su firma
+  (monto, fecha, moneda y monto en ella: `firmaDeCuota`, la misma de `soloLoQueCambio`), y `planCambioDesde` dice «cambió
+  «Cuota 2»».
+- ⚠️ **Una regla nueva del «sí» no alcanza a las propuestas que ya estaban (B9).** Una pendiente de 805afb460 no traía `vistas`, y
+  `faltaParaConfirmar` la dejaba pasar con la regla vieja durante sus 2 h. Ahora las vistas con firma son OBLIGATORIAS
+  (`cuotasVistasDe`); sin ellas, «Esta propuesta es de una versión anterior de MaKo…». Cambiar la forma de un payload es
+  rechazar los de antes, nunca «si no viene, como antes».
+- ⚠️ **Una propuesta que no se va a poder cumplir NUNCA se cierra (B12).** `faltaParaConfirmar` la dejaba viva a propósito, porque
+  lo que falta puede llegar (quien firma). Un plan cambiado no vuelve: al pedirla de nuevo por WhatsApp, el «sí» pelado siguiente
+  contestaba «Hay 2 acciones pendientes, aclara cuál.». Ahora puede devolver `{ yaNoVale }`, y `confirmarPendiente` la cierra en
+  `error` con ese motivo (lib/api-mako/tipos.ts). La regla quedó en AGENTS.md.
+- **El #0 cobrado es el anticipo aunque la columna esté vacía (B10).** N4 miraba `inicialCobrado`, que sale de
+  `cobro_inicial_usd`; con la columna en null, el anticipo pedido quedaba como una «Cuota 3» de hoy. Ahora mira también la fila.
+- **La diferencia que queda aparte se nombra (B11):** «Aparte del plan queda sin cobrar: Cuota 4 US$ 250 (10/11/2026).», y cuenta
+  para comparar con la venta. Sin ella, el total no cerraba y la propuesta decía «La venta dice US$ 1.500».
+- ⚠️ **Un texto que dice plata se calcula con la MISMA regla que la escribe (B13).** La 0347 deja la diferencia en pesos, y el
+  resumen, el «sí», la nota del historial y el modal «Marcar pagada» seguían diciendo «faltan 300 USD». `restoEnLaMonedaDeLaCuota`
+  (lib/pagos-diferencia.ts) es la condición del SQL, y `cobrarCuota` devuelve `pendienteEnSuMoneda`.
+
+**Para decidir (de antes, no de esta entrega):** una cuota de MXN 12.000 cobrada ENTERA en pesos, pero declarada a otra tasa
+(US$500), deja una diferencia de US$100 en dólares que la cobranza le reclama a quien ya pagó lo pactado. La 0347 no lo cambia
+(en pesos, pactado − cobrado = 0). Si «los pesos enteros saldan la cuota», va en el SQL (otra migración) o la app manda
+`resto: 'descuento'` en ese caso. Hoy el resumen lo dice antes del «sí».
+
 ## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
 
 - **El síntoma (el refutador, por la ruta real):** una venta de US$1 por un Payment Link del negocio, con
