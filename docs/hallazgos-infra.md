@@ -77,6 +77,28 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un push directo a main puede dejar la referencia de la API vieja, y entonces la guarda frena TODOS los push (3/11/2026)
+
+- **Síntoma:** «tengo varios push que estaban fallando». `scripts/guardas-push.sh` contestaba «docs/api-mako.md quedó viejo»
+  en cualquier rama, también al subir una etiqueta, aunque esa rama no tocara la API.
+- **Causa:** los arreglos de emergencia del 2-3/11 subieron a main con `--no-verify`, que saltea también las guardas. Tocaron
+  `lib/api-mako/areas/*.def.ts` sin regenerar la referencia. Desde ahí, main estaba «rojo» para el próximo que pusheara.
+- **Regla:** quien sube con `--no-verify` corre antes `sh scripts/guardas-push.sh origin`. Y si un push choca con esa guarda
+  en algo que no tocó, se regenera con `node --import tsx scripts/generar-api-doc.mjs` y se commitea: no es un error suyo.
+
+## Sin RAM para el tipado, el camino es `integracion`, sin `--no-verify` (3/11/2026)
+
+- `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:integracion` corre las guardas, no pide RAM, y Actions corre tipos y tests y
+  avanza main si da verde (~40 min). Cada chat local abierto son ~0,7 GB: con dos chats, 5,4 GB libres ya no aparecen.
+- **Medir ramas no ve lo que importa:** `git cherry` con `+` no prueba que falte algo (`37b1f13e9` daba `+` con el contenido en
+  main); `git diff --stat` con tres puntos infla las ramas viejas (sirve `git log main..rama --no-merges` y `git merge-tree`);
+  y lo sin commitear o una rama remota sin relevo no aparece: así pasaron 5 días los arreglos de cobros y 2 los de seguridad.
+- **Dos migraciones con el mismo número no dan conflicto** (pasó otra vez con la 0360).
+- **Filtrar un transcript por `type=user` pierde mensajes:** los que Martín escribe con el chat ocupado llegan como
+  `attachment.queued_command` (en `e680c815`, 266 en cola contra 183 de tipo user).
+- **El marcador de la cuenta miente al volver a una cuenta vieja:** el hook decía claude2 al 99 % y era claude5 al 27 %. La
+  huella es el `resetsAt` semanal de `get_usage`.
+
 ## Subir el tope de la función cambió el error por uno peor, y la clave «global» de Next deja la home afuera (3/11/2026)
 
 - **Síntoma:** cinco deploys seguidos murieron con `The Vercel Function "admin/docs" is 274.32mb uncompressed which exceeds the maximum uncompressed size limit of 250mb`. Se prendió `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` en el proyecto, y entonces el deploy empezó a fallar **más tarde y peor**: `Build Completed in /vercel/output [4m]` y después `ENOSPC` en «Deploying outputs...». Producción seguía sirviendo el commit de la noche anterior sin estar caída, así que nada avisaba.
