@@ -11,6 +11,7 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 - **Si la cuenta corta (desde el 02/11, al 99%; el cierre con relevo es al 98%), se para todo esto:** nada más entrega los pedidos del Centro hasta que este chat siga en otra cuenta. Al retomar, `medir` frena una medición de otra cuenta si el marcador está mal, y `--renovada` sólo se usa si lo dice Martín.
 - La app no informa la ventana de 5 horas: `medir` va con `"" ""` en su lugar.
 - **Última vuelta antes de este relevo:** 03/11, 02:15 UTC, con la cuenta al 99%. Latido al día, sin alertas y 9 en el limbo.
+- **03/11 de 02:43 a 03:05 UTC, la vigilancia estuvo parada:** frené por el corte del 99%. Desde las 02:30 UTC existía `~/.claude/guardia/sin-corte`, que lo apaga (según esa nota, por pedido de Martín). La volví a armar, pero la cuenta puede frenar de golpe al 100%. El Cerebro está avisado.
 - **Del 02/11 02:00 al 03/11 02:15 UTC** se entregaron al Cerebro, con acuse: tickets #43, #44 y #45, y los pedidos de Martín `4dbf4767`, `3a1657a3` y `1088908c`. Entregar no dice que los leyó ni que están hechos: eso se mira en el Centro.
 
 ## Lo pedido y lo hecho
