@@ -342,9 +342,11 @@ export async function GET(req: NextRequest) {
       // ⚠️ UNA PALABRA TAMBIÉN ES UNA BÚSQUEDA (3/11/2026). Martín: «no me trae el desplegable al buscar». «leila» y
       // «@leila» parecen un usuario y venían por acá: se pedía sólo el @ EXACTO, y la búsqueda de Apify corría únicamente
       // con dos o más palabras. Las dos a la vez: el exacto, si existe, va primero.
+      // CON «@» ES SÓLO EL EXACTO (Martín: «si busco el @ exacto, no me puede traer sin tardar esos 20 segundos directamente la
+      // foto?»): quien escribe el @ ya sabe a quién busca, y esperar la búsqueda por nombre era el tiempo de sobra.
       const [l, hallados] = await Promise.all([
         leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] }),
-        buscarConApify(u, ws),
+        texto.startsWith('@') ? Promise.resolve<PerfilIg[]>([]) : buscarConApify(u, ws),
       ]);
       const exacto: PerfilIg[] = l.ok ? [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] : [];
       const perfiles = combinarPerfiles(exacto, hallados);

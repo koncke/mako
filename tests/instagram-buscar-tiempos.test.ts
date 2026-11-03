@@ -32,7 +32,7 @@ test('el componente espera a la ruta: si corta antes, la lista nunca se dibuja',
 
 test('una sola palabra también busca: «leila» y «@leila» no se quedan en el @ exacto', () => {
   const rama = ruta.slice(ruta.indexOf('if (usuarioDeTexto(texto) != null)'), ruta.indexOf('[meta, google] = await Promise.all'));
-  assert.match(rama, /buscarConApify\(u, ws\)/);
+  assert.match(rama, /texto\.startsWith\('@'\) \? Promise\.resolve<PerfilIg\[\]>\(\[\]\) : buscarConApify\(u, ws\)/, 'con @ no espera la búsqueda; sin @, busca');
   assert.match(rama, /combinarPerfiles\(exacto, hallados\)/);
 });
 
