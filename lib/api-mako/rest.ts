@@ -560,6 +560,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/closing/scores-mensuales', 'tendencia_score'],
   // ── negocio ───────────────────────────────────────────────────────────────
   ['GET', '/negocio/archivero/documentos', 'ver_archivero'],
+  ['POST', '/negocio/archivero/documentos', 'sumar_documento_second_brain'],
   ['DELETE', '/negocio/archivero/documentos/{id}', 'borrar_documento_archivero'],
   ['GET', '/negocio/avatares', 'listar_avatares_negocio'],
   ['PATCH', '/negocio/avatares', 'editar_avatar_negocio'],

@@ -239,6 +239,10 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'area-negocio', test: /\bmuletillas?\b|\blead magnets?\b|\bquiz\b|\barchivero\b|\bplan de mako\b|\bmi plan\b/, areas: ['negocio'], relevancia: '' },
   { id: 'area-ads', test: /\bpublicos\b|\bpublico\s+(?:frio|caliente|similar|objetivo)\b|\bretargeting\b|\bformularios? instantaneos?\b|\bguion(?:es)?\b|\bangulos?\b|\bvocabulario\b/, areas: ['ads'], relevancia: '' },
   { id: 'area-partners', test: /\bpartners?\b/, areas: ['cs'], relevancia: 'llevar partners' },
+  // Un documento para el Second Brain (ticket #44, 3/11/2026): «te cargo un documento con toda la información que necesitas
+  // saber de mi negocio, analizalo e incorporalo al second brain» salía `consultar` («que necesitas» parecía una pregunta), y
+  // en `consultar` no viaja la tarjeta que lo guarda. Sin «borrar»: borrar un documento es de `borrar_documento_archivero`.
+  { id: 'documento-al-cerebro', test: /\b(?:incorpor|sum|carg|guard|sub|agreg)\w*\b[^.\n]{0,60}\b(?:second brain|segundo cerebro|archivero)\b|\bte (?:cargo|paso|mando|comparto|dejo|subo) (?:un|el|este|mi) (?:documento|archivo|pdf|docx|word)\b/, areas: ['negocio'], relevancia: 'sumar documento second brain', actua: true },
   { id: 'sabes-del-negocio', test: /\bque (?:sabes|sabe|conoces|conoce|hay) (?:de|sobre) mi (?:negocio|empresa|marca)\b/, areas: ['negocio'], relevancia: 'contexto negocio perfil' },
   // ── Video, imagen y AI Avatar (las frases del chat de video: frases-video-imagen-1-2.json) ──
   { id: 'musica-video', test: /\bmusica\b/, areas: ['video'], relevancia: 'cambiar volumen video', actua: true },
