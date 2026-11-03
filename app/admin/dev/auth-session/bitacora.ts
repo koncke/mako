@@ -118,8 +118,8 @@ export const BITACORA: Hito[] = [
     titulo: 'Sesiones que se cierran, claves que no viajan y la extensión que sólo atiende a MaKo',
     puntos: [
       '**En Vercel, un token sin fila no vale** (`verificarToken`): el dev-login firmaba `sub:\'dev\'` + `mfa:\'dev\'`, y con un AUTH_SECRET de producción en una `.env.local` eso era super admin por 30 días sin revocación.',
-      '**Cambiar o restablecer la contraseña cierra las otras sesiones** (`usuarios.sesiones_desde`, mig 0360 —número a confirmar con Integración—, `revocarSesiones`), y Seguridad suma la acción `sesiones-cerrar`. Sin la 0360 aplicada no rige: las dos puntas se abstienen.',
-      '**`leerSesion` falla cerrada**: con la base caída un suspendido ya no vuelve a entrar.',
+      '**Cambiar o restablecer la contraseña anota el corte de las otras sesiones** (`usuarios.sesiones_desde`, mig 0366, `revocarSesiones`), y Seguridad suma la acción `sesiones-cerrar`. ⚠️ Anotar no cierra: lo tendría que respetar `leerSesion`.',
+      '**`leerSesion` quedó como estaba** (el Cerebro, 3 de noviembre): la «falla cerrada» de la nube invertía una decisión escrita a propósito (con un bache de Supabase todos los clientes quedan sin sesión) y sumaba una consulta por pedido. Por eso el corte todavía no se lee.',
       '**El descifrado exige el tag GCM de 16 bytes**: con el de antes, un criptograma con 4 bytes de tag abría (medido).',
       '**La hidratación del entorno es una lista de lo PERMITIDO** (el catálogo de integraciones, las keys de IA y sus rótulos): una fila zombie ya no pisa un secreto de la plataforma.',
       '**SSRF cerrado** en «crear anuncio desde un link» (cada redirect se valida), el verify token de Meta en tiempo constante, y `/api/…/x.png` vuelve a pasar por el proxy.',
@@ -129,8 +129,8 @@ export const BITACORA: Hito[] = [
       'Lo que queda (Calendly sin clave propia, rol vacío = admin, firma y hash de los binarios, CSP con nonce, COOP, límites durables) y lo que depende de Martín (rotar claves, 2FA en proveedores, DNS): docs/hallazgos-seguridad.md, «Auditoría del 01/11/2026».',
     ],
     archivos: [
-      'lib/auth-session.ts, lib/auth.ts — el token sin fila y la sesión que falla cerrada',
-      'lib/sesiones-revocadas.ts, lib/sesiones-revocadas-reglas.ts, supabase/migrations/0360_sesiones_desde.sql — cerrar sesiones',
+      'lib/auth-session.ts — el token sin fila',
+      'lib/sesiones-revocadas.ts, lib/sesiones-revocadas-reglas.ts, supabase/migrations/0366_sesiones_desde.sql — anotar el corte',
       'lib/cripto-credenciales.ts, lib/credenciales.ts — el tag y la hidratación',
       'proxy.ts, next.config.ts — el matcher y los headers',
       'extension/background.js, extension/manifest.json — el corte por origen',

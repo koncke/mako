@@ -128,8 +128,8 @@ export async function POST(req: NextRequest) {
     const g = await guardarContrasena(l.usuarioId, body.contrasena, cuenta);
     if (!g.ok) return no(g.nuestro ? 'No se pudo guardar. Pide otro link.' : g.error);
     await registrarEvento(l.usuarioId, 'contrasena-restablecer', true);
-    // Restablecer cierra TODAS las sesiones abiertas (01/11/2026): quien restablece suele hacerlo
-    // porque perdió el control de la cuenta, y la cookie del que entró no puede seguir valiendo.
+    // Restablecer anota el corte de TODAS las sesiones abiertas (01/11/2026): quien restablece suele hacerlo
+    // porque perdió el control de la cuenta. ⚠️ Hasta que `leerSesion` lo lea no cierra ninguna (lib/sesiones-revocadas.ts).
     await revocarSesiones(l.usuarioId);
     const uid = l.usuarioId;
     after(() => avisarContrasenaCambiada(uid).then(() => undefined));

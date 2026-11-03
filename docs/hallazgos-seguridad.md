@@ -17,7 +17,7 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ## Lo que más muerde acá
 
-- **(01/11/2026) La auditoría completa: el `.env` de producción del Estudio estaba en GitHub** (`.en-7`, commit `d1e2820`, en `main` de `leandro-tejado/estudio-video`), un token sin fila valía como super admin en producción, las sesiones no se podían cerrar y la extensión atendía a cualquier página de localhost → [Auditoría del 01/11/2026](#auditoría-del-01112026-lo-hecho-y-lo-que-queda).
+- **(01/11/2026) La auditoría completa: el `.env` de producción del Estudio estaba en GitHub** (`.en-7`, commit `d1e2820`, en `main` de `leandro-tejado/estudio-video`: **repo privado**, medido el 03/11), un token sin fila valía como super admin en producción, las sesiones no se podían cerrar y la extensión atendía a cualquier página de localhost → [Auditoría del 01/11/2026](#auditoría-del-01112026-lo-hecho-y-lo-que-queda).
 - **(28/10/2026) Un link ya puede ESCRIBIR en un negocio** (un guion del Copywriter, sin cuenta): `puedeEditar` no lo usaba nadie (el de Classroom es otra función con el mismo nombre), lo que la función del server le contesta al dueño no se reenvía a un link, y el editor del link nunca guarda por la ruta de la tab → [Un guion del Copywriter se EDITA por link](#un-guion-del-copywriter-se-edita-por-link-la-primera-ruta-pública-que-escribe-en-un-negocio-28102026).
 - **(21/10/2026) Los CSV que exporta la app se abrían como FÓRMULA en Excel y en Sheets**: cinco exportadores tenían cada uno su escape, cuatro sin defensa, y la más expuesta era la de leads del CRM (nombres que vienen de formularios públicos: un lead llamado «=HYPERLINK(…)»). Ahora hay UN helper (`lib/csv-celda.ts`) y un test que rompe Actions si una exportación arma el suyo → [Inyección de fórmulas en los CSV](#inyección-de-fórmulas-en-los-csv-que-exporta-la-app-cinco-exportadores-cinco-escapes-y-cuatro-sin-defensa-21102026).
 - **(21/10/2026) «Desde la 0280 las funciones nuevas nacen cerradas» era falso**: el EXECUTE de PUBLIC viene del default GLOBAL de Postgres y un `alter default privileges … in schema` no lo saca, así que toda función creada después (la 0310, la 0318) nació ejecutable por la clave anon. Cerrado con la 0319 (default global + bucle sobre el catálogo) y un test que exige el revoke en toda migración → [El EXECUTE de PUBLIC es un default GLOBAL](#el-execute-de-public-es-un-default-global-desde-la-0280-nacen-cerradas-era-falso-21102026).
@@ -44,23 +44,21 @@ en el Estudio `src/lib/sesiones/analisis-auto.ts`, `src/lib/terminal.ts`, `src/l
 
 Pedido de Martín (la bitácora de auth-session lo tiene textual): blindar MaKo «en todos los sentidos». Relevo con tres
 lectores y los centrales verificados a mano. Sesión en la nube, sin acceso a producción: nada de lo de abajo se midió
-contra la base ni contra Vercel.
+contra la base ni contra Vercel, salvo lo que dice 03/11/2026.
 
 **El hallazgo más caro no era de MaKo.** El sync automático del VPS (`sync-repos.sh`) hace `add -A` y su guarda miraba
 NOMBRES: `.en-7`, una copia del `.env` de producción del Estudio, pasó el filtro y el `.gitignore` y llegó a `main`
 con ocho claves (Anthropic, OpenAI, OpenRouter, Resend, `DATABASE_URL` con contraseña, el token de servidor-code,
 AudD, Syncthing). **Un nombre se llama de cualquier forma; el valor de una clave no**: el sync ahora escanea el
-CONTENIDO de lo stageado, y MaKo tiene la misma guarda en el push. ⚠️ Sacarlo del árbol no lo des-publica: **hay
-que rotar las ocho**, y eso es de Leandro.
+CONTENIDO de lo stageado, y MaKo tiene la misma guarda en el push. ⚠️ Sacarlo del árbol no lo saca de la historia: **hay
+que rotar las ocho**, y eso es de Martín (lo medido, abajo en «El `.en-7` del Estudio»).
 
 **Lo que se cerró en código** (cada uno con su test, probado rompiéndolo):
 - **Token sin fila en Vercel.** `leerSesion` devolvía tal cual una sesión con `sub` no numérico, y `mfa: 'dev'` era un
   segundo factor válido: con el `AUTH_SECRET` de producción en una `.env.local`, el dev-login fabricaba super admin
   por 30 días. `verificarToken` los rechaza con `VERCEL` puesto (no con NODE_ENV: `next start` local sigue).
-- **Sesiones que no se cerraban.** `usuarios.sesiones_desde` (mig 0360, ⚠️ número a confirmar con Integración);
-  restablecer y cambiar la contraseña cierran todo lo firmado antes, y la pestaña que cambió se vuelve a firmar.
-  Sin la 0360 aplicada NO rige (las dos puntas leen 42703 como «sin corte»).
-- **Fallo abierto.** Con la base caída, `leerSesion` devolvía la sesión firmada: un suspendido volvía a entrar.
+- **Sesiones que no se cerraban: A MEDIAS.** `usuarios.sesiones_desde` (mig 0366, salió como 0360 y repetía número con `0360_spy_miniatura`, sin conflicto de texto):
+  restablecer y cambiar la contraseña ANOTAN el corte, y nadie lo lee todavía (abajo, «Cerrar sesiones»).
 - **Tag GCM corto.** `setAuthTag` acepta 4 bytes; medido: un criptograma con los 4 primeros bytes del tag ABRÍA.
 - **Hidratación por exclusión.** Cualquier fila del ws1 fuera de `INFRA_ENV` pisaba `process.env` en cada boot,
   `CRON_SECRET` incluido. Ahora sólo el catálogo de integraciones, las keys de IA y sus rótulos.
@@ -95,6 +93,50 @@ que rotar las ocho**, y eso es de Leandro.
 - **Lo de cuentas** (de Martín): 2FA con llave en GitHub, Vercel, Supabase, Google, Meta, pasarelas y el registrador;
   Secret Scanning con Push Protection en GitHub; DNSSEC, CAA y DMARC `p=reject`; anotar hola-mako.com en
   hstspreload.org; rotar los secretos de webhook que se repartieron a clientes.
+
+### Cerrar sesiones: el corte se anota y nadie lo lee (03/11/2026)
+
+**Vive en:** `lib/auth.ts` (`leerSesion`) · `lib/sesiones-revocadas.ts` · `lib/usuarios.ts` (`COLS`) · `supabase/migrations/0366_sesiones_desde.sql`.
+
+- **⚠️ «Cambiar la contraseña cierra las otras sesiones» NO rige, ni con la 0366 aplicada.** Restablecer, cambiar y `sesiones-cerrar`
+  escriben `sesiones_desde`, pero lo único que decide si una sesión vale es `leerSesion`, y no lee la columna. La respuesta
+  dice `corteAnotado`, no «cerradas», y no hay ningún botón.
+- **Por qué `leerSesion` quedó como estaba** (el Cerebro, 03/11): la nube la había dado vuelta a «falla cerrada», y eso invierte una
+  decisión escrita a propósito: con un bache de Supabase, todos los clientes quedan sin sesión. Además sumaba una consulta por pedido
+  sin caché. `tests/sesiones-revocadas.test.ts` lo fija: el `catch` devuelve la sesión firmada y `lib/auth.ts` no importa nada de las sesiones revocadas.
+- **SIN HACER, y la salida que no repite ninguna de las dos objeciones:** leer la columna en la MISMA consulta de `buscarUsuarioPorEmail`
+  (sumarla a `COLS`) y mirar `sesionRevocada(firmada.iat, u.sesiones_desde)`. Sin consulta nueva y con el `catch` intacto.
+- **⚠️ La trampa de esa salida: primero la 0366, después el código.** Con la columna en `COLS` y sin la migración, `buscarUsuarioPorEmail` tira
+  42703 para TODOS, también en el login. La tolerancia de `revocarSesiones` no cubre eso.
+
+### Lo que la hidratación deja de copiar al entorno, medido (03/11/2026)
+
+**Vive en:** `lib/credenciales.ts` (`puedeHidratarse`, `aplicarAEnv`) · `lib/metodo-catalogo.ts`.
+
+**El obvio («quedan afuera, se rompen») era el equivocado: no se rompe nada.** Producción, filas de `credenciales` del ws1, sólo los nombres: 38 filas.
+22 se siguen copiando, 4 son de IA (salen de la plataforma, no del ws1), 3 de Stripe ya estaban afuera y **9 dejan de llegar**, cada una con un
+`console.warn` por arranque:
+
+| Clave | Última escritura | Quién la lee hoy |
+|---|---|---|
+| `CEREBRAS_API_KEY`, `MISTRAL_API_KEY`, `OPENROUTER_API_KEY` | 03/08 | Nadie la usa: proveedores en `PROVS_SACADOS` (22/10), `provDe` no entrega cuentas suyas. Sólo entran a las huellas de `huellasDeLaPlataforma` |
+| `CHATWOOT_ACCOUNT_ID`, `CHATWOOT_API_TOKEN`, `CHATWOOT_BASE_URL`, `CHATWOOT_WA_INBOX_ID` | 09/10 | Nadie: ningún archivo de `app`, `lib`, `worker` ni `scripts` las nombra |
+| `WHOP_API_KEY`, `WHOP_WEBHOOK_SECRET` | 11/08 | Nadie: `WHOP` aparece en un solo comentario (`roadmap-cs.ts`) |
+
+- Se buscó también por nombre armado (`process.env[cl]`, `clavesAProbar`), no sólo el literal. No se midió el entorno de Vercel: sin `vercel` en esta PC.
+- **Las nueve filas siguen en la base**, cifradas. Borrarlas es escribir en producción: no se tocó.
+- **Lo que queda para adelante:** una clave nueva con fila y sin entrada en el catálogo no llega a `process.env` (regla en AGENTS.md → «Una integracion son TRES registros»).
+
+### El `.en-7` del Estudio: en un repo PRIVADO y todavía en `main` (03/11/2026)
+
+**Vive en:** `leandro-tejado/estudio-video`, `main`, `.en-7`.
+
+- **«Publicado» era de más: el repo es privado.** Sin cuenta, el repo, el archivo y el commit dan 404. Con la cuenta de Martín: `private: true`,
+  creado el 17/09/2026, 0 forks, dos colaboradores (`koncke` escribe, `leandro-tejado` administra), y ningún `PublicEvent` en los últimos 100 eventos (no prueba que nunca lo haya sido).
+- **Sigue en `main`.** Un solo commit lo toca: `d1e2820`, 28/10, el sync del VPS, que lo agregó. Nadie lo sacó.
+- **⛔ Si las ocho siguen vigentes: SIN MEDIR.** El modo automático de Claude Code frenó el script que las probaba («Credential Exploration»), así que el
+  archivo no se llegó a abrir y ninguna clave se usó. No se le buscó la vuelta: se mide si Martín lo autoriza, o se ve en el panel de cada proveedor.
+- **SIN HACER, de Martín:** rotar las ocho y sacar el archivo. Si el repo se abre algún día, sacarlo del árbol no alcanza: queda en la historia.
 
 ## «Se puso todo difuminado y MaKo me pide un código» (Leandro, 24/10): NO es el 2FA de MaKo (27/10/2026, sin reproducir)
 

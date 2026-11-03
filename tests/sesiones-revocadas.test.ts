@@ -3,9 +3,10 @@
 //     que los firma es el dev-login local, y en producción eran super admin por 30 días.
 //  2. `sesiones_desde` cierra las sesiones firmadas antes del corte, y la que se vuelve a firmar en el
 //     mismo segundo sigue valiendo.
-//  3. `leerSesion` falla CERRADA: con la base caída un suspendido no vuelve a entrar.
-// Verificado rompiéndolo: sin la línea `enVercel() && …` de verificarToken el 1 da sesión; con
-// `return firmada` en el catch de lib/auth.ts el 3 encuentra el texto viejo.
+//  3. `leerSesion` falla ABIERTA a propósito y no suma consultas (decidido el 03/11/2026: con un bache de
+//     Supabase, «falla cerrada» deja a todos los clientes sin sesión). Eso deja el corte anotado y sin leer.
+// Verificado rompiéndolo: sin la línea `enVercel() && …` de verificarToken el 1 da sesión; con el `catch`
+// que devuelve null, o con el `sesionesDesde` de la nube en leerSesion, el 3 da rojo.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
@@ -50,13 +51,13 @@ test('2. sesionRevocada', () => {
   assert.equal(subDeFila(''), false);
 });
 
-test('3. leerSesion falla cerrada y cruza el corte', () => {
+test('3. leerSesion falla abierta y no suma una consulta por pedido', () => {
   const src = leer('lib/auth.ts');
-  assert.doesNotMatch(src, /catch \{\s*return firmada;\s*\}/, 'con la base caída no se devuelve la sesión firmada');
-  assert.match(src, /if \(sesionRevocada\(firmada\.iat, desde\)\) return null;/);
+  assert.match(src, /catch \{\s*return firmada;\s*\}/, 'con la base caída la sesión firmada sigue valiendo');
+  assert.doesNotMatch(src, /sesionesDesde|sesiones-revocadas/, 'leerSesion no lee el corte aparte (docs/hallazgos-seguridad.md)');
 });
 
-test('4. cambiar o restablecer la contraseña cierra las sesiones', () => {
+test('4. cambiar o restablecer la contraseña anota el corte', () => {
   assert.match(leer('app/api/auth/restablecer/route.ts'), /await revocarSesiones\(l\.usuarioId\);/);
   const seg = leer('app/api/perfil/seguridad/route.ts');
   assert.match(seg, /after\(\(\) => avisarContrasenaCambiada\(uid\)\.then\(\(\) => undefined\)\);\n\s*\/\/[^\n]*\n\s*\/\/[^\n]*\n\s*return conSesionesCerradas\(uid, s\);/);

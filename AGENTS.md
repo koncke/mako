@@ -3966,6 +3966,10 @@ excepción del código— apaga así la integración de todos: pasó el 11/09 y 
 caída) va 5xx; lo que va a fallar igual en el próximo intento va **2xx y se registra** donde se
 pueda leer. Es la otra mitad de «un 200 es un ACK» (`docs/hallazgos-infra.md` → «Webhooks»).
 
+⚠️ **Y UNA CLAVE FUERA DEL CATÁLOGO NO LLEGA A `process.env`** (03/11/2026): la hidratación copia sólo lo que declara
+`SERVICIOS_METODO`, las keys de IA y sus rótulos (`puedeHidratarse`). Una clave nueva con fila en el ws1 y sin entrada en el catálogo
+se queda en un `console.warn` por arranque, y quien la lea de `process.env` ve vacío. Se declara en el catálogo, o se lee con `credWs`.
+
 ⚠️ **Y LA LECTURA QUE DECIDE DE QUIÉN ES EL EVENTO VA ESTRICTA** (`wsPorIdentificadorEstricto`,
 `credWsEstricta`). `wsPorIdentificador` y `credWs` no leen el `error` de supabase-js: con la base
 caída devuelven null, y un webhook lee ese null como «no es de ningún negocio» y lo contesta 200 —

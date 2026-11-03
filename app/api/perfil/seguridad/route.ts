@@ -65,11 +65,14 @@ export async function GET(req: NextRequest) {
   });
 }
 
-/** Cierra todas las sesiones de la persona y le vuelve a firmar la de esta pestaña. */
+/**
+ * Anota el corte de las sesiones de la persona y le vuelve a firmar la de esta pestaña. ⚠️ Hoy no cierra
+ * ninguna: `leerSesion` no lee el corte (docs/hallazgos-seguridad.md), y por eso la respuesta no dice «cerradas».
+ */
 async function conSesionesCerradas(uid: number, s: NonNullable<Awaited<ReturnType<typeof quien>>>) {
-  const cerradas = await revocarSesiones(uid);
-  const res = NextResponse.json({ ok: true, sesionesCerradas: cerradas });
-  if (cerradas) ponerSesion(res, { sub: s.sub, email: s.email, nombre: s.nombre, rol: s.rol, ...(s.mfa ? { mfa: s.mfa } : {}) });
+  const anotado = await revocarSesiones(uid);
+  const res = NextResponse.json({ ok: true, corteAnotado: anotado });
+  if (anotado) ponerSesion(res, { sub: s.sub, email: s.email, nombre: s.nombre, rol: s.rol, ...(s.mfa ? { mfa: s.mfa } : {}) });
   return res;
 }
 
@@ -158,12 +161,12 @@ export async function POST(req: NextRequest) {
       const g = await guardarContrasena(uid, body.nueva, s.email);
       if (!g.ok) return no(g.error);
       after(() => avisarContrasenaCambiada(uid).then(() => undefined));
-      // Cambiar la contraseña cierra las sesiones de los OTROS dispositivos (01/11/2026): si la cambia
-      // porque alguien entró, esa sesión no puede seguir valiendo. La de esta pestaña se vuelve a firmar.
+      // Cambiar la contraseña anota el corte de los OTROS dispositivos (01/11/2026): si la cambia porque
+      // alguien entró, esa sesión no tendría que seguir valiendo. La de esta pestaña se vuelve a firmar.
       return conSesionesCerradas(uid, s);
     }
     case 'sesiones-cerrar': {
-      // «Cerrar las otras sesiones»: todas menos ésta.
+      // «Cerrar las otras sesiones»: todas menos ésta. Sin botón todavía, y sin efecto hasta que `leerSesion` lea el corte.
       return conSesionesCerradas(uid, s);
     }
     case 'codigos-generar': {
