@@ -610,6 +610,30 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
 
+# Lo que corre SÓLO en el navegador no viaja en las funciones del servidor
+
+Una dependencia pesada que usa únicamente código del cliente (un Web Worker, un `wasm`, un editor)
+igual entra al bundle de **todas** las funciones: el trazado sigue el árbol de `node_modules`, no el
+uso. El 3/11/2026 eso costó cinco deploys: `@huggingface/transformers` arrastra `onnxruntime-node`,
+que en Linux trae un proveedor de **CUDA de 327 MB** —en Vercel no hay GPU— y lo usa un solo Web
+Worker que transcribe en la máquina del usuario. Primero reventó el tope de 250 MB de una función y,
+al habilitar `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el build empezó a terminar bien y a morir en
+«Deploying outputs...» con `ENOSPC`.
+
+- **Al sumar una dependencia así, excluirla en el mismo commit**: `outputFileTracingExcludes` en
+  `next.config.ts`, con un test que lo sostenga (`tests/build-excluye-ia-del-navegador.test.ts`).
+- ⚠️ **La clave es `'/**'`, no `'/*'`**, aunque la doc de Next presente `'/*'` como «global».
+  Medido con su propio picomatch: `'/*'` **no empareja la ruta `'/'`**, así que la home se queda con
+  todo el peso y el patrón parece correcto. Es la forma en que esto se rompe sin avisar.
+- ⚠️ **Excluir del trazado no lo saca del disco** del contenedor, y el disco es lo que se llenó:
+  para eso está `scripts/sacar-cuda-de-onnx.mjs`, enganchado como `prebuild`.
+- ⚠️ **En Windows la exclusión no hace nada, en silencio**: Next normaliza las barras de los
+  `Includes` y no las de los `Excludes` (`next/dist/build/collect-build-traces.js`). Un build local
+  no sirve para comprobarla; el test mide en `path.posix`.
+- **La máquina de build ya es `enhanced`** (8 cores, 16 GB, medido el 17/10/2026), así que
+  «activar Enhanced Builds», lo que sugiere el propio mensaje de Vercel, **ya está hecho**: bajar el
+  peso es el único camino desde el repo.
+
 # Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
 
 El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO corre en el
