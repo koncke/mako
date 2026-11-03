@@ -30,6 +30,9 @@ en [corridas-multiagente.md](corridas-multiagente.md).
   la búsqueda por nombre, que es la que se había pedido.
 - **Regla:** cuando se suma una fuente lenta a una ruta, se revisa el `maxDuration` de la ruta y el tope del cliente. Lo ata
   `tests/instagram-buscar-tiempos.test.ts`. Y «probado» es por el camino que usa la persona, no la pieza suelta.
+- **Y había una segunda causa, la que Martín vio al probar el arreglo:** «leila» o «@leila» son una sola palabra, así que
+  `usuarioDeTexto` los toma por un usuario y la ruta pedía sólo ese @ EXACTO. La búsqueda de Apify corría únicamente con dos
+  palabras o más: se probó con «leila hormozi» y nadie probó lo que escribe una persona. Ahora corren las dos a la vez.
 - **Sin hacer:** Apify trae el @ en la `url` pero no el nombre ni la foto, y tarda: no es «mientras escribo» como Instagram.
 
 ## El espaciado de los kanban es el de Merrin (31/10/2026)

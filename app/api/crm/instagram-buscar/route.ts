@@ -104,6 +104,23 @@ function guardarCache(clave: string, valor: unknown, ttl = TTL_MS): void {
   cache.set(clave, { hasta: Date.now() + ttl, valor });
 }
 
+/**
+ * La búsqueda por nombre de Apify (~20 s, US$0,012), con la clave de Spy del negocio. Lo encontrado se guarda: seguir
+ * tipeando y volver a la misma palabra no se paga dos veces. Sin clave o sin resultados, lista vacía.
+ */
+async function buscarConApify(texto: string, ws: number): Promise<PerfilIg[]> {
+  const clave = `ax:${ws}:${texto.toLowerCase()}`;
+  const ya = leerCache<PerfilIg[]>(clave);
+  if (ya) return ya;
+  const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
+  const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
+  const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+  if (!token) return [];
+  const hallados = await buscarPerfilesApify(texto, token);
+  if (hallados.length) guardarCache(clave, hallados);
+  return hallados;
+}
+
 // ── 1. Meta: Business Discovery ───────────────────────────────────────────────
 
 /** La cuenta de Instagram profesional de la página del negocio, o null si no tiene. Tira si Meta no contesta. */
@@ -322,8 +339,16 @@ export async function GET(req: NextRequest) {
     // plataforma (gratis para el negocio) y recién después la suya, como manda el resto del lector.
     if (!meta.perfiles.length && !google?.perfiles.length) {
       const u = usuarioDeTexto(texto) as string;
-      const l = await leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] });
-      if (l.ok) meta = { ...meta, perfiles: [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] };
+      // ⚠️ UNA PALABRA TAMBIÉN ES UNA BÚSQUEDA (3/11/2026). Martín: «no me trae el desplegable al buscar». «leila» y
+      // «@leila» parecen un usuario y venían por acá: se pedía sólo el @ EXACTO, y la búsqueda de Apify corría únicamente
+      // con dos o más palabras. Las dos a la vez: el exacto, si existe, va primero.
+      const [l, hallados] = await Promise.all([
+        leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] }),
+        buscarConApify(u, ws),
+      ]);
+      const exacto: PerfilIg[] = l.ok ? [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] : [];
+      const perfiles = combinarPerfiles(exacto, hallados);
+      if (perfiles.length) meta = { ...meta, perfiles, ...(hallados.length ? { estado: 'encontro' as const } : {}) };
     }
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
@@ -340,13 +365,8 @@ export async function GET(req: NextRequest) {
     // **US$0,012 la búsqueda** (lib/instagram-buscar-apify.ts). Va al final, sólo si las otras dos
     // no trajeron nada, y con el mismo tope por corrida.
     if (!meta.perfiles.length && !google.perfiles.length) {
-      const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
-      const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
-      const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
-      if (token) {
-        const hallados = await buscarPerfilesApify(texto, token);
-        if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
-      }
+      const hallados = await buscarConApify(texto, ws);
+      if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
     }
   }
 

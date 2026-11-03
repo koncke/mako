@@ -30,6 +30,12 @@ test('el componente espera a la ruta: si corta antes, la lista nunca se dibuja',
   assert.ok(componenteMs > maxDurationMs, `el componente corta a ${componenteMs} ms y la ruta vive ${maxDurationMs} ms`);
 });
 
+test('una sola palabra también busca: «leila» y «@leila» no se quedan en el @ exacto', () => {
+  const rama = ruta.slice(ruta.indexOf('if (usuarioDeTexto(texto) != null)'), ruta.indexOf('[meta, google] = await Promise.all'));
+  assert.match(rama, /buscarConApify\(u, ws\)/);
+  assert.match(rama, /combinarPerfiles\(exacto, hallados\)/);
+});
+
 test('mientras espera, la lista dice que está buscando en Instagram', () => {
   assert.match(componente, /Buscando en Instagram…/);
 });
