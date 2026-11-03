@@ -5925,8 +5925,7 @@ con un `git push` al repo público, en vez de que cada uno la reinstale.
   hizo desde el 11/08/2026: 16 commits tocaron la skill de `plugin/` después. Quien instaló `mbustos-digital/mako-plugin` corre la skill de agosto.
   «Sale publicado sin que nadie lo vuelva a decidir», escrito arriba, no pasa. SIN HACER: que algo publique solo; si no, `koncke/mako-plugin` va a quedar igual de viejo.
 - **El repo viejo no se borra:** hay gente que ya lo instaló.
-- **⛔ Publicar `koncke/mako-plugin` quedó FRENADO** por el modo automático de Claude Code («Create Public Surface»): crear un repo público pide el sí de
-  Martín en su chat. `plugin/README.md` ya nombra el repo nuevo; `TutorialAgente.tsx`, no, y **no puede cambiar antes de publicar**: el tutorial mandaría a un repo que da 404.
+- **PUBLICADO el 3/11/2026** en https://github.com/koncke/mako-plugin (público, autor `MaKo`, con el sí de Martín en el chat del Cerebro). `marketplace add koncke/mako-plugin` e `install mako@mako` andan contra GitHub, medido. `TutorialAgente.tsx` cambia recién ahora: lo hace el chat de Tickets (#41).
 - **Lo probado sin publicar:** en una carpeta `CLAUDE_CONFIG_DIR` aparte, `claude plugin validate`, `marketplace add` e `install mako@mako` andan contra una copia local.
   Falta el `marketplace add koncke/mako-plugin` de verdad.
 - **Autor:** el commit del repo público va con `MaKo <equipo@hola-mako.com>` y sin los trailers de Claude. Es lo que ven los usuarios, y lo pidió Martín.
