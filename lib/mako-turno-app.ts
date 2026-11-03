@@ -61,7 +61,7 @@ import { getSetting, setSetting } from '@/lib/settings';
 import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
 import { runWithWorkspace, getWorkspaceActual, getRolWsEfectivo, getCapaActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
-import { TABS_CON_CHAT_PROPIO } from '@/lib/chat-mako-reglas';
+import { esTabConChatPropio } from '@/lib/chat-mako-reglas';
 import {
   createSession, getSession, listSessions, getSessionMessagesConBloques, getMensajeConBloques, appendMessage,
   renameSession, tituloDesde, type ChartSession, type ChartMsg, type ChartMsgConBloques,
@@ -167,7 +167,7 @@ export async function nuevaSesion(persona: PersonaChat): Promise<SesionChat> {
  * (vacía, sin título: el primer turno se lo pone). Sin `crear`, null si todavía no habló. La tab es de una lista cerrada.
  */
 export async function sesionDeTab(persona: PersonaChat, tab: string, crear: boolean): Promise<SesionChat | null> {
-  if (!TABS_CON_CHAT_PROPIO.includes(tab)) return null;
+  if (!esTabConChatPropio(tab)) return null;
   const clave = `${persona.chartKey}:${tab}`;
   return runWithWorkspace(persona.ws, async () => {
     const ya = (await listSessions(clave)).sort((a, b) => a.id - b.id)[0];

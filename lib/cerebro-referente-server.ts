@@ -23,8 +23,7 @@ import 'server-only';
 // en la ficha: ahí viajaría en CADA mensaje de cada chat.
 // =============================================================================
 
-import { readFile } from 'node:fs/promises';
-import path from 'node:path';
+import { APP_BASE_URL } from './app-url';
 import { armarReferente, type ClaseDeCurso, type ReferenteDelCerebro } from './cerebro-referente';
 import type { Cerebro } from './cerebro-modelo';
 
@@ -62,7 +61,17 @@ export type CursoParaLeer = {
   clases: ReadonlyArray<{ titulo?: string | null; videoId?: string | null }>;
 };
 
-const CARPETA_TX = path.join(process.cwd(), 'public', 'cono-tx');
+/**
+ * ⚠️ SE LEE POR HTTP, DEL CDN, Y NO DEL DISCO (3/11/2026). Dos razones, y las dos fallan en silencio:
+ *   · la función de Vercel sólo lleva lo que se IMPORTA (next.config.ts, `outputFileTracingIncludes`:
+ *     «un readFileSync no es un import»). `public/` lo sirve el CDN: en producción el `readFile` de antes
+ *     podía devolver `null` en cada clase —el `catch` lo traga— y el gurú quedaba sin curso sin un error;
+ *   · y si el trazado SÍ siguiera la ruta, arrastraría `public/cono-tx` entero: 187 MB medidos el 3/11,
+ *     contra un tope de 250 MB por función. Es el mismo deploy roto del 2/11, por otra puerta.
+ * El archivo es público (lo baja el navegador en /conocimientos): pedirlo por URL no expone nada nuevo.
+ */
+const urlDeClase = (videoId: string): string => `${APP_BASE_URL.replace(/\/+$/, '')}/cono-tx/${videoId}.json`;
+const ESPERA_CLASE_MS = 8_000;
 
 /**
  * El texto de UNA clase, o `null` si no hay transcripción.
@@ -74,8 +83,9 @@ const CARPETA_TX = path.join(process.cwd(), 'public', 'cono-tx');
 export async function textoDeClase(videoId: string): Promise<string | null> {
   if (!/^[A-Za-z0-9_-]{6,80}$/.test(videoId)) return null;
   try {
-    const crudo = await readFile(path.join(CARPETA_TX, `${videoId}.json`), 'utf8');
-    const leido: unknown = JSON.parse(crudo);
+    const r = await fetch(urlDeClase(videoId), { signal: AbortSignal.timeout(ESPERA_CLASE_MS), cache: 'force-cache' });
+    if (!r.ok) return null;
+    const leido: unknown = await r.json();
     // El archivo es una LISTA de strings (los tramos del video). También se acepta un string suelto
     // por si alguna vez se guardó así: lo que no se acepta es adivinar sobre otra forma.
     if (typeof leido === 'string') return leido.trim() || null;
@@ -92,7 +102,7 @@ export async function clasesDelCurso(curso: CursoParaLeer): Promise<ClaseDeCurso
   const pedidos = curso.clases.map(async (c, i) => {
     const videoId = (c.videoId ?? '').trim();
     if (!videoId) return null;
-    const texto = await textoDeClase(videoId);
+    const texto = await textoDeClaseMemo(videoId);
     if (!texto) return null;
     return { videoId, titulo: (c.titulo ?? '').trim() || `Clase ${i + 1}`, orden: i + 1, texto };
   });
@@ -110,6 +120,19 @@ export async function cerebroDeReferente(r: ReferenteDelCerebro, curso: CursoPar
 // Knowledge, que por eso se memoiza en `knowledgeDeMako()`. Una capa por referente, una vez por
 // proceso.
 const memoria = new Map<string, Promise<Cerebro<string>>>();
+const textos = new Map<string, Promise<string | null>>();
+
+/**
+ * El texto de una clase, leído una vez por proceso. Lo que NO llegó (un 404, un corte) no se guarda:
+ * desde que se lee por HTTP, un tropiezo de red no puede dejar una clase vacía para siempre.
+ */
+function textoDeClaseMemo(videoId: string): Promise<string | null> {
+  const ya = textos.get(videoId);
+  if (ya) return ya;
+  const p = textoDeClase(videoId).then((t) => { if (t == null) textos.delete(videoId); return t; });
+  textos.set(videoId, p);
+  return p;
+}
 
 /** La capa de un referente, leída una sola vez por proceso. */
 export function cerebroDeReferenteMemo(r: ReferenteDelCerebro, curso: CursoParaLeer): Promise<Cerebro<string>> {
@@ -118,15 +141,23 @@ export function cerebroDeReferenteMemo(r: ReferenteDelCerebro, curso: CursoParaL
   // Se guarda la PROMESA, no el resultado: dos turnos a la vez no pueden disparar dos lecturas.
   // Y si la lectura falla, se saca para que el próximo turno lo vuelva a intentar en vez de
   // quedarse con un error cacheado para siempre.
-  const p = cerebroDeReferente(r, curso).catch((e) => { memoria.delete(r.id); throw e; });
+  // ⚠️ Y UN CURSO A MEDIAS TAMPOCO SE GUARDA: con una clase que no llegó, el próximo turno la vuelve a
+  // pedir. Las que sí llegaron están en `textos`, así que reintentar cuesta sólo lo que faltó.
+  const p = cerebroDeReferente(r, curso).then((c) => {
+    if (c.nodos.length - 1 < curso.clases.length) memoria.delete(r.id);
+    return c;
+  }, (e) => { memoria.delete(r.id); throw e; });
   memoria.set(r.id, p);
   return p;
 }
 
 // ── DÓNDE SE CUELGA, Y POR QUÉ NO LLEVA EL HEURÍSTICO DE KNOWLEDGE ───────────────────────────────
 //
-// El punto de enganche es `lib/cerebro-para-chat.ts` (`armar`), con `conCapa` — el mismo que usan
-// Knowledge y «Lo que hace MaKo».
+// ⚠️ NO VA EN `armar()` (lib/cerebro-para-chat.ts), aunque así lo decía el tablero: `armar` es el grafo
+// del NEGOCIO, en caché por workspace, y el referente es de cada CHAT. Colgado ahí, el curso del chat de
+// uno viajaba en el de todos. Entra por dos puertas que sí saben de qué chat se trata: el turno
+// (`paqueteParaElTurno`, con el referente que eligió el servidor por `desde.tab`) y la herramienta que
+// pide una clase por id (`recuperar_del_segundo_cerebro`: el id `ref:<gurú>:<video>` dice de quién es).
 //
 // ⚠️ ESTO CORRIGE LO QUE YO MISMO HABÍA ESCRITO EN EL TABLERO («copiar el criterio de Knowledge»).
 // Knowledge necesita un heurístico —`esPreguntaDeConocimiento`— porque va en TODOS los negocios y

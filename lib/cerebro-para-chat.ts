@@ -27,6 +27,7 @@ import { bloqueDelSecondBrain, conCapa, preguntaDelTurno, PRESUPUESTO_TURNO, sin
 import { recuperar } from './cerebro-recuperar';
 import { grafoGuardado, guardarGrafo } from './cerebro-cache-chat';
 import type { Cerebro } from './cerebro-modelo';
+import type { Asesor } from './asesores/catalogo';
 import { getWorkspaceActual, wsSuperAdmin } from './workspace';
 
 /** El grafo del negocio de este pedido para un chat; con las funciones de MaKo si es la plataforma. Tira si una lectura
@@ -70,6 +71,29 @@ export async function paqueteParaElTurno(
 ): Promise<string> {
   const q = preguntaDelTurno(pregunta);
   if (!q) return '';
+  // ── El CURSO del referente que tiene este chat al frente (3/11/2026): un bloque APARTE, en paralelo ──
+  // ⚠️ Antes se colgaba como capa del grafo del negocio y viajaba por `recuperar`, que NUNCA pone el
+  // cuerpo de un nodo sin pedirlo por id: el chat veía los títulos de las clases y ni una palabra del
+  // curso (lib/cerebro-referente.ts, `cursoParaElTurno`, lo cuenta). Aparte, además, no le come los
+  // 1.200 tokens al negocio ni espera al grafo, y no pasa por `sinLaPlata`: un curso no tiene un número
+  // del negocio adentro, y un closer con Augusto Bianchi al frente es justo quien más lo necesita.
+  const [negocio, curso] = await Promise.all([
+    paqueteDelNegocio(q, o),
+    o.referente ? cursoParaElTurnoDe(o.referente, q) : Promise.resolve(''),
+  ]);
+  return [negocio, curso].filter(Boolean).join('\n\n');
+}
+
+/** El bloque del curso del referente para la pregunta del turno. Nunca tira: sin curso, el chat sigue con su ficha. */
+async function cursoParaElTurnoDe(id: string, q: string): Promise<string> {
+  const c = await cursoDe(id);
+  if (!c) return '';
+  const { cursoParaElTurno } = await import('./cerebro-referente');
+  return cursoParaElTurno(c.capa, c.a, q);
+}
+
+/** Lo del negocio que nombra la pregunta (lo de siempre). */
+async function paqueteDelNegocio(q: string, o: { sinPlata: boolean; presupuesto?: number }): Promise<string> {
   try {
     const grafo = await Promise.race([
       grafoParaChat(),
@@ -78,17 +102,7 @@ export async function paqueteParaElTurno(
     if (!grafo) return '';
     // La capa de las funciones (sólo existe en la plataforma) entra sólo si la pregunta es de producto: «¿cuál es mi meta?» no
     // habla del Ads Manager de Meta.
-    // ── La capa del REFERENTE: su curso entero, clase por clase (2/11/2026) ──────────────────────
-    // Martín: «me gustaría que se lea entero los cursos… que el segundo cerebro de estos gurús tenga
-    // todo el contexto».
-    // ⚠️ NO LLEVA EL HEURÍSTICO DE KNOWLEDGE, y eso es a propósito. Knowledge necesita
-    // `esPreguntaDeConocimiento` porque va en TODOS los negocios y los nombres de sus módulos son
-    // palabras del negocio. Acá no hay esa ambigüedad: la capa se cuelga SÓLO cuando el chat tiene a
-    // ese referente al frente, así que su curso es pertinente por definición.
-    // ⚠️ Y el curso NO viaja entero en el turno: `recuperar` manda el índice —una línea por clase— y
-    // el cuerpo de una clase sólo si la pregunta la nombra. Por eso puede no tener tope.
-    const conReferente = o.referente ? await capaDelReferente(grafo, o.referente) : grafo;
-    const delRol = o.sinPlata ? sinLaPlata(conReferente) : conReferente;
+    const delRol = o.sinPlata ? sinLaPlata(grafo) : grafo;
     const conProducto = esPreguntaDeProducto(q) ? delRol : sinFunciones(delRol);
     // Y la capa de Knowledge (el método de los cursos, en TODO negocio) sólo si la pregunta pide el MÉTODO: los nombres
     // de los módulos son palabras del negocio y «¿cuál es mi oferta?» no pregunta por el método de armar una.
@@ -100,8 +114,8 @@ export async function paqueteParaElTurno(
 }
 
 /**
- * Le cuelga al grafo la capa del referente que tiene este chat al frente: su curso entero, un nodo
- * por clase (lib/cerebro-referente.ts).
+ * Le cuelga al grafo la capa de un referente: su curso entero, un nodo por clase
+ * (lib/cerebro-referente.ts). La usa la herramienta que pide una clase por id (`conLosCursosDe`).
  *
  * ⚠️ TODO ACÁ ES CON IMPORT DINÁMICO y envuelto en try: el catálogo de cursos son miles de líneas
  * que no tienen por qué entrar en el camino de un chat sin referente, y un curso que no se puede
@@ -109,31 +123,50 @@ export async function paqueteParaElTurno(
  * grafo (`nunca tira`).
  */
 async function capaDelReferente(grafo: Cerebro<string>, id: string): Promise<Cerebro<string>> {
+  const c = await cursoDe(id);
+  if (!c) return grafo;
+  const { idRaizDeReferente } = await import('./cerebro-referente');
+  return conCapa(grafo, c.capa, {
+    id: CAPA_CONOCIMIENTO, nombre: c.a.completo, raiz: idRaizDeReferente(id),
+    motivo: `Lo que ${c.a.nombre} enseña en «${c.a.curso}», clase por clase`,
+  });
+}
+
+/** El referente y su capa, leída una vez por proceso. null si no tiene curso o no se pudo leer: nunca tira. */
+export async function cursoDe(id: string): Promise<{ a: Asesor; capa: Cerebro<string> } | null> {
   try {
-    const [{ ASESORES }, { cursoDeReferente }, srv, { idRaizDeReferente }] = await Promise.all([
-      import('./asesores/catalogo'), import('./asesores/cursos'),
-      import('./cerebro-referente-server'), import('./cerebro-referente'),
+    const [{ ASESORES }, { cursoDeReferente }, srv] = await Promise.all([
+      import('./asesores/catalogo'), import('./asesores/cursos'), import('./cerebro-referente-server'),
     ]);
     const a = ASESORES.find((x) => x.id === id);
     const slug = cursoDeReferente(id);
-    if (!a || !slug) return grafo;
+    if (!a || !slug) return null;
     // ⚠️ ACÁ ESTABA EL DEPLOY ROTO. Antes esto importaba `@/app/conocimientos/catalogo` para
     // encontrar el curso, y ese catálogo arrastra los 100+ archivos de cursos: Vercel rechazó la
     // función por tamaño (281 MB contra un tope de 250) **con Actions en verde**, porque CI corre
     // tipos y tests pero no el empaquetado. Ahora sale de un índice de 99 KB
     // (`lib/asesores/clases-de-referentes.json`).
     const curso = srv.clasesDelIndice(slug);
-    if (!curso.clases.length) return grafo;
+    if (!curso.clases.length) return null;
     const capa = await srv.cerebroDeReferenteMemo(a, curso);
-    if (!capa.nodos.length) return grafo;
-    return conCapa(grafo, capa, {
-      id: CAPA_CONOCIMIENTO, nombre: a.completo, raiz: idRaizDeReferente(id),
-      motivo: `Lo que ${a.nombre} enseña en «${a.curso}», clase por clase`,
-    });
+    // Sólo la raíz: ninguna clase llegó. Sin curso, que es distinto de un curso vacío.
+    return capa.nodos.length > 1 ? { a, capa } : null;
   } catch (e) {
-    console.error(`[cerebro-para-chat] la capa de ${id}: ${e instanceof Error ? e.message : String(e)}`);
-    return grafo;
+    console.error(`[cerebro-para-chat] el curso de ${id}: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
   }
+}
+
+/**
+ * El grafo con los cursos que nombran unos ids (`ref:<gurú>:<video>`): para la herramienta que pide una
+ * clase por id (`recuperar_del_segundo_cerebro`). Sin esto, el id que el turno le muestra al chat no
+ * existía en `grafoParaChat()` y pedirlo devolvía el índice del negocio.
+ */
+export async function conLosCursosDe(grafo: Cerebro<string>, ids: readonly string[]): Promise<Cerebro<string>> {
+  const { referentesDeIds } = await import('./cerebro-referente');
+  let g = grafo;
+  for (const id of referentesDeIds(ids)) g = await capaDelReferente(g, id);
+  return g;
 }
 
 async function armar(ws: number | null): Promise<{ grafo: Cerebro<string>; completo: boolean }> {

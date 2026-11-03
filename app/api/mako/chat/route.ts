@@ -45,9 +45,11 @@ import {
   urlDeVozDelChat, escucharNotaDelChat,
 } from '@/lib/mako-turno-app';
 import { validarAdjuntos, esMp3, ERROR_ADJUNTO, TOPE_ADJUNTOS, TOPE_TOTAL_BYTES, MARGEN_MULTIPART_BYTES } from '@/lib/mako-adjuntos';
-import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, antesValido, appDeEscritorio, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
-import { contextoDelFunnelCoach, pistaDelFunnelCoach } from '@/lib/asesores/contexto';
-import { sanearReferentes } from '@/lib/asesores/catalogo';
+import { CONTEXTO_SECOND_BRAIN, ORIGEN_FUNNEL_COACH, antesValido, appDeEscritorio, referenteDeTab, type AppDeEscritorio } from '@/lib/chat-mako-reglas';
+import { contextoDeReferente, contextoDelFunnelCoach, pistaDelFunnelCoach } from '@/lib/asesores/contexto';
+import { asesorPorId, sanearReferentes } from '@/lib/asesores/catalogo';
+// Ya viene con el turno (lib/mako-turno-app.ts lo importa): estático, así la guarda de las rutas sin IA lo ve (tests/d6b-rutas.test.ts).
+import { cursoDe } from '@/lib/cerebro-para-chat';
 import { guardarReferentes, leerPlanFunnel, leerReferentes } from '@/lib/funnel-plan-db';
 import { listarOfertas } from '@/lib/ofertas';
 import { tipoDeDispositivo } from '@/lib/movil-dispositivo';
@@ -125,6 +127,10 @@ async function personaDelChat(persona: PersonaChat, sessionId: number, antes: un
  * adjunto al Funnel Coach lo dejaba hablando como el Ops Center.
  */
 async function contextoDelChat(quien: PersonaChat, desde: Desde | null, mensaje: string): Promise<{ contexto: string; pista?: string; referente?: string | null }> {
+  // El chat con un GURÚ (3/11/2026, #16): su ficha en cada mensaje y su curso en el Second Brain del turno. Lo dice la CLAVE de la
+  // conversación (`…:referente-<id>`, lib/chat-mako-reglas.ts), no la pantalla: retomada desde la lista, sigue siendo con él.
+  const guru = referenteDeTab(quien.chartKey);
+  if (guru) return { contexto: `${CONTEXTO_SECOND_BRAIN}\n\n${contextoDeReferente(guru)}`, referente: guru };
   if (desde?.tab !== ORIGEN_FUNNEL_COACH) return { contexto: CONTEXTO_SECOND_BRAIN };
   const { funnel } = await runWithWorkspace(quien.ws, () => leerReferentes());
   // ⚠️ `referente` ES OTRA COSA QUE `contexto`, y por eso viaja aparte (2/11/2026). El contexto
@@ -144,6 +150,17 @@ export async function GET(req: NextRequest) {
     // La conversación de una tab con chat propio (el Second Brain, 23/10/2026), si ya existe: se lee, no se crea.
     if (sp.has('deTab')) return json({ ok: true, sesion: await sesionDeTab(persona, sp.get('deTab') ?? '', false) });
     // Los coaches del Ops Center (1/11/2026, lib/asesores/): quién tiene cada uno al frente, si hay oferta y el plan guardado.
+    // El Second Brain de UN gurú, para dibujarlo (#18, 3/11/2026): su curso como grafo, acomodado aquí. SIN el texto de las clases:
+    // el de Alborna son 742 mil caracteres y el grafo dibuja títulos. El texto lo lee el chat (lib/cerebro-para-chat.ts → `cursoDe`).
+    if (sp.has('cerebroDe')) {
+      const id = asesorPorId(sp.get('cerebroDe'))?.id;
+      const c = id ? await cursoDe(id) : null;
+      if (!c) return json({ ok: false, error: 'Este gurú todavía no tiene su curso cargado.' }, 404);
+      const { layoutCerebro } = await import('@/lib/cerebro-layout');
+      const nodos = c.capa.nodos.map(({ cuerpo: _sinTexto, ...n }) => n);
+      const { posiciones, encuadre } = layoutCerebro(nodos, c.capa.aristas);
+      return json({ ok: true, cerebro: { ...c.capa, nodos, posiciones, encuadre } });
+    }
     if (sp.has('coaches')) {
       const [referentes, ofertas] = await runWithWorkspace(persona.ws, () => Promise.all([leerReferentes(), listarOfertas(true).catch(() => null)]));
       // Si la base no contestó no se sabe, y no se le dice a nadie que le falta una oferta que puede tener.

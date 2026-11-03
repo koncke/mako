@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ORIGEN_SECOND_BRAIN, TABS_CON_CHAT_PROPIO, TAB_SECOND_BRAIN, origenDeClave, saludoDelSecondBrain } from '../lib/chat-mako-reglas';
+import { ORIGEN_SECOND_BRAIN, TABS_CON_CHAT_PROPIO, TAB_SECOND_BRAIN, esTabConChatPropio, origenDeClave, referenteDeTab, saludoDelSecondBrain } from '../lib/chat-mako-reglas';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
@@ -39,7 +39,17 @@ test('2. una conversación por persona y negocio, que el Ops Center lista como �
   assert.equal(origenDeClave('mako-movil:u8:otra-cosa'), null);
   const srv = sinComentarios(leer('lib/mako-turno-app.ts'));
   const f = srv.slice(srv.indexOf('export async function sesionDeTab('), srv.indexOf('export async function sesionDeTab(') + 700);
-  assert.match(f, /if \(!TABS_CON_CHAT_PROPIO\.includes\(tab\)\) return null;/);
+  // 3/11/2026 (#16): la guarda es `esTabConChatPropio`, que suma la conversación con cada GURÚ (`referente-<id>`) a la lista fija,
+  // y sólo la de un gurú que existe: la ruta sigue sin crear conversaciones de una tab cualquiera.
+  assert.match(f, /if \(!esTabConChatPropio\(tab\)\) return null;/);
+  for (const t of TABS_CON_CHAT_PROPIO) assert.ok(esTabConChatPropio(t), t);
+  assert.ok(esTabConChatPropio('referente-julian-alborna'), 'la conversación con un gurú es una tab con chat propio');
+  assert.ok(!esTabConChatPropio('referente-nadie'), 'un gurú que no existe no abre una conversación');
+  assert.ok(!esTabConChatPropio('x:referente-julian-alborna'), 'una clave entera no es una tab');
+  assert.ok(!esTabConChatPropio('otra-cosa'));
+  assert.equal(origenDeClave('mako-movil:u8:referente-julian-alborna'), 'Julián Alborna', 'sin origen, `claveDeTab` no la deja escribir');
+  assert.equal(referenteDeTab('mako-movil:u8:referente-emilio-puigrredon'), 'emilio-puigrredon', 'el servidor saca al gurú de la CLAVE');
+  assert.equal(referenteDeTab('mako-movil:u8'), null);
   assert.match(f, /const clave = `\$\{persona\.chartKey\}:\$\{tab\}`;/, 'la clave sale de la persona de la sesión, no del pedido');
   assert.match(f, /return runWithWorkspace\(persona\.ws,/, 'en el negocio de la sesión');
   assert.match(f, /return crear \? aSesion\(await createSession\(clave, null, ''\)\) : null;/);

@@ -23,7 +23,7 @@
 //    viaja firmado con el mensaje: a un chat que ya existe, como desde su caja (`mandarTextoA`); a uno nuevo, en el trabajo que
 //    lo abre, y la PC los baja antes de abrirlo (cartero 1.22.0, `abrirChat`). Sin un Runner 1.22.0 la caja no ofrece adjuntar.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import type { AdjuntoCaja, Centro } from './useCentro';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
@@ -192,7 +192,11 @@ export function useChatNuevo(k: Centro, onAbrir: (clave: string) => void) {
 }
 
 /** El chat nuevo de la computadora: un panel como el de cualquier chat, con su cabecera, su conversación y su caja. */
-export function ChatNuevoCentro({ centro: k, onAbrir, onVolver }: { centro: Centro; onAbrir: (clave: string) => void; onVolver: () => void }) {
+export function ChatNuevoCentro({ centro: k, onAbrir, onVolver, acciones }: {
+  centro: Centro; onAbrir: (clave: string) => void; onVolver: () => void;
+  /** Lo de la derecha de la cabecera: «Hablar con un gurú» (3/11/2026, #16), que abre un chat con MaKo y no uno de Claude Code. */
+  acciones?: ReactNode;
+}) {
   const n = useChatNuevo(k, onAbrir);
   return (
     <section className="co-panel" aria-label="Nuevo chat">
@@ -202,6 +206,7 @@ export function ChatNuevoCentro({ centro: k, onAbrir, onVolver }: { centro: Cent
         </button>
         <span className="co-cab__muneco"><CriaturaChatNuevo n={n} /></span>
         <div className="co-cab__texto"><h1 className="co-cab__titulo"><TituloChatNuevo n={n} /></h1></div>
+        {acciones}
       </header>
       <div className="co-cuerpo">
         <div className="co-conv">

@@ -60,7 +60,7 @@ import { cuantosEnEntrega } from '@/lib/entrega-servicio';
 import { fraseEntregaAlBorrar } from '@/lib/servicio-etapas';
 import { sugerirProductos } from '@/lib/productos-ia';
 import { construirCerebro } from '@/lib/cerebro-grafo';
-import { grafoParaChat } from '@/lib/cerebro-para-chat';
+import { conLosCursosDe, grafoParaChat } from '@/lib/cerebro-para-chat';
 import { construirVault } from '@/lib/vault';
 import { indiceDelCerebro, recuperar } from '@/lib/cerebro-recuperar';
 import { matchNodo, type CampoCerebro } from '@/lib/buscar-cerebro';
@@ -676,9 +676,12 @@ export const RUNNERS: Runners = {
 
   recuperar_del_segundo_cerebro: {
     leer: async (input) => {
-      const p = recuperar(await grafoParaChat(), {
+      const ids = Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [];
+      // Un id `ref:<gurú>:<video>` es una clase del curso de un referente (lib/cerebro-referente.ts): su
+      // capa no está en el grafo del negocio, así que se cuelga acá, sólo cuando se la pide (3/11/2026).
+      const p = recuperar(await conLosCursosDe(await grafoParaChat(), ids), {
         pregunta: str(input, 'pregunta'),
-        ids: Array.isArray(input.ids) ? (input.ids as unknown[]).map(String) : [],
+        ids,
         profundidad: typeof input.profundidad === 'number' ? input.profundidad : undefined,
         presupuesto: typeof input.presupuesto === 'number' ? input.presupuesto : undefined,
       });

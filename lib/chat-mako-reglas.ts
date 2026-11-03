@@ -13,6 +13,7 @@
 // SIN imports de valores: lo usan la pantalla ('use client') y los tests.
 
 import type { MensajeChat, SesionChat } from './mako-turno-app-reglas';
+import { asesorPorId, type IdAsesor } from './asesores/catalogo';
 import type { MensajeChatMako } from './automatizacion-chat';
 
 /** El nombre del jefe del chat con MaKo: «Cerebro», con la estrella de MaKo (lib/centro-munecos.ts → esCriaturaDeMako), como el
@@ -307,6 +308,8 @@ export function origenDeClave(clave: string | null | undefined): string | null {
   if (k.endsWith(`:${TAB_SECOND_BRAIN}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_SECOND_BRAIN;
   if (k.endsWith(`:${TAB_VIDEO_GENERATOR}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_VIDEO_GENERATOR;
   if (k.endsWith(`:${TAB_FUNNEL_COACH}`) && /^mako-movil:[^:]+:[a-z-]+$/.test(k)) return ORIGEN_FUNNEL_COACH;
+  // La de un gurú: su nombre es el origen («Julián Alborna › tema»). Sin esto, `claveDeTab` la rechaza y no se puede escribir.
+  if (/^mako-movil:[^:]+:referente-[a-z-]+$/.test(k)) { const a = asesorPorId(referenteDeTab(k)); if (a) return a.nombre; }
   if (/^(dashboard:|comercial-|marketing-(?!ad-))/.test(k)) return 'Dashboard';
   if (/^(ad-detail-|mkt-campaign-|marketing-ad-)/.test(k)) return 'Ads';
   if (/^whatsapp-/.test(k)) return 'Automations';
@@ -359,6 +362,21 @@ export const TAB_FUNNEL_COACH = 'funnel-coach';
 export const ORIGEN_FUNNEL_COACH = 'Funnel Coach';
 export const ORIGEN_OFFER_COACH = 'Offer Coach';
 export const TABS_CON_CHAT_PROPIO: readonly string[] = [TAB_SECOND_BRAIN, TAB_VIDEO_GENERATOR, TAB_FUNNEL_COACH];
+
+// ── El chat con un GURÚ (3/11/2026, #16: «elegir un gurú desde Nuevo chat») ─────────────────────────────────────────
+// UNA conversación por persona, negocio y gurú (`mako-movil:<persona>:referente-<id>`), como la del Funnel Coach: elegir otra
+// vez al mismo gurú la retoma. ⚠️ LO QUE LO HACE GURÚ ES LA CLAVE, NO LA PANTALLA: el servidor saca el referente de la clave
+// de la conversación (app/api/mako/chat/route.ts → `contextoDelChat`), así que retomarla desde la lista del Ops Center sigue
+// siendo con él. Si lo decidiera la pantalla, la misma conversación abierta desde la lista contestaría como MaKo a secas.
+export const PREFIJO_TAB_REFERENTE = 'referente-';
+export const tabDeReferente = (id: IdAsesor): string => `${PREFIJO_TAB_REFERENTE}${id}`;
+/** El referente de una tab (`referente-<id>`) o del final de una clave (`…:referente-<id>`); null si no es de un gurú que existe. */
+export function referenteDeTab(tab: string | null | undefined): IdAsesor | null {
+  const t = String(tab ?? '').split(':').pop() ?? '';
+  return t.startsWith(PREFIJO_TAB_REFERENTE) ? asesorPorId(t.slice(PREFIJO_TAB_REFERENTE.length))?.id ?? null : null;
+}
+/** ¿Esta tab tiene una conversación propia por persona? Las de la lista fija y la de cada gurú (lo único que acepta la ruta). */
+export const esTabConChatPropio = (tab: string): boolean => TABS_CON_CHAT_PROPIO.includes(tab) || (!tab.includes(':') && referenteDeTab(tab) != null);
 
 /** El saludo del Second Brain con la conversación vacía, con el nombre de pila de quien mira (sin nombre, sin el «NOMBRE»). */
 export function saludoDelSecondBrain(nombre: string | null | undefined): string {
