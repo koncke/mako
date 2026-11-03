@@ -1,4 +1,4 @@
-# Relevo del chat Runner (02/11/2026, 20:25 UTC; 95% semanal, cuenta claude1; reinicia el 04/11 a las 10:00 UTC)
+# Relevo del chat Runner (03/11/2026, 00:45 UTC; 98% semanal, cuenta claude1; reinicia el 04/11 a las 10:00 UTC)
 
 Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron. Eso manda sobre este archivo.
 
@@ -10,8 +10,8 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 - Si este chat se cierra, no se entrega ni se mide. Al retomar: `CronList`, armar el Monitor y contar las copias (`continuo.pid`; memoria `monitor-no-mata-el-proceso`).
 - **Si la cuenta corta (desde el 02/11, al 99%; el cierre con relevo es al 98%), se para todo esto:** nada más entrega los pedidos del Centro hasta que este chat siga en otra cuenta. Al retomar, `medir` frena una medición de otra cuenta si el marcador está mal, y `--renovada` sólo se usa si lo dice Martín.
 - La app no informa la ventana de 5 horas: `medir` va con `"" ""` en su lugar.
-- **Última vuelta antes de este relevo:** 20:25 UTC. Latido al día, sin alertas y 9 en el limbo.
-- **Del 02/11 02:00 a las 20:25 UTC** se entregaron al Cerebro, con acuse: tickets #43 y #44, y los pedidos de Martín `4dbf4767`, `3a1657a3` y `1088908c`. Entregar no dice que los leyó ni que están hechos: eso se mira en el Centro.
+- **Última vuelta antes de este relevo:** 03/11, 00:45 UTC. Latido al día, sin alertas y 9 en el limbo.
+- **Del 02/11 02:00 al 03/11 00:45 UTC** se entregaron al Cerebro, con acuse: tickets #43 y #44, y los pedidos de Martín `4dbf4767`, `3a1657a3` y `1088908c`. Entregar no dice que los leyó ni que están hechos: eso se mira en el Centro.
 
 ## Lo pedido y lo hecho
 
@@ -21,7 +21,7 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 
 ## A medias: `runner-servicio-3010`, sin subir
 
-Carpeta `C:/dev/wt-runner-servicio`. Medido el 02/11 a las 20:25 UTC contra `7eea250f5`: 11 commits propios y 143 atrás de main. Antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
+Carpeta `C:/dev/wt-runner-servicio`. Medido el 03/11 a las 00:45 UTC contra `59353f806`: 156 commits atrás de main, y sus únicos commits nuevos son de este relevo. Antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
 
 - Tipos de `useCentro.ts` y de los `.tsx` grandes (el acotado dio 99; los juzga Actions).
 - Verla en la pantalla real como super admin. El arnés sólo probó la pieza y su CSS.
