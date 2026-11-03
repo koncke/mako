@@ -49,7 +49,36 @@ pantalla, no una forma parecida. Si no, MaKo NIEGA lo que sí tiene, que es peor
 ⚠️ El ticket venía clasificado como «pedido de algo que MaKo todavía no tiene». **No lo era.** Al
 cerrarlo, el hito «Hecho» lleva `tickets: [45]`.
 
-## ⛔ LO ÚNICO QUE ESPERA UN «SÍ» DE MARTÍN: el deploy sigue roto y la salida es una variable
+## 🔴 EL DEPLOY, ESTADO AL CORTAR (3/11 ~03:25) — EL ERROR CAMBIÓ DOS VECES
+
+**1. Tamaño de función (250 MB): RESUELTO.** `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` ya está creada en
+el proyecto `mako` (production, preview y development) con
+`node --env-file=C:/dev/mako-api/.env.local scripts/vercel-funciones-grandes.mjs` (idempotente).
+
+**2. Apareció OTRO error, distinto: espacio en la máquina de build.** El deploy de las 02:57 ya no
+se queja del tamaño de la función —pasó esa barrera— sino del disco. Lo que Vercel lista como más
+pesado:
+
+| | |
+|---|---|
+| `node_modules/onnxruntime-node/.../libonnxruntime_providers_cuda.so` | **327 MB** |
+| `.git/objects/pack/*.pack` | **236 MB** |
+| `@next/swc-linux-x64-gnu` (DOS copias) | **124 MB** c/u |
+
+⚠️ **Las dos primeras son deuda vieja y valen más que este incidente:** se está copiando **el
+historial de git entero** a la máquina de build, y hay un **ONNX con proveedor CUDA** que en Vercel
+no sirve para nada porque no hay GPU. Entre las dos, **más de 500 MB de disco** por build.
+
+**Al cortar había DOS builds corriendo:** `be38d9156` (redeploy manual, lanzado con la variable ya
+puesta) y `1efb12f08` (el que disparó `main` al avanzar). **Queda sin saber cómo cerraron.**
+Se mira con `node --env-file=C:/dev/mako-api/.env.local scripts/ver-deploy-vercel.mjs`.
+
+**Si vuelven a fallar por disco, los dos caminos son de la cuenta de Martín:** *Enhanced Builds*
+(más disco y memoria, lo sugiere el propio error) o sacar esas dos dependencias del build.
+
+⚠️ **Producción NO está caída**: sigue sirviendo `59353f806` (2/11 23:14). Le falta lo nuevo.
+
+## ⛔ (anterior) el deploy y la variable
 
 **Estado al cortar (3/11 ~02:40):** `be38d9156` salió **VERDE en Actions** y **ERROR en Vercel**.
 Producción sigue sirviendo el último build bueno (`59353f806`, 23:14): **la app NO está caída**, le
