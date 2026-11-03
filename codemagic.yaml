@@ -4,8 +4,8 @@
 # NO en GitHub Actions: los minutos no alcanzan, y las Mac de Codemagic sí compilan iOS (500 min gratis por mes).
 # Se corre A MANO desde Codemagic (sin `triggering`). Antes de la primera vez, Martín:
 #   · conecta el repo en Codemagic con su GitHub;
-#   · crea en App Store Connect la API key (rol App Manager) y la carga en Codemagic como la integración «MaKo»;
-#   · crea la app con el id com.holamako.app y pone su número (Apple ID de la app) en APP_STORE_APPLE_ID.
+#   · crea en App Store Connect la API key (rol App Manager) y la carga en Codemagic como la integración «MaKo».
+# La app ya existe en App Store Connect (3/11/2026): MaKo, SKU mako-ios, en la cuenta de Leandro Tejado.
 # ⚠️ BORRADOR hasta la primera corrida con la cuenta: el proyecto es SPM (.xcodeproj, sin .xcworkspace ni CocoaPods).
 # Plan: docs/tiendas-play-appstore.md (paso 10). Cómo se arma: nativo/README.md.
 # =============================================================================
@@ -23,7 +23,8 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.holamako.app
       vars:
-        APP_STORE_APPLE_ID: 0
+        APP_STORE_APPLE_ID: 6830383006
+        APPLE_TEAM_ID: 99V2VV9FP2
         XCODE_PROJECT: nativo/ios/ios/App/App.xcodeproj
         XCODE_SCHEME: App
     scripts:

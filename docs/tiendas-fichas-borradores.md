@@ -13,6 +13,7 @@ Lo que se declara sale del código y de `/privacidad`, medido el 3/11/2026. Si u
 |---|---|
 | Nombre | **MaKo** |
 | Id de la app | `com.holamako.app` (no se cambia nunca) |
+| App Store Connect | SKU `mako-ios`, Apple ID `6830383006`, idioma principal Spanish (Mexico) |
 | Categoría | Empresa / Business (Apple, secundaria: Productividad) |
 | Política de privacidad | https://hola-mako.com/privacidad |
 | Términos | https://hola-mako.com/terminos |

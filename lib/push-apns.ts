@@ -2,7 +2,7 @@
 // push-apns — manda a los iPhones de la app, por HTTP/2 a Apple (server-only, 3/11/2026)
 // =============================================================================
 // Lo que se manda, puro y con test: lib/push-apns-reglas.ts. Las claves viven en `credenciales` del workspace de PLATAFORMA, como las de
-// VAPID, y las pega Martín en Método (lib/metodo-catalogo.ts): nunca en variables de Vercel, y un chat nunca las ve.
+// VAPID, y las pega Martín en Integraciones (lib/integraciones-catalogo.ts y lib/metodo-catalogo.ts): nunca en variables de Vercel, y un chat nunca las ve.
 //
 // ⚠️ SIN CLAVES NO SALE NADA Y NO SE BORRA NADA: la fila sigue, y se cuenta como un fallo de ese envío. Hasta que Martín abra su cuenta de Apple
 //    no hay iPhones, así que este camino no corre para nadie.
@@ -33,7 +33,7 @@ export async function clavesApns(): Promise<ClavesApns | null> {
     // Producción siempre: TestFlight y el App Store usan la misma, y sin una Mac no hay builds de desarrollo.
     const [keyId, teamId, p8] = await Promise.all(['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8'].map((k) => credWsEstricta(k, ws)));
     claves = clavesApnsDe({ keyId, teamId, p8 });
-    if (!claves) console.warn('[push] sin las claves de APNs (Método › Apple Push): los iPhones no reciben avisos.');
+    if (!claves) console.warn('[push] sin las claves de APNs (Integraciones › Apple Push): los iPhones no reciben avisos.');
   } catch (e) {
     console.error('[push] no pude leer las claves de APNs:', e instanceof Error ? e.message : String(e));
   }
