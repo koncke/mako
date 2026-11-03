@@ -18,9 +18,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { limitePorIp } from '@/lib/limite-publico';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
-import { decidirTrasGoogle, requiereSegundoFactor } from '@/lib/mfa-reglas';
+import { decidirTrasGoogle, esCuentaDeRevision, requiereSegundoFactor } from '@/lib/mfa-reglas';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
-import { dispositivoValido, mfaActivoReal, registrarEvento } from '@/lib/mfa';
+import { anotarEntradaDeRevision, dispositivoValido, mfaActivoReal, registrarEvento } from '@/lib/mfa';
 import { registrarLogin } from '@/lib/usuarios';
 import { comprobarContrasena } from '@/lib/contrasena';
 
@@ -47,6 +47,16 @@ export async function POST(req: NextRequest) {
   const usuario = r.usuario;
   const sub = String(usuario.id);
   const nombre = usuario.nombre ?? '';
+
+  // ── La cuenta de revisión de las tiendas: la ÚNICA sin segundo factor (lib/mfa-reglas.ts) ───
+  // Sólo con contraseña (el callback de Google no la mira), con el freno de intentos de siempre, y con su rastro antes de dar la sesión: sin rastro, no entra.
+  if (esCuentaDeRevision(usuario)) {
+    if (!(await anotarEntradaDeRevision(usuario.id, `ip ${req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '?'}`))) return no('No se pudo entrar.', 503);
+    await registrarLogin(usuario.email, { nombre: usuario.nombre, foto_url: usuario.foto_url ?? undefined });
+    const res = NextResponse.json({ ok: true, ir: next });
+    if (!ponerSesion(res, { sub, email: usuario.email, nombre, rol: usuario.rol, mfa: 'revision' })) return no('El login no está configurado.', 500);
+    return res;
+  }
 
   // ── La MISMA decisión que el callback de Google ───────────────────────────
   const mfaActivo = await mfaActivoReal(usuario.id, !!usuario.mfa_activo);
