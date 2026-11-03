@@ -134,6 +134,8 @@ test('9. `despachar` separa: nada de `apns:` le llega a web-push, y lo de APNs s
   assert.match(ruta, /plataforma: body\.apns \? 'ios' : plataformaDeUA\(ua\),/, 'el onboarding y el corte de grupos cuentan teléfonos por `plataforma`');
   const m = sinComentarios(leer('lib/metodo-catalogo.ts'));
   for (const k of ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8']) assert.match(m, new RegExp(`env: '${k}'`), `${k}: Martín no tiene dónde pegarla`);
+  // /metodo ya no es una pantalla: la tarjeta vive en Integraciones, y sin su fila ahí el formulario no se ve (la primera versión tenía sólo la de arriba).
+  assert.match(sinComentarios(leer('lib/integraciones-catalogo.ts')), /\{ key: 'apple-push', [^\n]*envs: \['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8'\], soloPlataforma: true \}/);
 });
 
 // ⚠️ PROBADO ROMPIÉNDOLO (3/11/2026, base 9 / 0; una rotura por vez, restaurada de memoria y comprobada con sha256):

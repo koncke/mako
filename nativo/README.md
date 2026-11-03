@@ -67,7 +67,7 @@ TestFlight. Necesita la cuenta de Apple (a nombre de Leandro Tejado) y la API ke
 | Las dos huellas en `assetlinks.json` (`node scripts/tiendas-asociar.mjs --huella AA:BB:…`) | La clave de subida y el primer AAB en Play |
 | El Team ID en `apple-app-site-association` (`node scripts/tiendas-asociar.mjs --team ABCDE12345`): lo que vende queda afuera de los links | La cuenta de Apple, a nombre de Leandro Tejado |
 | La primera corrida de `codemagic.yaml` (es un borrador) | La cuenta de Apple, la API key y la app creada en App Store Connect |
-| La clave de los avisos (Método › Apple Push) | La cuenta de Apple, a nombre de Leandro Tejado |
+| La clave de los avisos (Integraciones › Apple Push) | La cuenta de Apple, a nombre de Leandro Tejado |
 | Mirar en TestFlight: guardar un video, los códigos, un link de WhatsApp, un aviso, modo avión | La cuenta de Apple y un iPhone prestado |
 
 **Lo de la web para iOS ya está** (3/11/2026): el modo iOS en `lib/tienda.ts`; guardar, compartir, los links universales, los hápticos y el token de APNs en `lib/nativo.ts` (usa `window.Capacitor.Plugins`: la web no importa los plugins); el envío en `lib/push-apns.ts`.

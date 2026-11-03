@@ -42,6 +42,18 @@ test('compilar: sin la aceptación de Martín no baja nada, y la clave no vive e
   for (const g of ['*.keystore', '*.jks', '*.aab', '/local.properties']) assert.ok(ignorar.includes(g), g);
 });
 
+test('la cuenta de Apple: el mismo Team ID en la asociación, en Codemagic y en el proyecto, y la app de App Store Connect', () => {
+  const TEAM = '99V2VV9FP2';
+  const aasa = JSON.parse(leer('public/.well-known/apple-app-site-association')) as { applinks: { details: Array<{ appIDs: string[] }> }; webcredentials: { apps: string[] } };
+  assert.deepEqual(aasa.applinks.details[0].appIDs, [`${TEAM}.${ID}`]);
+  assert.deepEqual(aasa.webcredentials.apps, [`${TEAM}.${ID}`]);
+  const cm = leer('codemagic.yaml');
+  assert.match(cm, new RegExp(`APPLE_TEAM_ID: ${TEAM}\\n`));
+  assert.match(cm, /APP_STORE_APPLE_ID: 6830383006\n/, 'con 0, el número del build y la subida no encuentran la app');
+  assert.equal((pbx.match(new RegExp(`DEVELOPMENT_TEAM = ${TEAM};`, 'g')) ?? []).length, 2, 'Debug y Release');
+  assert.ok(!/DEVELOPMENT_TEAM = (?!99V2VV9FP2;)/.test(pbx), 'otro equipo en el proyecto');
+});
+
 test('el feature graphic de Play: 1024×500 y sin transparencia', async () => {
   const m = await sharp('nativo/android/feature-graphic.png').metadata();
   assert.equal(m.width, 1024);
@@ -102,3 +114,4 @@ test('4. nativo/ no entra al chequeo de tipos ni al lint de la app', () => {
 //   · la configuración Release otra vez para iPad      → 3
 //   · el permiso del micrófono sin su porqué           → 3
 //   · `nativo` fuera del `exclude` de tsconfig.json     → 4
+// La cuenta de Apple (3/11/2026, base 7 / 0): otro Team ID en Codemagic, el Apple ID en 0, u otro equipo en una configuración del proyecto -> 6 / 1 cada una.
