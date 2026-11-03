@@ -1265,7 +1265,7 @@ export const FEATURES: Record<string, Feature> = {
       {
         title: "MaKo escribe el copy, no tú a las 2am",
         bullets: [
-          "<strong>Botón MaKo en cada paso y en cada broadcast.</strong> Claude redacta en la voz de Mauricio Bustos y devuelve <em>asunto + preheader + cuerpo</em> ya armados, listos para revisar.",
+          "<strong>Botón MaKo en cada paso y en cada broadcast.</strong> Claude redacta en tu voz y devuelve <em>asunto + preheader + cuerpo</em> ya armados, listos para revisar.",
           "<strong>Reglas de copy incrustadas, no texto genérico.</strong> Asunto corto (máx ~6 palabras), preheader que no repite el asunto, cuerpo de 2 a 5 párrafos con <strong>un solo CTA</strong> y tu link de Calendly ya puesto adentro.",
           "<strong>Te dice lo que costó.</strong> Cada generación reporta tokens y costo — sabes lo que gastas en IA por email, no una caja negra.",
           "<strong>Prueba a una dirección tuya antes de disparar.</strong> Envío de prueba con prefijo [PRUEBA] a un email puntual, sin tocar el estado del lead ni el CRM.",
