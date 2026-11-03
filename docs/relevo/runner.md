@@ -15,7 +15,7 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 
 ## Lo pedido y lo hecho
 
-- **Cartel rojo de los mensajes sin entregar, y aviso «Sin noticias de la PC»:** en main desde `9008c347c` (`a151e6cf9`); desplegado con `e22c68698`, según el Cerebro. Nadie lo miró en pantalla.
+- **Cartel rojo de los mensajes sin entregar, y aviso «Sin noticias de la PC»** (Martín, 31/10, desde el teléfono: «Me dice que no responde... Y elimina el cartel rojo de "9 mensajes tuyos..."»): en main desde `9008c347c` (`a151e6cf9`); desplegado con `e22c68698`, según el Cerebro. Nadie lo miró en pantalla.
 - **Estado de la PC en el Uso** (Martín, citado por el Cerebro: «Si, ponlo pero en USO»): rama `runner-servicio-3010`. Ya sin carteles.
 - **Fuga de procesos del Monitor:** arreglada en `~/.claude/operaciones/vigilar-continuo.sh`, fuera del repo.
 
