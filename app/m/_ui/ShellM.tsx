@@ -80,8 +80,10 @@ function pintarBarraDelSistema() {
 }
 
 export function ShellM({
-  barra, badges, usuario, cliente, children,
+  barra, badges, usuario, cliente, appIos = false, children,
 }: {
+  /** Es la app de iPhone de las tiendas (lib/tienda.ts). Lo lee el layout en el server: el dibujo nace sin relleno. */
+  appIos?: boolean;
   /** Los lugares de la barra de este rol y esta capa (`barraMovil`), More siempre al final. */
   barra: DestinoBarra[];
   /** Un número por lugar, sólo lo que bloquea (app/m/badges.ts). */
@@ -319,8 +321,8 @@ export function ShellM({
   };
 
   const valor = useMemo(() => ({
-    dentro: true, setCabecera, conexion, marcarCarga, toast: mostrarToast,
-  }), [setCabecera, conexion, marcarCarga, mostrarToast]);
+    dentro: true, appIos, setCabecera, conexion, marcarCarga, toast: mostrarToast,
+  }), [appIos, setCabecera, conexion, marcarCarga, mostrarToast]);
 
   return (
     <ShellCtx.Provider value={valor}>

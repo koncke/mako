@@ -45,13 +45,14 @@ test('2. la ruta lo mira SÓLO al invitar, antes de crear la cuenta, y sin poder
   assert.match(r, /try \{ return await aplicanTopes\(ws\); \} catch \(e\) \{[^}]*return false; \}/, 'si no se puede leer, no frena');
 });
 
-test('3. el cartel con «Pasar a Pro», en la computadora y en el teléfono', () => {
+test('3. el cartel con «Pasar a Pro» en la computadora; en el teléfono dice que llegó, sin venderlo (T5)', () => {
   const pc = sinComentarios(leer('app/equipo/EquipoView.tsx'));
   assert.match(pc, /setErrCrear\(j\.error \?\? 'No se pudo invitar\.'\); setAPro\(j\.pasarAPro \?\? null\);/);
   assert.match(pc, /\{errCrear\}\{aPro && <> <Link href=\{aPro\}[^>]*>Pasar a Pro<\/Link><\/>\}/);
   const m = sinComentarios(leer('app/m/configuraciones/equipo/EquipoM.tsx'));
-  assert.match(m, /if \(!j\.ok && j\.pasarAPro\) \{ haptico\('error'\); setTope\(\{ texto: j\.error \?\? '[^']+', href: j\.pasarAPro \}\); return; \}/);
-  assert.match(m, /\{tope && <p className="m-configuraciones-aviso" data-tono="warn" role="status">\{tope\.texto\} <Link href=\{tope\.href\}>Pasar a Pro<\/Link><\/p>\}/, 'aparte del error para Soporte: no es un error');
+  assert.match(m, /if \(!j\.ok && j\.pasarAPro\) \{ haptico\('error'\); setTope\(true\); return; \}/);
+  assert.match(m, /\{tope && <p className="m-configuraciones-aviso" data-tono="warn" role="status">Llegaste al tope de tu plan\.<\/p>\}/, 'aparte del error para Soporte: no es un error');
+  assert.doesNotMatch(m, /Pasar a Pro/, 'el teléfono no vende');
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 3/0):
@@ -59,5 +60,5 @@ test('3. el cartel con «Pasar a Pro», en la computadora y en el teléfono', ()
 //   · cuenta uno de menos                              → 2/1 (1)
 //   · sin poder leer el cobro, frena                   → 2/1 (2)
 //   · el tope después de crear la cuenta               → 2/1 (2)
-//   · el cartel del teléfono sin «Pasar a Pro»         → 2/1 (3)
+//   · el cartel del teléfono con «Pasar a Pro» (3/11/2026) → 2/1 (3)
 //   · la ruta escrita a mano, no la de Planes          → 2/1 (1)
