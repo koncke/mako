@@ -270,6 +270,11 @@
 }
 .m-configurar__frase { font-size: var(--fs-page); font-weight: 600; line-height: 1.2; letter-spacing: -0.015em; color: var(--ink); }
 .m-configurar__acciones { display: flex; flex-direction: column; gap: 8px; }
+/* El setup (27/10/2026): qué falta conectar, detectado. */
+.m-configurar__setup { display: flex; flex-direction: column; gap: 8px; }
+.m-configurar__resumen { font-size: var(--fs-sm); color: var(--dim); }
+.m-configurar__lista { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--fs-sm); color: var(--ink); }
+.m-configurar__lista li[data-estado="hecho"], .m-configurar__lista li[data-estado="saltado"] { color: var(--dim); }
 
 /* ── SeccionM: el título de sección (20/600, 28 arriba y 10 abajo) ──────── */
 .m-seccion { padding-top: 28px; }

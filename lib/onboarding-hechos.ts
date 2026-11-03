@@ -42,6 +42,8 @@ import { getPersonalidad } from './personalidad-store';
 import { personalidadCompleta, PERSONALIDAD_PREGUNTAS } from './personalidad';
 import { getRazones } from './razones';
 import { getVozCliente } from '@/app/video-generator/voz-cliente';
+import { setupDelNegocio } from './setup-negocio-server';
+import { SETUP } from './setup-negocio';
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -111,6 +113,14 @@ export async function hechoDePasoOnboarding(paso: PasoOnboarding, ws: number, ca
       return faltan.length
         ? { cumplido: false, falta: `falta conectar ${faltan.join(', ')} en Integraciones.` }
         : { cumplido: true, que: `${req.join(', ')} conectado${req.length === 1 ? '' : 's'}` };
+    },
+    // Lo que pide su capa, DETECTADO hoy (lib/setup-negocio-server.ts): «no pude comprobarlo» también falta.
+    setup: async (): Promise<HechoDePaso> => {
+      const e = await setupDelNegocio(ws, capa.id);
+      if (!capa.setup.length) return { cumplido: true, que: 'este plan no pide conectar nada' };
+      return e.completo
+        ? { cumplido: true, que: `está todo conectado (${e.items.map((i) => SETUP[i.paso].titulo).join(', ')})` }
+        : { cumplido: false, falta: `falta ${e.faltan.map((p) => `«${SETUP[p].titulo}»`).join(', ')}. Se ve con ver_setup_herramientas.` };
     },
     archivero: async () => SALIO_DEL_ARRANQUE,
     entregable: async () => SALIO_DEL_ARRANQUE,

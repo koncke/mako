@@ -77,7 +77,7 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
     case 'telefono': return 'Tu WhatsApp, con el código de país';
     case 'codigo': return 'El código de 6 dígitos';
     // Las preguntas con opciones también se contestan escribiendo (20/10/2026, Florencia: no sabía que podía).
-    case 'fase': case 'interes': return 'Elige una opción o escríbelo con tus palabras';
+    case 'fase': case 'interes': case 'modelo': return 'Elige una opción o escríbelo con tus palabras';
     case 'cierre': case 'listo': return 'Tu oferta sigue en Offer';
     default: return undefined;
   }
@@ -92,6 +92,7 @@ export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' =
   // llegaste?» y «¿Qué resolver primero?» van al final desde el 18/10/2026: en 'oferta', DESPUÉS de lo que vende. Si
   // este lado no es el de la pregunta, la respuesta optimista se dibuja arriba, fuera de la vista, y abajo sólo salen
   // los puntitos (Martín, punto 11). tests/onboarding-respuesta-visible.test.ts recorre todas las etapas.
-  if (etapa === 'fase' || etapa === 'origen' || etapa === 'interes') return modo === 'oferta' ? 'despues' : 'antes';
+  // «¿Cómo vendes?» y el setup (27/10/2026) van con el diagnóstico y con las del final.
+  if (etapa === 'fase' || etapa === 'modelo' || etapa === 'origen' || etapa === 'interes' || etapa === 'setup') return modo === 'oferta' ? 'despues' : 'antes';
   return etapa === 'telefono' || etapa === 'codigo' || etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }

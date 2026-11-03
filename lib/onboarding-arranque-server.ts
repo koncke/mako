@@ -8,7 +8,7 @@
 // =============================================================================
 
 import 'server-only';
-import { capaDef } from './capas';
+import { capaDef, type CapaId } from './capas';
 import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
 import { estaImpersonando, getCapaActual, getTenantDb, getWorkspace, getWorkspaceActual, actualizarWorkspace } from './workspace';
 import { OWNER_WS } from './auth-session';
@@ -43,6 +43,13 @@ import { faltanDelArranque, type OfferSesionVista, type PiezasSabidas } from './
 import { CLAVE_HISTORIAL, anotarCon, conLoNuevo, leerHistorial, unirConOffer } from './onboarding-historial';
 import { getSupabaseServer } from './supabase';
 import { bloqueDeAudio } from './chat-mako-bloques';
+import { estadoSetup, type EstadoSetup } from './setup-negocio';
+import { CLAVE_MODELO, MODELOS } from './modelo-negocio';
+import type { ModeloCliente } from './plantillas-modelo-reglas';
+// ⚠️ La detección del setup y las plantillas se importan CUANDO SE USAN (`await import`): traen medio producto (la PC, las
+// líneas de WhatsApp, el Dashboard, el Plan) y el arranque se carga en cada pedido del onboarding — y en los tests con la
+// base de mentira, que no tienen todo eso (tests/onboarding-hilo-carrera.test.ts).
+const setupServer = () => import('./setup-negocio-server');
 import {
   CLAVE_ENCUESTA, briefDesdeArranque, cierreDePasos, etapaDeArranque, fundirBrief, mensajesDeArranque, TITULO_HILO, decisionDelHilo, contextoDelHilo, cobroDelPrecio, opcionesDeCobro, mensajesDelHilo, pisaElNombreDelPerfil, sinMarca, notaDelPdf,
   type EstadoArranque, type EtapaArranque, type HechosArranque, type MensajeArranque, type ModoArranque,
@@ -279,6 +286,9 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
   const precioDicho = sesion ? sinMarca(sesion.piezas?.precio?.valor) : '';
   // Verificado = el teléfono GUARDADO es el mismo que se verificó (el mismo criterio que el wizard).
   const telefonoVerificado = !!verif?.verificado && !!contacto && verif.telefono === contacto.telefono.replace(/\D/g, '');
+  // El setup (27/10/2026) se MIDE recién cuando la conversación puede llegar a él (va después del origen, en los dos modos):
+  // son seis lecturas, y antes no las necesita nadie.
+  const setup = capa.setup.length && onb.status !== 'done' && e.origen && ws != null ? await setupEnVivo(ws, capa.id, e) : null;
   return {
     modo,
     nombreCuenta: perfil?.nombre ?? '',
@@ -298,6 +308,10 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     faseOffer: sesion ? (({ respuestas, canal }) => ({ respuestas, canal }))(estadoDiagnostico(sesion.mensajes, { canal: null, yaGuardado: false })) : null,
     conCrm: modo === 'oferta',
     conTelefono: pasosCapa.includes('tabs'),
+    // Cómo vende: en toda capa con arranque (lib/modelo-negocio.ts). Lo que vende sale de la conversación de la oferta.
+    conModelo: pasosCapa.length > 0,
+    textoDelNegocio: sesion ? textoDeLasPiezas(sesion.piezas) : '',
+    setup,
     terminado: onb.status === 'done',
     pasosCapa,
     telefonoVerificado,
@@ -306,6 +320,33 @@ export async function hechosDelArranque(e: EstadoArranque): Promise<HechosServer
     sesionCaida,
     estadoOnboarding: onb,
   };
+}
+
+/** Las etapas de la plantilla que se propone como CRM (la de su forma de vender), o null. */
+async function plantillaDeLaTarjeta(e: EstadoArranque): Promise<VistaArranque['crmPlantilla']> {
+  const id = e.crmPlantilla ?? (e.modelo ? MODELOS[e.modelo].plantilla : undefined);
+  if (!id || (e.crmTipo && !e.crmPlantilla) || (e.crmVerTodos && !e.crmPlantilla)) return null;
+  const p = (await import('./plantillas-modelo-reglas')).PLANTILLAS_MODELO[id];
+  return { nombre: p.funnel.nombre, etapas: p.funnel.pipeline.map((st) => st.label) };
+}
+
+/** Lo que contó en la conversación de la oferta, junto, para leer cómo vende (sólo para PROPONER: el toque decide). */
+function textoDeLasPiezas(piezas: PiezasSabidas | null | undefined): string {
+  return Object.values(piezas ?? {}).map((p) => sinMarca(p?.valor)).filter(Boolean).join('. ');
+}
+
+/**
+ * El setup DETECTADO, con el modelo que ya confirmó en esta conversación (todavía no está guardado). Si algo inesperado
+ * tira, todo queda en «no pude comprobarlo»: nunca un setup completo por un error.
+ */
+async function setupEnVivo(ws: number, capa: CapaId, e: EstadoArranque): Promise<EstadoSetup> {
+  try {
+    return await (await setupServer()).setupDelNegocio(ws, capa, e.modelo ?? null);
+  } catch (err) {
+    console.error('[arranque] setup:', err instanceof Error ? err.message : err);
+    const pasos = capaDef(capa).setup;
+    return estadoSetup(pasos, Object.fromEntries(pasos.map((p) => [p, { noPude: 'No pude comprobarlo ahora. Vuelve a intentarlo en un momento.' }])), {}, e.modelo ?? null);
+  }
 }
 
 /** Lo que la pantalla necesita para dibujar la conversación. */
@@ -336,6 +377,12 @@ export type VistaArranque = {
   crmTipo: TipoCrmId | null;
   /** El CRM a medida que armó MaKo (lib/onboarding-crm.ts): la tarjeta muestra sus etapas con esos nombres. */
   crmPropuesta: PropuestaCrm | null;
+  /** Las etapas de la plantilla de su forma de vender (Inmobiliaria, Tienda…), para la tarjeta del CRM: se proponen ésas. */
+  crmPlantilla: { nombre: string; etapas: string[] } | null;
+  /** Cómo vende, si ya lo confirmó (lib/modelo-negocio.ts). */
+  modelo: EstadoArranque['modelo'] | null;
+  /** El setup DETECTADO (la tarjeta del setup), o null si su plan no pide conectar nada o todavía no llegó. */
+  setup: EstadoSetup | null;
   /** El canal con el que se propone el CRM. */
   canal: HechosArranque['canalNegocio'];
   /** Lo que quiere resolver primero: decide a qué pestaña entra al terminar (`rutaDeEntrada`). */
@@ -389,6 +436,9 @@ export async function vistaArranque(o: { anotar?: boolean | 'cierre' } = {}): Pr
     telefonoDelPago: etapa === 'telefono' ? (await getSetting(CLAVE_WHATSAPP_DEL_PAGO).catch(() => null)) ?? '' : '',
     crmTipo: e.crmTipo ?? null,
     crmPropuesta: e.crmPropuesta ?? null,
+    crmPlantilla: await plantillaDeLaTarjeta(e),
+    modelo: e.modelo ?? null,
+    setup: h.setup ?? null,
     canal: h.canalNegocio,
     interes: e.interes ?? null,
     bloqueo: guardia.bloqueo ? { at: guardia.bloqueo.at, motivo: guardia.bloqueo.motivo } : null,
@@ -435,6 +485,28 @@ export async function sembrarCrmPrincipal(tipo: TipoCrmId, nombreNegocio: string
   await setSetting('onboarding.funnel_tipos', JSON.stringify([s.canal])).catch(() => {});
   const id = actual.id ?? (await idDelFunnelDefault().catch(() => null));
   if (id != null && nombreNegocio.trim()) await renombrarFunnel(id, nombreNegocio).catch(() => {});
+  return { sembrado: true };
+}
+
+/**
+ * El CRM con las etapas de la PLANTILLA de su forma de vender (27/10/2026, lib/plantillas-modelo-reglas.ts): Inmobiliaria
+ * («Formulario → Calificado → Tasación / pre listing → Captación»), Tienda, B2B, Manufactura. Por dónde entra la gente sale
+ * del tipo de CRM de su modelo (`tipoCrm`). Igual que `sembrarCrmPrincipal`: sólo sobre el funnel principal INTACTO, y se
+ * renombra como el funnel de la plantilla, así `aplicarPlantillaModelo` (al cerrar) lo reconoce y no crea otro.
+ */
+export async function sembrarCrmDePlantilla(id: ModeloCliente, tipoBase: TipoCrmId | null): Promise<{ sembrado: boolean; aviso?: string }> {
+  const p = (await import('./plantillas-modelo-reglas')).PLANTILLAS_MODELO[id];
+  const base = tipoBase ? siembraDeCrm({ tipo: tipoBase }) : null;
+  const entradas = base && !('error' in base) ? base.entradas : [];
+  const canal = base && !('error' in base) ? base.canal : null;
+  const actual = await getFunnelDefault();
+  if (actual.origen === 'error') throw new Error('No pude leer tu CRM (falló la base de MaKo, no es nada tuyo). Prueba de nuevo en un momento.');
+  const intacto = mismoPipeline(actual.pipeline, DEFAULT_PIPELINE) && actual.suppressed.length === 0;
+  if (!intacto) return { sembrado: false, aviso: 'Tu CRM ya tenía etapas propias: lo dejé como estaba.' };
+  await saveFunnelDefault(p.funnel.pipeline, apagadasAlCrear(p.funnel.pipeline), { entradas });
+  if (canal) await setSetting('onboarding.funnel_tipos', JSON.stringify([canal])).catch(() => {});
+  const fid = actual.id ?? (await idDelFunnelDefault().catch(() => null));
+  if (fid != null) await renombrarFunnel(fid, p.funnel.nombre).catch(() => {});
   return { sembrado: true };
 }
 
@@ -583,9 +655,28 @@ export async function cerrarArranque(): Promise<{ estado: OnboardingState; aviso
       .catch((err) => console.error('[arranque] encuesta:', err instanceof Error ? err.message : err));
   }
 
-  // 5. Los pasos.
+  // 4-bis. Cómo vende (27/10/2026): queda en el negocio (lo leen el Plan, que no le siembra proyectos de VSL a quien no
+  // vende así, y la API), y con la plantilla de su CRM, el resto de la plantilla: su objetivo, sus KPIs, su guía y su hoja
+  // del Dashboard (`aplicarPlantillaModelo`, que no duplica lo que ya existe). Best-effort: no traba el cierre.
+  if (e.modelo) {
+    await setSetting(CLAVE_MODELO, JSON.stringify(e.modelo)).catch((err) => console.error('[arranque] modelo:', err instanceof Error ? err.message : err));
+  }
+  if (h.modo === 'oferta' && e.crmPlantilla) {
+    const r = await import('./plantillas-modelo').then((m) => m.aplicarPlantillaModelo(e.crmPlantilla!, 'user'))
+      .catch((err) => ({ ok: false as const, error: err instanceof Error ? err.message : String(err) }));
+    if (!r.ok) {
+      console.error('[arranque] plantilla:', r.error);
+      avisos.push('Tu CRM quedó armado, pero no pude cargar tus métricas de arranque; las cargas desde el Dashboard.');
+    }
+  }
+
+  // 5. Los pasos. El setup se cierra sólo si está DETECTADO completo (`cierreDePasos`).
   const quien = (await getUsuarioActual().catch(() => null))?.email || 'admin-cliente';
-  const cambios = cierreDePasos(h.pasosCapa, { telefonoVerificado: h.telefonoVerificado, metaConectado: h.metaConectado });
+  const cambios = cierreDePasos(h.pasosCapa, {
+    telefonoVerificado: h.telefonoVerificado, metaConectado: h.metaConectado,
+    metaSalteado: h.setup?.items.some((i) => i.paso === 'meta' && i.estado === 'saltado') ?? false,
+    setupCompleto: !!h.setup?.completo,
+  });
   const estado = await cerrarPasosOnboarding(cambios, quien);
   return { estado, avisos };
 }

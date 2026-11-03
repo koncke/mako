@@ -15,6 +15,8 @@
 // capa del request es getCapaActual() en lib/workspace.ts.
 // =============================================================================
 
+import type { PasoSetup } from './setup-negocio';
+
 /**
  * Los pasos posibles del wizard. Cada capa elige cuáles y en qué orden.
  * 'archivero' = "El Archivero": el cliente tira sus documentos sueltos (avatar,
@@ -32,6 +34,9 @@
 export const PASOS_ONBOARDING = [
   'integraciones', 'tabs', 'negocio', 'archivero', 'productos', 'entregable',
   'avatares', 'persona', 'personalidad', 'angulos', 'fase', 'gemini', 'retro', 'plan',
+  // 'setup' (27/10/2026): lo que tiene que quedar CONECTADO antes de entrar (lib/setup-negocio.ts). Lo cierra el chat de
+  // arranque cuando MaKo lo DETECTA todo hecho (o salteado donde se puede), nunca con una casilla.
+  'setup',
 ] as const;
 
 export type PasoOnboarding = typeof PASOS_ONBOARDING[number];
@@ -129,6 +134,12 @@ export type CapaDef = {
   /** Integraciones que el cliente DEBE conectar y probar para salir del paso 1. */
   integracionesRequeridas: string[];
   /**
+   * Lo que el paso 'setup' pide dejar CONECTADO, en orden (lib/setup-negocio.ts). Martín (27/10/2026): «no dejarlos avanzar
+   * hasta que no hayan hecho su setup, descargar la app de mako, instalar la extensión, conectar su cuenta de Meta con login,
+   * etc». Lo que hace falta lo decide lo que el plan VE: sin el CRM, ni Meta ni WhatsApp ni la agenda tienen dónde usarse.
+   */
+  setup: PasoSetup[];
+  /**
    * CATEGORÍAS de /integraciones que la capa ve (Publicidad, Mensajería,
    * Inteligencia, IA Generativa, Reuniones, Datos). null = todas. Un SuperAdmin no
    * corre ads: mostrarle Publicidad y Mensajería es ruido de otro negocio.
@@ -175,11 +186,13 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Guardián para que priorice con el criterio de la etapa real del negocio.
     // Desde el 16/10/2026 es el modo 'plan' del chat de arranque (lib/onboarding-arranque.ts):
     // sin oferta ni CRM, que esta capa no ve.
-    onboarding: ['negocio', 'fase', 'plan'],
+    onboarding: ['negocio', 'fase', 'plan', 'setup'],
     // Solo el grupo base: 3 preguntas. Es lo que el Perro Guardián necesita para
     // priorizar con criterio de SU negocio.
     briefGrupos: ['negocio'],
     integracionesRequeridas: [],
+    // MaKo en su computadora y su IA: el Plan y el Perro corren con la IA de cada negocio (D6b). Lo demás no lo usa.
+    setup: ['desktop', 'ia'],
     categoriasIntegraciones: null,
     seedBoardVsl: false,
   },
@@ -228,7 +241,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     //
     // Los pasos que salieron NO se borran de `PASOS_ONBOARDING`: lo que el cliente ya
     // contestó sigue guardado, y si vuelve a entrar no se le vuelve a preguntar.
-    onboarding: ['negocio', 'productos', 'fase', 'tabs', 'integraciones'],
+    onboarding: ['negocio', 'productos', 'fase', 'tabs', 'integraciones', 'setup'],
     // TODOS los grupos: El Archivero no pregunta de a uno, extrae de los docs y
     // muestra el brief entero (oferta + avatar + personaje de marca) editable en
     // UNA pantalla ("esto entendí, corregí"). Ese perfil completo es lo que
@@ -237,6 +250,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // Solo Meta en el arranque: con las Fases + El Archivero + Meta ya alcanza para
     // una valoración. WhatsApp se conecta después (no bloquea el onboarding).
     integracionesRequeridas: ['meta'],
+    setup: ['desktop', 'extension', 'meta', 'whatsapp', 'calendario', 'ia'],
     categoriasIntegraciones: null,
     seedBoardVsl: true,
   },
@@ -264,9 +278,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     navKeys: null,
     userNavKeys: null,
     // El mismo chat de arranque que Completo (ver arriba).
-    onboarding: ['negocio', 'productos', 'fase', 'tabs', 'integraciones'],
+    onboarding: ['negocio', 'productos', 'fase', 'tabs', 'integraciones', 'setup'],
     briefGrupos: null,
     integracionesRequeridas: ['meta'],
+    setup: ['desktop', 'extension', 'meta', 'whatsapp', 'calendario', 'ia'],
     categoriasIntegraciones: null,
     seedBoardVsl: true,
   },
@@ -313,6 +328,7 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     onboarding: [],
     briefGrupos: ['negocio'],
     integracionesRequeridas: [],
+    setup: [],
     // ⚠️ TODAS LAS INTEGRACIONES, desde el 08/10/2026. Antes la capa listaba sólo
     // Inteligencia, IA Generativa, Agentes, Reuniones, Contenido y Datos, y escondía
     // YouTube, Calendly y Google Calendar, con el argumento de que el super-admin no

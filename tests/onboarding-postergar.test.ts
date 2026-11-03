@@ -151,15 +151,29 @@ test('el chat posterga el teléfono y Meta que no se hicieron: nunca los marca h
   const hechos = cierreDePasos(completo, { telefonoVerificado: true, metaConectado: true });
   assert.deepEqual(hechos.find((c) => c.paso === 'tabs'), { paso: 'tabs', done: true });
   assert.deepEqual(hechos.find((c) => c.paso === 'integraciones'), { paso: 'integraciones', done: true });
-  // Y cada paso de la capa tiene su cambio: ninguno queda abierto por olvido.
-  assert.deepEqual(cambios.map((c) => c.paso), [...completo]);
+  // Y cada paso de la capa tiene su cambio: ninguno queda abierto por olvido. Menos el setup, que sólo se cierra DETECTADO
+  // completo (27/10/2026, lib/setup-negocio.ts): sin eso no va ningún cambio, y el onboarding no termina.
+  assert.deepEqual(cambios.map((c) => c.paso), completo.filter((p) => p !== 'setup'));
+  assert.deepEqual(cierreDePasos(completo, { telefonoVerificado: false, metaConectado: false, setupCompleto: true }).map((c) => c.paso), [...completo]);
+  // «No hago anuncios» en el setup cierra Meta como hecho: es una decisión, no algo que quede pendiente en /general.
+  assert.deepEqual(cierreDePasos(completo, { telefonoVerificado: true, metaConectado: false, metaSalteado: true }).find((c) => c.paso === 'integraciones'), { paso: 'integraciones', done: true });
+});
+
+test('sin el setup DETECTADO completo, el chat no cierra el onboarding (la app no abre)', () => {
+  for (const capa of Object.values(CAPAS)) {
+    if (!capa.onboarding.includes('setup')) continue;
+    const s = estadoInicial('in_progress');
+    const cambios = cierreDePasos(capa.onboarding, { telefonoVerificado: true, metaConectado: true }) as Array<{ paso: PasoOnboarding; done?: boolean; postergar?: boolean }>;
+    aplicarCambiosDePaso(s, cambios, capa.onboarding, 'test@x', '2026-10-27T00:00:00Z');
+    assert.notEqual(s.status, 'done', `capa ${capa.id}: terminó el onboarding con el setup sin hacer`);
+  }
 });
 
 test('postergar desde el chat CIERRA el onboarding y deja el recordatorio en /general', () => {
   for (const capa of Object.values(CAPAS)) {
     if (!capa.onboarding.length) continue;
     const s = estadoInicial('in_progress');
-    const cambios = cierreDePasos(capa.onboarding, { telefonoVerificado: false, metaConectado: false }) as Array<{ paso: PasoOnboarding; done?: boolean; postergar?: boolean }>;
+    const cambios = cierreDePasos(capa.onboarding, { telefonoVerificado: false, metaConectado: false, setupCompleto: true }) as Array<{ paso: PasoOnboarding; done?: boolean; postergar?: boolean }>;
     aplicarCambiosDePaso(s, cambios, capa.onboarding, 'test@x', '2026-10-16T00:00:00Z');
     assert.equal(s.status, 'done', `capa ${capa.id}: el chat terminó y el onboarding quedó abierto`);
     const recordatorios = pendientesDeOnboarding(s, capa.onboarding, () => true);

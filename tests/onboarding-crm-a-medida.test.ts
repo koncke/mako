@@ -70,7 +70,9 @@ test('la propuesta manda: va primero, y «Sí, es correcto» elige ESE tipo', ()
 
 test('la ruta la arma UNA vez al llegar al CRM, y siembra con sus nombres', () => {
   const ruta = sinComentarios(leer('app/api/onboarding/arranque/route.ts'));
-  assert.match(ruta, /if \(h\.conCrm && \(etapa === 'pdf' \|\| etapa === 'cobro' \|\| etapa === 'fase'\) && nuevo\.crmPropuesta === undefined && !nuevo\.crmTipo\) \{/);
+  // Desde el 27/10/2026 también al salir de «¿Cómo vendes?», y NUNCA con la plantilla de su forma de vender: sus etapas ya
+  // están escritas (lib/modelo-negocio.ts), y armarlas con la IA sería pagar por algo que no se usa.
+  assert.match(ruta, /if \(h\.conCrm && \(etapa === 'pdf' \|\| etapa === 'cobro' \|\| etapa === 'modelo' \|\| etapa === 'fase'\) && nuevo\.crmPropuesta === undefined && !nuevo\.crmTipo && !plantillaDe\(nuevo\.modelo\)\) \{/);
   assert.match(ruta, /if \(etapaDeArranque\(nuevo, h2\) === 'crm'\) await guardarEstadoArranque\(\{ crmPropuesta: await propuestaDeCrm\(nuevo, h2\.canalNegocio\)\.catch\(\(\) => null\) \}\);/);
   assert.match(ruta, /sembrarCrmPrincipal\(patch\.crmTipo, e\.negocio \?\? '', e\.crmPropuesta\?\.tipo === patch\.crmTipo \? e\.crmPropuesta\.etapas : undefined\)/);
   const server = sinComentarios(leer('lib/onboarding-arranque-server.ts'));

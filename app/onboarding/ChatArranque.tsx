@@ -39,6 +39,7 @@ import type { ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-mar
 import { OfferApp, type ArranqueOffer } from '../offer/OfferApp';
 import { EntradaMako } from './EntradaMako';
 import { CriaturaMako, type Reaccion } from './CriaturaMako';
+import { CSS_SETUP, TarjetaSetup } from './TarjetaSetup';
 import { SESION_VACIA, aMensajeOffer, ladoDeLaPregunta, linkPdfLoQueVende, mandaElArranque, placeholderDe, preguntaQueContesta, tarjetaConNumero, tarjetasDe, terminoElArranque } from './arranque-ui';
 
 type Respuesta = { ok?: boolean; error?: string; vista?: VistaArranque; aviso?: string };
@@ -210,12 +211,23 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
   }, [vista, pendiente, lado]);
   const tarjetas = useMemo(() => tarjetasDe([...vista.antes, ...vista.despues]), [vista]);
   const manda = mandaElArranque(vista.etapa);
+  // El setup (27/10/2026): sus acciones (volver a mirar, saltear, la extensión que vio el navegador) por la misma ruta.
+  const accionSetup = useCallback(async (cuerpo: Record<string, unknown>) => {
+    setOcupado(true);
+    try {
+      const r = await llamar(cuerpo);
+      if (r.vista) setVista(r.vista);
+      const texto = r.ok === false ? (r.error ?? 'No se pudo guardar. Prueba de nuevo.') : (r.aviso ?? null);
+      setAvisoRaw(texto ? { texto } : null);
+    } finally { setOcupado(false); }
+  }, []);
 
   const extra = (m: OfferMensaje) => {
     const t = tarjetas.get(m.id);
     if (t === 'crm') return <TarjetaCrm vista={vista} />;
     if (t === 'pdf') return vista.sesion ? <TarjetaPdf sesionId={vista.sesion.id} /> : null;
     if (t === 'telefono') return <TarjetaTelefono inicial={vista.telefonoDelPago} ocupado={ocupado} onEnviar={async (tel) => { setOcupado(true); setAviso(null); try { aplicar(await llamar({ action: 'telefono', telefono: tel })); } finally { setOcupado(false); } }} />;
+    if (t === 'setup') return vista.setup ? <TarjetaSetup setup={vista.setup} ocupado={ocupado} onAccion={accionSetup} /> : null;
     if (t === 'listo') return <TarjetaListo onEntrar={() => void entrar()} entrando={entrandoYa} />;
     return null;
   };
@@ -260,7 +272,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
     const desbloquear = async () => { if (ocupado) return; setOcupado(true); try { aplicar(await llamar({ action: 'desbloquear' })); } finally { setOcupado(false); } };
     return (
       <div className="arr-capa">
-        <style>{CSS_ARRANQUE}</style>
+        <style>{CSS_ARRANQUE + CSS_SETUP}</style>
         <main className="arr-bloqueo" role="status">
           <CriaturaMako size={64} reaccion="duda" />
           <p className="arr-bloqueo__titulo">{MENSAJE_BLOQUEADO}</p>
@@ -279,7 +291,7 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
 
   return (
     <div className={`arr-capa${saliendo ? ' arr-capa--sale' : ''}`}>
-      <style>{CSS_ARRANQUE}</style>
+      <style>{CSS_ARRANQUE + CSS_SETUP}</style>
       {/* La cabecera de la referencia que mandó Martín (17/10): la foto de MaKo, su nombre y «Tu onboarding», y una
           línea. Los mensajes van sueltos sobre el fondo, sin recuadro (CSS de abajo). */}
       <header className="arr-cabecera">
@@ -321,6 +333,20 @@ export function ChatArranque({ inicial, arbolVacio, opcionArmar }: { inicial: Vi
 
 /** El CRM que propone (o eligió): su tipo y sus etapas, como lo va a ver en el tablero. */
 function TarjetaCrm({ vista }: { vista: VistaArranque }) {
+  // La plantilla de su forma de vender (Inmobiliaria, Tienda…, 27/10/2026): sus etapas, sin R1 ni R2.
+  if (vista.crmPlantilla) {
+    return (
+      <div className="arr-tarjeta">
+        <span className="arr-tarjeta__rotulo">{vista.etapa === 'crm' ? 'Te propongo' : 'Tu CRM'}</span>
+        <span className="arr-tarjeta__titulo">{vista.crmPlantilla.nombre}</span>
+        <ol className="arr-etapas">
+          {vista.crmPlantilla.etapas.map((label, i) => (
+            <li key={`${label}-${i}`} className="arr-etapa"><span className="arr-etapa__n">{i + 1}</span>{label}</li>
+          ))}
+        </ol>
+      </div>
+    );
+  }
   const p = vista.crmPropuesta;
   const tipo = (vista.crmTipo && tipoCrmPorId(vista.crmTipo)) || (p && tipoCrmPorId(p.tipo)) || tipoRecomendado(vista.canal);
   // Con los nombres de SU negocio si MaKo los armó para este tipo (20/10/2026, el CRM a medida: lib/onboarding-crm.ts).

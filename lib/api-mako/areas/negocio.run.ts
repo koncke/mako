@@ -69,6 +69,8 @@ import { esPasoOnboarding, tabEnCapa } from '@/lib/capas';
 import { cerrarPasosOnboarding, getEstadoOnboardingEstricto } from '@/lib/onboarding-state';
 import { CIERRES_PASO, PASOS_TAB_POR_API, ROTULO_PASO_ONBOARDING, revisarCierreDePaso, revisarMarcaDePasoTab, type CierrePaso, type ResultadoCierre } from '@/lib/onboarding-pasos-api';
 import { hechoDePasoOnboarding, hechoDePasoTab } from '@/lib/onboarding-hechos';
+import { guardarSalto, leerSetupGuardado, modeloDelNegocio, setupDelNegocio } from '@/lib/setup-negocio-server';
+import { SALTOS, SETUP, TEXTO_SALTO, esPasoSetup, saltoPermitido, type PasoSetup, type Salto } from '@/lib/setup-negocio';
 import { desmarcarPasoEnTodasLasTabs, getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { puentearPasosCopyGen } from '@/lib/copygen-puente';
 import { borrarOferta, guardarOferta, listarOfertas, ofertasDeFunnels, productosDeOfertas, usoDeOferta } from '@/lib/ofertas';
@@ -152,6 +154,23 @@ async function revisarMarcaTab(input: Record<string, unknown>, ws: number) {
   const steps = permitido ? (await getEstadoTab(tab)).steps : {};
   const dato = permitido && hecho ? await hechoDePasoTab(paso) : { sinDato: 'no se marca desde aquí.' };
   return { r: revisarMarcaDePasoTab({ tab, paso, hecho, steps, tabEnCapa: tabEnCapa(tab, capa.id), dato }), tab, paso, hecho };
+}
+
+/** El salto de un paso del setup: la MISMA revisión al proponer y al confirmar (entre los dos pudo cambiar el modelo o lo guardado). */
+async function revisarSalto(input: Record<string, unknown>, ws: number): Promise<{ error: string; yaEstaba?: true } | { paso: PasoSetup; salto: Salto | null; resumen: string }> {
+  const paso = str(input, 'paso');
+  const crudo = str(input, 'salto');
+  if (!esPasoSetup(paso)) return { error: `«${paso}» no es un paso del setup.` };
+  const salto = crudo && (SALTOS as readonly string[]).includes(crudo) ? (crudo as Salto) : null;
+  if (crudo && !salto) return { error: `«${crudo}» no es una forma de saltear: van ${SALTOS.join(' o ')}.` };
+  const capa = await capaEstricta(ws);
+  if (!capa.setup.includes(paso)) return { error: `«${SETUP[paso].titulo}» no es un paso del setup de su plan.` };
+  const [guardado, modelo] = await Promise.all([leerSetupGuardado(), modeloDelNegocio()]);
+  if (salto && saltoPermitido(paso, modelo) !== salto) return { error: `«${SETUP[paso].titulo}» no se puede saltear así.` };
+  if ((guardado.saltos?.[paso] ?? null) === salto) {
+    return { error: salto ? `«${SETUP[paso].titulo}» ya estaba salteado.` : `«${SETUP[paso].titulo}» ya se estaba pidiendo.`, yaEstaba: true };
+  }
+  return { paso, salto, resumen: salto ? `Saltear «${SETUP[paso].titulo}»: ${TEXTO_SALTO[salto]}.` : `Volver a pedir «${SETUP[paso].titulo}».` };
 }
 
 /** Un `{ error }` de las reglas puras, como lo espera el choke point (con `yaEstaba` y `disponibles` si vienen). */
@@ -1144,6 +1163,36 @@ export const RUNNERS: Runners = {
       if (!texto) return `El módulo «${m.nombre}» todavía no tiene fichas cargadas: no hay material para esta pregunta. No lo rellenes.`;
       return `## Knowledge › ${m.nombre}\n${m.que}\n\n${texto}`;
     },
+  },
+  // El setup del negocio (27/10/2026): lo DETECTADO hoy, nunca una casilla (lib/setup-negocio-server.ts).
+  ver_setup_herramientas: {
+    leer: async (_input, ctx) => {
+      const capa = await capaEstricta(ctx.ws);
+      const e = await setupDelNegocio(ctx.ws, capa.id);
+      return json({
+        completo: e.completo,
+        pasos: e.items.map((i) => ({
+          paso: i.paso, nombre: SETUP[i.paso].titulo, estado: i.estado, ...(i.detalle ? { detalle: i.detalle } : {}),
+          ...(i.salto ? { se_puede_saltear: i.salto } : {}),
+        })),
+        nota: !e.items.length ? 'Este plan no pide conectar nada.'
+          : e.completo ? 'Está todo conectado o salteado.'
+          : 'Lo que falta se conecta en el onboarding (o en Integraciones). «no_pude» no es «falta»: se vuelve a mirar en un momento.',
+      });
+    },
+  },
+
+  saltar_paso_setup: {
+    preparar: seguro(async (input, ctx) => {
+      const r = await revisarSalto(input, ctx.ws);
+      return 'error' in r ? comoError(r) : { payload: { paso: r.paso, salto: r.salto ?? '' }, resumen: r.resumen };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await revisarSalto(payload, ctx.ws);
+      if ('error' in r) return r.yaEstaba ? { ok: true, resumen: `Ya estaba así: ${r.error}` } : { ok: false, resumen: `No se cambió: ${r.error}` };
+      const g = await guardarSalto(r.paso, r.salto, await modeloDelNegocio());
+      return g.ok ? { ok: true, resumen: r.resumen } : { ok: false, resumen: `No se cambió: ${g.error}` };
+    }),
   },
 };
 

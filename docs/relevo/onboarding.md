@@ -1,5 +1,31 @@
 # Onboarding: el arranque del cliente nuevo y el onboarding de cada tab
 
+## ESTADO AL 03/11/2026 — TODOS LOS NICHOS Y EL SETUP OBLIGATORIO (chat «Onboarding», en la nube)
+
+- Pedido de Martín (27/10, textual en app/admin/dev/onboarding/bitacora.ts): el onboarding entiende todos los nichos sin
+  personalizarse por cliente, y no deja entrar sin el setup (MaKo Desktop, la extensión, Meta con el login de Facebook,
+  etc.), detectando lo que ya tiene.
+- **Va en una ETIQUETA, no en una rama:** `nube/onboarding-0311` (los siguientes, `-2`, `-3`). Integración la junta como una
+  punta más.
+- Hecho:
+  - «¿Cómo vendes?», con lo que ya contó, confirmado con un toque. Lo leen lib/modelo-negocio.ts y la etapa «modelo».
+  - El CRM por plantilla (la inmobiliaria, «Captaciones», sin R1/R2), y la plantilla entera al cerrar.
+  - El Plan sin proyectos de VSL para quien no vende así.
+  - El setup antes del cierre, detectado y con sus botones sin salir: la tarjeta en app/onboarding/TarjetaSetup.tsx.
+  - La lista del setup en /m/configurar.
+  - Por la API: ver_setup_herramientas y saltar_paso_setup.
+  - El detalle y las trampas, en docs/hallazgos-onboarding.md («Todos los nichos y el setup obligatorio»).
+- Sin migración: todo va en app_settings (`negocio.modelo`, `onboarding.setup`).
+- **Lo que falta, en orden:**
+  1. El recorrido en pantalla en el ws3 reseteado (la nube no tiene base), con «Inmobiliaria» y con «Llamada», en la
+     computadora y en el teléfono.
+  2. Que el QR de WhatsApp de la tarjeta conecte la línea por default.
+  3. Con la Chrome Web Store al día (`VERSION_EN_TIENDA`), el botón pasa solo a la tienda.
+- **Rojos de main que no son de esto** (fallan igual en main limpio): tests/api-mako-registro.test.ts
+  (`listar_capacidades_mako`, área MaKo) y tests/onboarding-hilo-carrera.test.ts.
+- `/perfil/ia` quedó abierta durante el onboarding, porque ahí vuelve el instalador de MaKo Desktop.
+
+
 ## ESTADO AL 22/10/2026 ~03:45 AR — LAS PREGUNTAS DEL ARRANQUE, EN PRODUCCIÓN (99453fec5, run 230)
 
 - El aviso al grupo del ws21 salió (mensaje 3EB019AA269EBCEDA7F945, clave onboarding:historial-ws21). La prueba del script

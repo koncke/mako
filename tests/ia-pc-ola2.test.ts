@@ -159,7 +159,7 @@ test('«Tus cuentas de IA»: con sesión, cada uno lo suyo, el modelo es del adm
   assert.match(leer('app/integraciones/page.tsx'), /<TarjetaTusCuentasIA \/>\n\s*<IntegracionesBoard/);
   assert.match(pantalla, /<Modal titulo="Tus cuentas de IA" onCerrar=\{\(\) => \{ setAbierto\(false\); void leer\(\); \}\} ancho=\{640\}>\s*<TusCuentasIA sinCabecera \/>/);
   // Y en «Tu cuenta», para todo el equipo: la PC es de la persona (revisión del 21/10/2026: un closer no tenía dónde).
-  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\]\);[\s\S]*<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
+  assert.match(leer('app/perfil/ia/page.tsx'), /await requireRolWs\(\['closer', 'setter'\], \{ gateOnboarding: false \}\);[\s\S]*<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
 });
 
 test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, y queda guardado', () => {

@@ -43,6 +43,7 @@ export const ROTULO_PASO_ONBOARDING: Record<PasoOnboarding, string> = {
   gemini: 'Tu IA',
   retro: 'Tu retro',
   plan: 'Tu plan de arranque',
+  setup: 'Conectar tus herramientas',
 };
 
 /**
@@ -51,7 +52,7 @@ export const ROTULO_PASO_ONBOARDING: Record<PasoOnboarding, string> = {
  * y se configuran en su tab: ofrecerlos en el enum publicaba en la referencia catorce valores, de los que ocho contestan
  * siempre «no se puede» (revisión del 23/10/2026). Incluye los dos postergables (tabs e integraciones).
  */
-export const PASOS_ARRANQUE_POR_API = ['negocio', 'productos', 'fase', 'plan', 'tabs', 'integraciones'] as const satisfies readonly PasoOnboarding[];
+export const PASOS_ARRANQUE_POR_API = ['negocio', 'productos', 'fase', 'plan', 'tabs', 'integraciones', 'setup'] as const satisfies readonly PasoOnboarding[];
 
 /** Cómo se cierra un paso del arranque: hecho, o pendiente para después (sólo los de `PASOS_POSTERGABLES`). */
 export const CIERRES_PASO = ['hecho', 'postergado'] as const;

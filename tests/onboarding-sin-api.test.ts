@@ -50,7 +50,8 @@ const CON_IA: Record<string, Array<{ archivo: string; red: RegExp }>> = {
 };
 // negocio: el chat pregunta y escribe el brief con lo que dijo (sin IA) · fase: preguntas y un cálculo ·
 // tabs: el teléfono de los reportes · integraciones: Meta, después y desde su tab.
-const SIN_IA = new Set(['negocio', 'fase', 'tabs', 'integraciones']);
+// 'setup' (27/10/2026): sólo MIDE lo conectado (lib/setup-negocio-server.ts), no llama a ninguna IA.
+const SIN_IA = new Set(['negocio', 'fase', 'tabs', 'integraciones', 'setup']);
 
 test('toda la lista de pasos de cada capa está clasificada, y lo que llama IA tiene red', () => {
   let mirados = 0;

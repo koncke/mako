@@ -20,17 +20,20 @@ import { desbloquearOnboarding, frenoDeArranque } from '@/lib/onboarding-guardia
 import { getSettingEstricto } from '@/lib/settings';
 import { getContactoReportes, getPerfil, setContactoReportes } from '@/lib/perfil';
 import { setDiagnosticoFase } from '@/lib/fase-store';
+import { plantillaDe, tipoCrmDe } from '@/lib/modelo-negocio';
+import { esPasoSetup, SALTOS, type Salto } from '@/lib/setup-negocio';
+import { guardarExtensionVista, guardarSalto } from '@/lib/setup-negocio-server';
 import { asegurarGrupoMaKo, enviarCodigoVerificacion, getGrupoJidMaKo, verificarCodigoContacto } from '@/lib/mako-grupo';
 import { leerSesion } from '@/lib/offer-sesiones';
 import { idDelFunnelDefault } from '@/lib/funnels';
 import { estaImpersonando } from '@/lib/workspace';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { chartKeyDePersona } from '@/lib/mako-turno-app-reglas';
-import { CODIGO_CARGADO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
+import { CODIGO_CARGADO, SETUP_HECHO, etapaDeArranque, leerRespuesta, mensajesDeArranque, pisaElNombreDelPerfil, telefonoEscrito, type EstadoArranque } from '@/lib/onboarding-arranque';
 import { loQueContesto } from '@/lib/onboarding-historial';
 import {
   FaltaParaCerrar, anotarRespuesta, asegurarFunnelPrincipal, hechosConfirmados, cerrarArranque, hiloDelOnboarding, guardarEstadoArranque, guardarNombre, guardarNombreNegocio,
-  hechosDelArranque, propuestaDeCrm, sembrarCrmPrincipal, vistaArranque,
+  hechosDelArranque, propuestaDeCrm, sembrarCrmDePlantilla, sembrarCrmPrincipal, vistaArranque,
 } from '@/lib/onboarding-arranque-server';
 
 export const dynamic = 'force-dynamic';
@@ -145,6 +148,11 @@ export async function POST(req: NextRequest) {
           const r = await sembrarCrmPrincipal(patch.crmTipo, e.negocio ?? '', e.crmPropuesta?.tipo === patch.crmTipo ? e.crmPropuesta.etapas : undefined);
           aviso = r.aviso;
         }
+        // Las etapas de la plantilla de su forma de vender (27/10/2026): el resto de la plantilla se aplica al cerrar.
+        if (patch.crmPlantilla) {
+          const r = await sembrarCrmDePlantilla(patch.crmPlantilla, tipoCrmDe(e.modelo));
+          aviso = r.aviso;
+        }
         // El diagnóstico, al contestar la última pregunta: todo en modo 'plan'; en 'oferta', lo que faltó
         // después de armar la oferta (el canal puede venir de lo que contestó en la conversación de Offer).
         if (lectura.fase) await setDiagnosticoFase(lectura.fase, lectura.faseCanal ?? patch.canal ?? e.canal);
@@ -164,11 +172,49 @@ export async function POST(req: NextRequest) {
         if (h.modo === 'oferta' && etapaDeArranque(nuevo, h) === 'oferta') await asegurarFunnelPrincipal().catch(() => {});
         // El CRM a medida (20/10/2026, pedido del 18/10, punto 10): al pasar del PDF o de la fase a la pregunta del CRM, MaKo lo
         // arma UNA vez con lo que vende. Los hechos se releen: la última respuesta de la fase recién guardó el diagnóstico.
-        if (h.conCrm && (etapa === 'pdf' || etapa === 'cobro' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo) {
+        // Con la plantilla de su forma de vender no hace falta: sus etapas ya están escritas (y no se le paga una IA).
+        if (h.conCrm && (etapa === 'pdf' || etapa === 'cobro' || etapa === 'modelo' || etapa === 'fase') && nuevo.crmPropuesta === undefined && !nuevo.crmTipo && !plantillaDe(nuevo.modelo)) {
           const h2 = await hechosDelArranque(nuevo);
           if (etapaDeArranque(nuevo, h2) === 'crm') await guardarEstadoArranque({ crmPropuesta: await propuestaDeCrm(nuevo, h2.canalNegocio).catch(() => null) });
         }
         return listo(aviso ? { aviso } : {});
+      }
+
+      // EL SETUP (27/10/2026): la tarjeta vuelve a mirar lo detectado («Ya está, seguir», o al volver a la pestaña). Si ya
+      // está todo, la conversación lo dibuja con su respuesta y pasa al cierre; si no, vuelve la vista con lo que falta.
+      case 'setup': {
+        const e = await estadoEstricto();
+        const h = await hechosDelArranque(e);
+        // Con la conversación parada en el setup (la misma etapa con el setup todavía sin completar): recién ahí se dibuja.
+        const enElSetup = h.setup ? { ...h, setup: { ...h.setup, completo: false } } : null;
+        if (h.setup?.completo && !e.setupListo && enElSetup && etapaDeArranque(e, enElSetup) === 'setup') {
+          const confirmado = await hechosConfirmados(h);
+          await guardarEstadoArranque({ setupListo: true });
+          await anotarRespuesta(e, enElSetup, SETUP_HECHO, confirmado);
+          return listo();
+        }
+        const faltan = h.setup?.faltan.length ?? 0;
+        return listo(faltan && body.avisar === true ? { aviso: faltan === 1 ? 'Te falta 1 paso.' : `Te faltan ${faltan} pasos.` } : {});
+      }
+
+      // Saltear lo que se puede no tener (Meta sin anuncios; la agenda sin reuniones), o volver a pedirlo con `salto: null`.
+      case 'setup-saltar': {
+        const e = await estadoEstricto();
+        const paso = typeof body.paso === 'string' ? body.paso : '';
+        const salto = body.salto === null ? null : typeof body.salto === 'string' && (SALTOS as readonly string[]).includes(body.salto) ? (body.salto as Salto) : undefined;
+        if (!esPasoSetup(paso) || salto === undefined) return no(400, 'Paso o salto inválido.');
+        const r = await guardarSalto(paso, salto, e.modelo ?? null);
+        if (!r.ok) return no(422, r.error);
+        return listo();
+      }
+
+      // La versión de la extensión que vio ESTE navegador (`data-mako-puente`): la extensión vive en el navegador, y el
+      // servidor la ve así hasta que se empareja con el puente. Sólo una versión válida se guarda.
+      case 'setup-extension': {
+        const version = typeof body.version === 'string' ? body.version.trim().slice(0, 20) : '';
+        const r = await guardarExtensionVista(version);
+        if (!r.ok) return no(422, r.error);
+        return listo();
       }
 
       case 'sesion': {

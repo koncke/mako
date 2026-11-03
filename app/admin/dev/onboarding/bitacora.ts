@@ -855,4 +855,32 @@ export const BITACORA: Hito[] = [
       "docs/hallazgos-onboarding.md — «Ángulos: la recomendación de formatos se sacó»",
     ],
   },
+  {
+    fecha: "27 oct", hora: "—", chat: "Onboarding", sesion: "cli_bc039679-1aba-5cba-85c9-48bc3cd4e5ed", cuenta: "nube",
+    actor: "martin", tipo: "prompt",
+    titulo: "El onboarding entiende todos los nichos y no deja entrar sin el setup",
+    pedido: "no quiero que el onboarding se personalice a cada cliente, quiero que el onboarding sea capaz de entender todos los nichos y en este caso inmobiliarias. […] en el onboarding también es importante no dejarlos avanzar hasta que no hayan hecho su setup, descargar la app de mako, instalar la extensión, conectar su cuenta de Meta con login, etc... Fijate si necesitamos agregar otra cosa. Claro que siempre el sistema debe detectar si ya lo tienen, por ejemplo, si ya tienen la app desktop instalada o la extensión. […] cuando esté publicada la extensión, en lugar de descargarlo, los usuarios solo deben instalarla de chrome.",
+    puntos: [
+      "Lo trajo el Cerebro a este chat (en la nube) el 27/10; el 03/11 volvió con «Continua con absolutamente todo».",
+    ],
+  },
+  {
+    fecha: "3 nov", hora: "—", chat: "Onboarding", sesion: "cli_bc039679-1aba-5cba-85c9-48bc3cd4e5ed", cuenta: "nube",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El onboarding pregunta cómo vendes y no termina sin el setup conectado",
+    puntos: [
+      "«¿Cómo vendes?» con lo que ya contó (Inmobiliaria, anuncios con formulario, tienda, a empresas, fábrica, chat, llamada de alto ticket u otro), confirmado con un toque. Decide el canal del diagnóstico, la pregunta de volumen con sus palabras («¿Cuántas tasaciones o visitas haces por mes?»), el CRM (la inmobiliaria con su plantilla, sin R1/R2) y si el Plan arranca con los proyectos de VSL. Al cerrar, la plantilla deja su objetivo, sus KPIs, su guía y su hoja del Dashboard. Ningún `if` por cliente: lo fija un test.",
+      "El setup, antes del cierre: MaKo en la computadora, la extensión (con su versión; de la Chrome Web Store cuando publica la de hoy), Meta con el login de Facebook por Zernio (con «No hago anuncios»), WhatsApp por QR, Google Calendar (se saltea si no agenda) y su IA. Cada paso lo DETECTA MaKo: lo que ya tiene ni aparece pendiente, y «no pude comprobarlo» no deja pasar. Todo se conecta sin salir del onboarding.",
+      "Por la API: ver_setup_herramientas y saltar_paso_setup, y cerrar_paso_onboarding acepta «setup» con el dato vivo.",
+      "DÓNDE SE PRUEBA: en el Cliente de Prueba (ws3) reseteado, /onboarding entero con «Inmobiliaria»: el CRM sale «Captaciones» y al final aparece la lista del setup; sin conectar todo no entra a la app.",
+    ],
+    revisar: "/onboarding?ws=3",
+    archivos: [
+      "lib/modelo-negocio.ts — los modelos de negocio y lo que decide cada uno",
+      "lib/setup-negocio.ts y lib/setup-negocio-server.ts — las reglas del setup y lo que mide cada paso",
+      "lib/onboarding-arranque.ts — las etapas «modelo» y «setup», el CRM por plantilla y el cierre",
+      "app/onboarding/TarjetaSetup.tsx — la tarjeta del setup en el chat",
+      "tests/onboarding-modelo-setup.test.ts — 20 tests, probado rompiéndolo (12 de 12)",
+    ],
+  },
 ];

@@ -17,7 +17,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export default async function TusCuentasIAPage({ searchParams }: { searchParams: Promise<{ computadora?: string }> }) {
-  await requireRolWs(['closer', 'setter']);
+  // ABIERTA DURANTE EL ONBOARDING (27/10/2026): el instalador de MaKo Desktop vuelve acá al terminar (`?computadora=1`), y
+  // conectar la computadora y su IA es un paso del setup que el onboarding exige (lib/setup-negocio.ts). Con el gate, el
+  // instalador terminaba en el onboarding y no en «Conecta MaKo».
+  await requireRolWs(['closer', 'setter'], { gateOnboarding: false });
   const deOtro = await leerPerfil().then((p) => p.vista.deOtro, () => false);
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'ia')} activa="ia">

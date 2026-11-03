@@ -43,6 +43,7 @@ import { MODULOS_KNOWLEDGE } from '@/lib/knowledge-modulos';
 // Los pasos del arranque y de las tabs que se cierran desde afuera, y las urgencias de una oferta: datos puros
 // (sin server-only), para que la def pueda importar sus valores.
 import { CIERRES_PASO, PASOS_ARRANQUE_POR_API, TABS_POR_API, PASOS_DE_TAB_POR_API } from '@/lib/onboarding-pasos-api';
+import { PASOS_SETUP, SALTOS } from '@/lib/setup-negocio';
 import { URGENCIAS } from '@/lib/oferta-modelo';
 import { COMO_PARTNERS, CUANTOS_PARTNERS, TOPE_COBRO } from '@/lib/partners-reglas';
 
@@ -612,7 +613,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Cerrar un paso del arranque',
     descripcion: 'PROPONE cerrar UN paso del arranque del negocio (queda pendiente hasta el «sí»). Como hecho, sólo si lo que pide ya está cargado: el perfil dice a qué se dedica, hay productos, el diagnóstico de fase está guardado, el teléfono está verificado o las cuentas están conectadas. Para después, sólo el teléfono y las cuentas. Si con eso quedan todos, el arranque termina y la persona entra directo a la app. No reemplaza la conversación de arranque: sirve cuando lo que el paso pide ya se cargó por otro lado. Los pasos y su estado salen de ver_estado_onboarding.',
     parametros: [
-      { nombre: 'paso', rotulo: 'Paso', tipo: 'string', obligatorio: true, enum: PASOS_ARRANQUE_POR_API, descripcion: 'El paso del arranque (de ver_estado_onboarding: sólo los de su plan). plan = tu plan de arranque, tabs = verificar el teléfono, integraciones = conectar las cuentas.' },
+      { nombre: 'paso', rotulo: 'Paso', tipo: 'string', obligatorio: true, enum: PASOS_ARRANQUE_POR_API, descripcion: 'El paso del arranque (de ver_estado_onboarding: sólo los de su plan). plan = tu plan de arranque, tabs = verificar el teléfono, integraciones = conectar las cuentas, setup = todo lo que su plan pide conectar (de ver_setup_herramientas).' },
       { nombre: 'cierre', rotulo: 'Cómo se cierra', tipo: 'string', obligatorio: true, enum: CIERRES_PASO, descripcion: 'hecho = lo que pide ya está cargado; postergado = queda para después con su recordatorio (sólo tabs e integraciones).' },
     ],
     canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
@@ -668,6 +669,30 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'borra la fila de ofertas: sus ligas a funnels y productos se borran y los leads que entraron por ella quedan sin oferta',
   },
 
+  // ── El setup del negocio (27/10/2026, lib/setup-negocio.ts): lo que su plan pide dejar CONECTADO antes de entrar ──
+  //
+  // Martín: «no dejarlos avanzar hasta que no hayan hecho su setup… Claro que siempre el sistema debe detectar si ya lo
+  // tienen». Cada paso lo DETECTA MaKo (nunca se tilda): la lectura dice qué hay, y lo único que se escribe es saltear lo
+  // que se puede no tener (Meta sin anuncios; la agenda sin reuniones). Justo antes de Knowledge, que va última a propósito (tests/knowledge-modulos.test.ts), y sin las palabras de las otras.
+  {
+    id: 'ver_setup_herramientas', area: 'negocio', tipo: 'lectura',
+    titulo: 'Herramientas conectadas',
+    descripcion: 'Lo que su plan pide dejar conectado y si MaKo lo detecta hoy: MaKo en su computadora, la extensión de Chrome (con su versión), su cuenta de Meta (por Facebook), su WhatsApp, Google Calendar y su IA. Cada uno: hecho, saltado (con por qué), falta o no se pudo comprobar. Sin todo hecho o saltado, el onboarding no termina. Para saltear Meta o la agenda: saltar_paso_setup.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'saltar_paso_setup', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Saltear un paso del setup',
+    descripcion: 'PROPONE saltear UN paso del setup del negocio (queda pendiente hasta el «sí»): meta con sin_anuncios si no hace anuncios, o calendario con sin_agenda si su forma de vender no usa reuniones ni visitas. Los demás no se saltean. Con salto vacío vuelve a pedir el paso. El estado sale de ver_setup_herramientas.',
+    parametros: [
+      { nombre: 'paso', rotulo: 'Paso', tipo: 'string', obligatorio: true, enum: PASOS_SETUP, descripcion: 'meta o calendario (los demás no se saltean).' },
+      { nombre: 'salto', rotulo: 'Por qué', tipo: 'string', enum: SALTOS, descripcion: 'sin_anuncios (meta) o sin_agenda (calendario). Vacío: volver a pedir el paso.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'el salto del paso en el setup del negocio (onboarding.setup)',
+  },
+
   // ── Knowledge: el material de formación por módulo (31/10/2026, lib/knowledge-modulos.ts) ──
   //
   // Van AL FINAL del área, y sus palabras («knowledge», «módulo», «cursos», «fichas») no están en ninguna otra def de
@@ -694,4 +719,5 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     salida: 'markdown', canales: TODOS, costo: 'ia',
   },
+
 ];

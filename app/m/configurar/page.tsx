@@ -24,6 +24,8 @@ import { HOME_MOVIL } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
 import { SalirDeLaVista } from '../_ui/SalirDeLaVista';
 import { CerrarSesion } from '../_ui/CerrarSesion';
+import { setupDelNegocio } from '@/lib/setup-negocio-server';
+import { SETUP, resumenSetup, type EstadoSetup } from '@/lib/setup-negocio';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +34,9 @@ export default async function Configurar() {
   // Si ya está configurada, acá no hay nada que hacer.
   if (!(await onboardingPendiente())) redirect(await rutaConWs(HOME_MOVIL));
   const salida = await salidaDeVista();
+  // Lo que su plan pide dejar conectado (27/10/2026), DETECTADO: en el teléfono se ve qué falta; casi todo se conecta en
+  // la computadora. Si no se pudo leer, no se muestra la lista (la configuración igual lo dice).
+  const setup: EstadoSetup | null = ctx.ws != null ? await setupDelNegocio(ctx.ws, ctx.capa).catch(() => null) : null;
   const frase = ctx.impersonando && ctx.clienteNombre
     ? `Falta configurar la cuenta de ${ctx.clienteNombre}.`
     : 'Termina de configurar tu cuenta para empezar.';
@@ -41,6 +46,18 @@ export default async function Configurar() {
     <PantallaM>
       <div className="m-configurar">
         <p className="m-configurar__frase">{frase}</p>
+        {setup && setup.items.length > 0 && (
+          <div className="m-configurar__setup" data-setup="">
+            <p className="m-configurar__resumen">{resumenSetup(setup)}</p>
+            <ul className="m-configurar__lista">
+              {setup.items.map((i) => (
+                <li key={i.paso} data-estado={i.estado}>
+                  <span aria-hidden>{i.estado === 'hecho' || i.estado === 'saltado' ? '✓' : '·'}</span> {SETUP[i.paso].titulo}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <div className="m-configurar__acciones">
           <ButtonLink href="/onboarding" variant="primary" size="lg" full>Abrir la configuración</ButtonLink>
           {salida

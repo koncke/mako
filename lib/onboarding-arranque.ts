@@ -43,6 +43,14 @@ import type { PropuestaCrm } from './onboarding-crm';
 import { RUTA_AUTOMATIONS } from './ruta-automations';
 import { NOTA_DE_VOZ } from './chat-mako-reglas';
 import {
+  MODELOS, canalDelModelo, indiceDeModelo, modeloDeLabel, modeloDeTexto, opcionesDeModelo, plantillaDe, preguntaDeModelo,
+  tipoCrmDe, volumenDe, type ModeloNegocio,
+} from './modelo-negocio';
+import type { ModeloCliente } from './plantillas-modelo-reglas';
+import { SETUP, type EstadoSetup } from './setup-negocio';
+
+const SETUP_TITULO = (Object.fromEntries(Object.entries(SETUP).map(([k, v]) => [k, v.titulo]))) as Record<keyof typeof SETUP, string>;
+import {
   DICE_NO, DICE_SI, MONEDA_DOLAR, MONEDA_LOCAL, NO_DE_UNA_PALABRA, NOMBRA_LO_PREGUNTADO, PUEDE_SER_NOMBRE, SI_DE_UNA_PALABRA, TRAS_EL_NO,
 } from './onboarding-frases';
 
@@ -88,6 +96,12 @@ export type EstadoArranque = {
   faseResp?: number[];
   /** Dónde cierra la venta, si lo preguntó el arranque (la pregunta de canal va antes de la de volumen). */
   canal?: CanalId;
+  /** Cómo vende (27/10/2026, lib/modelo-negocio.ts), CONFIRMADO con un toque: decide el canal del diagnóstico, el CRM que se
+   *  propone, si su Plan arranca con los proyectos de VSL y qué del setup se puede saltear. */
+  modelo?: ModeloNegocio;
+  /** El CRM de la plantilla de su modelo (Inmobiliaria, Tienda…), si lo aceptó: sus etapas, y al cerrar su objetivo, sus
+   *  KPIs, su guía y su hoja del Dashboard (lib/plantillas-modelo.ts). */
+  crmPlantilla?: ModeloCliente;
   /** El tipo de CRM que eligió (modo 'oferta'). */
   crmTipo?: TipoCrmId;
   /** Mostrar todos los tipos de CRM, no sólo los de su canal. */
@@ -118,6 +132,8 @@ export type EstadoArranque = {
   hiloCreando?: { at: string; por: string };
   /** Ya vio la animación del principio: no se repite al recargar. */
   introVista?: boolean;
+  /** Pasó el setup con la tarjeta delante (no por tenerlo todo de antes): la conversación lo dibuja con su respuesta. */
+  setupListo?: boolean;
 };
 
 /** Lo que el server MIDE (nunca se guarda: estado vivo, no recordado). */
@@ -145,16 +161,23 @@ export type HechosArranque = {
   conCrm: boolean;
   /** La capa tiene el paso del teléfono ('tabs'). */
   conTelefono: boolean;
+  /** Se pregunta cómo vende (lib/modelo-negocio.ts). Sin esto, la conversación de antes del 27/10. */
+  conModelo?: boolean;
+  /** Lo que la persona contó de su negocio que no está en el estado (lo que vende, de la conversación de la oferta): con
+   *  esto y el nombre del negocio se PROPONE cómo vende. */
+  textoDelNegocio?: string;
+  /** El setup de su capa, DETECTADO hoy (lib/setup-negocio-server.ts). Sin esto (o sin pasos), no hay etapa de setup. */
+  setup?: EstadoSetup | null;
   /** El onboarding ya está cerrado. */
   terminado: boolean;
 };
 
 export type EtapaArranque =
-  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'crm'
-  | 'telefono' | 'codigo' | 'cierre' | 'listo';
+  | 'nombre' | 'negocio' | 'origen' | 'interes' | 'objetivo' | 'que_hace' | 'modelo' | 'fase' | 'oferta' | 'pdf' | 'cobro' | 'crm'
+  | 'telefono' | 'codigo' | 'setup' | 'cierre' | 'listo';
 
 /** `pdf`: el PDF con lo que vende (la ruta lo arma con las piezas de la conversación). */
-export type TarjetaArranque = 'crm' | 'telefono' | 'pdf' | 'listo';
+export type TarjetaArranque = 'crm' | 'telefono' | 'pdf' | 'setup' | 'listo';
 
 /** Un mensaje del chat de arranque (los de la conversación de la oferta son los de Offer, aparte). */
 export type MensajeArranque = {
@@ -177,6 +200,12 @@ export const VER_OTROS_TIPOS = 'Ver otros tipos';
 export const CRM_SI = 'Sí, es correcto';
 export const CRM_PREGUNTA = 'Ahora armemos tu CRM. Estas son las etapas por las que va a pasar cada cliente, de la primera charla a la venta. ¿Te sirven?';
 const PREGUNTA_CANAL = '¿Dónde cierras la venta?';
+/** El setup (27/10/2026): lo último antes del cierre. La tarjeta lleva la lista, con lo que MaKo ya detectó tildado. */
+export const SETUP_PREGUNTA = 'Ahora conectemos tus herramientas. Lo que ya tienes, MaKo lo detecta solo.';
+/** El botón de la tarjeta del setup que vuelve a mirar todo. */
+export const SETUP_LISTO = 'Ya está, seguir';
+/** Lo que se dibuja como respuesta cuando el setup quedó completo. */
+export const SETUP_HECHO = 'Listo, ya conecté todo.';
 
 const TOPE_RESPUESTA = 300;
 /** Corta por PUNTO DE CÓDIGO, no por unidad UTF-16 (séptima revisión, 21/10): un emoji en el corte dejaba medio par suelto,
@@ -893,8 +922,10 @@ export function tipoRecomendado(canal: CanalId | null): TipoCrm {
  * marco de Offer es de alto ticket vendido por llamada (lib/offer-autores.ts), así que sin canal manda
  * «Llamada de venta». Con el CRM a medida (`propuesta`, 20/10/2026), el recomendado es el que eligió MaKo.
  */
-export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean, propuesta?: PropuestaCrm | null): { tipos: TipoCrm[]; hayMas: boolean } {
-  const rec = (propuesta && TIPOS_CRM.find((t) => t.id === propuesta.tipo)) || tipoRecomendado(canal);
+export function tiposOfrecidos(canal: CanalId | null, verTodos: boolean, propuesta?: PropuestaCrm | null, preferido?: TipoCrmId | null): { tipos: TipoCrm[]; hayMas: boolean } {
+  // El de su forma de vender (`preferido`, lib/modelo-negocio.ts) va antes que el de su canal: «Anuncios con formulario»
+  // cierra por chat, y el primero de ese canal es «Conversaciones por chat».
+  const rec = (propuesta && TIPOS_CRM.find((t) => t.id === propuesta.tipo)) || (preferido && TIPOS_CRM.find((t) => t.id === preferido)) || tipoRecomendado(canal);
   const base = verTodos ? [...TIPOS_CRM] : TIPOS_CRM.filter((t) => t.canal === rec.canal);
   const tipos = [rec, ...base.filter((t) => t.id !== rec.id)];
   return { tipos, hayMas: !verTodos && tipos.length < TIPOS_CRM.length };
@@ -913,11 +944,12 @@ export function siguientePreguntaFase(e: EstadoArranque): PreguntaFase | null {
   return null;
 }
 
-function textoPreguntaFase(p: PreguntaFase, canal: CanalId | undefined): { texto: string; opciones: string[] } {
+function textoPreguntaFase(p: PreguntaFase, canal: CanalId | undefined, modelo?: ModeloNegocio): { texto: string; opciones: string[] } {
   if (p.tipo === 'canal') return { texto: PREGUNTA_CANAL, opciones: CANALES.map((c) => c.label) };
   const q = PREGUNTAS[p.idx];
   if (q.id === 'volumen') {
-    const v = VOLUMEN_POR_CANAL[canal ?? 'llamadas'];
+    // Con las palabras de su forma de vender («¿Cuántos formularios te llegan por mes?») y los tramos de su canal.
+    const v = modelo ? volumenDe(modelo, canal ?? null) : VOLUMEN_POR_CANAL[canal ?? 'llamadas'];
     return { texto: v.texto, opciones: v.opciones };
   }
   return { texto: q.texto, opciones: q.opciones };
@@ -943,6 +975,21 @@ export function conFaseDeOffer(e: EstadoArranque, h: Pick<HechosArranque, 'faseO
   return { ...e, faseResp, ...(canal ? { canal } : {}) };
 }
 
+// ── Cómo vende ──────────────────────────────────────────────────────────────
+/**
+ * El modelo que se ENTIENDE de lo que ya contó (el nombre del negocio, a qué se dedica y lo que vende): sólo ordena las
+ * opciones y arma la propuesta. Lo decide el toque (`elegirOpcion`). Nunca mira el workspace ni quién es.
+ */
+export function modeloLeido(e: EstadoArranque, h: Pick<HechosArranque, 'textoDelNegocio'>): ModeloNegocio | null {
+  return modeloDeTexto([e.negocio, e.queHace, h.textoDelNegocio].filter((x) => !!x?.trim()).join('. '));
+}
+
+/** La pregunta de cómo vende: su texto y sus opciones (las dos se derivan de lo leído, así no cambian entre dibujar y leer). */
+export function preguntaDelModelo(e: EstadoArranque, h: Pick<HechosArranque, 'textoDelNegocio'>): { texto: string; opciones: string[] } {
+  const leido = modeloLeido(e, h);
+  return { texto: preguntaDeModelo(leido, e.negocio ?? ''), opciones: opcionesDeModelo(leido) };
+}
+
 // ── La etapa ────────────────────────────────────────────────────────────────
 /**
  * En qué etapa está la conversación. Sale de lo guardado Y de lo medido: así, si la persona cerró la
@@ -962,6 +1009,7 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
   // no se dibuja ni se pregunta. Y «¿Cómo llegaste?» y «¿Qué resolver primero?» van AL FINAL.
   if (h.modo === 'plan') {
     if (!e.queHace) return 'que_hace';
+    if (h.conModelo && !e.modelo) return 'modelo';
     if (!h.faseGuardada) return 'fase';
   } else {
     // Primero lo que vende (la conversación de Offer, reducida) y después el diagnóstico de fase, que lo
@@ -972,11 +1020,16 @@ export function etapaDeArranque(e: EstadoArranque, h: HechosArranque): EtapaArra
     if (!e.pdfOk && !h.faseGuardada) return 'pdf';
     // Cómo cobra, leído del precio y confirmado con un toque (cuarta revisión, 21/10). Sin precio dicho, no se pregunta.
     if (h.cobroLeido && !e.cobro && !h.faseGuardada) return 'cobro';
+    // Cómo vende (27/10/2026), con lo que ya contó: decide el canal del diagnóstico y el CRM que se propone.
+    if (h.conModelo && !e.modelo) return 'modelo';
     if (!h.faseGuardada) return 'fase';
-    if (h.conCrm && !e.crmTipo) return 'crm';
+    if (h.conCrm && !e.crmTipo && !e.crmPlantilla) return 'crm';
   }
   if (!e.origen) return 'origen';
   if (h.modo === 'oferta' && !e.interes) return 'interes';
+  // El setup (27/10/2026, Martín: «no dejarlos avanzar hasta que no hayan hecho su setup»): lo último, y sólo lo DETECTADO
+  // lo destraba. Un paso que no se pudo comprobar también lo frena (`estadoSetup`).
+  if (h.setup && h.setup.items.length && !h.setup.completo) return 'setup';
   return 'cierre';
 }
 
@@ -1033,12 +1086,33 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     return false;
   };
 
+  // Cómo vende (27/10/2026): con lo que ya contó, la propuesta va primera y se confirma con un toque.
+  const preguntarModelo = (lista: MensajeArranque[]): boolean => {
+    if (!h.conModelo || (!e.modelo && etapa !== 'modelo')) return false;
+    const q = preguntaDelModelo(e, h);
+    const elegida = e.modelo ? q.opciones.indexOf(MODELOS[e.modelo].label) : -1;
+    return preguntarConOpciones(lista, preguntar, e, { msg: 'modelo', pregunta: 'modelo' }, q.texto, q.opciones, elegida >= 0 ? elegida : undefined);
+  };
+  // El setup, lo último antes del cierre: la tarjeta con la lista. Pasado con la tarjeta, queda dibujado con su respuesta.
+  const setup = (lista: MensajeArranque[]): boolean => {
+    if (etapa === 'setup') { lista.push({ id: 'arr-setup', de: 'mako', texto: SETUP_PREGUNTA, tarjeta: 'setup' }); return true; }
+    if (e.setupListo) {
+      lista.push({ id: 'arr-setup', de: 'mako', texto: SETUP_PREGUNTA });
+      lista.push({ id: 'arr-setup-r', de: 'yo', texto: SETUP_HECHO });
+    }
+    return false;
+  };
+  // Lo que el diagnóstico ya sabe por su forma de vender: el canal no se pregunta.
+  const delModelo = { canalYaDicho: !!canalDelModelo(e.modelo), modelo: e.modelo };
+
   // 2a. Modo 'plan': a qué se dedica y el diagnóstico, con las preguntas originales.
   if (h.modo === 'plan') {
     preguntar(antes, 'que-hace', '¿A qué se dedica tu negocio?', e.queHace);
     if (etapa === 'que_hace') return { antes, despues };
-    if (preguntarFase(antes, e, preguntar)) return { antes, despues };
+    if (preguntarModelo(antes)) return { antes, despues };
+    if (preguntarFase(antes, e, preguntar, delModelo)) return { antes, despues };
     if (finales(antes)) return { antes, despues };
+    if (setup(antes)) return { antes, despues };
     return { antes, despues: cierre(etapa, nombre) };
   }
 
@@ -1073,27 +1147,33 @@ export function mensajesDeArranque(e: EstadoArranque, h: HechosArranque): { ante
     if (etapa === 'cobro') return { antes, despues };
   }
 
+  // 2c''. Cómo vende (27/10/2026): antes del diagnóstico, que con eso no pregunta el canal.
+  if (preguntarModelo(despues)) return { antes, despues };
+
   // 2d. El diagnóstico de fase, con sus opciones: sólo lo que la persona no contestó ya en una conversación
   // de antes. Queda dibujado después, como parte de la historia.
   if (etapa === 'fase' || preguntoLaFase(e)) {
     const o = h.faseOffer;
     despues.push({ id: 'arr-fase', de: 'mako', texto: 'Ahora unas preguntas rápidas para saber en qué fase está tu negocio.' });
-    if (preguntarFase(despues, conFaseDeOffer(e, h), preguntar, { canalYaDicho: !!o?.canal, yaContestada: (id) => o?.respuestas[id] != null })) {
+    if (preguntarFase(despues, conFaseDeOffer(e, h), preguntar, { canalYaDicho: !!o?.canal || delModelo.canalYaDicho, modelo: e.modelo, yaContestada: (id) => o?.respuestas[id] != null })) {
       return { antes, despues };
     }
   }
 
-  // 3. El CRM.
+  // 3. El CRM. Con la plantilla de su forma de vender (Inmobiliaria, Tienda…), sus etapas son las que se proponen.
   if (h.conCrm) {
-    const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos, e.crmPropuesta);
+    const plantilla = plantillaDe(e.modelo);
+    const { tipos, hayMas } = tiposOfrecidos(h.canalNegocio, !!e.crmVerTodos, e.crmPropuesta, tipoCrmDe(e.modelo));
     // Primero el que se le propone, con «Sí, es correcto»; «Ver otros tipos» abre la lista (18/10/2026, punto 10).
-    const elegido = e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
-    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas ? [VER_OTROS_TIPOS] : [])];
+    const elegido = e.crmPlantilla ? CRM_SI
+      : e.crmTipo ? (e.crmTipo === tipos[0].id && !e.crmVerTodos && !plantilla ? CRM_SI : TIPOS_CRM.find((t) => t.id === e.crmTipo)?.label) : undefined;
+    const opciones = e.crmVerTodos ? tipos.map((t) => t.label) : [CRM_SI, ...(hayMas || plantilla ? [VER_OTROS_TIPOS] : [])];
     preguntar(despues, 'crm', CRM_PREGUNTA, elegido, opciones, 'crm');
     if (etapa === 'crm') return { antes, despues };
   }
 
   if (finales(despues)) return { antes, despues };
+  if (setup(despues)) return { antes, despues };
   despues.push(...cierre(etapa, nombre));
   return { antes, despues };
 }
@@ -1109,7 +1189,7 @@ const preguntoLaFase = (e: EstadoArranque): boolean => !!e.canal || (e.faseResp 
  * conversación de la oferta (`yaContestada`, `canalYaDicho`): esas no se dibujan ni se repiten.
  */
 function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: Preguntar,
-  o: { canalYaDicho?: boolean; yaContestada?: (id: string) => boolean } = {}): boolean {
+  o: { canalYaDicho?: boolean; modelo?: ModeloNegocio; yaContestada?: (id: string) => boolean } = {}): boolean {
   const resp = e.faseResp ?? [];
   for (let i = 0; i < PREGUNTAS.length; i++) {
     if (PREGUNTAS[i].id === 'volumen' && !o.canalYaDicho) {
@@ -1118,7 +1198,7 @@ function preguntarFase(lista: MensajeArranque[], e: EstadoArranque, preguntar: P
       if (preguntarConOpciones(lista, preguntar, e, { msg: 'fase-canal', pregunta: 'canal' }, c.texto, c.opciones, elegido >= 0 ? elegido : undefined)) return true;
     }
     if (o.yaContestada?.(PREGUNTAS[i].id)) continue;
-    const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal);
+    const q = textoPreguntaFase({ tipo: 'pregunta', idx: i }, e.canal, o.modelo);
     const elegida = contestada(resp[i]) && q.opciones[resp[i]] !== undefined ? resp[i] : undefined;
     if (preguntarConOpciones(lista, preguntar, e, { msg: `fase-${i}`, pregunta: PREGUNTAS[i].id }, q.texto, q.opciones, elegida)) return true;
   }
@@ -1345,12 +1425,37 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
     if (!texto) return { ok: false, error: 'Escríbeme tu respuesta.' };
     return { ok: true, patch: { [etapa === 'objetivo' ? 'objetivo' : 'queHace']: texto } };
   }
+  if (etapa === 'modelo') {
+    // Cómo vende (27/10/2026): una opción tocada se guarda; lo escrito se LEE y se confirma con un toque (`elegirOpcion`).
+    const { opciones } = preguntaDelModelo(e, h);
+    const pend = e.opcionPorConfirmar?.id === 'modelo' ? e.opcionPorConfirmar : undefined;
+    const el = elegirOpcion(texto, opcion, opciones, pend, (t) => indiceDeModelo(t, opciones));
+    if (el.tipo === 'error') return { ok: false, error: el.error };
+    if (el.tipo === 'otra-vez') return { ok: true, patch: { opcionPorConfirmar: undefined } };
+    if (el.tipo === 'confirmar') return { ok: true, patch: { opcionPorConfirmar: { id: 'modelo', opcion: el.idx, escrito: el.escrito } } };
+    const modelo = modeloDeLabel(opciones[el.idx]);
+    if (!modelo) return { ok: false, error: NO_ENTENDI_OPCION };
+    // Su canal va al diagnóstico (no se pregunta), salvo que ya lo dijera: en la conversación de la oferta o en un
+    // diagnóstico guardado, manda lo que contestó.
+    const canal = canalDelModelo(modelo);
+    const ponerCanal = canal && !h.faseGuardada && !e.canal && !h.faseOffer?.canal;
+    const patch: Partial<EstadoArranque> = { modelo, ...(ponerCanal ? { canal } : {}), ...alGuardarOpcion(e, 'modelo', el.escrito) };
+    if (!ponerCanal) return { ok: true, patch };
+    const ef = h.modo === 'oferta' ? conFaseDeOffer({ ...e, canal }, h) : { ...e, canal };
+    const completa = faseCompleta(ef);
+    return { ok: true, patch, ...(completa ? { fase: completa, faseCanal: canal } : {}) };
+  }
+  if (etapa === 'setup') {
+    // El setup se MIDE (la tarjeta tiene sus botones y «Ya está, seguir»): lo escrito no tilda nada, dice qué falta.
+    const faltan = h.setup?.faltan ?? [];
+    return { ok: false, error: faltan.length ? `Te falta conectar: ${faltan.map((p) => SETUP_TITULO[p]).join(', ')}.` : 'Toca «Ya está, seguir».' };
+  }
   if (etapa === 'fase') {
     // En modo 'oferta' cuenta lo que ya contestó en la conversación de la oferta (`conFaseDeOffer`).
     const ef = h.modo === 'oferta' ? conFaseDeOffer(e, h) : e;
     const p = siguientePreguntaFase(ef);
     if (!p) return { ok: false, error: 'El diagnóstico ya está completo.' };
-    const { opciones } = textoPreguntaFase(p, ef.canal);
+    const { opciones } = textoPreguntaFase(p, ef.canal, e.modelo);
     // El diagnóstico se CALCULA por el índice de cada opción (lib/fase-diagnostico.ts). Lo escrito con otras palabras se
     // entiende (20/10/2026, Florencia: «no te deja escribir cuando te da las opciones») —el canal por sus palabras, una
     // cifra por su TRAMO, lo demás por la opción más parecida— pero NUNCA se guarda sin el toque que lo confirma
@@ -1394,7 +1499,10 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
   }
   if (etapa === 'crm') {
     if (opcion === VER_OTROS_TIPOS) return { ok: true, patch: { crmVerTodos: true } };
-    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta).tipos[0].id } };
+    // Con la plantilla de su forma de vender, el «sí» es esa plantilla (sus etapas; lo demás al cerrar).
+    const plantilla = plantillaDe(e.modelo);
+    if (opcion === CRM_SI && plantilla && !e.crmVerTodos) return { ok: true, patch: { crmPlantilla: plantilla } };
+    if (opcion === CRM_SI) return { ok: true, patch: { crmTipo: tiposOfrecidos(h.canalNegocio, false, e.crmPropuesta, tipoCrmDe(e.modelo)).tipos[0].id } };
     const t = TIPOS_CRM.find((x) => x.label === opcion);
     if (!t) return { ok: false, error: 'Elige un tipo de CRM.' };
     return { ok: true, patch: { crmTipo: t.id } };
@@ -1403,7 +1511,7 @@ export function leerRespuesta(e: EstadoArranque, h: HechosArranque, r: Respuesta
 }
 
 // ── Lo que se cierra ────────────────────────────────────────────────────────
-export type PasoDelArranque = 'negocio' | 'productos' | 'fase' | 'tabs' | 'integraciones' | 'plan';
+export type PasoDelArranque = 'negocio' | 'productos' | 'fase' | 'tabs' | 'integraciones' | 'plan' | 'setup';
 
 /**
  * Qué pasos del onboarding cierra el chat al terminar, y CÓMO. El teléfono y Meta se POSTERGAN cuando no se
@@ -1412,13 +1520,17 @@ export type PasoDelArranque = 'negocio' | 'productos' | 'fase' | 'tabs' | 'integ
  */
 export function cierreDePasos(
   pasosCapa: readonly string[],
-  hechos: { telefonoVerificado: boolean; metaConectado: boolean },
+  hechos: { telefonoVerificado: boolean; metaConectado: boolean; metaSalteado?: boolean; setupCompleto?: boolean },
 ): Array<{ paso: PasoDelArranque; done?: boolean; postergar?: boolean }> {
   const out: Array<{ paso: PasoDelArranque; done?: boolean; postergar?: boolean }> = [];
   for (const p of pasosCapa) {
     if (p === 'negocio' || p === 'productos' || p === 'fase' || p === 'plan') out.push({ paso: p, done: true });
     else if (p === 'tabs') out.push(hechos.telefonoVerificado ? { paso: 'tabs', done: true } : { paso: 'tabs', postergar: true });
-    else if (p === 'integraciones') out.push(hechos.metaConectado ? { paso: 'integraciones', done: true } : { paso: 'integraciones', postergar: true });
+    // «No hago anuncios» (el setup, 27/10/2026) es una decisión, no algo pendiente: sin recordatorio de Meta en /general.
+    else if (p === 'integraciones') out.push(hechos.metaConectado || hechos.metaSalteado ? { paso: 'integraciones', done: true } : { paso: 'integraciones', postergar: true });
+    // El setup sólo se cierra DETECTADO completo: sin eso no va ningún cambio, y el onboarding sigue pendiente (la app no
+    // abre). Nunca se posterga: no está en `PASOS_POSTERGABLES`.
+    else if (p === 'setup' && hechos.setupCompleto) out.push({ paso: 'setup', done: true });
   }
   return out;
 }

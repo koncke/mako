@@ -582,6 +582,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ofertas del negocio (P0-14) no salen por HTTP: lo dice su def.
   ['PUT', '/negocio/onboarding/pasos/{paso}', 'cerrar_paso_onboarding'],
   ['PUT', '/negocio/onboarding/tabs/{tab}/pasos/{paso}', 'marcar_paso_onboarding_tab'],
+  // El setup del negocio (27/10/2026): lo que su plan pide dejar conectado, detectado hoy, y saltear lo que se puede no tener.
+  ['GET', '/negocio/onboarding/setup', 'ver_setup_herramientas'],
+  ['PUT', '/negocio/onboarding/setup/{paso}', 'saltar_paso_setup'],
   // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
   ['GET', '/negocio/plan', 'ver_mi_plan'],
   ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],

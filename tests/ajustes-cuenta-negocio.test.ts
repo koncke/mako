@@ -81,7 +81,9 @@ test('cada sección es su ruta, y su página marca su lugar en el índice', () =
 
 test('«Tu cuenta» es de todos los roles; «Configuración del negocio», de quien administra', () => {
   for (const f of ['app/perfil/page.tsx', 'app/perfil/notificaciones/page.tsx', 'app/perfil/instalar/page.tsx', 'app/perfil/ia/page.tsx']) {
-    assert.match(sinComentarios(leer(f)), /await requireRolWs\(\['closer', 'setter'\]\);/, `${f} echa a closers y setters de lo suyo`);
+    // /perfil/ia, además, abre durante el onboarding (27/10/2026): ahí vuelve el instalador de MaKo Desktop, y conectarlo es un
+    // paso del setup que el onboarding exige (lib/setup-negocio.ts).
+    assert.match(sinComentarios(leer(f)), /await requireRolWs\(\['closer', 'setter'\](?:, \{ gateOnboarding: false \})?\);/, `${f} echa a closers y setters de lo suyo`);
   }
   for (const f of ['app/configuraciones/page.tsx', 'app/configuraciones/notificaciones/page.tsx', 'app/configuraciones/fiscal/page.tsx', 'app/equipo/page.tsx']) {
     assert.match(sinComentarios(leer(f)), /await requireRolWs\(\[\], \{ nav: 'configuraciones' \}\);/, `${f} sin el guard del negocio`);

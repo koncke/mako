@@ -16,6 +16,8 @@ import type { Categoria, Tarea } from './todo';
 import { editarTarea } from './todo';
 import { buildCatRows, buildTarRows, seedRelevante, senalesCumplidas, SEED_TAREAS, EVIDENCIA_SENAL } from './todo-seeds-data';
 import { estadoParaSeed, leerSenales } from './plan-senales';
+import { getSettingEstricto } from './settings';
+import { CLAVE_MODELO, modeloGuardado, siembraVsl } from './modelo-negocio';
 
 export { SEED_CATEGORIAS } from './todo-seeds-data';
 
@@ -38,6 +40,11 @@ export { SEED_CATEGORIAS } from './todo-seeds-data';
  */
 export async function seedTodoBoardSiVacio(): Promise<Categoria[]> {
   if (!capaDef(await getCapaActual()).seedBoardVsl) return [];
+  // Y su FORMA DE VENDER (27/10/2026, lib/modelo-negocio.ts): a una inmobiliaria o una tienda los proyectos de anuncios,
+  // VSL y funnel no le sirven. Sin modelo guardado, lo de siempre. Si no se pudo leer, no se siembra ahora (la siembra es
+  // «si vacío»: la próxima carga lo vuelve a intentar), en vez de sembrar lo que capaz no le corresponde.
+  const modelo = await getSettingEstricto(CLAVE_MODELO).then(modeloGuardado, () => 'no-pude' as const);
+  if (modelo === 'no-pude' || !siembraVsl(modelo)) return [];
   // CANDADO ANTI-DOBLE-SIEMBRA. Si a este workspace ya se le generó un plan de arranque
   // propio (lib/todo-seed-ia.ts), el seed fijo NO corre: sembrarlo encima dejaría el
   // tablero con los 8 proyectos del seed MÁS las áreas del catálogo y ~60 tareas mitad

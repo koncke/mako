@@ -576,6 +576,7 @@ revisar_direccion_landing
 revocar_enlace_copywriter
 sacar_alumno_comunidad
 sacar_etiqueta_lead
+saltar_paso_setup
 seguimiento_ultima_retro
 seguir_post_comunidad
 sembrar_kpis_sugeridos
@@ -703,6 +704,7 @@ ver_secciones_landing
 ver_senales_negocio
 ver_serie_funnel_semanal
 ver_serie_vsl
+ver_setup_herramientas
 ver_tablero_kpis
 ver_tarea_plan
 ver_tendencias

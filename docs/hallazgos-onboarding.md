@@ -3060,3 +3060,100 @@ plataforma» (ni `soloSuperAdmin` ni `capas`, que sí existen en el nav). Si alg
 pantalla de super admin necesita onboarding de verdad, el campo hay que agregarlo **y**
 filtrarlo en `resumenOnboardingTabs`: hoy el único control es no estar en el catálogo. Vive
 en `lib/tab-onboarding-catalogo.ts` y `lib/tab-onboarding-state.ts`.
+
+---
+
+## Todos los nichos y el setup obligatorio (27/10 → 03/11/2026, chat «Onboarding» en la nube)
+
+**Pedido de Martín (27/10/2026), textual:** «no quiero que el onboarding se personalice a cada cliente, quiero que el
+onboarding sea capaz de entender todos los nichos y en este caso inmobiliarias», «no dejarlos avanzar hasta que no hayan
+hecho su setup, descargar la app de mako, instalar la extensión, conectar su cuenta de Meta con login, etc... Claro que
+siempre el sistema debe detectar si ya lo tienen» y «cuando esté publicada la extensión, en lugar de descargarlo, los
+usuarios solo deben instalarla de chrome».
+
+**Vive en:** `lib/modelo-negocio.ts`, `lib/setup-negocio.ts`, `lib/setup-negocio-server.ts`, `lib/onboarding-arranque.ts`,
+`lib/onboarding-arranque-server.ts`, `app/onboarding/TarjetaSetup.tsx`, `app/api/onboarding/arranque/route.ts`,
+`lib/capas.ts` (`setup`), `lib/todo-seeds.ts`, `lib/api-mako/areas/negocio.*`. Test: `tests/onboarding-modelo-setup.test.ts`.
+
+**Cómo estaba (medido en el código el 03/11).** El arranque estaba pensado para quien vende con una llamada: sin canal, el
+CRM caía en «Llamada de venta» (R1/R2), la pregunta de volumen hablaba de llamadas y el Plan de Completo y Agencia
+arrancaba con los proyectos de anuncios y VSL (`seedBoardVsl`). Las plantillas por modelo (Tienda, B2B, Manufactura,
+Inmobiliaria, `lib/plantillas-modelo-reglas.ts`) existían, pero sólo las aplicaban la agencia o la API. Lo único que el
+onboarding pedía conectar era Meta, y se podía postergar. Nada de la computadora, la extensión, el WhatsApp por QR, la
+agenda ni la IA.
+
+**Lo que se decidió, y por qué:**
+
+1. **Cómo vende es un CATÁLOGO DE DATOS, no un `if`.** Ocho modelos; cada uno declara su canal, su plantilla, su tipo de
+   CRM (por dónde entra la gente), si agenda y si le sirve el Plan de VSL. Un modelo nuevo es una fila. El test barre que
+   ninguna regla del arranque pregunte por un número de workspace ni por `OWNER_WS`.
+2. **La lectura sólo PROPONE.** `modeloDeTexto` lee el nombre del negocio, a qué se dedica y lo que contó en la
+   conversación de la oferta, y ordena las opciones; lo escrito se confirma con «Sí, es eso» (`elegirOpcion`, la red de
+   AGENTS.md). Sin una lectura clara se pregunta sin recomendar.
+3. **El canal del modelo va al diagnóstico SÓLO si nadie lo dijo antes.** Si ya lo contestó en la conversación de la
+   oferta o hay un diagnóstico guardado, manda lo que dijo: un toque nuevo no pisa una respuesta vieja.
+4. **La plantilla en dos tiempos.** Las etapas del CRM se siembran al aceptarla (`sembrarCrmDePlantilla`, sólo sobre el
+   funnel principal intacto); el objetivo, los KPIs, la guía y la hoja del Dashboard, al cerrar (`aplicarPlantillaModelo`).
+   ⚠️ `aplicarPlantillaModelo` reconoce el funnel por su NOMBRE: por eso el principal se renombra como el de la plantilla
+   («Captaciones»). Con el nombre del negocio, al cerrar habría creado un segundo funnel igual.
+5. **El setup es ESTADO VIVO.** Cada paso lo mide su pieza (la PC con `listarPcDelNegocio`, Meta con
+   `integracionConectada('meta')`, que ya sabe de Zernio, WhatsApp con `listarLineas`, la agenda con
+   `googleCalendarConectado`, la IA con `negocioConPc` o `claveDeIAPropia`). Lo único que se guarda es lo que la persona
+   DECIDE (saltear) y la versión de la extensión que vio su navegador. Cada detector va con su propio `try`: una lectura
+   caída deja ESE paso en «no pude comprobarlo», que frena igual que «falta».
+6. **`negocioConSuIA` NO sirve para el setup.** Ante la duda contesta «sí» (es la falla cerrada de D6b); acá la duda
+   tiene que ser «no pude».
+7. **Saltear sólo lo que se puede no tener.** Meta con «No hago anuncios» (cierra `integraciones` como hecho, sin
+   recordatorio en /general); la agenda con «No agendo reuniones», sólo si su modelo no agenda. Un salto guardado vale si
+   HOY lo permite su modelo.
+8. **El Pixel y la pasarela NO son pasos.** El Pixel necesita una página publicada que el onboarding no pregunta; cobrar
+   online es de quien vende por carrito. A una inmobiliaria la trabarían por algo que no usa: se ofrecen en su tab.
+9. **Quien ya terminó no se vuelve a bloquear.** El paso nuevo entra a `PASOS_ONBOARDING`, pero el bloqueo mira
+   `status === 'done'` (`onboardingPendiente`), no los pasos.
+
+**Las trampas que aparecieron:**
+
+- **`/perfil/ia` estaba detrás del bloqueo del onboarding**, y es adonde vuelve el instalador de MaKo Desktop
+  (`?computadora=1`). Con el setup obligatorio, el instalador terminaba en el onboarding y no en «Conecta MaKo». Ahora
+  abre con `gateOnboarding: false`.
+- **Importar la detección y las plantillas de forma estática en `onboarding-arranque-server` lo rompía.** Traen medio
+  producto (la PC, las líneas, el Dashboard, el Plan) a un módulo que se carga en cada pedido del onboarding. Además,
+  `tests/onboarding-hilo-carrera.test.ts` lo carga con una base de mentira cuyo `funnels` no exporta `leerFunnels`. Van
+  con `await import` cuando se usan.
+- **La extensión vive en el navegador.** El servidor la ve emparejada al puente (`flow_puentes.version`) o porque el
+  navegador del onboarding dice qué versión tiene (`data-mako-puente`), y la tarjeta se lo manda al servidor.
+  `EXTENSION_EN_TIENDA` decide el link: hoy es `false` (la tienda publica la 0.74.3 y el repo va por la 0.74.5), así que
+  sale la página de instalar. Se da vuelta solo cuando alguien actualiza `VERSION_EN_TIENDA` con lo medido.
+- **«Una operación nueva va al final de su área» choca con Knowledge**, que se declaró última a propósito
+  (`tests/knowledge-modulos.test.ts`). Las dos del setup van justo antes, y la batería del ruteo
+  (`tests/ops-center-bateria.test.ts`) da igual que en main.
+- **Una lectura llamada `ver_setup_negocio` le sacaba `ver_estado_onboarding` a «¿qué sabés de mi negocio?»**: «negocio»
+  está en todo el área, y en el id pesa doble. Se llama `ver_setup_herramientas` («Herramientas conectadas»). Medido
+  comparando, frase por frase, qué herramientas viajan en main y en la rama (543 frases de los tests del turno, en la app y
+  en WhatsApp). Ninguno de los 523 casos de la app pierde su operación. Lo que se corre es de periferia, en preguntas de
+  conexiones u onboarding, donde el setup viene al caso.
+- **En la nube, `lib/mako-doer-acciones.ts` carga como CommonJS sin sus exports nombrados** (`import { MAKO_ACCION_TOOLS }`
+  falla; `require` anda), así que 21 tests del turno no cargan, en main y en la rama por igual. La medición de arriba se
+  hizo con `require`.
+- **`scripts/tests-afectados.mjs` dice «0 casos juzgados (sin el pie del runner)» en la nube** sobre tandas que sí corrieron
+  (el log trae `# tests 204 / # pass 202`). Hay que leer el log de cada tanda. Es de Infra, no se tocó.
+- **En la nube, el `tsc` acotado se queda sin heap con el tope por defecto (2560) con un solo archivo.** Corre con
+  `--heap=8192`, que la nube tiene de sobra. No es un rojo de tipos.
+
+**Rojos de main que aparecieron y no son de esta tarea** (los dos fallan igual en main limpio, medido el 03/11):
+`tests/api-mako-registro.test.ts` («listar_capacidades_mako»: el título es de 3-6 palabras; d6501deac, área MaKo) y
+`tests/onboarding-hilo-carrera.test.ts` («srv.hiloDelOnboarding is not a function»).
+
+**Probado rompiéndolo** (arnés que restaura de memoria; base 37/37 entre este archivo y `onboarding-postergar`): «no pude»
+como hecho, sin la etapa del setup, el cierre que marca el setup siempre, lo escrito del modelo sin toque, la agenda que
+se saltea siempre, un `if (ws === 13)`, el Plan que siembra VSL a todos, Meta por un link afuera, el modelo sin canal, la
+plantilla que no se ofrece, el volumen sin las palabras del modelo y un detector sin su red: 12 de 12 cazadas.
+
+**Sin hacer:**
+
+- **No se miró en pantalla.** La nube no tiene `.env.local` ni base. Falta el recorrido entero en el ws3 reseteado, con
+  «Inmobiliaria» y con «Llamada», en la computadora y en el teléfono.
+- **El QR de WhatsApp** abre `ConectarMedio` de Automations tal cual. Que conecte la línea por default sin automatización
+  delante no se probó.
+- **Las piezas de otros chats no se tocaron**: Zernio, la extensión y `scripts/ia-pc/`. Si el instalador de Desktop
+  tiene que volver a /onboarding y no a /perfil/ia, ese cambio es suyo (`RUTA_TRAS_INSTALAR`).
