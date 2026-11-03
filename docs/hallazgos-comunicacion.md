@@ -12273,7 +12273,12 @@ todo lo que importa esos módulos, no los que uno se acuerda.
 
 ## WhatsApp baneó la línea de MaKo: qué la dejó muda, cómo se siguió y qué costaría lo oficial (03/11/2026, Cerebro)
 
-**Síntoma.** A las 16:39 ART WhatsApp rechazó la sesión del …2605 con un 403 y al teléfono le llegó «ya no puede usar WhatsApp Business… spam». Las otras líneas siguieron abiertas. No se probó la causa: el último tráfico fue una bienvenida y un link de invitación a un número suelto, 20 minutos después de desplegar el alta automática del equipo de agencia.
+**Síntoma.** A las 16:39 ART WhatsApp rechazó la sesión del …2605 con un 403 y al teléfono le llegó «ya no puede usar WhatsApp Business… spam». Las otras líneas siguieron abiertas. No se probó la causa, y WhatsApp no la dice. Lo medido en la base de Evolution (chat de la línea, hora ART):
+- 16:36: Joan guarda Notificaciones de un cliente: grupo nuevo, bienvenida, alta de un segundo número y, como WhatsApp no lo deja, invitación por DM a alguien que nunca le había escrito a la línea.
+- 16:39:27: guarda las de otro cliente: otra alta. 16:39:36: el 403.
+- ⚠️ **El diagnóstico obvio era el equivocado:** no salió del alta automática de la agencia (`sumarEquipoDeAgenciaAlGrupo` corrió y no sumó a nadie). Salió de `setDestinatarios` (`lib/notif-destinatarios.ts`), que lo pide una persona y lo ejecuta la API. Apagar sólo lo automático no habría cambiado nada.
+- **El volumen no creció:** 15, 18, 13 y 13 textos los últimos 4 días, contra un pico de 54 el 29/10; 7 mensajes a personas sueltas en 15 días.
+- **Lo que sí pesa:** 826 de 837 salientes por la API y 11 desde el teléfono, una cuenta de 27 días, y 3 números tocados en 3 minutos desde 2 negocios. El tope de contactos es por negocio y la línea es una sola: una agencia que trabaja sobre varios clientes no lo acumula.
 
 **Lo que más dolió no fue el ban, fue el admin único.** El número personal (…3479) es admin en los 6 grupos que existían al mudarse el 07/10. Los 8 creados después sólo tienen al …2605: `group/participants` contesta 404 `forbidden`, y nadie más puede sumarlo. MaKo queda muda ahí aunque tenga otra línea viva.
 
@@ -12289,7 +12294,7 @@ todo lo que importa esos módulos, no los que uno se acuerda.
 **Lo oficial, con el volumen real (30 días a 03/11; US$ a tarifa de Argentina vigente desde el 01/10/2026, sin contar otros países).** Marketing 0,0618; utility, autenticación y servicio 0,026. La tarifa viene de Zernio y SleekFlow, que citan la tabla de Meta: la tabla oficial no se pudo abrir.
 - ⚠️ **El diagnóstico que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026. Desde el 01/10 sólo son gratis las primeras 1.000 por número y por mes, y las utility dentro de la ventana también se cobran.
 - Líneas de clientes: salieron 21.917 mensajes, 2.956 fuera de la ventana. Da **US$470/mes** si todo pasa por la API (de US$0,62 a US$137 por línea). Con coexistencia lo escrito desde el teléfono es gratis y `wa_mensajes` no lo separa: el piso medible son las secuencias, 803 envíos, ~US$50.
-- La línea de MaKo: 415 mensajes en grupos, ~US$11 como tope. `mako_doer_conv` no cuenta todo lo que sale: sirve de orden de magnitud, no de factura.
+- La línea de MaKo: medida en la base de Evolution, 376 textos y 133 reacciones en 15 días (~750 textos por mes). Por persona que recibe, con 2 o 3 personas por grupo, **hasta ~US$60/mes**. ⚠️ Salió primero ~US$11 contando `mako_doer_conv`, que deja afuera casi la mitad de lo que sale y contaba cada grupo como una persona: no se mide esta línea con esa tabla.
 - Grupos oficiales: sólo con Official Business Account (la otorga Meta, sin pago posible), hasta 8 personas, se entra por link, sin botones. Se cobra por destinatario entregado.
 - ⚠️ `AI Providers`: la IA no puede ser la funcionalidad principal de lo que se ofrece por la plataforma, a criterio de Meta. Un bot de atención del negocio entra; «MaKo en WhatsApp» como producto hay que revisarlo antes de construir.
 - Se pierde del todo: leer los grupos del cliente, sumar gente directo, escribirle a quien no dio su permiso, y el historial de más de 6 meses (documentado por Meta). Etiquetas del WhatsApp, foto de perfil del contacto y preguntar si un número tiene WhatsApp: no aparecen en lo que expone la API, pero no se encontró un documento de Meta que lo diga. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
