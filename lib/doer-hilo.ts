@@ -25,6 +25,20 @@ import { areasDelMensaje, clasificarIntencion, makoPidioDatos, makoPreguntoAlgo,
 import { esAcusePuro } from './doer-para-quien';
 import type { Area } from './api-mako/tipos';
 
+/**
+ * ¿Pregunta por algo que se dijo antes en el grupo? (ticket #40, Leila, 3/11/2026). La memoria del turno son 12 turnos de 14 h y
+ * hechos de 7 días; lo de antes, si no se busca, no existe. Trae `buscar_en_el_grupo`. Sobre el texto de la persona.
+ */
+export function pideBuscarEnElGrupo(texto: string): boolean {
+  const n = (texto || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return /\bmensajes? anteriores?\b|\bmensajes? (?:viejos?|pasados?|de hace|de la semana|del mes)\b|\b(?:busca\w*|encontra\w*|encuentra\w*) (?:en (?:el|este) (?:grupo|chat|hilo)|el mensaje|lo que)\b|\b(?:historial|conversacion(?:es)?) (?:de|del) (?:este |el )?grupo\b|\bque (?:te )?(?:dije|dijimos|hablamos|quedamos|conversamos|pedi|mande|escribi|pregunte)\b|\b(?:me|nos) (?:dijiste|escribiste|mandaste|pasaste|contestaste)\b|\bte (?:dije|escribi|mande|pase|pregunte|pedi)\b[^.\n?]{0,40}\b(?:antes|ayer|pasad[oa]|hace)\b/.test(n);
+}
+
+/** Las palabras por las que se busca en el hilo (hasta 4, de 3 letras o más), con lo que el ILIKE lee como comodín ya escapado. */
+export function palabrasDeBusqueda(texto: string): string[] {
+  return (texto || '').split(/\s+/).map((p) => p.replace(/[^\p{L}\p{N}@.+-]/gu, '')).filter((p) => p.length >= 3).slice(0, 4);
+}
+
 /** Un turno del historial del grupo (lib/mako-doer-conv.ts). */
 export type TurnoDelHilo = { role: 'user' | 'assistant'; content: unknown };
 

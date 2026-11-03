@@ -149,4 +149,28 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
     escribe: 'la memoria de recomendaciones del negocio (qué se aceptó o descartó, y por qué)',
   },
+  {
+    // Ticket #45 (Leila, 3/11/2026): «Activa la función "Aprende solo" en el Second Brain». El interruptor es el de su pantalla
+    // (lib/recolector.ts): sólo lee conversaciones y escribe en el conocimiento del negocio; ningún mensaje sale. Va la puerta de
+    // la pantalla: el admin del negocio.
+    id: 'cambiar_aprende_solo', area: 'mako', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Prender o apagar «Aprende solo»',
+    descripcion: 'PROPONE prender o apagar «Aprende solo», el botón de la cabecera del Mapa en el Second Brain (queda pendiente hasta el «sí»). Prendido, MaKo aprende solo de las conversaciones de WhatsApp del negocio con sus leads y lo suma al Second Brain; no manda ningún mensaje. Úsala cuando pidan «activa Aprende solo» o «apaga Aprende solo».',
+    parametros: [
+      { nombre: 'prendido', tipo: 'boolean', obligatorio: true, descripcion: 'true para prenderlo, false para apagarlo.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+    escribe: 'el interruptor de «Aprende solo» del negocio',
+  },
+  {
+    // Ticket #40 (Leila, 3/11/2026): «deberías tener acceso a todos los mensajes anteriores». Lee SÓLO el grupo del turno (sale de
+    // `ctx.canalKey`, nunca de un parámetro) y, como lee conversaciones, no viaja a la red gratis (`llevaDatosDeClientes`).
+    id: 'buscar_en_el_grupo', area: 'mako', tipo: 'lectura',
+    titulo: 'Buscar en los mensajes de este grupo',
+    descripcion: 'Busca en los mensajes anteriores de ESTE grupo de WhatsApp, sin límite de fecha: lo que la gente le dijo a MaKo y lo que MaKo contestó, con su fecha. Úsala cuando pregunten por algo que se dijo antes de la charla de hoy («¿qué te dije del precio la semana pasada?», «busca el mensaje donde hablamos de Juan»). Sólo guarda lo que le hablaron a MaKo: la charla del equipo entre ellos puede no estar.',
+    parametros: [
+      { nombre: 'texto', tipo: 'string', obligatorio: true, max: 120, descripcion: 'Las palabras a buscar (hasta 4): un nombre, un tema. Tienen que estar todas en el mensaje.', ejemplo: 'precio mentoría' },
+    ],
+    salida: 'json', canales: ['whatsapp'], costo: 'gratis',
+  },
 ];

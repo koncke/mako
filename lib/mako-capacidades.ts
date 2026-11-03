@@ -162,6 +162,13 @@ const BASE: Array<Omit<Capacidad, 'tab' | 'funcion'>> = [
     como: ['En Ops Center, abre Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
   },
   {
+    // Ticket #45 (Leila, 3/11/2026): «Activa la función "Aprende solo" en el Second Brain» y MaKo contestó que no existe. Corregir
+    // el catálogo no alcanzó: `hace[]` de lib/funciones-mako.ts no le llega a ningún cliente. Lo que lee el modelo es ESTO.
+    id: 'aprende-solo', ruta: '/second-brain',
+    que: '«Aprende solo»: si lo prendes, MaKo aprende solo de tus conversaciones de WhatsApp con leads y lo suma al Second Brain, sin mandar ningún mensaje. Ahí mismo ves de qué fuentes aprende, cuándo fue la última vez y cuánto entró. MaKo también te lo prende desde el chat, con tu «sí».',
+    como: ['En Ops Center, abre Second Brain', 'En la cabecera del Mapa, toca «Aprende solo»', 'Prende el interruptor de tus conversaciones de WhatsApp'],
+  },
+  {
     // Ticket #48 (Leila, 3/11/2026): «¿dónde actualizo mis datos?» y MaKo no sabía en qué pantalla se editan el precio, qué
     // incluye o el horario. Los nombres y los links salen de DATOS_DEL_NEGOCIO (lib/secciones-negocio.ts), no de acá.
     id: 'datos-negocio', ruta: rutaDato('brief'),

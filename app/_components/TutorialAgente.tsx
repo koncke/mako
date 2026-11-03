@@ -42,11 +42,11 @@ import { TEXTO_CONSENTIMIENTO } from '@/lib/agente-consentimiento-texto';
  *  copió el bloque entero, no pasó nada, y hubo que decirle «mandalos de a uno». Un
  *  botón que copia los dos es un botón que arma el error. */
 const COMANDOS_PLUGIN = [
-  '/plugin marketplace add mbustos-digital/mako-plugin',
+  '/plugin marketplace add koncke/mako-plugin',
   '/plugin install mako@mako',
 ] as const;
 
-const PEDIDO_APP = 'instala la skill de MaKo desde github.com/mbustos-digital/mako-plugin';
+const PEDIDO_APP = 'instala la skill de MaKo desde github.com/koncke/mako-plugin';
 
 const MONO = "'Geist Mono', monospace";
 const codeInline: CSSProperties = { fontFamily: MONO, fontSize: 11.5, background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 6px', color: 'var(--dim)' };
@@ -281,7 +281,7 @@ export function TutorialAgente({ actual: actualInicial, appUrl }: { actual: Toke
                 Ninguna otra skill se instala así.
 
                 Ahora es la forma normal: un marketplace público
-                (github.com/mbustos-digital/mako-plugin) y dos comandos. Lo que lo
+                (github.com/koncke/mako-plugin) y dos comandos. Lo que lo
                 destrabó fue sacarle el token al archivo — la skill del repo es genérica
                 y lo lee de ~/.mako-token, así que se puede publicar. */}
             <div role="radiogroup" aria-label="Dónde usas Claude" style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
