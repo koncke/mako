@@ -63,6 +63,8 @@ import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { AVISO_CORTE_VIEWCOUNT, ETAPA_ES_NUESTRO_CRITERIO, NOMBRE_CANAL, cruzaElCorte, dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
+// El buscador del alta de un lead, reusado tal cual: busca por NOMBRE o por @, con fotos y lista.
+import { InstagramBuscador } from '@/app/crm/new/InstagramBuscador';
 import {
   canalesDe, cumpleFiltro, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, ganchosDe, haceCuanto, mezclaDeTipos, ordenarPiezas, pideConectarMeta,
@@ -620,9 +622,37 @@ function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
         {pestana === 'pegar'
           ? (
             <>
+              {/* ── EL DESPLEGABLE MIENTRAS SE ESCRIBE, Y SIN NECESIDAD DE PONER UN @ ──────────
+                   Martín, 2/11/2026: «cuando yo vaya buscando una arroba… ya vaya saliendo ciertos
+                   resultados mientras voy escribiendo» y «no necesariamente yo tenga que poner una
+                   arroba para que me empiecen a salir resultados».
+
+                   ⚠️ NO SE CONSTRUYÓ UN BUSCADOR NUEVO: éste es el MISMO del alta de un lead
+                   (app/crm/new/InstagramBuscador.tsx, 12/10/2026), que ya busca por NOMBRE, muestra
+                   fotos, abre la lista en un portal y tiene resueltos Escape y Enter. Hacer otro
+                   habría sido mantener dos.
+                   ⚠️ Y NO LLAMA EN CADA TECLA: espera 500 ms y pide 3 letras, porque cada búsqueda
+                   gasta del tope diario. «Mientras escribo» es SIN APRETAR UN BOTÓN, no una llamada
+                   por tecla: «leilahormozi» son trece teclas y dos altas agotarían el día.
+
+                   El campo de texto sigue debajo para lo que NO es un perfil —un canal de YouTube o
+                   un sitio—, que el buscador no sabe resolver. */}
+              <InstagramBuscador
+                valor={null}
+                onTexto={escribir}
+                textoInicial={pegado}
+                onElegir={(p) => {
+                  if (!p) return;
+                  // Elegir de la lista confirma QUIÉN es: se pone su @ y se pide la vista previa,
+                  // que es la que trae su nombre real y el link de su bio.
+                  setPegado(`@${p.usuario}`);
+                  setVista(null);
+                  void buscar(p.usuario);
+                }}
+              />
               <div style={{ display: 'flex', gap: 8 }}>
                 <input
-                  autoFocus className="spy-entrada" placeholder="Un @, un canal de YouTube o un sitio" value={pegado}
+                  className="spy-entrada" placeholder="…o pega un canal de YouTube o un sitio" value={pegado}
                   onChange={(e) => escribir(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && listo && !ocupado) enviar(); }}
                 />
