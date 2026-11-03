@@ -594,8 +594,22 @@ export async function mirarCompetidor(
 
   // ── YouTube: channels.list → playlist de subidas → playlistItems → videos.list ───
   if (c.youtube_id) {
+    // La misma caché compartida que Instagram (ítem 13). Acá no se ahorra PLATA del negocio sino
+    // CUOTA de la API de YouTube, que es de la plataforma y es igual de finita: leer el canal de
+    // Hormozi una vez por negocio la agota igual.
+    const yaYt = motivo === 'a-pedido' ? null : await lecturaCompartida('youtube', c.youtube_id);
     const clave = await claveDeYoutube();
-    if (!clave) {
+    if (yaYt && sirveLaCompartida(motivo, yaYt.leidoEn, Date.now())) {
+      const vistas = yaYt.piezas as PiezaVista[];
+      const g = await guardarVistas(competidorId, vistas);
+      void anotarAhorro('youtube', c.youtube_id);
+      const p = yaYt.perfil ?? {};
+      if (typeof p.suscriptores === 'number') suscriptores = p.suscriptores;
+      canales.push({
+        canal: 'youtube', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas,
+        detalle: g.error ?? `${vistas.length} videos (de una lectura de hace poco, sin gastar cuota)`,
+      });
+    } else if (!clave) {
       canales.push({ canal: 'youtube', ok: false, piezas: 0, nuevas: 0, detalle: noPudeLeerCanal('sin-clave') });
     } else {
       const apunta = c.youtube_id.startsWith('@') ? { handle: c.youtube_id.slice(1) }
@@ -623,6 +637,8 @@ export async function mirarCompetidor(
         }));
         const g = await guardarVistas(competidorId, vistas);
         if (vistas.length) await marcarDejadas(competidorId, 'youtube', vistas.map((v) => v.ref));
+        // Para que el próximo negocio que mire este canal no gaste cuota. No se espera.
+        void guardarLecturaCompartida('youtube', c.youtube_id, vistas, { suscriptores: l.canal.suscriptores ?? null });
         canales.push({ canal: 'youtube', ok: !g.error, piezas: vistas.length, nuevas: g.nuevas, detalle: g.error ?? `${vistas.length} videos` });
       }
     }

@@ -81,5 +81,28 @@ export async function anotarAhorro(canal: string, ref: string): Promise<void> {
   } catch { /* el ahorro es una métrica: que falle no puede costarle nada a nadie */ }
 }
 
-/** Lo más viejo que se guarda. La poda la corre quien tenga un cron; acá sólo se expone el tope. */
+/** Lo más viejo que se guarda. */
 export const DIAS_DE_PODA = DIAS_QUE_SE_GUARDA;
+
+/**
+ * Borra las lecturas más viejas que `DIAS_DE_PODA`. Devuelve cuántas sacó.
+ *
+ * ⚠️ BORRAR ACÁ NO LE SACA NADA A NADIE: las piezas de cada negocio viven en `spy_piezas`, con su
+ * `workspace_id`. Esto es sólo la copia compartida que ahorra una lectura; sin ella, la próxima se
+ * paga, que es exactamente como estaba antes de la migración 0363.
+ *
+ * ⚠️ NO HAY CRON QUE LA LLAME TODAVÍA. Se expone para que la enganche quien agregue uno
+ * (`.claude/skills/add-cron-job`). Mientras tanto la tabla crece, y crece poco: una fila por canal
+ * mirado, con sus piezas. No es urgente, pero tampoco es infinito.
+ */
+export async function podarLecturasCompartidas(ahoraMs = Date.now()): Promise<number> {
+  const limite = new Date(ahoraMs - DIAS_DE_PODA * 24 * 3600_000).toISOString();
+  try {
+    const db = await getTenantDb();
+    const { data, error } = await db.from(T).delete().lt('leido_en', limite).select('ref');
+    if (error) return 0;
+    return (data ?? []).length;
+  } catch {
+    return 0;
+  }
+}
