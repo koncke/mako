@@ -506,7 +506,7 @@ export const TOPES = {
 } as const;
 
 /** Lo que `queEs` (lib/spy.ts) devuelve: el canal que se reconoció en lo que se pegó. */
-export type CanalLeido = { campo: 'instagram' | 'youtube_id' | 'landing_url' | 'nombre'; valor: string };
+export type CanalLeido = { campo: 'instagram' | 'youtube_id' | 'tiktok' | 'landing_url' | 'nombre'; valor: string };
 
 /**
  * Qué canal NUEVO aporta el link de la bio de Instagram, si aporta alguno.
@@ -527,7 +527,9 @@ export type CanalLeido = { campo: 'instagram' | 'youtube_id' | 'landing_url' | '
  */
 export function canalDeLaBio(deLaBio: CanalLeido | null | undefined, yaPegado: CanalLeido['campo']): CanalLeido | null {
   if (!deLaBio) return null;
-  if (deLaBio.campo !== 'landing_url' && deLaBio.campo !== 'youtube_id') return null;
+  // TikTok entra desde el 3/11/2026 (0365): antes `queEs` lo clasificaba como sitio y un link a su
+  // TikTok en la bio terminaba guardado como su LANDING.
+  if (deLaBio.campo !== 'landing_url' && deLaBio.campo !== 'youtube_id' && deLaBio.campo !== 'tiktok') return null;
   if (deLaBio.campo === yaPegado) return null;
   return deLaBio;
 }
