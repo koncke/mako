@@ -18,7 +18,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Tu número, como línea de tu negocio', detalle: 'Tu WhatsApp personal para atender clientes: se ve en /whatsapp y «Sale por» lo puede elegir', estado: 'hecha' },
   { titulo: 'Pasar MaKo al número nuevo', detalle: 'El número nuevo ya está vinculado · la primera pasada dio 0 de 6 (Evolution le borraba el 9) · falta volver a vincular tu número, o sumarlo desde el teléfono, y reintentar', estado: 'sigue' },
   { titulo: 'Soltar las líneas viejas', detalle: 'Las dos líneas con tu número que fueron de MaKo siguen vinculadas y el webhook las ignora · ocupan dispositivos de tu WhatsApp', estado: 'cola' },
-  { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las dos cada 3 minutos · un aviso por caída y otro al volver, por la línea que sigue viva · si caen las dos, por mail · falta probarlo con un mensaje real', estado: 'sigue' },
+  { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las dos cada 3 minutos · un mensaje por caída y otro al volver, por la línea que sigue viva · si caen las dos, por mail · falta probarlo con un mensaje real', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -102,6 +102,33 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/canal-vigilante.ts — `EMAILS_ALERTA_VOZ = [EMAIL_MAKO]`',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '—', chat: 'Línea de MaKo', sesion: 'local_6d962fa2-6fff-4783-b032-d5e0c04560c1', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Se desconectó la línea de MaKo',
+    pedido: 'veo que MaKo la linea principal se desconecto, seria bueno evitar que eso pase... Encontrar la forma de evitarlo.. Y si llega a pasar tengo mi linea secundaria para avisarme a mi mismo',
+    puntos: [
+      'Después, con el teléfono abierto: «Esta cuenta ya no puede usar WhatsApp Business», por spam. Y: «No entiendo porque me banearon, por los grupos? Si justamente son grupos con clientes».',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '17:39', chat: 'Línea de MaKo', sesion: 'local_6d962fa2-6fff-4783-b032-d5e0c04560c1', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'WhatsApp baneó la línea: si se cae una, avisa la otra',
+    puntos: [
+      '⚠️ **No fue la RAM, ni el volumen, ni el automático de la agencia que se acababa de desplegar.** El último alta fue 9 s antes del 403, y salió de una persona guardando Notificaciones. WhatsApp no dice por qué banea: es lo más cercano, no una causa probada.',
+      '**Un 403 no se reconecta ni se evita.** Evolution reintenta solo todo lo demás. Lo que se puede es enterarse en minutos, una vez, con el link: las dos líneas se miran cada 3 minutos, y por mail si caen las dos.',
+      '**La secundaria no lleva el tráfico de MaKo:** sólo se escribe a sí misma, un mensaje por caída. Falta saber si eso hace sonar el teléfono.',
+    ],
+    commits: [
+      { sha: '406fed299', msg: 'Si se cae una línea de WhatsApp de Martín avisa la otra, un mensaje por caída, y por mail si caen las dos', lineas: 1132, archivos: 11 },
+    ],
+    archivos: [
+      'lib/lineas-de-mako.ts — qué se avisa y por dónde, puro y con test',
+      'lib/lineas-de-mako-vigilante.ts · app/api/cron/vigia-lineas-mako — la vigilancia con la red enchufada, cada 3 minutos',
+      'docs/hallazgos-comunicacion.md — lo medido del ban y los costos de la API oficial',
     ],
   },
 ];
