@@ -37,7 +37,6 @@ import {
   createLead,
   vendedorUnicoDelWorkspace,
   updateLead,
-  deleteLead,
   setPipelineStage,
   setMeetingManual,
   setBoardStageOverride,
@@ -96,7 +95,7 @@ import {
 } from './leads-exportar';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { leadsAMarkdown, type LeadDoc } from './leads-markdown';
-import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, type FilaImport } from './leads-importar';
+import { MAX_FILAS_IMPORT, MAX_MONTO_IMPORT, MOTIVO_DECIDIBLE, destinoDe, entra, entraGanado, etiquetasDeCelda, leadsPorEtiqueta, type FilaImport } from './leads-importar';
 import { ORIGEN_LEAD, origenLista } from './origen-lead';
 import {
   VIA_INLINE, esCampoInline, montoEnRiesgo, ponerLinkFathom, valorDeCampo, type ValorInline,
@@ -109,8 +108,10 @@ import { PEDIR_CONTACTO, tieneContacto } from '@/lib/contacto-minimo';
 // dos bloques de la ficha. Con una copia acá, el link caería en un bloque y su
 // análisis en el otro.
 import { etiquetaEsR2 } from '@/lib/insights-llamada-reparto';
-import { marcarExistentes } from './importar-server';
+import { etiquetarImportados, marcarExistentes } from './importar-server';
 import { PRESUPUESTO_LOTE_MS } from './lote-tandas';
+import { mandarLeadsAPapelera, recuperarLeadsDePapelera, listarPapeleraDeLeads, contarPapeleraDeLeads, type FilaPapelera } from '@/lib/leads-papelera';
+import { agregadosDelCrm } from '@/lib/lead-funnel';
 import { stepsForStage, funnelReqInfo, type StageReqValues } from '@/lib/stage-requirements';
 import { esSinCobro, type VentaTipo } from '@/lib/venta-tipo';
 import { encuentroGrabable } from '@/lib/encuentro-ws';
@@ -1325,24 +1326,33 @@ export async function marcarPagoAction(
 }
 
 /**
- * Borra un lead. Después redirige a la lista.
+ * Manda UN lead a la papelera (mig 0340, lib/leads-papelera.ts): sale del CRM y se recupera igual durante 30 días. Tira con
+ * el motivo si no pudo (sin la migración no borra nada). Es lo que hacen el «Eliminar» de la ficha y el de su hoja.
+ */
+async function mandarUnoAPapelera(id: number): Promise<void> {
+  const r = await mandarLeadsAPapelera([id], { por: await autorActual(), hasta: Date.now() + PRESUPUESTO_LOTE_MS });
+  if (!r.hechos.length) throw new Error(`No se pudo mandar a la papelera: ${r.motivos[0] ?? 'no contestó'}.`);
+  bust(TAG.leads, TAG.pagos);
+}
+
+/**
+ * «Eliminar» desde la ficha: lo manda a la PAPELERA (desde el 28/10/2026; antes era `deleteLead`, para siempre). Después
+ * redirige a la lista.
  */
 export async function deleteLeadAction(id: number): Promise<void> {
   await exigirSesion();
-  await deleteLead(id);
-  bust(TAG.leads, TAG.pagos);
+  await mandarUnoAPapelera(id);
   revalidatePath('/crm');
   redirect(await rutaConWs('/crm'));
 }
 
 /**
- * Borra un lead SIN redirigir — para el modal de edición in-place abierto desde
- * cualquier tab del dashboard (no expulsa al usuario de la pantalla actual).
+ * «Eliminar» SIN redirigir — para el modal de edición in-place abierto desde cualquier tab del dashboard (no expulsa al
+ * usuario de la pantalla actual). También a la papelera.
  */
 export async function deleteLeadInlineAction(id: number): Promise<void> {
   await exigirSesion();
-  await deleteLead(id);
-  bust(TAG.leads, TAG.pagos);
+  await mandarUnoAPapelera(id);
   revalidatePath('/crm');
   revalidatePath('/general');
 }
@@ -1474,32 +1484,9 @@ export async function bulkFillLeadFieldAction(
  */
 const TOPE_LOTE = 200;
 
-/**
- * Los tildados que estan AGREGADOS al CRM que se mira (tienen su fila en `lead_funnel` y su casa es otro), con el id real
- * de ese CRM. Tira si no puede leer: mover a ciegas es justo pisar la casa de alguien.
- */
-async function agregadosDelCrm(ids: readonly number[], funnelId: number | null): Promise<Map<number, number>> {
-  const out = new Map<number, number>();
-  if (!ids.length) return out;
-  const def = await idDelFunnelDefault();
-  const real = funnelId ?? def;
-  if (real == null) return out;
-  const db = await getTenantDb();
-  for (let i = 0; i < ids.length; i += 200) {
-    const tanda = ids.slice(i, i + 200);
-    const [{ data: filas, error: eF }, { data: casas, error: eC }] = await Promise.all([
-      db.from('lead_funnel').select('lead_id').eq('funnel_id', real).in('lead_id', tanda),
-      db.from('leads').select('id, funnel_id').in('id', tanda),
-    ]);
-    if (eF || eC) throw new Error(`No pude leer en que CRM esta cada lead: ${(eF ?? eC)?.message}`);
-    const conFila = new Set(((filas ?? []) as Array<{ lead_id: number | string }>).map((f) => Number(f.lead_id)));
-    for (const l of (casas ?? []) as Array<{ id: number | string; funnel_id: number | string | null }>) {
-      const casa = casaReal(l.funnel_id == null ? null : Number(l.funnel_id), def);
-      if (conFila.has(Number(l.id)) && casa !== real) out.set(Number(l.id), real);
-    }
-  }
-  return out;
-}
+// `agregadosDelCrm` (los tildados AGREGADOS al CRM que se mira) vive en lib/lead-funnel.ts desde el 28/10/2026: lo usa
+// también el «pasar en bloque» de la API de MaKo (lib/crm-bloque-server.ts), y dos copias de «quién es agregado» serían dos
+// respuestas distintas a la misma pregunta.
 
 /**
  * Mueve VARIOS leads a una etapa.
@@ -1527,6 +1514,12 @@ export async function moverLeadsDeEtapaAction(
   leadIds: number[],
   stageKey: string,
   funnelId?: number | null,
+  /**
+   * El motivo de DESCALIFICAR o PERDER en bloque (28/10/2026, ticket #21): «Categoría — detalle», UNO para todo el lote, el
+   * mismo formato que el wizard de a uno (`motivoFinalDe`, app/crm/motivos-salida.ts). Va a la casa (`motivo_perdida`);
+   * un agregado se mueve en su fila, que no tiene motivo.
+   */
+  motivo?: string | null,
 ): Promise<{ movidos: number; conPendientes: number; fallaron: number; sinSincronizar: number; pendientes: number[] }> {
   await exigirSesion();
   // ⚠️ NUNCA UN CORTE CALLADO (24/10/2026): con 221 tildados, una sola llamada movió 121 y Vercel la mató a los 60 s, y lo de más
@@ -1556,7 +1549,7 @@ export async function moverLeadsDeEtapaAction(
           movidos += 1;
           continue;
         }
-        const r = await setLeadStageAction(id, stageKey);
+        const r = await setLeadStageAction(id, stageKey, motivo?.trim() ? { motivo: motivo.trim().slice(0, 500) } : undefined);
         // ⚠️ `StageMoveResultado` ES UNA UNION, y la rama `ok: false` NO movio el lead.
         // Contarla como movida seria exactamente el «N movidos» mentiroso que esta action
         // existe para evitar: el numero se leeria como exito sobre un lote a medias.
@@ -1574,29 +1567,50 @@ export async function moverLeadsDeEtapaAction(
 }
 
 /**
- * Borra VARIOS leads. Irreversible: quien la llama PREGUNTA antes, nombrando el numero.
+ * «Eliminar» VARIOS leads: los manda a la PAPELERA (28/10/2026, ticket #22 de Leila; mig 0340). Quien la llama PREGUNTA
+ * antes, nombrando el numero y los 30 días (`preguntaDePapelera`, lib/leads-papelera-reglas.ts).
  *
- * Mismo criterio que la de arriba: `deleteLead` de a uno, que es el que se lleva por delante
- * lo que cuelga del lead (pagos, historial, pendientes). Un `delete ... in (...)` dejaria
- * huerfano todo eso.
+ * ⚠️ YA NO ES `deleteLead` DE A UNO. La base saca la foto de cada lead (él y todo lo que se lleva en cascada) y lo borra en
+ * UNA transacción por lead, de a `TANDA_PAPELERA`: la foto es la que lo devuelve con sus mismos ids. Sin la migración, tira
+ * y no borra nada. Con el MISMO corte por tiempo que mover (ver arriba): lo que no llega vuelve en `pendientes`.
+ * `motivo`: el de los que no se pudieron, para el aviso (sin él, «3 no se pudieron» no dice qué hacer).
  */
-export async function eliminarLeadsAction(leadIds: number[]): Promise<{ borrados: number; fallaron: number; pendientes: number[] }> {
+export async function eliminarLeadsAction(leadIds: number[]): Promise<{ borrados: number; mandados: number[]; fallaron: number; pendientes: number[]; motivo?: string }> {
   await exigirSesion();
-  // De a uno y con el MISMO corte por tiempo que mover (ver arriba): lo que no llega vuelve en `pendientes`.
   const todos = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
   const ids = todos.slice(0, TOPE_LOTE);
-  const pendientes: number[] = [];
-  const hasta = Date.now() + PRESUPUESTO_LOTE_MS;
-  let borrados = 0, fallaron = 0;
-  for (const id of ids) {
-    if (Date.now() > hasta) { pendientes.push(id); continue; }
-    try { await deleteLead(id); borrados += 1; }
-    catch (e) { fallaron += 1; console.error(`[lote] no se pudo borrar el lead ${id}:`, e instanceof Error ? e.message : e); }
-  }
+  const r = await mandarLeadsAPapelera(ids, { por: await autorActual(), hasta: Date.now() + PRESUPUESTO_LOTE_MS });
   bust(TAG.leads, TAG.pagos);
   revalidatePath('/crm');
   revalidatePath('/general');
-  return { borrados, fallaron, pendientes: [...pendientes, ...todos.slice(TOPE_LOTE)] };
+  return { borrados: r.hechos.length, mandados: r.hechos, fallaron: r.fallaron, pendientes: [...r.pendientes, ...todos.slice(TOPE_LOTE)], ...(r.motivos.length ? { motivo: r.motivos.join(' · ') } : {}) };
+}
+
+/**
+ * Devuelve VARIOS leads de la papelera, tal cual estaban (el «Deshacer» del aviso y la pantalla «Papelera»). Los que no
+ * vuelven (otro lead llegó con sus mismos datos) quedan en la papelera y se dice por qué.
+ */
+export async function recuperarLeadsAction(leadIds: number[]): Promise<{ recuperados: number; fallaron: number; pendientes: number[]; motivo?: string }> {
+  await exigirSesion();
+  const todos = [...new Set(leadIds)].filter((n) => Number.isInteger(n) && n > 0);
+  const ids = todos.slice(0, TOPE_LOTE);
+  const r = await recuperarLeadsDePapelera(ids, { por: await autorActual(), hasta: Date.now() + PRESUPUESTO_LOTE_MS });
+  bust(TAG.leads, TAG.pagos);
+  revalidatePath('/crm');
+  revalidatePath('/general');
+  return { recuperados: r.hechos.length, fallaron: r.fallaron, pendientes: [...r.pendientes, ...todos.slice(TOPE_LOTE)], ...(r.motivos.length ? { motivo: r.motivos.join(' · ') } : {}) };
+}
+
+/** Lo que hay en la papelera del CRM de este negocio. `falta`: la migración 0340 todavía no se aplicó. */
+export async function papeleraDeLeadsAction(): Promise<{ filas: FilaPapelera[]; falta: boolean }> {
+  await exigirSesion();
+  return listarPapeleraDeLeads();
+}
+
+/** Cuántos hay en la papelera (el renglón del menú de funnels se dibuja sólo si hay alguno). */
+export async function contarPapeleraAction(): Promise<number> {
+  await exigirSesion();
+  return contarPapeleraDeLeads();
 }
 
 /**
@@ -2036,7 +2050,7 @@ export type ImportLeadsResult = {
  * pantalla que confirma lo que propuso un canal (`/crm/revisar`) no sabe a qué tablero van,
  * y ahí `undefined` significa «el del negocio», que es donde caían todos hasta hoy.
  */
-export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null): Promise<ImportLeadsResult> {
+export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId?: number | null, etiquetaGeneral?: string | null): Promise<ImportLeadsResult> {
   await exigirSesion();
   if (!Array.isArray(filas) || !filas.length) return { creados: 0, enriquecidos: 0, ganados: 0, omitidos: 0, errores: ['No llegó ninguna fila.'] };
   if (filas.length > MAX_FILAS_IMPORT) {
@@ -2047,6 +2061,7 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   // campo (o un `motivo` en null para colar una fila que en realidad se descarta).
   const limpias: FilaImport[] = filas.map((f, i) => ({
     id: String(f?.id ?? `r${i}`),
+    etiquetas: etiquetasDeCelda(Array.isArray(f?.etiquetas) ? f.etiquetas.filter((x) => typeof x === 'string').join(';') : ''),
     nombre: String(f?.nombre ?? '').trim().slice(0, 200),
     email: String(f?.email ?? '').trim().slice(0, 200),
     telefono: String(f?.telefono ?? '').trim().slice(0, 60),
@@ -2270,6 +2285,9 @@ export async function importarLeadsRevisadosAction(filas: FilaImport[], funnelId
   }
 
   bust(TAG.leads);
+  // Las etiquetas del archivo y la de toda la lista (31/10/2026): en lote, sin disparar nada. Lo que falle se dice; los leads ya entraron.
+  errores.push(...await etiquetarImportados(leadsPorEtiqueta(limpias, ids, etiquetaGeneral), 'Importación').catch((e) => [`Las etiquetas: ${e instanceof Error ? e.message : String(e)}`]));
+
   revalidatePath('/crm');
   revalidatePath('/general');
   return { creados, enriquecidos, ganados, omitidos, errores: errores.slice(0, 20), ids };

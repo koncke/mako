@@ -1,17 +1,19 @@
 'use client';
 
 // =============================================================================
-// PanelMakoIA — «MaKo IA»: el chat del Image Editor, con la cara del panel de Canva AI
+// PanelMakoIA — el chat de MaKo del Image Editor: edita el diseño abierto
 // =============================================================================
 // Pedido de Martín (16/10/2026, por el Cerebro): «implementes este chat en todas las tabs… quiero que la app sea AI
-// NATIVE». Es el chat del Video Editor (app/video-editor/_opencut/chat/PanelChat.tsx) en el editor de imágenes, con la
-// pantalla del panel de Canva AI: el saludo con sugerencias en píldoras, los mensajes de la persona en burbuja lila a
-// la derecha y los de MaKo sueltos a la izquierda, y el cuadro de abajo con el enviar redondo en el degradado.
+// NATIVE». Es el chat del Video Editor (app/video-editor/_opencut/chat/PanelChat.tsx) en el editor de imágenes: el
+// saludo con sugerencias en píldoras, el hilo y la caja de MaKo.
 //   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado» que se acepta o se descarta entero; después de
 //     aceptar, «Restaurar» lo vuelve atrás (./acciones.ts);
 //   · el alcance en chips: «Todo el diseño» o lo elegido en el lienzo;
 //   · el hilo es por diseño y queda GUARDADO por persona (./hilo.ts, mig 0303).
-// Se abre con el botón redondo del pie del riel (chrome/RielCanva.tsx) y, en pantallas chicas, desde la tira de abajo.
+// DÓNDE (29/10/2026, Martín: «la barra lateral del chat de MaKo SIEMPRE abierto a la izquierda»): en la tarjeta izquierda
+// de la pantalla de Create (app/_crear/PantallaCrear.tsx), siempre abierto, sin botón para abrirlo ni cerrarlo. Usa el motor
+// (`useEditor`), así que lo monta el editor por adentro y se dibuja ahí por portal (../../editor/PantallaEditor.tsx). En el
+// teléfono es «MaKo» del interruptor de arriba de esa misma pantalla. Antes era un panel del riel con un botón redondo.
 //
 // CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
 // Center»): el hilo es `HiloMako` (con la criatura de la tab, la misma que lo nombra en el Ops Center) y la caja es
@@ -27,6 +29,7 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import Link from '@/app/_ui/Link';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
@@ -160,11 +163,15 @@ export function PanelMakoIA() {
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
-  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto });
+  // Acá un SVG o un AVIF también es una imagen para poner (se sube a «Subidos», que los pasa a PNG). La IA lee los demás: ./acciones.ts.
+  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto, aceptaDeMas: 'image/svg+xml,image/avif' });
+  const cita = useCitaDelChat(disenoId);
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
     if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
+    // Una nota de voz sale por detrás: la cita queda para lo que se está escribiendo.
+    if (!dejarCaja) instruccion = cita.con(instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion - cita.reserva), archivos.length > 0);
     void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos);
-    if (!dejarCaja) setTexto('');
+    if (!dejarCaja) { setTexto(''); cita.soltar(); }
   };
 
   const sugerir = (s: Sugerencia) => {
@@ -231,7 +238,7 @@ export function PanelMakoIA() {
             </div>
           )}
           <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} onCitar={cita.citar} enMensaje={enMensaje} />
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}
@@ -259,7 +266,7 @@ export function PanelMakoIA() {
         <div className="co-caja">
           <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
             apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
-            adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
+            arriba={cita.arriba} adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion - cita.reserva} />
         </div>
       </div>
     </div>

@@ -4,14 +4,17 @@
 // Aparte para que la cobertura (lib/plan-acceso.ts) lea la PAUSA sin importar la pasarela (y sin un círculo de imports).
 // =============================================================================
 
+
 export const CLAVE_RETENCION = 'plan.retencion';
+
+import type { Pasarela } from './cobros-tipos';
 
 export type OpcionRetencion = 'descuento' | 'pausa' | 'bajar';
 
 export type Guardada = {
   estado: 'aplicando' | 'aplicada' | 'error';
   opcion: OpcionRetencion;
-  cobroId: number; pasarela: 'stripe' | 'mercadopago';
+  cobroId: number; pasarela: Pasarela;
   aplicadaAt: string; montoOriginal: number; moneda: string;
   pct?: number; meses?: number;
   /** La pausa: hasta cuándo cubre (fecha). */

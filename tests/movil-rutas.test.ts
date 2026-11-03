@@ -90,6 +90,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
   assert.equal(DESTINOS_MOVIL.find((d) => d.id === 'chats')?.navKey, 'chats');
   // 15/10/2026: las siete del prototipo v3, cada una en su lugar de la sidebar (Copywriting se gatea con la key
   // de su sección Ads Writer: la de la tab unificada no está en TODOS_LOS_ITEMS).
+  // 29/10/2026: Copywriting ES el Copywriter (una pantalla, sin secciones): se gatea con su key, `copywriter`.
   // 17/10/2026, la sidebar nueva: dos familias (Operate con Dashboard y Clients; Sales Machine con Video y Copywriting),
   // Second Brain arriba sin título, y el Mapa y Experiments OCULTOS (sus páginas siguen; no son filas).
   assert.deepEqual(SECCIONES_MAS.map((s) => [s.id, s.navKey, s.familia, s.oculta ?? false]), [
@@ -98,7 +99,10 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
     ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true], ['agency', 'agency', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
-    ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
+    // 29/10/2026 (Create sin pestañas): la fila Video abre el editor, como la sidebar.
+    ['video', 'video-editor', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'copywriter', 'create', false],
+    // AI Avatar, para todos desde el 29/10/2026: fila de Create, como Video.
+    ['ai-avatar', 'ai-avatar', 'create', false],
     ['mako', 'mako', null, false],
     ['second-brain', 'second-brain', null, true], ['experimentos', 'experimentos', null, true],
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
@@ -111,9 +115,9 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['customers', 'admin-customers', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
     // (secciones de Video, Image y Copywriting: lib/movil-creacion.ts y tests/m-creacion.test.ts).
-    ['video-editor', 'video-editor', null, true], ['reels', 'reels', null, true],
-    ['carousels', 'carousels', null, true], ['stories', 'stories', null, true],
-    ['admin-copywriting', 'admin-copywriting', null, true],
+    // 29/10/2026: Video Generator queda oculta (una plantilla de Video); Reels y Carousels se retiraron.
+    // 29/10/2026: la fila oculta del método de redacción del super admin se fue (Martín: «no quiero ninguna mención»).
+    ['video-generator', 'video-generator', null, true], ['stories', 'stories', null, true],
   ]);
 });
 
@@ -123,8 +127,8 @@ test('admin de un cliente completo: la barra de cinco y More con todo, una caja 
   // se dibuja; lo diario (las hojas del Dashboard; la portada /m/hoy la suma `masCompleto`), Sales, Marketing y Create.
   assert.deepEqual(mas('admin', 'completo'), [
     ['dashboard'], ['calendario', 'automations', 'cs'], ['offer', 'landing', 'ads'],
-    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video.
-    ['video', 'image', 'copywriting'],
+    // Image (la copia de Canva) es fila de More desde el 17/10/2026, debajo de Video; AI Avatar (de Pro) desde el 29/10/2026.
+    ['video', 'image', 'copywriting', 'ai-avatar'],
   ]);
   // Lo diario con título desde el 20/10/2026 (en escritorio lleva rótulo y el Ops Center adentro).
   assert.deepEqual(familias('admin', 'completo'), ['Today', 'Sales', 'Marketing', 'Create']);
@@ -301,6 +305,8 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/classroom?producto=3', '/m/curso?producto=3'], ['/classroom/preview?producto=3', '/m/curso?producto=3'],
     ['/classroom/community', '/m/comunidad'], ['/classroom/community?post=12&ws=3', '/m/comunidad?post=12'],
     ['/classroom/calendar', '/m/comunidad'], ['/classroom/members', '/m/comunidad'], ['/classroom/leaderboards', '/m/comunidad'],
+    // Members es la vista «Miembros» de Clients desde el 29/10/2026: en el teléfono sigue adentro de la comunidad.
+    ['/classroom/clients?vista=miembros&producto=3', '/m/comunidad?producto=3'], ['/classroom/clients?vista=tabla', '/m/cs'],
     ['/classroom/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
     // El prefijo va con barra.
     ['/calendariox', null], ['/offerx', null], ['/second-brainx', null],

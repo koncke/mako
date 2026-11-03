@@ -36,14 +36,14 @@ test('cada selector de funnels lleva ESE cubo en el control', () => {
     ['app/crm/lead-view/ProductoDelLead.tsx', /<IconoFunnel \/>/],
     ['app/crm/AccionesLoteLeads.tsx', /<IconoFunnel \/>/],
     ['app/crm/CampanasModal.tsx', /icon=\{<IconoFunnel \/>\}/],
-    ['app/offer/SelectorFunnel.tsx', /funnel: <IconoFunnel size=\{18\} \/>[\s\S]*icono=\{<IconoFunnel size=\{20\} \/>\}/],
+    // (El selector de Offer se fue el 29/10/2026: las ofertas son la lista de la tarjeta del chat, app/_crear/PantallaCrear.tsx.)
     ['app/m/offer/OfferM.tsx', /<IconoFunnel size=\{18\} \/>/],
   ];
   for (const [archivo, re] of casos) assert.match(leer(archivo), re, `${archivo}: el funnel sin el cubo de la casa`);
   // Y los renglones de un funnel no repiten un ícono (el cubo va en el control).
   assert.doesNotMatch(leer('app/components/ElegirFunnels.tsx'), /icono: '/);
   // El embudo del sidebar es el de FILTRAR: ya no nombra un funnel en Offer.
-  for (const f of ['app/offer/SelectorFunnel.tsx', 'app/m/offer/OfferM.tsx']) assert.doesNotMatch(leer(f), /<Icon name="funnel"/, f);
+  for (const f of ['app/m/offer/OfferM.tsx']) assert.doesNotMatch(leer(f), /<Icon name="funnel"/, f);
 });
 
 test('nadie vuelve a dibujar un cubo a mano', () => {

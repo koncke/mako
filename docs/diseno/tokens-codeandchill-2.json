@@ -1,0 +1,111 @@
+{
+  "_que_es": "Segunda tanda de tokens REALES de codeandchill.store, leídos del navegador el 31/10/2026. Sigue a tokens-codeandchill.json (merrin, tilvo). Mismo método: getComputedStyle sobre :root.",
+  "_el_esqueleto_se_confirma_y_se_rompe": "La tipografía (Urbanist), la escala (11→34 con medios pasos), --gap 18px, los radios 10/14/18/24 y la curva única cubic-bezier(.22,1,.36,1) se repiten en pacely, wynlo y coffra. PERO hay dos VARIANTES de estructura que no se pueden ignorar: coffra es la de VIDRIO ESMERILADO (tarjetas translúcidas + blur) y corvane NO tiene barra lateral ancha (sólo riel de 88) y nombra sus tokens distinto (--text/--faint/--on-ink en vez de --ink/--muted).",
+
+  "pacely": {
+    "_que_es": "Agenda de una clínica. La referencia para Calendario, el Plan y cualquier pantalla de turnos. Paleta piedra cálida con un naranja de señal y acento casi negro.",
+    "url": "https://demo.codeandchill.store/pacely/",
+    "estructura": { "--side-w": "252px", "--rail-w": "88px" },
+    "vars": {
+      "--bg": "#f3f2ef", "--card": "#fdfdfb", "--card-2": "#f6f5f2", "--card-3": "#e9e7e2",
+      "--ink": "#1b1a18", "--ink-2": "#3a3834", "--muted": "#67635b",
+      "--line": "#1b1a1814", "--line-2": "#1b1a1826", "--rim": "#1b1a182e",
+      "--shadow": "0 1px 2px #1b1a180d, 0 10px 26px -16px #1b1a1838",
+      "--shadow-lg": "0 2px 6px #1b1a1812, 0 28px 60px -24px #1b1a1857",
+      "--accent": "#1f1e1b", "--accent-ink": "#fbfaf7", "--accent-hi": "#34322e",
+      "--accent-soft": "#1f1e1b12", "--accent-soft-solid": "#fbe6dc", "--accent-text": "#1f1e1b",
+      "--sig": "#d9532a", "--sig-text": "#a63a16", "--sig-soft": "#d9532a1f",
+      "--data": "#d9532a", "--now": "#d9532a", "--stamp": "#b8352a",
+      "--side": "#e7e4dd", "--side-ink": "#1b1a18", "--side-muted": "#5f5a51",
+      "--side-hover": "#1b1a180d", "--side-line": "#1b1a1817", "--side-tile": "#fdfdfb", "--side-card": "#ffffff8c",
+      "--good": "#2a7a46", "--warn": "#8a5a00", "--bad": "#b3261e", "--info": "#5c5850",
+      "--good-soft": "#2a7a461f", "--warn-soft": "#c98a142b", "--bad-soft": "#b3261e1a", "--info-soft": "#1b1a1812",
+      "--tile-1": "#f5e0d5", "--tile-2": "#e1e9da", "--tile-3": "#f1e6cd", "--tile-4": "#efdfe3",
+      "--tile-ink": "#1b1a18", "--tile-muted": "#1b1a18a8",
+      "--k-assess": "#d9532a", "--k-treat": "#4c8a58", "--k-review": "#c4890f", "--k-group": "#c0466f", "--k-tele": "#8a7460",
+      "--c1": "#d9532a", "--c2": "#c0466f", "--c3": "#4c8a58", "--c4": "#c4890f", "--c5": "#8a7460",
+      "--h0": "#e6e3dc", "--h1": "#f5dccf", "--h2": "#dce8d8", "--h3": "#f2e3c4", "--h4": "#f1d8e1", "--h5": "#e8dfd4"
+    },
+    "_acento_nota": "El acento es casi NEGRO (#1f1e1b) y el color de señal va aparte (--sig, naranja). Es el truco por el que la pantalla se ve cara: el botón principal no grita, lo que grita es el dato."
+  },
+
+  "wynlo": {
+    "_que_es": "CRM de ventas con mapa por país. Paleta terracota + azul pizarra. La más cercana a una marca cálida.",
+    "url": "https://demo.codeandchill.store/wynlo/",
+    "estructura": { "--side-w": "256px", "--rail-w": "84px", "--r-lg": "20px (acá 20, no 18)" },
+    "vars": {
+      "--bg": "#f3f0eb", "--card": "#fdfcfa", "--card-2": "#f7f4ef", "--card-3": "#e9e4dc",
+      "--ink": "#1f1a15", "--ink-2": "#3d342c", "--muted": "#6b5f55",
+      "--line": "#1f1a1514", "--line-2": "#1f1a1526", "--rim": "#1f1a1529",
+      "--shadow": "0 1px 2px #1f1a150a, 0 10px 26px -16px #1f1a1529",
+      "--shadow-lg": "0 2px 6px #1f1a150f, 0 28px 60px -24px #1f1a154d",
+      "--accent": "#b4532a", "--accent-ink": "#fff", "--accent-hi": "#c2623a",
+      "--accent-soft": "#b4532a1c", "--accent-text": "#8f3f1b",
+      "--out": "#3f6576", "--out-soft": "#3f657621",
+      "--ch1": "#b4532a", "--ch2": "#3f6576", "--ch3": "#c99a52",
+      "--good": "#1a6b40", "--warn": "#8a5a00", "--bad": "#b42330", "--info": "#22609f",
+      "--tile-1": "#f3e0d2", "--tile-2": "#f1e5d2", "--tile-3": "#dbe6ef", "--tile-4": "#dce9df",
+      "--sw1": "#f1dccd", "--sw2": "#d3e2e8", "--sw3": "#efe0c6", "--sw4": "#dbe5d3", "--sw5": "#e6d8cf", "--sw6": "#dcdff0",
+      "--sw-ink": "#2a2018", "--stamp": "#b4532a"
+    },
+    "_sw_nota": "--sw1..sw6 son los rellenos del MAPA (un tono muy claro por tramo). Separados de --tile-* a propósito: un mapa necesita más pasos y más planos que una tarjeta."
+  },
+
+  "coffra": {
+    "_que_es": "⚠️ LA DEL VIDRIO ESMERILADO. Dinero y gente. La primera vuelta del rediseño la descartó por criterio propio («es un efecto de modo oscuro, choca con nuestro tema claro») — Martín pidió copiar TODO, así que entra. Paleta verde salvia + arena.",
+    "url": "https://demo.codeandchill.store/coffra/",
+    "estructura": { "--rail-w": "76px", "--panel-w": "236px" },
+    "vidrio": {
+      "--glass-blur": "blur(20px) saturate(1.5)",
+      "--glass-strong": "#fdfbf7eb",
+      "--card": "#fffdf9b3",
+      "--rail": "#fffdf994",
+      "--panel": "#fffdf957",
+      "--rim": "inset 0 1px 0 #ffffffd9, inset 0 0 0 1px #ffffff8c",
+      "--solid": "#fbf9f4"
+    },
+    "_vidrio_nota": "El vidrio NO es sólo blur: son tres cosas juntas. (1) la tarjeta es BLANCA CON ALFA (b3 = 70%), no un gris; (2) el blur lleva saturate(1.5), que es lo que hace que el color de atrás se vea vivo y no lavado; (3) el --rim es un borde INTERIOR de luz, dos inset: una línea arriba y un contorno completo. Sin el rim el vidrio se ve sucio. Y hay un --solid para lo que NO puede ser translúcido.",
+    "vars": {
+      "--bg": "#f4f1ea", "--card-2": "#3c34240a", "--card-3": "#3c342416",
+      "--ink": "#1f2420", "--ink-2": "#3c4440", "--muted": "#5d6660",
+      "--line": "#34302417", "--line-2": "#34302429",
+      "--shadow": "0 1px 2px #3c34240d, 0 12px 32px -16px #3c342433",
+      "--shadow-lg": "0 2px 6px #3c342412, 0 30px 64px -24px #3c342452",
+      "--accent": "#4e7a60", "--accent-ink": "#fff", "--accent-hi": "#5b8a6d",
+      "--accent-soft": "#4e7a6021", "--accent-text": "#41694f", "--accent-2": "#b7d3bf",
+      "--sand": "#e49a62", "--sand-2": "#f7dcc4",
+      "--good": "#2f7247", "--warn": "#8a5300", "--bad": "#b3363c", "--info": "#2d6a6e",
+      "--tile-mint": "#dcece0e0", "--tile-sand": "#fbe8d2e0", "--tile-sky": "#f6eed2e6", "--tile-peach": "#fae0d8e6",
+      "--field-1": "#a8ceb261", "--field-2": "#f6d6a852", "--field-3": "#fabea03d",
+      "--stamp": "#4e7a60"
+    },
+    "_tile_nota": "Acá los tiles también llevan alfa (e0, e6): flotan sobre el fondo en vez de taparlo. Y --field-* son los fondos de los campos de un formulario, por estado."
+  },
+
+  "corvane": {
+    "_que_es": "⚠️ VARIANTE DE ESTRUCTURA: portal de operaciones de pagos, SIN barra lateral ancha (sólo riel de 88) y con un canal central de ancho fluido. Nombra sus tokens distinto. Paleta arcilla.",
+    "url": "https://demo.codeandchill.store/corvane/",
+    "estructura": { "--side-w": "88px", "--rail-w": "88px", "--gutter": "clamp(16px, 2vw, 32px)" },
+    "_gutter_nota": "El margen lateral es un clamp, no un número: 16px en el teléfono, 2vw en el medio, tope de 32. Es lo que hace que la misma pantalla sirva en las dos puntas sin un breakpoint.",
+    "vars": {
+      "--bg": "#f1f0ec", "--card": "#fbfaf7", "--card-2": "#f5f4f0", "--well": "#1c1a160d",
+      "--line": "#1c1a1614", "--line-2": "#1c1a1626",
+      "--shadow": "0 1px 2px #28221a0d, 0 12px 32px -22px #28221a47",
+      "--shadow-pop": "0 24px 60px -18px #1e1a1452, 0 2px 6px #1e1a1414",
+      "--text": "#1c1c1e", "--muted": "#64625e", "--faint": "#8a8781",
+      "--ink": "#1d1e20", "--on-ink": "#f6f4ef",
+      "--accent": "#b0521f", "--accent-text": "#9c4518", "--on-accent": "#fff8f2", "--accent-soft": "#f3e3d6",
+      "--good": "#1d7448", "--warn": "#8f5a00", "--bad": "#b3303d", "--info": "#2c5e9f",
+      "--soft": "13%",
+      "--t-sand": "#ecdfcd", "--t-sage": "#dce5d9", "--t-mist": "#dbe3ea", "--t-clay": "#efd9d0", "--on-tile": "#1c1c1e",
+      "--av-a": "#e7d3c3", "--av-b": "#cfe0d5", "--av-c": "#d4dceb", "--av-d": "#eedcb6", "--av-e": "#e3d0d4", "--av-f": "#d2e3e3",
+      "--on-av": "#2a2622"
+    },
+    "_av_nota": "--av-a..f son los fondos de los AVATARES sin foto, seis tonos que rotan por inicial. Es un detalle chico que hace que una lista de gente se vea trabajada.",
+    "_on_nota": "Usa el par color/on-color (--ink/--on-ink, --accent/--on-accent, --tile/--on-tile): el color del texto viaja CON su fondo. Es más robusto que elegir el texto en cada lugar.",
+    "_soft_nota": "--soft: 13% es un PORCENTAJE, no un color: se usa con color-mix() para generar la versión suave de cualquier color sin escribir un hex nuevo."
+  },
+
+  "_faltan": ["covry", "kerfa", "kinlo", "ledra", "moorly", "sleuth", "fitlo"],
+  "_faltan_nota": "Siete plantillas más, el modo oscuro de todas, y las medidas de teléfono. El método está probado: navegar a demo.codeandchill.store/<nombre> y leer :root con getComputedStyle."
+}

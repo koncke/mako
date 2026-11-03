@@ -1,26 +1,25 @@
 // =============================================================================
-// Quién puede abrir AI Avatar — hoy, sólo el super admin
+// Quién puede abrir AI Avatar — el admin de cualquier negocio, en los tres planes (y la plataforma)
 // =============================================================================
-// La tab nace el 17/10/2026 y la ve sólo el super admin hasta que Martín la
-// valide, igual que el Video Editor hasta el 12/10. El día que se abra, cambia
-// ESTA función (y el `adminOnly` de nav.ts): la usan las cuatro pantallas y las
-// server actions, para que el acceso se decida en un solo lugar.
-//
-// ⚠️ NO es `requireRolWs([], { nav })`: esa puerta deja pasar al admin de CADA
-// workspace (rol 'admin'), que es justo lo que todavía no se quiere. El guard de
-// «sólo la agencia» es `getSesionAdmin()` (lib/tab-access.ts lo dice).
+// Nació el 17/10/2026 sólo para el super admin (la sesión de la agencia), hasta que Martín la validara. El 29/10/2026 la
+// abrió a TODOS: «haz que AI-Avatar esté disponible para todos» (Esencial, Pro y Acelerador; ya no está en TABS_SOLO_PRO).
+// La puerta es la de toda tab (sesión, capa, rol y onboarding: `requireRolWs`), como el Video Editor. La usan las pantallas y
+// las server actions, para que el acceso se decida en un solo lugar.
+// ⚠️ Generar pide cosas que son de la persona y no de su plan (la extensión de MaKo en Chrome, su cuenta de Google Flow, sus
+//    créditos y una foto de su cara): la pantalla las lista paso a paso antes de «Generar» (lib/ai-avatar/requisitos.ts).
 
 import 'server-only';
-import { redirect } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
-import { rutaConWs } from '@/lib/workspace';
+import { requireRolWs } from '@/lib/tab-access';
+import { tabEnCapa } from '@/lib/capas';
+import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 
-/** ¿Quien mira puede usar AI Avatar? Para las actions (no redirige). */
+/** ¿Quien mira puede usar AI Avatar? Para las actions (no redirige): el admin, con la tab en su capa. */
 export async function veAiAvatar(): Promise<boolean> {
-  return !!(await getSesionAdmin());
+  if ((await getRolWsEfectivo()) !== 'admin') return false;
+  return tabEnCapa('ai-avatar', await getCapaActual());
 }
 
-/** El guard de las pantallas de la tab. */
+/** El guard de las pantallas: lo de toda tab (sesión, capa, rol y onboarding). */
 export async function requireAiAvatar(): Promise<void> {
-  if (!(await veAiAvatar())) redirect(await rutaConWs('/inicio'));
+  await requireRolWs([], { nav: 'ai-avatar' });
 }

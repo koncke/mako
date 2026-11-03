@@ -1,6 +1,7 @@
 /*
- * La barra superior de Canva (relevamiento §1 y §2): 56 px, degradado celeste→violeta de punta a punta, texto
- * blanco 14/22. Los botones de texto («Archivo», «Redimensionar») son transparentes con un velo blanco al pasar.
+ * La barra superior (el armazón de Canva, relevamiento §1 y §2): 56 px. Con los colores de MaKo (29/10/2026): la
+ * superficie con la tinta de la app (sin el degradé de Canva) y una línea abajo; los botones de texto («Archivo»,
+ * «Redimensionar») son transparentes con el velo de MaKo al pasar, y «Compartir» es el botón primario azul.
  */
 .bar {
   flex: none;
@@ -12,7 +13,8 @@
   gap: var(--cv-space-2);
   height: var(--cv-editor-topbar-h);
   padding: 0 var(--cv-space-2);
-  background: var(--cv-header-gradient);
+  border-bottom: 1px solid var(--cv-color-border);
+  background: var(--cv-header-bg);
   color: var(--cv-header-text);
   font: 500 var(--cv-text-base) / 22px var(--cv-font-sans);
 }
@@ -53,16 +55,16 @@
   white-space: nowrap;
 }
 
-/* Separador vertical entre grupos, blanco translúcido. Canva: ~1×24 px */
+/* Separador vertical entre grupos (~1×24 px) */
 .sep {
   flex: none;
   width: 1px;
   height: 24px;
   margin: 0 var(--cv-space-1);
-  background: rgb(255 255 255 / 0.3);
+  background: var(--cv-color-border);
 }
 
-/* Botón de la barra sobre el degradado. Canva: alto 40, radio 8, sin borde */
+/* Botón de la barra: alto 40, radio 8, sin borde */
 .hbtn {
   display: inline-flex;
   flex: none;
@@ -88,7 +90,7 @@
 }
 
 .hbtn:active:not(:disabled) {
-  background: rgb(255 255 255 / 0.24); /* Canva: presionado, un escalón más que el hover */
+  background: var(--cv-color-press); /* presionado: un escalón más que el velo */
 }
 
 .hbtn:disabled {
@@ -98,7 +100,8 @@
 
 .hbtn:focus-visible,
 .share:focus-visible {
-  outline: 2px solid var(--cv-header-text);
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
   outline-offset: 1px;
 }
 
@@ -107,12 +110,12 @@
   padding: 0;
 }
 
-/* Los botones con borde de la derecha (Comentarios, Presentar). Canva: borde blanco translúcido */
+/* Los botones con borde de la derecha (Comentarios, Presentar) */
 .outlined {
   border-color: var(--cv-header-button-border);
 }
 
-/* «Compartir»: botón claro sobre el degradado. Canva: #F3EBFD / texto #0E1318, ~93×42 */
+/* «Compartir»: el botón primario de MaKo, azul lleno */
 .share {
   display: inline-flex;
   flex: none;
@@ -124,8 +127,8 @@
   padding: 0 var(--cv-space-4);
   border: 0;
   border-radius: var(--cv-radius-sm);
-  background: #f3ebfd; /* Canva: «Compartir» sobre el degradado */
-  color: var(--cv-color-text);
+  background: var(--cv-color-cta);
+  color: var(--cv-color-on-cta);
   font: 600 var(--cv-text-base) / 22px var(--cv-font-sans);
   white-space: nowrap;
   cursor: pointer;
@@ -134,7 +137,7 @@
 
 .share:hover,
 .share[aria-expanded='true'] {
-  background: #ffffff;
+  background: var(--cv-color-cta-hover);
 }
 
 .shareIcon {
@@ -142,7 +145,7 @@
   padding: 0;
 }
 
-/* «Diseño sin título - 1080 × 1080 px»: blanco translúcido, se edita el nombre en el lugar */
+/* «Diseño sin título - 1080 × 1080 px»: tinta tenue, se edita el nombre en el lugar */
 .titleBox {
   display: inline-flex;
   flex: 0 1 auto;
@@ -155,7 +158,7 @@
   padding: 0 var(--cv-space-2);
   border: 1px solid transparent;
   border-radius: var(--cv-radius-sm);
-  color: rgb(255 255 255 / 0.85); /* Canva: el título va en blanco translúcido */
+  color: var(--cv-color-text-muted);
   white-space: nowrap;
 }
 

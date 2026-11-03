@@ -240,4 +240,33 @@ export const BITACORA: Hito[] = [
       '⚠️ Sin cerrar: `npm test` sigue fuera del pre-push, y **ningún test EJECUTA un route handler** — los que nombran `app/api/**` leen su fuente como TEXTO y afirman sobre ella',
     ],
   },
+  {
+    fecha: '30 oct', hora: '23:35', chat: '—', sesion: 'local_d2da2fdd-9849-4df6-bb19-183677f8640b',
+    cuenta: 'claude1', actor: 'martin', tipo: 'prompt',
+    titulo: 'El bug que da verde en Actions y roto en Windows, y el guard que falta',
+    pedido: 'En el rescate de la rama `nube/video-generator-2710` (commit 9b5b2346e en `nube/video-generator-rescate`) encontramos un bug que da VERDE en GitHub Actions y ROTO en Windows, y hoy nada lo frena.\n\nEl caso medido: `app/video-generator/estudio/` tenía `composer.ts` (módulo puro) y `Composer.tsx` (la pantalla). El `import { Composer } from \'./Composer\'` de `EstudioVideo.tsx` resuelve probando extensiones en orden: `./Composer.ts` antes que `./Composer.tsx`. En NTFS (case-insensitive) `./Composer.ts` ES `composer.ts`, así que el import traía el módulo puro: `TS1149` (file name differs only in casing) + `TS2305` (no exported member \'Composer\') + un componente que queda `any` (TS7006). En Linux —Actions y el build de Vercel— `./Composer.ts` no existe, el resolvedor pasa de largo y da verde. Y con `typescript.ignoreBuildErrors: true` el build tampoco frena.\n\nYa está arreglado en ese commit (el puro pasó a `composer-reglas.ts`) y documentado en AGENTS.md → «Para validar lo tuyo sin el tsc completo» y en docs/hallazgos-generativa.md. Lo que falta es el guard.\n\nTarea: agregar un test de forma (va en `tests/`, junto a los otros barridos) que recorra `git ls-files` y falle si dos archivos de la MISMA carpeta colisionan al bajarles las mayúsculas **considerando cómo resuelve TypeScript**: el caso peligroso es que el basename sin extensión de uno, en minúsculas, coincida con el de otro cuyo contenido es un módulo distinto (`composer` vs `Composer`), aunque las extensiones difieran (`.ts` vs `.tsx`). Ojo: `composer.ts` y `Composer.tsx` NO chocan en el filesystem (los nombres completos difieren), así que un chequeo ingenuo de nombres completos en minúsculas no lo caza — hay que comparar el basename SIN extensión entre archivos resolubles por TS (`.ts`, `.tsx`, `.js`, `.jsx`, `.mts`, `.cts`).\n\nVerificá que el test falla sobre el árbol anterior al arreglo (`git show 9012f6070:app/video-generator/estudio/` tenía los dos) y pasa sobre `main`. Corré el test con `node --import tsx --test tests/<archivo>.test.ts` (NUNCA `node --test` pelado: los imports sin extensión dan un ERR_MODULE_NOT_FOUND falso) y pasá lo pesado por `node C:/dev/con-turno.mjs` para hacer fila por la RAM.',
+    puntos: [
+      'El pedido ya traía medido el bug y la trampa del chequeo ingenuo: lo que faltaba era el barrido.',
+    ],
+  },
+  {
+    fecha: '30 oct', hora: '23:35', chat: '—', sesion: 'local_d2da2fdd-9849-4df6-bb19-183677f8640b',
+    cuenta: 'claude1', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El barrido compara el basename SIN extensión, y su lista de extensiones es la pieza que lo sostiene',
+    puntos: [
+      '**El chequeo que aparece primero no sirve, y por eso este bug llegó a una rama entera sin que nada lo frenara.** `composer.ts` y `Composer.tsx` **coexisten** en NTFS: sus nombres completos difieren también en minúsculas, así que no hay choque de filesystem, el checkout no se queja y `ls` los muestra a los dos. El choque es del RESOLVEDOR, que prueba `./Composer.ts` antes que `./Composer.tsx` y en NTFS lo encuentra. Así que el barrido compara el **basename sin extensión** en minúsculas, que es con lo que TypeScript sale a probar.',
+      '⚠️ **La lista de extensiones ES el guard, no un detalle de implementación.** Son las que TypeScript resuelve sin que el import las nombre (`.ts .tsx .js .jsx .mts .cts .mjs .cjs`, con `allowJs` y `moduleResolution: bundler`). Medido: `.mjs` y `.cjs` no agregan ni un hallazgo, pero con `.css` adentro aparecen **cinco falsos positivos** que son la convención de la casa (`app/_ui/Ajustes.tsx` + `ajustes.css`, y cuatro más). Una hoja de estilos no la resuelve un import sin extensión: no puede divergir entre filesystems. Sumar una extensión a esa lista se mide ANTES.',
+      '**Y exige que los nombres DIFIERAN en la caja:** `foo.ts` + `foo.js` caen en el mismo casillero y no son este bug — ahí el resolvedor elige el `.ts` igual en Windows que en Linux. Lo que el guard persigue es la DIVERGENCIA entre filesystems, y la produce la mayúscula y nada más. Entra también el caso hermano por el mismo mecanismo (una carpeta con `index` y un archivo vecino que se llaman igual en minúsculas), medido en 0 en los dos árboles.',
+      'Medido con el detector: `origin/main` 0 (19.821 archivos), `origin/integracion` 0, el árbol ANTERIOR al arreglo (`9012f6070`) **1** —el `Composer`/`composer`— y el árbol CON el arreglo (`9b5b2346e`) 0. Ese `9012f6070` queda fijado dentro del test: el detector se mide contra el árbol del bug en cada corrida, y donde el commit no esté (un clon superficial) el test **se saltea diciéndolo**, porque uno que se saltea mudo da verde sin haber mirado nada.',
+      '⚠️ **Probado rompiéndolo, base 4 pases / 0 fallos, y la rotura del bug real hubo que hacerla con `git mv`:** el barrido lee `git ls-files`, que es el ÍNDICE, así que renombrar en disco y no stagear lo deja invisible (la misma letra chica de «`npm test` antes del `git add` no ve los archivos nuevos»). Devolver `composer-reglas.ts` a `composer.ts` -> 3/1; comparar el nombre COMPLETO -> 2/2 y no bajar las mayúsculas -> 2/2 (las dos formas ingenuas le pasan limpias al árbol del bug); `.css` en la lista -> 1/3.',
+    ],
+    commits: [
+      { sha: '390596bf4', msg: 'tests: dos módulos de la misma carpeta no pueden llamarse igual en minúsculas', lineas: 255, archivos: 4 },
+    ],
+    archivos: [
+      'tests/colision-de-nombres.test.ts — el barrido, el caso hermano de la carpeta con `index`, la medición contra `9012f6070` y el test del detector con lo que tiene que DEJAR pasar',
+      'AGENTS.md → «Para validar lo tuyo sin el tsc completo» — ahí ya vivía la regla; se le pegó el guard y por qué un chequeo de nombres completos no alcanza',
+      'docs/hallazgos-generativa.md → «`composer.ts` y `Composer.tsx` en la misma carpeta» — reemplaza el «lo que quedó sin hacer» por lo medido',
+    ],
+  },
 ];

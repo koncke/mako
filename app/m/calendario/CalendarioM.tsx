@@ -27,7 +27,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
-import { CabeceraM, ErrorM, SegmentadoM, VacioM, useToastM } from '@/app/m/_ui';
+import { CabeceraM, ErrorM, SegmentadoM, VacioM, navegarAlCerrar, useToastM } from '@/app/m/_ui';
 import { haptico } from '@/lib/haptico';
 import { sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import type { FallosCalendario, GoogleDelCalendario } from '@/lib/calendario';
@@ -93,9 +93,11 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
   const conAlgo = useMemo(() => diasConAlgo(aDibujar, rango, tz), [aDibujar, rango, tz]);
 
   // ── Moverse ──
+  // Con una hoja abierta (guardar un evento fuera de lo leído), el push espera a que la hoja suelte su URL: si no, el
+  // replaceState de la hoja lo descartaba y el evento recién creado no se veía (ticket #27, app/m/_ui/hoja-historial.ts).
   const navegar = useCallback((v: VistaM, f: string) => {
     setHoja(null);
-    router.push(`/m/calendario?vista=${v}&fecha=${f}`);
+    navegarAlCerrar(() => router.push(`/m/calendario?vista=${v}&fecha=${f}`));
   }, [router]);
   /** Un día: si está en lo leído, en el acto; si no, se va a leerlo. */
   const irAlDia = useCallback((d: string) => {

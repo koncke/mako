@@ -30,7 +30,12 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { PublicarEnRed } from './PublicarEnRed';
 
 /** El ícono de cada tipo y de cada formato (la regla de la casa: cada opción de un desplegable lleva el suyo). */
-export const ICONO_TIPO: Record<TipoEvento, NombreIconoMenu> = { publicacion: 'enviar', bloque: 'reloj', llamada: 'telefono', otro: 'nota' };
+export const ICONO_TIPO: Record<TipoEvento, NombreIconoMenu> = { publicacion: 'enviar', bloque: 'reloj', llamada: 'telefono', otro: 'nota', entrega: 'cliente' };
+/**
+ * Los tipos que se ofrecen (29/10/2026): los de los cuatro usos que se guardan acá (Publicación, Llamada de venta, Reunión de
+ * entrega). Un Bloque o un «Otro» ya guardado se sigue viendo y editando con su tipo; no se ofrecen para algo nuevo.
+ */
+const TIPOS_QUE_SE_OFRECEN: readonly TipoEvento[] = ['publicacion', 'llamada', 'entrega'];
 export const ICONO_FORMATO: Record<FormatoPublicacion, NombreIconoMenu> = { story: 'imagen', reel: 'video', post: 'texto', ad: 'anuncio', email: 'email', video: 'video', otro: 'nota' };
 
 const DURACIONES = [0, 15, 30, 45, 60, 90, 120, 180, 240];
@@ -87,7 +92,7 @@ export function EventoModal({ inicial, guardando, error, onCerrar, onGuardar, on
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar(); } }} />
 
         <div role="radiogroup" aria-label="Tipo de evento" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {TIPOS_EVENTO.map((t) => {
+          {TIPOS_EVENTO.filter((t) => TIPOS_QUE_SE_OFRECEN.includes(t) || t === inicial.tipo).map((t) => {
             const es = t === tipo;
             return (
               <button key={t} type="button" role="radio" aria-checked={es} onClick={() => setTipo(t)} style={{ ...CHIP, background: es ? 'var(--ink)' : 'transparent', color: es ? 'var(--surface)' : 'var(--dim)', borderColor: es ? 'var(--ink)' : 'var(--border-strong)' }}>

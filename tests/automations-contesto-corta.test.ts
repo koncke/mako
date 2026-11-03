@@ -94,7 +94,9 @@ test('cableado: la respuesta corta EN EL ACTO y, después, ningún mensaje más'
   // (Salvo cuando lo llama el motor, que ya es la corrida: `sinViaRapida`, 24/10/2026.)
   assert.match(al, /if \(movidas && !o\?\.sinViaRapida\) await viaRapidaConTurno\(leadId\)/);
   // La guarda: a quien contestó no le sale ningún MENSAJE más de una automatización que usa «Contestó».
-  assert.match(motor, /const nodoAhora = sec\.pasos\[insc\.paso_actual\];\n\s+if \(enRespuesta && nodoAhora && claseDe\(nodoAhora\) === 'mensaje' && usaContesto\(sec\.pasos\) && raizRespuesta\(sec\.pasos\) == null\n\s+&& !esHiloDelCarril\(sec\.pasos, insc\.paso_actual\) && !ramaDeQuienContesto\(sec\.pasos\)\.has\(idDe\(nodoAhora, insc\.paso_actual\)\)\n\s+&& await yaLeSalioAlgo\(supabase, insc\.id\)\) \{\n\s+if \(await escribir\(insc, \{ estado: 'completada', proximo_envio_at: null \}, \{ modo: 'cas', alcance: 'hilo' \}\)\) \{/);
+  assert.match(motor, /const nodoAhora = sec\.pasos\[insc\.paso_actual\];\n\s+if \(enRespuesta && nodoAhora && cierraAlContestar\(sec\.pasos, insc\.paso_actual\) && await yaLeSalioAlgo\(supabase, insc\.id\)\) \{\n\s+if \(await escribir\(insc, \{ estado: 'completada', proximo_envio_at: null \}, \{ modo: 'cas', alcance: 'hilo' \}\)\) \{/);
+  // La regla vive en una función porque el aviso al activar pregunta lo mismo (lib/ritmo-al-activar.ts): que no se separen.
+  assert.match(motor, /function cierraAlContestar\(pasos: readonly PasoGrafo\[\], i: number\): boolean \{\n\s+const n = pasos\[i\];\n\s+return !!n && claseDe\(n\) === 'mensaje' && usaContesto\(pasos\) && raizRespuesta\(pasos\) == null && !esHiloDelCarril\(pasos, i\) && !ramaDeQuienContesto\(pasos\)\.has\(idDe\(n, i\)\);/);
   // Y va ANTES de la condición de arriba y de las guardas del mensaje.
   assert.ok(motor.indexOf('«CONTESTÓ» CORTA (23/10/2026, P0 de #289, lib/nutricion-grafo-motor.ts') < motor.indexOf('LA CONDICIÓN DE ARRIBA, OTRA VEZ (14/10/2026'));
 });

@@ -132,7 +132,14 @@ test('Offer: el primer bloque de Sales Machine apunta a /offer, y /offer-analyst
   // Una sola Offer en toda la barra, y en el primer bloque de Sales Machine (la oferta va antes que lo que la vende).
   // Desde el 17/10/2026 es una tab UNIFICADA (Strategy y Playbook son sus secciones para el super admin) y Offer es la
   // primera sección: a la que lleva la tab.
+  // Sigue siendo UNA sola: el ítem no se borró. Lo que cambió el 2/11/2026 es que no se DIBUJA.
   assert.equal(FAMILIAS.flatMap(itemsDe).filter((i) => i.key === 'offer').length, 1, 'hay dos Offer en la barra');
+  // ⚠️ Y NO SE VE. Martín: «elimina las tabs de offer… la de offer no la quiero». Se saca con
+  // `fueraDeLaBarra` y no borrando la entrada, porque la key es contrato con la base: los permisos
+  // por capa, el onboarding por tab y el móvil la resuelven con `itemNav('offer')`, y sin la entrada
+  // les devuelve `undefined`. El daño no sería la barra: sería un negocio perdiendo el permiso de
+  // una tab porque su key dejó de existir.
+  assert.equal(offer!.fueraDeLaBarra, true, 'Offer volvió a verse en la barra');
   assert.equal(SALES!.bloques[0][0].secciones?.[0]?.key ?? SALES!.bloques[0][0].key, 'offer', 'Offer no es la primera fila de Marketing');
 
   const red = sinComentarios(leer('app/offer-analyst/page.tsx'));

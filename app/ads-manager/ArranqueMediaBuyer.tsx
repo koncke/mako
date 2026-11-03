@@ -162,6 +162,12 @@ function TarjetaPlan({ plan, costo, supuesto, kpi }: { plan: PlanCalculadora; co
     <div className="aa-calc">
       <div className="aa-calc-grid">{celdas.map(([k, v]) => <div key={k}><span>{k}</span><b>{v}</b></div>)}</div>
       <p><b>La primera semana:</b> pruebo {titularDelPlan(plan).toLowerCase()} y me quedo con lo que trae {res} más baratos.</p>
+      {/* Las LANDINGS: el paso 1 del lanzamiento (30/10/2026). Va como frase y no como celda
+          de la grilla porque la respuesta que importa no es el número sino el criterio —cuántas,
+          y por qué no una más—, y porque con un presupuesto corto lo que hay que leer es el NO.
+          Lo fija tests/calculadora-presupuesto-ads.test.ts, que cuenta este call site. */}
+      <p><b>Las landings:</b> {plan.landings.veredicto}{plan.landings.porQueNoMas ? ` ${plan.landings.porQueNoMas}` : ''}</p>
+      {plan.landings.queHacer ? <p>{plan.landings.queHacer}</p> : null}
       <p className="aa-calc-nota">Con un {uno} a {us(costo)}{supuesto ? ' (supuesto: lo ajusto con tus datos)' : ''}.</p>
     </div>
   );

@@ -27,6 +27,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { getPromptText } from '@/lib/prompt-render';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
+import { veCopywriter } from '@/lib/copywriter/puerta';
 import { CHART_PROMPT_ANALISIS_DEFAULT, CHART_PROMPT_SALUDO_DEFAULT, CHART_TITULO_DEFAULT } from '@/lib/prompt-defaults';
 import { leerLosArchivos, pedidoConArchivos, traeArchivos } from '@/lib/adjuntos-del-chat';
 import { memoriaConArchivos, pedidoConLecturas, type AdjuntoListo } from '@/lib/mako-adjuntos';
@@ -36,12 +37,12 @@ export const dynamic = 'force-dynamic';
 const NO_EXISTE = () => Response.json({ error: 'sesión inexistente' }, { status: 404 });
 const SIN_SESION = () => Response.json({ error: 'Tu sesión venció.' }, { status: 401 });
 
-/** Quién pide: admin o no, y su persona (lib/chart-chats-reglas.ts). null = sin sesión. */
+/** Quién pide: admin o no, su persona y si pasa la puerta del Copywriter (lib/chart-chats-reglas.ts). null = sin sesión. */
 async function quienPide(): Promise<QuienChatea | null> {
-  const [rolWs, sesion] = await Promise.all([getRolWsEfectivo(), getUsuarioActual()]);
+  const [rolWs, sesion, copy] = await Promise.all([getRolWsEfectivo(), getUsuarioActual(), veCopywriter()]);
   if (!rolWs || !sesion) return null;
   const persona = personaDeSesion(sesion);
-  return persona ? { admin: rolWs === 'admin', persona } : null;
+  return persona ? { admin: rolWs === 'admin', persona, veCopywriter: copy } : null;
 }
 
 /** Una sesión como la ve la pantalla: con la clave de siempre, sin el prefijo de quien pide. */
@@ -103,7 +104,8 @@ export async function GET(req: NextRequest) {
     const ver = paraPantalla(q);
     // La lista: el admin, las del workspace; los demás, las SUYAS.
     if (sp.get('all')) {
-      return Response.json({ sessions: (q.admin ? await listAllSessions(arch) : await listSessionsDePersona(prefijoDePersona(q.persona), arch)).map(ver) });
+      // Sin las de una tab cuya puerta no pasa (la charla de un guion del Copywriter: `puedeUsarSesion`).
+      return Response.json({ sessions: (q.admin ? await listAllSessions(arch) : await listSessionsDePersona(prefijoDePersona(q.persona), arch)).filter((s) => puedeUsarSesion(s.chart_key, q)).map(ver) });
     }
     const sessionId = sp.get('sessionId');
     // ⚠️ Un chat del TELÉFONO es de UNA persona: por esta ruta no se abre ni se lista (lib/chart-chats.ts,

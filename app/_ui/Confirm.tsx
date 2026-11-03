@@ -59,6 +59,7 @@ export function Confirm({
   onCancel,
   zIndex = Z_CONFIRM,
   loading,
+  bloqueado,
 }: {
   /** El título ES la pregunta. Si solo tenés una frase, usá `message`. */
   title?: string;
@@ -72,8 +73,11 @@ export function Confirm({
   zIndex?: number;
   /** La acción está corriendo: bloquea los dos botones y muestra el spinner. */
   loading?: boolean;
+  /** Corre OTRA cosa del cartel, con su propio spinner: bloquea lo mismo, sin girar en el botón de acción. */
+  bloqueado?: boolean;
 }) {
   const okRef = useRef<HTMLButtonElement | null>(null);
+  const cartelRef = useRef<HTMLDivElement | null>(null);
 
   // Escape cancela, Enter confirma. El foco arranca en el botón de acción, así
   // que quien navega por teclado no tiene que buscarlo.
@@ -85,27 +89,42 @@ export function Confirm({
   // nativo: con el foco en el botón de acción, el Enter repetido lo «clickea».
   // Medido el 07/10/2026 en el Ads Manager, sin esta línea: Enter mantenido = 1 POST.
   // Vale para todas las pantallas que usan este cartel, y en todas es lo correcto.
+  //
+  // ⚠️ ENTER SOBRE OTRO BOTÓN ES ESE BOTÓN (revisión del 30/10/2026): la escucha va antes que nadie, y con el foco en «Cancelar» o en «Descartar», un Enter
+  // confirmaba: prendía la automatización. Se deja seguir, y el navegador lo clickea. Y el foco va al botón de acción UNA vez: con las flechas que le pasa
+  // cada pantalla, cada render se lo volvía a robar al botón que estaba mirando la persona. Con algo en vuelo, Escape tampoco cierra, como el fondo: el resultado se perdía.
+  // ⚠️ SÓLO LOS DE ESTE CARTEL (revisión del 31/10/2026): este cartel no atrapa el Tab, y un botón de atrás del velo se clickeaba con el cartel abierto. Con el foco
+  // afuera, Enter confirma y no clickea nada (`preventDefault`); si está en OTRO cartel, es de ése. `data-sin-enter`: un lugar del cartel donde Enter no hace nada
+  // (AvisoRitmoConfirm, después de descartar: el mensaje cambió, y el Enter que descartó no tiene que prender).
+  const ocupado = loading || bloqueado;
+  useEffect(() => { okRef.current?.focus(); }, []);
   useEffect(() => {
-    okRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat && e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); return; }
-      if (e.key === 'Escape') { e.stopPropagation(); onCancel(); }
-      if (e.key === 'Enter' && !loading) { e.stopPropagation(); onConfirm(); }
+      if (e.key === 'Escape') { e.stopPropagation(); if (!ocupado) onCancel(); }
+      if (e.key !== 'Enter') return;
+      const t = e.target instanceof Element ? e.target : null;
+      const cartel = t?.closest('[role="alertdialog"]');
+      if (cartel && cartel !== cartelRef.current) return;
+      if (cartel && t !== okRef.current && t?.closest('button, a, [data-sin-enter]')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!ocupado) onConfirm();
     };
     document.addEventListener('keydown', onKey, true);
     return () => document.removeEventListener('keydown', onKey, true);
-  }, [onConfirm, onCancel, loading]);
+  }, [onConfirm, onCancel, ocupado]);
 
   return (
-    <div onClick={(e) => { e.stopPropagation(); if (!loading) onCancel(); }}
+    <div onClick={(e) => { e.stopPropagation(); if (!ocupado) onCancel(); }}
       style={{ position: 'fixed', inset: 0, zIndex, background: 'rgba(18,21,27,.5)', backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'mkFade .12s ease' }}>
-      <div onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true"
+      <div ref={cartelRef} onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true"
         style={{ width: '100%', maxWidth: 440, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--r-xl)', boxShadow: '0 30px 70px rgba(18,21,27,.35)', padding: '22px 24px', animation: 'mkPop .16s ease' }}>
         {title && <div style={{ fontSize: 'var(--fs-card)', fontWeight: 600, color: 'var(--ink)', marginBottom: 6, lineHeight: 1.3 }}>{title}</div>}
         <div style={{ fontSize: 'var(--fs-md)', color: 'var(--dim)', lineHeight: 1.55 }}>{message}</div>
         <div className="mk-row mk-row--stack" style={{ justifyContent: 'flex-end', marginTop: 20 }}>
-          <Button variant="secondary" size="sm" onClick={onCancel} disabled={loading}>{cancelLabel}</Button>
-          <Button ref={okRef} variant={tone === 'danger' ? 'danger' : 'primary'} size="sm" onClick={onConfirm} loading={loading}>{confirmLabel}</Button>
+          <Button variant="secondary" size="sm" onClick={onCancel} disabled={ocupado}>{cancelLabel}</Button>
+          <Button ref={okRef} variant={tone === 'danger' ? 'danger' : 'primary'} size="sm" onClick={onConfirm} loading={loading} disabled={bloqueado}>{confirmLabel}</Button>
         </div>
       </div>
     </div>

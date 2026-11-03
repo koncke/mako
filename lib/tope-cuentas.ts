@@ -8,7 +8,7 @@
 // =============================================================================
 
 import 'server-only';
-import { suscripcionDeMakoDe } from './cobros';
+import { aplicanTopes } from './topes-plan-server';
 import { cuentasDePago } from './cuentas-pago-server';
 import { cuentasDeAgenda } from './cuentas-agenda-server';
 import { getWorkspace } from './workspace';
@@ -26,8 +26,7 @@ export async function cuentasDelGrupo(ws: number, grupo: 'cobro' | 'agenda'): Pr
 /** null = puede conectarla. Sin poder leer el plan o las cuentas, no se frena (el tope vende; no protege nada). */
 export async function topeDeCuentas(ws: number, grupo: 'cobro' | 'agenda'): Promise<{ texto: string; tope: number } | null> {
   try {
-    const sus = await suscripcionDeMakoDe(ws);
-    if (!sus) return null;
+    if (!(await aplicanTopes(ws))) return null;
     const [w, usadas] = await Promise.all([getWorkspace(ws), cuentasDelGrupo(ws, grupo)]);
     return topeAlConectar({ ws, cobradoPorPasarela: true, capa: w?.capa ?? null, usadas });
   } catch (e) {

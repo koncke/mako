@@ -46,6 +46,7 @@ import { hoyEnTz } from '@/lib/date-utils';
 import { getSettingEstricto, cambiarSettingSi } from '@/lib/settings';
 import { esColumnaInexistente } from '@/lib/nutricion-grafo-motor';
 import { crearDesdePlantilla, PlantillaInvalidaError, type DbPlantilla } from '@/lib/plantilla-crear';
+import { guardarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { setSecuenciaPasos, PasosInvalidosError } from '@/lib/nutricion';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { TriggerInvalidoError } from '@/lib/setting-secuencias';
@@ -519,6 +520,7 @@ export async function hacerSugerencia(ws: number, crmPedido: number | null, suge
           setPasos: setSecuenciaPasos,
           setDisparadores: guardarDisparadores,
           motivoDeCron: (e) => (e instanceof TriggerInvalidoError ? e.message : null),
+          setConfig: guardarConfigAutomatizacion,
         }, { disparador: s.accion.disparador ?? undefined });
         // Se calla DESPUÉS de crear: si callar falla, la automatización igual quedó (y la cuenta fresca la ve).
         await callar(crm.id, s.id, UMBRALES_SUGERENCIAS.hechaDias).catch(avisar('callar la hecha'));

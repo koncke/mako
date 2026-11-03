@@ -23,10 +23,13 @@ import { type PrintSettings, describeSizes, loadPrintSettings, savePrintSettings
 import printStyles from './print/print.module.css'
 import styles from './dialogs.module.css'
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { conWs, wsDeBusqueda } from '@/lib/ws-tab'
+import { llevarAlCalendario } from '@/app/calendario/publicar-desde-crear'
+import { tipoDeArchivo } from '@/lib/calendario-publicar-reglas'
 
 /**
  * «Compartir → Descargar» de Canva (relevamiento §9.1): «Tipo de archivo» en un desplegable con un ícono por formato
- * y el sugerido arriba, «Tamaño ×», «Calidad» (JPG), «Fondo transparente», «Seleccionar páginas» y el botón violeta
+ * y el sugerido arriba, «Tamaño ×», «Calidad» (JPG), «Fondo transparente», «Seleccionar páginas» y el botón azul
  * ancho «Descargar». La exportación es la de Doory (`engine/export`): este diálogo sólo elige qué pedirle.
  */
 
@@ -159,6 +162,40 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
   const fail = (error: unknown): void => {
     failures.current += 1
     setFailure({ id: failures.current, value: describeExportFailure(error) })
+  }
+
+  // «Publicar en redes» (29/10/2026, Martín: «que con las funcionalidades que ya creamos puedan publicar en Facebook, TikTok,
+  // LinkedIn…»): la MISMA exportación, y la imagen va al Calendario como una Publicación (ahí se eligen la red, el día y la hora).
+  // Una página y en JPG, PNG o WEBP: una publicación del Calendario lleva UN archivo (un carrusel todavía no).
+  // Sin el `useRouter` de app/_ui/Link: este archivo no es «use client» y no puede importar un VALOR de uno
+  // (tests/frontera-use-client.test.ts). Va al Calendario con el `?ws=` de la pestaña, como haría ese router.
+  const irAlCalendario = (url: string): void => window.location.assign(conWs(url, wsDeBusqueda(window.location.search)))
+  const [publicando, setPublicando] = useState(false)
+  const sePuedePublicar = !!format && tipoDeArchivo(format.mime) === 'image' && chosenPages.length === 1
+  const publicar = async (): Promise<void> => {
+    if (!format || rangeInvalid || !sePuedePublicar) return
+    setFailure(null)
+    setPublicando(true)
+    try {
+      const files = await runExport(editor, { formatId: format.id, pages: selected, options: { ...options, bleedMm: 0, cropMarks: false } })
+      const file = files[0]
+      if (!file) throw new Error('No salió ninguna imagen.')
+      const r = await llevarAlCalendario({ origen: 'imagen', titulo: file.filename.replace(/\.[a-z0-9]+$/i, ''), archivo: file.blob.type ? file.blob : new Blob([file.blob], { type: format.mime }), nombre: file.filename })
+      if (!r.ok) {
+        editor.toast(r.error)
+        if (r.url) {
+          editor.closeDialog()
+          irAlCalendario(r.url)
+        }
+        return
+      }
+      editor.closeDialog()
+      irAlCalendario(r.url)
+    } catch (err) {
+      fail(err)
+    } finally {
+      setPublicando(false)
+    }
   }
 
   const download = async (): Promise<void> => {
@@ -336,8 +373,13 @@ export function DownloadDialog({ props }: { props?: Record<string, unknown> } = 
           <div ref={setFooterSlot} className={styles.videoActions} />
         ) : (
           <div className={styles.actions}>
-            <Button variant="primary" className={styles.wide} onClick={() => void download()} disabled={busy || rangeInvalid || !format} data-testid="download-submit">
+            <Button variant="primary" className={styles.wide} onClick={() => void download()} disabled={busy || publicando || rangeInvalid || !format} data-testid="download-submit">
               {busy ? t.dialog.downloadWorking : t.dialog.downloadButton}
+            </Button>
+            {/* Una página en JPG, PNG o WEBP: lo que lleva una publicación del Calendario. */}
+            <Button className={styles.wide} onClick={() => void publicar()} disabled={busy || publicando || rangeInvalid || !sePuedePublicar} data-publicar-imagen=""
+              title={sePuedePublicar ? undefined : 'Para publicar: una sola página, en JPG, PNG o WEBP.'}>
+              {publicando ? 'Llevándola al Calendario…' : 'Publicar en redes'}
             </Button>
             {busy ? (
               <Button className={styles.wide} onClick={() => abort.current?.abort()}>

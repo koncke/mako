@@ -50,7 +50,8 @@ test('El render del email no importa NADA con server-only, ni transitivamente', 
   const importsDe = (ruta: string) => [...leer(ruta).matchAll(/^\s*import\s[^;]*?from\s+'([^']+)'|^\s*import\s+'([^']+)'/gm)].map((m) => m[1] ?? m[2]);
   assert.deepEqual(importsDe('../lib/email-html.ts'), ['./email-html-seguro'], 'lib/email-html.ts sumó un import');
   assert.deepEqual(importsDe('../lib/email-html-seguro.ts'), ['./template-vars'], 'lib/email-html-seguro.ts sumó un import');
-  assert.deepEqual(importsDe('../lib/template-vars.ts'), [], 'lib/template-vars.ts sumó un import');
+  assert.deepEqual(importsDe('../lib/template-vars.ts'), ['./nombre-partes'], 'lib/template-vars.ts sumó un import');
+  assert.deepEqual(importsDe('../lib/nombre-partes.ts'), [], 'lib/nombre-partes.ts sumó un import');
 });
 
 test('Las marcas de WhatsApp se convierten DESPUÉS de escapar, no antes', () => {

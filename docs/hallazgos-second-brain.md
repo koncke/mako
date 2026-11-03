@@ -2967,3 +2967,48 @@ de la capa de funciones); `indice` y `recuperar` entre las herramientas de siemp
 y los chats con su propio armado (Offer, Automations, el asesor de WhatsApp) todavía no lo traen. Los sinónimos del negocio:
 «¿Qué anuncios puedo hacer y para qué avatar?» no trae nada, porque ningún nodo del negocio se llama «avatar» (es el cliente
 ideal) ni «anuncios».
+
+## La memoria de las aperturas: por PERSONA, con el workspace en la clave (29/10/2026, claude3)
+
+Lo que la persona decide con una apertura (lib/aperturas/reglas.ts) vive en `usuarios.perfil.aperturas`, al lado de
+`recorridos` (mig 0056, sin migración), por /api/aperturas (una copia de /api/recorridos).
+- **El super admin mirando un cliente escribe en SU perfil.** La fila sale del email de la SESIÓN, como /api/recorridos; el
+  negocio es el que se mira. Por eso la clave lleva el workspace (`<ws>:<id>[|<entidad>]`): sin él, el «Ahora no» de una agencia
+  en un negocio callaba a MaKo en todos, y el de Martín mirando el ws3 le callaba la suya al dueño. La clave la arma la RUTA:
+  desde el navegador llega sin el workspace (`claveValida`), así que no se puede escribir la de otro negocio.
+- **«Ahora no» 14 días, el segundo para siempre; lo de negocio, una vez por día; tres días ignorada, 14 días** (`puedeHablar`).
+  Lo contestado no baja a «vista» (`anotar`). Se recuerda sólo lo DECIDIDO y el hecho contestado: el estado se lee vivo.
+- **Decisión: las recomendaciones plegadas NO callan la apertura.** El plan pide callar «con algo en el bloque de preguntas»;
+  las de `RecomendacionesDeMako` esperan plegadas, y lo que pide la escalera (su IA) es lo que deja correr a casi todas. Lo de la
+  tab que pregunta abierto (las sugerencias del CRM, `preguntas`) sí la calla.
+---
+
+## ⚠️ Una CAPA nueva en `grafoParaChat()` le compite el presupuesto a TODOS sus lectores, y sólo el turno tiene la puerta (31/10/2026)
+
+**El caso.** Knowledge sumó la segunda capa al grafo de los chats (`lib/cerebro-knowledge.ts`,
+con el molde de `lib/cerebro-funciones.ts`): un nodo por módulo del método de los cursos,
+colgado con `conCapa` en TODO negocio. En el turno está cuidado —`esPreguntaDeConocimiento`
+saca la capa salvo que la pregunta pida el método, igual que `esPreguntaDeProducto` con las
+funciones—, y esa puerta vive en `paqueteParaElTurno`.
+
+**El problema.** `grafoParaChat()` tiene **cinco lectores más** y ninguno pasa por ahí:
+`contextoDelNegocio` (lib/negocio-para-crear.ts, las 5 tabs de Create) y las cuatro
+operaciones del Second Brain de la API (`indice_segundo_cerebro`,
+`recuperar_del_segundo_cerebro`, `buscar_en_segundo_cerebro`, el vault).
+
+El que muerde es Create. Su pregunta es una constante que **siempre** nombra «oferta producto
+precio promesa garantía avatar cliente ideal dolor deseo objeciones…»
+(`LO_QUE_PIDE_UNA_PIEZA`), con 1.800 tokens de presupuesto. Los módulos del método se llaman
+«Oferta y modelo de negocio», «Video, imagen y avatares», «Anuncios»: matchean esas mismas
+palabras y le sacan lugar a la oferta, los productos y el avatar **reales** del cliente, que
+son la mitad del brief de cada pieza. El modo de falla es silencioso: la pieza sale, con menos
+negocio adentro.
+
+**La regla.** Al sumar una capa al grafo de los chats, la pregunta no es «¿entra en el turno?»
+sino **«¿quién más lee este grafo y con qué pregunta?»** (`git grep grafoParaChat`). Un lector
+que busca DATOS del negocio la saca explícitamente (`sinKnowledge`, `sinFunciones`); uno que
+pide el mapa a propósito —las operaciones del Second Brain— la deja. La puerta del turno no
+alcanza porque no es el único camino.
+
+Y el corolario: **el nombre de un nodo de capa es parte de su costo.** Un módulo llamado como
+un dato del negocio compite con ese dato en todo lector que lo nombre.

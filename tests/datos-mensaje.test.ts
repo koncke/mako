@@ -88,7 +88,8 @@ const clase = (id: number, titulo: string, tarea = ''): Clase => ({
 function porFuente(): Record<FuenteDato, Set<string>> {
   const set = (o: Record<string, string>) => new Set(Object.keys(o));
   return {
-    nombre: set(valoresDelNombre(LEAD.nombre)),
+    // Con tres palabras: la segunda y la tercera sólo salen si están.
+    nombre: set(valoresDelNombre('Sofía Contreras Ruiz')),
     ficha: set(valoresDelLead(LEAD)),
     zona: set(valoresConZona(LEAD, 'America/Tijuana')),
     producto: set(valoresDelProducto({ etapaClave: 'agenda', etapas: [{ key: 'agenda', label: 'Agendado' }], producto: 'Mentoría' })),
@@ -99,6 +100,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     lead_magnet: set(valoresDelLeadMagnet([{ nombre: 'Plantilla', enlace: 'https://ejemplo.com/p' }])),
     momento: set(valoresDelMomento(Date.parse('2026-10-09T15:00:00Z'), 'America/Mexico_City')),
     negocio: new Set(['negocio']),
+    // El cliente de la agencia que recibe el aviso (ticket #37): lo pone `agenciasDelClienteParaAvisar` (lib/avisos.ts).
+    clienteagencia: new Set(['cliente_nombre', 'cliente_link']),
     links: new Set(Object.keys(RUTA_DE_LINK)),
     // «Lo que arma MaKo» (11/10/2026) lo pone el emisor de un evento de MaKo (`ejecutarPaso`, lib/flujos.ts),
     // como la cuota la pone el cron de cobranza: lo fija tests/aviso-evento.test.ts leyendo ese fuente.
@@ -263,7 +266,7 @@ test('las funciones de cada entidad dicen lo que dicen', () => {
   // El momento en la zona: viernes 9/10 a las 9:00 en Ciudad de México.
   assert.deepEqual(valoresDelMomento(Date.parse('2026-10-09T15:00:00Z'), 'America/Mexico_City'), { fecha: '09/10', hora: '9:00 a. m.', dia_semana: 'viernes' });
   // El nombre partido como el motor.
-  assert.deepEqual(valoresDelNombre('  Sofía   Contreras Ruiz '), { nombre: 'Sofía', nombre_completo: 'Sofía Contreras Ruiz', lead_nombre: 'Sofía Contreras Ruiz', apellido: 'Contreras Ruiz' });
+  assert.deepEqual(valoresDelNombre('  Sofía   Contreras Ruiz '), { nombre: 'Sofía', nombre_completo: 'Sofía Contreras Ruiz', lead_nombre: 'Sofía Contreras Ruiz', segundo_nombre: 'Contreras', tercer_nombre: 'Ruiz', apellido: 'Contreras Ruiz' });
 });
 
 test('⚠️ una lectura por ENTIDAD que el texto NOMBRA, y el motor la usa en sus CUATRO envíos', () => {

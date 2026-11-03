@@ -16,8 +16,9 @@
 import 'server-only';
 import { credDelCliente, envCred } from './credenciales';
 import { wsSuperAdmin } from './workspace';
-import { ZernioError, type ZernioErrorBody } from './zernio';
-import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { cfgDeCuenta, ZernioError, type ZernioErrorBody } from './zernio';
+import { ENV_CUENTA_ZERNIO } from './zernio-meta-cuerpo';
+import { esDeLaCuenta, normalizarCuentaMeta } from './meta-cuenta-id';
 import { cuerpoCambiarTextos, idsDelAnuncioCreado, subcodeDeZernio, type ConexionAnunciosZernio } from './zernio-ads-cuerpo';
 
 const ZERNIO_BASE = 'https://zernio.com/api/v1';
@@ -25,7 +26,13 @@ const ZERNIO_BASE = 'https://zernio.com/api/v1';
 /** La clave de Zernio con la que este negocio publica, o null. Nunca la de la plataforma para un cliente. */
 export async function claveZernioAnuncios(ws: number): Promise<string | null> {
   if (ws === (await wsSuperAdmin().catch(() => null))) return envCred('ZERNIO_API_KEY');
-  return credDelCliente('ZERNIO_API_KEY', ws);
+  const base = await credDelCliente('ZERNIO_API_KEY', ws);
+  if (!base) return null;
+  // Con varias claves (29/10/2026), la DUEÑA de la conexión de anuncios (`META_ZERNIO_CUENTA`): «Anuncios de Meta» pudo quedar en la
+  // clave 2. Sin conexión todavía, o si no se puede averiguar, la 1 (lo de siempre).
+  const conexion = await credDelCliente(ENV_CUENTA_ZERNIO, ws).catch(() => null);
+  if (!conexion) return base;
+  return (await cfgDeCuenta(ws, conexion).catch(() => null))?.apiKey ?? base;
 }
 
 async function zAds<T>(clave: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 90_000): Promise<T> {
@@ -282,12 +289,12 @@ export async function leerAnuncioPorZernio(ws: number, adId: string): Promise<{ 
  * en la forma «legacy». `status: 'PAUSED'` pausa la campaña (lo de adentro queda prendido: un solo «prender» la larga).
  * Devuelve los ids de Meta de las tres cosas.
  */
-export async function crearCampanaPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string): Promise<{ campaignId: string | null; adSetId: string | null; adId: string }> {
+export async function crearCampanaPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string, timeoutMs = 180_000): Promise<{ campaignId: string | null; adSetId: string | null; adId: string }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   const r = await zAds<{ ad?: { platformAdId?: string; platformCampaignId?: string; platformAdSetId?: string } }>(clave, '/ads/create', {
     method: 'POST', headers: { 'Idempotency-Key': idempotencia.slice(0, 255) }, body: JSON.stringify(cuerpo),
-  }, 180_000);
+  }, timeoutMs);
   const { adId } = idsDelAnuncioCreado(r);
   return { campaignId: r.ad?.platformCampaignId ? String(r.ad.platformCampaignId) : null, adSetId: r.ad?.platformAdSetId ? String(r.ad.platformAdSetId) : null, adId };
 }
@@ -327,4 +334,47 @@ export async function borrarCampanaPorZernio(ws: number, campaignId: string, acc
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   await zAds<unknown>(clave, `/ads/campaigns/${encodeURIComponent(campaignId)}`, { method: 'DELETE', body: JSON.stringify({ platform: 'facebook', ...(accountId ? { accountId } : {}) }) });
+}
+
+/**
+ * Un conjunto con los campos pedidos, leído EN VIVO de Meta por Zernio (`GET /ads/ad-sets/{id}?fields=`, el paso directo: la
+ * forma de la Graph API). Lo usa el Media Buyer para mirar el PÚBLICO de un conjunto antes de prenderlo o subirle el presupuesto
+ * (lib/media-buyer/publico.ts). ⚠️ Comprueba que sea de la cuenta de la conexión: con la clave de la plataforma la conexión
+ * puede ver otras cuentas, y decidir con el público de otra sería decidir sobre otro negocio.
+ */
+export async function conjuntoMetaPorZernio(ws: number, conexion: ConexionAnunciosZernio, adSetId: string, fields: string): Promise<Record<string, unknown>> {
+  return objetoDeLaConexion(ws, conexion, 'adset', adSetId, fields);
+}
+
+/** Lo mismo para una campaña (`GET /ads/campaigns/{id}?fields=`): su interruptor, para releer una campaña recién creada. */
+export async function campanaMetaPorZernio(ws: number, conexion: ConexionAnunciosZernio, campaignId: string, fields: string): Promise<Record<string, unknown>> {
+  return objetoDeLaConexion(ws, conexion, 'campaign', campaignId, fields);
+}
+
+async function objetoDeLaConexion(ws: number, conexion: ConexionAnunciosZernio, nivel: 'campaign' | 'adset', id: string, fields: string): Promise<Record<string, unknown>> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const q = new URLSearchParams({ accountId: conexion.accountId, fields: `account_id,${fields}` });
+  const ruta = nivel === 'campaign' ? '/ads/campaigns/' : '/ads/ad-sets/';
+  const r = await zAds<{ adSet?: Record<string, unknown> | null; campaign?: Record<string, unknown> | null }>(clave, `${ruta}${encodeURIComponent(id)}?${q.toString()}`, undefined, 30_000);
+  const o = nivel === 'campaign' ? r.campaign : r.adSet;
+  const que = nivel === 'campaign' ? 'la campaña' : 'el conjunto';
+  if (!o || typeof o !== 'object') throw new ZernioError(`Zernio no devolvió ${que} ${id}`, 0, null);
+  if (!esDeLaCuenta(o.account_id, conexion.adAccountId)) throw new ZernioError(`${que[0].toUpperCase()}${que.slice(1)} ${id} no es de la cuenta ${conexion.adAccountId}`, 0, null);
+  return o;
+}
+
+/**
+ * El creativo de un anuncio (su id en Meta), para lanzar una campaña con el mismo (`existingCreativeId`). Comprueba la cuenta
+ * del anuncio. null si Zernio no lo trae.
+ */
+export async function creativoDeAnuncioPorZernio(ws: number, conexion: ConexionAnunciosZernio, adId: string): Promise<{ creativoId: string | null; nombre: string | null }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const r = await zAds<{ ad?: { platformAdAccountId?: string; name?: string | null; creative?: { creativeId?: string | null } | null } | null }>(clave, `/ads/${encodeURIComponent(adId)}?live=true`, undefined, 30_000);
+  const a = r.ad;
+  if (!a) throw new ZernioError(`Zernio no devolvió el anuncio ${adId}`, 0, null);
+  if (!esDeLaCuenta(a.platformAdAccountId, conexion.adAccountId)) throw new ZernioError(`El anuncio ${adId} no es de la cuenta ${conexion.adAccountId}`, 0, null);
+  const id = a.creative?.creativeId ? String(a.creative.creativeId) : null;
+  return { creativoId: id && /^\d+$/.test(id) ? id : null, nombre: a.name ?? null };
 }

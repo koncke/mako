@@ -75,7 +75,9 @@ function acciones(src: string): Array<{ nombre: string; cuerpo: string }> {
 
 const ACCIONES = ['fotoCentroAction', 'pushesCentroAction', 'turnosCentroAction', 'encolarPedidoAction', 'cancelarPedidoAction', 'crearTokenCarteroAction', 'guardarMunecoAction', 'contestarPreguntaAction', 'guardarBorradorAction', 'marcarMensajeAction', 'guardarAliasCuentaAction', 'decidirChatNuevoAction', 'marcarYaVistoAction', 'creditoApiAction', 'creditoDelNegocioAction', 'computadorasDelNegocioAction', 'desconectarComputadoraAction',
   // Lo terminado viejo de UN chat, al abrirlo (23/10/2026, `pedidosDelChatAction`): con la misma guarda que las demás.
-  'pedidosDelChatAction'];
+  'pedidosDelChatAction',
+  // Dar de baja un mensaje que espera un chat cerrado (30/10/2026): toca los mensajes de Martín.
+  'descartarDelLimboAction'];
 
 test('cada acción pregunta por Martín con su segundo factor ANTES de hacer cualquier otra cosa', () => {
   const as = acciones(sinComentarios(leer('app/admin/operaciones/acciones.ts')));

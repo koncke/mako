@@ -1,4 +1,4 @@
-/* Desplegable con el campo de Canva: borde rgba(53,65,90,.2), hover más oscuro, foco violeta #8B3DFF */
+/* Desplegable con el campo de Canva: borde rgba(53,65,90,.2), hover más oscuro, foco azul (--primary) */
 .wrap {
   position: relative;
   display: inline-flex;
@@ -19,7 +19,7 @@
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
 }
 .select:hover:not(:disabled) {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde del campo al pasar el mouse */
+  border-color: var(--cv-color-field-hover); /* Canva: borde del campo al pasar el mouse */
 }
 .select:focus-visible {
   outline: none;
@@ -27,8 +27,8 @@
   box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .select:disabled {
-  color: rgb(28 33 48 / 0.5);
-  background: rgb(64 79 109 / 0.06);
+  color: var(--cv-color-field-hover);
+  background: var(--cv-color-bg-muted);
   cursor: not-allowed;
 }
 .chevron {

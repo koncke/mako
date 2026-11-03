@@ -21,6 +21,7 @@ import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { esDeLaCuenta, normalizarCuentaMeta } from './meta-cuenta-id';
 import { aplicarCambiosDePublico, cambiosDesdeEntrada, type EntradaPublico } from './publico-cambios';
+import { publicoParaZernio } from './zernio-publico';
 import { paisDeCuentaMeta } from './meta-pais';
 import { aUnidadMeta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { TIPOS_BUSCABLES, lugarDesdeBusqueda, ordenarLugares, type LugarMeta } from './meta-geo';
@@ -1172,7 +1173,7 @@ async function leerEstadoVideo(apiVersion: string, accessToken: string, videoId:
 }
 
 /** Qué dice Meta HOY de un video: 'ready' | 'processing' | 'error', o null si no se pudo
- *  leer. Lo consulta el navegador mientras espera (GET /api/ads-manager/creative-upload). */
+ *  leer. Lo consultaba GET /api/ads-manager/creative-upload, borrada el 27/10/2026: hoy sin call site. */
 export async function estadoVideo(videoId: string): Promise<EstadoVideo | null> {
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   return leerEstadoVideo(apiVersion, accessToken, videoId);
@@ -1261,7 +1262,7 @@ async function getVideoThumbnailUrl(videoId: string): Promise<string | null> {
  * nada, usa la que generó Meta del propio video.
  *
  * ⚠️ NO tira si Meta todavía no la generó: devuelve el creativo como vino. La usa también
- * generatePreviews (la previa del paso de revisión, /api/ads-manager/campaign-preview), y
+ * generatePreviews (la previa de /api/ads-manager/campaign-preview, borrada el 27/10/2026), y
  * la previa se tiene que poder dibujar igual. El que exige es conMiniaturaParaPublicar. */
 async function withVideoThumb(c: Creative): Promise<Creative> {
   // Si ya hay miniatura custom (image_hash) o una URL http válida, no la pisamos.
@@ -1566,9 +1567,23 @@ export async function updateAdsetTargeting(adsetId: string, targeting: Record<st
  * Edita el público de un conjunto con SÓLO los cambios (17/10/2026): lee el crudo de Meta (con la cuenta comprobada),
  * superpone en el SERVER (`aplicarCambiosDePublico`, lib/publico-cambios.ts) y re-envía el objeto entero. Es lo que
  * faltaba para que la API de MaKo pudiera editar un público: con la ruta, un targeting parcial borraba el resto.
+ *
+ * Por la conexión de Facebook (Zernio, 29/10/2026): los mismos cambios, en SU forma y sólo lo que cambió (Zernio mezcla con el
+ * público en vivo: lib/zernio-publico.ts). Con Zernio se escribe SIEMPRE por Zernio, aunque el negocio conserve el token de
+ * antes: una escritura nunca va por el respaldo (AGENTS.md, «Meta se habla por canalMeta»).
  */
 export async function editarPublicoConjunto(adsetId: string, entrada: EntradaPublico): Promise<{ name: string }> {
-  await sinPublicoPorZernio();
+  const z = await canalZernio();
+  if (z) {
+    const actual = await getAdsetTargeting(adsetId);
+    let cuerpo: ReturnType<typeof publicoParaZernio>;
+    try { cuerpo = publicoParaZernio(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada)); }
+    catch (e) { throw new MetaWriteError(e instanceof Error ? e.message : String(e)); }
+    const { publicoPorZernio } = await import('./meta-escribir-zernio');
+    const r = await publicoPorZernio(z, adsetId, cuerpo);
+    if (!r.ok) throw new MetaWriteError(`Zernio no pudo cambiar el público: ${r.message}`, r.code, r.error_subcode);
+    return { name: actual.name };
+  }
   const actual = await getAdsetTargeting(adsetId);
   const targeting = aplicarCambiosDePublico(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada));
   await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
@@ -1618,10 +1633,9 @@ function errorDeZernio(e: unknown, que: 'publicar' | 'leer' = 'publicar'): unkno
 }
 
 /**
- * Editar el público de un conjunto por Zernio NO está hecho (26/10/2026): su `PUT /ads/ad-sets/{id}` no recibe el `targeting`
- * crudo de Meta sino SU forma (`TargetingSpec`, con sus nombres y su fusión de claves), y lo que este archivo arma es el crudo
- * entero con los cambios superpuestos. Mapear uno al otro sin perder lo que el editor no maneja es trabajo aparte
- * (docs/hallazgos-ads.md). Hasta entonces, un negocio sin token lo oye dicho así, no como «configura el token».
+ * El targeting CRUDO entero por Zernio sigue sin hacerse (la ruta adset-targeting, que no llama ninguna pantalla desde el 25/10):
+ * Zernio recibe SU forma y mezcla claves, y un crudo entero no dice qué cambió. Los cambios de la API de MaKo SÍ van por Zernio
+ * (editarPublicoConjunto, 29/10/2026). Un negocio sin token lo oye dicho así, no como «configura el token».
  */
 async function sinPublicoPorZernio(): Promise<void> {
   const z = await canalZernio();

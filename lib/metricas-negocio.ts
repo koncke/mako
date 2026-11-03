@@ -32,6 +32,7 @@
 // =============================================================================
 
 import 'server-only';
+import { estadoDeAsistencia } from './reuniones-por-asistencia';
 import { getTenantDb } from './workspace';
 import { leerPorPaginas } from './supabase-paginado';
 import { TIPO_DE_CAMBIO_USD_MXN } from './config';
@@ -291,12 +292,15 @@ export async function reporteMetricas(opts: {
         const ag = dentro(r.fecha_agenda);
         if (ag) de(claveDe(ag, grano)).agendas_creadas++;
 
+        // Los tres estados de la asistencia, con LA definición que también lista `reuniones_por_asistencia`
+        // (lib/reuniones-por-asistencia.ts): el número y los nombres no pueden contar distinto.
         const j1 = dentro(r.fecha_junta_1);
         if (j1) {
           const a = de(claveDe(j1, grano));
           a.j1_programadas++;
-          if (r.asistio_j1 === true) a.j1_realizadas++;
-          else if (r.asistio_j1 === false) a.j1_noshow++;
+          const e = estadoDeAsistencia(r.asistio_j1);
+          if (e === 'realizada') a.j1_realizadas++;
+          else if (e === 'noshow') a.j1_noshow++;
           else a.j1_sin_marcar++;
         }
 
@@ -304,8 +308,9 @@ export async function reporteMetricas(opts: {
         if (j2) {
           const a = de(claveDe(j2, grano));
           a.j2_programadas++;
-          if (r.asistio_j2 === true) a.j2_realizadas++;
-          else if (r.asistio_j2 === false) a.j2_noshow++;
+          const e = estadoDeAsistencia(r.asistio_j2);
+          if (e === 'realizada') a.j2_realizadas++;
+          else if (e === 'noshow') a.j2_noshow++;
           else a.j2_sin_marcar++;
         }
 

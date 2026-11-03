@@ -457,7 +457,7 @@ export const DEFS: readonly OperacionDef[] = [
       // están en los avisos de ver_ficha_funnel, y la traducción (lib/ficha/api.ts) valida y devuelve los que hay.
       { nombre: 'aviso', tipo: 'string', max: 30, descripcion: 'en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel).' },
       { nombre: 'avisa', tipo: 'boolean', descripcion: 'en aviso: true para que avise, false para que no.' },
-      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla de estilo, la misma del Dashboard.' },
+      { nombre: 'tema', tipo: 'string', enum: PLANTILLAS_TEMA.map((p) => p.id), descripcion: 'en estilo: la plantilla, la misma del Dashboard.' },
       { nombre: 'acento', tipo: 'string', max: 7, descripcion: 'en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo.' },
       { nombre: 'tipografia', tipo: 'string', enum: TIPOGRAFIAS.map((t) => t.id), descripcion: 'en estilo: la tipografía de toda la ficha.' },
       { nombre: 'densidad', tipo: 'string', enum: DENSIDADES.map((x) => x.id), descripcion: 'en densidad: el tamaño de las tarjetas.' },
@@ -1371,6 +1371,94 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [{ nombre: 'vinculoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el vínculo (de ver_cobro_etapa).' }],
     canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
     reversible: true, escribe: 'borra el vínculo del producto con Ganado (cobro_etapa_vinculos); los cobros y planes ya hechos no se tocan',
+  },
+  // ── EN BLOQUE (28/10/2026, tickets #21 y #22 de Leila: los 394 de «Contacto nuevo») ─────────────────────────────
+  // UNA confirmación para todos, no 394: `preparar` congela los ids (la columna entera, paginada, o los que se nombran) y el
+  // resumen dice cuántos y quiénes; `ejecutar` los pasa con las piezas de la barra del tablero (lib/crm-bloque-server.ts).
+  // Lentas (`lenta`): en el chat siguen por detrás. Lo que no llega en el plazo se dice («quedan N»).
+  {
+    id: 'pasar_en_bloque_otra_columna', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Pasar varios a otra columna',
+    descripcion: 'PROPONE pasar EN BLOQUE varios leads a otra columna del mismo CRM, con UNA confirmación para todos (queda pendiente hasta el «sí»): la columna entera de origen (columna, con embudoId si no es el CRM principal) o los ids (leadIds). Para descalificar o perder en bloque, el destino es Descalificado o Perdido, con un motivo. Lo que la columna pida y falte queda pendiente en cada ficha. No manda mensajes. Solo el administrador.',
+    parametros: [
+      { nombre: 'destino', tipo: 'string', obligatorio: true, max: 80, descripcion: 'la columna adonde van: su key (de ver_funnel) o su nombre.' },
+      { nombre: 'columna', tipo: 'string', max: 80, descripcion: 'la columna de origen ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads (de buscar_leads o listar_leads), si no es la columna entera.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM, por el id de su embudo. Sin él, el CRM principal.' },
+      { nombre: 'motivo', tipo: 'string', max: 300, descripcion: 'el motivo de descalificar o perder («No calificado — sin presupuesto»), uno para todos.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'mueve cada lead a la columna, con su historial (a un agregado, en su fila de ese CRM), como la barra en bloque del tablero',
+  },
+  {
+    id: 'pasar_en_bloque_otro_funnel', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Pasar varios a otro funnel',
+    descripcion: 'PROPONE pasar EN BLOQUE leads de un CRM a OTRO, con UNA confirmación para todos (queda pendiente hasta el «sí»): salen del de origen y entran al de destino en la columna que se dice (sin ella, la misma si el destino la tiene, si no la de entrada). Los que ya pagaron en el origen no se pasan (sus pagos son de ahí); los que ya agendaron, sólo con incluirAgendados. El resumen dice cuántos de cada uno. No manda mensajes. Solo el administrador.',
+    parametros: [
+      { nombre: 'haciaEmbudoId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el CRM de destino, por el id de su embudo (de productos_del_lead o ver_funnel).' },
+      { nombre: 'columna', tipo: 'string', max: 80, descripcion: 'la columna de origen ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads, si no es la columna entera.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM de origen. Sin él, el CRM principal.' },
+      { nombre: 'destino', tipo: 'string', max: 80, descripcion: 'la columna del CRM de destino donde caen: su key o su nombre.' },
+      { nombre: 'incluirAgendados', tipo: 'boolean', descripcion: 'pasar también a los que ya agendaron una reunión (por defecto, no).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: false, escribe: 'saca a cada lead del CRM de origen y lo deja en el de destino (si el origen era su casa, la casa pasa a ser el destino), con su historial',
+  },
+  {
+    id: 'mandar_en_bloque_a_papelera', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Mandar varios a la papelera',
+    descripcion: 'PROPONE mandar EN BLOQUE leads a la papelera del CRM, con UNA confirmación para todos (queda pendiente hasta el «sí»): salen del CRM con su historial y sus pagos, y nadie recibe ningún mensaje. Durante 30 días se recuperan tal cual con recuperar_de_papelera_crm (la lista, con ver_papelera_crm); después se borran para siempre. La columna entera (columna, con embudoId) o los ids (leadIds). Solo el administrador.',
+    parametros: [
+      { nombre: 'columna', tipo: 'string', max: 80, descripcion: 'la columna ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds.' },
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads, si no es la columna entera.' },
+      { nombre: 'embudoId', tipo: 'number', entero: true, minimo: 1, descripcion: 'el CRM de la columna. Sin él, el CRM principal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'saca a cada lead del CRM y guarda su foto 30 días en la papelera (leads_papelera); se recupera con recuperar_de_papelera_crm',
+  },
+  {
+    id: 'ver_papelera_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver la papelera del CRM',
+    descripcion: 'Los leads que se eliminaron y todavía se pueden recuperar (30 días): su id, nombre, de qué CRM y columna salieron, quién los eliminó y cuántos días les quedan. Para recuperarlos, recuperar_de_papelera_crm.',
+    parametros: [{ nombre: 'buscar', tipo: 'string', max: 80, descripcion: 'un nombre, teléfono o email para filtrar.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'ver_nombres_del_crm', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver cómo se saluda a los leads',
+    descripcion: 'Cuántos leads quedan sin nombre para saludar (su mensaje sale sin nombre) y qué primeras palabras se repiten en la base («Kun Fabiola Pedraza»), con un ejemplo de cómo sale. Úsala antes de una campaña con {{nombre}}.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'marcar_palabra_no_nombre', area: 'crm', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Marcar palabra que no es nombre',
+    descripcion: 'PROPONE marcar (o desmarcar) una palabra que en este negocio no es un nombre, como un lugar con que se agenda a los contactos: {{nombre}} la salta (queda pendiente hasta el «sí»). No cambia ningún lead.',
+    parametros: [
+      { nombre: 'palabra', tipo: 'string', obligatorio: true, max: 60, descripcion: 'la palabra, como está en el nombre.' },
+      { nombre: 'noEs', tipo: 'boolean', descripcion: 'false para volver a tratarla como un nombre. Por defecto, true.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'cambia la lista de palabras que {{nombre}} salta en este negocio',
+  },
+  {
+    id: 'ver_bajas_de_leads', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver lo que se borró del CRM',
+    descripcion: 'Quién, cuándo, cuántos y por qué camino se borraron leads de este negocio (eliminar, unificar, un duplicado automático). Queda para siempre, también después de que la papelera purga. Sirve para contestar «¿qué pasó con estos leads?». Sólo trae ids; se registra desde el 30/10/2026.',
+    parametros: [{ nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'lo que pasó con UN lead, por su id.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+  },
+  {
+    id: 'recuperar_de_papelera_crm', area: 'crm', tipo: 'accion', confirmacion: 'chat', lenta: true,
+    titulo: 'Recuperar de la papelera',
+    descripcion: 'PROPONE devolver leads de la papelera del CRM tal cual estaban (sus mismos ids, pagos, funnels, etiquetas y mensajes), con UNA confirmación (queda pendiente hasta el «sí»). Los ids salen de ver_papelera_crm; con todos=true, todos los de la papelera. Uno que volvió a llegar con sus mismos datos queda en la papelera y se dice. Solo el administrador.',
+    parametros: [
+      { nombre: 'leadIds', tipo: 'string[]', max: 5000, descripcion: 'los ids de los leads (de ver_papelera_crm).' },
+      { nombre: 'todos', tipo: 'boolean', descripcion: 'todos los de la papelera.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: TAB_ADMIN,
+    reversible: true, escribe: 'vuelve a crear cada lead con todo lo que tenía y lo saca de la papelera (leads_papelera)',
   },
   // ── «¿Qué vas a crear hoy?» de una tab de la ficha (16/10/2026) ──────────────────
   // ⚠️ AL FINAL DE LA LISTA A PROPÓSITO: con un mensaje que no la nombra, el presupuesto del turno de WhatsApp

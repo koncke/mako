@@ -22,7 +22,7 @@ import {
   listLeads, getLead, getLeadRespuestas, estadoMadurezLead, labelMadurez, type Lead,
 } from './leads';
 import { etapasDeLeads, getFunnelDefault, getPipelineStagesDeLead } from './funnels';
-import { etapaParaModelo, datosDeLaFicha, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
+import { etapaParaModelo, datosDeLaFicha, horasDeLasReuniones, landingParaModelo, type EtapaParaModelo, type OfertaParaModelo } from './mako-ficha-lead';
 import { searchKnowledge, formatKnowledge } from './mako-knowledge';
 import { resumenExperimentos } from './experimentos';
 import { buscarReunionesAutomatico } from './auto-reuniones';
@@ -69,12 +69,13 @@ const guardaDelPedido = (error: string): string => JSON.stringify({ ok: false, e
  * en todo lead sin override —la etapa casi siempre se DERIVA de las fechas— y una etapa que el funnel ya
  * no tiene en los leads con un override huérfano.
  */
-function resumenLead(l: Lead, etapas?: readonly EtapaParaModelo[] | null) {
+// `tz`: la zona del NEGOCIO, para la hora de las reuniones (`horasDeLasReuniones`, el ticket #35).
+function resumenLead(l: Lead, etapas: readonly EtapaParaModelo[] | null | undefined, tz: string | null) {
   return {
     id: l.id, nombre: l.nombre, empresa: l.empresa, telefono: l.telefono, email: l.email,
     estado: l.estado_lead, ...etapaParaModelo(l, etapas),
     madurez: labelMadurez(estadoMadurezLead(l)).label,
-    fecha_agenda: l.fecha_agenda, fecha_junta_1: l.fecha_junta_1, fecha_junta_2: l.fecha_junta_2,
+    fecha_agenda: l.fecha_agenda, fecha_junta_1: l.fecha_junta_1, fecha_junta_2: l.fecha_junta_2, ...horasDeLasReuniones(l, tz),
     asistio_j1: l.asistio_j1, asistio_j2: l.asistio_j2, calificado: l.calificado,
     fecha_cierre: l.fecha_cierre, monto_cierre_usd: l.monto_cierre_usd, motivo_perdida: l.motivo_perdida,
     origen: l.meta_campaign_name ?? l.utm_campaign ?? l.origen_lead ?? null,
@@ -222,8 +223,8 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const encontrados = (await listLeads())
         .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q))
         .slice(0, 20);
-      const etapas = await etapasDeLeads(encontrados.map((l) => l.id)).catch(() => null);
-      const hits = encontrados.map((l) => resumenLead(l, etapas?.get(l.id) ?? null));
+      const [etapas, tz] = await Promise.all([etapasDeLeads(encontrados.map((l) => l.id)).catch(() => null), tzActual().catch(() => null)]);
+      const hits = encontrados.map((l) => resumenLead(l, etapas?.get(l.id) ?? null, tz));
       return JSON.stringify({ encontrados: hits.length, leads: hits });
     }
 
@@ -233,17 +234,18 @@ export const runMakoTool: ToolRunner = async (name, input) => {
       const { lead } = pedido;
       // DEL LEAD: las etapas con que la ficha dibuja la suya (`getPipelineStagesDeLead`, como
       // app/crm/[id]/page.tsx), así MaKo y el equipo dicen la misma etapa.
-      const [respuestas, etapas, oferta] = await Promise.all([
+      const [respuestas, etapas, oferta, tz] = await Promise.all([
         getLeadRespuestas(lead).catch(() => ({ R1: [], R2: [] })),
         getPipelineStagesDeLead(lead).catch(() => null),
         ofertaDeLaFicha(lead.oferta_id),
+        tzActual().catch(() => null),
       ]);
       // Lo del formulario de Meta va APARTE de `respuestas`: getLeadRespuestas lo usan los
       // datos faltantes y el chatbot, y mezclarlo ahí les cambia lo que leen. El porqué, en
       // formularioParaModelo (lib/meta-leads-campos.ts). Lo de la landing, igual y al lado.
       // `datosDeLaFicha` (lib/mako-ficha-lead.ts): lo que la ficha muestra y esto no traía.
       return JSON.stringify({
-        lead: { ...resumenLead(lead, etapas), ...datosDeLaFicha(lead, oferta) },
+        lead: { ...resumenLead(lead, etapas, tz), ...datosDeLaFicha(lead, oferta) },
         respuestas, ...formularioParaModelo(lead.meta_field_data), ...landingParaModelo(lead.optin_respuestas),
       });
     }

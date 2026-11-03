@@ -14,22 +14,29 @@ import { CuerpoGrupo, FilaAjustes, GrupoAjustes, Pastilla } from '../../_ui/Ajus
 import { IconoMenu } from '../../_ui/iconos-menu';
 import { aceptarRetencionAction, darmeDeBajaAction, empezarPlanYaAction, pasarAProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
+import { CAPACIDADES_PASARELA, COMO_SE_PAGA, NOMBRE_PASARELA, type Pasarela } from '@/lib/cobros-tipos';
 
 const SANS = "'Geist', sans-serif";
 const BTN_PRIMARIO = { padding: '10px 16px', borderRadius: 10, border: 0, background: 'var(--accent)', color: '#fff', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 const BTN_SECUNDARIO = { padding: '10px 16px', borderRadius: 10, border: '1px solid var(--accent)', background: 'var(--surface)', color: 'var(--accent)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer' } as const;
 
 export type SuscripcionVisible = {
-  proveedor: 'stripe' | 'mercadopago';
+  proveedor: Pasarela;
   monto: string;
   cancelada: boolean;
   /** El texto de la baja ya pedida («Baja pedida el … (código …). Deja de cobrarse el …»), o null. */
   baja: string | null;
   /** LA PRUEBA GRATIS (25/10/2026): hasta qué día va («el lunes 3 de noviembre»), o null si ya se cobra. */
   prueba?: { hasta: string } | null;
+  /** El 50% del primer mes, mientras corre ese mes, ya dicho (lib/primer-mes-reglas.ts). */
+  primerMes?: string | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar }: {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar, clienteDeAgencia, gratisHasta }: {
+  /** Los 6 meses gratis (30/10/2026): la fecha en que terminan, ya dicha. */
+  gratisHasta?: string | null;
+  /** La cuenta de un cliente de una agencia (29/10/2026): su plan lo maneja la agencia; no ve «Recomienda MaKo». */
+  clienteDeAgencia?: boolean;
   plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
   /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
   subir?: { nombre: string; monto: string } | null;
@@ -85,6 +92,9 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   // otras apps»). Era UNA tarjeta con todo en filas iguales: el plan, recomendar, subir y darse de baja, del mismo tamaño. Ahora,
   // como la facturación de Vercel y Linear: arriba el plan que tienes (su nombre grande, el estado, cuánto y por dónde se cobra) con
   // lo que lo mejora debajo; después recomendar; y la baja en su propia sección al final, como el «Danger Zone» de GitHub.
+  // SIN TÍTULOS QUE REPITEN LA FILA (30/10/2026, medido en el banco): el título de la página, el de la sección y la fila decían lo
+  // mismo («Recomienda MaKo» dos veces y su frase dos veces). Es el «texto de sobra» que Martín rechazó el 25/10: cada tarjeta dice
+  // lo suyo una vez, en su fila.
   // «Empezar mi plan ya» (25/10/2026, la prueba gratis): arriba si se llegó desde un tope de la prueba, si no debajo del plan.
   const filaEmpezar = enPrueba && puedeDarseDeBaja && (
     <FilaAjustes icono="subir" titulo="Empezar mi plan ya" detalle={`Pagas ${suscripcion!.monto} desde hoy y tienes todo, sin los topes de la prueba.`}
@@ -93,18 +103,19 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
   const tono = suscripcion ? (suscripcion.cancelada || suscripcion.baja ? 'warn' : 'good') : undefined;
   return (
     <>
-      <GrupoAjustes titulo="Tu plan" descripcion="Lo que pagas por MaKo y cómo se cobra.">
+      <GrupoAjustes>
         {destacarEmpezar && filaEmpezar}
         <div className="aj-plan">
           <span className="aj-plan__icono"><IconoMenu nombre="repetir" size={22} /></span>
           <span className="aj-plan__texto">
             <span className="aj-plan__nombre">{plan}{tono && estado && <Pastilla tono={tono}>{estado}</Pastilla>}</span>
-            <span className="aj-plan__precio">{!suscripcion ? 'Acordado con MaKo' : enPrueba
+            <span className="aj-plan__precio">{!suscripcion ? (clienteDeAgencia ? 'Lo maneja tu agencia' : gratisHasta ? `Gratis hasta el ${gratisHasta}` : 'Acordado con MaKo') : enPrueba
               ? <>Prueba gratis hasta el {suscripcion.prueba!.hasta}: ese día se cobra <b>{suscripcion.monto}</b>, y después cada mes.</>
-              : <><b>{suscripcion.monto}</b> por mes · {suscripcion.proveedor === 'stripe' ? 'con tarjeta' : 'por Mercado Pago'}</>}</span>
+              : <><b>{suscripcion.monto}</b> por mes · {COMO_SE_PAGA[suscripcion.proveedor]}</>}</span>
           </span>
         </div>
         {!destacarEmpezar && filaEmpezar}
+        {suscripcion?.primerMes && <FilaAjustes icono="nota" titulo="Tu primer mes" detalle={suscripcion.primerMes} apilada />}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {subir && puedeDarseDeBaja && (
@@ -112,19 +123,25 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
             onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />
         )}
         {porLlamada && <FilaAjustes icono="subir" titulo={porLlamada.titulo} detalle={porLlamada.detalle} href={porLlamada.href} apilada />}
-        {!suscripcion && (
+        {/* El cliente de una AGENCIA (29/10/2026): su plan lo paga y lo cambia su agencia, no MaKo. Los carteles de tope traen acá. */}
+        {!suscripcion && clienteDeAgencia && (
+          <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Tu plan lo maneja tu agencia: para cambiarlo, pídeselo a ella.</p></CuerpoGrupo>
+        )}
+        {!suscripcion && !clienteDeAgencia && (
           <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Tu plan se acordó con MaKo: para darte de baja, escríbenos a <a href={`mailto:${emailMako}`}>{emailMako}</a>.</p></CuerpoGrupo>
         )}
       </GrupoAjustes>
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
       {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo. Desde el 25/10 gana DINERO: el 100% del primer mes. */}
-      <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
-        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
-      </GrupoAjustes>
+      {!clienteDeAgencia && (
+        <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
+          <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
+        </GrupoAjustes>
+      )}
       {puedeDarseDeBaja && (
-        <GrupoAjustes titulo="Darte de baja" descripcion={enPrueba ? 'No se te cobra nada, y tus datos quedan guardados.' : 'Lo sigues usando hasta el fin del mes pagado, y tus datos quedan guardados.'}>
+        <GrupoAjustes>
           <FilaAjustes icono="pausar" titulo="Darme de baja"
-            detalle={enPrueba ? 'No se te cobra nada, y lo sigues usando hasta el fin de la prueba.' : 'Lo sigues usando hasta el fin del mes pagado.'}
+            detalle={enPrueba ? 'No se te cobra nada, y lo sigues usando hasta el fin de la prueba. Tus datos quedan guardados.' : 'Lo sigues usando hasta el fin del mes pagado. Tus datos quedan guardados.'}
             onClick={corriendo ? undefined : () => (ofertaViva ? setOfrecer(true) : setPreguntar(true))} apilada />
         </GrupoAjustes>
       )}
@@ -144,7 +161,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
       )}
       {confirmarSubida && subir && (
         <ConfirmDialog titulo={`¿Pasar a ${subir.nombre}?`}
-          detalle={suscripcion?.proveedor === 'stripe'
+          detalle={suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].subidaCobraLaDiferencia
             ? `Te cobramos ahora la diferencia de este período, y desde el próximo pagas ${subir.monto} por mes.`
             : `Tienes ${subir.nombre} desde ya, y desde tu próximo cobro pagas ${subir.monto} por mes.`}
           confirmLabel={`Pasar a ${subir.nombre}`} onCancel={() => setConfirmarSubida(false)} onConfirm={pasarAPro} />
@@ -153,9 +170,9 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         <ConfirmDialog titulo="¿Darte de baja?"
           detalle={enPrueba
             ? `No se te cobra nada, y sigues usando MaKo hasta el ${suscripcion!.prueba!.hasta}. No se puede deshacer.`
-            : suscripcion?.proveedor === 'stripe'
+            : suscripcion && CAPACIDADES_PASARELA[suscripcion.proveedor].bajaAlFinDelPeriodo
               ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
-              : 'Mercado Pago deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.'}
+              : `${suscripcion ? NOMBRE_PASARELA[suscripcion.proveedor] : 'La pasarela'} deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.`}
           confirmLabel="Darme de baja" danger onCancel={() => setPreguntar(false)} onConfirm={darmeDeBaja} />
       )}
     </>

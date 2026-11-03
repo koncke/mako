@@ -58,7 +58,7 @@
 // (`sesionRef`, `enviando`, `leyendoRef`), nunca con el estado de su render.
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Banner, Button, ButtonLink, Modal, Spinner } from '@/app/_ui';
+import { Banner, Button, ButtonLink, Modal } from '@/app/_ui';
 import { ACCEPT_IMPORTAR, MAX_ARCHIVO_BYTES, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
 import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import { useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
@@ -72,15 +72,20 @@ import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { Conclusion } from './Conclusion';
 import type { PasoGeneracion } from './Generando';
 import { BarraPiezasMovil, RielPiezas, type AccionesPiezas } from './PiezasRail';
-import { SelectorFunnel } from './SelectorFunnel';
 import { leerAdjuntos } from './adjuntos-envio';
-import { arbolSeguro, arbolVacio, conSesionEnArbol, leerValor } from './arbol';
+import { arbolSeguro, arbolVacio, conSesionEnArbol, funnelParaPedido, leerValor, plantillasDeOffer, renglonesDeOffer, valorSesion } from './arbol';
+import { PantallaCrear, type PlantillaCrear, type ProyectoCrear } from '@/app/_crear/PantallaCrear';
+import { CabeceraDeChat } from '@/app/admin/operaciones/PanelChat';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import Link from '@/app/_ui/Link';
+import { DocumentoVivo } from './DocumentoVivo';
 import {
   ACTUALIZAR_PDF, bienvenidaDe, esOpcionArmar, etiquetaArmar, linksDe, quedoGuardado, reemplaza,
   resumenDe, unirOpciones, type AvisoGuardado,
 } from './ayudas';
 import { CSS_OFFER } from './estilos';
 import { ErrorOfferApi, TOPE, esRechazoDefinitivo, llamarOffer, mensajeDeError, subirArchivo } from './offer-api';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
 
 type EstadoGeneracion = { paso: PasoGeneracion; corriendo: boolean; error: string | null };
 const GEN_QUIETA: EstadoGeneracion = { paso: 'diagnostico', corriendo: false, error: null };
@@ -193,9 +198,11 @@ export type ArranqueOffer = {
   errorExtra?: ReactNode;
 };
 
-export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF, analizarAlAbrir = null, arranque = null }: {
+export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar, opcionActualizar = ACTUALIZAR_PDF, analizarAlAbrir = null, arranque = null, superAdmin = false }: {
   /** El modo onboarding (ver `ArranqueOffer`). null = la tab Offer. */
   arranque?: ArranqueOffer | null;
+  /** El super admin: Strategy y Offer Playbook van al pie de la lista de ofertas (29/10/2026: ya no son pestañas). */
+  superAdmin?: boolean;
   arbolInicial: ArbolOffer;
   /** Un link que nombra una oferta sin conversación todavía (`entradaDelLink`, ./arbol.ts): se abre una para analizarla. */
   analizarAlAbrir?: { funnelId: number; ofertaBaseId: number | null } | null;
@@ -501,6 +508,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
    * ahí manda `enviarVista`). Si no sale, el texto VUELVE al composer: perder lo que alguien escribió
    * porque se cortó la conexión es peor que el corte.
    */
+  // «Responder» del clic derecho, por conversación. En el arranque no: ahí lo que se escribe contesta SU pregunta (el nombre, un código).
+  const cita = useCitaDelChat(sesion?.id ?? null);
   const enviarComposer = async () => {
     // En el arranque, fuera de la etapa de la oferta, el texto es la respuesta a SU pregunta (el nombre, un
     // código): lo contesta el arranque, no Offer. Si no salió, vuelve al composer.
@@ -516,9 +525,10 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     const t = texto.trim();
     const e = epoca.current;
     setTexto('');
-    // Con 'tirar' el texto también vuelve: un texto rechazado se puede corregir (un audio, no).
-    const res = await mandar({ texto: t, docs: [], fuente: linksDe(t).length ? 'tu link' : 'tu respuesta' });
-    if (res === 'salio') return;
+    // Con 'tirar' el texto también vuelve: un texto rechazado se puede corregir (un audio, no). La cita queda hasta que salga, y un
+    // link del mensaje citado no cuenta como uno que trae ahora.
+    const res = await mandar({ texto: cita.con(t), docs: [], fuente: linksDe(t).length ? 'tu link' : 'tu respuesta' });
+    if (res === 'salio') { cita.soltar(); return; }
     if (e === epoca.current) setTexto((ahora) => (ahora.trim() ? ahora : t));
   };
 
@@ -817,7 +827,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     }
   };
 
-  const nuevaSesion = async (funnelId: number, ofertaBaseId: number | null) => {
+  /** Abre una conversación nueva en el funnel. Devuelve el error (también queda arriba del chat), o null si abrió. */
+  const nuevaSesion = async (funnelId: number, ofertaBaseId: number | null): Promise<string | null> => {
     setCambiando(true);
     setErrorSelector(null);
     try {
@@ -832,7 +843,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       // texto con un link se perdía entero (revisión del 11/10). Es la guarda de `abrirSesion`.
       if (r.sesion.id === sesionRef.current?.id) {
         setVerConclusion(false);
-        return;
+        return null;
       }
       reiniciar();
       sesionId.current = r.sesion.id;
@@ -841,8 +852,11 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
       setVerConclusion(false);
       // En el arranque no hay selector: el árbol no se dibuja y no hace falta pedirlo.
       if (!arranque) void refrescarArbol();
+      return null;
     } catch (err) {
-      setErrorSelector(mensajeDeError(err));
+      const m = mensajeDeError(err);
+      setErrorSelector(m);
+      return m;
     } finally {
       setCambiando(false);
     }
@@ -853,6 +867,30 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     if (!el || cambiando || generando.current) return;
     if (el.tipo === 'sesion') void abrirSesion(el.id);
     else void nuevaSesion(el.funnelId, el.ofertaBaseId);
+  };
+
+  // ── «Nueva oferta» en la pantalla de Create (29/10/2026) ────────────────────
+  /** Una plantilla: crear en un funnel o analizar una de sus ofertas (el valor es el del árbol, `valorNueva`). */
+  const crearDesdePlantilla = async (valor: string): Promise<string | null> => {
+    const el = leerValor(valor);
+    if (!el || el.tipo !== 'nueva') return 'No pude abrir esa plantilla.';
+    if (cambiando || generando.current) return 'Espera a que MaKo termine.';
+    return nuevaSesion(el.funnelId, el.ofertaBaseId);
+  };
+  /**
+   * Lo escrito en «¿Qué vas a crear hoy?»: una oferta nueva en el funnel de la abierta (o el primero) y lo escrito como su
+   * primer mensaje. `mandar` decide con refs (`sesionRef`), que `nuevaSesion` ya dejó en la conversación nueva.
+   */
+  const pedirOferta = async (t: string): Promise<string | null> => {
+    const funnel = funnelParaPedido(arbol, sesionRef.current);
+    if (funnel == null) return 'Para empezar, crea un funnel en el CRM.';
+    if (cambiando || generando.current) return 'Espera a que MaKo termine.';
+    const error = await nuevaSesion(funnel, null);
+    if (error) return error;
+    const res = await mandar({ texto: t, docs: [], fuente: linksDe(t).length ? 'tu link' : 'tu respuesta' });
+    // Si no salió, lo escrito queda en la caja del chat para mandarlo de nuevo.
+    if (res !== 'salio') setTexto((ahora) => (ahora.trim() ? ahora : t));
+    return null;
   };
 
   // El link del CRM a una oferta sin conversación abre la nueva UNA vez. El ref sobrevive al doble
@@ -966,8 +1004,9 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   // Con sólo texto (el arranque pregunta el nombre o un código), sin adjuntos ni voz.
   const sinAdjuntos = !!arranque?.manda;
   const caja: PropsCajaChat = {
-    texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true,
-    placeholder: arranque?.placeholder ?? 'Escríbele a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
+    texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true, arriba: arranque?.manda ? undefined : cita.arriba,
+    // «Escribe a MaKo» (29/10/2026): «Escríbele a MaKo» no entraba en un renglón en la tarjeta de 340 px de Create.
+    placeholder: arranque?.placeholder ?? 'Escribe a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
     // `sinAdjuntos` también a la caja (la revisión del 27/10/2026): si no, la caja adjuntaba SOLA y lo leído iba a la respuesta.
     sinAdjuntos,
     adjuntos: sinAdjuntos ? undefined : adjuntosCaja, estado: estadoVista, bloqueo: arranque ? undefined : appEscritorio.bloqueo,
@@ -977,17 +1016,114 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
     },
   };
 
+  // La oferta, en su ventana ENCIMA del chat: cerrarla vuelve a la conversación tal como estaba.
+  // La key la remonta con cada versión nueva (vuelve a abrir en el PDF, #887).
+  const ventanaOferta = sesion && conclusion && verConclusion ? (
+    <Modal titulo="Tu oferta" ancho={860} onCerrar={() => setVerConclusion(false)}>
+      <Conclusion
+        key={`${sesion.id}-${conclusion.version}`}
+        sesion={sesion}
+        conclusion={conclusion}
+        onSeguir={() => setVerConclusion(false)}
+        onGuardar={guardarOferta}
+        // Rehacer es armar otra versión: la ventana se cierra y el armado se ve en el chat, como «Armar mi oferta».
+        onRehacer={puedeConcluir ? () => { setVerConclusion(false); void armar(); } : undefined}
+        funnels={funnelsElegibles}
+        conProbar={!arranque}
+      />
+    </Modal>
+  ) : null;
+
+  // ── LA TAB: la pantalla de Create (29/10/2026) ──────────────────────────────
+  // Martín: «También en offer pon el mismo sistema de la sidebar, en lugar del desplegable actual... Y que al ir respondiendo
+  // las preguntas que te va haciendo MaKo que tu "offer" se arme al costado. Y sin otras tabs, incluso en SuperAdmin».
+  //   · la tarjeta izquierda es ESTE chat (no el Cerebro): su «←» lista las conversaciones, en lugar del desplegable en árbol;
+  //   · «Nueva oferta» trae una plantilla por funnel (crear) y por oferta (analizar); lo escrito en la caja abre una nueva con
+  //     eso como primer mensaje;
+  //   · el centro es la oferta armándose (./DocumentoVivo.tsx): reemplaza al riel de las piezas, que queda en el onboarding.
+  if (!arranque) {
+    const proyectos: ProyectoCrear[] = renglonesDeOffer(arbol).map((x) => ({ id: x.id, nombre: x.nombre, cuando: x.cuando }));
+    const plantillas: PlantillaCrear[] = plantillasDeOffer(arbol).map((p) => ({ id: p.id, nombre: p.nombre, rotulo: p.rotulo, formato: '3 / 4' }));
+    const chatDeLaTarjeta = (volver: ReactNode) => (
+      <div className="of-tarjeta">
+        <CabeceraDeChat clave={`offer:${sesion?.id ?? 'nueva'}`} titulo="MaKo" criatura="MaKo" aspecto={ASPECTO_MAKO}
+          animo={respondiendo || gen.corriendo || cambiando ? 'trabajando' : 'despierto'} antes={volver} />
+        {errorSelector && (
+          <div className="of-tarjeta__aviso"><Banner tono="bad" onCerrar={() => setErrorSelector(null)}>{errorSelector}</Banner></div>
+        )}
+        {visible ? (
+          <ChatOffer
+            sesion={visible}
+            pendiente={pendiente}
+            respondiendo={respondiendo}
+            fuente={fuente}
+            opcionArmar={opcionArmar}
+            opcionActualizar={opcionActualizar}
+            opcionesHabilitadas={opcionesHabilitadas}
+            onOpcion={alElegirOpcion}
+            onVarias={elegirVarias}
+            onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
+            caja={caja} onCitar={cita.citar}
+            onArchivos={agregarArchivos}
+            ocupado={ocupado}
+            error={errorVista ?? errorChat}
+            onError={setErrorChat}
+            armando={armandoEnChat}
+            onVerOferta={conclusion ? verOferta : null}
+            enTarjeta
+          />
+        ) : (
+          <div className="of-tarjeta__vacio">
+            <AvatarMako size={48} />
+            {bienvenida === 'no-cargo' ? (
+              <>
+                <p>No cargaron tus funnels.</p>
+                <Button variant="primary" loading={recargando} onClick={() => void recargarArbol()}>Volver a cargar</Button>
+              </>
+            ) : bienvenida === 'sin-funnels' ? (
+              <>
+                <p>Para empezar, crea un funnel en el CRM.</p>
+                <ButtonLink href="/crm" variant="primary">Ir al CRM</ButtonLink>
+              </>
+            ) : (
+              <p>Elige una plantilla para crear o analizar una oferta.</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+    return (
+      <>
+        <style>{CSS_OFFER}</style>
+        <PantallaCrear
+          tab="Offer"
+          nuevo="Nueva oferta"
+          proyectos={proyectos}
+          errorProyectos={arbolLeido ? null : 'No cargaron tus funnels.'}
+          onReintentar={() => void recargarArbol()}
+          actual={sesion ? String(sesion.id) : null}
+          onAbrir={(p) => elegir(valorSesion(Number(p.id)))}
+          pieLista={superAdmin ? (
+            <span className="of-pie-admin"><Link href="/admin/estrategia">Strategy</Link> · <Link href="/admin/offer-playbook">Offer Playbook</Link></span>
+          ) : undefined}
+          plantillas={plantillas}
+          onPlantilla={(p) => crearDesdePlantilla(p.id)}
+          ejemplos={EJEMPLOS_NUEVA_OFERTA}
+          onPedido={pedirOferta}
+          trasCrear="mako"
+          chat={chatDeLaTarjeta}
+        >
+          {sesion ? <DocumentoVivo sesion={sesion} acciones={acciones} /> : null}
+        </PantallaCrear>
+        {ventanaOferta}
+      </>
+    );
+  }
+
+  // ── EL ONBOARDING (`arranque`): la pantalla de siempre, el chat solo y el riel si lo pide ──
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
       <style>{CSS_OFFER}</style>
-      {!arranque && (
-        <header className="of-cabecera">
-          {/* El título se fue (pedido de Martín): en su lugar manda el selector. Queda para el lector de pantalla. */}
-          <h1 className="of-sr">Offer</h1>
-          <SelectorFunnel arbol={arbol} sesion={sesion} ocupado={cambiando || gen.corriendo} onElegir={elegir} />
-          {cambiando && <span role="status" aria-label="Abriendo" style={{ display: 'inline-flex', color: 'var(--dim)' }}><Spinner size={18} /></span>}
-        </header>
-      )}
 
       {/* Sin conversación, la bienvenida ya lo dice con su botón; con una abierta, el aviso de arriba. */}
       {!arranque && !arbolLeido && sesion && (
@@ -1046,7 +1182,7 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
               onOpcion={alElegirOpcion}
               onVarias={elegirVarias}
               onReintentar={sinContestar ? () => void reintentarRespuesta() : null}
-              caja={caja}
+              caja={caja} onCitar={arranque?.manda ? undefined : cita.citar}
               onArchivos={agregarArchivos}
               ocupado={ocupado}
               // El error de lo juntado (un archivo que no entró o no se pudo leer) o, si el turno no salió, el que dejó `mandar`.
@@ -1063,23 +1199,14 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
         </div>
       )}
 
-      {/* La oferta, en su ventana ENCIMA del chat: cerrarla vuelve a la conversación tal como estaba.
-          La key la remonta con cada versión nueva (vuelve a abrir en el PDF, #887). */}
-      {sesion && conclusion && verConclusion && (
-        <Modal titulo="Tu oferta" ancho={860} onCerrar={() => setVerConclusion(false)}>
-          <Conclusion
-            key={`${sesion.id}-${conclusion.version}`}
-            sesion={sesion}
-            conclusion={conclusion}
-            onSeguir={() => setVerConclusion(false)}
-            onGuardar={guardarOferta}
-            // Rehacer es armar otra versión: la ventana se cierra y el armado se ve en el chat, como «Armar mi oferta».
-            onRehacer={puedeConcluir ? () => { setVerConclusion(false); void armar(); } : undefined}
-            funnels={funnelsElegibles}
-            conProbar={!arranque}
-          />
-        </Modal>
-      )}
+      {ventanaOferta}
     </div>
   );
 }
+
+/** Lo que se escribe solo en la caja de «Nueva oferta»: cómo se le cuenta a MaKo lo que se vende. */
+const EJEMPLOS_NUEVA_OFERTA = [
+  'Vendo una mentoría de 3 meses para coaches que quieren llenar su agenda',
+  'Tengo un curso grabado de fotografía con el celular, cuesta 97 dólares',
+  'Analiza mi oferta: acompañamiento 1 a 1 para bajar de peso sin dietas',
+];

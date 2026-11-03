@@ -81,7 +81,7 @@ test('el modal: una casilla por cuenta (Stripe y MP a la vez), conectar ahí mis
   assert.doesNotMatch(m, /Copiar link|linkDelVinculoAction/, 'el link todavía no existe sin un lead: no se dibuja');
   assert.match(m, /\{foto\.cuentas\.map\(\(c\) => \{\s*const marcada = v\.cuentas\.includes\(c\.id\);/, 'una casilla por cuenta');
   assert.match(m, /if \(!cuentas\.length\) \{ show\('Deja al menos una cuenta, o quita el producto\.', undefined, 'bad'\); return false; \}/);
-  assert.match(m, /\(\['stripe', 'mercadopago'\] as const\)\.map\(\(prov\) => \(\s*<BotonIntegracion key=\{prov\} servicio=\{prov\} onConectado=\{\(\) => leer\(\)\}/, 'sin cuentas no se conecta ahí mismo');
+  assert.match(m, /PASARELAS\.map\(\(prov\) => \(\s*<BotonIntegracion key=\{prov\} servicio=\{prov\} onConectado=\{\(\) => leer\(\)\}/, 'sin cuentas no se conecta ahí mismo');
   // Lo creado nace cobrando por todas las cuentas; lo quitado se deshace con lo que devuelve Cobros.
   // (23/10/2026) Si vincular se cae, el producto ya está creado: se avisa, no se tira (tests/crm-vincular-22-10.test.ts).
   assert.match(m, /const v = await vincularProductoAEtapaAction\(\{ funnelId, etapa, productoId: r\.producto\.id, cuentas: todasLasCuentas \}\)\s*\.catch\(/);

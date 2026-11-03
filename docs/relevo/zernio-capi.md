@@ -3,6 +3,94 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO 30/10/2026 mañana, sexta tanda (cuenta `claude3`) — ticket #34 (Código Inmobiliario, ws17): el 429 de Zernio
+
+El Cerebro me desarchivó por el ticket #34: «Zernio no contestó (429). Vuelve a conectar con Facebook» en /integraciones. Medido con
+`vercel logs`: no fue el barrido (una pasada en la ventana); fue el momento de conectar, con todo leyendo la misma clave en un minuto.
+Hecho: el 429 tiene su motivo (`pausa`), espera `Retry-After`, el sondeo no lo cuenta como falla y el estado de «Anuncios de Meta» se
+relee solo. tests/zernio-pausa-429.test.ts. Cosecha en docs/hallazgos-integraciones.md. **Sin hacer:** gastar menos al conectar.
+
+## ESTADO 30/10/2026 madrugada, quinta tanda (cuenta `claude3`) — N1 de la re-verificación
+
+La re-verificación de `da3cff9f7` (`C:/dev/revisiones/2910-reverificacion-zernio-leads-da3cff9f7.md`) dio «entra con bajas» y va en
+el tren-ag con la 0349 SIN aplicar; antes de pedirle la 0349 a Martín faltaba N1. Hecho: el «Deshacer» devuelve `serie_de` (y la
+marca del molde, N8), validados (`lib/calendario.ts`: `serieDelEvento`, `serieParaVolver`). La 0349 NO cambió esta vez.
+**Sin hacer (anotado en los hallazgos):** N2 (409 por contenido: se publica de menos), N3 (lo que se pierde de la persona que ya era
+lead), N4, N5, N6 (dependen de Zernio), N7 (borrar el molde no avisa).
+
+## ESTADO 29/10/2026 noche, cuarta tanda (cuenta `claude3`) — la revisión de privacidad de Integración (M1-M6, A1, A2)
+
+Integración (informe: `C:/dev/revisiones/2910-revision-privacidad-zernio-leads-ce56bd693.md`) frenó `ce56bd693` del tren-af hasta
+arreglar M1-M4 (el barrido de leads) y pidió A1, A2, M5 y M6 antes de aplicar la 0349. Hecho en esta tanda:
+- **Barrido:** cada lead se descarta en memoria si su cuenta no es del negocio, con cualquier clave (M1, M2), y si es más viejo que la
+  ventana (B1); sólo crea (`soloCrear` → `noTocarExistente` en `upsertLeadFromMeta`, M3); la papelera por `leerTodo` y, si falla, corta (M4).
+- **Repetidas (mig 0349 cambiada, NO aplicada):** `repetir_hasta` en el molde (A1), `calendario_eventos_vez_sin_regla` y el rechazo en
+  `guardarRepeticion` (A2), confirmación y texto obligatorio (M5), el 409 que no se comparte (M6, en `programarPublicaciones`).
+- Cosecha: docs/hallazgos-integraciones.md (la entrada del 2.º Instagram y los leads) y docs/hallazgos-calendario.md (la de las repetidas).
+**Sin hacer (de la revisión):** B2 (`?dias=90` resucita lo purgado), B3 (la pasada diaria reactiva el webhook pausado), B4 (los
+prestados nunca se barren), B5 (no reintenta), B6 (`rutaValida` al copiar), B7 (aviso de cobro al reconectar la misma cuenta);
+propagar al molde corregido / cancelar al sacar la regla; los dos huecos en `pollMetaLeads`.
+
+## ESTADO 29/10/2026 noche, tercera tanda (cuenta `claude3`) — WhatsApp en /integraciones
+
+Pedido del Cerebro (Martín: «En Integraciones falta el logo de WhatsApp... con el QR obvio, con las múltiples líneas»): la tarjeta
+`whatsapp` (Mensajería) con las líneas del negocio (número y estado medido), «Agregar línea» con el MISMO `EvolutionConnect nueva`,
+la de MaKo afuera, y en el teléfono la hoja con las líneas (el QR, en la computadora). Capturas del banco en
+`C:/dev/revisiones/whatsapp-tarjeta-2910/` (banco: el scratchpad de esta sesión, `banco-wa/`).
+**Sin hacer:** renombrar/desvincular desde la tarjeta; agregar una línea desde el teléfono con el código de vinculación.
+
+## ESTADO 29/10/2026 noche, segunda tanda (cuenta `claude3`) — las promesas de la llamada con la agencia
+
+Rama `zernio-token-2910` (main ff908e645 mezclado en `77cf7a90b`). Pedido del Cerebro, en este orden:
+1. El 2.º Instagram que se cobraba sin aviso: `claveConLugar(…, { otra: true })` y el aviso lo dice.
+2. Los leads de Meta por Zernio: el barrido (`lib/zernio-leads-barrido.ts`, dentro del cron de leads), el aviso en «Anuncios de Meta»
+   (`leadsEnElWebhook` con la clave de la conexión) y `asegurarWebhook` en la pasada diaria. Cómo probar un lead real: en
+   docs/hallazgos-integraciones.md (lo hace Martín: es un login de Facebook).
+3. Publicaciones que se repiten: mig 0349 (escrita, SIN aplicar: el sí de Martín lo pide el Cerebro), «Repetir» en «Publicar en la red»,
+   el cron `/api/cron/calendario-recurrentes` (cada 6 horas) y las próximas en la capa «Se repite».
+
+**Sin hacer:** «Personalizado…» en el Repetir; avisar en el Calendario un molde incompleto; el hueco de la papelera en el poll de Meta
+(de Ads/CRM); la prueba de un lead real. Las promesas de la llamada que tocan el Calendario y no se pidieron acá ([19:12] el anuncio
+y el email programados; [19:29] el Calendario para closers y setters) quedan para el Cerebro.
+
+## ESTADO 29/10/2026 noche (cuenta `claude3`) — «Publicar» desde el Video Editor, el Image Editor y el Copywriter
+
+Rama `zernio-token-2910` (con origin/main 1cf06eba9 mezclado en `939b9b1ef`: trae el shell de Create y el Copywriter). Nada
+pusheado: sube el Cerebro.
+
+**Lo pedido (el Cerebro, 29/10):** «Publicar» en los tres: lleva lo exportado al Calendario con el evento armado, para elegir la
+red, el día y la hora. Un solo camino de publicación, el del Calendario, con los límites de cada red.
+
+**Lo hecho:** `7e7c04207` (+ el arreglo de la frontera «use client» del Image Editor) — `lib/calendario-desde-crear.ts`, `publicacionDesdeCrearAction`, `llevarAlCalendario`, el
+`?evento=` del Calendario, «Publicar» en la barra del Video Editor (exporta SÓLO el MP4, sin guardarlo) y «Publicar en redes» al
+terminar de exportar; «Publicar en redes» en el diálogo de descarga del Image Editor; «Publicar en redes» en el menú «⋯» del
+Copywriter. tests/publicar-desde-crear.test.ts (10/0, 14 roturas que muerden). Cosecha en docs/hallazgos-calendario.md.
+
+**Sin hacer / sin verificar:** carrusel (varias imágenes); publicar un texto solo (el Calendario pide archivo); no se vio en un
+navegador (capturas: el Cerebro, en producción, ws3). Las capturas de las redes, del aviso de la 3.ª red y del tutorial, también.
+
+## ESTADO 29/10/2026 tarde (cuenta `claude3`) — varias claves de Zernio y todas las redes
+
+Rama `zernio-token-2910`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
+
+**Lo pedido (el Cerebro, con el audio de Martín del 29/10):** varias claves de Zernio por negocio (cada una de una cuenta del
+cliente), el aviso de la 3.ª red con [Agregar otra clave] [Conectar igual], Zernio primero en todo «Conectar…», todas las redes de
+Zernio en Integraciones y publicables desde lo que ya existe, un tutorial claro con capturas reales, un paso por pantalla.
+
+**Lo hecho:**
+- `27d7f63ce` — varias claves (la red atada a su clave, conectar en la primera con lugar, el aviso, el webhook en cada clave).
+- `2518c96fc` — todas las redes (LinkedIn, X, Threads, Google Business en el paso 2 y en el Calendario; una tarjeta por red;
+  Pinterest y Reddit se ven sin conectarse), el «sigue» después del paso 1, el tutorial un paso por pantalla, la mig 0348 y la
+  cosecha (docs/hallazgos-integraciones.md).
+
+**A medias / sin hacer:**
+- Capturas: el paso 2 del tutorial (panel de API keys de Zernio, pide una sesión) y las de MaKo (pestaña antes/después, aviso de la
+  3.ª red, pasos 3 y 4): sin `next dev` local. Se sacan en producción, en el ws3, después del deploy.
+- La mig 0348 (escrita, NO aplicada): sin ella el Calendario dice «todavía no está activo» para LinkedIn, X, Threads y Google
+  Business.
+- El cuerpo del post de las cuatro redes nuevas no se midió con una cuenta real. `usoZernioDelCiclo` mira el ciclo de la clave 1.
+- El «Publicar» de los editores de Video e Imagen y del Copywriter no existe (sólo exportan).
+
 ## ESTADO DE LA CUENTA `claude4` (28/10/2026, noche) — para seguir con un «Continua»
 
 Rama `zernio-2510`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
@@ -396,3 +484,25 @@ zernio-2510 lleva Planes adentro (8d48ef4c3 trae planes-2710 hasta d15b4ec1d), y
 ALTAs. Sin chat de Planes en claude3, el Cerebro las pasó acá: merge de ddfa645d4 (eb8129418) y los arreglos encima. El detalle,
 en docs/relevo/planes-pagos-partners.md («La verificación de ddfa645d4») y docs/hallazgos-pagos.md. Zernio + Planes entran JUNTOS.
 
+
+## Ticket #28 (29/10, tarde, claude3): una sola pestaña de Zernio y ningún token de Meta a la vista
+
+Rama `zernio-token-2910` (desde origin/main 3648cedb8, en C:/dev/wt-zernio-2510). Pedido del Cerebro, con el texto de Martín.
+- Hecho en af78bb488: `?abrir=meta` y «conectar Meta» abren Zernio; Zernio en dos pasos (la clave, las redes con «Anuncios de
+  Meta», TikTok visible); ningún token a la vista (pantalla, notas, ayudas, MaKo, API); la grilla mide Meta como los otros lectores.
+- El corte sigue el 03/11 y leer con el token sigue después (lo prometió el aviso). El token guardado no se borra.
+- Lo de MaKo diciendo «ya tomé nota para barrer…» sin ticket es del chat de MaKo en WhatsApp: no se tocó.
+- Detalle y trampas: docs/hallazgos-integraciones.md («Una sola pestaña, la de Zernio…»).
+
+## EN CURSO (29/10 ~14:00, claude3): varias claves de Zernio y todas las redes (pedido de Martín, da vuelta el «NO» de la mañana)
+
+Martín, audio en SuperAdmin (29/10 16:40 UTC): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con otra
+cuenta de Gmail del cliente... y ya tendrías cuatro redes... si vas a conectar la tercera cuenta te advierte». El Cerebro le dice
+lo de los términos (suspensión por «abuso»). El plan, en este orden, cada pieza con su commit:
+1. Varias claves: `ZERNIO_API_KEY_2…_5` (slot + email, como las IA). La 1 sigue siendo `cfg(ws)` (nada cambia con una sola).
+   Lo que opera sobre UNA cuenta usa la clave dueña (`cfgDeCuenta`); conectar elige la primera clave con lugar; el webhook y el
+   ruteo se registran en cada clave (el secreto es por negocio: la misma URL `?w=` sirve).
+2. El aviso de la 3.ª red, por clave, con [Agregar otra clave] y [Conectar igual].
+3. Zernio primero en todo «Conectar» sin clave.
+4. Todas las redes de Zernio (las de login: LinkedIn, X, Threads, Reddit, Pinterest, Google Business) en Integraciones y al publicar.
+5. El tutorial con capturas.

@@ -26,7 +26,7 @@ import { getSupabaseServer } from './supabase';
 import { getSesionAdmin, getUsuarioActual } from './auth';
 import { CAPA_DEFAULT, capaDef, esCapaValida, tabEnCapa, type CapaId } from './capas';
 import { CORTE_POR_PLAN_PRENDIDO, HEADER_RUTA, tabDeRutaApi } from './api-tab';
-import { CORTE_DE_ACCESO_PRENDIDO } from './plan-acceso-reglas';
+import { CLAVE_CORTE, CORTE_DE_ACCESO_PRENDIDO, leerCorte } from './plan-acceso-reglas';
 import { IMPERSONATE_COOKIE, LEGACY_COOKIE, OWNER_WS, SESSION_COOKIE, firmarImpersonacion, leerImpersonacion, type RolWorkspace } from './auth-session';
 import { WS_HEADER, conWs, parseWs } from './ws-tab';
 import { contextoDeAgencia } from './agencia';
@@ -150,6 +150,11 @@ const TENANT_TABLES = new Set<string>([
   // Los productos de un lead ADEMÁS de su casa (mig 0207). Sin esta línea getTenantDb no acota
   // por cliente y el tablero de un producto dibujaría los agregados de TODOS los workspaces.
   'lead_funnel',
+  // La PAPELERA del CRM (mig 0340): la foto de cada lead eliminado, 30 días. Sin esta línea la pantalla de la papelera
+  // listaría los eliminados de TODOS los negocios (la foto trae sus pagos y sus mensajes).
+  'leads_papelera',
+  // Lo que se borró (mig 0356): la lee el negocio, por la API de MaKo (lib/leads-bajas.ts).
+  'leads_bajas',
   // Los eventos de la agenda (Calendly, Cal.com) vinculados a una etapa de reunión (mig 0293). Sin esta
   // línea, el webhook leería los vínculos de TODOS los negocios y una reserva podría caer en el embudo
   // de otro (el ruteo puro igual los filtra por workspace: lib/agenda-evento-etapa.ts).
@@ -258,6 +263,11 @@ const TENANT_TABLES = new Set<string>([
   // de drop), así que siguen acá: si alguien vuelve a leerlas por getTenantDb, que
   // salgan scopeadas y no con las filas de todos.
   'contenido_posts', 'ig_conversaciones', 'ig_mensajes', 'zernio_workspace',
+  // Competitors Spy (mig 0359): el competidor que vigila un negocio y cada pieza que se le vio
+  // (anuncio / reel / publicación / video / versión de landing). Sin estas dos líneas
+  // `getTenantDb()` es PASSTHROUGH y la lista de competidores de un negocio muestra la de TODOS —
+  // y a quién mira un negocio es exactamente lo que no puede salir de su workspace.
+  'spy_competidores', 'spy_piezas',
   // Vistas de cohortes: getTenantDb NO scopea vistas por sí solo, pero estas
   // exponen workspace_id (mig 0084) y solo se LEEN (select) → el proxy inyecta
   // .eq('workspace_id', ws) y corta el leak del agregado global. OJO: scripts de
@@ -331,7 +341,24 @@ const wsPropioDeLaSesion = cache(async (): Promise<number | null> => {
  * pausado — un error pasajero no puede dejar a todos los clientes afuera (el mismo criterio que getUsuarioActual).
  */
 // Con el corte de acceso APAGADO (lib/plan-acceso-reglas.ts) ningún negocio cuenta como pausado: se abre como siempre.
-export const negocioPausado = cache(async (ws: number): Promise<boolean> => CORTE_DE_ACCESO_PRENDIDO && (await filaDelNegocio(ws))?.estado === 'pausado');
+// SALVO la cuenta que su agencia dio de baja (29/10/2026, el corte `sin-agencia` de lib/agencia-baja.ts): desde ese día no la
+// paga nadie, y sin esto seguía usando MaKo gratis (revisión de plata, hallazgo 1). Vale desde su `desde`: la que pagaba el
+// cliente sigue abierta hasta el fin de lo que pagó.
+export const negocioPausado = cache(async (ws: number): Promise<boolean> => {
+  if ((await filaDelNegocio(ws))?.estado !== 'pausado') return false;
+  const corte = await corteDelNegocio(ws);
+  if (corte?.motivo === 'sin-agencia' && corte.vigente) return !(Date.parse(corte.desde) > Date.now());
+  return CORTE_DE_ACCESO_PRENDIDO;
+});
+
+/** El corte guardado del negocio (`plan.corte_por_pago`), por request; null si no hay o si la base no contestó (fail-open). */
+const corteDelNegocio = cache(async (ws: number) => {
+  try {
+    const { data, error } = await getSupabaseServer().from('app_settings').select('value').eq('workspace_id', ws).eq('key', CLAVE_CORTE).maybeSingle();
+    if (error) return null;
+    return leerCorte((data as { value?: string } | null)?.value ?? null);
+  } catch { return null; }
+});
 
 /** El estado y la capa de un negocio, por request; null si la base no contestó (quien lo usa decide fail-open). */
 const filaDelNegocio = cache(async (ws: number): Promise<{ estado: string | null; capa: string | null } | null> => {

@@ -12,6 +12,7 @@ import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO, veredictoDeIA } from './
 import type { ProvName } from './ai-cheap';
 import { emailConectado } from './resend';
 import { POR_QUE_SIN_EMAIL } from './email-remitente';
+import { metaConectadaConCampos } from './zernio-meta-cuerpo';
 import { landingRecibioEventos, LANDING_VENTANA_DIAS } from './landing-token';
 import { googleCalendarConectado, googleCalendarDueno } from './google-calendar';
 import { capaDef } from './capas';
@@ -55,7 +56,8 @@ export type Integracion = {
 
 // El catálogo y la regla de visibilidad viven aparte, sin `server-only`, para poder
 // testearlos. Se re-exportan para no romper a quien los importaba desde acá.
-import { DEFS, defsVisibles, type Def } from './integraciones-catalogo';
+import { DEFS, defsVisibles, META_SE_CONECTA_EN_ZERNIO, type Def } from './integraciones-catalogo';
+import { estadoDeRed, REDES, redDeTarjeta, SIN_USO_TODAVIA, type ConexionZernio, type RedConTarjeta } from './zernio-redes';
 import { servicioMetodo } from './metodo-catalogo';
 export { DEFS_TEST, defsVisibles } from './integraciones-catalogo';
 export type { Def } from './integraciones-catalogo';
@@ -221,12 +223,31 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
       estado: 'falta', detalle: texto, soloServidor: true, sinConexion: { texto, chip: grabador.chip ?? 'Próximamente' },
     };
   }
+  // WhatsApp por QR (29/10/2026): conectada si alguna línea del negocio lo está (la de MaKo no cuenta).
+  if (d.key === 'whatsapp') return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoWhatsApp()) };
+  // Una red social (29/10/2026): conectada o no según sus cuentas en Zernio.
+  const red = redDeTarjeta(d.key);
+  if (red) return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoDeRedZernio(red)) };
   // Servicios de plataforma: se evalúan contra el env global (agencia).
   // Per-cliente: contra las credenciales del workspace actual.
   const faltan: string[] = [];
   for (const k of d.envs) {
     const ok = d.global ? envGlobalReal(k) : Boolean(await credWs(k));
     if (!ok) faltan.push(k);
+  }
+  // ⚠️ META SE CONECTA POR ZERNIO (29/10/2026, ticket #28): la tarjeta la medía con sus `envs` (el token y la cuenta), así que un
+  // negocio conectado SÓLO por Zernio quedaba «Sin conectar» y lo que faltaba era el token. La misma regla que los otros tres
+  // lectores (`metaConectadaConCampos`), y lo que falta se dice en palabras: se conecta en Zernio, nunca «el token».
+  if (d.key === 'meta' && faltan.length) {
+    const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, Boolean(await credWs(e))] as const)));
+    const conectada = metaConectadaConCampos((e) => tiene.get(e) === true);
+    return {
+      key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+      estado: (conectada ? 'conectada' : 'falta') as EstadoIntegracion,
+      detalle: conectada ? 'Conectada y operativa.' : META_SE_CONECTA_EN_ZERNIO,
+      tieneDetalle: d.tieneDetalle,
+      ...delMetodo(d.key),
+    };
   }
   // ⚠️ EMAIL CON LA KEY Y SIN REMITENTE PROPIO NO ESTÁ CONECTADO, aunque la key sea lo único que pide
   // para abrir /email (por eso el remitente sigue `opcional` en el catálogo, ver `sinEsto`). La tarjeta
@@ -271,6 +292,73 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
     tieneDetalle: d.tieneDetalle,
     ...delMetodo(d.key),
   };
+}
+
+/**
+ * El estado de la tarjeta de WhatsApp (29/10/2026): las líneas del negocio por QR (`evolution_instancias`, `listarLineas`), SIN la línea
+ * de MaKo (`esLineaDeMaKo`: la del grupo no es una línea del negocio). Lo que dice la FILA, para la tarjeta; el modal mide cada línea
+ * (app/integraciones/LineasWhatsApp.tsx). `soloServidor: false`: se gestiona en su modal, aunque no tenga campos que pegar.
+ */
+async function estadoWhatsApp(): Promise<Pick<Integracion, 'estado' | 'detalle' | 'soloServidor'>> {
+  try {
+    const { listarLineas } = await import('./evolution');
+    const { esLineaDeMaKo } = await import('./linea-plataforma');
+    const lineas = (await listarLineas()).filter((l) => !esLineaDeMaKo(l.instance_name));
+    const conectadas = lineas.filter((l) => l.estado === 'conectado').length;
+    if (!conectadas) {
+      return { estado: 'falta', detalle: lineas.length ? 'Ninguna línea conectada: escanea su QR.' : 'Conecta tu WhatsApp con un QR: una línea o varias.', soloServidor: false };
+    }
+    return { estado: 'conectada', detalle: conectadas === 1 ? '1 línea conectada.' : `${conectadas} líneas conectadas.`, soloServidor: false };
+  } catch (e) {
+    console.error('[integraciones] whatsapp:', e instanceof Error ? e.message : e);
+    return { estado: 'falta', detalle: 'No pude leer tus líneas de WhatsApp.', soloServidor: false };
+  }
+}
+
+/**
+ * Las cuentas de Zernio del negocio, UNA lectura por carga de la grilla (las tarjetas de red se arman en paralelo y cada una
+ * preguntaría). Con tope de tiempo: Zernio lento no frena /integraciones. `sin-clave` = no hay clave; null = no se pudo leer.
+ */
+const redesCache = new Map<number, { p: Promise<ConexionZernio[] | 'sin-clave' | null>; vence: number }>();
+const TOPE_REDES_MS = 5_000;
+async function redesDelNegocio(): Promise<ConexionZernio[] | 'sin-clave' | null> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return null;
+  const hit = redesCache.get(ws);
+  if (hit && hit.vence > Date.now()) return hit.p;
+  const p = (async () => {
+    const { conexionesViaZernio } = await import('./zernio-conectar');
+    let tope: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        conexionesViaZernio(ws),
+        new Promise<null>((ok) => { tope = setTimeout(() => ok(null), TOPE_REDES_MS); }),
+      ]);
+    } catch (e) {
+      return (e as { motivo?: string }).motivo === 'sin-clave' ? 'sin-clave' : null;
+    } finally {
+      clearTimeout(tope);
+    }
+  })();
+  redesCache.set(ws, { p, vence: Date.now() + 15_000 });
+  return p;
+}
+
+/**
+ * El estado de la tarjeta de una red (29/10/2026): conectada si tiene una cuenta activa en Zernio. Sin clave, lo que falta se dice
+ * en orden (primero la clave, después el login); una que todavía no se usa en MaKo lo dice y no es un pendiente (`sinConexion`).
+ */
+async function estadoDeRedZernio(red: RedConTarjeta): Promise<Pick<Integracion, 'estado' | 'detalle' | 'soloServidor' | 'sinConexion'>> {
+  const sinUso = SIN_USO_TODAVIA[red];
+  if (sinUso) return { estado: 'falta', detalle: sinUso, soloServidor: true, sinConexion: { texto: sinUso, chip: 'Próximamente' } };
+  const nombre = REDES[red].etiqueta;
+  const lista = await redesDelNegocio();
+  if (lista === 'sin-clave') return { estado: 'falta', detalle: `Se conecta con tu cuenta de Zernio: primero tu API key, después el login de ${nombre}.`, soloServidor: true };
+  if (lista == null) return { estado: 'falta', detalle: 'No pude leer tus redes en Zernio. Prueba de nuevo en un rato.', soloServidor: true };
+  const e = estadoDeRed(red, lista);
+  if (e.estado === 'conectada') return { estado: 'conectada', detalle: 'Conectada y operativa.', soloServidor: true };
+  if (e.estado === 'vencida') return { estado: 'falta', detalle: `Zernio pide volver a conectar tu ${nombre}.`, soloServidor: true };
+  return { estado: 'falta', detalle: `Se conecta en la tarjeta de Zernio, con el login de ${nombre}.`, soloServidor: true };
 }
 
 /** Las IA de la cascada barata: las que MaKo usa con las keys del negocio (`provsDe`, lib/ai-cheap.ts). */

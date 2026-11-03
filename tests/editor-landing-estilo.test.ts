@@ -405,7 +405,7 @@ test('replicar.ts: el estilo en paralelo, el tema propio reusado, las imágenes 
   assert.match(srv, /copiarUrlABucket\(u, BUCKET_LANDING, ws\)/, 'las imágenes con la baranda y los topes del área');
   assert.match(srv, /for \(let salto = 0; salto <= MAX_SALTOS; salto\+\+\) \{\s*const check = await validarDestino\(actual\);/, 'la hoja revalida CADA salto');
   assert.match(srv, /lookup: lookupClavado\(ips\)/, 'sin la IP clavada vuelve el DNS rebinding');
-  assert.match(srv, /htmlDePagina\(url, \{ talCual: true \}\)/);
+  assert.match(srv, /paginaConDireccion\(url, \{ talCual: true \}\)/);
 });
 
 // =============================================================================

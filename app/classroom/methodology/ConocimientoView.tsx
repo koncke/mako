@@ -14,6 +14,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
+import type { CargaDeModulo } from '@/lib/knowledge-modulos';
+import { ModulosKnowledge } from './ModulosKnowledge';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -30,10 +32,18 @@ type Entry = {
 type Curado = { clave: string; curso: string; autor: string; area: string; descripcion: string; cantidad: number; importado: boolean };
 
 // Cada una con su ícono del set de la casa (sexta tanda, general 10): son las mismas para todos.
+// ⚠️ ESTA LISTA ES LA PUERTA. Un área que no esté acá no se puede elegir, así que su módulo de Knowledge nunca recibe
+// una ficha y queda en cero para siempre sin que nada lo avise. Cada `area` de lib/knowledge-modulos.ts tiene que estar
+// acá, y `tests/knowledge-modulos.test.ts` lo frena.
 const AREAS: DropdownOption[] = [
   { value: 'mensajes', label: 'Mensajes (WhatsApp / DM)', icono: 'whatsapp' },
   { value: 'ads', label: 'Anuncios / creativos', icono: 'anuncio' },
   { value: 'general', label: 'General (todo el dashboard)', icono: 'grafico' },
+  // Los cuatro temas que sumó Knowledge el 31/10/2026 (los módulos `organico`, `oferta`, `paginas` y `piezas`).
+  { value: 'organico', label: 'Contenido orgánico (guiones, ganchos)', icono: 'megafono' },
+  { value: 'oferta', label: 'Oferta y modelo de negocio', icono: 'negocio' },
+  { value: 'paginas', label: 'Páginas de venta (VSL, landing)', icono: 'web' },
+  { value: 'piezas', label: 'Video, imagen y avatares', icono: 'video' },
   // Producto: cómo se construye ESTA app. Fuera del RAG que ve un cliente.
   { value: 'producto', label: 'Producto (cómo construir la app)', icono: 'configurar' },
 ];
@@ -43,6 +53,7 @@ const AREA_COLOR: Record<string, { bg: string; fg: string }> = {
   ads: { bg: 'var(--accent-soft)', fg: '#14161B' },
   general: { bg: 'var(--surface-2)', fg: 'var(--dim)' },
 };
+// Un área sin color hereda el de `general`: el badge nunca queda sin fondo (ver `AreaBadge`).
 
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
 const input: CSSProperties = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none' };
@@ -68,7 +79,7 @@ function AreaBadge({ area: a }: { area: string }) {
 
 type Grupo = { curso: string | null; nombre: string; autor: string | null; area: string; entries: Entry[]; activas: number; delDueno: boolean };
 
-export function ConocimientoView() {
+export function ConocimientoView({ modulos = [] }: { modulos?: readonly CargaDeModulo[] }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [curados, setCurados] = useState<Curado[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -142,6 +153,11 @@ export function ConocimientoView() {
           <span>{errorMsg}</span>
           <button aria-label="Descartar aviso" onClick={() => setErrorMsg(null)} style={{ flex: 'none', background: 'none', border: 'none', color: 'var(--bad)', cursor: 'pointer', fontWeight: 700 }}>✕</button>
         </div>
+      )}
+
+      {/* ── Knowledge: los módulos, antes de las fichas (31/10/2026) ── */}
+      {modulos.length > 0 && (
+        <div style={{ maxWidth: 880 }}><ModulosKnowledge modulos={modulos} /></div>
       )}
 
       <div style={{ maxWidth: 880, display: 'flex', flexDirection: 'column', gap: 28 }}>

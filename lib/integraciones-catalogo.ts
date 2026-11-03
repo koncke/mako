@@ -15,6 +15,8 @@
  *  negocio del cliente). Solo la ve el super-admin. Ver el mismo flag en
  *  lib/metodo-catalogo.ts: los DOS catálogos tienen que declarar lo mismo o la UI de uno
  *  la esconde y la del otro la muestra. */
+import { QUE_HACE_MAKO, REDES, REDES_CON_TARJETA, SIN_USO_TODAVIA, tarjetaDeRed } from './zernio-redes';
+
 export type Def = { key: string; nombre: string; categoria: string; descripcion: string; envs: string[]; tieneDetalle?: boolean; global?: boolean; soloPlataforma?: boolean; /** No se dibuja como tarjeta: se configura dentro de otra. */ oculto?: boolean };
 
 // 25/10/2026, Martín (docs/feedback-25-10-tarde.md): «Fijate los nombres, no inventes nombres como "MaKo AI", pon los nombres
@@ -23,6 +25,23 @@ export type Def = { key: string; nombre: string; categoria: string; descripcion:
 // tarjetas de la grilla; se conectan desde «Tus cuentas de IA», con el MISMO modal: `getIntegracion` no mira `oculto`).
 // «Depreca Hotmart, Skool... Elimina Apify» (mismo día): salieron, con su ruta y su API. «Elimina la de Google Calendar»:
 // `oculto`, porque la agenda sigue (ver su entrada).
+/**
+ * DÓNDE SE CONFIGURA una integración que no se configura en su propia tarjeta (29/10/2026, ticket #28, Martín: «en una sola
+ * pestaña, la de Zernio, se pueda configurar tanto para pegar primero tu API y después para loguearte... ya no debería pedirte
+ * nada de Access Token»). Meta se conecta en la tarjeta de Zernio: paso 1 la clave de Zernio, paso 2 «Anuncios de Meta» con
+ * Facebook. La tarjeta de Meta queda como el ESTADO de la cuenta publicitaria (saldo, medio de pago, entrega). Lo usan
+ * `?abrir=` (avisos, la API de MaKo, MaKo en WhatsApp) y el botón de conectar de cualquier tab (`useConectarIntegracion`).
+ */
+export const SE_CONFIGURA_EN: Readonly<Record<string, string>> = {
+  meta: 'zernio',
+  // Cada red social (29/10/2026): su tarjeta dice si está conectada; se conecta en el paso 2 de Zernio, con su login.
+  ...Object.fromEntries(REDES_CON_TARJETA.filter((r) => !SIN_USO_TODAVIA[r]).map((r) => [tarjetaDeRed(r), 'zernio'])),
+};
+/** La integración cuyo modal se abre para CONFIGURAR `key` (la misma, salvo las de `SE_CONFIGURA_EN`). */
+export const integracionQueConfigura = (key: string): string => SE_CONFIGURA_EN[key] ?? key;
+/** Lo que dice la tarjeta de Meta sin conectar: dónde se conecta, nunca qué campo falta (el token ya no se pide). */
+export const META_SE_CONECTA_EN_ZERNIO = 'Se conecta en la tarjeta de Zernio: tu API key y después «Anuncios de Meta».';
+
 export const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
   // WhatsApp (Chatwoot) salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
@@ -32,7 +51,17 @@ export const DEFS: Def[] = [
   // negocio con SU key de Zernio. Desde esa fecha también conecta Facebook y los anuncios de Meta (lib/zernio-conectar.ts).
   // 25/10/2026, Martín: «Zernio no debe decir (Facebook, Instagram...), el nombre real de las apps en integraciones». Lo que
   // conecta lo dice la descripción.
+  // WhatsApp por QR (29/10/2026, Martín: «En Integraciones falta el logo de WhatsApp para que aparezca eso también, con el QR obvio,
+  // con las múltiples líneas, claro»). Es el NO oficial (Evolution): cada línea se vincula con su QR, y puede haber varias (una por
+  // setter). Sin `envs`: el estado sale de las líneas del negocio (lib/integraciones.ts, `estadoWhatsApp`), sin la de MaKo. ⚠️ NO entra a
+  // lib/metodo-catalogo.ts: `integracionConectada('whatsapp')` es la pregunta del OFICIAL (el de Chatwoot, que se fue el 09/10) en la
+  // API de MaKo, y tiene que seguir dando false.
+  { key: 'whatsapp', nombre: 'WhatsApp', categoria: 'Mensajería', descripcion: 'Tus números de WhatsApp, cada uno con su QR. Pueden ser varios: uno por setter.', envs: [] },
   { key: 'zernio', nombre: 'Zernio', categoria: 'Mensajería', descripcion: 'Conecta tu Facebook, Instagram y anuncios de Meta con tu cuenta de Zernio.', envs: ['ZERNIO_API_KEY'] },
+  // UNA TARJETA POR RED SOCIAL (29/10/2026, Martín: «aprovechar todas las conexiones que tiene [Zernio]... Y que aparezcan en
+  // integraciones»). Sin `envs`: el estado sale de las cuentas conectadas en Zernio (lib/integraciones.ts, `estadoDeRedZernio`), y
+  // se conectan en la tarjeta de Zernio (`SE_CONFIGURA_EN`). La línea dice lo que MaKo hace con cada una, y lo que no.
+  ...REDES_CON_TARJETA.map((red): Def => ({ key: tarjetaDeRed(red), nombre: REDES[red].etiqueta, categoria: 'Redes sociales', descripcion: QUE_HACE_MAKO[red], envs: [] })),
   // IA = BYOK por cliente (ya NO global): cada workspace usa su propia key y su
   // gasto corre contra su cuenta. Para el dueño, credWs cae al env de respaldo.
   { key: 'anthropic', nombre: 'Anthropic API', oculto: true, categoria: 'Inteligencia', descripcion: 'Tu Claude: con tu clave, MaKo trabaja solo con tu cuenta (contesta, escribe y analiza). Sirve el crédito de API de Claude Max.', envs: ['ANTHROPIC_API_KEY'] },
@@ -92,6 +121,10 @@ export const DEFS: Def[] = [
   // (app/integraciones/IntegracionesBoard.tsx).
   { key: 'stripe', nombre: 'Stripe', categoria: 'Pagos', descripcion: 'Cobra con un link de pago y cada pago entra solo a tu CRM.', envs: ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET'] },
   { key: 'mercadopago', nombre: 'Mercado Pago', categoria: 'Pagos', descripcion: 'Cobra en tu moneda con un link de Mercado Pago y cada pago entra solo a tu CRM.', envs: ['MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID'] },
+  // Creem (31/10/2026). ⚠️ Sus `envs` son TRES y el secreto del aviso va incluido, al revés que Mercado Pago: el
+  // webhook de Creem es fail-closed (sin secreto rechaza todo), así que una cuenta sin él no cobra nada y no tiene
+  // sentido pintarla como conectada. Los dos derivados los escribe el descubrimiento (lib/cobros-conexion.ts).
+  { key: 'creem', nombre: 'Creem', categoria: 'Pagos', descripcion: 'Cobra en dólares en todo el mundo y Creem se encarga de los impuestos de cada país por ti.', envs: ['CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET'] },
   // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper del 14/10/2026): se fueron el 25/10/2026, Martín: «Depreca
   // Hotmart, Skool... Elimina Apify». Medido antes, en producción: 0 claves, 0 ruteos, 0 leads y 0 búsquedas.
   // Ver tests/leads-scraper-retirado.test.ts.
@@ -122,7 +155,9 @@ export const DEFS: Def[] = [
   { key: 'cloudflare', nombre: 'Cloudflare Stream', categoria: 'Datos', descripcion: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.', envs: ['CLOUDFLARE_STREAM_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'] },
   // Sin clave desde el 27/10/2026: el video del VSL alcanza (las vistas son públicas y MaKo las lee con su clave); el canal se
   // conecta con el login de Zernio (lib/zernio-redes.ts).
-  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_VSL_VIDEO_ID'] },
+  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Las vistas de TU VSL en YouTube. Para leer competidores no hace falta.', envs: ['YOUTUBE_VSL_VIDEO_ID'] },
+  // Sólo la lectura de Instagram de Competitors Spy (1/11/2026). NO es el Leads Scraper que se retiró el 25/10: tests/leads-scraper-retirado.test.ts.
+  { key: 'apify-instagram', nombre: 'Apify', categoria: 'Datos', descripcion: 'Lee el Instagram público de tus competidores en Competitors Spy.', envs: ['APIFY_INSTAGRAM_TOKEN'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el
   // cliente conecte (y su credencial no puede vivir dentro de la propia base).
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver
@@ -185,7 +220,7 @@ export const DEFS_TEST = DEFS;
 // por eso). Ya no filtra: una categoría nueva va al final, en orden alfabético, y agregar una integración sigue siendo tres
 // registros más el logo.
 // 'Pagos' (Stripe y Mercado Pago, 11/10/2026) va después de Mensajería: es lo que cierra la venta que las dos de arriba empezaron.
-export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
+export const ORDEN_CATEGORIAS = ['Publicidad', 'Mensajería', 'Redes sociales', 'Pagos', 'Inteligencia', 'IA Generativa', 'Agentes', 'Reuniones', 'Contenido', 'Datos', 'Desarrollo'] as const;
 
 /** El lugar de una categoría: las que no están en ORDEN_CATEGORIAS, al final (y entre ellas, como las ordene quien llama). */
 export function ordenCategoria(cat: string): number {

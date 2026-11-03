@@ -11,23 +11,29 @@
 //   4. Se escribe por Zernio si el negocio conectó su Zernio con esta cuenta, o con su token de Meta. Un canal por
 //      escritura, sin «si falla uno, probar el otro»: un error a mitad de camino puede haber escrito, y reintentar por
 //      otro lado duplicaría.
+//   Lo que SUBE el gasto (prender, subir) pasa antes por la ZONA y la FECHA DE FIN del negocio (lib/media-buyer/zona.ts), con
+//   el público leído en vivo: es la promesa «en tal zona, solamente hasta tal fecha», y vale para el piloto, una persona, la
+//   API de MaKo y un Deshacer que vuelve a prender.
 // Deshacer es lo mismo al revés, con el `antes` que quedó guardado al lanzar.
 // =============================================================================
 
 import 'server-only';
 import { metaWrite } from '@/lib/meta-write';
-import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
-import { aplicarTopes, presupuestoYaCambiado, seEstaCreando } from './topes';
+import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, borrarCampanaPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
+import { aplicarTopes, presupuestoCambioDesdeLaPropuesta, presupuestoYaCambiado, seEstaCreando } from './topes';
 import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
+import { revisarMontoEditado } from './monto';
 import { fmtDinero } from '@/lib/format';
-import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar } from './store';
-import { leerDatosCuenta, fmtUnidad, type DatosCuenta } from './datos';
+import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar, guardarConfig, type ConfigGuardada } from './store';
+import { leerDatosCuenta, fmtUnidad, hoyDelNegocio, type DatosCuenta } from './datos';
+import { lectorDeZona } from './publico';
+import { finDeCampana, frenoPorFecha, motivoZona } from './zona';
 import type { Decision, EstadoEntidad, NivelMeta } from './tipos';
 import type { NodoMB } from './motor';
 import { BORRADO, estaBorrado } from './senales';
 
 export type Quien = { nombre: string; origen: 'piloto' | 'persona' };
-export type ResultadoLanzar = { ok: true; decision: Decision; ajuste: string | null } | { ok: false; error: string };
+export type ResultadoLanzar = { ok: true; decision: Decision; ajuste: string | null } | { ok: false; error: string; confirmar?: 'baja' };
 
 /** La inversa de `aUnidad` (unidad del gasto → moneda de la cuenta), calculada con UN punto de la curva: la conversión es lineal. */
 const deUnidadDe = (d: DatosCuenta) => (u: number): number => {
@@ -52,6 +58,21 @@ async function conAnuncioEnVivo(ws: number, datos: DatosCuenta, nodo: NodoMB): P
   const v = await anuncioEnVivoPorZernio(ws, nodo.id).catch(() => null);
   if (v && estaBorrado(v.estado, v.entrega)) nodo.configurado = BORRADO;
   else if (v?.configurado === 'ACTIVE' || v?.configurado === 'PAUSED') nodo.configurado = v.configurado;
+}
+
+/**
+ * ¿La zona o la fecha de fin del negocio frenan esto? Sólo lo que SUBE el gasto (prender, subir). La campaña de la entidad
+ * sale del árbol; el público, en vivo (publico.ts). Devuelve el motivo, o null si pasa.
+ */
+async function frenoDeZonaYFecha(ws: number, config: ConfigGuardada, datos: DatosCuenta, nodo: NodoMB, tipo: 'activar' | 'subir_presupuesto'): Promise<string | null> {
+  const porId = new Map(datos.arbol.map((n) => [n.id, n] as const));
+  let camp: NodoMB | undefined = nodo;
+  while (camp && camp.nivel !== 'campaign') camp = camp.parentId ? porId.get(camp.parentId) : undefined;
+  const fin = finDeCampana(config, camp?.id ?? null);
+  const porFecha = fin ? frenoPorFecha(tipo, fin, await hoyDelNegocio(ws)) : null;
+  if (porFecha) return porFecha;
+  if (!config.zona.length) return null;
+  return motivoZona(await lectorDeZona(ws, datos, config.zona)(nodo.nivel, nodo.id), nodo.nombre, config.zona);
 }
 
 /** El presupuesto con el que la entidad empezó HOY: el `antes` de la primera subida aplicada hoy (Tijuana ≈ UTC-7). */
@@ -97,12 +118,14 @@ async function escribir(ws: number, datos: DatosCuenta, nivel: NivelMeta, id: st
  * Lanza una decisión. `presupuesto` = el monto que la persona editó en «Editar» (moneda de la cuenta); `elegidas` = las
  * variaciones tildadas. `datos` = una lectura fresca que ya tiene quien llama (el piloto lanza varias seguidas).
  */
-export async function lanzar(ws: number, id: string, quien: Quien, opts: { presupuesto?: number; elegidas?: string[]; datos?: DatosCuenta } = {}): Promise<ResultadoLanzar> {
+export async function lanzar(ws: number, id: string, quien: Quien, opts: { presupuesto?: number; elegidas?: string[]; datos?: DatosCuenta; bajaConfirmada?: boolean } = {}): Promise<ResultadoLanzar> {
   const config = await leerConfig(ws);
   if (!config.existeTabla) return { ok: false, error: 'Falta aplicar la migración del Media Buyer: sin el registro no se lanza nada (no se podría deshacer).' };
-  if (!config.encendido) return { ok: false, error: 'El Media Buyer está apagado: préndelo en Ajustes para lanzar decisiones.' };
   const d = await leerDecision(ws, id);
   if (!d) return { ok: false, error: 'Esa decisión no existe en este negocio.' };
+  // Apagado no se lanza nada, SALVO la pausa por fecha de fin: es la regla de la persona (una campaña creada «hasta el 30» con el
+  // Media Buyer apagado, que es como arranca todo negocio, tiene que terminar igual: revisión de Integración, M1). Sólo pausa.
+  if (!config.encendido && !(d.tactica === 'hasta' && d.tipo === 'pausar')) return { ok: false, error: 'El Media Buyer está apagado: préndelo en Ajustes para lanzar decisiones.' };
   if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { ok: false, error: `Esa decisión ya está ${d.estado}.` };
 
   const datos = opts.datos ?? await leerDatosCuenta(ws);
@@ -112,6 +135,7 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
   // Una subida de creativos se lanza desde «Subir creativos» (lib/media-buyer/subir.ts): por acá caía en el camino de
   // presupuesto, quedaba «aplicada» sin crear nada y no se podía deshacer (verificación de tren-m, falla 8).
   if (d.tipo === 'crear_anuncios') return { ok: false, error: 'Los creativos se vuelven a subir desde «Subir creativos».' };
+  if (d.tipo === 'crear_campana') return { ok: false, error: 'Una campaña nueva se lanza desde «Nueva campaña».' };
 
   const nodo = datos.arbol.find((n) => n.id === d.entidadId);
   if (!nodo) {
@@ -133,18 +157,17 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
     return { ok: false, error: `Ya estaba ${d.despues.estado === 'PAUSED' ? 'pausado' : 'prendido'} en Meta.` };
   }
 
-  // El cambio que se escribe. Si el presupuesto cambió desde que MaKo lo propuso, se aplica el MISMO porcentaje sobre
-  // el de hoy (la decisión era «subir 20%», no «llevarlo a 60»). Lo que editó la persona manda.
+  // El cambio que se escribe. Si el presupuesto cambió desde que MaKo lo propuso, la decisión está vieja y se cierra: la
+  // próxima corrida la vuelve a mirar con el de hoy (verificación de tren-m, falla 1). Lo que editó la persona manda.
   let despues: EstadoEntidad = { ...d.despues };
   let ajuste: string | null = null;
   if (d.despues.presupuesto != null) {
     if (actual.presupuesto == null) return { ok: false, error: 'En Meta ya no tiene presupuesto diario propio (se pasó a la campaña o a uno de por vida).' };
     if (opts.presupuesto != null) {
-      if (!(opts.presupuesto > 0)) return { ok: false, error: 'El presupuesto tiene que ser mayor que cero.' };
-      // Un monto cinco veces más grande o más chico que el de hoy es casi siempre un separador de miles mal leído («1,500»
-      // como 1,5): no se escribe (revisión de tren-l, falla 4). Bajar no pasa por ningún tope, así que éste es el único freno.
-      const salto = saltoPresupuesto(opts.presupuesto, actual.presupuesto);
-      if (salto) return { ok: false, error: `${fmtDinero(opts.presupuesto, datos.moneda)} es ${salto.veces} veces ${salto.sube ? 'más' : 'menos'} que el de hoy: revisa el monto (sin separador de miles).` };
+      // Un monto cinco veces más grande que el de hoy no sale; una baja de 80% o más, sólo confirmada (monto.ts →
+      // revisarMontoEditado). Bajar no pasa por ningún tope, así que la confirmación es el único freno de una baja.
+      const rev = revisarMontoEditado(opts.presupuesto, actual.presupuesto, { bajaConfirmada: opts.bajaConfirmada === true, fmt: (n) => fmtDinero(n, datos.moneda) });
+      if (!rev.ok) return { ok: false, error: rev.error, ...(rev.confirmar ? { confirmar: rev.confirmar } : {}) };
       despues = { presupuesto: Math.round(opts.presupuesto * 100) / 100 };
     } else if (presupuestoYaCambiado(d, (await leerDecisiones(ws, 7)).decisiones)) {
       // Otra decisión ya cambió el presupuesto de esta entidad desde que MaKo propuso ésta: aplicar el mismo porcentaje sobre
@@ -152,15 +175,31 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
       const motivo = 'El presupuesto ya se cambió con otra decisión desde que MaKo propuso ésta.';
       await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: motivo });
       return { ok: false, error: motivo };
-    } else if (d.antes.presupuesto && Math.abs(actual.presupuesto - d.antes.presupuesto) / d.antes.presupuesto > 0.01) {
-      despues = { presupuesto: Math.round(actual.presupuesto * (d.despues.presupuesto / d.antes.presupuesto) * 100) / 100 };
-      ajuste = 'El presupuesto había cambiado desde la propuesta: se aplicó el mismo porcentaje sobre el de hoy.';
+    } else if (presupuestoCambioDesdeLaPropuesta(d.antes.presupuesto, actual.presupuesto)) {
+      // Un cambio que no es una decisión del Media Buyer (el chat, la tabla, a mano en Meta) no lo ve `presupuestoYaCambiado`:
+      // aplicar «el mismo porcentaje sobre el de hoy» lo componía, y el piloto lo hacía sin que nadie lo viera.
+      const motivo = `El presupuesto cambió desde que MaKo lo propuso (de ${fmtDinero(d.antes.presupuesto!, datos.moneda)} a ${fmtDinero(actual.presupuesto, datos.moneda)} por día): lo vuelve a mirar mañana.`;
+      await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: motivo });
+      return { ok: false, error: motivo };
+    }
+  }
+
+  // La zona y la fecha de fin, con el público leído en vivo: lo que sube el gasto fuera de la zona o pasada la fecha no se
+  // escribe, lo lance quien lo lance. Queda «bloqueada» con el motivo, como un tope.
+  const sube = d.tipo === 'activar' || despues.estado === 'ACTIVE' ? 'activar' as const
+    : despues.presupuesto != null && actual.presupuesto != null && despues.presupuesto > actual.presupuesto ? 'subir_presupuesto' as const : null;
+  if (sube) {
+    const freno = await frenoDeZonaYFecha(ws, config, datos, nodo, sube);
+    if (freno) {
+      await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'bloqueada', error: freno });
+      return { ok: false, error: freno };
     }
   }
 
   // Los topes, con lo leído en vivo.
+  // La pausa por fecha de fin no pasa por los topes (pausar no sube nada) ni por el interruptor: sale también apagado (M1).
   const t = aplicarTopes(d.tipo, despues, {
-    config, actual, inicioDelDia: d.tipo === 'subir_presupuesto' ? await inicioDelDia(ws, d.entidadId) : null,
+    config: d.tactica === 'hasta' ? { ...config, encendido: true } : config, actual, inicioDelDia: d.tipo === 'subir_presupuesto' ? await inicioDelDia(ws, d.entidadId) : null,
     totalActivo: datos.totalActivo,
     presupuestoQueSuma: d.tipo === 'activar' ? presupuestoQueSuma(datos, nodo) : null,
     aUnidad: datos.conversor.aUsdNum, deUnidad: deUnidadDe(datos), fmt,
@@ -267,6 +306,27 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   if (!d) return { ok: false, error: 'Esa decisión no existe en este negocio.' };
   if (d.estado !== 'aplicada') return { ok: false, error: 'Sólo se deshace lo que está aplicado.' };
 
+  // Una campaña que lanzó MaKo: deshacerla es BORRARLA (con su conjunto y su anuncio), por la Zernio del negocio. Se lee la
+  // cuenta primero: sin la conexión no se borra nada (no hay otro camino, y otro canal podría ser otra cuenta).
+  if (d.tipo === 'crear_campana') {
+    if (!/^[1-9]\d*$/.test(d.entidadId)) return { ok: false, error: 'No tengo el id de esa campaña en Meta (la creación no terminó): búscala y bórrala en el Administrador de anuncios.' };
+    const datos = await leerDatosCuenta(ws);
+    if (!datos.conexion) return { ok: false, error: 'Para borrar la campaña hace falta tu cuenta conectada por Zernio.' };
+    const tomada = await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString() });
+    if (!tomada) return { ok: false, error: 'Otra persona ya la está deshaciendo.' };
+    try {
+      await borrarCampanaPorZernio(ws, d.entidadId, datos.conexion.accountId);
+    } catch (e) {
+      const z = leerErrorDeZernio(e);
+      const msg = z ? `Zernio: ${z.mensaje}` : e instanceof Error ? e.message : String(e);
+      await actualizar(ws, id, { estado: 'aplicada', deshecha_por: null, deshecha_at: null, error: `No se pudo borrar: ${msg}`.slice(0, 1000) });
+      return { ok: false, error: msg };
+    }
+    // Su fecha de fin ya no tiene campaña: se saca (best-effort; si falla, queda una fecha de una campaña borrada, inocua).
+    if (config.hastaCampanas[d.entidadId]) await guardarConfig(ws, { hastaCampana: { campanaId: d.entidadId, fecha: null } }, quien).catch(() => null);
+    return { ok: true, decision: tomada, ajuste: 'La campaña se borró en Meta, con su conjunto y su anuncio.' };
+  }
+
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios') {
     // «aplicada» con `creados` vacío es una a MITAD de su lanzamiento (los ids se guardan todos juntos al final).
     if (seEstaCreando(d)) return { ok: false, error: 'Todavía se están creando los anuncios: prueba de nuevo en unos segundos.' };
@@ -300,7 +360,13 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
     await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString(), nota: 'Ya estaba como antes.' });
     return { ok: false, error: 'Ya estaba como antes: no hubo nada que deshacer.' };
   }
-  const t = aplicarTopes(volver.estado === 'ACTIVE' ? 'activar' : volver.presupuesto != null && volver.presupuesto > (actual.presupuesto ?? 0) ? 'subir_presupuesto' : 'bajar_presupuesto', volver, {
+  const tipoVuelta = volver.estado === 'ACTIVE' ? 'activar' as const : volver.presupuesto != null && volver.presupuesto > (actual.presupuesto ?? 0) ? 'subir_presupuesto' as const : 'bajar_presupuesto' as const;
+  // Volver a prender o volver a subir también respeta la zona y la fecha de fin (un Deshacer no es una puerta trasera).
+  if (tipoVuelta !== 'bajar_presupuesto') {
+    const freno = await frenoDeZonaYFecha(ws, config, datos, nodo, tipoVuelta);
+    if (freno) return { ok: false, error: freno };
+  }
+  const t = aplicarTopes(tipoVuelta, volver, {
     config, actual, inicioDelDia: null, totalActivo: datos.totalActivo,
     presupuestoQueSuma: presupuestoQueSuma(datos, nodo), aUnidad: datos.conversor.aUsdNum, deUnidad: deUnidadDe(datos), fmt: fmtUnidad(datos),
   }, { deshacer: true });

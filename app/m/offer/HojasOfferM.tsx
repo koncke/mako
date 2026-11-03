@@ -24,11 +24,12 @@ import { esSeccionProvisional, guardadaVisible, partirCompletar, propuestoPorMak
 import { descargarPdf, mensajeDeError } from '@/app/offer/offer-api';
 import { FilaM, ListaM, PieM, PildoraM, SegmentadoM, SheetM, VacioM } from '@/app/m/_ui';
 import {
-  ESTADO_PIEZA, ROTULOS, arribaDeLaOferta, datosParaCompletar, estadoDePasos, filasDimensiones, heroeDe, lecturaDelDiagnostico,
-  piezasEnGrupos, progresoDePiezas, renglonesDelSelector, seccionesDeOferta, seccionesDelSelector,
+  ROTULOS, arribaDeLaOferta, datosParaCompletar, estadoDePasos, filasDimensiones, heroeDe, lecturaDelDiagnostico,
+  renglonesDelSelector, seccionesDeOferta, seccionesDelSelector,
   type Bloque, type EstadoPaso, type PasoGeneracion,
 } from './modelo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { documentoDeOferta } from '@/app/offer/documento-vivo';
 
 // ── Un texto con sus «[completar]» como pastillas ────────────────────────────
 
@@ -127,21 +128,16 @@ export type AccionesPiezasM = {
   onVer: () => void;
 };
 
-function MarcaPieza({ estado }: { estado: 'vacia' | 'negocio' | 'confirmada' }) {
-  return (
-    <span className="m-offer-pieza" data-estado={estado} aria-hidden>
-      {estado === 'confirmada' && <Icon name="check" size={13} />}
-    </span>
-  );
-}
-
 export function HojaPiezas({ abierto, onCerrar, piezas, acciones }: {
   abierto: boolean;
   onCerrar: () => void;
   piezas: PiezasSabidas;
   acciones: AccionesPiezasM;
 }) {
-  const p = progresoDePiezas(piezas);
+  // La oferta ARMÁNDOSE (29/10/2026, Martín: «que al ir respondiendo las preguntas que te va haciendo MaKo que tu "offer" se
+  // arme al costado»): las secciones con lo que MaKo ya sabe, lo mismo que escritorio (app/offer/documento-vivo.ts). Lo que
+  // falta no se dibuja: sin «9/20» ni casillas vacías.
+  const secciones = documentoDeOferta(piezas);
   const pie = acciones.puedeConcluir || acciones.hayConclusion ? (
     <PieM>
       {acciones.puedeConcluir && (
@@ -154,22 +150,17 @@ export function HojaPiezas({ abierto, onCerrar, piezas, acciones }: {
   ) : undefined;
   return (
     <SheetM abierto={abierto} onCerrar={onCerrar} titulo={ROTULOS.tuOferta} id="piezas" snap="alto" pie={pie}>
-      <div className="m-offer-conteo">
-        <span className="m-offer-conteo__n">{p.sabidas}<span>/{p.total}</span></span>
-        <span className="m-offer-avance" aria-hidden><i style={{ width: `${p.pct}%` }} /></span>
-      </div>
-      {piezasEnGrupos(piezas).map((g) => (
-        <div key={g.titulo} className="m-offer-grupo">
-          <p className="m-offer-arbol__sub"><span>{g.titulo}</span></p>
-          <ul className="m-offer-piezas" aria-label={g.titulo}>
-            {g.piezas.map((x) => (
-              <li key={x.key} className="m-offer-piezas__fila" data-estado={x.estado} aria-label={`${x.label}: ${ESTADO_PIEZA[x.estado]}`}>
-                <MarcaPieza estado={x.estado} />
-                <span>{x.label}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {secciones.length === 0 && <p className="m-offer-doc__vacio">{ROTULOS.seArma}</p>}
+      {secciones.map((g) => (
+        <section key={g.titulo} className="m-offer-doc" aria-label={g.titulo}>
+          <h3 className="m-offer-doc__seccion">{g.titulo}</h3>
+          {g.piezas.map((x) => (
+            <div key={x.key} className="m-offer-doc__pieza">
+              <p className="m-offer-doc__titulo">{x.titulo}</p>
+              <p className="m-offer-doc__valor">{x.valor}</p>
+            </div>
+          ))}
+        </section>
       ))}
     </SheetM>
   );

@@ -45,7 +45,7 @@ import { huellaGuion } from '@/lib/guiones-normalizar';
 import { cierreDeGuion, ctaInventado, fidelidad } from '@/lib/guion-cierre';
 import { getEstadoTab, tabOnboardingDef } from '@/lib/tab-onboarding-state';
 import { limitesDe, CAPTION_MAX, CAPTION_VISIBLE, LIMITES_IMAGEN, type FormatoIg } from '@/lib/ig-formatos';
-import { estadoContextoReels } from '@/app/reels/reels-datos';
+import { estadoContextoReels } from '@/lib/contexto-ig';
 import { getSettingEstricto } from '@/lib/settings';
 import { escribirGuionAuto, escribirGuionConDecisiones, bloquesDeGuion, tzSinResolver, diaEnTz, getRazonesEstricto, leerMatrizEstricta, grabadoComoDe, huellaTexto } from './contenido.helpers';
 import { avataresParaEscribir } from './negocio.helpers';

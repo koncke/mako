@@ -1,27 +1,17 @@
 // =============================================================================
-// /admin/copywriting
+// /admin/copywriting — redirige al Copywriter (29/10/2026)
 // =============================================================================
-// El gate ya la cierra por prefijo (`SOLO_ADMIN` en proxy.ts incluye '/admin' y
-// matchea '/admin/*'), y aun asi lleva su propio guard: esconder o depender de
-// una capa de arriba no protege nada, y es lo que hace app/admin/page.tsx.
+// Martín (29/10/2026): «Elimina esto […], no quiero ninguna mención en todo MaKo»: la pantalla del método de redacción
+// se fue, sin fila ni link. La ruta queda (links viejos) y lleva al Copywriter. Lo que la IA lee de ese método (la
+// metodología y el swipe de ejemplos, lib/copywriting-metodo.ts, con lo ya guardado) sigue igual.
+// docs/diseno-copywriter.md, D15.
+// =============================================================================
 
 import { redirect } from 'next/navigation';
-import { getUsuarioActual } from '@/lib/auth';
-import { Copywriting } from './Copywriting';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Copywriting · Admin' };
-
 export default async function CopywritingPage() {
-  const sesion = await getUsuarioActual();
-  if (!sesion) redirect('/login');
-  if (sesion.rol !== 'admin') redirect('/inicio');
-  return (
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-      <div style={{ maxWidth: 980 }}>
-        <Copywriting />
-      </div>
-    </main>
-  );
+  redirect(await rutaConWs('/copywriter'));
 }

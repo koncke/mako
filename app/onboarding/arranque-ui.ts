@@ -7,6 +7,19 @@
 
 import type { OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
 import type { EtapaArranque, MensajeArranque, TarjetaArranque } from '@/lib/onboarding-arranque';
+import { DIAL_DEFAULT, numeroTecleado } from '@/lib/paises';
+
+/**
+ * Con qué arranca la tarjeta del WhatsApp: el número que dio al pagar, partido en su país y el resto (31/10/2026). Viene de un
+ * formulario público y no está probado, así que sólo se muestra: lo manda un toque. Un país que no se conoce arranca vacía:
+ * `splitTelefono` le pondría el de por defecto, y el código saldría a otra persona.
+ */
+export function tarjetaConNumero(digitos: string | null | undefined): { lada: string; numero: string } {
+  const vacia = { lada: DIAL_DEFAULT, numero: '' };
+  if (!digitos || !/^\d{8,15}$/.test(digitos)) return vacia;
+  const { lada, numero } = numeroTecleado(`+${digitos}`);
+  return lada ? { lada, numero } : vacia;
+}
 
 /** Una conversación vacía: para dibujar los mensajes del arranque antes de que exista la de la oferta. */
 export const SESION_VACIA: OfferSesionVista = {
@@ -61,6 +74,7 @@ export function placeholderDe(etapa: EtapaArranque): string | undefined {
     case 'origen': return 'Cómo llegaste';
     case 'objetivo': return 'Tu objetivo';
     case 'que_hace': return 'A qué se dedica';
+    case 'telefono': return 'Tu WhatsApp, con el código de país';
     case 'codigo': return 'El código de 6 dígitos';
     // Las preguntas con opciones también se contestan escribiendo (20/10/2026, Florencia: no sabía que podía).
     case 'fase': case 'interes': return 'Elige una opción o escríbelo con tus palabras';
@@ -79,5 +93,5 @@ export function ladoDeLaPregunta(etapa: EtapaArranque, modo: 'oferta' | 'plan' =
   // este lado no es el de la pregunta, la respuesta optimista se dibuja arriba, fuera de la vista, y abajo sólo salen
   // los puntitos (Martín, punto 11). tests/onboarding-respuesta-visible.test.ts recorre todas las etapas.
   if (etapa === 'fase' || etapa === 'origen' || etapa === 'interes') return modo === 'oferta' ? 'despues' : 'antes';
-  return etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
+  return etapa === 'telefono' || etapa === 'codigo' || etapa === 'nombre' || etapa === 'negocio' || etapa === 'objetivo' || etapa === 'que_hace' ? 'antes' : 'despues';
 }

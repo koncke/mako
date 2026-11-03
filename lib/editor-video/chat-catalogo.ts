@@ -156,8 +156,9 @@ export type OperacionChat =
   | { op: 'cortar_frase'; frase: string; vez?: number }
   | { op: 'cortar_tramo'; inicio: number; fin: number }
   | { op: 'eliminar_muletillas' }
-  /** Sin `ref`: cada clip con sonido de la pista principal (o los elegidos, con el alcance de la selección). */
-  | { op: 'borrar_silencios'; ref?: string }
+  /** Sin `ref`: cada clip con sonido de la pista principal (o los elegidos, con el alcance de la selección). `pausa_min`: la
+   *  pausa más corta que se saca, de 0,2 a 2 s (sin ella, 0,4: audio/silencios-aviso.ts, ticket 31). */
+  | { op: 'borrar_silencios'; ref?: string; pausa_min?: number }
   /** `medio`: la ref de un medio de Multimedia («m1»), de "medios" en la vista. */
   | { op: 'reemplazar_clip'; ref: string; medio: string }
   /** `textos`: hueco → texto; `clips`: hueco → ref de un medio. */
@@ -374,8 +375,10 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
   },
   {
     op: 'borrar_silencios',
-    forma: '{"op":"borrar_silencios","ref":"v1"}',
-    para: '«Borrar silencios», como el botón de la barra: escucha el sonido del clip, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. Con "ref", ese video o audio; sin "ref", cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.',
+    // Sin "ref" en el ejemplo (ticket 31, 29/10/2026): con `"ref":"v1"` el modelo nombraba siempre UN clip, y a Leila, que
+    // pidió «borrar silencios» del video, le buscó en uno de 0,9 s y le dijo que no había.
+    forma: '{"op":"borrar_silencios"}',
+    para: '«Borrar silencios», como el botón de la barra: escucha el sonido, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. SIN "ref" (lo normal: «borra los silencios», «saca las pausas»): todo el video, cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). Con "ref" SÓLO si la persona nombra un clip o un audio en particular. "pausa_min" (opcional, de 0.2 a 2 segundos): la pausa más corta que se saca, cuando pide pausas más cortas o más largas que 0,4 s. No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.',
   },
   {
     op: 'usar_plantilla',
@@ -503,7 +506,7 @@ function validarEstilo(raw: Record<string, unknown>): { ok: true; estilo: Estilo
   }
   for (const k of ['negrita', 'cursiva', 'subrayado'] as const) if (!bool(k)) return mal(k);
   if (raw.mayusculas !== undefined) {
-    if (!['ninguno', 'mayusculas', 'minusculas', 'titulo'].includes(String(raw.mayusculas))) return mal('mayusculas');
+    if (typeof raw.mayusculas !== 'string' || !['ninguno', 'mayusculas', 'minusculas', 'titulo'].includes(raw.mayusculas)) return mal('mayusculas');
     e.mayusculas = raw.mayusculas as EstiloTextoChat['mayusculas'];
   }
   if (raw.alineacion !== undefined) {
@@ -546,7 +549,7 @@ function validarTransformar(raw: Record<string, unknown>): { ok: true; cambios: 
   if (!tomar('opacidad', 0, 100, Math.round)) return mal('opacidad');
   if (raw.mezcla !== undefined) {
     const m = String(raw.mezcla).trim().toLowerCase();
-    if (!(m in MEZCLAS)) return { ok: false, motivo: `«${m.slice(0, 30)}» no es un modo de mezcla` };
+    if (!Object.hasOwn(MEZCLAS, m)) return { ok: false, motivo: `«${m.slice(0, 30)}» no es un modo de mezcla` };
     c.mezcla = m;
   }
   if (!Object.keys(c).length) return { ok: false, motivo: 'un transformar sin cambios' };
@@ -601,14 +604,29 @@ function valoresDePlantilla(
   return { ok: true, ...salida };
 }
 
+const ENVUELTAS: Record<string, string> = { estilo_texto: 'estilo', transformar: 'cambios', ajustar_color: 'valores' };
+
+/**
+ * `validarOperacion` devuelve estas tres con sus campos adentro de una clave, pero la IA los escribe sueltos. La ruta valida
+ * y PanelChat vuelve a validar lo que contestó la ruta: sin esto, la segunda pasada las tiraba a todas (lo encontró el
+ * carrusel de Leila en el Image Editor, 30/10/2026; tests/video-editor-chat.test.ts).
+ */
+function desenvuelta(raw: Record<string, unknown>): Record<string, unknown> {
+  const clave = ENVUELTAS[String(raw.op)];
+  if (!clave || !esObjeto(raw[clave])) return raw;
+  const { [clave]: adentro, ...resto } = raw;
+  return { ...(adentro as Record<string, unknown>), ...resto };
+}
+
 /**
  * Una operación de la IA, validada; o el motivo por el que no. El motivo es corto: lo ve la
  * persona en la revisión («No se aplica: …»).
  */
-export function validarOperacion(raw: unknown): Validada {
-  if (!esObjeto(raw) || typeof raw.op !== 'string') return { ok: false, motivo: 'una operación sin forma' };
-  const op = raw.op;
+export function validarOperacion(crudo: unknown): Validada {
+  if (!esObjeto(crudo) || typeof crudo.op !== 'string') return { ok: false, motivo: 'una operación sin forma' };
+  const op = crudo.op;
   if (!IDS_OP.has(op)) return { ok: false, motivo: `«${op.slice(0, 30)}» no es algo que pueda hacer` };
+  const raw = desenvuelta(crudo);
   const ref = raw.ref;
   switch (op as IdOperacion) {
     case 'agregar_texto': {
@@ -681,7 +699,7 @@ export function validarOperacion(raw: unknown): Validada {
     case 'normalizar': {
       if (!esRef(ref) || typeof raw.activo !== 'boolean') return { ok: false, motivo: 'un «normalizar» incompleto' };
       const objetivo = raw.objetivo === undefined ? undefined : String(raw.objetivo).trim().toLowerCase();
-      if (objetivo !== undefined && !(objetivo in OBJETIVOS_NORMALIZAR)) return { ok: false, motivo: `«${objetivo.slice(0, 20)}» no es una intensidad objetivo` };
+      if (objetivo !== undefined && !Object.hasOwn(OBJETIVOS_NORMALIZAR, objetivo)) return { ok: false, motivo: `«${objetivo.slice(0, 20)}» no es una intensidad objetivo` };
       return { ok: true, op: { op: 'normalizar', ref, activo: raw.activo, ...(objetivo ? { objetivo: objetivo as ObjetivoNormalizar } : {}) } };
     }
     case 'separar_audio': {
@@ -826,7 +844,10 @@ export function validarOperacion(raw: unknown): Validada {
       return { ok: true, op: { op: 'eliminar_muletillas' } };
     case 'borrar_silencios': {
       if (ref !== undefined && !esRef(ref)) return { ok: false, motivo: 'un «borrar silencios» con un elemento que no es una ref' };
-      return { ok: true, op: { op: 'borrar_silencios', ...(ref !== undefined ? { ref } : {}) } };
+      const pausa = raw.pausa_min === undefined ? undefined : numero(raw.pausa_min);
+      // De 0,2 a 2 s (PAUSA_MIN_RANGO de audio/silencios-aviso.ts): con menos, el margen de 80 ms a cada lado no deja nada.
+      if (pausa === null || (pausa !== undefined && (pausa < 0.2 - EPS || pausa > 2 + EPS))) return { ok: false, motivo: 'un «borrar silencios» con una pausa mínima fuera de 0,2 a 2 segundos' };
+      return { ok: true, op: { op: 'borrar_silencios', ...(ref !== undefined ? { ref } : {}), ...(pausa !== undefined ? { pausa_min: decima(pausa) } : {}) } };
     }
     case 'reemplazar_clip': {
       if (!esRef(ref) || !esRefMedio(raw.medio)) return { ok: false, motivo: 'un reemplazo de clip sin clip o sin medio («m1», «m2»…)' };

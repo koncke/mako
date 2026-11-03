@@ -34,7 +34,7 @@ import type { Bloque } from '../chat-bloques';
 export const AREAS = [
   'general', 'plan', 'crm', 'ads', 'chats', 'whatsapp', 'email', 'chatbot',
   'metricas', 'experimentos', 'landing', 'closing', 'negocio', 'contenido', 'video',
-  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'cobros', 'mako',
+  'imagen', 'integraciones', 'equipo', 'cs', 'curso', 'comunidad', 'calendario', 'creaciones', 'operaciones', 'spy', 'cobros', 'mako',
 ] as const;
 export type Area = (typeof AREAS)[number];
 
@@ -86,11 +86,14 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // La pasarela de pagos (11/10/2026, docs/diseno-pasarela-pagos.md). Área PROPIA y no `crm`, a
   // propósito: un token detallado con escritura en el CRM no crea links de pago ni reembolsa, y los
   // tokens que ya existen no la tienen. Vive en la ficha del lead (tab Pagos), por eso la tab es el CRM.
-  cobros: { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' },
+  cobros: { titulo: 'Cobros (Stripe, Mercado Pago y Creem)', tab: 'CRM', ruta: '/crm' },
   // El Calendario (13/10/2026): sólo lo que se agenda en la tab. La agenda de Google no sale por la API.
   calendario: { titulo: 'Calendario', tab: 'Calendario', ruta: '/calendario' },
   // El Centro de Operaciones (15/10/2026): sólo la plataforma, sólo lecturas (operaciones.def.ts).
   operaciones: { titulo: 'Centro de Operaciones (pedidos a los chats de Claude)', tab: 'Centro de Operaciones', ruta: '/admin/operaciones' },
+  // Competitors Spy (31/10/2026, docs/diseno-competitors-spy.md): mira a los competidores que el negocio eligió.
+  // El ÁREA se llama `spy` y la TAB «Competitor Spy», con la nav key 'market-an', que está escrita en la base.
+  spy: { titulo: 'Competidores', tab: 'Competitor Spy', ruta: '/competitor-spy' },
   // Desde el 16/10/2026 el chat con MaKo es el Second Brain (etapa 2 de docs/diseno-mako-ai-native.md).
   mako: { titulo: 'MaKo (pendientes, propuestas, chats)', tab: 'Second Brain', ruta: '/second-brain' },
 };
@@ -116,7 +119,11 @@ export const DATOS_DE_CLIENTES_POR_AREA: Record<Area, boolean> = {
   // Los datos del equipo y las identidades fiscales del negocio son de personas que no son quien escribe.
   equipo: true, cs: true, curso: true,
   // Posts, comentarios y miembros son de personas que no son quien escribe (los alumnos del negocio).
-  comunidad: true, calendario: false, creaciones: false, operaciones: false, cobros: true, mako: true,
+  comunidad: true, calendario: false, creaciones: false, operaciones: false, cobros: true,
+  // Un competidor NO es un cliente del negocio: lo que se guarda de él es público y no sale de ninguna
+  // conversación, ningún lead ni ningún cobro.
+  spy: false,
+  mako: true,
 };
 
 /** Por dónde puede entrar un pedido. Lo declara CADA operación, en positivo. */
@@ -410,6 +417,10 @@ export type Ctx = {
    *  contestó MaKo y los errores que registró el código al correr las herramientas. Lo pone el chat que corre el turno
    *  (lib/mako-turno-app.ts) y lo lee `levantar_ticket`: así el error de un ticket nunca lo escribe el modelo. */
   contextoTicket?: () => Record<string, unknown>;
+  /** La imagen o el video que mandaron en el MENSAJE de este turno (29/10/2026, «súbeme este anuncio» desde el grupo,
+   *  `proponer_anuncio_desde_archivo`): lo pone el turno del grupo (lib/mako-doer-in.ts) y lo baja recién cuando se pide. null si
+   *  el mensaje no trae ninguno o no se pudo bajar. */
+  archivoDelMensaje?: () => Promise<{ base64: string; mime: string; nombre: string } | null>;
 };
 
 /** La persona que chatea, sólo en la app (`Ctx.quien`). En WhatsApp, por HTTP o en un flujo no hay nadie «mío». */

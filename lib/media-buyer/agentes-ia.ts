@@ -88,11 +88,15 @@ export async function borrarAgentePropio(ws: number, id: string): Promise<Result
 /** Lo que dejan hoy los agentes propios activos. `yaHoy`: las claves de lo que ya se guardó (para no preguntar dos veces). */
 export async function propuestasDeAgentesPropios(ws: number, x: {
   hoy: string; datos: DatosCuenta; kpi: KpiMediaBuyer; objetivo: number | null; fmt: (u: number) => string; yaHoy: ReadonlySet<string>;
+  /** Los lugares del cupo que quedan hoy después del motor (plan.ts → lugaresParaPropios). Con cero no se pregunta. */
+  lugares: number;
 }): Promise<{ propuestas: Propuesta[]; avisos: string[] }> {
   const agentes = (await leerAgentesPropios(ws).catch(() => [])).filter((a) => tocaHoy(a, x.hoy));
   const propuestas: Propuesta[] = [];
   const avisos: string[] = [];
   if (!agentes.length) return { propuestas, avisos };
+  // Con el cupo del plan lleno por el motor, lo que dijera el agente no entra: no se gasta la IA del negocio (falla 9).
+  if (x.lugares <= 0) return { propuestas, avisos: ['Tus agentes propios no miraron hoy: el cupo de tu plan ya se llenó.'] };
   const resumen = resumenParaAgente(x.datos.arbol, x.datos.larga, x.kpi, x.fmt, (m) => fmtDinero(m, x.datos.moneda), x.datos.conversor.aUsdNum);
   for (const a of agentes) {
     const yaMiro = [...x.yaHoy].some((c) => c.startsWith(`propia:${a.id}:`) && c.endsWith(`:${x.hoy}`));

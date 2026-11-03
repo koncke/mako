@@ -10,7 +10,7 @@
 // Una cosa, un lugar: acá vive QUÉ pantallas de creación tiene el teléfono y su ida y vuelta con escritorio.
 // lib/movil-rutas.ts lo suma a su mapa (SECCIONES_MAS, `rutaMovil`, `rutaEscritorio`) con una línea cada uno.
 //
-// ⚠️ LA CARPETA DE app/m SE LLAMA COMO LA RUTA DE ESCRITORIO (/reels ↔ app/m/reels): la ida y la vuelta son
+// ⚠️ LA CARPETA DE app/m SE LLAMA COMO LA RUTA DE ESCRITORIO (/stories ↔ app/m/stories): la ida y la vuelta son
 // sacar o poner «/m», y una pantalla nueva es una entrada en `RUTAS_CREACION` y su carpeta. El único nombre que
 // no es su ruta es la fila «Image» de More (la tab unificada), que abre su Editor (/m/image-editor).
 //
@@ -22,36 +22,31 @@
 import type { DefSeccionMas } from './movil-rutas';
 
 /** Las pantallas de creación del teléfono con fila en SECCIONES_MAS (OCULTA, menos «image», que es fila de More). */
-export type IdCreacion = 'image' | 'video-editor' | 'reels' | 'stories' | 'carousels' | 'admin-copywriting';
+export type IdCreacion = 'image' | 'video-generator' | 'stories';
 
 /**
  * Las filas OCULTAS de More (`oculta: true`): no son filas ni suben a la barra, pero le dan a cada pantalla su
  * cabecera (el nombre, «‹ More»), el título de la pestaña y la puerta de su `page.tsx` (`requireMovil({ navKey })`
  * con la key EXACTA de nav.ts que pide su página de escritorio). En el orden de la sidebar de escritorio.
  *
- * Por qué ninguna es fila de More: Video Editor y Reels son secciones de la tab Video (la fila «Video» de More),
- * Carousels de la fila «Image», y Stories de «Copywriting»; se alcanzan desde la barra de secciones de arriba de su
- * tab (app/m/_ui/SeccionesTabM.tsx), como en escritorio.
+ * Por qué ninguna es fila de More: el Video Generator es una plantilla de Video (la fila «Video» de More) y Stories una sección de
+ * «Copywriting», que se alcanza desde la barra de secciones de arriba de su tab (app/m/_ui/SeccionesTabM.tsx). Reels y
+ * Carousels se retiraron el 29/10/2026 (sus rutas redirigen: al Copywriter y a Image).
  *
- * ⚠️ AI AVATAR NO TIENE FILA ACÁ, A PROPÓSITO: es `adminOnly` (sólo el super admin) y `puedeVerKey` no mira eso. More
- * (`masCompleto`, lib/movil-rutas.ts) le arma su fila desde la sidebar con la regla de la sidebar, por su ruta
- * (`rutaMovil('/ai-avatar')`), y una fila oculta con su key se la BORRARÍA («tiene sección en el teléfono»). Su
- * cabecera la pone cada page (`<CabeceraM>`).
+ * AI Avatar tampoco: desde el 29/10/2026 es de Pro y tiene su fila VISIBLE en More (lib/movil-rutas.ts → SECCIONES_MAS, como
+ * Video), que le da la cabecera y la puerta. Hasta ese día era `adminOnly` y More se la armaba desde la sidebar.
  *
  * Las «Coming soon» (Image Generator, Thumbnails, Ideas, YouTube Writer, VSL Generator…) tampoco: tienen la pantalla
  * de «Mobile 2» (/m/pronto/<key>), que se deriva de nav.ts, y la barra de secciones las lleva ahí.
  */
 export const SECCIONES_CREACION: readonly DefSeccionMas[] = [
-  // Video (tab unificada): Editor · Create with AI (la fila «Video», /m/video) · Reels.
-  { id: 'video-editor', label: 'Video Editor', href: '/m/video-editor', icon: 'tijera', navKey: 'video-editor', familia: null, oculta: true },
-  { id: 'reels', label: 'Reels', href: '/m/reels', icon: 'videogen', navKey: 'reels', familia: null, oculta: true },
-  // Image (tab unificada; su Editor es la fila «Image» de More): Carousels.
-  { id: 'carousels', label: 'Carousels', href: '/m/carousels', icon: 'carousel', navKey: 'carousels', familia: null, oculta: true },
+  // Video es la fila «Video» de More desde el 29/10/2026 (abre el editor, /m/video-editor). El Video Generator (/m/video) es
+  // su plantilla «Generar con IA»: fila oculta, para su cabecera y su puerta.
+  { id: 'video-generator', label: 'Video Generator', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: null, oculta: true },
   // Copywriting (tab unificada; su Ads Writer es la fila «Copywriting»): Stories.
   { id: 'stories', label: 'Stories', href: '/m/stories', icon: 'stories', navKey: 'stories', familia: null, oculta: true },
-  // Copy Method (Copywriting › Method): una herramienta del SUPER ADMIN (nav.ts → HERRAMIENTAS.copywriting). `superAdmin`,
-  // como las de Mobile 2 (/m/cobros): su page se cuida con `getSesionAdmin()`, no con `requireMovil({ navKey })`.
-  { id: 'admin-copywriting', label: 'Copy Method', href: '/m/admin/copywriting', icon: 'escribir', navKey: 'admin-copywriting', familia: null, oculta: true, superAdmin: true },
+  // El método de redacción del super admin ya no tiene fila (29/10/2026, Martín: «no quiero ninguna mención en todo
+  // MaKo»): su pantalla del teléfono se borró; /admin/copywriting redirige al Copywriter.
 ];
 
 /**
@@ -79,11 +74,12 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   { base: '/image-editor', sub: '*', noSub: ['presentador'] },
   // app/ai-avatar/page.tsx lee `avatar` y `plantilla`; avatares/page.tsx, `plantilla`.
   { base: '/ai-avatar', query: ['avatar', 'plantilla'], sub: ['avatares', 'voces', 'plantillas'], querySub: { avatares: ['plantilla'] } },
-  { base: '/reels' },
+  // /reels y /carousels se retiraron el 29/10/2026 (redirigen: al Copywriter y a Image); sus /m también.
   { base: '/stories' },
-  { base: '/carousels' },
-  // Copy Method (Copywriting › Method), la herramienta del super admin: su carpeta es app/m/admin/copywriting.
-  { base: '/admin/copywriting' },
+  // El Copywriter (28/10/2026, docs/diseno-copywriter.md): la lista y cada página (/copywriter/<id>); desde el 29/10 es
+  // Copywriting, para todos. Sin fila oculta: More la arma desde la barra. `?nuevo=<tipo>` abre los templates de ese tipo
+  // (lo traen /reels, /stories y «Abrir en Copywriter»), en los dos lados.
+  { base: '/copywriter', query: ['nuevo'], sub: '*' },
 ];
 
 const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | undefined): string => {
@@ -97,7 +93,7 @@ const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | 
 };
 
 /**
- * El equivalente MÓVIL de una ruta de escritorio de creación (`/reels` → `/m/reels`), con la query que su página
+ * El equivalente MÓVIL de una ruta de escritorio de creación (`/stories` → `/m/stories`), con la query que su página
  * de escritorio lee; null si no es de creación o esa subruta no tiene pantalla en el teléfono. Recibe el path ya
  * limpio (sin barra final, sin query) y la query aparte: lo llama `rutaMovil` (lib/movil-rutas.ts).
  */
@@ -117,7 +113,7 @@ export function rutaMovilCreacion(p: string, q: URLSearchParams): string | null 
 }
 
 /**
- * La ruta de ESCRITORIO de una pantalla de creación del teléfono (`/m/reels` → `/reels`), sin query (la de la
+ * La ruta de ESCRITORIO de una pantalla de creación del teléfono (`/m/stories` → `/stories`), sin query (la de la
  * URL viaja tal cual: la pone `rutaEscritorio`); null si no es de creación.
  */
 export function rutaEscritorioCreacion(p: string): string | null {

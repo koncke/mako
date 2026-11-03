@@ -55,10 +55,21 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'Chatear con MaKo: preguntar, pedir cosas y aprobar lo que propone sin salir del hilo',
       'Juntar las conversaciones con MaKo de cada tab',
       'El Second Brain: tu oferta, tus clientes, tu funnel y tu mensaje conectados en un mapa, con lo que cargaste y lo que MaKo dedujo',
-      'Aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes',
+      // ⚠️ EL NOMBRE DE PANTALLA VA TEXTUAL, y es el ticket #45 (3/11/2026). Leila Fittipaldi pidió
+      // «activa la función "Aprende solo" en el Second Brain» y MaKo le contestó **que no existe**
+      // —existe desde el 25/10, es el botón de la cabecera del Mapa (app/second-brain/AprendeSolo.tsx)—.
+      // La entrada decía «Aprender solo», en infinitivo, y la búsqueda es por palabras: nunca
+      // emparejó con lo que la clienta escribió. La regla: **el catálogo usa el nombre que la
+      // persona LEE en la pantalla**, no una forma parecida; si no, MaKo niega lo que sí tiene.
+      '«Aprende solo» (el botón de la cabecera del Mapa): aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes, y ver de qué fuentes aprende, cuándo fue la última vez y cuánto entró',
+      // Ticket #48 (3/11/2026): «¿dónde actualizo mis datos?» y MaKo no sabía la pantalla. Los nombres, los de pantalla
+      // (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO; tests/mako-no-puedo-falsos.test.ts los busca en AreasHub y AREAS).
+      'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
+      'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
+      'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
     ],
-    noHace: ['No es el chat con tus leads: eso es Chats'],
-    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako'],
+    noHace: ['No es el chat con tus leads: eso es Chats', 'Todavía no: la guía señalando en las otras pestañas ni con tu IA (por ahora, sólo el Ops Center y sin IA)'],
+    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief'],
     conecta: [{ a: 'crm', motivo: 'Lo que sabe de tus clientes sale del CRM' }, { a: 'offer', motivo: 'Tu oferta vive en Offer y el mapa la muestra' }],
     estado: 'lista', slugDev: 'second-brain', fuentes: [AREAS, 'docs/diseno-second-brain-grafo.md'],
   },
@@ -120,8 +131,10 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       'El embudo: etapas, nutrición y cómo entra la gente',
       'Productos y ofertas, con su precio',
       'El plan de cobranza por cuotas, con el contrato y los comprobantes leídos por IA',
+      'Acciones en bloque sobre varios leads o una columna entera: mover de etapa, descalificar con motivo, pasar a otro funnel, etiquetar, asignar y eliminar',
+      'La papelera: lo que se elimina se recupera tal cual durante 30 días (en el menú de funnels)',
     ],
-    alias: ['crm', 'leads', 'clientes', 'pipeline', 'embudo', 'funnel', 'kanban', 'ficha', 'cuotas', 'cobranza'],
+    alias: ['crm', 'leads', 'clientes', 'pipeline', 'embudo', 'funnel', 'kanban', 'ficha', 'cuotas', 'cobranza', 'en bloque', 'papelera', 'mover todos'],
     conecta: [{ a: 'chats', motivo: 'Las conversaciones del lead están en Chats' }, { a: 'calendario', motivo: 'Sus reuniones están en Calendar' }, { a: 'setting', motivo: 'Las automatizaciones mueven a los leads de etapa' }],
     estado: 'lista', slugDev: 'crm', fuentes: [AREAS],
   },
@@ -143,13 +156,18 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     que: 'Las automatizaciones que conversan por ti: un agente que contesta por WhatsApp, email, Instagram y Messenger, le recuerda la reunión al lead, lo mueve de etapa y te lo pasa cuando hace falta una persona.',
     hace: [
       'Crear una automatización desde la galería de plantillas',
+      // Ticket #47 (3/11/2026): MaKo decía que sólo podía activar o pausar. crear_automatizacion_con_ia la arma desde un pedido.
+      'Crear una secuencia nueva pidiéndosela a MaKo en palabras, con su disparador (una etapa, una etiqueta que se le agrega al lead o un evento): nace pausada',
       'Ramas, condiciones, horarios, etiquetas y acciones',
       'Recordarle al lead la reunión agendada',
       'Secuencias de nutrición que MaKo escribe en la voz del negocio',
       'Simular la conversación como si fueras el lead, ver sus métricas y pasar a un humano',
       'Las plantillas de WhatsApp',
+      'Arrancar con Instagram o Messenger: un comentario en la publicación, el Reel o el En vivo, la respuesta a una historia o un mensaje directo',
+      'Mandar el mensaje directo con botones debajo del texto',
     ],
-    alias: ['automations', 'automatizaciones', 'chatbot', 'bot', 'setter', 'flujos', 'secuencias', 'nutricion', 'plantillas'],
+    // «como lo hace manychat» (Leandro, 28/10/2026): la gente lo pide por la app que conoce.
+    alias: ['automations', 'automatizaciones', 'chatbot', 'bot', 'setter', 'flujos', 'secuencias', 'nutricion', 'plantillas', 'manychat', 'comentarios de instagram', 'disparador'],
     conecta: [{ a: 'chats', motivo: 'Contesta por los mismos canales que ves en Chats' }, { a: 'crm', motivo: 'Mueve a los leads de etapa' }],
     estado: 'lista', slugDev: 'chatbot', fuentes: [AREAS, 'docs/diseno-automations-galeria-v2.md'],
   },
@@ -180,8 +198,19 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     que: 'Tu oferta, trabajada en un chat: MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF.',
     hace: ['Preguntarte por cada pieza de la oferta', 'Diagnosticarla con una rúbrica', 'Escribir la oferta nueva y descargarla en PDF', 'Proponer probar un cambio como experimento'],
     alias: ['offer', 'oferta', 'propuesta de valor', 'precio', 'garantia', 'bonos'],
-    conecta: [{ a: 'landing-writer', motivo: 'La landing vende la oferta' }, { a: 'crm', motivo: 'Los productos y sus precios' }],
+    // Ticket #46 (3/11/2026): «precio» lleva acá, y el precio no se corrige en Offer: se corrige en el Second Brain.
+    noHace: ['No es donde se corrige el precio, qué incluye o el horario: eso es el Second Brain, en «La oferta» → «El brief»'],
+    conecta: [{ a: 'landing-writer', motivo: 'La landing vende la oferta' }, { a: 'crm', motivo: 'Los productos y sus precios' }, { a: 'mako', motivo: 'El precio y lo que incluye se corrigen en el Second Brain, en «La oferta» → «El brief»' }],
     estado: 'parcial', slugDev: 'offer-analyst', fuentes: [AREAS],
+  },
+  {
+    keys: ['market-an'],
+    que: 'Lo que hacen tus competidores, en un solo lugar: sumas a cada uno con sus canales y MaKo lee su sitio, su Instagram y su YouTube, con los números que pudo medir. Una lectura que falló se dice, nunca es un cero.',
+    hace: ['Sumar competidores con sus canales', 'Leer su sitio, su Instagram y su YouTube', 'Guardar los anuncios que pegues', 'Decir desde cuándo está a la vista cada pieza, desde que MaKo la vio'],
+    noHace: ['Todavía no: revisar solo todos los días (lee al agregar y al abrir la ficha)', 'Todavía no: traer los anuncios de Meta sin pegarlos', 'Todavía no: analizar sus ángulos y ganchos contra tu oferta'],
+    alias: ['competitor spy', 'competitors spy', 'competencia', 'competidores', 'espiar a la competencia', 'market analyst'],
+    conecta: [{ a: 'ads-writer', motivo: 'Lo que le funciona a la competencia alimenta tus anuncios' }, { a: 'landing-writer', motivo: 'Replicar la landing de un competidor' }],
+    estado: 'parcial', slugDev: 'competitor-spy', fuentes: [AREAS, 'docs/diseno-competitors-spy.md'],
   },
   {
     keys: ['landing-writer'],
@@ -215,8 +244,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     keys: ['video-editor'],
-    que: 'Un editor de video copiado de CapCut: línea de tiempo, cortes, keyframes y exportar, con MaKo para pedirle cambios.',
-    hace: ['Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Exportar el video'],
+    que: 'Video: un editor copiado de CapCut, con MaKo siempre a la izquierda para pedirle cambios; «Nuevo video» trae los formatos, las plantillas y «Generar con IA» (el Video Generator).',
+    hace: ['Arrancar de un formato (Reel, YouTube, cuadrado) o de una plantilla', 'Línea de tiempo con cortes y keyframes', 'Recibir los anuncios del Video Generator para editarlos', 'Pedirle cambios a MaKo', 'Exportar el video'],
     noHace: ['Todavía no: guardar los proyectos en la nube (quedan en tu navegador)'],
     reemplaza: 'CapCut',
     alias: ['video editor', 'editar video', 'edicion de video', 'capcut'],
@@ -225,7 +254,7 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   },
   {
     keys: ['video-generator'],
-    que: 'El anuncio en video de punta a punta: de los guiones a las tomas y el montaje, generados con Google Flow, y de ahí al editor.',
+    que: 'El anuncio en video de punta a punta: de los guiones a las tomas y el montaje, generados con Google Flow, y de ahí al editor. Se abre desde Video › «Nuevo video» › «Generar con IA» (no es una tab).',
     hace: ['Tomas y montaje a partir de tus guiones', 'Generar con Google Flow', 'Mandar el anuncio al Video Editor y descargarlo'],
     alias: ['video generator', 'generar video', 'anuncio en video', 'flow', 'google flow'],
     conecta: [{ a: 'ads-writer', motivo: 'Usa los guiones de Ads Writer' }, { a: 'video-editor', motivo: 'Lo terminas en el Video Editor' }],
@@ -234,27 +263,12 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
   {
     keys: ['image-editor'],
     que: 'Un editor de diseño copiado de Canva: diseños de varias páginas con texto, formas, imágenes, marcos y capas, y descargas en PNG, JPG, PDF o SVG.',
-    hace: ['Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo'],
+    hace: ['Arrancar de un tamaño o de una plantilla: post, historia, carrusel de Instagram de varias páginas, presentación', 'Diseños de varias páginas', 'Texto, formas, imágenes, marcos, QR y capas', 'Recortar, filtros y animaciones', 'Presentar y descargar en PNG, JPG, PDF o SVG', 'Pedirle cambios a MaKo'],
     noHace: ['Todavía no: guardar los diseños en la nube (quedan en tu navegador)'],
     reemplaza: 'Canva',
-    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva'],
+    // Carousels se retiró el 29/10/2026: un carrusel es una plantilla de «Nuevo diseño» (app/_crear/PantallaCrear.tsx).
+    alias: ['image editor', 'disenar', 'diseño', 'imagen', 'canva', 'carrusel', 'carruseles', 'carousels'],
     estado: 'parcial', slugDev: 'image-editor', fuentes: [AREAS, 'AGENTS.md'],
-  },
-  {
-    keys: ['carousels'],
-    que: 'El carrusel de Instagram lámina por lámina: le das el tema y el tipo, y MaKo escribe cada lámina y el caption.',
-    hace: ['Láminas con el texto y la escena de cada una', 'El caption', 'Copiar el carrusel'],
-    noHace: ['No lo publica en Instagram', 'Todavía no: guardar el historial'],
-    alias: ['carousels', 'carrusel', 'carruseles', 'instagram'],
-    estado: 'parcial', slugDev: 'carousels', fuentes: [AREAS],
-  },
-  {
-    keys: ['reels'],
-    que: 'El guion del reel de Instagram: gancho, escenas con locución, moraleja, CTA y caption.',
-    hace: ['El guion con gancho, escenas y CTA', 'El caption', 'Copiar el guion'],
-    noHace: ['No lo publica en Instagram'],
-    alias: ['reels', 'reel', 'guion de reel'],
-    estado: 'parcial', slugDev: 'reels', fuentes: [AREAS],
   },
   {
     keys: ['stories'],
@@ -265,19 +279,32 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     estado: 'parcial', slugDev: 'stories', fuentes: [AREAS],
   },
   {
+    // Copywriting ES el Copywriter desde el 29/10/2026 (docs/diseno-copywriter.md, D11–D14): la tab de la barra.
+    keys: ['copywriter'],
+    que: 'Copywriting como Notion: cada texto es una página (guiones de anuncios, reels, stories, YouTube y VSL, emails y posts) y MaKo escribe y edita EN la página desde su chat.',
+    hace: ['Crear una página desde un template de «Nueva» (anuncio, copy de Meta, Reel, stories, carrusel, email, VSL, YouTube)', 'Escribir por bloques con «/», arrastrar con el asa, listas, desplegables y tablas', 'Pedirle a MaKo que mejore, acorte o agregue una sección en la página', 'Compartir una página para que el cliente la edite'],
+    reemplaza: 'Notion',
+    // Reels se retiró del Video Editor el 29/10/2026 («no como tab, sino como template»): su guion es el template «Guion de Reel».
+    alias: ['copywriter', 'copywriting', 'notion', 'paginas', 'templates', 'copy', 'reel', 'reels', 'guion de reel'],
+    conecta: [{ a: 'ads-manager', motivo: 'El copy de anuncio se publica en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
+    estado: 'lista', fuentes: ['docs/diseno-copywriter.md', 'lib/copywriter/plantillas.ts'],
+  },
+  {
     keys: ['ads-writer'],
     que: 'La fábrica de guiones de anuncios (Content Machine): cada anuncio sale de un avatar y una razón de compra, y MaKo elige el ángulo y la estructura.',
     hace: ['Escribir el próximo guion de anuncio', 'Ver qué combinaciones de avatar y razón faltan', 'Seguir cada guion de borrador a publicado', 'Valorar un guion nuevo antes de grabarlo'],
-    alias: ['ads writer', 'content machine', 'guiones', 'copy', 'copywriting', 'anuncios'],
+    alias: ['ads writer', 'content machine', 'guiones de anuncio', 'anuncios'],
     conecta: [{ a: 'ads-manager', motivo: 'Los anuncios se publican en Ads Manager' }, { a: 'video-generator', motivo: 'El guion se vuelve video' }],
     estado: 'lista', slugDev: 'ads-writer', fuentes: [AREAS, 'lib/mako-capacidades.ts'],
   },
   {
-    keys: ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas'],
-    que: 'Videos con tu avatar, como en HeyGen: una foto tuya en una escena, una voz de la galería o de tu ElevenLabs, y el avatar dice tu guion.',
-    hace: ['Crear un look con tu foto en una escena', 'Elegir una voz de la galería o de tu cuenta de ElevenLabs', 'Generar el video del avatar diciendo un guion', 'Plantillas'],
-    reemplaza: 'HeyGen',
-    alias: ['ai avatar', 'avatar', 'heygen', 'voces', 'clon'],
+    // 29/10/2026: el estudio de Higgsfield (una pantalla, sin secciones). La voz propia sobre el video todavía no está.
+    keys: ['ai-avatar'],
+    que: 'Tu avatar con tu cara, como en Higgsfield: eliges un preset (una escena), pones tu foto y MaKo lo genera; después lo animas diciendo tu guion.',
+    hace: ['Crear tu avatar en una escena de 28 presets', 'Ajustar la escena escribiendo lo que quieres', 'Generar el video del avatar diciendo un guion', 'Volver a cada avatar y sus videos'],
+    noHace: ['Todavía no: tu voz clonada en el video, copiar el movimiento de otro video, ni diseñar un personaje sin foto'],
+    reemplaza: 'Higgsfield y HeyGen',
+    alias: ['ai avatar', 'avatar', 'higgsfield', 'heygen', 'influencer', 'preset'],
     conecta: [{ a: 'video-generator', motivo: 'Genera por el mismo puente a Google Flow' }],
     estado: 'parcial', slugDev: 'ai-avatar', fuentes: [AREAS],
   },

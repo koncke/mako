@@ -145,8 +145,12 @@ test('la reacción con tope: true sólo si Evolution dijo que sí a tiempo, y NU
   assert.equal(await conTope(new Promise<boolean>(() => {}), 20), false, 'Evolution no contestó a tiempo');
   // El tope: el texto que reemplaza al 👍 sale ANTES de que termine la ventana de silencio del lote (el turno arranca
   // después), y ningún turno medido contesta antes: la respuesta nunca es la señal (texto p50 44 s, medido el 24/10).
-  const ventana = Number(/export const VENTANA_MS = (\d+);/.exec(leer('../lib/mako-doer-buffer.ts'))?.[1]);
-  assert.ok(ventana > 0 && TOPE_REACCION_MS < ventana, `tope ${TOPE_REACCION_MS} ms contra la ventana de ${ventana} ms`);
+  // Se lee del fuente porque `lib/mako-doer-buffer.ts` es `server-only`. Desde el 31/10/2026 el número de PRODUCCIÓN viaja
+  // envuelto en `reloj(…)` —la ventana se puede ACORTAR por entorno para los tests del doer— y lo que se compara sigue
+  // siendo ese número, no lo que diga el entorno de esta corrida.
+  const ventana = Number(/export const VENTANA_MS = (?:reloj\()?(\d+)/.exec(leer('../lib/mako-doer-buffer.ts'))?.[1]);
+  assert.ok(Number.isFinite(ventana) && ventana > 0, 'no pude leer la ventana de silencio de producción: cambió la forma de `export const VENTANA_MS` y este guard dejó de mirar algo');
+  assert.ok(TOPE_REACCION_MS < ventana, `el acuse de texto sale DESPUÉS de que el lote se cerró: tope ${TOPE_REACCION_MS} ms contra la ventana de ${ventana} ms`);
 });
 
 test('sin el 👍, UN texto corto que dice que llegó (o la espera, si ya se sabe larga); nunca «dame un momento»', () => {

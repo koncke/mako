@@ -11,9 +11,14 @@
 
 import type { FormatoPublicacion } from './calendario-modelo';
 
-export const REDES_PUBLICAR = ['instagram', 'facebook', 'tiktok', 'youtube'] as const;
+// LinkedIn, X, Threads y Google Business desde el 29/10/2026 (Martín: «publicar en Facebook, TikTok, LinkedIn, etc.»; la mig 0348
+// las suma al CHECK de `red`). Pinterest y Reddit no: un pin pide el tablero y un post de Reddit la comunidad, y no hay dónde elegirlos.
+export const REDES_PUBLICAR = ['instagram', 'facebook', 'tiktok', 'youtube', 'linkedin', 'twitter', 'threads', 'googlebusiness'] as const;
 export type RedPublicar = (typeof REDES_PUBLICAR)[number];
-export const ROTULO_RED: Record<RedPublicar, string> = { instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube' };
+export const ROTULO_RED: Record<RedPublicar, string> = {
+  instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', youtube: 'YouTube',
+  linkedin: 'LinkedIn', twitter: 'X', threads: 'Threads', googlebusiness: 'Google Business',
+};
 export const esRedPublicar = (x: unknown): x is RedPublicar => typeof x === 'string' && (REDES_PUBLICAR as readonly string[]).includes(x);
 
 export const ESTADOS_PUBLICACION = ['programando', 'programada', 'dudosa', 'publicada', 'fallo'] as const;
@@ -43,7 +48,17 @@ const SE_PUEDE: Record<RedPublicar, Partial<Record<FormatoPublicacion, readonly 
   facebook: { post: ['image', 'video'], reel: ['video'], story: ['image', 'video'] },
   tiktok: { reel: ['video'], video: ['video'] },
   youtube: { reel: ['video'], video: ['video'] },
+  // Un post con su imagen o su video (29/10/2026). Google Business publica una novedad con imagen: video no.
+  linkedin: { post: ['image', 'video'] },
+  twitter: { post: ['image', 'video'] },
+  threads: { post: ['image', 'video'] },
+  googlebusiness: { post: ['image'] },
 };
+
+/** El tope del texto de las redes que cortan antes de los 2.200 (X 280, Threads 500, Google Business 1.500). */
+export const TOPE_TEXTO_RED: Readonly<Partial<Record<RedPublicar, number>>> = { twitter: 280, threads: 500, googlebusiness: 1500 };
+/** El tope del texto en ESA red (sin red, el general). */
+export const topeDeTexto = (red: RedPublicar | null | undefined): number => (red ? TOPE_TEXTO_RED[red] : undefined) ?? TOPE_TEXTO;
 export const formatosDeRed = (red: RedPublicar): FormatoPublicacion[] => Object.keys(SE_PUEDE[red]) as FormatoPublicacion[];
 
 /** Los datos de la publicación de un evento (las columnas de la mig 0342). */
@@ -135,8 +150,10 @@ export function motivoParaNoProgramar(ev: EventoParaPublicar, ahora: number): st
   const formato = ev.formato ?? 'post';
   const archivos = SE_PUEDE[ev.red][formato];
   if (!archivos) return `En ${ROTULO_RED[ev.red]} no se publica un formato «${formato}».`;
-  if (!archivos.includes(ev.archivo_tipo)) return `Un ${formato} en ${ROTULO_RED[ev.red]} lleva un video.`;
+  if (!archivos.includes(ev.archivo_tipo)) return `Un ${formato} en ${ROTULO_RED[ev.red]} lleva ${archivos.includes('video') ? 'un video' : 'una imagen'}.`;
   if ((ev.texto ?? '').length > TOPE_TEXTO) return `El texto tiene más de ${TOPE_TEXTO} caracteres.`;
+  const tope = TOPE_TEXTO_RED[ev.red];
+  if (tope && (ev.texto ?? '').length > tope) return `En ${ROTULO_RED[ev.red]} el texto llega hasta ${tope} caracteres.`;
   if (ev.red === 'youtube' && ev.titulo.length > TOPE_TITULO_YOUTUBE) return `En YouTube el título del evento es el título público del video: hasta ${TOPE_TITULO_YOUTUBE} caracteres.`;
   return null;
 }

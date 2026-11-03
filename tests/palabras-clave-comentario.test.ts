@@ -115,10 +115,11 @@ test('el evento: arranca sólo si el comentario de ESTE evento tiene la palabra;
 
 test('el cableado: lo que COMENTÓ llega del webhook al motor, y la pantalla guarda al salir de la caja', () => {
   const ze = leer('lib/zernio-entrante.ts');
-  assert.match(ze, /escuchaElEvento\(await getSecuenciasActivas\(\), canal, \{ subtipo: sub, texto: texto \?\? null \}\)/);
-  assert.match(ze, /enrolarPorEvento\(leadId, canal, \{ subtipo: sub, texto: texto \?\? null \}\)/);
-  assert.match(ze, /hayQuienEscuche\(e\.canal, e\.subtipo, e\.texto\)/);
-  assert.match(leer('app/api/webhooks/zernio/route.ts'), /dispararEventoSocial\(leadId, canal, subtipo, ev\.evento\.texto\)/);
+  // (Y la publicación del comentario, ticket #25: tests/comentario-publicacion.test.ts.)
+  assert.match(ze, /escuchaElEvento\(await getSecuenciasActivas\(\), canal, \{ subtipo: sub, texto: texto \?\? null, publicacion: publicacion \?\? null \}\)/);
+  assert.match(ze, /enrolarPorEvento\(leadId, canal, \{ subtipo: sub, texto: texto \?\? null, publicacion: publicacion \?\? null \}\)/);
+  assert.match(ze, /hayQuienEscuche\(e\.canal, e\.subtipo, e\.texto, e\.postId\)/);
+  assert.match(leer('app/api/webhooks/zernio/route.ts'), /dispararEventoSocial\(leadId, canal, subtipo, ev\.evento\.texto, ev\.evento\.postId\)/);
   assert.match(leer('lib/nutricion.ts'), /disparaPorEvento\(s\.disparador, evento, ctx\)/, 'el motor le pasa el ctx entero (con el texto)');
   const ed = leer('app/automations/EditorDisparadores.tsx');
   assert.match(ed, /\{conPalabras\(d\.trigger_tipo, d\.subtipo\) && \(\s*<PalabrasClave/);
@@ -151,5 +152,6 @@ test('⚠️ una palabra que NO SE LEE («?», «...») no se tira callada: la p
   // El resumen que se confirma por WhatsApp nombra las palabras («fiesta» y ninguna ya no se leen igual).
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   const tc = run.slice(run.indexOf('function textoDeUnCron('), run.indexOf('function textoDeUnCron(') + 1200);
-  assert.match(tc, /const palabras = conPalabras\(d\.trigger_tipo, d\.subtipo\) \? textoDePalabras\(d\.palabras, d\.coincidencia\) : '';\s*return palabras \? `\$\{evento\} \$\{palabras\}` : evento;/);
+  // (Con la publicación en el medio, ticket #25: «… o Reel «La guía» con «fiesta»».)
+  assert.match(tc, /const palabras = conPalabras\(d\.trigger_tipo, d\.subtipo\) \? textoDePalabras\(d\.palabras, d\.coincidencia\) : '';[\s\S]*?return \[evento, publicacion, palabras\]\.filter\(Boolean\)\.join\(' '\);/);
 });

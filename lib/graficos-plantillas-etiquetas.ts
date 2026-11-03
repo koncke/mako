@@ -36,15 +36,9 @@ export const ETIQUETAS_DASHBOARD: Readonly<Record<string, EtiquetasPlantilla>> =
 /** La galería de General (`PLANTILLAS_GENERAL`). */
 export const ETIQUETAS_GENERAL: Readonly<Record<string, EtiquetasPlantilla>> = {
   general: {},
-  bienvenida: {},
   foco: { cuello: ['foco'] },
   operacion: { cuello: ['sistema', 'delegacion'] },
   ventas: { cobro: ['unico'] },
-  cobros: { cobro: ['suscripcion'] },
-  anuncios: { entrada: ['formulario_anuncio', 'landing'] },
-  'funnel-llamadas': { canal: ['llamadas'], entrada: ['agenda_sola'] },
-  'funnel-whatsapp': { canal: ['conversaciones'], entrada: ['chat_entrante', 'chat_saliente'] },
-  lanzamiento: { canal: ['webinar'], entrada: ['landing'] },
   servicio: { cobro: ['suscripcion'] },
   curso: { canal: ['carrito', 'webinar'] },
   instagram: { entrada: ['formulario_anuncio'] },

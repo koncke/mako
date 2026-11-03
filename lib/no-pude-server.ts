@@ -34,7 +34,11 @@ export type DondeNoPude = {
 };
 
 /** Lo que se sabe de lo que falló: la operación (su nombre humano), el error que vio el CÓDIGO y lo que contestó MaKo. */
-export type DetalleNoPude = { operacion?: string | null; herramienta?: string | null; error?: string | null; respuestaMako?: string | null; queNoPudo?: string | null };
+export type DetalleNoPude = {
+  operacion?: string | null; herramienta?: string | null; error?: string | null; respuestaMako?: string | null; queNoPudo?: string | null;
+  /** Lo parecido a lo pedido que no viajó (`parecidasQueNoViajaron`). Una función: se calcula sólo si de verdad hay ticket. */
+  noViajaron?: () => readonly string[];
+};
 
 export type TicketNoPude = { id: number; nuevo: boolean; causa: CausaNoPude };
 
@@ -53,6 +57,7 @@ export async function ticketDeNoPude(causa: CausaNoPude, d: DondeNoPude, det: De
     if (!identidad) return null;
     const ref = refDeNoPude({ ws: d.ws, superficie: d.superficie, conv: d.conv, causa, clave: causa === 'ejecucion' || causa === 'herramienta' || causa === 'ruteo' ? det.herramienta ?? det.operacion : det.queNoPudo });
     const pedido = (d.pedido ?? '').trim();
+    const noViajaron = det.noViajaron?.() ?? [];
     const descripcion = [
       det.queNoPudo ? `Lo que MaKo dijo que no pudo: «${det.queNoPudo.slice(0, 300)}»` : '',
       pedido ? `Lo que pidió: «${pedido.slice(0, 1200)}»` : '',
@@ -70,6 +75,7 @@ export async function ticketDeNoPude(causa: CausaNoPude, d: DondeNoPude, det: De
         ...(det.respuestaMako ? { respuestaMako: det.respuestaMako.slice(0, 1000) } : {}),
         ...(det.error ? { error: det.error } : {}),
         ...(det.herramienta ? { herramienta: det.herramienta } : {}),
+        ...(noViajaron.length ? { noViajaron: noViajaron.join(', ') } : {}),
         ...(causa === 'no-existe' ? { noExiste: true } : {}),
         ...(d.ruta ? { ruta: d.ruta } : {}),
       },

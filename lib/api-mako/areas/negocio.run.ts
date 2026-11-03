@@ -29,20 +29,22 @@ import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { resumenDePrueba } from '@/lib/prueba-uso';
+import { gratisHastaDe } from '@/lib/plan-a-mano';
+import { lineaDelPrimerMes } from '@/lib/primer-mes-reglas';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { altaDePartner, cambiarCobroPartner, cambiarCodigoPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio, codigoNuevoValido } from '@/lib/partners-reglas';
 import { mensajesParaCopiar } from '@/lib/partners-recursos';
-import { NOMBRE_COSA_PRUEBA, textoSoloPro } from '@/lib/topes-plan';
-import { esEsencialDe } from '@/lib/plan-esencial';
+import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
+import { MODULOS_KNOWLEDGE, moduloDeKey } from '@/lib/knowledge-modulos';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
 import { capaDef } from '@/lib/capas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
-import { NOMBRE_PASARELA } from '@/lib/cobros-tipos';
-import { lugarSeccion } from '@/lib/secciones-negocio';
+import { CAPACIDADES_PASARELA, NOMBRE_PASARELA } from '@/lib/cobros-tipos';
+import { lugarSeccion, lugarDato, rutaDato, datoDeCampo, type DatoDelNegocio } from '@/lib/secciones-negocio';
 import { faseDef, diagnosticar, PREGUNTAS, CANALES, type CanalId } from '@/lib/fase-diagnostico';
 import { getEstadoOnboarding } from '@/lib/onboarding-state';
 import { getSetting } from '@/lib/settings';
@@ -198,22 +200,26 @@ export const RUNNERS: Runners = {
     leer: async (_input, ctx) => {
       const campos = await camposPerfil(ctx.ws);
       const huecos = campos.filter((c) => c.valor == null).length;
-      return json({ campos, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó.' });
+      // Ticket #48 (3/11/2026): MaKo leía el precio y el horario y no sabía en qué pantalla se corrigen. Cada campo lo dice,
+      // con el nombre que la persona lee y el link (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO).
+      const conDonde = campos.map((c) => { const d = datoDeCampo(c.key); return d ? { ...c, se_corrige_en: dondeSeEdita(d, ctx.ws) } : c; });
+      return json({ campos: conDonde, total: campos.length, huecos, nota: '`pregunta` es cómo se le pide el dato al dueño, no el dato. `valor: null` = nunca se cargó. `se_corrige_en` es la pantalla donde la persona lo corrige tocándolo.' });
     },
   },
 
   // El plan de MaKo del negocio (15/10/2026, «Tu plan»): lo que la PLATAFORMA le cobra, leído por `alta_ws`.
   ver_mi_plan: {
     leer: async (_input, ctx) => {
-      const [ws, sus] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws)]);
+      const [ws, sus, gratisHasta] = await Promise.all([getWorkspace(ctx.ws), suscripcionDeMakoDe(ctx.ws), gratisHastaDe(ctx.ws).catch(() => null)]);
       const plan = capaDef(ws?.capa).nombre;
       const donde = linkApp('/configuraciones/plan', ctx.ws);
-      if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
+      if (!sus) return json({ plan, cobro: 'acordado con MaKo', ...(gratisHasta ? { gratis_hasta: gratisHasta } : {}), para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({
         plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
         estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida'
           : esPruebaDePlan(sus) && sus.estado === 'pendiente' ? 'en prueba gratis (ver_mi_prueba)' : 'activo',
         ...(esBajaPedida(sus.motivo) ? { baja: sus.motivo } : {}),
+        ...(lineaDelPrimerMes(sus, formatoMonto) ? { primer_mes: lineaDelPrimerMes(sus, formatoMonto) } : {}),
         para_darse_de_baja: 'dar_de_baja_mi_plan, o el botón «Darme de baja» de Tu plan',
         link: donde,
       });
@@ -229,7 +235,7 @@ export const RUNNERS: Runners = {
       if (esBajaPedida(sus.motivo)) return { error: sus.motivo ?? 'La baja ya estaba pedida.', yaEstaba: true };
       const como = esPruebaDePlan(sus) && sus.estado === 'pendiente'
         ? 'Está en su prueba gratis: no se le cobra nada, y sigue usando MaKo hasta el día que iba a cobrarse.'
-        : sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
+        : CAPACIDADES_PASARELA[sus.proveedor].bajaAlFinDelPeriodo ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : `${NOMBRE_PASARELA[sus.proveedor]} deja de cobrarlo en el acto.`;
       return { payload: {}, resumen: `Dar de baja el plan de MaKo (${formatoMonto(sus.monto, sus.moneda)} por mes, por ${NOMBRE_PASARELA[sus.proveedor]}). ${como}` };
     }),
     ejecutar: sinLanzar(async (_payload, ctx) => {
@@ -290,8 +296,7 @@ export const RUNNERS: Runners = {
     preparar: seguro(async (input, ctx) => {
       const alta = altaLimpia(input);
       const ya = await altaDePartner(ctx.ws).catch(() => null);
-      // Sólo MaKo Pro (27/10/2026): no se propone lo que `hacermePartner` va a frenar.
-      if (!ya && (await esEsencialDe(ctx.ws))) return { error: textoSoloPro('partners') };
+      // Cualquier plan es partner desde el 29/10/2026 (antes, sólo MaKo Pro).
       const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
       const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
       const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);
@@ -726,7 +731,8 @@ export const RUNNERS: Runners = {
       const campo = campos.find((c) => c.key === key);
       if (!campo) return { error: `«${key}» no es un campo del perfil de este negocio.`, disponibles: campos.map((c) => c.key) };
       if (!valor) return { error: 'Falta el valor.', faltan: ['valor'] };
-      if (await campoOcupado(key)) return { error: `«${campo.pregunta}» ya tiene valor. Corregir un dato cargado se hace en ${lugarSeccion('archivero')}, no por aquí.` };
+      // Ticket #46/#48 (3/11/2026): mandaba a «Documentos»; el precio y lo que incluye se leen y se corrigen en «El brief».
+      if (await campoOcupado(key)) { const d = datoDeCampo(key); return { error: `«${campo.pregunta}» ya tiene valor. Lo corriges tocándolo en ${d ? lugarDato(d) : lugarSeccion('archivero')}${d ? ` (${linkApp(rutaDato(d), ctx.ws)})` : ''}, no por aquí.` }; }
       return { payload: { key, valor }, resumen: `Completar en el perfil «${campo.pregunta}»: ${valor.slice(0, 200)}` };
     }),
     ejecutar: sinLanzar(async (payload) => {
@@ -1019,7 +1025,7 @@ export const RUNNERS: Runners = {
   // ⚠️ listar_ofertas NO siembra la oferta principal desde el perfil, como sí hace el GET de la pantalla
   // (`seedOfertaDesdeBrief`): una lectura no escribe. Sin ofertas, dice cuál es la del perfil.
   listar_ofertas: {
-    leer: async () => {
+    leer: async (_input, ctx) => {
       const [ofertas, ligasFunnel, ligasProducto, funnels, productos, answers] = await Promise.all([
         listarOfertas(), ofertasDeFunnels(), productosDeOfertas(), leerFunnels().catch(() => null), listProductos(), respuestasDelPerfil(),
       ]);
@@ -1030,6 +1036,7 @@ export const RUNNERS: Runners = {
         const delPerfil = resolverOfertaPrincipal(null, answers).campos;
         return json({
           ofertas: [],
+          se_editan_en: { ofertas: dondeSeEdita('ofertas', ctx.ws), lo_que_usa_mako: dondeSeEdita('brief', ctx.ws) },
           oferta_del_perfil: delPerfil.nombre ? delPerfil : null,
           nota: delPerfil.nombre
             ? 'Todavía no hay ofertas guardadas: MaKo usa la oferta del perfil del negocio (oferta_del_perfil). Se guarda como oferta con guardar_oferta.'
@@ -1037,6 +1044,7 @@ export const RUNNERS: Runners = {
         });
       }
       return json({
+        se_editan_en: { ofertas: dondeSeEdita('ofertas', ctx.ws), lo_que_usa_mako: dondeSeEdita('brief', ctx.ws) },
         ofertas: ofertas.map((o) => {
           // En la que sale del perfil, los cinco campos del perfil se leen de ahí (la misma regla que usan los prompts).
           const c = o.desde_brief ? resolverOfertaPrincipal(o, answers).campos : null;
@@ -1072,7 +1080,7 @@ export const RUNNERS: Runners = {
       // ⚠️ La oferta que sale del perfil: escribir esos campos en la fila NO cambia lo que MaKo usa para escribir
       // (`resolverOfertaPrincipal` los lee del perfil). Decirlo antes del «sí» es lo único honesto.
       if (actual?.desde_brief && Object.keys(cambios).some((k) => CAMPOS_DEL_PERFIL.includes(k))) {
-        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarSeccion('archivero')}.`;
+        resumen += ` Ojo: esta oferta sale del perfil del negocio, y lo que MaKo usa para escribir (promesa, precio, incluye y garantía) sigue saliendo del perfil, que se corrige en ${lugarDato('brief')}.`;
       }
       return { payload: { id: actual?.id ?? null, nombre: actual ? undefined : resultado.nombre, ...cambios }, resumen };
     }),
@@ -1110,4 +1118,36 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: `Oferta «${o.nombre}» borrada.` };
     }),
   },
+
+  // ── Knowledge ─────────────────────────────────────────────────────────────
+  modulos_de_knowledge: {
+    leer: async () => {
+      const { estadoDeLosModulos } = await import('@/lib/knowledge');
+      const ms = await estadoDeLosModulos();
+      return json({
+        modulos: ms.map((m) => ({
+          modulo: m.key, nombre: m.nombre, que: moduloDeKey(m.key)?.que ?? '',
+          de_que_cursos: m.secciones, se_usa_en: m.tabs, fichas: m.fichas,
+        })),
+      });
+    },
+  },
+
+  leer_modulo_knowledge: {
+    leer: async (input) => {
+      const key = String(input.modulo ?? '').trim();
+      const m = moduloDeKey(key);
+      // La key equivocada vuelve como REGLA con la lista, no como vacío: un '' acá se lee igual que «no hay material».
+      if (!m) return `No existe el módulo «${key}». Los que hay: ${MODULOS_KNOWLEDGE.map((x) => x.key).join(', ')}.`;
+      const { metodoDeModulo } = await import('@/lib/knowledge');
+      const texto = await metodoDeModulo(key, String(input.pregunta ?? ''));
+      if (!texto) return `El módulo «${m.nombre}» todavía no tiene fichas cargadas: no hay material para esta pregunta. No lo rellenes.`;
+      return `## Knowledge › ${m.nombre}\n${m.que}\n\n${texto}`;
+    },
+  },
 };
+
+/** Dónde se edita un dato del negocio, para la salida de una lectura: el camino con los nombres de pantalla y el link. */
+function dondeSeEdita(d: DatoDelNegocio, ws: number): { lugar: string; link: string } {
+  return { lugar: lugarDato(d), link: linkApp(rutaDato(d), ws) };
+}

@@ -50,6 +50,17 @@ export async function historialGrupo(ws: number, grupoJid: string, limite = 24):
   });
 }
 
+/** Cuándo habló MaKo por última vez en el grupo (su último turno 'assistant'), o null. Tira si no se pudo leer. */
+export async function ultimaDeMaKo(ws: number, grupoJid: string): Promise<string | null> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('mako_doer_conv').select('created_at')
+      .eq('grupo_jid', grupoJid).eq('role', 'assistant').order('created_at', { ascending: false }).limit(1);
+    if (error) throw new Error(error.message);
+    return (data?.[0] as { created_at?: string } | undefined)?.created_at ?? null;
+  });
+}
+
 export type FilaConv = { role: 'user' | 'assistant'; content: string; created_at: string };
 
 /**

@@ -3796,3 +3796,99 @@ iframe por sección con `documentoEditable`, alto medido como `medir()`), a 1440
 
 Tests: tests/web-generator-copia-franjas.test.ts (10; la geometría corre en un `vm` con cajas de mentira). Probado
 rompiéndolo: 33 roturas, cada una caza (`romper_franjas.py`).
+
+## Lo que la landing puede vender (medido el 29/10/2026, el taller del Cerebro)
+
+**Vive en:** las tarjetas de la #32 (`scripts/landing-principal-high-ticket.mts`, `TARJETAS`) · lo que promete cada plan
+(`lib/planes-mako.ts`, `incluye`) · la tabla (`lib/planes-comparacion.ts`) · el detalle del taller en el journal
+`~/.claude/projects/C--Users-marti-OneDrive-Escritorio-dashboard-marketing-main/4d1a09d4-c870-4075-94b3-7d1450a71bcc/subagents/workflows/wf_081f1b8b-822/journal.jsonl`
+
+Martín vio las 6 tarjetas que elegí («lo que anda hoy, como un equipo») y contestó: «Esas no son las funcionalidades más
+hot... ¿Y el scraper? ¿Y el Avatar con IA? ¿Y la edición?». **El diagnóstico obvio («lo hot es lo que vende el rubro») era
+el equivocado sin el inventario:** lo hot es lo que el cliente VE y le resuelve algo hoy, y eso hay que medirlo pantalla
+por pantalla, no recordarlo. El taller (inventario + lo que vende el rubro + tres jurados) dio 9 tarjetas, 3 x 3.
+
+- **En producción y lo ve el cliente:** el setter de WhatsApp, el CRM automático, Instagram (comentario → DM), el scraper
+  de grupos de WhatsApp (sólo Pro), el Video Editor (sólo Pro), el Web Generator, el media buyer (apagado por defecto),
+  Closing (sólo Pro), el consultor y la grabación de la visita con su mapa de calor.
+- **A medias o sólo para el super admin:** AI Avatar (sólo super admin, sin probar con un look real: entra cuando un
+  cliente lo abra y le salga el video), la difusión (hasta tren-ab), Image con IA, Video Generator, y los otros scrapers
+  (Leads Scraper retirado el 25/10, ce27df948; LinkedIn nunca).
+- **Ya no existe:** crear campañas desde el Ads Manager.
+- **Gana el código, y quedó anotado:** Pro prometía «crea campañas» y «avatares con IA» (/planes dejó de venderlos el
+  28/10, `TABS_TODAVIA_CERRADAS`) y decía «sin topes» con tope de WhatsApp y de personas: corregido en `incluye`. Image
+  Editor y Video Generator se abren por la CAPA (`requireRolWs`), no sólo para el super admin.
+- **Que el código lo abra no alcanza (corregido a la tarde, el Cerebro recorriendo la portada en producción):** yo había
+  dejado en la tabla «Videos para tus anuncios, armados con IA» (✓ en los tres planes) y «Crear y retocar imágenes con IA»
+  porque el código los da. Pero el Video Generator depende de la extensión y de los créditos de Flow del cliente, y al motor
+  nunca se lo midió en vivo; y generar imágenes con IA no existe (`NO_SE_PUEDE_CHAT_IMAGEN`): el editor tipo Canva sí. La
+  fila del video salió, la de imágenes dice «Diseñar tus imágenes sin salir de MaKo», y Pro promete edición de video y de
+  imágenes. Guarda: `tests/portada-high-ticket.test.ts` («no prometen videos ni imágenes hechos con IA»). Sin tocar: la
+  pregunta de la prueba en /planes (Vitrina.tsx) cuenta «1 video con avatar de IA» y «20 imágenes» como TOPES de la prueba;
+  la fija `tests/prueba-topes.test.ts`, y cambiarla es decisión de Planes.
+
+**Regla:** una tarjeta o un renglón de precios sale de un inventario MEDIDO ese día (qué abre el cliente, con qué plan) y
+del código (`lib/topes-plan.ts`, `lib/planes-comparacion.ts`), nunca de la memoria de lo que «ya anda». Y algo a medias no se
+promete aunque el código lo abra: se vende cuando un cliente lo usó y le salió.
+
+## La copia con las imágenes rotas: la dirección pegada no es la de la página (30/10/2026, claude1)
+
+**Vive en:** `lib/landing-fetch.ts` (`paginaConDireccion`) · `lib/editor-landing/replicar-reglas.ts` (`baseDeDocumento`).
+Se vio en el recorrido visual: [recorrido-visual-30-10.md](recorrido-visual-30-10.md), W2.
+
+**Síntoma:** la landing #88 (copia de `contentpartner.com.co/…-inmersion`) abre con el logo y el hero rotos: sus 27 imágenes dan 404.
+
+**Causa:** se pegó la dirección sin la barra final y el sitio redirige a la misma con barra. Lo relativo (`kit-marca/x.webp`) se
+resuelve distinto según esa barra: contra la dirección pegada pierde la carpeta de la página. La bajada seguía la redirección, pero
+devolvía sólo el HTML y la dirección final se perdía.
+
+**El diagnóstico obvio era el equivocado:** `baseDeDocumento` ya «resolvía la base» y por eso no parecía el problema. Pero usaba el
+`canonical` y el `og:url` como sustitutos, que el navegador nunca usa para resolver una ruta, y esta página no tiene ninguno.
+
+**Regla:** una ruta relativa se resuelve contra lo mismo que el navegador: `<base href>`, y si no hay, la dirección FINAL después de las
+redirecciones. Nunca contra lo que pegó la persona, nunca contra el `canonical`.
+
+**Probado (30/10):** de las 32 imágenes de esa copia, hoy respondían 0 y con la base corregida 32. Es el caso que Martín mostró en la llamada con Leila (minuto 4, ws9; pendientes-30-10.md, 1.16). #88 reparada, con respaldo. De las otras 8 copias de afuera, ninguna tiene imágenes con 404 (hasta 12 por copia).
+
+**Trampa de la medición:** `copiaFiel` da 0 imágenes con esa página, porque las copias de hoy salen de la foto del navegador. Para probarlo hay que resolver las direcciones guardadas contra `baseDeDocumento`.
+
+**Sin hacer (rama `recorrido-web-3010`, sin subir):**
+
+- Correr sus tests: los frenó la falta de RAM. Hay 4 aserciones actualizadas sin correr en `tests/editor-landing-{crear-panel,estilo,replicar,replicar-animaciones}.test.ts`.
+- ⚠️ **Medirlo con la página real.** `copiaFiel(html, final)` devolvió la dirección con barra y `ok`, pero mi prueba encontró 0 imágenes de ese
+  dominio en la copia. O la prueba busca mal, o la #88 no salió por este camino (`lib/editor-landing/copia-identica.ts`, la foto del
+  navegador). **Hasta medirlo, este arreglo no está probado para el caso que lo originó.**
+- Reparar la #88 (el prefijo de sus imágenes, con respaldo antes). De las 28 copias que hay es la única con esta causa.
+
+## El feedback del 24/10: ya estaba hecho, y lo roto era otra cosa (30/10/2026, claude1)
+
+**Vive en:** `app/web-generator/gamma.css` (`container: gma-barra`) · `tests/editor-landing-iconos.test.ts` · `scripts/banco-editor-web/` (el banco).
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Se pidió de nuevo «Nueva landing sin navegar» y «un solo botón Compartir» como no cumplidos. Están en main desde `f24afff79` (24/10) y `docs/diseno-editor-web-como-automations.md` lo decía. Reescribirlos era perder el trabajo. Medido en el banco con clics: «Nueva landing» cambia la barra y el lienzo por «¿Qué vas a crear hoy?» y no navega (`window.__nav` vacío, misma URL). Lo que SÍ iba a `?panel=1` era otro link, «Ver todo en el Panel», al pie de la lista: por eso el arreglo del 24/10 parecía no cumplido.
+- ⚠️ **De dónde salió el error:** `f24afff79` es del 24/10 a las 21:04 y el feedback con sus capturas es de esa misma noche, así que las capturas son de la versión anterior. La nota «no cumple» de `docs/feedback-24-10.md` comparó esa captura contra un código que ya la había dejado atrás. **Un pedido viejo se mide contra el código de hoy, y un pedido posterior de Martín le gana.**
+- **«Ver todo en el Panel» tampoco navega desde el 30/10** (decisión del Cerebro: lo pedido era el comportamiento, no un botón). Mismo lugar que «Nueva landing», con la columna del Panel para lo que la tarjeta no tiene (lo analizado, los menús, Plantillas, Temas, Papelera). ⚠️ La columna **no ofrece la landing abierta**: renombrarla o eliminarla ahí dejaría al editor guardando sobre lo que ya no es. Y lo que cambie ahí hace releer la lista de la tarjeta (`revisionLista`).
+- **Compartir se ve como un solo botón desde el 30/10** (decisión del Cerebro: «lo que importa es lo que se ve»). ⚠️ Sacar la raya no alcanzaba: dos fondos pegados dejan una línea cuando el ancho cae entre dos píxeles. El fondo es del contenedor y los dos blancos de clic son transparentes.
+- **Lo que estaba roto de verdad, y ningún test ni lectura de código lo había visto:**
+  - **La barra cortaba Compartir y el ⋯.** A 1024, con la tarjeta del chat, pedía 712 px en 660; un panel de la derecha (Tema, Animar) la achica igual a cualquier ancho. El `@media` mira la ventana, y lo que importa es lo que mide la barra: `container: gma-barra`. ⚠️ El contenedor es la barra y no `.gma-centro`: `container-type` hace de esa caja el bloque de lo `position: fixed`, y adentro están el lienzo y sus flotantes.
+  - ⚠️ **`.gma-dispositivos { display: flex }` está más abajo en el CSS y le ganaba al pliegue:** la primera versión no escondía nada y parecía andar en la lectura. Por eso va con `.gma-herr-der` adelante. Lo agarró la medición, no el código.
+  - **La X de Compartir era un cuadrado con una diagonal.** `Ico` dibuja `neutro` si el nombre no existe, a propósito («nunca un hueco»): nada avisa. Ahora un test recorre los nombres fijos que van a `Ico`. **Los que vienen de una variable no los cubre.**
+  - ⚠️ **Hay DOS catálogos de íconos, y creer que había uno rompió cuatro.** Las pestañas de Publicar y del editor de tema usan `Icono` de `piezas-gma.tsx` (TRAZOS), donde `engrane`, `navegacion`, `fuente` y `marca` sí existen y un nombre desconocido cae a tres puntitos. Mi primer test los medía contra `lib/editor-landing/iconos.ts`, dio rojo y los «arreglé»: estaban bien y quedaron rotos, con el test en verde. Lo agarró la revisión independiente. Antes de renombrar un ícono, mirar qué componente lo dibuja.
+
+**Lo que encontró la revisión de «Ver todo en el Panel» adentro (ya arreglado):**
+- **Remontar la pieza tiraba lo escrito** al pasar de «Nueva landing» al Panel: sin `key`, y al volver al cuadro se resetea la vista.
+- **`Inicio` se desmonta al volver a la landing:** lo analizado que se eliminó reaparecía, y tocarlo volvía a gastar IA. Vive en el editor (`analizadasVivas`).
+- **El Diagnóstico navegaba igual** con `irDuro` (Aplicar, Ver copia): ahora `onAbrirDiagnostico`.
+- **La landing abierta seguía alcanzable pegando su dirección:** aplicar ahí le sube la versión por debajo del editor oculto y el guardado daba conflicto. Al volver se lee de nuevo, y «Abrir en el editor» vuelve a ella en vez de ser un link a la misma ruta.
+- **Los rótulos de la barra colgaban del `@media`:** por encima de 1440 de ventana con un panel abierto, el ⋯ salía de la barra. Se pliegan con el contenedor. (Calculado, no medido.)
+
+**El banco (`scripts/banco-editor-web`), para la próxima:** el `EditorLanding` real, con esbuild, `fetch` simulado y sin base. Compila en ~1 min y no pide más memoria que esbuild; no necesita sesión ni escribe en producción.
+- Lo que costó: las acciones de server (`'use server'` en cualquier archivo, no sólo los `actions.ts`) se reemplazan por funciones vacías; los módulos de node van como un Proxy en CJS, porque esbuild exige los nombres de un ESM; `CONFIG_DEFAULT`, porque `config.pagina` es obligatorio.
+- **Lo que NO mide:** sin la barra lateral de la app (la real tiene ~58 px menos: todo aprieta antes) y sin el CSS de Tailwind; un «Diseño editable» sale sin estilos si su hoja no se le pasa en la config, y eso es del banco, no un bug.
+- ⚠️ El banco anterior (`banco-create-qa`, 29/10) quedó en una carpeta de notas y hoy no se pudo encontrar: por eso éste vive en el repo.
+
+**Lo que quedó SIN hacer:**
+
+- **Nada de esto se vio en producción ni con la barra lateral real.** Si Martín sigue viendo los dos botones o la otra ruta, es otra cosa: un despliegue viejo, o lo que mira no es este editor. Hace falta su captura.
+- **`docs/feedback-24-10.md` y `docs/pendientes.md` siguen atrasados** en lo demás: los corrige el Cerebro con la lista de lo que sigue vivo.
+- **Punto 6 (placeholders detrás de otras secciones):** en el banco el «Encabezado 2» de una sección vacía se lee y no queda tapado. No se reprodujo el caso original: se necesita la landing donde lo vio.
+- **Por debajo de ~336 px de barra** (640 de ventana, sin lugar real) sigue sin entrar.

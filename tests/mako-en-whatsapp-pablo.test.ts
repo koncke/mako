@@ -127,10 +127,11 @@ test('ws13: «Si 18 de noviembre» —la fecha que MaKo pidió— sigue el pedid
   const r = turno(m, { siguePedidoDeAgenda: true }, `${pedido}\n${pidio}`);
   assert.equal(r.veredicto.intencion, 'actuar', r.veredicto.porque);
   trae(m, 'proponer_agendar_agenda', r);
-  // El router lo leía como charla («si») y el camino barato corría SIN herramientas, antes de mirar la intención.
+  // El router lo leía como charla («si») y el camino barato corría SIN herramientas, antes de mirar la intención. Desde el
+  // 28/10/2026 el grupo no tiene camino barato (el diagnóstico del Cerebro, G2: tampoco llevaba historial): no vuelve.
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(doer, /const pideHerramientas = intencion\.intencion !== 'charlar' && !intencion\.dudosa;/);
-  assert.match(doer, /if \(ruta\.tier === 'cheap' && !mediaBlocks && !pideHerramientas\)/, 'el camino barato vuelve a correr sin mirar si el clasificador pidió herramientas');
+  assert.doesNotMatch(doer, /ruta\.tier === 'cheap'/, 'volvió el camino barato del grupo');
+  assert.doesNotMatch(doer, /\bchatCheap\(/, 'el grupo volvió a contestar por `chatCheap`, sin historial ni el system del grupo');
 });
 
 test('ws13: «Pasamelo» después de «Eso lo miro y te lo paso» reclama el pedido de antes, con sus herramientas', () => {
@@ -208,13 +209,18 @@ test('el ticket sabe QUIÉN escribió en el grupo: el teléfono, o el nombre si 
 test('el doer le pasa al ticket quién escribe y el contexto, y si algo falló lo registra SOLO, sin preguntar', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   const ctx = doer.slice(doer.indexOf('const ctxApi: CtxApi = {'), doer.indexOf('};', doer.indexOf('const ctxApi: CtxApi = {')));
-  assert.match(ctx, /actor: actorDeWhatsApp\(key\?\.participant, data\.pushName\)/, 'el ticket no sabe quién escribió: preparar() contesta «No sé quién eres»');
+  // Desde el 30/10/2026 con `participante`: el teléfono de `participantAlt` en un grupo de `@lid` (si no, `participant`).
+  assert.match(ctx, /actor: actorDeWhatsApp\(participante, data\.pushName\)/, 'el ticket no sabe quién escribió: preparar() contesta «No sé quién eres»');
+  assert.match(doer, /const participante = telefonoDelParticipante\(key\?\.participantAlt\) \? key\?\.participantAlt : key\?\.participant;/);
   assert.match(ctx, /contextoTicket: \(\) => \(\{/, 'el ticket no recibe el contexto del turno');
   assert.match(ctx, /erroresDelTurno\[0\]/, 'el contexto del ticket no lleva el error que registró el código');
   // El teléfono sobrevive al lote: los dos mensajes que arma el doer copian `participant`.
-  assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant/g) ?? []).length, 2, 'un lote pierde quién escribió');
+  assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant, participantAlt: ultimo\.key\?\.participantAlt/g) ?? []).length, 2, 'un lote pierde quién escribió');
+  // Y los dos marcan el lote de VARIOS: el último no prueba quién pidió lo de arriba (el permiso del pedido delegado y del DEBUG).
+  assert.equal((doer.match(/\{ loteDeVarios: true \}/g) ?? []).length, 2, 'un lote de dos personas pide con el permiso del último');
   // Viaja con las de siempre, y cada salida de herramienta se mira con `errorParaTicket`.
-  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\];/);
+  // Y desde el 28/10/2026 lo que hace MaKo (`CAPACIDADES_TOOLS`, F2c del diagnóstico del Cerebro).
+  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS, \.\.\.CAPACIDADES_TOOLS\];/);
   const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const nuevoIntento'));
   assert.match(rt, /errorParaTicket\(name, out\)/, 'las fallas de las herramientas no se registran para el ticket');
   // Si algo falló, el código REGISTRA la falla (Martín: «todo lo solucionás automáticamente»), con quién escribió, y a la

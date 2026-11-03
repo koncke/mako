@@ -297,7 +297,8 @@ test('«Solucionar» abre el wizard en la ficha, no una navegación', () => {
 
   // Lo que queda es el wizard, acá mismo, sobre la etapa ACTUAL — que es lo que lo
   // convierte en «Completar datos» en vez de un movimiento.
-  assert.ok(/const solucionar = \(\) => setMoveTo\(stageKey\)/.test(sheet), 'Solucionar abre el wizard sobre la etapa actual');
+  // (Con el dato que se tocó desde el 29/10/2026: `datoPedido`.)
+  assert.ok(/const solucionar = \(paso: StepId\) => \{ setDatoPedido\(paso\); setMoveTo\(stageKey\); \}/.test(sheet), 'Solucionar abre el wizard sobre la etapa actual');
   // ⚠️ Desde el 13/10/2026 el aviso lleva AL DATO (`solucionarDato`: la tab y el señalador) y el
   // wizard queda de respaldo, cuando el campo no está en la ficha.
   assert.ok(/onSolucionar=\{solucionarDato\}/.test(sheet), 'el aviso lleva al dato');
@@ -307,12 +308,13 @@ test('«Solucionar» abre el wizard en la ficha, no una navegación', () => {
   assert.ok(/pedido=\{pedido\}/.test(sheet), 'el pop-up le pide a la ficha que lleve al dato');
   assert.ok(/onNoEsta=\{solucionar\}/.test(sheet), 'y el wizard es el respaldo');
   const ficha = leer('../app/crm/lead-view/ficha/FichaPorBloques.tsx');
-  assert.ok(/if \(!t\) \{ onNoEsta\(\); return; \}/.test(ficha), 'sin un bloque que lo tenga, el wizard');
-  assert.ok(/onNoEsta=\{onNoEsta\}/.test(ficha), 'también cuando el campo no se dibujó');
+  // Con el dato que se tocó (29/10/2026, tests/documento-fiscal-desde-el-chat.test.ts).
+  assert.ok(/if \(!t\) \{ onNoEsta\(paso\); return; \}/.test(ficha), 'sin un bloque que lo tenga, el wizard');
+  assert.ok(/onNoEsta=\{\(\) => onNoEsta\(senal\.id\)\}/.test(ficha), 'también cuando el campo no se dibujó');
   assert.ok(/const completandoDatos = moveTo === stageKey/.test(sheet), 'la condición de «completar» es una sola');
   assert.ok(/completarDatos=\{completandoDatos\}/.test(sheet), 'el diálogo tiene que saberlo');
   // ⚠️ 23/10/2026: la lista del server, menos lo que no es obligatorio en el funnel del lead (`loQueSePide`).
-  assert.ok(/faltantes=\{completandoDatos \? loQueSePide\(faltantes, datos\?\.avisar\) : undefined\}/.test(sheet), 'con la lista autoritativa del server');
+  assert.ok(/faltantes=\{completandoDatos \? loQueSePide\(faltantes, datos\?\.avisar, datoPedido\) : undefined\}/.test(sheet), 'con la lista autoritativa del server');
 
   // Y al terminar, la ficha SE QUEDA: cerrarla sería la redirección que esto vino a
   // sacar. Mover de etapa sí la cierra — la tarjeta ya no vive en esa columna.

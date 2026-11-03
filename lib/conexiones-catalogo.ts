@@ -86,7 +86,8 @@ const SINONIMOS: Record<string, readonly string[]> = {
   calcom: ['cal.com', 'calcom'],
   stripe: ['stripe'],
   mercadopago: ['mercado pago', 'mercadopago'],
-  // Hotmart, Skool y Apify salieron el 25/10/2026 (el Leads Scraper, tests/leads-scraper-retirado.test.ts); entran los
+  creem: ['creem', 'creem.io'],
+  // Hotmart, Skool y el Apify de los leads salieron el 25/10/2026 (el Leads Scraper, tests/leads-scraper-retirado.test.ts); entran los
   // alojadores de video que se sumaron ese día.
   panda: ['panda', 'panda video'],
   vimeo: ['vimeo'],
@@ -94,6 +95,7 @@ const SINONIMOS: Record<string, readonly string[]> = {
   bunny: ['bunny stream', 'bunny'],
   cloudflare: ['cloudflare stream', 'cloudflare'],
   youtube: ['youtube'],
+  'apify-instagram': ['apify'],
   // «pixel» solo, no: el de Meta no es de MaKo (lib/hechos-mako.ts).
   landing: ['pixel de mako', 'codigo de la landing', 'codigo de mako'],
   agente: ['skill de mako', 'claude con mi negocio'],
@@ -125,11 +127,12 @@ const NO_SE_OFRECEN = new Set(['gemini', 'groq']);
 const META_POR_ZERNIO = {
   ruta: rutaDeTarjeta('zernio'),
   aclaracion: 'con tu Facebook, por Zernio',
+  // 29/10/2026 (ticket #28): la tarjeta de Zernio va en dos pasos, y «Anuncios de Meta» es el bloque del paso 2.
   pasos: [
     'Desde tu computadora, abre el link: es la tarjeta de Zernio.',
-    'Si te pide la "API key de Zernio": sácala en zernio.com → "Settings" → "API Keys" y pégala.',
-    'En "Redes", toca "Conectar" en "Anuncios de Meta" y entra con tu Facebook.',
-    'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
+    'Si te pide la "API key de Zernio" (paso 1): sácala en zernio.com → "Settings" → "API Keys" y pégala.',
+    'En "Anuncios de Meta" (paso 2), toca "Conectar con Facebook" y entra con tu Facebook.',
+    'Acepta en la ventana de Facebook y elige tu cuenta publicitaria y tu píxel, si tienes varios.',
   ],
 } as const;
 
@@ -198,8 +201,12 @@ const FUERA_DE_LAS_TARJETAS: readonly Conexion[] = [
   },
 ];
 
-/** Todas, las tarjetas primero. */
-export const CONEXIONES: readonly Conexion[] = [...DEFS.map(deTarjeta), ...FUERA_DE_LAS_TARJETAS];
+/**
+ * Todas, las tarjetas primero. ⚠️ Menos la tarjeta de WhatsApp de /integraciones (29/10/2026): «Tu número de WhatsApp» (abajo) es la
+ * MISMA conexión con el link de contrato `/chats?conectar=whatsapp`, que abre el QR en un paso. Con las dos, la tarjeta ganaba por ir
+ * primero y la API de MaKo y el doer mandaban al modal de la tarjeta en vez de al QR (tests/conexiones-api.test.ts).
+ */
+export const CONEXIONES: readonly Conexion[] = [...DEFS.filter((d) => d.key !== 'whatsapp').map(deTarjeta), ...FUERA_DE_LAS_TARJETAS];
 
 /** La conexión de una key, o undefined. */
 export const conexion = (key: string): Conexion | undefined => CONEXIONES.find((c) => c.key === key);

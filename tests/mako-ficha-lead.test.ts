@@ -17,7 +17,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { etapaParaModelo, datosDeLaFicha, landingParaModelo, TOPE_LANDING_MODELO, type LeadParaModelo } from '../lib/mako-ficha-lead';
+import { etapaParaModelo, datosDeLaFicha, horaEnLaZona, horasDeLasReuniones, landingParaModelo, TOPE_LANDING_MODELO, type LeadParaModelo } from '../lib/mako-ficha-lead';
 import { DEFAULT_STAGES, type StageDerivable } from '../lib/pipeline';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -103,11 +103,12 @@ test('el cableado: ficha_lead y buscar_leads usan la etapa efectiva y la ficha c
   assert.doesNotMatch(resumen, /pipeline_stage/, 'la etapa cruda vuelve a decir null sobre leads que el equipo ve en una etapa');
   const ficha = src.slice(src.indexOf("case 'ficha_lead':"), src.indexOf("case 'historial_whatsapp':"));
   assert.match(ficha, /getPipelineStagesDeLead\(lead\)/, 'las etapas DEL LEAD, como la ficha (app\/crm\/\[id\]\/page.tsx)');
-  assert.match(ficha, /lead: \{ \.\.\.resumenLead\(lead, etapas\), \.\.\.datosDeLaFicha\(lead, oferta\) \},/);
+  // Desde el 30/10/2026 con la zona del negocio (`tz`): la hora de las reuniones (el ticket #35, abajo).
+  assert.match(ficha, /lead: \{ \.\.\.resumenLead\(lead, etapas, tz\), \.\.\.datosDeLaFicha\(lead, oferta\) \},/);
   assert.match(ficha, /\.\.\.landingParaModelo\(lead\.optin_respuestas\),/);
   const buscar = src.slice(src.indexOf("case 'buscar_leads':"), src.indexOf("case 'ficha_lead':"));
   // ⚠️ CAMBIADO A PROPÓSITO el 17/10/2026: cada lead con las etapas de SU casa (tests/crm-funnel-del-lead.test.ts).
-  assert.match(buscar, /resumenLead\(l, etapas\?\.get\(l\.id\) \?\? null\)/);
+  assert.match(buscar, /resumenLead\(l, etapas\?\.get\(l\.id\) \?\? null, tz\)/);
   // La descripción le dice al modelo qué es un campo que no viene (y que null no es «no contestó»).
   const desc = src.match(/name: 'ficha_lead',\s*description: '([^']+)'/)?.[1] ?? '';
   assert.match(desc, /formulario_landing; null = no hay nada guardado, NO que no contestó/);
@@ -144,4 +145,25 @@ test('la etapa de la ficha y la de MaKo salen de la misma lectura', () => {
   const page = sinComentarios(leer('../app/crm/[id]/page.tsx'));
   assert.match(page, /await getLeadFullAction\(idNum\)/);
   assert.doesNotMatch(page, /getPipelineStages/);
+});
+
+test('el ticket #35 de Código Inmobiliario: la ficha que lee MaKo trae la HORA de la reunión en la zona del negocio, o dice que no hay', () => {
+  // Los datos reales del ws13 (30/10/2026): `fecha_junta_1` es un DATE y la hora está en `junta_1_at`. MaKo dijo «a las 10:00» en las dos.
+  const BA = 'America/Argentina/Buenos_Aires';
+  const agustin = { fecha_junta_1: '2026-11-04', junta_1_at: '2026-11-04T14:00:00.000Z', fecha_junta_2: null, junta_2_at: null };
+  const daniela = { fecha_junta_1: '2026-11-02', junta_1_at: '2026-11-02T18:00:00.000Z' };
+  assert.deepEqual(horasDeLasReuniones(agustin, BA), { hora_junta_1: '11:00', zona_horaria: BA });
+  assert.deepEqual(horasDeLasReuniones(daniela, BA), { hora_junta_1: '15:00', zona_horaria: BA });
+  // Sin la hora (un lead cargado a mano, sólo con el día), o sin poder leer la zona: lo dice, para que no la invente.
+  const sinHora = horasDeLasReuniones({ fecha_junta_1: '2026-11-04', junta_1_at: null }, BA);
+  assert.equal(sinHora.hora_junta_1, null);
+  assert.match(String(sinHora.nota_hora), /Nunca inventes una hora/);
+  assert.match(String(horasDeLasReuniones(agustin, null).nota_hora), /Nunca inventes/);
+  // Sin reuniones, nada (cada campo vacío son caracteres de un presupuesto chico).
+  assert.deepEqual(horasDeLasReuniones({ fecha_junta_1: null, junta_1_at: null }, BA), {});
+  assert.equal(horaEnLaZona('no es una fecha', BA), null);
+  // Y `resumenLead` (buscar_leads y ficha_lead) la lleva, con la zona del negocio. Rota: sin el spread → vuelve el «10:00» inventado.
+  const tools = leer('../lib/mako-tools.ts');
+  assert.ok(tools.includes('fecha_junta_2: l.fecha_junta_2, ...horasDeLasReuniones(l, tz),'), 'la ficha que lee MaKo va sin la hora');
+  assert.equal((tools.match(/resumenLead\(.*, tz\)/g) ?? []).length, 2, 'buscar_leads o ficha_lead sin la zona');
 });

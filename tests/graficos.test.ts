@@ -200,58 +200,60 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
   const [mk, co] = tableroInicial().hojas;
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);
-  // Marketing, la cabecera: las cuatro KPI estrella. Desde el 15/10/2026 el CAC es la PORTADA de la hoja (a lo ancho,
-  // pintada, con su frase: lib/graficos-portadas.ts) y las otras tres van debajo, en el orden de antes, repartiéndose el
-  // ancho. (Era el TITULAR a media hoja desde el 14/10.)
-  const cabecera = graf(mk).filter((c) => c.y < 15 && c.tipo === 'numero');
-  const titular = cabecera.find((c) => c.portada);
+  // Marketing: desde el 1/11/2026 abre con la estructura de Prism (`comoDenso`, lib/graficos-portadas.ts): la tendencia y dos gráficos, y
+  // los números en fila, con el CAC entre ellos.
+  const titular = graf(mk).find((c) => c.id === 'mk-cac');
   assert.equal(titular?.metricas[0], 'cac');
   assert.equal(titular?.titulo, 'Cada cliente te cuesta');
-  assert.deepEqual([titular?.x, titular?.y, titular?.w], [0, 0, 12]);
-  const resto = cabecera.filter((c) => c !== titular).sort((a, b) => a.y - b.y || a.x - b.x);
-  assert.deepEqual(resto.map((c) => c.w), [4, 4, 4]);
-  assert.deepEqual(resto.map((c) => c.titulo), ['Ad Spend', 'ROAS cash', 'ROAS sold']);
-  assert.deepEqual(cabecera.map((c) => c.metricas[0]).sort(), ['cac', 'gasto', 'roas_cobrado', 'roas_vendido']);
-  assert.ok(resto[0].comparar, 'el Ad Spend trae el chip contra el período anterior');
+  const porTitulo = (t: string) => graf(mk).find((c) => c.titulo === t);
+  for (const t of ['ROAS cash', 'Ad Spend', 'ROAS sold', 'CPM']) assert.equal(porTitulo(t)?.w, 3, t);
+  assert.ok(porTitulo('Ad Spend')?.comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
   assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
-  // Tendencias: h 12 (los paneles respiran) y los anuncios como TARJETAS de 4 números, con el pop-up del anuncio.
-  assert.equal(graf(mk).find((c) => c.id === 'mk-tendencias')?.h, 12);
+  // Tendencias: abre la hoja, y los anuncios como TARJETAS de 4 números, con el pop-up del anuncio.
+  assert.deepEqual(['x', 'y', 'w', 'h'].map((k) => graf(mk).find((c) => c.id === 'mk-tendencias')?.[k as 'x']), [0, 0, 6, 8]);
   const anuncios = graf(mk).find((c) => c.id === 'mk-anuncios');
   assert.equal(anuncios?.tipo, 'tarjetas');
   assert.deepEqual(anuncios?.metricas, ['gasto', 'leads', 'agendas', 'cpa']);
   assert.equal(anuncios?.alClic, 'popup');
   // El filtro de fecha arriba, en las dos (punto 5: «Como el filtro de fecha»).
   for (const h of [mk, co]) assert.equal(h.controles.filter((c) => c.tipo === 'periodo').length, 1, h.nombre);
-  // Comercial: ningún bloque, y las piezas que los reemplazan en el orden de la tab vieja.
+  // Comercial: ningún bloque.
   for (const h of [mk, co]) assert.ok(!h.componentes.some(esBloque), `${h.nombre}: trae un bloque`);
   const de = (id: string) => co.componentes.find((c) => c.id === id);
-  const orden = ['co-revenue-barra', 'co-cobranza-seccion', 'co-tendencia', 'co-funnel-embudo', 'co-scl-tramos', 'co-cohortes-mes-tabla', 'co-cohortes-semana-tabla'];
+  // Con la estructura de Ledge: la tendencia con los números al lado, y la cobranza en las 8, que es donde se lee la tabla.
+  assert.deepEqual(['x', 'y', 'w'].map((k) => de('co-tendencia')?.[k as 'x']), [0, 0, 6]);
+  assert.deepEqual([de('co-cobranza-tabla')?.y === de('co-funnel-embudo')?.y, de('co-cobranza-tabla')?.w, de('co-funnel-embudo')?.w], [true, 8, 4]);
+  const orden = ['co-tendencia', 'co-cobranza-tabla', 'co-revenue-barra', 'co-cohortes-mes-tabla'];
   const ys = orden.map((id) => de(id)?.y ?? -1);
   assert.ok(ys.every((y, i) => y >= 0 && (i === 0 || y > ys[i - 1])), `Comercial fuera de orden: ${ys.join(', ')}`);
-  // Revenue: la barra cobrado/pendiente y Sold, Cash, Outstanding y MRR, de UNA lectura (`revenue`).
+  assert.equal(co.componentes.length, 9);
+  const kpis = co.componentes.filter(esGrafico).filter((c) => c.tipo === 'numero_tendencia').sort((x, y) => x.y - y.y || x.x - y.x);
+  assert.deepEqual(kpis.map((c) => c.id), ['co-revenue-cobrado', 'co-revenue-vendido', 'co-revenue-pendiente', 'co-revenue-cierres']);
+  assert.deepEqual(kpis.map((c) => [c.tipo, c.w, c.h]), Array(4).fill(['numero_tendencia', 3, 4]));
+  assert.deepEqual(kpis.map((c) => `${c.fuente}.${c.metricas[0]}`), ['revenue.cobrado', 'revenue.vendido', 'revenue.pendiente', 'revenue.cierres']);
+  assert.ok(kpis[0].invertida, 'Cash Collected es la negra');
+  assert.ok(kpis.every((c) => !c.subtitulo && !c.secundaria), 'el subtítulo le come el alto al mini-gráfico');
+  assert.ok(!co.componentes.some((c) => esGrafico(c) && c.y > 4 && (c.tipo === 'numero' || c.tipo === 'numero_tendencia')), 'un número suelto a mitad de hoja');
+  // La barra cobrado/pendiente, de UNA lectura (`revenue`).
   const barra = de('co-revenue-barra');
   assert.ok(barra && esGrafico(barra) && barra.tipo === 'barra_proporcion' && barra.fuente === 'revenue');
   assert.deepEqual(barra.metricas, ['cobrado', 'pendiente']);
-  const kpis = ['co-revenue-vendido', 'co-revenue-cobrado', 'co-revenue-pendiente', 'co-revenue-mrr'].map(de);
-  assert.deepEqual(kpis.map((c) => (c && esGrafico(c) ? `${c.fuente}.${c.metricas[0]}` : null)), ['revenue.vendido', 'revenue.cobrado', 'revenue.pendiente', 'suscripciones.mrr']);
   // El Outstanding mira hacia ADELANTE con su período A LA VISTA (decisión de la tanda v5).
   const out = kpis[2];
-  assert.ok(out && esGrafico(out) && out.controles.some((k) => k.tipo === 'periodo' && k.preset === 'este_mes_completo' && !k.fijo));
-  // «A quién cobrarle»: el desplegable (una sección plegada) con «Marcar cobrada» en la fila, y su cierre.
-  const sec = de('co-cobranza-seccion');
-  assert.ok(sec && sec.clase === 'elemento' && sec.tipo === 'seccion' && sec.seccion?.plegable && !sec.seccion.abierto, 'A quién cobrarle no es un desplegable cerrado');
+  assert.ok(out.controles.some((k) => k.tipo === 'periodo' && k.preset === 'este_mes_completo' && !k.fijo));
+  // A quién cobrarle, desplegada y con «Marcar cobrada» en la fila.
   const cobranza = de('co-cobranza-tabla');
   assert.ok(cobranza && esGrafico(cobranza) && cobranza.fuente === 'cobranza' && cobranza.tabla?.acciones, 'la tabla de la cobranza sin «Marcar cobrada»');
-  assert.ok(de('co-cobranza-cierre')?.clase === 'elemento', 'sin el cierre, plegar la sección esconde el resto de la hoja');
-  // El funnel de las cohortes MADURAS (un filtro fijo) en todo el histórico, el SCL y las dos cohortes.
+  assert.deepEqual(cobranza.metricas, ['pendiente', 'proxima_monto', 'dias']);
+  // El funnel de las cohortes MADURAS (un filtro fijo) en todo el histórico, y las cohortes por mes.
   const funnel = de('co-funnel-embudo');
   assert.ok(funnel && esGrafico(funnel));
   assert.deepEqual(funnel.metricas, ['agendas', 'asistencias', 'limpias', 'cierres']);
   assert.ok(funnel.controles.some((k) => k.fijo && k.campo === 'leads.madurez_semana' && k.valores?.[0] === 'Madura'));
   assert.ok(funnel.controles.some((k) => k.fijo && k.tipo === 'periodo' && k.preset === 'todo'));
-  assert.deepEqual(['co-scl-ciclo', 'co-scl-p90', 'co-scl-tramos'].map((id) => { const c = de(id); return c && esGrafico(c) ? c.tipo : null; }), ['numero', 'numero', 'tramos']);
-  assert.deepEqual(['co-cohortes-mes-tabla', 'co-cohortes-semana-tabla'].map((id) => { const c = de(id); return c && esGrafico(c) ? c.dimension : null; }), ['mes', 'semana']);
+  const cohortes = de('co-cohortes-mes-tabla');
+  assert.ok(cohortes && esGrafico(cohortes) && cohortes.dimension === 'mes' && cohortes.metricas.length === 5);
   // Nadie se pisa en la grilla: la compactación correría lo de abajo y lo sacaría de su lugar.
   for (const h of [mk, co]) {
     const cs = h.componentes;

@@ -26,30 +26,37 @@ const DE_LA_PANTALLA: Record<string, string[]> = {
   descartar: ['descartar_decision_media_buyer'],
   reabrir: ['reabrir_decision_media_buyer'],
   calificar: ['calificar_decision_media_buyer'],
-  config: ['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer', 'cuenta_media_buyer', 'automatizacion_media_buyer'],
+  config: ['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer', 'cuenta_media_buyer', 'automatizacion_media_buyer', 'zona_media_buyer', 'hasta_media_buyer'],
   analizar: ['analizar_cuenta_media_buyer'],
   estado_zernio: ['ver_campanas_media_buyer'],
   hooks_a_video: ['hooks_al_video_media_buyer'],
   campanas: ['ver_campanas_media_buyer'],
-  subir_preparar: ['ver_campanas_media_buyer'],
+  subir_preparar: ['ver_campanas_media_buyer', 'preparar_subida_media_buyer'],
+  subir_creativos: ['subir_creativos_media_buyer'],
   // La charla del arranque guarda lo respondido para seguir donde quedó; lo que DEJA es config (el resultado, el modo, el
   // tope diario y las metas del mes), y eso sale por la API.
   arranque: ['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer'],
   lienzo: ['ver_campanas_media_buyer'],
   agente: ['agente_media_buyer'],
   agente_borrar: ['borrar_agente_media_buyer'],
+  // DÓNDE, HASTA y «Nueva campaña» (29/10/2026).
+  lugares: ['buscar_lugares_meta'],
+  hasta_campana: ['hasta_media_buyer'],
+  nueva_preparar: ['listar_formularios_meta', 'listar_pixeles_meta', 'ver_campanas_media_buyer', 'ver_media_buyer'],
+  crear_campana: ['proponer_crear_campana'],
 };
 
 /** Lo que la pantalla muestra sin una `op` propia (sale de la página o de `config`), con su lectura o acción de la API. */
 const SIN_OP = ['ver_biblioteca_media_buyer', 'modo_agente_media_buyer'];
 
 /** Lo que todavía NO está en la API, con el porqué. Sumar acá es decidirlo: queda escrito. */
-const FALTA: Record<string, string> = {
-  subir_creativos: 'los archivos los sube el navegador al staging (creative-signurl): por la API no hay cómo mandar un video, y crear un anuncio no se puede medir en la cuenta de MaKo sin método de pago',
-};
+// Vacío desde el 27/10/2026: subir creativos entró a la API en dos pasos, como la pantalla (preparar_subida_media_buyer firma
+// la subida al staging y subir_creativos_media_buyer publica).
+const FALTA: Record<string, string> = {};
 
 /** Lo que mueve plata en la cuenta de Meta: se confirma en una pantalla y nunca corre como paso de una automatización. */
-const MUEVEN_PLATA = ['lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer', 'cuenta_media_buyer', 'modo_agente_media_buyer'];
+const MUEVEN_PLATA = ['lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer', 'cuenta_media_buyer', 'modo_agente_media_buyer',
+  'zona_media_buyer', 'hasta_media_buyer', 'proponer_crear_campana', 'subir_creativos_media_buyer'];
 
 const opsDeLaPantalla = (): string[] => {
   const src = leer('app/api/media-buyer/route.ts');
@@ -87,8 +94,8 @@ test('lo que mueve plata se confirma en una pantalla, cuesta «dinero» (por HTT
 
 test('cada ajuste de la config del Media Buyer se puede cambiar por la API', () => {
   // El nombre del parámetro que lo cambia, si no es el mismo campo.
-  const otroNombre: Record<string, string> = { encendido: 'modo', tacticas: 'tactica' };
-  const params = new Set(['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer', 'cuenta_media_buyer', 'automatizacion_media_buyer']
+  const otroNombre: Record<string, string> = { encendido: 'modo', tacticas: 'tactica', hastaCampanas: 'campanaId' };
+  const params = new Set(['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer', 'cuenta_media_buyer', 'automatizacion_media_buyer', 'zona_media_buyer', 'hasta_media_buyer']
     .flatMap((id) => porId(id)!.parametros.map((p) => p.nombre)));
   const sinApi = Object.keys(CONFIG_POR_DEFECTO).filter((k) => !params.has(otroNombre[k] ?? k));
   assert.deepEqual(sinApi, [], `ajustes que la API no puede cambiar: ${sinApi.join(', ')}`);

@@ -20,8 +20,9 @@ import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { TUERCA } from '@/app/_ui/icono-tuerca';
 import {
   AGENTE_DE, NOMBRE_AGENTE, cambioDe, hace, impactoEsperado, leerMonto, queHace, verboLanzar,
-  type Agente,
+  type Agente, type ResultadoAplicar,
 } from './mb-modelo';
+import { fmtDinero } from '@/lib/format';
 
 // ── Los íconos de línea (el trazo de AdAmigo, que es el de Lucide) ──
 const sv = (d: ReactNode, w = 1.7) => (
@@ -55,7 +56,7 @@ const fecha = new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' });
 
 export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHref, onAplicar, onBorrar, onPreguntar, onDeshacer, onReabrir, onCalificar, onHooksAVideo }: {
   d: Decision; kpi: KpiMediaBuyer; producto: string | null; ocupada: boolean; encendido: boolean; ajustesHref: string;
-  onAplicar: (extra: { presupuesto?: number; elegidas?: string[] }) => Promise<boolean>;
+  onAplicar: (extra: { presupuesto?: number; elegidas?: string[]; confirmarBaja?: boolean }) => Promise<ResultadoAplicar>;
   onBorrar: () => void; onPreguntar: () => void; onDeshacer: () => void; onReabrir: () => void;
   onCalificar: (n: number) => void; onHooksAVideo: (elegidas: string[]) => void;
 }) {
@@ -63,19 +64,27 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
   const [elegidas, setElegidas] = useState<Set<string>>(() => new Set((d.variaciones ?? []).filter((v) => v.elegida).map((v) => v.id)));
   const [editando, setEditando] = useState(false);
   const [montoTxt, setMontoTxt] = useState(d.despues.presupuesto != null ? String(d.despues.presupuesto) : '');
+  // Bajar 80% o más se pregunta acá, pegado al botón, con lo que dijo el servidor («Bajarlo de $100 a $15 por día es 85% menos»).
+  const [porConfirmar, setPorConfirmar] = useState<string | null>(null);
   const esVar = d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook';
   const abierta = d.estado === 'abierta';
   const reintentable = d.estado === 'bloqueada' || d.estado === 'fallida';
   const hecha = d.estado === 'aplicada' || d.estado === 'deshecha';
   const cambio = cambioDe(d);
   const baja = cambio?.pct?.startsWith('-') || d.despues.estado === 'PAUSED';
-  const aplicar = () => {
-    const extra: { presupuesto?: number; elegidas?: string[] } = {};
+  const aplicar = (confirmarBaja = false) => {
+    const extra: { presupuesto?: number; elegidas?: string[]; confirmarBaja?: boolean } = {};
     if (esVar) extra.elegidas = [...elegidas];
     // «1,500» es mil quinientos, no 1,5 (revisión de tren-l, falla 4): leerMonto, y si no se entiende no se lanza.
     if (editando && montoTxt.trim()) extra.presupuesto = leerMonto(montoTxt) ?? undefined;
-    void onAplicar(extra).then((ok) => { if (ok) setEditando(false); });
+    if (confirmarBaja) extra.confirmarBaja = true;
+    void onAplicar(extra).then((r) => {
+      if (typeof r === 'object') { setPorConfirmar(r.mensaje); return; }
+      setPorConfirmar(null);
+      if (r) setEditando(false);
+    });
   };
+  const montoEditado = editando ? leerMonto(montoTxt) : null;
   const estado = d.estado === 'fallida' ? { t: 'No se pudo', tono: 'mal' } : d.estado === 'bloqueada' ? { t: 'Frenada por un tope', tono: 'cuidado' }
     : d.estado === 'vencida' ? { t: 'Vencida', tono: undefined } : d.estado === 'descartada' ? { t: 'Descartada', tono: undefined }
       : d.estado === 'deshecha' ? { t: 'Deshecha', tono: undefined }
@@ -134,10 +143,19 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
       )}
       {editando && d.despues.presupuesto != null && (
         <div className="aa-editar">
-          <input inputMode="decimal" value={montoTxt} onChange={(e) => setMontoTxt(e.target.value)} aria-label="Presupuesto diario nuevo, en la moneda de la cuenta" />
+          <input inputMode="decimal" value={montoTxt} onChange={(e) => { setMontoTxt(e.target.value); setPorConfirmar(null); }} aria-label="Presupuesto diario nuevo, en la moneda de la cuenta" />
           <span>{d.moneda ?? ''} por día</span>
         </div>
       )}
+      {porConfirmar && montoEditado != null ? (
+        <div className="aa-pie" aria-live="polite">
+          <span className="aa-pie-nota" data-tono="cuidado">{porConfirmar}</span>
+          <button type="button" className="aa-sec" disabled={ocupada} onClick={() => setPorConfirmar(null)}>No bajar</button>
+          <button type="button" className="aa-aplicar" disabled={ocupada || !encendido} onClick={() => aplicar(true)}>
+            {ocupada ? 'Aplicando…' : `Bajar a ${fmtDinero(montoEditado, d.moneda)} por día`}
+          </button>
+        </div>
+      ) : (
       <div className="aa-pie">
         {hecha && (
           <span className="aa-estrellas" aria-label="¿Cuánto sirvió?">
@@ -155,34 +173,36 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
         )}
         <button type="button" className="aa-sec" onClick={onPreguntar}>{Ic.info()}Preguntar</button>
         {(abierta || reintentable) && (
-          <button type="button" className="aa-aplicar" disabled={ocupada || !encendido || (esVar && elegidas.size === 0) || (editando && montoTxt.trim() !== '' && leerMonto(montoTxt) == null)} onClick={aplicar}>
+          <button type="button" className="aa-aplicar" disabled={ocupada || !encendido || (esVar && elegidas.size === 0) || (editando && montoTxt.trim() !== '' && leerMonto(montoTxt) == null)} onClick={() => aplicar()}>
             {Ic.check()}{ocupada ? 'Aplicando…' : reintentable ? 'Reintentar' : esVar ? verboLanzar(d) : 'Aplicar'}
           </button>
         )}
         {d.estado === 'aplicada' && <button type="button" className="aa-sec" disabled={ocupada} onClick={onDeshacer}>{Ic.deshacer()}Deshacer</button>}
         {(d.estado === 'descartada' || d.estado === 'vencida') && <button type="button" className="aa-sec" disabled={ocupada} onClick={onReabrir}>Volver a abrir</button>}
       </div>
+      )}
     </article>
   );
 }
 
-/** Protect: lo roto en la cuenta (lib/media-buyer/protect.ts), arriba de las acciones. Sin alertas no se dibuja. */
+/**
+ * Protect: lo roto en la cuenta (lib/media-buyer/protect.ts), en la hoja que abre el aviso de Hoy. Con la densidad de Actividad
+ * (27/10/2026): una fila por alerta con su punto (rojo si es grave), el título, una línea con el detalle y UN botón,
+ * «Preguntar». Antes era una tarjeta por alerta con su ícono en una caja, el borde de color y su encabezado «Protect · N».
+ * Sin alertas no se dibuja.
+ */
 export function AlertasProtect({ alertas, onPreguntar }: { alertas: Alerta[]; onPreguntar: (a: Alerta) => void }) {
   if (!alertas.length) return null;
   return (
-    <section className="aa-protect" aria-label="Protect">
-      <h2 className="aa-seccion">Protect · {alertas.length} {alertas.length === 1 ? 'alerta' : 'alertas'}</h2>
+    <ul className="aa-act-lista aa-protect" aria-label="Protect">
       {alertas.map((a) => (
-        <article key={a.id} className="aa-alerta" data-g={a.gravedad}>
-          <span className="aa-alerta-ic" aria-hidden>{ICONO_AGENTE.protect()}</span>
-          <div>
-            <b>{a.titulo}</b>
-            <p>{a.detalle}</p>
-          </div>
-          <button type="button" className="aa-sec" onClick={() => onPreguntar(a)}>{Ic.info()}Preguntar</button>
-        </article>
+        <li key={a.id} data-g={a.gravedad}>
+          <span className="aa-punto" aria-hidden />
+          <span className="aa-act-txt"><b>{a.titulo}</b><small>{a.detalle}</small></span>
+          <button type="button" className="aa-sec" onClick={() => onPreguntar(a)}>Preguntar</button>
+        </li>
       ))}
-    </section>
+    </ul>
   );
 }
 

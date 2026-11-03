@@ -89,6 +89,11 @@ export const TABLAS_DE_INQUILINO = [
   'ig_conversaciones', 'ig_mensajes', 'image_disenos', 'image_editor_chats', 'image_subidos', 'insistencias', 'kpi_registros', 'kpis',
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
+  // La papelera del CRM (mig 0340). ⚠️ La 0340 va ANTES del deploy: el reset del cliente de prueba borra de acá y una tabla
+  // que no existe da error.
+  'leads_papelera',
+  // Lo que se borró (mig 0356). ⚠️ Vaciar `leads` escribe acá (es un trigger): `vaciarTablas` la barre otra vez al final.
+  'leads_bajas',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
   'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
   // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en
@@ -121,7 +126,11 @@ export const TABLAS_DE_INQUILINO = [
   // Las grabaciones de sesión de las landings (mig 0191): en TENANT_TABLES y no acá hasta el 17/10/2026.
   'replay_lotes', 'replay_sesiones',
   'retros', 'review_queue', 'script_analyses',
-  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares', 'tarea_categorias',
+  'script_drafts', 'service_incidents', 'setting_adjuntos', 'setting_audios', 'shares',
+  // Competitors Spy (mig 0359): los competidores que vigila el negocio y sus piezas. Vaciar el
+  // negocio o borrarlo se los lleva; `spy_piezas` también se va con su competidor (on delete cascade).
+  'spy_competidores', 'spy_piezas',
+  'tarea_categorias',
   // Los tickets que levantan las personas del negocio al equipo de MaKo (mig 0311, 17/10/2026). `ticket_eventos` no
   // tiene `workspace_id`: se va con su ticket (on delete cascade). No va en TENANT_TABLES: la lee lib/tickets-db.ts.
   'tickets',

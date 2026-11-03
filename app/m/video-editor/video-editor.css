@@ -2,10 +2,11 @@
    /m/video-editor — lo propio del Video Editor del teléfono (el shell es app/m/m.css)
    =============================================================================
    Todo con el prefijo .m-video-editor-*: Next deja la hoja cargada al salir de la ruta. Sólo tokens de
-   app/globals.css. El editor de un proyecto es OSCURO como CapCut: va adentro de `.ce` (los tokens de
-   app/video-editor/capcut-theme.css: --cc-*), y lo de encima del fondo oscuro usa esos tokens. */
+   app/globals.css. El editor de un proyecto va adentro de `.ce` (app/video-editor/capcut-theme.css), cuyos --cc-*
+   son, desde el 29/10/2026, los colores de MaKo: sigue el tema claro u oscuro de la persona (ya no es oscuro
+   siempre, como CapCut). Lo único fijo es lo que va ENCIMA de una imagen (el rótulo de los segundos de un clip). */
 
-/* ── El inicio: «Nuevo proyecto» grande arriba, como CapCut del teléfono ─── */
+/* ── El inicio: «Nuevo video» grande arriba, como CapCut del teléfono ─── */
 .m-video-editor-nuevo {
   display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; min-height: 96px; margin: 0 0 18px;
   border: 0; border-radius: var(--r-lg); background: var(--primary); color: var(--on-primary);
@@ -20,18 +21,25 @@
 /* La miniatura 9:16 de una fila (como las de Video Generator). El ícono queda debajo por si no hay imagen. */
 .m-video-editor-mini {
   position: relative; flex: none; display: grid; place-items: center; width: 40px; height: 64px; border-radius: 7px; overflow: hidden;
-  background: var(--sidebar-2); color: var(--sidebar-text);
+  background: var(--surface-2); color: var(--faint);
 }
 .m-video-editor-mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .m-video-editor-mas {
   display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 999px;
   background: none; color: var(--dim); cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
+/* «¿Qué vas a crear hoy?»: «Pídeselo a MaKo» y las tarjetas de «Nuevo video» (las de app/_crear/crear.css). */
+.m-video-editor-plantillas { display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
+.m-video-editor-pedir {
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 16px;
+  border: 1px solid var(--border-strong); border-radius: var(--r-md); background: var(--surface); color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
 
-/* ── El editor: oscuro, a pantalla completa, en columna ──────────────────── */
+/* ── El editor: a pantalla completa, en columna ─────────────────────────── */
 .m-video-editor-ed {
   flex: 1; min-height: 0; display: flex; flex-direction: column;
-  background: var(--cc-app, var(--sidebar)); color: var(--cc-text, var(--on-sidebar));
+  background: var(--bg); color: var(--ink);
 }
 .m-video-editor-barra {
   flex: none; display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 8px;
@@ -52,10 +60,11 @@
 .m-video-editor-escenario { position: relative; flex: 1; min-height: 200px; padding: 0 6px; }
 /* ⚠️ Del reproductor de escritorio (app/video-editor/_opencut/preview/components) el teléfono esconde su cabecera
    («Reproductor ≡», cabecera.tsx) y su fila de abajo (toolbar.tsx): el tiempo HH:MM:SS:FF y sus cuatro menús no entran
-   en 390 px y se pisaban con ▶ (medido 17/10/2026). ▶ y el tiempo van en la fila del cabezal. Se eligen por sus
-   clases de Tailwind: tests/m-creacion.test.ts falla si esas clases cambian en el motor (y el teléfono las mostraría). */
+   en 390 px y se pisaban con ▶ (medido 17/10/2026). ▶ y el tiempo van en la fila del cabezal. La cabecera se elige por
+   su clase de Tailwind y la fila de abajo por su marca `data-barra-reproductor` (desde el 30/10/2026 la fila cambia de
+   clases según su ancho): tests/m-creacion.test.ts falla si cambian en el motor (y el teléfono las mostraría). */
 .m-video-editor-escenario [class~="bg-[var(--cc-panel-head)]"],
-.m-video-editor-escenario [class~="grid-cols-[1fr_auto_1fr]"] { display: none; }
+.m-video-editor-escenario [data-barra-reproductor] { display: none; }
 
 /* El cabezal: el tiempo, la barra para arrastrar y el total. */
 .m-video-editor-cabezal { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 14px 2px 6px; }
@@ -75,10 +84,10 @@
 .m-video-editor-tira::-webkit-scrollbar { display: none; }
 .m-video-editor-clip {
   position: relative; flex: 0 0 auto; display: grid; place-items: center; height: 56px; padding: 0; overflow: hidden;
-  border: 2px solid transparent; border-radius: 6px; background: var(--cc-raised, var(--sidebar-2)); color: inherit; cursor: pointer;
+  border: 2px solid transparent; border-radius: 6px; background: var(--surface-2); color: inherit; cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
-.m-video-editor-clip[aria-pressed="true"] { border-color: #fff; }
+.m-video-editor-clip[aria-pressed="true"] { border-color: var(--primary); }
 .m-video-editor-clip img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .m-video-editor-clip__seg {
   position: absolute; right: 4px; bottom: 3px; padding: 0 4px; border-radius: 4px;
@@ -86,13 +95,13 @@
 }
 .m-video-editor-mas-clip {
   flex: none; display: grid; place-items: center; width: 56px; height: 56px; margin-left: 6px; padding: 0;
-  border: 0; border-radius: 8px; background: #fff; color: #000; cursor: pointer;
+  border: 0; border-radius: 8px; background: var(--primary); color: var(--on-primary); cursor: pointer;
 }
 
 /* La barra de herramientas de abajo (la de CapCut del teléfono): ícono arriba, nombre abajo, se desliza. */
 .m-video-editor-herramientas {
   flex: none; display: flex; gap: 4px; padding: 4px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-  overflow-x: auto; scrollbar-width: none; border-top: 1px solid rgba(255, 255, 255, .08);
+  overflow-x: auto; scrollbar-width: none; border-top: 1px solid var(--border);
 }
 .m-video-editor-herramientas::-webkit-scrollbar { display: none; }
 .m-video-editor-herramienta {
@@ -108,21 +117,21 @@
 /* ── Exportar: la capa con el avance y, al terminar, «Guardar en el teléfono» ── */
 .m-video-editor-export {
   position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 24px;
-  background: rgba(0, 0, 0, .6);
+  background: var(--scrim-oscuro);
 }
 .m-video-editor-export__caja {
   width: min(340px, 100%); display: flex; flex-direction: column; gap: 12px; padding: 22px 18px;
-  border-radius: 16px; background: var(--cc-panel, var(--sidebar-2)); color: var(--cc-text, var(--on-sidebar)); text-align: center;
+  border-radius: 16px; background: var(--surface); color: var(--ink); text-align: center;
 }
 .m-video-editor-export__t { margin: 0; font-size: 17px; font-weight: 650; }
 .m-video-editor-export__nota { margin: 0; font-size: 13px; opacity: .7; }
-.m-video-editor-export__barra { height: 6px; border-radius: 6px; overflow: hidden; background: rgba(255, 255, 255, .15); }
+.m-video-editor-export__barra { height: 6px; border-radius: 6px; overflow: hidden; background: var(--border); }
 .m-video-editor-export__barra i { display: block; height: 100%; background: var(--primary); transition: width .2s linear; }
 .m-video-editor-export__boton {
   min-height: 48px; border: 0; border-radius: 10px; background: var(--primary); color: var(--on-primary);
   font: inherit; font-size: 16px; font-weight: 600; cursor: pointer;
 }
-.m-video-editor-export__boton--sec { background: rgba(255, 255, 255, .1); color: inherit; }
+.m-video-editor-export__boton--sec { background: var(--surface-2); color: inherit; }
 
 @media (prefers-reduced-motion: reduce) {
   .m-video-editor-nuevo { transition: none; }

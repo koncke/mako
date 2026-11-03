@@ -37,7 +37,9 @@ import { listarLineas, lineasParaMandar, type LineaRow } from './evolution';
 import { estadoAlertaVoz } from './canal-vigilante';
 import { ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { lineaPorDefault } from './lineas-whatsapp';
-import { asegurarWebhook, cuentasConectadas, zernioConfigurado } from './zernio';
+import { asegurarWebhook, cuentasConectadas, publicacionesDeLaCuenta, zernioConfigurado, ZernioError } from './zernio';
+import { errorDeLecturaZernio } from './zernio-redes';
+import { juntarPublicaciones, type PublicacionDeLaCuenta } from './publicacion-cron';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
 import { plataformaDe } from './canal-social';
 import type { PasoGrafo } from './flujo-grafo';
@@ -47,7 +49,7 @@ import {
 } from './medios-automatizacion';
 
 const MOTIVO_EMAIL = SIN_EMAIL_PROPIO;
-const MOTIVO_PAGOS = 'Conecta Stripe o Mercado Pago';
+const MOTIVO_PAGOS = 'Conecta una pasarela de pagos';
 const MOTIVO_NO_SE = 'No pude comprobarlo';
 
 export async function estadoCanalesDisparo(): Promise<EstadoCanales> {
@@ -79,6 +81,35 @@ export async function estadoCanalesDisparo(): Promise<EstadoCanales> {
   const instagram: EstadoCanal = medios.instagram ?? { conectado: null, motivo: MOTIVO_NO_SE };
   const messenger: EstadoCanal = medios.messenger ?? { conectado: null, motivo: MOTIVO_NO_SE };
   return { instagram, messenger, email, pagos };
+}
+
+// ── Las publicaciones del CRON de comentario (ticket #25 de Leandro, 29/10/2026) ──────────────────────
+
+/**
+ * LAS PUBLICACIONES PARA ELEGIR en «El usuario comenta tu publicación o Reel»: las últimas de cada cuenta de esa red del
+ * negocio (`publicacionesDeLaCuenta`), juntas y la más nueva primero. ⚠️ «NO PUDE LEER» NO ES «NO TIENES»: null si ninguna
+ * cuenta contestó (la pantalla lo dice y deja «Cualquier publicación»); [] si no hay cuentas de esa red.
+ * ⚠️ UN 429 NO ES «NO PUDE LEER» (ticket #34): si ninguna contestó y alguna pidió una pausa, TIRA ese ZernioError y la ruta lo dice.
+ */
+export async function publicacionesParaElCron(canal: 'instagram' | 'messenger'): Promise<PublicacionDeLaCuenta[] | null> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) throw new Error('sin workspace');
+  const cuentas = await conTope(cuentasConectadas(ws, plataformaDe(canal)), 8_000);
+  if (!cuentas.length) return [];
+  const pausas: ZernioError[] = [];
+  const listas = await Promise.all(cuentas.map((c) => publicacionesDeLaCuenta(ws, c._id).catch((e: unknown) => {
+    console.error(`[disparadores-canales] las publicaciones de @${c.username}: ${e instanceof Error ? e.message : String(e)}`);
+    if (e instanceof ZernioError && e.status === 429) pausas.push(e);
+    return null;
+  })));
+  const leidas = listas.filter((l): l is PublicacionDeLaCuenta[] => l != null);
+  if (!leidas.length && pausas.length) throw pausas[0];
+  return leidas.length ? juntarPublicaciones(leidas) : null;
+}
+
+/** Si lo que tiró es un 429 de Zernio, lo que dice la pantalla y cuándo relee; si no, null. Acá y no en la ruta: el cliente de Zernio se habla sólo desde el canal (tests/sin-instagram.test.ts). */
+export function pausaDeZernio(e: unknown): { error: string; reintentarEnMs: number | null } | null {
+  return e instanceof ZernioError && e.status === 429 ? errorDeLecturaZernio(e.status, e.esperaMs) : null;
 }
 
 // ── Los MEDIOS de una automatización (décima tanda, GENERAL 6) ──────────────────────────────────────

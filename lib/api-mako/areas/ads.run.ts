@@ -20,15 +20,24 @@ import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDec
 import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
 import { ORDEN_TACTICAS, TACTICAS, resolverTacticas, validarTacticas, type TacticaAuto } from '@/lib/media-buyer/tacticas';
 import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
+import { revisarMontoEditado } from '@/lib/media-buyer/monto';
+import { fmtDinero } from '@/lib/format';
 import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaMB } from '@/lib/media-buyer/datos';
 import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
+import { crearCampana as crearCampanaMB, prepararCampana as prepararCampanaMB } from '@/lib/media-buyer/campana';
+import type { LugarZona as LugarZonaMB } from '@/lib/media-buyer/zona';
+import { resolverLugares as resolverLugaresMB } from '@/lib/media-buyer/publico';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
-import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambiarAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
+import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambioDeAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
+import { conjuntosDe as conjuntosDeMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
+import { leerPedidoDeSubida, NOMBRE_CTA as NOMBRE_CTA_SUBIDA } from '@/lib/media-buyer/creativos';
+import { esPathDeStaging } from '@/lib/ads-staging';
+import { barrerStagingViejo, faltanEnStaging, firmarSubidaDeStaging } from '@/lib/ads-staging-firma';
 import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
@@ -37,6 +46,8 @@ import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
 import { calcularPresupuestoAds } from '@/lib/calculadora-presupuesto-ads';
+import { ROTULO_FUNNEL, sanearPlan } from '@/lib/funnel-plan';
+import { guardarPlanFunnel, leerPlanFunnel } from '@/lib/funnel-plan-db';
 import { metaWrite, type MetaWriteBody } from '@/lib/meta-write';
 import { getMetaAccountHealth, type NodoEstado } from '@/lib/meta-health';
 // El aviso «es N veces el actual» vive en UN lugar con la tabla del Ads Manager: era la
@@ -51,9 +62,11 @@ import {
 } from '@/lib/meta-ads-create';
 import { cambiosDesdeEntrada, entradaDesdeApi, resumenDeCambios, type EntradaPublico } from '@/lib/publico-cambios';
 import { lugaresDesdeMeta } from '@/lib/meta-geo';
+import { publicoParaZernio } from '@/lib/zernio-publico';
 import { explicarRechazoPublicacion } from '@/lib/meta-publicar-errores';
 import { erroresFormulario, type FormularioNuevo, type PreguntaEstandar } from '@/lib/meta-formularios';
 import type { Creative, CTAType } from '@/lib/campaign-types';
+import { ANUNCIO_DESDE_ARCHIVO_APAGADO, MAX_VIDEO_BYTES, errorDelArchivo, linkDeDescarga, rutaEnElBucket, tipoDelArchivo } from '@/lib/anuncio-desde-archivo';
 import { leerIncidentes } from '@/lib/meta-health-history';
 import { getSenalesRecon } from '@/lib/queries';
 import { motivosDeVentaPorLlamada } from '@/lib/venta-por-llamada';
@@ -149,6 +162,17 @@ function topePresupuesto(monto: number, actual: number, moneda: string, quien: s
 }
 
 /** Error de Meta al crear, con la traducción de los rechazos conocidos. */
+/** ¿El negocio tiene por dónde crear un anuncio por Zernio? Su Meta conectada por Zernio, o los anuncios por Zernio aparte del token.
+ *  Sin poder leerlo, no: el anuncio desde un archivo no tiene otro camino (Meta directo pide el creativo ya subido). */
+async function anunciosPorZernio(ws: number): Promise<boolean> {
+  try {
+    const { canalMeta } = await import('@/lib/meta-via');
+    if ((await canalMeta(ws)).via === 'zernio') return true;
+    const [{ conexionAnunciosZernio }, { credWs }] = await Promise.all([import('@/lib/zernio-ads'), import('@/lib/credenciales')]);
+    return !!(await conexionAnunciosZernio(ws, await credWs('META_AD_ACCOUNT_ID', ws)));
+  } catch { return false; }
+}
+
 function errorAlCrear(err: unknown, reusaGanador = false): Ejecutado {
   const env = metaErrorEnvelope(err);
   return { ok: false, resumen: `Meta rechazó la creación: ${explicarRechazoPublicacion(env.error_subcode, { reusaGanador }) ?? env.message}` };
@@ -380,6 +404,25 @@ export const RUNNERS: Runners = {
     },
   },
 
+  ver_plan_funnel: {
+    leer: async () => {
+      const plan = await leerPlanFunnel();
+      return J(plan ?? { plan: null, nota: 'Este negocio todavía no guardó un plan del funnel.' });
+    },
+  },
+  guardar_plan_funnel: {
+    preparar: async (input) => {
+      const plan = sanearPlan(input);
+      if (!plan) return { error: 'Falta qué funnel se eligió.' };
+      return { payload: { ...plan }, resumen: `Guardar el plan del funnel: ${ROTULO_FUNNEL[plan.funnel]}` };
+    },
+    ejecutar: async (p) => {
+      const plan = sanearPlan(p, new Date().toISOString());
+      if (!plan) return { ok: false, resumen: 'No sé qué funnel guardar.' };
+      await guardarPlanFunnel(plan);
+      return { ok: true, resumen: `Guardé el plan: ${ROTULO_FUNNEL[plan.funnel]}. Lo ves con «Ver el plan».` };
+    },
+  },
   calcular_presupuesto_anuncios: {
     leer: async (input) => {
       const evento = str(input, 'evento') === 'venta' ? 'venta' : 'lead';
@@ -819,6 +862,85 @@ export const RUNNERS: Runners = {
       } catch (err) { return errorAlCrear(err, creative?.source === 'existing'); }
     },
   },
+
+  // «Súbeme este anuncio» desde el grupo (29/10/2026, la llamada con Thiago; lib/anuncio-desde-archivo.ts). Baja el archivo (el del
+  // mensaje o el de un link de Drive), lo guarda en el bucket de los creativos y PROPONE el anuncio EN PAUSA; al aprobarlo, firma el
+  // link y lo crea por Zernio (`video.url` o `imageUrl`). ⚠️ Detrás de ZERNIO_ANUNCIOS_PROBADO: apagada, lo dice y no baja nada.
+  proponer_anuncio_desde_archivo: {
+    preparar: async (input, ctx) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { error: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      if (!(await metaConectada())) return { error: SIN_META };
+      // Sólo por Zernio: Meta directo pide el `video_id` o el `image_hash` ya subidos (proponer_agregar_anuncio).
+      if (!(await anunciosPorZernio(ctx.ws))) return { error: 'Para subir un anuncio desde un archivo hacen falta los anuncios por Zernio conectados (Integraciones → Meta → Conectar con Facebook). Mientras, súbelo desde el Media Buyer.' };
+      const adsetId = str(input, 'adsetId');
+      const nombre = str(input, 'nombre');
+      const origen = str(input, 'origen');
+      const textoPrincipal = str(input, 'primary_text');
+      if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
+      if (!nombre) return { error: 'El nombre del anuncio es obligatorio.', faltan: ['nombre'] };
+      if (!textoPrincipal) return { error: 'Falta el texto principal del anuncio.', faltan: ['primary_text'] };
+      let conj: { name: string; needsForm: boolean };
+      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
+      const destino = str(input, 'destination_url');
+      if (!conj.needsForm && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(destino)) return { error: 'Hace falta destination_url exacta con https.', faltan: ['destination_url'] };
+      if (conj.needsForm) return { error: `El conjunto «${conj.name}» optimiza por formulario: súbelo desde el Media Buyer, donde se elige el formulario.` };
+      // El archivo: el del mensaje (lo baja el turno del grupo) o el de un link.
+      let archivo: { bytes: Uint8Array; mime: string; nombre: string } | null = null;
+      if (origen === 'mensaje') {
+        const a = ctx.archivoDelMensaje ? await ctx.archivoDelMensaje().catch(() => null) : null;
+        if (!a) return { error: 'No veo una imagen ni un video en este mensaje. Mándalo junto con el pedido, o pásame el link.' };
+        archivo = { bytes: Uint8Array.from(Buffer.from(a.base64, 'base64')), mime: a.mime, nombre: a.nombre };
+      } else if (origen === 'link') {
+        const url = linkDeDescarga(str(input, 'link'));
+        if (!url) return { error: 'Ese link no sirve: pásame el link de Google Drive del archivo (compartido con cualquiera con el enlace) o uno https directo.', faltan: ['link'] };
+        try {
+          const r = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(60_000) });
+          // Un 403 o un 404 es cómo está compartido (una regla, no una falla nuestra): la persona lo arregla.
+          if (!r.ok) return { error: `Ese archivo no se deja bajar (${r.status}): si es de Drive, compártelo con «cualquiera con el enlace».` };
+          const mime = (r.headers.get('content-type') || '').split(';')[0];
+          const largo = Number(r.headers.get('content-length') || 0);
+          if (largo > MAX_VIDEO_BYTES) return { error: 'El archivo pasa los 100 MB: súbelo desde el Media Buyer en la app.' };
+          archivo = { bytes: new Uint8Array(await r.arrayBuffer()), mime, nombre: url.split('/').pop() || 'archivo' };
+        } catch (err) { return { error: `No pude bajar el archivo (${err instanceof Error ? err.message : String(err)}).`, falla: true }; }
+      } else return { error: 'origen es «mensaje» o «link».', faltan: ['origen'] };
+      const tipo = tipoDelArchivo(archivo.mime, archivo.nombre);
+      const malo = errorDelArchivo(tipo, archivo.bytes.byteLength);
+      if (malo || !tipo) return { error: malo ?? 'Ese archivo no sirve como anuncio.' };
+      const { randomUUID } = await import('node:crypto');
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      const ruta = rutaEnElBucket(ctx.ws, randomUUID(), tipo, archivo.mime);
+      const { error: eSubida } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET)
+        .upload(ruta, archivo.bytes, { contentType: archivo.mime || (tipo === 'video' ? 'video/mp4' : 'image/jpeg'), upsert: false });
+      if (eSubida) return { error: `No pude guardar el archivo (${eSubida.message}).`, falla: true };
+      const opcional = (k: string) => str(input, k) || undefined;
+      return {
+        payload: { adsetId, nombre, ruta, media_type: tipo, primary_text: textoPrincipal, headline: opcional('headline'), cta_type: opcional('cta_type'), destination_url: destino },
+        resumen: `Crear EN PAUSA el anuncio «${nombre}» en el conjunto «${conj.name}» (${adsetId}) con ${tipo === 'video' ? 'el video' : 'la imagen'} que mandaste, por Zernio.`,
+      };
+    },
+    ejecutar: async (p) => {
+      const { ZERNIO_ANUNCIOS_PROBADO } = await import('@/lib/zernio-ads-cuerpo');
+      if (!ZERNIO_ANUNCIOS_PROBADO) return { ok: false, resumen: ANUNCIO_DESDE_ARCHIVO_APAGADO };
+      const { getSupabaseServer } = await import('@/lib/supabase');
+      const { ADS_CREATIVES_BUCKET } = await import('@/lib/meta-ads-create');
+      // El link se firma AHORA (2 horas): la propuesta pudo esperar su aprobación más que eso.
+      const { data, error } = await getSupabaseServer().storage.from(ADS_CREATIVES_BUCKET).createSignedUrl(String(p.ruta), 7200);
+      if (error || !data?.signedUrl) return { ok: false, resumen: `No encontré el archivo guardado (${error?.message ?? 'sin link'}). Vuelve a mandarlo.` };
+      const video = p.media_type === 'video';
+      const creative: Creative = {
+        source: 'upload', media_type: video ? 'video' : 'image',
+        ...(video ? { video_url: data.signedUrl } : { thumbnail_url: data.signedUrl }),
+        primary_text: String(p.primary_text ?? ''), headline: p.headline ? String(p.headline) : undefined,
+        cta_type: p.cta_type ? (String(p.cta_type) as CTAType) : undefined, destination_url: p.destination_url ? String(p.destination_url) : undefined,
+      };
+      try {
+        const r = await addAdToAdset(String(p.adsetId), creative, String(p.nombre));
+        return { ok: true, resumen: `Anuncio creado EN PAUSA (${r.ad_id}). Para que entregue hay que activarlo.`, datos: { ad_id: r.ad_id } };
+      } catch (err) { return errorAlCrear(err); }
+    },
+  },
   proponer_editar_textos_anuncio: {
     preparar: async (input) => {
       if (!(await metaConectada())) return { error: SIN_META };
@@ -843,7 +965,7 @@ export const RUNNERS: Runners = {
     },
   },
   proponer_editar_publico_conjunto: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       if (!(await metaConectada())) return { error: SIN_META };
       const adsetId = str(input, 'adsetId');
       if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
@@ -854,6 +976,13 @@ export const RUNNERS: Runners = {
       // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
       if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
         return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };
+      }
+      // Por la conexión de Facebook (Zernio) se escribe en SU forma: lo que no se puede mandar (Advantage+, un barrio) se dice
+      // antes del «sí», no al confirmar (lib/zernio-publico.ts).
+      const { canalMeta } = await import('@/lib/meta-via');
+      if ((await canalMeta(ctx.ws)).via === 'zernio') {
+        try { publicoParaZernio(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada)); }
+        catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
       }
       const cambios = resumenDeCambios(cambiosDesdeEntrada(actual.targeting, entrada));
       return { payload: { adsetId, entrada }, resumen: `Cambiar el público del conjunto «${actual.name}» (${adsetId}): ${cambios.join(' · ')}. Lo demás se conserva. Vuelve a revisión de Meta y reinicia el aprendizaje.` };
@@ -999,6 +1128,8 @@ export const RUNNERS: Runners = {
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
         metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
         cuentaPublicitaria: config.cuentaPublicitaria,
+        // DÓNDE y HASTA (zona_media_buyer, hasta_media_buyer): dónde prende y sube, y cuándo termina cada campaña.
+        zona: config.zona, hasta: config.hasta, hastaCampanas: config.hastaCampanas,
         ultimaCorrida: config.ultimaCorrida,
         // Los agentes, como el panel «N activos» de la pantalla (app/ads-manager/Agentes.tsx).
         agentes: AGENTES_MAKO.map((a) => ({ agente: a, nombre: NOMBRE_AGENTE[a], que: QUE_HACE[a], estado: estadoDeAgente(a, r), tacticas: TACTICAS_DE[a] })),
@@ -1019,6 +1150,14 @@ export const RUNNERS: Runners = {
       if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
       const presupuesto = num(input, 'presupuesto');
       if (presupuesto != null && d.despues?.presupuesto == null) return { error: 'Esa decisión no cambia un presupuesto: no lleva monto.' };
+      // Lo mismo que «Editar» en la pantalla (monto.ts → revisarMontoEditado): subir cinco veces o más no sale; bajar 80% o más
+      // sí, y la confirmación de la pantalla lo dice con todas las letras, que es lo que confirma la persona (va `confirmarBaja`).
+      let baja: string | null = null;
+      if (presupuesto != null) {
+        const rev = revisarMontoEditado(presupuesto, d.antes?.presupuesto ?? null, { fmt: (n) => fmtDinero(n, d.moneda) });
+        if (!rev.ok && !rev.confirmar) return { error: rev.error };
+        if (!rev.ok) baja = rev.error;
+      }
       const variaciones = Array.isArray(input.variaciones) ? input.variaciones.filter((x): x is string => typeof x === 'string').slice(0, 20) : null;
       if (variaciones && !d.variaciones?.length) return { error: 'Esa decisión no tiene variaciones para elegir.' };
       if (variaciones) {
@@ -1033,11 +1172,18 @@ export const RUNNERS: Runners = {
       const textos = salen ? d.variaciones!.filter((v) => salen.includes(v.id))
         .map((v) => `«${[v.gancho, v.textoPrincipal, v.titulo ? `Título: ${v.titulo}` : null].filter(Boolean).join(' / ')}»`).join(' · ') : '';
       const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, salen ? `${salen.length} ${salen.length === 1 ? 'texto' : 'textos'}` : null].filter(Boolean).join(', ');
-      return { payload: { decisionId: id, presupuesto, variaciones: salen }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}` };
+      return {
+        payload: { decisionId: id, presupuesto, variaciones: salen, ...(baja ? { confirmarBaja: true } : {}) },
+        resumen: `${baja ? `⚠️ ${baja} ` : ''}Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}`,
+      };
     },
     ejecutar: async (payload, ctx) => {
       const quien = quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)';
-      const opts = { presupuesto: payload.presupuesto == null ? undefined : Number(payload.presupuesto), elegidas: Array.isArray(payload.variaciones) ? (payload.variaciones as string[]) : undefined };
+      const opts = {
+        presupuesto: payload.presupuesto == null ? undefined : Number(payload.presupuesto),
+        elegidas: Array.isArray(payload.variaciones) ? (payload.variaciones as string[]) : undefined,
+        bajaConfirmada: payload.confirmarBaja === true,
+      };
       const r = await lanzarMB(ctx.ws, String(payload.decisionId), { nombre: quien, origen: 'persona' }, opts);
       return r.ok ? { ok: true, resumen: `Lanzada: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
     },
@@ -1265,15 +1411,14 @@ export const RUNNERS: Runners = {
       if (input.umbrales != null) cambio.parametros = input.umbrales;
       if (Array.isArray(input.campanas)) cambio.campanas = input.campanas.length ? input.campanas : null;
       if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['estado', 'umbrales', 'campanas'] };
-      const config = await leerConfigMB(ctx.ws);
-      const actual = config.tacticas[t] ?? {};
-      const tacticas = { ...config.tacticas, [t]: { ...actual, ...cambio, parametros: { ...(actual.parametros ?? {}), ...((cambio.parametros as Record<string, number>) ?? {}) } } };
-      const v = validarTacticas(tacticas);
+      // Sólo lo que se cambia: se confirma más tarde, y el servidor lo mezcla campo por campo con lo guardado en ese momento
+      // (tacticas.ts → mezclarTacticas). Con la táctica entera, la confirmación pisaba lo que otro cambió en el medio (falla 2).
+      const v = validarTacticas({ [t]: cambio });
       if (!v.ok) return { error: v.error };
       if (v.valor[t]?.estado === 'automatica' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
       const partes = [
         estado ? `queda ${estado === 'automatica' ? 'automática' : estado}` : null,
-        cambio.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
+        v.valor[t]?.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
         'campanas' in cambio ? (cambio.campanas ? `cubre ${(cambio.campanas as string[]).length} campañas` : 'cubre toda la cuenta') : null,
       ].filter(Boolean);
       return { payload: { tacticas: v.valor }, resumen: `${TACTICAS[t].nombre}: ${partes.join(' · ')}.` };
@@ -1291,8 +1436,7 @@ export const RUNNERS: Runners = {
       if (!AGENTES_MAKO.includes(a)) return { error: 'agente tiene que ser estratega, media_buyer, disenador o protect.', faltan: ['agente'] };
       if (!(estado in TACTICA_DE_ESTADO)) return { error: 'estado tiene que ser pausado, propone o automatico.', faltan: ['estado'] };
       if (estado === 'automatico' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
-      const config = await leerConfigMB(ctx.ws);
-      const v = validarTacticas(cambiarAgente(config.tacticas, a, TACTICA_DE_ESTADO[estado]));
+      const v = validarTacticas(cambioDeAgente(a, TACTICA_DE_ESTADO[estado]));
       if (!v.ok) return { error: v.error };
       const que = estado === 'pausado' ? 'queda pausado' : estado === 'propone' ? 'propone y espera a una persona' : 'lanza solo, dentro de los topes';
       return { payload: { tacticas: v.valor }, resumen: `${NOMBRE_AGENTE[a]} ${que}.` };
@@ -1352,6 +1496,160 @@ export const RUNNERS: Runners = {
         mejores: (vista?.mejores ?? []).map((a) => ({ adId: a.adId, nombre: a.nombre, campana: a.campana, gastoMes: a.gasto, resultadosMes: a.resultados, costoMes: a.costo })),
         lanzados: decisiones.filter((d) => d.estado === 'aplicada' && (esVariacion(d) || d.tipo === 'crear_anuncios')).map(corta),
       });
+    },
+  },
+  // DÓNDE, HASTA y «lánzame una campaña» (29/10/2026): lib/media-buyer/zona.ts y campana.ts, la misma puerta que la pantalla.
+  zona_media_buyer: {
+    preparar: async (input, ctx) => {
+      const v = validarCambioMB({ zona: (Array.isArray(input.zona) ? input.zona : []) as never });
+      if (!v.ok) return { error: v.error };
+      // Cada lugar confirmado contra Meta (su id con su nombre): la confirmación muestra lo que dice Meta, no lo que mandó el modelo.
+      const r = await resolverLugaresMB(ctx.ws, v.fila.zona as LugarZonaMB[]);
+      if (!r.ok) return { error: r.error, ...(r.error.startsWith('No pude') ? { falla: true as const } : {}) };
+      const zona = r.lugares;
+      return { payload: { zona }, resumen: zona.length ? `El Media Buyer prende y sube presupuestos sólo en: ${zona.map((l) => l.nombre).join(', ')}.` : 'El Media Buyer trabaja en toda la cuenta (sin zona).' };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { zona: payload.zona as LugarZonaMB[] }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Zona del Media Buyer guardada.' };
+    },
+  },
+  hasta_media_buyer: {
+    preparar: async (input, ctx) => {
+      const hasta = str(input, 'hasta') || null;
+      const campanaId = str(input, 'campanaId') || null;
+      const v = validarCambioMB(campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta });
+      if (!v.ok) return { error: v.error };
+      let nombre: string | null = null;
+      if (campanaId) {
+        // La campaña tiene que ser de la cuenta: se busca en la lectura del Media Buyer (la misma de la pantalla).
+        const datos = await leerDatosCuentaMB(ctx.ws).catch(() => null);
+        const c = datos?.arbol.find((n) => n.nivel === 'campaign' && n.id === campanaId);
+        if (!datos) return { error: 'No pude leer tu cuenta de Meta para encontrar esa campaña.', falla: true };
+        if (!c) return { error: `La campaña ${campanaId} no está en tu cuenta (míralas con ver_campanas_media_buyer).` };
+        nombre = c.nombre;
+      }
+      const que = nombre ? `la campaña «${nombre}»` : 'toda la cuenta';
+      const fecha = hasta ? `${hasta.slice(8, 10)}/${hasta.slice(5, 7)}/${hasta.slice(0, 4)}` : null;
+      return {
+        payload: { hasta, campanaId },
+        resumen: fecha ? `Fecha de fin de ${que}: el ${fecha}. Pasada, MaKo la pausa; desde 3 días antes no sube presupuestos.` : `Sin fecha de fin para ${que}.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const hasta = (payload.hasta as string | null) ?? null;
+      const campanaId = (payload.campanaId as string | null) ?? null;
+      await guardarConfigMB(ctx.ws, campanaId ? { hastaCampana: { campanaId, fecha: hasta } } : { hasta }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Fecha de fin guardada.' };
+    },
+  },
+  proponer_crear_campana: {
+    preparar: async (input, ctx) => {
+      // Los parámetros planos de la API (lo que se edita en /mako/revisar) → la entrada de la pantalla «Nueva campaña».
+      const tipo = str(input, 'creativoTipo');
+      const creativo = tipo === 'anuncio' ? { tipo, adId: str(input, 'anuncioId') }
+        : tipo === 'video_cuenta' ? { tipo, videoId: str(input, 'videoId') }
+          : tipo === 'video' ? { tipo, url: str(input, 'videoUrl') }
+            : { tipo, url: str(input, 'imagenUrl') };
+      const entrada: Record<string, unknown> = {
+        nombre: str(input, 'nombre'), objetivo: str(input, 'objetivo'), presupuestoDia: num(input, 'presupuestoDia'),
+        lugares: Array.isArray(input.lugares) ? input.lugares : [], hasta: str(input, 'hasta') || null,
+        edadMin: num(input, 'edadMin'), edadMax: num(input, 'edadMax'),
+        formularioId: str(input, 'formularioId') || null, pixelId: str(input, 'pixelId') || null, evento: str(input, 'evento') || null,
+        url: str(input, 'url') || null, creativo, texto: str(input, 'texto'), titulo: str(input, 'titulo') || null,
+        boton: str(input, 'boton') || null, enPausa: input.enPausa === true,
+      };
+      const p = await prepararCampanaMB(ctx.ws, entrada);
+      if (!p.ok) return { error: p.error, ...(p.faltan ? { faltan: p.faltan } : {}), ...(p.falla ? { falla: true as const } : {}) };
+      return { payload: { entrada }, resumen: p.resumen };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await crearCampanaMB(ctx.ws, (payload.entrada ?? {}) as Record<string, unknown>, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return r.ok
+        // Nace en pausa (campana-reglas.ts → CAMPANA_PRENDIDA_MEDIDA); lo que la relectura vio distinto va ENTERO en el resumen.
+        ? { ok: true, resumen: `Campaña creada en Meta (${r.campaignId}). ${r.resumen}${r.avisos.length ? ` Ojo: ${r.avisos.join(' ')}` : ''}`, datos: { campaignId: r.campaignId, adSetId: r.adSetId, adId: r.adId, decisionId: r.decisionId, avisos: r.avisos } }
+        : { ok: false, resumen: r.error };
+    },
+  },
+  preparar_subida_media_buyer: {
+    leer: async (input, ctx) => {
+      // Lo mismo que «Subir creativos» de la pantalla: los conjuntos y los textos de partida (/api/media-buyer → subir_preparar)
+      // y una firma por archivo (creative-signurl), con las MISMAS funciones (lib/media-buyer/subir.ts, lib/ads-staging-firma.ts).
+      let datos: Awaited<ReturnType<typeof leerDatosCuentaMB>>;
+      try { datos = await leerDatosCuentaMB(ctx.ws); } catch (e) {
+        if (e instanceof SinCuentaMB) return J({ conectada: false, nota: e.message });
+        throw e;
+      }
+      const conjuntos = conjuntosDeMB(datos);
+      const adsetId = str(input, 'adsetId');
+      if (adsetId && !conjuntos.some((c) => c.id === adsetId)) return J({ error: 'Ese conjunto no está en tu cuenta publicitaria.', conjuntos });
+      const plantilla = adsetId ? await plantillaDelConjuntoMB(ctx.ws, datos, adsetId) : null;
+      const nombres = (Array.isArray(input.nombres) ? input.nombres : []).filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 10);
+      const subidas: Array<{ nombre: string; path: string; subirA: string; cabeceras: Record<string, string> }> = [];
+      for (const nombre of nombres) {
+        const f = await firmarSubidaDeStaging(nombre);
+        if (!f.ok) throw new Error(`No pude preparar la subida de «${nombre}»: ${f.error}`);
+        // La apikey es la pública (la anon, la misma que lleva el navegador): el gateway de Supabase la pide además del token.
+        subidas.push({ nombre, path: f.path, subirA: f.signedUrl, cabeceras: { 'x-upsert': 'true', ...(f.apikey ? { apikey: f.apikey, authorization: `Bearer ${f.apikey}` } : {}) } });
+      }
+      // Cada firma barre lo que sobra del staging, como la de la pantalla.
+      if (subidas.length) after(() => barrerStagingViejo());
+      return J({
+        conectada: true,
+        zernio: !!datos.conexion,
+        ...(datos.conexion ? {} : { nota: 'Para publicar creativos nuevos conecta la cuenta por Zernio (con el token propio, Meta los rechaza: error 1885183).' }),
+        conjuntos,
+        ...(plantilla ? { textosDePartida: { ...plantilla.textos, deAnuncio: plantilla.deAnuncio } } : {}),
+        subidas,
+        ...(subidas.length ? { comoSubir: 'Un PUT por archivo a subirA, con esas cabeceras y el archivo como cuerpo. Después, subir_creativos_media_buyer con cada path. El archivo se borra a las 6 horas si no se publica.' } : {}),
+      });
+    },
+  },
+  subir_creativos_media_buyer: {
+    preparar: async (input, ctx) => {
+      // El pedido se lee como lo lee la pantalla (lib/media-buyer/creativos.ts → leerPedidoDeSubida), y lo que va a fallar falla
+      // ACÁ (revisarSubida y el staging), antes de que una persona lo confirme: confirmar no vuelve a `pendiente`.
+      const p = leerPedidoDeSubida({
+        adSetId: str(input, 'adsetId'), archivos: input.archivos, activo: input.activo,
+        textos: { textoPrincipal: input.textoPrincipal, titulo: input.titulo, cta: input.cta, link: input.link, formularioId: input.formularioId },
+      });
+      if (!p.adSetId) return { error: 'Falta el conjunto: su id numérico (de preparar_subida_media_buyer).', faltan: ['adsetId'] };
+      const ajenos = p.archivos.filter((a) => !esPathDeStaging(a.path));
+      if (ajenos.length) return { error: `Esos archivos no se subieron con preparar_subida_media_buyer: ${ajenos.map((a) => a.path || a.nombre).join(', ')}.` };
+      if (p.archivos.length > 10) return { error: 'Son hasta 10 archivos por subida.' };
+      const rev = await revisarSubidaMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos });
+      if (!rev.ok) return { error: rev.error };
+      let faltan: string[];
+      try { faltan = await faltanEnStaging(rev.archivos.map((a) => a.path)); } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
+      if (faltan.length) return { error: `No encuentro ${faltan.join(', ')}: súbelo a la URL de preparar_subida_media_buyer (el archivo se borra a las 6 horas).` };
+      const t = p.textos;
+      const n = rev.archivos.length;
+      const destino = t.formularioId ? `el formulario ${t.formularioId}` : t.link;
+      return {
+        payload: {
+          adsetId: p.adSetId, archivos: rev.archivos, activo: p.activo,
+          textoPrincipal: t.textoPrincipal, titulo: t.titulo, cta: t.cta, link: t.link, formularioId: t.formularioId,
+        },
+        // Lo que se publica, ENTERO: la confirmación es lo único que se lee antes de que salga.
+        resumen: `Subir ${n} ${n === 1 ? 'creativo' : 'creativos'} a «${rev.conjunto.nombre}»${rev.campana ? ` (${rev.campana})` : ''}, ${p.activo ? 'activos: gastan del presupuesto del conjunto' : 'en pausa'}. `
+          + `Archivos: ${rev.archivos.map((a) => a.nombre).join(', ')}. Texto: «${t.textoPrincipal}». Título: «${t.titulo}». Botón: ${NOMBRE_CTA_SUBIDA[t.cta]}. Destino: ${destino}. `
+          + 'Confírmalo antes de 6 horas: después los archivos se borran.',
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const p = leerPedidoDeSubida({
+        adSetId: payload.adsetId, archivos: payload.archivos, activo: payload.activo,
+        textos: { textoPrincipal: payload.textoPrincipal, titulo: payload.titulo, cta: payload.cta, link: payload.link, formularioId: payload.formularioId },
+      });
+      if (!p.adSetId) return { ok: false, resumen: 'Falta el conjunto.' };
+      const r = await subirCreativosMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos, activo: p.activo }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)', 'la API de MaKo');
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const n = r.creados.length;
+      return {
+        ok: true,
+        resumen: `${n === 1 ? 'Subido 1 anuncio' : `Subidos ${n} anuncios`}${r.errores.length ? `; no salieron: ${r.errores.join(' · ')}` : ''}. Se deshace con deshacer_decision_media_buyer.`,
+        datos: { decisionId: r.decisionId, anuncios: r.creados },
+      };
     },
   },
 };

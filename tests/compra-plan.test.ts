@@ -78,7 +78,7 @@ test('el pedido no trae precio ni capa; el campo trampa es un bot', () => {
   const r = leerPedidoCompra({ plan: 'pro', nombre: '  Ana  Gómez ', email: 'ANA@x.com', monto: 1, capa: 'superadmin', pasarela: 'paypal' });
   assert.ok(r.ok);
   if (r.ok) {
-    assert.deepEqual(Object.keys(r.pedido).sort(), ['codigoEscrito', 'codigoEscritoMal', 'diagnostico', 'email', 'nombre', 'origen', 'pasarela', 'periodo', 'plan', 'quiero', 'ref', 'sinPrueba', 'whatsapp']);
+    assert.deepEqual(Object.keys(r.pedido).sort(), ['codigoEscrito', 'codigoEscritoMal', 'diagnostico', 'email', 'nombre', 'origen', 'pasarela', 'periodo', 'plan', 'promo', 'quiero', 'ref', 'sinPromo', 'sinPrueba', 'whatsapp', 'whatsappEscritoMal']);
     assert.equal(r.pedido.codigoEscrito, null, 'sin código escrito en el carrito (25/10/2026)');
     assert.equal(r.pedido.diagnostico, null, 'sin diagnóstico (sólo lo manda el Acelerador)');
     assert.equal(r.pedido.periodo, 'mensual', 'sin pedirlo, por mes');

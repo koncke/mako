@@ -39,6 +39,8 @@ export type IdentidadCanal = {
 };
 
 export type ChatResumen = {
+  /** El que el contacto se puso en WhatsApp, aunque la agenda o el lead digan otro (`conNombreElegido`, lib/chats-reglas.ts). */
+  nombrePropio?: string | null;
   clave: string;
   leadId: number | null;
   nombre: string;

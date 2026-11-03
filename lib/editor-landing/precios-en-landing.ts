@@ -29,6 +29,9 @@ type PlanConPrecio = { id: string; precioUsd: number };
 export const lineaDePrueba = (dias: number) => `${dias} días gratis · Cancela cuando quieras · Usas tu propia IA`;
 /** El texto del botón de una landing, con los días de la prueba (`PRUEBA_DIAS`). */
 export const botonDePrueba = (dias: number) => `Empieza tus ${dias} días gratis`;
+/** Con la prueba apagada (30/10/2026, `PRUEBA_GRATIS_PRENDIDA`): lo que dicen esas mismas marcas. Una landing publicada no puede seguir prometiendo días gratis. */
+export const LINEA_SIN_PRUEBA = 'Cancela cuando quieras · Usas tu propia IA';
+export const BOTON_SIN_PRUEBA = 'Empezar ahora';
 
 /** «US$47», «US$1.500», «US$62,30»: como se escriben los precios en la casa. */
 export function precioUsd(n: number): string {
@@ -105,10 +108,14 @@ function ponerEnMarcas(html: string, attr: string, valor: string | undefined, nu
  * El HTML con los precios de hoy (y los días de la prueba gratis, si se pasan) en sus marcas. Un plan que ya no está deja su respaldo;
  * sin planes ni prueba, todo queda como vino. Sólo toca el TEXTO de los elementos marcados: el resto vuelve byte por byte.
  */
-export function conPreciosEnHtml(html: string, planes: readonly PlanConPrecio[], diasDePrueba: number | null = null): string {
+export function conPreciosEnHtml(html: string, planes: readonly PlanConPrecio[], diasDePrueba: number | null | 'apagada' = null): string {
   if (!html.includes('data-mako-')) return html;
   let out = html;
-  if (diasDePrueba != null && Number.isInteger(diasDePrueba) && diasDePrueba > 0) {
+  if (diasDePrueba === 'apagada') {
+    out = ponerEnMarcas(out, 'data-mako-prueba', 'linea', LINEA_SIN_PRUEBA);
+    out = ponerEnMarcas(out, 'data-mako-prueba', 'boton', BOTON_SIN_PRUEBA);
+  }
+  if (typeof diasDePrueba === 'number' && Number.isInteger(diasDePrueba) && diasDePrueba > 0) {
     const d = diasDePrueba;
     const textos: Record<string, string> = { linea: lineaDePrueba(d), boton: botonDePrueba(d), dias: String(d), cobro: String(d + 1) };
     for (const [cual, t] of Object.entries(textos)) out = ponerEnMarcas(out, 'data-mako-prueba', cual, t);

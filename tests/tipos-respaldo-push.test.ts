@@ -66,3 +66,16 @@ test('el respaldo usa el programa ENTERO (sin --raices) y K = 3', () => {
   assert.doesNotMatch(lanzar.slice(0, lanzar.indexOf('\n}\n')), /--raices/, 'con --raices faltan los tipos globales de Next: 15 errores falsos el 22/10');
   assert.match(src, /export const TANDAS = 3;/);
 });
+
+// 29/10/2026, el push de tren-y: con el lock de tipos tomado y sin RAM, el respaldo esperaba 15 min sin correr ningún tsc y la
+// fila de tipos de TODA la PC quedaba frenada (C:/dev/cerebro-herramientas/tickets/por-repartir.md, «Para Integración»).
+// Roto a mano (la espera de RAM de vuelta después del lock): base 6/0, roto 5/1.
+test('el respaldo espera la RAM de la primera tanda ANTES de tomar el lock de tipos', () => {
+  const src = readFileSync(join(RAIZ, 'scripts', 'tipos-respaldo-push.mjs'), 'utf8');
+  const main = src.slice(src.indexOf('async function main()'));
+  const ram = main.indexOf('const ramAntes = await esperar(() => freemem() / 1024 ** 3 >= RAM_MIN_GB');
+  const lock = main.indexOf('if (tomarLock()) return true;');
+  assert.ok(ram > 0, 'falta la espera de RAM antes del lock');
+  assert.ok(lock > ram, 'la RAM se espera con el lock tomado: frena la fila de tipos de toda la PC');
+  assert.match(main.slice(ram, lock), /if \(!ramAntes\) \{[^\n]*return SALIDA_SIN_CHEQUEAR; \}/, 'sin RAM sale con 99 sin tomar el lock');
+});

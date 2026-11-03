@@ -15,6 +15,7 @@
 // lo decide la tabla usuarios, y nada más.
 // =============================================================================
 
+import { TEXTO_PEDIDO_REGISTRADO } from '@/lib/pedidos-ingreso-reglas';
 import { useState, type CSSProperties, type FormEvent } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -106,6 +107,7 @@ function ConCorreo({ next }: { next: string }) {
 
 const ERRORES: Record<string, string> = {
   'no-autorizado': 'Esa cuenta de Google no está autorizada para entrar.',
+  'pedido-registrado': TEXTO_PEDIDO_REGISTRADO,
   'mfa-sin-base': 'No se pudo comprobar tu segundo paso. Vuelve a intentar en unos minutos.',
   'mfa-vencido': 'Pasó demasiado tiempo. Vuelve a entrar con Google.',
   oauth: 'No se pudo verificar el inicio de sesión. Prueba de nuevo.',
@@ -138,7 +140,11 @@ export function LoginForm() {
 
   return (
     <>
-      {oauthError && <div style={{ marginBottom: '16px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' }}>{oauthError}</div>}
+      {/* «Quedó registrado» no es un error (30/10/2026): en rojo, desde su lado seguiría siendo una pared. */}
+      {oauthError && (
+        <div style={{ marginBottom: '16px', fontSize: '13px', borderRadius: '10px', padding: '10px 12px',
+          ...(err === 'pedido-registrado' ? { color: '#1d4ed8', background: '#eff4ff', border: '1px solid #c7d7fe' } : { color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2' }) }}>{oauthError}</div>
+      )}
 
       <a
         href={`/api/auth/google?next=${encodeURIComponent(next)}`}

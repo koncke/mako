@@ -33,7 +33,7 @@ import 'server-only';
 import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
-import { aToolDef, gatingOk, porId, visible } from '@/lib/api-mako/registro';
+import { aToolDef, gatingOk, parecidasQueNoViajaron, porId, visible } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { identidadDe } from '@/lib/tickets-db';
 import { registrarError } from '@/lib/errores-app';
@@ -348,6 +348,15 @@ const SIN_TOOLS_APP = `EN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el 
 export type EntradaTurnoApp = {
   mensaje: string;
   adjuntos?: AdjuntoListo[];
+  /**
+   * Quién es el REFERENTE de este chat (su `IdAsesor`), si tiene uno al frente.
+   *
+   * ⚠️ NO ES LO MISMO QUE `contexto`, y por eso viaja aparte (2/11/2026). `contexto` lleva su FICHA
+   * —cómo piensa, 5.200 caracteres, en CADA mensaje—; esto sólo dice QUIÉN es, para que el Second
+   * Brain cuelgue su curso ENTERO como capa y traiga la clase que la pregunta pida, sin que el
+   * curso viaje en cada turno (lib/cerebro-para-chat.ts, lib/cerebro-referente.ts).
+   */
+  referente?: string | null;
   /**
    * Lo que la PANTALLA ata a esta conversación: hoy, la ficha de un lead en «MaKo Analyst»
    * (lib/mako-analyst-lead.ts, 12/10/2026: «un chat con la IA que por defecto tenga atado los
@@ -671,7 +680,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // El system se arma DESPUÉS de las tools: depende de ellas. Lo que el Second Brain sabe de la pregunta lo trae el servidor ANTES
     // del modelo y sin IA (lib/cerebro-para-chat.ts, 28/10/2026), en paralelo y con la plata según el rol: no depende de que el
     // modelo pida una herramienta. `paqueteParaElTurno` nunca tira.
-    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin' });
+    const segundoCerebroP = paqueteParaElTurno(textoPersona || textoMemoria, { sinPlata: persona.rol !== 'admin', referente: entrada.referente });
     const base = await buildSystemPrompt({ chartKey: 'mako-doer', titulo: titulo ?? 'MaKo', contexto: '', query: textoPersona || textoMemoria, sinNumerosDelNegocio: persona.rol !== 'admin' });
     const segundoCerebro = await segundoCerebroP;
     const tz = tools.length ? await tzDeWorkspace(ws).catch(() => TZ_DEFAULT) : null;
@@ -968,7 +977,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // Si lo que falló ya dejó su ticket (registrarError), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
       // Si lo último que corrió fue una GUARDA y nada falló (a la vista o tragado) ni hubo ruteo, el «no pude» es esa regla, la
       // diga o no el modelo (base 7: el formato de la marca pide el QUÉ, no el porqué).
-      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas }) && !noViajo.length }, dondeDelTurno, { operacion: noViajo[0] ?? null });
+      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket, regla: esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas }) && !noViajo.length }, dondeDelTurno, { operacion: noViajo[0] ?? null, noViajaron: () => parecidasQueNoViajaron({ vista, pedido: dondeDelTurno.pedido ?? '', viajaron: tools.map((t) => t.name) }) });
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n') || null;
     }
     // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio).

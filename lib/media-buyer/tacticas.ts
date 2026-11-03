@@ -20,7 +20,8 @@ import {
   SURF_COSTO_MAX, SURF_RESULTADOS_MIN, SURF_SALTO_MAX_PCT, REVIVE_COSTO_MAX, GANADOR_RESULTADOS_MIN,
 } from './motor';
 
-export type TacticaAuto = Exclude<Tactica, 'manual'>;
+/** Las tácticas que se configuran (estado, umbrales, campañas). `manual` es de una persona y `hasta`, la fecha de fin que puso ella. */
+export type TacticaAuto = Exclude<Tactica, 'manual' | 'hasta'>;
 export type EstadoTactica = 'apagada' | 'propone' | 'automatica';
 export const ORDEN_TACTICAS: TacticaAuto[] = ['stop_loss', 'calidad', 'sunsetting', 'surf', 'revive', 'ganador'];
 
@@ -103,7 +104,20 @@ export type TacticasResueltas = Record<TacticaAuto, TacticaResuelta>;
  * las demás con su copia vieja (podía volver a poner en automático algo que otro apagó; revisión de tren-l, falla 2).
  */
 export function mezclarTacticas(guardadas: ConfigTacticas | null | undefined, recibidas: ConfigTacticas): ConfigTacticas {
-  return { ...(guardadas ?? {}), ...recibidas };
+  // Campo por campo, no táctica por táctica (verificación de tren-m, falla 2): una pestaña vieja que sólo cambia el ESTADO de
+  // un agente mandaba la táctica entera con su copia de cuando abrió la página, y pisaba los umbrales o las campañas que otro
+  // había cambiado en ESA táctica. Lo que no viene, se queda; los umbrales, uno por uno; `campanas: null` es «toda la cuenta».
+  const out: ConfigTacticas = { ...(guardadas ?? {}) };
+  for (const [t, c] of Object.entries(recibidas) as Array<[TacticaAuto, ConfigTactica | undefined]>) {
+    if (!c) continue;
+    const g = out[t] ?? {};
+    const m: ConfigTactica = { ...g };
+    if (c.estado !== undefined) m.estado = c.estado;
+    if (c.parametros !== undefined) m.parametros = { ...(g.parametros ?? {}), ...c.parametros };
+    if (c.campanas !== undefined) m.campanas = c.campanas;
+    out[t] = m;
+  }
+  return out;
 }
 
 export function resolverTacticas(cfg: ConfigTacticas | null | undefined, o: { piloto: boolean; pilotoPermitido: boolean }): TacticasResueltas {

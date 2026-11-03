@@ -30,25 +30,13 @@ import { valoresDelLead, plata, fecha, textoConDatos } from '../lib/variables-de
 import { CATALOGO_AVISOS } from '../lib/avisos-catalogo';
 import { marcasDeVoseo } from '../lib/puestas-data';
 import type { Lead } from '../lib/leads';
+// Gente y negocios REALES de este producto: la lista vive en tests/_reales.ts (29/10/2026) porque la miran el catálogo de
+// variables, los placeholders de los formularios y los ejemplos de las plantillas de Create.
+import { REALES, sinAcentos } from './_reales';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8');
 /** ⚠️ Sin comentarios: un guard que busca el nombre de lo que NO tiene que estar se
  *  acusa a sí mismo por el párrafo que explica por qué no está. */
-/** Gente y negocios REALES de este producto. Vive acá arriba y no adentro de un test
- *  porque la miran DOS: el catálogo de variables y los placeholders de los formularios.
- *  Son nombres que YA están en el repo (bitácoras, hallazgos, catálogos), así que el guard
- *  no agrega información que no esté — caza LOS CONOCIDOS, que es lo automatizable. */
-const REALES = [
-  'Mauricio', 'Leila', 'Martín', 'Joan', 'Juan Francisco',
-  'Código Inmobiliario', 'Negocio que Escala', 'MasteryHaus', 'Vértice', 'AvatarHype',
-  // Un lead de un cliente: el ejemplo de `reunion-recordatorio` lo nombraba, y un agendado
-  // se lo mandó al grupo de otro (06/10/2026).
-  'Francisco Ramos', 'Dental Ramos',
-  // Clientes de Mauricio que nombraban los ejemplos del catálogo de mensajes (revisión del ws9, 10/10/2026).
-  'Sergio Esquer', 'BG Trucking', 'Aspro',
-];
-const sinAcentos = (t: string) => t.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-
 const sinComentarios = (src: string): string =>
   src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
@@ -311,7 +299,7 @@ test('⚠️ sin lead, los datos del CRM NO SE MUESTRAN', () => {
     // PUBLICITARIA frenada (`conAnuncios`, `meta_cuenta_frenada`).
     // 26/10/2026: y el Claude del negocio que no puede analizar sus llamadas (`conIaCaida`, `closing_ia_caida`).
     // 28/10/2026: y el tope de Instagram o Zernio que frenó los mensajes de un negocio (`conTope`, `social_tope`).
-    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true, conLinea: true, conGrabacion: true, conCancelada: true, conFusion: true, conRecordatorio: true, conFlow: true, conTracking: true, conPixel: true, conLanding: true, conOptin: true, conPrueba: true, conGrabaciones: true, conMeta: true, conReporte: true, conOferta: true, conAnuncios: true, conReunionPlan: true, conIaCaida: true, conTope: true }).flatMap((g) => g.items).length,
+    variablesOfrecidas({ conLead: true, conCuota: true, conMensaje: true, conPago: true, conEscrito: true, conAnalisis: true, conLinea: true, conGrabacion: true, conCancelada: true, conFusion: true, conRecordatorio: true, conFlow: true, conTracking: true, conPixel: true, conLanding: true, conOptin: true, conPrueba: true, conGrabaciones: true, conMeta: true, conReporte: true, conOferta: true, conAnuncios: true, conReunionPlan: true, conIaCaida: true, conTope: true, conClienteAgencia: true }).flatMap((g) => g.items).length,
     // (15/10/2026: lo que es SÓLO para una persona —el link de restablecer— no es del equipo.)
     VARIABLES_AVISO.filter((v) => !v.oculta && v.soloPara !== 'lead' && v.soloPara !== 'usuario').length,
     'con lead, cuota, el texto del código, el pago, lo escrito y el análisis se puede resolver TODO lo del equipo',

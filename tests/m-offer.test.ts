@@ -49,13 +49,14 @@ import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
-  DONDE_VIVE, GRUPOS_PIEZAS, ROTULOS, alternarMarcada, estadoDePasos, filasDimensiones, heroeDe, opcionesRapidas, piezasEnGrupos, progresoDePiezas,
+  DONDE_VIVE, GRUPOS_PIEZAS, ROTULOS, alternarMarcada, estadoDePasos, filasDimensiones, heroeDe, opcionesRapidas,
   renglonesDelSelector, seccionesDeOferta, seccionesDelSelector, sinContestar, trasRefrescar,
 } from '../app/m/offer/modelo';
 import { ConclusionM, GenerandoM } from '../app/m/offer/HojasOfferM';
 import { HiloOfferM } from '../app/m/offer/HiloOfferM';
 import { GRUPOS_PIEZAS as GRUPOS_ESCRITORIO } from '../app/offer/PiezasRail';
-import { seccionesDelArbol } from '../app/offer/arbol';
+import { plantillasDeOffer, renglonesDeOffer, valorNueva } from '../app/offer/arbol';
+import { documentoDeOferta } from '../app/offer/documento-vivo';
 import { PIEZAS, DIMENSIONES, type ArbolOffer, type ConclusionOferta, type OfferMensaje, type OfferSesionVista, type PropuestaOferta } from '../lib/offer-marco';
 
 const RAIZ = join(__dirname, '..');
@@ -87,14 +88,12 @@ test('piezas: los grupos son los del riel de escritorio, y ninguna pieza queda a
   // Desde el 16/10/2026 viven en app/offer/ayudas.ts: el teléfono y PiezasRail.tsx re-exportan el mismo objeto.
   assert.equal(GRUPOS_PIEZAS, GRUPOS_ESCRITORIO, 'el teléfono volvió a tener su copia de los grupos');
   assert.doesNotMatch(sinComentarios(leer('app/m/offer/modelo.ts')), /GRUPOS_PIEZAS[^=\n]*=\s*\[/, 'app/m/offer/modelo.ts volvió a escribir los grupos');
-  const piezas = piezasEnGrupos({ cliente: { valor: 'Dueños', fuente: 'chat', at: '' }, precio: { valor: '900', fuente: 'negocio', at: '' } });
-  assert.equal(piezas.flatMap((g) => g.piezas).length, PIEZAS.length);
-  const de = (k: string) => piezas.flatMap((g) => g.piezas).find((p) => p.key === k)?.estado;
-  assert.equal(de('cliente'), 'confirmada');
-  assert.equal(de('precio'), 'negocio');
-  assert.equal(de('problema'), 'vacia');
-  const p = progresoDePiezas({ cliente: { valor: 'x', fuente: 'chat', at: '' }, problema: { valor: ' ', fuente: 'chat', at: '' } });
-  assert.deepEqual(p, { sabidas: 1, total: PIEZAS.length, pct: Math.round(100 / PIEZAS.length) });
+  // «Tu oferta» del teléfono es el DOCUMENTO de escritorio (29/10/2026): la hoja lo arma con la misma función.
+  assert.match(leer('app/m/offer/HojasOfferM.tsx'), /documentoDeOferta\(piezas\)/);
+  const doc = documentoDeOferta({ cliente: { valor: 'Dueños', fuente: 'chat', at: '' }, precio: { valor: '900', fuente: 'negocio', at: '' }, problema: { valor: ' ', fuente: 'chat', at: '' } });
+  assert.deepEqual(doc.map((g) => g.titulo), ['Para quién', 'Precio'], 'sólo las secciones con algo');
+  assert.deepEqual(doc.flatMap((g) => g.piezas.map((p) => [p.key, p.estado])), [['cliente', 'confirmada'], ['precio', 'negocio']], 'lo vacío no aparece');
+  assert.ok(PIEZAS.length > 2);
 });
 
 // ── 3. Las secciones de la oferta nueva son las de la Conclusión ─────────────
@@ -161,17 +160,14 @@ const ARBOL: ArbolOffer = {
   sueltas: [res(40, 'De la v1', '2026-09-01T10:00:00Z')],
 };
 
-test('selector: los mismos títulos, el mismo orden y los mismos renglones que `seccionesDelArbol`', () => {
-  const ICONOS = { funnel: 'f', oferta: 'o', conversacion: 'c', sueltas: 's' };
-  const esc = seccionesDelArbol(ARBOL, ICONOS);
+// Desde el 29/10/2026 escritorio no tiene desplegable: la LISTA de conversaciones y las plantillas de «Nueva oferta». La hoja del
+// teléfono ofrece las MISMAS conversaciones y las MISMAS salidas de crear (una por funnel y una por oferta).
+test('selector: las mismas conversaciones que la lista de escritorio y las mismas salidas de crear que sus plantillas', () => {
   const mov = seccionesDelSelector(ARBOL, 11);
-  assert.deepEqual(mov.map((s) => s.titulo), esc.map((g) => g.title));
-  const sinCrear = (os: Array<{ label: string; sub?: string; crear?: boolean }>) => os.filter((o) => !o.crear).map((o) => [o.label, o.sub ?? '']);
-  for (let i = 0; i < esc.length; i++) {
-    assert.deepEqual(mov[i].ofertas.map((o) => o.titulo), (esc[i].grupos ?? []).map((g) => g.title), `ofertas de ${esc[i].title}`);
-    (esc[i].grupos ?? []).forEach((g, j) => assert.deepEqual(mov[i].ofertas[j].conversaciones.map((c) => [c.titulo, c.segunda]), sinCrear(g.options)));
-    assert.deepEqual(mov[i].nuevas.map((c) => [c.titulo, c.segunda]), sinCrear(esc[i].options));
-  }
+  const conversaciones = mov.flatMap((s) => [...s.ofertas.flatMap((o) => o.conversaciones), ...s.nuevas]).map((c) => String(c.id)).sort();
+  assert.deepEqual(conversaciones, renglonesDeOffer(ARBOL).map((x) => x.id).sort());
+  const crear = mov.flatMap((s) => (s.id == null ? [] : [valorNueva(s.id, null), ...s.ofertas.map((o) => valorNueva(s.id as number, o.id))])).sort();
+  assert.deepEqual(crear, plantillasDeOffer(ARBOL).map((p) => p.id).sort());
   // La principal primero, la abierta marcada, y la sección «Sin funnel» sin salidas de crear.
   assert.equal(mov[0].ofertas[0].principal, true);
   assert.equal(mov[0].ofertas[1].conversaciones[0].abierta, true);

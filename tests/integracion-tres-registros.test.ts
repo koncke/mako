@@ -41,8 +41,8 @@ test('toda integración que pide credenciales tiene su VERIFICADOR', () => {
   const pings = leer('../lib/metodo-verificar.ts');
   const sinPing: string[] = [];
   for (const key of keysDelMetodo()) {
-    // El registro de pings son métodos de un objeto: `async <key>(v) {`.
-    if (!new RegExp(`async ${key}\\s*\\(`).test(pings)) sinPing.push(key);
+    // El registro de pings son métodos de un objeto: `async <key>(v) {`. Una clave con guion va entre comillas (`apify-instagram`, 1/11/2026).
+    if (!new RegExp(`async '?${key}'?\\s*\\(`).test(pings)) sinPing.push(key);
   }
   assert.deepEqual(
     sinPing, [],
@@ -57,7 +57,7 @@ test('toda tarjeta del catálogo tiene su LOGO propio, no el de otra marca', () 
   // El mapa `ICON`: entradas `key: { … }` hasta el cierre del objeto.
   const mapa = visual.slice(visual.indexOf('export const ICON'), visual.indexOf('export const iconFor'));
   const sinLogo = DEFS_TEST
-    .filter((d) => !new RegExp(`^\\s{2}${d.key}:\\s*\\{`, 'm').test(mapa))
+    .filter((d) => !new RegExp(`^\\s{2}(${d.key}|'${d.key}'):\\s*\\{`, 'm').test(mapa))
     .map((d) => d.key);
   assert.deepEqual(
     sinLogo, [],

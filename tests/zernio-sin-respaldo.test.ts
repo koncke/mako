@@ -111,9 +111,11 @@ test('ningún código de app ni lib lee la key de Zernio de la plataforma para u
   // cliente le lee su fila (`credDelCliente`). El barrido de antes marcaba esa línea sin mirar la guarda y dejó rojo main.
   // Se quita SÓLO esa línea, exacta y dentro de `claveZernioAnuncios`: cualquier otra lectura, o ésa sin la guarda, cae.
   const PERMITIDA = { archivo: 'lib/zernio-ads.ts', linea: "  if (ws === (await wsSuperAdmin().catch(() => null))) return envCred('ZERNIO_API_KEY');" };
-  const clave = funcion(sinComentarios(leer(PERMITIDA.archivo)), 'export async function claveZernioAnuncios(ws: number)', 400);
+  const clave = funcion(sinComentarios(leer(PERMITIDA.archivo)), 'export async function claveZernioAnuncios(ws: number)', 700);
   assert.equal(clave.split(PERMITIDA.linea).length, 2, 'la key de la plataforma en los anuncios dejó de estar detrás de wsSuperAdmin');
-  assert.match(clave, /\n  return credDelCliente\('ZERNIO_API_KEY', ws\);$/, 'un cliente dejó de leer SU key en los anuncios');
+  assert.match(clave, /\n  const base = await credDelCliente\('ZERNIO_API_KEY', ws\);\n  if \(!base\) return null;\n/, 'un cliente dejó de leer SU key en los anuncios');
+  // Con varias claves (29/10/2026) la dueña de la conexión de anuncios sale de las claves DEL NEGOCIO (`cfgDeCuenta`), o la suya.
+  assert.match(clave, /\n  return \(await cfgDeCuenta\(ws, conexion\)\.catch\(\(\) => null\)\)\?\.apiKey \?\? base;$/);
   // Y la de `cfg` (28/10/2026): la cuenta de la plataforma para un negocio sin key, detrás del interruptor (la fija el test de arriba).
   const PERMITIDA_CFG = { archivo: 'lib/zernio.ts', linea: "    const deLaPlataforma = await envCred('ZERNIO_API_KEY');" };
   const culpables: string[] = [];
@@ -131,10 +133,16 @@ test('la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dicen', 
   const cat = sinComentarios(leer('lib/metodo-catalogo.ts'));
   const i = cat.indexOf("key: 'zernio',");
   assert.ok(i >= 0);
-  const bloque = cat.slice(i, cat.indexOf("key: 'email',", i));
+  const tarjeta = cat.slice(i, cat.indexOf("key: 'email',", i));
+  // Las claves EXTRA (29/10/2026, Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente») SÍ son opcionales: la
+  // tarjeta sigue conectada con la 1 sola. La que no puede serlo es la 1: se mira hasta donde empiezan las extra.
+  const iExtra = tarjeta.indexOf('...CLAVES_ZERNIO.slice(1)');
+  assert.ok(iExtra > 0, 'no encontré las claves extra de Zernio');
+  const bloque = tarjeta.slice(0, iExtra);
   assert.ok(bloque.length < 1_800, `el recorte de la tarjeta de Zernio mide ${bloque.length}`);
   assert.match(bloque, /\{ env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,\n\s+nota: '/);
   assert.doesNotMatch(bloque, /opcional|sinEsto|respaldo|plataforma/i, 'la key volvió a ser opcional o a nombrar la cuenta de la plataforma');
+  assert.doesNotMatch(tarjeta.slice(iExtra), /sinEsto|respaldo|plataforma/i, 'una clave extra nombra la cuenta de la plataforma');
   // La línea del cobro: cada red cuenta aparte, y lo paga el negocio.
   assert.match(bloque, /nota: 'Zernio te cobra a ti\. Cada red cuenta aparte \(página, Instagram, anuncios\): 2 gratis, desde la 3\.ª se paga\.'/);
   const verificar = sinComentarios(leer('lib/metodo-verificar.ts'));

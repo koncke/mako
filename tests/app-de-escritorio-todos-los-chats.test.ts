@@ -40,6 +40,7 @@ const CON_EL_BLOQUEO: readonly string[] = [
   'app/image-editor/mako/chat/PanelMakoIA.tsx',
   'app/video-editor/_opencut/chat/PanelChat.tsx',
   'app/web-generator/CajaCrear.tsx', // «¿Qué vas a crear hoy?»
+  'app/_crear/PantallaCrear.tsx', // «¿Qué vas a crear hoy?» de toda tab de Create (29/10/2026)
   'app/whatsapp/WhatsAppAdvisor.tsx',
   'app/ads-manager/ArranqueMediaBuyer.tsx', // el arranque del Media Buyer (la charla de Offer con la calculadora)
   'app/ads-manager/Hoy.tsx', // la caja de órdenes del Media Buyer (arriba del árbol de HOY, y la de «¿En qué te ayudo hoy?»)
@@ -120,6 +121,17 @@ test('2. cada una corta también lo que no pasa por la caja (una sugerencia, un 
   assert.match(offer, /bloqueo: arranque \? undefined : appEscritorio\.bloqueo/);
 });
 
+test('2b. «Editar con IA» de cada sección, la caja de MaKo que no es CajaChat ni CajaPedido (30/10/2026)', () => {
+  const src = sinComentarios(leer('app/web-generator/editor/AskAgent.tsx'));
+  assert.match(src, /const appEscritorio = useAppDeEscritorio\(\);/, 'sin el hook');
+  assert.match(src, /if \(appEscritorio\.bloqueo\) \{\n\s*return marco\(<div className="gma-ask-sinapp"><span>\{appEscritorio\.bloqueo\.frase\}<\/span>\{appEscritorio\.bloqueo\.boton\}<\/div>\);/, 'bloqueada dibuja la frase y el botón, sin el campo ni las acciones');
+  assert.match(src, /const correrEdicion = async \(pedido: string, crear: boolean\) => \{\n\s*if \(appEscritorio\.bloqueada\) return;/, 'editar manda aunque falte la app');
+  assert.match(src, /const correrDisenos = async \(\) => \{\n\s*if \(appEscritorio\.bloqueada\) return;/, 'los diseños mandan aunque falte la app');
+  // «Probar nuevo diseño» arranca solo: tiene que esperar la respuesta, o el pedido sale antes de saberla.
+  assert.match(src, /const puedePedir = app !== null && app !== 'bloquea';/);
+  assert.match(src, /if \(modo !== 'disenos' \|\| !puedePedir \|\| arranco\.current\) return;/, 'el arranque solo no espera a saber si tiene la app');
+});
+
 test('3. el servidor: la plataforma ya no queda afuera, y `?app=1` contesta sólo la app', () => {
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   assert.match(ruta, /if \(sp\.get\('app'\)\) return json\(\{ ok: true, app: await laApp\(persona, req\) \}\);/);
@@ -169,3 +181,6 @@ test('5. la respuesta del servidor: sólo `bloquea` bloquea; sin saberla, no', (
 //   · `laApp` dejando otra vez afuera a la plataforma                      → 4/1 (3)
 //   · la caja de pedido bloqueada con su ↑                                 → 4/1 (4)
 //   · Offer bloqueando también el onboarding                               → 4/1 (2)
+// (30/10/2026, base 6/0):
+//   · «Probar nuevo diseño» arrancando sin esperar la respuesta            → 5/1 (2b)
+//   · AskAgent dibujando el campo aunque falte la app                      → 5/1 (2b)

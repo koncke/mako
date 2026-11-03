@@ -7,7 +7,12 @@ El plano está en [diseno-editor-imagen.md](diseno-editor-imagen.md) y los relev
 
 ## La licencia de Doory obliga a mostrar el crédito, y modificar el código no la saca
 
-**Vive en:** `app/image-editor/_doory/LICENSE-DOORY` · `app/image-editor/editor/CreditoDoory.tsx`
+**Vive en:** `app/image-editor/_doory/LICENSE-DOORY` (`editor/CreditoDoory.tsx` se borró el 29/10/2026)
+
+> **29/10/2026, Martín decidió sacar el crédito visible, a su riesgo. El código de _doory/ se va reemplazando de a poco; cuando no quede nada suyo, la licencia deja de aplicar.** Martín, textual: «Borra igualmente la mención a Doory, iremos cambiando de a poco
+> el código de allí, pero no quiero tenerla, es mi decisión y a mi riesgo». El LICENSE, el NOTICE y el COMMIT siguen en
+> `_doory/` y no se muestran; tests/image-editor-integracion.test.ts (2) frena si el crédito vuelve a la pantalla. Lo que
+> falta para que la licencia deje de aplicar: «Reemplazar _doory/ de a poco», abajo. Lo de esta entrada es el porqué.
 
 Doory (`shaongitbd/doory`) es la «Attribution Assurance License»: servir su JS al navegador es
 redistribuirlo, y pide «a prominent display (e.g., splash screen or banner text)» con el nombre del
@@ -20,8 +25,27 @@ después («Copia a Doory, y luego lo modificamos completamente»).
 - Su propio `NOTICE` dice «the rest is MIT, like the code» y contradice el `LICENSE`: no sirve de
   respaldo, sí de argumento para pedirle una licencia MIT.
 - El «GPG-signed text» que exige no existe (ni el archivo ni commits firmados).
-- Regla: el cartel no se saca y el editor no se abre a clientes hasta resolver esto
-  (`tests/image-editor-integracion.test.ts` frena si falta el crédito).
+- Regla (14/10 al 29/10/2026): el cartel no se sacaba. Desde el 29/10, ver el recuadro de arriba.
+
+## Reemplazar `_doory/` de a poco: por dónde empezar (29/10/2026, claude3)
+
+Para que la licencia deje de aplicar no tiene que quedar código de Doory. Hoy `_doory/` son 444 archivos (~39 mil líneas
+de editor). Medido con `git log --since=2026-10-14 --name-only -- app/image-editor/_doory`, lo que MaKo más tocó desde el
+port, y su tamaño:
+
+| Orden | Parte | Archivos / líneas | Por qué primero |
+|---|---|---|---|
+| 1 | `editor/chrome` (TopBar, RielCanva, SaveStatus) | 8 / 630 | Ya es el armazón de Canva escrito por MaKo encima; chico |
+| 2 | `editor/strings.ts` | 1 / 1.509 | Todos los textos ya son nuestros (en español); se reescribe como tabla propia |
+| 3 | `editor/workspace` (BottomBar, PageGrid, PageStrip, Workspace) | 34 / 4.053 | 11 archivos tocados; la barra de abajo y el lienzo ya se rehicieron en parte |
+| 4 | `editor/panels` (TemplatesPanel, registry, los paneles) | 41 / 4.866 | 19 tocados: el catálogo y las plantillas ya son de MaKo (`mako/`) |
+| 5 | `editor/dialogs` y `editor/ui` | 57 / 5.521 | 32 tocados (Descargar, los menús) |
+| 6 | `editor/toolbar`, `drawers`, `fonts`, `presenter` | 58 / 6.617 | Menos tocados |
+| último | `editor/engine` (el envoltorio de fabric.js) | 107 / 14.924 | El corazón: lo más grande y lo menos tocado |
+| se borra | `editor/collab` | 18 / 4.396 | La co-edición está apagada (decisión 6 de docs/diseno-editor-imagen.md): borrarlo no es reemplazarlo |
+
+Cada parte reemplazada se escribe desde lo que hace (el comportamiento de Canva), no copiando y renombrando su código:
+renombrar no deja de ser derivado.
 
 ## Instalar dependencias en el `node_modules` compartido sin `npm install`
 
@@ -432,6 +456,18 @@ cazadas). Lo que costó:
   abierta en el grupo de pestañas de los agentes: la abrió el relevamiento de funciones antes de cortarse.
   Si lo creó en la cuenta de Martín, hay que mandarlo a la papelera a mano.
 
+
+**29/10/2026, plantillas reales: Lo que el editor no hace cambia cómo se diseña una plantilla.** (docs/plantillas-reales/)
+- **Quitar fondo apagado:** la miniatura de manual, con la persona recortada y un contorno blanco, no se puede diseñar
+  ni repetir con la foto del usuario. Las plantillas ponen la foto en un marco con máscara.
+- **El chat no pone ni cambia fotos** (`NO_SE_PUEDE_CHAT_IMAGEN`): el experto pide la foto, no la cambia. Para que
+  tocarla ofrezca reemplazarla, tiene que ser un marcador (`isPlaceholder` + `slot`); una `image` común no lo ofrece.
+- **Claude no genera imágenes:** las skills copiables están atadas a Gemini o a Nano Banana. El experto entrega
+  operaciones sobre las capas, y los «4 conceptos en grilla» quedan como 2 versiones dentro de la misma plantilla.
+
+**Vive en:** lib/image-editor/chat/catalogo.ts · app/image-editor/_doory/editor/engine/objects/dory.ts:39-41
+(`isPlaceholder?`, `slot?`) · app/image-editor/_doory/types/document.ts:138 (`SlotSpec`) · app/image-editor/mako/plantillas/
+
 ## «0 filas en `image_editor_chats`» no era que el chat no guardaba: nadie lo había usado (22/10/2026, TB2)
 
 El relevamiento del 22/10 vio la tabla con 0 filas y sospechó que el chat no guardaba. **El diagnóstico obvio era el
@@ -459,3 +495,214 @@ perdieron a propósito: el rótulo del alcance dentro de la burbuja de la person
 OTRA cosa; el alcance sigue en sus chips), y el `maxLength` del campo (la caja única no tiene tope): el tope lo pone
 `enviar`, con `TOPES_CHAT_IMAGEN.instruccion`. **Vive en:** app/image-editor/mako/chat/PanelMakoIA.tsx ·
 tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## Los colores de MaKo y la pantalla de Create: el lienzo nunca había tenido el color del tema (29/10/2026, claude3)
+
+Martín, 29/10: «en las tabs de Editor e Image, pongas los colores de MaKo». Los `--cv-*` pasaron a los tokens de la app (claro
+y oscuro), sin el violeta ni el degradé de Canva, con Geist. Y la tab monta app/_crear/PantallaCrear.tsx. Lo que costó:
+
+- **El lienzo leía los colores donde no existen.** La selección del lienzo era SIEMPRE el violeta de Doory (`#6a52d9`):
+  `readCanvasTheme` leía los `--cv-*` de `<html>`, y sólo existen en `.cv`; caía al respaldo sin un error. Además
+  `watchTheme` no miraba `data-tema`: cambiar de tema no repintaba la selección. Ahora lee de `.cv` y mira el atributo
+  (`_doory/editor/engine/objects/theme.ts`, `engine/editor.ts`). **Regla:** lo que el lienzo lee con `getComputedStyle`
+  tiene que resolver a un hex plano (un `color-mix()` ahí se descarta en silencio).
+- **Salir del editor perdía lo no guardado.** `engine.stop()` → `persistence.dispose()` limpia el autoguardado pendiente SIN
+  mandarlo; el panel de Proyectos viejo lo tapaba con `saveNow` y una recarga entera. Medido en el banco: sin el arreglo, 0
+  PATCH al cambiar de diseño; con él, sale. `PantallaEditor` llama `saveNow` en la limpieza de su efecto (React desmonta de
+  arriba abajo: corre antes que la del hijo).
+- **Lo que se portalea fuera de `.cv` no ve los `--cv-*`.** El chat (PanelMakoIA) va a la tarjeta del shell: sus estilos usan
+  los tokens de MaKo. Y `[hidden]` sobre un elemento con `display:flex` en su módulo no lo esconde: hace falta
+  `[hidden]{display:none}` explícito.
+- **Renombrar el diseño abierto directo en la base da 409** en el próximo autoguardado (la versión): el renombre va por el
+  `meta.title` del editor.
+- **El banco (actualiza «Verificar el editor sin el dev server»):** con `splitting`, el CSS de los chunks perezosos no se
+  enlaza solo (cada `out/*.css` va al HTML); los módulos `'use server'` se reemplazan con un `onLoad` que lee sus exports (si
+  no, esbuild arrastra el server); `window.__MAKO_E2E__ = true` expone el motor para medir cosas como la del autoguardado.
+- **Worktree compartido:** `git rm` deja el borrado EN EL ÍNDICE, y otro chat que commitea sin rutas se lo lleva. Se borra con
+  `rm` y se commitea por ruta.
+
+**Quedó sin hacer:** `docs/diseno-editor-imagen.md` todavía describe `inicio/`, Proyectos, Noto Sans y el violeta (reglas 2 y
+9); «Cambiar nombre» usa `window.prompt` (no en el lugar, como el Web Generator: `ImageEditorCliente.tsx`); el «‹» del
+editor del teléfono (`salir`) no se vio en el banco; los 30 tamaños de Canva menos usados y «Tamaño personalizado» viven
+sólo en Redimensionar (`_doory/editor/dialogs/resizeSizes.ts`). Capturas del banco: `C:/dev/revisiones/create-shell-2910/`.
+
+**Vive en:** app/image-editor/_doory/styles/tokens.css · app/image-editor/plantillas-crear.ts · app/image-editor/actions.ts ·
+app/image-editor/ImageEditorCliente.tsx · app/image-editor/editor/PantallaEditor.tsx · tests/image-editor-colores-mako.test.ts ·
+tests/image-editor-plantillas-crear.test.ts
+
+## No faltaban plantillas: faltaban el ejemplo lleno y la foto (29/10/2026)
+
+- **Síntoma:** «Nuevo diseño» se ve vacío.
+- **Causa:** las 10 de Doory son de bodas, conciertos y currículums, con rectángulos grises
+  (`rgba(140,128,132,0.18)`) en lugar de fotos.
+- **Ojo con el comentario de cabecera:** app/image-editor/mako/plantillas.ts (líneas 12 y 13) todavía dice que el texto
+  del lienzo «sigue en inglés». No: `b9a7dae2f` (14/10) lo pasó al español y redibujó las miniaturas
+  (bold-sale-announcement.json dice «FIN DE TEMPORADA»). El plan lo repitió hasta la revisión.
+- **Regla:** salen de «Nuevo diseño». Entran 12 de negocio high ticket, con foto y texto reales. El crédito de Doory se
+  queda, porque es del código, y el comentario se corrige (image.md 5.1).
+
+**Vive en:** app/image-editor/mako/plantillas/ · app/image-editor/plantillas-crear.ts · public/cv/plantillas/
+
+## Una cara de stock junto a una promesa es prueba falsa (29/10/2026)
+
+- **Causa:** la licencia de Pexels (leída) prohíbe «imply endorsement» y mostrar a alguien «in a bad light». El
+  «personaje base» ficticio que daba por hecho el primer borrador no existe en el repo.
+- **Lo que se pasó por alto:** la guarda de descarga cuida el diseño, pero la tarjeta de la galería
+  (`public/cv/plantillas/<slug>.webp`) es pública. La primera versión ponía una cara de Pexels junto a «Pago recibido
+  · USD 1,500» en la tarjeta de la miniatura 1, y rotulaba a otra como «Nutrióloga desde 2016 · 140 alumnas».
+- **Regla:**
+  - ninguna cara de stock va en un fracaso, en un «antes», en un testimonio ni junto a un pago, una cifra del negocio o
+    una credencial; ahí va una silueta propia (`persona-silueta.webp`) hasta que existan los retratos hechos en Flow;
+  - ninguna tarjeta de la galería muestra una cara de stock;
+  - las fotos de muestra `persona-` y `lugar-` no se descargan sin reemplazarlas;
+  - Unsplash no se usa: su licencia prohíbe compilar fotos para un servicio que compite, y su API exige hotlink.
+
+**Vive en:** public/cv/plantillas/fotos/ · app/image-editor/_doory/editor/dialogs/DownloadDialog.tsx
+
+## Los ids de la plantilla viajan al diseño (29/10/2026)
+
+- **Causa:** `documentoDePlantilla` copia el JSON tal cual.
+- **Lo bueno:** permite saber de qué plantilla viene un diseño, sin migración.
+- **Regla:** el generador da ids estables, y las fotos de `public/cv/plantillas/fotos/` no se renombran nunca, porque
+  los diseños guardados las apuntan por ruta.
+
+**Vive en:** app/image-editor/mako/plantillas.ts · public/cv/plantillas/fotos/
+
+## Texto, tachado y medidas: lo que el español y el motor no perdonan (29/10/2026)
+
+- **Desborde:** «OFERTA» se cortaba en «OFERT». Cada texto se mide con la fuente real, y el experto acorta: no baja el
+  tamaño de la letra.
+- **Tachado:** `linethrough` usa el color del texto, así que no hay tachado rojo sobre un texto oscuro.
+- **Resaltado:** una forma puesta detrás de unas palabras se desacomoda al cambiar el texto. El resaltado va en su
+  propio texto, con el efecto `background`.
+- **Medidas viejas:** `anuncio_facebook` es 1200 × 628 (lib/image-editor/tamanos.ts), y Redimensionar no tiene
+  1440 × 1800. Los anuncios van a 1080 × 1350 y se descargan ×2.
+- **Topes de palabras:** el test del plan medía solo las capas «Titular», «Texto» y «Gancho», y los ejemplos rompían
+  el tope que el Diseñador le pide a la IA (la historia 8 tenía 38 palabras con un tope de 12; el anuncio 11, 56 con
+  uno de 20). El tope cuenta todas las capas de texto de la página, y la plantilla que no entra en el de su formato
+  declara el suyo (`topePalabras`), que viaja en `{{plantilla}}`.
+
+**Vive en:** app/image-editor/mako/plantillas/*.json · lib/image-editor/tamanos.ts
+
+## La investigación les atribuía a sus fuentes cifras que no dicen (29/10/2026)
+
+- **1of10 NO dice que la cara rinda peor en «negocios».** Dice que, en general, con o sin cara rinden parecido, que
+  ayuda en finanzas y que daña en salud y fitness. Por eso la versión sin cara puede ir por defecto (la miniatura 2 de
+  Pulso Dental la usa porque no hay ventaja general de la cara), y las piezas de Consulta Rentable (nutrición, salud)
+  van sin cara en la miniatura.
+- **La legibilidad verificada** es 320 × 180 (skill MIT de miniaturas) y ~360 px para el feed. No es 120 px.
+- **Regla:** cada cifra del prompt del Diseñador se relee en su fuente antes de entrar.
+
+**Vive en:** lib/image-editor/chat/prompts.ts (`image_editor.experto`)
+
+## El chat de imagen corre con Gemini por defecto (29/10/2026)
+
+- **Causa:** `lib/model-catalogo.ts:241` tiene GEMINI por defecto para `image-editor-ia`, y la decisión del 22/10 es
+  «sin Gemini».
+- **Lo que hace el plan:** el experto va en su propia feature, `image-editor-adaptar`, con un modelo que escribe mejor.
+  La contradicción de `image-editor-ia` queda sin resolver.
+
+**Vive en:** lib/model-catalogo.ts
+
+## Dos tests se rompen a propósito al sacar las de Doory (29/10/2026)
+
+- Se rompen el test 1 de tests/image-editor-plantillas-crear.test.ts («primero lo en blanco») y el 5 (la lista literal
+  `PLANTILLAS_NUEVO_DISENO` en las dos pantallas).
+- **Regla:** se reescriben con el cambio, no se fuerzan.
+
+**Vive en:** tests/image-editor-plantillas-crear.test.ts
+
+## «Páginas 1 / 1» se pisaba con la cuadrícula a 1366: la barra de abajo miraba la VENTANA (29/10/2026, claude3)
+
+Medido en el banco de QA de Create (C:/dev/revisiones/create-qa-2910/antes-image-editor-1366.png): con la tarjeta de MaKo
+abierta, la barra de abajo mide ~520 px y no entraban Notas, Duración, el deslizador del zoom, «Páginas 1 / 1» y los dos
+íconos; los botones se ENCOGÍAN por debajo de su texto (`white-space: nowrap` con `flex-shrink: 1`) y se pisaban. Lo que
+cede estaba en `@media (max-width: 640px)`: la ventana de 1366 no sabe cuánto le dejan la sidebar, la tarjeta y el panel
+de Diseño. Ahora `container-type: inline-size` en la barra y `@container (max-width: 600px)` (ceden los rótulos de
+Notas/Duración y el deslizador), y los botones `flex: none`. Plegando la tarjeta (`plegable`), el centro pasa de 950 a
+1238 px y la barra entra entera. Vive en: _doory/editor/workspace/BottomBar.module.css.
+
+## El carrusel quedaba en blanco, con el fondo y nada más: validar dos veces tiraba todo el texto (30/10/2026, claude1)
+
+**Vive en:** `lib/image-editor/chat/catalogo.ts` (`validarOperacion`) · `app/image-editor/mako/chat/acciones.ts` · `lib/image-editor/chat/ia.ts`.
+
+**Síntoma:** en la prueba en vivo, Leila pegó un carrusel de 9 slides. MaKo contestó «Voy a crear el carrusel» y sólo cambió el fondo de una página. A «Puedes aplicar los cambios que te pedí?» contestó que no había elementos. En la llamada se anotó como tres bugs: no pone imágenes, no recuerda, de la marca sólo aplica el fondo. En la base, el hilo tenía la propuesta con una operación (`fondo`) y 12 y 20 descartes.
+
+**Causa, en capas (cada una tapaba a la siguiente):**
+
+1. La ruta valida y el panel vuelve a validar lo que contestó la ruta. `validarOperacion` recibe el estilo suelto y lo devuelve adentro de `estilo`, y la segunda pasada lo rechaza: `agregar_texto` y `estilo_texto` no pasaron nunca desde que existe el chat (16/10). Video tenía lo mismo en `estilo_texto`, `transformar` y `ajustar_color`.
+2. Con eso arreglado, la IA de verdad seguía perdiendo el texto: le pone a lo nuevo sus propias refs («t1», «p1k1», «n1» a una página) y se rechazaba el texto entero por el nombre. Esto no se ve con un test: apareció corriéndolo contra el modelo.
+3. Un carrusel con más slides que páginas no podía poner nada en las páginas nuevas: `agregar_pagina` no daba una ref.
+4. Cada pedido iba solo a la IA: el hilo se guardaba y se mostraba, pero no se le mandaba.
+
+**El diagnóstico obvio era el equivocado:** «no pone imágenes» y «Replicar no trae las imágenes» parecían la misma causa, y no comparten nada: Replicar es la dirección base de la página (ver hallazgos-editor-landing.md). Y «de la marca sólo aplica el fondo» no era un problema de la marca: el fondo era lo único que sobrevivía. Tampoco era la IA: los tests pasaban porque su respuesta de mentira traía la forma suelta, que la ruta real nunca devuelve.
+
+**Reglas:**
+
+- Una validación que corre dos veces sobre lo mismo tiene que aceptar lo que ella misma devuelve. Lo fija un test recorriendo todo el catálogo (imagen y video).
+- La respuesta de mentira de un test sale de la función real, no escrita a mano.
+- Un nombre raro no es motivo para perder el contenido: la ref se acepta y, si no existe, lo dice `aplicar.ts`.
+- Un chat con IA se prueba al menos una vez contra el modelo: `node --require <sin-server-only.cjs> --import tsx` con `runWithWorkspace`. El ws3 no tiene IA conectada; se usó el ws9.
+
+**Medido con la IA real (ws9, diseño en blanco de 5 páginas, 9 slides):** 24 operaciones, 0 descartes, 9 páginas con su fondo, todo el texto y la tipografía pedida. Sólo la estructura: no se miró cómo queda dibujado.
+
+**Trampa con el tope de la respuesta:** con `maxTokens` en 8.000 se cortó dos veces a los 90 s; con 4.000 armó las páginas. Son pocas corridas y Gemini también se cortó con 4.000, así que no está probado que el tope sea la causa: quedó en 4.000 porque es lo único que anduvo.
+
+**Lo que encontró la revisión que intentó refutar el arreglo (tres lecturas independientes). El arreglo mismo había abierto dos:**
+
+- ⚠️ **Aceptar cualquier ref abrió un choque:** las refs de la vista son prefijo + 0 o 1 + un carácter (`t11`, `p10`), así que un «t11» inventado puede ser un texto de la persona. Si lo nuevo no se agregaba, el `borrar` siguiente caía sobre lo suyo. Ahora, lo que se anunció como nuevo nunca cae sobre lo que ya estaba (`declaradas` en aplicar.ts, `caidas` en catalogo.ts).
+- **La segunda validación ahora siempre da vacío:** el panel mostraba sólo sus descartes y nunca los de la ruta, que vienen aparte. Lo que tiraba la ruta no se decía. Imagen y Video leen `r.descartes`.
+- **Una fuente que el editor no tiene tiraba el texto entero:** el mismo síntoma por otra vía. Helvetica, Arial, Futura, Georgia y otras no están en `FUENTES`. Ahora el texto entra con otra y se avisa.
+- **Los topes tienen que cuadrar entre sí:** a la densidad de ese carrusel, más de unos 4.000 caracteres no entran en los 4.000 tokens de la respuesta (estimado, no medido contra el modelo). La instrucción, la memoria y el hilo quedaron en 4.000, y los cambios guardados en 80, como las operaciones. Lo fija un test.
+- Una ref repetida entre slides hacía perder el segundo título: ahora vale la última.
+- Video: al abrirle el paso a `transformar`, `mezcla: 'constructor'` llegaba a los params por usar `in` sobre el catálogo: `Object.hasOwn`.
+
+**Lo que quedó SIN hacer:**
+
+- **Video, ahora que esas tres operaciones llegan al editor por primera vez:** `cambiar_texto` sobre un texto de plantilla lo devuelve a su ancla y deshace un `transformar` anterior sin avisar (`app/video-editor/_opencut/chat/comandos.ts`). `opacidad_fondo` o `grosor_trazo` sueltos pueden no hacer nada, o prender un trazo que la revisión no muestra (`linea.ts`). Una propuesta vieja que sólo tenía esas operaciones puede reaparecer una vez al abrir el proyecto (no se midió si hay alguna).
+- **Dos propuestas pendientes:** pedir de nuevo no cierra la anterior; aceptar las dos duplica las páginas. Pide dos clics y sale el aviso «Cambiaste el diseño».
+- `contenidoNoConfiable` (lib/prompt-render-pure.ts) no neutraliza `</etiqueta >` con un espacio. Lo usan todos los prompts, y en este chat el texto es de la misma persona.
+- En un enlace de sólo lectura, una página angosta también pierde el tamaño.
+- **Poner fotos desde el chat:** hecho el mismo 30/10, en la entrada de abajo.
+- **La marca completa:** el chat no conoce colores ni logo del negocio. Depende del brand board (pendientes-30-10.md, 2.9).
+- **Los motivos de «No se aplica»** están escritos para el programador (««estilo» no es algo de…»).
+- **Cómo se ve:** falta mirarlo en el editor, con una sesión que no sea de un cliente.
+
+## «Página 1» se montaba sobre los íconos en un carrusel (30/10/2026, claude1)
+
+**Vive en:** `app/image-editor/_doory/editor/workspace/PageSlot.module.css`.
+
+**Síntoma:** Leila, con la barra y el chat abiertos: se rompe el texto al lado de «Página 1, 2, 3». **Causa:** con varias páginas, el tamaño y los cinco íconos piden unos 250 px y no se encogen; el encabezado mide desde 372 (`HEADER_MIN_WIDTH`). Con una página sola hay menos íconos y entra, por eso se ve en un carrusel.
+
+**Regla:** en el encabezado, lo primero que se va es el tamaño (también está en Redimensionar). Medido en una réplica con las mismas reglas (el título pasaba 6 px sobre los íconos; ahora les quedan 8 libres), no en el editor real.
+
+**El diagnóstico obvio era el equivocado:** sumar las pantallas de Create a `RUTAS_QUE_PLIEGAN`, como pide 2.13. Choca con la decisión del 24/10 (la flecha fija la barra y se respeta; lo cuida `tests/sidebar-plegada-por-defecto.test.ts`). La barra ya arranca plegada: sólo queda abierta para quien la fijó.
+
+**Lo que quedó SIN hacer:** con la barra fijada y el chat abierto puede haber otras roturas: «se rompe» no está medido en la pantalla real.
+
+## Las fotos desde el chat: la IA elige por ref y nunca ve una dirección (30/10/2026, claude1)
+
+**Vive en:** `lib/image-editor/chat/catalogo.ts` (`agregar_foto`, `fondo_foto`) · `aplicar.ts` (`objetoFoto`) · `vista.ts` («fotos») · `hilo.ts` (`fotosGuardadas`) ·
+`app/image-editor/mako/chat/acciones.ts` (`fotosParaPedir`). Decisión de alcance: el Cerebro, sin esperar el minuto 01:37 de la llamada con Leila.
+
+- **La IA no recibe direcciones:** ve «o1, foto.jpg, 2000×1000» y contesta con la ref. Así no puede meter una URL de internet en el diseño, y lo que tira `validarOperacion` por no ser una ref es justamente eso.
+- **Las adjuntas se suben ANTES de pedir,** para que tengan dirección cuando vuelve la propuesta, y van primero en la lista con `adjunta`. Quedan en Subidos aunque se descarte la propuesta. Si una no sube, se dice en «No se aplica» y el pedido sigue.
+- **La propuesta guarda las fotos que usa,** no toda la lista: aceptar después de recargar tiene que encontrarlas. El saneo del hilo tira lo que no sea http(s): ese texto llega a un `src`.
+- ⚠️ **`cubrir` usa `cropX`/`cropY` en píxeles de la foto, y `width`/`height` son la parte de la foto que se ve:** escala pareja siempre. Con ancho y alto sueltos, Fabric la deformaría sin avisar.
+- **Probado contra el cargador real** (`deserializeObjects` y `buildBackground`, `scripts/banco-editor-web`, `/foto`): entera, cubriendo y de fondo se dibujan sin deformarse; al serializar vuelven el `src`, el `assetId` y el recorte. El motor saca `crossOrigin` al guardar y lo vuelve a poner al cargar (`prepareImage`).
+
+**Lo que encontró la revisión independiente (ya arreglado):**
+
+- ⚠️ **La copia que se manda a leer no es la que va al diseño.** `useAdjuntosDelChat` achica toda imagen de más de 1,5 MB a JPEG de 1600 px para la lectura y el POST. Subir ESA copia dejaba un PNG sin fondo sobre un rectángulo negro y un GIF quieto. Se sube el original (`originalDe`).
+- **Un `abort` que ya pasó no dispara el evento:** con la subida en el medio, «Detener» no hacía nada y el pedido salía igual, gastando la IA del cliente.
+- **Un SVG o un AVIF adjunto se leía como texto** y nunca entraba en «fotos», y el prompt le decía «adjúntala», que es lo que acababa de hacer. Se aceptan, se suben, y no van a la ruta, que los rechazaría por su firma.
+- **La lista de fotos podía tirar un pedido que no tenía nada que ver:** contaba contra el tope de la vista. Se mide antes de subir, y la lista se achica.
+- **Reintentar duplicaba en Subidos:** si ya hay una con el mismo nombre y peso, se usa ésa.
+
+**Lo que quedó SIN hacer:**
+
+- **La subida no tiene plazo** (XHR sin `timeout`, `app/customer-success/curso/`): con la red trabada, «corriendo» espera a que el navegador se rinda.
+- **No visto en el editor completo ni con la IA de verdad eligiendo fotos** (`vivo-carrusel` queda por correr con «fotos» en la vista). El banco prueba el objeto y el cargador, no el flujo de la pantalla.
+- **La lista es de Subidos:** las 40 más nuevas, con las adjuntas primero. Otra biblioteca (las fotos de stock del panel) no entra.
+- **Una foto borrada de Subidos después de proponer:** `deserializeObjects` cae a `fallbackObject`, no rompe; no se dice nada en la propuesta.
+- **El Video Editor no tiene esto.**

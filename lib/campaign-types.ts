@@ -119,11 +119,14 @@ export type CreativeSource = 'upload' | 'existing';
 
 export type Creative = {
   source: CreativeSource;
-  // source === 'upload': se resuelve con /api/ads-manager/creative-upload
+  // source === 'upload': lo resolvía /api/ads-manager/creative-upload (borrada el 27/10/2026 con el Ads Manager viejo)
   media_type?: 'image' | 'video';
   image_hash?: string | null; // de act_<id>/adimages
   video_id?: string | null; // de act_<id>/advideos
   thumbnail_url?: string | null; // para la previa (video o imagen subida)
+  /** Un video por LINK (29/10/2026, el anuncio desde el grupo, lib/anuncio-desde-archivo.ts): sin `video_id`, Zernio lo baja de acá
+   *  (`video.url`). Sólo por Zernio: Meta directo pide el `video_id`. */
+  video_url?: string | null;
   filename?: string | null;
   // source === 'existing': reusar el creativo de un anuncio ganador (su post)
   source_ad_id?: string | null;
@@ -174,7 +177,7 @@ export type CampaignSpec = {
   identidad?: { pageId: string; instagramId: string | null } | null;
 };
 
-// Resultado de subir un creativo (lo devuelve /api/ads-manager/creative-upload).
+// Resultado de subir un creativo (lo devolvía /api/ads-manager/creative-upload, borrada el 27/10/2026).
 export type UploadResult = {
   media_type: 'image' | 'video';
   image_hash?: string | null;

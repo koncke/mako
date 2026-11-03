@@ -109,6 +109,9 @@ const CANAL: Record<string, string> = {
   // 10.000 mensajes gratis de Zernio lo arma Automations; el conteo vive acá. Lee el ciclo de Zernio (`GET /v1/billing`, con
   // `cfg`) y CUENTA los salientes de `ig_mensajes` (los de Chats) y del motor. No manda nada.
   'lib/zernio-uso.ts': 'cuántos mensajes mandó el negocio por Zernio en su ciclo (para el aviso antes del tope de los gratis)',
+  // 29/10/2026, la llamada de Martín con una agencia («le entran acá los leads»): la red de seguridad de los leads de Meta por Zernio.
+  // NO es el canal de Instagram: lee `GET /v1/ads/leads` con las claves del negocio y carga por la MISMA puerta del webhook.
+  'lib/zernio-leads-barrido.ts': 'el barrido de los leads de los formularios de Meta por Zernio, por si el webhook no llega',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

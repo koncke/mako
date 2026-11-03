@@ -27,7 +27,7 @@ const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '');
 
 test('la tab de una ruta de API, por segmento entero', () => {
-  assert.equal(tabDeRutaApi('/api/ads-manager/campaign-create'), 'ads-manager');
+  assert.equal(tabDeRutaApi('/api/ads-manager/creative-signurl'), 'ads-manager');
   assert.equal(tabDeRutaApi('/api/ads-manager'), 'ads-manager');
   assert.equal(tabDeRutaApi('/api/meta-write'), 'ads-manager');
   assert.equal(tabDeRutaApi('/api/chats/conversacion'), 'chats');
@@ -44,6 +44,7 @@ const PERMITIDOS: Record<string, string[]> = {
   'landing-writer': ['app/web-generator/', 'app/landing-generator/', 'app/admin/', 'lib/'],
   setting: ['app/automations/', 'app/m/automations/', 'app/admin/', 'lib/'],
   chats: ['app/chats/', 'app/m/chats/', 'app/admin/', 'lib/'],
+  copywriter: ['app/copywriter/', 'app/m/copywriter/', 'app/admin/', 'lib/'],
 };
 
 function archivos(dir: string): string[] {

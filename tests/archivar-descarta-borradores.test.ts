@@ -24,14 +24,17 @@ const archivar = (() => {
   return huecos.slice(i, f);
 })();
 
+/** El camino de descartar: lo usan archivar y el aviso al activar (30/10/2026), uno solo. */
+const camino = readFileSync(new URL('../lib/borradores-descartar.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+
 test('archivar descarta los borradores PENDIENTES de esas secuencias, sin borrarlos', () => {
-  assert.match(archivar, /from\('wa_borradores'\)\.update\(\{ estado: 'descartado' \}\)\s*\.in\('secuencia_id', objetivo\)\.eq\('estado', 'pendiente'\)/,
-    'archivar dejó vivos los borradores de la automatización archivada');
-  assert.doesNotMatch(archivar, /from\('wa_borradores'\)\.delete\(/, 'un borrador se descarta, no se borra');
+  assert.match(archivar, /descartarBorradoresAnotando\(\s*supabase as unknown as DbDescarte, \{ secuencias: objetivo \},/, 'archivar dejó vivos los borradores de la automatización archivada');
+  assert.match(camino, /from\('wa_borradores'\)\.update\(\{ estado: 'descartado' \}\)\s*\.in\(campo, valores\.slice\(i, i \+ 200\)\)\.eq\('estado', 'pendiente'\)/);
+  assert.doesNotMatch(camino, /from\('wa_borradores'\)\.delete\(/, 'un borrador se descarta, no se borra');
 });
 
 test('cada lead con un borrador descartado lo tiene en su historial, con el nombre de la automatización', () => {
-  assert.match(archivar, /from\('lead_audit'\)\.insert\(historial\)/, 'no anota el descarte en el historial del lead');
+  assert.match(camino, /from\('lead_audit'\)\.insert\(historial\)/, 'no anota el descarte en el historial del lead');
   assert.match(archivar, /Borrador descartado al archivar «\$\{nombreDe\.get\(/);
   assert.match(archivar, /select\('id, nombre'\)/, 'sin el nombre, la línea del historial no dice de qué automatización era');
 });

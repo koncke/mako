@@ -101,7 +101,10 @@ export function tintaSobre(fondo: string): string {
   return contraste(blanca, fondo) >= contraste(oscura, fondo) ? blanca : oscura.toUpperCase();
 }
 
-/** El color de cada plantilla del Dashboard (lib/graficos-plantillas.ts), por su id. */
+/**
+ * El color de cada plantilla del Dashboard (lib/graficos-plantillas.ts), por su id. Desde el 31/10/2026 se ve sólo con el
+ * estilo «Clásica»: el de por defecto pinta la portada de negro (`acentoDePortada`, lib/graficos-temas.ts).
+ */
 export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
   marketing: 'azul-meta',
   comercial: 'dorado',
@@ -124,15 +127,9 @@ export const COLOR_DASHBOARD: Readonly<Record<string, string>> = {
  */
 export const COLOR_GENERAL: Readonly<Record<string, string>> = {
   general: 'noche',
-  bienvenida: 'durazno',
   foco: 'lima',
   operacion: 'indigo',
   ventas: 'dorado',
-  cobros: 'ambar',
-  anuncios: 'azul-meta',
-  'funnel-llamadas': 'violeta',
-  'funnel-whatsapp': 'verde-wa',
-  lanzamiento: 'rojo-play',
   servicio: 'teal',
   curso: 'celeste',
   instagram: 'magenta',

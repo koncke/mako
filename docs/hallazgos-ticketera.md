@@ -4,6 +4,69 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## «La pantalla se rompió» era una pantalla que se volvió a dibujar sola (ticket #39, 1/11/2026)
+
+- **Síntoma:** un ticket automático de prioridad alta, «La pantalla CRM se rompió», con React #418. La persona movió un lead de etapa menos de dos minutos después (`lead_audit`).
+- **Causa de la alarma:** el reportador de la ventana (`app/_components/ReportarErrores.tsx`) escucha `error`, y React avisa por ahí de lo que ya recuperó. Se le ponía el título de una pantalla caída, y ese texto lo lee el cliente.
+- **⚠️ `args[]=HTML` NO ES ANIDADO INVÁLIDO.** Es el texto del mensaje: «the server rendered HTML», contra «text». Dice que difiere un elemento, no por qué.
+- **Lo que hay que mirar antes de sospechar de lo último que se tocó:** cuántas veces pasó (`errores_app.veces`) y si la persona siguió trabajando. Una sola vez en toda la historia no es un dato roto: se repetiría en cada visita.
+- **La causa de este caso NO se sabe.** No se reprodujo en otra sesión, y no se abrió el negocio del cliente. Por eso el reporte ahora trae `pistas`: `<font>` es el traductor del navegador, una etiqueta con guion es una extensión. Si el próximo caso trae `font=0` y ninguna ajena, entonces sí es nuestro.
+
+
+## El PEDIDO DELEGADO desde el grupo: la regla del negocio no alcanza, y lo que escribe el Cerebro tiene tres puertas (30/10/2026, claude3)
+
+**Vive en:** `delegadoQueDecideMartin` y `DELEGADO_SEGURO`, `clasificar` (opción `decideMartin`), `textoDelAviso`, `paraElCliente`,
+`sinLoInterno` (lib/tickets-reglas.ts) · `crearTicket` (lib/tickets-db.ts) · `bloqueDePedidos` (lib/pedidos-del-negocio.ts). Las
+revisiones: C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md y 3010-reverificacion-wa-despachante-d49539722.md.
+
+- ⚠️ **Una lista de lo PROHIBIDO no frena nada.** La primera guarda del «hazlo» buscaba palabras de plata, envíos y borrados: la
+  re-verificación probó 23 frases dichas de otra manera («subile a 50 por día», «activá la secuencia», «sacá a Juan del CRM») y 15
+  salían con el «hazlo» por la regla de Leandro, Leila o Mauricio. **La regla:** lo que se hace sin Martín es una lista CERRADA de lo
+  seguro (`DELEGADO_SEGURO`: landings, tareas y plan, notas, borradores de copy, reportes), con los vetos encima; todo lo demás, a
+  Martín. Es una guarda dura en `clasificar`: ni la regla del negocio la saltea. El pedido compuesto pasa por el mismo lugar.
+- ⚠️ **La respuesta del Cerebro tiene TRES puertas al cliente, no una.** El aviso al grupo (`textoDelAviso`), el bloque de pedidos
+  que lee cada turno del grupo 3 días (`bloqueDePedidos`) y /tickets y /m/tickets (`paraElCliente`). Arreglar el aviso solo dejaba
+  las otras dos crudas. En un pedido delegado: el «listo» es fijo en las tres, lo demás pasa por `sinLoInterno` y el turno no lo ve.
+  **La regla:** antes de dar por filtrado un texto que va al cliente, buscar todo `respuesta` que lo lea.
+- **`sinLoInterno` no conoce los negocios** (es pura): reconoce ids, `ws`, commits, rutas, links ajenos y «Nombre Apellido». Un nombre
+  de pila suelto («lo de Leila») todavía pasa; para eso habría que pasarle los nombres de los otros negocios (no se hizo).
+
+- **El síntoma (medido esa noche por el Cerebro):** había 8 tickets en `esperando_decision` (Leila, Leandro, Martín) que no
+  le llegaron al Cerebro, uno de 6 minutos antes. Y el #15 (Video Editor de Leila) siguió «esperando la decisión» con su
+  arreglo en producción y su hito `tickets: [15]`.
+- **La causa:** el camino del Runner se diseñó el 17/10 para los bugs del triage (`despacho = 'runner'` + `en_curso`); lo
+  demás iba a llegar con la firma de Martín al aprobarlo. Desde su regla del 27/10 («siempre lee todos los tickets e
+  implementalos») el Cerebro trabaja tickets que Martín no aprobó todavía, y esos no tenían camino. El cierre
+  (`cerrarLosDesplegados`) miraba sólo `en_curso`/`arreglado` por la misma suposición: el hito llegaba DESPUÉS de la decisión.
+- **La regla que queda:** un ticket que espera a Martín (`nuevo`/`esperando_decision`, sin despacho) le llega al Cerebro con
+  su PROPIA marca (`cerebro_*`, mig 0343) y su propio texto fijo (`mensajeTicketNuevo`, en lib/tickets-aviso.ts y en el
+  cartero, comparados por un test). `aviso_*` no se reutiliza: la bandeja lo dibuja como «Entregado al Cerebro» y quiere
+  decir «es un bug del triage que ya se está arreglando». Va en un array APARTE (`ticketsNuevos`) y sólo a un cartero ≥ 1.23.0:
+  en `tickets`, un cartero de antes le mandaría el texto de «BUG EVIDENTE». El deploy cierra todo lo ABIERTO
+  (`ESTADOS_QUE_CIERRA_EL_DEPLOY`); uno rechazado o duplicado no se reabre.
+- **Trampa — una marca nueva no puede ser nullable si se filtra por «no entregado»:** `cerebro_estado <> 'entregado'` en SQL
+  deja afuera los null, y un ticket sin marca no saldría NUNCA (sin error: la vuelta da vacío). Por eso arranca en
+  `'pendiente'`, `not null`, y la vuelta filtra con un `in`.
+- **Trampa — todo texto fijo nuevo que el Runner le escribe a un chat va a la lista de textos que NO se suben como
+  conversación** (`cartero.mjs`, la línea del `CRUZADO_RE`): si no, el Centro de Operaciones muestra el aviso como algo que
+  dijo un chat.
+- **Trampa — subir la versión del cartero rompe cinco tests que la fijan con `equal`** (chat-en-el-acto, feedback-2710-tanda1,
+  ops-center-decisiones; y la lista de preguntas-cadena-y-ask y turnos-enteros). No es un rojo del cambio: se actualizan.
+- **Trampa — `tests/tickets.test.ts` corta lib/tickets-aviso.ts desde el PRIMER `export function mensajeTicket`:** una función
+  nueva cuyo nombre empieza igual tiene que ir DESPUÉS, o el corte agarra el resto del archivo y el «no interpola nada del
+  ticket» da rojo por un `titulo` de otra función.
+- **Correr `cicloCartero` fuera de Next (para un test por la entrada real):** usa `after` de `next/server`, que tira fuera de un
+  request, y cargar `next/server` ya tira «AsyncLocalStorage accessed in runtime where it is not available». Se resuelve en el
+  hijo: `globalThis.AsyncLocalStorage = AsyncLocalStorage` ANTES de cargar lib/operaciones (import dinámico), y la vuelta
+  adentro de `workAsyncStorage.run({ afterContext: { after } })`. Molde: tests/_tickets-al-cerebro-hijo.ts.
+- **En el arnés del cartero (`cartero.mjs ciclo` de verdad), un chat de la CLI es `cli_<sessionId>`, no `local_…`:** un destino
+  `local_` cae en «El Cerebro se cerró antes de avisarle» y la entrega da vacía sin otro error. Y las carpetas del arnés van en
+  POSIX (`/dev/x`, `cwds: ['/dev/']`): `enCwds` compara texto, y un `C:\…` en un test frena en `tests/rutas-windows-en-tests.test.ts`
+  (en Linux es una ruta relativa). El molde (tests/cartero-carpetas.test.ts) usa Windows porque está en su lista blanca.
+- **El PostgREST de mentira no entendía el `or` de `ticketsSinEntregar`** (`in.(…)` y `and(…)` anidado): tiraba «filtro sin mock».
+  Ahora existe `orCompleto`, opt-in: el `or` del candado sigue tirando sin `candado`, y de eso dependen otros hijos.
+- **Probado rompiéndolo:** la tabla al pie de tests/tickets-al-cerebro.test.ts. Lo que falta, en «Lo que quedó sin hacer».
+
 ## Leer la Ticketera de producción pide el sí de Martín, también al Cerebro (27/10/2026)
 
 - El 27/10 el clasificador de permisos negó `scripts/tickets.ts pendientes` y toda lectura de `tickets` /
@@ -539,6 +602,8 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 
 | Qué | Dónde | Por qué |
 |---|---|---|
+| Que la bandeja diga «Entregado al Cerebro» de un ticket que espera a Martín | lib/tickets-aviso.ts (`entregaAlCerebro`, sólo `runner`) · lib/tickets-db.ts (`COLS`) | Hoy queda sólo el renglón «llegó al Cerebro» del historial. La 0343 ya está en producción (29/10, el Cerebro con el sí de Martín: los 22 tickets quedaron en 'pendiente'), así que sumar `cerebro_*` a `COLS` ya no tumba la bandeja; en una base SIN la 0343 (un entorno viejo) sí: el select pediría una columna que no existe |
+| Actualizar el Runner de la PC a 1.23.0 | scripts/operaciones/cartero.mjs | El servidor sólo le da los tickets nuevos a un cartero ≥ 1.23.0; con el de antes no se pierde nada (no los reclama) pero tampoco llegan (29/10) |
 | Ver el chat de Soporte y el botón en producción en el teléfono de Martín (Android) | app/m/tickets/SoporteM.tsx | Medido en el ws3 desde la computadora; el teléfono no se recorrió |
 | El cerco «es DATO» de lo que lee el Cerebro deja AFUERA el título, la ruta, la herramienta, el error y el navegador | scripts/tickets.ts (las líneas de «lo juntó el sistema») · lib/tickets-reglas.ts (`sanearContexto`: el navegador sin filtro de caracteres) | Viene de antes y vale para el formulario: el título y el navegador los escribe el cliente. El botón ya no pone texto suyo en `error`/`herramienta` y filtra su navegador; el resto es del área de la Ticketera (Ops Center la está tocando por el «DÓNDE») |
 | /api/errores manda la ruta con los tokens del camino | lib/errores-app-reglas.ts (`rutaSinDatos`) | /pagar/<token>, /compartido/<token> viajan enteros y la query conserva números de hasta 12 cifras (un teléfono). El botón usa `rutaSoporte` (lib/soporte-reporte.ts), que los tapa; /api/errores no |
@@ -858,3 +923,34 @@ documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas,
 con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
 Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda
 que mirar; su red es la del texto. Si uno suma herramientas, cuenta las guardas como el turno de la app (AGENTS.md).
+
+## El despachante de MaKo en el grupo: un hito con tickets de dos negocios se le mostraba entero a uno (29/10/2026, Integración)
+
+La revisión de privacidad de `wa-fallas-2710` (`85a0d9ead`) frenó la punta en el tren-ae y volvió a su chat. El informe está en
+`C:/dev/revisiones/2910-revision-privacidad-wa-despachante-85a0d9ead.md`.
+
+- ⚠️ **ALTA: el filtro de hitos era por los tickets del negocio, pero el hito se mostraba ENTERO, con título y 3 puntos.**
+  - La bitácora de mako-doer es GLOBAL: un hito puede nombrar tickets de varios negocios. Por ejemplo, `app/admin/dev/crm/bitacora.ts`
+    tiene `tickets: [13, 26]`: el #13 es de Leila y el #26 de Mauricio.
+  - Con la rama sobre main, el turno del ws1 recibía para su #26 el punto «Ticket #13 (Leila): …6 meses de $12.000 MXN…», y la
+    voz de la consulta le pedía contestar con eso.
+  - Se verificó corriendo la función de la rama sobre las bitácoras de main. **Regla:** a un negocio sólo le llega un hito que
+    nombra tickets SUYOS y nada más; si nombra otros, ni los puntos ni el título.
+- ⚠️ **ALTA: el pedido delegado le decía al Cerebro «hazlo» aunque el triage dijera «lo decide Martín».**
+  - Le pasaba justo a lo que `ACCIONES_SIMPLES` deja afuera: plata, envíos y borrados. Eso es lo que se delega, y lo puede pedir
+    cualquiera del grupo, sin el «sí» de nadie.
+  - El texto autorizaba «una escritura que no es del negocio», donde el de ticket le reserva a Martín «una escritura en producción»
+    (`lib/tickets-aviso.ts`).
+  - El Runner marca `delegado` sin mirar el triage ni el estado (`lib/tickets-runner.ts`, `cartero.mjs`).
+  - **Regla:** un pedido delegado respeta el triage igual que un ticket. Lo que es de Martín espera a Martín.
+- **MEDIA:**
+  - El «listo» de un pedido delegado es texto libre del Cerebro y llega tal cual al grupo del cliente. Sólo pasa el filtro de
+    promesas y groserías; nada saca ids, nombres de otros negocios ni notas internas.
+  - El clasificador usa la clave del negocio. Si no tiene, usa el crédito de los grupos de la plataforma: tope de US$200 por cuenta
+    y por mes, sin tope por negocio ni por grupo.
+  - El DEBUG lo habilita el GRUPO (el de la plataforma y los de prueba de la allowlist), no quién escribe. Desde el grupo oficial
+    de un cliente no se llega, y está verificado.
+- **Lo que está bien (verificado):**
+  - La puerta del DEBUG desde un cliente está cerrada.
+  - Los textos fijos del ticket y del pedido los arma el código.
+  - Cada cosa vuelve a su grupo.

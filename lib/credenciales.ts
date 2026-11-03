@@ -27,6 +27,7 @@ import { OWNER_WS } from './auth-session';
 import { ENVS_METODO, servicioDeEnv, servicioMetodo } from './metodo-catalogo';
 import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs, soltarIdentificador, normalizar } from './webhook-routing';
 import { CUENTA_PRINCIPAL, baseDeClave, cuentaDeClave } from './cuentas-integracion';
+import { PASARELAS, type Pasarela } from './cobros-tipos';
 import { identificadorDeRuteo } from './ruteo-hash';
 import { esClaveDeCuenta, esClaveDeIA } from './ia-keys';
 import { metaConectadaConCampos } from './zernio-meta-cuerpo';
@@ -299,7 +300,9 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
     const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, esValorReal(await credWs(e, w))] as const)));
     return metaConectadaConCampos((e) => tiene.get(e) === true);
   }
-  if (principal || (servicioKey !== 'stripe' && servicioKey !== 'mercadopago')) return principal;
+  // Igual que arriba: por la constante. Con los dos nombres a mano, una pasarela nueva que viviera sólo en una cuenta
+  // con sufijo (`__C2`, la principal desconectada) se reportaba DESCONECTADA aunque estuviera cobrando.
+  if (principal || !PASARELAS.includes(servicioKey as Pasarela)) return principal;
   // Una pasarela con sólo una cuenta de más (la principal desconectada) también cobra (22/10/2026): sus claves con sufijo.
   const nombres = await clavesGuardadasConBase(w, objetivo.map((c) => c.env)).catch(() => [] as string[]);
   const porCuenta = new Map<string, Set<string>>();
@@ -404,14 +407,16 @@ export async function esDeLaPlataforma(clave: string, valor: string | null | und
  * salió de /integraciones. La guarda queda igual: no cuesta nada, y el ws11 y el
  * ws13 todavía tienen su propia key cargada.
  */
-const BYOK_NUNCA_PLATAFORMA: ReadonlySet<string> = new Set(['ZERNIO_API_KEY']);
+// Y las claves EXTRA de Zernio (29/10/2026): pegar la de la plataforma como la 2 es lo mismo que pegarla como la 1.
+const BYOK_NUNCA_PLATAFORMA: ReadonlySet<string> = new Set(['ZERNIO_API_KEY', 'ZERNIO_API_KEY_2', 'ZERNIO_API_KEY_3', 'ZERNIO_API_KEY_4', 'ZERNIO_API_KEY_5']);
 
 /** Guarda cifrado en el workspace. Solo el dueño refleja el cambio a process.env. */
 export async function guardarCredencial(ws: number, clave: string, valor: string, servicio: string, updatedBy: string | null): Promise<void> {
   // Guard en POSITIVO contra la key de plataforma pegada como propia. Aplica a
   // todo workspace que no sea el dueño (para el dueño ese valor ES su cuenta).
   if (ws !== OWNER_WS && BYOK_NUNCA_PLATAFORMA.has(clave)) {
-    const plataforma = await envCred(clave);
+    // Una clave EXTRA de Zernio se compara con la de la plataforma (la de la casa es UNA: `ZERNIO_API_KEY`).
+    const plataforma = await envCred(/^ZERNIO_API_KEY_\d$/.test(clave) ? 'ZERNIO_API_KEY' : clave);
     if (plataforma && valor === plataforma) throw new KeyDePlataformaError(clave);
   }
   // ⚠️ EL REMITENTE DE MaKo NO ES DE NADIE (undécima tanda): ni el ws1, ni un cliente, ni la plataforma lo guardan
@@ -451,7 +456,11 @@ export async function eliminarCredencial(ws: number, clave: string): Promise<voi
   // ⚠️ UNA PASARELA PUEDE TENER VARIAS CUENTAS (22/10/2026): al borrar el id de UNA, se suelta SU fila de ruteo y no todas
   // las del servicio (`borrarRoutingDeWs`), que cortaba los avisos de las otras cuentas del negocio. Se lee antes de borrar.
   const servicioDeRuteo = ROUTING_CREDS[baseDeClave(clave)];
-  const porCuenta = servicioDeRuteo === 'stripe' || servicioDeRuteo === 'mercadopago';
+  // ⚠️ POR LA CONSTANTE, NO POR DOS NOMBRES A MANO (31/10/2026). `servicioDeRuteo` es `string`, así que con la tercera
+  // pasarela esto daba `false` sin un solo error de tipos, y borrar UNA clave de Creem caía en `borrarRoutingDeWs` y
+  // se llevaba el ruteo de TODAS las cuentas de Creem del negocio: sus avisos se contestaban con 200 y se perdían.
+  // Es palabra por palabra el bug que el comentario de arriba dice haber arreglado el 22/10 para Mercado Pago.
+  const porCuenta = PASARELAS.includes(servicioDeRuteo as Pasarela);
   const idAntes = porCuenta ? await credDeBase(ws, clave).catch(() => null) : null;
   const { error } = await getSupabaseServer().from('credenciales').delete().eq('workspace_id', ws).eq('clave', clave);
   if (error) throw new Error(`credenciales: ${error.message}`);
@@ -673,9 +682,10 @@ export async function hidratarCredenciales(): Promise<void> {
  * lo copiaría al workspace de prueba. Un CLIENTE sigue pegando el suyo desde /integraciones.
  */
 const NO_MIGRAR_A_WS: ReadonlySet<string> = new Set([
-  'ZERNIO_API_KEY', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY',
+  'ZERNIO_API_KEY', 'ZERNIO_API_KEY_2', 'ZERNIO_API_KEY_3', 'ZERNIO_API_KEY_4', 'ZERNIO_API_KEY_5', 'ZERNIO_WEBHOOK_SECRET', 'ELEVENLABS_API_KEY',
   'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
+  'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
   'RESEND_FROM',
 ]);
 
@@ -748,7 +758,7 @@ const INFRA_ENV = new Set([
 ]);
 
 /**
- * Las seis claves de las pasarelas de pago (Stripe y Mercado Pago). NUNCA viven en `process.env`: se leen con
+ * Las nueve claves de las pasarelas de pago (Stripe, Mercado Pago y Creem). NUNCA viven en `process.env`: se leen con
  * `credDelCliente(clave, ws)` y nada más (AGENTS.md, «Un cobro pasa por lib/cobros.ts…»). Copiadas al entorno por
  * la hidratación del ws1, cualquier lectura con `credWs` o `credWsEstricta` de OTRO camino caía en la clave de
  * cobro de Mauricio (revisión del 11/10/2026).
@@ -756,9 +766,13 @@ const INFRA_ENV = new Set([
 const CLAVES_DE_PASARELA: ReadonlySet<string> = new Set([
   'STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET',
   'MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID', 'MERCADOPAGO_WEBHOOK_SECRET',
+  // Las tres de Creem (31/10/2026). ⚠️ `CREEM_API_KEY` existe en el `.env.local` del clon porque así se probó la clave
+  // a mano, y justamente por eso tiene que estar en esta lista: si la hidratación del ws1 la copiara al entorno,
+  // cualquier lectura con `credWs` de otro camino cobraría con la cuenta de Creem de Mauricio.
+  'CREEM_API_KEY', 'CREEM_WEBHOOK_ID', 'CREEM_WEBHOOK_SECRET',
 ]);
 // Por el nombre base: `STRIPE_SECRET_KEY__C2` y el nombre de la cuenta (`STRIPE_ALIAS`, `…__C2`) también son de la pasarela.
-export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(baseDeClave(clave)) || /^(STRIPE|MERCADOPAGO)_ALIAS$/.test(baseDeClave(clave));
+export const esClaveDePasarela = (clave: string): boolean => CLAVES_DE_PASARELA.has(baseDeClave(clave)) || /^(STRIPE|MERCADOPAGO|CREEM)_ALIAS$/.test(baseDeClave(clave));
 
 /**
  * Refleja al process.env global el valor que manda (el de la base). Solo dueño.

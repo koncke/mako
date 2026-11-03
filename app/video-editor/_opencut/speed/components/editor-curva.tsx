@@ -190,8 +190,8 @@ export function EditorCurva({
 						r={RADIO}
 						className={
 							i === elegido
-								? "cursor-grab fill-primary stroke-white"
-								: "cursor-grab fill-white stroke-(--cc-sunken)"
+								? "cursor-grab fill-primary stroke-(--surface)"
+								: "cursor-grab fill-(--surface) stroke-(--ink)"
 						}
 						strokeWidth={1.5}
 						onPointerDown={empezar(i)}

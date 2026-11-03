@@ -66,7 +66,13 @@ export type Intencion =
   | 'consultar'  // pedir un dato que MaKo tiene.
   | 'actuar'     // escribir sobre la cuenta (mover un lead, pausar una campaña).
   | 'pensar'     // análisis, opinión, copy. Lo único que se contesta largo.
-  | 'charlar';   // saludo, gracias, emoji.
+  | 'charlar'    // saludo, gracias, emoji.
+  // Las del grupo de WhatsApp (29/10/2026, Martín: «Que sepa cuándo es un ticket, cuándo es una pregunta, o una acción dentro de
+  // MaKo»). Las decide el clasificador con IA (lib/mako-intencion-ia.ts), nunca una regla sola: con reglas, TICKET dio 0 de 11 en el
+  // banco de casos reales.
+  | 'ticket'     // pide arreglar o cambiar algo de MaKo, o reporta que algo no anda: el ticket lo abre el CÓDIGO, sin turno.
+  | 'debug'      // SÓLO en el grupo de SuperAdmin y del dueño: mirar con datos qué le pasa a un negocio cliente.
+  | 'no_reply';  // no es para MaKo (le habla a otra persona): silencio, sin reacción.
 
 export type VeredictoIntencion = {
   intencion: Intencion;
@@ -82,6 +88,11 @@ export type VeredictoIntencion = {
   /** De qué área habla, cuando la regla que la clasificó lo sabe (un pedido de agenda es
    *  CRM aunque diga «movela al viernes»). Se suma a `areasDelMensaje`. */
   areas?: Area[];
+  /** Además hay que ABRIR UN TICKET, con este resumen (lib/mako-intencion-ia.ts): el TICKET puro (`intencion: 'ticket'`), o el que
+   *  viene con una pregunta («¿cuántos leads entraron? y el botón de pagar no anda»): primero se contesta, después se abre. */
+  ticket?: { resumen: string };
+  /** Lo decidió el clasificador con IA (`ia`) o sólo las reglas (`reglas`, sin IA o porque falló). Va al registro de la decisión. */
+  fuente?: 'ia' | 'reglas';
   /** Palabras que se suman a la relevancia del presupuesto de herramientas. «movela al
    *  viernes» no comparte ninguna raíz con el título de la herramienta de mover, y sin esto
    *  quedaba afuera de los 12.000 caracteres frente al resto del CRM (08/10/2026). */
@@ -97,6 +108,9 @@ export type VeredictoIntencion = {
   /** Es un SEGUIMIENTO del pedido del hilo («pausala» después de «¿cómo va la campaña?»): las herramientas se eligen también
    *  por ese pedido (`hilo`, lib/doer-herramientas.ts). Lo marca lib/doer-hilo.ts (`conElHilo`), 26/10/2026. */
   sigueElHilo?: boolean;
+  /** Es el DEFAULT del clasificador: ninguna regla reconoció el mensaje (sólo fuera de la app). En el grupo no se captura:
+   *  lo decide `enElGrupoSinSenal` (lib/doer-hilo.ts), después de seguir el hilo (el diagnóstico del 28/10/2026, G1). */
+  sinSenal?: true;
   /** Un seguimiento que el hilo levantó desde «sin señal clara» (lib/doer-hilo.ts, rama 1): NO puede confirmar ni cancelar lo
    *  que ya está pendiente. «esperá, primero movamos esos leads» después de «¿Confirmás?» no es un «sí» (la revisión del
    *  26/10/2026). El «sí» o el «no» de verdad entran por la regla 1, como 'confirmar'. */
@@ -717,6 +731,9 @@ const esLista = (s: string): boolean => (s.match(/(^|\n)\s*(\d+[.)]|[-*•])\s+\
 
 /** ¿Trae links? Un mensaje que es material + links es material para guardar. */
 const cuentaLinks = (s: string): number => (s.match(/https?:\/\/\S+/g) ?? []).length;
+/** Cuántas preguntas trae: los «?» fuera de un link y de lo citado entre «…» o “…” (`?abrir=` no pregunta nada). */
+const cuantasPreguntas = (s: string): number =>
+  (s.replace(/https?:\/\/\S+/g, ' ').replace(/«[^»]*»/g, ' ').replace(/“[^”]*”/g, ' ').match(/\?+/g) ?? []).length;
 
 // ⚠️ EL CORTE ES `(?![a-záéíóúñ])`, NO `\b`. En JavaScript `\b` se calcula con
 // `\w`, que NO incluye las vocales acentuadas: después de una «í» no hay
@@ -734,8 +751,11 @@ const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|clar
  * necesitan que tome «no, movela al viernes» (docs/hallazgos-comunicacion.md)— y no se toca: las reglas 1 y 9-bis la miran
  * con esto al lado. Medido: limitar la 9-bis a una confirmación «pelada» mandaba a capturar «no, mejor el martes» y «No,
  * gracias, eso es todo»; esto sólo saca las quejas.
+ * Y el RECLAMO de que MaKo no contestó (29/10/2026, Leandro, ws10): «No me respondiste lo de este audio» era `charlar` sin
+ * herramientas («confirmación sin nada pendiente») y MaKo le contestó que no podía escuchar audios. Va al default del grupo,
+ * que sigue el hilo.
  */
-const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo|funciona|anda|sale|aparece|carga|abre|guarda|toma)\b/i;
+const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo|funciona|anda|sale|aparece|carga|abre|guarda|toma)\b|(?:respondiste|contestaste|respondi[oó]|contest[oó]|llega|lleg[oó])(?![a-záéíóúñ]))/i;
 /**
  * La queja con OBJETO de la app, la única que no contesta una propuesta pendiente (la revisión del 28/10/2026): «no puedo a esa
  * hora», «no puedo» o «No consigo turno» con una reunión propuesta SON un «no» (la regla 1 los toma y viaja cancelar_accion;
@@ -1289,6 +1309,15 @@ export function clasificarIntencion(
   const pedido = IMPERATIVO.test(t);
   const links = cuentaLinks(t);
 
+  // 3-quinquies) UN VOLCADO QUE PREGUNTA NO ES UN VOLCADO (29/10/2026, Leandro, ws10). «sumo tres cosas al mensaje de recién:
+  //   1. … 2. … 3. …» con seis preguntas adentro («¿Se puede, y en qué campo queda?», «¿Lo hace la tarjeta «Acción»?», «¿Hay
+  //   algo pensado?»): la lista lo hacía dictado (regla 4), capturar, y MaKo le contestó «Listo, te armé el borrador» con un
+  //   link a /plan/revisar. Una pregunta nunca es una carga de tareas: con dos o más, es una consulta. Con una sola, el dictado
+  //   sigue («Ideas: webinar, reels, ¿y un podcast?» es un volcado). Lo explícito («anotá esto: …», regla 2) ya ganó arriba.
+  if (dictado && cuantasPreguntas(t) >= 2) {
+    return { intencion: 'consultar', dudosa: false, porque: 'trae preguntas: una pregunta no es una carga de tareas', ...deLaApp };
+  }
+
   // 4) Dictado SIN imperativo → captura. Es el caso del bug, y es el 90% de lo
   //    que el dueño manda al grupo: un volcado de ideas para revisar después.
   if (dictado && !pedido) {
@@ -1404,7 +1433,8 @@ export function clasificarIntencion(
     if (ACUSE_DE_LA_APP.test(acuse)) return { intencion: 'charlar', dudosa: false, porque: 'canal app: acuse o saludo' };
     return { intencion: 'actuar', dudosa: false, adivina: true, ...deLaApp, porque: 'canal app: sin señal clara; propone con tarjeta' };
   }
-  return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo' };
+  // EN EL GRUPO, el default se decide DESPUÉS de seguir el hilo (lib/doer-hilo.ts, `enElGrupoSinSenal`): `sinSenal` lo marca.
+  return { intencion: 'capturar', dudosa: true, alternativa: 'pensar', porque: 'sin señal clara: se guarda para no perderlo', sinSenal: true };
 }
 
 // ── El contrato de cada intención ────────────────────────────────────────────
@@ -1433,6 +1463,11 @@ export const CONTRATO: Record<Intencion, ContratoIntencion> = {
   actuar:    { tools: null, forzarTool: false, exigeBorrador: false },
   pensar:    { tools: null, forzarTool: false, exigeBorrador: false },
   charlar:   { tools: [], forzarTool: false, exigeBorrador: false },
+  // El ticket lo abre el código (lib/mako-doer-in.ts), sin turno del modelo: ninguna herramienta.
+  ticket:    { tools: [], forzarTool: false, exigeBorrador: false },
+  // Sólo lecturas: las de su área y la que mira OTRO negocio (`diagnosticar_negocio`); las suma lib/doer-herramientas.ts.
+  debug:     { tools: null, forzarTool: false, exigeBorrador: false },
+  no_reply:  { tools: [], forzarTool: false, exigeBorrador: false },
 };
 
 /**
@@ -1537,6 +1572,15 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // Desde el 15/10/2026 el cartero se llama Runner en pantalla (lib/runner.ts): «¿está andando el runner?».
   // MANDAR un pedido no está en el registro (exige la firma del dispositivo): no hay palabra que lo traiga.
   operaciones: /\b(centro de operaciones|carteros?\b|runners?\b|cola de (?:pedidos|trabajos)|(?:pedidos?|trabajos?) (?:a|al|para|de|del) (?:los |mis |un |el |la )?(?:chats?|centro)\b|chats? de claude)/i,
+  // Competitors Spy (31/10/2026). ⚠️ ES ANGOSTA A PROPÓSITO, y no por prolijidad: el registro entra
+  // al turno hasta un presupuesto de 12.000 caracteres y las lecturas del área ANCLADA se suman
+  // arriba de eso. Los turnos más pesados del repo son los de anuncios y campañas
+  // («agrega un anuncio al conjunto», medido a 164 caracteres del tope en
+  // tests/ops-center-clasificador-app.test.ts): una palabra como «anuncio» o «campaña» acá metería
+  // las seis operaciones del spy en esos turnos y rompería ese test. Por eso sólo entran las
+  // palabras que NO significan otra cosa en MaKo — «competidor», «competencia», «espiar», «vigilar
+  // a» — y ni una del vocabulario de pauta.
+  spy: /\b(competidor(es)?|competencia\b|competitor|espi(?:a|ar|ame|alo)\b|vigil(?:a|ar|ame|alo) a\b|qu[eé] (?:est[aá]n? haciendo|public[oó]) (?:mi |la |el |los )?(?:competencia|competidor))/i,
 };
 
 /** Las áreas que nombra un mensaje, en el orden de la tabla. Vacío = ninguna. */

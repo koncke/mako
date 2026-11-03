@@ -247,17 +247,19 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_automatizacion_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización con IA',
-    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan (canal, producto, evento, horario o quien), con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.',
+    // Ticket #47 (3/11/2026): «el WhatsApp del diagnóstico tiene que disparar una secuencia» y MaKo dijo que sólo podía
+    // activar o pausar una que existe. Esta la CREA, con su disparador (una etiqueta también), pero no decía «secuencia».
+    descripcion: 'PROPONE crear una automatización nueva (una secuencia de nutrición del lienzo de Automations) a partir de un pedido en palabras, con su disparador: una etapa, una etiqueta que se agrega al lead o un evento. MaKo arma el CRON, las tarjetas y el nombre; lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan, con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.',
     parametros: [
       { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué tiene que hacer, con las palabras de la persona.' },
       // DUODÉCIMA TANDA (§2.4): las respuestas a las preguntas de MaKo (`preguntaAntes`). El código las resuelve contra
       // las MISMAS opciones de la pregunta (`respuestaDeTexto`): el número, el nombre o «Elige tú»; otra cosa va al pedido.
-      { nombre: 'canal', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Por dónde le escribo?» (el número o el nombre de la opción, o «Elige tú»).' },
-      { nombre: 'producto', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿De qué producto?» (el número o el nombre de la opción, o «Elige tú»).' },
-      { nombre: 'evento', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Qué hace la persona?» (el número o el nombre de la opción, o «Elige tú»).' },
+      { nombre: 'canal', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Por dónde le escribo?» (su número o nombre, o «Elige tú»).' },
+      { nombre: 'producto', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿De qué producto?» (su número o nombre, o «Elige tú»).' },
+      { nombre: 'evento', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Qué hace la persona?» (su número o nombre, o «Elige tú»).' },
       // EL RECURRENTE (20/10/2026, lib/flujo-ia-recurrente.ts): el horario que faltaba y a quién le llega.
       { nombre: 'horario', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿Cuándo sale?» (el número de la opción, o la hora o el día en palabras, o «Elige tú»).' },
-      { nombre: 'quien', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»).' },
+      { nombre: 'quien', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿A quién le llega?» (su número o nombre, o «Elige tú»).' },
     ],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre); si es un Recurrente, con «Cada vez que vuelve a entrar»',
     canales: TODOS, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
@@ -268,7 +270,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'crear_automatizacion_desde_plantilla', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización desde una plantilla',
-    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations (lo mismo que elegirla en «＋ Nueva»): trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir. Pide antes el id con listar_plantillas_automatizaciones.',
+    descripcion: 'PROPONE crear una automatización desde una plantilla de la galería de Automations: trae todas las tarjetas de su categoría y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. Si la plantilla arranca en una etapa (o una etiqueta), pasa su nombre en etapa; si hay dos con ese nombre en distintos productos, pasa también el producto. Sin etapa, nace con el CRON a elegir. Pide antes el id con listar_plantillas_automatizaciones.',
     parametros: [
       { nombre: 'plantilla', tipo: 'string', obligatorio: true, enum: IDS_PLANTILLAS, descripcion: 'el id de la plantilla (de listar_plantillas_automatizaciones).' },
       { nombre: 'etapa', tipo: 'string', max: 120, descripcion: 'opcional: el nombre de la etapa del embudo (o de la etiqueta) donde arranca, como se ve en el CRM.' },
@@ -283,7 +285,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'duplicar_automatizacion', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Duplicar una automatización',
-    descripcion: 'PROPONE hacer una copia de una automatización vigente (queda pendiente hasta el «sí»), lo mismo que «Duplicar» de los tres puntos de la lista de Automations: la copia se llama «Copia de …», tiene los mismos pasos y el mismo disparador y horario, y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. No copia a los leads inscriptos ni sus envíos. Una automatización que archivaste no se duplica. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'PROPONE hacer una copia de una automatización vigente, como «Duplicar» en Automations: la copia se llama «Copia de …», tiene los mismos pasos y el mismo disparador y horario, y nace PAUSADA, sin escribirle a nadie hasta que alguien la active. No copia a los leads inscriptos ni sus envíos. Una automatización que archivaste no se duplica. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con los mismos pasos, disparador y horario que la original (se deshace archivándola)',
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
@@ -342,8 +344,11 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'con horario propio: la hora en que abre (9.5 = 9:30).' },
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'con horario propio: la hora en que cierra (21 = hasta las 20:59).' },
       { nombre: 'dias', tipo: 'string', max: 40, descripcion: 'con horario propio: los días separados por coma, 0 = domingo ("1,2,3,4,5"). Sin esto, todos.' },
-      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos mensajes de esta automatización por un mismo canal (uno cada N minutos).' },
-      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope por día, cuántos mensajes de esta automatización como mucho en 24 h por cada canal (adentro del tope de la línea).' },
+      { nombre: 'goteoMinutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'opcional: el goteo, minutos entre dos mensajes por un mismo canal.' },
+      { nombre: 'goteoArranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: WhatsApp arranca con estos por día (con tope).' },
+      { nombre: 'goteoArranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: y sube esto cada día que llega al suyo.' },
+      { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
+      { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope de mensajes en 24 h por canal (adentro del tope de la línea).' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
     ],
     reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo de esa automatización, uno solo para todos sus canales)',
@@ -446,6 +451,10 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'asunto', tipo: 'string', descripcion: 'el asunto del email (obligatorio si va por email).' },
       { nombre: 'minutos', tipo: 'number', entero: true, minimo: 1, maximo: 240, descripcion: 'minutos entre un mensaje y el siguiente, en cada canal. Sin esto, 3.' },
       { nombre: 'porDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'tope de mensajes por día en cada canal (hasta 500). Sin esto, 40 (el de una línea de WhatsApp).' },
+      { nombre: 'variantes', tipo: 'string[]', max: 8, descripcion: 'otras formas de decirlo por WhatsApp: a cada uno le toca una.' },
+      { nombre: 'arranqueDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'WhatsApp arranca con estos por día. Sin esto, 20.' },
+      { nombre: 'arranqueSube', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'y sube esto, hasta porDia. Sin esto, 20.' },
+      { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'true: con el tope desde el primer día.' },
     ],
     reversible: false, escribe: 'crea una automatización en nutricion_secuencias (A mano, prendida, con su goteo en app_settings) e inscribe a los leads elegidos en nutricion_inscripciones: les llega el mensaje por los canales que tienen',
     // ⚠️ SÓLO EN LA APP (la verificación del Cerebro sobre 69b49a31c, 29/10/2026): por el grupo de WhatsApp el doer arma el rol
@@ -621,7 +630,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'cambiar_crons_secuencia', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
     titulo: 'Cambiar los CRON de una automatización',
-    descripcion: 'PROPONE reemplazar la lista de CRON de una automatización (lo que la hace arrancar: una etapa de un producto, una etiqueta, un evento de Instagram, Messenger o el email que llega, o un Recurrente con su horario) y devuelve un link para revisarla. La lista que pases REEMPLAZA a la actual y arranca por CUALQUIERA de sus CRON; el primero es el principal. Cambia a quién le escribe: en una automatización activa, la próxima corrida inscribe con los CRON nuevos. Lee antes ficha_secuencia_mensajes (su campo disparadores tiene la forma de cada CRON: pasa el mismo id para conservar la próxima ocurrencia de un horario que no cambia). Un evento de Instagram o Messenger necesita su subtipo; «grupo_mako» sólo vale con horario. Hasta 10 CRON.',
+    descripcion: 'PROPONE reemplazar la lista de CRON de una automatización (lo que la hace arrancar: una etapa de un producto, una etiqueta, un evento de Instagram, Messenger o el email que llega, o un Recurrente con su horario). La lista que pases REEMPLAZA a la actual y arranca por CUALQUIERA de sus CRON; el primero es el principal. Cambia a quién le escribe: en una automatización activa, la próxima corrida inscribe con los CRON nuevos. Lee antes ficha_secuencia_mensajes (su campo disparadores tiene la forma de cada CRON: pasa el mismo id para conservar la próxima ocurrencia de un horario que no cambia). Un evento de Instagram o Messenger necesita su subtipo; «grupo_mako» sólo vale con horario.',
     parametros: [
       pSecuenciaId,
       {
@@ -638,8 +647,12 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
           // Ticket #17 de Leandro (28/10/2026): las palabras clave del CRON de comentario, como ManyChat.
+          // ⚠️ CORTAS A PROPÓSITO (ticket #29, 29/10/2026): alargadas, las herramientas no entraban en el presupuesto del turno
+          // (tests/ops-center-bateria). Cómo se comparan, con ejemplos, está en la guía de /docs (app/api-mako/Articulos.tsx).
           { nombre: 'palabras', tipo: 'string[]', max: 20, descripcion: 'con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario.' },
           { nombre: 'coincidencia', tipo: 'string', enum: ['contiene', 'exacta'], descripcion: 'con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra).' },
+          // Ticket #25 (29/10/2026): la publicación o el Reel. Corta, como las de arriba; la guía de /docs lo explica.
+          { nombre: 'publicacion', tipo: 'string', max: 300, descripcion: 'con subtipo comentario: el link o el id de la publicación o Reel. Vacío = cualquiera.' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
             campos: [
@@ -819,5 +832,24 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     reversible: true, escribe: 'reemplaza el texto (o el asunto) de esa tarjeta en nutricion_secuencias.pasos y le quita las variantes del texto anterior (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  // «VER QUIÉNES» DE MÉTRICAS (31/10/2026): los leads detrás de un número de la tab.
+  // ⚠️ VA AL FINAL DEL ÁREA, Y SIN «automatización» NI «flujo» EN EL TÍTULO Y EN LA DESCRIPCIÓN (AGENTS.md: «Una operación
+  // nueva va AL FINAL de su área, y su id, título y descripción no repiten las palabras de todas las del área»). Nació
+  // declarada 3.ª y con esas palabras: EMPATABA en 3 puntos con `cambiar_crons_secuencia` en cualquier pedido de
+  // automatizaciones (la pista del clasificador es «crear automatizacion con ia flujo pedido», lib/mako-intencion.ts), y a
+  // igual puntaje gana la declarada antes — el CRON está declarado 48.º. El CRON pesa ~4.100 caracteres y entra de una sola
+  // vez o no entra, así que quedaba afuera por 431 caracteres y «Hacé que la automatización de reactivación salga todos los
+  // martes a las 15» dejaba de traerlo: MaKo contestaba «no puedo» de algo que sí puede.
+  // Las palabras del área van en los PARÁMETROS, que NO puntúan (lib/api-mako/registro.ts, `ordenarPorRelevancia`).
+  {
+    id: 'quienes_de_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'Quiénes están detrás de un número',
+    descripcion: 'Los leads detrás de un número de las Métricas, en los últimos 30 días: quiénes respondieron, quiénes siguen adentro o quiénes entraron. Úsala para seguir a los que contestaron.',
+    parametros: [
+      { nombre: 'secuenciaId', tipo: 'number', entero: true, minimo: 1, obligatorio: true, descripcion: 'la automatización (de listar_secuencias_nutricion).' },
+      { nombre: 'cual', tipo: 'string', obligatorio: true, enum: ['respondieron', 'en_curso', 'entraron'], descripcion: 'cuál número.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
 ];

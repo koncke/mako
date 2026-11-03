@@ -97,7 +97,7 @@ Esta es la lista canónica, con 13 piezas. Las piezas 1 a 5 definen la promesa. 
 **Qué es.** El mecanismo por el que el vendedor también arriesga algo y el cliente nunca termina peor que cuando empezó.
 - **Cómo se arma.** Se garantiza el resultado **siguiendo el método**, con condiciones que se pueden verificar (asistir, entregar tareas, reportar), por contrato, con plazo y con nombre propio (detalle en §7). Tiene que «quitarle el sueño a quien la da».
 - **Fuerte:** «Si asistes al 80% de las sesiones, aplicas los pasos y no llegas a X en 120 días, seguimos gratis hasta lograrlo o te devolvemos todo». **Débil:** sin garantía en una oferta que se percibe riesgosa, una garantía vaga, una incondicional en high ticket, una garantía sobre algo que el vendedor no controla, o el gastado «garantizado por contrato».
-- **Lo enseñan.** Contreras (*Garantía Irresistible*: 3 tipos y 10 subtipos). Razzetti (*HIDE*: «si no puedes garantizarlo, no lo prometas»). Molina (*Seguro* y *Ultimátum*). Hormozi (quitar la garantía como versión más barata). Jiguera (*Oferta Invencible*).
+- **Lo enseñan.** Contreras (*Garantía Irresistible*: 3 tipos y 10 subtipos). Razzetti (*HIDE*: «si no puedes garantizarlo, no lo prometas»). Molina (*Seguro* y *Ultimátum*). Hormozi (quitar la garantía como versión más barata). Higuera (*Oferta Invencible*).
 
 ### 2.11 Bonos
 **Qué es.** Extras, aparte de los entregables, que suben el valor percibido y atacan una objeción concreta.
@@ -493,7 +493,7 @@ Son los 10 que más se repiten entre los autores.
 | 5 | Varias ofertas a la vez | De 3 a 5 productos para el mismo nicho; retos de 40 USD que le quitan ventas a la oferta principal | Contreras, Razzetti, Molina, Otálora, Hormozi |
 | 6 | Llenar la bolsa | Agregar entregables para «justificar» el precio | Molina («se mejora quitando, no agregando»), Razzetti («píldora»), Carrizo («lista de supermercado»), Contreras («menos es más») |
 | 7 | No tener mecanismo, o copiarlo | Suena igual que todos; es copia del gurú; compite por precio | Molina, Razzetti, Carrizo, Caicedo |
-| 8 | Bajar el precio de lo mismo | Descuento para cerrar; descuento para que vuelvan a comprar | Hormozi, Contreras, Jiguera, Rodríguez, Carrizo |
+| 8 | Bajar el precio de lo mismo | Descuento para cerrar; descuento para que vuelvan a comprar | Hormozi, Contreras, Higuera, Rodríguez, Carrizo |
 | 9 | Urgencia falsa y bonos sin razón | «Últimos cupos» eternos; 10 bonos con valores inventados | Contreras, Molina, Razzetti, Rodríguez |
 | 10 | Construir antes de vender, o validar con encuestas | Meses grabando el curso; «a mis seguidores les gustaría» | Contreras, Razzetti, Carrizo, Otálora, Vergara |
 
@@ -509,7 +509,7 @@ Otros que también se repiten: la jerga del experto («ceguera del experto»), d
 - **Por qué.** En high ticket el closer tiene que sostener la promesa cara a cara, el anuncio pasa por las políticas de Meta y una promesa incumplida destruye la renovación y los referidos.
 
 ### 9.2 Garantía: siempre, solo si la piden o solo con prueba
-- **Qué dicen.** Contreras: no es obligatoria, pero sube las ventas «como mínimo un 50%». Razzetti, Otálora y Fernández: ofrecerla siempre. Molina: solo con un método claro y 10 a 15 casos; si no, llega «una ola de reembolsos». Growing (Nievas): solo si el cliente la pide para cerrar, y «trabajo gratis hasta que lo logres» suena a duda. Jiguera: es la guinda, no la base.
+- **Qué dicen.** Contreras: no es obligatoria, pero sube las ventas «como mínimo un 50%». Razzetti, Otálora y Fernández: ofrecerla siempre. Molina: solo con un método claro y 10 a 15 casos; si no, llega «una ola de reembolsos». Growing (Nievas): solo si el cliente la pide para cerrar, y «trabajo gratis hasta que lo logres» suena a duda. Higuera: es la guinda, no la base.
 - **MaKo.** Toda oferta lleva **alguna** forma de pasar el riesgo al vendedor, pero la forma depende de la prueba que haya. Sin casos: garantía por acciones o por entregable (si cumpliste y no llegaste, seguimos gratis). Con casos (sin un mínimo de cantidad: decisión de Martín, 12/10/2026): condicional fuerte, con nombre y atada a hitos. Nunca incondicional en high ticket, y nunca doble devolución sin margen para pagarla.
 - **Por qué.** El cliente high ticket compra certeza, y una garantía que el negocio no puede pagar es un riesgo financiero y legal.
 
@@ -594,7 +594,7 @@ Otros que también se repiten: la jerga del experto («ceguera del experto»), d
 - Augusto Bianchi: `academia-five-stars` (09, 18).
 - Javi Rodríguez: `hit-higt-impact-trainer` (085, 089, 093).
 - Álvaro Luque: `the-perfect-launch` (045-056, 162, 201, 209-224).
-- Jaime Jiguera: `growth-partner` (051, 084, 103-105).
+- Jaime Higuera: `growth-partner` (051, 084, 103-105).
 - Julián Otálora: `formula-ventas-ilimitadas-2024` (009, 141, 174) y `protocolo-ia` (002, 108).
 - Felipe Vergara: `vender-por-fb-e-ig-ads` (057; PDF de *Las 7 Maletas*, *3 formas de mejorar cualquier oferta* y *Niveles de consciencia*).
 - Club de Negocios: `club-de-negocios` (38, 52).

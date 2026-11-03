@@ -4,8 +4,9 @@
 // Martín, 22/10: «quiero que todos los chats de MaKo en las tabs sean el del Ops Center». Los dos editores tenían su
 // <textarea> y sus burbujas. Ahora el hilo es `HiloMako` con la criatura de la tab (la misma que los nombra en el Ops Center,
 // OC8) y la caja es `CajaChat`. El motor es el de cada editor: edita lo ABIERTO y nada se aplica sin «Aceptar». La propuesta
-// con «Original | Modificado» va en el hueco `enMensaje` de la respuesta de MaKo que la trajo. En el Video Editor, las piezas
-// toman los colores de CapCut redefiniendo sus tokens bajo `.cc-chat`.
+// con «Original | Modificado» va en el hueco `enMensaje` de la respuesta de MaKo que la trajo. En el Video Editor, desde el
+// 29/10/2026, las piezas usan los tokens de MaKo tal cual (antes, los de CapCut redefinidos bajo `.cc-chat`).
+// ⚠️ PROBADO ROMPIENDOLO (29/10/2026): `CSS_CHAT` de vuelta en PanelChat.tsx → 3/1.
 //
 // ⚠️ PROBADO ROMPIENDOLO (22/10/2026, base 4/0): la propuesta del Image Editor fuera del hueco → 3/1; el hueco también en lo
 // de la persona → 3/1; el Video Editor sin `.cc-chat` en la raíz (las piezas con los colores claros de la app) → 3/1; el
@@ -31,15 +32,18 @@ test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo
   assert.doesNotMatch(imagen, /<textarea\b/);
 });
 
-test('el Video Editor: igual, con el foco del link en el hueco y los colores de CapCut', () => {
+test('el Video Editor: igual, con el foco del link en el hueco y los colores de MaKo', () => {
   assert.match(video, /const QUIEN = \{ nombre: "Video Editor" \};/);
   assert.match(video, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(video);
   assert.match(h, /if \(!m \|\| m\.de !== "mako"\) return null;/);
   assert.match(h, /<div data-mensaje=\{m\.id\} [^>]*style=\{foco === m\.id \?/, 'el foco de `?propuesta=` busca el hueco');
   assert.match(h, /onAceptar=\{\(\) => void aceptar\(m\)\}/);
-  assert.match(video, /<section role="complementary" className="cc-chat /, 'sin `.cc-chat`, las piezas salen con los colores de la app sobre el oscuro; con <aside>, la barra de la agencia lo estira');
-  assert.match(video, /\.cc-chat\{--surface:var\(--cc-raised\);[^}]*--ink:var\(--cc-text\);/);
+  assert.match(video, /<section role="complementary" className="cc-chat /, 'con <aside>, la barra de la agencia lo estira');
+  // 29/10/2026 (Martín: «los colores de MaKo, no esos colores»): el chat es la tarjeta izquierda de Create y usa los tokens de
+  // MaKo tal cual. Ni `CSS_CHAT` (que les ponía los `--cc-*` de CapCut a las piezas) ni un `--cc-*` en sus clases.
+  assert.doesNotMatch(video, /CSS_CHAT/, 'volvió CSS_CHAT: las piezas del Ops Center con los colores de CapCut');
+  assert.doesNotMatch(video, /--cc-[a-z]/, 'el chat volvió a un token de CapCut: usa los de MaKo (--surface, --ink, --primary…)');
   assert.match(video, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/);
   assert.doesNotMatch(video, /<textarea\b/);
 });

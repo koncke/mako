@@ -191,7 +191,7 @@ export function resultadoDeMuestra(g: Grafico, hoy: string): Resultado {
 // ── El lugar de cada componente en la miniatura ─────────────────────────────────────────────────────────────────────
 
 /** La página de la miniatura: su ancho (px), la grilla del editor (FILA 30, MARGEN 16, 12 columnas) y el aire de la página. */
-export const PAGINA_MINIATURA = { ancho: 1180, fila: 30, margen: 16, lado: 24, cabeza: 66, cols: 12 } as const;
+export const PAGINA_MINIATURA = { ancho: 1180, fila: 30, margen: 16, lado: 24, cabeza: 24, cols: 12 } as const;
 
 /**
  * Dónde va un componente en la página de la miniatura, en px: la MISMA cuenta que hace react-grid-layout en el editor

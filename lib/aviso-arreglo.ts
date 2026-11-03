@@ -86,7 +86,7 @@ export async function avisarArregloAlGrupo(p: PedidoAviso): Promise<ResultadoAvi
     if (!gano) return { ok: false, motivo: 'ya-avisado', detalle: `este arreglo ya se avisó (o se está avisando) en el ws${p.ws}` } as const;
 
     // 4. El envío, por la línea de MaKo.
-    const env = await enviarAlGrupoMaKo(p.ws, t.texto);
+    const env = await enviarAlGrupoMaKo(p.ws, t.texto, 'equipo');
     if (!env.ok) {
       // 5. No salió: la reserva se borra, para que se pueda volver a intentar. Si no se puede borrar, queda
       //    reservada: fail-closed (un aviso de menos, nunca uno de más).

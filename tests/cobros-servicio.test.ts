@@ -40,6 +40,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { PASARELAS, type Pasarela } from '../lib/cobros-tipos';
 
 const RAIZ = join(__dirname, '..');
 /** Sin comentarios: las líneas PRIMERO y los bloques después (AGENTS.md). */
@@ -136,9 +137,19 @@ test('reembolsar y cancelar llevan la clave DETERMINÍSTICA del cobro, y una sol
   assert.equal(veces(r, 'reembolsarStripe('), 1);
   assert.equal(veces(r, 'reembolsarMp('), 1);
   const k = bloque('export async function cancelarSuscripcionCobro(');
-  assert.equal(veces(k, 'idemBaja(c.id)'), 2);
-  assert.equal(veces(k, 'cancelarSuscripcionStripe('), 1);
-  assert.equal(veces(k, 'cancelarSuscripcionMp('), 1);
+  // Eran 2 porque eran dos pasarelas. Al entrar Creem (31/10/2026) pasaron a 3 y esto quedó rojo con el código correcto.
+  // ⚠️ El arreglo peligroso era bajar el número: borrar la rama de Creem reinstala el bug más caro de esta pasarela —la base
+  // dice «cancelada», el cliente ve su baja hecha y Creem le sigue cobrando todos los meses—. Así que en vez de un número
+  // suelto, el conteo sale de PASARELAS y cada baja se exige por nombre: a la pasarela #4 este test no la deja pasar muda.
+  assert.equal(veces(k, 'idemBaja(c.id)'), PASARELAS.length, 'cada pasarela cancela con la clave determinística del cobro: sin ella un reintento cancela dos veces o devuelve la respuesta vieja');
+  const BAJA_DE: Readonly<Record<Pasarela, string>> = {
+    stripe: 'cancelarSuscripcionStripe(',
+    mercadopago: 'cancelarSuscripcionMp(',
+    creem: 'cancelarSuscripcionCreem(',
+  };
+  for (const pas of PASARELAS) {
+    assert.equal(veces(k, BAJA_DE[pas]), 1, `la baja de ${pas} se pide UNA vez: si falta, la fila queda «cancelada» y la pasarela sigue cobrando`);
+  }
   for (const [nombre, f] of [['reembolsarCobro', r], ['cancelarSuscripcionCobro', k]] as const) {
     assert.doesNotMatch(f, /randomUUID|Math\.random|Date\.now|mako-(?:reembolso|baja)-/, `${nombre}: una clave que cambia en cada llamada`);
     assert.doesNotMatch(f, /\bfor\s*\(|\bwhile\s*\(/, `${nombre}: una vuelta que repite lo que mueve plata`);
@@ -149,7 +160,17 @@ test('reconciliar: suscripción → la FACTURA, pago único → el payment inten
   // Desde el 17/10/2026 la lectura del link vive en `pagoDelLinkEnLaPasarela`: la comparten el cron y el «marcar a
   // mano» (`asentarLinkPagadoDeCuota`), así que la regla se mira ahí y el cron tiene que pasar por ella.
   const rc = bloque('export async function reconciliarCobros(');
-  assert.match(rc, /const pago = await pagoDelLinkEnLaPasarela\(c, stripe, mp\);\s*if \(pago\) \{\s*const r = await aplicarPagoAprobado\(c, pago\);/);
+  // Citaba la lista de argumentos y se puso roja al entrar Creem (31/10/2026). Lo que cuida es que el cron lea el link con esa
+  // función Y siga con `aplicarPagoAprobado`, y que le llegue la credencial de CADA pasarela: la que falte deja esa plata
+  // cobrada sin acreditar (sin alta, sin cuota en el CRM), porque este cron es la RED de lo que el aviso de la pasarela perdió.
+  const leeYAplica = rc.match(/const pago = await pagoDelLinkEnLaPasarela\(([^)]*)\);\s*if \(pago\) \{\s*const r = await aplicarPagoAprobado\(c, pago\);/);
+  assert.ok(leeYAplica, 'el cron ya no lee el link con `pagoDelLinkEnLaPasarela` y sigue con `aplicarPagoAprobado`');
+  const CRED_DE: Readonly<Record<Pasarela, string>> = { stripe: 'stripe', mercadopago: 'mp', creem: 'creem' };
+  assert.deepEqual(
+    leeYAplica[1].split(',').map((s) => s.trim()),
+    ['c', ...PASARELAS.map((pas) => CRED_DE[pas])],
+    'el cron le pasa el cobro y la credencial de cada pasarela, en ese orden',
+  );
   const lee = bloque('async function pagoDelLinkEnLaPasarela(');
   assert.match(lee, /const pagoId = c\.tipo === 'suscripcion' \? s\.invoice : s\.paymentIntent;/);
   assert.match(lee, /if \(pagoId\) return \{ proveedorPagoId: pagoId,/);

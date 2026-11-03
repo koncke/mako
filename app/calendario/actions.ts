@@ -24,6 +24,9 @@ import {
   programadaConOtraClave, programarPublicaciones, releerPublicaciones, resolverEnZernio, subidaDelArchivo, type ResultadoProgramar,
 } from '@/lib/calendario-publicar';
 import type { DatosPublicacion } from '@/lib/calendario-publicar-reglas';
+import { publicacionDesdeCrear } from '@/lib/calendario-desde-crear';
+import { guardarRepeticion, repeticionDelEvento } from '@/lib/calendario-recurrentes';
+import { hoyEnWorkspace } from '@/lib/timezone';
 
 const guard = () => requireRolWs([], { nav: 'calendario' });
 
@@ -170,6 +173,67 @@ export async function guardarPublicacionAction(id: string, cambio: { red?: strin
     return r;
   } catch (e) {
     console.error('[calendario] guardar publicación:', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo guardar.' };
+  }
+}
+
+/**
+ * «Publicar» desde el Video Editor, el Image Editor o el Copywriter (29/10/2026): arma la Publicación (mañana a las 10:00, con el
+ * texto) y, si trae archivo, la subida firmada de SIEMPRE (`subidaDelArchivo`). No programa nada: la red, el día y la hora se
+ * eligen en el Calendario (lib/calendario-desde-crear.ts). Con el guard del Calendario: quien no lo ve, no publica desde un editor.
+ */
+export async function publicacionDesdeCrearAction(p: { origen: string; titulo?: string | null; texto?: string | null; mime?: string | null }): Promise<
+  | { ok: true; id: string; fecha: string; subida: { ruta: string; url: string; apikey: string | null; tipo: 'image' | 'video' } | null }
+  | { ok: false; error: string }
+> {
+  await guard();
+  try {
+    const q = p && typeof p === 'object' ? p : { origen: '' };
+    const armada = publicacionDesdeCrear({
+      origen: q.origen, titulo: typeof q.titulo === 'string' ? q.titulo : null, texto: typeof q.texto === 'string' ? q.texto.slice(0, 20_000) : null,
+      mime: typeof q.mime === 'string' ? q.mime.slice(0, 60) : null, hoy: await hoyEnWorkspace(),
+    });
+    if (!armada.ok) return armada;
+    const { entrada, texto } = armada.publicacion;
+    const creado = await crearEventos([entrada], await zonaDelCalendario(), { origen: 'user', autor: await autor() });
+    if (!creado.ok) return creado;
+    const id = creado.ids[0];
+    if (texto) {
+      const g = await guardarPublicacion(id, { texto });
+      if (!g.ok) return g;
+    }
+    let subida = null;
+    if (q.origen !== 'texto') {
+      const s = await subidaDelArchivo(id, typeof q.mime === 'string' ? q.mime : '');
+      if (!s.ok) return s;
+      subida = { ruta: s.ruta, url: s.url, apikey: s.apikey, tipo: s.tipo };
+    }
+    revalidatePath('/calendario');
+    return { ok: true, id, fecha: entrada.fecha, subida };
+  } catch (e) {
+    console.error('[calendario] publicar desde Create:', e instanceof Error ? e.message : e);
+    return { ok: false, error: 'No se pudo llevar al Calendario.' };
+  }
+}
+
+/** La regla de una Publicación que se repite (29/10/2026, mig 0349). `disponible: false` = la base todavía no la tiene. */
+export async function repeticionAction(id: string): Promise<{ regla: string | null; disponible: boolean; serieHref: string | null }> {
+  await guard();
+  try { return await repeticionDelEvento(idDe(id)); } catch (e) {
+    console.error('[calendario] repetición:', e instanceof Error ? e.message : e);
+    return { regla: null, disponible: false, serieHref: null };
+  }
+}
+
+/** Pone o saca la regla (null = deja de repetirse; lo que ya nació y está programado, queda). */
+export async function guardarRepeticionAction(id: string, regla: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  await guard();
+  try {
+    const r = await guardarRepeticion(idDe(id), typeof regla === 'string' ? regla.slice(0, 200) : null);
+    if (r.ok) revalidatePath('/calendario');
+    return r;
+  } catch (e) {
+    console.error('[calendario] guardar repetición:', e instanceof Error ? e.message : e);
     return { ok: false, error: 'No se pudo guardar.' };
   }
 }

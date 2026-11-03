@@ -22,11 +22,13 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { runWithWorkspace } from '@/lib/workspace';
-import { mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
+import { asegurarPlazosCreem, mantenerAvisosCreem, mantenerAvisosStripe, reconciliarCobros, workspacesConPasarela } from '@/lib/cobros';
 import { esLaVueltaDelDia } from '@/lib/cobros-reglas';
 import { renovacionesDeAgencia } from '@/lib/agencia-cobro';
+import { aplicarSubidasPendientes } from '@/lib/agencia-plan';
 import { revisarAccesosPorPago } from '@/lib/plan-acceso';
 import { conciliarRetenciones } from '@/lib/retencion-plan';
+import { conciliarPrimerMes } from '@/lib/primer-mes';
 import { acreditarReferidos } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +66,9 @@ export async function GET(req: NextRequest) {
   // restaura solo. AL PRINCIPIO (segunda revisión, R9): al final se la comía la vuelta de los workspaces. Nunca tira.
   const retencion = await conciliarRetenciones();
   if (retencion.conciliadas || retencion.liberadas || retencion.capas || retencion.restauradas) console.log(`[cron:cobros-reconciliar] retención: ${JSON.stringify(retencion)}`);
+  // EL 50% DEL PRIMER MES en Mercado Pago (30/10/2026): si no volvió al precio de lista, el próximo cobro sale a mitad. Nunca tira.
+  const primerMes = await conciliarPrimerMes();
+  if (primerMes.restaurados || primerMes.errores) console.log(`[cron:cobros-reconciliar] primer mes: ${JSON.stringify(primerMes)}`);
   const resultados: Resultado[] = [];
   const sinTurno: number[] = [];
   for (const ws of orden) {
@@ -74,6 +79,8 @@ export async function GET(req: NextRequest) {
       const r = await runWithWorkspace(ws, () => reconciliarCobros(ws, { hasta: t0 + maxDuration * 1000 - 2 * RESERVA_MS }));
       resultados.push({ ws, ok: true, ...r });
       if (delDia) await runWithWorkspace(ws, () => mantenerAvisosStripe(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Stripe:`, msg(e)));
+      await runWithWorkspace(ws, () => mantenerAvisosCreem(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} avisos de Creem:`, msg(e)));
+      if (delDia) await runWithWorkspace(ws, () => asegurarPlazosCreem(ws)).catch((e) => console.warn(`[cron:cobros-reconciliar] ws=${ws} plazos de Creem:`, msg(e)));
       if (r.cambiados || r.errores) {
         console.log(`[cron:cobros-reconciliar] ws=${ws} revisados=${r.revisados} cambiados=${r.cambiados} errores=${r.errores}`);
       }
@@ -92,6 +99,9 @@ export async function GET(req: NextRequest) {
     agencia = await renovacionesDeAgencia().catch((e) => ({ error: msg(e) }));
     if ('error' in agencia) console.warn('[cron:cobros-reconciliar] clientes de agencia:', agencia.error);
     else if (agencia.creadas || agencia.autorizadas || agencia.errores) console.log(`[cron:cobros-reconciliar] clientes de agencia: ${JSON.stringify(agencia)}`);
+    // La subida a Pro que no se cobró en el acto (29/10/2026, lib/agencia-plan.ts): la capa sube con el primer pago a precio de Pro.
+    const subidas = await aplicarSubidasPendientes().catch((e) => ({ subidas: 0, errores: 1, error: msg(e) }));
+    if (subidas.subidas || subidas.errores) console.log(`[cron:cobros-reconciliar] subidas a Pro de clientes de agencia: ${JSON.stringify(subidas)}`);
   }
 
   // QUIEN DEJA DE PAGAR SU LUGAR DEJA DE ENTRAR (17/10/2026, lib/plan-acceso.ts): DESPUÉS de reconciliar, para decidir con

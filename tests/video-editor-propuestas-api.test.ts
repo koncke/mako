@@ -209,7 +209,9 @@ test('12: el editor la muestra como un cambio más del chat, la acepta con el mi
   assert.match(p, /import \{ focoDePropuesta, idDeMensaje, queMostrar \} from "\.\/foco";/);
   assert.match(p, /refsPrevias: refsPorId,/, 'las refs de la propuesta: «t2» es el de cuando se propuso');
   assert.match(p, /propuesta: \{ proyectoId, escenaId: p\.escenaId, refsPorId, elegidos: \[\], alcance: "video", operaciones \}/);
-  assert.match(p, /useChatAbierto\.getState\(\)\.setAbierto\(true\);/);
+  // Una nueva se avisa. El chat ya está a la vista: desde el 29/10/2026 es la tarjeta izquierda de Create y no se cierra
+  // (tests/video-editor-nuevo-video.test.ts). Roto: el aviso cambiado por un `console.log` → 12/1 (29/10/2026).
+  assert.match(p, /if \(nuevas\) \{\n\t\t\ttoast\(nuevas === 1 \? "MaKo te propone un cambio"/);
   const panel = leer('app', 'video-editor', '_opencut', 'chat', 'PanelChat.tsx');
   assert.equal((panel.match(/aceptarPropuesta\(/g) ?? []).length, 1, 'el MISMO «Aceptar»');
   // Con las operaciones de ESE mensaje: se cierran ésas, por contenido (tests/video-editor-propuesta-link.test.ts).

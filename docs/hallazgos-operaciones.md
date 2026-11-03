@@ -294,9 +294,15 @@ app/_components/transcribir-nota.ts · lib/centro-chats.ts (`completadosDelChat`
   (`app-de-escritorio.ts`, una vez por página, relee cada 8 s mientras bloquea), el hook sin CSS, y el botón con CSS
   (`InstalarMaKo.tsx`) que entra con `next/dynamic`. El modal de «Ya lo instalé: conectar» va por PORTAL: la caja puede vivir en
   un panel con `transform`, que volvería su marco el `fixed` del fondo del modal.
-- **Sin hacer:** el «Editar con IA» de cada sección del Web Generator (`app/web-generator/editor/AskAgent.tsx`) no se bloquea:
-  Martín pidió sacarlo (punto 5 del 24/10, chat Landings). Si queda, va con el mismo hook. Y falta recorrerlo en pantalla con una
-  cuenta sin computadora (el navegador de la app no tiene sesión).
+- **«Editar con IA» (`app/web-generator/editor/AskAgent.tsx`) quedó afuera hasta el 30/10:** no es `CajaChat` ni `CajaPedido`, así
+  que el inventario no lo veía. Martín había pedido sacarlo (punto 5 del 24/10, chat Landings) y sigue montado: lleva el mismo hook,
+  con su propio test. **«Probar nuevo diseño» arranca solo:** espera la respuesta (`useApp`), porque un pedido que sale antes de
+  saberla no lo corta nadie.
+- **El inventario sólo ve esas dos cajas.** Una caja de MaKo con su propio `<input>` no da rojo: hay que nombrarla aparte.
+- **Sin hacer:** los pedidos puntuales a la IA que no son un chat siguen sin bloqueo, a propósito por ahora: el ✦ de redactar de
+  Automations (`app/automations/MakoRedacta.tsx`), «Conclusiones de MaKo» del Dashboard (`app/dashboard/ElementoIA.tsx`) y el guion
+  de AI Avatar (`app/ai-avatar/Estudio.tsx`). Martín dijo «en ningún chat». Y falta recorrerlo en pantalla con una cuenta sin
+  computadora (el navegador de la app no tiene sesión).
 
 **Vive en:** `app/_chat/app-de-escritorio.ts` · `app/_chat/useAppDeEscritorio.tsx` · `app/_chat/InstalarMaKo.tsx` ·
 `app/web-generator/CajaPedido.tsx` (`bloqueo`) · `app/api/mako/chat/route.ts` (`?app=1`, `laApp`) · `lib/chat-mako-reglas.ts`
@@ -3046,6 +3052,121 @@ sistema, y un chat hace sólo lo que sólo un chat puede hacer. El silencio de a
 sube, los dos carteles, la entrega por cualquier chat que arranque) y la decisión del arranque con el chat de IA del cliente
 (§2.4).
 
+## El `/clear` borró el cron del Cartero, y el que avisaba era el cron (24/10/2026)
+
+**El síntoma:** el último latido del cartero (`~/.claude/operaciones/latidos/9471c6f25eb0eec0.json`) fue a las 19:04:41
+UTC. A las 19:27 iban 23 minutos sin una vuelta, contra una cada diez, y el chat «Cartero» tenía `CronList` vacío: el cron
+`0807f8d4` ya no existía.
+
+**La causa:** el Cerebro le había pedido al Cartero un `/clear`, porque arrastraba 525 mil tokens de otra tarea. El chat
+siguió en la barra con el mismo título y el mismo `local_60dde796…`, pero la conversación es otra (su scratchpad pasó de
+`8f83ea88…` a `9d083be4…`), y los jobs de `CronCreate` eran de la vieja. No lo avisa nada: el cron corría el vigía, y el
+vigía era el que avisaba.
+
+**Lo que lo salvó:** el riesgo se marcó ANTES, desde adentro («no sé si /clear mata los crons, y si los mata nadie lo
+avisa»), y el Cerebro lo dejó vigilado desde afuera, con un monitor sobre el latido. Así se vio a los 23 minutos. Los dos
+casos anteriores del mismo día los vio Martín a ojo: el vigía de grupos, tres días después, y el cartero con la PC apagada,
+quince horas después.
+
+**La regla:** cuando algo se vigila a sí mismo, su muerte es silenciosa. Lo que corre siempre late, y ese latido lo mira
+alguien que no es él (AGENTS.md, junto a la del vigía de grupos). Y para quien limpia un chat con cron: el prompt del cron
+se guarda afuera de la conversación, porque se va con ella. El del Cartero estaba palabra por palabra en `LEEME-cartero.md`,
+y por eso se rearmó igual. Después del `/clear`, `CronList`.
+
+**El código ya distinguía bien a ese chat:** `carpetasConRunner` (cartero.mjs) no cuenta a una sesión viva llamada
+«Cartero» sin latido fresco (6 minutos, `LATIDO_VENCE_MS`). Después del `/clear` el chat seguía vivo y con el nombre justo,
+y aun así dejó de contar como Runner. El nombre solo no alcanza, y este caso lo prueba.
+
+**Para cuando se construya el servicio:** hoy `vuelta()` llama siempre a `latir(propio)`. Si el servicio corre esa misma vuelta, va a
+latir como Runner y va a tapar justo este caso: un chat abierto, con su nombre y sin cron. Quedó escrito en
+docs/diseno-cartero-servicio.md §2.1: el servicio deja su latido aparte.
+
+**La misma trampa, una capa más abajo:** el prompt rearmado palabra por palabra seguía apuntando al scratchpad VIEJO
+(`8f83ea88…/scratchpad`), donde vivían `vigia.cjs`, `vigia-estado.json` y el propio LEEME. Andaba porque esa carpeta
+seguía en el disco, pero está en `%TEMP%`, y Temp lo vaciamos nosotros cuando falta disco (23/10, docs/hallazgos-infra.md).
+Fue la cuarta versión del error del día: algo que tiene que sobrevivir, viviendo en un lugar que no sobrevive. **Se mudó el
+mismo día, 19:37 UTC:** los tres archivos están en `~/.claude/operaciones/` y el cron nuevo apunta ahí. El
+estado se copió con su contenido y se comparó el hash: vacío, el vigía habría vuelto a avisar los 6 pedidos trabados. La
+primera vuelta desde la carpeta nueva dio `limboNuevos: []` con `limboTotal: 6`. En el scratchpad viejo quedó sólo un
+aviso de mudanza.
+
+**Seis días después (30/10/2026), dos más de la misma familia:**
+- **El cron vence a los 7 días y se borra solo.** El de las vueltas se iba el 31/10. Ahora un recordatorio de una sola vez,
+  creado junto con él, pide rearmarlo el día antes. Sólo sirve con el chat abierto, igual que el cron.
+- **El Uso del Ops Center se quedó sin dato porque el prompt no medía.** La cuota la sube cada vuelta, pero la escribe
+  `cartero.mjs medir` con lo que da `get_usage`, y ese paso no estaba en el prompt. Ahora es el paso 0. Con la app en otra
+  cuenta, `medir` no anota: la huella del reinicio semanal lo frena (`problemaDeHuella`).
+
+**Sin hacer:** el servicio de docs/diseno-cartero-servicio.md no se construyó el 26/10 (`cartero.mjs` no tiene ese comando).
+Por eso el Runner sigue dependiendo de un chat abierto: estuvo parado del 24/10 al 30/10.
+
+## Un pedido a un chat cerrado se pierde en silencio, con 15 días de retraso (30/10/2026)
+
+**El síntoma:** al volver el Runner después de seis días parado, el vigía contó 11 pedidos de Martín en «escrito», todos a
+chats cerrados. Los más viejos eran del 24/10 y se vencían a partir del 08/11. Nadie se había enterado.
+
+**El diagnóstico obvio era el equivocado:** «11 respuestas de Martín que nadie ejecutó». Medido uno por uno, fueron 5
+respuestas a preguntas, 3 mensajes sueltos y 3 tickets aprobados que ya estaban resueltos por otro camino. El vigía sólo
+da el id y 80 caracteres. **Antes de decidir sobre una lista, se lee el contenido y se cruza con el estado de hoy.**
+
+**La causa:**
+- Lo único que avisa es una línea dentro de ESE chat («Abre este chat en la cuenta N para que lo reciba»), que ya nadie abre.
+- Vencer también es mudo: `lib/operaciones.ts` lo pasa a `no_entregado` en la vuelta, sin decírselo a nadie.
+- `app/tickets/bandeja/cerebro.ts` da `listo: ok` con `envio.puede`, que también vale con `espera: 'chat_cerrado'`: se aprueba
+  y se firma a un Cerebro cerrado sin ningún aviso. Elige con `chats.find` por nombre. No se midió por qué el 24/10 cayó en el
+  de otra cuenta.
+- La respuesta a una tarjeta de pregunta sale al chat que preguntó, aunque esté cerrado.
+- El vigía del Runner sí lo detecta, pero corre en el Runner: si éste para, tampoco avisa nadie.
+
+**La regla:** un pedido sin destinatario vivo no está «esperando»: está perdido con retraso. Lo dice MaKo, del lado del
+servidor, porque lo que depende de la PC calla justo cuando la PC no está.
+
+**La raíz: lo que avisa dentro del lugar que nadie abre, no avisa.** Es el mismo defecto del vigía de grupos, que murió tres
+días en silencio, y del Runner, seis. Un aviso tiene que salir hacia donde la persona SÍ está mirando.
+
+**Una respuesta de hace seis días no es una orden de hoy.** En dos de estos pedidos, Martín mismo duda («creo que esto ya…»).
+Antes de ejecutar uno, el chat que lo recibe lo mira contra el estado de hoy.
+
+**La trampa de redirigirlos:** rutear el contenido a otro chat no los saca de «escrito». Si el chat de origen se reabre, le
+llegan igual; si no, vencen. Se cierran a propósito con `cancelarPedido`, de a uno, cuando el chat que lo recibió confirma que
+lo hizo o que ya no aplica. Y la firma fija el destino: reenviar a otro chat es firmar de nuevo en el dispositivo de Martín.
+
+**Sin hacer:** el cartel rojo en el Ops Center (computadora y teléfono) con la cuenta del lado del servidor, y avisar antes de
+firmar en la bandeja de tickets y en la tarjeta de preguntas (los dos, del chat Ops Center); el aviso al Cerebro por el
+Runner, con texto fijo (del Runner, con el servicio).
+
+**Una trampa de la coordinación:** ese cartel cambió de dueño cuatro veces en una hora, porque un mensaje a un chat ocupado
+queda encolado y llega después de la decisión que lo corrige. Lo cortó el chat que iba a escribirlo, preguntándole directo al
+otro «¿ya lo empezaste?». Antes de escribir algo que cambió de dueño, se le pregunta al otro chat, no al que repartió.
+
+**Vive en:** `lib/operaciones.ts` · `lib/centro-chats.ts` (`envioDe`, `chat_cerrado`) · `app/tickets/bandeja/cerebro.ts`
+
+## Un dato viejo con fecha nueva: «Runner activo» al lado de una cuota de hace seis días (30/10/2026)
+
+**El síntoma:** una vuelta del Runner sube TODAS las cuentas, así que `visto_at` queda fresco aunque el Runner de esa cuenta
+esté cerrado y su cuota sea de hace días.
+
+**El diagnóstico obvio era la mitad:** «el Uso muestra la fecha de la subida». El número no: `Uso.tsx` usa `cuota.medido` y
+dice «78% · medido hace 6 días». Lo que engaña es el renglón de al lado, «Runner activo» con punto verde, que sale de
+`carteroVivo` (`visto_at`).
+
+**La regla:** cuando un proceso sube los datos de otro, la hora de la subida no dice nada del dato. Cada dato lleva la hora
+en que se midió, y lo que se muestra al lado no la contradice.
+
+**Sin hacer:** cambiar ese texto cuando la medición está vieja (`textoRunner` en `app/admin/operaciones/Uso.tsx`).
+
+## Una cosecha sin subir es una cosecha perdida (30/10/2026)
+
+**El síntoma:** la cosecha del `/clear` se escribió y se commiteó el 24/10, y su sha se le pasó al Cerebro, que la tomó para el
+tren. Seis días después no estaba en `main`, y ya no entraba limpia: chocaba en el índice. Nadie lo notó, porque la rama
+existía y el mensaje decía «va al tren».
+
+**La regla:** una cosecha vale cuando se puede leer en `origin/main`. Quien la escribe verifica que haya llegado
+(`git merge-base --is-ancestor <sha> origin/main`), no sólo que se pasó el sha.
+
+**Y de paso:** esa semana hubo `CICLO falló: fetch failed` el 28/10 a las 20:00 (tres cuentas) y el 29/10 entre las 13:24 y las
+13:26 (las cinco), más un timeout y un 503 sueltos en `vigilar` el 30/10. Se anotan: no se investigó la causa.
+
 ## La onda «que se movía sola» ya seguía la voz: lo que mentía era el respaldo, y un anillo de CSS (24/10/2026)
 
 **El síntoma:** Martín: «la animación de ondas de grabando audios no sigue lo que está escuchando, es decir, es sólo una
@@ -3329,3 +3450,73 @@ reglas que sirven para cualquier caja:
 **Vive en:** `scripts/operaciones/cartero.mjs` (`ciclo` → `DESTINO_NUEVO`, `abrir`, `adjuntosEnLaPc`, `primerMensaje`) ·
 `lib/operaciones-reglas.ts` (`aceptaAdjuntosEnNuevo`) · `app/admin/operaciones/useCentro.ts` (`abrirChat`, `mandarTextoA`) ·
 `ChatNuevo.tsx` · `CajaChatNuevo.tsx` · `tests/centro-nuevo-con-adjuntos.test.ts`
+
+## Un mensaje a un chat cerrado se perdía en silencio, y la lista lo escondía por recorte (30/10/2026)
+
+**Vive en:** `lib/operaciones.ts` (`listarPedidos`, el vencimiento) · `lib/operaciones-reglas.ts` (`pedidosSinChatVivo`, la comparte el vigía
+del Runner) · `lib/centro-limbo.ts` · `app/admin/operaciones/CartelLimbo.tsx` · `app/tickets/bandeja/cerebro.ts` · `lib/centro-chats.ts`
+(`preguntaDeChatCerrado`) · tests/centro-limbo.test.ts · tests/avisar-antes-de-firmar.test.ts.
+
+**El síntoma.** 11 mensajes de Martín `escrito` hacia chats cerrados, el más viejo del 24/10, las primeras respuestas a punto de vencer
+el 08/11. Nadie se enteró nunca.
+
+**Las causas, que no eran una.**
+- **`listarPedidos` trae los últimos 100, y había 170 filas.** Un mensaje que espera es justo el que se va quedando viejo: sale de la
+  ventana sin haber salido nunca. Parecía que faltaba un cartel; también era una lista que mentía por recorte. Lo sin terminar se lee aparte.
+- **`envio.puede` también vale con `espera: 'chat_cerrado'`.** «Aprobar y mandar» de la bandeja y la tarjeta de preguntas firmaban hacia un
+  chat cerrado sin decir nada: «puede» significa «la firma sale», no «le llega».
+- **Lo único que avisaba estaba adentro del chat cerrado**, y vencer pasaba a `no_entregado` sin avisar a nadie.
+- **`cancelarPedido` sólo mira `escrito`:** lo vencido no se podía dar de baja.
+
+**Trampas.**
+- **Un chat del Centro junta sesiones de varias cuentas.** Una pregunta se mira por SU sesión (`p.local`), no por el estado del chat: el
+  chat puede estar abierto en otra cuenta y la respuesta quedarse en la cerrada.
+- **La firma fija el destino.** «Mandárselo a otro chat» no mueve nada: firma uno nuevo en el dispositivo de Martín y recién entonces da de
+  baja el viejo. Los adjuntos no se reenvían, y la fila lo dice.
+- **Con la PC callada no se sabe.** `vivo` es de la última vuelta: `preguntaDeChatCerrado` no dice «cerrado» si el cartero de esa cuenta no
+  da noticias, y `pedidosSinChatVivo` no se apoya en que la PC conteste.
+
+**La regla.** Una lista con un tope no puede ser la que diga qué está pendiente: lo pendiente se lee aparte, sin tope de antigüedad. Y antes de
+firmar se mira `espera`, no sólo `puede`.
+
+**Sin mirar en pantalla como super admin:** se probó en un arnés con las piezas reales y clics de verdad, a 1280 y 390; la hoja del teléfono
+(`SheetM`) no se montó ahí. El Chrome disponible estaba con la sesión de Leandro, y /admin/operaciones lo manda a /second-brain.
+
+**SIN hacer:** los carteles de ausencia del Runner («la PC no da noticias», «nadie entrega») iban en el mismo lugar que éste.
+
+**31/10/2026, el cartel se sacó.** Martín, al verlo en el teléfono: «elimina el cartel rojo de "9 mensajes tuyos..."». Se fue con su lista y sus botones. La cuenta, la lectura aparte de `listarPedidos` y el aviso antes de firmar siguen. **Sin botón:** `descartarDelLimboAction` y lo puro de `lib/centro-limbo.ts` quedan sin pantalla, porque la rama `runner-servicio-3010` los modifica; esa rama también trae cambios sobre `CartelLimbo.tsx`, y hay que resolverlos a favor del borrado.
+
+## «La PC no responde» con la PC prendida: el umbral era de 4 minutos y las vueltas, cada 10 (31/10/2026)
+
+**Vive en:** `lib/operaciones-reglas.ts` (`CARTERO_VIVO_MS`) · `lib/centro-chats.ts` (`porQueTarda`) · y afuera del repo, en la PC: `~/.claude/operaciones/vigilar-continuo.sh` y `LEEME-cartero.md`.
+
+**El síntoma.** Un aviso falso en la pantalla de Martín. Le escribió al Cerebro a las 17:25 desde el teléfono, y debajo del mensaje salió «La PC no responde desde las 17:20: puede estar dormida». Se lo mandó al Runner: «Me dice que no responde...». Una mentira ahí cuesta más que el silencio: la próxima vez que el Centro diga que algo está roto, va a dudar.
+
+**El diagnóstico obvio era el equivocado.** La PC estaba prendida y el Runner, sano: la vuelta de las 17:19 había salido sin errores. El comentario de `CARTERO_VIVO_MS` decía que el cartero pasa «cada uno o dos minutos», y el cron se había estirado a 10 sin mirar quién dependía de ese número. Pasados 4 minutos de cada vuelta, MaKo daba a la PC por muerta. Además, `vigilar` cubría sus 100 s y lo que se escribía después esperaba hasta 8 minutos: el mensaje de las 17:25 recién se entregó a las 17:28.
+
+**El arreglo, en dos partes.** En la PC: `vigilar` corre en fila desde un Monitor del chat Runner, que sólo despierta al chat cuando hay algo. Da noticias cada menos de 2 minutos, entrega en segundos y no gasta cuota en silencio. En MaKo: el aviso dice lo que se sabe («Sin noticias de la PC desde las 17:20») en vez de afirmar que no responde. **Subir el 4 a 11 no era la cura:** con vueltas cada 20 minutos, la constante vuelve a mentir.
+
+**La regla.** Un umbral de vida se deriva del intervalo real de quien da las noticias; no es una constante al lado. Mientras no se pueda derivar, la pantalla dice el hecho («visto a las 17:20») y no la conclusión («no responde»). Es la misma familia que la entrada del botón del Uso de abajo: allá un dato cierto se leía como si fuera de otra cosa, acá una falta de noticias se leía como una falla.
+
+**Trampa.** Dos `vigilar` a la vez pisan `vuelta.json` y pueden devolver el mismo pedido mientras no tenga acuse. El continuo escribe en `vuelta-continua.json`, y la vuelta del cron no corre `vigilar` si `continuo.latido` tiene menos de 4 minutos.
+
+**SIN hacer:**
+- `CARTERO_VIVO_MS` sigue siendo un número suelto, en `lib/operaciones-reglas.ts`. Derivarlo pide que el cartero publique cada cuánto pasa, y que MaKo lo guarde en `operaciones_carteros`.
+- Con la app de Claude cerrada no hay Monitor ni cron, y el aviso vuelve a salir, esta vez con razón. Lo que lo resuelve es `runner-servicio-3010`, sin activar.
+
+## El botón del Uso mostraba un número cierto de otra cuenta, y «Runner activo» con una medición de hace 6 días (30/10/2026)
+
+**Vive en:** `lib/centro-uso.ts` (`usoPrincipal`, `estadoRunnerUso`) · `app/admin/operaciones/Uso.tsx` · `app/m/operaciones/CentroAppMovil.tsx`.
+
+**El síntoma.** Martín: «aun en ops center no se mide el uso». La cuenta 1 estaba al día en la base (9% semanal, medido hace minutos).
+
+**El diagnóstico obvio era el equivocado, dos veces.** No era que faltara la cuenta: `cuentasDeUso` parte del registro y las dibuja a las
+cinco. Y escribir `~/.claude/operaciones/uso/claude1.json` a mano no arregla la pantalla: corre en Vercel y lee
+`operaciones_carteros.cuota`, que sube la vuelta del Runner. Lo que se veía era el botón: la semana MÁS usada, «95% · Cuenta 3»,
+trabajando en la 1, con un número que no se movía con nada (regla del 16/10, de cuando varias cuentas andaban a la vez).
+
+**La misma trampa dos veces: un dato cierto que se lee como si fuera de otra cosa.** `visto_at` lo refresca la vuelta para TODAS las cuentas, así que
+«Runner activo» con punto verde salía al lado de «78% · medido hace 6 días». Ahora el botón es la cuenta medida más recientemente, con su
+nombre también en el teléfono, y «Runner activo» es sólo si se midió hace menos de 30 minutos; si no, «No se mide ahora».
+
+**Queda:** recién cambiada de cuenta, la anterior sigue «activa» hasta 30 minutos: es cierto que se midió, y el botón ya muestra la nueva.

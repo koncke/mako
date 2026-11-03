@@ -28,9 +28,16 @@ test('la raíz del editor no va `fixed` encima de la app', () => {
   assert.ok(!/zIndex:\s*60/.test(src), 'Volvió el z-index que la ponía encima de todo.');
 });
 
-test('la page del proyecto usa el mismo marco que el inicio', () => {
-  const page = leer('app', 'video-editor', '[proyecto]', 'page.tsx');
-  assert.match(page, /<Pagina ancho="completo" densidad="compacta"/, 'El editor ya no se dibuja adentro de `Pagina`.');
-  // Y la de arriba (`--barra-agencia`, 22/10/2026): tests/barra-inspeccion-alto.test.ts, 5.
-  assert.match(page, /calc\(100vh - var\(--alto-secciones, 0px\) - var\(--barra-agencia, 0px\)\)/, 'El editor no resta el alto de la barra de secciones: el pie queda tapado.');
+test('las dos pages usan el marco de toda tab de Create', () => {
+  // 29/10/2026: la tab Video es la pantalla de Create (app/_crear/PantallaCrear.tsx), sin barra de secciones arriba. El alto
+  // (la ventana menos `--barra-agencia`) es UNO para todas las tabs: `ESTILO_PAGINA_CREAR`.
+  for (const p of [['page.tsx'], ['[proyecto]', 'page.tsx']]) {
+    const page = leer('app', 'video-editor', ...p);
+    assert.match(page, /<Pagina ancho="completo" densidad="compacta" style=\{ESTILO_PAGINA_CREAR\}>/, `${p.join('/')}: sin el marco de Create`);
+    // ⚠️ De reglas.ts, NO de PantallaCrear.tsx (que también lo reexporta): una page es del server, y lo que importa de un
+    // módulo 'use client' le llega como REFERENCIA de cliente, no como el objeto. `Pagina` es del server y lo pone en el
+    // `style` de su <main>: leer una propiedad de esa referencia en el server rompe la página. Roto así → 1 fallo.
+    assert.match(page, /import \{ ESTILO_PAGINA_CREAR \} from '@\/app\/_crear\/reglas';/, `${p.join('/')}: el estilo tiene que venir del módulo sin 'use client'`);
+    assert.doesNotMatch(page, /--alto-secciones/, `${p.join('/')}: Create no tiene barra de secciones`);
+  }
 });

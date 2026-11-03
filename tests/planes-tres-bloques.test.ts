@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { FUNCIONES_SOLO_PRO, TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
-import { GRUPOS_COMPARACION, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
+import { AI_AVATAR_SE_VENDE, GRUPOS_COMPARACION, NOMBRE_AI_AVATAR, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, TABS_TODAVIA_CERRADAS, filasDeComparacion } from '../lib/planes-comparacion';
 import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
@@ -52,14 +52,28 @@ test('la comparación dice EXACTAMENTE los topes del código, en Esencial (compl
 
 // Lo que Martín le prometió a Teo (C:/dev/revisiones/2810-promesas-teo.md): la tabla le prometía a Pro «videos con una persona
 // hecha con IA», y la tab AI Avatar la abre sólo el super admin (app/ai-avatar/acceso.ts). Una tab cerrada no se vende.
-test('una tab que todavía no se abrió (AI Avatar, sólo el super admin) no se promete; el día que se abra, vuelve', () => {
+test('una tab que todavía no se abrió no se promete; AI Avatar está abierta en los TRES planes pero no se vende todavía', () => {
   const filas = filasDeComparacion();
-  assert.deepEqual([...TABS_TODAVIA_CERRADAS], ['ai-avatar']);
+  assert.deepEqual([...TABS_TODAVIA_CERRADAS], []);
+  // Martín, 29/10/2026: «haz que AI-Avatar esté disponible para todos». No es de Pro: la tab, en Esencial, Pro y Acelerador.
+  assert.ok(!(TABS_SOLO_PRO as readonly string[]).includes('ai-avatar'), 'AI Avatar volvió a ser de Pro');
+  // El Cerebro, 29/10/2026: abrirla no es venderla. Hasta un look real en el ws3 y la extensión 0.69 en la tienda, ni la fila
+  // ni un renglón de un plan prometen el avatar (el mismo criterio que sacó los videos del Video Generator).
+  const avatar = filas.find((x) => x.que === NOMBRE_AI_AVATAR);
+  if (AI_AVATAR_SE_VENDE) {
+    assert.deepEqual([avatar?.esencial, avatar?.pro, avatar?.acelerador], [true, true, true], 'AI Avatar se vende y no está en los tres planes');
+    assert.match(NOMBRE_AI_AVATAR, /Google Flow/, 'la fila del avatar no dice que se paga con los créditos de Google Flow');
+  } else {
+    assert.equal(avatar, undefined, 'la tabla vende AI Avatar antes de que ande de punta a punta');
+    assert.ok(!filas.some((x) => /avatar|persona hecha con IA/i.test(x.que)), 'otra fila de la tabla promete el avatar');
+    for (const p of PLANES_MAKO_DEFAULT) for (const r of p.incluye) assert.doesNotMatch(r, /avatar/i, `${p.id} promete el avatar: «${r}»`);
+  }
   for (const t of TABS_TODAVIA_CERRADAS) assert.ok(!filas.some((x) => x.que === NOMBRE_TAB_PRO[t]), `${t} está cerrada y la tabla la promete`);
   // Y Partners dice QUÉ se gana: el primer mes de cada negocio (no «el 100%» suelto, que sonaba a para siempre).
-  assert.match(NOMBRE_FUNCION_PRO.partners, /primer mes/);
-  // Atado a la puerta de verdad: si acceso.ts deja de ser «sólo el super admin», este test pide sacarla de la lista.
-  assert.ok(fuente('app/ai-avatar/acceso.ts').includes('return !!(await getSesionAdmin());'), 'AI Avatar se abrió: sacala de TABS_TODAVIA_CERRADAS y vuelve a la tabla');
+  // Desde el 29/10/2026 Partners es de TODOS los planes (una fila «en todos»), y sigue diciendo el primer mes.
+  assert.ok(filasDeComparacion().some((x) => /primer mes/.test(x.que) && x.esencial && x.pro), 'Partners en todos los planes, con «primer mes»');
+  // Atado a la puerta de verdad: la tab está abierta (la puerta de toda tab, no «sólo el super admin»); venderla es aparte.
+  assert.ok(fuente('app/ai-avatar/acceso.ts').includes("await requireRolWs([], { nav: 'ai-avatar' });"), 'AI Avatar volvió a tener la puerta cerrada');
 });
 
 test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y en el Acelerador', () => {
@@ -98,17 +112,18 @@ test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un pl
 
 test('/planes: tres bloques, el programa se pide, la comparación, y el link a MaKo Partners', () => {
   const p = fuente('app/planes/Vitrina.tsx');
-  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} \/>;/, 'la página lee y la vitrina dibuja');
+  assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} promoVigente=/, 'la página lee y la vitrina dibuja');
   assert.match(p, /^\s*const programa = PROGRAMA_ACELERADOR;/m);
   const t = fuente('app/planes/Tarjetas.tsx');
-  assert.match(p, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los bloques son los de la landing');
+  assert.match(p, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} promoVigente=/, 'los bloques son los de la landing');
   assert.match(t, /<a className="mkpl-btn" href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador<\/a>/, 'el programa se pide en su página, con el origen y el partner');
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
   assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
   // La columna de cada plan sale de su CAPA (los topes son de la capa): un plan del setting con otro id no queda vacío.
-  assert.match(p, /<CeldaPlan v=\{celdaDe\(f, p\.capa\)\} \/>/);
-  assert.match(p, /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
+  // (29/10/2026: la celda por capa pasó a lib/planes-comparacion.ts, `celdaDeCapa`: la usan también los ✗ de cada tarjeta.)
+  assert.match(p, /<CeldaPlan v=\{celdaDeCapa\(f, p\.capa\)\} \/>/);
+  assert.match(fuente('lib/planes-comparacion.ts'), /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
   assert.match(p, /<Link href="\/mako-partners">MaKo Partners<\/Link>/, 'desde /planes se llega a MaKo Partners');
   // Los planes cobrables siguen saliendo de la regla de siempre (tests/planes-sin-pasarela.test.ts).
   assert.match(t, /botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\)/);
@@ -151,7 +166,7 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
-  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd, preciosLocales: x.preciosLocales, cobrable: true }));
+  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, capa: x.capa, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd, preciosLocales: x.preciosLocales, cobrable: true }));
   assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))), INTERNO, 'la landing de venta');
   for (const x of [...PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR]) {
     for (const r of [x.resumen, ...x.incluye]) assert.doesNotMatch(r, INTERNO, `${x.nombre}: «${r}»`);
@@ -159,11 +174,25 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
   for (const f of filasDeComparacion()) assert.doesNotMatch(`${f.grupo} ${f.que}`, INTERNO, f.que);
 });
 
+// Lo que quedaba (30/10/2026): Leila la sacó de la tabla el 27/10, y las TARJETAS, lo primero que se lee, seguían con «embudo»,
+// «CRM», «media buyer», «setter» y «cohorte». Ahora se mira la pantalla entera, no sólo las filas.
+test('la pantalla entera se entiende sin saber de marketing: tarjetas, promesa, garantía, comparación y preguntas', async () => {
+  const JERGA = /media buyer|\bsetter\b|piloto autom|\bembudos?\b|\bCRM\b|scraper|\bautomatizaci|cohorte|prospecci|workspace|barredora/i;
+  assert.doesNotMatch(await vitrina(), JERGA, '/planes');
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { default: Reembolsos } = await import('../app/reembolsos/page');
+  assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos))), /\bembudos?\b|\bCRM\b/, '/reembolsos dice «armado» con las mismas palabras');
+  // Y lo que se arma la primera semana es lo mismo en la tabla, en la tarjeta y en /reembolsos: sin «anuncios».
+  const semana = filasDeComparacion().find((f) => /primera semana/.test(f.que));
+  assert.ok(semana && !/anuncios/.test(semana.que), semana?.que);
+});
+
 test('lo que incluye cada plan dice los topes del CÓDIGO, no números escritos a mano', () => {
   const es = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!.incluye.join(' · ');
   const n = (v: number | null) => (v ?? 0).toLocaleString('es-AR');
-  assert.ok(es.includes(`${n(TOPES.completo['crm.funnels'])} embudo de ventas y hasta ${n(TOPES.completo['crm.leads'])} contactos`), es);
-  assert.ok(es.includes(`Hasta ${n(TOPES.completo['automations.activas'])} automatizaciones de mensajes y ${n(TOPES.completo['web.landings_publicadas'])} páginas de venta`), es);
+  assert.ok(es.includes(`Hasta ${n(TOPES.completo['crm.leads'])} contactos y ${n(TOPES.completo['crm.funnels'])} tablero`), es);
+  assert.ok(es.includes(`Hasta ${n(TOPES.completo['automations.activas'])} seguimientos automáticos y ${n(TOPES.completo['web.landings_publicadas'])} páginas de venta`), es);
   const pro = PLANES_MAKO_DEFAULT.find((x) => x.id === 'pro')!.incluye.join(' · ');
   assert.ok(pro.includes(`Hasta ${n(TOPES.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(TOPES.agencia['equipo.usuarios'])} personas de tu equipo`), pro);
   const lib = fuente('lib/planes-mako.ts');
@@ -200,7 +229,7 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo d
   const { garantia } = PROGRAMA_ACELERADOR;
   assert.ok(garantia);
   assert.match(garantia!, /primera semana/);
-  assert.match(garantia!, /embudo no está armado/);
+  assert.match(garantia!, /sistema de ventas no está armado/);
   assert.doesNotMatch(garantia!, /vend|factur|llamadas|clientes/i, 'no es una garantía de resultado (§6c: recién con datos)');
   assert.ok(PROGRAMA_ACELERADOR.incluye.some((x) => x.includes(`hasta ${HORAS_SEMANA_1} horas`)), 'el entregable, escrito con su tope de horas');
   const t = await vitrina();
@@ -247,23 +276,27 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
   assert.match(fuente('lib/compra-plan.ts'), /const nombrePlan = anual \? `\$\{nombre\} anual \(US\$ \$\{anual\.toLocaleString\('es-AR'\)\} por año\)` : nombre;/, 'el pedido dice que es el anual');
 });
 
-test('la PRUEBA GRATIS (Martín, 25/10): 7 días, y debajo de cada botón lo que se cobra después; la garantía de 14/30 se fue', async () => {
-  assert.equal(PRUEBA_DIAS, 7);
-  assert.equal(textoDespuesDeLaPrueba(97, 'mes'), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
+// La prueba gratis se apagó el 30/10/2026 (docs/estrategia-lanzamiento-low-to-high.md §4, `PRUEBA_GRATIS_PRENDIDA`): ninguna pantalla pública
+// la promete. Prendida vuelve a decir lo de antes (tests/primer-mes.test.ts); lo que se fija acá es lo que se ve hoy.
+test('la prueba gratis APAGADA (30/10): nadie la promete, y debajo de cada botón se dice que se paga al empezar', async () => {
+  assert.equal(PRUEBA_DIAS, 7, 'no se borró');
+  assert.equal(textoDespuesDeLaPrueba(97, 'mes', true), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
   const t = await vitrina();
   assert.ok(t.includes('MaKo Pro ¿Ya vendes?'), 'la tarjeta de Pro');
-  assert.ok(t.includes('7 días gratis US$ 97 / mes'), '«7 días gratis» junto al precio');
-  assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual, con SU monto');
+  assert.doesNotMatch(t, /días gratis|prueba gratis/i, '/planes no promete una prueba que ya no existe');
+  assert.ok(t.includes('Recomendado Lo haces tú, con MaKo MaKo Pro'));
+  assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual');
   assert.ok(t.includes(`Quiero MaKo Esencial ${textoDespuesDeLaPrueba(47, 'mes')}`));
-  assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual, con el del año');
-  assert.ok(t.includes('7 días gratis con tu tarjeta: si te das de baja antes del día 8, no se te cobra nada.'));
-  assert.ok(t.includes('¿Cómo es la prueba gratis?'));
+  assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual');
+  assert.ok(t.includes('¿Cuándo pago y cuándo entro?'));
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
   const r = sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos)));
-  assert.ok(r.includes('7 días gratis. Al empezar pones tu tarjeta'), '/reembolsos dice lo mismo');
-  assert.ok(r.includes('Si te das de baja antes del día 8'));
+  assert.ok(r.includes('Se paga al empezar.'), '/reembolsos dice lo mismo');
+  assert.ok(r.includes('se aplica sólo a ese primer cobro'), 'el 50% del primer mes, dicho');
+  assert.ok(r.includes('Si empezaste con una prueba gratis, sigue con las condiciones con las que la empezaste'), 'a quien ya está en prueba no se le toca nada');
+  assert.doesNotMatch(r, /7 días gratis/);
   assert.ok(r.includes('Después del primer cobro, lo ya pagado no se reembolsa'), 'después, no hay devolución');
   for (const [que, txt] of [['la vitrina', t], ['/reembolsos', r]] as const) {
     assert.doesNotMatch(txt, /días de garantía|Garantía de 14|te devolvemos tu pago/, `${que}: sin la garantía de los planes`);
@@ -272,7 +305,7 @@ test('la PRUEBA GRATIS (Martín, 25/10): 7 días, y debajo de cada botón lo que
   for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
     assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
   }
-  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'los días, de la constante');
+  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'prendida vuelve, con los días de la constante');
 });
 
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {

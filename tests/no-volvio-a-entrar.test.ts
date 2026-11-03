@@ -99,7 +99,8 @@ test('el motor, MaKo y los lotes NO firman como persona', () => {
 });
 
 test('un lote del CRM sigue llamando a `setLeadStageAction` de a uno (la persona que tildó)', () => {
-  assert.match(sinComentarios(leer('app/crm/actions.ts')), /const r = await setLeadStageAction\(id, stageKey\);/);
+  // (Con el motivo de descalificar en bloque desde el 28/10/2026: tests/crm-acciones-bloque.test.ts.)
+  assert.match(sinComentarios(leer('app/crm/actions.ts')), /const r = await setLeadStageAction\(id, stageKey, motivo\?\.trim\(\) \? \{ motivo: motivo\.trim\(\)\.slice\(0, 500\) \} : undefined\);/);
 });
 
 // ── Probado rompiéndolo (23/10/2026), de a una y restaurando. Base 7/0 ──

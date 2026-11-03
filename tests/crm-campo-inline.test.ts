@@ -296,7 +296,7 @@ test('⚠️ el botón de editar el LEAD no existe en ninguna de las dos fichas'
 });
 
 test('BORRAR LEAD no se fue con el botón: está en las DOS fichas, con su confirmación', () => {
-  // Es irreversible, y en la ruta /crm/[id] vivía SOLO al pie del formulario.
+  // En la ruta /crm/[id] vivía SOLO al pie del formulario. Desde el 28/10/2026 manda a la PAPELERA de 30 días (mig 0340).
   for (const [ruta, accion] of [
     ['../app/crm/LeadSheet.tsx', 'deleteLeadInlineAction'],
     ['../app/crm/[id]/LeadDetailBody.tsx', 'deleteLeadAction'],
@@ -311,9 +311,10 @@ test('BORRAR LEAD no se fue con el botón: está en las DOS fichas, con su confi
     // Verificado rompiéndolo (12/10/2026): con el texto cambiado a «Quitar» en el modal, 1 fallo.
     assert.match(f, /<BotonBorrar texto="Borrar lead"/, `${ruta}: el botón de borrar no dice qué hace (o dejó de ser el tacho rojo)`);
     assert.match(f, new RegExp(accion), `${ruta}: tiene que llamar a ${accion}`);
-    // La confirmación NOMBRA la consecuencia, pegada al botón (regla de la casa).
-    assert.match(f, /No se puede deshacer/, `${ruta}: la confirmación no nombra la consecuencia`);
-    assert.match(f, /confirmLabel="Borrar definitivamente"/, `${ruta}: el botón no dice qué hace`);
+    // La confirmación NOMBRA la consecuencia, pegada al botón (regla de la casa): la de la papelera, la MISMA de la barra
+    // (`preguntaDePapelera`: a dónde va y hasta cuándo vuelve; tests/crm-acciones-bloque.test.ts).
+    assert.match(f, /preguntaDePapelera\(1, (lead\.)?nombre\)\.mensaje/, `${ruta}: la confirmación no nombra la consecuencia`);
+    assert.match(f, /confirmLabel="Mandar a la papelera"/, `${ruta}: el botón no dice qué hace`);
   }
 });
 

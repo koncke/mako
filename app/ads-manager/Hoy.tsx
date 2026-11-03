@@ -10,17 +10,17 @@
 //   quien lo hace; sin la app de escritorio, se bloquea como en todo chat.
 // · `NuevoChat`: la captura 2 de AdAmigo («New Chat · What can I help you with today?», adamigo-2.webp): la estrella, una
 //   pregunta, cuatro sugerencias en 2×2 y la caja. Es lo que ve una cuenta NUEVA, y un día sin cambios.
-// · `NumerosDelMes`: tres números del mes en una franja (gastado · resultados · costo contra el objetivo), para Campañas.
+// (`NumerosDelMes`, las tres tarjetas del mes arriba de Campañas, se fue el 27/10: es una línea del pie, mb-modelo.ts → lineaDelMes.)
 // · `ListaActividad`: lo hecho con su «Deshacer» (el «Each change is logged in Activity» de la 04), en una hoja.
 // =============================================================================
 
 import { useState, type ReactNode } from 'react';
+import { Button, ButtonLink } from '@/app/_ui';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { Criatura } from '@/app/_components/Criatura';
 import { MiFoto } from '@/app/admin/operaciones/MiFoto';
-import { fmtDinero, fmtNum } from '@/lib/format';
-import type { Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
+import type { Decision } from '@/lib/media-buyer/tipos';
 import { hace, queHace, queSeHizo } from './mb-modelo';
 import '@/app/admin/operaciones/centro.css';
 
@@ -38,14 +38,22 @@ export function CajaDeOrden({ placeholder, onPedir }: { placeholder: string; onP
   );
 }
 
+/** El aire del botón del próximo paso, sin tocar aa.css (nada más lo usa). */
+const PASO = { marginTop: 18 } as const;
+
 export type Sugerencia = 'lanzar' | 'disenar' | 'como' | 'buscar';
 const SUGERENCIAS: Array<[Sugerencia, string]> = [
   ['lanzar', 'Lanzar una campaña'], ['disenar', 'Diseñar un anuncio'], ['como', '¿Cómo vamos?'], ['buscar', 'Buscar oportunidades'],
 ];
 
-export function NuevoChat({ titulo, bajada, onSugerencia, onPedir }: {
+export function NuevoChat({ titulo, bajada, accion, onSugerencia, onPedir }: {
   titulo: string;
   bajada: string;
+  /**
+   * El próximo paso de ESTE caso (conectar la cuenta, lanzar la primera campaña, prenderla, prenderme): acción + objeto.
+   * Las cuatro sugerencias son siempre las mismas; esto es lo que al negocio le falta hoy (lib/media-buyer/cartel-hoy.ts).
+   */
+  accion?: { rotulo: string; href?: string; onClick?: () => void } | null;
   onSugerencia: (s: Sugerencia) => void;
   onPedir: (texto: string) => void;
 }) {
@@ -54,29 +62,18 @@ export function NuevoChat({ titulo, bajada, onSugerencia, onPedir }: {
       <Criatura nombre="MaKo" size={44} estrella />
       <h1>{titulo}</h1>
       <p>{bajada}</p>
+      {accion && (accion.href || accion.onClick) && (
+        <div style={PASO}>
+          {accion.href
+            ? <ButtonLink href={accion.href}>{accion.rotulo}</ButtonLink>
+            : <Button onClick={accion.onClick}>{accion.rotulo}</Button>}
+        </div>
+      )}
       <div className="aa-sugs">
         {SUGERENCIAS.map(([s, t]) => <button key={s} type="button" className="aa-sug" onClick={() => onSugerencia(s)}>{t}</button>)}
       </div>
       <CajaDeOrden placeholder="Escríbele a MaKo" onPedir={onPedir} />
     </section>
-  );
-}
-
-const RESULTADOS: Record<KpiMediaBuyer, [string, string]> = { lead: ['leads', 'por lead'], agenda: ['agendas', 'por agenda'], venta: ['ventas', 'por venta'] };
-
-/** Gastado · resultados · costo por resultado contra el objetivo. Tres números, nada más. */
-export function NumerosDelMes({ metas, kpi, objetivo }: { metas: MetasDelMes; kpi: KpiMediaBuyer; objetivo: number | null }) {
-  const fmt = (u: number) => (metas.convierte ? fmtDinero(u) : fmtDinero(u, metas.moneda));
-  const res = kpi === 'venta' ? metas.resultados.ventas : kpi === 'agenda' ? metas.resultados.agendas : metas.resultados.leads;
-  const costo = res > 0 ? metas.gasto / res : null;
-  const [nombre, por] = RESULTADOS[kpi];
-  const tono = costo == null || !objetivo ? undefined : costo <= objetivo ? 'bien' : 'mal';
-  return (
-    <dl className="aa-mes" aria-label="Este mes">
-      <div><dt>Gastado este mes</dt><dd>{fmt(metas.gasto)}</dd></div>
-      <div><dt>{nombre[0].toUpperCase() + nombre.slice(1)}</dt><dd>{fmtNum(res)}</dd></div>
-      <div><dt>Costo {por}</dt><dd data-tono={tono}>{costo == null ? '—' : fmt(costo)}{objetivo ? <small> / {fmt(objetivo)}</small> : null}</dd></div>
-    </dl>
   );
 }
 

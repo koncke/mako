@@ -97,7 +97,7 @@ export function CampoCodigo({ valor, onCambio, onCompleto, ocupado, error, estil
       {corto && puedePegar && (
         <div style={{ textAlign: 'right', marginTop: '6px' }}>
           <button type="button" onClick={() => void pegar()} disabled={ocupado}
-            style={{ background: 'none', border: 'none', padding: 0, color: '#2F6FED', fontSize: '13px', cursor: 'pointer' }}>
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: '13px', cursor: 'pointer' }}>
             Pegar
           </button>
         </div>

@@ -35,7 +35,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import {
-  CabeceraM, ErrorM, FilaM, KanbanM, ListaM, SheetM, SkeletonFilas, VacioM, useConexion,
+  CabeceraM, ErrorM, FilaM, KanbanM, ListaM, SheetM, SkeletonFilas, VacioM, navegarAlCerrar, useConexion,
   type ColumnaKanban, type ResultadoMover, type TarjetaKanban,
 } from '@/app/m/_ui';
 import { buscarLeadsAction, deshacerMoverAction, moverEtapaAction } from './acciones';
@@ -171,9 +171,9 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
         {alta && (
           <NewLeadForm enModal={{
             funnelId: datos.funnelId,
-            onCreado: (id) => { setAlta(false); router.push(ficha(id)); },
+            onCreado: (id) => { setAlta(false); navegarAlCerrar(() => router.push(ficha(id))); },
             // Ya estaba en otro funnel y se lo sumó a éste: también se abre su ficha (el «Deshacer» es del escritorio).
-            onAgregado: (id) => { setAlta(false); router.push(ficha(id)); },
+            onAgregado: (id) => { setAlta(false); navegarAlCerrar(() => router.push(ficha(id))); },
           }} />
         )}
       </SheetM>
@@ -194,7 +194,7 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
             acciones={[
               ...(r.telefono ? [{ texto: 'Llamar', href: `tel:+${r.telefono}`, primaria: true }, { texto: 'WhatsApp', href: `https://wa.me/${r.telefono}`, externo: true }] : []),
               ...(igR ? [{ texto: 'Instagram', href: igR, externo: true, primaria: true }] : []),
-              { texto: 'Abrir ficha', onClick: () => { const id = r.id; setRapida(null); router.push(ficha(id)); }, primaria: !r.telefono && !igR },
+              { texto: 'Abrir ficha', onClick: () => { const id = r.id; setRapida(null); navegarAlCerrar(() => router.push(ficha(id))); }, primaria: !r.telefono && !igR },
             ]}
             onMoverA={destinosR.length ? () => { const id = String(r.id); setRapida(null); setPedirMover((p) => ({ id, vez: (p?.vez ?? 0) + 1 })); } : null}
           />
@@ -213,8 +213,10 @@ export function TableroCrm({ datos }: { datos: TableroCrmM }) {
                 key={f.id ?? 'negocio'}
                 titulo={es ? <span className="m-crm-funnel-actual">{f.nombre}</span> : f.nombre}
                 navegacion
-                // Cerrarla por código (replaceState) y navegar en el mismo tick es seguro: ver SheetM.
-                onClick={() => { setElegirFunnel(false); if (!es) router.push(urlFunnel(f.id)); }}
+                // ⚠️ Cerrarla y navegar en el mismo toque perdía la navegación (ticket #27, Joan en el teléfono de su cliente
+                // Natalia: «toco ahí en "Venta Props" para cambiar, y no hace nada»): el replaceState de la hoja llegaba después
+                // del push y Next lo descartaba. `navegarAlCerrar` lo pone en orden (app/m/_ui/hoja-historial.ts).
+                onClick={() => { setElegirFunnel(false); if (!es) navegarAlCerrar(() => router.push(urlFunnel(f.id))); }}
                 chevron={false}
                 etiqueta={es ? `${f.nombre}, elegido` : f.nombre}
               />

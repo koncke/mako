@@ -7,7 +7,7 @@ import styles from './PageStrip.module.css'
 
 /**
  * La tira de miniaturas de Canva (se abre con «Páginas» en la barra inferior): una miniatura por página, la elegida
- * con el anillo violeta, arrastrar para reordenar y al final la baldosa gris con «+».
+ * con el anillo azul, arrastrar para reordenar y al final la baldosa gris con «+».
  */
 export function PageStrip() {
   const editor = useEditor()

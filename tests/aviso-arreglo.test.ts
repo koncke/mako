@@ -71,7 +71,8 @@ test('el envío reserva ANTES de mandar, suelta la reserva si no salió, y regis
   const src = sinComentarios(leer('lib/aviso-arreglo.ts'));
   const fn = src.slice(src.indexOf('export async function avisarArregloAlGrupo'));
   const reserva = fn.indexOf('cambiarSettingSi(key, null,');
-  const manda = fn.indexOf('enviarAlGrupoMaKo(p.ws, t.texto)');
+  // Con `'equipo'` (28/10/2026, F2a): el aviso queda en el anillo del equipo, no como turno de MaKo.
+  const manda = fn.indexOf("enviarAlGrupoMaKo(p.ws, t.texto, 'equipo')");
   assert.ok(reserva > 0 && manda > reserva, 'no reserva antes de mandar: dos llamadas con la misma clave mandan dos avisos');
   assert.ok(fn.indexOf('avisosDelDia(') > 0 && fn.indexOf('avisosDelDia(') < reserva, 'el tope no se mira antes de reservar');
   const fallo = fn.slice(manda, fn.indexOf('setSetting(key'));

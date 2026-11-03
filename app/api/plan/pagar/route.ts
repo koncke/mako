@@ -14,6 +14,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { avisoDeMora, deudaDe, pagarDeuda } from '@/lib/plan-deuda';
 import { reactivarPlan } from '@/lib/compra-plan';
+import { paisDelVisitante } from '@/lib/compra-plan-reglas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -50,7 +51,8 @@ export async function POST(req: NextRequest) {
     if (d === undefined) return Response.json({ error: 'No pudimos leer tu plan. Prueba otra vez en un minuto.' }, { status: 503 });
     if (d?.deuda) return Response.json({ error: 'Primero paga lo que quedó pendiente.', deuda: true }, { status: 409 });
     if (!a.email) return Response.json({ error: 'Tu sesión no tiene email.' }, { status: 400 });
-    const r = await reactivarPlan(a.ws, { email: a.email, nombre: a.nombre });
+    // El país de quien paga (29/10/2026): el primer plan propio del cliente que dejó su agencia, con la pasarela de su país.
+    const r = await reactivarPlan(a.ws, { email: a.email, nombre: a.nombre, pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')) });
     return r.ok ? Response.json({ url: r.link }) : Response.json({ error: r.error }, { status: r.status });
   }
   return Response.json({ error: 'Acción inválida.' }, { status: 400 });

@@ -31,7 +31,8 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { DEFS, ordenCategoria } from '@/lib/integraciones-catalogo';
+import { DEFS, integracionQueConfigura, ordenCategoria } from '@/lib/integraciones-catalogo';
+import { CLAVE_SIGUE_ZERNIO, redDeTarjeta } from '@/lib/zernio-redes';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
@@ -52,6 +53,9 @@ import type { TokenAgenteVisible } from '@/lib/agente-token-nucleo';
 import { ModalShell } from '../_components/ModalShell';
 import { Dropdown, type DropdownOption } from '../components/Dropdown';
 import ServicioConfigForm, { IconBtn } from './ServicioConfigForm';
+import dynamicImport from 'next/dynamic';
+// Las líneas de WhatsApp por QR (29/10/2026): se bajan sólo al abrir esa tarjeta (traen el QR de /whatsapp).
+const LineasWhatsApp = dynamicImport(() => import('./LineasWhatsApp'), { ssr: false });
 import { Icon } from '../_components/icons';
 import { getGoogleCalendarStatusAction, disconnectGoogleCalendarAction, type GoogleCalendarStatus } from '@/app/configuraciones/gcal-actions';
 import { GCAL_MSG } from '@/app/configuraciones/GoogleCalendarPanel';
@@ -72,6 +76,9 @@ const MONO = "'Geist Mono', monospace";
 // build del cliente, que es exactamente el guard que queremos.
 import type { Integracion } from '@/lib/integraciones';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
+import { itemsIntegracion } from './menu-contextual-integraciones';
 // Incidente con período: startedAt → resolvedAt (null = en curso). Viene del server.
 type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
@@ -234,6 +241,8 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   const searchParams = useSearchParams();
   const [usage, setUsage] = useState<Resumen | null>(null);
   const [modal, setModal] = useState<{ t: 'svc'; key: string } | { t: 'hist' } | null>(null);
+  // El clic derecho (y mantener presionado) de una tarjeta: abrirla, como su clic (menu-contextual-integraciones.ts).
+  const menuTarjeta = useMenuContextual<{ key: string; nombre: string; conectada: boolean }>();
   // Las que NO tienen tarjeta en la grilla (`oculto`: las cuatro IA, que viven en «Tus cuentas de IA», y Google Calendar,
   // que se conecta desde Calendario) siguen abriéndose con su link: el MISMO modal que usan las demás pestañas.
   const { abrir: abrirSuelta, modal: modalSuelto } = useConectarIntegracion();
@@ -263,7 +272,9 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   // Se limpia el parámetro después (router.replace, sin scroll): si queda pegado,
   // un F5 o el botón de atrás vuelven a abrir el modal que la persona ya cerró.
   // Va con el router de app/_ui/Link para no perder el ?ws= del super admin.
-  const abrir = searchParams.get('abrir');
+  // Se abre DONDE SE CONFIGURA (29/10/2026, ticket #28): `?abrir=meta` (los avisos del corte, MaKo, la API) abre Zernio.
+  const abrirCrudo = searchParams.get('abrir');
+  const abrir = abrirCrudo ? integracionQueConfigura(abrirCrudo) : null;
   const yaAbierto = useRef(false);
   useEffect(() => {
     // ⚠️ Sin parámetro se REARMA (06/10/2026). La ref se ponía en true la primera vez
@@ -455,8 +466,9 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
   // Y un grabador que HOY no se conecta (Loom sin API; Read AI y Meet, sin su inicio de sesión: `sinConexion`): no hay nada
   // que la persona pueda hacer para conectarlo, así que no es un pendiente.
+  // Y una red social sin conectar (29/10/2026): cada negocio usa las suyas; ninguna es un pendiente.
   const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) && sevOf(i) !== 'good')
-    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO || !!i.sinConexion;
+    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO || !!i.sinConexion || (redDeTarjeta(i.key) != null && sevOf(i) !== 'good');
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
   // ⚠️ Y las que no son tarjetas (`sinTarjeta`, 25/10/2026): desde que las IA dejaron la grilla, la caja de Claude, OpenAI
@@ -529,6 +541,18 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   const ocultas = sinConectarVis.length - catalogo.length;
   const limpiar = () => { setQ(''); setCatF(TODAS); setEstadoF(TODAS); };
 
+  // Una red social (29/10/2026) se conecta en la tarjeta de Zernio: abre ésa y deja marcada la red que sigue (el paso 2 la resalta;
+  // sin clave, el paso 1 dice que después viene su login). Las que todavía no se usan (`sinConexion`) abren la suya, que dice por qué.
+  const abrirTarjeta = (i: Integracion) => {
+    const red = redDeTarjeta(i.key);
+    if (red && !i.sinConexion) {
+      try { window.sessionStorage.setItem(CLAVE_SIGUE_ZERNIO, red); } catch { /* sin almacenamiento: abre Zernio igual */ }
+      setModal({ t: 'svc', key: integracionQueConfigura(i.key) });
+      return;
+    }
+    setModal({ t: 'svc', key: i.key });
+  };
+
   // La tarjeta (Vercel: el logo, la categoría en una píldora, el nombre y una línea). Toda la tarjeta abre su modal.
   const tarjeta = (i: Integracion) => {
     const conectada = estaConectada(i);
@@ -538,7 +562,7 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
     return (
       // Sin conectar, más apagada (25/10/2026, Martín: «para que se diferencien»): app/globals.css, `[data-sin-conectar]`.
       <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" data-sin-conectar={conectada || motivo ? undefined : ''}
-        onClick={() => setModal({ t: 'svc', key: i.key })}>
+        onClick={() => abrirTarjeta(i)} {...menuTarjeta.propsDe({ key: i.key, nombre: i.nombre, conectada })}>
         <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <SvcIcon k={i.key} box={36} radius={10} size={21} />
           <span className="int-pildora">{i.categoria}</span>
@@ -631,6 +655,12 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
+
+      {menuTarjeta.abierto && (
+        <MenuContextual key={menuTarjeta.abierto.n} punto={{ x: menuTarjeta.abierto.x, y: menuTarjeta.abierto.y }} porDedo={menuTarjeta.abierto.porDedo}
+          items={itemsIntegracion(menuTarjeta.abierto.de.conectada)} etiqueta={`Acciones de ${menuTarjeta.abierto.de.nombre}`} onCerrar={menuTarjeta.cerrar}
+          onElegir={(id) => { const i = integraciones.find((x) => x.key === menuTarjeta.abierto?.de.key); if (id === 'abrir' && i) abrirTarjeta(i); }} />
+      )}
 
       {/* ═══ MODALES ═══ */}
       {modalSuelto}
@@ -1667,6 +1697,8 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
   const esLanding = i.key === 'landing';
   // El agente tampoco: token + skill del lado del usuario. Mismo molde que la landing.
   const esAgente = i.key === 'agente';
+  // WhatsApp por QR (29/10/2026): sus líneas y «Agregar línea», no un formulario de claves.
+  const esWhatsApp = i.key === 'whatsapp';
 
   return (
     // Alto FIJO e igual para todos los servicios (el de 1 sola key y el de 6):
@@ -1735,7 +1767,9 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
 
           {i.key === 'google' && <PermisoGoogleCalendar conectada={i.estado === 'conectada'} estado={gcal} />}
 
-          {esAgente ? (
+          {esWhatsApp ? (
+            <LineasWhatsApp onCambio={onCambio} />
+          ) : esAgente ? (
             <TutorialAgente actual={agenteActual ?? null} appUrl={appUrl ?? ''} />
           ) : esLanding ? (
             <>

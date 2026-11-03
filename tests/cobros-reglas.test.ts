@@ -66,7 +66,7 @@ test('decidirCobro: qué pasarela (una conectada, dos sin elegir, ninguna, la el
   // Ninguna: el error dice qué hacer y no pide un campo (no hay nada que elegir en la pantalla).
   const ninguna = decidirCobro({ ...base, conectadas: [] });
   assert.equal(ninguna.ok, false);
-  assert.match(!ninguna.ok ? ninguna.error : '', /Conecta Stripe o Mercado Pago/);
+  assert.match(!ninguna.ok ? ninguna.error : '', /Conecta una pasarela de pagos/);
   assert.equal(!ninguna.ok && ninguna.faltan, undefined);
   // La elegida no está conectada: se rechaza con su nombre, aunque la otra sí lo esté.
   const ajena = decidirCobro({ ...base, pasarela: 'mercadopago', conectadas: ['stripe'] });

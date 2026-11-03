@@ -1,9 +1,11 @@
 // =============================================================================
 // creativo-mako-fuentes — de dónde salen los videos de MaKo que ofrece Ads Manager
 // =============================================================================
-// Las dos lecturas (montados y tomas) y la resolución de UNA referencia. Las usan la
+// Las dos lecturas (montados y tomas) y la resolución de UNA referencia. Las usaban la
 // lista (/api/ads-manager/mis-creativos) y la subida a Meta (/api/ads-manager/
-// creative-upload, rama `mako`): las dos pasan por las MISMAS funciones puras de
+// creative-upload, rama `mako`), borradas el 27/10/2026 con el Ads Manager viejo: hoy
+// sólo el Video Editor resuelve una referencia (app/video-editor/desde/resolver.ts), y
+// las dos lecturas quedaron sin call site. Todo pasa por las MISMAS funciones puras de
 // lib/creativo-mako.ts, así lo que se ofrece y lo que se acepta no pueden divergir.
 //
 // ⚠️ TODO acá corre adentro de `runWithWorkspace(wsDeAdsManager(), …)`, y no es un

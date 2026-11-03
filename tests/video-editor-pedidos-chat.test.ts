@@ -143,7 +143,7 @@ test('9: el chat pregunta ANTES de su IA, con los proyectos del navegador, y a l
   const pregunta = pedir.indexOf('await pedirPedidos(');
   const ia = pedir.indexOf('await pedirIA(');
   assert.ok(pregunta > 0 && ia > pregunta, 'primero qué se pide, después la IA');
-  assert.match(pedir, /paraEditar = textoActual\(interp\);/);
+  assert.match(pedir, /paraEditar = conCita\(textoActual\(interp\)\);/);
   // Con fotos o PDF (28/10/2026, las cajas unificadas) el pedido es del proyecto abierto aunque no haya texto.
   assert.match(pedir, /if \(!paraEditar && !archivos\.length\) \{\s*terminar\(null\);/, 'sin nada del abierto, no se llama a la IA');
   assert.match(pedir, /await pedirIA\(\{ instruccion: paraEditar,/);

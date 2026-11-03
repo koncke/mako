@@ -66,7 +66,7 @@ export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
+  | 'video' | 'copywriting' | 'ai-avatar' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
@@ -226,13 +226,20 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Video y Copywriting son tabs UNIFICADAS de escritorio: la key que gatea es la de la
   // sección que el teléfono muestra (Video Generator; Ads Writer, la única de Copywriting que ve un
   // cliente). `copywriting` NO sirve de navKey: no está en TODOS_LOS_ITEMS (itemsDe aplana las
-  // secciones) y la de ADMIN_NAV es otra tab (/admin/copywriting), así que puedeVerKey diría que no.
+  // secciones), así que puedeVerKey diría que no.
   // Image (la copia de Canva) no entró en la tanda del 15/10/2026; entró el 17/10/2026, debajo de Video.
-  { id: 'video', label: 'Video', href: '/m/video', icon: 'videogen', navKey: 'video-generator', familia: 'create' },
+  // Video desde el 29/10/2026: una sola pantalla, el editor (como en escritorio: nav.ts → 'video-editor', sin secciones). El
+  // Video Generator (/m/video) quedó como su plantilla «Generar con IA», con fila oculta (lib/movil-creacion.ts).
+  { id: 'video', label: 'Video', titulo: 'Video', href: '/m/video-editor', icon: 'videogen', navKey: 'video-editor', familia: 'create' },
   // Image (17/10/2026): la tab unificada abre su Editor, la copia de Canva (app/m/image-editor), como en escritorio
   // (`resolverTab` lleva a la primera sección que no es «pronto»). Sus otras secciones van en la barra de arriba.
   { id: 'image', label: 'Image', titulo: 'Image Editor', href: '/m/image-editor', icon: 'imagegen', navKey: 'image-editor', familia: 'create' },
-  { id: 'copywriting', label: 'Copywriting', titulo: 'Ads Writer', href: '/m/copywriting', icon: 'escribir', navKey: 'ads-writer', familia: 'create' },
+  // Copywriting ES el Copywriter desde el 29/10/2026 (nav.ts, la fila de Copywriting): la lista de páginas y «Nueva»
+  // (app/m/copywriter). El Ads Writer del teléfono (/m/copywriting) queda sin fila.
+  { id: 'copywriting', label: 'Copywriting', titulo: 'Copywriting', href: '/m/copywriter', icon: 'escribir', navKey: 'copywriter', familia: 'create' },
+  // AI Avatar (29/10/2026): para todos los planes, como Video. Hasta ese día era sólo del super admin y no tenía fila (More se
+  // la armaba desde la sidebar). Una pantalla, el estudio de Higgsfield (app/m/ai-avatar).
+  { id: 'ai-avatar', label: 'AI Avatar', titulo: 'AI Avatar', href: '/m/ai-avatar', icon: 'perfil', navKey: 'ai-avatar', familia: 'create' },
   // «Second Brain» (16/10/2026), ARRIBA de todo y sin título desde el 17/10/2026, como en escritorio
   // (app/_components/nav.ts → ARRIBA): el chat con MaKo. Hasta ese día había otra fila igual en Analyze.
   // «Ops Center» desde el 18/10/2026, como en escritorio (nav.ts → MAKO_NAV): el nombre de la fila, de la cabecera y del
@@ -313,7 +320,7 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   'second-brain': ['area', 'vista'], // app/second-brain/VistaCerebro.tsx (los arma `rutaSeccion`, lib/secciones-negocio.ts)
   experimentos: ['tab', 'desde', 'hasta', 'cierres', 'presupuesto', 'hipotesis'], // app/experimentos/page.tsx
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
-  copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
+  copywriting: ['nuevo'], // app/copywriter/page.tsx (`?nuevo=<tipo>`: sus templates primero). El `?tab=` del Ads Writer va aparte.
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
   curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
   comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
@@ -451,9 +458,6 @@ export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
   // /email es la CONFIGURACIÓN del canal desde el 17/10/2026 (los emails se leen en Chats): el dominio son registros DNS y
   // las secuencias, un editor por etapa. Chats del teléfono ya dice «Conectar canales · En la computadora».
   email: 'Conectar el dominio y armar las secuencias se hace en la computadora. Los emails se leen y contestan en Chats.',
-  // Las bibliotecas de Ads Writer (25/10/2026, vivían en la página de Dev): cada ángulo y cada estructura es un texto largo
-  // con varios campos.
-  'admin-guiones': 'Los ángulos y las estructuras con que escribe Ads Writer son textos largos con varios campos: se editan en la computadora.',
 };
 
 /**
@@ -467,6 +471,13 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
   'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
+  // Competitor Spy (31/10/2026): dejó de ser ComingSoon con la Etapa 1 (lista, ficha por bloques y
+  // onboarding), y al salir de `comingSoon` perdió el `/m/pronto/market-an` que se derivaba de esa
+  // marca. La pantalla del teléfono es la Etapa 1.5 del plan: la ficha pasa a UN bloque por
+  // pantalla y los filtros a una hoja que sube desde abajo (docs/diseno-competitors-spy.md §8). Lo
+  // que NO va al teléfono, y se dice en vez de desaparecer: replicar el sitio del competidor (es el
+  // editor) y el recorrido con la extensión (es Chrome de escritorio).
+  'market-an': 'el chat de Competitors Spy',
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
@@ -797,11 +808,19 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (dentro(p, '/offer') || RUTA_VIEJA_OFFER.test(p)) return aSeccion('offer', q);
   // Copywriting: lo que un cliente ve de esa tab unificada es Ads Writer (y /content-machine, el destino que
   // su código ya declara). Ideas, YouTube Writer y Stories son del super admin y se quedan en la computadora.
-  if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) return aSeccion('copywriting', q);
+  // Desde el 29/10/2026 la fila Copywriting abre el Copywriter (/m/copywriter); el Ads Writer dejó la barra pero sigue con su
+  // pantalla del teléfono por link (la matriz, «Analizar guion» con su `?tab=`, los links de MaKo), como en escritorio.
+  if (dentro(p, '/ads-writer') || dentro(p, '/content-machine')) {
+    const tab = q.get('tab');
+    return tab ? `/m/copywriting?tab=${encodeURIComponent(tab)}` : '/m/copywriting';
+  }
   // La tab Classroom (era Clients, docs/diseno-clients.md; /classroom desde el 25/10/2026): Clients y las cinco sub-tabs de
   // la comunidad, ANTES que Classroom, que es la raíz (el curso). El teléfono sigue con sus tres pantallas. Lo de /clients
   // ya llega como /classroom (next.config.ts redirige antes del proxy).
-  if (dentro(p, '/classroom/clients')) return '/m/cs';
+  // Los MIEMBROS son una vista de Clients desde el 29/10/2026 (`?vista=miembros`; /classroom/members redirige ahí): en el
+  // teléfono viven adentro de la comunidad, como antes.
+  if (dentro(p, '/classroom/clients')) return q.get('vista') === 'miembros' ? aSeccion('comunidad', q) : '/m/cs';
+  if (dentro(p, '/classroom/members')) return aSeccion('comunidad', q);
   if (SECCIONES_COMUNIDAD_CLIENTS.some((s) => dentro(p, `/classroom/${s}`))) return aSeccion('comunidad', q);
   if (dentro(p, '/classroom')) return aSeccion('curso', q);
   // Las rutas VIEJAS de Customer Success (links ya mandados): en escritorio redirigen a /classroom

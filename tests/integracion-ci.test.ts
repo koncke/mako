@@ -27,7 +27,21 @@ test('el workflow corre tipos, guardas y tests sobre integracion, y avanza main 
   assert.match(wf, /sh scripts\/guardas-push\.sh/, 'corre la MISMA lista de guardas que el pre-push local');
   assert.match(wf, /npm test/, 'corre los tests');
   assert.match(wf, /git push origin "HEAD:refs\/heads\/main"/, 'avanza main con el commit chequeado');
-  assert.doesNotMatch(wf, /--force|-f\b|\+HEAD:/, 'main avanza sólo por fast-forward: un push forzado pisaría lo que llegó por otro lado');
+  // ⚠️ 2/11/2026 — ESTA GUARDA PROHIBÍA `--force` EN TODO EL ARCHIVO, y se puso roja al sumar el
+  // paso que deja la marca del rojo en `ci-ultimo-rojo`. **El rojo era correcto y la guarda se
+  // afinó, no se aflojó**: lo que protege es que MAIN avance sólo por fast-forward, porque un push
+  // forzado ahí pisaría lo que llegó por otro lado. Forzar una rama DESCARTABLE —que se pisa sola
+  // en cada rojo y no la lee nadie más que el vigía— no tiene ese riesgo.
+  //
+  // Lo que se exige ahora, que es lo mismo pero dicho con precisión: ninguna línea que empuje a
+  // `main` puede llevar un forzado, en ninguna de sus tres formas (`--force`, `-f`, `+HEAD:`).
+  for (const linea of wf.split('\n').filter((l) => /git push/.test(l) && /main/.test(l))) {
+    assert.doesNotMatch(linea, /--force|(^|\s)-f(\s|$)|\+HEAD:/, `main avanza sólo por fast-forward y esta línea lo fuerza: ${linea.trim()}`);
+  }
+  // Y que el único forzado que exista sea el de la marca del rojo: si aparece otro, hay que mirarlo.
+  const forzados = wf.split('\n').filter((l) => /git push/.test(l) && /--force|\+refs\/|\+HEAD:/.test(l));
+  assert.equal(forzados.length, 1, `hay ${forzados.length} pushes forzados en el workflow; se esperaba sólo el de ci-ultimo-rojo`);
+  assert.match(forzados[0], /ci-ultimo-rojo/, 'el único push forzado tiene que ser el de la marca del rojo');
   assert.match(wf, /cancel-in-progress:\s*true/, 'se chequea sólo la punta: no se gastan minutos en commits que quedaron atrás');
 });
 

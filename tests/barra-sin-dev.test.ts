@@ -8,8 +8,10 @@
 //   1. el menú de la foto del super admin ya no los tiene, y sus pantallas no existen;
 //   2. los links viejos caen en su lugar nuevo (next.config.ts), no en un 404;
 //   3. lo que se editaba SÓLO ahí no se perdió: el Conocimiento en Classroom › Methodology (sólo la plataforma), los prompts
-//      en Settings › Prompts (la regla de Método), y las bibliotecas de Ads Writer en Copywriting;
-//   4. nada enlaza a una pantalla que se fue: el grafo del Second Brain y lo que MaKo dice que sabe hacer.
+//      en Settings › Prompts (la regla de Método). Las bibliotecas de guiones y el método de redacción se quedaron SIN
+//      pantalla el 29/10/2026 (Martín: «no quiero ninguna mención»): redirigen al Copywriter y la IA las sigue leyendo;
+//   4. nada enlaza a una pantalla que se fue: el grafo del Second Brain y lo que MaKo dice que sabe hacer;
+//   5. esas dos herramientas no aparecen en ningún archivo de app/, lib/ ni components/.
 //
 // PROBADO ROMPIÉNDOLO (base 4/0): MaKo Context de vuelta en el menú → 1 rojo (1); sin el redirect de /contexto → 1 rojo (2);
 // Methodology para cualquiera → 1 rojo (3); Prompts sin la regla de Método → 1 rojo (3); el grafo con /admin/dev otra vez →
@@ -18,6 +20,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { SUPERADMIN_MENU, FAMILIAS } from '../app/_components/nav';
 import { seccionesDe } from '../lib/clients-rutas';
@@ -57,24 +60,44 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   assert.ok(!seccionesDe(false).some((s) => s.id === 'methodology'), 'un negocio ve Methodology');
   // Una sola grilla: la de la plataforma es Customers (negocios); el kanban de leads es de cada negocio, y para ella sería un
   // link que salta a /customers.
-  assert.ok(!seccionesDe(true).some((s) => s.id === 'clients'), 'la plataforma ve «Clients» en Classroom: dos grillas');
+  // Desde el 29/10/2026 esa sub-tab es también Members: la plataforma la ve con ese nombre y sólo con los miembros.
+  assert.ok(!seccionesDe(true).some((s) => s.label === 'Clients'), 'la plataforma ve «Clients» en Classroom: dos grillas');
   assert.ok(seccionesDe(false).some((s) => s.id === 'clients'), 'un negocio perdió su kanban');
   assert.match(sinComentarios(leer('app/admin/page.tsx')), /redirect\('\/customers'\);/, 'el super admin entra por su grilla');
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
-  assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView \/>;/);
+  assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView\b/, 'Methodology dibuja algo antes de la puerta de la plataforma');
   // Los prompts: salieron del índice de Settings el 26/10/2026 (Martín: «sobra la de prompts en super admin»), pero su
   // pantalla sigue, con la misma puerta (sólo la agencia).
   assert.ok(!seccionesNegocio({ integraciones: true, plan: true }).some((s) => s.key === 'prompts'), 'volvió Settings › Prompts');
   const prompts = sinComentarios(leer('app/configuraciones/prompts/page.tsx'));
   assert.match(prompts, /if \(!\(await getSesionAdmin\(\)\)\) redirect\(/);
   assert.match(prompts, /<PromptsMaKo \/>\s*<Configuraciones embedded \/>/, 'la persona y los prompts de cada pantalla, los dos');
-  // Las bibliotecas de Ads Writer: una sección de Copywriting, y la página las dibuja (ya no redirige a Dev).
-  const copy = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'copywriting');
-  assert.ok(copy?.secciones?.some((s) => s.href === '/admin/guiones'), 'las bibliotecas no son una sección de Copywriting');
-  assert.equal(copy?.match('/admin/guiones'), true, 'en las bibliotecas, la barra no marca Copywriting');
-  const guiones = sinComentarios(leer('app/admin/guiones/page.tsx'));
-  assert.match(guiones, /return <GuionesAdminView \/>;/);
-  assert.doesNotMatch(guiones, /admin\/dev/);
+  // Las bibliotecas de guiones y el método de redacción: SIN pantalla desde el 29/10/2026 (Martín: «Elimina esto […], no
+  // quiero ninguna mención en todo MaKo»; el test 5). Sus rutas redirigen al Copywriter, que es UNA pantalla sin pestañas,
+  // y lo que la IA lee de ellas sigue: las estructuras con su override (getEstructurasTodas, en el Copywriter) y el método
+  // con su swipe (lib/copywriting-metodo.ts, en la nutrición).
+  const copy = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.label === 'Copywriting');
+  assert.ok(copy && !copy.secciones?.length, 'Copywriting volvió a tener pestañas');
+  // La del teléfono se borró (como /m/reels y /m/carousels): el link de escritorio redirige y el proxy lo sirve en /m/copywriter.
+  assert.ok(!existsSync(join(RAIZ, 'app/m/admin/copywriting')), 'volvió la pantalla del teléfono');
+  for (const p of ['app/admin/guiones/page.tsx', 'app/admin/copywriting/page.tsx']) {
+    assert.match(sinComentarios(leer(p)), /redirect\(await rutaConWs\('\/copywriter'\)\);/, `${p} no redirige al Copywriter`);
+  }
+  assert.ok(!sinComentarios(leer('app/copywriter/Copywriter.tsx')).includes('/admin/'), 'el Copywriter volvió a enlazar una herramienta del super admin');
+  assert.match(leer('lib/copywriter/catalogos-server.ts'), /getEstructurasTodas\(\)/, 'el Copywriter dejó de leer la biblioteca');
+  assert.match(leer('lib/nutricion-generator.ts'), /from '@\/lib\/copywriting-metodo'/, 'la IA dejó de leer el método de redacción');
+});
+
+test('5. el método de redacción y las bibliotecas de guiones no aparecen en ningún lado de MaKo (29/10/2026)', () => {
+  // Martín, textual: «Elimina esto "Copy Method · Angles & Structures", no quiero ninguna mención en todo MaKo». Se barre
+  // todo lo versionado de app/, lib/ y components/ (lo que se dibuja, los títulos y los comentarios): ni el nombre ni la
+  // etiqueta de la fila vuelven.
+  const archivos = execFileSync('git', ['ls-files', 'app', 'lib', 'components'], { cwd: RAIZ, encoding: 'utf8' }).split('\n')
+    .filter((f) => /\.(tsx?|css|json|md)$/.test(f) && existsSync(join(RAIZ, f)));
+  assert.ok(archivos.length > 500, 'no se pudo listar el repo');
+  const PROHIBIDO = /Copy Method|Angles & Structures|Angles &amp; Structures/;
+  const con = archivos.filter((f) => PROHIBIDO.test(readFileSync(join(RAIZ, f), 'utf8')));
+  assert.deepEqual(con, [], 'volvió a aparecer en MaKo');
 });
 
 test('4. nada enlaza a una pantalla que se fue: el grafo del Second Brain y lo que MaKo dice que sabe hacer', () => {

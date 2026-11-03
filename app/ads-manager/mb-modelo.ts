@@ -7,8 +7,8 @@
 // =============================================================================
 
 import { cuentaAUsd, esConvertible } from '@/lib/presupuesto-cambio';
-import { fmtDinero } from '@/lib/format';
-import type { Decision, EstadoDecision, KpiMediaBuyer, Tactica, TipoDecision } from '@/lib/media-buyer/tipos';
+import { fmtDinero, fmtNum } from '@/lib/format';
+import type { Decision, EstadoDecision, KpiMediaBuyer, MetasDelMes, Tactica, TipoDecision } from '@/lib/media-buyer/tipos';
 
 export const NOMBRE_TACTICA: Record<Tactica, string> = {
   surf: 'Surf',
@@ -18,6 +18,7 @@ export const NOMBRE_TACTICA: Record<Tactica, string> = {
   calidad: 'Calidad de leads',
   ganador: 'Ganador',
   manual: 'Subida',
+  hasta: 'Fecha de fin',
 };
 
 export const ICONO_TIPO: Record<TipoDecision, string> = {
@@ -28,6 +29,7 @@ export const ICONO_TIPO: Record<TipoDecision, string> = {
   variaciones_texto: '✍️',
   variaciones_hook: '🎬',
   crear_anuncios: '⬆️',
+  crear_campana: '🚀',
 };
 
 export const NIVEL: Record<Decision['nivel'], string> = { campaign: 'Campaña', adset: 'Conjunto', ad: 'Anuncio' };
@@ -35,7 +37,7 @@ export const NIVEL: Record<Decision['nivel'], string> = { campaign: 'Campaña', 
 /** El tono del titular de la columna del medio: verde lo que gana, rojo lo que pierde, dorado lo que crea MaKo. */
 export function tonoDe(d: Pick<Decision, 'tipo' | 'tactica'>): 'bien' | 'mal' | 'cuidado' | 'mako' {
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook') return 'mako';
-  if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar' || d.tipo === 'crear_anuncios') return 'bien';
+  if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar' || d.tipo === 'crear_anuncios' || d.tipo === 'crear_campana') return 'bien';
   if (d.tactica === 'sunsetting' && d.tipo === 'bajar_presupuesto') return 'cuidado';
   return 'mal';
 }
@@ -116,7 +118,7 @@ export function saludo(hora: number): string {
 // cuatro pestañas de Autopilot (Today, Scheduled, Implemented, Blocked).
 
 // Los agentes viven en lib/media-buyer/agentes.ts (los usa también la API de MaKo); la pantalla los toma de acá.
-export { AGENTE_DE, NOMBRE_AGENTE, TACTICAS_DE, QUE_HACE, estadoDeAgente, cambiarAgente } from '@/lib/media-buyer/agentes';
+export { AGENTE_DE, NOMBRE_AGENTE, TACTICAS_DE, QUE_HACE, estadoDeAgente, cambiarAgente, cambioDeAgente } from '@/lib/media-buyer/agentes';
 export type { Agente, EstadoAgente } from '@/lib/media-buyer/agentes';
 
 export type PestanaAA = 'hoy' | 'programadas' | 'implementadas' | 'bloqueadas';
@@ -262,6 +264,7 @@ const POR_TACTICA: Record<Tactica, (res: string, tipo: TipoDecision) => string> 
   calidad: () => 'pausar lo que trae leads que no agendan',
   ganador: (_res, tipo) => (tipo === 'variaciones_hook' ? 'probar ganchos nuevos de tu video ganador' : 'probar textos nuevos de tu anuncio ganador'),
   manual: () => 'lo que piden tus reglas',
+  hasta: () => 'pausar lo que llegó a su fecha de fin',
 };
 
 const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
@@ -306,6 +309,19 @@ export function mensajeDeCampanas(productos: readonly { nombre: string; costo: n
   return partes.join(' ');
 }
 
+/**
+ * Los números del mes de Campañas en UNA línea del pie del árbol (27/10/2026): eran tres tarjetas entre la pestaña y el árbol,
+ * y la captura 04 no tiene nada entre la caja del chat y la pastilla de MaKo. Gastado · resultados · costo contra el objetivo.
+ */
+export function lineaDelMes(m: MetasDelMes, kpi: KpiMediaBuyer, objetivo: number | null): { texto: string; tono: 'bien' | 'mal' | null } {
+  const fmt = (u: number) => (m.convierte ? fmtDinero(u) : fmtDinero(u, m.moneda));
+  const res = kpi === 'venta' ? m.resultados.ventas : kpi === 'agenda' ? m.resultados.agendas : m.resultados.leads;
+  const costo = res > 0 ? m.gasto / res : null;
+  const partes = [`Este mes: ${fmt(m.gasto)} gastados`, `${fmtNum(res)} ${res === 1 ? UNO_RES[kpi] : RESULTADO[kpi]}`];
+  if (costo != null) partes.push(`${fmt(costo)} por ${UNO_RES[kpi]}${objetivo ? ` (tu objetivo: ${fmt(objetivo)})` : ''}`);
+  return { texto: partes.join(' · '), tono: costo == null || !objetivo ? null : costo <= objetivo ? 'bien' : 'mal' };
+}
+
 // ── Lo que escribe la persona y lo que se lanza en lote (la revisión de tren-l, 26/10/2026) ─────────────────────────────
 
 // El monto como lo escribe una persona vive en lib/media-buyer/monto.ts: lo usan también Ajustes y el arranque.
@@ -316,3 +332,13 @@ export const esVariacion = (d: Pick<Decision, 'tipo'>): boolean => d.tipo === 'v
 
 /** Lo que «Aplicar los N» puede lanzar sin abrir nada: lo abierto que NO son textos nuevos de la IA. */
 export const aplicablesEnLote = <T extends Pick<Decision, 'estado' | 'tipo'>>(ds: readonly T[]): T[] => ds.filter((d) => d.estado === 'abierta' && !esVariacion(d));
+
+/**
+ * Lo que la tarjeta lee de «lanzar»: un sí, un no, o «confírmalo» (bajar el presupuesto 80% o más: lib/media-buyer/monto.ts →
+ * revisarMontoEditado). Con «confírmalo» no hay aviso ni recarga: la tarjeta pregunta ahí mismo, pegado al botón.
+ */
+export type ResultadoAplicar = boolean | { confirmar: 'baja'; mensaje: string };
+export function resultadoAplicar(r: { ok: boolean; error?: string; confirmar?: string }): ResultadoAplicar {
+  if (!r.ok && r.confirmar === 'baja') return { confirmar: 'baja', mensaje: r.error ?? 'Es una baja grande.' };
+  return r.ok;
+}

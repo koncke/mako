@@ -114,6 +114,14 @@ export function PanelEstilo({ tema, onCambiar, ajustes = false }: {
           <input type="color" value={acentoVisto} aria-label="Otro color" onChange={(e) => probar(e.target.value)} />
         </label>
       </div>
+      {/* LA REGLA, DICHA EN LA PANTALLA. Elegir un acento cambia las series, no el semáforo: el verde de
+          «bueno» y el rojo de «malo» siguen significando lo mismo con cualquier paleta (`colorDeTono`, y
+          AGENTS.md: «UN SOLO SIGNIFICADO POR COLOR»). Es una línea, y cierra la pregunta para siempre en
+          vez de dejarla en una guía que nadie abre. Va con el ALCANCE declarado: el estilo es de la hoja
+          y se guarda, así que lo ve todo el que la abra — no es «en este dispositivo». */}
+      <p style={{ margin: 0, fontSize: 12, lineHeight: 1.35, color: 'var(--dim)' }}>
+        Los colores de estado conservan su significado en cada paleta. El estilo es de la hoja: lo ve todo el que la abra.
+      </p>
 
       <div className="lk-estilo-tit">Letra</div>
       <div className="lk-letras" role="group" aria-label="Letra">
@@ -180,7 +188,7 @@ function Muestra({ p, acento, letra }: { p: PlantillaTema; acento: string | null
     ...(p.tarjeta.filete ? { borderTop: `3px solid ${colores[0]}` } : {}),
   };
   return (
-    <span className="lk-muestra" style={estilo} aria-hidden>
+    <span className="lk-muestra" style={estilo} aria-hidden data-paleta={p.escena}>
       <span className="lk-muestra-tit" style={{ textTransform: p.titulo.mayus ? 'uppercase' : 'none' }}>Ventas</span>
       <span className="lk-muestra-barras">
         {[60, 95, 45, 75].map((h, i) => <span key={i} style={{ height: `${h}%`, background: colores[i], borderRadius: Math.min(3, p.graficos.radioBarra) }} />)}

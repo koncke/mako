@@ -2991,3 +2991,72 @@ contacto del formulario no viajan), con 3 ganados como mínimo, y el pedido va c
 
 **Sin hacer:** «probado en el ws3» con datos de verdad: leer producción lo tiene negado el clasificador de permisos de esta
 sesión. tests/avatares-ganados.test.ts lo prueba con datos armados.
+
+## El WhatsApp pasó a ser lo primero, y adelantar una pregunta no es moverla (30/10/2026)
+
+**El pedido.** Con el pago antes de entrar, «el WhatsApp del comprador se pide en el primer paso adentro de la app, con una sola
+pregunta y sin formulario». **La decisión:** es la MISMA pregunta que iba al final, con su código y su «Ahora no». Llamar directo a
+`setNumeroDuenoYSync`, que se propuso para ahorrar el código, suma al grupo un número sin probar: es lo que la auditoría del 14/10
+cerró. El número queda en el contacto de los reportes apenas lo da; el grupo, recién con el código.
+
+**Lo que se rompía en silencio al adelantarla, sin que ningún test del orden lo viera:**
+- `e.negocio || 'tu negocio'`: todavía no hay negocio, y el grupo de WhatsApp nacía «MaKo <> tu negocio». Va vacío para que
+  `verificarCodigoContacto` use el del workspace, y al decir el negocio `asegurarGrupoMaKo` le corrige el nombre.
+- La entrada de MaKo (`ChatArranque`) salía sólo con la etapa `nombre`: con otra primera etapa no sale nunca, sin error.
+- El contacto nacía sin nombre: se completa cuando lo dice.
+- **Escribir el número en la caja del chat contestaba «Ahora no estoy esperando eso».** Al final de la charla casi no se veía; como
+  primer mensaje, después de pagar, es lo primero que cualquiera hace. No salió de los tests: salió de mirar la pantalla en el banco y
+  ver la caja abierta debajo de la tarjeta. Ahora vale igual que la tarjeta (`telefonoEscrito`). Sin lada, pide el país: un número
+  local no se adivina, porque el código le llegaría a otra persona.
+
+**El diagnóstico obvio era el equivocado: 58 rojos parecían una rotura y eran 51 datos de prueba viejos.** Casi todos los tests del
+onboarding arman sus hechos con `conTelefono: true` y un estado sin teléfono, así que todos quedaban parados en la primera pregunta.
+Pasaron a `conTelefono: false`, y sólo 7 fijaban de verdad el orden viejo. La corrida entera CON teléfono es `recorrer` en
+tests/onboarding-historial.test.ts; el orden, tests/onboarding-whatsapp-primero.test.ts. **La regla:** un test que no es sobre el
+teléfono arranca sin teléfono; si un paso nuevo va primero, ese test no tiene por qué contestarlo.
+
+**Medido antes de escribir código, para no escribirlo (producción, sólo lectura, 31/10):** 17 negocios con onboarding, 1 sin empezar,
+0 a mitad con respuestas y 0 terminados sin historial. Por eso NO se cubrieron dos casos que hoy no le pasan a nadie:
+- Alguien a mitad con su charla de Offer vería la pregunta arriba y la charla debajo, porque Offer se dibuja entre `antes` y
+  `despues`. Se arregla solo al contestar. Vive en `mensajesDeArranque`, en el retorno temprano del teléfono.
+- `scripts/reconstruir-historial-onboarding.mts` pondría el teléfono arriba en quien lo contestó al final. Hoy no tiene a quién
+  reconstruir. Hay que mirarlo antes de volver a correrlo.
+
+**Quien lo dio al pagar no lo escribe de nuevo (31/10, acordado con Planes).** El checkout de /planes pide el WhatsApp, optativo, y el
+alta lo deja en `cuenta.whatsapp_del_pago`. La pregunta del onboarding se queda: ese número sale de un formulario público y no está
+probado, y sólo el código permite sumarlo al grupo. La tarjeta arranca con él, editable; lo manda un toque, nunca solo, porque si lo
+escribió mal el código le llega a otra persona. **La trampa:** `splitTelefono` no devuelve «no sé» con un país desconocido: le pone el
+de por defecto a todos los dígitos, y el número se ve correcto. Por eso `tarjetaConNumero` arranca vacía en ese caso.
+
+**Sin hacer:** el texto de esa clave está en los dos lados para que las dos puntas suban en cualquier orden, y un test los compara
+apenas exista `CLAVE_WHATSAPP_DEL_PAGO` en `lib/origen-cuenta.ts`. Después de subir, se reemplaza por el import en
+`lib/onboarding-arranque-server.ts`. Visto sólo en el banco, con `ChatArranque` y las reglas reales y la ruta simulada (la entrada, la pregunta, el código y
+«Ahora no»). Sin ver: el código llegando a un WhatsApp de verdad, el grupo con el nombre corregido y el número escrito en la caja pasando por la
+ruta de verdad (`telefonoEscrito` tiene test; que la ruta lo use, sólo un test que lee el código). Eso se prueba con un alta real.
+---
+
+## ⚠️ `resumenOnboardingTabs()` recorre TODO el catálogo: una tab de super admin en `TAB_ONBOARDINGS` le habla a cada cliente (31/10/2026)
+
+**El caso.** Construyendo Knowledge (el método de los cursos para toda la app) había que
+cumplir la regla del producto —toda tab tiene onboarding, y su estado alimenta a MaKo— para
+una pantalla que **sólo ve el super admin** (Classroom › Methodology, desde el pedido de
+Martín del 25/10). La entrada en `lib/tab-onboarding-catalogo.ts` parecía gratis.
+
+**Qué habría pasado.** `resumenOnboardingTabs()` (`lib/tab-onboarding-state.ts`) itera
+`Object.keys(TAB_ONBOARDINGS)` **sin ningún filtro de capa, de rol ni de visibilidad**, y
+devuelve «TABS SIN CONFIGURAR… - <key>: falta …» para toda la que no esté `done`. Eso entra
+en `buildSystemPrompt` (`lib/mako-context.ts`) con `negocio`, o sea en **el prompt de todos
+los negocios, en todos los turnos**. Una entrada para una pantalla que el dueño no puede
+abrir queda pendiente **para siempre**, y MaKo le dice que lo primero es ir a configurarla.
+
+**La regla.** Antes de sumar una tab al catálogo de onboarding, mirar **quién la ve**. Lo que
+el catálogo modela es «lo que este negocio tiene que terminar de configurar»; una pantalla de
+plataforma no es eso. Y si el estado igual le sirve a MaKo, va **el dato, no el flag**: en
+Knowledge, el prompt lleva cuántas fichas tiene cada módulo (`estadoDeLosModulos()`,
+`lib/knowledge.ts`), que es verdad para cualquiera que lo lea.
+
+**Lo que queda abierto.** El catálogo no tiene forma de declarar «esta tab es de la
+plataforma» (ni `soloSuperAdmin` ni `capas`, que sí existen en el nav). Si algún día una
+pantalla de super admin necesita onboarding de verdad, el campo hay que agregarlo **y**
+filtrarlo en `resumenOnboardingTabs`: hoy el único control es no estar en el catálogo. Vive
+en `lib/tab-onboarding-catalogo.ts` y `lib/tab-onboarding-state.ts`.

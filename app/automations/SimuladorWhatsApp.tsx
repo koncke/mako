@@ -64,6 +64,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type ComponentType } from 'react';
 import { Dropdown } from '../components/Dropdown';
 import { Confirm } from '@/app/_ui/Confirm';
+import { AvisoRitmoConfirm } from './AvisoRitmoConfirm';
+import type { AvisoDeRitmo } from '@/lib/ritmo-al-activar';
 import { Toast, useToast } from '@/app/_ui/Toast';
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { SecuenciaPerfil, Z_CHAT_ENCIMA, type EdicionLocal } from './SecuenciaPerfil';
@@ -83,6 +85,9 @@ import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/s
 import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
 import { enviosDePasos, pasaFiltroLista, type FilaFiltrable } from '@/lib/chatbot-lista-filtro';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual, type PropsMenuFila } from '@/app/_ui/useMenuContextual';
+import { itemsFilaAutomatizacion } from './menu-contextual-automations';
 // El modal de las estrellas, DIFERIDO: arrastra las server actions de app/creaciones, y la lista (y sus tests, que
 // importan `opcionesDeFila`) no tiene por qué cargarlas hasta que alguien elige «Publicar en Creaciones».
 const PublicarCreacion = lazy(() => import('@/app/creaciones/PublicarCreacion').then((m) => ({ default: m.PublicarCreacion })));
@@ -512,7 +517,10 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
   const [renombrando, setRenombrando] = useState<number | null>(null);
   /** «Configuraciones» del «⋯» de una fila (20/10/2026): de cuál está abierto el modal. */
   const [configDe, setConfigDe] = useState<{ id: number; nombre: string } | null>(null);
-  const cerrarConfigDe = useCallback(() => setConfigDe(null), []);
+  // Identidad fija (la regla del Modal). Al cerrar se relee: si le pusieron goteo u horario, el ⚠ de la fila se va.
+  const alCerrarConfigDe = useRef<() => void>(() => {});
+  alCerrarConfigDe.current = () => { if (secuencias.find((s) => s.id === configDe?.id)?.aviso_ritmo) onReload(); };
+  const cerrarConfigDe = useCallback(() => { setConfigDe(null); alCerrarConfigDe.current(); }, []);
   const [nombresOptimistas, setNombresOptimistas] = useState<ReadonlyMap<number, string>>(() => new Map());
   // El optimista se va cuando la lista ya trae ese nombre (o la fila ya no está). Se calcula AL DIBUJAR, sin efecto:
   // un efecto pintaría un cuadro con el nombre de antes.
@@ -621,7 +629,7 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       setDescartando(false); setADescartar(null);
     }
   };
-  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean }) => {
+  const accionFila = async (j: SecuenciaDto, accion: string, o?: { sinAviso?: boolean; sinRitmo?: boolean }) => {
     if (accion === 'eliminar') { setErrFila(null); setAEliminar(j); return; }
     // «Renombrar» no pide nada: la fila pasa a ser un campo (`guardarNombre` escribe al salir).
     if (accion === 'renombrar') { setErrFila(null); setRenombrando(j.id); return; }
@@ -640,6 +648,16 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinAviso) {
       const otra = duplicadaAlActivar(j as SecuenciaConDisparadores, secuencias as readonly SecuenciaConDisparadores[], disparadoresDeSecuencia);
       if (otra) { setErrFila(null); setAvisoActivar({ j, texto: avisoDuplicada(otra) }); return; }
+    }
+    // Y CUÁNTOS Y A QUÉ RITMO (Martín, 25/10/2026, lib/ritmo-al-activar.ts). «No pude preguntar» no frena.
+    if (accion === 'activa' && !j.activa && rolAdmin && !o?.sinRitmo) {
+      setErrFila(null); setOcupada(j.id);
+      const a = await fetch(`/api/whatsapp/secuencias?ritmo=${j.id}`)
+        .then((r) => r.json())
+        .then((r: { ok?: boolean; ritmo?: AvisoDeRitmo | null }) => (r.ok ? r.ritmo ?? null : null))
+        .catch(() => null);
+      setOcupada(null);
+      if (a) { setAvisoRitmo({ j, sinAviso: !!o?.sinAviso, ...a }); return; }
     }
     setErrFila(null); setOcupada(j.id);
     try {
@@ -663,6 +681,8 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
     }
   };
 
+  /** El «Activar» del «⋯» que espera la respuesta al aviso de cuántos y a qué ritmo. */
+  const [avisoRitmo, setAvisoRitmo] = useState<(AvisoDeRitmo & { j: SecuenciaDto; sinAviso: boolean }) | null>(null);
   /** El «Activar» del «⋯» que espera la respuesta al aviso de duplicada, con su texto. */
   const [avisoActivar, setAvisoActivar] = useState<{ j: SecuenciaDto; texto: string } | null>(null);
   /** «Activar igual»: sale el Activar de siempre (el aviso ya se contestó). */
@@ -760,12 +780,22 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * UNA FILA DE LA LISTA, la MISMA para todas (11/10/2026: «debe ser IDENTICO»): el `ItemLista`, el «⋯» de siempre
    * (`opcionesDeFila`, con Renombrar, Duplicar y Copiar flujo) y la selección de siempre.
    */
+  /**
+   * EL CLIC DERECHO (y mantener presionado) DE UNA FILA (Leandro, 24/10/2026): las opciones de su «⋯» (`opcionesDeFila`),
+   * con «Abrir» arriba, y lo que hace cada una es `accionFila`, la del «⋯» (menu-contextual-automations.ts). Sólo donde
+   * hay «⋯»: un admin, en una fila que no se está creando ni renombrando.
+   */
+  const menuFila = useMenuContextual<number>();
+  const filaDelMenu = menuFila.abierto ? lista.find((x) => x.id === menuFila.abierto?.de) ?? null : null;
   const filaDeLista = (j: SecuenciaDto) => {
     const creando = esFilaCreando(j);
     return (
       <div key={creando ? j.clave : j.id}>
         <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={nombreDe(j)} creando={creando}
+          clicDerecho={menuFila.propsDe(j.id, rolAdmin && !creando && renombrando !== j.id)}
           sinPublicar={sinPublicarDe(j, j.id === selId && sinPublicar)}
+          aviso={j.activa ? j.aviso_ritmo ?? undefined : undefined}
+          onAviso={rolAdmin && Configuraciones ? () => setConfigDe({ id: j.id, nombre: j.nombre }) : undefined}
           onClick={() => elegir(j.id)}
           editarNombre={renombrando === j.id && rolAdmin && !creando
             ? { onGuardar: (t) => void guardarNombre(j, t), onCancelar: () => setRenombrando(null) }
@@ -968,6 +998,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         />
       )}
 
+      {menuFila.abierto && filaDelMenu && (
+        <MenuContextual key={menuFila.abierto.n} punto={{ x: menuFila.abierto.x, y: menuFila.abierto.y }} porDedo={menuFila.abierto.porDedo}
+          items={itemsFilaAutomatizacion(opcionesDeFila(filaDelMenu.activa, sinPublicarDe(filaDelMenu, filaDelMenu.id === selId && sinPublicar)), ocupada === filaDelMenu.id)}
+          etiqueta={`Opciones de ${filaDelMenu.nombre}`} onCerrar={menuFila.cerrar}
+          onElegir={(id) => { if (id === 'abrir') elegir(filaDelMenu.id); else void accionFila(filaDelMenu, id); }} />
+      )}
+
       {/* Eliminar ARCHIVA: la confirmación de la casa, una frase pegada al botón. */}
       {aPublicar && (
         <Suspense fallback={null}>
@@ -983,6 +1020,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
       )}
 
       {/* «Descartar cambios» de una CERRADA (décima tanda, general 5): sin deshacer, se pregunta. */}
+      {avisoRitmo && (
+        <AvisoRitmoConfirm aviso={avisoRitmo} secuenciaId={avisoRitmo.j.id} puedePoner
+          onDescartado={(a) => { setAvisoRitmo((v) => (v && v.j.id === avisoRitmo.j.id ? { ...a, j: v.j, sinAviso: v.sinAviso } : v)); onReload(); }}
+          onConfirm={() => { const a = avisoRitmo; setAvisoRitmo(null); void accionFila(a.j, 'activa', { sinAviso: a.sinAviso, sinRitmo: true }); }}
+          onCancel={() => { const a = avisoRitmo; setAvisoRitmo(null); if (a.poner) setConfigDe({ id: a.j.id, nombre: a.j.nombre }); }} />
+      )}
       {avisoActivar && (
         <Confirm message={avisoActivar.texto} confirmLabel="Activar igual" cancelLabel="Cancelar" tone="primary"
           onConfirm={activarIgual} onCancel={() => setAvisoActivar(null)} />
@@ -1015,14 +1058,20 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  * RENOMBRANDO (undécima tanda, punto 5: `editarNombre`): el mismo emoji y, en lugar del botón, un campo con el
  * nombre (`CampoNombre`); el «⋯» se esconde mientras tanto.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, editarNombre }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, clicDerecho, creando, sinPublicar, aviso, onAviso, editarNombre }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
+  /** El clic derecho y mantener presionado de la fila entera (`useMenuContextual`): lo mismo que el «⋯». */
+  clicDerecho?: PropsMenuFila;
   /** La fila que el server está creando: en vez del emoji, el giro. */
   creando?: boolean;
   /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
   sinPublicar?: boolean;
+  /** Prendida sin goteo o sin horario (`aviso_ritmo`): un ícono, y la frase entera al pasar el cursor. */
+  aviso?: { texto: string; rotulo: string };
+  /** El ⚠ lleva a Configuraciones, de un clic (Martín, 30/10/2026: «no sabia donde se configuraba»). Sin esto (quien no es admin), sólo se lee. */
+  onAviso?: () => void;
   /** Se está renombrando: el nombre es un campo. Guardar recibe lo escrito; cancelar, nada. */
   editarNombre?: { onGuardar: (escrito: string) => void; onCancelar: () => void };
 }) {
@@ -1042,7 +1091,7 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
     </span>
   );
   return (
-    <div className={`chb-fila${on ? ' is-on' : ''}`}
+    <div className={`chb-fila${on ? ' is-on' : ''}`} {...clicDerecho}
       style={{ display: 'flex', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderStyle: 'solid', marginBottom: 2 }}>
       {editarNombre ? (
         <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 10, alignItems: 'center', padding: '10px', opacity: activa ? 1 : 0.55 }}>
@@ -1061,6 +1110,11 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
           )}
         </button>
       )}
+      {/* Un ícono y no un rótulo: el único TEXTO de la fila es el nombre (tests/chatbot-probar.test.ts). La frase, al pasar el cursor y en su pantalla.
+          Afuera del botón de la fila: un botón no va adentro de otro. */}
+      {aviso && !editarNombre && (onAviso
+        ? <button type="button" data-sin-goteo aria-label={aviso.rotulo} title={aviso.texto} onClick={onAviso} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none', padding: '4px 6px', border: 'none', background: 'transparent', cursor: 'pointer', fontFamily: 'inherit' }}>⚠</button>
+        : <span data-sin-goteo role="img" aria-label={aviso.rotulo} title={aviso.texto} style={{ fontSize: 13, color: 'var(--warn)', flex: 'none', padding: '4px 6px' }}>⚠</span>)}
       {menu && !editarNombre && <span className="chb-menu" style={{ flex: 'none', marginRight: 4, display: 'inline-flex' }}>{menu}</span>}
     </div>
   );

@@ -1,4 +1,4 @@
-/* Campo numérico con el campo de Canva: borde rgba(53,65,90,.2), hover más oscuro y foco violeta #8B3DFF */
+/* Campo numérico con el campo de Canva: borde rgba(53,65,90,.2), hover más oscuro y foco azul (--primary) */
 .field {
   display: inline-flex;
   align-items: center;
@@ -12,7 +12,7 @@
 }
 
 .field:hover:not(.disabled) {
-  border-color: rgb(28 33 48 / 0.5);
+  border-color: var(--cv-color-field-hover);
 }
 
 .field:focus-within {
@@ -21,8 +21,8 @@
 }
 
 .disabled {
-  background: rgb(64 79 109 / 0.06);
-  color: rgb(28 33 48 / 0.5);
+  background: var(--cv-color-bg-muted);
+  color: var(--cv-color-field-hover);
 }
 
 .label {
@@ -58,7 +58,7 @@
 }
 
 .disabled .input {
-  color: rgb(28 33 48 / 0.5);
+  color: var(--cv-color-field-hover);
 }
 
 .suffix {

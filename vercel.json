@@ -43,6 +43,10 @@
       "schedule": "30 14 * * *"
     },
     {
+      "path": "/api/cron/media-buyer-vigia",
+      "schedule": "45 */2 * * *"
+    },
+    {
       "path": "/api/cron/pruebas",
       "schedule": "15 6 * * *"
     },
@@ -159,6 +163,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/calendario-recurrentes",
+      "schedule": "15 */6 * * *"
+    },
+    {
       "path": "/api/cron/plan-recurvar",
       "schedule": "10 9 * * *"
     },
@@ -189,6 +197,10 @@
     {
       "path": "/api/cron/curso-purga",
       "schedule": "35 10 * * *"
+    },
+    {
+      "path": "/api/cron/leads-papelera",
+      "schedule": "45 10 * * *"
     },
     {
       "path": "/api/cron/agente-purga",

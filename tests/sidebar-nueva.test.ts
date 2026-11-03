@@ -100,7 +100,11 @@ test('las familias del prototipo: lo diario, y Sales · Marketing · Create; Hom
   assert.deepEqual(FAMILIAS[0].bloques.flat().map((i) => i.key), ['todo', 'bandeja', 'graphics'], 'lo diario: Plan, Chats y Dashboard');
   for (const k of ['crm', 'calendario', 'setting', 'customer-success']) assert.ok(de('sales').includes(k), `«${k}» no está en Sales`);
   for (const k of ['offer', 'landing-writer', 'ads-manager']) assert.ok(de('marketing').includes(k), `«${k}» no está en Marketing`);
-  for (const k of ['video-editor', 'video-generator', 'image-editor', 'ads-writer']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  // Copywriting ES el Copywriter desde el 29/10/2026 (key `copywriter`); el Ads Writer sigue por su ruta, en SIN_FILA.
+  for (const k of ['video-editor', 'image-editor', 'copywriter']) assert.ok(de('create').includes(k), `«${k}» no está en Create`);
+  assert.ok(!de('create').includes('ads-writer') && SIN_FILA.some((i) => i.key === 'ads-writer'), 'Ads Writer');
+  // Video Generator dejó de ser fila el 29/10/2026 (Create sin pestañas: es una plantilla de Video). Su key sigue en SIN_FILA.
+  assert.ok(!de('create').includes('video-generator') && SIN_FILA.some((i) => i.key === 'video-generator'), 'Video Generator');
   // «Home» (/general) ya no es fila: redirige al Dashboard (Focus). Su key sigue (capas, onboarding) en SIN_FILA, y el
   // Dashboard se marca estando en /general.
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'general'), 'General volvió a ser fila');
@@ -189,7 +193,7 @@ test('pt 10 y 4 (20/10): el Ops Center adentro de lo diario, todo desplegado, Pa
   const ui = leer('app/_ui/ui.css');
   assert.match(ui, /:root:not\(\[data-tema="oscuro"\]\):not\(\[data-tema-candidato\]\) \[data-sidebar\] \{\s*--sidebar: #FFFFFF;/);
   assert.match(ui, /\.mk-navrow:hover \{ background: var\(--sidebar-hover, /);
-  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #14161B;/);
+  assert.match(leer('app/globals.css'), /:root \{[\s\S]*?--sidebar: #121212;/);
   assert.match(sb, /<MakoWord base="var\(--on-sidebar\)">MaKo<\/MakoWord>/);
   // Las criaturas no cambian de color: la cara va con tokens que ningún tema redefine.
   const muneco = sinComentarios(leer('app/admin/operaciones/Muneco.tsx'));
@@ -244,7 +248,8 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
   // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
   assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
   const create = mas.find((g) => g.id === 'create')!;
-  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
+  // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
+  assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar']);
 });
 
 test('arriba de todo: Ops Center (sólo el super admin) y Second Brain (los demás), cada uno con su criatura', () => {
@@ -284,22 +289,32 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
-  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts); /admin/guiones (las bibliotecas
-  // de Ads Writer, que vivían en la página de Dev) es desde ese día una sección de Copywriting. /admin/cobros y /admin/agente
-  // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts).
+  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts). /admin/cobros y /admin/agente
+  // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts). /admin/copywriting y
+  // /admin/guiones (el método de redacción y las bibliotecas de guiones) se fueron el 29/10/2026 (Martín: «Elimina esto
+  // […], no quiero ninguna mención en todo MaKo»): redirigen al Copywriter y NO tienen casa a propósito (abajo).
   // /mensajes (MaKo Messages) salió el 26/10/2026 (Martín: «elimina eso»): redirige a Automations (tests/mensajes-mako-retirado).
-  const RUTAS = ['/admin/copywriting', '/admin/guiones', '/admin/estrategia',
-    '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
+  const RUTAS = ['/admin/estrategia', '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
+  for (const ruta of ['/admin/copywriting', '/admin/guiones']) {
+    assert.ok(![...ADMIN_NAV, ...SUPERADMIN_MENU, ...ARRIBA, ...FAMILIAS.flatMap(itemsDe)].some((i) => i.href === ruta), `${ruta} volvió a tener un ítem`);
+    assert.match(sinComentarios(leer(`app${ruta}/page.tsx`)), /redirect\(await rutaConWs\('\/copywriter'\)\);/, `${ruta} no redirige al Copywriter`);
+  }
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');
   const secciones = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => (t.secciones ?? []).map((s) => ({ tab: t, s })));
+  // Strategy y Offer Playbook dejaron de ser secciones de Offer el 29/10/2026 (Martín: «sin otras tabs, incluso en
+  // SuperAdmin»): su casa es el pie de la lista de ofertas, que la pantalla dibuja sólo para el super admin.
+  const offer = FAMILIAS.flatMap(itemsDe).find((i) => i.key === 'offer')!;
+  const pieOffer = sinComentarios(leer('app/offer/OfferApp.tsx')).match(/pieLista=\{superAdmin \? \(([\s\S]*?)\) : undefined\}/)?.[1] ?? '';
   for (const ruta of RUTAS) {
     const arriba = ARRIBA.find((i) => i.href === ruta);
     const enTab = secciones.find(({ s }) => s.href === ruta);
     const enMenu = SUPERADMIN_MENU.find((i) => i.href === ruta);
-    const item = arriba ?? enTab?.s ?? enMenu;
-    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto`);
+    const enPie = pieOffer.includes(`<Link href="${ruta}">`) ? ADMIN_NAV.find((i) => i.href === ruta) : undefined;
+    const item = arriba ?? enTab?.s ?? enMenu ?? enPie;
+    assert.ok(item, `${ruta} se quedó sin casa: no está arriba, ni en una tab, ni en el menú de la foto, ni al pie de Offer`);
+    if (enPie) assert.equal(offer.match(ruta), true, `${ruta}: estando ahí, la barra no marca Offer`);
     assert.equal(item.adminOnly, true, `${ruta} la vería un cliente`);
     assert.equal(puedeVerItem(item, SUPER), true, `${ruta}: el super admin no la ve`);
     assert.equal(puedeVerItem(item, CLIENTE), false, `${ruta}: el admin de un cliente la ve`);
@@ -352,11 +367,17 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
 test('todos los workspaces: la misma barra para el super admin, un cliente y un setter, filtrada por la misma regla', () => {
   const visibles = (v: VistaNav) => FAMILIAS.map((f) => [f.label, f.bloques.flat().map((t) => resolverTab(t, v)).filter(Boolean).map((t) => t!.label)]);
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
+  // ⚠️ Competitor Spy ENTRÓ acá el 2/11/2026: dejó de ser `adminOnly`. Martín: «todos los usuarios
+  //    no pueden ver la nueva tab y eso ya debería estar disponible... no tiene sentido que uno
+  //    analice a Alex Hormozi y luego otro vuelva a analizar al mismo».
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
     ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
-    ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
-    ['Create', ['Video', 'Image', 'Copywriting']],
+    // ⚠️ 2/11/2026 — OFFER YA NO SE DIBUJA. Martín: «la de offer no la quiero». El ítem SIGUE
+    // EXISTIENDO con su key —es contrato con la base— y se oculta con `fueraDeLaBarra`
+    // (lib/nav-visibilidad.ts). Ads Manager NO se tocó, por pedido suyo.
+    ['Marketing', ['Web Generator', 'Ads Manager', 'Competitor Spy']],
+    ['Create', ['Video', 'Image', 'Copywriting', 'AI Avatar']],
   ]);
   // El setter: lo que su rol tiene anotado, en las mismas familias.
   assert.deepEqual(visibles({ adminShell: false, rolWs: 'setter', capa: 'completo' }), [

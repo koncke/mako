@@ -69,7 +69,7 @@ export type ResultadoEvento = { estado: 'procesado' | 'ignorado'; motivo: string
  */
 export function motivoSinDatos(s: string | null | undefined): string {
   return String(s ?? '')
-    .replace(/\b(?:sk|rk|pk|whsec)_[A-Za-z0-9_*]+/g, '[clave]')
+    .replace(/\b(?:sk|rk|pk|whsec|creem)_[A-Za-z0-9_*-]+/g, '[clave]')
     .replace(/\b(?:APP_USR|TEST)-[A-Za-z0-9-]+/g, '[token]')
     .replace(/[^\s@()<>"',;:]+@[^\s@()<>"',;:]+\.[A-Za-z]{2,}/g, '[email]')
     .replace(/\+?\d(?:[\s.-]?\d){8,}/g, '[número]')
@@ -473,4 +473,102 @@ export function conPresupuesto<T>(trabajo: Promise<T>, ms: number): Promise<{ li
   const vence = new Promise<{ listo: false }>((resolve) => { reloj = setTimeout(() => resolve({ listo: false }), ms); });
   const hecho = trabajo.then((valor) => ({ listo: true as const, valor }));
   return Promise.race([hecho, vence]).finally(() => clearTimeout(reloj));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Creem (31/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un evento de Creem, ya verificado por firma. */
+export type EventoCreem = { id: string; tipo: string; objeto: Json; creado: string | null };
+
+/**
+ * El evento de Creem del cuerpo, o null si no lo es.
+ *
+ * ⚠️ TRES TRAMPAS DE NOMBRE, y las tres se escriben mal de memoria por asumir que Creem es Stripe:
+ *   · el tipo del evento está en **`eventType`** (camelCase), no en `type` ni en `event_type`. El resto del payload es
+ *     snake_case: la API mezcla convenciones a propósito y no hay forma de deducirlo.
+ *   · `created_at` llega en MILISEGUNDOS y como NÚMERO (1728734327355), no en segundos como Stripe ni en ISO.
+ *   · el id del evento es `evt_…` — igual que Stripe, lo cual es justo lo que hace creíble el error de suponer el resto.
+ *
+ * El `id` es la clave de idempotencia (`pasarela_eventos`). La doc aclara el detalle fino: los reintentos automáticos
+ * CONSERVAN el `id`, pero un reenvío a mano desde el panel llega con un `id` NUEVO — así que deduplicar por `id` no
+ * protege de un reenvío manual, y por eso lo que se aplica sale de RELEER el estado al proveedor y no de contar eventos.
+ */
+export function eventoCreem(cuerpo: unknown): EventoCreem | null {
+  const b = obj(cuerpo);
+  const id = str(b.id);
+  const tipo = str(b.eventType);
+  if (!id || id.length > 200 || !/^evt_[A-Za-z0-9_-]+$/.test(id)) return null;
+  if (!tipo || tipo.length > 120) return null;
+  const ms = Number(b.created_at);
+  const creado = Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
+  return { id, tipo, objeto: obj(b.object), creado };
+}
+
+/** Qué hacer con un evento de Creem. `leer` dice qué releer antes de aplicar: nunca se confía en el cuerpo. */
+export type AvisoCreem =
+  | { accion: 'ignorar'; motivo: string }
+  | { accion: 'aprobado' | 'fallido' | 'cancelada' | 'reembolso' | 'disputa'; suscripcionId: string | null; checkoutId: string | null; token: string | null; pagoId: string | null };
+
+/**
+ * Qué significa cada evento de Creem. Decide SIN red (puro, con test).
+ *
+ * ⚠️ EL ACCESO SE DA CON `subscription.paid`, NO CON `subscription.active`. Lo dice la propia doc de Creem:
+ * «[subscription.active] Use only for synchronization, we encourage using `subscription.paid` for activating access».
+ * Y `subscription.paid` «fires for the first payment and every renewal», o sea que el alta y la renovación entran por
+ * el MISMO evento — que es justo lo que `aplicarPagoAprobado` ya sabe manejar (es idempotente y distingue el primer
+ * pago de una renovación por el id del pago).
+ *
+ * ⚠️ `subscription.expired` NO CORTA NADA. Su ejemplo oficial llega con `status: "active"`, la doc dice que «payment
+ * retries can happen at this stage» y que el estado es terminal SÓLO cuando pasa a `canceled`. Tratarlo como una baja
+ * le cortaría el acceso a alguien que todavía puede pagar. Se ignora con rastro.
+ *
+ * ⚠️ `past_due` y `unpaid` son el período de gracia del reintento (dunning), no una baja: la doc de Creem advierte
+ * explícitamente contra gatear por `status === 'active'` porque voltea a los que están en prueba o en dunning. Se
+ * anotan como cobro fallido (que es lo que son) y no como suscripción cancelada.
+ */
+export function avisoCreem(ev: EventoCreem): AvisoCreem {
+  const o = ev.objeto;
+  const sus = obj(o.subscription);
+  // En un evento de suscripción el objeto ES la suscripción; en uno de checkout, la trae adentro.
+  const esSuscripcion = ev.tipo.startsWith('subscription.');
+  const suscripcionId = esSuscripcion ? str(o.id) : (str(sus.id) ?? str(o.subscription));
+  // ⚠️ UN REEMBOLSO O UNA DISPUTA NO TRAEN `metadata` NI `request_id` ARRIBA (`RefundEntity`, `DisputeEntity`): están en su `checkout`,
+  // y sólo `transaction` es obligatorio. Sin mirar ahí, el de un pago ÚNICO no encontraba su cobro y se ignoraba con 200, y a
+  // quien devolvía se le había prometido que MaKo lo registraba solo.
+  const esDePlata = ev.tipo === 'refund.created' || ev.tipo === 'dispute.created';
+  const ch = obj(o.checkout);
+  const checkoutId = ev.tipo === 'checkout.completed' ? str(o.id) : esDePlata ? (str(ch.id) ?? str(o.checkout)) : null;
+  // El token del cobro de MaKo viaja por los dos caminos que le pusimos al abrir el checkout.
+  const token = str(obj(o.metadata).mako_cobro) ?? str(o.request_id) ?? str(obj(ch.metadata).mako_cobro) ?? str(ch.request_id);
+  const pagoId = esDePlata ? (str(obj(o.transaction).id) ?? str(o.transaction)) : null;
+  const base = { suscripcionId, checkoutId, token, pagoId };
+  switch (ev.tipo) {
+    case 'subscription.paid':
+      return { accion: 'aprobado', ...base };
+    case 'checkout.completed':
+      // Un pago ÚNICO entra por acá (no tiene suscripción que pague). En una suscripción, el que asienta la plata es
+      // `subscription.paid`: los dos son idempotentes, así que si llegan los dos no se duplica nada.
+      return { accion: 'aprobado', ...base };
+    case 'subscription.past_due':
+    case 'subscription.unpaid':
+      return { accion: 'fallido', ...base };
+    case 'subscription.canceled':
+      return { accion: 'cancelada', ...base };
+    case 'refund.created':
+      return { accion: 'reembolso', ...base };
+    case 'dispute.created':
+      return { accion: 'disputa', ...base };
+    case 'subscription.scheduled_cancel':
+      // La baja quedó agendada para el fin del período: la suscripción SIGUE activa y cobrando hasta entonces. La baja
+      // real llega después como `subscription.canceled`. Cortar acá le saca el acceso a un mes que ya pagó.
+      return { accion: 'ignorar', motivo: 'baja agendada para el fin del período: sigue activa hasta entonces' };
+    case 'subscription.expired':
+      return { accion: 'ignorar', motivo: 'venció el período sin pago nuevo, pero Creem todavía puede reintentar (sólo `canceled` es terminal)' };
+    case 'subscription.trialing':
+      return { accion: 'ignorar', motivo: 'arrancó la prueba: todavía no hay plata' };
+    default:
+      return { accion: 'ignorar', motivo: `evento que MaKo no usa: ${ev.tipo}` };
+  }
 }

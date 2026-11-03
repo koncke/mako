@@ -33,6 +33,7 @@ import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
 import { ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
+import { textoDifusionDeColumna } from './seleccion-difusion';
 
 export type IdOpcionCrm =
   // un lead
@@ -48,7 +49,7 @@ export type IdOpcionCrm =
   // la selección (las de app/crm/AccionesLoteLeads.tsx)
   | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_frenar' | 'lote_limpiar' | 'lote_eliminar'
   // una columna (las del «⋯» de su cabecera; «Nuevo lead» vive ahí desde el 21/10/2026)
-  | 'col_nuevo_lead' | 'col_ordenar' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
+  | 'col_nuevo_lead' | 'col_ordenar' | 'col_difusion' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
   // el fondo (las del «⋯» de la barra)
   | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
@@ -99,6 +100,9 @@ export type ContextoCrm =
     curso: boolean | null;
     /** Lo que el server sabe borrar (`colsBorrables`). */
     borrable: boolean;
+    /** «Mandar mensaje de difusión» (29/10/2026): cuántas tarjetas se ven y si hay filtros. null = no se ofrece (columna vacía,
+     *  o no es el admin: la difusión es sólo del admin, app/automations/difusion/actions.ts). */
+    difusion?: { visibles: number; filtrado: boolean } | null;
   }
   | { sobre: 'fondo'; seleccionados: number };
 
@@ -138,6 +142,8 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     return compactar([
       'col_nuevo_lead',
       'col_ordenar',
+      // La difusión a la columna entera (Leila, 29/10/2026): «Leads», porque es a quiénes le llega, no a la etapa.
+      ...(c.difusion ? ['col_difusion' as const] : []),
       ...(c.entrada ? ['col_campanas' as const] : []),
       'col_renombrar',
       ...(c.tipo ? ['col_tipo' as const] : []),
@@ -190,7 +196,7 @@ export const AVISO_VINCULO = { evento: 'Sin evento vinculado', cobro: 'Sin cobro
 /** El título de la sección de cada opción de una columna (22/10/2026). «Eliminar etapa» no lleva: va sola, separada. */
 export const SECCION_COLUMNA: Partial<Record<IdOpcionCrm, string>> = {
   col_izquierda: 'Columnas', col_derecha: 'Columnas', col_agregar: 'Columnas',
-  col_nuevo_lead: 'Leads', col_ordenar: 'Leads', col_campanas: 'Leads',
+  col_nuevo_lead: 'Leads', col_ordenar: 'Leads', col_difusion: 'Leads', col_campanas: 'Leads',
   col_renombrar: 'Etapa', col_tipo: 'Etapa', col_evento: 'Etapa', col_cobro: 'Etapa', col_curso_prender: 'Etapa', col_curso_apagar: 'Etapa',
 };
 
@@ -234,6 +240,7 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   lote_eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },
   col_nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
   col_ordenar: { texto: 'Ordenar', icono: 'ordenar' },
+  col_difusion: { texto: 'Mandar mensaje de difusión', icono: 'enviar' },
   col_izquierda: { texto: 'Mover a la izquierda', icono: 'mover' },
   col_derecha: { texto: 'Mover a la derecha', icono: 'mover' },
   // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
@@ -289,6 +296,8 @@ export type DatosMenuCrm = {
   orden?: { opciones: ReadonlyArray<OrdenKanban>; actual: OrdenKanban };
   /** Las flechas de la columna: hacia dónde se puede ir, y con qué dibujo (el mismo del «⋯»). */
   flechas?: { izquierda: boolean; derecha: boolean; iconoIzquierda?: ReactElement; iconoDerecha?: ReactElement };
+  /** La difusión de la columna: con filtros dice «los N que se ven» (`textoDifusionDeColumna`). */
+  difusion?: { visibles: number; filtrado: boolean } | null;
 };
 
 function renglon(id: IdOpcionCrm): ItemMenuContextual {
@@ -329,6 +338,8 @@ function conDatos(id: IdOpcionCrm, d: DatosMenuCrm): ItemMenuContextual {
       const o = d.orden;
       return o ? { ...base, hijos: o.opciones.map((x) => ({ id: x, label: ORDEN_KANBAN[x], icono: ICONO_ORDEN[x], marcado: x === o.actual })) } : base;
     }
+    case 'col_difusion':
+      return d.difusion ? { ...base, label: textoDifusionDeColumna(d.difusion.visibles, d.difusion.filtrado) } : base;
     case 'col_izquierda':
       return { ...base, ...(d.flechas?.iconoIzquierda ? { icono: d.flechas.iconoIzquierda } : {}), deshabilitado: d.flechas ? !d.flechas.izquierda : false };
     case 'col_derecha':

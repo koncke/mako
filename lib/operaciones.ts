@@ -36,6 +36,7 @@ import {
   sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido, type VozDelPedido,
 } from './operaciones-reglas';
 import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
+import { MOTIVO_VENCIO, VENCE_PEDIDO_MS } from './centro-limbo';
 import { guardarTurnos } from './centro-turnos-db';
 import { guardarTitular } from './centro-titulares-db';
 import { guardarPasos } from './centro-pasos-db';
@@ -46,8 +47,8 @@ import { cadenasDeSesiones } from './centro-chats';
 import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
-import { acusarTicket, ticketsParaElCartero, ticketsSinEntregar, type TicketParaEntregar } from './tickets-runner';
-import { VERSION_CARTERO_TICKETS, esElCerebro, versionAlMenos } from './tickets-aviso';
+import { acusarTicket, acusarTicketNuevo, ticketsNuevosParaElCartero, ticketsNuevosSinEntregar, ticketsParaElCartero, ticketsSinEntregar, type TicketNuevoParaEntregar, type TicketParaEntregar } from './tickets-runner';
+import { VERSION_CARTERO_TICKETS, VERSION_CARTERO_TICKETS_NUEVOS, esElCerebro, versionAlMenos } from './tickets-aviso';
 
 const T_PEDIDOS = 'operaciones_pedidos';
 const T_CARTEROS = 'operaciones_carteros';
@@ -106,11 +107,19 @@ export async function trabajoDeLaCola(id: string): Promise<{ destino: string; te
 }
 
 export async function listarPedidos(limite = 100): Promise<Pedido[]> {
-  const { data, error } = await getSupabaseServer()
+  const db = getSupabaseServer();
+  const { data: recientes, error } = await db
     .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
+  // ⚠️ LOS ÚLTIMOS 100 NO ALCANZAN (30/10/2026): un mensaje que espera un chat cerrado es justo el que se va quedando viejo, y sale
+  // de esa ventana sin haber salido nunca. Lo que no se entregó y lo vencido vienen siempre (lib/centro-limbo.ts): son pocos.
+  const { data: sinSalir, error: e2 } = await db.from(T_PEDIDOS).select(`${COLS}, firmado`)
+    .or(`estado.eq.escrito,and(estado.eq.no_entregado,motivo.eq."${MOTIVO_VENCIO}")`).order('created_at', { ascending: false }).limit(200);
+  if (e2) throw new Error(`no pude leer la cola: ${e2.message}`);
+  const ya = new Set((recientes ?? []).map((p) => p.id));
+  const data = [...(recientes ?? []), ...(sinSalir ?? []).filter((p) => !ya.has(p.id))];
   // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, cuáles son fotos, y si fue una nota de voz.
-  return (data ?? []).map(({ firmado, ...p }) => {
+  return data.map(({ firmado, ...p }) => {
     const adjuntos = nombresDeAdjuntos(firmado as string | null);
     const fotos = fotosDeFirmado(firmado as string | null).map((f) => f.nombre);
     const voz = vozDeFirmado(firmado as string | null);
@@ -198,6 +207,19 @@ export async function cancelarPedido(id: string): Promise<boolean> {
   return (data ?? []).length > 0;
 }
 
+/**
+ * Dar de baja un mensaje del cartel de los que no salieron (30/10/2026, lib/centro-limbo.ts): lo que espera, y también lo que ya venció,
+ * que `cancelarPedido` no mira. Con compare-and-set: si la PC lo tomó entretanto, salió y no se toca.
+ */
+export async function descartarDelLimbo(id: string): Promise<boolean> {
+  const { data, error } = await getSupabaseServer().from(T_PEDIDOS)
+    .update({ estado: 'cancelado', motivo: 'Lo descartó Martín', updated_at: new Date().toISOString() })
+    .eq('id', id).in('estado', ['escrito', 'no_entregado']).select('id, firmado');
+  if (error) throw new Error(error.message);
+  await borrarAdjuntosDe((data ?? []).map((f) => f.firmado as string | null));
+  return (data ?? []).length > 0;
+}
+
 /** Acuña el token de los carteros. Se muestra UNA vez; se guarda por hash. Acuñar uno nuevo
  *  invalida el anterior: hay que pegarlo de nuevo en la PC. */
 export async function crearTokenCartero(): Promise<{ token: string }> {
@@ -231,6 +253,11 @@ export type SalidaCiclo = {
    *  Un cartero de antes no los recibe (`VERSION_CARTERO_TICKETS`). */
   tickets: TicketParaEntregar[];
   ticketsError: string | null;
+  /** Los tickets que esperan la decisión de Martín, con OTRO texto fijo y su propia marca (cartero 1.23.0, 29/10/2026,
+   *  lib/tickets-runner.ts). Aparte de `tickets`: un cartero de antes los mandaría con el texto de un bug del triage. */
+  ticketsNuevos: TicketNuevoParaEntregar[];
+  /** Si no se pudieron calcular (p. ej., falta la migración de `cerebro_*`): lo demás sale igual. */
+  ticketsNuevosError: string | null;
 };
 
 const T_DECISIONES = 'admin_decisiones';
@@ -323,6 +350,10 @@ export async function hayParaElCartero(cuentas: readonly string[], abre: readonl
     n += count ?? 0;
   }
   if (conCerebro) n += await ticketsSinEntregar();
+  // Los tickets nuevos (cartero 1.23.0), con la misma condición y su versión. Sin la migración no cuentan: `vigilar` no se cae.
+  const conCerebroNuevos = (filas ?? []).some((f) => versionAlMenos(f.version as string | null, VERSION_CARTERO_TICKETS_NUEVOS)
+    && sanearChats(f.chats).some((c) => c.vivo && c.runner !== false && !c.esRunner && !c.nube && esElCerebro(c.titulo)));
+  if (conCerebroNuevos) n += await ticketsNuevosSinEntregar().catch(() => 0);
   return n;
 }
 
@@ -425,6 +456,8 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
     // Un bug del triage que el Runner le entregó al Cerebro (cartero 1.15.0): el mismo formato de id. Si falta la mig 0311,
     // no puede existir un acuse así, y el error se ignora.
     acuses += await acusarTicket(a, ahoraIso).catch(() => 0);
+    // Un ticket nuevo (cartero 1.23.0): su propia marca. Sin la migración de `cerebro_*` no puede existir un acuse así.
+    acuses += await acusarTicketNuevo(a, ahoraIso).catch(() => 0);
   }
 
   // Los cierres que dejaron los chats: sólo sobre un pedido ENTREGADO.
@@ -439,9 +472,10 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   }
 
   // Lo vencido no se entrega: se dice, con el motivo.
-  const limite = new Date(Date.now() - 15 * 86_400_000).toISOString();
+  // Con su motivo, que lo distingue de los otros `no_entregado` (lib/centro-limbo.ts). El cartel que lo mostraba se sacó el 31/10/2026.
+  const limite = new Date(Date.now() - VENCE_PEDIDO_MS).toISOString();
   const { data: venc } = await db.from(T_PEDIDOS)
-    .update({ estado: 'no_entregado', motivo: 'Venció con el chat cerrado: ábrelo y vuelve a mandarlo', updated_at: ahoraIso })
+    .update({ estado: 'no_entregado', motivo: MOTIVO_VENCIO, updated_at: ahoraIso })
     .eq('estado', 'escrito').lt('created_at', limite).select('id, firmado');
   for (const f of venc ?? []) terminados.push(f.firmado as string | null);
   // Lo tomado que nunca acusó (17/10/2026, la revisión de seguridad de los adjuntos): el acuse era su ÚNICA salida, y
@@ -499,5 +533,13 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   } catch (err) {
     ticketsError = err instanceof Error ? err.message.slice(0, 200) : 'error';
   }
-  return { pedidos, avisos, avisosError, tickets, ticketsError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
+  // Los tickets que esperan a Martín (cartero 1.23.0), aparte de los del triage: si fallan, lo demás sale igual.
+  let ticketsNuevos: TicketNuevoParaEntregar[] = [];
+  let ticketsNuevosError: string | null = null;
+  try {
+    if (vivos.length) ticketsNuevos = await ticketsNuevosParaElCartero(version, chats, new Set(vivos), ahoraIso);
+  } catch (err) {
+    ticketsNuevosError = err instanceof Error ? err.message.slice(0, 200) : 'error';
+  }
+  return { pedidos, avisos, avisosError, tickets, ticketsError, ticketsNuevos, ticketsNuevosError, vencidos: (venc ?? []).length, acuses, cierres, cierresIds, turnosOk, preguntasIds };
 }

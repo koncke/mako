@@ -29,7 +29,8 @@ import { createPortal } from 'react-dom';
 import { Icon } from '@/app/_components/icons';
 import { IconoFunnel } from '@/app/_ui/iconos-menu';
 import { MAX_ARCHIVO_BYTES, ACCEPT_IMPORTAR, porQueNoPuedo, puedeLeerse } from '@/lib/formatos-archivo';
-import type { AdjuntoVista, ArbolOffer, OfferMensaje, OfferSesionVista } from '@/lib/offer-marco';
+import { PIEZAS, type AdjuntoVista, type ArbolOffer, type OfferMensaje, type OfferSesionVista } from '@/lib/offer-marco';
+import { piezaMasNueva } from '@/app/offer/documento-vivo';
 import { useListaAdjuntos } from '@/app/whatsapp/_shared/VistaAdjuntos';
 import { MAX_ADJUNTOS, type ItemAdjunto } from '@/app/whatsapp/_shared/adjuntos-vista';
 import { leerAdjuntos } from '@/app/offer/adjuntos-envio';
@@ -45,7 +46,7 @@ import { ComposerOfferM } from './ComposerOfferM';
 import { HiloOfferM } from './HiloOfferM';
 import { HojaOferta, HojaPiezas, HojaSelector, type GenM } from './HojasOfferM';
 import {
-  ROTULOS, caminoEnUnaLinea, cuantosArchivos, fuenteDelTexto, opcionesRapidas, progresoDePiezas, sinContestar, trasRefrescar,
+  ROTULOS, caminoEnUnaLinea, cuantosArchivos, fuenteDelTexto, opcionesRapidas, sinContestar, trasRefrescar,
   type PasoGeneracion,
 } from './modelo';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -621,7 +622,9 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
   const ocupado = respondiendo || leyendo || gen.corriendo || cambiando;
   const bienvenida = bienvenidaDe(arbolLeido, arbolVacio(arbol));
   const camino = sesion ? caminoDeSesion(sesion) : null;
-  const progreso = sesion ? progresoDePiezas(sesion.piezas) : null;
+  // La franja dice la ÚLTIMA pieza que llegó («Tu oferta · Precio»), no cuántas faltan (29/10/2026: sin «falta»).
+  const ultimaPieza = sesion ? piezaMasNueva(sesion.piezas) : null;
+  const progreso = sesion ? { ultima: ultimaPieza ? PIEZAS.find((x) => x.key === ultimaPieza)?.label ?? null : null } : null;
   const opciones = sesion ? opcionesRapidas(sesion, pendiente != null, opcionArmar, opcionActualizar) : [];
   const verOferta = () => { if (conclusion) { setVistaOferta('conclusion'); setHoja('oferta'); } };
   // Mientras se arma, la franja lleva a ver el avance; si no, a las piezas.
@@ -693,9 +696,9 @@ export function OfferM({ arbolInicial, arbolFallo, sesionInicial, opcionArmar, o
                 // abre las piezas; «Ver», con la oferta ya armada, la abre a ella (el «Ver mi oferta» del riel).
                 <div className="m-offer-franja">
                   <button type="button" className="m-offer-franja__piezas" onClick={abrirFranja}
-                    aria-label={gen.corriendo ? `${ROTULOS.tuOferta}: armando` : `${ROTULOS.tuOferta}: ${progreso.sabidas} de ${progreso.total}`}>
-                    <span className="m-offer-franja__n">{ROTULOS.tuOferta} <b>{progreso.sabidas}/{progreso.total}</b></span>
-                    <span className="m-offer-avance" data-viva={gen.corriendo ? '' : undefined} aria-hidden><i style={{ width: `${progreso.pct}%` }} /></span>
+                    aria-label={gen.corriendo ? `${ROTULOS.tuOferta}: armando` : ROTULOS.tuOferta}>
+                    <span className="m-offer-franja__n">{ROTULOS.tuOferta}{progreso.ultima ? <span className="m-offer-franja__ultima"> · {progreso.ultima}</span> : null}</span>
+                    <span className="m-offer-franja__aire" aria-hidden />
                     {gen.corriendo ? <span className="mk-spin" aria-hidden /> : !conclusion && <Icon name="chevron" size={16} />}
                   </button>
                   {conclusion && !gen.corriendo && (

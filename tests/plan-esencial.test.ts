@@ -45,7 +45,7 @@ test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca 
 });
 
 test('2. las tabs de Pro son claves que existen en la barra; Closing Analyst va aparte', () => {
-  // Se lee del archivo: AI Avatar (sólo del super admin por ahora) no está en las listas de los negocios.
+  // Se lee del archivo: cada tab de Pro es una clave de la barra (AI Avatar ya no: es de los tres planes desde el 29/10/2026).
   const nav = leer('app/_components/nav.ts');
   for (const k of NAV_SOLO_PRO) assert.ok(nav.includes(`key: '${k}'`), `«${k}» no es una clave de app/_components/nav.ts`);
   for (const t of TABS_SOLO_PRO) assert.ok(NAV_SOLO_PRO.has(t) || SOLO_PRO_FUERA_DE_LA_BARRA.has(t), `«${t}» de TABS_SOLO_PRO sin candado`);
@@ -56,16 +56,17 @@ test('3. la puerta de la página manda al cartel con «Pasar a Pro», y la barra
   const acceso = sinComentarios(leer('lib/tab-access.ts'));
   assert.match(acceso, /if \(!tabEnCapa\(nav, capa\)\)[^\n]*\n\s*if \(esNavSoloPro\(nav\) && \(await esEsencialDeLaSesion\(\)\)\) redirect\(await rutaConWs\(`\/no-esta-en-tu-plan\?tab=\$\{encodeURIComponent\(nav\)\}&pro=1`\)\);/);
   assert.match(sinComentarios(leer('lib/movil-guard.ts')), /if \(opts\.navKey && esNavSoloPro\(opts\.navKey\) && \(await esEsencialDeLaSesion\(\)\)\) redirect\(/);
-  assert.match(sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx')), /label: pro \? ROTULO_PASAR_A_PRO : 'Ver mi plan'/);
+  // El cliente de una agencia (29/10/2026): «Ver mi plan» (tests/cliente-de-agencia-y-partners-2910.test.ts).
+  assert.match(sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx')), /label: pro && !deAgencia \? ROTULO_PASAR_A_PRO : 'Ver mi plan'/);
   // Desde el 23/10/2026 se lee junto con lo demás (un Promise.all: tests/rendimiento-pedido.test.ts) y viaja tal cual.
   const me = sinComentarios(leer('app/api/auth/me/route.ts'));
-  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial\] = await Promise\.all\(\[\n\s*getWorkspaceActual\(\), estaImpersonando\(\), vistaDeOtro\(\), getRolWsEfectivo\(\), getCapaActual\(\), esEsencialDeLaSesion\(\),/);
+  assert.match(me, /const \[ws, impersonando, vista, rolWs, capa, planEsencial, clienteDeAgencia\] = await Promise\.all\(\[\n\s*getWorkspaceActual\(\), estaImpersonando\(\), vistaDeOtro\(\), getRolWsEfectivo\(\), getCapaActual\(\), esEsencialDeLaSesion\(\),/);
   assert.match(me, /\n\s*planEsencial,\n/);
   const barra = sinComentarios(leer('app/_components/Sidebar.tsx'));
-  assert.match(barra, /const esPro = \(key: string\) => planEsencial && esNavSoloPro\(key\);/);
+  assert.match(barra, /const esPro = \(key: string\): boolean \| 'agencia' => \(planEsencial && esNavSoloPro\(key\) \? \(clienteDeAgencia \? 'agencia' : true\) : false\);/);
   assert.equal((barra.match(/pro=\{esPro\(it\.key\)\}/g) ?? []).length, 3, 'las tres filas de la barra (suelta, en familia y en el desplegable)');
   assert.match(barra, /\{expanded && pro && <Candado \/>\}/);
-  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /esencial && esNavSoloPro\(f\.key\) \? \{ segunda: `De MaKo Pro · \$\{ROTULO_PASAR_A_PRO\}` \}/);
+  assert.match(sinComentarios(leer('app/m/mas/page.tsx')), /esencial && esNavSoloPro\(f\.key\) \? \{ segunda: deAgencia \? 'De MaKo Pro' : `De MaKo Pro · \$\{ROTULO_PASAR_A_PRO\}` \}/);
 });
 
 // ⚠️ 23/10/2026: el tope se pregunta ADENTRO de `setSecuenciaActiva` (la única puerta que prende), no en cada ruta.

@@ -53,6 +53,68 @@ export const TOPE_TESTEO = 0.5;
  */
 export const MAX_POR_DIMENSION = 3;
 
+/**
+ * El piso de una LANDING: con menos, el resultado de esa landing no se lee.
+ *
+ * Criterio de Martín en la llamada del 30/10/2026
+ * (docs/estrategia-lanzamiento-low-to-high.md § 6), con sus dos números: «con US$1.000 son
+ * 2 landings» —tres NO: «333 dólares con cada una también estoy yendo corto»— y «con 2.000
+ * serían 4, a 500 cada una».
+ *
+ * ⚠️ ES UN CRITERIO, NO UNA MEDICIÓN de ninguna cuenta, y por eso vive acá con su cita y no
+ * se deriva de nada. Lo que gobierna: con menos del piso la respuesta es «te alcanza para
+ * MENOS landings» —y en el borde, para ninguna—, nunca «repártelo entre más». Un número que
+ * haga gastar mal es peor que no tener la calculadora.
+ *
+ * ⚠️ Va en la misma unidad que `presupuesto`, que el resto del módulo escribe con `usd()`.
+ */
+export const PISO_LANDING = 500;
+
+export type PlanLandings = {
+  /** Cuántas se pueden probar. 0 = no alcanza ni para una. */
+  landings: number;
+  /** Lo que corre cada una. 0 cuando no alcanza. */
+  porLanding: number;
+  alcanza: boolean;
+  /** Lo que falta para la primera. 0 cuando alcanza. */
+  faltan: number;
+  /** La frase principal, lista para pintar. */
+  veredicto: string;
+  /** Por qué NO una más, con el número que la haría corta. null si no aplica. */
+  porQueNoMas: string | null;
+  /** Qué hacer cuando no alcanza. null cuando alcanza. */
+  queHacer: string | null;
+};
+
+/**
+ * Cuántas landings paga un presupuesto. PURA, y a propósito SEPARADA de
+ * `calcularPresupuestoAds`: esta pregunta no necesita el costo por resultado, así que se
+ * puede contestar antes de que el negocio lo sepa (y `calcularPresupuestoAds` se niega sin
+ * él). Español neutro: lo lee el cliente.
+ */
+export function landingsDelPresupuesto(presupuesto: number, piso = PISO_LANDING): PlanLandings {
+  const total = positivo(presupuesto) ? Math.floor(presupuesto) : 0;
+  const landings = Math.floor(total / piso);
+  if (landings < 1) {
+    const faltan = piso - total;
+    return {
+      landings: 0, porLanding: 0, alcanza: false, faltan,
+      veredicto: `Con ${usd(total)} no te alcanza para probar ni una landing.`,
+      porQueNoMas: null,
+      queHacer: `No lo repartas más fino: por debajo de ${usd(piso)} por landing el resultado no te dice nada y la plata se gasta igual. Te faltan ${usd(faltan)} para probar una.`,
+    };
+  }
+  const porLanding = Math.floor(total / landings);
+  const siguiente = Math.floor(total / (landings + 1));
+  return {
+    landings, porLanding, alcanza: true, faltan: 0,
+    veredicto: `Con ${usd(total)} te alcanza para probar ${plural(landings, 'landing', 'landings')}, a ${usd(porLanding)} cada una.`,
+    porQueNoMas: siguiente < piso ? `${landings + 1} no: a ${usd(siguiente)} cada una vas corto y ninguna te da un resultado claro.` : null,
+    queHacer: null,
+  };
+}
+
+
 export type Evento = 'lead' | 'venta';
 
 export type EntradaCalculadora = {
@@ -109,6 +171,8 @@ export type PlanCalculadora = {
   ventas: number;
   facturacion: number;
   roas: number;
+  /** Cuántas landings paga el presupuesto (el paso 1 del lanzamiento, 30/10/2026). */
+  landings: PlanLandings;
   avisos: string[];
 };
 
@@ -230,7 +294,7 @@ export function calcularPresupuestoAds(e: EntradaCalculadora): PlanCalculadora |
 
   return {
     ok: true, modo, resultados, costoPorAngulo: r2(costoPorAngulo), angulosPosibles, angulos, angulosEstricto,
-    rondas, testeo, escala, costoPorVenta, ventas, facturacion, roas, avisos,
+    rondas, testeo, escala, costoPorVenta, ventas, facturacion, roas, landings: landingsDelPresupuesto(e.presupuesto), avisos,
   };
 }
 
@@ -257,6 +321,7 @@ export function textoParaMako(e: EntradaCalculadora, p: PlanCalculadora): string
     `Plan: ${titularDelPlan(p)} (${RESULTADOS_PARA_DECIDIR} resultados por ángulo).`,
     ...rondas,
     `Escala: ${usd(p.escala.diario)} por día durante ${p.escala.dias} días${p.escala.saleDeAprendizaje ? '' : ` (no sale de aprendizaje: pide ${usd(p.escala.diarioParaAprendizaje)} por día)`}.`,
+    p.landings.veredicto + (p.landings.porQueNoMas ? ` ${p.landings.porQueNoMas}` : ''),
     `Ventas esperadas: ${p.ventas} (${usd(p.facturacion)}).`,
     ...p.avisos,
   ].join('\n');

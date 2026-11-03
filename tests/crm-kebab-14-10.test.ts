@@ -59,7 +59,8 @@ test('ningún renglón del «⋯» lleva subtítulo, y el renglón ni siquiera l
   // «Personalizar tarjetas» (20/10/2026): Martín, «Las cards, las debería poder personalizar también, por si el usuario
   // quiere más o menos info». Es de quien mira (tests/crm-tarjeta-personalizable.test.ts).
   // «Editar etapas» sin el artículo desde el 24/10/2026, como «Cambiar nombre» («que no diga "Cambiar EL nombre"», Martín).
-  const RENGLONES = ['Importar leads', 'Exportar leads', 'Editar etapas', 'Personalizar tarjetas'];
+  // «Nombres de tus leads» (31/10/2026): cómo los saluda MaKo, y la palabra que no es un nombre («Kun»). Sólo la puede resolver el negocio.
+  const RENGLONES = ['Importar leads', 'Exportar leads', 'Editar etapas', 'Personalizar tarjetas', 'Nombres de tus leads'];
   for (const label of RENGLONES) {
     assert.ok(acc.includes(`label="${label}"`), `falta el renglón «${label}» en el «⋯»`);
   }

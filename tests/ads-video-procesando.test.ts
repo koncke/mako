@@ -1,15 +1,15 @@
 // =============================================================================
 // Un video no se da por listo hasta que Meta lo procesó (tarea #59)
 // =============================================================================
-// El bug medido el 25/09 y vivo hasta el 07/10: creative-upload devolvía `processing` y
-// `video_status`, el tipo SubidoCreativo no los declaraba y los TRES modales escribían
-// `processing: false` sin mirar. Un video que Meta tardaba en procesar entraba a la
-// bandeja como listo, y el rechazo llegaba al crear el creativo, con la campaña y el
-// conjunto ya creados. Son asserts sobre el FUENTE: los modales son 'use client' y las
-// rutas no se pueden importar en node:test.
+// El bug medido el 25/09 y vivo hasta el 07/10: creative-upload devolvía `processing` y `video_status`, el tipo SubidoCreativo
+// no los declaraba y los TRES modales escribían `processing: false` sin mirar.
+//
+// ⚠️ 27/10/2026: los tests de la subida del navegador (subirCreativo, esperarVideoListo) y de las rutas (campaign-create,
+// ad-add, adset-add, creative-upload) se fueron con ellas: eran del Ads Manager viejo, borrado el 25/10, y no las llamaba
+// ninguna pantalla (docs/hallazgos-ads.md → «Las rutas viejas de app/api/ads-manager»). Queda lo que vive en la lib.
 // =============================================================================
 
-import { mock, test } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -20,7 +20,6 @@ const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const codigo = (p: string) => sinComentarios(leer(p));
 
-const SUBIDA = codigo('app/ads-manager/creativeUpload.ts');
 const LIB = codigo('lib/meta-ads-create.ts');
 
 /** El cuerpo de una función: desde su firma hasta la primera línea que cierra en la
@@ -31,90 +30,6 @@ function cuerpo(src: string, firma: string): string {
   const fin = src.indexOf('\n}\n', i);
   return src.slice(i, fin < 0 ? undefined : fin);
 }
-
-test('SubidoCreativo declara processing, y subirCreativo lo pasa desde el server', () => {
-  assert.match(SUBIDA, /export type SubidoCreativo = \{[\s\S]*?\bprocessing: boolean;[\s\S]*?\bvideo_status:/);
-  // Desde la #797 hay DOS puertas (un archivo y un video que MaKo ya generó) y una sola
-  // lectura de la respuesta: subidoDeRespuesta. El processing se mira ahí, y las dos
-  // puertas tienen que pasar por ella —una copia del return es lo que la #59 sacó—.
-  const resp = cuerpo(SUBIDA, 'export function subidoDeRespuesta(');
-  assert.match(resp, /processing: j\.media_type === 'video' && !!j\.video_id && j\.processing === true/, 'el processing sale de la respuesta');
-  assert.doesNotMatch(resp, /processing: false/);
-  assert.match(cuerpo(SUBIDA, 'async function procesarEnMeta('), /return subidoDeRespuesta\(j, pathRespaldo\);/);
-  for (const puerta of ['export async function subirCreativo(', 'export async function usarCreativoMako(']) {
-    assert.match(cuerpo(SUBIDA, puerta), /return procesarEnMeta\(/, `${puerta}: lee la respuesta por procesarEnMeta`);
-  }
-  //   ROTO A PROPÓSITO (07/10/2026): con el return viejo (sin processing), el typecheck
-  //   ya lo frena; con `processing: false` escrito a mano, pass 6 / fail 1 — éste.
-  //   Y tras la #797 (10 tests en el archivo), de a una, restaurando de memoria:
-  //   `processing: false` en subidoDeRespuesta → pass 9 / fail 1 (éste); usarCreativoMako
-  //   con su propio fetch+return en vez de procesarEnMeta → pass 9 / fail 1 (éste).
-});
-
-// ⚠️ EL RELOJ ES SIMULADO (17/10/2026). Este test falló o pasó según la CARGA de la máquina (10/10: rojo en la suite completa,
-// verde solo, verde de nuevo): usaba el reloj de verdad con un tope de 40 ms, y la cantidad de sondeos que caben en 40 ms
-// depende de cuánto tarde cada vuelta del event loop. Con un sondeo más lento que el tope entra UNO solo y la última lectura
-// es la primera: `[processing, {ok:false}]` daba 'tope' en vez de 'sin_lectura' (reproducido con un fetch de 45 ms: 'tope').
-// No era el código —que mide tiempo real a propósito— sino el test. Acá el tiempo sólo avanza cuando el test lo avanza (1 ms
-// por vuelta de `tick`), así que caben SIEMPRE 40 sondeos, con la máquina libre o quemando. Nunca se subió un tope.
-// Probado ROMPIÉNDOLO (17/10/2026): `esperarVideoListo` devolviendo siempre 'tope' al final → 9 / 1 (base 10 / 0). Y el caso
-// viejo con el reloj de verdad y un sondeo de 45 ms da 'tope' donde espera 'sin_lectura' (la falla del 10/10 reproducida).
-test('esperarVideoListo: «no pude leer» no es «Meta sigue procesando»', async () => {
-  const { esperarVideoListo, motivoFinEspera } = await import('../app/ads-manager/creativeUpload');
-  type Fin = Awaited<ReturnType<typeof esperarVideoListo>>;
-  const original = globalThis.fetch;
-  // Cada respuesta se usa una vez y la ÚLTIMA se repite hasta el tope.
-  const con = async (respuestas: unknown[]): Promise<Fin> => {
-    let i = 0;
-    globalThis.fetch = (async () => {
-      const r = respuestas[Math.min(i++, respuestas.length - 1)];
-      if (r instanceof Error) throw r;
-      return { json: async () => r } as unknown as Response;
-    }) as typeof fetch;
-    mock.timers.enable({ apis: ['setTimeout', 'Date'] });   // `dormir` usa setTimeout y el tope usa Date.now()
-    try {
-      let fin: Fin | undefined;
-      const espera = esperarVideoListo('123', null, { cadaMs: 1, topeMs: 40 }).then((v) => { fin = v; });
-      for (let vuelta = 0; fin === undefined; vuelta++) {
-        assert.ok(vuelta < 500, 'la espera no termina: el reloj simulado no avanzó');
-        await new Promise<void>((listo) => setImmediate(listo));   // deja correr lo pendiente (setImmediate no está simulado)
-        mock.timers.tick(1);
-      }
-      await espera;
-      return fin;
-    } finally { mock.timers.reset(); globalThis.fetch = original; }
-  };
-  const processing = { ok: true, estado: 'processing' };
-  assert.equal(await con([processing]), 'tope', 'Meta dijo processing hasta el final');
-  assert.equal(await con([{ ok: false, error: 'no autenticado' }]), 'sin_lectura', 'un 401 del guard no es un veredicto');
-  assert.equal(await con([{ ok: true, estado: null }]), 'sin_lectura', 'Meta no se pudo leer');
-  assert.equal(await con([new Error('red')]), 'sin_lectura');
-  assert.equal(await con([processing, { ok: false }]), 'sin_lectura', 'manda la ÚLTIMA lectura');
-  assert.equal(await con([{ ok: false }, processing]), 'tope');
-  assert.equal(await con([processing, { ok: true, estado: 'ready' }]), 'ready');
-  assert.doesNotMatch(motivoFinEspera('sin_lectura', 'x.mp4') ?? '', /Súbelo de nuevo/, 'no se pide subir de nuevo lo que no se pudo leer');
-  //   ROTO A PROPÓSITO (07/10/2026): con `return 'tope'` al final (lo de antes), pass 9 /
-  //   fail 1 — éste.
-  // Y con la máquina "ocupada" no cambia nada (17/10/2026): un fetch que traba el hilo 45 ms (más que el tope) por sondeo.
-  // Con el reloj de verdad, `[processing, {ok:false}]` daba 'tope'; con el simulado sigue dando 'sin_lectura'.
-  const ocupado = globalThis.fetch;
-  try {
-    let i = 0;
-    globalThis.fetch = (async () => {
-      const t0 = performance.now(); while (performance.now() - t0 < 45) { /* CPU ocupada */ }
-      return { json: async () => [processing, { ok: false }][Math.min(i++, 1)] } as unknown as Response;
-    }) as typeof fetch;
-    mock.timers.enable({ apis: ['setTimeout', 'Date'] });
-    let fin: Fin | undefined;
-    const espera = esperarVideoListo('123', null, { cadaMs: 1, topeMs: 3 }).then((v) => { fin = v; });
-    for (let vuelta = 0; fin === undefined && vuelta < 500; vuelta++) {
-      await new Promise<void>((listo) => setImmediate(listo));
-      mock.timers.tick(1);
-    }
-    await espera;
-    assert.equal(fin, 'sin_lectura', 'la carga de la máquina no cambia el veredicto');
-  } finally { mock.timers.reset(); globalThis.fetch = ocupado; }
-});
 
 test('withVideoThumb NO tira (la previa se dibuja igual); el creativo de verdad SÍ exige la miniatura', () => {
   const thumb = cuerpo(LIB, 'async function withVideoThumb(');
@@ -130,54 +45,4 @@ test('withVideoThumb NO tira (la previa se dibuja igual); el creativo de verdad 
   //   ROTO A PROPÓSITO (07/10/2026): con `withVideoThumb(creative)` de vuelta en
   //   createAdCreative, pass 6 / fail 1 — éste; y con un `throw` en withVideoThumb (la
   //   previa rota), pass 6 / fail 1 — éste.
-});
-
-test('campaign-create, ad-add y adset-add preguntan por los videos ANTES de crear nada', () => {
-  // [ruta, dónde empieza SU modo, qué crea]. ⚠️ El tramo arranca en el modo de CADA
-  // creador, no en el POST (revisión de la #59): con el recorte desde el POST, el del lote
-  // de ad-add incluía al modo simple, que está arriba, y sin el chequeo del lote el
-  // `lastIndexOf` encontraba el del simple —antes del `abrirRegistro(` del lote— y daba
-  // verde. Medido sobre una copia de HEAD (código y tests): borrar el chequeo del lote daba
-  // pass 11 / fail 0 con este archivo y el del workspace.
-  const casos: Array<[string, string, string]> = [
-    ['app/api/ads-manager/campaign-create/route.ts', 'export async function POST(', 'createCampaign(spec)'],
-    ['app/api/ads-manager/ad-add/route.ts', 'if (!Array.isArray(body.ads)) {', 'addAdToAdset(adsetId, creative, name)'],
-    ['app/api/ads-manager/ad-add/route.ts', 'const ads = body.ads;', 'addAdToAdset(adsetId, ads[i].creative'],
-    ['app/api/ads-manager/adset-add/route.ts', 'export async function POST(', 'addAdsetToCampaign(campaignId'],
-  ];
-  for (const [ruta, desde, crea] of casos) {
-    const src = codigo(ruta);
-    const ini = src.indexOf(desde);
-    const iCrea = src.indexOf(crea, ini);
-    assert.ok(ini > 0 && iCrea > ini, `${ruta}: no encontré «${crea}» después de «${desde}»`);
-    const tramo = src.slice(ini, iCrea);
-    const iVideos = Math.max(tramo.lastIndexOf('videosSinProcesar('), tramo.lastIndexOf('await sinProcesar('));
-    const iRegistro = tramo.lastIndexOf('abrirRegistro(');
-    assert.ok(iVideos >= 0, `${ruta}: «${crea}» sin preguntar antes por los videos`);
-    assert.ok(iRegistro >= 0, `${ruta}: «${crea}» sin abrir su registro`);
-    // Antes de abrir el registro: un 409 de videos no puede dejar una fila 'creando'
-    // que haga esperar 6 minutos al reintento.
-    assert.ok(iVideos < iRegistro, `${ruta}: los videos se preguntan antes de abrir el registro`);
-    assert.match(src, /\{ status: 409 \}/);
-  }
-  //   ROTO A PROPÓSITO (07/10/2026): sacando el chequeo del modo simple de ad-add
-  //   (`const motivo = null`), pass 9 / fail 1 — éste; y sacando el del LOTE —el que
-  //   antes pasaba de gratis—, pass 13 / fail 1 con este archivo y el del workspace — éste.
-});
-
-test('creative-upload: error es 422, la espera es corta, y el staging se borra sólo con veredicto', () => {
-  const src = codigo('app/api/ads-manager/creative-upload/route.ts');
-  assert.match(src, /if \(estado === 'error'\) \{\n\s*return Response\.json\(\{ ok: false,[^\n]*\{ status: 422 \}\);/, "con 'error' el video no entra a la bandeja");
-  assert.doesNotMatch(src, /timeoutMs: 150000/, 'la espera de 150 s dentro del POST es la que llevaba a los 504');
-  assert.doesNotMatch(src, /Promise\.all\(\[\s*waitForVideoReady/, 'la transcripción no puede alargar la respuesta');
-  // La transcripción no baja el archivo para descubrir que pesa de más.
-  assert.match(src, /tamano != null && tamano <= MAX_TRANSCRIBIR \? bajarStaging\(/);
-  // GET: borra sólo con 'ready' o 'error', y sólo un path del staging.
-  const get = src.slice(src.indexOf('export async function GET('));
-  assert.match(get, /if \(\(estado === 'ready' \|\| estado === 'error'\) && pathDeStaging\(path\)\)/);
-  // El path que se acepta borrar vive en lib/ads-staging.ts (lo comparte con el barrido).
-  assert.match(src, /const pathDeStaging = esPathDeStaging;/);
-  assert.match(codigo('lib/ads-staging.ts'), /p\.startsWith\(`\$\{STAGING_CARPETA\}\/`\) && !p\.includes\('\.\.'\)/);
-  //   ROTO A PROPÓSITO (07/10/2026): con `if (pathDeStaging(path))` (borrar sin mirar el
-  //   estado: Meta todavía lo estaba bajando), pass 6 / fail 1 — éste.
 });

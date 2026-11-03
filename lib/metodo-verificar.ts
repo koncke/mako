@@ -10,15 +10,17 @@
 
 import 'server-only';
 import { CALCOM_API, calcomHeaders } from './calcom';
-import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe } from './cobros-conexion';
+import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe, factsDeCreem } from './cobros-conexion';
 import { credWs } from './credenciales';
 import { leerCuentaMp } from './mercadopago-api';
 import { leerCuentaStripe } from './stripe-api';
+import { probarClaveCreem } from './creem-api';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { esKeySoloEnvio, KEY_SOLO_ENVIO_TUYA } from './resend-errores';
 import { problemaDelRemitente } from './resend-remitente';
+import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
 
 type Valores = Record<string, string>;
 
@@ -258,6 +260,13 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
    * **422 «Field required»**. O sea que se comprueba la operación que se va a
    * usar —la regla de la casa— sin crear una voz ni consumir cuota.
    */
+  // Quién es esa cuenta: no corre ningún actor, así que comprobar la clave no gasta nada.
+  async 'apify-instagram'(v) {
+    const r = await fetchJson('https://api.apify.com/v2/users/me', { headers: { Authorization: `Bearer ${v.APIFY_INSTAGRAM_TOKEN}` } });
+    if (r.status === 401 || r.status === 403) return { ok: false, error: 'Ese token no entra a Apify.' };
+    if (r.status !== 200) return { ok: false, error: `Apify respondió ${r.status}.` };
+    return { ok: true };
+  },
   async elevenlabs(v) {
     const h = { 'xi-api-key': v.ELEVENLABS_API_KEY };
     const json = { ...h, accept: 'application/json' };
@@ -496,11 +505,19 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     // La key es OBLIGATORIA desde el 23/10/2026 (sin respaldo de la plataforma): sin ella no hay Zernio, y el ping no puede
     // contestar «anda» (la API de MaKo reusa este ping para decir si la integración responde).
     if (!key) return { ok: false, error: 'Falta la API key de Zernio.' };
-    const { status, body } = await fetchJson('https://zernio.com/api/v1/profiles', {
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    });
-    if (status === 401 || status === 403) return { ok: false, error: 'Esa API key no es válida. Cópiala de nuevo desde Zernio.' };
-    if (status >= 400) return { ok: false, error: `Zernio respondió ${status}.` };
+    // VARIAS CLAVES (29/10/2026): se prueba CADA una que vino (el servidor completa con las guardadas, así que pegar la 2 trae
+    // también la 1) y se dice cuál falla. Probar sólo la 1 daba «anda» a una clave 2 rota.
+    const claves = CLAVES_ZERNIO.map((env) => ({ env, valor: (v[env] ?? '').trim() })).filter((x) => x.valor);
+    let body: Record<string, unknown> = {};
+    for (const k of claves) {
+      const r = await fetchJson('https://zernio.com/api/v1/profiles', {
+        headers: { authorization: `Bearer ${k.valor}`, 'content-type': 'application/json' },
+      });
+      const cual = k.env === 'ZERNIO_API_KEY' ? 'Esa API key' : `La API key de Zernio ${slotDeClaveZernio(k.env)}`;
+      if (r.status === 401 || r.status === 403) return { ok: false, error: `${cual} no es válida. Cópiala de nuevo desde Zernio.` };
+      if (r.status >= 400) return { ok: false, error: `Zernio respondió ${r.status}${k.env === 'ZERNIO_API_KEY' ? '' : ` con la clave ${slotDeClaveZernio(k.env)}`}.` };
+      if (k.env === 'ZERNIO_API_KEY') body = r.body;
+    }
     const perfiles = (body.profiles as Array<{ name?: string }> | undefined) ?? [];
     return {
       ok: true,
@@ -589,6 +606,23 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     // Pago y no hay API que la devuelva): como el secret de Cal.com, se dice que está, no que anda.
     const facts = factsDeMercadoPago(r, !!v.MERCADOPAGO_WEBHOOK_SECRET);
     return { ok: true, detalle: `Conectada a tu cuenta de Mercado Pago${r.modo === 'prueba' ? ' (modo prueba)' : ''}.`, facts };
+  },
+
+  // Creem (31/10/2026). ⚠️ SU PING NO PUEDE PREGUNTAR «¿DE QUIÉN ES ESTA CLAVE?» como los dos de arriba: Creem no
+  // tiene ningún endpoint que devuelva la identidad de la cuenta (Stripe tiene `GET /v1/account`, Mercado Pago
+  // `GET /users/me`). Así que lo que se prueba es que la clave FUNCIONE, con una lectura inofensiva y vacía en una
+  // cuenta nueva (`GET /v1/products/search`, verificado en producción el 31/10/2026: 200 con `items: []`).
+  // Y lo que ata la clave a su cuenta no es un id que Creem nos dé: es el id del endpoint de aviso que MaKo registró
+  // en ella (`CREEM_WEBHOOK_ID`), que es lo que rutea sus avisos.
+  async creem(v) {
+    const r = await probarClaveCreem(v.CREEM_API_KEY);
+    if (!r.ok) return { ok: false, error: r.error };
+    const facts = factsDeCreem({ modo: r.modo }, v.CREEM_WEBHOOK_ID ?? null, !!v.CREEM_WEBHOOK_SECRET);
+    const modo = r.modo === 'prueba' ? ' (modo prueba)' : '';
+    // Sin el secreto del aviso NO entra ningún pago: el webhook de Creem es fail-closed a propósito. Se dice.
+    return v.CREEM_WEBHOOK_SECRET
+      ? { ok: true, detalle: `Conectada a tu cuenta de Creem${modo}. Creem se encarga de los impuestos de cada país.`, facts }
+      : { ok: false, error: 'La clave sirve, pero falta el aviso de pagos. Vuelve a guardar la clave para que MaKo lo registre: sin él, ningún pago entra a tu CRM.' };
   },
 
   // (Hotmart, Skool y Apify tenían su ping acá: salieron el 25/10/2026 con el Leads Scraper.)

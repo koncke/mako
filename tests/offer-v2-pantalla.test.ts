@@ -45,7 +45,8 @@ import {
   bienvenidaDe, guardadaVisible, iconoDeAdjunto, linksDe, pasoTrasFalloDeOferta, quedoGuardado, ticksDe,
 } from '../app/offer/ayudas';
 import {
-  arbolSeguro, conSesionEnArbol, leerValor, seccionesDelArbol, titulosUnicos, todasLasSesiones, valorNueva, valorSesion,
+  arbolSeguro, conSesionEnArbol, funnelParaPedido, leerValor, plantillasDeOffer, renglonesDeOffer, titulosUnicos, todasLasSesiones, valorNueva,
+  valorSesion,
 } from '../app/offer/arbol';
 import { esRechazoDefinitivo } from '../app/offer/offer-api';
 import { itemsDeOffer } from '../app/m/mako/chat-ui';
@@ -130,7 +131,8 @@ test('nueva oferta: si el servidor devuelve la MISMA conversación, no se reinic
   const reinicia = nueva.indexOf('reiniciar();');
   assert.ok(guarda >= 0, 'falta la guarda de la misma conversación');
   assert.ok(reinicia > guarda, 'la guarda tiene que ir ANTES de reiniciar()');
-  assert.match(nueva.slice(guarda, reinicia), /return;/, 'la guarda corta antes de reiniciar');
+  // (Desde el 29/10/2026 `nuevaSesion` devuelve su error, o null si abrió: la pantalla de Create lo dice.)
+  assert.match(nueva.slice(guarda, reinicia), /return null;/, 'la guarda corta antes de reiniciar');
 });
 
 // ── 5. La rama la decide el servidor ─────────────────────────────────────────
@@ -207,14 +209,24 @@ test('árbol: la regla de la pantalla y la de construirArbol ubican igual cada c
   }
 });
 
-test('árbol: las secciones del desplegable (funnel → ofertas → conversaciones) y sus valores', () => {
-  const secs = seccionesDelArbol(ARBOL, { funnel: 'filtro', oferta: 'etiqueta', conversacion: 'nota', sueltas: 'archivo' });
-  assert.deepEqual(secs.map((s) => s.title), ['Coaching', 'Coaching (2)', 'Sin funnel'], 'el Dropdown navega por título: no puede haber dos iguales');
-  assert.deepEqual(secs[0].grupos?.map((g) => g.title), ['Programa', 'Mentoría'], 'la principal primero');
-  assert.equal(secs[0].grupos?.[0].resumen, 'Principal');
-  assert.deepEqual(secs[0].grupos?.[1].options.map((o) => o.value), ['sesion:100', 'analizar:1:10']);
-  assert.deepEqual(secs[0].options.map((o) => o.value), ['sesion:101', 'nueva:1']);
-  assert.equal(secs[0].options[1].crear, true);
+// El desplegable en árbol se fue el 29/10/2026 (Martín: «en offer pon el mismo sistema de la sidebar, en lugar del desplegable
+// actual»): las conversaciones son la LISTA de la tarjeta del chat y crear o analizar, las plantillas de «Nueva oferta».
+// Roturas (29/10/2026): `renglonesDeOffer` sin ordenar por fecha → 1 fallo; `plantillasDeOffer` sin la principal primero → 1
+// fallo; `funnelParaPedido` sin mirar la abierta → 1 fallo.
+test('árbol: la lista de conversaciones y las plantillas de «Nueva oferta», con sus valores', () => {
+  const lista = renglonesDeOffer(ARBOL);
+  assert.deepEqual(lista.map((x) => x.id), ['100', '102', '101', '200'], 'todas, la más nueva arriba (a igual fecha, en el orden del árbol)');
+  assert.deepEqual(lista.map((x) => x.valor), ['sesion:100', 'sesion:102', 'sesion:101', 'sesion:200']);
+  assert.equal(lista[0].nombre, 'a · Coaching', 'con más de un funnel, el funnel al lado');
+  assert.equal(lista[3].nombre, 'v1 · Sin funnel');
+  const pl = plantillasDeOffer(ARBOL);
+  assert.deepEqual(pl.map((p) => p.id), ['nueva:1', 'analizar:1:11', 'analizar:1:10', 'nueva:2'], 'crear en cada funnel; analizar cada oferta, la principal primero');
+  assert.deepEqual(pl.map((p) => p.nombre), ['Crear una oferta nueva', 'Analizar «Programa»', 'Analizar «Mentoría»', 'Crear una oferta nueva']);
+  assert.ok(pl.every((p) => p.rotulo === 'Coaching'));
+  assert.equal(funnelParaPedido(ARBOL, { funnelId: 2 }), 2, 'el de la conversación abierta');
+  assert.equal(funnelParaPedido(ARBOL, { funnelId: 99 }), 1, 'uno que ya no está: el primero');
+  assert.equal(funnelParaPedido(ARBOL, null), 1);
+  assert.equal(funnelParaPedido(arbolSeguro({ funnels: [], sueltas: [] }), null), null);
   assert.deepEqual(titulosUnicos(['A', 'A', '', ' '], 'X'), ['A', 'A (2)', 'X', 'X (2)']);
   assert.deepEqual(titulosUnicos(['Sin funnel'], 'X', ['Sin funnel']), ['Sin funnel (2)']);
   assert.deepEqual(leerValor(valorSesion(5)), { tipo: 'sesion', id: 5 });

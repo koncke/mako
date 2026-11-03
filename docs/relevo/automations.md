@@ -4,6 +4,74 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
+## LO ÚLTIMO: 30/10/2026, rama `aut-restos-tickets-3010`: los restos de los tickets #33 y #34
+
+Tres arreglos: el paso de una inscripción sin tarjeta (`indiceDeLaFila`), lo que manda Instagram (`ig_mensajes.metadata_zernio`,
+migración 0353, ya aplicada) y la pausa de Zernio en Automations y Calendario. Encima, el aviso al activar: cuántos y a qué ritmo
+(lib/ritmo-al-activar.ts). La cosecha, en docs/hallazgos-chatbot.md y docs/hallazgos-integraciones.md. **Mirar cuando despliegue:** el
+aviso en pantalla (no se vio en el navegador: la lista exacta de qué mirar, abajo) y `ig_mensajes.metadata_zernio` con el próximo toque de un DM viejo.
+**Después, la misma noche:** el aviso cuenta lo que queda para aprobar en todo el flujo (`porAprobarDelFlujo`), ya no sólo el primero; dice los borradores viejos
+que la van a frenar y ofrece descartarlos (`borradoresAlActivar`, `descartarBorradoresViejos`); y el camino hasta Configuraciones sale del aviso mismo también en el ⚠ de la fila y en el
+teléfono (`ConfiguracionesM`).
+
+**QUÉ HAY QUE MIRAR EN PANTALLA, nadie lo vio.** El 30/10 no había sesión de MaKo en el navegador de la app, y el código todavía no estaba desplegado. Abrir el
+aviso no prende nada; cerrarlo o cancelarlo, tampoco. Se prueba en el **Cliente de Prueba**, con «🧪 Prueba chats 22/10» (apagada, 2 de sus 5 mensajes quedan para
+aprobar: es el caso real de ese texto):
+1. **Computadora, el interruptor** y **«⋯ › Activar»:** el aviso dice «Más adelante, 2 de sus 5 mensajes no salen solos: quedan hasta N en Borradores…», se lee
+   entero en el modal, y «Poner goteo» / «Poner horario» abre Configuraciones sin prenderla.
+2. **Configuraciones:** «Poner goteo» abre arriba, en Horario de oficina. Mirar si el goteo se ve sin bajar; si no se ve, no es un toque.
+3. **La fila de una prendida sin goteo u horario:** el ⚠ alineado, sin pisar el «⋯»; la frase al pasar el cursor; un clic abre Configuraciones de ESA sin cambiar
+   la elegida; al poner lo que falta y cerrar, el ⚠ se va. Con un setter, el ⚠ no hace nada.
+4. **La pantalla de una prendida:** el aviso de arriba de «Activar» abre Configuraciones, y al cerrar se va.
+5. **Teléfono, al activar:** la hoja con el texto entero y «Activar igual» / «Poner…» / «Cancelar». «Poner…» abre Configuraciones.
+6. **Teléfono, una prendida:** la píldora en la lista, y adentro el texto con su botón «Poner…». ⚠️ Cierra una hoja y abre otra en el mismo toque: mirar que no
+   quede trabada y que el «atrás» ande.
+7. **Teléfono, Configuraciones:** es la pieza de la computadora adentro de una hoja, nunca probada ahí. Mirar que entre a 375 de ancho y que los desplegables de
+   huso y de horas abran y se puedan elegir adentro de la hoja. Al cerrar, el aviso se va.
+8. **Los borradores viejos:** el único caso real es de Leila, «Seguimiento a leads que no cierran». **Abrir el aviso alcanza, y NO tocar «Descartar los 27» sin que
+   Leila o Martín lo pidan: descarta de verdad.** Mirar que el botón se lea al lado del texto, y que con el modal angosto no se corte. Para probar el botón hay
+   que armar un borrador viejo en el Cliente de Prueba.
+9. **El teclado en el cartel** (Cliente de Prueba, cambió `app/_ui/Confirm.tsx`, que usan todos los carteles): con Tab hasta «Poner goteo» y Enter, abre Configuraciones y NO prende.
+   Enter recién abierto sigue confirmando. Mientras descarta, Escape no cierra. Después de descartar, Enter no hace nada hasta ir con Tab a un botón. Con Tab a un botón de atrás del velo, Enter confirma y no lo clickea. Mirar también un cartel de otra pantalla, por ejemplo borrar algo: Enter sigue andando.
+10. **Variantes y arranque gradual** (rama `aut-variantes-3110`, en el Cliente de Prueba): en el CRM, «⋯» de una columna › Mandar mensaje: ↻ al lado del mensaje escrito abre «＋ Otra forma de decirlo»; «Arrancar de a poco» viene tildado, con 20 y 20, y la duración y la confirmación lo dicen; con tope 60, avisa que la línea llega hasta 40. En Configuraciones de una automatización: «Arranque gradual» sólo con «Tope por día» prendido. Corregir el texto con variantes avisa, con «Deshacer». A 375 de ancho no se corta el popover. **No se ve en pantalla:** que le toque una de las tres a cada lead y que el segundo día suba: se mira en los envíos de la automatización con una difusión de prueba, con un número que se pueda arriesgar.
+11. **El modal de difusión** (rama `difusion-modal-0211`, en el Cliente de Prueba): en el CRM, «⋯» de una columna › Mandar mensaje. Mirar los tres canales con su logo, que tocar una fila cambie el panel, que lo escrito en WhatsApp siga ahí al volver de Email, y el ✓ al escribir. En el teléfono, una columna. Nada se manda hasta confirmar.
+
+## 30/10/2026 mañana, cuenta 3 (claude3, al 92 %), sesión local_7f005343: el ticket #33 de Leandro
+
+**Lo pedido** (el Cerebro): con copias de la 680, el botón de un DM viejo no anda y pasa todo el lead a «respondió». **Lo
+hecho:** un toque nunca va a la pausa; el payload que no se lee se resuelve por el título (la más vieja si hay varias). Test
+por el webhook de verdad: tests/boton-dm-viejo.test.ts (escenarios 'duplicadas*' de tests/_boton-vuelve-hijo.ts), 4 roturas
+en rojo. Hito con `tickets: [33]`. La cosecha, con lo medido y lo que quedó sin hacer, en docs/hallazgos-chatbot.md.
+**Sin hacer:** soltar las 8 de @leantejado (al desplegarse el arreglo). Lo demás, en la sección de arriba.
+
+## 29/10/2026 noche, cuenta 3 (claude3), sesión local_7f005343: el ticket #25 de Leandro
+
+**Lo pedido** (el Cerebro, con el #25 aprobado por Martín): elegir la publicación o el Reel en el CRON de comentario, en la
+pantalla y en la API, y que el motor arranque sólo con esa. Lo demás del #25 (palabra clave, respuesta pública, espacios del
+botón, /docs) ya estaba en main. «Pedir un dato en el DM y guardarlo en la ficha» es el #20: no se mezcló.
+
+**Lo hecho** (aut-2510 al día con main en 7ed7e17c6; la cosecha en docs/hallazgos-chatbot.md): `publicacion` en el disparador
+(lib/publicacion-cron.ts), el motor la mira en los dos lugares (si nace el lead y si se inscribe), el selector con las
+últimas 25 de la cuenta (GET /v1/accounts/{id}/posts) en app/automations/EditorDisparadores.tsx, la API de MaKo con el link o
+el id (descripción corta, por el presupuesto del turno), y la guía de /docs. Test por el webhook de verdad:
+tests/comentario-publicacion.test.ts (escenario 'publicacion' de tests/_boton-vuelve-hijo.ts). Hito con `tickets: [25]`.
+**Sin hacer:** probarlo con la cuenta de Leandro después del deploy (elegir el Reel de la 680 y comentar en otro).
+
+## 29/10/2026 tarde, cuenta 3 (claude3), sesión local_7f005343: el ticket #29 de Leandro
+
+**Lo pedido** (el Cerebro, con `mako_doer_conv` 1716): «Ya te sigo» vuelve a «¿Te sigue en Instagram?» y no hace nada; y que
+/docs explique las palabras clave del disparador. El punto 3 (MaKo le contestó con un borrador del Plan) es del chat de MaKo
+en WhatsApp: no se tocó.
+
+**Lo hecho** (main mezclado en 9ae15da85; la cosecha en docs/hallazgos-chatbot.md, la regla en AGENTS.md): el diagnóstico
+del ticket («no puede volver a una tarjeta de antes») era el equivocado: la base muestra que volvía. Eran (1) la clave de
+Zernio sin la pasada (el segundo «Seguinos» era la respuesta guardada), (2) el toque rápido tirado como doble y (3)
+«¿te sigue?» de la caché. Más el tope de 10 toques por vuelta. La guía nueva de /docs: «Palabras clave y botones de
+Instagram» (app/api-mako/Articulos.tsx). Test por el webhook de verdad: tests/boton-vuelve-a-la-condicion.test.ts con
+tests/_boton-vuelve-hijo.ts (8 roturas, todas en rojo). Hito con `tickets: [29]` en app/admin/dev/chatbot/bitacora.ts.
+**Sin hacer:** el tope deja sin recurso a quien tocó 10 veces sin seguir; un «fallo» que Zernio sí entregó no cuenta como
+pasada. Probarlo con la cuenta de Leandro después del deploy (con «Volver a probar» en su ficha).
+
 ## LO ÚLTIMO: 29/10/2026 madrugada, cuenta 3 (claude3), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 9df736464)
 
 **Lo pedido:** el Cerebro verificó 69b49a31c con refutador y NO entró al tren: 1 ALTA, 6 medias y 5 bajas (informe con la
@@ -27,6 +95,14 @@ docs/hallazgos.md):
 - 8287ce624 — baja: la difusión que terminó se pausa sola (clave `difusion-…`, `pausarDifusionesTerminadas` en la corrida
   de la hora).
 - 9df736464 — merge de origin/main (dos choques de docs, quedan los dos lados).
+- La reverificación de Integración sobre 0265924c6 (NO entró: 1 MEDIA-ALTA, 2 bajas), arreglada y re-verificada con SU arnés
+  (C:/dev/revisiones/scratch-0265/ig-refuta/_hijo.mts; las salidas de la segunda vuelta en scratch-f8a1/):
+  - b3d734055 — MEDIA-ALTA, regresión de 5e67180c7: `tomadas` contaba inscripciones PAUSADAS, y una automatización sin AI
+    Step también se pausa: el primer DM quedaba sin respuesta. Ahora el webhook mira `atencion.contestada` (lo llenan el AI
+    Step de la respuesta o la charla abierta; `seguirCharla` devuelve si contestó).
+  - 88cf6bbd7 + f8a13def3 — la difusión pausada: el mismo pedido la vuelve a prender (sin `aunqueDuplique`: la pudieron
+    editar mientras estaba pausada) y suma a los que faltan.
+  - d8516957f — sin zona del negocio se frena sólo el recordatorio de los días siguientes (`necesitaLaZona`); el primer aviso sale.
 
 **La media que no es de Automations:** `HojaDifusion` no está montada. El enganche (`onMandarMensaje` en
 app/crm/AccionesLoteLeads.tsx y app/crm/seleccion-difusion.ts) está en la rama `crm-lote-2810`, que todavía no está en main.
@@ -57,7 +133,15 @@ Acordado con Zernio (29/10): el texto dice «llevas CERCA DE X enviados DESDE MA
 desde el inbox de Zernio no se ve). Cuando el motor guarde las partes y marque la pública en `nutricion_envios`, se le pasa a
 Zernio la columna (o el `asunto`) y él ajusta `usoZernioDelCiclo`, que es suyo. zernio-2510 tiene VERDE (4b6acf1c0).
 
-**Verificación:** ver el VERDE al Cerebro (tsc-acotado y tests-afectados sobre la punta con main mezclado).
+**Dónde está (29/10, mañana):** f8a13def3 aguantó el arnés de Integración y entró al tren `tren-z` (merge ff8ec04b6) junto
+con Zernio + Planes y las copias del Web Generator; corren los tests del tren entero y Integración avisa cuando esté Ready.
+Después del deploy y con el «dale» del Cerebro: la fila `social_tope` del ws9 (la mudanza), la config de la 680 y «Volver a
+probar» de los leads 5425/5426.
+**⚠️ lib/zernio.ts: partir de tren-z (o de main, cuando entre).** En el tren, `keyDeSeguimiento` vuelve a
+`credDelClienteEstricta('ZERNIO_API_KEY', ws)`: la rama de Zernio la había pasado a la cuenta de la plataforma, contra la
+decisión de Martín (una cuenta por negocio) y contra tests/condiciones-instagram y tests/zernio-sin-respaldo.
+**Verificación:** tsc-acotado limpio (sólo los 14 de _opencut) y tests-afectados ✔ VERDE sobre f8a13def3 (5960 tests de 596
+archivos).
 
 ## 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
 

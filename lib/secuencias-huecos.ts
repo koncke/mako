@@ -19,6 +19,7 @@
 import 'server-only';
 
 import { getTenantDb } from './workspace';
+import { descartarBorradoresAnotando, type DbDescarte } from './borradores-descartar';
 import { getFunnelDefault } from './funnels';
 import { ETAPAS_SIN_SECUENCIA } from './pipeline';
 import { etapasCubiertas, type FilaCobertura } from './secuencias-cobertura';
@@ -133,19 +134,14 @@ export async function archivarSecuencias(ids?: number[]): Promise<{ archivadas: 
 
   // Sus borradores pendientes (ver el ⚠️ de arriba), con una línea en el historial de cada lead. Un fallo acá no
   // deshace el archivo: la secuencia ya no envía, y lo que quede pendiente se puede descartar después.
-  const { data: borr, error: eBorr } = await supabase.from('wa_borradores').update({ estado: 'descartado' })
-    .in('secuencia_id', objetivo).eq('estado', 'pendiente').select('lead_id, secuencia_id');
-  if (eBorr) console.error(`[secuencias] archivar ${objetivo.join(',')}: no pude descartar sus borradores: ${eBorr.message}`);
-  const descartados = (borr ?? []) as Array<{ lead_id: number | null; secuencia_id: number | null }>;
   const nombreDe = new Map(filas.map((f) => [f.id, f.nombre?.trim() || `#${f.id}`]));
-  const historial = descartados.filter((b) => b.lead_id != null).map((b) => ({
-    lead_id: b.lead_id, campo: 'Automatización', valor_anterior: null, autor: 'MaKo',
-    valor_nuevo: `Borrador descartado al archivar «${nombreDe.get(Number(b.secuencia_id)) ?? 'la automatización'}»: su mensaje ya no corresponde. No se le mandó nada.`,
-  }));
-  if (historial.length) {
-    const { error: eAud } = await supabase.from('lead_audit').insert(historial);
-    if (eAud) console.error(`[secuencias] archivar: no pude anotar los borradores descartados: ${eAud.message}`);
-  }
+  const descartados = await descartarBorradoresAnotando(
+    supabase as unknown as DbDescarte, { secuencias: objetivo },
+    (b) => `Borrador descartado al archivar «${nombreDe.get(Number(b.secuencia_id)) ?? 'la automatización'}»: su mensaje ya no corresponde. No se le mandó nada.`,
+  ).catch((e: unknown) => {
+    console.error(`[secuencias] archivar ${objetivo.join(',')}: no pude descartar sus borradores: ${e instanceof Error ? e.message : String(e)}`);
+    return [];
+  });
 
   return { archivadas: objetivo.length, inscripcionesCanceladas: (canc ?? []).length, borradoresDescartados: descartados.length };
 }

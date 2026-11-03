@@ -13,7 +13,7 @@
 // (una extensión, la red, un deploy nuevo) lo descarta el servidor (lib/errores-app-reglas.ts, `esRuido`).
 
 import { useEffect } from 'react';
-import { ID_PANTALLA_DE_NEXT } from '@/lib/errores-app-reglas';
+import { ID_PANTALLA_DE_NEXT, esHidratacion, pistasDeHidratacion } from '@/lib/errores-app-reglas';
 
 const TOPE_POR_PAGINA = 5;
 
@@ -35,6 +35,7 @@ export function ReportadorDeErrores() {
               nombre, mensaje: mensaje.slice(0, 500), stack: stack.slice(0, 4000),
               ruta: `${window.location.pathname}${window.location.search}`, navegador: navigator.userAgent,
               pantalla: `${window.innerWidth}x${window.innerHeight}`,
+              ...(esHidratacion(mensaje) ? { pistas: pistasDeHidratacion(document, navigator.language) } : {}),
             }),
           }).catch(() => {});
         } catch { /* reportar un error nunca puede romper nada */ }

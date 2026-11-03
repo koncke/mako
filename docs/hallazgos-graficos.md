@@ -7,6 +7,71 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## El catálogo copia estructuras, no una sola (1/11/2026)
+
+Martín: «Todos los templates son iguales, no uses siempre el mismo... no me gusta que no haya variedad, si copiamos muchos templates». Las medidas, los moldes y la asignación con su porqué: `docs/diseno/densidad-codeandchill.json`. El motor: `MOLDES` y `comoDenso`, en `lib/graficos-portadas.ts`.
+
+- **⚠️ LA COHERENCIA NO ES LA FORMA.** La regla «lo que cambia entre hojas es qué mide, nunca el orden» se puso para evitar un muestrario de quince idiomas, y dio trece miniaturas idénticas. Lo que hace que sea una app son los tokens, la letra, el radio, la curva y lo que significan los colores. La forma sale de lo que la hoja mide.
+- **Medir una sola referencia hace creer que es «la» referencia.** Corbel son 5 paneles; las demás, de 7 a 12. Y lo más común de lo medido es abrir con un gráfico a lo ancho (6 de 15): no se usa porque Martín rechazó «el bloque gigante primero», no porque la referencia no lo tenga. Está escrito para que nadie crea lo contrario.
+- **La tienda no dibuja sus miniaturas: son videos** (`<video muted loop preload="none">` con póster, 16:9). Doce no cuestan nada. Acá la miniatura es la hoja de verdad en chico, así que se animan las piezas de Recharts ya dibujadas, sólo mientras se ve (`CSS_MINIATURA`). Son unas 190 animaciones de SVG con trece a la vista. **No se midió cuántos cuadros da**: si se arrastra, el camino es grabar los videos.
+- **El acomodo según el ancho se calcula al dibujar y nunca se guarda** (`lib/graficos-acomodo.ts`). Es barato porque mirando la grilla no escribe (`alMoverGrilla`). Los cortes son del ancho de la grilla, no de la ventana: Corbel tiene 240 de barra y nosotros 68.
+- **El título de la hoja se fue de la barra.** Con los chips del Dashboard unido no va: editando vuelve la fila, que es donde se cambia. Sin chips (el closer, un link compartido) se queda: sería lo único que dice en qué hoja estás. El subtítulo escrito sale al pasar por el chip y en el PDF.
+- **⚠️ EL HOOK DE PUSH MIRA EL ÁRBOL DE TRABAJO, NO EL COMMIT.** Con plantillas borradas sin commitear, un push de un commit de sólo documentos da «`docs/api-mako.md` quedó viejo». Las plantillas salen en la referencia de la API. Se regenera con `node --import tsx scripts/generar-api-doc.mjs`, o se empuja desde un árbol limpio.
+
+**Sin hacer:** una hoja GUARDADA conserva su acomodo y su título de datos: rearmarla pide el sí de Martín. Elegir en la galería una plantilla del otro informe abre su editor y la suma, pero no la ajusta a los datos del negocio como las del mismo informe. «KPIs», «Pendientes» y «El mes» no están en ninguna plantilla: se agregan desde «Bloques de General». «Buscar» y «Filtro» siguen a la vista: Martín los pidió el 17/10 y nadie lo revirtió.
+
+## El estilo por defecto es Corbel, y sus valores no estaban en los JSON (31/10/2026)
+
+**Vive en:** `lib/graficos-corbel.ts`, `lib/graficos-temas.ts`, `lib/graficos-portadas.ts` (`comoCorbel`), `docs/diseno/tokens-corbel.json`, `tests/graficos-corbel.test.ts`.
+
+**Síntoma.** Martín: «Sigo viendo los templates viejos». Lo aplicado era el adentro del gráfico; las plantillas seguían con las tapas de color copiadas de Canva.
+
+**El diagnóstico obvio estaba mal.** Parecía que alcanzaba con los cuatro JSON de `docs/diseno/` y que «el blanco y negro» era Pacely, por su acento casi negro. Pacely es piedra cálida con naranja. El que él describe es **Corbel con su paleta Mono**, y Corbel no está en esos JSON: se leyó el 31/10 con el navegador. Trae además las otras tres paletas (Pastel, Ocean, Sage), y su panel dice «Los colores de estado conservan su significado».
+
+**Lo que hay que saber antes de tocarlo:**
+
+- **El id `mako` ES el blanco y negro.** El id es lo que se guarda: redefinirlo pasa al estilo nuevo a toda hoja que nunca eligió otro, sin migrar nada. Lo que antes era «MaKo» sigue, elegible, como `vieja`.
+- **El oscuro y las paletas salen de redefinir los tokens** adentro de `data-paleta`, como hace la portada. Las series son `var(--cb-c1, #hex)`: `aclarar` y los que hacen cuentas con hex tienen que aceptar una variable. El respaldo hace falta: el chat y la ficha del lead no tienen `data-paleta`, y por eso siguen con `vieja`.
+- **Los tiles no se guardan: salen de la posición** (`tilesDeHoja`). Las hojas guardadas los traen solas; también la tarjeta negra, porque `acentoDePortada` pisa el color de su identidad. El color de cada plantilla (`COLOR_DASHBOARD`) sólo se ve con «Clásica».
+- **El rayado NO se copió, a propósito.** En Corbel las columnas van rayadas de adorno; acá rayado es «Estimado» (`VOCABULARIO`), y una medición rayada diría lo contrario.
+- **El número ya no llena la tarjeta:** 26 px, y 34 en la negra (`kpiMaximo`). Tampoco se pinta de verde o rojo: el significado lo dice el chip. Con los estilos de antes sigue como estaba.
+- **El esqueleto de toda la app también es Corbel Mono** (`:root` y `[data-tema="oscuro"]` de `app/globals.css`). `varsDeTema` sólo escribe `--dash-*`: redefinir el estilo de la hoja, sin esto, no cambiaba las pastillas, el fondo ni los bloques de General, que dibujan con `--primary`, `--bg` y `--surface`. Martín, mirando una hoja: «no veo que haya cambiado absolutamente nada».
+- **El tema `general` también lleva `escena: 'mono'`.** Las hojas de General guardan ese id, no `mako`: era el motivo de que la pantalla de la captura quedara afuera. Su acomodo sigue siendo el de `conPortada`, con la tapa a lo ancho.
+- **`'Geist'` es Urbanist, por un `@font-face` en `globals.css`.** Hay 357 `'Geist'` a mano en 223 archivos y cambiarlos chocaría con todos los chats. La hoja de Google de `app/layout.tsx` ya no lo pide. `Geist Mono` sigue: Corbel no tiene mono y acá se usa para códigos.
+- **Los radios son los de Corbel (8, 14, 22, 28), no los 10, 14, 18, 24 de las otras doce**, y la curva es `.2, .8, .2, 1`, no `.22, 1, .36, 1`: el estilo elegido es Corbel. El kanban usa los de Merrin, que es su referencia.
+- **`--surface-2` es sólido a propósito** (`#f0f0ef`, `--well` sobre `--surface`): Corbel lo tiene con alfa, y acá hay encabezados de tabla pegados que dejarían ver lo que scrollea debajo.
+- **Las series no son las cinco de la demo tal cual.** El `#c8c8c3` de Mono y el segundo de cada paleta con color no llegan a 2:1 sobre su superficie: se cambiaron por otro valor medido de la misma paleta. `tests/graficos-modelo.test.ts` mide cada color en su tema, y lee `--surface` del CSS. **El orden de Mono tampoco es el de la demo:** un anillo recorre la paleta por índice, y con cuatro canales usa los primeros cuatro. Medir sólo el orden completo daba 1,95 de peor vecino; el caso real con cinco series daba otro número. El test mide cada N de 2 a 6.
+- **Los ids de los estilos y las letras pagan presupuesto de WhatsApp.** `PLANTILLAS_TEMA` y `TIPOGRAFIAS` van como `enum` en `cambiar_ficha_funnel`, que viaja en cada turno, y `tests/ficha-api.test.ts` le pone tope. Sumar un estilo al Dashboard puso rojo ese guardia. `--rapido` no lo corre: sólo sigue un salto de import.
+- **Un tema candidato del taller le gana a todo esto** (`[data-tema-candidato]`, guardado en el navegador). Si alguien dice «no cambió», mirar primero `mako.tema-candidato` en su localStorage.
+- **`docs/diseno-dashboards-codeandchill.md` todavía dice «no hay un solo valor suyo».** Eso es lo que `AGENTS.md` corrigió: los valores son el pedido.
+
+**La composición es la de Corbel a 1440, y ahí no había portada.** Martín: «No es necesario tener esa barra negra gigante como encabezado… Y lo mismo con las cajas de abajo». Medido (`composicion_de_pagina` en `docs/diseno/tokens-corbel.json`): números en fila, negro 4 + gráfico 8, 7 + 5. Todo vive en `comoCorbel` (`lib/graficos-portadas.ts`).
+
+- **⚠️ MEDIR EN UN PANEL ANGOSTO MIDE OTRA PÁGINA.** A menos de 1100 px Corbel colapsa a una columna, y esa medición («todo a 12 columnas, sin pares») se tomó por su diseño. Se reconoció reproduciéndola a 900. El viewport va en la medición.
+- **La portada a lo ancho era invención nuestra**, y la revisión de las composiciones la conservó porque «hay que terminar el patrón que empezó el código». El patrón a terminar es el de la referencia.
+- **El negro va sólo en un tercio** (`pintaPortada`). Lo que no entra va en vidrio, también la tapa de 12 × 11 de una hoja guardada: cambia cómo se dibuja, no se le mueve nada. Con «Clásica» sigue.
+- **⚠️ UNA HOJA CREADA DESDE LA GALERÍA SALÍA DISTINTA DE SU MINIATURA.** `instanciarPlantilla` pone ids nuevos, que no terminan en el local, y `esLocal` no encontraba la pieza: la portada no se aplicaba, sin error. Lo mide `tests/graficos-corbel.test.ts` comparando las dos.
+- **Nada se borra:** lo que no entra va en «Más detalle», plegado. Lo plegado sale de la grilla (`lib/graficos-secciones.ts`).
+- **General usa lo mismo.** `conPortada` quedó sin uso en las plantillas. Dos bloques van de a par sólo si piden el mismo alto: estirar uno es espacio en blanco.
+- **`cartera`, `proyectos` y lo de `actual` van como `numero`:** sin rango, la línea saldría plana en cero.
+
+**Límite: los cortes de Corbel no están.** Tiene 5 + 7 a 1320 y todo a 12 a 1100; el editor es un solo `ReactGridLayout` de 12 columnas, con la pila debajo de 640. Entre 640 y 1320 se ve el acomodo de escritorio, más angosto. Tenerlos pide dibujar con otro acomodo por ancho sin tocar lo guardado.
+
+**Una hoja guardada conserva su acomodo.** Rearmarla es escribir en sus datos, y necesita el sí de Martín.
+
+**⚠️ UNA CAPTURA CON EL PANEL OCULTO INVENTA ROTURAS.** El recorrido de producción acusó tres cosas en la hoja General; dos no existían, y la tercera tenía otra causa que la sospechada.
+
+- **La grilla cortada a la derecha era la transición congelada.** `useContainerWidth` arranca en 1280 y la grilla anima `left, top, width, height`. Con el panel del navegador oculto la página corre de fondo y la animación no avanza: a 900 de ancho, `style.width` decía 403 y el rectángulo 632. Para medir: leer `style.width` o apagar las transiciones. También `ResizeObserver` se atrasa: un cambio de tamaño sin recargar dejó la medida vieja.
+- **La estrella encima de «El mes» era la copia que vuela** del loader a la barra (`.cm-vuelo`, `app/_ui/VueloDeCarga.tsx`, 420 ms). La de la barra estaba en su lugar. Deducido por el recorrido: la copia se vio en vuelo y 4 s después ya no estaba, pero no congelada sobre ese título.
+- **⚠️ LA ACCIÓN DEL DÍA SÍ SE SALÍA, Y EL DIAGNÓSTICO OBVIO ERA FALSO.** Se sospechó de Urbanist «más ancha», y es al revés: un 8 % más angosta que Geist en esa frase. Con 6 × 7 y 90 letras, a 1440: Geist 5 líneas y 48 px afuera; Urbanist 4 líneas y 18. Ya estaba rota. La causa: `.gb-frase` toma el tamaño del ancho (`cqi`) y lo que no entra se decide en el alto.
+- **Cambiar la composición no la arregla:** la hoja guardada conserva su acomodo. Por eso se mide lo que hay (`app/general/bloques/frase-que-entra.ts`). Con `cqh` no se puede: `container-type: size` deja sin alto a la pila del teléfono.
+
+**Sin hacer:** el salto de la grilla al abrir. Sin `measureBeforeMount`, `useContainerWidth` dibuja a 1280 y después anima al ancho real (`app/dashboard/EditorInforme.tsx`, `useContainerWidth()`). Con esa opción la grilla ya no sale en el HTML del servidor, así que hay que mirarlo con el panel a la vista. A 673 × 180 la frase llega al piso de 23 px y el botón se corta 29 px: esa medida no está en ninguna hoja guardada de hoy.
+
+**`gb-cabe` no dibuja la fila que no entra, y eso no se ve en ningún test de datos.** En «Tareas prioritarias» de cinco entran tres. Ahora la lista lo dice («y N más en el Plan»), sólo en tareas y deadlines; Agenda y Norte siguen sin decirlo.
+
+**Sin hacer:** el medidor de arco de su tarjeta negra y el espaciado en CRM y Kanban. La aparición de las tabs no se vio con una navegación real: el arnés no tiene rutas.
+
 ## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
 
 **Vive en:** `lib/experimentos-formato.ts`, `app/dashboard/ElementoExperimento.tsx`, `lib/graficos-catalogo.ts`, `lib/graficos-datos.ts`.
@@ -1681,3 +1746,86 @@ tests/dashboard-editar-mako-muneco.test.ts · *22/10/2026, chat «Chats de las t
   versión tenía un link a /integraciones y la frenó tests/integracion-sin-salir.test.ts: un aviso que conecta algo no
   manda a otra pantalla. Al conectarlo, el aviso se va sin recargar la hoja.
 - El closer mira su hoja en sólo lectura y no conecta: lee el aviso sin botón. Un link compartido no lo muestra.
+
+## Aplicar el diseño de los 114 tableros: lo que la medición desmintió del propio documento (31/10/2026)
+
+**Vive en:** `lib/graficos-temas.ts` (el vocabulario), `app/dashboard/Grafico.tsx` (el morfeo),
+`app/dashboard/graficos/Vocabulario.tsx`, `lib/graficos-plantillas.ts`, `app/dashboard/PanelEstilo.tsx`.
+El análisis es [diseno-dashboards-codeandchill.md](diseno-dashboards-codeandchill.md).
+
+**Tres cosas que el documento daba por ciertas y no lo eran.** Se escribió mirando demos ajenas y
+leyendo nuestro código por encima, y en tres puntos acusa al archivo equivocado. Antes de aplicar una
+de sus fichas, **abrí el archivo**:
+
+- **«El delta no sigue al filtro» (A3) no es un bug nuestro.** Es el defecto de Corbel, y la ficha
+  pedía *verificar* que nosotros lo leyéramos con los filtros efectivos. Lo hacemos:
+  `datosDeGraficos` filtra las DOS lecturas con los mismos `filtros`, y `firmaDe` los lleva, así que
+  un cambio de filtro vuelve a pedir los datos. No había nada que arreglar; quedó un test que lo
+  bloquea, porque la línea que lo cumple es una sola y sacarla no rompe ninguna otra cosa.
+- **«La muestra de cada plantilla es un cuadradito de acento» (A6) es falso.** `Muestra` de
+  `PanelEstilo.tsx` ya dibuja CUATRO barras con la paleta de esa plantilla, más su fondo, su borde, su
+  radio, su sombra y su letra — o sea, ya es más informativa que la rueda de cuatro cuartos que el
+  documento propone copiar. No se tocó. Lo que sí faltaba de A6 era la FRASE.
+- **«La pieza ya existe: Fondo: Oscuro» (A4) es de otra cosa.** Esa opción es de los bloques de
+  `/general` (`lib/general-piezas.ts`, `ElementoGeneral.tsx`), no de un bloque del Dashboard: una KPI
+  del Dashboard no tenía con qué invertirse. Hubo que agregar `Grafico.invertida` y su CSS.
+
+**Por qué `isAnimationActive` estaba en `false` en los 13 lugares, y el diagnóstico obvio era el
+equivocado.** Parece «nadie se tomó el trabajo de animar». No: la animación de recharts, **al montar,
+hace crecer las marcas desde CERO**, y eso dibuja un cero que parece medido — justo lo que nuestra
+regla prohíbe. Prenderla a lo bruto reintroduce el defecto que el mismo documento pone entre lo que NO
+hay que copiar. La forma correcta es animar **sólo cuando el dato cambió entre dos dibujos que YA
+tenían datos** (`useMorfeo`): en el montaje y en la primera llegada de datos, nada.
+
+**El morfeo tiene dos modos y el segundo necesita REMONTAR.** Mismas categorías y otros valores →
+recharts deforma las marcas en el lugar solo. Otro conjunto de categorías u otra marca → hay que
+cambiarle la `key` al gráfico: recharts recalcula el dominio, el eje sale ya nuevo y las marcas entran
+desde su base. Sin la `key`, morfear entre dos conjuntos distintos manda un punto a un lugar que no
+significa lo mismo, y con distinta cantidad de puntos lo hace mal. La `forma` que decide es
+`grupo del tipo | tipo | dimensión | desglose | claves de las filas`.
+
+⚠️ **recharts NO toma una `cubic-bezier`**: sólo las curvas con nombre (`ease-out`, `linear`…). Nuestro
+`--ease-out` (`cubic-bezier(.23,1,.32,1)`) no se le puede pasar; lo que sí usa el token es el CSS.
+
+**`agregar` NO recorta por período: eso lo hace el lector.** A `agregar(g, filas, desde, hasta)` le
+llegan las filas ya leídas para ese rango, y el `desde`/`hasta` le sirven para armar los casilleros del
+tiempo. Por eso `datosDeGraficos` hace DOS lecturas con dos claves de caché. Un test que arma un
+período y el anterior con el MISMO arreglo de filas suma todo dos veces y da el doble, sin error.
+
+**Un período filtrado que queda vacío da 0, no `null`** (en una métrica de suma; el `null` es de las
+razones y los atributos). Lo que salva al chip de comparación no es el total: es `chipComparar`, que no
+divide por cero.
+
+**La paleta de series PISA el semáforo, y quedó SIN hacer a propósito.** Medido el 31/10: en `mako`,
+`minimal`, `elevada` y `general`, la serie 4 es `#D0504A` —exactamente `--bad`— y la serie 5 es
+`#1E9E57` —exactamente `--good`—. El ACENTO no colisiona (los primeros colores son todos azules) y eso
+sí quedó blindado en `tests/graficos-temas-semaforo.test.ts`. Lo de las series no se cambió porque
+repinta todas las hojas que ya existen: es una decisión de producto, no una corrección que un test deba
+forzar. Si se toca, se toca en `PALETA_MAKO` y en las tres paletas propias de `lib/graficos-temas.ts`.
+
+**Un backtick adentro de `editor-css.ts` rompe TODA la hoja de estilos.** El archivo es CSS dentro de un
+template literal de TypeScript: escribir `` `Grafico.invertida` `` en un comentario de CSS cierra el
+string y el archivo deja de compilar. Los comentarios de ese archivo van con «comillas angulares», no
+con backticks. `tsc` lo caza (TS1005), pero el mensaje apunta a la línea de abajo, no al backtick.
+
+**Dónde va un hook en `CuerpoGrafico`.** Su cuerpo es una IIFE con varios `return` tempranos (sin
+resultado, con error…). Cualquier cosa que necesite un hook va ARRIBA de la IIFE, con los `useState`:
+el propio archivo ya lo avisa, y es la pantalla en blanco de `AGENTS.md`.
+
+**Lo que quedó SIN hacer de la §9, y dónde vive:**
+
+- **A5, el chip de filtro desde el gesto** (`app/dashboard/BarraControles.tsx`, `MenuFiltro.tsx`): entero.
+  Es el que el documento pone último porque depende de los otros siete.
+- **El cross-fade de 160 ms del texto** (`app/dashboard/EditorInforme.tsx`): no se hizo porque **hoy no
+  tiene disparador** — ningún control cambia la métrica de un bloque en vivo, así que el título y el
+  subtítulo no cambian cuando cambia el filtro. El token (`MORFEO.texto`) está puesto.
+- **El eje que interpola sus marcas numéricamente** (el detalle de Kairo): no se hizo. recharts
+  re-etiqueta de golpe. El documento dice que la variante de Talvo (blanquear las marcas durante el
+  tránsito) también sirve y es más barata.
+- **El contador de una KPI** (`NumeroGrande`, `app/dashboard/Grafico.tsx`): el número sigue saltando.
+  Cuando se haga, la regla de `AGENTS.md` ya está escrita (entre dos valores reales, nunca desde cero).
+- **La torta no morfea** (`Torta`, el único `isAnimationActive={false}` que quedó): no tiene eje, así
+  que los dos modos de A2 no la gobiernan.
+- **El rayado está cableado en barras y áreas**, no en torta, treemap ni sankey. Y la única procedencia
+  que el dato sabe hoy es `Resultado.muestra`: **no hay métrica proyectada en el catálogo**, así que
+  marcar algo más como estimado sería inventarlo.

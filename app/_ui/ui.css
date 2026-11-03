@@ -2319,3 +2319,9 @@ aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
   /* Quieta, la barra igual tiene que decir «cargando»: late en vez de correr. */
   .cm-carga__tramo { width: 100%; animation: cm-late 1.4s ease-in-out infinite; }
 }
+
+/* ── Una fila con menú de clic derecho (app/_ui/useMenuContextual.ts, 27/10/2026) ──
+   Con el dedo, mantener presionado es su clic derecho: ni el globo de un link de iOS ni la selección de texto encima. */
+@media (pointer: coarse) {
+  [data-con-menu] { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+}

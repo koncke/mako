@@ -33,7 +33,7 @@ export const modoEfectivo = (modo: 'propone' | 'piloto', cupo: CupoMediaBuyer): 
 
 // Con el cupo lleno entra primero lo que CUIDA la plata (apagar lo que la quema), después lo que la mueve hacia lo que
 // funciona, y al final lo que prende cosas.
-const PRIORIDAD: Record<Tactica, number> = { stop_loss: 0, calidad: 1, sunsetting: 2, surf: 3, ganador: 4, revive: 5, manual: 6 };
+const PRIORIDAD: Record<Tactica, number> = { hasta: -1, stop_loss: 0, calidad: 1, sunsetting: 2, surf: 3, ganador: 4, revive: 5, manual: 6 };
 
 /**
  * Las propuestas en el orden en que entran al cupo, y cuántos lugares quedan hoy. `yaHoy` cuenta lo que el agente ya
@@ -50,7 +50,16 @@ export function ordenDelCupo<T extends { tactica: Tactica }>(nuevas: readonly T[
  * cada «Analizar» de más dejaba otras tantas (revisión de tren-l, falla 9).
  */
 export const recomendadasHoy = (decisiones: readonly { clave: string; tactica: Tactica }[], hoy: string): number =>
-  decisiones.filter((d) => (d.tactica !== 'manual' || d.clave.startsWith('propia:')) && d.clave.endsWith(`:${hoy}`)).length;
+  // La pausa por fecha de fin no es una recomendación (es la regla de la persona): no ocupa el cupo.
+  decisiones.filter((d) => d.tactica !== 'hasta' && (d.tactica !== 'manual' || d.clave.startsWith('propia:')) && d.clave.endsWith(`:${hoy}`)).length;
+
+/**
+ * Cuántos lugares del cupo de HOY quedan para los agentes propios: lo nuevo del motor entra antes (`PRIORIDAD`, `manual` va
+ * última). Con cero, preguntarle a un agente es gastar la IA del negocio en una respuesta que se descarta en cada corrida
+ * (verificación de tren-m, falla 9). Sin cupo (Pro), siempre hay lugar.
+ */
+export const lugaresParaPropios = (nuevasDelMotor: number, yaHoy: number, cupo: number | null): number =>
+  cupo == null ? Infinity : Math.max(0, cupo - yaHoy - nuevasDelMotor);
 
 export const textoCupo = (n: number): string =>
   `Tu plan trae ${n} ${n === 1 ? 'recomendación' : 'recomendaciones'} por día. Pasa a MaKo Pro para tenerlas todas y el piloto automático.`;

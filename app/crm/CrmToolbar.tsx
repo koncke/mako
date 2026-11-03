@@ -31,7 +31,8 @@ import { Modal } from '@/app/_ui/Modal';
 
 import { CANALES } from '@/lib/fase-diagnostico';
 import { ENTRADAS, ENTRADAS_OFRECIDAS, TIPOS_CRM, TIPO_CRM_OTRO, type EntradaId, type TipoCrmId } from '@/lib/pipeline';
-import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction } from './actions';
+import { embudosArchivadosAction, restaurarEmbudoAction, eliminarEmbudoDefinitivoAction, contarPapeleraAction } from './actions';
+import { EVENTO_PAPELERA, PapeleraLeadsModal } from './PapeleraLeads';
 import { crearCrmAction } from './nuevo-crm-actions';
 import { alternarGrupo, alternarHijo, conGrupoAbierto } from './arbol-seleccion';
 import { ANCHO_PANEL, MARGEN_VENTANA, lugarDelPanel } from './filtro-panel';
@@ -213,7 +214,7 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, onNombres }: {
   /** El CRM que se está mirando. Lo llevaba «Buscar prospectos» (C6, 22/10/2026), que se fue con el Leads Scraper el 25/10. */
   funnelActivo?: number | null;
   onImportar: () => void;
@@ -223,6 +224,8 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
   onEditarEtapas: () => void;
   /** Qué datos muestra la tarjeta de un lead, para quien mira (20/10/2026). */
   onPersonalizarTarjetas?: () => void;
+  /** «Nombres de tus leads» (31/10/2026, ./NombresModal.tsx): cómo los saluda MaKo. */
+  onNombres?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   useEscape(open, () => setOpen(false));
@@ -279,6 +282,10 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
             {onPersonalizarTarjetas && (
               <MenuItem icon={<IconoMenu nombre="configurar" size={15} />} label="Personalizar tarjetas"
                 onClick={() => { setOpen(false); onPersonalizarTarjetas(); }} />
+            )}
+            {onNombres && (
+              <MenuItem icon={<IconoMenu nombre="texto" size={15} />} label="Nombres de tus leads"
+                onClick={() => { setOpen(false); onNombres(); }} />
             )}
             {/* ⚠️ ACÁ HABÍA TRES RENGLONES MÁS, y se fueron el 14/10/2026. Martín: «ya
                 eliminarías en los 3 puntos los botones de "avisos y resumen"... Y elimina el
@@ -661,6 +668,8 @@ export function CrmFilterMenu({ stages, etapas, setEtapas, origenes, origen, set
 const NUEVA = '__nueva';
 /** El otro renglón que no es un funnel sino una salida: los que se eliminaron. */
 const ARCHIVADOS = '__archivados';
+/** Y el de los LEADS eliminados (la papelera de 30 días, mig 0340). */
+const PAPELERA = '__papelera';
 
 export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: {
   funnels: { id: number; nombre: string; esDefault: boolean; producto?: string | null }[];
@@ -675,6 +684,9 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
   const [creando, setCreando] = useState(false);
   const [archivados, setArchivados] = useState(false);
   const [hayArchivados, setHayArchivados] = useState(false);
+  const [papelera, setPapelera] = useState(false);
+  /** Cuántos leads hay en la papelera: el renglón se dibuja sólo con alguno, como «CRM eliminados». */
+  const [enPapelera, setEnPapelera] = useState(0);
   // ⚠️ SE RE-PREGUNTA CUANDO CAMBIA LA LISTA DE EMBUDOS, no sólo al montar. Medido en el
   // navegador el 29/09/2026: se eliminó «Prueba 2» —la fila quedó `activo=false` en la base,
   // correcto— y el renglón «Embudos eliminados» NO apareció, porque este efecto había
@@ -689,6 +701,15 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
     void embudosArchivadosAction().then((f) => { if (vivo) setHayArchivados(f.length > 0); }).catch(() => {});
     return () => { vivo = false; };
   }, [cuantosFunnels]);
+  // La papelera se re-cuenta al montar y cada vez que algo se elimina o se recupera (`avisarPapelera`): sin eso, el
+  // renglón no aparecería justo después de la primera vez, que es el mismo error de arriba.
+  useEffect(() => {
+    let vivo = true;
+    const contar = () => { void contarPapeleraAction().then((n) => { if (vivo) setEnPapelera(n); }).catch(() => {}); };
+    contar();
+    window.addEventListener(EVENTO_PAPELERA, contar);
+    return () => { vivo = false; window.removeEventListener(EVENTO_PAPELERA, contar); };
+  }, []);
   if (funnels.length === 0) return null;
   const actual = funnels.find((f) => f.id === activo) ?? funnels.find((f) => f.esDefault) ?? funnels[0];
   // ⚠️ SE MUESTRA EL PRODUCTO, NO EL FUNNEL. «Funnel principal» es el nombre que
@@ -749,6 +770,8 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
   // y dos renglones con el mismo peso son dos acciones con el mismo peso — pero una se usa
   // todas las semanas y la otra casi nunca.
   if (hayArchivados) opciones.push({ value: ARCHIVADOS, label: 'CRM eliminados', sutil: true });
+  // Los LEADS eliminados (28/10/2026, ticket #22): la misma puerta de vuelta, igual de sutil, con cuántos hay.
+  if (enPapelera > 0) opciones.push({ value: PAPELERA, label: `Papelera · ${enPapelera}`, sutil: true });
   // ⚠️ EL ANCHO VA EN EL DROPDOWN, NO EN UN ENVOLTORIO. Estaba `<span minWidth:190>`
   // alrededor de un Dropdown sin `width`, que se dibuja del tamaño de su contenido:
   // el span medía 190 y el botón 166,7, así que quedaban 23,3 px muertos a la derecha
@@ -783,6 +806,7 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
           // resolver dentro del CRM».
           if (v === NUEVA) { setCreando(true); return; }
           if (v === ARCHIVADOS) { setArchivados(true); return; }
+          if (v === PAPELERA) { setPapelera(true); return; }
           const f = funnels.find((x) => x.id === Number(v));
           // El del negocio va sin parámetro: la URL del CRM no se ensucia por defecto.
           router.push(f?.esDefault ? '/crm' : `/crm?funnel=${v}`);
@@ -793,6 +817,9 @@ export function SelectorFunnel({ funnels, activo, puedeCrear, onEditarEtapas }: 
           onCerrar={() => setCreando(false)}
           onCreado={(funnelId) => { setCreando(false); router.push(`/crm?funnel=${funnelId}`); }}
         />
+      )}
+      {papelera && (
+        <PapeleraLeadsModal funnels={funnels} onCerrar={() => setPapelera(false)} onRecuperados={() => router.refresh()} />
       )}
       {archivados && (
         <ArchivadosModal

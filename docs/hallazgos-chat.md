@@ -181,3 +181,95 @@ decía mal, y un hueco que venía de antes:
   - **Con la caja desmontada, el camino SIN `conversacion` no puede cortar callado.** Ahí lo adjuntado vivía en la caja y se fue
     con ella; lo leído vuelve al campo de la pantalla (`onTexto`), que vive afuera, y no se manda. Con `conversacion`, queda
     guardado para volver.
+
+## Los referentes del Ops Center: qué se decidió y qué quedó afuera (1/11/2026)
+
+**Pedido** (Martín): caricaturas de los grandes referentes, elegibles como las de MaKo, con agentes alimentados por las transcripciones de los
+cursos y sus canales de YouTube. Le plantearon el reparo de la cara y el nombre de personas reales y lo decidió: son caricaturas, no fotos.
+
+- **«Elegible como las de MaKo» se resolvió con el mismo gesto:** tocar la criatura del chat abre la galería (`app/second-brain/ElegirReferente.tsx`).
+  Lo que se elige es la cara Y la ficha con la que aconseja; por eso no se guarda en `operaciones.munecos`, que es sólo del dibujo.
+- **Reglas que no son un recorte:** «Inspirado en» a la vista, y el contexto le prohíbe decir que es esa persona o inventarle una cita (`lib/asesores/contexto.ts`).
+- ⚠️ **Las caras cambiaron dos veces.** Martín rechazó dos tandas de SVG dibujados a mano, y aprobó las de `public/asesores/<id>.png`, generadas con IA a partir de fotos públicas, después de ocho vueltas: «esos sí me gustan». Eso deja atrás el «dibujo, nunca foto procesada» del principio: se parecen más, y por eso el riesgo por la imagen de personas reales es mayor. Es su decisión.
+- **Por qué están así, el estado del chat sin parpadeo y qué no perder al regenerarlas:** docs/hallazgos-ops-center.md.
+- ⚠️ **Dos caminos de `/api/mako/chat` llaman al turno, JSON y con archivos.** Poner el contexto del coach sólo en el primero dejaba a un PDF adjunto hablando como
+  el Ops Center. Lo cazó un test que miraba otra cosa. Ahora es una pieza: `contextoDelChat`.
+- **Son catorce, y el criterio fue de cuántos hay material real** (Martín: «Haz de muchos, no solo de hormozi»): 130 cursos con transcripción en `public/cono-tx/`. Andrew Tate y Jordan Belfort están en Knowledge y no entran. Un referente nuevo es: su ficha, una línea en `catalogo.ts` y su imagen en `public/asesores/`.
+- ⚠️ **El contexto del coach REEMPLAZA a `CONTEXTO_SECOND_BRAIN`, y ahí vivía la frase que anula la voz del teléfono.** Sin copiarla, el turno armaba un plan «en 2-5 líneas».
+- ⚠️ **La pista va pegada adelante del mensaje, y las reglas de «sí» y «no» están ancladas al principio** (lib/mako-intencion.ts). Una respuesta corta va sin pista (`pistaDelFunnelCoach`).
+- ⚠️ **Un chat con motor propio adentro de otra pantalla no puede desmontarse a mitad de un turno:** el guard de navegación mira el motor de la pantalla, no el suyo. Queda montado y escondido.
+- **Sofía Contreras, Marcos Razzetti y Víctor Heras** los pidió Martín por nombre. El Funnel Coach sin referente sólo carga los de `enElFunnel`: cada ficha son
+  5.000 caracteres en el system, y con todas serían 30.000.
+
+**Sin hacer: YouTube.** Está el lector oficial (`lib/spy-youtube.ts`), que trae títulos y descripciones. ⚠️ **No trae lo que se dice en el video:**
+la API oficial sólo le da los subtítulos al dueño del canal. Bajarlos igual es lo que AGENTS.md y la memoria del 29/10 llaman el segundo
+permiso: el de la licencia no habilita los términos del proveedor. Es una decisión de Martín, que pidió «scrapear»; no se resolvió de oficio.
+Y guardar títulos en el repo tampoco sirve: los Developer Policies piden refrescar a los 30 días (por eso Spy poda, `podarVencido`).
+
+**Vive en:** lib/asesores/ · app/second-brain/ChatDelCoach.tsx · app/second-brain/ElegirReferente.tsx · app/admin/operaciones/Retratos.tsx ·
+tests/coaches-ops-center.test.ts.
+
+## La estrella flota otra vez, y en todas las tabs (1/11/2026)
+
+**Pedido** (Martín): *«no me gusta que el botoncito de la estrella de MaKo esté en la sidebar principal. Eso ponerlo como antes que
+esté flotando. Dentro de la misma página, independientemente de qué tab estemos»*.
+
+- ⚠️ **No es la `estrella: true` de `app/_components/nav.ts`.** Eso es el ícono de la entrada «Ops Center», que pidió él el 18/10 y
+  sigue. El botón que molestaba era la ranura del pie de la barra (la entrada de abajo).
+- ⚠️ **«22 pantallas montan MakoEnLaTab» era falso:** medido, siete. General, Chats, Spy o Integraciones no tenían estrella. La monta
+  ahora la barra (`app/_chat/EstrellaDeLaApp.tsx`) salvo donde hay un chat de MaKo a la vista (`lib/estrella-rutas.ts`), y se retira
+  si la tab tiene la suya (`app/_chat/estrella-propia.ts`): nunca dos.
+- **La de la barra no se abre sola ni dice su corto.** Si no, la primera visita a cada tab nueva abría el panel encima.
+- **Sin hacer, y es el costo de la decisión:** vuelve lo de la entrada de abajo. El botón de 56 px tapa el rincón de abajo a la izquierda
+  de la tab (una fecha del Plan, la última tarjeta de una etapa del CRM, el eje de un gráfico). Se resuelve tab por tab, cuando moleste.
+
+**Vive en:** app/_chat/MakoEnLaTab.tsx · app/_chat/EstrellaDeLaApp.tsx · lib/estrella-rutas.ts · tests/estrella-en-toda-tab.test.ts.
+
+## El botón de MaKo tapaba el rincón de cinco pantallas: vive en la barra, no encima de la tab (30/10/2026)
+
+**⚠️ REVERTIDO el 1/11/2026, por pedido de Martín (entrada de arriba).** Queda por el diagnóstico de qué tapa.
+
+**Síntoma** (el recorrido visual de producción, Chrome de Martín): el botón de la estrella (56×56, `position: fixed`, al lado de la
+barra) tapaba la casilla de un calendario de Google en /calendario (K2, ALTO: no se podía tocar), «Venció…» en Llamadas a 1024, una
+fecha del Plan (P1), la última tarjeta de un etapa del CRM (C3) y una etiqueta del eje de un gráfico del Dashboard (D4).
+
+- ⚠️ **El arreglo obvio («que cada tab le reserve el lugar») es el que no escala.** Son 22 pantallas que montan MakoEnLaTab, varias de
+  alto completo que scrollean por dentro (el Calendario, los kanbans): un `padding-bottom` por pantalla se olvida en la próxima. La
+  barra de la app es la única pieza que está en todas: le deja una **ranura** al pie (`data-ranura-mako`, app/_components/Sidebar.tsx,
+  vacía no ocupa lugar) y el botón se monta ahí con un portal (`useRanuraDeLaBarra`, app/_chat/MakoEnLaTab.tsx).
+- **Flota como antes en dos casos:** sin barra (no hay ranura) y cuando tiene que quedar ENCIMA de un modal de la tab (CR4: la barra
+  queda bajo el velo del modal, y un portal adentro de la barra quedaría tapado). El respaldo es el botón de siempre, así que
+  tests/estrella-al-lado-de-la-barra.test.ts, el CR4 y el vuelo de la criatura (`.ch-tab-mako`) siguen valiendo.
+- **La barra va en su propio Suspense** (app/layout.tsx): puede montarse DESPUÉS que la tab. Si la ranura no está al montar, se la
+  espera con un `MutationObserver` (sin eso, el botón quedaba flotando para siempre en la primera carga).
+- **Medido en un navegador** (la maqueta de esbuild con el MakoEnLaTab de verdad) a 1536, 1280 y 1024: el botón adentro de la barra,
+  `elementFromPoint` en el rincón de la tab no lo encuentra, y abrirlo sigue corriendo la tab (`--ancho-panel-mako`).
+
+**Vive en:** app/_chat/MakoEnLaTab.tsx · app/_components/Sidebar.tsx · app/_chat/chat.css (`.ch-tab-mako--en-barra`) ·
+tests/recorrido-k-3010.test.ts (cinco roturas, cinco rojos). *30/10/2026, claude3.*
+
+## MaKo toma la iniciativa: la apertura, y las respuestas rápidas que sin la app no hacían nada (29/10/2026, claude3)
+
+La base de docs/mako-iniciativa/ (T1 de plan.md + G1 de guia.md): lo que MaKo dice primero en un chat es una APERTURA
+(lib/aperturas/, la pieza app/_chat/AperturaMako.tsx), montada en el Cerebro (PiezasCliente.tsx → `useAperturaDelCerebro`), el
+mismo en el Ops Center, la estrella y la tarjeta de Create.
+- **Las respuestas rápidas del hilo, sin la app de escritorio, no hacían nada y no lo decían.** `onResponder` es `k.enviar`, que
+  devuelve `false` con `app === 'bloquea'`; el bloque `pregunta` decía «No salió: espera a que MaKo termine», que es OTRO motivo.
+  Ahora el hilo recibe `sinMandar` (HiloMako → BloqueHilo): las opciones no se tocan y dice por qué, de entrada
+  (`FRASE_RESPONDER`). **Regla:** un botón que no puede hacer lo suyo lo dice ANTES del toque, con el motivo de verdad.
+- **Por eso la apertura NO usa el bloque `pregunta` ni `BloqueDePreguntas`** (lo de la tab sale plegado desde el 22/10): lleva sus
+  propios botones, que no escriben nada (`respuesta`, `ir`, `hacer`, `callar`), y andan sin la app.
+- **Había DOS «ya lo descargó».** `useBloqueoApp` (AppPrimero.tsx, la caja del Cerebro) guardaba el suyo en un `useState`, e
+  InstalarMaKo.tsx (las cajas con motor propio) el compartido de app-de-escritorio.ts. Tocar «Instalar MaKo» en una no pasaba la
+  otra a «Ya lo instalé: conectar». Ahora las dos leen `useDescargado`: el de la apertura es la MISMA pieza (InstalarMaKo).
+- **El chat no se sube de z-index para quedar arriba del velo de la guía: se le deja un hueco.** `data-mako-chat` en el panel de
+  todo chat (PanelChat.tsx), la estrella y su panel (MakoEnLaTab.tsx).
+- **Trampa: «si hay app y si hay IA» no tiene un lector común.** `laApp` y `conSuIA` viven adentro de app/api/mako/chat/route.ts,
+  ocho tests los fijan por fuente ahí, y una ruta de Next no puede exportar funciones. La estrella CERRADA, que no monta el
+  motor, pregunta `?suIA=1` una vez por página (con la memoria de /api/aperturas). Moverlos a lib/ pide mover esos tests.
+- **Trampa: `DescargarMaKo` (IA del cliente) no pasa atributos.** La marca de la guía (`mk-instalar`) va en un envoltorio
+  `.ch-ancla`; afuera de la caja, `.co-instalar` no tenía estilo (sus reglas son de `.co-caja__fila`): la apertura trae el suyo.
+- **SIN HACER:** la escalera completa (pasos 1, 2 y 4 a 8 de plan.md §3.2, con su lector `lib/aperturas/ops-server.ts`: T3);
+  las aperturas de cada tab (T4 a T17, cada una en su `lib/aperturas/<superficie>.ts`); el teléfono (T16: `aperturaOps` calla
+  con `en-la-computadora`). **Nada se vio en el navegador**: falta recorrer el Cerebro del ws3 sin la app («¿Cuál usas?», sus
+  botones, dos «Ahora no» la callan) y la estrella cerrada (su corto, la primera visita).

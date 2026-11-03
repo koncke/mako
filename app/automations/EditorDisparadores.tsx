@@ -35,6 +35,7 @@
 // un control que va a contestar que no.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { MENSAJES_DE_MOTIVO } from '@/lib/zernio-redes';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 // «Conectar» AHÍ MISMO (décima tanda, GENERAL 6): el email en el modal de la tab; y conectar algo vacía la
@@ -54,11 +55,13 @@ import {
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador, deSiempreDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
-  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, conPalabras,
+  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, conPalabras, conPublicacion,
   type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
 // Las palabras clave del CRON de comentario (ticket #17 de Leandro, 28/10/2026: «Tal cual como lo hace manychat»).
 import { COINCIDENCIAS, palabrasDeTexto, problemaDePalabras, type Coincidencia } from '@/lib/palabras-clave';
+// Y la publicación o el Reel (ticket #25 de Leandro, 29/10/2026).
+import { rotuloDePublicacion, type PublicacionCron, type PublicacionDeLaCuenta } from '@/lib/publicacion-cron';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
   nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo, detalleDisparador,
@@ -405,6 +408,77 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
   );
 }
 
+/** Las publicaciones de la visita, por red: abrir otra vez el CRON no le vuelve a preguntar a Zernio. Una lectura que falló, sí. */
+const publicacionesDeLaVisita = new Map<'instagram' | 'messenger', Promise<LecturaPublicaciones>>();
+/** `pausa`: Zernio pidió esperar (un 429, ticket #34), en palabras; `reintentarEnMs`: cuándo se relee sola. */
+type LecturaPublicaciones = { lista: PublicacionDeLaCuenta[] | null; pausa: string | null; reintentarEnMs: number | null };
+/** Las veces que se relee sola tras una pausa (las mismas que el estado de «Anuncios de Meta»). Después, lo dice y queda. */
+const RELECTURAS_TRAS_PAUSA = 3;
+function usePublicaciones(red: 'instagram' | 'messenger'): LecturaPublicaciones | undefined {
+  const [lectura, setLectura] = useState<LecturaPublicaciones | undefined>(undefined);
+  const [vuelta, setVuelta] = useState(0);
+  const relecturas = useRef(0);
+  useEffect(() => {
+    let vivo = true;
+    let espera: ReturnType<typeof setTimeout> | undefined;
+    let p = publicacionesDeLaVisita.get(red);
+    if (!p) {
+      p = fetch(`/api/chat-agent/secuencias?publicaciones=${red}`, { cache: 'no-store', signal: AbortSignal.timeout(20_000) })
+        .then((r) => r.json())
+        .then((j: { ok?: boolean; publicaciones?: PublicacionDeLaCuenta[]; error?: string; reintentarEnMs?: number | null }): LecturaPublicaciones => {
+          if (j?.ok && Array.isArray(j.publicaciones)) return { lista: j.publicaciones, pausa: null, reintentarEnMs: null };
+          const ms = j?.reintentarEnMs ?? null;
+          return { lista: null, pausa: ms != null ? (j?.error ?? MENSAJES_DE_MOTIVO.pausa) : null, reintentarEnMs: ms };
+        })
+        .catch((): LecturaPublicaciones => ({ lista: null, pausa: null, reintentarEnMs: null }));
+      publicacionesDeLaVisita.set(red, p);
+      void p.then((x) => { if (x.lista == null) publicacionesDeLaVisita.delete(red); });
+    }
+    void p.then((x) => {
+      if (!vivo) return;
+      if (x.reintentarEnMs == null) { setLectura(x); return; }
+      if (relecturas.current >= RELECTURAS_TRAS_PAUSA) { setLectura({ ...x, pausa: MENSAJES_DE_MOTIVO.pausa }); return; }
+      relecturas.current += 1;
+      setLectura(x);
+      espera = setTimeout(() => setVuelta((v) => v + 1), x.reintentarEnMs);
+    });
+    return () => { vivo = false; if (espera) clearTimeout(espera); };
+  }, [red, vuelta]);
+  return lectura;
+}
+
+/**
+ * LA PUBLICACIÓN O EL REEL (ticket #25 de Leandro, 29/10/2026), como ManyChat: «Cualquier publicación» o una de las últimas
+ * de la cuenta, con su miniatura (lib/publicacion-cron.ts). La elegida que ya no está entre las últimas sigue en la lista,
+ * con el nombre que se guardó. Leerlas no puede trabar el CRON: sin la lista, queda lo que había.
+ */
+export function PublicacionDelCron({ d, red, onCambiar, disabled }: {
+  d: Disparador; red: 'instagram' | 'messenger'; onCambiar: (p: PublicacionCron | null) => void; disabled?: boolean;
+}) {
+  const lectura = usePublicaciones(red);
+  const lista = lectura?.lista;
+  const elegida = d.publicacion ?? null;
+  const opciones: DropdownOption[] = [
+    { value: '', label: 'Cualquier publicación' },
+    ...(elegida && !(lista ?? []).some((p) => p.id === elegida.id) ? [{ value: elegida.id, label: elegida.texto || 'La publicación elegida' }] : []),
+    ...(lista ?? []).map((p) => ({ value: p.id, label: rotuloDePublicacion(p), buscar: p.texto, ...(p.imagen ? { avatar: p.imagen, avatarCuadrado: true } : {}) })),
+  ];
+  const aviso = lista === undefined ? 'Cargando tus publicaciones…' : lista === null ? (lectura?.pausa ?? 'No pude leer tus publicaciones.') : null;
+  return (
+    <div data-publicacion-cron="" style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontFamily: SANS, fontSize: 12.5, fontWeight: 600, color: 'var(--dim)' }}>Publicación</span>
+      <Dropdown value={elegida?.id ?? ''} width="100%" buttonStyle={BOTON_CAMPO_CRON} disabled={disabled} search={opciones.length > 8}
+        options={opciones} ariaLabel="En qué publicación o Reel"
+        onChange={(v) => {
+          if (!v) { if (elegida) onCambiar(null); return; }
+          const p = (lista ?? []).find((x) => x.id === v);
+          if (p && p.id !== elegida?.id) onCambiar({ id: p.id, ...(p.texto ? { texto: p.texto } : {}) });
+        }} />
+      {aviso && <div role="status" aria-live="polite" style={{ gridColumn: '2', fontFamily: SANS, fontSize: 12.5, color: lista === null ? 'var(--warn)' : 'var(--dim)' }}>{aviso}</div>}
+    </div>
+  );
+}
+
 export type PropsEditorDisparadores = {
   lista: readonly Disparador[];
   /** El CRON abierto: su id, 'nuevo' (el «＋ Nuevo CRON»), o null (el primero). */
@@ -695,6 +769,14 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
         <div style={{ flex: 1, minWidth: 0 }}>
           <EventosDeCanal clase={clase} d={d} estado={estadoCanales} disabled={busy}
             onElegir={(subtipo) => onCambiar({ id: d.id, trigger_tipo: triggerDeCanal(clase), subtipo })} />
+          {/* LA PUBLICACIÓN (ticket #25): sólo con «comenta tu publicación o Reel». Sin elegir = cualquiera. */}
+          {conPublicacion(d.trigger_tipo, d.subtipo) && (
+            <PublicacionDelCron key={`pub-${d.id}`} d={d} red={clase === 'messenger' ? 'messenger' : 'instagram'} disabled={busy}
+              onCambiar={(publicacion) => {
+                const { publicacion: _antes, ...resto } = d;
+                onCambiar(publicacion ? { ...resto, publicacion } : resto);
+              }} />
+          )}
           {/* LAS PALABRAS CLAVE (ticket #17): sólo con «comenta tu publicación» (o el En vivo). Vacías = cualquier comentario. */}
           {conPalabras(d.trigger_tipo, d.subtipo) && (
             <PalabrasClave key={d.id} d={d} disabled={busy}

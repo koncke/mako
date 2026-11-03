@@ -522,13 +522,15 @@ export async function turnoOffer(p: {
   voz: string | null;
   /** La conversación del ONBOARDING: sólo lo que vende (`OFFER_ARRANQUE_SYSTEM_TEMPLATE`). */
   arranque?: boolean;
+  /** Con qué referente aconseja el Offer Coach (lib/asesores/contexto.ts → contextoDeReferente). Vacío: MaKo. */
+  referente?: string;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
   // Lo que no existe en MaKo se dice y se marca (lib/no-existe.ts): la ruta saca la marca y levanta el pedido sola. El ARRANQUE
   // no: su system no trae el catálogo de MaKo, y una integración que existe salía «no existe», con ticket (la revisión del 27/10).
   const system = `${p.arranque
     ? await renderPrompt('offer.arranque.system', OFFER_ARRANQUE_SYSTEM_TEMPLATE, { guia: guiaDelArranque(), claves: clavesParaPrompt() })
-    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) })}${p.arranque ? '' : `\n\n${reglaNoExisteEn('respuesta')}`}`;
+    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) })}${!p.arranque && p.referente ? `\n\n${p.referente}` : ''}${p.arranque ? '' : `\n\n${reglaNoExisteEn('respuesta')}`}`;
   const user = await renderPrompt('offer.turno.user', OFFER_TURNO_USER_TEMPLATE, {
     contexto: b.contexto, piezas: b.piezas, faltan: p.arranque ? faltanDelArranqueParaPrompt(p.piezas) : b.faltan, documentos: b.documentos,
     // SIN `contenidoNoConfiable`, a propósito: el bloque lo escribe el CÓDIGO (las preguntas son las de

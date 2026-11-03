@@ -401,7 +401,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     const contexto = [ctx.leadNombre && `Lead: ${ctx.leadNombre}`, ctx.reunion && `Reunión: ${ctx.reunion}`, ctx.texto].filter(Boolean).join(' · ');
     // El lead viaja al generador: es lo que resuelve los datos del CRM del catálogo.
     const texto = await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }).catch(() => paso.texto) || paso.texto;
-    await enviarAlGrupoMaKo(ws, texto);
+    await enviarAlGrupoMaKo(ws, texto, 'mako');
     // El texto que vuelve es el MISMO que salió, no uno nuevo generado cada vez: si
     // cada repetición se redactara distinta, el dueño leería cuatro avisos que parecen
     // cuatro hechos. Es el mismo hecho insistiendo.
@@ -419,7 +419,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
       destino: (uid, proposito) => destinoDeUsuario(uid, 'email', proposito),
       valores: (texto, datos) => valoresDeVariables({ ws, leadId: null, destino: 'usuario' }, texto, datos),
       enviar: (m) => sendEmail({ ...m, from: REMITENTE_MAKO, tags: [{ name: 'tipo', value: 'persona' }] }),
-      alGrupo: async (t) => { await enviarAlGrupoMaKo(ws, t); },
+      alGrupo: async (t) => { await enviarAlGrupoMaKo(ws, t, 'mako'); },
     });
     return;
   }
@@ -447,7 +447,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
         ? await conVariables(propio, { ws, leadId: ctx.leadId ?? null, leadNombre: ctx.leadNombre ?? null }, ctx.datos).catch(() => propio)
         : await generarMensajeAviso(flujoId, contexto, { leadId: ctx.leadId, leadNombre: ctx.leadNombre }, ctx.datos).catch(() => '');
       if (!texto.trim()) return;
-      await enviarAlGrupoMaKo(ws, texto);
+      await enviarAlGrupoMaKo(ws, texto, 'mako');
       return;
     }
     // ⛔ wa_lead NO SE MANDA, Y LO DICE EN VEZ DE PROMETERLO. Decisión de Martín,
@@ -507,7 +507,7 @@ async function ejecutarPaso(flujoId: string, paso: Paso, ws: number, ctx: CtxFlu
     console.warn(`[flujos] ${flujoId}: «${operacion}» no se pudo — ${r.resumen}`);
     // Espaciada: con «cuando un lead escribe», 40 mensajes eran 40 líneas iguales en el grupo.
     if (await reclamarEspaciado(ws, `flujo-fallo:${flujoId}`, 60, operacion)) {
-      await enviarAlGrupoMaKo(ws, lineaDeFalloAccion(def?.titulo ?? rotuloOperacion(operacion), nombre, r.resumen));
+      await enviarAlGrupoMaKo(ws, lineaDeFalloAccion(def?.titulo ?? rotuloOperacion(operacion), nombre, r.resumen), 'mako');
     }
   }
 }

@@ -19,7 +19,8 @@
 // Probado rompiéndolo (con todo puesto: 0 fallos). Cada rotura, sola:
 //   · `puedeSumarseComoAgency` acepta un negocio pausado (sin el chequeo de `estado`)          → 1 fallo (1)
 //   · `esAgencia` vuelve a mirar sólo la capa (sin la fila de `agencias`)                      → 1 fallo (1)
-//   · la página de /agency deja entrar al cliente de una agencia (sin `agenciaDeCliente`)      → 1 fallo (2)
+//   · la página de /agency deja entrar al cliente de una agencia (sin `esClienteDeAgencia`)    → 3 fallos (2)
+//   · la puerta vuelve a `agenciaDeCliente` (P15: con dos dueños, null)                        → 3 fallos (2) + 3 (7)
 //   · el CRM vuelve a llevar a /partners?cuenta=                                              → 1 fallo (2)
 //   · `buscarUsuarioPorEmail` va DESPUÉS de `crearWorkspace`                                  → 1 fallo (3)
 //   · el acceso sale aunque pague la agencia (sin el `if (paga === 'cliente')`)                → 2 fallos (3)
@@ -109,7 +110,12 @@ test('la tab: el super admin ve las agencias; el admin, la landing hasta sumarse
   assert.match(page, /if \(esSuper && !\(await estaImpersonando\(\)\)\) \{[\s\S]*?<AgencyPlataforma/);
   assert.match(page, /if \(!admin && !esSuper\) redirect\(await rutaConWs\('\/inicio'\)\);\s*[\s\S]*?await guardOnboarding\(\);/);
   // «MaKo no les va a enviar promociones»: el cliente de una agencia no ve el programa.
-  assert.match(page, /if \(!esSuper && \(await agenciaDeCliente\(ws\)\)\) redirect\(await rutaConWs\('\/inicio'\)\);/);
+  // ⚠️ Con `esClienteDeAgencia` y comparando contra `false` (P15, 30/10/2026): `agenciaDeCliente` devuelve null con DOS
+  //    dueños y con la base caída, y las dos cosas se leían como «no es cliente de ninguna». Lo fija
+  //    tests/agency-dos-duenos.test.ts, que además lo corre contra una base de mentira.
+  assert.match(page, /const deAgencia = await esClienteDeAgencia\(ws\);/);
+  assert.match(page, /if \(!esSuper && deAgencia !== false\) redirect\(await rutaConWs\('\/inicio'\)\);/);
+  assert.doesNotMatch(page, /agenciaDeCliente/, 'la pregunta de permiso no se hace con la que contesta QUIÉN');
   // La landing hasta sumarse (y con «Ver la landing»); el dashboard después, armado entero en el server.
   assert.match(page, /if \(!estado\.esAgency \|\| verLanding\) \{\s*return <LandingAgency/);
   assert.ok(page.indexOf('<LandingAgency estado={estado}') < page.indexOf('const cartera = await cuentasDePartner(ws);'));
@@ -142,7 +148,8 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
     'lead = await leadParaPartners(',
     'if (lead.clienteWs) return',
     'if (await buscarUsuarioPorEmail(correo))',
-    'const ws = await crearWorkspace(nombre);',
+    // Desde el 29/10/2026 con la capa de su plan (Esencial o Pro).
+    'const ws = await crearWorkspace(nombre, CAPA_DE_PLAN[plan]);',
     ".insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' })",
     'update({ cliente_ws: ws.id })',
     'await crearUsuario({',
@@ -167,7 +174,7 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
   const acc = leer('app/agency/actions.ts');
   assert.match(acc, /const r = await abrirCuentaDePartner\(\{/);
   assert.match(acc, /paga: quienPagaDe\(datos\?\.paga\),/);
-  assert.match(leer('app/agency/NuevoCliente.tsx'), /await abrirCuentaClienteAction\(\{ leadId, nombre, email, paga \}\)/);
+  assert.match(leer('app/agency/NuevoCliente.tsx'), /await abrirCuentaClienteAction\(\{ leadId, nombre, email, paga, plan \}\)/);
 });
 
 test('«paga tu cliente» sin link del primer mes: su acceso NO sale, y el modal no pide reenviárselo (25/10/2026)', () => {
@@ -237,8 +244,9 @@ test('las acciones las usa sólo el admin, y en un archivo use server sólo se e
   const acc = leer('app/agency/actions.ts');
   assert.match(acc, /^'use server';/);
   for (const m of acc.matchAll(/^export\s+(\S+\s+\S+)/gm)) assert.equal(m[1], 'async function', m[0]);
-  // ⚠️ Cuatro desde el 27/10/2026: «Aplicar plantilla» (MAU-01) pregunta lo mismo, salvo el super admin.
-  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 4, 'las cuatro acciones preguntan el admin');
+  // ⚠️ Cuatro desde el 27/10/2026: «Aplicar plantilla» (MAU-01) pregunta lo mismo, salvo el super admin. Seis desde el 29/10:
+  // «Dar de baja» y «Cambiar el plan» de la cuenta de un cliente.
+  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 6, 'las seis acciones preguntan el admin');
 });
 
 test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no pide nada', () => {
@@ -333,7 +341,9 @@ test('el teléfono: /m/agency, la misma puerta, los mismos datos y la misma alta
   const puerta = pagina.indexOf('if (!admin && !esSuper) redirect(');
   assert.ok(puerta > 0, 'sólo el admin (o el super admin)');
   assert.ok(puerta < pagina.indexOf('cuentasDePartner(ws)'), 'la puerta, antes de leer la cartera');
-  assert.match(pagina, /if \(!esSuper && \(await agenciaDeCliente\(ws\)\)\) redirect\(/, 'el cliente de una agencia no la ve');
+  assert.match(pagina, /const deAgencia = await esClienteDeAgencia\(ws\);/, 'el cliente de una agencia no la ve');
+  assert.match(pagina, /if \(!esSuper && deAgencia !== false\) redirect\(/, 'y el «no pude leer» tampoco entra (P15)');
+  assert.doesNotMatch(pagina, /agenciaDeCliente/, 'la misma función que en escritorio');
   assert.match(pagina, /!cartera\.ok/, '«no pude leer» se dice: no es «todavía no tienes clientes»');
   const app = leer('app/m/agency/AgencyM.tsx');
   assert.match(app, /abrirCuentaClienteAction\(\{ nombre, email, paga \}\)/, 'abrir una cuenta es UNA implementación, con quién paga');

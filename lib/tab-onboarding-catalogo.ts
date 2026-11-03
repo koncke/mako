@@ -510,4 +510,33 @@ export const TAB_ONBOARDINGS: Record<string, TabOnboardingDef> = {
       { key: 'stories_ensayo', label: 'Tu primera secuencia' },
     ],
   },
+
+  // ── Competitor Spy: a quién mirar, y la primera lectura de verdad ──
+  // La key es `market-an` porque es la del nav y está escrita en la base (app/_components/nav.ts).
+  //
+  // EL ORDEN SIGUE LA REGLA DE LA SKILL: lo aburrido va al final. Acá lo aburrido —conectar una
+  // credencial de Instagram o de YouTube— va al final del todo y además es OPCIONAL, porque la tab
+  // entrega valor sin ninguna: con el sitio del competidor alcanza para replicar su landing y ver
+  // qué piezas tiene. Lo primero es elegir a quién mirar, que es lo único que no se puede inferir.
+  //
+  // Y el ENSAYO de esta tab no es un simulacro: es la PRIMERA LECTURA DE VERDAD. El ensayo de una
+  // tab de conversación necesita que MaKo haga de cliente; acá el ensayo es mirar al competidor que
+  // la persona acaba de cargar y mostrarle lo que salió. Es la misma idea —la prueba de que la tab
+  // quedó lista— con la pieza que esta tab tiene para probar.
+  //
+  // Los tres pasos van con prefijo `spy_` a propósito: un `contexto` o un `ensayo` pelado colisiona
+  // con los de otras tabs por el registro compartido `onboarding.tab.pasos`, y terminar el ensayo
+  // de acá marcaría el del Chatbot como hecho.
+  'market-an': {
+    key: 'market-an',
+    titulo: 'Configuración de Competitor Spy',
+    nombre: 'Competitor Spy',
+    href: '/competitor-spy',
+    pasos: [
+      { key: 'spy_primero', label: 'Tu primer competidor' },
+      { key: 'spy_canales', label: 'Dónde mirarlo' },
+      { key: 'spy_lectura', label: 'La primera lectura' },
+      { key: 'spy_conectar', label: 'Conectar Meta', opcional: true },
+    ],
+  },
 };

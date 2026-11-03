@@ -197,6 +197,13 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'dashboard-quitar-componente', test: /\b(?:quit\w+|sac\w+|borr\w+|elimin\w+)\b[^.\n]{0,25}\b(?:grafico|componente|elemento|tabla|texto)\b[^.\n]{0,30}\b(?:hoja|dashboard)\b/, areas: ['metricas'], relevancia: 'quitar componente dashboard', actua: true, ganaAlLead: true },
   // ── Pagos y cuenta (tanda 4) ──
   { id: 'dar-de-baja', test: /\bde baja\b/, areas: ['cobros'], relevancia: 'baja del cliente', actua: true },
+  // La constancia del cliente que se pasa al chat («este es el doc fiscal», Leila 26/10/2026): con el adjunto era «pensar», sin
+  // herramientas que escriban, y MaKo decía que desde el chat no se puede guardar. `guardar_documento_fiscal` la guarda.
+  //   Nombrar el DOCUMENTO actúa; «datos fiscales» sólo suma el área (`area-fiscal`): «¿qué datos fiscales tiene Fabi?» es una pregunta.
+  //   Las dos relevancias nombran `editar_dato_deal`: con la constancia viaja junto a guardar_documento_fiscal (lo que el PDF no
+  //   trae se escribe a mano), y con los datos adjuntos es lo primero que se ofrece (tests/mako-no-puedo-falsos.test.ts, el 4).
+  { id: 'documento-fiscal', test: /\bconstancias?\b|\b(?:doc|documento)s? fiscal(?:es)?\b|\bsituacion fiscal\b|\bcedula fiscal\b/, areas: ['cobros', 'crm'], relevancia: 'guardar documento fiscal constancia; editar dato deal fiscal', actua: true },
+  { id: 'area-fiscal', test: /\bdatos fiscales\b/, areas: ['cobros', 'crm'], relevancia: 'editar dato deal fiscal' },
   // Un plan DICTADO (ticket #26, 29/10/2026): «7500 dolares en 3 pagos, primer pago 28 de octubre…» no arranca con un verbo ni dice
   // «cuotas», y traía `guardar_plan_pagos` sin `armar_plan_por_tramos`; «300 dólares cada quincena» traía las tareas del Plan.
   { id: 'plan-dictado', test: /\b\d+\s+(?:pagos|cuotas|mensualidades|quincenas)\b|\bcada quincena\b|\b(?:por|en) tramos\b/, areas: ['cobros'], relevancia: 'armar tramos editar cuota venta', actua: true },
@@ -207,6 +214,17 @@ const FAMILIAS: readonly Familia[] = [
   { id: 'diagnostico-fase', test: /\bdiagnostico de fase\b/, areas: ['negocio'], relevancia: 'guardar diagnostico fase', actua: true, ganaAlLead: true },
   { id: 'pasar-guion', test: /^pasa\s+(?:el|los)\s+guion(?:es)?\b/, areas: ['contenido'], relevancia: 'mover estado guion anuncio', actua: true },
   { id: 'formatos-creativo', test: /\bformatos? de creativos?\b/, areas: ['contenido'], relevancia: 'elegir formato creativo anuncio', actua: true },
+  // ── Lo que MaKo NEGABA teniéndolo (tickets #46, #47 y #48 de Leila, 3/11/2026): la palabra de la persona no era la del nombre
+  //    de la operación, la herramienta no viajaba y MaKo contestaba «no lo puedo hacer desde este chat».
+  // «hoy el precio está en pesos y quiero pasarlo a dólares»: guardar_oferta y guardar_producto PROPONEN el precio con un link.
+  //   El precio de lo que se VENDE (una moneda, la oferta, el producto), nunca el de un experimento, el de una secuencia («cuando
+  //   pregunta el precio en la secuencia») ni la moneda del negocio (`cambiar_moneda_negocio`): con «precio» suelto les sacaba lugar.
+  { id: 'precio-oferta', test: /^(?=[\s\S]*\bprecios?\b)(?=[\s\S]*\b(?:pesos|dolares|dlls|usd|mxn|ofertas?|productos?|programa|mentoria|curso|servicio)\b)(?![\s\S]*\b(?:experimentos?|secuencias?|moneda)\b)/, areas: ['negocio', 'crm'], relevancia: 'guardar oferta listar ofertas guardar producto listar productos' },
+  // «del diagnóstico me mandan un WhatsApp que tiene que disparar una secuencia»: crear_automatizacion_con_ia la CREA, con su
+  // disparador por etiqueta. Una secuencia de EMAILS es de `secuencia-email`, no de acá.
+  { id: 'crear-secuencia', test: /\bdispar\w*\b[^.\n]{0,40}\bsecuencias?\b|\bsecuencias?\b[^.\n]{0,40}\bdispar\w*|\b(?:cre\w+|arm\w+|nuevas?)\b[^.\n]{0,25}\bsecuencias?\b(?![^.\n]{0,30}\b(?:emails?|mails?|correos?)\b)/, areas: ['chatbot'], relevancia: 'crear automatizacion con ia crear automatizacion desde plantilla', actua: true },
+  // «¿dónde actualizo mis datos?»: listar_capacidades_mako trae la pantalla de cada dato (datos-negocio) y las lecturas, su link.
+  { id: 'donde-se-edita', test: /\bdonde\b[^.\n?]{0,25}\b(?:actualiz|cambi|edit|modific|corrig|corrij)\w*|\b(?:actualiz|cambi|edit|modific|corrig|corrij)\w*\b[^.\n]{0,20}\b(?:mis|los) datos\b/, areas: ['negocio', 'mako'], relevancia: 'listar capacidades mako ver perfil negocio listar ofertas listar productos' },
   // ── Web Generator (tanda 6) ──
   { id: 'seccion-landing', test: /\bseccion(?:es)?\b[^.\n]{0,40}\b(?:arriba|abajo|primero|ultimo|al final|al principio|antes|despues)\b|\b(?:mover|mueve|move\w*|borr\w+|ocult\w+|elimin\w+|sac\w+)\b[^.\n]{0,15}\bseccion/, areas: ['landing'], relevancia: 'acomodar seccion landing', actua: true },
   { id: 'enlace-landing', test: /\b(?:link|enlace)\b[^.\n]{0,15}\b(?:vsl|agenda)\b/, areas: ['landing'], relevancia: 'poner enlace landing', actua: true },

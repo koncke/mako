@@ -28,7 +28,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import type { ChatResumen, CuentaSocial, EtapaChat, FunnelChat, LineaChat } from '@/lib/chats-tipos';
-import { FILTRO_INICIAL, LINEA_CANAL_MAKO, claveLead, coincideBusqueda, contarBandejas, filtrarChats, parsearClave, rotuloWhatsapp, type FiltroChats } from '@/lib/chats-reglas';
+import { FILTRO_INICIAL, LINEA_CANAL_MAKO, claveLead, coincideBusqueda, conNombreElegido, contarBandejas, filtrarChats, type VerNombreChats, parsearClave, rotuloWhatsapp, type FiltroChats } from '@/lib/chats-reglas';
 import { RUTA_CHATS, PARAM_CHATS, rutaChatsDeClave, vistaDeLink } from '@/lib/chats-links';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
 import {
@@ -168,6 +168,8 @@ export function ChatsApp({ ws, esAdmin, productos }: {
   // ── Las comodidades del navegador (con el ws en la clave) ─────────────────────────────────
   const [filtro, setFiltro] = useState<FiltroChats>(FILTRO_INICIAL);
   const [drawerAbierto, setDrawerAbierto] = useState(false);
+  // Cómo se ven los nombres (31/10/2026): es de quien mira, y de este navegador.
+  const [verNombre, setVerNombreEstado] = useState<VerNombreChats>('agenda');
   const [pestana, setPestana] = useState<PestanaDrawer>('contacto');
   useEffect(() => {
     const st = almacenLocal();
@@ -175,6 +177,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
     // EL CONTACTO ARRANCA CERRADO (24/10/2026, docs/diseno-chats.md §8.1): se abre tocando el nombre, y se recuerda si
     // alguien lo deja abierto. La clave es nueva a propósito: la de antes ('drawer') lo abría solo en toda pantalla ancha.
     setDrawerAbierto(leerLocal(st, ws, 'contacto') === '1');
+    setVerNombreEstado(leerLocal(st, ws, 'nombre') === 'propio' ? 'propio' : 'agenda');
   }, [ws]);
 
   const cambiarFiltro = useCallback((f: FiltroChats) => {
@@ -195,6 +198,10 @@ export function ChatsApp({ ws, esAdmin, productos }: {
   }, [ws]);
   /** Los ocultos de WhatsApp: otra lista (ListaOcultos), no una vista del filtro. */
   const [verOcultos, setVerOcultos] = useState(false);
+  const setVerNombre = useCallback((v: VerNombreChats) => {
+    setVerNombreEstado(v);
+    guardarLocal(almacenLocal(), ws, 'nombre', v);
+  }, [ws]);
   const toggleDrawer = useCallback(() => ponerDrawer(!drawerAbierto), [drawerAbierto, ponerDrawer]);
   // Las dos pestañas van en la cabecera del panel (ya no hay rail): elegir una sólo la cambia.
   const elegirPestana = useCallback((p: PestanaDrawer) => setPestana(p), []);
@@ -247,6 +254,9 @@ export function ChatsApp({ ws, esAdmin, productos }: {
 
   // ── La selección (en la URL) y los links profundos ───────────────────────────────────────
   const [seleccion, setSeleccion] = useState<ChatResumen | null>(null);
+  // Con useMemo: un objeto nuevo en cada dibujo volvería a correr lo que la ventana hace al cambiar de chat.
+  const seleccionVista = useMemo(() => seleccion && conNombreElegido(seleccion, verNombre), [seleccion, verNombre]);
+  const listaVista = useMemo(() => (resultados ?? visibles).map((c) => conNombreElegido(c, verNombre)), [resultados, visibles, verNombre]);
   const firma = sp.toString();
   const link = useMemo<LinkProfundo | null>(() => leerLinkProfundo((k) => new URLSearchParams(firma).get(k)), [firma]);
   /** El link que todavía no apareció en la lista: con cuántas lecturas lleva sin verlo. */
@@ -452,14 +462,14 @@ export function ChatsApp({ ws, esAdmin, productos }: {
       <FuenteChats />
       <ListaChats
         ws={ws}
-        chats={resultados ?? visibles}
+        chats={listaVista}
         cargando={!datos && !errorLista}
         errorLista={errorLista}
         fallas={modoBusca ? fallasBusca : datos?.fallas ?? []}
         lineas={datos?.lineas ?? []}
         onReintentar={() => void cargarTodo()}
         filtros={(
-          <FiltrosChats filtro={filtro} onFiltro={cambiarFiltro} verOcultos={verOcultos} onVerOcultos={setVerOcultos} conteos={conteos}
+          <FiltrosChats filtro={filtro} onFiltro={cambiarFiltro} verOcultos={verOcultos} onVerOcultos={setVerOcultos} verNombre={verNombre} onVerNombre={setVerNombre} conteos={conteos}
             lineas={lineas} cuentasSociales={datos?.cuentasSociales ?? []} etapas={datos?.etapas ?? []} chats={datos?.chats ?? []}
             funnels={datos?.funnels ?? []} funnelPrincipal={datos?.funnelPrincipal ?? null}
             esAdmin={esAdmin} onConectar={conectarCanal.elegir} onAdministrar={(l) => abrirAdministrar(l)} />
@@ -491,7 +501,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
           <VentanaChat
             key={seleccion.clave}
             ws={ws}
-            chat={seleccion}
+            chat={seleccionVista ?? seleccion}
             yo={yo}
             equipo={datos?.equipo ?? []}
             etapas={datos?.etapas ?? []}
@@ -509,7 +519,7 @@ export function ChatsApp({ ws, esAdmin, productos }: {
       </section>
       <PanelContacto
         ws={ws}
-        chat={seleccion}
+        chat={seleccionVista}
         abierto={drawerAbierto}
         pestana={pestana}
         onPestana={elegirPestana}

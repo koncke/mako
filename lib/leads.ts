@@ -488,9 +488,12 @@ async function filasDeAgregados(supabase: SupabaseClient, funnelId: number | nul
   try {
     const id = funnelId ?? (await idDelFunnelDefault());
     if (id == null) return null;
-    const { data, error } = await supabase.from('lead_funnel').select('lead_id, etapa').eq('funnel_id', id);
-    if (error) throw new Error(error.message);
-    return { id, filas: (data ?? []) as Array<{ lead_id: number | string; etapa: string }> };
+    // ⚠️ PAGINADO (28/10/2026, ticket #21: «más de 1000 no se trunca»): con un `select` solo, PostgREST devolvía las
+    // primeras 1.000 filas y callaba; un CRM con 1.200 agregados dibujaba 1.000, y la casilla de la columna tildaba 1.000.
+    const filas = await leerTodo<{ lead_id: number | string; etapa: string }>(supabase, 'lead_funnel', 'lead_id, etapa', {
+      orden: 'id', filtros: (q) => q.eq('funnel_id', id),
+    });
+    return { id, filas };
   } catch (e) {
     console.warn('[leads] no pude leer los agregados del tablero:', e instanceof Error ? e.message : e);
     return null;
@@ -1421,15 +1424,6 @@ export async function enriquecerLead(
 }
 
 /**
- * Borra un lead. Hard delete — no hay soft delete en el esquema actual.
- */
-export async function deleteLead(id: number): Promise<void> {
-  const supabase = (await getTenantDb());
-  const { error } = await supabase.from('leads').delete().eq('id', id);
-  if (error) throw new Error(`Error borrando lead ${id}: ${error.message}`);
-}
-
-/**
  * Normaliza un teléfono a solo dígitos (sin +, espacios, guiones, paréntesis).
  * Llave de match entre instant form (Meta) y Calendly.
  * @returns null si no quedan dígitos.
@@ -1479,7 +1473,14 @@ export async function upsertLeadFromMeta(input: {
   meta_created_at?: string | number | null;
   /** Los `name` que el parser no reconoció. Van al historial del lead, no a una pantalla nueva. */
   meta_campos_no_reconocidos?: string[];
-}): Promise<{ created: boolean; lead: Lead }> {
+}, opc: {
+  /**
+   * Sólo crear (el barrido de Zernio, lib/zernio-leads-barrido.ts): si la persona YA es un lead (por teléfono o email), se devuelve
+   * ésa SIN TOCARLA (`created: false`). Sin esto, una persona con dos formularios tenía la ficha yendo y viniendo entre los dos
+   * `meta_lead_id` en cada pasada, perdía la campaña y avisaba «lead fusionado» cada media hora (revisión de privacidad, 29/10, M3).
+   */
+  noTocarExistente?: boolean;
+} = {}): Promise<{ created: boolean; lead: Lead }> {
   if (!input.meta_lead_id) {
     throw new Error('meta_lead_id es requerido');
   }
@@ -1508,6 +1509,7 @@ export async function upsertLeadFromMeta(input: {
   let existing: Lead | null = null;
   if (telNorm) existing = await primerLeadPorTelefono(supabase, telNorm, 'instant form de Meta', emailNorm);
   if (!existing && emailNorm) existing = await primerLeadPor(supabase, 'email', emailNorm, 'instant form de Meta');
+  if (existing && opc.noTocarExistente) return { created: false, lead: existing };
 
   // Campos de Meta — siempre se escriben (es info nueva de atribución)
   //

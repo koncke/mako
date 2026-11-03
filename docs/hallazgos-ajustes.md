@@ -2,6 +2,14 @@
 
 Lo que vive en app/perfil, app/configuraciones, app/m/cuenta, app/m/configuraciones y lib/ajustes-secciones.ts.
 
+**Settings mirado por fin en producción (30/10/2026): el molde está bien; lo que sobraba eran repeticiones.**
+- **El pedido del 24/10 volvió como «trabado hace seis días» y estaba hecho:** «Notificaciones» una vez, columna de 780 px centrada (a 1280 va de 409 a 1189 con la barra plegada), sin scroll de costado a 1280 ni a 390. Volver a «todo el ancho» habría deshecho el pedido del 25/10.
+- **Lo que un test no ve y a la vista salta:** en «Tu plan», el título de la página, el de la sección y la fila decían lo mismo; Equipo vacío decía «0 personas» junto a «eres el único», con dos «Invitar», y Fiscal vacío tenía dos «Agregar»; Seguridad en el teléfono decía «Seguridad» en la barra y en el título. Cuando una sección tiene una sola fila, el título de sección sobra.
+- ⚠️ **Falsas alarmas del banco, para no salir a arreglarlas:** los selects «en otra letra» son el `sans-serif` de reserva de Dropdown sin la Geist del CDN; las pantallas de /m sin estilo son por montarlas sin `data-m`; y el logo de arranque sobre /m tapa la pantalla unos segundos con el panel del navegador oculto (no se midió con el panel a la vista).
+- **«Tu plan» no se ve con la sesión de super admin:** la plataforma no tiene plan. Se vio sólo en el banco.
+
+*30/10/2026, chat «wt-integraciones» (claude1), con la sesión de Martín en el navegador de la app: sólo mirar, sin guardar nada. La flecha de la sidebar se probó y se dejó como estaba.*
+
 **Settings en el teléfono (26/10/2026): la foto de una persona es una URL, y la leen TODOS los avatares.**
 - **Un emoji de perfil no se puede guardar como texto:** `usuarios.foto_url` lo dibujan como `<img>` la barra, el equipo, los
   chats y el teléfono. Para que el selector de la app (`IdentidadPicker`: emoji · íconos · subir · quitar) sirva para el perfil

@@ -192,7 +192,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'probar_capi_meta', area: 'integraciones', tipo: 'lectura',
     titulo: 'Probar las conversiones al píxel',
-    descripcion: 'Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».',
+    descripcion: 'Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook por Zernio, o la conexión anterior), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».',
     parametros: [
       { nombre: 'codigo', tipo: 'string', obligatorio: true, max: 30, descripcion: 'el código de prueba que da el Administrador de eventos → tu píxel → «Probar eventos» (empieza con TEST).', ejemplo: 'TEST12345' },
     ],

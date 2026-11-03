@@ -6,6 +6,44 @@ tope corta en silencio, y qué pasa entre que pusheás y el dueño lo ve. **No e
 changelog**, y se escribe para que lo lea un humano: «si yo lo puedo entender fácil eso me
 habilita a darle mejores prompts al otro Claude».
 
+**Una entrega es verde si la compuerta corrió sobre su punta, no por lo que dice su informe (31/10/2026).**
+
+**Síntoma.** Dos puntas de la nube, Competitors Spy y Knowledge, se entregaron sin nombrar ningún rojo. Al
+integrarlas aparecieron 9 rojos suyos.
+
+**El diagnóstico obvio era el equivocado.** Parecía que «un verde de la rama no vale en el tren». Pero las causas ya
+estaban en las puntas entregadas, y `seleccionar` de `scripts/tests-afectados.mjs` elegía los ocho archivos de test
+sobre el árbol de su propia punta. El agujero no está en la selección.
+
+**Lo que no está medido:** qué corrió cada sesión. Sí se puede decir que, con esos tests rojos, la compuerta no podía
+dar VERDE: o no corrió, o no terminó, o no se leyó. Con 32 archivos cambiados elige 830 tests de unos 1.125, y ese
+costo es el motivo probable para saltearla, aunque eso no se midió.
+
+**Regla:** quien integra pide la línea final de `antes-de-subir` con su sha. Sin ella, la entrega es «sin chequear»,
+diga lo que diga el informe. Para saber si la compuerta habría elegido un test en una punta, sin checkout:
+`cambiosEntre(base, punta)`, `fuenteGit(punta)` y `seleccionar({ cambiados, archivos, leer })`, corrido desde
+adentro de un repo: `fuenteGit` llama a git sin carpeta y fuera de uno revienta.
+
+**⚠️ `seleccionar()` devuelve `tests` como un `Map` (test → razones), no como un array.** `new Set(sel.tests)` arma un
+Set de PARES: `has('tests/x.test.ts')` da siempre `false`, y `size` sigue dando el número correcto, así que no se nota.
+Falla en la dirección peligrosa: dice «no lo elegía» en todos los casos. Es `sel.tests.has(...)` y `sel.tests.get(...)`.
+
+**Ver una pantalla sin levantar `next dev`.** Arrancar local escribe en producción, y por eso una pantalla nueva se quedaba sin mirar hasta el despliegue. Sirve un arnés fuera del repo: `esbuild` empaqueta el componente real, un plugin cambia `./actions` por funciones falsas con un caso por `?e=` y los componentes con server actions por un stub, `globals.css` da los tokens reales, y `python -m http.server` lo sirve. Dos trampas: hay que definir `window.process` antes del bundle (`next/link` lo lee) y `esbuild` no resuelve bien con una ruta relativa larga a otro disco, se le da un alias. Con eso se ven los cuatro estados en escritorio, teléfono y oscuro sin tocar la base. No prueba las server actions ni la sesión.
+
+**Un SIN CHEQUEAR por RAM no acusa a los archivos.** La compuerta de esa punta (7.829 tests, 0 rojos, 66 min) dejó 18
+sin juzgar, con un mínimo de 0,3 GB libres: el vigía bajó sus tandas y el veredicto nombra a todos los de la tanda. Repetidos
+de a tres y esperando 2 GB libres, los primeros seis dieron 91 verdes y 0 rojos. No se separó qué lo resolvió, la tanda más
+chica o la PC con más memoria; sí queda medido que esos seis no estaban rotos ni se caían solos. **Regla:** esa lista no es un
+diagnóstico. Antes de darla por perdida, se repite de a poco con RAM libre. Los otros doce se cortaron sin repetir, y los
+juzga Actions.
+
+**Dos migraciones con el mismo número no dan conflicto (31/10/2026).** Creem y Competitors Spy nacieron como `0358` en ramas
+distintas. Los archivos tienen otro nombre, así que git las junta sin decir nada. No rompe la aplicación, que va por archivo (ya
+hay ocho números repetidos), pero «falta aplicar la 0358» pasa a nombrar dos cosas: una ya hacía falta para cobrar con Creem y
+la otra sólo para abrir una tab. Al integrar una rama con migración hay que mirar `ls supabase/migrations`. Se renumera sólo la
+que no está aplicada, junto con sus menciones y los tests que leen el archivo por nombre (Competitors Spy pasó a `0359`). No hay
+guardia que lo detecte.
+
 **Lo que más muerde acá:**
 
 - PostgREST corta en 1000 filas **con un 200**: el síntoma no es un error, es un número que BAJA («se ven 4 ganados de 13»), y el diagnóstico obvio —el filtro, la etapa— es el equivocado. La lectura más importante de la app vivió así porque el barrido anterior arregló lo que paginaba mal y **no buscó lo que no paginaba** → [Supabase](#️-el-techo-de-1000-filas-no-da-error-da-un-número-que-baja).
@@ -27,6 +65,7 @@ habilita a darle mejores prompts al otro Claude».
 - **El disco lleno (17/10)**: lo MÁS grande no estaba en ningún worktree sino en la caché de `tsx` de `%TEMP%` (7,7 GB que nadie podaba); los `.next` quietos y las copias de `node_modules` sumaron 15 GB más. La regla: un worktree nuevo usa un junction al `node_modules` del clon (salvo `next build` con Turbopack) y su `.next` se borra al terminar → [El disco lleno](#el-disco-lleno-17102026).
 - **21 de 101 runs de Actions fallaron aunque cada jefe corría «los tests de su área»** — y el diagnóstico obvio («no corren tests») era el equivocado: el test que cae es, por definición, de otra área, y un `grep` de la ruta no ve imports a dos saltos, nombres sin extensión ni barridos. La cura es una herramienta, no una regla en prosa: `scripts/antes-de-subir.mjs` elige los tests solo, y el replay de los 17 runs rojos prueba que los habría frenado → [Tests y entorno local](#los-rojos-de-actions-16-de-90-runs-dos-clases-y-por-qué-corré-los-tests-de-tu-área-no-podía-alcanzar-17102026).
 - **El paso «Tipos» de Actions murió por MEMORIA (exit 134, 21/10) y en GitHub se ve igual que un error de tipos** — y «subí el tope» ya se había hecho cuatro veces en una semana (2.048 → 5.120): el programa pasó de >4,1 a >5,1 GB en siete días. El paso ahora dice SIN MEMORIA / ERRORES DE TIPOS, y deja la memoria viva real en cada run → [El paso «Tipos» se quedó sin memoria](#el-paso-tipos-de-actions-se-quedó-sin-memoria-exit-134-en-github-se-ve-igual-que-un-error-de-tipos-y-subí-el-tope-ya-se-hizo-cuatro-veces-en-una-semana-21102026).
+- **El veredicto del push dijo «495 archivos rojos» y ese grupo había corrido CERO tests (30/10)**: el grupo compartido salió «495 archivos · **0 tests** · ROJO» en 25 min y la corrida entera marcó «RAM libre mínima **0,7 GB**». Un proceso que muere sin ejecutar un test no es un rojo del código, pero el veredicto lo escribe con la misma palabra y con una lista de 495 nombres de archivo, que es lo más parecido a una catástrofe que uno puede leer a la medianoche → [El veredicto dijo «rojo» y el grupo había corrido cero tests](#el-veredicto-dijo-rojo-y-el-grupo-había-corrido-cero-tests-30102026).
 
 ⚠️ **Buena parte de lo que sigue es material de segunda mano.** Se rescató de los journals
 de las 261 corridas multi-agente de junio a agosto de 2026 —**134 de 260 nunca habían
@@ -35,6 +74,375 @@ una relectura del código de hoy. Cada entrada dice de qué corrida y de qué fe
 antes de actuar sobre una, **verificá contra el código**; varias ya están arregladas, y
 donde el rescate lo sabía, lo dice. El registro completo de las corridas está en
 [corridas-multiagente.md](corridas-multiagente.md). La regla de la cosecha, en `AGENTS.md`.
+
+---
+
+## Subir el tope de la función cambió el error por uno peor, y la clave «global» de Next deja la home afuera (3/11/2026)
+
+- **Síntoma:** cinco deploys seguidos murieron con `The Vercel Function "admin/docs" is 274.32mb uncompressed which exceeds the maximum uncompressed size limit of 250mb`. Se prendió `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` en el proyecto, y entonces el deploy empezó a fallar **más tarde y peor**: `Build Completed in /vercel/output [4m]` y después `ENOSPC` en «Deploying outputs...». Producción seguía sirviendo el commit de la noche anterior sin estar caída, así que nada avisaba.
+- **El diagnóstico obvio era el equivocado.** «La función pesa de más» invitaba a recortar lo que la función incluye a mano: los `.md` de `/admin/docs`. **Medido: sacando todos los `hallazgos-*.md` la función quedaba en ~264 MB, igual por encima del tope.** Los 19,6 MB de documentación no eran el problema. El reporte del contenedor lo dijo recién cuando falló por disco: el archivo más grande del build es `node_modules/onnxruntime-node/bin/napi-v3/linux/x64/libonnxruntime_providers_cuda.so`, **327 MB**, el proveedor de CUDA de onnxruntime. En Vercel no hay GPU: no se puede usar ni queriendo.
+- **Causa:** `@huggingface/transformers` es dependencia de producción y arrastra `onnxruntime-node`, que trae los binarios de **todas** las plataformas (208 MB en Windows, sin el de CUDA; en Linux le suma los 327 MB). Nadie lo usa en el servidor: lo importa un solo archivo, `app/video-editor/_opencut/services/transcription/worker.ts`, que es un **Web Worker** —Whisper transcribe en la máquina del usuario— más un `.d.ts` del editor de imágenes que sólo declara tipos. Entraba al bundle por ser dependencia, nunca por uso.
+- **Lo que quedó:** `outputFileTracingExcludes` en `next.config.ts` lo saca del bundle de todas las funciones, y `scripts/sacar-cuda-de-onnx.mjs` (enganchado como `prebuild`) lo borra del **disco** del contenedor, que es lo que se llenaba. Son dos cosas distintas: excluirlo del trazado no lo saca de `node_modules`.
+- **La trampa que cuesta un build entero:** la doc de Next presenta `'/*'` como «a global key» para estas opciones. **Medido con su propio picomatch: `'/*'` NO empareja la ruta `'/'`.** Con esa clave la home seguía empaquetando los ~500 MB y el resto de la app no — la peor versión, porque el deploy falla igual y el patrón parece correcto. Va `'/**'`. Lo encontró `tests/build-excluye-ia-del-navegador.test.ts` antes de pushear, no Vercel 40 minutos después.
+- **Y otra:** las claves se comparan con `picomatch(glob, { dot: true, contains: true })`, así que alcanza con estar *contenido* — no es que `*` cruce la barra. Pero los **valores** de `outputFileTracingExcludes` se resuelven con `path.join(dir, exclude)` **sin normalizar las barras**, mientras los de `outputFileTracingIncludes` sí (`include.replace(/\\/g, '/')`, en `next/dist/build/collect-build-traces.js`). En Windows la exclusión **no hace nada, en silencio**: un build local no sirve para comprobarla. Por eso el test mide en `path.posix` sobre `/vercel/path0`.
+- **Lo que sigue sin resolverse:** la salida son 2001 MB y `node_modules` 1847 MB. También pesan en el disco el pack de `.git` (236 MB) y `@next/swc-linux-x64-gnu` (124 MB), que no se pueden tocar desde el repo.
+- **Y la salida que sugiere Vercel no existe.** Su mensaje de error remata con «consider enabling Enhanced Builds». Medido por API el 3/11: el proyecto `mako` ya construye en `buildMachineType: "turbo"` con `elasticConcurrencyEnabled: true` — era `enhanced` el 17/10, o sea que **la máquina ya pasó la que el error recomienda**. Bajar el peso es el único camino desde el repo. ⚠️ Cuando un mensaje de error sugiere pagar más, antes de pasarle la decisión a Martín hay que **medir en qué máquina corre hoy**: el texto del error no lo sabe.
+- **Lo que faltaba medir, y ya se puede:** `VERCEL_BUILD_SYSTEM_REPORT=1` quedó puesta en el proyecto (production y preview, 3/11). Sin ella el reporte del contenedor devuelve `unknown` justo en «Input source code» y «Build cache», que son los dos números que faltan para saber qué llena el disco. Es diagnóstico: no cambia el comportamiento del build.
+- **El `prebuild` cuelga de un default:** el `buildCommand` del proyecto es `null`, o sea `npm run build`, y eso es lo que dispara el `prebuild`. Si alguien lo pone en `next build` a secas, el borrado de los 327 MB deja de correr **sin un solo aviso**.
+
+## Los 16 errores ajenos del tsc acotado no eran del repo (1/11/2026)
+
+- **Síntoma:** `tsc-acotado` sobre una rama del Dashboard daba 16 errores en `app/conocimientos/Compartir.tsx` (`jsx`) y en `app/video-editor/_opencut` (`FrameRate`, `opencut_wasm_bg.js`). Actions, con el chequeo entero, no los marca.
+- **Causa:** el acotado arma su lista con `files` y `include: []`, así que un `.d.ts` ambiente que nadie importa no entra: el de `styled-jsx` y `app/video-editor/_opencut/types/opencut-wasm-bg.d.ts`. Medido en `main`: esos dos archivos solos dan los errores; con los dos `.d.ts` en la lista, cero.
+- **Regla:** un error del acotado en un archivo que tu rama no toca se mira primero así, antes de arreglarlo. Si hay otro `declare module` así, va a `GLOBALES_DE_NEXT`, en `scripts/tsc-acotado.mjs`.
+
+
+## CINCO causas distintas para el mismo síntoma, y cada una tapaba a la siguiente (31/10/2026)
+
+Un tren de 213 commits tardó **cinco corridas de Actions** en aterrizar. Cada vez el síntoma era el mismo —«el chequeo
+no pasa»— y la causa era otra. Lo que vale de esto no es ninguna de las cinco: es **que arreglar una destapaba la
+siguiente**, y que cuatro de ellas eran VERDES en la PC y rojas en el runner.
+
+| # | Lo que se veía | La causa real |
+|---|---|---|
+| 1 | código **99**, 24 min, 200 archivos «sin saber si están rotos» | dos tests dormían sobre el reloj de VERDAD (8 s de silencio por escena × 12 y 23 escenas) y se pasaban de la paciencia del vigía |
+| 2 | el mismo 99, ya con el reloj acortado | la paciencia del vigía era un número fijo: medía **al archivo más lento**, no un cuelgue |
+| 3 | el mismo 99, ya con 6 min de paciencia | un end-to-end de 12 escenas estaba en la fase de «fallar rápido». No era lento de más: estaba en la fase equivocada |
+| 4 | código **1**, un archivo rojo con nombre | `spawnSync` sin `maxBuffer` cortaba la salida del hijo en 1 MB: el JSON llegaba partido |
+
+### Lo que hay que saber antes de diagnosticar uno de éstos
+
+- **`node` imprime la salida de un archivo cuando el ARCHIVO termina**, no caso por caso. Una tanda queda MUDA todo lo
+  que tarde su archivo más lento, aunque los otros 99 ya hayan pasado. Por eso «426 de 880» no eran tests faltantes:
+  eran 454 esperando en la cola del reporte. Y por eso un detector de «no avanza» mide al más lento si no se le dice otra cosa.
+- **El orden dentro de una tanda es ALFABÉTICO**, no el de los argumentos. «El que se colgó es el que sigue» habla del
+  archivo siguiente **por nombre**.
+- **Un `timeout: N` que un test le pasa a un hijo es una DECLARACIÓN**: «puedo tardar N». Es una invariante estática —se
+  chequea sin correr nada— y en todo el repo sólo tres archivos declaran más de lo que el vigía aguanta.
+- **⚠️ Medir en la PC no sirve para decidir un tope de CI.** `grupo-leandro` tarda 119 s acá y más de 360 en el runner.
+  Eso costó cuatro corridas: cada arreglo se dimensionó con el número local y se quedó corto allá.
+- **⚠️ `spawnSync` sin `maxBuffer` corta en 1 MB y el síntoma no se parece a la causa**: el error es
+  «Unterminated string in JSON at position …», que manda a buscar un problema de serialización inexistente. Y es de los
+  peores porque depende del TAMAÑO de la salida: verde en la PC, rojo en el runner. Eran 22 archivos, no uno.
+
+### El patrón que se repitió tres veces en el mismo día, y no es de infra
+
+De los diez tests rojos de este tren, **seis eran el guardia persiguiendo el TEXTO** y no lo que cuida. Y de las tres
+herramientas nuevas escritas para arreglar esto, **dos se rompieron a sí mismas**: un test que cuenta `timeout:` en el
+fuente se contó a sí mismo al CITAR el literal en un comentario, y un guard de otra sesión hizo lo mismo. La regla, que
+ya está en AGENTS.md: **si el archivo que el assert LEE está bien, el que está mal es el ASSERT**.
+
+### Lo que quedó SIN hacer
+
+- `tests/tipos-por-tandas.test.ts` SIGUE pudiendo dar 99 en su propia tanda: corre el `tsc` de verdad (754 s medidos el
+  22/10) y queda como excepción DECLARADA. Ese 99 se lee como «tardó», no como «se colgó».
+- La fase «Tests (los demás)» (`--tanda 1000`) tiene la misma forma y el mismo vigía, y **no se ejercitó**.
+- `grupo-leandro` sigue tardando 119 s: salió de la fase rápida, no se hizo rápido.
+
+---
+## «Un test se colgó» y no se había colgado nada: node imprime por ARCHIVO, no por caso (31/10/2026)
+
+**Síntoma.** El paso «Tests afectados por lo que cambió» del run 41207922805 salió con **99** —«no se pudo chequear», no
+rojo— y trabó el tren con un despliegue con fecha. El log, de dos tandas de 100:
+
+```
+tanda 12/14 · 100 archivos · 179 casos juzgados (sin el pie del runner) · ROJA (? archivos) · 5 min 35 s
+  ⚠ NO CORRIÓ: … estuvo 5 min 0 s sin terminar un solo caso: un test se colgó. El último caso que TERMINÓ fue
+  «qué es una orden sobre el flujo»: el que se colgó es el que sigue.
+[tests-afectados] ⚠ SIN CHEQUEAR · 12585 tests de 1538 archivos · 23 min 56 s · RAM libre mínima 3,7 GB
+  ⚠ 200 archivo(s) NO CORRIERON (su proceso murió sin juzgar un test)
+```
+
+**Todos los diagnósticos obvios eran el equivocado.** No era RAM (3,7 GB libres como mínimo, en un runner dedicado). No
+era un rojo (99 ≠ 1). No era el sistema operativo: **reproduce igual en Windows**. No era el tamaño de la tanda. Y, sobre
+todo, **no se colgó ningún test**: los 100 archivos de cada tanda pasaban. Localmente, la tanda 13 entera da **880 tests,
+880 en verde**.
+
+**Causa real, y son dos cosas que sólo juntas producen el síntoma:**
+
+1. ⚠️ **Node imprime la salida de un archivo de test cuando el ARCHIVO termina, no cuando termina el caso.** Medido con
+   tres archivos y `--test-concurrency=3`: los dos rápidos (1 ms cada uno) imprimen sus casos recién cuando el lento
+   (6 s) terminó — las tres líneas salen juntas, a los 6 s, en el orden de los argumentos. O sea que **una tanda deja de
+   imprimir mientras corre su archivo más lento**, aunque los otros 99 ya hayan pasado. Por eso el log decía «426 casos»
+   de 880: los otros 454 estaban en la cola del reporte.
+2. El vigía de `scripts/tests-afectados.mjs` pregunta «¿imprimió un caso nuevo?» y mata al proceso que no imprime en
+   `TOPE_SIN_AVANCE_MS` (5 min). Con lo de arriba, eso **no mide «está colgado»: mide el archivo más LENTO de la tanda**.
+
+**Quién cruzó la línea.** `tests/grupo-leandro-2910.test.ts` (tanda 13) y `tests/clase-del-grupo.test.ts` (tanda 12)
+lanzan un hijo que corre la entrada REAL del grupo (`manejarEntranteDoer`), y ese camino llama a `esperarSilencio`
+(`lib/mako-doer-buffer.ts`), que duerme sobre el reloj de verdad —8 s, 20 con audio, mirando cada 3 s si entró otro
+mensaje— **una vez por escena**. Doce y veintitrés escenas: **234 s y 236 s en una PC libre, de los cuales ~130 son
+dormir**. En el runner pasaron los 300 s. Y los dos se **declaraban** más lentos que el vigía:
+`spawnSync(…, { timeout: 400_000 })`, 400 s de permiso contra 300 s de paciencia.
+
+⚠️ **La trampa que se come una hora: el mensaje acusa al caso siguiente, y el culpable es el ARCHIVO siguiente.** Los dos
+casos que el log nombró (`qué es una orden sobre el flujo`, `la IA del Dashboard no pregunta antes si el negocio tiene
+IA…`) son el **último test de su archivo** — con 2 y 10 tests. Así que «el que se colgó es el que sigue» mandaba a buscar
+un caso que no existe, y de ahí a buscar un handle abierto (un timer, un socket) en los módulos que esos archivos
+importan. No hay ningún handle: el hijo termina con `process.exit(0)`. Como la salida va en orden ALFABÉTICO (node ORDENA los archivos: con el orden de los argumentos se acusa a uno que ya terminó), el
+culpable es **el primero que todavía no imprimió**: el que sigue al archivo donde vive el último caso impreso.
+
+**La regla que queda** (`tests/tanda-no-la-mata-un-test-lento.test.ts`):
+
+- **Ningún test puede darle a un hijo más tiempo del que el vigía le da a la tanda ENTERA.** Es la relación entre dos
+  números que viven en archivos distintos, y es lo único que no se ve mirando un archivo solo. Un test que necesite más
+  se declara en `PERMITIDOS` con el motivo medido, y entonces se sabe que esa tanda se puede morir por él. Cuando el hijo
+  se pasa, lo que tiene que pasar es que se ponga rojo **ese** archivo —que se nombra— no que mueran los otros 99.
+- **Un test que replica el doer no espera el reloj.** Los hijos acortan la ventana con `MAKO_DOER_VENTANA_MS`, que por
+  `Math.min` sólo puede **acortar**: un entorno mal puesto puede hacer que MaKo conteste antes, jamás que se quede
+  esperando más de lo medido. ⚠️ Y la variable **vacía no vale**: `Number('')` es **0**, así que la clave agregada sin valor
+  en el panel de Vercel dejaría a MaKo contestando al instante, sin esperar el lote y sin que nada lo diga — tiene que haber
+  un número escrito (el default que inventa un dato, otra vez). Lo que el test cuida —que un lote se junte y se conteste UNA vez— no depende del reloj: sus
+  mensajes ya están en la cola cuando el turno llama a esperar (`encolar` corre antes de `esperarSilencio`).
+- El mensaje del vigía nombra el archivo y trae el comando para correrlo solo (`elQueNoDejoAvanzar`).
+
+⚠️ **Y UNA TRAMPA DEL GUARD, QUE NO SE VE HASTA QUE ALGUIEN LO COMMITEA.** Un guard que barre el fuente buscando el literal
+que persigue se pone rojo **por su propia explicación**: este cita el `timeout: 400_000` que causó el 99 para contar la
+historia, y leyendo el fuente crudo encuentra tres (todos en comentarios) y se acusa a sí mismo. Y no se nota al escribirlo,
+porque `git ls-files` **no lista lo que todavía no está commiteado**: el archivo nuevo no se barre a sí mismo hasta el commit,
+así que el rojo aparecería en el push de otro. Las dos mitades: barrer `sinComentarios(src)` (ya está exportado en
+`tests-afectados.mjs`) y listar con **`git ls-files -co --exclude-standard`**, para que un test nuevo con un tope de más duela
+antes del commit y no después.
+
+**Los números** (PC libre, 12 núcleos): el hijo de grupo-leandro **234 s → 104 s**; el de clase-del-grupo **236 s → 25 s**
+(arranque de tsx ~22 s en los dos, que no se puede bajar). Las tandas completas: la 13, **256 s → 137 s**, 880/880 en verde;
+la 12, **108 s**, 842/842. Las guardas, 8 de 8 y 15 de 15, probadas rompiéndolas de a una: siete roturas, cada una pone roja
+UNA y la nombra.
+
+⚠️ **Y DOS COSAS QUE SE APRENDIERON CORRIGIENDO ESTO, LAS DOS MIDIENDO:**
+
+- **El orden de la salida es el ALFABÉTICO, no el de los argumentos.** Medido sobre una tanda de 68 que mezclaba los tres
+  grupos de `agrupar` (cambio → nombra → importa): los 68 últimos casos salieron en orden alfabético **perfecto**. Leyendo el
+  orden de los argumentos se acusaba a un archivo que ya había terminado; con el alfabético, el nombrado fue el que estaba
+  VIVO de verdad — confirmado mirando `Win32_Process`, que además muestra los NIETOS (ahí se vio el `tsc` colgando de
+  `tests/tipos-por-tandas.test.ts`). **Para saber qué archivo no sale, mirar los procesos vivos es más barato que deducir.**
+- **No alcanza con «el que sigue»: hay TRES cuelgues, y se distinguen con una pregunta.** ¿El último caso impreso es el
+  ÚLTIMO test de su archivo? Si **no**, el proceso sigue adentro de ese archivo. Si **sí** y hay otro archivo después, el
+  culpable es ése. Si **sí** y era el último de la tanda, el proceso **juzgó todo y no salió**: recién ahí hay que buscar un
+  handle abierto. Sin esa pregunta se manda a cazar un handle que no existe, que es lo que pasó con los dos casos del run.
+
+**Vive en:** `lib/mako-doer-buffer.ts` (`reloj()`, `VENTANA_MS`) · `scripts/tests-afectados.mjs` (`elQueNoDejoAvanzar`,
+`porQueSeMato`, `TOPE_SIN_AVANCE_MS`) · los seis `tests/_*-hijo.ts` que pasan por `manejarEntranteDoer` ·
+`tests/tanda-no-la-mata-un-test-lento.test.ts`.
+
+**SIN HACER** — `tests/tipos-por-tandas.test.ts` corre el `tsc` de verdad y tarda **754 s** medidos: queda declarado como
+excepción, así que **todavía puede matar su tanda** y hay que leer ese 99 como «tardó», no como «se colgó». Acortarle el
+tope lo pondría rojo en una máquina lenta, que es peor. Lo que falta es que `tests-afectados` le dé a cada tanda el
+presupuesto que DECLARAN sus archivos (el mayor `timeout:` de la tanda + holgura, en vez de los 5 min fijos para todas):
+con eso una tanda con un archivo lento no se muere y una tanda normal sigue cortando a los 5 min, sin regalarle minutos
+de Actions a un cuelgue de verdad. `MAKO_TESTS_SIN_AVANCE_MIN` ya permite moverlo a mano para una corrida.
+
+## Cinco falsas alarmas al medir sobre una copia o un barrido (30/10/2026)
+
+**«0 vivas» con el test ya rojo es un falso verde.** Una corrida de roturas dio 0 vivas de 74 con un test que ya caía antes de romper nada, por un renombre a medias: toda rotura «caía» sola. **La regla:** las roturas sólo valen con el test en verde justo antes, y el script tiene que comprobarlo primero. `«0 tests» no es rojo` tiene este gemelo: «cae» no es prueba si caía de antes.
+
+**`tsc-acotado` con código 134 es memoria, no tipos.** Con 21 archivos que arrastran `lib/nutricion.ts` se quedó sin heap a 2.560 MB: salida 99, no es un veredicto. En dos tandas y con `--heap=3584` terminó, y aun así una tanda dio 99 en otra pasada. Los 16 errores de `app/conocimientos/Compartir.tsx` y `app/video-editor/_opencut` son de archivos arrastrados por los imports: piden declaraciones globales que el acotado no ve.
+
+**Parar una tarea de fondo no saca su turno de la fila del candado.** Corté con TaskStop un barrido que esperaba en `candado-pesado`. Su `node` siguió vivo y, 28 minutos después, tomó el candado sin servidor de salida: 438 líneas de «0 tests · ROJO» en segundos, y un archivo de resultados que parecía un desastre. **La regla:** después de cortar una tarea en fila, se borra su archivo de salida y no se lee nada de lo que escriba. Mejor aún: si no empezó, no se corta y se la deja correr sobre un árbol quieto.
+
+**Un rojo en una copia parcial de main no era del código.** `tests/paso-ia.test.ts` dio 12 / 1 sobre un `git archive` de main con sólo lo que el test parecía usar: lee `supabase/migrations`, que no estaba. Con esa carpeta, 13 / 0. **La regla:** antes de creer un rojo en una copia, mirar qué lee el test del disco. ⚠️ Y un `grep -E "^. "` no encontró el resumen del test: «ℹ» ocupa varios bytes, y el conteo salió vacío.
+
+**«0 tests» no es un rojo del código.** Sale cuando el proceso se quedó sin memoria o sin tiempo antes de contar nada. En un barrido se escribe distinto de un test que falló, con la RAM mínima al lado, y se vuelve a correr solo antes de mirarlo.
+
+**`rm -rf` sobre una carpeta con el junction de `node_modules`.** Los worktrees usan un junction al `node_modules` del clon: borrar la carpeta temporal con `rm -rf` puso en riesgo el compartido de todos los chats. Esa vez quedó entero (745 paquetes contados después), y eso no prueba que sea seguro. **La regla:** primero se saca el junction, con `[IO.Directory]::Delete(ruta)` desde PowerShell, que quita el enlace y no lo que apunta; recién después se borra la carpeta. `rmdir /s` en Git Bash ni corre («Invalid switch»).
+
+---
+
+## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
+
+**El síntoma.** El push del tren de 91 commits a `integracion` se bloqueó después de 52 minutos con:
+
+```
+ROJO: tests: accion-invitar-curso.test.ts, adjuntos-chats-de-texto.test.ts, admin-view-props.test.ts,
+ads-manager-credenciales.test.ts, agenda-cerca.test.ts, agenda-evento-etapa.test.ts…
+  ✖ PUSH BLOQUEADO: antes-de-subir dio ROJO.
+```
+
+Una lista alfabética que arranca en la «a» y sigue. Leído así, parece que el tren rompió media app.
+
+**Lo que decía el log doce líneas más arriba:**
+
+```
+grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s
+  ↻ 495 archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso
+  ✖ 6143 tests de 1143 archivos · 49 min 55 s · RAM libre mínima 0.7 GB
+```
+
+**`0 tests`.** El proceso compartido estuvo 25 minutos y no ejecutó un solo test: murió antes. Eso no es
+un rojo del código, es el contrato de salida **99** («no se pudo chequear») escrito con la palabra de 1
+(«rojo»). El script ya distingue los dos casos —su encabezado dice «0 verde · 1 rojo · 99 no corrió por
+falta de RAM (no es un rojo)»— y el hook también; lo que falta es que un grupo que termina con **cero
+tests corridos** se clasifique como 99 en vez de contar sus 495 archivos como rojos.
+
+**La causa real, y es de orquestación, no del script.** La RAM mínima fue 0,7 GB. El Cerebro despertó
+cinco chats a la vez **mientras el tren corría las barredoras**, y cada chat abierto pesa ~0,7 GB. La
+máquina pasó de 2,3 GB libres a 0,7 y el grupo compartido se quedó sin aire. Es la segunda vez que la
+misma estampida mata la misma fase.
+
+**Lo que NO se puede concluir, y acá me apuré.** Al repetirlos aislados **sí corrieron 6.143 tests de
+1.143 archivos**, así que no todos murieron: entre los 495 del veredicto final puede haber rojos reales.
+El log del detalle (`%TEMP%/antes-de-subir-xxxxx/compartido-aislado.log`) **se borra al terminar**, así que
+cuando el veredicto llega ya no se puede separar al caído por memoria del roto de verdad. Dije «no era
+código roto» con la evidencia del grupo compartido y eso cubría 0 de los 495, no los 495.
+
+**Reglas que quedan:**
+
+- **«0 tests · ROJO» no es un rojo del código.** Antes de salir a arreglar un lote de barredoras rojas,
+  leé cuántos tests corrieron y la RAM mínima de la corrida. Las dos están en el log, arriba del veredicto.
+- **El veredicto final no alcanza para decidir**, porque llega con el log del detalle ya borrado. Si vas
+  a necesitar ese detalle, corré con `TEMP`/`TMP` apuntando a una carpeta propia (ya está documentado más
+  abajo, por otro motivo: la carpeta de `os.tmpdir()` desaparecía a mitad de la corrida).
+- **No se despiertan chats mientras un tren corre su fase pesada.** El turno de la máquina se reparte con
+  `scripts/candado-pesado.mjs` (`tomarTurno`), que da de a uno y suelta el lugar si no hay memoria. El
+  Cerebro les había dicho a los cinco chats «esperá mi aviso de RAM» sin saber que esa fila ya existía.
+- **Cuando la PC no da, el chequeo pesado va a Actions**: `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin
+  <rama>:integracion`. Las guardas siguen corriendo y Actions corre el completo. No es `--no-verify`. Con
+  presupuesto de Actions disponible, gastar un run es más barato que una hora de máquina trabada.
+- **Y el exit code hay que leerlo del comando, no del envoltorio.** El push corrió en segundo plano dentro
+  de un script que terminó con 0; el `RC_DEL_PUSH=1` que se guardó aparte fue lo único que delató que el
+  push estaba bloqueado. Sin esa línea, el tren se habría dado por subido. El molde es
+  `cmd > archivo 2>&1; rc=$?`, nunca `cmd | tail && siguiente`.
+
+**Lo que quedó sin hacer:** que `scripts/antes-de-subir.mjs` devuelva **99** cuando un grupo compartido
+termina con cero tests corridos (hoy devuelve 1 y bloquea el push), y que el veredicto diga la RAM mínima
+en la misma línea del ROJO, para no tener que subir doce líneas en el log para saber si hay que creerle.
+
+## Qué se rompe cuando una rama queda tres días sin subir, y por qué «la punta del tren» no es una rama (30/10/2026)
+
+**El síntoma.** `nube/video-generator-2710` (40 archivos, 27/10 22:54) nunca entró a un tren. Tres días después el brief del
+rescate decía: partí de `origin/integracion`, donde está el tren de 91 commits; los choques están medidos contra la punta,
+`b2b8adf05`. **Las tres referencias querían decir otra cosa de la que decían.**
+
+**Lo que había de verdad, medido antes de tocar nada:**
+
+| lo que decía el brief | lo que era |
+|---|---|
+| `origin/integracion` = la punta del tren | **ancestro de `origin/main`**: el tren ya había aterrizado, y main le llevaba 455 commits |
+| `b2b8adf05` = la punta del tren | una rama **LOCAL y sin pushear** (`tren-ai`), `origin/main` + 91 commits |
+| «main se movió 91 commits» | 91 es el delta de `tren-ai` sobre main; desde la base de la rama, main movió **783** |
+
+**La causa real.** `integracion` no es un lugar donde el tren *está*: es un lugar por donde el tren *pasa*. Una vez mezclada en
+`main`, la rama queda atrás y seguir apuntándole devuelve un árbol viejo — con la trampa de que `git merge` contra ella
+**funciona igual** y da un merge limpio de algo que ya no es la realidad. Y «la punta» era un commit que no existe para nadie
+más: `git branch --contains` lo pone en tres ramas locales y en un tag de respaldo, y `git for-each-ref` no lo encuentra en
+ningún `refs/remotes`. Un brief puede nombrar con total precisión un commit que no se puede pushear.
+
+**La regla:**
+- **Antes de elegir la base, medí la topología; no la leas del brief.** Tres comandos:
+  `git merge-base --is-ancestor origin/integracion origin/main` (si da 0, integracion está atrás y la base es `main`),
+  `git rev-list --left-right --count A...B` para el delta de verdad, y `git for-each-ref --contains <sha>` para saber si una
+  punta existe fuera de esta máquina.
+- **Una rama que se va a pushear se basa en algo pusheado.** Basarla en `tren-ai` habría publicado 91 commits que el Cerebro
+  todavía no subió y que puede rebasear; y «en producción» es lo desplegado, que sale de `origin/main`.
+- Qué se rompe por esperar: no es el merge —fueron cinco choques de una línea cada uno— es que **los choques se multiplican por
+  cada feature que pasa por el registro de la API** (ver [hallazgos-api-mako.md](hallazgos-api-mako.md)), y que un bug de la
+  rama sobrevive tres días sin que nadie lo vea. El de esta rama (`composer.ts` / `Composer.tsx`, verde en Linux y roto en
+  Windows: [hallazgos-generativa.md](hallazgos-generativa.md)) no lo frenaba ningún tren, porque **Actions corre en Linux**.
+
+**Lo que quedó sin hacer.** Esta rama de rescate (`nube/video-generator-rescate`) está basada en `origin/main`, así que cuando
+`tren-ai` suba hay que **volver a mezclar `docs/hallazgos.md`**: es el único de los cinco archivos en choque que `tren-ai`
+toca (37 commits), y los otros cuatro —los del registro— no los toca ninguno de sus 91 commits.
+## Un worktree nuevo no puede pushear, y el pre-push culpa a un documento que está al día (31/10/2026)
+
+**El síntoma.** Primer push desde un `git worktree add` recién creado:
+
+```
+X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+Corre esto y volve a pushear:
+    node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+**El diagnóstico obvio era el equivocado.** El documento no estaba viejo. Los dos archivos
+eran **idénticos a `origin/main`** (`git diff origin/main -- docs/branding-mako.md
+lib/mako-gramatica.ts` sale vacío) y el commit no los tocaba. Correr el script que pide el
+mensaje tampoco funciona: tira `ERR_MODULE_NOT_FOUND`.
+
+**La causa.** Un worktree nuevo **no tiene `node_modules`** (está en `.gitignore`, así que
+`git worktree add` no lo trae). El chequeo del pre-push corre
+`node --import tsx scripts/…--check`, **`tsx` no resuelve, el proceso muere con exit ≠ 0, y
+el hook lee cualquier exit ≠ 0 como «el documento quedó viejo»**. El hook no distingue
+«comparé y difieren» de «no pude comparar» — es el mismo error que ya está documentado para
+`tsc-acotado | grep "error TS"`, que esconde el «NO SE PUDO CHEQUEAR».
+
+**Lo que lo confirma:** el mismo chequeo desde el clon principal (que sí tiene
+`node_modules`) **pasa** y el push avanza hasta un chequeo distinto.
+
+**El arreglo, y es de un comando.** Una **junction de Windows** al `node_modules` del clon
+principal. No es una copia (no gasta disco) y no es un symlink de Git Bash, que en este
+sistema **sí copia**:
+
+```bash
+cd /c/dev/wt-<rama>
+cmd //c "mklink /J node_modules C:\ruta\al\clon\principal\node_modules"
+```
+
+Después, `sync-gramatica-doc.mjs --check` da `✓ al día` y el push sale. `node_modules` está
+en `.gitignore`, así que la junction no se commitea.
+
+**Y la otra mitad de la trampa:** pushear la rama **desde el clon principal** (que sí tiene
+dependencias) parece la salida fácil y no lo es — ahí el pre-push chequea **el árbol de
+trabajo del clon**, no la rama que se pushea, y bloquea por un archivo que no es tuyo. En
+este caso fue `extension/puede-filmar.js`. **Cada rama se pushea desde su propio worktree.**
+
+⚠️ **Y el archivo del clon no está «a medio hacer»: está VIEJO.** Medido el 31/10 en una
+segunda sesión que chocó con lo mismo (el ref es compartido, así que el push funciona y sólo
+el veredicto es falso): el clon compartido de esta máquina tiene `main` checkouteado y estaba
+**4.592 commits atrás**, y `extension/puede-filmar.js` en la punta está al día. No hace falta
+ninguna sesión en paralelo para que pase — alcanza con que el clon esté atrasado, que es su
+estado normal. Es la misma causa que
+[Una guarda nueva NO corre en el push de un worktree](#una-guarda-nueva-no-corre-en-el-push-de-un-worktree-el-hook-usa-las-guardas-del-clon-30102026):
+las guardas salen del clon y, si se las deja, también juzgan sus archivos.
+
+Lo que queda sin hacer: que estos chequeos distingan «difieren» de «no pude correr». Hoy los
+dos dan el mismo cartel, y el cartel acusa al archivo equivocado.
+
+---
+
+## Un worktree nuevo no puede pushear, y el pre-push culpa a un documento que está al día (31/10/2026)
+
+**El síntoma.** Primer push desde un `git worktree add` recién creado:
+
+```
+X PUSH BLOQUEADO: docs/branding-mako.md quedo viejo respecto de lib/mako-gramatica.ts.
+Corre esto y volve a pushear:
+    node --import tsx scripts/sync-gramatica-doc.mjs
+```
+
+**El diagnóstico obvio era el equivocado.** El documento no estaba viejo. Los dos archivos
+eran **idénticos a `origin/main`** (`git diff origin/main -- docs/branding-mako.md
+lib/mako-gramatica.ts` sale vacío) y el commit no los tocaba. Correr el script que pide el
+mensaje tampoco funciona: tira `ERR_MODULE_NOT_FOUND`.
+
+**La causa.** Un worktree nuevo **no tiene `node_modules`** (está en `.gitignore`, así que
+`git worktree add` no lo trae). El chequeo del pre-push corre
+`node --import tsx scripts/…--check`, **`tsx` no resuelve, el proceso muere con exit ≠ 0, y
+el hook lee cualquier exit ≠ 0 como «el documento quedó viejo»**. El hook no distingue
+«comparé y difieren» de «no pude comparar» — es el mismo error que ya está documentado para
+`tsc-acotado | grep "error TS"`, que esconde el «NO SE PUDO CHEQUEAR».
+
+**Lo que lo confirma:** el mismo chequeo desde el clon principal (que sí tiene
+`node_modules`) **pasa** y el push avanza hasta un chequeo distinto.
+
+**El arreglo, y es de un comando.** Una **junction de Windows** al `node_modules` del clon
+principal. No es una copia (no gasta disco) y no es un symlink de Git Bash, que en este
+sistema **sí copia**:
+
+```bash
+cd /c/dev/wt-<rama>
+cmd //c "mklink /J node_modules C:\ruta\al\clon\principal\node_modules"
+```
+
+Después, `sync-gramatica-doc.mjs --check` da `✓ al día` y el push sale. `node_modules` está
+en `.gitignore`, así que la junction no se commitea.
+
+**Y la otra mitad de la trampa:** pushear la rama **desde el clon principal** (que sí tiene
+dependencias) parece la salida fácil y no lo es — ahí el pre-push chequea **el árbol de
+trabajo**, que tiene el trabajo a medio hacer de las otras sesiones en paralelo, y bloquea
+por un archivo que no es tuyo. En este caso fue `extension/puede-filmar.js`. **Cada rama se
+pushea desde su propio worktree.**
+
+Lo que queda sin hacer: que estos chequeos distingan «difieren» de «no pude correr». Hoy los
+dos dan el mismo cartel, y el cartel acusa al archivo equivocado.
 
 ---
 
@@ -88,6 +496,18 @@ apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.
 
 **De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
 programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
+
+**El límite de esta PC no es un número de chats (30/10/2026):** es cuántos corren algo pesado a la vez. Seis chats leyendo
+entran; dos corriendo tests, no siempre. Ese día había 1,0 GB libres de 16, con 31 procesos de node que sumaban 6,6 GB. La
+guardia de RAM frena recién en rojo, y frena al que llega, no al que más importa: paró una tanda del Runner, que no
+urgía, y lo mismo pudo parar a un cliente roto. **Repartir el turno de la máquina es trabajo del Cerebro:** decide quién
+corre lo pesado según la prioridad de siempre (cliente roto > plata > traba a Martín > features) y le avisa al que sigue.
+La pausa de arriba es de todo o nada: para dar el turno a dos chats y frenar al resto, hoy sólo está el mensaje, con la
+misma limitación (llega al terminar el turno, y un subagente de un workflow no lo ve).
+
+**La enfermedad de fondo: no nos falta escribir, nos falta leer lo escrito antes de actuar.** El mismo 30/10, el Cerebro
+anunció como hallazgo esto mismo, que estaba en esta sección desde el 28/10, y rompió la regla de qué cuenta soy diez minutos
+después de escribirla. Antes de presentar algo como nuevo, se busca en `docs/hallazgos*` y en `AGENTS.md`.
 
 ---
 
@@ -288,12 +708,57 @@ programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MI
 
 - **Síntoma:** «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», seguido de «los repito AISLADOS, uno por
   proceso». Eso son horas.
-- **Causa:** con 1 a 3 GB libres, el proceso compartido pagina y llega al tope (`TOPE_COMPARTIDO_MS`). No es un rojo del código.
+- **Causa:** se escribio que con 1 a 3 GB libres el proceso paginaba y llegaba al tope. **Ese diagnostico era el equivocado**: el
+  31/10/2026 se midio que lo que tarda es la CARGA del proceso compartido (seis minutos sin juzgar un caso con 100 archivos) y que
+  el mismo sintoma sale en Actions con 4,3 GB libres. No es un rojo del codigo ni es la RAM: era un tope fijo de 25 min. Ver
+  «0 tests, ROJO, 25 min era la CARGA del proceso compartido», mas abajo.
 - **Qué hacer:** cortar la corrida y volver a correrla con más RAM libre. Los rojos de verdad se separan corriendo esos tests en
   un main limpio (`git worktree add --detach … origin/main` más una junction a `node_modules`) y comparando las dos listas de
   `✖`. El 25/10, de 12 rojos, 4 eran del tren y 8 ya estaban en main.
 
 *25/10/2026, el Cerebro (claude5).*
+
+## Un guardia que sigue el TEXTO da rojo con el código correcto: el refactor legítimo lo rompe (31/10/2026)
+
+**El síntoma:** el tren dio rojo en `tests/planes-stripe-afuera.test.ts:218` con un solo mensaje, «la página del plan».
+La página estaba bien. El test pedía el texto exacto `pais: paisDelVisitante((await headers()).get('x-vercel-ip-country'))`
+DENTRO de la llamada a `ofertaDelPlan`, y la página lo había subido a `const pais` una línea antes — porque ahora lo usa DOS
+veces: la oferta y `ladaDelPais(pais)`, la lada con la que arranca el WhatsApp que se pide antes del checkout.
+
+**El diagnóstico obvio era el equivocado.** En este repo un rojo del tren casi siempre es un merge que dejó algo a medias, y la
+tentación es buscar qué se perdió en el merge. Acá no se había perdido nada: el código mejoró y el guardia no lo acompañó.
+
+**La regla:** un guardia que lee fuente (`fuente(...)`.includes / `cuerpo(...)` + `assert.match`) tiene que afirmar **lo que
+cuida**, en afirmaciones separadas, no una línea literal. El literal ata el guardia a una forma de escribir, y la primera vez
+que alguien hoista un valor —la refactorización más normal que existe— el guardia miente. Acá quedó en tres: que la página lea
+el encabezado de Vercel, que ese país llegue a la oferta (buscado en el TROZO de la llamada, no en todo el archivo), y que la
+lada salga del mismo país. Las tres se verificaron rompiéndolas (base 12 / 0 → 11 / 1 cada una).
+
+**Y un mensaje de assert que es sólo un sustantivo (`'la página del plan'`) no dice qué esperaba.** Cuesta lo mismo escribir
+«la página del plan le pasa ese país a la oferta», y es la diferencia entre leer el log y abrir el archivo.
+
+**Y no era uno: eran SEIS de ocho, y el chequeo del push sólo muestra el primero** (31/10/2026). El pre-push y Actions cortan
+en la primera tanda roja, que es lo correcto para no gastar un run de 15 minutos — pero convierte ocho rojos en ocho rondas de
+push fallido, a ~17 minutos de chequeo local cada una. Lo que los muestra todos de una es **la suite completa sin `--cortar`**:
+`node scripts/tests-afectados.mjs --base origin/main --tanda 20 --concurrencia 2`, 59 minutos, 13.683 tests de 1.536 archivos.
+De esa corrida salieron NUEVE archivos rojos.
+
+**⚠️ Y uno de los nueve era la máquina.** La corrida terminó con `RAM libre mínima 0.4 GB`, y repetido SOLO con memoria libre
+`tests/chats-mako-envio.test.ts` da 8/0. O sea: **la lista de una corrida larga no es la lista de rojos, es la lista de
+candidatos**. El paso que falta es barato y obligatorio: repetir cada archivo de a uno (`node --import tsx --test <archivo>`)
+cuando la RAM volvió, y recién ahí contar. Lo mismo dice el hallazgo de las 615 barredoras «rojas» con 0,1 GB libres.
+
+De los ocho que quedaron, **seis eran el guardia persiguiendo el texto** (cuatro por la tercera pasarela, uno por el país
+subido a una variable, uno por el interruptor de la prueba gratis) y **dos eran código**. Y el que no era un guardia roto era
+el más caro: una operación nueva del chat le sacaba el lugar a otra por un empate de puntaje
+(→ [hallazgos-api-mako.md](hallazgos-api-mako.md), «Dos ramas recuperaron el MISMO margen»).
+
+**Trampa del camino, y ésta es invisible:** al escribir ese test con un heredoc, `\bpais,` quedó en el archivo como un
+BACKSPACE literal (0x08) seguido de `pais,` — el heredoc se comió una barra y Python tomó `\b` como el carácter de control.
+`git diff` lo mostró como `/pais,/`, que se lee perfecto, y el único que lo delata es `cat -A` (`/^Hpais,/`) o un `repr()`.
+Un test con un 0x08 adentro no falla al parsear: corre y nunca empareja. Si una expresión regular escrita por heredoc se ve
+bien en el diff pero no empareja nada, mirala con `cat -A` antes de dudar del código. Lo más barato es no usar `\b`: en un
+trozo acotado, `trozo.includes('pais,')` dice lo mismo y no tiene barras que perder.
 
 ## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
 
@@ -357,6 +822,253 @@ se salía en el teléfono. Medido en el navegador con el viewport emulado a 390 
 pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: arma la página más ancha y la captura se
 corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
 `--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
+
+## 615 barredoras «rojas» con 0,1 GB libres: era la máquina, no los tests (30/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (el grupo compartido de las barredoras) · la PC de Martín (16 GB).
+
+**El síntoma.** Con `--tanda 4 --concurrencia 1`, las 13 tandas del cambio dieron verde (50 archivos), y después: `grupo compartido 1/1 · 615 archivos · 0 tests · ROJO (? archivos)`,
+a los 8 min 13 s. El final dice `✖ ROJO · 646 tests de 665 archivos · 28 min 51 s · RAM libre mínima 0.1 GB` y lista los 615 en «Rojos».
+
+**Las dos lecturas obvias eran las equivocadas.** No son 615 tests rotos: **`0 tests`** con `?` archivos es un proceso que murió sin contar nada. Y tampoco es «ruido de la máquina»: **dos de esos 615
+estaban rojos de verdad** (`operaciones` y `ops-center-decisiones`, los dos por el mismo cambio), y salieron recién al correrlos de a uno sobre la punta del tren. Una lista de 615 que no
+corrieron esconde a los que sí fallan: no se descarta entera ni se da por buena; se corre donde entre. La salida completa estaba en un log de Temp que ya no existía cuando se fue a leer: lo que importa hay que copiarlo enseguida.
+
+**Por qué no entra.** La corrida arrancó con 1,6 GB libres y llegó a 0,1. Medido el mismo día por el Cerebro: cada chat abierto cuesta ~580 MB, y con seis abiertos el chequeo entero (5,3 GB) no entra
+nunca. No es que a veces falte memoria: **esta máquina no sostiene al equipo y a una barredora a la vez.** Levantar una PAUSA del Cerebro tampoco dice que haya RAM: el relanzamiento automático salió
+apenas se levantó, sin mirarla.
+
+**Los umbrales no se hablan, y es la causa de fondo de los dos incidentes del día.**
+- `tests-afectados` arranca con ~1,3 GB (`pisoRam(1)`: 0,9 de la zona roja del vigía + 0,35 + 0,05), y el chequeo de tipos del push pide 5,3: lo liviano arranca justo cuando lo pesado
+  todavía no puede, y le come el lugar. Estaba escrito desde el 28/10 (más arriba en este documento), y se volvió a vivir entero.
+- **La pausa frena bien y se suelta mal:** al apagarla arrancaron cinco chats a la vez con 1,6 GB libres. Cada uno miró la RAM y vio lugar, porque el otro todavía no la había pedido.
+- **El piso de las barredoras no escala:** `COSTO_COMPARTIDO_GB = 0.8` se midió con 24 barredoras (~725 MB) y se aplica igual a un grupo de 615 (`pisoCompartido(1)` = 1,75 GB). Cuánto pide con 615
+  no está medido: el proceso murió antes de contar.
+
+**SIN hacer (`scripts/pausa-cerebro.mjs`, `esperarRam` en `scripts/tests-afectados.mjs`):**
+- soltar la pausa escalonada: un turno por vez, con el siguiente recién cuando el anterior ya haya pedido su memoria;
+- que el que arranca reste lo que necesita el que está esperando (una cola de pedidos con su costo, no sólo «¿hay lugar para mí?»);
+- que `pisoCompartido` crezca con la cantidad de barredoras, o partir el grupo; primero hay que medir cuánto pide con 615.
+
+**HECHO el 30/10 a la noche** (lo que esta sección dejaba pendiente del lado del veredicto): `0 tests` ya no se reporta como rojo
+→ [El veredicto dijo «rojo» y el grupo había corrido cero tests](#el-veredicto-dijo-rojo-y-el-grupo-había-corrido-cero-tests-30102026).
+
+**La regla.** `0 tests` no es ni rojo ni verde: se reporta como «no corrió» (desde el 30/10 a la noche lo hace el script, no la buena voluntad del que lee). Antes de pasar una punta con barredoras sin correr, se corren a mano las que nombran lo que se tocó (`grep -l` del archivo en tests/). Las barredoras y el `tsc` de las pantallas (que murió con código 134 dos veces la misma tarde) van a GitHub Actions desde
+que Martín puso la tarjeta, y no se repiten en esa PC. En la PC, sólo los tests del cambio, midiendo la RAM antes.
+
+## «0 tests · ROJO · 25 min» era la CARGA del proceso compartido, y el grupo tenía 1.623 pasajeros que no ganaban nada (31/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (`lanzarVigilado`, `arranqueDe`, `topeDePared`, `agrupar`, el `--resto`) · la medición, en
+`scripts/medir-grupo-compartido.mjs`. Lo fija tests/tope-grupo-compartido.test.ts.
+
+**El síntoma, tres veces, con tres causas distintas escritas y las dos primeras equivocadas:**
+
+| | Qué se vio | Qué se escribió entonces |
+|---|---|---|
+| 25/10 | `grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min` | «con 1 a 3 GB libres el proceso pagina y llega al tope»: la RAM |
+| 30/10 (notebook) | `1/2 · 495 archivos · 0 tests · ROJO · 25 min 2 s`, RAM mínima 0,7 GB | una estampida de RAM entre chats |
+| 30/10 (Actions) | `1/2 · 514 · 0 tests · ROJO · 25 min 0 s` y `2/2 · 514 · 0 tests · ROJO · 25 min 0 s`, **RAM mínima 4,3 GB** | ahí se cayó el diagnóstico de la RAM |
+
+Con 4,3 GB libres en un runner dedicado, la memoria no era. `25 min 0 s` es el reloj: `TOPE_COMPARTIDO_MS` valía 25 minutos FIJOS,
+`matarArbol` mataba el proceso y `colgada` lo volvía código 1, o sea ROJO.
+
+**La medición que faltaba (`scripts/medir-grupo-compartido.mjs`, esta PC, 31/10):**
+
+| archivos en UN proceso compartido | reloj | s/archivo | pico RAM | tests |
+|---|---|---|---|---|
+| 12 | 13-14 s | 1,1 s | 0,33-0,38 GB | 70 |
+| 100 | 8 min 24 s | **5,04 s** | 0,79 GB | 889 |
+| 495 / 514 / 1.028 | nunca terminó (>25 min) | — | — | 0 |
+
+**Y la curva, que es el hallazgo:** casos juzgados por minuto en el grupo de 100 →
+`0′:0 1′:0 2′:0 3′:0 4′:0 5′:0 6′:56 7′:56 8′:742`.
+**Seis minutos sin juzgar UN caso, y después los 889 en dos.** Con `--test-isolation=none` node importa TODOS los archivos antes de
+correr el primer test y tsx los transpila de a uno: lo que tarda es la CARGA, no los tests. Para 514 archivos la carga sola pasa de
+los 25 minutos, así que el proceso moría **cargando**, sin haber ejecutado nada. De ahí el `0 tests`, que era literal.
+
+**El costo por archivo es SUPER-lineal** (1,1 s con 12 archivos, 5,04 s con 100): el grupo grande es la peor forma posible. Partirlo
+en grupos chicos no es «más procesos para que entren en el tope»: es que 86 grupos de 12 son ~19 min y 10 de 100 son ~84.
+
+**La causa de fondo: lo SEGURO no es lo que CONVIENE.** El selector decide con `compartible()`, que contesta «¿es seguro compartir
+este test?» (no toca estado global). Pero lo que un proceso compartido AHORRA es la relectura de los ~5.400 archivos del repo, y eso
+sólo lo pagan las BARREDORAS. Medido el 31/10 sobre los 1.850 compartibles de hoy:
+
+| | |
+|---|---|
+| **227** | barren de verdad (125 recorren carpetas, 63 `git ls-files`, 10 `git grep`, 29 nombran 20+ archivos) |
+| **1.623** | sólo son SEGUROS de compartir: no releen nada, no ahorran nada, y pagan la carga del grupo |
+
+Las «148 que se pueden compartir» con las que se calibró el tope el 17/10 eran casi todas barredoras; de 148 a 1.850 en trece días no
+creció el repo: creció el criterio. Por eso `--compartir` ahora significa **las que BARREN** (227), y el de antes quedó con nombre
+propio, `--compartir=todo-lo-seguro`, para volver a medirlo.
+
+**Lo que cambió:**
+- **El tope dejó de ser un reloj de pared y pasó a preguntar «¿AVANZA?»**: el runner imprime una línea por caso TERMINADO, así que un
+  proceso que no imprime un caso nuevo en 5 min está colgado, tenga 12 archivos o 1.028; uno grande que avanza no se mata nunca por
+  ser grande. Queda un TECHO proporcional como última red, para que un arrastre patológico no se coma el job de 90 min.
+- **La gracia del primer caso es POR ARCHIVO** (60 s + 6 s × archivos). Es el error que la medición cazó en este mismo cambio: la
+  primera versión tenía un arranque fijo de 90 s y habría matado al grupo de 100 a los 6,5 min, justo cargando, con el mismo síntoma
+  que vino a arreglar. Invariante fijado en el test: el techo nunca llega antes que la gracia.
+- **El que se colgó ahora tiene nombre**: node imprime el caso cuando TERMINA, así que el colgado es el que sigue al último impreso.
+  Antes el mensaje era «un test se colgó» y había que adivinar entre 514 archivos.
+- **`0 tests` ya no se imprime cuando hubo tests**: ese número sale del PIE del runner (`ℹ tests N`), que un proceso muerto nunca
+  imprime. Ahora, sin pie, se informa lo que se CONTÓ del stream («N casos juzgados (sin el pie del runner)»), y el total de la
+  corrida tampoco se come lo que corrió un proceso que murió. **Dos de los tres diagnósticos de arriba se armaron sobre ese cero.**
+- **El piso de RAM crece con los archivos de cada proceso** (`COSTO_COMPARTIDO_GB = 0.8` se midió con 24 barredoras y se aplicaba
+  igual a 514). Consecuencia útil: como la BASE por proceso es lo que domina, MENOS grupos piden MENOS RAM en total aunque cada
+  proceso sea más grande, así que bajar la cantidad de grupos es la salida cuando no entra.
+
+**La regla.** Un tope en minutos y un piso en GB envejecen con la suite: lo que mide un número fijo hay que volver a medirlo cuando
+el conjunto crece, y un tope sirve para cazar lo que NO AVANZA, no para presupuestar lo que tarda. Y antes de meter algo a un
+proceso compartido, la pregunta no es «¿es seguro?» sino «¿ahorra algo?».
+
+**SIN hacer:**
+- **No está medido cuánto tarda un grupo de 227 barredoras** (el nuevo tamaño del grupo en el tren): la PC no lo sostuvo mientras se
+  armaba esto (el candado de lo pesado con tres chats detrás). Se mide con `node scripts/medir-grupo-compartido.mjs --n 227 --grupos 2`,
+  y en Actions es una corrida del tren.
+- **Por qué la carga es super-lineal** (1,1 → 5,04 s por archivo): sigue sin medirse si es tsx transpilando o el GC del proceso que
+  crece. **Lo que sí se midió es que NO es el cache de lecturas**: los mismos 100 archivos sin él (`--sin-cache`) tardaron
+  **6 min 40 s** contra 8 min 24 s con él, con la misma forma de curva (`0′:0 … 3′:0 4′:56 5′:56 6′:742`) y el mismo pico (0,78 GB).
+  O sea que la carga es de node + tsx, y **el cache le COSTÓ un 25 % a este conjunto en vez de ahorrarle**, que es otra cara del
+  mismo hallazgo: de esos 100 casi ninguno barre, así que pagan el hook de cada lectura y no cobran nada. (Las dos corridas no
+  tuvieron la misma carga de máquina —RAM libre mínima 0,0 contra 1,1 GB—, así que el 25 % es un orden de magnitud, no un número
+  fino; la forma de la curva sí es la misma.) Queda por mirar el hook de escritura del cache, que recorre TODAS las claves en cada
+  `writeFileSync`, incluso de archivos de fuera del repo: le falta el guard `dentro(p)` que sí tienen las lecturas.
+- **Un TOPE de archivos por grupo** (hoy el grupo es «todas las barredoras, repartidas entre los procesos»): con 227 alcanza, pero la
+  super-linealidad dice que el grupo tiene que tener un máximo y correrse por olas. Falta medir dónde está el codo.
+## El veredicto dijo «rojo» y el grupo había corrido cero tests (30/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (`juzgoAlgo`, la clasificación de `correrTests`) · `scripts/antes-de-subir.mjs`
+(`armarVeredicto`, `carpetaDeLaCorrida`) · `scripts/claude-hooks/pre-push`. Lo fija tests/antes-de-subir-no-corrio.test.ts.
+
+**El síntoma, textual del log del push:**
+
+```
+grupo compartido 1/2 · 495 archivos · 0 tests · ROJO (? archivos) · 25 min 2 s
+  ↻ 495 archivo(s) rojo(s) en proceso compartido: los repito AISLADOS, uno por proceso, por si es la interferencia
+  ✖ 6143 tests de 1143 archivos · 49 min 55 s · RAM libre mínima 0.7 GB
+ROJO: tests: accion-invitar-curso.test.ts, adjuntos-chats-de-texto.test.ts, …
+```
+
+**El diagnóstico obvio era el equivocado, por tercera vez el mismo día:** no son 495 tests rotos. `0 tests` con `?` archivos es un
+proceso que murió sin ejecutar nada (los `25 min 2 s` son el tope del grupo compartido: lo mató el reloj, con 0,7 GB libres). Pero
+la última línea del push —lo ÚNICO que se lee— escribió los 495 nombres detrás de la palabra ROJO, y para saber que no había que
+creerle había que subir doce líneas del log a buscar la RAM.
+
+**El discriminante, medido (node 24.17, no supuesto).** «¿Cuántos tests dice el pie?» no alcanza, y «¿salió con != 0?» tampoco:
+
+| Caso | Salida del runner | Código | Qué se sabe |
+|---|---|---|---|
+| archivo de test VACÍO (sin un solo caso) | `✔ vacio.test.ts (120ms)` y el pie `ℹ tests 1` | 0 | **un archivo vacío NO da «0 tests»**: lo cuenta como un test que pasa, aislado y compartido |
+| falla en su PRIMER caso | `✖ el primero falla (2ms)`, el pie, y el `test at <archivo>` del pie de rojos | 1 | corrió y falló, y hay con qué nombrarlo |
+| tira AL CARGAR, en su propio proceso | `✖ <archivo>`, el pie, y el `test at <archivo>` | 1 | ídem (en un proceso COMPARTIDO, en cambio, da verde: está más arriba en este documento) |
+| el proceso MUERE (vigía de RAM, o el tope) | **vacía** | != 0 | nada: ni un caso, ni pie, ni nombres |
+
+Así que el discriminante es **«¿el runner JUZGÓ algo?»**: o llegó a su pie (`ℹ tests N`), o alcanzó a imprimir un caso FALLADO
+(`✖ … (1.2ms)`, que sale mientras corre, antes del pie: una muerte a mitad con un rojo ya juzgado ES un rojo). Sin ninguna de las
+dos no hay veredicto que dar. Un caso VERDE impreso y después la muerte tampoco alcanza: nada falló, así que no hay rojo, y no se
+terminó, así que no hay verde.
+
+**Lo que NO se puede hacer, y por eso la clasificación es por GRUPO y no por archivo:** el runner imprime el NOMBRE DEL CASO, no
+el del archivo (`✖ el primero falla`), y el archivo sólo aparece en el `test at …` del pie de rojos. Con el pie no impreso no hay
+forma de atribuir nada a un archivo: no se puede decir «estos 200 pasaron y de los otros 295 no sé».
+
+**Las tres cosas que cambiaron:**
+- **`0 tests` sale con 99, no con 1**, y la línea NO lleva la palabra ROJO: `SIN CHEQUEAR <sha>: … — NO es un rojo del código`.
+  Un rojo CONFIRMADO siempre le gana (exit 1), y entonces la línea avisa que la lista de rojos puede estar incompleta.
+- **La RAM mínima y la ruta del detalle van EN la línea del veredicto.** Es la última línea del push y tiene que alcanzar sola.
+- **El detalle se conserva.** El log del reintento aislado (`compartido-aislado.log`) es lo único que separa al caído por memoria
+  del roto de verdad, y se borraba al terminar. Ahora la carpeta de la corrida vive en `~/.claude/antes-de-subir/<fecha>-<sha>/`
+  —**no en `os.tmpdir()`, que otra sesión poda a mitad de la corrida** (está arriba: un VERDE murió con `ENOENT … compartido-1.log`
+  el 23/10)—, se conserva con rojo o con 99, se borra con verde y se guardan las últimas 5 corridas.
+
+**Dos trampas que salieron al armarlo:**
+- **El reintento aislado que tampoco corre no puede declarar FLAKY a nadie.** Sin el pie, «los que no nombró están bien» es un
+  VERDE FALSO. Ahora, sin pie: el que falló en el proceso compartido sigue ROJO (el reintento sólo existía para descartar la
+  interferencia, y no haber podido correrlo no borra la falla), y el que estaba en un grupo que nunca juzgó nada queda en «no se sabe».
+- **Un runner de tests lanzado DESDE un test no imprime su reporte** (`NODE_TEST_CONTEXT` heredado: node lo toma por un test
+  anidado y da `0 tests`). `correrTanda` borra esa variable del entorno desde siempre; cualquier medición a mano tiene que hacer lo mismo.
+
+**La regla.** Un veredicto que no distingue «falló» de «no corrió» es peor que no tener veredicto: manda a arreglar lo que no está
+roto y esconde lo que sí. Y lo que decide si creerle a un rojo (la RAM libre, y dónde está el log) va en la MISMA línea que el
+rojo, no doce líneas más arriba.
+
+## Un pendiente que nombra un test verde queda seis días y se reparte a dos chats (30/10/2026)
+
+**Vive en:** `scripts/pendientes-vencidos.mjs` · `scripts/guardas-push.sh` (la única guarda que avisa y no bloquea) ·
+`docs/pendientes.md`. Lo fija tests/pendientes-vencidos.test.ts.
+
+**El síntoma.** `docs/pendientes.md` tenía una sección «Rojos en `main` sin dueño» con tres tests. **Los tres estaban verdes.** La
+sección se escribió el 24/10 a las 19:23 y los arreglos entraron a las 20:58 y 20:59 del MISMO día: 95 minutos después. El
+documento se editó seis veces más hasta el 29/10 y nadie borró la sección. Seis días más tarde el Cerebro repartió esos tres rojos
+a dos chats para que los arreglaran.
+
+**Lo que NO faltaba era la regla.** El encabezado del propio documento dice «Al cerrar uno, borralo de acá en el mismo commit».
+Estaba escrita, a la vista, en el archivo que se estaba editando. **Agregar otra regla en prosa no sirve: hace falta una
+herramienta** — es el mismo patrón que cuando «corré los tests de tu área» no alcanzó y la cura fue que `antes-de-subir.mjs` los
+elija solo leyendo el código.
+
+**La guarda, y por qué AVISA en vez de bloquear.** Un pendiente que nombra un test y el test está verde (o ya no existe: se
+renombró o se borró) es un pendiente vencido. No bloquea porque **un test puede estar verde por el ENTORNO**: un clon atrasado
+fabrica verdes y rojos falsos (el clon compartido de esta máquina estuvo 4.431 commits atrás), y frenar un push por el estado de
+un documento sería peor que el problema. Es la única guarda de `guardas-push.sh` que no frena, y lo dice en su propio aviso.
+
+**Y es gratis, que es lo que la hace sostenible.** Correr tests adentro de una guarda del push los pagaría dos veces. En el push
+corre sólo la mitad textual (¿existe el test nombrado?, que es mirar el disco) y `antes-de-subir` cruza el resto con los tests que
+ACABA de correr verdes —el resultado ya está en la mano—; el aviso viaja en la línea del veredicto, porque es lo único que se lee.
+Correrlos es un modo aparte y explícito: `node scripts/pendientes-vencidos.mjs --correr`.
+
+**Tres trampas:**
+- **El runner equivocado dice «sigue rojo» para siempre:** el runner de node sin `--import tsx` da `ERR_MODULE_NOT_FOUND` falso en
+  los imports sin extensión (medido: 0/1 pelado contra 6/0 con tsx). La guarda usa `node --import tsx`.
+- **Un proceso que murió sin juzgar nada no deja a nadie verde** (el mismo discriminante que el veredicto, arriba): si no, la
+  guarda le dice «cerralo» a un pendiente cuyo test no corrió.
+- Los documentos nombran tests para decir qué CUBRE un arreglo («Lo fija `tests/x.test.ts`»), y ésos están verdes a propósito: la
+  guarda reconoce esa frase y no avisa por ellos. Una guarda ruidosa se apaga.
+
+**SIN hacer:** la guarda mira `docs/pendientes.md`; los demás documentos que anotan rojos (los relevos, `docs/hallazgos-*.md`) no
+se miran. Y entiende sólo el caso fácil, un pendiente que nombra un test: uno que dice «la pantalla X está rota» sigue dependiendo
+de que quien lo cierra lo borre.
+
+**Y una trampa del entorno, de la guardia de RAM de esta PC:** `~/.claude/guardia/memoria.mjs` clasifica un comando como PESADO
+por su TEXTO, así que un comando que sólo ESCRIBE documentación —si el texto nombra el runner de tests y tres archivos
+`*.test.ts`— se cuenta como una tanda de tests y se niega por falta de RAM. El contenido largo va a un archivo (con la herramienta
+de escritura) y el comando sólo lo aplica.
+
+## Una guarda nueva NO corre en el push de un worktree: el hook usa las guardas del CLON (30/10/2026)
+
+**Vive en:** `.git/hooks/pre-push` (no versionado) línea 23: `REPO="$(dirname "$(git rev-parse --git-common-dir)")"`, y su
+`sh "$REPO/scripts/guardas-push.sh"`. El versionado es `scripts/claude-hooks/pre-push`.
+
+**El síntoma.** Se agregó una guarda a `scripts/guardas-push.sh` en una rama, se verificó a mano (`sh scripts/guardas-push.sh
+origin` la imprime última) y al pushear la rama **la guarda no apareció en la salida del push**. Ninguna otra falló, así que no
+había nada que mirar: simplemente no estaba.
+
+**La causa.** `git rev-parse --git-common-dir` en un worktree devuelve el `.git` del CLON, no el del worktree, así que `REPO` es la
+carpeta del clon y el hook corre **`<clon>/scripts/guardas-push.sh`**, la versión de la rama que el clon tenga checkouteada (acá,
+`main`), con el `cwd` del worktree que se está pusheando. Medido: la lista de `main` termina en la guarda de la referencia de la
+API, que es exactamente la última línea que imprimió el push.
+
+**Las dos consecuencias, y las dos muerden:**
+- una guarda NUEVA no protege a nadie hasta que su rama llega al clon: la rama que la agrega se pushea sin ella;
+- **un clon atrasado corre guardas atrasadas sobre el código de todas las ramas.** El clon compartido de esta máquina estuvo 4.431
+  commits atrás, y los worktrees de ese clon son casi todo el trabajo.
+
+Lo que sí sale del worktree es `antes-de-subir.mjs` (el hook lo invoca sin `$REPO`), así que las etapas de tipos y tests miran el
+código que se sube; las guardas baratas, no.
+
+**Cómo verificarlo en 2 segundos**, antes de creerle a un push: `grep -c <la guarda nueva> "$(dirname "$(git rev-parse
+--git-common-dir)")/scripts/guardas-push.sh"`. Un 0 quiere decir que esa guarda no corrió.
+
+**SIN hacer (hay que decidirlo, no lo decide un chat suelto):** que el hook resuelva las guardas con `git rev-parse
+--show-toplevel` (las del código que se sube) en vez del clon. Es el hook COMPARTIDO de todas las sesiones de esta máquina y no se
+toca sin avisar; además hay un pliegue: el hook no está versionado, así que arreglar la copia de `scripts/claude-hooks/pre-push`
+no cambia nada hasta que alguien la instale.
+
+**Y la consecuencia sobre los ARCHIVOS, no sólo sobre qué versión de las guardas corre**, está en
+[Un worktree nuevo no puede pushear](#un-worktree-nuevo-no-puede-pushear-y-el-pre-push-culpa-a-un-documento-que-está-al-día-31102026):
+el junction a `node_modules` va antes del primer push, y pushear desde el clon para esquivarlo hace
+que las guardas juzguen los archivos atrasados del clon.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
@@ -742,6 +1454,23 @@ nuevas y nada más.
 Y el último argumento es el NOMBRE de la rama, no `HEAD`. Con `HEAD`, el rebase termina en un HEAD suelto
 («updated detached HEAD») y la rama se queda en la punta vieja. Si después se commitea o se pasa «la punta de la
 rama», sale la versión vieja sin ningún error. Pasó el mismo 24/10 y se arregló con `git branch -f <rama> HEAD`.
+
+## Rehacer una rama limpia con `git checkout <rama-vieja> -- .` revierte en silencio lo NUEVO de otro chat (29/10/2026)
+
+**Qué pasó.** AI Avatar tenía una rama con merges de main y de la rama del Web Generator. Para darle a Integración UN commit
+limpio, se armó una rama nueva desde main, se mergeó la punta del Web Generator, y se iba a copiar el árbol entero de la
+rama vieja con `git checkout <rama-vieja> -- .`. Entre una y otra el Web Generator había sumado un commit (su script de la
+landing): la rama vieja tenía la versión ANTERIOR de ese archivo, y el checkout la habría pisado sin conflicto ni aviso. El
+commit «mío» habría deshecho el trabajo de otro chat.
+
+**La regla.** Copiar un ÁRBOL trae todo lo de ese árbol, también lo viejo de los demás. Lo que se copia es el DIFF propio:
+
+```bash
+T0=$(git merge-tree --write-tree <main-de-entonces> <punta-del-otro-de-entonces>)   # la base sobre la que trabajé
+git diff --binary $T0 <rama-vieja> > mio.patch
+git apply --index mio.patch                                                         # en la rama nueva
+git diff <rama-vieja> HEAD --stat     # sólo deben aparecer los archivos que cambió el OTRO después
+```
 
 ## Transferir el repositorio de GitHub DESCONECTA el proyecto de Vercel, y el rol Developer no lo puede reconectar (15/10/2026)
 
@@ -8349,6 +9078,10 @@ eso es una deducción del código, no se midió en Vercel. Pendiente, de ai-chea
   comando los `sh.exe`/`timeout.exe`/`node.exe` que quedaron y matarlos.
 - ⚠️ **Un test suelto se corre con `node --import tsx --test`**, como el `npm test`. Con `--experimental-strip-types` todos
   fallan con `ERR_MODULE_NOT_FOUND` (los imports del repo van sin extensión) y parece un rojo del código.
+  **Lo mismo con `node --test` pelado**, que es el error fácil: Node 24 saca los tipos solo, así que corre y falla igual.
+  Medido el 30/10: `node --test tests/vuelo-mako.test.ts` da `ERR_MODULE_NOT_FOUND` con
+  `url: file:///…/app/_ui/vuelo-mako` y **0/1**; el mismo archivo con `--import tsx` da **6/0**. Un rojo así no es del
+  código ni del test: es el runner, y se reportan seis cosas rotas que estaban bien.
 
 ## Una batería con piso pasa en la tanda compartida y falla SOLA: el rojo de OC1 llegó a main (22/10/2026, Cerebro › Integración)
 
@@ -9134,6 +9867,56 @@ perseguir un rojo de esa lista, correrlo solo y mirar `ℹ fail` (no la lista). 
   un dueño vivo y espera), espera la fila de tipos libre y 5,2 GB, empuja y suelta todo. Con eso la PC llegó a 6,3 GB y las
   tres tandas dieron 0 en ~6 min. Esperar los dos lugares tardó 40 min (una barredora de un chat).
 
+## Las filas de con-turno y el push se esperaban entre sí; un tren con dependencias nuevas no tipa con el node_modules común (29/10/2026, Cerebro e Integración)
+
+**Vive en:** `C:/dev/con-turno.mjs` (fuera del repo; respaldo `con-turno.mjs.antes-29-10`), `scripts/tipos-respaldo-push.mjs`,
+el vigía (`~/.claude/guardia/vigia.ps1`) y `C:/dev/revisiones/subir-tren.mjs` (el guion de subida de Integración).
+
+- **El síntoma:** de 03:11 a 05:25 el push de tren-y y las filas de los chats se trabaron tres veces. Ningún tsc corría y
+  todos salían con 99 «no hubo RAM» o «no se liberó el turno». Detalle: `C:/dev/cerebro-herramientas/tickets/por-repartir.md`,
+  «Para Integración».
+- **La causa: esperar algo CON el turno tomado.** Pasó en tres lugares. con-turno tomaba el lock y su tsc-acotado esperaba la
+  pausa adentro. `tipos-respaldo-push.mjs` tomaba el lock y esperaba hasta 15 min la RAM de la tanda 1. Y la fila de tests
+  esperaba la pausa con el lugar tomado.
+- **Lo arreglado:**
+  - **con-turno (el Cerebro, 04:40 y 05:25):** espera la pausa y la RAM AFUERA del turno. En tipos son el pico (min(heap,
+    3,2 GB)) + 1,3 GB; en tests, sólo la pausa. Si al tomar el turno ya no alcanza, lo suelta. Desde el 29/10 usa UN lugar de
+    tests por defecto.
+  - **El vigía:** corta también los workers de `node --test` y el Chrome `--headless`, con la zona roja en 1,2 GB.
+  - **`tipos-respaldo-push.mjs` (Integración, tren-aa):** espera la RAM de la tanda 1 ANTES de tomar el lock. Lo fija
+    `tests/tipos-respaldo-push.test.ts`.
+- **La regla:** nada espera RAM ni pausa con un lock tomado. Se espera afuera, se toma, y si ya no alcanza se suelta.
+- **⚠️ Un tren que suma dependencias necesita su propio node_modules.** Create sumó BlockNote 0.56 y Mantine 8.3. Los
+  worktrees de C:/dev, y entre ellos `C:/dev/wt-push-q`, tienen `node_modules` como JUNCTION al del clon principal, que no las
+  tiene. Ahí los tests y el tsc del push fallan con «Cannot find module». tren-aa se arma en `C:/dev/wt-push-aa`, con el
+  junction al `node_modules` real de `C:/dev/wt-copywriter-notion`, que sí las instaló. **Después del deploy:** `npm ci` en
+  el clon principal, con la app de Claude tranquila, así los demás worktrees las ven. Un `npm install` sobre un junction
+  común cambia el árbol de TODOS los worktrees.
+- **⚠️ Cortar procesos por nombre de test corta los de otros.** Para matar mi batería del Ops Center filtré por
+  `ops-center-bateria`, y cayó también el proceso de barredoras compartidas de otro chat, que tenía ese test en su lista.
+  Se corta por pid propio, o por la línea entera de con-turno con su cwd.
+
+## El tren grande del 29/10: los VERDE sin barrido dejan los rojos para el tren, y dos tests de ramas distintas se contradicen (29/10/2026, Integración claude3)
+
+**Vive en:** el chequeo del tren en `C:/dev/wt-push-q` (tren-ab, `1cf06eba9`).
+
+- **El síntoma:** para ganar tiempo, el Cerebro pidió que los chats dejaran de correr `tests-afectados` completo y
+  mandaran el VERDE con tsc y sus tests dirigidos. El tren de 12 puntas dio 8 rojos de esas puntas, y cada uno costó una
+  vuelta con su chat o un arreglo de Integración: reportar-a-soporte (Zernio y AI Avatar), condiciones-instagram,
+  mako-no-puedo-falsos (dos veces: CRM fiscal y Pagos), notificaciones (Copywriter), integraciones-vercel (Zernio) y tres del
+  editor (Web Generator).
+- **El diagnóstico obvio («es la combinación de ramas») acertó dos veces de diez.** Las otras ocho daban rojo también en
+  el árbol de su chat, solo: un test que nombra o barre un archivo de la punta, fuera de sus dirigidos. **Regla:** antes de
+  devolver un rojo del tren, correrlo en el árbol del chat; si ahí también falla, es de la punta.
+- **Dos tests de ramas distintas se contradijeron, dos veces.** `keyDeSeguimiento`: `zernio-sin-respaldo` pedía `cfg(ws)` y
+  `condiciones-instagram` la key propia; ganó la decisión de Martín. `enviarAlGrupoMaKo`: `links-con-ws` fija `texto0` y
+  `grupo-ve-el-grupo` fijaba `texto`. Un test de forma (un regex sobre el fuente) fija un nombre que otra rama cambia sin
+  verlo. **Regla:** al resolver un choque de código, correr los tests de forma de los DOS lados que nombran ese archivo
+  (`grep -l <archivo> tests/`).
+- **Tocar el árbol del tren con los tests corriendo ensucia la corrida** (me pasó dos veces: el revert de Reels y un
+  `git rm`). Los tests leen archivos mientras corren. **Regla:** se mezcla entre corridas, nunca durante; lo que llega en
+  el medio espera y entra con los tests de la diferencia (`tests-afectados --base <el último sha probado>`).
+
 ## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
 
 - **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
@@ -9172,3 +9955,411 @@ sacara la regla que vigilaba (no buscaba lo que decía), y un `(…)\b(…)<\/\1
 0x01-0x08 lo delata; el Read del editor no lo muestra. **Regla:** las cadenas con regex van CRUDAS (prefijo `r`), o se
 edita con la herramienta Edit. Y un `find` de un pedazo corto (`const m = /^`) agarra la PRIMERA aparición: así se
 reemplazó media hoja de un archivo. Se ancla con el nombre de la función, y `git diff --stat` antes de seguir.
+
+## tsc-acotado: el código 134 no siempre es el vigía de RAM, también es el heap de 2.560 MB (29/10/2026, claude3)
+
+**Vive en:** `scripts/tsc-acotado.mjs` (`--heap`, default 2560).
+
+Tres veces seguidas «NO SE PUDO CHEQUEAR (código 134, ~1.360 bytes de salida)» sobre 14 archivos que tocaban
+`app/planes/Vitrina.tsx` y `app/vsl/PreciosLanding.tsx`. El mensaje sugiere el vigía de RAM, pero el vigía mata con
+código 1 y CERO salida; 134 con texto es V8 abortando por heap: el grafo de esas pantallas no entra en 2.560 MB. Con
+`--heap=3584` (y la RAM libre para darlo: con-turno espera 3,8 GB) corrió y dio los 14 errores conocidos de `_opencut`.
+**Regla:** 134 con salida → subir `--heap`; 1 sin salida → esperar turno o cerrar chats.
+
+## La síntesis concluyó «AI Avatar no se investigó»: la investigación le llegó cortada a 140 mil caracteres (29/10/2026)
+
+- **Síntoma:** la primera síntesis del plan de plantillas dijo que AI Avatar y Offer «no se investigaron» e Image «a
+  medias», y armó esas partes con el código y con propuestas propias. La investigación de las cinco tabs sí estaba hecha.
+- **Causa:** el script del workflow le pasó al sintetizador los resultados del fan-out concatenados y cortados con
+  `slice(0, 140000)`. Lo de AI Avatar y Offer quedó después del corte. No hubo error ni aviso: el sintetizador razonó
+  bien sobre un insumo trunco.
+- **El diagnóstico obvio era el equivocado:** «el agente de AI Avatar falló». Los resultados de los cinco agentes
+  estaban completos en disco.
+- **Regla:** los resultados de un fan-out se le pasan al sintetizador **por archivo o por tab**, nunca cortados con
+  `slice`. Si hay que achicar, se parte en una síntesis por tab y una de unión. El sintetizador dice qué partes leyó, y
+  una parte que «no está» se verifica en el disco antes de escribir «no se investigó».
+
+**Vive en:** los scripts de Workflow del Cerebro (fuera del repo) · el plan resultante, docs/plantillas-reales/README.md
+
+## Leer una licencia sin equivocarse: las herramientas fallan en silencio (29/10/2026)
+
+- **Síntoma:** licencias que «no existían» o que «eran MIT» sin serlo, y páginas de producto que no se pudieron ver.
+- **Causa:**
+  - WebFetch falla con github.com;
+  - un repo puede decir «MIT» en el README sin tener LICENSE (fal-ai-community/skills: `main/LICENSE` y la API de
+    licencias de GitHub dieron 404);
+  - Canva y Gamma dan 403;
+  - Kapwing muestra un contador «0+» por un error de carga suyo;
+  - la URL de plantillas de Adobe Express, `notion.com/templates/offer-builder` y
+    `pandadoc.com/coaching-proposal-template/` dan 404.
+- **Regla:** la licencia se lee en `raw.githubusercontent.com/<dueño>/<repo>/main/LICENSE`. Con un 404 se prueba
+  `master`, `LICENSE.md` y `api.github.com/repos/<dueño>/<repo>/license` antes de concluir «sin licencia». Un README
+  que dice «MIT» no alcanza. Lo que da 403 se mira en el navegador o queda «sin verificar», nunca «verificado».
+
+**Vive en:** el método de investigación (docs/plantillas-reales/README.md, sección 5)
+
+## Leer un Gmail con el conector oficial: la búsqueda no trae fechas (30/10/2026)
+
+- **Síntoma:** al cosechar el Gmail de Martín (40 remitentes, unos 4.300 emails), `search_threads` devolvió los hilos sin fecha y
+  sin resumen, aunque su descripción dice que la vista mínima trae `date` y `snippet`.
+- **Causa:** el conector (gmailmcp.googleapis.com) no llena esos campos en la búsqueda; sólo `get_thread` trae el contenido.
+- **La regla:** para ordenar o filtrar por fecha sin abrir cada hilo, la fecha sale del ID del hilo: los primeros 11 dígitos
+  hexadecimales son milisegundos desde 1970 (`int(id, 16) >> 20`), y coinciden al segundo con la fecha real.
+- **Además:** el conector conectado a la cuenta de claude.ai queda «pending» en la sesión hasta el turno siguiente; sus herramientas
+  aparecen recién ahí (ver session_connectors_status). Y sólo se usan las de lectura: el conector también trae enviar, reenviar,
+  etiquetar y borrar.
+- **Vive en:** las herramientas de la sesión del Cerebro (no es código de MaKo). La cosecha: docs/conocimiento/patrones-email.md.
+- **La primera pasada se quedó corta y nadie lo vio (30/10):** el guion del inventario pedía «hasta 40 remitentes». Martín
+  extrañó a los que conocía, y dos de los tres que nombró ya estaban, pero escondidos: uno escribe desde el dominio de su
+  marca, sin su nombre en el remitente, y otra tiene además un newsletter en otra plataforma, con otro nombre y otro dominio.
+  **La regla:** el inventario no lleva tope (se busca hasta que dos rondas seguidas no traen remitentes nuevos), y a cada
+  persona se la busca por su nombre, por su marca y por el nombre de su newsletter, no sólo por la dirección. La segunda
+  pasada llevó la cosecha a 70 remitentes y unos 5.050 emails.
+- **Quedó sin ficha:** los posteos de comunidades (Skool) de dos o tres autores que ya tienen ficha por sus emails, un segundo
+  dominio de un autor en inglés (~120 emails) y la «sección B» del primer inventario (marketing que sirve menos). La lista
+  está en `remitentes-lista.md`, en el scratchpad de la sesión del Cerebro 4d1a09d4.
+
+## Un número por migración, y el push que falla por RAM le regala la RAM a los demás (30/10/2026, Integración)
+
+- **Ninguna guarda veía dos migraciones con el mismo número.** El 0340 doble (`leads_papelera` en main e
+  `image_editor_propuestas` en `motion-imagen-2610`) lo vio un chat al leerlo. Ahora lo frena
+  `tests/migraciones-numero-unico.test.ts`, que corre sobre el árbol del TREN: ve el choque entre una rama y main, o entre dos
+  ramas del mismo tren. Los 13 repetidos viejos (de la 0024 a la 0223) ya están aplicados con esos nombres y quedan congelados.
+  **Regla:** el número lo confirma el tren, no el chat que eligió «el próximo libre» esa mañana.
+- ⚠️ **Un push que falla por RAM suelta los lugares y la pausa, y en ese segundo los pesados de los chats toman la memoria.**
+  - El 30/10 a las 00:54 el tren-af se rindió con 1,58 GB libres, porque las tandas piden 5,2. En el acto arrancaron un tsc de
+    2 GB y tests de otros dos chats: quedaron 1,24 GB.
+  - El reintento con `SUBIR_UN_LUGAR=1` se rindió a los 2 minutos sin lugar de tests.
+  - Lo que sirvió: `subir-tren.mjs` SIN un lugar (espera los dos), con la pausa prendida. Los lugares tardaron 2 minutos, y
+    con lo que estaba corriendo terminado hubo 5,68 GB. Subió a las 01:11.
+  - **Regla:** cuando el push falla por RAM, el reintento va enseguida y esperando los dos lugares. El Cerebro frena sus
+    workflows mientras tanto.
+  - **Sin hacer:** que `subir-tren.mjs` no suelte la pausa cuando el push falla por RAM.
+
+## Dos «rojos en `main` sin dueño» que ya estaban arreglados: la anotación le sobrevivió al bug (30/10/2026)
+
+**Vive en:** `docs/pendientes.md` → «Rojos en `main` sin dueño» · `tests/vuelo-mako.test.ts` ·
+`tests/dashboard-pedidos-chat.test.ts` · `app/automations/ChatMako.tsx` · `app/admin/operaciones/PanelChat.tsx` ·
+`app/dashboard/PanelEditarMako.tsx`. Hermano del de más arriba, «Un rojo del tren que ya estaba en main (26/10)»:
+ahí el rojo era viejo y real; acá la anotación es vieja y el rojo ya no existe.
+
+- **Síntoma:** `docs/pendientes.md` listaba tres rojos de `main` «sin dueño», y se los culpaba de que cada corrida de
+  Actions fallara por algo ya sabido (~15 min pagos por corrida). Sobre `origin/main` los tres dan **verde**: 6/0, 10/0 y 13/0.
+- **Causa real: la anotación le sobrevivió al bug por 95 minutos.** La lista la escribió el relevo `281e4db0e` el 24/10 a
+  las **19:23**. Los dos primeros los arregló claude5 el mismo día a las **20:58** (`85e4cd7db`) y **20:59** (`583c29434`),
+  cada uno con un commit que se llama «Rojo de main: …». `docs/pendientes.md` se editó seis veces más entre el 25 y el
+  29/10 (hasta `bf7e86c27`) y nadie borró la sección.
+- **Por qué un rojo se queda sin dueño: porque ya no existe.** Nadie adopta un rojo que no puede reproducir. El que lo
+  intenta lo corre, lo ve verde, no entiende y lo deja donde estaba. Una lista de rojos no caduca sola.
+- **El diagnóstico obvio era el equivocado, dos veces:**
+  - «`ChatMako.tsx` perdió la criatura al unificar los chats» se lee como que el código perdió algo que debía conservar.
+    No lo perdió: la criatura **se mudó a propósito** a la cabecera única (`PanelChat.tsx`, adentro de
+    `[data-chat-sidebar]`, con `role="img"`) en `d85c86611`, que es el pedido de Martín «Tienes que UNIFICAR los chats con
+    MaKo». Devolvérsela a `ChatMako.tsx` habría des-unificado el chat **y puesto el test en rojo**: hoy el test exige que
+    `ChatMako` NO le pase `onMuneco` (con él la cabecera dibuja el botón «Cambiar la criatura», sin `role="img"` ni
+    «MaKo», y el vuelo deja de llegar). El selector del vuelo (`DESTINOS_CASA`) nunca se rompió.
+  - Con el test y el código los dos en su lugar, el reflejo es aflojar el test para pintar el tablero. Los dos arreglos del
+    24/10 hicieron lo contrario: lo **apretaron**, sumando guardas negativas — `assert.doesNotMatch` sobre `onMuneco`, y
+    sobre `TAB_DEL_INFORME[informe]`, que para el informe de una automatización («Métricas» de Automations) daba
+    `undefined`. Comprobado rompiendo el código el 30/10: 6/0 → **5/1** y 10/0 → **9/1**, los mismos números que cada
+    commit había anotado en su cabecera de ROTURAS.
+- **Y el clon compartido fabricaba el rojo.** El clon de `Escritorio/dashboard-marketing-main/dashboard-marketing` estaba
+  en `main` del 23/10: 10 commits adelante y **4.431 atrás** de `origin/main`. Ahí `tests/vuelo-mako.test.ts` ni existe
+  («Could not find»), y los cinco archivos de este hallazgo difieren. Un rojo medido en un checkout atrasado es un rojo
+  inventado: el trabajo va en un worktree desde `origin/main` (`git worktree add -b <rama> /c/dev/<x> origin/main`, con
+  `node_modules` por `mklink /J`, que en Git Bash `ln -s` copia).
+- **Regla:** antes de tomar un rojo de una lista, correlo sobre `origin/main` recién traído y mirar si alguien ya lo cerró
+  después de la fecha de la nota (`git log --oneline --since=<fecha de la nota> -- <el test> <el fuente>`; acá los dos
+  commits se llaman «Rojo de main: …»). Y quien cierra un rojo borra su línea de `docs/pendientes.md` **en el mismo
+  commit**: esa regla ya está escrita en ese documento («Al cerrar uno, borralo de acá en el mismo commit») y es
+  justamente la que falló.
+- **Sin hacer:** el tercero, `tests/paso-ia.test.ts:135` (`lib/nutricion.ts`), **también da verde (13/0)** sobre
+  `origin/main`. Tiene dueño, así que su línea quedó donde estaba para que la cierre él.
+
+## `tsc-acotado` muere por RAM en los `.tsx` grandes del Dashboard, y eso NO es verde (31/10/2026)
+
+**El síntoma.** `node scripts/tsc-acotado.mjs app/dashboard/Grafico.tsx` termina con
+`NO SE PUDO CHEQUEAR (código 134)` y **exit 99**, con 1,4–1,8 GB libres. Código 134 es `SIGABRT`: el
+proceso de `tsc` se queda sin memoria antes de terminar de armar el grafo de tipos.
+
+**Lo que sí anduvo, en la misma máquina y en el mismo minuto:** los archivos de `lib/` y los tests, de a
+uno o de a dos (`lib/graficos-catalogo.ts`, `lib/graficos-plantillas.ts`, `app/dashboard/editor-css.ts`,
+`app/_ui/tokens.ts`, los dos tests nuevos) dan `✓` en segundos. Los que no se pudieron chequear nunca
+fueron `app/dashboard/Grafico.tsx` (1.100 líneas, arrastra recharts entero y el catálogo),
+`app/dashboard/EditorInforme.tsx`, `app/dashboard/Cabecera.tsx` y `app/dashboard/PanelEstilo.tsx`.
+⚠️ **Achicar la lista a UN archivo no alcanza** si ese archivo es uno de ésos: el costo es del grafo que
+arrastra, no de la cantidad de archivos de la lista.
+
+**La regla:** 99 no es verde y no se reporta como «sin tipos» — se dice **«tipos: los corre Actions»**,
+que corre en Linux y con memoria. Y antes de darlo por perdido conviene PARTIR la lista: un 99 de seis
+archivos puede ser un ✓ de cinco más un 99 del pesado, que es información bastante distinta.
+
+**El reemplazo barato mientras tanto, que caza la clase de error que importa al editar a ciegas:** un
+parseo sintáctico con `ts.createSourceFile(...).parseDiagnostics`. No valida tipos, es casi gratis en
+memoria, y encuentra el paréntesis o el backtick que rompe el archivo entero (el caso real está en
+[hallazgos-graficos.md](hallazgos-graficos.md): un backtick adentro del CSS de `editor-css.ts`).
+
+**Y para VER una pantalla sin levantar la app:** `next dev` no entra con esa RAM. El panel del navegador
+de Claude **no abre `file://` ni un `localhost` nuestro** (ni un artifact privado, si esa sesión del
+panel no está logueada en claude.ai), pero **Chrome headless sí**:
+`chrome.exe --headless --disable-gpu --screenshot=<png> file:///<html>` rinde un arnés estático con los
+tokens reales de `globals.css` en un proceso corto, y el PNG se mira con Read. Sirve para verificar un
+patrón SVG, un contraste o una fila de tarjetas. **No reemplaza ver la app**, y conviene decirlo así.
+
+## El tren tiene UN carril: pushear un coche nuevo CANCELA el run del anterior (31/10/2026)
+
+**Vive en:** `.github/workflows/integracion.yml` (`concurrency: {group: integracion, cancel-in-progress: true}`).
+
+**El síntoma que no se ve.** No falla nada: el run viejo pasa a `cancelled` y empieza uno nuevo sobre la punta. La regla es
+correcta —la punta contiene a lo anterior, así no se gastan minutos en commits que ya quedaron atrás— y está escrita en el
+encabezado del flujo. Lo que no estaba escrito es su consecuencia cuando lo que viaja es **urgente**.
+
+**La consecuencia.** Si un arreglo urgente va en un coche chico y encima se pushea un coche grande, el arreglo deja de tener
+su propio veredicto: ahora depende de que el coche grande salga verde. Si el grande sale rojo, `main` no avanza y el arreglo
+urgente sigue sin desplegar mientras se arregla un rojo que no tiene nada que ver. **Pasó el 31/10 con la reparación del aviso
+de Creem** (la cuenta ya conectada rebotaba todos los webhooks con 401): estaba corriendo sola en `a4687b351` y había un coche
+de 19 commits listo. Se retuvo el grande hasta que el chico aterrizó.
+
+**Los números, para que la decisión no sea a ojo** (runs de `integracion`, 31/10): un verde completo tarda **31 y 35 minutos**;
+un rojo de guardas o de tests citados muere a los **3-4 minutos**; el rojo de tests de verdad tardó 23. O sea: esperar a que
+aterrice un coche chico cuesta media hora como máximo y se sabe de antemano. Pisarlo cuesta un rojo ajeno de duración
+desconocida con producción esperando.
+
+**La regla:** cuando el coche que está corriendo lleva algo que producción necesita YA, no se pushea encima. Se mira cuánto
+le falta (`run_started_at` + 35 min es el techo conocido), se avisa a quien armó el coche grande, y se sube después. Al
+revés también vale: si lo urgente todavía no salió, conviene que viaje en el coche MÁS CHICO posible, no sumarlo al tren.
+
+## Comprobar que un deploy SALIÓ: la huella sirve, pero sólo de la página que el cambio TOCA (01/11/2026)
+
+**Vive en:** el vigía del Cerebro (`vigia-deploy.sh` en el scratchpad de la sesión) y en cualquiera que quiera
+saber si Vercel publicó.
+
+**Por qué hace falta una huella.** `main` avanzando no es un deploy, y la app no expone su commit: el sha vive
+en `VERCEL_GIT_COMMIT_SHA`, que sólo se lee del lado del servidor (`lib/tickets-cierre.ts:205`), y el
+`x-vercel-id` del encabezado es por PEDIDO, no por despliegue. Lo que sí cambia con cada build son los nombres
+con hash de los chunks de `/_next/static/chunks/`. La huella es el md5 de esa lista.
+
+**La trampa, y me la comí dos veces la misma noche.** La lista de chunks es **la de ESA página**. El 31/10 el
+vigía estaba apuntado a `/planes/pro` y el cambio que esperaba era el espaciado de los kanban, que toca
+`app/crm/`, `app/plan/board/` y `app/customer-success/`. Ninguno de esos archivos entra en `/planes/pro`: la
+huella quedó idéntica (`8297d6f02861` antes y después), el vigía esperó sus 30 minutos y **se quedó mudo**.
+Mudo, no equivocado — que es la peor forma, porque «no avisó» se lee como «todavía no pasó».
+
+**La regla:** la huella se toma de una página que el cambio TOQUE. Los tokens de `globals.css` tocan todas y por
+eso ahí funcionó; un cambio de una tab sólo toca la suya, y si esa tab pide sesión, no hay página pública que
+sirva de testigo y hay que comprobarlo de otra forma. El vigía ahora toma la ruta como segundo argumento.
+
+**Es la misma familia que la regla de `AGENTS.md`** («una medición que mide OTRA COSA se ve idéntica a una que
+pasa»), con el agravante de que acá el instrumento no devuelve un número equivocado: no devuelve nada.
+
+## `tsc-acotado` muere con 134 aunque haya RAM libre: era el tope del proceso (1/11/2026)
+
+**Síntoma:** «NO SE PUDO CHEQUEAR (código 134)», salida 99, repetido. Se leyó siempre como falta de memoria de la máquina, y se esperó a que se liberara.
+
+- ⚠️ **El diagnóstico obvio era el equivocado.** Murió también con 5 y 6 GB libres, porque el default del proceso es 2,5 GB (`--heap`, scripts/tsc-acotado.mjs). Con 67 archivos no alcanza. **`--heap=4096` pasó limpio.** Explica una pila de «99» anotados como RAM de la PC.
+- **Con 134, antes de esperar: subir `--heap`.** Con la máquina en menos de 5 GB libres sí es RAM, y ahí no sirve.
+- **El arnés de esbuild no reemplaza este chequeo:** borra los tipos sin mirarlos. Un componente con el mismo nombre que un tipo importado (`OrdenSpy`) dio la animación andando perfecta y un rojo de tipos.
+
+**Y lo de correr «los tests de lo que toqué»:** no alcanza cuando se tocan archivos que otros tests fijan por su forma. `tests/chat-ia.test.ts` exige que la elección de IA vaya pegada al turno, y una línea en el medio lo rompió; ninguno de los 210 elegidos a mano lo miraba. Antes de pasar una punta va la compuerta, no una lista hecha a ojo.
+---
+
+## Matar la tarea de Bash NO mata el push, y el candado se queda tomado (1/11/2026)
+
+**El síntoma.** `git push origin HEAD:integracion` se pasó de los 120 s del tool y se fue a background. Diez
+minutos después `integracion` no se había movido y el archivo de salida tenía **0 bytes**. Lo di por colgado,
+lo maté y lo relancé. Dos veces. A la tercera el log dijo la verdad:
+
+```
+candado: 2 delante tuyo · lo tiene «wt-push-q · tren-dash (claude1) antes-de-subir --sin-condiciones --cortar
+         — 01/11 12:07» hace 15 min · llevo 0 min
+```
+
+**Hacía fila detrás de mí mismo.**
+
+**Las tres trampas, encadenadas.**
+
+1. **El push a `integracion` no es un push: es la compuerta local.** `.git/hooks/pre-push` corre
+   `scripts/antes-de-subir.mjs` (16 guardas + tsc acotado + tests afectados) ANTES de mandar un byte. Con 2,5 GB
+   libres eso pagina y tarda bastante más que los 120 s del tool. **No está colgado: está trabajando.**
+2. **La salida no aparece hasta el final si hay un pipe.** `git push ... | tail -6` guarda todo en el buffer de
+   `tail` hasta que el comando termina, asi que el archivo de la tarea mide 0 bytes mientras la compuerta corre.
+   Un 0 bytes se lee igual que un cuelgue. Se redirige con `>` a un archivo y se mira ahi.
+3. **Matar la tarea de Bash deja al hijo vivo, y el hijo es el que tiene el candado.** `antes-de-subir.mjs`
+   sigue corriendo huerfano y no suelta `candado-pesado.mjs`. Cada relanzamiento suma un proceso mas a la fila
+   detras del huerfano. Es la misma familia que «Monitor no mata el proceso».
+
+**La regla que queda.** Antes de dar por muerto un push a `integracion`: mirar si el proceso sigue vivo, y de
+quien es hijo.
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='node.exe'" |
+  Where-Object { $_.CommandLine -like '*antes-de-subir*' } |
+  ForEach-Object { $p = $_.ParentProcessId
+    $n = (Get-Process -Id $p -ErrorAction SilentlyContinue).ProcessName
+    "{0} padre={1} ({2}) {3}" -f $_.ProcessId, $p, $(if ($n) { $n } else { 'MUERTO' }), $_.CreationDate }
+```
+
+Si el padre existe, **el push esta vivo y hay que esperarlo**. Si dice `MUERTO`, es un huerfano que retiene el
+candado y se mata **por PID** (nunca por nombre: hay otros `node` legitimos, incluidos los hijos del push que SI
+sirve). Y nunca se relanza un push del mismo commit: el segundo quema la compuerta entera para despues no
+empujar nada, con el candado en la mano y los demas chats detras.
+
+**Y el vigia que mira ese push tiene su propia trampa, de la misma familia.** `head_sha=` de la API de
+Actions quiere los **40 caracteres**: con un sha abreviado devuelve `workflow_runs: []`, que no es un error
+sino una lista vacia, y el vigia la lee como «SIN RUN para esta cabeza». Un run que SI esta corriendo parece
+no existir, y el tren queda mudo sin que nadie se entere. `scripts`/`vigia-run.sh` ahora expande cualquier sha
+corto con `git rev-parse` y, si no puede, **corta gritando** (`SHA INSERVIBLE`, salida 4) en vez de callarse.
+Probado rompiendolo: con `deadbeef` grita, con 40 ceros dice SIN RUN, y con el sha corto de verdad espera.
+
+---
+
+## Un error de tipos no se ve hasta 25 minutos después, y pushear tres veces no adelanta: reinicia el reloj (2/11/2026)
+
+**El síntoma.** Rediseño terminado, cinco suites de tests en verde a mano, tres pushes seguidos
+«para que Martín lo viera cuanto antes». A los 23 minutos Actions se puso **roja** y `main` nunca
+avanzó. Nada de lo que corrí acá lo podía haber visto.
+
+**Las tres causas, que se suman:**
+
+1. **El tsc NO corre en la notebook.** Desde el 15/10/2026 vive en Actions: pide 3-4 GB (en CI el
+   pico fue 4.049 MB sobre 9.694 archivos) y la máquina ronda los 3 GB libres. O sea: **un error de
+   tipos es invisible localmente**, y `next.config.ts` tiene `ignoreBuildErrors: true`, así que
+   tampoco lo caza un build. Los dos que salieron eran de una línea cada uno —un `number` donde iba
+   una medida CSS en texto, y un `string | null` contra un `string | undefined`— y ninguno rompía
+   una pantalla.
+2. **`concurrency: group: integracion` cancela el run viejo con cada push.** Es correcto (se chequea
+   sólo el último commit), pero significa que **pushear de a tres seguidos no adelanta nada: pone el
+   reloj en cero**. Acá: #324 murió a los 13 min, #325 a los 2, y recién #326 llegó a terminar. Se
+   perdieron ~15 minutos de cola por no esperar.
+3. **Un run verde tarda 26-36 minutos.** No es una espera de dos minutos: es el ciclo entero.
+
+**La regla que queda:** cuando el push es para que alguien VEA algo, **se junta todo en un commit y
+se pushea UNA vez**. Y entre el push y el deploy hay media hora, así que lo que se muestra mientras
+tanto no puede ser «está en producción»: es la vista previa local, dicho como tal.
+
+**Y la segunda regla, que es la que ahorra el ciclo entero:** antes de pushear, releer los tipos de
+lo nuevo a mano, sobre todo **las props que se pasan a componentes de `app/_ui`** —ahí es donde una
+medida se declara `string` y uno pasa un número— y **todo lo que viene de `lib/` devolviendo `null`**
+contra una prop opcional, que en TS es `undefined` y NO acepta `null`. Son los dos moldes exactos de
+los dos errores.
+
+**Dónde mirar cuando pasa:** `github.com/koncke/mako/actions/workflows/integracion.yml`. El resumen
+del job dice «Tipos: ERRORES DE TIPOS» con el conteo, y las anotaciones traen archivo y línea.
+
+**Vive en:** .github/workflows/integracion.yml · scripts/tipos-por-tandas.mjs ·
+.git/hooks/pre-push (el push a `main` corre el tsc ENTERO local: pide 6,3 GB y se cuelga; el camino
+es `integracion`, y `MAKO_SIN_ANTES_DE_SUBIR=1` sólo vale para esa rama)
+
+## «Limpio» no es «a salvo»: un worktree sin subir se lee como limpio (2/11/2026)
+
+**El síntoma:** la sesión de los 20 dashboards avisó que su rama `dashboard-denso-0111` —3.430
+líneas, 5 de 20 hojas hechas— vivía SÓLO en el worktree `C:/dev/wt-dashboard-3110`, sin upstream y
+sin estar en ningún remoto. El worktree estaba **limpio**, porque el commit ya se había hecho.
+
+**La causa real:** la regla de barrido de worktrees es «sólo los limpios, subidos y sin uso 24 h»,
+pero «limpio» se verifica con `git status` y «subido» NO se verifica con nada parecido. Un worktree
+que commiteó y no pusheó da `git status` vacío: **pasa el chequeo de limpio y pierde el trabajo.**
+Los dos adjetivos suenan al mismo chequeo y son dos chequeos distintos.
+
+**La regla que queda:** antes de borrar un worktree hay que mirar si su rama existe en un REMOTO
+(`git -C <wt> rev-parse --verify origin/<rama>`, o que la rama tenga upstream y no esté adelante),
+no si el working tree está limpio. Un commit local no es un respaldo.
+
+**Y el dato que lo hace barato de arreglar:** subir una rama que NO es `integracion` **no dispara
+Actions**. `.github/workflows/integracion.yml:28` escucha `branches: [integracion]` y nada más, así
+que `git push -u origin <rama>` no gasta minutos ni cancela el run en curso. O sea que poner a salvo
+el trabajo de otro chat es gratis: no hay motivo para dejarlo sólo en un disco.
+
+**Vive en:** la regla de barrido de worktrees · .github/workflows/integracion.yml:28
+
+## Un vigía sobre git NO puede ver un rojo de Actions: sólo la ausencia de verde (2/11/2026)
+
+**El síntoma, dos veces en la misma noche:** armé un Monitor para avisar cuando un run cerrara, y
+las dos veces **Martín se enteró del rojo antes que yo**. La segunda me lo dijo así: «falló en
+GitHub, siempre deberías saber cuándo falla».
+
+**La causa real, y es estructural:** el watch miraba `origin/main`. Actions avanza `main` SÓLO
+cuando el run sale verde; cuando sale rojo **no escribe nada en git**. O sea que el vigía no
+distingue «rojo» de «todavía corriendo»: ve lo mismo en los dos casos. Un watch construido sobre git
+puede confirmar el éxito y **nunca** puede detectar el fallo.
+
+⚠️ **Y el latido que le puse encima no alcanzaba**, porque lo redacté como una duda («o tarda, o
+salió rojo») y lo puse a los 18 minutos. Con los tiempos medidos de este repo eso es tarde:
+
+| | cuánto tarda, medido el 2/11 |
+|---|---|
+| un run que **falla** | **5–12 min** (#360: 7m40s · #362: 5m07s · #363: ~11m · #364 rojo: 5m) |
+| un run que sale **verde** | **25–50 min**, y uno pasó la hora |
+
+**Entonces el silencio a los 12 minutos ya es sospechoso, y a los 15 es casi seguro un rojo.**
+
+### La regla que queda
+
+1. **Después de cada push a `integracion`, ir a mirar el run a los ~8 minutos.** No delegar la
+   PRIMERA mirada a un watch que no puede ver fallos.
+2. El latido del Monitor va **cada 6 minutos**, no cada 18, y su texto dice **«ir a mirar AHORA»**,
+   no «o tarda, o salió rojo». Un evento que suena a duda no mueve a nadie.
+3. **Dónde mirar:** `github.com/koncke/mako/actions/workflows/integracion.yml` → el run → el **LOG
+   DEL JOB**, línea **«Rojos:»**. El resumen del run sólo dice `afectados: NNN s (código 1)` y no
+   nombra ningún test.
+4. **Lo que lo arreglaría de verdad** es leer la conclusión del run, no el estado de git. Hoy no se
+   puede desde bash: **`gh` no está instalado en esta máquina** (verificado: no está en el PATH de
+   bash ni de PowerShell, y no hay `~/.config/gh`). Con `gh` instalado, el watch correcto es
+   `gh run watch` o un poll de `gh run list --json conclusion`, que sí ve el rojo.
+
+**Vive en:** la forma de armar un Monitor sobre Actions · .github/workflows/integracion.yml
+
+## El rojo ahora se anuncia EN GIT, igual que el verde (2/11/2026)
+
+**El síntoma, tres veces en una noche:** Martín se enteró de que Actions había fallado antes que
+yo. La tercera me lo dijo así: «volvió a fallar y no te diste cuenta… haz que no vuelva a pasar,
+crea un proceso para ver cuándo falla».
+
+**La causa real era una ASIMETRÍA, no un descuido:** cuando el run sale VERDE escribe en git —avanza
+`main`—; cuando sale ROJO no escribía nada. Cualquier vigía hecho con git veía **exactamente lo
+mismo** en «rojo» que en «todavía corriendo». Y git es lo único que hay acá: **`gh` no está
+instalado en esta máquina** (verificado: ni en el PATH de bash ni en el de PowerShell, y no hay
+`~/.config/gh`).
+
+⚠️ **Intenté taparlo con una heurística de tiempos y me salió mal, que es el hallazgo que más
+vale.** Medí cuatro rojos, vi que morían entre los 5 y los 12 minutos, y escribí la regla «si a los
+12 minutos sigue callado, probablemente esté verde». Con esa regla **ensanché el vigía a 48 minutos
+justo antes de que ese mismo run muriera a los ~15**. Cuatro datos no son una distribución, y una
+heurística sobre el síntoma no arregla una asimetría.
+
+**El arreglo, en el workflow:** un paso con `if: failure()` que pushea la cabeza que falló a la rama
+`ci-ultimo-rojo`. El rojo deja su propia marca en el remoto y **un `git fetch` la ve**.
+
+```
+git fetch origin --quiet
+git rev-parse --verify origin/ci-ultimo-rojo   # ¿cuál fue el último commit que puso rojo a Actions?
+```
+
+· Es una RAMA y no un tag: se pisa sola en cada rojo y siempre dice el último, mientras que los tags
+  hay que borrarlos a mano y se acumulan.
+· Apunta al COMMIT que falló, así que `git log origin/ci-ultimo-rojo -1` dice qué se estaba subiendo.
+· `if: failure()` y no `always()`: con `always()` se movería también en los verdes y volveríamos a
+  no poder distinguirlos.
+
+**Cómo queda el vigía, ahora que sí hay señal:** compara las dos cosas en la misma vuelta —si `main`
+alcanzó la cabeza, es VERDE; si `ci-ultimo-rojo` apunta a la cabeza, es ROJO— y no hace falta
+adivinar nada con el reloj.
+
+**Vive en:** .github/workflows/integracion.yml (paso «Dejar la marca del rojo en el remoto»)
+
+## El deploy roto del 2-3/11: las transcripciones viajaban en TODAS las funciones (3/11/2026, Cerebro claude2)
+
+**El síntoma:** 10 deploys seguidos en ERROR durante ~6 h, con Actions en verde. Primero «`admin/docs` is 274 MB, exceeds 250 MB»; con `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` el error cambió a ENOSPC en «Deploying outputs...» (salida de 2001 MB).
+
+**El diagnóstico obvio era el equivocado, DOS veces.** Se culpó al catálogo de cursos (`be38d9156`) y después a `onnxruntime-node` (`bc7503e89`). Los dos arreglos eran reales y ninguno movió el número: `/admin/docs` siguió en 274 MB.
+
+**La causa, medida con `VERCEL_ANALYZE_BUILD_OUTPUT=1`:** hasta `/api/promo-entrada` y el middleware pesaban **217 MB**. `lib/cerebro-referente-server.ts` (2/11) lee `public/cono-tx/<id>.json` con `readFile(path.join(process.cwd(), "public", "cono-tx", …))`, y el trazado metió la carpeta ENTERA —**164 MB en 9.719 archivos**— en cada función. El reporte no la lista como «large dependency», porque cada archivo pesa menos de 1 MB.
+
+**El arreglo:** el primer intento (`a5782a860`) fue `./public/cono-tx/**` en `outputFileTracingExcludes`, y **NO ANDUVO**: Turbopack ignora esa exclusión para lo que traza él, y las funciones siguieron con la carpeta. Lo que sí resuelve (`730e1b44e`) es que `textoDeClase` no toque fs: pide `APP_BASE_URL/cono-tx/<id>.json` al CDN. Sin `readFile`, no hay nada que trazar.
+
+**Las reglas que quedan:**
+- **Desde el servidor no se lee `public/` con fs**: lo que vive en `public/` se pide al CDN. Un `readFile` con ruta armada en tiempo de ejecución mete la carpeta entera en el bundle, y **con Turbopack `outputFileTracingExcludes` no lo saca**.
+- **El primer paso ante un deploy roto es `VERCEL_ANALYZE_BUILD_OUTPUT=1`** (ya quedó puesta): dice el peso por función y por dependencia, y evita perseguir hipótesis.
+- **Si una función mínima pesa más de 100 MB, el problema es compartido**, no de la ruta que nombra el error.
+- `VERCEL_SUPPORT_LARGE_FUNCTIONS` quedó **apagada**: tapaba el tope, pero llenaba el disco del contenedor.
+- **Para que salga rápido, push directo a `main`:** Vercel construye en el acto. `integracion` pasa primero por los ~40 min de Actions.

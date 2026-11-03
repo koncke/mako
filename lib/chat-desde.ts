@@ -11,7 +11,7 @@
 // SIN imports de valores: lo usan la pantalla, la ruta y los tests.
 
 export type ModoChat = 'analizar' | 'editar';
-export type TipoEntidad = 'lead' | 'automatizacion' | 'hoja' | 'oferta' | 'landing' | 'campana' | 'tarea' | 'proyecto';
+export type TipoEntidad = 'lead' | 'automatizacion' | 'hoja' | 'oferta' | 'landing' | 'campana' | 'tarea' | 'proyecto' | 'anuncio';
 export type EntidadChat = { tipo: TipoEntidad; id: string | number; titulo: string };
 /**
  * `pantalla` (24/10/2026, Martín: «que la criatura vea la hoja»): lo que la tab tiene dibujado, en texto, para que MaKo hable
@@ -34,6 +34,9 @@ export const ENTIDADES: Readonly<Record<TipoEntidad, { nombre: string; param: st
   // mete solo; el system dice «usa ese id» y el modelo lo pasa. Un cliente de Clientes es un lead: va como 'lead'.
   tarea: { nombre: 'la tarea', param: null },
   proyecto: { nombre: 'el proyecto', param: null },
+  // El anuncio abierto en el estudio de Video Generator (27/10/2026): sus herramientas lo nombran `planId`
+  // (lib/api-mako/areas/video.def.ts y video-estudio.def.ts), así que «filmá la toma 2» toma el abierto sin buscarlo.
+  anuncio: { nombre: 'el anuncio', param: 'planId' },
 };
 
 /** Las que se nombran por un número (su id en la base). */

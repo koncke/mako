@@ -87,8 +87,10 @@ export function cuerpoAnuncioEnConjunto(x: {
   if (c.lead_form_id) cuerpo.leadGenFormId = c.lead_form_id;
   if (x.pageId) cuerpo.pageId = x.pageId;
   if (x.instagramAccountId) cuerpo.instagramAccountId = x.instagramAccountId;
-  if (c.media_type === 'video' && c.video_id) {
-    const video: Record<string, unknown> = { id: c.video_id };
+  if (c.media_type === 'video' && (c.video_id || http(c.video_url))) {
+    // Por su id si ya está en la cuenta; si no, por LINK (`video.url`: Zernio lo baja y lo sube a Meta; el anuncio desde el grupo,
+    // lib/anuncio-desde-archivo.ts).
+    const video: Record<string, unknown> = c.video_id ? { id: c.video_id } : { url: http(c.video_url) };
     const mini = http(c.thumbnail_url);
     if (mini) video.thumbnailUrl = mini;
     cuerpo.video = video;

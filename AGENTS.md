@@ -261,6 +261,18 @@ AHÍ, no en el hook. La primera es un `tsc` ACOTADO a las bitácoras de `/admin/
 el 14/10 y el 15/10 tiró un run entero de Actions. Si el `tsc` no termina (lo mató el vigía, o
 se quedó sin heap), no frena el push: eso no es un error de tipos, y Actions corre el completo.
 
+⚠️ **UNA de las guardas AVISA y no bloquea, y es la de los PENDIENTES VENCIDOS** (`scripts/pendientes-vencidos.mjs`, 30/10/2026).
+**Un pendiente que nombra un test, y el test está verde (o ya no existe), es un pendiente vencido.** `docs/pendientes.md` tuvo seis
+días una sección «Rojos en `main` sin dueño» con tres tests que se habían arreglado 95 minutos después de escribirla, y el Cerebro
+los repartió a dos chats que no tenían nada que arreglar. **La regla ya estaba escrita** en el encabezado del documento («Al cerrar
+uno, borralo de acá en el mismo commit»): no faltaba la regla, faltó cumplirla, y por eso la cura es una herramienta y no otro
+párrafo. En el push es GRATIS: la guarda sólo mira si el test nombrado existe (es mirar el disco) y `antes-de-subir` cruza el resto
+con los tests que ACABA de correr verdes, sin volver a correr nada; el aviso va en la línea del veredicto. No bloquea porque un
+test puede estar verde por el ENTORNO (un clon atrasado fabrica verdes falsos) y frenar un push por el estado de un documento sería
+peor que el problema. Para mirarlo a mano, corriendo los tests nombrados: `node scripts/pendientes-vencidos.mjs --correr`.
+⚠️ Y si escribís un pendiente que nombra un test como la RED que lo cubre («Lo fija `tests/x.test.ts`»), escribilo con esa frase: la
+guarda la reconoce y no avisa por él.
+
 ⚠️ El último se agregó el 29/08/2026, después de que **producción estuviera 46 minutos en
 la versión vieja sin que nada lo dijera**: un commit subió `catalogo.ts` con 18 imports
 nuevos y no los archivos que esos imports nombran —al commitear por ruta explícita se sube
@@ -445,8 +457,16 @@ el push a `integracion`, y un jefe con tiempo puede correrlo también.
 Hasta el 22/10 el jefe le pasaba a Integración **la última línea**, `VERDE <sha> (rápido: …)`, junto con la punta; desde el tren,
 la punta va sin ella (el chequeo es el del tren).
 Un `ROJO: …` se arregla ANTES de pasarla, no después de que falle Actions (cada rojo allá costó ~15 min y minutos del
-mes: 140 de los 2.000 gratis en dos días). Un exit **99** es «no corrió por falta de RAM», no un rojo del código: cerrá chats
-o esperá. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
+mes: 140 de los 2.000 gratis en dos días).
+
+⚠️ **La palabra ROJO sale SÓLO con algo confirmado roto, y hay una tercera línea: `SIN CHEQUEAR <sha>: … — NO es un rojo del
+código` (exit 99)** (30/10/2026). Un archivo cuyo proceso murió sin ejecutar un test NO se sabe si está roto, y ponerlo detrás de
+«ROJO» manda a buscar fantasmas: ese día un grupo compartido de 495 barredoras murió a los 25 min sin correr un solo test y el
+veredicto escribió los 495 nombres como rojos, con dos rojos de verdad escondidos entre ellos. El exit **99** es «no pude
+chequear» —falta de RAM, el turno del candado que no tocó, o un proceso que murió sin juzgar nada—, no un rojo del código: cerrá
+chats o pusheá dejándole el chequeo a Actions. **Y toda línea que no sea un VERDE lleva pegada la RAM MÍNIMA de la corrida y la
+ruta del DETALLE** (`~/.claude/antes-de-subir/<fecha>-<sha>/`, que se conserva con rojo o 99 y se borra con verde): con 0,7 GB
+libres a un rojo no se le cree, y el log del reintento aislado es lo único que separa al caído por memoria del roto de verdad. Para ver qué elige sin correr nada: `--listar` (y `--explicar` en `tests-afectados.mjs`).
 
 Corre, de lo más barato a lo más caro, y frena en el primer rojo (`--todo` sigue):
 1. **Las guardas del push** (`scripts/guardas-push.sh`, las mismas del pre-push y de Actions — incluida «todo `.ts` es un
@@ -503,19 +523,37 @@ como estaba), suelta el candado y el `ROJO` nombra los archivos — mergeá a ma
   (un `tsc` suelto, un build) y corrés `antes-de-subir` con otro nombre, usá `--ya-tengo-el-candado`. `MAKO_SIN_COLA=1` lo saltea; en Actions no se usa.
 - **Las guardas del push corren ANTES de hacer fila** (~10 s, livianas) y vuelven a correr al tomar el candado, ya con `origin/main` mergeado: el 21/10
   una guarda frenó un VERDE en 7 s pero después de 25 min de espera. Un `ROJO` de guarda dice «no hice fila por esto».
-- Un `ROJO: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
+- Un `SIN CHEQUEAR: esperé el candado…` no es un rojo del código (sale con 99): la fila estaba larga.
 
-⚠️ **Por qué es rápido: los tests que no tocan estado global corren JUNTOS en un proceso** (`--test-isolation=none`, con
-`scripts/cache-lecturas.cjs` memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos
-~5.400 archivos y, con `node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s
-separadas, 40 s juntas; la suite ENTERA —1.050 tests compartibles— en 2 procesos: 260 s, 0 rojos). **Todo rojo de un proceso
-compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló una vez porque otro test
-dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de trabajo NUNCA se comparte
-(regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su proceso solo, sin tocar nada.** El
-riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en su proceso.
+⚠️ **Por qué es rápido: las BARREDORAS corren JUNTAS en un proceso** (`--test-isolation=none`, con `scripts/cache-lecturas.cjs`
+memorizando las lecturas de archivos). El costo de las barredoras no era el regex: ~68 leen los mismos ~5.400 archivos y, con
+`node --test`, cada archivo de test es un proceso aparte que los vuelve a leer (12 barredoras: 193 s separadas, 40 s juntas).
+**Todo rojo de un proceso compartido se repite aislado antes de contarlo** (puede ser interferencia: `editor-landing-origen` falló
+una vez porque otro test dejó algo en el entorno). Un test que toca `process.env`, un global, `Module._load` o el directorio de
+trabajo NUNCA se comparte (regex `PELIGRO_COMPARTIR` en `tests-afectados.mjs`): **si escribís un test que hace eso, va en su
+proceso solo, sin tocar nada.** El riesgo que queda es un FALSO verde por contagio, y por eso Actions sigue corriendo cada test en
+su proceso.
+⚠️ **LO SEGURO NO ES LO QUE CONVIENE** (31/10/2026, medido): hasta ese día compartía proceso todo test que fuera SEGURO compartir, y
+eran 1.850 — de los cuales **227 barren de verdad y 1.623 no releen nada**, así que no ahorraban nada y pagaban la carga del grupo.
+Y la carga es lo que tarda: con `--test-isolation=none` node importa TODOS los archivos antes de correr el primer test (medido con
+100 barredoras: **seis minutos sin juzgar un caso**, y después los 889 en dos), con un costo por archivo SUPER-lineal (1,1 s con 12
+archivos, 5,04 s con 100). Un grupo de 514 moría **cargando**, a los 25 minutos, y el log decía `0 tests · ROJO`: eso fue el rojo
+de 1.028 archivos del tren del 30/10. Ahora comparten **sólo las que barren**, el tope pregunta «¿avanza?» en vez de mirar el
+reloj, y un proceso muerto informa los casos que alcanzó a juzgar en vez de un `0 tests` que no era cierto.
 ⚠️ **Y un archivo que tira AL CARGAR da verde compartido** (22/10/2026, docs/hallazgos-infra.md): se cuentan los `test(...)` de
 arriba de la línea que tira y los demás no corren, con salida 0. **En un test, lo que puede tirar (un `assert` sobre el fuente, un
 recorte con tope) va ADENTRO de un `test(...)` o en una función perezosa, nunca en una constante del módulo.**
+⚠️ **UN TEST LENTO MATA LA TANDA DE LOS OTROS 99, Y EL LOG LO LLAMA «se colgó»** (31/10/2026, run 41207922805,
+docs/hallazgos-infra.md). **Node imprime la salida de un archivo de test cuando el ARCHIVO termina**, no cuando termina el caso:
+una tanda deja de imprimir mientras corre su archivo más lento, aunque los otros 99 ya hayan pasado, y el vigía —que mata al que no
+imprime un caso en 5 min— termina midiendo eso en vez de medir un cuelgue. Sale **99**, «NO CORRIÓ» para los 100, y el mensaje acusa
+al *caso* siguiente cuando el culpable es el *archivo* siguiente. Dos reglas al escribir un test:
+**(1) el `timeout` que le das a un hijo no puede pasar `TOPE_SIN_AVANCE_MS`** (5 min; lo cuida
+`tests/tanda-no-la-mata-un-test-lento.test.ts`, y si de verdad necesita más se declara ahí con el motivo medido) —
+cuando el hijo se pase, tiene que ponerse rojo TU archivo, que se nombra, no morir los otros 99;
+**(2) un test NUNCA espera el reloj de producción.** Los que replican la entrada del grupo acortan la ventana de silencio con
+`MAKO_DOER_VENTANA_MS` (`lib/mako-doer-buffer.ts`, sólo puede acortar): esperarla de verdad costaba 8-20 s **por escena** y hacía
+que dos archivos tardaran 234 y 236 s.
 
 **Actions hace lo mismo, primero** (`.github/workflows/integracion.yml`): guardas → tests afectados contra `origin/main`
 → tipos → los demás tests. La suma de las dos fases es la suite entera y ninguno corre dos veces; si el script no puede
@@ -572,6 +610,34 @@ trabó la cola, y tres pushes salieron verdes **sin llegar a producción**. Se c
   un solo heap con el tope de 4 GB en vez de dos (no medido: puede ser más lento). **Subir la máquina de build cuesta plata y lo
   decide Martín.**
 
+# Lo que corre SÓLO en el navegador no viaja en las funciones del servidor
+
+Una dependencia pesada que usa únicamente código del cliente (un Web Worker, un `wasm`, un editor)
+igual entra al bundle de **todas** las funciones: el trazado sigue el árbol de `node_modules`, no el
+uso. El 3/11/2026 eso costó cinco deploys: `@huggingface/transformers` arrastra `onnxruntime-node`,
+que en Linux trae un proveedor de **CUDA de 327 MB** —en Vercel no hay GPU— y lo usa un solo Web
+Worker que transcribe en la máquina del usuario. Primero reventó el tope de 250 MB de una función y,
+al habilitar `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el build empezó a terminar bien y a morir en
+«Deploying outputs...» con `ENOSPC`.
+
+- **Al sumar una dependencia así, excluirla en el mismo commit**: `outputFileTracingExcludes` en
+  `next.config.ts`, con un test que lo sostenga (`tests/build-excluye-ia-del-navegador.test.ts`).
+- ⚠️ **La clave es `'/**'`, no `'/*'`**, aunque la doc de Next presente `'/*'` como «global».
+  Medido con su propio picomatch: `'/*'` **no empareja la ruta `'/'`**, así que la home se queda con
+  todo el peso y el patrón parece correcto. Es la forma en que esto se rompe sin avisar.
+- ⚠️ **Excluir del trazado no lo saca del disco** del contenedor, y el disco es lo que se llenó:
+  para eso está `scripts/sacar-cuda-de-onnx.mjs`, enganchado como `prebuild`.
+- ⚠️ **En Windows la exclusión no hace nada, en silencio**: Next normaliza las barras de los
+  `Includes` y no las de los `Excludes` (`next/dist/build/collect-build-traces.js`). Un build local
+  no sirve para comprobarla; el test mide en `path.posix`.
+- **La máquina de build ya pasó Enhanced**: medido el 3/11/2026 por API, el proyecto `mako` construye
+  en `buildMachineType: "turbo"` con `elasticConcurrencyEnabled: true` (era `enhanced` el 17/10). Así
+  que «activar Enhanced Builds», lo que sugiere el propio mensaje de Vercel, **ya está hecho y
+  superado**: bajar el peso es el único camino desde el repo.
+- El `buildCommand` del proyecto es `null`, o sea el default de Next: **`npm run build`**, que es lo
+  que hace correr el `prebuild`. Si alguien lo cambia a `next build` a secas, el `prebuild` deja de
+  correr **sin avisar** y vuelve el `ENOSPC`.
+
 # Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
 
 El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO corre en el
@@ -618,6 +684,26 @@ Lo que el script NO puede resolver, y conviene saber antes de creerle a un rojo:
   en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El tsc acotado puede INVENTAR un rojo».
 - **El acotado no sube a los que importan lo tuyo.** Si cambiaste un TIPO compartido, sumá a
   sus consumidores.
+- ⚠️ **Y AL REVÉS, el rojo que SÍ hay que creer aunque Actions diga verde: dos archivos de la misma
+  carpeta cuyos nombres sólo se diferencian en MAYÚSCULAS.** `TS1149` («differs from already included
+  file name only in casing») junto a un `TS2305` sobre un import tuyo no es un artefacto: es un bug que
+  **sólo se ve en Windows**. Medido el 30/10/2026 rescatando `nube/video-generator-2710`: la carpeta traía
+  `composer.ts` (el módulo puro) y `Composer.tsx` (la pantalla), y el `import { Composer } from './Composer'`
+  resolvía al módulo PURO — TypeScript prueba `./Composer.ts` antes que `./Composer.tsx`, y en un filesystem
+  que no distingue mayúsculas eso ES `composer.ts`. En Linux —Actions y el build de Vercel— `./Composer.ts`
+  no existe, pasa de largo y da verde: **verde en el CI, roto en la máquina de Martín**, y con
+  `typescript.ignoreBuildErrors: true` nada lo frena. Los dos archivos coexisten en NTFS porque las
+  extensiones difieren (`.tsx` ≠ `.ts`), así que no hay choque al clonar: el choque es del resolvedor.
+  **La regla para código nuevo: en una carpeta no van dos nombres que sólo se distingan por la caja.** El
+  módulo puro de una pantalla lleva el sufijo `-reglas` (`chat-reglas.ts` para `ChatVideo.tsx`,
+  `composer-reglas.ts` para `Composer.tsx`), que es la convención que ya tenía la carpeta.
+  ⚠️ **Y desde el 30/10/2026 tiene GUARD, porque la regla sola no frena nada en Linux:**
+  `tests/colision-de-nombres.test.ts` barre `git ls-files` y falla nombrando la carpeta. Compara el basename
+  **SIN EXTENSIÓN** en minúsculas, que es con lo que sale a probar el resolvedor: un chequeo de nombres
+  completos NO lo caza (`composer.ts` y `Composer.tsx` no chocan en el filesystem, así que el checkout no se
+  queja). Cubre también la carpeta con `index` que choca con un archivo vecino, y su lista de extensiones es
+  la pieza que lo sostiene — sumarle una se mide antes (con `.css` adentro da cinco falsos positivos, que son
+  la convención `Foo.tsx` + `foo.css` de la casa).
 - **Salida 99 no es un verde**: el `tsc` no terminó (el vigía de RAM lo mató, o sin heap) y no se
   miró nada. 0 es «sin errores en esos archivos», no en el repo: el completo lo corre Actions.
 
@@ -855,6 +941,11 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   (`probe`, `t`, `check`, `out.json`) colisionan solos cuando hay tres sesiones trabajando.
   Lo mismo vale para cualquier archivo intermedio: va al directorio de scratchpad de la
   sesión, que es único por `sessionId`.
+  **Y al revés: lo que tiene que SOBREVIVIR no va al scratchpad.** Está en `%TEMP%`, que otras
+  sesiones podan y que vaciamos nosotros cuando falta disco (23/10), y es de UNA conversación:
+  después de un `/clear`, el mismo chat ya tiene otro. El 24/10 el vigía del cartero, su estado
+  y su relevo vivían en un scratchpad. Se mudaron a `~/.claude/operaciones/`, con el estado
+  copiado lleno, porque vacío habría vuelto a avisar los pedidos que ya había avisado.
 
 - ⚠️ **El próximo número de migración es un recurso COMPARTIDO, y dos sesiones eligen el
   mismo a la vez.** El 05/10 la sesión de Chatbot creó `0190_secuencia_cron.sql` mientras la
@@ -948,6 +1039,28 @@ De ahí tres cosas que valen siempre que haya más de una sesión:
    ```
 
    Si HEAD lo tiene y el disco no, no hay nada que arreglar: hay alguien tipeando.
+
+   ⚠️ **Y SI EL ARCHIVO QUE EL ASSERT LEE ESTÁ BIEN, EL QUE ESTÁ MAL ES EL ASSERT.** Un
+   guard que cita una LÍNEA LITERAL (`assert.match(src, /foo\(a, b\)/)`, un
+   `.includes("pais: …")`) se pone rojo con el código correcto en cuanto alguien sube un
+   valor a una variable o le agrega un argumento — la refactorización más normal que
+   existe. Medido el 31/10/2026: de los ocho archivos rojos de un tren, **seis eran esto**
+   (cuatro por la tercera pasarela, uno por el país subido a una variable, uno por el
+   interruptor de la prueba gratis). Y el arreglo peligroso es aflojar el assert o,
+   peor, devolverle al código la forma vieja: en uno de esos seis, bajar un conteo de 3
+   a 2 era borrar la rama de Creem y reinstalar el bug que dejaba a la base diciendo
+   «cancelada» mientras la pasarela seguía cobrando todos los meses.
+
+   **Se reescribe el guard para que afirme LO QUE CUIDA**, en asserts SEPARADOS, cada uno
+   con un mensaje que diga qué se perdió (un mensaje que es un sustantivo —`'la página del
+   plan'`— no dice nada cuando falla), y lo que se cuenta sale de la constante
+   (`PASARELAS.length`) o de un `Record<…>` TOTAL, para que la cosa #4 no compile el test
+   hasta que alguien la nombre. Dos trampas medidas el mismo día:
+   - **Un `indexOf` que compara ORDEN pasa por accidente**: si no encuentra devuelve `-1`,
+     y `-1 < cualquiera` es verdad. Cada punta se afirma existente ANTES de comparar.
+   - **Un `doesNotMatch` pinchado a una grafía muerta no puede ponerse rojo nunca**: el que
+     cuidaba `motivo: checkout.error` miraba un texto con 0 ocurrencias en todo el archivo.
+     Va `\w+\.error`, que caza la regresión escrita con otro nombre de variable.
 3. ⚠️ **UN `tmp-` SIN COMMITEAR ES UN CANDADO PARA TODOS, Y EL QUE LO ESCRIBE ES EL ÚNICO
    QUE NO LO SUFRE.** Un script de diagnóstico con un error de tipos bloqueó el push de
    las otras dos sesiones durante **~3 horas** y les costó dos pushes desde worktree
@@ -1147,6 +1260,20 @@ lo que costó, en [docs/hallazgos-api-mako.md](docs/hallazgos-api-mako.md).
 **Si agregás una capacidad y no la declarás ahí, existe para la pantalla y no existe para
 nadie más.** Y si la escribís en una ruta aparte, es la segunda implementación de lo mismo.
 
+⚠️ **Y PORQUE TODA FEATURE PASA POR ACÁ, DOS RAMAS CHOCAN SIEMPRE EN LOS MISMOS CUATRO ARCHIVOS**
+(`registro.ts`, `runners.ts`, `flujo.ts` y `tests/api-mako-registro.test.ts`): cada una agregó SU área.
+**Esos choques se UNEN, no se elige un lado** — quedarse con uno borra el área del otro, y el test de
+paridad def ↔ run lo caza recién si el área perdida tenía runner. En `POR_AREA` y `RUNS_DE_AREA` entran
+las dos entradas; en `TODOS` (runners.ts), los dos módulos.
+⚠️ **Pero `NO_EN_FLUJOS` (lib/api-mako/flujo.ts) NO es un registro: es una lista de lo PROHIBIDO**, y ahí
+elegir un lado no pierde una feature, **abre un agujero** — lo que quedó afuera vuelve a ser ofrecible como
+paso de una automatización, que se confirma solo y sin sesión. El 30/10/2026 el choque tenía de un lado
+`'zona_media_buyer'`, `'hasta_media_buyer'` y `'proponer_crear_campana'` (gastan en Meta) y del otro
+`...DEL_ESTUDIO_DE_VIDEO.map((d) => d.id)` (gastan créditos de Flow): cualquiera de los dos lados «resolvía»
+el conflicto y dejaba plata al alcance de un flujo. **Ante un choque en una lista, preguntá primero si es
+un catálogo o una denylist**; con la denylist, unir es lo único seguro. Y el spread va ÚLTIMO: lo exige el
+regex de `tests/video-estudio-api.test.ts`.
+
 Lo que una definición tiene que declarar, y por qué no tiene default:
 
 - **`canales`, en positivo.** Declarar `tipo: 'lectura'` no es decidir que salga por HTTP a
@@ -1176,6 +1303,12 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **Todo envío al grupo de MaKo declara su `memoria`** (`enviarAlGrupoMaKo(ws, texto, memoria)`, lib/mako-grupo.ts): 'mako' si lo
+  dice MaKo (queda en la conversación), 'equipo' si lo dice el equipo (al anillo del equipo, nunca como turno de MaKo), null si
+  quien llama ya lo guarda. Sin eso, el turno no sabe a qué le contestan (28/10/2026, tests/grupo-ve-el-grupo.test.ts).
+- **En el grupo de WhatsApp no van MAKO_NUCLEO ni la persona de consultor**: el system del grupo es `buildSystemPrompt` con
+  `canal: 'grupo'` (NUCLEO_GRUPO, lib/nucleo-grupo.ts, fijo y primero). Todo texto nuevo del turno del grupo va ahí o en
+  DOER_WA_VOZ, nunca en MAKO_NUCLEO, que es del dashboard y de la app (28/10/2026, tests/banco-grupo.test.ts).
 - **El `error` de un `preparar` (o de un `proponer`) es una REGLA, y una falla NUESTRA lleva `falla: true`**: «No pude leer
   las pasarelas conectadas», un `catch` que vuelve `error` lo que reventó. Sin la marca, el «no pude» de MaKo después de esa
   falla no abre ticket; con la marca en una regla, abre uno y sale «Quedó el ticket #N» en el grupo del cliente (28/10/2026,
@@ -1188,6 +1321,13 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   área** («automatización», «flujo», «WhatsApp»). El chat las ordena por puntaje contra el pedido y, a igual puntaje, trae
   la declarada antes hasta el presupuesto de 12.000 (el techo de Groq, que no se sube): la nueva le saca el lugar a la que
   se pidió. Se mide con `tests/ops-center-clasificador-app` ANTES de entregar (25/10/2026, docs/hallazgos-api-mako.md).
+  Las palabras del área van en los **parámetros**, que no puntúan.
+  ⚠️ **Y las dos mitades son UNA sola regla: cumplir media deja todo verde y no prueba nada** (31/10/2026). El rojo
+  aparece sólo cuando se juntan (declarada antes **y** con las palabras del área), así que el piso de
+  `tests/ops-center-bateria` no guarda ninguna por separado. Lo que se mira es el MARGEN, que lo imprime el test 4 de esa
+  batería: `cambiar_crons_secuencia` entra con 551 caracteres sobre 12.000 y el test da rojo debajo de 300
+  (`MARGEN_MINIMO`). Sólo cuenta lo que va ANTES del CRON en el orden de esa frase: acortar otra operación gorda del área no
+  devuelve nada. Si el piso salta, se acorta lo que esas siete repiten, no se baja el piso.
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
@@ -1457,6 +1597,55 @@ Lo que gobierna el código nuevo de esta familia:
   es la salida barata que aparece primero. Medido: no bloquea el acceso a nada —lo miran
   cuatro crons y la UI de /admin— y la columna ni siquiera tiene CHECK. El único corte
   real de acceso es `usuarios.estado='suspendido'`, y es por PERSONA.
+- ⚠️ **La función que contesta «QUIÉN» no decide «SI».** La relación cliente↔agencia es
+  N:N a propósito, así que `agenciaDeCliente` necesita que el dueño sea **uno** para poder
+  nombrarlo y devuelve `null` cuando hay dos (elegir el primero sería inventar un padre).
+  Usada como guard, ese `null` se lee como «no es cliente de ninguna agencia» y **deja
+  entrar justo al que más dueños tiene**: era el bug P15 de las dos pantallas de /agency
+  (30/10/2026). Para decidir una pantalla, un permiso o un candado va `esClienteDeAgencia`,
+  que es de sí/no y no depende de que haya uno. **`agenciaDeCliente` DICE** (la cadena de
+  la barra, el escalón de «Salir», el nombre en un cartel); **`esClienteDeAgencia`
+  DECIDE.** Quién llama a la primera está cerrado en `tests/agency-dos-duenos.test.ts`: un
+  llamador nuevo rompe el test y ahí se elige cuál de las dos es.
+- ⚠️ **Si de una lectura cuelga un permiso, el error se PROPAGA; el `[]` es sólo para
+  dibujar.** `agenciasDeCliente` atrapa la falla y devuelve `[]`, que es el default bueno
+  para una lista en pantalla («todavía no tiene») y el malo para un permiso: «no hay
+  dueño» y «no pude preguntar» salen idénticos, y quien decide elige el cómodo. La
+  lectura que alimenta un permiso devuelve un tercer valor —`null` = «no sé»
+  (`leerCarteraDeCliente`)— y el guard lo trata como el sí: se compara **contra `false`**
+  (`if (deAgencia !== false) redirect(...)`), nunca por verdad. Un `if (deAgencia)` vuelve
+  a leer el «no sé» como «no», que es el molde del bug. Es el mismo principio de más
+  arriba: un store que puede fallar sólo tiene permitido hacer las cosas MÁS restrictivas.
+  ⚠️ El criterio **se invierte para un upsell**: esconder una oferta porque la base falló
+  también cuesta, así que ahí el `null` no apaga. El `!== false` no se copia sin pensar
+  qué pasa si el «no sé» gana.
+- **Un caso que no existe en los datos se ARMA en el test.** Hoy ningún cliente tiene dos
+  agencias, y esperar a que lo tenga es esperar a que el bug cobre: las filas las pone el
+  test (`tests/_agency-dos-duenos-hijo.ts`, funciones reales contra un PostgREST de
+  mentira). Y «latente» se dice latente: lo que P15 abría **no** era una fuga de datos
+  entre clientes —la pantalla dibuja la cartera del que mira— sino la regla de producto de
+  no venderle al cliente de una agencia.
+- ⚠️ **EL `null` SE RESUELVE EN CADA USO, Y «SEGURO» NO ES LO MISMO QUE «FALSO».** Los
+  **nueve** usos de `esClienteDeAgencia` lo resuelven igual —como «sí, puede ser de una
+  agencia», o sea `!== false`— y lo que cambia es la CONSECUENCIA: cinco son PUERTAS y con
+  «no sé» **no entran** (`/agency`, `/m/agency`, `/partners`, `/m/partners`, hacerse
+  partner por la API); tres son UPSELLS y con «no sé» **no ofrecen** («Tu plan», el menú
+  del teléfono, el cartel del candado); y `cuentaActualEsDeAgencia` (`lib/vista-de-otro.ts`)
+  es la FRONTERA que alimenta a la barra por `/api/auth/me`: resuelve ahí y devuelve
+  `boolean`, porque lo que sale como JSON al navegador no puede tener tres estados.
+  **Ofrecer de menos por una falla de la base cuesta una venta; ofrecer de más le rompe el
+  trato a la agencia, y eso no se deshace** (Thiago, 29/10/2026). El `boolean` de esa
+  frontera NO autoriza a volver booleana la pregunta: es la resolución de UN uso.
+- ⚠️ **DOS RAMAS PUEDEN AGREGAR EL MISMO `export` SIN QUE GIT LO LLAME CONFLICTO.**
+  `esClienteDeAgencia` se escribió dos veces el 30/10/2026, por dos chats que no se veían,
+  y como los bloques caen en lugares distintos del archivo el merge salió **limpio y sin
+  compilar** (`Multiple exports with the same name`). Peor: el choque era de CRITERIO —la
+  otra devolvía `boolean` con «no se pudo leer» = `false`, que en una puerta DEJA ENTRAR—.
+  Si dos chats pueden estar escribiendo la misma pregunta, el guard no es el merge: es un
+  test que CUENTE las declaraciones y fije el tipo (`tests/agency-dos-duenos.test.ts`). Y
+  al resolver un choque así se buscan los consumidores que DECLARAN el tipo viejo, no sólo
+  el que grita: el segundo error (`cuentaActualEsDeAgencia: Promise<boolean>`) estaba
+  tapado por el primero, porque el doble export aborta antes.
 
 ⚠️ **Y un `bigint` puede llegar como STRING.** Las columnas de estas tablas son `bigint`;
 el driver `postgres` de los scripts los devuelve como texto (`'13'`). Si el cliente que
@@ -1840,6 +2029,12 @@ código nuevo:
       una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts. ES LA FUENTE: una capacidad de
       lib/mako-capacidades.ts (el «cómo se hace» del Perro) toma su tab de ahí, y `listar_capacidades_mako` devuelve esas
       funciones; un catálogo nuevo AL LADO no va.
+    - **El catálogo, las rutas y las herramientas usan el nombre que la persona LEE en la pantalla** (tickets #45 a #48 de
+      Leila, 3/11/2026): con «Aprender solo» por «Aprende solo», «automatización» por «secuencia» o «Documentos» por «El
+      brief», MaKo NIEGA lo que sí tiene, que es peor que no tenerlo. Dónde se corrige un dato del negocio sale de
+      `DATOS_DEL_NEGOCIO` / `lugarDato` (lib/secciones-negocio.ts), nunca escrito a mano. Si un pedido real no trae su
+      herramienta, se mide con el turno de verdad (`herramientasDelChat`, no la lista `noViajaron` del ticket, que trae sólo
+      las 6 de más puntaje) y la familia nueva de lib/mako-intencion-app.ts lleva su frase literal en un test.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
@@ -2306,6 +2501,9 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
 - La segunda capa ya existe y se usa: `sanearSalida` (`lib/doer-salida.ts`) saca la oración que
   promete sin haber hecho nada, y la grosería. Detalle en
   [docs/hallazgos-comunicacion.md](docs/hallazgos-comunicacion.md) → «No puedo», «déjame ver».
+- **Y una línea que escribe el CÓDIGO tampoco promete lo imposible** (29/10/2026, el ticket #30 de Leandro: «No tengo acceso…
+  pídemelo otra vez y lo hago»). Un texto fijo que dice «lo hago» mira antes si es algo que MaKo puede hacer (`noLoPuedeHacer`);
+  si no, no va.
 - **El acuse del grupo es el 👍, y ningún código manda un «dame un momento»** (Martín, 24/10/2026). Un texto de
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
@@ -2314,6 +2512,27 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   el texto por `enviarTextoVozMaKo` (que usan `enviarAGrupoJid`, el grupo SuperAdmin y la bienvenida), y `enviarAlGrupoMaKo` y
   `enviarPartesAJid` anotan lo suyo. Un envío nuevo a un grupo pasa por ahí, o anota su id. Si no, su eco vuelve como un `fromMe`
   que nadie mandó: el doer lo toma por el dueño escribiendo y le contesta a su propio aviso (28/10/2026). Un DM no es un grupo.
+
+## Y una regla de un canal de MaKo puesta SÓLO en el prompt no es regla (29/10/2026)
+
+Martín: «Es una verdadera desgracia cómo está respondiendo MaKo en WhatsApp». El prompt del grupo ya decía «no inventes», «no
+prometas», «sin muletillas», y el modelo lo hacía igual. Cada regla de ese tipo tiene DOS capas: la frase en el prompt y un
+chequeo en el código que corre al salir (`sanearSalida`, `sinLoQueMaKoNoDice`, `sinMuletillas`, `numerosSinFuente` en
+lib/doer-salida.ts). Una regla nueva de lo que MaKo no dice llega con su chequeo y su test; si no se puede chequear, se dice así.
+
+- **MaKo en el grupo es un DESPACHANTE (lib/despacho-grupo.ts).** La clase la decide `clasificarConIA` (lib/mako-intencion-ia.ts)
+  y el texto de TICKET, DEBUG y de una acción delegada lo escribe el CÓDIGO, con el número del ticket: el modelo no corre. Una
+  escritura que MaKo hace sola entra a `ACCIONES_SIMPLES` (una fila o un evento, reversible) con su test por el turno real; si mueve
+  plata y tiene pantalla, a `ACCIONES_CON_PANTALLA`; un WhatsApp a un lead, a `SE_APRUEBAN_EN_LA_APP` (lib/confirmacion-pura.ts:
+  se aprueba con un toque en la app, nunca con un «sí» por WhatsApp). Lo demás se delega al Cerebro como «pedido delegado» y el
+  «listo» vuelve al grupo al cerrarlo; un pedido compuesto delega lo que no hizo. En la duda, se delega.
+- **El banco de casos reales (tests/fixtures/banco-grupos-2910.json) se corre antes de tocar el clasificador**
+  (`scripts/banco-clases.mts`): los ejemplos del prompt salen sólo del 60 % de ajuste; el 40 % retenido no se mira.
+- **Lo que mira un PERMISO en el grupo se lee con QUIÉN escribe, no con el grupo (30/10/2026, la revisión de privacidad).** En
+  `procesarDoer` es `quienPide`: el teléfono de `participantAlt` en un grupo de `@lid` (sin él, todo queda con el pushName y nadie es
+  usuario del negocio), y nadie en un lote de varios. El «hazlo» de un pedido delegado lo decide `delegadoQueDecideMartin`
+  (lib/tickets-reglas.ts: admin del negocio, sin plata, envíos ni borrados); el DEBUG, un admin de MaKo. Lo que llega al grupo de un
+  cliente desde el Cerebro o una bitácora pasa por el filtro de ESE negocio (`hitosDelNegocio`, `sinLoInterno`), nunca tal cual.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -2556,7 +2775,7 @@ memoria, y volvió a pasar — por eso ahora vive acá, que es lo que se lee ant
 **Y la evidencia de que funciona es todo el producto.** Lo que en este repo salió bien está
 copiado, y se nombra por su fuente: el Video Editor es CapCut, el Image Editor es Canva, el
 Web Generator es Gamma, el Dashboard es Looker Studio, `/api-mako` es GitHub (con su CSS de
-Primer limitado a `.gh`), los Chats son respond.io. Lo que se dibujó «con buen criterio» —el
+Primer limitado a `.gh`), los Chats son respond.io, el Copywriter es Notion (BlockNote, 29/10/2026). Lo que se dibujó «con buen criterio» —el
 panel de seguridad, el Centro de Operaciones— se rechazó a la primera, las dos veces con la
 misma palabra: *horrible*.
 
@@ -2569,10 +2788,37 @@ El procedimiento, y no es opcional:
    frena**, en vez de inventar. Una pantalla inventada cuesta la tanda entera; preguntar
    cuesta una frase. Y si se usa la documentación oficial en lugar de la app, se dice cuál y
    se dice que es eso.
-3. **Se copia la ESTRUCTURA, no la marca**: la jerarquía, cómo agrupa, qué entra en una fila,
-   qué se esconde detrás del detalle, dónde viven las acciones destructivas, cuánto respira
-   cada bloque. Los colores, la tipografía y los íconos son los de la casa — un `var(--token)`
-   nuestro, nunca el hex de la otra app.
+3. **Qué se copia depende de QUÉ es la fuente, y confundir los dos casos ya costó dos tandas
+   enteras el 31/10/2026.** Son dos cosas distintas:
+
+   - **Una app COMPETIDORA** (Looker, GitHub, respond.io, CapCut): se copia la ESTRUCTURA, no
+     la marca — la jerarquía, cómo agrupa, qué entra en una fila, qué se esconde detrás del
+     detalle, dónde viven las acciones destructivas, cuánto respira cada bloque. Los colores,
+     la tipografía y los íconos son los de la casa: MaKo no tiene que parecerse a GitHub.
+   - **Una REFERENCIA DE ESTILO que mandó Martín** («copiá el diseño de esta página», una
+     galería de plantillas, un sitio que le gustó): acá **los valores SON el pedido**. La
+     tipografía, la escala, la paleta, los radios, las sombras, la densidad y las curvas de
+     movimiento se copian CON SUS NÚMEROS. Describirlos con palabras y aplicar los tokens de
+     la casa es exactamente lo que hace que el resultado «no se parezca en nada».
+     ⚠️ Medido: la primera vuelta del rediseño del Dashboard escribió en su propio documento
+     «acá no hay un solo valor suyo» — y Martín, al ver el resultado: *«no se parecen en
+     absolutamente nada a las cosas que te pedí que copies»*. Los valores se leen del
+     navegador (`getComputedStyle` sobre `:root`, los `@keyframes`, las transiciones) y se
+     guardan en `docs/diseno/`, con fecha. Leerlos es un minuto; adivinarlos cuesta la tanda.
+
+   **Y UN LÍMITE LEGAL O TÉCNICO SOBRE EL CÓDIGO O EL DATO NO ES PERMISO PARA DISEÑAR DE CERO.**
+   Son preguntas separadas y hay que contestarlas por separado:
+   «¿puedo usar SU código?» · «¿puedo usar ESE dato?» · «¿puedo hacer que se vea igual?».
+   Que la primera o la segunda den NO no vuelve la tercera un no. Una tienda que vende su
+   código sigue dejando mirar su demo y reproducir el diseño con código nuestro; que los
+   términos de un proveedor no dejen usar sus datos no autoriza a inventar la pantalla.
+   Los dos casos del 31/10/2026, para que no se repitan:
+   - el Dashboard: «es una tienda, lo que vende es el código» → no copió ni un valor;
+   - Competitors Spy: «la licencia deja copiar el código pero los términos de Meta no dejan
+     usar el dato» → construyó la tab de cero.
+   En los dos, lo correcto era copiar el diseño con código propio. **Si de verdad no se puede
+   copiar, se AVISA ANTES de construir** (punto 2), no se entrega algo inventado y se explica
+   después.
 4. **La fuente se NOMBRA en el commit y en el relevo** («copiado de la pantalla de seguridad
    de Google, 15/10»). Sin eso, el que venga en tres semanas vuelve a diseñar de memoria y
    estamos otra vez acá.
@@ -2597,6 +2843,44 @@ izquierda, el control a la derecha: interruptor, select con `SELECT_AJUSTES`, ca
 detalle), y guarda al instante, sin «Guardar». Nada de un párrafo por sección: Martín rechazó dos versiones seguidas por eso
 («textos previo a la configuración que están muy de sobra»). Qué se copió de dónde: docs/settings/referencia.md.
 
+# Copiar código y usar el dato son DOS permisos, y una licencia MIT no te da el segundo
+
+La regla de arriba dice que se copia. Ésta dice **qué** se puede copiar cuando lo que se trae mira datos
+de terceros, porque ahí hay dos candados y se confunden todo el tiempo:
+
+1. **La licencia** es *copyright*: habilita a copiar el **código**. MIT, Apache-2.0 y BSD sí.
+   **AGPL-3.0 no** —obliga a publicar el fuente de nuestro servicio a todo el que lo use por red, que es
+   lo contrario de lo que es MaKo—, GPL-3.0 es riesgo real si se enlaza, y **un repo SIN archivo
+   `LICENSE` es «todos los derechos reservados»: no se copia ni una línea.**
+2. **Los términos del proveedor** son *contrato*: habilitan a usar **el dato**. Son otra cosa y no los
+   afloja ninguna licencia.
+
+**Un scraper MIT sigue siendo un scraper.** El caso medido (31/10/2026): el único candidato para
+Competitors Spy que estaba en nuestro stack exacto (`athm793/meta-ads-scraper`, Apache-2.0, Next.js 16)
+maneja un Playwright contra facebook.com, y `facebook.com/robots.txt` es `Disallow: /` para todo agente
+no autorizado, mientras los Automated Data Collection Terms prohíben *«transferring, selling, licensing
+or sublicensing Collected Data… to any third party»* — que es literalmente mostrárselo a un cliente que
+paga. **Se le copió la pantalla y el clasificador; no el camino de datos.** Igual con Instagram: los
+cuatro candidatos open source tienen licencias impecables y los cuatro violan el §4.2 de sus Términos,
+que prohíbe la recolección automatizada *«regardless of whether… while logged-in»* **y** comprar el dato
+raspado a un tercero.
+
+El procedimiento, antes de traer una dependencia o un pedazo de repo que lea algo de afuera:
+
+1. **Abrir el `LICENSE` y leerlo.** El badge de GitHub miente: `NOASSERTION` no significa nada — dos
+   repos marcados así resultaron MIT y BSD-3, y el de `facebookresearch` marcado igual es una licencia
+   propietaria de Meta que ata el uso a sus propias APIs.
+2. **Buscar el ToS del proveedor del dato** —no el del repo— y la regla sobre recolección automatizada.
+   Si exige romperlo, **se dice y se descarta**: no se esconde en una nota al pie, y no se compra el
+   mismo dato a quien lo rompe por nosotros.
+3. **Si la idea sirve y la licencia no**, se escribe de cero y se dice que se escribió de cero. No se
+   mira el código de cerca mientras se escribe.
+4. **La fuente se nombra en el commit**, con su licencia y qué se copió exactamente (igual que el punto
+   4 de la regla de arriba).
+
+Y la consecuencia de producto: **si no hay fuente legal para un dato, el dato no existe en la pantalla.**
+No se estima y se presenta como medido. Ver docs/hallazgos-competitors-spy.md.
+
 # La pantalla dice QUÉ pasó; el PORQUÉ va al código
 
 Pedido tres veces el mismo día y la tercera con todas las letras: **«el mensaje del botón de
@@ -2620,6 +2904,24 @@ la persona estaba mirando.
 | `title` / `aria-label` | una frase | la acción y su objeto (acá SÍ va texto: no ocupa lugar) |
 | Confirmación de algo irreversible | una frase | la consecuencia, pegada al botón |
 | **Una fila de una lista de N** | **una frase, ~110 caracteres** | lo que distingue a ESA fila de las otras |
+
+⚠️ **UN ESTADO VACÍO ES UNA AFIRMACIÓN, y la más fácil de dejar sin medir** (30/10/2026).
+«No hay nada» puede ser *no empezaste*, *está apagado*, *no pude leer* o *de verdad no
+cambió nada*, y la frase de uno leída en otro es una mentira a la cara del cliente. El
+Media Buyer decía *«Hoy no hay cambios — Todo anda dentro de tu objetivo»* mirando dos
+cosas (cero decisiones y el agente prendido): una cuenta **sin una campaña y sin gastar un
+peso** leía que todo andaba dentro de su objetivo
+([hallazgos-ads.md](docs/hallazgos-ads.md)). Al escribir uno:
+
+1. **Separá los casos que el cliente vive distinto** y dale a cada uno su frase y su
+   **próximo paso** (conectar, crear, prender). Un vacío sin salida es un callejón.
+2. **Medí con el dato que LLEGA a esa pantalla.** Si el dato no está, no se pide una lectura
+   nueva en cada carga: se suma al canal que ya viaja (acá, el resumen de la corrida), y
+   nunca desde una rama que se abstuvo.
+3. **Si no se midió, no se afirma.** Sin el dato va «todavía no lo sé» y el paso para
+   saberlo — nunca «todo bien», ni la palabra «falta».
+4. **El criterio va en un módulo puro con su test**, no en el JSX: casi siempre hay dos
+   pantallas (computadora y teléfono) y la frase a mano se duplica y se desincroniza.
 
 ⚠️ **Y EL VOLCADO DE UNA CORRIDA DE AGENTES NO ES UN ENTREGABLE: es materia prima.** Lo
 que devuelven N lectores son N párrafos de 900 a 2.000 caracteres con su evidencia, y
@@ -3813,6 +4115,10 @@ sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o e
   (lib/meta-escribir-zernio.ts: lee de quién es el id y si está borrado ANTES de escribir) y NUNCA por el token de respaldo. Un
   `graphPost` nuevo con el token deja afuera a todo negocio sin token: si hace falta escribir otra cosa, se le suma su rama de
   Zernio. Borrar el último anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña: se avisa antes del «sí».
+- **Lo que el Media Buyer PRENDE o SUBE pasa por `lanzar` (lib/media-buyer/ejecutar.ts)**, que además de los topes mira la ZONA y
+  la FECHA DE FIN del negocio con el público leído en vivo (lib/media-buyer/zona.ts; «no sé» es fuera). Un camino nuevo que prende
+  o sube por su cuenta se saltea «en tal zona, solamente hasta tal fecha» (29/10/2026, docs/hallazgos-ads.md → «DÓNDE, HASTA…»).
+  Y por Zernio, cambiar UN lugar de un conjunto reemplaza TODOS: se mandan todos, o ninguno (lib/zernio-publico.ts).
 - **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
 - **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
 - **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.
@@ -3847,6 +4153,13 @@ crea los cobros, aplica lo que confirma la pasarela (webhook o cron) y devuelve 
   → ya pagado», escrita para la prueba de Stripe, dejó en un bucle a un OXXO o SEPA que FALLÓ (también `complete`, pero `unpaid`).
   Antes de generalizarla, listar qué estados llegan (`paid`, `no_payment_required`, `unpaid` × cobro pendiente o fallido) y
   decidir cada uno ([docs/hallazgos-pagos.md](docs/hallazgos-pagos.md), «Una guarda nueva que vale para TODO cobro…»).
+- **Una diferencia entre pasarelas se contesta por CAPACIDAD (`CAPACIDADES_PASARELA`, lib/cobros-tipos.ts), no por nombre**
+  (31/10/2026): nunca un `else` después de preguntar por una, ni `!== 'mercadopago'` que quiere decir «la otra». Con dos, el `else`
+  era correcto; con tres, Creem le pedía sus cobros a Mercado Pago sin un error. ⚠️ Ensanchar el tipo a `Pasarela` calla al compilador
+  y deja el bug. Las copias se buscan por el VALOR (`'stripe'`, `['stripe', 'mercadopago']`): el compilador no ve un literal.
+  ⚠️ **Y el doble de un proveedor se arma leyendo su OpenAPI campo por campo**: los centavos, un `created_at` numérico y un parámetro
+  que no existe estaban AFIRMADOS en el test de Creem, y un error de lectura da verde dos veces
+  ([docs/hallazgos-planes-y-cobro.md](docs/hallazgos-planes-y-cobro.md), «El barrido del 31/10»).
 - **El alta automática de MaKo se pregunta por el WORKSPACE, en positivo** (`ws === await wsSuperAdmin()`): un
   cliente que vende con su Stripe no crea inquilinos.
 - **Devolver el pago de una suscripción NO la corta** (23/10/2026): la pasarela devuelve ese pago y sigue cobrando cada
@@ -4041,6 +4354,28 @@ etiqueta y cuyo vecino de abajo abre otra.
 Lo mismo vale para todo lo grande que vive en una cadena de este repo: los prompts, el
 snippet del Pixel, el SQL embebido. Nombrá la clase sin comillas de ningún tipo. Y el `${`
 es el otro carácter con esa propiedad: `$100M` es inofensivo, `${algo}` no.
+
+## Y el reverso: `{/* … */}` tampoco vale en CUALQUIER punto de un JSX
+
+La razón de arriba corta para los dos lados: `{/* … */}` comenta **porque es una
+expresión**, y una expresión sólo entra donde JSX espera un HIJO. En los otros dos lugares
+donde uno quiere explicar algo es un error de sintaxis:
+
+- **entre los atributos de una etiqueta abierta** (`<Tarjeta a={1}` ⏎ `{/* … */}` ⏎ `b={2}`):
+  ahí no se esperan hijos, sino atributos;
+- **en el medio de un ternario** (`cond ? (…)` ⏎ `{/* … */}` ⏎ `: <Otro />`): ahí seguís en
+  JS, y la `{` abre un bloque.
+
+Y lo que lo hace caro es el mensaje: `tsc` tira `TS1005: '...' expected`, `TS1005: ':'
+expected` y `TS1381: Unexpected token. Did you mean {'}'}` apuntando a una COLUMNA que no
+tiene nada que ver con el comentario, así que se busca el error en el código de al lado.
+Medido el 30/10/2026 rescatando `nube/media-buyer-2710`: dos comentarios puestos al
+resolver conflictos en `MediaBuyer.tsx` dieron esos tres rojos.
+
+⚠️ La regla: **un comentario pegado a un JSX va `{/* … */}` sólo entre hijos.** Entre
+atributos, en un ternario o en una lista de argumentos va un `/* … */` de JS pelado, o se
+mueve arriba del elemento, que es donde se lee mejor. Es el mismo criterio de la sección de
+arriba —mirá dónde CAE, no qué dice—, nada más que al revés.
 
 ## Y el gemelo: una regex CITADA adentro de un comentario de bloque lo cierra
 
@@ -4284,8 +4619,8 @@ hacer?**» y «**Tocá** el botón», con los siete prompts pidiendo acento
   decir lleva su bloque de idioma explícito.** La pregunta al escribir un writer nuevo no
   es «¿qué le pido al modelo?» sino **«¿de quién es la voz de lo que sale?»**.
 - **Y la segunda capa mide la salida**, porque el prompt solo no alcanza: `marcasDeVoseo()`
-  (`lib/puestas-data.ts`, sin `server-only` para que se pueda testear) marca el texto y la
-  pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
+  (`lib/puestas-data.ts`, que la re-exporta de `lib/voseo.ts`, sin `server-only` para que se
+  pueda testear) marca el texto y la pantalla lo muestra. No corrige —reemplazar formas verbales a mano rompe la prosodia—:
   avisa y se rehace.
 - **Cuando el texto lo va a DECIR una persona, el acento es un campo, no un default.**
   No se puede adivinar, y equivocarlo no se nota al leer: se nota cuando alguien
@@ -4324,6 +4659,10 @@ escribió, nunca el verbo que todavía no usó nadie. La conjugación voseante e
 del infinitivo; lo único que se escribe es lo irregular del lado NEUTRO (`tener` → tienes).
 Al ampliarlo aparecieron **224 casos vivos en 96 archivos**. Cuando un chequeo se queda
 corto, la pregunta no es «¿qué le falta a la lista?» sino **«¿por qué hay una lista?»**.
+**Y el generador vive en `lib/voseo.ts`, no en el test:** hasta el 29/10/2026 estaba adentro de
+`tests/puente-panel-copy.test.ts` y la segunda capa de la IA seguía con una lista de 21 palabras
+(«escribime», «agendá», «mandame» pasaban). **Un detector que usan un test y el código de
+producción vive en `lib/` y el test lo importa.**
 
 ⚠️ **Y ese mismo guard daba verde sobre código que NUNCA MIRÓ.** Un `text/*` —un MIME con
 comodín, adentro de un comentario `//`— abría un bloque `/* … */` que se cerraba 71 líneas
@@ -5214,6 +5553,12 @@ nuevo:
   (lib/veto-claude.ts): el chat de Offer, que es el onboarding, y lo que usa de El Archivero, y sólo mientras el onboarding
   del negocio está en curso (`onboardingPendiente`). Para todo lo demás el crédito dice que no y la cascada sigue como si no existiera. Un
   camino nuevo NO se suma a la lista por su cuenta: lo pide Martín.
+- **Y el turno de texto de los GRUPOS de WhatsApp, desde el 28/10/2026** (Martín: «habilites las API que tenemos disponibles
+  con todas las cuentas de planes 200»). Sólo `FEATURE_DE_LOS_GRUPOS` (`mako-doer-in`), sólo si el negocio no tiene su Claude
+  (el suyo gana), con Haiku, nunca después de una herramienta y nunca el Plan; el gasto lleva «(cuenta N)», y el interruptor
+  `ia.credito_grupos` de la plataforma lo apaga. ⚠️ **Las cuentas son UNA lista, la del Uso** (`CUENTAS_DEL_CREDITO`,
+  lib/credito-api.ts → `CLAVES_CREDITO_DE_LOS_GRUPOS`): una cuenta nueva es una línea ahí, nunca otra copia de nombres. Una
+  cuenta que paga y el Uso no conoce es gasto que no se ve.
 - **Y lo que lo gasta pasa por la GUARDIA del onboarding** (17/10/2026, `frenoDeIa`, lib/onboarding-guardia-server.ts:
   ráfaga por usuario e IP, un tope de turnos y documentos por onboarding en la base, el troleo que no llega a la IA y
   el bloqueo con aviso al equipo). Una acción nueva de /api/offer que pague IA se suma a `tipoIa` antes del `switch`;
@@ -5903,6 +6248,17 @@ la ruta lo que su pantalla le esconde. El detalle, en [docs/hallazgos-seguridad.
   trabada no avisa que se trabó, así que la ausencia la dice el servidor con «la última vez que llegó algo» (`visto_at`),
   en rojo y con lo que espera, nunca en un renglón gris. El diseño, en
   [docs/diseno-cartero-servicio.md](docs/diseno-cartero-servicio.md).
+  **El tercero, y el más limpio porque se predijo (24/10/2026, 19:04):** un `/clear` borra los crons de sesión. El chat
+  sigue en la barra con su título y su `local_…`, pero la conversación es otra y el `CronCreate` era de la vieja: el
+  cartero dejó de latir y nadie lo avisó, porque el que avisaba era ese mismo cron. El Cartero había marcado el riesgo
+  antes («si los mata, nadie lo avisa») y el Cerebro le puso un monitor afuera, sobre el latido: se vio a los 23 minutos y
+  no al otro día por Martín. **Cuando algo se vigila a sí mismo, su muerte es silenciosa: lo que corre siempre late, y ese
+  latido lo mira alguien que no es él.** Al limpiar un chat con cron: su prompt se guarda afuera de la conversación,
+  porque se va con ella, y después del `/clear` va `CronList` y se rearma. El caso, en
+  [docs/hallazgos-operaciones.md](docs/hallazgos-operaciones.md) → «El `/clear` borró el cron del Cartero».
+  **Y lo que avisa dentro del lugar que nadie abre, no avisa (30/10/2026):** un pedido a un chat cerrado sólo lo decía una línea
+  dentro de ese chat, y 11 quedaron en «escrito» sin que nadie se enterara. Un aviso sale hacia donde la persona SÍ está
+  mirando. **Y una respuesta de hace seis días no es una orden de hoy:** antes de ejecutarla, se mira contra el estado de hoy.
 - **Un GET no escribe** (el de `chat-agent/onboarding/resumen` desarchivaba automatizaciones con un link).
 - **Toda función SQL nueva lleva su `revoke … from public, anon, authenticated` Y su `grant execute … to service_role`** (el de una
   función de trigger no hace falta), en su migración: **no es redundante.** La 0280 creía dejar las nuevas cerradas y NO lo hacía: el
@@ -6144,6 +6500,66 @@ decisión escrita y no un descuido. El test lleva su inverso: una entrada de la
 lista blanca que ya no comparte nadie también falla, porque si no queda permiso
 escrito para una colisión futura.
 
+## Y una tab que sólo ve el super admin NO va en `TAB_ONBOARDINGS`
+
+`resumenOnboardingTabs()` (`lib/tab-onboarding-state.ts`) recorre `Object.keys(TAB_ONBOARDINGS)`
+**sin filtro de capa, de rol ni de visibilidad**, y lo que devuelve lo pega `buildSystemPrompt`
+en el prompt de **todos los negocios, en todos los turnos**. Una entrada para una pantalla de
+plataforma queda pendiente para siempre y MaKo le dice al dueño que lo primero es ir a
+configurar algo que no puede abrir (31/10/2026, al construir Knowledge; docs/hallazgos-onboarding.md).
+
+⚠️ **ESA REGLA CAMBIÓ EL 01/11/2026 Y ESTA PARTE MANDA. Martín, textual, mirando Competitors Spy:**
+*«Le pusiste un onboarding a competitors, cuando ya habiamos dicho que nada debe tener onboarding…
+Limitas la experiencia del usuario»*. Lo que rechaza no es la ayuda: es la **PUERTA**.
+
+**NINGÚN wizard tapa una tab.** `PuertaSpy` mostraba el onboarding EN LUGAR de la tab hasta que
+alguien apretaba salir; quedan tres iguales —`PuertaCopyGen` (ads-writer), `PuertaVideoGen`
+(video-generator) y `OnboardingCarousels`— y **22 áreas con algún onboarding**. Una tab abre
+mostrando la tab, siempre, aunque esté vacía.
+
+**Qué ocupa su lugar, y son dos cosas distintas:**
+1. **Una franja de UNA línea adentro del contenido, con una «×» que la cierra y no vuelve.** Dice qué
+   hace esa pantalla, no cómo configurarla.
+2. **MaKo pide lo que le falta CUANDO le hace falta** (la regla de que MaKo abre preguntando), en su chat, no en un
+   pasillo previo. Si para leer a un competidor hace falta Meta, el botón «Conectar Meta» va en el estado
+   de error de esa lectura, con el motivo real al lado — no tres pasos antes, por las dudas.
+
+**Y lo que el onboarding hacía bien NO se tira: el estado.** Que una tab sepa si está conectada le sirve a
+MaKo. Pero va como **DATO**, igual que abajo, no como un paso pendiente que reclama: «tiene 0 competidores»
+es un hecho; «no completó el onboarding de Spy» es un reproche a alguien que entró a trabajar.
+
+**La pregunta previa que sí sigue valiendo: ¿de quién es esa pantalla?** Si es de la plataforma, no va al catálogo. Y si
+su estado igual le sirve a MaKo, va **el DATO y no el flag** —algo que sea verdad para cualquiera
+que lo lea—, como el conteo de fichas por módulo de Knowledge (`estadoDeLosModulos`, `lib/knowledge.ts`).
+
+# El método de los cursos lo pide una tab por su KEY, nunca con un área escrita a mano
+
+El conocimiento de los cursos (**Knowledge**) está clasificado por tema en
+`lib/knowledge-modulos.ts`: un módulo declara qué enseña, de qué **secciones del portal de
+cursos** sale, en qué `area` de `mako_knowledge` aterriza su destilado y **qué tabs lo
+consumen** (keys del nav). Un prompt que quiere ese método llama
+`metodoDeTab(<key del nav>, pregunta)` (`lib/knowledge.ts`) y el catálogo resuelve el área.
+
+**Por qué:** hasta el 31/10/2026 el área estaba cableada en cada writer —cuatro con
+`metodologiaDeArea('mensajes', …)` y tres con `searchKnowledge(pedido, 4)` sin área, o sea el
+cajón entero—, así que **una tab nueva no recibía nada** hasta que alguien se acordara de
+cablearla. El área en el writer es la copia que se desincroniza.
+
+Lo demás que gobierna código nuevo acá:
+
+- **Un módulo de Knowledge es una CAPA del Second Brain** (`lib/cerebro-knowledge.ts`, el molde
+  de `lib/cerebro-funciones.ts`): se cuelga con `conCapa` y entra al turno sólo si la pregunta
+  pide el método. Al prompt viaja el ÍNDICE —una línea por módulo, sin contenido
+  (`bloqueDeModulos`)—; el contenido se pide (`leer_modulo_knowledge`, o `metodoDeTab`).
+- **Un módulo no lista cursos ni declara su estado.** Los cursos salen del catálogo del portal
+  por sección (tenerlos escritos dos veces es el bug que dejaba cada curso nuevo con el link
+  compartido roto), y cuánto método tiene cada módulo se MIDE (`estadoDeLosModulos`).
+- **Una ficha de Knowledge se carga con `fuente: 'mako'`.** Con `'manual'` no se presta
+  (`lib/rag-prestamo.ts`) y le llega a cero negocios, con la pantalla mostrándola igual.
+- **Un área nueva entra al desplegable de `app/classroom/methodology/ConocimientoView.tsx`** o
+  no se puede cargar nunca una ficha ahí. `tests/knowledge-modulos.test.ts` lo frena, igual que
+  una sección del portal sin módulo y una tab declarada que el nav no tiene.
+
 # Una barra de gráfico se recorta al 100%, siempre
 
 `width: ${pct}%` adentro de un carril NO desborda la barra: **desborda la página**.
@@ -6332,6 +6748,48 @@ reunión y ver lo que sacó se queda esperando para siempre»*.
 - **Y todo spinner que pueda durar más de ~8 segundos dice cuánto puede tardar y qué pasa si
   cerrás.** Un spinner mudo durante minutos es indistinguible de algo colgado, y la persona
   cierra sin saber si perdió lo que estaba haciendo.
+
+# Lo medido y lo supuesto no se dibujan igual, y el punteado significa UNA sola cosa
+
+Ya está decidido que **lo que no se puede medir no se estima** (el campo queda en `null`,
+nunca un cero, nunca un «falta»). Lo que faltaba es la otra mitad: **cómo se ve** un número
+supuesto cuando sí decidimos mostrarlo. Hoy un pronóstico y una medición se dibujan igual.
+
+Mirando 114 tableros ajenos (31/10/2026, `docs/diseno-dashboards-codeandchill.md`) apareció
+el riesgo concreto: tres de esas demos usan **la misma línea punteada** para tres cosas
+distintas — un umbral, otro período y otra unidad. Con 46 tipos de gráfico que el usuario
+mezcla en una misma hoja, eso sería ilegible.
+
+**El vocabulario, y es uno solo para toda la app:**
+
+| Recurso | Significa |
+|---|---|
+| Relleno o línea **sólida** | **Medido.** Pasó y lo leímos |
+| Relleno **rayado en diagonal** / trazo **punteado** | **No medido.** Proyectado, comprometido o estimado |
+| **Contorno sin relleno** | **Un hueco que todavía no pasó** (las horas de hoy que aún no corrieron) |
+| **Tono más claro del mismo color** | **Otro período** (el año pasado, el mes anterior) |
+| **Línea fina de 1 px con rótulo** | **Un umbral o una meta** (la cuota, el tope de gasto) |
+
+Cubre los cinco casos sin que ninguno pise a otro. Y es el mismo vocabulario que ya pide la
+regla de la barra recortada al 100 %: «que se vea que está cortada».
+
+# Un contador interpola entre dos valores REALES, o salta
+
+Nueve de los 26 tableros que se miraron a fondo el 31/10/2026 tienen el mismo defecto, y es
+de los que se heredan sin darse cuenta: un número que cuenta pasa por valores que nunca
+existieron. Uno pasa por `+£143.170` camino a `−£18.319` (**cambia de signo en vuelo**); otro
+muestra `£764.087` como total de 7 días; otro muestra `92` mientras el titular de la misma
+pantalla dice `109`. Y varios **cuentan desde cero al montar**: si ese día falla la lectura,
+el usuario ve un cero creíble y nadie se entera.
+
+**La regla: un número sólo cuenta entre dos valores reales y comparables, y sólo cuando el
+cambio lo causó la persona.** Nunca desde cero al montar — para eso está el esqueleto, y «no
+pude leer» es un estado propio que se dice. Si los dos valores no son comparables (otro orden
+de magnitud, otro signo, otra unidad), **el número salta**.
+
+Corolario que vale para cualquier control: **un número no se anima mientras la persona
+sostiene el control que lo cambia.** Se reemplaza. La animación es para una transición que el
+sistema decidió, no para un deslizador que alguien está arrastrando.
 
 # Un color de acento dice algo, y puede decir lo contrario
 
@@ -6838,7 +7296,8 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   contesta desde la fila si algo se creó y publica lo nuevo si no—, pero esa respuesta puede hablar
   del payload de ANTES: no se pinta como éxito de lo que está en pantalla ni se le recorta. Vive
   FUERA del componente: en un ref, cerrar y reabrir el modal la perdía. Molde: `claveAMandar` /
-  `trasRespuesta` + `claveAbierta` (app/ads-manager/creativeUpload.ts).
+  `trasRespuesta` (lib/meta-idempotencia.ts); la clave abierta guardada fuera del componente (`claveAbierta`) vivía en el
+  Ads Manager viejo, borrado el 27/10/2026.
 - **La fila es lo único que lee un reintento, así que los persist TERMINALES reescriben todo lo
   que hay en memoria**: los intermedios tragan su error. Y un rollback cuenta sólo si el proveedor
   CONFIRMÓ el borrado — «(revertido)» sin confirmar es lo que hace crear otra encima.
@@ -6852,7 +7311,10 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   sobre 69b49a31c): Zernio guarda la respuesta de cada clave 24 h, y `nutri:<inscripción>:<nodo>`
   servía mientras una inscripción era UNA corrida. «Volver a probar» la reusa: la segunda prueba
   mandaba con la clave de la primera, la pública daba 422 y el DM volvía con el 200 viejo sin
-  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). Y lo que se CREA
+  salir. Molde: `claveDeEnvio` (lib/reentrada.ts; la vuelta es `inscripto_at`). **Y si la misma tarjeta
+  puede salir dos veces en UNA corrida** (un botón que vuelve a una de antes, ticket #29), la clave lleva
+  también la PASADA: con la de la primera, Zernio devolvía la respuesta guardada, no salía nada y el motor
+  lo anotaba «enviado». Y lo que se CREA
   a pedido reclama la firma del pedido ANTES de crear y, repetido, retoma lo suyo en vez de crear
   otro: `crearDifusion` (lib/difusion.ts).
 
@@ -6934,6 +7396,9 @@ código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallaz
   puedo» con el botón ahí al lado fue el caso de Leila con «Borrar silencios».
 - **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
   uno de los 10 «no puedo» de Leila era algo que no existía.
+- **El `forma` (el ejemplo) de una operación del catálogo lo COPIA el modelo: un parámetro opcional no va en el ejemplo.**
+  Con `{"op":"borrar_silencios","ref":"v1"}` el modelo nombraba siempre un clip, y a Leila le buscó silencios en uno de 0,9 s
+  cuando pedía el video (ticket 31, 29/10/2026). Cuándo SÍ usarlo lo dice el `para`.
 
 # Un ticket resuelto se CIERRA y se AVISA en el grupo del cliente, sin preguntarle a Martín (Martín, 28/10/2026)
 
@@ -7078,6 +7543,10 @@ que apaga la búsqueda. **La cosecha se escribe en la MISMA ventana**: cuatro d�
 puede no haber nada que releer. Y ojo con la ruta, que es la mitad del error: los journals
 viven en `<sesión>/subagents/workflows/`, no en `<sesión>/workflows/` — las dos carpetas
 existen, se llaman igual, y la equivocada contesta cero sin un error.
+
+⚠️ **Una cosecha que se escribe y no se sube es una cosecha perdida, igual que si no se hubiera escrito.** Medido el
+30/10/2026: una cosecha commiteada y pasada al tren el 24/10 no estaba en `main` seis días después. Vale cuando se lee en
+`origin/main`, y lo verifica quien la escribió: `git merge-base --is-ancestor <sha> origin/main`.
 
 No es hipotético. Una corrida de 14 agentes sobre el formulario "¿Qué hacer ahora?"
 encontró 13 problemas reales; los 5 que quedaron fuera de alcance sobrevivieron
@@ -10459,6 +10928,24 @@ Martín quiere el chat en todas las tabs (16/10/2026). Los dos que hay (`app/vid
 - **«Restaurar» es el deshacer de ESE paso**, sólo si nada cambió después; si no, se dice «Ctrl+Z».
 Lo que costó, en docs/hallazgos-editor-imagen.md y docs/hallazgos-video-editor.md.
 
+# Lo que se puede cortar y reintentar crea con ids que salen de su ORIGEN (29/10/2026)
+
+Una mudanza, una importación o cualquier tanda que escribe muchas filas puede cortarse en el pedido menos pensado (la
+última escritura, o una respuesta que se pierde con la escritura ya hecha). **Cada cosa que crea lleva un id que sale de su
+origen** (hash del negocio + la clave de lo que copia), y el reintento **saltea lo que ya está** y adopta lo que quedó a
+medias. Una marca «ya se hizo» tomada por compare-and-set protege de dos a la vez, NO de un corte a la mitad. Y ante un
+error **ambiguo** no se compensa borrando: puede haber llegado. Lo que costó no verlo (7 → 14 páginas, 6 que abrían «No
+existe»), en docs/hallazgos-copywriter.md; el molde, `crearVarias` + `idDeMudanza` (lib/copywriter/).
+
+# Un editor ofrece SÓLO lo que su formato guarda (29/10/2026)
+
+Una librería de editor (BlockNote en el Copywriter, TipTap en el Web Generator) trae más de lo que el documento de la casa
+sabe guardar: colores, alineación, imágenes, código, niveles de encabezado. Si el esquema del editor lo deja, la persona lo
+usa y desaparece al recargar, sin un error. **El esquema del editor es EXACTAMENTE el del formato guardado**; lo que el
+formato no anida sale a continuación, nunca se tira; y la ida y vuelta (guardado → editor → guardado) tiene su test de punto
+fijo (tests/copywriter-notion.test.ts). Cambiar de librería no cambia el formato guardado: se escribe un conversor
+(lib/copywriter/notion-bloques.ts). El porqué, en docs/hallazgos-copywriter.md.
+
 # Una acción de pantalla PROPIA nueva decide qué pasa en un FLUJO
 
 `ejecutarDesdeFlujo` (lib/api-mako/flujo.ts) aplica en el acto lo que un paso propone, y toda propuesta que no conoce
@@ -10598,9 +11085,11 @@ Detalle: docs/hallazgos-chatbot.md («No salió ni a mí ni a mi esposa»).
 
 ## Hacer cumplir un tope del plan: sólo a quien paga por la pasarela, y sólo al crear (23/10/2026)
 
-Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio por la pasarela
-(`suscripcionDeMakoDe(ws) != null`, lib/cobros.ts), y nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos
-a mano también son `completo`. Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
+Un tope de `lib/topes-plan.ts` se aplica SÓLO si MaKo le cobra el plan al negocio: `aplicanTopes(ws)`
+(lib/topes-plan-server.ts: su suscripción por la pasarela O la cuenta de un cliente de agencia, que la paga su agencia), y
+nunca al ws1: la capa sola no lo dice, porque el ws1 y los acuerdos a mano también son `completo`. ⚠️ No preguntes
+`suscripcionDeMakoDe(ws) != null` solo (29/10/2026): deja sin topes ni candados de Pro a toda cuenta de agencia (el
+Esencial de US$47 tenía todo Pro). Los candados de las tabs de Pro, igual: `esEsencialDe` (lib/plan-esencial.ts). Frena lo que se va a CREAR, en el único punto donde nace (una línea nueva: `conectar({ nueva:
 true })`), y nunca corta lo que ya existe. Si no se puede leer el plan, deja pasar. El molde es `topeParaLineaNueva`
 (lib/tope-lineas.ts, puro); el cartel es `textoTope(n)` con «Pasar a Pro». Lo hace cumplir tests/tope-lineas.test.ts; el
 porqué, docs/hallazgos-planes-y-cobro.md.
@@ -10674,9 +11163,18 @@ hoja del «Diseño editable» se pintaba cruda en hola-mako.com (docs/hallazgos-
 - **El freno va en el alta A MANO, nunca en la función que también llaman los webhooks.** Lo que entra solo (un anuncio,
   una reserva, un mensaje) no se pierde por un tope: entra, y la pantalla avisa. En el CRM, `createLead` la usan los
   webhooks: el freno está en `altaDeLead`, la de WhatsApp, importar y MaKo (docs/hallazgos-crm.md, «Los topes del plan»).
-- **Primero `suscripcionDeMakoDe(ws) != null`**: el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
+- **Primero `aplicanTopes(ws)`** (lib/topes-plan-server.ts; antes del 29/10 era `suscripcionDeMakoDe(ws) != null`, que dejaba
+  afuera a las cuentas de agencia): el ws1 y los acuerdos a mano también tienen capa `completo`, y no tienen tope.
   Si la lectura falla, no hay tope.
 - Al llegar: `textoTope(n)` y «Pasar a Pro», sin borrar ni esconder nada.
+
+## Una guarda que mira una parte de la pantalla da falsos verdes cuando el texto se muda (30/10/2026)
+
+Una guarda de texto mira lo que la persona lee entero, dibujado, no la lista de donde hoy sale ese texto. Leila sacó la jerga de la tabla de /planes el 27/10 y la guarda miraba sólo las filas: «embudo», «CRM», «media buyer», «setter» y «cohorte» siguieron tres días en las tarjetas y en la promesa, lo primero que se lee, con la guarda en verde. El ejemplo: `la pantalla entera se entiende`, tests/planes-tres-bloques.test.ts, que dibuja la página y mira el resultado.
+
+## Un «extendé la duración» que arrastra los límites de otra cosa (30/10/2026)
+
+Antes de alargar algo, mirá qué más viene pegado a esa duración. Lo que se prometió es lo que la persona va a tener, no el número. Martín le ofreció a Gabriela «acceso a la app gratis por 6 meses», y el pedido fue «sumá el número a la prueba a mano»: la prueba lleva sus topes (3 videos, 1 avatar, 1 landing, sin exportar), así que cumplir la orden al pie de la letra rompía la promesa. Los 6 meses son otra cosa (`DIAS_REGALO`, `llevaTopesDePrueba`, lib/plan-a-mano-reglas.ts).
 
 ## Traer leads de a muchos a una ETAPA: sólo a una que no mande nada (23/10/2026)
 
@@ -10796,6 +11294,34 @@ pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada
 escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
 tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
 
+## Una APERTURA de MaKo no es una recomendación: la arma el código y pregunta un hecho (29/10/2026)
+
+Martín: «en todos lados que haya un chat de MaKo, que MaKo te vaya guiando… EN LUGAR de que esté en la top bar "adaptar con
+MaKo"… que MaKo tome la iniciativa». Lo que MaKo dice PRIMERO en un chat es una apertura (lib/aperturas/, la pieza
+app/_chat/AperturaMako.tsx; el plan, docs/mako-iniciativa/plan.md), y es la excepción a «toda pantalla que sugiera algo usa el
+motor de recomendaciones»: no mide una señal, lee el ESTADO y pregunta el primer hecho que falta. **Regla para código nuevo:**
+- la arma el CÓDIGO (una función pura por superficie, `lib/aperturas/<superficie>.ts`, con su `CATALOGO` y sus `EJEMPLOS`), sin IA
+  y sin prompts; devuelve `null` si no falta nada, y MaKo calla;
+- la primera pregunta es de HECHO («¿Cuál usas?»), nunca de acción («¿Quieres que…?»): lo exige `PREGUNTA_DE_ACCION`
+  (tests/aperturas.test.ts), salvo la guía de cada pestaña, por su id y con el porqué escrito;
+- sus botones andan SIN la app de escritorio (`respuesta`, `ir`, `hacer`, `callar`); la IA del negocio entra sólo con un toque
+  (`pedir`), con el texto que arma el código;
+- nunca un botón en la barra para lo mismo, y nunca un mensaje guardado con botones: el Cerebro es uno en toda la app, y lo
+  guardado saldría en todas las tabs;
+- la memoria es POR PERSONA, con el workspace en la clave (`usuarios.perfil.aperturas`, /api/aperturas): «Ahora no» calla 14
+  días y el segundo para siempre; lo de negocio habla una vez por día.
+
+## La GUÍA de cada pestaña: MaKo enseña señalando, con el chat a la vista (29/10/2026)
+
+Martín: «que Mako le pueda ir señalizando diferentes lugares… cada vez que un usuario entra por primera vez a una tab… que la
+pestaña se ponga un poco opaca por detrás». Reemplaza a los recorridos con «Siguiente» (app/_ui/Recorrido.tsx) tab por tab
+(docs/mako-iniciativa/guia.md). **Regla para código nuevo:** toda tab trae su catálogo de guía AL LADO de su pantalla
+(`app/<tab>/guia-<tab>.ts`, sumado a lib/guia/catalogo.ts) y llama `useGuiaDeLaTab(key, { listo, hechos })`; una marca se pone
+con `ancla('id')` (el id no se renombra: es la clave de lo visto); nunca un `aria-label` como ancla; el chat que la tab dibuja
+lleva `data-mako-chat` (el velo le deja un hueco: con la guía puesta se usa la tab y se le escribe a MaKo); su pregunta habla con
+la pieza de las aperturas. El «recomendado» de la guía ordena qué enseñar primero con hechos de la pantalla: tampoco es una
+recomendación. tests/guia-*.test.ts; una tab que un cliente ve sin catálogo, falla.
+
 # El desenlace de un lead y la columna de su tarjeta se escriben JUNTOS (27/10/2026)
 
 El tablero lee la columna guardada (`leads.pipeline_stage`) y Customer Success, Revenue y las métricas leen `estado_lead`. Un
@@ -10806,6 +11332,20 @@ Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pago
 escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
 docs/hallazgos-crm.md («El feedback del 27/10/2026»).
 
+# «Eliminar» un lead es mandarlo a la PAPELERA; borrar para siempre es interno (28/10/2026)
+
+Desde la mig 0340, todo «Eliminar» que ve una persona o pide MaKo (la barra en bloque, la tarjeta, la ficha, la API) va por
+`mandarLeadsAPapelera` (lib/leads-papelera.ts): la base saca la FOTO del lead y de todo lo que se lleva en cascada (las FKs se leen
+de `pg_constraint`, no de una lista) y lo borra, en una transacción por lead; durante 30 días vuelve igual, con sus mismos ids.
+**Regla para código nuevo:** un camino nuevo de «eliminar un lead» llama a la papelera. Lo interno que no debe dejar foto (unificar
+fichas, el lead que perdió la carrera de Instagram) va por `borrarLeadConCamino` (lib/leads-bajas.ts), con su camino: no hay otro
+`from('leads').delete()` en `lib/` ni en `app/`, y tests/crm-leads-bajas.test.ts lo barre. Cada borrado deja un renglón en `leads_bajas`
+(mig 0356: un trigger, así que también lo deja un script), que no se purga, y se lee con `ver_bajas_de_leads`. Sin la migración, la
+papelera NO cae al borrado de antes: lo dice y no borra. Una tabla nueva con FK al lead entra sola a la foto; una FK de VARIAS
+columnas en cascada la frena entera (no la sabe guardar). Lo fijan tests/crm-acciones-bloque.test.ts y
+scripts/probar-0340-pglite.mjs (contra un Postgres de verdad); el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la
+papelera»).
+
 # Lo que corre el chat de un editor devuelve su MOTIVO, no lo deja sólo en un store (28/10/2026)
 
 El chat del Video Editor sabe si algo salió por una sola señal: si la línea de tiempo cambió. Una operación larga que no
@@ -10815,3 +11355,115 @@ para código nuevo:** lo que llama `correrLarga` (`chat/aplicar.ts`) devuelve `{
 `return` mudos, y el botón y el chat leen el MISMO resultado con UN texto por motivo que dice qué pasó y qué hacer (el
 molde: `quitarSilencios`, `usarPlantilla`, `subtitles/resultado.ts`). Lo fija el test 52 de tests/video-editor-chat.test.ts;
 el porqué, en docs/hallazgos-video-editor.md.
+
+# Una tab de CREATE es UNA pantalla: `PantallaCrear`, sin pestañas arriba y sin onboarding (29/10/2026)
+
+Martín, 29/10/2026: «para todas las secciones de "create" no quiero otras tabs... el mismo diseño de la barra lateral del
+chat de MaKo SIEMPRE abierto a la izquierda... En "nueva"... TEMPLATES con la sección de ¿Qué vas a crear hoy?». Toda tab de
+la familia Create (Video, Image, Copywriting, AI Avatar y la que venga) monta `app/_crear/PantallaCrear.tsx`: el chat de
+MaKo a la izquierda que no se cierra, su «←» a la lista de proyectos, y «Nuevo …» con las plantillas. Lo que antes era una
+pestaña (Reels, Carousels, Video Generator) es una PLANTILLA de «Nuevo …» o se retira. El ítem de `nav.ts` NO lleva
+`secciones` y conserva la key de la que era su sección principal (la miran las capas, la API y el teléfono). Diseño e
+inventario: docs/diseno-create.md. Lo fija tests/crear-pantalla.test.ts.
+
+Y al dibujar ADENTRO de esa pantalla (el QA del 29/10/2026, tests/crear-qa-pantallas.test.ts):
+- **La ventana no dice cuánto ancho tiene una pieza.** La sidebar, la tarjeta de MaKo (348 px) y los paneles propios del
+  editor se lo comen: a 1366 la barra de abajo del Image Editor medía ~520 px. Lo que cede por ancho va con `@container`
+  sobre su propia caja, no con `@media`. Un editor pasa `plegable` y la tarjeta se pliega a una barra fina.
+- **Un rótulo de barra no lleva un ancho fijo ni `truncate`** («Transicio…» salía a CUALQUIER ancho de pantalla): mide lo
+  que pide su texto, y lo que no entra se corre o cede.
+- **Una clase del `<style>` de un componente no repite una de la hoja de su tab**: `.of-doc` era la tarjeta del PDF en
+  app/offer/estilos.ts y dejó la oferta en una columna de 340 px. Mirarlo antes de nombrar (`grep` del prefijo).
+
+Y una PLANTILLA de «Nuevo …» es un ejemplo lleno, no un rectángulo con un nombre (Martín, 29/10/2026: «Los templates
+tienen que ser reales»; el plan: docs/plantillas-reales/README.md). Lo común de las cinco tabs vive en un solo lugar:
+- **La tarjeta:** los campos de `PlantillaCrear` (app/_crear/reglas.ts: `grupo`, `insignia`, `ayuda`, `ejemplo`, `extracto`,
+  `chips`, `frase`, `video`), todos opcionales, y `miniatura` de `PantallaCrear` para la de una tab. Ninguna tab inventa
+  otro nombre para lo mismo ni dibuja su propia tarjeta (app/_crear/TarjetaPlantilla.tsx).
+- **Lo que se dice del ejemplo:** el rótulo y el primer mensaje de MaKo salen de app/_crear/ejemplo.ts, sin IA.
+- **Lo que el experto lee del negocio:** `contextoDelNegocio` y `vozDelNegocio` de lib/negocio-para-crear.ts (grafo de los
+  chats). ⚠️ `contextoDelNegocio` de lib/plan-senales.ts es OTRA función con el mismo nombre.
+- **Lo que se toma de código abierto:** su licencia literal en lib/avisos/LICENSE-<REPO> y la cabecera del archivo que la
+  nombra (lib/avisos/LEEME.md).
+- **Los ejemplos se prueban** con `problemasDelEjemplo` de tests/_reales.ts: ni gente real (`REALES`), ni voseo, ni
+  regionalismos. Un texto en `.json` también: el guard del voseo sólo ve `.ts` y `.tsx`.
+
+# Un dato pedido no se pierde en el respaldo, un archivo del chat viaja por su `ref`, y un número y su lista cuentan igual (29/10/2026)
+
+- **«Solucionar» un dato que la ficha no dibuja** (la plantilla «Evento» no trae «Datos fiscales»): el respaldo lleva EL
+  DATO (`onNoEsta(paso)` → `datoPedido` → `loQueSePide(faltan, avisan, pedido)`). Un respaldo que abre un asistente genérico
+  pierde lo que la persona tocó: Leila tocó «datos fiscales» y le salieron setter y closer.
+- **Una acción con tarjeta que usa un archivo del chat** lo toma en `preparar` (`ctx.adjuntos`, sólo durante el turno y
+  sólo en la app) y guarda su `ref` en la pendiente; `ejecutar` lo baja con `bajarAdjunto`. El `ref` nunca sale de lo que
+  escribe el modelo.
+- **Un número y la lista de quiénes son usan la MISMA función** (`estadoDeAsistencia`, con la misma ventana): dos cuentas
+  parecidas son dos cifras para lo mismo. Lo fijan tests/documento-fiscal-desde-el-chat.test.ts y
+  tests/reuniones-por-asistencia.test.ts; el porqué, en docs/hallazgos-crm.md y docs/hallazgos-api-mako.md.
+
+# Una COLUMNA que se manda al server va con el id del funnel, también el principal (29/10/2026)
+
+`funnelActivo` llega `null` cuando se mira el funnel principal, y el server lee `{ funnelId: null, etapa }` como esa etapa en
+TODOS los funnels (`ambitoDeFunnel(null)` → «todos», lib/nutricion.ts). La difusión de Leila a «Contacto nuevo» del principal
+le habría llegado también a los de los otros funnels. **Regla para código nuevo:** lo que manda una columna al server la manda
+con `funnelActivo ?? funnels.find((f) => f.esDefault)?.id` (en CrmBoard, `funnelDeDifusion`; el mismo que «Vincular evento»),
+y si no hay id, manda los ids que se ven (`seleccionDeDifusion`, app/crm/seleccion-difusion.ts). Lo fija
+tests/crm-difusion-columna.test.ts; el porqué, en docs/hallazgos-crm.md («Acciones en bloque y la papelera»).
+
+# En el teléfono, cerrar una hoja y navegar en el mismo toque va con `navegarAlCerrar` (29/10/2026)
+
+Cerrar un `<SheetM>` por código saca su `?sheet=` con `replaceState`, y Next 16 lo despacha como ACTION_RESTORE, que
+DESCARTA la navegación en curso: `setAbierta(false); router.push(url)` no navega nunca (ticket #27: elegir otro funnel
+en el CRM del teléfono «no hacía nada»). **Regla para código nuevo:** `setAbierta(false); navegarAlCerrar(() =>
+router.push(url))` (app/m/_ui/hoja-historial.ts, exportado por `app/m/_ui`), o dejar que la hoja se desmonte con la
+página nueva sin cerrarla. Lo fija tests/m-hoja-navegar-al-cerrar.test.ts, que barre app/m; el porqué, en
+docs/hallazgos-mobile.md.
+
+# Las vistas de una misma cosa son UN selector (`SelectorVista`), nunca dos tabs ni dos controles (Martín, 29/10/2026)
+
+«Es el típico botón que tenemos en el CRM u otros lugares, del botón de Kanban o botón de lista. Son lo mismo, no deberían ser dos
+tabs» (Classroom: Clients y Members; el Calendario: el desplegable de vistas y «Calendario | Llamadas»). Lo que gobierna código nuevo:
+
+- **El control es el de la casa** (app/_ui/SelectorVista.tsx, con el ícono y el nombre en app/_ui/iconos-vista.tsx): una vista nueva
+  suma su entrada ahí, no un segmento propio. Con una sola vista no se dibuja.
+- **Está en el MISMO lugar en todas las vistas.** Si una vista es la pieza de otra pantalla (el directorio de Miembros adentro de
+  Clients), el selector le entra como un nodo (`extra`) y se dibuja donde lo tiene la barra de las otras. Y también en el estado
+  vacío: si no, la vista que sí tiene contenido queda inalcanzable.
+- **Una vista que era una ruta deja su ruta como redirect con `?vista=`**, y la vista elegida queda en la URL (`replaceState` en el
+  clic) y la lee el server: un F5 o un link vuelven a ella.
+- **Antes de decidir qué vista reemplaza a cuál, mirá cuáles ya hay.** Clients ya tenía una Lista; reemplazarla por Members perdía
+  una columna. Detalle: [docs/hallazgos-customer-success.md](docs/hallazgos-customer-success.md) → «Clients y Members, UNA sub-tab».
+
+# «No existe» es una HIPÓTESIS: antes de construir, medí el ÁRBOL contra la rama del brief
+
+El `main` de este clon compartido **no es** `origin/main`: las sesiones trabajan en worktrees y
+el checkout principal se queda atrás. Medido el 30/10/2026: estaba **4.431 commits detrás** de
+`origin/main` (y 12 adelante, con trabajo local de otras sesiones). En ese árbol `app/ads-manager/`
+todavía era la réplica de Meta Ads Manager que se borró el 25/10, así que un chat construyó de
+cero «la calculadora de presupuesto de anuncios» —módulo, pantalla, operación de la API y 16
+tests— que **ya existía** (`lib/calculadora-presupuesto-ads.ts`, 22/10), con su propio docblock
+citando el pedido de Martín.
+
+**Y el trabajo nuevo no choca contra nada hasta el final.** El módulo era puro, los tests pasaban,
+el `tsc` acotado daba 0 y las defs de la API auto-mergearon: lo único que delató la divergencia
+fue el `cherry-pick`, con dos conflictos `DU` —*deleted by us, modified by them*— sobre archivos
+que en la rama de verdad ya no existen.
+
+Antes de escribir una línea, y son cuatro comandos:
+
+```sh
+git fetch origin integracion main
+git rev-list --count HEAD..origin/integracion        # cuánto te falta (si no es 0, no estás ahí)
+git log --oneline -5 origin/integracion -- <la carpeta que vas a tocar>
+grep -rln "<el nombre de la feature>" lib/ app/      # ¿ya existe?
+```
+
+⚠️ **LA SEÑAL MÁS BARATA: un archivo que el brief NOMBRA y no está en el árbol de trabajo.** Si el
+brief cita `docs/<algo>.md` y hay que ir a buscarlo con `git show <sha>:<ruta>` porque en disco no
+está, el árbol **no es la rama del brief** — y eso se sabe antes de abrir un editor. Ahí se cambia
+de base (o se arma el worktree sobre la rama correcta), no se sigue.
+
+⚠️ **Y si igual se construyó de más, lo que se agrega va al MÓDULO QUE YA EXISTE, no al lado.**
+Dos cuentas del mismo presupuesto se desincronizan y la pantalla y el chat terminan diciendo
+números distintos: es «una cosa, un lugar» con la versión nueva de uno mismo como el segundo
+lugar. Lo que se descarta se DICE en la cosecha, con lo que quedó medido, para que el próximo no
+lo vuelva a construir.

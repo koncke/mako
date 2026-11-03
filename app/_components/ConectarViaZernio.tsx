@@ -41,7 +41,9 @@ import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useConectarIntegracion } from './ConectarIntegracion';
 import {
-  CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, estadoDeRed, guardarVuelta,
+  CLAVE_SIGUE_ZERNIO,
+  EVENTO_OTRA_CLAVE_ZERNIO,
+  CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, esperaDeLaPausa, estadoDeRed, guardarVuelta,
   errorDeVueltaAjena, leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
   type ConexionZernio, type MensajeVentana, type MotivoZernio, type RedZernio,
 } from '@/lib/zernio-redes';
@@ -53,6 +55,10 @@ export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string |
 /** Lo que contesta POST /api/zernio (las acciones de esta pieza). */
 type RespuestaApi = {
   ok?: boolean; motivo?: MotivoZernio; error?: string; pagoUrl?: string | null;
+  // Con `pausa` (un 429 de Zernio, ticket #34): cuánto pidió esperar.
+  esperaMs?: number | null;
+  // Con el aviso de la 3.ª red: ¿queda lugar para otra clave de Zernio? (varias claves, 29/10/2026).
+  puedeAgregarClave?: boolean;
   tipo?: 'url' | 'ya-conectada'; url?: string; conexiones?: ConexionZernio[]; total?: number;
   ruteo?: 'ok' | 'ocupado' | 'error';
   // Lo manda recibirConexion (lib/zernio-conectar.ts:204) y la 158 lo lee: sin el campo, `c.webhook` no tipa.
@@ -119,7 +125,7 @@ export function useConectarViaZernio(opts: {
   const [pagoUrl, setPagoUrl] = useState<string | null>(null);
   const [nota, setNota] = useState<string | null>(null);
   // El aviso del cobro de Zernio (27/10/2026): la red y lo que se iba a pedir, para repetirlo con `aceptaCobro` desde un clic NUEVO.
-  const [avisoCobro, setAvisoCobro] = useState<{ red: RedZernio; extra: ExtraZernio; texto: string } | null>(null);
+  const [avisoCobro, setAvisoCobro] = useState<{ red: RedZernio; extra: ExtraZernio; texto: string; otraClave: boolean } | null>(null);
   const vivo = useRef(true);
   const corrida = useRef(0);
   const adelantar = useRef(false);
@@ -207,10 +213,12 @@ export function useConectarViaZernio(opts: {
       const motivo = res.motivo ?? 'error';
       if (motivo === 'sin-clave' || motivo === 'clave-mala') {
         if (optsRef.current.keyAca) { fallar(`${MENSAJES_DE_MOTIVO[motivo]} Está arriba, en esta misma pantalla.`, null); return; }
+        // Zernio PRIMERO, ahí mismo, y después el login de esta red (29/10/2026): el paso 2 la resalta al guardar la clave.
+        try { window.sessionStorage.setItem(CLAVE_SIGUE_ZERNIO, redElegida); } catch { /* sin almacenamiento: el paso 2 lista todas */ }
         setFase('listo'); ponerNota(MENSAJES_DE_MOTIVO[motivo]); abrirIntegracion('zernio'); return;
       }
       // Ésta se paga en SU Zernio: se pregunta antes de abrir Facebook. «Conectar igual» es otro clic (la ventana se abre sin bloqueo).
-      if (motivo === 'cobro') { setFase('listo'); setAvisoCobro({ red: redElegida, extra, texto: res.error || MENSAJES_DE_MOTIVO.cobro }); return; }
+      if (motivo === 'cobro') { setFase('listo'); setAvisoCobro({ red: redElegida, extra, texto: res.error || MENSAJES_DE_MOTIVO.cobro, otraClave: res.puedeAgregarClave !== false }); return; }
       fallar(res.error || MENSAJES_DE_MOTIVO[motivo], res.pagoUrl ?? null);
       return;
     }
@@ -281,8 +289,14 @@ export function useConectarViaZernio(opts: {
           if (motivo === 'sin-clave' || motivo === 'clave-mala' || motivo === 'clave-en-uso' || motivo === 'pausada' || motivo === 'pago') {
             cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return;
           }
-          fallosSeguidos = motivo === ultimoFallo ? fallosSeguidos + 1 : 1; ultimoFallo = motivo;
-          if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
+          if (motivo === 'pausa') {
+            // ⚠️ Un 429 es el tope por minuto de Zernio (ticket #34): NO es una falla ni se cuenta. La próxima medición, después de lo
+            // que pidió esperar; seguir midiendo cada 4 s lo estiraba, y el resto de la pantalla también se quedaba sin cupo.
+            ultima = Date.now() + esperaDeLaPausa(j?.esperaMs) - SONDEO_MS;
+          } else {
+            fallosSeguidos = motivo === ultimoFallo ? fallosSeguidos + 1 : 1; ultimoFallo = motivo;
+            if (fallosSeguidos >= FALLOS_SEGUIDOS) { cerrar(); fallar(j?.error || MENSAJES_DE_MOTIVO[motivo], j?.pagoUrl ?? null); return; }
+          }
         }
         // El error de la ventana se dice con lo que trajo, y la ventana NO se cierra: la landing queda unos segundos para que se alcance a leer.
         if (deLaVentana.msg) { fallar(textoDeErrorDeRetorno(deLaVentana.msg.error, deLaVentana.msg.mensaje), null); return; }
@@ -350,16 +364,34 @@ export function useConectarViaZernio(opts: {
     return () => window.removeEventListener('pageshow', alVolver);
   }, []);
 
+  /**
+   * [Agregar otra clave] del aviso de la 3.ª red: deja la marca en la pestaña y avisa (`EVENTO_OTRA_CLAVE_ZERNIO`). Si el modal de
+   * Zernio ya está abierto (`keyAca`), su formulario abre ahí el campo de la clave siguiente; si no, se abre y lo lee al montarse.
+   */
+  const pedirOtraClave = useCallback(() => {
+    try { window.sessionStorage.setItem(EVENTO_OTRA_CLAVE_ZERNIO, '1'); } catch { /* sin almacenamiento: el evento alcanza si está abierto */ }
+    window.dispatchEvent(new Event(EVENTO_OTRA_CLAVE_ZERNIO));
+    if (!optsRef.current.keyAca) abrirIntegracion('zernio');
+  }, [abrirIntegracion]);
+
   const modalTodo = (
     <>
       {modal}
       {avisoCobro && (
         // `anidada`: se abre desde el modal de Zernio o el de Meta y es parte de la misma tarea (el de atrás no se apaga).
-        <Modal titulo="Esta cuenta se paga en tu Zernio" ancho={440} anidada onCerrar={() => setAvisoCobro(null)}
+        <Modal titulo="Esta red se paga en tu Zernio" ancho={440} anidada onCerrar={() => setAvisoCobro(null)}
           pie={(
             <>
-              <Button size="sm" variant="secondary" onClick={() => setAvisoCobro(null)}>Cancelar</Button>
-              <Button size="sm" variant="primary" data-conectar-igual
+              {/* La salida gratis (Martín, 29/10): otra clave de Zernio, de otra cuenta del cliente. Abre su campo en la tarjeta de Zernio. */}
+              {avisoCobro.otraClave ? (
+                <Button size="sm" variant="primary" data-agregar-otra-clave
+                  onClick={() => { setAvisoCobro(null); pedirOtraClave(); }}>
+                  Agregar otra clave
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={() => setAvisoCobro(null)}>Cancelar</Button>
+              )}
+              <Button size="sm" variant={avisoCobro.otraClave ? 'secondary' : 'primary'} data-conectar-igual
                 onClick={() => { const a = avisoCobro; setAvisoCobro(null); conectar(a.red, { ...a.extra, aceptaCobro: true }); }}>
                 Conectar igual
               </Button>

@@ -60,6 +60,14 @@
 //     cuánto. «Datos de empresa» gasta la red de la línea: tope por día, sin tope por corrida desde el 25/10 (f14; app/crm/grupo-wa-server.ts). Sólo el
 //     admin (`puedeCompletar`), como en el grupo. Las máquinas, compartidas con el modal: app/crm/enriquecer-cliente.ts.
 //
+//   · PASAR A OTRO FUNNEL (28/10/2026, ticket #21 de Leila: «limpiar la casilla de contacto nuevo de lidermente y pasarlo a
+//     Funnel general»). Va en el MISMO desplegable «Funnel», debajo de los de agregar, y abre su propia pregunta
+//     (app/crm/PasarAOtroFunnel.tsx): a diferencia de agregar, SACA del funnel que se mira. No es el «mover» que se borró el
+//     06/10 (ver lib/lead-funnel.ts, `pasarAOtroFunnel`).
+//   · ELIMINAR va a la PAPELERA de 30 días desde el mismo día (ticket #22, mig 0340): el aviso trae su «Deshacer», y la
+//     pantalla «Papelera» (menú de funnels) los devuelve tal cual. Descalificar o perder en bloque pide UN motivo para todos.
+//   · MANDAR MENSAJE (la difusión de Automations, `onMandarMensaje`): la barra sólo pone la selección; la hoja es de ellos.
+//
 // Y una que se dejo AFUERA a proposito: meter los seleccionados en una secuencia
 // de nutricion. Esa es la unica de la lista que MANDA MENSAJES, y la linea de
 // WhatsApp del chatbot es la NO OFICIAL: lo que la protege es el ritmo, no una
@@ -100,6 +108,12 @@ import { useExtensionFichas } from './usar-extension-fichas';
 import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, pedidosDeFichasAction } from './enriquecer-actions';
 import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
 import { miles } from './traer-seleccion';
+import { recuperarLeadsAction } from './actions';
+import { preguntaDePapelera } from '@/lib/leads-papelera-reglas';
+import { avisarPapelera } from './PapeleraLeads';
+import { PasarAOtroFunnel } from './PasarAOtroFunnel';
+import { motivoFinalDe, motivosDeSalida, pideMotivo } from './motivos-salida';
+import { seleccionDeDifusion, type SeleccionDifusion } from './seleccion-difusion';
 
 /**
  * ¿Hay una corrida de «Completar» viva en esta pestaña? A nivel de MÓDULO y no de estado: si la barra se desmontara y se
@@ -121,6 +135,9 @@ export type LeadDeLote = {
 };
 
 export type ProductoDeLote = { id: number; nombre: string; esDefault: boolean };
+
+/** Valor del renglón «Pasar a otro funnel…» del desplegable «Funnel» (los demás son ids de funnel). */
+const PASAR = '__pasar';
 
 /** Lo que una accion le deja al padre para que lo cante en un toast. */
 export type ResultadoLote = {
@@ -175,6 +192,7 @@ async function loteEtiqueta(action: 'poner_lote' | 'sacar_lote', leadIds: number
 /** Lo que se esta por hacer, ya elegido y todavia sin confirmar. */
 type Pendiente =
   | { tipo: 'etapa'; stage: Stage }
+  | { tipo: 'pasar' }
   | { tipo: 'persona'; campo: 'closer' | 'setter'; valor: string; pisa: number }
   | { tipo: 'borrar' }
   | { tipo: 'frenar' }
@@ -212,7 +230,7 @@ export type ManijaLote = {
   frenar: () => void;
 };
 
-export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo, ref, puedeCompletar = false, onCorriendo }: {
+export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelActivo, onLimpiar, onListo, estilo, ref, puedeCompletar = false, onCorriendo, columnaEntera, onMandarMensaje }: {
   elegidos: LeadDeLote[];
   stages: Stage[];
   productos: ProductoDeLote[];
@@ -232,6 +250,13 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
    * por otro camino (el clic derecho, la casilla de una columna): sin barra no hay avance ni «Parar».
    */
   onCorriendo?: (corre: boolean) => void;
+  /**
+   * Lo tildado ES una columna entera (la casilla de su cabecera, sin filtros): el número dice de cuál («los 394 de Contacto
+   * nuevo»), y la difusión la manda a la columna, no a una lista de ids.
+   */
+  columnaEntera?: { etapa: string; label: string; funnelId: number | null } | null;
+  /** «Mandar mensaje»: abre la hoja de la difusión de Automations. Sin esto, el botón no se dibuja. */
+  onMandarMensaje?: (s: SeleccionDifusion) => void;
 }) {
   const [pide, setPideEstado] = useState<Pendiente | null>(null);
   const [corriendo, start] = useTransition();
@@ -255,6 +280,11 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const [enExtension, setEnExtension] = useState(false);
   const n = elegidos.length;
   const ids = elegidos.map((l) => l.id);
+  /** La etapa de los tildados si es UNA: la que «Pasar» busca en el destino. */
+  const etapaComun = n > 0 && elegidos.every((l) => l.stage === elegidos[0].stage) ? elegidos[0].stage : null;
+  /** El motivo de descalificar o perder, uno para todos: la categoría (un chip) y un detalle opcional. */
+  const [motivoCat, setMotivoCat] = useState('');
+  const [motivoDet, setMotivoDet] = useState('');
   idsAhora.current = ids;
   /** Mientras algo corre, ninguna otra acción de la barra: cada pregunta abierta con `loading` tapaba el «Parar». */
   const ocupado = corriendo || largo || contando;
@@ -267,7 +297,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
    */
   const setPide = (p: Pendiente | null) => { if (p && ocupadoAhora.current) return; setPideEstado(p); };
 
-  const rotCuenta = `${n} ${n === 1 ? 'lead seleccionado' : 'leads seleccionados'}`;
+  const rotCuenta = columnaEntera ? `Los ${n} de «${columnaEntera.label}»` : `${n} ${n === 1 ? 'lead seleccionado' : 'leads seleccionados'}`;
   // Los tildados que están en una automatización: sólo a ésos los frena «Frenar» (22/10/2026).
   const idsEnAut = elegidos.filter((l) => l.enAutomatizacion).map((l) => l.id);
   const cuantos = `${n} ${n === 1 ? 'lead' : 'leads'}`;
@@ -283,7 +313,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const cerrar = () => setPide(null);
 
   /** Lo que piden el desplegable «Etapa» y el clic derecho: la MISMA pregunta. */
-  const pedirEtapa = (k: string) => { const s = stages.find((x) => x.key === k); if (s) setPide({ tipo: 'etapa', stage: s }); };
+  const pedirEtapa = (k: string) => { const s = stages.find((x) => x.key === k); if (s) { setMotivoCat(''); setMotivoDet(''); setPide({ tipo: 'etapa', stage: s }); } };
   /** Lo que piden «Closer»/«Setter» y el clic derecho, con cuántos ya lo tenían. */
   const pedirPersona = (campo: 'closer' | 'setter', v: string) => { if (v) setPide({ tipo: 'persona', campo, valor: v, pisa: conValor(campo) }); };
 
@@ -543,7 +573,9 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
         if (pide.tipo === 'etapa') {
           // Con el CRM que se mira: los AGREGADOS a él se mueven en su fila (23/10/2026, ver la action).
           // ⚠️ DE A TANDAS (24/10/2026, app/crm/lote-tandas.ts): los 221 de una vez se cortaron en 121 a los 60 s.
-          const t = await correrEnTandas(ids, TANDA_LOTE, (tanda) => moverLeadsDeEtapaAction(tanda, pide.stage.key, funnelActivo),
+          // Descalificar o perder en bloque: UN motivo para todos (el mismo formato que el wizard de a uno).
+          const motivo = pideMotivo(pide.stage.key) && motivoCat ? motivoFinalDe(motivoCat, motivoDet) : null;
+          const t = await correrEnTandas(ids, TANDA_LOTE, (tanda) => moverLeadsDeEtapaAction(tanda, pide.stage.key, funnelActivo, motivo),
             (k) => setAvance(`Moviendo ${k} de ${ids.length}…`));
           const movidos = t.resultados.reduce((s, r) => s + r.movidos, 0);
           const conPendientes = t.resultados.reduce((s, r) => s + r.conPendientes, 0);
@@ -561,13 +593,25 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
           // UNA escritura sobre los que están en una automatización (Automations): no queda a medias.
           const r = await frenarLeadsEnAutomatizacionesAction(idsEnAut);
           onListo({ texto: r.ok ? r.resumen : r.error, hubo: r.ok && r.frenados > 0 });
-        } else {
-          // De a uno en el server, como mover: de a tandas y con su avance (app/crm/lote-tandas.ts).
-          const t = await correrEnTandas(ids, TANDA_LOTE, (tanda) => eliminarLeadsAction(tanda), (k) => setAvance(`Eliminando ${k} de ${ids.length}…`));
+        } else if (pide.tipo === 'borrar') {
+          // A la PAPELERA (mig 0340), de a tandas y con su avance (app/crm/lote-tandas.ts). El aviso trae UN «Deshacer» que los
+          // recupera a todos, también de a tandas; y el renglón «Papelera» del menú de funnels se vuelve a contar.
+          const t = await correrEnTandas(ids, TANDA_LOTE, (tanda) => eliminarLeadsAction(tanda), (k) => setAvance(`A la papelera: ${k} de ${ids.length}…`));
           const borrados = t.resultados.reduce((s, r) => s + r.borrados, 0);
+          const mandados = t.resultados.flatMap((r) => r.mandados);
           const fallaron = t.resultados.reduce((s, r) => s + r.fallaron, 0);
-          const mal = fallaron ? ` · ${fallaron} no se pudieron` : '';
-          onListo({ texto: `${borrados} ${borrados === 1 ? 'eliminado' : 'eliminados'}${mal}${colaDelAviso(t, ['eliminó', 'eliminaron'])}`, hubo: borrados > 0 });
+          const motivos = [...new Set(t.resultados.map((r) => r.motivo).filter((m): m is string => !!m))];
+          const mal = fallaron ? ` · ${fallaron} no se pudieron${motivos.length ? ` (${motivos.join(' · ')})` : ''}` : '';
+          if (mandados.length) avisarPapelera();
+          onListo({
+            texto: `${borrados} a la papelera${mal}${colaDelAviso(t, ['eliminó', 'eliminaron'])}`, hubo: borrados > 0,
+            deshacer: mandados.length ? async () => {
+              const v = await correrEnTandas(mandados, TANDA_LOTE, (tanda) => recuperarLeadsAction(tanda));
+              avisarPapelera();
+              const no = v.resultados.reduce((s, r) => s + r.fallaron, 0) + v.quedan.length + v.inciertos.length;
+              if (v.error || no) throw new Error(`${no} no volvieron: están en «Papelera»`);
+            } : undefined,
+          });
         }
       } catch (e) {
         onListo({ texto: e instanceof Error ? e.message : 'No se pudo', hubo: false });
@@ -582,6 +626,11 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const agregarAFunnel = (fid: number | null) => {
     if (ocupado) return;
     agregarA(fid, destinos.find((p) => p.fid === fid)?.nombre ?? 'otro funnel');
+  };
+  /** Lo que elige el desplegable «Funnel»: agregar a uno (al toque), o «Pasar a otro funnel…» (su pregunta). */
+  const elegirFunnel = (v: string) => {
+    if (v === PASAR) { setPide({ tipo: 'pasar' }); return; }
+    agregarAFunnel(v === 'default' ? null : Number(v));
   };
 
   // Antes del `return null` de abajo: un hook despues de un return temprano cambia de orden entre renders.
@@ -667,8 +716,11 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               value="" resetAfterSelect placeholder="Funnel" ariaLabel={`Agregar ${cuantos} a otro funnel`}
               icono={<span style={{ display: 'flex', color: 'var(--dim)' }}><IconoFunnel /></span>}
               buttonStyle={estiloDrop} disabled={ocupado}
-              options={destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre }))}
-              onChange={(v) => agregarAFunnel(v === 'default' ? null : Number(v))} />
+              options={[
+                ...destinos.map((p) => ({ value: String(p.fid ?? 'default'), label: p.nombre, sub: 'Agregar: siguen también aquí' })),
+                { value: PASAR, label: 'Pasar a otro funnel…', sub: 'Salen de este y entran en otro' },
+              ]}
+              onChange={elegirFunnel} />
           )}
 
           {/* Agregar una etiqueta: al toque, con Deshacer. «＋ Nueva» la crea de paso. «Agregar» y no
@@ -700,6 +752,15 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
 
         {/* ── DERECHA: lo irreversible, solo. ──────────────────────────────────── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1, minWidth: 0, justifyContent: 'flex-end' }}>
+          {/* «Mandar mensaje» (28/10/2026, la difusión de Automations): la hoja es de ellos; acá sólo va la selección. */}
+          {onMandarMensaje && (
+            <button type="button" className="mk-icon-btn" data-mandar-mensaje-lote
+              title={`Mandar un mensaje a ${columnaEntera ? `los ${n} de «${columnaEntera.label}»` : cuantos}`}
+              aria-label={`Mandar un mensaje a ${cuantos}`}
+              onClick={() => onMandarMensaje(seleccionDeDifusion(ids, columnaEntera))} disabled={ocupado} style={btnIcono}>
+              <IconoMenu nombre="enviar" size={16} />
+            </button>
+          )}
           {/* «Frenar automatización» (22/10/2026): sólo si alguno de los tildados está en una. No se deshace: pregunta. */}
           {idsEnAut.length > 0 && (
             <button type="button" className="mk-icon-btn" data-tone="bad" data-frenar-lote
@@ -710,7 +771,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             </button>
           )}
           <button type="button" className="mk-icon-btn" data-tone="bad"
-            title={`Eliminar ${cuantos}`} aria-label={`Eliminar ${cuantos}`}
+            title={`Mandar ${cuantos} a la papelera`} aria-label={`Eliminar ${cuantos}`}
             onClick={() => setPide({ tipo: 'borrar' })} disabled={ocupado} style={btnIcono}>
             {/* El tacho de la casa (app/_ui/BotonBorrar.tsx, general 9): el mismo dibujo y rojo siempre. */}
             <IconoBorrar size={16} />
@@ -723,10 +784,34 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
         <Confirm
           title={`¿Mover ${cuantos} a ${pide.stage.label}?`}
           /* Mover NO se bloquea (decision del 17/09): lo que la etapa pida y falte queda
-             pendiente. Decirlo aca es lo que evita que el resultado se lea como un fallo. */
-          message="Lo que la etapa pida y falte queda pendiente en cada ficha."
+             pendiente. Decirlo aca es lo que evita que el resultado se lea como un fallo.
+             Descalificar o perder pide UN motivo para todos (28/10/2026): sin elegir, queda pendiente como siempre. */
+          message={pideMotivo(pide.stage.key) ? (
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <span>¿Por qué? Va a los {n}. Sin elegir, el motivo queda pendiente en cada ficha.</span>
+              <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {motivosDeSalida(pide.stage.key).map((m) => (
+                  <button key={m} type="button" data-motivo-lote={m} onClick={() => setMotivoCat(motivoCat === m ? '' : m)}
+                    style={{ padding: '5px 11px', borderRadius: 999, border: `1px solid ${motivoCat === m ? 'var(--primary)' : 'var(--border-strong)'}`,
+                      background: motivoCat === m ? 'var(--primary)' : 'var(--surface)', color: motivoCat === m ? '#fff' : 'var(--ink)',
+                      fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                    {m}
+                  </button>
+                ))}
+              </span>
+              {motivoCat && (
+                <input value={motivoDet} onChange={(e) => setMotivoDet(e.target.value)} placeholder="Detalle (opcional)" maxLength={300}
+                  style={{ height: 34, padding: '0 10px', borderRadius: 9, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 13 }} />
+              )}
+            </span>
+          ) : 'Lo que la etapa pida y falte queda pendiente en cada ficha.'}
           confirmLabel="Mover" tone="primary" loading={corriendo}
           onConfirm={ejecutar} onCancel={cerrar} />
+      )}
+      {pide?.tipo === 'pasar' && (
+        <PasarAOtroFunnel ids={ids} destinos={destinos} funnelActivo={funnelActivo} etapaOrigen={etapaComun}
+          onCerrar={cerrar}
+          onListo={(r) => { cerrar(); onListo(r); onLimpiar(); }} />
       )}
       {pide?.tipo === 'persona' && (
         <Confirm
@@ -769,9 +854,9 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       )}
       {pide?.tipo === 'borrar' && (
         <Confirm
-          title={`¿Eliminar ${cuantos}?`}
-          message="Se van con su historial y sus pagos. No se puede deshacer."
-          confirmLabel="Eliminar" tone="danger" loading={corriendo}
+          title={preguntaDePapelera(n, elegidos[0]?.name).titulo}
+          message={preguntaDePapelera(n, elegidos[0]?.name).mensaje}
+          confirmLabel="Mandar a la papelera" tone="danger" loading={corriendo}
           onConfirm={ejecutar} onCancel={cerrar} />
       )}
     </>

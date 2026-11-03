@@ -119,6 +119,16 @@ export type CartelDelCliente = NonNullable<CartelDePago> & { agencia: string; us
  * EL CARTEL DE PAGO DEL CLIENTE (punto 9: «al finalizar el onboarding de ese cliente debe saltar el cartel de pago»):
  * lo que ve el admin de una cuenta que paga él mismo. `null` si no le toca nada. Nunca tira: un cartel que no se pudo
  * armar no se muestra (la plata no se pierde: la agencia ve en su dashboard que falta el pago).
+ *
+ * ⚠️ ES EL TERCER LUGAR QUE DECIDE CON EL `null` DE `agenciaDeCliente`, y queda ANOTADO y SIN ARREGLAR (P15,
+ * 30/10/2026). Con DOS dueños vigentes la línea de abajo devuelve `null` y el cliente que paga él mismo **no ve su
+ * cartel de pago**. A diferencia de las dos pantallas de /agency, acá el `null` NO abre nada: esconde. Y no se arregla
+ * cambiando a `esClienteDeAgencia`, porque lo que sigue necesita UN dueño de verdad —el nombre para el texto y
+ * `cobrosDeClientesDeAgencia(agencia.ws)` para saber si ya pagó—: con dos, hay que decidir de cuál se leen los cobros
+ * (o de las dos) y cómo se lo nombra sin inventar un padre («tu agencia»). Es una decisión de producto, no un cambio
+ * mecánico. Mientras tanto el daño es acotado y conocido: el cliente no ve el cartel y la agencia sí ve que falta el
+ * pago en su dashboard. Hoy ningún cliente tiene dos agencias. Está en docs/hallazgos-agencias.md → «Lo que quedó SIN
+ * hacer».
  */
 export async function cartelDelCliente(ws: number): Promise<CartelDelCliente | null> {
   try {

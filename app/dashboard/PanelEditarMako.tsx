@@ -59,6 +59,8 @@ import {
 } from './pedidos-hoja';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { useCitaDelChat } from '@/app/_chat/useCitaDelChat';
+import { separarCita } from '@/lib/centro-mensajes';
 
 /** Un mensaje del hilo. El de MaKo trae lo que cambió y, si cambió algo, la hoja de antes para deshacerlo. */
 export type MensajeEdicion =
@@ -125,6 +127,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   onModo?: (m: ModoMako) => void;
 }) {
   const [texto, setTexto] = useState(textoInicial);
+  const cita = useCitaDelChat(hoja.id);
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
   /** Desde cuándo piensa MaKo (null = no piensa). */
@@ -169,7 +172,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
 
   /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
   const enviar = async (escrito?: string, { dejarCaja = false } = {}) => {
-    const mensaje = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
+    const mensaje = (escrito ?? cita.con(texto.trim().slice(0, TOPE_PEDIDO_IA - cita.reserva), adj.hay)).trim().slice(0, TOPE_PEDIDO_IA);
     // Lo de la caja sale con sus archivos; una sugerencia o una nota, sin ellos.
     const conArchivos = escrito === undefined && adj.hay;
     if ((!mensaje && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
@@ -178,7 +181,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     const enviada = hoja;
     const historial = historialDe(hilo);
     onHilo((h) => [...h, { k: 'yo', texto: visto }]);
-    if (!dejarCaja) { setTexto(''); setErrorDictado(null); }
+    if (!dejarCaja) { setTexto(''); setErrorDictado(null); cita.soltar(); }
     const c = new AbortController();
     ctrl.current = c;
     const tope = setTimeout(() => c.abort(), archivos.length ? TOPE_CON_ARCHIVOS_MS : TOPE_CLIENTE_MS);
@@ -192,10 +195,11 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
       //     edición de siempre; lo demás —otra hoja, otra tab, crear otra— son burbujas (./pedidos-hoja.ts). Si la ruta
       //     falla o tarda más de `PLAZO_PEDIDOS_MS`, el mensaje entero es de esta hoja: lo de antes, sin regresión.
       // Sólo con archivos no hay qué interpretar: va entero a esta hoja.
-      const r = !mensaje ? null : await pedirPedidos({ texto: mensaje, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
+      const { pedido: lemos, conCita } = separarCita(mensaje);
+      const r = !mensaje ? null : await pedirPedidos({ texto: lemos, tab: informe === 'general' ? TAB_DEL_INFORME.general : TAB_DEL_INFORME.dashboard, actualId: enviada.id, actualNombre: enviada.nombre }, { ms: PLAZO_PEDIDOS_MS, signal: c.signal });
       if (ctrl.current !== c) return;
-      const interpretacion = interpretacionDe(r, mensaje);
-      const deEstaHoja = textoActual(interpretacion);
+      const interpretacion = interpretacionDe(r, lemos);
+      const deEstaHoja = conCita(textoActual(interpretacion));
       const burbujas = burbujasDeHoja(interpretacion, enviada.id);
       // 2 · Lo de esta hoja, a la edición (con sus archivos, si los trajo).
       if (deEstaHoja || archivos.length) {
@@ -341,7 +345,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
           </> }}
         caja={<>
           <div className="co-caja">
-            <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
+            <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }} arriba={cita.arriba}
               ocupado={pensando || nota.pendientes} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
               bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} adjuntos={adj.caja} />
           </div>
@@ -362,7 +366,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
           )}
           {/* Las filas del Ops Center, con la estrella de MaKo; mientras piensa, su «Trabajando…» con los segundos. */}
           <HiloMako items={nota.conNotas(items)} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} onCitar={cita.citar} />
           {pensando && <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>}
           <div ref={fin} />
       </PanelDeChat>

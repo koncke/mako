@@ -73,6 +73,7 @@ test('la ruta lee Instagram por Business Discovery ANTES de la página y del lec
   assert.match(f, /nombre: `Instagram @\$\{ig\}`, via: 'web', texto,/);
   const s = sinComentarios(leer('lib/instagram-perfil-server.ts'));
   assert.match(s, /if \(!ig\) return \{ ok: false, motivo: 'sin-cuenta'/, 'Meta omite el campo sin avisar: se dice');
-  assert.match(s, /business_discovery\.username\(\$\{usuario\}\)\{\$\{CAMPOS_PERFIL\}\}/);
-  assert.match(leer('lib/instagram-perfil.ts'), /export const CAMPOS_PERFIL = `username,name,biography,website,followers_count,media_count,media\.limit\(\$\{POSTS_A_LEER\}\)\{caption,timestamp,media_type\}`;/);
+  assert.match(s, /campos: string = CAMPOS_PERFIL\)/, 'sin pedir otros campos, los de siempre (Competitors Spy pide los suyos)');
+  assert.match(s, /business_discovery\.username\(\$\{usuario\}\)\{\$\{fields\}\}/);
+  assert.match(leer('lib/instagram-perfil.ts'), /export const CAMPOS_PERFIL = `username,name,profile_picture_url,biography,website,followers_count,media_count,media\.limit\(\$\{POSTS_A_LEER\}\)\{caption,timestamp,media_type\}`;/);
 });

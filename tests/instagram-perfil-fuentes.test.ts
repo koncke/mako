@@ -82,7 +82,18 @@ test('la caché es por negocio, un «no está» de Meta dura poco, y la platafor
 test('el alta de un lead y Offer usan LA misma función (sin copiarla)', () => {
   const alta = sinComentarios(leer('app/api/crm/instagram-buscar/route.ts'));
   assert.match(alta, /import \{ leerPerfilInstagram \} from '@\/lib\/instagram-perfil-server';/);
-  assert.match(alta, /if \(!meta\.perfiles\.length && !google\?\.perfiles\.length\) \{[\s\S]{0,200}leerPerfilInstagram\(u, \{ ws, fuentes: \['apify'\] \}\)/);
+  // ⚠️ 2/11/2026 — ESTA LÍNEA PEDÍA LA LISTA EXACTA `['meta-plataforma', 'apify']` Y SE PUSO ROJA
+  // al sumarle `'apify-spy'` (run #360). El rojo era correcto: la lista cambió. Pero fijar el array
+  // entero convierte cualquier fuente NUEVA en un fallo, y lo que este test cuida es otra cosa —que
+  // el alta llame a LA función compartida en vez de copiarla—. Ahora se piden las dos condiciones
+  // que importan: que la llamada esté en el respaldo, y que pruebe las DOS claves de Apify, porque
+  // `apify` lee `APIFY_TOKEN` (que no está en ningún negocio) y la que hoy existe la prueba
+  // `apify-spy`. Ver `tests/crm-instagram-clave-de-spy.test.ts` y docs/hallazgos-crm.md.
+  const respaldo = /if \(!meta\.perfiles\.length && !google\?\.perfiles\.length\) \{[\s\S]{0,200}leerPerfilInstagram\(u, \{ ws, fuentes: \[([^\]]*)\] \}\)/.exec(alta);
+  assert.ok(respaldo, 'el alta tiene que leer el perfil por @ exacto cuando ni Meta ni Google trajeron nada');
+  assert.match(respaldo[1], /'meta-plataforma'/);
+  assert.match(respaldo[1], /'apify'/);
+  assert.match(respaldo[1], /'apify-spy'/);
   const offer = sinComentarios(leer('app/api/offer/route.ts'));
   assert.match(offer, /const perfil = await leerPerfilInstagram\(ig, \{ ws: await getWorkspaceActual\(\) \}\);/);
   assert.doesNotMatch(leer('lib/instagram-perfil-server.ts'), /export async function leerPerfil(?!Instagram)/, 'una sola función exportada que lee');

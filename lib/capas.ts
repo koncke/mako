@@ -304,7 +304,10 @@ export const CAPAS: Record<CapaId, CapaDef> = {
     // ⚠️ `landing-writer` (Web Generator) ENTRA ACÁ EL 23/10/2026: la landing de hola-mako.com y las de cada funnel de
     // MaKo son documentos de Web Generator de ESTE workspace (lib/editor-landing/landing-mako.ts), y Martín pidió
     // editarlas desde ahí («Que tenga la landing principal de MaKo en el editable de web generator»).
-    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer'],
+    // ⚠️ `market-an` (Competitor Spy) ENTRA ACÁ EL 31/10/2026, en el mismo commit en que la tab dejó de ser ComingSoon.
+    // Sin la key, `navEnCapa` la deja afuera de esta capa y el gate de la página (`requireRolWs([], { nav: 'market-an' })`)
+    // REDIRIGE al super admin en su propio workspace — justo en el workspace desde el que Martín la abre.
+    navKeys: ['todo', 'mako', 'mako-doer', 'closing', 'experimentos', 'customer-success', 'productivity-analyst', 'graphics', 'video-editor', 'calendario', 'landing-writer', 'ai-avatar', 'market-an'],
     userNavKeys: null,
     // Sin wizard: el super-admin no hace onboarding de cliente.
     onboarding: [],

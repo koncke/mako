@@ -64,6 +64,10 @@
 //   · N2: en el reintento un 4xx borra la duda                                         → 35 / 2
 //   · N6: el reclamo no mira si el evento cambió                                       → 36 / 1
 //   · N3: «Ya lo resolví» deja la cuenta (vuelve a las listas)                         → 36 / 1
+//
+// ROTO 29/10 noche (M6 de la revisión de privacidad, 2910-revision-privacidad-zernio-leads-ce56bd693.md; este test solo: 29 / 0):
+//   · M6: el 409 le pone el post de otra publicación                                   → 28 / 1
+//   · M6: crearPostZernio no dice que ya estaba                                        → 28 / 1
 //   · N7: «Ya lo resolví» suelta una programada con la MISMA clave                     → 36 / 1
 //   · N3: tildar o mover una dudosa dice «se tilda sola» / «cancela»                   → 35 / 2
 //   · N7: tildar con otra clave dice «se tilda sola»                                   → 35 / 2
@@ -114,6 +118,17 @@ test('una vez: otra vez no programa, y dos pedidos a la vez dejan un solo post',
   assert.equal(R.b.posts, 1);
   assert.equal(R.c.posts, 1, 'dos pedidos a la vez: un solo post (el reclamo del evento)');
   assert.equal(R.c.fila.publicacion, 'programada');
+});
+
+test('un 429 de Zernio es una pausa (ticket #34): lo dice, sigue siendo un fallo que se reintenta; las cuentas en pausa, también', () => {
+  const r = R.r4;
+  assert.equal(r.trasPausa.publicacion, 'fallo', 'no cambia: Zernio no la creó');
+  assert.match(r.trasPausa.motivo, /Zernio pidió una pausa/);
+  assert.doesNotMatch(r.trasPausa.motivo, /Rate limit|no contestó|conect[ae]r?\b/i);
+  assert.deepEqual(r.otraVez, { programadas: ['evP1'], fallidas: [] });
+  assert.equal(r.fila.publicacion, 'programada');
+  assert.deepEqual(r.leerCuentas, { ok: false, motivo: 'pausa' });
+  assert.match(r.sinLeerCuentas.fallidas[0].motivo, /Zernio pidió una pausa/);
 });
 
 test('un rechazo de Zernio queda dicho y se vuelve a programar', () => {
@@ -183,9 +198,14 @@ test('en serie, por MaKo: el resumen dice cuáles salen y cuáles no, y nada sal
   assert.deepEqual(i.filas.map((f: { publicacion: string | null }) => f.publicacion), ['programada', 'programada', null, null, null]);
 });
 
-test('el 409 de Zernio (el mismo contenido) es el post que ya estaba, no un error', () => {
+test('el 409 de Zernio (el mismo contenido) es el post que ya estaba, no un error; pero no el de OTRA publicación', () => {
   assert.deepEqual(R.j.r, { programadas: ['evl'], fallidas: [] });
   assert.equal(R.j.fila.post_id, 'post_ya');
+  // M6 (revisión de privacidad, 29/10): las veces iguales de una serie no comparten un post.
+  assert.deepEqual(R.j2.r.programadas, []);
+  assert.match(R.j2.r.fallidas[0].motivo, /^Zernio dice que es igual a otra publicación ya programada/);
+  assert.equal(R.j2.fila.publicacion, 'fallo');
+  assert.equal(R.j2.fila.post_id ?? null, null);
 });
 
 test('el «sí» que llega después: una que cambió desde el resumen no se programa; un «sí» sin huellas no programa nada', () => {
@@ -398,3 +418,5 @@ test('la pantalla: «Ya lo resolví en Zernio» en la duda y en la programada co
   assert.match(actions, /otraClave: await programadaConOtraClave\(datos\)/);
   assert.match(actions, /await resolverEnZernio\(idDe\(id\)\)/);
 });
+
+//   la pausa de Zernio (30/10/2026; base 30 / 0): cuenta el Rate limit → 29 / 1 · cuentas en pausa dice «no pude» → 29 / 1

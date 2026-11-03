@@ -41,14 +41,24 @@ export const REDES = {
   // `loginMode=business` (medido por Ads Manager): crea una conexión `metaads` independiente, con el token de un usuario del
   // sistema. Pide una página de Facebook y que quien entre sea admin del Business.
   metaads: { etiqueta: 'Anuncios de Meta', plataforma: 'metaads', ruta: 'facebook/ads', anuncios: true, params: { loginMode: 'business' }, ayuda: 'Tu cuenta publicitaria, para publicar anuncios.', visible: true },
-  linkedin: { etiqueta: 'LinkedIn', plataforma: 'linkedin', ruta: 'linkedin', anuncios: false, ayuda: 'Tu perfil o tu página.', visible: false },
-  tiktok: { etiqueta: 'TikTok', plataforma: 'tiktok', ruta: 'tiktok', anuncios: false, ayuda: 'Tu cuenta de TikTok.', visible: false },
+  // LinkedIn, X, Threads y Google Business visibles desde el 29/10/2026 (Martín: «aprovechar todas las conexiones que tiene [Zernio]
+  // para implementar en integraciones todas las redes sociales... publicar en Facebook, TikTok, LinkedIn»). El login es el de Zernio,
+  // igual que las otras; lo que MaKo hace con cada una lo dice `QUE_HACE_MAKO`.
+  linkedin: { etiqueta: 'LinkedIn', plataforma: 'linkedin', ruta: 'linkedin', anuncios: false, ayuda: 'Tu perfil o tu página.', visible: true },
+  // Visible desde el 29/10/2026 (ticket #28: «Facebook, Instagram, TikTok, YouTube», todo en el paso 2 de Zernio). El Calendario ya
+  // publica en TikTok (lib/calendario-publicar-reglas.ts).
+  tiktok: { etiqueta: 'TikTok', plataforma: 'tiktok', ruta: 'tiktok', anuncios: false, ayuda: 'Tu cuenta de TikTok.', visible: true },
   // Visible desde el 27/10/2026 (feedback 876470842-22): el canal se conecta con el login de Zernio, no pegando una clave.
   youtube: { etiqueta: 'YouTube', plataforma: 'youtube', ruta: 'youtube', anuncios: false, ayuda: 'Tu canal.', visible: true },
-  twitter: { etiqueta: 'X', plataforma: 'twitter', ruta: 'twitter', anuncios: false, ayuda: 'Tu cuenta de X.', visible: false },
-  threads: { etiqueta: 'Threads', plataforma: 'threads', ruta: 'threads', anuncios: false, ayuda: 'Tu cuenta de Threads.', visible: false },
+  // ⚠️ X pide una tarjeta en Zernio aunque sea de las 2 gratis (docs.zernio.com/quickstart, 29/10/2026: «A card only if you connect
+  // X (twitter), because X bills every API call»). Se dice en la fila y en su tarjeta, antes del login.
+  twitter: { etiqueta: 'X', plataforma: 'twitter', ruta: 'twitter', anuncios: false, ayuda: 'Tu cuenta de X. Zernio pide una tarjeta para X.', visible: true },
+  threads: { etiqueta: 'Threads', plataforma: 'threads', ruta: 'threads', anuncios: false, ayuda: 'Tu cuenta de Threads.', visible: true },
+  googlebusiness: { etiqueta: 'Google Business', plataforma: 'googlebusiness', ruta: 'googlebusiness', anuncios: false, ayuda: 'La ficha de tu negocio en Google.', visible: true },
+  // Pinterest y Reddit se conectan igual, pero MaKo todavía no publica en ellas (un pin pide el tablero; un post de Reddit, la
+  // comunidad y un título): no se ofrecen para no gastar una de las 2 gratis en algo que no se usa. Su tarjeta dice por qué.
   pinterest: { etiqueta: 'Pinterest', plataforma: 'pinterest', ruta: 'pinterest', anuncios: false, ayuda: 'Tu cuenta de Pinterest.', visible: false },
-  googlebusiness: { etiqueta: 'Google Business', plataforma: 'googlebusiness', ruta: 'googlebusiness', anuncios: false, ayuda: 'La ficha de tu negocio en Google.', visible: false },
+  reddit: { etiqueta: 'Reddit', plataforma: 'reddit', ruta: 'reddit', anuncios: false, ayuda: 'Tu cuenta de Reddit.', visible: false },
 } as const satisfies Record<string, RedDef>;
 
 export type RedZernio = keyof typeof REDES;
@@ -58,6 +68,49 @@ export const esRedZernio = (v: unknown): v is RedZernio => typeof v === 'string'
 
 /** Las que la pantalla ofrece hoy, en su orden. */
 export const REDES_VISIBLES: readonly RedZernio[] = (Object.keys(REDES) as RedZernio[]).filter((r) => (REDES[r] as RedDef).visible);
+
+// ── Las redes en /integraciones: una tarjeta por red (29/10/2026) ─────────────
+
+/**
+ * Las redes con TARJETA propia en /integraciones (Martín, 29/10: «Y que aparezcan en integraciones»). Se conectan en el paso 2 de la
+ * tarjeta de Zernio: la tarjeta de la red abre ésa y marca la red que sigue (`CLAVE_SIGUE_ZERNIO`). YouTube no: ya tiene la suya
+ * (las vistas del VSL, lib/integraciones-catalogo.ts), y dos tarjetas «YouTube» confunden. Los anuncios de Meta, tampoco: son Meta Ads.
+ */
+export const REDES_CON_TARJETA = ['facebook', 'instagram', 'tiktok', 'linkedin', 'twitter', 'threads', 'googlebusiness', 'pinterest', 'reddit'] as const satisfies readonly RedZernio[];
+export type RedConTarjeta = (typeof REDES_CON_TARJETA)[number];
+/** La key de la tarjeta de una red (`red-linkedin`): con prefijo, para no pisar ninguna key de integración que ya exista. */
+export const tarjetaDeRed = (red: RedConTarjeta): string => `red-${red}`;
+/** La red de una key de tarjeta; null si no es una tarjeta de red. */
+export const redDeTarjeta = (key: string): RedConTarjeta | null => {
+  const r = key.startsWith('red-') ? key.slice(4) : '';
+  return (REDES_CON_TARJETA as readonly string[]).includes(r) ? (r as RedConTarjeta) : null;
+};
+
+/** Lo que MaKo hace HOY con cada red, en la línea de su tarjeta. Nada que no ande: lo que falta, se dice. */
+export const QUE_HACE_MAKO: Readonly<Record<RedConTarjeta, string>> = {
+  facebook: 'Mensajes y comentarios de tu página en MaKo, y publicar desde el Calendario.',
+  instagram: 'Mensajes y comentarios en MaKo, y publicar posts, reels e historias desde el Calendario.',
+  tiktok: 'Publica tus videos desde el Calendario. Sus mensajes no llegan a MaKo.',
+  linkedin: 'Publica posts con imagen o video desde el Calendario. Sus mensajes no llegan a MaKo.',
+  twitter: 'Publica desde el Calendario, hasta 280 caracteres. Zernio pide una tarjeta para X. Sus mensajes no llegan a MaKo.',
+  threads: 'Publica posts con imagen o video desde el Calendario (hasta 500 caracteres). Sus mensajes no llegan a MaKo.',
+  googlebusiness: 'Publica novedades con imagen en tu ficha de Google desde el Calendario (sin video). Las reseñas no llegan a MaKo.',
+  pinterest: 'MaKo todavía no publica en Pinterest: cada pin pide elegir el tablero.',
+  reddit: 'MaKo todavía no publica en Reddit: cada post pide la comunidad y un título.',
+};
+
+/** Las que se ven pero todavía no se conectan desde MaKo (la tarjeta dice por qué, y no cuenta como un pendiente). */
+export const SIN_USO_TODAVIA: Readonly<Partial<Record<RedConTarjeta, string>>> = {
+  pinterest: QUE_HACE_MAKO.pinterest,
+  reddit: QUE_HACE_MAKO.reddit,
+};
+
+/**
+ * La red que SIGUE después de pegar la clave (29/10/2026, el Cerebro: «cualquier "Conectar Meta/Instagram" sin un Zernio empieza en
+ * el Paso 1 ahí mismo y continúa con el login»). La deja quien pidió conectar una red sin clave (o la tarjeta de la red); el paso 2
+ * la marca y la borra al quedar conectada. En `sessionStorage`: es de esta pestaña.
+ */
+export const CLAVE_SIGUE_ZERNIO = 'mako:zernio-sigue';
 
 /** Messenger es la PÁGINA de Facebook: lo que Automations llama canal `messenger` se conecta como la red `facebook`. */
 export const redDeCanal = (canal: 'instagram' | 'messenger'): RedZernio => (canal === 'messenger' ? 'facebook' : 'instagram');
@@ -74,16 +127,52 @@ export type ConexionZernio = {
   activa: boolean;
   /** Zernio pide reconectar (`needsReconnection`). */
   vencida: boolean;
+  /** Con qué clave de Zernio del negocio está conectada (1 = `ZERNIO_API_KEY`; 2… = las extra). Sin dato, la 1. */
+  clave?: number;
 };
 
+// ── Varias claves de Zernio por negocio (29/10/2026) ─────────────────────────
+
+/**
+ * Martín, 29/10 (audio en SuperAdmin): «Lo que yo habilito en MaKo es la posibilidad de pegar una segunda API key con otra cuenta de
+ * Gmail del cliente... y ya tendrías cuatro redes». Cada clave es OTRA cuenta de Zernio DEL CLIENTE (su Gmail); MaKo nunca crea
+ * cuentas. Esto da vuelta el «NO a varias cuentas» de la mañana del 29/10 (gana lo posterior; los términos de Zernio, «Abuse of the
+ * API may result in immediate suspension», se los dijo el Cerebro). Ningún texto promete que sea gratis para siempre.
+ * La 1 es `ZERNIO_API_KEY`, la de siempre; las extra, `ZERNIO_API_KEY_2` … `_5`.
+ */
+export const MAX_CLAVES_ZERNIO = 5;
+export const CLAVE_ZERNIO = 'ZERNIO_API_KEY';
+export const CLAVES_ZERNIO: readonly string[] = [CLAVE_ZERNIO, ...Array.from({ length: MAX_CLAVES_ZERNIO - 1 }, (_, i) => `${CLAVE_ZERNIO}_${i + 2}`)];
+/** El número de una clave de Zernio (1 para la base); null si el nombre no es una de ellas. */
+export const slotDeClaveZernio = (env: string): number | null => {
+  const i = CLAVES_ZERNIO.indexOf(env);
+  return i < 0 ? null : i + 1;
+};
+
+/**
+ * ¿En qué clave se conecta una red nueva? La PRIMERA (en orden) donde entra sin que Zernio cobre: menos de 2 cuentas activas, o ya
+ * tiene una de esa red (volver a entrar no suma). null = todas están llenas: hay que avisar antes del login.
+ */
+export function claveConLugar(
+  claves: ReadonlyArray<{ slot: number; conectadas: readonly ConexionZernio[] }>, red: RedZernio, opc: { otra?: boolean } = {},
+): number | null {
+  for (const k of [...claves].sort((a, b) => a.slot - b.slot)) {
+    if (!avisoDeCobroZernio({ conectadas: k.conectadas, red, otra: opc.otra })) return k.slot;
+  }
+  return null;
+}
+
 /** Por qué no se pudo seguir, en una palabra que la pantalla sabe leer. */
-export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'respuesta' | 'error';
+export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'pausa' | 'respuesta' | 'error';
 
 export type RespuestaConectar =
   | { ok: true; tipo: 'url'; url: string }
   /** Zernio no necesitó un login (la cuenta ya tenía el permiso, o la rehabilitó al instante). */
   | { ok: true; tipo: 'ya-conectada'; conexiones: ConexionZernio[] }
-  | { ok: false; motivo: MotivoZernio; error: string; pagoUrl?: string | null };
+  | { ok: false; motivo: MotivoZernio; error: string; pagoUrl?: string | null; puedeAgregarClave?: boolean };
+
+/** El evento (y la marca de la pestaña) que pide abrir el campo de la clave de Zernio siguiente: lo dispara el aviso de la 3.ª red. */
+export const EVENTO_OTRA_CLAVE_ZERNIO = 'mako:zernio-otra-clave';
 
 export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'sin-clave': 'Primero pega tu API key de Zernio.',
@@ -92,9 +181,10 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'pausada': 'Tu cuenta de Zernio está pausada.',
   'pago': 'Zernio pide una tarjeta para conectar otra cuenta. Las 2 primeras son gratis.',
   'limite': 'Tu plan de Zernio no deja conectar más cuentas.',
-  'cobro': 'Esta cuenta se paga en tu Zernio: desde la 3.ª, US$6 por mes cada una.',
+  'cobro': 'Esta clave de Zernio ya tiene 2 redes: la tercera se paga. Para no pagar, agrega otra clave de Zernio.',
   'sin-perfil': 'Tu cuenta de Zernio no tiene ningún perfil. Crea uno en Zernio.',
   'sin-red': 'Zernio no contestó. Prueba de nuevo.',
+  'pausa': 'Zernio pidió una pausa: recibió muchos pedidos en un minuto. Tu conexión está bien; prueba de nuevo en un minuto.',
   'respuesta': 'Zernio contestó algo que no entendimos. Prueba de nuevo.',
   'error': 'No se pudo conectar.',
 };
@@ -106,8 +196,10 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
  * de la 3.ª a la 10.ª US$6, de la 11.ª a la 100.ª US$3, desde la 101.ª US$1). Un login de Facebook no es UNA cuenta: la página, el
  * Instagram y la cuenta publicitaria cuentan aparte. `total` null = no se pudo leer cuántas hay.
  */
-export function lineaDeCobro(total: number | null | undefined): string {
+export function lineaDeCobro(total: number | null | undefined, claves = 1): string {
   if (total == null || !Number.isFinite(total) || total < 0) return 'Cada red cuenta aparte en Zernio (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.';
+  // Con varias claves (29/10/2026) el gratis es POR CLAVE: cada una es otra cuenta de Zernio.
+  if (claves > 1) return `Tienes ${total} ${total === 1 ? 'red conectada' : 'redes conectadas'} en ${claves} claves de Zernio. Cada clave conecta 2 gratis.`;
   return `Tienes ${total} ${total === 1 ? 'cuenta conectada' : 'cuentas conectadas'} en Zernio. Las 2 primeras son gratis; desde la 3.ª se paga.`;
 }
 
@@ -151,20 +243,27 @@ export function textoGratisZernio(): string {
  * una línea fija). Zernio cobra por cuenta ACTIVA de toda la cuenta de Zernio (las ocultas y desconectadas no cuentan), y la página,
  * el Instagram y los anuncios cuentan aparte. Se avisa si ya hay 2 o más y la red a conectar todavía no tiene una cuenta activa:
  * volver a entrar con la misma cuenta no suma otra (Zernio conserva su id). null = no hace falta avisar.
+ * ⚠️ `otra` (29/10/2026, la llamada con Thiago): «Conectar otra» sobre una red que YA tiene cuenta es OTRA cuenta para Zernio (un 2.º
+ * Instagram cuesta US$6 por mes si la clave ya tiene 2). Sin `otra`, una red ya conectada se daba por «volver a entrar» y no avisaba.
  */
-export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio }): { cuentas: number } | null {
+export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio; otra?: boolean }): { cuentas: number } | null {
   const activas = p.conectadas.filter((c) => c.activa);
-  if (activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
+  if (!p.otra && activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
   return activas.length >= CUENTAS_GRATIS_ZERNIO ? { cuentas: activas.length } : null;
 }
 
-/** El aviso, en una línea: cuántas hay y cuánto cuesta la que viene (de la 3.ª a la 10.ª, US$6 por mes, prorrateado por día). */
-export function textoAvisoCobro(cuentas: number): string {
-  // La salida gratis (Martín, 28/10: «la misma advertencia cuando estén por conectar su 3ra red»): Zernio cobra sólo las cuentas
-  // ACTIVAS, así que desconectar allá una que no se usa la deja gratis. «Conecta otra cuenta de Zernio» NO va NUNCA (Martín, 29/10,
-  // por el Cerebro): cada negocio con SU cuenta, y si necesita más, paga su plan. Varias cuentas gratis para lo mismo arriesgan la
-  // suspensión («Abuse of the API may result in immediate suspension», zernio.com/tos), que le cortaría las publicaciones.
-  return `Tu Zernio ya tiene ${cuentas} cuentas conectadas: ésta se paga. Zernio te cobra US$6 por mes por cada una desde la 3.ª, prorrateado por día. Para no pagar, desconecta en zernio.com una que ya no uses y vuelve a intentarlo.`;
+/**
+ * El aviso de la 3.ª red, antes del login (Martín, 29/10: «te advierte: "che, esta es la tercera cuenta que estás por conectar,
+ * cuidado: si conectás esta cuenta sin otra API te va a empezar a cobrar Zernio"»). La salida gratis es OTRA clave de Zernio, de
+ * otra cuenta del cliente (`puedeAgregar`: todavía hay lugar para una clave más); si ya están las cinco, desconectar una en zernio.com.
+ */
+export function textoAvisoCobro(cuentas: number, opc: { puedeAgregar?: boolean; otraDe?: string | null } = {}): string {
+  const salida = opc.puedeAgregar === false
+    ? 'Para no pagar, desconecta en zernio.com una que ya no uses.'
+    : 'Para no pagar, agrega otra clave de Zernio (de otra cuenta tuya, con otro Gmail).';
+  // «Conectar otra» de una red que ya está (un 2.º Instagram): se dice que también cuenta.
+  const otra = opc.otraDe ? `Otra cuenta de ${opc.otraDe} cuenta como una red más. ` : '';
+  return `${otra}Esta clave de Zernio ya tiene ${cuentas} redes. Si conectas otra, Zernio te empieza a cobrar (US$${USD_CUENTA_EXTRA_ZERNIO} por mes cada una desde la 3.ª). ${salida}`;
 }
 
 // ── A dónde vuelve ───────────────────────────────────────────────────────────
@@ -493,8 +592,30 @@ export function motivoDeRespuesta(status: number, cuerpo: unknown, code?: string
   if (status === 401) return { motivo: 'clave-mala', pagoUrl: null, texto: null };
   if (status === 402) return { motivo: razon === 'free_tier_exceeded' ? 'pago' : 'pausada', pagoUrl: urlDePagoDeZernio(cuerpo), texto: null };
   if (status === 403 && (codigo === 'platform_account_limit' || razon === 'platform_account_limit')) return { motivo: 'limite', pagoUrl: null, texto: null };
-  if (status === 429 || status >= 500) return { motivo: 'sin-red', pagoUrl: null, texto: null };
+  // ⚠️ Un 429 es el TOPE de pedidos por minuto (60 por equipo de Zernio, docs.zernio.com/rate-limits), no una conexión rota: se espera
+  //    y se sigue (ticket #34, 30/10/2026: «Zernio no contestó (429). Vuelve a conectar con Facebook» mandaba a reconectar algo que andaba).
+  if (status === 429) return { motivo: 'pausa', pagoUrl: null, texto: null };
+  if (status >= 500) return { motivo: 'sin-red', pagoUrl: null, texto: null };
   return { motivo: 'error', pagoUrl: null, texto };
+}
+
+/** Cuánto esperar ante un 429: lo que pidió Zernio (`Retry-After`), entre 5 s y 1 minuto; sin dato, 30 s. */
+export function esperaDeLaPausa(esperaMs: number | null | undefined): number {
+  if (esperaMs == null || !Number.isFinite(esperaMs)) return 30_000;
+  return Math.min(60_000, Math.max(5_000, Math.round(esperaMs)));
+}
+
+/**
+ * Lo que se dice cuando una LECTURA de Zernio falla (el estado de «Anuncios de Meta»), y si se vuelve a leer sola. Un 429 dice lo que
+ * pasó y se relee después de la espera; NUNCA «vuelve a conectar»: eso hacía reconectar una conexión que andaba (ticket #34). Lo demás
+ * (una conexión vencida, un 401) sí se arregla volviendo a conectar.
+ */
+export function errorDeLecturaZernio(status: number, esperaMs: number | null | undefined): { error: string; reintentarEnMs: number | null } {
+  if (status === 429) {
+    const ms = esperaDeLaPausa(esperaMs);
+    return { error: `Zernio pidió una pausa: recibió muchos pedidos en un minuto. Tu conexión está bien; lo vuelvo a leer en ${Math.ceil(ms / 1000)} segundos.`, reintentarEnMs: ms };
+  }
+  return { error: `Zernio no contestó (${status}). Vuelve a conectar con Facebook.`, reintentarEnMs: null };
 }
 
 // ── La vuelta de página entera, atada al clic que la inició ──────────────────

@@ -29,19 +29,17 @@
   color: var(--cv-color-text);
 }
 
-/* «‹ Inicio» en la barra superior: texto blanco sobre el degradado, como los botones de la barra de Canva
-   (alto 40, radio 8, velo blanco al pasar). Sin el logo de Canva. Colgado de `.editor` para ganarle al
+/* La «‹» de la barra superior, sólo en el teléfono (`salir`: el editor tapa la pantalla y es la salida a tus diseños).
+   Un botón cuadrado de la barra (40, radio 8, el velo de MaKo al pasar). Colgado de `.editor` para ganarle al
    `.cv :where(a)` de _doory/styles/global.css (misma especificidad: decidiría el orden de carga). */
 .editor .inicio {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
+  width: 40px;
   height: 40px;
-  padding: 0 12px 0 6px;
   border-radius: var(--cv-radius-sm);
   color: var(--cv-header-text);
-  font: 500 var(--cv-text-base) / 22px var(--cv-font-sans);
-  white-space: nowrap;
   text-decoration: none;
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
 }
@@ -53,21 +51,6 @@
 }
 
 .editor .inicio:focus-visible {
-  outline: 2px solid var(--cv-header-text);
-  outline-offset: 1px;
-}
-
-/* En el teléfono queda sólo la flecha (el rótulo va en el aria del enlace). */
-@media (max-width: 639px) {
-  .editor .inicio {
-    padding: 0 8px;
-  }
-  .editor .inicio span {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
 }

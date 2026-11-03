@@ -88,6 +88,8 @@ el de la casa. Las opciones las arma una función pura con test, como `opcionesC
 | 4. «Nueva landing» abre las plantillas | **NO cumplía** (iba al Panel: otra ruta y otra barra lateral); **corregido el 24/10 noche** (claude5): se abre adentro del editor, en lugar de la barra y el lienzo |
 | 5. El menú mínimo en `HiloMako` y el clic derecho del lienzo | **hecho el 24/10 noche** (claude5): Copiar en todos los chats con `HiloMako` y Responder en el del editor web; en el lienzo, el clic derecho abre el menú del ⋮ en el punto del clic (no una lista nueva). Falta Responder en los otros chats (cada uno pasa `onCitar`) y mirarlo con clics |
 
+**30/10/2026:** los puntos del feedback de esa noche se recorrieron con clics en un banco con el editor real, sin la barra lateral de la app ni producción (`scripts/banco-editor-web`; lo que salió, en docs/hallazgos-editor-landing.md).
+
 ## Cómo se verifica en pantalla (pendiente: nadie lo miró desplegado)
 
 En producción desde el tren del 24/10/2026 (7ae16876e). No se recorrió: el Chrome de Martín estaba desconectado y el navegador

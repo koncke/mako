@@ -30,6 +30,45 @@ import { usuarioInstagram } from './campo-inline';
 /** Por qué una fila NO se va a importar. Ninguna se esconde: se muestra atenuada. */
 export type MotivoDescarte = 'sin-nombre' | 'sin-contacto' | 'duplicado' | 'repetido-archivo';
 
+/** ¿Este encabezado trae el segmento? Por palabra entera: «stage» contiene «tag» y no es una etiqueta. */
+export function esColumnaEtiqueta(encabezado: string): boolean {
+  return /(^|[^\p{L}])(etiquetas?|segmentos?|segments?|tags?|labels?|lista)($|[^\p{L}])/iu.test(encabezado);
+}
+
+/** Lo que dice la celda: una o varias, separadas por coma, punto y coma o barra. Sin repetir, con tope. */
+export function etiquetasDeCelda(celda: unknown): string[] {
+  if (typeof celda !== 'string') return [];
+  const vistas = new Set<string>();
+  const out: string[] = [];
+  for (const crudo of celda.split(/[,;|]/)) {
+    const n = crudo.trim().replace(/\s+/g, ' ').slice(0, 100);
+    const k = n.toLocaleLowerCase('es');
+    if (!n || vistas.has(k)) continue;
+    vistas.add(k);
+    out.push(n);
+  }
+  return out.slice(0, 5);
+}
+
+/**
+ * QUÉ ETIQUETA VA A QUÉ LEADS, de lo que de verdad entró (`ids`: una fila omitida no se etiqueta). `general`: la que la persona escribió
+ * para toda la lista. Lo mismo escrito distinto («Academia» y «academia») es una sola.
+ */
+export function leadsPorEtiqueta(filas: ReadonlyArray<Pick<FilaImport, 'id' | 'etiquetas'>>, ids: ReadonlyArray<{ filaId: string; leadId: number }>, general?: string | null): Map<string, number[]> {
+  const porFila = new Map(filas.map((f) => [f.id, f.etiquetas ?? []]));
+  const nombres = new Map<string, string>();
+  const out = new Map<string, Set<number>>();
+  const poner = (nombre: string, lead: number) => {
+    const k = nombre.toLocaleLowerCase('es');
+    if (!nombres.has(k)) nombres.set(k, nombre);
+    if (!out.has(k)) out.set(k, new Set());
+    out.get(k)!.add(lead);
+  };
+  const gral = etiquetasDeCelda(general ?? '');
+  for (const { filaId, leadId } of ids) for (const n of [...gral, ...(porFila.get(filaId) ?? [])]) poner(n, leadId);
+  return new Map([...out.entries()].map(([k, v]) => [nombres.get(k)!, [...v]]));
+}
+
 /**
  * De los cuatro motivos, el ÚNICO que es una decisión de la persona.
  *
@@ -220,6 +259,11 @@ export const MOTIVO_LABEL: Record<MotivoDescarte, string> = {
 export type FilaImport = {
   /** Clave estable para React y para el recuento (el índice de la fila original). */
   id: string;
+  /**
+   * Las etiquetas que el archivo trae para esta persona, por su nombre (31/10/2026: Leila separa su base en tres ramas). Sólo de una columna
+   * «Etiqueta», «Segmento», «Tag» o «Lista» (`etiquetasDeCelda`). Se crean las que no existen; se ponen en lote, que no dispara nada.
+   */
+  etiquetas?: string[];
   nombre: string;
   email: string;
   telefono: string;
@@ -644,6 +688,7 @@ export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]
    */
   const usadas = new Set([iNombre, iEmail, iTel, iEmpresa, ...iApellidos].filter((i) => i >= 0));
   const iPago = header.findIndex((h, i) => !usadas.has(i) && coincide(h, ALIAS_PAGO) && !coincide(h, ALIAS_FECHA));
+  const iEtiqueta = header.findIndex((h, i) => !usadas.has(i) && i !== iPago && esColumnaEtiqueta(h));
   /**
    * Las columnas de INSTAGRAM (23/10/2026). Son TODAS las que calcen y no una: «Instagram» y
    * «Instagram URL» suelen venir juntas y la primera puede estar vacía justo en las filas donde
@@ -674,6 +719,7 @@ export function filasDesdeCsv(texto: string, delim = ','): { filas: FilaImport[]
     const instagram = iInstagram.map((i) => instagramDeCelda(celda(i))).find(Boolean) ?? '';
     filas.push({
       id: `f${r}`,
+      ...(iEtiqueta >= 0 && etiquetasDeCelda(celda(iEtiqueta)).length ? { etiquetas: etiquetasDeCelda(celda(iEtiqueta)) } : {}),
       nombre,
       email: celda(iEmail),
       telefono: celda(iTel),

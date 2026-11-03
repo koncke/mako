@@ -68,7 +68,7 @@ const CAMPOS_DE_DEAL: readonly string[] = [
 export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_cobros', area: 'cobros', tipo: 'lectura',
-    titulo: 'Cobros de Stripe y Mercado Pago',
+    titulo: 'Cobros de Stripe, Mercado Pago y Creem',
     descripcion: 'Los cobros que el negocio pidió por Stripe o Mercado Pago (links de pago y suscripciones), más recientes primero: id, lead, concepto, monto y moneda, estado (pendiente, pagado, rechazado, reembolsado, anulado), pasarela, si es de prueba, fechas y qué acciones admite cada uno. Con leadId, sólo los de ese lead. NO trae el link de pago ni datos de tarjeta. No son las cuotas del CRM (eso es cobranza_lead).',
     parametros: [
       leadId('filtra por lead (de buscar_leads).', false),
@@ -92,7 +92,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       leadId('id del lead que va a pagar (de buscar_leads).'),
       { nombre: 'productoId', rotulo: 'Producto del catálogo', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del producto del catálogo de ofertas (de listar_productos), con su precio. NO es el embudoId del CRM.' },
-      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o mercadopago. Sin valor: la única conectada, o Stripe si están las dos (el precio del catálogo está en dólares).' },
+      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe, mercadopago o creem. Sin valor: la única conectada, o Stripe si hay varias (el precio del catálogo está en dólares).' },
     ],
     canales: TODOS, costo: 'externo', gating: G_TAB,
   },
@@ -165,6 +165,23 @@ export const DEFS: readonly OperacionDef[] = [
     canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
+    // Leila (26/10/2026, Fabi Pedraza): mandó la constancia al chat del lead y MaKo contestó «Desde este chat no puedo
+    // adjuntar ni guardar el documento en su ficha». Sólo la app: es la que guarda el archivo del mensaje (`ctx.adjuntos`).
+    id: 'guardar_documento_fiscal', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Guardar el documento fiscal de un lead',
+    descripcion: 'PROPONE guardar en la ficha de un lead, como su documento fiscal (la constancia de situación fiscal, el RFC, el CUIT…), el archivo que la persona adjuntó en ESTE mensaje, y completar los datos fiscales que estén VACÍOS con lo que leíste en el documento (razon, id_fiscal, domicilio, correo): lo ya cargado no se pisa. Si ya tenía un documento, queda el nuevo. El archivo de un mensaje anterior no sirve: que lo vuelva a adjuntar con el pedido. Para cambiar un dato fiscal ya cargado, editar_dato_deal.',
+    escribe: 'sube el archivo a la ficha del lead (deal_fiscal.doc_path y doc_nombre) y completa los datos fiscales vacíos, cada uno con el antes y el después en el historial',
+    parametros: [
+      leadId('id del lead (de buscar_leads).'),
+      { nombre: 'archivo', rotulo: 'Archivo', tipo: 'string', max: 200, descripcion: 'el nombre del archivo, sólo si adjuntó más de uno.' },
+      { nombre: 'razon', rotulo: 'Razón social', tipo: 'string', max: 2000, descripcion: 'la razón social o el nombre que dice el documento.' },
+      { nombre: 'id_fiscal', rotulo: 'Identificación fiscal', tipo: 'string', max: 2000, descripcion: 'el RFC, CUIT, NIT… tal cual lo dice el documento.' },
+      { nombre: 'domicilio', rotulo: 'Domicilio fiscal', tipo: 'string', max: 2000, descripcion: 'el domicilio fiscal, en una línea.' },
+      { nombre: 'correo', rotulo: 'Correo de facturación', tipo: 'string', max: 2000, descripcion: 'el correo de facturación, si aparece.' },
+    ],
+    canales: ['app'], costo: 'gratis', gating: G_TAB,
+  },
+  {
     id: 'editar_obligacion_deal', area: 'cobros', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Editar una obligación del deal',
     descripcion: 'PROPONE agregar, editar o quitar UN renglón de las obligaciones del trato de un lead: lo que tiene que hacer el cliente o lo que tiene que hacer el prestador. Los demás renglones quedan. Pide renglon (empezando en 1) para editar o quitar; si la lista cambió antes del «sí», no se escribe.',
@@ -213,7 +230,7 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       leadId('id del lead dueño de la cuota.'),
       cuotaId(),
-      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe (la cuota está en dólares). Sin valor, Stripe.' },
+      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o creem (la cuota está en dólares; Mercado Pago cobra en la moneda de su cuenta). Sin valor, Stripe.' },
     ],
     canales: TODOS, costo: 'externo', gating: G_TAB,
   },
@@ -267,7 +284,9 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'tipo', rotulo: 'Tipo', tipo: 'string', obligatorio: true, enum: ['suscripcion', 'unico'], descripcion: 'suscripcion (cobra cada mes) o unico.' },
       { nombre: 'moneda', rotulo: 'Moneda', tipo: 'string', max: 3, descripcion: 'código de 3 letras (USD, MXN, ARS…). Sin ella, la de la cuenta de la pasarela.' },
       { nombre: 'montoUsd', rotulo: 'Valor en dólares', tipo: 'number', minimo: 0.01, maximo: 100000000, descripcion: 'cuánto es en dólares, si la moneda no es USD: sin él el cobro no entra a la plata del CRM.' },
-      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe o mercadopago. Hace falta sólo si la plataforma tiene las dos conectadas.' },
+      { nombre: 'pasarela', rotulo: 'Pasarela', tipo: 'string', enum: PASARELAS, descripcion: 'stripe, mercadopago o creem. Hace falta sólo si la plataforma tiene más de una conectada.' },
+      // 29/10/2026: el partner que lo trajo, como el campo de la pantalla; tiene que ser el código de un partner.
+      { nombre: 'codigoPartner', rotulo: 'Código de partner', tipo: 'string', max: 40, descripcion: 'el código de MaKo Partners de quien lo trajo, si lo trajo alguien: ese partner gana su primer mes.' },
     ],
     canales: ['whatsapp', 'app'], costo: 'externo', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
@@ -281,6 +300,13 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'segmento', rotulo: 'Segmento', tipo: 'string', enum: ['partner', 'agency', 'cliente', 'de-agencia'], descripcion: 'sólo los de ese segmento. Sin esto, todos.' },
     ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'ver_quieren_entrar', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver quién quiere entrar a MaKo',
+    descripcion: 'Sólo para la plataforma: la bandeja «Quieren entrar» de Customers › Accounts: quien intentó entrar con Google sin tener cuenta y quien pidió un plan desde la página de planes, y todavía no tiene usuario. De cada uno, su correo, su nombre, si Google confirmó el correo, qué pidió y cuántas veces. Para darle de alta se usa esa pantalla: esto sólo lee.',
+    parametros: [],
     salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   {

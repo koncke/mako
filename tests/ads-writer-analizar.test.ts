@@ -152,7 +152,8 @@ test('page.tsx: lee ?tab= de un módulo puro y «Analizar guion» no pasa por la
   assert.match(page, /const tab = tabDeUrl\(\(await searchParams\)\.tab\);/);
 
   const iPuente = page.indexOf('await puentearPasosCopyGen(');
-  const iAnalizar = page.indexOf("if (tab === 'analizar') return <AdsWriterApp tabInicial={tab} analizar={await vistaAnalizar()} />;");
+  // 28/10/2026: suma `conCopywriter` («Abrir en Copywriter», sólo para quien ya ve el Copywriter: tests/copywriter-tipos.test.ts).
+  const iAnalizar = page.indexOf("if (tab === 'analizar') return <AdsWriterApp tabInicial={tab} analizar={await vistaAnalizar()} conCopywriter={conCopywriter} />;");
   const iGuard = page.indexOf("await onboardingTabPendiente('ads-writer')");
   assert.ok(iPuente >= 0 && iAnalizar >= 0 && iGuard >= 0, 'no encontré el puente, la rama de analizar o el guard');
   assert.ok(iPuente < iAnalizar, 'el puente tiene que seguir corriendo primero');

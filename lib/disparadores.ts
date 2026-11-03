@@ -40,6 +40,7 @@ import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
 // Las PALABRAS CLAVE del CRON de comentario (ticket #17 de Leandro, 28/10/2026, como ManyChat). Puro.
 import { sanearPalabras, esCoincidencia, comentarioDispara, textoDePalabras, type Coincidencia } from './palabras-clave';
+import { sanearPublicacion, publicacionDispara, textoDePublicacion, type PublicacionCron } from './publicacion-cron';
 
 // ── Los tipos de disparador nuevos ──────────────────────────────────────────────────────────────
 
@@ -204,7 +205,7 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
   | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
-  | 'reunion_tareas_al_plan' | 'closing_ia_caida' | 'social_tope';
+  | 'reunion_tareas_al_plan' | 'closing_ia_caida' | 'social_tope' | 'meta_cuenta_frenada_agencia' | 'meta_cuenta_recuperada_agencia';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -234,7 +235,12 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope' | 'clienteagencia'>; retirado?: true;
+  /**
+   * Al cliente de una agencia no le llega: sale otro evento, a la agencia (`aLaAgencia`, lib/avisos-catalogo.ts). Lo lee el lienzo:
+   * nada por detrás. tests/avisos-a-la-agencia.test.ts lo cruza con el catálogo.
+   */
+  conAgencia?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -299,8 +305,8 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // Mauricio). Lo emite el cron de las alertas críticas (lib/alerta-critica.ts) cada hora mientras el incidente siga
   // abierto, con los HECHOS (`datosCuentaFrenada`); la fila de SuperAdmin dice qué contar de cada estado y hasta cuántas
   // veces. Y su contracara: el incidente que se venía avisando se resolvió.
-  { subtipo: 'meta_cuenta_frenada', aviso: 'meta-cuenta-frenada', label: 'Meta frena la cuenta publicitaria de un negocio', trae: ['anuncios'], plataforma: true },
-  { subtipo: 'meta_cuenta_recuperada', aviso: 'meta-cuenta-recuperada', label: 'La cuenta publicitaria de un negocio vuelve a entregar', trae: [], plataforma: true },
+  { subtipo: 'meta_cuenta_frenada', aviso: 'meta-cuenta-frenada', label: 'Meta frena la cuenta publicitaria de un negocio', trae: ['anuncios'], plataforma: true, conAgencia: true },
+  { subtipo: 'meta_cuenta_recuperada', aviso: 'meta-cuenta-recuperada', label: 'La cuenta publicitaria de un negocio vuelve a entregar', trae: [], plataforma: true, conAgencia: true },
   // UN LEAD CANCELA SU REUNIÓN EN CALENDLY (17/10/2026, docs/inventario-nada-por-detras.md, lote 2: salía del webhook con su
   // texto en el código y sin freno). Lo emite app/api/webhooks/calendly/route.ts con el lead y la reunión (`datosCancelada`).
   { subtipo: 'reunion_cancelada', aviso: 'reunion-cancelada', label: 'Un lead de un negocio cancela su reunión y no reagendó', trae: ['lead', 'cancelada'], plataforma: true },
@@ -340,6 +346,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // (`avisarTopesSociales`, lib/nutricion.ts), con los datos (`datosTopeSocial`, lib/tope-social.ts). Lo que no salió no
   // se pierde: vuelve a salir solo. El texto de «frenado» y de «cerca» lo elige la CONDITION de su fila (`tope_estado`).
   { subtipo: 'social_tope', aviso: 'social-tope', label: 'Instagram o Zernio frenan los mensajes de un negocio', trae: ['tope'], plataforma: true },
+  // LA CUENTA PUBLICITARIA DEL CLIENTE DE UNA AGENCIA (31/10/2026, ticket #37): los mismos hechos de `meta_cuenta_frenada` y su
+  // «ya está», con el nombre del cliente, para el grupo de la AGENCIA (`aLaAgencia`, lib/avisos-catalogo.ts). ⚠️ SIN SU FILA PRENDIDA
+  // NO SALE, y al cliente tampoco: la fila va ANTES del deploy (`scripts/mudanza-avisos-plataforma.mts`).
+  { subtipo: 'meta_cuenta_frenada_agencia', aviso: 'meta-cuenta-frenada-agencia', label: 'Meta frena la cuenta publicitaria del cliente de una agencia', trae: ['anuncios', 'clienteagencia'], plataforma: true },
+  { subtipo: 'meta_cuenta_recuperada_agencia', aviso: 'meta-cuenta-recuperada-agencia', label: 'La cuenta publicitaria del cliente de una agencia vuelve a entregar', trae: ['clienteagencia'], plataforma: true },
 ];
 
 /**
@@ -438,6 +449,11 @@ export type Disparador = {
   palabras?: string[];
   /** Cómo se comparan las `palabras`: ausente = «contiene». */
   coincidencia?: Coincidencia;
+  /**
+   * Sólo el CRON de comentario (ticket #25, lib/publicacion-cron.ts): arranca sólo con los comentarios de ESA publicación o
+   * Reel. Ausente = cualquier publicación, como siempre.
+   */
+  publicacion?: PublicacionCron;
   /** Recurrente: cuándo (lib/cron-aviso.ts). Con horario, el disparador NO responde a eventos. */
   cron?: CronAviso | null;
   /** Recurrente: la próxima ocurrencia agendada (el ancla; ver lib/nutricion-agenda.ts). */
@@ -480,6 +496,10 @@ const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MES
 export const conPalabras = (t: string, subtipo: string | null | undefined): boolean =>
   (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && (subtipo === 'comentario' || subtipo === 'en_vivo');
 
+/** ¿Este CRON puede elegir la publicación (ticket #25)? Sólo el comentario a una publicación o Reel: un En vivo no se elige de antemano. */
+export const conPublicacion = (t: string, subtipo: string | null | undefined): boolean =>
+  (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && subtipo === 'comentario';
+
 /**
  * CADA DISPARADOR LLEVA SÓLO LOS CAMPOS DE SU TIPO. Un campo de otro tipo que sobrevive a un cambio
  * es un ámbito que nadie ve (la etiqueta vieja de un disparador que ahora es de etapa) — la misma
@@ -510,6 +530,11 @@ function higiene(d: Disparador): Disparador {
       if (d.coincidencia === 'exacta') out.coincidencia = 'exacta';
     }
   }
+  // La publicación, sólo en un CRON de comentario (ticket #25): en otro evento sería un filtro que nadie ve.
+  if (conPublicacion(t, out.subtipo)) {
+    const p = sanearPublicacion(d.publicacion);
+    if (p) out.publicacion = p;
+  }
   if (d.cron) {
     out.cron = d.cron;
     out.cron_proxima_at = d.cron_proxima_at ?? null;
@@ -536,6 +561,7 @@ export function sanearDisparador(raw: unknown): Disparador | null {
     subtipo: typeof o.subtipo === 'string' && /^[a-z_]{1,30}$/.test(o.subtipo) ? o.subtipo : null,
     palabras: sanearPalabras(o.palabras),
     ...(esCoincidencia(o.coincidencia) ? { coincidencia: o.coincidencia } : {}),
+    ...(sanearPublicacion(o.publicacion) ? { publicacion: sanearPublicacion(o.publicacion)! } : {}),
     cron: o.cron == null ? null : sanearCron(o.cron),
     cron_proxima_at: fechaIso(o.cron_proxima_at),
     grupo: o.grupo === true,
@@ -618,7 +644,8 @@ export function disparadoresDe(row: FilaDisparadores): Disparador[] {
     id: mismo ? g0.id : (g0 && !guardados.slice(1).some((d) => d.id === 'd1') ? 'd1' : nuevoIdDisparador(guardados.map((d) => d.id))),
     // ⚠️ Y LAS PALABRAS CLAVE (ticket #17, 28/10/2026): el primero se rearma de las COLUMNAS, que no las tienen; sin
     // esto, el CRON de comentario de una automatización con un solo CRON las perdía en cada lectura, sin un error.
-    ...(mismo ? { ignorar: g0.ignorar, subtipo: g0.subtipo, grupo: g0.grupo, palabras: g0.palabras, coincidencia: g0.coincidencia } : {}),
+    // Y LA PUBLICACIÓN (ticket #25): la misma trampa, con la misma salida.
+    ...(mismo ? { ignorar: g0.ignorar, subtipo: g0.subtipo, grupo: g0.grupo, palabras: g0.palabras, coincidencia: g0.coincidencia, publicacion: g0.publicacion } : {}),
   });
   const resto = guardados.slice(1).filter((d) => d.id !== primero.id);
   return [primero, ...resto].slice(0, TOPE_DISPARADORES);
@@ -653,6 +680,8 @@ export function firmaDisparador(d: Disparador): string {
     [...(h.ignorar ?? [])].sort((a, b) => a - b), h.subtipo ?? null, firmaCron(h.cron), h.grupo === true,
     // Las palabras clave (ticket #17): «fiesta» y «guía» no es el mismo CRON que cualquier comentario.
     ...(h.palabras?.length ? [[...h.palabras].map((x) => x.toLowerCase()).sort(), h.coincidencia ?? 'contiene'] : []),
+    // La publicación (ticket #25): la de la guía no es el mismo CRON que cualquier publicación. Sólo el id: el texto es cómo se la nombra.
+    ...(h.publicacion ? [`publicacion:${h.publicacion.id}`] : []),
   ]);
 }
 
@@ -855,7 +884,11 @@ export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | '
  * Lo que el evento dice de sí para decidir: la etiqueta, el subtipo del canal y, de un comentario, lo que escribió la persona
  * (`texto`: las palabras clave del CRON de comentario, ticket #17).
  */
-export type CtxDisparo = { etiquetaId?: number | string | null; subtipo?: string | null; texto?: string | null };
+export type CtxDisparo = {
+  etiquetaId?: number | string | null; subtipo?: string | null; texto?: string | null;
+  /** De qué publicación es el comentario (`comment.platformPostId`): la publicación del CRON, ticket #25. */
+  publicacion?: string | null;
+};
 
 /**
  * ¿ESTE disparador arranca con ESTE evento? Es la pregunta fina del evento (la gruesa, qué
@@ -888,8 +921,10 @@ export function disparaPorEvento(
   if (evento === 'instagram' || evento === 'messenger') {
     const sub = typeof ctx?.subtipo === 'string' ? ctx.subtipo : '';
     // Las PALABRAS CLAVE del comentario (ticket #17): con el texto de ESTE comentario, no el de cuando nació el lead.
+    // Y LA PUBLICACIÓN (ticket #25): con una elegida, sólo los comentarios de ésa; uno que no dice de cuál es, ninguno.
     return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub
-      && comentarioDispara(ctx?.texto, conPalabras(t, sub) ? d.palabras : null, d.coincidencia);
+      && comentarioDispara(ctx?.texto, conPalabras(t, sub) ? d.palabras : null, d.coincidencia)
+      && publicacionDispara(conPublicacion(t, sub) ? d.publicacion : null, ctx?.publicacion);
   }
   if (evento === 'email_recibido') return t === TRIGGER_EMAIL_RECIBIDO;
   // Pagos: el MISMO evento (`subtipo`), como Instagram. Sin subtipo, nada: un aviso de la pasarela que no
@@ -1116,7 +1151,9 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
     // Con las palabras clave del comentario (ticket #17): «El usuario comenta tu publicación o Reel con «fiesta» o «guía»».
     const palabras = conPalabras(t, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
-    return ev ? (palabras ? `${ev.label} ${palabras}` : ev.label) : 'Elige el evento';
+    // Y la publicación (ticket #25): «El usuario comenta tu publicación o Reel «Te dejo la guía…» con «fiesta»».
+    const publicacion = conPublicacion(t, d.subtipo) ? textoDePublicacion(d.publicacion) : '';
+    return ev ? [ev.label, publicacion, palabras].filter(Boolean).join(' ') : 'Elige el evento';
   }
   // Un evento de antes se dice como es, SIN marca (revisión de las tarjetas, 23/10/2026, punto 12). «(de antes)» era
   // un estado interno pegado a la tarjeta, y la undécima tanda ya lo había rechazado: «Fuera (de antes)»

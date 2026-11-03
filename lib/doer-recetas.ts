@@ -74,7 +74,7 @@ const RECETA_LANDING = (conProducto: boolean): string => [
 const RECETA_CONFIRMAR = `CUANDO EL DUEÑO CONFIRMA ("sí", "dale", "hazlo", "adelante", "confirmo") y hay una acción pendiente: llama 'confirmar_accion' para ejecutarla. Si dice que no, 'cancelar_accion'. Si no estás seguro de a cuál se refiere, usa 'listar_pendientes' y pregunta.`;
 
 const RECETA_PLAN = `CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque venga desordenada: "anota esto", "agrega al plan", varias cosas juntas):
-- Ya se mandó un acuse automático ("recibí, lo proceso"): NO vuelvas a saludar ni acusar, ve al grano.
+- El 👍 ya salió: no acuses ni saludes, ve al grano.
 - MENSAJES SEPARADOS: WhatsApp se lee mejor cortito. Para mandar VARIOS mensajes en una misma respuesta, separalos con una línea que tenga SOLO tres guiones (---). Nada de un chorizo largo.
 00. LAS TAREAS SALEN DEL ÚLTIMO MENSAJE, no del historial. Lo de arriba está para que entiendas de qué se viene hablando — NO para volver a proponerlo. Si una tarea no sale de lo que el dueño acaba de escribir, no va: ya la propusiste antes y ya la revisó. (Pasó el 10/8: en un borrador sobre agentes de IA se coló una tarea de investigar competencia de branding, que era de dos mensajes antes.)
 0. EL DETALLE DE CADA TAREA ES LO MÁS IMPORTANTE. El título dice QUÉ; el detalle es lo que hace que la tarea se pueda ejecutar dentro de tres semanas sin volver a leer el WhatsApp — y es lo ÚNICO con lo que el Perro decide a qué proyecto va. Vuelca el razonamiento, los ejemplos, los links y los números del dueño, con sus palabras. NUNCA lo resumas a una línea.
@@ -101,6 +101,15 @@ export const OPERACIONES_GENERADOR_VIDEO: ReadonlySet<string> = new Set([
   'listar_anuncios_video', 'ver_anuncio_video', 'ver_montaje_anuncio', 'contar_escenarios_reusables', 'listar_guiones_para_video',
   'listar_formatos_video', 'listar_lugares_grabacion', 'ver_contexto_video', 'ver_voz_cliente', 'estado_onboarding_video',
   'ver_saldo_flow', 'calcular_alcance_anuncio', 'ver_puente_flow', 'listar_trabajos_flow',
+  // El estudio de anuncios (rescate de nube/video-generator-2710, 27/10): llegó con sus 21 operaciones y el test
+  // las encontró sin grupo. Son del Generator, no del Editor: el proyecto vive acá, no en el navegador de nadie.
+  // ⚠️ `filmar_toma_anuncio` gasta créditos de Flow del cliente: su receta tiene que viajar con ella.
+  'abrir_anuncio_en_estudio', 'crear_anuncio_con_guion', 'cargar_guion_propio', 'editar_texto_toma',
+  'reescribir_toma_con_ia', 'cambiar_tomas_anuncio', 'adaptar_voz_anuncio', 'elegir_lugar_anuncio',
+  'corregir_escenario_anuncio', 'otro_fondo_escenario', 'reusar_escenarios_anuncio', 'elegir_foto_anuncio',
+  'generar_imagen_escenario', 'elegir_opcion_escenario', 'aprobar_escenario_anuncio', 'escribir_escenarios_anuncio',
+  'filmar_toma_anuncio', 'descartar_toma_anuncio', 'restaurar_toma_anuncio', 'montar_anuncio_final',
+  'rehabilitar_puente_flow',
 ]);
 
 /** Las escrituras del Image Editor (lib/api-mako/areas/imagen.def.ts). */

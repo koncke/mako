@@ -33,26 +33,33 @@ test('se avisa cuando ya hay 2 cuentas activas y la red que viene es nueva', () 
   assert.equal(avisoDeCobroZernio({ conectadas: [cuenta('facebook'), cuenta('instagram'), cuenta('metaads')], red: 'instagram' }), null);
 });
 
-test('el aviso dice cuántas hay y cuánto cuesta la que viene', () => {
-  const t = textoAvisoCobro(2);
-  assert.match(t, /ya tiene 2 cuentas conectadas/);
+test('el aviso dice cuántas hay, cuánto cuesta la que viene y la salida gratis: otra clave de Zernio', () => {
+  // Con lugar para otra clave (29/10/2026, Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente»). Da vuelta el
+  // «una cuenta por negocio» de esa mañana: gana lo posterior. La clave es de OTRA cuenta del cliente; MaKo no crea cuentas.
+  const t = textoAvisoCobro(2, { puedeAgregar: true });
+  assert.match(t, /^Esta clave de Zernio ya tiene 2 redes\./);
   assert.match(t, /US\$6 por mes/);
   assert.match(t, /desde la 3\.ª/);
-  // La salida gratis que es cierta (Zernio cobra sólo las activas); «otra cuenta de Zernio» NUNCA (Martín, 29/10: una cuenta por negocio).
-  assert.match(t, /Para no pagar, desconecta en zernio\.com una que ya no uses/);
-  assert.doesNotMatch(t, /otra cuenta de Zernio|otro email/);
+  assert.match(t, /Para no pagar, agrega otra clave de Zernio \(de otra cuenta tuya, con otro Gmail\)\./);
+  // Sin lugar (las 5 claves cargadas), la salida que queda, que también es cierta (Zernio cobra sólo las activas).
+  const sin = textoAvisoCobro(2, { puedeAgregar: false });
+  assert.match(sin, /Para no pagar, desconecta en zernio\.com una que ya no uses/);
+  assert.doesNotMatch(sin, /agrega otra clave/);
   assert.ok(MENSAJES_DE_MOTIVO.cobro.length > 0);
 });
 
-test('el servidor cuenta ANTES de pedir el link, sólo con la clave del negocio, y deja pasar con el permiso o al reconectar', () => {
+test('el servidor cuenta ANTES de pedir el link, en cada clave del negocio, y deja pasar con el permiso o al reconectar', () => {
   const s = leer('../lib/zernio-conectar.ts');
   const f = s.slice(s.indexOf('export async function urlConectarViaZernio('), s.indexOf('// ── Quedó conectada'));
   const iAviso = f.indexOf("motivo: 'cobro'");
   const iLink = f.indexOf('`/connect/${def.ruta}');
   assert.ok(iAviso > 0 && iLink > iAviso, 'el aviso va antes de pedir el link de Zernio');
-  assert.match(f, /if \(!opc\.reconectarId && !opc\.aceptaCobro && \(await usaCuentaPropia\(ws\)/);
-  // Se cuenta TODA la cuenta de Zernio (cobra por equipo), no sólo el perfil del negocio.
-  assert.match(f, /zFetch<unknown>\(c\.apiKey, '\/accounts\?excludeHidden=true'\)/);
+  const k = f.slice(f.indexOf('async function claveParaConectar('));
+  // Reconectar no avisa (es la misma cuenta); con la clave de MaKo (el ws1) no se avisa: paga MaKo.
+  assert.ok(k.indexOf('if (opc.reconectarId) return') < k.indexOf('usaCuentaPropia(ws)'));
+  assert.match(k, /if \(!\(await usaCuentaPropia\(ws\)\.catch\(\(\) => false\)\)\) return \{ clave: claves\[0\] \};/);
+  // Se cuenta TODA la cuenta de Zernio de cada clave (cobra por equipo), no sólo el perfil del negocio.
+  assert.match(k, /zFetch<unknown>\(k\.apiKey, '\/accounts\?excludeHidden=true'\)/);
   assert.match(leer('../app/api/zernio/route.ts'), /aceptaCobro: body\.aceptaCobro === true,/);
 });
 

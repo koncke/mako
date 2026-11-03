@@ -210,7 +210,8 @@ export type PedidoLector = { url: string | null; id: string | null; camino: stri
 
 export type DepLector = {
   /** El HTML de la página, con las barandas de siempre (`htmlDePagina`). Tira si no se pudo. */
-  bajar: (url: string) => Promise<string>;
+  /** El HTML; con `final`, también su dirección después de las redirecciones (ahí se resuelve lo relativo). */
+  bajar: (url: string) => Promise<string | { html: string; final: string }>;
   /** Un módulo de la página (lector-server.ts): su código y si su server ya manda CORS. Tira si no se pudo. */
   bajarModulo: (url: string) => Promise<{ codigo: string; cors: boolean }>;
   /** `SNIPPET_VERSION` (lib/landing-token.ts es server-only: lo pasa la ruta). */
@@ -262,8 +263,11 @@ export async function responderPaginaLector(req: Request, p: PedidoLector, dep: 
     return texto(404, 'No existe');
   }
   let crudo: string;
+  let final = url;
   try {
-    crudo = await dep.bajar(url);
+    const r = await dep.bajar(url);
+    if (typeof r === 'string') crudo = r;
+    else { crudo = r.html; final = r.final; }
   } catch (err) {
     return html(documentoErrorLector(err instanceof Error ? err.message : String(err), id, origen));
   }
@@ -275,7 +279,7 @@ export async function responderPaginaLector(req: Request, p: PedidoLector, dep: 
   if (pideContrasena(crudo)) return html(documentoErrorLector('La página pide una contraseña. Pega su texto.', id, origen));
   const modulos = new Map<string, string>();
   let bytes = 0;
-  for (const m of modulosDelDocumento(crudo, baseDeDocumento(crudo, url))) {
+  for (const m of modulosDelDocumento(crudo, baseDeDocumento(crudo, final))) {
     try {
       const r = await dep.bajarModulo(m);
       // Si su server ya manda CORS, el módulo carga solo y se deja como está.
@@ -284,6 +288,6 @@ export async function responderPaginaLector(req: Request, p: PedidoLector, dep: 
       modulos.set(m, r.codigo);
     } catch { /* sin ese módulo: la página queda como venía */ }
   }
-  const doc = documentoLector(crudo, url, id, origen, modulos);
+  const doc = documentoLector(crudo, final, id, origen, modulos);
   return doc ? html(doc) : texto(404, 'No existe');
 }

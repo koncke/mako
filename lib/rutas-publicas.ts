@@ -97,6 +97,8 @@ export const PUBLICOS = [
   // trampa: cada pedido puede crear un checkout en la pasarela de MaKo (lib/compra-plan.ts).
   '/planes',
   '/api/planes/comprar',
+  // El reloj del 50% de la landing de venta: lo abre quien no tiene cuenta. No lee la sesión ni la base, y mira el Origin.
+  '/api/promo-entrada',
   // El link de MaKo Partners (`/r/<código>`, sólo GET): deja la cookie de quién lo mandó y lleva a
   // /planes. No lee la sesión.
   '/r',
@@ -264,6 +266,10 @@ export const PUBLICOS_ESCRITURA = [
   // token del link viaje en el CUERPO y no en la URL, igual que la comunidad. La credencial entera es ese
   // token (revalidado contra la fila viva en cada pedido) y la ruta no lee la cookie de sesión.
   '/api/compartido/graficos',
+  // Un guion del Copywriter compartido PARA EDITAR (28/10/2026, docs/diseno-copywriter.md, D9): el token del link en el
+  // CUERPO es la credencial entera (revalidado contra la fila viva en cada guardado), el id del guion sale de la fila y
+  // no del pedido, y la ruta no lee la cookie de sesión. Mira el Origin y corta por IP ella misma.
+  '/api/compartido/guion',
   '/api/agente/lead',
   // El comprador cambia el email de su acceso a MaKo (11/10/2026): el token del cobro viaja en el
   // CUERPO y es la credencial entera (ver su entrada en PUBLICOS).
@@ -271,6 +277,8 @@ export const PUBLICOS_ESCRITURA = [
   // El checkout público de un plan de MaKo (23/10/2026): sin credencial porque el que compra no tiene
   // cuenta; la ruta mira el Origin ella misma y no lee la cookie de sesión (ver su entrada en PUBLICOS).
   '/api/planes/comprar',
+  // El reloj del 50% (ver su entrada en PUBLICOS).
+  '/api/promo-entrada',
 ] as const;
 
 const matchea = (lista: readonly string[], pathname: string) =>

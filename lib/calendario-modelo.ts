@@ -8,10 +8,12 @@
 // "OBJETIVOS", el Q, el PLAN... que sea simple de usar, que sirva para todos los casos, que tenga IA que te ayude o
 // "templates" y que no sea restrictivo».
 //
-// UNA PANTALLA, SIETE CAPAS (`CAPAS_CALENDARIO`), cada una con su color y su interruptor:
+// UNA PANTALLA, OCHO CAPAS (`CAPAS_CALENDARIO`), cada una con su color. La pantalla las agrupa en los CUATRO USOS que pidió
+// Martín el 29/10/2026 (app/calendario/comun.ts, `USOS_CALENDARIO`) y lo demás en «Otros»:
 //   · Publicaciones — lo que la persona planea publicar (Story, Reel, Post, Anuncio, Email, Video). Propio.
 //   · Llamadas      — las reuniones del CRM (R1/R2 con su hora, de Calendly/Cal.com), la agenda de Google y las
 //                     llamadas sueltas que se agendan acá.
+//   · Entregas      — las reuniones de entrega del servicio que se agendan acá (29/10/2026, tipo `entrega`).
 //   · Bloques       — bloques de trabajo («Escribir guiones», «Grabar») y lo demás que se agenda acá.
 //   · Plan          — los deadlines de las tareas y los proyectos del tablero.
 //   · Se repite     — las PRÓXIMAS veces de las tareas que se repiten (14/10/2026), según su ritmo: se dibujan, no se
@@ -35,12 +37,14 @@ import { hoyEnTz } from './date-utils';
 import { ocurrenciasEntre } from './plan-recurrentes-fechas';
 import type { EventoGoogle } from './calendario-google-modelo';
 
-export const TIPOS_EVENTO = ['publicacion', 'bloque', 'llamada', 'otro'] as const;
+// `entrega` (29/10/2026, mig 0352): la reunión de entrega del servicio, uno de los cuatro usos del Calendario («publicaciones,
+// deadlines del Plan, llamadas de venta, reuniones de entrega»). Antes sólo salía de la agenda de Google.
+export const TIPOS_EVENTO = ['publicacion', 'bloque', 'llamada', 'otro', 'entrega'] as const;
 export type TipoEvento = (typeof TIPOS_EVENTO)[number];
 export const FORMATOS_PUBLICACION = ['story', 'reel', 'post', 'ad', 'email', 'video', 'otro'] as const;
 export type FormatoPublicacion = (typeof FORMATOS_PUBLICACION)[number];
 
-export const ROTULO_TIPO: Record<TipoEvento, string> = { publicacion: 'Publicación', bloque: 'Bloque de trabajo', llamada: 'Llamada', otro: 'Otro' };
+export const ROTULO_TIPO: Record<TipoEvento, string> = { publicacion: 'Publicación', bloque: 'Bloque de trabajo', llamada: 'Llamada de venta', otro: 'Otro', entrega: 'Reunión de entrega' };
 export const ROTULO_FORMATO: Record<FormatoPublicacion, string> = { story: 'Story', reel: 'Reel', post: 'Post', ad: 'Anuncio', email: 'Email', video: 'Video', otro: 'Otro' };
 
 export const esTipoEvento = (x: unknown): x is TipoEvento => typeof x === 'string' && (TIPOS_EVENTO as readonly string[]).includes(x);
@@ -49,7 +53,9 @@ export const esFormato = (x: unknown): x is FormatoPublicacion => typeof x === '
 /** Las capas del calendario: el filtro y la leyenda. El color es un token de la casa (se da vuelta en oscuro). */
 export const CAPAS_CALENDARIO = [
   { id: 'publicaciones', nombre: 'Publicaciones', color: 'var(--accent)' },
-  { id: 'llamadas', nombre: 'Llamadas', color: 'var(--primary)' },
+  { id: 'llamadas', nombre: 'Llamadas de venta', color: 'var(--primary)' },
+  // 29/10/2026: las reuniones de entrega del servicio que se agendan acá (tipo `entrega`).
+  { id: 'entregas', nombre: 'Entregas', color: 'var(--good)' },
   { id: 'bloques', nombre: 'Bloques', color: 'var(--good)' },
   { id: 'plan', nombre: 'Plan', color: 'var(--warn-fill)' },
   // 14/10/2026 (Martín: «ver las tareas recurrentes allí»): las próximas veces de lo que se repite, sin crear filas.
@@ -61,8 +67,9 @@ export const CAPAS_CALENDARIO = [
 export type CapaCalendario = (typeof CAPAS_CALENDARIO)[number]['id'];
 export const colorDeCapa = (c: CapaCalendario): string => CAPAS_CALENDARIO.find((x) => x.id === c)!.color;
 
-/** De qué capa es un evento propio. Una llamada propia va con las llamadas; un «otro», con los bloques. */
-export const capaDeTipo = (t: TipoEvento): CapaCalendario => (t === 'publicacion' ? 'publicaciones' : t === 'llamada' ? 'llamadas' : 'bloques');
+/** De qué capa es un evento propio. Una llamada propia va con las llamadas; una entrega, con las entregas; un «otro», con los bloques. */
+export const capaDeTipo = (t: TipoEvento): CapaCalendario =>
+  (t === 'publicacion' ? 'publicaciones' : t === 'llamada' ? 'llamadas' : t === 'entrega' ? 'entregas' : 'bloques');
 
 /** De dónde salió un renglón del calendario. Sólo `propio` se edita desde acá. */
 export type FuenteCalendario = 'propio' | 'crm' | 'google' | 'plan' | 'objetivo' | 'cobro';

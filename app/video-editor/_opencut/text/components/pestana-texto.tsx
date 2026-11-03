@@ -526,7 +526,7 @@ function BotonGuardarPredefinido({ element }: { element: TimelineElement }) {
 		<button
 			type="button"
 			onClick={guardar}
-			className="h-8 w-full cursor-pointer rounded-[5px] bg-primary px-3 text-[12px] font-medium text-white transition hover:brightness-110"
+			className="h-8 w-full cursor-pointer rounded-[5px] bg-primary px-3 text-[12px] font-medium text-primary-foreground transition hover:brightness-110"
 		>
 			Guardar como parámetro predefinido
 		</button>

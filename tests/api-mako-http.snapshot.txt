@@ -9,6 +9,7 @@ adjuntar_grabaciones_fathom
 admitir_alumno_comunidad
 afinar_avatares
 agente_media_buyer
+agregar_al_documento_copywriter
 agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
@@ -121,6 +122,7 @@ comentar_post_comunidad
 como_conectar
 comparar_agendas_meta_crm
 compartir_borrador_landing
+compartir_documento_copywriter
 conectar_componentes_dashboard
 configurar_aviso_whatsapp
 configurar_bloque_general
@@ -156,6 +158,7 @@ crear_clase_curso
 crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
+crear_documento_copywriter
 crear_etiqueta
 crear_evento_calendario
 crear_evento_comunidad
@@ -210,6 +213,7 @@ editar_comentario_comunidad
 editar_contacto_lead
 editar_cuota
 editar_dato_deal
+editar_documento_copywriter
 editar_etiqueta
 editar_evento_comunidad
 editar_grafico_dashboard
@@ -238,6 +242,7 @@ eliminar_muletillas_video
 embudo_closing
 empezar_mi_plan_ya
 empezar_prueba_ab
+enlaces_documento_copywriter
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -298,6 +303,7 @@ guardar_termino_glosario
 guardar_version_landing
 habilitar_acceso_curso
 hacerme_partner
+hasta_media_buyer
 hooks_al_video_media_buyer
 huecos_secuencias
 ignorar_datos_sin_marcar
@@ -313,8 +319,10 @@ lead_insiste_con_lo_mismo
 lead_tiene_llamada
 leer_analisis_dashboard
 leer_conclusiones_dashboard
+leer_documento_copywriter
 leer_guion_anuncio
 leer_hoja_dashboard
+leer_modulo_knowledge
 leer_resumen_objetivos
 leer_segundo_cerebro_como_archivos
 limites_formato_instagram
@@ -350,6 +358,7 @@ listar_cursos
 listar_dependencias_plan
 listar_disenos_imagen
 listar_disenos_landing
+listar_documentos_copywriter
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
@@ -385,6 +394,7 @@ listar_pendientes
 listar_pendientes_arranque
 listar_pixeles_meta
 listar_plantillas_aprobadas
+listar_plantillas_copywriter
 listar_plantillas_imagen
 listar_plantillas_video
 listar_posts_comunidad
@@ -416,11 +426,13 @@ listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
+mandar_en_bloque_a_papelera
 mandar_landing_a_papelera
 marcar_asistencia_reunion
 marcar_avisos_leidos_comunidad
 marcar_calificado
 marcar_pago_cobrado
+marcar_palabra_no_nombre
 marcar_paso_onboarding_tab
 marcar_reunion_manual
 medicion_experimento
@@ -434,6 +446,7 @@ metricas_negocio
 mis_creaciones
 modo_agente_media_buyer
 modo_media_buyer
+modulos_de_knowledge
 mover_a_nutricion_manual
 mover_clase_curso
 mover_componente_dashboard
@@ -452,7 +465,10 @@ ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
 panorama_closing
+papelera_documento_copywriter
 pasar_comentarios_a_copia_landing
+pasar_en_bloque_otra_columna
+pasar_en_bloque_otro_funnel
 pausar_landing
 plan_retro
 plantillas_meta_de_secuencia
@@ -465,6 +481,7 @@ poner_filtro_video
 poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
+preparar_subida_media_buyer
 probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
@@ -482,6 +499,7 @@ proponer_cambio_etapa
 proponer_cierre_tareas
 proponer_corregir_angulo_guion
 proponer_corregir_avatar_guion
+proponer_crear_campana
 proponer_crear_formulario_meta
 proponer_crear_publico_meta
 proponer_editar_angulo
@@ -507,6 +525,7 @@ publicar_creacion
 publicar_landing
 publicar_post_comunidad
 que_recomienda_mako
+quienes_de_automatizacion
 quitar_cobro_landing
 quitar_componente_dashboard
 quitar_conector_dashboard
@@ -520,10 +539,12 @@ reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
 reconciliar_plantillas
 recortar_clip_video
+recuperar_de_papelera_crm
 recuperar_del_segundo_cerebro
 reducir_ruido_video
 reembolsar_cobro
 reemplazar_clip_video
+reemplazar_documento_copywriter
 reemplazar_en_subtitulos_video
 reflejar_clip_video
 registrar_pago_suelto
@@ -531,6 +552,7 @@ registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
 renombrar_curso
+renombrar_documento_copywriter
 renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
@@ -542,6 +564,7 @@ responder_pregunta_personalidad
 restablecer_informe_dashboard
 restaurar_clase_curso
 restaurar_curso
+restaurar_documento_copywriter
 restaurar_version_landing
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
@@ -550,6 +573,7 @@ reuniones_proximas
 reuniones_recientes
 revertir_clip_video
 revisar_direccion_landing
+revocar_enlace_copywriter
 sacar_alumno_comunidad
 sacar_etiqueta_lead
 seguimiento_ultima_retro
@@ -558,6 +582,7 @@ sembrar_kpis_sugeridos
 separar_audio_video
 silenciar_clip_video
 snapshot_funnel_experimentos
+subir_creativos_media_buyer
 sugerencias_crm
 sugerir_kpis
 sugerir_productos
@@ -579,6 +604,7 @@ ver_archivero
 ver_automatizaciones_media_buyer
 ver_avatares
 ver_avisos_comunidad
+ver_bajas_de_leads
 ver_base_formulario_meta
 ver_biblioteca_media_buyer
 ver_borrador_de_reunion
@@ -646,8 +672,10 @@ ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio
 ver_mrr_activo
+ver_nombres_del_crm
 ver_novedades_pixel
 ver_objetivo_principal
+ver_papelera_crm
 ver_pendiente
 ver_perfil_guiones
 ver_perfil_negocio
@@ -695,3 +723,4 @@ vincular_evento_etapa
 vista_experimentos
 volver_a_mostrar_sugerencia
 votar_encuesta_comunidad
+zona_media_buyer

@@ -29,17 +29,17 @@
 
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `cambiar_fecha_tarea_plan` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
-- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `renombrar_etapa` · `agregar_etapa` · `eliminar_etapa` · `ordenar_etapas` · `plazo_etapa` · `columna_nutricion_crm` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `armar_tab_ficha`
-- **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_biblioteca_media_buyer`
+- **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `renombrar_etapa` · `agregar_etapa` · `eliminar_etapa` · `ordenar_etapas` · `plazo_etapa` · `columna_nutricion_crm` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `pasar_en_bloque_otra_columna` · `pasar_en_bloque_otro_funnel` · `mandar_en_bloque_a_papelera` · `ver_papelera_crm` · `ver_nombres_del_crm` · `marcar_palabra_no_nombre` · `ver_bajas_de_leads` · `recuperar_de_papelera_crm` · `armar_tab_ficha`
+- **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_biblioteca_media_buyer` · `zona_media_buyer` · `hasta_media_buyer` · `proponer_crear_campana` · `preparar_subida_media_buyer` · `subir_creativos_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje` · `quienes_de_automatizacion`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `listar_videos_alojados` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_iconos_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `dar_formato_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `cambiar_imagen_landing` · `cambiar_icono_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
-- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `cambiar_codigo_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab` · `modulos_de_knowledge` · `leer_modulo_knowledge`
+- **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio` · `ver_rendimiento_redes` · `listar_documentos_copywriter` · `leer_documento_copywriter` · `crear_documento_copywriter` · `agregar_al_documento_copywriter` · `reemplazar_documento_copywriter` · `renombrar_documento_copywriter` · `papelera_documento_copywriter` · `restaurar_documento_copywriter` · `enlaces_documento_copywriter` · `compartir_documento_copywriter` · `revocar_enlace_copywriter` · `listar_plantillas_copywriter` · `editar_documento_copywriter`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
@@ -48,7 +48,7 @@
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes` · `programar_publicacion`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
-- **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos`
+- **Cobros (Stripe, Mercado Pago y Creem)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual` · `armar_plan_por_tramos`
 - **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion`
 
 ## General — `general`
@@ -595,7 +595,7 @@ Propone agregar una hoja nueva a la pantalla General de una persona: desde una p
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `persona` | string | no | Email (o nombre) de la persona admin. Si se omite: en el chat de la app, la de quien chatea; si no, la única persona admin de la cuenta. |
-| `plantilla` | string (general \\| bienvenida \\| foco \\| operacion \\| ventas \\| cobros \\| anuncios \\| funnel-llamadas \\| funnel-whatsapp \\| lanzamiento \\| servicio \\| curso \\| instagram) | no | id de la plantilla de General. Usa esto O pedido. |
+| `plantilla` | string (general \\| foco \\| operacion \\| ventas \\| servicio \\| curso \\| instagram) | no | id de la plantilla de General. Usa esto O pedido. |
 | `pedido` | string | no | Qué quiere ver al entrar, en palabras, para que MaKo arme la hoja. Usa esto O plantilla. |
 | `nombre` | string | no | Cómo se llama la hoja (default: el de la plantilla o el que elija MaKo). |
 
@@ -1497,7 +1497,7 @@ curl -L \
 
 ## CRM — `crm`
 
-Tab **CRM** (`/crm`). 33 lecturas · 50 acciones.
+Tab **CRM** (`/crm`). 36 lecturas · 55 acciones.
 
 ### `GET /api/v1/crm/busqueda/leads` — Buscar leads por texto
 
@@ -2186,9 +2186,9 @@ PROPONE UN cambio en la ficha del lead de UN CRM (pendiente hasta el «sí»), p
 | `opcion` | string | no | en opciones: redes (web,instagram,youtube,linkedin), fuentes (meta,landing,agenda) o la pregunta destacada; en estilo: esquinas=redondas. |
 | `aviso` | string | no | en aviso: el id del dato sin marcar (de los avisos de ver_ficha_funnel). |
 | `avisa` | boolean | no | en aviso: true para que avise, false para que no. |
-| `tema` | string (mako \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla de estilo, la misma del Dashboard. |
+| `tema` | string (mako \\| pastel \\| azul \\| verde \\| vieja \\| minimal \\| suave \\| contraste \\| elevada \\| general \\| editorial) | no | en estilo: la plantilla, la misma del Dashboard. |
 | `acento` | string | no | en estilo: el color de acento en hex, #RRGGBB. Vacío para volver al de la plantilla de estilo. |
-| `tipografia` | string (geist \\| inter \\| poppins \\| nunito \\| atkinson \\| hanken \\| dmsans \\| worksans \\| figtree \\| rubik \\| karla \\| publicsans \\| lora \\| merriweather \\| sourceserif \\| crimson \\| bitter \\| eb \\| maquina \\| jetbrains \\| spline \\| bricolage \\| instrument \\| fraunces) | no | en estilo: la tipografía de toda la ficha. |
+| `tipografia` | string (geist \\| urb \\| inter \\| poppins \\| nunito \\| atkinson \\| hanken \\| dmsans \\| worksans \\| figtree \\| rubik \\| karla \\| publicsans \\| lora \\| merriweather \\| sourceserif \\| crimson \\| bitter \\| eb \\| maquina \\| jetbrains \\| spline \\| bricolage \\| instrument \\| fraunces) | no | en estilo: la tipografía de toda la ficha. |
 | `densidad` | string (compacta \\| normal \\| amplia) | no | en densidad: el tamaño de las tarjetas. |
 | `plantilla` | string | no | en plantilla: el id (de ver_ficha_funnel) o auto. Sin tab, la de toda la ficha (arranca de cero bloques y avisos); con tab, la de esa tab. |
 | `nombre` | string | no | en nombre: cómo se llama la tab. Vacío, el de siempre. |
@@ -3853,6 +3853,235 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/cobro-ganado/vinculos/VINCULO_ID"
 ```
 
+### `POST /api/v1/crm/en-bloque/columna` — Pasar varios a otra columna
+
+PROPONE pasar EN BLOQUE varios leads a otra columna del mismo CRM, con UNA confirmación para todos (queda pendiente hasta el «sí»): la columna entera de origen (columna, con embudoId si no es el CRM principal) o los ids (leadIds). Para descalificar o perder en bloque, el destino es Descalificado o Perdido, con un motivo. Lo que la columna pida y falte queda pendiente en cada ficha. No manda mensajes. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/pasar_en_bloque_otra_columna`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** mueve cada lead a la columna, con su historial (a un agregado, en su fila de ese CRM), como la barra en bloque del tablero
+- **Reversible:** no
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `destino` | string | sí | la columna adonde van: su key (de ver_funnel) o su nombre. |
+| `columna` | string | no | la columna de origen ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds. |
+| `leadIds` | string[] | no | los ids de los leads (de buscar_leads o listar_leads), si no es la columna entera. |
+| `embudoId` | number | no | el CRM, por el id de su embudo. Sin él, el CRM principal. |
+| `motivo` | string | no | el motivo de descalificar o perder («No calificado — sin presupuesto»), uno para todos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/en-bloque/columna" \
+  -d '{"destino":"DESTINO"}'
+```
+
+### `POST /api/v1/crm/en-bloque/funnel` — Pasar varios a otro funnel
+
+PROPONE pasar EN BLOQUE leads de un CRM a OTRO, con UNA confirmación para todos (queda pendiente hasta el «sí»): salen del de origen y entran al de destino en la columna que se dice (sin ella, la misma si el destino la tiene, si no la de entrada). Los que ya pagaron en el origen no se pasan (sus pagos son de ahí); los que ya agendaron, sólo con incluirAgendados. El resumen dice cuántos de cada uno. No manda mensajes. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/pasar_en_bloque_otro_funnel`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca a cada lead del CRM de origen y lo deja en el de destino (si el origen era su casa, la casa pasa a ser el destino), con su historial
+- **Reversible:** no
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `haciaEmbudoId` | number | sí | el CRM de destino, por el id de su embudo (de productos_del_lead o ver_funnel). |
+| `columna` | string | no | la columna de origen ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds. |
+| `leadIds` | string[] | no | los ids de los leads, si no es la columna entera. |
+| `embudoId` | number | no | el CRM de origen. Sin él, el CRM principal. |
+| `destino` | string | no | la columna del CRM de destino donde caen: su key o su nombre. |
+| `incluirAgendados` | boolean | no | pasar también a los que ya agendaron una reunión (por defecto, no). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/en-bloque/funnel" \
+  -d '{"haciaEmbudoId":1}'
+```
+
+### `POST /api/v1/crm/papelera` — Mandar varios a la papelera
+
+PROPONE mandar EN BLOQUE leads a la papelera del CRM, con UNA confirmación para todos (queda pendiente hasta el «sí»): salen del CRM con su historial y sus pagos, y nadie recibe ningún mensaje. Durante 30 días se recuperan tal cual con recuperar_de_papelera_crm (la lista, con ver_papelera_crm); después se borran para siempre. La columna entera (columna, con embudoId) o los ids (leadIds). Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/mandar_en_bloque_a_papelera`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca a cada lead del CRM y guarda su foto 30 días en la papelera (leads_papelera); se recupera con recuperar_de_papelera_crm
+- **Reversible:** sí
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `columna` | string | no | la columna ENTERA (todos los que están ahí): su key o su nombre. Sin esto, leadIds. |
+| `leadIds` | string[] | no | los ids de los leads, si no es la columna entera. |
+| `embudoId` | number | no | el CRM de la columna. Sin él, el CRM principal. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/papelera"
+```
+
+### `GET /api/v1/crm/papelera` — Ver la papelera del CRM
+
+Los leads que se eliminaron y todavía se pueden recuperar (30 días): su id, nombre, de qué CRM y columna salieron, quién los eliminó y cuántos días les quedan. Para recuperarlos, recuperar_de_papelera_crm.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_papelera_crm`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `buscar` | string | no | un nombre, teléfono o email para filtrar. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/papelera"
+```
+
+### `GET /api/v1/crm/nombres` — Ver cómo se saluda a los leads
+
+Cuántos leads quedan sin nombre para saludar (su mensaje sale sin nombre) y qué primeras palabras se repiten en la base («Kun Fabiola Pedraza»), con un ejemplo de cómo sale. Úsala antes de una campaña con {{nombre}}.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_nombres_del_crm`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/nombres"
+```
+
+### `POST /api/v1/crm/nombres/palabra` — Marcar palabra que no es nombre
+
+PROPONE marcar (o desmarcar) una palabra que en este negocio no es un nombre, como un lugar con que se agenda a los contactos: {{nombre}} la salta (queda pendiente hasta el «sí»). No cambia ningún lead.
+
+- **Ruta por operación:** `POST /api/v1/crm/marcar_palabra_no_nombre`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia la lista de palabras que {{nombre}} salta en este negocio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `palabra` | string | sí | la palabra, como está en el nombre. |
+| `noEs` | boolean | no | false para volver a tratarla como un nombre. Por defecto, true. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/crm/nombres/palabra" \
+  -d '{"palabra":"PALABRA"}'
+```
+
+### `GET /api/v1/crm/bajas` — Ver lo que se borró del CRM
+
+Quién, cuándo, cuántos y por qué camino se borraron leads de este negocio (eliminar, unificar, un duplicado automático). Queda para siempre, también después de que la papelera purga. Sirve para contestar «¿qué pasó con estos leads?». Sólo trae ids; se registra desde el 30/10/2026.
+
+- **Ruta por operación:** `GET /api/v1/crm/ver_bajas_de_leads`
+- **Token detallado:** permiso `crm=read` (Solo lectura en «CRM»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadId` | number | no | lo que pasó con UN lead, por su id. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/bajas"
+```
+
+### `POST /api/v1/crm/papelera/recuperaciones` — Recuperar de la papelera
+
+PROPONE devolver leads de la papelera del CRM tal cual estaban (sus mismos ids, pagos, funnels, etiquetas y mensajes), con UNA confirmación (queda pendiente hasta el «sí»). Los ids salen de ver_papelera_crm; con todos=true, todos los de la papelera. Uno que volvió a llegar con sus mismos datos queda en la papelera y se dice. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/crm/recuperar_de_papelera_crm`
+- **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** vuelve a crear cada lead con todo lo que tenía y lo saca de la papelera (leads_papelera)
+- **Reversible:** sí
+- **Costo:** gratis · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** crm
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `leadIds` | string[] | no | los ids de los leads (de ver_papelera_crm). |
+| `todos` | boolean | no | todos los de la papelera. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/crm/papelera/recuperaciones"
+```
+
 ### `POST /api/v1/crm/ficha/tabs` — Armar una tab de la ficha
 
 PROPONE armar UNA tab de la ficha del lead de un CRM (Resumen, Reuniones, Pagos o Tracking) con lo que se pide en palabras («lo que tengo que hacer y su contacto, en grande»): MaKo elige los bloques ANTES de proponerla y el resumen dice cuáles. Cambia la tab para todos los leads de ese CRM. Solo el administrador. Sin embudoId, el CRM principal.
@@ -3887,7 +4116,7 @@ curl -L \
 
 ## Ads (Manager y Analyst) — `ads`
 
-Tab **Ads Manager** (`/ads-manager`). 40 lecturas · 39 acciones.
+Tab **Ads Manager** (`/ads-manager`). 41 lecturas · 43 acciones.
 
 ### `GET /api/v1/ads/campanas` — Campañas con gasto en 30 días
 
@@ -5531,7 +5760,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer` — Ver el Media Buyer
 
-El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, sus agentes (los cuatro de MaKo con su estado, y los propios del negocio), las alertas de Protect de la última vez que miró, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, quién la firma, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.
+El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, la zona y las fechas de fin, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, sus agentes (los cuatro de MaKo con su estado, y los propios del negocio), las alertas de Protect de la última vez que miró, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, quién la firma, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.
 
 - **Ruta por operación:** `GET /api/v1/ads/ver_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -5569,7 +5798,7 @@ PROPONE lanzar una decisión ABIERTA del Media Buyer (de ver_media_buyer): subir
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `decisionId` | string | sí | id de la decisión del Media Buyer (de ver_media_buyer). |
-| `presupuesto` | number | no | sólo en un cambio de presupuesto: el monto diario a poner en vez del que propuso (moneda de la cuenta). Los topes lo pueden recortar. |
+| `presupuesto` | number | no | sólo en un cambio de presupuesto: el monto diario a poner en vez del que propuso (moneda de la cuenta). Los topes lo pueden recortar. Cinco veces el de hoy o más no sale; bajarlo 80% o más sí, y la confirmación lo avisa. |
 | `variaciones` | string[] | no | sólo en una decisión de variaciones: los ids de las que se publican (de ver_media_buyer). Sin esto, las que estaban elegidas. |
 
 ```bash
@@ -5896,7 +6125,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer/campanas` — Campañas que ve el Media Buyer
 
-Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.
+Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o la conexión anterior), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.
 
 - **Ruta por operación:** `GET /api/v1/ads/ver_campanas_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -6069,6 +6298,192 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/ads/media-buyer/biblioteca"
+```
+
+### `PUT /api/v1/ads/media-buyer/zona` — Zona del Media Buyer
+
+PROPONE la ZONA donde trabaja el Media Buyer: los países, provincias o ciudades (de buscar_lugares_meta, tal cual vienen) donde puede prender y subir presupuestos. Lo que muestra anuncios fuera de la zona, o lo que no se puede confirmar adentro, no se prende ni se sube (bajar y pausar siempre se puede). La lista reemplaza la anterior; [] = toda la cuenta. Se confirma en una pantalla.
+
+- **Ruta por operación:** `POST /api/v1/ads/zona_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cambia la zona en media_buyer_config
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `zona` | object[] | sí | los lugares, como los devuelve buscar_lugares_meta (sólo país, provincia o ciudad); [] = toda la cuenta. |
+| `zona.tipo` | string (country \\| region \\| city) | sí | country, region o city. |
+| `zona.key` | string | sí | el id de Meta del lugar. |
+| `zona.nombre` | string | no | el nombre, para mostrarlo. |
+| `zona.pais` | string | no | el código del país (ES, MX…): obligatorio en provincias y ciudades. |
+| `zona.region` | string | no | la provincia de una ciudad, para mostrarla. |
+| `zona.regionId` | string | no | el id de Meta de la provincia de una ciudad. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/zona" \
+  -d '{"zona":[]}'
+```
+
+### `PUT /api/v1/ads/media-buyer/hasta` — Fecha de fin del Media Buyer
+
+PROPONE la FECHA DE FIN: la de toda la cuenta, o con campanaId la de una campaña (gana a la de la cuenta). Pasada la fecha (el día del negocio), MaKo pausa la campaña sola; desde 3 días antes no sube presupuestos. Vacía = sin fecha (la campaña vuelve a la de la cuenta). Se confirma en una pantalla.
+
+- **Ruta por operación:** `POST /api/v1/ads/hasta_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cambia hasta o hasta_campanas en media_buyer_config
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `hasta` | string | sí | AAAA-MM-DD, el último día; vacío = sin fecha. |
+| `campanaId` | string | no | sólo para UNA campaña: su id numérico de Meta (de ver_campanas_media_buyer). Sin esto, es la de toda la cuenta. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/hasta" \
+  -d '{"hasta":"HASTA"}'
+```
+
+### `POST /api/v1/ads/media-buyer/campanas` — Lanzar una campaña nueva
+
+PROPONE lanzar una campaña ENTERA (campaña, conjunto y anuncio) por la conexión de Facebook del negocio: el objetivo, el presupuesto por día, dónde (vacío = la zona del Media Buyer, y nunca fuera de ella), hasta cuándo (vacío = la fecha de fin del Media Buyer), el formulario o el píxel, la página de destino y el creativo (una imagen o un video con su https, un video ya subido a la cuenta, o reusar un anuncio de la cuenta). Hoy NACE EN PAUSA (la persona la revisa en Meta y la prende) y MaKo relee lo que Meta guardó contra lo pedido. Se confirma en una pantalla, que muestra todo lo que sale; se deshace con deshacer_decision_media_buyer (la borra). Antes: listar_formularios_meta o listar_pixeles_meta, y buscar_lugares_meta.
+
+- **Ruta por operación:** `POST /api/v1/ads/proponer_crear_campana`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** crea una campaña, un conjunto y un anuncio en Meta por Zernio, y la registra en media_buyer_decisiones
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `nombre` | string | sí | cómo se llama la campaña. |
+| `objetivo` | string (formulario \\| web \\| trafico \\| compras) | sí | formulario (de Meta, con formularioId) · web (registros en la página, con pixelId y evento) · trafico (visitas) · compras (con pixelId). |
+| `presupuestoDia` | number | sí | por día, en la moneda de la cuenta publicitaria. |
+| `lugares` | object[] | no | dónde se muestra, como los devuelve buscar_lugares_meta (país, provincia o ciudad). Vacío = la zona del Media Buyer. |
+| `lugares.tipo` | string (country \\| region \\| city) | sí | country, region o city. |
+| `lugares.key` | string | sí | el id de Meta del lugar. |
+| `lugares.nombre` | string | no | el nombre. |
+| `lugares.pais` | string | no | el código del país: obligatorio en provincias y ciudades. |
+| `lugares.regionId` | string | no | el id de la provincia de una ciudad. |
+| `hasta` | string | no | AAAA-MM-DD, el último día. Vacío = la fecha de fin del Media Buyer (o sin fecha). |
+| `edadMin` | number | no | edad mínima (18 a 65). |
+| `edadMax` | number | no | edad máxima (65 es «65 o más»). |
+| `formularioId` | string | no | objetivo formulario: el id del formulario instantáneo (de listar_formularios_meta). |
+| `pixelId` | string | no | objetivo web o compras: el id del píxel (de listar_pixeles_meta). |
+| `evento` | string (LEAD \\| SCHEDULE \\| SUBMIT_APPLICATION \\| CONTACT \\| COMPLETE_REGISTRATION) | no | objetivo web: el evento del píxel que optimiza (por defecto LEAD). |
+| `url` | string | no | la página a la que lleva el anuncio, exacta con https (obligatoria salvo en formulario). |
+| `creativoTipo` | string (imagen \\| video \\| video_cuenta \\| anuncio) | sí | imagen o video (con imagenUrl o videoUrl), video_cuenta (con videoId) o anuncio (reusar el de anuncioId). |
+| `imagenUrl` | string | no | creativoTipo imagen: la dirección https de la imagen. |
+| `videoUrl` | string | no | creativoTipo video: la dirección https del video (MP4). |
+| `videoId` | string | no | creativoTipo video_cuenta: el id de un video ya subido a la cuenta. |
+| `anuncioId` | string | no | creativoTipo anuncio: el id del anuncio de la cuenta cuyo creativo se reusa (de listar_anuncios_meta). |
+| `texto` | string | no | el texto principal del anuncio (obligatorio salvo al reusar un anuncio). |
+| `titulo` | string | no | el título del anuncio. |
+| `boton` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SUBSCRIBE \\| SHOP_NOW \\| WHATSAPP_MESSAGE) | no | el botón del anuncio. |
+| `enPausa` | boolean | no | hoy toda campaña nueva nace en pausa (hasta medir la creación por Zernio): la persona la revisa y la prende. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/campanas" \
+  -d '{"nombre":"NOMBRE","objetivo":"formulario","presupuestoDia":0.01,"creativoTipo":"imagen"}'
+```
+
+### `GET /api/v1/ads/media-buyer/subidas` — Preparar la subida de creativos nuevos
+
+El primer paso para subir imágenes o videos nuevos a un conjunto, como «Subir creativos» de la pantalla: devuelve los conjuntos de la cuenta (los prendidos primero), si la Zernio del negocio está conectada (sin ella no se puede publicar), una URL firmada por cada archivo nombrado (se sube con un PUT; vence en 2 horas, y el archivo se borra a las 6 si no se publica) y, con adsetId, los textos de partida: los del anuncio que más resultados trajo en ese conjunto. Después: subir_creativos_media_buyer con los path que devuelve.
+
+- **Ruta por operación:** `GET /api/v1/ads/preparar_subida_media_buyer`
+- **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `nombres` | string[] | no | los nombres de los archivos, con su extensión (video.mp4, foto.jpg) y sin comas: una URL firmada por cada uno, hasta 10. |
+| `adsetId` | string | no | id del conjunto (de esta misma lectura o de ver_campanas_media_buyer): trae sus textos de partida. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/subidas"
+```
+
+### `POST /api/v1/ads/media-buyer/conjuntos/{adsetId}/creativos` — Subir creativos nuevos a un conjunto
+
+PROPONE publicar imágenes o videos ya subidos con preparar_subida_media_buyer como anuncios nuevos de UN conjunto (uno por archivo, con los mismos textos), por la Zernio del negocio: heredan el presupuesto y el público del conjunto. Se confirma en una pantalla antes de 6 horas (después el archivo se borra). Cada video puede tardar minutos: de a pocos. Queda como una decisión del Media Buyer y se deshace con deshacer_decision_media_buyer, que borra los anuncios creados.
+
+- **Ruta por operación:** `POST /api/v1/ads/subir_creativos_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** crea anuncios en la cuenta de Meta del negocio (por Zernio) y deja la decisión aplicada en media_buyer_decisiones
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `adsetId` | string | sí | id del conjunto (de preparar_subida_media_buyer o ver_campanas_media_buyer). |
+| `archivos` | object[] | sí | los archivos ya subidos, hasta 10. |
+| `archivos.path` | string | sí | el path que devolvió preparar_subida_media_buyer (nueva/…). |
+| `archivos.tipo` | string (image \\| video) | sí | image o video. |
+| `archivos.nombre` | string | no | cómo se llama: sale en el nombre del anuncio. |
+| `textoPrincipal` | string | sí | el texto principal del anuncio. |
+| `titulo` | string | sí | el título. |
+| `cta` | string (LEARN_MORE \\| SIGN_UP \\| APPLY_NOW \\| BOOK_NOW \\| CONTACT_US \\| GET_QUOTE \\| SHOP_NOW \\| SUBSCRIBE \\| DOWNLOAD) | no | el botón. Por defecto, LEARN_MORE. |
+| `link` | string | no | el destino, con https. Va esto o formularioId. |
+| `formularioId` | string | no | el formulario instantáneo, si el conjunto lo usa (va en vez del link). |
+| `activo` | boolean | sí | true: salen activos y gastan del presupuesto del conjunto; false: en pausa. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/conjuntos/ADSET_ID/creativos" \
+  -d '{"archivos":[],"textoPrincipal":"TEXTO_PRINCIPAL","titulo":"TITULO","activo":true}'
 ```
 
 ## WhatsApp — `whatsapp`
@@ -7143,7 +7558,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Automations** (`/automations`). 16 lecturas · 18 acciones.
+Tab **Automations** (`/automations`). 17 lecturas · 18 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -7512,7 +7927,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias` — Crear una automatización con IA
 
-PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan (canal, producto, evento, horario o quien), con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
+PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre; lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan, con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/crear_automatizacion_con_ia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -7528,11 +7943,11 @@ PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `pedido` | string | sí | qué tiene que hacer, con las palabras de la persona. |
-| `canal` | string | no | opcional: la respuesta a «¿Por dónde le escribo?» (el número o el nombre de la opción, o «Elige tú»). |
-| `producto` | string | no | opcional: la respuesta a «¿De qué producto?» (el número o el nombre de la opción, o «Elige tú»). |
-| `evento` | string | no | opcional: la respuesta a «¿Qué hace la persona?» (el número o el nombre de la opción, o «Elige tú»). |
+| `canal` | string | no | opcional: la respuesta a «¿Por dónde le escribo?» (su número o nombre, o «Elige tú»). |
+| `producto` | string | no | opcional: la respuesta a «¿De qué producto?» (su número o nombre, o «Elige tú»). |
+| `evento` | string | no | opcional: la respuesta a «¿Qué hace la persona?» (su número o nombre, o «Elige tú»). |
 | `horario` | string | no | opcional: la respuesta a «¿Cuándo sale?» (el número de la opción, o la hora o el día en palabras, o «Elige tú»). |
-| `quien` | string | no | opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»). |
+| `quien` | string | no | opcional: la respuesta a «¿A quién le llega?» (su número o nombre, o «Elige tú»). |
 
 ```bash
 curl -L \
@@ -8087,6 +8502,31 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/mensajes/TARJETA/texto"
+```
+
+### `GET /api/v1/chatbot/quienes` — Quiénes están detrás de un número
+
+Los leads detrás de un número de las Métricas, en los últimos 30 días: quiénes respondieron, quiénes siguen adentro o quiénes entraron. Úsala para seguir a los que contestaron.
+
+- **Ruta por operación:** `GET /api/v1/chatbot/quienes_de_automatizacion`
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | la automatización (de listar_secuencias_nutricion). |
+| `cual` | string (respondieron \\| en_curso \\| entraron) | sí | cuál número. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/quienes?secuenciaId=1&cual=respondieron"
 ```
 
 ## Dashboard y análisis — `metricas`
@@ -12616,7 +13056,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 20 lecturas · 21 acciones.
+Tab **Second Brain** (`/second-brain`). 22 lecturas · 21 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -13666,9 +14106,52 @@ curl -L \
   "https://hola-mako.com/api/v1/negocio/onboarding/tabs/TAB/pasos/PASO"
 ```
 
+### `GET /api/v1/negocio/knowledge/modulos` — Módulos de Knowledge
+
+Los módulos de Knowledge: qué enseña cada uno, de qué secciones del portal de cursos sale, en qué tabs se usa y cuántas fichas tiene cargadas hoy. Úsala para elegir qué módulo pedir con leer_modulo_knowledge. Un módulo en 0 fichas todavía no se destiló: dilo, no lo rellenes.
+
+- **Ruta por operación:** `GET /api/v1/negocio/modulos_de_knowledge`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/knowledge/modulos"
+```
+
+### `GET /api/v1/negocio/knowledge/modulos/{modulo}` — Leer un módulo de Knowledge
+
+Lo que enseñan los cursos de UN módulo de Knowledge, lo más cercano a la pregunta. El módulo va por su key (de modulos_de_knowledge). Es material para aplicar, no para copiar textual. Sin fichas cargadas lo dice y no devuelve nada.
+
+- **Ruta por operación:** `GET /api/v1/negocio/leer_modulo_knowledge`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** markdown
+- **Costo:** ia
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `modulo` | string (anuncios \\| venta \\| organico \\| oferta \\| paginas \\| piezas \\| app) | sí | La key del módulo. |
+| `pregunta` | string | sí | Qué se está por escribir o contestar, en las palabras del dueño. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/knowledge/modulos/MODULO?pregunta=PREGUNTA"
+```
+
 ## Content Machine — `contenido`
 
-Tab **Ads Writer** (`/ads-writer`). 13 lecturas · 5 acciones.
+Tab **Ads Writer** (`/ads-writer`). 17 lecturas · 14 acciones.
 
 ### `GET /api/v1/contenido/anuncios` — Anuncios planteados del negocio
 
@@ -14139,6 +14622,373 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/contenido/rendimiento-redes?desde=2026-10-01&hasta=2026-10-28"
+```
+
+### `GET /api/v1/contenido/documentos` — Documentos del Copywriter
+
+Los documentos del Copywriter del negocio (cada documento es una página, como en Notion: guiones de anuncios, reels, stories, YouTube y VSL, emails, posts o páginas en blanco): id, título, tipo, de qué documento cuelga y cuándo se tocó. Úsalo para encontrar el documentoId antes de leer o escribir en uno. Los de la Papelera no vienen salvo que se pidan.
+
+- **Ruta por operación:** `GET /api/v1/contenido/listar_documentos_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tipo` | string (ad \\| reel \\| story \\| youtube \\| vsl \\| email \\| post \\| pagina) | no | Sólo los de ese tipo (ad, reel, story, youtube, vsl, email, post, pagina). |
+| `conPapelera` | boolean | no | true incluye los de la Papelera (marcados). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos"
+```
+
+### `GET /api/v1/contenido/documentos/{documentoId}` — Leer un documento del Copywriter
+
+Un documento del Copywriter entero: título, propiedades (tipo, ángulo, estructura, duración), su versión, el texto con las etiquetas de sección y cada bloque con su id. La versión se copia tal cual para reemplazar_documento_copywriter.
+
+- **Ruta por operación:** `GET /api/v1/contenido/leer_documento_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID"
+```
+
+### `POST /api/v1/contenido/documentos` — Crear un documento en el Copywriter
+
+Crea un documento nuevo en el Copywriter (una página): con su título y, si se pasa, el texto ya escrito, un template de «Nueva» (listar_plantillas_copywriter: arma sus secciones) o la estructura de la biblioteca. Puede colgar de otro documento. Devuelve su id. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/crear_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega un documento al Copywriter (app_settings mako.copywriter.indice y mako.copywriter.doc.<id>)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `titulo` | string | sí | El título del documento. |
+| `tipo` | string (ad \\| reel \\| story \\| youtube \\| vsl \\| email \\| post \\| pagina) | sí | ad, reel, story, youtube, vsl, email, post, pagina. Con plantillaId, manda el del template. |
+| `plantillaId` | string | no | id de un template de «Nueva» (listar_plantillas_copywriter): la página nace con su tipo, su estructura y sus secciones si no viene texto. |
+| `estructuraId` | string | no | id de una estructura de la biblioteca (catalogo_estructuras_guion): arma sus secciones vacías si no viene texto. |
+| `texto` | string | no | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
+| `padreId` | string | no | documentoId del documento del que cuelga (opcional). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos" \
+  -d '{"titulo":"TITULO","tipo":"ad","texto":"GANCHO\nSi cada lunes arrancas sin saber de dónde sale tu próximo cliente…\nCTA\nToca el botón y agenda."}'
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/bloques` — Agregar al documento del Copywriter
+
+Agrega texto AL FINAL de un documento del Copywriter, sin tocar lo que ya tiene (las etiquetas de sección en MAYÚSCULA abren secciones nuevas). Para cambiar lo escrito, reemplazar_documento_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/agregar_al_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega bloques al final del documento (app_settings mako.copywriter.doc.<id>)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `texto` | string | sí | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/bloques" \
+  -d '{"texto":"GANCHO\nSi cada lunes arrancas sin saber de dónde sale tu próximo cliente…\nCTA\nToca el botón y agenda."}'
+```
+
+### `PUT /api/v1/contenido/documentos/{documentoId}/contenido` — Reemplazar un documento del Copywriter
+
+Reemplaza TODO el texto de un documento del Copywriter por el que se pasa. La versión anterior se pierde. Exige la versión que se leyó (leer_documento_copywriter): si el documento cambió desde entonces, no se aplica. Deja un link para revisar y confirmar.
+
+- **Ruta por operación:** `POST /api/v1/contenido/reemplazar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** reemplaza el contenido del documento (app_settings mako.copywriter.doc.<id>)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `version` | number | sí | La versión del documento tal como se leyó (leer_documento_copywriter). |
+| `texto` | string | sí | El texto del guion. Cada etiqueta de sección en MAYÚSCULA en su propio renglón abre esa sección (GANCHO, PROBLEMA, CTA…); «- » es una viñeta, «1. » una numerada, «# » un encabezado. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/contenido" \
+  -d '{"version":1,"texto":"GANCHO\nSi cada lunes arrancas sin saber de dónde sale tu próximo cliente…\nCTA\nToca el botón y agenda."}'
+```
+
+### `PATCH /api/v1/contenido/documentos/{documentoId}` — Renombrar un documento del Copywriter
+
+Le cambia el título a un documento del Copywriter. Se puede volver a cambiar. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/renombrar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia el título en el índice del Copywriter (app_settings mako.copywriter.indice)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `titulo` | string | sí | El título nuevo. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID" \
+  -d '{"titulo":"TITULO"}'
+```
+
+### `DELETE /api/v1/contenido/documentos/{documentoId}` — Documento del Copywriter a Papelera
+
+Manda un documento del Copywriter a la Papelera (con lo que cuelga de él, que deja de verse). No se borra: vuelve con restaurar_documento_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/papelera_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca el documento como en la Papelera en el índice del Copywriter
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID"
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/restauracion` — Restaurar un documento del Copywriter
+
+Saca un documento del Copywriter de la Papelera: vuelve a su lugar, o al principio si el documento del que colgaba ya no está. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/restaurar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** saca la marca de Papelera en el índice del Copywriter
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/restauracion"
+```
+
+### `GET /api/v1/contenido/documentos/{documentoId}/enlaces` — Links para editar un documento
+
+Los links que dejan EDITAR un documento del Copywriter sin cuenta: id del link, si es abierto o de invitados (con sus emails), cuántas veces se abrió y la última, y si está revocado. El link en sí no se puede volver a leer: se ve en la pantalla («Compartir para editar») o se crea otro.
+
+- **Ruta por operación:** `GET /api/v1/contenido/enlaces_documento_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/enlaces"
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/enlaces` — Compartir un documento para editar
+
+Crea un link que deja EDITAR un documento del Copywriter sin cuenta (el cliente entra y lo corrige): cualquiera con el link escribe en el documento, y lo que guarda queda marcado con su nombre en «Última edición». Devuelve el link. Se corta con revocar_enlace_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/compartir_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** crea un link para editar el documento (tabla shares, recurso copywriter, permiso editar)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/enlaces"
+```
+
+### `DELETE /api/v1/contenido/enlaces/{enlaceId}` — Revocar un link del Copywriter
+
+Corta un link para editar un documento del Copywriter (el id sale de enlaces_documento_copywriter): deja de abrir al instante, también para quien ya lo tenía abierto. No se puede deshacer; para volver a compartir se crea otro. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/revocar_enlace_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** marca el link como revocado (tabla shares)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `enlaceId` | number | sí | id del link (de enlaces_documento_copywriter). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/enlaces/ENLACE_ID"
+```
+
+### `GET /api/v1/contenido/plantillas` — Templates del Copywriter
+
+Los templates de «Nueva» del Copywriter («¿Qué vas a crear hoy?»): anuncio a cámara, testimonio, copy para Meta con 3 ángulos, 10 ganchos, Reel, stories, carrusel, email de cierre, 5 emails tras una descarga, VSL, clase gratuita, YouTube de 12 minutos y página en blanco. Cada uno con su id, tipo, cuándo usarlo, qué secciones arma y su ejemplo (de un negocio ficticio: muestra la forma, sus datos no se usan). El id va en plantillaId de crear_documento_copywriter, que crea las secciones vacías.
+
+- **Ruta por operación:** `GET /api/v1/contenido/listar_plantillas_copywriter`
+- **Token detallado:** permiso `contenido=read` (Solo lectura en «Content Machine»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/contenido/plantillas"
+```
+
+### `POST /api/v1/contenido/documentos/{documentoId}/edicion` — MaKo escribe en un documento del Copywriter
+
+MaKo escribe o edita EN un documento del Copywriter lo que se le pide («mejora el gancho», «agrega una sección de preguntas frecuentes», «acórtalo»), como «Editar» en el chat de la página: lee el documento, escribe con la voz y el método del negocio, y la propuesta se ve en el resumen. Al confirmar se aplica sobre lo de AHORA (lo que se borró en el medio se descarta). Para pegar un texto ya escrito, agregar_al_documento_copywriter o reemplazar_documento_copywriter. Queda pendiente hasta que la persona confirme.
+
+- **Ruta por operación:** `POST /api/v1/contenido/editar_documento_copywriter`
+- **Token detallado:** permiso `contenido=write` (Lectura y escritura en «Content Machine»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia los bloques del documento (app_settings mako.copywriter.doc.<id>) y, si MaKo lo propone, el título o las propiedades
+- **Reversible:** no
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** copywriter
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `documentoId` | string | sí | id del documento del Copywriter («g» + letras y números). Sale de listar_documentos_copywriter. |
+| `instruccion` | string | sí | Qué escribir o cambiar, en las palabras de la persona. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/contenido/documentos/DOCUMENTO_ID/edicion" \
+  -d '{"instruccion":"Mejora el gancho y agrega una sección de preguntas frecuentes."}'
 ```
 
 ## Video Generator — `video`
@@ -15613,7 +16463,7 @@ curl -L \
 
 ### `POST /api/v1/video/proyectos/{proyecto}/propuestas/borrar-silencios` — Borrar los silencios
 
-PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Borrar silencios», como el botón de la barra: escucha el sonido del clip, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. Con "ref", ese video o audio; sin "ref", cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Borrar silencios», como el botón de la barra: escucha el sonido, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. SIN "ref" (lo normal: «borra los silencios», «saca las pausas»): todo el video, cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). Con "ref" SÓLO si la persona nombra un clip o un audio en particular. "pausa_min" (opcional, de 0.2 a 2 segundos): la pausa más corta que se saca, cuando pide pausas más cortas o más largas que 0,4 s. No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.
 
 - **Ruta por operación:** `POST /api/v1/video/borrar_silencios_video`
 - **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
@@ -15629,6 +16479,7 @@ PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el na
 | --- | --- | --- | --- |
 | `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
 | `ref` | string | no | Opcional: la ref del video o el audio en la línea de tiempo (v1, a4…, de ver_proyecto_video). Sin ella, cada clip con sonido de la pista principal. |
+| `pausa_min` | number | no | Opcional: la pausa más corta que se saca, en segundos (de 0,2 a 2; sin ella, 0,4). |
 
 ```bash
 curl -L \
@@ -16154,7 +17005,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/meta/prueba-capi` — Probar las conversiones al píxel
 
-Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».
+Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook por Zernio, o la conexión anterior), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».
 
 - **Ruta por operación:** `GET /api/v1/integraciones/probar_capi_meta`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
@@ -18451,7 +19302,7 @@ curl -L \
 
 ### `POST /api/v1/calendario/eventos` — Agendar un evento en el Calendario
 
-Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo o una llamada. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.
+Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post, Anuncio, Email, Video), un bloque de trabajo, una llamada de venta o una reunión de entrega del servicio. La fecha y la hora van como las dijo la persona, en la zona del negocio; sin hora, es de todo el día. No mira la agenda: no digas que un horario está libre.
 
 - **Ruta por operación:** `POST /api/v1/calendario/crear_evento_calendario`
 - **Token detallado:** permiso `calendario=write` (Lectura y escritura en «Calendario»)
@@ -18467,11 +19318,11 @@ Propone agendar UN evento en el Calendario: una publicación (Story, Reel, Post,
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `titulo` | string | sí | Qué es, corto («Reel del caso de éxito», «Escribir guiones»). |
-| `tipo` | string (publicacion \\| bloque \\| llamada \\| otro) | sí | publicacion, bloque (de trabajo), llamada u otro. |
+| `tipo` | string (publicacion \\| bloque \\| llamada \\| otro \\| entrega) | sí | publicacion, bloque (de trabajo), llamada (de venta), entrega (una reunión de entrega del servicio a un cliente) u otro. |
 | `formato` | string (story \\| reel \\| post \\| ad \\| email \\| video \\| otro) | no | Sólo si es una publicación: story, reel, post, ad, email, video u otro. |
 | `fecha` | string | sí | YYYY-MM-DD, en la zona del negocio. |
 | `hora` | string | no | HH:MM en 24 horas, en la zona del negocio. Si se omite, es de todo el día. |
-| `duracionMin` | number | no | Cuánto dura, en minutos (para bloques y llamadas). |
+| `duracionMin` | number | no | Cuánto dura, en minutos (para bloques, llamadas y entregas). |
 | `notas` | string | no | Notas opcionales. |
 
 ```bash
@@ -18803,16 +19654,16 @@ curl -L \
   "https://hola-mako.com/api/v1/creaciones/creaciones/CREACION_ID/usos"
 ```
 
-## Cobros (Stripe y Mercado Pago) — `cobros`
+## Cobros (Stripe, Mercado Pago y Creem) — `cobros`
 
 Tab **CRM** (`/crm`). 3 lecturas · 14 acciones.
 
-### `GET /api/v1/cobros/cobros` — Cobros de Stripe y Mercado Pago
+### `GET /api/v1/cobros/cobros` — Cobros de Stripe, Mercado Pago y Creem
 
 Los cobros que el negocio pidió por Stripe o Mercado Pago (links de pago y suscripciones), más recientes primero: id, lead, concepto, monto y moneda, estado (pendiente, pagado, rechazado, reembolsado, anulado), pasarela, si es de prueba, fechas y qué acciones admite cada uno. Con leadId, sólo los de ese lead. NO trae el link de pago ni datos de tarjeta. No son las cuotas del CRM (eso es cobranza_lead).
 
 - **Ruta por operación:** `GET /api/v1/cobros/listar_cobros`
-- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -18837,7 +19688,7 @@ curl -L \
 UN cobro de Stripe o Mercado Pago por su id: lead, producto, concepto, monto, moneda y su valor en dólares, estado, pasarela, si es una suscripción y si sigue activa, fechas de pago y de reembolso, el motivo si algo falló, y qué se puede hacer con él (anular el link, reembolsar, cancelar la suscripción). NO trae el link de pago.
 
 - **Ruta por operación:** `GET /api/v1/cobros/ver_cobro`
-- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -18860,7 +19711,7 @@ curl -L \
 PROPONE crear un link de pago de Stripe o Mercado Pago, con la cuenta del negocio, para que UN lead pague un producto del catálogo de ofertas. El precio sale del catálogo (listar_productos), nunca se escribe a mano: un monto libre se carga desde la ficha del lead. Pide antes el leadId (buscar_leads) y el productoId (listar_productos). Al confirmar, el link le llega a la persona por aparte y queda en la ficha del lead: NO lo escribas ni lo copies. Si el lead ya tiene un link pendiente de ese producto, no crea otro.
 
 - **Ruta por operación:** `POST /api/v1/cobros/crear_link_pago`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -18873,7 +19724,7 @@ PROPONE crear un link de pago de Stripe o Mercado Pago, con la cuenta del negoci
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead que va a pagar (de buscar_leads). |
 | `productoId` | number | sí | id del producto del catálogo de ofertas (de listar_productos), con su precio. NO es el embudoId del CRM. |
-| `pasarela` | string (stripe \\| mercadopago) | no | stripe o mercadopago. Sin valor: la única conectada, o Stripe si están las dos (el precio del catálogo está en dólares). |
+| `pasarela` | string (stripe \\| mercadopago \\| creem) | no | stripe, mercadopago o creem. Sin valor: la única conectada, o Stripe si hay varias (el precio del catálogo está en dólares). |
 
 ```bash
 curl -L \
@@ -18891,7 +19742,7 @@ curl -L \
 PROPONE anular un link de pago que todavía no se pagó: deja de poder pagarse desde MaKo, y se cierra también en Stripe o Mercado Pago. Pide antes el cobroId (listar_cobros). Un cobro pagado no se anula: se reembolsa con reembolsar_cobro.
 
 - **Ruta por operación:** `POST /api/v1/cobros/anular_link_pago`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -18918,7 +19769,7 @@ curl -L \
 PROPONE devolverle a un cliente un cobro pagado por Stripe o Mercado Pago, ENTERO, con la cuenta del negocio. Mueve dinero real y no se puede deshacer: se confirma en una pantalla, nunca por el chat. Pide antes el cobroId (listar_cobros). En una suscripción devuelve el primer pago y no la cancela (para eso, cancelar_suscripcion). Un cobro ya reembolsado se rechaza.
 
 - **Ruta por operación:** `POST /api/v1/cobros/reembolsar_cobro`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -18947,7 +19798,7 @@ curl -L \
 PROPONE cancelar una suscripción de Stripe o Mercado Pago: deja de cobrarle al cliente en el acto y el CRM la cuenta hasta hoy. Se confirma en una pantalla, nunca por el chat, y no se puede deshacer. Pide antes el cobroId de la suscripción (listar_cobros). Una suscripción que nadie pagó todavía no se cancela: se anula su link con anular_link_pago.
 
 - **Ruta por operación:** `POST /api/v1/cobros/cancelar_suscripcion`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
@@ -18975,7 +19826,7 @@ curl -L \
 La moneda en que el negocio carga lo que cobra a mano (pagos registrados en la ficha o por registrar_pago_suelto): código ISO de 3 letras. Sin configurar es USD. No es la moneda de Stripe ni la de Mercado Pago, que la define cada cuenta. Los totales del CRM siguen en dólares.
 
 - **Ruta por operación:** `GET /api/v1/cobros/ver_moneda_negocio`
-- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=read` (Solo lectura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
@@ -18996,7 +19847,7 @@ curl -L \
 PROPONE cambiar la moneda en que el negocio carga lo que cobra a mano (el valor inicial al registrar un pago). Sólo el administrador. No cambia nada de lo ya cobrado ni la moneda de Stripe o Mercado Pago.
 
 - **Ruta por operación:** `POST /api/v1/cobros/cambiar_moneda_negocio`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19026,7 +19877,7 @@ curl -L \
 PROPONE cambiar UN dato del trato de un lead: los datos fiscales (razón social, identificación fiscal, domicilio, correo de facturación), el servicio vendido (qué es, inicio, término, duración, frecuencia, modalidad, sesiones), la promesa (resultado y garantía), el inicio del servicio cargado a mano o quién factura (facturado_por_id, una identidad fiscal del negocio). Sólo cambia ese dato: los demás y el documento fiscal subido quedan. valor vacío lo borra. Para las obligaciones usa editar_obligacion_deal; para el monto, el tipo o la fecha de cierre, editar_venta_lead.
 
 - **Ruta por operación:** `POST /api/v1/cobros/editar_dato_deal`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19058,7 +19909,7 @@ curl -L \
 PROPONE agregar, editar o quitar UN renglón de las obligaciones del trato de un lead: lo que tiene que hacer el cliente o lo que tiene que hacer el prestador. Los demás renglones quedan. Pide renglon (empezando en 1) para editar o quitar; si la lista cambió antes del «sí», no se escribe.
 
 - **Ruta por operación:** `POST /api/v1/cobros/editar_obligacion_deal`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19091,7 +19942,7 @@ curl -L \
 PROPONE cambiar la venta de un lead: el tipo (unico = pago único, suscripcion, sin_cobro = becado), el monto en USD (en una suscripción es la mensualidad), el plazo de una suscripción en meses (vacío = mes a mes) o la fecha de cierre. Pasar a suscripción deja la mensualidad por cargar; pasar a becado no se puede si ya hay cuotas cobradas; tipo=unico sobre un becado lo saca de «Sin cobro». No gana ni mueve el lead de etapa. Si el tipo cambió antes del «sí», no se escribe.
 
 - **Ruta por operación:** `POST /api/v1/cobros/editar_venta_lead`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19122,7 +19973,7 @@ curl -L \
 PROPONE cambiar el monto en USD o el vencimiento de UNA cuota sin cobrar de un lead, por su id (el pago_id de cobranza_lead). No borra ni recrea la cuota: su link de pago y sus recordatorios siguen apuntando a ella. No se puede: una cuota cobrada (se corrige desmarcándola con marcar_pago_cobrado); el monto de una cuota con un link sin pagar (anula el link primero); nada de una cuota con un recordatorio de cobro en curso (córtalo con cortar_recordatorio_cuota).
 
 - **Ruta por operación:** `POST /api/v1/cobros/editar_cuota`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19154,7 +20005,7 @@ curl -L \
 PROPONE crear un link de pago de Stripe, con la cuenta del negocio, que cobra UNA cuota sin cobrar de un lead por su monto exacto en USD (el pago_id de cobranza_lead). Al pagarse, la cuota queda cobrada y se cortan sus recordatorios. Si la cuota ya tiene un link sin pagar, devuelve ése. Mercado Pago cobra en la moneda de su cuenta: ese link se crea desde la ficha del lead. El link le llega a la persona por aparte: NO lo escribas ni lo copies.
 
 - **Ruta por operación:** `POST /api/v1/cobros/crear_link_cuota`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19167,7 +20018,7 @@ PROPONE crear un link de pago de Stripe, con la cuenta del negocio, que cobra UN
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead dueño de la cuota. |
 | `cuotaId` | number | sí | id de la cuota del CRM: el pago_id de cobranza_lead. No es un cobroId. |
-| `pasarela` | string (stripe \\| mercadopago) | no | stripe (la cuota está en dólares). Sin valor, Stripe. |
+| `pasarela` | string (stripe \\| mercadopago \\| creem) | no | stripe o creem (la cuota está en dólares; Mercado Pago cobra en la moneda de su cuenta). Sin valor, Stripe. |
 
 ```bash
 curl -L \
@@ -19185,7 +20036,7 @@ curl -L \
 PROPONE cortar los recordatorios de cobro que están corriendo para UNA cuota de un lead (el pago_id de cobranza_lead): MaKo deja de recordársela. Es lo mismo que pasa solo al marcarla cobrada. No se deshace: un recordatorio cortado no se reabre. Úsala cuando digan «no le recuerdes más la cuota 3» o antes de editar una cuota con un recordatorio en curso.
 
 - **Ruta por operación:** `POST /api/v1/cobros/cortar_recordatorio_cuota`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19215,7 +20066,7 @@ curl -L \
 PROPONE marcar que un cliente se dio de baja y dejó de pagar su plan de cuotas: lo que NO pagó deja de ser deuda (sale del Outstanding, de «A quién cobrarle», de lo vencido y de los recordatorios de cobro) y lo cobrado queda como está. Las cuotas siguen en su ficha como «baja del cliente», se anulan sus links sin pagar y se cortan sus recordatorios. Úsala cuando digan «se dio de baja», «dejó el servicio» o «ya no va a pagar el resto». Con deshacer: true, las cuotas vuelven a ser deuda con su vencimiento. Una suscripción no se da de baja así: se cancela (estado_suscripcion_manual o cancelar_suscripcion).
 
 - **Ruta por operación:** `POST /api/v1/cobros/baja_del_cliente`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19243,7 +20094,7 @@ curl -L \
 PROPONE cancelar o reactivar la suscripción de un lead que se registra a mano (la que NO cobra Stripe ni Mercado Pago). Cancelarla la cuenta hasta hoy: deja de sumar al MRR y la ficha la dice cancelada. Sólo el administrador. Una suscripción que cobra la pasarela se cancela con cancelar_suscripcion (deja de cobrarle la tarjeta).
 
 - **Ruta por operación:** `POST /api/v1/cobros/estado_suscripcion_manual`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
@@ -19274,7 +20125,7 @@ curl -L \
 PROPONE el plan de cuotas de una venta de pago único, como «Armar el plan» de la ficha: uno o varios tramos seguidos, cada uno con el monto de cada cuota, su moneda, cada cuánto (mes, quincena o semana) y cuántas cuotas o hasta qué fecha. Ej.: «7500 dólares en 3 pagos de 2500, el 28 de octubre, noviembre y diciembre» = un tramo de 2500, día 28, 3 cuotas, primera el 28/10. Rehace por su id las cuotas sin cobrar; las cobradas y las que tienen un link o un recordatorio quedan, y se dice. Una suscripción se pasa antes a pago único con editar_venta_lead, que también cambia el monto de la venta.
 
 - **Ruta por operación:** `POST /api/v1/cobros/armar_plan_por_tramos`
-- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe y Mercado Pago)»)
+- **Token detallado:** permiso `cobros=write` (Lectura y escritura en «Cobros (Stripe, Mercado Pago y Creem)»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.

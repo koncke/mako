@@ -27,6 +27,21 @@ plataforma.
 está saturado. Prueba en un rato.». En esa hora, el ws9 sólo registra IA de Gemini (dictado y Landing Analyst). Falta saber
 por qué ese pedido no cayó al crédito de Claude.
 
+## «La reunión es a las 11 y MaKo dice 10»: la ficha que lee MaKo no traía la hora (30/10/2026, el ticket #35, claude3)
+
+**Vive en:** `horasDeLasReuniones` / `horaEnLaZona` (lib/mako-ficha-lead.ts) · `resumenLead` (lib/mako-tools.ts: `buscar_leads` y
+`ficha_lead`).
+
+- **El síntoma:** Código Inmobiliario (ws13) le pidió a MaKo en su grupo «la fecha, horario y datos de contacto» de dos leads, y las
+  dos salieron «a las 10:00»; eran a las 11 y a las 15.
+- ⚠️ **El diagnóstico obvio era el equivocado.** 11 → 10 parece la zona horaria, pero 15 → 10 no. La base estaba BIEN (`junta_1_at`
+  14:00Z y 18:00Z, la zona del negocio Buenos Aires). `fecha_junta_1` es un DATE (sólo el día) y la hora vive en `junta_1_at`;
+  `resumenLead` pasaba sólo el día, y el modelo completaba «10:00» (el ejemplo de hora de varias herramientas es «10:00»). La
+  herramienta de las reuniones (`reuniones`) ya ponía la hora en la zona del negocio; la ficha no.
+- **Por qué no lo frenó la red:** `numerosSinFuente` (lib/doer-salida.ts) no mira las HORAS a propósito (en las herramientas van en
+  UTC y el modelo las pasa a la zona), así que una hora inventada sale. **La regla:** todo dato con hora que se le pasa al modelo va
+  YA en la zona del negocio, y si no hay hora, una nota de que no hay; un DATE solo, al lado de «fecha y horario», se completa.
+
 ## El buscador de conocimiento sin Gemini: con la IA del negocio, o por palabras (25/10/2026)
 
 El Cerebro, 25/10/2026, cerrando la excepción que había quedado abierta (abajo, «Ningún cartel le ofrece Gemini»): «Embebe
@@ -1457,6 +1472,23 @@ versiones de historial, y la IA vuelve al texto de fábrica **en silencio**.
 
 **Vive en:** lib/prompt-registry.ts · lib/prompt-render.ts (`getPromptText`) ·
 `app_settings['mako.prompt-overrides']` · *2026-08-05 ~fathom-preguntas-lote-whatsapp-forense*
+
+
+**29/10/2026, plantillas reales: Un slot NUEVO en un prompt ya editado nunca llega: el experto de cada tab va en una key aparte.** (docs/plantillas-reales/)
+- **Síntoma posible:** agregarle `{{plantilla}}` o `{{negocio}}` a `copywriter.editar.user`, `offer.turno.system` o
+  `video_editor.chat.user`. Quien ya los editó tiene su versión guardada, sin el slot, y el dato no llega nunca, sin
+  error.
+- **Causa:** el override reemplaza el template entero. Además, los system de los chats de Video e Image son `sensitive`
+  y `static-only` (llevan `{{catalogo}}` y `{{formato}}`), así que tocarlos no aplica nada.
+- **Regla:** el método de un experto va en una **key nueva que el código suma** al system de siempre:
+  - `copywriter.experto`, `video_editor.experto` e `image_editor.experto` son instruction sin slots;
+  - `offer.experto` lleva sus slots y se suma solo si la conversación nació de una plantilla.
+
+  El pedido de adaptar va en una key `user` nueva (`<grupo>.adaptar.user`). Una tab sin chat previo (AI Avatar)
+  estrena su par (`ai_avatar.director.system` y `.user`). Después de tocar el registro, `verify-prompt-registry-sync`.
+
+**Vive en:** lib/prompt-registry.ts · lib/copywriter/experto.ts · lib/editor-video/chat-prompts.ts ·
+lib/image-editor/chat/prompts.ts · lib/offer-ia.ts · lib/ai-avatar/director-reglas.ts (todos del plan)
 
 ### ⚠️ Los prompts de la matriz de razones y de los ángulos nunca se registraron
 
@@ -7322,3 +7354,128 @@ Martín: hoy la regla de `mako-pc` es no tocarlo.
 gana al plan (sólo un pedido de MOVERLA: `MUEVE_AGENDA`); y el estilo de la vista («mostrar», «formato», «más grande») vale sólo en
 «Editar» (`nombraLaVistaDeLaFicha`), no en todo esPedidoDeCobro, donde «me mostró» o «la orden de compra» son datos. «Anotado, …»,
 «Anotado 👍» y «Anotado y guardado» siguen siendo un «Anotado»; con una pendiente, la queja suelta («No anda») tampoco es un «no».
+
+**Los tickets #46, #47 y #48 de Leila (3/11/2026, claude2): la palabra de la persona no era la del NOMBRE de la herramienta.**
+- **El síntoma:** «quiero pasar el precio a dólares» → «el precio no lo puedo cambiar desde este chat»; «el WhatsApp del
+  diagnóstico tiene que disparar una secuencia» → «sólo puedo activar o pausar»; «¿dónde actualizo mis datos?» → «la ruta no la
+  tengo confirmada». Las tres cosas existían: `guardar_oferta`/`guardar_producto` (proponen el precio con link),
+  `crear_automatizacion_con_ia` (crea la secuencia con disparador por etiqueta) y el Second Brain («La oferta» → «El brief»).
+- ⚠️ **El diagnóstico obvio era el equivocado: la lista `noViajaron` del ticket NO nombraba las herramientas que faltaron.** Se
+  lee como «lo demás viajó y el modelo eligió negar». No: `parecidasQueNoViajaron` trae sólo las 6 de más puntaje, y
+  `guardar_oferta` (1 punto, por «precio» en la descripción) quedaba fuera del top. **Se mide con el turno real**
+  (`clasificarIntencion` + `herramientasDelChat`, canal app, como `herramientas()` en tests/mako-no-puedo-falsos.test.ts): en los
+  tres pedidos no viajaba NINGUNA de las que resolvían.
+- **La causa:** el presupuesto de 12.000 ordena por palabras en común con el id y el título. «precio», «secuencia», «disparar»,
+  «datos» y «dónde» no estaban en esos nombres («oferta», «automatización», «Qué se hace dentro de MaKo»), y ninguna familia de
+  `lib/mako-intencion-app.ts` las sumaba. Además «oferta» abría sólo el área `crm`, y `guardar_oferta` es de `negocio`.
+- **Y un cuarto, del mismo tipo:** `guardar_campo_perfil` y `guardar_oferta` mandaban a corregir el precio a «Documentos», cuando el
+  campo se LEE y se corrige tocándolo en «La oferta» → «El brief» (CamposNegocio escribe en el mismo `archivero/manual`).
+- **La regla (la del #45, ahora con dónde vive):** lo que un chat dice de una pantalla sale de UNA tabla con el nombre que la persona
+  lee: `DATOS_DEL_NEGOCIO` + `lugarDato`/`rutaDato` (lib/secciones-negocio.ts), y el test 17 busca cada nombre en `AREAS` y en las
+  pestañas de AreasHub. Cuando un pedido real no trae su herramienta, la familia nueva lleva su frase literal en un test.
+- **Lo que quedó SIN hacer:** `guardar_campo_perfil` sigue completando sólo huecos: MaKo no puede corregir un precio ya cargado en
+  «El brief», sólo decir dónde se toca (lib/api-mako/areas/negocio.run.ts, `guardar_campo_perfil`; abrirlo es una decisión de
+  producto). Un «pásalo a dólares» suelto, sin la palabra «precio», todavía no trae `guardar_oferta`.
+
+## El grupo de WhatsApp usaba el prompt del DASHBOARD (28/10/2026, claude4, el diagnóstico del Cerebro, F1)
+
+**El síntoma:** «Mira… no es arrancar por los flujos locos, sino por definir el disparador… armamos el experimento para
+validarlo» (Leandro), «el problema no es que falte interés, sino…» (Brigitte), «Te voy a ser directo» dos veces en 6 minutos
+(Sergio), y «¡Buen día, Martín!» a Joan, en un grupo donde nunca escribió nadie llamado Martín.
+
+**La causa:** el turno del grupo armaba su system con `buildSystemPrompt` como el chat general del dashboard: la persona
+«consultor IA de Martín Koncke» (lib/mako-persona.ts, escrita para el negocio de Martín), MAKO_NUCLEO («NUNCA termines con una
+pregunta», «CIERRA PROPONIENDO INICIAR UN EXPERIMENTO»), «CONTEXTO: chat general del dashboard», la fase de la sección y 4
+fragmentos de metodología de copy, todo ANTES de DOER_WA_VOZ, que pedía lo contrario. Fue la causa más frecuente: 15 de 49.
+⚠️ **Cambiar a Claude no lo arreglaba:** el system es el mismo para cualquier modelo. Y el «Martín» sale de la persona, no de
+que falte el autor en la memoria.
+
+**La regla (lib/nucleo-grupo.ts, lib/mako-context.ts con `canal: 'grupo'`):**
+- NUCLEO_GRUPO va primero y FIJO en código, como REGLA_NO_DESCALIFICAR: ningún override de Configuraciones lo saca (medido el
+  28/10, sólo lectura: ningún negocio tiene `mako.prompt-overrides` ni `mako.prompts`; sólo ws1 y ws4, `mako.fase.general`);
+- sin la persona, sin MAKO_NUCLEO, sin «chat general del dashboard» y sin la fase de la sección; también en la red (lean);
+- el contexto del NEGOCIO (fase, objetivos, metodología, experimentos, funnel, cara de marca, tabs sin configurar) sólo si el
+  turno piensa o consulta sus números, su copy o sus anuncios (`conElNegocio`);
+- lo que no entiende se pregunta (DOER_WA_VOZ ya no dice «¿te lo anoto como tarea?»); un link sólo si lleva a lo concreto (nada
+  de /plan ni /dashboard de relleno), y /automations entre los links; `**x**` y `##` salen como `*x*` (`aFormatoWhatsapp`).
+- La app y los gráficos siguen con la persona y el núcleo de siempre (lib/mako-turno-app.ts): no se tocó MAKO_NUCLEO.
+- ⚠️ NUCLEO_GRUPO no nombra la marca `[[ya-pedido]]`: todavía no existe, y el modelo la escribiría y le llegaría al cliente.
+  Entra con F2b (los tickets del negocio en el system).
+
+## El detector de voseo de la IA era una lista de 21 palabras, y el bueno vivía adentro de un test (29/10/2026, Copywriter)
+
+- **Síntoma:** al romper a propósito un botón del Copywriter con «Escribime por mensaje», el test de voseo siguió verde.
+  «Agendá», «mandame» y «decime» también pasaban como neutros.
+- **El diagnóstico obvio era el equivocado.** Parecía que faltaban palabras en la lista de `marcasDeVoseo`
+  (lib/puestas-data.ts), pero un generador completo ya existía: el del guard del repo (tests/puente-panel-copy.test.ts).
+  Conjuga desde ~200 verbos (presente, imperativo, clíticos, la grafía sin tilde) y su lista de neutros descarta sola lo
+  que también es de tú. Como vivía en un test, la IA no lo podía usar. Eran dos detectores de lo mismo: el del repo veía
+  «escribime» en una pantalla, y el de la IA lo dejaba pasar en lo que escribía para un cliente.
+- **Una regla sólo por terminación no sirve, y no por falta de ganas:**
+  - el imperativo de vos de un -ir («elegí», «viví», «escribí») es igual al pretérito de 1.ª persona;
+  - «-rás» es el futuro de tú («verás», «tendrás»);
+  - «-és» trae gentilicios («inglés») y «después»;
+  - «-ar + te» cae encima del inglés («create», «validate»).
+
+  El generador parte de los verbos y deja escritas, con su porqué, las excepciones (`HOMOGRAFOS`).
+- **La regla que queda:** un detector que usan un test y el código de producción vive en `lib/` y el test lo importa.
+  `lib/voseo.ts` es la única fuente; `marcasDeVoseo` y el guard la comparten. Sumar un verbo trae sus ~30 formas a las dos
+  puntas.
+- **En lo que escribe la IA aparecen homógrafos que el copy del repo no tenía:** «Tomás» (un nombre) y «mandala».
+  Quedaron en `HOMOGRAFOS`.
+- **Sin hacer:** el alcance es la lista de verbos. Un verbo que no está (por ejemplo «chequear») no se ve conjugado. Se
+  suma en `REGULARES` o `IRREGULARES` de lib/voseo.ts.
+- ⚠️ **Mudar el léxico a `lib/` lo pone bajo el guard que lo usa** (tren-ag, Integración, 30/10). `lib/voseo.ts` nombra
+  `vos`, `acá` y `laburo` para BUSCARLOS, y `tests/puente-panel-copy.test.ts` lo frenó como copy. En el árbol del chat pasó
+  porque el guard lista con `git ls-files` y el archivo nuevo todavía no estaba en el índice. Ahora está en la lista de los que
+  pueden nombrar el voseo (`512f49af5`). **Regla:** un archivo nuevo que el guard tiene que ver se commitea ANTES de correr
+  el guard.
+
+## El clasificador del grupo va con Haiku, sin razonamiento en la salida y sin forzar la herramienta (29/10/2026, claude3)
+
+**Vive en:** `lib/mako-intencion-ia.ts` (`SYSTEM_DE_CLASE`, `leerClase`) · `lib/mako-doer-in.ts` (`clasificadorDelGrupo`) ·
+`lib/veto-claude.ts` (`evaluarClaveDelNegocio`)
+
+- **Qué modelo corre:** primero el Claude del negocio, si tiene (`soloSuClaude`); si no, el crédito de los grupos
+  (`cuentaDeLosGrupos`), y el veto le da Haiku 4.5 (`modelos[0]`). Martín, 29/10: «Sigue Haiku. No toques el veto». Lo que se
+  mide en el banco es Haiku.
+- ⚠️ **Sin un campo de razonamiento en la salida.** En la familia 5.x, pedir `reasoning` o `<thinking>` en el texto puede volver
+  como `stop_reason: refusal` con HTTP 200 (categoría `reasoning_extraction`): parece un éxito y no trae clase. El esquema es
+  `{clase, resumen, reenviado, secundaria, negocio}` y el porqué lo arma el código.
+- ⚠️ **Nada de `tool_choice: any`/`tool` para forzar el JSON:** da 400 en Opus 5.5, Sonnet 5.5 y Fable 5.1 (y el prefill, en toda la
+  familia 4.6+). La salida se lee buscando el primer objeto JSON; lo que no se puede leer es null, nunca una clase por default, y
+  mandan las reglas.
+- **Gasto medido en el banco (29/10, 66 llamadas):** ~2.000 tokens de entrada y ~67 de salida por mensaje = US$0,0023 por mensaje
+  clasificado. Con lo que llega hoy a los grupos (49 turnos en 6,9 días, ~7 por día) son ~US$0,02 por día; a 100 mensajes por día,
+  ~US$0,23. El turno que contesta una PREGUNTA o una ACCIÓN es aparte (el de siempre).
+- **Dato para decidir, no se cambió:** Haiku 5.5 (`claude-haiku-5-5`) cuesta US$0,10 / US$0,50 por millón de tokens, diez veces menos
+  que Haiku 4.5 (US## El detector de voseo de la IA era una lista de 21 palabras, y el bueno vivía adentro de un test (29/10/2026, Copywriter)
+
+- **Síntoma:** al romper a propósito un botón del Copywriter con «Escribime por mensaje», el test de voseo siguió verde.
+  «Agendá», «mandame» y «decime» también pasaban como neutros.
+- **El diagnóstico obvio era el equivocado.** Parecía que faltaban palabras en la lista de `marcasDeVoseo`
+  (lib/puestas-data.ts), pero un generador completo ya existía: el del guard del repo (tests/puente-panel-copy.test.ts).
+  Conjuga desde ~200 verbos (presente, imperativo, clíticos, la grafía sin tilde) y su lista de neutros descarta sola lo
+  que también es de tú. Como vivía en un test, la IA no lo podía usar. Eran dos detectores de lo mismo: el del repo veía
+  «escribime» en una pantalla, y el de la IA lo dejaba pasar en lo que escribía para un cliente.
+- **Una regla sólo por terminación no sirve, y no por falta de ganas:**
+  - el imperativo de vos de un -ir («elegí», «viví», «escribí») es igual al pretérito de 1.ª persona;
+  - «-rás» es el futuro de tú («verás», «tendrás»);
+  - «-és» trae gentilicios («inglés») y «después»;
+  - «-ar + te» cae encima del inglés («create», «validate»).
+
+  El generador parte de los verbos y deja escritas, con su porqué, las excepciones (`HOMOGRAFOS`).
+- **La regla que queda:** un detector que usan un test y el código de producción vive en `lib/` y el test lo importa.
+  `lib/voseo.ts` es la única fuente; `marcasDeVoseo` y el guard la comparten. Sumar un verbo trae sus ~30 formas a las dos
+  puntas.
+- **En lo que escribe la IA aparecen homógrafos que el copy del repo no tenía:** «Tomás» (un nombre) y «mandala».
+  Quedaron en `HOMOGRAFOS`.
+- **Sin hacer:** el alcance es la lista de verbos. Un verbo que no está (por ejemplo «chequear») no se ve conjugado. Se
+  suma en `REGULARES` o `IRREGULARES` de lib/voseo.ts.
+- ⚠️ **Mudar el léxico a `lib/` lo pone bajo el guard que lo usa** (tren-ag, Integración, 30/10). `lib/voseo.ts` nombra
+  `vos`, `acá` y `laburo` para BUSCARLOS, y `tests/puente-panel-copy.test.ts` lo frenó como copy. En el árbol del chat pasó
+  porque el guard lista con `git ls-files` y el archivo nuevo todavía no estaba en el índice. Ahora está en la lista de los que
+  pueden nombrar el voseo (`512f49af5`). **Regla:** un archivo nuevo que el guard tiene que ver se commitea ANTES de correr
+  el guard.
+ / US$5), pero viene con el razonamiento adaptativo prendido (habría que medirlo en el banco antes). Cambiarlo
+  es tocar el veto: es de Martín.

@@ -3,7 +3,8 @@
 // =============================================================================
 // EditorVideoM — el editor de UN proyecto en el teléfono, como el editor de CapCut del celular
 // =============================================================================
-// Copiado de la estructura del editor de CapCut para el teléfono, oscuro y a pantalla completa:
+// Copiado de la estructura del editor de CapCut para el teléfono, a pantalla completa (con los colores de MaKo y su
+// tema claro u oscuro desde el 29/10/2026, no el oscuro fijo de CapCut):
 //   · arriba, ✕ (vuelve a los proyectos), el nombre y «Exportar»;
 //   · el reproductor (el MISMO de escritorio: PreviewPanel del motor; su cabecera «Reproductor ≡» y su fila de abajo se
 //     esconden, ./video-editor.css);

@@ -109,7 +109,8 @@ export const RUNNERS: Runners = {
       // Por dónde sale CAPI: lo mismo que decide `sendMetaCAPIEvent` (Zernio primero; el token del píxel; el de Meta de antes).
       // El de antes se dice «conexion_anterior» (27/10/2026): con «token_de_meta» a la vista, el modelo le explicaba el token a quien
       // preguntaba cómo conectar.
-      const capiPor = canal.via === 'zernio' ? 'conexion_de_facebook' : tokenPixel ? 'token_del_pixel' : canal.via === 'token' ? 'conexion_anterior' : null;
+      // Y la del píxel también se dice «conexion_anterior_del_pixel» (29/10/2026, ticket #28: ningún token a la vista del modelo).
+      const capiPor = canal.via === 'zernio' ? 'conexion_de_facebook' : tokenPixel ? 'conexion_anterior_del_pixel' : canal.via === 'token' ? 'conexion_anterior' : null;
       return J({
         via: canal.via === 'zernio' ? 'conexion_de_facebook' : canal.via === 'token' ? 'conexion_anterior' : 'sin_conexion',
         conectar_por_facebook_abierto: est.activo,
@@ -120,7 +121,7 @@ export const RUNNERS: Runners = {
         pixeles: est.pixeles.map((x) => ({ id: x.id, nombre: x.nombre, activo: x.activo })),
         pagina: { elegida: est.pagina.pageId, hay_que_elegirla: est.pagina.preguntar, sugerida: est.pagina.sugerida },
         paginas: est.paginas,
-        capi: { sale_por: capiPor, destino: adonde, token_del_pixel_cargado: !!tokenPixel },
+        capi: { sale_por: capiPor, destino: adonde, conexion_anterior_del_pixel: !!tokenPixel },
         ...(est.error ? { error: est.error } : {}),
         link: linkIntegracion('meta'),
         nota: est.conexion
@@ -249,7 +250,9 @@ export const RUNNERS: Runners = {
       // Las cuentas EXTRA de una IA gratis son hasta 2×(MAX_KEYS−1) campos opcionales:
       // se resumen en un número en vez de listarlas una por una.
       // Un campo retirado (el token de Meta, la clave de YouTube) no se lista si no está cargado: el modelo lo pedía como «falta».
-      const principales = estados.filter(({ c, e }) => (c.slot ?? 1) === 1 && (!c.retirado || e?.configurado));
+      // Y un token de Meta no se lista NUNCA, ni cargado (29/10/2026, ticket #28): Meta se conecta en Zernio, y con el campo a la
+      // vista el modelo le explicaba el token a quien preguntaba.
+      const principales = estados.filter(({ c, e }) => (c.slot ?? 1) === 1 && (!c.retirado || (e?.configurado && !/^META_[A-Z_]*TOKEN$/.test(c.env))));
       const cx = conexion(s.key);
       const importante = cx ? importanteDe(cx) : null;
       const extras = estados.filter(({ c }) => (c.slot ?? 1) > 1 && !esClaveDeCuenta(c.env));

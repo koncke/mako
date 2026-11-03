@@ -161,11 +161,12 @@ export function EquipoView({ roles = null }: { roles?: ReactNode } = {}) {
       {titulo}
       {hintCrear && <Aviso aviso={hintCrear} />}
 
-      <GrupoAjustes titulo={equipo.length === 1 ? '1 persona' : `${equipo.length} personas`}
+      {/* Vacío, sin «0 personas» ni un segundo «Invitar» (30/10/2026, visto en producción): el de arriba alcanza. */}
+      <GrupoAjustes titulo={equipo.length === 0 ? undefined : equipo.length === 1 ? '1 persona' : `${equipo.length} personas`}
         accion={equipo.length > 5 && <input className="aj-en-linea" style={{ width: 220 }} value={buscar} onChange={(e) => setBuscar(e.target.value)} placeholder="Buscar" aria-label="Buscar en el equipo" />}>
         {errAccion && <CuerpoGrupo><p className="aj-error" role="alert" style={{ margin: 0 }}>{errAccion}<ReportarASoporte /></p></CuerpoGrupo>}
         {equipo.length === 0 ? (
-          <FilaAjustes titulo="Todavía eres el único" fin={<button type="button" className="aj-boton" data-variante="borde" onClick={() => setInvitando(true)}>Invitar</button>} />
+          <FilaAjustes titulo="Todavía no hay nadie más en tu equipo" />
         ) : visibles.map((u) => (
           <div key={u.id} className="aj-miembro">
             <div className="aj-miembro__fila">

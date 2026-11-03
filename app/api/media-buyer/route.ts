@@ -3,12 +3,15 @@
 // =============================================================================
 // GET  → el estado: la configuración, las decisiones de 30 días y si la cuenta está conectada.
 // POST → { op, … }:
-//   lanzar { id, presupuesto?, elegidas? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
+//   lanzar { id, presupuesto?, elegidas?, confirmarBaja? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
 //   calificar { id, estrellas } · config { cambio } · analizar · estado_zernio
 //   hooks_a_video { id, elegidas? } (los hooks de un video ganador, como guiones del Video Generator)
 //   subir_preparar { adSetId? } (los conjuntos y los textos de partida) · subir_creativos { adSetId, archivos, textos, activo }
 //   arranque { respuestas } (lo respondido en la charla del arranque, para seguir donde quedó) · lienzo (Campañas, por producto)
 //   agente { agente } (crea o cambia un agente propio) · agente_borrar { agenteId }
+//   lugares { q } (buscar países, provincias y ciudades de Meta: la zona y Nueva campaña) · hasta_campana { campaignId, fecha }
+//   nueva_preparar (lo que pide «Nueva campaña»: formularios, píxeles, anuncios, la zona, la fecha y la moneda) ·
+//   crear_campana { entrada } (lanza la campaña por la Zernio del negocio: lib/media-buyer/campana.ts)
 // El botón de conectar Facebook NO está acá: es la pieza única `<ConectarViaZernio red="metaads">` (AGENTS.md).
 //
 // QUIÉN: el admin DEL negocio (o el super admin mirándolo), el mismo guard que tenían las escrituras del Ads Manager
@@ -19,7 +22,10 @@
 import type { NextRequest } from 'next/server';
 import { wsDeAdsManager } from '@/lib/ads-guard';
 import { getUsuarioActual } from '@/lib/auth';
-import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla, PlanSinPiloto, cupoDe } from '@/lib/media-buyer/store';
+import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla, MediaBuyerSinZona, PlanSinPiloto, cupoDe } from '@/lib/media-buyer/store';
+import { crearCampana, prepararCampana } from '@/lib/media-buyer/campana';
+import { runWithWorkspace } from '@/lib/workspace';
+import { searchLugares, listLeadForms, listPixels } from '@/lib/meta-ads-create';
 import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
@@ -30,7 +36,7 @@ import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
 import { conjuntosDe, plantillaDelConjunto, subirCreativos } from '@/lib/media-buyer/subir';
-import { CTAS } from '@/lib/media-buyer/creativos';
+import { leerPedidoDeSubida } from '@/lib/media-buyer/creativos';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { credWs } from '@/lib/credenciales';
 import { claveZernioAnuncios, conexionAnunciosZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
@@ -70,7 +76,8 @@ export async function POST(req: NextRequest) {
         if (!id) return J({ ok: false, error: 'Falta la decisión.' }, 400);
         const presupuesto = body.presupuesto == null ? undefined : Number(body.presupuesto);
         const elegidas = Array.isArray(body.elegidas) ? body.elegidas.filter((x): x is string => typeof x === 'string').slice(0, 20) : undefined;
-        const r = await lanzar(ws, id, { nombre: quien, origen: 'persona' }, { presupuesto, elegidas });
+        // `confirmarBaja`: la persona ya vio «Bajarlo de X a Y es N% menos» y dijo que sí (monto.ts → revisarMontoEditado).
+        const r = await lanzar(ws, id, { nombre: quien, origen: 'persona' }, { presupuesto, elegidas, bajaConfirmada: body.confirmarBaja === true });
         return J(r, r.ok ? 200 : 409);
       }
       case 'deshacer': {
@@ -168,28 +175,62 @@ export async function POST(req: NextRequest) {
           .sort((x, y) => Number(y.prendida) - Number(x.prendida) || x.nombre.localeCompare(y.nombre));
         return J({ ok: true, campanas });
       }
-      case 'subir_creativos': {
-        const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
-        if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);
-        const archivos = (Array.isArray(body.archivos) ? body.archivos : []).map((a) => {
-          const o = (a ?? {}) as Record<string, unknown>;
-          return { path: String(o.path ?? ''), tipo: o.tipo === 'video' ? 'video' as const : 'image' as const, nombre: String(o.nombre ?? 'creativo').slice(0, 120) };
+      case 'lugares': {
+        // La misma búsqueda de `buscar_lugares_meta` (lib/meta-ads-create.ts → searchLugares), en el negocio del pedido.
+        const q = typeof body.q === 'string' ? body.q.trim().slice(0, 80) : '';
+        if (q.length < 2) return J({ ok: true, lugares: [] });
+        const lugares = await runWithWorkspace(ws, () => searchLugares(q, null));
+        return J({ ok: true, lugares });
+      }
+      case 'hasta_campana': {
+        // La fecha de fin de UNA campaña (la hoja de Campañas). Vacía = sin fecha propia (vale la de toda la cuenta).
+        const campaignId = typeof body.campaignId === 'string' ? body.campaignId : '';
+        const fecha = typeof body.fecha === 'string' && body.fecha ? body.fecha : null;
+        const config = await guardarConfig(ws, { hastaCampana: { campanaId: campaignId, fecha } }, quien);
+        return J({ ok: true, hastaCampanas: config.hastaCampanas, hasta: config.hasta });
+      }
+      case 'nueva_preparar': {
+        // Lo que pide «Nueva campaña» para armarse: de la cuenta (formularios, píxeles, anuncios para reusar) y del Media Buyer
+        // (la zona, la fecha y el tope). Cada lista que no se pudo leer viene vacía con su aviso: no frena la pantalla.
+        const config = await leerConfig(ws);
+        const datos = await leerDatosCuenta(ws);
+        const avisos: string[] = [];
+        const [formularios, pixeles] = await Promise.all([
+          runWithWorkspace(ws, () => listLeadForms()).catch((e) => { avisos.push(`No pude leer tus formularios: ${e instanceof Error ? e.message : String(e)}`); return []; }),
+          runWithWorkspace(ws, () => listPixels()).catch((e) => { avisos.push(`No pude leer tus píxeles: ${e instanceof Error ? e.message : String(e)}`); return []; }),
+        ]);
+        const porId = new Map(datos.arbol.map((n) => [n.id, n] as const));
+        const anuncios = datos.arbol.filter((n) => n.nivel === 'ad' && n.configurado !== 'DELETED').slice(0, 200).map((n) => {
+          const conj = n.parentId ? porId.get(n.parentId) : undefined;
+          return { id: n.id, nombre: n.nombre, campana: conj?.parentId ? porId.get(conj.parentId)?.nombre ?? null : null, prendido: n.configurado === 'ACTIVE' };
         });
-        const t = (body.textos ?? {}) as Record<string, unknown>;
-        const textos = {
-          textoPrincipal: String(t.textoPrincipal ?? ''), titulo: String(t.titulo ?? ''),
-          cta: (CTAS as readonly string[]).includes(String(t.cta)) ? (t.cta as (typeof CTAS)[number]) : 'LEARN_MORE',
-          link: typeof t.link === 'string' && t.link.trim() ? t.link.trim() : null,
-          formularioId: typeof t.formularioId === 'string' && /^\d{1,30}$/.test(t.formularioId) ? t.formularioId : null,
-        };
-        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo: body.activo !== false }, quien);
+        return J({
+          ok: true, conectado: !!datos.conexion, moneda: datos.moneda, zona: config.zona, hasta: config.hasta,
+          presupuestoMaxDia: config.presupuestoMaxDia, totalActivo: datos.totalActivo, formularios, pixeles, anuncios, avisos,
+        });
+      }
+      case 'crear_campana': {
+        const entrada = (body.entrada ?? {}) as Record<string, unknown>;
+        if (body.soloRevisar === true) {
+          // El cartel de confirmación muestra lo que va a salir, validado contra la cuenta, antes del «Lanzar».
+          const p = await prepararCampana(ws, entrada);
+          return J(p.ok ? { ok: true, resumen: p.resumen, hasta: p.hasta, moneda: p.moneda } : p, p.ok ? 200 : 409);
+        }
+        const r = await crearCampana(ws, entrada, quien);
+        return J(r, r.ok ? 200 : 409);
+      }
+      case 'subir_creativos': {
+        // El pedido se lee como lo lee la API de MaKo (lib/media-buyer/creativos.ts → leerPedidoDeSubida).
+        const { adSetId, archivos, textos, activo } = leerPedidoDeSubida(body);
+        if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);
+        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo }, quien);
         return J(r, r.ok ? 200 : 409);
       }
       default:
         return J({ ok: false, error: 'Operación desconocida.' }, 400);
     }
   } catch (e) {
-    if (e instanceof MediaBuyerSinTabla) return J({ ok: false, error: e.message }, 503);
+    if (e instanceof MediaBuyerSinTabla || e instanceof MediaBuyerSinZona) return J({ ok: false, error: e.message }, 503);
     if (e instanceof PlanSinPiloto) return J({ ok: false, error: e.message, tope: true, link: RUTA_CAMBIAR_PLAN }, 403);
     if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
     const z = leerErrorDeZernio(e);

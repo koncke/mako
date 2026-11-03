@@ -29,6 +29,10 @@
 //      también), por LA función de Instagram (`leerPerfilInstagram` de lib/instagram-perfil-server.ts, la misma que lee el
 //      perfil en el onboarding y en Offer). La paga la plataforma; si no tiene key, el negocio. Medido el 22/10/2026: ni
 //      Google ni Apify tienen claves en ningún negocio, y sólo 1 de 11 conexiones de Meta tiene permisos de Instagram.
+//      ⚠️ 2/11/2026 — SE PRUEBAN LAS DOS CLAVES DE APIFY, no una. `apify` lee `APIFY_TOKEN`; la clave que Martín pegó
+//      el 1/11 es `APIFY_CLAVE_DE_SPY` (del negocio) y sólo la prueba la fuente `apify-spy`. Este buscador pedía la
+//      primera, que no está en ninguna parte, así que el respaldo por @ exacto nunca corría aunque hubiera con qué.
+//      Lo cuida `tests/crm-instagram-clave-de-spy.test.ts`.
 //
 // ⚠️ LA SESIÓN SE CHEQUEA ACÁ y no sólo en el gate de proxy.ts: sin AUTH_SECRET el gate queda inactivo
 // (local) y `getWorkspaceActual()` sin cookie cae al ws 1, que es un cliente. La ruta NO va en
@@ -304,14 +308,43 @@ export async function GET(req: NextRequest) {
   if (usuarioDeTexto(texto) != null) {
     meta = await buscarEnMeta(candidatos, ws);
     google = meta.perfiles.length ? null : await buscarEnGoogle(texto);
-    // Ni Meta ni Google: el @ exacto por Apify (cuentas personales también). Con caché y tope por día.
+    // Ni la Meta del negocio ni Google: la Meta de la PLATAFORMA (30/10/2026: el día que su página tenga el Instagram de MaKo
+    // vinculado y su token `instagram_basic`, anda sin tocar nada, con foto, para el negocio sin Instagram propio) y, si no, el @
+    // exacto por Apify (cuentas personales también). Con caché y tope por día.
+    // ⚠️ `apify-spy` VA ACÁ, Y ES EL ARREGLO DEL 2/11/2026. Martín: «ya con Apify debería funcionar el traer el perfil
+    // escribiendo el @, eso también en el CRM». No faltaba código: faltaba pedir la clave que EXISTE. `apify` lee
+    // `APIFY_TOKEN` —que el 22/10 no estaba en ningún negocio ni en la plataforma—, y la clave que Martín pegó el
+    // 1/11 es `APIFY_CLAVE_DE_SPY`, del negocio, que sólo se prueba con la fuente `apify-spy`. O sea que este
+    // respaldo pedía una llave que nadie tenía teniendo la otra al lado. Va ÚLTIMA a propósito: primero la de la
+    // plataforma (gratis para el negocio) y recién después la suya, como manda el resto del lector.
     if (!meta.perfiles.length && !google?.perfiles.length) {
       const u = usuarioDeTexto(texto) as string;
-      const l = await leerPerfilInstagram(u, { ws, fuentes: ['apify'] });
+      const l = await leerPerfilInstagram(u, { ws, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] });
       if (l.ok) meta = { ...meta, perfiles: [{ usuario: l.perfil.usuario, nombre: l.perfil.nombre, foto: l.perfil.foto }] };
     }
   } else {
     [meta, google] = await Promise.all([buscarEnMeta(candidatos, ws), buscarEnGoogle(texto)]);
+    // ── BUSCAR POR NOMBRE, SIN @ (3/11/2026) ──────────────────────────────────────────────────
+    // Martín: «si yo busco sin arroba, también debería empezar a salir resultados».
+    //
+    // ⚠️ ESTA ES LA RAMA DEL NOMBRE y antes se quedaba sin salida: Meta sólo adivina handles a
+    // partir del texto, y Google **no tiene claves en ningún negocio** (medido el 3/11 contra
+    // producción: `GOOGLE_CSE_KEY` y `GOOGLE_CSE_CX` no están cargadas en ninguno). Así que
+    // escribir «leila» no traía nada y la lista salía vacía.
+    //
+    // ⚠️ Es OTRO actor que el de la lectura por @ —`apify~instagram-scraper`, no
+    // `instagram-profile-scraper`— porque aquél no busca. Cuesta US$1,50 por 1.000 resultados:
+    // **US$0,012 la búsqueda** (lib/instagram-buscar-apify.ts). Va al final, sólo si las otras dos
+    // no trajeron nada, y con el mismo tope por corrida.
+    if (!meta.perfiles.length && !google.perfiles.length) {
+      const { buscarPerfilesApify } = await import('@/lib/instagram-buscar-apify');
+      const { APIFY_CLAVE_DE_SPY } = await import('@/lib/instagram-perfil');
+      const token = await credDelCliente(APIFY_CLAVE_DE_SPY, ws).catch(() => null);
+      if (token) {
+        const hallados = await buscarPerfilesApify(texto, token);
+        if (hallados.length) meta = { ...meta, perfiles: hallados, estado: 'encontro' };
+      }
+    }
   }
 
   return Response.json({

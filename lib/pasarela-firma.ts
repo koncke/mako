@@ -129,3 +129,42 @@ export function verificarFirmaMercadoPago(
 /** La firma que pondría Mercado Pago (para los tests). */
 export const firmarMercadoPago = (p: { dataId: string | null; requestId: string | null; ts: string }, secret: string): string =>
   `ts=${p.ts},v1=${hmacHex(secret, manifiestoMercadoPago(p))}`;
+
+/**
+ * `creem-signature: dd7bdd2c…` — HMAC-SHA256 hex del CUERPO CRUDO Y NADA MÁS, con el secreto del aviso como clave.
+ * Verificado en pantalla el 31/10/2026 (docs.creem.io/code/webhooks): «The signature is generated using the HMAC-SHA256
+ * algorithm with the webhook secret as the key, and the request payload as the message».
+ *
+ * Es más simple que Stripe: no hay `t=`, no hay esquema versionado, no hay prefijo. Y por eso mismo hay que decir qué
+ * NO protege:
+ *
+ * ⚠️ SIN TIMESTAMP NO HAY PROTECCIÓN CONTRA LA REPETICIÓN. Una firma válida capturada vale para siempre: quien pueda
+ *    repetir el cuerpo entero puede reenviarlo. Lo que cubre ese hueco NO es esta función, es la deduplicación por el
+ *    `id` del evento (`evt_…`) en `pasarela_eventos` y la relectura del recurso a Creem antes de aplicar. Por eso el
+ *    webhook deduplica ANTES de aplicar y nunca se cree el monto del cuerpo.
+ *    Y el detalle fino que la doc aclara: los reintentos automáticos CONSERVAN el `id`, pero un reenvío a mano desde el
+ *    panel llega con un `id` NUEVO — así que la deduplicación no protege de un reenvío manual, y de ahí que lo que se
+ *    aplica salga de releer el estado y no de contar eventos.
+ *
+ * ⚠️ FAIL-CLOSED, al revés que Mercado Pago (que se relee igual sin secreto): acá «sin secreto» es un RECHAZO. En MP el
+ *    aviso es flaco (un id) y la seguridad real es la relectura obligatoria; un aviso falso sólo provoca una lectura.
+ *    El de Creem trae el objeto entero y el `eventType`, así que aceptar sin verificar sería dejar que cualquiera
+ *    POSTee `subscription.paid` y se dé de alta un plan. Mientras no esté el secreto, el webhook de Creem rechaza todo:
+ *    es la decisión del brief, y es la correcta.
+ *
+ * El ejemplo oficial de la doc hace `JSON.stringify(req.body)` para armar el mensaje: eso está MAL y hay que no
+ * copiarlo. Re-serializar cambia bytes (orden de claves, unicode, espaciado) y la firma deja de coincidir en cuanto el
+ * cuerpo trae un nombre con acento. Esta función recibe el `raw` tal como llegó (`req.text()`).
+ */
+export function verificarFirmaCreem(raw: string, header: string | null, secret: string | null): FalloFirmaPasarela | null {
+  if (!secret) return 'sin-secreto';
+  if (!header) return 'faltan-headers';
+  // Hex pelado de 64 caracteres: nada que partir en pares. Un header con otra forma es «faltan-headers» y no
+  // «no-coincide», para que el log distinga «Creem cambió el formato» de «el secreto está mal».
+  const v = header.trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(v)) return 'faltan-headers';
+  return igualHex(hmacHex(secret, raw), v) ? null : 'no-coincide';
+}
+
+/** La firma que pondría Creem (para los tests y para probar el endpoint a mano). */
+export const firmarCreem = (raw: string, secret: string): string => hmacHex(secret, raw);

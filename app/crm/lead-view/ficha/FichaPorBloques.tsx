@@ -24,7 +24,9 @@
 //    el editor del Dashboard y el del Web Generator: angosta la ficha REAL (el mismo armador, en una página del
 //    ancho del dispositivo), no una simulación aparte. Al volver a «Ver», el escritorio.
 // ⚠️ «SOLUCIONAR» UN DATO lo resuelve acá (`pedido`): va a la tab donde se dibuja su campo EN ESTA FICHA
-//    (`tabDelDato`, ./armar.ts) y lo señala. Sin un bloque que lo tenga, el asistente (`onNoEsta`).
+//    (`tabDelDato`, ./armar.ts) y lo señala. Sin un bloque que lo tenga, el asistente (`onNoEsta`) CON ESE DATO: sin
+//    decirlo, el asistente pedía lo que avisa el funnel y el dato tocado se perdía (Leila, 26/10/2026: la plantilla
+//    «Evento» no tiene «Datos fiscales», y «Solucionar» los datos fiscales le mostraba setter y closer).
 //
 // 16/10/2026 — EL MARCO PERSONALIZABLE POR TAB. Martín: «Sobre todo que sea PERSONALIZABLE, como tenemos en dashboard o
 // general cada tab... Que se pueda cambiar el nombre de las tabs internas, agregar bloques, que se pueda ver "epico"...
@@ -131,8 +133,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   arribaTabs?: string;
   /** «Solucionar» un dato de la cabecera: `n` cambia en cada pedido. */
   pedido?: { id: StepId; n: number } | null;
-  /** El campo no está en esta ficha: el asistente de «Completar datos». */
-  onNoEsta: () => void;
+  /** El campo no está en esta ficha: el asistente de «Completar datos», con el dato que se pidió. */
+  onNoEsta: (paso: StepId) => void;
   /**
    * El CRM AGREGADO que se mira (el del desplegable de la cabecera: una renovación), o null si es la casa. La tab Pagos
    * muestra y escribe el trato de ESE CRM (./pagos/trato.ts, mig 0324): «el plan de pagos arranca de cero en el CRM nuevo».
@@ -222,7 +224,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
     const t = tabDelDato(paso, lugares, {
       listaDe: (l) => lugarDe(efectiva, l).bloques, reglasDe: entradaDe, vacio: (p, r) => !!r.estaVacio?.(ctx, p), verPrivado: ctx.verPrivado,
     });
-    if (!t) { onNoEsta(); return; }
+    if (!t) { onNoEsta(paso); return; }
     const d = [...(data.datos?.avisar ?? []), ...(data.datos?.ocultos ?? [])].find((x) => x.id === paso);
     setIrA({ key: claveDeLugar(t), n });
     setSenal({ id: paso, label: d?.label ?? 'este dato' });
@@ -721,7 +723,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
         } : undefined} />
       {senal && (
         <Senalar objetivo={marcaDato(senal.id)} texto={`Falta: ${senal.label}`}
-          onCerrar={() => setSenal(null)} onNoEsta={onNoEsta} />
+          onCerrar={() => setSenal(null)} onNoEsta={() => onNoEsta(senal.id)} />
       )}
       {agregar && (
         <AgregarBloque ancla={agregar.ancla} tab={agregar.tab} nombre={lugarDe(efectiva, agregar.tab).nombre} lista={lugarDe(efectiva, agregar.tab).bloques} verPrivado={ctx.verPrivado}

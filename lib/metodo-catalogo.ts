@@ -33,6 +33,7 @@ import 'server-only';
 // Se usa para escribir la URL real en los pasos que la piden (ver ayudaDeCampo).
 import { APP_BASE_URL } from './app-url';
 import { claveBaseDe, claveCuentaDe, clavesDe, slotDe } from './ia-keys';
+import { CLAVES_ZERNIO, slotDeClaveZernio } from './zernio-redes';
 
 export type CampoCredencial = {
   /** Nombre exacto de la env var (y clave en la tabla credenciales). */
@@ -139,6 +140,11 @@ export type ServicioMetodo = {
     /** Link directo a donde se crea el token. */
     url?: string;
     urlLabel?: string;
+    /**
+     * Capturas REALES de cada paso, en el mismo orden (`null` = ese paso todavía no tiene una). Con capturas, la ayuda va UN PASO
+     * POR PANTALLA (29/10/2026, el pedido del tutorial de Zernio). Viven en public/tutoriales/<servicio>/. Nunca una imagen armada.
+     */
+    capturas?: ReadonlyArray<string | null>;
   };
   /** true → la UI solo muestra estado, sin inputs (no se carga desde la app).
    *  HOY NINGÚN SERVICIO LO USA: Supabase era el único y salió del catálogo (es
@@ -207,18 +213,19 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     core: true,
     paraQue: 'Campañas, gasto, resultados y salud de la cuenta publicitaria. Sin esto no hay métricas de ads ni Ads Manager.',
     campos: [
-      // El token de Meta se RETIRA (27/10/2026, corte `CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts): con Zernio prendido no se pide, y
-      // sólo lo ve el negocio que ya lo tenía («Ver la conexión anterior»). La nota y el tutorial ya no enseñan a sacarlo.
-      // `retirado` (27/10/2026): la API de MaKo tampoco lo lista como «falta» (ver_integracion), y el modal ya lo escondía.
-      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'Se retira el lunes 03/11. Conecta con Facebook (Zernio) arriba: hasta ese día queda de respaldo.' },
-      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token; si tienes varias cuentas, eliges una. A mano, va con act_ adelante.' },
-      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Lo saca MaKo del "Access token". Trae los contactos de tus formularios de Facebook e Instagram.' },
-      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Si tienes más de un píxel, te pregunta cuál.' },
+      // ⚠️ LOS TOKENS DE META NO SE VEN NUNCA (29/10/2026, ticket #28, Martín: «ya no debería pedirte nada de Access Token. Toda esa
+      // parte de los tokens ya no debería existir»): `retirado`, y el modal de Meta los filtra siempre (`esTokenDeMeta`,
+      // ServicioConfigForm). Meta se conecta en la tarjeta de Zernio (`SE_CONFIGURA_EN`, lib/integraciones-catalogo.ts). El token
+      // GUARDADO no se borra: sigue de respaldo hasta el corte (`CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts).
+      { env: 'META_ACCESS_TOKEN', label: 'Conexión anterior de Meta', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'La conexión de antes: ya no se pide ni se muestra. Meta se conecta en Zernio.' },
+      { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo elige MaKo al conectar «Anuncios de Meta» en Zernio; con varias, eliges una ahí. Va con act_ adelante.' },
+      { env: 'META_PAGE_ACCESS_TOKEN', label: 'Conexión anterior de la página', secreto: true, opcional: true, auto: true, retirado: true, placeholder: 'EAAG…', nota: 'La conexión de antes: ya no se pide. Los contactos de tus formularios llegan por Zernio.' },
+      { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al conectar «Anuncios de Meta» en Zernio. Con más de un píxel, eliges uno ahí.' },
       // El token del PÍXEL (25/10/2026): con el token de Meta deprecado, es la salida de CAPI cuando la conexión de Facebook por
       // Zernio no llega al píxel (lib/meta-capi.ts). Ya no es `auto`: MaKo no lo completa (nunca lo hizo) y la persona lo tiene
       // que VER para pegarlo. Tutorial entero: docs/tutorial-capi-pixel.md.
-      { env: 'META_CAPI_TOKEN', label: 'Token del píxel', secreto: true, opcional: true, placeholder: 'EAAG…', nota: 'Opcional. Del Administrador de eventos: MaKo lo usa si tu conexión no llega a tu píxel.' },
-      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Hace que los contactos de tus formularios lleguen a tu cuenta.' },
+      { env: 'META_CAPI_TOKEN', label: 'Conexión anterior del píxel', secreto: true, opcional: true, retirado: true, placeholder: 'EAAG…', nota: 'La salida de antes para tu píxel: ya no se pide. Las conversiones salen por tu Zernio.' },
+      { env: 'META_PAGE_ID', label: 'ID de tu página de Facebook', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al conectar con Facebook en Zernio. Hace que tus formularios lleguen a tu cuenta.' },
       // ⚠️ OPCIONAL A PROPÓSITO, Y NO ES UN DETALLE DE COPY. `opcional` es lo que
       // leen los TRES lectores de «está conectado» (lib/credenciales.ts:227,
       // lib/metodo-verificar.ts:601, app/api/metodo/route.ts:28): marcarlo requerido
@@ -250,11 +257,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // ⚠️ Sigue valiendo la regla de Martín del 16/09: ningún paso pide publicar ni activar una app.
       // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». El tutorial ya no nombra
       // el token (el corte del 03/11 lo dice sólo la nota del campo, que ve quien lo tenía): conectar es con Facebook.
+      // 29/10/2026 (ticket #28): se conecta en la tarjeta de Zernio, en dos pasos. Este modal ya no tiene un botón propio.
       pasos: [
-        'Meta se conecta con tu Facebook, por Zernio: no hay que crear ninguna app ni copiar nada de Meta.',
-        'Arriba, en esta misma ventana, toca "Conectar con Facebook".',
-        'Si te pide tu API key de Zernio: sácala en zernio.com → "Settings" → "API Keys" y pégala.',
-        'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
+        'Meta se conecta con tu Facebook, por Zernio, en su tarjeta: no hay que crear ninguna app ni copiar nada de Meta.',
+        'Paso 1: pega tu API key de Zernio (zernio.com → "Settings" → "API Keys").',
+        'Paso 2: en «Anuncios de Meta» toca "Conectar con Facebook" y acepta.',
+        'Si tienes varias cuentas publicitarias o píxeles, eliges el tuyo ahí mismo.',
       ],
     },
   },
@@ -275,16 +283,31 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // ROUTING_CREDS. La nota es la línea del cobro: cada red cuenta aparte en Zernio, y lo paga el negocio.
       { env: 'ZERNIO_API_KEY', label: 'API key de Zernio', secreto: true,
         nota: 'Zernio te cobra a ti. Cada red cuenta aparte (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.' },
+      // VARIAS CLAVES (29/10/2026, Martín: «pegar una segunda API key con otra cuenta de Gmail del cliente... y ya tendrías cuatro
+      // redes»): cada una es OTRA cuenta de Zernio del cliente, con su email. `opcional` a propósito: la tarjeta sigue conectada con la
+      // 1 sola. Las redes que se conectan con una quedan atadas a ella (lib/zernio.ts, `cfgDeCuenta`).
+      ...CLAVES_ZERNIO.slice(1).flatMap((env): CampoCredencial[] => [
+        { env, label: `API key de Zernio ${slotDeClaveZernio(env)}`, secreto: true, opcional: true, slot: slotDeClaveZernio(env) ?? undefined,
+          nota: 'De OTRA cuenta de Zernio tuya (otro Gmail): las redes que conectes con ella usan esta clave.' },
+        { env: `${env}_ACCOUNT`, label: `Email de la cuenta de Zernio ${slotDeClaveZernio(env)}`, secreto: false, opcional: true,
+          slot: slotDeClaveZernio(env) ?? undefined, placeholder: 'otromail@gmail.com',
+          nota: 'El Gmail de esa cuenta de Zernio, para saber de un vistazo cuál es. No se usa para nada más.' },
+      ]),
     ],
     tutorial: {
       url: 'https://zernio.com',
       urlLabel: 'Zernio',
+      // Un paso por pantalla, con la captura real de cada uno (29/10/2026, el Cerebro: «el tutorial debe ser claro»). Los nombres de
+      // los botones, tal cual los muestra zernio.com (docs.zernio.com/quickstart: «Open API keys and click Create API key»).
       pasos: [
-        'Entra a zernio.com con tu cuenta, o crea una.',
-        'En "Settings" → "API Keys" toca "Create API Key" y copia la key: se ve UNA sola vez.',
-        'Pégala en "API key de Zernio" y guarda.',
-        'Con la key guardada, conecta Facebook, Instagram o tus anuncios desde esta misma tarjeta en Integraciones.',
+        'Entra a zernio.com y crea tu cuenta con «Continue with Google»: con tu Gmail.',
+        'En «API keys» toca «Create API key» y copia la clave: empieza con sk_ y Zernio la muestra UNA vez.',
+        'Vuelve aquí, pégala en «API key de Zernio» y toca Guardar.',
+        'En el Paso 2 toca «Conectar» en cada red y entra con su usuario. Cada clave conecta 2 redes gratis.',
       ],
+      // El 1, la página real de registro (zernio.com/signup, 29/10/2026). El 2 pide entrar a una cuenta de Zernio, y el 3 y el 4 son
+      // pantallas de MaKo: se suman cuando se puedan sacar de verdad (docs/hallazgos-integraciones.md).
+      capturas: ['/tutoriales/zernio/1-crear-cuenta.webp', null, null, null],
     },
   },
   {
@@ -709,12 +732,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     key: 'youtube',
     nombre: 'YouTube',
     categoria: 'Datos',
-    paraQue: 'Views del VSL alojado en YouTube (si tu VSL vive ahí).',
+    paraQue: 'Sólo para contar las vistas de TU VSL, si vive en YouTube. Para leer a tus competidores no hace falta nada, y tu canal se conecta en Zernio.',
     campos: [
       // La clave ya NO se pide (27/10/2026, pedido del Cerebro, feedback 876470842-22): las vistas de un video son públicas y
       // MaKo las lee con la suya (`claveDeYoutube`, lib/youtube.ts), y el canal se conecta con el login de Zernio
       // (lib/zernio-redes.ts). «Conectado» pasa a ser tener el video del VSL; quien ya tenía su clave la sigue usando.
-      { env: 'YOUTUBE_API_KEY', label: 'API key', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'Ya no hace falta: MaKo lee las vistas con su clave. Déjala sólo si quieres usar tu propia cuota.' },
+      { env: 'YOUTUBE_API_KEY', label: 'Tu API key (no hace falta)', secreto: true, opcional: true, retirado: true, placeholder: 'AIza…', nota: 'MaKo lee YouTube con su clave. Déjala sólo si quieres usar tu propia cuota.' },
       { env: 'YOUTUBE_VSL_VIDEO_ID', label: 'ID del video del VSL', placeholder: 'dQw4w9WgXcQ', nota: 'Lo que va después de v= en youtube.com/watch?v=ESTO, o de la barra en youtu.be/ESTO. Si hay un &, corta ahí.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_ID', label: 'OAuth Client ID', opcional: true, placeholder: '…apps.googleusercontent.com', nota: 'Opcional: déjalo vacío. Solo hace falta para la retención y las vistas diarias de TU canal.' },
       { env: 'YOUTUBE_OAUTH_CLIENT_SECRET', label: 'OAuth Client secret', secreto: true, opcional: true, placeholder: 'GOCSPX-…', nota: 'Opcional. Va de a pares con el "OAuth Client ID". Empieza con GOCSPX- y se ve UNA sola vez.' },
@@ -728,6 +751,24 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
         'Pégalo en "ID del video del VSL" y guarda: MaKo lee sus vistas cada día, sin claves.',
         'Para conectar tu canal: en la tarjeta de Zernio, en "YouTube", toca "Conectar" y entra con Google.',
         'Los tres campos "OAuth" son opcionales: solo dan la retención de tu canal. Déjalos vacíos.',
+      ],
+    },
+  },
+  {
+    key: 'apify-instagram',
+    nombre: 'Apify',
+    categoria: 'Datos',
+    paraQue: 'Lee el perfil y las publicaciones públicas de los competidores que miras en Competitors Spy, cuando Meta no puede. Corre con tu cuenta.',
+    campos: [
+      { env: 'APIFY_INSTAGRAM_TOKEN', label: 'API token', secreto: true, placeholder: 'apify_api_…', nota: 'Es TU cuenta: Apify cobra por perfil leído. MaKo la usa sólo para Competitors Spy, con un tope de 40 lecturas por día.' },
+    ],
+    tutorial: {
+      url: 'https://console.apify.com/settings/integrations',
+      urlLabel: 'Apify → Settings → API & Integrations',
+      pasos: [
+        'Entra a console.apify.com con tu cuenta. El plan gratis alcanza para empezar.',
+        'Ve a «Settings» → «API & Integrations» y copia tu «Personal API token» (empieza con apify_api_).',
+        'Pégalo en "API token" y guarda. MaKo comprueba que funcione sin gastar nada.',
       ],
     },
   },
@@ -894,6 +935,34 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  {
+    key: 'creem',
+    nombre: 'Creem',
+    categoria: 'Pagos',
+    paraQue: 'Cobrar en dólares en todo el mundo con los impuestos resueltos: Creem cobra y paga el impuesto de cada país por ti, y te da la factura que cumple.',
+    campos: [
+      { env: 'CREEM_API_KEY', label: 'Clave de Creem', secreto: true, placeholder: 'creem_…', nota: 'Lo único que pegas: la clave de API de producción (creem_…). Con ella MaKo registra el aviso de pagos en tu cuenta.' },
+      { env: 'CREEM_WEBHOOK_ID', label: 'ID del aviso', auto: true, derivado: true, placeholder: 'wh_…', nota: 'Lo completa MaKo al registrar el aviso; no se escribe a mano. Sin esto, tus pagos no entran a tu CRM.' },
+      { env: 'CREEM_WEBHOOK_SECRET', label: 'Firma del aviso de pagos', secreto: true, auto: true, derivado: true, placeholder: 'whsec_…', nota: 'La da Creem cuando MaKo registra el aviso; no se escribe a mano. Sin esto, MaKo rechaza todos los avisos de pago.' },
+    ],
+    // Sin pasoExterno A PROPÓSITO, como Stripe y al revés que Mercado Pago: el aviso lo registra MaKo con la clave
+    // (`asegurarWebhookCreem`), y Creem devuelve su secreto por API — `POST /v1/webhooks` lo da una vez y
+    // `GET /v1/webhooks/{id}/secret` lo vuelve a dar. Pedirle a la persona que copie un secreto que la API ya entrega
+    // era pedirle un paso de más y una forma de pegarlo mal.
+    tutorial: {
+      url: 'https://creem.io/dashboard/developers',
+      urlLabel: 'Creem → Developers',
+      // SIN «Para qué sirve» de primer paso, igual que Stripe y Mercado Pago (31/10/2026): el para qué del SERVICIO lo
+      // dice `paraQue` acá arriba, y el de la clave lo dice AYUDA_CAMPO.CREEM_API_KEY —donde el test SÍ lo exige y donde
+      // esta misma línea sigue estando. Acá era un paso de más: se entra por la acción.
+      pasos: [
+        'Entra a creem.io/dashboard/developers con la cuenta donde quieres recibir el dinero.',
+        'En "API Keys" copia la clave de producción (empieza con creem_) y pégala en "Clave de Creem".',
+        'Eso es todo: MaKo registra solo el aviso de pagos y guarda su firma.',
+        'Para probar sin dinero real, usa una clave de test (creem_test_…): Creem las separa por completo de las reales.',
+      ],
+    },
+  },
   // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper): se fueron el 25/10/2026 sin una sola clave guardada en
   // producción. Ver tests/leads-scraper-retirado.test.ts.
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
@@ -962,7 +1031,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_AD_ACCOUNT_ID: {
     pasos: [
         'Para qué sirve: le dice a MaKo de qué cuenta de anuncios traer el gasto y los resultados.',
-        'Normalmente lo completa MaKo al pegar el "Access token"; si tienes varias cuentas, eliges una.',
+        'Normalmente lo elige MaKo al conectar «Anuncios de Meta» en la tarjeta de Zernio; con varias cuentas, eliges una ahí.',
         'A mano: en adsmanager.facebook.com, el número largo junto al nombre de la cuenta, arriba a la izquierda.',
         'Escríbelo con act_ adelante y sin espacios (act_1234567890): sin el act_, el tablero queda en blanco.',
       ],
@@ -971,11 +1040,9 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   },
   META_PAGE_ACCESS_TOKEN: {
     pasos: [
-        'Para qué sirve: trae los datos de quien deja su contacto en tus formularios de Facebook e Instagram.',
-        'No lo escribes tú: MaKo lo saca del "Access token". Si queda vacío, falta la página o algún permiso.',
-        'En business.facebook.com/settings → "Usuarios del sistema" → tu usuario → "Agregar activos" → "Páginas".',
-        'Marca tu página con "Control total", guarda y genera un token nuevo con: leads_retrieval, pages_show_list, pages_read_engagement, pages_manage_ads.',
-        'Pega el token nuevo en "Access token" y guarda: el token de la página se completa solo.',
+        'Para qué sirve: ya no se usa. Traía los contactos de tus formularios con la conexión de antes.',
+        'No se pide: esos contactos llegan por Zernio.',
+        'Para recibirlos, conecta «Anuncios de Meta» en la tarjeta de Zernio con la página de tus formularios.',
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',
@@ -983,7 +1050,7 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_PIXEL_ID: {
     pasos: [
         'Para qué sirve: con el píxel, MaKo le devuelve a Meta las ventas que se cierran fuera de la web.',
-        'Normalmente lo completa MaKo al conectar con Meta; si tienes varios píxeles, te pregunta cuál.',
+        'Normalmente lo completa MaKo al conectar «Anuncios de Meta» en Zernio; con varios píxeles, eliges uno ahí.',
         'A mano: en business.facebook.com/events_manager2 ("Administrador de eventos") toca tu píxel y copia su número.',
         'Pégalo aquí, solo dígitos. Si no tienes píxel, déjalo vacío: MaKo funciona igual.',
         'Si tu página ya manda "Schedule" con el píxel, MaKo no lo repite: así Meta no lo cuenta dos veces.',
@@ -999,10 +1066,9 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // deduplicación, en docs/tutorial-capi-pixel.md.
   META_CAPI_TOKEN: {
     pasos: [
-        'Para qué sirve: que tus contactos, calificados y agendas lleguen a tu píxel aunque tu conexión no alcance.',
-        'En business.facebook.com/events_manager2 elige tu píxel y abre la pestaña "Configuración".',
-        'En "API de conversiones" toca "Generar token de acceso" (lo ve un administrador del negocio).',
-        'Copia el token (empieza con EAA, se ve UNA vez) y pégalo en este campo.',
+        'Para qué sirve: ya no se usa. Mandaba tus contactos y agendas a tu píxel con la conexión de antes.',
+        'No se pide: las conversiones salen por tu conexión de Zernio («Anuncios de Meta»).',
+        'Si no llegan, en Meta dale a esa cuenta publicitaria acceso a tu píxel y vuelve a conectar en Zernio.',
       ],
     url: 'https://business.facebook.com/events_manager2',
     urlLabel: 'Administrador de eventos',
@@ -1010,8 +1076,8 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   // La conexión de Zernio (25/10/2026): no se pega, la escribe MaKo al conectar con Facebook (`derivado`).
   META_ZERNIO_CUENTA: {
     pasos: [
-        'Para qué sirve: con esta conexión MaKo lee tus métricas y publica tus anuncios sin pedirte el token de Meta.',
-        'No la escribes tú: toca "Conectar con Facebook" arriba, en esta misma ventana.',
+        'Para qué sirve: con esta conexión MaKo lee tus métricas y publica tus anuncios, sin pedirte nada de Meta.',
+        'No la escribes tú: en la tarjeta de Zernio, paso 2, «Anuncios de Meta» → "Conectar con Facebook".',
         'En la ventana de Facebook elige tu negocio, tu página y tu cuenta publicitaria, y acepta.',
       ],
     url: 'https://zernio.com',
@@ -1020,10 +1086,8 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
   META_PAGE_ID: {
     pasos: [
         'Para qué sirve: sin esto, quien deja su teléfono en tus formularios de Facebook e Instagram no llega a ningún lado.',
-        'Lo completa MaKo al pegar el "Access token"; si tienes varias páginas, eliges la de tus anuncios.',
-        'Si quedó vacío: business.facebook.com/settings → "Usuarios del sistema" → tu usuario → "Agregar activos".',
-        'En "Páginas" marca tu página con "Control total" y guarda.',
-        'Toca "Generar nuevo token" y pégalo en "Access token": la página se completa sola.',
+        'Lo completa MaKo al conectar «Anuncios de Meta» en la tarjeta de Zernio; con varias páginas, eliges la de tus anuncios.',
+        'Si quedó vacío, vuelve a conectar ahí y elige la página en la ventana de Facebook.',
       ],
     url: 'https://business.facebook.com/settings',
     urlLabel: 'Configuración del negocio en Meta',
@@ -1372,6 +1436,16 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://dashboard.stripe.com/apikeys',
     urlLabel: 'Stripe → API keys',
+  },
+  CREEM_API_KEY: {
+    pasos: [
+        'Para qué sirve: con esta clave MaKo crea tus links de pago en Creem y anota cada cobro en la ficha del lead.',
+        'En creem.io/dashboard/developers abre "API Keys".',
+        'Copia la clave de producción (empieza con creem_) y pégala en este campo.',
+        'MaKo registra solo el aviso de pagos y guarda su firma: no hay ningún paso más.',
+      ],
+    url: 'https://creem.io/dashboard/developers',
+    urlLabel: 'Creem → Developers',
   },
   MERCADOPAGO_ACCESS_TOKEN: {
     pasos: [

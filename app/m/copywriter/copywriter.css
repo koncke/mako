@@ -1,0 +1,9 @@
+/* /m/copywriter — lo propio del teléfono (el documento y el chat traen la hoja de escritorio, app/copywriter/notion.css).
+   Todas las clases llevan el nombre entero de la carpeta (app/m/_ui/LEEME.md §5). */
+
+.m-copywriter { display: flex; flex-direction: column; min-height: 0; }
+.m-copywriter-seg { padding: 4px 16px 10px; }
+.m-copywriter .nt[data-movil] { display: block; height: auto; overflow: visible; }
+.m-copywriter-vista[hidden] { display: none; }
+.m-copywriter-vista .nt-doc { min-height: calc(100dvh - 160px); }
+.m-copywriter-vista .nt-scroll { overflow: visible; }

@@ -7,6 +7,7 @@
 // =============================================================================
 
 import { esCapaVendible } from './capas';
+import { codigoRefLimpio } from './compra-plan-reglas';
 import { esPasarela, type Pasarela, type TipoCobro } from './cobros-tipos';
 import { normalizarMoneda } from './pasarela-moneda';
 
@@ -25,12 +26,14 @@ export type VentaPlan = {
   nombre: string;
   /** Sólo hace falta si hay DOS pasarelas conectadas; con una, se elige sola. */
   pasarela?: Pasarela | null;
+  /** El código de MaKo Partners de quien lo trajo (29/10/2026): queda en el cobro y MaKo Partners lo acredita. */
+  refCodigo?: string | null;
 };
 
 /** La venta ya saneada: lo que se valida antes de tocar nada. */
 export type VentaValida = {
   capa: string; monto: number; moneda: string | null; montoUsd: number | null;
-  tipo: TipoCobro; email: string; nombre: string; pasarela: Pasarela | null;
+  tipo: TipoCobro; email: string; nombre: string; pasarela: Pasarela | null; refCodigo: string | null;
 };
 
 /**
@@ -52,5 +55,8 @@ export function ventaValida(v: Partial<VentaPlan> | null | undefined): { ok: tru
   if (v?.moneda != null && !moneda) return { ok: false, error: 'Esa moneda no existe.' };
   const usd = Number(v?.montoUsd);
   const pasarela = esPasarela(v?.pasarela) ? v.pasarela : null;
-  return { ok: true, venta: { capa, monto, moneda, montoUsd: Number.isFinite(usd) && usd > 0 ? usd : null, tipo, email, nombre, pasarela } };
+  const crudo = String(v?.refCodigo ?? '').trim();
+  const refCodigo = codigoRefLimpio(crudo);
+  if (crudo && !refCodigo) return { ok: false, error: 'Ese código de partner no es válido (letras, números y guiones).' };
+  return { ok: true, venta: { capa, monto, moneda, montoUsd: Number.isFinite(usd) && usd > 0 ? usd : null, tipo, email, nombre, pasarela, refCodigo } };
 }

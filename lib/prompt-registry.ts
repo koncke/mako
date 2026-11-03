@@ -41,6 +41,7 @@ import {
   SCRIPT_VALORACION_USER_TEMPLATE,
 } from './ads-analyst';
 import { LANDING_ANALYZE_SYSTEM_TEMPLATE, LANDING_ANALYZE_USER_TEMPLATE } from './landing-analyst';
+import { SPY_ANALISIS_SYSTEM_TEMPLATE, SPY_ANALISIS_USER_TEMPLATE } from './spy';
 import { PRODUCTOS_SYSTEM_TEMPLATE, PRODUCTOS_USER_TEMPLATE } from './productos-ia';
 import { OFERTAS_SYSTEM_TEMPLATE, OFERTAS_USER_TEMPLATE } from './ofertas-ia';
 import {
@@ -64,6 +65,9 @@ import {
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
   DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
 } from './editor-landing/ia-reglas';
+import { DISCUTIR_SYSTEM as COPYWRITER_DISCUTIR_SYSTEM, DISCUTIR_USER as COPYWRITER_DISCUTIR_USER } from './copywriter/ia-reglas';
+import { EDITAR_SYSTEM as COPYWRITER_EDITAR_SYSTEM, EDITAR_USER as COPYWRITER_EDITAR_USER } from './copywriter/ia-editar';
+import { ADAPTAR_USER as COPYWRITER_ADAPTAR_USER, EXPERTO_COPY as COPYWRITER_EXPERTO } from './copywriter/experto';
 import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
@@ -807,6 +811,71 @@ export const REGISTRY: Group[] = [
     ],
   },
   {
+    // El Copywriter (28/10/2026, lib/copywriter/ia.ts; los defaults viven en lib/copywriter/ia-reglas.ts e ia-editar.ts).
+    // Las keys y los slots los fija tests/copywriter-ia.test.ts contra PROMPTS_COPY y PROMPTS_EDITAR.
+    group: 'Copywriter',
+    icon: '✍️',
+    blurb: 'MaKo al costado de cada guion del Copywriter: en «Discutir» contesta sin tocarlo; en «Editar» lo escribe en el documento con sus herramientas, como una propuesta que la persona acepta o descarta.',
+    entries: [
+      {
+        key: 'copywriter.discutir.system', source: 'override',
+        label: 'Discutir un guion (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de la respuesta y la voz del negocio')], scope: 'full', sensitive: false,
+        default: COPYWRITER_DISCUTIR_SYSTEM,
+        context: 'El chat del Copywriter en «Discutir»: MaKo contesta y sugiere SIN cambiar el guion. Conserva la regla de no tocar nada y la de no inventar datos.',
+      },
+      {
+        key: 'copywriter.discutir.user', source: 'override',
+        label: 'Pregunta + guion (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pregunta', 'lo que escribió la persona'), v('titulo', 'el título del guion'), v('props', 'tipo, ángulo, estructura y duración'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('charla', 'lo último del chat'), v('referencias', 'lo citado con @'),
+          v('negocio', 'lo que hace falta del Second Brain'), v('adjuntos', 'lo leído de los archivos'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_DISCUTIR_USER,
+        context: 'Le pasa a MaKo la pregunta y el guion. Conserva los slots: el guion, la charla, lo citado y el negocio llegan delimitados como dato no confiable.',
+      },
+      {
+        key: 'copywriter.editar.system', source: 'override',
+        label: 'Escribir en el guion (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma y la voz del negocio'), v('formato', 'las herramientas y la forma del JSON')], scope: 'full', sensitive: false,
+        default: COPYWRITER_EDITAR_SYSTEM,
+        context: 'El chat del Copywriter en «Editar»: MaKo escribe con sus herramientas (escribir_seccion, reemplazar_bloque…). Conserva {{formato}}: sin él la salida no se puede leer.',
+      },
+      {
+        key: 'copywriter.editar.user', source: 'override',
+        label: 'Pedido + guion (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('instruccion', 'lo que pidió la persona'), v('titulo', 'el título del guion'), v('props', 'tipo, ángulo, estructura y duración'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('estructura', 'la estructura y la guía de cada sección'), v('angulo', 'el paquete del ángulo'),
+          v('metodologia', 'la de reels o stories'), v('biblioteca', 'los ids de ángulos y estructuras'), v('charla', 'lo último del chat'),
+          v('referencias', 'lo citado con @'), v('negocio', 'lo que hace falta del Second Brain'), v('adjuntos', 'lo leído de los archivos'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_EDITAR_USER,
+        context: 'Le pasa a MaKo el pedido, el guion con los ids de cada bloque y todo lo que necesita para escribirlo. Conserva los slots.',
+      },
+      // El experto y «Adaptar a mi negocio» (29/10/2026, lib/copywriter/experto.ts; docs/plantillas-reales/copywriter.md).
+      // Keys NUEVAS a propósito: un slot nuevo en las de arriba no llegaría a quien ya las editó.
+      {
+        key: 'copywriter.experto', source: 'override',
+        label: 'El método del Copywriter', kind: 'instruction', dynamic: false, variables: [], scope: 'full', sensitive: false,
+        default: COPYWRITER_EXPERTO,
+        context: 'El método del Copywriter: se suma a Discutir y a Editar. Conserva la regla de no inventar y la de no usar los datos del ejemplo.',
+      },
+      {
+        key: 'copywriter.adaptar.user', source: 'override',
+        label: 'Adaptar una plantilla (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('plantilla', 'el nombre de la plantilla'), v('ejemplo', 'el negocio ficticio del ejemplo y su rubro'), v('pide', 'lo que el ejemplo usa del negocio, con su pregunta'),
+          v('guion', 'el guion bloque por bloque, con sus ids'), v('estructura', 'la estructura y la guía de cada sección'), v('negocio', 'lo que hace falta del Second Brain'),
+          v('charla', 'lo último del chat, con lo que acaba de decir la persona'),
+        ], scope: 'full', sensitive: false,
+        default: COPYWRITER_ADAPTAR_USER,
+        context: '«Adaptar a mi negocio»: va con el system de Editar y devuelve el mismo JSON. Conserva que el ejemplo es de un negocio ficticio y que lo que falta va como [DATO: …].',
+      },
+    ],
+  },
+  {
     // El editor copiado de Gamma (lib/editor-landing/ia.ts; los defaults viven en
     // lib/editor-landing/ia-reglas.ts, portados de presenton con su aviso Apache-2.0).
     // Las keys y los slots los fija tests/editor-landing-ia.test.ts contra PROMPTS_EDITOR.
@@ -1410,6 +1479,37 @@ export const REGISTRY: Group[] = [
         variables: [v('tipos', 'los tipos de CRM que la plataforma sabe armar, con la clave y el nombre de fábrica de cada etapa (lib/onboarding-crm.ts)')], scope: 'static-only', sensitive: false,
         default: OFFER_CRM_SYSTEM_TEMPLATE,
         context: 'Al llegar a la pregunta del CRM del onboarding (20/10/2026, Martín: «el armado del CRM también debe ser personalizado»), MaKo elige el tipo de CRM y le pone a cada etapa el nombre de ese negocio. Lo que no se toca: sólo NOMBRES, nunca claves ni etapas nuevas (las nutriciones, los avisos y las automatizaciones mueven a cada cliente por la clave), y el JSON {"tipo", "etapas"}. El código descarta un tipo fuera de la lista, un nombre largo, con emojis o repetido. Conserva {{tipos}}.',
+      },
+    ],
+  },
+
+  {
+    group: 'Competitor Spy',
+    icon: '🕵️',
+    blurb: 'MaKo lee lo que publica un competidor y dice qué vende, a quién, y qué objeción ataca que tu oferta no menciona.',
+    entries: [
+      {
+        key: 'spy.analisis.system', source: 'override',
+        label: 'Instrucciones para leer a un competidor (system)', kind: 'system', dynamic: true,
+        variables: [
+          v('tiposGancho', 'los tipos de gancho con que se clasifica una pieza, separados por «|» (el mismo vocabulario del Ads Analyst)'),
+          v('etiquetas', 'las etiquetas con que se agrupa una pieza, separadas por coma'),
+        ],
+        scope: 'static-only', sensitive: true,
+        default: SPY_ANALISIS_SYSTEM_TEMPLATE,
+        context: 'El cerebro de Competitor Spy: con lo que se leyó del competidor y lo que vende el negocio, dice qué promete, a quién, con qué precio si lo publica, qué objeción ataca, y qué ataca él que el negocio no menciona. CUATRO REGLAS QUE NO SE TOCAN, porque cada una evita un dato inventado: trabajar sólo con lo que está en los datos (si un campo no está, va vacío); no estimar NINGÚN número (facturación, visitas, conversión y alcance no existen en los datos, y un estimado presentado como real es peor que un campo vacío); no hablar de la persona ni enmarcar nada como una pelea (la política III.L de YouTube lo prohíbe explícitamente); y no afirmar qué DICE un video, porque el guion no se leyó — no hay forma legal de transcribir el video de un tercero, así que sólo hay título, descripción y etiquetas. Conserva el esquema JSON y los slots {{tiposGancho}} y {{etiquetas}}, que son el vocabulario compartido con el Ads Analyst: si se cambian por otros, «lo que hace la competencia» y «lo que hacemos nosotros» dejan de ser comparables.',
+      },
+      {
+        key: 'spy.analisis.user', source: 'override',
+        label: 'Lo que se leyó del competidor (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('competidor', 'el nombre que el negocio le puso'),
+          v('negocio', 'qué vende ESTE negocio (su perfil y su oferta)'),
+          v('piezas', 'las piezas guardadas, con sus números y desde cuándo están a la vista'),
+        ],
+        scope: 'full', sensitive: false,
+        default: SPY_ANALISIS_USER_TEMPLATE,
+        context: 'Arma el pedido con lo guardado del competidor y lo que vende el negocio. {{negocio}} es la mitad que importa: sin eso la respuesta es «este competidor promete X», que es la Biblioteca de Anuncios con otro diseño. El cruce contra la oferta propia es lo que ninguna herramienta de afuera puede hacer, porque ninguna conoce el negocio. En {{piezas}}, un contador que el competidor no publica viaja como «no lo publica» y no como 0, y un gasto viaja como el TRAMO que dijo Meta («1K-5K»), nunca como un número: el modelo tiene que poder distinguirlos igual que la pantalla. Conserva los tres slots.',
       },
     ],
   },

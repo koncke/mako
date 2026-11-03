@@ -45,6 +45,7 @@ export const PERMITIDOS = new Map([
   ['tests/centro-pasos.test.ts', 'el cwd de una sesión de Claude Code y la ruta de un Read: carpetaDelCwd y pasoDe los tratan como texto, no se abren'],
   ['tests/calendly-scripts.test.ts', 'argv de un script como lo arma Windows (la ruta de node y del script): el lector de flags la descarta por no empezar con «-», no se abre'],
   ['tests/rutas-windows-en-tests.test.ts', 'los casos de esta misma guarda: son el texto que tiene que cazar'],
+  ['tests/pendientes-vencidos.test.ts', 'la ruta de un test que antes-de-subir corrió, como la escribe Windows (C:\\dev\\wt-x\\tests\\…): la guarda de pendientes vencidos la compara por NOMBRE de archivo, no la abre — y que llegue con esa forma es justo lo que ese caso prueba'],
 ]);
 
 // Después de `X:` va `/`, `\\` (la barra escapada de un string común) o UNA barra seguida de un

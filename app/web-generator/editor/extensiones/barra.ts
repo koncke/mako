@@ -32,6 +32,11 @@
 //     resaltado): se registra con `registrarTeclasBarra(view, fn)`. Si nadie montó el
 //     menú, el plugin no se traga ninguna tecla salvo Escape.
 //
+// OTRO CATÁLOGO (28/10/2026, el Copywriter, docs/diseno-copywriter.md): el motor es el mismo y el catálogo no. Las
+// opciones `buscar` (qué encuentra lo escrito después de la «/»; por defecto, el de Gamma) y `atajos` (los de abajo; el
+// Copywriter los apaga y pone los de Notion, donde «> » es un desplegable y no una cita) dejan usarlo en otro editor sin
+// una segunda copia del plugin. Sin opciones, todo es como antes.
+//
 // Atajos markdown de Gamma (gamma-ui §5.5/5.6): «- » viñetas, «1. » numerada,
 // «[] » tareas, «> » cita, «# » a «#### » encabezados y «! » el Título grande. StarterKit
 // trae los suyos para casi todos; acá van otra vez porque el de tareas de TipTap pide
@@ -72,17 +77,20 @@ export const TOPE_CONSULTA = 40;
  * espacio, trae dos espacios seguidos, otra «/», un salto o pasa el tope, no: es una frase.
  * Un espacio adentro sí vale («como funciona» encuentra Etapas por su sinónimo).
  */
-export function consultaValida(q: string): boolean {
+export function consultaValida(q: string, buscar: BuscarEnBarra = buscarBloques): boolean {
   if (q === '') return true;
   if (q.length > TOPE_CONSULTA) return false;
   if (/^\s/.test(q) || /\s\s/.test(q) || /[/\n\ufffc]/.test(q)) return false;
   // Con un espacio ya escrito y nada que mostrar, se está escribiendo una frase: se cierra.
-  if (/\s/.test(q) && buscarBloques(q).length === 0) return false;
+  if (/\s/.test(q) && buscar(q).length === 0) return false;
   return true;
 }
 
+/** Qué encuentra lo escrito después de la «/» (la opción `buscar`; el de Gamma por defecto). */
+export type BuscarEnBarra = (consulta: string) => readonly unknown[];
+
 /** Recalcula el estado con la «/» en `desde`, o null si el menú ya no tiene sentido. */
-function calcular(state: EditorState, desde: number): EstadoBarra {
+function calcular(state: EditorState, desde: number, buscar: BuscarEnBarra): EstadoBarra {
   const sel = state.selection;
   if (!(sel instanceof TextSelection) || !sel.empty) return null;
   if (desde < 0 || desde + 1 > state.doc.content.size) return null;
@@ -93,7 +101,7 @@ function calcular(state: EditorState, desde: number): EstadoBarra {
   // La «/» y el cursor en el MISMO bloque de texto (si el cursor pasó a otro, se cerró).
   if (!$d.parent.isTextblock || $d.start() !== sel.$from.start() || $d.depth !== sel.$from.depth) return null;
   const consulta = state.doc.textBetween(desde + 1, cabeza, '\n', '\ufffc');
-  if (!consultaValida(consulta)) return null;
+  if (!consultaValida(consulta, buscar)) return null;
   return { desde, hasta: cabeza, consulta };
 }
 
@@ -183,11 +191,23 @@ export const IDS_BARRA: readonly IdBloque[] = BLOQUES.map((b) => b.id);
 // La extensión
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const ExtensionBarra = Extension.create({
+export type OpcionesBarra = {
+  /** Qué encuentra lo escrito después de la «/». */
+  buscar: BuscarEnBarra;
+  /** Los atajos markdown de Gamma (los de abajo). */
+  atajos: boolean;
+};
+
+export const ExtensionBarra = Extension.create<OpcionesBarra>({
   name: 'barraComandos',
   priority: 1000,
 
+  addOptions() {
+    return { buscar: buscarBloques, atajos: true };
+  },
+
   addInputRules() {
+    if (!this.options.atajos) return [];
     const nodos = this.editor.schema.nodes;
     const reglas: InputRule[] = [];
     // «! » = el «Título» grande de Gamma (h1 con variante 'titulo').
@@ -214,6 +234,7 @@ export const ExtensionBarra = Extension.create({
   },
 
   addProseMirrorPlugins() {
+    const buscar = this.options.buscar;
     return [
       new Plugin<EstadoBarra>({
         key: claveBarra,
@@ -222,13 +243,13 @@ export const ExtensionBarra = Extension.create({
           apply(tr, previo, _viejo, nuevo) {
             const meta = tr.getMeta(claveBarra) as MetaBarra | undefined;
             if (meta && 'cerrar' in meta) return null;
-            if (meta && 'abrir' in meta) return calcular(nuevo, meta.abrir);
+            if (meta && 'abrir' in meta) return calcular(nuevo, meta.abrir, buscar);
             if (!previo) return null;
             if (!tr.docChanged && !tr.selectionSet) return previo;
             // assoc 1: si se escribió JUSTO antes de la «/», la «/» se corre con lo escrito.
             const r = tr.mapping.mapResult(previo.desde, 1);
             if (r.deleted) return null;
-            return calcular(nuevo, r.pos);
+            return calcular(nuevo, r.pos, buscar);
           },
         },
         props: {

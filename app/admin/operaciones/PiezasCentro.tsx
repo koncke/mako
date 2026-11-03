@@ -238,7 +238,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
   return (
     <Conversacion
       turnos={k.turnosDe(chat)} carteros={k.carteros}
-      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)}
+      preguntasChat={k.preguntasDe(chat)} onResponder={(p, elegidas, otra) => k.contestarPregunta(chat, p, elegidas, otra)} avisoCerrado={(p) => k.avisoDePregunta(chat, p)}
       chat={chat} pedidos={k.porId} trabajos={k.trabajos} pushes={k.pushes?.ok ? k.pushes.pushes : null} ahora={k.ahora}
       tareas={k.tareasDe(chat)}
       // El ✓ de sus «Completado» (18/10/2026): guardado en MaKo, vale en el teléfono.
@@ -397,7 +397,7 @@ export function PieCentro({ centro: k }: { centro: Centro }) {
 export function NuevoChatCentro({ onNuevo, actual }: { onNuevo: () => void; actual: boolean }) {
   return (
     // Con el diseño de «＋ Nueva automatización» (feedback 4, 22/10/2026): la fila punteada con el ＋ que gira (`.co-nueva`).
-    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} onClick={onNuevo}>
+    <button type="button" className="co-fila co-fila--nuevo co-nueva" aria-current={actual ? 'true' : undefined} data-recorrido="sb-nuevo" onClick={onNuevo}>
       <span aria-hidden className="co-nueva__mas">＋</span>
       <span className="co-fila__cuerpo"><span className="co-fila__l1"><span className="co-fila__titulo">Nuevo chat</span></span></span>
     </button>

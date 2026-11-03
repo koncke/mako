@@ -21,6 +21,32 @@ import { useKeybindingsStore } from "@/app/video-editor/_opencut/actions/keybind
 import { isTypableDOMElement } from "@/app/video-editor/_opencut/utils/browser";
 import { DialogoExportar } from "@/app/video-editor/_opencut/export/dialogo-exportar";
 
+/**
+ * «Publicar» (29/10/2026, Martín: «que con las funcionalidades que ya creamos puedan publicar en Facebook, TikTok, LinkedIn…»): el
+ * mismo diálogo, en modo publicar. Exporta el video y lo lleva al Calendario, donde se eligen la red, el día y la hora.
+ */
+export function PublicarButton() {
+	const [abierto, setAbierto] = useState(false);
+	const hayProyecto = useEditor((e) => !!e.project.getActiveOrNull());
+	return (
+		<>
+			<button
+				type="button"
+				disabled={!hayProyecto}
+				onClick={() => setAbierto(true)}
+				data-publicar-video=""
+				className={cn(
+					"flex h-[27px] items-center justify-center rounded-[4px] bg-(--cc-btn-2) px-3 text-[13px] font-medium text-(--cc-text)",
+					hayProyecto ? "cursor-pointer hover:brightness-110" : "cursor-not-allowed opacity-50",
+				)}
+			>
+				Publicar
+			</button>
+			{hayProyecto ? <DialogoExportar abierto={abierto} onAbiertoChange={setAbierto} publicar /> : null}
+		</>
+	);
+}
+
 export function ExportButton() {
 	const [abierto, setAbierto] = useState(false);
 	const hayProyecto = useEditor((e) => !!e.project.getActiveOrNull());
@@ -46,7 +72,7 @@ export function ExportButton() {
 				disabled={!hayProyecto}
 				onClick={() => setAbierto(true)}
 				className={cn(
-					"flex h-[27px] min-w-[80px] items-center justify-center gap-1.5 rounded-[4px] bg-primary px-3 text-[13px] font-medium text-white",
+					"flex h-[27px] min-w-[80px] items-center justify-center gap-1.5 rounded-[4px] bg-primary px-3 text-[13px] font-medium text-primary-foreground",
 					hayProyecto ? "cursor-pointer hover:brightness-110" : "cursor-not-allowed opacity-50",
 				)}
 			>

@@ -40,7 +40,8 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
 /** Las tabs que son SÓLO del Pro (docs/ofertas-mako.md): una capa «esencial» que las esconda es del área de capas. */
 // 25/10/2026: 'ads-manager' salió de acá: el Media Buyer es de los dos planes y lo que separa a Pro es el piloto automático y el
 // cupo (ads.recomendaciones_dia), no la tab.
-export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
+// 29/10/2026: 'ai-avatar' salió de acá. Martín: «haz que AI-Avatar esté disponible para todos» (los tres planes).
+export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor'] as const;
 
 /**
  * Lo que es SÓLO de Pro y no es una tab (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15): traer los contactos
@@ -48,12 +49,13 @@ export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor',
  * lib/partners-programa.ts). Un Esencial que paga por la pasarela las ve con el candado y «Pasar a Pro» (`textoSoloPro`); la
  * vitrina lo dice en la tabla (lib/planes-comparacion.ts). Quien YA era partner antes del 27/10 sigue siéndolo.
  */
-export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp', 'partners'] as const;
+// MaKo Partners salió de acá el 29/10/2026: cualquier plan es partner (la llamada con Thiago, «una persona refiere a MaKo», y
+// las landings, que dicen «gratis» y «cualquier plan»).
+export const FUNCIONES_SOLO_PRO = ['scraper-whatsapp'] as const;
 export type FuncionSoloPro = (typeof FUNCIONES_SOLO_PRO)[number];
 
 const QUE_ES_SOLO_PRO: Readonly<Record<FuncionSoloPro, string>> = {
   'scraper-whatsapp': 'Traer los contactos de un grupo de WhatsApp',
-  partners: 'Ser MaKo Partner y ganar por cada negocio que traes',
 };
 /** El texto del candado: qué es, que es de Pro y cómo tenerlo (con el botón a `RUTA_CAMBIAR_PLAN`). */
 export const textoSoloPro = (f: FuncionSoloPro): string => `${QUE_ES_SOLO_PRO[f]} es de MaKo Pro. Pasa a Pro para usarlo.`;
