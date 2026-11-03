@@ -48,9 +48,12 @@ test('1. el armado: el TTL es una FECHA, la urgencia es la prioridad, y el link 
   assert.equal((JSON.parse(armarApns({ ...payload, badge: 3 }, { ttlSegundos: 1, urgencia: 'high' }).cuerpo) as { aps: { badge: number } }).aps.badge, 3);
 });
 
-test('2. `apns-collapse-id` no pasa de 64 bytes, aunque el tag sea largo y con acentos', () => {
-  const a = armarApns({ ...payload, tag: 'ñ'.repeat(80) }, { ttlSegundos: 1, urgencia: 'high' });
-  assert.ok(Buffer.byteLength(a.cabeceras['apns-collapse-id']) <= 64);
+test('2. `apns-collapse-id`: hasta 64 bytes y sólo ASCII (una raya o un emoji en una cabecera mata el pedido)', () => {
+  for (const tag of ['ñ'.repeat(80), 'aviso — con raya', 'reunión 🗓️ hoy', 'x'.repeat(200)]) {
+    const c = armarApns({ ...payload, tag }, { ttlSegundos: 1, urgencia: 'high' }).cabeceras['apns-collapse-id'];
+    assert.ok(Buffer.byteLength(c) <= 64, tag);
+    assert.match(c, /^[A-Za-z0-9:_.-]*$/, tag);
+  }
 });
 
 test('3. el JWT: ES256 en el formato que pide Apple, y con su issuer y su kid', () => {
@@ -75,8 +78,6 @@ test('4. las claves: se pegan a mano, y un pegado sin saltos de línea igual sir
   assert.equal(clavesApnsDe({}), null);
   assert.equal(clavesApnsDe({ ...bien, p8: '' }), null);
   assert.equal(clavesApnsDe({ ...bien, keyId: 'corta', p8 }), null);
-  assert.equal(clavesApnsDe({ ...bien, p8 })?.sandbox, undefined, 'producción por defecto: TestFlight usa la de producción');
-  assert.equal(clavesApnsDe({ ...bien, p8, sandbox: '1' })?.sandbox, true);
 });
 
 test('5. sólo se borra lo que murió: una clave mal cargada no deja sin avisos a todos', () => {
@@ -130,6 +131,7 @@ test('9. `despachar` separa: nada de `apns:` le llega a web-push, y lo de APNs s
   const ruta = sinComentarios(leer('app/api/push/suscripcion/route.ts'));
   assert.match(ruta, /if \(!tokenApnsValido\(body\.apns\.token\)\) return Response\.json/);
   assert.match(ruta, /endpoint = endpointDeApns\(body\.apns\.token\);/);
+  assert.match(ruta, /plataforma: body\.apns \? 'ios' : plataformaDeUA\(ua\),/, 'el onboarding y el corte de grupos cuentan teléfonos por `plataforma`');
   const m = sinComentarios(leer('lib/metodo-catalogo.ts'));
   for (const k of ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8']) assert.match(m, new RegExp(`env: '${k}'`), `${k}: Martín no tiene dónde pegarla`);
 });

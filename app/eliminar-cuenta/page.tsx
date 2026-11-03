@@ -22,7 +22,7 @@ export default function Page() {
     <LegalShell
       titulo="Eliminar tu cuenta de MaKo"
       actualizado="3 de noviembre de 2026"
-      intro={<>Cómo eliminar tu cuenta de la app <strong>MaKo</strong> (de Martín Koncke) y qué se borra.</>}
+      intro={<>Cómo eliminar tu cuenta de la app <strong>MaKo</strong> y qué se borra.</>}
     >
       <H id="como">Desde la app</H>
       <ol>

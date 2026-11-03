@@ -13,7 +13,7 @@ import 'server-only';
 import http2 from 'node:http2';
 import { credWsEstricta } from './credenciales';
 import { wsSuperAdmin } from './workspace';
-import { HOST_APNS, HOST_APNS_SANDBOX, clavesApnsDe, jwtApns, tokenDeEndpoint, type ClavesApns, type EnvioApns } from './push-apns-reglas';
+import { HOST_APNS, clavesApnsDe, jwtApns, tokenDeEndpoint, type ClavesApns, type EnvioApns } from './push-apns-reglas';
 
 const TIMEOUT_MS = 10_000;
 const REUSO_JWT_MS = 50 * 60_000;
@@ -30,8 +30,9 @@ export async function clavesApns(): Promise<ClavesApns | null> {
   let claves: ClavesApns | null = null;
   try {
     const ws = await wsSuperAdmin();
-    const [keyId, teamId, p8, sandbox] = await Promise.all(['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8', 'APNS_SANDBOX'].map((k) => credWsEstricta(k, ws)));
-    claves = clavesApnsDe({ keyId, teamId, p8, sandbox });
+    // Producción siempre: TestFlight y el App Store usan la misma, y sin una Mac no hay builds de desarrollo.
+    const [keyId, teamId, p8] = await Promise.all(['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8'].map((k) => credWsEstricta(k, ws)));
+    claves = clavesApnsDe({ keyId, teamId, p8 });
     if (!claves) console.warn('[push] sin las claves de APNs (Método › Apple Push): los iPhones no reciben avisos.');
   } catch (e) {
     console.error('[push] no pude leer las claves de APNs:', e instanceof Error ? e.message : String(e));
@@ -55,7 +56,7 @@ export type RespuestaApns = { status: number | null; razon: string | null };
  * Manda un mensaje a varios tokens por UNA conexión (lo que Apple pide: abrir una por aviso se lee como un ataque).
  * `host`: sólo para el servidor local de tests/push-apns.test.ts.
  */
-export async function enviarApns(endpoints: string[], envio: EnvioApns, c: ClavesApns, host: string = c.sandbox ? HOST_APNS_SANDBOX : HOST_APNS): Promise<RespuestaApns[]> {
+export async function enviarApns(endpoints: string[], envio: EnvioApns, c: ClavesApns, host: string = HOST_APNS): Promise<RespuestaApns[]> {
   if (!endpoints.length) return [];
   const sesion = http2.connect(host);
   sesion.on('error', () => {});

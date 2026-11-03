@@ -29,6 +29,9 @@ create table if not exists bajas_cuenta (
   negocio     text check (negocio is null or char_length(negocio) <= 200),
   -- El negocio de prueba: el pedido se anota, pero no apaga nada (el revisor de la tienda puede tocar el botón).
   prueba      boolean not null default false,
+  -- Lo que ESTE pedido apagó: cancelar devuelve sólo eso. Un negocio pausado por impago sigue pausado.
+  pauso_negocio     boolean not null default false,
+  suspendio_usuario boolean not null default false,
   pedida_at   timestamptz not null default now(),
   vence_at    timestamptz not null,
   estado      text not null default 'pendiente' check (estado in ('pendiente', 'hecha', 'cancelada')),

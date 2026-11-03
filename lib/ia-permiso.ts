@@ -5,7 +5,8 @@
 // las enumera tests/ia-permiso.test.ts, y falla si una deja de llamarla:
 //   · lib/anthropic.ts (chatClaude, chatClaudeTools);
 //   · lib/ai-cheap.ts (la cascada, las herramientas, leer documentos y escuchar audio);
-//   · lib/embeddings.ts, lib/elevenlabs.ts;
+//   · lib/embeddings.ts (ahí vale como «sin con qué»: se busca por palabras);
+//   · lib/elevenlabs.ts, en lo que le manda voz o texto, y NO en la clave: quien retiró el permiso tiene que poder borrar su voz clonada;
 //   · lib/mako-turno-app.ts: el turno puede salir por la PC del cliente, que no pasa por ninguna de las de arriba.
 //
 // Sin pedido en curso (`headers()` tira: un cron, un webhook, un script) no hay persona que pueda dar permiso: sigue. Con pedido y sin

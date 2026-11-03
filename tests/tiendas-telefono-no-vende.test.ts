@@ -77,6 +77,12 @@ test('4. una pantalla de escritorio abierta en un teléfono tampoco ofrece el pl
   const p = sinComentarios(leer('app/no-esta-en-tu-plan/page.tsx'));
   assert.match(p, /const telefono = esTelefono\(/);
   assert.match(p, /pro && !deAgencia && !telefono \? ROTULO_PASAR_A_PRO/);
+  // El cartel del primer mes del cliente de una agencia, en el layout raíz: sin precio ni link.
+  const cartel = sinComentarios(leer('app/_components/CartelPagoCliente.tsx'));
+  assert.match(cartel, /if \(telefono && !primer\) return null;/);
+  assert.match(cartel, /\{!telefono && <div className="cpc-precio">/);
+  assert.match(cartel, /\{!telefono && <a className="cpc-pagar" href=\{cartel\.link\}>/);
+  assert.match(sinComentarios(leer('app/crm/PasarAPro.tsx')), /if \(typeof navigator !== 'undefined' && esTelefono\(navigator\.userAgent\)\) return null;/);
   // La cuenta pausada: el botón, lo que se debe y el texto que manda a elegir un plan.
   const pausada = sinComentarios(leer('app/cuenta-pausada/page.tsx'));
   assert.match(pausada, /const telefono = esTelefono\(/);
@@ -145,6 +151,17 @@ test('10. Community no va en la app de iPhone (Apple 1.2 pide bloquear desde la 
   assert.equal((post.match(/<ReportarRespuesta /g) ?? []).length, 2, 'la publicación y cada comentario');
 });
 
+test('11. todo lo que dibuja el teléfono parsea: los demás tests leen el texto, y un `<div>` de menos no lo ve ninguno', async () => {
+  const ts = (await import('typescript')).default;
+  const rotos: string[] = [];
+  for (const f of [...archivos('app/m'), 'app/_chat/HiloMako.tsx', 'app/_chat/ReportarRespuesta.tsx', 'app/_components/CartelPagoCliente.tsx', 'app/perfil/EliminarCuenta.tsx', 'app/admin/BajasDeCuenta.tsx']) {
+    if (!f.endsWith('.tsx')) continue;
+    const s = ts.createSourceFile(f, readFileSync(f, 'utf8'), ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX) as unknown as { parseDiagnostics: unknown[] };
+    if (s.parseDiagnostics.length) rotos.push(f);
+  }
+  assert.deepEqual(rotos, []);
+});
+
 test('8. el login de la app de iPhone no tiene Google y abre el correo; sin la marca, igual que siempre', () => {
   const form = sinComentarios(leer('app/login/LoginForm.tsx'));
   assert.match(form, /\{!sinGoogle && <a\s+href=\{`\/api\/auth\/google/);
@@ -170,3 +187,4 @@ test('8. el login de la app de iPhone no tiene Google y abre el correo; sin la m
 //   · el botón de Google sin la condición                     -> 8 / 1 (8)
 //   · la marca distinta de la de Capacitor                    -> 8 / 1 (5)
 //   · un iPhone cualquiera prende el modo                     -> 8 / 1 (5)
+//   · un `<div>` de menos en PostM (lo que pasó en 2d833218b, y ningún test lo vio: lo encontró la revisión) -> 11

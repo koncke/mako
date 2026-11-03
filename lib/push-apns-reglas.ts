@@ -17,7 +17,6 @@ import type { PayloadPush } from './push-payload';
 
 export const BUNDLE_ID = 'com.holamako.app';
 export const HOST_APNS = 'https://api.push.apple.com';
-export const HOST_APNS_SANDBOX = 'https://api.sandbox.push.apple.com';
 
 /** Lo que va en `p256dh` y `auth` de una fila de APNs: las columnas son `not null`, con largo mínimo. */
 export const MARCA_SIN_CLAVE_APNS = 'apns-sin-clave';
@@ -30,16 +29,16 @@ export const endpointDeApns = (token: string): string => `${PREFIJO}${token.toLo
 export const esEndpointApns = (endpoint: string | null | undefined): boolean => String(endpoint ?? '').startsWith(PREFIJO);
 export const tokenDeEndpoint = (endpoint: string): string => endpoint.slice(PREFIJO.length);
 
-export type ClavesApns = { keyId: string; teamId: string; p8: string; sandbox?: boolean };
+export type ClavesApns = { keyId: string; teamId: string; p8: string };
 
 /** Las tres credenciales, ya normalizadas. `null` = todavía no están. Se pegan en Método: un pegado puede perder los saltos de la .p8. */
-export function clavesApnsDe(v: { keyId?: string | null; teamId?: string | null; p8?: string | null; sandbox?: string | null }): ClavesApns | null {
+export function clavesApnsDe(v: { keyId?: string | null; teamId?: string | null; p8?: string | null }): ClavesApns | null {
   const keyId = String(v.keyId ?? '').trim();
   const teamId = String(v.teamId ?? '').trim();
   const cuerpo = String(v.p8 ?? '').replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
   if (!/^[A-Z0-9]{10}$/.test(keyId) || !/^[A-Z0-9]{10}$/.test(teamId) || cuerpo.length < 40) return null;
   const lineas = cuerpo.match(/.{1,64}/g) ?? [];
-  return { keyId, teamId, p8: `-----BEGIN PRIVATE KEY-----\n${lineas.join('\n')}\n-----END PRIVATE KEY-----\n`, ...(String(v.sandbox ?? '') === '1' ? { sandbox: true } : {}) };
+  return { keyId, teamId, p8: `-----BEGIN PRIVATE KEY-----\n${lineas.join('\n')}\n-----END PRIVATE KEY-----\n` };
 }
 
 const b64u = (b: Buffer | string) => Buffer.from(b).toString('base64url');
@@ -69,8 +68,9 @@ export function armarApns(p: PayloadPush, o: { ttlSegundos: number; urgencia: st
       'apns-push-type': 'alert',
       'apns-priority': o.urgencia === 'high' ? '10' : '5',
       'apns-expiration': String(o.ttlSegundos > 0 ? ahora + Math.floor(o.ttlSegundos) : 0),
-      // `apns-collapse-id` tiene tope de 64 bytes: el mismo aviso reemplaza al anterior, como el `tag` del Web Push.
-      'apns-collapse-id': Buffer.from(p.tag).subarray(0, 64).toString('utf8').replace(/�+$/, ''),
+      // El mismo aviso reemplaza al anterior, como el `tag` del Web Push. Hasta 64 bytes, y sólo ASCII: una raya o un emoji en una cabecera de HTTP/2 mata el
+      // pedido (NGHTTP2_PROTOCOL_ERROR, medido), y ese aviso no llegaría nunca.
+      'apns-collapse-id': p.tag.replace(/[^A-Za-z0-9:_.-]+/g, '-').slice(0, 64),
     },
     cuerpo: JSON.stringify({
       aps: { alert: { title: p.titulo, body: p.cuerpo }, sound: 'default', ...(typeof p.badge === 'number' ? { badge: p.badge } : {}) },

@@ -90,15 +90,15 @@ export default function Page() {
       <H id="tus-datos">Qué datos tuyos guardamos</H>
       <H3>Al crear la cuenta</H3>
       <p>
-        Se entra <strong>solo con Google</strong>.{' '}
+        Se entra <strong>con Google o con tu correo y una contraseña</strong>.{' '}
         {agendaAlEntrar
           ? <>Ese acceso pide los permisos de identidad (<code>openid email profile</code>) y, en la misma pantalla de Google, tu
             calendario (más abajo, en «Google»: lo puedes destildar y entras igual). De la identidad se guardan cuatro cosas: tu{' '}</>
           : <>Ese acceso pide únicamente los permisos de identidad (<code>openid email profile</code>) y de ahí se guardan
             cuatro cosas: tu{' '}</>}
         <strong>correo</strong>, tu <strong>nombre</strong>, la <strong>dirección de tu foto</strong>{' '}
-        de perfil de Google y la <strong>fecha de tu último ingreso</strong>. No se guarda tu
-        contraseña — MaKo nunca la ve.
+        de perfil de Google y la <strong>fecha de tu último ingreso</strong>. Tu contraseña de Google,
+        MaKo nunca la ve. La de MaKo se guarda como un resumen irreversible, nunca el texto.
       </p>
       <p>
         No cualquiera con una cuenta de Google entra: tu correo tiene que estar dado de alta.
