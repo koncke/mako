@@ -29,7 +29,7 @@ export const VENTANA_LINEA_MIN = 60;
  * ⚠️ Y EL TOPE DE ALTAS POR LÍNEA (3/11/2026). El de arriba es por workspace y la línea es UNA: el día del ban la línea tocó 3 números en 3
  * minutos, repartidos en 2 negocios, y el tope de cada uno ni se enteró. Éste cuenta altas en grupos e invitaciones de TODA la línea. El código de
  * verificación no gasta acá: un cliente que lo pide dos veces no puede quedarse sin onboarding por lo que hizo otro negocio.
- * Se paga con esto: el 21/10 un negocio guardó 3 números en 2 minutos; hoy el tercero recibiría el link para pasarlo a mano.
+ * Se paga con esto: el 21/10 un negocio guardó 3 números de una vez; hoy el tercero recibiría el link para pasarlo a mano.
  */
 export const TOPE_ALTAS_POR_LINEA = 2;
 export const VENTANA_ALTAS_LINEA_MIN = 10;
