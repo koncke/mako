@@ -30,7 +30,10 @@ import type { Cerebro } from './cerebro-modelo';
 
 /** Lo que hace falta de un curso para leerlo. Se le pasa ya cargado: este módulo no importa cursos. */
 export type CursoParaLeer = {
-  clases: ReadonlyArray<{ titulo?: string; videoId?: string }>;
+  // ⚠️ `| null` Y NO SÓLO `| undefined`: el `Clase` del repo declara estos campos como
+  // `string | null`, y con `?: string` el tipo de un `Curso` de verdad NO entra acá. Lo cazó el tsc
+  // acotado antes de subirlo (`Argument of type 'Curso' is not assignable to 'CursoParaLeer'`).
+  clases: ReadonlyArray<{ titulo?: string | null; videoId?: string | null }>;
 };
 
 const CARPETA_TX = path.join(process.cwd(), 'public', 'cono-tx');

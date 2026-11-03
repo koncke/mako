@@ -968,3 +968,33 @@ que falta es medir el costo por búsqueda, ponerle tope por día y prenderlo.
 persona deje de escribir (900 ms) y eso no se toca. «Mientras escribo» significa *sin apretar un
 botón*, no *una llamada por tecla*: con una por tecla, «leilahormozi» son trece lecturas y dos altas
 agotan el día del negocio.
+
+## 🎨 LA CARICATURA POR FLOW — la arquitectura, medida (3/11/2026 ~00:30)
+
+Martín confirmó que el puente corre sobre SU cuenta y pidió hacerlo. Esto es lo que hay que saber,
+leído de los archivos, para que no haya que volver a descubrirlo:
+
+**NO se llama a Google desde el servidor. Hay una COLA.** La app encola un trabajo
+(`encolar(tipo, pedido)`, `lib/flow-cola.ts`) y el PUENTE —el navegador de Martín— lo toma y lo
+ejecuta. Los tipos son `'subir_imagen' | 'generar_imagen' | 'generar_clip' | ...`.
+
+**La receta exacta está en `app/ai-avatar/actions.ts:171`, y es de DOS pasos:**
+1. `caraDeFoto(fotoId)` → el `mediaId` de esa foto DENTRO de Flow. Si todavía no está, encola
+   `'subir_imagen'` y devuelve `''`; se reintenta en unos segundos. **No es sincrónico.**
+2. `encolar('generar_imagen', pedidoImagenInterfaz({ prompt, cara, ruta }))`.
+
+**Lo que hay que escribir para el competidor** (`lib/spy-caricatura-flow.ts`, no existe todavía):
+· un `caraDelCompetidor(id, avatarUrl)` equivalente a `caraDeFoto`, pero leyendo de NUESTRO bucket
+  (`spy_competidores.avatar`, migración 0362) en vez de `persona.fotos` del AI Avatar. El resto es
+  igual: buscar un `subir_imagen` anterior por una clave estable (`spy:<id>`), y si no hay, bajar el
+  avatar y encolarlo;
+· el prompt aprobado, textual, está en `docs/hallazgos-ops-center.md`. **Va como prompt EDITABLE**
+  (`.claude/skills/add-editable-prompt`), no hardcodeado;
+· guardar el resultado en el bucket `spy-miniaturas`, con su propia ruta.
+
+⚠️ **NO adentro de «Revisar ahora»**: generar tarda mucho más que bajar una imagen y esa función ya
+casi se pasa del tiempo de la ruta. Va como trabajo aparte, después de crear el competidor.
+⚠️ **CON TOPE**, y ahora más que antes: la factura es de Martín. `TOPE_CREDITOS.imagen`
+(`lib/flow-interfaz.ts`) es el molde que ya usa el AI Avatar.
+⚠️ **Hoy no urge para sus dos competidores**: Sofía Contreras y Alex Hormozi YA muestran caricatura,
+porque son referentes y se reusó la dibujada. Esto hace falta para el competidor que NO es gurú.
