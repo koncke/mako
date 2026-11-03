@@ -23,10 +23,11 @@ export function InstalarApp({ qr, url, extension }: {
   qr: string | null;
   /** La dirección de MaKo, la que abre el teléfono. */
   url: string;
-  extension: { version: string; enTienda: boolean; tienda: string; zip: string };
+  /** La versión es la que da la tienda, no la del repo: es la que esta persona se lleva al tocar el botón. */
+  extension: { version: string; tienda: string };
 }) {
-  const boton = (href: string, texto: ReactNode, opts: { descargar?: boolean; afuera?: boolean; titulo?: string } = {}) => (
-    <a className="aj-boton" data-variante="borde" href={href} title={opts.titulo} {...(opts.descargar ? { download: true } : {})}
+  const boton = (href: string, texto: ReactNode, opts: { afuera?: boolean; titulo?: string } = {}) => (
+    <a className="aj-boton" data-variante="borde" href={href} title={opts.titulo}
       {...(opts.afuera ? { target: '_blank', rel: 'noreferrer' } : {})}>{texto}</a>
   );
   return (
@@ -55,7 +56,7 @@ export function InstalarApp({ qr, url, extension }: {
 
       <GrupoAjustes titulo="En tu navegador">
         <FilaAjustes icono="web" titulo="Extensión para Chrome" detalle={`Versión ${extension.version}`}
-          fin={extension.enTienda ? boton(extension.tienda, 'Agregar a Chrome', { afuera: true }) : boton(extension.zip, 'Descargar', { descargar: true })} />
+          fin={boton(extension.tienda, 'Agregar a Chrome', { afuera: true })} />
         <FilaAjustes icono="pregunta" titulo="Cómo instalarla" href="/extension/instalar" />
       </GrupoAjustes>
     </>

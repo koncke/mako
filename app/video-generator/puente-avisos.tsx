@@ -29,7 +29,7 @@ import { rehabilitarPuenteAction } from './puente-actions';
 import type { Puente } from '@/lib/flow-cola';
 import { estaVivo } from '@/lib/flow-puente-frescura';
 import { puedeInstalarExtension, type PuedeInstalar } from '@/lib/navegador';
-import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA } from '@/lib/extension-tienda';
+import { EXTENSION_URL_TIENDA } from '@/lib/extension-tienda';
 
 /** El id del aviso. Es lo que `resaltarAviso()` busca cuando un clic choca contra el gate. */
 export const ID_AVISO_PUENTE = 'mk-aviso-puente';
@@ -147,29 +147,14 @@ export function AvisoPuente({ puente, ahora, instalada, compacto = false }: {
             <strong>Falta la extensión de MaKo.</strong>
             {!compacto && ' Es la que produce los videos, con tu cuenta de Google Flow.'}
           </span>
-          {EXTENSION_EN_TIENDA ? (
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
-              icon={<Icon name="descargar" size={13} />}
-            >
-              Añadir a Chrome
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              variant="secondary"
-              // Al INSTRUCTIVO y no al zip: un archivo comprimido sin la receta
-              // es medio remedio, y encima el zip está detrás del login, así que
-              // el link directo puede terminar en una pantalla de sesión sin
-              // ninguna explicación.
-              onClick={() => { window.location.href = '/extension/instalar'; }}
-              icon={<Icon name="descargar" size={13} />}
-            >
-              Descargar
-            </Button>
-          )}
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => window.open(EXTENSION_URL_TIENDA, '_blank', 'noopener')}
+            icon={<Icon name="plus" size={13} />}
+          >
+            Agregar a Chrome
+          </Button>
         </div>
       </Caja>
     );
