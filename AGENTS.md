@@ -2025,6 +2025,12 @@ código nuevo:
       una función que existe ni prometer una que no. Lo fija tests/funciones-mako.test.ts. ES LA FUENTE: una capacidad de
       lib/mako-capacidades.ts (el «cómo se hace» del Perro) toma su tab de ahí, y `listar_capacidades_mako` devuelve esas
       funciones; un catálogo nuevo AL LADO no va.
+    - **El catálogo, las rutas y las herramientas usan el nombre que la persona LEE en la pantalla** (tickets #45 a #48 de
+      Leila, 3/11/2026): con «Aprender solo» por «Aprende solo», «automatización» por «secuencia» o «Documentos» por «El
+      brief», MaKo NIEGA lo que sí tiene, que es peor que no tenerlo. Dónde se corrige un dato del negocio sale de
+      `DATOS_DEL_NEGOCIO` / `lugarDato` (lib/secciones-negocio.ts), nunca escrito a mano. Si un pedido real no trae su
+      herramienta, se mide con el turno de verdad (`herramientasDelChat`, no la lista `noViajaron` del ticket, que trae sólo
+      las 6 de más puntaje) y la familia nueva de lib/mako-intencion-app.ts lleva su frase literal en un test.
   - **EL CHAT DE MaKo SON TRES PIEZAS JUNTAS, en toda la app** (23/10/2026; Martín: «Tienes que UNIFICAR los chats con MaKo en
     toda la app»): el PANEL (`app/admin/operaciones/PanelChat.tsx` → `PanelDeChat`: la cabecera con la criatura, arrastrar y
     soltar, la columna del hilo y el lugar de la caja), el HILO (`app/_chat/HiloMako.tsx`) y la CAJA (abajo). Lo propio de cada
