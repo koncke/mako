@@ -21,7 +21,7 @@ Cómo se opera: `~/.claude/operaciones/LEEME-cartero.md`, con el prompt del cron
 
 ## A medias: `runner-servicio-3010`, sin subir
 
-Carpeta `C:/dev/wt-runner-servicio`. Medido el 03/11 a las 00:45 UTC contra `59353f806`: 156 commits atrás de main, y sus únicos commits nuevos son de este relevo. Antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
+Carpeta `C:/dev/wt-runner-servicio`. Medido el 03/11 a las 00:45 UTC contra `59353f806`: 15 commits propios (el servicio y este relevo) y 156 atrás de main. Antes de subir hay que traer main con merge, sin rebasar. Va último en la cola del Cerebro. Falta:
 
 - Tipos de `useCentro.ts` y de los `.tsx` grandes (el acotado dio 99; los juzga Actions).
 - Verla en la pantalla real como super admin. El arnés sólo probó la pieza y su CSS.
