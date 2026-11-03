@@ -56,7 +56,7 @@ test('2. Settings del teléfono: el sol/luna en la cabecera, «Tu negocio» dire
   assert.match(sinComentarios(leer('app/_components/InterruptorModo.tsx')), /if \(variante === 'cabecera'\) \{[\s\S]{0,200}className="m-cabecera__accion"/);
   // Las secciones las arma el server con la lista de la computadora, cada una con su pantalla del teléfono.
   const p = sinComentarios(leer('app/m/cuenta/page.tsx'));
-  assert.match(p, /seccionesNegocio\(await disponiblesNegocio\(\)\)\.map/);
+  assert.match(p, /seccionesNegocio\(await disponiblesNegocio\(\)\)\]\.map/);
   assert.match(p, /const enTelefono = s\.key in SECCIONES_NEGOCIO_M;/);
   assert.match(p, /const verNegocio = puedeVerKey\('configuraciones', ctx\.rol, ctx\.capa\);/, '«Tu negocio» se le muestra a quien no administra');
 });
