@@ -233,6 +233,9 @@ export async function POST(req: NextRequest) {
         const { eliminarWorkspace } = await import('@/lib/eliminar-workspace');
         const r = await eliminarWorkspace(body.id, String(body.nombre ?? ''), await getWorkspaceActual());
         if (!r.ok) return NextResponse.json(r, { status: 400 });
+        // Si lo había pedido (Eliminar mi cuenta): cierra su pedido y le manda el mail que le prometimos. Nunca tira.
+        const { cerrarBajasDelNegocio } = await import('@/lib/baja-cuenta');
+        await cerrarBajasDelNegocio(body.id, admin.email);
         return NextResponse.json(r);
       }
 

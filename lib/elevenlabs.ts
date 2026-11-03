@@ -69,6 +69,7 @@ import 'server-only';
 // respuesta, no un hecho.
 
 import { credDelCliente } from '@/lib/credenciales';
+import { exigirPermisoIa } from '@/lib/ia-permiso';
 import { clasificarEleven as clasificar, elSondeoDicePuede, pareceAudio, type FalloEleven } from './elevenlabs-fallo';
 import { wsSuperAdmin } from '@/lib/workspace';
 
@@ -152,6 +153,8 @@ export type Salida<T> =
 const SIN_KEY = 'Falta conectar tu cuenta de ElevenLabs: la voz clonada corre con tu propia key.';
 
 export async function elevenKey(): Promise<string | null> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   return credDelCliente('ELEVENLABS_API_KEY');
 }
 async function pedir(ruta: string, init: RequestInit, key: string): Promise<Response> {

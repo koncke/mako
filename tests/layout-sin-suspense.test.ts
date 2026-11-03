@@ -25,6 +25,8 @@ import { renderToPipeableStream } from 'react-dom/server';
 import Privacidad from '../app/privacidad/page';
 import Terminos from '../app/terminos/page';
 import Reembolsos from '../app/reembolsos/page';
+import EliminarCuenta from '../app/eliminar-cuenta/page';
+import Soporte from '../app/soporte/page';
 
 const LAYOUT = resolve(__dirname, '..', 'app/layout.tsx');
 
@@ -201,6 +203,9 @@ const PAGINAS: Array<[string, () => ReactElement, string, number?]> = [
   // La política de reembolsos (11/10/2026): la piden Stripe y Mercado Pago para aprobar la cuenta, y
   // su revisor la abre sin cuenta y puede que sin JavaScript, igual que el de Google las otras dos.
   ['/reembolsos', () => createElement(Reembolsos), 'lo ya pagado no se reembolsa', 2000],
+  // Las que piden las tiendas (3/11/2026): cortas de verdad, y las abre un revisor sin cuenta.
+  ['/eliminar-cuenta', () => createElement(EliminarCuenta), 'Qué se borra', 500],
+  ['/soporte', () => createElement(Soporte), 'Si no puedes entrar', 400],
 ];
 
 for (const [ruta, pagina, frase, minimo = 5000] of PAGINAS) {

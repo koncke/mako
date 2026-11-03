@@ -8,6 +8,7 @@
 // Los href son internos (/m/…): `conWs` los sale como /classroom/clients, /classroom/community y /classroom.
 
 import { SegmentadoM } from '@/app/m/_ui';
+import { esAppIosDelPedido } from '@/lib/tienda-pedido';
 
 export type SeccionClientsM = 'clients' | 'community' | 'classroom';
 
@@ -17,11 +18,13 @@ const OPCIONES: Array<{ id: SeccionClientsM; label: string; href: string }> = [
   { id: 'clients', label: 'Clients', href: '/m/cs' },
 ];
 
-export function SeccionesClientsM({ activa }: { activa: SeccionClientsM }) {
+export async function SeccionesClientsM({ activa }: { activa: SeccionClientsM }) {
+  // La app de iPhone no lleva Community: Apple (1.2) pide bloquear a un usuario desde la app, y la moderación está en la computadora.
+  const opciones = (await esAppIosDelPedido()) ? OPCIONES.filter((o) => o.id !== 'community') : OPCIONES;
   return (
     // Estilo en línea y no una clase: lo dibujan tres pantallas, cada una con SU hoja (app/m/_ui/LEEME.md §5).
     <div style={{ marginBottom: 14 }}>
-      <SegmentadoM etiqueta="Classroom" valor={activa} opciones={OPCIONES} />
+      <SegmentadoM etiqueta="Classroom" valor={activa} opciones={opciones} />
     </div>
   );
 }

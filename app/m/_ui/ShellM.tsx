@@ -41,6 +41,7 @@ import { iniciarCapturaInstalacion } from '@/lib/movil-instalar';
 import { asegurarRegistro } from '@/lib/push-cliente';
 import { cabeceraPorRuta, nivel, rotuloVolver, RUTA_CONFIGURAR, RUTA_CUENTA, TITULO_CUENTA } from './cabecera';
 import { ShellCtx, type CabeceraPisada, type ConexionM, type OpcionesToast } from './contexto';
+import { PermisoIaM } from './PermisoIaM';
 import { horaCorta } from './formato';
 import { MARCA_TEMA_M } from './tema';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -336,6 +337,8 @@ export function ShellM({
             documento, y si la capa venía al final —detrás del Centro entero— el primer cuadro podía ser el Centro. Primera,
             lo primero que tiene para pintar es la capa. Arriba de todo la pone su z-index, no el orden. */}
         {entrada && <EntradaApp destino={`[${DESTINO_ENTRADA}]`} onFin={finEntrada} />}
+        {/* La app de iPhone pregunta una vez antes de mandarle algo a una IA de terceros (Apple 5.1.2(i)). */}
+        {usuario && <PermisoIaM />}
 
         <header className="m-cabecera" ref={cabeceraRef} data-fuera={fuera ? '' : undefined}>
           <div className="m-cabecera__fila">
