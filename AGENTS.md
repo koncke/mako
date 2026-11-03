@@ -630,9 +630,13 @@ al habilitar `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`, el build empezó a terminar bie
 - ⚠️ **En Windows la exclusión no hace nada, en silencio**: Next normaliza las barras de los
   `Includes` y no las de los `Excludes` (`next/dist/build/collect-build-traces.js`). Un build local
   no sirve para comprobarla; el test mide en `path.posix`.
-- **La máquina de build ya es `enhanced`** (8 cores, 16 GB, medido el 17/10/2026), así que
-  «activar Enhanced Builds», lo que sugiere el propio mensaje de Vercel, **ya está hecho**: bajar el
-  peso es el único camino desde el repo.
+- **La máquina de build ya pasó Enhanced**: medido el 3/11/2026 por API, el proyecto `mako` construye
+  en `buildMachineType: "turbo"` con `elasticConcurrencyEnabled: true` (era `enhanced` el 17/10). Así
+  que «activar Enhanced Builds», lo que sugiere el propio mensaje de Vercel, **ya está hecho y
+  superado**: bajar el peso es el único camino desde el repo.
+- El `buildCommand` del proyecto es `null`, o sea el default de Next: **`npm run build`**, que es lo
+  que hace correr el `prebuild`. Si alguien lo cambia a `next build` a secas, el `prebuild` deja de
+  correr **sin avisar** y vuelve el `ENOSPC`.
 
 # Para validar lo tuyo sin el tsc completo: `node scripts/tsc-acotado.mjs`
 

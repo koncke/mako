@@ -28,17 +28,15 @@ tapó el problema cinco veces: nada avisa, porque la app anda.
    funciones, y el `prebuild` que borra el proveedor de CUDA (327 MB) del disco del contenedor.
    **Si el deploy sale verde, era eso.** Si vuelve a dar `ENOSPC`, lo que falta medir está en
    `docs/hallazgos-infra.md` → «Subir el tope de la función cambió el error por uno peor».
-3. **Dos cosas que NO se pudieron hacer porque la RAM de la PC quedó en 1,7 GB** (la guardia bloquea
-   Bash por debajo de 3 GB, y las herramientas de archivo sí andan):
-   - Confirmar por API que el `buildCommand` del proyecto es `npm run build` y no `next build` a
-     secas. ⚠️ **Si fuera `next build`, el `prebuild` NO corre** y la mitad del arreglo no existe.
-     El script quedó listo en el scratchpad de la sesión (`vercel-proyecto.mjs`), o se mira en
-     Vercel → Settings → Build & Development Settings.
-   - Poner `VERCEL_BUILD_SYSTEM_REPORT=1` en el proyecto. Sin esa variable el reporte del contenedor
-     devuelve `unknown` en «Input source code» y «Build cache», que son justo los dos números que
-     faltan para saber qué llena el disco. Es diagnóstico, no cambia el comportamiento.
-4. **«Activar Enhanced Builds», que sugiere el propio mensaje de Vercel, YA ESTÁ HECHO**: la máquina
-   es `enhanced` (8 cores, 16 GB) desde el 15/10. No es una palanca disponible.
+3. **Las dos comprobaciones que faltaban, hechas** (3/11 ~04:15, por API):
+   - El `buildCommand` del proyecto es `null`, o sea el default de Next, **`npm run build`**: el
+     `prebuild` SÍ corre. ⚠️ Si alguien lo cambia a `next build` a secas, deja de correr sin avisar.
+   - `VERCEL_BUILD_SYSTEM_REPORT=1` quedó puesta (production y preview). Sin ella el reporte del
+     contenedor devuelve `unknown` en «Input source code» y «Build cache», los dos números que
+     faltan para saber qué llena el disco. Es diagnóstico, no cambia el build.
+4. **«Activar Enhanced Builds», que sugiere el propio mensaje de Vercel, ya está hecho y superado**:
+   medido el 3/11, la máquina es **`turbo`** con concurrencia elástica (era `enhanced` el 17/10).
+   No es una palanca disponible: hay que bajar el peso.
 5. **Hay que volver a prender el corte del 99 %**: borrar `~/.claude/guardia/sin-corte`. Lo apagó
    Martín a propósito («hazlo tu, no importa el 99%») con producción rota; ya no corresponde.
 
@@ -51,8 +49,14 @@ tapó el problema cinco veces: nada avisa, porque la app anda.
   del catálogo. El arreglo es el del #45: que la respuesta ofrezca ese camino en vez de negar.
   Y MaKo marcó sola una inconsistencia de datos que hay que resolver con ella: su perfil dice
   **800 MXN/mes** y el producto «LíderMente» del catálogo dice **USD 49/mes**.
-- **#47 — entró por la Ticketera el 3/11 ~03:40**, sin leer todavía. Se lee con
-  `node --import tsx scripts/tickets.ts ver 47` desde el clon.
+- **#47 y #48 — entraron por la Ticketera el 3/11 entre ~03:40 y ~03:55**, sin leer todavía (la
+  guardia de RAM dejó la PC por debajo de 3 GB y Bash quedó bloqueado). Se leen con
+  `node --import tsx scripts/tickets.ts ver 47` y `… ver 48` desde el clon.
+
+**Subido:** `31dd88629..5fdfd90ba` a `integracion` (3/11 ~04:10). Para que entrara hubo que archivar
+siete chats quietos: la PC estaba en 1,7 GB y la guardia bloquea Bash por debajo de 3. Se desarchivan
+desde la barra si vuelven a tener trabajo. ⚠️ **No pushear de nuevo hasta que ese run cierre**: un
+push a `integracion` cancela el anterior.
 
 ---
 
