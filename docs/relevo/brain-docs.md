@@ -10,8 +10,8 @@ Rama `brain-docs-0311` en `C:/dev/wt-brain-docs`, desde `origin/main` (7c0cff10c
 - `d0fcf63ea` el hito con `tickets: [44]` en `app/admin/dev/second-brain/bitacora.ts` y el aviso sin El Archivero.
 - El ticket está `arreglado` con la respuesta para la clienta (scripts/tickets.ts): se cierra solo con el deploy.
 - Tests: `tests/sumar-documento-second-brain.test.ts` (8 roturas, cada una cae) + 670 de lo tocado en verde.
-- ⚠️ **`node scripts/tsc-acotado.mjs --rama` NO corrió** (código 134 dos veces: otro chequeo de tipos en la PC y sin RAM).
-  Falta ese verde antes de subir.
+- `node scripts/tsc-acotado.mjs --rama --heap=4096`: **17 archivos sin errores** (3/11, con main traído, sobre `379fdf6a6`). Después de eso entró una sola línea en la tabla `lib/api-mako/rest.ts`: ahí el acotado dio 99 (lo mató el vigía de RAM), así que esa línea la cubren los tests `api-mako-rest` y `api-mako-http`, no los tipos.
+- Al traer main, `api-mako-rest` dio rojo: la operación nueva no tenía ruta REST ni estaba en la referencia. Ya las tiene (`POST /negocio/archivero/documentos`).
 - Lo que costó: docs/hallazgos-api-mako.md → «"No tengo una herramienta" era la mitad».
 
 ⚠️ **A la clienta le falta el documento ENTERO.** Lo pegó el 2/11 y el chat lo cortó en 12.000 caracteres sin guardarlo (su
