@@ -27,7 +27,31 @@ para que la cuenta quede medida. Si `~/.claude/operaciones/uso/<cuenta>.json` no
 SuperAdmin no la ve. ⚠️ **Si el chat no tiene `start_session`, el Cerebro NO puede abrir el Runner**: lo abre Martin,
 y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
-## 🔚 RELEVO FINAL DE claude1 — 2/11/2026 ~21:15, al 95 % de cuota
+## 🔚 RELEVO FINAL DE claude1 — 3/11/2026 ~00:50, al 98 %
+
+⛔ **LO PRIMERO AL RETOMAR, Y SON TRES COSAS:**
+
+1. **Hay un run corriendo: `f74e6930e`** (run `41553250011`). Lleva TODO el cierre de Competitors
+   Spy. `origin/main` está en `59353f806`; si ese run sale verde, main salta solo.
+2. **Hay UN commit local sin pushear: el del relevo.** No se pusheó a propósito — cancelaría ese
+   mismo run. En cuanto cierre, `MAKO_SIN_ANTES_DE_SUBIR=1 git push origin HEAD:integracion`.
+3. **Un rojo ahora SE ANUNCIA SOLO**: `git fetch && git rev-parse --verify origin/ci-ultimo-rojo`
+   dice cuál fue el último commit que puso rojo a Actions. Lo explica todo más abajo.
+   ⚠️ **ESA RAMA ES «EL ÚLTIMO ROJO», NO «EL ESTADO DE AHORA», y confundirlo cuesta una hora.**
+   Al cerrar apunta a `849e9ec42`, que fue un rojo YA ARREGLADO hace varios commits. La marca sólo
+   sirve comparada contra la cabeza que se pusheó: si `ci-ultimo-rojo` **es** esa cabeza, el run
+   falló; si apunta a algo anterior, es historia y no dice nada del run en vuelo.
+
+⚠️ **Y DOS REGLAS DE LA CASA QUE CAMBIÉ ESTA NOCHE, a pedido de Martín**, porque quien retome se las
+va a encontrar y tiene que saber por qué:
+· `~/.claude/bitacora-sesion.sh` — **el cierre pasó del 95 % al 98 %**. El 95 % decía «no arranques
+  nada más» y yo se lo contesté a Martín una y otra vez cuando él me había pedido explícitamente lo
+  contrario. Su frase: «si estás llegando al final —98, 99— guardes contexto y yo lo sigo con la
+  próxima cuenta».
+· `~/.claude/guardia/corte-97.mjs` — **el corte duro pasó de 97 a 99**, porque con 97 el chat moría
+  ANTES del umbral de cierre del 98 y el aviso no llegaba a dispararse nunca.
+
+## (anterior) RELEVO — 2/11/2026 ~21:15, al 95 % de cuota
 
 **`origin/main` = `7eea250f5`** (runs #364 y #365 verdes). **Todo Competitors Spy está desplegado y
 verificado en producción**, mirando hola-mako.com/competitor-spy: las tarjetas tiran de
@@ -44,6 +68,30 @@ Lleva lo último de la noche:
 perdí `starts('/admin/offer-playbook')` del `match`, y `tests/offer-en-create.test.ts` lo exigía con
 razón. **El `match` no se recorta aunque el ítem no se dibuje**: lo usan el título de la pestaña y
 las rutas viejas. Ya está restituido y en verde (26/0) dentro de este run.
+
+## ✅ COMPETITORS SPY QUEDÓ CERRADO (3/11/2026 ~00:45, en `f74e6930e`)
+
+Martín: «que se cierre absolutamente todo lo de competitor spy». Lo que entró en la última tanda:
+
+| | Qué |
+|---|---|
+| **Buscar por NOMBRE, sin @** | actor `apify~instagram-scraper`. **US$1,50 / 1.000 resultados → US$0,012 la búsqueda**, tope diario de 40 ⇒ US$0,48/día por negocio. **PROBADO contra el actor de verdad** |
+| **Desplegable mientras se escribe** | se REUSÓ el del alta de un lead (`app/crm/new/InstagramBuscador.tsx`), no se hizo otro |
+| **YouTube en la caché compartida** | ahí se ahorra cuota de la API, no plata del negocio |
+| **Poda a 30 días** | escrita. ⚠️ **NO hay cron que la llame todavía** |
+| **Caricatura por Flow** | `lib/spy-caricatura-flow.ts`, sobre la cuenta de Martín, con el prompt aprobado literal |
+| **El modal** | la vista previa pasa a la anatomía de la tarjeta: la imagen manda |
+
+⚠️ **EL HALLAZGO QUE MÁS VALE DE TODA LA NOCHE, y sólo apareció al probar de verdad:** buscando
+«leila hormozi» el actor devolvió **7 candidatos y sólo 1 traía `username`**. Los otros 6 venían con
+`error: 'no_items'` («Empty or private data») porque el actor BUSCA y después intenta scrapear cada
+perfil. **El @ estaba igual, en `url`**, y mi primera versión los descartaba: la lista habría salido
+casi vacía y habría parecido que el actor no sirve. **Los tipos compilaban perfecto.** Se repite con
+`node --env-file=C:/dev/mako-api/.env.local scripts/probar-busqueda-apify.mjs 9 "leila hormozi"`.
+
+**Lo que queda de Spy depende de otros:** la extensión (consentimiento OAuth de Martín) y subir el
+límite de Meta (no hay credencial de Business Discovery para medirlo). Y los duplicados que ya
+existen se borran a mano desde la tarjeta.
 
 ## ✅ DOS DECISIONES DE MARTÍN QUE LA PRÓXIMA CUENTA PUEDE EJECUTAR DIRECTO
 
