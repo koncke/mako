@@ -435,7 +435,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     campos: [
       { env: 'APNS_KEY_ID', label: 'Key ID', secreto: false, placeholder: 'ABC123DEFG', nota: 'Los 10 caracteres que Apple muestra al lado de la clave.' },
       { env: 'APNS_TEAM_ID', label: 'Team ID', secreto: false, placeholder: 'XYZ987WVUT', nota: 'Los 10 caracteres de Membership, en developer.apple.com/account.' },
-      { env: 'APNS_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' },
+      { env: 'APNS_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' }, // claves-en-el-diff: ok
     ],
     tutorial: {
       url: 'https://developer.apple.com/account/resources/authkeys/list',

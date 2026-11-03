@@ -38,7 +38,7 @@ export function clavesApnsDe(v: { keyId?: string | null; teamId?: string | null;
   const cuerpo = String(v.p8 ?? '').replace(/-----(BEGIN|END) PRIVATE KEY-----/g, '').replace(/\s+/g, '');
   if (!/^[A-Z0-9]{10}$/.test(keyId) || !/^[A-Z0-9]{10}$/.test(teamId) || cuerpo.length < 40) return null;
   const lineas = cuerpo.match(/.{1,64}/g) ?? [];
-  return { keyId, teamId, p8: `-----BEGIN PRIVATE KEY-----\n${lineas.join('\n')}\n-----END PRIVATE KEY-----\n` };
+  return { keyId, teamId, p8: `-----BEGIN PRIVATE KEY-----\n${lineas.join('\n')}\n-----END PRIVATE KEY-----\n` }; // claves-en-el-diff: ok
 }
 
 const b64u = (b: Buffer | string) => Buffer.from(b).toString('base64url');
