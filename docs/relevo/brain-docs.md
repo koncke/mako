@@ -10,6 +10,8 @@ Rama `brain-docs-0311` en `C:/dev/wt-brain-docs`, desde `origin/main` (7c0cff10c
 - `d0fcf63ea` el hito con `tickets: [44]` en `app/admin/dev/second-brain/bitacora.ts` y el aviso sin El Archivero.
 - El ticket está `arreglado` con la respuesta para la clienta (scripts/tickets.ts): se cierra solo con el deploy.
 - Tests: `tests/sumar-documento-second-brain.test.ts` (8 roturas, cada una cae) + 670 de lo tocado en verde.
+- ⚠️ **`node scripts/tsc-acotado.mjs --rama` NO corrió** (código 134 dos veces: otro chequeo de tipos en la PC y sin RAM).
+  Falta ese verde antes de subir.
 - Lo que costó: docs/hallazgos-api-mako.md → «"No tengo una herramienta" era la mitad».
 
 ⚠️ **A la clienta le falta el documento ENTERO.** Lo pegó el 2/11 y el chat lo cortó en 12.000 caracteres sin guardarlo (su
