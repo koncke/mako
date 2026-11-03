@@ -22,8 +22,8 @@ import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type 
 import { linksConWs, partesConLinksDeWs } from './links-con-ws';
 import { APP_BASE_URL } from './app-url';
 import { reclamarEspaciado, salioReciente } from './espaciado';
-import { reclamarContactoLinea, SIN_CUPO_LINEA, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
-import { ALTAS_APAGADAS, KEY_ALTAS_EN_GRUPOS, altasPrendidas } from './altas-en-grupos';
+import { reclamarContactoLinea, SIN_CUPO_ALTAS_LINEA, SIN_CUPO_LINEA, TOPE_ALTAS_POR_LINEA, VENTANA_ALTAS_LINEA_MIN, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
+import { ALTAS_FRENADAS, AUTOMATICO_APAGADO, KEY_ALTAS_EN_GRUPOS, KEY_GRUPOS_AUTOMATICO, SIN_INVITACION, altasFrenadas, automaticoPrendido } from './altas-en-grupos';
 import { getSupabaseServer } from './supabase';
 import { agenciasAprobadasDe } from './agencia';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
@@ -63,13 +63,24 @@ export const KEY_NUMERO_DUENO = 'mako.numero_dueno';
 /** JID del grupo de SuperAdmin (global, guardado en OWNER_WS). */
 export const KEY_GRUPO_SUPERADMIN = 'mako.superadmin.grupo_jid';
 
-/** ¿MaKo puede crear grupos y sumar gente? Apagado salvo que Martín lo prenda; sin poder leerlo, apagado (lib/altas-en-grupos.ts). */
+/** El freno de emergencia. Sin el setting, o sin poder leerlo, MaKo crea grupos y suma gente (lib/altas-en-grupos.ts). */
 export async function altasEnGrupos(): Promise<boolean> {
   try {
     const ws = await wsSuperAdmin();
-    return altasPrendidas(await runWithWorkspace(ws, () => getSettingEstricto(KEY_ALTAS_EN_GRUPOS)));
+    return !altasFrenadas(await runWithWorkspace(ws, () => getSettingEstricto(KEY_ALTAS_EN_GRUPOS)));
   } catch (e) {
-    console.error(`[mako-grupo] no pude leer si las altas en grupos están prendidas: ${e instanceof Error ? e.message : String(e)}`);
+    console.error(`[mako-grupo] no pude leer el freno de las altas en grupos, sigo sin freno: ${e instanceof Error ? e.message : String(e)}`);
+    return true;
+  }
+}
+
+/** Lo que sale sin que nadie lo pida para esa persona. Apagado salvo que Martín lo prenda; sin poder leerlo, apagado (lib/altas-en-grupos.ts). */
+async function gruposAutomaticos(): Promise<boolean> {
+  try {
+    const ws = await wsSuperAdmin();
+    return automaticoPrendido(await runWithWorkspace(ws, () => getSettingEstricto(KEY_GRUPOS_AUTOMATICO)));
+  } catch (e) {
+    console.error(`[mako-grupo] no pude leer si lo automático de los grupos está prendido: ${e instanceof Error ? e.message : String(e)}`);
     return false;
   }
 }
@@ -247,10 +258,15 @@ export async function asegurarGrupoMaKo(
     return { ok: true, jid, creado: false };
   }
 
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
 
   // Crear el grupo desde la voz de MaKo.
   const participants = (opts.participantes ?? []).map(soloDigitos).filter(Boolean);
+  // Sumar a alguien al crear el grupo es un alta más. Quien vino por `setNumeroDuenoYSync` ya está contado y no gasta otra vez.
+  for (const p of participants) {
+    const cupo = await cupoAltaDeLinea(p);
+    if (!cupo.ok) return cupo;
+  }
   const r = await ev(`/group/create/${await instanciaVoz()}`, {
     method: 'POST',
     body: JSON.stringify({ subject, description: desc, participants }),
@@ -322,11 +338,46 @@ const almacenTope = (ws: number): AlmacenTope => ({
 
 async function cupoLinea(ws: number, num: string, siempre = false): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    return (await reclamarContactoLinea(almacenTope(ws), soloDigitos(num), { siempre })) ? { ok: true } : { ok: false, error: SIN_CUPO_LINEA };
+    if (!(await reclamarContactoLinea(almacenTope(ws), soloDigitos(num), { siempre }))) return { ok: false, error: SIN_CUPO_LINEA };
   } catch (e) {
     console.error(`[mako-grupo] no pude contar el tope de la línea (ws ${ws}): ${e instanceof Error ? e.message : String(e)}`);
     return { ok: false, error: 'No pude comprobar el tope de mensajes. Prueba de nuevo en un momento.' };
   }
+  return siempre ? { ok: true } : cupoAltaDeLinea(num);
+}
+
+/**
+ * El tope de altas de TODA la línea, sumando todos los negocios (lib/mako-linea-tope.ts). Vive en el workspace de la plataforma y por nombre de línea:
+ * si la voz cambia de número, el otro número no hereda ni libera el cupo. Sin poder contar, no sale: es la línea de todos.
+ */
+export async function cupoAltaDeLinea(num: string, instancia?: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const ws = await wsSuperAdmin();
+    const linea = instancia ?? (await instanciaVoz());
+    const alm: AlmacenTope = {
+      tocadoReciente: (n) => salioReciente(ws, `linea-altas-numero:${linea}`, VENTANA_ALTAS_LINEA_MIN, n),
+      reclamarCasillero: (i) => reclamarEspaciado(ws, `linea-altas:${linea}:${i}`, VENTANA_ALTAS_LINEA_MIN),
+      marcar: async (n) => { await reclamarEspaciado(ws, `linea-altas-numero:${linea}`, VENTANA_ALTAS_LINEA_MIN, n); },
+    };
+    return (await reclamarContactoLinea(alm, soloDigitos(num), { tope: TOPE_ALTAS_POR_LINEA })) ? { ok: true } : { ok: false, error: SIN_CUPO_ALTAS_LINEA };
+  } catch (e) {
+    console.error(`[mako-grupo] no pude contar las altas de la línea: ${e instanceof Error ? e.message : String(e)}`);
+    return { ok: false, error: 'No pude comprobar el tope de mensajes. Prueba de nuevo en un momento.' };
+  }
+}
+
+/**
+ * ¿Este número le escribió alguna vez a la línea? Se lee de la base de Evolution, sin hablar con WhatsApp. Sin poder saberlo, no: la pantalla da el link.
+ * Se mira cada fila aunque se pida `fromMe: false`: si Evolution ignorara ese filtro, alguien a quien sólo le escribió MaKo contaría como que escribió.
+ * ⚠️ Quien escribió bajo un `@lid` que Evolution no resolvió cuenta como que no escribió: recibe el link. Es el error barato.
+ */
+async function leEscribioALaLinea(num: string): Promise<boolean> {
+  const remoteJid = num.includes('@') ? num.trim() : `${soloDigitos(num)}@s.whatsapp.net`;
+  const r = await ev(`/chat/findMessages/${await instanciaVoz()}`, {
+    method: 'POST', body: JSON.stringify({ where: { key: { remoteJid, fromMe: false } }, page: 1, offset: 20 }),
+  });
+  const filas = (r.body as { messages?: { records?: Array<{ key?: { fromMe?: boolean; remoteJid?: string } }> } } | null)?.messages?.records;
+  return r.ok && Array.isArray(filas) && filas.some((f) => f.key?.fromMe === false && f.key?.remoteJid === remoteJid);
 }
 
 type ContactoListo = { ok: true; num: string; destino: string } | { ok: false; error: string };
@@ -384,11 +435,13 @@ export async function linkInvitacionGrupo(ws: number): Promise<string | null> {
  * va a llegar.
  */
 export async function enviarInvitacionGrupo(ws: number, numero: string, opts: { descripcion?: string } = {}): Promise<{ ok: boolean; error?: string }> {
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
   // Un jid completo viaja tal cual (ver `jidCanonico`); un número suelto, en dígitos.
   const num = numero.includes('@') ? numero.trim() : soloDigitos(numero);
   const jid = await getGrupoJidMaKo(ws);
   if (!num || !jid) return { ok: false, error: 'sin número o sin grupo' };
+  // Es lo que salió 2 min 40 s antes del ban: un link por DM a alguien que nunca le había escrito a la línea.
+  if (!(await gruposAutomaticos()) && !(await leEscribioALaLinea(num))) return { ok: false, error: SIN_INVITACION };
   // Es un DM desde la línea de MaKo: cuenta en el tope del workspace (gratis si a ese número ya se
   // lo tocó en la ventana, que es el caso de `agregarParticipanteGrupo`) y sale UNA vez por número
   // y ventana — reintentar el alta no puede ser una invitación por intento al mismo desconocido.
@@ -426,7 +479,7 @@ export type AltaParticipante = {
 };
 
 export async function agregarParticipanteGrupo(ws: number, numero: string): Promise<AltaParticipante> {
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS, link: await linkInvitacionGrupo(ws).catch(() => null) };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS, link: await linkInvitacionGrupo(ws).catch(() => null) };
   const crudo = soloDigitos(numero);
   if (!crudo) return { ok: false, error: 'número inválido' };
   const jid = await getGrupoJidMaKo(ws);
@@ -442,7 +495,7 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
 
 /** El alta en sí, con el número YA validado y contado (`prepararContacto`). */
 async function sumarAlGrupo(ws: number, jid: string, destino: string, opts: { invitacion?: string } = {}): Promise<AltaParticipante> {
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
   const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     // `destino` llega como jid COMPLETO cuando lo dio WhatsApp (ver `prepararContacto`).
     method: 'POST', body: JSON.stringify({ action: 'add', participants: [destino] }),
@@ -463,6 +516,8 @@ async function sumarAlGrupo(ws: number, jid: string, destino: string, opts: { in
     link,
     error: envio.ok
       ? `${res.error} Le mandé el link de invitación por WhatsApp.`
+      : envio.error === SIN_INVITACION
+        ? `${res.error} ${SIN_INVITACION}`
       : envio.error === YA_INVITADO
         ? `${res.error} Ya le mandé la invitación hace un rato; si no le llegó, pásale el link tú.`
         : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`,
@@ -510,7 +565,8 @@ export type ResultadoEquipoAgencia = {
  */
 export async function sumarEquipoDeAgenciaAlGrupo(clienteWs: number, jid: string, opts: { adentro?: readonly string[]; cliente?: string } = {}): Promise<ResultadoEquipoAgencia> {
   const res: ResultadoEquipoAgencia = { agencias: [], entraron: [], invitados: [], fallaron: [] };
-  if (!(await altasEnGrupos())) return res;
+  // Apagado por defecto: esto sale solo cuando nace un grupo, sin que nadie lo pida para esa persona (lib/altas-en-grupos.ts).
+  if (!(await gruposAutomaticos()) || !(await altasEnGrupos())) return res;
   try {
     const equipos = await equipoDeAgenciasDe(clienteWs);
     res.agencias = equipos.map(({ ws, nombre }) => ({ ws, nombre }));
@@ -550,7 +606,8 @@ export async function planEquipoDeAgencia(clienteWs: number): Promise<PlanEquipo
  * Volver a correrlo no repite: quien ya está no se agrega ni se anuncia.
  */
 export async function aplicarEquipoDeAgencia(clienteWs: number): Promise<ResultadoEquipoAgencia | { ok: false; error: string }> {
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS };
+  if (!(await gruposAutomaticos())) return { ok: false, error: AUTOMATICO_APAGADO };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
   const plan = await planEquipoDeAgencia(clienteWs);
   if (!plan.jid) return { ok: false, error: 'el cliente no tiene grupo: el equipo entra solo cuando se cree' };
   if (!plan.adentro) return { ok: false, error: 'no pude leer quién está en el grupo' };
@@ -701,8 +758,8 @@ export async function verificarCodigoContacto(ws: number, codigo: string): Promi
   if (!v.verificado) {
     const nombre = v.nombre?.trim() || (await getWorkspace(ws).catch(() => null))?.nombre || 'tu negocio';
     const sync = await setNumeroDuenoYSync(ws, v.destino || v.telefono, nombre);
-    // Con las altas apagadas el número igual queda probado: sin esto, un cliente nuevo se traba en el onboarding por un grupo que no se va a crear.
-    if (!sync.ok && sync.error !== ALTAS_APAGADAS) {
+    // Con el freno puesto el número igual queda probado: sin esto, un cliente nuevo se traba en el onboarding por un grupo que no se va a crear.
+    if (!sync.ok && sync.error !== ALTAS_FRENADAS) {
       return {
         ok: false,
         error: esSesionCaida(sync.error) ? MAKO_SIN_LINEA : `El código es correcto, pero no pude sumarte al grupo de WhatsApp de MaKo: ${sync.error}`,
@@ -742,7 +799,7 @@ export async function enviarAlGrupoSuperAdmin(texto: string): Promise<EnvioGrupo
   const jid = await getGrupoSuperAdminJid();
   if (!jid) return { ok: false, error: 'no hay grupo de SuperAdmin todavía' };
   const r = await enviarTextoVozMaKo(jid, texto);
-  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar' };
+  return r.ok ? { ok: true, id: r.id } : { ok: false, error: 'no se pudo enviar', fallaElEnvio: true };
 }
 
 // ── Grupo suelto (pruebas): crear sin persistir + postear a un JID cualquiera ──
@@ -750,9 +807,13 @@ export async function enviarAlGrupoSuperAdmin(texto: string): Promise<EnvioGrupo
 export async function crearGrupoSuelto(
   subject: string, participantes: string[], descripcion?: string,
 ): Promise<{ ok: true; jid: string } | { ok: false; error: string }> {
-  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_APAGADAS };
+  if (!(await altasEnGrupos())) return { ok: false, error: ALTAS_FRENADAS };
   if (!grupoConfigurado()) return { ok: false, error: 'Evolution no configurado' };
   const participants = (participantes ?? []).map(soloDigitos).filter(Boolean);
+  for (const p of participants) {
+    const cupo = await cupoAltaDeLinea(p);
+    if (!cupo.ok) return cupo;
+  }
   const r = await ev(`/group/create/${await instanciaVoz()}`, {
     method: 'POST', body: JSON.stringify({ subject, description: descripcion ?? '', participants }),
   });
@@ -838,7 +899,8 @@ export async function enviarAGrupoJid(jid: string, texto: string, delayMs?: numb
 }
 
 /** `sinGrupo`: el negocio NO TIENE grupo de MaKo, leído (17/10/2026). Ausente en cualquier otro error, también «no pude leer». */
-export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string; sinGrupo?: true };
+/** `fallaElEnvio`: se intentó y WhatsApp no lo tomó. No es «no pude leer cuál es el grupo», y de eso cuelga el mail de `emitirAviso`. */
+export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string; sinGrupo?: true; fallaElEnvio?: true };
 
 /** Saca el mensaje útil del body de error de Evolution (viene anidado y variado). Vive en lib/mako-tarjeta.ts
  *  (puro): lo usa también el envío por partes. */
@@ -870,7 +932,7 @@ export async function enviarAlGrupoMaKo(ws: number, texto0: string, memoria: Mem
   });
   // El motivo, no solo el número: un 400 acá casi siempre es "la sesión de esa
   // instancia está caída" y con "Evolution 400" a secas eso no se deduce.
-  if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}` };
+  if (!r.ok) return { ok: false, error: `Evolution ${r.status} en ${instancia}: ${detalleEv(r.body)}`, fallaElEnvio: true };
   const id = (r.body as { key?: { id?: string } })?.key?.id ?? '';
   // Al anillo anti-eco: el eco de un aviso no es el dueño escribiendo (ver `anotarEnviadosAlGrupo`).
   if (id) await anotarEnviadosConTope(OWNER_WS, jid, [id]);
@@ -926,7 +988,8 @@ export async function enviarPartesAlGrupoMaKo(
   try { jid = await grupoJidEstricto(ws); } catch (e) { return { ok: false, salieron: 0, ids: [], error: `no pude leer el grupo de MaKo: ${e instanceof Error ? e.message : String(e)}` }; }
   if (!jid) return { ok: false, salieron: 0, ids: [], error: SIN_GRUPO_MAKO, sinGrupo: true };
   // Los links del texto y del pie de un archivo, con el `?ws=` de este negocio (como `enviarAlGrupoMaKo`).
-  return enviarPartesAJid(jid, partesConLinksDeWs(partes, ws, APP_BASE_URL), d);
+  const r = await enviarPartesAJid(jid, partesConLinksDeWs(partes, ws, APP_BASE_URL), d);
+  return r.ok ? r : { ...r, fallaElEnvio: true };
 }
 
 /** Lo mismo, a un JID cualquiera (el chat de MaKo de /agencia manda un audio o un archivo suelto por acá). */

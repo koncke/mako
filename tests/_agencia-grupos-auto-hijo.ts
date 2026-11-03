@@ -47,8 +47,8 @@ db.usuarios = [
   usuario(CLIENTE, 'admin', CLIENTA),
 ];
 db.app_settings = [
-  // Este hijo prueba a quién se agrega, no el freno (tests/altas-en-grupos.test.ts).
-  { workspace_id: PLATAFORMA, key: 'mako.grupos.altas', value: 'si' },
+  // Este hijo prueba a quién se agrega, no lo automático (tests/altas-en-grupos.test.ts).
+  { workspace_id: PLATAFORMA, key: 'mako.grupos.automatico', value: 'si' },
   { workspace_id: AGENCIA, key: 'mako.numero_dueno', value: DUENO_AGENCIA },
   { workspace_id: OTRA, key: 'mako.numero_dueno', value: DUENO_OTRA },
   { workspace_id: EXISTENTE, key: 'mako.grupo_jid', value: `grupo-${EXISTENTE}@g.us` },
@@ -63,6 +63,8 @@ let creados = 0;
 
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : (entrada as Request).url);
+  // Este hijo no prueba el tope de la línea (tests/altas-en-grupos.test.ts): cada paso arranca con el cupo entero.
+  if (u.host === 'supa.test') db.app_settings = db.app_settings.filter((f) => !String(f.key).startsWith('mako.aviso.last.linea-altas'));
   const json = (status: number, b: unknown) => new Response(JSON.stringify(b), { status, headers: { 'content-type': 'application/json' } });
   if (u.host === 'supa.test') {
     if (carteraCaida && u.pathname.endsWith('/agencia_clientes')) return json(500, { message: 'base caída' });

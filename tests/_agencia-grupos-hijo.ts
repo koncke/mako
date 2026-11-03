@@ -53,13 +53,15 @@ const ajustes = (ws: number, t: string[], grupo = true) => [
   ...(grupo ? [{ workspace_id: ws, key: 'mako.grupo_jid', value: jid(ws) }] : []),
 ];
 db.app_settings = [...ajustes(CLIENTE, [CLIENTA]), ...ajustes(CLIENTE_DE_OTRA, ['5491130000210']), ...ajustes(REVOCADO, ['5491130000030']),
-  // Este hijo prueba la puerta de la agencia, no el freno (tests/altas-en-grupos.test.ts).
-  { workspace_id: PLATAFORMA, key: 'mako.grupos.altas', value: 'si' }];
+  // Este hijo prueba la puerta de la agencia, no lo automático (tests/altas-en-grupos.test.ts).
+  { workspace_id: PLATAFORMA, key: 'mako.grupos.automatico', value: 'si' }];
 
 type Llamada = { ruta: string; body: Record<string, unknown> | null };
 let evolution: Llamada[] = [];
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : (entrada as Request).url);
+  // Este hijo no prueba el tope de la línea (tests/altas-en-grupos.test.ts): cada paso arranca con el cupo entero.
+  if (u.host === 'supa.test') db.app_settings = db.app_settings.filter((f) => !String(f.key).startsWith('mako.aviso.last.linea-altas'));
   if (u.host === 'supa.test') return pg.responder(u, init);
   if (u.host !== 'evo.test') throw new Error(`fetch sin mock: ${u.href}`);
   const body = typeof init.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : null;
