@@ -12,8 +12,29 @@ import { instanteDe } from './cron-aviso';
 
 /** Cómo se probó el segundo factor de una sesión. Viaja FIRMADO en el token. */
 export type Factor = 'totp' | 'passkey' | 'whatsapp' | 'email' | 'recuperacion';
-export type Amr = Factor | 'dispositivo' | 'dev';
-export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev'];
+export type Amr = Factor | 'dispositivo' | 'dev' | 'revision';
+export const AMRS: readonly Amr[] = ['totp', 'passkey', 'whatsapp', 'email', 'recuperacion', 'dispositivo', 'dev', 'revision'];
+
+// ── La cuenta de revisión de las tiendas ─────────────────────────────────────
+
+/**
+ * La ÚNICA cuenta que entra sin segundo factor (3/11/2026, docs/tiendas-play-appstore.md, paso 5). Google Play exige «reusable login
+ * credentials that can bypass» el OTP (support.google.com/googleplay/android-developer/answer/15748846), y los códigos de recuperación
+ * son de un solo uso. Apple también pide una cuenta que el revisor pueda usar sin nada más.
+ *
+ * ⚠️ EN POSITIVO Y ATADA A LAS TRES COSAS, leídas de la fila: ESE correo, EL NEGOCIO DE PRUEBA y un usuario común. Cambiar el correo, mudarla
+ * a otro negocio o subirla a admin apagan la excepción en el pedido siguiente (lib/auth.ts). El correo no es de una persona: nadie
+ * recibe nada en él, y la contraseña sale de scripts/tiendas-cuenta-revision.mts.
+ * ⚠️ NO HAY VARIABLE DE ENTORNO QUE LA PRENDA, a propósito: sumar otra cuenta es un cambio de código que pasa por esta revisión.
+ */
+export const CUENTA_DE_REVISION = { email: 'revision-tiendas@hola-mako.com', ws: 3 } as const;
+
+export function esCuentaDeRevision(u: { email?: string | null; workspace_id?: number | null; rol?: string | null } | null | undefined): boolean {
+  if (!u) return false;
+  return String(u.email ?? '').trim().toLowerCase() === CUENTA_DE_REVISION.email
+    && u.workspace_id === CUENTA_DE_REVISION.ws
+    && u.rol === 'usuario';
+}
 
 // ── La política ──────────────────────────────────────────────────────────────
 

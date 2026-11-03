@@ -130,7 +130,9 @@ test('entrar con contraseña es el MISMO primer factor que Google: misma decisi�
   assert.ok(comprobar >= 0 && decision > comprobar, 'decide sin comprobar la contraseña');
   assert.match(post, /requiereSegundoFactor\(usuario\.rol, mfaActivo, obligatorioDesde\)/);
   assert.match(post.slice(decision, decision + 200), /obligatorioDesde \}\)/, 'la decisión no ve la fecha del negocio');
-  assert.ok(post.indexOf('ponerSesion(') > post.indexOf("if (decision === 'segundo-factor') {"), 'abre la sesión antes del segundo paso');
+  // La única sesión antes del segundo paso es la de la cuenta de revisión de las tiendas (tests/cuenta-revision-tienda.test.ts): sólo la suya.
+  const sinRevision = post.replace(/if \(esCuentaDeRevision\(usuario\)\) \{[\s\S]*?return res;\n {2}\}\n/, '');
+  assert.ok(sinRevision.indexOf('ponerSesion(') > sinRevision.indexOf("if (decision === 'segundo-factor') {"), 'abre la sesión antes del segundo paso');
 });
 
 test('el freno de la contraseña no comparte cupo con el del 2FA, y la respuesta no cuenta qué correos existen', () => {
