@@ -32,6 +32,10 @@
 //   · M2: los cambios a mano sin la moneda:                                                                       1 fallo
 //   · M3: `planCambiadoAfuera` no ve la otra pestaña / el server avisa y escribe igual:                           1 fallo cada una
 //   · B4: el tope de 60 sin el anticipo / B5: el total en dos monedas que se lee doble:                           1 fallo cada una
+// Y la tercera vuelta (3/11/2026), una rotura por vez:
+//   · B8, la firma sin la fecha / sin la moneda:                                                                  1 fallo cada una
+//   · B8, la firma sin el monto en su moneda: 2 fallos · sin los dólares: 3 fallos
+//   · B13, la regla siempre en dólares:                                                                           1 fallo
 // =============================================================================
 
 import { test } from 'node:test';

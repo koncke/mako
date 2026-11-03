@@ -28,6 +28,13 @@
 //   · N3: la base de mentira deja la diferencia en dólares / la 0347 sin sus pesos          → 1 / 11 cada una
 //   · N4: el anticipo sobre uno cobrado se promete / B6: el choque de dos «sí», crudo        → 1 / 11 cada una
 //   · B7 («Las cuota del plan»): falla su test en tests/pagos-tramos.test.ts (1 / 24).
+// Y la tercera vuelta (B8 a B13), sobre los 16 de acá (3/11/2026, con main traído), una rotura por vez:
+//   · B8: no comparar la firma                                                                        → 1 / 15
+//   · B9: `faltaParaConfirmar` deja pasar la de antes / `ejecutar` la cumple / sin vistas vale vacías  → 1 / 15 cada una
+//   · B10: el #0 cobrado sin su columna / B11: no se nombra lo de aparte / la venta no lo descuenta    → 1 / 15 cada una
+//   · B12: la que ya no vale sigue viva                                                                → 1 / 15
+//   · B13: la regla siempre en dólares / `cobrarCuota` sin los pesos / el resumen en dólares           → 1 / 15 cada una
+//   · la firma sin la fecha, o sin la moneda y su monto: 0 fallos acá. Los atrapa «B8 · cada dato…» de tests/pagos-tramos.test.ts.
 // Correr: node --import tsx --test tests/api-mako-plan-tramos.test.ts
 // =============================================================================
 

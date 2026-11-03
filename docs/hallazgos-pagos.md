@@ -1594,10 +1594,31 @@ seis bajas. Cada una quedó como test con su entrada: tests/api-mako-plan-tramos
   resumen, el «sí», la nota del historial y el modal «Marcar pagada» seguían diciendo «faltan 300 USD». `restoEnLaMonedaDeLaCuota`
   (lib/pagos-diferencia.ts) es la condición del SQL, y `cobrarCuota` devuelve `pendienteEnSuMoneda`.
 
-**Para decidir (de antes, no de esta entrega):** una cuota de MXN 12.000 cobrada ENTERA en pesos, pero declarada a otra tasa
-(US$500), deja una diferencia de US$100 en dólares que la cobranza le reclama a quien ya pagó lo pactado. La 0347 no lo cambia
-(en pesos, pactado − cobrado = 0). Si «los pesos enteros saldan la cuota», va en el SQL (otra migración) o la app manda
-`resto: 'descuento'` en ese caso. Hoy el resumen lo dice antes del «sí».
+### El rescate de la tercera vuelta (3/11/2026): «arreglado» no era verde
+
+Estaba sin commitear desde el 29/10, y el relevo decía que los seis defectos estaban arreglados. El código estaba bien; lo que no
+alcanzaba eran los tests.
+
+- ⚠️ **Dos guardas de texto estaban rojas y el relevo no lo sabía.** tests/api-mako-comunidad-firma.test.ts y
+  tests/pagos-cobro-idempotente.test.ts fijan las líneas exactas que B12 y B13 cambiaron, y ninguna es «de pagos-tramos»: correr
+  los dos archivos de la tanda daba verde, y el tren habría frenado. La lista de lo que un cambio rompe sale de
+  `node scripts/tests-afectados.mjs --listar`, no de quien lo escribió. **En una PC justa, primero lo que NOMBRA un archivo
+  cambiado:** corre de a uno, sin cargar la app, y es donde estaban los dos rojos.
+- ⚠️ **Un test que cambia dos datos a la vez no prueba ninguno de los dos.** El test 13 de B8 edita el monto y la moneda juntos.
+  Sacándole a la firma la fecha, o la moneda con su monto, los 16 seguían verdes: correr la fecha de una cuota, la edición más
+  común de la ficha, no tenía quien la mirara. Ahora cada dato tiene su caso («B8 · cada dato…», tests/pagos-tramos.test.ts).
+- **Sin probar:** el modal «Marcar pagada» no se recorrió en el navegador; lo fija una guarda de texto sobre piezas.tsx.
+
+**Para decidir (de Martín, sin tomar):** una cuota de MXN 12.000 (US$600) cobrada ENTERA en pesos, pero declarada a otra tasa
+(US$500), deja una cuota nueva de US$100 en dólares. Medido con las funciones reales: `diferenciaPendiente(600, 500)` da 100 y
+`restoEnLaMonedaDeLaCuota` da null (en pesos, pactado − cobrado = 0). La pregunta y sus opciones, en docs/relevo/pagos.md.
+
+- ⚠️ **«La cobranza se lo reclama al cliente» era de más.** La fila entra a lo pendiente y a la cobranza (`getCuotasPendientes`
+  no mira `resto_de`), pero la automatización de fábrica («Una Cuota Venció», `mako-cobranza`) le avisa al grupo del negocio. Al
+  cliente le llega si el negocio editó ese flujo (sin medir cuántos) o si el dueño le cree al aviso y le escribe.
+- **No hace falta migración (acá decía que sí):** sin diferencia, `cobrarCuota` va por la escritura condicional y
+  `cobrar_cuota_con_resto` ni se llama. `resto: 'descuento'` ya lo evita hoy, pero el historial dice «USD 100 de descuento», que no
+  es lo que pasó. El resumen y el modal lo dicen antes de confirmar.
 
 ## Un Payment Link con el token de un cobro de MaKo lo marcaba pagado (28/10/2026, la verificación de 3ca2d8328)
 
