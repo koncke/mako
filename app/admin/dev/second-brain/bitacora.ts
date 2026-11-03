@@ -715,7 +715,7 @@ export const BITACORA: Hito[] = [
   // La causa de los tres es la del #45: la palabra de la persona no era la del nombre de la herramienta, y no viajaba al
   // turno (las familias de lib/mako-intencion-app.ts). Los puntos los lee la clienta en el aviso: en su idioma, sin lo interno.
   {
-    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', cuenta: 'claude2',
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'MaKo ya te propone cambiar el precio de tu oferta o de un producto, en vez de decirte que no puede',
     puntos: [
@@ -731,7 +731,7 @@ export const BITACORA: Hito[] = [
     tickets: [46],
   },
   {
-    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', cuenta: 'claude2',
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'MaKo te arma una secuencia nueva con su disparador por etiqueta',
     puntos: [
@@ -747,7 +747,7 @@ export const BITACORA: Hito[] = [
     tickets: [47],
   },
   {
-    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', cuenta: 'claude2',
+    fecha: '3 nov', hora: '01:48', chat: 'Tickets de Leila', sesion: 'local_3b2dd04b-d715-4586-8ad1-9b59a7f4343c', cuenta: 'claude2',
     actor: 'claude', tipo: 'correccion',
     titulo: 'MaKo sabe en qué pantalla se corrige cada dato de tu negocio',
     puntos: [
