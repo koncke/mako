@@ -101,9 +101,10 @@ test('⚠️ un «sí» que no se puede cumplir no quema la pendiente: la firma 
   const acc = sinComentarios(leer('lib/api-mako/acciones.ts'));
   const confirmar = acc.slice(acc.indexOf('export async function confirmarPendiente'));
   assert.ok(confirmar.indexOf('faltaParaConfirmar') > 0 && confirmar.indexOf('faltaParaConfirmar') < confirmar.indexOf('reclamarPendiente(ctx.ws, p.id)'), 'el control va DESPUÉS de reclamar: la pendiente queda quemada');
-  assert.match(confirmar, /if \(registrada\) \{\s*const falta = await \(run as \{[^}]*\}\)\.faltaParaConfirmar\?\.\(p\.payload, ctx\);\s*if \(falta\) return \{ error: falta \};/, 'el control está apagado o no corta');
+  // Lo que no se cumple NUNCA se cierra (`yaNoVale`, revisión de 7f79a4e6c, B12); un texto suelto sigue dejándola viva para quien firma.
+  assert.match(confirmar, /if \(registrada\) \{\s*const falta = await \(run as Pick<AccionRun, 'faltaParaConfirmar'>\)\.faltaParaConfirmar\?\.\(p\.payload, ctx\);\s*if \(falta && typeof falta !== 'string'\) \{\s*await resolverPendiente\(ctx\.ws, p\.id, 'error', falta\.yaNoVale, \{ soloSiPendiente: true \}\);\s*return \{ error: falta\.yaNoVale \};\s*\}\s*if \(falta\) return \{ error: falta \};/, 'el control está apagado o no corta');
   const generica = acc.slice(acc.indexOf('export async function aplicarPropuestaGenerica'));
-  assert.match(generica, /const falta = await run\.faltaParaConfirmar\?\.\(prep\.payload, ctx\);\s*if \(falta\) return \{ ok: false, resumen: falta \};/, 'la pantalla genérica no corta');
+  assert.match(generica, /const falta = await run\.faltaParaConfirmar\?\.\(prep\.payload, ctx\);\s*if \(falta\) return \{ ok: false, resumen: typeof falta === 'string' \? falta : falta\.yaNoVale \};/, 'la pantalla genérica no corta');
   assert.ok(generica.indexOf('faltaParaConfirmar') > 0 && generica.indexOf('faltaParaConfirmar') < generica.indexOf('marcarAplicada('), 'la pantalla genérica marca aplicada antes de preguntar');
   // Las once que firman lo declaran.
   const run = sinComentarios(leer('lib/api-mako/areas/comunidad.run.ts'));

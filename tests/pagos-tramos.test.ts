@@ -40,8 +40,8 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import {
-  aplicarCambios, armadaDe, avisoDeConservadas, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, lineasDeCuotas, lugaresDelPlan, monedaDeCuota,
-  planCambiadoAfuera, reconciliarCuotas, soloLoQueCambio, tramosDeCuotas, type AnticipoPlan, type CambioDeCuota, type CuotaArmada, type CuotaDelLead,
+  aplicarCambios, armadaDe, avisoDeConservadas, cambiosContra, cuotasDeTramos, cuotasDelPlanPorTramos, cuotasVistas, lineasDeCuotas, lugaresDelPlan, monedaDeCuota,
+  planCambiadoAfuera, planCambioDesde, reconciliarCuotas, soloLoQueCambio, tramosDeCuotas, type AnticipoPlan, type CambioDeCuota, type CuotaArmada, type CuotaDelLead,
   type CuotaExistente, type PlanDeCuotas, type Proteccion, type TramoPlan,
 } from '../lib/pagos-campo';
 import { disparosDeCobranza } from '../lib/cobranza';
@@ -477,6 +477,24 @@ test('B7 · con la única cuota del plan cobrada, el aviso está bien escrito', 
   assert.ok(a.ok);
   const r = cuotasDelPlanPorTramos({ pagos, protegidas: new Set(), anticipo: null, lista: a.cuotas, planConInicial: false });
   assert.ok(!r.ok && r.error === 'La cuota del plan ya está cobrada: agrega cuotas para cobrar más.', r.ok ? 'armó' : r.error);
+});
+
+// El test 13 de tests/api-mako-plan-tramos.test.ts cambia monto y moneda A LA VEZ: sacándole a la firma la fecha, o la moneda con
+// su monto, seguía verde (3/11/2026). Correr la fecha de una cuota es la edición más común de la ficha.
+test('B8 · cada dato de la cuota cuenta para el «sí»: la fecha sola, los dólares solos, la moneda sola, el monto en ella solo', () => {
+  const cuota: Fila = { id: 32, numero: 2, monto_usd: 600, fecha_esperada: '2026-12-01', pagado: false, moneda: 'MXN', monto_original: 12000 };
+  const otra: Fila = { id: 33, numero: 3, monto_usd: 600, fecha_esperada: '2027-01-01', pagado: false, moneda: 'MXN', monto_original: 12000 };
+  const vistas = cuotasVistas([cuota, otra], [cuota.id, otra.id]);
+  assert.equal(planCambioDesde([cuota, otra], vistas), null, 'sin cambios, el «sí» pasa');
+  const ediciones: Array<[string, Partial<Fila>]> = [
+    ['la fecha', { fecha_esperada: '2026-12-15' }],
+    ['los dólares', { monto_usd: 650 }],
+    ['la moneda', { moneda: 'ARS' }],
+    ['el monto en su moneda', { monto_original: 15000 }],
+  ];
+  for (const [que, edicion] of ediciones) {
+    assert.match(planCambioDesde([{ ...cuota, ...edicion }, otra], vistas) ?? '', /cambió «Cuota 2»/, `editar sólo ${que} se pisaba`);
+  }
 });
 
 test('B13 · la diferencia de un cobro a medias en pesos se dice en pesos: la misma regla que la 0347, en la ficha y en la API', () => {
