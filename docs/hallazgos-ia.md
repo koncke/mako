@@ -4,6 +4,44 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «No tengo acceso a Google Calendar» con la agenda conectada: nombrar el LUGAR no traía la herramienta (ticket #42, 3/11/2026)
+
+**Síntoma (Código Inmobiliario, en su grupo):** MaKo dijo «no tengo acceso a crear eventos en tu Google Calendar» y dos renglones
+más abajo «después yo lo creo en tu Google Calendar». El negocio la tiene conectada desde el 8/10.
+
+**El diagnóstico obvio era el equivocado:** se buscó si `crear_evento_google` llegaba por WhatsApp o si faltaba el rol. El rol no
+pesa en el grupo: el turno corre siempre con `rol: 'admin'`, a propósito. Crear el evento andaba: «crea un evento en mi Google Calendar
+mañana a las 9» ya traía `proponer_agendar_agenda`. Lo roto era todo lo demás:
+- «google calendar» sólo prendía el área `integraciones`, así que sin `crm` no viajaba ninguna herramienta de agenda.
+- «agrégalo a mi google calendar» caía en charla, sin una herramienta. Y la clase de la IA no lo salva: `veredictoDeClase` toma las
+  áreas de `areasDelMensaje`, la misma rueda.
+- En una pregunta las que escriben no viajan, y por WhatsApp no existe la línea de `ofrecibles` de la app: el modelo deducía el «no
+  puedo» de lo que le llegaba.
+
+**La regla:** lo que MaKo puede con una cuenta conectada se le dice como un HECHO con el estado real
+(`hechoGoogleCalendar`, lib/agenda-sin-ia.ts), y si falta algo dice CUÁL: la conexión, el permiso o el rol.
+
+**Trampa:** `crear_evento_google` proponía sin mirar la conexión y fallaba recién con el «sí». Ahora mira `agendaParaEscribir`
+(lib/google-calendar.ts) antes de proponer, la misma que usa `proponer_agendar_agenda`.
+
+**Sin hacer:** por WhatsApp sigue sin viajar `lineaDeOfrecibles` para el resto de las áreas (lib/doer-herramientas.ts): el mismo
+«no puedo» falso puede salir en una pregunta sobre otra cosa. No se tocó porque la línea cambia todos los turnos del grupo. **No se leyó
+la conversación del grupo** de ese día: la lectura de `mako_doer_conv` quedó frenada por los permisos de este chat; la causa sale del texto
+del ticket y de correr el turno con esas frases.
+
+## `hace[]` del catálogo no le llega a ningún cliente (ticket #45, 3/11/2026)
+
+**Síntoma (Leila):** «Activa la función "Aprende solo" en el Second Brain» y MaKo contestó que eso no existe.
+
+**El diagnóstico obvio era el equivocado:** `1efb12f08` corrigió el nombre en `hace[]` (lib/funciones-mako.ts), y el ticket quedó dado por
+resuelto. `hace[]` sólo lo leen la capa exclusiva de la plataforma (lib/cerebro-funciones.ts) y /admin/docs; `listar_capacidades_mako` no lo
+devuelve. Probado en el negocio de la plataforma, «anda».
+
+**La regla:** para que MaKo sepa algo un cliente, va en `lib/mako-capacidades.ts` con su link, y si se puede hacer, con una operación y su
+familia en lib/mako-intencion-app.ts. Y se prueba en un negocio que NO es la plataforma.
+
+**Sin hacer:** el resto de `hace[]` sigue igual: lo que está sólo ahí MaKo no se lo sabe decir a un cliente.
+
 ## «El respaldo de Automations es Gemini»: el orden ya era el pedido, faltaba decir quién contestó (27/10/2026)
 
 El Cerebro (876825880-04): «primero la IA que eligió el admin del negocio; Gemini sólo como último respaldo, y el chat dice

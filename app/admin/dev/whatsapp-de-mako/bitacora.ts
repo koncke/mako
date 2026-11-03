@@ -103,4 +103,22 @@ export const BITACORA: Hito[] = [
       'lib/canal-vigilante.ts — `EMAILS_ALERTA_VOZ = [EMAIL_MAKO]`',
     ],
   },
+  {
+    fecha: '3 nov', hora: '20:20', chat: 'Tickets de clientes', sesion: 'local_d010fa87-9186-469e-83de-d431a71f64d8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo entiende qué mensaje citas y busca en lo que se habló antes en el grupo',
+    puntos: [
+      'Si le contestas a un mensaje anterior citándolo, MaKo sabe de cuál hablas, aunque sea de hace días.',
+      'Puede buscar en los mensajes anteriores de tu grupo: «¿qué te dije del precio la semana pasada?». Busca sólo en ese grupo.',
+      'Guarda lo que le hablaron a MaKo: la charla entre ustedes puede no estar, y te lo dice si no lo encuentra.',
+      '**Cómo se prueba:** en tu grupo, cita un mensaje viejo y pregúntale algo sobre él.',
+    ],
+    archivos: [
+      'lib/doer-equipo.ts — `bloqueDeLaCita` y `conElTextoCitado`',
+      'lib/mako-doer-conv.ts — `textoPorIdDeWhatsApp` y `buscarEnElGrupo`',
+      'lib/api-mako/areas/mako.def.ts · mako.run.ts — buscar_en_el_grupo',
+      'tests/cita-y-busqueda-en-el-grupo.test.ts — 8 roturas, cada una cae',
+    ],
+    tickets: [40],
+  },
 ];

@@ -808,6 +808,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── mako ──────────────────────────────────────────────────────────────────
   ['GET', '/mako/bandejas', 'resumen_bandejas_confirmacion'],
   ['GET', '/mako/capacidades', 'listar_capacidades_mako'],
+  ['PUT', '/mako/aprende-solo', 'cambiar_aprende_solo'],
   ['GET', '/mako/pendientes', 'listar_pendientes'],
   ['DELETE', '/mako/pendientes/{id}', 'cancelar_accion'],
   ['GET', '/mako/pendientes/{id}', 'ver_pendiente'],

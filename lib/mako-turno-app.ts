@@ -47,10 +47,11 @@ import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
-import { clasificarIntencion, makoPreguntoAlgo } from '@/lib/mako-intencion';
+import { clasificarIntencion, makoPreguntoAlgo, nombraGoogleCalendar } from '@/lib/mako-intencion';
+import { permisoCalendarioGoogle } from '@/lib/google-calendar';
 import { lineaDeOfrecibles, preguntoReunionOTarea } from '@/lib/doer-herramientas';
 import { recetasDelTurno } from '@/lib/doer-recetas';
-import { bloqueAgendaGoogle, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
+import { bloqueAgendaGoogle, hechoGoogleCalendar, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
 import { crearMemoDeAcciones, MARGEN_RELOJ_MS } from '@/lib/turno-sin-duplicar';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { avisoDePuntos } from '@/lib/puntos-mensaje';
@@ -695,10 +696,12 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // Lo que en una pregunta no viaja pero se ofrece (27/10/2026, `ofrecibles`): sin esto MaKo decía «no puedo».
     // En modo «analizar» no (la revisión del 28/10/2026): con el «sí» lo que escribe tampoco viaja (`herramientasDelModo`).
     const ctxOfrece = turno.ofrece && turno.ofrecibles?.length && desde?.modo !== 'analizar' ? `\n\n${lineaDeOfrecibles(turno.ofrecibles)}` : '';
+    // Si nombra Google Calendar, el estado real de la conexión y si a ESTA persona le alcanza el rol (ticket #42).
+    const ctxGoogle = nombraGoogleCalendar(textoPersona) ? hechoGoogleCalendar({ ...(await permisoCalendarioGoogle()), rol: persona.rol }) : '';
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxOfrece}${ctxGoogle}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${segundoCerebro ? `\n\n${segundoCerebro}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
