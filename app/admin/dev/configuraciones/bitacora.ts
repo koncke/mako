@@ -650,4 +650,24 @@ Y también:
     revisar: '/perfil/notificaciones?ws=3',
     tickets: [49],
   },
+  {
+    fecha: '3 nov', hora: '16:10', chat: 'Agencia en los grupos', sesion: 'local_33c42578-74c0-4f01-abb2-6cfe18a2a937', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo de MaKo de un cliente nuevo de agencia nace con quien administra la agencia adentro',
+    puntos: [
+      'Martín pidió que, al crearse el grupo de un cliente de agencia, se invite solo a las personas de la agencia.',
+      'Entran quienes la administran y están activos: su número principal y el teléfono del perfil de cada admin. Closer y setter no: a ese grupo llegan los reportes de ventas y gasto del cliente.',
+      'El medido: el único usuario de la única agencia tiene el perfil sin teléfono. Con sólo el perfil, no invitaba a nadie y nadie se enteraba.',
+      'El cliente ve quién entra: la bienvenida dice «Sumé también a Código Inmobiliario, tu agencia». Si WhatsApp no deja, le llega la invitación y el mensaje dice «Invité».',
+      'No entran a la lista de Notificaciones del cliente ni reciben sus reportes por DM. Lo de plata y cuenta publicitaria sigue yendo a la agencia y nunca a este grupo.',
+      'Para los grupos que ya existen, un comando por agencia: sin --aplicar sólo lee. Hoy le falta entrar a uno, Marcela Fernandez; no se mandó nada: lo decide Martín.',
+    ],
+    commits: [],
+    archivos: [
+      'lib/agencia-equipo-grupo.ts — a quién y qué se dice (puro)',
+      'lib/mako-grupo.ts — sumarEquipoDeAgenciaAlGrupo, planEquipoDeAgencia y aplicarEquipoDeAgencia; asegurarGrupoMaKo los llama al crear',
+      'scripts/agencia-equipo-a-grupos.mts — el comando para los grupos que ya existen',
+      'tests/agencia-grupos-auto.test.ts · tests/_agencia-grupos-auto-hijo.ts — 15 roturas',
+    ],
+  },
 ];

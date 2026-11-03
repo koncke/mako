@@ -230,7 +230,7 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
     const cuerpo = grupo.slice(grupo.indexOf(f), grupo.indexOf('\n}\n', grupo.indexOf(f)));
     assert.match(cuerpo, /await enviarTextoVozMaKo\(jid, texto/, `${f} no sale por enviarTextoVozMaKo`);
   }
-  assert.match(grupo, /if \(opts\.bienvenida !== false\) await enviarTextoVozMaKo\(jid, mensajeBienvenidaMaKo\(opts\.nombre\)\);/);
+  assert.match(grupo, /if \(opts\.bienvenida !== false\) await enviarTextoVozMaKo\(jid, deLaAgencia \? [^;]*mensajeBienvenidaMaKo\(opts\.nombre\)\);/);
   // El anillo, con compare-and-set y la lectura estricta (un error al leer no lo vacía), y nunca tira.
   const anotar = grupo.slice(grupo.indexOf('export async function anotarEnviadosAlGrupo('), grupo.indexOf('const delAnillo'));
   assert.match(anotar, /const raw = await getSettingEstricto\(KEY_ENVIADOS\(jid\)\);/);

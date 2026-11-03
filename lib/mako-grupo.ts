@@ -23,6 +23,9 @@ import { linksConWs, partesConLinksDeWs } from './links-con-ws';
 import { APP_BASE_URL } from './app-url';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { reclamarContactoLinea, SIN_CUPO_LINEA, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
+import { getSupabaseServer } from './supabase';
+import { agenciasAprobadasDe } from './agencia';
+import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
 const KEY = process.env.EVOLUTION_API_KEY || '';
@@ -243,8 +246,11 @@ export async function asegurarGrupoMaKo(
   if (!jid) return { ok: false, error: 'grupo creado pero sin JID en la respuesta' };
   await ponerFoto(jid, 'gold');
   await guardarGrupoJid(ws, jid);
+  // El cliente de una agencia: su equipo entra al grupo que acaba de nacer (nunca tira: el grupo ya está creado y es del cliente).
+  const equipo = await sumarEquipoDeAgenciaAlGrupo(ws, jid, { adentro: participants, cliente: opts.nombre });
+  const deLaAgencia = lineaDeLaAgencia(equipo.agencias.map((a) => a.nombre), { entraron: equipo.entraron.length, invitados: equipo.invitados.length });
   // Mensaje de bienvenida (best-effort: no rompe si el envío falla).
-  if (opts.bienvenida !== false) await enviarTextoVozMaKo(jid, mensajeBienvenidaMaKo(opts.nombre));
+  if (opts.bienvenida !== false) await enviarTextoVozMaKo(jid, deLaAgencia ? `${mensajeBienvenidaMaKo(opts.nombre)}\n\n${deLaAgencia}` : mensajeBienvenidaMaKo(opts.nombre));
   return { ok: true, jid, creado: true };
 }
 
@@ -363,7 +369,7 @@ export async function linkInvitacionGrupo(ws: number): Promise<string | null> {
  * envío que no ocurrió es peor que no poder hacerlo: manda a esperar algo que no
  * va a llegar.
  */
-export async function enviarInvitacionGrupo(ws: number, numero: string): Promise<{ ok: boolean; error?: string }> {
+export async function enviarInvitacionGrupo(ws: number, numero: string, opts: { descripcion?: string } = {}): Promise<{ ok: boolean; error?: string }> {
   // Un jid completo viaja tal cual (ver `jidCanonico`); un número suelto, en dígitos.
   const num = numero.includes('@') ? numero.trim() : soloDigitos(numero);
   const jid = await getGrupoJidMaKo(ws);
@@ -381,7 +387,7 @@ export async function enviarInvitacionGrupo(ws: number, numero: string): Promise
     method: 'POST',
     body: JSON.stringify({
       groupJid: jid,
-      description: 'Te sumo al grupo donde MaKo deja los avisos de tu negocio.',
+      description: opts.descripcion ?? 'Te sumo al grupo donde MaKo deja los avisos de tu negocio.',
       numbers: [num],
     }),
   });
@@ -400,6 +406,8 @@ export type AltaParticipante = {
   invitado?: boolean;
   /** El link del grupo, para poder pasárselo a mano si el envío tampoco salió. */
   link?: string | null;
+  /** Qué contestó WhatsApp: '409' = ya estaba adentro (`leerResultadoParticipante`). */
+  status?: string;
 };
 
 export async function agregarParticipanteGrupo(ws: number, numero: string): Promise<AltaParticipante> {
@@ -417,7 +425,7 @@ export async function agregarParticipanteGrupo(ws: number, numero: string): Prom
 }
 
 /** El alta en sí, con el número YA validado y contado (`prepararContacto`). */
-async function sumarAlGrupo(ws: number, jid: string, destino: string): Promise<AltaParticipante> {
+async function sumarAlGrupo(ws: number, jid: string, destino: string, opts: { invitacion?: string } = {}): Promise<AltaParticipante> {
   const r = await ev(`/group/updateParticipant/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`, {
     // `destino` llega como jid COMPLETO cuando lo dio WhatsApp (ver `prepararContacto`).
     method: 'POST', body: JSON.stringify({ action: 'add', participants: [destino] }),
@@ -430,7 +438,7 @@ async function sumarAlGrupo(ws: number, jid: string, destino: string): Promise<A
   // ── No se pudo agregar directo: entonces se INVITA de verdad ────────────────
   // Que WhatsApp no nos deje sumarlo no significa que no se pueda hacer nada; lo
   // que no se puede es hacerlo en silencio y contarlo como si hubiera pasado.
-  const envio = await enviarInvitacionGrupo(ws, destino);
+  const envio = await enviarInvitacionGrupo(ws, destino, { descripcion: opts.invitacion });
   const link = await linkInvitacionGrupo(ws);
   return {
     ok: false,
@@ -442,6 +450,96 @@ async function sumarAlGrupo(ws: number, jid: string, destino: string): Promise<A
         ? `${res.error} Ya le mandé la invitación hace un rato; si no le llegó, pásale el link tú.`
         : `${res.error} Tampoco pude mandarle la invitación, así que pásale el link tú.`,
   };
+}
+
+// ── El equipo de la agencia en el grupo de un cliente suyo (3/11/2026) ────────
+// Lo puro y el porqué de a quién: lib/agencia-equipo-grupo.ts. No van a la lista de destinatarios del cliente: entran al grupo y nada
+// más, así que no le aparecen en Notificaciones ni reciben los reportes por DM.
+
+export type AgenciaConEquipo = { ws: number; nombre: string; telefonos: string[] };
+
+/** Las agencias APROBADAS del cliente, con los teléfonos de quienes las administran. Tira si no pudo leer: «no sé» no es «no tiene». */
+export async function equipoDeAgenciasDe(clienteWs: number): Promise<AgenciaConEquipo[]> {
+  const out: AgenciaConEquipo[] = [];
+  for (const ws of await agenciasAprobadasDe(clienteWs)) {
+    const { data, error } = await getSupabaseServer().from('usuarios').select('nombre, perfil, rol_ws, estado').eq('workspace_id', ws);
+    if (error) throw new Error(`no pude leer el equipo de la agencia ${ws}: ${error.message}`);
+    const nombre = (await getWorkspace(ws).catch(() => null))?.nombre?.trim() || '';
+    out.push({ ws, nombre, telefonos: telefonosDelEquipo((data ?? []) as MiembroAgencia[], await getNumeroDueno(ws)) });
+  }
+  return out;
+}
+
+/** Quiénes están en el grupo, por teléfono. null = no se pudo leer. Sólo lee: no le escribe a nadie. */
+export async function telefonosEnElGrupo(jid: string): Promise<string[] | null> {
+  const r = await ev(`/group/participants/${await instanciaVoz()}?groupJid=${encodeURIComponent(jid)}`);
+  const lista = (r.body as { participants?: unknown } | null)?.participants;
+  if (!r.ok || !Array.isArray(lista)) return null;
+  return (lista as Array<Record<string, unknown>>).map(telefonoDeParticipante).filter(Boolean);
+}
+
+export type ResultadoEquipoAgencia = {
+  agencias: Array<{ ws: number; nombre: string }>;
+  entraron: string[];
+  /** WhatsApp no dejó agregarlos y salió la invitación. */
+  invitados: string[];
+  fallaron: Array<{ telefono: string; motivo: string }>;
+};
+
+/**
+ * Suma al grupo del cliente a quienes administran sus agencias. `adentro`: quienes se sabe que ya están. Lo llama la creación del grupo
+ * y el comando para los grupos que ya existen (scripts/agencia-equipo-a-grupos.mts). NUNCA TIRA: una falla acá no puede dejar sin grupo
+ * al cliente. Si no se puede leer la cartera no invita a nadie, y se dice en el log y en `fallaron`.
+ */
+export async function sumarEquipoDeAgenciaAlGrupo(clienteWs: number, jid: string, opts: { adentro?: readonly string[]; cliente?: string } = {}): Promise<ResultadoEquipoAgencia> {
+  const res: ResultadoEquipoAgencia = { agencias: [], entraron: [], invitados: [], fallaron: [] };
+  try {
+    const equipos = await equipoDeAgenciasDe(clienteWs);
+    res.agencias = equipos.map(({ ws, nombre }) => ({ ws, nombre }));
+    const quien = opts.cliente?.trim();
+    const invitacion = quien ? `Te sumo al grupo de MaKo de ${quien}.` : 'Te sumo al grupo de MaKo de tu cliente.';
+    for (const t of quienesFaltan([...new Set(equipos.flatMap((e) => e.telefonos))], opts.adentro ?? [])) {
+      const c = await prepararContacto(clienteWs, t);
+      if (!c.ok) { res.fallaron.push({ telefono: t, motivo: c.error }); continue; }
+      const a = await sumarAlGrupo(clienteWs, jid, c.destino, { invitacion });
+      if (a.ok) { if (a.status !== '409') res.entraron.push(c.num); }
+      else if (a.invitado) res.invitados.push(c.num);
+      else res.fallaron.push({ telefono: c.num, motivo: a.error ?? 'no se pudo agregar' });
+    }
+  } catch (e) {
+    const motivo = e instanceof Error ? e.message : String(e);
+    console.error(`[mako-grupo] el equipo de la agencia no entró al grupo del ws ${clienteWs}: ${motivo}`);
+    res.fallaron.push({ telefono: '', motivo });
+  }
+  if (res.fallaron.length) console.warn(`[mako-grupo] ws ${clienteWs}: ${res.fallaron.length} del equipo de la agencia sin entrar`);
+  return res;
+}
+
+export type PlanEquipoAgencia = { jid: string | null; agencias: AgenciaConEquipo[]; adentro: string[] | null; faltan: string[] };
+
+/** Lo que haría `aplicarEquipoDeAgencia`, SIN TOCAR NADA: sólo lee la base y la lista de participantes. */
+export async function planEquipoDeAgencia(clienteWs: number): Promise<PlanEquipoAgencia> {
+  const jid = await grupoJidEstricto(clienteWs);
+  const agencias = await equipoDeAgenciasDe(clienteWs);
+  const adentro = jid ? await telefonosEnElGrupo(jid) : null;
+  const equipo = [...new Set(agencias.flatMap((a) => a.telefonos))];
+  return { jid, agencias, adentro, faltan: adentro ? quienesFaltan(equipo, adentro) : equipo };
+}
+
+/**
+ * Para un grupo que YA EXISTE: suma a quienes faltan y le dice al grupo quién entró. ⚠️ MANDA MENSAJES A CLIENTES REALES: sólo lo llama
+ * `--aplicar` del comando, con el sí de Martín. Sin la lista de participantes no toca nada: agregaría a ciegas y contaría de más.
+ * Volver a correrlo no repite: quien ya está no se agrega ni se anuncia.
+ */
+export async function aplicarEquipoDeAgencia(clienteWs: number): Promise<ResultadoEquipoAgencia | { ok: false; error: string }> {
+  const plan = await planEquipoDeAgencia(clienteWs);
+  if (!plan.jid) return { ok: false, error: 'el cliente no tiene grupo: el equipo entra solo cuando se cree' };
+  if (!plan.adentro) return { ok: false, error: 'no pude leer quién está en el grupo' };
+  const cliente = (await getWorkspace(clienteWs).catch(() => null))?.nombre ?? undefined;
+  const r = await sumarEquipoDeAgenciaAlGrupo(clienteWs, plan.jid, { adentro: plan.adentro, cliente });
+  const linea = lineaDeLaAgencia(r.agencias.map((a) => a.nombre), { entraron: r.entraron.length, invitados: r.invitados.length });
+  if (linea) await enviarTextoVozMaKo(plan.jid, linea);
+  return r;
 }
 
 // ── Número del dueño por workspace (destinatario del grupo) ───────────────────
