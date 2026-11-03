@@ -108,9 +108,10 @@ test('la ruta pregunta por el muro ANTES de pedir la API key', () => {
   // ⚠️ Desde el 16/10/2026 la ruta ya no corta por «no hay IA propia» (un cliente nuevo no trae una API
   // y la red de la plataforma lee por él: tests/onboarding-sin-api.test.ts). Lo que se fija ahora es que
   // el muro se pregunte antes de GASTAR IA: contra un Instagram, la llamada se gasta para nada.
-  assert.ok(fn.includes('extraerDeArchivo('), 'no encuentro la lectura con IA de la web');
+  // Desde el 3/11/2026 la extracción vive en lib/archivero-ingesta.ts (`extraerParaArchivero`, ticket #44).
+  assert.ok(fn.includes('extraerParaArchivero('), 'no encuentro la lectura con IA de la web');
   assert.ok(
-    fn.indexOf('muroConocido(host)') < fn.indexOf('extraerDeArchivo('),
+    fn.indexOf('muroConocido(host)') < fn.indexOf('extraerParaArchivero('),
     'la IA se gasta en un Instagram antes de preguntar por el muro',
   );
 });
@@ -121,7 +122,7 @@ test('la ruta no guarda la web si no salió ningún dato', () => {
   const fin = src.indexOf('export async function GET', ini);
   const fn = sinComentarios(src.slice(ini, fin));
 
-  assert.ok(fn.includes('sinDatosDelNegocio(host, campos)'));
+  assert.ok(fn.includes('sinDatosDelNegocio(host, ex.campos)'));
   // La rama vacía corta ANTES del insert, y el insert sigue siendo uno solo.
   // ⚠️ El orden NO se pregunta con indexOf pelado: si la rama desaparece (o la
   // desactiva un `false &&`), indexOf devuelve -1 y -1 < n pasa en verde. Medido

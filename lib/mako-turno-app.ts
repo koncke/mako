@@ -42,7 +42,7 @@ import { encolarTurno, esperarALaPc, pcDe, TopeDeTurnos, type Ejecutor } from '@
 import { armarPrompt, AVISO_PC_ILEGIBLE, avisoDeLaPc, CLAVE_MODELO_PC, esperaDelTurno, laPersonaEstaAdentro, modeloPc, pcUsable, probarSuClaveTrasLaPc, PROVEEDORES_PC, RESERVA_RESPALDO_MS, type FalloDeLaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IA_DE_LA_PC, MODELO_SU_OPENAI_DEFAULT, NOMBRE_MODELO_IA, type EleccionIA } from '@/lib/chat-ia-reglas';
 import { claveDeIAPropia, negocioConSuIA } from '@/lib/ia-del-negocio';
-import { PROVS_SU_IA, entrarSoloSuIA } from '@/lib/solo-su-ia';
+import { entrarSoloSuIA } from '@/lib/solo-su-ia';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { confirmarPendiente, cancelarPendiente } from '@/lib/api-mako/acciones';
 import { esAccion, type Ctx } from '@/lib/api-mako/tipos';
@@ -71,6 +71,7 @@ import { urlAudio } from '@/lib/offer-reglas';
 import { MAX_BLOQUES_MENSAJE, aGuardar, bloqueDeResultado, bloquesGuardados, esPorQueGuardado, type Bloque } from '@/lib/chat-bloques';
 import { archivarPdfsDelChat, archivarPegadosDelChat, borrarAdjuntos, subirAdjuntos, subirNotaDeVozDelChat, urlFirmadaDeAdjunto } from '@/lib/chat-mako-adjuntos';
 import { recortarMensaje, textoParaTitulo, textosParaArchivar } from '@/lib/chat-pegado';
+import { puedeArchivarConSuIA } from '@/lib/archivero-ingesta';
 import { archivoATexto } from '@/lib/archivo-a-texto';
 import { aFila, plano } from '@/lib/bandeja-filas';
 import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
@@ -445,23 +446,8 @@ async function iaPropiaDelTurno(): Promise<number | null> {
   }
 }
 
-/**
- * ¿Hay con qué pasar un archivo a El Archivero sin la cascada barata? Su clave de Claude (la puerta 2 del veto), su OpenAI
- * o su Gemini (`PROVS_SU_IA`, IA16). Sólo se pregunta con «sólo su IA» (D6b): ahí, sin ninguna, El Archivero no corre y se
- * dice.
- * `pausa`: tiene su clave de Claude pero la plataforma la pausó y no hay OpenAI: se dice eso, no que falta la clave.
- */
-async function puedeArchivarConSuIA(): Promise<'si' | 'no' | 'pausa'> {
-  try {
-    const claude = await permisoDeLaClaveDelNegocio('El Archivero');
-    if (claude && 'permiso' in claude) return 'si';
-    const { provsDe } = await import('@/lib/ai-cheap');
-    for (const p of PROVS_SU_IA) if ((await provsDe(p as never)).length > 0) return 'si';
-    return claude && 'pausa' in claude ? 'pausa' : 'no';
-  } catch {
-    return 'no';
-  }
-}
+// `puedeArchivarConSuIA` (¿hay con qué pasar un archivo a El Archivero sin la cascada barata?) se mudó a
+// lib/archivero-ingesta.ts el 3/11/2026: la API (`sumar_documento_second_brain`) pregunta lo mismo.
 
 /** Las IA que el negocio tiene guardadas en SU fila (`credDelCliente`, sin el entorno), para abrirle la que ya eligió. */
 async function iaConFila(): Promise<string[]> {
