@@ -79,6 +79,8 @@ async function conSesionesCerradas(uid: number, s: NonNullable<Awaited<ReturnTyp
 export async function POST(req: NextRequest) {
   const s = await quien();
   if (!s) return no('no autenticado', 401);
+  // La cuenta de revisión de las tiendas no cambia su seguridad: con un factor propio cambiaría la contraseña y dejaría afuera a los revisores.
+  if (s.mfa === 'revision') return no('Esta cuenta no se puede cambiar.', 403);
   const uid = Number(s.sub);
   const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const accion = String(body.accion ?? '');

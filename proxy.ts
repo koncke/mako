@@ -28,6 +28,7 @@ import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/edito
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
 import { esAppIos, esRutaDeVenta } from './lib/tienda';
+import { revisionNoPuede } from './lib/mfa-reglas';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -454,6 +455,8 @@ export function proxy(req: NextRequest) {
   const sesion = verificarToken(req.cookies.get(SESSION_COOKIE)?.value);
   if (sesion) {
     if (esAdminRoute && sesion.rol !== 'admin') return denegarRol(req, pathname);
+    // La cuenta de revisión de las tiendas: esa contraseña la tienen terceros (lib/mfa-reglas.ts).
+    if (sesion.mfa === 'revision' && revisionNoPuede(pathname, req.method)) return NextResponse.json({ ok: false, error: 'Esta cuenta no puede hacer esto.' }, { status: 403 });
     return seguirOMovil(req, pathname, sesion.rol === 'admin');
   }
 

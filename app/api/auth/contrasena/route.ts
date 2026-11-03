@@ -18,7 +18,9 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { limitePorIp } from '@/lib/limite-publico';
 import { DISPOSITIVO_COOKIE, crearPreauth, destinoSeguro } from '@/lib/auth-session';
 import { ponerPreauth, ponerSesion } from '@/lib/sesion-cookies';
-import { decidirTrasGoogle, esCuentaDeRevision, requiereSegundoFactor } from '@/lib/mfa-reglas';
+import { DIAS_SESION_REVISION, decidirTrasGoogle, esCuentaDeRevision, requiereSegundoFactor } from '@/lib/mfa-reglas';
+import { avisarDePlataforma } from '@/lib/invitaciones';
+import { EMAIL_MAKO } from '@/lib/app-url';
 import { obligatorioDesdeDe } from '@/lib/mfa-obligatorio';
 import { anotarEntradaDeRevision, dispositivoValido, mfaActivoReal, registrarEvento } from '@/lib/mfa';
 import { registrarLogin } from '@/lib/usuarios';
@@ -54,7 +56,10 @@ export async function POST(req: NextRequest) {
     if (!(await anotarEntradaDeRevision(usuario.id, `ip ${req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? '?'}`))) return no('No se pudo entrar.', 503);
     await registrarLogin(usuario.email, { nombre: usuario.nombre, foto_url: usuario.foto_url ?? undefined });
     const res = NextResponse.json({ ok: true, ir: next });
-    if (!ponerSesion(res, { sub, email: usuario.email, nombre, rol: usuario.rol, mfa: 'revision' })) return no('El login no está configurado.', 500);
+    if (!ponerSesion(res, { sub, email: usuario.email, nombre, rol: usuario.rol, mfa: 'revision' }, DIAS_SESION_REVISION)) return no('El login no está configurado.', 500);
+    // Que alguien se entere: un rastro que nadie lee no avisa de una contraseña filtrada. Si no sale, la entrada sigue: quedó anotada arriba.
+    await avisarDePlataforma({ to: EMAIL_MAKO, asunto: 'Entró la cuenta de revisión de las tiendas', preheader: 'Si no hay una revisión en curso, rota la contraseña.', tag: 'login-revision-tienda',
+      cuerpo: 'Entró la cuenta de revisión de las tiendas. Si no hay una revisión en curso, rota la contraseña con scripts/tiendas-cuenta-revision.mts --rotar.' }).catch(() => {});
     return res;
   }
 
