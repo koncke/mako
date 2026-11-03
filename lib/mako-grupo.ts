@@ -25,6 +25,7 @@ import { reclamarEspaciado, salioReciente } from './espaciado';
 import { reclamarContactoLinea, SIN_CUPO_LINEA, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
 import { getSupabaseServer } from './supabase';
 import { agenciasAprobadasDe } from './agencia';
+import { KEY_VOZ_INSTANCIA } from './linea-plataforma';
 import { lineaDeLaAgencia, quienesFaltan, telefonoDeParticipante, telefonosDelEquipo, type MiembroAgencia } from './agencia-equipo-grupo';
 
 const BASE = (process.env.EVOLUTION_BASE_URL || '').replace(/\/$/, '');
@@ -34,7 +35,7 @@ const KEY = process.env.EVOLUTION_API_KEY || '';
  *  cargado en ws1). El canal propio de SuperAdmin (mako_superadmin) la reemplaza
  *  al conectarse por QR — se elige en runtime con la setting mako.voz.instancia. */
 export const INSTANCIA_VOZ_DEFAULT = 'mako_ws1';
-export const KEY_VOZ_INSTANCIA = 'mako.voz.instancia';
+export { KEY_VOZ_INSTANCIA };
 
 /**
  * Instancia que MaKo usa para hablar (grupos + avisos). Configurable en runtime.

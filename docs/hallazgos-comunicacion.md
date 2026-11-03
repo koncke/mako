@@ -12270,3 +12270,28 @@ todo lo que importa esos módulos, no los que uno se acuerda.
   - La cuenta compartida la avisa el workspace de menor id (`cuentasYaAvisadas`), y ese decide también el destino: una cuenta compartida entre un
     cliente directo y uno de agencia puede avisarle a uno solo.
   - Una agencia que bajó de capa sigue recibiendo la alerta con un link a MaKo Partners que ya no la deja entrar.
+
+## WhatsApp baneó la línea de MaKo: qué la dejó muda, cómo se siguió y qué costaría lo oficial (03/11/2026, Cerebro)
+
+**Síntoma.** A las 16:39 ART WhatsApp rechazó la sesión del …2605 con un 403 y al teléfono le llegó «ya no puede usar WhatsApp Business… spam». Las otras líneas siguieron abiertas. No se probó la causa: el último tráfico fue una bienvenida y un link de invitación a un número suelto, 20 minutos después de desplegar el alta automática del equipo de agencia.
+
+**Lo que más dolió no fue el ban, fue el admin único.** El número personal (…3479) es admin en los 6 grupos que existían al mudarse el 07/10. Los 8 creados después sólo tienen al …2605: `group/participants` contesta 404 `forbidden`, y nadie más puede sumarlo. MaKo queda muda ahí aunque tenga otra línea viva.
+
+**Mover la voz sin QR.** Martín pidió seguir por su número, con un botón para apagarlo (`usarNumeroPersonalComoVoz`, en /agencia). `mako.voz.instancia` apunta a `mako_ws9` y a esa línea se le abren los grupos. El doer sólo contesta los que reconoce `wsDeGrupoJid`, así que sus grupos personales se ignoran.
+- ⚠️ El canal NO se mueve: `desconectarCanalMaKo` borra la línea del canal, y con el canal ahí borraría su WhatsApp personal.
+- ⚠️ En la voz, todo `fromMe` era MaKo: el dueño hablándole desde su teléfono se tiraba por eco. En una línea `mako_ws<n>` decide el anillo (`vozPropiaDeMaKo`).
+- ⚠️ `lineaDeMaKoPara` daba el canal caído como línea por defecto de la plataforma: con la voz en el negocio devuelve null.
+
+**Trampas de Evolution medidas ese día.**
+- `fetchAllGroups` contestó 500 `rate-overlimit`. Leído como lista vacía daba «no está en ningún grupo», y era falso: se pregunta grupo por grupo, con pausa.
+- `group/create` exige al menos un participante (`participants does not meet minimum length of 1`). Para probar sin terceros, el propio número sirve.
+
+**Lo oficial, con el volumen real (30 días a 03/11; US$ a tarifa de Argentina vigente desde el 01/10/2026, sin contar otros países).** Marketing 0,0618; utility, autenticación y servicio 0,026. La tarifa viene de Zernio y SleekFlow, que citan la tabla de Meta: la tabla oficial no se pudo abrir.
+- ⚠️ **El diagnóstico que circula ya venció:** las respuestas dentro de las 24 h fueron gratis hasta el 30/09/2026. Desde el 01/10 sólo son gratis las primeras 1.000 por número y por mes, y las utility dentro de la ventana también se cobran.
+- Líneas de clientes: salieron 21.917 mensajes, 2.956 fuera de la ventana. Da **US$470/mes** si todo pasa por la API (de US$0,62 a US$137 por línea). Con coexistencia lo escrito desde el teléfono es gratis y `wa_mensajes` no lo separa: el piso medible son las secuencias, 803 envíos, ~US$50.
+- La línea de MaKo: 415 mensajes en grupos, ~US$11 como tope. `mako_doer_conv` no cuenta todo lo que sale: sirve de orden de magnitud, no de factura.
+- Grupos oficiales: sólo con Official Business Account (la otorga Meta, sin pago posible), hasta 8 personas, se entra por link, sin botones. Se cobra por destinatario entregado.
+- ⚠️ `AI Providers`: la IA no puede ser la funcionalidad principal de lo que se ofrece por la plataforma, a criterio de Meta. Un bot de atención del negocio entra; «MaKo en WhatsApp» como producto hay que revisarlo antes de construir.
+- Se pierde del todo: leer los grupos del cliente, sumar gente directo, escribirle a quien no dio su permiso, etiquetas del WhatsApp, foto de perfil del contacto, preguntar si un número tiene WhatsApp, y el historial de más de 6 meses. Coexistencia sólo para WhatsApp Business app, no para una cuenta personal.
+
+**Sin hacer.** Los 8 grupos sin el …3479 (`app_settings`, `mako.grupo_jid` de los ws 15, 17, 18, 19, 20, 21, 22 y 23). Sumar una segunda línea como admin al crear cada grupo (`lib/mako-grupo.ts`), que es lo que habría evitado esto. El alta automática y las invitaciones a números sueltos apagadas por defecto (chat de la línea). La decisión sobre la vía oficial.
