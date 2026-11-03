@@ -62,11 +62,14 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       // emparejó con lo que la clienta escribió. La regla: **el catálogo usa el nombre que la
       // persona LEE en la pantalla**, no una forma parecida; si no, MaKo niega lo que sí tiene.
       '«Aprende solo» (el botón de la cabecera del Mapa): aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes, y ver de qué fuentes aprende, cuándo fue la última vez y cuánto entró',
+      // Ticket #48 (3/11/2026): «¿dónde actualizo mis datos?» y MaKo no sabía la pantalla. Los nombres, los de pantalla
+      // (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO; tests/mako-no-puedo-falsos.test.ts los busca en AreasHub y AREAS).
+      'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',
       'Hablar primero: la primera vez te pregunta qué te falta (hoy, conectar tu IA), con botones que andan sin la app',
       'Enseñarte la pestaña señalando, con el resto un poco opaco y el chat a la vista (el «?» de arriba)',
     ],
     noHace: ['No es el chat con tus leads: eso es Chats', 'Todavía no: la guía señalando en las otras pestañas ni con tu IA (por ahora, sólo el Ops Center y sin IA)'],
-    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako'],
+    alias: ['ops center', 'second brain', 'segundo cerebro', 'cerebro', 'mapa', 'grafo', 'chat con mako', 'mis datos', 'datos del negocio', 'el brief'],
     conecta: [{ a: 'crm', motivo: 'Lo que sabe de tus clientes sale del CRM' }, { a: 'offer', motivo: 'Tu oferta vive en Offer y el mapa la muestra' }],
     estado: 'lista', slugDev: 'second-brain', fuentes: [AREAS, 'docs/diseno-second-brain-grafo.md'],
   },
@@ -153,6 +156,8 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     que: 'Las automatizaciones que conversan por ti: un agente que contesta por WhatsApp, email, Instagram y Messenger, le recuerda la reunión al lead, lo mueve de etapa y te lo pasa cuando hace falta una persona.',
     hace: [
       'Crear una automatización desde la galería de plantillas',
+      // Ticket #47 (3/11/2026): MaKo decía que sólo podía activar o pausar. crear_automatizacion_con_ia la arma desde un pedido.
+      'Crear una secuencia nueva pidiéndosela a MaKo en palabras, con su disparador (una etapa, una etiqueta que se le agrega al lead o un evento): nace pausada',
       'Ramas, condiciones, horarios, etiquetas y acciones',
       'Recordarle al lead la reunión agendada',
       'Secuencias de nutrición que MaKo escribe en la voz del negocio',
@@ -193,7 +198,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
     que: 'Tu oferta, trabajada en un chat: MaKo te pregunta por cada pieza, la diagnostica con una rúbrica y escribe la oferta nueva, descargable en PDF.',
     hace: ['Preguntarte por cada pieza de la oferta', 'Diagnosticarla con una rúbrica', 'Escribir la oferta nueva y descargarla en PDF', 'Proponer probar un cambio como experimento'],
     alias: ['offer', 'oferta', 'propuesta de valor', 'precio', 'garantia', 'bonos'],
-    conecta: [{ a: 'landing-writer', motivo: 'La landing vende la oferta' }, { a: 'crm', motivo: 'Los productos y sus precios' }],
+    // Ticket #46 (3/11/2026): «precio» lleva acá, y el precio no se corrige en Offer: se corrige en el Second Brain.
+    noHace: ['No es donde se corrige el precio, qué incluye o el horario: eso es el Second Brain, en «La oferta» → «El brief»'],
+    conecta: [{ a: 'landing-writer', motivo: 'La landing vende la oferta' }, { a: 'crm', motivo: 'Los productos y sus precios' }, { a: 'mako', motivo: 'El precio y lo que incluye se corrigen en el Second Brain, en «La oferta» → «El brief»' }],
     estado: 'parcial', slugDev: 'offer-analyst', fuentes: [AREAS],
   },
   {

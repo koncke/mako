@@ -32,6 +32,10 @@ import { afirmacionesDeHecho } from '../lib/doer-salida';
 import { contextoDeEdicion, pistaDeEdicion, PISTA_DATO_DE_COBRO, PISTA_EDICION_FICHA } from '../lib/mako-analyst-lead-reglas';
 import { porId, type Vista } from '../lib/api-mako/registro';
 import { esDestructiva } from '../lib/relevancia-app';
+import { CAPACIDADES } from '../lib/mako-capacidades';
+import { DATOS_DEL_NEGOCIO, rutaDato, lugarDato, datoDeCampo, vistaValida } from '../lib/secciones-negocio';
+import { AREAS } from '../lib/cerebro-modelo';
+import { ENTRADAS } from '../lib/funciones-mako';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -224,6 +228,65 @@ test('13. «Anotado, …», «Guardado, ya lo tengo», «Anotado 👍», «Anota
   }
 });
 
+// ── Los tickets #46, #47 y #48 de Leila (3/11/2026): MaKo negaba lo que SÍ tiene, o no sabía dónde vive en la pantalla ──
+// La misma causa que el #45: la palabra de la persona no es la del NOMBRE de la operación, y la herramienta no viaja. Frases
+// textuales de los tickets (son de la clienta, sin datos de terceros).
+
+test('14. «el precio está en pesos y quiero pasarlo a dólares» trae guardar_oferta y guardar_producto (#46)', () => {
+  const t = herramientas('hoy el precio está en pesos mxn y quiero pasarlo a dlls para abrir el programa a Latam', 'app');
+  for (const o of ['guardar_oferta', 'listar_ofertas', 'guardar_producto', 'listar_productos']) assert.ok(t.includes(o), `no viajó ${o}`);
+  assert.ok(herramientas('cámbiale el precio a la mentoría', 'app').includes('guardar_oferta'), '«cámbiale el precio» sin guardar_oferta');
+  // Lo de antes, igual: el presupuesto de una campaña en dólares sigue siendo de Meta.
+  assert.ok(herramientas('subí el presupuesto de la campaña de remarketing a 50 dólares', 'app').includes('proponer_presupuesto_campana'));
+});
+
+test('15. «el WhatsApp del diagnóstico tiene que disparar una secuencia» trae crear_automatizacion_con_ia (#47)', () => {
+  for (const m of ['Ok pero del diagnóstico me mandan un whatsapp que tiene que disparar una secuencia', 'créame una secuencia nueva que arranque con la etiqueta diagnóstico']) {
+    assert.ok(herramientas(m, 'app').includes('crear_automatizacion_con_ia'), `«${m}» sin crear_automatizacion_con_ia`);
+  }
+  // Y la herramienta dice lo que la gente dice: secuencia, disparador, etiqueta.
+  const d = porId('crear_automatizacion_con_ia')!.descripcion;
+  for (const w of ['secuencia', 'disparador', 'etiqueta']) assert.ok(d.includes(w), `la descripción no dice «${w}»`);
+  // Una secuencia de EMAILS sigue siendo de su familia.
+  assert.ok(herramientas('creame una secuencia de emails de bienvenida', 'app').includes('crear_secuencia_email'));
+});
+
+test('16. «¿dónde actualizo mis datos?» trae la pantalla de cada dato, y las lecturas la dicen (#48)', () => {
+  const t = herramientas('y donde actualizo mis datos? porque hay varios datos que se modificaron, como por ejemplo el 7 a 9 es 7.30 a 9.30pm', 'app');
+  for (const o of ['listar_capacidades_mako', 'ver_perfil_negocio', 'listar_ofertas']) assert.ok(t.includes(o), `no viajó ${o}`);
+  const c = CAPACIDADES.find((x) => x.id === 'datos-negocio');
+  assert.ok(c, 'falta la capacidad datos-negocio');
+  assert.equal(c.ruta, rutaDato('brief'));
+  for (const d of ['brief', 'ofertas', 'productos'] as const) assert.ok(c.que.includes(lugarDato(d)), `datos-negocio no nombra ${lugarDato(d)}`);
+  // Las lecturas y el rechazo de un campo con valor mandan a donde se LEE el dato, no a «Documentos».
+  assert.equal(datoDeCampo('oferta_precio'), 'brief');
+  assert.equal(datoDeCampo('oferta_incluye'), 'brief');
+  assert.equal(datoDeCampo('avatar_dolor'), 'cliente');
+  assert.match(fuente('lib/api-mako/areas/negocio.run.ts'), /ver_perfil_negocio[\s\S]{0,600}se_corrige_en/);
+  assert.match(fuente('lib/api-mako/areas/negocio.run.ts'), /listar_ofertas[\s\S]{0,900}se_editan_en/);
+  assert.match(fuente('lib/api-mako/areas/crm.run.ts'), /listar_productos[\s\S]{0,400}se_editan_en/);
+  assert.ok(!porId('guardar_campo_perfil')!.descripcion.includes('Documentos'), 'guardar_campo_perfil sigue mandando a Documentos');
+});
+
+test('17. los nombres de cada dato son los que la persona LEE en la pantalla, y el link abre esa vista (la regla del #45)', () => {
+  const hub = fuente('app/second-brain/AreasHub.tsx');
+  const sb = fuente('app/second-brain/ChatSecondBrain.tsx');
+  assert.match(sb, /«Second Brain»/, 'la barra del Ops Center ya no dice «Second Brain»');
+  for (const [d, x] of Object.entries(DATOS_DEL_NEGOCIO)) {
+    const area = AREAS.find((a) => a.id === x.area);
+    assert.ok(area, `${d}: el área ${x.area} no existe`);
+    assert.equal(x.nombres[0], area.nombre, `${d}: el mapa dice «${area.nombre}», no «${x.nombres[0]}»`);
+    if (x.vista) {
+      assert.equal(vistaValida(x.area, x.vista), x.vista, `${d}: ?vista=${x.vista} no abre nada`);
+      assert.match(hub, new RegExp(`id: '${x.vista}', nombre: '${x.nombres[1]}'`), `${d}: la sub-pestaña no se llama «${x.nombres[1]}»`);
+    }
+  }
+  // El catálogo de funciones los nombra igual (el #45: con otro nombre, MaKo niega lo que tiene).
+  const sbEntrada = ENTRADAS.find((e) => e.keys[0] === 'mako')!;
+  assert.ok(sbEntrada.hace.some((h) => h.includes('«La oferta» → «El brief»') && h.includes('«Productos»')), 'el catálogo no nombra «El brief» ni «Productos»');
+  assert.ok(ENTRADAS.find((e) => e.keys[0] === 'setting')!.hace.some((h) => /secuencia nueva/.test(h) && /etiqueta/.test(h)), 'Automations no dice que MaKo crea una secuencia con disparador por etiqueta');
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. la 9-bis sin `!QUEJA_NO_ANDA`                                 → rojo el 1.
@@ -243,3 +306,7 @@ test('13. «Anotado, …», «Guardado, ya lo tengo», «Anotado 👍», «Anota
 //   17. la queja suelta fuera de `QUEJA_DE_LA_APP` → rojo el 12; 18. la forma sin sujeto sólo con [.!:] → rojo el 13.
 //   (29/10, la constancia que se guarda) 19. `documento-fiscal` con su relevancia de antes (sin «editar dato deal») → rojo el 4;
 //   20. sin la familia `documento-fiscal` → rojo el 4; 21. `area-fiscal` con «datos fiscales deal» (ofrece primero guardar_deal_details) → rojo el 4.
+//   (3/11, los tickets #46, #47 y #48 de Leila) 22. sin la familia `precio-oferta` → rojo el 14; 23. sin `crear-secuencia` → rojo el 15;
+//   24. crear_automatizacion_con_ia sin «secuencia» ni «disparador» en la descripción → rojo el 15; 25. sin `donde-se-edita` → rojo el 16;
+//   26. `datoDeCampo` sin la oferta (volvía a mandar a «Documentos») → rojo el 16; 27. sin la capacidad datos-negocio → rojo el 16;
+//   28. «Brief» en vez de «El brief», que es lo que dice la pestaña → rojo el 17; 29. el catálogo sin «secuencia nueva» → rojo el 17.

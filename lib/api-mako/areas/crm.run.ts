@@ -126,6 +126,7 @@ import {
 } from '@/lib/etiquetas';
 import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuenciaDeArchivar, autorPublico } from '@/lib/etiquetas-reglas';
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
+import { lugarDato, rutaDato } from '@/lib/secciones-negocio';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
 import { usuarioInstagram, esLinkDeGrabacion, ERROR_LINK_GRABACION } from '@/app/crm/campo-inline';
@@ -1064,9 +1065,11 @@ export const RUNNERS: Runners = {
     },
   },
   listar_productos: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
       const ps = await listProductos(input.soloActivos === true);
       return json({
+        // Ticket #48 (3/11/2026): dónde se edita el catálogo, con el nombre de pantalla (lib/secciones-negocio.ts).
+        se_editan_en: { lugar: lugarDato('productos'), link: linkApp(rutaDato('productos'), ctx.ws) },
         moneda: 'USD', productos: ps.map((p) => ({ id: p.id, nombre: p.nombre, tipo: p.tipo, monto_usd: p.monto_usd, suscripcion_meses: p.suscripcion_meses, promesa: p.promesa, incluye: p.incluye, garantia: p.garantia, activo: p.activo })),
         ...(ps.length ? {} : { nota: 'El catálogo está vacío.' }),
       });
