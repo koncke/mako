@@ -49,7 +49,7 @@ test('2. en la computadora y en el teléfono, con la pieza del super admin y sin
   assert.match(pieza, /const cabeza = g\.chat \?\? jefe\?\.\(g\) \?\? null;\n\s*return \(\n\s*<div key=\{g\.clave\} className="co-jefe">\n\s*\{cabeza \? fila\(cabeza, false\) :/);
   const sb = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(sb, /<GruposPorJefe chats=\{corte\} fila=\{fila\} jefe=\{\(g\) => \{ const j = jefeDelGrupo\(g\);/, 'la computadora');
-  assert.match(sb, /const actual = !verMapa && !f\.jefeDeGrupo && esFilaDe\(f, elegido\);/);
+  assert.match(sb, /const actual = !verMapa && !delGuru && !f\.jefeDeGrupo && esFilaDe\(f, elegido\);/);
   const m = sinComentarios(leer('app/m/second-brain/ChatClienteM.tsx'));
   assert.match(m, /const j = g\.chat \?\? \(\(\) => \{ const v = jefeDelGrupo\(g\);/, 'el teléfono');
   assert.match(m, /return j \? \[fila\(j\), \.\.\.g\.subs\.map\(\(f\) => fila\(f, true\)\)\] :/);

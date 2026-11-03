@@ -117,3 +117,7 @@
   background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; outline: none;
 }
 [data-m] .m-operaciones-titulo__error { font-size: var(--fs-meta); font-weight: 400; color: var(--bad); }
+
+/* El chat con un gurú (app/m/second-brain/HojaDelGuru.tsx): «Inspirado en» y su Second Brain arriba del hilo; el grafo, con alto propio. */
+[data-m] .m-operaciones-guru { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0 8px; }
+[data-m] .m-operaciones-cerebro { height: 68dvh; }

@@ -331,7 +331,7 @@ test('4: un chat con pasos recientes está TRABAJANDO aunque el estado del Runne
 test('g: con el grafo abierto, tocar un chat no deja que la URL vuelva a «?panel=mapa»', () => {
   const src = sinComentarios(leer('app/second-brain/ChatSecondBrain.tsx'));
   assert.match(src, /const hayMapa = mapa != null;/);
-  assert.match(src, /useEffect\(\(\) => \{ if \(elegido && !hayMapa\) anotarEnUrl\(elegido, urlCentro\); \}, \[elegido, urlCentro, hayMapa\]\);/,
+  assert.match(src, /useEffect\(\(\) => \{\s*if \(hayMapa\) return;\s*if \(guru\) anotarEnUrl\(null, null, guru\);\s*else if \(elegido\) anotarEnUrl\(elegido, urlCentro\);\s*else anotarParam\('guru', null\);\s*\}, \[elegido, urlCentro, hayMapa, guru\]\);/,
     'el grafo es dueño de la URL mientras está: anotar el chat con replaceState antes de que termine el router.push lo dejaba en el grafo');
   // Desde el 23/10/2026 lo decide lib/ops-center-navegar.ts (`ir: 'chat'` con el grafo abierto; tests/ops-center-navegacion.test.ts).
   assert.match(src, /if \(paso\.ir\) \{\s*setYendo\('fuera'\);\s*router\.push\('id' in e/, 'tocar un chat con el grafo abierto navega a ese chat');

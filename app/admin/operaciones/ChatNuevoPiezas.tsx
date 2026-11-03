@@ -9,7 +9,7 @@
 // computadora (ChatNuevoCentro) y la hoja del teléfono (ChatsMovil.tsx → HojaChatNuevo). La caja, la única de toda la app, está
 // en CajaChatNuevo.tsx (28/10/2026: trae CSS).
 
-import { useState, type RefObject } from 'react';
+import { useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { frasePorDonde, type DecisionChatNuevo } from '@/lib/centro-chat-nuevo';
@@ -77,15 +77,22 @@ export function CriaturaChatNuevo({ n, size = 34 }: { n: ChatNuevo; size?: numbe
 }
 
 /** Lo que se ve en el chat: el vacío con su invitación, o el mensaje y lo que MaKo decidió con él. */
-export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
+export function CuerpoChatNuevo({ n, alPie }: {
+  n: ChatNuevo;
+  /** Lo que va debajo de la portada mientras el chat está vacío: los gurús (app/second-brain/GaleriaDeGurus.tsx). */
+  alPie?: ReactNode;
+}) {
   const { enviado, decision, fase, editando, nota, archivos } = n;
   if (!enviado && !nota) {
     return (
-      <div className="co-portada">
-        <CirculoNuevo size={76} />
-        <p className="co-portada__nombre">Nuevo chat</p>
-        <p className="co-portada__dato">Escribe lo que necesitas. Yo decido dónde va.</p>
-      </div>
+      <>
+        <div className="co-portada">
+          <CirculoNuevo size={76} />
+          <p className="co-portada__nombre">Nuevo chat</p>
+          <p className="co-portada__dato">Escribe lo que necesitas. Yo decido dónde va.</p>
+        </div>
+        {alPie}
+      </>
     );
   }
   return (
