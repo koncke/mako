@@ -5,7 +5,8 @@
 - Pedido de Martín (27/10, textual en app/admin/dev/onboarding/bitacora.ts): el onboarding entiende todos los nichos sin
   personalizarse por cliente, y no deja entrar sin el setup (MaKo Desktop, la extensión, Meta con el login de Facebook,
   etc.), detectando lo que ya tiene.
-- **Va en una ETIQUETA, no en una rama:** `nube/onboarding-0311` (los siguientes, `-2`, `-3`). Integración la junta como una
+- **Va en la RAMA `nube/onboarding-2710`** (commit a27bf77ee, encima de origin/main 2c1c494c7). La etiqueta
+  `nube/onboarding-0311` no se pudo subir: el proxy de la nube contestó 403 a `refs/tags/`. Integración la junta como una
   punta más.
 - Hecho:
   - «¿Cómo vendes?», con lo que ya contó, confirmado con un toque. Lo leen lib/modelo-negocio.ts y la etapa «modelo».
