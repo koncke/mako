@@ -4,7 +4,10 @@
 // WhatsApp baneó la línea de MaKo, y lo último que hizo fueron altas en grupos. Corre sobre el código REAL
 // (tests/_altas-en-grupos-hijo.ts) y mira lo único que importa: qué le llegó a WhatsApp.
 //
-// Probado ROMPIÉNDOLO (3/11/2026): PRUEBA-ROTURA
+// Probado ROMPIÉNDOLO (3/11/2026), de a una, 14 roturas: cada puerta sacada (grupo, grupo suelto, alta, invitación, `sumarAlGrupo`, agencia, comando de
+// grupos viejos, detalle del grupo), el onboarding que se traba, prendido sin poder leer, prendido por defecto, cualquier valor, el setting leído del
+// negocio en curso, y apagado para siempre. La primera pasada dejó verde sacar la puerta de `agregarParticipanteGrupo`, porque `sumarAlGrupo` la cubre:
+// por eso se mira el link. Ahora fallan las 14; restaurado, 17 pasan y 0 fallan.
 //
 // Correr: node --import tsx --test tests/altas-en-grupos.test.ts
 // =============================================================================
@@ -42,6 +45,10 @@ test('quien lo intentó se entera: no se cuenta como hecho', () => {
   }
   // El de la agencia corre adentro de la creación del grupo: no entra nadie y el grupo no dice «sumé».
   assert.deepEqual(R.apagado.equipoDeLaAgencia.res, { agencias: [], entraron: [], invitados: [], fallaron: [] });
+});
+
+test('desde Notificaciones, quien lo intentó se lleva el link para pasarlo a mano: es la salida que le queda', () => {
+  assert.equal(R.apagado.agregar.res.link, 'https://chat.whatsapp.com/LINK');
 });
 
 test('el número del dueño se guarda igual: lo apagado es el grupo, no el dato', () => {
