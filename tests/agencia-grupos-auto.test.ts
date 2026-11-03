@@ -23,7 +23,7 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<string, any>;
 type Paso = { paso: string; quien?: string; texto?: string; a?: string; grupo?: string };
 const agregados = (pasos: Paso[]) => pasos.filter((p) => p.paso === 'agregar').map((p) => String(p.quien).split('@')[0]);
-const mensajes = (pasos: Paso[]) => pasos.filter((p) => p.paso === 'mensaje');
+const mensajes = (pasos: Paso[]) => pasos.filter((p) => p.paso === 'mensaje').map((p) => ({ ...p, texto: String(p.texto ?? '') }));
 const DUENO = '5492230000684', OTRO_ADMIN = '5491130000111', CLOSER = '5491130000222', SETTER = '5491130000333', SUSPENDIDO = '5491130000444', DUENO_OTRA = '5491130000555';
 
 test('lo puro: quién es del equipo', () => {
@@ -74,7 +74,7 @@ test('nace el grupo de un cliente de agencia: entran quienes la administran, y e
   assert.equal(m[0].a, r.jid);
   assert.match(m[0].texto, /^¡Hola, Natalia!/);
   assert.match(m[0].texto, /Sumé también a \*Agencia Uno\*, tu agencia/);
-  assert.ok(pasos.indexOf(m[0]) > pasos.findIndex((p: Paso) => p.paso === 'agregar'), 'el mensaje dice lo que ya pasó');
+  assert.ok(pasos.findIndex((p: Paso) => p.paso === 'mensaje') > pasos.findIndex((p: Paso) => p.paso === 'agregar'), 'el mensaje dice lo que ya pasó');
   // Nada de plata ni de cuentas publicitarias en el grupo del cliente (31/10/2026, ticket #37).
   assert.doesNotMatch(m[0].texto, /pago|cuenta publicitaria|plan|cobr/i);
   // No entran a la lista del cliente: no le aparecen en Notificaciones ni reciben sus reportes por DM.
