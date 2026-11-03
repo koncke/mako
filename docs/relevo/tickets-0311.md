@@ -23,5 +23,5 @@ Rama `tickets-ia-0311` en `C:/dev/wt-tickets-0311`, desde `origin/main`. Sin pus
 
 ## Para quien siga
 
-- Los tres tests de `todo` que dan «failing» sin fallar (chats-mako-envio, doer-recetas-video-imagen) ya estaban así en main.
+- Los dos tests de `todo` que dan «failing» sin fallar (chats-mako-envio, doer-recetas-video-imagen) ya estaban así en main.
 - Las roturas se midieron con un script que cambia el archivo, corre el test y lo restaura: mientras corre, otra edición del mismo archivo se pierde.
