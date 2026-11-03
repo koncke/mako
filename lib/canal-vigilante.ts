@@ -331,7 +331,7 @@ function haceCuanto(desde: string): string {
  * Con tope: `sendEmail` no tiene timeout, y un Resend colgado dejaba al cron sin correr las
  * alertas de Meta, que van después (segunda revisión del 11/09/2026).
  */
-async function avisarPorEmail(ws: number, asunto: string, cuerpo: string): Promise<{ enviadoA: number; error?: string }> {
+export async function avisarPorEmail(ws: number, asunto: string, cuerpo: string): Promise<{ enviadoA: number; error?: string }> {
   const { getDestinatariosDe } = await import('./notif-destinatarios');
   const dest = await getDestinatariosDe(ws).catch(() => null);
   const para = [...new Set(

@@ -18,6 +18,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Tu número, como línea de tu negocio', detalle: 'Tu WhatsApp personal para atender clientes: se ve en /whatsapp y «Sale por» lo puede elegir', estado: 'hecha' },
   { titulo: 'Pasar MaKo al número nuevo', detalle: 'El número nuevo ya está vinculado · la primera pasada dio 0 de 6 (Evolution le borraba el 9) · falta volver a vincular tu número, o sumarlo desde el teléfono, y reintentar', estado: 'sigue' },
   { titulo: 'Soltar las líneas viejas', detalle: 'Las dos líneas con tu número que fueron de MaKo siguen vinculadas y el webhook las ignora · ocupan dispositivos de tu WhatsApp', estado: 'cola' },
+  { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las dos cada 3 minutos · un aviso por caída y otro al volver, por la línea que sigue viva · si caen las dos, por mail · falta probarlo con un mensaje real', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [

@@ -17,6 +17,8 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **WhatsApp baneó la línea de MaKo, y no fue por volumen** (3/11/2026). Evolution reintenta solo todo menos 401, 402, 403 y 406, y desde el servidor un ban y un
+  cambio de teléfono se ven igual: lo dice el teléfono. Nunca se mueve ese tráfico a otra línea. Ver «WhatsApp BANEÓ la línea de MaKo», abajo.
 - **Un fallo de producción se ubica contra el PUSH antes de diagnosticarlo** (29/10/2026). La nota de voz de Leandro que «Groq no
   escuchó» llegó 45 s antes de que Groq estuviera subido: la atendió la versión de antes. Ver «MaKo con Leandro, 28 y 29/10», abajo.
 - **«No guarda contexto» era el TURNO, no la memoria** (26/10/2026). El modelo veía la charla, pero la intención y las
@@ -50,6 +52,72 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## WhatsApp BANEÓ la línea de MaKo: no fue el volumen, no fue la RAM, y el 403 no se reconecta (3/11/2026, claude5)
+
+Martín: *«veo que MaKo la linea principal se desconecto, seria bueno evitar que eso pase... Y si llega a pasar tengo mi linea secundaria
+para avisarme a mi mismo»*. Abrió el teléfono: *«Esta cuenta ya no puede usar WhatsApp Business»*, por spam. Y: *«No entiendo porque me
+banearon, por los grupos? Si justamente son grupos con clientes»*.
+
+**Vive en:** `lib/lineas-de-mako.ts` (qué se avisa y por dónde, puro) · `lib/lineas-de-mako-vigilante.ts` · `app/api/cron/vigia-lineas-mako` (cada 3 min) ·
+`lib/evolution.ts` (`fotoDeLinea`, `reabrirSesion`). El freno de altas en grupos, en su punta aparte: `lib/altas-en-grupos.ts`.
+
+**Lo medido, en sólo lectura (hora ART):**
+- 16:30:59: se le avisa a Joan que su ticket #49 está listo (Notificaciones de un cliente vuelve a tener renglón).
+- 16:36:22 a 16:36:56, guardando Notificaciones de un cliente: grupo nuevo, bienvenida, un alta que WhatsApp no dejó, y por eso una
+  invitación por DM con link a alguien que nunca le había escrito a la línea.
+- 16:39:27: guardando Notificaciones de otro cliente, un alta más en otro grupo.
+- **16:39:36: `close`, código 403, `Connection Failure`, `location: rva`.** El número sigue dando `exists: true`.
+
+**⚠️ Tres diagnósticos obvios que eran los equivocados:**
+1. *«Es la RAM de Railway».* Las otras líneas vinculadas siguieron `open`, y sus últimas reconexiones no coinciden, cuando un reinicio las reconecta
+   todas juntas. No se miró Railway (sin sesión no hay métricas): se descartó por los efectos.
+2. *«Falta reconexión automática».* Ya está adentro de Evolution: `codesToNotReconnect = [401, 403, 402, 406]` (fuente de la 2.3.7) y lo demás lo reintenta solo.
+3. *«Fue el automático de la agencia que se desplegó recién».* Corrió y no agregó a nadie: Joan ya era participante, y la bienvenida no trae «Sumé también a…».
+   El link lleva el texto por defecto de `agregarParticipanteGrupo`, no el del automático. Salió de una **persona** guardando Notificaciones
+   (`setDestinatarios`). Para WhatsApp son lo mismo: una API agregando gente. **Apagar sólo el automático no habría cambiado nada.**
+
+**Tampoco fue el volumen.** Del 20/10 al 3/11: 376 textos y 133 reacciones a 13 grupos, y 7 mensajes a personas sueltas. Los últimos 4 días, 15, 18, 13 y 13 textos,
+contra un pico de 54 el 29/10.
+
+**Lo que sí pesa, sin poder probar que sea la causa** (WhatsApp no dice por qué banea, y los reportes de spam no se ven):
+- 826 de 837 salientes salieron por la API y 11 del teléfono: una línea casi sin uso humano, de 27 días.
+- Las altas y la invitación son lo más cercano en el tiempo: 9 s la última.
+- ⚠️ **El tope de contactos es por negocio** (`lib/mako-linea-tope.ts`, 5 por hora) **y la línea es una sola.** Una agencia que trabaja sobre varios clientes no lo
+  acumula. Ese día no habría saltado igual: fueron 3.
+
+**Qué significa el 403:** whatsmeow lo nombra `MainDeviceGone`, con dos notas: *«this is now called LOCKED in the whatsapp web code»* y *«seems to happen for both bans and
+switching phones»*. **Desde el servidor no se distingue un ban de un cambio de teléfono: lo dice el teléfono.** Por eso el aviso manda a mirarlo antes de escanear.
+
+**No se puede evitar del todo:** una línea por Baileys va contra las condiciones de WhatsApp, y esto les puede pasar también a las líneas de los clientes.
+
+**Las trampas que quedan:**
+- **No mover el tráfico a otra línea.** La secundaria sólo se escribe a sí misma, un mensaje por caída: si llevara lo de la principal, caería igual.
+- **La secundaria no la vigilaba nadie.** `vigilarLineasClientes` saltea el negocio de la plataforma y `vigilarVozMaKo` sólo mira la voz.
+- **`/instance/fetchInstances` no dice lo mismo que `/chat/*` para una instancia que no existe:** 404 `Instance "x" not found`, no «does not exist».
+- **`enviarTexto` sin línea, en la plataforma, sale por la de MaKo** (`lineasParaMandar`): la que se acaba de caer. El vigilante la nombra siempre.
+- **El código de caída queda guardado.** `mako_ws11` está `open` con un 401 del 09/10. Sólo `close` más el código prueba un cierre. `connecting` con 403 existe (`mako_ws1`, 08/09), y no se
+  distingue de un corte con un código viejo: se avisa como «cortada», con el link y sin mandar a escanear.
+- **Sobre una línea `close`, `logout` y `restart` rechazan** y sólo `connect` abre un socket. Por eso «Conectar por QR» sobre un 403 puede terminar en `rotarCanal`: una instancia con otro nombre. Las marcas van por ROL.
+- **La sonda es tráfico real contra WhatsApp.** El estado se lee de la base de Evolution cada 3 minutos; la sonda, cada 12, salvo con una caída abierta.
+- **El onboarding depende de la línea:** el código de verificación sale por DM desde ahí. Con la línea baneada, un cliente nuevo no puede terminarlo.
+- **`avisos_cola` y `flujo_corridas` no tenían nada pendiente:** no hay ráfaga guardada para cuando vuelva una línea. Lo que se intenta ahora rebota en Evolution sin llegar a WhatsApp.
+
+**Las opciones, con lo leído el 3/11** (grupos medidos: 5 de 13, con 2 a 4 personas; ~750 textos por mes):
+- **Cloud API de a uno, con plantillas de utilidad:** no pide cuenta oficial. US$6-20 por mes si llega sólo al dueño.
+- **Cloud API con grupos:** exige cuenta oficial (OBA), máximo 8, se entra sólo por link (no hay endpoint para agregar) y hay que rehacer los grupos. Se cobra por persona que recibe: US$19-59 por mes a 3 por grupo.
+- Tarifas de una tabla de terceros de julio de 2026 (Argentina ~US$0,026, México ~US$0,0085), no del tarifario de Meta. De Meta sí: desde el 1/10/2026 la plantilla de utilidad se cobra también dentro de la ventana, y lo que no es plantilla es gratis hasta 1.000 por mes y por número, contando cada persona de un grupo.
+- ⚠️ Desde el 15/1/2026 Meta prohíbe en esta API a los proveedores cuyo producto principal es un asistente de IA. Hay que leer esos términos contra lo que hace MaKo en un grupo: acá sólo hay fuentes secundarias.
+
+**Sin hacer, o sin medir:**
+- **No se probó con un mensaje real, y no sé si un mensaje a uno mismo hace sonar el teléfono.** Martín usa ese chat todos los días, pero puede llegar en silencio: por eso el mail de la voz sigue saliendo cada hora (`vigilarVozMaKo`). Si no suena, hay que elegir otro destino.
+- **Con WhatsApp caído, un aviso con grupo sale por mail sólo si el cliente lo prendió** (`canal.email`, `lib/avisos.ts`). El push y la campanita sí salen. Falta decidir el puente.
+- **Una zombi (`open` que no responde) sólo se arregla con QR o reiniciando Evolution** (medido el 11/09): la vigilancia avisa, no la cura.
+- **No se tocó `syncFullHistory` ni el heap:** no tienen que ver con este ban. El heap sigue en docs/hallazgos-infra.md, «Evolution: TODOS los números en UN proceso de Node».
+- **La cantidad de gente en 8 de los 13 grupos:** la línea de Martín no está en 7 y el otro dio 404. Con esa línea no se puede preguntar por grupos ajenos, y tampoco se usaron las de los clientes.
+- **La apelación del número** la hace Martín desde el teléfono.
 
 ---
 

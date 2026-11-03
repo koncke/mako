@@ -24,6 +24,7 @@ import { lineaDeMaKoPara, ETIQUETA_LINEA_MAKO } from './linea-plataforma';
 import { queryDeWebhook } from './evolution-firma';
 import { numeroParaWhatsApp, motivoConPista } from './numero-whatsapp';
 import { topeParaLineaNueva, type TopeLineaNueva } from './tope-lineas';
+import type { FotoLinea } from './lineas-de-mako';
 
 // El nombre de la primera línea vive en lib/lineas-whatsapp.ts (sin `server-only`, con
 // test). Se re-exporta para que ningún import cambie.
@@ -555,6 +556,38 @@ export async function motivoCaida(instance: string, topeMs?: number): Promise<Mo
     // existe». Las demas son cortes, y un corte no se arregla re-escaneando.
     desvinculado: codigo === 403 || codigo === 401,
   };
+}
+
+/**
+ * Lo que Evolution tiene guardado de una línea, sin hablar con WhatsApp (lib/lineas-de-mako.ts). null = no se pudo preguntar.
+ *
+ * ⚠️ ESTA RUTA NO DICE «does not exist». Medido el 03/11/2026: una instancia que no existe da 404 `Instance "x" not found`,
+ * así que `esInstanciaInexistente` (hecha para `/chat/fetchBusinessProfile`) acá contesta que sí existe.
+ */
+export async function fotoDeLinea(instance: string, topeMs?: number): Promise<FotoLinea | null> {
+  const r = await evFetch<Array<Record<string, unknown>>>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
+  const sinInstancia: FotoLinea = { existe: false, estado: null, codigo: null, cuando: null, numero: null };
+  if (!r.ok) return r.status === 404 && /instance .*not found/i.test(r.detalle ?? '') ? sinInstancia : null;
+  if (!Array.isArray(r.data)) return null;
+  const it = r.data.find((i) => (i.name ?? i.instanceName) === instance);
+  if (!it) return sinInstancia;
+  const codigo = it.disconnectionReasonCode == null ? null : Number(it.disconnectionReasonCode);
+  const jid = String((it.ownerJid as string) || '');
+  return {
+    existe: true,
+    estado: String(it.connectionStatus ?? '') || null,
+    codigo: Number.isFinite(codigo) ? codigo : null,
+    cuando: (it.disconnectionAt as string | null | undefined) ?? null,
+    numero: jid.replace(/@.*/, '').replace(/:.*/, '').replace(/\D/g, '') || null,
+  };
+}
+
+/**
+ * Vuelve a abrir el socket de una línea con la sesión que ya tiene: no borra nada. Con `open` y `connecting`, Evolution no hace
+ * nada (controlador de la 2.3.7). Quién y cuándo lo llama lo decide `decidirReapertura`: nunca sobre un 401, 402, 403 o 406.
+ */
+export async function reabrirSesion(instance: string, topeMs?: number): Promise<void> {
+  await evFetch(`/instance/connect/${encodeURIComponent(instance)}`, undefined, topeMs);
 }
 
 /** A quién se le pide el perfil de empresa en `sondearSocket`. Cualquier número sirve: lo que
