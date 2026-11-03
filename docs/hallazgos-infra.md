@@ -10346,3 +10346,20 @@ alcanzó la cabeza, es VERDE; si `ci-ultimo-rojo` apunta a la cabeza, es ROJO—
 adivinar nada con el reloj.
 
 **Vive en:** .github/workflows/integracion.yml (paso «Dejar la marca del rojo en el remoto»)
+
+## El deploy roto del 2-3/11: las transcripciones viajaban en TODAS las funciones (3/11/2026, Cerebro claude2)
+
+**El síntoma:** 10 deploys seguidos en ERROR durante ~6 h, con Actions en verde. Primero «`admin/docs` is 274 MB, exceeds 250 MB»; con `VERCEL_SUPPORT_LARGE_FUNCTIONS=1` el error cambió a ENOSPC en «Deploying outputs...» (salida de 2001 MB).
+
+**El diagnóstico obvio era el equivocado, DOS veces.** Se culpó al catálogo de cursos (`be38d9156`) y después a `onnxruntime-node` (`bc7503e89`). Los dos arreglos eran reales y ninguno movió el número: `/admin/docs` siguió en 274 MB.
+
+**La causa, medida con `VERCEL_ANALYZE_BUILD_OUTPUT=1`:** hasta `/api/promo-entrada` y el middleware pesaban **217 MB**. `lib/cerebro-referente-server.ts` (2/11) lee `public/cono-tx/<id>.json` con `readFile(path.join(process.cwd(), "public", "cono-tx", …))`, y el trazado metió la carpeta ENTERA —**164 MB en 9.719 archivos**— en cada función. El reporte no la lista como «large dependency», porque cada archivo pesa menos de 1 MB.
+
+**El arreglo (`a5782a860`):** `./public/cono-tx/**` va en `outputFileTracingExcludes` para `/**`, y `textoDeClase` lee del CDN (`APP_BASE_URL/cono-tx/<id>.json`) cuando el archivo no está en el disco.
+
+**Las reglas que quedan:**
+- **Desde el servidor no se lee `public/` con fs**: lo que vive en `public/` se pide al CDN. Un `readFile` con ruta armada en tiempo de ejecución mete la carpeta entera en el bundle.
+- **El primer paso ante un deploy roto es `VERCEL_ANALYZE_BUILD_OUTPUT=1`** (ya quedó puesta): dice el peso por función y por dependencia, y evita perseguir hipótesis.
+- **Si una función mínima pesa más de 100 MB, el problema es compartido**, no de la ruta que nombra el error.
+- `VERCEL_SUPPORT_LARGE_FUNCTIONS` quedó **apagada**: tapaba el tope, pero llenaba el disco del contenedor.
+- **Para que salga rápido, push directo a `main`:** Vercel construye en el acto. `integracion` pasa primero por los ~40 min de Actions.
