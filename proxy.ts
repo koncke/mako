@@ -27,6 +27,7 @@ import { HEADER_DOMINIO, RUTA_DOMINIO, consultaDelDominio, decidirHost, hostDeCa
 import { decidirLEnApp, decidirLandings, redireccionEnElHost } from './lib/editor-landing/origen-landings';
 import { MOVIL_ACTIVO, pedidoMovil } from './lib/movil-desvio';
 import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositivo';
+import { esAppIos, esRutaDeVenta } from './lib/tienda';
 
 // La lista de rutas públicas vive en lib/rutas-publicas.ts, no acá: es la condición
 // que decide qué entra sin sesión, y adentro de un middleware ningún test la puede
@@ -369,6 +370,12 @@ export function proxy(req: NextRequest) {
   // públicas deben responder ahí.
   const mudanza = respuestaMudanza(req, pathname);
   if (mudanza) return mudanza;
+
+  // La app de iPhone no abre lo que vende (T5 y guía 3.1.1(a), lib/tienda.ts): ni la landing, ni los planes, ni un link de
+  // pago. Sin la marca del user agent no cambia nada: el comprador de un negocio paga desde su navegador.
+  if (esAppIos(req.headers.get('user-agent')) && esRutaDeVenta(pathname)) {
+    return NextResponse.redirect(new URL('/inicio', req.url));
+  }
 
   // La raíz es la landing pública de venta. Se chequea aparte y no dentro de
   // PUBLICOS: meter '/' en esa lista se lee como "todo es público" aunque el

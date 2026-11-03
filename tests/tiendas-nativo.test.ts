@@ -27,6 +27,28 @@ const cap = JSON.parse(leer('nativo/ios/capacitor.config.json'));
 const pbx = leer('nativo/ios/ios/App/App.xcodeproj/project.pbxproj');
 const plist = leer('nativo/ios/ios/App/App/Info.plist');
 
+test('compilar: sin la aceptación de Martín no baja nada, y la clave no vive en el repo', () => {
+  const correr = (env: Record<string, string> = {}, args: string[] = []) => {
+    try {
+      execFileSync(process.execPath, ['nativo/android/compilar.mjs', ...args], { encoding: 'utf8', stdio: 'pipe', env: { ...process.env, ...env } });
+      return 'sin error';
+    } catch (e) { return String((e as { stderr?: string }).stderr); }
+  };
+  assert.match(correr(), /Falta --acepto-terminos-android-sdk/);
+  const src = leer('nativo/android/compilar.mjs');
+  assert.match(src, /if \(resolve\(CLAVES\)\.toLowerCase\(\)\.startsWith\(RAIZ_REPO\.toLowerCase\(\)\)\) salir\(/);
+  assert.doesNotMatch(src, /console\.log\([^)]*\bpass\b/, 'la contraseña por pantalla');
+  const ignorar = leer('nativo/android/.gitignore');
+  for (const g of ['*.keystore', '*.jks', '*.aab', '/local.properties']) assert.ok(ignorar.includes(g), g);
+});
+
+test('el feature graphic de Play: 1024×500 y sin transparencia', async () => {
+  const m = await sharp('nativo/android/feature-graphic.png').metadata();
+  assert.equal(m.width, 1024);
+  assert.equal(m.height, 500);
+  assert.equal(m.hasAlpha, false, 'Play lo rechaza con alfa');
+});
+
 test('1. el mismo id en Android, en iOS y en Codemagic', () => {
   assert.equal(twa.packageId, ID);
   assert.equal(cap.appId, ID);

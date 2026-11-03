@@ -169,7 +169,9 @@ test('6. la frontera: ningún use client importa lib/push.ts, y el módulo del n
   }
   assert.deepEqual(culpables, [], 'un use client importa lib/push.ts (server-only, trae web-push y las claves)');
   const cliente = sinComentarios(leer('lib/push-cliente.ts'));
-  assert.doesNotMatch(cliente, /^\s*import\s/m, 'lib/push-cliente.ts tiene que quedar sin dependencias');
+  // Sólo lib/nativo.ts (3/11/2026): adentro de la app de iPhone no hay Web Push, y ese módulo tampoco arrastra nada del servidor.
+  assert.doesNotMatch(cliente.replace(/^import \{[^}]*\} from '\.\/nativo';$/m, ''), /^\s*import\s/m, 'lib/push-cliente.ts tiene que quedar sin dependencias');
+  assert.deepEqual([...sinComentarios(leer('lib/nativo.ts')).matchAll(/^import [^\n]* from '([^']+)';$/gm)].map((m) => m[1]), ['./tienda']);
   assert.doesNotMatch(cliente, /^\s*['"]use client['"]/m, 'no es un componente: con la directiva sus exports serían referencias de cliente');
 });
 

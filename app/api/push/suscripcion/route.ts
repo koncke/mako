@@ -4,7 +4,8 @@
 // GET                                          → { dispositivos: [{ plataforma }] }: los teléfonos de la PERSONA con avisos
 //                                                (Settings › Notificaciones › Celular, 25/10/2026: «En 2 teléfonos»).
 // POST   { suscripcion: PushSubscriptionJSON } → upsert por `endpoint`, atado a la PERSONA.
-// DELETE { endpoint }                          → borra la de ESTE teléfono, sólo si es suya.
+// POST   { apns: { token } }                   → lo mismo para la app de iPhone (`endpoint` = `apns:<token>`, lib/push-apns-reglas.ts).
+// DELETE { endpoint } o { apns: { token } }    → borra la de ESTE teléfono, sólo si es suya.
 //
 // ⚠️ LA FILA SE ATA A LA PERSONA QUE ESTÁ FRENTE AL TECLADO (`usuarioPropio`, lib/perfil.ts),
 // que IGNORA la impersonación: un super admin mirando a un cliente con `?ws=1` que activa los
@@ -23,6 +24,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { usuarioPropio } from '@/lib/perfil';
 import { getSupabaseServer } from '@/lib/supabase';
 import { endpointPermitido, plataformaDeUA } from '@/lib/push-payload';
+import { MARCA_SIN_CLAVE_APNS, endpointDeApns, tokenApnsValido } from '@/lib/push-apns-reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,7 +32,7 @@ export const revalidate = 0;
 // base64url de las claves de la suscripción: p256dh son 65 bytes (87 caracteres), auth 16 (22).
 const B64URL = /^[A-Za-z0-9_-]+={0,2}$/;
 
-type Cuerpo = { suscripcion?: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } }; endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } };
+type Cuerpo = { suscripcion?: { endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown } }; endpoint?: unknown; keys?: { p256dh?: unknown; auth?: unknown }; apns?: { token?: unknown } };
 
 // La tabla que falta (no una columna): el código nuevo puede llegar antes que la mig 0249.
 const sinTabla = (e: { code?: string } | null) => !!e && (e.code === 'PGRST205' || e.code === '42P01');
@@ -53,16 +55,25 @@ export async function POST(req: NextRequest) {
   if (!(await getUsuarioActual())) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
   let body: Cuerpo;
   try { body = (await req.json()) as Cuerpo; } catch { return Response.json({ ok: false, error: 'json inválido' }, { status: 400 }); }
-  // Se acepta `{ suscripcion: sub.toJSON() }` (lib/push-cliente.ts, public/sw.js) o el toJSON pelado.
-  const s = body.suscripcion ?? body;
-  const endpoint = typeof s.endpoint === 'string' ? s.endpoint.trim() : '';
-  const p256dh = typeof s.keys?.p256dh === 'string' ? s.keys.p256dh.trim() : '';
-  const auth = typeof s.keys?.auth === 'string' ? s.keys.auth.trim() : '';
-  if (!endpoint || endpoint.length > 2000 || !endpointPermitido(endpoint)) {
-    return Response.json({ ok: false, error: 'endpoint inválido' }, { status: 400 });
-  }
-  if (!B64URL.test(p256dh) || p256dh.length < 40 || p256dh.length > 300 || !B64URL.test(auth) || auth.length < 8 || auth.length > 200) {
-    return Response.json({ ok: false, error: 'claves inválidas' }, { status: 400 });
+  let endpoint: string, p256dh: string, auth: string;
+  if (body.apns) {
+    // La app de iPhone: un token, sin claves (lib/nativo.ts). Va siempre a api.push.apple.com, así que un token inventado no abre nada.
+    if (!tokenApnsValido(body.apns.token)) return Response.json({ ok: false, error: 'token inválido' }, { status: 400 });
+    endpoint = endpointDeApns(body.apns.token);
+    p256dh = MARCA_SIN_CLAVE_APNS;
+    auth = MARCA_SIN_CLAVE_APNS;
+  } else {
+    // Se acepta `{ suscripcion: sub.toJSON() }` (lib/push-cliente.ts, public/sw.js) o el toJSON pelado.
+    const s = body.suscripcion ?? body;
+    endpoint = typeof s.endpoint === 'string' ? s.endpoint.trim() : '';
+    p256dh = typeof s.keys?.p256dh === 'string' ? s.keys.p256dh.trim() : '';
+    auth = typeof s.keys?.auth === 'string' ? s.keys.auth.trim() : '';
+    if (!endpoint || endpoint.length > 2000 || !endpointPermitido(endpoint)) {
+      return Response.json({ ok: false, error: 'endpoint inválido' }, { status: 400 });
+    }
+    if (!B64URL.test(p256dh) || p256dh.length < 40 || p256dh.length > 300 || !B64URL.test(auth) || auth.length < 8 || auth.length > 200) {
+      return Response.json({ ok: false, error: 'claves inválidas' }, { status: 400 });
+    }
   }
 
   const u = await usuarioPropio();
@@ -72,7 +83,8 @@ export async function POST(req: NextRequest) {
   const { error } = await getSupabaseServer().from('push_suscripciones').upsert({
     usuario_id: u.id,
     endpoint, p256dh, auth,
-    plataforma: plataformaDeUA(ua),
+    // Un token de APNs es de un iPhone, diga lo que diga el user agent: el paso del onboarding y el corte de grupos cuentan teléfonos por esta columna.
+    plataforma: body.apns ? 'ios' : plataformaDeUA(ua),
     user_agent: ua.slice(0, 400) || null,
     // Una suscripción (re)registrada arranca limpia: su historial de fallos era de la anterior.
     fallos: 0, ultimo_error: null,
@@ -90,9 +102,9 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   if (!(await getUsuarioActual())) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
-  let body: { endpoint?: unknown };
+  let body: { endpoint?: unknown; apns?: { token?: unknown } };
   try { body = (await req.json()) as typeof body; } catch { return Response.json({ ok: false, error: 'json inválido' }, { status: 400 }); }
-  const endpoint = typeof body.endpoint === 'string' ? body.endpoint.trim() : '';
+  const endpoint = tokenApnsValido(body.apns?.token) ? endpointDeApns(body.apns.token) : typeof body.endpoint === 'string' ? body.endpoint.trim() : '';
   if (!endpoint) return Response.json({ ok: false, error: 'falta endpoint' }, { status: 400 });
 
   const u = await usuarioPropio();

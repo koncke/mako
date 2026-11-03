@@ -138,9 +138,6 @@ export function textoCartelPrueba(p: { dias: number | null; plan: string; despue
   };
 }
 
-/** «Tu plan» del teléfono, con «Empezar mi plan ya» (el de la computadora es `RUTA_EMPEZAR_PLAN`, lib/topes-plan.ts). */
-export const RUTA_EMPEZAR_PLAN_M = '/m/configuraciones/plan?empezar=1';
-
 /** «el lunes 3 de noviembre»: el día del cobro, como lo lee una persona (en la hora de Argentina, la de MaKo). */
 export function diaDelCobro(iso: string): string {
   return new Date(iso).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Argentina/Buenos_Aires' });

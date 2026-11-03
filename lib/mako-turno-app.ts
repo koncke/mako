@@ -30,6 +30,7 @@
 // =============================================================================
 
 import 'server-only';
+import { exigirPermisoIa } from '@/lib/ia-permiso';
 import { CLAUDE_EN_PAUSA, chatClaudeTools, permisoDeLaClaveDelNegocio, type RichMsg, type ToolDef } from '@/lib/anthropic';
 import { MAKO_TOOLS, runMakoTool } from '@/lib/mako-tools';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION } from '@/lib/mako-doer-acciones';
@@ -306,6 +307,8 @@ export const NOTA_SIN_VOZ = 'Escuché tu audio pero no le entendí nada: grábal
  */
 export async function escucharNotaDelChat(persona: PersonaChat, sessionId: number, bytes: Uint8Array):
   Promise<{ ok: true; texto: string } | { ok: false; error: string; status: 404 | 422 | 424 }> {
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   return runWithWorkspace(persona.ws, async () => {
     // El chat es de quien la manda ANTES de escucharla: si no, cada nota a un chat ajeno gastaba la IA y volvía 404 (revisión).
     if (!(await sesionDe(persona, sessionId))) return { ok: false, error: 'No encuentro ese chat.', status: 404 };
@@ -470,6 +473,9 @@ const AVISO_NO_LEI = (nombre: string) => `No pude leer «${nombre}».`;
  * ni archivos tira: eso lo frena antes quien llama.
  */
 export async function turnoApp(persona: PersonaChat, sessionId: number, entrada: EntradaTurnoApp): Promise<RespuestaTurno | null> {
+  // Antes de todo: el turno puede salir por la PC del cliente, que no pasa por las puertas de lib/anthropic.ts ni de lib/ai-cheap.ts.
+  // Sin el permiso de la persona, la app de iPhone no le manda nada a una IA (Apple 5.1.2(i), lib/ia-permiso.ts).
+  await exigirPermisoIa();
   // Desde acá corre el plazo de la ruta: lo que se hace DESPUÉS de responder (El Archivero) se mide contra esto.
   const inicio = Date.now();
   return runWithWorkspace(persona.ws, async () => {

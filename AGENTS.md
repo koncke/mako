@@ -11471,3 +11471,13 @@ Dos cuentas del mismo presupuesto se desincronizan y la pantalla y el chat termi
 números distintos: es «una cosa, un lugar» con la versión nueva de uno mismo como el segundo
 lugar. Lo que se descarta se DICE en la cosecha, con lo que quedó medido, para que el próximo no
 lo vuelva a construir.
+
+# El teléfono no vende, y lo que sale de la app de iPhone pasa por sus puertas (3/11/2026)
+
+Apple y Google prohíben vender algo digital sin su cobro, o mandar a pagar afuera, y Apple pide permiso antes de mandarle datos a una IA de terceros. Plan: `docs/tiendas-play-appstore.md`.
+
+- **En `app/m/**` no se ofrece comprar, pagar ni subir de plan**, ni con un link ni con un botón ni con palabras (`tests/tiendas-telefono-no-vende.test.ts`). Una pantalla de escritorio que el teléfono también abre pregunta `esTelefono`. Los cobros de un negocio a SUS clientes son otra cosa, y se quedan.
+- **La app de iPhone se reconoce por la marca del user agent** (`esAppIos`, `esAppIosDelPedido`, lib/tienda.ts). Android no tiene modo: la TWA es Chrome. Es una regla de producto, nunca de seguridad.
+- **Una función nueva que le manda algo a una IA** llama a `exigirPermisoIa()` antes de salir (lib/ia-permiso.ts), o sale por una que ya lo hace. `tests/ia-permiso.test.ts` enumera las puertas.
+- **Lo que necesita el aparato** va por `lib/nativo.ts`, con `window.Capacitor.Plugins`: la web no importa los plugins. Un `<a download>` ya funciona ahí solo.
+- **Lo que publica un usuario para otros** (Community) pide denunciar y bloquear desde la app (Apple 1.2): por eso no va en iPhone.

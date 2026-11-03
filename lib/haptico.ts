@@ -24,6 +24,7 @@
 // =============================================================================
 
 import { esIOS } from './movil-instalar';
+import { hapticoNativo } from './nativo';
 
 export type Haptico = 'success' | 'error' | 'light' | 'medium';
 
@@ -73,6 +74,8 @@ function interruptorIOS(): HTMLLabelElement | null {
 export function haptico(tipo: Haptico): void {
   if (typeof window === 'undefined' || typeof navigator === 'undefined') return;
   try {
+    // Adentro de la app de iPhone, el motor de verdad (lib/nativo.ts): ahí no hay `vibrate`, y el truco del interruptor no hace falta.
+    if (hapticoNativo(tipo)) return;
     if (typeof navigator.vibrate === 'function') {
       navigator.vibrate(PATRON_VIBRAR[tipo]);
       return;

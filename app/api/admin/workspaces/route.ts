@@ -20,6 +20,9 @@ import { pagaSuPlan } from '@/lib/prueba-uso';
 import { darDeAltaCliente } from '@/lib/alta-cliente';
 import { saneaPortada, saneaIcono, yPortada } from '@/lib/portadas';
 
+// Borrar un cliente corta su línea, su voz y sus archivos: sin esto, se corta a la mitad con las tablas ya vacías.
+export const maxDuration = 300;
+
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
@@ -233,6 +236,9 @@ export async function POST(req: NextRequest) {
         const { eliminarWorkspace } = await import('@/lib/eliminar-workspace');
         const r = await eliminarWorkspace(body.id, String(body.nombre ?? ''), await getWorkspaceActual());
         if (!r.ok) return NextResponse.json(r, { status: 400 });
+        // Si lo había pedido (Eliminar mi cuenta): cierra su pedido y le manda el mail que le prometimos. Nunca tira.
+        const { cerrarBajasDelNegocio } = await import('@/lib/baja-cuenta');
+        await cerrarBajasDelNegocio(body.id, admin.email, r.avisos);
         return NextResponse.json(r);
       }
 
