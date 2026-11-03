@@ -6,9 +6,9 @@
 //
 // La foto del primer caso es la que llegó de Evolution ese día, no una inventada.
 //
-// PROBADO ROMPIÉNDOLO (03/11/2026): 32 roturas, de a una, sobre lib/lineas-de-mako.ts, el vigilante, `fotoDeLinea` y la ruta. La
+// PROBADO ROMPIÉNDOLO (03/11/2026): 35 roturas, de a una, sobre lib/lineas-de-mako.ts, el vigilante, `fotoDeLinea` y la ruta. La
 // primera pasada dejó verdes tres (el envío fallido que no probaba la otra línea, el «desde» que no se limpiaba al volver, y la
-// fila de otra línea adoptada si Evolution ignora el filtro): por eso están sus tests. Ahora fallan las 32; restaurado, 29 pasan y 0 fallan.
+// fila de otra línea adoptada si Evolution ignora el filtro): por eso están sus tests. Fallan las 35 (tras el último cambio, el de la voz en la línea de Martín, se repitieron las 7 que lo tocan); restaurado, 31 pasan y 0 fallan.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -75,7 +75,7 @@ function deps(m: Mundo, sobre: Partial<DepsVigia> = {}): DepsVigia {
       return { enviadoA: 1 };
     },
     reabrir: async (i) => { m.reabiertas.push(i); },
-    linkPrincipal: 'https://hola-mako.com/agencia?canal=1',
+    linkPrincipal: () => 'https://hola-mako.com/agencia?canal=1',
     linkSecundaria: (i) => `https://hola-mako.com/whatsapp?canal=no-oficial&linea=${i}&ws=9`,
     ahoraMs: () => m.ahora,
     ...sobre,
@@ -324,6 +324,22 @@ test('una secundaria que se soltó a propósito o que nunca se vinculó no se «
   assert.equal(n.enviados.length, 0);
 });
 
+test('con la voz en la misma línea que la secundaria no se avisa a sí misma: se mide una vez, y al volver también va por mail', async () => {
+  const m = mundo({ [S]: cerrada403(NUM_S) }, { [S]: 'muerto' });
+  const voz = deps(m, { voz: async () => S, secundaria: async () => S });
+  const r = await correrVigilancia(voz);
+  assert.deepEqual(r.lineas.map((l) => [l.rol, l.instancia]), [['principal', S]]);
+  assert.deepEqual(m.enviados, []);
+  assert.equal(m.mails.length, 1);
+  m.ahora += 30 * MIN;
+  m.fotos[S] = viva(NUM_S);
+  m.sondas[S] = 'vivo';
+  await correrVigilancia(voz);
+  assert.deepEqual(m.enviados, [], 'tampoco el «volvió»');
+  assert.equal(m.mails.length, 2);
+  assert.match(m.mails[1].asunto, /Volvió la línea de MaKo/);
+});
+
 test('sin secundaria, o con la secundaria igual a la voz, la caída de la principal va por mail', async () => {
   const m = mundo({ [P]: cerrada403(NUM_P) }, { [P]: 'muerto' });
   await correrVigilancia(deps(m, { secundaria: async () => null }));
@@ -449,6 +465,13 @@ test('real: un corte abandonado se reabre sin avisar todavía, y una línea solt
   assert.deepEqual(destinos(R.reabrir), []);
   assert.deepEqual(destinos(R.soltada), [], 'soltar el número a propósito no es una caída');
   assert.equal(R.soltada.mails.length, 0);
+});
+
+test('real: con la voz en una línea de negocio, el link lleva a esa línea, no a escanear el canal baneado', () => {
+  assert.deepEqual(destinos(R.vozEnNegocio), []);
+  assert.equal(R.vozEnNegocio.mails.length, 1);
+  assert.match(R.vozEnNegocio.mails[0].text, /whatsapp\?canal=no-oficial&linea=mako_ws9/);
+  assert.ok(!/agencia\?canal=1/.test(R.vozEnNegocio.mails[0].text), 'mandaría a escanear el número baneado');
 });
 
 test('real: en toda la corrida no se tocó la sesión de nadie', () => {

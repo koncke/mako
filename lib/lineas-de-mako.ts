@@ -4,9 +4,11 @@
 // Martín, 03/11/2026: «veo que MaKo la linea principal se desconecto, seria bueno evitar que eso pase... Encontrar la forma
 // de evitarlo.. Y si llega a pasar tengo mi linea secundaria para avisarme a mi mismo».
 //
-//   · PRINCIPAL: la voz de MaKo (`instanciaVoz`, hoy el …2605). Desde ahí habla en los grupos de los clientes.
-//   · SECUNDARIA: la línea por default del negocio del super admin (hoy el …3479). Nadie la miraba:
-//     `vigilarLineasClientes` saltea a la plataforma y `vigilarVozMaKo` sólo mira la voz.
+//   · PRINCIPAL: la voz de MaKo (`instanciaVoz`). Desde ahí habla en los grupos de los clientes.
+//   · SECUNDARIA: la línea por default del negocio del super admin (el …3479). Nadie la miraba: `vigilarLineasClientes` saltea a la
+//     plataforma y `vigilarVozMaKo` sólo mira la voz.
+//   ⚠️ PUEDEN SER LA MISMA. Desde el 3/11/2026 a las 17:16 ART, por pedido de Martín, la voz está en el …3479. Con una sola línea no hay «la otra»:
+//   se vigila ésa, y si cae el aviso va por mail, no a sí misma como si fuera otra.
 //
 // LO QUE SE MIDIÓ ESE DÍA (el detalle, en docs/hallazgos-comunicacion.md): WhatsApp rechazó el login de la principal con un
 // 403. Evolution 2.3.7 no reintenta 401, 402, 403 ni 406 (`codesToNotReconnect`) y todo lo demás lo reintenta solo.
@@ -20,9 +22,7 @@
 //     consigo mismo es donde Martín ya se manda audios y links todos los días, y no le llega a nadie más.
 //     ⚠️ No medí que un mensaje a uno mismo haga sonar el teléfono; por eso el mail de la voz sigue saliendo.
 //     Con las dos caídas, o si no salió por ningún lado, va por mail.
-//   · ⚠️ LA SECUNDARIA NO LLEVA TRÁFICO DE LA PRINCIPAL, NI AL NÚMERO CAÍDO. El Cerebro, 3/11/2026, después del ban: «NO muevas ese
-//     tráfico a otra línea: la secundaria de Martín o la línea de voz caerían igual; la secundaria sólo para el aviso a Martín, un
-//     mensaje por caída». Hasta ese momento también le escribía al número caído, que es una cuenta baneada.
+//   · ⚠️ ESTE VIGILANTE NO MUEVE NI LA VOZ NI SU TRÁFICO. Sólo avisa: un mensaje por caída, y nunca al número caído, que puede ser una cuenta baneada.
 //   · UNA VEZ POR CAÍDA, Y OTRO AL VOLVER. La marca se reclama con compare-and-set antes de mandar (dos corridas a la vez no
 //     mandan dos), y se suelta si el aviso no llegó a ningún lado: la próxima corrida reintenta.
 //     La excepción: si avisó «puede volver sola» y después WhatsApp cerró la sesión, avisa de nuevo. Cambió lo que hay que hacer.
@@ -189,7 +189,8 @@ export type DepsVigia = {
   enviar(linea: string, numero: string, texto: string): Promise<{ ok: boolean; error?: string }>;
   mail(asunto: string, cuerpo: string): Promise<{ enviadoA: number; error?: string }>;
   reabrir(instancia: string): Promise<void>;
-  linkPrincipal: string;
+  /** Dónde se vuelve a vincular la voz: depende de qué línea sea (el canal de MaKo se escanea en /agencia, una línea de negocio en /whatsapp). */
+  linkPrincipal(instancia: string): string;
   linkSecundaria(instancia: string): string;
   ahoraMs(): number;
 };
@@ -274,7 +275,7 @@ export async function correrVigilancia(d: DepsVigia): Promise<{ lineas: Resultad
     const tipo = tipoDeCaida(foto);
     const decision = decidirAviso({ sondeo: m.sondeo, vigilada, tipo, marcas: m.marcas, ahoraMs });
     r.que = decision.que;
-    const link = m.rol === 'principal' ? d.linkPrincipal : d.linkSecundaria(m.instancia);
+    const link = m.rol === 'principal' ? d.linkPrincipal(m.instancia) : d.linkSecundaria(m.instancia);
     try {
       if (decidirReapertura({ sondeo: m.sondeo, foto, vigilada, ultimo: m.reapertura, ahoraMs })) {
         await d.escribir(keyReapertura(m.rol), ahora);
@@ -313,7 +314,7 @@ export async function correrVigilancia(d: DepsVigia): Promise<{ lineas: Resultad
     const ambas = !!s && p.sondeo === 'muerto' && s.sondeo === 'muerto';
     const asunto = ambas ? '🚨 Las dos líneas de WhatsApp de MaKo están caídas' : sinMarcas(pendientesDeMail[0].texto.split('\n')[0]);
     const cabecera = ambas
-      ? `Las dos líneas están caídas, así que este aviso sólo puede llegar por mail.\nLínea de MaKo: ${d.linkPrincipal}\nLínea secundaria: ${d.linkSecundaria(s!.instancia)}`
+      ? `Las dos líneas están caídas, así que este aviso sólo puede llegar por mail.\nLínea de MaKo: ${d.linkPrincipal(p.instancia)}\nLínea secundaria: ${d.linkSecundaria(s!.instancia)}`
       : 'No pude avisarte por WhatsApp, así que este aviso llega por mail.';
     const cuerpo = [cabecera, ...pendientesDeMail.map((x) => sinMarcas(x.texto))].join('\n\n');
     const envio = await d.mail(asunto, cuerpo).catch((e) => ({ enviadoA: 0, error: msg(e) }));

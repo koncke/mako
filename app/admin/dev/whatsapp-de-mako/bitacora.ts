@@ -18,7 +18,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Tu número, como línea de tu negocio', detalle: 'Tu WhatsApp personal para atender clientes: se ve en /whatsapp y «Sale por» lo puede elegir', estado: 'hecha' },
   { titulo: 'Pasar MaKo al número nuevo', detalle: 'El número nuevo ya está vinculado · la primera pasada dio 0 de 6 (Evolution le borraba el 9) · falta volver a vincular tu número, o sumarlo desde el teléfono, y reintentar', estado: 'sigue' },
   { titulo: 'Soltar las líneas viejas', detalle: 'Las dos líneas con tu número que fueron de MaKo siguen vinculadas y el webhook las ignora · ocupan dispositivos de tu WhatsApp', estado: 'cola' },
-  { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las dos cada 3 minutos · un mensaje por caída y otro al volver, por la línea que sigue viva · si caen las dos, por mail · falta probarlo con un mensaje real', estado: 'sigue' },
+  { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las líneas cada 3 minutos · un mensaje por caída y otro al volver, por la que sigue viva · si caen todas, o hay una sola, por mail · falta probarlo con una caída real', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -120,7 +120,7 @@ export const BITACORA: Hito[] = [
     puntos: [
       '⚠️ **No fue la RAM, ni el volumen, ni el automático de la agencia que se acababa de desplegar.** El último alta fue 9 s antes del 403, y salió de una persona guardando Notificaciones. WhatsApp no dice por qué banea: es lo más cercano, no una causa probada.',
       '**Un 403 no se reconecta ni se evita.** Evolution reintenta solo todo lo demás. Lo que se puede es enterarse en minutos, una vez, con el link: las dos líneas se miran cada 3 minutos, y por mail si caen las dos.',
-      '**La secundaria no lleva el tráfico de MaKo:** sólo se escribe a sí misma, un mensaje por caída. Falta saber si eso hace sonar el teléfono.',
+      '**La vigilancia no mueve la voz:** sólo avisa, un mensaje por caída. Y por pedido de Martín la voz ya está en su número: con una sola línea no se avisa a sí misma, va por mail, y el link lleva a esa línea, no a escanear el número baneado. Falta probarlo con una caída real.',
     ],
     commits: [
       { sha: '406fed299', msg: 'Si se cae una línea de WhatsApp de Martín avisa la otra, un mensaje por caída, y por mail si caen las dos', lineas: 1132, archivos: 11 },

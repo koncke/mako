@@ -94,7 +94,8 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 **No se puede evitar del todo:** una línea por Baileys va contra las condiciones de WhatsApp, y esto les puede pasar también a las líneas de los clientes.
 
 **Las trampas que quedan:**
-- **No mover el tráfico a otra línea.** La secundaria sólo se escribe a sí misma, un mensaje por caída: si llevara lo de la principal, caería igual.
+- ⚠️ **Mover la voz a otra línea expone a esa línea.** Cambió el mismo día: a las 17:16 ART, por pedido textual de Martín, la voz quedó en su número (`mako.voz.instancia = mako_ws9`), con los grupos en esa línea. El vigilante no la mueve ni lleva su tráfico. Y con la voz ahí, principal y secundaria son la misma: se vigila ésa, y si cae el aviso va por mail, no a sí misma.
+- **`/agencia?canal=1` sólo reconecta el canal.** Con la voz en una línea de negocio, ese link ofrece escanear el número baneado: el aviso lleva a `/whatsapp` de esa línea.
 - **La secundaria no la vigilaba nadie.** `vigilarLineasClientes` saltea el negocio de la plataforma y `vigilarVozMaKo` sólo mira la voz.
 - **`/instance/fetchInstances` no dice lo mismo que `/chat/*` para una instancia que no existe:** 404 `Instance "x" not found`, no «does not exist».
 - **`enviarTexto` sin línea, en la plataforma, sale por la de MaKo** (`lineasParaMandar`): la que se acaba de caer. El vigilante la nombra siempre.
@@ -102,7 +103,7 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
   distingue de un corte con un código viejo: se avisa como «cortada», con el link y sin mandar a escanear.
 - **Sobre una línea `close`, `logout` y `restart` rechazan** y sólo `connect` abre un socket. Por eso «Conectar por QR» sobre un 403 puede terminar en `rotarCanal`: una instancia con otro nombre. Las marcas van por ROL.
 - **La sonda es tráfico real contra WhatsApp.** El estado se lee de la base de Evolution cada 3 minutos; la sonda, cada 12, salvo con una caída abierta.
-- **El onboarding depende de la línea:** el código de verificación sale por DM desde ahí. Con la línea baneada, un cliente nuevo no puede terminarlo.
+- **El onboarding depende de la voz:** el código de verificación sale por DM con `instanciaVoz()`. Del ban a las 17:16 ART un cliente nuevo no podía terminarlo; con la voz en el otro número, sí.
 - **`avisos_cola` y `flujo_corridas` no tenían nada pendiente:** no hay ráfaga guardada para cuando vuelva una línea. Lo que se intenta ahora rebota en Evolution sin llegar a WhatsApp.
 
 **Las opciones, con lo leído el 3/11** (grupos medidos: 5 de 13, con 2 a 4 personas; ~750 textos por mes):
@@ -112,8 +113,9 @@ switching phones»*. **Desde el servidor no se distingue un ban de un cambio de 
 - ⚠️ Desde el 15/1/2026 Meta prohíbe en esta API a los proveedores cuyo producto principal es un asistente de IA. Hay que leer esos términos contra lo que hace MaKo en un grupo: acá sólo hay fuentes secundarias.
 
 **Sin hacer, o sin medir:**
-- **No se probó con un mensaje real, y no sé si un mensaje a uno mismo hace sonar el teléfono.** Martín usa ese chat todos los días, pero puede llegar en silencio: por eso el mail de la voz sigue saliendo cada hora (`vigilarVozMaKo`). Si no suena, hay que elegir otro destino.
-- **Con WhatsApp caído, un aviso con grupo sale por mail sólo si el cliente lo prendió** (`canal.email`, `lib/avisos.ts`). El push y la campanita sí salen. Falta decidir el puente.
+- **No se probó con una caída real.** Con la voz en la línea de Martín hoy no hay «la otra», así que el aviso va por mail. Si vuelve a haber dos líneas: **no sé si un mensaje a uno mismo hace sonar el teléfono**. Por eso el mail de la voz sigue saliendo cada hora (`vigilarVozMaKo`).
+- **El puente por mail sale de `emitirAviso`, sólo si el envío al grupo falla, una vez** (punta del freno, `fallaElEnvio`). Quedan afuera los pasos viejos de automatizaciones que llaman directo a `enviarAlGrupoMaKo`, y las insistencias.
+- **Lo que quedó apagado o con tope, en la punta del freno:** el alta automática del equipo de agencia y la invitación por DM a quien nunca le escribió a la línea (`mako.grupos.automatico`), `mako.grupos.altas` = `no` como freno de emergencia, y 2 altas de números distintos cada 10 minutos por línea (`lib/mako-linea-tope.ts`). Lo que pide una persona sigue andando: Martín lo pidió textual.
 - **Una zombi (`open` que no responde) sólo se arregla con QR o reiniciando Evolution** (medido el 11/09): la vigilancia avisa, no la cura.
 - **No se tocó `syncFullHistory` ni el heap:** no tienen que ver con este ban. El heap sigue en docs/hallazgos-infra.md, «Evolution: TODOS los números en UN proceso de Node».
 - **La cantidad de gente en 8 de los 13 grupos:** la línea de Martín no está en 7 y el otro dio 404. Con esa línea no se puede preguntar por grupos ajenos, y tampoco se usaron las de los clientes.

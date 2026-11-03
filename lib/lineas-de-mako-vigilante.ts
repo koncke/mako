@@ -18,6 +18,7 @@ import { cambiarSettingSi, getSettingEstricto, setSetting } from './settings';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { APP_BASE_URL, linkApp } from './app-url';
+import { esLineaDeMaKo } from './linea-plataforma';
 import { esLineaDelWorkspace, lineaPorDefault } from './lineas-whatsapp';
 import { correrVigilancia, type ResultadoLinea } from './lineas-de-mako';
 
@@ -37,6 +38,7 @@ async function lineaSecundaria(ws: number): Promise<string | null> {
 
 export async function vigilarLineasDeMako(): Promise<{ lineas: ResultadoLinea[]; error?: string }> {
   const ws = await wsSuperAdmin();
+  const linkDeLinea = (instancia: string) => linkApp(`/whatsapp?canal=no-oficial&linea=${encodeURIComponent(instancia)}`, ws);
   return correrVigilancia({
     voz: () => instanciaVoz({ estricto: true }),
     secundaria: () => lineaSecundaria(ws),
@@ -51,8 +53,9 @@ export async function vigilarLineasDeMako(): Promise<{ lineas: ResultadoLinea[];
     },
     mail: (asunto, cuerpo) => avisarPorEmail(ws, asunto, cuerpo),
     reabrir: (instancia) => reabrirSesion(instancia, TOPE_REABRIR_MS),
-    linkPrincipal: `${APP_BASE_URL}/agencia?canal=1`,
-    linkSecundaria: (instancia) => linkApp(`/whatsapp?canal=no-oficial&linea=${encodeURIComponent(instancia)}`, ws),
+    // ⚠️ /agencia sólo reconecta el canal (`conectarCanalMaKo`). Con la voz en una línea de negocio, ese link ofrece escanear el número baneado.
+    linkPrincipal: (instancia) => (esLineaDeMaKo(instancia) ? `${APP_BASE_URL}/agencia?canal=1` : linkDeLinea(instancia)),
+    linkSecundaria: (instancia) => linkDeLinea(instancia),
     ahoraMs: () => Date.now(),
   });
 }

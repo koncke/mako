@@ -128,6 +128,12 @@ async function main() {
   lineas[S] = null;
   out.soltada = await vuelta();
 
+  // La voz pasó a la línea de Martín (3/11, 17:16 ART), y esa línea cae.
+  db.app_settings = db.app_settings.filter((f) => !String(f.key).startsWith('mako.linea.'));
+  db.app_settings.find((f) => f.key === 'mako.voz.instancia')!.value = S;
+  lineas[S] = { connectionStatus: 'close', codigo: 403, numero: NUM_S };
+  out.vozEnNegocio = await vuelta();
+
   out.tocadas = tocadas;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
