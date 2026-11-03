@@ -29,6 +29,37 @@ y mientras tanto se escribe ese JSON a mano con lo que da `get_usage`.
 
 ## 🔚 RELEVO FINAL DE claude1 — 3/11/2026 ~00:50, al 98 %
 
+## 🔴 LO MÁS IMPORTANTE DE TODO EL RELEVO: ACTIONS EN VERDE ≠ DEPLOY SANO
+
+**El 3/11 ~01:30 Martín avisó «hay errores en vercel». Hacía DOS HORAS que el deploy estaba roto y
+Actions había estado en verde todo ese tiempo.** Tres deploys fallaron seguidos sin que ninguna de
+mis señales lo dijera.
+
+El error, medido con la API de Vercel (`VERCEL_API_TOKEN` en `C:/dev/mako-api/.env.local`):
+
+```
+The Vercel Function "admin/docs" is 281.43mb uncompressed which exceeds the
+maximum uncompressed size limit of 250mb.
+```
+
+**La causa fue mía:** el cableado del Second Brain del gurú hizo que `lib/cerebro-para-chat.ts`
+importara `@/app/conocimientos/catalogo`, y ese catálogo **arrastra los 100+ archivos de cursos**.
+
+⚠️ **LA REGLA, Y ES LA QUE MÁS VA A AHORRAR:** **CI corre `tsc` y la suite; NO corre `next build`
+ni el empaquetado de funciones.** Un verde en Actions no dice nada sobre el tamaño de un bundle.
+**Cuando un cambio haga que `lib/` importe algo de `app/` —sobre todo un catálogo o un índice—, el
+riesgo es el tamaño y SÓLO se ve en Vercel.**
+
+**Cómo mirarlo sin entrar a la web:**
+`node --env-file=C:/dev/mako-api/.env.local scripts/ver-deploy-vercel.mjs`
+Lista los últimos deploys con su commit y su estado, y del primero en ERROR saca el error de verdad
+—que está al final, tapado por el listado de rutas—.
+
+**Arreglado en `be38d9156`**: un índice de **99 KB** con las 1.158 clases de los 12 referentes
+(`lib/asesores/clases-de-referentes.json`, regenerable con
+`scripts/generar-clases-de-referentes.mjs`). ⚠️ **Falta confirmar en VERCEL que el deploy salga
+READY**, no sólo que Actions esté verde: es exactamente la distinción que costó esta noche.
+
 ⛔ **LO PRIMERO AL RETOMAR, Y SON TRES COSAS:**
 
 1. **Hay un run corriendo: `f74e6930e`** (run `41553250011`). Lleva TODO el cierre de Competitors
