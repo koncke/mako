@@ -18,12 +18,12 @@ import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
 import { etapaContradiceElEstado } from './pipeline';
-import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, type RestoDeCobro } from './pagos-diferencia';
+import { centavos, diferenciaPendiente, dolaresALaTasaDeLaCuota, restoEnLaMonedaDeLaCuota, type RestoDeCobro } from './pagos-diferencia';
 import {
   aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
   diferenciaDePlan, planCambiadoAfuera, reconciliarCuotas, rotuloCampoDeal, rotuloObligacion, valorDeCampoDeal, CAMPOS_LEAD_DEAL, COLUMNA_SECCION, MONEDA_POR_DEFECTO,
   avisoDeConservadas, cuotaExistenteDe, lineasDeCuotas, planCambioDesde, planComoEstaba, planPorTramosDelServer,
-  type AnticipoPlan, type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type FilaVenta,
+  type AnticipoPlan, type CambioObligacion, type CambioVenta, type CampoLeadDeal, type CuotaDeseada, type CuotaExistente, type CuotaVista, type FilaVenta,
   type ModoReconciliar, type Obligaciones, type PlanDeCuotas, type PlanUniforme, type Proteccion, type SeccionDeal, type TramoPlan,
 } from './pagos-campo';
 import { getLead, logLeadChanges, logLeadEvent } from './leads';
@@ -494,8 +494,9 @@ export async function guardarCuotasPorId(
  */
 export async function guardarPlanPorTramos(
   leadId: number,
-  /** `vistas`: las impagas que se leyeron al PROPONER (revisión de 805afb460, N1). Si cambiaron, no se escribe nada. */
-  p: { desde: string; tramos: readonly TramoPlan[]; anticipo: AnticipoPlan | null; vistas?: readonly number[] | null },
+  /** `vistas`: las impagas que se leyeron al PROPONER, con su firma (revisión de 805afb460, N1, y de 7f79a4e6c, B8). Si alguna
+   *  cambió, no se escribe nada. Obligatorias: sin ellas regía la regla vieja (B9). */
+  p: { desde: string; tramos: readonly TramoPlan[]; anticipo: AnticipoPlan | null; vistas: readonly CuotaVista[] },
   autor: string,
 ): Promise<{ cambios: PlanDeCuotas; cuotas: number; nuevas: number; cubiertas: number; sinTocar: string | null }> {
   await asegurarLeadDelNegocio(leadId);
@@ -504,8 +505,7 @@ export async function guardarPlanPorTramos(
   const tipo = ventaTipoDe(lead.venta_tipo);
   if (tipo !== 'unico') throw new Error(tipo === 'suscripcion' ? 'Es una suscripción: pásala a pago único antes de armarle cuotas.' : 'Está como becado (sin cobro): no tiene cuotas que armar.');
   const pagos = await getPagosByLead(leadId);
-  const vistas = p.vistas ? new Set(p.vistas) : null;
-  const cambio = vistas ? planCambioDesde(pagos, vistas) : null;
+  const cambio = planCambioDesde(pagos, p.vistas);
   if (cambio) throw new Error(cambio);
   const prot = await proteccionesDeCuotas(leadId, pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id));
   const armado = planPorTramosDelServer({
@@ -516,7 +516,7 @@ export async function guardarPlanPorTramos(
   if (!armado.ok) throw new Error(armado.error);
   // Dos «sí» a la vez: el segundo choca con el número de una cuota que el primero acaba de crear (revisión de 805afb460, B6). No
   // duplica nada, pero contestaba el error crudo de la base.
-  const cambios = await guardarCuotasPorId(leadId, armado.deseadas, { vistos: vistas ?? new Set(armado.vistos), protegidasPrimero: true, sobreLoVisto: true })
+  const cambios = await guardarCuotasPorId(leadId, armado.deseadas, { vistos: new Set(p.vistas.map((v) => v.id)), protegidasPrimero: true, sobreLoVisto: true })
     .catch((e: unknown) => {
       if (/pagos_lead_numero|duplicate key|23505/.test(e instanceof Error ? e.message : String(e))) throw new Error('Otro guardado del mismo plan llegó a la vez y éste no terminó: revisa las cuotas en la ficha antes de pedirlo otra vez.');
       throw e;
@@ -998,7 +998,11 @@ export async function cobrarCuota(
   pagoId: number,
   leadId: number,
   datos: { monto?: number | null; fecha: string; hora?: string | null; resto?: RestoDeCobro } & DatosDeMoneda,
-): Promise<{ original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null; porLink: Pasarela | null; yaEstaba: boolean }> {
+): Promise<{
+  original: number; monto: number | null; pendiente: number | null; descuento: number; moneda: string | null; montoOriginal: number | null; porLink: Pasarela | null; yaEstaba: boolean;
+  /** La diferencia en la moneda de la cuota, como la deja la 0347 (`restoEnLaMonedaDeLaCuota`): los textos la dicen así. */
+  pendienteEnSuMoneda: { moneda: string; monto: number } | null;
+}> {
   if (!datos.fecha) throw new Error('La fecha del pago es obligatoria.');
   // La cuota ya se lee con `lead_id`, pero la diferencia de abajo es un INSERT con ese leadId.
   await asegurarLeadDelNegocio(leadId);
@@ -1023,7 +1027,7 @@ export async function cobrarCuota(
   // «Ya estaba» cura lo de después (sincronizar, cortar recordatorios): un intento anterior pudo cortarse en el medio.
   const yaCobrada = async () => {
     await curarDespues(pagoId, leadId, true, fila.cobro_id ?? null);
-    return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true as const };
+    return { original, monto: null, pendiente: null, pendienteEnSuMoneda: null, descuento: 0, moneda: null, montoOriginal: null, porLink: null, yaEstaba: true as const };
   };
   // ⚠️ NO TOMARLA NO SIEMPRE ES «YA ESTABA» (21/10/2026, quinta revisión): si la cuota se BORRÓ en el medio (la
   // reconciliación de un plan), decir «ya estaba cobrada» escondía un cobro que sí entró. Se mira cómo quedó.
@@ -1042,7 +1046,7 @@ export async function cobrarCuota(
   // la diferencia, ni la moneda (17/10/2026, `linkYaPagado`). Antes la plata se contaba dos veces.
   if (!fila.pagado) {
     const porLink = await linkYaPagado(pagoId);
-    if (porLink) return { original, monto: null, pendiente: null, descuento: 0, moneda: null, montoOriginal: null, porLink, yaEstaba: false };
+    if (porLink) return { original, monto: null, pendiente: null, pendienteEnSuMoneda: null, descuento: 0, moneda: null, montoOriginal: null, porLink, yaEstaba: false };
   }
   // Sin los dólares, un cobro en la moneda de la cuota (un tramo en pesos) va a SU tasa: con «la cuota entera», un cobro a
   // medias no dejaba diferencia (revisión de 9fc4030dd, alta). La API de MaKo manda los pesos sin los dólares.
@@ -1090,6 +1094,7 @@ export async function cobrarCuota(
   await curarDespues(pagoId, leadId, true, fila.cobro_id ?? null);
   return {
     original, monto, pendiente: pend > 0 ? pend : null, descuento,
+    pendienteEnSuMoneda: pend > 0 ? restoEnLaMonedaDeLaCuota(fila, { moneda: enMoneda?.moneda, montoOriginal: enMoneda?.montoOriginal }) : null,
     moneda: enMoneda?.moneda ?? null, montoOriginal: enMoneda?.montoOriginal ?? null, porLink: null, yaEstaba: false,
   };
 }
