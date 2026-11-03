@@ -22,6 +22,8 @@ import { runWithWorkspace, OWNER_WS, wsSuperAdmin } from './workspace';
 
 /** Qué instancia ES hoy el canal de MaKo (el setting lo escribe lib/mako-canal.ts al rotar una línea trabada). */
 export const KEY_CANAL_INSTANCIA = 'mako.canal.instancia';
+/** Por qué instancia habla MaKo. lib/mako-grupo.ts la re-exporta. Vive acá por lo mismo que la del canal. */
+export const KEY_VOZ_INSTANCIA = 'mako.voz.instancia';
 /** El nombre base del canal; sin el setting, es ése (lo mismo que `instanciaCanal`). */
 const BASE = 'mako_superadmin';
 /** Cómo se dice en pantalla. */
@@ -37,6 +39,9 @@ export const esLineaDeMaKo = (n: string): boolean => n === BASE || n.startsWith(
 export async function lineaDeMaKoPara(ws: number): Promise<string | null> {
   const plataforma = await wsSuperAdmin().catch(() => -1);
   if (ws !== plataforma) return null;
+  // Con MaKo hablando por una línea del negocio (el botón de /agencia), la de por defecto es ésa: el canal es el que se cayó.
+  const voz = await runWithWorkspace(OWNER_WS, () => getSettingEstricto(KEY_VOZ_INSTANCIA)).catch(() => undefined);
+  if (voz && !esLineaDeMaKo(voz)) return null;
   // El setting vive en el ws del dueño (OWNER_WS), como lo lee `instanciaCanal`.
   const v = await runWithWorkspace(OWNER_WS, () => getSettingEstricto(KEY_CANAL_INSTANCIA)).catch(() => undefined);
   if (v === undefined) return null;

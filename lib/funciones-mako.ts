@@ -62,6 +62,9 @@ export const ENTRADAS: readonly EntradaFuncion[] = [
       // emparejó con lo que la clienta escribió. La regla: **el catálogo usa el nombre que la
       // persona LEE en la pantalla**, no una forma parecida; si no, MaKo niega lo que sí tiene.
       '«Aprende solo» (el botón de la cabecera del Mapa): aprender solo de tus conversaciones de WhatsApp con leads, si lo prendes, y ver de qué fuentes aprende, cuándo fue la última vez y cuánto entró',
+      // El ticket #44 (3/11/2026): una clienta pegó su documento maestro en el chat y MaKo le dijo que no tenía cómo
+      // guardarlo. El nombre va TEXTUAL, el de la tarjeta que confirma la persona.
+      '«Sumar un documento al Second Brain»: le pegas o adjuntas un documento en el chat (un texto, un .docx), MaKo lo guarda en El Archivero, saca lo que va en tu perfil y te lo muestra antes de que digas que sí',
       // Ticket #48 (3/11/2026): «¿dónde actualizo mis datos?» y MaKo no sabía la pantalla. Los nombres, los de pantalla
       // (lib/secciones-negocio.ts, DATOS_DEL_NEGOCIO; tests/mako-no-puedo-falsos.test.ts los busca en AreasHub y AREAS).
       'Corregir los datos de tu negocio en el mapa: en «La oferta» → «El brief», el precio, qué incluye y el horario de tu oferta principal (tocas el dato y lo corriges); en «La oferta» → «La oferta», tus ofertas; en «Productos», el catálogo con su precio',

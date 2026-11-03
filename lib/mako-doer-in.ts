@@ -48,7 +48,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueParaElEquipo, bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, paraAlguienDelEquipo, conLasRespuestas, esEcoDeMaKo, vozPropiaDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo, SE_APRUEBAN_EN_LA_APP } from '@/lib/confirmacion-pura';
 import { cuentasDelCreditoDeLosGrupos, marcarCuentaDeLosGruposSinCredito } from '@/lib/credito-negocio';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
@@ -805,7 +805,7 @@ async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string, p
 async function esEcoDeMaKoAhora(instance: string, jid: string, key: MsgIn['key']): Promise<boolean> {
   if (!key?.fromMe) return false;
   const [voz, enviados] = await Promise.all([instanciaVoz({ estricto: true }).catch(() => null), idsEnviados(OWNER_WS, jid)]);
-  return esEcoDeMaKo({ fromMe: true, msgId: key.id ?? '', instancia: instance, voz, enviados });
+  return esEcoDeMaKo({ fromMe: true, msgId: key.id ?? '', instancia: instance, voz: vozPropiaDeMaKo(voz), enviados });
 }
 
 async function citaAMaKo(data: MsgIn): Promise<boolean> {
@@ -828,7 +828,7 @@ async function esLineaDelDueno(instance: string): Promise<boolean> {
   // La línea PROPIA de MaKo (`instanciaVoz`) nunca (la verificación de 991abd4af): el eco de un aviso que no se anotaba la marcaba.
   // Leída ESTRICTA (la de 96e7840e8): la otra convierte un error en «mako_ws1». Si no se pudo leer, decide la marca y no se guarda.
   const voz = await instanciaVoz({ estricto: true }).catch(() => null);
-  const deMaKo = voz === instance;
+  const deMaKo = vozPropiaDeMaKo(voz) === instance;
   const visto = deMaKo ? NaN : Date.parse((await runWithWorkspace(OWNER_WS, () => getSetting(KEY_LINEA_DEL_DUENO(instance))).catch(() => null)) ?? '');
   const es = Number.isFinite(visto) && Date.now() - visto < LINEA_DEL_DUENO_MS;
   if (voz !== null) LINEA_DEL_DUENO.set(instance, { es, hasta: Date.now() + 10 * 60_000 });
@@ -838,7 +838,7 @@ async function anotarLineaDelDueno(instance: string): Promise<void> {
   if (!instance || (await esLineaDelDueno(instance))) return;
   // Sin saber cuál es la línea de MaKo (la voz no se pudo leer), no se anota nada.
   const voz = await instanciaVoz({ estricto: true }).catch(() => null);
-  if (voz === null || voz === instance) return;
+  if (voz === null || vozPropiaDeMaKo(voz) === instance) return;
   LINEA_DEL_DUENO.set(instance, { es: true, hasta: Date.now() + 10 * 60_000 });
   await runWithWorkspace(OWNER_WS, () => setSetting(KEY_LINEA_DEL_DUENO(instance), new Date().toISOString())).catch(() => {});
 }

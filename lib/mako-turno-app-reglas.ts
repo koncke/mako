@@ -616,7 +616,8 @@ export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Pa
 /** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI o SU Gemini (D6b): nunca con el de la plataforma. */
 export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI. Escríbeme lo que dice.`;
 /** Con su propio Claude y sin una clave que lea (su Claude, su OpenAI o su Gemini por clave), El Archivero no corre: se dice. */
-export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
+// Desde el 3/11/2026 (ticket #44) hay otro camino que la clave: pedírselo a MaKo, y lo lee el Claude de su computadora.
+export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no se guardó solo en El Archivero (con tu propio Claude no lo leo por mi cuenta). Pídeme «súmalo al Second Brain» y lo guardo cuando digas que sí.';
 /** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */
 export const AVISO_ARCHIVERO_EN_PAUSA = 'Lo dejé en el chat, pero no en El Archivero: tu Claude está en pausa por un rato en MaKo. Mándamelo de nuevo más tarde.';
 

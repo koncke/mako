@@ -228,10 +228,13 @@ test('9. el cableado: el grafo de los chats cuelga Knowledge, el turno la saca s
   assert.match(ctx, /base \+= `\\n\\n\$\{bloqueDeModulos\(\)\}`/, 'buildSystemPrompt ya no pega el índice de Knowledge en el prompt: MaKo no sabe que el método existe y va a negarlo');
   // La capa va en TODOS los negocios, no sólo en la plataforma: es lo que MaKo le presta a cada uno.
   assert.ok(!/plataforma\s*\?\s*conCapa\([^)]*knowledgeDeMako/.test(chat), 'Knowledge quedó atada a la plataforma: ningún cliente recibiría el método');
-  // Las dos operaciones de la API, AL FINAL de su área y con el enum sacado del catálogo (no de una copia).
+  // Las dos operaciones de la API, DESPUÉS de todo lo que ya se pedía y con el enum sacado del catálogo (no de una copia).
+  // Después sólo puede venir lo que nació más tarde, que tampoco le gana un empate a ellas (`sumar_documento_second_brain`, ticket #44).
   const def = fuente('lib/api-mako/areas/negocio.def.ts');
   const ids = [...def.matchAll(/^\s{4}id: '([a-z_]+)'/gm)].map((m) => m[1]);
-  assert.deepEqual(ids.slice(-2), ['modulos_de_knowledge', 'leer_modulo_knowledge'], 'las operaciones de Knowledge no son las ÚLTIMAS del área: en un empate de relevancia le ganan a una que ya se pedía');
+  const iKnowledge = ids.indexOf('modulos_de_knowledge');
+  assert.deepEqual(ids.slice(iKnowledge + 2), ['sumar_documento_second_brain'], 'entró una operación después de las de Knowledge: si es vieja, le pasa un empate; si es nueva, súmala acá');
+  assert.deepEqual(ids.slice(iKnowledge, iKnowledge + 2), ['modulos_de_knowledge', 'leer_modulo_knowledge'], 'las operaciones de Knowledge no son las ÚLTIMAS del área: en un empate de relevancia le ganan a una que ya se pedía');
   assert.match(def, /enum: MODULOS_KNOWLEDGE\.map\(\(m\) => m\.key\)/, 'el enum del módulo quedó escrito a mano: un módulo nuevo no se podría pedir');
   const run = fuente('lib/api-mako/areas/negocio.run.ts');
   for (const id of ['modulos_de_knowledge', 'leer_modulo_knowledge']) {

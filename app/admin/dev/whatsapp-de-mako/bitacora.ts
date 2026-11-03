@@ -17,6 +17,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Cambiar el número sin dejarla muda', detalle: 'El número nuevo se vincula AL LADO, queda admin en cada grupo (comprobado releyéndolo) y recién ahí MaKo se muda', estado: 'hecha' },
   { titulo: 'Tu número, como línea de tu negocio', detalle: 'Tu WhatsApp personal para atender clientes: se ve en /whatsapp y «Sale por» lo puede elegir', estado: 'hecha' },
   { titulo: 'Pasar MaKo al número nuevo', detalle: 'El número nuevo ya está vinculado · la primera pasada dio 0 de 6 (Evolution le borraba el 9) · falta volver a vincular tu número, o sumarlo desde el teléfono, y reintentar', estado: 'sigue' },
+  { titulo: 'MaKo por tu número, con un botón', detalle: 'Con el …2605 baneado (3 nov), la voz pasa a tu línea sin escanear nada, y se apaga desde este panel · sólo habla en los grupos donde ya estás', estado: 'hecha' },
   { titulo: 'Soltar las líneas viejas', detalle: 'Las dos líneas con tu número que fueron de MaKo siguen vinculadas y el webhook las ignora · ocupan dispositivos de tu WhatsApp', estado: 'cola' },
   { titulo: 'Si se cae una línea, avisa la otra', detalle: 'Se miran las líneas cada 3 minutos · un mensaje por caída y otro al volver, por la que sigue viva · si caen todas, o hay una sola, por mail · falta probarlo con una caída real', estado: 'sigue' },
 ];
@@ -102,6 +103,21 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'lib/canal-vigilante.ts — `EMAILS_ALERTA_VOZ = [EMAIL_MAKO]`',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '17:30', chat: 'Cerebro', cuenta: 'claude5', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'WhatsApp baneó el …2605: MaKo pasa a tu número, con un botón para apagarlo',
+    pedido: 'por ahora que siga toda la comunicación por mi otro WhatsApp. Es decir, que mi otro WhatsApp pueda crear los grupos, etcétera... de última yo en SuperAdmin con un botoncito o algo deshabilitar',
+    puntos: [
+      '**Sin QR:** la línea de su negocio ya estaba vinculada. Se le abren los grupos y la voz apunta a ella; el canal no se toca, porque «Desconectar» borra la línea del canal.',
+      '⚠️ **Sólo donde ya está:** admin en 6 grupos. En los 8 que creó el …2605, WhatsApp contesta `forbidden` y nadie más puede sumarlo.',
+      '⚠️ **El eco:** en la voz, todo `fromMe` era MaKo, así que el dueño hablándole desde su teléfono se tiraba. Con una línea de negocio decide el anillo.',
+    ],
+    archivos: [
+      'lib/mako-canal.ts — `usarNumeroPersonalComoVoz`',
+      'lib/doer-para-quien.ts — `vozPropiaDeMaKo`',
     ],
   },
   {

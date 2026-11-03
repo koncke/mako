@@ -586,6 +586,7 @@ subir_creativos_media_buyer
 sugerencias_crm
 sugerir_kpis
 sugerir_productos
+sumar_documento_second_brain
 tendencia_score
 tipos_de_crm
 topes_media_buyer

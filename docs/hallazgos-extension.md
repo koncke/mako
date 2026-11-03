@@ -377,6 +377,15 @@ feedback/chrome-web-store/ficha-y-permisos.md (fuera del repo).
   `public/mako-puente.zip` no se versiona: en el tren no existe. Para subir desde el tren hay que cargar las `CWS_*` en el
   entorno (dotenv no pisa lo que ya está) y poner el zip; el de la tienda está en feedback/chrome-web-store/.
 
+## Subir a la tienda por el panel: lo que corrige la subida de la 0.74.5 (3/11/2026)
+
+- **La sesión de Google no dura:** a los 5 días pidió de nuevo la contraseña en ese perfil. «Martín entra UNA vez» era falso: puede tocar en cada subida.
+- **El zip ya se versiona:** `git show origin/main:public/mako-puente-<versión>.zip`. Un `git archive` pelado no sirve: `manifestParaPaquete` (`scripts/zip-extension.mjs`) le saca los `localhost` al manifest, porque un permiso sin uso es motivo de rechazo.
+- **Rutas del panel:** las pestañas cuelgan de `/edit/` (`/edit/status`, `/edit/package`, `/edit/privacy`, `/edit/listing`); sin `/edit/` dan 404.
+- **Subir:** «Upload new package» abre un `input[type=file]`, `DOM.setFileInputFiles` anda, y el panel salta a Store listing sin avisar: la versión se confirma recargando Package.
+- **Cerrar ese Chrome con `Browser.close` por CDP:** `taskkill` sin `/F` no alcanza, y forzarlo arriesga las cookies recién guardadas. Cliente CDP: `scripts/cdp-tienda.mjs`.
+- **Google avisa que la revisión puede tardar semanas:** al aprobar, `node scripts/version-en-tienda.mjs` y actualizar `VERSION_EN_TIENDA` en `lib/extension-tienda.ts`.
+
 ## Sin hacer
 
 - **La 0.74.3 está EN REVISIÓN desde el 29/10 ~01:35 ART** (paquete, descripción, 5 capturas, ícono, mosaico chico y

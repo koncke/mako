@@ -14,6 +14,37 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «No tengo una herramienta» era la mitad: el documento ya se archivaba solo, y D6b lo frenaba (3/11/2026, ticket #44)
+
+**El síntoma.** Una clienta (ws 23) pegó su documento maestro en el chat del Second Brain con «analizalo e incorporalo al
+second brain». MaKo contestó «desde este chat no tengo una herramienta que escriba ahí» y abrió el ticket.
+
+**El diagnóstico obvio era el equivocado, o la mitad.** «Falta exponer la ingesta del Archivero» (la deuda de
+`negocio.def.ts` del 16/09) era cierto, pero el chat YA archivaba solo todo pegado largo del admin (#884,
+`archivarPegadosDelChat`). No corrió por **D6b**: el negocio tiene su Claude en la COMPUTADORA y ninguna clave, así que
+`puedeArchivarConSuIA()` dice que no y el servidor no tiene con qué extraer (mandarlo a la red gratis es lo prohibido). El
+mensaje quedó con «[…se cortó aquí por largo]» SIN «quedó en El Archivero»: el documento entero se perdió en el corte
+(12.000 caracteres) y a la clienta le faltaba desde el punto 10. Se ve en `chart_chats`, no en el ticket.
+
+**Y había dos trampas más en el camino del chat**, las dos medidas con el turno real (`clasificarIntencion` +
+`herramientasDelChat`):
+- **El documento pegado se clasificaba como material dictado** (títulos, listas): «sumá este documento al second brain» + el
+  pegado salía `capturar` y no viajaba NINGUNA herramienta. Lo pegado es dato: se clasifica lo escrito (`pedidoDelMensaje`).
+- **«te cargo un documento con toda la información que necesitas saber…» salía `consultar`** («que necesitas» cuenta como
+  pregunta), y en `consultar` no viajan acciones. Familia `documento-al-cerebro` (lib/mako-intencion-app.ts).
+
+**Lo que queda:**
+- Un negocio con su IA sólo en la computadora NO tiene IA en el servidor: todo lo que extrae en el servidor (El Archivero,
+  el panorama) se le cae. El camino es que extraiga el **modelo del turno**, que es su IA, y la persona vea el resultado antes
+  del «sí» (`sumar_documento_second_brain` pide los `campos` con `disponibles`).
+- Un texto que el modelo copia de un pegado se limpia sólo de las marcas (`documentoDelChat`): su id sale del contenido y
+  tiene que dar el mismo que el que el chat archivó solo, o se guarda dos veces. Un pegado CORTADO se sabe cortado.
+
+**Sin hacer:** con su Claude en la computadora, el pegado largo se sigue cortando en 12.000 y lo que pasa de ahí se pierde
+(lib/chat-pegado.ts, `TOPE_PEGADOS_MENSAJE`; lib/mako-turno-app.ts, `recortarMensaje`): la tarjeta lo dice y pide el resto,
+pero guardar el texto ENTERO sin extraer (para que el modelo lo lea después) no está. Y el #43 (lo mismo por WhatsApp,
+sobre el cerebro de otro workspace): el plan en docs/relevo/brain-docs.md.
+
 ## Recuperar margen: sólo cuenta lo que va ANTES, y el recorte tiene que llegar al ticket (31/10/2026)
 
 **El síntoma:** `cambiar_crons_secuencia` entraba en los 12.000 caracteres con 119 de margen, y el recorte se avisaba con un

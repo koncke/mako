@@ -88,6 +88,8 @@ const json = (x: unknown): string => JSON.stringify(x);
 const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: true });
 const str = (input: Record<string, unknown>, k: string): string => (typeof input[k] === 'string' ? (input[k] as string).trim() : '');
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
+/** Menos que esto no es un documento (`sumar_documento_second_brain`): es una frase, y para eso está guardar_campo_perfil. */
+const MIN_DOCUMENTO = 120;
 
 /** preparar() de la pantalla genérica no puede lanzar: se envuelve. */
 const seguro = (fn: (input: Record<string, unknown>, ctx: Ctx) => Promise<Preparado>) =>
@@ -1144,6 +1146,61 @@ export const RUNNERS: Runners = {
       if (!texto) return `El módulo «${m.nombre}» todavía no tiene fichas cargadas: no hay material para esta pregunta. No lo rellenes.`;
       return `## Knowledge › ${m.nombre}\n${m.que}\n\n${texto}`;
     },
+  },
+  // ── Sumar un documento desde un chat (ticket #44): la ingesta de lib/archivero-ingesta.ts, la misma de la pantalla ──
+  sumar_documento_second_brain: {
+    preparar: seguro(async (input, ctx) => {
+      const { documentoDelChat, nombrePegado, caracteres } = await import('@/lib/chat-pegado');
+      const { texto, cortado, nombre: delArchivo } = documentoDelChat(str(input, 'texto'));
+      if (texto.length < MIN_DOCUMENTO) return { error: 'Eso es muy corto para ser un documento: pídele que lo pegue o lo adjunte entero.' };
+      const nombre = (str(input, 'nombre') || delArchivo || nombrePegado(texto, 60)).slice(0, 120);
+      const { listFiles } = await import('@/lib/archivero');
+      const { idDeContenido, documentoYaArchivado, camposDelModelo } = await import('@/lib/archivero-registro');
+      const bytes = new TextEncoder().encode(texto);
+      if (documentoYaArchivado(await listFiles(), { id: idDeContenido(ctx.ws, bytes), nombre, tamano: bytes.byteLength })) {
+        return { error: `«${nombre}» ya está en el Second Brain: no se vuelve a guardar.`, yaEstaba: true };
+      }
+
+      const { conQueSeExtrae, camposDeExtraccion } = await import('@/lib/archivero-ingesta');
+      const corte = cortado ? ' ⚠️ Llegó CORTADO: se guarda lo que llegó; pídele el resto y súmalo como otro documento.' : '';
+      if ((await conQueSeExtrae(ctx.ws)) === 'servidor') {
+        return {
+          payload: { nombre, texto, ...(cortado ? { cortado: true } : {}) },
+          resumen: `Sumar «${nombre}» al Second Brain (${caracteres(texto)}): MaKo saca de ahí lo que va en tu perfil al guardarlo. Lo que editaste a mano no se toca.${corte}`,
+        };
+      }
+      // Su Claude en la computadora y ninguna clave: el servidor no tiene con qué extraer (D6b). Lo extrae el modelo del
+      // turno, que es SU IA, con las claves del perfil; lo que no es una clave del perfil no entra.
+      const fields = await camposDeExtraccion();
+      const rotulo = new Map(fields.map((f) => [f.key, f.label]));
+      if (!Array.isArray(input.campos) || !input.campos.length) {
+        return { error: 'Este negocio usa su propio Claude, así que lo lees tú: saca del documento lo que va en el perfil con estas claves (sólo lo que dice) y vuelve a llamarla con `campos` y `resumen`.', disponibles: fields };
+      }
+      const campos = camposDelModelo(input.campos, new Set(rotulo.keys()));
+      const n = Object.keys(campos).length;
+      if (!n) return { error: 'Ninguna de esas claves es del perfil: usa las de `disponibles`.', disponibles: fields };
+      return {
+        payload: { nombre, texto, campos, resumen: str(input, 'resumen').slice(0, 2000), ...(cortado ? { cortado: true } : {}) },
+        resumen: `Sumar «${nombre}» al Second Brain (${caracteres(texto)}) con ${n} dato${n === 1 ? '' : 's'} para tu perfil: ${Object.keys(campos).map((k) => rotulo.get(k)).join('; ')}. Lo que editaste a mano no se toca.${corte}`,
+      };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const { sumarTextoAlArchivero } = await import('@/lib/archivero-ingesta');
+      const { conSuIADelNegocio } = await import('@/lib/ia-del-negocio');
+      const nombre = String(payload.nombre ?? '');
+      const texto = String(payload.texto ?? '');
+      const campos = payload.campos && typeof payload.campos === 'object' && !Array.isArray(payload.campos)
+        ? Object.fromEntries(Object.entries(payload.campos as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')]))
+        : null;
+      // Sin `campos` extrae el servidor, y adentro de D6b: con su clave, nunca con la red gratis.
+      const r = campos
+        ? await sumarTextoAlArchivero(ctx.ws, { nombre, texto, extraido: { campos, razonamiento: String(payload.resumen ?? '') } })
+        : await conSuIADelNegocio(ctx.ws, () => sumarTextoAlArchivero(ctx.ws, { nombre, texto }));
+      if (!r.ok) return { ok: false, resumen: `No se guardó: ${r.motivo}.` };
+      if (r.yaEstaba) return { ok: true, resumen: `«${r.nombre}» ya estaba en el Second Brain: no se guardó dos veces.`, datos: { id: r.id } };
+      const corte = payload.cortado ? ' Llegó cortado: falta el resto, que se suma como otro documento.' : '';
+      return { ok: true, resumen: `«${r.nombre}» quedó en el Second Brain (El Archivero) y aportó ${r.aportadas} dato${r.aportadas === 1 ? '' : 's'} a tu perfil.${corte}`, datos: { id: r.id, aportadas: r.aportadas } };
+    }),
   },
 };
 

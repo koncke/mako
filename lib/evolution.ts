@@ -163,11 +163,11 @@ async function setSettings(instance: string): Promise<void> {
 // MaKo. Por defecto las instancias ignoran grupos (regla anti-ban del PDF); esto
 // se activa a propósito solo en la línea que le da voz a MaKo. Mantiene el resto
 // de los ajustes anti-ban igual.
-export async function permitirGruposEnInstancia(instance: string): Promise<{ ok: boolean; error?: string }> {
+export async function permitirGruposEnInstancia(instance: string, permitir = true): Promise<{ ok: boolean; error?: string }> {
   const r = await evFetch(`/settings/set/${encodeURIComponent(instance)}`, {
     method: 'POST',
     body: JSON.stringify({
-      rejectCall: false, msgCall: '', groupsIgnore: false,
+      rejectCall: false, msgCall: '', groupsIgnore: !permitir,
       // Mismo valor que setSettings: este endpoint PISA los ajustes enteros,
       // así que dejarlo en false acá apagaría el historial por la ventana.
       alwaysOnline: false, readMessages: false, readStatus: false, syncFullHistory: true,

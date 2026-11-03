@@ -122,6 +122,39 @@ export function nombrePegado(p: string, max = 48): string {
   return `Texto pegado — ${primera}${p.replace(/\s+/g, ' ').trim().length > max ? '…' : ''}`;
 }
 
+/**
+ * Lo que la persona PIDE en un mensaje con texto pegado: lo que escribió, sin el material (ticket #44, 3/11/2026). El
+ * clasificador leía el documento pegado como «material dictado» (títulos, listas) y «sumá este documento al second brain»
+ * salía `capturar`, sin una sola herramienta. Lo pegado es DATO; el pedido es lo escrito. Un mensaje que es sólo un pegado
+ * se clasifica entero, como siempre.
+ */
+export function pedidoDelMensaje(mensaje: string): string {
+  const { texto, pegados } = partirPegados(mensaje);
+  return pegados.length && texto ? texto : mensaje;
+}
+
+const LINEAS_DE_CORTE = [SIGUE_CORTADO, AVISO_CORTE_PEGADO, AVISO_CORTE_SIN_ARCHIVO];
+
+/**
+ * Un documento que el modelo copia del chat para guardarlo (`sumar_documento_second_brain`, ticket #44, 3/11/2026): sin
+ * las marcas del pegado y sin la línea con que el chat dice que lo cortó. `cortado` lo dice: guardar como entero un
+ * documento al que le falta el final es lo que no puede pasar (al de #44 le faltaba desde el punto 10).
+ * `nombre`: el del archivo, si el texto empieza como lo arma el lector de adjuntos (`textoDelArchivo`, lib/chat-formatos.ts).
+ * El texto NO se toca más que eso: su id sale del contenido, y el que el chat ya archivó solo tiene que dar el mismo.
+ */
+export function documentoDelChat(crudo: string): { texto: string; cortado: boolean; nombre: string | null } {
+  let cortado = false;
+  const lineas = crudo.split('\n').filter((l) => {
+    const t = l.trim();
+    if (t === ABRE || t === CIERRA) return false;
+    if (LINEAS_DE_CORTE.some((c) => t.includes(c))) { cortado = true; return false; }
+    return true;
+  });
+  const texto = lineas.join('\n').trim();
+  const nombre = /^Archivo «([^»\n]{1,200})»:/.exec(texto)?.[1].trim() || null;
+  return { texto, cortado, nombre };
+}
+
 /** ¿Esta burbuja se pliega? Muy larga, o con muchos renglones. */
 export const esBurbujaLarga = (t: string): boolean => t.length > TOPE_BURBUJA || t.split('\n').length > RENGLONES_BURBUJA;
 

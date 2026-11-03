@@ -483,6 +483,11 @@ const NEGOCIO: Caso[] = [
   ["reinicia el quiz de personalidad", ["reiniciar_personalidad"]],
   ["guardá el diagnóstico de fase: etapa de validación", ["guardar_diagnostico_fase"]],
   ["borrá el documento del archivero", ["borrar_documento_archivero"]],
+  // Ticket #44 (3/11/2026): la frase del cliente salía `consultar` y la tarjeta que lo guarda no viajaba.
+  ["te cargo un documento con toda la información que necesitas saber de mi negocio, analizalo e incorporalo al second brain", ["sumar_documento_second_brain"]],
+  ["sumá este documento al second brain", ["sumar_documento_second_brain"]],
+  ["guardá este documento en el archivero", ["sumar_documento_second_brain"]],
+  ["incorporá esto a mi segundo cerebro", ["sumar_documento_second_brain"]],
   ["quiero dar de baja mi plan de MaKo", ["dar_de_baja_mi_plan"]],
   ["mostrame el análisis de mi oferta", ["ver_analisis_oferta","listar_analisis_oferta"]],
   ["guardá la oferta del análisis en los funnels", ["guardar_oferta_analisis"]],
