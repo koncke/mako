@@ -88,11 +88,17 @@ export function descifrar(valorEnc: string, ws: number, clave: string): string |
   if (partes[0] !== 'gcm2' || partes.length !== 5) return null;
   try {
     const [, salt, iv, tag, cuerpo] = partes;
+    // ⛔ El tag es de 16 bytes, SIEMPRE (01/11/2026, auditoría de seguridad). Node acepta en
+    // `setAuthTag` un tag más corto (4, 8, 12… bytes: DEP0182) y lo verifica con esa longitud, o sea
+    // que un criptograma con el tag recortado a 4 bytes se forja con 2^32 intentos en vez de 2^128.
+    // `authTagLength` en el decipher y el chequeo del largo lo cierran en las dos capas.
+    const tagBuf = Buffer.from(tag, 'base64url');
+    if (tagBuf.length !== 16) return null;
     const key = claveV2(Buffer.from(salt, 'base64url'), ws, clave);
     if (!key) return null;
-    const d = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'));
+    const d = crypto.createDecipheriv('aes-256-gcm', key, Buffer.from(iv, 'base64url'), { authTagLength: 16 });
     d.setAAD(V2_AAD(ws, clave));
-    d.setAuthTag(Buffer.from(tag, 'base64url'));
+    d.setAuthTag(tagBuf);
     return Buffer.concat([d.update(Buffer.from(cuerpo, 'base64url')), d.final()]).toString('utf8');
   } catch {
     return null; // secret rotado, fila corrupta, o criptograma movido de fila (AAD)

@@ -35,7 +35,7 @@ export async function POST() {
   res.cookies.set({ name: SESSION_COOKIE, ...base });
   res.cookies.set({ name: LEGACY_COOKIE, ...base });
   res.cookies.set({ name: IMPERSONATE_COOKIE, ...base });
-  res.cookies.set({ name: EMAIL_COOKIE, ...base, httpOnly: false });
+  res.cookies.set({ name: EMAIL_COOKIE, ...base });
   res.cookies.set({ name: ALUMNO_COOKIE, value: '', maxAge: 0, ...opcionesCookieAlumno() });
   return res;
 }

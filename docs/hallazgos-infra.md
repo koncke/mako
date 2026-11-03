@@ -5861,7 +5861,8 @@ personal que sirve `/api/agente/skill`.
 
 **PUBLICADO** en https://github.com/mbustos-digital/mako-plugin. El paso 2 del tutorial
 es ahora `/plugin marketplace add mbustos-digital/mako-plugin` + `/plugin install
-mako@mako`.
+mako@mako`. Martín (ticket #41, 03/11/2026) lo quiere en SU cuenta y con MaKo de autor: ver
+«Pasar el plugin a `koncke/mako-plugin`», abajo.
 
 ⚠️ **Sin `gh` igual se puede.** No está instalado en este entorno y no hay `GH_TOKEN`,
 pero Git Credential Manager sí tiene guardada una credencial de GitHub —la misma con la
@@ -5915,6 +5916,21 @@ publicado sin que nadie lo vuelva a decidir.**
 
 La contrapartida es la que se buscaba: una mejora de la skill llega a todos los clientes
 con un `git push` al repo público, en vez de que cada uno la reinstale.
+
+### Pasar el plugin a `koncke/mako-plugin`: lo que no se ve desde `plugin/` (03/11/2026)
+
+**Vive en:** `scripts/generar-plugin.mjs` · `plugin/` · `app/_components/TutorialAgente.tsx`.
+
+- **⚠️ `plugin/` al día no quiere decir publicado.** El pre-push cuida la copia de ESTE repo. Al público lo sube una persona a mano, y nadie lo
+  hizo desde el 11/08/2026: 16 commits tocaron la skill de `plugin/` después. Quien instaló `mbustos-digital/mako-plugin` corre la skill de agosto.
+  «Sale publicado sin que nadie lo vuelva a decidir», escrito arriba, no pasa. SIN HACER: que algo publique solo; si no, `koncke/mako-plugin` va a quedar igual de viejo.
+- **El repo viejo no se borra:** hay gente que ya lo instaló.
+- **⛔ Publicar `koncke/mako-plugin` quedó FRENADO** por el modo automático de Claude Code («Create Public Surface»): crear un repo público pide el sí de
+  Martín en su chat. `plugin/README.md` ya nombra el repo nuevo; `TutorialAgente.tsx`, no, y **no puede cambiar antes de publicar**: el tutorial mandaría a un repo que da 404.
+- **Lo probado sin publicar:** en una carpeta `CLAUDE_CONFIG_DIR` aparte, `claude plugin validate`, `marketplace add` e `install mako@mako` andan contra una copia local.
+  Falta el `marketplace add koncke/mako-plugin` de verdad.
+- **Autor:** el commit del repo público va con `MaKo <equipo@hola-mako.com>` y sin los trailers de Claude. Es lo que ven los usuarios, y lo pidió Martín.
+- ⚠️ La copia a publicar va con finales de línea LF: `plugin/` sale en CRLF de un checkout de Windows.
 
 ## El bug estaba dormido desde julio y lo despertó un DATO, no un commit
 
