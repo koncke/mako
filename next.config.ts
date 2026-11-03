@@ -78,6 +78,9 @@ const nextConfig: NextConfig = {
     '/**': [
       './node_modules/onnxruntime-node/**',
       './node_modules/onnxruntime-web/**',
+      // 164 MB de transcripciones (9.719 archivos): lib/cerebro-referente-server.ts las lee con
+      // readFile y el trazado las metía en TODAS las funciones. En producción se leen del CDN.
+      './public/cono-tx/**',
       './node_modules/@huggingface/transformers/**',
     ],
   },
