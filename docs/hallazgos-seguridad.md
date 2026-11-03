@@ -2607,3 +2607,14 @@ hacia afuera. Las comillas no lo frenan: Excel evalúa una celda entre comillas 
   dos, y rechazan los caracteres de control. El `oauth_next` va en una cookie: Next la codifica al escribirla.
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## La cuenta de revisión de las tiendas: la puerta estaba bien, y lo que abría, no (3/11/2026)
+
+Google Play exige credenciales reutilizables que se salten el OTP. La primera versión se concentró en que nadie más entrara por esa excepción, y eso estaba bien. La revisión adversarial miró lo otro: esa contraseña se la damos a terceros.
+
+- **Síntoma, sin correr nada:** como admin del ws3, invitaba gente, creaba tokens de API que sobreviven a rotar la contraseña, renombraba el negocio con un link adentro y mandaba mails de MaKo a cualquiera; y podía enrolar un TOTP propio, cambiar la contraseña y dejar afuera a los revisores. Rotarla no cerraba nada: `leerSesion` no mira el corte, y la cookie valía 30 días.
+- **El diagnóstico obvio era el equivocado:** «la excepción está atada a un correo y a un negocio de prueba, así que es chica». Lo que hay que medir de una excepción de autenticación es qué puede hacer quien pasa por ella, no quién pasa.
+- **Regla:** la cuenta es closer y no admin (`esCuentaDeRevision` exige `rol_ws`: el nulo vale como admin). El proxy le corta escribir en `SIN_ESCRITURA_EN_REVISION`. Su sesión dura 7 días, muere al rotar la contraseña (`iat` contra `cambiada_at`) y no sobrevive a la base caída. Cada entrada le avisa a equipo@.
+- **Quedó sin hacer:** la lista de `SIN_ESCRITURA_EN_REVISION` es negativa, y una ruta nueva que escriba a un tercero no entra sola. **Medir el ws3 antes de correr el script** (lo pide con `--medido`): «Datos de Mau» o «simular» en ese negocio le mostrarían datos de un cliente a quien tenga la contraseña. Lo recomendado es un negocio propio para esta cuenta, que además saca del medio al «App Reviewer» de Meta y al Reset. Nueve contraseñas malas cada 15 minutos bloquean la cuenta 15 minutos: se acepta, porque el correo no es público. Falta la revisión del chat de Ciberseguridad.
+
+**Vive en:** lib/mfa-reglas.ts · lib/auth.ts · proxy.ts · app/api/auth/contrasena/route.ts · scripts/tiendas-cuenta-revision.mts · tests/cuenta-revision-tienda.test.ts · rama `tiendas-revisor-0311`. *3/11/2026, chat «tiendas», claude5.*

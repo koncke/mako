@@ -20,7 +20,7 @@ import {
   gateConfigurado, verificarToken, sinLoginPermitido, type Rol, type Sesion,
 } from './auth-session';
 import { buscarUsuarioPorEmail } from './usuarios';
-import { esCuentaDeRevision, requiereSegundoFactor } from './mfa-reglas';
+import { esCuentaDeRevision, requiereSegundoFactor, sesionDeRevisionVigente } from './mfa-reglas';
 import { obligatorioDesdeDe } from './mfa-obligatorio';
 // La sesión se lee UNA vez por pedido, también en una ruta /api (23/10/2026): ver lib/sesion-por-pedido.ts.
 import { enElPedido } from './sesion-por-pedido';
@@ -63,11 +63,18 @@ async function leerSesion(token: string | undefined): Promise<Sesion | null> {
         if (!firmada.mfa && requiereSegundoFactor(u.rol, !!u.mfa_activo, await obligatorioDesdeDe(u.workspace_id))) return null;
         // La cuenta de revisión de las tiendas: su sesión vale sólo mientras la FILA siga siendo esa (lib/mfa-reglas.ts). Una cookie vieja no
         // sobrevive a mudarla de negocio, cambiarle el correo o subirla a admin.
-        if (firmada.mfa === 'revision' && !esCuentaDeRevision(u)) return null;
+        if (firmada.mfa === 'revision') {
+          if (!esCuentaDeRevision(u)) return null;
+          // Y rotar la contraseña cierra lo que estaba abierto.
+          const { getSupabaseServer } = await import('./supabase');
+          const { data } = await getSupabaseServer().from('usuario_contrasena').select('cambiada_at').eq('usuario_id', u.id).maybeSingle();
+          if (!sesionDeRevisionVigente(firmada.iat, (data as { cambiada_at?: string } | null)?.cambiada_at)) return null;
+        }
         // El rol, el workspace y el rol-de-workspace de la base ganan sobre lo firmado.
         return { ...firmada, rol: u.rol, ws: u.workspace_id ?? null, rolWs: u.rol_ws ?? null };
       } catch {
-        return firmada;
+        // Con la base caída no se desloguea a nadie, salvo a la única sesión sin segundo factor: sin poder mirar su fila, no vale.
+        return firmada.mfa === 'revision' ? null : firmada;
       }
     }
     return firmada;
