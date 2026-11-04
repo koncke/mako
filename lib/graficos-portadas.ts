@@ -342,10 +342,10 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },
     'vsl-analyst': {
       molde: 'corbel', nueva: (id) => ({ id: id('vs-mitad'), clase: 'grafico', tipo: 'indicador', fuente: 'retencion_vsl', metricas: ['tasa_50'], maximo: 100, titulo: 'Ven la mitad del video' }),
-      vecino: 'vs-curva', par: ['vs-tramos', 'vs-videos'],
+      vecino: 'vs-curva', par: ['vs-mitad', 'vs-tramos', 'vs-videos'],
     },
-    'chat-analyst': { molde: 'corbel', sube: 'ch-rapidos', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Respondes en 15 minutos' }, vecino: 'ch-por-dia', par: ['ch-setters', 'ch-lineas'] },
-    closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-closers-tabla', 'cl-factores-ia'] },
+    'chat-analyst': { molde: 'corbel', sube: 'ch-rapidos', cambios: { tipo: 'indicador', maximo: 100, titulo: 'Respondes en 15 minutos' }, vecino: 'ch-por-dia', par: ['ch-rapidos', 'ch-setters', 'ch-lineas'] },
+    closing: { molde: 'wharf', sube: 'cl-embudo-embudo', cambios: { tipo: 'embudo_columnas', titulo: 'Cuántas llamadas se ganan' }, vecino: 'cl-factores-barras', par: ['cl-factores-ia', 'cl-embudo-embudo', 'cl-resultado'] },
     'cs-analyst': { molde: 'moorly', sube: 'cs-etapas', cambios: { titulo: 'Dónde está cada cliente' }, vecino: 'cs-semanas', par: ['cs-tabla', 'cs-contacto'] },
     productividad: { molde: 'moorly', sube: 'pr-piramide-barras', cambios: { titulo: 'Pirámide de prioridad' }, vecino: 'pr-avance-proyecto', par: ['pr-huele-mal', 'pr-matriz-burbujas'] },
     cobranza: { molde: 'wharf', sube: 'semanas', vecino: 'semanas', par: ['urgencia', 'barra', 'por-funnel'] },

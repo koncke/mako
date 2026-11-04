@@ -245,7 +245,8 @@ test('crear y editar con IA en el server: las MISMAS piezas que la pantalla, y l
   const iGuardar = ed.indexOf("guardar({ accion: 'guardar', id: p.docId, version: doc.version, contenido })");
   assert.ok(iVersion > 0 && iGuardar > iVersion, 'la versión «Antes de un cambio de IA» va ANTES del guardado (aceptarPropuesta)');
   assert.match(ed, /dif\.anclasResueltas\(r\.tarjetas, enviadas, todas\)/);
-  assert.match(ed, /dif\.planDeAplicacion\(todas, propuestas, \{ anclaNuevas: activa \? dif\.idDe\(activa\) : null \}\)/);
+  // Con lo que cambia de la LISTA (sacar, reordenar, duplicar: tests/replica-editable.test.ts, 5), como la pantalla.
+  assert.match(ed, /dif\.planDeAplicacion\(todas, propuestas, \{ anclaNuevas: activa \? dif\.idDe\(activa\) : null, quitar: r\.quitar, orden: r\.orden, copias: r\.copias \}\)/);
   // La def lo dice: generar crea un borrador (se puede mandar a la papelera) y devuelve el id.
   assert.match(accion('generar_landing_con_ia').descripcion, /Devuelve el id/);
 });

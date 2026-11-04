@@ -21,7 +21,8 @@
 #   · humo: el evento dice success en producción, cada 8 h, o a mano → scripts/humo-produccion.mjs contra hola-mako.com.
 #     SÓLO ALARMA: nunca hace rollback (un rollback servía en 2 de 16 incidentes, y uno automático sobre un falso rojo saca un
 #     arreglo bueno de producción). Y NO VE lo que está detrás de la sesión: es una alarma de caída total, nada más.
-#   · vigia: cada 8 h, el control de que los eventos lleguen (arriba).
+#   · vigia: cada 8 h, el control de que los eventos lleguen (arriba), y de que las redes de cada noche (semanal-tests.yml y
+#     tipos-respaldo.yml) den veredicto: 36 h sin uno, con commits nuevos en main, es rojo.
 #
 # MINUTOS: un job de ~15 s factura 1 minuto. Con ~20 deploys por día son ~600 min al mes (US$3,6 a US$0,006 el minuto).
 # Un job salteado por su `if` no factura nada. Los deploys de preview (otras ramas) se ignoran: el `if` mira el ambiente.
@@ -149,3 +150,32 @@ jobs:
             echo "::error::main recibió commits y Vercel no mandó NINGÚN evento en 48 h: el aviso de deploy fallido está ciego. Revisá la integración de Vercel con GitHub (Project Settings → Git) y si github.silent de vercel.json los apaga."
             exit 1
           fi
+
+      # ── LAS REDES DE CADA NOCHE (4/11/2026) ──────────────────────────────────────────────────────────────────────────
+      # semanal-tests.yml y tipos-respaldo.yml corren cada noche si entró algo a main. Una red que no da veredicto no avisa: se queda
+      # callada (el 2/11 la suite semanal la canceló su techo sin un mail, y el respaldo de tipos no había dado ninguno). Un veredicto
+      # es una corrida verde o ROJA; una cancelada, sin arrancar o sin minutos, no. 36 h sin veredicto y con commits nuevos = rojo.
+      - name: ¿Las redes de cada noche dan veredicto?
+        if: "!cancelled()"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          limite=$(date -u -d '36 hours ago' +%s)
+          alarma=0
+          for wf in semanal-tests.yml tipos-respaldo.yml; do
+            ultimo=$(gh api "repos/$REPO/actions/workflows/$wf/runs?status=completed&per_page=30" --jq '[.workflow_runs[] | select(.conclusion == "success" or .conclusion == "failure")][0].created_at // ""')
+            if [ -n "$ultimo" ] && [ "$(date -u -d "$ultimo" +%s)" -ge "$limite" ]; then
+              echo "$wf: último veredicto $ultimo." | tee -a "$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            desde="${ultimo:-$(date -u -d '36 hours ago' +%Y-%m-%dT%H:%M:%SZ)}"
+            nuevos=$(gh api "repos/$REPO/commits?sha=main&since=$desde&per_page=1" --jq length)
+            if [ "$nuevos" != "0" ]; then
+              echo "::error::$wf no da veredicto desde ${ultimo:-hace más de 36 h} y main recibió commits: la red de esa noche está muda. Mirá sus corridas (canceladas, sin minutos o sin arrancar)."
+              alarma=1
+            else
+              echo "$wf: sin veredicto en 36 h, pero main no recibió commits: no hay nada que juzgar." | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          done
+          exit $alarma
