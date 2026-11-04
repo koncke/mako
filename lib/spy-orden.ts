@@ -10,9 +10,11 @@
 // ⚠️ ANIMA DATOS DE VERDAD: las carpetas y los números salen de lo que se acaba de leer. Si la lectura no trajo nada, no hay animación.
 // Sin `server-only`: lo usan la pantalla y un test.
 
-import { NOMBRE_ETAPA, type EtapaTendencia, type TipoPieza } from './spy-reglas';
+import type { EtapaTendencia, TipoPieza } from './spy-reglas';
+import { TIPOS_CONTENIDO, tipoDeContenido } from './spy-vista';
 
-export type PiezaParaOrdenar = { id: number; canal: string; tipo: TipoPieza; etapa: EtapaTendencia | null };
+/** `etapa` se acepta y no se usa desde el 4/11/2026 (ver `carpetasDe`). `duracion` separa un Short de un video largo. */
+export type PiezaParaOrdenar = { id: number; canal: string; tipo: TipoPieza; etapa?: EtapaTendencia | null; duracion?: string | null };
 
 export type CarpetaOrden = {
   clave: string;
@@ -27,26 +29,30 @@ export type CarpetaOrden = {
 /** Más miniaturas que esto traban una computadora normal. El número que se lee sigue siendo el real (`CarpetaOrden.n`). */
 export const TOPE_MINIATURAS = 140;
 
-const VARIOS: Record<TipoPieza, string> = { reel: 'Reels', publicacion: 'Publicaciones', video: 'Videos', anuncio: 'Anuncios', landing: 'Sitios' };
-const ORDEN_ETAPA: ReadonlyArray<EtapaTendencia | null> = ['probado', 'ganando-traccion', 'test-nuevo', null];
+/** El orden de las carpetas: el de los tipos del desplegable de la ficha, y los anuncios al final. */
+const ORDEN_GRUPO = [...TIPOS_CONTENIDO.filter((t) => t.value !== 'todo').map((t) => t.value as string), 'anuncios'];
+const ROTULO_GRUPO: Record<string, string> = { ...Object.fromEntries(TIPOS_CONTENIDO.map((t) => [t.value, t.label])), anuncios: 'Anuncios' };
 
 /**
- * Las carpetas: por canal, formato y etapa, que es lo que Spy sabe de cada pieza. El sitio no va: es una página, no una publicación.
- * «Videos · Probado», o sólo «Videos» si no tiene etapa. Primero el formato y, adentro, de lo más probado a lo más nuevo.
+ * Las carpetas: una por TIPO DE CONTENIDO —Reels, Carruseles e imágenes, Videos de YouTube, Shorts, Anuncios—, los mismos
+ * del desplegable de la ficha. El sitio no va: es una página, no una publicación.
+ *
+ * ⚠️ HASTA EL 4/11/2026 IBAN POR FORMATO Y ETAPA («Videos · Probado»), y Martín: «"Sigue a la vista" y "Probado" no se
+ * entiende qué hacen». Lo que pidió es contenido corto, contenido largo y carruseles (`tipoDeContenido`).
  */
 export function carpetasDe(piezas: readonly PiezaParaOrdenar[]): CarpetaOrden[] {
-  const porClave = new Map<string, CarpetaOrden & { etapa: EtapaTendencia | null }>();
+  const porClave = new Map<string, CarpetaOrden>();
   for (const p of piezas) {
     if (p.canal === 'landing') continue;
-    const clave = `${p.canal}|${p.tipo}|${p.etapa ?? ''}`;
+    const grupo = p.canal === 'anuncios' ? 'anuncios' : tipoDeContenido({ canal: p.canal as never, tipo: p.tipo, duracion: p.duracion ?? null });
+    if (!grupo) continue;
+    const clave = `${p.canal}|${grupo}`;
     const ya = porClave.get(clave);
     if (ya) { ya.n += 1; ya.ids.push(p.id); continue; }
-    const rotulo = p.etapa ? `${VARIOS[p.tipo]} · ${NOMBRE_ETAPA[p.etapa].rotulo}` : VARIOS[p.tipo];
-    porClave.set(clave, { clave, canal: p.canal, tipo: p.tipo, rotulo, n: 1, ids: [p.id], etapa: p.etapa });
+    porClave.set(clave, { clave, canal: p.canal, tipo: p.tipo, rotulo: ROTULO_GRUPO[grupo] ?? grupo, n: 1, ids: [p.id] });
   }
-  return [...porClave.values()]
-    .sort((a, b) => a.canal.localeCompare(b.canal) || a.tipo.localeCompare(b.tipo) || ORDEN_ETAPA.indexOf(a.etapa) - ORDEN_ETAPA.indexOf(b.etapa))
-    .map(({ etapa: _etapa, ...c }) => c);
+  const lugar = (c: CarpetaOrden) => ORDEN_GRUPO.indexOf(c.clave.split('|')[1]);
+  return [...porClave.values()].sort((a, b) => lugar(a) - lugar(b));
 }
 
 /** Qué miniaturas se dibujan: todas si entran; si no, cada carpeta en proporción, y ninguna se queda sin mostrar la suya. */

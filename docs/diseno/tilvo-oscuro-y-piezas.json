@@ -1,0 +1,44 @@
+{
+  "_que_es": "Lo que el Web Generator y la landing necesitaban y las cuatro tandas anteriores no traían: Tilvo en OSCURO, sus piezas de interfaz en px, las medidas a 390 y los títulos de Fitlo. Leído el 31/10/2026 de demo.codeandchill.store con getComputedStyle, apretando de verdad el botón de tema. Las medidas a 390 van SIN el resto de las plantillas: se leyeron sólo Tilvo.",
+
+  "tilvo_oscuro": {
+    "--bg": "#0c0f14", "--card": "#151a22", "--card-2": "#11151c", "--card-3": "#232a37",
+    "--ink": "#e8ecf3", "--ink-2": "#c6ccd7", "--muted": "#99a2b3",
+    "--line": "#e8ecf314", "--line-2": "#e8ecf329", "--rim": "#ffffff29",
+    "--shadow": "0 1px 2px #0000004d, 0 12px 30px -16px #0009",
+    "--shadow-lg": "0 2px 6px #0006, 0 30px 70px -24px #000c",
+    "--accent": "#6e98ff", "--accent-hi": "#8eafff", "--accent-ink": "#0b1222", "--accent-soft": "#6e98ff24", "--accent-text": "#9ab7ff",
+    "--good": "#6fcf97", "--warn": "#e6b45c", "--bad": "#f2877b", "--info": "#9ab7ff", "--now": "#6e98ff",
+    "--tile-1": "#172441", "--tile-2": "#10302c", "--tile-3": "#2e2716", "--tile-4": "#33202a"
+  },
+
+  "tilvo_piezas_1440": {
+    "cuerpo": "Urbanist 14 / 20,3, peso 500",
+    "barra_de_pestanas": "48 de alto, relleno 4, radio 16, fondo --card; adentro cada pestaña 40 de alto, 13,5 / 600, relleno 0 15, radio 12",
+    "boton_primario": "40 de alto, relleno 0 16, radio 12, 13,5 / 600, sombra 0 6px 16px -8px del acento",
+    "boton_secundario": "40 de alto, --card, anillo inset 1px de la tinta al 15%, radio 12",
+    "boton_icono": "42 x 42 radio 13 con la sombra de tarjeta; el chico, 32 x 32 radio 10",
+    "tarjeta": "radio 18, relleno 18 20 20, sombra inset 0 0 0 1px tinta 8% + 0 1px 2px tinta 5% + 0 10px 26px -16px tinta 22%",
+    "titulos": "h1 37,44 / 600 / -0,025em · cifra 34 / 600 / -0,025em · título de tarjeta 15 / 600 / -0,005em"
+  },
+
+  "tilvo_390": {
+    "main": "relleno 0 14 96 (el 96 deja lugar a la barra de abajo)",
+    "--gap": "12px, no 18",
+    "tarjeta": "relleno 16, radio 18",
+    "h1": "28 / -0,7px",
+    "navegacion": "barra fija abajo, 66 de alto, 370 de ancho, radio 22"
+  },
+
+  "fitlo_pagina_de_venta_1440": {
+    "tile": "radio 26, no 24: las tarjetas de producto y los banners de Fitlo van por encima de la escala compartida",
+    "titulos": "h1 37,44 / 600 / -0,025em · sección 26 / 600 / -0,02em · banner 30-31,68 / 600 / -0,025em",
+    "bajada": "13,5 / 500, tinta al 66%",
+    "encabezado": "sticky, 84 de alto, el MISMO fondo que la página, sin línea ni blur",
+    "pildoras": "radio 99, 40 de alto, 13,5 / 600",
+    "precio": "13,5 / 700, tabular-nums",
+    "gap": "18"
+  },
+
+  "_ojo": "`--now` en Tilvo vale lo mismo que el acento: en Tilvo no es un color reservado. El reservado de verdad es el de Fitlo (#e2603a). Y #e2603a como letra chica sobre el fondo claro no llega a 4,5:1: sirve de marca o sobre la tinta (5:1), no de texto sobre claro."
+}
