@@ -189,6 +189,9 @@ test('la clave de Competitors Spy sólo lee Instagram: no es la vuelta del scrap
     'lib/spy-buscar.ts',
     // 3/11/2026: buscar sus otras redes (ítems 10/11 de Spy). Es Spy, con la misma clave y sin escribir nada: candidatos que la persona confirma.
     'lib/spy-otras-redes.ts',
+    // 4/11/2026: las corridas largas de Spy (puntos 8 y 10: todas sus publicaciones y sus anuncios). Es Spy, con la misma
+    // clave: lee el contenido PÚBLICO de un competidor que el negocio eligió y lo guarda en `spy_piezas`. No entra a `leads`.
+    'lib/spy-todo.ts',
   ]);
   // La fuente la piden Spy y el alta del CRM. Offer sigue sin poder gastarla.
   assert.deepEqual(quienes("'apify-spy'").sort(), [
