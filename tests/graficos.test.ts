@@ -166,6 +166,12 @@ test('el lector llena cada métrica base y cada dimensión de cada conjunto del 
   const src = ['graficos-datos.ts', 'graficos-audiencia.ts', 'graficos-datos-extra.ts'].map(leer).join('\n');
   const mapa = (desde: string) => { const i = src.indexOf(desde); return i < 0 ? '' : src.slice(i, src.indexOf('\n};', i)); };
   const lectores = mapa('export const LECTORES:') + mapa('export const LECTORES_EXTRA:');
+  // Las funciones puras en las que un lector puede delegar la fila (cada una, con su cuerpo hasta la próxima exportación).
+  const puros = leer('grabar-llamada-reglas.ts');
+  const PUROS = [...puros.matchAll(/^export function (\w+)\(/gm)].map((x) => {
+    const desde = x.index!; const resto = puros.slice(desde + 10); const hasta = resto.search(/\nexport /);
+    return { nombre: x[1], cuerpo: puros.slice(desde, hasta < 0 ? undefined : desde + 10 + hasta) };
+  });
   // La clave puede ir con valor (`gasto: …`) o abreviada (`{ estado, … }`).
   const llena = (id: string) => new RegExp(`(?:\\b${id}:|[{,]\\s*${id}\\s*[,}])`);
   for (const f of FUENTES) {
@@ -175,7 +181,10 @@ test('el lector llena cada métrica base y cada dimensión de cada conjunto del 
     assert.ok(ini >= 0, `no encuentro ${m![1]}`);
     const resto = src.slice(ini + 10);
     const fin = resto.search(/\n(?:export )?async function /);
-    const cuerpo = src.slice(ini, fin < 0 ? undefined : ini + 10 + fin);
+    // Un lector puede DELEGAR la fila en una función pura con su propio test (la de las llamadas grabadas, 04/11/2026:
+    // `filaDeLlamadaGrabada`, que tests/cold-calling.test.ts ejecuta): su cuerpo cuenta como el del lector.
+    const delegada = PUROS.map(({ nombre, cuerpo: c }) => (new RegExp(`\\b${nombre}\\(`).test(src.slice(ini, fin < 0 ? undefined : ini + 10 + fin)) ? c : '')).join('\n');
+    const cuerpo = src.slice(ini, fin < 0 ? undefined : ini + 10 + fin) + delegada;
     // Un percentil no es una base: lo calcula el agregador sobre la lista de su `de`, que sí tiene que existir (v5).
     for (const x of f.metricas.filter((y) => y.percentil)) assert.ok(f.metricas.some((b) => b.id === x.percentil!.de), `${f.id}.${x.id}: percentil de algo que no existe`);
     for (const x of f.metricas.filter((y) => !y.razon && !y.percentil)) assert.match(cuerpo, llena(x.id), `${f.id} no llena la métrica ${x.id}`);

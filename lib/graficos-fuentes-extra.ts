@@ -31,6 +31,7 @@
 
 import { TIEMPO, cat, dist, m, r, type Dimension, type Fuente, type Metrica } from './graficos-constructores';
 import { CORTES_VSL, TRAMOS_CONTACTO, TRAMOS_VISTO } from './graficos-datos-puro';
+import { COLORES_RESULTADO, ROTULO_ORIGEN, VALORES_RESULTADO } from './grabar-llamada-reglas';
 
 const atributo = (id: string, nombre: string): Metrica => ({ ...m(id, nombre), sinTotal: true });
 /** Lo que es mejor que BAJE (un costo, un atraso, la deuda): la barra y el color lo respetan. */
@@ -315,6 +316,31 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
       menos(percentil('mediana_respuesta', 'Mediana de respuesta (min)', 'minutos_respuesta', 50)),
       menos(percentil('p90_respuesta', 'Respuesta más lenta, p90 (min)', 'minutos_respuesta', 90)),
       menos(m('sin_responder', 'Esperando respuesta')), dist('chats', 'Chats'),
+    ],
+  },
+  // ── Llamadas grabadas en MaKo (Cold Calling) ─────────────────────────────────────────
+  {
+    // Martín, 04/11/2026: «un dashboard template que sea "Call Calling"». Una fila por llamada grabada con el botón «Grabar»
+    // (la ficha del lead o la hoja Cold Calling: lib/grabar-llamada.ts). «Cómo terminó» lo marca la PERSONA al cortar: una
+    // llamada sin marcar va a «Sin marcar», nunca a «no contestó». Cada fila es un LEAD (`r.lead`): el detalle de un número
+    // lista los leads y cada uno abre su ficha. Trae nombres de personas (fuera de DIMENSIONES_PUBLICAS).
+    // Sin la migración 0390, el lector lo dice (no da cero).
+    id: 'llamadas_grabadas', nombre: 'Llamadas grabadas en MaKo', area: 'CRM y ventas',
+    descripcion: 'Las llamadas grabadas con el botón «Grabar»: cuántas, cuántas contestaron y cuántas agendaron.',
+    fechas: [{ id: 'fecha', nombre: 'Llamada' }],
+    dimensiones: [
+      ...TIEMPO,
+      escala(cat('resultado', 'Cómo terminó'), VALORES_RESULTADO, COLORES_RESULTADO),
+      escala(cat('origen', 'Dónde se grabó'), [ROTULO_ORIGEN['cold-calling'], ROTULO_ORIGEN.ficha]),
+      cat('autor', 'Quién llamó'), cat('lead', 'Lead'), cat('estado', 'Estado'),
+    ],
+    metricas: [
+      m('llamadas', 'Llamadas'), m('contestaron', 'Contestaron'), m('agendaron', 'Agendaron'),
+      m('no_interesa', 'No les interesa'), m('no_contesto', 'No contestaron'), m('sin_marcar', 'Sin marcar'),
+      m('minutos', 'Minutos grabados'), m('transcritas', 'Transcritas'), dist('leads_llamados', 'Leads llamados'),
+      r('tasa_contacto', 'Tasa de contacto', 'pct', 'contestaron', 'llamadas', 100),
+      conMinimo(r('tasa_agenda', 'Agendan de los que contestan', 'pct', 'agendaron', 'contestaron', 100), 5),
+      r('duracion', 'Duración promedio (min)', 'numero', 'minutos', 'llamadas'),
     ],
   },
 ];

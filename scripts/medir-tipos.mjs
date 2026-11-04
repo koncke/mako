@@ -72,7 +72,7 @@ export function experimentos() {
     { nombre: 'tandas-1', K: 1, config: 'tsconfig.json', medir: true, nota: 'el chequeo entero con el driver por tandas (1/1): curva de memoria, los 25 archivos más lentos y el costo por archivo' },
     { nombre: 'tandas-2', K: 2, config: 'tsconfig.json', nota: '2 tandas' },
     { nombre: 'tandas-3', K: 3, config: 'tsconfig.json', nota: '3 tandas' },
-    { nombre: 'tandas-4', K: 4, config: 'tsconfig.json', nota: '4 tandas (lo que corre hoy en integracion.yml)' },
+    { nombre: 'tandas-4', K: 4, config: 'tsconfig.json', nota: '4 tandas (el respaldo de punta.yml)' },
     { nombre: 'partido-resto', K: 1, config: 'tsconfig.medir-resto.json', nota: 'SIN tests/ (app, lib, scripts…): el programa partido, mitad 1' },
     { nombre: 'partido-tests', K: 1, config: 'tsconfig.medir-tests.json', nota: 'SÓLO tests/ (con todo lo que importan): el programa partido, mitad 2' },
     { nombre: 'types-node', K: 1, config: 'tsconfig.medir-types.json', nota: "`types: ['node']`: sin los 30 @types/* que entran solos — el piso, ¿baja?" },

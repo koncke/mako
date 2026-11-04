@@ -235,4 +235,26 @@ export const DEFS: readonly OperacionDef[] = [
     canales: SIN_HTTP, costo: 'ia', gating: TAB_FATHOM,
     reversible: true, escribe: 'un borrador pendiente en wa_borradores (origen post_llamada), puede analizar con IA las grabaciones pendientes del lead (closing_analyses), usa el estado del trabajo en closing_jobs y, si falla, deja una entrada en el historial del lead',
   },
+  // ── La Grabadora de MaKo (04/11/2026): lo que se graba desde la ficha del lead o desde Cold Calling ──────────────
+  // ⚠️ AL FINAL DEL ÁREA y sin repetir las palabras de todas (AGENTS.md, el presupuesto del turno): se nombran por la grabación.
+  //    Grabar NO es una operación: pide el micrófono de la pantalla. El análisis de cada una sale en llamadas_lead (es una fila
+  //    más de closing_analyses) y su texto en transcript_llamada, con su clave.
+  {
+    id: 'grabaciones_en_mako_de_un_lead', area: 'closing', tipo: 'lectura',
+    titulo: 'Grabaciones hechas en MaKo de un lead',
+    descripcion: 'Lo que se grabó con el botón «Grabar» de la ficha de UN lead o de Cold Calling: fecha, duración, quién grabó, cómo terminó (no contestó, habló, agendó, no le interesa), en qué va (transcribiendo, analizando, lista, sin IA, con error) y el texto con el minuto de cada parte. Su análisis sale en llamadas_lead. No gasta IA.',
+    parametros: [leadId],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'crm' },
+  },
+  {
+    id: 'como_termino_grabacion', area: 'closing', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Cómo terminó una grabación',
+    descripcion: 'PROPONE decir cómo terminó UNA grabación hecha en MaKo (de grabaciones_en_mako_de_un_lead): no contestó, habló, agendó o no le interesa (queda pendiente hasta el «sí»). Es lo que cuenta la hoja Cold Calling del Dashboard. No mueve al lead en el CRM.',
+    parametros: [
+      { nombre: 'grabacionId', tipo: 'string', obligatorio: true, max: 36, descripcion: 'el id de la grabación (de grabaciones_en_mako_de_un_lead).' },
+      { nombre: 'resultado', tipo: 'string', obligatorio: true, enum: ['no_contesto', 'hablo', 'agendo', 'no_interesa'], descripcion: 'cómo terminó.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'crm' },
+    reversible: true, escribe: 'cambia `resultado` de la grabación en llamadas_grabadas',
+  },
 ];
