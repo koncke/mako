@@ -43,7 +43,7 @@ Su FICHA sí se escribe en la nube, de a una, y queda en `lib/asesores/en-espera
 | Romuald Fons | Bigseo Academy | **escrita** («SEO», `ficha-romuald-fons.ts`) |
 | Mateo Maffia | BYF | **escrita** («Video corto que vende», `ficha-mateo-maffia.ts`) |
 | Francisco Doglio | ARCADIA | **escrita** («Equipo comercial y webinars», `ficha-francisco-doglio.ts`) |
-| Andy Landa | ManyChat Master - Instagram | pendiente |
+| Andy Landa | ManyChat Master - Instagram | **escrita** («Automatizaciones de Instagram», `ficha-andy-landa.ts`) |
 | Gonzalo Seré | Growing Content Specialist | pendiente |
 
 Andrew Tate no entra (pedido explícito).
