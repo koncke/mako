@@ -1,0 +1,155 @@
+##############################################################################
+#  ORRERY   bundle 182kB - 49 helpers - 0 chunks - ARQ VANILLA - 40 fromTo crudos
+##############################################################################
+
+CHUNKS: (ninguno: todo en el bundle)
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[t -> export (no exp)]  (t,r,a,s){var c;typeof r==`number`&&(a.duration=r,r=a,a=null),c=e.call(this,s?r:Be(r))||this;var l=c.vars,d=l.duration,f=l.delay,p=l.immediateRender,m=l.stagger,h=l.overwrite,g=l.keyframes,_=l.defaults,v=l.scrollTrigger,b=r.parent||N,C=(E(t)||T(t)?y(t[0]):`length`in r)?[t]:bt(t),D,O,k,A,j,M,ee,te;if(c._targets=C.length?Ce(C):ce(`GSAP target `+t+` not found. https://gsap.com`,!i.nullTargetWarn)||[],c._ptLookup=[],c._overwrite=h,g||m||w(d)||w(f)){r=c.vars;var ne=r.easeReverse||r.yoyoEase;if(D=c.timeline=new pn({data:`nested`,defaults:_||{},targets:b&&b.dat...
+
+[co -> export (no exp)]  (e,t=0){if(!e)return V.timeline();let n=so(e);return V.fromTo(n,{yPercent:115},{yPercent:0,duration:W(.8),ease:`power4.out`,stagger:W(.022),delay:t,clearProps:`transform`})}
+
+[lo -> export (no exp)]  (e,{y:t=32,stagger:n=.065}={}){return V.fromTo(e,{opacity:0,y:t,scale:.985},{opacity:1,y:0,scale:1,duration:W(.8),ease:`power3.out`,stagger:W(n),clearProps:`transform,opacity`})}
+
+[uo -> export (no exp)]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return V.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:W(.5),ease:`power3.out`,stagger:W(r),delay:i,clearProps:`transform,opacity`})}
+
+[mo -> export (no exp)]  (e,t,{duration:n=1.2,delay:r=0,from:i}={}){if(!e)return;let a=i??(parseFloat(e.dataset.value)||0);if(e.dataset.value=t,V.killTweensOf(e.__count||{}),U.matches||!n){e.textContent=po(e,t);return}let o=e.__count={v:a};e.textContent=po(e,a),V.to(o,{v:t,duration:n,delay:r,ease:`power3.out`,onUpdate:()=>{e.textContent=po(e,o.v)}})}
+
+[go -> export (no exp)]  (e){ho??=G(`.toast`),ho.textContent=e,V.killTweensOf(ho),V.timeline().fromTo(ho,{opacity:0,y:18,scale:.96},{opacity:1,y:0,scale:1,duration:W(.45),ease:`back.out(1.8)`}).to(ho,{opacity:0,y:10,duration:W(.3),ease:`power2.in`},`+=2.4`)}
+
+[_o -> export (no exp)]  (e){if(U.matches)return;let t=e.querySelector(`svg`)||e;V.fromTo(t,{scale:.7},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[bo -> export (no exp)]  (e=document){to.matches&&K(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!U.matches&&yo.v&&V.to(e,{y:-3,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{yo.v&&V.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[wo -> export (no exp)]  (e,t,n){let r=G(`.seg__pill`,e),i=K(`.seg__btn`,e),a=()=>i.find(e=>e.getAttribute(`aria-pressed`)===`true`)||i[0];function o(e=!0){let t=a();if(!t.offsetWidth)return;let n=t.offsetLeft,i=t.offsetWidth/100;if(!e||U.matches){V.set(r,{x:n,scaleX:i});return}let o=V.getProperty(r,`x`),s=V.getProperty(r,`scaleX`),c=Math.abs(n-o)/100*.35;V.to(r,{x:n,duration:.5,ease:`power3.inOut`,overwrite:`auto`}),V.to(r,{keyframes:{scaleX:[s,Math.max(i,s)+c,i]},duration:.5,ease:`power2.inOut`})}function s(e,{silent:r=!1}={}){let s=i.find(n=>n.dataset[t]===e);!s||s===a()||(i....
+
+[o -> export (no exp)]  (e=!0){let t=a();if(!t.offsetWidth)return;let n=t.offsetLeft,i=t.offsetWidth/100;if(!e||U.matches){V.set(r,{x:n,scaleX:i});return}let o=V.getProperty(r,`x`),s=V.getProperty(r,`scaleX`),c=Math.abs(n-o)/100*.35;V.to(r,{x:n,duration:.5,ease:`power3.inOut`,overwrite:`auto`}),V.to(r,{keyframes:{scaleX:[s,Math.max(i,s)+c,i]},duration:.5,ease:`power2.inOut`})}
+
+[ko -> export (no exp)]  (e,t){let n=document.getElementById(e);(Do[e]||[]).forEach(e=>e(n,t)),n.showModal(),U.matches||(V.fromTo(G(`.dlg__box`,n),{opacity:0,y:14,scale:.97},{opacity:1,y:0,scale:1,duration:.45,ease:`back.out(1.5)`,clearProps:`all`}),V.fromTo(K(`.field, .dlg__text, .dlg__row, .check, .choice`,n),{opacity:0,y:8},{opacity:1,y:0,duration:.4,stagger:.035,delay:.06,ease:`power3.out`,clearProps:`all`}))}
+
+[Lo -> export (no exp)]  (e,t){let n=Fo();G(`[data-sheet-title]`,n).textContent=e,G(`[data-sheet-body]`,n).innerHTML=t;let r=!n.hidden;Io=r?Io:document.activeElement,n.hidden=!1,document.documentElement.classList.add(`sheet-open`),G(`.sheet__close`,n).focus({preventScroll:!0}),!U.matches&&(r||(V.fromTo(G(`.sheet__scrim`,n),{opacity:0},{opacity:1,duration:.3}),V.fromTo(G(`.sheet__panel`,n),{xPercent:104},{xPercent:0,duration:.55,ease:`power4.out`})),uo(K(`[data-sheet-body] > *`,n),{y:10,stagger:.04,delay:r?0:.12}))}
+
+[Ro -> export (no exp)]  (){let e=Fo();if(e.hidden)return;document.documentElement.classList.remove(`sheet-open`);let t=()=>{e.hidden=!0,V.set([G(`.sheet__panel`,e),G(`.sheet__scrim`,e)],{clearProps:`all`})};if(Io?.focus?.({preventScroll:!0}),U.matches)return t();V.to(G(`.sheet__scrim`,e),{opacity:0,duration:.25}),V.to(G(`.sheet__panel`,e),{xPercent:104,duration:.35,ease:`power3.in`,onComplete:t})}
+
+[xc -> export (no exp)]  (e){pc.classList.toggle(`is-busy`,e),pc.disabled=e,K(`[data-sso]`,Y).forEach(t=>t.disabled=e);let t=G(`.btn__spin`,pc);gc?.kill(),e&&!U.matches&&(gc=V.to(t,{rotation:`+=360`,duration:.8,ease:`none`,repeat:-1}))}
+
+[Tc -> export (no exp)]  (){Ec(),!U.matches&&(_c=K(`.orbit`,Y).map((e,t)=>V.fromTo(e,{rotation:t*70},{rotation:t*70+(t%2?-360:360),duration:18+t*9,ease:`none`,repeat:-1})))}
+
+[Dc -> export (no exp)]  ({animate:e=!0}={}){if(Y.hidden=!1,document.title=`Sign in · Orrery`,hc.place(!1),Tc(),G(`[data-auth-title]`,Y).focus({preventScroll:!0}),!e||U.matches)return V.timeline();let t=V.timeline();return t.fromTo(Y,{opacity:0},{opacity:1,duration:.5,clearProps:`opacity`},0),t.add(co(G(`[data-auth-title]`,Y)),.1),t.add(uo([G(`.brand--auth`,Y),G(`[data-auth-sub]`,Y),G(`[data-auth-seg]`,Y),...K(`.auth__sso .btn, .auth__or, .auth__fields > :not([hidden]), .auth__hint`,Y)],{y:12,stagger:.04}),.15),t.fromTo(K(`.orbit`,Y),{opacity:0,scale:.7},{opacity:1,scale:1,durat...
+
+[Oc -> export (no exp)]  (){return Ec(),U.matches?(Y.hidden=!0,V.timeline()):V.timeline().to(Y,{opacity:0,duration:.35,ease:`power2.in`,onComplete:()=>{Y.hidden=!0,V.set(Y,{clearProps:`opacity`})}})}
+
+[Nc -> export (no exp)]  (e){let t=document.createElement(`div`);return t.className=`viz-tip`,t.setAttribute(`aria-hidden`,`true`),e.append(t),{el:t,show(e,n,r,i){t.innerHTML=e;let a=t.offsetWidth,o=t.offsetHeight,s=Math.min(Math.max(n-a/2,0),i-a);V.to(t,{x:s,y:r-o-12,opacity:1,duration:W(.25),ease:`power3.out`,overwrite:`auto`})},hide(){V.to(t,{opacity:0,duration:W(.18),overwrite:`auto`})}}}
+
+[Fc -> export (no exp)]  (e,t=0){let n=G(`.spark__wipe`,e)||G(`.viz__wipe`,e);return n?V.fromTo(n,{scaleX:0},{scaleX:1,transformOrigin:`0 50%`,duration:W(1.1),ease:`power3.inOut`,delay:t}):V.timeline()}
+
+[g -> export (no exp)]  (e,n=!0){m=e;let r=G(`.viz__cross`,o),i=G(`.viz__dot`,o),c=n&&!U.matches?(e,t)=>V.to(e,{...t,duration:.2,ease:`power3.out`,overwrite:`auto`}):(e,t)=>V.set(e,t);c(r,{attr:{x1:f[e],x2:f[e]},opacity:1}),c(i,{attr:{cx:f[e],cy:p[e]},opacity:1}),s.show(a(t[e],e),f[e],p[e],u)}
+
+[tl -> export (no exp)]  ({fromZero:e=!1,quick:t=!1}={}){let n=el(),r={duration:t?.6:1.3,...e?{from:0}:{}};mo(qc.req,n.req,r),mo(qc.tok,n.tok,r),mo(qc.spend,n.spend,r),mo(qc.p50,n.p50,r),$c(G(`[data-delta="req"]`,X),n.req,n.reqThen),$c(G(`[data-delta="tok"]`,X),n.tok,n.tokThen);let i=G(`[data-err-pill]`,X),a=n.err>.03;i.className=`delta delta--${a?`down`:`flat`}`,i.innerHTML=`<svg aria-hidden="true"><use href="#i-${a?`warn`:`ok`}"/></svg>${(n.err*100).toFixed(1)}%`;let o=n.spend/Cs.budget;G(`[data-kpi-budget]`,X).textContent=`${Math.round(o*100)}% of ${tc(Cs.budget)}`,G(`[data-k...
+
+[dl -> export (no exp)]  (e=!1){let{by:t,total:n,max:r}=ul();(!ll.children.length||e)&&(ll.innerHTML=t.map(({m:e})=>`<li class="share" data-m="${e.id}">       <span class="share__top">${Vc(e.id)}<b data-v data-prefix="$">$0</b></span>       <span class="share__track"><i class="share__fill" style="--c:var(--cat-${e.slot})"></i></span>       <small data-pct>0%</small></li>`).join(``)),t.forEach(({m:t,v:i})=>{let a=G(`[data-m="${t.id}"]`,ll);mo(G(`[data-v]`,a),i,{duration:e?1.2:.5,...e?{from:0}:{}}),G(`[data-pct]`,a).textContent=`${Math.round(i/n*100)}% of spend`;let o=G(`.share__f...
+
+[hl -> export (no exp)]  (e){if(X.hidden){Xc=!0;return}fl.insertAdjacentHTML(`afterbegin`,pl(e));let t=K(`li`,fl);t.length>6&&t.slice(6).forEach(e=>e.remove()),U.matches||V.fromTo(t[0],{opacity:0,y:-12},{opacity:1,y:0,duration:.45,ease:`power3.out`,clearProps:`all`})}
+
+[_l -> export (no exp)]  (e){let t=G(`[data-quick-code]`,X);t.innerHTML=gl[e],U.matches||V.fromTo(t,{opacity:0,y:6},{opacity:1,y:0,duration:.35,ease:`power3.out`,clearProps:`all`})}
+
+[yl -> export (no exp)]  (){Xc&&=(ml(),!1),Jc.update(rl()),il(),nl(),Yc.place(!1);let e=K(`[data-card]`,X),t=V.timeline();return t.add(To(X),0),t.add(lo(e),.1),t.add(()=>{tl({fromZero:!0}),dl(!0)},.25),t.add(K(`.spark`,X).map(e=>Fc(e)),.45),t.add(Jc.enter(),.4),t.add(uo(K(`.srow, .rq`,X),{y:10,stagger:.04}),.55),t.add(V.fromTo(K(`.ticks`,X),{opacity:0},{opacity:1,duration:W(.6),stagger:W(.08),clearProps:`opacity`}),.7),t}
+
+[Fl -> export (no exp)]  (e){Cl.classList.toggle(`is-busy`,e),Cl.disabled=e,wl.setAttribute(`aria-busy`,String(e)),G(`[data-pg-run-label]`,Z).textContent=e?`Running`:`Run`;let t=G(`.btn__spin`,Cl);e&&!U.matches?V.to(t,{rotation:`+=360`,duration:.8,ease:`none`,repeat:-1}):V.killTweensOf(t)}
+
+[lu -> export (no exp)]  (e){if(G(`[data-err-count]`,Kl).textContent=Gs.filter(e=>e.status>=400).length,Kl.hidden){ru=!0;return}if(!au(e)){Xl.textContent=`${rc(Math.min(tu,ou().length))} of ${rc(ou().length)} shown`;return}ql.insertAdjacentHTML(`afterbegin`,su(e));let t=K(`tr`,ql);t.length>tu&&t.slice(tu).forEach(e=>e.remove()),Yl.hidden=!0;let n=ou();Jl.hidden=n.length<=tu,Xl.textContent=`${rc(Math.min(tu,n.length))} of ${rc(n.length)} shown`,U.matches||V.fromTo(t[0],{opacity:0,y:-10},{opacity:1,y:0,duration:.45,ease:`power3.out`,clearProps:`all`})}
+
+[uu -> export (no exp)]  (e){let t=Gs.find(t=>t.id===e);return t?(Lo(`Request · ${ds(t.model).name}`,Wc(t)),U.matches||V.fromTo(K(`#sheet .wf__bar`),{scaleX:0},{scaleX:1,transformOrigin:`0 50%`,duration:.7,ease:`power3.out`,stagger:.12,delay:.25}),!0):!1}
+
+[Ou -> export (no exp)]  (e=!1){let t=Eu(Cu(),J.map(e=>e.id)),n=J.map(e=>({m:e,t:Eu(Cu(),[e.id])})).sort((e,t)=>t.t.cost-e.t.cost);G(`[data-usage-body]`,Q).innerHTML=n.map(({m:e,t:n})=>{let r=t.cost?n.cost/t.cost:0;return`<tr class="${$.hidden.has(e.id)?`is-muted`:``}">       <td>${Vc(e.id)}</td>       <td class="num mono">${rc(n.req)}</td>       <td class="num mono col-in">${ic(n.inTok)}</td>       <td class="num mono col-out">${n.outTok?ic(n.outTok):`—`}</td>       <td class="num mono">${rc(n.err)}</td>       <td class="num mono"><b>${tc(n.cost,2)}</b></td>       <td class="co...
+
+[ku -> export (no exp)]  (e=!1){let t=Eu(Cu(),J.map(e=>e.id)).cost,n=[...Ps.filter(e=>e.share>0),{id:`pg`,name:`Playground`,share:.004}].map(e=>({k:e,v:t*e.share})).sort((e,t)=>t.v-e.v),r=n[0]?.v||1,i=G(`[data-list="bykey"]`,Q);i.innerHTML=n.map(({k:e,v:t})=>`<li class="share">     <span class="share__top"><span class="share__name">${q(e.name)}</span><b>${tc(t,t<100?2:0)}</b></span>     <span class="share__track"><i class="share__fill" style="--c:var(--accent)" data-w="${(t/r).toFixed(4)}"></i></span>     <small>${(e.share*100).toFixed(1)}% of spend</small></li>`).join(``);let a...
+
+[$u -> export (no exp)]  (e){let t=K(`.mcard`,Yu),n=U.matches?null:eo.getState(t);t.forEach(t=>t.classList.toggle(`is-gone`,e!==`all`&&t.dataset.kind!==e)),n&&eo.from(n,{duration:.6,ease:`power3.inOut`,absolute:!0,scale:!0,onEnter:e=>V.fromTo(e,{opacity:0,scale:.94},{opacity:1,scale:1,duration:.5,ease:`power3.out`}),onLeave:e=>V.to(e,{opacity:0,scale:.94,duration:.3})})}
+
+[td -> export (no exp)]  (){Xu.place(!1);let e=V.timeline();return e.add(To(Ju),0),e.add(lo(K(`.mcard:not(.is-gone)`,Yu)),.1),e.add(V.fromTo(K(`.mcard__mark`,Yu),{scale:.4,rotation:-30},{scale:1,rotation:0,duration:W(.7),ease:`back.out(2.2)`,stagger:W(.07),clearProps:`transform`}),.35),e}
+
+[id -> export (no exp)]  ({fromZero:e=!1,quick:t=!1}={}){let n=Ts(),r=Es(),i=Cs.budget;mo(G(`[data-bill-mtd]`,rd),n,{duration:t?.5:1.3,...e?{from:0}:{}});let a=n/i,o=r/i;G(`[data-bill-pct]`,rd).textContent=`${Math.round(a*100)}%`,G(`[data-bill-fore]`,rd).textContent=tc(r),G(`[data-bill-budget]`,rd).textContent=tc(i),G(`[data-bill-period]`,rd).textContent=`${sc(ws)} – today · resets on the 1st`;let s=G(`[data-budget-meter]`,rd);s.setAttribute(`aria-valuenow`,Math.round(a*100)),s.setAttribute(`aria-label`,`${Math.round(a*100)}% of the ${tc(i)} budget spent; forecast ${tc(r)}`),G(`...
+
+[cd -> export (no exp)]  (){let e=V.timeline();return e.add(To(rd),0),e.add(lo(K(`[data-card]`,rd)),.1),e.add(()=>id({fromZero:!0}),.2),e.add(uo(K(`.plan-list li, .toggles li, [data-inv-body] tr`,rd),{y:8,stagger:.03}),.35),e.add(V.fromTo(G(`.cc`,rd),{rotationY:-18,rotationX:8,transformPerspective:900},{rotationY:0,rotationX:0,duration:W(1.1),ease:`power3.out`,clearProps:`transform`}),.2),e}
+
+[bd -> export (no exp)]  (e,t){let n=G(`[data-mem="${e}"]`,dd);if(!n||U.matches)return t();V.to(n,{opacity:0,x:24,duration:.35,ease:`power2.in`,onComplete:t})}
+
+[Od -> export (no exp)]  (e){if(wd===e)return kd();kd({animate:!1}),wd=e;let t=us(e.dataset.roleBtn);Cd.forEach(e=>e.setAttribute(`aria-selected`,String(e.dataset.value===t.role))),xd.hidden=!1,Ed(),Dd(Math.max(0,hd.indexOf(t.role))),e.setAttribute(`aria-expanded`,`true`),e.setAttribute(`aria-controls`,`rolemenu`),Sd.focus({preventScroll:!0}),!U.matches&&(V.fromTo(xd,{opacity:0,y:xd.dataset.side===`below`?-6:6,scale:.97},{opacity:1,y:0,scale:1,duration:.32,ease:`back.out(1.6)`,transformOrigin:xd.dataset.side===`below`?`0 0`:`0 100%`}),uo(Cd,{x:8,y:0,stagger:.03,delay:.04}))}
+
+[kd -> export (no exp)]  ({refocus:e=!1,animate:t=!0}={}){if(!wd)return;let n=wd;if(wd=null,n.setAttribute(`aria-expanded`,`false`),e&&n.focus({preventScroll:!0}),!t||U.matches){xd.hidden=!0,V.set(xd,{clearProps:`all`});return}V.to(xd,{opacity:0,scale:.97,duration:W(.15),ease:`power2.in`,onComplete:()=>{wd||(xd.hidden=!0,V.set(xd,{clearProps:`opacity,transform`}))}})}
+
+[zd -> export (no exp)]  (e){Zo(e.dataset.accentChoice),Rd(e.dataset.accentChoice),U.matches||V.fromTo(e,{scale:.8},{scale:1,duration:.5,ease:`back.out(3)`,clearProps:`transform`})}
+
+[ef -> export (no exp)]  (e=!0){let t=G(`.nav__link[aria-current="page"]`,Zd);if(!t||!t.offsetHeight){V.set(Qd,{opacity:0});return}let n=t.offsetTop;if(!e||U.matches||!+V.getProperty(Qd,`opacity`)){V.set(Qd,{y:n,opacity:1,scaleY:1});return}V.to(Qd,{y:n,opacity:1,duration:.5,ease:`power3.inOut`,overwrite:`auto`}),V.to(Qd,{keyframes:{scaleY:[1,.82,1],scaleX:[1,1.02,1]},duration:.5,ease:`power2.inOut`})}
+
+[sf -> export (no exp)]  (){Ud.classList.contains(`drawer-open`)||(of=document.activeElement,Ud.classList.add(`drawer-open`),rf.setAttribute(`aria-expanded`,`true`),tf.inert=!1,ef(!1),U.matches||(V.fromTo(tf,{xPercent:-104},{xPercent:0,duration:.5,ease:`power4.out`}),V.fromTo(nf,{opacity:0},{opacity:1,duration:.3}),uo(K(`.nav__link, .nav__group`,tf),{x:-12,y:0,stagger:.02,delay:.1})),G(`.nav__link[aria-current="page"]`,tf)?.focus({preventScroll:!0}))}
+
+[cf -> export (no exp)]  ({refocus:e=!0}={}){if(!Ud.classList.contains(`drawer-open`))return;rf.setAttribute(`aria-expanded`,`false`);let t=()=>{Ud.classList.remove(`drawer-open`),V.set([tf,nf],{clearProps:`all`}),lf()};if(e&&(of||rf).focus({preventScroll:!0}),U.matches)return t();V.to(nf,{opacity:0,duration:.25}),V.to(tf,{xPercent:-104,duration:.35,ease:`power3.in`,onComplete:t})}
+
+[pf -> export (no exp)]  (e,{first:t=!1}={}){if(!Gd[e]||e===Jd)return;let n=Jd,r=n&&qd(n),i=qd(e);Jd=e,$d.forEach(t=>t.dataset.route===e?t.setAttribute(`aria-current`,`page`):t.removeAttribute(`aria-current`)),ef(!t),document.title=`${Kd[e]} · Orrery`,G(`[data-crumb]`).textContent=Kd[e],af()&&cf({refocus:!1});let a=()=>{i.hidden=!1,t||(window.scrollTo({top:0}),G(`.page__title`,i).focus({preventScroll:!0}));let n=Gd[e].enter();U.matches&&n?.progress(1)};if(!r)return a();ff?.progress(1);let o=[...K(`.page__head, [data-head], [data-card], .revoked`,r)].filter(e=>e.offsetParent);ff=...
+
+[hf -> export (no exp)]  (){Yd=!1,Co.set(`orrery:signedOut`,!0),Zs.pause(),Ro(),Pf(),history.replaceState(null,``,`#signin`);let e=()=>{Wd.hidden=!0,Ud.classList.add(`signed-out`),Dc()};if(U.matches)return e();V.to(Wd,{opacity:0,y:10,duration:.35,ease:`power2.in`,onComplete:()=>{V.set(Wd,{clearProps:`all`}),e()}})}
+
+[Tf -> export (no exp)]  (){gf.open||!Yd||(Pf(),_f.value=``,bf=0,Cf(),gf.showModal(),_f.focus(),U.matches||(V.fromTo(G(`.cmd__box`,gf),{opacity:0,y:-12,scale:.97},{opacity:1,y:0,scale:1,duration:.4,ease:`back.out(1.6)`,clearProps:`all`}),uo(K(`.cmd__item`,vf).slice(0,9),{y:6,stagger:.02})))}
+
+[jf -> export (no exp)]  (){Xo(Jo()===`dark`?`light`:`dark`),Ld(),U.matches||V.fromTo(G(`.theme-ico`,kf),{rotation:-90,scale:.6},{rotation:0,scale:1,duration:.55,ease:`back.out(2.2)`})}
+
+[Nf -> export (no exp)]  (e){Pf(),e.el.hidden=!1,e.btn.setAttribute(`aria-expanded`,`true`),e.onOpen?.(e.btn),!U.matches&&(V.fromTo(e.el,{opacity:0,y:-8,scale:.95},{opacity:1,y:0,scale:1,duration:.4,ease:`back.out(1.6)`,transformOrigin:`100% 0`}),uo(K(`li, .menu__item`,e.el),{x:10,y:0,stagger:.04,delay:.06}))}
+
+[Pf -> export (no exp)]  ({refocus:e=!1}={}){for(let t of Mf)t.el.hidden||(t.btn.setAttribute(`aria-expanded`,`false`),e&&t.btn.focus(),V.to(t.el,{opacity:0,y:-6,scale:.97,duration:W(.18),ease:`power2.in`,onComplete:()=>{t.el.hidden=!0,V.set(t.el,{clearProps:`all`})}}))}
+
+[Rf -> export (no exp)]  (e=!1){let t=Ts(),n=t/Cs.budget;mo(Lf,t,{duration:e?1.3:.5,...e?{from:0}:{}}),G(`[data-side-budget]`).textContent=`${Math.round(n*100)}% of ${tc(Cs.budget)} budget`;let r=G(`[data-side-meter]`);r.setAttribute(`aria-valuenow`,Math.round(n*100)),r.setAttribute(`aria-label`,`${Math.round(n*100)}% of the monthly budget`),V.to(G(`[data-side-fill]`),{scaleX:Math.min(1,n),duration:W(e?1.3:.5),ease:`power3.out`,delay:e?W(.4):0})}
+
+[Kf -> export (no exp)]  (){let e=Gd[mf()]?mf():`overview`;if(Gd[mf()]||history.replaceState(null,``,`#${e}`),Jd=null,K(`.view`).forEach(t=>t.hidden=t.dataset.view!==e),Rf(!0),Zs.start(),U.matches){V.set(Wd,{opacity:1}),pf(e,{first:!0}),yo.v=!0;return}let t=e=>e&&getComputedStyle(e).display!==`none`&&e.offsetParent!==null,n=[G(`.side__top`),G(`.org`),...K(`.nav__group, .nav__link`,Zd),...K(`.side__foot > *`)].filter(t),r=[...K(`.topbar > *, .topbar__actions > *`)].filter(t);yo.v=!1,V.timeline({defaults:{ease:`power3.out`},onComplete:()=>{yo.v=!0}}).fromTo(Wd,{opacity:0,y:14,scal...
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),$a=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Xa,this.timeline=Zi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Qa(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=H,r=Qi;return H=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Qi=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Qi=r,H=n,this.killConflicts(),this},t.animate=function(){var e=this,t=H,n=this.timeline,r=this.actions.length,i,a;for(H=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Xa,e.states.forEach(function(e){return i.add(e)}),a=i.compare(eo.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Aa(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),na(e,`onComplete`))}),H=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return na(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :where(a,button,input,select,textarea,summary,[tabindex]):focus-visible { box-shadow:var(--focus);outline:none }
+  .org:hover { box-shadow:inset 0 0 0 1px var(--hair-strong) }
+  .nav__link:hover,.nav__link[aria-current=page] { color:var(--ink) }
+  .meter-card:hover { box-shadow:inset 0 0 0 1px var(--hair-strong) }
+  .search:hover { color:var(--muted) }
+  .icon-btn:hover { color:var(--ink);background:var(--panel) }
+  .tray__list li:hover { background:var(--panel) }
+  .menu__item:hover { color:var(--ink);background:var(--panel) }
+  .btn--primary:hover { background:color-mix(in srgb, var(--accent) 88%, var(--ink)) }
+  :root[data-theme=dark] .btn--primary:hover { background:color-mix(in srgb, var(--accent) 88%, #fff) }
+  .btn--ghost:hover { background:var(--panel) }
+  .btn--danger:hover { background:#a93030 }
+  .link-btn:hover { text-underline-offset:3px;text-decoration:underline }
+  .seg__btn:hover,.seg__btn[aria-pressed=true] { color:var(--ink) }
+  .field input:hover,.field textarea:hover { box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--hair-strong) 60%, var(--muted)) }
+  .field input:focus-visible,.field textarea:focus-visible { box-shadow:inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft) }
+  .input-prefix:focus-within { box-shadow:inset 0 0 0 1px var(--accent), 0 0 0 3px var(--accent-soft) }
+  .check input:focus-visible+.check__box { box-shadow:var(--focus) }
+  .switch input:focus-visible+.switch__track { box-shadow:var(--focus) }
+  .choice input:focus-visible+span { box-shadow:var(--focus) }
+  .cmd__input input:focus-visible { box-shadow:none }
+  .rq:hover { background:var(--panel) }
+  .table--logs tbody tr:hover,.table--logs tbody tr:focus-visible { background:var(--panel) }
+  .table--logs tbody tr:focus-visible { box-shadow:inset 3px 0 0 var(--accent) }
+  button.role:hover,.role[aria-expanded=true] { background:var(--card);box-shadow:inset 0 0 0 1px var(--hair-strong), var(--shadow) }
+  button.role:hover svg,.role[aria-expanded=true] svg { color:var(--ink) }
+  .rolemenu__list:focus-visible { box-shadow:none }
+  .rolemenu__list:focus-visible .rolemenu__opt.is-active { box-shadow:inset 0 0 0 2px var(--a-600) }
+  .swatch:focus-visible { box-shadow:0 0 0 2px var(--card), 0 0 0 4px var(--ink) }
+  .auth__foot a:hover { color:var(--ink) }
+  .pw__toggle:hover { color:var(--ink) }
+
+  -- keyframes --
+  @keyframes live {50%{opacity:.25}}
+  @keyframes blink {50%{opacity:0}}
+
+  -- transitions --
+  transition:background-color .15s,box-shadow .15s
+  transition:background-color .15s,color .15s,box-shadow .15s
+  transition:background-color .2s
+  transition:box-shadow .15s
+  transition:box-shadow .15s,background-color .15s
+  transition:color .15s
+  transition:color .2s
+  transition:transform .25s var(--ease)

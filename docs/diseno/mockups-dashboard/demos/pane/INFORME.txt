@@ -1,0 +1,95 @@
+##############################################################################
+#  PANE   bundle 176kB - 24 helpers - 8 chunks - ARQ VANILLA - 22 fromTo crudos
+##############################################################################
+
+CHUNKS: calendar-CA9jeh3P.js, charts-xKImlC6Z.js, home-BhuGDaDn.js, insights-CNJoFYe1.js, projects-BgegS66f.js, settings-B5rn5L6d.js, tasks-X5Bvuykv.js, team-DpPWA8aD.js
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[t -> export (no exp)]  (t,n,r,i){var a;typeof n==`number`&&(r.duration=n,n=r,r=null),a=e.call(this,i?n:Be(n))||this;var s=a.vars,l=s.duration,d=s.delay,f=s.immediateRender,p=s.stagger,h=s.overwrite,g=s.keyframes,_=s.defaults,v=s.scrollTrigger,y=n.parent||R,b=(A(t)||k(t)?C(t[0]):`length`in n)?[t]:bt(t),x,S,w,D,j,M,N,P;if(a._targets=b.length?Ce(b):ce(`GSAP target `+t+` not found. https://gsap.com`,!c.nullTargetWarn)||[],a._ptLookup=[],a._overwrite=h,g||p||O(l)||O(d)){n=a.vars;var F=n.easeReverse||n.yoyoEase;if(x=a.timeline=new pn({data:`nested`,defaults:_||{},targets:y&&y.data==...
+
+[so -> export en]  (e,t=0){if(!e)return G.timeline();let n=oo(e);return G.fromTo(n,{yPercent:115,rotation:6},{yPercent:0,rotation:0,duration:q(.85),ease:`power4.out`,stagger:q(.022),delay:q(t),clearProps:`transform`})}
+
+[lo -> export Jt]  (e,{y:t=26,stagger:n=.07,delay:r=0,from:i=.72,kids:a=!0}={}){let o=G.timeline({delay:q(r)});return e.forEach((e,r)=>{let s=r*q(n);o.fromTo(e,{y:t,scale:.97,clipPath:co(e,i)},{y:0,scale:1,clipPath:co(e,0,60),duration:q(.9),ease:`expo.out`,clearProps:`transform,clipPath`},s);let c=a?[...e.children].filter(e=>!e.hidden):[];c.length&&o.fromTo(c,{opacity:0,y:8},{opacity:1,y:0,duration:q(.55),ease:`power3.out`,stagger:q(.035),clearProps:`transform,opacity`},s+q(.14))}),o}
+
+[uo -> export Yt]  (e,t,{duration:n=.2}={}){if(!e.length||to.matches){t?.();return}G.fromTo(e,{clipPath:(e,t)=>co(t,0,60)},{clipPath:(e,t)=>co(t,.1),scale:.97,y:-6,duration:n,ease:`power2.in`,onComplete:()=>{G.set(e,{clearProps:`transform,clipPath`}),t?.()}})}
+
+[po -> export qt]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return e.length?G.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:q(.55),ease:`power3.out`,stagger:q(r),delay:q(i),clearProps:`transform,opacity`}):G.timeline()}
+
+[mo -> export Wt]  (e,{delay:t=0,stagger:n=.06}={}){return e.length?G.fromTo(e,{opacity:0,y:40,rotation:e=>e%2?3:-3,scale:.94},{opacity:1,y:0,rotation:0,scale:1,duration:q(.8),ease:`back.out(1.4)`,stagger:q(n),delay:q(t),clearProps:`transform,opacity`}):G.timeline()}
+
+[ho -> export Qt]  (e,{from:t=.6,delay:n=0,stagger:r=.05}={}){!e||to.matches||G.fromTo(e,{scale:t,opacity:0},{scale:1,opacity:1,duration:.6,ease:`back.out(3)`,delay:n,stagger:r,overwrite:`auto`,clearProps:`transform,opacity`})}
+
+[go -> export Ut]  (e){e&&(e.classList.remove(`is-flash`),e.offsetWidth,e.classList.add(`is-flash`),!to.matches&&G.fromTo(e,{y:-4,scale:1.06},{y:0,scale:1,duration:.55,ease:`back.out(2.4)`,overwrite:`auto`,clearProps:`transform`}))}
+
+[vo -> export (no exp)]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=_o.get(e);if(o||_o.set(e,o={v:a??0}),a!==void 0&&(o.v=a),G.killTweensOf(o),to.matches||!r||o.v===t){o.v=t,e.textContent=n(t);return}let s=o;e.textContent=n(s.v),G.to(s,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(s.v)},onComplete:()=>{e.textContent=n(t)}})}
+
+[yo -> export nn]  (e){if(to.matches)return;let t=e.querySelector(`svg`)??e;G.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[So -> export Xt]  (e=document,t=-4){ro.matches&&Y(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!to.matches&&xo.v&&G.to(e,{y:t,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{xo.v&&G.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[ic -> export (no exp)]  (){Vs.classList.toggle(`is-right`,Qs());let e=Qs();if(document.documentElement.style.setProperty(`--isl-w`,e&&Es()?`${Bs.compact[0]+16}px`:`0px`),e){let e=-((document.querySelector(`.toolbar__tools`)?.offsetWidth??340)+12),t=qs===`compact`?{x:e,y:-61}:qs===`hidden`?null:{x:0,y:0};t&&G.to(Vs,{...t,duration:q(qs===`compact`?.55:.5),ease:`power3.inOut`,overwrite:`auto`})}else G.set(Vs,{x:0,y:0});let t=ec();if(Vs.classList.toggle(`is-docked`,t),document.documentElement.classList.toggle(`island-docked`,t),t){let e=$s();Us.style.width=`${e}px`,Vs.classList.tog...
+
+[ac -> export (no exp)]  (e){let t=qs;if(qs=e,Vs.dataset.mode=e,ic(),G.killTweensOf(Js),e===`hidden`)G.to(Js,{w:120,h:34,dx:0,duration:q(.35),ease:`power3.in`,onUpdate:rc}),G.to(Hs,{opacity:0,y:-12,duration:q(.3),delay:q(.1),ease:`power2.in`});else{let n=tc(e);t===`hidden`&&(Js.w=120,Js.h=34,Js.dx=n.dx,rc(),G.fromTo(Hs,{opacity:0,y:-14},{opacity:1,y:0,duration:q(.3),ease:`power2.out`})),G.to(Js,{...n,duration:q(e===`full`?.8:.7),ease:e===`compact`&&t!==`hidden`?`back.out(1.6)`:`elastic.out(1, 0.72)`,onUpdate:rc})}Object.keys(Ks).forEach(n=>{let r=Ks[n],i=n===e;r.toggleAttribute(...
+
+[zc -> export x]  (e,t=0){let n=G.timeline({delay:q(t)});n.add(so(ao(`.head__title`,e)),0);let r=ao(`.head__back`,e);return r&&n.fromTo(r,{opacity:0,x:-14},{opacity:1,x:0,duration:q(.6),ease:`power3.out`,clearProps:`transform,opacity`},0),n.add(po(Y(`.head__sub, .head__actions > *`,e),{y:12,stagger:.06}),.1),n.add(lo(Y(`.head .stat`,e),{y:14,stagger:.06,from:.6}),.1),n.add(()=>Lc(J(`.head`,e)),.15),n}
+
+[Vc -> export q]  (e,t,n,r=!0,i=`x`,a=999){let o=e;if(!n||!n.offsetWidth){G.set(o,{opacity:0}),o.__e=void 0;return}let s=n.offsetLeft,c=n.offsetTop,l=n.offsetWidth,u=n.offsetHeight,d=o.__e;if(o.__e=[s,c,l,u],G.killTweensOf(o),Object.assign(o.style,{width:`${l}px`,height:`${u}px`,borderRadius:`${a>=999?Math.min(l,u)/2:a}px`,clipPath:`none`}),!r||no()||!d||Number(G.getProperty(o,`opacity`))===0){G.set(o,{x:s,y:c,scaleX:1,scaleY:1,opacity:1,transformOrigin:`50% 50%`});return}let[f,p,m,h]=d;if(f===s&&p===c&&m===l&&h===u){G.set(o,{x:s,y:c,scaleX:1,scaleY:1,opacity:1});return}l...
+
+[Zc -> export (no exp)]  (e,t){e.showModal(),!no()&&(G.fromTo(e,{x:t.x??0},{x:0,duration:q(.6),ease:`expo.out`,clearProps:`transform`}),lo([e],{y:t.y??0,from:.5,stagger:0,kids:!1}))}
+
+[Qc -> export (no exp)]  (e,t,n){if(!e.open||e.dataset.closing)return;e.dataset.closing=`1`;let r=()=>{delete e.dataset.closing,e.close(),G.set(e,{clearProps:`all`}),n?.()};if(no()){r();return}G.to(e,{x:t.x??0,y:t.y??0,duration:q(.24),ease:`power2.in`}),uo([e],r,{duration:.24})}
+
+[al -> export (no exp)]  (e,t){if(il&&il!==e&&ol(),e.classList.contains(`is-focus`)){ol();return}let n=[...e.children],r=document.createElement(`div`);r.className=`card-ph`;let i=getComputedStyle(e);Object.assign(r.style,{gridArea:i.gridArea,gridColumn:i.gridColumn,gridRow:i.gridRow,height:`${e.offsetHeight}px`}),e.before(r);let a=eo.getState(e);e.classList.add(`is-focus`),document.documentElement.classList.add(`has-focus`),il=e,t?.setAttribute(`aria-label`,`Collapse`),G.set(n,{opacity:0}),G.to(J(`.scrim`),{autoAlpha:1,duration:q(.35)}),eo.from(a,{duration:q(.6),ease:`power3.inO...
+
+[ol -> export (no exp)]  (){let e=il;if(!e)return;il=null;let t=e.previousElementSibling,n=[...e.children];G.to(J(`.scrim`),{autoAlpha:0,duration:q(.3)}),G.to(n,{opacity:0,duration:q(.14),onComplete:()=>{let r=eo.getState(e);e.classList.remove(`is-focus`),document.documentElement.classList.remove(`has-focus`),t?.classList.contains(`card-ph`)&&t.remove(),ao(`[data-expand]`,e)?.setAttribute(`aria-label`,`Expand`),e.dispatchEvent(new CustomEvent(`card:resize`)),eo.from(r,{duration:q(.5),ease:`power3.inOut`,scale:!0,onComplete:()=>G.set(e,{clearProps:`transform`})}),G.to(n,{opacity:...
+
+[ll -> export C]  (e,t){let n=new Map;Y(`[data-key]`,e).forEach(e=>n.set(e.dataset.key,e.getBoundingClientRect())),t(),Y(`[data-key]`,e).forEach(e=>{let t=n.get(e.dataset.key);if(!t){G.fromTo(e,{opacity:0,y:12,scale:.97},{opacity:1,y:0,scale:1,duration:q(.45),ease:`power3.out`,clearProps:`transform,opacity`});return}let r=e.getBoundingClientRect(),i=t.left-r.left,a=t.top-r.top;(i||a)&&G.fromTo(e,{x:i,y:a},{x:0,y:0,duration:q(.55),ease:`power3.inOut`,clearProps:`transform`})})}
+
+[mu -> export (no exp)]  (e,t,n,r){let i=e.getBoundingClientRect();getComputedStyle(e).position===`static`&&(e.style.position=`relative`);let a=document.createElement(`span`);a.className=`ripple-wrap`,a.setAttribute(`aria-hidden`,`true`);let o=document.createElement(`span`);o.className=`ripple`,a.append(o),e.append(a);let s=Math.hypot(Math.max(t-i.left,i.right-t),Math.max(n-i.top,i.bottom-n))*2.2/20;G.set(o,{x:t-i.left,y:n-i.top}),G.fromTo(o,{scale:.2,opacity:r?.55:.9},{scale:Math.min(s,r?60:30),opacity:0,duration:r?1.1:.75,ease:`power2.out`,onComplete:()=>a.remove()})}
+
+[hu -> export (no exp)]  (e){G.fromTo(e,{scaleX:1,scaleY:1},{keyframes:[{scaleX:1.07,scaleY:.9,duration:.11,ease:`power2.out`},{scaleX:1,scaleY:1,duration:.7,ease:`elastic.out(1.15, 0.32)`}],overwrite:!1})}
+
+[Ku -> export (no exp)]  (e=!1){let{name:t,params:n}=Au(location.hash),r=++Gu;qc(),sl()&&ol(),Bu();let i=J(`[data-view="${t}"]`);if(Wu?.name===t){Wu.page.enter({params:n,first:!1,same:!0}),qu(Wu.page,n);return}let a=Uu.get(t);if(!a){try{a=(await ku[t]()).page}catch(e){console.error(e),oc(`${Du[t]} couldn’t load. Check your connection and try again.`,{ico:`close`,tone:`warn`});return}if(r!==Gu)return;a.mount(i),Uu.set(t,a)}if(r!==Gu)return;let o=i.dataset.entered!==`1`,s=Wu;Wu={name:t,page:a},s?.page.leave?.(),Ru(t,!e),qu(a,n);let c=()=>{Y(`.view`).forEach(e=>{e.hidden=e!==i}),wi...
+
+[dd -> export (no exp)]  (){document.documentElement.classList.add(`is-ready`);let e=J(`.side`),t=Y(`.toolbar__tools, .tabbar__bar, .tabbar__search`);G.timeline().add(lo([e],{y:0,from:.4,kids:!1}),0).fromTo(e,{x:-30},{x:0,duration:q(.9),ease:`expo.out`},0).add(po([J(`.brand`),...Y(`.nav__item`),...Y(`.side__group, .side__me`)],{x:-10,y:0,stagger:.035}),.15).add(lo(t,{y:-16,from:.45,stagger:.06}),.1).add(()=>Ku(!0),.12).add(()=>{xo.v=!0,dc()},1.4)}
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),$a=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Xa,this.timeline=Zi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Qa(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=K,r=Qi;return K=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Qi=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Qi=r,K=n,this.killConflicts(),this},t.animate=function(){var e=this,t=K,n=this.timeline,r=this.actions.length,i,a;for(K=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Xa,e.states.forEach(function(e){return i.add(e)}),a=i.compare(eo.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Aa(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),na(e,`onComplete`))}),K=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return na(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2.5px solid var(--accent-ink);outline-offset:2px }
+  .nav__item:hover { color:var(--text) }
+  .pinned a:hover { background:var(--fill-hover);color:var(--text) }
+  .side__me:hover { background:var(--fill-hover) }
+  .search-pill:hover { background:var(--fill-2) }
+  .tbtn:hover { background:var(--fill-hover) }
+  .island__undo:hover { background:#ffffff42 }
+  .island__btn:hover { background:#ffffff3d }
+  .island :focus-visible { outline-color:#fff }
+  .btn--accent:hover { filter:brightness(1.06) }
+  .btn--glass:hover,.ibtn--glass:hover { background:linear-gradient(180deg, var(--gel-hi), var(--gel-hi)) }
+  .btn--ghost:hover { background:var(--accent-soft) }
+  .ibtn:hover { background:var(--fill-hover) }
+  .switch:active:before { width:33px }
+  .switch:checked:active:before { transform:translate(14px) }
+  .pop__row:hover { background:var(--fill-hover) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--fill);outline:none }
+  .chart:focus-visible { outline:2.5px solid var(--accent-ink);outline-offset:4px;border-radius:14px }
+  .nav__item:hover,.pinned a:hover,.tbtn:hover,.ibtn:hover,.menu__item:hover,.pop__row:hover { background:0 0 }
+
+  -- keyframes --
+  @keyframes backdrop-in {0%{opacity:0}}
+  @keyframes flash {0%{color:var(--accent-ink)}to{color:inherit}}
+
+  -- transitions --
+  transition:background .25s var(--ease)
+  transition:background .2s
+  transition:background .2s,border-color .2s
+  transition:background .2s,box-shadow .2s
+  transition:background .2s,color .2s,box-shadow .2s
+  transition:color .2s
+  transition:color .2s var(--ease)
+  transition:opacity .15s
+  transition:transform .35s var(--spring)
+  transition:transform .38s var(--spring), width .2s var(--ease)

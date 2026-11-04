@@ -1,0 +1,2257 @@
+{
+  "medido": "2026-11-04T10:59:24.144Z",
+  "url": "https://demo.codeandchill.store/pane/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/pane/#/home",
+      "ancho": 390,
+      "alto": 3137,
+      "fondo": "rgba(0, 0, 0, 0)",
+      "letra": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+      "variables": {
+        "--font": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Inter\", \"Segoe UI\", system-ui, sans-serif",
+        "--font-display": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"Inter\", \"Segoe UI\", system-ui, sans-serif",
+        "--fs-xs": "12px",
+        "--fs-sm": "13px",
+        "--fs-md": "15px",
+        "--fs-lg": "17px",
+        "--fs-xl": "22px",
+        "--fs-title": "clamp(34px, 2.2vw + 14px, 58px)",
+        "--r-xl": "30px",
+        "--r-lg": "24px",
+        "--r-md": "18px",
+        "--r-sm": "12px",
+        "--gap": "clamp(12px, .6vw + 8px, 20px)",
+        "--gutter": "clamp(14px, 1.4vw + 6px, 32px)",
+        "--side-w": "76px",
+        "--frame": "1840px",
+        "--frame-left": "max(14px, calc((100vw - 1840px) / 2 + 14px))",
+        "--frame-right": "max(clamp(14px, 1.4vw + 6px, 32px), calc((100vw - 1840px) / 2 + clamp(14px, 1.4vw + 6px, 32px)))",
+        "--main-left": "calc(max(14px, calc((100vw - 1840px) / 2 + 14px)) + 76px + clamp(14px, 1.4vw + 6px, 32px))",
+        "--ease": "cubic-bezier(.22, .8, .24, 1)",
+        "--spring": "cubic-bezier(.34, 1.45, .55, 1)",
+        "--blue": "#4b8eff",
+        "--purple": "#a07cff",
+        "--pink": "#f2649f",
+        "--orange": "#ff8a3d",
+        "--green": "#34c46b",
+        "--teal": "#22c3c0",
+        "--indigo": "#7a7af0",
+        "--yellow": "#f5b82e",
+        "--ring-tasks": "#ff2d6f",
+        "--ring-focus": "#4ade6b",
+        "--ring-meet": "#22c3f0",
+        "--danger": "#ff5a64",
+        "--accent-soft": "color-mix(in srgb, #1f6fe6 14%, transparent)",
+        "--glass": "rgb(26 26 36/.42)",
+        "--glass-chrome": "rgb(28 28 38/.36)",
+        "--glass-thick": "#1a1a1edb"
+      },
+      "tipografia": [
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 18,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "34px",
+          "peso": "700",
+          "interlineado": "34.68px",
+          "espaciado": "-1.02px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 15,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "17px",
+          "peso": "650",
+          "interlineado": "21.25px",
+          "espaciado": "-0.17px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 7,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 7,
+          "ejemplo": "Close your rings"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 7,
+          "ejemplo": "Tide mobile app"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "560",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 7,
+          "ejemplo": "Mon"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 6,
+          "ejemplo": "New task"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 6,
+          "ejemplo": "Tasks"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "560",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 6,
+          "ejemplo": "Review Tide release checklist"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "600",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 6,
+          "ejemplo": "Nia Okoro"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 5,
+          "ejemplo": "47%"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 4,
+          "ejemplo": "Tasks"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "560",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 3,
+          "ejemplo": "Done today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "21px",
+          "peso": "900",
+          "interlineado": "23.1px",
+          "espaciado": "-0.42px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 3,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "22px",
+          "peso": "900",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 3,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "15.4px",
+          "espaciado": "-0.44px",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 3,
+          "ejemplo": "/ 8"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(125, 180, 255)",
+          "veces": 3,
+          "ejemplo": "Calendar"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "550",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 3,
+          "ejemplo": "Lunch & learn: glass materials"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 2,
+          "ejemplo": "11:00 AM – 11:45 AM · Video call"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "Join"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 2,
+          "ejemplo": "25m"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(255, 178, 122)",
+          "veces": 2,
+          "ejemplo": "High"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(255, 139, 146)",
+          "veces": 2,
+          "ejemplo": "Urgent"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "17px",
+          "peso": "650",
+          "interlineado": "17px",
+          "espaciado": "-0.17px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "Home"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.17px",
+          "peso": "500",
+          "interlineado": "20.5465px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Wednesday, November 4 · 4 meetings and 6"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "15.4px",
+          "espaciado": "-0.42px",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "/ 8"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "in 20 min"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "20 min"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "19px",
+          "peso": "650",
+          "interlineado": "22.8px",
+          "espaciado": "-0.19px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "Tide sync review"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "24px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "-0.48px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "25:00"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Ready"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Focus on"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "560",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Focused today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "1.1h · 2 sessions"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "560",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.55)",
+          "veces": 1,
+          "ejemplo": "Answer Kwame on the sync edge case"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "28px",
+          "peso": "700",
+          "interlineado": "28px",
+          "espaciado": "-0.56px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "15"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(95, 216, 138)",
+          "veces": 1,
+          "ejemplo": "+25% vs last week"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "normal",
+          "color": "rgb(125, 180, 255)",
+          "veces": 1,
+          "ejemplo": "Home"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(255, 255, 255, 0.62)",
+          "veces": 1,
+          "ejemplo": "Focus session"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "600",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "+5 min"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "section.card.glass.w-rings",
+          "x": 14,
+          "y": 305,
+          "w": 362,
+          "h": 245,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "TodayClose your rings Tasks2/ 8 Focus1.1h/ 2h Meetings1/ 4"
+        },
+        {
+          "etiqueta": "section.card.glass.w-next",
+          "x": 14,
+          "y": 562,
+          "w": 362,
+          "h": 359,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Up next Calendar in 20 min Tide sync review 11:00 AM – 11:45"
+        },
+        {
+          "etiqueta": "button.next.hue--blue",
+          "x": 30,
+          "y": 626,
+          "w": 330,
+          "h": 152,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "20px",
+          "sombra": "color(srgb 0.294118 0.556863 1 / 0.26) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": "298px",
+          "texto": "in 20 min Tide sync review 11:00 AM – 11:45 AM · Video call "
+        },
+        {
+          "etiqueta": "section.card.glass.w-focus",
+          "x": 14,
+          "y": 933,
+          "w": 362,
+          "h": 273,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "FocusThe island keeps the time 15m25m50m 25:00Ready Focus on"
+        },
+        {
+          "etiqueta": "section.card.glass.w-tasks",
+          "x": 14,
+          "y": 1218,
+          "w": 362,
+          "h": 555,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "My tasksDue today and late All tasks Review Tide release che"
+        },
+        {
+          "etiqueta": "section.card.glass.w-week",
+          "x": 14,
+          "y": 1785,
+          "w": 362,
+          "h": 278,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "This weekTasks the team finished 15 finished so far +25% vs "
+        },
+        {
+          "etiqueta": "section.card.glass.w-projects",
+          "x": 14,
+          "y": 2075,
+          "w": 362,
+          "h": 497,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Projects See all Tide mobile appIn progress · due Dec 14 47%"
+        },
+        {
+          "etiqueta": "a.hproject",
+          "x": 30,
+          "y": 2222,
+          "w": 330,
+          "h": 84,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(255, 255, 255, 0.1)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 6px",
+          "gap": "14px",
+          "grilla": "38px 210px 42px",
+          "texto": "Facet design systemIn progress · due Jan 3 50% +1"
+        },
+        {
+          "etiqueta": "a.hproject",
+          "x": 30,
+          "y": 2305,
+          "w": 330,
+          "h": 84,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(255, 255, 255, 0.1)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 6px",
+          "gap": "14px",
+          "grilla": "38px 210px 42px",
+          "texto": "Orbit 2.0 launchIn progress · due Nov 16 45% +2"
+        },
+        {
+          "etiqueta": "a.hproject",
+          "x": 30,
+          "y": 2389,
+          "w": 330,
+          "h": 84,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(255, 255, 255, 0.1)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 6px",
+          "gap": "14px",
+          "grilla": "38px 210px 42px",
+          "texto": "Sprout onboardingIn review · due Nov 9 50% +1"
+        },
+        {
+          "etiqueta": "a.hproject",
+          "x": 30,
+          "y": 2473,
+          "w": 330,
+          "h": 84,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(255, 255, 255, 0.1)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 6px",
+          "gap": "14px",
+          "grilla": "38px 210px 42px",
+          "texto": "Q4 brand campaignPlanning · due Jan 11 0% +1"
+        },
+        {
+          "etiqueta": "section.card.glass.w-people",
+          "x": 14,
+          "y": 2584,
+          "w": 362,
+          "h": 425,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Right now TeamActivity Nia OkoroIn focus · until 11:30 AMOma"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/pane/#/home",
+      "ancho": 1440,
+      "alto": 1647,
+      "fondo": "rgba(0, 0, 0, 0)",
+      "letra": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+      "variables": {
+        "--font": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"Inter\", \"Segoe UI\", system-ui, sans-serif",
+        "--font-display": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", \"Inter\", \"Segoe UI\", system-ui, sans-serif",
+        "--fs-xs": "12px",
+        "--fs-sm": "13px",
+        "--fs-md": "15px",
+        "--fs-lg": "17px",
+        "--fs-xl": "22px",
+        "--fs-title": "clamp(34px, 2.2vw + 14px, 58px)",
+        "--r-xl": "30px",
+        "--r-lg": "24px",
+        "--r-md": "18px",
+        "--r-sm": "12px",
+        "--gap": "clamp(12px, .6vw + 8px, 20px)",
+        "--gutter": "clamp(14px, 1.4vw + 6px, 32px)",
+        "--side-w": "252px",
+        "--frame": "1840px",
+        "--frame-left": "max(14px, calc((100vw - 1840px) / 2 + 14px))",
+        "--frame-right": "max(clamp(14px, 1.4vw + 6px, 32px), calc((100vw - 1840px) / 2 + clamp(14px, 1.4vw + 6px, 32px)))",
+        "--main-left": "calc(max(14px, calc((100vw - 1840px) / 2 + 14px)) + 252px + clamp(14px, 1.4vw + 6px, 32px))",
+        "--ease": "cubic-bezier(.22, .8, .24, 1)",
+        "--spring": "cubic-bezier(.34, 1.45, .55, 1)",
+        "--blue": "#4b8eff",
+        "--purple": "#a07cff",
+        "--pink": "#f2649f",
+        "--orange": "#ff8a3d",
+        "--green": "#34c46b",
+        "--teal": "#22c3c0",
+        "--indigo": "#7a7af0",
+        "--yellow": "#f5b82e",
+        "--ring-tasks": "#ff2d6f",
+        "--ring-focus": "#4ade6b",
+        "--ring-meet": "#22c3f0",
+        "--danger": "#ff5a64",
+        "--accent-soft": "color-mix(in srgb, #1f6fe6 14%, transparent)",
+        "--glass": "rgb(26 26 36/.42)",
+        "--glass-chrome": "rgb(28 28 38/.36)",
+        "--glass-thick": "#1a1a1edb"
+      },
+      "tipografia": [
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 18,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "45.68px",
+          "peso": "700",
+          "interlineado": "46.5936px",
+          "espaciado": "-1.3704px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 15,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 7,
+          "ejemplo": "Home"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "600",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 7,
+          "ejemplo": "Lin Zhao"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "17px",
+          "peso": "650",
+          "interlineado": "21.25px",
+          "espaciado": "-0.17px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 7,
+          "ejemplo": "Today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13.5px",
+          "peso": "400",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 7,
+          "ejemplo": "Close your rings"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 7,
+          "ejemplo": "Tide mobile app"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "560",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 7,
+          "ejemplo": "Mon"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "560",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 6,
+          "ejemplo": "Tasks"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 6,
+          "ejemplo": "Tasks"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "560",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 6,
+          "ejemplo": "Review Tide release checklist"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13.5px",
+          "peso": "650",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 5,
+          "ejemplo": "47%"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 5,
+          "ejemplo": "+3"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 3,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "560",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 3,
+          "ejemplo": "Done today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "23px",
+          "peso": "900",
+          "interlineado": "25.3px",
+          "espaciado": "-0.46px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 3,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "22px",
+          "peso": "900",
+          "interlineado": "24.2px",
+          "espaciado": "-0.44px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 3,
+          "ejemplo": "2"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "15.4px",
+          "espaciado": "-0.44px",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 3,
+          "ejemplo": "/ 8"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(125, 180, 255)",
+          "veces": 3,
+          "ejemplo": "Calendar"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "550",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 3,
+          "ejemplo": "Lunch & learn: glass materials"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "520",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 2,
+          "ejemplo": "Tide mobile app"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "400",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 2,
+          "ejemplo": "11:00 AM – 11:45 AM · Video call"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 2,
+          "ejemplo": "Join"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 2,
+          "ejemplo": "25m"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(255, 178, 122)",
+          "veces": 2,
+          "ejemplo": "High"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "12px",
+          "espaciado": "normal",
+          "color": "rgb(255, 139, 146)",
+          "veces": 2,
+          "ejemplo": "Urgent"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "-0.42px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "Pane"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "15.6px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "7"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "650",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgba(235, 235, 245, 0.55)",
+          "veces": 1,
+          "ejemplo": "Pinned"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "400",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Product Lead"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15.5px",
+          "peso": "400",
+          "interlineado": "22.475px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Search"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "11.5px",
+          "peso": "600",
+          "interlineado": "11.5px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "17px",
+          "peso": "500",
+          "interlineado": "24.65px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Wednesday, November 4 · 4 meetings and 6"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "15.4px",
+          "espaciado": "-0.46px",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "/ 8"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "in 20 min"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "20 min"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "19px",
+          "peso": "650",
+          "interlineado": "22.8px",
+          "espaciado": "-0.19px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "Tide sync review"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "24px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "-0.48px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "25:00"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Ready"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Focus on"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "560",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.7)",
+          "veces": 1,
+          "ejemplo": "Focused today"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "1.1h · 2 sessions"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "15px",
+          "peso": "560",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgba(235, 235, 245, 0.55)",
+          "veces": 1,
+          "ejemplo": "Answer Kwame on the sync edge case"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Display\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "28px",
+          "peso": "700",
+          "interlineado": "28px",
+          "espaciado": "-0.56px",
+          "color": "rgb(245, 245, 247)",
+          "veces": 1,
+          "ejemplo": "15"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "12.5px",
+          "peso": "650",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(95, 216, 138)",
+          "veces": 1,
+          "ejemplo": "+25% vs last week"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "13px",
+          "peso": "400",
+          "interlineado": "18.85px",
+          "espaciado": "normal",
+          "color": "rgba(255, 255, 255, 0.62)",
+          "veces": 1,
+          "ejemplo": "Focus session"
+        },
+        {
+          "familia": "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", Inter, \"Segoe UI\", system-ui, sans-serif",
+          "tamano": "14.5px",
+          "peso": "600",
+          "interlineado": "21.025px",
+          "espaciado": "normal",
+          "color": "rgb(255, 255, 255)",
+          "veces": 1,
+          "ejemplo": "+5 min"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side.glass.glass--chrome",
+          "x": 14,
+          "y": 14,
+          "w": 252,
+          "h": 872,
+          "fondo": "rgba(28, 28, 38, 0.36)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "32px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "18px 12px 12px",
+          "gap": "18px",
+          "grilla": null,
+          "texto": "Pane Home Tasks7 Calendar Projects Insights Team Settings Pi"
+        },
+        {
+          "etiqueta": "section.card.glass.w-rings",
+          "x": 292,
+          "y": 199,
+          "w": 363,
+          "h": 368,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "TodayClose your rings Tasks2/ 8 Focus1.1h/ 2h Meetings1/ 4"
+        },
+        {
+          "etiqueta": "section.card.glass.w-next",
+          "x": 672,
+          "y": 199,
+          "w": 363,
+          "h": 368,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Up next Calendar in 20 min Tide sync review 11:00 AM – 11:45"
+        },
+        {
+          "etiqueta": "button.next.hue--blue",
+          "x": 692,
+          "y": 268,
+          "w": 322,
+          "h": 152,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "20px",
+          "sombra": "color(srgb 0.294118 0.556863 1 / 0.26) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "6px",
+          "grilla": "289.562px",
+          "texto": "in 20 min Tide sync review 11:00 AM – 11:45 AM · Video call "
+        },
+        {
+          "etiqueta": "section.card.glass.w-focus",
+          "x": 1051,
+          "y": 199,
+          "w": 363,
+          "h": 368,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "FocusThe island keeps the time 15m25m50m 25:00Ready Focus on"
+        },
+        {
+          "etiqueta": "section.card.glass.w-tasks",
+          "x": 292,
+          "y": 584,
+          "w": 458,
+          "h": 564,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "My tasksDue today and late All tasks Review Tide release che"
+        },
+        {
+          "etiqueta": "section.card.glass.w-week",
+          "x": 766,
+          "y": 584,
+          "w": 647,
+          "h": 564,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "This weekTasks the team finished 15 finished so far +25% vs "
+        },
+        {
+          "etiqueta": "section.card.glass.w-projects",
+          "x": 292,
+          "y": 1165,
+          "w": 647,
+          "h": 434,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Projects See all Tide mobile appIn progress · due Dec 14 47%"
+        },
+        {
+          "etiqueta": "section.card.glass.w-people",
+          "x": 956,
+          "y": 1165,
+          "w": 458,
+          "h": 434,
+          "fondo": "rgba(26, 26, 36, 0.42)",
+          "borde": "0px none rgb(245, 245, 247)",
+          "radio": "30px",
+          "sombra": "rgba(255, 255, 255, 0.3) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.1) 0px -1px 1px 0px inset, rgba(255, 255, 255, 0.24) 3px 4px 12px -6px inset, rgba(255, 255, 255, 0.12) -4px -6px 14px -8px inset, rgba(0, 0, 0, 0.45) 0px -16px 28px -18px inset, rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.75) 0px 24px 48px -22px",
+          "padding": "20.64px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Right now TeamActivity Nia OkoroIn focus · until 11:30 AMOma"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "Pane",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 26,
+            "y": 32,
+            "w": 228,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__item",
+          "texto": "Home",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "cubic-bezier(0.22, 0.8, 0.24, 1)",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 26,
+            "y": 92,
+            "w": 228,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.0658, 0, 0, 0.906, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.hue--blue",
+          "texto": "Tide mobile app",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 26,
+            "y": 450,
+            "w": 228,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgba(235, 235, 245, 0.7)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(235, 235, 245, 0.7)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgba(235, 235, 245, 0.7) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "borderColor": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "outline": [
+              "rgba(235, 235, 245, 0.7) none 3px",
+              "rgb(245, 245, 247) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "borderColor": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0687, 0, 0, 0.9018, 0, 0)"
+            ],
+            "outline": [
+              "rgba(235, 235, 245, 0.7) none 3px",
+              "rgb(245, 245, 247) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 3,
+          "etiqueta": "a.hue--purple",
+          "texto": "Orbit 2.0 launch",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 26,
+            "y": 488,
+            "w": 228,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgba(235, 235, 245, 0.7)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(235, 235, 245, 0.7)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgba(235, 235, 245, 0.7) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "color": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "borderColor": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "outline": [
+              "rgba(235, 235, 245, 0.7) none 3px",
+              "rgb(245, 245, 247) none 3px"
+            ]
+          },
+          "alApretar": {
+            "color": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "borderColor": [
+              "rgba(235, 235, 245, 0.7)",
+              "rgb(245, 245, 247)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0661, 0, 0, 0.9056, 0, 0)"
+            ],
+            "outline": [
+              "rgba(235, 235, 245, 0.7) none 3px",
+              "rgb(245, 245, 247) none 3px"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.side__me",
+          "texto": "Lin ZhaoProduct Lead",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 26,
+            "y": 819,
+            "w": 228,
+            "h": 55
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0581, 0, 0, 0.9171, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.search-pill",
+          "texto": "Search⌘K",
+          "transicion": {
+            "propiedad": "background",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 934,
+            "y": 21,
+            "w": 317,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgba(235, 235, 245, 0.7)",
+            "backgroundColor": "rgba(150, 150, 175, 0.16)",
+            "borderColor": "rgba(235, 235, 245, 0.7)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgba(235, 235, 245, 0.7) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(150, 150, 175, 0.16)",
+              "rgba(150, 150, 175, 0.26)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(150, 150, 175, 0.16)",
+              "rgba(150, 150, 175, 0.26)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0694, 0, 0, 0.9009, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.tbtn",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1257,
+            "y": 21,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0684, 0, 0, 0.9022, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.btn.btn--glass",
+          "texto": "New task",
+          "transicion": {
+            "propiedad": "background, color, box-shadow",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1105,
+            "y": 122,
+            "w": 129,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "rgba(255, 255, 255, 0.4) 0px 1px 1px 0px inset, rgba(255, 255, 255, 0.06) 0px -1px 2px 0px inset, rgba(255, 255, 255, 0.16) 0px 0px 0px 0.5px inset, rgba(10, 20, 60, 0.3) 0px 4px 10px -6px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.0352, 0, 0, 0.9498, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--accent",
+          "texto": "Next: 11:00 AM",
+          "transicion": {
+            "propiedad": "background, color, box-shadow",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1244,
+            "y": 122,
+            "w": 170,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(255, 255, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(255, 255, 255, 0.6) 0px 1px 1px 0px inset, rgba(0, 0, 0, 0.14) 0px -2px 4px 0px inset, rgba(255, 255, 255, 0.25) 0px 0px 0px 0.5px inset, rgb(31, 111, 230) 0px 10px 22px -10px, rgba(0, 0, 0, 0.12) 0px 1px 2px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 255, 255) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.06)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.0469, 0, 0, 0.933, 0, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.06)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "a.btn.btn--ghost.btn--sm",
+          "texto": "Calendar",
+          "transicion": {
+            "propiedad": "background, color, box-shadow",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 925,
+            "y": 220,
+            "w": 89,
+            "h": 34
+          },
+          "estilo": {
+            "color": "rgb(125, 180, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(125, 180, 255)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(125, 180, 255) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "color(srgb 0.121569 0.435294 0.901961 / 0.14)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "color(srgb 0.121569 0.435294 0.901961 / 0.14)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0688, 0, 0, 0.9016, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.next.hue--blue",
+          "texto": "in 20 min Tide sync review 11:00 AM – 11",
+          "transicion": {
+            "propiedad": "background",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 692,
+            "y": 268,
+            "w": 322,
+            "h": 152
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "color(srgb 0.294118 0.556863 1 / 0.26) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 11,
+          "etiqueta": "button",
+          "texto": "Lunch & learn: glass materials12:30 PM",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 692,
+            "y": 430,
+            "w": 322,
+            "h": 39
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.seg__btn",
+          "texto": "15m",
+          "transicion": {
+            "propiedad": "color",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1243,
+            "y": 223,
+            "w": 47,
+            "h": 28
+          },
+          "estilo": {
+            "color": "rgba(235, 235, 245, 0.7)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(235, 235, 245, 0.7)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgba(235, 235, 245, 0.7) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.0699, 0, 0, 0.9001, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.btn.btn--accent.focus__go",
+          "texto": "Start focus",
+          "transicion": {
+            "propiedad": "background, color, box-shadow",
+            "duracion": "0.2s, 0.2s, 0.2s",
+            "curva": "ease, ease, ease",
+            "demora": "0s, 0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1197,
+            "y": 367,
+            "w": 196,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(255, 255, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(255, 255, 255, 0.6) 0px 1px 1px 0px inset, rgba(0, 0, 0, 0.14) 0px -2px 4px 0px inset, rgba(255, 255, 255, 0.25) 0px 0px 0px 0.5px inset, rgb(31, 111, 230) 0px 10px 22px -10px, rgba(0, 0, 0, 0.12) 0px 1px 2px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(255, 255, 255) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.06)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1.07, 0, 0, 0.9, 0, 0)"
+            ],
+            "filter": [
+              "none",
+              "brightness(1.06)"
+            ]
+          }
+        },
+        {
+          "n": 14,
+          "etiqueta": "input.check",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background, border-color",
+            "duracion": "0.2s, 0.2s",
+            "curva": "ease, ease",
+            "demora": "0s, 0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 317,
+            "y": 708,
+            "w": 22,
+            "h": 22
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(235, 235, 245, 0.55)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.mytask__body",
+          "texto": "Approve Orbit press kitOrbit 2.0 launchT",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 351,
+            "y": 695,
+            "w": 290,
+            "h": 48
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 16,
+          "etiqueta": "button.ibtn.ibtn--sm.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "background",
+            "duracion": "0.2s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1361,
+            "y": 629,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1.0677, 0, 0, 0.9032, 0, 0)"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "etiqueta": "a.hproject",
+          "texto": "Tide mobile appIn progress · due Dec 14 ",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 313,
+            "y": 486,
+            "w": 606,
+            "h": 61
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          }
+        },
+        {
+          "n": 18,
+          "etiqueta": "a.person",
+          "texto": "Nia OkoroIn focus · until 11:30 AM",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 977,
+            "y": 486,
+            "w": 416,
+            "h": 56
+          },
+          "estilo": {
+            "color": "rgb(245, 245, 247)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(245, 245, 247)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(245, 245, 247) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(150, 150, 175, 0.12)"
+            ]
+          }
+        },
+        {
+          "n": 19,
+          "etiqueta": "button.island__compact",
+          "texto": "Focus25:00",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 711,
+            "y": 25,
+            "w": 204,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(255, 255, 255)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "none",
+            "transform": "matrix(1, 0, 0, 1, 0, 0)",
+            "opacity": "1",
+            "outline": "rgb(255, 255, 255) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 20,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"20\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button d"
+        },
+        {
+          "n": 21,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"21\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 22,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"22\"]')\u001b[22m\n\u001b[2m    - locator resolved to <button t"
+        },
+        {
+          "n": 23,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

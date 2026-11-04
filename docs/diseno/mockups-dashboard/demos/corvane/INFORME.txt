@@ -1,0 +1,62 @@
+##############################################################################
+#  CORVANE   bundle 237kB - 0 helpers - 15 chunks - ARQ REACT - 9 fromTo crudos
+##############################################################################
+
+CHUNKS: actions-DsMacb24.js, audit-CoR57fjs.js, charts-DafqS7mS.js, developers-CGqq4S65.js, disputes-C-DlADab.js, drawers-BG-oIG_4.js, help-CDNgYlkv.js, kit-BjKgrZlS.js, merchants-D32LjBt6.js, overview-BaWoWKWB.js, payments-DM4ZMcl-.js, payouts-D_dQ1GPM.js, reports-B71VrjH1.js, risk-C2pD7mXP.js, settings-BuMFSWCd.js
+
+======================== RECETAS (React: dentro de useLayoutEffect) ========================
+
+- nt.classList.toggle(`is-rail`,t),h(t);try{localStorage.setItem(`corvane:rail`,t?`1`:`0`)}catch{}e(1)&&(a&&r&&s.fromTo(r,{x:a-r.getBoundingClientRect().left},{x:0,duration:.5,ease:`power3.out`,clearProps:`transform`}),n&&s.fromTo(n,{clipPath:t?`inset(0 -40px 0 0)`:`inset(0 calc(100% - 88px) 0 0)`},{clipPath:`inset(0 -40px 0 0)`,duration:.45,ease:`power3.out`,clearProps:`clipPath`}),t||l(i(`.side .nav__label, .side .side__group`,document),{x:-8,y:0,stagger:.015,delay:.1}))},[]);(0,w.useEffect)(()=>{let e=e=>{e.key===`[`&&!Ue(e)&&inner
+
+- fromTo(r,{x:a-r.getBoundingClientRect().left},{x:0,duration:.5,ease:`power3.out`,clearProps:`transform`}),n&&s.fromTo(n,{clipPath:t?`inset(0 -40px 0 0)`:`inset(0 calc(100% - 88px) 0 0)`},{clipPath:`inset(0 -40px 0 0)`,duration:.45,ease:`power3.out`,clearProps:`clipPath`}),t||l(i(`.side .nav__label, .side .side__group`,document),{x:-8,y:0,stagger:.015,delay:.1}))},[]);(0,w.useEffect)(()=>{let e=e=>{e.key===`[`&&!Ue(e)&&innerWidth>=1280&&g()};return addEventListener(`keydown`,e),()=>removeEventListener(`keydown`,e)},[g]);let _=e=>(0,D
+
+- w.useState)(``),[a,o]=(0,w.useState)(0),c=(0,w.useRef)(null),l=(0,w.useRef)(null);(0,w.useLayoutEffect)(()=>{s.fromTo(`.finder__scrim`,{opacity:0},{opacity:1,duration:e(.2)}),s.fromTo(c.current,{y:-16,opacity:0,scale:.97},{y:0,opacity:1,scale:1,duration:e(.4),ease:`back.out(1.6)`,clearProps:`transform,opacity`}),l.current?.focus()},[]);let u=(0,w.useMemo)(()=>{let e=r.trim().toLowerCase(),t=Me.flatMap(e=>[{id:e.id,icon:e.icon,label:e.label,sub:`Page`,group:`Pages`,run:()=>Fe(e.id)},...(e.subs??[]).slice(1).map(t=>({id:`${e.id}/${t.i
+
+- w.useRef)(null);(0,w.useLayoutEffect)(()=>{s.fromTo(`.finder__scrim`,{opacity:0},{opacity:1,duration:e(.2)}),s.fromTo(c.current,{y:-16,opacity:0,scale:.97},{y:0,opacity:1,scale:1,duration:e(.4),ease:`back.out(1.6)`,clearProps:`transform,opacity`}),l.current?.focus()},[]);let u=(0,w.useMemo)(()=>{let e=r.trim().toLowerCase(),t=Me.flatMap(e=>[{id:e.id,icon:e.icon,label:e.label,sub:`Page`,group:`Pages`,run:()=>Fe(e.id)},...(e.subs??[]).slice(1).map(t=>({id:`${e.id}/${t.id}`,icon:e.icon,label:t.label,sub:e.label,group:`Pages`,run:()=>Fe
+
+- ,w.useState)(``),[d,f]=(0,w.useState)(``),p=(0,w.useRef)(null),g=(0,w.useRef)([]);(0,w.useLayoutEffect)(()=>{s.fromTo(p.current,{y:30,opacity:0},{y:0,opacity:1,duration:e(.7),ease:`power3.out`,clearProps:`transform,opacity`}),l(i(`.signin__step > *`,p.current),{delay:.15}),t===`code`&&window.setTimeout(()=>g.current[0]?.focus(),80)},[t]);let _=()=>{e(1)&&s.fromTo(p.current,{x:-10},{x:0,duration:.5,ease:`elastic.out(1, 0.3)`})},v=(e,t)=>{let n=t.replace(/\D/g,``);if(n.length>1){let t=(c.slice(0,e)+n).slice(0,6);u(t),g.current[Math.mi
+
+- `,p.current),{delay:.15}),t===`code`&&window.setTimeout(()=>g.current[0]?.focus(),80)},[t]);let _=()=>{e(1)&&s.fromTo(p.current,{x:-10},{x:0,duration:.5,ease:`elastic.out(1, 0.3)`})},v=(e,t)=>{let n=t.replace(/\D/g,``);if(n.length>1){let t=(c.slice(0,e)+n).slice(0,6);u(t),g.current[Math.min(5,t.length)]?.focus();return}let r=(c.slice(0,e)+n+c.slice(e+1)).slice(0,6);u(r),f(``),n&&e<5&&g.current[e+1]?.focus(),r.length===6&&y(r)},y=e=>{e===Qe?(fe(),m(`Welcome back, ${h.name.split(` `)[0]}`)):(f(`That code didn’t match. Codes change eve
+
+- dow.scrollTo({top:0})},[r.page,r.sub,h]),(0,w.useLayoutEffect)(()=>{if(!h||!t.settings.signedIn)return;let n=s.timeline({onComplete:()=>{ue.v=!0}});return innerWidth>760&&n.fromTo(`.side`,{x:-40,opacity:0},{x:0,opacity:1,duration:e(.6),ease:`power3.out`,clearProps:`transform,opacity`}),n.fromTo(`.nav__item, .side__group`,{x:-14,opacity:0},{x:0,opacity:1,duration:e(.45),ease:`power3.out`,stagger:e(.025),clearProps:`transform,opacity`},`<0.15`).fromTo(`.top > *`,{y:-16,opacity:0},{y:0,opacity:1,duration:e(.5),ease:`power3.out`,stagger:e
+
+- (()=>{if(!h||!t.settings.signedIn)return;let n=s.timeline({onComplete:()=>{ue.v=!0}});return innerWidth>760&&n.fromTo(`.side`,{x:-40,opacity:0},{x:0,opacity:1,duration:e(.6),ease:`power3.out`,clearProps:`transform,opacity`}),n.fromTo(`.nav__item, .side__group`,{x:-14,opacity:0},{x:0,opacity:1,duration:e(.45),ease:`power3.out`,stagger:e(.025),clearProps:`transform,opacity`},`<0.15`).fromTo(`.top > *`,{y:-16,opacity:0},{y:0,opacity:1,duration:e(.5),ease:`power3.out`,stagger:e(.04),clearProps:`transform,opacity`},`<0.05`),o(i(`.nav__n`
+
+- o(`.side`,{x:-40,opacity:0},{x:0,opacity:1,duration:e(.6),ease:`power3.out`,clearProps:`transform,opacity`}),n.fromTo(`.nav__item, .side__group`,{x:-14,opacity:0},{x:0,opacity:1,duration:e(.45),ease:`power3.out`,stagger:e(.025),clearProps:`transform,opacity`},`<0.15`).fromTo(`.top > *`,{y:-16,opacity:0},{y:0,opacity:1,duration:e(.5),ease:`power3.out`,stagger:e(.04),clearProps:`transform,opacity`},`<0.05`),o(i(`.nav__n`),{delay:e(.7)}),y.current=!0,document.documentElement.classList.add(`is-ready`),()=>{n.kill()}},[h,t.settings.signe
+
+- y:0},{x:0,opacity:1,duration:e(.45),ease:`power3.out`,stagger:e(.025),clearProps:`transform,opacity`},`<0.15`).fromTo(`.top > *`,{y:-16,opacity:0},{y:0,opacity:1,duration:e(.5),ease:`power3.out`,stagger:e(.04),clearProps:`transform,opacity`},`<0.05`),o(i(`.nav__n`),{delay:e(.7)}),y.current=!0,document.documentElement.classList.add(`is-ready`),()=>{n.kill()}},[h,t.settings.signedIn]),(0,w.useEffect)(()=>{let e=0,t=t=>{if((t.metaKey||t.ctrlKey)&&t.key.toLowerCase()===`k`){t.preventDefault(),p(!0);return}if(!(Ue(t)||document.querySelec
+
+========================== TIMELINE DEL ARMAZON ==========================
+`.head__title`);y.current&&e?.focus({preventScroll:!0}),window.scrollTo({top:0})},[r.page,r.sub,h]),(0,w.useLayoutEffect)(()=>{if(!h||!t.settings.signedIn)return;let n=s.timeline({onComplete:()=>{ue.v=!0}});return innerWidth>760&&n.fromTo(`.side`,{x:-40,opacity:0},{x:0,opacity:1,duration:e(.6),ease:`power3.out`,clearProps:`transform,opacity`}),n.fromTo(`.nav__item, .side__group`,{x:-14,opacity:0},{x:0,opacity:1,duration:e(.45),ease:`power3.out`,stagger:e(.025),clearProps:`transform,opacity`},`<0.15`).fromTo(`.top > *`,{y:-16,opacity:0},{y:0,opacity:1,duration:e(.5),ease:`power3.out`,stagger:e(.04),clearProps:`transform,opacity`},`<0.05`),o(i(`.nav__n`),{delay:e(.7)}),y.current=!0,document.documentElement.classList.add(`is-ready`),()=>{n.kill()}},[h,t.settings.signedIn]),(0,w.useEffect)(()=>{let e=0,t=t=>{if((t.metaKey||t.ctrlKey)&&t.key.toLowerCase()===`k`){t.preventDefault(),p(!0);return}if(!(Ue(t)||document.querySelector(`.modal, .finder`))){if(t.key===`/`)t.preventDefault(),p(!0);else if(t.key===`?`)tt();else if(t.key===`g`)e=performance.now();else if(performance.now()-e<900){let n={o:`overview`,p:`payments`,d:`disputes`,y:`payouts`,m:`merchants`,r:`risk`}[t.key];n&&Fe(n),e=0}}};return addEventListener(`keydown`,t),()=>removeEventListener(`keydown`,t)},[]),(0,w.useEffect)(()=>{if(c||!t.settings.signedIn)return;let e=0,n=()=>{clearTimeout(e),e=window.setTimeout(()=>{de(),m(`Signed out after 15 minutes idle`,{tone:`info`})},15*6e4)};n();let r=[`pointerdown`,`keydown`,`wheel`];return r.forEach(e=>addEventListener(e,n,{passive:!0})),()=>{clearTimeout(e),r.forEach(e=>removeEventListener(e,n))}},[t.settings.signedIn]),(0,w.useEffect)(()=>{if(!c)return;let e=()=>g(!0),t=e=>{let t=s.ticker.time,n=e();s.ticker.remove(s.updateRoot),s.ticker.add(()=>s.updateRoot(t+e()-n))},n={enter:e,drive:t,go:Fe,openPayment:Ce,set speed(e){u(e)},get speed(){ret
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { outline:2px solid var(--accent);outline-offset:2px;border-radius:6px }
+  .side .side__collapse:hover { background:color-mix(in srgb, var(--text) 9%, transparent) }
+  .nav__item:hover { color:var(--text) }
+  html.is-rail .side [data-tip]:hover:after,html.is-rail .side [data-tip]:focus-visible:after { content:attr(data-tip);z-index:60;white-space:pre;background:var(--ink);color:var(--on-ink);font:600 var(--fs-xs)/1.2 var(--font);pointer-events:none;border-radius:8px;padding:6px 10px;position:absolute;top:50%;left:calc(100% + 12px);translate:0 -50% }
+  .side [data-tip]:hover:after,.side [data-tip]:focus-visible:after { content:attr(data-tip);z-index:60;white-space:nowrap;background:var(--ink);color:var(--on-ink);font:600 var(--fs-xs)/1.2 var(--font);pointer-events:none;border-radius:8px;padding:6px 10px;position:absolute;top:50%;left:calc(100% + 12px);translate:0 -50% }
+  .search:hover { box-shadow:inset 0 0 0 1px var(--line-2) }
+  .user:hover { background:var(--well) }
+  .btn:hover { background:var(--card-2) }
+  .btn--primary:hover { background:color-mix(in srgb, var(--ink) 88%, var(--accent)) }
+  .btn--danger:hover { background:color-mix(in srgb, var(--bad) 88%, #000) }
+  .btn--ghost:hover { background:var(--well) }
+  .ibtn:hover { background:var(--well) }
+  .link:hover { text-underline-offset:3px;text-decoration:underline }
+  .input:focus-visible { box-shadow:inset 0 0 0 2px var(--accent);outline:none }
+  .tab:hover { color:var(--text) }
+  .table tbody tr:hover td { background:var(--card-2) }
+  .menu__item:hover,.menu__item:focus-visible { background:var(--well) }
+  .note:hover { background:var(--card-2) }
+  .evid__item:has(input:focus-visible) { outline:2px solid var(--accent);outline-offset:2px }
+  .otp__box:focus-visible { box-shadow:inset 0 0 0 2px var(--accent);outline:none }
+
+  -- keyframes --
+  @keyframes breathe {0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--good) 45%, transparent)}80%,to{box-shadow:0 0 0 8px #0000}}
+  @keyframes flash {0%{color:var(--accent-text)}to{}}
+
+  -- transitions --
+  transition:none
+  transition:opacity .3s
+  transition:transform .35s cubic-bezier(.2,.8,.2,1)
+  transition:translate .28s cubic-bezier(.3,1.4,.5,1)

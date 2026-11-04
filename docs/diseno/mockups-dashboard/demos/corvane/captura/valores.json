@@ -1,0 +1,1775 @@
+{
+  "medido": "2026-11-04T11:17:08.072Z",
+  "url": "https://demo.codeandchill.store/corvane/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/corvane/",
+      "ancho": 390,
+      "alto": 2654,
+      "fondo": "rgb(241, 240, 236)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#f1f0ec",
+        "--card": "#fbfaf7",
+        "--card-2": "#f5f4f0",
+        "--well": "#1c1a160d",
+        "--line": "#1c1a1614",
+        "--line-2": "#1c1a1626",
+        "--shadow": "0 1px 2px #28221a0d, 0 12px 32px -22px #28221a47",
+        "--shadow-pop": "0 24px 60px -18px #1e1a1452, 0 2px 6px #1e1a1414",
+        "--text": "#1c1c1e",
+        "--muted": "#64625e",
+        "--faint": "#8a8781",
+        "--ink": "#1d1e20",
+        "--on-ink": "#f6f4ef",
+        "--accent": "#b0521f",
+        "--accent-text": "#9c4518",
+        "--on-accent": "#fff8f2",
+        "--accent-soft": "#f3e3d6",
+        "--good": "#1d7448",
+        "--warn": "#8f5a00",
+        "--bad": "#b3303d",
+        "--info": "#2c5e9f",
+        "--soft": "13%",
+        "--t-sand": "#ecdfcd",
+        "--t-sage": "#dce5d9",
+        "--t-mist": "#dbe3ea",
+        "--t-clay": "#efd9d0",
+        "--on-tile": "#1c1c1e",
+        "--av-a": "#e7d3c3",
+        "--av-b": "#cfe0d5",
+        "--av-c": "#d4dceb",
+        "--av-d": "#eedcb6",
+        "--av-e": "#e3d0d4",
+        "--av-f": "#d2e3e3",
+        "--on-av": "#2a2622",
+        "--r-card": "18px",
+        "--r-ctl": "11px",
+        "--side-w": "0px",
+        "--rail-w": "88px",
+        "--gap": "16px",
+        "--gutter": "16px",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "28px",
+          "peso": "600",
+          "interlineado": "29.12px",
+          "espaciado": "-0.7px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 21,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 18,
+          "ejemplo": "6 payments held for review"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 15,
+          "ejemplo": "Live mode"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 15,
+          "ejemplo": "All systems normal"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 10,
+          "ejemplo": "Payments"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 9,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 8,
+          "ejemplo": "Export"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 8,
+          "ejemplo": "56 payments"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "900",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 6,
+          "ejemplo": "$12.8K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 5,
+          "ejemplo": "Captured today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 4,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 4,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 4,
+          "ejemplo": "Sun 25 Oct · reporting in USD"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 4,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "600",
+          "interlineado": "20.7px",
+          "espaciado": "-0.18px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 4,
+          "ejemplo": "93.3%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 4,
+          "ejemplo": "Issuer approvals, today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 4,
+          "ejemplo": "Payments"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.88px",
+          "color": "rgb(138, 135, 129)",
+          "veces": 3,
+          "ejemplo": "Money"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(138, 58, 18)",
+          "veces": 3,
+          "ejemplo": "MC"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 2,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(31, 95, 122)",
+          "veces": 2,
+          "ejemplo": "AMEX"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "10px",
+          "peso": "900",
+          "interlineado": "14.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 248, 242)",
+          "veces": 2,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(246, 244, 239)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "23.1px",
+          "espaciado": "-0.42px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "Corvane"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "Payments ops"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 248, 242)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.13px",
+          "color": "rgb(42, 38, 34)",
+          "veces": 1,
+          "ejemplo": "TV"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "56 payments captured so far today, 6 hel"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 244, 239)",
+          "veces": 1,
+          "ejemplo": "Review queue"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "900",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 248, 242)",
+          "veces": 1,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "30px",
+          "peso": "600",
+          "interlineado": "31.5px",
+          "espaciado": "-0.75px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "$6,330"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(179, 48, 61)",
+          "veces": 1,
+          "ejemplo": "6.1%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(246, 244, 239)",
+          "veces": 1,
+          "ejemplo": "PAY"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(143, 90, 0)",
+          "veces": 1,
+          "ejemplo": "In review"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(31, 63, 154)",
+          "veces": 1,
+          "ejemplo": "VISA"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "37.7px",
+          "espaciado": "-0.52px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "$54,994"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 1,
+          "ejemplo": "26 Oct, 09:00 UTC"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 1,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": -312,
+          "y": 0,
+          "w": 300,
+          "h": 900,
+          "fondo": "rgb(241, 240, 236)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "0px",
+          "sombra": "rgba(30, 26, 20, 0.32) 0px 24px 60px -18px, rgba(30, 26, 20, 0.08) 0px 2px 6px 0px",
+          "padding": "18px 14px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "CorvanePayments opsMoneyOverviewPayments6Disputes4Payouts1Bu"
+        },
+        {
+          "etiqueta": "div.nav__group.nav__group--foot",
+          "x": -298,
+          "y": 721,
+          "w": 272,
+          "h": 97,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(28, 26, 22, 0.08)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 0px 0px",
+          "gap": "2px",
+          "grilla": "272px",
+          "texto": "SettingsHelp"
+        },
+        {
+          "etiqueta": "section.card.ov__hero",
+          "x": 16,
+          "y": 254,
+          "w": 358,
+          "h": 453,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Captured today$6,3306.1%vs. this time yesterday56 payments93"
+        },
+        {
+          "etiqueta": "section.card.ov__needs",
+          "x": 16,
+          "y": 723,
+          "w": 358,
+          "h": 379,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Needs you4 of 4 open6 payments held for reviewApprove or blo"
+        },
+        {
+          "etiqueta": "a.needs__item",
+          "x": 32,
+          "y": 774,
+          "w": 326,
+          "h": 81,
+          "fondo": "rgb(245, 244, 240)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "12px",
+          "gap": "12px",
+          "grilla": null,
+          "texto": "6 payments held for reviewApprove or block before they expir"
+        },
+        {
+          "etiqueta": "a.needs__item",
+          "x": 32,
+          "y": 1005,
+          "w": 326,
+          "h": 81,
+          "fondo": "rgb(245, 244, 240)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "12px",
+          "gap": "12px",
+          "grilla": null,
+          "texto": "1 payout returnedThe bank sent it back — fix details and ret"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--sage",
+          "x": 16,
+          "y": 1118,
+          "w": 174,
+          "h": 92,
+          "fondo": "rgb(220, 229, 217)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "4px",
+          "grilla": "146px",
+          "texto": "Approval rate93.3%Issuer approvals, today"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--sand",
+          "x": 200,
+          "y": 1118,
+          "w": 174,
+          "h": 92,
+          "fondo": "rgb(236, 223, 205)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "4px",
+          "grilla": "146px",
+          "texto": "Fee revenue$207.31Corvane’s take, today"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--clay",
+          "x": 16,
+          "y": 1220,
+          "w": 174,
+          "h": 92,
+          "fondo": "rgb(239, 217, 208)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "4px",
+          "grilla": "146px",
+          "texto": "Refunded$31.31Sent back today"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--mist",
+          "x": 200,
+          "y": 1220,
+          "w": 174,
+          "h": 92,
+          "fondo": "rgb(219, 227, 234)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "14px",
+          "gap": "4px",
+          "grilla": "146px",
+          "texto": "Average ticket$113.03Per captured payment"
+        },
+        {
+          "etiqueta": "section.card.ov__feed",
+          "x": 16,
+          "y": 1328,
+          "w": 358,
+          "h": 522,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Live paymentsPauseAMEXRahul PatelHalden Cycle Works · 14:30$"
+        },
+        {
+          "etiqueta": "section.card.ov__tm",
+          "x": 16,
+          "y": 1866,
+          "w": 358,
+          "h": 353,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Top merchants7D30DHalden Cycle Works$12.8KKaito Audio$8.5KPi"
+        },
+        {
+          "etiqueta": "section.card.ov__money",
+          "x": 16,
+          "y": 2235,
+          "w": 358,
+          "h": 335,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "16px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Merchant moneyPayouts$54,994owed to merchants right nowSettl"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/corvane/",
+      "ancho": 1440,
+      "alto": 1339,
+      "fondo": "rgb(241, 240, 236)",
+      "letra": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Urbanist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--fs-2xs": "11px",
+        "--fs-xs": "12px",
+        "--fs-sm": "12.5px",
+        "--fs-md": "13.5px",
+        "--fs-base": "14px",
+        "--fs-lg": "15px",
+        "--fs-xl": "17px",
+        "--fs-2xl": "20px",
+        "--fs-3xl": "22px",
+        "--fs-4xl": "26px",
+        "--fs-display": "34px",
+        "--bg": "#f1f0ec",
+        "--card": "#fbfaf7",
+        "--card-2": "#f5f4f0",
+        "--well": "#1c1a160d",
+        "--line": "#1c1a1614",
+        "--line-2": "#1c1a1626",
+        "--shadow": "0 1px 2px #28221a0d, 0 12px 32px -22px #28221a47",
+        "--shadow-pop": "0 24px 60px -18px #1e1a1452, 0 2px 6px #1e1a1414",
+        "--text": "#1c1c1e",
+        "--muted": "#64625e",
+        "--faint": "#8a8781",
+        "--ink": "#1d1e20",
+        "--on-ink": "#f6f4ef",
+        "--accent": "#b0521f",
+        "--accent-text": "#9c4518",
+        "--on-accent": "#fff8f2",
+        "--accent-soft": "#f3e3d6",
+        "--good": "#1d7448",
+        "--warn": "#8f5a00",
+        "--bad": "#b3303d",
+        "--info": "#2c5e9f",
+        "--soft": "13%",
+        "--t-sand": "#ecdfcd",
+        "--t-sage": "#dce5d9",
+        "--t-mist": "#dbe3ea",
+        "--t-clay": "#efd9d0",
+        "--on-tile": "#1c1c1e",
+        "--av-a": "#e7d3c3",
+        "--av-b": "#cfe0d5",
+        "--av-c": "#d4dceb",
+        "--av-d": "#eedcb6",
+        "--av-e": "#e3d0d4",
+        "--av-f": "#d2e3e3",
+        "--on-av": "#2a2622",
+        "--r-card": "18px",
+        "--r-ctl": "11px",
+        "--side-w": "248px",
+        "--rail-w": "88px",
+        "--gap": "16px",
+        "--gutter": "clamp(16px, 2vw, 32px)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "600",
+          "interlineado": "38.9376px",
+          "espaciado": "-0.936px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 21,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 18,
+          "ejemplo": "6 payments held for review"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 16,
+          "ejemplo": "Live mode"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 15,
+          "ejemplo": "All systems normal"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 13,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 10,
+          "ejemplo": "Payments"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "500",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 9,
+          "ejemplo": "Today $6,330"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 9,
+          "ejemplo": "$6,330"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "900",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 6,
+          "ejemplo": "$12.8K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "-0.075px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 5,
+          "ejemplo": "Captured today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 4,
+          "ejemplo": "Overview"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 4,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12.5px",
+          "peso": "600",
+          "interlineado": "18.125px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 4,
+          "ejemplo": "Sun 25 Oct · reporting in USD"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "21.75px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 4,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "600",
+          "interlineado": "25.3px",
+          "espaciado": "-0.22px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 4,
+          "ejemplo": "93.3%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 4,
+          "ejemplo": "Issuer approvals, today"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "0.88px",
+          "color": "rgb(138, 135, 129)",
+          "veces": 3,
+          "ejemplo": "Money"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(138, 58, 18)",
+          "veces": 3,
+          "ejemplo": "MC"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(246, 244, 239)",
+          "veces": 2,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 2,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(31, 95, 122)",
+          "veces": 2,
+          "ejemplo": "AMEX"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(246, 244, 239)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "23.1px",
+          "espaciado": "-0.42px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "Corvane"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "13.2px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "Payments ops"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "500",
+          "interlineado": "19.575px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "Search payments, merchants…"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "UTC"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 248, 242)",
+          "veces": 1,
+          "ejemplo": "3"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "18.85px",
+          "espaciado": "0.13px",
+          "color": "rgb(42, 38, 34)",
+          "veces": 1,
+          "ejemplo": "TV"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13.5px",
+          "peso": "600",
+          "interlineado": "15.525px",
+          "espaciado": "normal",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "Teodora Vance"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "13.8px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "Admin"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "20.3px",
+          "espaciado": "normal",
+          "color": "rgb(100, 98, 94)",
+          "veces": 1,
+          "ejemplo": "56 payments captured so far today, 6 hel"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "900",
+          "interlineado": "15.95px",
+          "espaciado": "normal",
+          "color": "rgb(255, 248, 242)",
+          "veces": 1,
+          "ejemplo": "6"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "600",
+          "interlineado": "35.7px",
+          "espaciado": "-0.85px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "$6,330"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(179, 48, 61)",
+          "veces": 1,
+          "ejemplo": "6.1%"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(246, 244, 239)",
+          "veces": 1,
+          "ejemplo": "PAY"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(143, 90, 0)",
+          "veces": 1,
+          "ejemplo": "In review"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "9.5px",
+          "peso": "700",
+          "interlineado": "13.775px",
+          "espaciado": "0.38px",
+          "color": "rgb(31, 63, 154)",
+          "veces": 1,
+          "ejemplo": "VISA"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "26px",
+          "peso": "600",
+          "interlineado": "37.7px",
+          "espaciado": "-0.52px",
+          "color": "rgb(28, 28, 30)",
+          "veces": 1,
+          "ejemplo": "$54,994"
+        },
+        {
+          "familia": "Urbanist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "500",
+          "interlineado": "17.4px",
+          "espaciado": "normal",
+          "color": "rgb(156, 69, 24)",
+          "veces": 1,
+          "ejemplo": "26 Oct, 09:00 UTC"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 0,
+          "y": 0,
+          "w": 248,
+          "h": 900,
+          "fondo": "rgb(241, 240, 236)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "18px 14px 14px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "CorvanePayments opsMoneyOverviewPayments6Disputes4Payouts1Bu"
+        },
+        {
+          "etiqueta": "div.nav__group.nav__group--foot",
+          "x": 14,
+          "y": 721,
+          "w": 219,
+          "h": 97,
+          "fondo": "rgba(0, 0, 0, 0)",
+          "borde": "1px solid rgba(28, 26, 22, 0.08)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "10px 0px 0px",
+          "gap": "2px",
+          "grilla": "219px",
+          "texto": "SettingsHelp"
+        },
+        {
+          "etiqueta": "section.card.ov__hero",
+          "x": 277,
+          "y": 207,
+          "w": 758,
+          "h": 413,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Captured today$6,3306.1%vs. this time yesterday56 payments93"
+        },
+        {
+          "etiqueta": "section.card.ov__needs",
+          "x": 1050,
+          "y": 207,
+          "w": 361,
+          "h": 413,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Needs you4 of 4 open6 payments held for reviewApprove or blo"
+        },
+        {
+          "etiqueta": "a.needs__item",
+          "x": 1070,
+          "y": 263,
+          "w": 321,
+          "h": 81,
+          "fondo": "rgb(245, 244, 240)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "12px",
+          "gap": "12px",
+          "grilla": null,
+          "texto": "6 payments held for reviewApprove or block before they expir"
+        },
+        {
+          "etiqueta": "a.needs__item",
+          "x": 1070,
+          "y": 423,
+          "w": 321,
+          "h": 81,
+          "fondo": "rgb(245, 244, 240)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "12px",
+          "gap": "12px",
+          "grilla": null,
+          "texto": "4 merchant applicationsKYC checks finished, waiting for a de"
+        },
+        {
+          "etiqueta": "a.needs__item",
+          "x": 1070,
+          "y": 511,
+          "w": 321,
+          "h": 81,
+          "fondo": "rgb(245, 244, 240)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "12px",
+          "gap": "12px",
+          "grilla": null,
+          "texto": "1 payout returnedThe bank sent it back — fix details and ret"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--sage",
+          "x": 277,
+          "y": 636,
+          "w": 272,
+          "h": 109,
+          "fondo": "rgb(220, 229, 217)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "4px",
+          "grilla": "235.594px",
+          "texto": "Approval rate93.3%Issuer approvals, today"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--sand",
+          "x": 564,
+          "y": 636,
+          "w": 272,
+          "h": 109,
+          "fondo": "rgb(236, 223, 205)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "4px",
+          "grilla": "235.609px",
+          "texto": "Fee revenue$207.31Corvane’s take, today"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--clay",
+          "x": 852,
+          "y": 636,
+          "w": 272,
+          "h": 109,
+          "fondo": "rgb(239, 217, 208)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "4px",
+          "grilla": "235.594px",
+          "texto": "Refunded$31.31Sent back today"
+        },
+        {
+          "etiqueta": "article.kpi.kpi--mist",
+          "x": 1140,
+          "y": 636,
+          "w": 272,
+          "h": 109,
+          "fondo": "rgb(219, 227, 234)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "16px 18px",
+          "gap": "4px",
+          "grilla": "235.609px",
+          "texto": "Average ticket$113.03Per captured payment"
+        },
+        {
+          "etiqueta": "section.card.ov__feed",
+          "x": 277,
+          "y": 762,
+          "w": 424,
+          "h": 530,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Live paymentsPauseAMEXRahul PatelHalden Cycle Works · 14:30$"
+        },
+        {
+          "etiqueta": "section.card.ov__tm",
+          "x": 717,
+          "y": 762,
+          "w": 339,
+          "h": 361,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Top merchants7D30DHalden Cycle Works$12.8KKaito Audio$8.5KPi"
+        },
+        {
+          "etiqueta": "section.card.ov__money",
+          "x": 1072,
+          "y": 762,
+          "w": 339,
+          "h": 343,
+          "fondo": "rgb(251, 250, 247)",
+          "borde": "0px none rgb(28, 28, 30)",
+          "radio": "18px",
+          "sombra": "rgba(40, 34, 26, 0.05) 0px 1px 2px 0px, rgba(40, 34, 26, 0.28) 0px 12px 32px -22px, rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Merchant moneyPayouts$54,994owed to merchants right nowSettl"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "CorvanePayments ops",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 20,
+            "y": 20,
+            "w": 124,
+            "h": 36
+          },
+          "estilo": {
+            "color": "rgb(28, 28, 30)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(28, 28, 30)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 28, 30) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "button.side__collapse",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 195,
+            "y": 22,
+            "w": 32,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(28, 28, 30)",
+            "backgroundColor": "color(srgb 0.109804 0.109804 0.117647 / 0.05)",
+            "borderColor": "rgb(28, 28, 30)",
+            "boxShadow": "color(srgb 0.109804 0.109804 0.117647 / 0.16) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 28, 30) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 0.109804 0.109804 0.117647 / 0.05)",
+              "color(srgb 0.109804 0.109804 0.117647 / 0.09)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 0.109804 0.109804 0.117647 / 0.05)",
+              "color(srgb 0.109804 0.109804 0.117647 / 0.09)"
+            ]
+          }
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.nav__item",
+          "texto": "Overview",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 12,
+            "y": 120,
+            "w": 63,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(156, 69, 24)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(156, 69, 24)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(156, 69, 24) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.search",
+          "texto": "Search payments, merchants…⌘K",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 117,
+            "y": 13,
+            "w": 380,
+            "h": 42
+          },
+          "estilo": {
+            "color": "rgb(100, 98, 94)",
+            "backgroundColor": "rgb(251, 250, 247)",
+            "borderColor": "rgb(100, 98, 94)",
+            "boxShadow": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(100, 98, 94) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "boxShadow": [
+              "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+              "rgba(28, 26, 22, 0.15) 0px 0px 0px 1px inset"
+            ]
+          },
+          "alApretar": {
+            "boxShadow": [
+              "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+              "rgba(28, 26, 22, 0.15) 0px 0px 0px 1px inset"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.ibtn.ibtn--ring.bell",
+          "texto": "3",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1097,
+            "y": 15,
+            "w": 38,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(28, 28, 30)",
+            "backgroundColor": "rgb(251, 250, 247)",
+            "borderColor": "rgb(28, 28, 30)",
+            "boxShadow": "rgba(28, 26, 22, 0.15) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 28, 30) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(251, 250, 247)",
+              "rgba(28, 26, 22, 0.05)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(251, 250, 247)",
+              "rgba(28, 26, 22, 0.05)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.btn.btn--primary.magnetic",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1145,
+            "y": 14,
+            "w": 83,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(246, 244, 239)",
+            "backgroundColor": "rgb(29, 30, 32)",
+            "borderColor": "rgb(246, 244, 239)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(246, 244, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(29, 30, 32)",
+              "color(srgb 0.182902 0.142118 0.12502)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(29, 30, 32)",
+              "color(srgb 0.182902 0.142118 0.12502)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.user",
+          "texto": "TVTeodora VanceAdmin",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1238,
+            "y": 14,
+            "w": 173,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(28, 28, 30)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(28, 28, 30)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 28, 30) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(28, 26, 22, 0.05)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(28, 26, 22, 0.05)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"7\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a class=\""
+        },
+        {
+          "n": 8,
+          "error": "TimeoutError: locator.hover: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"8\"]')\u001b[22m\n\u001b[2m    - locator resolved to <a data-mk"
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.seg__opt",
+          "texto": "Volume",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 716,
+            "y": 230,
+            "w": 66,
+            "h": 30
+          },
+          "estilo": {
+            "color": "rgb(28, 28, 30)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(28, 28, 30)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 28, 30) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 10,
+          "etiqueta": "a.needs__item",
+          "texto": "6 payments held for reviewApprove or blo",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1019,
+            "y": 263,
+            "w": 372,
+            "h": 63
+          },
+          "estilo": {
+            "color": "rgb(28, 28, 30)",
+            "backgroundColor": "rgb(245, 244, 240)",
+            "borderColor": "rgb(28, 28, 30)",
+            "boxShadow": "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(28, 28, 30) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "boxShadow": [
+              "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+              "rgba(28, 26, 22, 0.15) 0px 0px 0px 1px inset"
+            ]
+          },
+          "alApretar": {
+            "boxShadow": [
+              "rgba(28, 26, 22, 0.08) 0px 0px 0px 1px inset",
+              "rgba(28, 26, 22, 0.15) 0px 0px 0px 1px inset"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "error": "Error: locator.scrollIntoViewIfNeeded: Element is not attached to the DOM\nCall log:\n\u001b[2m  - attempting scroll into view action\u001b[22m\n\u001b[2m    2 × waiting for elem"
+        },
+        {
+          "n": 12,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"12\"]')\u001b[22m\n"
+        },
+        {
+          "n": 13,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"13\"]')\u001b[22m\n"
+        },
+        {
+          "n": 14,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"14\"]')\u001b[22m\n"
+        },
+        {
+          "n": 15,
+          "error": "TimeoutError: locator.scrollIntoViewIfNeeded: Timeout 2000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('[data-mk-medir=\"15\"]')\u001b[22m\n"
+        },
+        {
+          "n": 16,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

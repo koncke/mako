@@ -1,0 +1,3520 @@
+{
+  "medido": "2026-11-04T11:10:04.816Z",
+  "url": "https://demo.codeandchill.store/torque/",
+  "vistas": {
+    "390": {
+      "url": "https://demo.codeandchill.store/torque/#/floor",
+      "ancho": 390,
+      "alto": 4836,
+      "fondo": "rgb(236, 235, 230)",
+      "letra": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Geist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--fs-2xs": ".75rem",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-base": "1rem",
+        "--fs-lg": "1.0625rem",
+        "--fs-xl": "1.125rem",
+        "--bg": "#ecebe6",
+        "--glow-a": "#f6dfcb",
+        "--glow-b": "#e2e6eb",
+        "--surface": "#fffefc",
+        "--surface-2": "#f6f5f1",
+        "--raised": "#fff",
+        "--well": "#1c1a160f",
+        "--line": "#1c1a161a",
+        "--line-2": "#1c1a162e",
+        "--shadow": "0 1px 2px #1c1a160d, 0 12px 30px -18px #1c1a1642",
+        "--shadow-pop": "0 24px 60px -18px #1c1a1652, 0 2px 6px #1c1a1614",
+        "--text": "#17181b",
+        "--muted": "#5c5f66",
+        "--faint": "#75787f",
+        "--primary": "#c2410c",
+        "--on-primary": "#fff7f1",
+        "--side": "#17181b",
+        "--on-side": "#e8e8ea",
+        "--side-dim": "#e8e8ea99",
+        "--side-pill": "#ff9a3c",
+        "--on-side-pill": "#1d1003",
+        "--orange": "#e2611b",
+        "--amber": "#d6940a",
+        "--sky": "#3a86d4",
+        "--teal": "#13907c",
+        "--violet": "#7a66d4",
+        "--rose": "#d6455c",
+        "--lime": "#4f9a2c",
+        "--slate": "#66717f",
+        "--ink": "#17181b",
+        "--good": "#2c8a47",
+        "--warn": "#a86a08",
+        "--bad": "#c9382a",
+        "--soft": "15%",
+        "--r-card": "20px",
+        "--r-tile": "14px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--side-w": "76px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 40,
+          "ejemplo": "5 of 6 bays busy"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "13px",
+          "espaciado": "0.52px",
+          "color": "rgb(27, 42, 85)",
+          "veces": 22,
+          "ejemplo": "CA1RJM013"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.640078 0.225961 0.0576471)",
+          "veces": 17,
+          "ejemplo": "Send estimate"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "700",
+          "interlineado": "36.72px",
+          "espaciado": "-1.19px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 16,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16.5px",
+          "espaciado": "0.22px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 13,
+          "ejemplo": "IN"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 12,
+          "ejemplo": "Hyundai Tucson"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 11,
+          "ejemplo": "/ 2.3 h"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 10,
+          "ejemplo": "Checked in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 9,
+          "ejemplo": "In 15 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "27px",
+          "espaciado": "-0.27px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 8,
+          "ejemplo": "The floor"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 7,
+          "ejemplo": "B5"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 7,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "-0.12px",
+          "color": "rgb(29, 16, 3)",
+          "veces": 6,
+          "ejemplo": "Floor"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Walk-in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "0.64px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Bay 1"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Tola started the battery health check · "
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Tola"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "19.6px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "RO-24698"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "19.6px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 6,
+          "ejemplo": "4 min ago"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "25.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "Toyota RAV4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "-0.14px",
+          "color": "rgb(194, 65, 12)",
+          "veces": 5,
+          "ejemplo": "11:30 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "14px",
+          "espaciado": "0.56px",
+          "color": "rgb(92, 95, 102)",
+          "veces": 5,
+          "ejemplo": "CA"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.28px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "CR"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(58, 134, 212)",
+          "veces": 5,
+          "ejemplo": "Toyota · Bay 1"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "650",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "Coolant, 50/50, 1 gal"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "12.88px",
+          "peso": "500",
+          "interlineado": "19.32px",
+          "espaciado": "0.1288px",
+          "color": "rgb(92, 95, 102)",
+          "veces": 5,
+          "ejemplo": "CLT-G05"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "18px",
+          "espaciado": "-0.12px",
+          "color": "rgb(232, 232, 234)",
+          "veces": 4,
+          "ejemplo": "Jobs"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "17.5px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 4,
+          "ejemplo": "Cars on the floor"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "900",
+          "interlineado": "25.2px",
+          "espaciado": "-0.72px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 4,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "25.5px",
+          "espaciado": "-0.34px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 4,
+          "ejemplo": "1:35:04"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 4,
+          "ejemplo": "69%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(44, 138, 71)",
+          "veces": 4,
+          "ejemplo": "Approved"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.169804 0.344314 0.526667)",
+          "veces": 3,
+          "ejemplo": "In repair"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(255, 247, 241)",
+          "veces": 3,
+          "ejemplo": "Mark ready"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "33px",
+          "espaciado": "normal",
+          "color": "rgb(201, 56, 42)",
+          "veces": 3,
+          "ejemplo": "0/6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 3,
+          "ejemplo": "Bay hours booked"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "27px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 3,
+          "ejemplo": "26.8 / 60 h"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgb(44, 138, 71)",
+          "veces": 2,
+          "ejemplo": "Bay 6 free"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(168, 106, 8)",
+          "veces": 2,
+          "ejemplo": "Marcus · 22 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(236, 235, 230)",
+          "veces": 2,
+          "ejemplo": "Hand over"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 2,
+          "ejemplo": "Schedule"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "33px",
+          "espaciado": "normal",
+          "color": "rgb(168, 106, 8)",
+          "veces": 2,
+          "ejemplo": "1/4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 247, 241)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "-0.12px",
+          "color": "rgb(29, 16, 3)",
+          "veces": 1,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "-0.12px",
+          "color": "rgb(255, 154, 60)",
+          "veces": 1,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "31.5px",
+          "espaciado": "-0.42px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 1,
+          "ejemplo": "Torque"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "Wednesday, November 4 · Ironbridge Auto "
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(255, 247, 241)",
+          "veces": 1,
+          "ejemplo": "New booking"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgb(168, 106, 8)",
+          "veces": 1,
+          "ejemplo": "4 waiting for a bay"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "17.85px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "/ 6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "$668 to collect"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.524627 0.376157 0.0672157)",
+          "veces": 1,
+          "ejemplo": "Approval"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.315373 0.271529 0.526667)",
+          "veces": 1,
+          "ejemplo": "Diagnosis"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "1.96px",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "Free"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "700",
+          "interlineado": "34px",
+          "espaciado": "-0.68px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 1,
+          "ejemplo": "$42,816"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "30px",
+          "peso": "700",
+          "interlineado": "30px",
+          "espaciado": "-0.9px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 1,
+          "ejemplo": "45%"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "11px",
+          "peso": "600",
+          "interlineado": "11px",
+          "espaciado": "0.66px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy it →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "div.stat",
+          "x": 14,
+          "y": 209,
+          "w": 176,
+          "h": 94,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "11px 13px",
+          "gap": "4px",
+          "grilla": "148px",
+          "texto": "Cars on the floor 124 waiting for a bay"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 200,
+          "y": 209,
+          "w": 176,
+          "h": 94,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "11px 13px",
+          "gap": "4px",
+          "grilla": "148px",
+          "texto": "Bays busy 5/ 6Bay 6 free"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 14,
+          "y": 314,
+          "w": 176,
+          "h": 94,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "11px 13px",
+          "gap": "4px",
+          "grilla": "148px",
+          "texto": "Ready for pickup 2$668 to collect"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 200,
+          "y": 314,
+          "w": 176,
+          "h": 94,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "11px 13px",
+          "gap": "4px",
+          "grilla": "148px",
+          "texto": "Sales today $2,1265 invoiced so far"
+        },
+        {
+          "etiqueta": "section.card.fl-bays",
+          "x": 14,
+          "y": 430,
+          "w": 362,
+          "h": 410,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "The floor 5 of 6 bays busy Bay 1In repair Toyota RAV4 CA1RJM"
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--repair",
+          "x": 17,
+          "y": 505,
+          "w": 243,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(58, 134, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 1In repair Toyota RAV4 CA1RJM013INIvan 1:35:04/ 2.3 h 69"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 30,
+          "y": 554,
+          "w": 217,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--approval",
+          "x": 270,
+          "y": 505,
+          "w": 243,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(214, 148, 10) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 2Approval Honda Accord CA4VRX153CRCarlos Marcus · 22 min"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 283,
+          "y": 554,
+          "w": 217,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--repair",
+          "x": 523,
+          "y": 505,
+          "w": 243,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(58, 134, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 3In repair Lexus RX 450h CA3AMU524TATola 1:25:04/ 2.5 h "
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 536,
+          "y": 554,
+          "w": 217,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--repair",
+          "x": 777,
+          "y": 505,
+          "w": 243,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(58, 134, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 4In repair Ford F-150 CA1ZUY256LBLiam 1:10:04/ 2.0 h 58%"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 790,
+          "y": 554,
+          "w": 217,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--diagnosis",
+          "x": 1030,
+          "y": 505,
+          "w": 243,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(122, 102, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 5Diagnosis Volkswagen Golf GTI CA4LZW032JKJae 0:40:04/ 1"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 1043,
+          "y": 554,
+          "w": 217,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--free",
+          "x": 1283,
+          "y": 505,
+          "w": 243,
+          "h": 310,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 6Quick service Free Cars are waiting Bring a car in"
+        },
+        {
+          "etiqueta": "div.bay__stage.is-free",
+          "x": 1296,
+          "y": 554,
+          "w": 217,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Free"
+        },
+        {
+          "etiqueta": "section.card.fl-board",
+          "x": 14,
+          "y": 855,
+          "w": 362,
+          "h": 829,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Job board 12 cars on site · drag a card to move it Checked i"
+        },
+        {
+          "etiqueta": "section.lane.lane--checked-in",
+          "x": 17,
+          "y": 930,
+          "w": 250,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Checked in4 CA3GKR158 Hyundai Tucson Isabel Cruz In 15 min S"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 28,
+          "y": 976,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA3GKR158 Hyundai Tucson Isabel Cruz In 15 min Start diagnos"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 28,
+          "y": 1146,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA9PCB584 Tesla Model 3 Priya Raman In 10 min Start diagnosi"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 28,
+          "y": 1316,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA9JAY870 Toyota Tacoma Tom Walsh In 30 min Start diagnosis"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 28,
+          "y": 1486,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA4RCF622 Chevrolet Silverado 1500 Ethan Cole In 50 min Star"
+        },
+        {
+          "etiqueta": "section.lane.lane--diagnosis",
+          "x": 277,
+          "y": 930,
+          "w": 250,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Diagnosis1 CA4LZW032B5 Volkswagen Golf GTI Amara Okafor Due "
+        },
+        {
+          "etiqueta": "article.jc.jc--diagnosis",
+          "x": 288,
+          "y": 976,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA4LZW032B5 Volkswagen Golf GTI Amara Okafor Due 3:30 PM JKS"
+        },
+        {
+          "etiqueta": "section.lane.lane--approval",
+          "x": 536,
+          "y": 930,
+          "w": 250,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Awaiting approval2 CA7YPT463 Mazda CX-5 Sofia Castillo Appro"
+        },
+        {
+          "etiqueta": "article.jc.jc--approval",
+          "x": 547,
+          "y": 976,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA7YPT463 Mazda CX-5 Sofia Castillo Approved INStart repair"
+        },
+        {
+          "etiqueta": "article.jc.jc--approval",
+          "x": 547,
+          "y": 1146,
+          "w": 228,
+          "h": 158,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA4VRX153B2 Honda Accord Marcus Bell Waiting 22 min CR"
+        },
+        {
+          "etiqueta": "section.lane.lane--repair",
+          "x": 796,
+          "y": 930,
+          "w": 250,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "In repair3 CA3AMU524B3 Lexus RX 450h Kenji Mori Due 12:30 PM"
+        },
+        {
+          "etiqueta": "article.jc.jc--repair",
+          "x": 807,
+          "y": 976,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA3AMU524B3 Lexus RX 450h Kenji Mori Due 12:30 PM TAMark rea"
+        },
+        {
+          "etiqueta": "article.jc.jc--repair",
+          "x": 807,
+          "y": 1146,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA1ZUY256B4 Ford F-150 Luis Navarro Due 1:00 PM LBMark ready"
+        },
+        {
+          "etiqueta": "article.jc.jc--repair",
+          "x": 807,
+          "y": 1316,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA1RJM013B1 Toyota RAV4 Dana Whitfield Due 3:00 PM INMark re"
+        },
+        {
+          "etiqueta": "section.lane.lane--ready",
+          "x": 1055,
+          "y": 930,
+          "w": 250,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ready for pickup2 CA9GHM628B5 Honda CR-V Grace Liu $445 JKHa"
+        },
+        {
+          "etiqueta": "article.jc.jc--ready",
+          "x": 1066,
+          "y": 976,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA9GHM628B5 Honda CR-V Grace Liu $445 JKHand over"
+        },
+        {
+          "etiqueta": "article.jc.jc--ready",
+          "x": 1066,
+          "y": 1146,
+          "w": 228,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "205.594px",
+          "texto": "CA2VMC538B3 Subaru Outback Hannah Price $223 LBHand over"
+        },
+        {
+          "etiqueta": "section.card.fl-arr",
+          "x": 14,
+          "y": 1700,
+          "w": 362,
+          "h": 550,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Arriving today Schedule 11:30 AM BMW 330iCA4MNK551Noah Fisch"
+        },
+        {
+          "etiqueta": "section.card.fl-sales",
+          "x": 14,
+          "y": 2266,
+          "w": 362,
+          "h": 418,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Sales 2W30D $42,816in the last 14 days · 94 cars · $455 aver"
+        },
+        {
+          "etiqueta": "section.card.fl-techs",
+          "x": 14,
+          "y": 2700,
+          "w": 362,
+          "h": 470,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Technicians CRCarlosAvailable 5.3 h sold · 0.8 h on the cloc"
+        },
+        {
+          "etiqueta": "section.card.fl-stock",
+          "x": 14,
+          "y": 3668,
+          "w": 362,
+          "h": 473,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Running low Reorder Coolant, 50/50, 1 galCLT-G05 · bin B-03 "
+        },
+        {
+          "etiqueta": "section.card.fl-load",
+          "x": 14,
+          "y": 3185,
+          "w": 362,
+          "h": 466,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Shop load 45%of bay time bookedBay hours booked26.8 / 60 h O"
+        },
+        {
+          "etiqueta": "section.card.fl-feed",
+          "x": 14,
+          "y": 4156,
+          "w": 362,
+          "h": 576,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activity Tola started the battery health check · RO-246"
+        }
+      ]
+    },
+    "1440": {
+      "url": "https://demo.codeandchill.store/torque/#/floor",
+      "ancho": 1440,
+      "alto": 2829,
+      "fondo": "rgb(236, 235, 230)",
+      "letra": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+      "variables": {
+        "--font": "\"Geist\", ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+        "--mono": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+        "--fs-2xs": ".75rem",
+        "--fs-xs": ".8125rem",
+        "--fs-sm": ".875rem",
+        "--fs-md": ".9375rem",
+        "--fs-base": "1rem",
+        "--fs-lg": "1.0625rem",
+        "--fs-xl": "1.125rem",
+        "--bg": "#ecebe6",
+        "--glow-a": "#f6dfcb",
+        "--glow-b": "#e2e6eb",
+        "--surface": "#fffefc",
+        "--surface-2": "#f6f5f1",
+        "--raised": "#fff",
+        "--well": "#1c1a160f",
+        "--line": "#1c1a161a",
+        "--line-2": "#1c1a162e",
+        "--shadow": "0 1px 2px #1c1a160d, 0 12px 30px -18px #1c1a1642",
+        "--shadow-pop": "0 24px 60px -18px #1c1a1652, 0 2px 6px #1c1a1614",
+        "--text": "#17181b",
+        "--muted": "#5c5f66",
+        "--faint": "#75787f",
+        "--primary": "#c2410c",
+        "--on-primary": "#fff7f1",
+        "--side": "#17181b",
+        "--on-side": "#e8e8ea",
+        "--side-dim": "#e8e8ea99",
+        "--side-pill": "#ff9a3c",
+        "--on-side-pill": "#1d1003",
+        "--orange": "#e2611b",
+        "--amber": "#d6940a",
+        "--sky": "#3a86d4",
+        "--teal": "#13907c",
+        "--violet": "#7a66d4",
+        "--rose": "#d6455c",
+        "--lime": "#4f9a2c",
+        "--slate": "#66717f",
+        "--ink": "#17181b",
+        "--good": "#2c8a47",
+        "--warn": "#a86a08",
+        "--bad": "#c9382a",
+        "--soft": "15%",
+        "--r-card": "20px",
+        "--r-tile": "14px",
+        "--r-ctl": "999px",
+        "--gap": "16px",
+        "--side-w": "248px",
+        "--gutter": "clamp(16px, 1.8vw, 30px)",
+        "--ease": "cubic-bezier(.2, .8, .2, 1)",
+        "--lightningcss-light": "",
+        "--lightningcss-dark": ""
+      },
+      "tipografia": [
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 41,
+          "ejemplo": "5 of 6 bays busy"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "13px",
+          "espaciado": "0.52px",
+          "color": "rgb(27, 42, 85)",
+          "veces": 22,
+          "ejemplo": "CA1RJM013"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.640078 0.225961 0.0576471)",
+          "veces": 17,
+          "ejemplo": "Send estimate"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "37.44px",
+          "peso": "700",
+          "interlineado": "40.4352px",
+          "espaciado": "-1.3104px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 16,
+          "ejemplo": "G"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "11px",
+          "peso": "700",
+          "interlineado": "16.5px",
+          "espaciado": "0.22px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 13,
+          "ejemplo": "IN"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 12,
+          "ejemplo": "Hyundai Tucson"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 10,
+          "ejemplo": "Checked in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "600",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(29, 16, 3)",
+          "veces": 9,
+          "ejemplo": "Floor"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 9,
+          "ejemplo": "In 15 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 9,
+          "ejemplo": "$0"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "18px",
+          "peso": "700",
+          "interlineado": "27px",
+          "espaciado": "-0.27px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 8,
+          "ejemplo": "The floor"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "600",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(232, 232, 234)",
+          "veces": 7,
+          "ejemplo": "Jobs"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 7,
+          "ejemplo": "B5"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "600",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 7,
+          "ejemplo": "/6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "0.28px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "MO"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Walk-in"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "700",
+          "interlineado": "24px",
+          "espaciado": "0.64px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Bay 1"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Tola started the battery health check · "
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "Tola"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "19.6px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 6,
+          "ejemplo": "RO-24698"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "19.6px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 6,
+          "ejemplo": "4 min ago"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 5,
+          "ejemplo": "Wednesday, November 4 · Ironbridge Auto "
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "25.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "Toyota RAV4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "20px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "700",
+          "interlineado": "22.5px",
+          "espaciado": "-0.15px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "11:30 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "800",
+          "interlineado": "14px",
+          "espaciado": "0.56px",
+          "color": "rgb(92, 95, 102)",
+          "veces": 5,
+          "ejemplo": "CA"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(58, 134, 212)",
+          "veces": 5,
+          "ejemplo": "Toyota · Bay 1"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "650",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 5,
+          "ejemplo": "Coolant, 50/50, 1 gal"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "12.88px",
+          "peso": "500",
+          "interlineado": "19.32px",
+          "espaciado": "0.1288px",
+          "color": "rgb(92, 95, 102)",
+          "veces": 5,
+          "ejemplo": "CLT-G05"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "900",
+          "interlineado": "35.7px",
+          "espaciado": "-1.02px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 4,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "\"Geist Mono\", ui-monospace, \"SF Mono\", Menlo, Consolas, monospace",
+          "tamano": "17px",
+          "peso": "700",
+          "interlineado": "25.5px",
+          "espaciado": "-0.34px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 4,
+          "ejemplo": "1:35:04"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "12px",
+          "peso": "700",
+          "interlineado": "18px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 4,
+          "ejemplo": "69%"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(44, 138, 71)",
+          "veces": 4,
+          "ejemplo": "Approved"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(29, 16, 3)",
+          "veces": 3,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(255, 154, 60)",
+          "veces": 3,
+          "ejemplo": "12"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.169804 0.344314 0.526667)",
+          "veces": 3,
+          "ejemplo": "In repair"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(255, 247, 241)",
+          "veces": 3,
+          "ejemplo": "Mark ready"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "33px",
+          "espaciado": "normal",
+          "color": "rgb(201, 56, 42)",
+          "veces": 3,
+          "ejemplo": "0/6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "16.25px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 3,
+          "ejemplo": "Bay hours booked"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "21px",
+          "peso": "700",
+          "interlineado": "31.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 3,
+          "ejemplo": "26.8 / 60 h"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "500",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgba(232, 232, 234, 0.6)",
+          "veces": 2,
+          "ejemplo": "Ironbridge Auto Works"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "16px",
+          "peso": "650",
+          "interlineado": "24px",
+          "espaciado": "normal",
+          "color": "rgb(255, 247, 241)",
+          "veces": 2,
+          "ejemplo": "New"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgb(44, 138, 71)",
+          "veces": 2,
+          "ejemplo": "Bay 6 free"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(168, 106, 8)",
+          "veces": 2,
+          "ejemplo": "Marcus · 22 min"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(236, 235, 230)",
+          "veces": 2,
+          "ejemplo": "Hand over"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "650",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 2,
+          "ejemplo": "Schedule"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "22px",
+          "peso": "700",
+          "interlineado": "33px",
+          "espaciado": "normal",
+          "color": "rgb(168, 106, 8)",
+          "veces": 2,
+          "ejemplo": "1/4"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(255, 247, 241)",
+          "veces": 1,
+          "ejemplo": "Skip to content"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "24px",
+          "peso": "800",
+          "interlineado": "36px",
+          "espaciado": "-0.48px",
+          "color": "rgb(232, 232, 234)",
+          "veces": 1,
+          "ejemplo": "TorqueIronbridge Auto Works"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "19.5px",
+          "espaciado": "1.04px",
+          "color": "rgba(232, 232, 234, 0.6)",
+          "veces": 1,
+          "ejemplo": "Workshop"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "normal",
+          "color": "rgb(232, 232, 234)",
+          "veces": 1,
+          "ejemplo": "5 of 6 bays busy"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(232, 232, 234)",
+          "veces": 1,
+          "ejemplo": "Maya Ortiz"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgba(232, 232, 234, 0.6)",
+          "veces": 1,
+          "ejemplo": "Service advisor"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "500",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "Search plates, customers, repair orders…"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "600",
+          "interlineado": "normal",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "⌘K"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "15px",
+          "peso": "600",
+          "interlineado": "22.5px",
+          "espaciado": "normal",
+          "color": "rgb(23, 24, 27)",
+          "veces": 1,
+          "ejemplo": "10:40 AM"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "500",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "Demo day"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgb(168, 106, 8)",
+          "veces": 1,
+          "ejemplo": "4 waiting for a bay"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "17px",
+          "peso": "600",
+          "interlineado": "17.85px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "/ 6"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "700",
+          "interlineado": "13.65px",
+          "espaciado": "normal",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "$668 to collect"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.524627 0.376157 0.0672157)",
+          "veces": 1,
+          "ejemplo": "Approval"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "13px",
+          "peso": "650",
+          "interlineado": "19.5px",
+          "espaciado": "normal",
+          "color": "color(srgb 0.315373 0.271529 0.526667)",
+          "veces": 1,
+          "ejemplo": "Diagnosis"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "14px",
+          "peso": "700",
+          "interlineado": "21px",
+          "espaciado": "1.96px",
+          "color": "rgb(92, 95, 102)",
+          "veces": 1,
+          "ejemplo": "Free"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "34px",
+          "peso": "700",
+          "interlineado": "34px",
+          "espaciado": "-0.68px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 1,
+          "ejemplo": "$42,816"
+        },
+        {
+          "familia": "Geist, ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif",
+          "tamano": "30px",
+          "peso": "700",
+          "interlineado": "30px",
+          "espaciado": "-0.9px",
+          "color": "rgb(23, 24, 27)",
+          "veces": 1,
+          "ejemplo": "45%"
+        },
+        {
+          "familia": "ui-monospace, SFMono-Regular, Menlo, monospace",
+          "tamano": "12px",
+          "peso": "600",
+          "interlineado": "12px",
+          "espaciado": "0.72px",
+          "color": "rgb(22, 22, 22)",
+          "veces": 1,
+          "ejemplo": "Buy this template →"
+        }
+      ],
+      "paneles": [
+        {
+          "etiqueta": "aside.side",
+          "x": 0,
+          "y": 0,
+          "w": 248,
+          "h": 900,
+          "fondo": "rgb(23, 24, 27)",
+          "borde": "0px none rgb(232, 232, 234)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "20px 14px 14px",
+          "gap": "6px",
+          "grilla": null,
+          "texto": "TorqueIronbridge Auto Works Workshop Floor Jobs12 Schedule C"
+        },
+        {
+          "etiqueta": "span.nav__pill",
+          "x": 14,
+          "y": 142,
+          "w": 220,
+          "h": 382,
+          "fondo": "rgb(255, 154, 60)",
+          "borde": "0px none rgb(232, 232, 234)",
+          "radio": "0px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "2px",
+          "grilla": "220px",
+          "texto": "FloorJobs12ScheduleCustomersParts14Invoices9ReportsSettingsM"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 274,
+          "y": 175,
+          "w": 273,
+          "h": 145,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "18px 20px",
+          "gap": "8px",
+          "grilla": "231.047px",
+          "texto": "Cars on the floor 124 waiting for a bay"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 563,
+          "y": 175,
+          "w": 273,
+          "h": 145,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "18px 20px",
+          "gap": "8px",
+          "grilla": "231.047px",
+          "texto": "Bays busy 5/ 6Bay 6 free"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 852,
+          "y": 175,
+          "w": 273,
+          "h": 145,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "18px 20px",
+          "gap": "8px",
+          "grilla": "231.047px",
+          "texto": "Ready for pickup 2$668 to collect"
+        },
+        {
+          "etiqueta": "div.stat",
+          "x": 1141,
+          "y": 175,
+          "w": 273,
+          "h": 145,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "18px 20px",
+          "gap": "8px",
+          "grilla": "231.047px",
+          "texto": "Sales today $2,1265 invoiced so far"
+        },
+        {
+          "etiqueta": "section.card.fl-bays",
+          "x": 274,
+          "y": 342,
+          "w": 1140,
+          "h": 406,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "The floor 5 of 6 bays busy Bay 1In repair Toyota RAV4 CA1RJM"
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--repair",
+          "x": 295,
+          "y": 417,
+          "w": 175,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(58, 134, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 1In repair Toyota RAV4 CA1RJM013INIvan 1:35:04/ 2.3 h 69"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 308,
+          "y": 466,
+          "w": 149,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--approval",
+          "x": 480,
+          "y": 417,
+          "w": 175,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(214, 148, 10) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 2Approval Honda Accord CA4VRX153CRCarlos Marcus · 22 min"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 493,
+          "y": 466,
+          "w": 149,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--repair",
+          "x": 664,
+          "y": 417,
+          "w": 175,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(58, 134, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 3In repair Lexus RX 450h CA3AMU524TATola 1:25:04/ 2.5 h "
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 677,
+          "y": 466,
+          "w": 149,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--repair",
+          "x": 849,
+          "y": 417,
+          "w": 175,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(58, 134, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 4In repair Ford F-150 CA1ZUY256LBLiam 1:10:04/ 2.0 h 58%"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 862,
+          "y": 466,
+          "w": 149,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--busy.bay--diagnosis",
+          "x": 1034,
+          "y": 417,
+          "w": 175,
+          "h": 310,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "rgb(122, 102, 212) 0px 3px 0px 0px inset, rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 5Diagnosis Volkswagen Golf GTI CA4LZW032JKJae 0:40:04/ 1"
+        },
+        {
+          "etiqueta": "div.bay__stage",
+          "x": 1047,
+          "y": 466,
+          "w": 149,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": ""
+        },
+        {
+          "etiqueta": "article.bay.bay--free",
+          "x": 1218,
+          "y": 417,
+          "w": 175,
+          "h": 310,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "12px",
+          "gap": "10px",
+          "grilla": null,
+          "texto": "Bay 6Quick service Free Cars are waiting Bring a car in"
+        },
+        {
+          "etiqueta": "div.bay__stage.is-free",
+          "x": 1231,
+          "y": 466,
+          "w": 149,
+          "h": 92,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "0px none rgb(23, 24, 27)",
+          "radio": "12px",
+          "sombra": "none",
+          "padding": "0px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Free"
+        },
+        {
+          "etiqueta": "section.card.fl-board",
+          "x": 274,
+          "y": 764,
+          "w": 1140,
+          "h": 827,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Job board 12 cars on site · drag a card to move it Checked i"
+        },
+        {
+          "etiqueta": "section.lane.lane--checked-in",
+          "x": 295,
+          "y": 841,
+          "w": 212,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Checked in4 CA3GKR158 Hyundai Tucson Isabel Cruz In 15 min S"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 306,
+          "y": 886,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.625px",
+          "texto": "CA3GKR158 Hyundai Tucson Isabel Cruz In 15 min Start diagnos"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 306,
+          "y": 1056,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.625px",
+          "texto": "CA9PCB584 Tesla Model 3 Priya Raman In 10 min Start diagnosi"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 306,
+          "y": 1226,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.625px",
+          "texto": "CA9JAY870 Toyota Tacoma Tom Walsh In 30 min Start diagnosis"
+        },
+        {
+          "etiqueta": "article.jc.jc--checked-in",
+          "x": 306,
+          "y": 1396,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.625px",
+          "texto": "CA4RCF622 Chevrolet Silverado 1500 Ethan Cole In 50 min Star"
+        },
+        {
+          "etiqueta": "section.lane.lane--diagnosis",
+          "x": 517,
+          "y": 841,
+          "w": 212,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Diagnosis1 CA4LZW032B5 Volkswagen Golf GTI Amara Okafor Due "
+        },
+        {
+          "etiqueta": "article.jc.jc--diagnosis",
+          "x": 528,
+          "y": 886,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.641px",
+          "texto": "CA4LZW032B5 Volkswagen Golf GTI Amara Okafor Due 3:30 PM JKS"
+        },
+        {
+          "etiqueta": "section.lane.lane--approval",
+          "x": 738,
+          "y": 841,
+          "w": 212,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Awaiting approval2 CA7YPT463 Mazda CX-5 Sofia Castillo Appro"
+        },
+        {
+          "etiqueta": "article.jc.jc--approval",
+          "x": 749,
+          "y": 886,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.641px",
+          "texto": "CA7YPT463 Mazda CX-5 Sofia Castillo Approved INStart repair"
+        },
+        {
+          "etiqueta": "article.jc.jc--approval",
+          "x": 749,
+          "y": 1056,
+          "w": 190,
+          "h": 158,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.641px",
+          "texto": "CA4VRX153B2 Honda Accord Marcus Bell Waiting 22 min CR"
+        },
+        {
+          "etiqueta": "section.lane.lane--repair",
+          "x": 960,
+          "y": 841,
+          "w": 212,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "In repair3 CA3AMU524B3 Lexus RX 450h Kenji Mori Due 12:30 PM"
+        },
+        {
+          "etiqueta": "article.jc.jc--repair",
+          "x": 971,
+          "y": 886,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.641px",
+          "texto": "CA3AMU524B3 Lexus RX 450h Kenji Mori Due 12:30 PM TAMark rea"
+        },
+        {
+          "etiqueta": "article.jc.jc--repair",
+          "x": 971,
+          "y": 1056,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.641px",
+          "texto": "CA1ZUY256B4 Ford F-150 Luis Navarro Due 1:00 PM LBMark ready"
+        },
+        {
+          "etiqueta": "article.jc.jc--repair",
+          "x": 971,
+          "y": 1226,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.641px",
+          "texto": "CA1RJM013B1 Toyota RAV4 Dana Whitfield Due 3:00 PM INMark re"
+        },
+        {
+          "etiqueta": "section.lane.lane--ready",
+          "x": 1181,
+          "y": 841,
+          "w": 212,
+          "h": 729,
+          "fondo": "rgb(246, 245, 241)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "18px",
+          "sombra": "none",
+          "padding": "10px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Ready for pickup2 CA9GHM628B5 Honda CR-V Grace Liu $445 JKHa"
+        },
+        {
+          "etiqueta": "article.jc.jc--ready",
+          "x": 1192,
+          "y": 886,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.625px",
+          "texto": "CA9GHM628B5 Honda CR-V Grace Liu $445 JKHand over"
+        },
+        {
+          "etiqueta": "article.jc.jc--ready",
+          "x": 1192,
+          "y": 1056,
+          "w": 190,
+          "h": 162,
+          "fondo": "rgb(255, 255, 255)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "14px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px",
+          "padding": "10px",
+          "gap": "4px",
+          "grilla": "167.625px",
+          "texto": "CA2VMC538B3 Subaru Outback Hannah Price $223 LBHand over"
+        },
+        {
+          "etiqueta": "section.card.fl-arr",
+          "x": 274,
+          "y": 1606,
+          "w": 369,
+          "h": 575,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Arriving today Schedule 11:30 AM BMW 330iCA4MNK551Noah Fisch"
+        },
+        {
+          "etiqueta": "section.card.fl-sales",
+          "x": 659,
+          "y": 1606,
+          "w": 466,
+          "h": 575,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Sales 2W30D $42,816in the last 14 days · 94 cars · $455 aver"
+        },
+        {
+          "etiqueta": "section.card.fl-techs",
+          "x": 1141,
+          "y": 1606,
+          "w": 273,
+          "h": 575,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Technicians CRCarlosAvailable 5.3 h sold · 0.8 h on the cloc"
+        },
+        {
+          "etiqueta": "section.card.fl-stock",
+          "x": 274,
+          "y": 2197,
+          "w": 369,
+          "h": 576,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Running low Reorder Coolant, 50/50, 1 galCLT-G05 · bin B-03 "
+        },
+        {
+          "etiqueta": "section.card.fl-load",
+          "x": 659,
+          "y": 2197,
+          "w": 369,
+          "h": 576,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Shop load 45%of bay time bookedBay hours booked26.8 / 60 h O"
+        },
+        {
+          "etiqueta": "section.card.fl-feed",
+          "x": 1045,
+          "y": 2197,
+          "w": 369,
+          "h": 576,
+          "fondo": "rgb(255, 254, 252)",
+          "borde": "1px solid rgba(28, 26, 22, 0.1)",
+          "radio": "20px",
+          "sombra": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+          "padding": "20px",
+          "gap": "normal",
+          "grilla": null,
+          "texto": "Team activity Tola started the battery health check · RO-246"
+        }
+      ],
+      "controles": [
+        {
+          "n": 0,
+          "etiqueta": "a.brand",
+          "texto": "TorqueIronbridge Auto Works",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 20,
+            "w": 220,
+            "h": 78
+          },
+          "estilo": {
+            "color": "rgb(232, 232, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 232, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 232, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 1,
+          "etiqueta": "a.nav__item",
+          "texto": "Floor",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 142,
+            "w": 220,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(29, 16, 3)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(29, 16, 3)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(29, 16, 3) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 2,
+          "etiqueta": "a.shop-status",
+          "texto": "5 of 6 bays busy1 awaiting OK",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 759,
+            "w": 230,
+            "h": 59
+          },
+          "estilo": {
+            "color": "rgb(232, 232, 234)",
+            "backgroundColor": "rgba(255, 255, 255, 0.06)",
+            "borderColor": "rgb(232, 232, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 232, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 3,
+          "etiqueta": "button.me",
+          "texto": "MOMaya OrtizService advisor",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 14,
+            "y": 828,
+            "w": 230,
+            "h": 58
+          },
+          "estilo": {
+            "color": "rgb(232, 232, 234)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(232, 232, 234)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(232, 232, 234) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 4,
+          "etiqueta": "button.finder-btn",
+          "texto": "Search plates, customers, repair orders…",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 274,
+            "y": 20,
+            "w": 387,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(92, 95, 102)",
+            "backgroundColor": "rgb(255, 254, 252)",
+            "borderColor": "rgba(28, 26, 22, 0.1)",
+            "boxShadow": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(92, 95, 102) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "borderColor": [
+              "rgba(28, 26, 22, 0.1)",
+              "rgba(28, 26, 22, 0.18)"
+            ]
+          },
+          "alApretar": {
+            "borderColor": [
+              "rgba(28, 26, 22, 0.1)",
+              "rgba(28, 26, 22, 0.18)"
+            ]
+          }
+        },
+        {
+          "n": 5,
+          "etiqueta": "button.ibtn.ibtn--glass",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1205,
+            "y": 20,
+            "w": 46,
+            "h": 46
+          },
+          "estilo": {
+            "color": "rgb(23, 24, 27)",
+            "backgroundColor": "rgb(255, 254, 252)",
+            "borderColor": "rgba(28, 26, 22, 0.1)",
+            "boxShadow": "rgba(28, 26, 22, 0.05) 0px 1px 2px 0px, rgba(28, 26, 22, 0.26) 0px 12px 30px -18px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(23, 24, 27) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 254, 252)",
+              "rgba(28, 26, 22, 0.06)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 254, 252)",
+              "rgba(28, 26, 22, 0.06)"
+            ]
+          }
+        },
+        {
+          "n": 6,
+          "etiqueta": "button.btn.btn--primary.top__new",
+          "texto": "New",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1313,
+            "y": 21,
+            "w": 101,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(29, 13, 2)",
+            "backgroundColor": "rgb(255, 138, 61)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 1 0.541176 0.239216 / 0.8) 0px 10px 22px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(29, 13, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 7,
+          "etiqueta": "button.btn.btn--ghost.magnetic",
+          "texto": "Walk-in",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1110,
+            "y": 111,
+            "w": 126,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgb(22, 24, 27)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(22, 24, 27)",
+              "rgb(27, 29, 33)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0008, -0.0006)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(22, 24, 27)",
+              "rgb(27, 29, 33)"
+            ],
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0002, -0.0002)"
+            ]
+          }
+        },
+        {
+          "n": 8,
+          "etiqueta": "button.btn.btn--primary.magnetic",
+          "texto": "New booking",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1246,
+            "y": 111,
+            "w": 168,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(29, 13, 2)",
+            "backgroundColor": "rgb(255, 138, 61)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 1 0.541176 0.239216 / 0.8) 0px 10px 22px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(29, 13, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0005, -0.0006)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "transform": [
+              "none",
+              "matrix(1, 0, 0, 1, -0.0001, -0.0001)"
+            ],
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 9,
+          "etiqueta": "button.bay__car",
+          "texto": "Toyota RAV4",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 308,
+            "y": 568,
+            "w": 149,
+            "h": 26
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 237, 239)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 10,
+          "etiqueta": "button.btn.btn--sm.btn--primary",
+          "texto": "Mark ready",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 308,
+            "y": 676,
+            "w": 149,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(29, 13, 2)",
+            "backgroundColor": "rgb(255, 138, 61)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "color(srgb 1 0.541176 0.239216 / 0.8) 0px 10px 22px -12px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(29, 13, 2) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(0.94)"
+            ]
+          }
+        },
+        {
+          "n": 11,
+          "etiqueta": "button.btn.btn--sm.btn--soft",
+          "texto": "Send estimate",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1047,
+            "y": 676,
+            "w": 149,
+            "h": 38
+          },
+          "estilo": {
+            "color": "color(srgb 0.986588 0.611059 0.364863)",
+            "backgroundColor": "color(srgb 1 0.541176 0.239216 / 0.2)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.986588 0.611059 0.364863) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 1 0.541176 0.239216 / 0.2)",
+              "color(srgb 1 0.541176 0.239216 / 0.24)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 1 0.541176 0.239216 / 0.2)",
+              "color(srgb 1 0.541176 0.239216 / 0.24)"
+            ]
+          }
+        },
+        {
+          "n": 12,
+          "etiqueta": "button.ibtn.card__expand",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1353,
+            "y": 785,
+            "w": 40,
+            "h": 40
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgba(0, 0, 0, 0)",
+              "rgba(255, 255, 255, 0.055)"
+            ]
+          }
+        },
+        {
+          "n": 13,
+          "etiqueta": "button.jc__open",
+          "texto": "",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "grab",
+          "rect": {
+            "x": 307,
+            "y": 740,
+            "w": 188,
+            "h": 160
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 237, 239)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 14,
+          "etiqueta": "button.btn.btn--xs.btn--soft",
+          "texto": "Start diagnosis",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 363,
+            "y": 434,
+            "w": 121,
+            "h": 32
+          },
+          "estilo": {
+            "color": "color(srgb 0.986588 0.611059 0.364863)",
+            "backgroundColor": "color(srgb 1 0.541176 0.239216 / 0.2)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "color(srgb 0.986588 0.611059 0.364863) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "color(srgb 1 0.541176 0.239216 / 0.2)",
+              "color(srgb 1 0.541176 0.239216 / 0.24)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "color(srgb 1 0.541176 0.239216 / 0.2)",
+              "color(srgb 1 0.541176 0.239216 / 0.24)"
+            ]
+          }
+        },
+        {
+          "n": 15,
+          "etiqueta": "button.btn.btn--xs.btn--dark",
+          "texto": "Hand over",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1284,
+            "y": 434,
+            "w": 87,
+            "h": 32
+          },
+          "estilo": {
+            "color": "rgb(14, 15, 17)",
+            "backgroundColor": "rgb(236, 237, 239)",
+            "borderColor": "rgba(0, 0, 0, 0)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(14, 15, 17) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "filter": [
+              "none",
+              "brightness(1.25)"
+            ]
+          },
+          "alApretar": {
+            "filter": [
+              "none",
+              "brightness(1.25)"
+            ]
+          }
+        },
+        {
+          "n": 16,
+          "etiqueta": "a.btn.btn--sm.btn--ghost",
+          "texto": "Schedule",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 527,
+            "y": 431,
+            "w": 96,
+            "h": 38
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgb(22, 24, 27)",
+            "borderColor": "rgba(255, 255, 255, 0.15)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(22, 24, 27)",
+              "rgb(27, 29, 33)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(22, 24, 27)",
+              "rgb(27, 29, 33)"
+            ]
+          }
+        },
+        {
+          "n": 17,
+          "etiqueta": "button.arr__who",
+          "texto": "BMW 330iCA4MNK551Noah Fischer · Brake pa",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 385,
+            "y": 425,
+            "w": 122,
+            "h": 49
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 237, 239)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 18,
+          "etiqueta": "button.seg__btn",
+          "texto": "2W",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 941,
+            "y": 431,
+            "w": 53,
+            "h": 37
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 237, 239)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 19,
+          "etiqueta": "button.tech__state.is-on",
+          "texto": "Toyota · Bay 1",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1286,
+            "y": 440,
+            "w": 107,
+            "h": 21
+          },
+          "estilo": {
+            "color": "rgb(110, 174, 240)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(110, 174, 240)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(110, 174, 240) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          },
+          "alApretar": {
+            "textDecorationLine": [
+              "none",
+              "underline"
+            ]
+          }
+        },
+        {
+          "n": 20,
+          "etiqueta": "a",
+          "texto": "Coolant, 50/50, 1 gal",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 295,
+            "y": 439,
+            "w": 286,
+            "h": 23
+          },
+          "estilo": {
+            "color": "rgb(236, 237, 239)",
+            "backgroundColor": "rgba(0, 0, 0, 0)",
+            "borderColor": "rgb(236, 237, 239)",
+            "boxShadow": "none",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(236, 237, 239) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {},
+          "alApretar": {}
+        },
+        {
+          "n": 21,
+          "etiqueta": "a.cc-preview-pill",
+          "texto": "Buy this template →Buy it →",
+          "transicion": {
+            "propiedad": "all",
+            "duracion": "0s",
+            "curva": "ease",
+            "demora": "0s"
+          },
+          "cursor": "pointer",
+          "rect": {
+            "x": 1253,
+            "y": 840,
+            "w": 171,
+            "h": 44
+          },
+          "estilo": {
+            "color": "rgb(22, 22, 22)",
+            "backgroundColor": "rgb(255, 92, 61)",
+            "borderColor": "rgb(255, 255, 255)",
+            "boxShadow": "rgba(0, 0, 0, 0.35) 4px 4px 0px 0px",
+            "transform": "none",
+            "opacity": "1",
+            "outline": "rgb(22, 22, 22) none 3px",
+            "textDecorationLine": "none",
+            "filter": "none",
+            "scale": "none",
+            "translate": "none"
+          },
+          "alPasar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          },
+          "alApretar": {
+            "backgroundColor": [
+              "rgb(255, 92, 61)",
+              "rgb(255, 122, 95)"
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

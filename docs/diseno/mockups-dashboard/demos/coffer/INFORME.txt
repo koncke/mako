@@ -1,0 +1,112 @@
+##############################################################################
+#  COFFER   bundle 175kB - 31 helpers - 0 chunks - ARQ VANILLA - 30 fromTo crudos
+##############################################################################
+
+CHUNKS: (ninguno: todo en el bundle)
+
+============================ LA LIBRERIA DE ENTRADAS ============================
+
+[t -> export (no exp)]  (t,r,a,s){var c;typeof r==`number`&&(a.duration=r,r=a,a=null),c=e.call(this,s?r:Re(r))||this;var l=c.vars,d=l.duration,f=l.delay,p=l.immediateRender,m=l.stagger,h=l.overwrite,g=l.keyframes,_=l.defaults,v=l.scrollTrigger,b=r.parent||P,C=(E(t)||T(t)?y(t[0]):`length`in r)?[t]:vt(t),D,O,k,A,j,M,N,ee;if(c._targets=C.length?xe(C):se(`GSAP target `+t+` not found. https://gsap.com`,!i.nullTargetWarn)||[],c._ptLookup=[],c._overwrite=h,g||m||w(d)||w(f)){r=c.vars;var te=r.easeReverse||r.yoyoEase;if(D=c.timeline=new dn({data:`nested`,defaults:_||{},targets:b&&b.data...
+
+[co -> export (no exp)]  (e,t=0){if(!e)return U.timeline();let n=so(e);return U.fromTo(n,{yPercent:115},{yPercent:0,duration:eo(.85),ease:`power4.out`,stagger:eo(.022),delay:t,clearProps:`transform`})}
+
+[uo -> export (no exp)]  (e,{y:t=34,stagger:n=.06}={}){let r=lo.switching;return U.fromTo(e,{opacity:0,y:r?14:t,scale:.985},{opacity:1,y:0,scale:1,duration:eo(r?.5:.85),ease:`power3.out`,stagger:eo(r?Math.min(n,.03):n),clearProps:`transform,opacity`})}
+
+[fo -> export (no exp)]  (e,{x:t=0,y:n=12,stagger:r=.045,delay:i=0}={}){return U.fromTo(e,{opacity:0,x:t,y:n},{opacity:1,x:0,y:0,duration:eo(.55),ease:`power3.out`,stagger:eo(r),delay:i,clearProps:`transform,opacity`})}
+
+[po -> export (no exp)]  (e,t,n,{duration:r=1.2,delay:i=0,from:a}={}){if(!e)return;let o=e,s=a??(Number(e.dataset.value)||0);if(e.dataset.value=String(t),o.__count&&U.killTweensOf(o.__count),G.matches||!r||s===t){e.textContent=n(t);return}let c=o.__count={v:s};e.textContent=n(s),U.to(c,{v:t,duration:r,delay:i,ease:`power3.out`,onUpdate:()=>{e.textContent=n(c.v)}})}
+
+[mo -> export (no exp)]  (e){let t=K(`.toast`);t.textContent=e,U.killTweensOf(t),U.timeline().fromTo(t,{opacity:0,y:18,scale:.96},{opacity:1,y:0,scale:1,duration:eo(.45),ease:`back.out(1.8)`}).to(t,{opacity:0,y:10,duration:eo(.3),ease:`power2.in`},`+=2.6`)}
+
+[ho -> export (no exp)]  (e){if(G.matches)return;let t=e.querySelector(`svg`)??e;U.fromTo(t,{scale:.72},{scale:1,duration:.55,ease:`back.out(3)`,overwrite:!0})}
+
+[vo -> export (no exp)]  (e=document){$a.matches&&q(`[data-lift]`,e).forEach(e=>{e.__lift||(e.__lift=!0,e.addEventListener(`pointerenter`,()=>{!G.matches&&_o.v&&U.to(e,{y:-3,duration:.45,ease:`power3.out`,overwrite:`auto`})}),e.addEventListener(`pointerleave`,()=>{_o.v&&U.to(e,{y:0,duration:.5,ease:`power3.out`,overwrite:`auto`,clearProps:`transform`})}))})}
+
+[yo -> export (no exp)]  (e,t){let n=Number(e.dataset.tilt??-9);if(e.hidden=!1,G.matches)return U.set(e,{opacity:1,scale:1,rotation:n}),U.timeline();let r=U.timeline();return r.set(e,{opacity:0,scale:2.1,rotation:n-14,y:-40,transformOrigin:`50% 60%`}).to(e,{opacity:.35,scale:2.25,rotation:n-18,y:-54,duration:.22,ease:`power2.out`}).to(e,{opacity:1,scale:.93,rotation:n+1.5,y:0,duration:.16,ease:`power3.in`}).addLabel(`contact`).to(e,{scale:1,rotation:n,duration:.6,ease:`elastic.out(1.1, .45)`}),t&&r.fromTo(t,{y:0,scale:1},{y:3,scale:.996,duration:.07,ease:`power2.out`,yoyo:!0,rep...
+
+[xo -> export (no exp)]  (e,t){let n=K(`.seg__pill`,e),r=q(`.seg__btn`,e),i=()=>r.find(e=>e.getAttribute(`aria-pressed`)===`true`)??r[0];function a(e=!0){let t=i();if(!t.offsetWidth)return;let r=t.offsetLeft,a=t.offsetWidth/100;if(!e||G.matches){U.set(n,{x:r,scaleX:a});return}let o=Number(U.getProperty(n,`x`)),s=Number(U.getProperty(n,`scaleX`)),c=Math.abs(r-o)/100*.3;U.to(n,{x:r,duration:.5,ease:`power3.inOut`,overwrite:`auto`}),U.to(n,{keyframes:{scaleX:[s,Math.max(a,s)+c,a]},duration:.5,ease:`power2.inOut`})}function o(e,{silent:n=!1}={}){let o=r.find(t=>t.dataset.value===e);...
+
+[a -> export (no exp)]  (e=!0){let t=i();if(!t.offsetWidth)return;let r=t.offsetLeft,a=t.offsetWidth/100;if(!e||G.matches){U.set(n,{x:r,scaleX:a});return}let o=Number(U.getProperty(n,`x`)),s=Number(U.getProperty(n,`scaleX`)),c=Math.abs(r-o)/100*.3;U.to(n,{x:r,duration:.5,ease:`power3.inOut`,overwrite:`auto`}),U.to(n,{keyframes:{scaleX:[s,Math.max(a,s)+c,a]},duration:.5,ease:`power2.inOut`})}
+
+[Eo -> export (no exp)]  (e,t){let n=document.getElementById(e);n&&((wo[e]??[]).forEach(e=>e(n,t)),n.showModal(),G.matches||(U.fromTo(n,{opacity:0,y:14,scale:.97},{opacity:1,y:0,scale:1,duration:.4,ease:`back.out(1.6)`,clearProps:`transform,opacity`}),U.fromTo(q(`.field, .dlg__row, .dlg__text, .check`,n),{opacity:0,y:8},{opacity:1,y:0,duration:.4,stagger:.035,delay:.05,ease:`power3.out`,clearProps:`transform,opacity`})))}
+
+[jo -> export (no exp)]  (e,t){let n=K(`#sheet`),r=K(`.sheet__body`,n);return r.innerHTML=e,n.setAttribute(`aria-label`,t),Ao=document.activeElement,n.hidden=!1,K(`#app`).inert=!0,K(`.sheet__close`,n).focus(),G.matches||(U.fromTo(K(`.sheet__panel`,n),{x:60,opacity:0},{x:0,opacity:1,duration:.5,ease:`power3.out`,clearProps:`transform,opacity`}),U.fromTo(K(`.sheet__scrim`,n),{opacity:0},{opacity:1,duration:.35}),fo(q(`[data-file]`,r),{y:10,stagger:.04,delay:.12})),r}
+
+[Mo -> export (no exp)]  (){let e=K(`#sheet`);if(e.hidden)return;let t=()=>{e.hidden=!0,K(`#app`).inert=!1,U.set([K(`.sheet__panel`,e),K(`.sheet__scrim`,e)],{clearProps:`all`}),Ao?.focus?.()};if(G.matches)return t();U.to(K(`.sheet__panel`,e),{x:40,opacity:0,duration:eo(.28),ease:`power2.in`}),U.to(K(`.sheet__scrim`,e),{opacity:0,duration:eo(.28),onComplete:t})}
+
+[Mc -> export (no exp)]  (e,{slices:t,fmt:n,caption:r,centre:i,animate:a=!0}){let o=t.reduce((e,t)=>e+t.value,0)||1,s=2*Math.PI*62,c=0;e.innerHTML=`<svg viewBox="0 0 160 160" aria-hidden="true" focusable="false"><g transform="rotate(-90 80 80)"><circle class="d-track" r="62" cx="80" cy="80"/>${t.map((e,t)=>{let n=Math.max(0,e.value/o*s-2.5),r=-c;return c+=e.value/o*s,`<circle class="d-arc" data-i="${t}" r="62" cx="80" cy="80" style="stroke:${e.tone}" stroke-dasharray="${n} ${s}" stroke-dashoffset="${r}" data-len="${n}"/>`}).join(``)}</g></svg><div class="donut__centre"><b>${J(i[...
+
+[Pc -> export (no exp)]  (e,t,n=!0){let r=t.reduce((e,t)=>e+t,0)||1,i=0,a=t.map(e=>(i+=e)/r);e.children.length||(e.innerHTML=a.map((e,t)=>`<span class="aging__seg aging__seg--${t}" style="z-index:${4-t}"></span>`).reverse().join(``)),[...e.querySelectorAll(`.aging__seg`)].reverse().forEach((e,t)=>{let r=a[t]??0;!n||G.matches?U.set(e,{scaleX:r}):U.to(e,{scaleX:r,duration:.9,ease:`power3.inOut`,delay:t*.04})})}
+
+[Gc -> export (no exp)]  (e,t){if(e.length){if(t&&!G.matches){let e=t.querySelector(`svg`);e&&U.fromTo(e,{x:0,y:0,rotation:0},{keyframes:[{x:10,y:-8,rotation:12,opacity:0,duration:.28,ease:`power2.in`},{x:-6,y:4,opacity:0,duration:0},{x:0,y:0,rotation:0,opacity:1,duration:.35,ease:`back.out(2)`}]})}Js(e),mo(e.length===1?`Reminder sent`:`${e.length} reminders sent`)}}
+
+[Jc -> export (no exp)]  (){Bc(!1),Vc(),Uc(),Wc(!1),G.matches||U.fromTo(q(`.due`,Ic()),{opacity:.4},{opacity:1,duration:eo(.4),stagger:.03})}
+
+[gl -> export (no exp)]  (e,{animateFigures:t=!1}={}){let n=dl(),r=Cs(e.inv,e.t),i=K(`[data-iv-paper]`,n);i.innerHTML=_c(gc(e.inv,e.client,e.status,r)),i.classList.toggle(`paper--draft`,e.status===`draft`);let a=K(`#t-invoice`,n);a.textContent=e.inv.no,delete a.dataset.split,K(`[data-iv-sub]`,n).innerHTML=`${J(e.client.name)} · ${fc(e.status,pc(e.inv,e.status))}`,document.title=`${e.inv.no} · Coffer`;let o=K(`[data-iv-due-label]`,n),s=K(`[data-iv-due-note]`,n);o.textContent=e.status===`paid`?`Paid in full`:e.status===`draft`?`Total`:`Balance due`,po(K(`[data-iv-balance]`,n),e.st...
+
+[xl -> export (no exp)]  (e){fl=e.id??``;let t=js(fl),n=dl();if(!t)return _l(),U.timeline();gl(t);let r=U.timeline();return r.add(fo([K(`.back`,n),K(`.head__sub`,n)],{y:8}),0),r.add(U.fromTo(K(`#t-invoice`,n),{opacity:0,y:14},{opacity:1,y:0,duration:eo(.6),ease:`power3.out`,clearProps:`transform,opacity`}),0),r.add(U.fromTo(K(`[data-iv-paper]`,n),{opacity:0,y:30,rotation:-1.2},{opacity:1,y:0,rotation:0,duration:eo(.9),ease:`power3.out`,clearProps:`transform,opacity`}),.05),r.add(uo(q(`.iv-side .card`,n),{stagger:.08}),.15),r.add(fo(q(`.timeline__item`,n),{x:10,y:0,stagger:.05}),...
+
+[Pl -> export (no exp)]  (e){let t=null,n=Tl();Nl(`client`,e.clientId?``:`Choose who this invoice is for.`),e.clientId||(t??=n.elements.namedItem(`client`));let r=e.lines.filter(e=>e.desc&&e.qty>0&&e.rate>0),i=e.lines.findIndex(e=>(e.desc||e.rate)&&!(e.desc&&e.qty>0&&e.rate>0));return q(`.ed-line`,wl()).forEach((e,t)=>e.classList.toggle(`is-invalid`,t===i)),r.length?i>=0?(Nl(`lines`,`Item ${i+1} needs a description, a quantity and a rate — or remove it.`),t??=K(`.ed-line:nth-child(${i+1}) [name="desc"]`,wl())):Nl(`lines`,``):(Nl(`lines`,`Add at least one item with a description,...
+
+[Fl -> export (no exp)]  (e={desc:``,qty:1,rate:0,tax:$.business.tax},t=!0){let n=K(`[data-ed-lines]`,wl());n.insertAdjacentHTML(`beforeend`,Dl(e,n.children.length));let r=n.lastElementChild;t&&(K(`[name="desc"]`,r).focus(),G.matches||U.fromTo(r,{opacity:0,y:-8},{opacity:1,y:0,duration:.4,ease:`power3.out`,clearProps:`transform,opacity`})),Al()}
+
+[Ll -> export (no exp)]  (){let e=wl(),t=Tl();t.addEventListener(`input`,Al),K(`[data-ed-add]`,e).addEventListener(`click`,()=>Fl()),K(`[data-ed-lines]`,e).addEventListener(`click`,e=>{let t=e.target.closest(`[data-ed-remove]`);if(!t)return;let n=t.closest(`.ed-line`),r=n.parentElement,i=n.nextElementSibling??n.previousElementSibling,a=()=>{n.remove(),r.children.length||Fl(void 0,!1),Il(),Al(),K(`[name="desc"]`,i?.isConnected?i:r.lastElementChild).focus()};G.matches?a():U.to(n,{opacity:0,x:16,duration:.25,ease:`power2.in`,onComplete:a})});let n=t.elements.namedItem(`issued`),r=t...
+
+[Rl -> export (no exp)]  (e){let t=wl(),n=Tl();El=e.id;let r=El?As(El):void 0,i=K(`#t-editor`,t);i.textContent=r?`Edit ${r.no}`:`New invoice`,delete i.dataset.split;let a=K(`[data-ed-back]`,t);a.href=r?`#invoices/${r.id}`:`#invoices`,a.lastChild.textContent=r?r.no:`Invoices`,document.title=`${i.textContent} · Coffer`,n.reset(),[`client`,`lines`].forEach(e=>Nl(e,``)),K(`[data-ed-lines]`,t).innerHTML=``,q(`.is-invalid`,t).forEach(e=>e.classList.remove(`is-invalid`));let o=e.query.get(`client`)??``,s=ks(r?.clientId??o);jl(s?.id??``);let c=r?.issued??X,l=r?es(r.issued,r.due):s?.term...
+
+[Yl -> export (no exp)]  (e=!1){let t=Bl(),n=Jl(),r=n.slice(0,Hl),i=K(`[data-ex-rows]`,t);if(i.innerHTML=r.map(e=>{let t=ks(e.clientId);return`<tr data-id="${e.id}" class="${e.id===Gl?`is-fresh`:``}">       <td data-label="Date">${J(ds(e.date))}</td>       <th scope="row">${J(e.vendor)}<small>${J(e.method)}${t?` · billable to ${J(t.name)}`:``}</small></th>       <td><span class="tag">${J(e.category)}</span></td>       <td data-label="Receipt">${e.receipt?`<span class="receipt receipt--ok"><svg aria-hidden="true"><use href="#i-check"/></svg>Kept</span>`:`<button class="receipt re...
+
+[Xl -> export (no exp)]  (){let e=Bl(),t=K(`[data-ex-cat]`,e);t.insertAdjacentHTML(`beforeend`,Yo.map(e=>`<option>${e}</option>`).join(``)),t.addEventListener(`change`,()=>{Ul=t.value,Hl=Vl,Yl(!0)}),K(`[data-ex-q]`,e).addEventListener(`input`,e=>{Wl=e.target.value,Hl=Vl,Yl()}),K(`[data-ex-more]`,e).addEventListener(`click`,()=>{let t=Hl;Hl+=Vl,Yl(),fo(q(`[data-ex-rows] tr`,e).slice(t),{y:6,stagger:.015})}),K(`[data-ex-rows]`,e).addEventListener(`click`,e=>{let t=e.target,n=t.closest(`[data-receipt]`);if(n?.dataset.receipt){$s(n.dataset.receipt,!0),mo(`Receipt marked as kept`);re...
+
+[ku -> export (no exp)]  (){let e=wu();K(`[data-st-currency]`,e).innerHTML=Xo.map(e=>`<option>${e}</option>`).join(``);let t=(t,n,r)=>{let i=K(t,e);i.addEventListener(`submit`,e=>{if(e.preventDefault(),!i.reportValidity())return;let t=new FormData(i),a={};for(let e of n){let n=String(t.get(e)??``).trim();a[e]=e===`terms`||e===`tax`?Number(n):n}nc(a),ho(K(`button[type="submit"]`,i)),mo(r)})};t(`[data-st-business]`,[`name`,`email`,`address`,`taxId`],`Business details saved`),t(`[data-st-defaults]`,[`currency`,`prefix`,`terms`,`tax`,`footer`],`Invoice defaults saved`),Tu=xo(K(`[dat...
+
+[zu -> export (no exp)]  (e=!0){let t=K(`[data-nav]`),n=K(`.side__pill`,t),r=oo(`.nav[aria-current="page"]`,t);if(!r||!r.offsetHeight){U.to(n,{opacity:0,duration:eo(.2)});return}let i=r.offsetTop,a=r.offsetHeight/40;if(!e||G.matches||!Number(U.getProperty(n,`opacity`))){U.set(n,{y:i,scaleY:a,opacity:1});return}let o=Number(U.getProperty(n,`y`)),s=Number(U.getProperty(n,`scaleY`)),c=Math.abs(i-o)/40*.22;U.to(n,{y:i,opacity:1,duration:.55,ease:`power3.inOut`,overwrite:`auto`}),U.to(n,{keyframes:{scaleY:[s,Math.max(a,s)+c,a]},duration:.55,ease:`power2.inOut`})}
+
+[Vu -> export (no exp)]  (e,{first:t=!1}={}){if(Lu&&e.key===Lu.key)return;let n=Lu;Lu=e,Bu(e.view),zu(!t),Mo(),Yu(),document.title=`${Pu[e.view]} · Coffer`;let r=Iu(e.view),i=Nu[e.view],a=()=>{lo.switching=!t,r.hidden=!1,r.style.visibility=``,t||(window.scrollTo({top:0}),oo(`.head__title`,r)?.focus({preventScroll:!0}));let n=i.enter(e);G.matches&&n?.progress(1)};if(n&&n.view===e.view){if(Ru?.progress(1),G.matches)return a();Ru=U.timeline().to(r,{opacity:0,duration:.14,ease:`power2.in`}).add(()=>{U.set(r,{clearProps:`opacity`}),a()});return}let o=n?Iu(n.view):null;if(!o)return a(...
+
+[Uu -> export (no exp)]  (){let e=Ms().filter(e=>e.status===`overdue`).length,t=K(`[data-overdue-badge]`);t.hidden=e===0,t.textContent=String(e),t.setAttribute(`aria-label`,`${e} overdue`),K(`[data-overdue-dot]`).hidden=e===0,K(`[data-overdue-link]`).setAttribute(`aria-label`,e?`${e} overdue invoices`:`No overdue invoices`),_o.v&&Hu!==-1&&e!==Hu&&!G.matches&&U.fromTo(t,{scale:1.4},{scale:1,duration:.5,ease:`back.out(3)`}),Hu=e}
+
+[od -> export (no exp)]  (){Do(),No(),Object.values(Nu).forEach(e=>e.init()),Wu(),Uu(),go(),vo();let e=qo(location.hash);if(q(`.view`).forEach(t=>t.hidden=t.dataset.view!==e.view),G.matches||(Iu(e.view).style.visibility=`hidden`),G.matches){U.set(Mu,{opacity:1}),Vu(e,{first:!0}),_o.v=!0;return}let t=e=>!!e&&getComputedStyle(e).display!==`none`&&e.offsetParent!==null,n=[oo(`.side .brand`),oo(`.side__new`),...q(`.side__nav > :not(.side__pill)`),oo(`.side__foot`)].filter(t),r=[oo(`.topbar .brand--compact`),oo(`.find`),...q(`.topbar__actions > *`),...q(`.tabbar .tab`)].filter(t);U.t...
+
+========================== TIMELINE DEL ARMAZON ==========================
+(this)},e}(),Za=function(){function e(e){this.id=e,this.actions=[],this._kill=[],this._final=[],this._abs=[],this._run=[],this.data={},this.state=new Ja,this.timeline=Yi.timeline()}var t=e.prototype;return t.add=function(e){var t=this.actions.filter(function(t){return t.vars===e});return t.length?t[0]:(t=new Xa(typeof e==`function`?{animate:e}:e,this),this.actions.push(t),t)},t.remove=function(e){var t=this.actions.indexOf(e);return t>=0&&this.actions.splice(t,1),this},t.getState=function(e){var t=this,n=W,r=Xi;return W=this,this.state.clear(),this._kill.length=0,this.actions.forEach(function(n){n.vars.getState&&(n.states.length=0,Xi=n,n.state=n.vars.getState(n)),e&&n.states.forEach(function(e){return t.state.add(e)})}),Xi=r,W=n,this.killConflicts(),this},t.animate=function(){var e=this,t=W,n=this.timeline,r=this.actions.length,i,a;for(W=this,n.clear(),this._abs.length=this._final.length=this._run.length=0,this.actions.forEach(function(e){e.vars.animate&&e.vars.animate(e);var t=e.vars.onEnter,n=e.vars.onLeave,r=e.targets,i,a;r&&r.length&&(t||n)&&(i=new Ja,e.states.forEach(function(e){return i.add(e)}),a=i.compare(Qa.getState(r)),a.enter.length&&t&&t(a.enter),a.leave.length&&n&&n(a.leave))}),Oa(this._abs),this._run.forEach(function(e){return e()}),a=n.duration(),i=this._final.slice(0),n.add(function(){a<=n.time()&&(i.forEach(function(e){return e()}),ea(e,`onComplete`))}),W=t;r--;)this.actions[r].vars.once&&this.actions[r].kill();return ea(this,`onStart`),n.restart(),this},t.loadState=function(e){e||=function(){return 0};var t=[];return this.actions.forEach(function(n){if(n.vars.loadState){var r,i=function i(a){a&&(n.targets=a),r=t.indexOf(i),~r&&(t.splice(r,1),t.length||e())};t.push(i),n.vars.loadState(i)}}),t.length||e(),this},t.setState=function(){return this.actions.forEach(function(e){return e.targets=e.vars.setState&&e.vars.setState(e
+
+========================== CSS: HOVER / ACTIVE / FOCUS ==========================
+  :focus-visible { box-shadow:var(--focus);border-radius:8px;outline:none }
+  .skip:focus-visible { transform:none }
+  .nav:hover { color:var(--ink) }
+  .nav:not([aria-current=page]):hover { background:color-mix(in srgb, var(--panel) 70%, transparent) }
+  .find__input:focus-visible { border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent);border-radius:var(--r-sm) }
+  .btn--primary:hover { background:var(--a-800) }
+  :root[data-theme=dark] .btn--primary:hover { background:var(--a-700) }
+  :root[data-theme=dark]:not([data-accent]) .btn--primary:hover { background:#cfd4dc }
+  .btn--ghost:hover { border-color:var(--muted) }
+  .icon-btn:hover { color:var(--ink);border-color:var(--muted) }
+  .link:hover { text-decoration-color:currentColor }
+  .head__title:focus,.head__title:focus-visible { box-shadow:none }
+  .back:hover { color:var(--ink) }
+  .field input:focus-visible,.field select:focus-visible,.field textarea:focus-visible,.mini-search input:focus-visible { border-color:var(--ring);box-shadow:0 0 0 3px color-mix(in srgb, var(--ring) 22%, transparent);border-radius:var(--r-sm) }
+  a.hbar:hover .hbar__label { color:var(--accent-text) }
+  .chart:focus-visible { border-radius:10px }
+  .due__main:hover b { color:var(--accent-text) }
+  .feed__text:hover { color:var(--accent-text) }
+  .sum:hover { border-color:var(--hair-strong) }
+  .inv-row:hover { background:color-mix(in srgb, var(--accent-soft) 45%, transparent) }
+  .inv-row__no:hover { color:var(--accent-text) }
+  .receipt--missing:hover { background:var(--amber-bg) }
+  .cl:hover { border-color:var(--hair-strong) }
+  .sh-list a:hover { background:var(--panel) }
+  .swatch:focus-visible { box-shadow:inset 0 0 0 3px var(--card), 0 0 0 2px var(--ink), 0 0 0 5px var(--ring);border-radius:50% }
+
+  -- keyframes --
+
+  -- transitions --
+  transition:background-color .15s
+  transition:background-color .2s
+  transition:background-color .2s,border-color .2s,color .2s
+  transition:border-color .2s
+  transition:color .2s
+  transition:color .2s,background-color .2s
+  transition:color .2s,border-color .2s
+  transition:opacity .15s
+  transition:opacity .2s
