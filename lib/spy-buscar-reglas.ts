@@ -139,8 +139,11 @@ export function planDeBusqueda(texto: string): PlanDeBusqueda {
   const u = usuarioDeTexto(t);
   if (u) return { ...VACIO, instagramExacto: u, fijar: u, nombre: t, youtubeExacto: /^[a-z0-9._-]{3,30}$/i.test(u) ? `@${u}` : null };
 
-  // 8. Un nombre: se busca por nombre, y su nombre pegado se prueba como @ («Leila Hormozi» → @leilahormozi).
-  return { ...VACIO, nombre: t.slice(0, 80), instagramExacto: usuariosCandidatos(t)[0] ?? null };
+  // 8. Un nombre: se busca por nombre, y su nombre pegado se prueba como @ («Leila Hormozi» → @leilahormozi), en
+  //    Instagram Y en YouTube. ⚠️ Antes sólo en Instagram (Martín, 4/11: «pongo un espacio… solamente me trae
+  //    Instagram»): con un nombre, YouTube dependía entero de Google, y Google devuelve videos que se tiraban.
+  const pegado = usuariosCandidatos(t)[0] ?? null;
+  return { ...VACIO, nombre: t.slice(0, 80), instagramExacto: pegado, youtubeExacto: pegado && /^[a-z0-9._-]{3,30}$/i.test(pegado) ? `@${pegado}` : null };
 }
 
 /** ¿Este plan pide algo que tarda? Es lo que decide si se muestran los mensajes de espera. */
@@ -252,6 +255,30 @@ export function canalesDeGoogle(cuerpo: unknown): CanalHallado[] {
     if (out.length >= POR_RED) break;
   }
   return out;
+}
+
+/** El id de un VIDEO de YouTube en un enlace (`/watch?v=`, `/shorts/`, `/live/`, `youtu.be/`), o null. */
+export function videoDeUrl(crudo: string): string | null {
+  let u: URL;
+  try { u = new URL(str(crudo)); } catch { return null; }
+  const host = u.hostname.toLowerCase().replace(/^(www|m)\./, '');
+  const [a, b] = u.pathname.split('/').filter(Boolean);
+  const id = host === 'youtu.be' ? a : host === 'youtube.com' ? (a === 'watch' ? u.searchParams.get('v') : a === 'shorts' || a === 'live' || a === 'embed' ? b : null) : null;
+  return id && /^[A-Za-z0-9_-]{11}$/.test(id) ? id : null;
+}
+
+/**
+ * Los VIDEOS de YouTube de una respuesta de Google, sin repetir. ⚠️ Es la mayoría de lo que Google devuelve para
+ * `site:youtube.com`: antes se tiraban (un video no dice de qué canal es sin leerlo) y una búsqueda por nombre no traía
+ * ningún canal. Ahora se leen con `videos.list` (1 unidad por todos) y se ofrece el canal de cada uno.
+ */
+export function videosDeGoogle(cuerpo: unknown): string[] {
+  const vistos = new Set<string>();
+  for (const o of organicos(cuerpo)) {
+    const id = videoDeUrl(o.url);
+    if (id) vistos.add(id);
+  }
+  return [...vistos].slice(0, 20);
 }
 
 /**
@@ -366,7 +393,7 @@ export const normalizarClave = (s: string): string => (s ?? '').normalize('NFD')
 /** Lo que contestó cada pedido, por su clave. `{ fallo: true }` = no contestó (cortado, 5xx, sin red). */
 export type RespuestasBusqueda = Record<string,
   | { fallo: true }
-  | { perfil?: PerfilHallado | null; perfiles?: PerfilHallado[]; instagram?: PerfilHallado[]; youtube?: CanalHallado[]; canal?: CanalHallado | null; vacio?: 'sin-clave' | 'limite' | 'fallo' | null }
+  | { perfil?: PerfilHallado | null; perfiles?: PerfilHallado[]; instagram?: PerfilHallado[]; youtube?: CanalHallado[]; canal?: CanalHallado | null; vacio?: 'sin-clave' | 'limite' | 'fallo' | null; vacioYoutube?: 'sin-clave' | 'fallo' | null }
 >;
 
 /** Los @ y canales que el negocio ya mira: no se buscan ni se ofrecen (salen en «Ya los miras»). */
@@ -462,7 +489,24 @@ export function filasDeLaBusqueda(plan: PlanDeBusqueda, resp: RespuestasBusqueda
   if (plan.nombre && !plan.fijar && !enCamino(c.g) && !enCamino(c.ign)) filas.push({ k: 'n', tipo: 'nombre', grupo: 'nombre', nombre: plan.nombre });
 
   const claves = [c.ig, c.g, c.ign, c.yt].filter((k): k is string => !!k);
+  // ── Qué se dice de YouTube cuando no trae ningún canal ─────────────────────
+  // ⚠️ NUNCA UNA LISTA QUE PARECE COMPLETA Y NO LO ES (Martín, 4/11: «solamente me trae Instagram»). Con Instagram
+  // lleno y YouTube vacío no se decía nada: no se sabía si YouTube se había buscado. Ahora el grupo de YouTube dice
+  // lo que pasó: no hay canales con ese nombre, o no se pudo buscar (y por qué).
+  const delYoutube = [c.yt, c.g].map((k) => r(k)).filter(Boolean) as NonNullable<ReturnType<typeof r>>[];
+  // Sin la clave de la YouTube Data API (la del negocio o la de la plataforma) es NUESTRO problema: «no pude», sin pedirle
+  // nada. Sin la clave de Apify (la de Spy del negocio), Google no buscó: eso sí se le pide.
+  const motivosYoutube = delYoutube.map((x) => ('fallo' in x ? 'fallo' : x.vacioYoutube ? 'fallo' : x.youtube !== undefined ? x.vacio ?? null : null));
+  const youtubeEstado: 'cargando' | 'hay' | 'ninguno' | 'no-pude' | 'sin-clave' | 'sin-cupo' | null =
+    !c.yt && !c.g ? null
+      : youtubeCargando ? 'cargando'
+      : youtube.length || filas.some((f) => f.grupo === 'youtube') ? 'hay'
+      : motivosYoutube.includes('fallo') ? 'no-pude'
+      : motivosYoutube.includes('sin-clave') ? 'sin-clave'
+      : motivosYoutube.includes('limite') ? 'sin-cupo'
+      : 'ninguno';
   return {
+    youtubeEstado,
     filas,
     instagram,
     instagramCargando,

@@ -53,7 +53,8 @@ export async function GET(req: NextRequest) {
     return Response.json({ ok: true, ...(await buscarEnInstagram(ws, q)) });
   }
   if (fuente === 'yt') {
-    return Response.json({ ok: true, canal: await leerCanalHallado((sp.get('ref') ?? '').trim().slice(0, 200)) });
+    const l = await leerCanalHallado((sp.get('ref') ?? '').trim().slice(0, 200));
+    return Response.json({ ok: true, canal: l.canal, vacioYoutube: l.vacio });
   }
   if (fuente === 'completar') {
     // Sólo usuarios válidos, sin repetidos y no más de los que se completan: el cupo no se gasta por un pedido armado a mano.
