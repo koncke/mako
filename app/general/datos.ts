@@ -229,6 +229,11 @@ async function datosDelPlan(): Promise<DatosGeneral['plan']> {
   const proyectosConFecha = vivos.filter((l) => l.deadline && l.deadline <= hasta).sort((a, b) => (a.deadline ?? '').localeCompare(b.deadline ?? '')).slice(0, TOPE_DEADLINES);
   const etiquetas = new Map<string, Label>();
   for (const t of [...prioridades, ...top, ...conFecha]) for (const id of t.labels) { const l = labelPorId.get(id); if (l) etiquetas.set(id, l); }
+  // Lo de HOY para Focus (lib/focus-diseno.ts): de las que vencen hoy, cuántas ya se cerraron; y cuántas abiertas están vencidas.
+  const conFin = [...porId.values()].filter((t) => !esRecurrente(t));
+  const vencenHoy = conFin.filter((t) => t.deadline === hoy);
+  const deHoy = { cerradas: vencenHoy.filter((t) => t.progress >= 100).length, total: vencenHoy.length };
+  const vencidas = abiertas.filter((t) => t.deadline && t.deadline < hoy).length;
   return {
     ok: true,
     d: {
@@ -236,6 +241,8 @@ async function datosDelPlan(): Promise<DatosGeneral['plan']> {
       top: top.map(liviana),
       deadlines: { tareas: conFecha.map(liviana), proyectos: proyectosConFecha.map(livianoP) },
       hoy,
+      deHoy,
+      vencidas,
       objetivo: objetivo ? livianoP(objetivo) : null,
       proyectos: [...mostrados.values()].map(livianoP),
       etiquetas: [...etiquetas.values()].map(livianoP),

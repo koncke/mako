@@ -123,6 +123,7 @@ export function ProveedorGeneral({ datos, variables, children }: { datos: DatosG
     muestra: (p, op) => muestraDeBloque(p, datos, op),
     variables,
     funnels: datos.funnels.ok ? datos.funnels.d.map((f) => ({ id: f.id, nombre: f.nombre })) : null,
+    datos,
   }), [datos, variables]);
   return (
     <ContextoGeneral valor={valor}>

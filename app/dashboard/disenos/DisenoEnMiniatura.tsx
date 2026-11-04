@@ -5,7 +5,7 @@
 // =============================================================================
 // Martín, 4/11/2026, mirando producción: «en "Closing" la miniatura no es para nada igual». La miniatura dibujaba la GRILLA de
 // la plantilla (sus tarjetas en sus lugares), y mirando la hoja se ve su DISEÑO (la copia de Halden). Ahora una plantilla con
-// diseño se dibuja con SU componente —el mismo que monta el Dashboard (./HojaClosing.tsx, ./HojaCobranza.tsx)—, con los datos de ejemplo de cada
+// diseño se dibuja con SU componente —el mismo que monta el Dashboard (./HojaClosing.tsx, ./HojaCobranza.tsx, ./HojaFocus.tsx)—, con los datos de ejemplo de cada
 // pieza (lib/graficos-muestra.ts, los mismos que la miniatura de una grilla) y QUIETO: sin la entrada, sin cifras que cuentan
 // y sin leer la caja de IA. Lo escala ./MiniaturaHoja.tsx.
 //
@@ -20,6 +20,8 @@ import { resultadoDeMuestra } from '@/lib/graficos-muestra';
 import type { DatosPieza } from '@/lib/closing-diseno';
 import { HojaClosing, type ExtrasClosing } from './HojaClosing';
 import { HojaCobranza } from './HojaCobranza';
+import { HojaFocus } from './HojaFocus';
+import type { VistaFocus } from '@/lib/focus-diseno';
 
 const dia = (hoy: string, n: number) => { const d = new Date(`${hoy}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const resultado = (columnas: string[], totales: Array<number | null>, filas: Resultado['filas'] = [], anterior?: Array<number | null>): DatosPieza => ({
@@ -106,6 +108,61 @@ function datosCobranza(hoja: Hoja, hoy: string): Record<string, DatosPieza> {
   return Object.fromEntries(Object.entries(p).flatMap(([k, id]) => (out[k] ? [[id, out[k]]] : [])));
 }
 
+/**
+ * El día de ejemplo de Focus, con la forma que dibuja la hoja (lib/focus-diseno.ts): los de la maqueta de la adaptación
+ * (docs/diseno/mockups-dashboard/focus-pane/focus.html). Focus no lee piezas: lee los datos de General, que la galería no tiene.
+ */
+function vistaFocusMuestra(hoy: string): VistaFocus {
+  const lunes = dia(hoy, -((new Date(`${hoy}T12:00:00Z`).getUTCDay() + 6) % 7));
+  const cuantos = [1, 2, 4, 1, 1, 0, 0];
+  const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((etiqueta, i) => {
+    const d = dia(lunes, i);
+    return { dia: d, etiqueta, n: cuantos[i], tipo: (d < hoy ? 'pasado' : d === hoy ? 'hoy' : 'futuro') as 'pasado' | 'hoy' | 'futuro' };
+  });
+  const ev = (id: string, titulo: string, hora: string, llamada = false, fin: string | null = null) =>
+    ({ id, titulo, inicio: `${hoy}T${hora}:00Z`, fin: fin ? `${hoy}T${fin}:00Z` : null, diaCompleto: false, detalle: llamada ? 'Llamada de venta' : null, href: llamada ? '/crm' : null, llamada });
+  const ventas = { nombre: 'Ventas de noviembre', color: '#2F6FED' }, creativos = { nombre: 'Creativos de Meta', color: '#7C5CFB' };
+  return {
+    resumen: { tareas: { cerradas: 2, total: 7 }, llamadas: { pasaron: 1, total: 3 }, vencidas: 1 },
+    anillos: [{ id: 'tareas', nombre: 'Tareas', v: 2, de: 7 }, { id: 'llamadas', nombre: 'Llamadas', v: 1, de: 3 }, { id: 'kpis', nombre: 'KPIs del día', v: 2, de: 4 }],
+    viene: {
+      proxima: ev('p', 'R2 con Laura Méndez', '11:30', true, '12:15'),
+      despues: [ev('a', 'R1 con Carlos Ibarra', '16:00', true), ev('b', 'Revisión de creativos', '17:30'), ev('c', 'Publicación: reel del método', '19:00')],
+    },
+    meta: { titulo: 'US$30,000 de facturación', pct: 62, esperado: 58, diasRestantes: 57, atrasado: false },
+    tareas: {
+      deHoy: true,
+      lista: [
+        { id: '1', titulo: 'Preparar la R2 de Laura Méndez', proyecto: ventas, cuando: 'Hoy', prio: 'urgente' },
+        { id: '2', titulo: 'Grabar tres hooks nuevos', proyecto: creativos, cuando: 'Hoy', prio: 'alta' },
+        { id: '3', titulo: 'Revisar el guion de la VSL', proyecto: { nombre: 'Nueva VSL', color: '#1E9E57' }, cuando: 'Hoy', prio: 'alta' },
+        { id: '4', titulo: 'Mandar la propuesta a Jorge Salinas', proyecto: ventas, cuando: 'Ayer', prio: 'urgente' },
+        { id: '5', titulo: 'Armar el reporte de octubre', proyecto: { nombre: 'Operación', color: '#C8870C' }, cuando: 'Hoy', prio: null },
+        { id: '6', titulo: 'Responder las dudas del taller', proyecto: { nombre: 'Taller grupal', color: '#D6489B' }, cuando: 'Hoy', prio: null },
+      ],
+    },
+    semana: { dias, total: cuantos.reduce((a, b) => a + b, 0), vencidas: 1 },
+    proyectos: [
+      { id: 'p1', nombre: 'Ventas de noviembre', emoji: '🚀', color: '#2F6FED', deadline: dia(hoy, 26), pct: 47, abiertas: 8 },
+      { id: 'p2', nombre: 'Creativos de Meta', emoji: '🎬', color: '#7C5CFB', deadline: dia(hoy, 7), pct: 45, abiertas: 5 },
+      { id: 'p3', nombre: 'Nueva VSL', emoji: '🧭', color: '#1E9E57', deadline: dia(hoy, 11), pct: 50, abiertas: 3 },
+      { id: 'p4', nombre: 'Taller grupal', emoji: '🎓', color: '#D6489B', deadline: dia(hoy, 28), pct: 30, abiertas: 6 },
+      { id: 'p5', nombre: 'Campaña de fin de año', emoji: '📣', color: '#C8870C', deadline: dia(hoy, 63), pct: 0, abiertas: 4 },
+    ],
+    espera: {
+      cobros: [
+        { leadId: 1, pagoId: 1, nombre: 'Carlos Méndez', linea: 'US$2,475 · venció hace 67 días', urgencia: 'vencida' },
+        { leadId: 2, pagoId: 2, nombre: 'Lucía Ramos', linea: 'US$5,181 · venció hace 5 días', urgencia: 'vencida' },
+        { leadId: 3, pagoId: 3, nombre: 'Diego Fuentes', linea: 'US$2,007 · vence hoy', urgencia: 'pronto' },
+        { leadId: 4, pagoId: 4, nombre: 'Sofía Herrera', linea: 'US$1,200 · vence el viernes', urgencia: null },
+        { leadId: 5, pagoId: 5, nombre: 'Pablo Ortiz', linea: 'US$600 · vence el 12/11', urgencia: null },
+        { leadId: 6, pagoId: 6, nombre: 'Valeria Castro', linea: 'US$920 · vence el 14/11', urgencia: null },
+      ],
+      leads: [{ tipo: 'A', n: 3, texto: 'sin asistencia a R1' }],
+    },
+  };
+}
+
 const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<string, DatosPieza>; hoy: string }) => ReactNode> = {
   closing: ({ hoja, datos, hoy }) => (
     // Con sus botones y links, como se ve la hoja (en la miniatura no se tocan: `pointer-events: none`); `quieta` no lee la caja de IA.
@@ -114,6 +171,10 @@ const MINIATURAS: Record<DisenoHoja['id'], (p: { hoja: Hoja; datos: Record<strin
   cobranza: ({ hoja, datos, hoy }) => (
     <HojaCobranza hoja={hoja} datos={{ ...datos, ...datosCobranza(hoja, hoy) }} extras={{ quien: { saludo: 'Buenos días', nombre: 'Ana', fecha: '' } }}
       hoy={hoy} periodo="Este mes" onGrilla={() => {}} onFila={() => {}} quieta />
+  ),
+  foco: ({ hoy }) => (
+    <HojaFocus vista={vistaFocusMuestra(hoy)} titulo="Buenos días, Ana" sub="Miércoles 4 de noviembre · 3 llamadas y 7 tareas para hoy" hoy={hoy} tz="UTC"
+      ahora={null} metaAccion={<span className="fp-btn fp-btn--accent fp-focus__go">Editar la meta</span>} onGrilla={() => {}} quieta />
   ),
 };
 

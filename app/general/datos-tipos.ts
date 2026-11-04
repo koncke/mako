@@ -76,6 +76,10 @@ export type DatosGeneral = {
     deadlines: { tareas: TareaVista[]; proyectos: Label[] };
     /** El «hoy» del negocio (YYYY-MM-DD): lo que vence se cuenta desde acá, igual en el server y en el navegador. */
     hoy: string;
+    /** Las tareas que vencen HOY: cuántas ya se cerraron, de cuántas (las que se repiten no cuentan). Lo lee Focus (lib/focus-diseno.ts). */
+    deHoy: { cerradas: number; total: number };
+    /** Las abiertas con el deadline vencido, TODAS (la lista de deadlines topea). */
+    vencidas: number;
     /** El Objetivo Principal del tablero. */
     objetivo: Label | null;
     /** Los proyectos abiertos, por prioridad (los de «Proyectos del Plan»). */
