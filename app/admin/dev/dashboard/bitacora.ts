@@ -848,4 +848,13 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '10:30', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las 20 hojas, rechazadas: cada una tiene que ser la copia exacta de su referencia',
+    pedido: 'Me dijiste que me dejaste los 20 dashboard ahí y son dashboard todos iguales, horribles, que no era la idea que yo quiero. Recuerda lo que habíamos empezado a hacer en donde habíamos empezado a hacer el dashboard de Focus, hicimos de manera muy personalizada sobre todo copiando lo que tiene la otra página, y ahora lo que hiciste fue agarrar un template y estandarizarlo para todos. Eso no me gusta. Quiero hacerlo de manera muy personalizada, cada dashboard. Te pido por favor que sea de esa manera y que te centres en que sea primero la copia, es decir, que se vea exactamente igual que la copia, y después la adaptación con Maco. Es decir, tienes que buscar entre todos los dashboards que vamos a copiar ver cuál se adapta más al template que queremos crear, por ejemplo de Closing Analysis, agarrar ese y agarrar elementos, sacar otros, etcétera. Pero copiarlo todo, desde las animaciones de entrada, las animaciones de hover, las animaciones de clic, copiarlo absolutamente todo. Esa era la idea.',
+    puntos: [
+      'Llegó por el Cerebro. Una hoja por vez, empezando por Closing, con la copia al lado del original.',
+      'Desde la nube no se llega a los demos de la referencia: lo que hay que correr para medirlos está en docs/relevo/nube-dashboards.md.',
+    ],
+  },
 ];
