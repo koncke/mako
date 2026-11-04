@@ -8,7 +8,8 @@
 
 import QRCode from 'qrcode';
 import { requireRolWs } from '@/lib/tab-access';
-import { leerPerfil } from '@/lib/perfil';
+import { leerPerfil, usuarioPropio } from '@/lib/perfil';
+import { getUsuarioActual } from '@/lib/auth';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
@@ -24,13 +25,20 @@ export default async function InstalarPage() {
   // La raíz de MaKo, sin pantalla ni `?ws=`: el teléfono la abre con su versión (proxy → /m) y entra a
   // la cuenta de quien escanea, no a la que esta computadora esté mirando.
   const url = APP_BASE_URL;
-  const [qr, deOtro] = await Promise.all([
+  const [qr, deOtro, sesion, propio] = await Promise.all([
     QRCode.toDataURL(url, { margin: 1, width: 360 }).catch(() => null),
     leerPerfil().then((p) => p.vista.deOtro, () => false),
+    getUsuarioActual(),
+    usuarioPropio(),
   ]);
+  // MaKo sin conexión (28/10/2026): de la PERSONA frente al teclado. Una sesión sin fila propia no tiene llave; mirando a otro,
+  // la copia no se guarda (/api/sin-conexion/copia) y la fila lo dice.
+  const sinConexion = sesion?.email && propio
+    ? { email: sesion.email, noDisponible: deOtro ? 'No se puede mientras miras la cuenta de otro.' : null }
+    : null;
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'instalar')} activa="instalar">
-      <InstalarApp qr={qr} url={url}
+      <InstalarApp qr={qr} url={url} sinConexion={sinConexion}
         extension={{ version: VERSION_EN_TIENDA, tienda: EXTENSION_URL_TIENDA }} />
     </AjustesPagina>
   );
