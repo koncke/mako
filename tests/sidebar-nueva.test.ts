@@ -232,10 +232,11 @@ test('la cara: la foto real en el botón de la barra y en el More del teléfono 
   assert.match(mas, /href=\{RUTA_CUENTA\}/, 'la cara no abre My Profile');
 });
 
-test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · More, y More con las familias de la sidebar', () => {
-  // El del medio es el Ops Center desde el 20/10/2026 (pedido bb885d5f); hasta ese día, el Dashboard.
-  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
-  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Ops Center', 'Plan', 'More']);
+test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Dashboard · More, y More con las familias de la sidebar', () => {
+  // El del medio es el Ops Center desde el 20/10/2026 (pedido bb885d5f); hasta ese día, el Dashboard. Desde el 04/11/2026
+  // el Dashboard vuelve, en el lugar de Plan (Martín: «en lugar de "Plan" en la bottom bar, pon "Dashboard"»).
+  assert.deepEqual(DESTINOS_MOVIL.map((d) => d.label), ['CRM', 'Chats', 'Ops Center', 'Dashboard', 'More']);
+  assert.deepEqual(barraMovil('admin', 'completo').map((b) => b.label), ['CRM', 'Chats', 'Ops Center', 'Dashboard', 'More']);
   // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
   const mas = masCompleto('admin', 'completo', false);
   assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), ['Today', 'Sales', 'Marketing', 'Create']);
@@ -243,10 +244,18 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
   // las hojas en su segmentado; la fila de las hojas sobra. El closer tiene como Dashboard SU hoja, como en la computadora.
   const diario = (rol: 'admin' | 'closer') => masCompleto(rol, 'completo', false).find((g) => g.id === 'diario')!.filas
     .filter((f) => f.tipo !== 'grupo' && (f.href === '/m/hoy' || f.href === '/m/dashboard')).map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]);
-  assert.deepEqual(diario('admin'), [['Dashboard', '/m/hoy']]);
-  assert.deepEqual(diario('closer'), [['Dashboard', '/m/dashboard']]);
+  // 04/11/2026: ese Dashboard está en la BARRA (el unido para quien ve General, su hoja para el closer), y More no suma
+  // ninguno: con uno en la barra y otro en More volvían los dos «Dashboard». Plan es la fila de lo diario.
+  assert.deepEqual(diario('admin'), []);
+  assert.deepEqual(diario('closer'), []);
+  assert.equal(barraMovil('admin', 'completo').find((b) => b.id === 'dashboard')?.href, '/m/hoy');
+  assert.equal(barraMovil('closer', 'completo').find((b) => b.id === 'dashboard')?.href, '/m/dashboard');
+  for (const rol of ['admin', 'closer'] as const) {
+    const filas = masCompleto(rol, 'completo', false).find((g) => g.id === 'diario')!.filas;
+    assert.ok(filas.some((f) => f.label === 'Plan' && f.tipo === 'pantalla' && f.href === '/m/plan'), `${rol}: Plan sigue a un toque, en More`);
+  }
   // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
-  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
+  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 0, 'More repite el Dashboard de la barra');
   const create = mas.find((g) => g.id === 'create')!;
   // AI Avatar, de Pro desde el 29/10/2026: una fila más de Create, como en la sidebar.
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting', 'AI Avatar']);

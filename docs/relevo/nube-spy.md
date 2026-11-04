@@ -24,7 +24,7 @@ verde, llega sola a `main`.
 | 13 | Su web, analizada sola | Hecho: el sitio sale de la descripción de su canal o de su bio y se lee con su funnel en la misma lectura; el botón que queda es «Copiar su sitio» | `punta/spy-ficha` | — |
 | 14 | Antes de la animación, sólo la estrella; miniaturas cargadas antes | Hecho: `CargandoMako` solo mientras se lee y se bajan TODAS las miniaturas (hasta 8 s); después la animación; la miga, las pestañas y sus redes al terminar | `punta/spy-ficha` | Mirarlo en pantalla con un competidor de Instagram |
 | + | (Cerebro, 4/11) Un apartado para las miniaturas de YouTube con su título | Hecho: pestaña «Miniaturas», de la más vista a la menos | `punta/spy-ficha` | — |
-| + | (Cerebro, 4/11) La caricatura, sola y en segundo plano | Pendiente: va en su propia punta (`punta/spy-caricatura`) | — | — |
+| + | (Cerebro, 4/11) La caricatura, sola y en segundo plano | Hecho: la IA del negocio describe la cara, la foto sube a Flow y la imagen vuelve a nuestro Storage; la tarjeta la usa antes que la foto. Necesita la extensión conectada y Google Flow abierto en ese navegador (como el AI Avatar) | `punta/spy-caricatura` | Toda la caricatura: la IA mirando la foto y el puente tomando el pedido |
 
 ## Cambios de cupo y de costo (lo decidí yo; está en `docs/diseno-competitors-spy.md` §11)
 

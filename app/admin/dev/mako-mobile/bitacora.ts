@@ -302,5 +302,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/m/chats',
     tickets: [51],
+    fecha: '4 nov', hora: '04:22', chat: 'Grabar', sesion: 'cli_6ff1501b-e5d8-58be-a2dd-2546d599dfd6', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Grabar llamadas, la plantilla Cold Calling y el Dashboard en la barra del teléfono',
+    pedido: 'quiero que implementes el botón de "grabar" en el detail de un lead y en un dashboard template que sea "Call Calling", en mobile, en lugar de "Plan" en la bottom bar, pon "Dashboard".',
+    puntos: ['Llegó por el Cerebro a un chat de la nube. Tres pedazos, cada uno en su punta: la barra, el botón de grabar y la plantilla.'],
+  },
+  {
+    fecha: '4 nov', hora: '04:22', chat: 'Grabar', sesion: 'cli_6ff1501b-e5d8-58be-a2dd-2546d599dfd6', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La barra del teléfono: Dashboard en el lugar de Plan',
+    puntos: [
+      'La barra es CRM · Chats · Ops Center · Dashboard · More. Plan quedó primero en More, en Today, como en la sidebar.',
+      'Dashboard abre el de cada uno: la portada con Focus y las hojas a quien ve General, y su hoja (Closing, Chat Analyst) al closer y al setter.',
+      'El número de lo que espera una decisión volvió al Dashboard; More ya no lo repite.',
+      '**Cómo se prueba:** abre MaKo en el teléfono; abajo, el cuarto lugar dice Dashboard y Plan está en More.',
+    ],
+    archivos: ['lib/movil-rutas.ts — `destinoDashboard` y la barra', 'app/m/_ui/cabecera.ts y app/m/badges.ts', 'tests/movil-rutas.test.ts, tests/sidebar-nueva.test.ts'],
+    revisar: '/general',
   },
 ];
