@@ -79,6 +79,33 @@ test('la caché es por negocio, un «no está» de Meta dura poco, y la platafor
 });
 
 // rotura (el alta no pregunta a Apify): 1 fallo. rotura (Offer sin el negocio): 1 fallo.
+// El buscador de Competitors Spy (3/11/2026). Roturas en docs/hallazgos-competitors-spy.md.
+test('la misma persona se paga una vez aunque cambie la lista de fuentes, y sólo dentro del negocio', () => {
+  assert.equal(aApify(r.leeElBuscador).length, 1);
+  assert.equal(r.leeElBuscador.fuente, 'apify-spy');
+  assert.deepEqual(aApify(r.leeLaVista), [], 'la vista previa no vuelve a pagar lo que el buscador ya leyó');
+  assert.equal(r.leeLaVista.ok, true);
+  assert.equal(aApify(r.otroNegocio).length, 1, 'otro negocio no lee de la caché de éste');
+  assert.equal(aApify(r.quienPidePiezas).length, 1, 'una lectura sin piezas no le contesta a quien las pide');
+});
+
+test('la reserva frena antes del tope, y no le tapa nada a quien no la tiene', () => {
+  assert.deepEqual(aApify(r.conReservaFrena), [], 'con 25 de 40 gastadas y 15 de reserva, no sale');
+  assert.equal(r.conReservaFrena.motivo, 'limite');
+  assert.equal(aApify(r.sinReservaLee).length, 1, 'el «limite» de arriba no se cachea para quien la pidió con un clic');
+  assert.equal(r.sinReservaLee.ok, true);
+  assert.equal(aApify(r.conReservaAunLee).length, 1, 'con 24 todavía hay margen: el freno es exacto');
+});
+
+test('la búsqueda por nombre cuenta en el mismo tope que las lecturas', () => {
+  const x = r as unknown as { busquedasDelDia: number; topeAgotadoAntes: boolean; topeAgotadoDespues: boolean };
+  assert.equal(x.busquedasDelDia, APIFY_TOPE_POR_DIA);
+  assert.equal(x.topeAgotadoAntes, false);
+  assert.equal(x.topeAgotadoDespues, true);
+  assert.deepEqual(aApify(r.leerSinCupo), [], 'gastadas en búsquedas, una lectura ya no sale');
+  assert.equal(r.leerSinCupo.motivo, 'limite');
+});
+
 test('el alta de un lead y Offer usan LA misma función (sin copiarla)', () => {
   const alta = sinComentarios(leer('app/api/crm/instagram-buscar/route.ts'));
   assert.match(alta, /import \{ leerPerfilInstagram \} from '@\/lib\/instagram-perfil-server';/);

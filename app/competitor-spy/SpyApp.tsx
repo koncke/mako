@@ -27,11 +27,11 @@
 // categoría con el navegador; el relevamiento está en docs/hallazgos-competitors-spy.md. De dónde sale
 // cada cosa:
 //
-//  · La barra fija con UN campo: Meta Ad Library y Google Ads Transparency. Ninguno de los once tiene
-//    un «Agregar competidor»: tienen un buscador que no se va nunca. Pegar lleva a la ficha.
-//  · Las migas con el selector y las píldoras de frescura, las pestañas, la banda de tres columnas, la
-//    franja con «×» y el modal del «+» con dos pestañas: Foreplay Spyder (de sus capturas: la app pide
-//    cuenta y no se entró).
+//  · La barra fija con UN campo: Meta Ad Library y Google Ads Transparency. Busca entre los que ya
+//    miras; si no hay nadie, ofrece «Buscarlo y agregarlo» (3/11/2026).
+//  · Las migas con el selector y las píldoras de frescura, las pestañas, la banda de tres columnas y la
+//    franja con «×»: Foreplay Spyder (de sus capturas: la app pide cuenta y no se entró).
+//  · El «+»: el buscador de merrin, sin pestañas (BuscadorAlta.tsx, con su cabecera).
 //  · El bloque único de vacío, que deja todos los controles en su lugar: Google y Meta.
 //  · La sección sin nada que decir se BORRA en vez de anunciarse: Semrush, medido con dos dominios.
 //  · La tabla de competidores (filas, no tarjetas): Foreplay y BigSpy.
@@ -63,8 +63,7 @@ import { ModalShell } from '../_components/ModalShell';
 import { Dropdown } from '../components/Dropdown';
 import { AVISO_CORTE_VIEWCOUNT, ETAPA_ES_NUESTRO_CRITERIO, NOMBRE_CANAL, cruzaElCorte, dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
-// El buscador del alta de un lead, reusado tal cual: busca por NOMBRE o por @, con fotos y lista.
-import { InstagramBuscador } from '@/app/crm/new/InstagramBuscador';
+import { coincideCompetidor } from '@/lib/spy-alta-reglas';
 import {
   canalesDe, cumpleFiltro, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, ganchosDe, haceCuanto, mezclaDeTipos, ordenarPiezas, pideConectarMeta,
@@ -73,11 +72,12 @@ import {
 import type { Competidor, LecturaCanalSpy, ResumenPiezas } from '@/lib/spy';
 import {
   analizarAction, competidoresAction, guardarAnuncioAction, piezasAction, quitarCompetidorAction,
-  buscarRedesAction, revisarAction, sumarCanalAction, sumarCompetidorAction, vistaPreviaAction, type PiezaVista, type VistaPrevia,
+  buscarRedesAction, revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
 } from './actions';
 import type { CandidatoRed, RedOtra } from '@/lib/spy-otras-redes-reglas';
 import { TarjetaPieza } from './TarjetaPieza';
 import { PeliculaDeOrden } from './OrdenSpy';
+import { BuscadorAlta } from './BuscadorAlta';
 
 const CSS = `
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -177,24 +177,6 @@ const CSS = `
 .spy-ficha__datos{display:flex;flex-wrap:wrap;gap:6px}
 .spy-ficha__acciones{display:flex;gap:8px}
 .spy-ficha__acciones .spy-boton:first-child{flex:1}
-
-/* --- La vista previa del modal: quien es, antes de guardarlo. --- */
-/* ⚠️ LA MISMA ANATOMÍA QUE LA TARJETA, y es la corrección de Martín aplicada donde faltaba. Él la
-   dio para la lista —«que no esté chiquito arriba, que tenga protagonismo en la tarjeta la imagen»—
-   y yo la apliqué ahí y no acá: esta vista previa seguía con una cara de 56 px al costado, que es
-   exactamente lo que me hizo sacar. Ahora la imagen manda, a sangre y cuadrada, con el texto
-   abajo, igual que la tarjeta. Es el momento en que la persona confirma QUIÉN es: si hay un lugar
-   donde la cara tiene que verse, es éste. */
-.spy-previa{display:flex;flex-direction:column;overflow:hidden;border-radius:var(--r-lg);
-  background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
-.spy-previa__cara{position:relative;display:grid;place-items:center;aspect-ratio:1/1;width:100%;
-  overflow:hidden;background:var(--t1);color:var(--t-ink);font-size:56px;font-weight:700}
-.spy-previa__cara img{display:block;width:100%;height:100%;object-fit:cover}
-.spy-previa__texto{min-width:0;display:flex;flex-direction:column;gap:3px;padding:14px 16px 16px}
-.spy-previa__texto b{font-size:var(--fs-card);font-weight:600}
-.spy-previa__texto small{color:var(--faint);font-size:var(--fs-sm)}
-.spy-previa__bio{color:var(--dim);font-size:var(--fs-sm);line-height:1.45;
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 
 /* ── Celdas pastel de datos: .kpi. Sin deltas, porque Spy lee UNA vez. ── */
 .spy-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
@@ -412,10 +394,9 @@ const CSS = `
 .spy-nombre{font-size:var(--fs-card);font-weight:600}
 
 /* ── Modales. ── */
-.spy-modal{display:flex;flex-direction:column;gap:14px}
+.spy-modal{display:flex;flex-direction:column;gap:14px;padding:22px 24px}
 .spy-modal-cabecera{display:flex;align-items:center;gap:10px}
 .spy-modal-cabecera h2{flex:1;margin:0;font-size:var(--fs-card);font-weight:600}
-.spy-modal-pestanas{display:flex;gap:4px;border-bottom:1px solid var(--border)}
 .spy-modal-pie{display:flex;justify-content:flex-end;gap:8px}
 .spy-entrada{width:100%;height:42px;padding:0 13px;border:0;border-radius:12px;background:var(--surface);
   box-shadow:inset 0 0 0 1px var(--border-strong);font:inherit;font-size:var(--fs-md);font-weight:500;color:var(--ink)}
@@ -527,199 +508,6 @@ function ModalCampo({ titulo, placeholder, boton, ocupado, error, onClose, onEnv
         <div className="spy-modal-pie">
           <button type="button" className="spy-boton spy-boton-primario" disabled={!valor.trim() || ocupado} onClick={() => onEnviar(valor.trim())}>
             {ocupado ? 'Un momento…' : boton}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  );
-}
-
-/** El «+»: dos pestañas que se alternan, no dos pasos. La de Foreplay. */
-function ModalAlta({ ocupado, error, onClose, onPegar, onAMano }: {
-  ocupado: boolean; error: string | null; onClose: () => void;
-  /**
-   * Lo que la vista previa YA leyó y no se puede perder al guardar:
-   * `nombre` = su nombre de verdad («Alex Hormozi», no «alexhormozi»), que es lo que evita la
-   * tarjeta duplicada; `deLaBio` = el link de su bio, que es su landing sin buscarla.
-   */
-  onPegar: (valor: string, nombre?: string, deLaBio?: string | null) => void;
-  onAMano: (d: { nombre: string; instagram: string; youtube: string; sitio: string }) => void;
-}) {
-  const [pestana, setPestana] = useState<'pegar' | 'mano'>('pegar');
-  const [pegado, setPegado] = useState('');
-  const [d, setD] = useState({ nombre: '', instagram: '', youtube: '', sitio: '' });
-  // ⚠️ LA VISTA PREVIA NO SE PIDE EN CADA TECLA: leer un perfil gasta del tope diario de Apify.
-  //    Se pide al tocar «Buscar» o con Enter, que es cuando la persona terminó de escribir.
-  const [vista, setVista] = useState<VistaPrevia | null>(null);
-  const [buscando, setBuscando] = useState(false);
-  const [errorVista, setErrorVista] = useState<string | null>(null);
-
-  const listo = pestana === 'pegar' ? !!pegado.trim() : !!(d.instagram.trim() || d.youtube.trim() || d.sitio.trim());
-
-  /**
-   * Lo ya buscado en este modal, por lo que se escribió.
-   *
-   * ⚠️ NO ES UNA OPTIMIZACIÓN: es lo que hace que se pueda buscar solo. Sin esto, borrar una letra
-   * y volver a escribirla gasta otra lectura del tope diario de Apify.
-   */
-  const yaBuscado = useRef(new Map<string, VistaPrevia>());
-
-  const buscar = useCallback(async (crudo: string) => {
-    const q = crudo.trim();
-    if (!q) return;
-    const guardado = yaBuscado.current.get(q);
-    if (guardado) { setVista(guardado); setErrorVista(null); return; }
-    setBuscando(true); setErrorVista(null); setVista(null);
-    const r = await vistaPreviaAction(q);
-    setBuscando(false);
-    if (!r.ok) { setErrorVista(r.error); return; }
-    yaBuscado.current.set(q, r.vista);
-    setVista(r.vista);
-  }, []);
-
-  /**
-   * Busca SOLO cuando dejás de escribir.
-   *
-   * ⚠️ POR QUÉ NO EN CADA TECLA, que es lo que se pidió literalmente (Martín, 2/11/2026: «cuando
-   * vaya escribiendo el arroba... ya me vayan apareciendo opciones»): cada lectura de un perfil
-   * gasta del tope DIARIO de Apify (`APIFY_TOPE_POR_DIA`). Escribir «leilahormozi» son trece
-   * teclas; con una llamada por tecla, dos o tres altas agotan el día y después NADIE del negocio
-   * puede agregar a nadie. Con la espera, escribir un @ entero cuesta UNA lectura y se siente
-   * igual: soltás el teclado y aparece quién es.
-   *
-   * Y no se dispara con cualquier cosa: sólo cuando lo escrito ya parece un @ o un enlace.
-   */
-  useEffect(() => {
-    const q = pegado.trim();
-    if (pestana !== 'pegar' || q.length < 3 || vista || buscando) return;
-    const esBuscable = /^@?[A-Za-z0-9._]{3,30}$/.test(q) || /^https?:\/\//i.test(q) || /\./.test(q);
-    if (!esBuscable) return;
-    const t = setTimeout(() => { void buscar(q); }, 900);
-    return () => clearTimeout(t);
-  }, [pegado, pestana, vista, buscando, buscar]);
-
-  /**
-   * El botón de abajo hace una cosa distinta según dónde estás, y en ese orden: cargar a mano
-   * guarda, un dato ya confirmado guarda, y un dato sin confirmar BUSCA primero.
-   *
-   * ⚠️ Nunca se guarda sin haber mostrado quién es. Martín, 2/11/2026: «súper importante que lo
-   * valides, que le preguntes al usuario, ¿este es el YouTube de esta persona?, para que no se
-   * traiga algo incorrecto».
-   */
-  const enviar = () => {
-    if (pestana === 'mano') { onAMano(d); return; }
-    // El nombre y el link de su bio viajan con la confirmación: los pagó esta vista previa, y si no
-    // van acá se pierden (ítems 10 y «no pueden haber dos Alex Hormozi»). Sólo existen cuando la
-    // vista previa pudo leer el perfil; con un aviso de «no pude leerlo» van vacíos y se agrega igual.
-    if (vista) { onPegar(pegado.trim(), vista.nombre?.trim() || undefined, vista.web ?? null); return; }
-    void buscar(pegado);
-  };
-
-  // Escribir después de haber buscado invalida lo buscado: nunca se confirma a una persona
-  // mientras la pantalla todavía muestra a otra.
-  const escribir = (v: string) => { setPegado(v); if (vista) setVista(null); if (errorVista) setErrorVista(null); };
-
-  const QUE_ES: Record<string, string> = {
-    instagram: 'Instagram', youtube_id: 'canal de YouTube', landing_url: 'sitio', nombre: 'nombre',
-  };
-  return (
-    <ModalShell w={480} label="Mirar a alguien más" onClose={onClose}>
-      <div className="spy-modal">
-        <div className="spy-modal-cabecera">
-          <h2>Mirar a alguien más</h2>
-          <button type="button" className="spy-x" aria-label="Cerrar" onClick={onClose}><Icon name="x" size={15} /></button>
-        </div>
-        <div className="spy-modal-pestanas">
-          <button type="button" className="spy-pestana" data-activa={pestana === 'pegar'} onClick={() => setPestana('pegar')}>Pegar un dato</button>
-          <button type="button" className="spy-pestana" data-activa={pestana === 'mano'} onClick={() => setPestana('mano')}>Cargar a mano</button>
-        </div>
-        {pestana === 'pegar'
-          ? (
-            <>
-              {/* ── EL DESPLEGABLE MIENTRAS SE ESCRIBE, Y SIN NECESIDAD DE PONER UN @ ──────────
-                   Martín, 2/11/2026: «cuando yo vaya buscando una arroba… ya vaya saliendo ciertos
-                   resultados mientras voy escribiendo» y «no necesariamente yo tenga que poner una
-                   arroba para que me empiecen a salir resultados».
-
-                   ⚠️ NO SE CONSTRUYÓ UN BUSCADOR NUEVO: éste es el MISMO del alta de un lead
-                   (app/crm/new/InstagramBuscador.tsx, 12/10/2026), que ya busca por NOMBRE, muestra
-                   fotos, abre la lista en un portal y tiene resueltos Escape y Enter. Hacer otro
-                   habría sido mantener dos.
-                   ⚠️ Y NO LLAMA EN CADA TECLA: espera 500 ms y pide 3 letras, porque cada búsqueda
-                   gasta del tope diario. «Mientras escribo» es SIN APRETAR UN BOTÓN, no una llamada
-                   por tecla: «leilahormozi» son trece teclas y dos altas agotarían el día.
-
-                   El campo de texto sigue debajo para lo que NO es un perfil —un canal de YouTube o
-                   un sitio—, que el buscador no sabe resolver. */}
-              <InstagramBuscador
-                valor={null}
-                onTexto={escribir}
-                textoInicial={pegado}
-                onElegir={(p) => {
-                  if (!p) return;
-                  // Elegir de la lista confirma QUIÉN es: se pone su @ y se pide la vista previa,
-                  // que es la que trae su nombre real y el link de su bio.
-                  setPegado(`@${p.usuario}`);
-                  setVista(null);
-                  void buscar(p.usuario);
-                }}
-              />
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  className="spy-entrada" placeholder="…o pega un canal de YouTube o un sitio" value={pegado}
-                  onChange={(e) => escribir(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && listo && !ocupado) enviar(); }}
-                />
-                <button type="button" className="spy-boton" style={{ flex: '0 0 auto' }} disabled={!pegado.trim() || buscando} onClick={() => void buscar(pegado)}>
-                  {buscando ? 'Buscando…' : 'Buscar'}
-                </button>
-              </div>
-
-              {/* ── QUIÉN ES, ANTES DE GUARDARLO. De la bio sale además el link a su sitio, así que
-                   pegar un @ trae también su landing sin buscarla en ningún lado. ── */}
-              {vista && (
-                <>
-                  <div className="spy-previa">
-                    <span className="spy-previa__cara" aria-hidden>
-                      {vista.foto
-                        // eslint-disable-next-line @next/next/no-img-element -- la sirve el CDN de Meta y vence; acá sólo se mira
-                        ? <img src={vista.foto} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />
-                        : inicial(vista.nombre || vista.valor)}
-                    </span>
-                    <span className="spy-previa__texto">
-                      <b>{vista.nombre || vista.valor}</b>
-                      <small>
-                        {QUE_ES[vista.campo]}
-                        {vista.campo === 'instagram' ? ` · @${vista.valor}` : ` · ${vista.valor}`}
-                        {vista.seguidores != null ? ` · ${dibujarContador(vista.seguidores)} seguidores` : ''}
-                      </small>
-                      {vista.bio && <span className="spy-previa__bio">{vista.bio}</span>}
-                      {vista.web && <small>Su web: {vista.web.replace(/^https?:\/\/(www\.)?/, '')}</small>}
-                    </span>
-                  </div>
-                  {/* Un perfil que no se pudo leer NO frena el alta: se dice y se deja agregar igual. */}
-                  {vista.aviso && <p className="spy-aviso">{vista.aviso}</p>}
-                  <p className="spy-rango">¿Es esta la persona que querías mirar?</p>
-                </>
-              )}
-              {errorVista && <p className="spy-aviso spy-error">{errorVista}</p>}
-            </>
-          )
-          : (
-            <>
-              <input className="spy-entrada" placeholder="Nombre" value={d.nombre} onChange={(e) => setD({ ...d, nombre: e.target.value })} />
-              <input className="spy-entrada" placeholder="@ de Instagram" value={d.instagram} onChange={(e) => setD({ ...d, instagram: e.target.value })} />
-              <input className="spy-entrada" placeholder="Enlace de su canal de YouTube" value={d.youtube} onChange={(e) => setD({ ...d, youtube: e.target.value })} />
-              <input className="spy-entrada" placeholder="Su web" value={d.sitio} onChange={(e) => setD({ ...d, sitio: e.target.value })} />
-            </>
-          )}
-        {error && <p className="spy-aviso spy-error">{error}</p>}
-        <div className="spy-modal-pie">
-          {pestana === 'pegar' && vista && (
-            <button type="button" className="spy-boton" disabled={ocupado} onClick={() => { setVista(null); setPegado(''); }}>No es él</button>
-          )}
-          <button type="button" className="spy-boton spy-boton-primario" disabled={!listo || ocupado || buscando} onClick={enviar}>
-            {ocupado ? 'Un momento…' : pestana === 'mano' ? 'Mirar' : vista ? 'Sí, míralo' : 'Buscar'}
           </button>
         </div>
       </div>
@@ -929,7 +717,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   const [error, setError] = useState<string | null>(errorInicial);
   const [pestana, setPestana] = useState<Pestana>('publica');
 
-  const [pegado, setPegado] = useState('');
+  const [filtro, setFiltro] = useState('');
+  const [textoAlta, setTextoAlta] = useState('');
   const [buscar, setBuscar] = useState('');
   const [filtros, setFiltros] = useState<FiltroSpy[]>([]);
   const [orden, setOrden] = useState<OrdenSpy>('mas-tiempo');
@@ -941,7 +730,6 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   /** Lo que trajo la búsqueda de sus otras redes, por competidor. Vive en la sesión: nunca se guarda sin el «sí». */
   const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
 
-  const campo = useRef<HTMLInputElement>(null);
   // Qué ficha está abierta AHORA: una lectura que tarda no puede pisar la de otro competidor.
   const actual = useRef(elegido);
   actual.current = elegido;
@@ -1078,32 +866,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     }
   };
 
-  const pegarArriba = async () => {
-    const id = await sumar(pegado.trim());
-    if (id == null) return;
-    setPegado('');
-    void buscarRedes(id);
-    await abrirRecienAgregado(id);
-  };
-
   const alta = async (valor: string, nombre?: string, deLaBio?: string | null) => {
     const id = await sumar(valor, nombre, deLaBio);
     if (id == null) return;
     setModal(null);
-    void buscarRedes(id);
-    await abrirRecienAgregado(id);
-  };
-
-  const altaAMano = async (d: { nombre: string; instagram: string; youtube: string; sitio: string }) => {
-    const ig = d.instagram.trim();
-    const datos = [ig && (/^https?:/i.test(ig) || ig.startsWith('@') ? ig : `@${ig}`), d.youtube.trim(), d.sitio.trim()].filter(Boolean) as string[];
-    const id = await sumar(datos[0], d.nombre.trim() || undefined);
-    if (id == null) return;
-    for (const otro of datos.slice(1)) {
-      const r = await sumarCanalAction(id, otro);
-      if (!r.ok) { setErrorModal(r.error); return; }
-    }
-    setModal(null);
+    setFiltro('');
     void buscarRedes(id);
     await abrirRecienAgregado(id);
   };
@@ -1172,6 +939,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     if (!r.ok) { setError(r.error); return; }
     await recargarLista();
   };
+
+  const abrirAlta = (texto = '') => { setErrorModal(null); setTextoAlta(texto); setModal('alta'); };
+  // La barra de arriba busca entre los que YA se miran. Lo nuevo se busca en el modal, que es lo que gasta del tope diario.
+  const coinciden = useMemo(() => competidores.filter((x) => coincideCompetidor(x, filtro, nombreDeTarjeta(x))), [competidores, filtro]);
 
   const flujo = useMemo(() => piezas.filter((p) => p.canal === 'instagram' || p.canal === 'youtube'), [piezas]);
   const anuncios = useMemo(() => piezas.filter((p) => p.canal === 'anuncios'), [piezas]);
@@ -1242,10 +1013,11 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     <main className="spy" data-spy>
       <style>{CSS}</style>
 
-      {/* ── Zona 0: la barra de pegar. ⚠️ SOLO EN LA LISTA. Antes estaba siempre, y en la ficha de
-           un competidor era una banda entera para una acción que ahí no se usa: nadie pega un @
-           mientras mira lo que publica otro. En la referencia (fitlo) la ficha no tiene ninguna
-           banda de cabecera — tiene una miga de 18 px. ── */}
+      {/* ── Zona 0: la barra de arriba. ⚠️ SOLO EN LA LISTA. Antes estaba siempre, y en la ficha de
+           un competidor era una banda entera para una acción que ahí no se usa. En la referencia (fitlo)
+           la ficha no tiene ninguna banda de cabecera — tiene una miga de 18 px.
+           ⚠️ BUSCA ENTRE LOS QUE YA SE MIRAN, NO GUARDA NADA. Antes, Enter acá daba de alta sin mostrar
+           quién era, que es justo lo que Martín pidió que no pase («súper importante que lo valides»). ── */}
       {!c && (
       <div className="spy-barra">
         <button type="button" className="spy-marca" onClick={() => irA(null)}>
@@ -1254,16 +1026,19 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         <div className="spy-campo">
           <Icon name="search" size={14} />
           <input
-            ref={campo}
-            aria-label="Pega un @, un canal de YouTube o un sitio"
-            placeholder="Pega un @, un canal de YouTube o un sitio"
-            value={pegado}
-            onChange={(e) => setPegado(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && pegado.trim() && !ocupado) void pegarArriba(); }}
+            aria-label="Buscar entre tus competidores"
+            placeholder="Buscar competidor"
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || !filtro.trim()) return;
+              if (!coinciden.length) abrirAlta(filtro.trim());
+              else if (coinciden.length === 1) irA(coinciden[0].id);
+            }}
           />
-          {pegado && <button type="button" className="spy-x" aria-label="Limpiar" onClick={() => setPegado('')}><Icon name="x" size={13} /></button>}
+          {filtro && <button type="button" className="spy-x" aria-label="Limpiar" onClick={() => setFiltro('')}><Icon name="x" size={13} /></button>}
         </div>
-        <button type="button" className="spy-mas" aria-label="Mirar a alguien más" title="Mirar a alguien más" onClick={() => { setErrorModal(null); setModal('alta'); }}>
+        <button type="button" className="spy-mas" aria-label="Mirar a alguien más" title="Mirar a alguien más" onClick={() => abrirAlta()}>
           <Icon name="plus" size={17} />
         </button>
       </div>
@@ -1273,17 +1048,26 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         {!c && error && <p className="spy-aviso spy-error">{error}</p>}
 
         {/* ── Cero competidores: un bloque, cuatro elementos, nunca cuatro cajas. ── */}
-        {!c && !competidores.length && (
+        {!c && !competidores.length && !filtro.trim() && (
           <Vacio
             icono={<Icon name="spy" size={28} />}
             titulo="Todavía no estás mirando a nadie"
-            botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => campo.current?.focus()}>Pegar un dato</button>}
+            botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirAlta()}>Buscar a alguien</button>}
           >
-            <p>Pega el @ de alguien de tu nicho, su canal o su sitio: lo leemos ahora.</p>
+            <p>Busca a alguien de tu nicho por su nombre, su @, su canal o su sitio: lo leemos ahora.</p>
           </Vacio>
         )}
 
-        {!c && competidores.length > 0 && <RejillaCompetidores competidores={competidores} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
+        {/* ── La barra sin coincidencias: lo escrito viaja al modal, y ahí se busca y se confirma. ── */}
+        {!c && !!filtro.trim() && !coinciden.length && (
+          <Vacio
+            icono={<Icon name="search" size={28} />}
+            titulo={`«${filtro.trim()}» no está en tu lista`}
+            botones={<button type="button" className="spy-boton spy-boton-primario" onClick={() => abrirAlta(filtro.trim())}>Buscarlo y agregarlo</button>}
+          />
+        )}
+
+        {!c && coinciden.length > 0 && <RejillaCompetidores competidores={coinciden} resumen={resumen} onAbrir={irA} onBorrar={setABorrar} puedeBorrar={puedeBorrar} />}
 
         {c && (
           <>
@@ -1535,7 +1319,14 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
         )}
       </div>
 
-      {modal === 'alta' && <ModalAlta ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onPegar={(v, n, bio) => void alta(v, n, bio)} onAMano={(d) => void altaAMano(d)} />}
+      {modal === 'alta' && (
+        <BuscadorAlta
+          textoInicial={textoAlta} competidores={competidores} ocupado={ocupado} error={errorModal}
+          onClose={() => setModal(null)}
+          onAgregar={(v, n, bio) => void alta(v, n, bio)}
+          onAbrir={(id) => { setModal(null); setFiltro(''); irA(id); }}
+        />
+      )}
       {modal === 'canal' && c && <ModalCampo titulo={`Agregar un canal a ${c.nombre}`} placeholder="Su @, su canal de YouTube o su sitio" boton="Agregar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void sumarCanal(v)} />}
       {modal === 'anuncio' && c && <ModalCampo titulo="Guardar un anuncio" placeholder="Enlace del anuncio en la Biblioteca de Anuncios" boton="Guardar" ocupado={ocupado} error={errorModal} onClose={() => setModal(null)} onEnviar={(v) => void guardarAnuncio(v)} />}
       {aBorrar && (

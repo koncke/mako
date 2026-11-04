@@ -631,3 +631,62 @@ LANDING** — `queEs` clasificaba tiktok.com como un sitio cualquiera. Ahora Tik
 
 **Regla:** de una red que el competidor YA tiene no se ofrece nada. El que está lo eligió el
 negocio; los demás con su nombre son otra gente.
+
+## El modal de Spy: copiar es elegir la pieza por lo que HACE (3/11/2026)
+
+**Síntoma:** Martín, 3/11 — «No se mejoró ni el modal, sigue horrible el diseño... Y no tiene sentido que tenga 2
+tabs». El #8 figuraba HECHO: se había arreglado cómo FUNCIONA y no cómo se VE.
+
+**Lo medido en producción antes de tocar nada:** la caja medía 480×254 con **`padding: 0`**. `ModalShell` no pone aire
+y `.spy-modal` tampoco: el texto iba pegado a los bordes en TODOS los modales de la tab. Era un bug, no un gusto. Y el
+campo gris no era nuestro: venía de `campo` en `InstagramBuscador.tsx`, que en el alta del CRM combina con el formulario.
+
+**El diagnóstico obvio era el equivocado:** «copiar un modal» manda a copiar el modal de `merrin` («New customer»), que
+es un formulario, y un formulario es lo que había. La pieza que hace lo mismo que esto —escribir, ver filas, elegir— es
+**su buscador de ⌘K (`.finder`)**, y ése no se llama modal en ningún lado. Medidas en
+[diseno/referencia-spy.md](diseno/referencia-spy.md). **Regla: la referencia se elige por lo que hace, no por cómo se
+llama** (es el mismo hallazgo de fitlo, una tienda de ropa, un nivel más abajo).
+
+### Cuatro cosas que gastaban del tope sin que nadie lo viera
+
+El tope (`APIFY_TOPE_POR_DIA`, 40) es lo que deja a un negocio sin poder agregar a nadie, y ninguna de estas da error:
+
+- ⚠️ **La búsqueda por nombre no contaba.** La cabecera de `lib/instagram-buscar-apify.ts` decía que el tope la cubría
+  («peor caso US$0,48 por día»), pero sólo `leerPerfilInstagram` contaba. Escribir nombres no tenía techo. Ahora pasa por
+  `gastarBusquedaDeSpy`, y sin cupo la pantalla lo dice en vez de «no encontré a nadie» (`limite`).
+- ⚠️ **La misma persona se pagaba dos veces.** La clave de la caché lleva la lista de fuentes, y el buscador y la vista
+  previa piden listas distintas: escribir su @ gastaba una lectura y confirmarla, otra. `claveLeido` comparte lo leído bien
+  entre todos. Lleva el ancho (`anchas`/`angostas`): una lectura sin piezas no puede contestarle a quien pide piezas, o
+  diría «no publica sus me gusta» de quien sí los publica.
+- ⚠️ **Un tope con reserva habría tapado a la vista previa.** `reservaApify` hace fallar antes a lo que nadie pidió con un
+  clic, y ese fallo se cachea 10 minutos. Con la misma clave, la fila que no se completó le contestaba «no pude» a quien
+  la elegía. La reserva entra en la clave.
+- ⚠️ **Un link de su perfil se buscaba como un NOMBRE.** `usuarioDeTexto` no acepta enlaces, así que la ruta gastaba 20 s de
+  búsqueda en un texto que ya decía quién es. `queSeHace` manda `@usuario`, y a quien ya se mira no se lo busca.
+
+### Y dos más que no son de plata
+
+- ⚠️ **La vista previa no podía leer con la clave de Spy.** Llamaba con las fuentes por defecto, que no incluyen `apify-spy`,
+  y con sólo esa clave contestaba «no pude leer» habiendo con qué. El mismo bug que el CRM arregló el 2/11: **una lista de
+  fuentes por defecto es un lector distinto en cada llamada**. Ahora hay `leerPerfilParaElAlta`, y la lista vive ahí.
+- ⚠️ **Completar va por una ruta, no por una server action.** Next pone en FILA las actions de una pantalla: cinco lecturas
+  de ~10 s habrían dejado esperando el «Sí, agregar», sin nada que lo explique. Un `fetch` no hace fila y se cancela.
+
+### Y la búsqueda no trae a quien buscás
+
+Medido en producción con «leila hormozi»: Apify trajo @leila.hormozi.1368, @leihormoz, @leillahormozi y
+@leila_hormozi63, sin una sola foto, y **a la verdadera no**. @leilahormozi existe y se lee en 5 s. Por eso con un nombre se
+prueba además su @ pegado (`usuarioDelNombre`), y esa fila sale sólo si la cuenta existe: lo dice la lectura, no una suposición.
+
+**Lo que NO se pudo medir:** qué negocios tienen cada clave de Apify, porque leer `credenciales` lo frenó el permiso de
+la sesión; el código pide las dos. `spy_lecturas_canal` estaba en **0 filas** el 3/11: la poda todavía no tiene qué borrar, y
+`anotarAhorro` tampoco tiene con qué medirse.
+
+**Vive en:** app/competitor-spy/BuscadorAlta.tsx · lib/spy-alta-reglas.ts · lib/spy-que-es.ts ·
+lib/instagram-perfil-server.ts · app/api/competitor-spy/perfil · app/api/cron/spy-poda · tests/spy-buscador-alta.test.ts
+
+**Probado rompiéndolo:** 39 roturas, una por vez y restaurada, y las 39 dieron rojo (`tests/spy-buscador-alta.test.ts` y `tests/instagram-perfil-fuentes.test.ts`, más
+`tests/cron-registrado.test.ts` para la agenda). Sacarle a `cualesCompletar` el tope, que lea lo ya completo o que repita lo
+pedido; la foto directa al CDN en las dos pantallas; el proxy abierto o que siga una redirección; el campo gris; la barra que
+guarda sin confirmar; la búsqueda sin contar; el cron caído que contesta 200.
+

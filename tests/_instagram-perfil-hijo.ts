@@ -129,6 +129,37 @@ async function main() {
   out.topeCorridas = corridas;
   const ultima = await leerPerfilInstagram('tope_usuario_99', { ws: 7, fuentes: ['apify'] });
   out.topeMotivo = ultima.ok ? null : ultima.motivo;
+
+  // H (3/11/2026): lo del buscador de Spy. El negocio 8 sólo tiene la clave de Spy.
+  const apifyHoy = (globalThis as unknown as { __igApifyHoy: Map<string, number> }).__igApifyHoy;
+  const cuentaDel8 = `s8|${new Date().toISOString().slice(0, 10)}`;
+  const LA_DEL_ALTA = ['meta-negocio', 'meta-plataforma', 'apify', 'apify-spy'] as const;
+  creds = { '8:APIFY_INSTAGRAM_TOKEN': 'clave-spy' };
+  apifyTrae = true;
+  apifyHoy.clear();
+  // El buscador lo lee con SU lista y la vista previa con OTRA: la misma persona se paga una vez.
+  await correr('leeElBuscador', 'compartida_ok', { ws: 8, fuentes: ['meta-plataforma', 'apify', 'apify-spy'] });
+  await correr('leeLaVista', 'compartida_ok', { ws: 8, fuentes: LA_DEL_ALTA });
+  // Y otro negocio no la recibe de esa caché, aunque tenga con qué leer: lo suyo lo paga él.
+  creds = { '8:APIFY_INSTAGRAM_TOKEN': 'clave-spy', '3:APIFY_INSTAGRAM_TOKEN': 'clave-otra' };
+  await correr('otroNegocio', 'compartida_ok', { ws: 3, fuentes: LA_DEL_ALTA });
+  // Pero una lectura sin piezas no le contesta a quien las pide.
+  await correr('quienPidePiezas', 'compartida_ok', { ws: 8, fuentes: LA_DEL_ALTA, conPiezas: true });
+  // La reserva: con 25 gastadas de 40 y una reserva de 15, no sale; y ese freno no le tapa nada a quien no la tiene.
+  apifyHoy.set(cuentaDel8, 25);
+  await correr('conReservaFrena', 'reserva_ok', { ws: 8, fuentes: LA_DEL_ALTA, reservaApify: 15 });
+  await correr('sinReservaLee', 'reserva_ok', { ws: 8, fuentes: LA_DEL_ALTA });
+  apifyHoy.set(cuentaDel8, 24);
+  await correr('conReservaAunLee', 'reserva_margen', { ws: 8, fuentes: LA_DEL_ALTA, reservaApify: 15 });
+  // La búsqueda por nombre cuenta en el mismo tope que las lecturas.
+  const { gastarBusquedaDeSpy, topeDeSpyAgotado } = await import('../lib/instagram-perfil-server');
+  apifyHoy.clear();
+  let busquedas = 0;
+  out.topeAgotadoAntes = topeDeSpyAgotado(8);
+  for (let i = 0; i < 45; i++) if (gastarBusquedaDeSpy(8)) busquedas++;
+  out.busquedasDelDia = busquedas;
+  out.topeAgotadoDespues = topeDeSpyAgotado(8);
+  await correr('leerSinCupo', 'sin_cupo_ok', { ws: 8, fuentes: LA_DEL_ALTA });
   process.stdout.write(`${JSON.stringify(out)}\n`);
 }
 main().catch((e) => { console.error(e); process.exit(1); });
