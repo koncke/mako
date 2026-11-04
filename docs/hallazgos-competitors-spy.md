@@ -709,6 +709,29 @@ Martín: «investiga esto para copiarlo en la extension de MaKo» y «Obvio que 
 **Qué NO se copia:** la descarga de VSL, el «fetch-relay» contra el hotlink, el modo Brute y la página desbloqueada. La política de Chrome prohíbe facilitar esa descarga y eludir muros, y reincidir puede cerrar la cuenta que distribuye la extensión a los clientes que pagan.
 
 **Sin hacer:**
-- Tanda A, en el servidor (`lib/spy-funnel.ts`, desde `mirarCompetidor`, `lib/spy.ts:520`): píxeles, checkout y VSL en la pestaña «Su web» (`SpyApp.tsx:1297`). 1-2 días, sin revisión de Chrome.
+- Tanda A, en el servidor: hecha, ver la entrada siguiente.
 - Tanda B, «Guardar en Spy» en la extensión: 3-4 días más la revisión. ⚠️ Antes de subirla hay que corregir `app/privacidad/extension/page.tsx`, que afirma «No accede a ningún sitio fuera de…», y la descripción de la ficha. Depende de la decisión abierta en `docs/diseno-competitors-spy.md` §9.1, por los términos de Meta.
 - Sin comprobar: si `performance` ve los recursos desde el mundo aislado, si `chrome.action.openPopup` otorga `activeTab`, y el HTML actual de la Biblioteca.
+
+## Sus píxeles, su checkout y su video: lo que se midió construyéndolo (03/11/2026)
+
+**Vive en:** `lib/spy-funnel.ts`, `spy_piezas.funnel` (0373), `app/competitor-spy/SuFunnel.tsx`.
+
+**El diagnóstico obvio era el equivocado:**
+- ⚠️ «Ver sus anuncios» buscando el dominio abre y miente. Con `keyword_unordered`, `acquisition.com` se parte en dos palabras: ~24.000 anuncios de cualquiera, el primero de Naukri.com, sin error. Con `keyword_exact_phrase` y el dominio entre comillas salen los de Alex Hormozi.
+- ⚠️ Una lectura más completa no puede pisar a la anterior. El servidor no ve lo que carga Tag Manager; el navegador no ve lo que frena un bloqueador. Si una reemplazara a la otra, los píxeles aparecerían y desaparecerían según quién leyó último. Por eso son dos lugares (`pagina` y `navegador`) y se dibuja la unión.
+
+**Medido con páginas de verdad, sin escribir nada:**
+- acquisition.com: Google Analytics, Tag Manager, Google Ads, TikTok y Vidalytics. **El píxel de Meta no se ve desde el servidor**, y es el caso común: lo carga Tag Manager. Por eso la pantalla dice «Tag Manager puede cargar más» y nunca «no tiene».
+- skool.com, con 455 KB de HTML y 2 MB de scripts propios: nada. Es un «no se ve desde afuera», que no es «no tiene».
+- vidalytics.com contestó 429 al servidor: una lectura que falló, y no escribe nada.
+
+**La regla que queda:**
+- Un id se ancla en la forma de cargarlo (`gtm.js?id=`, `fbq('init',`, `gtag('config',`), nunca en el texto suelto: un artículo que enseña a instalar un píxel no es un píxel. Se descartan los comentarios, `<pre>`, `<code>` y los rellenos (`GTM-XXXXXX`, `123456789`).
+- Lo que viene de la columna se vuelve a validar: sólo `https://`, porque termina en un `href`.
+- `guardarFunnel` va aparte de `guardarVistas` y no tira: sin la columna, un upsert con `funnel` adentro perdería la lectura entera de la landing.
+
+**Sin hacer:**
+- ⚠️ **La columna no está en producción** (medido el 3/11: `spy_piezas.funnel` no existe, y `scripts/apply-migration.mjs` lo frenó el clasificador de permisos). Mientras falte, el código anda igual y la pestaña no muestra nada nuevo: se verifica DESPUÉS de agregarla, con `scripts/verificar-migraciones-aplicadas.mjs`.
+- **El ws3 no tiene competidores** y la base entera no tiene ninguno con `landing_url` (medido el 3/11). Lo visto con datos reales fue la función sobre páginas reales: falta la lectura real en el ws3 y mirar la pestaña en la pantalla, cuando esté la columna.
+- Los videos que el analizador dice ver en un bundle (`reBundle`) pueden ser una librería que nadie monta (react-player trae las URL de YouTube y Vimeo). Se hereda tal cual de `analizarHtml`.

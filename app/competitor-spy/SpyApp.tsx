@@ -75,6 +75,8 @@ import {
   buscarRedesAction, revisarAction, sumarCanalAction, sumarCompetidorAction, type PiezaVista,
 } from './actions';
 import type { CandidatoRed, RedOtra } from '@/lib/spy-otras-redes-reglas';
+import { enlaceSusAnuncios } from '@/lib/spy-funnel';
+import { SuFunnel } from './SuFunnel';
 import { TarjetaPieza } from './TarjetaPieza';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { BuscadorAlta } from './BuscadorAlta';
@@ -391,6 +393,12 @@ const CSS = `
 .spy-dato b{display:block;margin-bottom:6px;color:var(--faint);font-size:var(--fs-sm);font-weight:600}
 .spy-sitio{display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:20px;
   border-radius:var(--r-lg);background:var(--surface);box-shadow:inset 0 0 0 1px var(--border),var(--sombra-tarjeta)}
+.spy-sitio-acciones{display:flex;flex-wrap:wrap;gap:8px}
+.spy-funnel{display:flex;flex-direction:column;gap:12px;width:100%}
+.spy-funnel-fila{display:flex;flex-direction:column;gap:6px;min-width:0}
+.spy-funnel-fila>b{color:var(--faint);font-size:var(--fs-sm);font-weight:600}
+.spy-funnel-pixel small{color:var(--faint);font-variant-numeric:tabular-nums}
+.spy-funnel-nota,.spy-funnel-nada{margin:0;color:var(--faint);font-size:var(--fs-sm)}
 .spy-nombre{font-size:var(--fs-card);font-weight:600}
 
 /* ── Modales. ── */
@@ -434,7 +442,7 @@ type Pestana = 'publica' | 'oferta' | 'sitio' | 'anuncios';
 const FRANJA: Record<Pestana, { titulo: string; frase: string }> = {
   publica: { titulo: 'Lo que publica', frase: 'Los días los declara el canal; la etapa la calcula MaKo.' },
   oferta: { titulo: 'Su oferta', frase: 'La lee la IA de lo que publica. No es una afirmación suya.' },
-  sitio: { titulo: 'Su web', frase: 'Qué piezas tiene su página.' },
+  sitio: { titulo: 'Su web', frase: 'Qué tiene su página y con qué mide y cobra.' },
   anuncios: { titulo: 'Anuncios', frase: 'Meta no entrega los de América Latina por su API: estos los guardaste tú.' },
 };
 
@@ -1303,11 +1311,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
                     {!!sitio?.piezasDePagina?.length && (
                       <div className="spy-etiquetas">{sitio.piezasDePagina.map((n) => <span key={n} className="spy-pildora-gris">{n}</span>)}</div>
                     )}
+                    <SuFunnel funnel={sitio?.funnel} />
                     {!sitio && lecturasDe?.filter((l) => l.canal === 'landing').map((l) => <p key={l.canal} className="spy-aviso">{l.detalle}</p>)}
-                    {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende
-                        (`derechaDeQuery`, app/web-generator/panel-reglas.ts). Un `?replicar=` no
-                        existe en ese contrato: la query se ignora y el botón parece andar. */}
-                    <a href={`/web-generator?analizar=${encodeURIComponent(c.landing_url)}`} className="spy-boton">Analizar y replicar su sitio</a>
+                    <div className="spy-sitio-acciones">
+                      {/* ⚠️ El parámetro es `?analizar=`, el que el Web Generator entiende
+                          (`derechaDeQuery`, app/web-generator/panel-reglas.ts). Un `?replicar=` no
+                          existe en ese contrato: la query se ignora y el botón parece andar. */}
+                      <a href={`/web-generator?analizar=${encodeURIComponent(c.landing_url)}`} className="spy-boton">Analizar y replicar su sitio</a>
+                      <a href={enlaceSusAnuncios(c)} target="_blank" rel="noreferrer noopener" className="spy-boton">Ver sus anuncios</a>
+                    </div>
                   </section>
                 )
             )}

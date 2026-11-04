@@ -23,6 +23,7 @@ import {
   leerCompetidor, listarCompetidores, listarPiezas, mirarCompetidor, queEs, quitarCompetidor,
 } from '@/lib/spy';
 import { perfilNegocioTexto } from '@/lib/onboarding';
+import { funnelDeFila, funnelEnPalabras } from '@/lib/spy-funnel';
 import { dibujarContador, NOMBRE_CANAL, NOMBRE_ETAPA, NOMBRE_FUENTE, SIN_ANUNCIOS_EN_ESTE_PAIS, adLibraryCubreComercial, type CanalSpy } from '@/lib/spy-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
@@ -150,6 +151,8 @@ export const RUNNERS: Runners = {
             etapa ? NOMBRE_ETAPA[etapa].rotulo.toLowerCase() : 'no se sabe desde cuándo',
             NOMBRE_FUENTE[p.fuente].toLowerCase(),
           ].join(' · '));
+          const funnel = p.canal === 'landing' ? funnelDeFila(p.funnel) : null;
+          if (funnel) out.push(...funnelEnPalabras(funnel).map((l) => `  - ${l}`));
         }
       }
       // Si pidió los anuncios y el país no está cubierto, se dice por qué no hay nada que traer en

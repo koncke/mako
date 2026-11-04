@@ -55,6 +55,7 @@ import {
 import { comoAQuienMira, nombreDeReferente, referenteDeCompetidor } from './spy-caricatura';
 import { sirveLaCompartida, type MotivoDeLectura } from './spy-compartido';
 import { anotarAhorro, guardarLecturaCompartida, lecturaCompartida } from './spy-compartido-db';
+import { conLectura, funnelDeFila, leerFunnel, type Funnel, type LecturaFunnel } from './spy-funnel';
 import { esNuestra, guardarMiniaturas } from './spy-miniaturas';
 import { noPudeLeerCanal, traerVideosDelCanal } from './spy-youtube';
 import { queEs } from './spy-que-es';
@@ -110,6 +111,8 @@ export type Pieza = {
   publicada_en: string | null;
   /** La imagen de la pieza, como la dio su fuente. VENCE: ver supabase/migrations/0360_spy_miniatura.sql. */
   miniatura: string | null;
+  /** Sólo en la landing: sus píxeles, su checkout y su video (0373). Se lee con `funnelDeFila`: es jsonb y puede faltar. */
+  funnel?: unknown;
   visto_primera_vez: string;
   visto_ultima_vez: string;
   dejo_de_verse_en: string | null;
@@ -496,6 +499,25 @@ export async function marcarDejadas(competidorId: number, canal: CanalSpy, refsQ
   await db.from('spy_piezas').update({ dejo_de_verse_en: ahora, updated_at: ahora }).in('id', idsQueSeFueron);
 }
 
+/**
+ * Escribe lo que vio UN lector en la fila de esa página, sin tocar lo que vio el otro (lib/spy-funnel.ts).
+ *
+ * ⚠️ VA APARTE DE `guardarVistas` Y NO TIRA. La columna la agrega la 0373: si el código llega antes que
+ * ella, un upsert con `funnel` adentro haría fallar la lectura entera de la landing, y esto es un dato
+ * más, no una razón para perder las piezas. La pantalla lo tolera igual: `listarPiezas` pide `*`.
+ */
+export async function guardarFunnel(competidorId: number, ref: string, lector: keyof Funnel, lectura: LecturaFunnel): Promise<void> {
+  const db = await getTenantDb();
+  const clave = ref.slice(0, TOPES.ref);
+  const { data, error } = await db.from('spy_piezas').select('funnel').eq('competidor_id', competidorId).eq('canal', 'landing').eq('ref', clave).maybeSingle();
+  if (error) { console.warn('[spy] no pude leer el funnel:', error.message); return; }
+  if (!data) return;
+  const r = await db.from('spy_piezas')
+    .update({ funnel: conLectura(funnelDeFila((data as { funnel?: unknown }).funnel), lector, lectura) })
+    .eq('competidor_id', competidorId).eq('canal', 'landing').eq('ref', clave);
+  if (r.error) console.warn('[spy] no pude guardar el funnel:', r.error.message);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Mirar a un competidor: los tres canales que SÍ se pueden leer
 // ─────────────────────────────────────────────────────────────────────────────
@@ -644,7 +666,10 @@ export async function mirarCompetidor(
   // ── La landing: lo que ya hace `mirarLanding`, apuntado a una página ajena ──
   if (c.landing_url) {
     try {
-      const m = await mirarLanding(c.landing_url);
+      // Se llena mientras se lee. El HTML no vuelve en `m` porque esa respuesta también viaja a la
+      // pantalla del Pixel, que no tiene por qué llevar 2 MB de una página.
+      const crudo: { html?: string; bundle?: string } = {};
+      const m = await mirarLanding(c.landing_url, undefined, (html, bundle) => { crudo.html = html; crudo.bundle = bundle; });
       // ⚠️ `analisis.ok === false` ES UNA LECTURA QUE FALLÓ, y acá se corta. Guardar la fila con la
       // lista de piezas vacía escribiría «esta landing no tiene nada» sobre una página que no
       // pudimos leer, y la próxima vuelta la línea de tiempo diría que el competidor le sacó el
@@ -662,6 +687,7 @@ export async function mirarCompetidor(
           etiquetas: piezas.length ? piezas : null,
         }];
         const g = await guardarVistas(competidorId, vistas);
+        if (!g.error && crudo.html != null) await guardarFunnel(competidorId, c.landing_url, 'pagina', leerFunnel({ html: crudo.html, bundle: crudo.bundle, piezas }));
         const cambios = m.cambios.nuevas.length + m.cambios.sacadas.length;
         canales.push({
           canal: 'landing', ok: !g.error, piezas: 1, nuevas: g.nuevas,
