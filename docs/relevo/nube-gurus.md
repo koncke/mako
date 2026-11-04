@@ -39,7 +39,7 @@ Su FICHA sí se escribe en la nube, de a una, y queda en `lib/asesores/en-espera
 | Vilma Núñez | Certificación en Marketing Digital potenciada por IA | **escrita** («Marketing y crecimiento», `ficha-vilma-nunez.ts`) |
 | Samuel Albaa | Growing Closer (su parte: la práctica del closer; el curso no enseña *setter*, la nota de antes lo suponía) | **escrita** («Práctica del closer», `ficha-samuel-albaa.ts`) |
 | Álvaro Luque | The perfect launch | **escrita** («Lanzamientos», `ficha-alvaro-luque.ts`) |
-| Sergio Begueria | Instituto De Marca Personal | pendiente |
+| Sergio Begueria | Instituto De Marca Personal | **escrita** («Marca personal y video», `ficha-sergio-begueria.ts`) |
 | Romuald Fons | Bigseo Academy | pendiente |
 | Mateo Maffia | BYF | pendiente |
 | Francisco Doglio | ARCADIA | pendiente |
