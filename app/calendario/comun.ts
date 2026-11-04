@@ -40,7 +40,8 @@ export function entidadDelItem(it: ItemCalendario | null): EntidadChat | null {
  * El color de cada calendario de MaKo, de la paleta de eventos de Google (los mismos hex que su web).
  * ⚠️ CUATRO COLORES, UNO POR USO (29/10/2026, «a la medida del negocio»): Publicaciones violeta, el Plan naranja (sus deadlines
  *    y lo que se repite, que son tareas del Plan), Ventas azul y Entregas verde. Lo demás (bloques, cobros, objetivos) va en
- *    gris: «Otros» no compite con los cuatro.
+ *    gris: «Otros» no compite con los cuatro. Las ediciones del newsletter (29/10/2026, sólo de la plataforma mientras esté en
+ *    PRONTO) también van a «Otros»: no son uno de los cuatro usos.
  */
 export const COLOR_CAPA: Record<CapaCalendario, string> = {
   publicaciones: '#8e24aa',
@@ -50,6 +51,7 @@ export const COLOR_CAPA: Record<CapaCalendario, string> = {
   plan: '#f4511e',
   recurrentes: '#f4511e',
   cobros: '#616161',
+  newsletters: '#616161',
   objetivos: '#616161',
 };
 
@@ -62,6 +64,7 @@ export const NOMBRE_CAPA: Record<CapaCalendario, string> = {
   plan: 'Plan',
   recurrentes: ROTULO_RECURRENTE,
   cobros: 'Cobros',
+  newsletters: 'Newsletter',
   objetivos: 'Objetivos',
 };
 
@@ -79,7 +82,7 @@ export const USOS_CALENDARIO: ReadonlyArray<{ id: UsoCalendario; nombre: string;
   { id: 'plan', nombre: 'Plan', capas: ['plan', 'recurrentes'], color: COLOR_CAPA.plan, crea: null },
   { id: 'ventas', nombre: 'Ventas', capas: ['llamadas'], color: COLOR_CAPA.llamadas, crea: 'llamada' },
   { id: 'entregas', nombre: 'Entregas', capas: ['entregas'], color: COLOR_CAPA.entregas, crea: 'entrega' },
-  { id: 'otros', nombre: 'Otros', capas: ['bloques', 'cobros', 'objetivos'], color: COLOR_CAPA.bloques, crea: null },
+  { id: 'otros', nombre: 'Otros', capas: ['bloques', 'cobros', 'newsletters', 'objetivos'], color: COLOR_CAPA.bloques, crea: null },
 ];
 /** El uso de una capa de MaKo. */
 export const usoDeCapa = (c: CapaCalendario): UsoCalendario => USOS_CALENDARIO.find((u) => u.capas.includes(c))?.id ?? 'otros';
@@ -146,7 +149,8 @@ export const nombreCalendarioDe = (it: ItemCalendario, calendarios: readonly Cal
 
 /** El rótulo del link que lleva a donde vive un renglón que no es de acá (la ficha, el Plan, General). */
 export const rotuloDeIr = (it: ItemCalendario): string =>
-  it.fuente === 'crm' || it.fuente === 'cobro' ? 'Abrir la ficha' : it.fuente === 'plan' ? 'Abrir en el Plan' : it.fuente === 'objetivo' ? 'Ver en General' : 'Abrir';
+  it.fuente === 'crm' || it.fuente === 'cobro' ? 'Abrir la ficha' : it.fuente === 'plan' ? 'Abrir en el Plan' : it.fuente === 'objetivo' ? 'Ver en General'
+    : it.fuente === 'newsletter' ? 'Abrir la edición' : 'Abrir';
 
 // ── Crear (el «crear en el lugar» de Google) ────────────────────────────────────────────────────────────────────────
 
