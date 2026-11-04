@@ -30,11 +30,16 @@ import { leerPerfilesEnLote } from './instagram-perfil-server';
 import { RESERVA_DEL_ALTA } from './spy-alta-reglas';
 import { hashDeImagen } from './spy-foto-hash';
 import { APIFY_ACTOR_REDES, TECHO_USD_POR_CORRIDA_REDES, TOPE_BUSQUEDAS_REDES_POR_DIA } from './spy-otras-redes-reglas';
+import {
+  GOOGLE_PENDIENTE, GOOGLE_SIN_CUPO, PREGUNTAR_CADA_MS, SEGUIR_CORRIDA_MS, TIMEOUT_CORRIDA_S, claveCorridaGoogle, leerCorrida,
+  queHacerConLaCorrida, type RespuestaGoogle,
+} from './spy-google-corrida';
+import { estadoDeCorrida } from './spy-todo-reglas';
+import { cambiarSettingSi, getSettingEstricto } from './settings';
 import { apuntaDeRef, leerCanalCorto, leerCanalesDeVideos } from './spy-youtube';
 import { claveDeYoutube } from './youtube';
 
 /** Medido en 6 y 11 s. */
-const TOPE_MS = 45_000;
 /** Lo que se espera por una foto: si no llega, se compara sin ella. */
 const TOPE_FOTO_MS = 4_000;
 const PESO_MAXIMO_FOTO = 3_000_000;
@@ -67,26 +72,63 @@ async function hashDeFoto(url: string | null | undefined): Promise<string | null
   }
 }
 
-/** Una corrida de Google por Apify. null = no se pudo (la pantalla lo dice). */
-async function googlear(token: string, consulta: string): Promise<unknown | null> {
+const API = 'https://api.apify.com/v2';
+/** Lo que se espera a UNA pregunta a Apify (empezar, mirar, leer el dataset). La corrida en sí no tiene este tope. */
+const TOPE_PREGUNTA_MS = 15_000;
+
+async function apify(token: string, ruta: string, cuerpo?: unknown): Promise<{ status: number; cuerpo: unknown } | null> {
   try {
-    const params = new URLSearchParams({ maxTotalChargeUsd: String(TECHO_USD_POR_CORRIDA_REDES) });
-    const r = await fetch(`https://api.apify.com/v2/acts/${APIFY_ACTOR_REDES}/run-sync-get-dataset-items?${params}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      // UNA página: es lo que se midió, y las redes de la persona salen arriba o no salen.
-      body: JSON.stringify({ queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false }),
-      signal: AbortSignal.timeout(TOPE_MS),
-      cache: 'no-store',
+    const r = await fetch(`${API}${ruta}`, {
+      method: cuerpo === undefined ? 'GET' : 'POST',
+      headers: { Authorization: `Bearer ${token}`, ...(cuerpo === undefined ? {} : { 'Content-Type': 'application/json' }) },
+      ...(cuerpo === undefined ? {} : { body: JSON.stringify(cuerpo) }),
+      signal: AbortSignal.timeout(TOPE_PREGUNTA_MS), cache: 'no-store',
     });
-    if (r.status < 200 || r.status >= 300) {
-      console.error(`[spy-otras-redes] HTTP ${r.status} buscando «${consulta}»`);
+    return { status: r.status, cuerpo: await r.json().catch(() => null) };
+  } catch (e) {
+    console.error(`[spy-otras-redes] Apify ${ruta.split('?')[0]}: ${msg(e)}`);
+    return null;
+  }
+}
+
+const espera = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Una búsqueda en Google por Apify, SIN CORTARSE (lib/spy-google-corrida.ts tiene el porqué): se empieza la corrida y se sigue
+ * `SEGUIR_CORRIDA_MS`; si no terminó, queda anotada y el próximo pedido la retoma sin pagar otra. Devuelve el cuerpo,
+ * `GOOGLE_PENDIENTE`, `GOOGLE_SIN_CUPO` (no quedan búsquedas hoy: sólo se gasta una al EMPEZAR) o null (no se pudo).
+ */
+async function googlear(token: string, consulta: string, gastar: () => boolean): Promise<RespuestaGoogle | null> {
+  const clave = claveCorridaGoogle(consulta);
+  const crudo = await getSettingEstricto(clave).catch(() => null);
+  let corrida = leerCorrida(crudo);
+  if (queHacerConLaCorrida(corrida, Date.now()) === 'empezar') {
+    if (!gastar()) return GOOGLE_SIN_CUPO;
+    const q = new URLSearchParams({ maxTotalChargeUsd: String(TECHO_USD_POR_CORRIDA_REDES), timeout: String(TIMEOUT_CORRIDA_S) });
+    // UNA página: es lo que se midió, y las redes de la persona salen arriba o no salen.
+    const r = await apify(token, `/acts/${APIFY_ACTOR_REDES}/runs?${q}`, { queries: consulta, resultsPerPage: 10, maxPagesPerQuery: 1, mobileResults: false, saveHtml: false });
+    const d = (r?.cuerpo as { data?: { id?: unknown; defaultDatasetId?: unknown } } | null)?.data;
+    if (!r || r.status < 200 || r.status >= 300 || typeof d?.id !== 'string' || typeof d?.defaultDatasetId !== 'string') {
+      console.error(`[spy-otras-redes] no pude empezar la búsqueda: HTTP ${r?.status ?? '—'}`);
       return null;
     }
-    return await r.json().catch(() => null);
-  } catch (e) {
-    console.error(`[spy-otras-redes] «${consulta}»: ${msg(e)}`);
-    return null;
+    corrida = { run: d.id, dataset: d.defaultDatasetId, desde: new Date().toISOString() };
+    // Anotarla es lo que deja retomarla sin pagar: si no se pudo, se sigue igual (lo peor es una corrida más mañana).
+    await cambiarSettingSi(clave, crudo, JSON.stringify(corrida)).catch(() => false);
+  }
+  if (!corrida) return null;
+  const hasta = Date.now() + SEGUIR_CORRIDA_MS;
+  for (;;) {
+    const r = await apify(token, `/actor-runs/${corrida.run}`);
+    const status = String((r?.cuerpo as { data?: { status?: unknown } } | null)?.data?.status ?? '');
+    // No poder preguntar no es «terminó»: se vuelve a preguntar hasta el tope.
+    if (r && r.status === 200 && status && estadoDeCorrida(status) !== 'corre') {
+      const items = await apify(token, `/datasets/${corrida.dataset}/items?clean=true&format=json`);
+      if (items && items.status === 200 && Array.isArray(items.cuerpo)) return items.cuerpo;
+      return null;
+    }
+    if (Date.now() + PREGUNTAR_CADA_MS > hasta) return GOOGLE_PENDIENTE;
+    await espera(PREGUNTAR_CADA_MS);
   }
 }
 
@@ -165,7 +207,7 @@ export async function buscarOtrasRedes(ws: number, c: Competidor): Promise<Busqu
     abrirPagina,
     leerCanales,
     leerPerfiles: (us) => leerPerfiles(ws, us),
-    googlear: token ? (q) => googlear(token, q) : null,
+    googlear: token ? (q, gastar) => googlear(token, q, gastar) : null,
     gastarBusqueda: () => {
       const cuenta = `${ws}|${hoy()}`;
       const usadas = redesHoy.get(cuenta) ?? 0;
