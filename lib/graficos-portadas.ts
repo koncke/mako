@@ -357,6 +357,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
       }),
       vecino: 'por-dia', par: ['por-automatizacion', 'automatizaciones-portada', 'desenlace', 'donde-fallo', 'horas'],
     },
+    inmobiliaria: { molde: 'wharf', sube: 'por-semana', vecino: 'por-semana', par: ['por-proyecto', 'origen', 'etapa', 'motivos'] },
     'ia-contenido': {
       molde: 'corbel', nueva: (id) => ({
         id: id('ia-contenido-portada'), clase: 'grafico', tipo: 'anillo', fuente: 'ia', dimension: 'funcion', metricas: ['costo'],
