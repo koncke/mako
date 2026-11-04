@@ -63,7 +63,10 @@ import { crearFlujoConIA, hayIAParaCrear, armarContexto, contarCohorte } from '@
 import { conConteos } from '@/lib/flujo-ia-crear-core';
 import { KEY_HORARIO_ENVIO, horarioVigente, type DiaSemana } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes } from '@/lib/limites-envio';
-import { horarioDeLaAutomatizacion, textoDeHorario, configParaGuardar } from '@/lib/config-automatizacion';
+import { horarioDeLaAutomatizacion, textoDeHorario, configParaGuardar, EVENTOS_COLUMNA, type EventoColumna } from '@/lib/config-automatizacion';
+import { crmDeLaAutomatizacion } from '@/lib/email-eventos-crm';
+import { etapasDeProducto } from '@/lib/lead-funnel';
+import { terminalEstadoFor } from '@/lib/pipeline';
 import { textoDeGoteo } from '@/lib/goteo';
 import { cortarSinPartir } from '@/lib/unicode-seguro';
 import { leerConfigAutomatizacion, guardarConfigAutomatizacion, copiarConfigAutomatizacion } from '@/lib/config-automatizacion-db';
@@ -161,9 +164,13 @@ async function secuenciaVigente(id: number) {
  * palabras para el resumen que la persona confirma. Sin nada que cambiar, el error.
  */
 
-function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0]): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
+function cambioDeConfigDelInput(
+  input: Record<string, unknown>, previo: Parameters<typeof configParaGuardar>[0],
+  columnas: { valor: unknown; partes: string[] } | null = null,
+): { cambio: Record<string, unknown>; resumen: string } | { error: string } {
   const cambio: Record<string, unknown> = {};
   const partes: string[] = [];
+  if (columnas) { cambio.columnasEmail = columnas.valor; partes.push(...columnas.partes); }
   const h = str(input, 'horario');
   if (h === 'negocio') { cambio.horario = null; partes.push('el horario del negocio'); }
   else if (h === 'sin_horario') { cambio.horario = { activo: false, desde: 9, hasta: 21, dias: [0, 1, 2, 3, 4, 5, 6] }; partes.push('sin horario (manda a cualquier hora)'); }
@@ -190,11 +197,45 @@ function cambioDeConfigDelInput(input: Record<string, unknown>, previo: Paramete
     }
     if (Object.keys(g).length) cambio.goteo = g;
   }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o el goteo (goteoMinutos, goteoPorDia), que vale para todos los canales.' };
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo (goteoMinutos, goteoPorDia) o las columnas del email (columnaEnviado, columnaAbrio, columnaClic).' };
   // Contra lo que tiene: el arranque sube hasta su tope, que puede estar puesto de antes (`configParaGuardar`).
   const prueba = configParaGuardar(previo, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
+}
+
+/** El parámetro de cada evento de email y cómo lo dice el resumen (4/11/2026, la campaña de email de Mauricio). */
+const PARAM_COLUMNA: Record<EventoColumna, { param: string; dice: string }> = {
+  enviado: { param: 'columnaEnviado', dice: 'al salir el email' },
+  abrio: { param: 'columnaAbrio', dice: 'al abrirlo' },
+  clic: { param: 'columnaClic', dice: 'al hacer clic' },
+};
+
+/**
+ * LAS COLUMNAS DEL EMAIL (4/11/2026, lib/email-eventos-crm.ts): a qué columna del CRM de la automatización pasa la tarjeta
+ * cuando un email sale, se abre o se cliquea. Se validan contra ESE CRM (su `funnel_id`): una columna que no tiene, o una de
+ * cierre (Ganado, Perdido…: un clic no es una venta), es un error. `null` = no pidió nada de columnas.
+ */
+async function columnasDelInput(input: Record<string, unknown>, secuenciaId: number): Promise<{ valor: unknown; partes: string[] } | { error: string } | null> {
+  if (input.sinColumnasEmail === true) return { valor: null, partes: ['sin columnas del email'] };
+  const pedidas = EVENTOS_COLUMNA.filter((e) => typeof input[PARAM_COLUMNA[e].param] === 'string');
+  if (!pedidas.length) return null;
+  const funnelId = await crmDeLaAutomatizacion(secuenciaId);
+  if (funnelId == null) return { error: 'La automatización no está atada a un CRM: átala con editar_meta_secuencia_email (funnelId) antes de elegir columnas.' };
+  const etapas = await etapasDeProducto(funnelId);
+  const valor: Record<string, string | null> = {};
+  const partes: string[] = [];
+  for (const e of pedidas) {
+    const k = String(input[PARAM_COLUMNA[e].param]).trim();
+    // «ninguna» la saca (un "" no llega: el validador lo toma como «no vino»).
+    if (!k || k.toLowerCase() === 'ninguna') { valor[e] = null; partes.push(`sin columna ${PARAM_COLUMNA[e].dice}`); continue; }
+    const etapa = etapas.find((x) => x.key === k);
+    if (!etapa) return { error: `El CRM de esta automatización no tiene la columna «${k}». Columnas: ${etapas.map((x) => `${x.key} («${x.label}»)`).join(', ')}.` };
+    if (terminalEstadoFor(k) !== 'abierto') return { error: `«${etapa.label}» es una columna de cierre: un email no la puede mover ahí. Elige una abierta.` };
+    valor[e] = k;
+    partes.push(`${PARAM_COLUMNA[e].dice} pasa a «${etapa.label}»`);
+  }
+  return { valor, partes };
 }
 
 /** Lo que tiene el modelo para crear con IA por /api/v1, que corta a 60 s (`crear_automatizacion_con_ia`). */
@@ -962,6 +1003,8 @@ export const RUNNERS: Runners = {
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
         goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, arranque: config.goteo?.arranque ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
+        // Las columnas del email (4/11/2026): a cuál pasa la tarjeta en su CRM cuando el email sale, se abre o se cliquea.
+        columnas_email: { enviado: config.columnasEmail?.enviado ?? null, abrio: config.columnasEmail?.abrio ?? null, clic: config.columnasEmail?.clic ?? null },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });
     },
@@ -972,7 +1015,9 @@ export const RUNNERS: Runners = {
       const id = num(input, 'secuenciaId');
       const s = await secuenciaVigente(id);
       if (!s) return { error: noExiste(id) };
-      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id));
+      const columnas = await columnasDelInput(input, id);
+      if (columnas && 'error' in columnas) return { error: columnas.error };
+      const r = cambioDeConfigDelInput(input, await leerConfigAutomatizacion(id), columnas);
       if ('error' in r) return { error: r.error };
       return { payload: { secuenciaId: id, cambio: r.cambio }, resumen: `«${s.nombre}»: ${r.resumen}` };
     },

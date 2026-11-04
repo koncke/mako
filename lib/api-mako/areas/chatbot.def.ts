@@ -350,8 +350,13 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'sinArranque', tipo: 'boolean', descripcion: 'opcional: true lo saca.' },
       { nombre: 'goteoPorDia', tipo: 'number', entero: true, minimo: 1, maximo: 500, descripcion: 'opcional: el tope de mensajes en 24 h por canal (adentro del tope de la línea).' },
       { nombre: 'sinGoteo', tipo: 'boolean', descripcion: 'opcional: true para sacarle el goteo y el tope por día.' },
+      // Las columnas del email (4/11/2026, lib/email-eventos-crm.ts): la key de una columna del CRM de la automatización.
+      { nombre: 'columnaEnviado', tipo: 'string', max: 60, descripcion: 'opcional: la key de la columna de su CRM a la que pasa la tarjeta cuando le sale un email ("ninguna" la saca).' },
+      { nombre: 'columnaAbrio', tipo: 'string', max: 60, descripcion: 'opcional: la columna cuando abre un email ("ninguna" la saca).' },
+      { nombre: 'columnaClic', tipo: 'string', max: 60, descripcion: 'opcional: la columna cuando hace clic en un link ("ninguna" la saca). Con columnas, a quien gana o deja de estar abierto no le salen más emails de ella.' },
+      { nombre: 'sinColumnasEmail', tipo: 'boolean', descripcion: 'opcional: true le saca las tres columnas del email.' },
     ],
-    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario y el goteo de esa automatización, uno solo para todos sus canales)',
+    reversible: true, escribe: 'guarda automatizacion.config:<id> en app_settings (el horario, el goteo y las columnas del email de esa automatización)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   {

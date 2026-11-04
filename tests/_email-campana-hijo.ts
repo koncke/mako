@@ -283,8 +283,146 @@ async function escenarioSecuencia(): Promise<Record<string, unknown>> {
   return out;
 }
 
+/** El dominio del negocio verificado y su remitente puestos, con los runners reales: sin esto el motor no manda. */
+async function conectarRemitente(): Promise<void> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const correr = async (id: string, input: Record<string, unknown>) => {
+    const r = runnerDe(id) as unknown as Runner;
+    const p = await r.preparar!(input, ctx(NEGOCIO));
+    if (!p.payload) throw new Error(`${id}: ${JSON.stringify(p)}`);
+    await r.ejecutar!(p.payload as Record<string, unknown>, ctx(NEGOCIO));
+  };
+  await runWithWorkspace(NEGOCIO, async () => {
+    await correr('conectar_dominio_email', { dominio: 'elevate.com.mx' });
+    estadoDelDominio = 'verified';
+    await correr('verificar_dominio_envio', {});
+    await correr('fijar_remitente_email', { nombre: 'Mauricio', local: 'hola', responderA: 'mauricio@personal.test' });
+  });
+  db.app_settings.push({ workspace_id: NEGOCIO, key: 'envio_email_enabled', value: 'true' });
+}
+
+// ── Los eventos de Resend, por la ruta REAL del webhook, firmados como los firma Svix ──────────────────────────────────
+const SECRETO_WEBHOOK = `whsec_${Buffer.from('clave-del-webhook-de-prueba').toString('base64')}`;
+process.env.RESEND_WEBHOOK_SECRET = SECRETO_WEBHOOK;
+let eventoN = 0;
+async function eventoDeResend(tipo: 'email.opened' | 'email.clicked', emailId: string): Promise<{ status: number; body: unknown }> {
+  const { createHmac } = await import('node:crypto');
+  const { POST } = await import('../app/api/webhooks/resend/route');
+  const raw = JSON.stringify({ type: tipo, created_at: ahora(), data: { email_id: emailId, created_at: ahora() } });
+  const id = `msg_${++eventoN}`;
+  const ts = String(Math.floor(Date.now() / 1000));
+  const firma = createHmac('sha256', Buffer.from(SECRETO_WEBHOOK.slice(6), 'base64')).update(`${id}.${ts}.${raw}`).digest('base64');
+  const req = new Request('https://app.test/api/webhooks/resend', { method: 'POST', body: raw, headers: { 'svix-id': id, 'svix-timestamp': ts, 'svix-signature': `v1,${firma}` } });
+  const res = await POST(req as never);
+  return { status: res.status, body: await res.json() };
+}
+
+/** Puntos 5 y 6: las columnas que siguen al email (al salir, al abrirlo, al hacer clic) y el corte al comprar. */
+async function escenarioColumnas(): Promise<Record<string, unknown>> {
+  const { runWithWorkspace } = await import('../lib/workspace');
+  const { runnerDe } = await import('../lib/api-mako/runners');
+  const { procesarEnvios } = await import('../lib/nutricion');
+  const crear = runnerDe('crear_secuencia_email') as unknown as Runner;
+  const configurar = runnerDe('configurar_automatizacion') as unknown as Runner;
+  const configuracion = runnerDe('configuracion_automatizacion') as unknown as Runner;
+  const en = <T,>(fn: () => Promise<T>) => runWithWorkspace(NEGOCIO, fn);
+  const out: Record<string, unknown> = {};
+  sembrarCrm(NEGOCIO);
+  // 608: abierto, sumado al CRM de email; es el que compra en el medio de la campaña.
+  db.leads.push({ id: 608, workspace_id: NEGOCIO, nombre: 'Lead 608', email: 'a608@cliente.test', telefono: null, estado_lead: 'abierto', funnel_id: null, pipeline_stage: 'lead', created_at: '2026-06-01T10:00:00Z' });
+  await sumarAlCrm();
+  await conectarRemitente();
+
+  const pc = await en(() => crear.preparar!({ nombre: 'Campaña 14', funnelId: EMAIL }, ctx(NEGOCIO)));
+  const id = Number(((await en(() => crear.ejecutar!(pc.payload as Record<string, unknown>, ctx(NEGOCIO)))) as { datos?: { id?: number } }).datos?.id);
+  const fila = () => db.nutricion_secuencias.find((f) => Number(f.id) === id)!;
+  // Otra automatización, sin CRM: no se le eligen columnas.
+  db.nutricion_secuencias.push({ id: 72, workspace_id: NEGOCIO, clave: 'sin-crm', nombre: 'Sin CRM', activa: false, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'lead', funnel_id: null, pasos: [] });
+
+  out.sinCrm = await en(() => configurar.preparar!({ secuenciaId: 72, columnaAbrio: 'em_abrio' }, ctx(NEGOCIO)));
+  out.columnaQueNoEs = await en(() => configurar.preparar!({ secuenciaId: id, columnaAbrio: 'no_existe' }, ctx(NEGOCIO)));
+  out.columnaDeCierre = await en(() => configurar.preparar!({ secuenciaId: id, columnaClic: 'ganado' }, ctx(NEGOCIO)));
+  db.nutricion_secuencias = db.nutricion_secuencias.filter((f) => Number(f.id) !== 72);
+  pg.db.nutricion_secuencias = db.nutricion_secuencias;
+  const pcfg = await en(() => configurar.preparar!({ secuenciaId: id, columnaEnviado: 'em_enviado', columnaAbrio: 'em_abrio', columnaClic: 'em_clic' }, ctx(NEGOCIO)));
+  out.prepColumnas = pcfg;
+  out.ejecColumnas = await en(() => configurar.ejecutar!(pcfg.payload as Record<string, unknown>, ctx(NEGOCIO)));
+  const leida = await en(() => configuracion.leer!({ secuenciaId: id }, ctx(NEGOCIO)));
+  out.leidas = JSON.parse(typeof leida === 'string' ? leida : leida.content).columnas_email;
+
+  // La campaña: dos emails, activa, con 601, 606 (su casa es el CRM de email) y 608 adentro.
+  Object.assign(fila(), {
+    activa: true,
+    pasos: [
+      { id: 'm1', orden: 1, canal: 'email', delay_horas: 0, asunto: 'Uno', cuerpo: 'Hola, uno.', siguiente: 'm2' },
+      { id: 'm2', orden: 2, canal: 'email', delay_horas: 0, asunto: 'Dos', cuerpo: 'Hola, dos.', siguiente: null },
+    ],
+  });
+  const pasado = new Date(Date.now() - 60_000).toISOString();
+  const inscribir = (lead: number, secuencia: number, cuando: string) => db.nutricion_inscripciones.push({
+    id: siguienteId++, workspace_id: NEGOCIO, lead_id: lead, secuencia_id: secuencia, estado: 'activa', paso_actual: 0, proximo_envio_at: cuando,
+    inscripto_at: pasado, ultimo_paso_at: null, desenlace: null, desenlace_at: null, hilos: null, hilos_rev: 0, nodo_actual: null,
+    conversacion_ultima_at: null, conversacion_cerrada_at: null, conversacion_cierre: null, reunion_at: null, created_at: pasado, updated_at: pasado,
+  });
+  for (const l of [601, 606, 608]) inscribir(l, id, pasado);
+  // Y otra campaña del mismo CRM SIN columnas, con 608 adentro: el corte no la toca.
+  db.nutricion_secuencias.push({ id: 73, workspace_id: NEGOCIO, clave: 'otra', nombre: 'Otra campaña', activa: true, archivada_at: null, trigger_tipo: 'etapa_actual', etapa: 'em_entrada', funnel_id: EMAIL, pasos: [{ id: 'o1', orden: 1, canal: 'email', delay_horas: 0, asunto: 'Otra', cuerpo: 'Hola, otra.', siguiente: null }] });
+  inscribir(608, 73, new Date(Date.now() + 86_400_000).toISOString());
+
+  const posicion = (lead: number) => {
+    const f = db.lead_funnel.find((x) => Number(x.lead_id) === lead && Number(x.funnel_id) === EMAIL);
+    return f ? String(f.etapa) : `casa:${db.leads.find((l) => Number(l.id) === lead)?.pipeline_stage}`;
+  };
+  const emails = () => resend.filter((p) => p.path === '/emails').map((p) => ({ to: p.body?.to, asunto: p.body?.subject, reply_to: p.body?.reply_to ?? null }));
+  resend.length = 0;
+  const r1 = await en(() => procesarEnvios({ ignorarVentana: true }));
+  out.run1 = { enviados: r1.enviados, fallos: r1.fallos, detalle: r1.detalle };
+  out.emails1 = emails();
+  out.tarjetas1 = { 601: posicion(601), 606: posicion(606), 608: posicion(608) };
+
+  // Los eventos de Resend, con el id que guardó cada envío.
+  const envioDe = (lead: number, secuencia = id) => String(db.nutricion_envios.find((e) => Number(e.lead_id) === lead && Number(e.secuencia_id) === secuencia && e.estado === 'enviado')?.proveedor_id);
+  out.abrio601 = await eventoDeResend('email.opened', envioDe(601));
+  out.tarjetaTrasAbrir = posicion(601);
+  out.clic601 = await eventoDeResend('email.clicked', envioDe(601));
+  out.tarjetaTrasClic = posicion(601);
+  out.abrioOtraVez = await eventoDeResend('email.opened', envioDe(601));
+  out.tarjetaTrasAbrirOtraVez = posicion(601);    // no vuelve a «Abrió»
+  out.abrio606 = await eventoDeResend('email.opened', envioDe(606));
+  out.tarjeta606 = posicion(606);                  // su casa es el CRM de email: se mueve la casa
+  out.historial606 = db.lead_historial.concat(db.lead_audit).filter((h) => Number(h.lead_id) === 606).map((h) => h.autor ?? h.usuario ?? null);
+  // Un email de una automatización SIN columnas: la tarjeta no se mueve.
+  db.nutricion_envios.push({ id: siguienteId++, workspace_id: NEGOCIO, lead_id: 608, secuencia_id: 73, inscripcion_id: 0, paso: 1, canal: 'email', estado: 'enviado', proveedor_id: 'em-sin-columnas', created_at: ahora() });
+  out.abrioSinColumnas = await eventoDeResend('email.opened', 'em-sin-columnas');
+  out.tarjeta608SinColumnas = posicion(608);
+  out.marcaSinColumnas = db.nutricion_envios.find((e) => e.proveedor_id === 'em-sin-columnas')?.abierto_at != null;
+
+  // 608 compra: su tarjeta del CRM de email llega a Ganado. Y 606 gana como lead.
+  db.lead_funnel.find((x) => Number(x.lead_id) === 608 && Number(x.funnel_id) === EMAIL)!.etapa = 'ganado';
+  db.leads.find((l) => Number(l.id) === 606)!.estado_lead = 'ganado';
+  // Desde Ganado, un clic no la mueve.
+  out.clic608Ganado = await eventoDeResend('email.clicked', envioDe(608));
+  out.tarjeta608 = posicion(608);
+
+  // La corrida siguiente: el email dos le sale sólo a 601; a 606 y a 608 no, y su inscripción se cierra. La otra campaña sí.
+  for (const i of db.nutricion_inscripciones) if (i.estado === 'activa') i.proximo_envio_at = pasado;
+  resend.length = 0;
+  const r2 = await en(() => procesarEnvios({ ignorarVentana: true }));
+  out.run2 = { enviados: r2.enviados, omitidos: r2.omitidos, detalle: r2.detalle };
+  out.emails2 = emails();
+  out.inscripciones = db.nutricion_inscripciones.map((i) => ({ lead: Number(i.lead_id), secuencia: Number(i.secuencia_id) === id ? 'campaña' : 'otra', estado: i.estado })).sort((a, b) => a.lead - b.lead || a.secuencia.localeCompare(b.secuencia));
+  out.rastros = db.nutricion_envios.filter((e) => e.estado === 'omitido').map((e) => ({ lead: Number(e.lead_id), error: e.error }));
+  // 601 ya hizo clic: el email dos sale y lo abre, y su tarjeta no vuelve a «Enviado» ni a «Abrió».
+  out.tarjeta601TrasEmailDos = posicion(601);
+  const dos = String(db.nutricion_envios.filter((e) => Number(e.lead_id) === 601 && Number(e.secuencia_id) === id && e.estado === 'enviado').at(-1)?.proveedor_id);
+  out.abrioEmailDos = await eventoDeResend('email.opened', dos);
+  out.tarjeta601TrasAbrirDos = posicion(601);
+  return out;
+}
+
 async function main() {
-  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, lote: escenarioLote, secuencia: escenarioSecuencia };
+  const escenarios: Record<string, () => Promise<Record<string, unknown>>> = { dominio: escenarioDominio, lote: escenarioLote, secuencia: escenarioSecuencia, columnas: escenarioColumnas };
   const fn = escenarios[ESC];
   if (!fn) throw new Error(`escenario desconocido: ${ESC}`);
   const out = await fn();

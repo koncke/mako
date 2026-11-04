@@ -1012,20 +1012,45 @@ export async function procesarBroadcastsProgramados(): Promise<{ procesados: num
 // los emails de un CLIENTE jamás matchearían). El proveedor_id es el id del
 // email en Resend — único global — así que buscar cross-workspace es correcto
 // y no filtra datos: solo estampa timestamps en la fila dueña de ese id.
-export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic', whenISO: string): Promise<boolean> {
+//
+// ⚠️ DEVUELVE LA FILA QUE MARCÓ (4/11/2026), o null si no marcó nada (ya estaba, o no es de nadie): con ella el webhook
+// mueve la tarjeta del CRM de la automatización (`moverPorEventoEmail`, lib/email-eventos-crm.ts) en el workspace de la
+// FILA. Sólo la primera vez que se marca: un segundo «abrió» del mismo email no mueve nada.
+export type FilaEventoEmail = { tabla: 'nutricion_envios' | 'email_broadcast_envios'; id: number; workspace_id: number | null; lead_id: number | null; secuencia_id: number | null };
+export async function marcarEventoEmail(proveedorId: string, tipo: 'abierto' | 'clic', whenISO: string): Promise<FilaEventoEmail | null> {
   const supabase = getSupabaseServer();
   const col = tipo === 'abierto' ? 'abierto_at' : 'clic_at';
-  let tocado = false;
+  let fila: FilaEventoEmail | null = null;
   for (const tabla of ['nutricion_envios', 'email_broadcast_envios'] as const) {
     const { data, error } = await supabase
       .from(tabla)
       .update({ [col]: whenISO })
       .eq('proveedor_id', proveedorId)
       .is(col, null)
-      .select('id');
-    if (!error && ((data ?? []) as unknown[]).length > 0) tocado = true;
+      .select(tabla === 'nutricion_envios' ? 'id, workspace_id, lead_id, secuencia_id' : 'id, workspace_id, lead_id');
+    const r = (!error ? ((data ?? []) as unknown as Array<Record<string, unknown>>) : [])[0];
+    if (r && !fila) {
+      const n = (v: unknown) => (v == null ? null : Number(v));
+      fila = { tabla, id: Number(r.id), workspace_id: n(r.workspace_id), lead_id: n(r.lead_id), secuencia_id: n(r.secuencia_id) };
+    }
   }
-  return tocado;
+  return fila;
+}
+
+/**
+ * LA TARJETA SIGUE AL EMAIL (4/11/2026): la columna que la automatización eligió para «abrió» o «hizo clic»
+ * (lib/email-eventos-crm.ts). Sólo un envío de una automatización (un broadcast no tiene columnas). NUNCA TIRA: lo llama el
+ * webhook, que contesta 200 igual.
+ */
+export async function moverPorEventoDeEmail(fila: FilaEventoEmail | null, tipo: 'abierto' | 'clic'): Promise<void> {
+  if (!fila || fila.tabla !== 'nutricion_envios' || fila.workspace_id == null || fila.lead_id == null || fila.secuencia_id == null) return;
+  try {
+    // Dinámico: lib/email-eventos-crm.ts trae el CRM entero (leads, lead-funnel) y este módulo lo importa medio repo.
+    const { moverPorEventoEmail } = await import('@/lib/email-eventos-crm');
+    await moverPorEventoEmail({ ws: fila.workspace_id, leadId: fila.lead_id, secuenciaId: fila.secuencia_id, evento: tipo === 'abierto' ? 'abrio' : 'clic' });
+  } catch (e) {
+    console.error(`[email] mover la tarjeta por «${tipo}» (envío ${fila.id}): ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 // Rebote/queja → además de loguear, da de baja al lead (supresión). Igual que

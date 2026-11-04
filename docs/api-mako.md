@@ -8212,7 +8212,7 @@ PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minu
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** guarda automatizacion.config:<id> en app_settings (el horario y el goteo de esa automatización, uno solo para todos sus canales)
+- **Escribe:** guarda automatizacion.config:<id> en app_settings (el horario, el goteo y las columnas del email de esa automatización)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Solo el administrador del workspace.**
@@ -8231,6 +8231,10 @@ PROPONE el horario de oficina o el GOTEO de UNA automatización (uno cada N minu
 | `sinArranque` | boolean | no | opcional: true lo saca. |
 | `goteoPorDia` | number | no | opcional: el tope de mensajes en 24 h por canal (adentro del tope de la línea). |
 | `sinGoteo` | boolean | no | opcional: true para sacarle el goteo y el tope por día. |
+| `columnaEnviado` | string | no | opcional: la key de la columna de su CRM a la que pasa la tarjeta cuando le sale un email ("ninguna" la saca). |
+| `columnaAbrio` | string | no | opcional: la columna cuando abre un email ("ninguna" la saca). |
+| `columnaClic` | string | no | opcional: la columna cuando hace clic en un link ("ninguna" la saca). Con columnas, a quien gana o deja de estar abierto no le salen más emails de ella. |
+| `sinColumnasEmail` | boolean | no | opcional: true le saca las tres columnas del email. |
 
 ```bash
 curl -L \

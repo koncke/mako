@@ -127,6 +127,7 @@ import { getSettingEstricto, cambiarSettingSi, setSetting } from '@/lib/settings
 import { KEY_HORARIO_ENVIO, horarioVigente, dentroDelHorario, type HorarioEnvio } from '@/lib/horario-envio';
 import { KEY_LIMITES_ENVIO, limitesDeFabrica, limitesVigentes, type LimitesEnvio } from '@/lib/limites-envio';
 import { cerradasAhora, horarioDeLaAutomatizacion, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { columnaDelEvento, tieneColumnasEmail } from '@/lib/email-eventos-crm-reglas';
 import { configsDelNegocio, guardarConfigAutomatizacion, leerConfigAutomatizacion } from '@/lib/config-automatizacion-db';
 import { duplicadaAlActivar, avisoDuplicada, type Duplicada, type CronParaComparar } from '@/lib/automatizacion-duplicada';
 import {
@@ -5468,6 +5469,30 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         continue;
       }
 
+      // ── EL CORTE AL COMPRAR (4/11/2026, punto 6 de la campaña de email de Mauricio) ──────────────────────────────
+      // Una automatización que eligió columnas para sus emails (`columnasEmail`, lo VISIBLE que lo prende: Configuraciones
+      // de la automatización o `configurar_automatizacion`) no le manda el email siguiente a quien ya no está abierto o
+      // llegó a Ganado en su CRM (lib/email-eventos-crm.ts, `cortaPorCompra`). Se cancela (no es un desenlace: el evaluador
+      // no le mueve la etapa a quien compró), con su rastro. Sin columnas, como siempre.
+      if (!carril && paso.canal === 'email' && wsCorrida != null && tieneColumnasEmail(configsCorrida.get(insc.secuencia_id)?.columnasEmail)) {
+        const { cortaPorCompra } = await import('@/lib/email-eventos-crm');
+        const corte = await cortaPorCompra({ ws: wsCorrida, leadId: insc.lead_id, secuenciaId: insc.secuencia_id, estadoLead: lead?.estado_lead });
+        if (corte === 'ilegible') {
+          res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'no pude leer si ya compró: se vuelve a mirar' });
+          continue;
+        }
+        if (corte === 'corta') {
+          if (await escribir(insc, { estado: 'cancelada', proximo_envio_at: null }, { modo: 'cas', alcance: 'inscripcion' })) {
+            res.omitidos += 1;
+            await anotarCierreSinEnvio(insc, paso, lead, 'ya compró o no está abierto: no le salen más emails de esta automatización');
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'omitido', nota: 'ya compró: no recibe más' });
+          } else {
+            res.detalle.push({ lead_id: insc.lead_id, canal: paso.canal, estado: 'saltado', nota: 'otra corrida ya movió esta inscripción' });
+          }
+          continue;
+        }
+      }
+
       // El freno de 20 h POR CANAL, y mirando las DOS cosas: lo que dice la base (por lote) y lo
       // que ya salió en esta corrida (`frenadoPorAntiBan`, decisión 5).
       // ⚠️ SIN EL FRENO DE 20 H PARA INSTAGRAM Y MESSENGER: protege a la línea NO oficial de WhatsApp
@@ -5918,6 +5943,13 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           });
           estado = r.ok ? 'enviado' : 'fallo';
           if (r.ok) proveedorId = r.id; else nota = r.error;
+          // La tarjeta del CRM sigue al email (4/11/2026, punto 5): «Enviado», si la automatización eligió esa columna.
+          // Nunca tira ni frena el envío (lib/email-eventos-crm.ts); sin columnas no hace nada.
+          const cfgSec = configsCorrida.get(insc.secuencia_id);
+          if (r.ok && wsCorrida != null && columnaDelEvento(cfgSec?.columnasEmail, 'enviado')) {
+            const { moverPorEventoEmail } = await import('@/lib/email-eventos-crm');
+            await moverPorEventoEmail({ ws: wsCorrida, leadId: insc.lead_id, secuenciaId: insc.secuencia_id, evento: 'enviado', config: cfgSec });
+          }
         }
       }
       // (con simularApagados, un paso de canal apagado cae acá como 'simulado')
