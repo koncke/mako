@@ -24,7 +24,7 @@ import { mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'no
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { alcanceTsc, git, leerResultado, motivoPrincipal, pisoRam, planear, ramLibreGb, ZONA_ROJA_VIGIA_GB } from './tests-afectados.mjs';
+import { alcanceTsc, git, leerDisco, leerResultado, motivoPrincipal, pisoRam, ramLibreGb, seleccionar, ZONA_ROJA_VIGIA_GB } from './tests-afectados.mjs';
 import { armarTsconfig } from './tsc-acotado.mjs';
 import { veredicto } from './tsc-bitacoras.mjs';
 
@@ -46,6 +46,25 @@ export function testsSuyos(tests) {
     .map(([t, razones]) => [t, orden[motivoPrincipal(razones.filter((r) => r.tipo in orden)).tipo]])
     .sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]))
     .map(([t]) => t);
+}
+
+/**
+ * ⚠️ EL TSC «ACOTADO» NO ES CHICO: compila lo tocado Y TODO LO QUE IMPORTA. Medido el 4/11/2026 sobre seis cambios reales (4 CPU):
+ * un archivo de app/ o lib/ arrastra 1.355-1.459 archivos del repo (el ciclo de lib/) y el tsc tarda 131 s con 3,2 GB; un test o
+ * un script chico arrastra 1-30 y termina en 4-9 s. Con un tope de 90 s, el primero no entra NUNCA (ni en paralelo con los tests):
+ * arrancarlo es gastar 3 GB de la PC durante 90 s para cortarlo. Por eso, si lo tocado arrastra más de esto, los tipos se saltean
+ * con aviso y los chequea el tsc entero de la punta (148 s en GitHub).
+ */
+export const CLAUSURA_MAXIMA_PARA_TIPOS = 400;
+
+/** Cuántos archivos del repo alcanza el tsc desde `alcance`, siguiendo los imports hacia adelante (el grafo de tests-afectados). */
+export function clausuraDeImports(alcance, importadoPor) {
+  const importa = new Map();
+  for (const [destino, quienes] of importadoPor) for (const q of quienes) { if (!importa.has(q)) importa.set(q, new Set()); importa.get(q).add(destino); }
+  const vistos = new Set(alcance);
+  const cola = [...alcance];
+  while (cola.length) for (const d of importa.get(cola.pop()) ?? []) if (!vistos.has(d)) { vistos.add(d); cola.push(d); }
+  return vistos.size;
 }
 
 /** El heap del tsc acotado (el de antes-de-subir: alcances grandes piden más) y lo que pide de RAM libre para arrancar. */
@@ -113,8 +132,9 @@ export async function correrTestsConTope(tests, { hasta, ahora = Date.now, corre
 }
 
 /** Los tipos de lo tocado. Devuelve { ok: true } · { ok: false, errores } (sólo los de archivos tocados) · { saltado: porque }. */
-async function tiposDeLoTocado(alcance, { hasta, raiz }) {
+async function tiposDeLoTocado(alcance, { hasta, raiz, clausura = 0 }) {
   if (alcance.length === 0) return { ok: true, nada: true };
+  if (clausura > CLAUSURA_MAXIMA_PARA_TIPOS) return { saltado: `lo tocado arrastra ${clausura} archivos al tsc y no entra en el tope (los chequea el tsc entero de la punta)` };
   const heap = heapTsc(alcance.length);
   const libre = ramLibreGb();
   if (!process.env.CI && libre < pisoTipos(heap)) return { saltado: `hay ${libre.toFixed(1)} GB libres y el tsc acotado pide ${pisoTipos(heap).toFixed(1)}` };
@@ -139,25 +159,52 @@ async function tiposDeLoTocado(alcance, { hasta, raiz }) {
   }
 }
 
+/** La selección sobre lo COMMITEADO desde el merge-base con `base` (incluye lo borrado), con el grafo de lo que git sigue. null sin base. */
+export function planDeLoCommiteado(base) {
+  let desde;
+  try { desde = git(['merge-base', base, 'HEAD']).trim(); } catch { return null; }
+  const cambiados = git(['diff', '--name-only', '--no-renames', desde, 'HEAD']).split('\n').map((l) => l.trim()).filter(Boolean);
+  const archivos = git(['ls-files']).split('\n').map((l) => l.trim()).filter(Boolean);
+  const sel = seleccionar({ cambiados, archivos, leer: leerDisco, profundidad: 1 });
+  const sucio = git(['status', '--porcelain', '--untracked-files=no']).trim() !== '';
+  return { cambios: { cambiados }, archivos, sel, sucio };
+}
+
 export async function filtrar({ base = 'origin/main', topeS = TOPE_POR_DEFECTO_S, raiz = process.cwd(), out = (s) => process.stdout.write(s + '\n') } = {}) {
   const t0 = Date.now();
   const hasta = t0 + topeS * 1000;
-  const plan = planear(base, { profundidad: 1 });
+  // Lo que se SUBE es lo commiteado: la lista sale de `merge-base..HEAD` y de `git ls-files`, nunca del disco (un archivo nuevo sin
+  // commitear de otra tarea no viaja, y no puede frenar este push). Los tests corren sobre el disco: si el árbol tiene cambios sin
+  // commitear en archivos que git sigue, se avisa.
+  const plan = planDeLoCommiteado(base);
   if (!plan) return { codigo: 0, linea: `⚠ FILTRO SIN CORRER: no encuentro «${base}» (git fetch origin). Lo chequea la punta en GitHub.` };
   const { cambios, sel } = plan;
+  if (plan.sucio) out(`[filtro-punta] ⚠ hay cambios sin commitear en archivos de git: el filtro corre sobre el disco y no es exactamente lo que sube.`);
   const tests = testsSuyos(sel.tests);
   const alcance = alcanceTsc({ cambiados: cambios.cambiados, archivos: plan.archivos, importadoPor: sel.importadoPor, aumentan: sel.aumentan });
   out(`[filtro-punta] ${cambios.cambiados.length} archivos tocados → ${tests.length} tests suyos y los tipos de ${alcance.length} archivos, con tope de ${topeS} s`);
 
+  // Tests y tipos EN PARALELO si hay RAM para los dos: el tsc «acotado» de un solo archivo arrastra lo que importa, y medido el 4/11
+  // sobre commits reales un script de 1 archivo compiló 3.323 y tardó 131 s. Detrás de los tests no entraba casi nunca (1 de 5).
+  // Sin RAM para los dos, primero los tests (dan la mayoría de los rojos) y los tipos después, si queda tiempo y RAM.
   const avisos = [];
-  let t = { corridos: 0, casos: 0, rojos: [], sinCorrer: 0 };
-  if (tests.length) {
-    const libre = ramLibreGb();
-    if (!process.env.CI && libre < pisoRam(CONCURRENCIA)) avisos.push(`tests: no los corrí, hay ${libre.toFixed(1)} GB libres`);
-    else t = await correrTestsConTope(tests, { hasta, cwd: raiz });
-    if (t.sinCorrer) avisos.push(`tests: ${t.sinCorrer} de ${tests.length} no entraron en el tope`);
-  }
-  const ti = await tiposDeLoTocado(alcance, { hasta, raiz });
+  const vacio = { corridos: 0, casos: 0, rojos: [], sinCorrer: 0 };
+  const libre = ramLibreGb();
+  const ramTests = pisoRam(CONCURRENCIA);
+  const clausura = clausuraDeImports(alcance, sel.importadoPor);
+  const ramTipos = clausura > CLAUSURA_MAXIMA_PARA_TIPOS ? 0 : pisoTipos(heapTsc(alcance.length));
+  const correrLosTests = async () => {
+    if (!tests.length) return vacio;
+    if (!process.env.CI && ramLibreGb() < ramTests) { avisos.push(`tests: no los corrí, hay ${ramLibreGb().toFixed(1)} GB libres`); return vacio; }
+    const r = await correrTestsConTope(tests, { hasta, cwd: raiz });
+    if (r.sinCorrer) avisos.push(`tests: ${r.sinCorrer} de ${tests.length} no entraron en el tope`);
+    return r;
+  };
+  const juntos = Boolean(process.env.CI) || libre >= ramTests + ramTipos - ZONA_ROJA_VIGIA_GB;
+  let t;
+  let ti;
+  if (juntos) [t, ti] = await Promise.all([correrLosTests(), tiposDeLoTocado(alcance, { hasta, raiz, clausura })]);
+  else { t = await correrLosTests(); ti = await tiposDeLoTocado(alcance, { hasta, raiz, clausura }); }
   if (ti.saltado) avisos.push(`tipos: ${ti.saltado}`);
   if (ti.errores) out(ti.errores.slice(0, 20).join('\n'));
 

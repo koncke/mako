@@ -7,6 +7,8 @@
 //     frena: rojo.
 //   · lo que no entra en el tope NO frena: «A MEDIAS», exit 0. Con `if (x.vencio)` sacado, la tanda cortada cuenta como roja: rojo.
 //   · nunca sale 99.
+//   · elige sobre lo COMMITEADO: un test nuevo sin commitear no viaja en el push y no corre. Sumando los archivos sin commitear a
+//     la lista (como hacía la primera versión, que leía el disco), corre y frena: rojo.
 // No cubre los TIPOS de punta a punta (el repo temporal no tiene el tsconfig de MaKo): el tsc acotado es el de antes-de-subir, y el
 // recorte a «sólo errores de lo tocado» se midió a mano el 4/11 sobre las dos puntas rojas de ese día (TS2339 y TS2769: los dos frenan).
 // =============================================================================
@@ -18,7 +20,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { correrTestsConTope, testsSuyos } from '../scripts/filtro-punta.mjs';
+import { clausuraDeImports, correrTestsConTope, testsSuyos } from '../scripts/filtro-punta.mjs';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const FILTRO = join(RAIZ, 'scripts', 'filtro-punta.mjs');
@@ -46,7 +48,8 @@ function armarRepo() {
   g('add', '.');
   g('commit', '-q', '-m', 'base');
   g('update-ref', 'refs/remotes/origin/main', 'HEAD');
-  return { dir, rm: () => rmSync(dir, { recursive: true, force: true }) };
+  const commitear = () => { g('commit', '-q', '-am', 'cambio'); };
+  return { dir, commitear, rm: () => rmSync(dir, { recursive: true, force: true }) };
 }
 
 const filtrar = (cwd: string, tope = 60) => {
@@ -55,21 +58,26 @@ const filtrar = (cwd: string, tope = 60) => {
 };
 
 test('tocar lib/a.mjs y romper su test FRENA el push y lo nombra; la barredora rota no corre', () => {
-  const { dir, rm } = armarRepo();
+  const { dir, commitear, rm } = armarRepo();
   try {
     writeFileSync(join(dir, 'lib', 'a.mjs'), 'export const doble = (n) => n * 3;\n');
+    commitear();
+    // Un test nuevo SIN commitear que fallaría: no viaja en el push, así que no frena (ni corre).
+    writeFileSync(join(dir, 'tests', 'suelto.test.ts'), "import test from 'node:test';\nimport '../lib/a.mjs';\ntest('suelto', () => { throw new Error('no viaja'); });\n");
     const r = filtrar(dir);
     assert.equal(r.codigo, 1, r.salida);
     assert.match(r.ultima, /FILTRO ROJO/);
     assert.match(r.ultima, /tests\/a\.test\.ts/);
     assert.doesNotMatch(r.salida, /barre\.test/, 'la barredora es de la punta en GitHub');
+    assert.doesNotMatch(r.salida, /suelto\.test/, 'lo que no se commiteó no viaja: no corre');
   } finally { rm(); }
 });
 
 test('tocar lib/a.mjs sin romper nada: verde, corriendo SÓLO su test', () => {
-  const { dir, rm } = armarRepo();
+  const { dir, commitear, rm } = armarRepo();
   try {
     writeFileSync(join(dir, 'lib', 'a.mjs'), 'export const doble = (n) => n + n;\n');
+    commitear();
     const r = filtrar(dir);
     assert.equal(r.codigo, 0, r.salida);
     assert.match(r.ultima, /FILTRO VERDE.*1 de 1 tests/);
@@ -77,9 +85,10 @@ test('tocar lib/a.mjs sin romper nada: verde, corriendo SÓLO su test', () => {
 });
 
 test('lo que no entra en el tope no frena: «A MEDIAS» y exit 0, nunca 99', () => {
-  const { dir, rm } = armarRepo();
+  const { dir, commitear, rm } = armarRepo();
   try {
     writeFileSync(join(dir, 'lib', 'lento.mjs'), 'export const x = 2;\n');
+    commitear();
     const r = filtrar(dir, 3);
     assert.equal(r.codigo, 0, r.salida);
     assert.match(r.ultima, /FILTRO A MEDIAS.*no entraron en el tope/);
@@ -146,4 +155,12 @@ test('el hook: MAKO_SIN_FILTRO=1 no lo corre, y un push que no es a punta/* tamp
   const otra = correrHook('refs/heads/otra-rama', 1);
   assert.equal(otra.codigo, 0, otra.salida);
   assert.equal(otra.corrio, false);
+});
+
+test('clausuraDeImports: cuenta lo que el tsc arrastra hacia adelante, sin repetir ni colgarse en un ciclo', () => {
+  // a → b → c → a (ciclo) y a → d. El grafo de tests-afectados guarda «quién importa a quién» (destino → importadores).
+  const importadoPor = new Map([['b', new Set(['a'])], ['c', new Set(['b'])], ['a', new Set(['c'])], ['d', new Set(['a'])], ['z', new Set(['y'])]]);
+  assert.equal(clausuraDeImports(['a'], importadoPor), 4);
+  assert.equal(clausuraDeImports(['d'], importadoPor), 1, 'd no importa nada');
+  assert.equal(clausuraDeImports([], importadoPor), 0);
 });
