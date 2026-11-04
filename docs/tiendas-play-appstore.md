@@ -4,7 +4,7 @@ Pedido de Martín (22/10, 09:48): «quiero trabajar en subir la app a la Play y 
 Fuentes oficiales al final, cada una con su fecha. Medido sobre origin/main `f6bd295e7` y sobre producción el 22/10; las
 cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
 **23/10, 02:17, Martín: «Sí, a mi nombre ahora».** No hay empresa registrada, así que no hay D-U-N-S: las dos cuentas son PERSONALES.
-**3/11/2026, Martín: «Sí, a propósito»: la de Apple va a nombre de Leandro Tejado** (`tejadomartin@gmail.com`), y la de Play, a nombre de Martín
+**3/11/2026, Martín: «Sí, a propósito»: la de Apple va a nombre de Leandro Tejado** (con su gmail), y la de Play, a nombre de Martín
 (`martinkoncke@gmail.com`). En cada tienda el vendedor es el nombre legal de su titular. Los pasos, cortos y en orden, están en la (b).
 **Para Martín (5 minutos): «Dónde estamos», la §0 y la (b).** La (a) y la (c) son para el chat de código. Los textos para pegar: [tiendas-fichas-borradores.md](tiendas-fichas-borradores.md).
 
@@ -83,7 +83,7 @@ cuentas, revisadas otra vez el 23/10 en las páginas oficiales.
    - Cuando la consola lo pida, **verificar la identidad** con su DNI o pasaporte.
    - Instalar la app **Play Console** en su Samsung y **verificar el teléfono** desde ahí.
    - Avisarnos: subimos el primer AAB a la prueba cerrada y desde ese día corren los 14.
-2. **Apple Developer Program, cuenta INDIVIDUAL (USD 99 por año), a nombre de Leandro Tejado** (`tejadomartin@gmail.com`): aprobada el 3/11/2026. Lo que dice abajo vale para esa cuenta, y el nombre legal es el de Leandro.
+2. **Apple Developer Program, cuenta INDIVIDUAL (USD 99 por año), a nombre de Leandro Tejado** (con su gmail): aprobada el 3/11/2026. Lo que dice abajo vale para esa cuenta, y el nombre legal es el de Leandro.
    - Un Apple Account con su **nombre legal** (sin apodos): si no tiene, se crea en account.apple.com.
    - Prender la **verificación en dos pasos** en account.apple.com → «Mejorar la seguridad de la cuenta», con su número de
      teléfono.

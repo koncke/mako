@@ -23,7 +23,7 @@ export type AlcanceBaja = 'persona' | 'negocio';
  */
 export function motivoSinBaja(p: { rol: string | null; impersonando: boolean; tieneFila: boolean }): string | null {
   if (!p.tieneFila) return 'Esta sesión no tiene una cuenta propia.';
-  if (p.rol === 'admin') return 'La cuenta de la plataforma no se elimina desde acá.';
+  if (p.rol === 'admin') return 'La cuenta de la plataforma no se elimina desde aquí.';
   if (p.impersonando) return 'Estás mirando la cuenta de otro: sal de ella para eliminar la tuya.';
   return null;
 }

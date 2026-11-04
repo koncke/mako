@@ -33,7 +33,7 @@ export async function clavesApns(): Promise<ClavesApns | null> {
     // Producción siempre: TestFlight y el App Store usan la misma, y sin una Mac no hay builds de desarrollo.
     const [keyId, teamId, p8] = await Promise.all(['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8'].map((k) => credWsEstricta(k, ws)));
     claves = clavesApnsDe({ keyId, teamId, p8 });
-    if (!claves) console.warn('[push] sin las claves de APNs (Integraciones › Apple Push): los iPhones no reciben avisos.');
+    if (!claves) console.warn('[push] sin las claves de APNs (Settings › Integraciones › Apple Push): los iPhones no reciben avisos.');
   } catch (e) {
     console.error('[push] no pude leer las claves de APNs:', e instanceof Error ? e.message : String(e));
   }

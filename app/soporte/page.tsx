@@ -24,7 +24,7 @@ export default function Page() {
     >
       <H id="dentro">Si ya entraste</H>
       <p>
-        En la app, abre <strong>More › Reportar problema</strong>. Queda en tu Ticketera, y ves ahí la respuesta. En una respuesta
+        En la app, abre <strong>More</strong> y toca <strong>Reportar problema</strong>. Queda en tu Ticketera, y ves ahí la respuesta. En una respuesta
         de MaKo que te parezca mal, toca <strong>Reportar</strong> debajo del mensaje.
       </p>
 
