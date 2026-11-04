@@ -25,6 +25,7 @@ import type { Grafico, Hoja } from '@/lib/graficos-catalogo';
 import { FILAS_CARRIL, FILTROS_CS, iconoDe, pasaFiltro, textoContacto, type AnilloCs, type FiltroCs, type TarjetaCs, type VistaCs } from '@/lib/cs-diseno';
 import { entero } from '@/lib/marketing-diseno';
 import { plata } from '@/lib/cobranza-diseno';
+import { RUTA_CLIENTES } from '@/lib/clients-rutas';
 import { CSS_CS } from './cs-css';
 
 const Compartido = createContext(false);
@@ -223,7 +224,7 @@ export function HojaCs({ hoja, vista, titulo, onGrilla, onFila, compartido = fal
             <h2 className="mnd-panel-t">Tu cartera por etapa</h2>
             <Seg opciones={FILTROS_CS} valor={filtro} onCambio={setFiltro} />
             <div className="mnd-board-acts">
-              {!compartido && <Ir href="/customer-success" className="mnd-btn mnd-btn--ink mnd-btn--sm mnd-btn--txt" etiqueta="Ver tus clientes"><Icono id="gente" /><span>Ver clientes</span></Ir>}
+              {!compartido && <Ir href={RUTA_CLIENTES} className="mnd-btn mnd-btn--ink mnd-btn--sm mnd-btn--txt" etiqueta="Ver tus clientes"><Icono id="gente" /><span>Ver clientes</span></Ir>}
               {onGrilla && <button type="button" className="mnd-iconbtn mnd-iconbtn--sm" aria-label="Ver la grilla" title="Ver la grilla" onClick={onGrilla}><Icono id="grid" /></button>}
             </div>
           </div>
@@ -236,14 +237,14 @@ export function HojaCs({ hoja, vista, titulo, onGrilla, onFila, compartido = fal
                   <header className="mnd-lane__h"><span>{c.etapa}</span><span className="mnd-lane__n mnd-num">{entero(c.n)}</span></header>
                   <ol className="mnd-lane__list">
                     {c.visibles.map((t) => <li key={t.clave}><Tarjeta t={t} abrir={abrir(p.carriles, t.clave)} /></li>)}
-                    {c.mas > 0 && <li><Ir href="/customer-success" className="mnd-lane__mas">y {entero(c.mas)} más<Icono id="flecha" /></Ir></li>}
+                    {c.mas > 0 && <li><Ir href={RUTA_CLIENTES} className="mnd-lane__mas">y {entero(c.mas)} más<Icono id="flecha" /></Ir></li>}
                     {!c.visibles.length && !c.mas && <li><p className="mnd-lane__vacio">{filtro === 'todos' ? 'Nadie en esta etapa' : 'Nadie con este filtro'}</p></li>}
                   </ol>
                 </section>
               ))}
             </div>
           )}
-          {cartera.fuera > 0 && !problemas.cartera && <p className="mnd-nota">Se ven los primeros 50 clientes. <Ir href="/customer-success">Ver los {entero(cartera.fuera)} que faltan</Ir></p>}
+          {cartera.fuera > 0 && !problemas.cartera && <p className="mnd-nota">Se ven los primeros 50 clientes. <Ir href={RUTA_CLIENTES}>Ver los {entero(cartera.fuera)} que faltan</Ir></p>}
         </div>
 
         <div className="mnd-row2">
