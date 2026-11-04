@@ -814,3 +814,8 @@
 .m-aut__punto[data-tono="good"] { background: var(--good); }
 .m-aut__punto[data-tono="warn"] { background: var(--warn-fill); }
 .m-aut__punto[data-tono="bad"] { background: var(--bad); }
+
+/* El permiso de la IA de terceros (app/m/_ui/PermisoIaM.tsx). */
+[data-m] .m-permiso-ia { display: grid; gap: 10px; padding: 4px 0 8px; font-size: var(--fs-md); line-height: 1.5; color: var(--ink); }
+[data-m] .m-permiso-ia p { margin: 0; }
+[data-m] .m-permiso-ia__mal { color: var(--bad); }

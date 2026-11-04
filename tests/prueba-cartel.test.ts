@@ -19,7 +19,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { diasQueQuedan, RUTA_EMPEZAR_PLAN_M, textoCartelPrueba } from '../lib/prueba-plan-reglas';
+import { diasQueQuedan, textoCartelPrueba } from '../lib/prueba-plan-reglas';
 import { textoTopePrueba, usadoDePrueba } from '../lib/topes-plan';
 
 (globalThis as unknown as { React: typeof React }).React = React;
@@ -81,19 +81,18 @@ test('los COLORES son los de MaKo (los tokens, claro y oscuro), no el violeta de
   }
 });
 
-test('en el TELÉFONO: el cartel en «Más» y un aviso corto arriba de cada pantalla, a «Tu plan»', async () => {
+test('en el TELÉFONO: el cartel en «Más» y un aviso corto arriba de cada pantalla, sin botón ni precio (T5, 3/11/2026)', async () => {
   const { AvisoPruebaM, CartelPruebaM } = await import('../app/m/_prueba/PruebaM');
   const aviso = renderToStaticMarkup(React.createElement(AvisoPruebaM, { dias: 3, plan: 'MaKo Pro', despues: 'US$ 97/mes' }));
-  assert.equal(texto(aviso), 'Versión de prueba · quedan 3 días Pasar al plan ya');
-  assert.ok(aviso.includes(`href="${RUTA_EMPEZAR_PLAN_M}"`), 'a «Tu plan» del teléfono');
+  assert.equal(texto(aviso), 'Versión de prueba · quedan 3 días');
+  assert.ok(!aviso.includes('href='), 'el teléfono no vende');
   const cartel = renderToStaticMarkup(React.createElement(CartelPruebaM, { dias: 3, plan: 'MaKo Pro', despues: 'US$ 97/mes' }));
-  assert.equal(texto(cartel), 'Versión de prueba · quedan 3 días Al terminar, sigues con MaKo Pro por US$ 97/mes. Pasar al plan ya');
+  assert.equal(texto(cartel), 'Versión de prueba · quedan 3 días');
   assert.match(fuente('app/m/layout.tsx'), /\{prueba\?\.enPrueba && <AvisoPruebaM dias=\{prueba\.dias\}/);
   assert.match(fuente('app/m/mas/page.tsx'), /\{prueba\?\.enPrueba && <CartelPruebaM dias=\{prueba\.dias\}/);
   assert.match(fuente('lib/prueba-uso.ts'), /dias: diasQueQuedan\(c\.inicio_at, Date\.now\(\)\) \};/, 'los días, al leer: no en el render');
-  const pm = fuente('app/m/configuraciones/plan/PlanM.tsx');
-  assert.match(pm, /titulo="Empezar mi plan ya"/);
-  assert.match(pm, /const r = await empezarPlanYaAction\(\)/, 'la misma acción que la computadora');
+  const pm = fuente('app/m/configuraciones/plan/PlanM.tsx').replace(/^\s*\/\/.*$/gm, '');
+  assert.doesNotMatch(pm, /Empezar mi plan ya|empezarPlanYaAction/, 'empezar el plan queda en la computadora');
 });
 
 test('la API: ver_mi_prueba y empezar_mi_plan_ya, con la misma lectura y la misma función que la pantalla', () => {

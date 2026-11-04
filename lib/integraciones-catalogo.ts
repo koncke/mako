@@ -90,6 +90,8 @@ export const DEFS: Def[] = [
   // OJO: esta lista y la de lib/metodo-catalogo.ts tienen que coincidir EXACTO en los
   // `env`. Si no, credWs() devuelve null en silencio y la integración se ve cargada pero
   // no funciona — es el error clásico que la skill add-provider-integration advierte.
+  // Los avisos de la app de iPhone (lib/push-apns.ts), de la plataforma como GitHub: la app es una sola. El formulario y su tutorial, en lib/metodo-catalogo.ts.
+  { key: 'apple-push', nombre: 'Apple Push', categoria: 'Desarrollo', descripcion: 'Los avisos de la app de iPhone. Sin esto, los iPhones no reciben notificaciones.', envs: ['APNS_KEY_ID', 'APNS_TEAM_ID', 'APNS_P8'], soloPlataforma: true },
   { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'], soloPlataforma: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
   // Los otros grabadores de reuniones (26/10/2026, Martín: «implementa otras integraciones de grabadores de reuniones,

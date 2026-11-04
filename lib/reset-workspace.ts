@@ -53,7 +53,10 @@ export const NOMBRE_WS_PRUEBA = 'Cliente de Prueba';
 // Los tres últimos son del curso tipo Skool (07/10/2026): adjuntos de la descripción (0216), lo que
 // sube el alumno en una tarea (0218) y los adjuntos de la comunidad (0217). Todos con <ws>/ adelante.
 // `landing-imagenes` (0246): las imágenes y videos del editor de landings, PÚBLICO y con <ws>/ adelante.
-const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos', 'landing-imagenes', 'image-editor'] as const;
+const BUCKETS = ['archivero', 'wa-media', 'contratos', 'branding', 'ig-media', 'ads-creatives', 'video-clips', 'curso-notas', 'curso-adjuntos', 'curso-entregas', 'comunidad-adjuntos', 'landing-imagenes', 'image-editor', 'chats-email', 'lead-notas'] as const;
+
+/** Los que no van por `<ws>/`: las portadas de los informes (`ws<N>/`) y las fotos de los contactos (`leads/<ws>/`, público). Lo encontró la revisión del 3/11/2026. */
+const CARPETAS_APARTE = (ws: number): Array<[string, string]> => [['portadas', `ws${ws}`], ['avatars', `leads/${ws}`]];
 
 export type ResultadoReset = {
   borrado: Record<string, number>;
@@ -64,19 +67,21 @@ export type ResultadoReset = {
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 /** Lista recursiva de un prefijo de storage, paginando de a 1000. */
-async function listarRecursivo(bucket: string, prefijo: string, prof = 0): Promise<string[]> {
+async function listarRecursivo(bucket: string, prefijo: string, avisos: string[], prof = 0): Promise<string[]> {
   if (prof > 4) return [];
   const sb = getSupabaseServer();
   const out: string[] = [];
   let offset = 0;
   for (;;) {
     const { data, error } = await sb.storage.from(bucket).list(prefijo, { limit: 1000, offset });
-    if (error || !data || !data.length) break;
+    // «No pude leer» no es «no hay archivos»: si no, el borrado dice que terminó con todo adentro.
+    if (error) { avisos.push(`${bucket}: no pude listar ${prefijo}: ${error.message}`); break; }
+    if (!data || !data.length) break;
     for (const it of data) {
       const ruta = prefijo ? `${prefijo}/${it.name}` : it.name;
       // Sin `id` es una "carpeta" (prefijo virtual): hay que bajar.
       if (it.id) out.push(ruta);
-      else out.push(...await listarRecursivo(bucket, ruta, prof + 1));
+      else out.push(...await listarRecursivo(bucket, ruta, avisos, prof + 1));
     }
     if (data.length < 1000) break;
     offset += data.length;
@@ -160,15 +165,15 @@ export async function vaciarTablas(ws: number): Promise<{ borrado: Record<string
  * roles: el cliente sigue existiendo y se puede entrar, solo que sin nada
  * adentro.
  */
-export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
-  // La condición vive en auth-session.ts (sin `server-only`) para que se pueda
-  // testear: ver tests/reset-workspace.test.ts.
-  exigirClienteDePrueba(ws);
-
-  const sb = getSupabaseServer();
-  const borrado: Record<string, number> = {};
+/**
+ * Lo que un negocio tiene AFUERA de la base: su WhatsApp en Evolution y su voz en ElevenLabs. Va ANTES de vaciar las tablas:
+ * los ids para encontrarlos viven ahí.
+ *
+ * ⚠️ SIN GUARD A PROPÓSITO, como `vaciarTablas`: lo deciden sus dos llamadores. Hasta el 3/11/2026 sólo lo hacía el reset:
+ * `eliminarWorkspace` borraba al cliente y su línea de WhatsApp seguía viva en Evolution, y su voz clonada, en ElevenLabs.
+ */
+export async function cerrarLoDeAfuera(ws: number): Promise<string[]> {
   const avisos: string[] = [];
-
   // ── 1. Cortar la sesión de WhatsApp en el servidor de Evolution ──
   // Borrar la fila de evolution_instancias no desconecta nada: la sesión sigue
   // viva allá con el número pegado, y el próximo "conectar" encuentra la
@@ -203,7 +208,8 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
     const { borrarVoz } = await import('./elevenlabs');
     const voz = await runWithWorkspace(ws, () => getVozCliente());
     if (voz.clon?.voiceId) {
-      const r = await borrarVoz(voz.clon.voiceId);
+      // ⚠️ ADENTRO DEL NEGOCIO: la clave de ElevenLabs es la suya. Afuera sale con la de quien llama, da 404 y se lee como «ya no estaba».
+      const r = await runWithWorkspace(ws, () => borrarVoz(voz.clon!.voiceId));
       if (!r.ok) {
         avisos.push(`Voz clonada: no se pudo borrar de ElevenLabs (${r.error}). Queda ocupando un espacio de voz en la cuenta de la plataforma; bórrala a mano — su identificador es ${voz.clon.voiceId}.`);
       }
@@ -211,6 +217,56 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   } catch (e) {
     avisos.push(`Voz clonada: no se pudo comprobar si había una (${msg(e)}). Revisa las voces de la cuenta de ElevenLabs por si quedó una huérfana.`);
   }
+  return avisos;
+}
+
+/**
+ * Los binarios del negocio, en todos sus buckets. Sin guard, como `vaciarTablas`.
+ *
+ * ⚠️ `eliminarWorkspace` no lo hacía hasta el 3/11/2026, aunque su cabecera prometía llevarse «sus archivos»: las filas se
+ * iban y los archivos quedaban en Storage, sin nadie que supiera de quién eran. Con «Eliminar mi cuenta» eso era prometerle
+ * a Apple y a Play un borrado que no pasaba.
+ */
+export async function borrarArchivos(ws: number): Promise<{ archivos: number; avisos: string[] }> {
+  const sb = getSupabaseServer();
+  const avisos: string[] = [];
+  let archivos = 0;
+  const lugares: Array<[string, string]> = [...BUCKETS.map((b): [string, string] => [b, String(ws)]), ...CARPETAS_APARTE(ws)];
+  for (const [bucket, prefijo] of lugares) {
+    try {
+      const rutas = await listarRecursivo(bucket, prefijo, avisos);
+      for (let i = 0; i < rutas.length; i += 100) {
+        const { error } = await sb.storage.from(bucket).remove(rutas.slice(i, i + 100));
+        if (error) { avisos.push(`${bucket}: ${error.message}`); break; }
+        archivos += Math.min(100, rutas.length - i);
+      }
+    } catch (e) {
+      avisos.push(`${bucket}: ${msg(e)}`);
+    }
+  }
+  return { archivos, avisos };
+}
+
+/** Las fotos de una persona que se va (`avatars/u<id>/`). Devuelve lo que no salió. */
+export async function borrarFotosDeUsuario(usuarioId: number): Promise<string[]> {
+  const avisos: string[] = [];
+  const rutas = await listarRecursivo('avatars', `u${usuarioId}`, avisos);
+  for (let i = 0; i < rutas.length; i += 100) {
+    const { error } = await getSupabaseServer().storage.from('avatars').remove(rutas.slice(i, i + 100));
+    if (error) { avisos.push(`avatars: ${error.message}`); break; }
+  }
+  return avisos;
+}
+
+/** Deja un workspace de prueba como recién creado: lo de afuera, las tablas, el funnel vacío, los archivos y su gente. */
+export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
+  // La condición vive en auth-session.ts (sin `server-only`) para que se pueda
+  // testear: ver tests/reset-workspace.test.ts.
+  exigirClienteDePrueba(ws);
+
+  const sb = getSupabaseServer();
+  const borrado: Record<string, number> = {};
+  const avisos: string[] = await cerrarLoDeAfuera(ws);
 
   // ── 2. Tablas ──
   const vaciado = await vaciarTablas(ws);
@@ -234,19 +290,9 @@ export async function resetearWorkspace(ws: number): Promise<ResultadoReset> {
   }
 
   // ── 3. Binarios ──
-  let archivos = 0;
-  for (const bucket of BUCKETS) {
-    try {
-      const rutas = await listarRecursivo(bucket, String(ws));
-      for (let i = 0; i < rutas.length; i += 100) {
-        const { error } = await sb.storage.from(bucket).remove(rutas.slice(i, i + 100));
-        if (error) { avisos.push(`${bucket}: ${error.message}`); break; }
-        archivos += Math.min(100, rutas.length - i);
-      }
-    } catch (e) {
-      avisos.push(`${bucket}: ${msg(e)}`);
-    }
-  }
+  const binarios = await borrarArchivos(ws);
+  const archivos = binarios.archivos;
+  avisos.push(...binarios.avisos);
 
   // EL NOMBRE DEL WORKSPACE TAMBIÉN VUELVE (18/10/2026, Martín: después de RESET seguía diciendo «Consultesis»). La fila
   // del workspace no se borra, pero el onboarding le escribe el nombre del negocio (`guardarNombreNegocio`): sin esto, el

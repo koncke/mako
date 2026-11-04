@@ -344,9 +344,7 @@ export function enmascarar(destino: string): string {
  * ⚠️ Mira el user-agent, que lo escribe el navegador: es una regla de PRODUCTO, no de
  * seguridad. Lo que protege la cuenta es la firma de la llave, no esta función.
  */
-export function esTelefono(userAgent: string | null | undefined): boolean {
-  return /iPhone|iPod|iPad|Android/i.test(String(userAgent ?? ''));
-}
+export { esTelefono } from './telefono';
 
 // ── Passkeys: para qué dominio valen ─────────────────────────────────────────
 

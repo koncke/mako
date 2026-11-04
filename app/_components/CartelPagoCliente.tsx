@@ -10,10 +10,14 @@
 //   · la RENOVACIÓN mensual: se cierra («Ahora no»), porque su mes ya está pago. Vuelve en la próxima carga.
 // Pide el dato UNA vez por carga y al volver a la pestaña, como el aviso de la mora (el layout no se desmonta al navegar):
 // quien paga en otra pestaña y vuelve, ve el cartel irse solo.
+//
+// ⚠️ EN UN TELÉFONO NO VENDE (T5, docs/tiendas-play-appstore.md, 3/11/2026): sin precio ni link. El primer mes dice que la cuenta espera y deja cerrar
+// sesión; la renovación no sale: su mes ya está pago. El pago se hace en la computadora, donde sigue saliendo este cartel.
 // =============================================================================
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { esVistaSinChrome } from './PublicRouteGate';
+import { esTelefono } from '@/lib/telefono';
 
 type Cartel =
   | { tipo: 'primer-mes'; link: string; cerrable: false; agencia: string; usd: number }
@@ -42,6 +46,9 @@ export function CartelPagoCliente() {
 
   if (fuera || !cartel || (cartel.cerrable && cerrado)) return null;
   const primer = cartel.tipo === 'primer-mes';
+  // Después del fetch, nunca en el primer dibujo del servidor: mirar el navegador no descuadra la hidratación.
+  const telefono = typeof navigator !== 'undefined' && esTelefono(navigator.userAgent);
+  if (telefono && !primer) return null;
   const desde = cartel.tipo === 'renovacion' && cartel.desde
     ? new Date(cartel.desde).toLocaleDateString('es', { day: 'numeric', month: 'long' }) : null;
 
@@ -53,12 +60,14 @@ export function CartelPagoCliente() {
         <p className="cpc-sobre">{cartel.agencia} te abrió tu cuenta de MaKo</p>
         <h2 id="cpc-titulo" className="cpc-titulo">{primer ? 'Activa tu cuenta' : 'Activa tu renovación mensual'}</h2>
         <p className="cpc-texto">
-          {primer
+          {telefono
+            ? 'Tu cuenta espera su activación. Entra desde una computadora para terminar.'
+            : primer
             ? 'Terminaste tu configuración. Para empezar a usar MaKo, paga tu primer mes.'
             : `Tu mes ya está pago. Autoriza la renovación una vez y se cobra sola cada mes${desde ? `, desde el ${desde}` : ''}.`}
         </p>
-        <div className="cpc-precio"><b>US$ {cartel.usd.toLocaleString('es')}</b><span>al mes</span></div>
-        <a className="cpc-pagar" href={cartel.link}>{primer ? 'Pagar con tarjeta' : 'Autorizar la renovación'}</a>
+        {!telefono && <div className="cpc-precio"><b>US$ {cartel.usd.toLocaleString('es')}</b><span>al mes</span></div>}
+        {!telefono && <a className="cpc-pagar" href={cartel.link}>{primer ? 'Pagar con tarjeta' : 'Autorizar la renovación'}</a>}
         {primer ? (
           <button type="button" className="cpc-salir"
             onClick={async () => { await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {}); window.location.href = '/login'; }}>
@@ -67,7 +76,7 @@ export function CartelPagoCliente() {
         ) : (
           <button type="button" className="cpc-salir" onClick={() => setCerrado(true)}>Ahora no</button>
         )}
-        <p className="cpc-nota">¿Dudas con el pago? Habla con {cartel.agencia}.</p>
+        <p className="cpc-nota">{telefono ? `¿Dudas? Habla con ${cartel.agencia}.` : `¿Dudas con el pago? Habla con ${cartel.agencia}.`}</p>
       </div>
     </div>
   );

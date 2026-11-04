@@ -24,6 +24,7 @@ import { ProgramaM, ReferidosM } from './ReferidosM';
 import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
 import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
 import { RUTA_MAS } from '@/lib/movil-rutas';
+import { esAppIosDelPedido } from '@/lib/tienda-pedido';
 import { LandingPartners } from '@/app/mako-partners/LandingPartners';
 import { AltaPartner } from '@/app/partners/AltaPartner';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
@@ -35,6 +36,8 @@ const cobraEnLinea = () => ofertasDeLosPlanes().then((o) => o.some((x) => x.cobr
 
 export default async function PartnersPagina({ searchParams }: { searchParams: Promise<{ alta?: string; landing?: string; cuenta?: string }> }) {
   await requireMovil({ navKey: 'partners' });
+  // En la app de iPhone no existe: es un programa para vender MaKo a otros (T5, lib/tienda.ts).
+  if (await esAppIosDelPedido()) redirect(await rutaConWs(RUTA_MAS));
   const sp = await searchParams;
   const ws = await getWorkspaceActual();
   if (ws == null) redirect(await rutaConWs('/m/cs'));

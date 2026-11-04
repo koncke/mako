@@ -2,7 +2,7 @@
 
 Las dos son la PWA de `hola-mako.com` dentro de un envoltorio. **No tienen pantallas propias**: la app es `/m`, y lo nativo
 sólo suma capacidades del aparato. El plan entero, con las decisiones de Martín y las fuentes: [docs/tiendas-play-appstore.md](../docs/tiendas-play-appstore.md).
-Las cuentas son PERSONALES, a nombre de Martín Koncke (23/10/2026). El id de las dos es `com.holamako.app` y **no se cambia
+Las cuentas son PERSONALES: Play a nombre de Martín y Apple a nombre de Leandro Tejado (3/11/2026). El id de las dos es `com.holamako.app` y **no se cambia
 nunca** (T2).
 
 ## Android — `nativo/android` (Trusted Web Activity con Bubblewrap)
@@ -18,15 +18,16 @@ npm ci
 node generar.mjs
 ```
 
-**Compilar** (pide el JDK 17 y el Android SDK, unos 600 MB; Bubblewrap los baja a `~/.bubblewrap` la primera vez). Gradle
-usa más de 1 GB de RAM: correrlo en una ventana de RAM.
+**Compilar** (pide el JDK 17 y el Android SDK, unos 600 MB, que van a `~/.bubblewrap` la primera vez). Gradle usa unos 2 GB de RAM:
+correrlo en una ventana de RAM. `bubblewrap build` hace preguntas en la consola, así que esto hace lo mismo sin preguntar. El flag es la
+aceptación de los términos del SDK, y es de Martín:
 
 ```
-npx @bubblewrap/cli@1.27.0 build
+node compilar.mjs --acepto-terminos-android-sdk
 ```
 
-- **La clave de firma (`upload.keystore`) NUNCA va al repo** (`.gitignore`). Se crea una vez, fuera del repo, y Martín guarda
-  una copia con su contraseña. Con Play App Signing, perderla no es fatal: Google rota la de subida.
+- **La clave de firma (`upload.keystore`) NUNCA va al repo.** `compilar.mjs` la crea una vez en `~/.mako-tiendas`, con su contraseña al lado y sin
+  mostrarla, y deja ahí el `.aab`. Martín guarda una copia. Con Play App Signing, perderla no es fatal: Google rota la de subida.
 - **Las huellas SHA-256 van DOS** en `public/.well-known/assetlinks.json`: la de esta clave de subida
   (`keytool -list -v -keystore upload.keystore`) y la de Play App Signing (Play Console → Integridad de la app), que existe
   recién después del primer AAB. Si la app abre con la barra de la URL, falta una de las dos.
@@ -56,14 +57,17 @@ npx cap sync ios
 ```
 
 **Compilar NO se puede sin una Mac**: lo hace Codemagic (`codemagic.yaml` en la raíz del repo, a mano, sin Actions) y lo sube a
-TestFlight. Necesita la cuenta de Apple de Martín y la API key de App Store Connect.
+TestFlight. Necesita la cuenta de Apple (a nombre de Leandro Tejado) y la API key de App Store Connect.
 
 ## Lo que falta, y de quién depende
 
 | Qué | Depende de |
 |---|---|
-| La clave de subida, el primer `.aab` y la prueba cerrada de 14 días | Una ventana de RAM (Gradle) y la cuenta de Play de Martín |
-| Las dos huellas en `assetlinks.json` | La clave de subida y el primer AAB en Play |
-| El Team ID en `apple-app-site-association` (`TEAMID.com.holamako.app`) | La cuenta de Apple de Martín |
+| La clave de subida, el primer `.aab` y la prueba cerrada de 14 días | Una ventana de RAM (Gradle), los términos del Android SDK y la cuenta de Play de Martín |
+| Las dos huellas en `assetlinks.json` (`node scripts/tiendas-asociar.mjs --huella AA:BB:…`) | La clave de subida y el primer AAB en Play |
+| El Team ID en `apple-app-site-association` (`node scripts/tiendas-asociar.mjs --team ABCDE12345`): lo que vende queda afuera de los links | La cuenta de Apple, a nombre de Leandro Tejado |
 | La primera corrida de `codemagic.yaml` (es un borrador) | La cuenta de Apple, la API key y la app creada en App Store Connect |
-| Lo de la web para iOS: el modo iOS (paso 3), guardar y compartir con los plugins (paso 8), el token de APNs al servidor y `lib/push.ts` por APNs (paso 9), abrir los links universales (`appUrlOpen`) | Código de la app, en `app/` y `lib/`: no del envoltorio |
+| La clave de los avisos (Integraciones › Apple Push) | La cuenta de Apple, a nombre de Leandro Tejado |
+| Mirar en TestFlight: guardar un video, los códigos, un link de WhatsApp, un aviso, modo avión | La cuenta de Apple y un iPhone prestado |
+
+**Lo de la web para iOS ya está** (3/11/2026): el modo iOS en `lib/tienda.ts`; guardar, compartir, los links universales, los hápticos y el token de APNs en `lib/nativo.ts` (usa `window.Capacitor.Plugins`: la web no importa los plugins); el envío en `lib/push-apns.ts`.

@@ -15,6 +15,8 @@
 //
 // ⚠️ iOS: Web Push existe SÓLO con la app INSTALADA (16.4+, «Agregar a inicio»). En una
 // pestaña de Safari `PushManager` ni existe: eso es `instalar-primero`, no `no-soportado`.
+// ⚠️ LA APP DE IPHONE DE LAS TIENDAS es otra cosa: adentro de un WebView no hay Web Push, va por APNs (lib/nativo.ts). Cada función
+// de acá pregunta primero `esAppNativa()`, así las pantallas no se enteran.
 // ⚠️ El permiso se pide DENTRO del gesto: `activarAvisos()` llama a `requestPermission()`
 // antes de su primer `await`, así que hay que llamarla DIRECTO desde el `onClick`, sin un
 // `await` antes (Safari pierde el gesto en la primera espera y contesta `denied` solo).
@@ -33,6 +35,8 @@ export type ResultadoActivar =
   | { ok: false; estado: EstadoAvisos | 'sin-cuenta' | 'sin-claves' | 'error'; detalle?: string };
 
 export type ResultadoPrueba = { ok: boolean; enviados: number; fallidos: number; sinSuscripciones: number; motivo?: string };
+
+import { activarAvisosNativo, asegurarAvisosNativo, desactivarAvisosNativo, esAppNativa, estadoAvisosNativo, soltarAvisosNativo } from './nativo';
 
 const SW_URL = '/sw.js';
 
@@ -129,6 +133,7 @@ async function registrarEnServidor(sub: PushSubscription): Promise<{ ok: boolean
 
 /** En qué estado está ESTE teléfono. Sólo lee: no pide permiso ni escribe nada. */
 export async function estadoSuscripcion(): Promise<EstadoAvisos> {
+  if (esAppNativa()) return estadoAvisosNativo();
   if (!soportaPush()) return esIOS() && !esAppInstalada() ? 'instalar-primero' : 'no-soportado';
   if (Notification.permission === 'denied') return 'bloqueado';
   const reg = await navigator.serviceWorker.getRegistration('/').catch(() => undefined);
@@ -142,6 +147,7 @@ export async function estadoSuscripcion(): Promise<EstadoAvisos> {
  * teléfono pasó a otra cuenta, la vuelve a atar a quien está logueado ahora.
  */
 export async function asegurarRegistro(): Promise<boolean> {
+  if (esAppNativa()) return asegurarAvisosNativo();
   if (!soportaPush() || Notification.permission !== 'granted') return false;
   const reg = await registro();
   const sub = reg ? await reg.pushManager.getSubscription().catch(() => null) : null;
@@ -154,6 +160,10 @@ export async function asegurarRegistro(): Promise<boolean> {
  * desde el onClick), se suscribe con la clave de /api/push/clave y registra la suscripción.
  */
 export async function activarAvisos(): Promise<ResultadoActivar> {
+  if (esAppNativa()) {
+    const r = await activarAvisosNativo();
+    return r.ok ? { ok: true, estado: 'activo' } : { ok: false, estado: r.estado, ...(r.detalle ? { detalle: r.detalle } : {}) };
+  }
   if (!soportaPush()) return { ok: false, estado: esIOS() && !esAppInstalada() ? 'instalar-primero' : 'no-soportado' };
   // ⚠️ PRIMERA línea con efecto: el pedido de permiso sale antes de cualquier `await`.
   const pedido: Promise<NotificationPermission> = Notification.permission === 'granted'
@@ -191,6 +201,7 @@ export async function activarAvisos(): Promise<ResultadoActivar> {
 
 /** Apaga los avisos en ESTE teléfono (los otros teléfonos de la persona siguen). */
 export async function desactivarAvisos(): Promise<boolean> {
+  if (esAppNativa()) return desactivarAvisosNativo();
   if (!soportaPush()) return false;
   const reg = await navigator.serviceWorker.getRegistration('/').catch(() => undefined);
   const sub = reg ? await reg.pushManager.getSubscription().catch(() => null) : null;
@@ -221,6 +232,7 @@ export async function desactivarAvisos(): Promise<boolean> {
  */
 export async function soltarDeEstaCuenta(): Promise<void> {
   try {
+    if (esAppNativa()) { await soltarAvisosNativo(); return; }
     if (!soportaPush()) return;
     const reg = await navigator.serviceWorker.getRegistration('/').catch(() => undefined);
     const sub = reg ? await reg.pushManager.getSubscription().catch(() => null) : null;

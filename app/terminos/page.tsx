@@ -226,8 +226,8 @@ export default function Page() {
       <H id="baja">10. Dar de baja</H>
       <p>
         Puedes dejar de usar MaKo cuando quieras. Para cerrar tu cuenta y que borremos tus datos,
-        escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>: hoy ese paso lo hacemos
-        nosotros a mano, y está explicado en la <a href="/privacidad">política de privacidad</a>.
+        toca «Eliminar mi cuenta» en la app o escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>:
+        los pasos y qué se borra están en <a href="/eliminar-cuenta">Eliminar tu cuenta</a>.
       </p>
       <p>
         Antes de irte, desconecta tus integraciones y revoca los permisos que le diste a MaKo en

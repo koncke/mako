@@ -28,7 +28,10 @@
 // =============================================================================
 
 import './comunidad.css';
+import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
+import { esAppIosDelPedido } from '@/lib/tienda-pedido';
+import { rutaConWs } from '@/lib/workspace';
 import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
 import { leerComunidad } from './datos';
 import { ComunidadM } from './ComunidadM';
@@ -41,6 +44,8 @@ export default async function ComunidadPagina({ searchParams }: {
   searchParams: Promise<{ producto?: string | string[]; post?: string | string[] }>;
 }) {
   await requireMovil({ navKey: 'cs-comunidad' });
+  // La app de iPhone no lleva Community: Apple (1.2) pide bloquear a un usuario desde la app, y la moderación está en la computadora.
+  if (await esAppIosDelPedido()) redirect(await rutaConWs('/m/curso'));
   const lectura = await leerComunidad(await searchParams);
 
   if (lectura.tipo === 'sin-productos') {

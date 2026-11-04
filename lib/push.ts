@@ -45,6 +45,8 @@ import { wsSuperAdmin } from './workspace';
 import { EMAIL_MAKO } from './app-url';
 import { enSilencio, normalizarPush, quierePush, rolPushDeFila, PUSH_SOLO_ADMINS } from './notif-catalogo';
 import { accionTrasError, armarPayloadPush, wsDelLink, type PayloadPush } from './push-payload';
+import { accionTrasErrorApns, armarApns, esEndpointApns } from './push-apns-reglas';
+import { clavesApns, enviarApns } from './push-apns';
 
 export const CLAVE_VAPID = 'WEB_PUSH_VAPID';
 
@@ -153,8 +155,41 @@ function conTope<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, tope]).finally(() => { if (t) clearTimeout(t); });
 }
 
+/**
+ * El último tramo de los iPhones de la app (`endpoint` = `apns:<token>`): lo mismo que el Web Push, con el mismo rastro en la fila.
+ * ⚠️ Sólo se borra lo que murió (`accionTrasErrorApns`): sin claves o con la clave mal cargada, la fila sigue.
+ */
+async function despacharApns(subs: FilaSuscripcion[], payload: PayloadPush, e: EntradaPush): Promise<{ enviados: number; fallidos: number }> {
+  const db = getSupabaseServer();
+  const c = await clavesApns();
+  const envio = armarApns(payload, { ttlSegundos: e.ttl ?? TTL_DEFAULT, urgencia: e.urgencia ?? 'normal' });
+  const respuestas = c ? await enviarApns(subs.map((s) => s.endpoint), envio, c).catch(() => subs.map(() => ({ status: null, razon: 'sin conexión' }))) : subs.map(() => ({ status: null, razon: 'sin las claves de APNs' }));
+  let enviados = 0; let fallidos = 0;
+  await Promise.allSettled(respuestas.map(async (r, i) => {
+    const s = subs[i];
+    if (r.status === 200) {
+      enviados += 1;
+      await db.from('push_suscripciones').update({ last_ok_at: new Date().toISOString(), fallos: 0, ultimo_error: null }).eq('id', s.id);
+      return;
+    }
+    fallidos += 1;
+    if (accionTrasErrorApns(r.status, r.razon) === 'borrar') {
+      await db.from('push_suscripciones').delete().eq('id', s.id);
+      return;
+    }
+    const motivo = `${r.status ?? 'red'}: ${String(r.razon ?? 'sin detalle')}`.slice(0, 300);
+    console.warn(`[push] ${e.tipo}: falló el envío a APNs de la suscripción #${s.id} (${motivo})`);
+    await db.from('push_suscripciones').update({ fallos: (s.fallos ?? 0) + 1, ultimo_error: motivo }).eq('id', s.id);
+  }));
+  return { enviados, fallidos };
+}
+
 /** Manda `payload` a cada suscripción y deja el rastro en la fila. Nunca lanza. */
-async function despachar(subs: FilaSuscripcion[], payload: PayloadPush, e: EntradaPush, claves: Claves): Promise<{ enviados: number; fallidos: number }> {
+async function despachar(todas: FilaSuscripcion[], payload: PayloadPush, e: EntradaPush, claves: Claves): Promise<{ enviados: number; fallidos: number }> {
+  // Las de los iPhones de la app van a Apple; ninguna le llega a web-push, que le haría un POST a un `apns:`.
+  const deApns = todas.filter((s) => esEndpointApns(s.endpoint));
+  const subs = todas.filter((s) => !esEndpointApns(s.endpoint));
+  const apns = deApns.length ? await despacharApns(deApns, payload, e) : { enviados: 0, fallidos: 0 };
   const db = getSupabaseServer();
   const cuerpo = JSON.stringify(payload);
   const opciones = {
@@ -186,7 +221,7 @@ async function despachar(subs: FilaSuscripcion[], payload: PayloadPush, e: Entra
     console.warn(`[push] ${e.tipo}: falló el envío a la suscripción #${s.id} (${motivo})`);
     await db.from('push_suscripciones').update({ fallos: (s.fallos ?? 0) + 1, ultimo_error: motivo }).eq('id', s.id);
   }));
-  return { enviados, fallidos };
+  return { enviados: enviados + apns.enviados, fallidos: fallidos + apns.fallidos };
 }
 
 /**

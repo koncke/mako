@@ -426,6 +426,29 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // IA8 (22/10/2026): Cerebras, Mistral y OpenRouter se sacaron (docs/hallazgos-ia.md). ⚠️ Sin su método, una fila ya
   // guardada no se puede borrar ni revelar desde la pantalla (ENVS_METODO): queda inerte; borrarla es SQL.
   {
+    key: 'apple-push',
+    nombre: 'Apple Push',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    // De la PLATAFORMA, como GitHub: la app de iPhone es una sola, con el id `com.holamako.app`. lib/push-apns.ts lee estas tres del ws de plataforma.
+    paraQue: 'Los avisos de la app de iPhone. Sin esto, los iPhones no reciben notificaciones (Android y la computadora siguen igual).',
+    campos: [
+      { env: 'APNS_KEY_ID', label: 'Key ID', secreto: false, placeholder: 'ABC123DEFG', nota: 'Los 10 caracteres que Apple muestra al lado de la clave.' },
+      { env: 'APNS_TEAM_ID', label: 'Team ID', secreto: false, placeholder: 'XYZ987WVUT', nota: 'Los 10 caracteres de Membership, en developer.apple.com/account.' },
+      { env: 'APNS_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' }, // claves-en-el-diff: ok
+    ],
+    tutorial: {
+      url: 'https://developer.apple.com/account/resources/authkeys/list',
+      urlLabel: 'Apple Developer → Keys',
+      pasos: [
+        'Entra a developer.apple.com/account/resources/authkeys/list con tu cuenta de Apple.',
+        'Toca «+», ponle de nombre «MaKo push» y marca «Apple Push Notifications service (APNs)».',
+        'Toca «Continue» y «Register», y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
+        'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
+      ],
+    },
+  },
+  {
     key: 'github',
     nombre: 'GitHub',
     categoria: 'Desarrollo',
@@ -1436,6 +1459,33 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://dashboard.stripe.com/apikeys',
     urlLabel: 'Stripe → API keys',
+  },
+  APNS_KEY_ID: {
+    pasos: [
+        'Para qué sirve: junto con el Team ID y la clave .p8, es lo que le permite a MaKo avisar en un iPhone.',
+        'Entra a developer.apple.com/account/resources/authkeys/list y abre la clave «MaKo push».',
+        'Copia el «Key ID», los 10 caracteres de esa pantalla, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account/resources/authkeys/list',
+    urlLabel: 'Apple Developer → Keys',
+  },
+  APNS_TEAM_ID: {
+    pasos: [
+        'Para qué sirve: le dice a Apple de qué cuenta de desarrollador sale el aviso.',
+        'Entra a developer.apple.com/account y baja hasta «Membership details».',
+        'Copia el «Team ID», los 10 caracteres, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account',
+    urlLabel: 'Apple Developer → Membership',
+  },
+  APNS_P8: {
+    pasos: [
+        'Para qué sirve: es la clave con la que MaKo firma cada aviso a un iPhone.',
+        'Abre con el Bloc de notas el archivo .p8 que bajaste al crear la clave.',
+        'Copia todo, desde -----BEGIN hasta -----END, y pégalo en este campo.',
+      ],
+    url: 'https://developer.apple.com/account/resources/authkeys/list',
+    urlLabel: 'Apple Developer → Keys',
   },
   CREEM_API_KEY: {
     pasos: [
