@@ -306,4 +306,16 @@ export const BITACORA: Hito[] = [
       'docs/relevo/nube-metodologia.md — los comandos por clon, los tiempos y lo que falta medir',
     ],
   },
+  {
+    fecha: '4 nov', hora: '09:20', chat: 'Infra', sesion: 'cli_fe9e34df-f0e0-505d-89ab-5b8ddc011a0b', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Si una punta y main cambian el mismo workflow, la corrida lo frena a los 20 s en vez de rebotar al final',
+    puntos: [
+      'GitHub no deja que el token de Actions suba una versión nueva de un workflow: una punta con todo en verde rebotaba cinco veces al llevar a main.',
+      'Ahora la corrida lo detecta al mezclar y dice qué hacer: mezclar main en la máquina y volver a subir. A las puntas que no tocan workflows no les pasa.',
+    ],
+    archivos: [
+      'scripts/ci-workflow-nuevo.sh — qué workflows quedan en una versión que no está en ninguno de los dos padres',
+      'tests/ci-workflow-nuevo.test.ts — el script sobre repos de git de verdad',
+    ],
+  },
 ];
