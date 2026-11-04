@@ -168,7 +168,7 @@ test('6. el clic derecho, la cita y las marcas del super admin, en cada mensaje 
   assert.match(piezas, /<ContextoWA\.Provider value=\{k\.esAutomatizacion(?: \|\| k\.esEditor)? \? null : k\.accionesWA\}>/, 'el hilo con lo de WhatsApp');
   assert.match(piezas, /\{k\.cita && <CitaCaja cita=\{k\.cita\} onQuitar=\{\(\) => k\.setCita\(null\)\} \/>\}/, 'la cita arriba de la caja');
   for (const f of ['app/second-brain/ChatSecondBrain.tsx', 'app/m/second-brain/ChatClienteM.tsx']) {
-    assert.match(sinComentarios(leer(f)), /<MenuMensajeWA abierto=\{k\.menuWA\} marcas=\{k\.marcas\} onCerrar=\{\(\) => k\.setMenuWA\(null\)\} onElegir=\{k\.elegirEnMenu\} sin=\{\['reenviar'\]\} \/>/, f);
+    assert.match(sinComentarios(leer(f)), /<MenuMensajeWA abierto=\{k\.menuWA\} marcas=\{k\.marcas\} onCerrar=\{\(\) => k\.setMenuWA\(null\)\} onElegir=\{k\.elegirEnMenu\} sin=\{\['reenviar'\]\}(?: reportable=\{esRespuestaDeMaKo\})? \/>/, f);
   }
   assert.match(sinComentarios(leer('app/second-brain/useChatCliente.ts')), /const t = armarConCita\(cita, texto\.trim\(\)\);/, 'la cita sale con el mensaje');
   const hm = sinComentarios(leer('app/_chat/HiloMako.tsx'));

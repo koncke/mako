@@ -23,7 +23,8 @@ import {
 import { ASESORES, REFERENTE_DE_FABRICA, conReferenteElegido, inspiradoEn, referenteDelCoach, referentePedido } from '../lib/asesores/catalogo';
 import { FICHAS } from '../lib/asesores/fichas';
 import { HERRAMIENTAS_DEL_COACH, contextoDeReferente, contextoDelFunnelCoach } from '../lib/asesores/contexto';
-import { hayOfertaParaElCoach, lineasDelPlan, saludoDelFunnelCoach, sanearPlan } from '../lib/funnel-plan';
+import { lineasDelPlan, ofertaDelCoach, ofertaParaElContexto, previaDelCoach, saludoDelFunnelCoach, sanearOfertaDelCoach, sanearPlan } from '../lib/funnel-plan';
+import { ofertaArmadaDe } from '../lib/offer-marco';
 import { aspectoDe, aspectoDeReferente, esCriaturaDeMako, sanearAspecto } from '../lib/centro-munecos';
 
 const RAIZ = resolve(import.meta.dirname, '..');
@@ -199,7 +200,7 @@ test('10. la ruta usa el contexto del coach sólo desde su chat, y sólo el admi
   assert.match(r, /desde\?\.tab !== ORIGEN_FUNNEL_COACH\) return \{ contexto: CONTEXTO_SECOND_BRAIN \}/);
   // Los dos caminos de la ruta, JSON y con archivos: un adjunto no le saca el contexto ni sus herramientas.
   assert.equal((r.match(/contexto: delChat\.contexto, referente: delChat\.referente, propias: delChat\.propias/g) ?? []).length, 2);
-  assert.match(r, /return \{ contexto: contextoDelFunnelCoach\(referente\), referente, propias: HERRAMIENTAS_DEL_COACH \};/);
+  assert.match(r, /return \{ contexto: `\$\{contextoDelFunnelCoach\(referente\)\}\\n\\n\$\{ofertaParaElContexto\(oferta\)\}`, referente, propias: HERRAMIENTAS_DEL_COACH \};/);
   assert.doesNotMatch(r, /contexto: CONTEXTO_SECOND_BRAIN, guardarAdjuntos/);
   assert.match(r, /if \(persona\.rol !== 'admin'\) return json\(\{ ok: false, error: 'Lo cambia quien administra el negocio\.' \}, 403\);/);
 });
@@ -209,7 +210,11 @@ test('10. la ruta usa el contexto del coach sólo desde su chat, y sólo el admi
 //   · `referenteDelCoach` sin la rama de `funnel` (el Offer Coach gana siempre)          → cae 12 «gana el del Funnel Coach»
 //   · `referenteDelCoach` que trata `offer: null` como «no eligió»                      → cae 12 «eligió MaKo en el Offer Coach»
 //   · `conReferenteElegido` que guarda sólo `{ coach }`                                   → cae 12 «lo de antes queda»
-//   · `hayOfertaParaElCoach` con `armada` ignorada                                       → cae 13
+//   · `ofertaDelCoach` con `armada` ignorada                                             → cae 13
+//   Ticket #57 (4/11/2026, base 17 / 0, Node 24; restaurado y comprobado con sha256), cada uno 16 / 1:
+//   · «no pude leer» cuenta como «no hay» · la del perfil como guardada · el saludo de antes («ya está cargada»)
+//   · la armada leída de la PRIMERA versión · la ruta con `.catch(() => [])` · saluda antes de saber      → cae 13
+//   · el contexto del coach sin `ofertaParaElContexto`                                                     → cae 10
 //   · una cadena «Offer Coach» en un texto de app/                                       → cae 14
 //   · `ChatClienteM` sin la fila del coach                                               → cae 15
 //   · la ruta de Offer leyendo `.offer` de lo guardado                                   → cae 16
@@ -242,17 +247,67 @@ test('12. quien ya eligió no pierde su elección: gana el del Funnel Coach, si 
   assert.match(db, /conReferenteElegido\(json\(await getSettingEstricto\(CLAVE_REFERENTES\)\), id\)/);
 });
 
-test('13. quien armó la oferta en una conversación de oferta no vuelve a empezar', () => {
-  assert.equal(hayOfertaParaElCoach(0, true), true, 'armada y sin guardar');
-  assert.equal(hayOfertaParaElCoach(2, false), true);
-  assert.equal(hayOfertaParaElCoach(0, false), false);
-  assert.equal(hayOfertaParaElCoach(null, false), true, 'no se pudo leer: no se le dice que le falta');
-  assert.equal(hayOfertaParaElCoach(0, null), true);
-  assert.match(saludoDelFunnelCoach(false), /oferta/);
-  assert.doesNotMatch(saludoDelFunnelCoach(false), /Coach|vuelve con ella/, 'la oferta se trabaja ahí mismo, sin mandar a otro chat');
+test('13. quien armó la oferta en una conversación de oferta no vuelve a empezar, y el saludo dice CUÁL usa (ticket #57)', () => {
+  // Martín, en el ws 9, leyó «Tu oferta ya está cargada» y lo reportó: hasta el 4/11 «no pude leer» contaba como «hay», y el saludo
+  // no decía cuál. Ahora: tres estados, y con una oferta, un renglón con su nombre y de dónde salió, para corregirla antes de seguir.
+  const PRESUPUESTO = /¿Cuánto puedes invertir por mes para conseguir clientes\?$/;
+  const CAMBIAR = /Si no es esa, dime cuál\./;
+  // Sin oferta: se empieza por armarla, ahí mismo.
+  const ninguna = ofertaDelCoach([], null);
+  assert.deepEqual(ninguna, { estado: 'no-hay' });
+  assert.equal(saludoDelFunnelCoach(ninguna), 'Empecemos por tu oferta: ¿qué vendes, a quién y a qué precio?');
+  assert.doesNotMatch(saludoDelFunnelCoach(ninguna), /Coach|vuelve con ella/, 'la oferta se trabaja ahí mismo, sin mandar a otro chat');
+  // La base no contestó: no se afirma ni que hay ni que falta (lo que pasó en el ws 9 si la lectura falló).
+  for (const [g, a] of [['no-se', null], [[], 'no-se'], ['no-se', 'no-se']] as const) {
+    const o = ofertaDelCoach(g, a);
+    assert.deepEqual(o, { estado: 'no-se' }, `${JSON.stringify(g)} / ${JSON.stringify(a)}`);
+    assert.doesNotMatch(saludoDelFunnelCoach(o), /cargada|Voy a usar/, 'sin leerla no se dice que hay una');
+    assert.match(saludoDelFunnelCoach(o), /^Empecemos por tu oferta: .*Si ya tienes una guardada, dime cuál/);
+  }
+  // Una guardada: su nombre; lo que sí se leyó manda aunque lo otro fallara.
+  const guardada = ofertaDelCoach([{ nombre: 'Mentoría 1:1', desde_brief: false }, { nombre: 'Taller', desde_brief: false }], 'no-se');
+  assert.deepEqual(guardada, { estado: 'hay', nombre: 'Mentoría 1:1', de: 'guardada', conversacion: null }, 'la primera: la principal');
+  assert.match(saludoDelFunnelCoach(guardada), /^Voy a usar tu oferta «Mentoría 1:1»\. Si no es esa, dime cuál\.\n\n/);
+  assert.match(saludoDelFunnelCoach(guardada), PRESUPUESTO);
+  // La sembrada con el nombre del onboarding: se dice que sale del perfil, no que «está cargada».
+  const perfil = ofertaDelCoach([{ nombre: 'MaKo', desde_brief: true }], null);
+  assert.equal(perfil.estado === 'hay' && perfil.de, 'perfil');
+  assert.match(saludoDelFunnelCoach(perfil), /^Voy a usar «MaKo», la oferta de tu perfil del negocio\./);
+  assert.match(saludoDelFunnelCoach(perfil), CAMBIAR);
+  // Una sin nombre no sirve para nombrarla: se sigue buscando.
+  assert.deepEqual(ofertaDelCoach([{ nombre: '  ', desde_brief: false }], null), { estado: 'no-hay' });
+  // La armada en una conversación de oferta y sin guardar: su nombre y el de la conversación.
+  const armada = ofertaDelCoach([], { nombre: 'Sprint de ventas', conversacion: 'Mi oferta' });
+  assert.deepEqual(armada, { estado: 'hay', nombre: 'Sprint de ventas', de: 'conversacion', conversacion: 'Mi oferta' });
+  assert.match(saludoDelFunnelCoach(armada), /^Voy a usar «Sprint de ventas», la oferta que armaste en la conversación «Mi oferta» y todavía no guardaste\./);
+  assert.match(saludoDelFunnelCoach(armada), PRESUPUESTO);
+  // Sin nombre en la propuesta, la conversación la nombra; y la lectura de la armada (la última versión, con su cálculo).
+  assert.match(saludoDelFunnelCoach(ofertaDelCoach([], { nombre: '', conversacion: 'Mi programa' })), /^Voy a usar «Mi programa», la oferta que armaste y todavía no guardaste\./);
+  const version = (v: number, total: unknown, nombre: unknown) => ({ diagnostico: {}, calculo: { total }, propuesta: { nombre }, version: v });
+  assert.equal(ofertaArmadaDe([]), null);
+  assert.deepEqual(ofertaArmadaDe([version(1, 30, 'Vieja'), version(2, 41, ' Sprint ')]), { nombre: 'Sprint' }, 'la última versión');
+  assert.equal(ofertaArmadaDe([version(1, null, 'Sin cálculo')]), null, 'sin cálculo no se armó');
+  assert.equal(ofertaArmadaDe('nada'), null);
+  // Lo que llega a la pantalla se lee sin confiar en la forma, y el renglón de la fila no afirma lo que no se sabe.
+  assert.deepEqual(sanearOfertaDelCoach(JSON.parse(JSON.stringify(armada))), armada);
+  assert.deepEqual(sanearOfertaDelCoach({ estado: 'hay', nombre: '', de: 'guardada' }), { estado: 'no-se' });
+  assert.deepEqual(sanearOfertaDelCoach(undefined), { estado: 'no-se' }, 'si el pedido falló');
+  assert.equal(previaDelCoach({ estado: 'no-hay' }), 'Empieza por tu oferta');
+  assert.equal(previaDelCoach({ estado: 'no-se' }), 'Tu oferta y cómo conseguir clientes');
+  assert.equal(previaDelCoach(null), 'Tu oferta y cómo conseguir clientes');
+  // El modelo sabe con qué oferta abrió (el saludo no se guarda en el hilo): a «no, es la otra» sabe de cuál le hablan.
+  assert.ok(ofertaParaElContexto(guardada).includes('«Voy a usar tu oferta «Mentoría 1:1». Si no es esa, dime cuál.»'));
+  assert.match(ofertaParaElContexto({ estado: 'no-se' }), /Antes de dar una por cargada, míralas con listar_ofertas/);
+  // La ruta: la MISMA lectura para el saludo y el contexto, y una lectura que falla es «no se sabe».
   const r = leer('app/api/mako/chat/route.ts');
-  assert.match(r, /hayOfertaArmada\(\)\.catch\(\(\) => null\)/);
-  assert.match(r, /hayOferta: hayOfertaParaElCoach\(ofertas\?\.length \?\? null, armada\)/);
+  assert.match(r, /listarOfertas\(true\)\.catch\(\(\) => 'no-se' as const\)/);
+  assert.match(r, /ofertaArmada\(\)\.catch\(\(\) => 'no-se' as const\)/);
+  assert.match(r, /return ofertaDelCoach\(guardadas, armada\);/);
+  assert.match(r, /return json\(\{ ok: true, referente, oferta, puedeElegir: persona\.rol === 'admin' \}\);/);
+  assert.match(r, /Promise\.all\(\[leerReferente\(\), laOfertaDelCoach\(\)\]\)/);
+  // Y la pantalla espera a saber antes de saludar: abría diciendo que no había y medio segundo después que sí.
+  const motor = leer('app/second-brain/useChatDelCoach.ts');
+  assert.match(motor, /const vacio = elegido != null && oferta != null && k\.cargado/);
   // Y el contexto: primero la oferta, mirando lo guardado y lo armado, y después el funnel.
   const c = contextoDelFunnelCoach('hormozi');
   assert.ok(c.indexOf('1. LA OFERTA') >= 0 && c.indexOf('1. LA OFERTA') < c.indexOf('2. ELEGIR EL FUNNEL'), 'la oferta va primero');
@@ -288,9 +343,9 @@ test('15. en el teléfono también hay un solo coach, para el cliente y el super
   assert.match(sa, /titulo=\{<span className="m-operaciones-texto1">\{ORIGEN_FUNNEL_COACH\}<\/span>\}/);
   assert.match(sa, /<HojaDelCoach referente=\{referente\}/);
   const h = leer('app/m/second-brain/HojaDelCoach.tsx');
-  assert.match(h, /useChatDelCoach\(\{ referente, hayOferta, caja \}\)/, 'el motor de la computadora');
+  assert.match(h, /useChatDelCoach\(\{ referente, oferta, caja \}\)/, 'el motor de la computadora');
   assert.match(h, /onClick=\{\(\) => \{ onReferente\(id\); setVista\(null\); \}\}/, 'se elige quién aconseja adentro de la hoja');
-  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /useChatDelCoach\(\{ referente, hayOferta, caja \}\)/);
+  assert.match(leer('app/second-brain/ChatDelCoach.tsx'), /useChatDelCoach\(\{ referente, oferta, caja \}\)/);
 });
 
 test('16. las conversaciones de oferta aconsejan con el MISMO referente que el coach del que cuelgan', () => {

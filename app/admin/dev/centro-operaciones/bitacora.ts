@@ -2324,4 +2324,32 @@ export const BITACORA: Hito[] = [
       'tests/grupos-ops-pantalla.test.ts (20) — ocho roturas en rojo',
     ],
   },
+  {
+    fecha: '4 nov', hora: '13:10', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Ticket #57: «Reportar» debajo de cada mensaje no tiene sentido, y el saludo de la oferta',
+    pedido: 'Debajo del mensaje de funnel coach me aparecia un botón de "reportar" eso no tiene sentido...',
+    puntos: [
+      'Llegó por el Cerebro, con el ticket #57: Martín tocó «Reportar a Soporte» sobre «Tu oferta ya está cargada. ¿Cuánto puedes invertir por mes para conseguir clientes?», en el ws 9.',
+      'El Cerebro sumó: que el saludo sea verdad y que diga en un renglón qué oferta usa, para corregirla antes de seguir.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '13:50', chat: 'Funnel Coach único', sesion: 'cli_135a1a29-c4ee-5d70-b52c-72bc63a68c64', cuenta: 'nube', actor: 'claude', tipo: 'correccion',
+    titulo: 'Sin «Reportar» debajo de cada mensaje, y el coach dice con qué oferta abre',
+    revisar: '/second-brain?coach=funnel',
+    puntos: [
+      '**Ya no hay un «Reportar» debajo de cada respuesta de MaKo**, en ningún chat: los coaches, los gurús, el Second Brain, la estrella de cada tab, el grupo y el teléfono.',
+      '**Se sigue pudiendo reportar** desde el menú del mensaje (clic derecho o mantener apretado): Google Play lo pide para las respuestas de IA. Al tocarlo, avisa «Lo mandamos al equipo».',
+      '**El coach dice con qué oferta abre:** «Voy a usar tu oferta «X». Si no es esa, dime cuál», y también si sale del perfil del negocio o de una conversación de oferta sin guardar.',
+      '**Ya no afirma una oferta que no leyó:** si no pudo leer las ofertas, pregunta qué vendes en vez de decir «ya está cargada». Eso fue lo que vio Martín.',
+      '**El coach sabe qué oferta nombró al abrir:** si le dices «no, es la otra», la busca.',
+    ],
+    archivos: [
+      'app/_chat/ReportarRespuesta.tsx — mandarReporte y useReportarRespuesta · lib/centro-mensajes.ts — «Reportar» en opcionesDelMensaje · app/admin/operaciones/MensajeWA.tsx — reportable',
+      'app/_chat/HiloMako.tsx — sin el botón; «Reportar» en el menú mínimo · app/_ui/iconos-menu.tsx — bandera',
+      'lib/funnel-plan.ts — ofertaDelCoach, saludoDelFunnelCoach, ofertaParaElContexto · lib/offer-marco.ts — ofertaArmadaDe · lib/offer-sesiones.ts — ofertaArmada · app/api/mako/chat/route.ts',
+      'tests/reportar-en-el-menu.test.ts (6 roturas) · tests/coaches-ops-center.test.ts (8 roturas) · tests/ia-permiso.test.ts',
+    ],
+    tickets: [57],
+  },
 ];
