@@ -33,6 +33,7 @@ import { reporteMetricas, metricasAMarkdown } from './metricas-negocio';
 import { linkApp } from './app-url';
 import { tableroDeCapa } from './tablero-de-capa';
 import { formularioParaModelo } from './meta-leads-campos';
+import { respuestaDeCampana } from './leads-por-campana-server';
 
 // ── helpers de entrada ────────────────────────────────────────────────────────
 
@@ -101,7 +102,7 @@ async function ofertaDeLaFicha(ofertaId: number | null | undefined): Promise<Ofe
 export const MAKO_TOOLS: ToolDef[] = [
   {
     name: 'buscar_leads',
-    description: 'Busca leads del negocio por nombre, teléfono, email o empresa. Devuelve una lista compacta (id, nombre, estado, etapa). Usa el id que devuelve con las otras herramientas.',
+    description: 'Busca leads del negocio por nombre, teléfono, email o empresa. Devuelve una lista compacta (id, nombre, estado, etapa). Usa el id que devuelve con las otras herramientas. Si ningún lead se llama así y el texto es el nombre (o parte) de una campaña de Meta, trae los leads de esa campaña con su teléfono.',
     input_schema: {
       type: 'object',
       properties: { texto: { type: 'string', description: 'Texto a buscar en nombre / teléfono / email / empresa.' } },
@@ -211,21 +212,34 @@ export const MAKO_TOOLS: ToolDef[] = [
 
 // ── ejecutor: enruta cada herramienta a su lib (todo lectura, tenant-scoped) ───
 
-export const runMakoTool: ToolRunner = async (name, input) => {
+/** Lo que el turno le da a una herramienta además del pedido: por dónde el CÓDIGO le escribe a la persona (`aPersona`, el doer de
+ *  WhatsApp; lib/api-mako/tipos.ts). Sin él (la app, HTTP), lo que es para la persona va en lo que lee el modelo. */
+export type ExtraDeHerramienta = { aPersona?: (texto: string) => void };
+
+export const runMakoTool = async (name: string, input: Record<string, unknown>, extra: ExtraDeHerramienta = {}): ReturnType<ToolRunner> => {
   switch (name) {
     case 'buscar_leads': {
       const q = str(input, 'texto').trim().toLowerCase();
       if (!q) return 'Pasa un texto para buscar.';
+      // EL TEXTO PUEDE SER UNA CAMPAÑA (ticket #56, 4/11/2026): «los leads de la campaña recon Finca Cortesin» llegaba acá, ningún
+      // lead se llama así, y MaKo contestaba «no encontré» y pedía la fecha. Si ningún lead coincide, se mira si el texto nombra
+      // una campaña (lib/leads-por-campana-server.ts): sus leads, o las campañas parecidas para preguntar cuál.
+      const seLlamanAsi = (await listLeads())
+        .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q));
+      if (!seLlamanAsi.length) {
+        const porCampana = await respuestaDeCampana(str(input, 'texto'), { aPersona: extra.aPersona, soloSiNombraUna: true });
+        if (porCampana) return porCampana;
+      }
       // DE CADA LEAD: las etapas de SU casa (`etapasDeLeads`, lib/funnels.ts), cada CRM leído una vez
       // para los 20. Hasta el 17/10/2026 eran las del negocio para todos, y un lead de otro CRM salía
       // con una etapa derivada que contradecía al tablero. Si la lectura falla, las de por defecto
       // (`etapaParaModelo`), como la ficha: la etapa nunca sale null.
-      const encontrados = (await listLeads())
-        .filter((l) => `${l.nombre ?? ''} ${l.email ?? ''} ${l.empresa ?? ''} ${l.telefono ?? ''} ${l.telefono_normalizado ?? ''}`.toLowerCase().includes(q))
-        .slice(0, 20);
+      const encontrados = seLlamanAsi.slice(0, 20);
       const [etapas, tz] = await Promise.all([etapasDeLeads(encontrados.map((l) => l.id)).catch(() => null), tzActual().catch(() => null)]);
       const hits = encontrados.map((l) => resumenLead(l, etapas?.get(l.id) ?? null, tz));
-      return JSON.stringify({ encontrados: hits.length, leads: hits });
+      // Los que no entraron se DICEN (ticket #56): «encontrados: 20» sobre 35 se leía como «son 20».
+      const omitidos = seLlamanAsi.length - hits.length;
+      return JSON.stringify({ encontrados: hits.length, ...(omitidos > 0 ? { coinciden: seLlamanAsi.length, omitidos } : {}), leads: hits });
     }
 
     case 'ficha_lead': {

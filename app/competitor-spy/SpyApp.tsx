@@ -533,7 +533,7 @@ const ICONO_TIPO: Record<ValorDeContenido, NombreIconoMenu> = {
 
 const NOMBRE_RED: Record<RedOtra, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
 const COLOR_RED: Record<RedOtra, string> = { youtube: 'var(--yt)', tiktok: 'var(--ink)', instagram: 'var(--ig)' };
-type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; aviso?: string };
+type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] };
 
 /** La cara de una red encontrada: su foto si la leímos, y si no el punto de su color. */
 function CaraDeRed({ k }: { k: CandidatoVerificado }) {
@@ -548,13 +548,19 @@ function CaraDeRed({ k }: { k: CandidatoVerificado }) {
  * pregunte si es ese o no»). Lo seguro ya se sumó y se puede deshacer; lo dudoso se pregunta, con su foto y el porqué.
  * Si no encontró nada, no dice nada: no hay nada que hacer.
  */
+/** Cuántas veces se vuelve a pedir una búsqueda de redes que sigue corriendo, y cada cuánto. */
+const VUELTAS_REDES = 6;
+const ESPERA_REDES_MS = 15_000;
+
 function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
   b: BusquedaDeRedes | undefined; ocupado: boolean;
   onSi: (k: CandidatoVerificado) => void; onNo: (k: CandidatoVerificado) => void; onDeshacer: (k: CandidatoVerificado) => void;
 }) {
-  if (!b) return null;
-  if (b.buscando) return <p className="spy-aviso spy-aviso--suave">Buscando sus otras redes…</p>;
-  if (!b.sumadas.length && !b.candidatos.length) return b.aviso ? <p className="spy-aviso">{b.aviso}</p> : null;
+  // ⚠️ SIN TEXTO MIENTRAS BUSCA NI CUANDO NO PUDO (Martín, 4/11/2026: «Elimina textos innecesarios como "No pude buscar sus
+  // otras redes ahora. Prueba en un rato."»). Se busca en segundo plano; lo que aparece, aparece. Lo que no terminó se vuelve a
+  // pedir solo (`pendiente`, lib/spy-google-corrida.ts).
+  if (!b || b.buscando) return null;
+  if (!b.sumadas.length && !b.candidatos.length) return null;
   const fila = (k: CandidatoVerificado, rotulo: string, botones: React.ReactNode) => (
     <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
       <CaraDeRed k={k} />
@@ -578,6 +584,15 @@ function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
       )))}
     </section>
   );
+}
+
+/**
+ * Una cara que no cargó cae a su foto de perfil, y recién sin foto se saca. Antes se sacaba de una: si la caricatura fallaba
+ * (vencida, un permiso del bucket), la tarjeta quedaba sin cara aunque tuviera su foto (4/11/2026, el Cerebro con Den Borg).
+ */
+function caerAFoto(img: HTMLImageElement, foto: string | null | undefined): void {
+  if (foto && img.getAttribute('src') !== foto) { img.src = foto; return; }
+  img.remove();
 }
 
 function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBorrar }: {
@@ -631,7 +646,7 @@ function RejillaCompetidores({ competidores, resumen, onAbrir, onBorrar, puedeBo
                     sin ninguna su foto (`caraDeTarjeta`). Sin la caricatura NO hay cartel ni spinner: la foto y listo. */}
                 {cara
                   // eslint-disable-next-line @next/next/no-img-element -- está en nuestro bucket o en /public, no pasa por el optimizador
-                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { e.currentTarget.remove(); }} />
+                  ? <img src={cara} alt="" loading="lazy" onError={(e) => { caerAFoto(e.currentTarget, c.avatar); }} />
                   : inicial(c.nombre)}
               </span>
               <div className="spy-ccard__cuerpo">
@@ -939,17 +954,24 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
 
   // Sus otras redes (puntos 6 del 4/11): se buscan SOLAS, al dar de alta y al abrir la ficha de alguien a quien le falta
   // una (una vez por semana: `redes-recordar.ts`). Por una RUTA y no una action: tarda hasta 40 s y haría fila.
-  const buscarRedes = useCallback(async (id: number) => {
-    marcarRedesBuscadas(ws, id);
-    setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
-    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null } | { ok: false; error: string };
+  const buscarRedes = useCallback(async (id: number, vuelta = 0) => {
+    if (vuelta === 0) {
+      marcarRedesBuscadas(ws, id);
+      setRedes((v) => ({ ...v, [id]: { buscando: true, sumadas: [], candidatos: [] } }));
+    }
+    type Resp = { ok: true; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web?: string | null; pendiente?: boolean } | { ok: false; error: string };
     const r: Resp = await fetch('/api/competitor-spy/redes', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }), signal: AbortSignal.timeout(125_000),
-    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: 'No pude buscar sus otras redes ahora.' }));
+    }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false as const, error: '' }));
+    // Google todavía corre: lo encontrado se muestra y se vuelve a pedir solo, sin texto. La corrida se retoma sin pagar otra.
+    const sigue = r.ok && r.pendiente && vuelta < VUELTAS_REDES;
     setRedes((v) => ({
       ...v,
-      [id]: r.ok ? { buscando: false, sumadas: r.sumadas, candidatos: r.candidatos } : { buscando: false, sumadas: [], candidatos: [], aviso: r.error },
+      [id]: r.ok
+        ? { buscando: false, sumadas: [...(v[id]?.sumadas ?? []).filter((k) => !r.sumadas.some((x) => x.red === k.red && x.ref === k.ref)), ...r.sumadas], candidatos: r.candidatos }
+        : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
     }));
+    if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
     // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada.
     // Su web encontrada también se lee ya (su funnel y su oferta, solos).
     if (r.ok && (r.sumadas.some((k) => k.red !== 'tiktok') || r.web)) {
@@ -1013,10 +1035,10 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
     }).then((x) => x.json() as Promise<Resp>).catch(() => ({ ok: false }));
     if (r.ok && r.enMarcha) setTrayendoTodo(id);
     // El motivo, en palabras: antes se tiraba y la ficha quedaba con lo de la lectura de siempre sin decir por qué.
-    const aviso = !r.ok ? null : avisoDeTraida(r.porque);
+    const aviso = !r.ok ? null : avisoDeTraida(r.porque, { admin: puedeBorrar });
     setAvisoTodo((v) => { const n = { ...v }; if (aviso) n[id] = aviso; else delete n[id]; return n; });
     return r;
-  }, []);
+  }, [puedeBorrar]);
 
   // Mientras la corrida larga está en marcha, se pregunta cada 20 s; al terminar, se traen las piezas nuevas y la IA las
   // lee sola. Se para a los 15 minutos: la corrida sigue en Apify y la próxima apertura la recoge.

@@ -59,6 +59,49 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Los leads de la campaña X»: ninguna herramienta filtraba por campaña (ticket #56, 4/11/2026, nube)
+
+**Síntoma:** Natalia (ws 19), por WhatsApp: «vamos a necesitar una lista de TODOS los leads entrantes de la campaña, con nombre,
+apellido y número de contacto» y después «de la campaña: Campaña recon Finca Cortesin». MaKo: «No encontré leads con ese filtro.
+¿De qué fecha es la campaña o cuándo empezó a entregar? Lo demás no lo llegué a hacer en este mensaje: pídemelo otra vez y lo hago.»
+El negocio tiene 113 leads, todos de los últimos 30 días.
+
+**Causa:** no era que la campaña no existiera ni que faltara la fecha. Ninguna herramienta filtraba por campaña: `buscar_leads` mira
+nombre, teléfono, email y empresa, y `listar_leads` etapa, fechas y personas. Medido con el turno real (`clasificarIntencion` +
+`herramientasDelTurno`, el tercer mensaje como `actuar`): llegaba con `buscar_leads` (va siempre) y sin `listar_leads`, así que el
+modelo buscó el nombre de la campaña como si fuera el de una persona. Y en un lead de landing el nombre ni siquiera está escrito: la
+landing guarda el ID (`utm_campaign`, `meta_campaign_id`, el anuncio en `utm_content`), y el nombre sale de las métricas.
+
+**El diagnóstico obvio era el equivocado:** «busca el nombre exacto y el lead guarda otra cosa» es cierto, pero buscar el nombre en
+las columnas del lead tampoco alcanza: el nombre que importa es el de Meta HOY, y la tabla del CRM ya lo resolvía bien (`origenAds`,
+lib/campana-atribucion.ts: el id manda, el nombre es de las métricas). Se usa ésa, no una tercera regla.
+
+**Lo que se hizo:**
+- `buscar_leads`, si ningún lead se llama como el texto, mira si el texto nombra una campaña (por principio de palabra, sin tildes ni
+  «campaña»; el nombre entero es ésa sola). Si no nombra ninguna pero habla de una, devuelve las que hay con cuántos leads trajo cada
+  una, y la instrucción de preguntar cuál: no de pedir la fecha.
+- `listar_leads` tiene `campana` (con los otros filtros, que se siguen aplicando) y sus filas traen teléfono y email.
+- **En WhatsApp la lista la escribe el CÓDIGO** (`aPersona`, que ahora también recibe `runMakoTool`): un teléfono copiado por un modelo
+  puede perder un dígito, y 113 renglones no entran en una respuesta de 2.500 tokens. El modelo recibe cuántos son.
+- Con más de 20 personas que coinciden, `buscar_leads` dice cuántas quedaron afuera (antes: «encontrados: 20» y nada más).
+- `sanearSalida` no pega «pídemelo otra vez y lo hago» debajo de una respuesta que termina preguntando un dato
+  (`preguntaUnDato`): lo que sigue es la respuesta de la persona, no repetir el pedido.
+
+**Trampa medida:** escribir «por campaña» en la DESCRIPCIÓN de `listar_leads` y `buscar_leads` les sumaba puntos («campaña»,
+«Meta», «lead») y sacó del turno a `ver_rendimiento_anuncios` («¿qué anuncio tiene el mejor costo por lead…?») y a
+`editar_contacto_lead` (tests/ops-center-bateria, 2 rojos). Con lo mismo en los PARÁMETROS, que no puntúan, 4 / 0 y el margen del CRON
+igual (318).
+
+**Trampa:** «una palabra del pedido está en el nombre» por subcadena hace que «ana» encuentre toda «Campaña…». Por principio de
+palabra no (lo prueba el test 1). Y el texto de una búsqueda que no es una campaña («Pedro Inexistente») sigue devolviendo el vacío de
+siempre: las campañas parecidas salen sólo si alguna se parece o si el texto dice «campaña».
+
+**Sin hacer:** no se midió contra la base del ws 19 cómo están guardados esos 113 leads (la nube no la ve). La consulta está en
+docs/relevo/nube-tickets.md. Si la campaña de esos leads no tiene id ni nombre (leads sin `utm_campaign`, `meta_campaign_id` ni
+`meta_ad_id`), la lista sale vacía igual y MaKo ofrece las campañas que sí conoce.
+
+**Vive en:** lib/leads-por-campana.ts · lib/leads-por-campana-server.ts · lib/mako-tools.ts (`buscar_leads`) ·
+lib/api-mako/areas/crm.run.ts (`listar_leads`) · lib/doer-salida.ts (`preguntaUnDato`) · tests/leads-por-campana.test.ts.
 ## «mako estas vivo?» se quedaba en el 👍: era el clasificador, no la línea (4/11/2026, nube)
 
 **Síntoma:** Joan escribió «mako estas vivo?» en el grupo de un cliente, y MaKo no contestó. Martín lo vio en vivo.

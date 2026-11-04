@@ -842,4 +842,24 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/doer-para-quien.ts — `preguntaAMaKo` · lib/mako-doer-in.ts — después del clasificador', 'tests/grupos-ops-turno.test.ts (el turno real, tres roturas) · tests/doer-para-quien.test.ts'],
   },
+  {
+    fecha: '4 nov', hora: '13:30', chat: 'Tickets en la nube', sesion: 'cli_c395d4ca-9c38-5214-ae30-582fa23cf9c4', cuenta: 'nube',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo te da la lista de los leads de una campaña, con nombre y teléfono',
+    tickets: [56],
+    revisar: '/second-brain',
+    puntos: [
+      'Le pides a MaKo «los leads de la campaña <nombre>» y te pasa la lista con el nombre y el teléfono de cada uno. Alcanza con una parte del nombre de la campaña, sin tildes, y sin decir la fecha.',
+      'En WhatsApp la lista la escribe el sistema, no la IA: los teléfonos llegan exactos y la lista llega entera aunque sea larga.',
+      'Si ninguna campaña se llama así, MaKo te dice cuáles tienes y cuántos leads trajo cada una, en vez de pedirte la fecha.',
+      'Si MaKo te pregunta un dato, ya no agrega «pídemelo otra vez y lo hago» debajo de la pregunta.',
+      '**Cómo se prueba:** en el grupo o en el chat de MaKo, «pásame los leads de la campaña <parte del nombre> con su teléfono».',
+    ],
+    archivos: [
+      'lib/leads-por-campana.ts — qué campaña nombra el texto y la lista que se escribe',
+      'lib/leads-por-campana-server.ts — los leads con su campaña (la misma de la tabla del CRM: `origenAds`)',
+      'lib/mako-tools.ts — `buscar_leads` mira las campañas cuando nadie se llama así · crm.run.ts — `listar_leads` con `campana`',
+      'lib/doer-salida.ts — `preguntaUnDato` · tests/leads-por-campana.test.ts',
+    ],
+  },
 ];

@@ -2422,7 +2422,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const correr = async () => (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
         // El runner viejo devuelve texto: la falla nuestra (`noCorrio`) va con isError, como por el registro (`comoFallaSiNoCorrio`).
         : NOMBRES_ACCION.has(name) ? runnerAcciones(name, input).then(comoFallaSiNoCorrio)
-        : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
+        // `aPersona`: lo que la herramienta le escribe a la persona sin pasar por el modelo (la lista de una campaña, el #56).
+        : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input, { aPersona: ctxApi.aPersona })
         : runRegistro(name, input));
       // Una herramienta que REVIENTA es una falla de verdad (la verificación de tren-t): el loop la atrapa sin pasar por
       // `errorParaTicket`, y la guarda de antes quedaba como «la última» y le comía el ticket al «no pude». Se cuenta como tragada.

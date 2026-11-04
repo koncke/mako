@@ -20,6 +20,7 @@
 // =============================================================================
 
 import { videosDeGoogle } from './spy-buscar-reglas';
+import { esPendiente, esSinCupo } from './spy-google-corrida';
 import {
   CANDIDATOS_POR_RED, candidatosDeLaRespuesta, consultaDeRedes, consultaPorUsuario, distanciaHash, enlacesDeHtml, enlacesDelTexto,
   esAgregador, loQueEnlaza, nombraA, nombresParecidos, porqueDe, redDeUrl, usuariosParaProbar, veredictoDe,
@@ -43,8 +44,12 @@ export type DepsCadena = {
   leerCanales: (refs: string[]) => Promise<Map<string, LeidoRed>>;
   /** Perfiles de Instagram, en UNA corrida de Apify. La clave es el usuario. */
   leerPerfiles: (usuarios: string[]) => Promise<Map<string, LeidoRed>>;
-  /** Una corrida de Google por Apify. null como función = el negocio no tiene la clave de Spy. */
-  googlear: ((consulta: string) => Promise<unknown | null>) | null;
+  /**
+   * Una búsqueda en Google por Apify. null como función = el negocio no tiene la clave de Spy. Devuelve el cuerpo,
+   * `GOOGLE_PENDIENTE` (la corrida sigue: se retoma sin pagar), `GOOGLE_SIN_CUPO` o null (no se pudo). Recibe `gastar`:
+   * una búsqueda cuenta en el cupo del día sólo al EMPEZAR una corrida, no al retomarla (lib/spy-google-corrida.ts).
+   */
+  googlear: ((consulta: string, gastar: () => boolean) => Promise<unknown | null>) | null;
   /** ¿Quedan búsquedas hoy? (`TOPE_BUSQUEDAS_REDES_POR_DIA`). Lo cuenta: llamarla gasta una. */
   gastarBusqueda: () => boolean;
   /** De qué canal es cada video. */
@@ -53,7 +58,8 @@ export type DepsCadena = {
 };
 
 export type ResultadoCadena =
-  | { ok: true; seguros: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web: string | null }
+  /** `pendiente`: Google todavía no terminó; la pantalla vuelve a pedir sola, sin texto, y la corrida se retoma sin pagar. */
+  | { ok: true; seguros: CandidatoVerificado[]; candidatos: CandidatoVerificado[]; web: string | null; pendiente?: boolean }
   | { ok: false; error: string };
 
 const NOMBRE: Record<RedOtra, string> = { instagram: 'Instagram', youtube: 'canal de YouTube', tiktok: 'TikTok' };
@@ -154,13 +160,17 @@ export async function cadenaDeRedes(c: CompetidorCadena, deps: DepsCadena): Prom
     } else {
       let algunaCorrio = false;
       for (const consulta of consultas) {
-        if (!deps.gastarBusqueda()) {
-          if (!algunaCorrio && !algo()) return { ok: false, error: 'Ya no quedan búsquedas de redes por hoy. Mañana se puede de nuevo, o pega el enlace a mano.' };
+        const cuerpo = await deps.googlear(consulta, deps.gastarBusqueda).catch(() => null);
+        if (esSinCupo(cuerpo)) {
+          if (!algunaCorrio && !algo()) return { ok: false, error: 'Ya no quedan búsquedas de redes por hoy.' };
           break;
         }
-        const cuerpo = await deps.googlear(consulta).catch(() => null);
+        // ⚠️ SIGUE CORRIENDO NO ES «NO PUDE» (4/11/2026): Google por Apify a veces tarda más de lo que se espera en un pedido, y
+        // cortarlo tiraba un resultado ya pagado. Se devuelve lo que haya con `pendiente` y la pantalla vuelve a pedir sola.
+        if (esPendiente(cuerpo)) return { ok: true, seguros: [...seguros.values()], candidatos: dudosos.filter((k) => !seguros.has(k.red)), web, pendiente: true };
         if (cuerpo == null) {
-          if (!algunaCorrio && !algo()) return { ok: false, error: 'No pude buscar sus otras redes ahora. Prueba en un rato.' };
+          // Sin texto en pantalla (Martín, 4/11: «Elimina textos innecesarios como "No pude buscar sus otras redes ahora"»).
+          if (!algunaCorrio && !algo()) return { ok: false, error: '' };
           break;
         }
         algunaCorrio = true;

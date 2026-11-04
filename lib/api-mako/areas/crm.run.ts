@@ -41,6 +41,7 @@ import { cambiarCursoAlGanar, estadoCursoAlGanarEstricto } from '@/lib/crm-curso
 import 'server-only';
 import type { Ctx, Ejecutado, Runners, SalidaLectura } from '../tipos';
 import { runMakoTool } from '@/lib/mako-tools';
+import { respuestaDeCampana } from '@/lib/leads-por-campana-server';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import {
   getLead, updateLead, logLeadChanges, logLeadEvent, getLeadAudit, faltantesParaMover, saveLeadMeta,
@@ -657,7 +658,8 @@ async function vinculoDeCobro(id: unknown): Promise<{ id: number; producto: stri
 
 export const RUNNERS: Runners = {
   // Lecturas heredadas de MAKO_TOOLS → runMakoTool con el MISMO nombre.
-  buscar_leads: { leer: (input) => runMakoTool('buscar_leads', input) },
+  // Con `aPersona` (WhatsApp), la lista de una campaña la escribe el código (lib/leads-por-campana-server.ts, el #56).
+  buscar_leads: { leer: (input, ctx) => runMakoTool('buscar_leads', input, { aPersona: ctx.aPersona }) },
   ficha_lead: { leer: (input) => runMakoTool('ficha_lead', input) },
   reuniones_lead: { leer: (input) => runMakoTool('reuniones_lead', input) },
   reuniones_recientes: { leer: (input) => runMakoTool('reuniones_recientes', input) },
@@ -667,7 +669,7 @@ export const RUNNERS: Runners = {
   listar_horarios_reunion: { leer: (input, ctx) => legado(ctx)('listar_horarios_reunion', input) },
 
   listar_leads: {
-    leer: async (input) => {
+    leer: async (input, ctx) => {
       for (const k of ['desde', 'hasta'] as const) {
         if (input[k] !== undefined && !esFechaIso(input[k])) return fallo(`«${k}» tiene que ser una fecha YYYY-MM-DD.`);
       }
@@ -679,8 +681,17 @@ export const RUNNERS: Runners = {
         if (desconocidas.length) return fallo(json({ error: `Etapas que el funnel de este negocio no tiene: ${desconocidas.join(', ')}. Pide ver_funnel para las keys reales.`, disponibles: stages.map((x) => x.key) }));
       }
       const campo = s(input.campo_fecha) ?? 'created_at';
-      const limite = n(input.limite) ?? 30;
       const { filas, total_cartera } = await leadsFiltrados({ etapas, banda: s(input.banda), campoFecha: campo, desde: s(input.desde), hasta: s(input.hasta), persona: s(input.persona) });
+      // POR CAMPAÑA (ticket #56, 4/11/2026): «los leads de la campaña recon Finca Cortesin, con nombre y teléfono». Lo resuelve la
+      // misma respuesta que `buscar_leads` (lib/leads-por-campana-server.ts): nombre parcial, sin fecha, y en WhatsApp la lista la
+      // escribe el código. Los otros filtros de acá (etapa, fechas, personas) se aplican igual, si vinieron.
+      const campana = s(input.campana);
+      if (campana) {
+        const conOtros = !!(etapas?.length || s(input.banda) || s(input.desde) || s(input.hasta) || s(input.persona));
+        const ids = new Set(filas.map(({ l }) => l.id));
+        return (await respuestaDeCampana(campana, { limite: n(input.limite), aPersona: ctx.aPersona, ...(conOtros ? { tambien: (id: number) => ids.has(id) } : {}) }))!;
+      }
+      const limite = n(input.limite) ?? 30;
       // Lo cobrado de la VENTA de la casa (mig 0325), leído para esta página. Si la lectura falla, null y `nota_cobrado`.
       const pagina = filas.slice(0, limite);
       const deLaCasa = new Map<number, unknown>();
@@ -695,7 +706,7 @@ export const RUNNERS: Runners = {
       const leads = pagina.map(({ l, key, label, fecha }) => {
         const conCasa = { ...l, total_cobrado_casa_usd: deLaCasa.get(l.id) ?? null };
         return {
-          id: l.id, nombre: l.nombre, empresa: l.empresa, etapa: key, etapa_label: label, estado: l.estado_lead,
+          id: l.id, nombre: l.nombre, empresa: l.empresa, telefono: l.telefono ?? null, email: l.email ?? null, etapa: key, etapa_label: label, estado: l.estado_lead,
           closer: l.closer ?? null, setter: l.setter ?? null, [campo]: fecha,
           monto_cierre_usd: l.monto_cierre_usd, total_cobrado_usd: l.total_cobrado_usd,
           cobrado_de_la_venta_usd: sinCasa ? null : cobradoDeLaVenta(conCasa), falta_cobrar_usd: sinCasa ? null : faltaDeLaVenta(conCasa),

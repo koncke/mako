@@ -317,7 +317,9 @@ export function BuscadorAlta({ textoInicial = '', competidores, ocupado, error, 
   const elegir = (f: FilaBusqueda) => {
     if (f.tipo === 'mirado') onAbrir(f.competidorId);
     else if (f.tipo === 'perfil') elegirPerfil(f.perfil);
-    else if (f.tipo === 'usar') void irAConfirmar(`@${f.usuario}`, { campo: 'instagram', valor: f.usuario });
+    // ⚠️ «Usar @x tal como lo escribiste» TAMBIÉN LEE SU PERFIL (4/11/2026, Cerebro con @herasmedia): antes confirmaba sin leer
+    // y la tarjeta salía con una letra «H», sin foto ni seguidores. Va por el mismo camino que un perfil hallado.
+    else if (f.tipo === 'usar') elegirPerfil({ usuario: f.usuario, nombre: null, foto: null, seguidores: null });
     else if (f.tipo === 'canal') void irAConfirmar(f.canal.url, vistaDeCanal(f.canal));
     else if (f.tipo === 'directo') void irAConfirmar(f.pegar, { campo: f.campo, valor: f.valor });
     else void irAConfirmar(t, { campo: 'nombre', valor: f.nombre });
