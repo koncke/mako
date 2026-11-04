@@ -56,3 +56,18 @@ export const sumarPasos = <T extends string>(lista: readonly T[], nuevos: readon
   for (const p of nuevos) if (!out.includes(p)) out.push(p);
   return out;
 };
+
+/** ¿La lectura lee este canal? Sin `solo`, todos; con `solo`, sólo esos (`mirarCompetidor`). */
+export const leeCanal = (solo: readonly PasoLectura[] | undefined, paso: PasoLectura): boolean => !solo || solo.includes(paso);
+
+/**
+ * Los canales que hay que LEER después de sumarle redes a un competidor (4/11/2026): los que se sumaron (TikTok no se lee: no hay
+ * nada que traer) y su web si apareció. Es la lista que va como `solo` a la lectura: el resto ya está leído, y releerlo todo pasaba
+ * los 60 s de la acción antes de llegar al canal nuevo.
+ */
+export function canalesALeer(sumadas: ReadonlyArray<{ red: string }>, web?: string | null): PasoLectura[] {
+  const out: PasoLectura[] = [];
+  for (const k of sumadas) if ((k.red === 'instagram' || k.red === 'youtube') && !out.includes(k.red)) out.push(k.red);
+  if (web) out.push('web');
+  return out;
+}

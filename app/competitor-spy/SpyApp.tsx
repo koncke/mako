@@ -67,11 +67,12 @@ import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
 import { BrandDefs } from '../_components/ServicioVisual';
 import { LogoRed } from './LogoRed';
+import { OtrasRedes, type BusquedaDeRedes } from './OtrasRedes';
 import { BotonRecorrido, Recorrido, useRecorrido } from '@/app/_ui/Recorrido';
 import { PASOS_SPY, RECORRIDO_SPY } from './recorrido-spy';
 import type { Sugerido } from '@/lib/spy-sugeridos';
 import {
-  ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
+  ORDENES, canalesDe, debeLeerAlAbrir, youtubeSinLeer, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
   fraseDeLectura, haceCuanto, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
   type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
@@ -83,7 +84,6 @@ import {
   competidoresAction, guardarAnuncioAction, piezasAction, quitarCanalAction, quitarCompetidorAction,
   revisarAction, sumarCanalAction, sumarCompetidorAction, sumarSugeridoAction, type PiezaVista,
 } from './actions';
-import type { RedOtra } from '@/lib/spy-otras-redes-reglas';
 import type { CandidatoVerificado } from '@/lib/spy-otras-redes';
 import { enlaceSusAnuncios } from '@/lib/spy-funnel';
 import { SuFunnelTipo } from './SuFunnelTipo';
@@ -98,7 +98,7 @@ import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { EntradaFicha, cajaDelCentro, centroDe, type Caja, type FaseEntrada } from './EntradaFicha';
 import { quieto } from './precarga';
-import { sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pasos';
+import { canalesALeer, sumarPasos, type PasoLectura } from '@/lib/spy-lectura-pasos';
 import { BuscadorAlta } from './BuscadorAlta';
 import { Flecha, GrillaPiezas } from './GrillaPiezas';
 import { MejoresPiezas } from './MejoresPiezas';
@@ -465,12 +465,24 @@ button.spy-campo:hover{color:var(--dim)}
   animation:spy-redes-entra .32s cubic-bezier(.2,.8,.2,1) both}
 @keyframes spy-redes-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.spy-redes-fila{animation:none}}
-.spy-redes-punto{width:10px;height:10px;margin:0 4px;border-radius:99px;flex:0 0 auto}
-.spy-redes-cara{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2)}
-.spy-redes-texto{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:300px;white-space:nowrap}
-.spy-redes-texto a{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600;text-decoration:none}
-.spy-redes-texto a:hover{text-decoration:underline}
+.spy-redes-logo{display:inline-flex;flex:0 0 auto}
+.spy-redes-cara{width:24px;height:24px;margin-left:-12px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2);
+  box-shadow:0 0 0 2px var(--surface)}
+.spy-redes-texto{display:flex;align-items:center;gap:6px;min-width:0;max-width:340px;white-space:nowrap}
+.spy-redes-texto b{flex:0 0 auto;font-weight:600;color:var(--ink)}
+.spy-redes-texto a{display:inline-flex;align-items:center;gap:3px;min-width:0;color:var(--dim);font-weight:600;text-decoration:none}
+.spy-redes-texto a span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.spy-redes-texto a svg{flex:0 0 auto;opacity:.7}
+.spy-redes-texto a:hover{color:var(--ink);text-decoration:underline}
 .spy-redes-texto small{flex:0 0 auto;color:var(--faint);font-size:12px}
+.spy-redes-fila[data-red='youtube']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--yt) 28%,var(--border))}
+.spy-redes-fila[data-red='instagram']{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--ig) 28%,var(--border))}
+.spy-redes-trae{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 4px;color:var(--dim);font-size:var(--fs-sm);
+  font-weight:600;white-space:nowrap;flex:0 0 auto}
+.spy-redes-trae i{width:12px;height:12px;border-radius:50%;border:2px solid var(--border);border-top-color:var(--ink);
+  animation:spy-redes-gira .8s linear infinite}
+@keyframes spy-redes-gira{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spy-redes-trae i{animation:none}}
 .spy-redes-fila .spy-boton{height:32px;padding:0 12px;flex:0 0 auto}
 @media (max-width:560px){.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
@@ -612,60 +624,9 @@ const ICONO_TIPO: Record<ValorDeContenido, NombreIconoMenu> = {
   'agregar-instagram': 'agregar', 'agregar-youtube': 'agregar',
 };
 
-const NOMBRE_RED: Record<RedOtra, string> = { youtube: 'YouTube', tiktok: 'TikTok', instagram: 'Instagram' };
-const COLOR_RED: Record<RedOtra, string> = { youtube: 'var(--yt)', tiktok: 'var(--ink)', instagram: 'var(--ig)' };
-type BusquedaDeRedes = { buscando: boolean; sumadas: CandidatoVerificado[]; candidatos: CandidatoVerificado[] };
-
-/** La cara de una red encontrada: su foto si la leímos, y si no el punto de su color. */
-function CaraDeRed({ k }: { k: CandidatoVerificado }) {
-  return k.foto
-    // eslint-disable-next-line @next/next/no-img-element -- la sirve el CDN de la red, sin pasar por el optimizador
-    ? <img className="spy-redes-cara" src={k.foto} alt="" referrerPolicy="no-referrer" onError={(e) => { e.currentTarget.remove(); }} />
-    : <i className="spy-redes-punto" style={{ background: COLOR_RED[k.red] }} aria-hidden />;
-}
-
-/**
- * Sus otras redes, SOLAS (Martín, 4/11: «debe ser automático, no un botón, de última que te muestre opciones y te
- * pregunte si es ese o no»). Lo seguro ya se sumó y se puede deshacer; lo dudoso se pregunta, con su foto y el porqué.
- * Si no encontró nada, no dice nada: no hay nada que hacer.
- */
 /** Cuántas veces se vuelve a pedir una búsqueda de redes que sigue corriendo, y cada cuánto. */
 const VUELTAS_REDES = 6;
 const ESPERA_REDES_MS = 15_000;
-
-function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
-  b: BusquedaDeRedes | undefined; ocupado: boolean;
-  onSi: (k: CandidatoVerificado) => void; onNo: (k: CandidatoVerificado) => void; onDeshacer: (k: CandidatoVerificado) => void;
-}) {
-  // ⚠️ SIN TEXTO MIENTRAS BUSCA NI CUANDO NO PUDO (Martín, 4/11/2026: «Elimina textos innecesarios como "No pude buscar sus
-  // otras redes ahora. Prueba en un rato."»). Se busca en segundo plano; lo que aparece, aparece. Lo que no terminó se vuelve a
-  // pedir solo (`pendiente`, lib/spy-google-corrida.ts).
-  if (!b || b.buscando) return null;
-  if (!b.sumadas.length && !b.candidatos.length) return null;
-  // Una pastilla por canal: su cara, «YouTube · su nombre» (el porqué al pasar el mouse, o al lado si es una pregunta) y sus botones.
-  const fila = (k: CandidatoVerificado, rotulo: string, porque: string | null, botones: React.ReactNode) => (
-    <div key={`${k.red}|${k.ref}`} className="spy-redes-fila" title={k.porque || undefined}>
-      <CaraDeRed k={k} />
-      <span className="spy-redes-texto">
-        <a href={k.url} target="_blank" rel="noreferrer noopener">{rotulo}</a>
-        {porque && <small>{porque}</small>}
-      </span>
-      {botones}
-    </div>
-  );
-  return (
-    <section className="spy-redes" aria-label="Sus otras redes">
-      {b.sumadas.map((k) => fila(k, `Sumé su ${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`, null,
-        <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onDeshacer(k)}>Deshacer</button>))}
-      {b.candidatos.map((k) => fila(k, `¿Es su ${NOMBRE_RED[k.red]}? · ${k.titulo || k.ref}`, k.porque || null, (
-        <>
-          <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSi(k)}>Es</button>
-          <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onNo(k)}>No es</button>
-        </>
-      )))}
-    </section>
-  );
-}
 
 /** Adónde termina la caricatura de la entrada: la foto de la ficha (si no tiene foto, se funde en el centro). */
 const destinoDeEntrada = () => document.querySelector('.spy-ficha__foto');
@@ -948,6 +909,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   const [errorModal, setErrorModal] = useState<string | null>(null);
   /** Lo que trajo la búsqueda de sus otras redes, por competidor. Lo dudoso vive en la sesión: nunca se guarda sin el «Es». */
   const [redes, setRedes] = useState<Record<number, BusquedaDeRedes>>({});
+  /** Los canales recién sumados que se están trayendo: su pastilla dice «Trayendo…» hasta que lleguen sus piezas. */
+  const [trayendoRedes, setTrayendoRedes] = useState<Record<number, readonly PasoLectura[]>>({});
 
   // Qué ficha está abierta AHORA: una lectura que tarda no puede pisar la de otro competidor.
   const actual = useRef(elegido);
@@ -993,7 +956,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
   // que ya tiene piezas va callada: no le corre la pantalla a quien entró a mirar.
   // `motivo` llega sólo desde el alta: ahí sirve la lectura que ya pagó otro negocio (hasta 24 h),
   // porque no hay NADA en pantalla. El botón «Revisar ahora» nunca lo pasa: pide datos de hoy.
-  const leer = useCallback(async (id: number, animada = true, motivo?: 'alta') => {
+  // `solo`: los canales que se acaban de sumar (`mirarCompetidor`); el resto ya está leído.
+  const leer = useCallback(async (id: number, animada = true, motivo?: 'alta', solo?: readonly PasoLectura[]) => {
     yaLeidos.current.add(id);
     setLeyendo(id);
     if (animada) setOrdenando({ id, piezas: null });
@@ -1015,22 +979,28 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       })();
     }
     try {
-      const r = await revisarAction(id, motivo, marca);
+      const r = await revisarAction(id, motivo, marca, solo);
       mirando = false;
       // Leído: ahora se juntan sus piezas (y la película baja sus miniaturas). También es de verdad.
       if (marca) setPasosLectura((v) => (v?.id === id ? { id, pasos: sumarPasos(v.pasos, ['piezas']) } : v));
       if (r.error) setError(r.error);
       // Siempre queda algo en `lecturas`, también si la acción falló: es lo que saca a la pantalla
       // del esqueleto, y una lista vacía se dibuja como «no pude», nunca como «no hay».
-      setLecturas((prev) => ({ ...prev, [id]: r.canales }));
+      // Con `solo`, lo de los demás canales sigue valiendo: se reemplaza sólo lo que se leyó.
+      setLecturas((prev) => ({
+        ...prev,
+        [id]: solo ? [...(prev[id] ?? []).filter((l) => !r.canales.some((n) => n.canal === l.canal)), ...r.canales] : r.canales,
+      }));
       await recargarLista();
       const p = await traerPiezas(id);
       // Sin piezas no hay nada que ordenar: se ve el estado de siempre («no encontré», «no pude»).
       if (animada) setOrdenando((v) => (v?.id !== id || actual.current !== id ? null : p?.length ? { id, piezas: p } : null));
       // Lo nuevo lo lee la IA sola, sin que nadie espere (punto 11 del 4/11).
       if (p && cuantasFaltan(p)) void analizarSolo(id);
-      // Y todo lo que publicó, en una corrida larga de Apify que no se espera (punto 8 del 4/11).
-      void traerTodo(id);
+      // Y todo lo que publicó, en una corrida larga de Apify que no se espera (punto 8 del 4/11). Una lectura de un canal de
+      // YouTube no la necesita: la corrida larga es de Instagram, y ya se pidió al abrir.
+      if (!solo || solo.includes('instagram')) void traerTodo(id);
+      return r;
     } catch (e) {
       setOrdenando(null);
       throw e;
@@ -1061,6 +1031,8 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       else {
         if (p && cuantasFaltan(p)) void analizarSolo(id);
         void traerTodo(id);
+        // Su YouTube en la ficha y ni un video: se trae ese canal solo (lib/spy-vista.ts → `youtubeSinLeer`).
+        if (quien && youtubeSinLeer(quien, p ?? [], yaLeidos.current.has(id))) await traerLoNuevo(id, ['youtube']);
       }
       // Sus otras redes, solas, DESPUÉS de leer: si no, la búsqueda (que también lee perfiles) compite con la lectura.
       const ahora = listaActual.current.find((x) => x.id === id);
@@ -1106,6 +1078,19 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
     else irA(id);
   };
 
+  /** Lee SÓLO los canales recién sumados (ver `buscarRedes`), con su pastilla en «Trayendo…», y una vez más si se cortó. */
+  const traerLoNuevo = useCallback(async (id: number, nuevos: readonly PasoLectura[]) => {
+    await recargarLista();
+    if (actual.current !== id) return;
+    setTrayendoRedes((v) => ({ ...v, [id]: nuevos }));
+    try {
+      const una = await leer(id, false, 'alta', nuevos).catch(() => null);
+      if (!una?.ok && actual.current === id) await leer(id, false, 'alta', nuevos).catch(() => null);
+    } finally {
+      setTrayendoRedes((v) => { const n = { ...v }; delete n[id]; return n; });
+    }
+  }, [leer, recargarLista]);
+
   // Sus otras redes (puntos 6 del 4/11): se buscan SOLAS, al dar de alta y al abrir la ficha de alguien a quien le falta
   // una (una vez por semana: `redes-recordar.ts`). Por una RUTA y no una action: tarda hasta 40 s y haría fila.
   const buscarRedes = useCallback(async (id: number, vuelta = 0) => {
@@ -1126,13 +1111,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
         : { buscando: false, sumadas: v[id]?.sumadas ?? [], candidatos: [] },
     }));
     if (sigue) setTimeout(() => { if (actual.current === id) void buscarRedes(id, vuelta + 1); }, ESPERA_REDES_MS);
-    // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada.
-    // Su web encontrada también se lee ya (su funnel y su oferta, solos).
-    if (r.ok && (r.sumadas.some((k) => k.red !== 'tiktok') || r.web)) {
-      await recargarLista();
-      yaLeidos.current.delete(id);
-      if (actual.current === id) void leer(id, false);
-    } else if (r.ok && r.sumadas.length) await recargarLista();
+    // Lo que se sumó solo se lee ya: sus piezas tienen que aparecer sin que nadie apriete nada. Su web encontrada también se lee
+    // ya (su funnel y su oferta, solos).
+    // ⚠️ SÓLO LO NUEVO (4/11/2026, Leila Hormozi en producción: «encontró su YouTube… pero luego no se cargaron sus videos… es
+    // como si hubiese apretado en deshacer»). Se releía TODO, Instagram por Apify incluido, y la acción pasaba sus 60 s antes de
+    // llegar a YouTube: el canal quedaba sumado y sin un video. Ahora se lee el canal nuevo (`solo`), con la lectura que ya
+    // pagó otro negocio si la hay (`'alta'`), y si se corta se intenta una vez más.
+    const nuevos = r.ok ? canalesALeer(r.sumadas, r.web) : [];
+    if (nuevos.length) await traerLoNuevo(id, nuevos);
+    else if (r.ok && r.sumadas.length) await recargarLista();
   // `leer` y `recargarLista` son estables (useCallback); `ws` no cambia en la vida de la pantalla.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1148,11 +1135,15 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
       // El MISMO camino que pegarlo a mano: nunca pisa una red que ya estaba.
       const r = await sumarCanalAction(id, k.url);
       if (!r.ok) { setError(r.error); return; }
-      // De esa red no se ofrece nada más: el resto con su nombre son otras personas.
+      // De esa red no se ofrece nada más: el resto con su nombre son otras personas. Y queda como SUMADA, con su Deshacer, mientras
+      // se traen sus piezas: la pastilla no desaparece justo cuando dijo que sí.
       quitarDeLasRedes(id, (x) => x.red === k.red);
-      // TikTok no se lee: no hay nada que traer, sólo mostrarlo.
-      if (k.red === 'tiktok') await recargarLista();
-      else await abrirRecienAgregado(id);
+      setRedes((v) => (v[id] ? { ...v, [id]: { ...v[id], sumadas: [...v[id].sumadas, k] } } : v));
+      // TikTok no se lee: no hay nada que traer, sólo mostrarlo. Lo demás, sólo ese canal (ver `traerLoNuevo`).
+      // No se espera: los botones vuelven en el acto y la pastilla dice «Trayendo…» mientras tanto.
+      const nuevos = canalesALeer([k]);
+      if (nuevos.length) void traerLoNuevo(id, nuevos);
+      else await recargarLista();
     } finally {
       setOcupado(false);
     }
@@ -1667,7 +1658,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
               </span>
               {/* Sus otras redes, en la MISMA fila: una pastilla por canal, sin empujar el contenido (ver `.spy-redes`). */}
               <OtrasRedes
-                b={redes[c.id]} ocupado={ocupado}
+                b={redes[c.id]} ocupado={ocupado} trayendo={trayendoRedes[c.id] ?? null}
                 onSi={(k) => void confirmarRed(k)}
                 onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
                 onDeshacer={(k) => void deshacerRed(k)}

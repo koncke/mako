@@ -56,9 +56,10 @@ test('2. la lectura anota Instagram → YouTube → su web, cada uno dentro de s
   const f = spy.slice(spy.indexOf('export async function mirarCompetidor'), spy.indexOf('export async function', spy.indexOf('export async function mirarCompetidor') + 10));
   assert.ok(f.length > 2000, `recorte de ${f.length}`);
   assert.match(f, /const paso = \(p: PasoLectura\) => \(alPaso \? alPaso\(p\)\.catch\(\(\) => undefined\) : Promise\.resolve\(\)\);/, 'anotar nunca tira la lectura');
-  const ig = f.indexOf("if (c.instagram) {\n    await paso('instagram');");
-  const yt = f.indexOf("if (c.youtube_id) {\n    await paso('youtube');");
-  const web = f.indexOf("if (landing) {\n    await paso('web');");
+  // Cada canal entra por su condición (con `lee`, la lectura de sólo lo nuevo: test 5) y anota su paso apenas entra.
+  const ig = f.search(/if \(c\.instagram && lee\('instagram'\)\) \{\n    await paso\('instagram'\);/);
+  const yt = f.search(/if \(c\.youtube_id && lee\('youtube'\)\) \{\n    await paso\('youtube'\);/);
+  const web = f.search(/if \(landing && \(lee\('web'\) \|\| landingNueva\)\) \{\n    await paso\('web'\);/);
   assert.ok(ig > 0, 'Instagram anota su paso al entrar a su canal');
   assert.ok(yt > 0, 'YouTube anota su paso al entrar a su canal');
   assert.ok(web > 0, 'su web anota su paso al entrar');
@@ -69,14 +70,14 @@ test('2. la lectura anota Instagram → YouTube → su web, cada uno dentro de s
 test('3. la acción anota con una marca; la ruta tiene la puerta; la pantalla pregunta por la ruta y pasa la marca', () => {
   const acc = sinComentarios(leer('app/competitor-spy/actions.ts'));
   assert.match(acc, /const alPaso = marcaValida\(marca\)\s*\?/, 'sin marca no anota nada');
-  assert.match(acc, /mirarCompetidor\(id, motivo \?\? 'a-pedido', alPaso\)/);
+  assert.match(acc, /mirarCompetidor\(id, motivo \?\? 'a-pedido', alPaso, /);
   const ruta = sinComentarios(leer('app/api/competitor-spy/lectura/route.ts'));
   assert.match(ruta, /soloAdminDeTab\('market-an'\)/);
   assert.match(ruta, /pasosDe\(await getSetting\(claveLectura\(id\)\), marca, Date\.now\(\)\)/);
   assert.doesNotMatch(ruta, /export async function POST/, 'sólo lee');
   const app = sinComentarios(leer('app/competitor-spy/SpyApp.tsx'));
   assert.match(app, /fetch\(`\/api\/competitor-spy\/lectura\?id=\$\{id\}&marca=\$\{marca\}`/);
-  assert.match(app, /await revisarAction\(id, motivo, marca\)/);
+  assert.match(app, /await revisarAction\(id, motivo, marca, solo\)/);
   assert.match(app, /pasos=\{pasosLectura\?\.id === c\.id \? pasosLectura\.pasos : \[\]\}/);
   assert.match(sinComentarios(leer('lib/spy.ts')), /borrarSetting\(claveLectura\(id\)\)/, '«Dejar de mirarlo» se lo lleva');
 });
