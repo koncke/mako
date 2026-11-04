@@ -8,7 +8,8 @@
     "deploymentEnabled": {
       "integracion": false,
       "punta/**": false,
-      "ci-rojo/**": false
+      "ci-rojo/**": false,
+      "espera-main/**": false
     }
   },
   "crons": [

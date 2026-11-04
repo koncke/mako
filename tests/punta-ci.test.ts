@@ -81,12 +81,18 @@ test('main sólo se empuja después de mezclar, guardas, afectados y tipos, en e
   assert.doesNotMatch(CODIGO, /continue-on-error/, 'un paso que puede fallar sin frenar es un verde falso');
 });
 
-test('nada fuerza main, y lo único forzado es la marca del rojo de esa punta', () => {
+// ⚠️ 4/11/2026: el rojo suma una SEGUNDA marca forzada, `espera-main/<punta>` (la relanza ci-main-verde.sh cuando main vuelve a
+// verde). La guarda se afinó, no se aflojó: buscaba «main» en la línea, y `espera-main` lo contiene. Lo que protege sigue igual:
+// ningún push a `refs/heads/main` va forzado, y lo único forzado son marcas de ESTA punta, del commit que se subió.
+test('nada fuerza main, y lo único forzado son las marcas del rojo de esa punta', () => {
   const pushes = CODIGO.split('\n').filter((l) => /git push/.test(l));
-  for (const l of pushes.filter((x) => /main/.test(x))) assert.doesNotMatch(l, /--force|(^|\s)-f(\s|$)|\+HEAD:|\+refs\//, `main avanza sin forzar y esta línea fuerza: ${l.trim()}`);
+  const aMain = pushes.filter((x) => /refs\/heads\/main(?![\w/-])/.test(x));
+  assert.ok(aMain.length >= 1, 'el push a main sigue estando');
+  for (const l of aMain) assert.doesNotMatch(l, /--force|(^|\s)-f(\s|$)|\+HEAD:|\+refs\//, `main avanza sin forzar y esta línea fuerza: ${l.trim()}`);
   const forzados = pushes.filter((l) => /--force|(^|\s)-f(\s|$)|\+HEAD:|\+refs\//.test(l));
-  assert.equal(forzados.length, 1, `se esperaba un solo push forzado: ${forzados.join(' / ')}`);
+  assert.equal(forzados.length, 2, `se esperaban dos pushes forzados (las dos marcas): ${forzados.join(' / ')}`);
   assert.match(forzados[0], /"\$GITHUB_SHA:refs\/heads\/ci-rojo\/\$punta"/, 'la marca es por punta, y del commit que se subió: HEAD puede ser una mezcla');
+  assert.match(forzados[1], /"\$GITHUB_SHA:refs\/heads\/espera-main\/\$punta"/, 'la espera también es por punta y del commit que se subió');
   const marca = paso(MARCA).texto;
   assert.match(marca, /if: failure\(\)/, 'con always() un verde también movería la marca');
   assert.doesNotMatch(marca, /refs\/heads\/main/);
@@ -216,7 +222,7 @@ function armarRepo() {
   git(raiz, 'clone', '-q', origen, clon);
   git(clon, 'checkout', '-q', '-b', 'main');
   const guardasLog = join(raiz, 'guardas.log');
-  commit(clon, OTRO, { 'lib/base.ts': 'export const base = 1;\n', 'docs/base.md': 'base\n', 'scripts/guardas-push.sh': `echo corrida >> "${guardasLog.replace(/\\/g, '/')}"\n` }, 'base');
+  commit(clon, OTRO, { 'lib/base.ts': 'export const base = 1;\n', 'docs/base.md': 'base\n', 'scripts/guardas-push.sh': `echo corrida >> "${guardasLog.replace(/\\/g, '/')}"\n`, 'scripts/ci-workflow-nuevo.sh': readFileSync(join(RAIZ, 'scripts', 'ci-workflow-nuevo.sh'), 'utf8') }, 'base');
   git(clon, 'push', '-q', 'origin', 'main');
   git(clon, 'checkout', '-q', '-b', 'punta/prueba');
   /** Otro chat empuja a main desde su propio clon. */
