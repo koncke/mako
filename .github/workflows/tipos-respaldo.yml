@@ -76,7 +76,7 @@ jobs:
         if: steps.cambios.outputs.correr == 'si'
         run: npm ci --no-audit --no-fund
 
-      # Igual que integracion.yml: tsc ve los tipos de las rutas que deja `.next/` y el next-env.d.ts, que están en .gitignore.
+      # Igual que punta.yml: tsc ve los tipos de las rutas que deja `.next/` y el next-env.d.ts, que están en .gitignore.
       - name: Tipos de las rutas
         if: steps.cambios.outputs.correr == 'si'
         run: npx next typegen

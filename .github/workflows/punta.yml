@@ -205,7 +205,7 @@ jobs:
         run: node scripts/tiempos-tests.mjs "$RUNNER_TEMP/tiempos-tests.tsv" --top 15 >> "$GITHUB_STEP_SUMMARY" || true
 
       # El tsc entero, con `scripts/tipos-ci.mjs`: 98 es «SIN MEMORIA / sin veredicto», y sale tal cual, rojo. TIPOS_TANDAS es
-      # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en integracion.yml).
+      # el respaldo si el entero muere por memoria, y su OK sale «OK PARCIAL» con un aviso (historia en `git log -- .github/workflows/integracion.yml`, borrado el 4/11/2026).
       # ⚠️ EL ENTERO NO MORÍA POR GRANDE: moría contra el tope de 6.144 MB, sin swap. Con 10 GB de swap y tope de 12.288 MB terminó en
       # 248 s, con 6.187 MB vivos y sin parcial (run 41779840011, 4/11/2026, n=1). Antes eran ~360 s de intento que muere más ~270 de
       # tandas, para un OK PARCIAL. Después de los tests, para que el swap no les cambie los tiempos.
@@ -287,7 +287,7 @@ jobs:
             git push origin --delete "refs/heads/ci-rojo/$punta" || echo "::warning::No pude borrar la marca vieja ci-rojo/$punta."
           fi
 
-      # ── EL ROJO SE ANUNCIA EN GIT, IGUAL QUE EL VERDE (Martín, 2/11/2026; el porqué, en integracion.yml) ────
+      # ── EL ROJO SE ANUNCIA EN GIT, IGUAL QUE EL VERDE (Martín, 2/11/2026; el porqué, en el historial de integracion.yml) ────
       # Una rama POR PUNTA, y nunca en main: un rojo de una punta no puede pisar la marca de otra. Apunta al commit que se
       # subió ($GITHUB_SHA) y no a HEAD: acá HEAD puede ser una mezcla que no existe en ningún otro lado.
       # `if: failure()` y no `always()`: si no, un verde también movería la marca.
