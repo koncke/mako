@@ -21,7 +21,7 @@
 //    movimiento» no se anima.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Icon } from '../_components/icons';
+import { LogoRed, redDePieza } from './LogoRed';
 import { Dropdown } from '../components/Dropdown';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import {
@@ -55,6 +55,7 @@ const CSS = `
 .spyg-pt{position:absolute;width:34px;height:34px;padding:0;border:2px solid #fff;border-radius:9px;overflow:hidden;cursor:pointer;box-shadow:0 2px 8px rgba(18,21,27,.22);background:var(--faint);will-change:transform,opacity}
 .spyg-pt:hover,.spyg-pt:focus-visible{z-index:2;outline:2px solid var(--accent);outline-offset:1px;transform:scale(1.35)}
 .spyg-pt img{width:100%;height:100%;object-fit:cover;display:block}
+.spyg-pt__red{position:absolute;right:1px;bottom:1px;display:flex;border-radius:4px;box-shadow:0 0 0 1px #fff;pointer-events:none}
 .spyg-pt[data-canal=instagram]{background:linear-gradient(140deg,#F58529,#DD2A7B 55%,#8134AF)}
 .spyg-pt[data-canal=youtube]{background:#23252B}
 .spyg-pt[data-canal=anuncios]{background:linear-gradient(140deg,#2F6BFF,#1B3FA8)}
@@ -84,10 +85,14 @@ const ICONO: Record<ValorDeGrafico, 'video' | 'imagen' | 'anuncio' | 'web' | 'ag
   corto: 'video', largo: 'video', imagenes: 'imagen', anuncios: 'anuncio', web: 'web', 'agregar-instagram': 'agregar', 'agregar-youtube': 'agregar',
 };
 const NOMBRE_RED: Record<string, string> = { todo: 'Todas', instagram: 'Instagram', youtube: 'YouTube', anuncios: 'Anuncios' };
-const ICONO_RED: Record<string, 'instagram' | 'youtube' | 'meta'> = { instagram: 'instagram', youtube: 'youtube', anuncios: 'meta' };
+
+/** El logo de su red en la esquina de cada miniatura: el mismo que el buscador (Martín, 4/11). */
+function RedDeLaMiniatura({ canal }: { canal: string }) {
+  const red = redDePieza(canal);
+  return red ? <span className="spyg-pt__red" aria-hidden><LogoRed red={red} box={13} /></span> : null;
+}
 /** Cuántas miniaturas lleva como mucho la pista de un formato. */
 const MINIATURAS_POR_FILA = 40;
-const CADA: Record<Grupo, string> = { corto: 'Cada miniatura es un video', largo: 'Cada miniatura es un video', imagenes: 'Cada miniatura es una publicación', anuncios: 'Cada miniatura es un anuncio', web: '' };
 
 function useTelefono(): boolean {
   const [tel, setTel] = useState(false);
@@ -225,7 +230,7 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
           <div className="spyg-redes" role="group" aria-label="Red">
             {redes.map((r) => (
               <button key={r.red} type="button" className="spyg-red" data-activa={redActiva === r.red} onClick={() => setRed(r.red)}>
-                {ICONO_RED[r.red] && <Icon name={ICONO_RED[r.red]} size={14} />}{NOMBRE_RED[r.red] ?? r.red} <small>{r.n}</small>
+                {redDePieza(r.red) && <LogoRed red={redDePieza(r.red)!} box={18} />}{NOMBRE_RED[r.red] ?? r.red} <small>{r.n}</small>
               </button>
             ))}
           </div>
@@ -256,13 +261,14 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
                   onClick={() => onAbrir(p)}
                 >
                   <Miniatura p={p} bajada={bajadas.has(d.id)} />
+                  <RedDeLaMiniatura canal={p.canal} />
                 </button>
               );
             })}
           </div>
-          <p className="spyg-pie">
-            {CADA[grupo]}{dibujados.length < g.puntos.length ? ` · se ven ${dibujados.length} de ${g.puntos.length}` : ''}
-          </p>
+          {/* «Cada miniatura es un video» se fue (Martín, 4/11: los textos que narran lo que ya se ve). Queda sólo lo que no
+              se ve: que hay más piezas que miniaturas. */}
+          {dibujados.length < g.puntos.length && <p className="spyg-pie">Se ven {dibujados.length} de {g.puntos.length}</p>}
         </section>
       )}
 
@@ -286,6 +292,7 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
                     <button key={x.id} type="button" className="spyg-pt" data-canal={p.canal} style={{ left: `calc(${x.x * 100}% - ${x.x * 26}px)` }}
                       aria-label={`${p.titulo || p.analisis?.gancho || 'Pieza'} · ${dibujarContador(x.valor)} ${nums.metrica}`} onClick={() => onAbrir(p)}>
                       <Miniatura p={p} bajada={bajadas.has(x.id)} />
+                      <RedDeLaMiniatura canal={p.canal} />
                     </button>
                   );
                 })}

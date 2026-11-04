@@ -1080,3 +1080,25 @@ del servidor y no entra en el banco de prueba); usa las mismas clases que la tar
 (`sugeridosAction`, `sumarSugeridoAction`) · app/competitor-spy/page.tsx · app/competitor-spy/SpyApp.tsx
 (`RejillaSugeridos`) · lib/api-mako/areas/spy.def.ts y spy.run.ts (`ver_sugeridos`, `sumar_sugerido`) ·
 tests/spy-sugeridos.test.ts
+
+## Los logos de cada red, uno solo en toda la tab, y «¿En qué publica?» por red y por formato (4/11/2026)
+
+> Pedido de Martín (por el Cerebro, 4/11): los mismos logos de Instagram y YouTube que el buscador, en todos lados donde
+> se ve la red de una pieza; y «¿En qué publica?» de verdad, sin «100% videos».
+
+**La causa del «100% videos»:** el reparto contaba por el tipo GUARDADO, y todo lo de YouTube se guarda como `video`
+(shorts y largos por igual): un canal de YouTube daba «100% videos» aunque la mitad fueran shorts. Ahora sale de
+`tipoDeContenido` (reels, carruseles e imágenes, shorts, videos largos, anuncios), y por red con su logo
+(`repartoDePublicaciones`). Su web no es una publicación: no entra al total.
+
+**Los logos:** `LogoRed` vivía adentro del buscador y el resto dibujaba íconos genéricos. Ahora es una pieza
+(app/competitor-spy/LogoRed.tsx) que usan el buscador, las miniaturas del gráfico (en la esquina), sus filtros, el
+detalle de una pieza y «¿En qué publica?». ⚠️ Los logos de marca se dibujan con los `<symbol>` de `<BrandDefs>`: la
+pantalla lo monta una vez, y el detalle también (va por portal). Sin eso, el logo sale vacío y sin error.
+
+**De paso:** «Cada miniatura es un video» se fue (narraba lo que ya se ve); queda «Se ven N de M» sólo cuando hay más
+piezas que miniaturas.
+
+**Vive en:** app/competitor-spy/LogoRed.tsx · lib/spy-detalle.ts (`repartoDePublicaciones`) · app/competitor-spy/GraficoSpy.tsx
+· app/competitor-spy/DetallePieza.tsx · app/competitor-spy/SpyApp.tsx (`RielAnalisis`, `CajaMix`) ·
+app/competitor-spy/BuscadorAlta.tsx · tests/spy-logos.test.ts

@@ -65,10 +65,12 @@ import type { NombreIconoMenu } from '../_ui/iconos-menu';
 import { dibujarContador } from '@/lib/spy-reglas';
 import { caricaturaDeCompetidor, nombreDeTarjeta } from '@/lib/spy-caricatura';
 import { caraDeTarjeta } from '@/lib/spy-caricatura-reglas';
+import { BrandDefs } from '../_components/ServicioVisual';
+import { LogoRed } from './LogoRed';
 import type { Sugerido } from '@/lib/spy-sugeridos';
 import {
   ORDENES, canalesDe, debeLeerAlAbrir, destinosDe, estadoDeResultados, fechaCorta, filtrarPiezas,
-  fraseDeLectura, haceCuanto, mezclaDeTipos, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
+  fraseDeLectura, haceCuanto, miniaturaDePieza, opcionesDeContenido, ordenarPiezas, pideConectarMeta,
   type OrdenSpy, type TipoContenido, type ValorDeContenido,
 } from '@/lib/spy-vista';
 import { cuantasFaltan } from '@/lib/spy-analisis-reglas';
@@ -86,7 +88,7 @@ import { SuFunnel } from './SuFunnel';
 import { TarjetaPieza } from './TarjetaPieza';
 import { GraficoSpy } from './GraficoSpy';
 import { DetallePieza } from './DetallePieza';
-import { grupoDe } from '@/lib/spy-detalle';
+import { grupoDe, repartoDePublicaciones } from '@/lib/spy-detalle';
 import { PeliculaDeOrden } from './OrdenSpy';
 import { BuscadorAlta } from './BuscadorAlta';
 
@@ -221,6 +223,7 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-mix-seg{border-radius:4px;min-width:6px}
 .spy-mix-filas{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
 .spy-mix-filas li{display:flex;align-items:center;gap:10px;padding:7px 0}
+.spy-mix-sub{margin:14px 0 4px;font-size:var(--fs-sm);font-weight:600;color:var(--dim)}
 .spy-mix-ico{display:grid;place-items:center;flex:0 0 auto;width:30px;height:30px;border-radius:9px;
   background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
 .spy-mix-nombre{flex:1;min-width:0}
@@ -697,10 +700,14 @@ function RejillaSugeridos({ sugeridos, ocupado, onSumar }: { sugeridos: Sugerido
 const SERIE = ['var(--s1)', 'var(--s2)', 'var(--s3)', 'var(--s4)'];
 
 /** Una caja del riel: cabecera, barra apilada y filas. Es el bloque «Where it sells» de merrin. */
-function CajaMix({ titulo, pie, filas, total }: {
+function CajaMix({ titulo, pie, filas, total, iconos, otras }: {
   // `pie` admite null porque `fraseDeLectura` devuelve null cuando al competidor no se le leyo nada.
   titulo: string; pie?: string | null; total: number;
   filas: Array<{ rotulo: string; n: number; pct: number }>;
+  /** El logo de cada fila (por su rótulo), en vez del punto de color: las redes llevan el de su marca. */
+  iconos?: Record<string, React.ReactNode>;
+  /** Un segundo reparto debajo, con su subtítulo (los formatos, debajo de las redes). */
+  otras?: { titulo: string; filas: Array<{ rotulo: string; n: number; pct: number }> };
 }) {
   if (!filas.length) return null;
   return (
@@ -712,12 +719,25 @@ function CajaMix({ titulo, pie, filas, total }: {
       <ul className="spy-mix-filas">
         {filas.map((f, i) => (
           <li key={f.rotulo}>
-            <span className="spy-mix-ico" aria-hidden><i style={{ width: 10, height: 10, borderRadius: '50%', background: SERIE[i % 4] }} /></span>
+            <span className="spy-mix-ico" aria-hidden>{iconos?.[f.rotulo] ?? <i style={{ width: 10, height: 10, borderRadius: '50%', background: SERIE[i % 4] }} />}</span>
             <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
             <span className="spy-mix-val"><b>{f.n}</b></span>
           </li>
         ))}
       </ul>
+      {otras && otras.filas.length > 0 && (
+        <>
+          <h3 className="spy-mix-sub">{otras.titulo}</h3>
+          <ul className="spy-mix-filas">
+            {otras.filas.map((f) => (
+              <li key={f.rotulo}>
+                <span className="spy-mix-nombre"><b title={f.rotulo}>{f.rotulo}</b><small>{f.pct}% de {total}</small></span>
+                <span className="spy-mix-val"><b>{f.n}</b></span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </section>
   );
 }
@@ -737,12 +757,15 @@ function CajaMix({ titulo, pie, filas, total }: {
  * La sección sin nada que decir NO EXISTE: no se anuncia su ausencia (Semrush).
  */
 function RielAnalisis({ piezas, c }: { piezas: PiezaVista[]; c: Competidor }) {
-  const mezcla = useMemo(() => mezclaDeTipos(piezas), [piezas]);
+  // «¿En qué publica?» de verdad: por red (con su logo) y por formato. Nada de «100% videos» (Martín, 4/11).
+  const reparto = useMemo(() => repartoDePublicaciones(piezas), [piezas]);
   const destinos = useMemo(() => destinosDe(piezas), [piezas]);
   const frase = fraseDeLectura(piezas, c.mirado_en);
   return (
     <>
-      <CajaMix titulo="Qué publica" pie={frase} filas={mezcla} total={piezas.length} />
+      <CajaMix titulo="¿En qué publica?" pie={frase} filas={reparto.redes} total={reparto.total}
+        iconos={Object.fromEntries(reparto.redes.map((f) => [f.rotulo, f.red ? <LogoRed red={f.red} box={18} /> : null]))}
+        otras={reparto.formatos.length > 1 ? { titulo: 'En qué formato', filas: reparto.formatos } : undefined} />
       <CajaMix titulo="A dónde manda" filas={destinos.slice(0, 6)} total={piezas.length} />
     </>
   );
@@ -1290,6 +1313,7 @@ export function SpyApp({ iniciales, resumenInicial, abierto, errorInicial, puede
   return (
     <main className="spy" data-spy>
       <style>{CSS}</style>
+      <BrandDefs />
 
       {/* ── Zona 0: la barra de arriba. ⚠️ SOLO EN LA LISTA. Antes estaba siempre, y en la ficha de
            un competidor era una banda entera para una acción que ahí no se usa. En la referencia (fitlo)
