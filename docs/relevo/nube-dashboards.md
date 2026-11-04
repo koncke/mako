@@ -75,7 +75,14 @@ Lo que el INFORME no trae y queda quieto: cómo crecen los anillos y las barras.
 
 **Falta:**
 - verificar contra la base de un cliente (la nube no tiene la base): crear la hoja en ws3 y completar una tarea desde ahí;
-- **Lumora**, la otra referencia de Focus: la maqueta del 1/11 (`focus-lumora.html`) todavía no es copia exacta.
+- **Lumora**, la otra referencia de Focus. **La copia exacta ya está** (`docs/diseno/mockups-dashboard/focus-lumora/`: `lumora.css`,
+  `copia.html` y `lumora.js`), comparada contra el demo:
+  - a 1440 mide 2042 px de alto contra 2040, y las cajas caen a 1-4 px;
+  - a 390, los mismos bloques y el mismo orden.
+
+  A diferencia de Pane, el INFORME de Lumora trae la entrada de su página (`xt`), así que el orden y las demoras son los suyos.
+  Lo que no se copió: el helper `Oe(.kpis)`, que el INFORME no muestra, y las curvas back.out de GSAP, que van aproximadas.
+  Falta la adaptación a MaKo y su componente.
 
 ## Cobranza: la segunda hoja copiada (la de Coffer), con los datos de MaKo (punta `dash-cobranza`, 4/11/2026)
 
