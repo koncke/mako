@@ -16,7 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  CARRUSELES_POR_DEFECTO, DIAS_ENTRE_LECTURAS, RESERVA_CREDITO_USD, TECHO_USD_POR_DEFECTO, TEMAS_INICIALES,
+  CARRUSELES_POR_DEFECTO, DIAS_ENTRE_LECTURAS, PUBLICACIONES_POR_TEMA, RESERVA_CREDITO_USD, TECHO_USD_POR_DEFECTO, TEMAS_INICIALES,
   carruselesDeBiblioteca, creadorDelItem, cuentaDeInstagram, decidirCambio, entradaDeTema, esDeBiblioteca, filaDeBiblioteca,
   filasDeLectura, hashtagDe, idDeBiblioteca, planDeLectura, recortarBiblioteca, referentesSinCuenta, techoConCredito, techoDeCorrida, unirConBiblioteca,
   type CuentaBiblioteca, type PiezaBiblioteca, type TemaBiblioteca,
@@ -139,7 +139,7 @@ test('el plan de lectura: intercala temas y cuentas, saltea lo al día, lo apaga
   assert.deepEqual(p.lecturas.map((l) => l.fuente.tipo === 'cuenta' ? `@${l.fuente.instagram}` : `#${l.fuente.hashtag}`), ['#ventas', '@a.uno', '@c.tres']);
   assert.deepEqual(p.alDia, ['@b.dos']);
   assert.ok(p.totalUsd <= 2);
-  assert.equal(p.lecturas[0].techoUsd, techoDeCorrida(80));
+  assert.equal(p.lecturas[0].techoUsd, techoDeCorrida(PUBLICACIONES_POR_TEMA), 'un tema pide lo que devuelve (medido: 15 a 30)');
   const chico = planDeLectura(cuentas, temas, { techoUsd: 0.2, ahora: AHORA });
   assert.ok(chico.totalUsd <= 0.2 && chico.quedanFuera.length > 0, 'con un techo chico, lo que no entra queda afuera y se dice');
   assert.deepEqual(planDeLectura(cuentas, temas, { techoUsd: 2, solo: '@b.dos', ahora: AHORA }).lecturas.map((l) => l.fuente.id), [2], '--solo lee aunque esté al día');

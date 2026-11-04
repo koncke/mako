@@ -23,13 +23,18 @@
 //   leer [opciones]              En seco: el plan y su costo máximo. Con --de-verdad: lee y guarda.
 //        --techo-usd 2           Lo más que puede gastar la corrida (por defecto 2).
 //        --max-carruseles 300    Cuántos carruseles guardar como mucho (por defecto 300).
-//        --por-cuenta 40 --por-tema 80   Cuántas publicaciones pedir a cada fuente.
+//        --por-cuenta 40 --por-tema 30   Cuántas publicaciones pedir a cada fuente (un tema devuelve 15 a 30: medido el 4/11).
+//        El plan en seco dice lo ESPERADO con lo medido en la primera carga; `--max-carruseles` es un techo, no una promesa.
 //        --solo @cuenta | --solo '#tema'   Sólo esa fuente (aunque se haya leído hace poco). El # va entre comillas: en la
 //                                         consola, una palabra que empieza con # es un comentario.
 //        --solo-temas | --solo-cuentas
 //   buscar [--techo-usd 0.5]     Busca en Instagram, por su nombre, a los referentes del Ops Center que no están en la lista
 //                                y muestra los candidatos. No escribe nada: el bueno se suma con `sumar`.
-//   sumar @usuario --nombre "Nombre" [--referente id]   Suma una cuenta a la lista.
+//   verificar @a [@b …] [--referente id | --nombre "Nombre"]   Lee esos perfiles (unos US$0,003 cada uno) y dice si son de
+//                                quien se cree: nombre, verificada, seguidores y publicaciones. No escribe nada.
+//   reclasificar [--de-verdad]   Vuelve a clasificar lo guardado con su texto (el tipo, el cierre y si parece contenido).
+//                                GRATIS: no le pide nada a Apify. Sólo llena lo que falta. En seco por defecto.
+//   sumar @usuario --nombre "Nombre" [--referente id]   Suma una cuenta a la lista (confírmala antes con `verificar`).
 //   sacar @usuario --motivo "Lo pidió"                  Saca a un creador: sus carruseles dejan de verse en todos lados.
 //   tema '#hashtag' --nombre "Nombre"                   Suma un tema (el # entre comillas, o sin el #).
 // =============================================================================
@@ -38,11 +43,12 @@ export {};   // un .mts sin import ni export es un script GLOBAL para tsc (guard
 const base = process.cwd().split(String.fromCharCode(92)).join('/');
 const imp = (p: string) => import(`file:///${base}/${p}`);
 
-type Args = { comando: string; posicional: string | null; op: Map<string, string | true> };
+type Args = { comando: string; posicional: string | null; posicionales: string[]; op: Map<string, string | true> };
 function leerArgs(argv: string[]): Args {
   const op = new Map<string, string | true>();
   let comando = 'estado';
   let posicional: string | null = null;
+  const posicionales: string[] = [];
   const xs = argv.slice(2);
   for (let i = 0; i < xs.length; i += 1) {
     const a = xs[i];
@@ -50,9 +56,9 @@ function leerArgs(argv: string[]): Args {
       const sig = xs[i + 1];
       if (sig != null && !sig.startsWith('--')) { op.set(a.slice(2), sig); i += 1; } else op.set(a.slice(2), true);
     } else if (comando === 'estado' && i === 0) comando = a;
-    else if (posicional == null) posicional = a;
+    else { posicionales.push(a); if (posicional == null) posicional = a; }
   }
-  return { comando, posicional, op };
+  return { comando, posicional, posicionales, op };
 }
 const args = leerArgs(process.argv);
 const num = (k: string, def: number): number => {
@@ -63,6 +69,7 @@ const num = (k: string, def: number): number => {
 const txt = (k: string): string | null => { const v = args.op.get(k); return typeof v === 'string' && v.trim() ? v.trim() : null; };
 
 const B = await imp('lib/carruseles/biblioteca.ts');
+const C = await imp('lib/carruseles/clasificar.ts');
 const S = await imp('lib/carruseles/biblioteca-servidor.ts');
 const { wsSuperAdmin } = await imp('lib/workspace.ts');
 const { credDelCliente } = await imp('lib/credenciales.ts');
@@ -102,6 +109,18 @@ async function hayTablas(): Promise<boolean> {
   }
 }
 
+/** ¿Está la columna de la 0393 (`parece_contenido`)? Sin ella, la lectura no la manda: PostgREST rechazaría la fila ENTERA. */
+let columnaContenido: boolean | null = null;
+async function hayColumnaContenido(): Promise<boolean> {
+  if (columnaContenido != null) return columnaContenido;
+  const r = await getSupabaseServer().from(S.T_PIEZAS).select('parece_contenido').limit(1);
+  columnaContenido = !r.error;
+  if (r.error && !/parece_contenido|42703|PGRST204/i.test(`${r.error.code} ${r.error.message}`)) {
+    console.log(`  (No pude saber si está la 0393: ${r.error.message}. Se lee sin la señal de contenido.)`);
+  }
+  return columnaContenido;
+}
+
 async function estado() {
   const tablas = await hayTablas();
   console.log(tablas ? '✔ La biblioteca está creada (0392 aplicada).' : '✖ Falta aplicar la migración 0392: no hay dónde guardar la biblioteca.');
@@ -112,8 +131,16 @@ async function estado() {
     const lista = b.cuentas.filter((c: { estado: string }) => c.estado === 'activa');
     console.log(`  Lista: ${lista.length} cuentas · ${b.cuentas.length - lista.length} fuera · ${b.porTema} creadores que llegaron por un tema`);
     console.log(`  Temas: ${b.temas.filter((t: { activo: boolean }) => t.activo).length} prendidos de ${b.temas.length}${b.temas.length ? '' : ' (se siembran los de arranque con la primera `leer --de-verdad`)'}`);
-    const carr = await getSupabaseServer().from(S.T_PIEZAS).select('id', { count: 'exact', head: true }).eq('medio', 'carrusel');
-    console.log(`  Carruseles guardados: ${carr.count ?? '?'}`);
+    const db = getSupabaseServer();
+    const carr = await db.from(S.T_PIEZAS).select('id', { count: 'exact', head: true }).eq('medio', 'carrusel');
+    const sinTipo = await db.from(S.T_PIEZAS).select('id', { count: 'exact', head: true }).eq('medio', 'carrusel').is('formato', null);
+    console.log(`  Carruseles guardados: ${carr.count ?? '?'} · sin tipo: ${sinTipo.count ?? '?'} (\`reclasificar\` los mira de nuevo, gratis)`);
+    if (await hayColumnaContenido()) {
+      const personal = await db.from(S.T_PIEZAS).select('id', { count: 'exact', head: true }).eq('medio', 'carrusel').eq('parece_contenido', false);
+      console.log(`  Parecen personales (van después en el orden): ${personal.count ?? '?'}`);
+    } else console.log('  (Falta la 0393: la señal «parece contenido» se calcula al mostrar, del texto que queda.)');
+    const dudosas = b.cuentas.filter((c: { estado: string; fuente: string; leida_en: string | null; piezas: number }) => c.estado === 'activa' && c.fuente === 'lista' && c.leida_en && B.cuentaDudosa(c.piezas));
+    for (const c of dudosas) console.log(`  ⚠ @${c.instagram} trajo ${c.piezas} publicación(es): puede no ser su cuenta. \`verificar @${c.instagram} --nombre "${c.nombre}"\``);
   }
   const token = await clave();
   console.log(`  Clave de Spy de la plataforma: ${token ? 'sí' : 'no (conéctala en Integraciones → Apify del negocio de la plataforma)'}`);
@@ -165,13 +192,19 @@ async function leer() {
     if (plan.alDia.length) console.log(`  Al día: ${plan.alDia.join(' ')}`);
     return;
   }
-  console.log(`  Plan (${plan.lecturas.length} corridas, como mucho ${usd(plan.totalUsd)}; hasta ${maxCarruseles} carruseles):`);
+  const esperado = B.esperadoDelPlan(plan.lecturas);
+  console.log(`  Plan: ${plan.lecturas.length} corridas. Como mucho ${usd(plan.totalUsd)}; lo probable, unos ${usd(esperado.usdProbable)} (Apify cobra lo que llega).`);
+  console.log(`  Lo esperado, con lo medido el ${B.MEDIDO_CARRUSELES.fecha} (unos ${B.MEDIDO_CARRUSELES.porTema} carruseles por tema y ${B.MEDIDO_CARRUSELES.porCuenta} por cuenta): alrededor de ${Math.min(esperado.carruseles, maxCarruseles)} carruseles. El ${maxCarruseles} de --max-carruseles es un techo, no lo que va a entrar.`);
   for (const l of plan.lecturas) console.log(`    · ${l.fuente.tipo === 'cuenta' ? `@${l.fuente.instagram}` : `#${l.fuente.hashtag}`}: ${l.cuantas} publicaciones, techo ${usd(l.techoUsd)}`);
   if (plan.quedanFuera.length) console.log(`  No entran en el techo (la próxima vez): ${plan.quedanFuera.join(' ')}`);
   if (plan.alDia.length) console.log(`  Al día (leídas hace menos de una semana): ${plan.alDia.join(' ')}`);
   if (!deVerdad) return;
 
   const db = getSupabaseServer();
+  const conContenido = await hayColumnaContenido();
+  if (!conContenido) console.log('  (Falta la 0393: se guarda sin la señal «parece contenido»; la pantalla la calcula del texto.)');
+  let conPortada = 0;
+  let llegaronTodas = 0;
   const fuera = new Set<string>(cuentas.filter((c: { estado: string }) => c.estado === 'excluida').map((c: { instagram: string }) => c.instagram));
   let guardados = 0;
   const porFormato = new Map<string, number>();
@@ -196,8 +229,17 @@ async function leer() {
       const cr = l.fuente.tipo === 'cuenta' ? { instagram: l.fuente.instagram, nombre: l.fuente.nombre } : B.creadorDelItem(it);
       if (ref && cr) creadorDe.set(ref, cr);
     }
+    // El texto alternativo de la portada (lo que Instagram escribe para las personas ciegas): dice el tipo y si es de
+    // personas. Se lee si vino; NO se guarda (sólo lo que se deduce de él).
+    const altDe = new Map<string, string>();
+    for (const it of items) { const ref = typeof it.shortCode === 'string' ? it.shortCode : ''; const alt = C.altDelItem(it); if (ref && alt) altDe.set(ref, alt); }
+    conPortada += altDe.size;
+    llegaronTodas += items.length;
+    if (l.fuente.tipo === 'cuenta' && B.cuentaDudosa(items.length)) {
+      console.log(`  ⚠ @${l.fuente.instagram} trajo ${items.length} de ${l.cuantas} publicaciones: puede no ser su cuenta, o es privada. Confírmala: \`verificar @${l.fuente.instagram} --nombre "${l.fuente.nombre}"\`.`);
+    }
     const piezas = piezasDeApify(items)
-      .map((p: { ref: string }) => ({ ...p, creador: creadorDe.get(p.ref)?.instagram ?? '' }));
+      .map((p: { ref: string }) => ({ ...p, creador: creadorDe.get(p.ref)?.instagram ?? '', alt: altDe.get(p.ref) ?? null }));
     const filas: Array<Record<string, unknown> & { creador: string; ref: string }> = B.filasDeLectura(piezas, {
       tema: l.fuente.tipo === 'tema' ? l.fuente.id : null, fuera, tope: l.fuente.tipo === 'tema' ? maxCarruseles - guardados : undefined,
     });
@@ -216,7 +258,9 @@ async function leer() {
     const conId = filas.filter((f: { creador: string }) => idDe.has(f.creador));
     // La miniatura se BAJA a nuestro bucket (la del CDN de Instagram vence y da 403 desde otro dominio).
     const conFoto = await (await imp('lib/spy-miniaturas.ts')).guardarMiniaturas(conId.map((f: Record<string, unknown>) => ({ ...f, canal: 'instagram' })));
-    const aGuardar = conFoto.map(({ canal: _c, creador, ...f }: Record<string, unknown>) => ({ ...f, cuenta_id: idDe.get(String(creador)) }));
+    const aGuardar = conFoto.map(({ canal: _c, creador, alt: _a, parece_contenido, ...f }: Record<string, unknown>) => ({
+      ...f, ...(conContenido ? { parece_contenido } : {}), cuenta_id: idDe.get(String(creador)),
+    }));
     const up = await db.from(S.T_PIEZAS).upsert(aGuardar, { onConflict: 'ref' });
     if (up.error) { console.log(`  ✖ ${rotulo}: no pude guardar (${up.error.message}). Sigue con la próxima.`); continue; }
     const carruseles = aGuardar.filter((f: { medio?: unknown }) => f.medio === 'carrusel');
@@ -226,6 +270,7 @@ async function leer() {
     await marcarLeida(l);
   }
   const c1 = await credito(token);
+  console.log(`  ${conPortada} de ${llegaronTodas} publicaciones traían el texto de la portada${llegaronTodas && !conPortada ? ' (el actor no lo mandó: el tipo sale sólo del pie)' : ''}.`);
   console.log(`▶ Listo: ${guardados} carruseles guardados. Por tipo: ${[...porFormato].map(([k, v]) => `${k} ${v}`).join(' · ') || '—'}.`);
   if (c1) console.log(`  Crédito de Apify: usado ${usd(c1.usado)} de ${usd(c1.tope)} (esta corrida, unos ${usd(Math.max(0, c1.usado - c0.usado))}).`);
 }
@@ -254,9 +299,84 @@ async function buscar() {
   console.log(`  ${faltan.length} referentes sin cuenta en la lista; alcanza para buscar ${Math.min(alcanza, faltan.length)} (techo ${usd(techo)}).`);
   for (const r of faltan.slice(0, alcanza)) {
     const xs = await buscarPerfilesApify(r.completo, token);
-    console.log(`  · ${r.completo} (${r.id}): ${xs.length ? xs.slice(0, 5).map((p: { usuario: string; nombre?: string | null }) => `@${p.usuario}${p.nombre ? ` «${p.nombre}»` : ''}`).join(' · ') : 'sin candidatos'}`);
+    // La búsqueda de Instagram trae cuentas que se parecen (medido el 4/11: para «Alex Hormozi», @damaristradesww y
+    // @hormoziw). Se ordenan por cuánto se parecen al nombre y se dice; ninguna se da por buena sin `verificar`.
+    const orden = [...xs].map((p: { usuario: string; nombre?: string | null }) => ({ p, n: B.parecidoConNombre(p, r.completo) }))
+      .sort((a, b) => b.n - a.n).slice(0, 5);
+    const rotulo = (n: number) => (n === 2 ? 'el nombre coincide' : n === 1 ? 'el @ lo nombra' : 'no se parece');
+    console.log(`  · ${r.completo} (${r.id}): ${orden.length ? orden.map(({ p, n }) => `@${p.usuario}${p.nombre ? ` «${p.nombre}»` : ''} (${rotulo(n)})`).join(' · ') : 'sin candidatos'}`);
   }
-  console.log('  Ninguno se sumó solo: mira cada perfil y suma el bueno con `sumar @usuario --nombre "…" --referente <id>`.');
+  console.log('  Ninguno se suma solo. Confirma el que parezca con `verificar @usuario --referente <id>` (lee el perfil: nombre,');
+  console.log('  verificada, seguidores), o carga el @ que te pase Martín en la pantalla («Cuentas» → «Editar la biblioteca»).');
+}
+
+/** Lee perfiles y dice si son de quien se cree. No escribe nada. Unos US$0,003 por perfil. */
+async function verificar() {
+  const usuarios = [...new Set(args.posicionales.map((x) => B.cuentaDeInstagram(x)).filter(Boolean) as string[])].slice(0, 20);
+  if (!usuarios.length) { console.log('Uso: verificar @usuario [@otro …] [--referente id | --nombre "Nombre"]'); process.exit(1); }
+  const token = await clave();
+  if (!token) { console.log('✖ El negocio de la plataforma no tiene la clave de Spy (Apify). No se gastó nada.'); process.exit(2); }
+  const c0 = await credito(token);
+  if (!c0) { console.log('✖ No pude leer el crédito del mes de Apify: no se gasta a ciegas.'); process.exit(2); }
+  const { APIFY_ACTOR_PERFIL, APIFY_TOPE_USD, leerPerfilDeApify } = await imp('lib/instagram-perfil.ts');
+  const techo = Math.min(APIFY_TOPE_USD * usuarios.length, B.techoConCredito(1, c0, B.RESERVA_CREDITO_USD) as number);
+  if (techo <= 0) { console.log('✖ No alcanza el crédito libre del mes (se deja la reserva de Spy). No se gastó nada.'); process.exit(2); }
+  let completo: string | null = txt('nombre');
+  const ref = txt('referente');
+  if (ref) {
+    const { ASESORES } = await imp('lib/asesores/catalogo.ts');
+    const a = (ASESORES as Array<{ id: string; completo: string }>).find((x) => x.id === ref);
+    if (!a) { console.log(`✖ No conozco el referente «${ref}».`); process.exit(1); }
+    completo = a.completo;
+  }
+  const r = await apify(token, `/acts/${APIFY_ACTOR_PERFIL}/run-sync-get-dataset-items?maxItems=${usuarios.length}&maxTotalChargeUsd=${techo}&timeout=120`, { usernames: usuarios });
+  if (r.status < 200 || r.status >= 300) { console.log(`✖ Apify contestó HTTP ${r.status}.`); process.exit(1); }
+  const items = Array.isArray(r.cuerpo) ? (r.cuerpo as Array<Record<string, unknown>>) : [];
+  for (const u of usuarios) {
+    const l = leerPerfilDeApify(u, items);
+    if (!l.ok) { console.log(`  ✖ @${u}: no existe o no se pudo leer (${l.detalle}).`); continue; }
+    const crudo = items.find((x) => String(x.username ?? '').toLowerCase() === u);
+    const verificada = crudo && typeof crudo.verified === 'boolean' ? crudo.verified : null;
+    const v = B.confianzaDeCuenta({ ...l.perfil, verificada }, completo);
+    const marca = v.nivel === 'confirmada' ? '✔ confirmada' : v.nivel === 'dudosa' ? '? dudosa' : '✖ no parece';
+    console.log(`  ${marca} — @${u}${l.perfil.nombre ? ` «${l.perfil.nombre}»` : ''}: ${v.motivos.join(' · ') || 'sin datos'}`);
+  }
+  if (!completo) console.log('  (Sin --referente ni --nombre no se compara el nombre: sólo si es grande y publica.)');
+}
+
+/** Vuelve a clasificar lo guardado con su texto (GRATIS: no pide nada a Apify). Sólo llena lo que falta. */
+async function reclasificar() {
+  const deVerdad = args.op.get('de-verdad') === true;
+  if (!(await hayTablas())) { console.log('✖ Falta aplicar la migración 0392.'); process.exit(2); }
+  const conContenido = await hayColumnaContenido();
+  const { leerPorPaginas } = await imp('lib/supabase-paginado.ts');
+  const db = getSupabaseServer();
+  const cols = `id, medio, texto, formato, cierre${conContenido ? ', parece_contenido' : ''}`;
+  const filas: Array<Record<string, unknown>> = [];
+  await leerPorPaginas(db, S.T_PIEZAS, cols, (p: Array<Record<string, unknown>>) => { filas.push(...p); });
+  const carruseles = filas.filter((f) => f.medio === 'carrusel');
+  const antes = carruseles.filter((f) => !f.formato).length;
+  const cambios = filas.map((f) => ({ id: f.id as number, medio: f.medio, c: B.reclasificacion(f) })).filter((x) => x.c);
+  const despues = carruseles.filter((f) => !f.formato && !cambios.find((x) => x.id === f.id)?.c?.formato).length;
+  const personales = cambios.filter((x) => x.medio === 'carrusel' && x.c.parece_contenido === false).length;
+  console.log(`${deVerdad ? '▶ Reclasificando DE VERDAD.' : '▶ En seco: no escribe. Para guardar, agrega --de-verdad.'}`);
+  console.log(`  Carruseles sin tipo: ${antes} → ${despues} (de ${carruseles.length}). Con un cierre nuevo: ${cambios.filter((x) => x.c.cierre).length}. Parecen personales: ${personales}${conContenido ? '' : ' (sin la 0393 no se guarda: la pantalla lo calcula igual)'}.`);
+  const sinTexto = carruseles.filter((f) => !f.formato && !String(f.texto ?? '').trim()).length;
+  if (sinTexto) console.log(`  ${sinTexto} sin tipo ya no tienen texto (vence a los 30 días): sólo la portada los clasificaría, en la próxima lectura.`);
+  // Para mirar a ojo por qué el resto no dice su tipo (el gancho de unos cuantos que siguen sin tipo).
+  const siguen = carruseles.filter((f) => !f.formato && f.texto && !cambios.find((x) => x.id === f.id)?.c?.formato).slice(0, 15);
+  if (siguen.length) console.log('  Siguen sin tipo (su primera línea):');
+  for (const f of siguen) console.log(`    · ${String(f.texto).split(/\n+/).find((x) => x.trim())?.trim().slice(0, 90)}`);
+  if (!deVerdad) return;
+  let hechas = 0;
+  for (const x of cambios) {
+    const cambio = conContenido ? x.c : Object.fromEntries(Object.entries(x.c).filter(([k]) => k !== 'parece_contenido'));
+    if (!Object.keys(cambio).length) continue;
+    const r = await db.from(S.T_PIEZAS).update(cambio).eq('id', x.id);
+    if (r.error) { console.log(`  ✖ ${x.id}: ${r.error.message}`); continue; }
+    hechas += 1;
+  }
+  console.log(`▶ Listo: ${hechas} publicaciones actualizadas.`);
 }
 
 async function cambio(pedido: Record<string, unknown>) {
@@ -269,6 +389,8 @@ switch (args.comando) {
   case 'estado': await estado(); break;
   case 'leer': await leer(); break;
   case 'buscar': await buscar(); break;
+  case 'verificar': await verificar(); break;
+  case 'reclasificar': await reclasificar(); break;
   case 'sumar':
     if (!args.posicional) { console.log('Falta el @usuario.'); process.exit(1); }
     await cambio({ que: 'cuenta', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^@/, ''), referente: txt('referente') });
@@ -282,6 +404,6 @@ switch (args.comando) {
     await cambio({ que: 'tema', accion: 'sumar', valor: args.posicional, nombre: txt('nombre') ?? args.posicional.replace(/^#/, '') });
     break;
   default:
-    console.log(`No conozco «${args.comando}». Comandos: estado, leer, buscar, sumar, sacar, tema (ver la cabecera del script).`);
+    console.log(`No conozco «${args.comando}». Comandos: estado, leer, buscar, verificar, reclasificar, sumar, sacar, tema (ver la cabecera del script).`);
     process.exit(1);
 }
