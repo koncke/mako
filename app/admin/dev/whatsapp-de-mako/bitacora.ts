@@ -106,21 +106,6 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '3 nov', hora: '17:30', chat: 'Cerebro', cuenta: 'claude5', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8',
-    actor: 'martin', tipo: 'prompt',
-    titulo: 'WhatsApp baneó el …2605: MaKo pasa a tu número, con un botón para apagarlo',
-    pedido: 'por ahora que siga toda la comunicación por mi otro WhatsApp. Es decir, que mi otro WhatsApp pueda crear los grupos, etcétera... de última yo en SuperAdmin con un botoncito o algo deshabilitar',
-    puntos: [
-      '**Sin QR:** la línea de su negocio ya estaba vinculada. Se le abren los grupos y la voz apunta a ella; el canal no se toca, porque «Desconectar» borra la línea del canal.',
-      '⚠️ **Sólo donde ya está:** admin en 6 grupos. En los 8 que creó el …2605, WhatsApp contesta `forbidden` y nadie más puede sumarlo.',
-      '⚠️ **El eco:** en la voz, todo `fromMe` era MaKo, así que el dueño hablándole desde su teléfono se tiraba. Con una línea de negocio decide el anillo.',
-    ],
-    archivos: [
-      'lib/mako-canal.ts — `usarNumeroPersonalComoVoz`',
-      'lib/doer-para-quien.ts — `vozPropiaDeMaKo`',
-    ],
-  },
-  {
     fecha: '3 nov', hora: '—', chat: 'Línea de MaKo', sesion: 'local_6d962fa2-6fff-4783-b032-d5e0c04560c1', cuenta: 'claude5',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Se desconectó la línea de MaKo',
@@ -145,6 +130,21 @@ export const BITACORA: Hito[] = [
       'lib/lineas-de-mako.ts — qué se avisa y por dónde, puro y con test',
       'lib/lineas-de-mako-vigilante.ts · app/api/cron/vigia-lineas-mako — la vigilancia con la red enchufada, cada 3 minutos',
       'docs/hallazgos-comunicacion.md — lo medido del ban y los costos de la API oficial',
+    ],
+  },
+  {
+    fecha: '3 nov', hora: '17:30', chat: 'Cerebro', cuenta: 'claude5', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'WhatsApp baneó el …2605: MaKo pasa a tu número, con un botón para apagarlo',
+    pedido: 'por ahora que siga toda la comunicación por mi otro WhatsApp. Es decir, que mi otro WhatsApp pueda crear los grupos, etcétera... de última yo en SuperAdmin con un botoncito o algo deshabilitar',
+    puntos: [
+      '**Sin QR:** la línea de su negocio ya estaba vinculada. Se le abren los grupos y la voz apunta a ella; el canal no se toca, porque «Desconectar» borra la línea del canal.',
+      '⚠️ **Sólo donde ya está:** admin en 6 grupos. En los 8 que creó el …2605, WhatsApp contesta `forbidden` y nadie más puede sumarlo.',
+      '⚠️ **El eco:** en la voz, todo `fromMe` era MaKo, así que el dueño hablándole desde su teléfono se tiraba. Con una línea de negocio decide el anillo.',
+    ],
+    archivos: [
+      'lib/mako-canal.ts — `usarNumeroPersonalComoVoz`',
+      'lib/doer-para-quien.ts — `vozPropiaDeMaKo`',
     ],
   },
 ];
