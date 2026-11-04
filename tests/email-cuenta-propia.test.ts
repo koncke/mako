@@ -36,7 +36,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { cuentaDelPedido, guiaDelEmail, sinCuentaParaOperar, urlWebhookDeCuenta, type HechosEmail } from '../lib/email-cuenta-reglas';
+import { cuentaDelPedido, guiaDelEmail, PARA_LA_API, sinCuentaParaOperar, urlWebhookDeCuenta, type HechosEmail } from '../lib/email-cuenta-reglas';
 import { KEY_SOLO_ENVIO_TUYA } from '../lib/resend-errores';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -77,7 +77,8 @@ test('la guía: un paso por vez, en orden, con lo que hay que hacer y la operaci
   assert.match(sin, /Full access/);
   assert.match(sin, /gratis/);
   assert.doesNotMatch(sin, /https?:\/\//, 'el link no lo escribe el texto');
-  assert.match(sinCuentaParaOperar('sin_cuenta'), /estado_email/, 'una operación que no puede, manda a la guía');
+  assert.match(PARA_LA_API, /estado_email/, 'una operación de la API que no puede, manda a la guía');
+  assert.doesNotMatch(sinCuentaParaOperar('sin_cuenta'), /estado_email/, 'la pantalla de /email no nombra una operación de la API');
 });
 
 test('el webhook de un negocio: su URL lleva `?cuenta=`, y un número que no se lee no es ninguna cuenta', () => {
@@ -111,14 +112,14 @@ test('el camino ENTERO por la API: de «no tengo cuenta» a «listo», siguiendo
 });
 
 test('sin su cuenta, cada operación GUÍA (con `falta: email`) y no se le pide NADA a Resend ni se escribe nada', () => {
-  const guia = { error: sinCuentaParaOperar('sin_cuenta'), falta: { servicio: 'email' } };
+  const guia = { error: `${sinCuentaParaOperar('sin_cuenta')} ${PARA_LA_API}`, falta: { servicio: 'email' } };
   assert.deepEqual(C.conectarSinCuenta, guia, 'conectar_dominio_email');
   assert.deepEqual(C.remitenteSinCuenta, guia, 'fijar_remitente_email');
   assert.deepEqual(C.seguimientoSinCuenta, guia, 'conectar_seguimiento_email');
   assert.equal(C.pedidosSinCuenta, 0, 'ni un pedido: su dominio caería en la cuenta de MaKo');
   assert.deepEqual(C.settingsSinCuenta, [], 'ni una línea en sus settings');
   // Con una clave de sólo envío, conectar el dominio frena ANTES de proponer, diciendo cuál crear.
-  assert.deepEqual(C.conectarSoloEnvio, { error: KEY_SOLO_ENVIO_TUYA, falta: { servicio: 'email' } });
+  assert.deepEqual(C.conectarSoloEnvio, { error: `${KEY_SOLO_ENVIO_TUYA} ${PARA_LA_API}`, falta: { servicio: 'email' } });
 });
 
 test('con su cuenta: el dominio, el webhook y su email van con SU clave, y el secreto queda guardado y no sale nunca', () => {

@@ -140,9 +140,15 @@ export function guiaDelEmail(h: HechosEmail): GuiaEmail {
   return g('listo', 'El email de tu negocio está listo y el envío real está prendido.', null);
 }
 
-/** Lo que dice una operación que no puede correr porque falta la cuenta propia (el texto que lee la persona). */
+/**
+ * Lo que dice una operación que no puede correr porque falta la cuenta propia (el texto que lee la persona). Lo usan la
+ * pantalla de /email y la API; la API le suma `PARA_LA_API` (la pantalla ya tiene su botón «Conectar Resend»).
+ */
 export function sinCuentaParaOperar(cuenta: EstadoCuenta): string {
   if (cuenta === 'no_pude_leer') return 'No pude leer la clave de correo de tu negocio. Vuelve a intentarlo en un momento.';
-  if (cuenta === 'la_de_mako') return 'La clave de Resend de tu negocio es la de MaKo, no la tuya. Pega la de TU cuenta de Resend en MaKo (Integraciones → Resend): estado_email te da el link y los pasos.';
-  return 'Tus emails salen desde TU cuenta de Resend (es gratis) y tu negocio todavía no la conectó. Crea la cuenta en resend.com, saca una clave con permiso «Full access» y pégala en MaKo (Integraciones → Resend): estado_email te da el link y los pasos.';
+  if (cuenta === 'la_de_mako') return 'La clave de Resend de tu negocio es la de MaKo, no la tuya. Pega la de TU cuenta de Resend en MaKo, en Integraciones → Resend.';
+  return 'Tus emails salen desde TU cuenta de Resend (es gratis) y tu negocio todavía no la conectó. Crea la cuenta en resend.com, saca una clave con permiso «Full access» y pégala en MaKo, en Integraciones → Resend.';
 }
+
+/** Lo que la API le suma a una operación que no puede seguir por la cuenta: dónde están el link y los pasos. */
+export const PARA_LA_API = 'estado_email te da el link y los pasos.';

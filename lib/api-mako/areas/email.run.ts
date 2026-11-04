@@ -50,6 +50,7 @@ import type { MotivoSinRemitente } from '@/lib/email-remitente';
 import { envioEmailHabilitado, setEnvioEmail } from '@/lib/envio-flags';
 import { zonaDelNegocio } from '@/lib/timezone';
 import { prepararConexion, conectarDominio, conectarSeguimiento, prepararRemitente, fijarRemitente, verificarDominio, prepararVerificacion, type Falla } from '@/lib/email-dominio';
+import { PARA_LA_API } from '@/lib/email-cuenta-reglas';
 import { listarFunnels } from '@/lib/funnels';
 import { etapasDeProducto } from '@/lib/lead-funnel';
 import { etapaDeEntrada, nombreVisible } from '@/lib/lead-funnel-reglas';
@@ -1014,7 +1015,8 @@ export const RUNNERS: Runners = {
  * que guía y `falta: { servicio: 'email' }` (el código pone el link al modal); una falla nuestra, con `falla`.
  */
 function sinPoder(f: Falla): Extract<Preparado, { error: string }> {
-  return { error: f.error, ...(f.nuestra ? { falla: true as const } : {}), ...(f.sinCuenta ? { falta: { servicio: 'email' } } : {}) };
+  if (f.sinCuenta) return { error: `${f.error} ${PARA_LA_API}`, falta: { servicio: 'email' } };
+  return { error: f.error, ...(f.nuestra ? { falla: true as const } : {}) };
 }
 
 /** Los registros DNS en una línea cada uno, para el resumen que lee la persona (o su Claude). */
