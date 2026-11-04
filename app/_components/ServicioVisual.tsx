@@ -109,6 +109,9 @@ export const ICON: Record<string, IconDef> = {
   // GitHub: el mark oficial en blanco sobre su negro de marca (#181717).
   github: { sym: 'ic-github', bg: '#181717' },
   'apple-push': { sym: 'ic-apple', bg: '#000000' },
+  // El vigía de las aprobaciones: la tienda de Apple y las de Google llevan el logo de su empresa (los dos símbolos ya existen).
+  'app-store-connect': { sym: 'ic-apple', bg: '#000000' },
+  'tiendas-google': { sym: 'ic-google', bg: '#FFFFFF', bd: '1px solid var(--border-strong)' },
   // El Pixel de MaKo es de MaKo: su logo es la ESTRELLA, dorada sobre el negro del ícono de la app (25/10/2026, Martín: «Revisa
   // bien el logo de todas»). Era una ventana genérica sobre violeta: el ícono de nadie.
   landing: { sym: 'ic-mako', bg: '#14161B' },

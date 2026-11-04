@@ -87,15 +87,21 @@ const html = await r.text();
 // veces en la página: como texto visible de la ficha (que aparece antes y no
 // tiene ninguna versión delante) y adentro del manifest embebido. Con
 // `indexOf` se agarraba la visible y la lectura daba null siempre.
-const HUELLA = 'Genera los anuncios de MaKo';
+// ⚠️ Y SON DOS DESCRIPCIONES (4/11/2026): la 0.75.0 cambió la del manifest a «Conecta tu navegador con MaKo…». Con
+// la huella vieja sola, el día que la tienda publique la 0.75.0 la lectura del manifest queda muda y sólo responde el
+// panel. La misma lectura, con las dos, vive en lib/vigia-aprobaciones-fuentes.ts (`versionDeLaFicha`): si cambia una, la otra.
+const HUELLAS = ['Genera los anuncios de MaKo', 'Conecta tu navegador con MaKo'];
 let delManifest = null;
-for (let iHuella = html.indexOf(HUELLA); iHuella > 0 && !delManifest; iHuella = html.indexOf(HUELLA, iHuella + 1)) {
-  const ventana = html.slice(Math.max(0, iHuella - 400), iHuella);
-  // Las barras van DOBLES: en el HTML el manifest viene escapado, así que hay una
-  // barra literal antes de cada comilla. Escrito con una sola, `\?` es «una `?`
-  // opcional» y no matchea nada — y falla en silencio.
-  const todas = [...ventana.matchAll(/version\\?":\s*\\?"([0-9.]+)/g)];
-  if (todas.length) delManifest = [null, todas[todas.length - 1][1]];
+for (const HUELLA of HUELLAS) {
+  for (let iHuella = html.indexOf(HUELLA); iHuella > 0 && !delManifest; iHuella = html.indexOf(HUELLA, iHuella + 1)) {
+    const ventana = html.slice(Math.max(0, iHuella - 400), iHuella);
+    // Las barras van DOBLES: en el HTML el manifest viene escapado, así que hay una
+    // barra literal antes de cada comilla. Escrito con una sola, `\?` es «una `?`
+    // opcional» y no matchea nada — y falla en silencio.
+    const todas = [...ventana.matchAll(/version\\?":\s*\\?"([0-9.]+)/g)];
+    if (todas.length) delManifest = [null, todas[todas.length - 1][1]];
+  }
+  if (delManifest) break;
 }
 const delPanel = /class="nBZElf">([0-9]+\.[0-9]+(?:\.[0-9]+)?)</.exec(html);
 

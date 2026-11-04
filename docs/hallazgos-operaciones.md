@@ -3735,3 +3735,67 @@ trabajando en la 1, con un número que no se movía con nada (regla del 16/10, d
 nombre también en el teléfono, y «Runner activo» es sólo si se midió hace menos de 30 minutos; si no, «No se mide ahora».
 
 **Queda:** recién cambiada de cuenta, la anterior sigue «activa» hasta 30 minutos: es cierto que se midió, y el botón ya muestra la nueva.
+
+## El vigía de las aprobaciones de las apps: qué se puede leer solo y qué no (4/11/2026, nube)
+
+**Vive en:** `lib/vigia-aprobaciones.ts` (el inventario y cuándo avisar, puro) · `lib/vigia-aprobaciones-fuentes.ts` (qué lee cada
+fuente) · `lib/vigia-aprobaciones-server.ts` · `app/api/cron/vigia-aprobaciones/route.ts` (cada hora, a los :11) ·
+`scripts/vigia-aprobaciones.mts` · `ver_aprobaciones_pendientes` (área operaciones) · las tarjetas `app-store-connect` y
+`tiendas-google` de Integraciones · `tests/vigia-aprobaciones*.test.ts`.
+
+**El pedido, textual:** «crea un script que me vaya avisando de todas las notficaciones de aprobaciones pendientes que tenemos de
+las diferentes apps que vamos creando... En Meta, la extensión, playstore, appstore, google, etc...».
+
+**Dónde corre, y por qué no en la PC.** En un cron del servidor. El Runner cuesta tokens en cada vuelta y se murió seis días sin
+que nadie lo viera (arriba, 30/10). Un cron de Vercel no gasta modelo, no depende de que un chat esté abierto y lee las claves de
+la plataforma donde ya viven: la fila de `credenciales` del workspace `wsSuperAdmin()`, con `credDelClienteEstricta` y nunca el
+entorno, que es del ws1. Avisa con `avisoSoloEnLaApp`: queda una fila en la bandeja de avisos y suena el teléfono de los admin de
+la plataforma, igual que el bot.
+
+**Qué se lee y con qué** (medido en la documentación oficial ese día, no contra las APIs: la nube no tiene las claves, y el proxy
+de la sesión no deja llegar a itunes.apple.com, play.google.com ni chromewebstore.google.com):
+
+| Aprobación | Con credencial | Sin credencial | Lo que no dice nadie |
+|---|---|---|---|
+| App de iPhone | App Store Connect API, `appVersionState` de la versión de iOS más nueva | La búsqueda pública de iTunes: sólo si ya está en la tienda | Si está en revisión, sin la clave |
+| Android, prueba cerrada y producción | `tracks/{pista}/releases`, `releaseLifecycleState` | Producción: la ficha pública (404 = no está). La prueba cerrada: a mano | — |
+| Cuenta de Play Console | — | — | La identidad y el acceso a producción: sin API |
+| Extensión de Chrome | API V2, `fetchStatus` | La ficha pública: la versión publicada | Si hay algo en revisión, sin la API |
+| Permisos de Meta | `/{app}/permissions` con el token de la app: los `live` | — | Lo que está en revisión o rechazado |
+| Verificación del negocio y de acceso (Meta) | — | — | Todo: la de acceso no la da ninguna API (11/09/2026) |
+| App de Google (OAuth) | — | — | Todo: la API de la consola se apagó a principios de 2026 |
+| Dominios de MaKo en Resend | `GET /domains` con la clave que ADMINISTRA (`RESEND_ADMIN_API_KEY`) | — | — |
+| Certificado de Windows (SSL.com) | — | — | Todo |
+
+**El diagnóstico obvio era el equivocado, tres veces:**
+- **«Play no dice si una versión está en revisión».** Lo dice desde que existe `tracks.releases`. Lo que no lo dice es el
+  flujo viejo de `edits`: su `status: completed` es el despliegue, y leído como «aprobado» habría anunciado una app que seguía
+  en revisión. El prefijo del estado (`RELEASE_LIFECYCLE_STATE_`) la documentación lo muestra de las dos formas: se aceptan las dos.
+- **«`publicar-extension.mjs --estado` dice qué hay en revisión».** Habla la V1, que se apagó el 15/10/2026, y aun viva leía el
+  borrador. El estado de la tienda es `fetchStatus` de la V2: acepta cuentas de servicio y el alcance de sólo lectura.
+- **«Los mails de aviso de las plataformas sirven de fuente».** Llegan a las casillas personales de Martín y de Leandro. El
+  proyecto sólo lee correo entrante de hola-mako.com, y ese dominio tiene «Receiving» apagado. No hay de dónde leerlos.
+
+**Las reglas que gobiernan el aviso** (las fijan los tests, probados rompiéndolos):
+- Se avisa sólo al pasar a aprobado, rechazado o «piden algo». Pasar a revisión no avisa, y nunca sale un «sin novedades».
+- «No pude leer» no cambia nada de lo guardado. Si dura un día entero, se avisa una vez.
+- Lo que no tiene API, o le falta la credencial, se dice una sola vez con su link.
+- La primera lectura de cada fuente no anuncia una aprobación vieja.
+- Lo publicado que deja de aparecer se cree a la segunda lectura seguida.
+- El estado se marca con compare-and-set ANTES de avisar: de dos vueltas a la vez, avisa una.
+
+**Trampa medida: la ficha de la Chrome Web Store va a cambiar de descripción.** `scripts/version-en-tienda.mjs` anclaba la versión del
+manifest embebido en «Genera los anuncios de MaKo», y la 0.75.0 dice «Conecta tu navegador con MaKo…». El día que se publique la 0.75.0,
+la lectura del manifest quedaba muda y respondía sólo el panel. Ahora las dos huellas viven en el script y en `versionDeLaFicha`.
+
+**Trampa del entorno de la nube:** sin `node_modules`, y con Node 22 donde GitHub corre Node 24. Con Node 22 decenas de tests dan
+«does not provide an export named …», también sobre `origin/main` limpio. Se mide con un Node 24 bajado de nodejs.org. El
+`tsc-acotado` sale con «código undefined», el `tsc` muerto por falta de heap. El `tsc` directo con `--max-old-space-size=6144`
+sobre el mismo tsconfig da 0.
+
+**SIN hacer:**
+- Probarlo contra las APIs de verdad: falta cargar las claves (`docs/relevo/nube-aprobaciones.md`). Hasta entonces se leen las fichas
+  públicas, los permisos de Meta con el secreto de la app que ya está en Vercel y Resend, si `RESEND_ADMIN_API_KEY` está puesta.
+- La revisión externa de TestFlight: pide el id de cada build, y el plan de las tiendas usa TestFlight interno, que no se revisa.
+- En la PC hay un `vigia-revisiones/` fuera de git (docs/hallazgos-ads.md, 24/10) que nadie describió. Mirar qué hace, y si es lo
+  mismo, retirarlo para que no avise dos veces.

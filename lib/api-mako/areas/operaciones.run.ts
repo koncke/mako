@@ -214,4 +214,22 @@ export const RUNNERS: Runners = {
       });
     },
   },
+
+  // Las aprobaciones de las apps de MaKo (4/11/2026): ver operaciones.def.ts. Lee lo que guardó el vigía en su última vuelta.
+  ver_aprobaciones_pendientes: {
+    leer: async (_input, ctx): Promise<SalidaLectura> => {
+      const { wsSuperAdmin } = await import('@/lib/workspace');
+      if (ctx.ws !== (await wsSuperAdmin())) return { content: 'Las aprobaciones de las tiendas son sólo de la plataforma.', isError: true };
+      const { listaGuardadaDeAprobaciones } = await import('@/lib/vigia-aprobaciones-server');
+      const { ultimaVuelta, filas } = await listaGuardadaDeAprobaciones();
+      return json({
+        ultima_revision: ultimaVuelta,
+        esperando: filas.filter((f) => f.esperando),
+        aprobadas: filas.filter((f) => !f.esperando).map((f) => ({ nombre: f.nombre, version: f.version, desde: f.desde, detalle: f.detalle })),
+        nota: ultimaVuelta
+          ? 'Es lo que leyó el vigía en su última revisión (cada hora). «Hay que mirarlo a mano» es que no hay API o falta la credencial: no sé su estado, no lo inventes. Da los links tal cual.'
+          : 'El vigía todavía no corrió: no hay nada leído. Dilo así, sin inventar estados.',
+      });
+    },
+  },
 };

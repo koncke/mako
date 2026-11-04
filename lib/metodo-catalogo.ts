@@ -448,6 +448,52 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // ── El vigía de las aprobaciones (4/11/2026, lib/vigia-aprobaciones-server.ts) ── De la PLATAFORMA, como Apple Push: el vigía
+  // lee estas claves del ws de plataforma y SÓLO LEE (en qué está la app en cada tienda). Con ellas no se publica nada.
+  {
+    key: 'app-store-connect',
+    nombre: 'App Store Connect',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    paraQue: 'MaKo mira cada hora si Apple aprobó, rechazó o pide algo de la app de iPhone, y te avisa sólo cuando cambia.',
+    campos: [
+      { env: 'ASC_ISSUER_ID', label: 'Issuer ID', secreto: false, placeholder: '00000000-0000-0000-0000-000000000000', nota: 'El código largo con guiones que Apple muestra arriba de la lista de claves.' },
+      { env: 'ASC_KEY_ID', label: 'Key ID', secreto: false, placeholder: 'ABC123DEFG', nota: 'Los 10 caracteres al lado del nombre de la clave.' },
+      { env: 'ASC_P8', label: 'La clave (.p8)', secreto: true, placeholder: '-----BEGIN PRIVATE KEY-----…', nota: 'Abre el archivo .p8 con el Bloc de notas y pega todo. Apple la deja bajar UNA sola vez.' }, // claves-en-el-diff: ok
+    ],
+    tutorial: {
+      url: 'https://appstoreconnect.apple.com/access/integrations/api',
+      urlLabel: 'App Store Connect → Integraciones',
+      pasos: [
+        'Entra a App Store Connect › Usuarios y acceso › Integraciones › App Store Connect API.',
+        'En «Claves del equipo» toca «+», ponle de nombre «MaKo vigía» y el acceso «Developer».',
+        'Toca «Generar» y baja el archivo .p8: Apple lo deja bajar UNA sola vez. Guárdalo.',
+        'Carga los tres campos de arriba: cada uno tiene su «?» con dónde está.',
+      ],
+    },
+  },
+  {
+    key: 'tiendas-google',
+    nombre: 'Google Play y Chrome Web Store',
+    categoria: 'Desarrollo',
+    soloPlataforma: true,
+    paraQue: 'MaKo mira cada hora si Google aprobó, rechazó o pide algo de la app de Android y de la extensión, y te avisa sólo cuando cambia.',
+    campos: [
+      { env: 'TIENDAS_GOOGLE_CUENTA_SERVICIO', label: 'Cuenta de servicio (JSON)', secreto: true, placeholder: '{"type": "service_account", …}', nota: 'Abre el archivo .json de la cuenta de servicio con el Bloc de notas y pega todo.' },
+      { env: 'CWS_PUBLISHER_ID', label: 'Publisher ID de la Chrome Web Store', secreto: false, opcional: true, placeholder: 'El id de tu cuenta de la tienda', nota: 'Sin esto, de la extensión sólo se lee la versión publicada.' },
+    ],
+    tutorial: {
+      url: 'https://console.cloud.google.com/iam-admin/serviceaccounts?project=mako-500317',
+      urlLabel: 'Google Cloud → Cuentas de servicio',
+      pasos: [
+        'En el proyecto de Google Cloud de MaKo, crea una cuenta de servicio con el nombre «MaKo vigía».',
+        'En su pestaña «Claves» toca «Agregar clave» › «JSON»: se baja el archivo. Guárdalo.',
+        'Habilita las APIs «Google Play Android Developer» y «Chrome Web Store».',
+        'Invita su email en Play Console › Usuarios y permisos, sólo para ver la app.',
+        'Súmala en el panel de la Chrome Web Store, en Cuenta, y carga los dos campos de arriba.',
+      ],
+    },
+  },
   {
     key: 'github',
     nombre: 'GitHub',
@@ -1486,6 +1532,25 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://developer.apple.com/account/resources/authkeys/list',
     urlLabel: 'Apple Developer → Keys',
+  },
+  ASC_ISSUER_ID: {
+    pasos: [
+        'Para qué sirve: le dice a Apple de qué equipo es la clave con la que MaKo mira la app de iPhone.',
+        'Entra a App Store Connect › Usuarios y acceso › Integraciones › App Store Connect API.',
+        'Copia el «Issuer ID», arriba de la lista de claves, y pégalo en este campo.',
+      ],
+    url: 'https://appstoreconnect.apple.com/access/integrations/api',
+    urlLabel: 'App Store Connect → Integraciones',
+  },
+  TIENDAS_GOOGLE_CUENTA_SERVICIO: {
+    pasos: [
+        'Para qué sirve: con esta cuenta MaKo lee, sin publicar nada, en qué está la app de Android y la extensión.',
+        'En Google Cloud › Cuentas de servicio abre «MaKo vigía» y su pestaña «Claves».',
+        'Toca «Agregar clave» › «JSON»: se baja un archivo.',
+        'Abre ese archivo con el Bloc de notas y pega todo en este campo.',
+      ],
+    url: 'https://console.cloud.google.com/iam-admin/serviceaccounts?project=mako-500317',
+    urlLabel: 'Google Cloud → Cuentas de servicio',
   },
   CREEM_API_KEY: {
     pasos: [

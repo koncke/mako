@@ -244,6 +244,10 @@
     {
       "path": "/api/cron/montaje",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/vigia-aprobaciones",
+      "schedule": "11 * * * *"
     }
   ]
 }
