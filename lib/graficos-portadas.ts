@@ -339,6 +339,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
     marketing: { molde: 'prism', sube: 'mk-tendencias', vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-plataforma'] },
     comercial: { molde: 'ledge', sube: 'co-tendencia', vecino: 'co-tendencia', par: ['co-funnel-embudo', 'co-motivos', 'co-por-oferta', 'co-origen'] },
     'ads-analyst': { molde: 'prism', sube: 'ad-cuadrante-dispersion', vecino: 'ad-cuadrante-dispersion', par: ['ad-veredicto', 'ad-confianza'] },
+    'hooks-retencion': { molde: 'tilvo', sube: 'hk-video', vecino: 'hk-video', par: ['hk-gancho', 'hk-formato-cta', 'hk-avatar', 'hk-semana', 'hk-ia'] },
     landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },
     'vsl-analyst': {
       molde: 'corbel', nueva: (id) => ({ id: id('vs-mitad'), clase: 'grafico', tipo: 'indicador', fuente: 'retencion_vsl', metricas: ['tasa_50'], maximo: 100, titulo: 'Ven la mitad del video' }),
@@ -356,6 +357,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
       }),
       vecino: 'por-dia', par: ['por-automatizacion', 'automatizaciones-portada', 'desenlace', 'donde-fallo', 'horas'],
     },
+    inmobiliaria: { molde: 'wharf', sube: 'por-semana', vecino: 'por-semana', par: ['por-proyecto', 'origen', 'etapa', 'motivos'] },
     'ia-contenido': {
       molde: 'corbel', nueva: (id) => ({
         id: id('ia-contenido-portada'), clase: 'grafico', tipo: 'anillo', fuente: 'ia', dimension: 'funcion', metricas: ['costo'],

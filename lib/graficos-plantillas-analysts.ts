@@ -200,6 +200,46 @@ const ADS: PlantillaHoja = {
   }),
 };
 
+// ── Hooks y retención (4/11/2026) ────────────────────────────────────────────────────────────────
+// VITREA · MURMURA (docs/templates-dashboard-propuesta.md §7.3): «¿en qué segundo se van, y qué hook los retuvo?». La otra mitad de
+// lo que hacía Ads Analyst. Vitrea pone la caída del video como la forma del dato y la retención contra su referencia; Murmura, qué
+// gancho y qué formato retienen. ⚠️ La curva es por CUARTILES del video (los p25…p100 que manda Meta), no por segundo: la retención
+// segundo a segundo no se mide todavía (§7.4).
+const HOOKS: PlantillaHoja = {
+  id: 'hooks-retencion', nombre: 'Hooks y retención', emoji: '🪝', buscar: 'Ads Analyst hook rate gancho retención video',
+  linea: 'En qué parte del video se va la gente, qué gancho la retiene y qué guion llega al llamado a la acción.',
+  armar: (id: Id) => ({
+    id: id('hooks-retencion'), nombre: 'Hooks y retención', emoji: '🪝', subtitulo: 'Cuánto ven tus anuncios y qué los retiene.',
+    controles: [
+      { id: id('hk-periodo'), tipo: 'periodo', preset: 'todo' },
+      lista(id('hk-angulo'), 'guiones.angulo'),
+      lista(id('hk-formato'), 'guiones.formato'),
+    ],
+    componentes: [
+      {
+        id: id('hk-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'guiones', metricas: ['plays_3s', 'p50', 'p100'],
+        titulo: 'Tus videos', frase: '{plays_3s} vieron los primeros 3 segundos · {p50} llegaron a la mitad · {p100} lo vieron entero',
+        ir: 'ads-writer', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('hk-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('hk-cta'), 'guiones', 'ret_cta', 'Llegan al llamado', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('hk-thruplay'), 'guiones', 'thruplay_rate', 'ThruPlay', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('hk-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 9, 3, { tipo: 'numero_tendencia', ir: 'ads-writer' }),
+      { id: id('hk-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'En qué parte se van', x: 0, y: 7, w: 8, h: 10 },
+      { id: id('hk-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], ordenMetrica: 'hook_rate', titulo: 'Qué gancho retiene', x: 8, y: 7, w: 4, h: 10 },
+      { id: id('hk-formato-cta'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'formato', metricas: ['ret_cta'], titulo: 'Llegan al llamado, por formato', x: 0, y: 17, w: 6, h: 8 },
+      { id: id('hk-avatar'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'avatar', metricas: ['hook_rate'], titulo: 'Hook rate por avatar', x: 6, y: 17, w: 6, h: 8 },
+      { id: id('hk-semana'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'semana', metricas: ['hook_rate', 'ret_cta'], titulo: 'El gancho en el tiempo', x: 0, y: 25, w: 6, h: 8 },
+      caja(id('hk-ia'), 'Qué gancho funciona', 'Qué ganchos retienen y en qué parte del video se va la gente', 6, 25, 6, 8),
+      {
+        id: id('hk-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'guiones', dimension: 'guion', metricas: ['hook_rate', 'ret_cta', 'thruplay_rate', 'retencion_final'],
+        ordenMetrica: 'hook_rate', limite: 30, tabla: { columnas: ['gancho', 'formato'] }, titulo: 'Cada guion', x: 0, y: 33, w: 12, h: 12,
+        alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'hk-tabla'),
+      },
+    ],
+  }),
+};
+
 // ── Landing ──────────────────────────────────────────────────────────────────────────────────
 
 const LANDING: PlantillaHoja = {
@@ -524,4 +564,4 @@ const CHAT: PlantillaHoja = {
  * es ANÁLISIS. El orden es el CAMINO del negocio que tenía el desplegable de la sidebar: lo que trae a la gente
  * (el anuncio, la landing, el video), lo que pasa con la persona (el chat, la llamada, el cliente) y el tablero.
  */
-export const PLANTILLAS_ANALYSTS: readonly PlantillaHoja[] = [ADS, LANDING, VSL, CHAT, CLOSING, CS, PRODUCTIVIDAD];
+export const PLANTILLAS_ANALYSTS: readonly PlantillaHoja[] = [ADS, HOOKS, LANDING, VSL, CHAT, CLOSING, CS, PRODUCTIVIDAD];

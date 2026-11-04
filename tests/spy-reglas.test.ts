@@ -339,7 +339,7 @@ test('la pantalla mira el mercado, no ataca a una persona', () => {
   // La política III.L de YouTube prohíbe enmarcar una comparación como «war» o «battle», o como una
   // rivalidad que incite hostigamiento. Se mira el copy, sin los comentarios: los comentarios citan
   // esas palabras para explicar la regla y nadie los lee desde la app.
-  for (const archivo of ['app/competitor-spy/SpyApp.tsx', 'app/competitor-spy/TarjetaPieza.tsx']) {
+  for (const archivo of ['app/competitor-spy/SpyApp.tsx', 'app/competitor-spy/TarjetaPieza.tsx', 'app/competitor-spy/GraficoSpy.tsx', 'app/competitor-spy/DetallePieza.tsx']) {
     const copy = sinComentarios(leer(archivo)).toLowerCase();
     assert.ok(copy.length > 500, `${archivo}: después de sacar los comentarios no quedó copy que revisar, así que el guard no miró nada`);
     for (const palabra of PALABRAS_DE_DUELO) {
