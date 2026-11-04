@@ -337,7 +337,7 @@ export function portadasDashboard(): Readonly<Record<string, DefinicionPortada>>
   return {
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
     // Con su línea abajo: la tarjeta negra de Corbel nunca es un número solo en un rectángulo vacío.
-    marketing: { molde: 'prism', sube: 'mk-cac', cambios: { titulo: 'Cada cliente te cuesta', comparar: true, tipo: 'numero_tendencia' }, vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-edad'] },
+    marketing: { molde: 'prism', sube: 'mk-tendencias', vecino: 'mk-tendencias', par: ['mk-funnel', 'mk-plataforma'] },
     comercial: { molde: 'ledge', sube: 'co-revenue-barra', cambios: { titulo: 'Lo que entró y lo que falta cobrar' }, vecino: 'co-tendencia', par: ['co-cobranza-tabla', 'co-funnel-embudo'] },
     'ads-analyst': { molde: 'prism', sube: 'ad-video', cambios: { titulo: 'Cuánto ven el video' }, vecino: 'ad-cuadrante-dispersion', par: ['ad-eficiencia', 'ad-gancho'] },
     landing: { molde: 'tilvo', sube: 'la-scroll', cambios: { titulo: 'Hasta dónde bajan' }, vecino: 'la-visitas-dia', par: ['la-clics', 'la-origen'] },

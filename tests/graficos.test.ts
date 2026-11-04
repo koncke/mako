@@ -200,21 +200,25 @@ test('ningún componente del informe inicial se queda sin fuente conocida', () =
 test('el informe inicial es la réplica de las tabs viejas, SIN bloques: las piezas en su lugar y sin perder una métrica', () => {
   const [mk, co] = tableroInicial().hojas;
   const graf = (h: Hoja) => h.componentes.filter(esGrafico);
-  // Marketing: desde el 1/11/2026 abre con la estructura de Prism (`comoDenso`, lib/graficos-portadas.ts): la tendencia y dos gráficos, y
-  // los números en fila, con el CAC entre ellos.
-  const titular = graf(mk).find((c) => c.id === 'mk-cac');
-  assert.equal(titular?.metricas[0], 'cac');
-  assert.equal(titular?.titulo, 'Cada cliente te cuesta');
+  // Marketing: desde el 4/11/2026 (Kestrel · Ondra) abre con la frase de la pauta, sigue con la estructura de Prism (`comoDenso`,
+  // lib/graficos-portadas.ts): la tendencia y dos gráficos, y los números en fila, con el costo por agenda como pregunta.
+  const apertura = graf(mk).find((c) => c.id === 'mk-apertura');
+  assert.deepEqual([apertura?.tipo, apertura?.y, apertura?.w], ['frase', 0, 12], 'la frase abre la hoja');
+  assert.deepEqual(apertura?.metricas, ['gasto', 'agendas', 'cpa']);
+  const titular = graf(mk).find((c) => c.id === 'mk-cpa');
+  assert.equal(titular?.metricas[0], 'cpa');
+  assert.ok(titular?.invertida, 'el costo por agenda es la negra');
   const porTitulo = (t: string) => graf(mk).find((c) => c.titulo === t);
-  for (const t of ['ROAS cash', 'Ad Spend', 'ROAS sold', 'CPM']) assert.equal(porTitulo(t)?.w, 3, t);
+  for (const t of ['Costo por agenda', 'Ad Spend', 'Costo por cierre', 'ROAS cash']) assert.equal(porTitulo(t)?.w, 3, t);
   assert.ok(porTitulo('Ad Spend')?.comparar, 'el Ad Spend trae el chip contra el período anterior');
   assert.deepEqual(graf(mk).find((c) => c.tipo === 'embudo_vertical')?.metricas, ['impresiones', 'clics', 'vistas_landing', 'vistas_vsl']);
   assert.ok(graf(mk).some((c) => c.tipo === 'mapa' && c.dimension === 'region'), 'el mapa de México de la Audiencia');
-  // Tendencias: abre la hoja, y los anuncios como TARJETAS de 4 números, con el pop-up del anuncio.
-  assert.deepEqual(['x', 'y', 'w', 'h'].map((k) => graf(mk).find((c) => c.id === 'mk-tendencias')?.[k as 'x']), [0, 0, 6, 8]);
+  // Tendencias: debajo de la frase, y los anuncios como TARJETAS de 4 números, del que más agendas trajo, con el pop-up del anuncio.
+  assert.deepEqual(['x', 'y', 'w', 'h'].map((k) => graf(mk).find((c) => c.id === 'mk-tendencias')?.[k as 'x']), [0, 3, 6, 8]);
   const anuncios = graf(mk).find((c) => c.id === 'mk-anuncios');
   assert.equal(anuncios?.tipo, 'tarjetas');
-  assert.deepEqual(anuncios?.metricas, ['gasto', 'leads', 'agendas', 'cpa']);
+  assert.deepEqual(anuncios?.metricas, ['agendas', 'gasto', 'leads', 'cpa']);
+  assert.equal(anuncios?.ordenMetrica, 'agendas');
   assert.equal(anuncios?.alClic, 'popup');
   // El filtro de fecha arriba, en las dos (punto 5: «Como el filtro de fecha»).
   for (const h of [mk, co]) assert.equal(h.controles.filter((c) => c.tipo === 'periodo').length, 1, h.nombre);
