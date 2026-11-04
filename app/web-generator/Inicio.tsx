@@ -163,6 +163,11 @@ export type PropsInicio = {
   onDiagnosticoDeLaAbierta?: () => void;
   /** Volver a la landing abierta («Abrir en el editor» de su propio Diagnóstico: el link no haría nada, es la misma ruta). */
   onVolverALaLanding?: () => void;
+  /**
+   * Adentro del editor: una derecha que se pide DESPUÉS de montar (una réplica sin terminar de la lista, ticket #54). Se abre
+   * cuando cambia `n`, sin remontar el Panel (remontarlo tira lo escrito en el cuadro).
+   */
+  derechaPedida?: { n: number; derecha: Derecha } | null;
 };
 
 type PlantillaGaleria = Plantilla | PlantillaPresentacion;
@@ -281,6 +286,14 @@ export function Inicio(props: PropsInicio) {
   useEffect(() => {
     if (props.embebido && !props.conLista) setDerecha((d) => (modoCajaDe(d) ? d : { tipo: 'crear' }));
   }, [props.embebido, props.conLista]);
+  // Lo pedido desde afuera (una réplica sin terminar, ticket #54): DESPUÉS del efecto de arriba, que en el montaje vuelve al cuadro.
+  const pedidaVista = useRef<number | null>(null);
+  const { derechaPedida } = props;
+  useEffect(() => {
+    if (!derechaPedida || pedidaVista.current === derechaPedida.n) return;
+    pedidaVista.current = derechaPedida.n;
+    setDerecha(derechaPedida.derecha);
+  }, [derechaPedida]);
   const { onCambioAnalizadas, onDiagnosticoDeLaAbierta } = props;
   useEffect(() => { onCambioAnalizadas?.(analizadas); }, [analizadas, onCambioAnalizadas]);
   useEffect(() => {

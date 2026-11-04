@@ -624,6 +624,7 @@ export const AREAS: AreaDev[] = [
       'supabase/migrations/0263_landing_dominios.sql', 'supabase/migrations/0264_landing_sugerencias.sql',
       'tests/editor-landing-diagnostico.test.ts', 'tests/editor-landing-dominios.test.ts', 'tests/editor-landing-htmllibre.test.ts',
       'tests/editor-landing-panel.test.ts', 'tests/editor-landing-presentaciones.test.ts', 'tests/editor-landing-integracion.test.ts',
+      'tests/replica-borrador.test.ts', 'tests/_replica-borrador-hijo.ts',
     ],
     proyectos: ['Feature: Landing Generator'],
     hallazgos: 'hallazgos-editor-landing',

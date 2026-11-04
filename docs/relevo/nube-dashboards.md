@@ -1,4 +1,68 @@
-# Relevo — las 20 hojas del Dashboard, en producción (4/11/2026, chat en la nube)
+# Relevo — las hojas del Dashboard (4/11/2026, chat en la nube)
+
+## ⛔ LO PRIMERO: Martín rechazó las 20 hojas (4/11/2026, por el Cerebro)
+
+Textual: *«Me dijiste que me dejaste los 20 dashboard ahí y son dashboard todos iguales, horribles, que no era la idea que yo
+quiero. Recuerda lo que habíamos empezado a hacer en donde habíamos empezado a hacer el dashboard de Focus, hicimos de manera
+muy personalizada sobre todo copiando lo que tiene la otra página, y ahora lo que hiciste fue agarrar un template y
+estandarizarlo para todos. Eso no me gusta. Quiero hacerlo de manera muy personalizada, cada dashboard. Te pido por favor que
+sea de esa manera y que te centres en que sea primero la copia, es decir, que se vea exactamente igual que la copia, y después
+la adaptación con Maco. Es decir, tienes que buscar entre todos los dashboards que vamos a copiar ver cuál se adapta más al
+template que queremos crear, por ejemplo de Closing Analysis, agarrar ese y agarrar elementos, sacar otros, etcétera. Pero
+copiarlo todo, desde las animaciones de entrada, las animaciones de hover, las animaciones de clic, copiarlo absolutamente
+todo. Esa era la idea.»*
+
+**Lo que cambia** (las instrucciones del Cerebro):
+1. **Nada de una base común que se repite.** Cada hoja es su propio diseño: su maqueta, sus gráficos, sus proporciones, su
+   ritmo. Se comparten utilidades de datos, no la apariencia.
+2. **Primero la copia exacta, después la adaptación.** Para cada hoja se elige el demo que mejor calza y se replica tal cual
+   (letra, espaciados, colores, sombras, radios, grilla, tamaños). Recién después se cambian datos y textos, y se sacan o se
+   agregan piezas, con los datos reales de MaKo.
+3. **Se copian las animaciones**: entrada, hover y clic, con sus tiempos y curvas, y el comportamiento (tooltips, filtros,
+   transiciones entre estados). Se miden en el demo real, sin inventar.
+4. **El molde es Focus**: la maqueta original (`docs/diseno/mockups-dashboard/focus-pane.html`, commit `ee224623`), no las
+   hojas de la base.
+5. **Una hoja por vez**, empezando por Closing, con la copia al lado del original captura contra captura. Nunca en cadena.
+6. Las 20 actuales se quedan hasta que cada una tenga su reemplazo, y una hoja que alguien ya creó no cambia sola.
+
+### ⛔ BLOQUEADO EN LA NUBE: el entorno no deja entrar a `demo.codeandchill.store`
+
+Medido el 4/11/2026 a las 10:31 UTC: el proxy de esta sesión contesta **403 al CONNECT** a `demo.codeandchill.store:443`
+(denegado por la política de red del entorno). Sin eso no se puede ver, medir ni capturar ningún demo, así que **Closing no se
+empezó**: una copia sin mirar el original sería inventarla, que es justo lo que se rechazó.
+
+**Dos formas de destrabarlo:**
+- **Desde la nube:** agregar `demo.codeandchill.store` en *Allowed domains* del acceso de red del entorno (menú del entorno en
+  la barra del título de la sesión → Edit). Con eso, esta sesión mide y captura sola.
+- **Desde la PC:** correr lo de abajo y commitear lo que sale en `docs/diseno/mockups-dashboard/demos/<demo>/`.
+
+**Para elegir la referencia de Closing** hay que mirar los candidatos lado a lado: Halden (Dashboard y Reports, las páginas que
+informan), Tandem, Moorly y Selvar (las cuotas y los vendedores). La elección se hace con las capturas, no con la descripción.
+
+```bash
+cd docs/diseno/mockups-dashboard/medidor
+# La entrada (GSAP, leída del bundle): el orden, los delays y los selectores de cada página.
+python -I medir-demo.py halden dashboard
+python -I medir-demo.py halden reports
+python -I medir-demo.py tandem dashboard
+python -I medir-demo.py moorly dashboard
+python -I medir-demo.py selvar dashboard
+# Lo quieto, el hover y el clic: la captura a 1440 y a 390, las variables, la letra, cada panel, y cada control en
+# reposo, al pasar el cursor y al apretar (con su transición declarada). Playwright va fuera del repo:
+#   (en una carpeta aparte) npm i playwright && npx playwright install chromium
+NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/halden/ ../demos/halden/captura --telefono
+NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/tandem/ ../demos/tandem/captura --telefono
+NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/moorly/ ../demos/moorly/captura --telefono
+NODE_PATH=<esa carpeta>/node_modules node capturar.mjs https://demo.codeandchill.store/selvar/ ../demos/selvar/captura --telefono
+```
+
+⚠️ Si la página de un demo no es la raíz (Halden tiene Dashboard y Reports), `capturar.mjs` recibe la URL de esa página.
+`capturar.mjs` se probó sobre la maqueta de Focus servida en local (9 paneles, 31 estilos de letra, 35 variables, el hover de
+un botón con su transición); contra un demo real no se pudo probar desde acá.
+
+---
+
+## Lo que se hizo antes del rechazo (sigue en producción hasta que cada hoja tenga su reemplazo)
 
 Martín, textual: *«Haz todo lo de los dashboards, habiamos quedado que lo haces tu y luego me envias todo para yo
 aprobarlas, pero subelas a producción directo y los reviso allí. Y no solo 4, haz todo...»*.
