@@ -127,4 +127,20 @@ export const BITACORA: Hito[] = [
       'tests/chats-mas-simple.test.ts — las cinco decisiones, 7 roturas con su fallo',
     ],
   },
+  {
+    fecha: '4 nov', hora: '04:20', chat: 'Tickets 04/11', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En Chats, quien comentó tu publicación ya no dice «Mensaje no compatible», y los audios se pueden acelerar',
+    puntos: [
+      '**Instagram:** la mayoría de esas filas son personas que comentaron una publicación y nunca te escribieron. Ahora la fila y la conversación dicen «Comentó una publicación», en su fecha, y le puedes contestar por privado. Lo que escribió en el comentario todavía no se guarda.',
+      '**Los audios:** el botón 1× · 1,5× · 2× en cada audio, también en el teléfono. Lo que eliges vale para el próximo. El audio ya no se corta cuando el chat se actualiza solo.',
+    ],
+    archivos: [
+      'lib/canal-social.ts — `LO_ULTIMO_FUE_COMENTAR`, `eventoDelComentario` · lib/canal-zernio.ts · lib/chats.ts',
+      'app/whatsapp/_shared/AudioPlay.tsx — la velocidad y `mismoArchivo` · app/m/chats/[clave]/BurbujaChatM.tsx',
+      'tests/m-chats.test.ts · tests/whatsapp-sexta-tanda.test.ts',
+    ],
+    revisar: '/m/chats',
+    tickets: [50],
+  },
 ];

@@ -197,7 +197,8 @@ test('comparten proceso las que BARREN, no todo lo que es seguro compartir (31/1
 test('`--compartir` sin valor significa «las barredoras» (es lo que pasa el workflow de Actions en sus dos fases)', () => {
   const src = readFileSync(join(REPO, 'scripts', 'tests-afectados.mjs'), 'utf8');
   assert.match(src, /k === '--compartir'\) o\.compartir = v === 'todo-lo-seguro' \? 'todo-lo-seguro' : 'barredoras'/);
-  const wf = readFileSync(join(REPO, '.github', 'workflows', 'integracion.yml'), 'utf8');
+  // 4/11/2026: integracion.yml se retiró; las dos fases quedaron en punta.yml (los afectados) y sobre-main.yml (las barredoras).
+  const wf = readFileSync(join(REPO, '.github', 'workflows', 'punta.yml'), 'utf8');
   assert.match(wf, /--compartir(?!=)/, 'el workflow lo pasa sin valor: el default es lo que corre en el tren');
   assert.doesNotMatch(wf, /--compartir=todo\b/, 'y nadie pide el de antes');
   // El --resto (la fase de «los demás», la que tenía los 1.028) filtra igual.

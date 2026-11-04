@@ -1,0 +1,27 @@
+# =============================================================================
+# La rama `integracion` se retiró (4/11/2026): un push ahí da una corrida ROJA, nunca un silencio
+# =============================================================================
+# El tren (integracion.yml, «Cerebro › Integración») se reemplazó por las puntas: cada `punta/<nombre>` se chequea sola en
+# GitHub (punta.yml) y llega a main sola. Un workflow desactivado o borrado no da rojo: un push a `integracion` quedaría
+# MUDO — no lo chequea nadie, no llega a main, y quien lo empujó cree que está en camino. Lo frena primero el pre-push
+# (scripts/claude-hooks/pre-push); esto es para el que empuja sin el hook nuevo (un clon que no lo copió, una sesión en la nube).
+# Sin checkout ni instalación: ~5 s, factura 1 minuto.
+# =============================================================================
+name: integracion se retiró
+
+on:
+  push:
+    branches: [integracion]
+
+permissions:
+  contents: read
+
+jobs:
+  retirada:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: La rama integracion ya no lleva a main
+        run: |
+          echo "::error::La rama integracion se retiró el 4/11/2026: este push NO se chequea ni llega a main. Subilo a una punta: git push origin HEAD:punta/<nombre> (AGENTS.md, arriba de todo)."
+          exit 1

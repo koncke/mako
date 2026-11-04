@@ -783,4 +783,47 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '4 nov', hora: '06:53', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube', actor: 'martin', tipo: 'prompt',
+    titulo: 'Las 20 hojas del Dashboard, directo a producción',
+    pedido: 'Haz todo lo de los dashboards, habiamos quedado que lo haces tu y luego me envias todo para yo aprobarlas, pero subelas a producción directo y los reviso allí. Y no solo 4, haz todo...',
+    puntos: [
+      'Una hoja por punta (`punta/dash-<hoja>`), en una sola variante, con los datos que cada una ya lee.',
+      'El estado de cada hoja y qué mirar: docs/relevo/nube-dashboards.md.',
+    ],
+  },
+  {
+    fecha: '4 nov', hora: '07:16', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las hojas abren con una frase, y cada bloque lleva a donde se trabaja',
+    puntos: [
+      'Un gráfico nuevo, «Frase con datos»: dice lo que pasa en una línea con los números resaltados. Un número que no se pudo leer saca su tramo; nunca dice «falta».',
+      'Cualquier gráfico puede llevar al pie «Ver … →» a su pantalla (CRM, Clients, Ads Manager…), de una lista cerrada.',
+      'Los paneles conservan su subtítulo al acomodar la hoja. En el teléfono, la frase va arriba.',
+      'MaKo los arma por la API: `frase` e `ir` en agregar y editar un gráfico.',
+    ],
+    archivos: [
+      'lib/graficos-frase.ts — la frase partida en tramos',
+      'lib/graficos-destinos.ts — a dónde puede llevar un bloque',
+      'app/dashboard/graficos/Frase.tsx — cómo se dibuja',
+      'tests/dashboard-frase-y-destinos.test.ts — probado rompiéndolo (4 roturas)',
+    ],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '4 nov', hora: '07:58', chat: 'Dashboards (nube)', sesion: 'cli_b9d978cc-07d5-5294-855f-a16400f17f70', cuenta: 'nube', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las 20 hojas del Dashboard, cada una con su pregunta y su referencia',
+    puntos: [
+      'General, Focus, Operación diaria, Agencia o servicio, Curso o comunidad e Instagram y redes; Marketing, Comercial, Cobranza, Landing, VSL y YouTube, Chat, Closing, CS, Productividad, Automatizaciones y Contenido e IA.',
+      'Tres nuevas: Anuncio ganador y Hooks y retención (Ads Analyst se partió en dos) e Inmobiliaria, la primera por rubro.',
+      'Se fueron CRM y pipeline y Ventas del mes: las absorbe Comercial.',
+      'Cada hoja tiene un número oscuro, el que contesta su pregunta. Lo que MaKo no mide (retención por segundo, un A/B con confianza, motivos de baja, horas ahorradas) no se promete.',
+    ],
+    archivos: [
+      'lib/general-plantillas.ts — las de General',
+      'lib/graficos-plantillas.ts, lib/graficos-plantillas-analysts.ts, lib/graficos-plantillas-generales.ts — las del Dashboard',
+      'lib/graficos-portadas.ts — la estructura de cada una',
+      'docs/relevo/nube-dashboards.md — qué mirar en cada hoja',
+    ],
+    revisar: '/dashboard',
+  },
 ];

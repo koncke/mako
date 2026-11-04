@@ -125,6 +125,40 @@ test('una mensualidad no se «paga por completo»: al día con la próxima, o le
   assert.deepEqual([nueva?.titular, nueva?.accion?.boton], ['Sin cobros registrados', 'Registrar el primer mes']);
 });
 
+// ⚠️ Ticket #53 (Leila, 04/11/2026), con las filas de producción del ws11: «figuran al día cuando no pagan desde agosto».
+// Lo que dice la ficha de un cliente que salió de Ganado (sin `fecha_cierre`) y de uno cargado como pago único.
+// ROMPIÉNDOLO (04/11/2026, base 12 de 12 en este archivo): sin la rama `sinCierre` en `estadoDeCuenta` → 1 fallo (vuelve «Al día»);
+// sin el `!proxima` → 1 fallo (una cuota por venir deja de leerse); el ganado sin cierre dice lo mismo que uno afuera → 1 fallo.
+// Sin efecto (`!!s.sinCierre`): 0 fallos, 25 pases con tests/cobrado-lead.test.ts.
+test('#53: una mensualidad sin fecha de cierre no está «Al día»: dice su último pago', () => {
+  const cuotaWilberth = cuota({ numero: 1, monto_usd: 40, fecha_esperada: '2026-09-14', pagado: true, fecha_pago: '2026-09-18' });
+  const fuera = estado({ tipo: 'suscripcion', mensualidad: 40, fechaCierre: null, ganado: false, pagos: [cuotaWilberth] });
+  assert.deepEqual([fuera?.titular, fuera?.tono, fuera?.detalle, fuera?.accion], ['Sin venta activa', 'gris', 'Último pago el 18 de septiembre · era de $40/mes', null]);
+  assert.equal(fuera?.barra?.texto, '$40 cobrado', 'lo cobrado se sigue viendo');
+
+  // El mismo cliente antes del clic que lo sacó de Ganado: el cierre le contaba los meses.
+  const adentro = estado({ tipo: 'suscripcion', mensualidad: 40, fechaCierre: '2026-08-11', ganado: true, pagos: [cuotaWilberth] });
+  assert.equal(adentro?.titular, 'Falta registrar 2 meses', 'al 16/10 tocaron agosto, septiembre y octubre, y pagó uno');
+
+  // Un ganado no es «sin venta»: le falta el dato.
+  const sinDato = estado({ tipo: 'suscripcion', mensualidad: 40, fechaCierre: null, ganado: true, pagos: [cuotaWilberth] });
+  assert.deepEqual([sinDato?.titular, sinDato?.tono], ['Sin fecha de cierre', 'ambar']);
+
+  // Lo que sí se puede medir sin cierre sigue igual: lo vencido se debe, y una cuota por venir es la próxima.
+  const vencida = cuota({ numero: 1, monto_usd: 40, fecha_esperada: '2026-09-14' });
+  assert.equal(estado({ tipo: 'suscripcion', mensualidad: 40, ganado: false, pagos: [vencida] })?.titular, 'Debe $40');
+  const porVenir = cuota({ numero: 2, monto_usd: 40, fecha_esperada: '2026-12-14' });
+  const conPlan = estado({ tipo: 'suscripcion', mensualidad: 40, ganado: false, pagos: [cuotaWilberth, porVenir] });
+  assert.deepEqual([conPlan?.titular, conPlan?.detalle], ['Al día', '$40/mes · próxima el 14 de diciembre']);
+  assert.equal(estado({ tipo: 'suscripcion', mensualidad: 40, ganado: false, pagos: [] })?.titular, 'Sin cobros registrados');
+});
+
+test('#53: un pago único con su cuota cobrada «Pagó todo»: esa ficha dice lo cargado; como mensualidad, le faltan meses', () => {
+  const cuotaCarlos = cuota({ numero: 1, monto_usd: 40, fecha_esperada: '2026-08-03', pagado: true, fecha_pago: '2026-08-06' });
+  assert.equal(estado({ tipo: 'unico', cierre: 40, fechaCierre: '2026-08-03', pagos: [cuotaCarlos] })?.titular, 'Pagó todo');
+  assert.equal(estado({ tipo: 'suscripcion', mensualidad: 40, fechaCierre: '2026-08-03', pagos: [cuotaCarlos] })?.titular, 'Falta registrar 2 meses');
+});
+
 test('se calla con un becado y con un lead abierto sin venta; un ganado sin monto pide cargarlo', () => {
   assert.equal(estado({ tipo: 'sin_cobro', pagos: [] }), null);
   assert.equal(estado({ cierre: null, pagos: [], ganado: false }), null);

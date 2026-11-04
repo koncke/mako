@@ -1963,3 +1963,26 @@ Los pasos del plan de las tiendas, medidos contra el código. Estado y fuentes: 
 **Sin hacer:** el `.aab` (`nativo/android`, pide aceptar los términos del Android SDK y una ventana de RAM) · correr `scripts/tiendas-cuenta-revision.mts` después de la revisión · mirar en TestFlight guardar, links, push y modo avión · un `href` con `?download=1` sin el atributo `download` (`app/crm/lead-view/ficha/pagos/bloques-deal.tsx`) puede no bajar en WKWebView · las capturas y el feature graphic · bloquear y moderar desde el teléfono, para volver a sumar Community a iPhone · que MaKo no cite precios en el chat dentro de la app: su contexto no distingue · `textoTope` (`lib/topes-plan.ts`) todavía dice «Pasa a MaKo Pro» sin link en pantallas del teléfono: sólo le sale a quien paga por la pasarela al llegar a un tope, no a la cuenta de revisión · `enviarApns` abre una conexión por aviso, y Apple prefiere una compartida: con pocos iPhones no molesta, y con muchos hay que compartirla · sin las claves de VAPID tampoco sale APNs (`enviarPush` corta antes): hoy están.
 
 **Vive en:** lib/tienda.ts · lib/baja-cuenta.ts · lib/ia-permiso.ts · lib/nativo.ts · lib/push-apns.ts · scripts/tiendas-asociar.mjs · *3/11/2026, chat «tiendas», claude5.*
+
+---
+
+## «Me saca el botón de audio» y el campo que flota: dos cosas en un ticket (#51 de Leandro, 4/11/2026)
+
+**El micrófono.** El botón de la caja es UNO (Martín, 17/10): micrófono sin nada, flecha con algo. Un adjunto lo volvía flecha, y quien quería
+explicar una captura hablando no podía. Mostrarlo no alcanzaba: cada pantalla manda su nota por su camino (`voz`, `onGrabada`) y lo adjuntado
+se queda en la caja, así que MaKo habría contestado el audio sin ver la imagen. **La salida no toca ningún motor:** con lo adjuntado, esa nota se
+transcribe y sale por el `onMandar` de la pantalla, el que ya lleva texto y archivos juntos. Es una sesión aparte en `Caja`, y la arranca sólo el
+micrófono de al lado de la flecha. Lo que se pierde: en ESE mensaje no queda el audio para escuchar, sólo lo que se entendió.
+
+**El campo que flota (captura IMG_2572).** El diagnóstico obvio es «falta medir el teclado», y faltaba, pero no alcanza: **con la pantalla ya corrida
+por Safari, `altoTeclado` da 0.** Por eso `tecladoDelComposer` separa lo que hay que subir (`corrimiento`) de si el teclado está (`abierto`, por lo que
+le falta a la pantalla visible). Y lo que se veía por debajo no era un error de capas: el teclado de iOS 26 tiene una barra translúcida (^ v ✓), y se ve
+pasar lo que haya atrás. El fondo del composer se extiende por debajo.
+
+**La regla:** un composer pegado abajo en /m mide el teclado con `tecladoDelComposer`, y su fondo sigue por debajo. Una caja nueva sale de `CajaChat`.
+
+**Sin hacer:** `VistaAdjuntos` (la vista previa a pantalla completa: Offer en el teléfono, los hilos de `ChatHilo`) sigue sin micrófono.
+**No se pudo ver:** nada de esto se probó en un iPhone: el teclado de iOS no se reproduce sin el teléfono.
+
+**Vive en:** `Caja` (app/_chat/CajaChat.tsx) · `micAlLadoDeLaFlecha` (lib/centro-caja.ts) · `tecladoDelComposer` (app/m/mako/chat-ui.ts) ·
+app/m/chats/[clave]/ComposerChatsM.tsx · tests/caja-nota-con-adjuntos.test.ts.

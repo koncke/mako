@@ -289,6 +289,22 @@ export const BITACORA: Hito[] = [
     revisar: '/app',
   },
   {
+    fecha: '4 nov', hora: '04:00', chat: 'Tickets 04/11', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Con una imagen adjunta se puede grabar un audio, y el campo de Chats en el teléfono queda pegado al teclado',
+    puntos: [
+      '**Una imagen adjunta ya no te saca el micrófono:** con lo adjuntado y nada escrito van los dos botones. Lo que dices sale como el texto de ese mensaje, junto con la imagen, para que MaKo los lea juntos. Vale en todas las cajas de chat.',
+      '**El campo de un chat en el iPhone:** con el teclado abierto queda pegado a él, sin el hueco de abajo, y ya no se ve pasar el hilo por debajo. El anillo negro alrededor del campo pasa a ser un borde, como en el chat con MaKo.',
+    ],
+    archivos: [
+      'app/_chat/CajaChat.tsx — la sesión de la nota que sale con lo adjuntado · app/admin/operaciones/Microfono.tsx — `BotonGrabar` · lib/centro-caja.ts — `micAlLadoDeLaFlecha`',
+      'app/m/chats/[clave]/ComposerChatsM.tsx · app/m/chats/chats.css · app/m/mako/chat-ui.ts — `tecladoDelComposer`',
+      'tests/caja-nota-con-adjuntos.test.ts · tests/_caja-adjuntos-hijo.ts',
+    ],
+    revisar: '/m/chats',
+    tickets: [51],
+  },
+  {
     fecha: '28 oct', hora: '14:10', chat: 'Web Generator: replicar landings', sesion: 'local_1dd40ee7-c2c9-403e-8b3d-ad1dd87b505c', cuenta: 'claude4',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Que la app de escritorio funcione sin conexión',
@@ -378,5 +394,30 @@ export const BITACORA: Hito[] = [
       'tests/tiendas-telefono-no-vende.test.ts (9 y 9b), tests/movil-toda-tab.test.ts, tests/sidebar-nueva.test.ts — probado rompiéndolo',
     ],
     revisar: '/mas',
+  },
+  {
+    fecha: '4 nov', hora: '08:23', chat: 'Tiendas: privacidad', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El responsable legal de las páginas para las tiendas',
+    pedido: 'Si, el responsable legal es Leandro',
+    puntos: ['Contestó la pregunta del plan de las tiendas: qué responsable dicen /privacidad y /terminos, si la cuenta de Play es suya y la de Apple de Leandro.'],
+  },
+  {
+    fecha: '4 nov', hora: '08:23', chat: 'Tiendas: privacidad', sesion: 'cli_d2b72179-90a8-55cc-b44f-a49a80e160ba', cuenta: 'nube',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las páginas legales dicen quién publica la app en cada tienda',
+    puntos: [
+      'Privacidad y Términos siguen nombrando a Leandro como responsable, y suman una línea: en la App Store publica ese mismo nombre, en Google Play Martín Carballo Koncke.',
+      'Las fichas de Play quedan con el título y la descripción corta nuevos, y el token de avisos declarado en Data safety.',
+      '**Cómo se prueba:** abre hola-mako.com/privacidad y hola-mako.com/terminos, y lee el final de cada una.',
+    ],
+    commits: [{ sha: '8cffbbf2', msg: 'Las páginas legales dicen quién publica la app en cada tienda', lineas: 112, archivos: 6 }],
+    archivos: [
+      'lib/titular-mako.ts — `PUBLICA_EN_PLAY`, al lado de la razón social',
+      'app/privacidad/page.tsx y app/terminos/page.tsx — la línea de quién publica',
+      'docs/tiendas-fichas-borradores.md y docs/tiendas-play-appstore.md — la ficha de Play y la decisión',
+      'tests/tiendas-quien-publica.test.ts — las dos páginas sin JavaScript, probado rompiéndolo',
+    ],
+    revisar: '/privacidad',
   },
 ];
