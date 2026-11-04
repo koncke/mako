@@ -119,8 +119,11 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 
 type Crudo = Record<string, unknown> & { id: string; clase?: string; tipo?: string; controles?: Array<Record<string, unknown>> };
 
-/** Las siete, en el orden del CAMINO del negocio que tenía el desplegable (el anuncio, la página, el video, el chat, la llamada, el cliente, el tablero). */
-const IDS_ANALYSTS = ['ads-analyst', 'landing', 'vsl-analyst', 'chat-analyst', 'closing', 'cs-analyst', 'productividad'];
+/**
+ * En el orden del CAMINO del negocio que tenía el desplegable (el anuncio, la página, el video, el chat, la llamada, el cliente, el
+ * tablero). Desde el 4/11/2026 el anuncio son dos hojas: cuál gana (`ads-analyst`, «Anuncio ganador») y en qué parte se van (Hooks).
+ */
+const IDS_ANALYSTS = ['ads-analyst', 'hooks-retencion', 'landing', 'vsl-analyst', 'chat-analyst', 'closing', 'cs-analyst', 'productividad'];
 
 test('cada plantilla de Analysts sobrevive al saneo SIN PERDER NADA (componentes, métricas, dimensiones, controles)', () => {
   assert.deepEqual(PLANTILLAS_ANALYSTS.map((p) => p.id), IDS_ANALYSTS);

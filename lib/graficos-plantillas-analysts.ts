@@ -142,47 +142,99 @@ export const ARMADO = { kpi, lista, fijo, periodoFijo, periodoVisible, caja, acc
 // ── Ads Analyst ──────────────────────────────────────────────────────────────────────────────
 
 const ADS: PlantillaHoja = {
-  id: 'ads-analyst', nombre: 'Ads Analyst', emoji: '🎬',
-  linea: 'Hook rate, retención y veredicto de cada guion, sus patrones y el cuadrante de retención.',
+  // 4/11/2026 — ANUNCIO GANADOR (docs/templates-dashboard-propuesta.md §7.3, VITREA · PRISM): «¿cuál creativo gana, y con cuánta
+  // confianza?». Ads Analyst se partió en dos: ésta (qué anuncio gana) y «Hooks y retención» (en qué segundo se van). El id sigue
+  // siendo `ads-analyst`: /ads-analyst, los links de MaKo y las hojas guardadas llegan acá. ⚠️ La «confianza» es la de la muestra
+  // (impresiones: alta desde 25.000, media desde 8.000, lib/ads-analyst-patrones.ts), no una prueba estadística entre dos creativos:
+  // ésa no se mide todavía (§7.4).
+  id: 'ads-analyst', nombre: 'Anuncio ganador', emoji: '🏆', buscar: 'Ads Analyst guiones creativos',
+  linea: 'Qué anuncio gana, con cuánta muestra, y qué ángulo y formato traen más agendas por cada mil dólares.',
   armar: (id: Id) => ({
-    id: id('ads-analyst'), nombre: 'Ads Analyst', emoji: '🎬', subtitulo: 'Los guiones de tus anuncios: qué frena, qué retiene y qué agenda.',
+    id: id('ads-analyst'), nombre: 'Anuncio ganador', emoji: '🏆', subtitulo: 'Los guiones de tus anuncios: cuál gana y con cuánta muestra.',
     controles: [
       { id: id('ad-periodo'), tipo: 'periodo', preset: 'todo' },
       lista(id('ad-angulo'), 'guiones.angulo'),
       lista(id('ad-tipo'), 'guiones.tipo'),
     ],
     componentes: [
-      // COMPOSICIÓN DEL 31/10/2026: el hook rate primero porque la hoja pregunta «¿mi creativo retiene?». La caja de MaKo va después de
-      // lo que resume: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('ad-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('ad-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 9, 0, {
+      {
+        id: id('ad-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'guiones', metricas: ['agendas', 'cierres', 'cpa'],
+        titulo: 'Tus anuncios', frase: 'Tus anuncios trajeron {agendas} agendas y {cierres} cierres · cada agenda costó {cpa}',
+        ir: 'ads-writer', x: 0, y: 0, w: 12, h: 3,
+      },
+      // El ancla: cuántos guiones están para escalar (gancho y retención arriba, con muestra suficiente).
+      kpi(id('ad-escalar'), 'guiones', 'guiones', 'Listos para escalar', '', 0, 3, {
+        invertida: true, ir: 'ads-manager', controles: [fijo(id('ad-escalar-c'), 'guiones.veredicto', ['Escalar'])],
+      }),
+      kpi(id('ad-cpa'), 'guiones', 'cpa', 'Costo por agenda', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ad-costo-cierre'), 'guiones', 'costo_cierre', 'Costo por cierre', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ad-sin-retorno'), 'guiones', 'gasto', 'Gasto sin retorno', '', 9, 3, {
         tipo: 'numero_tendencia', controles: [fijo(id('ad-sin-retorno-c'), 'guiones.resultado', ['Sin agendas'])],
       }),
-      // Qué retiene: el cuadrante dice CUÁLES, los cuartiles dicen DÓNDE se cae todo el mundo.
+      // Cuál gana: el cuadrante dice CUÁLES, el veredicto cuántos hay de cada uno y la confianza con cuánta muestra.
       {
         id: id('ad-cuadrante-dispersion'), clase: 'grafico', tipo: 'dispersion', fuente: 'guiones', dimension: 'guion', metricas: ['hook_rate', 'ret_cta'],
-        titulo: 'Cuadrante de retención', colorPor: 'angulo', limite: 50, x: 0, y: 4, w: 6, h: 12,
+        titulo: 'Cuadrante de retención', colorPor: 'angulo', limite: 50, x: 0, y: 7, w: 6, h: 12,
         ejes: { xMin: 0, xMax: 55, yMin: 0, yMax: 30 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = hook rate, y = retención al CTA (los de la tab).
         referencias: { x: 28, y: 10, rotulos: ['Mejorar gancho', 'Escalar', 'Repensar', 'Reescribir cuerpo'] },
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-cuadrante-dispersion'),
       },
-      { id: id('ad-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'Cuánto ven el video', x: 6, y: 4, w: 6, h: 12 },
+      { id: id('ad-veredicto'), clase: 'grafico', tipo: 'anillo', fuente: 'guiones', dimension: 'veredicto', metricas: ['guiones'], titulo: 'Qué hacer con cada uno', x: 6, y: 7, w: 3, h: 12 },
+      { id: id('ad-confianza'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'confianza', metricas: ['guiones'], titulo: 'Con cuánta muestra', x: 9, y: 7, w: 3, h: 12 },
       // Qué patrón gana
-      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000', x: 0, y: 16, w: 6, h: 9 },
-      { id: id('ad-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], titulo: 'Hook rate por gancho', x: 6, y: 16, w: 6, h: 9 },
+      { id: id('ad-eficiencia'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'angulo', metricas: ['agendas_1k'], titulo: 'Agendas por US$1.000', x: 0, y: 19, w: 6, h: 9 },
+      { id: id('ad-formato'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'formato', metricas: ['agendas_1k'], titulo: 'Por formato', x: 6, y: 19, w: 6, h: 9 },
       // Los patrones de la tab (Sigue / Corta / Proceso) son una caja de MaKo (contrato v5, «patrones_guiones»).
-      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 25, 12, 8),
+      caja(id('ad-patrones-ia'), 'Patrones de tus guiones', 'Qué patrones separan a los guiones que agendan de los que no', 0, 28, 12, 8),
       // Todos los guiones, como TARJETAS (la GuionCard de la tab): 4 números, la barra en el hook y los chips. La confianza va en
       // un chip: era la tabla «Muestra chica», que repetía guiones con un filtro.
       {
         id: id('ad-tabla'), clase: 'grafico', tipo: 'tarjetas', fuente: 'guiones', dimension: 'guion',
         metricas: ['agendas', 'hook_rate', 'retencion_final', 'cpa'], ordenMetrica: 'agendas', barra: 'hook_rate', limite: 50,
         tabla: { columnas: ['angulo', 'veredicto', 'confianza'] },
-        titulo: 'Guiones', x: 0, y: 33, w: 12, h: 16,
+        titulo: 'Guiones', x: 0, y: 36, w: 12, h: 16,
         alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'ad-tabla'),
+      },
+    ],
+  }),
+};
+
+// ── Hooks y retención (4/11/2026) ────────────────────────────────────────────────────────────────
+// VITREA · MURMURA (docs/templates-dashboard-propuesta.md §7.3): «¿en qué segundo se van, y qué hook los retuvo?». La otra mitad de
+// lo que hacía Ads Analyst. Vitrea pone la caída del video como la forma del dato y la retención contra su referencia; Murmura, qué
+// gancho y qué formato retienen. ⚠️ La curva es por CUARTILES del video (los p25…p100 que manda Meta), no por segundo: la retención
+// segundo a segundo no se mide todavía (§7.4).
+const HOOKS: PlantillaHoja = {
+  id: 'hooks-retencion', nombre: 'Hooks y retención', emoji: '🪝', buscar: 'Ads Analyst hook rate gancho retención video',
+  linea: 'En qué parte del video se va la gente, qué gancho la retiene y qué guion llega al llamado a la acción.',
+  armar: (id: Id) => ({
+    id: id('hooks-retencion'), nombre: 'Hooks y retención', emoji: '🪝', subtitulo: 'Cuánto ven tus anuncios y qué los retiene.',
+    controles: [
+      { id: id('hk-periodo'), tipo: 'periodo', preset: 'todo' },
+      lista(id('hk-angulo'), 'guiones.angulo'),
+      lista(id('hk-formato'), 'guiones.formato'),
+    ],
+    componentes: [
+      {
+        id: id('hk-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'guiones', metricas: ['plays_3s', 'p50', 'p100'],
+        titulo: 'Tus videos', frase: '{plays_3s} vieron los primeros 3 segundos · {p50} llegaron a la mitad · {p100} lo vieron entero',
+        ir: 'ads-writer', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('hk-hook'), 'guiones', 'hook_rate', 'Hook rate', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('hk-cta'), 'guiones', 'ret_cta', 'Llegan al llamado', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('hk-thruplay'), 'guiones', 'thruplay_rate', 'ThruPlay', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('hk-guiones'), 'guiones', 'guiones', 'Guiones analizados', '', 9, 3, { tipo: 'numero_tendencia', ir: 'ads-writer' }),
+      { id: id('hk-video'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'guiones', metricas: ['plays_3s', 'p25', 'p50', 'p75', 'p100'], titulo: 'En qué parte se van', x: 0, y: 7, w: 8, h: 10 },
+      { id: id('hk-gancho'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'gancho', metricas: ['hook_rate'], ordenMetrica: 'hook_rate', titulo: 'Qué gancho retiene', x: 8, y: 7, w: 4, h: 10 },
+      { id: id('hk-formato-cta'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'formato', metricas: ['ret_cta'], titulo: 'Llegan al llamado, por formato', x: 0, y: 17, w: 6, h: 8 },
+      { id: id('hk-avatar'), clase: 'grafico', tipo: 'barras', fuente: 'guiones', dimension: 'avatar', metricas: ['hook_rate'], titulo: 'Hook rate por avatar', x: 6, y: 17, w: 6, h: 8 },
+      { id: id('hk-semana'), clase: 'grafico', tipo: 'serie', fuente: 'guiones', dimension: 'semana', metricas: ['hook_rate', 'ret_cta'], titulo: 'El gancho en el tiempo', x: 0, y: 25, w: 6, h: 8 },
+      caja(id('hk-ia'), 'Qué gancho funciona', 'Qué ganchos retienen y en qué parte del video se va la gente', 6, 25, 6, 8),
+      {
+        id: id('hk-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'guiones', dimension: 'guion', metricas: ['hook_rate', 'ret_cta', 'thruplay_rate', 'retencion_final'],
+        ordenMetrica: 'hook_rate', limite: 30, tabla: { columnas: ['gancho', 'formato'] }, titulo: 'Cada guion', x: 0, y: 33, w: 12, h: 12,
+        alClic: 'popup', popup: popupDe(POPUP_ANUNCIO, id, 'hk-tabla'),
       },
     ],
   }),
@@ -242,34 +294,44 @@ const CLOSING: PlantillaHoja = {
       lista(id('cl-closer'), 'closer'),
     ],
     componentes: [
+      // 4/11/2026 — HALDEN · MOORLY · TANDEM (docs/templates-dashboard-propuesta.md §7.3): «¿por qué se cerró o no, y quién cierra
+      // mejor?». Halden abre con la frase de lo ganado y cómo terminaron las llamadas; Moorly, la lista; Tandem, el equipo lado a lado
+      // y el score en el tiempo. ⚠️ El closer ve ESTA hoja (HOJA_DE_ROL): sólo llamadas, nunca la plata ni los leads.
+      {
+        id: id('cl-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'llamadas_venta', metricas: ['llamadas', 'ganadas', 'tasa_cierre'], comparar: true,
+        titulo: 'Tus llamadas', frase: 'Analizaste {llamadas} llamadas de venta · ganaste {ganadas} · cerraste el {tasa_cierre}, {tasa_cierre:cambio} que el período anterior',
+        ir: 'crm', x: 0, y: 0, w: 12, h: 3,
+      },
       // COMPOSICIÓN DEL 31/10/2026 (13 piezas → 10): cuatro números iguales, con la tasa de cierre primero porque es lo que la
       // hoja pregunta. R1 y R2 eran el mismo puntaje con un filtro, y el cruce closer × dimensión vuelve con un clic en la tabla.
-      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 0, { tipo: 'numero_tendencia', invertida: true }),
-      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 0, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-tasa'), 'llamadas_venta', 'tasa_cierre', 'Tasa de cierre', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('cl-puntaje'), 'llamadas_venta', 'puntaje', 'Score promedio', '', 3, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-analizadas'), 'llamadas_venta', 'llamadas', 'Analizadas', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('cl-duracion'), 'llamadas_venta', 'duracion', 'Duración', '', 9, 3, { tipo: 'numero_tendencia' }),
       // El embudo (sube a portada: lib/graficos-portadas.ts) y lo que separa las ganadas de las perdidas.
       {
         id: id('cl-embudo-embudo'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'llamadas_venta', metricas: ['r1', 'r2', 'ganadas_r2'],
-        titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 4, w: 6, h: 10,
+        titulo: 'Embudo de llamadas', subtitulo: 'Cuenta llamadas, no personas', x: 0, y: 7, w: 6, h: 10,
       },
       {
         id: id('cl-factores-barras'), clase: 'grafico', tipo: 'barras', fuente: 'llamadas_dimensiones', dimension: 'dimension', desglose: 'tono',
-        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 4, w: 6, h: 10,
+        metricas: ['puntaje'], titulo: 'Factores del cierre', x: 6, y: 7, w: 6, h: 10,
       },
-      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 14, 12, 7,
+      caja(id('cl-factores-ia'), 'Qué decide tus cierres', 'Qué decide los cierres: qué hacen distinto las llamadas ganadas', 0, 17, 12, 7,
         { fuentes: [id('cl-factores-barras')], largo: 'corto', formato: 'vinetas' }),
       // El equipo
       {
         id: id('cl-closers-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'closer', metricas: ['llamadas', 'puntaje', 'ganadas', 'tasa_cierre'],
-        titulo: 'El equipo de closers', x: 0, y: 21, w: 12, h: 10,
+        titulo: 'El equipo de closers', x: 0, y: 24, w: 12, h: 10,
       },
+      { id: id('cl-resultado'), clase: 'grafico', tipo: 'anillo', fuente: 'llamadas', dimension: 'resultado', metricas: ['llamadas'], titulo: 'Cómo terminaron', x: 0, y: 34, w: 6, h: 8 },
+      { id: id('cl-puntaje-semana'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas_venta', dimension: 'semana', metricas: ['puntaje'], titulo: 'El score por semana', x: 6, y: 34, w: 6, h: 8 },
       // 5 · Las llamadas: traer las nuevas (el cron de siempre y este botón) y la lista, con su búsqueda y el
       //     pop-up «Llamada» (la ficha de cada una, con sus tareas).
-      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 31, 3, 2),
+      accion(id('cl-llamadas-sync'), 'sincronizar_llamadas', 'Sincronizar llamadas', 0, 42, 3, 2),
       {
         id: id('cl-llamadas-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'llamadas_venta', dimension: 'llamada', metricas: ['puntaje', 'duracion'],
-        titulo: 'Las llamadas', limite: 50, x: 0, y: 33, w: 12, h: 16,
+        titulo: 'Las llamadas', limite: 50, x: 0, y: 44, w: 12, h: 16,
         tabla: { buscar: true, columnas: ['closer', 'reunion', 'dia'] },
         alClic: 'popup', popup: popupDe(POPUP_LLAMADA, id, 'cl-llamadas-tabla'),
       },
@@ -289,34 +351,50 @@ const PRODUCTIVIDAD: PlantillaHoja = {
     controles: [],
     // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 8): siete números en cuatro anchos pasan a una fila de cuatro, el avance por
     // proyecto es lo primero, y las tres tablas de 4 columnas (donde se cortaba el nombre de la tarea) son una sola a lo ancho.
+    // 4/11/2026 — FERNLY · SUNROW (docs/templates-dashboard-propuesta.md §7.3): «¿qué avanza y qué se estancó?». Fernly abre con la
+    // frase de cuánto hay en marcha y el avance de cada proyecto; Sunrow, lo que vence por semana y lo que queda en cada proyecto.
     componentes: [
-      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 0, { invertida: true }),
-      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 0),
-      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 0),
-      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 0),
+      {
+        id: id('pr-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'ejecucion', fecha: 'actual', metricas: ['activas', 'en_curso', 'hechas'],
+        titulo: 'Tu tablero', frase: 'Tienes {activas} tareas activas · {en_curso} en curso · {hechas} ya hechas', ir: 'plan', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('pr-avance'), 'proyectos', 'avance_proyectos', 'Avance global', '', 0, 3, { invertida: true, ir: 'plan' }),
+      kpi(id('pr-estancadas'), 'ejecucion', 'estancadas', 'Estancadas', '', 3, 3),
+      kpi(id('pr-alta-sin'), 'ejecucion', 'alta_sin_deadline', 'Alta sin deadline', '', 6, 3),
+      kpi(id('pr-cumplimiento'), 'ejecucion', 'cumplimiento', 'A tiempo', '', 9, 3),
       // Una barra de avance por proyecto (la barra de progreso de la tab), los activos. Sube a portada: lib/graficos-portadas.ts.
       {
         id: id('pr-avance-proyecto'), clase: 'grafico', tipo: 'barras', fuente: 'proyectos', dimension: 'proyecto',
         metricas: ['avance_proyectos'], ordenMetrica: 'avance_proyectos', limite: 50,
-        titulo: 'Avance por proyecto', x: 0, y: 4, w: 12, h: 10,
+        titulo: 'Avance por proyecto', ir: 'plan', x: 0, y: 7, w: 12, h: 10,
         controles: [fijo(id('pr-avance-estado'), 'proyectos.estado', ['Activo'])],
       },
       // ¿Qué hago primero? La matriz (burbujas con los cuadrantes de la tab) y la pirámide, del mismo alto.
       {
         id: id('pr-matriz-burbujas'), clase: 'grafico', tipo: 'burbujas', fuente: 'proyectos', dimension: 'proyecto', metricas: ['esfuerzo', 'impacto', 'tareas'],
-        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 14, w: 6, h: 10,
+        titulo: 'Impacto × Esfuerzo', colorPor: 'cuadrante', limite: 50, x: 0, y: 17, w: 6, h: 10,
         ejes: { xMin: 0, xMax: 100, yMin: 0, yMax: 100 },
         // [arriba-izq, arriba-der, abajo-izq, abajo-der] con x = esfuerzo, y = impacto (los de la tab vieja).
         referencias: { x: 50, y: 50, rotulos: ['Quick wins', 'Apuestas', 'Relleno', 'Trampas'] },
       },
       {
         id: id('pr-piramide-barras'), clase: 'grafico', tipo: 'barras', fuente: 'ejecucion', dimension: 'prioridad', metricas: ['activas'],
-        titulo: 'Pirámide de prioridad', x: 6, y: 14, w: 6, h: 10,
+        titulo: 'Pirámide de prioridad', x: 6, y: 17, w: 6, h: 10,
+      },
+      // Lo que viene: lo que vence en las próximas semanas (mira hacia ADELANTE, con su período a la vista) y lo que queda abierto
+      // en cada proyecto.
+      {
+        id: id('pr-vence'), clase: 'grafico', tipo: 'columnas', fuente: 'tareas', fecha: 'deadline', dimension: 'semana', metricas: ['abiertas'],
+        titulo: 'Lo que vence, por semana', x: 0, y: 27, w: 6, h: 8, controles: [periodoVisible(id('pr-vence-p'), 'prox30')],
+      },
+      {
+        id: id('pr-queda'), clase: 'grafico', tipo: 'barras', fuente: 'tareas', fecha: 'actual', dimension: 'proyecto', metricas: ['abiertas'],
+        ordenMetrica: 'abiertas', limite: 10, titulo: 'Lo que queda en cada proyecto', x: 6, y: 27, w: 6, h: 8,
       },
       // ¿Qué huele mal? La misma lista con las tres columnas juntas: lo quieto arriba.
       {
         id: id('pr-huele-mal'), clase: 'grafico', tipo: 'tabla', fuente: 'ejecucion', dimension: 'tarea', metricas: ['dias_quieta', 'movidas_deadline', 'activas'],
-        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 24, w: 12, h: 10,
+        ordenMetrica: 'dias_quieta', limite: 20, titulo: 'Lo que huele mal', x: 0, y: 35, w: 12, h: 10,
         controles: [fijo(id('pr-huele-mal-f1'), 'ejecucion.estado', ['Activa'])],
       },
     ],
@@ -396,23 +474,36 @@ const CS: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026 (15 piezas → 9): la cartera ES la hoja. Los de `cartera` van como `numero`: su fecha es
       // `actual`, sin rango, y una línea saldría plana en cero. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('cs-atencion'), 'cartera', 'atencion', 'Necesitan atención', '', 0, 0, { invertida: true }),
-      kpi(id('cs-clientes'), 'cartera', 'clientes', 'Clientes', '', 3, 0),
-      kpi(id('cs-deuda'), 'cartera', 'deuda_vencida_usd', 'Deuda vencida', '', 6, 0),
-      kpi(id('cs-sesiones'), 'llamadas', 'llamadas', 'Sesiones', '', 9, 0, {
+      // 4/11/2026 — MENDER · VITREA (docs/templates-dashboard-propuesta.md §7.3): «¿quién necesita atención y por qué se van?». Mender
+      // abre con la frase de cuántos piden atención y lo que deben; Vitrea, por qué piden atención y la señal de cada uno. El ancla es
+      // cuántos se dieron de baja. ⚠️ El `motivo` de la cartera es el de la SEÑAL (la regla que la prendió), no el de una baja: el motivo
+      // de baja no se guarda todavía (docs/templates-dashboard-propuesta.md §7.4), así que la hoja no dice «por qué se van».
+      {
+        id: id('cs-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'cartera', fecha: 'actual', metricas: ['atencion', 'clientes', 'deuda_vencida_usd'],
+        titulo: 'Tu cartera', frase: '{atencion} de tus {clientes} clientes piden atención · deben {deuda_vencida_usd} vencidos', ir: 'clients', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('cs-bajas'), 'cartera', 'clientes', 'Se dieron de baja', '', 0, 3, { invertida: true, controles: [fijo(id('cs-bajas-c'), 'cartera.estado', ['Baja'])] }),
+      kpi(id('cs-pausados'), 'cartera', 'clientes', 'En pausa', '', 3, 3, { controles: [fijo(id('cs-pausados-c'), 'cartera.estado', ['Pausado'])] }),
+      kpi(id('cs-cuotas'), 'cartera', 'cuotas_vencidas', 'Cuotas vencidas', '', 6, 3, { ir: 'cobranza' }),
+      kpi(id('cs-sesiones'), 'llamadas', 'llamadas', 'Sesiones', '', 9, 3, {
         tipo: 'numero_tendencia', comparar: true, controles: [fijo(id('cs-sesiones-c'), 'llamadas.categoria', [ENTREGA])],
       }),
       {
         id: id('cs-tabla'), clase: 'grafico', tipo: 'tabla', fuente: 'cartera', dimension: 'cliente', metricas: ['atencion', 'deuda_vencida_usd', 'sesiones'],
-        ordenMetrica: 'atencion', limite: 50, titulo: 'Cada cliente', x: 0, y: 4, w: 12, h: 10,
+        ordenMetrica: 'atencion', limite: 50, tabla: { columnas: ['senal', 'estado', 'tramo_contacto'] }, titulo: 'Cada cliente', ir: 'clients', x: 0, y: 7, w: 12, h: 10,
       },
-      { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 14, w: 6, h: 8 },
-      { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 6, y: 14, w: 6, h: 8 },
+      { id: id('cs-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'entrega', fecha: 'actual', dimension: 'etapa', metricas: ['clientes'], titulo: 'Dónde está cada cliente', x: 0, y: 17, w: 6, h: 8 },
+      { id: id('cs-contacto'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'tramo_contacto', metricas: ['clientes'], titulo: 'Hace cuánto no hablan', x: 6, y: 17, w: 6, h: 8 },
+      {
+        id: id('cs-motivos'), clase: 'grafico', tipo: 'barras', fuente: 'cartera', dimension: 'motivo', metricas: ['clientes'], titulo: 'Por qué piden atención',
+        x: 0, y: 25, w: 6, h: 8, controles: [fijo(id('cs-motivos-c'), 'cartera.senal', ['Atención'])],
+      },
+      { id: id('cs-senal'), clase: 'grafico', tipo: 'anillo', fuente: 'cartera', dimension: 'senal', metricas: ['clientes'], titulo: 'Cómo están', x: 6, y: 25, w: 6, h: 8 },
       {
         id: id('cs-semanas'), clase: 'grafico', tipo: 'serie', fuente: 'llamadas', dimension: 'semana', metricas: ['llamadas'], titulo: 'Sesiones por semana',
-        x: 0, y: 22, w: 12, h: 8, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
+        x: 0, y: 33, w: 12, h: 8, controles: [fijo(id('cs-semanas-c'), 'llamadas.categoria', [ENTREGA])],
       },
-      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 30, 12, 7),
+      caja(id('cs-ia'), 'Quién necesita atención', 'Qué señales de la cartera piden atención y qué conviene hacer esta semana', 0, 41, 12, 7),
     ],
   }),
 };
@@ -435,18 +526,35 @@ const CHAT: PlantillaHoja = {
     componentes: [
       // COMPOSICIÓN DEL 31/10/2026 (14 piezas → 8): cuánto entra, qué tan rápido, cuánto espera. «Esperando» queda `numero`: su
       // fecha es `actual`, sin rango. La caja de MaKo va al pie: nace sin correr, y arriba tapaba la pregunta.
-      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 0, 0, { tipo: 'numero_tendencia', comparar: true, invertida: true }),
-      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 3, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 6, 4),
-      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 6, 0, { tipo: 'numero_tendencia' }),
-      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 0, { fecha: 'actual' }),
+      // 4/11/2026 — PARLEY · TEND (docs/templates-dashboard-propuesta.md §7.3): «¿cuánto tardamos en contestar y eso cierra?». Parley
+      // abre con la frase de cuántas veces te escribieron y cuántas respondiste; el ancla es el tiempo de respuesta. Tend pone ese
+      // tiempo por día y lo que rinden las automatizaciones. ⚠️ El setter ve ESTA hoja (HOJA_DE_ROL): todo sale de los chats, los
+      // envíos y las personas en automatizaciones, nunca de los leads ni la plata.
+      {
+        id: id('ch-apertura'), clase: 'grafico', tipo: 'frase', fuente: 'conversaciones', metricas: ['turnos', 'pct_respondidos'], comparar: true,
+        titulo: 'Tus chats', frase: 'Te escribieron {turnos} veces · respondiste el {pct_respondidos} · {pct_respondidos:cambio} que el período anterior',
+        ir: 'chats', x: 0, y: 0, w: 12, h: 3,
+      },
+      kpi(id('ch-mediana'), 'conversaciones', 'mediana_respuesta', 'Tiempo de respuesta', '', 0, 3, { tipo: 'numero_tendencia', invertida: true }),
+      kpi(id('ch-recibidos'), 'whatsapp', 'recibidos', 'Recibidos', '', 3, 3, { tipo: 'numero_tendencia', comparar: true }),
+      kpi(id('ch-chats'), 'whatsapp', 'chats', 'Chats', '', 6, 3, { tipo: 'numero_tendencia' }),
+      kpi(id('ch-esperando'), 'conversaciones', 'sin_responder', 'Esperando', '', 9, 3, { fecha: 'actual', ir: 'chats' }),
+      kpi(id('ch-rapidos'), 'conversaciones', 'pct_rapidos', 'Respondidos en 15 min', '', 0, 7),
       {
         id: id('ch-por-dia'), clase: 'grafico', tipo: 'serie', fuente: 'whatsapp', dimension: 'dia', metricas: ['recibidos', 'enviados'], titulo: 'Mensajes por día',
-        x: 0, y: 8, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
+        x: 0, y: 11, w: 12, h: 8, controles: [{ id: id('ch-por-dia-agrupar'), tipo: 'agrupar', agrupar: 'auto' }],
       },
-      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 16, w: 6, h: 8 },
-      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 16, w: 6, h: 8 },
-      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 24, 12, 7),
+      { id: id('ch-setters'), clase: 'grafico', tipo: 'barras', fuente: 'conversaciones', dimension: 'setter', metricas: ['turnos', 'pct_rapidos'], titulo: 'Por setter', x: 0, y: 19, w: 6, h: 8 },
+      { id: id('ch-lineas'), clase: 'grafico', tipo: 'columnas_apiladas', fuente: 'whatsapp', dimension: 'linea', desglose: 'direccion', metricas: ['mensajes'], titulo: 'Por línea', x: 6, y: 19, w: 6, h: 8 },
+      {
+        id: id('ch-rapidos-dia'), clase: 'grafico', tipo: 'serie', fuente: 'conversaciones', dimension: 'dia', metricas: ['pct_rapidos'],
+        titulo: 'Respondidos en 15 min, por día', x: 0, y: 27, w: 6, h: 8,
+      },
+      {
+        id: id('ch-automatizaciones'), clase: 'grafico', tipo: 'barras', fuente: 'inscripciones', fecha: 'alta', dimension: 'automatizacion', metricas: ['tasa_respuesta'],
+        ordenMetrica: 'tasa_respuesta', limite: 8, titulo: 'Te contestan, por automatización', ir: 'automations', x: 6, y: 27, w: 6, h: 8,
+      },
+      caja(id('ch-ia'), 'Dónde se enfría el chat', 'En qué momento se enfrían las conversaciones y qué responder mejor', 0, 35, 12, 7),
     ],
   }),
 };
@@ -456,4 +564,4 @@ const CHAT: PlantillaHoja = {
  * es ANÁLISIS. El orden es el CAMINO del negocio que tenía el desplegable de la sidebar: lo que trae a la gente
  * (el anuncio, la landing, el video), lo que pasa con la persona (el chat, la llamada, el cliente) y el tablero.
  */
-export const PLANTILLAS_ANALYSTS: readonly PlantillaHoja[] = [ADS, LANDING, VSL, CHAT, CLOSING, CS, PRODUCTIVIDAD];
+export const PLANTILLAS_ANALYSTS: readonly PlantillaHoja[] = [ADS, HOOKS, LANDING, VSL, CHAT, CLOSING, CS, PRODUCTIVIDAD];
