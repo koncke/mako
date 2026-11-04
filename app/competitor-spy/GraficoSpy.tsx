@@ -25,7 +25,7 @@ import { LogoRed, redDePieza } from './LogoRed';
 import { Dropdown } from '../components/Dropdown';
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 import {
-  formatosDe, graficoDe, grupoDe, lecturaDeFormatos, medidaEnElGrafico, muestraDe, numerosDe, opcionesDeGrafico, redesDe, MINIATURAS_POR_GRAFICO,
+  GRUPOS, formatosDe, graficoDe, grupoDe, lecturaDeFormatos, medidaEnElGrafico, muestraDe, numerosDe, opcionesDeGrafico, redesDe, MINIATURAS_POR_GRAFICO,
   type Grupo, type ValorDeGrafico,
 } from '@/lib/spy-detalle';
 import { dibujarContador } from '@/lib/spy-reglas';
@@ -245,7 +245,9 @@ export function GraficoSpy({ c, piezas, analizando, onAbrir, onAgregarRed, onWeb
   const metricaLarga = nums.metrica === 'vistas' ? 'Vistas' : nums.metrica === 'me gusta' ? 'Me gusta' : 'Días al aire';
   const mejor = filas.find((f) => f.veces >= 1.2) ?? null;
   const numeros = [
-    { k: 'piezas', rot: grupo === 'anuncios' ? 'Anuncios' : 'Piezas', val: String(nums.piezas) },
+    // El rótulo dice QUÉ se cuenta: las del formato elegido («Contenido corto»), no todas sus piezas (Martín vio 181 arriba y 255
+    // abajo, y eran dos preguntas distintas con el mismo nombre).
+    { k: 'piezas', rot: GRUPOS.find((g) => g.value === grupo)?.label ?? 'Piezas', val: String(nums.piezas) },
     ...(nums.total != null ? [{ k: 'total', rot: metricaLarga, val: dibujarContador(nums.total) }] : []),
     ...(nums.mediana != null ? [{ k: 'mediana', rot: nums.metrica === 'días al aire' ? 'Días, la mediana' : 'Mediana', val: dibujarContador(nums.mediana) }] : []),
     ...(mejor ? [{ k: 'funciona', rot: 'Le funciona', val: mejor.rotulo }] : []),
