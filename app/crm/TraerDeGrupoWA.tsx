@@ -27,7 +27,8 @@ import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CS
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, etiquetaDeGrupo, fichaLimpia, minutosDeLaPasada, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { guardarFichasEnTandas, type AvanceFichas } from './enriquecer-cliente';
-import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
+import { VERSION_FICHAS, alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
+import { lineaDeVersion } from '@/lib/extension-tienda';
 import { avanzarExtraccion, empezarExtraccion, resultadoDeExtraccion, terminarExtraccion } from '@/lib/extraccion-estado';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
@@ -468,7 +469,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
         <Confirm tone="primary" title={extWa === 'vieja' ? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'}
           confirmLabel={extWa === 'vieja' ? 'Actualizar' : 'Instalar'}
           message={extWa === 'vieja'
-            ? 'Tu extensión es de antes y no sabe extraer de un grupo. Actualízala y la extracción empieza sola.'
+            ? lineaDeVersion(VERSION_FICHAS, 'Tu extensión es de antes y no sabe extraer de un grupo. Actualízala y la extracción empieza sola.')
             : 'Para extraer de un grupo, MaKo entra a tu WhatsApp Web con su extensión. Instálala y la extracción empieza sola.'}
           onConfirm={irAInstalar} onCancel={() => setPideExt(false)} />
       )}

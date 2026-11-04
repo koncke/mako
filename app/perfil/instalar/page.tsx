@@ -13,8 +13,7 @@ import { APP_BASE_URL } from '@/lib/app-url';
 import { TITULO_CUENTA } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
 import { AjustesPagina } from '../../_ui/Ajustes';
-import { EXTENSION_VERSION } from '@/lib/extension-version';
-import { EXTENSION_EN_TIENDA, EXTENSION_URL_TIENDA, EXTENSION_URL_ZIP } from '@/lib/extension-tienda';
+import { EXTENSION_URL_TIENDA, VERSION_EN_TIENDA } from '@/lib/extension-tienda';
 import { InstalarApp } from './InstalarApp';
 
 export const dynamic = 'force-dynamic';
@@ -32,7 +31,7 @@ export default async function InstalarPage() {
   return (
     <AjustesPagina lugar={TITULO_CUENTA} grupos={await gruposDeAjustes(deOtro, 'instalar')} activa="instalar">
       <InstalarApp qr={qr} url={url}
-        extension={{ version: EXTENSION_VERSION, enTienda: EXTENSION_EN_TIENDA, tienda: EXTENSION_URL_TIENDA, zip: EXTENSION_URL_ZIP }} />
+        extension={{ version: VERSION_EN_TIENDA, tienda: EXTENSION_URL_TIENDA }} />
     </AjustesPagina>
   );
 }
