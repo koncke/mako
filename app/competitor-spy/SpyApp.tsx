@@ -443,15 +443,27 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-aviso{margin:0 0 14px;padding:11px 14px;border-radius:var(--r-md);background:var(--surface-2);
   color:var(--dim);font-size:var(--fs-sm);line-height:1.5}
 .spy-error{background:var(--bad-bg);color:var(--bad)}
-/* --- Sus otras redes: una PREGUNTA, no un dato. Se ve sólo si hay algo que confirmar. --- */
+/* --- Sus otras redes: una PREGUNTA, no un dato. Se ve sólo si hay algo que confirmar.
+   UNA PASTILLA DE UN RENGLÓN POR CANAL, en la fila de la miga (4/11/2026, Martín con Víctor Heras: «mira como se bugea todo
+   el diseño»). Antes era una caja debajo de la miga, y la regla de su enlace (flex 1 1 220px) —escrita cuando el enlace era hijo
+   directo de la fila— quedó adentro de una columna, donde esos 220 px son ALTO: cada canal medía 249 px y empujaba Contenido
+   debajo de la pantalla. Ahora: el alto de los botones de la miga (40 px), lo que no entra se corta con «…», y cada pastilla
+   ocupa el lugar libre de la fila; sólo con muchas baja de renglón. --- */
 .spy-migas .spy-migas-accion{margin-left:auto;color:var(--accent)}
-.spy-redes{margin:0 0 14px;padding:12px 14px;border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
-.spy-redes p{margin:0 0 8px;color:var(--dim)}
-.spy-redes-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 0}
-.spy-redes-punto{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
-.spy-redes-cara{width:32px;height:32px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface)}
-.spy-redes-texto{display:flex;flex-direction:column;gap:2px;flex:1 1 220px;min-width:0}
-.spy-redes-texto small{color:var(--dim);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.spy-redes{display:contents}
+.spy-redes-fila{display:inline-flex;align-items:center;gap:8px;height:40px;max-width:100%;min-width:0;padding:0 4px 0 6px;
+  border-radius:99px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--border);font-size:var(--fs-sm);
+  animation:spy-redes-entra .32s cubic-bezier(.2,.8,.2,1) both}
+@keyframes spy-redes-entra{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.spy-redes-fila{animation:none}}
+.spy-redes-punto{width:10px;height:10px;margin:0 4px;border-radius:99px;flex:0 0 auto}
+.spy-redes-cara{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:0 0 auto;background:var(--surface-2)}
+.spy-redes-texto{display:flex;align-items:baseline;gap:6px;min-width:0;max-width:300px;white-space:nowrap}
+.spy-redes-texto a{min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--ink);font-weight:600;text-decoration:none}
+.spy-redes-texto a:hover{text-decoration:underline}
+.spy-redes-texto small{flex:0 0 auto;color:var(--faint);font-size:12px}
+.spy-redes-fila .spy-boton{height:32px;padding:0 12px;flex:0 0 auto}
+@media (max-width:560px){.spy-redes-fila{width:100%}.spy-redes-texto{flex:1 1 auto;max-width:none}.spy-redes-texto small{display:none}}
 .spy-aviso--suave{background:none;padding:0;color:var(--dim)}
 .spy-vermas{display:flex;justify-content:center;margin:18px 0 6px}
 .spy-mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
@@ -460,7 +472,6 @@ button.spy-campo:hover{color:var(--dim)}
 .spy-mcard__img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .spy-mcard b{font-size:var(--fs-sm);line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .spy-mcard small{color:var(--dim);font-size:12px}
-.spy-redes-fila a{flex:1 1 220px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:600}
 .spy-franja{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 12px 10px 16px;
   border-radius:var(--r-md);background:var(--surface-2);font-size:var(--fs-sm)}
 .spy-franja strong{font-weight:700}
@@ -622,22 +633,22 @@ function OtrasRedes({ b, ocupado, onSi, onNo, onDeshacer }: {
   // pedir solo (`pendiente`, lib/spy-google-corrida.ts).
   if (!b || b.buscando) return null;
   if (!b.sumadas.length && !b.candidatos.length) return null;
-  const fila = (k: CandidatoVerificado, rotulo: string, botones: React.ReactNode) => (
-    <div key={`${k.red}|${k.ref}`} className="spy-redes-fila">
+  // Una pastilla por canal: su cara, «YouTube · su nombre» (el porqué al pasar el mouse, o al lado si es una pregunta) y sus botones.
+  const fila = (k: CandidatoVerificado, rotulo: string, porque: string | null, botones: React.ReactNode) => (
+    <div key={`${k.red}|${k.ref}`} className="spy-redes-fila" title={k.porque || undefined}>
       <CaraDeRed k={k} />
       <span className="spy-redes-texto">
         <a href={k.url} target="_blank" rel="noreferrer noopener">{rotulo}</a>
-        {k.porque && <small>{k.porque}</small>}
+        {porque && <small>{porque}</small>}
       </span>
       {botones}
     </div>
   );
   return (
     <section className="spy-redes" aria-label="Sus otras redes">
-      {b.sumadas.map((k) => fila(k, `Sumé su ${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`,
+      {b.sumadas.map((k) => fila(k, `Sumé su ${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`, null,
         <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onDeshacer(k)}>Deshacer</button>))}
-      {b.candidatos.length > 0 && <p>¿Son suyas?</p>}
-      {b.candidatos.map((k) => fila(k, `${NOMBRE_RED[k.red]} · ${k.titulo || k.ref}`, (
+      {b.candidatos.map((k) => fila(k, `¿Es su ${NOMBRE_RED[k.red]}? · ${k.titulo || k.ref}`, k.porque || null, (
         <>
           <button type="button" className="spy-boton spy-boton-primario" disabled={ocupado} onClick={() => onSi(k)}>Es</button>
           <button type="button" className="spy-boton" disabled={ocupado} onClick={() => onNo(k)}>No es</button>
@@ -1562,16 +1573,16 @@ export function SpyApp({ iniciales, resumenInicial, abierto, piezasIniciales = n
                 />
               )}
               </span>
+              {/* Sus otras redes, en la MISMA fila: una pastilla por canal, sin empujar el contenido (ver `.spy-redes`). */}
+              <OtrasRedes
+                b={redes[c.id]} ocupado={ocupado}
+                onSi={(k) => void confirmarRed(k)}
+                onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
+                onDeshacer={(k) => void deshacerRed(k)}
+              />
               {/* El recorrido de lo nuevo (recorrido-spy.ts): sale solo la primera vez, y se vuelve a ver con el «?». */}
               <span className="spy-volver__ayuda"><BotonRecorrido onClick={recorrido.reabrir} objetivo="spy-recorrido" /></span>
             </nav>
-
-            <OtrasRedes
-              b={redes[c.id]} ocupado={ocupado}
-              onSi={(k) => void confirmarRed(k)}
-              onNo={(k) => quitarDeLasRedes(c.id, (x) => x.red === k.red && x.ref === k.ref)}
-              onDeshacer={(k) => void deshacerRed(k)}
-            />
 
             {/* Lo que falló al apretar algo se dice acá. El vacío «no pude» ya lo trae entre sus motivos. */}
             {error && !(activa === 'contenido' && estado === 'no-pudo') && <p className="spy-aviso spy-error">{error}</p>}
