@@ -292,7 +292,7 @@ function vistaGeneralMuestra(hoy: string): VistaGeneral {
       { titulo: '2 cuotas vencidas sin cobrar', link: 'Ver las cuotas', href: '/crm', nivel: 'rojo' },
       { titulo: '3 leads sin marcar la asistencia a la R1', link: 'Marcar en el CRM', href: '/crm', nivel: 'ambar' },
       { titulo: 'La meta del trimestre va a tiempo', link: 'Ver la meta', href: '/plan', nivel: 'verde' },
-      { titulo: 'Meta Ads conectado y leyendo', link: 'Ver las conexiones', href: '/integraciones', nivel: 'verde' },
+      { titulo: 'Meta Ads conectado y leyendo', link: 'Ver la cuenta de anuncios', href: '/ads-manager', nivel: 'verde' },
     ],
   };
 }
