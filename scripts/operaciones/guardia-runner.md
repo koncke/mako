@@ -45,7 +45,7 @@ Corré (Bash): node ~/.claude/operaciones/runner-salud.mjs estado
 - **`runner-salud.mjs al-abrir`** (dentro de `bitacora-sesion.sh inicio`, sólo con `source: startup`): corrige el marcador con el uuid de la app. Al primer chat que abre le encarga crear la guardia si falta, y le avisa si no hay Runner.
 - **`runner-salud.mjs estado`:** cuenta, Runner vivo (chat de esta cuenta y `continuo.latido` de menos de 6 min) y si hace falta medir.
 - **La guardia:** una corrida cada 20 minutos mientras la app esté abierta, con ~10 minutos de demora que le suma la app. Si la app estaba cerrada, corre al abrirla.
-- **`runner-salud.mjs corridas`:** cada corrida deja un chat en la lista y un proceso de ~270 MB. Las terminadas las archiva el Runner en su vuelta (paso 4 del prompt del cron).
+- **`runner-salud.mjs corridas`:** cada corrida deja un chat en la lista y un proceso de ~270 MB. Esto sólo lista las terminadas. **No se archivan** sin el sí de Martín (regla suya; pendiente, se lo plantea el Cerebro).
 - **El servicio de Windows** (`cartero.mjs instalar-servicio`, de Martín): sube sin chat. No entrega: sin un chat no se puede.
 
 Con la app cerrada o la PC apagada no entrega nadie: el pedido queda «escrito» en MaKo (vence a los 15 días) y sale cuando la guardia vuelve. El Uso del Ops Center dice desde cuándo no hay noticias.

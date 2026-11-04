@@ -23,7 +23,7 @@
 // Uso:  runner-salud.mjs al-abrir <source>   lo corre el hook SessionStart: corrige el marcador e imprime UNA línea para el chat, o nada
 //       runner-salud.mjs estado     el JSON que lee la guardia
 //       runner-salud.mjs tomar      la guardia reclama el puesto: TOMADO u OCUPADO (dos corridas a la vez no levantan dos Runners)
-//       runner-salud.mjs corridas   las corridas de la guardia ya terminadas: cada una deja un chat en la lista y un proceso de ~270 MB, y las archiva el Runner
+//       runner-salud.mjs corridas   las corridas de la guardia ya terminadas: cada una deja un chat en la lista y un proceso de ~270 MB. Sólo lista: archivar sesiones pide el sí de Martín
 //
 // Un hook no frena a nadie: `al-abrir` ante cualquier error no imprime nada y sale con 0.
 // =============================================================================
